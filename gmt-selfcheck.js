@@ -51,7 +51,9 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     var urls = new Set();
     document.querySelectorAll('img[src],link[href],script[src]').forEach(function (n) {
       var u = n.getAttribute('src') || n.getAttribute('href') || '';
-      if (!u || /^(data:|https?:|#)/.test(u)) return;
+      /* (١١ ت١ — ملاحظات) blob: معاينة صورةٍ رفعها الموظف للتوّ (إيصال الشحن مثلاً) لا ملفّ استضافة — فكانت تُحسب «أصلاً ناقصاً (تعذّر)»
+         وتصل تقرير الصحّة على تيليغرام بلا سبب. كذلك mailto/tel/javascript. */
+      if (!u || /^(data:|blob:|https?:|#|mailto:|tel:|javascript:|about:)/.test(u)) return;
       urls.add(u.split('?')[0]);
     });
     var missing = [];

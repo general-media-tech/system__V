@@ -217,14 +217,14 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261003"></script>
-<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011a"></script>
 <script src="gmt-account.js?v=20261010b"></script>
-<script src="gmt-icons.js?v=20261004m"></script>
-<script src="gmt-ask.js?v=20261010b"></script>
-<script src="gmt-sound.js?v=20261004" defer></script>
+<script src="gmt-icons.js?v=20261011a"></script>
+<script src="gmt-ask.js?v=20261011a"></script>
+<script src="gmt-sound.js?v=20261011a" defer></script>
 <script src="gmt-share.js?v=20261003" defer></script>
 <script src="gmt-notify.js?v=20261010b" defer></script>
-<script src="gmt-endpoint.js?v=20261010b"></script>
+<script src="gmt-endpoint.js?v=20261011a"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-home.js?v=20261007z5"></script>
 <script>
@@ -855,6 +855,7 @@ a.btn{text-decoration:none}
     var ok = true;
     try { ok = await GMTAsk.confirm(A() ? 'تخرج من وضع الإدارة على هذا الجهاز؟' : 'تسجّل الخروج من حسابك على هذا الجهاز؟', { title: 'تسجيل الخروج', okText: 'خروج' }); } catch (_) {}
     if (!ok) return;
+    try { if (window.GMTSound) GMTSound.play('logout'); } catch (_) {}      /* (١١ ت١) صوت الخروج */
     if (A()) { try { GMTRole.revoke(); } catch (_) {} } else { try { localStorage.removeItem('gmt_session'); } catch (_) {} }
     st.data = null; st.mode = 'login'; st.pick = null; st.ferr = ''; st.scr = 'home'; toast('تمّ تسجيل الخروج'); load();
   }
@@ -935,21 +936,35 @@ a.btn{text-decoration:none}
   window.GMTShell = { more: more, open: open, palette: palette, refresh: load, repaint: function () { if (roleNow() === 'guest' && st.role === 'guest') return; safeRender(); }, togglePin: togglePin, role: function () { return st.role; } };
   try { if (window.GMTRole && GMTRole.onRepaint) GMTRole.onRepaint(function () { st.counted = false; load(); }); } catch (_) {}
   if (/need-admin/.test(location.hash) && roleNow() !== 'admin') setTimeout(function () { toast('الصفحة التي فتحتها للإدارة — ادخل بوضع الإدارة'); }, 600);
-  /* الإقلاع: زائرٌ ⇐ شاشة الدخول فوراً (بلا انترو) · داخلٌ ⇐ أدواته (والانترو إن لم يُرَ على الجهاز بعد) */
+  /* الإقلاع: زائرٌ ⇐ الانترو (إن لم يُرَ على الجهاز) ثمّ شاشة الدخول · داخلٌ ⇐ أدواته (والانترو إن لم يُرَ) — بقرار ٨ ت١ الأحدث */
   /* `enter()` يحتاج وحدة الانترو، وهي تُحمَّل **بعد** هذا السكربت — فالرسم الآن، والقرار
      (انترو أم لا) بعد اكتمال تحميل السكربتات. (الفحص كشفها: التطبيق المثبَّت في أوّل فتحٍ
      لم يكن يعرض انتروه لأنّ GMTIntro لم يكن موجوداً بعد) */
   st.role = roleNow(); render();
   if (st.role !== 'guest') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enter); else enter(); }
+  /* (٢٠٢٦-١٠-١١ · ملاحظات ٨ ت١ ٨:٠٧م) «الرابط للشخص: بيطلع له انترو البداية فوراً، بيحمّل البيانات، ثمّ بيطلب منه تسجيل الدخول أو إنشاء حساب».
+     هذا يُلغي قرار ٦ ت١ «الزائر ⇐ الدخول فوراً بلا انترو» (الأحدث يغلب). الانترو يُعرَض للزائر على جهازٍ جديد قبل نموذج الدخول،
+     وهو نفسُه شاشةُ تحميل البيانات (يُقلَع التنزيل الأوّلي معه). ويُسجَّل «رُئي» فلا يتكرّر بعد الدخول. إن رُئي سابقاً يظهر الدخول مباشرة. */
+  if (st.role === 'guest') {
+    var guestIntro = function () {
+      try {
+        var I = window.GMTIntro; if (!I || !I.why || !I.why()) return;
+        var w = W();
+        var dataP = (w && w.data) ? w.data({ onStep: function (t) { try { I.say(t); } catch (_) {} } }) : null;
+        I.maybe({ tasks: [dataP].filter(Boolean) });
+      } catch (_) {}
+    };
+    if (document.readyState === 'complete') setTimeout(guestIntro, 0); else window.addEventListener('load', function () { setTimeout(guestIntro, 0); });
+  }
   try { var s0 = session(); if (s0 && s0.id != null && !isAdmin()) GMTAccount.grants(s0.id).then(function () { render(); }); } catch (_) {}
 })();
 </script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-selfcheck.js?v=20261011a"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-brain.js?v=20261011a"></script>
+<script src="gmt-whatsnew.js?v=20261011a"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <script>setTimeout(function () { try { GMTShell.repaint(); } catch (_) {} }, 1200);</script>

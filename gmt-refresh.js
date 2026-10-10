@@ -126,6 +126,14 @@
          و«space-between» يوزّعها على عرض الشاشة كلّه — زرٌّ وحيد في المنتصف وآخر في الثلث، كأنّها شاردة.
          الآن طرفان كما قُصد أوّلاً: الإشعارات وحدها في البداية، والأدوات متجاورةً في النهاية. */
       '#' + BAR_ID + ' #gmt-notify-btn{order:-1;margin-inline-end:auto}',
+      /* (١١ ت١ ٢٠٢٦ — ملاحظات) «بعد الدخول للفحص الشامل لا توجد طريقة للخروج بعد انتهاء الفحص».
+         الجذر أعمّ من صفحة الفحص: ٣٣ صفحةً داخلية ليس فيها أي رابطٍ للرئيسية، والشريط العلويّ بلا زرّ رجوع
+         (زرّ الأدوات «🧰» فيه أدوات الصفحة نفسها لا التنقّل). فصار زرّ «الرئيسية» جزءاً ثابتاً من الشريط على كل صفحةٍ داخلية. */
+      '#gmt-home-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;',
+      'border-radius:9px;padding:6px 10px;font-family:inherit;font-size:12px;font-weight:700;line-height:1;text-decoration:none;order:-2;',
+      'white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .14s,border-color .14s}',
+      '#gmt-home-btn:hover{background:#f8fafc;border-color:rgba(15,23,42,.18)}#gmt-home-btn:active{transform:scale(.96)}',
+      '@media (max-width:359px){#gmt-home-btn .gr-txt{display:none}}',
       '@media print{#' + BTN_ID + ',#' + BAR_ID + '{display:none!important}}',
       /* (٧ ط · فحص المرتجع) الشريط العلويّ (z ٨٨٠٠) كان يغطّي رأس كل نافذةٍ أدنى منه — زرّ ✕ في
          «تفاصيل الفاتورة» كان تحته. الآن النوافذ الكاملة تبدأ تحت الأشرطة: الشريط يبقى في متناولك
@@ -195,6 +203,20 @@
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
 
+  /* زرّ «الرئيسية» — على كل صفحةٍ داخلية عدا الرئيسية نفسها */
+  function addHome(bar) {
+    try {
+      var cur = decodeURIComponent((location.pathname.split('/').pop() || '')) || 'index.html';
+      if (/^(home|index)\.html$/i.test(cur) || doc.getElementById('gmt-home-btn')) return;
+      var a = doc.createElement('a');
+      a.id = 'gmt-home-btn'; a.href = 'home.html';
+      a.setAttribute('data-keep-fab', '1'); a.setAttribute('aria-label', 'الرجوع إلى الواجهة الرئيسية'); a.title = 'الرجوع إلى الواجهة الرئيسية';
+      var ico = (global.GMTIcon && GMTIcon.has('home')) ? GMTIcon.svg('home', 15) : '';
+      a.innerHTML = '<span aria-hidden="true" style="display:inline-grid;place-items:center">' + ico + '</span><span class="gr-txt">الرئيسية</span>';
+      bar.appendChild(a);
+    } catch (_) {}
+  }
+
   function place() {
     if (isPublicPage()) return;
     if (doc.getElementById(BTN_ID)) return;
@@ -213,6 +235,7 @@
       doc.body.appendChild(bar);
     }
     bar.appendChild(btn);
+    addHome(bar);
     /* مُرتِّب الأشرطة يَرُصّ ويدفع المحتوى — بلا ذلك يُغطّي ويصير فقاعة */
     pad();
   }

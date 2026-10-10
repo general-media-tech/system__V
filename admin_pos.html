@@ -53,6 +53,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 #main-tabs::-webkit-scrollbar{display:none;}
 .main-tab{padding:12px 16px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;border:none;background:none;cursor:pointer;color:rgba(255,255,255,0.5);border-bottom:3px solid transparent;white-space:nowrap;transition:all 0.15s;}
 .main-tab.active{color:white;border-bottom-color:var(--red);}
+/* (١١ ت١ — ملاحظات) على الكمبيوتر كل التبويبات ظاهرة: كان آخر تبويب («الكوبونات») مقصوصاً خارج الشاشة بلا أيّ إشارة. الهاتف يبقى بالتمرير. */
+@media (min-width:900px){ #main-tabs{flex-wrap:wrap;overflow-x:visible;} }
 
 /* CONTENT */
 #app-content{padding:16px;max-width:900px;margin:0 auto;padding-bottom:40px;}
@@ -492,7 +494,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011a"></script>
 <script src="gmt-account.js?v=20261010b"></script>
 </head>
 <body>
@@ -500,10 +502,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-sound.js?v=20261011a" defer></script>
+  <script src="gmt-icons.js?v=20261011a" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-ask.js?v=20261011a" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
@@ -4695,6 +4697,18 @@ async function aiCreateInvoice() {
 
   if (!await GMTAsk.confirm(`إنشاء فاتورة من الإدارة على فرع "${branchName}":\n\n• المنتجات: ${_aiCart.length} (${itemsCount} قطعة)\n• الإجمالي: ${total.toFixed(2)}$\n• العمولة: ${withCommission ? 'نعم' : 'لا'}\n\nسيُخصم من مخزون الفرع فوراً، وتظهر للفرع كفاتورة تحتاج تنفيذ.`)) return;
 
+  /* (٢٠٢٦-١٠-١١ · ملاحظات ٨ ت١ ٨:٠٧م) «فواتير اللي بينشاها الأدمن… ينكتب إنه تم الإنشاء بواسطة الأدمن الفلاني».
+     كان cashier_name = اسم الفرع عمداً «ليظهر كأن الفرع أنشأها» ⇒ لا أثر لمن أنشأها فعلاً. الآن يُكتب اسم الأدمن
+     (يُسأل مرّةً واحدة على هذا الجهاز ويُحفظ بنفس مفتاح «اسم المشغّل» في الأوردرات). والفرع يبقى في branch_key/branch_name. */
+  let _admName = '';
+  try { _admName = (localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}
+  if (!_admName) {
+    const _n = await GMTAsk.prompt('اكتب اسمك — يُكتب على كل فاتورةٍ تنشئها من الإدارة («تم الإنشاء بواسطة الأدمن …»). مرّةً واحدة على هذا الجهاز.', { title: 'اسم الأدمن', okText: 'حفظ' });
+    if (_n === null || !String(_n).trim()) { showToast('لم تُنشأ الفاتورة — اسم الأدمن مطلوب', 'err'); return; }
+    _admName = String(_n).trim();
+    try { localStorage.setItem('gmt_operator_name', _admName); } catch (_) {}
+  }
+
   const btn = document.getElementById('ai-create-btn');
   btn.disabled = true; btn.textContent = 'جارٍ الإنشاء...';
 
@@ -4715,10 +4729,10 @@ async function aiCreateInvoice() {
       customer_phone: ((document.getElementById('ai-phone') || {}).value || '').trim() || null,
       sale_type: 'نقدي',
       payment_status: 'paid',   /* (٨ ت) كانت 'مدفوعة' هنا و'paid' في كل مكان آخر */
-      cashier_name: branchName,   // تظهr كأن الفرع أنشأها
+      cashier_name: 'الأدمن ' + _admName,   // (١١ ت١) من أنشأها فعلاً — لا اسم الفرع
       created_by_admin: true,
       admin_exec_status: 'pending',
-      notes: 'تم الإنشاء بواسطة الإدارة (أدمن)',
+      notes: 'تم الإنشاء بواسطة الإدارة — الأدمن ' + _admName,
       created_at: now,
     };
     if (_lo) { invPayload.order_id = _lo.id; invPayload.order_serial = _lo.serial_code || null; }
@@ -6419,13 +6433,13 @@ renderOffers = function(){
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-selfcheck.js?v=20261011a"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
+<script src="gmt-brain.js?v=20261011a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011a"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

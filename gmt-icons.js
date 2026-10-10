@@ -195,8 +195,120 @@
     }
   };
 
+  /* ═══════════════════════════════════════════════════════════════════
+     (١١ ت١ ٢٠٢٦ — ملاحظات) إزالة الإيموجي من أدوات الإدارة — بنمطٍ واحدٍ لا شاشةً شاشة
+     بلاغُك (٨ ت١): «ادمجها أيضاً الأيقونات والإيموجي المضحك شيلهم» + (٩ ت١) «الإيموجي بعناوين الأعمدة لسا موجودة».
+     المسح الحيّ لـ٤٧ صفحة وجد إيموجي ظاهراً في ٤١ صفحة (أدمن النقاط: التبويبات كلّها · الجرد · الربط · العقود · النسخ
+     الاحتياطي · سجل المبيعات…) — لأنّ الاستبدال السابق كان يدوياً في مواضع بعينها فتسرّب الباقي.
+     العلاج من الجذر: عند الإقلاع (وعند كل رسمٍ لاحق) نستبدل كل رمزٍ تعبيريّ في النصوص الظاهرة بأيقونة الطقم الخطّيّ الموحّد
+     إن عرفناه، وبنقطةٍ ملوّنة إن كان دائرةً ملوّنة (حالة)، ونحذفه إن كان زخرفياً (👋 🎉). فأيّ شاشةٍ جديدة أو نصٍّ يُبنى لاحقاً
+     يُنظَّف تلقائياً بلا أن يتذكّر أحد.
+     ما لا يُمَسّ عمداً: صفحات الزبون (الإيموجي جزء من نبرتها) · الوثائق والتقارير · أدوات الفحص (علامات الخطورة 🔴🟠 فيها
+       معنى وتُنسخ كنصّ) · <pre>/<code> · الحقول المحرَّرة · وأي عنصرٍ عليه data-keep-emoji.
+     ما لا يتأثّر: المنطق — فحصتُ الشيفرة كلّها فلم أجد موضعاً يقارن نصّ عنصرٍ بإيموجي.
+     ═══════════════════════════════════════════════════════════════════ */
+  var KEEP_PAGES = { user_guide: 1, 'شو_الجديد': 1, 'خريطة_الطريق': 1, full_docs: 1, plan: 1, deploy_plan: 1, guard_bots: 1, guard_bots_19: 1,
+    check: 1, checks: 1, central_inspector: 1, test_board: 1, center: 1, system_tools: 1, 'تفعيل_عقل_النظام': 1, 'المراجعة_المالية_الشاملة': 1,
+    'دليل_التوافقيات_والمواصفات': 1 };
+  var DOTS = { '🔴': '#D5001C', '🟢': '#16a34a', '🟡': '#eab308', '🟠': '#f97316', '🔵': '#2563eb',
+    '⚪': '#cbd5e1', '⚫': '#0f172a', '🟣': '#7c3aed', '🟤': '#92400e' };
+  var EXTRA = {
+    '➕': 'plus', '➖': null, '🔄': 'refresh', '🔁': 'refresh', '♻': 'refresh', '📍': 'pin', '📌': 'pin', '❓': 'info', '❔': 'info', '❗': 'alert', '❕': 'alert',
+    '✨': 'sparkle', '🆕': 'sparkle', '💡': 'sparkle', '⚡': 'sparkle', '⭐': 'star', '🌟': 'star', '🧪': 'flask', '🔬': 'flask', '🛠': 'settings', '🔧': 'settings',
+    '🤖': 'bot', '🎓': 'book', '📘': 'book', '📖': 'book', '📗': 'book', '📙': 'book', '🚨': 'alert', '🚫': 'error', '💾': 'database', '🗄': 'database',
+    '🎟': 'tag', '🎁': 'tag', '🩺': 'shield', '📅': 'calendar', '📆': 'calendar', '🔓': 'lock', '🔐': 'lock', '🗑': 'trash', '✏': 'edit', '📎': 'link',
+    '📥': 'share', '✔': 'check', '✓': 'check', '☑': 'check', '✖': 'close', '✕': 'close', '✗': 'close', '✘': 'close', '❎': 'close', '⏱': 'clock', '⏰': 'clock',
+    '⌚': 'clock', '⌛': 'clock', '🏦': 'building', '🏛': 'building', '🧳': 'bag', '👜': 'bag', '🎯': 'trend', '🔥': 'trend', '📉': 'trend', '💳': 'wallet',
+    '🏠': 'home', '🌐': 'globe', '🔌': 'link', '📡': 'link', '🧾': 'receipt', '📃': 'doc', '📂': 'doc', '📁': 'doc', '🗒': 'doc', '🗃': 'boxes', '⬆': null, '⬇': null,
+    '☎': null, '📞': null, '✉': null, '💬': null, '👋': null, '🙂': null, '😂': null, '🎉': null, '🥇': null, '👍': null, '🙏': null, '😎': null
+  };
+  var NORM = {};
+  Object.keys(FROM_EMOJI).forEach(function (k) { NORM[k.replace(/[️]/g, '')] = FROM_EMOJI[k]; });
+  Object.keys(EXTRA).forEach(function (k) { if (EXTRA[k] === null) NORM[k] = null; else if (!(k in NORM)) NORM[k] = EXTRA[k]; });
+  NORM['ℹ'] = 'info';
+  /* النطاقات: رموز تعبيريّة ودنغبات — بلا ★ ☆ (تقييم) ولا ☰ (قائمة) ولا ™ © ® */
+  var EMO_SRC = '[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{2604}\\u{2607}-\\u{262F}\\u{2638}-\\u{27BF}\\u{2B50}\\u{2B55}\\u{2B06}\\u{2B07}\\u{23F0}\\u{23F3}\\u{231A}\\u{231B}\\u{2139}][\\uFE0F\\u200D\\u{1F3FB}-\\u{1F3FF}]*';
+  var EMO = new RegExp(EMO_SRC, 'gu'), HAS = new RegExp(EMO_SRC, 'u');
+  var SKIP_TAG = /^(SCRIPT|STYLE|TEXTAREA|TITLE|NOSCRIPT|CODE|PRE|SVG)$/;
+
+  function iconifyEnabled() {
+    try {
+      if (!global.GMT_INTERNAL || global.GMT_KEEP_EMOJI) return false;
+      var base = decodeURIComponent((location.pathname.split('/').pop() || '')).replace(/\.html$/i, '');
+      if (KEEP_PAGES[base]) return false;
+      if (/^(دراسة|الهوية|معاينة)/.test(base)) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+  function injectCss() {
+    if (document.getElementById('gmt-ei-css')) return;
+    var st = document.createElement('style'); st.id = 'gmt-ei-css';
+    st.textContent = '.gmt-ei{display:inline-flex;align-items:center;vertical-align:-.17em;margin-inline:.14em;line-height:0}' +
+      '.gmt-ei svg{width:1.08em;height:1.08em}' +
+      '.gmt-dot{display:inline-block;width:.62em;height:.62em;border-radius:50%;vertical-align:.04em;margin-inline:.18em}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function emojiNode(tok) {
+    var key = tok.replace(/[️‍\u{1F3FB}-\u{1F3FF}]/gu, '');
+    var first = key.slice(0, 2);
+    var dot = DOTS[key] || DOTS[first];
+    if (dot) { var d = document.createElement('span'); d.className = 'gmt-dot'; d.setAttribute('aria-hidden', 'true'); d.style.background = dot; return d; }
+    var nm = NORM[key]; if (nm === undefined) nm = NORM[first];
+    if (!nm || !P[nm]) return null;
+    var el = document.createElement('span'); el.className = 'gmt-ei'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = svg(nm, 16);
+    return el;
+  }
+  function processText(n) {
+    var v = n.nodeValue;
+    if (!v || !HAS.test(v)) return;
+    var p = n.parentNode; if (!p || p.nodeType !== 1) return;
+    if (SKIP_TAG.test(p.nodeName) || (p.closest && p.closest('[data-keep-emoji],[contenteditable="true"],[contenteditable=""],.gmt-ei'))) return;
+    if (p.nodeName === 'OPTION') { n.nodeValue = v.replace(EMO, '').replace(/^\s+/, ''); return; }
+    var frag = document.createDocumentFragment(), last = 0, m;
+    EMO.lastIndex = 0;
+    while ((m = EMO.exec(v))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(v.slice(last, m.index)));
+      var el = emojiNode(m[0]); if (el) frag.appendChild(el);
+      last = m.index + m[0].length;
+    }
+    if (last < v.length) frag.appendChild(document.createTextNode(v.slice(last)));
+    p.replaceChild(frag, n);
+  }
+  function cleanEmoji(root) {
+    root = root || document.body; if (!root) return 0;
+    if (root.nodeType === 3) { processText(root); return 1; }
+    if (root.closest && root.closest('.gmt-ei')) return 0;
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), list = [], x;
+    while ((x = w.nextNode())) { if (HAS.test(x.nodeValue)) list.push(x); }
+    list.forEach(processText);
+    return list.length;
+  }
+  var q = new Set(), qt = null;
+  function flushQ() {
+    qt = null;
+    var arr = Array.from(q); q.clear();
+    arr.forEach(function (n) { try { if (n.isConnected) cleanEmoji(n); } catch (_) {} });
+  }
+  function startIconify() {
+    if (!iconifyEnabled()) return;
+    injectCss();
+    cleanEmoji(document.body);
+    try {
+      new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          if (m.type === 'characterData') q.add(m.target);
+          else m.addedNodes.forEach(function (n) { if (n.nodeType === 1 || n.nodeType === 3) q.add(n); });
+        });
+        if (q.size && !qt) qt = setTimeout(flushQ, 90);
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    } catch (_) {}
+  }
+  global.GMTIcon.cleanEmoji = cleanEmoji;
+  global.GMTIcon.iconifyEnabled = iconifyEnabled;
+
   function boot() {
     scan(document);
+    startIconify();
     /* تُعاد بعد الرسوم المتأخّرة */
     setTimeout(function () { scan(document); }, 900);
     setTimeout(function () { scan(document); }, 2500);

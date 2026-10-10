@@ -280,7 +280,9 @@
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function productImportDialog(onApply, preset) {
     var w = document.createElement('div'); w.setAttribute('data-keep-fab', '1');
-    w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
+    /* (١٠ ت١ — ملاحظات) نفس نمط «نافذة الرابط خلف العقل»: هذه النافذة تُفتح من أزرار لوحة العقل (علي بابا · سجل المعرفة)
+       ولوحةُ العقل 2147483400 فكانت تختفي تحتها. الآن فوقها (ودون نوافذ السؤال 2147483640). */
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483500;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
     var inp = 'width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;box-sizing:border-box';
     w.innerHTML = '<div style="width:100%;max-width:560px;max-height:90vh;overflow:auto;background:#fff;border-radius:22px;padding:18px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
       '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:17px;flex:1">🧠 مواصفات منتج من علي بابا</b><button data-x style="border:0;background:#f1f5f9;border-radius:10px;padding:6px 12px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button></div>' +
@@ -418,7 +420,9 @@
   function kbPanel() {
     var all = kbAll().slice().reverse();
     var w = document.createElement('div'); w.setAttribute('data-keep-fab', '1');
-    w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
+    /* (١٠ ت١ — ملاحظات) نفس نمط «نافذة الرابط خلف العقل»: هذه النافذة تُفتح من أزرار لوحة العقل (علي بابا · سجل المعرفة)
+       ولوحةُ العقل 2147483400 فكانت تختفي تحتها. الآن فوقها (ودون نوافذ السؤال 2147483640). */
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483500;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
     w.innerHTML = '<div style="width:100%;max-width:560px;max-height:86vh;overflow:auto;background:#fff;border-radius:22px;padding:18px">' +
       '<div style="display:flex;gap:8px;align-items:center"><b style="flex:1;font-size:17px">📚 ما تعلّمه العقل (' + all.length + ')</b>' +
       '<button data-clear style="border:0;background:#fff1f2;color:#b91c1c;border-radius:10px;padding:6px 10px;font:inherit;font-weight:800;cursor:pointer">مسح السجلّ</button>' +

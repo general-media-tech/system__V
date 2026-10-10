@@ -36,7 +36,10 @@
   if (global.GMTAsk) return;
 
   var BRAND = '#D5001C';
-  var Z = 2147483000;          /* أعلى من كل نوافذ النظام */
+  /* (١٠ ت١ ٢٠٢٦ — ملاحظات) بلاغُك: «نافذة إدخال رابط الوسيط تظهر خلف نافذة عقل النظام فأضطر لإغلاقها لأراها».
+     الجذر: كانت 2147483000 بينما لوحة العقل 2147483400 والانترو 2147483600 ⇒ كل نافذة سؤال تُفتح من فوق
+     هذه الطبقات تختفي تحتها. الآن فوقها كلّها (ودون العلامة المائية للطباعة 2147483647 التي لا تلتقط النقر). */
+  var Z = 2147483640;          /* أعلى من كل نوافذ النظام بما فيها لوحة العقل والانترو */
   var styled = false;
 
   function injectStyle() {
@@ -81,6 +84,13 @@
   /* المحرّك: يبني النافذة ويُرجع Promise بقيمةٍ تعتمد على النوع */
   function dialog(opts) {
     injectStyle();
+    /* (١١ ت١ — ملاحظات · طلب الأصوات في كل مكان) كل نافذة سؤال تُعلن نفسها بصوت: تحذير للخطِر، خطأ لرسالة فشل، فقاعة لما سواها */
+    try {
+      if (global.GMTSound) {
+        var _m = String(opts.message || '');
+        GMTSound.play(opts.danger || opts.icon === 'danger' ? 'warn' : (opts.kind === 'alert' && /^\s*(⚠|❌|⛔|🔴)/.test(_m) ? 'error' : 'pop'));
+      }
+    } catch (_) {}
     return new Promise(function (resolve) {
       var ov = document.createElement('div');
       ov.className = 'gmtask-ov';

@@ -190,26 +190,62 @@
       tone({ f: A3, type: 'sine', dur: .85, gain: .14 });
     },
 
-    /* الشاحنةُ تمرّ — لتتبّع الشحنة. محرّكٌ منخفضٌ يقترب ثمّ يبتعد. */
+    /* الشاحنةُ — لتتبّع الشحنة.
+       (١١ ت١ — ملاحظات) بلاغُك: «صوت سيارة الشحن كثير سيّئ، حطّوا صوت زمور بيب بيب وهيك صوت زحطة دواليب».
+       كان طنيناً منخفضاً فقط (محرّكٌ يقترب ويبتعد) بلا زمورٍ ولا فرامل. الآن ثلاثُ لحظات:
+         ① المحرّك يقترب (قصير) · ② زمورٌ مزدوج النغمة «بيب… بيب» كزمور الشاحنات · ③ احتكاك دواليب (ضجيجٌ مُرشَّح يهبط). */
     truck: function () {
       var c = ensure(); if (!c) return;
-      var t0 = c.currentTime, dur = 1.5;
+      var t0 = c.currentTime;
+      /* ① محرّكٌ يقترب — نصف ثانيةٍ فقط، تحت الزمور */
       var o = c.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(62, t0);
-      o.frequency.linearRampToValueAtTime(84, t0 + dur * .45);
-      o.frequency.linearRampToValueAtTime(54, t0 + dur);
+      o.frequency.setValueAtTime(58, t0);
+      o.frequency.linearRampToValueAtTime(92, t0 + .55);
       var f = c.createBiquadFilter(); f.type = 'lowpass';
-      f.frequency.setValueAtTime(260, t0);
-      f.frequency.linearRampToValueAtTime(680, t0 + dur * .45);
-      f.frequency.linearRampToValueAtTime(200, t0 + dur);
+      f.frequency.setValueAtTime(240, t0); f.frequency.linearRampToValueAtTime(720, t0 + .55);
       var g = c.createGain();
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(.20, t0 + .35);
-      g.gain.exponentialRampToValueAtTime(.22, t0 + dur * .5);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      g.gain.exponentialRampToValueAtTime(.14, t0 + .30);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + .62);
       o.connect(f); f.connect(g); g.connect(master);
-      o.start(t0); o.stop(t0 + dur + .05);
-      noise({ from: 300, to: 900, dur: dur, gain: .05, band: true, q: .6 });
+      o.start(t0); o.stop(t0 + .66);
+      /* ② زمورٌ مزدوج: نغمتان معاً (٤١٥ + ٥٢٥) مرّتين — بيب بيب */
+      [.50, .90].forEach(function (at) {
+        tone({ f: 415, type: 'square', dur: .27, gain: .15, at: at, attack: .01, lp: 2000 });
+        tone({ f: 525, type: 'square', dur: .27, gain: .13, at: at, attack: .01, lp: 2000 });
+      });
+      /* ③ زحطة دواليب — ضجيجٌ ضيّق النطاق يهبط صعوداً ثمّ ينطفئ */
+      noise({ from: 2800, to: 1100, dur: .55, gain: .13, at: 1.25, attack: .06, band: true, q: 1.4 });
+      noise({ from: 5200, to: 2200, dur: .45, gain: .05, at: 1.28, attack: .05, band: true, q: 2.2 });
+    },
+
+    /* (١١ ت١ — ملاحظات · «صوتٌ في كل مكان») أصواتٌ جديدة للأحداث التي كانت صامتة */
+    login: function () {           /* دخول: نغمتان صاعدتان */
+      tone({ f: E5, type: 'sine', dur: .20, gain: .26, at: 0 });
+      tone({ f: A5, type: 'sine', dur: .42, gain: .24, at: .10, lp: 5200 });
+    },
+    logout: function () {          /* خروج: نغمتان هابطتان */
+      tone({ f: A5, type: 'sine', dur: .20, gain: .22, at: 0 });
+      tone({ f: E5, type: 'sine', dur: .40, gain: .20, at: .10 });
+    },
+    order: function () {           /* أوردرٌ أُنشئ: ختمٌ + جرس */
+      tone({ f: 120, f2: 70, type: 'sine', dur: .14, gain: .34, attack: .003 });
+      tone({ f: A5, type: 'triangle', dur: .38, gain: .20, at: .10, lp: 6000 });
+      tone({ f: Cs6, type: 'triangle', dur: .45, gain: .14, at: .17, lp: 6000 });
+    },
+    customer: function () {        /* عميلٌ جديد: فقاعتان لطيفتان */
+      tone({ f: 420, f2: 900, type: 'sine', dur: .10, gain: .26, attack: .004 });
+      tone({ f: 640, f2: 1200, type: 'sine', dur: .12, gain: .22, at: .09, attack: .004 });
+    },
+    scan: function () {            /* قراءة باركود: صفيرٌ قصير كأجهزة الكاشير */
+      tone({ f: 2200, type: 'square', dur: .07, gain: .10, attack: .002, lp: 4200 });
+      tone({ f: 2900, type: 'square', dur: .06, gain: .08, at: .08, attack: .002, lp: 4800 });
+    },
+    del: function () {             /* حذف: هبوطٌ منخفض */
+      tone({ f: 300, f2: 140, type: 'triangle', dur: .20, gain: .22, attack: .004, lp: 1800 });
+    },
+    click: function () {           /* نقرةٌ خافتة جداً لأزرار الواجهة */
+      tone({ f: 1250, type: 'sine', dur: .028, gain: .06, attack: .002, lp: 2600 });
     },
   };
 
@@ -265,8 +301,74 @@
     paintToggle();
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     (١١ ت١ ٢٠٢٦ — ملاحظات) الطبقة التلقائية — «كل مكان يحتاج صوت»
+     بلاغُك (٩ ت١ ٥:٤٩): «صوت الكليكات · الدخول والخروج · الخطأ · الحفظ · الأموال عند التحصيل أو إنشاء فاتورة ·
+     عند إضافة عميل جديد · إنشاء الطلب · الشحن — كل مكان يحتاج صوت».
+     الواقع قبل اليوم: ٢٠ نداءً يدوياً فقط ⇒ بقيت عشراتُ الأحداث صامتة (حفظ · خطأ · دخول · خروج…).
+     والحلّ لا يكون بإضافة سطرٍ في ١٥٠٠ موضع، بل بنقطتَي التقاءٍ يمرّ منهما كل شيء:
+       ① كل رسالةٍ تظهر للموظف تمرّ بدالّة toast الخاصّة بصفحتها (showToast…) ⇒ نلفّها مرّةً واحدة، ونصنّف الرسالة:
+          خطأ · تنبيه · دخول · خروج · مال · عميل جديد · أوردر جديد · حذف · نجاح.
+       ② كل ضغطةٍ على زرّ ⇒ نقرةٌ خافتة (وللأزرار الخطِرة صوتُ الحذف).
+     ولا تُكسر صفحةٌ: كلّه داخل try، ولا يعمل قبل أوّل لمسة، ويحترم مفتاح الكتم.
+     ═══════════════════════════════════════════════════════════ */
+  var lastCue = 0, lastCueName = '', lastClick = 0;
+  function cue(name) {
+    var n = Date.now();
+    /* لا نكدّس أصواتاً متتالية — إلّا أن الخطأ يقطع ما قبله */
+    if (n - lastCue < 260 && !(name === 'error' && lastCueName !== 'error')) return;
+    lastCue = n; lastCueName = name; play(name);
+  }
+  var ERR_T = /err|bad|fail|danger|invalid/i, WARN_T = /warn/i;
+  function classifyToast(msg, type) {
+    var t = String(msg == null ? '' : msg).replace(/<[^>]*>/g, ' '), ty = String(type == null ? '' : type);
+    if (/^\s*(⚠|❌|⛔|🔴|✗|✖)/.test(t) || ERR_T.test(ty) || /تعذّر|تعذر|فشل|خطأ|غير صحيح|لم يُحفظ|لم تُحفظ|مرفوض/.test(t)) return 'error';
+    if (WARN_T.test(ty)) return 'warn';
+    if (/تسجيل الخروج|تمّ الخروج|تم الخروج/.test(t)) return 'logout';
+    if (/تسجيل الدخول|أهلاً بعودتك/.test(t)) return 'login';
+    if (/تحصيل|دُفع|مدفوع|قُبض|سداد|الصندوق|عمولة|فاتورة.*(أُنشئت|حُفظت|اعتُمدت|تم)/.test(t)) return 'cash';
+    if (/(عميل|زبون).*(أُضيف|إضافة|جديد|حُفظ|سُجّل)|(أُضيف|إضافة|سُجّل).*(عميل|زبون)/.test(t)) return 'customer';
+    if (/(أوردر|طلب).*(أُنشئ|إنشاء|أُضيف|اعتماد)/.test(t)) return 'order';
+    if (/حُذف|تم الحذف|محذوف|أُلغي|تم الإلغاء/.test(t)) return 'del';
+    if (/^\s*✅|حُفظ|تم الحفظ|تمّ|تم |نجح|نُسخ/.test(t)) return 'success';
+    return null;
+  }
+  function wrapGlobalFn(name) {
+    var f = global[name];
+    if (typeof f !== 'function' || f.__gmtSnd) return;
+    var w = function (m, t) { try { var c = classifyToast(m, t); if (c) cue(c); } catch (_) {} return f.apply(this, arguments); };
+    w.__gmtSnd = 1;
+    try { global[name] = w; } catch (_) {}
+  }
+  function wrapAccountLogin() {
+    var A = global.GMTAccount;
+    if (!A || typeof A.login !== 'function' || A.login.__gmtSnd) return;
+    var f = A.login;
+    A.login = function () {
+      var p = f.apply(this, arguments);
+      try { Promise.resolve(p).then(function () { cue('login'); }, function () { cue('error'); }); } catch (_) {}
+      return p;
+    };
+    A.login.__gmtSnd = 1;
+  }
+  function hookAll() {
+    ['showToast', 'toast'].forEach(wrapGlobalFn);
+    wrapAccountLogin();
+  }
+  var CLICKABLE = 'button, [role="button"], a.btn, .btn, summary, .chip, .tab, .u-btn';
+  document.addEventListener('click', function (e) {
+    try {
+      if (!isOn() || !unlocked) return;
+      var el = e.target && e.target.closest && e.target.closest(CLICKABLE);
+      if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('[data-nosound]') || el.id === 'gmt-sound-btn') return;
+      var n = Date.now(); if (n - lastClick < 70) return; lastClick = n;
+      var cls = (typeof el.className === 'string' ? el.className : '') + ' ' + (el.getAttribute('data-act') || '') + ' ' + (el.getAttribute('data-danger') || '');
+      play(/danger|trash|delete|remove|\bdel\b/i.test(cls) ? 'del' : 'click');
+    } catch (_) {}
+  }, true);
+
   global.GMTSound = {
-    play: play, unlock: unlock,
+    play: play, unlock: unlock, cue: cue, classify: classifyToast,
     on: function () { setOn(true); }, off: function () { setOn(false); },
     toggle: function () { setOn(!isOn()); },
     isOn: isOn, list: Object.keys(SOUNDS),
@@ -278,6 +380,8 @@
     /* إن لم يوجد شريطُ خيارات بعد، نحاول مرّةً أخرى بعد أن تُركّبه الصفحة */
     setTimeout(mountToggle, 1200);
     setTimeout(mountToggle, 3000);
+    /* لفّ دوالّ الرسائل بعد أن تعرّفها الصفحة (بعضها يُعرَّف متأخّراً) */
+    hookAll(); setTimeout(hookAll, 800); setTimeout(hookAll, 2500); setTimeout(hookAll, 6000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

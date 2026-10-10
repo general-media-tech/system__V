@@ -118,6 +118,32 @@
     }
   }
 
+  /* ══ (١١ ت١ ٢٠٢٦ — ملاحظات) مفاتيح تشغيلٍ عامّة في gmt_settings — غير الروابط ══
+     الجدول نفسه الذي تُحفَظ فيه الروابط وكلمات السرّ، فلا جدول جديد ولا SQL. أوّل مستعمِلٍ: «قفل الأوردرات» (orders_lock).
+     القراءة الطازجة تتجاوز كاش الدقائق العشر — لأنّ مفتاحاً يَحكم عملية مالية لا يجوز أن يتأخّر سريانُه عشر دقائق. */
+  function setting(key) { var c = readCache() || mem || {}; return c[key]; }
+  async function settingFresh(key) { var c = await load(true); return (c || {})[key]; }
+  async function setSetting(key, value) {
+    var d = db();
+    if (!d) return { system: false, why: 'إعدادات القاعدة غير متاحة' };
+    var v = String(value == null ? '' : value);
+    var H = { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' };
+    try {
+      var r = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', { method: 'POST',
+        headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, H), body: JSON.stringify({ key: key, value: v }) });
+      if (!r.ok) {
+        var r2 = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(key), { method: 'PATCH',
+          headers: Object.assign({ Prefer: 'return=representation' }, H), body: JSON.stringify({ value: v }) });
+        if (!r2.ok) return { system: false, why: 'HTTP ' + r2.status };
+        var rows = await r2.json().catch(function () { return []; });
+        if (!Array.isArray(rows) || !rows.length) return { system: false, why: 'لا سطر لهذا المفتاح — شغّل SQL الإعدادات' };
+      }
+      mem = null; at = 0;
+      var back = await settingFresh(key);                 /* لا نصدّق الكتابة قبل أن نقرأها */
+      return String(back == null ? '' : back) === v ? { system: true } : { system: false, why: 'لم يثبت في القاعدة (قرأتُ «' + back + '»)' };
+    } catch (e) { return { system: false, why: e && e.message }; }
+  }
+
   /* رفعُ ما ضُبط محلّياً قبل اليوم إلى القاعدة — مرّةً، بلا إزعاج المالك */
   async function migrateLocal() {
     var c = await load();
@@ -166,7 +192,7 @@
   function prompt_(kind) {
     var k = KINDS[kind]; if (!k) return;
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.6);'
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483640;background:rgba(0,0,0,.6);'
       + 'display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:inherit';
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%">'
       + '<div style="font-weight:900;font-size:16px;margin-bottom:6px">' + k.label + '</div>'
@@ -207,6 +233,7 @@
 
   global.GMTEndpoint = {
     get: get, set: set, load: load, kinds: KINDS,
+    setting: setting, settingFresh: settingFresh, setSetting: setSetting,
     notice: notice, open: prompt_, migrate: migrateLocal
   };
 

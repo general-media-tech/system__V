@@ -116,6 +116,7 @@
                         if (!code) return;
                         close();
                         try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+                        try { if (global.GMTSound) GMTSound.play('scan'); } catch (e) {}      /* (١١ ت١) صفير القراءة */
                         if (onCode) onCode(code, 'camera');
                     });
                 });
@@ -150,6 +151,7 @@
                 var code = buf; buf = '';
                 if (code.length >= minLen) {
                     e.preventDefault();          // لا نُرسل النموذج بضغطة السكانر
+                    try { if (global.GMTSound) GMTSound.play('scan'); } catch (e2) {}      /* (١١ ت١) صفير القراءة */
                     if (onCode) onCode(code, 'scanner');
                 }
                 return;
