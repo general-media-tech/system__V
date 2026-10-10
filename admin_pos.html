@@ -1970,13 +1970,26 @@ async function editCommission(commId) {
     const _cE = allComm.find(x => String(x.id) === String(commId));
     const _othE = _cE ? invCommRows(_cE.invoice_id).filter(r => String(r.id) !== String(commId)).reduce((t, r) => t + (Number(r.amount) || 0), 0) : 0;
     const _amtE = Math.round((amount - _othE) * 100) / 100;
+    /* (١١ ت١) تعديل الأدمن للعمولة وحفظها = موافقته عليها (لا موافقة ثانية). تُعتمد هي وبقيّة صفوف فاتورتها غير المدفوعة. */
+    const _nowE = new Date().toISOString();
     await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${commId}`, {
       amount: _amtE,
       note      : _note,
       created_by: 'admin',
+      approved: true,
+      approved_at: (_cE && _cE.approved && _cE.approved_at) ? _cE.approved_at : _nowE,
     }, { Prefer:'return=minimal' });
     const c = allComm.find(x => String(x.id) === String(commId));
-    if (c) { c.amount = _amtE; c.note = _note; c.created_by = 'admin'; }
+    if (c) { c.amount = _amtE; c.note = _note; c.created_by = 'admin'; c.approved = true; c.approved_at = c.approved_at || _nowE; }
+    if (_cE) {
+      for (const r of invCommRows(_cE.invoice_id).filter(r => String(r.id) !== String(commId) && !r.approved && !r.paid)) {
+        try {
+          const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&approved=is.false`, { approved: true, approved_at: _nowE }, { Prefer: 'return=representation' });
+          const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
+          if (w2.length) { r.approved = true; r.approved_at = _nowE; }
+        } catch (_) {}
+      }
+    }
     showToast('تم تعديل العمولة ✓', 'ok');
     closeModal();
     renderInvoices();
@@ -1990,12 +2003,16 @@ async function saveCommission(invId, branchKey) {
   if (isNaN(amount) || amount <= 0) { showToast('أدخل مبلغ العمولة', 'err'); return; }
 
   try {
+    /* (١١ ت١ — Notes ٨ ت١ ٨:٥٧م) «أثناء مراجعة الفواتير عندما أدخل عمولة جديدة وأكبس حفظ لازم خلاص تتسيف… وليس أنني أرجع أضطر أعمل لها موافقة
+       على هذه العمولة — هذا غلط». الأدمن الذي يكتب العمولة بيده ويحفظها هو من وافق عليها: تُحفَظ معتمَدةً ولا تدخل قائمة «بانتظار الموافقة». */
     const res = await sb('POST', '/rest/v1/invoice_commissions', {
       invoice_id: invId,
       branch_key: branchKey,
       amount,
       note: noteEl?.value.trim() || null,
       paid: false,
+      approved: true,
+      approved_at: new Date().toISOString(),
       created_by: 'admin'
     });
     const newComm = Array.isArray(res) ? res[0] : res;
