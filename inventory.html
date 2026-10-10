@@ -2221,7 +2221,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261011g"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
 <script src="gmt-account.js?v=20261011e"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2269,7 +2269,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
-  <script src="gmt-icons.js?v=20261011a" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-oplog.js?v=20261011e" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
@@ -4846,6 +4846,18 @@ window.gmtSyncRename = gmtSyncRename;
     var n = 0, u = rd(LS_U), bs = []; u.forEach(function (a) { if (bs.indexOf(a.burst) < 0) bs.push(a.burst); }); n = bs.length;
     document.querySelectorAll('[data-undo-count]').forEach(function (el) { el.textContent = n ? '(' + n + ')' : ''; });
   }
+  /* (١١ ت١) روابط مباشرة من «أداة التسويات»: inventory.html?settle=1 تسوية فواتير النقل · ?audit=1 تدقيق الفواتير والجرد */
+  try {
+    var _qs = new URLSearchParams(location.search), _go = _qs.get('settle') ? 'settle' : (_qs.get('audit') ? 'audit' : '');
+    if (_go) { var _n = 0, _t = setInterval(function () {
+      _n++;
+      try {
+        if (_go === 'settle' && typeof stOpenSettlements === 'function' && typeof switchAppMode === 'function' && document.getElementById('st-settle-ov')) { clearInterval(_t); switchAppMode('transfer'); stOpenSettlements(); }
+        else if (_go === 'audit' && window.GMTIntegrity && GMTIntegrity.open) { clearInterval(_t); GMTIntegrity.open(); }
+      } catch (_) {}
+      if (_n > 60) clearInterval(_t);
+    }, 500); }
+  } catch (_) {}
   window.gmtInvUndo = undoLast; window.gmtInvUndoPanel = openUndoPanel;
   window.gmtOpLogOpen = function () { if (window.GMTOpLog) GMTOpLog.open({ cat: 'stock' }); else showToast('سجل العمليات لم يُحمَّل بعد — أعد المحاولة بعد لحظة', 'warning'); };
   document.addEventListener('DOMContentLoaded', paintUndoBtn);
@@ -13519,7 +13531,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261011f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011g"></script>
+<script src="gmt-whatsnew.js?v=20261011h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -172,7 +172,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261011g"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
 <script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body class="pb-24">
@@ -184,7 +184,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-core.js?v=20261011e"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
-  <script src="gmt-icons.js?v=20261011a" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
@@ -5103,6 +5103,8 @@ function restartTour(){
 
 lucide.createIcons();
 loadAll();
+/* (١١ ت١) رابط مباشر من «أداة التسويات»: purchase.html?q=IMP-2026-0003 ⇒ يفتح بحثاً عن تلك الفاتورة */
+try{const _q=new URLSearchParams(location.search).get('q');if(_q){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);const i=document.getElementById('searchInput');if(i){i.value=_q;render();}}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 setInterval(loadAll,60000);
 setTimeout(()=>{const h=document.getElementById('loader-hint');if(h)h.classList.remove('hidden');},5000);
 // ← نافذة الخيارين لا تُفتح تلقائياً — المستخدم يضغط "فاتورة شراء جديدة" للوصول إليها
@@ -5723,7 +5725,7 @@ try {
 <script src="gmt-brain.js?v=20261011f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011g"></script>
+<script src="gmt-whatsnew.js?v=20261011h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

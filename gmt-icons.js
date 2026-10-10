@@ -45,6 +45,7 @@
 
     /* ماليّات */
     money:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 12h.01M18.5 12h.01"/>',
+    scale:    '<path d="M12 3v17"/><path d="M6 21h12"/><path d="M4 7h16"/><path d="M4 7l-2.5 6.5a3.4 3.4 0 0 0 5 0z"/><path d="M20 7l-2.5 6.5a3.4 3.4 0 0 0 5 0z"/>',
     coins:    '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v5c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 11v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5"/>',
     receipt:  '<path d="M5 2h14v20l-2.3-1.6L14.4 22l-2.4-1.6L9.6 22l-2.3-1.6L5 22z"/><path d="M8.5 7.5h7M8.5 11.5h7M8.5 15.5h4"/>',
     chart:    '<path d="M3 21h18"/><rect x="5" y="12" width="3.4" height="6" rx="1"/><rect x="10.3" y="8" width="3.4" height="10" rx="1"/><rect x="15.6" y="4" width="3.4" height="14" rx="1"/>',
@@ -117,7 +118,7 @@
 
   /* الاسمُ العربيّ لقارئ الشاشة — الأيقونةُ وحدها لا تقول شيئاً للمكفوف */
   var AR = {
-    box: 'مخزون', boxes: 'مجموعات', tag: 'سعر', cart: 'سلّة', store: 'متجر',
+    scale: 'ميزان', box: 'مخزون', boxes: 'مجموعات', tag: 'سعر', cart: 'سلّة', store: 'متجر',
     truck: 'شحن', factory: 'مشتريات', money: 'مبلغ', coins: 'عملات',
     receipt: 'فاتورة', chart: 'إحصاء', trend: 'اتجاه', wallet: 'محفظة',
     user: 'مستخدم', users: 'مستخدمون', branch: 'فرع', building: 'مبنى',

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>أداة التسويات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261005r"></script>
+<script src="gmt-core.js?v=20261011g"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261011g"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011g"></script>
+<script src="gmt-ask.js?v=20261011g"></script>
+<script src="gmt-oplog.js?v=20261011g"></script>
+<script src="gmt-icons.js?v=20261011h" defer></script>
+<script src="gmt-sound.js?v=20261011a" defer></script>
+<!-- ══ (١١ ت١ — Notes ٩ ت١ ٦:٣٦ ص) «اجمع كل شيء يحتاج إلى تسوية: فواتير النقل · البيع · الشراء · أيّ فاتورة · حتى هذه الأغلاط (لوحة التدقيق) — في أداة واحدة
+     اسمها أداة التسويات، تعرض لي كل شيء وتشرح شو بتعمل وشو تأثيرها وشو لازم نتصرّف التصرّف الصحيح».
+     هذه الأداة **للقراءة والشرح والتوجيه**: تكشف ما يحتاج تسوية من القاعدة مباشرةً (ست حالات)، وتشرح لكل حالة: ما هي · أثرها · التصرّف الصحيح، وتفتح لك
+     شاشة الإصلاح الأصلية في المكان الصحيح. لا تعدّل شيئاً بنفسها عمداً: كل تسويةٍ تمسّ المخزون أو المال تحتاج كلمة السرّ السيادية وسبباً
+     وتُسجَّل (وهذا حاصلٌ في شاشاتها الأصلية) — لا نفتح باباً ثانياً أضعف. ══ -->
+<style>
+:root{--red:#D5001C;--ln:rgba(15,18,25,.1);--tx:#0f1219;--mu:#5b6472}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:14px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.top h1{margin:0;font-size:20px;flex:1}
+.sub{color:var(--mu);font-size:12.5px;margin:0 0 12px}
+.btn{border:1.5px solid var(--ln);background:#fff;border-radius:11px;padding:8px 14px;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;color:inherit;text-decoration:none;display:inline-block}.btn.p{background:var(--red);border-color:var(--red);color:#fff}
+.sum{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}.pill{border-radius:99px;padding:5px 14px;font-weight:900;font-size:13px}.pill.r{background:#fee2e2;color:#991b1b}.pill.o{background:#fef3c7;color:#92400e}.pill.g{background:#dcfce7;color:#166534}
+.card{background:#fff;border:1px solid var(--ln);border-radius:20px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06);margin-bottom:12px;border-inline-start:5px solid #cbd5e1}
+.card.r{border-inline-start-color:#dc2626}.card.o{border-inline-start-color:#f59e0b}.card.g{border-inline-start-color:#16a34a}
+.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.hd b{font-size:16px;flex:1}
+.cnt{min-width:38px;height:30px;border-radius:99px;display:grid;place-items:center;font-weight:900;font-size:14px;padding:0 10px;background:#fee2e2;color:#991b1b}.card.o .cnt{background:#fef3c7;color:#92400e}.card.g .cnt{background:#dcfce7;color:#166534}
+.ex{margin:8px 0 0;font-size:13px;line-height:1.85}.ex .k{font-weight:900;color:#334155}
+.ls{margin:8px 0 0;font-size:12.5px;color:#334155;background:#f8fafc;border-radius:12px;padding:8px 12px;line-height:1.9}
+.ls div{border-top:1px dashed #e2e8f0;padding:2px 0}.ls div:first-child{border-top:0}
+.act{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.em{text-align:center;color:var(--mu);padding:26px 8px}
+.warn{padding:11px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:13px;line-height:1.8;margin-bottom:10px}
+@media (prefers-color-scheme:dark){body{background:#0b1220;color:#e2e8f0}.card,.btn{background:#0f172a;border-color:#1e293b;color:#e2e8f0}.ls{background:#1e293b;color:#cbd5e1}.ex .k{color:#cbd5e1}.btn.p{background:var(--red);color:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>أداة التسويات</h1><button class="btn" id="rl">فحصٌ جديد</button><button class="btn" id="cp">نسخ التقرير</button></div>
+  <p class="sub">كل ما يحتاج تسوية في النظام، في مكانٍ واحد: ما هو · ما أثره · ما التصرّف الصحيح — ثمّ زرٌّ يفتح الشاشة التي تُنفَّذ منها التسوية. <span id="at"></span></p>
+  <div class="sum" id="sum"></div>
+  <div id="list"><div class="em">جارٍ الفحص…</div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function db() { return (window.GMT_DB && GMT_DB.MAIN) || null; }
+  var rep = [];
+
+  async function get(path, page) {
+    var d = db(), out = [], off = 0, lim = page || 1000;
+    for (;;) {
+      var r = await fetch(d.url + '/rest/v1/' + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + lim + '&offset=' + off, { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key }, cache: 'no-store' });
+      if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      var rows = await r.json(); out = out.concat(rows); if (rows.length < lim || out.length >= 6000) break; off += lim;
+    }
+    return out;
+  }
+  function jparse(v, dflt) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (_) { return dflt; } } return v == null ? dflt : v; }
+  function nz(s) { return String(s == null ? '' : s).trim().toLowerCase(); }
+
+  /* ── الحالات: كل واحدة {id, title, sev, count, lines[], what, impact, fix, actions[], err} ── */
+  async function transfers() {
+    var r = { id: 'tr', title: 'فواتير نقل مخزون تحتاج تسوية', what: 'فاتورة نقل بين فرعين صدرت لكن خصم بعض بنودها من المصدر فشل (غالباً لأنّ دالّتَي المخزون الذرّيتين غير مشغَّلتين في القاعدة، أو رصيد المصدر لا يكفي). تُوسَم «تحتاج تسوية» ولا تُستلَم.',
+      impact: 'بضاعةٌ على الورق منقولة وفي المخزون لم تتحرّك — فجرد المصدر والوجهة غير صحيحين حتى تُسوّى.',
+      fix: 'لكل بند قرّر: «لم تُنقل» (تبقى في المصدر ولا يُعدَّل شيء) أو «نُقلت فعلياً» (يُخصم من المصدر ويُضاف للوجهة الآن) — ثمّ أغلق الفاتورة. وإن تكرّرت الحالة مع كل فاتورة فالسبب ليس الفواتير بل دوالّ المخزون: شغّل ملف «دوال المخزون» من مجلّد SQL مرّةً واحدة.',
+      actions: [['افتح تسوية النقل', 'inventory.html?settle=1', 1]], lines: [], count: 0 };
+    var t = await get('branch_stock_transfers?status=eq.needs_settlement&select=id,transfer_number,from_branch_name,to_branch_name,from_branch,to_branch,settled,created_at&order=created_at.desc', 200).catch(function (e) { r.err = e; return []; });
+    t = t.filter(function (x) { return !x.settled; });
+    var it = await get('stock_transfer_items?deduction_failed=is.true&select=transfer_id,product_name,qty,requested_qty', 500).catch(function () { return []; });
+    var by = {}; it.forEach(function (x) { by[x.transfer_id] = (by[x.transfer_id] || 0) + 1; });
+    var ids = {}; t.forEach(function (x) { ids[x.id] = x; }); Object.keys(by).forEach(function (k) { if (!ids[k]) ids[k] = { id: k, transfer_number: '#' + k }; });
+    r.count = Object.keys(ids).length;
+    r.lines = Object.keys(ids).slice(0, 10).map(function (k) { var x = ids[k]; return esc(x.transfer_number || ('#' + k)) + ' — ' + esc(x.from_branch_name || x.from_branch || '') + ' ← ' + esc(x.to_branch_name || x.to_branch || '') + (by[k] ? ' · ' + by[k] + ' بند لم يُخصم' : ''); });
+    return r;
+  }
+  var inv = null;
+  async function invoices() {
+    if (inv) return inv;
+    inv = await get('import_log?select=inv_number,inv_type,supplier,inv_date,status,transferred,transfer_moved,items_snapshot,created_at&order=created_at.asc', 100);
+    return inv;
+  }
+  async function sealed() {
+    var r = { id: 'se', title: 'فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون', what: 'فاتورة شراء ختمتَها كمرحَّلة (وصلت) لكن بعض بنودها لم تُرحَّل فعلياً إلى المخزون (المنقول أقلّ من المطلوب).',
+      impact: 'بضاعةٌ محسوبةٌ واصلةً وهي ليست في الجرد ⇒ ينقص المخزون الظاهر عن الحقيقيّ، وقد يُباع ما لا يظهر.',
+      fix: 'في «المشتريات» افتح الفاتورة ← «فكّ ختم» (كلمة السرّ السيادية + سبب) ← «وصلت» ← أعد الترحيل من النافذة الجديدة.', actions: [], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); } catch (e) { r.err = e; return r; }
+    var bad = rows.filter(function (v) {
+      if (!v.transferred || /cancel/i.test(v.status || '')) return false;
+      var it = jparse(v.items_snapshot, []), mv = jparse(v.transfer_moved, {}) || {};
+      return Array.isArray(it) && it.some(function (x) { return Number(mv[x.id] || 0) < Number(x.qty || 0); });
+    });
+    r.count = bad.length;
+    r.lines = bad.slice(0, 10).map(function (v) {
+      var it = jparse(v.items_snapshot, []), mv = jparse(v.transfer_moved, {}) || {};
+      var miss = it.filter(function (x) { return Number(mv[x.id] || 0) < Number(x.qty || 0); }).length;
+      return esc(v.inv_number) + ' — ' + esc(v.supplier || '') + ' · ' + miss + ' بند لم يصل';
+    });
+    r.actions = bad.slice(0, 3).map(function (v) { return ['المشتريات: ' + v.inv_number, 'purchase.html?q=' + encodeURIComponent(v.inv_number), 0]; });
+    return r;
+  }
+  async function dups() {
+    var r = { id: 'du', title: 'فواتير شراء برقمٍ مكرَّر', what: 'أكثر من فاتورة شراء تحمل الرقم نفسه.',
+      impact: 'خطر مضاعفة الكمّيات في المخزون إن رُحِّلت الفاتورتان، وتشويش في الربط بين المنتج وفاتورته.',
+      fix: 'راجع كلّ زوجٍ بنفسك: قد يكون التكرار مقصوداً (دفعتان من نفس الشحنة). إن كان خطأً فاحذف المكرَّر بعد التأكّد أنّه لم يُرحَّل (وإلا فكّ ختمه أولاً).', actions: [], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); } catch (e) { r.err = e; return r; }
+    var seen = {}, d = [];
+    rows.forEach(function (v) { var n = String(v.inv_number || '').trim(); if (!n) return; if (seen[n]) d.push([seen[n], v]); else seen[n] = v; });
+    r.count = d.length;
+    r.lines = d.slice(0, 10).map(function (p) { return esc(p[1].inv_number) + ' — ' + esc(p[0].supplier || '') + ' (' + esc(p[0].inv_date || '') + ') و ' + esc(p[1].supplier || '') + ' (' + esc(p[1].inv_date || '') + ')'; });
+    if (d.length) r.actions = [['افتح المشتريات', 'purchase.html?q=' + encodeURIComponent(d[0][1].inv_number), 0]];
+    return r;
+  }
+  var prods = null, cols = null;
+  async function stockData() {
+    if (prods) return;
+    cols = await get('inv_columns?select=key_name,display_name,include_in_total&order=sort_order.asc', 500).catch(function () { return []; });
+    prods = await get('products?select=*&order=name.asc', 1000);
+  }
+  async function surplus() {
+    var r = { id: 'su', title: 'مخزونٌ أكبر من مجموع فواتير شرائه', what: 'منتجٌ كمّيّته الحالية في الجرد أكبر من مجموع ما دخل منه بفواتير الشراء — وهذا لا يحدث طبيعياً لأنّ البيع والنقل لا يزيدانه.',
+      impact: 'غالباً مضاعفة كتابةٍ قديمة أو تعديلٌ يدويّ بلا فاتورة ⇒ تقدير رأس المال والأرباح وقرارات الشراء مبنية على رقمٍ مبالَغٍ فيه. (ملاحظة: بضاعةٌ أُدخلت قبل اعتماد النظام بلا فاتورة لا تظهر هنا.)',
+      fix: 'افتح «تدقيق الفواتير والجرد» وصحّح كلّ قطعة مرّةً واحدة يدوياً (كلمة السرّ السيادية + سبب)، أو أنشئ فاتورة تسوية تغطّيها إن كانت البضاعة حقيقيةً دخلت دون فاتورة.',
+      actions: [['افتح تدقيق الفواتير والجرد', 'inventory.html?audit=1', 1]], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
+    var byBc = {}, byId = {}; prods.forEach(function (p) { byId[String(p.id)] = p; if (p.barcode) byBc[nz(p.barcode)] = p; });
+    var tot = cols.filter(function (c) { return c.include_in_total; }).map(function (c) { return c.key_name; });
+    var exp = {};
+    rows.forEach(function (v) {
+      if (/cancel/i.test(v.status || '')) return;
+      jparse(v.items_snapshot, []).forEach(function (x) {
+        var p = byId[String(x.id || '')] || byBc[nz(x.barcode)]; if (!p) return;
+        exp[p.id] = (exp[p.id] || 0) + Number(x.qty || 0);
+      });
+    });
+    var gaps = [];
+    Object.keys(exp).forEach(function (id) {
+      var p = byId[id]; if (!p) return;
+      var act = tot.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0);
+      if (act > exp[id]) gaps.push({ n: p.name, d: act - exp[id], e: exp[id], a: act });
+    });
+    gaps.sort(function (a, b) { return b.d - a.d; });
+    r.count = gaps.length;
+    r.lines = gaps.slice(0, 10).map(function (g) { return esc(g.n) + ' — <b>+' + g.d + '</b> (فواتير ' + g.e + ' · مخزون ' + g.a + ')'; });
+    return r;
+  }
+  async function orphans() {
+    var r = { id: 'or', title: 'منتجات بلا فاتورة شراء', what: 'قطعٌ في الجرد لا يوجد لها باركودٌ أو لا توجد فاتورة شراء تحمل باركودها.',
+      impact: 'لا يمكن التحقّق من مصدر كمّيّتها ولا من كلفتها الحقيقية، فيضعف حساب الربح والتدقيق.',
+      fix: 'أضف الباركود إن كان ناقصاً، ثمّ اربطها بفواتيرها، أو أنشئ «فاتورة تسوية» أثرية تجمعها دون لمس الكمّيات (من لوحة التدقيق).',
+      actions: [['افتح تدقيق الفواتير والجرد', 'inventory.html?audit=1', 1]], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
+    var has = {}; rows.forEach(function (v) { if (/cancel/i.test(v.status || '')) return; jparse(v.items_snapshot, []).forEach(function (x) { if (x.barcode) has[nz(x.barcode)] = 1; }); });
+    var o = prods.filter(function (p) { return !p.barcode || !has[nz(p.barcode)]; });
+    r.count = o.length;
+    r.lines = o.slice(0, 8).map(function (p) { return esc(p.name) + (p.barcode ? '' : ' — بلا باركود'); });
+    return r;
+  }
+  async function unbilled() {
+    var r = { id: 'ub', title: 'أوردرات متقدّمة بلا فاتورة', what: 'أوردر وصل إلى «محضّرة / في الطريق / بانتظار التحصيل / تم التحصيل» دون أن يكون مرتبطاً بفاتورة بيع.',
+      impact: 'مبيعٌ بلا قيدٍ مالي ولا خصمٍ مضمونٍ من المخزون ولا عمولة — ويظهر نقصٌ في الصندوق والأرباح. (قفل الأوردرات يمنع تكرار ذلك عند تفعيله.)',
+      fix: 'افتح الأوردر وأنشئ له فاتورةً من نقطة البيع بزرّ «حوّل لفاتورة». ولمنع تكراره فعّل «قفل الأوردرات» من «الأمان والمستخدمون ← سياسات التشغيل» حين تكون جاهزاً.',
+      actions: [['افتح الأوردرات', 'orders.html', 1], ['سياسات التشغيل', 'الأمان_والمستخدمون.html', 0]], lines: [], count: 0 };
+    var o; try { o = await get('gmt_orders?status=in.(prepared,shipped,delivered,completed)&select=id,name,status,price,invoice_id,invoice_number,created_at&order=created_at.desc', 1000); } catch (e) { r.err = e; return r; }
+    o = o.filter(function (x) { return !x.invoice_id && !x.invoice_number; });
+    var ST = { prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' };
+    r.count = o.length;
+    r.lines = o.slice(0, 10).map(function (x) { return esc(x.name || '#' + x.id) + ' — ' + esc(ST[x.status] || x.status) + (x.price ? ' · ' + esc(x.price) + '$' : ''); });
+    return r;
+  }
+  async function expenses() {
+    var r = { id: 'ex', title: 'مصاريف بانتظار موافقتك', what: 'مصاريف سجّلها الفروع ولم تُعتمد بعد.', impact: 'لا تدخل في الصندوق ولا الأرباح حتى تُعتمد، فتبدو الأرباح أعلى من حقيقتها.',
+      fix: 'راجعها من «أدمن النقاط ← المصاريف»: اعتمدها (من الصندوق أو «أنا دفعتها») أو ارفضها. يمكنك «موافقة على الكل» للمعلّقة.', actions: [['افتح المصاريف', 'admin_pos.html?tab=expenses', 1]], lines: [], count: 0 };
+    var e; try { e = await get('gmt_expenses?approved=is.false&select=id,title,name,amount,currency,branch_name,created_at&order=created_at.desc', 500); } catch (x) { r.err = x; return r; }
+    r.count = e.length;
+    r.lines = e.slice(0, 8).map(function (x) { return esc(x.title || x.name || '#' + x.id) + ' — ' + esc(x.amount) + ' ' + esc(x.currency || '') + (x.branch_name ? ' · ' + esc(x.branch_name) : ''); });
+    return r;
+  }
+
+  function paint() {
+    var red = rep.filter(function (r) { return !r.err && r.count > 0 && r.sev === 'r'; }).length, org = rep.filter(function (r) { return !r.err && r.count > 0 && r.sev === 'o'; }).length;
+    var tot = rep.reduce(function (s, r) { return s + (r.err ? 0 : r.count); }, 0);
+    $('sum').innerHTML = (red ? '<span class="pill r">' + red + ' حالة حرجة</span>' : '') + (org ? '<span class="pill o">' + org + ' حالة تحتاج متابعة</span>' : '') +
+      (!red && !org ? '<span class="pill g">لا شيء يحتاج تسوية</span>' : '') + '<span class="pill" style="background:#f1f5f9;color:#334155">إجمالي البنود ' + tot + '</span>';
+    $('list').innerHTML = rep.map(function (r) {
+      var cls = r.err ? '' : (r.count > 0 ? r.sev : 'g');
+      return '<div class="card ' + cls + '"><div class="hd"><b>' + esc(r.title) + '</b><span class="cnt">' + (r.err ? '؟' : r.count) + '</span></div>' +
+        (r.err ? '<div class="warn" style="margin-top:8px">تعذّرت قراءة هذه الحالة (' + esc(r.err.message || r.err) + ') — قد يكون الجدول غير موجود في قاعدتك.</div>'
+          : (r.count === 0 ? '<div class="ex" style="color:#166534;font-weight:800">سليم — لا شيء يحتاج تسوية.</div>'
+            : '<div class="ex"><span class="k">ما هذا؟</span> ' + esc(r.what) + '</div><div class="ex"><span class="k">ما أثره؟</span> ' + esc(r.impact) + '</div><div class="ex"><span class="k">التصرّف الصحيح:</span> ' + esc(r.fix) + '</div>' +
+              (r.lines.length ? '<div class="ls">' + r.lines.map(function (l) { return '<div>' + l + '</div>'; }).join('') + (r.count > r.lines.length ? '<div style="color:#64748b">… و' + (r.count - r.lines.length) + ' غيرها</div>' : '') + '</div>' : '') +
+              '<div class="act">' + r.actions.map(function (a) { return '<a class="btn' + (a[2] ? ' p' : '') + '" href="' + esc(a[1]) + '">' + esc(a[0]) + '</a>'; }).join('') + '</div>')) + '</div>';
+    }).join('');
+    $('at').textContent = 'آخر فحص: ' + new Date().toLocaleTimeString('ar-SY');
+  }
+  async function run() {
+    if (!db()) { $('list').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
+    inv = null; prods = null; $('list').innerHTML = '<div class="em">جارٍ الفحص…</div>'; $('sum').innerHTML = '';
+    var SEV = { tr: 'r', se: 'r', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
+    var jobs = [transfers, sealed, dups, surplus, orphans, unbilled, expenses];
+    rep = [];
+    for (var i = 0; i < jobs.length; i++) {            // بالتتابع: الفواتير والمنتجات تُجلب مرّةً وتُشارَك
+      var r; try { r = await jobs[i](); } catch (e) { r = { id: 'x' + i, title: 'حالة', err: e, count: 0, lines: [], actions: [] }; }
+      r.sev = SEV[r.id] || 'o'; rep.push(r); paint();
+    }
+  }
+  $('rl').addEventListener('click', run);
+  $('cp').addEventListener('click', function () {
+    var t = 'تقرير أداة التسويات — ' + new Date().toLocaleString('ar-SY') + '\n' + rep.map(function (r) { return '• ' + r.title + ': ' + (r.err ? 'تعذّر الفحص' : r.count) + (r.count && !r.err ? '\n   ' + r.lines.map(function (l) { return String(l).replace(/<[^>]+>/g, ''); }).join('\n   ') : ''); }).join('\n');
+    try { navigator.clipboard.writeText(t); GMTAsk.alert('نُسخ التقرير.', { title: 'تمّ' }); } catch (_) {}
+  });
+  run();
+})();
+</script>
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261010b" defer></script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-whatsnew.js?v=20261011h"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
+</body>
+</html>
