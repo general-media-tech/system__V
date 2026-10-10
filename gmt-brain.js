@@ -470,6 +470,13 @@
     return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
   }
 
+  function openScreen(text) {
+    if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261011f';
+    sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
+    sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
+    (document.head || document.documentElement).appendChild(sc);
+  }
   function openPanel(preset) {
     var old = document.getElementById('gmt-brain-panel'); if (old) { old.remove(); }
     var p = document.createElement('div');
@@ -518,6 +525,8 @@
             : '<span style="color:#15803d">✅ ما في أخطاء مرصودة بهالجلسة.</span>'));
 
     var chips = [
+      /* (١١ ت١ — Notes ٨ ت١ ١٠:٢٠م) «زر اسمه تحليل الشاشة: صورة منتج أو طلب زبون برسالة نصّية، أو الاثنين معاً» */
+      ['🖼️ تحليل الشاشة', '__SCREEN__'],
       ['🔴 فسّرلي الأخطاء الحالية', 'في أخطاء مرصودة بالنظام هلق؟ فسّرلي كل واحد: شو يعني، هل هو خطير، شو تأثيره على الشغل، وشو الحل.'],
       ['📘 كيف أستعمل هالصفحة؟', 'أنا موظف جديد — اشرحلي هالصفحة خطوة بخطوة: شو بتعمل وشو أهم الأزرار وشو الأخطاء الشائعة.'],
       ['🏦 كيف بيتحسب الصندوق؟', 'كيف بيتحسب رقم الصندوق بالنظام؟ وشو بيزيده وشو بينقّصه؟'],
@@ -548,6 +557,7 @@
       q = (q || input.value || '').trim();
       if (q === '__ALIBABA__') { productImportDialog(null); return; }
       if (q === '__KB__') { kbPanel(); return; }
+      if (q === '__SCREEN__') { openScreen(); return; }
       if (q === '__HEALTH__') {
         add('me', '🩺 افحص صحة النظام');
         var t0 = add('bot', '<span style="opacity:.5">جارٍ الفحص…</span>');
@@ -735,6 +745,7 @@
     configure: configure,
     context: collectContext,
     explainErrors: function () { openPanel('في أخطاء مرصودة بالنظام هلق؟ فسّرلي كل واحد: شو يعني، هل هو خطير، شو تأثيره، وشو الحل.'); },
+    analyzeScreen: openScreen,
     healthReport: function () { return healthReport(true); },   // تشغيل يدوي فوري
     isReady: function () { return !!endpoint(); },
     telegramReady: function () { return !!tg(); }
