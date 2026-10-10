@@ -183,10 +183,24 @@
   async function login(o) {
     var user = cleanUser(o.username), pw = String(o.password || '');
     if (!user || !pw) throw new Error('اكتب اسم المستخدم وكلمة السرّ');
+    /* (١١ ت١ · Notes ٨ ت١) «الاسم المستخدم … وكلمة السر فبيدخل لصلاحيات إدارية، والباقي بينشئ حساباً»:
+       نموذج الدخول واحد. إن كان الاسم حسابَ أدمن وكلمته صحيحة ⇒ وضع الإدارة باسمه (لا فرع ولا جلسة موظّف). */
+    var adminKnown = false;
+    try {
+      if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin.tryLogin) {
+        var ad = await GMTAuth.admin.tryLogin(user, pw);
+        if (ad && ad.ok) { try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {} return { admin: true, name: ad.name }; }
+        adminKnown = !!(ad && ad.known);
+        if (ad && ad.error && !ad.known && /محاولات كثيرة/.test(ad.error)) throw new Error(ad.error);
+      }
+    } catch (e) { if (e && /محاولات كثيرة/.test(e.message || '')) throw e; }
     var q = '/rest/v1/gmt_users?username=eq.' + encodeURIComponent(user) +
             (o.branch && o.branch.key ? '&branch_key=eq.' + encodeURIComponent(o.branch.key) : '') + '&select=*';
     var rows = await rest('GET', q);
-    if (!rows || !rows.length) throw new Error(o.branch && o.branch.key ? 'اسم المستخدم غير موجود في هذا الفرع' : 'اسم المستخدم غير موجود — تأكّد منه أو أنشئ حساباً');
+    if (!rows || !rows.length) {
+      if (adminKnown) throw new Error('كلمة السرّ غير صحيحة');      /* حساب أدمن بكلمة خاطئة: لا «غير موجود» المضلِّلة */
+      throw new Error(o.branch && o.branch.key ? 'اسم المستخدم غير موجود في هذا الفرع' : 'اسم المستخدم غير موجود — تأكّد منه أو أنشئ حساباً');
+    }
     var okPw = rows.filter(function (r) { return r.password_hash === b64(pw) || r.password_hash === pw; });
     if (!okPw.length) throw new Error('كلمة السرّ غير صحيحة');
     var live = okPw.filter(function (r) { return r.is_active !== false; });
@@ -328,7 +342,9 @@
   function lockCss() {
     if (document.getElementById('gmt-lock-css')) return;
     var st = document.createElement('style'); st.id = 'gmt-lock-css';
-    st.textContent = 'html.gmt-locked body>*:not(#' + LOCK_ID + '){display:none!important}' +
+    /* (١١ ت١) استثناء نوافذ السؤال: «دخول الإدارة» من شاشة القفل يفتح نافذةَ GMTAsk في body — وكانت تُخفى بـdisplay:none
+       مع بقيّة الصفحة فلا تظهر أيّ نافذةٍ ولا يمكن فتح الصفحة المقفولة أبداً (اكتُشف باختبار القفل فعلياً). */
+    st.textContent = 'html.gmt-locked body>*:not(#' + LOCK_ID + '):not(.gmtask-ov){display:none!important}' +
       '#' + LOCK_ID + '{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;' +
       'background:radial-gradient(900px 420px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;' +
       "font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;color:#0f1219;direction:rtl}" +
@@ -348,7 +364,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261003';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261011c';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });
@@ -356,11 +372,14 @@
   async function adminUnlock(msg) {
     /* بلا وحدة كلمات السرّ لا نفتح — وحدةُ الأدوار القديمة كانت تفتح بلا سؤال إن غابت */
     if (!(await ensureAuth()) || !global.GMTAuth || !GMTAuth.ask) { msg.textContent = 'تعذّر تحميل وحدة كلمات السرّ — حدّث الصفحة'; return; }
-    var ok = await GMTAuth.ask('sovereign', '🔒 فتح «' + toolTitle(currentFile()) + '» — للإدارة');
-    if (ok) {
-      try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (_) {}
-      unlock();
-    } else msg.textContent = 'كلمة السرّ غير صحيحة';
+    /* (١١ ت١) حساب أدمن باسمه — لا الكلمة السيادية المشتركة. النافذة تمنح الجلسة بنفسها. */
+    var ok;
+    if (GMTAuth.admin && GMTAuth.admin.login) ok = !!(await GMTAuth.admin.login('فتح «' + toolTitle(currentFile()) + '»'));
+    else {
+      ok = await GMTAuth.ask('sovereign', '🔒 فتح «' + toolTitle(currentFile()) + '» — للإدارة');
+      if (ok) { try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (_) {} }
+    }
+    if (ok) unlock(); else msg.textContent = 'لم يُفتح — الدخول للأدمن وحده';
   }
   function unlock() {
     document.documentElement.classList.remove('gmt-locked');

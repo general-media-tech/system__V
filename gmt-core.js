@@ -691,17 +691,29 @@
     isAdmin: function () {
       try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) { return false; }
     },
-    grant: function () {
+    /* (١١ ت١) الأدمن صار حساباً باسم: grant(name) يحفظ الاسم لهذه الجلسة، name() يُرجعه («تمّ بواسطة الأدمن …») */
+    grant: function (name) {
       try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch (e) {}
+      try { if (name) sessionStorage.setItem('gmt_admin_name', String(name)); } catch (e) {}
       window.GMTRole.repaint();
     },
+    name: function () {
+      try { return window.GMTRole.isAdmin() ? (sessionStorage.getItem('gmt_admin_name') || '') : ''; } catch (e) { return ''; }
+    },
     revoke: function () {
-      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_sov_ok'); } catch (e) {}
+      /* ⚠️ admin_pos.html كانت تكتب `gmt_admin_auth` في localStorage ولا تُمحى أبداً ⇒ بعد «خروج الأدمن» تبقى أدوات النقاط مفتوحةً لمن يأتي بعده */
+      try { localStorage.removeItem('gmt_admin_auth'); } catch (e) {}
       window.GMTRole.repaint();
     },
     /* يطلب الصلاحية إن لم تكن مفتوحة. يُرجع Promise<boolean>. */
     requireAdmin: async function (whatFor) {
       if (window.GMTRole.isAdmin()) return true;
+      /* حسابٌ باسمه وكلمة سرّه — لا كلمةٌ مشتركة. النافذة تمنح الجلسة بنفسها. */
+      if (window.GMTAuth && window.GMTAuth.admin && window.GMTAuth.admin.login) {
+        const nm = await window.GMTAuth.admin.login(whatFor || 'هذا الإجراء');
+        return !!nm;
+      }
       if (!window.GMTAuth || !window.GMTAuth.ask) return true;   /* بلا وحدة سرّ لا نقفل */
       const ok = await window.GMTAuth.ask('sovereign',
         '🔒 ' + (whatFor || 'هذا الإجراء') + ' — للأدمن');

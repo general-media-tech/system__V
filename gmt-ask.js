@@ -59,6 +59,8 @@
       '.gmtask-in{margin:12px 20px 4px;width:calc(100% - 40px);box-sizing:border-box;padding:10px 12px;',
       'border:1.5px solid #e2e8f0;border-radius:11px;font-size:14px;font-family:inherit;outline:none;background:#f8fafc}',
       '.gmtask-in:focus{border-color:' + BRAND + ';background:#fff}',
+      '.gmtask-lb{margin:12px 20px -6px;font-size:12px;font-weight:800;color:#475569}',
+      '.gmtask-er{margin:8px 20px 0;min-height:1.2em;font-size:12.5px;font-weight:700;color:#b91c1c;line-height:1.6}',
       '.gmtask-ft{display:flex;gap:9px;padding:16px 20px 18px;justify-content:flex-start}',
       '.gmtask-b{flex:1;padding:11px 14px;border:0;border-radius:11px;font-size:14px;font-weight:800;',
       'font-family:inherit;cursor:pointer;transition:filter .12s}',
@@ -66,7 +68,7 @@
       '.gmtask-b.pri{background:' + BRAND + ';color:#fff}',
       '.gmtask-b.sec{background:#f1f5f9;color:#475569}',
       '@media (prefers-color-scheme:dark){.gmtask-bx{background:#0f172a}.gmtask-hd{color:#e2e8f0}',
-      '.gmtask-bd{color:#cbd5e1}.gmtask-in{background:#1e293b;border-color:#334155;color:#e2e8f0}',
+      '.gmtask-bd{color:#cbd5e1}.gmtask-in{background:#1e293b;border-color:#334155;color:#e2e8f0}.gmtask-lb{color:#94a3b8}',
       '.gmtask-b.sec{background:#1e293b;color:#cbd5e1}}'
     ].join('');
     var st = document.createElement('style');
@@ -125,6 +127,24 @@
         if (opts.dir) input.style.direction = opts.dir;
       }
 
+      /* (١١ ت١) نموذج متعدّد الحقول — لدخول الأدمن (اسم + كلمة سرّ) وإضافة الحسابات.
+         opts.submit(values) ⇒ {error:'..'} يُبقي النافذة مفتوحةً ويعرض الخطأ داخلها (كلمة سرّ خاطئة لا تُغلقها)،
+         وأيّ شيء آخر يُغلقها ويُرجَع (result إن وُجدت وإلّا القيم). */
+      var fields = null, errEl = null;
+      if (opts.kind === 'form') {
+        fields = [];
+        (opts.fields || []).forEach(function (f) {
+          var lb = document.createElement('div'); lb.className = 'gmtask-lb'; lb.textContent = f.label || '';
+          var el = document.createElement('input'); el.className = 'gmtask-in'; el.type = f.type || 'text';
+          el.value = f.value == null ? '' : String(f.value);
+          if (f.placeholder) el.placeholder = f.placeholder;
+          if (f.dir) el.style.direction = f.dir;
+          if (f.autocomplete) el.setAttribute('autocomplete', f.autocomplete);
+          fields.push({ k: f.k, el: el, lb: lb });
+        });
+        errEl = document.createElement('div'); errEl.className = 'gmtask-er'; errEl.setAttribute('aria-live', 'polite');
+      }
+
       var ft = document.createElement('div');
       ft.className = 'gmtask-ft';
 
@@ -140,9 +160,29 @@
       var okBtn = document.createElement('button');
       okBtn.className = 'gmtask-b pri';
       okBtn.textContent = opts.okText || (opts.kind === 'alert' ? 'حسناً' : 'تأكيد');
+      var formBusy = false;
       okBtn.onclick = function () {
         if (opts.kind === 'prompt') close(input.value);
         else if (opts.kind === 'confirm') close(true);
+        else if (opts.kind === 'form') {
+          if (formBusy) return;
+          var vals = {}; fields.forEach(function (f) { vals[f.k] = f.el.value; });
+          if (!opts.submit) { close(vals); return; }
+          formBusy = true; okBtn.disabled = true; errEl.textContent = '';
+          Promise.resolve().then(function () { return opts.submit(vals); }).catch(function (e) {
+            return { error: (e && e.message) || 'تعذّر الإكمال' };
+          }).then(function (r) {
+            formBusy = false; okBtn.disabled = false;
+            if (r && r.error) {
+              errEl.textContent = r.error;
+              try { if (global.GMTSound) GMTSound.play('error'); } catch (_) {}
+              var bad = fields.filter(function (f) { return r.field ? f.k === r.field : true; })[0];
+              try { if (bad) { bad.el.focus(); if (r.clear) bad.el.value = ''; } } catch (_) {}
+              return;
+            }
+            close(r && r.result !== undefined ? r.result : vals);
+          });
+        }
         else close(undefined);
       };
 
@@ -175,8 +215,8 @@
       function onKey(e) {
         if (e.key === 'Escape') {
           e.preventDefault(); e.stopPropagation();
-          close(opts.kind === 'confirm' ? false : ((opts.kind === 'prompt' || opts.kind === 'choose') ? null : undefined));
-        } else if (e.key === 'Enter' && (opts.kind !== 'prompt' || e.target === input)) {
+          close(opts.kind === 'confirm' ? false : ((opts.kind === 'prompt' || opts.kind === 'choose' || opts.kind === 'form') ? null : undefined));
+        } else if (e.key === 'Enter' && ((opts.kind !== 'prompt' && opts.kind !== 'form') || e.target === input || (fields && fields.some(function (f) { return f.el === e.target; })))) {
           e.preventDefault(); e.stopPropagation(); okBtn.click();
         }
       }
@@ -184,17 +224,18 @@
 
       /* النقر خارج الصندوق = إلغاء (ولا شيء خطِر يُنفَّذ بالخطأ) */
       ov.addEventListener('click', function (e) {
-        if (e.target === ov) close(opts.kind === 'confirm' ? false : ((opts.kind === 'prompt' || opts.kind === 'choose') ? null : undefined));
+        if (e.target === ov) close(opts.kind === 'confirm' ? false : ((opts.kind === 'prompt' || opts.kind === 'choose' || opts.kind === 'form') ? null : undefined));
       });
 
       bx.appendChild(hd); bx.appendChild(bd);
       if (input) bx.appendChild(input);
+      if (fields) { fields.forEach(function (f) { bx.appendChild(f.lb); bx.appendChild(f.el); }); bx.appendChild(errEl); }
       bx.appendChild(ft);
       ov.appendChild(bx);
       (document.body || document.documentElement).appendChild(ov);
       requestAnimationFrame(function () {
         ov.classList.add('in');
-        try { (input || okBtn).focus(); if (input) input.select(); } catch (_) {}
+        try { var _f0 = input || (fields && fields[0] && fields[0].el) || okBtn; _f0.focus(); if (input) input.select(); } catch (_) {}
       });
     });
   }
@@ -217,6 +258,14 @@
       return dialog({ kind: 'choose', message: message,
         title: opts.title || 'اختيار', icon: opts.icon || 'ask',
         choices: opts.choices || [], cancelText: opts.cancelText });
+    },
+    /* GMTAsk.form('رسالة', { title, icon, okText, fields:[{k,label,type,placeholder,value,dir}], submit(vals) }) ⇒ القيم/result أو null */
+    form: function (message, opts) {
+      opts = opts || {};
+      return dialog({ kind: 'form', message: message,
+        title: opts.title || 'إدخال', icon: opts.icon || 'edit',
+        fields: opts.fields || [], submit: opts.submit,
+        okText: opts.okText, cancelText: opts.cancelText });
     },
     prompt: function (message, opts) {
       opts = opts || {};

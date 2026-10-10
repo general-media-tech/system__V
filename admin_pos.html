@@ -495,21 +495,21 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261011a"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261011c"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261011c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
   <script src="gmt-icons.js?v=20261011a" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261011a" defer></script>
+  <script src="gmt-ask.js?v=20261011c" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-  <script src="gmt-auth.js?v=20261003"></script>
+  <script src="gmt-auth.js?v=20261011c"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
@@ -4701,7 +4701,7 @@ async function aiCreateInvoice() {
      كان cashier_name = اسم الفرع عمداً «ليظهر كأن الفرع أنشأها» ⇒ لا أثر لمن أنشأها فعلاً. الآن يُكتب اسم الأدمن
      (يُسأل مرّةً واحدة على هذا الجهاز ويُحفظ بنفس مفتاح «اسم المشغّل» في الأوردرات). والفرع يبقى في branch_key/branch_name. */
   let _admName = '';
-  try { _admName = (localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}
+  try { _admName = ((window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}   /* الأدمن بحساب باسمه ⇒ اسمه */
   if (!_admName) {
     const _n = await GMTAsk.prompt('اكتب اسمك — يُكتب على كل فاتورةٍ تنشئها من الإدارة («تم الإنشاء بواسطة الأدمن …»). مرّةً واحدة على هذا الجهاز.', { title: 'اسم الأدمن', okText: 'حفظ' });
     if (_n === null || !String(_n).trim()) { showToast('لم تُنشأ الفاتورة — اسم الأدمن مطلوب', 'err'); return; }

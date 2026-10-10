@@ -214,13 +214,13 @@ a.btn{text-decoration:none}
 <script src="gmt-config.js?v=20261004m"></script>
 <script src="gmt-brand.js?v=20261003"></script>
 <script src="gmt-updater.js?v=20261010b"></script>
-<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-core.js?v=20261011c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-<script src="gmt-auth.js?v=20261003"></script>
+<script src="gmt-auth.js?v=20261011c"></script>
 <script src="gmt-tools.js?v=20261011a"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261011c"></script>
 <script src="gmt-icons.js?v=20261011a"></script>
-<script src="gmt-ask.js?v=20261011a"></script>
+<script src="gmt-ask.js?v=20261011c"></script>
 <script src="gmt-sound.js?v=20261011a" defer></script>
 <script src="gmt-share.js?v=20261003" defer></script>
 <script src="gmt-notify.js?v=20261010b" defer></script>
@@ -608,6 +608,7 @@ a.btn{text-decoration:none}
     busy = true; if (btn) { btn.disabled = true; btn.textContent = 'لحظة…'; }
     try {
       var r = await GMTAccount.login({ branch: branch || null, username: v('f-user'), password: v('f-pw') });
+      if (r.admin) { st.ferr = ''; st.pick = null; toast('أهلاً بك ' + (r.name || '') + ' — وضع الإدارة'); busy = false; enter(); return; }
       if (r.needPos) { busy = false; st.ferr = 'حسابك مقفولٌ على جهازٍ واحد — ادخل من نقطة البيع على جهازك.'; var k = snap(); render(); restore(k); setTimeout(function () { location.href = 'pos.html'; }, 1800); return; }
       try { await GMTAccount.grants(r.session.id); } catch (_) {}
       st.ferr = ''; st.pick = null; toast('أهلاً بك ' + (r.session.display_name || ''));
@@ -848,7 +849,8 @@ a.btn{text-decoration:none}
     try {
       if (!window.GMTAuth) { toast('وحدة كلمات السرّ لم تُحمَّل — حدّث الصفحة'); return; }
       var ok = await GMTRole.requireAdmin('فتح أدوات الإدارة');
-      if (ok) { toast('أهلاً بك في وضع الإدارة'); enter(); } else toast('كلمة السرّ غير صحيحة');
+      var nm = ''; try { nm = GMTRole.name ? GMTRole.name() : ''; } catch (_) {}
+      if (ok) { toast('أهلاً بك' + (nm ? ' ' + nm : '') + ' — وضع الإدارة'); enter(); } else toast('لم يتمّ الدخول');
     } catch (e) { toast('تعذّر الدخول'); }
   }
   async function logout() {

@@ -61,14 +61,14 @@ if (/[?&]public=1/.test(location.search)) window.GMT_PUBLIC = 1;</script>
   .back:hover{color:var(--red)}
   @media print{ .tools,.back,.row{display:none!important} body{background:#fff} .off{break-inside:avoid} }
 </style>
-  <script src="gmt-ask.js?v=20261011a" defer></script>
+  <script src="gmt-ask.js?v=20261011c" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
   <script src="gmt-icons.js?v=20261011a" defer></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261011a"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261011c"></script>
 </head>
 <body>
 <div class="wrap">
@@ -181,6 +181,7 @@ if (/[?&]public=1/.test(location.search)) window.GMT_PUBLIC = 1;</script>
      (رسالتنا «معكم أ. … من مجموعة ميديا تيك» للموظّف لا للزبون). يبقى الاتصال ونسخ العنوان. */
   var PUBLIC = /[?&]public=1/.test(location.search);
   function operatorName() {
+    try { if (window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() && GMTRole.name && GMTRole.name()) return GMTRole.name(); } catch (_) {}
     try { var n = localStorage.getItem('gmt_operator_name'); if (n) return n; } catch (_) {}
     try { var s = JSON.parse(localStorage.getItem('gmt_session') || 'null'); if (s && s.display_name) return s.display_name; } catch (_) {}
     return '';
