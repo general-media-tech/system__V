@@ -104,9 +104,8 @@ window.GMT_INTERNAL = 1;</script>
                 <div class="t2">الأدمن الكلي — لوحة التحكم الموحّدة</div>
                 <div class="t3">وصول محصور بالإدارة العليا</div>
             </div>
-            <input id="lockPass" type="password" placeholder="كلمة السر السيادية" onkeydown="if(event.key==='Enter')unlock()">
             <div id="lockErr" class="lock-err">كلمة السر غير صحيحة</div>
-            <button class="lock-btn" onclick="unlock()">دخول ←</button>
+            <button class="lock-btn" onclick="unlock()">دخول الإدارة ←</button>
         </div>
     </div>
 
@@ -224,11 +223,6 @@ window.GMT_INTERNAL = 1;</script>
             if (!window.GMTIcon || !GMTIcon.svg) { if ((n || 0) < 40) setTimeout(function () { paintIcons((n || 0) + 1); }, 100); return; }
             document.querySelectorAll('.card .icon[data-ic]').forEach(function (el) { el.innerHTML = GMTIcon.svg(el.getAttribute('data-ic'), 24); });
         })();
-        // ═══ كلمة السر السيادية — غيّرها لكلمتك ═══
-        // كلمة السر: 0000 افتراضياً — تُغيَّر من زر 🔐 (تُحفظ محلياً بهذا الجهاز)
-        /* 🔧 (2026-10-03 · ت٤) المصدر الواحد بدل رقمٍ مكتوبٍ نصّاً */
-        const SOVEREIGN_PASSWORD = localStorage.getItem('gmt_pw_sovereign')
-            || (window.GMTAuth && GMTAuth.DEFAULT) || '2003';
 
         // معرّفات الأدوات (مفاتيح الروابط المحفوظة نفسها من النسخة السابقة — لا تُسأل مجدداً)
         const TOOLS = {
@@ -243,17 +237,19 @@ window.GMT_INTERNAL = 1;</script>
             backup:          { name:'النسخ الاحتياطي', sovereign:true },
         };
 
+        /* (١١ ت١) دخولٌ بحساب الأدمن (الاسم + كلمة السرّ) — لا بالكلمة السيادية المشتركة.
+           الجذر: هذه البوّابة كانت تقبل الكلمة السيادية وحدها، فبقي باب «الأدمن الكلي» مفتوحاً لكلّ من يعرفها
+           (وافتراضيتها منشورة) حتى بعد وجود حسابات بأسماء. أوّل مرّة (بلا حسابات) تُنشئ الكلمة السيادية الحساب الأول. */
         async function unlock() {
-            const v = document.getElementById('lockPass').value;
-            /* (2026-09-27) المصدر الواحد: ما يُضبط من «الأمان والمستخدمون» يسري هنا
-               وفي فكّ أختام الجرد والمشتريات معاً. والقيمة المحلّية تبقى مقبولة. */
-            let ok = (v === SOVEREIGN_PASSWORD);
-            if (!ok && window.GMTAuth) { try { ok = await GMTAuth.check('sovereign', v); } catch (_) {} }
+            let ok = false;
+            try { ok = window.GMTRole ? await GMTRole.requireAdmin('الأدمن الكلي') : false; } catch (_) {}
             if (ok) {
-                sessionStorage.setItem('gmt_sov_ok', '1');
+                try { sessionStorage.setItem('gmt_sov_ok', '1'); } catch (_) {}
+                document.getElementById('lockErr').style.display = 'none';
                 showMain();
             } else {
-                document.getElementById('lockErr').style.display = 'block';
+                const er = document.getElementById('lockErr');
+                if (er) { er.textContent = 'لم يتمّ الدخول — اضغط «دخول الإدارة» وأدخل اسمك وكلمة سرّك'; er.style.display = 'block'; }
             }
         }
         function showMain() {
@@ -277,7 +273,7 @@ window.GMT_INTERNAL = 1;</script>
             document.getElementById('tabbar').style.display = 'none';
             document.getElementById('content').style.display = 'none';
             document.getElementById('lock').style.display = 'flex';
-            document.getElementById('lockPass').value = '';
+            { const lp = document.getElementById('lockPass'); if (lp) lp.value = ''; }
         }
 
         function urlKey(id) { return 'gmt_sov_url_' + id; }
@@ -388,7 +384,7 @@ function savePwManager(){ openPwManager(); }
 <script src="gmt-brain.js?v=20261011f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011h"></script>
+<script src="gmt-whatsnew.js?v=20261011j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

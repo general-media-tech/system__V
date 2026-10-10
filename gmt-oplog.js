@@ -49,7 +49,7 @@
     user_lock: 'قفل جهاز مستخدم', user_toggle: 'إيقاف/تفعيل مستخدم', user_delete: 'حذف مستخدم', user_approve: 'موافقة على حساب',
     product_edit: 'تعديل منتج', product_delete: 'حذف منتج', stock_add: 'إضافة كمّية', stock_deduct: 'خصم كمّية', qty_manual: 'تعديل كمّية يدوي',
     invoice_admin_create: 'فاتورة من الإدارة', password_change: 'تغيير كلمة سرّ', unmet_demand: 'طلب غير متوفّر', unmet_resolved: 'طلب غير متوفّر — عولج',
-    rfq_export: 'تصدير طلب عرض سعر'
+    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)'
   };
   var KEY_AR = {
     status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', qty: 'الكمية',
@@ -173,6 +173,56 @@
     return { table: table, method: method, verb: v, id: id, idKey: idm ? idm[1] : null, body: body, q: q };
   }
   var WRITE = /^(POST|PATCH|PUT|DELETE)$/;
+  /* ── حارس «النجاح الصامت» ────────────────────────────────────────────────
+     الجذر: PostgREST يردّ 204 «ناجحاً» حتى لو لم يُعدِّل أيَّ صفّ (سياسة RLS تمنع، أو السجلّ حُذف) — فتقول الصفحة
+     «تمّ الحفظ» والقاعدة لم تتغيّر (وقعت في حذف المستخدم). عشرات المواضع تكتب بـ`return=minimal` فلا تستطيع التحقّق.
+     العلاج عند طبقة الشبكة بلا لمس الصفحات: لكلّ PATCH/DELETE يستهدف سجلّاً واحداً (id|key|username=eq.) نضيف
+     `count=exact` إلى Prefer (لا يغيّر الحالة ولا الجسم) ونقرأ `Content-Range`: إن انتهى بـ«/0» فلم يُعدَّل شيء ⇒ تنبيهٌ صريح
+     + سطرٌ في السجلّ، ولا نُسجّل «تعديلاً ناجحاً» كاذباً. تنبيهٌ فقط — لا نغيّر ردّ القاعدة كي لا نكسر ما يعتمد عليه. */
+  var GUARD_Q = /\/rest\/v1\/([a-z_0-9]+)\?(?:[^#]*&)?(id|key|username)=eq\.([^&#]+)/;
+  var GUARD_NO = /^(gmt_audit|gmt_settings)$/;     // الإعدادات تُكتب بـupsert، وسجلّ التدقيق إدراجٌ فقط
+  var _noopAt = {};
+  function guardOf(url, method) {
+    if ((method !== 'PATCH' && method !== 'DELETE') || global.__gmtOpLogMute) return null;
+    var m = String(url || '').match(GUARD_Q);
+    if (!m || GUARD_NO.test(m[1])) return null;
+    return { table: m[1], key: m[2], id: decodeURIComponent(m[3]) };
+  }
+  function withCount(init) {
+    var out = {}; for (var k in init) out[k] = init[k];
+    var h = init.headers, add = 'count=exact';
+    if (h && typeof h.get === 'function' && typeof h.set === 'function') {
+      var nh = new Headers(h), cur = nh.get('Prefer') || '';
+      if (/count=/.test(cur)) return init;
+      nh.set('Prefer', cur ? cur + ',' + add : add); out.headers = nh; return out;
+    }
+    if (Array.isArray(h)) {
+      for (var i = 0; i < h.length; i++) if (String(h[i][0]).toLowerCase() === 'prefer') {
+        if (/count=/.test(h[i][1])) return init;
+        out.headers = h.map(function (x) { return x.slice(); }); out.headers[i][1] = h[i][1] + ',' + add; return out;
+      }
+      out.headers = h.concat([['Prefer', add]]); return out;
+    }
+    var o = {}; h = h || {};
+    var pk = null; for (var k2 in h) { o[k2] = h[k2]; if (k2.toLowerCase() === 'prefer') pk = k2; }
+    if (pk) { if (/count=/.test(o[pk])) return init; o[pk] = o[pk] + ',' + add; } else o.Prefer = add;
+    out.headers = o; return out;
+  }
+  function zeroRows(res) {
+    try { var cr = res && res.headers && res.headers.get && res.headers.get('content-range'); return !!cr && /\/0$/.test(cr); } catch (_) { return false; }
+  }
+  function reportNoop(g, method) {
+    var now = Date.now(), key = g.table + ':' + g.id;
+    if (_noopAt[key] && now - _noopAt[key] < 5000) return; _noopAt[key] = now;
+    var label = T[g.table] || g.table;
+    try { console.warn('[GMT] كتابة لم تُغيّر أيَّ صفّ: ' + method + ' ' + g.table + ' ' + g.key + '=' + g.id); } catch (_) {}
+    try {
+      if (global.GMTUI && GMTUI.toast) GMTUI.toast('لم يُحفَظ التغيير في «' + label + '» — القاعدة لم تعدّل أيّ سجلّ (غالباً لا صلاحية، أو السجلّ حُذف). حدّث الصفحة وأعد المحاولة.', 6500);
+    } catch (_) {}
+    try {
+      enqueue(rowOf({ action: 'write_noop', entity: g.table, entityId: g.id, entityName: label, field: method === 'DELETE' ? 'حذف' : 'تعديل', meta: { method: method } }));
+    } catch (_) {}
+  }
   function install() {
     if (!_raw || global.__gmtOpLogFetch) return;
     global.__gmtOpLogFetch = true;
@@ -188,11 +238,24 @@
           if (info && info.id && bf) { try { before = bf(info.id); } catch (_) { before = null; } }
         }
       } catch (_) { info = null; }
+      var g = null;
+      try {
+        if (typeof input === 'string' && init && !global.__gmtOpLogMute) {
+          var gm = String(init.method || 'GET').toUpperCase();
+          g = guardOf(input, gm);
+          if (g) g.method = gm;
+          /* وما نتتبّعه في السجلّ نعدّه كذلك (أيّ فلتر): لا نكتب «تعديلاً ناجحاً» لعمليةٍ لم تغيّر شيئاً — بلا تنبيه للمستخدم */
+          if (g || (info && (gm === 'PATCH' || gm === 'DELETE'))) init = withCount(init);
+        }
+      } catch (_) { g = null; }
       var p = inner(input, init);
-      if (!info) return p;
+      if (!info && !g) return p;
       return p.then(function (res) {
+        var zero = false;
+        try { zero = !!(res && res.ok && zeroRows(res)); if (zero && g) reportNoop(g, g.method); } catch (_) {}
+        if (!info) return res;
         try {
-          if (res && res.ok) {
+          if (res && res.ok && !zero) {
             var s = summarize(info.table, info.method, info.body, before);
             var skipEmpty = info.method !== 'DELETE' && !s.fields.length;
             if (!skipEmpty) {

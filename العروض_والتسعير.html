@@ -108,12 +108,14 @@ body{margin:0;background:#f7f8fa;color:var(--tx);font:15px/1.7 Cairo,'Segoe UI',
      ومن فتح الأدمن الكلي بكلمته في الجلسة نفسها يدخل مباشرةً. */
   async function gate() {
     var ok = false;
-    if (window.GMTAuth) ok = await GMTAuth.ask('sovereign', 'العروض والتسعير والكوبونات');
+    /* (١١ ت١) بحساب الأدمن باسمه — لا بالكلمة السيادية المشتركة */
+    if (window.GMTRole && GMTRole.requireAdmin) ok = await GMTRole.requireAdmin('العروض والتسعير والكوبونات');
+    else if (window.GMTAuth) ok = await GMTAuth.ask('sovereign', 'العروض والتسعير والكوبونات');
     if (ok) { try { sessionStorage.setItem('gmt_sov_ok', '1'); } catch (_) {} show(); }
   }
   $('open').addEventListener('click', gate);
   $('rf').addEventListener('click', function () { if (!$('app').hidden) load(); });
-  function boot() { var ok = false; try { ok = sessionStorage.getItem('gmt_sov_ok') === '1'; } catch (_) {} if (ok) show(); else $('gate').hidden = false; }
+  function boot() { var ok = false; try { ok = sessionStorage.getItem('gmt_sov_ok') === '1' || sessionStorage.getItem('gmt_admin_mode') === '1'; } catch (_) {} if (ok) show(); else $('gate').hidden = false; }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
@@ -123,7 +125,7 @@ body{margin:0;background:#f7f8fa;color:var(--tx);font:15px/1.7 Cairo,'Segoe UI',
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-whatsnew.js?v=20261011h"></script>
+<script src="gmt-whatsnew.js?v=20261011j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 </body>
 </html>
