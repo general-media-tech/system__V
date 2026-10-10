@@ -218,10 +218,16 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
     var tag = '[GMT الفحص الذاتي]';
     if (bads.length) {
-      console.group('%c' + tag + ' 🔴 ' + bads.length + ' مشكلة', 'color:#D5001C;font-weight:bold');
-      bads.forEach(function (r) { console.error('🔴 ' + r.title, r.detail); });
-      warns.forEach(function (r) { console.warn('🟠 ' + r.title, r.detail); });
-      console.groupEnd();
+      /* الفحص يطبع نتيجته بـconsole.error، وعقل النظام يلتقط كلّ console.error «أخطاءَ جلسة»
+         فكان تقرير الصحة يعدّ نتيجة الفحص نفسَها خطأً ثانياً ويكرّرها (بلاغ المالك ١٠ ت١).
+         العلَم يُخبره أن هذا السطر ليس خطأ جلسة. */
+      global.__gmtSelfLog = true;
+      try {
+        console.group('%c' + tag + ' 🔴 ' + bads.length + ' مشكلة', 'color:#D5001C;font-weight:bold');
+        bads.forEach(function (r) { console.error('🔴 ' + r.title, r.detail); });
+        warns.forEach(function (r) { console.warn('🟠 ' + r.title, r.detail); });
+        console.groupEnd();
+      } finally { global.__gmtSelfLog = false; }
       banner(bads, warns);
     } else if (verbose) {
       console.group('%c' + tag + ' ✅ سليم', 'color:#15803d;font-weight:bold');

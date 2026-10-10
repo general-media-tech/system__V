@@ -37,7 +37,7 @@
   (function captureErrors() {
     var oe = console.error;
     console.error = function () {
-      try { errLog.push(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0, 300)); if (errLog.length > 40) errLog.shift(); } catch (_) {}
+      try { if (!global.__gmtSelfLog) errLog.push(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0, 300)); if (errLog.length > 40) errLog.shift(); } catch (_) {}
       return oe.apply(console, arguments);
     };
     addEventListener('error', function (e) {
