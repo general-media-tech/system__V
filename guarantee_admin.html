@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الكفالات — General Media Tech</title>
+    <link rel="stylesheet" href="lib/tailwind.css?v=20261007z5">
+    <link rel="stylesheet" href="lib/fa/all.min.css?v=20261003">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        body { background: #f3f4f6; }
+        .canon-red { color: #D5001C; }
+        .bg-canon-red { background: #D5001C; }
+    </style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة --><!-- 🎓 وضع تدريبي: افتح بـ ?training=1 -->
+  <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body class="min-h-screen">
+  <script src="gmt-image-guard.js?v=20261007y"></script>
+  <script src="gmt-config.js?v=20261003"></script>
+  <script src="gmt-brand.js?v=20261003"></script>
+  <script src="gmt-updater.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-longpress.js?v=20261004" defer></script>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+<script src="gmt-endpoint.js?v=20261010b"></script>
+  <script src="gmt-auth.js?v=20261003"></script>
+  <script src="gmt-staff.js?v=20261010b"></script>
+
+
+    <!-- شاشة كلمة السر -->
+    <div id="lockScreen" style="position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#1a1a1a,#D5001C);display:flex;align-items:center;justify-content:center;padding:24px;">
+        <div style="background:#fff;border-radius:20px;padding:32px 28px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+            <div style="text-align:center;margin-bottom:22px;">
+                <div style="font-size:24px;font-weight:900;" class="canon-red">إدارة الكفالات</div>
+                <div style="font-size:12px;color:#666;margin-top:4px;">General Media Tech — وصول الإدارة</div>
+            </div>
+            <input id="lockPass" type="password" placeholder="كلمة سر الإدارة" onkeydown="if(event.key==='Enter')checkLock()" style="width:100%;padding:12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:14px;">
+            <div id="lockError" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:9px;margin-bottom:12px;font-size:12px;font-weight:700;color:#dc2626;text-align:center;">كلمة السر غير صحيحة</div>
+            <button onclick="checkLock()" style="width:100%;padding:13px;background:#D5001C;color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:900;cursor:pointer;">دخول</button>
+        </div>
+    </div>
+
+    <!-- المحتوى -->
+    <div id="mainContent" style="display:none;" class="max-w-6xl mx-auto p-4 md:p-8">
+        <div class="border-b-2 border-red-700 pb-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+            <div>
+                <!-- 🔧 (2026-08-23) شعار الشركة — صفحة أدمن الكفالة تعرض/تطبع كفالات رسمية -->
+        <img src="logo.jpg" alt="GMT" style="max-height:44px;object-fit:contain;margin-bottom:6px"
+             onerror="this.onerror=null;this.src=&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 60'%3E%3Crect width='140' height='60' rx='9' fill='%23D5001C'/%3E%3Ctext x='70' y='40' font-family='Arial,Helvetica,sans-serif' font-size='26' font-weight='bold' fill='%23fff' text-anchor='middle'%3EGMT%3C/text%3E%3C/svg%3E&quot;">
+        <h1 class="text-2xl font-bold text-gray-900">لوحة إدارة الكفالات</h1>
+                <p class="text-sm text-gray-500 mt-1">عرض، بحث، وإلغاء الكفالات — الإلغاء متاح للإدارة فقط</p>
+            </div>
+            <button onclick="loadAllWarranties()" class="bg-canon-red text-white px-4 py-2 rounded text-sm font-bold hover:bg-red-800 transition-colors flex items-center gap-2">
+                <i class="fas fa-sync-alt"></i> تحديث
+            </button>
+        </div>
+
+        <!-- إحصائيات -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"><div id="statTotal" class="text-2xl font-black text-gray-900">—</div><div class="text-xs text-gray-500 font-bold">إجمالي الكفالات</div></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"><div id="statActive" class="text-2xl font-black text-green-600">—</div><div class="text-xs text-gray-500 font-bold">فعّالة</div></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"><div id="statActivated" class="text-2xl font-black text-blue-600">—</div><div class="text-xs text-gray-500 font-bold">مفعّلة</div></div>
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm"><div id="statCancelled" class="text-2xl font-black text-red-600">—</div><div class="text-xs text-gray-500 font-bold">ملغاة</div></div>
+        </div>
+
+        <div class="mb-4 flex gap-2">
+            <input type="text" id="adminSearch" placeholder="بحث بالاسم أو الرقم التسلسلي أو رقم الفاتورة أو الهاتف..." class="flex-1 bg-white border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-red-600 text-sm">
+            <button onclick="adminSearchWarranties()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-700 transition-colors"><i class="fas fa-search"></i></button>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+            <table class="w-full text-sm text-right">
+                <thead class="bg-gray-800 text-white">
+                    <tr>
+                        <th class="px-4 py-3 font-bold">العميل</th>
+                        <th class="px-4 py-3 font-bold">المنتج</th>
+                        <th class="px-4 py-3 font-bold">الفاتورة</th>
+                        <th class="px-4 py-3 font-bold">المنشئ</th>
+                        <th class="px-4 py-3 font-bold">الانتهاء</th>
+                        <th class="px-4 py-3 font-bold">الحالة</th>
+                        <th class="px-4 py-3 font-bold">التفعيل</th>
+                        <th class="px-4 py-3 font-bold">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-gray-100 bg-white">
+                    <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">جارٍ التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- نافذة الإلغاء -->
+    <div id="cancelModal" class="fixed inset-0 bg-black/60 z-[200] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
+            <h3 class="text-xl font-bold canon-red mb-2 flex items-center gap-2"><i class="fas fa-times-circle"></i> إلغاء الكفالة</h3>
+            <p class="text-gray-600 text-sm mb-5">سيتم إلغاء هذه الكفالة. يرجى كتابة سبب الإلغاء (إلزامي).</p>
+            <input type="hidden" id="cancelWarrantyId">
+            <label class="text-sm font-bold text-gray-700">سبب الإلغاء <span class="canon-red">*</span></label>
+            <textarea id="cancelReason" rows="3" class="w-full bg-gray-50 border border-gray-300 rounded px-3 py-2 mt-1 mb-2 focus:outline-none focus:border-red-600 text-sm" placeholder="اكتب سبب الإلغاء هنا..."></textarea>
+            <p id="cancelReasonError" class="hidden text-red-600 text-xs mb-2">سبب الإلغاء إلزامي</p>
+            <div class="flex gap-2 mt-4">
+                <button onclick="closeCancelModal()" class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded font-bold text-sm hover:bg-gray-200">تراجع</button>
+                <button onclick="confirmCancel()" class="flex-1 bg-canon-red text-white py-2.5 rounded font-bold text-sm hover:bg-red-800">تأكيد الإلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══ إعدادات قاعدة الكفالة ═══
+        const SUPABASE_URL = 'https://abppuwylukzpqckazegk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo';
+        const TABLE_NAME = 'warranties';
+
+        // كلمة سر الإدارة — غيّرها لكلمتك. (البوّابة السيادية تمرّر ?sovereign=1 لتجاوزها)
+        // 0000 افتراضياً — تُغيَّر من الأدمن الكلي (زر 🔐)، وتُحفظ محلياً بالجهاز
+        /* 🔧 (2026-10-03 · ت٤) كان الرقم مكتوباً نصّاً هنا. الآن يُقرأ من
+           المصدر الواحد `GMTAuth.DEFAULT` — فتغييرُه مرّةً يسري على كل الصفحات. */
+        const ADMIN_PASSWORD = localStorage.getItem('gmt_pw_warranty')
+            || (window.GMTAuth && GMTAuth.DEFAULT) || '2003';
+
+        async function checkLock() {
+            const val = document.getElementById('lockPass').value;
+            /* (2026-09-27) المصدر الواحد — تُضبط من «الأمان والمستخدمون» */
+            let ok = (val === ADMIN_PASSWORD);
+            if (!ok && window.GMTAuth) { try { ok = await GMTAuth.check('warranty', val); } catch (_) {} }
+            if (ok) {
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                loadAllWarranties();
+            } else {
+                document.getElementById('lockError').style.display = 'block';
+            }
+        }
+        // تجاوز القفل لو دخل من البوّابة السيادية
+        /* (٧ ط · ثغرة) «?sovereign=1» وحده كان يتجاوز القفل لأيّ أحد — الآن الجلسة التي أدخلت كلمة السرّ (البوّابة أو وضع الأدمن) فقط */
+        if ((function(){try{return sessionStorage.getItem('gmt_sov_ok')==='1'||sessionStorage.getItem('gmt_admin_mode')==='1';}catch(_){return false;}})()) {
+            window.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                loadAllWarranties();
+            });
+        }
+
+        function formatDate(d) {
+            if (!d) return '---';
+            try { const dt = new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; } catch(e){ return d; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           🔴 (2026-10-03 · بلاغ المالك) «لوحة الكفالات فارغة».
+
+           القراءة القديمة كانت طلباً واحداً لا يحتمل خطأً:
+
+               ?select=*&order=id.desc&limit=1000
+
+           وفيه ثلاثة أسبابٍ تُفرغ اللوحة، واللوحة لا تميّز بينها ولا تقول أيّها:
+
+           ① الطلب **فشل** (مشروع موقوف · لا إنترنت · عمود `id` غير موجود فيردّ
+              PostgREST بـ400) ⇒ الصفحة تكتب «حدث خطأ أثناء جلب البيانات» — جملةٌ
+              لا يملك المالك منها شيئاً يفعله.
+           ② الطلب **نجح وردّ `[]`** — وهذا ما يحدث حين تمنع سياسة الصلاحيات (RLS)
+              القراءةَ بالمفتاح العام: **لا خطأ، لا تحذير، قائمةٌ فارغة بحالة 200**.
+              اللوحة تكتب «لا توجد كفالات» فيظنّ المالك أنّ كفالاته ضاعت.
+           ③ البحث: `or=(…,invoice_no.eq.<نصّ>,…)` — إن كان أحد هذه الأعمدة رقميّاً
+              في القاعدة فإنّ **كل** البحث يُرفَض (نمط P1: عمودٌ واحد يُسقِط الطلب
+              كلّه)، وكذلك إن كتب المالك قوساً في كلمة البحث، لأنّ
+              `encodeURIComponent` لا يُرمِّز `(` و`)` فينكسر تجميع `or=(…)`.
+
+           العلاج الجذري — ثلاثة مبادئ:
+           • **الترتيب لا يُسقِط البيانات**: نجرّب `id` ثمّ `created_at` ثمّ بلا ترتيب.
+           • **البحث محلّيّ**: الصفوف محمَّلةٌ أصلاً، فنُرشِّحها في الذاكرة — لا نوع
+             عمودٍ يكسرها، ولا قوسٌ يُفسِدها، وتبحث في كل الحقول (حتى المنتج
+             والملاحظات) لا في خمسةٍ فقط. والخادم احتياطٌ حقلاً حقلاً فقط إن تجاوزنا
+             السقف، وفشل حقلٍ لا يُسقِط البقيّة.
+           • **الفراغ يُفسَّر**: نفصل «فشل» عن «نجح وردّ لا شيء»، ونقول في كلٍّ
+             سببَه وما يفعله المالك الآن.
+           ═══════════════════════════════════════════════════════════════════ */
+
+        /* قيمةٌ مُقتبَسة يفهمها PostgREST داخل or=(…) — تحتمل القوس والفاصلة */
+        function pgVal(v) {
+            return '"' + String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+        }
+
+        const ROW_CAP = 5000;                 // سقف القراءة (كان 1000)
+        let   _allRows   = [];                // آخر ما قرأناه — عليه يعمل البحث المحلّي
+        let   _goodOrder = null;              // الترتيب الذي قبلته القاعدة (يُكتشَف مرّة)
+        let   _hitCap    = false;             // بلغنا السقف؟ ⇒ البحث المحلّي ناقص
+
+        async function sbGet(qs) {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?${qs}`, {
+                headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+            });
+            if (!res.ok) {
+                const body = await res.text();
+                const e = new Error(body || ('HTTP ' + res.status));
+                e.status = res.status; e.body = body;
+                throw e;
+            }
+            return await res.json();
+        }
+
+        /* أخطاءٌ سببها عمودٌ أو شكل طلب — تستحقّ محاولةً أبسط. أما الشبكة
+           والصلاحيات فلا تُصلحها محاولةٌ أخرى، فنرفعها فوراً. */
+        function worthRetry(e) {
+            if (!e) return false;
+            if (e.status === 400 || e.status === 404) return true;
+            return /42703|42883|PGRST|does not exist|operator does not exist|invalid input syntax/i
+                   .test(String(e.body || e.message || ''));
+        }
+
+        /* قراءةٌ متدرّجة: الترتيب أوّل ما نتخلّى عنه، والبيانات آخر ما نخسره */
+        async function supabaseFetchAll(filter) {
+            const ORDERS = _goodOrder !== null
+                ? [_goodOrder]
+                : ['order=id.desc', 'order=created_at.desc', 'order=purchase_date.desc', ''];
+            let lastErr = null;
+            for (const ord of ORDERS) {
+                const qs = ['select=*', filter || '', ord, 'limit=' + ROW_CAP].filter(Boolean).join('&');
+                try {
+                    const rows = await sbGet(qs);
+                    _goodOrder = ord;
+                    return rows;
+                } catch (e) {
+                    lastErr = e;
+                    if (!worthRetry(e)) throw e;
+                }
+            }
+            throw lastErr;
+        }
+
+        /* بحثٌ محلّيّ — في كل حقلٍ نصّيّ من الصفّ، لا في قائمةٍ مُحدَّدة */
+        function localSearch(rows, term) {
+            const t = String(term || '').trim().toLowerCase();
+            if (!t) return rows;
+            return rows.filter(r => {
+                for (const k in r) {
+                    const v = r[k];
+                    if (v == null || typeof v === 'object') continue;
+                    if (String(v).toLowerCase().indexOf(t) !== -1) return true;
+                }
+                return false;
+            });
+        }
+
+        /* احتياطُ الخادم: حقلاً حقلاً — فشل حقلٍ لا يُسقِط البقيّة (نمط P1) */
+        async function serverSearch(term) {
+            const FIELDS = ['customer_name', 'product_name', 'serial_no', 'invoice_no', 'phone_no', 'short_id'];
+            const seen = new Map();
+            let anyWorked = false;
+            for (const f of FIELDS) {
+                try {
+                    const rows = await supabaseFetchAll(f + '.ilike.' + pgVal('*' + term + '*'));
+                    anyWorked = true;
+                    (rows || []).forEach((r, i) => seen.set(String(r.short_id || r.id || (f + i)), r));
+                } catch (_) { /* هذا الحقل لا يقبل هذا البحث — تابع */ }
+            }
+            if (!anyWorked) throw new Error('تعذّر البحث في الخادم');
+            return Array.from(seen.values());
+        }
+
+        async function supabaseUpdateStatus(shortId, status, cancelReason) {
+            const updateData = { status };
+            if (cancelReason) updateData.cancel_reason = cancelReason;
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?short_id=eq.${encodeURIComponent(shortId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Prefer: 'return=minimal' },
+                body: JSON.stringify(updateData)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return true;
+        }
+
+        function updateStats(rows) {
+            const total = rows.length;
+            const cancelled = rows.filter(r => r.status === 'cancelled').length;
+            const activated = rows.filter(r => r.activation_status === 'activated').length;
+            const active = total - cancelled;
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statActivated').textContent = activated;
+            document.getElementById('statCancelled').textContent = cancelled;
+        }
+
+        function cell(html) {
+            return '<tr><td colspan="8" class="px-4 py-8 text-center">' + html + '</td></tr>';
+        }
+
+        /* الحالة ①: الطلب فشل — نقول السبب والإجراء لا «حدث خطأ» */
+        function renderFailure(e, what) {
+            const why = window.GMTWhy ? GMTWhy.say(e, { what: what })
+                                      : ('تفصيل الخطأ: ' + (e && e.message ? e.message : e));
+            document.getElementById('adminTableBody').innerHTML = cell(
+                '<div style="max-width:620px;margin:0 auto;text-align:right;">' +
+                '<div style="font-weight:900;color:#b91c1c;margin-bottom:8px;">' +
+                '<i class="fas fa-triangle-exclamation ml-1"></i> اللوحة فارغة لأنّ القاعدة لم تُسلّم البيانات</div>' +
+                '<div style="white-space:pre-wrap;font-size:12.5px;line-height:1.9;color:#374151;">' +
+                String(why).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</div>' +
+                '<button onclick="probeWarrantyDb()" class="mt-3 bg-gray-800 text-white px-3 py-1.5 rounded text-xs font-bold">' +
+                '<i class="fas fa-stethoscope ml-1"></i> افحص الاتصال بقاعدة الكفالات</button>' +
+                '<div id="probeOut" style="font-size:12px;margin-top:8px;color:#374151;"></div>' +
+                '</div>'
+            );
+        }
+
+        /* الحالة ②: نجح وردّ لا شيء — وهذا ليس خطأً، فنفسّره */
+        function renderEmpty(searching) {
+            if (searching) {
+                document.getElementById('adminTableBody').innerHTML = cell(
+                    '<span class="text-gray-500 font-bold">لا كفالة تطابق هذا البحث</span>' +
+                    '<div class="text-xs text-gray-400 mt-1">البحث يشمل كل حقول الكفالة — الاسم والمنتج والتسلسلي والفاتورة والهاتف والملاحظات.</div>'
+                );
+                return;
+            }
+            document.getElementById('adminTableBody').innerHTML = cell(
+                '<div style="max-width:620px;margin:0 auto;text-align:right;">' +
+                '<div style="font-weight:900;color:#374151;margin-bottom:8px;">' +
+                'القاعدة ردّت بنجاح — لكن بلا أيّ سجلّ</div>' +
+                '<div style="font-size:12.5px;line-height:1.9;color:#374151;">' +
+                'هذا احتمالان لا ثالث لهما:<br>' +
+                '① لا توجد كفالاتٌ مُصدَرة بعد في هذه القاعدة.<br>' +
+                '② سياسة الصلاحيات (RLS) على جدول <code>warranties</code> تمنع القراءة بالمفتاح العام، ' +
+                'فتردّ القاعدة <b>قائمةً فارغة بحالة 200 بلا خطأ</b> — فتبدو اللوحة فارغةً وكفالاتك موجودة.<br>' +
+                '<b>للتمييز بينهما:</b> أصدِر كفالةً واحدة من صفحة الكفالة ثمّ اضغط «تحديث» هنا. ' +
+                'إن لم تظهر فالسبب ② — وعلاجه سياسة قراءةٍ على الجدول.' +
+                '</div>' +
+                '<button onclick="probeWarrantyDb()" class="mt-3 bg-gray-800 text-white px-3 py-1.5 rounded text-xs font-bold">' +
+                '<i class="fas fa-stethoscope ml-1"></i> افحص الاتصال بقاعدة الكفالات</button>' +
+                '<div id="probeOut" style="font-size:12px;margin-top:8px;color:#374151;"></div>' +
+                '</div>'
+            );
+        }
+
+        async function probeWarrantyDb() {
+            const out = document.getElementById('probeOut');
+            if (out) out.textContent = 'جارٍ الفحص…';
+            if (!window.GMTWhy || !GMTWhy.probe) {
+                if (out) out.textContent = 'أداة الفحص غير محمَّلة (gmt-why.js).';
+                return;
+            }
+            const r = await GMTWhy.probe(SUPABASE_URL, SUPABASE_ANON_KEY);
+            if (out) out.textContent = (r.ok ? '✅ ' : '⛔ ') + r.why + (r.status ? ' (الحالة ' + r.status + ')' : '');
+        }
+
+        async function loadAllWarranties() {
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = cell('<i class="fas fa-spinner fa-spin ml-2 text-gray-400"></i> <span class="text-gray-400">جارٍ التحميل...</span>');
+            try {
+                const rows = await supabaseFetchAll('');
+                _allRows = Array.isArray(rows) ? rows : [];
+                _hitCap  = _allRows.length >= ROW_CAP;
+                updateStats(_allRows);                     // الإحصاء دائماً على الكلّ
+                if (!_allRows.length) { renderEmpty(false); return; }
+                renderAdminTable(_allRows);
+            } catch (e) {
+                console.error('[warranties] فشل الجلب:', e);
+                updateStats([]);
+                renderFailure(e, 'جلب الكفالات');
+            }
+        }
+
+        async function adminSearchWarranties() {
+            const term  = document.getElementById('adminSearch').value.trim();
+            const tbody = document.getElementById('adminTableBody');
+            if (!term) { return loadAllWarranties(); }
+
+            if (!_allRows.length) {                        // لم نُحمّل بعد — حمّل أوّلاً
+                await loadAllWarranties();
+                if (!_allRows.length) return;              // الرسالة معروضةٌ أصلاً
+            }
+
+            let hits = localSearch(_allRows, term);
+
+            /* لم نجد شيئاً محلّياً وكنّا قد بلغنا السقف ⇒ القديم لم يُحمَّل، فاسأل الخادم */
+            if (!hits.length && _hitCap) {
+                tbody.innerHTML = cell('<i class="fas fa-spinner fa-spin ml-2 text-gray-400"></i> <span class="text-gray-400">جارٍ البحث في القاعدة...</span>');
+                try { hits = await serverSearch(term); }
+                catch (e) { renderFailure(e, 'البحث في الكفالات'); return; }
+            }
+
+            if (!hits.length) { renderEmpty(true); return; }
+            renderAdminTable(hits, term);
+        }
+
+        /* رابط صفحة عرض الكفالة.
+           🔧 (2026-10-03) كان يسأل المالك بـ`prompt()` عن رابطٍ لا يعرفه، فيبقى
+           زرّ العين **ميّتاً** حتى يُخمّن. وصفحةُ العرض في المجلّد نفسه:
+           `guarantee.html?w=<short_id>` هي بالضبط ما تُصدره صفحة الكفالة.
+           فالافتراضيّ صار صحيحاً، ويبقى المحفوظ تجاوزاً لمن أراد رابطاً عامّاً. */
+        function getWarrantyViewUrl() {
+            return (localStorage.getItem('warranty_view_url') || '').trim() || 'guarantee.html';
+        }
+
+        function renderAdminTable(rows, term) {
+            const tbody = document.getElementById('adminTableBody');
+            if (!rows || rows.length === 0) { renderEmpty(!!term); return; }
+            const viewBase = getWarrantyViewUrl();
+            /* 🔧 (2026-10-03) أسماء العملاء كانت تُحقَن في الجدول بلا تهريب —
+               اسمٌ فيه `<` يُفسِد بقيّة الصفّ ويُفرِغ ما بعده من اللوحة. */
+            const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            /* شريط سياق: كم صفّاً نرى، وهل السقف قصّ القديم */
+            const bar = (term
+                ? `<tr class="bg-amber-50"><td colspan="8" class="px-4 py-2 text-xs font-bold text-amber-800">نتائج البحث عن «${esc(term)}» — ${rows.length} كفالة <button onclick="document.getElementById('adminSearch').value='';loadAllWarranties()" class="underline mr-2">عرض الكلّ</button></td></tr>`
+                : (_hitCap
+                    ? `<tr class="bg-amber-50"><td colspan="8" class="px-4 py-2 text-xs font-bold text-amber-800">معروضٌ أحدث ${ROW_CAP} كفالة — الأقدم منها يظهر بالبحث.</td></tr>`
+                    : ''));
+            tbody.innerHTML = bar + rows.map(row => {
+                const isCancelled = row.status === 'cancelled';
+                const statusBadge = isCancelled
+                    ? `<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700" title="${esc(row.cancel_reason || 'بلا سبب مُسجَّل')}">ملغاة</span>`
+                    : '<span class="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700">فعّالة</span>';
+                const cancelBtn = !isCancelled
+                    ? `<button onclick="openCancelModal('${esc(row.short_id)}')" class="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-bold px-2 py-1 rounded">إلغاء</button>`
+                    : `<span class="text-xs text-gray-400">ملغاة</span>`;
+                const activationBadge = row.activation_status === 'activated'
+                    ? '<span class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700"><i class="fas fa-check-circle ml-1"></i>مفعّلة</span>'
+                    : '<span class="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-700"><i class="fas fa-clock ml-1"></i>بانتظار</span>';
+                const viewBtn = `<a href="${esc(viewBase)}?w=${encodeURIComponent(row.short_id || '')}" target="_blank" rel="noopener" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-2 py-1 rounded" title="عرض شهادة الكفالة"><i class="fas fa-eye"></i></a>`;
+                return `<tr class="hover:bg-gray-50 ${isCancelled ? 'opacity-60' : ''}">
+                    <td class="px-4 py-3 font-bold text-sm">${esc(row.customer_name) || '---'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${esc(row.product_name) || '---'}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${esc(row.invoice_no) || '---'}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600">${esc(row.created_by) || '---'}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600">${formatDate(row.expiry_date)}</td>
+                    <td class="px-4 py-3">${statusBadge}</td>
+                    <td class="px-4 py-3">${activationBadge}</td>
+                    <td class="px-4 py-3"><div class="flex gap-2 flex-wrap">${viewBtn}${cancelBtn}</div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function openCancelModal(shortId) {
+            /* 🔧 (2026-10-03 · صهر) السلوكُ في `GMTCancelModal` — مصدرٌ واحد
+               مع صفحة الكفالة، فلا يفترق الإجراءُ بين الشاشتين. */
+            if (window.GMTCancelModal) return GMTCancelModal.open(shortId);
+            document.getElementById('cancelWarrantyId').value = shortId;
+            document.getElementById('cancelReason').value = '';
+            document.getElementById('cancelReasonError').classList.add('hidden');
+            const modal = document.getElementById('cancelModal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        function closeCancelModal() {
+            const modal = document.getElementById('cancelModal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+        }
+        async function confirmCancel() {
+            const reason = document.getElementById('cancelReason').value.trim();
+            const shortId = document.getElementById('cancelWarrantyId').value;
+            if (!reason) { document.getElementById('cancelReasonError').classList.remove('hidden'); return; }
+            try {
+                await supabaseUpdateStatus(shortId, 'cancelled', reason);
+                closeCancelModal();
+                loadAllWarranties();
+            } catch (e) { alert(window.GMTWhy ? GMTWhy.say(e, { what: 'إلغاء الكفالة' })
+                                               : ('حدث خطأ أثناء إلغاء الكفالة: ' + e.message)); }
+        }
+
+        document.getElementById('adminSearch').addEventListener('keypress', e => { if (e.key === 'Enter') adminSearchWarranties(); });
+    </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-warmup.js?v=20261007z5"></script>
+<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-guide-updates.js?v=20261003"></script>
+<script src="gmt-brain.js?v=20261010b"></script>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-why.js?v=20261003"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+</body>
+</html>

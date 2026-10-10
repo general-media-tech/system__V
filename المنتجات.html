@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>المنتجات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261006"></script>
+<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-suggest.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+<!-- ══ (2026-10-06 ش) البند ١٣٦: «أداة المنتجات للمستخدم العادي — باركود/بحث + تفاصيل + كتالوج».
+     للقراءة فقط: يبحث بالاسم أو الباركود أو الاسم البديل أو يمسح بالكاميرا، ويعرض الصورة والسعر والتوفّر
+     في كل فرع والمواصفات والمتوافقات — ويطبع كتالوجاً لمجموعةٍ أو لنتائج البحث. لا سعر شراء هنا أبداً. ══ -->
+<style>
+:root{--red:#D5001C;--rs:#fff1f2;--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472;--sh:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 Cairo,'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
+.tb{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;padding:10px 14px;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--ln)}
+.tb a{color:var(--tx);text-decoration:none;font-weight:800}
+.srch{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--ln);border-radius:12px;padding:0 10px}
+.srch input{border:0;outline:0;padding:10px 0;width:100%;font:inherit;background:none}
+.ib{width:40px;height:40px;border-radius:12px;border:1px solid var(--ln);background:#fff;display:grid;place-items:center;cursor:pointer;font-size:18px}
+.chips{display:flex;gap:6px;overflow:auto;padding:10px 14px}
+.chip{white-space:nowrap;border:1px solid var(--ln);background:#fff;border-radius:99px;padding:5px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:6px 14px 90px}
+.card{background:#fff;border:1px solid var(--ln);border-radius:16px;overflow:hidden;cursor:pointer;box-shadow:var(--sh);display:flex;flex-direction:column;transition:transform .2s}
+.card:hover{transform:translateY(-2px)}
+.card img,.card .ph{width:100%;aspect-ratio:1;object-fit:cover;background:#f1f3f6}
+.card .b{padding:9px 10px}.card b{display:block;font-size:13.5px;line-height:1.45}
+.pr{color:var(--red);font-weight:900}.st{font-size:12px;color:var(--mu)}
+.ov{position:fixed;inset:0;background:rgba(15,18,25,.45);z-index:50;display:grid;place-items:center;padding:14px}
+.md{background:#fff;border-radius:22px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:16px;box-shadow:0 30px 80px rgba(15,18,25,.25)}
+table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 8px;border-bottom:1px solid #f1f5f9}td:first-child{color:var(--mu);font-weight:700;width:40%}
+.empty{text-align:center;color:var(--mu);padding:30px}
+/* (٧ ط) «لا فقاعات»: كانت كبسولةً عائمة وسط الأسفل (ويُخفيها حارس العائم مع زرّ الكتالوج) ⇒ شريطٌ سفليّ كامل العرض */
+.foot{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#0f1219;border-top:1px solid #eceef2;padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:13px;font-weight:800;z-index:50}
+.foot #cat{background:#D5001C;color:#fff;border:0;border-radius:12px;padding:9px 14px;font:inherit;font-weight:900;cursor:pointer}
+body{padding-bottom:64px}
+.foot button{background:var(--red);color:#fff;border:0;border-radius:99px;padding:7px 12px;font:inherit;font-weight:800;cursor:pointer}
+@media (max-width:640px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="tb"><a href="home.html">→</a><label class="srch">🔎<input id="q" placeholder="اسم · باركود · اسم بديل" autocomplete="off" inputmode="search"></label><button class="ib" id="scan" title="مسح الباركود بالكاميرا">📷</button></div>
+<div class="chips" id="chips"></div>
+<div class="grid" id="grid"><div class="empty">جارٍ التحميل…</div></div>
+<div class="foot" data-keep-fab="1" data-bar="1"><span id="cnt">—</span><button id="cat">🖨 كتالوج النتائج</button></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var all = [], brs = [], grp = '';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function nz(s) { return String(s || '').toLowerCase().replace(/[إأآا]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
+  function D() { return (window.GMT_DB && GMT_DB.MAIN) || null; }
+  async function get(path) { var d = D(); var r = await fetch(d.url + '/rest/v1/' + path, { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } }); if (!r.ok) throw new Error(r.status); return r.json(); }
+  function total(p) { return brs.reduce(function (s, b) { return s + (Number(p[b.key_name]) || 0); }, 0); }
+  async function load() {
+    try {
+      brs = await get('inv_columns?select=key_name,display_name&is_branch=eq.true');
+      try { if (window.GMTTransit && GMTTransit.filterOut) brs = GMTTransit.filterOut(brs, function (b) { return b.key_name; }); } catch (_) {}
+      all = await get('products?select=*&order=group_name.asc,name.asc&limit=5000');
+      all.forEach(function (p) { delete p.cost_price; delete p.net_cost; delete p.wholesale_price; });   /* لا سعر شراء ولا جملة للعادي */
+    } catch (e) { $('grid').innerHTML = '<div class="empty">تعذّر التحميل — تحقّق من الاتصال.</div>'; return; }
+    var gs = []; all.forEach(function (p) { if (p.group_name && gs.indexOf(p.group_name) < 0) gs.push(p.group_name); });
+    $('chips').innerHTML = '<button class="chip on" data-g="">الكل</button>' + gs.map(function (g) { return '<button class="chip" data-g="' + esc(g) + '">' + esc(g) + '</button>'; }).join('');
+    paint();
+  }
+  function filtered() {
+    var q = nz($('q').value.trim());
+    return all.filter(function (p) {
+      if (grp && p.group_name !== grp) return false;
+      if (!q) return true;
+      /* (٨ ت) البحث المشترك: كل كلمة بأيّ ترتيب + الماركة والمجموعة والتصنيف + «جودوكس»/«100 وات» */
+      if (window.GMTSuggest && GMTSuggest.hitsProduct) return GMTSuggest.hitsProduct($('q').value, p);
+      return nz([p.name, p.short, p.barcode, p.alt_names, p.brand, p.search_terms, p.group_name, p.category].join(' ')).indexOf(q) >= 0;
+    });
+  }
+  function paint() {
+    var list = filtered();
+    $('cnt').textContent = list.length + ' منتج';
+    $('grid').innerHTML = list.length ? list.slice(0, 400).map(function (p, i) {
+      var t = total(p);
+      return '<div class="card" data-i="' + all.indexOf(p) + '">' + (p.image_url ? '<img loading="lazy" src="' + esc(p.image_url) + '" alt="" onerror="this.outerHTML=\'<div class=ph></div>\'">' : '<div class="ph"></div>') +
+        '<div class="b"><b>' + esc(p.name) + '</b><span class="pr" dir="ltr">$' + (Number(p.price) || 0) + '</span> · <span class="st" style="color:' + (t ? '#047857' : '#b91c1c') + '">' + (t ? 'متوفّر ' + t : 'غير متوفّر') + '</span></div></div>';
+    }).join('') : '<div class="empty">لا نتائج</div>';
+  }
+  function show(p) {
+    var specs = p.specs && typeof p.specs === 'object' ? Object.keys(p.specs).filter(function (k) { return k.indexOf('__') !== 0; }).map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + esc(p.specs[k]) + '</td></tr>'; }).join('') : '';
+    var per = brs.map(function (b) { var v = Number(p[b.key_name]) || 0; return '<tr><td>' + esc(b.display_name) + '</td><td style="color:' + (v ? '#047857' : '#b91c1c') + ';font-weight:800">' + v + '</td></tr>'; }).join('');
+    var ov = document.createElement('div'); ov.className = 'ov';
+    ov.innerHTML = '<div class="md">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" style="width:100%;max-height:300px;object-fit:contain;border-radius:14px;background:#f8fafc" onerror="this.remove()">' : '') +
+      '<h2 style="margin:10px 0 2px;font-size:18px">' + esc(p.name) + '</h2><div class="st" dir="ltr">' + esc([p.brand, p.barcode].filter(Boolean).join(' · ')) + '</div>' +
+      '<div style="font-size:22px;font-weight:900;color:var(--red);margin:6px 0" dir="ltr">$' + (Number(p.price) || 0) + '</div>' +
+      (p.specs && p.specs.__desc ? '<p style="margin:6px 0;color:#334155">' + esc(p.specs.__desc) + '</p>' : '') +
+      '<b>التوفّر بالفروع</b><table>' + per + '</table>' +
+      (specs ? '<b style="display:block;margin-top:10px">المواصفات</b><table>' + specs + '</table>' : '') +
+      (p.compat ? '<div style="margin-top:8px"><b>متوافق مع:</b> ' + esc(p.compat) + '</div>' : '') +
+      '<button style="margin-top:12px;width:100%;border:0;background:#0f1219;color:#fff;border-radius:12px;padding:11px;font:inherit;font-weight:800;cursor:pointer" data-x>إغلاق</button></div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-x]')) ov.remove(); });
+    document.body.appendChild(ov);
+  }
+  function catalog() {
+    var list = filtered(); if (!list.length) return;
+    var w = window.open('', '_blank'); if (!w) return;
+    w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كتالوج ' + esc(grp || 'المنتجات') + '</title><style>body{font-family:Cairo,Tahoma,Arial,sans-serif;margin:10mm;color:#1e293b}h1{color:#1f348f;font-size:18px}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm}.c{border:1px solid #d6dfee;border-radius:3mm;padding:3mm;break-inside:avoid}.c img{width:100%;height:42mm;object-fit:contain}.c b{display:block;font-size:12px}.c span{color:#D5001C;font-weight:900}</style></head><body><h1>مجموعة ميديا تيك التجارية — ' + esc(grp || 'كتالوج') + '</h1><div class="g">' +
+      list.map(function (p) { return '<div class="c">' + (p.image_url ? '<img src="' + esc(p.image_url) + '">' : '') + '<b>' + esc(p.name) + '</b><span>$' + (Number(p.price) || 0) + '</span></div>'; }).join('') +
+      '</div><script>setTimeout(function(){print()},800)<\/script></body></html>');
+    w.document.close();
+  }
+  /* مسحٌ بالكاميرا حيث يدعمه المتصفّح (BarcodeDetector) — وإلا قارئ الباركود يكتب في خانة البحث مباشرةً */
+  async function scan() {
+    if (!('BarcodeDetector' in window)) { $('q').focus(); alert('هذا المتصفّح لا يدعم المسح بالكاميرا — استعمل قارئ الباركود أو اكتب الرقم.'); return; }
+    var ov = document.createElement('div'); ov.className = 'ov'; ov.innerHTML = '<div class="md" style="text-align:center"><video id="cam" playsinline style="width:100%;border-radius:14px;background:#000"></video><button data-x style="margin-top:10px;border:0;background:#0f1219;color:#fff;border-radius:12px;padding:10px 18px;font:inherit;font-weight:800">إغلاق</button></div>';
+    document.body.appendChild(ov);
+    var stream = null, stop = function () { try { stream && stream.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {} ov.remove(); };
+    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-x]')) stop(); });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      var v = ov.querySelector('#cam'); v.srcObject = stream; await v.play();
+      var det = new BarcodeDetector();
+      (async function loop() {
+        if (!document.body.contains(ov)) return;
+        try { var c = await det.detect(v); if (c && c[0]) { $('q').value = c[0].rawValue; stop(); paint(); var hit = all.filter(function (p) { return String(p.barcode) === c[0].rawValue; }); if (hit.length === 1) show(hit[0]); return; } } catch (_) {}
+        requestAnimationFrame(loop);
+      })();
+    } catch (e) { stop(); alert('تعذّر فتح الكاميرا'); }
+  }
+  $('q').addEventListener('input', function () { paint(); var v = $('q').value.trim(); if (/^\d{6,}$/.test(v)) { var hit = all.filter(function (p) { return String(p.barcode) === v; }); if (hit.length === 1) show(hit[0]); } });
+  $('chips').addEventListener('click', function (e) { var c = e.target.closest('[data-g]'); if (!c) return; grp = c.getAttribute('data-g'); [].forEach.call($('chips').children, function (x) { x.classList.toggle('on', x === c); }); paint(); });
+  $('grid').addEventListener('click', function (e) { var c = e.target.closest('[data-i]'); if (c) show(all[+c.getAttribute('data-i')]); });
+  $('scan').onclick = scan; $('cat').onclick = catalog;
+  load();
+})();
+</script>
+<script src="gmt-ask.js?v=20261010b"></script>
+<!-- (2026-10-05 ش) وثيقة التصميم ٢٠–٢١: «لا أزرار عائمة في كل السيستم» — الحارس على كل صفحةٍ داخليّة -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

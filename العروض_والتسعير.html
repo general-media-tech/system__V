@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>العروض والتسعير والكوبونات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261005s"></script>
+<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-ask.js?v=20261010b"></script>
+<script src="gmt-auth.js?v=20261003"></script>
+<script src="gmt-icons.js?v=20261004m"></script>
+<!-- ══ (٨ ث — تدقيق المطابقة) طلبك: «العروض والتسعير والكوبونات برّا، بأداة مستقلّة على الخريطة الرئيسيّة، بوصولٍ سياديّ».
+     كانت موزّعة: العروض والتسعير داخل «جماعي» في الجرد، والكوبونات في أدمن النقاط، ولا مدخل لها في الأدوات.
+     هذه الصفحة مكانُها الواحد: ترى الفعّال الآن في الثلاثة من القاعدة نفسها، وتفتح محرّر كلٍّ منها في مكانه
+     (لا نسخة ثانية من المحرّرات — كي لا يصير لكلّ شيءٍ أداتان). ══ -->
+<style>
+:root{--red:#D5001C;--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472}
+*{box-sizing:border-box}
+body{margin:0;background:#f7f8fa;color:var(--tx);font:15px/1.7 Cairo,'Segoe UI',Tahoma,system-ui,sans-serif;min-height:100vh}
+.w{max-width:980px;margin:0 auto;padding:16px 14px 40px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:14px}.top h1{margin:0;font-size:19px;flex:1}
+.btn{border:1px solid var(--ln);background:#fff;border-radius:12px;padding:8px 13px;font:inherit;font-weight:800;cursor:pointer;color:var(--tx);text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13.5px}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.card{background:#fff;border:1px solid var(--ln);border-radius:20px;padding:14px;box-shadow:0 10px 30px rgba(15,18,25,.05)}
+.card h2{margin:0 0 2px;font-size:16px;display:flex;align-items:center;gap:8px}
+.card h2 i{width:34px;height:34px;border-radius:10px;display:inline-grid;place-items:center;background:#fff1f2;color:var(--red)}
+.n{font-size:26px;font-weight:900;line-height:1.2}
+.mu{color:var(--mu);font-size:12.5px}
+.ls{margin:8px 0 10px;max-height:260px;overflow:auto}
+.li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--ln);font-size:13.5px}
+.li b{font-weight:800}.li span{white-space:nowrap;color:var(--mu)}
+.err{color:#b91c1c;font-size:12.5px;font-weight:700}
+#gate{max-width:420px;margin:12vh auto;text-align:center}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top"><a class="btn" href="home.html" aria-label="رجوع">→</a><h1>العروض والتسعير والكوبونات</h1><button class="btn" id="rf" type="button">تحديث</button></div>
+  <div id="gate" class="card" hidden>
+    <b>وصولٌ سياديّ</b>
+    <p class="mu">هذه الأداة تغيّر أسعار البيع للزبائن — تحتاج كلمة السرّ السياديّة.</p>
+    <button class="btn p" id="open" type="button">فتح</button>
+  </div>
+  <div id="app" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2><i data-ic="tag"></i>العروض الفعّالة</h2>
+        <div class="n" id="n-off">—</div><div class="mu">عرض مفرد أو باقة — تظهر في نقطة البيع والمتجر</div>
+        <div class="ls" id="l-off"></div>
+        <a class="btn p" href="inventory.html">إنشاء عرض ← الجرد ⇠ جماعي ⇠ عرض</a>
+      </div>
+      <div class="card">
+        <h2><i data-ic="clock"></i>التسعير المؤقّت</h2>
+        <div class="n" id="n-pr">—</div><div class="mu">تخفيضٌ يعود للسعر الأصليّ وحده في موعده</div>
+        <div class="ls" id="l-pr"></div>
+        <a class="btn p" href="inventory.html">تسعير جديد ← الجرد ⇠ جماعي ⇠ تسعير</a>
+      </div>
+      <div class="card">
+        <h2><i data-ic="receipt"></i>الكوبونات</h2>
+        <div class="n" id="n-cp">—</div><div class="mu">الصالحة الآن (غير مستعملة ولم تنتهِ)</div>
+        <div class="ls" id="l-cp"></div>
+        <a class="btn p" href="admin_pos.html?tab=coupons">إدارة الكوبونات ← أدمن نقاط البيع</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return window.GMTUtil ? GMTUtil.esc(s) : String(s == null ? '' : s); };
+  var D = function () { return window.GMT_DB && GMT_DB.MAIN; };
+  function get(path) {
+    var d = D(); if (!d) return Promise.reject(new Error('لا مفاتيح قاعدة'));
+    return fetch(d.url + '/rest/v1/' + path, { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+  var f2 = function (n) { return (Number(n) || 0).toFixed(2); };
+  var day = function (t) { return t ? String(t).slice(0, 10) : '—'; };
+  function icons() { if (!window.GMTIcon) return; document.querySelectorAll('[data-ic]').forEach(function (el) { el.innerHTML = GMTIcon.svg(el.getAttribute('data-ic'), 18); }); }
+  function fill(nId, lId, rows, line, emptyMsg) {
+    $(nId).textContent = rows.length;
+    $(lId).innerHTML = rows.length ? rows.slice(0, 40).map(line).join('') : '<div class="mu">' + emptyMsg + '</div>';
+  }
+  function fail(nId, lId, e, hint) { $(nId).textContent = '—'; $(lId).innerHTML = '<div class="err">تعذّرت القراءة: ' + esc(e.message || e) + (hint ? ' — ' + hint : '') + '</div>'; }
+  function load() {
+    var now = new Date().toISOString();
+    get('gmt_offers?is_active=eq.true&select=id,name,offer_price,original_price,offer_type,ends_at&order=created_at.desc')
+      .then(function (r) { r = (r || []).filter(function (o) { return !o.ends_at || o.ends_at > now; });
+        fill('n-off', 'l-off', r, function (o) { return '<div class="li"><b>' + esc(o.name || '—') + (o.offer_type === 'bundle' ? ' · باقة' : '') + '</b><span>$' + f2(o.offer_price) + (o.ends_at ? ' · حتى ' + day(o.ends_at) : '') + '</span></div>'; }, 'لا عروض فعّالة'); })
+      .catch(function (e) { fail('n-off', 'l-off', e); });
+    get('gmt_price_changes?reverted_at=is.null&select=product_name,old_price,new_price,ends_at&order=ends_at.asc')
+      .then(function (r) { fill('n-pr', 'l-pr', r || [], function (p) { return '<div class="li"><b>' + esc(p.product_name || '—') + '</b><span>$' + f2(p.new_price) + ' ← $' + f2(p.old_price) + ' · ' + day(p.ends_at) + '</span></div>'; }, 'لا تسعير مؤقّت الآن'); })
+      .catch(function (e) { fail('n-pr', 'l-pr', e, 'شغّل ملف SQL رقم 28'); });
+    get('gmt_coupons?select=code,discount_value,discount_type,is_used,expires_at&order=created_at.desc&limit=500')
+      .then(function (r) { r = (r || []).filter(function (c) { return !c.is_used && (!c.expires_at || c.expires_at > now); });
+        fill('n-cp', 'l-cp', r, function (c) { return '<div class="li"><b dir="ltr">' + esc(c.code || '—') + '</b><span>' + (c.discount_type === 'percent' ? f2(c.discount_value) + '%' : '$' + f2(c.discount_value)) + (c.expires_at ? ' · حتى ' + day(c.expires_at) : '') + '</span></div>'; }, 'لا كوبونات صالحة'); })
+      .catch(function (e) { fail('n-cp', 'l-cp', e); });
+  }
+  function show() { $('gate').hidden = true; $('app').hidden = false; icons(); load(); }
+  /* قاعدتك: «لا شيء يُفتح وحده» — كلمة السرّ تُطلب حين تضغط «فتح»، لا عند فتح الصفحة.
+     ومن فتح الأدمن الكلي بكلمته في الجلسة نفسها يدخل مباشرةً. */
+  async function gate() {
+    var ok = false;
+    if (window.GMTAuth) ok = await GMTAuth.ask('sovereign', 'العروض والتسعير والكوبونات');
+    if (ok) { try { sessionStorage.setItem('gmt_sov_ok', '1'); } catch (_) {} show(); }
+  }
+  $('open').addEventListener('click', gate);
+  $('rf').addEventListener('click', function () { if (!$('app').hidden) load(); });
+  function boot() { var ok = false; try { ok = sessionStorage.getItem('gmt_sov_ok') === '1'; } catch (_) {} if (ok) show(); else $('gate').hidden = false; }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<script src="gmt-nofab.js?v=20261003"></script>
+</body>
+</html>

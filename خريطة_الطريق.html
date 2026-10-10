@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>خريطة الطريق — ما لم يكتمل وما نقترحه</title>
+<link rel="icon" type="image/jpeg" href="logo.jpg">
+<style>
+  :root{
+    --red:#D5001C; --ink:#111827; --mut:#5b6472; --line:#E9ECF1; --bg:#F7F8FA; --card:#FFFFFF;
+    --rose:#FDF2F5; --roseline:#F7CBD8; --rosetext:#9F1239;
+    --warn:#B45309; --warnbg:#FFFBEB; --ok:#047857; --okbg:#ECFDF5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+      --rose:#2A151C; --roseline:#5B2436; --rosetext:#FDA4AF; --warnbg:#2A2210; --okbg:#0C2B22;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+    --rose:#2A151C; --roseline:#5B2436; --rosetext:#FDA4AF; --warnbg:#2A2210; --okbg:#0C2B22;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Cairo","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.85}
+  .wrap{max-width:900px;margin:0 auto;padding:18px 14px 70px}
+  .back{display:inline-block;margin-bottom:10px;font-size:12px;font-weight:800;color:var(--mut);text-decoration:none}
+  header{background:linear-gradient(135deg,var(--rose),var(--card));border:1px solid var(--roseline);
+         border-radius:18px;padding:18px 20px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header img{height:46px;width:auto;object-fit:contain;flex-shrink:0}
+  .hbar{padding-inline-start:12px;border-inline-start:2px solid var(--roseline)}
+  h1{font-size:19px;font-weight:900;color:var(--rosetext)}
+  .sub{font-size:11.5px;color:var(--mut);font-weight:700}
+  h2{font-size:16px;font-weight:900;margin:26px 0 10px;display:flex;align-items:center;gap:9px}
+  h2 i{flex:1;height:2px;background:var(--line);display:block;border-radius:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+  .card.rose{background:var(--rose);border-color:var(--roseline)}
+  .card.warn{background:var(--warnbg);border-color:#FDE68A}
+  .card.ok{background:var(--okbg);border-color:#A7F3D0}
+  .t{font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .p{display:inline-block;border-radius:8px;padding:1px 9px;font-size:10.5px;font-weight:900}
+  .p1{background:#FEE2E2;color:#991B1B} .p2{background:#FEF3C7;color:#92400E}
+  .p3{background:#DBEAFE;color:#1E40AF} .p4{background:#F3F4F6;color:#4B5563}
+  p,li{font-size:13px;font-weight:600;line-height:1.95}
+  ul,ol{padding-inline-start:20px;margin-top:6px} li{margin-bottom:4px}
+  .why{font-size:12px;font-weight:700;color:var(--mut);margin-top:6px;padding-inline-start:10px;
+       border-inline-start:2px solid var(--line)}
+  code{font-family:ui-monospace,monospace;background:rgba(127,127,127,.15);border-radius:5px;padding:1px 6px;font-size:11.5px}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+  th{background:var(--ink);color:var(--bg);padding:8px 10px;font-weight:800;text-align:right;font-size:11px}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700;vertical-align:top}
+  .tw{overflow-x:auto} .tw table{min-width:520px}
+  .step{display:flex;gap:10px;align-items:flex-start;margin-bottom:9px}
+  .step .n{width:24px;height:24px;border-radius:8px;background:var(--rosetext);color:#fff;font-weight:900;
+           font-size:12px;display:grid;place-items:center;flex-shrink:0;margin-top:3px}
+  footer{text-align:center;font-size:11px;color:var(--mut);font-weight:700;margin-top:28px}
+  @media(max-width:520px){ h1{font-size:17px} .wrap{padding:14px 12px 50px} }
+</style>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="home.html">→ رجوع للبوابة</a>
+
+<header>
+  <img src="logo.png" alt="مجموعة ميديا تيك" onerror="this.onerror=null;this.src='logo.jpg'">
+  <div class="hbar">
+    <h1>🗺️ خريطة الطريق</h1>
+    <div class="sub">ما لم يكتمل · وما أقترحه · والأفكار التي طرحتَها — 2026-09-26</div>
+  </div>
+</header>
+
+<div class="card rose">
+  <div class="t">📌 كيف تقرأ هذه الصفحة</div>
+  <p>هذه ليست قائمة أمنيات. كل بند فيه: <b>ما هو</b> · <b>لماذا</b> · <b>ما الذي يمنعه اليوم</b>.
+     والبنود مرتّبة بما يخدمك أوّلاً لا بما هو أسهل عليّ.</p>
+  <p style="margin-top:6px"><span class="p p1">يحتاجك الآن</span> عمل بيدك لا يكتمل بدونه ·
+     <span class="p p2">ناقص</span> بُني وينقصه شيء ·
+     <span class="p p3">مقترح</span> فكرة جاهزة للتنفيذ ·
+     <span class="p p4">مؤجَّل</span> مذكور كي لا يُنسى.</p>
+</div>
+
+<h2>① ما يحتاجك أنت — لا يكتمل بدونك <i></i></h2>
+
+<div class="card warn">
+  <div class="t"><span class="p p1">يحتاجك الآن</span> تشغيل ثلاثة ملفّات SQL</div>
+  <div class="tw"><table>
+    <thead><tr><th>الملفّ</th><th>على أي قاعدة</th><th>لو لم تشغّله</th></tr></thead>
+    <tbody>
+      <tr><td><b>SQL 36</b> — الدفع الخارجي</td><td>الرئيسية</td>
+          <td>🔴 <b>العجز الوهمي على الكاشير قائم</b> — 396$ في حالة حقيقية. <b>قبل أي تقفيل.</b></td></tr>
+      <tr><td><b>SQL 37</b> — المواصفات والتوافقيات</td><td>الرئيسية</td>
+          <td>«هود العدسة 85» تبقى بلا نتيجة، وأداة الإثراء تحفظ جزئياً</td></tr>
+      <tr><td><b>SQL 38</b> — محادثات المتجر</td><td><b>المتجر</b> لا الرئيسية</td>
+          <td>الزبون يكتب رقمه في المساعد <b>ولا يصل أحداً</b></td></tr>
+    </tbody>
+  </table></div>
+  <div class="why">النظام يعمل بدونها ولا ينكسر — الأعمدة تُقرأ دفاعياً. لكن ما تُصلحه لا يُصلَح إلا بها.
+    الترتيب والشرح في <code>SQL/أرشيف_SQL.html</code>.</div>
+</div>
+
+<div class="card warn">
+  <div class="t"><span class="p p1">يحتاجك الآن</span> نشر وسيطَي الذكاء الاصطناعي</div>
+  <p><b>عقل النظام</b> (للموظّفين) و<b>مساعد المتجر</b> (للزبائن) — وسيطان منفصلان عمداً.
+     الخطوات في <code>تفعيل_عقل_النظام.html</code>، ومساعد المتجر في رأس ملفّه.</p>
+  <div class="why">المفتاح يبقى في الخادم ولا يصل المتصفّح: مفتاح الذكاء الاصطناعي <b>مفتاح دفع</b>،
+    ومن يفتح <code>F12</code> يراه لو وضعناه في الصفحة. وقبل وضع رابط الوسيط في
+    <code>store.html</code> <b>لا يظهر زرّ المساعد إطلاقاً</b> — زرّ محادثة لا يردّ أسوأ من لا زرّ.</div>
+</div>
+
+<div class="card warn">
+  <div class="t"><span class="p p1">يحتاجك الآن</span> قرار ترتيب البحث</div>
+  <p>بعد إضافة المواصفات، البحث عن «<b>عدسة 85</b>» يعرض <b>الهودات قبل العدسة</b> — لأنّ وصف كل هود
+     يحتوي «عدسة» و«85» بينما اسم العدسة يحتوي «85» فقط.</p>
+  <ul>
+    <li><b>(أ)</b> نكتب أوصاف الملحقات بحيث تبدأ بنوعها ونتجنّب كلمة «عدسة» مفردةً —
+        <b>مجاني وفوري</b> لأنّ أداة الإثراء هي التي تكتب الأوصاف.</li>
+    <li><b>(ب)</b> ترجيح الكلمات النادرة تلقائياً (الكلمة المتكرّرة في كل المنتجات تفقد وزنها) —
+        أدقّ وأعمّ، لكنّه يغيّر كل الدرجات ويحتاج إعادة فحص شاملة.</li>
+  </ul>
+  <div class="why">لا أختار عنك: (أ) سريعة ورخيصة، و(ب) صحيحة معمارياً وتُفيد كل بحث مستقبلي.</div>
+</div>
+
+<div class="card warn">
+  <div class="t"><span class="p p1">يحتاجك الآن</span> مراجعة خمسة مكاتب افتراضية</div>
+  <p>حلب (شارع بارون) · حماة (ساحة العاصي) · اللاذقية (الزراعة) · طرطوس (مول الحمرات) · بانياس.</p>
+  <div class="why"><b>اجتهادٌ منّي لا قرارٌ منك.</b> الأربعة التي حدّدتها بنفسك (دمشق · حمص · إدلب · درعا)
+    مثبّتة كما قلت. هذه الخمسة اخترتها أنا، وقد تكون خطأً — وخطأ المكتب الافتراضي يعني شحنةً
+    تذهب لمكتب لا يقصده الزبون.</div>
+</div>
+
+<h2>② بُني وينقصه شيء <i></i></h2>
+
+<div class="card">
+  <div class="t"><span class="p p2">ناقص</span> 📱 تطبيق الفقاعة — واجهته لم تُجرَّب على شاشة</div>
+  <p>المنطق مُختبَر (28 اختباراً تُشغَّل بـ<code>فحص_الفقاعة.py</code> بلا Android Studio) والكود يُترجَم، لكن <b>المواضع والأحجام وسلوك
+     الكيبورد فوق اللوحة</b> لم تُفحص — تحتاج هاتفاً حقيقياً.</p>
+  <div class="why">بيئة العمل محجوبة عن مستودعات Google، فلا APK من هنا. ابنِه من Android Studio
+    بضغطة واحدة (<code>GMTBubble/اقرأني_بناء_التطبيق.md</code>) ونضبط الواجهة معاً بعد أوّل تشغيل.</div>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p2">ناقص</span> 🖼️ توليد الصور بالذكاء الاصطناعي</div>
+  <p><b>دمج شعارنا</b> على صورة موجودة <b>يعمل الآن</b> محلّياً بلا أي خدمة خارجية (ومع تسطيح الخلفية
+     بيضاء لأنّ الصور الشفّافة تظهر سوداء في بعض تطبيقات المحادثة).</p>
+  <p style="margin-top:4px">أمّا <b>توليد</b> صورة جديدة فيحتاج خدمة صور لا نملكها في الوسيط.</p>
+  <div class="why">قابل للإضافة، لكنّه بندٌ ماليّ شهريّ — قل لي إن أردت أن أدرس الخيارات وتكلفتها.</div>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p2">ناقص</span> 💬 مساعد المتجر — «يتعلّم من أسلوبنا»</div>
+  <p>ما بُني <b>ليس تدريباً</b>: جدول <code>shop_style</code> فيه أمثلة ردود حقيقية تُرسَل مع كل سؤال
+     ليحتذي بها (٦ أمثلة بذرة). توسّعه بإضافة ردود أعجبتك.</p>
+  <div class="why">قلتها صريحة كي لا تنتظر تحسّناً تلقائياً لا يحدث. والتعلّم الحقيقي من محادثاتنا
+    يحتاج جمع المحادثات أوّلاً — وهو ما سيفعله الكيبورد لاحقاً.</div>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p2">ناقص</span> 🔘 أزرار عائمة في صفحات الإدارة</div>
+  <p>بعض صفحات الأدمن ما زالت تكدّس أزراراً عائمة تتداخل على الشاشات الصغيرة.</p>
+  <div class="why">حارس <code>gmt-nofab.js</code> موجود لكنّه لم يُطبَّق على كل الصفحات.
+    ليس عطلاً ماليّاً — لكنّه إزعاج يومي.</div>
+</div>
+
+<h2>③ الكيبورد — أفكارك، وكيف أنفّذها <i></i></h2>
+
+<div class="card rose">
+  <div class="t">🎯 الفكرة كما طرحتَها</div>
+  <p>«نبحث عن اسم المنتج ونرسل له <b>رابط المنتج من موقعنا ككتالوج</b>… أو نعمل <b>استديو خاص فينا</b>
+     فيه البحث بالاسم من الجرد والاختيار والإرسال، بدل ما ندخل على معرض الصور وندوّر يدوي…
+     ممكن نعمل التنتين: صور بخلفية بيضاء وبوسترات من الموقع، وإذا بدّه صور واقعية تكون مخزّنة عندنا…
+     وإذا ما كانت مخزّنة نلتقط صورة ونحطّ لها اسم المنتج وتتخزّن.»</p>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> استديو المنتجات داخل الكيبورد — ثلاث طبقات</div>
+  <p>اقتراحي أن يكون لكل منتج <b>ثلاثة مصادر صور</b>، ويختار الموظّف بضغطة:</p>
+  <div class="tw"><table>
+    <thead><tr><th>الطبقة</th><th>من أين</th><th>متى تُستعمل</th><th>جاهزيتها</th></tr></thead>
+    <tbody>
+      <tr><td><b>① رابط المتجر</b></td><td><code>store_url</code> من الجرد</td>
+          <td>الزبون يريد السعر والوصف والشراء</td><td>✅ العمود موجود ويُقرأ</td></tr>
+      <tr><td><b>② صورة رسمية</b></td><td><code>image_url</code> — خلفية بيضاء</td>
+          <td>«شو شكله؟» — جواب سريع</td><td>✅ تعمل في الفقاعة اليوم</td></tr>
+      <tr><td><b>③ صورة واقعية</b></td><td>معرض داخلي على الجهاز</td>
+          <td>«بدّي أشوفه حقيقي» — أقوى إقناعاً</td><td>🔨 يحتاج بناء</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:8px"><b>الطبقة الثالثة هي الجديدة</b>، وهذا تصميمها:</p>
+  <div class="step"><div class="n">1</div><div>معرض على الجهاز، كل صورة موسومة بـ<b>معرّف المنتج</b>
+    لا باسمه — الاسم يتغيّر، والمعرّف لا.</div></div>
+  <div class="step"><div class="n">2</div><div>تكتب اسم المنتج ⇒ تظهر صوره الواقعية فوراً، بلا دخول معرض الهاتف.</div></div>
+  <div class="step"><div class="n">3</div><div>ما في صورة؟ زرّ <b>«التقط الآن»</b> يفتح الكاميرا، والصورة تُحفَظ
+    موسومةً بالمنتج — فتصير متاحة لكل الموظّفين بعد المزامنة.</div></div>
+  <div class="step"><div class="n">4</div><div>الإرسال مثل أي إرسال في واتساب أو إنستقرام —
+    نفس آليّة المشاركة الموجودة في الفقاعة اليوم.</div></div>
+  <div class="why"><b>لماذا المعرّف لا الاسم:</b> لو وسمنا بالاسم ثمّ عدّلتَ اسم المنتج في الجرد،
+    فقدنا كل صوره دفعةً واحدة.<br>
+    <b>لماذا على الجهاز أوّلاً:</b> رفع كل صورة للسيرفر يكلّف تخزيناً وباقة، والموظّف يصوّر في المحلّ
+    حيث الشبكة ضعيفة. المزامنة تصير لاحقاً وبقرارك.</div>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> الشرط الذي ذكرتَه: «بعد ما نعرف كل المنتجات على المتجر»</div>
+  <p>محقّ — رابط المنتج بلا فائدة إن لم يكن المنتج على المتجر. والجسر (<code>bridge.html</code>) يُظهر
+     المرتبط وغير المرتبط، وأداة الإثراء تملأ المواصفات قبل النقل.</p>
+  <div class="why"><b>الترتيب الصحيح:</b> إثراء المنتجات ← نقلها للمتجر عبر الجسر ← عندها يصير
+    «أرسل رابط المنتج» مفيداً. عكسُه يُرسل للزبون روابط مكسورة.</div>
+</div>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> الكيبورد نفسه — الطريق من الفقاعة</div>
+  <p>الفقاعة <b>مرحلة أولى مقصودة</b>: كل منطقها في حزمة <code>core</code> ولا يستورد صنفاً واحداً
+     من أندرويد، لهذا السبب بالذات. يوم نبني <code>InputMethodService</code> نُعيد استعمالها كما هي
+     <b>بلا سطر منطق جديد</b>.</p>
+  <ul>
+    <li>شريط فوق الحروف: 📦 منتج · 📍 مكتب · 💬 ردّ جاهز · 🖼️ صورة</li>
+    <li>تكتب «فيكتوريا» ⇒ يظهر المكتب كاملاً بضغطة</li>
+    <li>وتتعلّم <b>ردودنا الحقيقية</b> من هنا لتغذّي مساعد المتجر — وهذا ما يجعل «يتعلّم من أسلوبنا» حقيقياً</li>
+  </ul>
+  <div class="why">الترتيب: جرّب الفقاعة على هاتفك أوّلاً. ما يُزعجك فيها سيُزعجك في الكيبورد
+    عشرة أضعاف — الكيبورد يُستعمل في كل رسالة.</div>
+</div>
+
+<h2>④ عقل النظام — إلى أين <i></i></h2>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> ما يستحقّ أن يُضاف للعقل</div>
+  <ul>
+    <li><b>يقرأ الأرقام لا الأدلّة فقط:</b> «كم بعنا من عدسات كانون هذا الشهر؟» — يحتاج ربطه بجداول
+      المبيعات بقراءة محدودة.</li>
+    <li><b>يُنبّه قبل أن تسأل:</b> منتج قارب النفاد · فاتورة معلّقة · أوردر تأخّر — بدل أن تكتشفها بنفسك.</li>
+    <li><b>يشرح الخطأ بلغتك:</b> موجود اليوم، لكن يمكن أن يقترح <b>الإصلاح</b> لا الشرح وحده.</li>
+  </ul>
+  <div class="why"><b>القيد الذي لا أتجاوزه:</b> العقل <b>يقرأ ولا يكتب</b>. اليوم الذي نسمح فيه له
+    بالكتابة نفقد القدرة على معرفة من غيّر ماذا — وكل حماياتنا (الدوالّ الذرّية · سجلّ التدقيق ·
+    تقفيل الصندوق) مبنيّة على أنّ الكتابة تمرّ من مسار واحد معروف.</div>
+</div>
+
+<h2>⑤ الجسور — الجرد ⇄ المتجر ⇄ الموقع <i></i></h2>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> ما ينقص الجسر</div>
+  <ul>
+    <li><b>مزامنة السعر والمخزون تلقائياً:</b> اليوم الربط يدوي — فيبقى سعر المتجر قديماً بعد تعديل الجرد.</li>
+    <li><b>إخفاء ما نفد:</b> منتج مخزونه صفر يبقى ظاهراً في المتجر ⇒ زبون يطلب ما ليس عندنا.</li>
+    <li><b>صورة واحدة تكفي:</b> ارفع الصورة مرّة في الجرد وتظهر في المتجر والفقاعة والكيبورد.</li>
+  </ul>
+  <div class="why">هذه ثلاثة أعطال <b>يشعر بها الزبون</b> لا نحن. أرجّح البدء بـ«إخفاء ما نفد»:
+    أرخصها تنفيذاً وأكثرها إحراجاً عند حدوثها.</div>
+</div>
+
+<h2>⑥ ستايل الموقع والمتجر <i></i></h2>
+
+<div class="card">
+  <div class="t"><span class="p p3">مقترح</span> توحيد الهوية البصرية</div>
+  <p>النظام الداخلي صار موحّداً (الأحمر <code>#D5001C</code> واللوغو الحقيقي في كل مطبوعة).
+     أمّا <b>الموقع والمتجر</b> فما زالا يحملان ألواناً ومقاسات لا تتبع <code>gmt-theme.css</code>.</p>
+  <ul>
+    <li>توحيد الألوان والخطوط والحواف على ملفّ الهوية الواحد</li>
+    <li>بطاقة منتج واحدة مشتركة بين المتجر والموقع — بدل نسختين تتباعدان</li>
+    <li>الوضع الليلي: مدعوم في الصفحات الجديدة، ناقص في المتجر</li>
+    <li>سرعة الفتح على الهاتف: المتجر يحمّل كل المنتجات دفعةً واحدة</li>
+  </ul>
+  <div class="why">أُجّل هذا عمداً حتى الآن: الهوية البصرية تُراجَع <b>بعينك</b> لا باختبار آلي،
+    وكنت أفضّل أن تنتهي الأعطال المالية أوّلاً. صار الوقت مناسباً متى أردت.</div>
+</div>
+
+<h2>⑦ مؤجَّل — مذكور كي لا يُنسى <i></i></h2>
+
+<div class="card">
+  <div class="t"><span class="p p4">مؤجَّل</span> بنود صغيرة</div>
+  <ul>
+    <li><b>أزرار تفاعلية في واتساب</b> (يختار الزبون «جودة ممتازة/سيّئة» بضغطة) — تحتاج
+      WhatsApp Business API وقوالب معتمدة من ميتا. البديل اليوم: أسئلة مرقّمة يردّ عليها برقم.</li>
+    <li><b>كوبون حقيقي بعد التقييم</b> — الرسالة تذكر المكافأة ولا تختلق كوداً.
+      إصداره يحتاج ربط أداة الكوبونات برسالة ما بعد الاستلام.</li>
+    <li><b>صورتان ناقصتان</b>: <code>canonlogo.png</code> و<code>genrallogo.png</code> — لهما بديل آمن
+      الآن فلا تظهر مربّعات مكسورة، لكنّ رفعهما يُعيد شعار كانون لشهادة الكفالة.</li>
+    <li><b>شاشة مراجعة طلبات التوظيف</b> — الطلبات تُحفَظ في القاعدة ولا توجد شاشة لمراجعتها.</li>
+  </ul>
+</div>
+
+<div class="card ok">
+  <div class="t">✅ ما أنصح بالترتيب</div>
+  <div class="step"><div class="n">1</div><div><b>SQL 36</b> — قبل أي تقفيل. هذا مال حقيقي.</div></div>
+  <div class="step"><div class="n">2</div><div><b>جرّب الفقاعة على هاتفك</b> — وقل لي ما يُزعجك فيها قبل الكيبورد.</div></div>
+  <div class="step"><div class="n">3</div><div><b>SQL 37 + إثراء المنتجات</b> — يفتح البحث بالتوافقيات ويجهّز المتجر.</div></div>
+  <div class="step"><div class="n">4</div><div><b>الجسر: إخفاء ما نفد</b> — أرخص إصلاح يشعر به الزبون.</div></div>
+  <div class="step"><div class="n">5</div><div><b>ثمّ الكيبورد</b> — بعد أن تستقرّ الفقاعة.</div></div>
+</div>
+
+<footer>مجموعة ميديا تيك — وكيل كانون الرسمي في سوريا · وثيقة داخلية · 2026-09-26</footer>
+</div>
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+</body>
+</html>

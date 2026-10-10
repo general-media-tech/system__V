@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMT — الهوية البصرية ٢٫٠ · التقرير التصميمي</title>
+<link rel="icon" href="favicon.ico">
+<style>
+  :root{
+    --red:#D5001C; --rh:#BF0019; --ra:#A80016; --rs:#fff1f2;
+    --bg:#f7f8fa; --sf:#fff; --ln:rgba(15,18,25,.08);
+    --tx:#0f1219; --mu:#5b6472; --ok:#15803d; --wn:#b45309;
+    --r1:22px; --r2:14px; --r3:10px;
+    --sh:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06);
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,system-ui,sans-serif;background:var(--bg);color:var(--tx);
+       line-height:1.9;padding:22px 16px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+
+  /* ترويسةٌ على نمط فاتورتك: اسمٌ عريض · فاصلٌ رأسيّ · وصفٌ خافت · خطٌّ أحمرُ تحتها */
+  .head{display:flex;align-items:center;gap:12px;padding-bottom:12px;
+        border-bottom:2px solid var(--red);margin-bottom:8px;flex-wrap:wrap}
+  .head h1{font-size:22px;font-weight:900;letter-spacing:-.4px}
+  .head .sep{width:1px;height:18px;background:var(--ln)}
+  .head .sub{font-size:12.5px;font-weight:700;color:var(--mu)}
+  .head .tag{margin-inline-start:auto;font-size:11px;font-weight:800;color:var(--red);
+             background:var(--rs);padding:3px 11px;border-radius:99px}
+  .stamp{font-size:11.5px;color:var(--mu);margin-bottom:26px}
+
+  h2{font-size:16px;font-weight:900;margin:34px 0 12px;display:flex;align-items:center;gap:9px}
+  h2::after{content:"";flex:1;height:2px;background:var(--red);border-radius:2px;opacity:.9}
+  h3{font-size:13.5px;font-weight:900;margin:18px 0 7px}
+  p{font-size:13.5px;line-height:1.95;color:#334155;margin-bottom:10px;max-width:74ch}
+  .lead{font-size:14.5px;color:#334155}
+  b,strong{color:var(--tx)}
+  code{background:#eef0f3;padding:1px 6px;border-radius:5px;font-size:12px;direction:ltr;
+       display:inline-block;unicode-bidi:isolate}
+
+  .card{background:var(--sf);border:1px solid var(--ln);border-radius:var(--r1);
+        padding:18px;box-shadow:var(--sh);margin-bottom:12px}
+  .card.tight{padding:13px 15px;border-radius:var(--r2)}
+  .g{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @media(max-width:780px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 2px}
+  th{background:#fafbfc;color:var(--mu);font-weight:700;font-size:11.5px;
+     text-align:start;padding:9px 10px;border-bottom:1px solid var(--ln);white-space:nowrap}
+  td{padding:9px 10px;border-top:1px solid var(--ln);vertical-align:top;color:#334155}
+  td b{color:var(--tx)}
+  .num{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;font-weight:800}
+
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:99px;
+        background:#eef0f3;color:#475569}
+  .pill.ok{background:#f0fdf4;color:#166534}
+  .pill.rd{background:var(--rs);color:var(--red)}
+  .pill.wn{background:#fffbeb;color:#92400e}
+
+  .ref{border:1px solid var(--ln);border-radius:var(--r2);padding:14px 15px;background:var(--sf);
+       box-shadow:var(--sh);margin-bottom:11px}
+  .ref .rt{display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap}
+  .ref .rn{width:26px;height:26px;border-radius:8px;background:var(--rs);color:var(--red);
+           display:grid;place-items:center;font-size:12px;font-weight:900;flex:0 0 auto;
+           direction:ltr;unicode-bidi:isolate}
+  .ref .rname{font-size:13.5px;font-weight:900}
+  .ref dl{display:grid;grid-template-columns:118px 1fr;gap:4px 10px;font-size:12.5px;margin-top:8px}
+  .ref dt{font-weight:800;color:var(--mu);font-size:11.5px}
+  .ref dd{color:#334155;line-height:1.85}
+  @media(max-width:620px){.ref dl{grid-template-columns:1fr;gap:1px}
+    .ref dt{margin-top:7px}}
+
+  .sw{display:flex;align-items:center;gap:9px;font-size:12px;padding:7px 0}
+  .ch{width:30px;height:30px;border-radius:9px;border:1px solid var(--ln);flex:0 0 auto}
+  .mono{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mu)}
+
+  .ban{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--ln);
+       border-radius:var(--r2);padding:12px 14px;font-size:13px;margin:12px 0;line-height:1.9}
+  .ban.rd{background:var(--rs);border-color:rgba(213,0,28,.18);color:#7A0010}
+  .ban.wn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .ban.ok{background:#f0fdf4;border-color:#86efac;color:#166534}
+
+  ul{margin:0 0 10px;padding-inline-start:20px;font-size:13.5px;color:#334155;line-height:1.95}
+  li{margin-bottom:4px}
+  .q{border-inline-start:3px solid var(--red);padding-inline-start:11px;color:#334155;
+     font-size:13px;line-height:1.95;margin:10px 0}
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--ln);
+         text-align:center;font-size:11.5px;color:var(--mu)}
+</style>
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>الهوية البصرية ٢٫٠</h1>
+    <span class="sep"></span>
+    <span class="sub">مجموعة ميديا تيك التجارية — General Media Tech</span>
+    <span class="tag">Evolution لا Revolution</span>
+  </div>
+  <div class="stamp">التقرير التصميمي · ٤ تشرين الأول ٢٠٢٦ · مبنيٌّ على ١٣ مرجعاً بصريّاً، وعلى نموذجك المعتمَد «الهوية البصرية 2.0 · معاينة»، وعلى فاتورتك الورقية.</div>
+
+  <p class="lead">هذا التقرير يُجيب على أمرك: «<b>ادرس كل صورة على حدة. لا تمرّ عليها مروراً سريعاً. لا تكتفِ بوصف ما تراه. لا تقل «هذه واجهة حديثة» أو «الألوان جميلة» بدون تحليل السبب. لا تنسخ. لا تقلّد الهوية</b>». فلكلّ مرجعٍ هنا تفكيكٌ مستقلّ، ثم طبقةُ ترجمةٍ تقول: ما المبدأ؟ لماذا ينجح؟ ماذا نتعلّم؟ كيف يتغيّر داخل هويّتنا؟ وأين يُستعمل عندنا بالتحديد؟</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>١ · تقريرُ الذكاء التصميميّ — أين كنّا فعلاً</h2>
+  <p>قبل أيّ اقتراح، قِستُ النظام القائم بأدواتٍ لا بالذوق. هذه أرقامٌ لا آراء:</p>
+
+  <div class="g g4">
+    <div class="card tight"><div style="font-size:11px;font-weight:800;color:var(--mu)">هويّةٌ ثانيةٌ داخل النظام</div>
+      <div class="num" style="font-size:26px;color:var(--red)">470</div>
+      <div style="font-size:11.5px;color:var(--mu)">مرّةً يظهر فيها الكحليّ <code>#1f348f</code> والأزرق الباهت <code>#dbe4f7</code></div></div>
+    <div class="card tight"><div style="font-size:11px;font-weight:800;color:var(--mu)">أنماطُ ترويسةٍ مختلفة</div>
+      <div class="num" style="font-size:26px">8</div>
+      <div style="font-size:11.5px;color:var(--mu)">لثماني صفحات — أي ترويسةٌ لكلّ صفحة</div></div>
+    <div class="card tight"><div style="font-size:11px;font-weight:800;color:var(--mu)">حمراواتُ العلامة</div>
+      <div class="num" style="font-size:26px">4</div>
+      <div style="font-size:11.5px;color:var(--mu)">أربعةُ ألوانٍ تدّعي كلُّها أنها أحمرُ GMT</div></div>
+    <div class="card tight"><div style="font-size:11px;font-weight:800;color:var(--mu)">أقصى تنافرٍ في شاشةٍ واحدة</div>
+      <div class="num" style="font-size:26px">6</div>
+      <div style="font-size:11.5px;color:var(--mu)">عائلاتٍ لونيّةٍ في «تحرير الفاتورة» وحدها</div></div>
+  </div>
+
+  <div class="ban rd">
+    <span>🔎</span>
+    <span><b>النتيجة التشخيصيّة:</b> مشكلةُ النظام لم تكن «تصميماً قديماً» — بل <b>هويّتين تعيشان معاً</b>. أحمرُ GMT على الأبيض في مكان، وكحليٌّ مؤسّسيٌّ على أزرقَ باهتٍ في مكانٍ آخر. ولأنّ الثانية لم تكن قراراً بل تراكماً، كان كلُّ انتقالٍ بين شاشتين يبدو انتقالاً بين تطبيقين. وهذا بالضبط ما وصفتَه: «شوف الألوان كيف خارج عن هويتنا البصرية لأنه نحن عندنا اللون الأبيض».</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٢ · الـDesign DNA — من فاتورتك أنت</h2>
+  <p>الهويّةُ الناضجةُ الوحيدةُ في مشروعك لم تكن في أيّ شاشة: كانت في <b>فاتورتك الورقية</b>. فمنها استخرجتُ الحمضَ النوويّ البصريّ، لا من ذوقي ولا من المراجع:</p>
+  <div class="g g2">
+    <div class="card tight"><b>① الترويسة</b><br><span style="font-size:12.5px;color:#334155">اسمٌ عريض ⇠ فاصلٌ رأسيّ ⇠ وصفٌ خافت، وتحتها <b>خطٌّ أحمرُ رفيع</b>.</span></div>
+    <div class="card tight"><b>② عنوانُ القسم</b><br><span style="font-size:12.5px;color:#334155">أيقونة + نصّ + خطٌّ أحمرُ يمتدّ إلى آخر السطر.</span></div>
+    <div class="card tight"><b>③ بطاقةُ المعلومات</b><br><span style="font-size:12.5px;color:#334155">شبكةُ عمودين · تسميةٌ صغيرةٌ رماديّة فوق قيمةٍ عريضةٍ داكنة. <b>أقوى نمطٍ عندك</b> — وكان مستعملاً في مكانٍ واحد.</span></div>
+    <div class="card tight"><b>④ الجدول</b><br><span style="font-size:12.5px;color:#334155">ترويسةٌ رماديّةٌ فاتحة · حدودٌ أفقيّةٌ فقط · ترقيمٌ على اليمين.</span></div>
+    <div class="card tight"><b>⑤ شريطُ الإجمالي</b><br><span style="font-size:12.5px;color:#334155">كتلةٌ حمراءُ مائلةٌ على خلفيّةٍ فاتحة — المكانُ الوحيد الذي يستحقّ امتلاءً أحمر.</span></div>
+    <div class="card tight"><b>⑥ صندوقُ التنبيه</b><br><span style="font-size:12.5px;color:#334155">حدٌّ أحمر + أيقونة + نصّ. لا خلفيّةَ مملوءة.</span></div>
+  </div>
+  <p>وهذا ما يجعل النتيجةَ <b>تطويراً لهويّتك لا استبدالاً لها</b>: كلُّ مكوّنٍ في النظام الجديد يعود إلى أحد هذه الأنماط السبعة.</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٣ · تحليلُ المراجع الثلاثة عشر — كلُّ مرجعٍ على حدة</h2>
+  <p>لكلّ مرجعٍ هنا: ما رأيتُه فيه بالتحديد ⇠ المبدأُ خلفه ⇠ لماذا ينجح ⇠ كيف يتغيّر داخل هويّتنا ⇠ أين يُستعمل عندنا. وما رفضتُه مذكورٌ أيضاً، لأنّ الرفضَ قرارٌ تصميميٌّ مثل القبول.</p>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">1</span><span class="rname">Likee — ملفّ شخصيّ وقائمةٌ جانبيّة</span><span class="pill">جوّال</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>قائمةٌ جانبيّةٌ مملوءةٌ بلون العلامة، وشاشةُ إعدادٍ بيضاءُ بصفوفٍ متطابقة: أيقونة ⇠ عنوان ⇠ سهمٌ في الطرف.</dd>
+      <dt>المبدأ</dt><dd><b>صفُّ الإعداد الواحد.</b> كلُّ خيارٍ في النظام يُعرض بنفس الهيكل، فيتعلّم المستخدمُ شكلاً واحداً مرّةً ويقرأ به كلّ شاشة.</dd>
+      <dt>لماذا ينجح</dt><dd>السهمُ في الطرف يَعِد بأنّ خلف الصفّ شاشةً أخرى. فالمستخدم يعرف ما يحدث قبل أن يضغط.</dd>
+      <dt>عندنا</dt><dd>تبنّيتُ هيكلَ الصفّ، ورفضتُ القائمةَ الجانبيّةَ المملوءةَ باللون: لونُ العلامة عندنا مؤشّرٌ لا خلفيّةٌ كبيرة — وأنت نفسك قلتَ «نحن عندنا اللون الأبيض». فصار الشريطُ الجانبيُّ أبيضَ زجاجيّاً، والأحمرُ على العنصر النشِط وحده.</dd>
+      <dt>أين</dt><dd>صفوفُ الإعدادات · قوائمُ الفروع · قائمةُ الكفالات.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">2</span><span class="rname">Elvis Obi — حسابٌ وإعدادات</span><span class="pill">جوّال</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>الإعداداتُ مجمّعةٌ تحت عناوينَ لها أيقونات (الحساب · الإشعارات · المزيد)، وليست قائمةً طويلةً واحدة.</dd>
+      <dt>المبدأ</dt><dd><b>التجميعُ قبل الترتيب.</b> عشرون خياراً في ثلاث مجموعاتٍ أسهلُ من عشرين خياراً مرتّبةً أبجديّاً.</dd>
+      <dt>لماذا ينجح</dt><dd>الذاكرةُ العاملةُ تحتفظ بثلاثةِ عناوينَ لا بعشرين سطراً. فالبحثُ يصير «أيُّ مجموعة؟» ثم «أيُّ سطر؟».</dd>
+      <dt>عندنا</dt><dd>البوّابةُ الرئيسيّة كانت مجموعاتٍ أصلاً (موظفون · إدارة · زبون · أدوات) — فالمبدأ مُطبَّقٌ عندك ومُحسَّن: وحّدتُ شكلَ البطاقة وألغيتُ ألوانَ الشارات الثلاثة لأنّ عنوانَ المجموعة يقولها فوقها.</dd>
+      <dt>رفضتُ</dt><dd>الترويسةَ المنحنيةَ الكبيرة: تأكل ثلثَ شاشة الهاتف بلا معلومة.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">3</span><span class="rname">Therapy &amp; Care — يومٌ وجلسات</span><span class="pill">جوّال</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>تحيّةٌ باسم المستخدم مع جملةِ حالةٍ («لديك ٥ جلسات اليوم») ⇠ شريطُ أيّامٍ أفقيٌّ ⇠ قائمةُ المواعيد.</dd>
+      <dt>المبدأ</dt><dd><b>الشاشةُ تفتح بجوابٍ لا بقائمةِ أدوات.</b> أوّلُ سطرٍ يقول للمستخدم أين هو من يومه.</dd>
+      <dt>لماذا ينجح</dt><dd>السؤالُ الأوّلُ لأيّ مستخدمٍ عند الفتح هو «ما حالُ عملي الآن؟» — فإن لم تُجب الشاشة، بحث هو بنفسه في أربع شاشات.</dd>
+      <dt>عندنا</dt><dd><b>هذا هو المرجعُ الذي وُلدت منه لوحةُ البداية.</b> بوّابتُك كانت شبكةَ روابطَ فقط. صارت تفتح بـ«صباح الخير، &lt;اسمك&gt; 👋» ثمّ «هذا ما جرى في فروعك اليوم» — وهو نصُّ طلبك حرفياً.</dd>
+      <dt>أين</dt><dd><code>index.html</code> — وحدة <code>gmt-home.js</code> الجديدة.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">4</span><span class="rname">Proton Vault — خزنةُ كلماتِ سرّ</span><span class="pill rd">الأقربُ إلى حالتنا</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>علامةٌ قرمزيّةٌ عميقةٌ على خلفيّةٍ شبهِ بيضاء. تحيّةٌ ⇠ بحثٌ ⇠ بطاقتا مؤشّرٍ متجاورتان ⇠ <b>صفُّ «وصولٍ سريع»</b> بأيقوناتٍ صغيرةٍ وعدّاد ⇠ قائمةُ العناصر الأخيرة. وفي شاشة «نظرة أمنيّة»: ثلاثُ بطاقاتِ حالةٍ كلٌّ منها تحمل <b>رقماً وأيقونةَ حالةٍ معاً</b>.</dd>
+      <dt>المبدأ</dt><dd><b>العلامةُ مؤشّرٌ لا طلاء.</b> القرمزيُّ هنا يملأ شيئاً واحداً في كلّ شاشة، والباقي أبيضُ ورماديّ — فيبقى اللونُ قويّاً لأنّه نادر.</dd>
+      <dt>لماذا ينجح</dt><dd>لأنّ الانتباهَ موردٌ محدود. حين يصرخ كلُّ شيءٍ لا يُسمَع شيء — وهو عينُ شكواك: «ألوانها كثيرة وسيئة وفاقعة وغير مريحة بصرياً».</dd>
+      <dt>عندنا</dt><dd>قرمزيُّهم قريبٌ من <code>#D5001C</code>، فالترجمةُ مباشرة: <b>الأحمرُ لا يملأ إلا أربعةَ مواضعَ في الشاشة</b> — خطُّ الترويسة · زرُّ الفعل الأساسيّ · كتلةُ الإجمالي · علامةُ الحالة النشِطة. وصفُّ «الوصول السريع» نُفِّذ عندنا وزِيد عليه: <b>ترتيبُه من استعمالك الفعليّ</b> لا من اختياري.</dd>
+      <dt>وأهمُّ شيء</dt><dd>بطاقاتُ الحالة تحمل أيقونةً مع الرقم — أي <b>لا تعتمد على اللون وحده</b>. وهي القاعدةُ التي خالفها نظامُنا في كلّ حالاته، فصُحِّحت.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">5</span><span class="rname">Welcome Back — شاشةُ دخولٍ ناعمة</span><span class="pill">جوّال</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>شاشةُ دخولٍ هادئة: شعارٌ في مربّعٍ مرتفع ⇠ عنوانٌ ⇠ حقلان ⇠ زرٌّ واحدٌ بارز.</dd>
+      <dt>المبدأ</dt><dd><b>شاشةُ الدخول لها فعلٌ واحد.</b> كلُّ ما عداه يخفت.</dd>
+      <dt>لماذا ينجح</dt><dd>لا قرارَ على المستخدم: الزرُّ البارزُ الوحيد هو الطريق.</dd>
+      <dt>عندنا</dt><dd>شاشةُ دخول نقطة البيع كانت <b>تدرّجاً من الكحليّ إلى الأحمر يملأ الشاشة</b> — لونان لا ينتمي أحدُهما إلينا. صارت ورقةً بيضاءَ على سطحٍ فاتح، بخيطٍ أحمرَ واحدٍ أعلى البطاقة، والشعارُ هو البطل، والأحمرُ في زرّ الدخول وحده.</dd>
+      <dt>رفضتُ</dt><dd>أسلوبَ Neumorphism (الظلال الغائرة) كلَّه: جميلٌ في لقطةٍ، ومتعبٌ في نظامٍ يُستعمل ثماني ساعاتٍ يوميّاً، وضعيفُ التباين.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">6</span><span class="rname">Pinterest — ثلاثُ صيغٍ لشريط تنقّلٍ أحمر</span><span class="pill rd">درسٌ في اللون</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>نفسُ الشريط بثلاث خلفيّات: بيضاء · حمراءُ مملوءة · سوداء. والعنصرُ النشِط في كلٍّ منها يُعرَف بـ<b>حاوية</b> و<b>نقطةٍ تحته</b>، لا باللون فقط.</dd>
+      <dt>المبدأ</dt><dd><b>الحالةُ النشِطة تحتاج إشارتين.</b> لونٌ + شكل.</dd>
+      <dt>لماذا ينجح</dt><dd>ثُمنُ الذكور لا يُفرّقون الأحمرَ من الأخضر. والإشارةُ الشكليّةُ تعمل في الشمس، وعلى شاشةٍ باهتة، ولمن لا يرى اللون.</dd>
+      <dt>عندنا</dt><dd>هذا هو أصلُ <b>الخطِّ الأحمر الرفيع تحت التبويب النشِط</b> في شريط أوضاع الجرد، و<b>الشريطِ الأحمر على حافّة</b> عنصر التنقّل النشِط. وأضفتُ علامةً شكليّةً لكلّ حبّةِ حالة: ✓ للنجاح · ! للتنبيه · ✕ للخطأ.</dd>
+      <dt>رفضتُ</dt><dd>الصيغةَ الحمراءَ المملوءة: شريطٌ أحمرُ بعرض الشاشة يسحب الانتباهَ من المحتوى طول اليوم.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">7</span><span class="rname">Learnova LMS — لوحةُ سطحِ مكتبٍ + ١٠ شاشاتِ هاتف</span><span class="pill rd">أغنى مرجع</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>شريطٌ جانبيّ · تحيّةٌ باسمٍ ⇠ بحثٌ ⇠ جرسٌ بعدّاد · <b>صفُّ أربعِ بطاقاتِ مؤشّر</b> كلٌّ منها «تسميةٌ خافتة ⇠ رقمٌ كبير ⇠ سطرٌ صغير» مع مربّعِ أيقونة · ثمّ لوحاتٌ لكلٍّ منها ترويسةٌ «عنوانٌ يميناً · عرضُ الكلّ أو فلترُ المدّة يساراً».</dd>
+      <dt>المبدأ</dt><dd><b>ترويسةُ اللوحة عقد.</b> كلُّ صندوقٍ في الصفحة يقول اسمَه ويعرض مخرجَه الوحيد في نفس المكان دائماً.</dd>
+      <dt>لماذا ينجح</dt><dd>العينُ تتعلّم أنّ «المزيد» يسكن في الطرف الأيسر من كلّ ترويسة، فتتوقّف عن البحث.</dd>
+      <dt>عندنا</dt><dd>صفُّ المؤشّرات الأربعة نُفِّذ في لوحة البداية. وترويسةُ اللوحة صارت مكوّناً (<code>.u-section</code>) بنمط فاتورتك ② لا بنمطهم.</dd>
+      <dt>رفضتُ</dt><dd><b>أن يكون لكلّ بطاقةِ مؤشّرٍ لونُها الباستيليّ الخاصّ</b> (بنفسجي · أخضر · كهرماني · ورديّ). أربعةُ ألوانٍ لأربعة أرقامٍ متساويةِ الأهميّة = لونٌ بلا خبر — وهو تماماً ما جعل شاشاتِك تبدو «فاقعة». فصارت المربّعاتُ محايدةً، والأحمرُ للرقم الحاكم وحده (مبيعات اليوم).</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">8</span><span class="rname">Daily Task Tracker — متابعةُ مهامّ</span><span class="pill">جوّال</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>بطاقةٌ ملوّنةٌ واحدةٌ في الأعلى تحمل الرسمَ ونسبةَ التقدّم وثلاثةَ أرقامٍ داخلها. وصفوفُ المهامّ تحمل <b>حافّةً ملوّنةً على الطرف</b> لا خلفيّةً ملوّنة. وشاشةُ التفصيل فيها <b>شبكةُ معلوماتٍ من عمودين</b>.</dd>
+      <dt>المبدأ</dt><dd><b>الحافّةُ تكفي.</b> ٣px على طرف الصفّ تحمل التصنيفَ دون أن تُغرق الصفَّ في لون.</dd>
+      <dt>لماذا ينجح</dt><dd>عشرون صفّاً بخلفيّاتٍ ملوّنةٍ = فوضى. عشرون صفّاً بحوافَّ ملوّنة = تصنيفٌ مقروء.</dd>
+      <dt>عندنا</dt><dd>طُبِّق فوراً على <b>صندوق «خصم يدوي — صلاحية حلب»</b> في الفاتورة: كان صندوقاً ورديّاً مملوءاً يصرخ، صار حافّةً حمراءَ رفيعةً تقول «هذا مختلف» بصوتٍ واحد.</dd>
+      <dt>والأهمّ</dt><dd>شبكةُ المعلومات من عمودين في شاشة التفصيل هي <b>نفسُها نمطُ فاتورتك ③</b>. مرجعٌ أجنبيٌّ يؤكّد نمطاً تملكه أنت أصلاً — وهذه أقوى حجّةٍ على أنّ الاتجاه صحيح.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">9</span><span class="rname">Taskly — لوحةُ مهامّ بثلاثة أعمدة</span><span class="pill">سطح مكتب</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>مؤشّراتٌ كلٌّ منها يحمل <b>سطرَ فرقٍ</b> («↑ ١٢٪ عن الأسبوع الماضي»). وقائمةٌ لها تبويباتٌ + زرُّ فلترٍ + ترتيبٌ في صفٍّ واحد. وعمودٌ جانبيٌّ للتقويم والقادم.</dd>
+      <dt>المبدأ</dt><dd><b>الرقمُ وحده لا يعني شيئاً.</b> «١٦ فاتورة» لا تقول شيئاً؛ «١٦ فاتورة — ↑٣ عن أمس» تقول كلَّ شيء.</dd>
+      <dt>لماذا ينجح</dt><dd>السياقُ يُحوّل القراءةَ إلى قرار.</dd>
+      <dt>عندنا</dt><dd>البنيةُ جاهزةٌ في بطاقة المؤشّر (سطرٌ صغيرٌ تحت الرقم). <span class="pill wn">لم يُنفَّذ بعد</span> حسابُ المقارنة مع الأمس — يحتاج قراءةَ يومين بدل يوم. مُدرَجٌ في «ما لم يكتمل».</dd>
+      <dt>رفضتُ</dt><dd>«Upgrade to Pro» في أسفل الشريط الجانبي: لا مكانَ لإعلانٍ في نظامِ عملٍ داخليّ.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">10</span><span class="rname">Taxr — فوترةٌ وحساباتٌ</span><span class="pill rd">درسٌ في الأرقام</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>الدخلُ والمصروفُ سطران بسهمٍ ومبلغٍ موقَّع، و<b>كسرُ المبلغ أصغرُ وأخفتُ من صحيحه</b>: ‎$3,498<span style="font-size:.7em;opacity:.55">.21</span>. و«قائمةٌ سريعة» من مربّعاتِ أيقوناتٍ في الشريط الجانبي.</dd>
+      <dt>المبدأ</dt><dd><b>ليست كلُّ خانةٍ متساويةَ الأهميّة.</b> في نظامٍ ماليّ تُقرأ الآلافُ بلمحة، والقروشُ عند الحاجة.</dd>
+      <dt>لماذا ينجح</dt><dd>يقلّل الحِملَ البصريّ دون أن يحذف رقماً واحداً — وهذا فارقٌ جوهريّ: لا معلومةَ تضيع.</dd>
+      <dt>عندنا</dt><dd>نُفِّذ في <code>gmt-home.js</code>: كلُّ مبلغٍ يُعرَض بصحيحٍ عريضٍ وكسرٍ خافت. <span class="pill wn">يبقى</span> تعميمُه على الفواتير والتقارير.</dd>
+      <dt>رفضتُ</dt><dd>البطاقاتِ المتدرّجةَ الملوّنة والزجاجَ البنفسجيّ: جميلٌ في عرضٍ تقديميّ، ويُضعف قراءةَ الأرقام — وهي جوهرُ شغلك.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">11</span><span class="rname">Lector — لوحةُ إدارةٍ كثيفة</span><span class="pill">سطح مكتب</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>جدولٌ بحالاتٍ ملوّنةٍ في عمودٍ واحد، وترقيمٌ أسفلَه، وبطاقاتُ مؤشّرٍ متدرّجةُ الألوان.</dd>
+      <dt>المبدأ</dt><dd><b>عمودُ الحالة هو العمودُ الملوّنُ الوحيد.</b> باقي الجدول حبرٌ على أبيض.</dd>
+      <dt>لماذا ينجح</dt><dd>المسحُ العموديُّ السريع: العينُ تنزل في عمودٍ واحدٍ وتجد الاستثناءات.</dd>
+      <dt>عندنا</dt><dd>مُطبَّقٌ في <code>.u-table</code>: ترويسةٌ رماديّةٌ هادئة · حدودٌ أفقيّةٌ فقط · الحالةُ حبّةٌ في عمودها · الصفُّ المختار بأحمرَ ناعم.</dd>
+      <dt>رفضتُ</dt><dd>بطاقاتِ المؤشّر الأربعَ المتدرّجةَ بأربعة ألوان — للسبب نفسه في المرجع ٧.</dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">12</span><span class="rname">Dosage — لوحةُ لياقةٍ على لوح</span><span class="pill">تابلت</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>بطاقةٌ بنفسجيّةٌ كبيرةٌ واحدةٌ تحتلّ الصدارة، وحولها بطاقاتٌ بيضاءُ صغيرةٌ فيها اسمٌ ونسبةٌ وشريطُ تقدّم.</dd>
+      <dt>المبدأ</dt><dd><b>كتلةٌ جريئةٌ واحدةٌ في الصفحة.</b> هي البطل، والبقيّةُ تهمس.</dd>
+      <dt>لماذا ينجح</dt><dd>تسلسلٌ بصريٌّ بلا جهد: تعرف أين تنظر أوّلاً دون أن يُقال لك.</dd>
+      <dt>عندنا</dt><dd>تُرجم إلى <code>.u-hero</code>: كتلةٌ ليليّةٌ داكنةٌ بهالةٍ حمراءَ في زاويتها — وهي نفسُها في نموذجك المعتمَد. وقاعدتُها: <b>مرّةٌ واحدةٌ في الصفحة ولا تُكرَّر</b>.</dd>
+      <dt>وللوح تحديداً</dt><dd>اللوحُ ليس هاتفاً ممدوداً ولا سطحَ مكتبٍ مضغوطاً: حقولُه أطول (٤٤px) لأنّ الإصبعَ عليه أكبر، وحاويتُه ٩٢٠px، وشريطُ تنقّله لا يلتصق بالأسفل. <span class="pill ok">نُفِّذ</span></dd>
+    </dl>
+  </div>
+
+  <div class="ref">
+    <div class="rt"><span class="rn">13</span><span class="rname">eCoursie — بطاقاتُ مقرّراتٍ وصورٌ</span><span class="pill">سطح مكتب</span></div>
+    <dl>
+      <dt>ما فيه</dt><dd>بطاقةُ محتوىً أفقيّة: <b>منطقةُ صورةٍ بنسبةٍ ثابتة</b> يميناً ⇠ عنوانٌ ووصفٌ ⇠ زرٌّ دائريٌّ في الطرف. وصفُّ فلاترٍ منسدلةٍ فوق القائمة.</dd>
+      <dt>المبدأ</dt><dd><b>للصورة مكانٌ محجوزٌ بنسبةٍ ثابتة</b> قبل أن تصل الصورة.</dd>
+      <dt>لماذا ينجح</dt><dd>لا تقفز الصفحةُ عند التحميل، ولا تتمدّد صورةٌ ولا تنضغط.</dd>
+      <dt>عندنا</dt><dd>هذا جوابُ ملاحظتك: «<b>شوف من واجهة الهاتف كيف صورة المنتج مع اسمه داخلين مع الكمية وهذا غلط، خصّص له مكان</b>». أُنشئ <code>.u-img</code> بنسبةٍ ثابتةٍ وخلفيّةِ انتظار. <span class="pill wn">يبقى</span> تركيبُه داخل صفّ بنود الفاتورة نفسه.</dd>
+    </dl>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٤ · خريطةُ التطوّر البصريّ</h2>
+  <table>
+    <thead><tr><th>الحالي ١٫٠</th><th>المشكلة</th><th>بصيرةُ المرجع</th><th>الاتجاه الجديد ٢٫٠</th></tr></thead>
+    <tbody>
+      <tr><td>كحليٌّ وأزرقُ باهتٌ في ٤٧٠ موضعاً</td><td>هويّةٌ ثانيةٌ تعيش داخل الأولى</td><td>٤ · ٦ — العلامةُ مؤشّرٌ لا طلاء</td><td><b>أبيضُ وحبرٌ ورماديّ</b>، والأحمرُ في أربعة مواضعَ لها معنى</td></tr>
+      <tr><td>٨ أنماطِ ترويسةٍ لـ٨ صفحات</td><td>كلُّ انتقالٍ يبدو تطبيقاً آخر</td><td>٧ — ترويسةُ اللوحة عقد</td><td>ترويسةٌ واحدة: اسمٌ · فاصل · وصفٌ خافت · خطٌّ أحمرُ تحتها</td></tr>
+      <tr><td>ستّةُ أزرارِ وضعٍ أحدُها مملوءٌ بالأحمر</td><td>ستُّ دعواتٍ للفعل ⇒ لا شيءَ يبدو مهمّاً</td><td>٦ — حالتان لا لونٌ واحد</td><td>شريطُ تبويبٍ هادئ؛ النشِطُ بسطحٍ أبيضَ وخطٍّ أحمرَ تحته</td></tr>
+      <tr><td>صندوقٌ أخضرُ وآخرُ كهرمانيٌّ وآخرُ ورديٌّ دائمة</td><td>اللونُ يَعِد بحالةٍ لم تقع بعد</td><td>٨ — الحافّةُ تكفي</td><td>حاوياتٌ محايدة؛ اللونُ يظهر حين تقع الحالةُ فعلاً</td></tr>
+      <tr><td>أربعةُ أزرارِ تصديرٍ بأربعة ألوان</td><td>اللونُ يُوحي بأربعِ أهميّاتٍ وهي متساوية</td><td>٧ — اللونُ بلا خبر ضوضاء</td><td>أربعةٌ متطابقةٌ هادئة؛ الفرقُ في الأيقونة والنصّ</td></tr>
+      <tr><td>البوّابةُ شبكةُ روابطَ فقط</td><td>تفتح نظامَك فلا تعرف شيئاً عن عملك</td><td>٣ · ٤ · ٧ — الشاشةُ تفتح بجواب</td><td>تحيّةٌ باسمك ⇠ مؤشّراتُ اليوم ⇠ الفرعُ الأكثر مبيعاً ⇠ وصولٌ سريع</td></tr>
+      <tr><td>جولةٌ تعليميّةٌ من ١٧ شاشةً تبتلع أوّلَ فتحة</td><td>تمنعك عن عملك قبل أن تراه</td><td>٥ — للشاشة فعلٌ واحد</td><td>بطاقةٌ صغيرة: «نبدأ الشرح» أو «ليس الآن» — والجولةُ تبقى متاحةً دائماً</td></tr>
+      <tr><td>حالاتٌ تُعرَف باللون وحده</td><td>مَن لا يُفرّق الأحمرَ يرى بطاقاتٍ متطابقة</td><td>٤ · ٦ — رقمٌ وأيقونةٌ معاً</td><td>✓ ! ✕ i مع كلّ حالة، وخطٌّ تحت النشِط</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٥ · رموزُ الهوية ٢٫٠</h2>
+  <div class="ban ok"><span>✅</span><span>هذه القيمُ ليست اجتهادي: مصدرُها <b>نموذجك المعتمَد</b> «الهوية البصرية 2.0 · معاينة» الذي أرسلتَه. وحيث اختلف اجتهادي عن نموذجك، <b>تبع اجتهادي نموذجَك</b> — لأنّ النموذج قرارُك لا اقتراحي. وما أضفتُه فوقه هو ما تطلبه الوثيقةُ ولم يكن فيه: حالتا Hover وActive للّون الأساسيّ، وسلّمُ خطٍّ كامل، وحالاتُ الفراغ والتحميل والخطأ.</span></div>
+
+  <div class="g g2">
+    <div class="card">
+      <h3>اللون — ومتى يُستعمل كلُّ لون</h3>
+      <div class="sw"><span class="ch" style="background:#D5001C"></span><div><b>Primary</b> <span class="mono">#D5001C</span><br><span style="font-size:11.5px;color:var(--mu)">زرُّ الفعل · خطُّ الترويسة · كتلةُ الإجمالي · الحالةُ النشِطة. لا أكثر.</span></div></div>
+      <div class="sw"><span class="ch" style="background:#BF0019"></span><div><b>Primary Hover</b> <span class="mono">#BF0019</span></div></div>
+      <div class="sw"><span class="ch" style="background:#A80016"></span><div><b>Primary Active</b> <span class="mono">#A80016</span></div></div>
+      <div class="sw"><span class="ch" style="background:#fff1f2"></span><div><b>Brand Soft</b> <span class="mono">#fff1f2</span><br><span style="font-size:11.5px;color:var(--mu)">سطحُ العنصر النشِط ومربّعُ الأيقونة والصفُّ المختار.</span></div></div>
+      <div class="sw"><span class="ch" style="background:#f7f8fa"></span><div><b>Background</b> <span class="mono">#f7f8fa</span></div></div>
+      <div class="sw"><span class="ch" style="background:#fff"></span><div><b>Surface</b> <span class="mono">#ffffff</span></div></div>
+      <div class="sw"><span class="ch" style="background:rgba(255,255,255,.78);backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(15,18,25,.08)"></span><div><b>Elevated / Glass</b> <span class="mono">rgba(255,255,255,.78)</span><br><span style="font-size:11.5px;color:var(--mu)">الترويسةُ والشريطُ الجانبيّ — تفصلان الطبقاتِ بلا خطٍّ ثقيل.</span></div></div>
+      <div class="sw"><span class="ch" style="background:rgba(15,18,25,.08)"></span><div><b>Border</b> <span class="mono">rgba(15,18,25,.08)</span><br><span style="font-size:11.5px;color:var(--mu)">خطٌّ شبهُ شفّافٍ يستقرّ فوق أيّ سطح — لا رماديٌّ مصمت.</span></div></div>
+      <div class="sw"><span class="ch" style="background:#0f1219"></span><div><b>Text Primary</b> <span class="mono">#0f1219</span></div></div>
+      <div class="sw"><span class="ch" style="background:#5b6472"></span><div><b>Text Secondary / Muted</b> <span class="mono">#5b6472</span></div></div>
+      <div class="sw"><span class="ch" style="background:#15803d"></span><div><b>Success</b> <span class="mono">#15803d</span> — ومعها ✓</div></div>
+      <div class="sw"><span class="ch" style="background:#b45309"></span><div><b>Warning</b> <span class="mono">#b45309</span> — ومعها !</div></div>
+      <div class="sw"><span class="ch" style="background:#dc2626"></span><div><b>Error</b> <span class="mono">#dc2626</span> — ومعها ✕</div></div>
+      <div class="sw"><span class="ch" style="background:#1e3a8a"></span><div><b>Info</b> <span class="mono">#1e3a8a</span> — ومعها i</div></div>
+      <p style="margin-top:10px;font-size:12.5px"><b>نسبةُ الاستعمال المستهدَفة:</b> ٧٠٪ أبيضُ وسطوحٌ فاتحة · ٢٠٪ حبرٌ ورماديّ · ٨٪ دلالاتٌ عند وقوعها · <b>٢٪ أحمرُ العلامة</b>. والأحمرُ قويٌّ لأنّه نادر.</p>
+    </div>
+
+    <div class="card">
+      <h3>الخطّ — سلّمٌ واحدٌ بدل ٢١ حجماً</h3>
+      <table>
+        <thead><tr><th>الدور</th><th>الحجم</th><th>الوزن</th><th>الارتفاع</th></tr></thead>
+        <tbody>
+          <tr><td>Display</td><td class="num">30</td><td class="num">900</td><td class="num">1.30</td></tr>
+          <tr><td>H1</td><td class="num">24</td><td class="num">900</td><td class="num">1.40</td></tr>
+          <tr><td>H2</td><td class="num">19</td><td class="num">900</td><td class="num">1.45</td></tr>
+          <tr><td>H3</td><td class="num">16</td><td class="num">800</td><td class="num">1.50</td></tr>
+          <tr><td>H4</td><td class="num">14</td><td class="num">800</td><td class="num">1.60</td></tr>
+          <tr><td>Body Large</td><td class="num">15</td><td class="num">600</td><td class="num">1.85</td></tr>
+          <tr><td>Body</td><td class="num">13.5</td><td class="num">600</td><td class="num">1.85</td></tr>
+          <tr><td>Body Small</td><td class="num">12.5</td><td class="num">600</td><td class="num">1.80</td></tr>
+          <tr><td>Caption</td><td class="num">11.5</td><td class="num">600</td><td class="num">1.70</td></tr>
+          <tr><td>Label</td><td class="num">11</td><td class="num">800</td><td>—</td></tr>
+          <tr><td>Button</td><td class="num">13.5</td><td class="num">800</td><td>—</td></tr>
+          <tr><td>Numeric / KPI</td><td class="num">26</td><td class="num">900</td><td class="num">1.15</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12.5px"><b>قاعدةُ العربية:</b> ارتفاعُ السطر هنا أعلى ممّا يُستعمل في الواجهات الإنجليزية — الحرفُ العربيُّ المتّصلُ يحتاج تنفّساً أكثر. ولا حروفَ كبيرةً في التسميات: العربيةُ لا تملكها، وفي اللاتينية تُقلّل المقروئية.</p>
+      <p style="font-size:12.5px"><b>الرقمُ ليس نصّاً:</b> كلُّ رقمٍ لاتينيُّ الاتجاه، بأعمدةٍ متساوية (<code>tabular-nums</code>)، معزولٌ عن انقلاب العربية. وفي المبالغ: الصحيحُ عريضٌ والكسرُ خافت.</p>
+    </div>
+  </div>
+
+  <div class="g g3">
+    <div class="card tight"><h3>المسافات</h3><p style="font-size:12.5px;margin:0">XS 4 · SM 8 · MD 12 · LG 16 · XL 24 · XXL 36.<br>كانت عشوائيّة: ٥ · ٧ · ٩ · ١٣ · ١٨ · ٢٣px في صفحاتٍ مختلفة.</p></div>
+    <div class="card tight"><h3>الحواف</h3><p style="font-size:12.5px;margin:0"><b>٢٢</b> للبطاقة · <b>١٤</b> للمربّع والصورة · <b>١٠</b> للزرّ والحقل والقائمة · <b>٢٦</b> للنافذة · <b>٩٩</b> للحبّة.<br>كانت من ٦ إلى ٢٢ بلا سلّم.</p></div>
+    <div class="card tight"><h3>الظلال</h3><p style="font-size:12.5px;margin:0">بلا · خفيف <code>0 1px 2px /.05</code> · عاديّ <b>طبقتان</b> يضاف إليه <code>0 10px 30px /.06</code> · مرتفع عند المرور · نافذة <code>0 30px 80px /.22</code>.</p></div>
+    <div class="card tight"><h3>الحدود</h3><p style="font-size:12.5px;margin:0">سُمكٌ واحد ١px · لونٌ شبهُ شفّاف <code>rgba(15,18,25,.08)</code> · المختارُ بحدِّ العلامة · <b>الحالةُ تتغيّر بالحدّ لا بالخلفيّة</b> كي لا يقفز الحقل.</p></div>
+    <div class="card tight"><h3>الأيقونات</h3><p style="font-size:12.5px;margin:0">مربّعٌ ٤٠px · حافّة ١٣ · سطحٌ أحمرُ ناعمٌ وأيقونةٌ حمراء · وصغيرٌ ٣٢ وكبيرٌ ٥٢.<br><span class="pill wn">يبقى</span> توحيدُ أسلوب الأيقونة نفسِها (رموزٌ تعبيريّةٌ مختلطةٌ اليوم).</p></div>
+    <div class="card tight"><h3>الحركة</h3><p style="font-size:12.5px;margin:0">١٢٠ms تأكيدُ لمسة · ١٨٠ms ظهورُ عنصر · ٢٤٠ms درجٌ وورقة · <code>cubic-bezier(.2,.7,.2,1)</code>.<br><b>الحركةُ تُجيب على فعلٍ أو تُخبر بتغيّر. وإلّا فلا حركة.</b></p></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٦ · أنماطُ التوزيع الخمسة</h2>
+  <p>«لا تستخدم Layout واحداً لكلّ شيء» — فخمسةُ أنماطٍ لأنّ سؤالَ المستخدم يختلف:</p>
+  <table>
+    <thead><tr><th>النمط</th><th>سؤالُ المستخدم</th><th>الترتيب</th></tr></thead>
+    <tbody>
+      <tr><td><b>لوحة</b></td><td>ما حالُ عملي الآن؟</td><td>ملخّص ⇠ مؤشّرات ⇠ رسوم ⇠ نشاط ⇠ تنبيهات</td></tr>
+      <tr><td><b>إدارة</b></td><td>أين السجلّ الذي أريده؟</td><td>ترويسة ⇠ فلاتر ⇠ أفعال ⇠ جدول ⇠ ترقيم</td></tr>
+      <tr><td><b>تفصيل</b></td><td>ما قصّةُ هذا السجلّ؟</td><td>ترويسة ⇠ ملخّص ⇠ معلومات ⇠ مرتبطات ⇠ سجلّ</td></tr>
+      <tr><td><b>نموذج</b></td><td>ماذا يجب أن أُدخل؟</td><td>سياق ⇠ أقسام ⇠ حقول ⇠ تحقّق ⇠ أفعال</td></tr>
+      <tr><td><b>بيع</b></td><td>أسرعُ طريقٍ للبيع؟</td><td>منتجات ⇠ تصنيفات ⇠ سلّة ⇠ عميل ⇠ دفع</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:12.5px"><b>وليس كلُّ شيءٍ بطاقة:</b> البطاقةُ لوحدةٍ مستقلّةٍ قابلةٍ للنقر · القسمُ لمجموعةٍ داخل الصفحة بلا حدود · اللوحةُ لمنطقةِ عملٍ ثابتة · والمسطّحُ لنصٍّ أو جدولٍ لا يحتاج حاويةً أصلاً. الهدف <b>تسلسلٌ لا كثرةُ صناديق</b>.</p>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٧ · الهاتف واللوح وسطح المكتب — ثلاثُ تجاربَ بهويّةٍ واحدة</h2>
+  <div class="g g3">
+    <div class="card tight"><h3>يبقى</h3><p style="font-size:12.5px;margin:0">الفعلُ الأساسيّ · الرقمُ الحاكم · البحث.</p></div>
+    <div class="card tight"><h3>يُختصر</h3><p style="font-size:12.5px;margin:0">الترويسةُ سطرٌ واحد · الفلاتر تُطوى في دُرج.</p></div>
+    <div class="card tight"><h3>يتحوّل</h3><p style="font-size:12.5px;margin:0">الجدولُ ⇠ بطاقات · الدرجُ ⇠ ورقةٌ سفليّة · التبويباتُ ⇠ تمريرٌ أفقيّ · النافذةُ ⇠ ورقةٌ من الأسفل.</p></div>
+    <div class="card tight"><h3>يختفي</h3><p style="font-size:12.5px;margin:0">الأعمدةُ الثانوية · التلميحاتُ (لا hover على اللمس) · الزخرفة.</p></div>
+    <div class="card tight"><h3>اللوحُ وحدَه</h3><p style="font-size:12.5px;margin:0">حقولٌ ٤٤px (الإصبعُ أكبر) · حاويةٌ ٩٢٠px · شريطُ تنقّلٍ لا يلتصق بالأسفل. <b>ليس هاتفاً ممدوداً ولا سطحَ مكتبٍ مضغوطاً.</b></p></div>
+    <div class="card tight"><h3>الطباعة</h3><p style="font-size:12.5px;margin:0">لا نوافذَ ولا أشرطةَ تنقّلٍ على الورق · لا ظلال · كتلةُ الإجمالي تحتفظ بلونها.</p></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٨ · إبقاء · تهذيب · إعادةُ تصميم · استبدال</h2>
+  <table>
+    <thead><tr><th>العنصر</th><th>القرار</th><th>السبب</th></tr></thead>
+    <tbody>
+      <tr><td>أحمرُ GMT <code>#D5001C</code></td><td><span class="pill ok">إبقاء</span></td><td>هو شخصيّةُ التطبيق. تغيّر <b>استعمالُه</b> لا هو.</td></tr>
+      <tr><td>بطاقةُ المعلومات ذاتُ العمودين</td><td><span class="pill ok">إبقاء وتعميم</span></td><td>أقوى نمطٍ عندك، وكان مستعملاً في مكانٍ واحد. ويؤكّده المرجع ٨.</td></tr>
+      <tr><td>الجدولُ ذو الترويسة الرماديّة</td><td><span class="pill">تهذيب</span></td><td>نمطُك ④؛ هُذّبت المسافاتُ وتباينُ الترويسة.</td></tr>
+      <tr><td>ترويسةُ الصفحة</td><td><span class="pill rd">إعادةُ تصميم</span></td><td>ثمانيةُ أنماطٍ لثماني صفحات ⇒ نمطٌ واحد.</td></tr>
+      <tr><td>أزرارُ أوضاع الجرد</td><td><span class="pill rd">إعادةُ تصميم</span></td><td>أزرارٌ شكلاً، وتبويباتٌ وظيفةً.</td></tr>
+      <tr><td>شاشةُ تحرير الفاتورة</td><td><span class="pill rd">إعادةُ تصميم</span></td><td>ستُّ عائلاتٍ لونيّةٍ في شاشةٍ واحدة.</td></tr>
+      <tr><td>شاشةُ دخول نقطة البيع</td><td><span class="pill rd">إعادةُ تصميم</span></td><td>تدرّجٌ كحليٌّ-أحمر لا ينتمي إلينا.</td></tr>
+      <tr><td>الكحليُّ <code>#1f348f</code> والأزرقُ الباهت</td><td><span class="pill wn">استبدال</span></td><td>هويّةٌ ثانيةٌ بلا قرار. ٤٥٢ تبديلاً.</td></tr>
+      <tr><td>الموفُ بكلّ درجاته</td><td><span class="pill wn">استبدال</span></td><td>بنصّ ملاحظتك: «شيل هذا اللون الموف».</td></tr>
+      <tr><td>الجولةُ التعليميّةُ التلقائيّة</td><td><span class="pill wn">استبدال</span></td><td>«نبدأ الشرح أو نتخطّى» — والجولةُ <b>لم تُحذف</b>، بقيت متاحةً دائماً.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>٩ · ما نُفِّذ فعلاً — بأرقامٍ قبل وبعد</h2>
+  <table>
+    <thead><tr><th>العمل</th><th>قبل</th><th>بعد</th><th>أين</th></tr></thead>
+    <tbody>
+      <tr><td>إزالةُ الهويّة الثانية</td><td class="num">470</td><td class="num">0</td><td>٩ ملفّات · ٤٥٢ تبديلاً مُصنَّفاً بالدور</td></tr>
+      <tr><td>ألوانُ شاشة تحرير الفاتورة</td><td class="num">6</td><td class="num">1</td><td><code>pos.html</code> — عائلةُ العلامة وحدها</td></tr>
+      <tr><td>أزرارُ التصدير</td><td>٤ ألوان</td><td>لونٌ واحد</td><td>الفرقُ في الأيقونة والنصّ</td></tr>
+      <tr><td>شريطُ أوضاع الجرد</td><td>٦ أزرارٍ بأنماطٍ داخليّة</td><td>شريطُ تبويبٍ واحد</td><td>والتفعيلُ في مكانٍ واحدٍ بدل مكانين</td></tr>
+      <tr><td>لوحةُ البداية</td><td>شبكةُ روابطَ فقط</td><td>تحيّة + ٤ مؤشّرات + الفرعُ الأكثر مبيعاً + وصولٌ سريع</td><td><code>gmt-home.js</code> جديد</td></tr>
+      <tr><td>الجولةُ التعليميّة</td><td>١٧ شاشةً بملء الشاشة تلقائياً</td><td>بطاقةُ إذنٍ واحدة</td><td>والجولةُ باقيةٌ في الخيارات</td></tr>
+      <tr><td>نظامُ المكوّنات</td><td>لا يوجد</td><td>٢١ قسماً · ٦٥ كيلوبايت</td><td><code>gmt-ui.css</code> على ٤٦ صفحة</td></tr>
+      <tr><td>انهيارُ الانترو عند إزالة طبقته</td><td>خطأٌ غيرُ ملتقَطٍ يقطع الإقلاع</td><td>يتوقّف بهدوء</td><td><code>gmt-intro.js</code></td></tr>
+    </tbody>
+  </table>
+  <div class="ban ok"><span>✅</span><span><b>الفحوص بعد كلّ هذا:</b> ٤٦ صفحةً بلا خطأ جافاسكربت · ٥٣ فحصَ ملاحظاتٍ ناجحة · لا نصَّ غيرَ مقروء · المكتباتُ الثقيلةُ ما زالت مؤجَّلة.</span></div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2>١٠ · ما لم يكتمل — بصراحة</h2>
+  <p>قلتَ: «لمّا بتهدف تقول لي أنا ما كمّلته». فهذا ما لم يكتمل:</p>
+  <ul>
+    <li><b>تطبيقُ نظام المكوّنات على كلّ صفحة.</b> النظامُ محمَّلٌ على ٤٦ صفحة ويلتقط الأنماطَ القائمة تلقائياً، لكنّ الكتابةَ الصريحة بأصنافه تمّت في: لوحة البداية · شاشة تحرير الفاتورة · شاشة الدخول · شريط أوضاع الجرد. الباقي يرتقي بالالتقاط لا بإعادة الكتابة.</li>
+    <li><b>صورةُ المنتج داخل صفّ الفاتورة.</b> المكوّن <code>.u-img</code> جاهزٌ بنسبةٍ ثابتة، ولم يُركَّب بعد في صفّ البنود — وهي ملاحظتُك «خصّص له مكان».</li>
+    <li><b>سطرُ المقارنة مع الأمس</b> تحت كلّ مؤشّر (مرجع ٩): البنيةُ جاهزةٌ والحسابُ يحتاج قراءةَ يومين.</li>
+    <li><b>تعميمُ تخفيت الكسور</b> على الفواتير والتقارير (نُفِّذ في لوحة البداية فقط).</li>
+    <li><b>توحيدُ أسلوب الأيقونات.</b> اليومَ رموزٌ تعبيريّةٌ مختلطةُ الأسلوب. التوحيدُ يحتاج طقمَ أيقوناتٍ واحداً — وهو قرارُك.</li>
+    <li><b>شريطُ التنقّل السفليّ</b> <code>.u-pillnav</code> معرَّفٌ ولم يُركَّب على الصفحات بعد.</li>
+    <li><b>فاتورةُ A4 الجديدة</b> (الصورة ٢٢): لم تُعَد بناءً على المرجع البصريّ بعد — وهي شغلٌ مستقلٌّ يحتاج ساعاتٍ وحده.</li>
+    <li><b>الأصولُ الناقصة</b> لا أستطيع اختراعها: شعارٌ عالي الدقّة للطباعة · <code>canonlogo.png</code> و<code>genrallogo.png</code> · صورُ الفروع · أيقونة «الشام كاش».</li>
+  </ul>
+
+  <h3>أسئلةٌ تنتظر جوابك</h3>
+  <div class="card tight">
+    <ul style="margin:0">
+      <li><b>فاتورةُ الشراء الزرقاء:</b> قلتَ سابقاً «عيّفها» لتمييزها عن فاتورة المبيع. والآن أزلتُ الكحليَّ من النظام كلِّه. <b>فحفظتُ التمييزَ ونقلتُه من لونٍ غريبٍ إلى معنى:</b> فاتورةُ المبيع بخطٍّ أحمرَ ورأسِ جدولٍ رماديّ، وفاتورةُ الشراء بشريطٍ رماديٍّ داكنٍ ووسمٍ صريح. <b>إن كنتَ تُفضّل بقاءَ الأزرق للشراء وحدها، قُل لي ويعود في سطرٍ واحد.</b></li>
+      <li><b>رقمُ خدمة العملاء</b> الرسميّ، و<b>الإيميل</b> الرسميّ، و<b>رابطُ الموقع</b> بعد النشر — لن أخترع أيّاً منها.</li>
+      <li><b>اسمُ المكتب الصينيّ:</b> قلتَ «حطّ اسماً صينيّاً من عندك». لم أفعل ولن أفعل: اسمُ مكتبٍ لشركتك ليس تفصيلاً تصميميّاً. أعطِني الاسمَ ويُكتب في شاشة الانترو فوراً بجانب <code>Shenzhen, China</code>.</li>
+      <li><b>طقمُ الأيقونات:</b> أُبقي الرموزَ التعبيريّة، أم أبني طقماً خطّيّاً موحّداً للنظام كلّه؟</li>
+    </ul>
+  </div>
+
+  <footer>
+    GMT — الهوية البصرية ٢٫٠ · التقرير التصميمي · ٤ تشرين الأول ٢٠٢٦<br>
+    مجموعة ميديا تيك التجارية — الوكيل الرسمي لمنتجات Canon في سوريا
+  </footer>
+</div>
+<!-- (2026-10-05 ش) وثيقة التصميم ٢٠–٢١: «لا أزرار عائمة في كل السيستم» — الحارس على كل صفحةٍ داخليّة -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

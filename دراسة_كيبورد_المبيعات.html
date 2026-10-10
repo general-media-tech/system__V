@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>كيبورد المبيعات — دراسة معمارية</title>
+<style>
+  :root{
+    --red:#D5001C; --ink:#111827; --mut:#5b6472; --line:#E9ECF1; --bg:#F7F8FA; --card:#FFFFFF;
+    --ok:#047857; --okbg:#ECFDF5; --warn:#B45309; --warnbg:#FFFBEB; --bad:#B91C1C; --badbg:#FEF2F2;
+    --code:#0F172A; --codefg:#E2E8F0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+      --okbg:#0C2B22; --warnbg:#2A2210; --badbg:#2B1214;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+    --okbg:#0C2B22; --warnbg:#2A2210; --badbg:#2B1214;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Cairo","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+       line-height:1.9;padding:22px 16px 60px}
+  .wrap{max-width:900px;margin:0 auto}
+  header{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px;margin-bottom:16px}
+  h1{font-size:21px;font-weight:900;color:var(--red);line-height:1.4}
+  header p{font-size:13px;color:var(--mut);font-weight:700;margin-top:6px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:14px}
+  h2{font-size:16.5px;font-weight:900;margin-bottom:10px;line-height:1.5}
+  h3{font-size:13.5px;font-weight:900;margin:15px 0 6px;color:var(--red)}
+  p,li,td{font-size:13.5px;font-weight:600}
+  ul,ol{padding-right:20px} li{margin-bottom:6px}
+  .ok{background:var(--okbg);border:1.5px solid #A7F3D0;border-radius:12px;padding:13px 16px;margin-bottom:14px}
+  .warn{background:var(--warnbg);border:1.5px solid #FDE68A;border-radius:12px;padding:13px 16px;margin-bottom:14px}
+  .bad{background:var(--badbg);border:1.5px solid #FCA5A5;border-radius:12px;padding:13px 16px;margin-bottom:14px}
+  .bad b{color:var(--bad)} .warn b{color:var(--warn)} .ok b{color:var(--ok)}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+  th{background:var(--ink);color:var(--bg);padding:9px 10px;font-weight:800;text-align:right;font-size:11.5px}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);font-weight:700;vertical-align:top}
+  code{font-family:ui-monospace,monospace;background:#ececec;border-radius:5px;padding:1px 6px;font-size:12px}
+  pre{background:var(--code);color:var(--codefg);border-radius:12px;padding:14px 16px;overflow-x:auto;
+      direction:ltr;text-align:left;font-size:12px;line-height:1.7;margin:8px 0}
+  pre code{background:none;padding:0;color:inherit}
+  .tag{display:inline-block;font-size:10px;font-weight:900;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .t-have{background:#D1FAE5;color:#065F46} .t-build{background:#FEF3C7;color:#92400E}
+  .t-risk{background:#FEE2E2;color:#991B1B} .t-later{background:#E5E7EB;color:#4B5563}
+  .flow{display:flex;flex-direction:column;gap:5px;margin:10px 0}
+  .flow div{background:rgba(127,127,127,.09);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800}
+  .flow .ar{text-align:center;font-size:15px;color:var(--red);background:none;padding:0}
+  footer{text-align:center;font-size:11.5px;color:var(--mut);font-weight:700;margin-top:22px}
+  @media(max-width:520px){body{padding:14px 14px 50px}h1{font-size:18px}table{font-size:11.5px}}
+</style>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>⌨️ كيبورد المبيعات — دراسة معمارية وما يلزمنا</h1>
+  <p>قراءة المواصفات مقابل ما نملكه فعلاً · 2026-09-26</p>
+</header>
+
+<div class="ok">
+  <b>الخلاصة أوّلاً:</b> الفكرة ممتازة وقابلة للتنفيذ، و<b>القلب الذي تحتاجه موجود عندنا اليوم</b>
+  ويعمل ومُختبَر. لكن في المواصفات <b>ثلاث نقاط ستصطدم بالواقع</b> إن لم نقرّرها من البداية،
+  وواحدة منها قد توقف المشروع كلّه. اقرأها في «⚠️ ثلاث مصادمات» قبل أي شيء.
+</div>
+
+<div class="box">
+  <h2>① ما نملكه فعلاً — لا يُبنى من جديد</h2>
+  <p>الميزتان اللتان وصفتهما كقلب الكيبورد بُنيتا اليوم وتعملان:</p>
+  <table>
+    <thead><tr><th>ما طلبته في المواصفات</th><th>الحالة</th><th>أين</th></tr></thead>
+    <tbody>
+      <tr><td>«أكتب حماة فيعرض المكاتب… الأولوية للمفتي إلا إذا ذكرت شركة أخرى»</td>
+          <td><span class="tag t-have">جاهز</span></td><td><code>gmt-shipping-offices.js</code> — 166 مكتباً · 5 شركات · <code>resolve()</code></td></tr>
+      <tr><td>«أكتب راس إضاءة فيعرض أسماء منتجاتنا وأنا أختار»</td>
+          <td><span class="tag t-have">جاهز</span></td><td><code>gmt-suggest.js</code> — <code>suggest()</code> مع معجم نقحرة</td></tr>
+      <tr><td>«r6ii · R6 2 · canon r6 mark 2 · r6 mark ii كلها تقود للمنتج نفسه»</td>
+          <td><span class="tag t-have">جاهز</span></td><td>مُختبَر — الأربعة تعطي النتيجة نفسها</td></tr>
+      <tr><td>بحث عربي/إنجليزي متسامح مع الأخطاء</td>
+          <td><span class="tag t-have">جاهز</span></td><td>«كانون R6 مارك 2» ⇒ «Canon EOS R6 Mark II»</td></tr>
+      <tr><td>قاعدة بيانات مركزية (منتجات · أسعار · مخزون · صور · SKU)</td>
+          <td><span class="tag t-have">جاهز</span></td><td>Supabase · جدول <code>products</code></td></tr>
+      <tr><td>نظام الطلبات (إنشاء · حالات · تتبّع · تأكيد للعميل)</td>
+          <td><span class="tag t-have">جاهز</span></td><td><code>gmt_orders</code> + كليشات التبليغ الثلاث</td></tr>
+      <tr><td>🧠 عقل النظام</td><td><span class="tag t-have">جاهز</span></td><td><code>gmt-brain.js</code> + وسيط Edge Function</td></tr>
+      <tr><td>الردود الجاهزة بمتغيّرات <code>{PRODUCT_NAME}</code></td>
+          <td><span class="tag t-build">يُبنى</span></td><td>بسيط — قوالب فوق الكتالوج الموجود</td></tr>
+      <tr><td>صلاحيات الموظفين</td><td><span class="tag t-build">جزئي</span></td><td>موجود في النظام، يحتاج توحيداً</td></tr>
+    </tbody>
+  </table>
+  <div class="ok" style="margin-top:12px">
+    <b>ما فعلته اليوم عملياً:</b> استخرجت محرّك الاقتراح إلى <code>gmt-suggest.js</code> — ملفّ مستقلّ
+    <b>بلا DOM ولا شبكة ولا Supabase</b>، دوالّ نقيّة تقبل الكتالوج كوسيط. يعمل كما هو داخل
+    صفحة ويب أو WebView أو Node أو أي غلاف مستقبلي. الأوردرات تستعمله الآن، والكيبورد سيستعمل
+    <b>الملفّ نفسه</b> — فلا يتباعد سلوك الموظّف بين الأدوات.
+  </div>
+</div>
+
+<div class="box">
+  <h2>⚠️ ثلاث مصادمات — قرّرها قبل أن نبدأ</h2>
+
+  <div class="warn">
+    <b>① الأساس الذي نبني فوقه — اعتراضي كان على الرخصة، وقد أزلتَه.</b>
+    قلتَ إن التطبيق داخلي ولن يُنشر ولن يُشارَك، وهذا يُسقط الجانب القانوني فعلاً.<br><br>
+    <b>لكن يبقى سبب تقني قائم:</b> APK مغلق لا تملك مصدره يعني أنك تعدّل <b>كوداً مترجَماً</b>
+    (smali) — كل تعديل يدوي هشّ، وأي تحديث من صاحب التطبيق يضيع عملك، ولا تستطيع
+    تصحيح عطل في عمق الكيبورد نفسه.<br><br>
+    <b>اقتراحي عملي لا قانوني:</b> ابنِ فوق كيبورد <b>مفتوح المصدر</b>
+    (<code>OpenBoard</code> · <code>FlorisBoard</code> · <code>AOSP LatinIME</code>) —
+    يعطيك من اليوم الأوّل كل ما عدّدته (عربي/إنجليزي · تبديل لغات · اقتراح وتصحيح ·
+    رموز · إيموجي · حافظة · تغيير حجم · يد واحدة)، <b>ومصدره بين يديك</b> فتعدّل الخلفية
+    والشعار والسلوك بحرّية كاملة وتبني APK جديداً متى شئت.
+    <b>الجهد نفسه تقريباً، والنتيجة قابلة للصيانة.</b>
+    وإن أصررتَ على APK جاهز فالأمر ممكن — لكن اعرف أنك تشتري سرعة اليوم بثمن كل تعديل لاحق.
+  </div>
+
+  <div class="bad">
+    <b>② إرسال الصور من داخل الكيبورد — محدود تقنياً، وليس قرارنا.</b>
+    كيبورد أندرويد لا «يُرسل» صوراً. كل ما يملكه هو
+    <code>InputConnection.commitContent</code> — يعرض الصورة على التطبيق، <b>والتطبيق هو من يقبل
+    أو يرفض</b>. واتساب وتيليجرام يقبلان الصور عادةً، وتطبيقات أخرى ترفض أو تقبل الملصقات فقط.
+    وحقل بحث داخل تطبيق لا يقبل شيئاً.<br><br>
+    <b>الواقعي:</b> نحاول <code>commitContent</code> أوّلاً؛ وإن رُفض نسقط تلقائياً إلى
+    «حُفظت الصورة في المعرض + النصّ في الحافظة» — وهو <b>بالضبط الحلّ الذي اعتمدناه في
+    تبليغ الأوردرات ونجح</b>. لا نَعِد الموظّف بما لا يضمنه النظام.
+  </div>
+
+  <div class="bad">
+    <b>③ مفتاح Supabase داخل APK = مكشوف للجميع.</b>
+    أي شخص يستخرج ملفات الـAPK في دقيقتين ويقرأ المفتاح. ومفتاح <code>anon</code> عندنا اليوم
+    يقرأ ويكتب في جداول حقيقية. تطبيق داخلي على أجهزة الموظفين لا يغيّر هذا:
+    جهاز واحد يُفقد أو يُباع = بياناتك كلها بيد غريب.<br><br>
+    <b>اللازم:</b> تسجيل دخول للموظّف (Supabase Auth) + <b>RLS</b> على كل جدول يلمسه التطبيق +
+    صلاحيات بالدور. المفتاح وحده لا يكفي. <b>هذا شرط إطلاق، لا تحسين لاحق.</b>
+  </div>
+</div>
+
+<div class="box">
+  <h2>🫧 الفقاعة العائمة — دراسة (طلبك الجديد)</h2>
+  <p>«ممكن نعمل فقاعة فوق التطبيقات ومنها عقل النظام، ونسحب الصور إلى محادثة مثل
+     الإنستقرام أو الواتساب».</p>
+
+  <div class="ok">
+    <b>الخلاصة: الفقاعة أسهل من الكيبورد وأقوى منه في الصور — وأنصح بها قبله.</b>
+  </div>
+
+  <h3>لماذا هي أفضل من الكيبورد في هذه النقطة تحديداً</h3>
+  <table>
+    <thead><tr><th>القدرة</th><th>الكيبورد</th><th>الفقاعة</th></tr></thead>
+    <tbody>
+      <tr><td>إرسال صورة للمحادثة</td>
+          <td>عبر <code>commitContent</code> — <b>والتطبيق قد يرفض</b></td>
+          <td><b>عبر مشاركة النظام</b> — يقبلها واتساب وإنستقرام وتيليجرام ✅</td></tr>
+      <tr><td>عدّة صور دفعة واحدة</td><td>نادراً ما يُدعم</td><td>مدعوم ✅</td></tr>
+      <tr><td>مساحة العرض</td><td>ارتفاع الكيبورد فقط</td><td>نصف الشاشة أو أكثر ✅</td></tr>
+      <tr><td>عقل النظام بجواب طويل</td><td>ضيّق جداً</td><td>مريح ✅</td></tr>
+      <tr><td>لصق نصّ في حقل الكتابة</td><td>مباشر ✅</td><td>عبر الحافظة (لصقة واحدة)</td></tr>
+      <tr><td>كلفة البناء</td><td>عالية (IME كامل)</td><td><b>أقلّ بكثير</b> ✅</td></tr>
+    </tbody>
+  </table>
+
+  <h3>ما تحتاجه تقنياً</h3>
+  <ul>
+    <li><b>صلاحية «العرض فوق التطبيقات»</b> — يمنحها الموظّف مرّة من الإعدادات.</li>
+    <li><b>خدمة تعمل في الخلفية</b> مع إشعار دائم (يفرضه أندرويد).</li>
+    <li><b>مشاركة الصور</b> عبر <code>FileProvider</code> — وهي الطريقة التي يقبلها كل تطبيق.</li>
+  </ul>
+
+  <div class="warn">
+    <b>القيد الوحيد الجوهري:</b> الفقاعة <b>لا تقرأ محتوى المحادثة</b>. فميزة «🧠 حلّل
+    المحادثة» التي وصفتها تحتاج <b>خدمة إتاحة (Accessibility Service)</b> — وهي صلاحية
+    واسعة جداً تقرأ كل ما على الشاشة في كل التطبيقات.<br>
+    <b>رأيي:</b> لا تفعّلها في المرحلة الأولى. اجعل الموظّف <b>ينسخ رسالة الزبون ويضغط
+    الفقاعة</b> — يحلّلها العقل من الحافظة. نتيجة مطابقة تقريباً، بلا صلاحية خطيرة على
+    أجهزة فيها محادثات زبائن.
+  </div>
+
+  <h3>التسلسل الذي أنصح به</h3>
+  <ol>
+    <li><b>الفقاعة أوّلاً</b> — بحث · صور · أسعار · مكاتب · ردود · عقل النظام. تغطّي
+        أغلب ما وصفته بكلفة أقلّ وبإرسال صور يعمل فعلاً.</li>
+    <li><b>الكيبورد بعدها</b> — لِما تتفوّق فيه: لصق النصّ مباشرة والاختصارات
+        (<code>/r6</code> · <code>/price</code>) بلا مغادرة حقل الكتابة.</li>
+    <li>الاثنان يتشاركان <b>النواة نفسها</b> — فبناء الثاني بعد الأوّل رخيص.</li>
+  </ol>
+</div>
+
+<div class="box">
+  <h2>② المعمارية المقترحة — تطابق ما وصفته</h2>
+  <p>قلتَ: «لا أريد بيانات منفصلة داخل الكيبورد» و«أي تغيير من لوحة التحكم يصل للكيبورد».
+     هذا يتحقّق بطبقة واحدة مشتركة:</p>
+  <div class="flow">
+    <div>🗄️ <b>Supabase</b> — مصدر الحقيقة الوحيد (منتجات · أوردرات · مكاتب · عملاء)</div>
+    <div class="ar">↕</div>
+    <div>🧠 <b>نواة GMT المشتركة</b> — <code>gmt-suggest.js</code> · <code>gmt-shipping-offices.js</code> · <code>gmt-brain.js</code><br>
+         <span style="font-weight:600;font-size:11.5px">دوالّ نقيّة بلا DOM — تعمل في الويب والكيبورد وويندوز بلا تعديل</span></div>
+    <div class="ar">↕</div>
+    <div>🖥️ نظام الويب الحالي &nbsp;·&nbsp; ⌨️ الكيبورد &nbsp;·&nbsp; 🪟 تطبيق ويندوز &nbsp;·&nbsp; 📱 تطبيق أندرويد</div>
+  </div>
+  <p style="margin-top:10px"><b>النتيجة:</b> تغيّر سعر في الجرد ⇒ يظهر في الكيبورد تلقائياً.
+     تُضيف مكتب شحن ⇒ يظهر في الأوردرات والكيبورد وصفحة التتبّع معاً. بلا نسخ ولا مزامنة يدوية.</p>
+
+  <h3>الأوفلاين — كما طلبت</h3>
+  <p>«البيانات الأوفلاين مخزّنة على الجهاز داخل التطبيق، فيها فقط مزامنة سحابية مع Supabase»:</p>
+  <table>
+    <thead><tr><th>البيانات</th><th>التخزين</th><th>المزامنة</th></tr></thead>
+    <tbody>
+      <tr><td>الكتالوج · المكاتب · الردود · جهات الاتصال</td><td>قاعدة محلية على الجهاز</td><td>سحب كل بضع ساعات + عند الفتح</td></tr>
+      <tr><td>صور المنتجات</td><td>مخبأ ملفات محلي</td><td>عند الطلب أوّل مرّة ثم تبقى</td></tr>
+      <tr><td>الأوردرات الجديدة بلا إنترنت</td><td>طابور محلي</td><td>ترفع تلقائياً عند عودة الشبكة</td></tr>
+    </tbody>
+  </table>
+  <div class="warn" style="margin-top:10px">
+    <b>درس من نظامنا:</b> عندنا <code>gmt-sync.js</code> (طابور كتابة أوفلاين) و<code>gmt-image-guard.js</code>
+    (مخبأ صور منع استهلاك 13 غيغا egress). <b>لا تُبنَ هذه من جديد</b> — منطقها مجرَّب على بيانات حقيقية،
+    ويُنقل كما هو.
+  </div>
+</div>
+
+<div class="box">
+  <h2>③ ما ينقصنا فعلاً — بترتيب الأهمية</h2>
+  <table>
+    <thead><tr><th>#</th><th>الناقص</th><th>لماذا هو حاسم</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>طبقة مصادقة وصلاحيات</b> (Auth + RLS)</td>
+          <td>بدونها التطبيق يكشف بيانات الشركة. <b>شرط إطلاق.</b></td></tr>
+      <tr><td>2</td><td><b>نظافة بيانات المنتجات</b></td>
+          <td>الاقتراح لا يصلح إلا بقدر الأسماء. أسماء ناقصة أو متضاربة ⇒ كيبورد يقترح غلطاً.
+              <b>وهذا شيء يبدأ اليوم بلا انتظار المشروع.</b></td></tr>
+      <tr><td>3</td><td><b>واجهة API موحَّدة</b> فوق Supabase</td>
+          <td>اليوم كل صفحة تكتب استعلاماتها. أربعة عملاء بأربع طرق = أربع سلوكيات.</td></tr>
+      <tr><td>4</td><td><b>سجلّ عملاء موحَّد</b></td>
+          <td>طلبتَ Customer Profile. بياناتنا اليوم موزّعة على الأوردرات والفواتير.</td></tr>
+      <tr><td>5</td><td>الردود الجاهزة + الملصقات</td>
+          <td>سهل — لكن لا وجود له اليوم إطلاقاً.</td></tr>
+      <tr><td>6</td><td>التحليلات (أكثر المنتجات بحثاً…)</td>
+          <td>يحتاج تسجيل أحداث من البداية — <b>يُضاف الآن أو يُفقد تاريخه.</b></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="box">
+  <h2>④ اقتراحي: ابدأ بالأقلّ كلفةً وأعلى أثراً</h2>
+
+  <h3>خطوة ٠ — قبل أي كود (تبدأ اليوم)</h3>
+  <p>نظّف أسماء المنتجات وأوصافها في الجرد. <b>هذه وحدها ترفع جودة الكيبورد أكثر من أي تحسين برمجي</b>،
+     وتفيد المتجر وعقل النظام فوراً حتى لو تأجّل الكيبورد.</p>
+
+  <h3>خطوة ١ — «كيبورد» بلا كيبورد (أسبوع تقريباً)</h3>
+  <p>صفحة ويب واحدة بحجم الشاشة: بحث منتجات · صور · أسعار · مكاتب · ردود جاهزة · زرّ نسخ لكل شيء.
+     يفتحها الموظّف بجانب واتساب ويستعمل النسخ واللصق.</p>
+  <ul>
+    <li><b>تُبنى على ما نملكه اليوم</b> — لا تحتاج أندرويد ولا APK ولا مصادقة جديدة.</li>
+    <li>تكشف خلال أيام: هل التدفّق منطقي؟ ما الذي يبحث عنه الموظّف فعلاً؟ ما الردود المتكرّرة؟</li>
+    <li>كل ما تتعلّمه منها يدخل في الكيبورد بدل أن نكتشفه بعد بنائه.</li>
+  </ul>
+
+  <h3>خطوة ٢ — الكيبورد الحقيقي</h3>
+  <p>فوق كيبورد مفتوح المصدر، بشريط أدوات GMT، وبالنواة المشتركة نفسها. وهوية الشركة في الخلفية
+     كما وصفتها (شعار بشفافية مدروسة لا يؤثّر على وضوح الحروف).</p>
+
+  <h3>خطوة ٣ — ويندوز والأندرويد</h3>
+  <p>بالنواة نفسها. لا إعادة بناء.</p>
+
+  <div class="warn" style="margin-top:14px">
+    <b>لماذا أقترح خطوة ١ بإصرار؟</b> لأن الكيبورد استثمار كبير، وأخطر ما فيه أن نبنيه على
+    <b>افتراضات عن طريقة عمل الموظّف</b>. صفحة بسيطة تُجرَّب أسبوعاً تحوّل الافتراضات إلى حقائق —
+    وتبقى نافعة حتى لو قرّرت عدم بناء الكيبورد أصلاً. <b>لا شيء يُرمى.</b>
+  </div>
+</div>
+
+<div class="box">
+  <h2>⑤ ما أحتاجه منك للمتابعة</h2>
+  <ol>
+    <li><b>هل نبدأ بخطوة ١ (صفحة المبيعات السريعة)؟</b> أستطيع بناءها بما نملكه الآن.</li>
+    <li><b>الفقاعة أم الكيبورد أوّلاً؟</b> أنصح بالفقاعة — أرخص، وإرسال الصور فيها يعمل فعلاً.</li>
+    <li><b>الأساس:</b> كيبورد مفتوح المصدر (مصدره بين يديك) أم تعديل APK جاهز؟</li>
+    <li><b>خدمة الإتاحة</b> لقراءة المحادثة: أؤجّلها وأكتفي بالحافظة — توافق؟</li>
+    <li><b>إرسال الصور:</b> تقبل السلوك الواقعي (محاولة إدراج مباشر، وإلا حفظ في المعرض + نسخ النص)؟</li>
+    <li><b>المصادقة:</b> حساب لكل موظّف (اسم + كلمة سر) — أم جهاز مُصرَّح بلا حسابات؟ الأوّل أأمن بكثير.</li>
+    <li><b>من يكتب أسماء المنتجات؟</b> أحتاج شخصاً مسؤولاً عن نظافة الكتالوج.</li>
+  </ol>
+</div>
+
+<div class="ok">
+  <b>ملاحظة صادقة:</b> المواصفات التي كتبتَها ممتازة ومفصّلة، وأغلب ما فيها منطقيّ وقابل للتنفيذ.
+  لم أعترض إلا على ثلاث نقاط — وكلّها لأسباب تقنية أو قانونية ستظهر لاحقاً بأي حال،
+  وظهورها الآن أرخص بكثير من ظهورها بعد شهرين من العمل.
+</div>
+
+<footer>General Media Tech · Canon Authorized Dealer · Camera Solutions · وثيقة داخلية</footer>
+</div>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+</body>
+</html>

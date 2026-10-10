@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
+   بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
+window.GMT_PUBLIC = 1;</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GMT | تتبع الشحنة</title>
+    
+    <link rel="icon" type="image/jpeg" href="logo.jpg">
+    <meta name="theme-color" content="#111111">
+
+    <link rel="stylesheet" href="lib/tailwind.css?v=20261007z5">
+    <script src="lib/lucide.min.js?v=20261003"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+        
+        :root {
+            --gmt-red: #D5001C;
+            --gmt-dark: #111111;
+            --gmt-black: #000000;
+            --gmt-gradient: linear-gradient(135deg, #D5001C 0%, #8B0012 100%);
+        }
+
+        body { 
+            font-family: 'Cairo', sans-serif; 
+            background-color: #f8fafc;
+            color: var(--gmt-dark);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bg-gmt-gradient { background: var(--gmt-gradient); }
+        
+        .step-active .icon-box { 
+            background: var(--gmt-gradient); 
+            color: white; 
+            border-color: transparent; 
+            box-shadow: 0 10px 20px rgba(213, 0, 28, 0.3); 
+            transform: scale(1.15);
+        }
+        .step-active .step-title { color: var(--gmt-red); font-weight: 800; }
+        
+        .step-passed .icon-box { 
+            background-color: var(--gmt-dark); 
+            color: white; 
+            border-color: var(--gmt-dark); 
+        }
+        .step-passed .step-title { color: var(--gmt-dark); opacity: 0.8; }
+        
+        .connector { width: 3px; border-radius: 50px; }
+        .connector-passed { background: var(--gmt-dark) !important; }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(213, 0, 28, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(213, 0, 28, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(213, 0, 28, 0); }
+        }
+        .pulse { animation: pulse-red 2s infinite; }
+
+        @keyframes slideRtl {
+            0% { right: -50%; }
+            100% { right: 100%; }
+        }
+
+        /* تأثير التلاشي الناعم لشاشة الترحيب */
+        .fade-out-screen {
+            opacity: 0 !important;
+            visibility: hidden;
+            transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
+        }
+
+        #l1-text2 {
+            white-space: nowrap;
+            font-size: clamp(0.7rem, 3.8vw, 1.1rem);
+            max-width: 95vw;
+        }
+
+        /* --- تأثيرات الشاحنة والطريق --- */
+        .road-wrapper {
+            position: absolute;
+            bottom: 5px;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: #444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .road-line {
+            position: absolute;
+            top: 2px;
+            left: -100px;
+            width: 200%;
+            height: 2px;
+            background: repeating-linear-gradient(to right, transparent, transparent 15px, #fff 15px, #fff 30px);
+            animation: roadMove 0.6s linear infinite;
+        }
+        .truck-img {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 250px;
+            margin: 0 auto;
+            margin-bottom: 8px;
+            animation: truckMove 2.5s ease-in-out infinite;
+        }
+        .smoke-container {
+            position: absolute;
+            bottom: 25px;
+            right: 15%;
+            z-index: 5;
+        }
+        .smoke {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #d1d5db;
+            border-radius: 50%;
+            filter: blur(4px);
+            opacity: 0;
+        }
+        .smoke-1 { animation: smokeFlow 1.5s infinite; }
+        .smoke-2 { animation: smokeFlow 1.5s 0.5s infinite; }
+        .smoke-3 { animation: smokeFlow 1.5s 1s infinite; }
+
+        @keyframes roadMove {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(30px); }
+        }
+        @keyframes truckMove {
+            0%, 100% { transform: translateX(0) translateY(0); }
+            50% { transform: translateX(-5px) translateY(-2px); }
+        }
+        @keyframes smokeFlow {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+            100% { transform: translate(45px, -20px) scale(2.5); opacity: 0; }
+        }
+
+        /* --- التأثيرات الجديدة للظهور والاختفاء اللطيف --- */
+        @keyframes smoothAppear {
+            0% { opacity: 0; transform: translateY(15px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes smoothDisappear {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-15px) scale(0.98); }
+        }
+        .smooth-appear {
+            animation: smoothAppear 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .smooth-disappear {
+            animation: smoothDisappear 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+    </style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة -->
+  <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 pb-12">
+  <script src="gmt-image-guard.js?v=20261007y"></script>
+  <script src="gmt-config.js?v=20261003"></script>
+  <script src="gmt-brand.js?v=20261003"></script>
+  <script src="gmt-updater.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+<script src="gmt-endpoint.js?v=20261010b"></script>
+<script src="gmt-shipping-offices.js?v=20261003"></script>
+  <script src="gmt-staff.js?v=20261010b"></script>
+
+
+    <!-- المرحلة 1: شاشة الترحيب -->
+    <div id="layer1" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center px-4 text-center">
+        <div id="l1-logo" class="w-full max-w-[320px] relative h-40 opacity-0 transition-opacity duration-[800ms] flex items-end justify-center">
+            <div class="smoke-container">
+                <div class="smoke smoke-1"></div>
+                <div class="smoke smoke-2"></div>
+                <div class="smoke smoke-3"></div>
+            </div>
+            <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود، فيفشل الطلب
+                 على كل فتحة لصفحة الزبون، ويرمي onerror خطأ outerHTML.
+                 البديل المقصود كان الإيموجي — فنستعمله مباشرةً. -->
+            <!-- (2026-10-04 م) بلاغك وصورة ١٣: «فيه هذا الشعار المتحرك تبع الشاحنة… مو موجود في رابط التتبّع الأساسي».
+                 السبب: صورة الشاحنة truck.png لم تكن في المشروع فاستُبدلت يوماً بالرمز 🚚. أُعيد رسمُها حرفياً كما في
+                 صورتك: صندوقٌ أبيض بشعارنا، كابينةٌ بنافذةٍ زرقاء، وحدةُ تبريد، عجلتان، وطريقٌ متقطّع — بلا ملفٍّ خارجيّ. -->
+            <svg class="truck-img" role="img" aria-label="شاحنة ميديا تيك" viewBox="0 0 300 120" style="width:240px;height:auto;display:block">
+              <rect x="112" y="18" width="178" height="80" fill="#fff" stroke="#111" stroke-width="2"/>
+              <image href="logo.jpg" x="162" y="24" width="78" height="68" preserveAspectRatio="xMidYMid meet"/>
+              <rect x="96" y="22" width="20" height="14" rx="2" fill="#f3f4f6" stroke="#111" stroke-width="1.6"/>
+              <path d="M96 25h20M96 29h20M96 33h20" stroke="#9ca3af" stroke-width="1"/>
+              <path d="M112 98V40H76c-5 0-8 3-10 8l-8 26v24z" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M104 46H78l-7 22h33z" fill="#5aaee8" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M90 50l-5 9h5l-3 7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="54" y="86" width="10" height="10" rx="2" fill="#e5e7eb" stroke="#111" stroke-width="1.6"/>
+              <rect x="60" y="96" width="232" height="8" fill="#222"/>
+              <circle cx="88" cy="104" r="12" fill="#111"/><circle cx="88" cy="104" r="5" fill="#cbd5e1"/>
+              <circle cx="252" cy="104" r="12" fill="#111"/><circle cx="252" cy="104" r="5" fill="#cbd5e1"/>
+              <rect x="0" y="114" width="300" height="5" rx="2" fill="#2b2b2b"/>
+              <path d="M8 116.5h16M40 116.5h16M72 116.5h16M104 116.5h16M136 116.5h16M168 116.5h16M200 116.5h16M232 116.5h16M264 116.5h16" stroke="#fff" stroke-width="1.6"/>
+            </svg>
+            <div class="road-wrapper">
+                <div class="road-line"></div>
+            </div>
+        </div>
+        <h2 id="l1-text1" class="text-2xl font-black mt-6 text-black opacity-0 transition-opacity duration-[800ms]">أهلاً بكم</h2>
+        <p id="l1-text2" class="font-bold mt-4 text-black opacity-0 transition-opacity duration-[800ms] overflow-hidden">
+            شكراً لثقتكم – شركة General Media Tech
+        </p>
+    </div>
+
+    <!-- الترويسة الأساسية -->
+    <header class="w-full max-w-md bg-[#000000] rounded-[2rem] p-6 shadow-xl shadow-gray-400/40 mb-6 text-center mt-4 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-[#D5001C]/20 rounded-full -ml-12 -mb-12"></div>
+        
+        <div class="bg-white inline-flex p-2.5 rounded-[1.2rem] mb-4 relative z-10 shadow-lg">
+            <img src="logo.jpg" alt="GMT Logo" class="h-14 w-auto mx-auto rounded-lg object-contain" onerror="this.onerror=null;this.src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 56'%3E%3Crect width='120' height='56' rx='8' fill='%23D5001C'/%3E%3Ctext x='60' y='37' font-family='Arial,Helvetica,sans-serif' font-size='26' font-weight='bold' fill='%23fff' text-anchor='middle'%3EGMT%3C/text%3E%3C/svg%3E"">
+        </div>
+        
+        <h1 class="text-2xl font-black text-white relative z-10 tracking-tight text-center">نظام التتبع الذكي</h1>
+        <div class="h-1 w-12 bg-[#D5001C] mx-auto mt-3 mb-3 rounded-full relative z-10"></div>
+        <h3 class="text-sm font-bold text-gray-300 relative z-10">تتبع شحنتك على مدار اللحظة</h3>
+    </header>
+
+    <!-- صندوق البحث -->
+    <div class="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-xl shadow-gray-200/50 border border-white relative">
+        <label class="block text-[10px] font-black text-gray-400 mb-2 px-1 uppercase tracking-widest text-center">أدخل رقم الشحنة أو الجوال</label>
+        <div class="flex gap-2">
+            <input type="text" id="searchInput" placeholder="مثال: 100234..." class="flex-1 bg-gray-50 p-4 rounded-2xl text-sm font-bold border border-gray-100 text-center text-gray-800 transition-all focus:bg-white focus:ring-4 focus:ring-red-50">
+            <button onclick="searchOrder()" id="searchBtn" class="bg-gmt-gradient text-white w-16 rounded-2xl flex items-center justify-center hover:shadow-lg hover:shadow-red-500/30 active:scale-95 transition-all shrink-0">
+                <i data-lucide="search" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <p id="errorMsg" class="text-xs font-bold text-[#D5001C] mt-4 text-center hidden flex items-center justify-center gap-1">
+            <i data-lucide="alert-circle" class="w-4 h-4"></i> الرقم المدخل غير صحيح!
+        </p>
+    </div>
+
+    <!-- شريط التحميل المبدئي -->
+    <div id="loader" class="hidden my-12">
+        <div class="w-10 h-10 border-[5px] border-[#D5001C] border-t-transparent rounded-full animate-spin mx-auto"></div>
+    </div>
+
+    <!-- المرحلة 2: شاشة التحقق مع الشاحنة -->
+    <div id="layer2" class="hidden w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 border border-white mt-8 flex-col items-center justify-center">
+        <h2 id="l2-name" class="text-2xl font-black text-gray-800 text-center"></h2>
+        <p class="text-sm font-bold text-gray-500 mt-2 text-center">جارٍ تتبع شحنتكم...</p>
+        
+        <div class="w-full max-w-[150px] relative h-24 mt-6 flex items-end justify-center">
+            <div class="smoke-container" style="bottom: 12px; right: 10%; transform: scale(0.6); transform-origin: bottom right;">
+                <div class="smoke smoke-1"></div>
+                <div class="smoke smoke-2"></div>
+                <div class="smoke smoke-3"></div>
+            </div>
+            <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود، فيفشل الطلب
+                 على كل فتحة لصفحة الزبون، ويرمي onerror خطأ outerHTML.
+                 البديل المقصود كان الإيموجي — فنستعمله مباشرةً. -->
+            <span class="truck-img" role="img" aria-label="شحن" style="max-width: 110px; margin-bottom: 5px;" style="display:inline-flex;align-items:center;justify-content:center;font-size:42px;line-height:1">🚚</span>
+            <div class="road-wrapper" style="bottom: 0;">
+                <div class="road-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بطاقة النتائج -->
+    <div id="resultCard" class="hidden w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-gray-300/50 border border-white mt-8 relative overflow-hidden">
+        <div class="absolute -top-10 -left-10 w-40 h-40 bg-gray-50 rounded-full opacity-50"></div>
+        <div class="relative z-10 mb-10">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">اسم المستلم</span>
+                    <h3 id="res-name" class="font-black text-xl text-gray-800"></h3>
+                </div>
+                <div class="text-left bg-red-50 px-4 py-2 rounded-2xl border border-red-100">
+                    <span class="text-[10px] font-black text-[#D5001C] uppercase block">المبلغ الإجمالي</span>
+                    <span id="res-price" class="text-xl font-black text-[#D5001C]"></span>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                    <span class="text-[9px] font-black text-gray-400 block mb-1">📦 المنتج المطلوب</span>
+                    <p id="res-product" class="text-xs font-black text-gray-700 leading-tight"></p>
+                </div>
+                <div class="bg-gray-50/80 rounded-2xl p-4 border border-gray-100">
+                    <span class="text-[9px] font-black text-gray-400 block mb-1">🔖 رقم التتبع</span>
+                    <p id="res-tracking" class="text-xs font-black text-gray-700"></p>
+                </div>
+            </div>
+            <!-- (2026-08-26) لوحة الشحن: تظهر بعد «تم الشحن» — الشركة · الوجهة · مؤقّت الوصول · الإيصال -->
+            <div id="res-ship" class="hidden mt-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div><span class="text-[9px] font-black text-emerald-700 block mb-1">🚚 شركة الشحن</span>
+                         <p id="res-company" class="text-xs font-black text-gray-800">—</p></div>
+                    <div><span class="text-[9px] font-black text-emerald-700 block mb-1">📍 وجهة الشحنة</span>
+                         <p id="res-dest" class="text-xs font-black text-gray-800">—</p></div>
+                </div>
+                <!-- ══ طلبك ١٠٠ (2026-10-03): «تواصل مع فرع الاستلام ⇒ واتساب
+                     برسالةٍ فيها اسم المستلم ورقم التتبّع».
+                     لماذا يهمّ: الزبون يصل إلى مكتب الشحن ولا يعرف ماذا يقول،
+                     وموظّفُ المكتب يحتاج الاسم والرقم ليجد الشحنة. فالرسالة
+                     الجاهزة تحمل الاثنين — فلا مكالمةٌ ضائعة ولا شحنةٌ لا تُوجَد.
+                     ⚠️ ولا يظهر الزرّ إلّا إذا كان لدينا رقمٌ حقيقيٌّ للتواصل
+                        (`GMTContact`) — لا نُرسل الزبون إلى رقمٍ مخترع. ══ -->
+                <button id="res-contact-branch" type="button" onclick="trkContactBranch()"
+                        class="hidden w-full mb-3 rounded-xl bg-emerald-600 text-white text-xs font-black py-2.5 px-3 hover:bg-emerald-700 transition-colors">
+                    💬 تواصل بخصوص استلام شحنتي
+                </button>
+                <div id="res-eta" class="hidden">
+                    <div class="flex justify-between items-baseline mb-1.5">
+                        <span id="res-eta-title" class="text-[10px] font-black text-emerald-800">⏱️ الوصول المتوقّع</span>
+                        <span id="res-eta-left" class="text-[11px] font-black text-emerald-700"></span>
+                    </div>
+                    <div class="h-2 bg-white rounded-full overflow-hidden">
+                        <div id="res-eta-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-700" style="width:0%"></div>
+                    </div>
+                </div>
+                <button id="res-receipt-btn" type="button" onclick="showReceipt()"
+                        class="hidden mt-3 w-full bg-white border border-amber-200 text-amber-700 rounded-xl py-2.5 text-xs font-black">
+                    🧾 عرض إيصال الشحن
+                </button>
+            </div>
+        </div>
+        <div id="timelineContainer" class="px-2 relative z-10"></div>
+    </div>
+
+    <!-- الروابط السريعة -->
+    <div class="w-full max-w-md mt-6 grid grid-cols-2 gap-4">
+        <!-- ... نفس الروابط بدون تغيير ... -->
+        <a href="#" data-quick="places" data-note="(٧ ي-٤ تصحيح) لها صفحة زبون: أماكن_الوصول.html?public=1 — يضبطها QUICK_LINKS أدناه" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i data-lucide="map-pin" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">أماكن الاستلام</span>
+        </a>
+        <a href="site.html#about" data-gmt-link="site#about" target="_blank" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i data-lucide="users" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">من نحن</span>
+        </a>
+        <a href="site.html" data-gmt-link="site" target="_blank" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i data-lucide="globe" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">موقعنا الإلكتروني</span>
+        </a>
+        <a href="site.html#agents" data-gmt-link="site#agents" target="_blank" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i data-lucide="briefcase" class="w-6 h-6"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">وكلاؤنا</span>
+        </a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const l1Logo = document.getElementById('l1-logo');
+            const l1Text1 = document.getElementById('l1-text1');
+            const l1Text2 = document.getElementById('l1-text2');
+            const layer1 = document.getElementById('layer1');
+
+            document.body.style.overflow = 'hidden';
+
+            setTimeout(() => { l1Logo.style.opacity = '1'; }, 0);
+            setTimeout(() => { l1Text1.style.opacity = '1'; }, 800);
+            setTimeout(() => { l1Text2.style.opacity = '1'; }, 1600);
+
+            setTimeout(() => {
+                layer1.classList.add('fade-out-screen');
+                setTimeout(() => {
+                    layer1.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }, 800); 
+            }, 3500); 
+        });
+
+        // ════════ إعدادات Supabase ════════
+        const SUPA_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
+        const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
+        const TABLE    = 'gmt_orders';
+
+        lucide.createIcons();
+
+        /* ═══════════════════════════════════════════════════════════════════
+           🔴 (2026-10-03 · بلاغ المالك) «أزرار تتبّع المتجر **غير موجودة** في
+           رابط التتبّع الأساسي».
+
+           و«غير موجودة» وصفٌ دقيق: البطاقات الأربع موجودةٌ في HTML بـ`href="#"`،
+           وتحتها هذا السطر:
+               else { a.style.display = 'none'; }
+           والمصفوفة كانت أربع سلاسل فارغة ⇒ **الأربع تُخفى في كل تحميل**. فمن
+           يفتح رابط التتبّع لا يرى منها شيئاً، وهي تعمل في المتجر.
+
+           والوجهات الأربع **موجودةٌ ومنشورةٌ** في هذا النظام أصلاً — لم يكن
+           الناقص صفحةً بل سطرَ عنوان:
+             📍 أماكن الاستلام  ⇐ أماكن_الوصول.html  (مكاتب شركات الشحن)
+             👥 من نحن          ⇐ site.html#about    (القسم موجود)
+             🌐 موقعنا          ⇐ site.html
+             💼 وكلاؤنا         ⇐ site.html#agents   (القسم موجود)
+
+           ولا نكتب عنواناً مخترعاً: إن أعطانا المالك نطاقاً عامّاً للموقع يُحفَظ
+           في `gmt_site_public_url` فتُبنى عليه الثلاثة تلقائياً، وإلّا فالصفحة
+           المجاورة — وهي تعمل اليوم.
+           ═══════════════════════════════════════════════════════════════════ */
+        const QUICK_LINKS = (function () {
+            function ls(k) { try { return (localStorage.getItem(k) || '').trim(); } catch (_) { return ''; } }
+            /* نطاق الموقع العامّ إن وُجد، وإلّا صفحة الموقع المجاورة */
+            const siteBase = ls('gmt_site_public_url') || ls('gmt_site_url') || 'site.html';
+            const sep = /[?#]/.test(siteBase) ? '' : '';   // أقسامٌ بمرساة لا باستعلام
+            const places = ls('gmt_pickup_places_url') || 'أماكن_الوصول.html?public=1';   /* (س) بلا كليشة الموظّف */
+            return [
+                places,                      // 📍 أماكن الاستلام
+                siteBase + sep + '#about',   // 👥 من نحن
+                siteBase,                    // 🌐 موقعنا الإلكتروني
+                siteBase + sep + '#agents'   // 💼 وكلاؤنا
+            ];
+        })();
+        document.querySelectorAll('a[href="#"]').forEach((a, i) => {
+            const u = (QUICK_LINKS[i] || '').trim();
+            if (u) { a.href = u; a.target = '_blank'; a.rel = 'noopener'; a.style.display = ''; }
+            else   { a.style.display = 'none'; }
+        });
+
+        /* ═══════════════════════════════════════════════════════════════════
+           البحث عن الطلب — حقلاً حقلاً.
+
+           🔴 (2026-10-03) كان استعلاماً واحداً بـ`or=(…)` وفيه عطلان يُصيبان
+           **الزبون** مباشرةً، وكلاهما من نفس العائلة التي أصابت صفحة الكفالة:
+
+           ① `res.ok` **لا يُفحَص**. فإن ردّت القاعدة 400 — وهذا يحدث متى كان
+              أحد الأعمدة رقميّاً والمُدخَل نصّاً، أو كان المشروع موقوفاً —
+              فإنّ `res.json()` يُعيد كائن الخطأ لا مصفوفة ⇒ `order = null` ⇒
+              نقول للزبون إنّ طلبه غير موجود. وشحنتُه في الطريق.
+           ② عمودٌ واحدٌ يُسقِط الاستعلام كلّه. وقد وقع هذا فعلاً في هذا السطر
+              نفسه قبلاً (كان `internal_no` عموداً غير موجود، فكان البحث **برقم
+              الهاتف** يفشل أيضاً) — ومعالجةُ ذلك يومها كانت تصحيح الاسم، لا
+              تحصينَ البنية. فعاد الاحتمال مع كل عمودٍ جديد.
+
+           الآن: سؤالٌ لكل حقلٍ على حِدَة. فشل حقلٍ لا يُسقِط البقيّة، وفشل
+           الكلّ يُعلَن فشلاً في الاتصال لا «طلبٌ غير موجود».
+           ═══════════════════════════════════════════════════════════════════ */
+        async function lookupOrder(input) {
+            const e = encodeURIComponent(input);
+            const fields = ['tracking_number', 'phone', 'order_number', 'serial_code'];
+            if (/^\d+$/.test(input)) fields.push('id');   /* TRK-1 · id رقميّ فقط */
+            let anyAnswered = false, lastErr = null;
+            for (const f of fields) {
+                try {
+                    const res = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?select=*&${f}=eq.${e}&limit=1`, {
+                        headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+                    });
+                    if (!res.ok) {                         // ⬅ كان غائباً تماماً
+                        const body = await res.text();
+                        const er = new Error(body || ('HTTP ' + res.status));
+                        er.status = res.status; er.body = body;
+                        throw er;
+                    }
+                    anyAnswered = true;
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length) return rows[0];
+                } catch (er) { lastErr = er; }
+            }
+            if (!anyAnswered) throw (lastErr || new Error('تعذّر سؤال القاعدة'));
+            return null;
+        }
+
+        async function searchOrder() {
+            const input = document.getElementById('searchInput').value.trim();
+            /* (٧ ي-٤) زرّ البحث بحقلٍ فارغ كان لا يفعل شيئاً — الزبون يظنّه معطّلاً. الآن يدلّه على الحقل. */
+            if(!input) {
+                const el = document.getElementById('searchInput');
+                el.focus(); el.placeholder = 'اكتب رقم الشحنة أو رقم جوالك هنا أوّلاً';
+                el.style.boxShadow = '0 0 0 2px #D5001C'; setTimeout(() => { el.style.boxShadow = ''; }, 1600);
+                return;
+            }
+
+            const resultCard = document.getElementById('resultCard');
+            const layer2 = document.getElementById('layer2');
+            const errorMsg = document.getElementById('errorMsg');
+            const loader = document.getElementById('loader');
+
+            // إخفاء النتائج السابقة بطريقة ناعمة إذا كانت موجودة
+            resultCard.classList.remove('smooth-appear');
+            resultCard.classList.add('hidden');
+            
+            errorMsg.classList.add('hidden');
+            errorMsg.classList.remove('smooth-appear');
+
+            loader.classList.remove('hidden');
+            document.getElementById('searchBtn').disabled = true;
+
+            try {
+                // البحث في Supabase بـ tracking_number أو phone أو id
+                /* 🔧 (2026-08-26) [OWN-COLUMN-MATCH] كان يبحث بـ`internal_no` — عمود **غير موجود** ⇒
+                   PostgREST يرفض الاستعلام كله ⇒ البحث بأي رقم (ومنه رقم الهاتف!) كان يفشل.
+                   ولم يكن يبحث برقم طلب المتجر (`order_number`) ولا الرقم التسلسلي (`serial_code`). */
+                const order = await lookupOrder(input);
+
+                loader.classList.add('hidden');
+                document.getElementById('searchBtn').disabled = false;
+
+                if(order) {
+                    document.getElementById('l2-name').innerText = `أهلاً بك ${order.name}`;
+                    
+                    // ظهور شاشة التحميل (الشاحنة) بنعومة
+                    layer2.classList.remove('hidden', 'smooth-disappear');
+                    layer2.classList.add('flex', 'smooth-appear');
+
+                    setTimeout(() => {
+                        // بدء اختفاء شاشة التحميل بنعومة
+                        layer2.classList.remove('smooth-appear');
+                        layer2.classList.add('smooth-disappear');
+
+                        // الانتظار حتى تنتهي حركة الاختفاء (500ms) ثم عرض النتائج
+                        setTimeout(() => {
+                            layer2.classList.add('hidden');
+                            layer2.classList.remove('flex', 'smooth-disappear');
+                            showTimeline(order);
+                        }, 500);
+
+                    }, 4000);
+
+                } else {
+                    errorMsg.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> الرقم المدخل غير صحيح!';
+                    errorMsg.classList.remove('hidden');
+                    errorMsg.classList.add('smooth-appear');
+                    try { lucide.createIcons(); } catch (_) {}
+                }
+            } catch (error) {
+                loader.classList.add('hidden');
+                document.getElementById('searchBtn').disabled = false;
+                /* 🔴 (2026-10-03) هذا الـcatch كان **فارغاً من أي رسالة**: يُخفي
+                   المؤشّر ويُعيد تمكين الزرّ ولا يقول شيئاً. فالزبون يضغط «ابحث»
+                   فلا يحدث **أيّ شيء** — زرٌّ ميّتٌ من وجهة نظره تماماً، مع أنّ
+                   السبب انقطاعُ شبكةٍ أو قاعدةٌ موقوفة. ولا نقول له «الرقم غير
+                   صحيح» لأنّ رقمه قد يكون صحيحاً ولم يُسأل عنه أحد. */
+                const net = /failed to fetch|networkerror|load failed|network request failed/i
+                            .test(String((error && error.message) || error || ''));
+                errorMsg.innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4"></i> '
+                    + (net ? 'تعذّر الاتصال — تحقّق من الإنترنت وأعِد المحاولة.'
+                           : 'تعذّر إتمام البحث الآن — أعِد المحاولة بعد قليل.')
+                    + ' <span style="font-weight:600;opacity:.75">(رقمك قد يكون صحيحاً — لم نتمكّن من السؤال)</span>';
+                errorMsg.classList.remove('hidden');
+                errorMsg.classList.add('smooth-appear');
+                try { lucide.createIcons(); } catch (_) {}
+                console.error('[track] فشل البحث:', error);
+            }
+        }
+
+        // دالة مساعدة لتحليل المنتجات من items_json أو product
+        function parseProducts(o) {
+            if (o.items_json) {
+                try {
+                    const items = JSON.parse(o.items_json);
+                    if (Array.isArray(items) && items.length > 0) {
+                        return items.map(i => i.name + (i.qty > 1 ? ' × ' + i.qty : '')).join(' | ');
+                    }
+                } catch(e) {}
+            }
+            return o.product || 'غير محدد';
+        }
+
+        /* 🧾 إيصال الشحن — مؤقّت (يُمسح من القاعدة عند «تم الاستلام» في الأوردرات، والأصل في تيليجرام) */
+        function showReceipt() {
+            const src = window._trkReceipt; if (!src) return;
+            const w = document.createElement('div');
+            w.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:16px';
+            w.onclick = () => w.remove();
+            const img = document.createElement('img');
+            img.src = src; img.alt = 'إيصال الشحن';
+            img.style.cssText = 'max-width:100%;max-height:88vh;border-radius:14px;background:#fff';
+            w.appendChild(img); document.body.appendChild(w);
+        }
+        window.showReceipt = showReceipt;
+
+        /* رابط «تابع طلبك من هون» من المتجر يحمل ?o=رقم الطلب ⇒ بحث تلقائي */
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                const q = new URLSearchParams(location.search).get('o');
+                const inp = document.getElementById('searchInput');   /* الاسم الفعلي — تحقّقتُ منه */
+                if (q && inp) { inp.value = q; setTimeout(function () { if (typeof searchOrder === 'function') searchOrder(); }, 400); }
+            } catch (_) {}
+        });
+
+        function showTimeline(o) {
+            const resultCard = document.getElementById('resultCard');
+            
+            // إظهار بطاقة النتائج بنعومة
+            resultCard.classList.remove('hidden');
+            resultCard.classList.add('smooth-appear');
+
+            document.getElementById('res-name').innerText = o.name;
+            document.getElementById('res-price').innerText = "$" + (Number(o.price)||0).toLocaleString();
+            document.getElementById('res-product').innerText = parseProducts(o);
+            // tracking_number هو الاسم الجديد في Supabase
+            document.getElementById('res-tracking').innerText = o.tracking_number || 'قيد المعالجة';
+
+            /* ══ حالات التتبّع — مطابقة لحالات الأوردرات (2026-08-26 · طلب المالك) ══
+               pending ⇒ قيد التجهيز · prepared ⇒ تمت الفوترة، بانتظار الشحن ·
+               shipped ⇒ تم الشحن (+رقم التتبّع + الشركة + الوجهة + مؤقّت الوصول المحسوب بـGMTEta) ·
+               delivered ⇒ وصلت، بانتظار الاستلام · completed ⇒ تم الاستلام.
+               كانت الصفحة تتجاهل «prepared» فتعرض الطلب المحضَّر كأنه لم يُجهَّز بعد. */
+            const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            const now = new Date();
+            const hoursSinceShipped = o.shipped_at ? (now - new Date(o.shipped_at)) / 3600000 : 0;
+            const ORDER = ['pending','prepared','shipped','delivered','completed'];
+            let currentStepIndex = Math.max(0, ORDER.indexOf(o.status));
+
+            // ── لوحة الشحن: تظهر من «تم الشحن» فصاعداً ──
+            const shipped = ['shipped','delivered','completed'].includes(o.status);
+            const shipBox = document.getElementById('res-ship');
+            if (shipBox) shipBox.classList.toggle('hidden', !shipped);
+            if (shipped) {
+                const setT = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+                setT('res-company', o.shipping_company || '—');
+                setT('res-dest', o.address || '—');
+                // مؤقّت الوصول — نفس نافذة رسالة الواتساب، تُحسَب بـ`GMTEta` (ن٢)
+                const etaBox = document.getElementById('res-eta');
+                const inTransit = o.status === 'shipped' && o.shipped_at;
+                if (etaBox) etaBox.classList.toggle('hidden', !inTransit);
+                if (inTransit) {
+                    /* ══ طلبك ن٢ (2026-10-03): المدّة من `GMTEta` لا أرقاماً ثابتة ══
+                       الشركاتُ البطيئة (القدموس · الفاتح · الرافدين · هافال) +٩ ساعات
+                       لكل أفرعها، والمفتي +٩ في السويداء وطرطوس واللاذقية وما يتفرّع
+                       عنها. وبقاعدتك ن٧ طُبِّق في **كل** موضعٍ يَعِد الزبون بوقت. */
+                    const _w = (window.GMTEta ? GMTEta.windowFor(o) : { min: 24, max: 32, extra: 0, why: '' });
+                    const pct = Math.min(100, Math.round(hoursSinceShipped / _w.max * 100));
+                    const bar = document.getElementById('res-eta-bar'); if (bar) bar.style.width = pct + '%';
+                    let left;
+                    if (hoursSinceShipped < _w.min)      left = 'متبقٍّ ' + Math.ceil(_w.min - hoursSinceShipped) + '–' + Math.ceil(_w.max - hoursSinceShipped) + ' ساعة';
+                    else if (hoursSinceShipped < _w.max) left = 'خلال ' + Math.ceil(_w.max - hoursSinceShipped) + ' ساعة كحدّ أقصى';
+                    else                                 left = 'قريباً جداً — تواصل معنا إن تأخّرت';
+                    setT('res-eta-left', left);
+                    /* الترويسة تُعلن النافذة الصحيحة، وسببَ الإضافة إن وُجد */
+                    const _hd = document.getElementById('res-eta-title');
+                    if (_hd) _hd.textContent = '⏱️ الوصول المتوقّع خلال ' + _w.min + '–' + _w.max + ' ساعة' +
+                                               (_w.extra ? ' (+' + _w.extra + ' لـ' + _w.why + ')' : '');
+                }
+                /* طلبك ١٠٠ — الرسالةُ الجاهزة ومتى يظهر الزرّ */
+                window._trkOrder = o;
+                const cbtn = document.getElementById('res-contact-branch');
+                if (cbtn) {
+                    const num = (typeof trkOfficePhone === 'function' && trkOfficePhone(o)) || (window.GMTContact && window.GMTContact.whatsapp()) || '';
+                    cbtn.classList.toggle('hidden', !num);
+                }
+                // إيصال الشحن — مؤقّت: يُمسح تلقائياً عند «تم الاستلام» في الأوردرات
+                window._trkReceipt = (o.receipt_img && o.status !== 'completed') ? o.receipt_img : null;
+                const rb = document.getElementById('res-receipt-btn');
+                if (rb) rb.classList.toggle('hidden', !window._trkReceipt);
+            } else {
+                window._trkReceipt = null;
+            }
+
+            const trk = o.tracking_number ? ' · رقم التتبّع: ' + _esc(o.tracking_number) : '';
+            const co  = o.shipping_company ? ' عبر ' + _esc(o.shipping_company) : '';
+            const stepsData = [
+                { icon: 'package',      title: 'قيد التجهيز',                  desc: 'استلمنا طلبك ونجهّزه حالياً في مستودعاتنا' },
+                { icon: 'file-check',   title: 'تمت الفوترة — بانتظار الشحن',   desc: 'طلبك جاهز ومفوتَر وبانتظار تسليمه لشركة الشحن' },
+                { icon: 'truck',        title: 'تم الشحن',                      desc: 'شُحن طلبك' + co + trk + ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة') },
+                { icon: 'map-pin',      title: 'وصلت — بانتظار الاستلام',       desc: 'وصلت شحنتك إلى [' + _esc(o.address || 'عنوانكم') + ']' + (o.shipping_company ? ' لدى ' + _esc(o.shipping_company) : '') },
+                { icon: 'check-circle', title: 'تم الاستلام',                   desc: 'استلمتَ طلبك — شكراً لثقتك بجنرال ميديا تيك 🤍' }
+            ];
+
+            const timelineContainer = document.getElementById('timelineContainer');
+            let timelineHTML = '';
+            stepsData.forEach((step, index) => {
+                const isLast = index === stepsData.length - 1;
+                let stepStateClass = index < currentStepIndex ? 'step-passed' : (index === currentStepIndex ? 'step-active pulse' : '');
+                const isConnPassed = currentStepIndex > index ? 'connector-passed' : 'bg-gray-100';
+
+                timelineHTML += '<div class="' + stepStateClass + ' relative flex gap-6">' +
+                    '<div class="flex flex-col items-center">' +
+                    '<div class="w-14 h-14 rounded-[1.25rem] flex items-center justify-center icon-box border-2 border-gray-50 bg-white text-gray-300 z-10 transition-all duration-700">' +
+                    '<i data-lucide="' + step.icon + '" class="w-7 h-7"></i></div>' +
+                    (!isLast ? '<div class="connector flex-1 my-1 transition-all duration-700 ' + isConnPassed + '" style="min-height: 50px;"></div>' : '') +
+                    '</div>' +
+                    '<div class="pt-3 flex-1 pb-8">' +
+                    '<h4 class="font-black text-gray-400 step-title text-base transition-colors duration-500">' + step.title + '</h4>' +
+                    '<p class="text-[11px] text-gray-500 mt-2 font-bold leading-relaxed">' + step.desc + '</p>' +
+                    '</div></div>';
+            });
+            timelineContainer.innerHTML = timelineHTML;
+            setTimeout(() => lucide.createIcons(), 50);
+        }
+    </script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+<!-- 🔴 (٧ ي-٣ · فحص_الأزرار_الميتة) كان وسمُ gmt-fitrow يبتلع افتتاح السكربت التالي: سكربتٌ له src
+     يُهمَل ما بداخله ⇒ الدالّة لا تُعرَّف والزرّ ميّت أمام الزبون. -->
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   💬 طلبك ١٠٠ — رسالةُ الاستلام الجاهزة
+   تحمل: اسمَ المستلم · رقمَ التتبّع · شركةَ الشحن · الوجهة. وهي كلُّ ما
+   يحتاجه الطرف الآخر ليجد الشحنة من أوّل رسالة.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* (٨ ت — تدقيق المطابقة) طلبك في القسم ٨: «تواصل مع فرع الاستلام ياخذه مباشرةً إلى الرقم الموجود (رقم المكتب)
+   وينقله إلى الواتساب مع رسالة جاهزة: مرحبا أنا <اسم المستلم> لي طرد من مجموعة ميديا تيك التجارية حابب أستفسر
+   عليه ورقم التتبّع هو <الرقم>». كان يذهب إلى رقم خدمة عملائنا وبصيغةٍ أخرى، ويختفي إن لم يُضبط رقمُنا.
+   الآن: رقمُ مكتب الاستلام (من العنوان ☎ أو من دليل المكاتب)، وإن لم يُعرف فرقمُنا. */
+function trkOfficePhone(o) {
+    o = o || {};
+    var m = String(o.address || '').match(/(?:☎|📞|هاتف|رقم)\s*[:：]?\s*((?:\+?963|0)?9\d[\d\s-]{7,})/);
+    if (!m) m = String(o.address || '').match(/(?:^|\D)(09\d{8})(?:\D|$)/);
+    if (m) return m[1].replace(/\D/g, '');
+    try {
+        if (window.GMTOffices && GMTOffices.resolve) {
+            var co = GMTOffices.canonCompany ? GMTOffices.canonCompany(o.shipping_company || '') : (o.shipping_company || '');
+            var parts = String(o.address || '').split(/[—\-،,|·]/).map(function (x) { return x.trim(); }).filter(Boolean);
+            for (var k = 0; k < parts.length; k++) {
+                var off = GMTOffices.resolve(parts[k], co || '', o.address || '');
+                if (off && off.phone) return String(off.phone).replace(/\D/g, '');
+            }
+        }
+    } catch (_) {}
+    return '';
+}
+function trkWa(num) {
+    var d = String(num || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (/^00/.test(d)) d = d.slice(2);
+    if (/^0(9\d{8})$/.test(d)) d = '963' + d.slice(1);
+    if (/^9\d{8}$/.test(d)) d = '963' + d;
+    return d;
+}
+function trkContactBranch() {
+    var o = window._trkOrder || {};
+    var num = trkWa(trkOfficePhone(o)) || ((window.GMTContact && window.GMTContact.whatsapp()) || '');
+    if (!num) return;                       /* لا رقمَ ⇒ لا فتحَ محادثةٍ مع مجهول */
+    var txt = 'مرحباً، أنا ' + (o.name || '') + '، لي طردٌ من مجموعة ميديا تيك التجارية وحابب أستفسر عنه' +
+              (o.tracking_number ? '، ورقم التتبّع هو ' + o.tracking_number : '') + '.';
+    /* صفحةُ زبون ⇒ واتساب العاديّ لا بزنس (بزنس تطبيقُنا لا تطبيقه) */
+    window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(txt), '_blank');
+}
+window.trkContactBranch = trkContactBranch;
+</script>
+
+<script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
+   يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
+(function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('truck');}catch(e){}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(go,420);});else setTimeout(go,420);})();</script>
+</body>
+</html>
+
+

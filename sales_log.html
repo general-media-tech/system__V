@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GMT — سجل المبيعات والأرباح</title>
+<link rel="icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<style>
+  :root{--red:#D5001C;--dark:#0f1219;--muted:#5b6472;--line:#e8eaed;--ok:#047857;--warn:#b45309;--bad:#dc2626}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,system-ui,sans-serif;background:#f4f6f9;color:#1f2937;min-height:100vh;
+       padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;
+         display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;background:var(--red);color:#fff;display:flex;align-items:center;
+        justify-content:center;font-weight:900;font-size:15px}
+  h1{font-size:16px;font-weight:900;color:var(--dark)}
+  .sub{font-size:11px;color:var(--muted);font-weight:700}
+  .back{margin-inline-start:auto;text-decoration:none;color:var(--muted);font-size:12px;font-weight:800;
+        border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:#fff}
+  .wrap{max-width:980px;margin:0 auto;padding:14px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  select,input{font-family:inherit;font-size:13px;font-weight:700;padding:9px 11px;border:1.5px solid var(--line);
+               border-radius:10px;background:#fff;color:var(--dark)}
+  select:focus,input:focus{outline:none;border-color:var(--red)}
+  input[type=search]{flex:1;min-width:150px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-bottom:14px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;border-right:4px solid var(--line)}
+  .kpi .l{font-size:10.5px;color:var(--muted);font-weight:800}
+  .kpi .v{font-size:19px;font-weight:900;margin-top:3px}
+  .kpi .s{font-size:10px;color:var(--muted);font-weight:700;margin-top:2px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .tab{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-size:12px;
+       font-weight:800;cursor:pointer;font-family:inherit;color:var(--muted)}
+  .tab.on{background:var(--dark);color:#fff;border-color:var(--dark)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{background:#f8fafc;color:var(--muted);font-weight:900;font-size:11px;padding:9px 10px;text-align:right;
+     border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+  th:hover{color:var(--dark)}
+  td{padding:9px 10px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  .rank{display:inline-flex;width:22px;height:22px;border-radius:7px;align-items:center;justify-content:center;
+        font-size:11px;font-weight:900;background:#f1f5f9;color:var(--muted)}
+  .r1{background:#fef3c7;color:#b45309}.r2{background:#e5e7eb;color:#374151}.r3{background:#fde7d6;color:#9a3412}
+  .barline{height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;min-width:70px}
+  .barline>i{display:block;height:100%;background:var(--red)}
+  .pos{color:var(--ok)}.neg{color:var(--bad)}.dim{color:var(--muted)}
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);font-weight:700}
+  .note{font-size:11px;color:var(--muted);font-weight:700;margin-top:10px;line-height:1.8}
+  .loading{text-align:center;padding:40px;color:var(--muted);font-weight:800}
+  @media (max-width:560px){.kpi .v{font-size:16px}td,th{padding:8px 7px}}
+</style>
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<header>
+  <div class="logo" data-gmt-brand="1"><img src="logo.jpg" alt="General Media Tech" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.onerror=null;this.src=GMT_BRAND.logo"></div>
+  <div><h1>📈 سجل المبيعات والأرباح</h1><div class="sub">كل ما تفوتر من كل الأفرع — الأكثر مبيعاً وأرباحه</div></div>
+  <a class="back" href="home.html">↩ البوابة</a>
+</header>
+
+<div class="wrap">
+  <div class="bar">
+    <select id="month" aria-label="الشهر"></select>
+    <select id="branch" aria-label="الفرع"><option value="all">كل الأفرع</option></select>
+    <input type="search" id="q" placeholder="ابحث عن منتج…" aria-label="بحث">
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-t="products">🏆 الأكثر مبيعاً</button>
+    <button class="tab" data-t="branches">🏬 حسب الفرع</button>
+    <button class="tab" data-t="days">📅 حسب اليوم</button>
+    <button class="tab" data-t="months">📊 مقارنة الشهور</button>
+  </div>
+
+  <div class="card"><div class="tw" id="view"><div class="loading">⏳ جارٍ تحميل المبيعات…</div></div></div>
+
+  <div class="note">
+    • <b>الربح</b> = سعر البيع − سعر الشراء <b>مع</b> تكاليف الشحن والرسوم (من الجرد). البنود بلا سعر شراء معروف تُعرض بلا ربح.<br>
+    • <b>المرتجعات</b> تُطرح من الكميات والمبالغ. فواتير <b>[تدريب]</b> مستثناة دائماً.<br>
+    • قراءة فقط — لا يعدّل أي بيانات.
+  </div>
+</div>
+
+<script src="gmt-config.js?v=20261003"></script>
+<script src="gmt-ask.js?v=20261010b" defer></script>
+<script src="gmt-share.js?v=20261003" defer></script>
+<script src="gmt-notify.js?v=20261010b" defer></script>
+  <script src="gmt-brand.js?v=20261003"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   سجل المبيعات والأرباح — 2026-08-26 (طلب المالك)
+   «بدي أعرف هالشهر شو أكثر شي عم نبيع — فيه كل شي تفوتر من كل الأفرع».
+   + توسيع تقرير الربح: الربح الإجمالي والهامش لكل منتج وفرع وشهر.
+
+   المصادر (قاعدة MAIN · قراءة فقط):
+     invoices       — رأس الفاتورة (الفرع · النوع · التاريخ)
+     invoice_items  — البنود (المنتج · الكمية · السعر)
+     products       — سعر الشراء لحساب الربح (net_cost مع التكاليف، وإلا cost_price)
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+const DB = (window.GMT_DB && GMT_DB.MAIN) || null;
+const H  = DB ? { apikey: DB.key, Authorization: 'Bearer ' + DB.key } : {};
+const $  = s => document.querySelector(s);
+const AR = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
+const fmt = n => (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let INV = [], ITEMS = [], COST = {}, BR = {}, tab = 'products', sortKey = 'revenue', sortDir = -1;
+
+async function get(path){
+  const r = await fetch(DB.url + '/rest/v1/' + path, { headers: H });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + path.split('?')[0]);
+  return r.json();
+}
+
+/* اجلب الفواتير بدفعات (قد تتجاوز حدّ الطلب الواحد) */
+async function fetchAll(path, page = 1000, max = 20000){
+  let out = [], from = 0;
+  while (from < max) {
+    const r = await fetch(DB.url + '/rest/v1/' + path, { headers: { ...H, Range: from + '-' + (from + page - 1) } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    out = out.concat(rows);
+    if (rows.length < page) break;
+    from += page;
+  }
+  return out;
+}
+
+function monthKey(d){ const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0'); }
+function monthLabel(k){ const [y,m] = k.split('-'); return AR[Number(m)-1] + ' ' + y; }
+const isTraining = i => String(i.customer_name||'').startsWith('[تدريب]');
+const isRefund   = i => String(i.sale_type||'').includes('مرتجع') || Number(i.total) < 0;
+
+async function load(){
+  if (!DB) { $('#view').innerHTML = '<div class="empty">⚠️ إعداد القاعدة غير محمّل — تأكّد من رفع gmt-config.js</div>'; return; }
+  /* (٨ ت — تدقيق المطابقة) موظّف الفرع كان يرى مبيعات كل الأفرع وأرباحها المحسوبة من سعر الشراء.
+     الآن: غير الأدمن يُحمَّل له فرعُه وحده، ولا يُجلب سعر الشراء أصلاً (للأدمن فقط — كالجرد). */
+  let _adm = false, _myBr = '';
+  try { _adm = (window.GMTRole && GMTRole.isAdmin) ? GMTRole.isAdmin() : sessionStorage.getItem('gmt_admin_mode') === '1'; } catch (_) {}
+  try { _myBr = (JSON.parse(localStorage.getItem('gmt_session') || '{}') || {}).branch_key || ''; } catch (_) {}
+  try {
+    const [inv, br, prods] = await Promise.all([
+      (_adm || _myBr) ? fetchAll('invoices?select=id,branch_key,branch_name,total,sale_type,customer_name,created_at' + (_adm ? '' : '&branch_key=eq.' + encodeURIComponent(_myBr)) + '&order=created_at.desc') : Promise.resolve([]),
+      get('inv_columns?is_branch=eq.true&select=key_name,display_name&order=sort_order.asc').catch(()=>[]),
+      _adm ? fetchAll('products?select=id,name,barcode,net_cost,cost_price') : Promise.resolve([]),
+    ]);
+    INV = inv.filter(i => !isTraining(i));
+    (br||[]).forEach(b => BR[b.key_name] = b.display_name);
+    if (!_adm) INV = INV.filter(i => i.branch_key === _myBr);
+    prods.forEach(p => {
+      const c = Number(p.net_cost) || Number(p.cost_price) || 0;
+      if (c > 0) { if (p.id) COST['id:' + p.id] = c; if (p.name) COST['n:' + String(p.name).trim()] = c; }
+    });
+    // البنود: بدفعات حسب معرّفات الفواتير
+    const ids = INV.map(i => i.id);
+    ITEMS = [];
+    for (let k = 0; k < ids.length; k += 150) {
+      const chunk = ids.slice(k, k + 150).join(',');
+      const rows = await get('invoice_items?invoice_id=in.(' + chunk + ')&select=invoice_id,product_id,product_name,qty,unit_price,total');
+      ITEMS = ITEMS.concat(rows);
+    }
+    setupFilters();
+    render();
+  } catch (e) {
+    $('#view').innerHTML = '<div class="empty">⚠️ تعذّر تحميل المبيعات<br><span style="font-size:11px">' + esc(e.message) + '</span></div>';
+    console.warn('[GMT] سجل المبيعات:', e);
+  }
+}
+
+function setupFilters(){
+  const months = [...new Set(INV.map(i => monthKey(i.created_at)))].sort().reverse();
+  const cur = monthKey(new Date());
+  if (!months.includes(cur)) months.unshift(cur);
+  $('#month').innerHTML = months.map(m => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + monthLabel(m) + (m === cur ? ' (الحالي)' : '') + '</option>').join('')
+    + '<option value="all">كل الفترة</option>';
+  const brs = [...new Set(INV.map(i => i.branch_key).filter(Boolean))];
+  $('#branch').innerHTML = '<option value="all">كل الأفرع</option>' +
+    brs.map(b => '<option value="' + esc(b) + '">' + esc(BR[b] || INV.find(i => i.branch_key === b)?.branch_name || b) + '</option>').join('');
+}
+
+/* الفواتير المطابقة للفلاتر */
+function scope(){
+  const m = $('#month').value, b = $('#branch').value;
+  return INV.filter(i => (m === 'all' || monthKey(i.created_at) === m) && (b === 'all' || i.branch_key === b));
+}
+function costOf(it){
+  return COST['id:' + it.product_id] || COST['n:' + String(it.product_name||'').trim()] || 0;
+}
+/* يجمّع البنود — المرتجع يُطرح (إشارته سالبة من فاتورته) */
+function aggregate(invs, keyFn){
+  const invMap = {}; invs.forEach(i => invMap[i.id] = i);
+  /* (٨ ث — تدقيق المطابقة) أسعار البنود قبل خصم الفاتورة ⇒ كان الربح هنا أعلى من الحقيقيّ (فاتورة بخصمٍ كبير
+     ظهرت رابحةً وهي خاسرة). نوزّع الخصم على البنود بنسبتها: إيراد البند × (إجمالي الفاتورة ÷ مجموع بنودها). */
+  const itemSum = {};
+  ITEMS.forEach(it => { if (!invMap[it.invoice_id]) return; itemSum[it.invoice_id] = (itemSum[it.invoice_id] || 0) + Math.abs(Number(it.total) || (Number(it.unit_price)||0) * Math.abs(Number(it.qty)||0)); });
+  const out = {};
+  ITEMS.forEach(it => {
+    const inv = invMap[it.invoice_id]; if (!inv) return;
+    const sign = isRefund(inv) ? -1 : 1;
+    const qty  = Math.abs(Number(it.qty) || 0) * sign;
+    const _sum = itemSum[it.invoice_id] || 0, _tot = Math.abs(Number(inv.total) || 0);
+    const _f   = (_sum > 0 && _tot > 0 && _tot < _sum) ? (_tot / _sum) : 1;
+    const rev  = Math.abs(Number(it.total) || (Number(it.unit_price)||0) * Math.abs(Number(it.qty)||0)) * _f * sign;
+    const c    = costOf(it);
+    const k    = keyFn(it, inv);
+    const o    = out[k] = out[k] || { key: k, qty: 0, revenue: 0, cost: 0, costKnown: 0, invs: new Set() };
+    o.qty += qty; o.revenue += rev; o.invs.add(inv.id);
+    if (c > 0) { o.cost += c * qty; o.costKnown += rev; }
+  });
+  return Object.values(out).map(o => {
+    o.profit = o.costKnown ? o.costKnown - o.cost : null;
+    /* (2026-08-26) الهامش يُحسب فقط حين تكون المبيعات موجبة. صفّ مرتجعات صافٍ
+       (مبيعات سالبة وربح سالب) كان يعطي هامشاً **موجباً مضلّلاً** (−240 ÷ −450 = +53%). */
+    o.margin = o.costKnown > 0 ? (o.profit / o.costKnown * 100) : null;
+    o.count  = o.invs.size;
+    return o;
+  });
+}
+
+function kpis(invs){
+  const sales = invs.filter(i => !isRefund(i));
+  const refunds = invs.filter(isRefund);
+  const rev = sales.reduce((s,i) => s + (Number(i.total)||0), 0);
+  const ref = Math.abs(refunds.reduce((s,i) => s + (Number(i.total)||0), 0));
+  const all = aggregate(invs, () => 'x')[0] || { profit: null, costKnown: 0, qty: 0 };
+  const agg = aggregate(invs, it => it.product_name || '—').filter(r => r.qty > 0);
+  const top    = [...agg].sort((a,b) => b.qty - a.qty)[0];          // بالكمية
+  const topVal = [...agg].sort((a,b) => b.revenue - a.revenue)[0];  // بالقيمة
+  const k = (l, v, s, c) => '<div class="kpi" style="border-right-color:' + c + '"><div class="l">' + l + '</div><div class="v" style="color:' + c + '">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+  $('#kpis').innerHTML =
+    k('صافي المبيعات', '$' + fmt(rev - ref), sales.length + ' فاتورة', '#0f172a') +
+    k('الربح الإجمالي', all.profit == null ? '—' : '$' + fmt(all.profit),
+      all.margin == null ? 'لا أسعار شراء معروفة' : 'هامش ' + all.margin.toFixed(1) + '%', all.profit >= 0 ? '#047857' : '#dc2626') +
+    k('القطع المباعة', Math.round(all.qty).toLocaleString('en-US'), 'بعد طرح المرتجعات', '#1d4ed8') +
+    k('الأكثر مبيعاً (بالكمية)', top ? esc(top.key).slice(0, 22) : '—', top ? Math.round(top.qty) + ' قطعة' : '', '#D5001C') +
+    k('الأعلى قيمةً', topVal ? esc(topVal.key).slice(0, 22) : '—', topVal ? '$' + fmt(topVal.revenue) : '', '#D5001C') +
+    k('المرتجعات', '$' + fmt(ref), refunds.length + ' فاتورة', ref > 0 ? '#dc2626' : '#5b6472');
+}
+
+function table(rows, cols){
+  if (!rows.length) return '<div class="empty">لا توجد مبيعات في هذه الفترة</div>';
+  rows.sort((a,b) => {
+    const x = a[sortKey], y = b[sortKey];
+    if (x == null) return 1; if (y == null) return -1;
+    return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+  const maxRev = Math.max(...rows.map(r => r.revenue), 1);
+  const head = '<tr><th>#</th>' + cols.map(c => '<th data-k="' + c.k + '">' + c.t + (sortKey === c.k ? (sortDir < 0 ? ' ▾' : ' ▴') : '') + '</th>').join('') + '</tr>';
+  const body = rows.map((r, i) => '<tr><td><span class="rank' + (i < 3 ? ' r' + (i+1) : '') + '">' + (i+1) + '</span></td>' +
+    cols.map(c => '<td>' + c.f(r, maxRev) + '</td>').join('') + '</tr>').join('');
+  return '<table><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+}
+
+const C_REV   = { k:'revenue', t:'المبيعات', f:(r,m) => '<div style="display:flex;align-items:center;gap:8px"><b>$' + fmt(r.revenue) + '</b><div class="barline"><i style="width:' + Math.max(2, r.revenue/m*100) + '%"></i></div></div>' };
+const C_QTY   = { k:'qty', t:'الكمية', f:r => Math.round(r.qty).toLocaleString('en-US') };
+const C_PROF  = { k:'profit', t:'الربح', f:r => r.profit == null ? '<span class="dim">—</span>' : '<b class="' + (r.profit >= 0 ? 'pos' : 'neg') + '">$' + fmt(r.profit) + '</b>' };
+const C_MARG  = { k:'margin', t:'الهامش', f:r => r.margin == null ? '<span class="dim">—</span>' : '<span class="' + (r.margin >= 0 ? 'pos' : 'neg') + '">' + r.margin.toFixed(1) + '%</span>' };
+const C_CNT   = { k:'count', t:'فواتير', f:r => r.count };
+
+function render(){
+  const q = $('#q').value.trim().toLowerCase();
+  const invs = scope();
+  kpis(invs);
+  let rows, cols;
+  if (tab === 'products') {
+    rows = aggregate(invs, it => it.product_name || '—').filter(r => !q || r.key.toLowerCase().includes(q));
+    cols = [{ k:'key', t:'المنتج', f:r => esc(r.key) }, C_QTY, C_REV, C_PROF, C_MARG, C_CNT];
+  } else if (tab === 'branches') {
+    rows = aggregate(invs, (it, inv) => BR[inv.branch_key] || inv.branch_name || inv.branch_key || '—');
+    cols = [{ k:'key', t:'الفرع', f:r => esc(r.key) }, C_QTY, C_REV, C_PROF, C_MARG, C_CNT];
+  } else if (tab === 'days') {
+    rows = aggregate(invs, (it, inv) => String(inv.created_at || '').slice(0, 10));
+    cols = [{ k:'key', t:'اليوم', f:r => esc(r.key) }, C_QTY, C_REV, C_PROF, C_MARG, C_CNT];
+    if (sortKey === 'revenue' && sortDir === -1) { sortKey = 'key'; }
+  } else {
+    const b = $('#branch').value;
+    const all = INV.filter(i => b === 'all' || i.branch_key === b);
+    rows = aggregate(all, (it, inv) => monthKey(inv.created_at));
+    rows.forEach(r => r.label = monthLabel(r.key));
+    cols = [{ k:'key', t:'الشهر', f:r => esc(r.label) }, C_QTY, C_REV, C_PROF, C_MARG, C_CNT];
+  }
+  $('#view').innerHTML = table(rows, cols);
+  document.querySelectorAll('#view th[data-k]').forEach(th => th.onclick = () => {
+    const k = th.dataset.k; sortDir = (sortKey === k) ? -sortDir : -1; sortKey = k; render();
+  });
+}
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); tab = b.dataset.t;
+  sortKey = (tab === 'days' || tab === 'months') ? 'key' : 'revenue'; sortDir = -1;
+  render();
+});
+['#month','#branch'].forEach(s => $(s).addEventListener('change', render));
+$('#q').addEventListener('input', render);
+load();
+})();
+</script>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+<script src="gmt-endpoint.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+</body>
+</html>

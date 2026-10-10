@@ -1,0 +1,827 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   gmt-ui.css — الهوية البصرية ٢٫٠ · نظامُ المكوّنات
+   أُنشئ: 2026-10-03
+
+   ══ من أين جاءت هذه الهوية ══
+   ليست من ذوقي. استخرجتُها من **مرجعك الأقوى: فاتورتك نفسها** (الصورة التي
+   أرسلتَها) — وهي التصميم الوحيد في نظامك الذي بلغ النضج. وهذا ما تطلبه
+   الوثيقة حرفياً: «هويتنا الحالية تحدّد نقطة البداية… تطويرٌ واضحٌ وجريء
+   للهوية الحالية وليس تغييراً جذرياً لها».
+
+   ══ الـDesign DNA المستخرَج من فاتورتك ══
+     ① ترويسة: اسمٌ عريض + فاصلٌ رأسيّ + وصفٌ خافت، تحتها **خطٌّ أحمر رفيع**.
+     ② عنوانُ قسم: أيقونة + نصّ + خطٌّ أحمر يمتدّ لآخر السطر.
+     ③ بطاقةُ معلومات: شبكةُ عمودين · حدٌّ رمادي فاتح · تسمية صغيرة رمادية
+        فوق قيمةٍ عريضة داكنة. (هذا أقوى نمطٍ عندك — وكان مستعملاً في مكانٍ واحد.)
+     ④ جدول: ترويسةٌ رمادية فاتحة · ترقيمٌ على اليمين · حدودٌ أفقية فقط.
+     ⑤ شريطُ الإجمالي: كتلةٌ حمراء مائلة على خلفيةٍ فاتحة.
+     ⑥ صندوقُ تنبيه: حدٌّ أحمر + أيقونة + نصّ.
+     ⑦ تذييل: نصٌّ أوسط بين خطّين.
+
+   ══ المشكلة التي يحلّها هذا الملفّ ══
+   قِستُ النظام: ٤ حمراواتٍ للعلامة · ١٧٣ نصّاً غيرَ مقروء · أنصافُ أقطارٍ
+   من ٦px إلى ٢٢px بلا سلّم · وشاشةُ اللصق الذكي وحدها فيها **خمسةُ ألوان
+   خلفيّةٍ متنافسة** (أخضر · أصفر · أزرق · بنفسجي · أحمر) بلا معنى دلاليّ.
+   فكلُّ شاشةٍ تبدو من تطبيقٍ آخر.
+
+   ══ القاعدة التي يتبعها هذا الملفّ ══
+   **لا يُعيد كتابة أيّ صفحة.** يُعرّف المكوّنات ويلتقط الأنماط القائمة،
+   فترتقي الصفحاتُ الخمسُ والأربعون معاً. وهذا نفسُه «Evolution لا Revolution»
+   لكن في التنفيذ: لا نهدم ٦٠٠ كيلوبايت من الواجهات لنعيد بناءها.
+
+   ⚠️ يُحمَّل **بعد** gmt-theme.css (الرموز) وبعد tailwind إن وُجد.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١ · الأساس — سلّمٌ واحد لكل شيء
+   ══════════════════════════════════════════════════════════════════════════ */
+/* ══ مصدرُ هذه القيم (2026-10-04) ══
+   ليست اجتهاداً منّي: استخرجتُها من **نموذجك المعتمَد**
+   «GMT — الهوية البصرية 2.0 · معاينة» الذي أرسلتَه. فحيث اختلف اجتهادي
+   عن نموذجك، تبع اجتهادي نموذجَك — لأنّ النموذج قرارُك لا اقتراحي.
+   وما أضفتُه فوقه هو ما تطلبه الوثيقةُ ولم يكن فيه: Primary Hover/Active
+   صريحان، وسلّمُ خطٍّ كامل، وحالاتُ الفراغ والتحميل والخطأ.         */
+:root {
+  /* الارتفاعات — إيقاعٌ واحدٌ لكلّ حقلٍ وزرّ */
+  --u-field-h:     42px;
+  --u-field-h-sm:  34px;
+  --u-field-h-lg:  50px;
+  --u-gap:         var(--gmt-s3, 12px);
+  --u-pad-card:    16px;
+
+  /* سلّمُ الحواف — ثلاثُ درجاتٍ لا ستّ عشوائية (نموذجك: r1/r2/r3)
+     ٢٢ للبطاقة · ١٤ للمربّع والصورة · ١٠ للزرّ والحقل والقائمة */
+  --u-r1:          22px;
+  --u-r2:          14px;
+  --u-r3:          10px;
+  --u-radius:      var(--u-r2);
+  --u-radius-lg:   var(--u-r1);
+
+  /* الخطُّ شبهُ شفّافٍ لا رماديٌّ مصمت — فيستقرّ فوق أيّ سطح */
+  --u-line:        rgba(15,18,25,.08);
+  --u-border:      var(--u-line);
+
+  /* الحبر */
+  --u-ink:         #0f1219;
+  --u-ink-2:       #334155;
+  --u-ink-3:       #5b6472;
+
+  /* العلامة — وثلاثُ حالاتٍ لها كما تطلب الوثيقة صراحةً */
+  --u-brand:       #D5001C;   /* Primary        */
+  --u-brand-hover: #BF0019;   /* Primary Hover  */
+  --u-brand-active:#A80016;   /* Primary Active */
+  --u-brand-soft:  #fff1f2;   /* سطحُ الحالة النشِطة ومربّعُ الأيقونة */
+  --u-brand-50:    var(--u-brand-soft);
+
+  /* الأسطح — ومنها السطحُ الزجاجيّ للترويسة والشريط الجانبي */
+  --u-surface:     #fff;
+  --u-surface-2:   #f7f8fa;
+  --u-glass:       rgba(255,255,255,.78);
+
+  /* الظلُّ طبقتان: خطٌّ قريبٌ يُثبّت الحافّة، وهالةٌ بعيدةٌ تُعطي الارتفاع */
+  --u-sh-1:        0 1px 2px rgba(15,18,25,.05);
+  --u-sh:          0 1px 2px rgba(15,18,25,.05), 0 10px 30px rgba(15,18,25,.06);
+  --u-sh-lg:       0 30px 80px rgba(15,18,25,.22);
+
+  --u-t:           .2s;
+  --u-ease:        cubic-bezier(.2,.7,.2,1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢ · الترويسة — من فاتورتك: اسمٌ عريض · فاصل · وصفٌ خافت · خطٌّ أحمر
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 10px; margin-bottom: 14px;
+  border-bottom: 2px solid var(--u-brand);
+}
+.u-head__name { font-size: 19px; font-weight: 900; color: var(--u-ink); letter-spacing: -.2px; }
+.u-head__sep  { width: 1px; height: 16px; background: var(--u-border); }
+.u-head__sub  { font-size: 12px; font-weight: 700; color: var(--u-ink-3); }
+.u-head__tag  {
+  margin-inline-start: auto; font-size: 12px; font-weight: 800;
+  color: var(--u-brand); border: 1.5px solid var(--u-brand);
+  border-radius: 8px; padding: 4px 11px; direction: ltr; unicode-bidi: isolate;
+}
+
+/* عنوانُ قسم — أيقونة + نصّ + خطٌّ يمتدّ (نمطُ فاتورتك ②) */
+.u-section {
+  display: flex; align-items: center; gap: 9px;
+  margin: 20px 0 10px; font-size: 13.5px; font-weight: 900; color: var(--u-ink);
+}
+.u-section::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(to left, var(--u-brand), transparent);
+}
+.u-section__i { font-size: 16px; line-height: 1; color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٣ · بطاقةُ المعلومات — أقوى نمطٍ في فاتورتك، كان في مكانٍ واحد فقط
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-info {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--u-border); border-radius: var(--u-radius-lg);
+  overflow: hidden; background: var(--u-surface);
+}
+@media (max-width: 520px) { .u-info { grid-template-columns: 1fr; } }
+.u-info__cell {
+  padding: 11px 14px; border-bottom: 1px solid var(--u-border);
+  border-inline-start: 1px solid var(--u-border);
+}
+.u-info__cell:nth-child(odd) { border-inline-start: 0; }
+.u-info__cell:last-child, .u-info__cell:nth-last-child(2) { border-bottom: 0; }
+.u-info__k {
+  display: flex; align-items: center; gap: 6px; justify-content: flex-start;
+  font-size: 11px; font-weight: 700; color: var(--u-ink-3); margin-bottom: 3px;
+}
+.u-info__v { font-size: 14px; font-weight: 800; color: var(--u-ink); line-height: 1.6; }
+.u-info__v.is-brand { color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٤ · البطاقات — ثلاثُ كثافات لا كثافةٌ واحدة لكل شيء
+   («لا تجعل كل شيء Card» — طلبك ٢٢٢: الكثافةُ تتبع المحتوى)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-card {
+  background: var(--u-surface); border: 1px solid var(--u-border);
+  border-radius: var(--u-radius-lg); padding: var(--u-pad-card);
+  box-shadow: var(--u-sh);
+  transition: box-shadow var(--u-t) var(--u-ease), transform var(--u-t) var(--u-ease);
+}
+.u-card--tight  { padding: 12px 14px; border-radius: var(--u-r2); }
+.u-card--roomy  { padding: 22px; }
+.u-card--flat   { box-shadow: none; }
+.u-card--brand  { border-color: rgba(213,0,28,.16); background: var(--u-brand-soft); }
+.u-card--click  { cursor: pointer; }
+.u-card--click:hover { box-shadow: 0 2px 4px rgba(15,18,25,.06), 0 16px 40px rgba(15,18,25,.10); transform: translateY(-2px); }
+.u-card__t { font-size: 14px; font-weight: 900; color: var(--u-ink); margin: 0 0 4px; }
+.u-card__d { font-size: 12.5px; font-weight: 600; color: var(--u-ink-3); line-height: 1.85; margin: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٥ · نظامُ البنرات — سبعةُ أنواع (طلبك ٢٢٢)
+   ولكلٍّ **معنى** لا لونٌ جميل: اللونُ يقول ماذا تفعل، لا يُزيّن.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-banner {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 12px 14px; border-radius: var(--u-radius);
+  border: 1.5px solid; font-size: 12.5px; font-weight: 700; line-height: 1.9;
+  margin: 10px 0;
+}
+.u-banner__i { flex: 0 0 auto; font-size: 17px; line-height: 1.5; }
+.u-banner__b { flex: 1; min-width: 0; }
+.u-banner__t { font-weight: 900; display: block; margin-bottom: 2px; }
+.u-banner--info    { background: var(--gmt-info-50,#eff6ff);    border-color:#bfdbfe; color:#1e3a8a; }
+.u-banner--ok      { background: var(--gmt-success-50,#f0fdf4); border-color:#86efac; color:#166534; }
+.u-banner--warn    { background: var(--gmt-warning-50,#fffbeb); border-color:#fde68a; color:#92400e; }
+.u-banner--danger  { background: var(--gmt-danger-50,#fef2f2);  border-color:#fecaca; color:#991b1b; }
+.u-banner--brand   { background: var(--u-brand-50);             border-color: var(--gmt-brand-100,#FBE3E7); color: var(--gmt-brand-900,#7A0010); }
+.u-banner--quiet   { background: var(--u-surface-2);            border-color: var(--u-border); color: var(--u-ink-2); }
+.u-banner--promo   {
+  background: linear-gradient(135deg, var(--u-brand), var(--gmt-brand-700,#A80016));
+  border-color: transparent; color:#fff;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٦ · الأزرار — أربعةُ أدوار وثلاثةُ أحجام، وهدفُ لمسٍ ٤٤px دائماً
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--u-field-h); padding: 0 16px; border: 1px solid transparent;
+  border-radius: var(--u-r3); font-family: inherit; font-size: 13px; font-weight: 800;
+  cursor: pointer; transition: filter var(--u-t) var(--u-ease), transform .1s var(--u-ease);
+  position: relative; white-space: nowrap;
+}
+.u-btn:active { transform: scale(.975); }
+.u-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* منطقةُ لمسٍ ٤٤px بلا تغيير الشكل — طلبك ٢٢٠ */
+.u-btn::after {
+  content: ''; position: absolute; inset: 50% 0 auto 0;
+  height: var(--gmt-touch, 44px); transform: translateY(-50%);
+}
+.u-btn--sm { min-height: var(--u-field-h-sm); font-size: 12px; padding: 0 12px; }
+.u-btn--lg { min-height: var(--u-field-h-lg); font-size: 14.5px; padding: 0 22px; }
+.u-btn--primary { background: var(--u-brand); border-color: var(--u-brand); color:#fff; box-shadow: 0 6px 18px rgba(213,0,28,.20); }
+.u-btn--primary:hover  { background: var(--u-brand-hover);  border-color: var(--u-brand-hover); }
+.u-btn--primary:active { background: var(--u-brand-active); border-color: var(--u-brand-active); }
+.u-btn--second  { background: var(--u-surface); color: var(--u-ink-2); border-color: var(--u-border); }
+.u-btn--second:hover { background: var(--u-surface-2); }
+/* زرٌّ داكن — للفعل الثاني المهمّ حيث لا يصحّ أحمران في شاشةٍ واحدة */
+.u-btn--dark { background: var(--u-ink); border-color: var(--u-ink); color:#fff; }
+.u-btn--ghost   { background: transparent; color: var(--u-ink-2); }
+.u-btn--ghost:hover { background: var(--u-surface-2); }
+.u-btn--danger  { background: var(--gmt-danger,#dc2626); color:#fff; }
+.u-btn--block   { width: 100%; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٧ · الحقول — ارتفاعٌ واحد ونصفُ قطرٍ واحد، والحالةُ تُقال بالحدّ لا بالخلفية
+   (شاشةُ اللصق الذكي كان فيها خمسةُ ألوان خلفيّةٍ متنافسة بلا معنى)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-field {
+  width: 100%; min-height: var(--u-field-h); padding: 9px 13px;
+  background: var(--u-surface); color: var(--u-ink);
+  border: 1.5px solid var(--u-border); border-radius: var(--u-r3);
+  font-family: inherit; font-size: 13.5px; font-weight: 600; outline: none;
+  transition: border-color var(--u-t) var(--u-ease), box-shadow var(--u-t) var(--u-ease);
+}
+.u-field:focus { border-color: var(--u-brand); box-shadow: 0 0 0 3px rgba(213,0,28,.10); }
+.u-field::placeholder { color: var(--gmt-ink-4,#94a3b8); font-weight: 500; }
+.u-field.is-ok     { border-color: var(--gmt-success,#15803d); }
+.u-field.is-warn   { border-color: var(--gmt-warning,#b45309); }
+.u-field.is-error  { border-color: var(--gmt-danger,#dc2626); }
+.u-label { display:block; font-size: 11.5px; font-weight: 800; color: var(--u-ink-3); margin-bottom: 5px; }
+.u-hint  { font-size: 11px; font-weight: 600; color: var(--u-ink-3); margin-top: 4px; line-height: 1.7; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٨ · الشارات والحالات — شكلٌ واحد، والدلالةُ باللون **والنصّ** معاً
+   (طلبك ٢٢٠: «لا تعتمد على اللون وحده»)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: var(--gmt-r-full, 999px);
+  font-size: 11px; font-weight: 900; border: 1px solid; line-height: 1.8;
+}
+.u-pill--ok     { background: var(--gmt-success-50,#f0fdf4); border-color:#86efac; color:#166534; }
+.u-pill--warn   { background: var(--gmt-warning-50,#fffbeb); border-color:#fde68a; color:#92400e; }
+.u-pill--danger { background: var(--gmt-danger-50,#fef2f2);  border-color:#fecaca; color:#991b1b; }
+.u-pill--info   { background: var(--gmt-info-50,#eff6ff);    border-color:#bfdbfe; color:#1e3a8a; }
+.u-pill--quiet  { background: #eef0f3; border-color: transparent; color: #475569; }
+/* الحبّةُ المختارة — مملوءةٌ بالعلامة. هذه الحالةُ الوحيدة التي تستحقّ
+   امتلاءً أحمرَ في صفٍّ من الحبّات (نموذجك المعتمَد). */
+.u-pill--on { background: var(--u-brand); border-color: var(--u-brand); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٩ · الجداول — نمطُ فاتورتك ④: ترويسةٌ فاتحة · حدودٌ أفقية فقط
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.u-table thead th {
+  background: var(--u-surface-2); color: var(--u-ink-3);
+  font-size: 11.5px; font-weight: 900; padding: 9px 11px; text-align: right;
+  border-bottom: 1px solid var(--u-border); white-space: nowrap;
+}
+.u-table tbody td { padding: 10px 11px; border-bottom: 1px solid var(--u-border); color: var(--u-ink-2); }
+.u-table tbody tr:last-child td { border-bottom: 0; }
+.u-table tbody tr:hover { background: var(--u-surface-2); }
+.u-table tbody tr.is-sel td { background: var(--u-brand-soft); }
+.u-table .u-num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-weight: 800; }
+
+/* شريطُ الإجمالي — نمطُ فاتورتك ⑤ */
+.u-total {
+  display: flex; align-items: stretch; border-radius: var(--u-radius);
+  overflow: hidden; background: var(--u-surface-2); border: 1px solid var(--u-border);
+  margin-top: 12px;
+}
+.u-total__v {
+  background: var(--u-brand); color: #fff; padding: 12px 22px 12px 34px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+}
+.u-total__k { font-size: 11px; font-weight: 800; opacity: .88; }
+.u-total__n { font-size: 20px; font-weight: 900; direction: ltr; unicode-bidi: isolate; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٠ · الحالاتُ الثلاث — فارغ · تحميل · خطأ (طلبك: «حالات Empty/Loading/Error»)
+   كانت غائبةً كنظام: كلُّ صفحةٍ تخترع شكلَها، وبعضُها لا يعرض شيئاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-state { text-align: center; padding: 34px 18px; }
+.u-state__i { font-size: 38px; line-height: 1; margin-bottom: 10px; opacity: .45; }
+.u-state__t { font-size: 14px; font-weight: 900; color: var(--u-ink-2); margin-bottom: 4px; }
+.u-state__d { font-size: 12.5px; font-weight: 600; color: var(--u-ink-3); line-height: 1.9; max-width: 380px; margin: 0 auto; }
+.u-state--error .u-state__t { color: var(--gmt-danger,#dc2626); }
+.u-state__a { margin-top: 14px; }
+
+.u-skel { background: linear-gradient(90deg, #eef2f7 25%, #f6f8fb 37%, #eef2f7 63%);
+  background-size: 400% 100%; animation: u-shimmer 1.3s ease infinite; border-radius: 8px; }
+@keyframes u-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+.u-skel--line { height: 12px; margin: 7px 0; }
+.u-skel--card { height: 76px; margin: 9px 0; border-radius: var(--u-radius); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١١ · التنقّل — شريطٌ سفليّ بكلمةٍ تحت كل أيقونة (لا تخمين)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-nav { display: flex; justify-content: space-around; align-items: center;
+  background: var(--u-surface); border-top: 1px solid var(--u-border); padding: 7px 6px; }
+.u-nav__i { display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 56px; padding: 4px 2px; border-radius: 10px; color: var(--u-ink-3);
+  text-decoration: none; font-size: 10px; font-weight: 800;
+  transition: color var(--u-t) var(--u-ease), background var(--u-t) var(--u-ease); }
+.u-nav__i.is-on { color: var(--u-brand); background: var(--u-brand-50); }
+.u-nav__i i, .u-nav__i svg { font-size: 20px; }
+
+/* التبويبات */
+.u-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--u-border); }
+.u-tab { border: 0; background: transparent; padding: 10px 14px; font-family: inherit;
+  font-size: 12.5px; font-weight: 800; color: var(--u-ink-3); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  transition: color var(--u-t) var(--u-ease), border-color var(--u-t) var(--u-ease); }
+.u-tab.is-on { color: var(--u-brand); border-bottom-color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٢ · الحركة — قصيرةٌ وهادئة، وتحترم تفضيل تقليل الحركة (في gmt-theme.css)
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes u-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.u-in { animation: u-in .28s var(--u-ease) both; }
+.u-in-2 { animation: u-in .28s .06s var(--u-ease) both; }
+.u-in-3 { animation: u-in .28s .12s var(--u-ease) both; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٣ · الالتقاطُ التدريجي — ارتقاءٌ بلا إعادة كتابة أيّ صفحة
+
+   هنا جوهرُ «Evolution لا Revolution» في التنفيذ: بدل أن نُعيد كتابة ٤٥
+   صفحة (٦٠٠ كيلوبايت من الواجهات) نلتقط **الأنماط القائمة** ونرفعها إلى
+   سلّم ٢٫٠. فالصفحاتُ ترتقي معاً، ولا ينكسر شيء.
+
+   ⚠️ وبخصوصيّةٍ منخفضة عمداً: أيُّ قاعدةٍ في الصفحة تغلب هذه. فالملفّ
+      **يرفع الأرضية** ولا يُصادر قرارات الصفحات.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* إيقاعُ النصّ: سطورٌ مريحةٌ للعربية (كان 1.5 في صفحاتٍ و2.1 في أخرى) */
+:where(body) { line-height: 1.8; -webkit-font-smoothing: antialiased; }
+
+/* الأرقام واللاتينية داخل العربية لا تنقلب */
+:where(code, kbd, samp, [dir="ltr"]) { unicode-bidi: isolate; }
+
+/* كلُّ زرٍّ يملك هدفَ لمسٍ معقولاً */
+:where(button, [role="button"], .btn, .tab):not(.u-btn) { min-height: 32px; }
+
+/* أنصافُ الأقطار تلتقي على سلّمٍ واحد بدل ٦ ⇐ ٢٢px عشوائية */
+:where(input, select, textarea):not(.u-field):not([type="checkbox"]):not([type="radio"]) {
+  border-radius: var(--u-radius);
+}
+
+/* الجداول تتنفّس */
+:where(table) :where(th, td) { vertical-align: middle; }
+
+/* صورُ المنتجات لا تتمدّد */
+:where(img):not([src*="logo"]):not(.no-fit) { object-fit: contain; }
+
+/* التركيزُ المرئيّ مُعرَّفٌ في gmt-theme.css — لا نُكرّره هنا */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٢ · سلّمُ الخطّ — Typography System  (طلبُ الوثيقة ٠٨)
+   ──────────────────────────────────────────────────────────────────────────
+   كان في النظام ٢١ حجمَ خطٍّ مختلفاً بلا سلّم، و١١ وزناً. هنا سلّمٌ واحد.
+   قاعدةُ العربية: السطرُ يحتاج تنفّساً أكثرَ من اللاتينية — لذلك
+   line-height هنا أعلى مما يُستعمل في الواجهات الإنجليزية.
+   ولا نستعمل الحروفَ الكبيرة في التسميات (العربيةُ لا تملكها أصلاً،
+   وفي اللاتينية تُقلّل المقروئية).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --u-fs-display: 30px;  --u-fs-h1: 24px;  --u-fs-h2: 19px;  --u-fs-h3: 16px;
+  --u-fs-h4:      14px;  --u-fs-bodyl: 15px; --u-fs-body: 13.5px;
+  --u-fs-bodys: 12.5px;  --u-fs-cap: 11.5px; --u-fs-label: 11px;
+  --u-fs-btn:   13.5px;  --u-fs-kpi: 26px;
+}
+.u-display { font-size: var(--u-fs-display); font-weight: 900; line-height: 1.3;  letter-spacing: -.5px; color: var(--u-ink); }
+.u-h1      { font-size: var(--u-fs-h1);      font-weight: 900; line-height: 1.4;  letter-spacing: -.3px; color: var(--u-ink); }
+.u-h2      { font-size: var(--u-fs-h2);      font-weight: 900; line-height: 1.45; letter-spacing: -.2px; color: var(--u-ink); }
+.u-h3      { font-size: var(--u-fs-h3);      font-weight: 800; line-height: 1.5;  color: var(--u-ink); }
+.u-h4      { font-size: var(--u-fs-h4);      font-weight: 800; line-height: 1.6;  color: var(--u-ink); }
+.u-bodyl   { font-size: var(--u-fs-bodyl);   font-weight: 600; line-height: 1.85; color: var(--u-ink-2); }
+.u-body    { font-size: var(--u-fs-body);    font-weight: 600; line-height: 1.85; color: var(--u-ink-2); }
+.u-bodys   { font-size: var(--u-fs-bodys);   font-weight: 600; line-height: 1.8;  color: var(--u-ink-3); }
+.u-cap     { font-size: var(--u-fs-cap);     font-weight: 600; line-height: 1.7;  color: var(--u-ink-3); }
+.u-lead    { font-size: var(--u-fs-bodyl);   font-weight: 600; line-height: 1.95; color: var(--u-ink-2); max-width: 68ch; }
+
+/* الرقم ليس نصّاً — له معاملةٌ خاصّة: لاتينيّ الاتجاه، أعمدةٌ متساوية،
+   لا ينقلب داخل العربية. هذا يحلّ قفزَ الأرقام في الجداول. */
+.u-kpi { font-size: var(--u-fs-kpi); font-weight: 900; line-height: 1.15; color: var(--u-ink);
+         direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; letter-spacing: -.6px; }
+.u-kpi__u { font-size: 12px; font-weight: 800; color: var(--u-ink-3); margin-inline-start: 3px; letter-spacing: 0; }
+.u-kpi--brand { color: var(--u-brand); }
+.u-kpi--ok    { color: var(--gmt-success,#15803d); }
+.u-kpi--down  { color: var(--gmt-danger,#dc2626); }
+/* النصُّ الخافتُ المساعد — مستوى ثالث للمعلومة لا رابع */
+.u-muted { color: var(--u-ink-3); font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٣ · سلّمُ المسافات — Spacing System  (طلبُ الوثيقة ٠٩)
+   المسافاتُ كانت عشوائية: ٥ · ٧ · ٩ · ١٣ · ١٨ · ٢٣px في صفحاتٍ مختلفة.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --u-xs: 4px; --u-sm: 8px; --u-md: 12px; --u-lg: 16px; --u-xl: 24px; --u-xxl: 36px;
+}
+.u-stack > * + * { margin-top: var(--u-md); }
+.u-stack--sm > * + * { margin-top: var(--u-sm); }
+.u-stack--lg > * + * { margin-top: var(--u-lg); }
+.u-stack--xl > * + * { margin-top: var(--u-xl); }
+.u-row  { display: flex; align-items: center; gap: var(--u-sm); flex-wrap: wrap; }
+.u-row--tight { gap: var(--u-xs); }
+.u-row--wide  { gap: var(--u-lg); }
+.u-row--end   { justify-content: flex-end; }
+.u-row--split { justify-content: space-between; }
+.u-grow { flex: 1; min-width: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٤ · الشبكة — Grid System  (طلبُ الوثيقة ١٠)
+   ──────────────────────────────────────────────────────────────────────────
+   نقاطُ الانكسار الأربع. الحاوية تتوسّع تدريجياً ولا تلتصق بالحافة
+   على الهاتف (كان المحتوى يلمس الحافة في ٩ صفحات).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root { --u-container: 1200px; --u-gutter: var(--u-lg); }
+.u-wrap { width: 100%; max-width: var(--u-container); margin-inline: auto; padding-inline: var(--u-gutter); }
+.u-wrap--narrow { max-width: 760px; }
+.u-wrap--wide   { max-width: 1480px; }
+.u-g { display: grid; gap: var(--u-md); }
+.u-g--2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.u-g--3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.u-g--4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.u-g--auto { grid-template-columns: repeat(auto-fill, minmax(min(240px,100%), 1fr)); }
+@media (max-width: 1024px) {  /* لوح/تابلت */
+  :root { --u-gutter: var(--u-md); }
+  .u-g--4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .u-g--3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {   /* هاتف */
+  :root { --u-gutter: 12px; }
+  .u-g--2, .u-g--3, .u-g--4 { grid-template-columns: 1fr; }
+  .u-display { font-size: 23px; }
+  .u-h1 { font-size: 20px; }
+  .u-kpi { font-size: 22px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٥ · أنماطُ التوزيع — Layout Patterns  (طلبُ الوثيقة ١١ و١٢)
+   ──────────────────────────────────────────────────────────────────────────
+   الوثيقة: «لا تستخدم Layout واحداً لكل شيء». خمسةُ أنماط، كلٌّ منها
+   يرتّب نفس العناصر بترتيبٍ مختلف لأنّ سؤال المستخدم مختلف:
+     لوحة  : ما حالُ العمل الآن؟      ملخّص ⇠ مؤشّرات ⇠ رسوم ⇠ نشاط ⇠ تنبيهات
+     إدارة : أين السجلّ الذي أريده؟   ترويسة ⇠ فلاتر ⇠ أفعال ⇠ جدول ⇠ ترقيم
+     تفصيل : ما قصّةُ هذا السجلّ؟      ترويسة ⇠ ملخّص ⇠ معلومات ⇠ مرتبطات ⇠ سجلّ
+     نموذج : ماذا يجب أن أُدخل؟       سياق ⇠ أقسام ⇠ حقول ⇠ تحقّق ⇠ أفعال
+     بيع   : أسرعُ طريقٍ للبيع؟        منتجات ⇠ تصنيفات ⇠ سلّة ⇠ عميل ⇠ دفع
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-lay { display: grid; gap: var(--u-lg); }
+/* ══ (2026-10-04) حارسٌ وُلد من عطلٍ رأيتُه في المعاينة على الهاتف ══
+   عنصرُ الشبكة أو المرونة حدُّه الأدنى الافتراضيّ `min-width:auto` — أي
+   **عرضُ أضيق محتوىً فيه**. فصفُّ تبويباتٍ بستّة أزرارٍ داخل عمودٍ `1fr`
+   جعل العمودَ ٤٣٠px داخل حاويةٍ عرضُها ٣٦٠ ⇒ الصفحةُ كلُّها تفيض أفقيّاً،
+   والبطاقاتُ تخرج من الشاشة. و`overflow-x:auto` وحده لا يمنع ذلك: لا يعمل
+   إلّا إذا سُمح للعنصر أن يضيق.
+   ⇒ كلُّ عنصرٍ في شبكةٍ أو صفٍّ يُسمح له أن يضيق، وكلُّ مُمرِّرٍ أفقيٍّ
+     يُصرَّح له بـmin-width:0. هذا أصلُ أكثر حالات الفيض الأفقيّ على الهاتف. */
+.u-lay > *, .u-g > * { min-width: 0; }
+.u-at-main, .u-at-side, .u-at-cart, .u-at-kpi, .u-at-alerts { min-width: 0; }
+.u-tabs, .u-seg, .u-chips { min-width: 0; max-width: 100%; }
+.u-row > * { min-width: 0; }
+/* لوحةٌ: المؤشّراتُ أوّلاً عرضاً كاملاً، ثمّ عمودان غيرُ متساويين */
+.u-lay--dash { grid-template-areas: "kpi kpi" "main side" "alerts alerts";
+               grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+.u-lay--dash > .u-at-kpi { grid-area: kpi; }
+.u-lay--dash > .u-at-main { grid-area: main; }
+.u-lay--dash > .u-at-side { grid-area: side; }
+.u-lay--dash > .u-at-alerts { grid-area: alerts; }
+/* إدارةٌ: كلُّ شيءٍ عمودٌ واحدٌ لأنّ الجدول هو البطل */
+.u-lay--mgmt { grid-template-columns: 1fr; gap: var(--u-md); }
+/* تفصيلٌ: ملخّصٌ لاصقٌ جانباً على الشاشات الكبيرة */
+.u-lay--detail { grid-template-columns: minmax(0,1fr) 320px; align-items: start; }
+.u-lay--detail > .u-at-side { position: sticky; top: var(--u-md); }
+/* نموذجٌ: عمودٌ ضيّقٌ مقصود — السطرُ الطويل يُتعب في النماذج */
+.u-lay--form { grid-template-columns: minmax(0, 720px); justify-content: center; }
+/* بيعٌ: المنتجاتُ تأخذ المساحة، السلّةُ ثابتةٌ لا تهرب */
+.u-lay--pos { grid-template-columns: minmax(0,1fr) 380px; gap: var(--u-md); align-items: start; }
+.u-lay--pos > .u-at-cart { position: sticky; top: var(--u-sm); }
+@media (max-width: 1024px) {
+  .u-lay--dash   { grid-template-areas: "kpi" "main" "side" "alerts"; grid-template-columns: 1fr; }
+  .u-lay--detail, .u-lay--pos { grid-template-columns: 1fr; }
+  .u-lay--detail > .u-at-side, .u-lay--pos > .u-at-cart { position: static; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٦ · ليس كلُّ شيءٍ بطاقة  (طلبُ الوثيقة ١٤)
+   ──────────────────────────────────────────────────────────────────────────
+   الوثيقة: «لا تحوّل كلّ عنصرٍ إلى Card لمجرّد أنّ المراجع تستعمل Cards.
+   الهدف Hierarchy وليس كثرةَ الحاويات.»
+   أربعُ حاوياتٍ بأربع وظائف — والقرارُ مكتوبٌ هنا لا متروكٌ للذوق:
+     بطاقة  : وحدةٌ مستقلّةٌ قابلةٌ للنقر أو النقل (منتج · أوردر · فرع)
+     قسم    : مجموعةٌ داخل الصفحة، لا حدودَ لها — فقط عنوانٌ ومسافة
+     لوحة   : منطقةُ عملٍ ثابتة (سلّة · فلاتر) — خلفيّةٌ خافتةٌ بلا ظلّ
+     مسطّح  : نصٌّ أو جدولٌ لا يحتاج حاويةً إطلاقاً
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-plain   { background: none; border: 0; box-shadow: none; padding: 0; }
+.u-panel   { background: var(--u-surface-2); border: 1px solid var(--u-border);
+             border-radius: var(--u-radius); padding: var(--u-md); }
+.u-panel--quiet { background: transparent; border-style: dashed; }
+.u-divider { height: 1px; background: var(--u-border); border: 0; margin: var(--u-lg) 0; }
+.u-divider--text { display: flex; align-items: center; gap: var(--u-sm); height: auto; background: none;
+                   font-size: var(--u-fs-cap); font-weight: 800; color: var(--u-ink-3); }
+.u-divider--text::before, .u-divider--text::after { content: ""; flex: 1; height: 1px; background: var(--u-border); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٧ · بقيّةُ المكوّنات  (طلبُ الوثيقة ١٣)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* اختيار — نفسُ ارتفاع الحقل، سهمٌ لا يعتمد على خطّ أيقونات */
+.u-select { appearance: none; -webkit-appearance: none; padding-inline-end: 30px;
+            background-image: linear-gradient(45deg, transparent 50%, var(--u-ink-3) 50%),
+                              linear-gradient(135deg, var(--u-ink-3) 50%, transparent 50%);
+            background-position: left 12px top 50%, left 17px top 50%;
+            background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+/* بحث — الأيقونة داخل الحقل بلا جافاسكربت */
+.u-search { position: relative; display: block; }
+.u-search > .u-field { padding-inline-start: 34px; }
+.u-search::before { content: "🔍"; position: absolute; inset-inline-start: 10px; top: 50%;
+                    transform: translateY(-50%); font-size: 13px; opacity: .55; pointer-events: none; }
+/* شارةُ عدّ — دائرةٌ صغيرةٌ فوق أيقونة */
+.u-badge { position: absolute; top: -5px; inset-inline-end: -5px; min-width: 17px; height: 17px;
+           padding: 0 4px; border-radius: 9px; background: var(--u-brand); color: #fff;
+           font-size: 10px; font-weight: 900; line-height: 17px; text-align: center;
+           direction: ltr; unicode-bidi: isolate; box-shadow: 0 0 0 2px var(--u-surface); }
+/* فتّاحة — نافذةٌ منبثقةٌ موحّدة (البنيةُ فقط؛ الفتحُ في gmt-ask.js) */
+.u-modal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center;
+           padding: var(--u-lg); background: rgba(2,6,23,.45); animation: u-fade .18s both; }
+.u-modal__box { width: 100%; max-width: 480px; max-height: 86vh; overflow: auto;
+                background: var(--u-surface); border-radius: 26px;
+                box-shadow: var(--u-sh-lg); animation: u-pop .2s var(--u-ease) both; }
+.u-modal__h { padding: var(--u-lg) var(--u-lg) var(--u-sm); font-size: var(--u-fs-h3); font-weight: 900; color: var(--u-ink); }
+.u-modal__b { padding: 0 var(--u-lg) var(--u-lg); }
+.u-modal__f { display: flex; gap: var(--u-sm); justify-content: flex-end;
+              padding: var(--u-md) var(--u-lg); border-top: 1px solid var(--u-border); }
+/* دُرج — يخرج من الحافة؛ على الهاتف يصبح ورقةً سفليّة (طلبُ الوثيقة ١٧) */
+.u-drawer { position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 9000; width: min(420px, 92vw);
+            background: var(--u-surface); box-shadow: -14px 0 44px rgba(2,6,23,.18);
+            display: flex; flex-direction: column; animation: u-slide-in .24s var(--u-ease) both; }
+@media (max-width: 640px) {
+  .u-drawer { inset: auto 0 0 0; width: auto; max-height: 88vh;
+              border-radius: var(--u-radius-lg) var(--u-radius-lg) 0 0;
+              box-shadow: 0 -14px 44px rgba(2,6,23,.18); animation: u-sheet-up .26s var(--u-ease) both; }
+  .u-drawer::before { content: ""; width: 38px; height: 4px; border-radius: 2px;
+                      background: var(--u-border); margin: 8px auto 0; flex: 0 0 auto; }
+}
+/* قائمةٌ منسدلة */
+.u-menu { min-width: 190px; padding: 6px; background: var(--u-surface); border: 1px solid var(--u-border);
+          border-radius: var(--u-radius); box-shadow: 0 12px 34px rgba(2,6,23,.14); animation: u-pop .16s var(--u-ease) both; }
+.u-menu__i { display: flex; align-items: center; gap: var(--u-sm); width: 100%; padding: 9px 10px;
+             border: 0; background: none; border-radius: 8px; font: inherit; font-size: var(--u-fs-body);
+             font-weight: 700; color: var(--u-ink-2); cursor: pointer; text-align: start; }
+.u-menu__i:hover { background: var(--u-surface-2); }
+.u-menu__i.is-danger { color: var(--gmt-danger,#dc2626); }
+.u-menu__sep { height: 1px; background: var(--u-border); margin: 5px 2px; }
+/* تلميح — يعمل بـCSS فقط */
+.u-tip { position: relative; }
+.u-tip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); inset-inline-start: 50%;
+                transform: translateX(50%) scale(.96); white-space: nowrap; padding: 5px 9px; border-radius: 7px;
+                background: var(--u-ink); color: #fff; font-size: 11px; font-weight: 700;
+                opacity: 0; pointer-events: none; transition: opacity var(--u-t), transform var(--u-t); z-index: 60; }
+.u-tip:hover::after, .u-tip:focus-visible::after { opacity: 1; transform: translateX(50%) scale(1); }
+/* مُبدّلٌ مقطعيّ — Segmented control
+   ولماذا هو لا «أزرار»: الزرُّ يُنفّذ فعلاً، وهذا يُبدّل ما تراه فقط.
+   كان في النظام صفّاً من ستّة أزرارٍ مملوءةٍ بالأحمر — ستُّ دعواتٍ
+   للفعل في وقتٍ واحد، فلا شيءَ يبدو مهماً. هنا حاويةٌ واحدةٌ هادئة،
+   والنشِطُ وحده يرتفع: سطحٌ أبيض + نصٌّ أحمر + خطٌّ أحمرُ رفيعٌ تحته
+   (وهو نفسُ خطّ فاتورتك). والخطُّ إشارةٌ ثانيةٌ غيرُ اللون — فمن لا
+   يُفرّق الأحمر يرى أيُّها نشِط. */
+.u-seg { display: inline-flex; align-items: center; gap: 2px; padding: 3px; max-width: 100%;
+         background: var(--u-surface-2); border: 1px solid var(--u-border);
+         border-radius: 11px; overflow-x: auto; scrollbar-width: none; }
+.u-seg::-webkit-scrollbar { display: none; }
+.u-seg__i { position: relative; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+            border: 0; background: transparent; border-radius: 8px; padding: 0 10px; min-height: 30px;
+            font: inherit; font-size: 11.5px; font-weight: 800; color: var(--u-ink-3); cursor: pointer;
+            transition: background var(--u-t), color var(--u-t); }
+.u-seg__i:hover { color: var(--u-ink-2); background: rgba(255,255,255,.75); }
+.u-seg__i.is-on { background: var(--u-surface); color: var(--u-brand); box-shadow: 0 1px 3px rgba(2,6,23,.09); }
+.u-seg__i.is-on::after { content: ""; position: absolute; inset-inline: 9px; bottom: 3px;
+                         height: 2px; border-radius: 2px; background: var(--u-brand); }
+.u-seg__i:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ترقيم */
+.u-pager { display: flex; align-items: center; justify-content: center; gap: var(--u-xs); flex-wrap: wrap; padding: var(--u-md) 0; }
+.u-pager__b { min-width: 34px; height: 34px; padding: 0 9px; border: 1px solid var(--u-border);
+              border-radius: 8px; background: var(--u-surface); font: inherit; font-size: 12.5px;
+              font-weight: 800; color: var(--u-ink-2); cursor: pointer; }
+.u-pager__b.is-on { background: var(--u-brand); border-color: var(--u-brand); color: #fff; }
+.u-pager__b:disabled { opacity: .42; cursor: not-allowed; }
+.u-pager__n { font-size: var(--u-fs-cap); font-weight: 700; color: var(--u-ink-3); margin-inline: var(--u-sm); }
+/* مسارُ التنقّل — الفاصلُ يُقلب مع الاتجاه */
+.u-crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+           font-size: var(--u-fs-cap); font-weight: 700; color: var(--u-ink-3); }
+.u-crumb a { color: var(--u-ink-3); text-decoration: none; }
+.u-crumb a:hover { color: var(--u-brand); text-decoration: underline; }
+.u-crumb__s { opacity: .5; }
+.u-crumb__s::before { content: "‹"; }
+.u-crumb > :last-child { color: var(--u-ink); }
+/* إشعارٌ عابر */
+.u-toast { display: flex; align-items: flex-start; gap: var(--u-sm); max-width: 380px;
+           padding: 11px 14px; border-radius: var(--u-radius); background: var(--u-ink); color: #fff;
+           font-size: var(--u-fs-body); font-weight: 700; box-shadow: 0 12px 34px rgba(2,6,23,.3);
+           animation: u-pop .2s var(--u-ease) both; }
+.u-toast--ok     { background: #14532d; }
+.u-toast--error  { background: #7f1d1d; }
+.u-toast--warn   { background: #78350f; }
+.u-toast-dock { position: fixed; inset-block-end: 16px; inset-inline-start: 50%; transform: translateX(50%);
+                z-index: 9500; display: flex; flex-direction: column; gap: var(--u-sm); pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٧ب · مكوّناتٌ من نموذجك المعتمَد لم تكن في نظامي
+   ──────────────────────────────────────────────────────────────────────────
+   هذه ليست إضافاتٍ من عندي: كلُّ واحدٍ منها موجودٌ في ملفّ
+   «الهوية البصرية 2.0 · معاينة» الذي أرسلتَه — فنقلتُه إلى النظام الحيّ
+   بنفس قياساته كي لا يبقى النموذجُ شيئاً والتطبيقُ شيئاً آخر.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* مربّعُ الأيقونة — ٤٠px · حافّة ١٣ · سطحٌ أحمرُ ناعمٌ وأيقونةٌ حمراء.
+   هنا يعيش الأحمرُ في الشاشات الهادئة: مؤشّراً صغيراً لا خلفيّةً كبيرة. */
+/* أيقوناتُ الطقم الموحَّد (gmt-icons.js): ترث لونَ سياقها، فتخفت مع
+   المعطَّل وتحمرّ مع النشِط — وهو ما لا يفعله الرمزُ التعبيريّ أبداً. */
+svg.gmt-i { display: block; flex: 0 0 auto; }
+.u-ico > svg.gmt-i { width: 19px; height: 19px; }
+.u-ico--sm > svg.gmt-i { width: 16px; height: 16px; }
+.u-ico--lg > svg.gmt-i { width: 24px; height: 24px; }
+.u-btn > svg.gmt-i, .u-ni > svg.gmt-i { width: 15px; height: 15px; }
+
+.u-ico { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 13px;
+         background: var(--u-brand-soft); color: var(--u-brand);
+         display: grid; place-items: center; font-size: 18px; }
+.u-ico--sm   { width: 32px; height: 32px; border-radius: 10px; font-size: 15px; }
+.u-ico--lg   { width: 52px; height: 52px; border-radius: 16px; font-size: 23px; }
+.u-ico--mute { background: var(--u-surface-2); color: var(--u-ink-3); border: 1px solid var(--u-border); }
+
+/* عنصرُ تنقّل — والنشِطُ يحمل **شريطاً أحمرَ على الحافّة** لا لوناً فقط.
+   (إشارةٌ ثانيةٌ غيرُ اللون — قاعدةُ الوثيقة في إمكانية الوصول.) */
+.u-ni { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px;
+        border: 0; background: none; border-radius: var(--u-r3); color: var(--u-ink-3);
+        font: inherit; font-size: 13px; font-weight: 700; text-align: start;
+        cursor: pointer; position: relative; transition: background var(--u-t) var(--u-ease), color var(--u-t) var(--u-ease);
+        text-decoration: none; }
+.u-ni:hover { background: rgba(15,18,25,.04); color: var(--u-ink); }
+.u-ni.is-on { background: var(--u-brand-soft); color: var(--u-brand); font-weight: 800; }
+.u-ni.is-on::before { content: ""; position: absolute; inset-inline-start: -12px; top: 8px; bottom: 8px;
+                      width: 4px; border-radius: 4px; background: var(--u-brand); }
+
+/* الشريطُ الجانبيّ والترويسةُ — سطحٌ زجاجيٌّ يفصل الطبقات بلا خطٍّ ثقيل */
+.u-side { background: var(--u-glass); backdrop-filter: blur(14px);
+          border-inline-end: 1px solid var(--u-line); padding: 16px 12px;
+          display: flex; flex-direction: column; gap: 2px; }
+.u-tb   { display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+          border-bottom: 1px solid var(--u-line); background: var(--u-glass);
+          backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 5; }
+
+/* شريطُ التنقّل السفليّ على الهاتف — داكنٌ ملتصقٌ بأسفل التدفّق.
+   ⚠️ ليس زرّاً عائماً: لا يطفو فوق المحتوى ولا يحجب شيئاً — هو شريطُ
+   تنقّلٍ من نموذجك، وقاعدتُك «لا فقاعات ولا أزرار عائمة» تبقى محفوظة. */
+.u-pillnav { display: none; position: sticky; bottom: 14px; margin: 0 14px; z-index: 6;
+             background: var(--u-ink); border-radius: 99px; padding: 6px;
+             justify-content: space-around; box-shadow: 0 14px 34px rgba(15,18,25,.35); }
+.u-pillnav .u-ni { color: rgba(255,255,255,.62); justify-content: center; }
+.u-pillnav .u-ni.is-on { background: rgba(255,255,255,.12); color: #fff; }
+.u-pillnav .u-ni.is-on::before { display: none; }
+@media (max-width: 860px) { .u-pillnav { display: flex; } }
+
+/* البطلُ الداكن — الشيءُ الجريءُ الوحيد في الشاشة: خلفيّةٌ ليليّةٌ وهالةٌ
+   حمراءُ في زاويتها. يُستعمل مرّةً واحدةً في الصفحة ولا يُكرَّر. */
+.u-hero { position: relative; overflow: hidden; border-radius: var(--u-r1); padding: 20px;
+          color: #fff; background: linear-gradient(135deg, #0f172a, #1e293b); box-shadow: var(--u-sh); }
+.u-hero::before { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%;
+                  inset-inline-end: -70px; top: -110px;
+                  background: radial-gradient(circle, rgba(213,0,28,.55), transparent 68%); }
+.u-hero > * { position: relative; }
+.u-hero .u-muted, .u-hero .u-cap { color: rgba(255,255,255,.72); }
+
+/* مكانُ الصورة — نسبةٌ ثابتةٌ فلا تقفز الصفحةُ حين تصل الصورة.
+   (وهذا يحلّ شكواك أنّ صورةَ المنتج تدخل داخل الاسم والكمية.) */
+.u-img { aspect-ratio: 1.15; border-radius: var(--u-r2); overflow: hidden; position: relative;
+         background: linear-gradient(145deg, #f1f3f6, #e6e9ee);
+         display: grid; place-items: center; color: #a3abb8; }
+.u-img > img { width: 100%; height: 100%; object-fit: contain; }
+.u-img--wide { aspect-ratio: 16/10; }
+.u-img--sq   { aspect-ratio: 1; }
+
+/* شريطُ تقدّم */
+.u-bar { height: 7px; border-radius: 9px; background: #eceef2; overflow: hidden; }
+.u-bar > i { display: block; height: 100%; border-radius: 9px; background: var(--u-brand);
+             transition: width .4s var(--u-ease); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٨ · نظامُ البنرات — الأحجامُ والنسبُ وزرُّ الفعل  (طلبُ الوثيقة ١٥)
+   الأنواعُ السبعةُ معرَّفةٌ أعلاه بالألوان. هنا الأحجامُ ومنطقةُ الصورة
+   وزرُّ الفعل والسلوكُ المتجاوب — وهذا ما كان ناقصاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-banner--sm { padding: 9px 11px; font-size: var(--u-fs-bodys); border-radius: 10px; }
+.u-banner--lg { padding: var(--u-lg); font-size: var(--u-fs-bodyl); border-radius: var(--u-radius-lg); }
+.u-banner__cta { flex: 0 0 auto; align-self: center; }
+/* بنرُ ميزةٍ/منتجٍ: نصٌّ + منطقةُ صورةٍ بنسبةٍ ثابتةٍ لا تهتزّ مع التحميل */
+.u-banner--feat { display: grid; grid-template-columns: minmax(0,1fr) 34%; gap: var(--u-lg);
+                  align-items: center; padding: var(--u-lg); border-radius: var(--u-radius-lg); }
+.u-banner__img { aspect-ratio: 16/10; border-radius: var(--u-radius); overflow: hidden;
+                 background: var(--u-surface-2); display: grid; place-items: center; }
+.u-banner__img img { width: 100%; height: 100%; object-fit: contain; }
+.u-banner--hero { display: grid; gap: var(--u-sm); padding: var(--u-xl) var(--u-lg);
+                  text-align: center; border-radius: var(--u-radius-lg); }
+@media (max-width: 640px) {
+  .u-banner { flex-wrap: wrap; }
+  .u-banner--feat { grid-template-columns: 1fr; }
+  .u-banner__cta { width: 100%; }
+  .u-banner__cta .u-btn { width: 100%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٩ · لغةُ الحركة — Motion Language  (طلبُ الوثيقة ١٦)
+   ──────────────────────────────────────────────────────────────────────────
+   قاعدةٌ واحدة: الحركةُ تُجيب على فعلٍ قام به المستخدم، أو تُخبره
+   أنّ شيئاً تغيّر. وإلا فلا حركة. لا شيءَ هنا يتحرّك عند التمرير فقط.
+   المُدَد: ١٢٠ms تأكيدُ لمسة · ١٨٠ms ظهورُ عنصر · ٢٤٠ms درجٌ/ورقة.
+   وكلُّها تتوقّف احتراماً لـprefers-reduced-motion في آخر الملفّ.
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes u-fade     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes u-pop      { from { opacity: 0; transform: translateY(7px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes u-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes u-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes u-pulse-ok { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.38); } 100% { box-shadow: 0 0 0 12px rgba(22,163,74,0); } }
+@keyframes u-shake    { 10%,90% { transform: translateX(-1px); } 30%,70% { transform: translateX(2px); } 50% { transform: translateX(-2px); } }
+@keyframes u-bar      { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+/* نجاحٌ: نبضةٌ واحدةٌ خارجةٌ من العنصر الذي تغيّر — لا بنرٌ يغطّي الشاشة */
+.u-ok-pulse { animation: u-pulse-ok .6s ease-out 1; }
+/* خطأٌ: رجفةٌ قصيرةٌ على الحقل الخاطئ نفسه — المستخدم يعرف أين ينظر */
+.u-err-shake { animation: u-shake .34s both; }
+/* تحميلٌ: شريطٌ رفيعٌ أعلى المنطقة التي تُحمَّل، لا دوّارٌ في الوسط */
+.u-loading-bar { position: relative; }
+.u-loading-bar::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--u-brand), transparent); background-size: 200% 100%;
+  animation: u-bar 1.1s linear infinite; }
+/* ضغطةُ زرّ: الزرُّ ينضغط ١٢٠ms */
+.u-press:active { transform: scale(.975); transition: transform .12s var(--u-ease); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢٠ · الهاتفُ أوّلاً ثم اللوح  (طلبُ الوثيقة ١٧ · وطلبك ٢١٨ و١٦٠)
+   ──────────────────────────────────────────────────────────────────────────
+   «لا تجعل تصميم الهاتف مجرّد نسخةٍ مصغّرةٍ من Desktop.»
+   ما يبقى · ما يُختصر · ما يتحوّل · ما يختفي — مكتوبٌ كقواعدَ لا كنيّة:
+     يبقى   : الفعلُ الأساسيّ · الرقمُ الحاكم · البحث
+     يُختصر : الترويسةُ سطرٌ واحد · الفلاتر تُطوى في دُرج
+     يتحوّل : الجدولُ ⇠ بطاقات · الدرجُ ⇠ ورقةٌ سفليّة · التبويباتُ ⇠ تمريرٌ أفقيّ
+     يختفي : الأعمدةُ الثانوية · التلميحاتُ (لا hover على اللمس) · الزخرفة
+   ══════════════════════════════════════════════════════════════════════════ */
+/* اللوح: مساحةٌ وسطى حقيقيّة — لا هاتفٌ ممدودٌ ولا سطحُ مكتبٍ مضغوط */
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root { --u-field-h: 44px; --u-field-h-sm: 38px; }  /* الإصبعُ على اللوح أكبر */
+  .u-wrap { max-width: 920px; }
+  .u-only-desk { display: none !important; }
+  .u-nav { position: static; border-radius: var(--u-radius); }
+}
+@media (max-width: 640px) {
+  .u-only-desk, .u-only-tab { display: none !important; }
+  .u-tip::after { display: none; }                     /* لا hover على اللمس */
+  .u-modal { padding: 0; place-items: end stretch; }
+  .u-modal__box { max-width: none; max-height: 92vh; border-radius: var(--u-radius-lg) var(--u-radius-lg) 0 0;
+                  animation: u-sheet-up .26s var(--u-ease) both; }
+  .u-modal__f .u-btn { flex: 1; }                      /* أزرارُ القرار تملأ العرض */
+  .u-tabs { padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .u-tabs::-webkit-scrollbar { display: none; }
+  /* الجدولُ يصبح بطاقات: الصفُّ كتلةٌ والعنوانُ يأتي من data-l */
+  .u-table--cards thead { display: none; }
+  .u-table--cards tbody tr { display: block; margin-bottom: var(--u-sm); border: 1px solid var(--u-border);
+                             border-radius: var(--u-radius); background: var(--u-surface); padding: 4px 2px; }
+  .u-table--cards tbody td { display: flex; justify-content: space-between; gap: var(--u-md);
+                             border-bottom: 1px dashed var(--u-border); padding: 7px 10px; }
+  .u-table--cards tbody tr td:last-child { border-bottom: 0; }
+  .u-table--cards tbody td[data-l]::before { content: attr(data-l); font-size: var(--u-fs-cap);
+                                     font-weight: 800; color: var(--u-ink-3); flex: 0 0 auto; }
+}
+.u-only-mob { display: none !important; }
+@media (max-width: 640px) { .u-only-mob { display: initial !important; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢١ · إمكانيةُ الوصول  (طلبُ الوثيقة ١٨)
+   ──────────────────────────────────────────────────────────────────────────
+   أهمُّ سطرٍ في الوثيقة: «لا تعتمد على اللون وحده لإيصال المعلومة.»
+   كان نظامُنا يخالفه: الحالاتُ كانت ألواناً فقط — ومن لا يُفرّق الأحمر
+   من الأخضر (١٢٪ من الذكور) كان يرى بطاقاتٍ متطابقة. فأضفنا علامةً
+   شكليّةً لكلّ حالة؛ وتُلغى تلقائياً إن كانت العلامةُ موجودةً أصلاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-pill--ok::before     { content: "✓ "; font-weight: 900; }
+.u-pill--warn::before   { content: "! "; font-weight: 900; }
+.u-pill--danger::before { content: "✕ "; font-weight: 900; }
+.u-pill--info::before   { content: "i "; font-weight: 900; font-style: italic; }
+.u-pill:has(i, svg, img, .u-pill__i)::before { content: none; }
+/* الحقلُ الخاطئ يحمل علامةً لا لوناً فقط */
+.u-field.is-error + .u-hint::before { content: "✕ "; color: var(--gmt-danger,#dc2626); font-weight: 900; }
+.u-field.is-ok    + .u-hint::before { content: "✓ "; color: var(--gmt-success,#15803d); font-weight: 900; }
+/* الروابطُ داخل النصّ تُميَّز بالتسطير لا باللون وحده */
+.u-body a, .u-bodys a, .u-lead a { text-decoration: underline; text-underline-offset: 2px; }
+/* تخطّي إلى المحتوى — للتنقّل بلوحة المفاتيح */
+.u-skip { position: absolute; inset-inline-start: -9999px; z-index: 9999; }
+.u-skip:focus { inset-inline-start: var(--u-md); top: var(--u-md); padding: 9px 14px;
+                background: var(--u-ink); color: #fff; border-radius: 8px; font-weight: 800; }
+/* مقروءٌ للقارئ الصوتيّ فقط */
+.u-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* من يُفضّل تقليلَ الحركة لا يرى أيّاً منها — ويبقى كلُّ شيءٍ وظيفيّاً */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+                           transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+/* طباعةٌ: لا نوافذَ ولا أشرطةَ تنقّلٍ على الورق */
+@media print {
+  .u-nav, .u-modal, .u-drawer, .u-toast-dock, .u-pager, .u-tabs, .gmt-refresh-bar { display: none !important; }
+  .u-card, .u-panel { box-shadow: none !important; border-color: #ccc !important; }
+  .u-total { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* (٧ ي-٤ · المراجعة البصريّة) عدّادٌ فارغ = لا شيء يُرسم. كان «التقييمات» في إدارة المتجر يُظهر كبسولةً رماديّة
+   فارغة بجانب الاسم قبل وصول العدد (وأخواتها: ملصقات الجرد، شريط المهام…). القاعدة عامّة: كل عنصرٍ معرّفه ينتهي
+   بـ count/counts ولا نصّ فيه ⇒ مخفيّ؛ حين يُكتب فيه العدد يعود كما صُمّم. */
+[id$="-count"]:empty, [id$="-counts"]:empty { display: none !important; }
+
+/* (٨ ت — تدقيق المطابقة · نمطٌ لكل النظام) الرسائل العائمة والنوافذ المؤقّتة لا تُطبع أبداً:
+   وُجدت رسالة «تعذّر تسجيل العقد» مطبوعةً على صفحات العقد الثماني. */
+@media print {
+  #gct-toast, #toast, .toast, #toast-container, .gmtask-ov, #gmt-refresh-bar, #gmt-notify-panel { display: none !important; }
+}

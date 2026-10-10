@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>أدمن التوظيف — GMT</title>
+<link rel="icon" href="favicon.ico">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261006"></script>
+<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261003"></script>
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-ask.js?v=20261010b"></script>
+<!-- ══ (2026-10-06) بلاغك: «ما انك عامل أدمن للتوظيف… صراحةً ما في تسجيل دخول ولا أدمن ولا مستخدم».
+     صحيح: «طلبات التوظيف» في الرئيسيّة كانت تفتح صفحة التقديم نفسها، ولا شاشة تقرأ الطلبات.
+     هذه شاشة الإدارة: محميّةٌ بحارس الصفحات (الأدمن، أو من تمنحه «أدمن التوظيف» من الصلاحيات)،
+     تقرأ gmt_job_applications (SQL ١٩): القائمة · الفرز · التفاصيل كاملة · الحالة · الملاحظات · واتساب. ══ -->
+<style>
+:root{--red:#D5001C;--rs:#fff1f2;--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
+.w{max-width:1100px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.top h1{margin:0;font-size:20px;flex:1}
+.btn{border:1px solid var(--ln);background:#fff;border-radius:12px;padding:8px 13px;font:inherit;font-weight:800;cursor:pointer;color:var(--tx);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}.btn.wa{background:#0f9d58;border-color:#0f9d58;color:#fff}
+.in{border:1px solid var(--ln);border-radius:12px;padding:9px 12px;font:inherit;background:#fff}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{border:1px solid var(--ln);background:#fff;border-radius:99px;padding:5px 13px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--ln);border-radius:20px;padding:12px;box-shadow:0 10px 30px rgba(15,18,25,.05)}
+.it{display:flex;gap:10px;align-items:center;padding:10px;border-radius:14px;cursor:pointer;border:1px solid transparent}
+.it:hover{background:#fafbfc}.it.on{background:var(--rs);border-color:rgba(213,0,28,.2)}
+.sc{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;color:#fff}
+.it b{display:block;font-size:14px}.it small{color:var(--mu);font-size:12px}
+.st{font-size:11px;font-weight:900;padding:2px 9px;border-radius:99px;background:#eef0f3;color:#475569;white-space:nowrap}
+.st.new{background:#fff1f2;color:var(--red)}.st.ok{background:#e6f6ec;color:#15803d}.st.no{background:#f1f5f9;color:#526077}.st.mid{background:#fef3c7;color:#b45309}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 10px;font-size:13.5px}.kv div:nth-child(odd){color:var(--mu);font-weight:700}
+.qa{border-top:1px solid #f1f5f9;padding:8px 0;font-size:13.5px}.qa b{display:block;color:#334155;font-size:12.5px}
+.empty{text-align:center;color:var(--mu);padding:30px}
+.warn{padding:12px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>🧑‍💼 أدمن التوظيف</h1>
+    <input id="q" class="in" placeholder="بحث بالاسم أو الهاتف أو المحافظة" style="min-width:220px">
+    <button class="btn" id="reload">تحديث</button><button class="btn" id="csv">تصدير CSV</button></div>
+  <div class="chips" id="chips"></div>
+  <div class="grid">
+    <div class="card" id="list"><div class="empty">جارٍ التحميل…</div></div>
+    <div class="card" id="det"><div class="empty">اختر طلباً من القائمة.</div></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var STATUSES = ['جديد', 'قيد المراجعة', 'مقابلة', 'مقبول', 'مرفوض'];
+  var CLS = { 'جديد': 'new', 'قيد المراجعة': 'mid', 'مقابلة': 'mid', 'مقبول': 'ok', 'مرفوض': 'no' };
+  var $ = function (id) { return document.getElementById(id); };
+  var rows = [], cur = null, filt = '';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function db() { return (window.GMT_DB && GMT_DB.MAIN) || null; }
+  function H(d, x) { return Object.assign({ apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, x || {}); }
+  function scoreColor(s) { s = Number(s) || 0; return s >= 75 ? '#15803d' : s >= 55 ? '#b45309' : '#dc2626'; }
+  async function load() {
+    var d = db(); if (!d) { $('list').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
+    $('list').innerHTML = '<div class="empty">جارٍ التحميل…</div>';
+    try {
+      var r = await fetch(d.url + '/rest/v1/gmt_job_applications?select=*&order=submitted_at.desc&limit=500', { headers: H(d) });
+      if (!r.ok) { $('list').innerHTML = '<div class="warn">جدول الطلبات غير موجود — شغّل <b>SQL/0_الأساس_الرئيسية_جزء2.sql</b> (فيه ١٩_طلبات_التوظيف).</div>'; return; }
+      rows = await r.json();
+    } catch (e) { $('list').innerHTML = '<div class="warn">لا اتصال بالقاعدة الآن.</div>'; return; }
+    paintChips(); paintList();
+  }
+  function paintChips() {
+    var cnt = {}; rows.forEach(function (x) { cnt[x.status || 'جديد'] = (cnt[x.status || 'جديد'] || 0) + 1; });
+    $('chips').innerHTML = '<button class="chip' + (filt ? '' : ' on') + '" data-f="">الكل (' + rows.length + ')</button>' +
+      STATUSES.map(function (s) { return '<button class="chip' + (filt === s ? ' on' : '') + '" data-f="' + s + '">' + s + ' (' + (cnt[s] || 0) + ')</button>'; }).join('');
+  }
+  function shown() {
+    var q = $('q').value.trim().toLowerCase();
+    return rows.filter(function (x) { return (!filt || (x.status || 'جديد') === filt) && (!q || [x.name, x.phone, x.governorate, x.city, x.req_id].join(' ').toLowerCase().indexOf(q) >= 0); });
+  }
+  function paintList() {
+    var L = shown();
+    if (!L.length) { $('list').innerHTML = '<div class="empty">لا طلبات' + (filt ? ' بحالة «' + esc(filt) + '»' : '') + '.</div>'; return; }
+    $('list').innerHTML = L.map(function (x) {
+      return '<div class="it' + (cur && cur.id === x.id ? ' on' : '') + '" data-id="' + x.id + '"><div class="sc" style="background:' + scoreColor(x.final_score) + '">' + Math.round(Number(x.final_score) || 0) + '</div>' +
+        '<div style="flex:1;min-width:0"><b>' + esc(x.name || '—') + '</b><small>' + esc([x.governorate, x.city].filter(Boolean).join(' · ')) + ' · ' + new Date(x.submitted_at).toLocaleDateString('ar-SY') + '</small></div>' +
+        '<span class="st ' + (CLS[x.status] || '') + '">' + esc(x.status || 'جديد') + '</span></div>';
+    }).join('');
+  }
+  function answersHtml(a) {
+    if (!a) return '';
+    var o = typeof a === 'string' ? (function () { try { return JSON.parse(a); } catch (_) { return {}; } })() : a;
+    return Object.keys(o).map(function (k) {
+      var v = o[k];
+      /* (٨ ث — تدقيق المطابقة) المرفقات (الصورة الشخصيّة · السيرة) كانت تُطبع نصّاً base64 طويلاً بين الإجابات.
+         الآن الصورة تُعرض صورةً، والسيرة رابطُ تنزيل. */
+      if (v && typeof v === 'object' && v.base64) {
+        var mime = String(v.type || '').replace(/[^\w\/.+-]/g, '') || 'application/octet-stream';
+        var url = 'data:' + mime + ';base64,' + String(v.base64).replace(/[^A-Za-z0-9+/=]/g, '');
+        if (/^image\//.test(mime)) return '<div class="qa"><b>' + (k === 'photo' ? 'الصورة الشخصيّة' : esc(k)) + '</b><img src="' + url + '" alt="" style="max-width:180px;max-height:220px;border-radius:12px;display:block;margin-top:6px"></div>';
+        return '<div class="qa"><b>' + (k === 'resume' ? 'السيرة الذاتيّة' : esc(k)) + '</b><a href="' + url + '" download="' + esc(v.name || 'file') + '">تنزيل ' + esc(v.name || 'الملف') + (v.sizeLabel ? ' (' + esc(v.sizeLabel) + ')' : '') + '</a></div>';
+      }
+      if (v && typeof v === 'object') v = v.value != null ? v.value : Object.values(v).filter(function (z) { return typeof z !== 'object'; }).join(' · ');
+      return '<div class="qa"><b>' + esc(k) + '</b>' + esc(v) + '</div>';
+    }).join('');
+  }
+  function intlPhone(p) { var d = String(p || '').replace(/[^0-9+]/g, ''); if (d.indexOf('+') === 0) return d.slice(1); if (d.indexOf('00') === 0) return d.slice(2); if (d.indexOf('0') === 0) return '963' + d.slice(1); return d; }
+  function paintDet() {
+    var x = cur; if (!x) return;
+    $('det').innerHTML = '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><div class="sc" style="background:' + scoreColor(x.final_score) + ';width:56px;height:56px;font-size:20px">' + Math.round(Number(x.final_score) || 0) + '</div>' +
+      '<div style="flex:1"><b style="font-size:17px">' + esc(x.name || '—') + '</b><div style="color:#5b6472;font-size:12.5px">طلب ' + esc(x.req_id || x.id) + ' · ' + new Date(x.submitted_at).toLocaleString('ar-SY') + '</div></div></div>' +
+      '<div class="kv"><div>العمر</div><div>' + esc(x.age || '—') + '</div><div>الجنس</div><div>' + esc(x.gender || '—') + '</div><div>الإقامة</div><div>' + esc([x.governorate, x.city].filter(Boolean).join(' · ') || '—') + '</div>' +
+      '<div>الهاتف</div><div dir="ltr" style="text-align:right">' + esc(x.phone || '—') + '</div><div>الإيميل</div><div>' + esc(x.email || '—') + '</div><div>عرفنا من</div><div>' + esc(x.referral || '—') + '</div>' +
+      '<div>السيرة الذاتية</div><div>' + (x.has_cv ? '📎 ' + esc(x.cv_name || 'مرفقة') + ' — نسختها الكاملة في تيليجرام' : 'لا') + '</div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">' +
+        '<select id="d-st" class="in">' + STATUSES.map(function (s) { return '<option' + ((x.status || 'جديد') === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>' +
+        '<button class="btn p" id="d-save">حفظ الحالة والملاحظة</button>' +
+        (x.phone ? '<a class="btn wa" target="_blank" rel="noopener" href="https://wa.me/' + intlPhone(x.phone) + '?text=' + encodeURIComponent('مرحباً ' + (x.name || '') + '، معك فريق التوظيف في مجموعة ميديا تيك التجارية بخصوص طلبك للعمل لدينا.') + '">واتساب</a>' : '') + '</div>' +
+      '<textarea id="d-notes" class="in" style="width:100%;min-height:70px" placeholder="ملاحظات المراجعة">' + esc(x.notes || '') + '</textarea>' +
+      (x.reviewed_by ? '<div style="font-size:12px;color:#5b6472;margin-top:4px">آخر مراجعة: ' + esc(x.reviewed_by) + ' · ' + new Date(x.reviewed_at).toLocaleString('ar-SY') + '</div>' : '') +
+      '<div style="margin-top:12px;font-weight:900">الإجابات</div>' + (answersHtml(x.answers) || '<div style="color:#526077">لا إجابات محفوظة.</div>');
+    $('d-save').onclick = async function () {
+      var d = db(), who = 'الإدارة'; try { var s = JSON.parse(localStorage.getItem('gmt_session') || 'null'); if (s && !(window.GMTRole && GMTRole.isAdmin())) who = s.display_name || s.username; } catch (_) {}
+      var body = { status: $('d-st').value, notes: $('d-notes').value.trim() || null, reviewed_by: who, reviewed_at: new Date().toISOString() };
+      try {
+        var r = await fetch(d.url + '/rest/v1/gmt_job_applications?id=eq.' + x.id, { method: 'PATCH', headers: H(d, { Prefer: 'return=minimal' }), body: JSON.stringify(body) });
+        if (!r.ok) { GMTAsk.alert('تعذّر الحفظ: HTTP ' + r.status); return; }
+        Object.assign(x, body); paintChips(); paintList(); paintDet();
+      } catch (e) { GMTAsk.alert('لا اتصال'); }
+    };
+  }
+  $('list').addEventListener('click', function (e) { var it = e.target.closest('[data-id]'); if (!it) return; cur = rows.find(function (r) { return String(r.id) === it.getAttribute('data-id'); }); paintList(); paintDet(); if (innerWidth <= 820) $('det').scrollIntoView({ behavior: 'smooth' }); });
+  $('chips').addEventListener('click', function (e) { var c = e.target.closest('[data-f]'); if (!c) return; filt = c.getAttribute('data-f'); paintChips(); paintList(); });
+  $('q').addEventListener('input', paintList); $('reload').onclick = load;
+  $('csv').onclick = function () {
+    var L = shown();
+    /* (٧ ي-٤) بلا طلبات كان يُنزّل ملفّاً فارغاً بصمت */
+    if (!L.length) { var b = this; b.textContent = 'لا طلبات لتصديرها'; setTimeout(function () { b.textContent = 'تصدير CSV'; }, 1800); return; }
+    var head = ['الطلب', 'الاسم', 'العمر', 'الجنس', 'المحافظة', 'المدينة', 'الهاتف', 'الإيميل', 'النتيجة', 'الحالة', 'التاريخ'];
+    var csv = '\ufeff' + [head].concat(L.map(function (x) { return [x.req_id, x.name, x.age, x.gender, x.governorate, x.city, x.phone, x.email, x.final_score, x.status, x.submitted_at]; }))
+      .map(function (r) { return r.map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'طلبات_التوظيف.csv'; a.click();
+  };
+  load().catch(function () {});
+})();
+</script>
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

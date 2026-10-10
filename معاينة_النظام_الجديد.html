@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMT — معاينة النظام الجديد</title>
+<style>
+/* ═══ ١ · نظامُ المكوّنات الحقيقيّ، محقونٌ من gmt-ui.css لحظةَ التوليد ═══ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   gmt-ui.css — الهوية البصرية ٢٫٠ · نظامُ المكوّنات
+   أُنشئ: 2026-10-03
+
+   ══ من أين جاءت هذه الهوية ══
+   ليست من ذوقي. استخرجتُها من **مرجعك الأقوى: فاتورتك نفسها** (الصورة التي
+   أرسلتَها) — وهي التصميم الوحيد في نظامك الذي بلغ النضج. وهذا ما تطلبه
+   الوثيقة حرفياً: «هويتنا الحالية تحدّد نقطة البداية… تطويرٌ واضحٌ وجريء
+   للهوية الحالية وليس تغييراً جذرياً لها».
+
+   ══ الـDesign DNA المستخرَج من فاتورتك ══
+     ① ترويسة: اسمٌ عريض + فاصلٌ رأسيّ + وصفٌ خافت، تحتها **خطٌّ أحمر رفيع**.
+     ② عنوانُ قسم: أيقونة + نصّ + خطٌّ أحمر يمتدّ لآخر السطر.
+     ③ بطاقةُ معلومات: شبكةُ عمودين · حدٌّ رمادي فاتح · تسمية صغيرة رمادية
+        فوق قيمةٍ عريضة داكنة. (هذا أقوى نمطٍ عندك — وكان مستعملاً في مكانٍ واحد.)
+     ④ جدول: ترويسةٌ رمادية فاتحة · ترقيمٌ على اليمين · حدودٌ أفقية فقط.
+     ⑤ شريطُ الإجمالي: كتلةٌ حمراء مائلة على خلفيةٍ فاتحة.
+     ⑥ صندوقُ تنبيه: حدٌّ أحمر + أيقونة + نصّ.
+     ⑦ تذييل: نصٌّ أوسط بين خطّين.
+
+   ══ المشكلة التي يحلّها هذا الملفّ ══
+   قِستُ النظام: ٤ حمراواتٍ للعلامة · ١٧٣ نصّاً غيرَ مقروء · أنصافُ أقطارٍ
+   من ٦px إلى ٢٢px بلا سلّم · وشاشةُ اللصق الذكي وحدها فيها **خمسةُ ألوان
+   خلفيّةٍ متنافسة** (أخضر · أصفر · أزرق · بنفسجي · أحمر) بلا معنى دلاليّ.
+   فكلُّ شاشةٍ تبدو من تطبيقٍ آخر.
+
+   ══ القاعدة التي يتبعها هذا الملفّ ══
+   **لا يُعيد كتابة أيّ صفحة.** يُعرّف المكوّنات ويلتقط الأنماط القائمة،
+   فترتقي الصفحاتُ الخمسُ والأربعون معاً. وهذا نفسُه «Evolution لا Revolution»
+   لكن في التنفيذ: لا نهدم ٦٠٠ كيلوبايت من الواجهات لنعيد بناءها.
+
+   ⚠️ يُحمَّل **بعد** gmt-theme.css (الرموز) وبعد tailwind إن وُجد.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١ · الأساس — سلّمٌ واحد لكل شيء
+   ══════════════════════════════════════════════════════════════════════════ */
+/* ══ مصدرُ هذه القيم (2026-10-04) ══
+   ليست اجتهاداً منّي: استخرجتُها من **نموذجك المعتمَد**
+   «GMT — الهوية البصرية 2.0 · معاينة» الذي أرسلتَه. فحيث اختلف اجتهادي
+   عن نموذجك، تبع اجتهادي نموذجَك — لأنّ النموذج قرارُك لا اقتراحي.
+   وما أضفتُه فوقه هو ما تطلبه الوثيقةُ ولم يكن فيه: Primary Hover/Active
+   صريحان، وسلّمُ خطٍّ كامل، وحالاتُ الفراغ والتحميل والخطأ.         */
+:root {
+  /* الارتفاعات — إيقاعٌ واحدٌ لكلّ حقلٍ وزرّ */
+  --u-field-h:     42px;
+  --u-field-h-sm:  34px;
+  --u-field-h-lg:  50px;
+  --u-gap:         var(--gmt-s3, 12px);
+  --u-pad-card:    16px;
+
+  /* سلّمُ الحواف — ثلاثُ درجاتٍ لا ستّ عشوائية (نموذجك: r1/r2/r3)
+     ٢٢ للبطاقة · ١٤ للمربّع والصورة · ١٠ للزرّ والحقل والقائمة */
+  --u-r1:          22px;
+  --u-r2:          14px;
+  --u-r3:          10px;
+  --u-radius:      var(--u-r2);
+  --u-radius-lg:   var(--u-r1);
+
+  /* الخطُّ شبهُ شفّافٍ لا رماديٌّ مصمت — فيستقرّ فوق أيّ سطح */
+  --u-line:        rgba(15,18,25,.08);
+  --u-border:      var(--u-line);
+
+  /* الحبر */
+  --u-ink:         #0f1219;
+  --u-ink-2:       #334155;
+  --u-ink-3:       #5b6472;
+
+  /* العلامة — وثلاثُ حالاتٍ لها كما تطلب الوثيقة صراحةً */
+  --u-brand:       #D5001C;   /* Primary        */
+  --u-brand-hover: #BF0019;   /* Primary Hover  */
+  --u-brand-active:#A80016;   /* Primary Active */
+  --u-brand-soft:  #fff1f2;   /* سطحُ الحالة النشِطة ومربّعُ الأيقونة */
+  --u-brand-50:    var(--u-brand-soft);
+
+  /* الأسطح — ومنها السطحُ الزجاجيّ للترويسة والشريط الجانبي */
+  --u-surface:     #fff;
+  --u-surface-2:   #f7f8fa;
+  --u-glass:       rgba(255,255,255,.78);
+
+  /* الظلُّ طبقتان: خطٌّ قريبٌ يُثبّت الحافّة، وهالةٌ بعيدةٌ تُعطي الارتفاع */
+  --u-sh-1:        0 1px 2px rgba(15,18,25,.05);
+  --u-sh:          0 1px 2px rgba(15,18,25,.05), 0 10px 30px rgba(15,18,25,.06);
+  --u-sh-lg:       0 30px 80px rgba(15,18,25,.22);
+
+  --u-t:           .2s;
+  --u-ease:        cubic-bezier(.2,.7,.2,1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢ · الترويسة — من فاتورتك: اسمٌ عريض · فاصل · وصفٌ خافت · خطٌّ أحمر
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 10px; margin-bottom: 14px;
+  border-bottom: 2px solid var(--u-brand);
+}
+.u-head__name { font-size: 19px; font-weight: 900; color: var(--u-ink); letter-spacing: -.2px; }
+.u-head__sep  { width: 1px; height: 16px; background: var(--u-border); }
+.u-head__sub  { font-size: 12px; font-weight: 700; color: var(--u-ink-3); }
+.u-head__tag  {
+  margin-inline-start: auto; font-size: 12px; font-weight: 800;
+  color: var(--u-brand); border: 1.5px solid var(--u-brand);
+  border-radius: 8px; padding: 4px 11px; direction: ltr; unicode-bidi: isolate;
+}
+
+/* عنوانُ قسم — أيقونة + نصّ + خطٌّ يمتدّ (نمطُ فاتورتك ②) */
+.u-section {
+  display: flex; align-items: center; gap: 9px;
+  margin: 20px 0 10px; font-size: 13.5px; font-weight: 900; color: var(--u-ink);
+}
+.u-section::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(to left, var(--u-brand), transparent);
+}
+.u-section__i { font-size: 16px; line-height: 1; color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٣ · بطاقةُ المعلومات — أقوى نمطٍ في فاتورتك، كان في مكانٍ واحد فقط
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-info {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--u-border); border-radius: var(--u-radius-lg);
+  overflow: hidden; background: var(--u-surface);
+}
+@media (max-width: 520px) { .u-info { grid-template-columns: 1fr; } }
+.u-info__cell {
+  padding: 11px 14px; border-bottom: 1px solid var(--u-border);
+  border-inline-start: 1px solid var(--u-border);
+}
+.u-info__cell:nth-child(odd) { border-inline-start: 0; }
+.u-info__cell:last-child, .u-info__cell:nth-last-child(2) { border-bottom: 0; }
+.u-info__k {
+  display: flex; align-items: center; gap: 6px; justify-content: flex-start;
+  font-size: 11px; font-weight: 700; color: var(--u-ink-3); margin-bottom: 3px;
+}
+.u-info__v { font-size: 14px; font-weight: 800; color: var(--u-ink); line-height: 1.6; }
+.u-info__v.is-brand { color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٤ · البطاقات — ثلاثُ كثافات لا كثافةٌ واحدة لكل شيء
+   («لا تجعل كل شيء Card» — طلبك ٢٢٢: الكثافةُ تتبع المحتوى)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-card {
+  background: var(--u-surface); border: 1px solid var(--u-border);
+  border-radius: var(--u-radius-lg); padding: var(--u-pad-card);
+  box-shadow: var(--u-sh);
+  transition: box-shadow var(--u-t) var(--u-ease), transform var(--u-t) var(--u-ease);
+}
+.u-card--tight  { padding: 12px 14px; border-radius: var(--u-r2); }
+.u-card--roomy  { padding: 22px; }
+.u-card--flat   { box-shadow: none; }
+.u-card--brand  { border-color: rgba(213,0,28,.16); background: var(--u-brand-soft); }
+.u-card--click  { cursor: pointer; }
+.u-card--click:hover { box-shadow: 0 2px 4px rgba(15,18,25,.06), 0 16px 40px rgba(15,18,25,.10); transform: translateY(-2px); }
+.u-card__t { font-size: 14px; font-weight: 900; color: var(--u-ink); margin: 0 0 4px; }
+.u-card__d { font-size: 12.5px; font-weight: 600; color: var(--u-ink-3); line-height: 1.85; margin: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٥ · نظامُ البنرات — سبعةُ أنواع (طلبك ٢٢٢)
+   ولكلٍّ **معنى** لا لونٌ جميل: اللونُ يقول ماذا تفعل، لا يُزيّن.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-banner {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 12px 14px; border-radius: var(--u-radius);
+  border: 1.5px solid; font-size: 12.5px; font-weight: 700; line-height: 1.9;
+  margin: 10px 0;
+}
+.u-banner__i { flex: 0 0 auto; font-size: 17px; line-height: 1.5; }
+.u-banner__b { flex: 1; min-width: 0; }
+.u-banner__t { font-weight: 900; display: block; margin-bottom: 2px; }
+.u-banner--info    { background: var(--gmt-info-50,#eff6ff);    border-color:#bfdbfe; color:#1e3a8a; }
+.u-banner--ok      { background: var(--gmt-success-50,#f0fdf4); border-color:#86efac; color:#166534; }
+.u-banner--warn    { background: var(--gmt-warning-50,#fffbeb); border-color:#fde68a; color:#92400e; }
+.u-banner--danger  { background: var(--gmt-danger-50,#fef2f2);  border-color:#fecaca; color:#991b1b; }
+.u-banner--brand   { background: var(--u-brand-50);             border-color: var(--gmt-brand-100,#FBE3E7); color: var(--gmt-brand-900,#7A0010); }
+.u-banner--quiet   { background: var(--u-surface-2);            border-color: var(--u-border); color: var(--u-ink-2); }
+.u-banner--promo   {
+  background: linear-gradient(135deg, var(--u-brand), var(--gmt-brand-700,#A80016));
+  border-color: transparent; color:#fff;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٦ · الأزرار — أربعةُ أدوار وثلاثةُ أحجام، وهدفُ لمسٍ ٤٤px دائماً
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--u-field-h); padding: 0 16px; border: 1px solid transparent;
+  border-radius: var(--u-r3); font-family: inherit; font-size: 13px; font-weight: 800;
+  cursor: pointer; transition: filter var(--u-t) var(--u-ease), transform .1s var(--u-ease);
+  position: relative; white-space: nowrap;
+}
+.u-btn:active { transform: scale(.975); }
+.u-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* منطقةُ لمسٍ ٤٤px بلا تغيير الشكل — طلبك ٢٢٠ */
+.u-btn::after {
+  content: ''; position: absolute; inset: 50% 0 auto 0;
+  height: var(--gmt-touch, 44px); transform: translateY(-50%);
+}
+.u-btn--sm { min-height: var(--u-field-h-sm); font-size: 12px; padding: 0 12px; }
+.u-btn--lg { min-height: var(--u-field-h-lg); font-size: 14.5px; padding: 0 22px; }
+.u-btn--primary { background: var(--u-brand); border-color: var(--u-brand); color:#fff; box-shadow: 0 6px 18px rgba(213,0,28,.20); }
+.u-btn--primary:hover  { background: var(--u-brand-hover);  border-color: var(--u-brand-hover); }
+.u-btn--primary:active { background: var(--u-brand-active); border-color: var(--u-brand-active); }
+.u-btn--second  { background: var(--u-surface); color: var(--u-ink-2); border-color: var(--u-border); }
+.u-btn--second:hover { background: var(--u-surface-2); }
+/* زرٌّ داكن — للفعل الثاني المهمّ حيث لا يصحّ أحمران في شاشةٍ واحدة */
+.u-btn--dark { background: var(--u-ink); border-color: var(--u-ink); color:#fff; }
+.u-btn--ghost   { background: transparent; color: var(--u-ink-2); }
+.u-btn--ghost:hover { background: var(--u-surface-2); }
+.u-btn--danger  { background: var(--gmt-danger,#dc2626); color:#fff; }
+.u-btn--block   { width: 100%; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٧ · الحقول — ارتفاعٌ واحد ونصفُ قطرٍ واحد، والحالةُ تُقال بالحدّ لا بالخلفية
+   (شاشةُ اللصق الذكي كان فيها خمسةُ ألوان خلفيّةٍ متنافسة بلا معنى)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-field {
+  width: 100%; min-height: var(--u-field-h); padding: 9px 13px;
+  background: var(--u-surface); color: var(--u-ink);
+  border: 1.5px solid var(--u-border); border-radius: var(--u-r3);
+  font-family: inherit; font-size: 13.5px; font-weight: 600; outline: none;
+  transition: border-color var(--u-t) var(--u-ease), box-shadow var(--u-t) var(--u-ease);
+}
+.u-field:focus { border-color: var(--u-brand); box-shadow: 0 0 0 3px rgba(213,0,28,.10); }
+.u-field::placeholder { color: var(--gmt-ink-4,#94a3b8); font-weight: 500; }
+.u-field.is-ok     { border-color: var(--gmt-success,#15803d); }
+.u-field.is-warn   { border-color: var(--gmt-warning,#b45309); }
+.u-field.is-error  { border-color: var(--gmt-danger,#dc2626); }
+.u-label { display:block; font-size: 11.5px; font-weight: 800; color: var(--u-ink-3); margin-bottom: 5px; }
+.u-hint  { font-size: 11px; font-weight: 600; color: var(--u-ink-3); margin-top: 4px; line-height: 1.7; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٨ · الشارات والحالات — شكلٌ واحد، والدلالةُ باللون **والنصّ** معاً
+   (طلبك ٢٢٠: «لا تعتمد على اللون وحده»)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: var(--gmt-r-full, 999px);
+  font-size: 11px; font-weight: 900; border: 1px solid; line-height: 1.8;
+}
+.u-pill--ok     { background: var(--gmt-success-50,#f0fdf4); border-color:#86efac; color:#166534; }
+.u-pill--warn   { background: var(--gmt-warning-50,#fffbeb); border-color:#fde68a; color:#92400e; }
+.u-pill--danger { background: var(--gmt-danger-50,#fef2f2);  border-color:#fecaca; color:#991b1b; }
+.u-pill--info   { background: var(--gmt-info-50,#eff6ff);    border-color:#bfdbfe; color:#1e3a8a; }
+.u-pill--quiet  { background: #eef0f3; border-color: transparent; color: #475569; }
+/* الحبّةُ المختارة — مملوءةٌ بالعلامة. هذه الحالةُ الوحيدة التي تستحقّ
+   امتلاءً أحمرَ في صفٍّ من الحبّات (نموذجك المعتمَد). */
+.u-pill--on { background: var(--u-brand); border-color: var(--u-brand); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٩ · الجداول — نمطُ فاتورتك ④: ترويسةٌ فاتحة · حدودٌ أفقية فقط
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.u-table thead th {
+  background: var(--u-surface-2); color: var(--u-ink-3);
+  font-size: 11.5px; font-weight: 900; padding: 9px 11px; text-align: right;
+  border-bottom: 1px solid var(--u-border); white-space: nowrap;
+}
+.u-table tbody td { padding: 10px 11px; border-bottom: 1px solid var(--u-border); color: var(--u-ink-2); }
+.u-table tbody tr:last-child td { border-bottom: 0; }
+.u-table tbody tr:hover { background: var(--u-surface-2); }
+.u-table tbody tr.is-sel td { background: var(--u-brand-soft); }
+.u-table .u-num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-weight: 800; }
+
+/* شريطُ الإجمالي — نمطُ فاتورتك ⑤ */
+.u-total {
+  display: flex; align-items: stretch; border-radius: var(--u-radius);
+  overflow: hidden; background: var(--u-surface-2); border: 1px solid var(--u-border);
+  margin-top: 12px;
+}
+.u-total__v {
+  background: var(--u-brand); color: #fff; padding: 12px 22px 12px 34px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+}
+.u-total__k { font-size: 11px; font-weight: 800; opacity: .88; }
+.u-total__n { font-size: 20px; font-weight: 900; direction: ltr; unicode-bidi: isolate; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٠ · الحالاتُ الثلاث — فارغ · تحميل · خطأ (طلبك: «حالات Empty/Loading/Error»)
+   كانت غائبةً كنظام: كلُّ صفحةٍ تخترع شكلَها، وبعضُها لا يعرض شيئاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-state { text-align: center; padding: 34px 18px; }
+.u-state__i { font-size: 38px; line-height: 1; margin-bottom: 10px; opacity: .45; }
+.u-state__t { font-size: 14px; font-weight: 900; color: var(--u-ink-2); margin-bottom: 4px; }
+.u-state__d { font-size: 12.5px; font-weight: 600; color: var(--u-ink-3); line-height: 1.9; max-width: 380px; margin: 0 auto; }
+.u-state--error .u-state__t { color: var(--gmt-danger,#dc2626); }
+.u-state__a { margin-top: 14px; }
+
+.u-skel { background: linear-gradient(90deg, #eef2f7 25%, #f6f8fb 37%, #eef2f7 63%);
+  background-size: 400% 100%; animation: u-shimmer 1.3s ease infinite; border-radius: 8px; }
+@keyframes u-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+.u-skel--line { height: 12px; margin: 7px 0; }
+.u-skel--card { height: 76px; margin: 9px 0; border-radius: var(--u-radius); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١١ · التنقّل — شريطٌ سفليّ بكلمةٍ تحت كل أيقونة (لا تخمين)
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-nav { display: flex; justify-content: space-around; align-items: center;
+  background: var(--u-surface); border-top: 1px solid var(--u-border); padding: 7px 6px; }
+.u-nav__i { display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 56px; padding: 4px 2px; border-radius: 10px; color: var(--u-ink-3);
+  text-decoration: none; font-size: 10px; font-weight: 800;
+  transition: color var(--u-t) var(--u-ease), background var(--u-t) var(--u-ease); }
+.u-nav__i.is-on { color: var(--u-brand); background: var(--u-brand-50); }
+.u-nav__i i, .u-nav__i svg { font-size: 20px; }
+
+/* التبويبات */
+.u-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--u-border); }
+.u-tab { border: 0; background: transparent; padding: 10px 14px; font-family: inherit;
+  font-size: 12.5px; font-weight: 800; color: var(--u-ink-3); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  transition: color var(--u-t) var(--u-ease), border-color var(--u-t) var(--u-ease); }
+.u-tab.is-on { color: var(--u-brand); border-bottom-color: var(--u-brand); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٢ · الحركة — قصيرةٌ وهادئة، وتحترم تفضيل تقليل الحركة (في gmt-theme.css)
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes u-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.u-in { animation: u-in .28s var(--u-ease) both; }
+.u-in-2 { animation: u-in .28s .06s var(--u-ease) both; }
+.u-in-3 { animation: u-in .28s .12s var(--u-ease) both; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٣ · الالتقاطُ التدريجي — ارتقاءٌ بلا إعادة كتابة أيّ صفحة
+
+   هنا جوهرُ «Evolution لا Revolution» في التنفيذ: بدل أن نُعيد كتابة ٤٥
+   صفحة (٦٠٠ كيلوبايت من الواجهات) نلتقط **الأنماط القائمة** ونرفعها إلى
+   سلّم ٢٫٠. فالصفحاتُ ترتقي معاً، ولا ينكسر شيء.
+
+   ⚠️ وبخصوصيّةٍ منخفضة عمداً: أيُّ قاعدةٍ في الصفحة تغلب هذه. فالملفّ
+      **يرفع الأرضية** ولا يُصادر قرارات الصفحات.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* إيقاعُ النصّ: سطورٌ مريحةٌ للعربية (كان 1.5 في صفحاتٍ و2.1 في أخرى) */
+:where(body) { line-height: 1.8; -webkit-font-smoothing: antialiased; }
+
+/* الأرقام واللاتينية داخل العربية لا تنقلب */
+:where(code, kbd, samp, [dir="ltr"]) { unicode-bidi: isolate; }
+
+/* كلُّ زرٍّ يملك هدفَ لمسٍ معقولاً */
+:where(button, [role="button"], .btn, .tab):not(.u-btn) { min-height: 32px; }
+
+/* أنصافُ الأقطار تلتقي على سلّمٍ واحد بدل ٦ ⇐ ٢٢px عشوائية */
+:where(input, select, textarea):not(.u-field):not([type="checkbox"]):not([type="radio"]) {
+  border-radius: var(--u-radius);
+}
+
+/* الجداول تتنفّس */
+:where(table) :where(th, td) { vertical-align: middle; }
+
+/* صورُ المنتجات لا تتمدّد */
+:where(img):not([src*="logo"]):not(.no-fit) { object-fit: contain; }
+
+/* التركيزُ المرئيّ مُعرَّفٌ في gmt-theme.css — لا نُكرّره هنا */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٢ · سلّمُ الخطّ — Typography System  (طلبُ الوثيقة ٠٨)
+   ──────────────────────────────────────────────────────────────────────────
+   كان في النظام ٢١ حجمَ خطٍّ مختلفاً بلا سلّم، و١١ وزناً. هنا سلّمٌ واحد.
+   قاعدةُ العربية: السطرُ يحتاج تنفّساً أكثرَ من اللاتينية — لذلك
+   line-height هنا أعلى مما يُستعمل في الواجهات الإنجليزية.
+   ولا نستعمل الحروفَ الكبيرة في التسميات (العربيةُ لا تملكها أصلاً،
+   وفي اللاتينية تُقلّل المقروئية).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --u-fs-display: 30px;  --u-fs-h1: 24px;  --u-fs-h2: 19px;  --u-fs-h3: 16px;
+  --u-fs-h4:      14px;  --u-fs-bodyl: 15px; --u-fs-body: 13.5px;
+  --u-fs-bodys: 12.5px;  --u-fs-cap: 11.5px; --u-fs-label: 11px;
+  --u-fs-btn:   13.5px;  --u-fs-kpi: 26px;
+}
+.u-display { font-size: var(--u-fs-display); font-weight: 900; line-height: 1.3;  letter-spacing: -.5px; color: var(--u-ink); }
+.u-h1      { font-size: var(--u-fs-h1);      font-weight: 900; line-height: 1.4;  letter-spacing: -.3px; color: var(--u-ink); }
+.u-h2      { font-size: var(--u-fs-h2);      font-weight: 900; line-height: 1.45; letter-spacing: -.2px; color: var(--u-ink); }
+.u-h3      { font-size: var(--u-fs-h3);      font-weight: 800; line-height: 1.5;  color: var(--u-ink); }
+.u-h4      { font-size: var(--u-fs-h4);      font-weight: 800; line-height: 1.6;  color: var(--u-ink); }
+.u-bodyl   { font-size: var(--u-fs-bodyl);   font-weight: 600; line-height: 1.85; color: var(--u-ink-2); }
+.u-body    { font-size: var(--u-fs-body);    font-weight: 600; line-height: 1.85; color: var(--u-ink-2); }
+.u-bodys   { font-size: var(--u-fs-bodys);   font-weight: 600; line-height: 1.8;  color: var(--u-ink-3); }
+.u-cap     { font-size: var(--u-fs-cap);     font-weight: 600; line-height: 1.7;  color: var(--u-ink-3); }
+.u-lead    { font-size: var(--u-fs-bodyl);   font-weight: 600; line-height: 1.95; color: var(--u-ink-2); max-width: 68ch; }
+
+/* الرقم ليس نصّاً — له معاملةٌ خاصّة: لاتينيّ الاتجاه، أعمدةٌ متساوية،
+   لا ينقلب داخل العربية. هذا يحلّ قفزَ الأرقام في الجداول. */
+.u-kpi { font-size: var(--u-fs-kpi); font-weight: 900; line-height: 1.15; color: var(--u-ink);
+         direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; letter-spacing: -.6px; }
+.u-kpi__u { font-size: 12px; font-weight: 800; color: var(--u-ink-3); margin-inline-start: 3px; letter-spacing: 0; }
+.u-kpi--brand { color: var(--u-brand); }
+.u-kpi--ok    { color: var(--gmt-success,#15803d); }
+.u-kpi--down  { color: var(--gmt-danger,#dc2626); }
+/* النصُّ الخافتُ المساعد — مستوى ثالث للمعلومة لا رابع */
+.u-muted { color: var(--u-ink-3); font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٣ · سلّمُ المسافات — Spacing System  (طلبُ الوثيقة ٠٩)
+   المسافاتُ كانت عشوائية: ٥ · ٧ · ٩ · ١٣ · ١٨ · ٢٣px في صفحاتٍ مختلفة.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --u-xs: 4px; --u-sm: 8px; --u-md: 12px; --u-lg: 16px; --u-xl: 24px; --u-xxl: 36px;
+}
+.u-stack > * + * { margin-top: var(--u-md); }
+.u-stack--sm > * + * { margin-top: var(--u-sm); }
+.u-stack--lg > * + * { margin-top: var(--u-lg); }
+.u-stack--xl > * + * { margin-top: var(--u-xl); }
+.u-row  { display: flex; align-items: center; gap: var(--u-sm); flex-wrap: wrap; }
+.u-row--tight { gap: var(--u-xs); }
+.u-row--wide  { gap: var(--u-lg); }
+.u-row--end   { justify-content: flex-end; }
+.u-row--split { justify-content: space-between; }
+.u-grow { flex: 1; min-width: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٤ · الشبكة — Grid System  (طلبُ الوثيقة ١٠)
+   ──────────────────────────────────────────────────────────────────────────
+   نقاطُ الانكسار الأربع. الحاوية تتوسّع تدريجياً ولا تلتصق بالحافة
+   على الهاتف (كان المحتوى يلمس الحافة في ٩ صفحات).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root { --u-container: 1200px; --u-gutter: var(--u-lg); }
+.u-wrap { width: 100%; max-width: var(--u-container); margin-inline: auto; padding-inline: var(--u-gutter); }
+.u-wrap--narrow { max-width: 760px; }
+.u-wrap--wide   { max-width: 1480px; }
+.u-g { display: grid; gap: var(--u-md); }
+.u-g--2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.u-g--3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.u-g--4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.u-g--auto { grid-template-columns: repeat(auto-fill, minmax(min(240px,100%), 1fr)); }
+@media (max-width: 1024px) {  /* لوح/تابلت */
+  :root { --u-gutter: var(--u-md); }
+  .u-g--4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .u-g--3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {   /* هاتف */
+  :root { --u-gutter: 12px; }
+  .u-g--2, .u-g--3, .u-g--4 { grid-template-columns: 1fr; }
+  .u-display { font-size: 23px; }
+  .u-h1 { font-size: 20px; }
+  .u-kpi { font-size: 22px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٥ · أنماطُ التوزيع — Layout Patterns  (طلبُ الوثيقة ١١ و١٢)
+   ──────────────────────────────────────────────────────────────────────────
+   الوثيقة: «لا تستخدم Layout واحداً لكل شيء». خمسةُ أنماط، كلٌّ منها
+   يرتّب نفس العناصر بترتيبٍ مختلف لأنّ سؤال المستخدم مختلف:
+     لوحة  : ما حالُ العمل الآن؟      ملخّص ⇠ مؤشّرات ⇠ رسوم ⇠ نشاط ⇠ تنبيهات
+     إدارة : أين السجلّ الذي أريده؟   ترويسة ⇠ فلاتر ⇠ أفعال ⇠ جدول ⇠ ترقيم
+     تفصيل : ما قصّةُ هذا السجلّ؟      ترويسة ⇠ ملخّص ⇠ معلومات ⇠ مرتبطات ⇠ سجلّ
+     نموذج : ماذا يجب أن أُدخل؟       سياق ⇠ أقسام ⇠ حقول ⇠ تحقّق ⇠ أفعال
+     بيع   : أسرعُ طريقٍ للبيع؟        منتجات ⇠ تصنيفات ⇠ سلّة ⇠ عميل ⇠ دفع
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-lay { display: grid; gap: var(--u-lg); }
+/* ══ (2026-10-04) حارسٌ وُلد من عطلٍ رأيتُه في المعاينة على الهاتف ══
+   عنصرُ الشبكة أو المرونة حدُّه الأدنى الافتراضيّ `min-width:auto` — أي
+   **عرضُ أضيق محتوىً فيه**. فصفُّ تبويباتٍ بستّة أزرارٍ داخل عمودٍ `1fr`
+   جعل العمودَ ٤٣٠px داخل حاويةٍ عرضُها ٣٦٠ ⇒ الصفحةُ كلُّها تفيض أفقيّاً،
+   والبطاقاتُ تخرج من الشاشة. و`overflow-x:auto` وحده لا يمنع ذلك: لا يعمل
+   إلّا إذا سُمح للعنصر أن يضيق.
+   ⇒ كلُّ عنصرٍ في شبكةٍ أو صفٍّ يُسمح له أن يضيق، وكلُّ مُمرِّرٍ أفقيٍّ
+     يُصرَّح له بـmin-width:0. هذا أصلُ أكثر حالات الفيض الأفقيّ على الهاتف. */
+.u-lay > *, .u-g > * { min-width: 0; }
+.u-at-main, .u-at-side, .u-at-cart, .u-at-kpi, .u-at-alerts { min-width: 0; }
+.u-tabs, .u-seg, .u-chips { min-width: 0; max-width: 100%; }
+.u-row > * { min-width: 0; }
+/* لوحةٌ: المؤشّراتُ أوّلاً عرضاً كاملاً، ثمّ عمودان غيرُ متساويين */
+.u-lay--dash { grid-template-areas: "kpi kpi" "main side" "alerts alerts";
+               grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+.u-lay--dash > .u-at-kpi { grid-area: kpi; }
+.u-lay--dash > .u-at-main { grid-area: main; }
+.u-lay--dash > .u-at-side { grid-area: side; }
+.u-lay--dash > .u-at-alerts { grid-area: alerts; }
+/* إدارةٌ: كلُّ شيءٍ عمودٌ واحدٌ لأنّ الجدول هو البطل */
+.u-lay--mgmt { grid-template-columns: 1fr; gap: var(--u-md); }
+/* تفصيلٌ: ملخّصٌ لاصقٌ جانباً على الشاشات الكبيرة */
+.u-lay--detail { grid-template-columns: minmax(0,1fr) 320px; align-items: start; }
+.u-lay--detail > .u-at-side { position: sticky; top: var(--u-md); }
+/* نموذجٌ: عمودٌ ضيّقٌ مقصود — السطرُ الطويل يُتعب في النماذج */
+.u-lay--form { grid-template-columns: minmax(0, 720px); justify-content: center; }
+/* بيعٌ: المنتجاتُ تأخذ المساحة، السلّةُ ثابتةٌ لا تهرب */
+.u-lay--pos { grid-template-columns: minmax(0,1fr) 380px; gap: var(--u-md); align-items: start; }
+.u-lay--pos > .u-at-cart { position: sticky; top: var(--u-sm); }
+@media (max-width: 1024px) {
+  .u-lay--dash   { grid-template-areas: "kpi" "main" "side" "alerts"; grid-template-columns: 1fr; }
+  .u-lay--detail, .u-lay--pos { grid-template-columns: 1fr; }
+  .u-lay--detail > .u-at-side, .u-lay--pos > .u-at-cart { position: static; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٦ · ليس كلُّ شيءٍ بطاقة  (طلبُ الوثيقة ١٤)
+   ──────────────────────────────────────────────────────────────────────────
+   الوثيقة: «لا تحوّل كلّ عنصرٍ إلى Card لمجرّد أنّ المراجع تستعمل Cards.
+   الهدف Hierarchy وليس كثرةَ الحاويات.»
+   أربعُ حاوياتٍ بأربع وظائف — والقرارُ مكتوبٌ هنا لا متروكٌ للذوق:
+     بطاقة  : وحدةٌ مستقلّةٌ قابلةٌ للنقر أو النقل (منتج · أوردر · فرع)
+     قسم    : مجموعةٌ داخل الصفحة، لا حدودَ لها — فقط عنوانٌ ومسافة
+     لوحة   : منطقةُ عملٍ ثابتة (سلّة · فلاتر) — خلفيّةٌ خافتةٌ بلا ظلّ
+     مسطّح  : نصٌّ أو جدولٌ لا يحتاج حاويةً إطلاقاً
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-plain   { background: none; border: 0; box-shadow: none; padding: 0; }
+.u-panel   { background: var(--u-surface-2); border: 1px solid var(--u-border);
+             border-radius: var(--u-radius); padding: var(--u-md); }
+.u-panel--quiet { background: transparent; border-style: dashed; }
+.u-divider { height: 1px; background: var(--u-border); border: 0; margin: var(--u-lg) 0; }
+.u-divider--text { display: flex; align-items: center; gap: var(--u-sm); height: auto; background: none;
+                   font-size: var(--u-fs-cap); font-weight: 800; color: var(--u-ink-3); }
+.u-divider--text::before, .u-divider--text::after { content: ""; flex: 1; height: 1px; background: var(--u-border); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٧ · بقيّةُ المكوّنات  (طلبُ الوثيقة ١٣)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* اختيار — نفسُ ارتفاع الحقل، سهمٌ لا يعتمد على خطّ أيقونات */
+.u-select { appearance: none; -webkit-appearance: none; padding-inline-end: 30px;
+            background-image: linear-gradient(45deg, transparent 50%, var(--u-ink-3) 50%),
+                              linear-gradient(135deg, var(--u-ink-3) 50%, transparent 50%);
+            background-position: left 12px top 50%, left 17px top 50%;
+            background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+/* بحث — الأيقونة داخل الحقل بلا جافاسكربت */
+.u-search { position: relative; display: block; }
+.u-search > .u-field { padding-inline-start: 34px; }
+.u-search::before { content: "🔍"; position: absolute; inset-inline-start: 10px; top: 50%;
+                    transform: translateY(-50%); font-size: 13px; opacity: .55; pointer-events: none; }
+/* شارةُ عدّ — دائرةٌ صغيرةٌ فوق أيقونة */
+.u-badge { position: absolute; top: -5px; inset-inline-end: -5px; min-width: 17px; height: 17px;
+           padding: 0 4px; border-radius: 9px; background: var(--u-brand); color: #fff;
+           font-size: 10px; font-weight: 900; line-height: 17px; text-align: center;
+           direction: ltr; unicode-bidi: isolate; box-shadow: 0 0 0 2px var(--u-surface); }
+/* فتّاحة — نافذةٌ منبثقةٌ موحّدة (البنيةُ فقط؛ الفتحُ في gmt-ask.js) */
+.u-modal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center;
+           padding: var(--u-lg); background: rgba(2,6,23,.45); animation: u-fade .18s both; }
+.u-modal__box { width: 100%; max-width: 480px; max-height: 86vh; overflow: auto;
+                background: var(--u-surface); border-radius: 26px;
+                box-shadow: var(--u-sh-lg); animation: u-pop .2s var(--u-ease) both; }
+.u-modal__h { padding: var(--u-lg) var(--u-lg) var(--u-sm); font-size: var(--u-fs-h3); font-weight: 900; color: var(--u-ink); }
+.u-modal__b { padding: 0 var(--u-lg) var(--u-lg); }
+.u-modal__f { display: flex; gap: var(--u-sm); justify-content: flex-end;
+              padding: var(--u-md) var(--u-lg); border-top: 1px solid var(--u-border); }
+/* دُرج — يخرج من الحافة؛ على الهاتف يصبح ورقةً سفليّة (طلبُ الوثيقة ١٧) */
+.u-drawer { position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 9000; width: min(420px, 92vw);
+            background: var(--u-surface); box-shadow: -14px 0 44px rgba(2,6,23,.18);
+            display: flex; flex-direction: column; animation: u-slide-in .24s var(--u-ease) both; }
+@media (max-width: 640px) {
+  .u-drawer { inset: auto 0 0 0; width: auto; max-height: 88vh;
+              border-radius: var(--u-radius-lg) var(--u-radius-lg) 0 0;
+              box-shadow: 0 -14px 44px rgba(2,6,23,.18); animation: u-sheet-up .26s var(--u-ease) both; }
+  .u-drawer::before { content: ""; width: 38px; height: 4px; border-radius: 2px;
+                      background: var(--u-border); margin: 8px auto 0; flex: 0 0 auto; }
+}
+/* قائمةٌ منسدلة */
+.u-menu { min-width: 190px; padding: 6px; background: var(--u-surface); border: 1px solid var(--u-border);
+          border-radius: var(--u-radius); box-shadow: 0 12px 34px rgba(2,6,23,.14); animation: u-pop .16s var(--u-ease) both; }
+.u-menu__i { display: flex; align-items: center; gap: var(--u-sm); width: 100%; padding: 9px 10px;
+             border: 0; background: none; border-radius: 8px; font: inherit; font-size: var(--u-fs-body);
+             font-weight: 700; color: var(--u-ink-2); cursor: pointer; text-align: start; }
+.u-menu__i:hover { background: var(--u-surface-2); }
+.u-menu__i.is-danger { color: var(--gmt-danger,#dc2626); }
+.u-menu__sep { height: 1px; background: var(--u-border); margin: 5px 2px; }
+/* تلميح — يعمل بـCSS فقط */
+.u-tip { position: relative; }
+.u-tip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); inset-inline-start: 50%;
+                transform: translateX(50%) scale(.96); white-space: nowrap; padding: 5px 9px; border-radius: 7px;
+                background: var(--u-ink); color: #fff; font-size: 11px; font-weight: 700;
+                opacity: 0; pointer-events: none; transition: opacity var(--u-t), transform var(--u-t); z-index: 60; }
+.u-tip:hover::after, .u-tip:focus-visible::after { opacity: 1; transform: translateX(50%) scale(1); }
+/* مُبدّلٌ مقطعيّ — Segmented control
+   ولماذا هو لا «أزرار»: الزرُّ يُنفّذ فعلاً، وهذا يُبدّل ما تراه فقط.
+   كان في النظام صفّاً من ستّة أزرارٍ مملوءةٍ بالأحمر — ستُّ دعواتٍ
+   للفعل في وقتٍ واحد، فلا شيءَ يبدو مهماً. هنا حاويةٌ واحدةٌ هادئة،
+   والنشِطُ وحده يرتفع: سطحٌ أبيض + نصٌّ أحمر + خطٌّ أحمرُ رفيعٌ تحته
+   (وهو نفسُ خطّ فاتورتك). والخطُّ إشارةٌ ثانيةٌ غيرُ اللون — فمن لا
+   يُفرّق الأحمر يرى أيُّها نشِط. */
+.u-seg { display: inline-flex; align-items: center; gap: 2px; padding: 3px; max-width: 100%;
+         background: var(--u-surface-2); border: 1px solid var(--u-border);
+         border-radius: 11px; overflow-x: auto; scrollbar-width: none; }
+.u-seg::-webkit-scrollbar { display: none; }
+.u-seg__i { position: relative; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+            border: 0; background: transparent; border-radius: 8px; padding: 0 10px; min-height: 30px;
+            font: inherit; font-size: 11.5px; font-weight: 800; color: var(--u-ink-3); cursor: pointer;
+            transition: background var(--u-t), color var(--u-t); }
+.u-seg__i:hover { color: var(--u-ink-2); background: rgba(255,255,255,.75); }
+.u-seg__i.is-on { background: var(--u-surface); color: var(--u-brand); box-shadow: 0 1px 3px rgba(2,6,23,.09); }
+.u-seg__i.is-on::after { content: ""; position: absolute; inset-inline: 9px; bottom: 3px;
+                         height: 2px; border-radius: 2px; background: var(--u-brand); }
+.u-seg__i:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ترقيم */
+.u-pager { display: flex; align-items: center; justify-content: center; gap: var(--u-xs); flex-wrap: wrap; padding: var(--u-md) 0; }
+.u-pager__b { min-width: 34px; height: 34px; padding: 0 9px; border: 1px solid var(--u-border);
+              border-radius: 8px; background: var(--u-surface); font: inherit; font-size: 12.5px;
+              font-weight: 800; color: var(--u-ink-2); cursor: pointer; }
+.u-pager__b.is-on { background: var(--u-brand); border-color: var(--u-brand); color: #fff; }
+.u-pager__b:disabled { opacity: .42; cursor: not-allowed; }
+.u-pager__n { font-size: var(--u-fs-cap); font-weight: 700; color: var(--u-ink-3); margin-inline: var(--u-sm); }
+/* مسارُ التنقّل — الفاصلُ يُقلب مع الاتجاه */
+.u-crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+           font-size: var(--u-fs-cap); font-weight: 700; color: var(--u-ink-3); }
+.u-crumb a { color: var(--u-ink-3); text-decoration: none; }
+.u-crumb a:hover { color: var(--u-brand); text-decoration: underline; }
+.u-crumb__s { opacity: .5; }
+.u-crumb__s::before { content: "‹"; }
+.u-crumb > :last-child { color: var(--u-ink); }
+/* إشعارٌ عابر */
+.u-toast { display: flex; align-items: flex-start; gap: var(--u-sm); max-width: 380px;
+           padding: 11px 14px; border-radius: var(--u-radius); background: var(--u-ink); color: #fff;
+           font-size: var(--u-fs-body); font-weight: 700; box-shadow: 0 12px 34px rgba(2,6,23,.3);
+           animation: u-pop .2s var(--u-ease) both; }
+.u-toast--ok     { background: #14532d; }
+.u-toast--error  { background: #7f1d1d; }
+.u-toast--warn   { background: #78350f; }
+.u-toast-dock { position: fixed; inset-block-end: 16px; inset-inline-start: 50%; transform: translateX(50%);
+                z-index: 9500; display: flex; flex-direction: column; gap: var(--u-sm); pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٧ب · مكوّناتٌ من نموذجك المعتمَد لم تكن في نظامي
+   ──────────────────────────────────────────────────────────────────────────
+   هذه ليست إضافاتٍ من عندي: كلُّ واحدٍ منها موجودٌ في ملفّ
+   «الهوية البصرية 2.0 · معاينة» الذي أرسلتَه — فنقلتُه إلى النظام الحيّ
+   بنفس قياساته كي لا يبقى النموذجُ شيئاً والتطبيقُ شيئاً آخر.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* مربّعُ الأيقونة — ٤٠px · حافّة ١٣ · سطحٌ أحمرُ ناعمٌ وأيقونةٌ حمراء.
+   هنا يعيش الأحمرُ في الشاشات الهادئة: مؤشّراً صغيراً لا خلفيّةً كبيرة. */
+/* أيقوناتُ الطقم الموحَّد (gmt-icons.js): ترث لونَ سياقها، فتخفت مع
+   المعطَّل وتحمرّ مع النشِط — وهو ما لا يفعله الرمزُ التعبيريّ أبداً. */
+svg.gmt-i { display: block; flex: 0 0 auto; }
+.u-ico > svg.gmt-i { width: 19px; height: 19px; }
+.u-ico--sm > svg.gmt-i { width: 16px; height: 16px; }
+.u-ico--lg > svg.gmt-i { width: 24px; height: 24px; }
+.u-btn > svg.gmt-i, .u-ni > svg.gmt-i { width: 15px; height: 15px; }
+
+.u-ico { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 13px;
+         background: var(--u-brand-soft); color: var(--u-brand);
+         display: grid; place-items: center; font-size: 18px; }
+.u-ico--sm   { width: 32px; height: 32px; border-radius: 10px; font-size: 15px; }
+.u-ico--lg   { width: 52px; height: 52px; border-radius: 16px; font-size: 23px; }
+.u-ico--mute { background: var(--u-surface-2); color: var(--u-ink-3); border: 1px solid var(--u-border); }
+
+/* عنصرُ تنقّل — والنشِطُ يحمل **شريطاً أحمرَ على الحافّة** لا لوناً فقط.
+   (إشارةٌ ثانيةٌ غيرُ اللون — قاعدةُ الوثيقة في إمكانية الوصول.) */
+.u-ni { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px;
+        border: 0; background: none; border-radius: var(--u-r3); color: var(--u-ink-3);
+        font: inherit; font-size: 13px; font-weight: 700; text-align: start;
+        cursor: pointer; position: relative; transition: background var(--u-t) var(--u-ease), color var(--u-t) var(--u-ease);
+        text-decoration: none; }
+.u-ni:hover { background: rgba(15,18,25,.04); color: var(--u-ink); }
+.u-ni.is-on { background: var(--u-brand-soft); color: var(--u-brand); font-weight: 800; }
+.u-ni.is-on::before { content: ""; position: absolute; inset-inline-start: -12px; top: 8px; bottom: 8px;
+                      width: 4px; border-radius: 4px; background: var(--u-brand); }
+
+/* الشريطُ الجانبيّ والترويسةُ — سطحٌ زجاجيٌّ يفصل الطبقات بلا خطٍّ ثقيل */
+.u-side { background: var(--u-glass); backdrop-filter: blur(14px);
+          border-inline-end: 1px solid var(--u-line); padding: 16px 12px;
+          display: flex; flex-direction: column; gap: 2px; }
+.u-tb   { display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+          border-bottom: 1px solid var(--u-line); background: var(--u-glass);
+          backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 5; }
+
+/* شريطُ التنقّل السفليّ على الهاتف — داكنٌ ملتصقٌ بأسفل التدفّق.
+   ⚠️ ليس زرّاً عائماً: لا يطفو فوق المحتوى ولا يحجب شيئاً — هو شريطُ
+   تنقّلٍ من نموذجك، وقاعدتُك «لا فقاعات ولا أزرار عائمة» تبقى محفوظة. */
+.u-pillnav { display: none; position: sticky; bottom: 14px; margin: 0 14px; z-index: 6;
+             background: var(--u-ink); border-radius: 99px; padding: 6px;
+             justify-content: space-around; box-shadow: 0 14px 34px rgba(15,18,25,.35); }
+.u-pillnav .u-ni { color: rgba(255,255,255,.62); justify-content: center; }
+.u-pillnav .u-ni.is-on { background: rgba(255,255,255,.12); color: #fff; }
+.u-pillnav .u-ni.is-on::before { display: none; }
+@media (max-width: 860px) { .u-pillnav { display: flex; } }
+
+/* البطلُ الداكن — الشيءُ الجريءُ الوحيد في الشاشة: خلفيّةٌ ليليّةٌ وهالةٌ
+   حمراءُ في زاويتها. يُستعمل مرّةً واحدةً في الصفحة ولا يُكرَّر. */
+.u-hero { position: relative; overflow: hidden; border-radius: var(--u-r1); padding: 20px;
+          color: #fff; background: linear-gradient(135deg, #0f172a, #1e293b); box-shadow: var(--u-sh); }
+.u-hero::before { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%;
+                  inset-inline-end: -70px; top: -110px;
+                  background: radial-gradient(circle, rgba(213,0,28,.55), transparent 68%); }
+.u-hero > * { position: relative; }
+.u-hero .u-muted, .u-hero .u-cap { color: rgba(255,255,255,.72); }
+
+/* مكانُ الصورة — نسبةٌ ثابتةٌ فلا تقفز الصفحةُ حين تصل الصورة.
+   (وهذا يحلّ شكواك أنّ صورةَ المنتج تدخل داخل الاسم والكمية.) */
+.u-img { aspect-ratio: 1.15; border-radius: var(--u-r2); overflow: hidden; position: relative;
+         background: linear-gradient(145deg, #f1f3f6, #e6e9ee);
+         display: grid; place-items: center; color: #a3abb8; }
+.u-img > img { width: 100%; height: 100%; object-fit: contain; }
+.u-img--wide { aspect-ratio: 16/10; }
+.u-img--sq   { aspect-ratio: 1; }
+
+/* شريطُ تقدّم */
+.u-bar { height: 7px; border-radius: 9px; background: #eceef2; overflow: hidden; }
+.u-bar > i { display: block; height: 100%; border-radius: 9px; background: var(--u-brand);
+             transition: width .4s var(--u-ease); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٨ · نظامُ البنرات — الأحجامُ والنسبُ وزرُّ الفعل  (طلبُ الوثيقة ١٥)
+   الأنواعُ السبعةُ معرَّفةٌ أعلاه بالألوان. هنا الأحجامُ ومنطقةُ الصورة
+   وزرُّ الفعل والسلوكُ المتجاوب — وهذا ما كان ناقصاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-banner--sm { padding: 9px 11px; font-size: var(--u-fs-bodys); border-radius: 10px; }
+.u-banner--lg { padding: var(--u-lg); font-size: var(--u-fs-bodyl); border-radius: var(--u-radius-lg); }
+.u-banner__cta { flex: 0 0 auto; align-self: center; }
+/* بنرُ ميزةٍ/منتجٍ: نصٌّ + منطقةُ صورةٍ بنسبةٍ ثابتةٍ لا تهتزّ مع التحميل */
+.u-banner--feat { display: grid; grid-template-columns: minmax(0,1fr) 34%; gap: var(--u-lg);
+                  align-items: center; padding: var(--u-lg); border-radius: var(--u-radius-lg); }
+.u-banner__img { aspect-ratio: 16/10; border-radius: var(--u-radius); overflow: hidden;
+                 background: var(--u-surface-2); display: grid; place-items: center; }
+.u-banner__img img { width: 100%; height: 100%; object-fit: contain; }
+.u-banner--hero { display: grid; gap: var(--u-sm); padding: var(--u-xl) var(--u-lg);
+                  text-align: center; border-radius: var(--u-radius-lg); }
+@media (max-width: 640px) {
+  .u-banner { flex-wrap: wrap; }
+  .u-banner--feat { grid-template-columns: 1fr; }
+  .u-banner__cta { width: 100%; }
+  .u-banner__cta .u-btn { width: 100%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ١٩ · لغةُ الحركة — Motion Language  (طلبُ الوثيقة ١٦)
+   ──────────────────────────────────────────────────────────────────────────
+   قاعدةٌ واحدة: الحركةُ تُجيب على فعلٍ قام به المستخدم، أو تُخبره
+   أنّ شيئاً تغيّر. وإلا فلا حركة. لا شيءَ هنا يتحرّك عند التمرير فقط.
+   المُدَد: ١٢٠ms تأكيدُ لمسة · ١٨٠ms ظهورُ عنصر · ٢٤٠ms درجٌ/ورقة.
+   وكلُّها تتوقّف احتراماً لـprefers-reduced-motion في آخر الملفّ.
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes u-fade     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes u-pop      { from { opacity: 0; transform: translateY(7px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes u-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes u-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes u-pulse-ok { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.38); } 100% { box-shadow: 0 0 0 12px rgba(22,163,74,0); } }
+@keyframes u-shake    { 10%,90% { transform: translateX(-1px); } 30%,70% { transform: translateX(2px); } 50% { transform: translateX(-2px); } }
+@keyframes u-bar      { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+/* نجاحٌ: نبضةٌ واحدةٌ خارجةٌ من العنصر الذي تغيّر — لا بنرٌ يغطّي الشاشة */
+.u-ok-pulse { animation: u-pulse-ok .6s ease-out 1; }
+/* خطأٌ: رجفةٌ قصيرةٌ على الحقل الخاطئ نفسه — المستخدم يعرف أين ينظر */
+.u-err-shake { animation: u-shake .34s both; }
+/* تحميلٌ: شريطٌ رفيعٌ أعلى المنطقة التي تُحمَّل، لا دوّارٌ في الوسط */
+.u-loading-bar { position: relative; }
+.u-loading-bar::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--u-brand), transparent); background-size: 200% 100%;
+  animation: u-bar 1.1s linear infinite; }
+/* ضغطةُ زرّ: الزرُّ ينضغط ١٢٠ms */
+.u-press:active { transform: scale(.975); transition: transform .12s var(--u-ease); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢٠ · الهاتفُ أوّلاً ثم اللوح  (طلبُ الوثيقة ١٧ · وطلبك ٢١٨ و١٦٠)
+   ──────────────────────────────────────────────────────────────────────────
+   «لا تجعل تصميم الهاتف مجرّد نسخةٍ مصغّرةٍ من Desktop.»
+   ما يبقى · ما يُختصر · ما يتحوّل · ما يختفي — مكتوبٌ كقواعدَ لا كنيّة:
+     يبقى   : الفعلُ الأساسيّ · الرقمُ الحاكم · البحث
+     يُختصر : الترويسةُ سطرٌ واحد · الفلاتر تُطوى في دُرج
+     يتحوّل : الجدولُ ⇠ بطاقات · الدرجُ ⇠ ورقةٌ سفليّة · التبويباتُ ⇠ تمريرٌ أفقيّ
+     يختفي : الأعمدةُ الثانوية · التلميحاتُ (لا hover على اللمس) · الزخرفة
+   ══════════════════════════════════════════════════════════════════════════ */
+/* اللوح: مساحةٌ وسطى حقيقيّة — لا هاتفٌ ممدودٌ ولا سطحُ مكتبٍ مضغوط */
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root { --u-field-h: 44px; --u-field-h-sm: 38px; }  /* الإصبعُ على اللوح أكبر */
+  .u-wrap { max-width: 920px; }
+  .u-only-desk { display: none !important; }
+  .u-nav { position: static; border-radius: var(--u-radius); }
+}
+@media (max-width: 640px) {
+  .u-only-desk, .u-only-tab { display: none !important; }
+  .u-tip::after { display: none; }                     /* لا hover على اللمس */
+  .u-modal { padding: 0; place-items: end stretch; }
+  .u-modal__box { max-width: none; max-height: 92vh; border-radius: var(--u-radius-lg) var(--u-radius-lg) 0 0;
+                  animation: u-sheet-up .26s var(--u-ease) both; }
+  .u-modal__f .u-btn { flex: 1; }                      /* أزرارُ القرار تملأ العرض */
+  .u-tabs { padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .u-tabs::-webkit-scrollbar { display: none; }
+  /* الجدولُ يصبح بطاقات: الصفُّ كتلةٌ والعنوانُ يأتي من data-l */
+  .u-table--cards thead { display: none; }
+  .u-table--cards tbody tr { display: block; margin-bottom: var(--u-sm); border: 1px solid var(--u-border);
+                             border-radius: var(--u-radius); background: var(--u-surface); padding: 4px 2px; }
+  .u-table--cards tbody td { display: flex; justify-content: space-between; gap: var(--u-md);
+                             border-bottom: 1px dashed var(--u-border); padding: 7px 10px; }
+  .u-table--cards tbody tr td:last-child { border-bottom: 0; }
+  .u-table--cards tbody td[data-l]::before { content: attr(data-l); font-size: var(--u-fs-cap);
+                                     font-weight: 800; color: var(--u-ink-3); flex: 0 0 auto; }
+}
+.u-only-mob { display: none !important; }
+@media (max-width: 640px) { .u-only-mob { display: initial !important; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ٢١ · إمكانيةُ الوصول  (طلبُ الوثيقة ١٨)
+   ──────────────────────────────────────────────────────────────────────────
+   أهمُّ سطرٍ في الوثيقة: «لا تعتمد على اللون وحده لإيصال المعلومة.»
+   كان نظامُنا يخالفه: الحالاتُ كانت ألواناً فقط — ومن لا يُفرّق الأحمر
+   من الأخضر (١٢٪ من الذكور) كان يرى بطاقاتٍ متطابقة. فأضفنا علامةً
+   شكليّةً لكلّ حالة؛ وتُلغى تلقائياً إن كانت العلامةُ موجودةً أصلاً.
+   ══════════════════════════════════════════════════════════════════════════ */
+.u-pill--ok::before     { content: "✓ "; font-weight: 900; }
+.u-pill--warn::before   { content: "! "; font-weight: 900; }
+.u-pill--danger::before { content: "✕ "; font-weight: 900; }
+.u-pill--info::before   { content: "i "; font-weight: 900; font-style: italic; }
+.u-pill:has(i, svg, img, .u-pill__i)::before { content: none; }
+/* الحقلُ الخاطئ يحمل علامةً لا لوناً فقط */
+.u-field.is-error + .u-hint::before { content: "✕ "; color: var(--gmt-danger,#dc2626); font-weight: 900; }
+.u-field.is-ok    + .u-hint::before { content: "✓ "; color: var(--gmt-success,#15803d); font-weight: 900; }
+/* الروابطُ داخل النصّ تُميَّز بالتسطير لا باللون وحده */
+.u-body a, .u-bodys a, .u-lead a { text-decoration: underline; text-underline-offset: 2px; }
+/* تخطّي إلى المحتوى — للتنقّل بلوحة المفاتيح */
+.u-skip { position: absolute; inset-inline-start: -9999px; z-index: 9999; }
+.u-skip:focus { inset-inline-start: var(--u-md); top: var(--u-md); padding: 9px 14px;
+                background: var(--u-ink); color: #fff; border-radius: 8px; font-weight: 800; }
+/* مقروءٌ للقارئ الصوتيّ فقط */
+.u-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* من يُفضّل تقليلَ الحركة لا يرى أيّاً منها — ويبقى كلُّ شيءٍ وظيفيّاً */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+                           transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+/* طباعةٌ: لا نوافذَ ولا أشرطةَ تنقّلٍ على الورق */
+@media print {
+  .u-nav, .u-modal, .u-drawer, .u-toast-dock, .u-pager, .u-tabs, .gmt-refresh-bar { display: none !important; }
+  .u-card, .u-panel { box-shadow: none !important; border-color: #ccc !important; }
+  .u-total { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+
+/* ═══ ٢ · قشرةُ المعاينة وحدها (لا تُشحن مع النظام) ═══ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,system-ui,sans-serif;background:#eef1f5;color:var(--u-ink);
+     min-height:100vh;padding:14px}
+.pv-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:1400px;margin:0 auto 14px}
+.pv-top h1{font-size:17px;font-weight:900;letter-spacing:-.3px}
+.pv-top .sep{width:1px;height:16px;background:var(--u-line)}
+.pv-top .sub{font-size:11.5px;font-weight:700;color:var(--u-ink-3)}
+.pv-spacer{margin-inline-start:auto}
+.pv-wrap{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:218px 1fr;gap:14px;align-items:start}
+@media(max-width:980px){.pv-wrap{grid-template-columns:1fr}.pv-rail{position:static !important;max-height:none !important}}
+.pv-rail{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto;background:#fff;
+         border:1px solid var(--u-line);border-radius:var(--u-r1);padding:12px;box-shadow:var(--u-sh);
+         scrollbar-width:thin}
+.pv-rail h6{font-size:10px;font-weight:800;color:var(--u-ink-3);margin:12px 4px 5px;letter-spacing:.3px}
+.pv-rail h6:first-child{margin-top:2px}
+.pv-rail .u-ni{font-size:12.5px;padding:7px 10px}
+.pv-stage{background:#fff;border:1px solid var(--u-line);border-radius:var(--u-r1);
+          padding:16px;box-shadow:var(--u-sh);min-height:70vh}
+.pv-dev{margin:0 auto;transition:width .3s var(--u-ease);background:var(--u-surface-2);
+        border:1px solid var(--u-line);border-radius:18px;overflow:hidden;position:relative}
+.pv-dev[data-d="desk"]{width:100%}
+.pv-dev[data-d="tab"]{width:min(100%,820px)}
+.pv-dev[data-d="mob"]{width:min(100%,390px);border-radius:26px}
+.pv-dev[data-d="mob"]::before{content:"";display:block;height:22px;background:#0f1219}
+.pv-dev[data-d="mob"]::after{content:"";position:absolute;top:7px;inset-inline:0;margin:auto;
+        width:96px;height:8px;border-radius:9px;background:#2a2f3a}
+.pv-body{padding:14px;background:var(--u-surface-2);min-height:430px}
+.pv-note{font-size:11.5px;color:var(--u-ink-3);line-height:1.85;margin:10px 2px 0}
+.pv-screen{display:none}
+.pv-screen.on{display:block;animation:u-in .3s var(--u-ease) both}
+.pv-why{border-inline-start:3px solid var(--u-brand);padding-inline-start:11px;
+        font-size:12px;line-height:1.95;color:var(--u-ink-2);margin:14px 2px 0;max-width:76ch}
+.pv-gal{display:grid;gap:12px}
+
+/* ══ محاكاةُ نقاط الانكسار داخل إطار الجهاز ══
+   إطارُ المعاينة حاويةٌ لا نافذة، و@media تقرأ عرضَ **النافذة** لا الحاوية.
+   فلو تركناها لرأيتَ تخطيطَ سطح المكتب داخل هيكل هاتف — وهو كذبٌ بصريّ.
+   هذه القواعدُ تُطبّق على الإطار ما يُطبّقه النظامُ الحيّ على الشاشة. */
+.pv-dev[data-d="tab"] .u-g--3,
+.pv-dev[data-d="tab"] .u-g--4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pv-dev[data-d="tab"] .u-lay--pos,
+.pv-dev[data-d="tab"] .u-lay--detail{grid-template-columns:1fr}
+.pv-dev[data-d="tab"] .u-lay--dash{grid-template-areas:"kpi kpi" "main side" "alerts alerts"}
+
+.pv-dev[data-d="mob"] .u-g--2,
+.pv-dev[data-d="mob"] .u-g--3,
+.pv-dev[data-d="mob"] .u-g--4{grid-template-columns:1fr}
+.pv-dev[data-d="mob"] .u-lay--pos,
+.pv-dev[data-d="mob"] .u-lay--detail,
+.pv-dev[data-d="mob"] .u-lay--form{grid-template-columns:1fr}
+.pv-dev[data-d="mob"] .u-lay--dash{grid-template-areas:"kpi" "main" "side" "alerts";grid-template-columns:1fr}
+.pv-dev[data-d="mob"] .u-lay--pos>.u-at-cart,
+.pv-dev[data-d="mob"] .u-lay--detail>.u-at-side{position:static}
+/* الجدولُ يصير بطاقات — نفسُ ما يفعله النظامُ على الهاتف */
+.pv-dev[data-d="mob"] .u-table--cards thead{display:none}
+.pv-dev[data-d="mob"] .u-table--cards tbody tr{display:block;margin-bottom:8px;border:1px solid var(--u-line);
+  border-radius:var(--u-r2);background:var(--u-surface);padding:4px 2px}
+.pv-dev[data-d="mob"] .u-table--cards tbody td{display:flex;justify-content:space-between;gap:12px;
+  border-bottom:1px dashed var(--u-line);padding:7px 10px}
+.pv-dev[data-d="mob"] .u-table--cards tbody tr td:last-child{border-bottom:0}
+.pv-dev[data-d="mob"] .u-table--cards tbody td[data-l]::before{content:attr(data-l);
+  font-size:var(--u-fs-cap);font-weight:800;color:var(--u-ink-3);flex:0 0 auto}
+/* الترويسةُ سطرٌ واحدٌ ثم البحثُ تحته — لا عنوانٌ يتفتّت على أربعة أسطر */
+.pv-dev[data-d="mob"] .u-tb{flex-wrap:wrap;padding:10px 12px}
+.pv-dev[data-d="mob"] .u-tb>*:not(:first-child):not(:nth-child(2)){flex:1 0 100%;margin-top:8px}
+.pv-dev[data-d="mob"] .u-tb .u-search{min-width:0 !important;width:100%}
+.pv-dev[data-d="mob"] .u-banner--feat{grid-template-columns:1fr}
+.pv-dev[data-d="mob"] .u-row--split{flex-wrap:wrap;gap:8px}
+.pv-dev[data-d="mob"] .u-img--sq{aspect-ratio:1.6}
+.pv-dev[data-d="mob"] .u-info{grid-template-columns:1fr}
+.pv-count{font-size:11px;font-weight:800;color:var(--u-ink-3);padding:6px 4px 0;border-top:1px solid var(--u-line);margin-top:10px}
+</style>
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+
+<div class="pv-top">
+  <h1>GMT — معاينة النظام الجديد</h1>
+  <span class="sep"></span>
+  <span class="sub">22 شاشة · ملفٌّ واحد · بلا استضافة · بلا إنترنت · 2026-10-04</span>
+  <span class="pv-spacer"></span>
+  <div class="u-seg" id="pv-dev-seg">
+    <button class="u-seg__i is-on" data-d="desk">🖥️ سطح مكتب</button>
+    <button class="u-seg__i" data-d="tab">📱 لوح</button>
+    <button class="u-seg__i" data-d="mob">📲 هاتف</button>
+  </div>
+  <button class="u-btn u-btn--second u-btn--sm" id="pv-snd">🔊 الأصوات</button>
+</div>
+
+<div class="pv-wrap">
+  <nav class="pv-rail" id="pv-nav">
+<h6>البداية</h6><button class="u-ni" data-s="intro"><span class="u-ico u-ico--sm" data-icon="image"></span> الانترو</button><button class="u-ni" data-s="branch"><span class="u-ico u-ico--sm" data-icon="branch"></span> اختيار الفرع</button><button class="u-ni" data-s="login"><span class="u-ico u-ico--sm" data-icon="shield"></span> تسجيل الدخول</button><button class="u-ni is-on" data-s="home"><span class="u-ico u-ico--sm" data-icon="home"></span> البوّابة الرئيسية</button><h6>نقطة البيع</h6><button class="u-ni" data-s="posb"><span class="u-ico u-ico--sm" data-icon="cart"></span> تصفّح المنتجات</button><button class="u-ni" data-s="posp"><span class="u-ico u-ico--sm" data-icon="wallet"></span> الدفع والعميل</button><button class="u-ni" data-s="pos"><span class="u-ico u-ico--sm" data-icon="receipt"></span> تحرير الفاتورة</button><button class="u-ni" data-s="posd"><span class="u-ico u-ico--sm" data-icon="check"></span> تمّت العمليّة</button><h6>المخزون</h6><button class="u-ni" data-s="inv"><span class="u-ico u-ico--sm" data-icon="box"></span> الجرد</button><button class="u-ni" data-s="trn"><span class="u-ico u-ico--sm" data-icon="truck"></span> فاتورة النقل</button><button class="u-ni" data-s="pur"><span class="u-ico u-ico--sm" data-icon="factory"></span> المشتريات</button><h6>الإدارة</h6><button class="u-ni" data-s="ord"><span class="u-ico u-ico--sm" data-icon="doc"></span> الأوردرات</button><button class="u-ni" data-s="apos"><span class="u-ico u-ico--sm" data-icon="boxes"></span> أدمن نقاط البيع</button><button class="u-ni" data-s="fin"><span class="u-ico u-ico--sm" data-icon="chart"></span> المحاسبة والديون</button><h6>الزبون</h6><button class="u-ni" data-s="store"><span class="u-ico u-ico--sm" data-icon="store"></span> المتجر</button><button class="u-ni" data-s="track"><span class="u-ico u-ico--sm" data-icon="search"></span> تتبّع الشحنة</button><button class="u-ni" data-s="wr"><span class="u-ico u-ico--sm" data-icon="shield"></span> الكفالة</button><button class="u-ni" data-s="hr"><span class="u-ico u-ico--sm" data-icon="edit"></span> بوّابة التوظيف</button><h6>المسار المحاسبيّ</h6><button class="u-ni" data-s="doc"><span class="u-ico u-ico--sm" data-icon="doc"></span> الفاتورة المطبوعة</button><h6>النظام</h6><button class="u-ni" data-s="kit"><span class="u-ico u-ico--sm" data-icon="settings"></span> المكوّنات</button><button class="u-ni" data-s="snd"><span class="u-ico u-ico--sm" data-icon="bell"></span> الهوية الصوتيّة</button><button class="u-ni" data-s="states"><span class="u-ico u-ico--sm" data-icon="alert"></span> الحالات الثلاث</button>
+    <div class="pv-count">22 شاشة في هذا الملفّ</div>
+  </nav>
+
+  <main class="pv-stage">
+    <div class="pv-dev" data-d="desk" id="pv-dev">
+      <div class="pv-body" id="pv-body">
+<div class="pv-screen" id="sc-intro">
+<div style="background:#0b0d12;border-radius:var(--u-r2);padding:44px 20px;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;width:420px;height:420px;border-radius:50%;inset-inline-end:-150px;top:-200px;background:radial-gradient(circle,rgba(213,0,28,.38),transparent 68%)"></div>
+  <div style="position:relative;">
+    <div style="width:96px;height:96px;margin:0 auto 16px;border-radius:26px;background:#fff;display:grid;place-items:center;font-size:34px;box-shadow:0 18px 50px rgba(0,0,0,.4);">📷</div>
+    <div style="font-size:23px;font-weight:900;color:#fff;letter-spacing:-.4px;">مجموعة ميديا تيك التجارية</div>
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.62);margin-top:5px;">Canon Authorized Dealer</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-top:20px;">
+      <i style="width:26px;height:4px;border-radius:3px;background:var(--u-brand)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+      <i style="width:6px;height:4px;border-radius:3px;background:rgba(255,255,255,.26)"></i>
+    </div>
+    <button class="u-btn u-btn--second u-btn--sm" data-play="brand" style="margin-top:20px;">▶ اسمع العلامة الصوتيّة</button>
+  </div>
+</div>
+<div class="u-g u-g--2" style="margin-top:12px;">
+  <div class="u-card" style="text-align:center;">
+    <div style="font-size:30px;">🇩🇪</div>
+    <div style="font-size:14px;font-weight:900;margin-top:4px;">ألمانيا</div>
+    <div class="u-cap">مقرُّ التطوير والإشراف التقني</div>
+    <div style="font-size:13px;font-weight:800;direction:ltr;unicode-bidi:isolate;margin-top:7px;">Erfurt 99084, Altstadt</div>
+    <div class="u-cap" style="margin-top:3px;">نسخةٌ تجريبية قيد التطوير</div>
+  </div>
+  <div class="u-card" style="text-align:center;">
+    <div style="font-size:30px;">🇨🇳</div>
+    <div style="font-size:14px;font-weight:900;margin-top:4px;">الصين</div>
+    <div class="u-cap">مكتبُ التوريد ومتابعة الشحن</div>
+    <div style="font-size:15px;font-weight:900;margin-top:7px;">شنزن وايمن</div>
+    <div style="font-size:12.5px;font-weight:800;direction:ltr;unicode-bidi:isolate;color:var(--u-ink-3);">Shenzhen Waiman — Shenzhen, China</div>
+    <div class="u-cap" style="margin-top:3px;">تم الإنشاء بواسطة المهندس</div>
+  </div>
+</div>
+<div class="pv-why">ثماني شاشاتٍ في أوّل فتحةٍ على الجهاز، وأربعٌ بعدها. العلامةُ الصوتيّةُ تُسمَع مع الشاشة الأولى، وفقاعةٌ مع انبثاق الشعار. واسمُ المكتب الصينيّ «شنزن وايمن» وصل منك اليوم ووُضع — كنتُ رفضتُ أن أخترعه.</div></div><div class="pv-screen" id="sc-branch">
+<div style="padding:26px 16px;text-align:center;">
+  <div style="width:74px;height:74px;margin:0 auto 12px;border-radius:20px;background:#fff;border:1px solid var(--u-line);display:grid;place-items:center;font-size:28px;box-shadow:var(--u-sh);">📷</div>
+  <div class="u-h2" style="margin:0;">اختر فرعك</div>
+  <div class="u-bodys" style="margin-bottom:18px;">يُحفظ الاختيارُ على هذا الجهاز فلا يُسأل مرّةً أخرى</div>
+  <div class="u-g u-g--3" style="max-width:640px;margin:0 auto;">
+    <button class="u-card u-card--click" style="text-align:center;border-color:var(--u-brand);background:var(--u-brand-soft);">
+      <div class="u-ico" style="margin:0 auto 7px;">🏢</div><div style="font-weight:900;font-size:13.5px;">حلب</div><div class="u-cap">الإدارة والمستودع</div></button>
+    <button class="u-card u-card--click" style="text-align:center;">
+      <div class="u-ico u-ico--mute" style="margin:0 auto 7px;">🏬</div><div style="font-weight:900;font-size:13.5px;">درعا</div><div class="u-cap">نقطة بيع</div></button>
+    <button class="u-card u-card--click" style="text-align:center;">
+      <div class="u-ico u-ico--mute" style="margin:0 auto 7px;">🏬</div><div style="font-weight:900;font-size:13.5px;">حمص</div><div class="u-cap">نقطة بيع</div></button>
+    <button class="u-card u-card--click" style="text-align:center;">
+      <div class="u-ico u-ico--mute" style="margin:0 auto 7px;">🏬</div><div style="font-weight:900;font-size:13.5px;">اللاذقية</div><div class="u-cap">نقطة بيع</div></button>
+    <button class="u-card u-card--click" style="text-align:center;">
+      <div class="u-ico u-ico--mute" style="margin:0 auto 7px;">🏬</div><div style="font-weight:900;font-size:13.5px;">طرطوس</div><div class="u-cap">نقطة بيع</div></button>
+    <button class="u-card u-card--click" style="text-align:center;">
+      <div class="u-ico u-ico--mute" style="margin:0 auto 7px;">🚚</div><div style="font-weight:900;font-size:13.5px;">العبور</div><div class="u-cap">شحنٌ ومرور</div></button>
+  </div>
+</div>
+<div class="pv-why">الفرعُ الحاليّ يُعرَف بسطحٍ أحمرَ ناعمٍ وحدٍّ أحمر — إشارتان لا لونٌ واحد. وفرعُ الإدارة يحمل أيقونةً مختلفةً لأنّ صلاحيّاته مختلفة.</div></div><div class="pv-screen" id="sc-login">
+<div style="padding:30px 16px;display:grid;place-items:center;min-height:400px;background:#f6f8fb;">
+  <div style="background:#fff;border:1px solid var(--u-line);border-radius:18px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 18px 50px rgba(2,6,23,.10);">
+    <div style="height:3px;background:var(--u-brand);"></div>
+    <div style="text-align:center;margin:24px 22px 20px;">
+      <div style="width:64px;height:64px;margin:0 auto 10px;border-radius:14px;background:var(--u-surface-2);border:1px solid var(--u-line);display:grid;place-items:center;font-size:26px;">📷</div>
+      <div style="font-size:20px;font-weight:900;letter-spacing:-.3px;">تسجيل الدخول</div>
+      <div style="font-size:12px;font-weight:700;color:var(--u-ink-3);margin-top:4px;">فرع حلب</div>
+    </div>
+    <div style="padding:0 22px 26px;">
+      <label class="u-label">اسم المستخدم</label>
+      <input class="u-field" value="mkz" dir="ltr" style="margin-bottom:14px;">
+      <label class="u-label">كلمة المرور</label>
+      <input class="u-field" type="password" value="xxxxxxxx" style="margin-bottom:18px;">
+      <button class="u-btn u-btn--primary u-btn--block" data-play="success">دخول</button>
+      <button class="u-btn u-btn--ghost u-btn--block" style="margin-top:10px;">تغيير الفرع</button>
+    </div>
+  </div>
+</div>
+<div class="pv-why">كانت تدرّجاً كحليّاً-أحمرَ يملأ الشاشة: لونان لا ينتمي أحدُهما إلينا. صارت ورقةً بيضاء، وخيطٌ أحمرُ واحدٌ أعلى البطاقة هو كلُّ ما يحمل العلامة، والأحمرُ بعده في زرِّ الدخول وحده — الفعلُ الوحيد في الشاشة.</div></div><div class="pv-screen on" id="sc-home">
+<div class="u-row u-row--split" style="margin-bottom:14px;">
+  <div><div class="u-h2" style="margin:0;">مساء الخير، محمد خير 👋</div>
+       <div class="u-bodys" style="margin-top:2px;">هذا ما جرى في كلّ الفروع اليوم</div></div>
+  <div class="u-row u-row--tight">
+    <button class="u-btn u-btn--second u-btn--sm">🔔 <span class="u-pill u-pill--quiet">٣</span></button>
+    <button class="u-btn u-btn--second u-btn--sm">⟳ تحديث</button>
+    <button class="u-btn u-btn--ghost u-btn--sm" data-play="pop">🔊</button>
+  </div>
+</div>
+<div class="u-g u-g--4">
+<div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico" data-icon="money"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">مبيعات اليوم</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;color:var(--u-brand);">$4,180<span style="font-size:.62em;font-weight:800;opacity:.55;">.50</span></div><div class="u-cap" style="margin-top:1px;">كلّ الفروع</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="receipt"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">فواتير اليوم</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="direction:ltr;unicode-bidi:isolate">27</span></div><div class="u-cap" style="margin-top:1px;">آخرها قبل ٦ دقائق</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="truck"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">منها أونلاين/آجل</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$1,240<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">مبيعُ الشحن</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="box"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">أوردرات الشحن</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="direction:ltr;unicode-bidi:isolate">9</span></div><div class="u-cap" style="margin-top:1px;">اليوم</div></div></div>
+</div>
+<div class="u-card" style="margin-top:12px;">
+  <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="trophy"></span> الفرع الأكثر مبيعاً اليوم</div>
+  <div class="u-row u-row--split" style="gap:14px;">
+    <div><div class="u-h3" style="margin:0;">حلب</div><div class="u-cap">الأكثر نشاطاً من بين ٧ فروع</div></div>
+    <div style="text-align:center;"><div class="u-label">باع</div>
+      <div style="font-size:21px;font-weight:900;color:var(--u-brand);">$1,840<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div></div>
+    <div style="text-align:center;"><div class="u-label">منه أونلاين</div>
+      <div style="font-size:16px;font-weight:900;">$620<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div></div>
+    <div style="text-align:center;"><div class="u-label">أوردرات</div>
+      <div style="font-size:16px;font-weight:900;direction:ltr;unicode-bidi:isolate">11</div></div>
+  </div>
+</div>
+<div style="margin-top:14px;">
+  <div class="u-divider--text" style="margin:0 0 9px;">الوصول السريع</div>
+  <div class="u-g u-g--4">
+    <a class="u-card u-card--tight u-card--click" href="#" style="display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit;"><span class="u-ico u-ico--sm" data-icon="receipt"></span><span style="flex:1;font-size:12.5px;font-weight:800;">نقطة البيع</span><span class="u-pill u-pill--quiet">١٤</span></a>
+    <a class="u-card u-card--tight u-card--click" href="#" style="display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit;"><span class="u-ico u-ico--sm" data-icon="doc"></span><span style="flex:1;font-size:12.5px;font-weight:800;">الأوردرات</span><span class="u-pill u-pill--quiet">٩</span></a>
+    <a class="u-card u-card--tight u-card--click" href="#" style="display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit;"><span class="u-ico u-ico--sm" data-icon="box"></span><span style="flex:1;font-size:12.5px;font-weight:800;">الجرد</span><span class="u-pill u-pill--quiet">٦</span></a>
+    <a class="u-card u-card--tight u-card--click" href="#" style="display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit;"><span class="u-ico u-ico--sm" data-icon="factory"></span><span style="flex:1;font-size:12.5px;font-weight:800;">المشتريات</span></a>
+  </div>
+</div>
+<div style="margin-top:16px;">
+  <div class="u-h3" style="color:var(--u-brand);border-inline-start:4px solid var(--u-brand);padding-inline-start:9px;margin-bottom:10px;">👷 الموظفون</div>
+  <div class="u-g u-g--4">
+    <div class="u-card u-card--tight u-card--click" style="display:flex;align-items:center;gap:11px;min-height:66px;"><span class="u-ico u-ico--mute" data-icon="doc"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13.5px;">الأوردرات</div><div class="u-cap">الطلبات</div></div><span class="u-pill u-pill--quiet">موظف</span></div>
+    <div class="u-card u-card--tight u-card--click" style="display:flex;align-items:center;gap:11px;min-height:66px;"><span class="u-ico u-ico--mute" data-icon="check"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13.5px;">إنشاء الكفالة</div><div class="u-cap">تسجيل كفالة للزبون</div></div><span class="u-pill u-pill--quiet">موظف</span></div>
+    <div class="u-card u-card--tight u-card--click" style="display:flex;align-items:center;gap:11px;min-height:66px;"><span class="u-ico u-ico--mute" data-icon="doc"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13.5px;">العقود</div><div class="u-cap">عقود ونماذج</div></div><span class="u-pill u-pill--quiet">موظف</span></div>
+    <div class="u-card u-card--tight u-card--click" style="display:flex;align-items:center;gap:11px;min-height:66px;"><span class="u-ico u-ico--mute" data-icon="receipt"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13.5px;">نقطة البيع</div><div class="u-cap">البيع والفواتير</div></div><span class="u-pill u-pill--quiet">موظف</span></div>
+  </div>
+</div>
+<div class="pv-why">كانت البوّابةُ شبكةَ روابطَ فقط: تفتح نظامَك فلا تعرف شيئاً عن عملك. وطلبُك: «بدّي في الواجهة الرئيسية يظهر سجلّ المبيعات والأرباح… ومين الفرع الأكثر مبيعاً وشو باع وقديش المبيوع عنده، وعدد أوردرات». والشاراتُ صارت رماديّةً لأنّ عنوانَ القسم فوقها يقول الشيءَ نفسَه — لونٌ بلا خبر ضوضاء.</div></div><div class="pv-screen" id="sc-posb">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="receipt"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">نقطة البيع — فرع حلب</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">الكاشير: محمد خير</div></div><label class="u-search" style="min-width:190px;"><input class="u-field" placeholder="ابحث عن منتج..."></label></div>
+<div class="u-lay u-lay--pos" style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-at-main">
+    <div class="u-tabs" style="background:#fff;border-radius:var(--u-r2) var(--u-r2) 0 0;padding:0 6px;margin-bottom:10px;">
+      <button class="u-tab is-on">الكل</button><button class="u-tab">كاميرات</button>
+      <button class="u-tab">عدسات</button><button class="u-tab">إضاءة</button>
+      <button class="u-tab">حوامل</button><button class="u-tab">ذاكرة</button>
+    </div>
+    <div class="u-g u-g--3">
+      <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">كاميرا Canon EOS R50</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;color:var(--u-brand);">$679</span><span class="u-pill u-pill--ok">12</span></div></div>
+      <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">عدسة RF 50mm f/1.8</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;color:var(--u-brand);">$185</span><span class="u-pill u-pill--warn">4</span></div></div>
+      <div class="u-card u-card--tight u-card--click" style="opacity:.55;"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">فلاش Speedlite EL-5</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;">$399</span><span class="u-pill u-pill--danger">نفد</span></div></div>
+      <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">بطاقة SanDisk 128GB</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;color:var(--u-brand);">$22</span><span class="u-pill u-pill--ok">41</span></div></div>
+      <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">حامل Manfrotto 190</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;color:var(--u-brand);">$245</span><span class="u-pill u-pill--ok">7</span></div></div>
+      <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+        <div style="font-weight:800;font-size:12.5px;line-height:1.5;">بطارية LP-E17 أصليّة</div>
+        <div class="u-row u-row--split" style="margin-top:5px;"><span style="font-weight:900;color:var(--u-brand);">$59</span><span class="u-pill u-pill--ok">18</span></div></div>
+    </div>
+  </div>
+  <div class="u-at-cart">
+    <div class="u-card">
+      <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="cart"></span> السلّة</div>
+      <div style="display:flex;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--u-line);">
+        <span class="u-img" style="width:40px;height:36px;aspect-ratio:auto;border-radius:8px;font-size:15px;">📷</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;">عدسة RF 50mm</div><div class="u-cap">1 × $185.00</div></div>
+        <div style="font-weight:900;font-size:13px;direction:ltr;unicode-bidi:isolate;">$185</div>
+      </div>
+      <div style="display:flex;gap:9px;align-items:center;padding:8px 0;border-bottom:1px solid var(--u-line);">
+        <span class="u-img" style="width:40px;height:36px;aspect-ratio:auto;border-radius:8px;font-size:15px;">📷</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;">بطاقة SanDisk 128GB</div><div class="u-cap">2 × $22.00</div></div>
+        <div style="font-weight:900;font-size:13px;direction:ltr;unicode-bidi:isolate;">$44</div>
+      </div>
+      <div class="u-total" style="margin-top:12px;">
+        <div style="flex:1;display:flex;align-items:center;padding:0 12px;font-size:11.5px;font-weight:800;color:var(--u-ink-3);">٣ قطع</div>
+        <div class="u-total__v"><span class="u-total__k">الإجمالي</span><span class="u-total__n">$ 229.00</span></div>
+      </div>
+      <button class="u-btn u-btn--primary u-btn--block u-btn--lg" style="margin-top:12px;">متابعة الدفع</button>
+      <button class="u-btn u-btn--ghost u-btn--block" style="margin-top:7px;">تفريغ السلّة</button>
+    </div>
+  </div>
+</div>
+<div class="pv-why">نمطُ «البيع»: المنتجاتُ تأخذ المساحة والسلّةُ ثابتةٌ لا تهرب عند التمرير. وكلُّ منتجٍ له **مكانُ صورةٍ بنسبةٍ ثابتة** فلا تقفز الشبكةُ عند التحميل. والمنتجُ النافدُ باهتٌ ومعه كلمةُ «نفد» — لا لونٌ وحده.</div></div><div class="pv-screen" id="sc-posp">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="wallet"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">الدفع والعميل</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">فاتورة #2481</div></div></div>
+<div class="u-lay u-lay--form" style="padding:14px;background:var(--u-surface-2);">
+  <div>
+    <div class="u-card" style="margin-bottom:12px;">
+      <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="user"></span> بيانات العميل</div>
+      <div class="u-g u-g--2">
+        <div><label class="u-label">اسم العميل</label><input class="u-field" value="بلال أحمد الخطيب"></div>
+        <div><label class="u-label">رقم الموبايل</label><input class="u-field" dir="ltr" value="0988733536"></div>
+      </div>
+    </div>
+    <div class="u-card" style="margin-bottom:12px;">
+      <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="coins"></span> طريقة الدفع</div>
+      <div class="u-g u-g--2">
+        <button class="u-card u-card--tight u-card--click" style="border-color:var(--u-brand);background:var(--u-brand-soft);text-align:start;">
+          <div style="font-weight:900;font-size:13px;color:var(--u-brand);">نقدي</div><div class="u-cap">يُسدَّد الآن كاملاً</div></button>
+        <button class="u-card u-card--tight u-card--click" style="text-align:start;">
+          <div style="font-weight:900;font-size:13px;">آجل (شحن)</div><div class="u-cap">دفعةٌ نقديّةٌ والباقي عند الاستلام</div></button>
+      </div>
+      <div class="u-g u-g--2" style="margin-top:11px;">
+        <div><label class="u-label">دفعة نقديّة</label><input class="u-field" dir="ltr" value="229.00"></div>
+        <div><label class="u-label">الباقي</label><input class="u-field" dir="ltr" value="0.00" disabled></div>
+      </div>
+      <div class="u-banner u-banner--quiet" style="margin-top:11px;"><span class="u-banner__i">🔗</span>
+        <span class="u-banner__b">الدفعةُ النقديّةُ والباقي يُنقلان تلقائيّاً إلى الأوردر — لا تُكتب مرّتين.</span></div>
+    </div>
+    <div class="u-total">
+      <div style="flex:1;display:flex;align-items:center;padding:0 14px;font-size:12px;font-weight:800;color:var(--u-ink-3);">المبلغ المستحق</div>
+      <div class="u-total__v"><span class="u-total__k">الإجمالي</span><span class="u-total__n">$ 229.00</span></div>
+    </div>
+    <button class="u-btn u-btn--primary u-btn--block u-btn--lg" data-play="cash" style="margin-top:12px;">إنشاء الفاتورة</button>
+  </div>
+</div>
+<div class="pv-why">نمطُ «النموذج»: عمودٌ ضيّقٌ مقصود — السطرُ الطويل يُتعب في النماذج. وطريقةُ الدفع المختارةُ تُعرَف بحدٍّ وسطحٍ أحمرَ ناعمٍ ونصٍّ أحمر، لا بعلامةِ اختيارٍ صغيرة.</div></div><div class="pv-screen" id="sc-pos">
+  <div style="background:#fff;border-bottom:1px solid var(--u-line);padding:9px 12px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-radius:var(--u-r2) var(--u-r2) 0 0;">
+    <button class="u-btn u-btn--ghost u-btn--sm" style="width:34px;padding:0;">‹</button>
+    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;letter-spacing:-.2px;">معاينة وتحرير الفاتورة</div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">اضغط على أي حقل للتعديل</div></div>
+    <button class="u-btn u-btn--second u-btn--sm">💱 $</button>
+    <button class="u-btn u-btn--primary u-btn--sm" data-play="cash">✓ حفظ</button>
+    <div style="flex:0 0 100%;height:2px;background:var(--u-brand);margin-top:9px;border-radius:2px;"></div>
+  </div>
+
+  <div style="background:var(--u-surface-2);padding:10px 0;">
+    <div class="u-card u-card--tight" style="margin:0 8px 8px;">
+      <div class="u-section" style="margin:0 0 9px;"><span class="u-section__i" data-icon="receipt"></span> بيانات العميل</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
+        <div><label class="u-label">اسم العميل</label><input class="u-field" value="بلال أحمد الخطيب"></div>
+        <div><label class="u-label">رقم الموبايل</label><input class="u-field" dir="ltr" value="0988733536"></div>
+        <div><label class="u-label">نوع البيع</label><select class="u-field u-select"><option>نقدي</option><option>آجل (شحن)</option></select></div>
+        <div><label class="u-label">ملاحظات</label><input class="u-field" placeholder="ملاحظات..."></div>
+      </div>
+    </div>
+
+    <div class="u-card u-card--tight" style="margin:0 8px 8px;padding:12px 12px 0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;">
+        <div class="u-section" style="margin:0;flex:1;"><span class="u-section__i" data-icon="cart"></span> بنود الفاتورة</div>
+        <button class="u-btn u-btn--second u-btn--sm">+ إضافة منتج</button>
+      </div>
+      
+      <div style="border:1px solid var(--u-line);border-top:0;border-radius:0 0 8px 8px;">
+        <div style="padding:11px 12px;border-bottom:1px solid var(--u-line);">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span class="u-img" style="width:52px;height:46px;aspect-ratio:auto;border-radius:9px;font-size:17px;flex:0 0 auto;">📷</span>
+            <div style="flex:1;min-width:0;display:flex;justify-content:space-between;gap:8px;">
+              <div style="min-width:0;">
+                <div style="font-size:12.5px;font-weight:800;line-height:1.5;">عدسة Canon RF 50mm f/1.8 STM</div>
+                
+              </div>
+              <div style="font-size:14px;font-weight:900;white-space:nowrap;direction:ltr;unicode-bidi:isolate;">$185.00</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;margin:9px 0 5px;padding-inline-start:62px;font-size:10.5px;font-weight:700;color:var(--u-ink-3);">
+            <span>الكلفة <b style="color:var(--u-ink-2);direction:ltr;unicode-bidi:isolate;">$150.00</b></span>
+            <span>الجملة <b style="color:var(--u-ink-2);direction:ltr;unicode-bidi:isolate;">$165.00</b></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding-inline-start:62px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;background:var(--u-surface-2);border:1px solid var(--u-line);border-radius:9px;overflow:hidden;flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:none;background:transparent;color:var(--u-ink-2);font-size:18px;font-weight:900;">−</button>
+              <span style="font-size:14.5px;font-weight:900;min-width:30px;text-align:center;direction:ltr;unicode-bidi:isolate;">1</span>
+              <button style="width:34px;height:34px;border:none;background:transparent;color:var(--u-ink-2);font-size:18px;font-weight:900;">+</button>
+            </div>
+            <div style="flex:1 1 150px;min-width:0;display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--u-line);border-radius:9px;padding:0 9px;">
+              <span style="font-size:10.5px;color:var(--u-ink-3);font-weight:800;flex-shrink:0;">سعر البيع $</span>
+              <input class="u-field" value="185.00" dir="ltr" style="flex:1;min-width:0;border:0;background:transparent;height:34px;text-align:left;font-weight:900;font-size:14.5px;color:var(--u-ink);padding:0;">
+            </div>
+            <button style="width:34px;height:34px;border:1px solid var(--u-line);background:#fff;color:var(--u-ink-3);border-radius:9px;font-size:15px;flex-shrink:0;">✕</button>
+          </div>
+        </div>
+        <div style="padding:11px 12px;border-bottom:1px solid var(--u-line);">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span class="u-img" style="width:52px;height:46px;aspect-ratio:auto;border-radius:9px;font-size:17px;flex:0 0 auto;">📷</span>
+            <div style="flex:1;min-width:0;display:flex;justify-content:space-between;gap:8px;">
+              <div style="min-width:0;">
+                <div style="font-size:12.5px;font-weight:800;line-height:1.5;">بطاقة ذاكرة SanDisk Extreme 128GB</div>
+                <div style="font-size:10px;color:#b45309;font-weight:800;margin-top:2px;">⚠️ تحت سعر الجملة</div>
+              </div>
+              <div style="font-size:14px;font-weight:900;white-space:nowrap;direction:ltr;unicode-bidi:isolate;">$38.00</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;margin:9px 0 5px;padding-inline-start:62px;font-size:10.5px;font-weight:700;color:var(--u-ink-3);">
+            <span>الكلفة <b style="color:var(--u-ink-2);direction:ltr;unicode-bidi:isolate;">$18.00</b></span>
+            <span>الجملة <b style="color:var(--u-ink-2);direction:ltr;unicode-bidi:isolate;">$20.00</b></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding-inline-start:62px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;background:var(--u-surface-2);border:1px solid var(--u-line);border-radius:9px;overflow:hidden;flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:none;background:transparent;color:var(--u-ink-2);font-size:18px;font-weight:900;">−</button>
+              <span style="font-size:14.5px;font-weight:900;min-width:30px;text-align:center;direction:ltr;unicode-bidi:isolate;">2</span>
+              <button style="width:34px;height:34px;border:none;background:transparent;color:var(--u-ink-2);font-size:18px;font-weight:900;">+</button>
+            </div>
+            <div style="flex:1 1 150px;min-width:0;display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #b45309;border-radius:9px;padding:0 9px;">
+              <span style="font-size:10.5px;color:var(--u-ink-3);font-weight:800;flex-shrink:0;">سعر البيع $</span>
+              <input class="u-field" value="19.00" dir="ltr" style="flex:1;min-width:0;border:0;background:transparent;height:34px;text-align:left;font-weight:900;font-size:14.5px;color:#92400e;padding:0;">
+            </div>
+            <button style="width:34px;height:34px;border:1px solid var(--u-line);background:#fff;color:var(--u-ink-3);border-radius:9px;font-size:15px;flex-shrink:0;">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:11px 2px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+          <span style="font-size:11.5px;color:var(--u-ink-3);font-weight:700;">مجموع الكميات</span>
+          <span style="font-size:13px;font-weight:900;direction:ltr;unicode-bidi:isolate;">3</span></div>
+        <div class="u-total">
+          <div style="flex:1;display:flex;align-items:center;padding:0 12px;font-size:11.5px;font-weight:800;color:var(--u-ink-3);">المبلغ المستحق</div>
+          <div class="u-total__v"><span class="u-total__k">الإجمالي</span><span class="u-total__n">$ 229.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="u-panel" style="margin:0 8px 8px;">
+      <span class="u-pill u-pill--quiet" style="font-size:10px;">👁️ للكاشير فقط — لا تظهر في الطباعة</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;">
+        <span style="font-size:12.5px;font-weight:700;">العمولة المتوقعة</span>
+        <span style="font-size:17px;font-weight:900;direction:ltr;unicode-bidi:isolate;">$ 11.45</span></div>
+    </div>
+
+    <div class="u-card u-card--tight" style="margin:0 8px 8px;">
+      <label class="u-label">🎟️ كوبون حسم (اختياري)</label>
+      <div style="display:flex;gap:7px;"><input class="u-field" dir="ltr" placeholder="أدخل رقم الكوبون..." style="flex:1;letter-spacing:1.5px;"><button class="u-btn u-btn--second">تطبيق</button></div>
+      <div style="margin-top:12px;padding:10px 0 2px;border-top:1px solid var(--u-line);">
+        <div style="border-inline-start:3px solid var(--u-brand);padding-inline-start:9px;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:900;">خصم يدوي — صلاحية حلب فقط</div>
+          <div style="font-size:10.5px;font-weight:600;color:var(--u-ink-3);">بدون عمولة وبدون قيود</div></div>
+        <div style="display:flex;gap:7px;"><input class="u-field" placeholder="مبلغ الخصم $" style="flex:1;"><button class="u-btn u-btn--ghost">مسح</button></div>
+      </div>
+    </div>
+
+    <div style="margin:0 8px 8px;"><button class="u-btn u-btn--primary u-btn--lg u-btn--block" data-play="cash" style="font-size:15px;">✓ حفظ الفاتورة نهائياً</button></div>
+
+    <div class="u-card u-card--tight" style="margin:0 8px 8px;">
+      <div class="u-section" style="margin:0 0 10px;"><span class="u-section__i" data-icon="share"></span> إخراج الفاتورة</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="u-btn u-btn--second" style="flex-direction:column;min-height:62px;gap:5px;">🖨️<span style="font-size:11px;font-weight:800;">طباعة A4</span></button>
+        <button class="u-btn u-btn--second" style="flex-direction:column;min-height:62px;gap:5px;">🖼️<span style="font-size:11px;font-weight:800;">صورة — A4</span></button>
+        <button class="u-btn u-btn--second" style="flex-direction:column;min-height:62px;gap:5px;">🧾<span style="font-size:11px;font-weight:800;">طباعة حرارية</span></button>
+        <button class="u-btn u-btn--second" style="flex-direction:column;min-height:62px;gap:5px;">🖼️<span style="font-size:11px;font-weight:800;">صورة — حراري</span></button>
+      </div>
+    </div>
+  </div>
+  <div class="pv-why">هذه الشاشةُ التي أرسلتَ صورتَها وقلتَ: «ألوانها كثيرة وسيّئة وفاقعة وغير مريحة بصريّاً». كان فيها ستُّ عائلاتٍ لونيّةٍ متنافسة. الآن الأحمرُ في أربعة مواضعَ لها معنى فقط: خطُّ الترويسة · زرُّ الحفظ · كتلةُ الإجمالي · حافّةُ صندوق الصلاحية الخاصّة. واضغط «حفظ» لتسمع صوتَ الفاتورة. ⚠️ أمّا الفاتورةُ المطبوعةُ نفسُها فبقيت على عُرف برامج المحاسبة كما صحّحتَ لي — مسارٌ مستقلٌّ عن هذه الشاشة.</div>
+</div><div class="pv-screen" id="sc-posd">
+<div style="padding:46px 20px;text-align:center;">
+  <div style="width:86px;height:86px;margin:0 auto 16px;border-radius:50%;background:#f0fdf4;border:1px solid #86efac;display:grid;place-items:center;font-size:36px;" class="u-ok-pulse">✓</div>
+  <div class="u-h1" style="margin:0;">تمّت العمليّة بنجاح</div>
+  <div class="u-bodys">حُفظت الفاتورة وخُصمت القطع من مخزون فرعك</div>
+  <div class="u-card" style="max-width:420px;margin:18px auto 0;text-align:start;">
+    <div class="u-info">
+      <div class="u-info__cell"><div class="u-info__k">رقم الفاتورة</div><div class="u-info__v">2481</div></div>
+      <div class="u-info__cell"><div class="u-info__k">الإجمالي</div><div class="u-info__v is-brand">$229.00</div></div>
+      <div class="u-info__cell"><div class="u-info__k">العميل</div><div class="u-info__v">بلال الخطيب</div></div>
+      <div class="u-info__cell"><div class="u-info__k">العمولة</div><div class="u-info__v">$11.45</div></div>
+    </div>
+  </div>
+  <div class="u-row" style="justify-content:center;margin-top:16px;">
+    <button class="u-btn u-btn--primary">🖨️ طباعة</button>
+    <button class="u-btn u-btn--second">📤 مشاركة PDF</button>
+    <button class="u-btn u-btn--ghost">فاتورة جديدة</button>
+  </div>
+</div>
+<div class="pv-why">بطاقةُ المعلومات ذاتُ العمودين هنا هي **نمطُ فاتورتك الورقية ③** حرفيّاً: تسميةٌ صغيرةٌ رماديّةٌ فوق قيمةٍ عريضةٍ داكنة. وزرُّ «مشاركة PDF» مطلبُك: «في كلّ مكان تصدير PDF يصير عندي زرّ مشاركة، ليس فقط حفظ أو طباعة».</div></div><div class="pv-screen" id="sc-inv">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="box"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">نظام الجرد والمخزون</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">General Media Tech</div></div><label class="u-search" style="min-width:180px;"><input class="u-field" placeholder="بحث عن منتج أو اسم..."></label><button class="u-btn u-btn--second u-btn--sm" style="gap:6px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10.5 8v8M14 8v8M17 8v8"/></svg>باركود</button></div>
+<div style="background:#fff;padding:10px 12px;border-bottom:1px solid var(--u-line);">
+  <div class="u-seg">
+    <button class="u-seg__i is-on">الجرد</button><button class="u-seg__i">المنتجات</button>
+    <button class="u-seg__i">جماعي</button><button class="u-seg__i">مجموعات</button>
+    <button class="u-seg__i">المتجر</button><button class="u-seg__i">النقل</button>
+  </div>
+</div>
+<div style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-g u-g--3" style="margin-bottom:12px;">
+<div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="box"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">إجمالي المنتجات</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="direction:ltr;unicode-bidi:isolate">1,284</span></div><div class="u-cap" style="margin-top:1px;">في ٧ فروع</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="chart"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">إجمالي الكميات</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="direction:ltr;unicode-bidi:isolate">6,910</span></div><div class="u-cap" style="margin-top:1px;">قطعة</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico" data-icon="alert"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">تحت الحدّ الأدنى</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;color:var(--u-brand);"><span style="direction:ltr;unicode-bidi:isolate">23</span></div><div class="u-cap" style="margin-top:1px;">تحتاج طلب شراء</div></div></div>
+  </div>
+  <div class="u-row u-row--split" style="margin-bottom:10px;">
+    <div class="u-row u-row--tight">
+      <span class="u-pill u-pill--on">الكل <b>1284</b></span>
+      <span class="u-pill u-pill--quiet">متوفّر <b>1105</b></span>
+      <span class="u-pill u-pill--warn">قليل <b>156</b></span>
+      <span class="u-pill u-pill--danger">نفد <b>23</b></span>
+    </div>
+    <div class="u-row u-row--tight">
+      <select class="u-field u-select u-btn--sm" style="min-height:34px;width:auto;"><option>التصنيف: الكل</option><option>إضاءة</option><option>تصوير</option></select>
+      <select class="u-field u-select u-btn--sm" style="min-height:34px;width:auto;"><option>الفرع: حلب</option><option>كل الفروع</option></select>
+      <button class="u-btn u-btn--second u-btn--sm">☑ تحديد ▾</button>
+    </div>
+  </div>
+  <div class="u-card u-card--flat" style="padding:0;overflow:hidden;">
+    <table class="u-table u-table--cards">
+      <thead><tr><th>المنتج</th><th>الباركود</th><th>حلب</th><th>السعر</th><th>الجملة</th><th>الحالة</th></tr></thead>
+      <tbody>
+        <tr class="is-sel"><td data-l="المنتج">كاميرا Canon EOS R50</td><td data-l="الباركود" class="u-num">8714574</td><td data-l="حلب" class="u-num">12</td><td data-l="السعر" class="u-num">$679</td><td data-l="الجملة" class="u-num">$640</td><td data-l="الحالة"><span class="u-pill u-pill--ok">متوفّر</span></td></tr>
+        <tr><td data-l="المنتج">عدسة RF 50mm f/1.8</td><td data-l="الباركود" class="u-num">8714599</td><td data-l="حلب" class="u-num">4</td><td data-l="السعر" class="u-num">$185</td><td data-l="الجملة" class="u-num">$165</td><td data-l="الحالة"><span class="u-pill u-pill--warn">قليل</span></td></tr>
+        <tr><td data-l="المنتج">فلاش Speedlite EL-5</td><td data-l="الباركود" class="u-num">8714612</td><td data-l="حلب" class="u-num">0</td><td data-l="السعر" class="u-num">$399</td><td data-l="الجملة" class="u-num">$370</td><td data-l="الحالة"><span class="u-pill u-pill--danger">نفد</span></td></tr>
+        <tr><td data-l="المنتج">بطاقة SanDisk 128GB</td><td data-l="الباركود" class="u-num">8714620</td><td data-l="حلب" class="u-num">41</td><td data-l="السعر" class="u-num">$22</td><td data-l="الجملة" class="u-num">$20</td><td data-l="الحالة"><span class="u-pill u-pill--ok">متوفّر</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="u-pager"><button class="u-pager__b" disabled>‹</button><button class="u-pager__b is-on">1</button><button class="u-pager__b">2</button><button class="u-pager__b">3</button><span class="u-pager__n">من ٣٢١ صفحة</span><button class="u-pager__b">›</button></div>
+</div>
+<div class="pv-why">ملاحظتُك: «شوف الأزرار فوق كيف هزليّة ومزعجة». كانت ستّةَ أزرارٍ أحدُها مملوءٌ بالأحمر — وهي دلاليّاً **تبويبات**. وزرُّ الباركود خرج من داخل حقل البحث وصار مستقلّاً بأيقونةِ باركودٍ لا كاميرا. وفلترُ «التصنيف ⇠ المجموعة» بدأ هنا. ⚠️ ما زال ناقصاً: قائمةُ خيارات زرّ «تحديد» والضغطةُ الطويلة للتفاصيل.</div></div><div class="pv-screen" id="sc-trn">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="truck"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">فاتورة نقل بين الفروع</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">من حلب إلى درعا · #TR-184</div></div></div>
+<div style="padding:14px;background:var(--u-surface-2);">
+  <div class="u-card" style="margin-bottom:12px;">
+    <div class="u-info">
+      <div class="u-info__cell"><div class="u-info__k">من فرع</div><div class="u-info__v">حلب — المستودع</div></div>
+      <div class="u-info__cell"><div class="u-info__k">إلى فرع</div><div class="u-info__v">درعا — نقطة بيع</div></div>
+      <div class="u-info__cell"><div class="u-info__k">التاريخ</div><div class="u-info__v">٢٠٢٦-١٠-٠٤</div></div>
+      <div class="u-info__cell"><div class="u-info__k">الحالة</div><div class="u-info__v is-brand">قيد الإرسال</div></div>
+    </div>
+  </div>
+  <div class="u-banner u-banner--warn" style="margin-bottom:12px;">
+    <span class="u-banner__i">⚠️</span>
+    <span class="u-banner__b"><span class="u-banner__t">الكميّة تتجاوز المخزون</span>
+      «عدسة RF 50mm» عندك منها <b>٢١</b> قطعة وطلبتَ نقل <b>٢٢</b>. هل أرفع مخزون الفرع الأساسي إلى ٢٢؟</span>
+    <span class="u-banner__cta"><button class="u-btn u-btn--primary u-btn--sm" data-play="warn">أوافق — ارفعه</button></span>
+  </div>
+  <div class="u-card u-card--flat" style="padding:0;overflow:hidden;margin-bottom:12px;">
+    <table class="u-table u-table--cards">
+      <thead><tr><th>المنتج</th><th>المتوفّر</th><th>المنقول</th><th>الكلفة</th></tr></thead>
+      <tbody>
+        <tr><td data-l="المنتج">عدسة RF 50mm f/1.8</td><td data-l="المتوفّر" class="u-num">21</td><td data-l="المنقول" class="u-num">22</td><td data-l="الكلفة" class="u-num">$3,300</td></tr>
+        <tr><td data-l="المنتج">بطاقة SanDisk 128GB</td><td data-l="المتوفّر" class="u-num">41</td><td data-l="المنقول" class="u-num">10</td><td data-l="الكلفة" class="u-num">$200</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="u-row" style="gap:8px;">
+    <label class="u-row u-row--tight" style="gap:6px;font-size:12.5px;font-weight:700;"><input type="checkbox" checked> إنشاء أوردر نقل مرتبط</label>
+    <span class="u-grow"></span>
+    <button class="u-btn u-btn--second">طباعة باركودات</button>
+    <button class="u-btn u-btn--primary">إرسال النقل</button>
+  </div>
+</div>
+<div class="pv-why">طلبُك: «وقت حطّ في فاتورة النقل عدد أعلى من مخزون الفرع الأساسي فيعطيني رسالة، إذا وافقتُ عليها فيعلّي مخزون الفرع». وهذا البنر هو تلك الرسالة — وهي **لا تمرّ صامتةً ولا تمنع**، بل تسأل. والخصمُ يقع عند الإرسال، والإضافةُ عند تأكيد الاستلام — لا مرّتين.</div></div><div class="pv-screen" id="sc-pur">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="factory"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">المشتريات والشحنات</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">فاتورة شراء #PO-742</div></div><span class="u-pill u-pill--quiet">مستندٌ داخليّ</span></div>
+<div style="padding:14px;background:var(--u-surface-2);">
+  <div class="u-g u-g--4" style="margin-bottom:12px;">
+<div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico" data-icon="coins"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">قيمة الشحنة</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;color:var(--u-brand);">$18,420<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">قبل أجور الشحن</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute">🚢</div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">أجور الشحن</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$940<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">توزَّع على القطع</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="box"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">عدد القطع</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="direction:ltr;unicode-bidi:isolate">214</span></div><div class="u-cap" style="margin-top:1px;">١٩ صنفاً</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="factory"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">المورّد</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;"><span style="font-size:14px">شنزن وايمن</span></div><div class="u-cap" style="margin-top:1px;">الصين</div></div></div>
+  </div>
+  <div class="u-card u-card--flat" style="padding:0;overflow:hidden;margin-bottom:12px;">
+    <table class="u-table u-table--cards">
+      <thead><tr><th>الصنف</th><th>العدد</th><th>سعر الشراء</th><th>نصيبه من الشحن</th><th>الكلفة الصافية</th><th>سعر المبيع</th></tr></thead>
+      <tbody>
+        <tr><td data-l="الصنف">كاميرا Canon EOS R50</td><td data-l="العدد" class="u-num">20</td><td data-l="سعر الشراء" class="u-num">$598</td><td data-l="نصيبه" class="u-num">$6.40</td><td data-l="الكلفة" class="u-num">$604.40</td><td data-l="المبيع" class="u-num">$679</td></tr>
+        <tr><td data-l="الصنف">عدسة RF 50mm f/1.8</td><td data-l="العدد" class="u-num">35</td><td data-l="سعر الشراء" class="u-num">$148</td><td data-l="نصيبه" class="u-num">$2.10</td><td data-l="الكلفة" class="u-num">$150.10</td><td data-l="المبيع" class="u-num">$185</td></tr>
+        <tr><td data-l="الصنف">بطاقة SanDisk 128GB</td><td data-l="العدد" class="u-num">80</td><td data-l="سعر الشراء" class="u-num">$17.20</td><td data-l="نصيبه" class="u-num">$0.80</td><td data-l="الكلفة" class="u-num">$18.00</td><td data-l="المبيع" class="u-num">$22</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="u-banner u-banner--info">
+    <span class="u-banner__i">ℹ️</span>
+    <span class="u-banner__b"><span class="u-banner__t">الكلفةُ الصافية لا تُكتب في سعر المنتج</span>
+      أجورُ الشحن توزَّع على القطع وتُحفظ في حقلٍ مستقلّ. لو زِدناها على <code>price</code> لصار الأوردرُ ≠ الفاتورةَ المرتبطةَ به — تضاربٌ صامت.</span>
+  </div>
+</div>
+<div class="pv-why">شاشةُ المشتريات تحسب نصيبَ كلّ قطعةٍ من أجور الشحن لتعرف كلفتَها الحقيقيّة. وهي **مستندٌ داخليّ**، لذلك لها وسمٌ رماديٌّ صريحٌ يميّزها عن فاتورة المبيع — وهذا هو التمييزُ الذي نقلتُه من اللون إلى المعنى بعد تصحيحك.</div></div><div class="pv-screen" id="sc-ord">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="doc"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">الأوردرات</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">الطلبات والشحن</div></div><button class="u-btn u-btn--primary u-btn--sm">+ أوردر جديد</button></div>
+<div style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-tabs" style="margin-bottom:10px;background:#fff;border-radius:var(--u-r2) var(--u-r2) 0 0;padding:0 6px;">
+    <button class="u-tab is-on">الكل</button><button class="u-tab">قيد التجهيز</button>
+    <button class="u-tab">بالطريق</button><button class="u-tab">مستلَم</button><button class="u-tab">مرتجَع</button>
+  </div>
+  <div class="u-card u-card--tight" style="margin-bottom:9px;border-inline-start:3px solid var(--u-brand);">
+    <div class="u-row u-row--split"><div><div style="font-weight:900;font-size:13.5px;">ORD-2481 · بلال الخطيب</div>
+      <div class="u-cap">المفتي — فرع فيكتوريا · درعا</div></div>
+      <div style="text-align:center"><div class="u-label">القيمة</div><div style="font-weight:900;">$229<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div></div>
+      <div><span class="u-pill u-pill--warn">بالطريق</span></div></div>
+    <div class="u-bar" style="margin-top:9px;"><i style="width:62%"></i></div>
+    <div class="u-row u-row--split" style="margin-top:6px;">
+      <span class="u-cap">الوصول المتوقّع خلال ٢٤–٣٢ ساعة</span>
+      <span class="u-row u-row--tight"><button class="u-btn u-btn--ghost u-btn--sm">تتبّع</button><button class="u-btn u-btn--second u-btn--sm">تبليغ الزبون</button></span></div>
+  </div>
+  <div class="u-card u-card--tight" style="margin-bottom:9px;border-inline-start:3px solid #15803d;">
+    <div class="u-row u-row--split"><div><div style="font-weight:900;font-size:13.5px;">ORD-2480 · سامر العلي</div>
+      <div class="u-cap">القدموس — اللاذقية</div></div>
+      <div style="text-align:center"><div class="u-label">القيمة</div><div style="font-weight:900;">$415<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div></div>
+      <div><span class="u-pill u-pill--ok">مستلَم</span></div></div>
+    <div class="u-bar" style="margin-top:9px;"><i style="width:100%"></i></div>
+    <div class="u-cap" style="margin-top:6px;">+٩ ساعاتٍ إضافيّة — اللاذقية عبر القدموس</div>
+  </div>
+  <div class="u-card u-card--tight" style="border-inline-start:3px solid #b45309;">
+    <div class="u-row u-row--split"><div><div style="font-weight:900;font-size:13.5px;">ORD-2479 · ريم حسن</div>
+      <div class="u-cap">لم تُحدَّد شركةُ الشحن بعد</div></div>
+      <div style="text-align:center"><div class="u-label">القيمة</div><div style="font-weight:900;">$96<span style="font-size:.62em;font-weight:800;opacity:.55;">.50</span></div></div>
+      <div><span class="u-pill u-pill--quiet">قيد التجهيز</span></div></div>
+  </div>
+</div>
+<div class="pv-why">الحافّةُ الملوّنةُ على طرف الصفّ تحمل الحالةَ دون إغراق الصفّ في لون — فكرةٌ من مرجع «متابعة المهامّ» بهويّتنا. ومؤقّتُ الوصول يُظهر الـ+٩ ساعاتٍ للمحافظات والشركات التي حدّدتَها، ومناطقُه من بيانات مكاتبك لا من عندي.</div></div><div class="pv-screen" id="sc-apos">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="boxes"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">أدمن نقاط البيع</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">الفواتير والعمولات والصندوق</div></div><span class="u-pill u-pill--danger">٤ بانتظار المراجعة</span></div>
+<div style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-banner u-banner--danger" style="margin-bottom:12px;">
+    <span class="u-banner__i">🔴</span>
+    <span class="u-banner__b"><span class="u-banner__t">٤ فواتيرَ تحتاج مراجعتك الآن</span>
+      تظهر أوّلاً قبل كلّ شيء — طلبُك: «في واجهة الأدمن فوراً يطلع كلّ شيء، فواتير فوراً بدّها مراجعة».</span>
+    <span class="u-banner__cta"><button class="u-btn u-btn--primary u-btn--sm">راجعها الآن</button></span>
+  </div>
+  <div class="u-lay u-lay--dash">
+    <div class="u-at-kpi"><div class="u-g u-g--4">
+<div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico" data-icon="money"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">مبيعات اليوم</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;color:var(--u-brand);">$4,180<span style="font-size:.62em;font-weight:800;opacity:.55;">.50</span></div><div class="u-cap" style="margin-top:1px;">٧ فروع</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="chart"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">عمولات مستحقّة</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$218<span style="font-size:.62em;font-weight:800;opacity:.55;">.40</span></div><div class="u-cap" style="margin-top:1px;">هذا الشهر</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute">🏦</div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">الصندوق</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$1,960<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">بعد التسويات</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="doc"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">ديونٌ مفتوحة</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$3,415<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">١٢ عميلاً</div></div></div>
+    </div></div>
+    <div class="u-at-main">
+      <div class="u-card">
+        <div class="u-row u-row--split" style="margin-bottom:10px;">
+          <div class="u-section" style="margin:0;flex:1;"><span class="u-section__i" data-icon="receipt"></span> فواتير بانتظار الموافقة</div>
+          <button class="u-btn u-btn--ghost u-btn--sm">عرض الكلّ</button></div>
+<div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="receipt"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">INV-2481 · حلب · محمد خير</div><div class="u-cap">عمولة $11.45 · قبل ٦ دقائق</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">القيمة</div><div style="font-weight:900;">$229.00</div></div><div class="u-row u-row--tight"><button class="u-btn u-btn--dark u-btn--sm" data-play="success">✓ موافقة</button><button class="u-btn u-btn--ghost u-btn--sm">تعديل</button></div></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;border-inline-start:3px solid #b45309;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="receipt"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">INV-2478 · درعا · سامر</div><div class="u-cap">خصمٌ يدويّ $15 — يحتاج إقراراً</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">القيمة</div><div style="font-weight:900;">$415.00</div></div><div class="u-row u-row--tight"><button class="u-btn u-btn--dark u-btn--sm">✓ موافقة</button><button class="u-btn u-btn--ghost u-btn--sm">تعديل</button></div></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="receipt"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">INV-2477 · حمص · ريم</div><div class="u-cap">فاتورة آجل من نفس نقطة البيع — بلا عمولة</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">القيمة</div><div style="font-weight:900;">$96.50</div></div><div class="u-row u-row--tight"><button class="u-btn u-btn--dark u-btn--sm">✓ موافقة</button><button class="u-btn u-btn--second u-btn--sm">أضِف عمولة</button></div></div></div>
+      </div>
+    </div>
+    <div class="u-at-side">
+      <div class="u-card">
+        <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="trophy"></span> الفروع اليوم</div>
+        <div style="display:grid;gap:10px;">
+          <div><div class="u-row u-row--split" style="font-size:12.5px;font-weight:800;"><span>حلب</span><span>$1,840</span></div><div class="u-bar" style="margin-top:4px"><i style="width:100%"></i></div></div>
+          <div><div class="u-row u-row--split" style="font-size:12.5px;font-weight:800;"><span>درعا</span><span>$1,120</span></div><div class="u-bar" style="margin-top:4px"><i style="width:61%"></i></div></div>
+          <div><div class="u-row u-row--split" style="font-size:12.5px;font-weight:800;"><span>حمص</span><span>$680</span></div><div class="u-bar" style="margin-top:4px"><i style="width:37%"></i></div></div>
+          <div><div class="u-row u-row--split" style="font-size:12.5px;font-weight:800;"><span>اللاذقية</span><span>$540</span></div><div class="u-bar" style="margin-top:4px"><i style="width:29%"></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="u-at-alerts">
+      <div class="u-banner u-banner--warn"><span class="u-banner__i">⚠️</span>
+        <span class="u-banner__b"><span class="u-banner__t">٢٣ منتجاً تحت الحدّ الأدنى</span>تحتاج طلبَ شراءٍ قبل نفادها.</span>
+        <span class="u-banner__cta"><button class="u-btn u-btn--second u-btn--sm">عرض القائمة</button></span></div>
+    </div>
+  </div>
+</div>
+<div class="pv-why">نمطُ «اللوحة»: مؤشّراتٌ عرضاً كاملاً ⇠ عمودان غيرُ متساويين ⇠ تنبيهات. وما يحتاج قرارَك يظهر **أوّلاً وبالأحمر**، لأنّ ذلك هو سببُ دخولك الشاشة. ⚠️ هذه بنيةُ الشاشة الجديدة؛ بناؤها الكاملُ في النظام الحيّ (الصندوق · التسويات · التخفيضات · الديون · المصاريف · المحاسبة) ما زال أمامنا.</div></div><div class="pv-screen" id="sc-fin">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="chart"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">المحاسبة — الديون والمصاريف</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">تشرين الأول ٢٠٢٦</div></div></div>
+<div style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-g u-g--2" style="margin-bottom:12px;">
+    <div class="u-card">
+      <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="doc"></span> الديون المفتوحة</div>
+<div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="user"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">بلال أحمد الخطيب</div><div class="u-cap">٣ فواتير · آخرها ٢٠٢٦-١٠-٠٤</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">المتبقّي</div><div style="font-weight:900;color:var(--u-brand);">$1,240</div></div><button class="u-btn u-btn--second u-btn--sm">تسديد</button></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="user"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">سامر العلي</div><div class="u-cap">فاتورة واحدة · ٢٠٢٦-٠٩-٢٨</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">المتبقّي</div><div style="font-weight:900;">$415</div></div><button class="u-btn u-btn--second u-btn--sm">تسديد</button></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;border-inline-start:3px solid #dc2626;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="user"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">ريم حسن</div><div class="u-cap">متأخّرة ١٤ يوماً</div></div><div style="text-align:center;white-space:nowrap;"><div class="u-label">المتبقّي</div><div style="font-weight:900;">$96.50</div></div><span class="u-pill u-pill--danger">متأخّر</span></div></div>
+    </div>
+    <div class="u-card">
+      <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i">💸</span> المصاريف</div>
+<div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="home"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">إيجار محلّ حلب</div><div class="u-cap">شهريّ · ٢٠٢٦-١٠-٠١</div></div><div style="text-align:center;white-space:nowrap;"><div style="font-weight:900;">$450</div></div></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute">⚡</span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">كهرباء ومولّدة</div><div class="u-cap">٢٠٢٦-١٠-٠٢</div></div><div style="text-align:center;white-space:nowrap;"><div style="font-weight:900;">$118</div></div></div></div><div class="u-card u-card--tight" style="margin-bottom:8px;"><div class="u-row u-row--split" style="gap:10px;"><span class="u-ico u-ico--sm u-ico--mute" data-icon="truck"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:13px;">أجور شحن داخليّ</div><div class="u-cap">٢٠٢٦-١٠-٠٣</div></div><div style="text-align:center;white-space:nowrap;"><div style="font-weight:900;">$62</div></div></div></div>
+      <div class="u-total" style="margin-top:12px;">
+        <div style="flex:1;display:flex;align-items:center;padding:0 12px;font-size:11.5px;font-weight:800;color:var(--u-ink-3);">مصاريف الشهر</div>
+        <div class="u-total__v"><span class="u-total__k">الإجمالي</span><span class="u-total__n">$ 630.00</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="u-card">
+    <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="chart"></span> صافي الشهر</div>
+    <div class="u-g u-g--4">
+<div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="money"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">المبيعات</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$42,180<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">٣١٢ فاتورة</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute" data-icon="box"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">الكلفة</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$33,940<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">كلفةُ المبيع</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico u-ico--mute">💸</div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">المصاريف</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;">$630<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">تشغيليّة</div></div></div><div class="u-card u-card--tight" style="display:flex;align-items:center;gap:11px;"><div class="u-ico" data-icon="trend"></div><div style="flex:1;min-width:0;"><div class="u-label" style="margin:0 0 1px;">صافي الربح</div><div style="font-size:19px;font-weight:900;letter-spacing:-.4px;line-height:1.2;color:var(--u-brand);">$7,610<span style="font-size:.62em;font-weight:800;opacity:.55;">.00</span></div><div class="u-cap" style="margin-top:1px;">هامش ١٨٪</div></div></div>
+    </div>
+  </div>
+</div>
+<div class="pv-why">ملاحظتُك: «الديون والمصاريف والمحاسبة كلّها واجهات سيّئة وغير عمليّة ولا يفهم الشخص عليها شيئاً». المبدأُ هنا: كلُّ لوحةٍ تُجيب على سؤالٍ واحد، والرقمُ الحاكم في آخر بطاقةٍ بالأحمر. ⚠️ هذه بنيةُ الشاشة المقترحة — بناؤها في النظام الحيّ لم يبدأ بعد.</div></div><div class="pv-screen" id="sc-store">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="cart"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">المتجر الإلكتروني</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">مجموعة ميديا تيك</div></div><button class="u-btn u-btn--second u-btn--sm" data-play="store">🔊 نغمة الترحيب</button><button class="u-btn u-btn--primary u-btn--sm">🛒 السلّة <span class="u-pill u-pill--quiet">٢</span></button></div>
+<div style="padding:12px;background:var(--u-surface-2);">
+  <div class="u-banner u-banner--promo u-banner--feat" style="margin-bottom:12px;">
+    <div><div style="font-size:19px;font-weight:900;margin-bottom:5px;">وكيل Canon الرسميّ في سوريا</div>
+      <div style="font-size:13px;line-height:1.9;opacity:.9;">كفالةٌ رسميّةٌ على كلّ قطعة · شحنٌ لكلّ المحافظات · دفعٌ عند الاستلام</div>
+      <div class="u-banner__cta" style="margin-top:12px;"><button class="u-btn u-btn--primary">تسوّق الآن</button></div></div>
+    <div class="u-img u-img--wide">📷</div>
+  </div>
+  <div class="u-row u-row--tight" style="margin-bottom:10px;">
+    <span class="u-pill u-pill--on">الكل</span><span class="u-pill u-pill--quiet">كاميرات</span>
+    <span class="u-pill u-pill--quiet">عدسات</span><span class="u-pill u-pill--quiet">إضاءة</span>
+    <span class="u-pill u-pill--quiet">حوامل</span><span class="u-pill u-pill--quiet">عروض</span>
+  </div>
+  <div class="u-g u-g--4">
+    <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+      <div style="font-weight:800;font-size:12.5px;line-height:1.5;">كاميرا Canon EOS R50</div>
+      <div class="u-cap">كاميرا بلا مرآة · ٢٤ ميغابكسل</div>
+      <div class="u-row u-row--split" style="margin-top:6px;"><span style="font-weight:900;color:var(--u-brand);">$679</span><span class="u-pill u-pill--ok">متوفّر</span></div></div>
+    <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+      <div style="font-weight:800;font-size:12.5px;line-height:1.5;">عدسة RF 50mm f/1.8</div>
+      <div class="u-cap">عدسةٌ ثابتةٌ للبورتريه</div>
+      <div class="u-row u-row--split" style="margin-top:6px;"><span style="font-weight:900;color:var(--u-brand);">$185</span><span class="u-pill u-pill--warn">كميّةٌ قليلة</span></div></div>
+    <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+      <div style="font-weight:800;font-size:12.5px;line-height:1.5;">حامل Manfrotto 190</div>
+      <div class="u-cap">ألمنيوم · ارتفاع ١٦٠سم</div>
+      <div class="u-row u-row--split" style="margin-top:6px;"><span style="font-weight:900;color:var(--u-brand);">$245</span><span class="u-pill u-pill--ok">متوفّر</span></div></div>
+    <div class="u-card u-card--tight u-card--click"><div class="u-img u-img--sq" style="margin-bottom:8px;">📷</div>
+      <div style="font-weight:800;font-size:12.5px;line-height:1.5;">بطاقة SanDisk 128GB</div>
+      <div class="u-cap">سرعة ٢٠٠ م.ب/ث</div>
+      <div class="u-row u-row--split" style="margin-top:6px;"><span style="font-weight:900;color:var(--u-brand);">$22</span><span class="u-pill u-pill--ok">متوفّر</span></div></div>
+  </div>
+  <div class="u-card" style="margin-top:12px;">
+    <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="wallet"></span> طريقة الدفع</div>
+    <div style="display:grid;gap:8px;">
+      <label class="u-card u-card--tight u-row" style="gap:10px;border-color:var(--u-brand);background:var(--u-brand-soft);">
+        <span style="font-size:19px;">💵</span>
+        <span style="flex:1;"><b style="font-size:13px;">الدفع عند الاستلام</b>
+          <span class="u-cap" style="display:block;">نقداً عند الاستلام</span>
+          <span class="u-cap" style="display:block;">تُضاف أجور تحصيل من مكتب الشحن بنسبة ٠٫٥٪ إلى ١٪ من قيمة الطلب.</span></span>
+        <span class="u-pill u-pill--ok">مختار</span></label>
+      <label class="u-card u-card--tight u-row" style="gap:10px;">
+        <span style="font-size:19px;">💬</span>
+        <span style="flex:1;"><b style="font-size:13px;">إكمال الطلب عبر واتساب</b>
+          <span class="u-cap" style="display:block;">متابعةٌ وتواصلٌ مباشر</span></span></label>
+      <label class="u-card u-card--tight u-row" style="gap:10px;">
+        <span class="u-img" style="width:28px;height:28px;aspect-ratio:auto;border-radius:7px;font-size:13px;">🏦</span>
+        <span style="flex:1;"><b style="font-size:13px;">الدفع عبر شام كاش</b>
+          <span class="u-cap" style="display:block;">دفعٌ مباشرٌ وسريع</span></span></label>
+    </div>
+  </div>
+</div>
+<div class="pv-why">شعارُ شام كاش كان مفروضاً على ٤٠×١٠٠ والصورةُ ٦١٦×٦٩٦ — أي ممطوطاً في صفحة الدفع. صار في مربّعٍ بنفس وزن أيقونتَي الخيارين الآخرين ونسبتُه محفوظة. ونصُّ أجور التحصيل يُعلَن للزبون **قبل** الشراء كما طلبت.</div></div><div class="pv-screen" id="sc-track">
+<div class="u-hero" style="margin-bottom:12px;">
+  <div class="u-label" style="color:rgba(255,255,255,.72)">تتبّع الشحنة</div>
+  <div class="u-h2" style="color:#fff;margin:2px 0 4px;">ORD-2481 · في الطريق إليك</div>
+  <div class="u-bodys" style="color:rgba(255,255,255,.72)">شركة المفتي — فرع فيكتوريا · درعا</div>
+  <div style="margin-top:14px;position:relative;height:40px;">
+    <div style="position:absolute;inset-inline:0;top:22px;height:3px;border-radius:3px;background:rgba(255,255,255,.18)"></div>
+    <div style="position:absolute;inset-inline-start:0;top:22px;height:3px;width:62%;border-radius:3px;background:var(--u-brand)"></div>
+    <div style="position:absolute;inset-inline-start:58%;top:2px;font-size:22px;">🚚</div>
+  </div>
+  <button class="u-btn u-btn--second u-btn--sm" data-play="truck" style="margin-top:12px;">▶ شغّل صوت الشحنة</button>
+</div>
+<div class="u-card">
+  <div class="u-section" style="margin:0 0 12px;"><span class="u-section__i" data-icon="search"></span> مسار الشحنة</div>
+  <div style="display:grid;gap:14px;">
+    <div class="u-row" style="gap:10px;"><span class="u-ico u-ico--sm">✓</span><div><div style="font-weight:800;font-size:13px;">تجهيز الطلب</div><div class="u-cap">حلب · أمس ١١:٤٠</div></div></div>
+    <div class="u-row" style="gap:10px;"><span class="u-ico u-ico--sm">✓</span><div><div style="font-weight:800;font-size:13px;">تسليم لشركة الشحن</div><div class="u-cap">المفتي · أمس ١٦:٢٥</div></div></div>
+    <div class="u-row" style="gap:10px;"><span class="u-ico u-ico--sm" data-icon="truck"></span><div><div style="font-weight:800;font-size:13px;">في الطريق</div><div class="u-cap">الوصول المتوقّع: اليوم ٢٠:٠٠ — ٢٤:٠٠</div></div></div>
+    <div class="u-row" style="gap:10px;opacity:.45"><span class="u-ico u-ico--sm u-ico--mute">📍</span><div><div style="font-weight:800;font-size:13px;">جاهز للاستلام</div><div class="u-cap">فرع فيكتوريا · درعا</div></div></div>
+  </div>
+  <div class="u-row" style="margin-top:14px;gap:8px;">
+    <button class="u-btn u-btn--primary">💬 مراسلة فرع الاستلام</button>
+    <button class="u-btn u-btn--second">📞 اتصال</button>
+    <button class="u-btn u-btn--ghost">🌐 موقعنا</button>
+  </div>
+</div>
+<div class="pv-why">طلبتَ صوتاً «لمّا بتطلع الشاحنة عم تمشي على الطريق» — اضغط الزرّ. وزرُّ المراسلة يأخذ الزبونَ إلى واتساب برسالةٍ جاهزةٍ تحمل اسمَ المستلِم ورقمَ التتبّع. واسمُ شركة الشحن موحَّدٌ بين رابط التتبّع ونظام الأوردرات.</div></div><div class="pv-screen" id="sc-wr">
+<div class="u-tb" style="border-radius:var(--u-r2) var(--u-r2) 0 0;"><span class="u-ico u-ico--sm" data-icon="shield"></span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:900;">الكفالة</div><div style="font-size:10.5px;font-weight:700;color:var(--u-ink-3);">تسجيلٌ وتحقّق</div></div><button class="u-btn u-btn--second u-btn--sm" data-play="warranty">🔊 نغمة الكفالة</button></div>
+<div style="padding:14px;background:var(--u-surface-2);">
+  <div class="u-card" style="margin-bottom:12px;">
+    <div class="u-section" style="margin:0 0 11px;"><span class="u-section__i" data-icon="search"></span> تحقّق من كفالة</div>
+    <div class="u-row" style="gap:8px;">
+      <input class="u-field" placeholder="رقم الكفالة أو رقم الفاتورة" style="flex:1;" dir="ltr">
+      <button class="u-btn u-btn--primary">تحقّق</button>
+    </div>
+  </div>
+  <div class="u-card" style="margin-bottom:12px;">
+    <div class="u-row u-row--split" style="margin-bottom:12px;">
+      <div class="u-section" style="margin:0;flex:1;"><span class="u-section__i" data-icon="check"></span> كفالة سارية</div>
+      <span class="u-pill u-pill--ok">سارية حتى ٢٠٢٧-١٠-٠٤</span>
+    </div>
+    <div class="u-info">
+      <div class="u-info__cell"><div class="u-info__k">المنتج</div><div class="u-info__v">كاميرا Canon EOS R50</div></div>
+      <div class="u-info__cell"><div class="u-info__k">الرقم التسلسلي</div><div class="u-info__v">R50-8714574</div></div>
+      <div class="u-info__cell"><div class="u-info__k">العميل</div><div class="u-info__v">بلال أحمد الخطيب</div></div>
+      <div class="u-info__cell"><div class="u-info__k">تاريخ الشراء</div><div class="u-info__v">٢٠٢٦-١٠-٠٤</div></div>
+      <div class="u-info__cell"><div class="u-info__k">الفرع</div><div class="u-info__v">حلب</div></div>
+      <div class="u-info__cell"><div class="u-info__k">مدّة الكفالة</div><div class="u-info__v is-brand">١٢ شهراً</div></div>
+    </div>
+    <div class="u-row" style="margin-top:12px;gap:8px;">
+      <button class="u-btn u-btn--second">🖨️ طباعة بطاقة الكفالة</button>
+      <button class="u-btn u-btn--second">📤 مشاركة PDF</button>
+      <button class="u-btn u-btn--ghost">عرض الكفالة</button>
+      <button class="u-btn u-btn--ghost">إلغاء الكفالة</button>
+    </div>
+  </div>
+  <div class="u-banner u-banner--info"><span class="u-banner__i">ℹ️</span>
+    <span class="u-banner__b">بطاقةُ الكفالة تُطبع بمقاسها الحقيقيّ على طابعة الملصقات، أو داخل ورقة A5 محتفظةً بمقاسها.</span></div>
+</div>
+<div class="pv-why">طلبُك: «يصير عندنا كلّ كفالة تحتها أزرار — عرض الكفالة، إلغاء الكفالة، الأزرار اللي نحن بنحتاجها». والبطاقةُ ذاتُ العمودين هي نمطُ فاتورتك ③. ومدّةُ الكفالة وحدها بالأحمر لأنّها الرقمُ الحاكم في هذه البطاقة.</div></div><div class="pv-screen" id="sc-hr">
+<div class="u-hero" style="margin-bottom:12px;text-align:center;">
+  <div class="u-h1" style="color:#fff;margin:0;">انضمّ إلى مجموعة ميديا تيك</div>
+  <div class="u-bodys" style="color:rgba(255,255,255,.72);margin-top:5px;">وكيل Canon الرسميّ في سوريا</div>
+  <div class="u-g u-g--4" style="margin-top:20px;">
+    <div><div style="font-size:26px;font-weight:900;color:#fff;" id="pv-c1">٣٨٧٠</div><div class="u-cap" style="color:rgba(255,255,255,.7)">عميل حالي</div></div>
+    <div><div style="font-size:26px;font-weight:900;color:#fff;" id="pv-c2">١٢</div><div class="u-cap" style="color:rgba(255,255,255,.7)">فرعاً وموقع عمل</div></div>
+    <div><div style="font-size:26px;font-weight:900;color:#fff;" id="pv-c3">١٥</div><div class="u-cap" style="color:rgba(255,255,255,.7)">سنة خبرة في السوق</div></div>
+    <div><div style="font-size:26px;font-weight:900;color:#fff;" id="pv-c4">١٠٠٪</div><div class="u-cap" style="color:rgba(255,255,255,.7)">تدريب مجاني</div></div>
+  </div>
+  <button class="u-btn u-btn--second u-btn--sm" id="pv-count-btn" style="margin-top:18px;">▶ أعِد تشغيل العدّاد مع الصوت</button>
+</div>
+<div class="u-card">
+  <div class="u-section" style="margin:0 0 12px;"><span class="u-section__i" data-icon="edit"></span> التقديم — صفحةٌ واحدة</div>
+  <div class="u-g u-g--3">
+    <div><label class="u-label">الاسم الكامل</label><input class="u-field" placeholder="الاسم الثلاثي"></div>
+    <div><label class="u-label">العمر</label><input class="u-field" dir="ltr" placeholder="25"></div>
+    <div><label class="u-label">الجنس</label><select class="u-field u-select"><option>ذكر</option><option>أنثى</option></select></div>
+    <div><label class="u-label">المحافظة</label><select class="u-field u-select"><option>حلب</option><option>درعا</option><option>حمص</option></select></div>
+    <div><label class="u-label">مكان الإقامة</label><input class="u-field" placeholder="الحيّ / المنطقة"></div>
+    <div><label class="u-label">رقم الموبايل</label><input class="u-field" dir="ltr" placeholder="09XXXXXXXX"></div>
+    <div><label class="u-label">البريد <span style="font-weight:600;color:var(--u-ink-3)">(اختياري)</span></label><input class="u-field" dir="ltr" placeholder="name@mail.com"></div>
+    <div><label class="u-label">السيرة الذاتية <span style="font-weight:600;color:var(--u-ink-3)">(اختياري)</span></label><input class="u-field" type="file"></div>
+    <div><label class="u-label">صورة شخصية <span style="font-weight:600;color:var(--u-ink-3)">(اختياري)</span></label><input class="u-field" type="file"></div>
+  </div>
+  <button class="u-btn u-btn--primary u-btn--block u-btn--lg" style="margin-top:14px;">إرسال الطلب</button>
+</div>
+<div class="pv-why">طلبُك: «هذه الأرقام لازم تتصفّر وتتحرّك وتنكتب عند الفتح». كانت السماتُ مكتوبةً منذ جلسةٍ سابقة **بلا أيّ كودٍ يُحرّكها** — ميزةٌ معلنةٌ وغيرُ موجودة. بُني المحرّك، ومعه صوتُ العدّاد. و«٥٠٠ موظف حالي» صارت «٣٨٧٠ عميل حالي» بنصّ طلبك. والصفحاتُ المتعدّدة دُمجت في صفحةٍ واحدة.</div></div><div class="pv-screen" id="sc-doc">
+<div class="u-banner u-banner--brand" style="margin-bottom:12px;">
+  <span class="u-banner__i">📑</span>
+  <span class="u-banner__b"><span class="u-banner__t">مساران لا مسارٌ واحد — تصحيحُك في ٢٠٢٦-١٠-٠٤</span>
+    «ألوان الفواتير ما لها علاقة بالهوية البصرية، لأنّه لازم تكون مثل برنامج المحاسبة الحكومي».
+    فشاشاتُ التطبيق على الهوية ٢٫٠، و<b>مستنداتُ الفاتورة على عُرف المحاسبة</b> كما كانت.</span>
+</div>
+
+<div style="background:#fff;border:1px solid #d9dee7;border-radius:6px;padding:18px;max-width:780px;margin:0 auto;font-family:Tahoma,Arial,sans-serif;">
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+    <tr>
+      <td style="width:34%;vertical-align:top;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">التاريخ</td><td style="padding:5px 9px;font-size:12px;">٢٠٢٦-١٠-٠٤</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">التوقيت</td><td style="padding:5px 9px;font-size:12px;">١٩:٤٢</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">رقم الفاتورة</td><td style="padding:5px 9px;font-size:12px;">2481</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;">العملة</td><td style="padding:5px 9px;font-size:12px;">دولار</td></tr>
+        </table>
+      </td>
+      <td style="width:30%;text-align:center;vertical-align:middle;">
+        <div style="width:78px;height:78px;margin:0 auto;border:1px solid #d9dee7;border-radius:8px;display:grid;place-items:center;font-size:30px;">📷</div>
+      </td>
+      <td style="width:36%;vertical-align:top;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12.5px;font-weight:700;border-bottom:2px solid #fff;">مجموعة ميديا تيك التجارية</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:10.5px;font-weight:700;border-bottom:2px solid #fff;">تجارة معدات وإكسسوارات التصوير واللابتوب</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">فرع / مستودع / نقطة بيع &nbsp; حلب</td></tr>
+          <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 9px;font-size:12px;font-weight:700;">مركز فوتو آرت</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div style="border-top:1px solid #777;margin-top:12px;"></div>
+  <div style="text-align:center;color:#1f348f;font-weight:700;font-size:17px;padding:9px 0 6px;">مبيع: نقدي</div>
+  <div style="border-top:1px solid #777;"></div>
+
+  <table style="width:100%;border-collapse:collapse;margin-top:5px;">
+    <tr>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12.5px;font-weight:700;width:16%;">اسم العميل</td>
+      <td style="padding:4px 8px;font-size:12.5px;width:34%;">بلال أحمد الخطيب</td>
+      <td></td>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12.5px;font-weight:700;text-align:center;width:16%;">رقم الموبايل</td>
+      <td style="padding:4px 8px;font-size:12.5px;width:34%;" dir="ltr">0988733536</td>
+    </tr>
+  </table>
+
+  <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+    <thead><tr>
+      <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:6px 4px;font-size:12.5px;width:5%;">#</th>
+      <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:6px 4px;font-size:12.5px;">اسم المادة</th>
+      <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:6px 4px;font-size:12.5px;width:9%;">العدد</th>
+      <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:6px 4px;font-size:12.5px;width:14%;">الإفرادي</th>
+      <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:6px 4px;font-size:12.5px;width:16%;">الإجمالي</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">1</td>
+          <td style="border:2px solid #222;padding:6px 8px;font-size:12.5px;">عدسة Canon RF 50mm f/1.8 STM</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">1</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">185.00</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">185.00</td></tr>
+      <tr><td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">2</td>
+          <td style="border:2px solid #222;padding:6px 8px;font-size:12.5px;">بطاقة ذاكرة SanDisk Extreme 128GB</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">2</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">22.00</td>
+          <td style="border:2px solid #222;padding:6px 4px;font-size:12.5px;text-align:center;">44.00</td></tr>
+    </tbody>
+  </table>
+
+  <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+    <tr><td style="width:44%;vertical-align:top;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:4px 6px;font-size:12.5px;">مجموع الفاتورة</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;width:40%;">229.00</td></tr>
+        <tr><td style="padding:4px 6px;font-size:12.5px;">دفعة نقدية</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;">229.00</td></tr>
+        <tr><td style="padding:4px 6px;font-size:12.5px;">الخصم</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;">0.00</td></tr>
+        <tr><td style="padding:4px 6px;font-size:12.5px;">صافي الفاتورة</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;font-weight:700;">229.00</td></tr>
+      </table>
+    </td><td style="width:12%"></td><td style="width:44%;vertical-align:top;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:4px 6px;font-size:12.5px;">مجموع الكميات</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;width:40%;">3</td></tr>
+        <tr><td style="padding:4px 6px;font-size:12.5px;">رصيده قبل الفاتورة</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;">0.00</td></tr>
+        <tr><td style="padding:4px 6px;font-size:12.5px;">رصيده بعد الفاتورة</td><td style="background:#dbe4f7;color:#1f348f;padding:4px 6px;font-size:12.5px;text-align:right;">0.00</td></tr>
+        <tr><td colspan="2" style="background:#dbe4f7;color:#1f348f;padding:5px 6px;font-size:11.5px;font-weight:700;">ملاحظة: أرصدة الحساب احتُسبت قيمتها عند الطباعة</td></tr>
+      </table>
+    </td></tr>
+  </table>
+
+  <div style="margin-top:10px;background:#fff8e1;border:1px solid #f9a825;border-right:4px solid #f9a825;border-radius:3px;padding:7px 12px;font-size:12px;color:#5a4000;font-weight:700;">
+    ⚠️ إذا كانت القطعة مشمولة بالضمان، فستجد بطاقة ضمان تحتوي على رمز استجابة سريع (QR) مرفقة معها.</div>
+
+  <div style="border-top:1px solid #777;margin-top:10px;"></div>
+  <div style="color:#1f348f;font-weight:700;font-size:12.5px;padding-top:8px;">اسم المستخدم [ محمد خير زيتوني ]</div>
+
+  <div style="margin-top:10px;background:#dbe4f7;padding:10px 12px;border-radius:3px;">
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tr>
+      <td style="width:50%;padding:6px 8px;border-left:2px solid #d9dee7;vertical-align:middle;">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:52px;height:52px;background:#fff;border:2px solid #fff;border-radius:3px;display:grid;place-items:center;font-size:20px;">▦</div>
+          <div><div style="font-weight:700;color:#1f348f;font-size:12.5px;margin-bottom:2px;">🌐 الموقع الإلكتروني</div>
+            <div style="font-size:10.5px;color:#2a3a6a;line-height:1.55;">للاطّلاع على المزيد من المنتجات والعروض، تفضّل بزيارة موقعنا أو متجرنا.</div></div></div></td>
+      <td style="width:50%;padding:6px 8px;vertical-align:middle;">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:52px;height:52px;background:#fff;border:2px solid #fff;border-radius:3px;display:grid;place-items:center;font-size:20px;">▦</div>
+          <div><div style="font-weight:700;color:#1f348f;font-size:12.5px;margin-bottom:2px;">🎟 كوبون خصم</div>
+            <div style="font-size:10.5px;color:#2a3a6a;line-height:1.55;">امسح الباركود الآن واحصل على خصم يصل إلى ٣٠ دولاراً.</div></div></div></td>
+    </tr></table>
+  </div>
+
+  <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:12.5px;color:#1f348f;font-weight:700;">
+    للتواصل والشكاوى وخدمة العملاء &nbsp;|&nbsp; الإدارة العامة: ●●●●●●●●●</div>
+  <div style="margin-top:8px;text-align:center;font-size:12.5px;color:#1f348f;font-weight:700;border-top:1px solid #777;padding-top:8px;">
+    شكراً لاختياركم شركة جنرال ميديا تك، الوكيل الرسمي لمنتجات Canon في سوريا.</div>
+</div>
+<div class="pv-why">هذه فاتورةُ المبيع كما تُطبع: ترويسةُ جدولٍ كحليّةٌ وحقولٌ زرقاءُ باهتة — **عُرفُ برامج المحاسبة** الذي صحّحتَني إليه. ولم يُحذف بندٌ واحدٌ من فاتورتك الأصلية. ⚠️ رقمُ خدمة العملاء ما زال فارغاً لأنّك لم تعطِني إيّاه بعد، ولن أخترعه.</div></div><div class="pv-screen" id="sc-kit">
+  <div class="pv-gal">
+    <div class="u-card"><div class="u-section" style="margin:0 0 12px;"><span class="u-section__i">🎨</span> اللون — ومتى يُستعمل</div>
+      <div class="u-g u-g--4">
+        <div><div style="height:38px;border-radius:10px;background:#D5001C"></div><div class="u-cap">Primary · الفعل والحالة النشِطة</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#BF0019"></div><div class="u-cap">Hover</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#A80016"></div><div class="u-cap">Active</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#fff1f2;border:1px solid var(--u-line)"></div><div class="u-cap">Brand Soft · سطح النشِط</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#f7f8fa;border:1px solid var(--u-line)"></div><div class="u-cap">Background</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#fff;border:1px solid var(--u-line)"></div><div class="u-cap">Surface</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#0f1219"></div><div class="u-cap">Text Primary</div></div>
+        <div><div style="height:38px;border-radius:10px;background:#5b6472"></div><div class="u-cap">Muted</div></div>
+      </div></div>
+
+    <div class="u-card"><div class="u-section" style="margin:0 0 12px;"><span class="u-section__i">🔤</span> سلّم الخطّ</div>
+      <div class="u-display">Display — عنوانٌ كبير</div>
+      <div class="u-h1">H1 — عنوان صفحة</div>
+      <div class="u-h2">H2 — عنوان قسم</div>
+      <div class="u-h3">H3 — عنوان بطاقة</div>
+      <div class="u-bodyl">Body Large — نصٌّ أساسيٌّ مريحٌ للقراءة الطويلة.</div>
+      <div class="u-body">Body — نصُّ الواجهة المعتاد في البطاقات والقوائم.</div>
+      <div class="u-cap">Caption — سطرٌ مساعدٌ خافت</div>
+      <div style="margin-top:8px"><span class="u-kpi">4,180<span class="u-kpi__u">$</span></span> <span class="u-cap">KPI — رقمٌ حاكم</span></div>
+    </div>
+
+    <div class="u-card"><div class="u-section" style="margin:0 0 12px;"><span class="u-section__i">🔘</span> الأزرار والحقول</div>
+      <div class="u-row" style="margin-bottom:10px;">
+        <button class="u-btn u-btn--primary">فعلٌ أساسيّ</button>
+        <button class="u-btn u-btn--second">فعلٌ ثانويّ</button>
+        <button class="u-btn u-btn--dark">فعلٌ داكن</button>
+        <button class="u-btn u-btn--ghost">شفّاف</button>
+        <button class="u-btn u-btn--danger">حذف</button>
+        <button class="u-btn u-btn--second" disabled>معطّل</button>
+      </div>
+      <div class="u-g u-g--3">
+        <div><label class="u-label">حقلٌ عاديّ</label><input class="u-field" placeholder="اكتب هنا..."></div>
+        <div><label class="u-label">صحيح</label><input class="u-field is-ok" value="تم التحقّق"><div class="u-hint">القيمة مقبولة</div></div>
+        <div><label class="u-label">خطأ</label><input class="u-field is-error" value="09"><div class="u-hint">الرقم غير مكتمل</div></div>
+      </div>
+    </div>
+
+    <div class="u-card"><div class="u-section" style="margin:0 0 12px;"><span class="u-section__i" data-icon="tag"></span> الحبّات والبنرات</div>
+      <div class="u-row" style="margin-bottom:12px;">
+        <span class="u-pill u-pill--ok">مكتمل</span><span class="u-pill u-pill--warn">تنبيه</span>
+        <span class="u-pill u-pill--danger">خطأ</span><span class="u-pill u-pill--info">معلومة</span>
+        <span class="u-pill u-pill--quiet">محايد</span><span class="u-pill u-pill--on">مختار</span>
+      </div>
+      <div class="u-banner u-banner--info"><span class="u-banner__i">ℹ️</span><span class="u-banner__b"><span class="u-banner__t">معلومة</span>بنرٌ إخباريٌّ لا يطلب فعلاً.</span></div>
+      <div class="u-banner u-banner--ok" style="margin-top:7px;"><span class="u-banner__i">✅</span><span class="u-banner__b"><span class="u-banner__t">تمّ</span>حُفظت الفاتورة وخُصمت القطع من المخزون.</span></div>
+      <div class="u-banner u-banner--warn" style="margin-top:7px;"><span class="u-banner__i">⚠️</span><span class="u-banner__b"><span class="u-banner__t">انتبه</span>٢٣ منتجاً تحت الحدّ الأدنى.</span><span class="u-banner__cta"><button class="u-btn u-btn--second u-btn--sm">عرض</button></span></div>
+      <div class="u-banner u-banner--danger" style="margin-top:7px;"><span class="u-banner__i">⛔</span><span class="u-banner__b"><span class="u-banner__t">تعذّر</span>لا اتصالَ بقاعدة البيانات.</span></div>
+      <div class="u-banner u-banner--brand" style="margin-top:7px;"><span class="u-banner__i">🏷️</span><span class="u-banner__b"><span class="u-banner__t">عرض</span>خصمٌ حتى ٣٠ دولاراً على المجموعة.</span></div>
+    </div>
+
+    <div class="u-card"><div class="u-section" style="margin:0 0 12px;"><span class="u-section__i">📐</span> ليس كلُّ شيءٍ بطاقة</div>
+      <div class="u-g u-g--2">
+        <div class="u-card u-card--tight"><b>بطاقة</b><div class="u-cap">وحدةٌ مستقلّةٌ قابلةٌ للنقر</div></div>
+        <div class="u-panel"><b>لوحة</b><div class="u-cap">منطقةُ عملٍ ثابتة — بلا ظلّ</div></div>
+        <div class="u-panel u-panel--quiet"><b>لوحةٌ هادئة</b><div class="u-cap">حدٌّ متقطّع — محتوىً اختياريّ</div></div>
+        <div class="u-plain"><b>مسطّح</b><div class="u-cap">لا يحتاج حاويةً أصلاً</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="pv-why">هذه ليست رسوماً: كلُّ عنصرٍ هنا هو الصنفُ نفسُه المستعمَلُ في النظام، من الملفّ نفسِه. فما تراه هنا هو ما تراه هناك.</div></div></div><div class="pv-screen" id="sc-snd">
+  <div class="u-card">
+    <div class="u-section" style="margin:0 0 6px;"><span class="u-section__i" data-icon="bell"></span> الهويّة الصوتيّة</div>
+    <div class="u-body" style="margin-bottom:14px;">كلُّ صوتٍ هنا <b>يُركَّب في المتصفّح لحظةَ تشغيله</b> — لا ملفَّ صوتٍ واحداً في المشروع. فيعمل بلا إنترنت، بصفر بايت، وبلا رخصةٍ لأحد. وكلُّها في سلّمٍ موسيقيٍّ واحد كي تبدو من عائلةٍ واحدة — كما أنّ كلّ الشاشات من هويّةٍ واحدة.</div>
+    <div class="u-g u-g--3">
+      <button class="u-btn u-btn--second" data-play="brand" style="flex-direction:column;min-height:70px;gap:4px;">🎼<span style="font-size:11.5px;font-weight:800;">العلامة الصوتيّة</span><span class="u-cap">فتح النظام · الانترو</span></button>
+      <button class="u-btn u-btn--second" data-play="pop" style="flex-direction:column;min-height:70px;gap:4px;">🫧<span style="font-size:11.5px;font-weight:800;">فقاعة اللوجو</span><span class="u-cap">انبثاق الشعار</span></button>
+      <button class="u-btn u-btn--second" data-play="cash" style="flex-direction:column;min-height:70px;gap:4px;">💵<span style="font-size:11.5px;font-weight:800;">أموال</span><span class="u-cap">إنشاء فاتورة</span></button>
+      <button class="u-btn u-btn--second" data-play="store" style="flex-direction:column;min-height:70px;gap:4px;">🛒<span style="font-size:11.5px;font-weight:800;">ترحيب المتجر</span><span class="u-cap">فتح المتجر والموقع</span></button>
+      <button class="u-btn u-btn--second" data-play="warranty" style="flex-direction:column;min-height:70px;gap:4px;">🛡️<span style="font-size:11.5px;font-weight:800;">الكفالة</span><span class="u-cap">استقرارٌ وأمان</span></button>
+      <button class="u-btn u-btn--second" data-play="truck" style="flex-direction:column;min-height:70px;gap:4px;">🚚<span style="font-size:11.5px;font-weight:800;">مرور الشحنة</span><span class="u-cap">تتبّع الطلب</span></button>
+      <button class="u-btn u-btn--second" data-play="tick" style="flex-direction:column;min-height:70px;gap:4px;">🔢<span style="font-size:11.5px;font-weight:800;">عدّاد</span><span class="u-cap">الأرقام المتحرّكة</span></button>
+      <button class="u-btn u-btn--second" data-play="success" style="flex-direction:column;min-height:70px;gap:4px;">✅<span style="font-size:11.5px;font-weight:800;">نجاح</span><span class="u-cap">تمّت العمليّة</span></button>
+      <button class="u-btn u-btn--second" data-play="error" style="flex-direction:column;min-height:70px;gap:4px;">⛔<span style="font-size:11.5px;font-weight:800;">خطأ</span><span class="u-cap">هابطٌ وناعم</span></button>
+      <button class="u-btn u-btn--second" data-play="warn" style="flex-direction:column;min-height:70px;gap:4px;">⚠️<span style="font-size:11.5px;font-weight:800;">تنبيه</span><span class="u-cap">نقرتان</span></button>
+      <button class="u-btn u-btn--second" data-play="nav" style="flex-direction:column;min-height:70px;gap:4px;">➡️<span style="font-size:11.5px;font-weight:800;">انتقال</span><span class="u-cap">بين الشاشات</span></button>
+    </div>
+    <div class="u-banner u-banner--quiet" style="margin-top:14px;"><span class="u-banner__i">🔇</span><span class="u-banner__b"><span class="u-banner__t">مفتاحُ كتمٍ واحد</span>في شريط الخيارات أعلى كلّ صفحة. ومن ضبط جهازَه على «تقليل الحركة» يبدأ عنده النظامُ مكتوماً احتراماً لاختياره.</span></div>
+  </div>
+  <div class="pv-why">قلتَ «صوت مثل صوت أمازون برايم أو فتح يوتيوب». لم أنسخ أيّاً منهما: تلك علاماتٌ صوتيّةٌ مملوكةٌ لأصحابها، ونسخُها يُعرّضك أنت. فهمتُ المقصودَ — افتتاحيّةٌ قصيرةٌ فخمةٌ تُعرَف بها العلامة — وبنيتُ لك علامتَك أنت: ثلاثُ نغماتٍ تصعد وتتفتّح في ١٫٦ ثانية.</div></div></div><div class="pv-screen" id="sc-states">
+  <div class="u-g u-g--3">
+    <div class="u-card"><div class="u-label" style="margin-bottom:8px;">فارغ</div>
+      <div class="u-state"><div class="u-state__i">📭</div><div class="u-state__t">لا نتائج بعد</div>
+        <div class="u-state__d">لم تُسجَّل فاتورةٌ اليوم. أوّلُ عمليّةِ بيعٍ ستظهر هنا فوراً.</div>
+        <div class="u-state__a"><button class="u-btn u-btn--primary u-btn--sm">ابدأ فاتورة</button></div></div></div>
+    <div class="u-card"><div class="u-label" style="margin-bottom:8px;">تحميل</div>
+      <div class="u-loading-bar" style="padding-top:10px;">
+        <div class="u-skel u-skel--line" style="width:42%"></div>
+        <div class="u-skel u-skel--line" style="width:88%"></div>
+        <div class="u-skel u-skel--card"></div>
+        <div class="u-skel u-skel--line" style="width:65%"></div></div></div>
+    <div class="u-card"><div class="u-label" style="margin-bottom:8px;">خطأ</div>
+      <div class="u-state u-state--error"><div class="u-state__i">⚠️</div><div class="u-state__t">تعذّرت القراءة</div>
+        <div class="u-state__d">لا اتصالَ بقاعدة البيانات الآن — <b>ولم أكتب صفراً لم أقرأه</b>.</div>
+        <div class="u-state__a"><button class="u-btn u-btn--second u-btn--sm" data-play="error">إعادة المحاولة</button></div></div></div>
+  </div>
+  <div class="u-card" style="margin-top:12px;">
+    <div class="u-section" style="margin:0 0 10px;"><span class="u-section__i">👁️</span> لا تعتمد على اللون وحده</div>
+    <div class="u-body">قاعدةٌ في الوثيقة كان نظامُنا يخالفها: الحالاتُ كانت ألواناً فقط، ومَن لا يُفرّق الأحمرَ من الأخضر (١٢٪ من الذكور) كان يرى بطاقاتٍ متطابقة. فصار لكلّ حالةٍ علامةٌ شكليّة، ولكلّ تبويبٍ نشِطٍ خطٌّ تحته، ولكلّ عنصر تنقّلٍ نشِطٍ شريطٌ على حافّته.</div>
+  </div>
+  <div class="pv-why">الحالاتُ الثلاثُ كانت غائبةً كنظام: كلُّ صفحةٍ تخترع شكلَها، وبعضُها لا يعرض شيئاً إطلاقاً فيظنّ المستخدمُ أنّ الشاشة معطّلة.</div></div></div>
+      </div>
+    </div>
+    <div class="pv-note" id="pv-note"></div>
+  </main>
+</div>
+
+<script>
+/* ═══ الهويّة الصوتيّة الحقيقيّة، محقونةٌ من gmt-sound.js ═══ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   gmt-sound.js — الهويّة الصوتيّة لـGMT
+   أُنشئ: 2026-10-04
+
+   ══ طلبُك ══
+   «بدنا نضيف أصوات مع الانتروهات لنظامنا… عند التتبّع لما بتطلع الشاحنة عم
+    تمشي على الطريق · عند فتح المتجر لما بتنبثق الكلمة أو شعار الشركة · عند
+    فتح التطبيق للمستخدمين والموظّفين، صوت مثل صوت أمازون برايم أو فتح يوتيوب،
+    صوت فقاعة مع انبثاق اللوجو · صوت عند فتح الكفالة · صوت عدّادات عند فتح
+    الموقع وبوّابة التوظيف مع الأرقام اللي بتتحرّك · عند إنشاء فاتورة صوت
+    أموال · صوت انتقال… ابحث عن أصوات فخمة ومتلائمة».
+
+   ══ قراران أُعلنهما بوضوح ══
+
+   ① **لم أنسخ صوتَ أمازون ولا يوتيوب.** تلك علاماتٌ صوتيّةٌ مسجّلةٌ مملوكةٌ
+      لأصحابها، ووضعُها في نظامٍ تجاريٍّ باسمك يُعرّضك أنت لا أنا. فهمتُ
+      المقصود — «افتتاحيّةٌ قصيرةٌ فخمةٌ تُعرَف بها العلامة» — وبنيتُ لك
+      **علامتَك الصوتيّة أنت**: ثلاثُ نغماتٍ في سلّم «لا الكبير»، تصعد
+      وتتفتّح، مدّتُها ١٫٦ ثانية. تُسمَع مرّةً فتُعرَف.
+
+   ② **لا ملفَّ صوتٍ واحداً في المشروع.** كلُّ صوتٍ هنا **يُركَّب لحظةَ
+      تشغيله** بـWeb Audio: موجاتٌ ومرشّحاتٌ وأظرفُ زمنيّة. ولماذا:
+        • صفرُ بايت — ولا تحميلَ يبطّئ الصفحة (وعندك ٤٦ صفحة).
+        • يعمل **بلا إنترنت** — ونظامُك يعمل بلا إنترنت أصلاً.
+        • لا رخصةَ ولا نسبةَ لأحد: النغماتُ أرقامٌ كتبتُها.
+        • تُعدَّل من سطرٍ واحد: لو أردتَ العلامةَ أعمقَ أو أسرع.
+
+   ══ قواعدُ السلامة ══
+   • المتصفّحُ يمنع الصوتَ قبل أوّل لمسةٍ من المستخدم. فلا نُشغّل شيئاً قبلها،
+     ولا نطبع خطأً: نُسجّل النيّةَ ونُشغّلها عند أوّل تفاعل.
+   • مفتاحُ كتمٍ واحدٌ للنظام كلّه، محفوظٌ في الجهاز.
+   • من ضبط جهازَه على «تقليل الحركة» غالباً يريد هدوءاً: نبدأ عنده مكتوماً.
+   • كلُّ شيءٍ داخل try — فلا صوتٌ يكسر صفحةً أبداً.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function (global) {
+  'use strict';
+  if (global.GMTSound) return;
+
+  var LS = 'gmt_sound';          // 'on' | 'off'
+  var ctx = null, master = null, unlocked = false, pending = null;
+
+  function prefersQuiet() {
+    try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
+  }
+  function isOn() {
+    try {
+      var v = localStorage.getItem(LS);
+      if (v === 'on')  return true;
+      if (v === 'off') return false;
+    } catch (_) {}
+    return !prefersQuiet();      // الافتراضُ: يعمل، إلّا لمن طلب الهدوء
+  }
+  function setOn(on) {
+    try { localStorage.setItem(LS, on ? 'on' : 'off'); } catch (_) {}
+    paintToggle();
+    if (on) { ensure(); play('pop'); }
+  }
+
+  function ensure() {
+    if (ctx) return ctx;
+    try {
+      var AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.26;        // هادئٌ بقصد — نظامُ عملٍ لا لعبة
+      master.connect(ctx.destination);
+    } catch (_) { ctx = null; }
+    return ctx;
+  }
+
+  /* ── لبناتٌ صغيرة ──────────────────────────────────────────────────── */
+  function tone(opt) {
+    var c = ensure(); if (!c) return;
+    var t0 = c.currentTime + (opt.at || 0);
+    var o = c.createOscillator();
+    var g = c.createGain();
+    o.type = opt.type || 'sine';
+    o.frequency.setValueAtTime(opt.f, t0);
+    if (opt.f2) o.frequency.exponentialRampToValueAtTime(opt.f2, t0 + (opt.dur || .3));
+    var peak = (opt.gain == null ? .5 : opt.gain);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + (opt.attack || .012));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + (opt.dur || .3));
+    var node = g;
+    if (opt.lp) {
+      var f = c.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.setValueAtTime(opt.lp, t0);
+      g.connect(f); node = f;
+    }
+    o.connect(g); node.connect(master);
+    o.start(t0); o.stop(t0 + (opt.dur || .3) + .05);
+  }
+
+  function noise(opt) {
+    var c = ensure(); if (!c) return;
+    var t0 = c.currentTime + (opt.at || 0);
+    var dur = opt.dur || .25;
+    var buf = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * dur)), c.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    var src = c.createBufferSource(); src.buffer = buf;
+    var f = c.createBiquadFilter();
+    f.type = opt.band ? 'bandpass' : 'lowpass';
+    f.frequency.setValueAtTime(opt.from || 900, t0);
+    if (opt.to) f.frequency.exponentialRampToValueAtTime(opt.to, t0 + dur);
+    f.Q.value = opt.q || 1;
+    var g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(opt.gain == null ? .25 : opt.gain, t0 + (opt.attack || .03));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t0); src.stop(t0 + dur + .02);
+  }
+
+  /* ── الهويّة الصوتيّة ──────────────────────────────────────────────────
+     كلُّ الأصوات في سلّمٍ واحد (لا الكبير · A=440) كي تبدو من عائلةٍ واحدة،
+     تماماً كما أنّ كلّ الشاشات من هويّةٍ بصريّةٍ واحدة. وهذا ما يصنع
+     «الفخامة» عمليّاً: التناسقُ لا الضخامة. */
+  var A3 = 220, A4 = 440, Cs5 = 554.37, E5 = 659.25, A5 = 880, Cs6 = 1108.73, E6 = 1318.5;
+
+  var SOUNDS = {
+
+    /* العلامةُ الصوتيّة — تُسمَع عند فتح النظام وفي الانترو.
+       ثلاثُ نغماتٍ تصعد (لا · دو# · مي) ثمّ تتفتّح بنغمةٍ عُليا ونفَسٍ ناعم. */
+    brand: function () {
+      tone({ f: A4,  type: 'sine',     dur: .62, gain: .40, at: 0,    lp: 2600 });
+      tone({ f: Cs5, type: 'sine',     dur: .60, gain: .34, at: .13,  lp: 2600 });
+      tone({ f: E5,  type: 'sine',     dur: .95, gain: .36, at: .26,  lp: 3000 });
+      tone({ f: A5,  type: 'triangle', dur: 1.15, gain: .16, at: .40, lp: 4200 });
+      tone({ f: A3,  type: 'sine',     dur: 1.30, gain: .18, at: .26 });  /* جسمٌ منخفض */
+      noise({ from: 400, to: 5200, dur: .9, gain: .05, at: .30, band: true, q: .7 });
+    },
+
+    /* فقاعةٌ مع انبثاق اللوجو — طلبُك حرفياً «صوت فقاعة مع انبثاق اللوجو» */
+    pop: function () {
+      tone({ f: 320, f2: 920, type: 'sine', dur: .11, gain: .34, attack: .004 });
+      tone({ f: 1500, type: 'sine', dur: .05, gain: .10, at: .02 });
+    },
+
+    /* انتقالٌ بين الشاشات — نفَسٌ قصيرٌ لا صفير */
+    nav: function () {
+      noise({ from: 2600, to: 420, dur: .20, gain: .10, band: true, q: .9 });
+    },
+
+    /* عدّادٌ يتصاعد — للأرقام المتحرّكة في التوظيف والموقع.
+       خافتٌ جداً لأنّه يتكرّر عشراتِ المرّات في ثانيتين. */
+    tick: function () {
+      tone({ f: 1760, type: 'square', dur: .022, gain: .045, attack: .002, lp: 3000 });
+    },
+
+    /* فاتورةٌ أُنشئت — «صوت أموال». جرسان معدنيّان قصيران لا رنينٌ طويل. */
+    cash: function () {
+      tone({ f: E6,   type: 'triangle', dur: .30, gain: .26, at: 0,   lp: 7000 });
+      tone({ f: Cs6,  type: 'triangle', dur: .42, gain: .20, at: .07, lp: 7000 });
+      tone({ f: A5,   type: 'sine',     dur: .55, gain: .16, at: .12 });
+      noise({ from: 5200, to: 2400, dur: .18, gain: .06, band: true, q: 2.2, at: .02 });
+    },
+
+    /* نجاحُ عمليّة */
+    success: function () {
+      tone({ f: E5, type: 'sine', dur: .22, gain: .30, at: 0 });
+      tone({ f: A5, type: 'sine', dur: .40, gain: .26, at: .11 });
+    },
+
+    /* خطأٌ — هابطٌ وناعم. لا نُفزع من يعمل ثماني ساعات. */
+    error: function () {
+      tone({ f: 330, type: 'sine', dur: .20, gain: .26, at: 0,   lp: 1400 });
+      tone({ f: 233, type: 'sine', dur: .34, gain: .22, at: .12, lp: 1200 });
+    },
+
+    /* تنبيهٌ خفيف */
+    warn: function () {
+      tone({ f: 523, type: 'triangle', dur: .14, gain: .22 });
+      tone({ f: 523, type: 'triangle', dur: .14, gain: .18, at: .19 });
+    },
+
+    /* فتحُ المتجر — ترحيبٌ لامع (ثلاثُ نغماتٍ عُليا متتابعة) */
+    store: function () {
+      tone({ f: A5,  type: 'sine', dur: .26, gain: .26, at: 0 });
+      tone({ f: Cs6, type: 'sine', dur: .26, gain: .22, at: .10 });
+      tone({ f: E6,  type: 'sine', dur: .55, gain: .22, at: .20, lp: 7000 });
+      noise({ from: 3000, to: 8000, dur: .5, gain: .04, at: .18, band: true, q: .8 });
+    },
+
+    /* فتحُ الكفالة — نغمتان معاً: استقرارٌ وأمان، لا بهجة */
+    warranty: function () {
+      tone({ f: A4, type: 'sine', dur: .75, gain: .26, lp: 2200 });
+      tone({ f: E5, type: 'sine', dur: .75, gain: .18, lp: 2200 });
+      tone({ f: A3, type: 'sine', dur: .85, gain: .14 });
+    },
+
+    /* الشاحنةُ تمرّ — لتتبّع الشحنة. محرّكٌ منخفضٌ يقترب ثمّ يبتعد. */
+    truck: function () {
+      var c = ensure(); if (!c) return;
+      var t0 = c.currentTime, dur = 1.5;
+      var o = c.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(62, t0);
+      o.frequency.linearRampToValueAtTime(84, t0 + dur * .45);
+      o.frequency.linearRampToValueAtTime(54, t0 + dur);
+      var f = c.createBiquadFilter(); f.type = 'lowpass';
+      f.frequency.setValueAtTime(260, t0);
+      f.frequency.linearRampToValueAtTime(680, t0 + dur * .45);
+      f.frequency.linearRampToValueAtTime(200, t0 + dur);
+      var g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(.20, t0 + .35);
+      g.gain.exponentialRampToValueAtTime(.22, t0 + dur * .5);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(f); f.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + dur + .05);
+      noise({ from: 300, to: 900, dur: dur, gain: .05, band: true, q: .6 });
+    },
+  };
+
+  /* ── التشغيل ───────────────────────────────────────────────────────── */
+  function play(name, opt) {
+    try {
+      if (!isOn()) return;
+      var fn = SOUNDS[name];
+      if (!fn) return;
+      if (!unlocked) { if (!(opt && opt.queue === false)) pending = name; return; }
+      var c = ensure(); if (!c) return;
+      if (c.state === 'suspended') { c.resume().catch(function () {}); }
+      fn();
+    } catch (_) { /* لا صوتَ يكسر صفحة */ }
+  }
+
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      var c = ensure();
+      if (c && c.state === 'suspended') c.resume().catch(function () {});
+    } catch (_) {}
+    if (pending) { var p = pending; pending = null; setTimeout(function () { play(p); }, 30); }
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+    global.addEventListener(ev, unlock, { once: true, passive: true, capture: true });
+  });
+
+  /* ── مفتاحُ الكتم في شريط الخيارات ────────────────────────────────────
+     لا زرَّ عائم — يُركَّب داخل شريط التحديث القائم، التزاماً بقاعدتك. */
+  function paintToggle() {
+    var b = document.getElementById('gmt-sound-btn');
+    if (!b) return;
+    var on = isOn();
+    b.textContent = on ? '🔊' : '🔇';
+    b.title = on ? 'الأصوات تعمل — اضغط للكتم' : 'الأصوات مكتومة — اضغط للتشغيل';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function mountToggle() {
+    if (document.getElementById('gmt-sound-btn')) return;
+    var bar = document.querySelector('.gmt-refresh-bar');
+    if (!bar) return;
+    var b = document.createElement('button');
+    b.id = 'gmt-sound-btn';
+    b.type = 'button';
+    b.className = 'u-btn u-btn--ghost u-btn--sm';
+    b.style.cssText = 'min-width:34px;padding:0 8px;';
+    b.onclick = function () { setOn(!isOn()); };
+    bar.appendChild(b);
+    paintToggle();
+  }
+
+  global.GMTSound = {
+    play: play, unlock: unlock,
+    on: function () { setOn(true); }, off: function () { setOn(false); },
+    toggle: function () { setOn(!isOn()); },
+    isOn: isOn, list: Object.keys(SOUNDS),
+    mount: mountToggle,
+  };
+
+  function boot() {
+    mountToggle();
+    /* إن لم يوجد شريطُ خيارات بعد، نحاول مرّةً أخرى بعد أن تُركّبه الصفحة */
+    setTimeout(mountToggle, 1200);
+    setTimeout(mountToggle, 3000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})(window);
+
+</script>
+<script>
+/* ═══ طقمُ الأيقونات الحقيقيّ، محقونٌ من gmt-icons.js ═══ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   gmt-icons.js — طقمُ الأيقونات الموحَّد
+   أُنشئ: 2026-10-04
+
+   ══ طلبُك ══
+   «الإيموجي الموجود بالجنب الإجمالي وسعر مستهلك والصورة، والإيموجي الموجود
+    داخل كلّ فرع — كثير سيّئين، بدنا نغيّرهم. بدنا نعمل واجهة رسوميّة جديدة
+    جميلة أنيقة حديثة».
+
+   ══ لماذا كانت سيّئة فعلاً — لا ذوقاً ══
+   الرمزُ التعبيريّ ليس أيقونة: **يرسمه نظامُ التشغيل لا نحن**. فالأيقونةُ
+   نفسُها تظهر مسطّحةً على أندرويد، ومجسّمةً ملوّنةً على آيفون، ورماديّةً
+   على ويندوز القديم. ولذلك كانت شاشاتُك تبدو من تطبيقاتٍ مختلفة **على
+   أجهزةٍ مختلفة لنفس الشاشة**. وهي أيضاً:
+     • لا تأخذ لونَ النصّ، فلا تخفت مع الحالة المعطَّلة ولا تحمر مع النشِطة.
+     • أحجامُها غيرُ متساوية (📦 أعرضُ من 💵)، فتقفز الصفوف.
+     • لا يقرأها القارئُ الصوتيّ باسمٍ مفهوم.
+
+   ══ القرار ══
+   طقمٌ واحدٌ **خطّيّ** (stroke) بسماكةٍ واحدة ١٫٨ ونهاياتٍ مدوّرة، يرث
+   `currentColor` فيتبع لونَ سياقه تلقائياً. مرسومٌ هنا بالإحداثيات — لا
+   مكتبةَ أيقوناتٍ تُحمَّل من الإنترنت (ونظامُك يعمل بلا إنترنت).
+
+   ══ الاستعمال ══
+     GMTIcon.svg('box', 18)        ⇒ نصُّ SVG
+     GMTIcon.html('box')            ⇒ للإدراج في قالب
+     <i data-icon="box"></i>        ⇒ تُستبدَل تلقائياً عند الإقلاع
+     GMTIcon.scan(root)             ⇒ لإعادة المسح بعد رسمٍ جديد
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function (global) {
+  'use strict';
+  if (global.GMTIcon) return;
+
+  /* كلُّ مسارٍ مرسومٌ على شبكة 24×24 — نفسُ الشبكة لكلّ أيقونة،
+     فلا تختلف الأوزانُ البصريّة بين واحدةٍ وأخرى. */
+  var P = {
+    /* مخزونٌ وتجارة */
+    box:      '<path d="M20.5 7.3 12 2 3.5 7.3v9.4L12 22l8.5-5.3z"/><path d="M3.5 7.3 12 12.6l8.5-5.3M12 22v-9.4"/>',
+    boxes:    '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    tag:      '<path d="M20.6 13.4 12 22l-8.5-8.5A2 2 0 0 1 3 12.1V4a1 1 0 0 1 1-1h8.1a2 2 0 0 1 1.4.6l8.6 8.6a1.4 1.4 0 0 1 0 2z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+    cart:     '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.2l2.3 11.4a1.6 1.6 0 0 0 1.6 1.3h8.8a1.6 1.6 0 0 0 1.6-1.3L21 7H5"/>',
+    store:    '<path d="M3 9.5 4.6 4h14.8L21 9.5"/><path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M4.5 11.8V20h15v-8.2"/><path d="M9.5 20v-5h5v5"/>',
+    truck:    '<path d="M3 5h12v11H3z"/><path d="M15 9h3.6l2.4 2.8V16h-6z"/><circle cx="7" cy="18.5" r="1.6"/><circle cx="17.5" cy="18.5" r="1.6"/>',
+    factory:  '<path d="M3 21V10l5 3V10l5 3V7l8 4v10z"/><path d="M7 21v-3M12 21v-3M17 21v-3"/>',
+
+    /* ماليّات */
+    money:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 12h.01M18.5 12h.01"/>',
+    coins:    '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v5c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 11v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5"/>',
+    receipt:  '<path d="M5 2h14v20l-2.3-1.6L14.4 22l-2.4-1.6L9.6 22l-2.3-1.6L5 22z"/><path d="M8.5 7.5h7M8.5 11.5h7M8.5 15.5h4"/>',
+    chart:    '<path d="M3 21h18"/><rect x="5" y="12" width="3.4" height="6" rx="1"/><rect x="10.3" y="8" width="3.4" height="10" rx="1"/><rect x="15.6" y="4" width="3.4" height="14" rx="1"/>',
+    trend:    '<path d="M3 17l5.5-5.5 3.5 3.5L21 6"/><path d="M15.5 6H21v5.5"/>',
+    wallet:   '<path d="M3 7a2 2 0 0 1 2-2h12v4"/><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9H5a2 2 0 0 1-2-2z"/><circle cx="17" cy="14" r="1.2"/>',
+
+    /* أشخاصٌ وفروع */
+    user:     '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+    users:    '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0"/><path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4M18 19.5a6.4 6.4 0 0 0-2-4.6"/>',
+    branch:   '<path d="M4 21V8l8-5 8 5v13"/><path d="M9.5 21v-6h5v6"/><path d="M8 11.5h1.5M14.5 11.5H16"/>',
+    building: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/>',
+
+    /* حالات */
+    check:    '<path d="M4 12.5 9.5 18 20 6"/>',
+    alert:    '<path d="M12 3.5 22 20H2z"/><path d="M12 10v4.5M12 17.5h.01"/>',
+    error:    '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
+    info:     '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/>',
+    clock:    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/>',
+    shield:   '<path d="M12 2.5 20 6v6c0 5-3.4 8.3-8 9.5-4.6-1.2-8-4.5-8-9.5V6z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.4"/>',
+
+    /* أدوات */
+    search:   '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    barcode:  '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10.5 8v8M14 8v8M17 8v8"/>',
+    print:    '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+    image:    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.6" cy="8.6" r="1.6"/><path d="M21 15.5 16 10.5 5 21"/>',
+    camera:   '<path d="M3 8.5h3.3l1.6-2.4h8.2l1.6 2.4H21a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.8" r="3.6"/>',
+    share:    '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8 15.8 6.7M8.2 13.2l7.6 4.1"/>',
+    refresh:  '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>',
+    bell:     '<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16S18 14 18 9z"/><path d="M13.7 19.5a2 2 0 0 1-3.4 0"/>',
+    doc:      '<path d="M14 2H6.5A1.5 1.5 0 0 0 5 3.5v17A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5V7z"/><path d="M14 2v5h5"/><path d="M8.5 12.5h7M8.5 16.5h5"/>',
+    trophy:   '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5v1.8A3 3 0 0 0 7 10.2M17 5.5h2.5v1.8A3 3 0 0 1 17 10.2"/><path d="M12 14v3M9 20h6M10 17h4v3h-4z"/>',
+    home:     '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
+    settings: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7h-.3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1v-.3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z"/>',
+    plus:     '<path d="M12 5v14M5 12h14"/>',
+    edit:     '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+    trash:    '<path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9.5 6V4h5v2"/>',
+  };
+
+  /* الاسمُ العربيّ لقارئ الشاشة — الأيقونةُ وحدها لا تقول شيئاً للمكفوف */
+  var AR = {
+    box: 'مخزون', boxes: 'مجموعات', tag: 'سعر', cart: 'سلّة', store: 'متجر',
+    truck: 'شحن', factory: 'مشتريات', money: 'مبلغ', coins: 'عملات',
+    receipt: 'فاتورة', chart: 'إحصاء', trend: 'اتجاه', wallet: 'محفظة',
+    user: 'مستخدم', users: 'مستخدمون', branch: 'فرع', building: 'مبنى',
+    check: 'تمّ', alert: 'تنبيه', error: 'خطأ', info: 'معلومة', clock: 'وقت',
+    shield: 'كفالة', search: 'بحث', barcode: 'باركود', print: 'طباعة',
+    image: 'صورة', camera: 'كاميرا', share: 'مشاركة', refresh: 'تحديث',
+    bell: 'إشعارات', doc: 'مستند', trophy: 'الأعلى', home: 'الرئيسية',
+    settings: 'إعدادات', plus: 'إضافة', edit: 'تعديل', trash: 'حذف',
+  };
+
+  /* خريطةُ تحويلٍ من الرموز التعبيريّة التي كانت مستعملةً في النظام */
+  var FROM_EMOJI = {
+    '📦': 'box', '🗂️': 'boxes', '🗂': 'boxes', '🏷️': 'tag', '🏷': 'tag',
+    '🛒': 'cart', '🏪': 'store', '🛍️': 'store', '🚚': 'truck', '🏭': 'factory',
+    '💵': 'money', '💰': 'coins', '🧾': 'receipt', '📊': 'chart', '📈': 'trend',
+    '👤': 'user', '👥': 'users', '🏢': 'branch', '🏬': 'building',
+    '✅': 'check', '✔️': 'check', '⚠️': 'alert', '⛔': 'error', '❌': 'error',
+    'ℹ️': 'info', '⏳': 'clock', '🕐': 'clock', '🛡️': 'shield', '🛡': 'shield',
+    '🔍': 'search', '🔎': 'search', '🖨️': 'print', '🖼️': 'image', '📷': 'camera',
+    '📤': 'share', '⟳': 'refresh', '🔔': 'bell', '📄': 'doc', '📋': 'doc',
+    '🏆': 'trophy', '🏠': 'home', '⚙️': 'settings', '🔢': 'chart',
+    /* أُضيفت بعد مسحِ ما بقي من رموزٍ في الشاشات (2026-10-04) */
+    '📜': 'doc', '📝': 'edit', '👷': 'users', '👑': 'shield', '🏅': 'trophy',
+    '🎬': 'image', '🔑': 'shield', '💳': 'wallet', '🧭': 'search', '🎛️': 'settings',
+    '🎵': 'bell', '📑': 'doc', '🧮': 'chart', '🗄️': 'boxes', '🏬': 'building',
+    '📲': 'home', '📱': 'home', '🖥️': 'home', '🔲': 'barcode', '🖨': 'print',
+    '📕': 'doc', '📚': 'doc', '🧠': 'search', '🔗': 'share', '🔒': 'shield',
+  };
+
+  function svg(name, size, cls) {
+    var d = P[name];
+    if (!d) return '';
+    var s = size || 18;
+    return '<svg class="gmt-i' + (cls ? ' ' + cls : '') + '" width="' + s + '" height="' + s + '"'
+         + ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"'
+         + ' stroke-linecap="round" stroke-linejoin="round" role="img"'
+         + ' aria-label="' + (AR[name] || name) + '">' + d + '</svg>';
+  }
+
+  function scan(root) {
+    root = root || document;
+    var n = 0;
+    root.querySelectorAll('[data-icon]').forEach(function (el) {
+      if (el.querySelector('svg.gmt-i')) return;
+      var name = el.getAttribute('data-icon');
+      var size = +el.getAttribute('data-icon-size') || 18;
+      var h = svg(name, size);
+      if (h) { el.innerHTML = h; n++; }
+    });
+    return n;
+  }
+
+  global.GMTIcon = {
+    svg: svg,
+    html: function (name, size) { return svg(name, size); },
+    has: function (name) { return !!P[name]; },
+    list: Object.keys(P),
+    ar: AR,
+    fromEmoji: function (e) { return FROM_EMOJI[e] || null; },
+    scan: scan,
+    /* يستبدل رمزاً تعبيريّاً داخل عنصرٍ بأيقونةٍ خطّيّة إن عرفناها */
+    swap: function (el, size) {
+      if (!el) return false;
+      var t = (el.textContent || '').trim();
+      var name = FROM_EMOJI[t];
+      if (!name) return false;
+      el.innerHTML = svg(name, size || 18);
+      return true;
+    }
+  };
+
+  function boot() {
+    scan(document);
+    /* تُعاد بعد الرسوم المتأخّرة */
+    setTimeout(function () { scan(document); }, 900);
+    setTimeout(function () { scan(document); }, 2500);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})(window);
+
+</script>
+<script>
+(function(){
+  var NOTES = {"intro": "الانترو", "branch": "اختيار الفرع", "login": "تسجيل الدخول", "home": "البوّابة الرئيسية", "posb": "تصفّح المنتجات", "posp": "الدفع والعميل", "pos": "تحرير الفاتورة", "posd": "تمّت العمليّة", "inv": "الجرد", "trn": "فاتورة النقل", "pur": "المشتريات", "ord": "الأوردرات", "apos": "أدمن نقاط البيع", "fin": "المحاسبة والديون", "store": "المتجر", "track": "تتبّع الشحنة", "wr": "الكفالة", "hr": "بوّابة التوظيف", "doc": "الفاتورة المطبوعة", "kit": "المكوّنات", "snd": "الهوية الصوتيّة", "states": "الحالات الثلاث"};
+  function show(id){
+    document.querySelectorAll('.pv-screen').forEach(function(s){ s.classList.toggle('on', s.id==='sc-'+id); });
+    document.querySelectorAll('#pv-nav .u-ni').forEach(function(b){ b.classList.toggle('is-on', b.dataset.s===id); });
+    document.getElementById('pv-note').textContent = NOTES[id] || '';
+    document.querySelector('.pv-stage').scrollIntoView({block:'start', behavior:'smooth'});
+    try{ window.GMTSound && GMTSound.play('nav'); }catch(e){}
+    if(id==='track'){ setTimeout(function(){ try{ GMTSound.play('truck'); }catch(e){} }, 240); }
+    if(id==='intro'){ setTimeout(function(){ try{ GMTSound.play('brand'); }catch(e){} }, 180); }
+    if(id==='store'){ setTimeout(function(){ try{ GMTSound.play('store'); }catch(e){} }, 180); }
+    if(id==='hr'){ runCounters(); }
+  }
+  document.getElementById('pv-nav').addEventListener('click', function(e){
+    var b=e.target.closest('[data-s]'); if(b) show(b.dataset.s);
+  });
+  document.getElementById('pv-dev-seg').addEventListener('click', function(e){
+    var b=e.target.closest('[data-d]'); if(!b) return;
+    document.querySelectorAll('#pv-dev-seg .u-seg__i').forEach(function(x){ x.classList.toggle('is-on', x===b); });
+    document.getElementById('pv-dev').dataset.d=b.dataset.d;
+    try{ window.GMTSound && GMTSound.play('pop'); }catch(e){}
+  });
+  var sb=document.getElementById('pv-snd');
+  function paint(){ var on=window.GMTSound?GMTSound.isOn():false; sb.textContent=(on?'🔊':'🔇')+' الأصوات'; }
+  sb.onclick=function(){ try{ GMTSound.toggle(); }catch(e){} paint(); };
+  paint();
+  document.addEventListener('click', function(e){
+    var b=e.target.closest('[data-play]');
+    if(b){ try{ GMTSound.unlock(); GMTSound.play(b.dataset.play); }catch(_){} }
+    if(e.target.closest('#pv-count-btn')) runCounters(true);
+  });
+
+  /* عدّادُ بوّابة التوظيف — نفسُ منطق المحرّك في النظام الحيّ */
+  function arabic(n){ return String(n).replace(/[0-9]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'[+d];}); }
+  var TARGETS=[['pv-c1',3870,''],['pv-c2',12,''],['pv-c3',15,''],['pv-c4',100,'٪']];
+  function runCounters(force){
+    TARGETS.forEach(function(t){
+      var el=document.getElementById(t[0]); if(!el) return;
+      if(el.dataset.run && !force) return; el.dataset.run='1';
+      var to=t[1], suf=t[2], dur=1500, t0=performance.now(), beeps=0, last=0;
+      (function tick(now){
+        now = now || performance.now();
+        var p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3);
+        el.textContent=arabic(Math.round(to*e))+suf;
+        if(now-last>95 && beeps<12 && p<0.96){ last=now; beeps++;
+          try{ window.GMTSound && GMTSound.play('tick'); }catch(_){} }
+        if(p<1) requestAnimationFrame(tick);
+        else { try{ window.GMTSound && GMTSound.play('pop'); }catch(_){} }
+      })();
+    });
+  }
+  show('home');
+})();
+</script>
+<!-- (2026-10-05 ش) وثيقة التصميم ٢٠–٢١: «لا أزرار عائمة في كل السيستم» — الحارس على كل صفحةٍ داخليّة -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

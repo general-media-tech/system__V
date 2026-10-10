@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دليل التوافقيات والمواصفات — الهودات والأغطية والبطاريات</title>
+<style>
+  :root{
+    --red:#D5001C; --ink:#111827; --mut:#5b6472; --line:#E9ECF1; --bg:#F7F8FA; --card:#FFFFFF;
+    --warn:#B45309; --warnbg:#FFFBEB; --okbg:#ECFDF5; --ok:#047857; --codebg:#0F172A; --codefg:#E2E8F0;
+    --badbg:#FEF2F2; --bad:#B91C1C;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+      --warnbg:#2A2210; --okbg:#0C2B22; --badbg:#2A1414;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+    --warnbg:#2A2210; --okbg:#0C2B22; --badbg:#2A1414;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Cairo","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+       line-height:1.85;padding:24px 16px 60px}
+  .wrap{max-width:900px;margin:0 auto}
+  header{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px;margin-bottom:18px}
+  h1{font-size:21px;font-weight:900;color:var(--red)}
+  header p{font-size:13px;color:var(--mut);font-weight:700;margin-top:6px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:16px}
+  h2{font-size:16.5px;font-weight:900;margin-bottom:10px}
+  h3{font-size:13.5px;font-weight:900;margin:16px 0 6px;color:var(--red)}
+  p,li,td{font-size:13.5px;font-weight:600}
+  ul,ol{padding-right:20px} li{margin-bottom:6px}
+  .warn{background:var(--warnbg);border:1.5px solid #FDE68A;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .warn b{color:var(--warn)}
+  .ok{background:var(--okbg);border:1.5px solid #A7F3D0;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .bad{background:var(--badbg);border:1.5px solid #FCA5A5;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .bad b{color:var(--bad)}
+  /* الجدول يُمرَّر داخل حاويته لا أن تُمرَّر الصفحة كلها — على الهاتف كان
+     الجدول يُوسّع الصفحة فيصير التمرير الأفقي على كل النصّ. */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+  .tw table{min-width:520px}
+  .box,.bad,.warn,.ok{overflow-wrap:anywhere}
+  th{background:var(--ink);color:var(--bg);padding:9px 10px;font-weight:800;text-align:right;font-size:11.5px}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);font-weight:700;vertical-align:top}
+  code{font-family:ui-monospace,monospace;background:rgba(127,127,127,.15);border-radius:5px;padding:1px 6px;font-size:12px}
+  pre{background:var(--codebg);color:var(--codefg);border-radius:12px;padding:14px 16px;overflow-x:auto;
+      direction:ltr;text-align:left;font-size:12px;line-height:1.75;margin:8px 0}
+  pre code{background:none;padding:0;color:inherit;font-size:12px}
+  .q{background:rgba(127,127,127,.08);border-inline-start:3px solid var(--red);border-radius:0 10px 10px 0;
+     padding:10px 14px;margin:10px 0;font-size:12.5px;font-weight:700;color:var(--mut)}
+  footer{text-align:center;font-size:11.5px;color:var(--mut);font-weight:700;margin-top:24px}
+  .tag{display:inline-block;background:rgba(127,127,127,.15);border-radius:7px;padding:1px 8px;
+       font-size:11px;font-weight:800;margin-inline-end:4px}
+  @media(max-width:520px){ body{padding:16px 16px 50px} h1{font-size:18px} table{font-size:11.5px} }
+</style>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🔧 دليل التوافقيات والمواصفات</h1>
+  <p>الهودات · الأغطية · المحوّلات · البطاريات · الفلاشات — ولماذا يحتاجها البحث · 2026-09-26</p>
+</header>
+
+<div class="q">
+  «عندي كلمة هود، فأنا كاتب اسم الهود ككود من الشركة. بدي أعمل أنا مواصفات: شو العدسات المتوافقة معه
+  أو الأغطية أو الكفرات أو أي شيء… فعقل النظام لحاله يفهم: لمّا أكتب <b>هود العدسة 85</b> — في الجرد
+  ما راح يكون اسمه هود العدسة 85، راح يكون اسمه كـكود مثلاً <b>ET-67</b>. ولكن لمّا أنا بلصق لصق ذكي
+  أو لمّا ببحث في العقل فهو يعرفها ويعرف اسمه. هذا الشيء لازم نطوّره جداً ضروري.»
+</div>
+
+<div class="ok">
+  <b>الخلاصة بسطرين:</b> البحث صار يقرأ حقلين جديدين — <code>search_terms</code> (كلمات يكتبها
+  الموظّف) و<code>compat</code> (على شو يركّب) — فصارت «هود العدسة 85» تجد <code>ET-65 III</code>
+  و<code>ES-79 II</code>. وأداة الإثراء تعبّئهما بالذكاء الاصطناعي، <b>وكل شيء يخضع لموافقتك قبل الحفظ</b>.
+</div>
+
+<div class="bad">
+  <b>أهمّ شيء تعلّمناه من البحث — وهو عكس ما يظنّ الجميع:</b><br>
+  <b>كود الهود لا يُحسب من قطر الفلتر إطلاقاً.</b> لا معادلة ولا قاعدة. لو بنينا الأداة على هذا الظنّ
+  لأعطت الموظّف هوداً خطأً بثقة تامّة. الدليل في الاتجاهين:
+  <div class="tw"><table>
+    <thead><tr><th>نفس القطر ⇒ هودات مختلفة</th><th>القطر</th><th>الهود</th></tr></thead>
+    <tbody>
+      <tr><td>Canon EF 100mm f/2 USM</td><td>58</td><td>ET-65 III</td></tr>
+      <tr><td>Canon EF 100mm f/2.8 Macro USM</td><td>58</td><td>ET-67</td></tr>
+      <tr><td>Canon EF 50mm f/1.4 USM</td><td>58</td><td>ES-71 II</td></tr>
+      <tr><td>Canon EF 85mm f/1.8 USM</td><td>58</td><td>ET-65 III</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:10px">وبالعكس: <b>ET-65 III</b> نفسه يركّب على عدسة قطرها <b>52</b> (EF 135mm f/2.8 Softfocus)
+  وعلى عدستين قطرهما <b>58</b>.</p>
+  <p style="margin-top:8px"><b>السبب:</b> الهود البايونيت يُثبَّت على <b>حلقة في جسم العدسة</b>، لا في
+  سنّ الفلتر — وقطر تلك الحلقة يختاره المصنّع لكل عدسة على حدة. فالعلاقة
+  <b>متعدّد-لمتعدّد</b> ولا بديل عن تسجيلها.</p>
+</div>
+
+<div class="box">
+  <h2>① أربعة مفاتيح مختلفة — خلطها أكبر سبب لبيع القطعة الخطأ</h2>
+  <div class="tw"><table>
+    <thead><tr><th>نوع القطعة</th><th>ما يحدّد التوافق</th><th>قطريّ؟</th></tr></thead>
+    <tbody>
+      <tr><td>هود بايونيت</td><td><b>العدسة نفسها وجيلها</b></td><td>لا</td></tr>
+      <tr><td>هود لولبي (Nikon HN- · العامّ)</td><td>قطر الفلتر</td><td><b>نعم</b></td></tr>
+      <tr><td>غطاء أمامي</td><td>قطر الفلتر</td><td><b>نعم</b></td></tr>
+      <tr><td>فلتر</td><td>قطر الفلتر</td><td><b>نعم</b></td></tr>
+      <tr><td>غطاء خلفي · غطاء بودي · محوّل</td><td><b>الحربة</b> (EF · RF · F · Z · E · MFT)</td><td>لا</td></tr>
+      <tr><td>بطارية</td><td>كود البطارية + موافقة الجسم</td><td>لا</td></tr>
+      <tr><td>فلاش</td><td>بروتوكول القاعدة + نظام الراديو + جهد الإطلاق</td><td>لا</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="box">
+  <h2>② بادئات كانون — ماذا تعني فعلاً</h2>
+  <p>كانون <b>لم تنشر</b> معاني هذه الحروف. ما يلي مستخرج من مقارنة نحو 80 كوداً، ومتّسق داخلياً:</p>
+  <div class="tw"><table>
+    <thead><tr><th>البادئة</th><th>المعنى المرجَّح</th><th>الشكل</th><th>أمثلة</th></tr></thead>
+    <tbody>
+      <tr><td><b>ET-</b></td><td>تيليفوتو · ماكرو · العدسات الطويلة</td><td>دائري أسطواني</td><td>ET-60 · ET-65III · ET-67 · ET-73 · ET-74 · ET-83II · ET-86 · ET-89</td></tr>
+      <tr><td><b>EW-</b></td><td>الواسعة والزوومات القياسية</td><td><b>بتلة (توليب)</b></td><td>EW-60C · EW-73B · EW-78D · EW-83E/F/H/J · EW-88E</td></tr>
+      <tr><td><b>ES-</b></td><td>العدسات القياسية (نورمال)</td><td>دائري قصير</td><td>ES-62 · ES-68 · ES-71II · ES-79II</td></tr>
+      <tr><td><b>LH-DC##</b></td><td>كاميرات PowerShot المدمجة</td><td>—</td><td>LH-DC90</td></tr>
+      <tr><td><b>EF-</b></td><td><b>ليست بادئة هود.</b> EF هي الحربة. من يكتب «هود EF» يقصد «هود لعدسة EF»</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:10px">ولماذا EW بتلة و ET دائري ليس عبثاً: الهود للعدسة الواسعة <b>يجب</b> أن يُقطع عند
+  الزوايا وإلّا ظلّل الصورة؛ أمّا التيليفوتو فيتحمّل أسطوانة كاملة. فالبادئة تدلّ على الشكل
+  <b>لأنّها</b> تدلّ على نوع العدسة.</p>
+  <div class="warn" style="margin-top:12px">
+    <b>اللواحق ليست تفصيلاً:</b> <code>ET-83 II</code> ≠ <code>ET-83 C</code> ≠ <code>ET-83 F</code>.
+    كل لاحقة جيل أو مقاس لعدسة مختلفة، وغير متبادلة. وكذلك <code>ET-65 II</code> سلف
+    <code>ET-65 III</code> — لذلك عمود <code>specs</code> فيه <code>replaces_oem</code>:
+    القطعة القديمة قد تكون بديلاً مقبولاً، وقد لا تكون.
+  </div>
+</div>
+
+<div class="box">
+  <h2>③ «هود لعدسة 85» — لماذا يجب أن يُعرض <b>قائمةً</b> لا جواباً واحداً</h2>
+  <p>في السوق ١٢ عدسة 85mm على الأقلّ، ولكل واحدة هود مختلف. فالسؤال نفسه غامض، والنظام
+     الصحيح هو الذي يعرض الخيارات لا الذي يخترع جواباً:</p>
+  <div class="tw"><table>
+    <thead><tr><th>العدسة</th><th>الحربة</th><th>القطر</th><th>الهود</th></tr></thead>
+    <tbody>
+      <tr><td>Canon EF 85mm f/1.2L (و II)</td><td>EF</td><td>72</td><td><b>ES-79 II</b></td></tr>
+      <tr><td>Canon EF 85mm f/1.8 USM</td><td>EF</td><td>58</td><td><b>ET-65 III</b></td></tr>
+      <tr><td>Canon RF 85mm f/1.2L (و DS)</td><td>RF</td><td>82</td><td><b>ET-89</b></td></tr>
+      <tr><td>Canon RF 85mm f/2 Macro IS STM</td><td>RF</td><td>67</td><td><b>ET-77</b></td></tr>
+      <tr><td>Nikon AF-S 85mm f/1.4G</td><td>F</td><td>77</td><td><b>HB-55</b></td></tr>
+      <tr><td>Nikon AF-S 85mm f/1.8G</td><td>F</td><td>67</td><td>HB-62</td></tr>
+      <tr><td>Nikon Z 85mm f/1.8 S</td><td>Z</td><td>67</td><td><b>HB-91</b></td></tr>
+      <tr><td>Sony FE 85mm f/1.4 GM</td><td>E</td><td>77</td><td><b>ALC-SH142</b></td></tr>
+      <tr><td>Sony FE 85mm f/1.8</td><td>E</td><td>67</td><td><b>ALC-SH150</b></td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:10px">ولهذا يعرض النظام الآن حتى <b>ثلاثة مرشّحين</b> مع نسبة التشابه، والموظّف يختار.</p>
+</div>
+
+<div class="box">
+  <h2>④ نيكون أوضح من كانون — البادئة تقول طريقة التثبيت</h2>
+  <div class="tw"><table>
+    <thead><tr><th>البادئة</th><th>التثبيت</th><th>قطريّ؟</th></tr></thead>
+    <tbody>
+      <tr><td><b>HB-</b></td><td>بايونيت (حلقة في جسم العدسة)</td><td>لا — خاصّ بالعدسة</td></tr>
+      <tr><td><b>HN-</b></td><td>لولبي معدني — <b>يُلَفّ في سنّ الفلتر</b></td><td><b>نعم</b></td></tr>
+      <tr><td><b>HS-</b></td><td>مشبك ينطبق على الجسم</td><td>لا</td></tr>
+      <tr><td><b>HK-</b></td><td>ينزلق على الجسم (التيليفوتو الكبير)</td><td>لا</td></tr>
+      <tr><td><b>HR-</b></td><td>مطّاطي قابل للطيّ — لولبي</td><td><b>نعم</b></td></tr>
+      <tr><td><b>HE-</b></td><td>تطويلة تُركَّب على هود آخر</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:8px">فائدة عملية: <code>HN-1</code> و<code>HN-2</code> و<code>HN-3</code> و<code>HN-7</code>
+  كلّها <b>52مم</b> — فهي تنافس الهودات اللولبية العامّة، ويصحّ عرضها بديلاً.</p>
+</div>
+
+<div class="box">
+  <h2>⑤ الأغطية الأمامية — بديل مشروع دائماً</h2>
+  <p>الغطاء الحديث <b>قرصةٌ من الداخل</b>، فالقطر هو البُعد الوحيد المهمّ:</p>
+  <div class="tw"><table>
+    <thead><tr><th>الشركة</th><th>الصيغة</th><th>مثال 67مم</th></tr></thead>
+    <tbody>
+      <tr><td>كانون</td><td><code>E-&lt;القطر&gt;</code></td><td>E-67 II</td></tr>
+      <tr><td>نيكون</td><td><code>LC-&lt;القطر&gt;&lt;حرف&gt;</code></td><td>LC-67B</td></tr>
+      <tr><td>سوني</td><td><code>ALC-F&lt;القطر&gt;S</code></td><td>ALC-F67S</td></tr>
+    </tbody>
+  </table></div>
+  <div class="ok" style="margin-top:12px">
+    <b>جملة تُقال للزبون بثقة:</b> «خلص <code>LC-67B</code>؟ <code>E-67 II</code> يركّب تماماً —
+    الغطاء بالقطر لا بالشركة.» هذا بيع صحيح لا مجاملة.
+  </div>
+  <p style="margin-top:10px"><b>الاستثناء:</b> العدسات ذات العدسة الأمامية المنفوخة (فيش-آي · التيليفوتو
+  الكبير · Z 14-24mm f/2.8 S) لا سنّ فلتر لها، وغطاؤها ينزلق على الجسم ⇒ يُسجَّل
+  <code>attachment = slip_on</code> مع العدسة صريحةً، لا بالقطر.</p>
+</div>
+
+<div class="box">
+  <h2>⑥ المحوّلات — قاعدة تمنع وعداً مستحيلاً</h2>
+  <p>المحوّل يعمل فقط من حربة <b>بُعدها أكبر</b> إلى حربة بُعدها أصغر (الفرق يصير سماكة المحوّل):</p>
+  <div class="tw"><table>
+    <thead><tr><th>الحربة</th><th>بُعد الحربة (مم)</th></tr></thead>
+    <tbody>
+      <tr><td>Nikon F</td><td>46.5</td></tr>
+      <tr><td>Sony A</td><td>44.5</td></tr>
+      <tr><td>Canon EF / EF-S</td><td>44.0</td></tr>
+      <tr><td>Canon RF · L-mount</td><td>20.0</td></tr>
+      <tr><td>MFT</td><td>19.25</td></tr>
+      <tr><td>Sony E · Canon EF-M</td><td>18.0</td></tr>
+      <tr><td>Nikon Z</td><td>16.0</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:8px">فـ<b>F ← Z</b> يعمل، و<b>Z ← F</b> <b>لا</b> يعمل (لا لانهاية بلا عدسة تصحيح).
+  و EF يُحوَّل إلى RF و E و Z و MFT، أمّا RF فلا يُحوَّل إلى شيء.</p>
+</div>
+
+<div class="box">
+  <h2>⑦ البطاريات — «يركّب» لا تعني «يعمل كاملاً»</h2>
+  <div class="tw"><table>
+    <thead><tr><th>العائلة</th><th>الأجيال</th><th>القاعدة</th></tr></thead>
+    <tbody>
+      <tr><td><b>Canon LP-E6</b></td><td>LP-E6 → LP-E6N → LP-E6NH → LP-E6P</td>
+          <td>الأحدث يعمل في الأقدم. الأقدم في الأحدث ⇒ عمر أقصر أو <b>ميزات معطَّلة</b>
+              (LP-E6NH في R5 II). LP-E6P في الأجسام القديمة قد يحتاج تحديث فيرموير</td></tr>
+      <tr><td><b>Nikon EN-EL15</b></td><td>EN-EL15 → 15a → 15b → 15c</td>
+          <td>كلّها تتبادل فيزيائياً. <b>15b</b> أوّل ما يشحن داخل الكاميرا عبر USB.
+              <b>15c</b> أكبر سعة. والأصلي القديم <b>قد يُرفض</b> في Z8</td></tr>
+      <tr><td><b>Sony</b></td><td>NP-FZ100 · NP-FW50</td>
+          <td><b>غير متوافقتين إطلاقاً</b> — شكل مختلف ولا محوّل. أشيع غلطة على الكاونتر</td></tr>
+    </tbody>
+  </table></div>
+  <div class="warn" style="margin-top:12px">
+    <b>سؤال «بدّي شاحن؟» جوابه في الجسم لا في البطارية:</b> أجسام كثيرة تشحن عبر USB-C،
+    و<code>EH-7P</code>/<code>EH-8P</code> من نيكون <b>محوّلات تيّار</b> لا شواحن. لذلك
+    <code>fits_bodies</code> على البطارية و<code>charges_battery_codes</code> على الشاحن.
+  </div>
+</div>
+
+<div class="box">
+  <h2>⑧ Godox — القاعدة الذهبية للكاونتر</h2>
+  <p>الصيغة: <code>&lt;العائلة&gt;&lt;الجيل&gt;-&lt;لاحقة الشركة&gt;</code> مثل <code>V1Pro-C</code> · <code>V860III-N</code>.</p>
+  <p><span class="tag">-C كانون</span><span class="tag">-N نيكون</span><span class="tag">-S سوني</span><span class="tag">-F فوجي</span><span class="tag">-O أولمبس/باناسونيك</span></p>
+  <div class="ok" style="margin-top:10px">
+    <b>وحدات AD (AD200 Pro · AD300 Pro · AD600 Pro) بلا لاحقة شركة إطلاقاً</b> — تستقبل راديو فقط،
+    والقاعدة (Trigger) هي التي تحدّد الشركة.<br>
+    <b>⇒ بِع الوحدة بلا لاحقة، وبِع القاعدة مطابقةً للكاميرا.</b> هذه أنفع جملة في قسم الإضاءة.
+  </div>
+  <p style="margin-top:10px"><b>غير مؤكَّد — لا تَعِد به الزبون:</b> هل فلاش <code>-C</code> يعطي TTL كاملاً
+  بقاعدة <code>-N</code>؟ لم نجد تصريحاً رسمياً من Godox. الإطلاق اليدوي يعمل، أمّا TTL فلا ضمان.</p>
+</div>
+
+<div class="box">
+  <h2>⑨ ماذا نخزّن — وما يُقرأ فعلاً في البحث</h2>
+  <p>ثلاثة حقول جديدة على جدول <code>products</code> (ملفّ <code>SQL 37</code>):</p>
+  <div class="tw"><table>
+    <thead><tr><th>الحقل</th><th>لماذا</th><th>مثال لـ ET-67</th></tr></thead>
+    <tbody>
+      <tr><td><code>search_terms</code></td><td>كلمات يكتبها الموظّف أو الزبون — بالعربي وبالتسميات الشعبية والأخطاء الشائعة</td>
+          <td>هود 100 ماكرو · حاجب شمس · hood ET67</td></tr>
+      <tr><td><code>compat</code></td><td>على شو يركّب — سطر مقروء يُبحث فيه</td>
+          <td>يركّب على Canon EF 100mm f/2.8 Macro USM · مقاس فلتر 58</td></tr>
+      <tr><td><code>specs</code> (jsonb)</td><td>مواصفات منظَّمة يقرأها الكود لا العين: النوع · الحربة · القطر · التثبيت · التوافقيات</td>
+          <td><code>{"accessory_type":"lens_hood","mount":"EF","filter_thread_mm":58}</code></td></tr>
+      <tr><td><code>specs_source</code> + <code>specs_checked_by</code></td><td>من أين جاءت ومن راجعها — لا نثق ببيانات لم يراجعها إنسان</td>
+          <td>ai · عمر</td></tr>
+    </tbody>
+  </table></div>
+  <p style="margin-top:10px">ويجري البحث على الأربعة معاً (الاسم + الوصف القصير + <code>search_terms</code> + <code>compat</code>)
+  بوزن أقلّ قليلاً للوصف، كي يتقدّم تطابق الاسم عند تساوي القوّة.</p>
+</div>
+
+<div class="warn">
+  <b>ملاحظة صريحة عن الترتيب — تحتاج قرارك:</b> بعد إضافة هذه الحقول، البحث عن
+  «<b>عدسة 85</b>» يعرض الهودات <b>قبل</b> العدسة نفسها، لأنّ وصف كل هود يحتوي كلمتَي «عدسة» و«85»
+  بينما اسم العدسة يحتوي «85» فقط.<br>
+  أمامنا طريقان: <b>①</b> أن نكتب أوصاف الملحقات بحيث تبدأ بنوعها («هود» أوّلاً) ونتجنّب كلمة «عدسة» مفردةً،
+  وهو مجاني وفوري لأنّ الأداة هي التي تكتب الأوصاف؛ أو <b>②</b> ترجيح الكلمات النادرة تلقائياً
+  (الكلمة التي تتكرّر في كل المنتجات تفقد وزنها) — أدقّ وأعمّ لكنه يغيّر كل الدرجات ويحتاج إعادة فحص شاملة.
+  قل لي أيّهما تريد.
+</div>
+
+<div class="box">
+  <h2>⑩ ما لم نتمكّن من تأكيده — لا تُطبَع على رفّ ولا تُقال لزبون</h2>
+  <ul>
+    <li>معاني بادئات كانون (ET تيليفوتو · EW واسعة · ES قياسية) — <b>استنتاج</b> لا تصريح رسمي.</li>
+    <li>«الرقم في كود الهود = قطر حلقة البايونيت» — شائع على الإنترنت، <b>ولا مصدر رسمي له</b>.</li>
+    <li><code>EN-EL15d</code> — <b>لا يبدو أنّها موجودة</b>؛ السلسلة تنتهي عند <code>15c</code>.</li>
+    <li>أقطار الفلتر المأخوذة من جداول تجميعية: وُجد فيها <b>خطأان على الأقلّ</b>
+        (ذكرت RF 85mm f/2 Macro بـ52 والصحيح <b>67</b>). <b>تحقّق من صفحة العدسة الرسمية قبل الإدخال.</b></li>
+    <li>TTL بين فلاش Godox ولاحقة قاعدة مختلفة — غير مؤكَّد.</li>
+  </ul>
+  <p style="margin-top:8px">ولهذا السبب بالذات <b>لا تُكتب أي مواصفة في الجرد بلا ضغطتك</b> على «اعتمد»:
+  المواصفة الخاطئة أسوأ من غيابها — الموظّف يبيع بناءً عليها والزبون يرجع.</p>
+</div>
+
+<div class="box">
+  <h2>كيف تستعملها الآن</h2>
+  <ol>
+    <li>شغّل <code>SQL 37</code> من مجلّد <code>SQL</code> (يضيف الحقول والفهرس · آمن للتكرار).</li>
+    <li>الجرد ← العمليات الجماعية ← حدّد منتجات ← <b>🧠 مواصفات وتوافقيات</b>.<br>
+        أو من أداة الجسر: زرّ <b>🧠</b> في الرأس (يعمل على المعروض حسب المِصفاة).</li>
+    <li>اضغط «ابدأ الاقتراح»، اقرأ، عدّل النصّ إن أردت، ثمّ <b>اعتمد</b> لكل منتج.
+        «اعتمد عاليةَ الثقة» مقصور على ما ثقته عالية وغير مشتبه به، ويُعلَن عدده قبل الضغط.</li>
+    <li>روابط 🖼️ تفتح بحث صور بخلفية بيضاء لكل منتج — تختار الصورة بنفسك.</li>
+  </ol>
+  <div class="warn" style="margin-top:12px">
+    <b>سقف 60 منتجاً في المرّة</b> — كل منتج نداءٌ مدفوع للذكاء الاصطناعي، وضغطة واحدة على
+    3000 منتج تحرق الرصيد. تعمل على دفعات من 6، ولا تفشل كلّها بفشل دفعة.
+  </div>
+  <p style="margin-top:10px">وتعمل الأداة فقط إن كان <b>وسيط عقل النظام</b> منشوراً — راجع
+  <code>تفعيل_عقل_النظام.html</code>.</p>
+</div>
+
+<footer>مجموعة ميديا تيك — وكيل كانون الرسمي في سوريا · وثيقة داخلية</footer>
+</div>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+</body>
+</html>

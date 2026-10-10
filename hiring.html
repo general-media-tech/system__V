@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>بوابة التوظيف الرسمية | Canon General Media Tech</title>
+<meta name="description" content="انضم إلى فريق Canon General Media Tech. نظام توظيف ذكي يقيّم طلبك لحظيًا ويقدّم لك تجربة تقديم احترافية وسريعة.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/phosphor/regular/style.css?v=20261003"><link rel="stylesheet" href="lib/phosphor/fill/style.css?v=20261003"><link rel="stylesheet" href="lib/phosphor/bold/style.css?v=20261003">
+<style>
+/* ══════════════════════════════════════════════
+   Canon General Media Tech — Recruitment Portal
+   Design tokens
+═══════════════════════════════════════════════ */
+:root{
+  --primary:#D5001C;
+  --primary-dark:#8A0C22;
+  --primary-light:#FDECEF;
+  --black:#0A0A0A;
+  --ink:#111827;
+  --muted:#5b6472;
+  --line:#E7E9EE;
+  --surface:#F5F6F8;
+  --card:#FFFFFF;
+  --glass:rgba(255,255,255,.72);
+  --glass-border:rgba(255,255,255,.5);
+  --success:#15803d;
+  --warning:#b45309;
+  --radius-xl:28px;
+  --radius-lg:20px;
+  --radius-md:14px;
+  --radius-sm:10px;
+  --shadow-1:0 1px 2px rgba(17,24,39,.04), 0 8px 24px rgba(17,24,39,.06);
+  --shadow-2:0 10px 30px rgba(17,24,39,.10), 0 2px 8px rgba(17,24,39,.06);
+  --font:'Tajawal', sans-serif;
+  --ease:cubic-bezier(.22,.85,.32,1);
+}
+
+/* ملاحظة: البوابة تعتمد الهوية البصرية البيضاء الثابتة لشركة Canon General Media Tech فقط، بلا وضع ليلي، تمامًا كمتجر الشركة. */
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:var(--font);
+  background:var(--surface);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  transition:background .3s var(--ease), color .3s var(--ease);
+  overflow-x:hidden;
+}
+h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.01em}
+p{line-height:1.85;color:var(--muted)}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:6px}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+}
+
+/* ── layout helpers ── */
+.section{padding:88px 0}
+.section.alt{background:var(--card)}
+.section-inner{max-width:1180px;margin:0 auto;padding:0 24px}
+.section-inner.narrow{max-width:820px}
+.section-head{max-width:640px;margin-bottom:44px}
+.section-head.center{max-width:640px;margin-left:auto;margin-right:auto;text-align:center}
+.section-eyebrow{display:inline-block;font-size:13px;font-weight:800;color:var(--primary);letter-spacing:.04em;margin-bottom:10px}
+.section-head h2{font-size:32px;margin-bottom:12px}
+.section-head p{font-size:16px}
+.center{text-align:center}
+
+/* ══════════════════════════════════════════════
+   Intro Loader
+═══════════════════════════════════════════════ */
+#intro-screen{
+  position:fixed;inset:0;z-index:9999;background:#ffffff;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  padding:8vh 24px 5vh 24px;
+  transition:opacity .8s ease, visibility .8s ease;
+}
+#intro-screen.hide{opacity:0;visibility:hidden;pointer-events:none}
+.intro-spacer{flex:1}
+.intro-main-center{display:flex;flex-direction:column;align-items:center;width:100%;max-width:400px}
+.intro-brand-mark{
+  width:96px;height:96px;border-radius:24px;background:var(--primary);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;
+  position:relative;overflow:hidden;opacity:0;animation:smoothFadeUp 1s cubic-bezier(.25,1,.5,1) .1s forwards;
+}
+.intro-brand-mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.intro-brand-name{margin-top:18px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#111;text-align:center;opacity:0;animation:smoothFadeUp 1s cubic-bezier(.25,1,.5,1) .25s forwards}
+.premium-loader-track{width:140px;height:2px;background:#f0f0f0;border-radius:4px;overflow:hidden;position:relative;margin:28px 0 22px 0;opacity:0;animation:smoothFadeUp 1s cubic-bezier(.25,1,.5,1) .4s forwards}
+.premium-loader-runner{position:absolute;top:0;left:0;bottom:0;width:30%;background:var(--primary);border-radius:4px;animation:loaderRun 1.4s cubic-bezier(.4,0,.2,1) infinite}
+.intro-welcome{font-size:14px;font-weight:500;color:#333;letter-spacing:.5px;text-align:center;opacity:0;animation:smoothFadeUp 1s cubic-bezier(.25,1,.5,1) .6s forwards}
+.intro-partners-container{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;width:100%;opacity:0;animation:smoothFadeUp 1s cubic-bezier(.25,1,.5,1) .9s forwards}
+.intro-partners-label{font-size:11px;color:#5b6472;margin-bottom:14px;letter-spacing:.04em}
+.intro-partners-row{display:flex;align-items:center;justify-content:center;gap:28px;width:100%}
+.intro-partners-row img{height:18px;object-fit:contain;filter:grayscale(100%) opacity(.5);transition:filter .3s ease}
+@keyframes smoothFadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes loaderRun{0%{transform:translateX(-150%)}100%{transform:translateX(350%)}}
+
+/* ══════════════════════════════════════════════
+   Header
+═══════════════════════════════════════════════ */
+.site-header{
+  position:sticky;top:0;z-index:200;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--glass-border);
+}
+.header-inner{max-width:1180px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:38px;height:38px;border-radius:11px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;position:relative;overflow:hidden;flex-shrink:0}
+.brand-mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.brand-mark.small{width:26px;height:26px;font-size:12px;border-radius:8px}
+.brand-text{display:flex;flex-direction:column;line-height:1.25}
+.brand-text strong{font-size:15px}
+.brand-text span{font-size:11.5px;color:var(--muted)}
+.header-actions{display:flex;align-items:center;gap:16px}
+.header-link{color:var(--ink);text-decoration:none;font-size:14px;font-weight:600}
+.theme-toggle{
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+  display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--ink);
+  transition:transform .3s var(--ease), background .3s;
+}
+.theme-toggle:hover{transform:rotate(20deg)}
+
+/* ══════════════════════════════════════════════
+   Hero
+═══════════════════════════════════════════════ */
+.hero{position:relative;padding:76px 24px 60px;overflow:hidden}
+.hero-bg{
+  position:absolute;inset:0;z-index:0;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(196,18,48,.16), transparent 45%),
+    radial-gradient(circle at 0% 100%, rgba(196,18,48,.10), transparent 45%);
+}
+.hero-inner{position:relative;z-index:1;max-width:820px;margin:0 auto;text-align:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;background:var(--primary-light);color:var(--primary);
+  font-weight:800;font-size:13px;padding:8px 16px;border-radius:99px;margin-bottom:22px;
+}
+.hero h1{font-size:46px;line-height:1.25;margin-bottom:18px}
+.hero h1 span{color:var(--primary)}
+.hero-sub{font-size:17px;max-width:620px;margin:0 auto 34px}
+.hero-cta-row{display:flex;flex-direction:column;align-items:center;gap:18px;margin-bottom:52px}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;font-size:13.5px;color:var(--muted)}
+.hero-meta div{display:flex;align-items:center;gap:6px}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:680px;margin:0 auto}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);padding:18px 8px;box-shadow:var(--shadow-1)}
+.stat strong{display:block;font-size:26px;color:var(--primary);font-weight:900}
+.stat span{font-size:12px;color:var(--muted)}
+@media(max-width:640px){.hero-stats{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:32px}}
+
+/* ══════════════════════════════════════════════
+   Work modes
+═══════════════════════════════════════════════ */
+.work-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:36px}
+.mode-card{
+  position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+  padding:28px 24px;box-shadow:var(--shadow-1);transition:transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.mode-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-2)}
+.mode-card.featured{border-color:var(--primary);background:linear-gradient(180deg,var(--primary-light),var(--card) 60%)}
+.mode-badge{position:absolute;top:-12px;right:24px;background:var(--primary);color:#fff;font-size:11px;font-weight:800;padding:5px 12px;border-radius:99px}
+.mode-icon{width:48px;height:48px;border-radius:14px;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px}
+.mode-card h3{font-size:18px;margin-bottom:8px}
+.mode-card p{font-size:14px;margin:0}
+@media(max-width:860px){.work-modes{grid-template-columns:1fr}}
+
+.tasks-strip{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px;box-shadow:var(--shadow-1)}
+.tasks-strip-label{font-weight:800;font-size:14px;display:block;margin-bottom:14px}
+.tasks-tags{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.tasks-tags span{background:var(--surface);border:1px solid var(--line);padding:8px 14px;border-radius:99px;font-size:13px;font-weight:600}
+.tasks-note{display:flex;align-items:center;gap:8px;font-size:13px;margin:0;color:var(--muted)}
+
+/* ══════════════════════════════════════════════
+   Info grid
+═══════════════════════════════════════════════ */
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.info-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:28px;transition:transform .3s var(--ease)}
+.info-card:hover{transform:translateY(-4px)}
+.info-icon{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:16px}
+.info-icon.red{background:var(--primary-light);color:var(--primary)}
+.info-icon.dark{background:var(--ink);color:var(--surface)}
+.info-card h3{font-size:18px;margin-bottom:10px}
+.info-card p{font-size:14px;margin:0}
+@media(max-width:760px){.info-grid{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════
+   How it works
+═══════════════════════════════════════════════ */
+.how-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.how-step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);padding:22px;text-align:center;box-shadow:var(--shadow-1)}
+.how-step span{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;margin:0 auto 12px}
+.how-step p{font-size:13.5px;margin:0}
+@media(max-width:760px){.how-steps{grid-template-columns:1fr 1fr}}
+
+/* ══════════════════════════════════════════════
+   FAQ
+═══════════════════════════════════════════════ */
+.faq-list{display:flex;flex-direction:column;gap:10px}
+.faq-item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;font-weight:700;font-size:14.5px}
+.faq-q i{transition:transform .3s var(--ease);color:var(--primary)}
+.faq-item.open .faq-q i{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .35s var(--ease)}
+.faq-a p{padding:0 20px 18px;margin:0;font-size:14px}
+
+/* ══════════════════════════════════════════════
+   Final CTA + Footer
+═══════════════════════════════════════════════ */
+.final-cta{padding:90px 24px;text-align:center;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff}
+.final-cta h2{color:#fff;font-size:30px;margin-bottom:10px}
+.final-cta p{color:#fff;margin-bottom:28px}
+.final-cta .btn-primary{background:#fff;color:var(--primary)}
+.final-cta .btn-primary:hover{background:#fff;filter:brightness(.95)}
+
+.site-footer{padding:36px 24px;text-align:center}
+.footer-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:800;margin-bottom:8px}
+.site-footer p{font-size:12.5px;max-width:520px;margin:0 auto}
+
+/* ══════════════════════════════════════════════
+   Buttons
+═══════════════════════════════════════════════ */
+.btn{border:none;border-radius:var(--radius-sm);padding:13px 22px;font-weight:800;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;transition:transform .2s var(--ease), box-shadow .2s var(--ease), background .2s;}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 8px 22px rgba(196,18,48,.28)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(196,18,48,.36)}
+.btn-primary:active{transform:translateY(0)}
+.btn-secondary{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn-secondary:hover{background:var(--surface)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.btn-ghost:hover{color:var(--ink);border-color:var(--ink)}
+.btn-ghost:disabled{opacity:.4;pointer-events:none}
+.btn-lg{padding:16px 30px;font-size:15.5px;border-radius:var(--radius-md)}
+.btn-block{width:100%;justify-content:center}
+
+/* ══════════════════════════════════════════════
+   Wizard overlay
+═══════════════════════════════════════════════ */
+.wizard-overlay{
+  position:fixed;inset:0;z-index:500;background:var(--surface);
+  display:flex;flex-direction:column;
+  opacity:0;visibility:hidden;transform:translateY(16px);
+  transition:opacity .4s var(--ease), visibility .4s var(--ease), transform .4s var(--ease);
+}
+.wizard-overlay.active{opacity:1;visibility:visible;transform:translateY(0)}
+.wizard-topbar{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+.wizard-close{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted);flex-shrink:0}
+.wizard-close:hover{color:var(--primary);border-color:var(--primary)}
+.wizard-topbar-spacer{width:38px;flex-shrink:0}
+.wizard-progress-wrap{flex:1;max-width:640px;margin:0 auto}
+.wizard-progress-meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:8px;font-weight:700}
+#sectionLabel{color:var(--primary)}
+.progress-track{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--primary),#dc2626);border-radius:99px;transition:width .5s var(--ease)}
+
+.wizard-body{flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:32px 20px}
+.wizard-step{width:100%;max-width:600px}
+.wizard-step.anim-in{animation:stepIn .45s var(--ease)}
+.wizard-step.anim-out{animation:stepOut .25s var(--ease) forwards}
+@keyframes stepIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes stepOut{to{opacity:0;transform:translateY(-14px)}}
+
+.q-label{font-size:24px;font-weight:800;margin-bottom:6px;line-height:1.4}
+.q-sub{font-size:14px;color:var(--muted);margin-bottom:26px}
+.q-required{color:var(--primary);margin-right:4px}
+
+/* floating inputs */
+.field{position:relative;margin-bottom:18px}
+.field input[type=text],
+.field input[type=number],
+.field input[type=tel],
+.field input[type=email],
+.field input[type=url],
+.field select,
+.field textarea{
+  width:100%;padding:16px 18px;border:1.5px solid var(--line);border-radius:var(--radius-md);
+  font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);
+  transition:border-color .25s, box-shadow .25s;
+}
+.field textarea{min-height:120px;resize:vertical;line-height:1.7}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:none;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-light);
+}
+.field-label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.field-hint{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* choice pills */
+.pill-group{display:flex;flex-wrap:wrap;gap:10px}
+.pill{
+  padding:13px 20px;border:1.5px solid var(--line);border-radius:99px;font-weight:700;font-size:14.5px;
+  background:var(--card);color:var(--ink);transition:all .2s var(--ease);
+}
+.pill:hover{border-color:var(--primary)}
+.pill.selected{background:var(--primary);border-color:var(--primary);color:#fff;transform:scale(1.03)}
+.pill-group.vertical{flex-direction:column}
+.pill-group.vertical .pill{text-align:right;width:100%}
+
+/* scale */
+.scale-group{display:flex;gap:8px;flex-wrap:wrap}
+.scale-opt{flex:1;min-width:90px;text-align:center;padding:16px 8px;border:1.5px solid var(--line);border-radius:var(--radius-md);cursor:pointer;transition:all .2s var(--ease);background:var(--card)}
+.scale-opt .dots{display:flex;justify-content:center;gap:3px;margin-bottom:8px}
+.scale-opt .dots span{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.scale-opt.selected{border-color:var(--primary);background:var(--primary-light)}
+.scale-opt.selected .dots span{background:var(--primary)}
+.scale-opt small{font-size:12.5px;font-weight:700;color:var(--ink)}
+
+/* social step */
+.social-card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius-lg);padding:22px}
+.social-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.social-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
+.social-toggle-row{display:flex;align-items:center;justify-content:space-between}
+.switch{position:relative;width:48px;height:28px;border-radius:99px;background:var(--line);flex-shrink:0;transition:background .25s}
+.switch::after{content:'';position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .25s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch.on{background:var(--success)}
+.switch.on::after{transform:translateX(-20px)}
+.social-link-field{margin-top:14px;max-height:0;overflow:hidden;transition:max-height .3s var(--ease)}
+.social-link-field.show{max-height:100px}
+
+/* multi-check */
+.check-grid{display:flex;flex-direction:column;gap:10px}
+.check-item{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1.5px solid var(--line);border-radius:var(--radius-md);background:var(--card);transition:all .2s}
+.check-item.selected{border-color:var(--primary);background:var(--primary-light)}
+.check-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;transition:all .2s}
+.check-item.selected .check-box{background:var(--primary);border-color:var(--primary)}
+.check-item span{font-size:14.5px;font-weight:600}
+
+/* wizard footer */
+.wizard-footer{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-top:1px solid var(--line);background:var(--card);gap:12px}
+.wizard-hint{font-size:12.5px;color:var(--muted);flex:1;text-align:center}
+
+/* live score gauge */
+.live-score{
+  position:fixed;bottom:96px;left:20px;z-index:520;
+  display:flex;align-items:center;gap:10px;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--glass-border);border-radius:99px;padding:8px 16px 8px 8px;
+  box-shadow:var(--shadow-2);opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s;
+}
+.live-score.show{opacity:1;transform:translateY(0)}
+.live-score-ring{position:relative;width:44px;height:44px}
+.live-score-ring svg{width:44px;height:44px;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:var(--line);stroke-width:5}
+.ring-fill{fill:none;stroke:var(--primary);stroke-width:5;stroke-linecap:round;stroke-dasharray:176;stroke-dashoffset:176;transition:stroke-dashoffset .5s var(--ease)}
+.live-score-ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.live-score-label{font-size:12px;font-weight:700;color:var(--muted);padding-left:4px}
+@media(max-width:640px){.live-score{bottom:80px;left:12px;padding:6px 12px 6px 6px}.live-score-label{display:none}}
+
+/* ══════════════════════════════════════════════
+   Results overlay
+═══════════════════════════════════════════════ */
+.results-overlay{
+  position:fixed;inset:0;z-index:600;background:rgba(10,10,10,.55);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;visibility:hidden;transition:opacity .4s,visibility .4s;
+}
+.results-overlay.active{opacity:1;visibility:visible}
+.results-card{
+  background:var(--card);border-radius:var(--radius-xl);padding:40px 32px;max-width:560px;width:100%;
+  max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-2);
+  transform:scale(.92);transition:transform .4s var(--ease);
+}
+.results-overlay.active .results-card{transform:scale(1)}
+.results-head{text-align:center;margin-bottom:28px}
+.results-badge{width:56px;height:56px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px}
+.results-head h2{font-size:22px;margin-bottom:6px}
+.results-head p{font-size:14px;margin:0}
+
+.results-final{display:flex;align-items:center;gap:20px;background:var(--surface);border-radius:var(--radius-lg);padding:20px;margin-bottom:26px}
+.results-final-ring{position:relative;width:88px;height:88px;flex-shrink:0}
+.results-final-ring svg{width:88px;height:88px;transform:rotate(-90deg)}
+.ring-bg-lg{fill:none;stroke:var(--line);stroke-width:8}
+.ring-fill-lg{fill:none;stroke:var(--primary);stroke-width:8;stroke-linecap:round;stroke-dasharray:327;stroke-dashoffset:327;transition:stroke-dashoffset 1.1s var(--ease)}
+.results-final-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900}
+.results-final-text strong{display:block;font-size:17px;margin-bottom:4px;color:var(--primary)}
+.results-final-text p{font-size:12.5px;margin:0}
+
+.results-bars{display:flex;flex-direction:column;gap:16px;margin-bottom:28px}
+.result-bar-row{display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:6px}
+.result-stars{display:flex;gap:2px}
+.result-stars i{color:var(--line);font-size:15px}
+.result-stars i.lit{color:var(--warning)}
+
+/* ══════════════════════════════════════════════
+   Success overlay
+═══════════════════════════════════════════════ */
+.success-overlay{
+  position:fixed;inset:0;z-index:700;background:var(--surface);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  opacity:0;visibility:hidden;transition:opacity .5s,visibility .5s;
+}
+.success-overlay.active{opacity:1;visibility:visible}
+#confettiCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.success-card{position:relative;z-index:2;text-align:center;max-width:440px}
+.success-check{width:92px;height:92px;margin:0 auto 24px}
+.check-circle{fill:none;stroke:var(--success);stroke-width:2.5;stroke-dasharray:151;stroke-dashoffset:151;animation:circleDraw .6s var(--ease) forwards}
+.check-mark{fill:none;stroke:var(--success);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:checkDraw .4s var(--ease) .6s forwards}
+@keyframes circleDraw{to{stroke-dashoffset:0}}
+@keyframes checkDraw{to{stroke-dashoffset:0}}
+.success-card h2{font-size:24px;margin-bottom:10px}
+.success-card p{font-size:14.5px;margin-bottom:24px}
+.req-id-box{background:var(--card);border:1.5px dashed var(--primary);border-radius:var(--radius-md);padding:16px;margin-bottom:26px;display:flex;flex-direction:column;gap:4px}
+.req-id-box span{font-size:12px;color:var(--muted);font-weight:700}
+.req-id-box strong{font-size:19px;letter-spacing:.03em;color:var(--primary)}
+
+/* ══════════════════════════════════════════════
+   Toast
+═══════════════════════════════════════════════ */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translate(-50%,-20px);z-index:900;
+  background:var(--ink);color:var(--surface);font-size:13.5px;font-weight:700;
+  padding:12px 22px;border-radius:99px;box-shadow:var(--shadow-2);
+  opacity:0;pointer-events:none;transition:all .3s var(--ease);
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ══════════════════════════════════════════════
+   Responsive
+═══════════════════════════════════════════════ */
+@media(max-width:640px){
+  .section{padding:56px 0}
+  .section-head h2{font-size:24px}
+  .q-label{font-size:19px}
+  .results-final{flex-direction:column;text-align:center}
+  .wizard-progress-meta{font-size:11px}
+}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.row-2{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════
+   File upload (resume)
+═══════════════════════════════════════════════ */
+.file-drop{
+  border:2px dashed var(--line);border-radius:var(--radius-lg);padding:36px 20px;text-align:center;
+  cursor:pointer;transition:all .25s var(--ease);display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:var(--card);
+}
+.file-drop:hover, .file-drop.drag{border-color:var(--primary);background:var(--primary-light)}
+.file-drop i{font-size:34px;color:var(--primary)}
+.file-drop strong{font-size:15px}
+.file-drop span{font-size:12.5px;color:var(--muted)}
+.file-drop.has-file{cursor:default;padding:16px;border-style:solid}
+.file-chip{display:flex;align-items:center;gap:14px;width:100%}
+.file-chip i{font-size:26px;color:var(--primary)}
+.file-chip-info{flex:1;text-align:right;display:flex;flex-direction:column}
+.file-chip-info strong{font-size:14px}
+.file-chip-info span{font-size:12px;color:var(--muted)}
+.file-remove{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.file-remove:hover{color:var(--primary);border-color:var(--primary)}
+
+/* ══════════════════════════════════════════════
+   Typing test
+═══════════════════════════════════════════════ */
+.typing-card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius-lg);padding:22px}
+.typing-sample{
+  font-size:17px;font-weight:700;line-height:2;padding:16px;border-radius:var(--radius-md);
+  background:var(--primary-light);color:var(--ink);margin-bottom:16px;
+}
+.typing-input{
+  width:100%;min-height:100px;padding:14px 16px;border:1.5px solid var(--line);border-radius:var(--radius-md);
+  font-size:15px;font-family:inherit;background:var(--card);color:var(--ink);resize:vertical;line-height:1.8;
+}
+.typing-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-light)}
+.typing-status{font-size:12.5px;color:var(--muted);margin-top:10px;text-align:center}
+.typing-result{display:flex;align-items:center;gap:22px;justify-content:center;flex-wrap:wrap;padding:10px 0}
+.typing-result div{text-align:center}
+.typing-result strong{display:block;font-size:24px;color:var(--primary);font-weight:900}
+.typing-result span{font-size:12px;color:var(--muted)}
+
+/* ══════════════════════════════════════════════
+   Achievement badges
+═══════════════════════════════════════════════ */
+.badges-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px}
+.badge-chip{
+  display:flex;align-items:center;gap:6px;background:var(--primary-light);color:var(--primary);
+  font-size:12.5px;font-weight:800;padding:8px 14px;border-radius:99px;
+}
+
+/* ══════════════════════════════════════════════
+   WhatsApp floating button
+═══════════════════════════════════════════════ */
+/* (٨ ت — تدقيق المطابقة) طلبك: «في بوابة التوظيف… فقط زرّ الواتساب». ومع قرارك «لا أزرار عائمة» أخفاه gmt-nofab
+   فلم يبقَ له مدخل. صار زرّاً ثابتاً في مكانه بجانب «ابدأ التقديم» — لا يطفو فوق المحتوى. */
+.whatsapp-float{
+  position:static;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:48px;padding:0 18px;border-radius:999px;background:#0f7a40;color:#fff;font-size:15px;font-weight:800;
+  box-shadow:0 6px 16px rgba(18,140,74,.25);transition:transform .25s var(--ease);text-decoration:none;
+}
+.whatsapp-float i{font-size:22px}
+.whatsapp-float:hover{transform:translateY(-1px)}
+
+
+/* (2026-10-04 م) عدّة أسئلة في صفحة */
+.q-block{margin:0}
+.q-sep{height:1px;background:rgba(15,18,25,.08);margin:22px 0}
+</style>
+  <script src="gmt-config.js?v=20261003"></script>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+  <script src="gmt-brand.js?v=20261003"></script>
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     شاشة التحميل التمهيدية
+═══════════════════════════════════════════════ -->
+<div id="intro-screen">
+  <div class="intro-spacer"></div>
+  <div class="intro-main-center">
+    <div class="intro-brand-mark">
+      <span>C</span>
+      <img src="logo.jpg" alt="Canon General Media Tech" onerror="this.onerror=null;this.src=(window.GMT_BRAND&&GMT_BRAND.logo)||this.src">
+    </div>
+    <div class="intro-brand-name">CANON GENERAL MEDIA TECH</div>
+    <div class="premium-loader-track"><div class="premium-loader-runner"></div></div>
+    <div class="intro-welcome">انضم إلى فريقنا — بوابة التوظيف الرسمية</div>
+  </div>
+  <div class="intro-partners-container">
+    <span class="intro-partners-label">بالتعاون مع شركاء التدريب</span>
+    <div class="intro-partners-row">
+      <img src="newhorizons-logo.png" alt="New Horizons" onerror="this.style.display='none'">
+      <img src="project-logo.png" alt="Project" onerror="this.style.display='none'">
+      <img src="canonlogo.png" alt="Canon" onerror="this.style.display='none'">
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     الهيدر
+═══════════════════════════════════════════════ -->
+<header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-mark">
+        <span>C</span>
+        <img src="logo.jpg" alt="Canon" onerror="this.onerror=null;this.src=(window.GMT_BRAND&&GMT_BRAND.logo)||this.src">
+      </div>
+      <div class="brand-text">
+        <strong>Canon</strong>
+        <span>General Media Tech — التوظيف</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="#faq" class="header-link">الأسئلة الشائعة</a>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════
+     الصفحة الرئيسية / الهيرو
+═══════════════════════════════════════════════ -->
+<main id="landing">
+
+  <section class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <div class="eyebrow"><i class="ph-fill ph-seal-check"></i> بوابة التوظيف الرسمية</div>
+      <h1>ابنِ مسارك المهني <span>مع Canon</span><br>General Media Tech</h1>
+      <p class="hero-sub">نظام توظيف ذكي يقيّم طلبك لحظة بلحظة، ويحدد القسم الأنسب لمهاراتك — سواء داخل مقرّاتنا، بنظام هجين، أو عبر مهام عن بُعد حسب طبيعة القسم.</p>
+
+      <div class="hero-cta-row">
+        <button class="btn btn-primary btn-lg" id="startBtn">
+          ابدأ التقديم الآن <i class="ph-bold ph-arrow-left"></i>
+        </button>
+        <a class="whatsapp-float" id="whatsappFloat" href="#" target="_blank" rel="noopener" data-keep-fab="1" aria-label="تواصل عبر واتساب" title="تواصل معنا عبر واتساب">
+          <i class="ph-fill ph-whatsapp-logo"></i> واتساب
+        </a>
+        <div class="hero-meta">
+          <div><i class="ph ph-timer"></i> يستغرق ٨ إلى ١٠ دقائق</div>
+          <div><i class="ph ph-cpu"></i> تقييم آلي فوري + مراجعة بشرية</div>
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat"><strong data-count="3870">٠</strong><span>عميل حالي</span></div>
+        <div class="stat"><strong data-count="12">٠</strong><span>فرعًا وموقع عمل</span></div>
+        <div class="stat"><strong data-count="15">٠</strong><span>سنة خبرة في السوق</span></div>
+        <div class="stat"><strong data-count="100" data-suffix="%">٠</strong><span>تدريب مجاني</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- طبيعة العمل -->
+  <section class="section">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">قبل أن تبدأ</span>
+        <h2>ما طبيعة العمل فعليًا؟</h2>
+        <p>العمل عندنا ليس عن بُعد بالكامل، وليس مكتبيًا بالكامل — بل يعتمد على القسم الذي يناسب مهاراتك.</p>
+      </div>
+
+      <div class="work-modes">
+        <div class="mode-card">
+          <div class="mode-icon"><i class="ph-fill ph-buildings"></i></div>
+          <h3>دوام داخل الشركة</h3>
+          <p>لأقسام التواصل المباشر مع العملاء واستقبالهم ومتابعة العمليات اليومية داخل المقر.</p>
+        </div>
+        <div class="mode-card featured">
+          <div class="mode-badge">الأكثر شيوعًا</div>
+          <div class="mode-icon"><i class="ph-fill ph-arrows-merge"></i></div>
+          <h3>دوام هجين</h3>
+          <p>مزيج بين الحضور والعمل عن بُعد، مناسب لأقسام المبيعات ومتابعة الطلبات والسوشيال ميديا.</p>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon"><i class="ph-fill ph-wifi-high"></i></div>
+          <h3>مهام عن بُعد</h3>
+          <p>لبعض المهام المحددة مثل الرد على الرسائل وإدخال البيانات، حسب حاجة القسم.</p>
+        </div>
+      </div>
+
+      <div class="tasks-strip">
+        <span class="tasks-strip-label">قد تشمل مهامك:</span>
+        <div class="tasks-tags">
+          <span>خدمة العملاء</span><span>المبيعات</span><span>استقبال العملاء</span>
+          <span>متابعة الطلبات</span><span>الرد على الرسائل</span><span>إدارة صفحات السوشيال ميديا</span>
+          <span>التعرف على المنتجات</span><span>الجرد البسيط</span><span>إدخال البيانات</span>
+          <span>المساعدة في العروض التسويقية</span>
+        </div>
+        <p class="tasks-note"><i class="ph ph-info"></i> الظهور أمام الكاميرا في فيديوهات تعريفية قد يُطلب في بعض الأقسام فقط، وليس شرطًا أساسيًا للتوظيف.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- لماذا تنضم إلينا -->
+  <section class="section alt">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">لماذا Canon General Media Tech</span>
+        <h2>كل ما تحتاج معرفته قبل التقديم</h2>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="info-icon red"><i class="ph-fill ph-graduation-cap"></i></div>
+          <h3>تدريب ودعم مستمر</h3>
+          <p>تدريب داخلي مكثف عند الالتحاق، وكورسات مجانية بالتعاون مع New Horizons وProject وجهات تدريبية أخرى، إلى جانب دعم مستمر من فريقك المباشر.</p>
+        </div>
+        <div class="info-card">
+          <div class="info-icon dark"><i class="ph-fill ph-hand-coins"></i></div>
+          <h3>راتب ومزايا مجزية</h3>
+          <p>راتب أساسي ثابت، عمولات على الأداء، مكافآت دورية، وحوافز حقيقية للموظفين المتميزين مع مسارات ترقية واضحة.</p>
+        </div>
+        <div class="info-card">
+          <div class="info-icon red"><i class="ph-fill ph-trend-up"></i></div>
+          <h3>تطوير مهني حقيقي</h3>
+          <p>بيئة عمل احترافية تمنحك فرصة لبناء مسار وظيفي فعلي، لا مجرد وظيفة مؤقتة، مع تقييمات دورية وفرص ترقية داخلية.</p>
+        </div>
+        <div class="info-card">
+          <div class="info-icon dark"><i class="ph-fill ph-check-circle"></i></div>
+          <h3>متطلبات بسيطة وواضحة</h3>
+          <p>مهارات تواصل جيدة، استخدام بسيط للكمبيوتر (Word وExcel والإنترنت)، رغبة في التعلّم السريع، والتزام — دون اشتراط خبرة كبيرة.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- كيف نقيّم -->
+  <section class="section">
+    <div class="section-inner narrow">
+      <div class="section-head center">
+        <span class="section-eyebrow">نظام التقييم الذكي</span>
+        <h2>طلبك يُقيَّم لحظيًا أثناء تعبئته</h2>
+        <p>بدلًا من نموذج طويل ومملّ، صممنا تجربة تفاعلية: سؤال واحد في كل مرة، ومؤشر تقييم حي يواكب إجاباتك من اللحظة الأولى وحتى النتيجة النهائية.</p>
+      </div>
+      <div class="how-steps">
+        <div class="how-step"><span>١</span><p>أجب عن الأسئلة واحدًا تلو الآخر، بلا تعقيد</p></div>
+        <div class="how-step"><span>٢</span><p>راقب مؤشر التقييم الحي أثناء التقدّم في الطلب</p></div>
+        <div class="how-step"><span>٣</span><p>احصل على تحليل مفصّل لمهاراتك فور الانتهاء</p></div>
+        <div class="how-step"><span>٤</span><p>يراجع فريق الموارد البشرية الطلبات المطابقة ويتواصل معك</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- أسئلة شائعة -->
+  <section class="section alt" id="faq">
+    <div class="section-inner narrow">
+      <div class="section-head center">
+        <span class="section-eyebrow">أسئلة شائعة</span>
+        <h2>لديك استفسار؟</h2>
+      </div>
+      <div class="faq-list" id="faqList"></div>
+    </div>
+  </section>
+
+  <section class="final-cta">
+    <div class="section-inner narrow center">
+      <h2>جاهز لتبدأ؟</h2>
+      <p>التقديم لا يستغرق أكثر من ١٠ دقائق، ونتيجتك الأولية جاهزة فور الانتهاء.</p>
+      <button class="btn btn-primary btn-lg" id="startBtn2">ابدأ التقديم الآن <i class="ph-bold ph-arrow-left"></i></button>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="section-inner">
+      <div class="footer-brand"><div class="brand-mark small"><span>C</span><img src="logo.jpg" alt="Canon" onerror="this.onerror=null;this.src=(window.GMT_BRAND&&GMT_BRAND.logo)||this.src"></div> Canon General Media Tech</div>
+      <p>© 2026 Canon General Media Tech — جميع الحقوق محفوظة. جميع الطلبات المُقدَّمة سرّية وتُستخدم لأغراض التوظيف فقط.</p>
+    </div>
+  </footer>
+</main>
+
+<!-- ══════════════════════════════════════════════
+     معالج التقديم (Wizard)
+═══════════════════════════════════════════════ -->
+<div class="wizard-overlay" id="wizard">
+  <div class="wizard-topbar">
+    <button class="wizard-close" id="wizardClose" aria-label="إغلاق"><i class="ph-bold ph-x"></i></button>
+    <div class="wizard-progress-wrap">
+      <div class="wizard-progress-meta">
+        <span id="sectionLabel">المعلومات الشخصية</span>
+        <span id="stepCounter">السؤال ١ من ٤٠</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="wizard-topbar-spacer"></div>
+  </div>
+
+  <div class="wizard-body">
+    <div class="wizard-step" id="stepContainer"></div>
+  </div>
+
+  <div class="wizard-footer">
+    <button class="btn btn-ghost" id="prevBtn"><i class="ph-bold ph-arrow-right"></i> السابق</button>
+    <div class="wizard-hint" id="wizardHint"></div>
+    <button class="btn btn-primary" id="nextBtn">التالي <i class="ph-bold ph-arrow-left"></i></button>
+  </div>
+
+  <!-- مؤشر التقييم الحي (العنصر المميز) -->
+  <div class="live-score" id="liveScore">
+    <div class="live-score-ring">
+      <svg viewBox="0 0 64 64">
+        <circle class="ring-bg" cx="32" cy="32" r="28"></circle>
+        <circle class="ring-fill" id="ringFill" cx="32" cy="32" r="28"></circle>
+      </svg>
+      <span id="liveScoreValue">0</span>
+    </div>
+    <div class="live-score-label">تقييم أولي حيّ</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     شاشة النتائج
+═══════════════════════════════════════════════ -->
+<div class="results-overlay" id="results">
+  <div class="results-card">
+    <div class="results-head">
+      <div class="results-badge"><i class="ph-fill ph-sparkle"></i></div>
+      <h2>تحليل طلبك اكتمل</h2>
+      <p>إليك ملخص تقييم مهاراتك بناءً على إجاباتك</p>
+    </div>
+
+    <div class="results-final">
+      <div class="results-final-ring">
+        <svg viewBox="0 0 120 120">
+          <circle class="ring-bg-lg" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-fill-lg" id="finalRing" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="results-final-value"><span id="finalScoreValue">0</span>%</div>
+      </div>
+      <div class="results-final-text">
+        <strong id="finalScoreTitle">تقييم ممتاز</strong>
+        <p>Final Score — التقييم الإجمالي المبدئي لطلبك</p>
+      </div>
+    </div>
+
+    <div class="results-bars" id="resultsBars"></div>
+
+    <div class="badges-row" id="badgesRow"></div>
+
+    <button class="btn btn-primary btn-lg btn-block" id="submitFinalBtn">
+      إرسال الطلب النهائي <i class="ph-bold ph-paper-plane-tilt"></i>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     شاشة النجاح
+═══════════════════════════════════════════════ -->
+<div class="success-overlay" id="successOverlay">
+  <canvas id="confettiCanvas"></canvas>
+  <div class="success-card">
+    <div class="success-check">
+      <svg viewBox="0 0 52 52">
+        <circle class="check-circle" cx="26" cy="26" r="24"/>
+        <path class="check-mark" d="M14 27l7 7 17-17"/>
+      </svg>
+    </div>
+    <h2>تم استلام طلبك بنجاح</h2>
+    <p>سيقوم فريق الموارد البشرية بمراجعة طلبك، وسيتم التواصل مع المرشحين المطابقين للشروط خلال أيام العمل القادمة.</p>
+    <div class="req-id-box">
+      <span>رقم الطلب</span>
+      <strong id="reqIdValue">—</strong>
+    </div>
+    <button class="btn btn-secondary" id="backHomeBtn">العودة إلى الصفحة الرئيسية</button>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   Canon General Media Tech — Recruitment Portal
+   Wizard engine, live scoring, and interactions
+═══════════════════════════════════════════════════════════════ */
+'use strict';
+
+/* ── static data ─────────────────────────────────────────── */
+const GOVERNORATES = ['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة','إدلب'];
+
+const SOCIAL_META = {
+  facebook:  {name:'Facebook',  icon:'ph-facebook-logo',  color:'#1877F2'},
+  instagram: {name:'Instagram', icon:'ph-instagram-logo', color:'#E1306C'},
+  tiktok:    {name:'TikTok',    icon:'ph-tiktok-logo',    color:'#111111'},
+  linkedin:  {name:'LinkedIn',  icon:'ph-linkedin-logo',  color:'#0A66C2'},
+  telegram:  {name:'Telegram',  icon:'ph-telegram-logo',  color:'#26A5E4'},
+  whatsapp:  {name:'WhatsApp',  icon:'ph-whatsapp-logo',  color:'#25D366'},
+};
+
+const FAQS = [
+  {q:'كم يستغرق التقديم؟', a:'حوالي ٨ إلى ١٠ دقائق فقط. يمكنك متابعة تقدمك عبر شريط التقدّم في أعلى الشاشة.'},
+  {q:'هل يشترط وجود خبرة سابقة؟', a:'لا. نرحب بالمتقدمين الجدد كما نرحب بأصحاب الخبرة. المطلوب أساسًا هو الرغبة في التعلّم والالتزام.'},
+  {q:'هل العمل عن بُعد بالكامل؟', a:'لا. يعتمد نظام العمل على القسم: بعضها داخل الشركة، وبعضها هجين، وبعض المهام فقط قد تكون عن بُعد.'},
+  {q:'متى يتم التواصل بعد التقديم؟', a:'يراجع فريق الموارد البشرية الطلبات المطابقة للشروط، ويتم التواصل مع المرشحين المناسبين خلال أيام العمل القادمة.'},
+  {q:'هل التقديم مجاني؟', a:'نعم، التقديم مجاني بالكامل ولا يتطلب أي رسوم في أي مرحلة.'},
+];
+
+/* ── step schema ─────────────────────────────────────────────
+   type: text | number | location | contact | choice | select |
+         scale | social | multicheck | textarea | referral
+──────────────────────────────────────────────────────────────*/
+const STEPS = [
+  // 1) المعلومات الشخصية
+  {id:'name', section:'المعلومات الشخصية', type:'text', label:'ما اسمك الكامل؟', placeholder:'مثال: محمد أحمد العلي', required:true},
+  {id:'age', section:'المعلومات الشخصية', type:'number', label:'كم عمرك؟', min:18, max:60, placeholder:'مثال: 24', required:true},
+  {id:'gender', section:'المعلومات الشخصية', type:'choice', label:'الجنس', options:['ذكر','أنثى'], required:true},
+  {id:'location', section:'المعلومات الشخصية', type:'location', label:'أين تقيم؟', required:true},
+  {id:'contact', section:'المعلومات الشخصية', type:'contact', label:'كيف يمكننا التواصل معك؟', required:true},
+
+  // 2) المرفقات
+  {id:'resume', section:'المرفقات', type:'file', label:'أرفق سيرتك الذاتية (اختياري)', sub:'يُفضّل PDF أو Word، بحجم لا يتجاوز 5 ميغابايت. إرفاقها يمنحك أولوية أعلى في المراجعة.', required:false},
+  /* (2026-10-04 م) طلبك: «ضيف محل السيرة الذاتية إرسال صورة شخصية — يرفع صورته، أيضاً اختياري» */
+  {id:'photo', section:'المرفقات', type:'file', label:'صورة شخصية (اختياري)', sub:'صورة واضحة للوجه — JPG أو PNG بحجم لا يتجاوز 5 ميغابايت.', required:false},
+
+  // 3) الخبرة السابقة
+  {id:'hasExp', section:'الخبرة السابقة', type:'choice', label:'هل لديك خبرة عمل سابقة؟', options:['نعم','لا'], required:true},
+  {id:'expYears', section:'الخبرة السابقة', type:'select', label:'كم عدد سنوات خبرتك؟', options:['لا يوجد','أقل من سنة','1-2 سنة','3-5 سنوات','أكثر من 5 سنوات'], required:true},
+  {id:'expField', section:'الخبرة السابقة', type:'select', label:'في أي مجال كانت خبرتك؟', options:['المبيعات','خدمة العملاء','كول سنتر','إدارة صفحات التواصل الاجتماعي','إدخال البيانات','أخرى'], required:true},
+
+  // 3) المهارات الحاسوبية
+  {id:'word', section:'المهارات الحاسوبية', type:'scale', label:'ما مستوى إجادتك لبرنامج Word؟', category:'computer', required:true},
+  {id:'excel', section:'المهارات الحاسوبية', type:'scale', label:'ما مستوى إجادتك لبرنامج Excel؟', category:'computer', required:true},
+  {id:'internet', section:'المهارات الحاسوبية', type:'scale', label:'ما مستوى إجادتك لاستخدام الإنترنت والبحث؟', category:'computer', required:true},
+  {id:'emailSkill', section:'المهارات الحاسوبية', type:'scale', label:'ما مستوى إجادتك للتعامل مع البريد الإلكتروني؟', category:'computer', required:true},
+  {id:'gdrive', section:'المهارات الحاسوبية', type:'scale', label:'ما مستوى إجادتك لاستخدام Google Drive؟', category:'computer', required:true},
+  {id:'typing', section:'المهارات الحاسوبية', type:'typingtest', label:'اختبار سريع لسرعة الكتابة', sub:'اكتب الجملة التالية بأسرع وقت ممكن وبأعلى دقة.', category:'computer', required:true},
+
+  // 4) السوشيال ميديا
+  {id:'facebook', section:'السوشيال ميديا', type:'social', platform:'facebook', label:'هل لديك حساب Facebook؟', category:'social'},
+  {id:'instagram', section:'السوشيال ميديا', type:'social', platform:'instagram', label:'هل لديك حساب Instagram؟', category:'social'},
+  {id:'tiktok', section:'السوشيال ميديا', type:'social', platform:'tiktok', label:'هل لديك حساب TikTok؟', category:'social'},
+  {id:'linkedin', section:'السوشيال ميديا', type:'social', platform:'linkedin', label:'هل لديك حساب LinkedIn؟', category:'social'},
+  {id:'telegram', section:'السوشيال ميديا', type:'social', platform:'telegram', label:'هل لديك حساب Telegram؟', category:'social'},
+  {id:'whatsapp', section:'السوشيال ميديا', type:'social', platform:'whatsapp', label:'هل لديك حساب WhatsApp؟', category:'social'},
+  {id:'socialSkills', section:'السوشيال ميديا', type:'multicheck', label:'أي مما يلي سبق أن قمت به؟', category:'social',
+    options:['أدرت صفحة سوشيال ميديا من قبل','رددت على استفسارات عملاء عبر الرسائل','أعرف كيفية إنشاء منشورات','أعرف كتابة Caption جذاب','أعرف الرد على الرسائل الخاصة (Inbox)']},
+
+  // 5) المبيعات
+  {id:'workedSales', section:'المبيعات', type:'choice', label:'هل عملت في مجال المبيعات من قبل؟', options:['نعم','لا'], category:'sales', required:true},
+  {id:'convinceCustomer', section:'المبيعات', type:'textarea', label:'كيف تقنع عميلًا مترددًا في شراء منتج؟', category:'sales,comm', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'customerRefuses', section:'المبيعات', type:'textarea', label:'ماذا تفعل إذا رفض العميل عرضك؟', category:'sales', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'customerAngry', section:'المبيعات', type:'textarea', label:'كيف تتعامل مع عميل غاضب؟', category:'sales,comm', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'dontKnowProduct', section:'المبيعات', type:'textarea', label:'ماذا تفعل إذا سألك عميل عن منتج لا تعرف إجابته؟', category:'sales', placeholder:'اكتب إجابتك هنا...', required:true},
+
+  // 6) الالتزام وبيئة العمل
+  {id:'commit', section:'الالتزام وبيئة العمل', type:'choice', label:'هل تستطيع الالتزام بدوام العمل المطلوب؟', options:['نعم بالتأكيد','أستطيع مع بعض الترتيب','غير متأكد'], category:'commitment', required:true},
+  {id:'hasInternet', section:'الالتزام وبيئة العمل', type:'choice', label:'هل لديك اتصال إنترنت مستقر؟', options:['نعم','لا'], category:'commitment', required:true},
+  {id:'hasDevice', section:'الالتزام وبيئة العمل', type:'choice', label:'ما الجهاز المتوفر لديك؟', options:['لابتوب','كمبيوتر مكتبي','هاتف فقط','لا يوجد حاليًا'], category:'commitment', required:true},
+  {id:'hasPlace', section:'الالتزام وبيئة العمل', type:'choice', label:'هل لديك مكان مناسب وهادئ للعمل؟', options:['نعم','إلى حد ما','لا'], category:'commitment', required:true},
+  {id:'hasTransport', section:'الالتزام وبيئة العمل', type:'choice', label:'هل تتوفر لديك وسيلة مواصلات؟', options:['نعم','لا'], category:'commitment', required:true},
+
+  // 7) العمل داخل الشركة
+  {id:'officeOk', section:'العمل داخل الشركة', type:'choice', label:'هل لديك مانع من الدوام داخل الشركة عند الحاجة؟', options:['لا مانع','أفضل الهجين','أفضل عن بُعد'], category:'commitment', required:true},
+  {id:'outsideOk', section:'العمل داخل الشركة', type:'choice', label:'هل لديك مانع من العمل أحيانًا خارج المكتب (مهام ميدانية)؟', options:['لا مانع','نادرًا','أفضل عدم ذلك'], category:'commitment', required:true},
+
+  // 8) الظهور أمام الكاميرا
+  {id:'cameraOk', section:'الظهور أمام الكاميرا', type:'choice', label:'بعض المهام قد تتطلب الظهور في فيديوهات تعريفية — هل لديك مانع؟', sub:'هذا الشرط اختياري ولا يُطبَّق إلا في أقسام محددة.', options:['لا يوجد مانع','أوافق بعد التدريب','أفضل عدم ذلك'], category:'confidence', required:true},
+
+  // 9) الشخصية والدافع
+  {id:'whyUs', section:'الشخصية والدافع', type:'textarea', label:'لماذا اخترت التقديم إلى Canon General Media Tech؟', category:'confidence,comm', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'uniqueness', section:'الشخصية والدافع', type:'textarea', label:'ما الذي يميزك عن غيرك من المتقدمين؟', category:'confidence', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'strengths', section:'الشخصية والدافع', type:'textarea', label:'ما أبرز نقاط قوتك؟', category:'confidence', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'weaknesses', section:'الشخصية والدافع', type:'textarea', label:'ما نقاط ضعفك، وكيف تعمل على تحسينها؟', category:'confidence', placeholder:'اكتب إجابتك هنا...', required:true},
+  {id:'futureVision', section:'الشخصية والدافع', type:'textarea', label:'أين ترى نفسك بعد سنتين من الآن؟', category:'confidence,comm', placeholder:'اكتب إجابتك هنا...', required:true},
+
+  // 10) لمسة أخيرة
+  {id:'referral', section:'لمسة أخيرة', type:'referral', label:'من أين سمعت عنّا؟',
+    options:['فيسبوك','انستغرام','تيك توك','صديق أو معرف','أحد فروعنا أو متاجرنا','بحث في جوجل','إعلان ممول','أخرى'], required:true},
+];
+
+/* ══ (2026-10-04 م) طلبك (وثيقة التصميم · صورة ٣): «اسمك وعمرك ومحافظتك وجنسك ومكان الإقامة
+   خليهن بصفحة واحدة بدلاً من صفحات متعدّدة · الرقم والإيميل (الإيميل اختياري) · من ٩ إلى ١٤
+   بصفحة واحدة · روابط التواصل الاجتماعي كلهم في صفحة واحدة · ٢٢ و٢٣ ادمجهم · من ٢٨ إلى ٣١
+   دمج · من ٣١ إلى ٣٥ أيضاً». الأسئلة نفسها والتقييم نفسه — تغيّر التجميع فقط. ══ */
+const PAGE_GROUPS = [
+  ['name','age','gender','location'],
+  ['contact'],
+  ['resume','photo'],
+  ['hasExp','expYears','expField'],
+  ['word','excel','internet','emailSkill','gdrive'],
+  ['typing'],
+  ['socialSkills'].concat(STEPS.filter(s=>s.type==='social').map(s=>s.id)),
+  ['workedSales','convinceCustomer','customerRefuses'],
+  ['customerAngry','dontKnowProduct'],
+  ['commit','hasInternet','hasDevice','hasPlace','hasTransport'],
+  ['officeOk','outsideOk','cameraOk'],
+  ['whyUs','uniqueness','strengths','weaknesses','futureVision'],
+];
+const PAGES = (function(){
+  const out = [], used = new Set();
+  STEPS.forEach(s => {
+    if (used.has(s.id)) return;
+    const g = PAGE_GROUPS.find(x => x.includes(s.id));
+    const ids = (g || [s.id]).filter(id => STEPS.some(t => t.id === id) && !used.has(id));
+    ids.forEach(id => used.add(id));
+    out.push(ids);
+  });
+  return out;
+})();
+function pageSteps(p){ return (PAGES[p] || []).map(id => STEPS.find(s => s.id === id)).filter(Boolean); }
+
+
+const TYPING_SAMPLE = 'نحن نبحث عن أشخاص طموحين يحبون التعلم ويتقنون التعامل مع العملاء باحترافية';
+
+/* ── إعدادات التكامل الخارجي ──────────────────────────────
+   عدّل القيم التالية بعد إنشاء بوت Telegram الخاص بالموارد البشرية:
+   1) أنشئ بوت عبر @BotFather وخذ التوكن (BOT_TOKEN)
+   2) تحدث مع البوت مرة واحدة، ثم خذ CHAT_ID من:
+      https://api.telegram.org/bot<التوكن>/getUpdates
+   3) للعمل مع مجموعة، أضف البوت للمجموعة واستخدم chat_id الخاص بها (رقم سالب)
+──────────────────────────────────────────────────────────*/
+const TELEGRAM_CONFIG = {
+  BOT_TOKEN: 'YOUR_BOT_TOKEN_HERE',   // ضع التوكن هنا
+  CHAT_ID:  'YOUR_CHAT_ID_HERE',      // ضع الشات آيدي هنا
+};
+/* 🔴 (2026-10-03) كان `963900000000` — رقمٌ مُختلَق: زرّ الواتساب العائم كان
+   يفتح محادثةً مع رقمٍ لا يملكه أحد. الآن: الرقم من `gmt_cs_phone` إن ضبطتَه،
+   وإلّا رقم المتجر الموجود في مشروعك، وإن لم يوجد **يُخفى الزرّ**. */
+const WHATSAPP_NUMBER = (function () {
+  try { var v = (localStorage.getItem('gmt_cs_phone') || '').replace(/[^0-9]/g, ''); if (v) return v.replace(/^(00963|963|0)/, '963') .replace(/^963963/, '963'); } catch (_) {}
+  try { if (window.GMT_STORE_WHATSAPP) return window.GMT_STORE_WHATSAPP; } catch (_) {}
+  return '';
+})();
+
+const CATEGORY_LABELS = {
+  comm:'مهارات التواصل', computer:'المهارات الحاسوبية', commitment:'الالتزام',
+  sales:'المبيعات', social:'السوشيال ميديا', confidence:'الثقة والشخصية',
+};
+
+/* ── state ───────────────────────────────────────────────── */
+const answers = {};
+let current = 0;
+
+/* ── DOM refs ────────────────────────────────────────────── */
+const $ = (sel) => document.querySelector(sel);
+const wizard = $('#wizard');
+const stepContainer = $('#stepContainer');
+const progressFill = $('#progressFill');
+const sectionLabel = $('#sectionLabel');
+const stepCounter = $('#stepCounter');
+const prevBtn = $('#prevBtn');
+const nextBtn = $('#nextBtn');
+const wizardHint = $('#wizardHint');
+const liveScoreBox = $('#liveScore');
+const ringFill = $('#ringFill');
+const liveScoreValue = $('#liveScoreValue');
+const toast = $('#toast');
+const RING_CIRCUMFERENCE = 176; // 2*pi*28
+
+/* ── utils ───────────────────────────────────────────────── */
+function toArabicDigits(n){
+  const map = {0:'٠',1:'١',2:'٢',3:'٣',4:'٤',5:'٥',6:'٦',7:'٧',8:'٨',9:'٩'};
+  return String(n).replace(/[0-9]/g, d => map[d]);
+}
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2400);
+}
+function formatFileSize(bytes){
+  if(bytes < 1024*1024) return Math.round(bytes/1024) + ' كيلوبايت';
+  return (bytes/(1024*1024)).toFixed(1) + ' ميغابايت';
+}
+function handleFile(stepId, file){
+  if(file.size > 5*1024*1024){
+    showToast('حجم الملف أكبر من 5 ميغابايت');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    answers[stepId] = {
+      name: file.name,
+      type: file.type,
+      sizeLabel: formatFileSize(file.size),
+      base64: reader.result.split(',')[1],
+    };
+    refreshLiveScore();
+    renderStep(current);
+    showToast('تم إرفاق الملف بنجاح');
+  };
+  reader.readAsDataURL(file);
+}
+function wordScore(text){
+  if(!text) return 0;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(1, words / 14);
+}
+
+/* ── render a single step ────────────────────────────────── */
+function renderStep(index){
+  if (index >= PAGES.length || index < 0) { index = 0; current = 0; }
+  const steps = pageSteps(index);
+  sectionLabel.textContent = steps[0].section;
+  stepCounter.textContent = `الصفحة ${toArabicDigits(index+1)} من ${toArabicDigits(PAGES.length)}`;
+  progressFill.style.width = ((index) / PAGES.length * 100) + '%';
+  stepContainer.innerHTML = steps.map(s => '<div class="q-block" data-q="' + s.id + '">' + stepHtml(s) + '</div>').join('<div class="q-sep"></div>');
+  steps.forEach(s => bindStepEvents(s));
+  updateNavButtons(steps[0]);
+}
+function stepHtml(step){
+  let html = `<div class="q-label">${step.label}${step.required ? '<span class="q-required">*</span>' : ''}</div>`;
+  if(step.sub) html += `<p class="q-sub">${step.sub}</p>`;
+
+  const val = answers[step.id];
+
+  switch(step.type){
+    case 'text':
+      html += `<div class="field"><input type="text" id="input-${step.id}" placeholder="${step.placeholder||''}" value="${val?.value||''}"></div>`;
+      break;
+    case 'number':
+      html += `<div class="field"><input type="number" id="input-${step.id}" min="${step.min||''}" max="${step.max||''}" placeholder="${step.placeholder||''}" value="${val?.value||''}"></div>`;
+      break;
+    case 'location': {
+      const gov = val?.gov || '', city = val?.city || '';
+      html += `<div class="row-2">
+        <div class="field">
+          <label class="field-label">المحافظة</label>
+          <select id="input-${step.id}-gov">
+            <option value="">اختر المحافظة</option>
+            ${GOVERNORATES.map(g=>`<option value="${g}" ${g===gov?'selected':''}>${g}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">المدينة / المنطقة</label>
+          <input type="text" id="input-${step.id}-city" placeholder="مثال: المزة" value="${city}">
+        </div>
+      </div>`;
+      break;
+    }
+    case 'contact': {
+      const phone = val?.phone || '', email = val?.email || '';
+      html += `<div class="field">
+          <label class="field-label">رقم الهاتف</label>
+          <input type="tel" id="input-${step.id}-phone" placeholder="09xxxxxxxx" value="${phone}">
+        </div>
+        <div class="field">
+          <label class="field-label">البريد الإلكتروني (اختياري)</label>
+          <input type="email" id="input-${step.id}-email" placeholder="example@email.com" value="${email}">
+        </div>`;
+      break;
+    }
+    case 'choice':
+      html += `<div class="pill-group" id="group-${step.id}">
+        ${step.options.map(o=>`<button type="button" class="pill ${val===o?'selected':''}" data-value="${o}">${o}</button>`).join('')}
+      </div>`;
+      break;
+    case 'select':
+      html += `<div class="field"><select id="input-${step.id}">
+        <option value="">اختر إجابة</option>
+        ${step.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+      </select></div>`;
+      break;
+    case 'scale': {
+      const labels = ['بسيطة','متوسطة','جيدة','جيدة جدًا','ممتازة'];
+      html += `<div class="scale-group" id="group-${step.id}">
+        ${labels.map((l,i)=>{
+          const lvl = i+1;
+          const dots = Array.from({length:5}).map((_,d)=>`<span style="${d<lvl?'':'opacity:.35'}"></span>`).join('');
+          return `<div class="scale-opt ${val===lvl?'selected':''}" data-value="${lvl}">
+            <div class="dots">${dots}</div><small>${l}</small></div>`;
+        }).join('')}
+      </div>`;
+      break;
+    }
+    case 'social': {
+      const meta = SOCIAL_META[step.platform];
+      const has = val?.has || false;
+      const link = val?.link || '';
+      html += `<div class="social-card" id="group-${step.id}">
+        <div class="social-header">
+          <div class="social-icon" style="background:${meta.color}"><i class="ph-fill ${meta.icon}"></i></div>
+          <div><strong>${meta.name}</strong></div>
+        </div>
+        <div class="social-toggle-row">
+          <span>لدي حساب على ${meta.name}</span>
+          <div class="switch ${has?'on':''}" id="switch-${step.id}"></div>
+        </div>
+        <div class="social-link-field ${has?'show':''}" id="link-wrap-${step.id}">
+          <div class="field" style="margin-top:14px;margin-bottom:0">
+            <input type="text" id="input-${step.id}-link" placeholder="رابط الحساب أو اسم المستخدم" value="${link}">
+          </div>
+        </div>
+      </div>`;
+      break;
+    }
+    case 'multicheck': {
+      const selected = val || [];
+      html += `<div class="check-grid" id="group-${step.id}">
+        ${step.options.map(o=>`<div class="check-item ${selected.includes(o)?'selected':''}" data-value="${o}">
+          <div class="check-box">${selected.includes(o)?'<i class="ph-bold ph-check"></i>':''}</div><span>${o}</span></div>`).join('')}
+      </div>`;
+      break;
+    }
+    case 'textarea':
+      html += `<div class="field"><textarea id="input-${step.id}" placeholder="${step.placeholder||''}">${val?.value||''}</textarea></div>`;
+      break;
+    case 'file': {
+      if(val && val.name){
+        html += `<div class="file-drop has-file" id="drop-${step.id}">
+          <div class="file-chip">
+            <i class="ph-fill ph-file-text"></i>
+            <div class="file-chip-info"><strong>${val.name}</strong><span>${val.sizeLabel||''}</span></div>
+            <button type="button" class="file-remove" id="remove-${step.id}"><i class="ph-bold ph-x"></i></button>
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="file-drop" id="drop-${step.id}">
+          <input type="file" id="input-${step.id}" accept=".pdf,.doc,.docx,image/*" style="display:none">
+          <i class="ph-fill ph-upload-simple"></i>
+          <strong>اسحب الملف هنا أو اضغط للاختيار</strong>
+          <span>PDF, Word — حتى 5MB</span>
+        </div>`;
+      }
+      html += `<p class="field-hint">هذا السؤال اختياري، يمكنك المتابعة بدون إرفاق ملف.</p>`;
+      break;
+    }
+    case 'typingtest': {
+      const sample = TYPING_SAMPLE;
+      const done = val && typeof val.wpm === 'number';
+      html += `<div class="typing-card">
+        <div class="typing-sample" id="typingSample">${sample}</div>
+        ${done
+          ? `<div class="typing-result">
+              <div><strong>${toArabicDigits(val.wpm)}</strong><span>كلمة/دقيقة</span></div>
+              <div><strong>${toArabicDigits(val.accuracy)}%</strong><span>الدقة</span></div>
+              <button type="button" class="btn btn-ghost" id="retryTyping">إعادة المحاولة</button>
+            </div>`
+          : `<textarea id="typingInput" class="typing-input" placeholder="ابدأ الكتابة هنا فور الاستعداد..." dir="rtl"></textarea>
+             <div class="typing-status" id="typingStatus">اضغط داخل الحقل وابدأ الكتابة — سيبدأ العداد تلقائيًا</div>`}
+      </div>`;
+      break;
+    }
+    case 'referral': {
+      const chosen = val?.choice || '';
+      html += `<div class="pill-group vertical" id="group-${step.id}">
+        ${step.options.map(o=>`<button type="button" class="pill ${chosen===o?'selected':''}" data-value="${o}">${o}</button>`).join('')}
+      </div>`;
+      if(chosen === 'أخرى'){
+        html += `<div class="field" style="margin-top:14px"><input type="text" id="input-${step.id}-other" placeholder="أخبرنا كيف سمعت عنا" value="${val?.other||''}"></div>`;
+      }
+      break;
+    }
+  }
+
+  return html;
+}
+
+/* ── bind interactive events per step ───────────────────── */
+function bindStepEvents(step){
+  switch(step.type){
+    case 'text': case 'number':
+      $(`#input-${step.id}`).addEventListener('input', e => {
+        answers[step.id] = {value: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      break;
+    case 'location':
+      $(`#input-${step.id}-gov`).addEventListener('change', e => {
+        answers[step.id] = {...(answers[step.id]||{}), gov: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      $(`#input-${step.id}-city`).addEventListener('input', e => {
+        answers[step.id] = {...(answers[step.id]||{}), city: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      break;
+    case 'contact':
+      $(`#input-${step.id}-phone`).addEventListener('input', e => {
+        answers[step.id] = {...(answers[step.id]||{}), phone: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      $(`#input-${step.id}-email`).addEventListener('input', e => {
+        answers[step.id] = {...(answers[step.id]||{}), email: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      break;
+    case 'choice':
+      $(`#group-${step.id}`).querySelectorAll('.pill').forEach(btn=>{
+        btn.addEventListener('click', () => {
+          answers[step.id] = btn.dataset.value;
+          $(`#group-${step.id}`).querySelectorAll('.pill').forEach(b=>b.classList.remove('selected'));
+          btn.classList.add('selected');
+          refreshLiveScore(); updateNavButtons(step);
+          setTimeout(()=>goNext(), 260);
+        });
+      });
+      break;
+    case 'select':
+      $(`#input-${step.id}`).addEventListener('change', e => {
+        answers[step.id] = e.target.value;
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      break;
+    case 'scale':
+      $(`#group-${step.id}`).querySelectorAll('.scale-opt').forEach(opt=>{
+        opt.addEventListener('click', () => {
+          answers[step.id] = parseInt(opt.dataset.value, 10);
+          $(`#group-${step.id}`).querySelectorAll('.scale-opt').forEach(o=>o.classList.remove('selected'));
+          opt.classList.add('selected');
+          refreshLiveScore(); updateNavButtons(step);
+          setTimeout(()=>goNext(), 260);
+        });
+      });
+      break;
+    case 'social': {
+      const sw = $(`#switch-${step.id}`);
+      sw.addEventListener('click', () => {
+        const has = !sw.classList.contains('on');
+        sw.classList.toggle('on', has);
+        $(`#link-wrap-${step.id}`).classList.toggle('show', has);
+        answers[step.id] = {...(answers[step.id]||{}), has};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      const linkInput = document.getElementById(`input-${step.id}-link`);
+      if(linkInput){
+        linkInput.addEventListener('input', e => {
+          answers[step.id] = {...(answers[step.id]||{}), link: e.target.value};
+          refreshLiveScore();
+        });
+      }
+      break;
+    }
+    case 'multicheck':
+      $(`#group-${step.id}`).querySelectorAll('.check-item').forEach(item=>{
+        item.addEventListener('click', () => {
+          const arr = answers[step.id] ? [...answers[step.id]] : [];
+          const v = item.dataset.value;
+          const i = arr.indexOf(v);
+          if(i > -1){ arr.splice(i,1); item.classList.remove('selected'); item.querySelector('.check-box').innerHTML=''; }
+          else { arr.push(v); item.classList.add('selected'); item.querySelector('.check-box').innerHTML='<i class="ph-bold ph-check"></i>'; }
+          answers[step.id] = arr;
+          refreshLiveScore(); updateNavButtons(step);
+        });
+      });
+      break;
+    case 'textarea':
+      $(`#input-${step.id}`).addEventListener('input', e => {
+        answers[step.id] = {value: e.target.value};
+        refreshLiveScore(); updateNavButtons(step);
+      });
+      break;
+    case 'file': {
+      const dropZone = $(`#drop-${step.id}`);
+      const removeBtn = document.getElementById(`remove-${step.id}`);
+      if(removeBtn){
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          delete answers[step.id];
+          renderStep(current);
+        });
+        break;
+      }
+      const fileInput = document.getElementById(`input-${step.id}`);
+      dropZone.addEventListener('click', () => fileInput.click());
+      ['dragover','dragenter'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('drag'); }));
+      ['dragleave','drop'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+      dropZone.addEventListener('drop', e => { if(e.dataTransfer.files[0]) handleFile(step.id, e.dataTransfer.files[0]); });
+      fileInput.addEventListener('change', e => { if(e.target.files[0]) handleFile(step.id, e.target.files[0]); });
+      break;
+    }
+    case 'typingtest': {
+      const input = document.getElementById('typingInput');
+      const retry = document.getElementById('retryTyping');
+      if(retry){
+        retry.addEventListener('click', () => { delete answers[step.id]; renderStep(current); });
+        break;
+      }
+      if(!input) break;
+      let startTime = null;
+      input.addEventListener('focus', () => { if(!startTime) startTime = Date.now(); }, {once:true});
+      input.addEventListener('input', () => {
+        if(!startTime) startTime = Date.now();
+        const typed = input.value;
+        if(typed.trim().length >= TYPING_SAMPLE.length * 0.92){
+          const elapsedMin = Math.max(0.08, (Date.now() - startTime) / 60000);
+          const wordCount = typed.trim().split(/\s+/).filter(Boolean).length;
+          const wpm = Math.round(wordCount / elapsedMin);
+          const targetWords = TYPING_SAMPLE.split(/\s+/);
+          const typedWords = typed.trim().split(/\s+/);
+          let matches = 0;
+          targetWords.forEach((w,i) => { if(typedWords[i] === w) matches++; });
+          const accuracy = Math.round((matches / targetWords.length) * 100);
+          answers[step.id] = {wpm: Math.min(wpm, 140), accuracy};
+          refreshLiveScore();
+          renderStep(current);
+        }
+      });
+      break;
+    }
+    case 'referral':
+      $(`#group-${step.id}`).querySelectorAll('.pill').forEach(btn=>{
+        btn.addEventListener('click', () => {
+          answers[step.id] = {...(answers[step.id]||{}), choice: btn.dataset.value};
+          renderStep(current); // re-render to show/hide "other" field
+        });
+      });
+      const otherInput = document.getElementById(`input-${step.id}-other`);
+      if(otherInput){
+        otherInput.addEventListener('input', e => {
+          answers[step.id] = {...(answers[step.id]||{}), other: e.target.value};
+          updateNavButtons(step);
+        });
+      }
+      break;
+  }
+}
+
+/* ── validation ──────────────────────────────────────────── */
+function isStepAnswered(step){
+  const v = answers[step.id];
+  if(!step.required) return true;
+  switch(step.type){
+    case 'text': case 'number': case 'textarea':
+      return !!(v && v.value && v.value.toString().trim().length > 0);
+    case 'location':
+      return !!(v && v.gov && v.city && v.city.trim());
+    case 'contact':
+      /* (2026-10-04 م) طلبك: «اجعل الإيميل اختياري» — الهاتف مطلوب، والإيميل إن كُتب فليكن صحيحاً */
+      return !!(v && v.phone && v.phone.trim() && (!v.email || !v.email.trim() || v.email.includes('@')));
+    case 'choice': case 'select':
+      return !!v;
+    case 'scale':
+      return typeof v === 'number';
+    case 'social':
+      return true; // optional by nature
+    case 'multicheck':
+      return true; // optional checklist
+    case 'file':
+      return true; // optional attachment
+    case 'typingtest':
+      return !!(v && typeof v.wpm === 'number');
+    case 'referral':
+      return !!(v && v.choice && (v.choice !== 'أخرى' || (v.other && v.other.trim())));
+    default:
+      return true;
+  }
+}
+function updateNavButtons(step){
+  nextBtn.disabled = false;
+  const ok = pageSteps(current).every(isStepAnswered);
+  wizardHint.textContent = ok ? '' : 'يرجى تعبئة الأسئلة المطلوبة (*) في هذه الصفحة للمتابعة';
+}
+
+/* ── navigation ──────────────────────────────────────────── */
+function goNext(){
+  const miss = pageSteps(current).find(s => !isStepAnswered(s));
+  if(miss){
+    wizardHint.textContent = 'يرجى تعبئة: ' + miss.label.replace(/[؟?]$/, '');
+    try { const el = stepContainer.querySelector('[data-q="' + miss.id + '"]'); if (el) el.scrollIntoView({behavior:'smooth', block:'center'}); } catch(_){}
+    stepContainer.classList.add('anim-out');
+    setTimeout(()=>stepContainer.classList.remove('anim-out'), 260);
+    return;
+  }
+  if(current < PAGES.length - 1){
+    transitionTo(current + 1);
+  } else {
+    finishWizard();
+  }
+}
+function goPrev(){
+  if(current > 0) transitionTo(current - 1);
+}
+function transitionTo(index){
+  stepContainer.classList.add('anim-out');
+  setTimeout(() => {
+    current = index;
+    renderStep(current);
+    stepContainer.classList.remove('anim-out');
+    stepContainer.classList.add('anim-in');
+    setTimeout(()=>stepContainer.classList.remove('anim-in'), 460);
+    prevBtn.disabled = current === 0;
+    nextBtn.innerHTML = current === PAGES.length - 1
+      ? 'عرض النتيجة <i class="ph-bold ph-chart-bar"></i>'
+      : 'التالي <i class="ph-bold ph-arrow-left"></i>';
+    saveProgress();
+  }, 220);
+}
+
+/* ── scoring engine ──────────────────────────────────────── */
+const LEVEL_MAPS = {
+  commit: {'نعم بالتأكيد':1, 'أستطيع مع بعض الترتيب':.6, 'غير متأكد':.2},
+  hasInternet: {'نعم':1, 'لا':0},
+  hasDevice: {'لابتوب':1, 'كمبيوتر مكتبي':1, 'هاتف فقط':.6, 'لا يوجد حاليًا':0},
+  hasPlace: {'نعم':1, 'إلى حد ما':.6, 'لا':0},
+  hasTransport: {'نعم':1, 'لا':.5},
+  officeOk: {'لا مانع':1, 'أفضل الهجين':.7, 'أفضل عن بُعد':.4},
+  outsideOk: {'لا مانع':1, 'نادرًا':.7, 'أفضل عدم ذلك':.4},
+  cameraOk: {'لا يوجد مانع':1, 'أوافق بعد التدريب':.7, 'أفضل عدم ذلك':.4},
+  workedSales: {'نعم':1, 'لا':.5},
+};
+
+function computeScores(){
+  // computer
+  const compVals = ['word','excel','internet','emailSkill','gdrive'].map(k => typeof answers[k]==='number' ? answers[k] : 0);
+  const compAnswered = compVals.filter(v=>v>0);
+  let computerScore = compAnswered.length ? (compAnswered.reduce((a,b)=>a+b,0)/(compAnswered.length*5))*100 : 0;
+  if(answers.typing && typeof answers.typing.wpm === 'number'){
+    const typingScore = Math.min(100, (answers.typing.wpm/45)*70 + (answers.typing.accuracy||0)*0.3);
+    computerScore = compAnswered.length ? (computerScore*0.75 + typingScore*0.25) : typingScore;
+  }
+
+  // social
+  const platforms = ['facebook','instagram','tiktok','linkedin','telegram','whatsapp'];
+  const activeCount = platforms.filter(p => answers[p]?.has).length;
+  const checklistCount = (answers.socialSkills || []).length;
+  const socialScore = ((activeCount/platforms.length)*0.55 + (checklistCount/5)*0.45) * 100;
+
+  // sales
+  const salesTextKeys = ['convinceCustomer','customerRefuses','customerAngry','dontKnowProduct'];
+  const salesTextAvg = salesTextKeys.reduce((sum,k)=> sum + wordScore(answers[k]?.value), 0) / salesTextKeys.length;
+  const workedVal = LEVEL_MAPS.workedSales[answers.workedSales] ?? 0;
+  const salesScore = (salesTextAvg*0.7 + workedVal*0.3) * 100;
+
+  // commitment
+  const commitKeys = ['commit','hasInternet','hasDevice','hasPlace','hasTransport','officeOk','outsideOk'];
+  const commitVals = commitKeys.map(k => LEVEL_MAPS[k][answers[k]] ?? 0);
+  const commitAnswered = commitKeys.filter(k => answers[k]);
+  const commitmentScore = commitAnswered.length ? (commitVals.reduce((a,b)=>a+b,0)/commitAnswered.length)*100 : 0;
+
+  // confidence
+  const confTextKeys = ['uniqueness','strengths','weaknesses'];
+  const confTextAvg = confTextKeys.reduce((sum,k)=> sum + wordScore(answers[k]?.value), 0) / confTextKeys.length;
+  const cameraVal = LEVEL_MAPS.cameraOk[answers.cameraOk] ?? 0;
+  const confidenceScore = (confTextAvg*0.6 + cameraVal*0.4) * 100;
+
+  // communication
+  const commTextKeys = ['convinceCustomer','customerAngry','whyUs','futureVision'];
+  const commTextAnswered = commTextKeys.filter(k => answers[k]?.value);
+  const commScore = commTextAnswered.length
+    ? (commTextKeys.reduce((sum,k)=> sum + wordScore(answers[k]?.value), 0) / commTextKeys.length) * 100
+    : 0;
+
+  return {
+    computer: Math.round(computerScore),
+    social: Math.round(socialScore),
+    sales: Math.round(salesScore),
+    commitment: Math.round(commitmentScore),
+    confidence: Math.round(confidenceScore),
+    comm: Math.round(commScore),
+  };
+}
+
+function computeFinalScore(scores){
+  const weights = {computer:.18, social:.15, sales:.20, commitment:.20, confidence:.12, comm:.15};
+  let total = 0;
+  Object.keys(weights).forEach(k => total += (scores[k]||0) * weights[k]);
+  return Math.round(total);
+}
+
+/* ── live score (during wizard) ─────────────────────────── */
+function refreshLiveScore(){
+  const answeredCount = STEPS.filter(isStepAnswered).length;
+  const progress = answeredCount / STEPS.length;
+  const scores = computeScores();
+  const qualityAvg = Object.values(scores).reduce((a,b)=>a+b,0) / Object.values(scores).length;
+  const live = Math.round(Math.min(97, 25 + progress*45 + qualityAvg*0.3));
+  liveScoreValue.textContent = toArabicDigits(live);
+  const offset = RING_CIRCUMFERENCE - (RING_CIRCUMFERENCE * live / 100);
+  ringFill.style.strokeDashoffset = offset;
+  if(!liveScoreBox.classList.contains('show')) liveScoreBox.classList.add('show');
+}
+
+/* ── autosave (optional resume) ─────────────────────────── */
+function saveProgress(){
+  try{ localStorage.setItem('cgmt_application_progress', JSON.stringify({answers, current})); }catch(e){}
+}
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem('cgmt_application_progress');
+    if(!raw) return false;
+    const data = JSON.parse(raw);
+    Object.assign(answers, data.answers || {});
+    current = data.current || 0;
+    return Object.keys(answers).length > 0;
+  }catch(e){ return false; }
+}
+function clearProgress(){
+  try{ localStorage.removeItem('cgmt_application_progress'); }catch(e){}
+}
+
+/* ── open / close wizard ─────────────────────────────────── */
+function openWizard(){
+  wizard.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  const hasSaved = loadProgress();
+  if(hasSaved) showToast('تم استرجاع طلبك السابق');
+  renderStep(current);
+  prevBtn.disabled = current === 0;
+  refreshLiveScore();
+}
+function closeWizard(){
+  wizard.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+/* ── finish wizard → results ─────────────────────────────── */
+function finishWizard(){
+  closeWizard();
+  const scores = computeScores();
+  const finalScore = computeFinalScore(scores);
+  renderResults(scores, finalScore);
+  $('#results').classList.add('active');
+}
+
+function scoreTitle(score){
+  if(score >= 85) return 'تقييم ممتاز';
+  if(score >= 70) return 'تقييم جيد جدًا';
+  if(score >= 50) return 'تقييم جيد';
+  return 'تقييم مبدئي';
+}
+
+function renderResults(scores, finalScore){
+  const bars = $('#resultsBars');
+  bars.innerHTML = Object.keys(CATEGORY_LABELS).map(key => {
+    const pct = scores[key] || 0;
+    const stars = Math.max(1, Math.round(pct/20));
+    const starsHtml = Array.from({length:5}).map((_,i)=>`<i class="ph-fill ph-star ${i<stars?'lit':''}"></i>`).join('');
+    return `<div>
+      <div class="result-bar-row"><span>${CATEGORY_LABELS[key]}</span><div class="result-stars">${starsHtml}</div></div>
+    </div>`;
+  }).join('');
+
+  $('#finalScoreTitle').textContent = scoreTitle(finalScore);
+
+  const badges = computeBadges(scores);
+  const badgesRow = $('#badgesRow');
+  badgesRow.innerHTML = badges.length
+    ? badges.map(b => `<div class="badge-chip"><i class="ph-fill ${b.icon}"></i> ${b.label}</div>`).join('')
+    : '';
+
+  // animate ring + counter
+  const ring = $('#finalRing');
+  const CIRC = 327; // 2*pi*52
+  requestAnimationFrame(() => {
+    ring.style.strokeDashoffset = CIRC - (CIRC * finalScore / 100);
+  });
+  animateCount($('#finalScoreValue'), 0, finalScore, 900);
+}
+
+function animateCount(el, from, to, duration){
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now - start) / duration);
+    const val = Math.round(from + (to - from) * p);
+    el.textContent = toArabicDigits(val);
+    if(p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── Telegram delivery ───────────────────────────────────── */
+function base64ToBlob(base64, type){
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], {type: type || 'application/octet-stream'});
+}
+function esc(str){
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function buildTelegramText(app){
+  const s = app.scores;
+  const lines = [
+    `🆕 <b>طلب توظيف جديد</b>`,
+    `رقم الطلب: <code>${app.reqId}</code>`,
+    ``,
+    `👤 <b>${esc(app.name)}</b> — ${esc(app.age)} سنة — ${esc(app.gender)}`,
+    `📍 ${esc(app.governorate)}, ${esc(app.city)}`,
+    `📞 ${esc(app.phone)}   ✉️ ${esc(app.email)}`,
+    ``,
+    `📊 <b>التقييم الإجمالي: ${app.finalScore}%</b>`,
+    `— المهارات الحاسوبية: ${s.computer}%`,
+    `— السوشيال ميديا: ${s.social}%`,
+    `— المبيعات: ${s.sales}%`,
+    `— الالتزام: ${s.commitment}%`,
+    `— الثقة والشخصية: ${s.confidence}%`,
+    `— التواصل: ${s.comm}%`,
+    ``,
+    `📌 مصدر التقديم: ${esc(app.referral)}`,
+    app.hasCv ? `📎 السيرة الذاتية مرفقة أدناه` : `📎 لم يتم إرفاق سيرة ذاتية`,
+  ];
+  return lines.join('\n');
+}
+async function sendToTelegram(app){
+  if(TELEGRAM_CONFIG.BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE' || !TELEGRAM_CONFIG.BOT_TOKEN) return {ok:false, reason:'not-configured'};
+  const base = `https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}`;
+  try{
+    // (2026-08-26) fetch لا يرمي على أخطاء HTTP ⇒ كان يُرجع ok:true حتى مع 401/400
+    //   (توكن خاطئ · chat_id غلط) فيظن النظام أن الطلب وصل وهو لم يصل.
+    const rMsg = await fetch(`${base}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: TELEGRAM_CONFIG.CHAT_ID, text: buildTelegramText(app), parse_mode:'HTML'})
+    });
+    if(!rMsg.ok){
+      const txt = await rMsg.text().catch(()=> '');
+      console.warn('[GMT] رفض تيليجرام رسالة الطلب:', rMsg.status, txt);
+      return {ok:false, reason:`HTTP ${rMsg.status}`};
+    }
+    if(app.cv && app.cv.base64){
+      const blob = base64ToBlob(app.cv.base64, app.cv.type);
+      const form = new FormData();
+      form.append('chat_id', TELEGRAM_CONFIG.CHAT_ID);
+      form.append('document', blob, app.cv.name);
+      form.append('caption', `السيرة الذاتية — ${app.name} — ${app.reqId}`);
+      const rDoc = await fetch(`${base}/sendDocument`, {method:'POST', body: form});
+      // وصلت بيانات الطلب أصلاً؛ فشل المرفق وحده لا يُسقط الطلب لكنه يُسجَّل
+      if(!rDoc.ok) console.warn('[GMT] وصل الطلب لكن تعذّر إرسال السيرة الذاتية:', rDoc.status);
+    }
+    /* (٨ ث — تدقيق المطابقة) «الصورة الشخصيّة لا تصل الإدارة» — كانت السيرة وحدها تُرسَل. الآن الصورة أيضاً. */
+    const _ph = app.answers && app.answers.photo;
+    if(_ph && _ph.base64){
+      try {
+        const form = new FormData();
+        form.append('chat_id', TELEGRAM_CONFIG.CHAT_ID);
+        form.append('photo', base64ToBlob(_ph.base64, _ph.type || 'image/jpeg'), _ph.name || 'photo.jpg');
+        form.append('caption', `الصورة الشخصية — ${app.name} — ${app.reqId}`);
+        const rPh = await fetch(`${base}/sendPhoto`, {method:'POST', body: form});
+        if(!rPh.ok) console.warn('[GMT] وصل الطلب لكن تعذّر إرسال الصورة الشخصية:', rPh.status);
+      } catch (_) {}
+    }
+    return {ok:true};
+  }catch(e){
+    return {ok:false, reason:e.message};
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🗄️ حفظ طلب التوظيف في القاعدة — (2026-09-26 · طلب المالك)
+   ─────────────────────────────────────────────────────────────────────────
+   العطل الجذري: الطلبات كانت تُحفظ في **localStorage فقط**، أي على متصفّح
+   **المتقدّم نفسه** — فلا تصل الشركة إطلاقاً. والمفتاح `cgmt_admin_applications`
+   لا تقرؤه أي صفحة في النظام: سجلّ يُكتب ولا يُقرأ أبداً. الطريق الوحيد كان
+   تيليجرام، وإن فشل ضاع الطلب نهائياً.
+
+   الآن: القاعدة أوّلاً (gmt_job_applications · ملف SQL الأساس (SQL/أرشيف_SQL.html))، وlocalStorage وتيليجرام
+   يبقيان **احتياطاً** لا مصدراً. السيرة الذاتية لا تُخزَّن في الصفّ (تُضخّم الجدول
+   وتُبطئ كل استعلام) — تبقى نسختها الكاملة في تيليجرام ويُحفظ وصفها فقط.
+   ══════════════════════════════════════════════════════════════════════════ */
+async function saveApplicationToDB(app) {
+  try {
+    const db = (window.GMT_DB && GMT_DB.MAIN) || null;
+    if (!db || !db.url || !db.key) return { ok:false, reason:'no-config' };
+    const cv = app.cv || {};
+    const row = {
+      req_id      : app.reqId,
+      submitted_at: app.submittedAt,
+      status      : app.status || 'جديد',
+      name        : app.name || null,
+      age         : String(app.age || '') || null,
+      gender      : app.gender || null,
+      governorate : app.governorate || null,
+      city        : app.city || null,
+      phone       : app.phone || null,
+      email       : app.email || null,
+      referral    : app.referral || null,
+      final_score : (typeof app.finalScore === 'number' ? app.finalScore : null),
+      scores      : app.scores || null,
+      answers     : app.answers || null,
+      has_cv      : !!app.hasCv,
+      cv_name     : cv.name || null,
+      cv_type     : cv.type || null,
+      cv_size     : (typeof cv.size === 'number' ? cv.size : null),
+      cv_note     : app.hasCv ? 'النسخة الكاملة في تيليجرام' : null
+    };
+    const r = await fetch(db.url + '/rest/v1/gmt_job_applications', {
+      method : 'POST',
+      headers: { apikey: db.key, Authorization: 'Bearer ' + db.key,
+                 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body   : JSON.stringify(row)
+    });
+    if (r.ok) return { ok:true };
+    /* 409 = req_id مكرّر ⇒ الطلب مسجَّل أصلاً، وهذا **نجاح** لا فشل */
+    if (r.status === 409) return { ok:true, duplicate:true };
+    const txt = await r.text().catch(() => '');
+    console.warn('[GMT] فشل حفظ طلب التوظيف في القاعدة:', r.status, txt.slice(0,200));
+    return { ok:false, reason:'http-' + r.status };
+  } catch (e) {
+    console.warn('[GMT] تعذّر الاتصال بالقاعدة لحفظ الطلب:', e && e.message);
+    return { ok:false, reason:'network' };
+  }
+}
+
+/* ── local admin log (shared localStorage with admin.html) ── */
+function saveApplicationLocally(app){
+  // (2026-08-26) [P14] كان الفشل صامتاً ⇒ لو امتلأت الذاكرة يضيع الطلب بلا أثر،
+  //   وهو شبكة الأمان الوحيدة إن تعذّر الإرسال. الآن يُبلَّغ ويُعاد الناتج للمُنادي.
+  try{
+    const key = 'cgmt_admin_applications';
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    list.unshift(app);
+    localStorage.setItem(key, JSON.stringify(list));
+    return true;
+  }catch(e){
+    console.warn('[GMT] تعذّر حفظ الطلب محلياً:', e);
+    try{
+      // محاولة أخيرة: احفظ الطلب بلا السيرة الذاتية (أكبر جزء) كي لا يضيع كلياً
+      const key = 'cgmt_admin_applications';
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      const light = Object.assign({}, app, { cv: null, hasCv: app.hasCv, cvDropped: true });
+      list.unshift(light);
+      localStorage.setItem(key, JSON.stringify(list));
+      console.warn('[GMT] حُفظ الطلب بلا السيرة الذاتية (ذاكرة ممتلئة).');
+      return true;
+    }catch(e2){ console.error('[GMT] فشل الحفظ المحلي نهائياً:', e2); return false; }
+  }
+}
+
+/* ── achievement badges ──────────────────────────────────── */
+function computeBadges(scores){
+  const badges = [];
+  if(scores.computer >= 80) badges.push({icon:'ph-laptop', label:'متمكّن من الحاسوب'});
+  if(scores.social >= 75) badges.push({icon:'ph-share-network', label:'خبير سوشيال ميديا'});
+  if(scores.sales >= 80) badges.push({icon:'ph-trend-up', label:'نجم مبيعات'});
+  if(scores.commitment >= 85) badges.push({icon:'ph-shield-check', label:'التزام كامل'});
+  if(scores.comm >= 80) badges.push({icon:'ph-chats-circle', label:'تواصل ممتاز'});
+  if(scores.confidence >= 80) badges.push({icon:'ph-sparkle', label:'ثقة عالية'});
+  return badges;
+}
+
+/* ── final submission ────────────────────────────────────── */
+let _hiringSubmitting = false;   // 🔒 (2026-08-26) يمنع إرسال الطلب مرّتين بضغطتين
+async function submitApplication(){
+  if(_hiringSubmitting) return;
+  _hiringSubmitting = true;
+  const _sBtn = document.querySelector('#submitFinalBtn');
+  const _sTxt = _sBtn ? _sBtn.innerHTML : '';
+  if(_sBtn){ _sBtn.disabled = true; _sBtn.innerHTML = 'جارٍ الإرسال…'; }
+  try{
+  const id = 'CGMT-' + new Date().getFullYear() + '-' + Math.floor(100000 + Math.random()*900000);
+  $('#reqIdValue').textContent = id;
+  // (2026-08-26) شاشة النجاح تُعرض **بعد** التأكّد من وصول الطلب — كانت تُعرض قبل المحاولة.
+
+  const scores = computeScores();
+  const finalScore = computeFinalScore(scores);
+  const app = {
+    reqId: id,
+    submittedAt: new Date().toISOString(),
+    status: 'جديد',
+    name: answers.name?.value || '',
+    age: answers.age?.value || '',
+    gender: answers.gender || '',
+    governorate: answers.location?.gov || '',
+    city: answers.location?.city || '',
+    phone: answers.contact?.phone || '',
+    email: answers.contact?.email || '',
+    referral: (answers.referral?.choice === 'أخرى' ? answers.referral?.other : answers.referral?.choice) || '',
+    scores, finalScore,
+    hasCv: !!(answers.resume && answers.resume.base64),
+    cv: answers.resume || null,
+    answers: JSON.parse(JSON.stringify(answers)),
+  };
+
+  const savedLocally = saveApplicationLocally(app);      // احتياطي فوري على الجهاز
+  const dbRes  = await saveApplicationToDB(app);         // ⬅ المصدر الحقيقي
+  const result = await sendToTelegram(app);              // إشعار + نسخة السيرة الذاتية
+  if(!result.ok && result.reason === 'not-configured'){
+    console.info('Telegram غير مُفعّل بعد — أضف BOT_TOKEN و CHAT_ID في أعلى الملف لتفعيل الإرسال الفوري.');
+  } else if(!result.ok){
+    console.warn('[GMT] فشل إرسال الطلب إلى تيليجرام:', result.reason);
+  }
+  // (2026-08-26) لا رسالة نجاح مع إخفاق كامل: إن لم يصل الطلب تيليجرام **ولم** يُحفظ محلياً
+  //   فهو ضائع فعلياً — لا يجوز أن يطمئنّ المتقدّم وهو فاقد لطلبه.
+  /* الطلب ضائع فقط إذا فشلت الطرق الثلاث جميعاً */
+  if(!result.ok && !savedLocally && !dbRes.ok){
+    const wa = (typeof CONTACT_WHATSAPP !== 'undefined' && CONTACT_WHATSAPP) ? CONTACT_WHATSAPP : '';
+    alert('⚠️ تعذّر إرسال طلبك بسبب مشكلة في الاتصال، ولم نتمكّن من حفظه على جهازك.\n\n' +
+          'لم يصل الطلب إلينا — لا تُغلق الصفحة.\n' +
+          'تأكّد من الإنترنت وأعد المحاولة' + (wa ? '، أو تواصل معنا على واتساب: ' + wa : '، أو تواصل معنا مباشرةً') + '.');
+    return;   // لا تُعرض شاشة النجاح ولا يُمسح التقدّم
+  }
+
+  // وصل الطلب (تيليجرام و/أو حُفظ محلياً) ⇒ أظهر النجاح الآن
+  $('#results').classList.remove('active');
+  $('#successOverlay').classList.add('active');
+  launchConfetti();
+  if(!result.ok){
+    console.warn('[GMT] لم يصل تيليجرام — الطلب محفوظ محلياً بانتظار المتابعة:', id);
+  }
+  clearProgress();
+  } finally {
+    _hiringSubmitting = false;
+    if(_sBtn){ _sBtn.disabled = false; _sBtn.innerHTML = _sTxt; }
+  }
+}
+
+/* ── confetti ─────────────────────────────────────────────── */
+function launchConfetti(){
+  const canvas = $('#confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ['#D5001C','#8A0C22','#F3F4F6','#b45309'];
+  const pieces = Array.from({length:120}).map(() => ({
+    x: Math.random()*canvas.width,
+    y: -20 - Math.random()*canvas.height*0.5,
+    r: 4 + Math.random()*5,
+    c: colors[Math.floor(Math.random()*colors.length)],
+    vy: 2 + Math.random()*3,
+    vx: -1.5 + Math.random()*3,
+    rot: Math.random()*360,
+    vrot: -6 + Math.random()*12,
+  }));
+  let frame = 0;
+  function draw(){
+    frame++;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI/180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*0.6);
+      ctx.restore();
+    });
+    if(frame < 210) requestAnimationFrame(draw);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  draw();
+}
+
+/* ── FAQ accordion ───────────────────────────────────────── */
+function renderFAQ(){
+  const list = $('#faqList');
+  list.innerHTML = FAQS.map((f,i) => `
+    <div class="faq-item" id="faq-${i}">
+      <div class="faq-q">${f.q} <i class="ph-bold ph-plus"></i></div>
+      <div class="faq-a"><p>${f.a}</p></div>
+    </div>`).join('');
+  FAQS.forEach((_,i) => {
+    const item = document.getElementById(`faq-${i}`);
+    item.querySelector('.faq-q').addEventListener('click', () => {
+      const wasOpen = item.classList.contains('open');
+      list.querySelectorAll('.faq-item').forEach(el => {
+        el.classList.remove('open');
+        el.querySelector('.faq-a').style.maxHeight = null;
+      });
+      if(!wasOpen){
+        item.classList.add('open');
+        const a = item.querySelector('.faq-a');
+        a.style.maxHeight = a.scrollHeight + 'px';
+      }
+    });
+  });
+}
+
+/* ── stats count-up on scroll ────────────────────────────── */
+function initStatsCountUp(){
+  const stats = document.querySelectorAll('.stat strong');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        const el = entry.target;
+        const target = parseInt(el.dataset.count, 10);
+        const suffix = el.dataset.suffix || '';
+        animateStatCount(el, target, suffix);
+        observer.unobserve(el);
+      }
+    });
+  }, {threshold:0.5});
+  stats.forEach(el => observer.observe(el));
+}
+function animateStatCount(el, target, suffix){
+  const start = performance.now();
+  const duration = 1300;
+  function tick(now){
+    const p = Math.min(1, (now-start)/duration);
+    const val = Math.round(target * p);
+    el.textContent = toArabicDigits(val) + (suffix ? suffix : (target>=100?'+':'+'));
+    if(p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── theme toggle ─────────────────────────────────────────── */
+/* البوابة تعتمد الهوية البصرية البيضاء الثابتة فقط — لا يوجد وضع ليلي */
+
+/* ── intro loader ─────────────────────────────────────────── */
+function hideIntro(){
+  const intro = $('#intro-screen');
+  setTimeout(() => {
+    intro.classList.add('hide');
+    setTimeout(() => intro.remove(), 800);
+  }, 2800);
+}
+
+/* ── init ─────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderFAQ();
+  initStatsCountUp();
+  hideIntro();
+  /* بلا رقمٍ صالح لا يُعرض الزرّ — أفضل من زرٍّ يفتح محادثةً مع مجهول */
+  var _waFloat = $('#whatsappFloat');
+  if (_waFloat) {
+    if (WHATSAPP_NUMBER) {
+      _waFloat.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('مرحبًا، أرغب بالاستفسار عن التوظيف في Canon General Media Tech')}`;
+    } else {
+      _waFloat.style.display = 'none';
+    }
+  }
+
+  $('#startBtn').addEventListener('click', openWizard);
+  $('#startBtn2').addEventListener('click', openWizard);
+  $('#wizardClose').addEventListener('click', () => {
+    saveProgress();
+    closeWizard();
+  });
+  prevBtn.addEventListener('click', goPrev);
+  nextBtn.addEventListener('click', goNext);
+  $('#submitFinalBtn').addEventListener('click', submitApplication);
+  $('#backHomeBtn').addEventListener('click', () => {
+    $('#successOverlay').classList.remove('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+    // reset state for a new application
+    Object.keys(answers).forEach(k => delete answers[k]);
+    current = 0;
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if(!wizard.classList.contains('active')) return;
+    if(e.key === 'Enter' && document.activeElement.tagName !== 'TEXTAREA'){ e.preventDefault(); goNext(); }
+    if(e.key === 'Escape'){ saveProgress(); closeWizard(); }
+  });
+});
+
+</script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-selfcheck.js?v=20261010b"></script>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+<script src="gmt-endpoint.js?v=20261010b"></script>
+
+<script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
+   يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
+(function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('store');}catch(e){}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(go,420);});else setTimeout(go,420);})();</script>
+
+<script>/* ══ عدّادُ الأرقام المتحرّكة — طلبك: «هذول لازم الأرقام تتصفّر وتتحرّك
+   وتنكتب عند الفتح» ══
+   كانت السماتُ data-count مكتوبةً في الصفحة منذ جلسةٍ سابقة **بلا أيّ كود
+   يُحرّكها**: فظلّت الأرقامُ أصفاراً عربيّةً ثابتةً إلى الأبد — ميزةٌ معلنةٌ
+   وغيرُ موجودة. هذا محرّكُها.
+   • يبدأ حين يدخل الرقمُ الشاشةَ فعلاً، لا عند التحميل — وإلّا انتهى العدُّ
+     قبل أن يصل القارئُ إليه.
+   • منحنى تباطؤٍ (easeOutCubic) كي ينتهي العدُّ بهدوءٍ لا بقطعٍ مفاجئ.
+   • صوتُ «تِك» خافتٌ مع التصاعد — طلبُك «صوت عدّادات مع الأرقام اللي بتتحرّك»
+     — ومرّاتُه محدودةٌ كي لا يصير أزيزاً.
+   • من اختار «تقليل الحركة» يرى الرقمَ النهائيّ فوراً بلا عدٍّ ولا صوت. */
+(function(){
+  function arabic(n){ return String(n).replace(/[0-9]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'[+d];}); }
+  var reduce=false; try{ reduce=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  function run(el){
+    if(el.dataset.counted) return; el.dataset.counted='1';
+    var to=parseInt(el.getAttribute('data-count'),10)||0;
+    var suf=el.getAttribute('data-suffix')||'';
+    if(reduce){ el.textContent=arabic(to)+suf; return; }
+    var dur=1500, t0=performance.now(), beeps=0, lastBeep=0;
+    function tick(now){
+      var p=Math.min(1,(now-t0)/dur);
+      var e=1-Math.pow(1-p,3);
+      var v=Math.round(to*e);
+      el.textContent=arabic(v)+suf;
+      if(now-lastBeep>95 && beeps<12 && p<0.96){
+        lastBeep=now; beeps++;
+        try{ window.GMTSound && GMTSound.play('tick'); }catch(_){}
+      }
+      if(p<1) requestAnimationFrame(tick);
+      else { try{ window.GMTSound && GMTSound.play('pop'); }catch(_){} }
+    }
+    requestAnimationFrame(tick);
+  }
+  function boot(){
+    var els=[].slice.call(document.querySelectorAll('[data-count]'));
+    if(!els.length) return;
+    if(!('IntersectionObserver' in window)){ els.forEach(run); return; }
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(x){ if(x.isIntersecting){ run(x.target); io.unobserve(x.target); } });
+    },{threshold:.35});
+    els.forEach(function(el){ io.observe(el); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();</script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+</body>
+</html>

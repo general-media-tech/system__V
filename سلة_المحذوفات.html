@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>سلّة المحذوفات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261005r"></script>
+<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261003"></script>
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-ask.js?v=20261010b"></script>
+<!-- ══ (2026-10-05 ر) البند ١٦: «سلّة محذوفات للمشروع كلّه قابلة للاسترجاع أو الحذف النهائي».
+     كل حذفٍ في أيّ صفحةٍ داخليّة يُنسخ إلى gmt_trash قبل تنفيذه (gmt-account.js). هنا تسترجعه كما كان،
+     أو تحذفه نهائياً. يحتاج SQL ٢٧. للإدارة وحدها (حارس الصفحات). ══ -->
+<style>
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:#0f1219;font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
+.wrap{max-width:980px;margin:0 auto;padding:18px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.top h1{margin:0;font-size:20px;flex:1}
+.card{background:#fff;border:1px solid rgba(15,18,25,.08);border-radius:22px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.in{border:1px solid rgba(15,18,25,.1);border-radius:12px;padding:9px 12px;font:inherit;background:#fff}
+.btn{border:1px solid rgba(15,18,25,.1);background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-weight:700;cursor:pointer;color:inherit;text-decoration:none}
+.btn.p{background:#D5001C;border-color:#D5001C;color:#fff}.btn.ok{background:#15803d;border-color:#15803d;color:#fff}
+.it{border-top:1px solid rgba(15,18,25,.07);padding:12px 2px}
+.it:first-child{border-top:0}
+.chip{display:inline-block;font-size:11.5px;font-weight:800;padding:1px 9px;border-radius:99px;background:#eef0f3;color:#475569}
+.mu{color:#5b6472;font-size:12.5px}
+pre{white-space:pre-wrap;word-break:break-all;background:#f8fafc;border-radius:12px;padding:10px;font-size:11.5px;max-height:260px;overflow:auto;direction:ltr;text-align:left}
+.empty{text-align:center;color:#5b6472;padding:28px}
+.warn{padding:12px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>🗑 سلّة المحذوفات</h1>
+    <select id="f-tbl" class="in"><option value="">كل الأنواع</option></select>
+    <input id="f-q" class="in" placeholder="بحث بالاسم أو الرقم" style="min-width:200px">
+    <button class="btn" id="reload">تحديث</button></div>
+  <div id="box" class="card"><div class="empty">جارٍ التحميل…</div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var NAMES = { gmt_orders: 'أوردر', invoices: 'فاتورة', invoice_items: 'بند فاتورة', gmt_customers: 'زبون', products: 'منتج',
+    gmt_expenses: 'مصروف', branch_stock_transfers: 'فاتورة نقل', stock_transfer_items: 'بند نقل', gmt_users: 'مستخدم',
+    warranties: 'كفالة', coupons: 'كوبون', offers: 'عرض', branch_transfers: 'ترحيل صندوق', invoice_commissions: 'عمولة' };
+  var $ = function (id) { return document.getElementById(id); };
+  var rows = [];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function main() { return (window.GMT_DB && GMT_DB.MAIN) || null; }
+  function dbOf(name) { return (window.GMT_DB && GMT_DB[name]) || main(); }
+  function H(d, extra) { return Object.assign({ apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, extra || {}); }
+  async function load() {
+    var d = main(); if (!d) { $('box').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
+    $('box').innerHTML = '<div class="empty">جارٍ التحميل…</div>';
+    var r;
+    try { r = await fetch(d.url + '/rest/v1/gmt_trash?select=*&restored_at=is.null&order=deleted_at.desc&limit=500', { headers: H(d) }); }
+    catch (e) { $('box').innerHTML = '<div class="warn">لا اتصال بالقاعدة الآن — أعد المحاولة بزرّ «تحديث».</div>'; return; }
+    if (!r.ok) { $('box').innerHTML = '<div class="warn">السلّة غير مفعّلة بعد — شغّل ملف <b>SQL ٢٧</b> (سلة المحذوفات). حتى ذلك الحين يبقى الحذف نهائياً كما كان.</div>'; return; }
+    rows = await r.json();
+    var tbls = {}; rows.forEach(function (x) { tbls[x.tbl] = 1; });
+    $('f-tbl').innerHTML = '<option value="">كل الأنواع (' + rows.length + ')</option>' + Object.keys(tbls).map(function (t) { return '<option value="' + esc(t) + '">' + esc(NAMES[t] || t) + '</option>'; }).join('');
+    paint();
+  }
+  function paint() {
+    var t = $('f-tbl').value, q = $('f-q').value.trim().toLowerCase();
+    var list = rows.filter(function (x) { return (!t || x.tbl === t) && (!q || (String(x.label) + ' ' + x.row_id + ' ' + JSON.stringify(x.data)).toLowerCase().indexOf(q) >= 0); });
+    if (!list.length) { $('box').innerHTML = '<div class="empty">السلّة فارغة' + (t || q ? ' لهذا البحث' : '') + '.</div>'; return; }
+    $('box').innerHTML = list.map(function (x) {
+      return '<div class="it" data-id="' + x.id + '"><div class="row"><span class="chip">' + esc(NAMES[x.tbl] || x.tbl) + '</span><b style="flex:1">' + esc(x.label || x.row_id) + '</b>' +
+        '<button class="btn ok" data-a="restore">↺ استرجاع</button><button class="btn" data-a="show">التفاصيل</button><button class="btn" data-a="purge" style="color:#b91c1c">حذف نهائي</button></div>' +
+        '<div class="mu">حذفه: ' + esc(x.deleted_by || '—') + ' · من ' + esc(x.page || '—') + ' · ' + new Date(x.deleted_at).toLocaleString('ar-SY') + (x.db && x.db !== 'MAIN' ? ' · قاعدة ' + esc(x.db) : '') + '</div>' +
+        '<pre hidden>' + esc(JSON.stringify(x.data, null, 2)) + '</pre></div>';
+    }).join('');
+  }
+  $('box').addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-a]'); if (!b) return;
+    var it = b.closest('[data-id]'), id = +it.getAttribute('data-id'), x = rows.find(function (r) { return r.id === id; }); if (!x) return;
+    var a = b.getAttribute('data-a'), d = main();
+    if (a === 'show') { var pr = it.querySelector('pre'); pr.hidden = !pr.hidden; return; }
+    if (a === 'restore') {
+      if (!(await GMTAsk.confirm('استرجاع «' + (x.label || x.row_id) + '» كما كان قبل الحذف؟', { title: 'استرجاع', okText: 'استرجاع' }))) return;
+      var tdb = dbOf(x.db || 'MAIN');
+      var r = await fetch(tdb.url + '/rest/v1/' + x.tbl, { method: 'POST', headers: H(tdb, { Prefer: 'return=minimal' }), body: JSON.stringify(x.data) });
+      if (!r.ok) { var t = ''; try { t = (await r.json()).message || ''; } catch (_) {} GMTAsk.alert(r.status === 409 ? 'موجودٌ أصلاً بنفس الرقم — لم يُسترجَع شيء.' : 'تعذّر الاسترجاع: ' + (t || r.status)); return; }
+      await fetch(d.url + '/rest/v1/gmt_trash?id=eq.' + id, { method: 'PATCH', headers: H(d, { Prefer: 'return=minimal' }), body: JSON.stringify({ restored_at: new Date().toISOString() }) });
+      rows = rows.filter(function (r2) { return r2.id !== id; }); paint(); return;
+    }
+    if (a === 'purge') {
+      if (!(await GMTAsk.confirm('حذفٌ نهائيّ لا رجعة فيه لـ«' + (x.label || x.row_id) + '»؟', { title: 'حذف نهائي', okText: 'احذف نهائياً', danger: true }))) return;
+      var r3 = await fetch(d.url + '/rest/v1/gmt_trash?id=eq.' + id, { method: 'DELETE', headers: H(d, { Prefer: 'return=minimal' }) });
+      if (r3.ok) { rows = rows.filter(function (r2) { return r2.id !== id; }); paint(); } else GMTAsk.alert('تعذّر الحذف');
+    }
+  });
+  $('f-tbl').onchange = paint; $('f-q').oninput = paint; $('reload').onclick = load;
+  load().catch(function () { $('box').innerHTML = '<div class="warn">تعذّر التحميل — أعد المحاولة.</div>'; });
+})();
+</script>
+<!-- (2026-10-05 ش) وثيقة التصميم ٢٠–٢١: «لا أزرار عائمة في كل السيستم» — الحارس على كل صفحةٍ داخليّة -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

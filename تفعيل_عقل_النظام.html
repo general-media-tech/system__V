@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
+   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
+window.GMT_INTERNAL = 1;</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تفعيل عقل النظام</title>
+<style>
+  :root{
+    --red:#D5001C; --ink:#111827; --mut:#5b6472; --line:#E9ECF1; --bg:#F7F8FA; --card:#FFFFFF;
+    --warn:#B45309; --warnbg:#FFFBEB; --okbg:#ECFDF5; --ok:#047857; --codebg:#0F172A; --codefg:#E2E8F0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+      --warnbg:#2A2210; --okbg:#0C2B22;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
+    --warnbg:#2A2210; --okbg:#0C2B22;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Cairo","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+       line-height:1.85;padding:24px 16px 60px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px;margin-bottom:18px}
+  h1{font-size:22px;font-weight:900;color:var(--red)}
+  header p{font-size:13px;color:var(--mut);font-weight:700;margin-top:6px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:16px}
+  h2{font-size:16.5px;font-weight:900;margin-bottom:10px}
+  h3{font-size:13.5px;font-weight:900;margin:16px 0 6px;color:var(--red)}
+  p,li,td{font-size:13.5px;font-weight:600}
+  ul,ol{padding-right:20px} li{margin-bottom:6px}
+  .warn{background:var(--warnbg);border:1.5px solid #FDE68A;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .warn b{color:var(--warn)}
+  .ok{background:var(--okbg);border:1.5px solid #A7F3D0;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .tw{overflow-x:auto;max-width:100%}
+  .tw table{min-width:480px}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+  th{background:var(--ink);color:var(--bg);padding:9px 10px;font-weight:800;text-align:right;font-size:11.5px}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);font-weight:700;vertical-align:top}
+  code{font-family:ui-monospace,monospace;background:rgba(127,127,127,.15);border-radius:5px;padding:1px 6px;font-size:12px}
+  pre{background:var(--codebg);color:var(--codefg);border-radius:12px;padding:14px 16px;overflow-x:auto;
+      direction:ltr;text-align:left;font-size:12px;line-height:1.75;margin:8px 0}
+  pre code{background:none;padding:0;color:inherit;font-size:12px}
+  .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+  .step .num{width:26px;height:26px;border-radius:9px;background:var(--red);color:#fff;font-weight:900;
+             font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px}
+  .step .bd{flex:1;min-width:0}
+  footer{text-align:center;font-size:11.5px;color:var(--mut);font-weight:700;margin-top:24px}
+  @media(max-width:520px){ body{padding:16px 16px 50px} h1{font-size:19px} table{font-size:11.5px} }
+</style>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-notify.js?v=20261010b" defer></script>
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+<!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>🧠 تفعيل «عقل النظام»</h1>
+  <p>مساعد ذكي <b>داخلي</b> للموظفين والإدارة — ليس للزبائن · آخر تحديث 2026-09-26</p>
+</header>
+
+<div class="ok">
+  <b>الخلاصة بسطر:</b> العقل موجود في الكود وجاهز، لكنه <b>لا يعمل حتى تنشر «الوسيط»</b> — خادم صغير
+  يحتفظ بمفتاح الذكاء الاصطناعي بعيداً عن المتصفّح. التفعيل مرّة واحدة، حوالي <b>10 دقائق</b>.
+</div>
+
+<div class="warn">
+  <b>ليش في وسيط أصلاً؟</b> مفتاح الذكاء الاصطناعي = مفتاح دفع. لو حطّيناه في الكود المنشور،
+  أي شخص يفتح <code>F12</code> يقدر ياخذه ويستعمله <b>على حسابك</b>. الوسيط يخلّي المفتاح على الخادم،
+  والمتصفّح يكلّم الوسيط فقط.
+</div>
+
+<div class="box">
+  <h2>شو بيعمل العقل؟</h2>
+  <table>
+    <thead><tr><th>الوظيفة</th><th>مثال</th></tr></thead>
+    <tbody>
+      <tr><td><b>تفسير الأخطاء</b></td><td>«شو يعني هالخطأ؟» ⇒ معناه · هل هو خطير · أثره على الفلوس والمخزون · الحلّ</td></tr>
+      <tr><td><b>تعليم الاستخدام</b></td><td>موظّف جديد: «كيف أنقل بضاعة بين فرعين؟» ⇒ شرح خطوة بخطوة من دليل الصفحة</td></tr>
+      <tr><td><b>ترشيح للمبيعات</b></td><td>«زبون بدّو راس إضاءة 100 وات» ⇒ 2–4 خيارات من بضاعتك بأسعارها + رسالة جاهزة للزبون</td></tr>
+      <tr><td><b>🩺 تقرير صحّة يومي</b></td><td>يفحص بصمت مرّة يومياً، وإذا لقي مشاكل يبعتلك تقريراً على تيليجرام. <b>وإذا النظام سليم ما بيبعت شي.</b></td></tr>
+      <tr><td><b>📍 شبكة المكاتب</b></td><td>يعرف الـ166 مكتباً للشركات الخمس — «من وين يستلم زبون من جرمانا؟»</td></tr>
+    </tbody>
+  </table>
+  <h3>من وين بيعرف؟ ما في شي مخترع</h3>
+  <p>كل جواب يُبنى من سياق يُجمَع <b>لحظياً من نظامك</b>: قواعد المالك · دليل الصفحة · بلاغات الأخطاء ·
+     نتائج الفحص الذاتي · ومن قواعدك (قراءة فقط، وما يلزم السؤال فقط لا القاعدة كاملة):
+     المنتجات والمخزون · كتالوج المتجر · <code>gmt_orders</code> · التقفيلات اليومية · <b>مكاتب الشحن</b>.</p>
+  <p style="margin-top:8px"><b>نطاقه مقفل:</b> سؤال خارج النظام (طقس · أخبار · برمجة عامة) ⇒ «هاد خارج نطاقي».
+     ومعلومة غير موجودة ⇒ «ما لقيتها بالسياق» + وين تلاقيها. <b>ما بيخمّن رقماً أبداً</b>، والأرقام تُنسخ كما هي.</p>
+</div>
+
+<div class="box">
+  <h2>⚙️ خطوات التفعيل</h2>
+
+  <div class="step"><span class="num">1</span><div class="bd">
+    <b>اختر المزوّد واحصل على مفتاح</b>
+    <table>
+      <thead><tr><th>المزوّد</th><th>التكلفة</th><th>متى تختاره</th></tr></thead>
+      <tbody>
+        <tr><td><b>Gemini</b> (جوجل)</td><td><b>مجاني</b> · ~500 طلب/يوم · بلا بطاقة</td><td><b>ابدأ منه</b> — يكفي حاجتك (10–20 سؤال يومياً) بفارق كبير</td></tr>
+        <tr><td><b>Claude</b> (Anthropic)</td><td>بالاستهلاك · $3–10/شهر واقعياً</td><td>أدقّ بالعربي والتحليل — انتقل له إن لزم</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:8px">Gemini: <code>aistudio.google.com</code> ← Get API key &nbsp;·&nbsp;
+       Claude: <code>console.anthropic.com</code> ← API Keys</p>
+    <p style="margin-top:6px;color:var(--warn);font-weight:800">❌ اشتراك claude.ai (Pro/Max) <b>لا يعمل هنا</b> — هو لواجهة المحادثة فقط ولا يعطي وصول API.</p>
+  </div></div>
+
+  <div class="step"><span class="num">2</span><div class="bd">
+    <b>انشر الوسيط</b> — الملف جاهز في الحزمة: <code>_edge_function_gmt-brain.ts</code>
+<pre><code>npm i -g supabase
+supabase login
+supabase link --project-ref ysawzwtmodkqqbqoiojj
+
+mkdir -p supabase/functions/gmt-brain
+cp _edge_function_gmt-brain.ts supabase/functions/gmt-brain/index.ts
+
+# اختر واحداً فقط — المفتاح يبقى بالخادم ولا يصل المتصفّح أبداً:
+supabase secrets set GEMINI_API_KEY=AIza...
+# supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# supabase secrets set AI_PROVIDER=anthropic
+
+supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
+  </div></div>
+
+  <div class="step"><span class="num">3</span><div class="bd">
+    <b>اضبط النطاق المسموح</b> — افتح <code>index.ts</code> وعدّل <code>ALLOWED_ORIGINS</code> ليطابق نطاق موقعك،
+    <b>واحذف <code>localhost</code></b> بعد ما تخلّص التجربة. هذا يمنع استعمال رابطك من خارج موقعك.
+  </div></div>
+
+  <div class="step"><span class="num">4</span><div class="bd">
+    <b>اربطه بالنظام</b> — افتح أي صفحة داخلية (الأوردرات مثلاً) ← اضغط زرّ <b>🧠 عقل النظام</b> في الشريط العلوي
+    ← «أدخل رابط الوسيط» ← الصق:
+<pre><code>https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-brain</code></pre>
+    <p style="margin-top:4px">يُحفظ محلياً <b>لكل جهاز</b> — اضبطه مرّة على كل جهاز يستعمله الموظفون.</p>
+  </div></div>
+
+  <div class="step"><span class="num">5</span><div class="bd">
+    <b>جرّبه</b> — اسأله: «شو فيه أخطاء هلّق؟» أو «رشّحلي عدسة لزبون بدّو تصوير بورتريه».
+    إذا جاوب من بضاعتك ⇒ تمّ التفعيل ✅
+  </div></div>
+</div>
+
+<div class="box">
+  <h2>💰 التكلفة الحقيقية</h2>
+  <p>السؤال الواحد ≈ 7000 رمز إدخال (التعليمات + السياق + بياناتك) + 300 رمز إخراج:</p>
+  <table>
+    <thead><tr><th>النموذج</th><th>السؤال</th><th>10/يوم</th><th>20/يوم</th><th>50/يوم</th></tr></thead>
+    <tbody>
+      <tr><td><b>Gemini Flash-Lite</b></td><td><b>مجاني</b></td><td>$0</td><td>$0</td><td>$0</td></tr>
+      <tr><td>Claude Sonnet (أدقّ)</td><td>1.7 سنت</td><td>$5/شهر</td><td>$10/شهر</td><td>$26/شهر</td></tr>
+      <tr><td>Claude Haiku (أرخص)</td><td>0.85 سنت</td><td>$3/شهر</td><td>$5/شهر</td><td>$13/شهر</td></tr>
+    </tbody>
+  </table>
+  <h3>طرق التوفير</h3>
+  <ul>
+    <li><b>ابدأ بـGemini المجاني</b> — يكفي 10–20 سؤالاً يومياً بسهولة.</li>
+    <li>في الوسيط: غيّر <code>slice(0, 14000)</code> إلى <code>slice(0, 7000)</code> ⇒ توفير ~40% بتأثير بسيط.</li>
+    <li>الأسئلة القصيرة أرخص — السياق هو الجزء الأكبر من الكلفة، لا سؤالك.</li>
+  </ul>
+</div>
+
+<div class="box">
+  <h2>🎛️ الاستعمال</h2>
+  <table>
+    <thead><tr><th>الطريقة</th><th>ماذا تفعل</th></tr></thead>
+    <tbody>
+      <tr><td>زرّ <b>🧠 عقل النظام</b> في الشريط العلوي</td><td>يفتح المساعد مع أزرار سريعة</td></tr>
+      <tr><td><code>GMTBrain.explainErrors()</code></td><td>يفسّر كل أخطاء الجلسة فوراً</td></tr>
+      <tr><td><code>GMTBrain.configure()</code></td><td>إعادة ضبط رابط الوسيط</td></tr>
+      <tr><td><code>GMTBrain.context()</code></td><td>يعرض السياق الذي سيُرسَل — للاطمئنان قبل الإرسال</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="box">
+  <h2>⚠️ ما لا يفعله — بوعي</h2>
+  <ul>
+    <li><b>لا يُصلح بنفسه</b> — يشرح ويقترح فقط. أي تعديل مالي أو مخزوني يمرّ بك أنت. (نظام مالي: لا يُترك لبوت أن يغيّر أرقاماً.)</li>
+    <li><b>لا يخترع</b> — إن لم تكن المعلومة في السياق يقول «ما عندي هالمعلومة» ويدلّك أين تجدها.</li>
+    <li><b>لا يُحمَّل في صفحات الزبائن</b> — <code>store</code> · <code>site</code> · <code>track_order</code> · <code>hiring</code>. أدوات داخلية لا يراها الزبون.</li>
+    <li><b>لا يعطّل شيئاً قبل التفعيل</b> — بدون الوسيط يعرض رسالة التفعيل فقط والنظام يشتغل عادي.</li>
+  </ul>
+</div>
+
+<div class="warn">
+  <b>💡 لترفع جودة الترشيح:</b> العقل يبحث في <b>وصف المنتج</b> بالمتجر (<code>description</code>).
+  اكتب في وصف كل منتج مواصفاته الفعلية (الواط · المقاس · التوافق · نوع البطارية…) من <code>admin_store.html</code>.
+  استثمار لمرّة واحدة يرفع الدقّة كثيراً — والوصف نفسه يفيد الزبون في المتجر.
+</div>
+
+<div class="box">
+  <h2>🔀 وسيطان لا واحد — ولماذا</h2>
+  <p>صار عندنا <b>عقلان منفصلان تماماً</b>، ولا يجوز دمجهما:</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>🧠 عقل النظام</th><th>💬 مساعد المتجر</th></tr></thead>
+    <tbody>
+      <tr><td><b>لمن</b></td><td>الموظّفون والإدارة</td><td><b>الزبائن</b> — صفحة مفتوحة للعالم</td></tr>
+      <tr><td><b>الملفّ</b></td><td><code>_edge_function_gmt-brain.ts</code></td><td><code>_edge_function_gmt-shop.ts</code></td></tr>
+      <tr><td><b>يقرأ</b></td><td>قواعد النظام · الأخطاء · المخزون · الأدلّة</td><td><b>لا شيء داخلياً</b> — فقط ما هو معروض على المتجر</td></tr>
+      <tr><td><b>تعليمات الأسلوب</b></td><td>من الصفحة</td><td><b>في الخادم</b> — لا تُقبل من المتصفّح</td></tr>
+      <tr><td><b>حدّ استهلاك</b></td><td>لا (مستعملوه معروفون)</td><td><b>25 رسالة / 10 دقائق لكل زائر</b></td></tr>
+      <tr><td><b>يُنشَر بـ</b></td><td><code>supabase functions deploy gmt-brain</code></td><td><code>supabase functions deploy gmt-shop</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="warn" style="margin-top:12px">
+    <b>لماذا لا نستعمل وسيطاً واحداً؟</b> لأنّ تعليمات الأسلوب لو قُبلت من المتصفّح
+    لقدر أي زبون بفتح <code>F12</code> أن يستبدلها ويجعل «مساعد ميديا تيك» يقول ما يشاء —
+    <b>ويُنسب الكلام لنا</b>. هذا خطر سمعة لا خطر تقني. ولأنّ العقل الداخلي يقرأ
+    مخزوننا وأخطاءنا، ولا يجوز أن يُنادى من صفحة يفتحها أي أحد.
+  </div>
+</div>
+
+<div class="box">
+  <h2>💬 تشغيل مساعد المتجر — بعد العقل</h2>
+  <div class="step"><div class="num">1</div><div class="bd">
+    <b>شغّل <code>SQL 38</code> على قاعدة المتجر</b> (لا الرئيسية!) — جدولا
+    <code>shop_chats</code> و<code>shop_style</code>.
+    <div style="font-size:12px;color:var(--mut);font-weight:700">بدونه يكتب الزبون رقمه <b>ولا يصل أحداً</b>.</div>
+  </div></div>
+  <div class="step"><div class="num">2</div><div class="bd">
+    <b>انشر الوسيط:</b> ضع <code>_edge_function_gmt-shop.ts</code> في
+    <code>supabase/functions/gmt-shop/index.ts</code> ثمّ
+    <code>supabase functions deploy gmt-shop --no-verify-jwt</code>
+  </div></div>
+  <div class="step"><div class="num">3</div><div class="bd">
+    <b>ضع الرابط في <code>store.html</code>:</b> السطر <code>window.GMT_SHOP_ENDPOINT = ''</code> جاهز وفارغ.
+    <div style="font-size:12px;color:var(--mut);font-weight:700">قبل ذلك <b>لا يظهر زرّ المساعد إطلاقاً</b> — زرّ محادثة لا يردّ أسوأ من لا زرّ.</div>
+  </div></div>
+  <div class="step"><div class="num">4</div><div class="bd">
+    <b>راجع ما يقوله عنّا:</b> <code>window.GMT_SHOP_INFO</code> في نفس الصفحة.
+    لا تضع فيه شيئاً لا ترضى أن يقرأه أي زائر.
+  </div></div>
+  <div class="step"><div class="num">5</div><div class="bd">
+    <b>غذِّ أسلوبنا:</b> أضِف ردودك الحقيقية في <code>shop_style</code> (فيه ٦ أمثلة بذرة).
+    <div style="font-size:12px;color:var(--mut);font-weight:700">
+      ⚠️ هذا <b>ليس تدريباً</b> للنموذج — نحن لا نُدرّب شيئاً. هي أمثلة تُرسَل مع كل سؤال
+      ليحتذي بها. قيلت صريحةً كي لا تنتظر تحسّناً تلقائياً لا يحدث.</div>
+  </div></div>
+  <div class="ok" style="margin-top:12px">
+    <b>صندوق الوارد:</b> طلبات التواصل تصل جدول <code>shop_chats</code>.
+    القراءة منه <b>ممنوعة بمفتاح anon عن قصد</b> — لو فتحناها لقرأ أي زائر
+    <b>أرقام هواتف كل زبائنك وشكاواهم</b>. يُقرأ من صفحة داخلية بمفتاح مُصرَّح.
+  </div>
+</div>
+
+<footer>General Media Tech · Canon Authorized Dealer · وثيقة داخلية</footer>
+</div>
+<!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+     لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+<script src="gmt-whatsnew.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-intro.js?v=20261010b"></script>
+<!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
+     فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
+     وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+
+<!-- ══ (2026-10-05 ق) «خلّي يصير عنّا ٢٠ مفتاح API للعقل ونحن بنعبّيهم، وبيشتغلوا سوا واحد ورا واحد —
+     إذا خلص الحدّ اليومي للمجاني ياخذ غيره». المفاتيح **لا تُحفظ هنا ولا في القاعدة** (مفاتيح دفع تُسرق
+     من F12)؛ هذه الأداة تكتب لك أمراً واحداً تلصقه في الطرفيّة فتُخزَّن أسراراً في الوسيط. ══ -->
+<section id="gmt-keys20" style="max-width:860px;margin:24px auto;padding:18px;background:#fff;border:1px solid rgba(15,18,25,.08);border-radius:22px;box-shadow:0 10px 30px rgba(15,18,25,.06);font-family:'Segoe UI',Tahoma,system-ui,sans-serif;direction:rtl">
+  <h2 style="margin:0 0 4px;font-size:18px">🔑 مفاتيح العقل — حتى ٢٠ لكلّ مزوّد</h2>
+  <p style="margin:0 0 12px;color:#5b6472;font-size:13px;line-height:1.8">العقل يجرّب مفاتيح <b>Gemini المجانيّة</b> واحداً تلو الآخر، فإن نفد حدّها اليومي كلّها ينتقل إلى مفاتيح <b>Claude</b>. الصق المفاتيح (سطرٌ لكل مفتاح)، ثمّ «ولّد الأمر» والصقه في الطرفيّة داخل مجلّد المشروع — ثمّ أعِد نشر الوسيط.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <label style="font-size:12.5px;font-weight:800">Gemini (مجاني) — حتى ٢٠<textarea id="k-gem" rows="8" dir="ltr" style="width:100%;margin-top:4px;border:1px solid #e5e7eb;border-radius:12px;padding:8px;font:12px/1.6 monospace;box-sizing:border-box" placeholder="AIza...&#10;AIza..."></textarea></label>
+    <label style="font-size:12.5px;font-weight:800">Claude (مدفوع) — حتى ٢٠<textarea id="k-ant" rows="8" dir="ltr" style="width:100%;margin-top:4px;border:1px solid #e5e7eb;border-radius:12px;padding:8px;font:12px/1.6 monospace;box-sizing:border-box" placeholder="sk-ant-...&#10;sk-ant-..."></textarea></label>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+    <button type="button" id="k-gen" style="background:#D5001C;color:#fff;border:0;border-radius:12px;padding:10px 16px;font:inherit;font-weight:900;cursor:pointer">ولّد الأمر</button>
+    <button type="button" id="k-copy" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer">نسخ</button>
+    <button type="button" id="k-status" style="background:#0f1219;color:#fff;border:0;border-radius:12px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer">كم مفتاحاً في الوسيط الآن؟</button>
+  </div>
+  <pre id="k-out" dir="ltr" style="white-space:pre-wrap;word-break:break-all;background:#0f1219;color:#e5e7eb;border-radius:12px;padding:12px;margin-top:10px;font-size:12px;min-height:44px"></pre>
+  <div id="k-msg" style="font-size:12.5px;font-weight:800;margin-top:6px"></div>
+</section>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function list(id) { return ($(id).value || '').split(/[\s,]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 20); }
+  $('k-gen').onclick = function () {
+    var g = list('k-gem'), a = list('k-ant'), parts = [];
+    g.forEach(function (k, i) { parts.push('GEMINI_API_KEY_' + (i + 1) + '=' + k); });
+    a.forEach(function (k, i) { parts.push('ANTHROPIC_API_KEY_' + (i + 1) + '=' + k); });
+    if (!parts.length) { $('k-msg').textContent = 'الصق مفتاحاً واحداً على الأقلّ'; $('k-msg').style.color = '#b91c1c'; return; }
+    $('k-out').textContent = 'supabase secrets set ' + parts.join(' ') + '\nsupabase functions deploy gmt-brain --no-verify-jwt';
+    $('k-msg').textContent = '✓ ' + g.length + ' Gemini · ' + a.length + ' Claude — الصق السطرين في الطرفيّة. المفاتيح لم تُحفظ في أيّ مكان.';
+    $('k-msg').style.color = '#047857';
+  };
+  $('k-copy').onclick = function () { try { navigator.clipboard.writeText($('k-out').textContent); $('k-msg').textContent = 'نُسخ'; } catch (_) {} };
+  $('k-status').onclick = async function () {
+    var url = ''; try { url = (window.GMTEndpoint && GMTEndpoint.get && GMTEndpoint.get('brain')) || localStorage.getItem('gmt_brain_endpoint') || ''; } catch (_) {}
+    if (!url) { $('k-msg').textContent = 'أدخل رابط الوسيط أوّلاً'; $('k-msg').style.color = '#b91c1c'; return; }
+    try {
+      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'status' }) });
+      var j = await r.json();
+      $('k-msg').textContent = j.error ? 'الوسيط القديم لا يعرف هذا الفحص — أعِد نشره' : ('في الوسيط الآن: ' + j.gemini + ' مفتاح Gemini · ' + j.anthropic + ' مفتاح Claude · الترتيب: ' + j.order);
+      $('k-msg').style.color = j.error ? '#b45309' : '#047857';
+    } catch (e) { $('k-msg').textContent = 'تعذّر الاتصال بالوسيط'; $('k-msg').style.color = '#b91c1c'; }
+  };
+})();
+</script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+</body>
+</html>

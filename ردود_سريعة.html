@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ردود سريعة — GMT</title>
+<link rel="icon" href="favicon.ico">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261005s"></script>
+<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-tools.js?v=20261010b"></script>
+<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-ask.js?v=20261010b"></script>
+<!-- ══ (2026-10-05 ش) البنود ٢١١ · ٢١٢ · ٢١٣ · وثيقة التصميم ١٣:
+     «بديل الفقاعة والكيبورد: إنستغرام وواتساب بزنس يفتحان من داخل التطبيق» ·
+     «أدوات الكيبورد/الفقاعة داخل التطبيق بلا الظهور فوق تطبيقاتٍ أخرى» ·
+     «كليشة إنشاء بوست دائمة: احصل من مجموعة ميديا تيك التجارية… الحساب الرسمي بوكالة كانون ميديا تيك».
+     ابحث عن المنتج ⇐ ردٌّ جاهز بسعره وتوفّره ورابطه ⇐ نسخ · واتساب بزنس · إنستغرام. ══ -->
+<style>
+:root{--red:#D5001C;--rs:#fff1f2;--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
+.w{max-width:760px;margin:0 auto;padding:16px 14px 40px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px}.top h1{margin:0;font-size:19px;flex:1}
+.btn{border:1px solid var(--ln);background:#fff;border-radius:12px;padding:9px 13px;font:inherit;font-weight:800;cursor:pointer;color:var(--tx);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}.btn.wa{background:#0f9d58;border-color:#0f9d58;color:#fff}.btn.ig{background:#c13584;border-color:#c13584;color:#fff}
+.card{background:#fff;border:1px solid var(--ln);border-radius:20px;padding:14px;box-shadow:0 10px 30px rgba(15,18,25,.05);margin-bottom:12px}
+.in{width:100%;border:1px solid var(--ln);border-radius:12px;padding:11px 13px;font:inherit;background:#fff}
+.res{margin-top:8px}.ri{display:flex;gap:10px;align-items:center;padding:8px;border-radius:12px;cursor:pointer}.ri:hover,.ri.on{background:var(--rs)}
+.ri img,.ph{width:46px;height:46px;border-radius:11px;object-fit:cover;background:#f1f5f9;flex:none}
+.ri b{display:block;font-size:14px;line-height:1.35}.ri small{color:var(--mu)}
+.tpl{border:1px solid var(--ln);border-radius:14px;padding:10px 12px;margin:8px 0}
+.tpl .h{display:flex;align-items:center;gap:6px;font-weight:900;font-size:13px;margin-bottom:6px}
+textarea{width:100%;border:1px solid var(--ln);border-radius:10px;padding:9px;font:inherit;font-size:14px;resize:vertical;min-height:76px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mu{color:var(--mu);font-size:12.5px}
+.toast{position:fixed;bottom:20px;inset-inline:0;margin:auto;width:max-content;max-width:90%;background:#0f1219;color:#fff;padding:9px 16px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top"><a class="btn" href="home.html">→</a><h1>💬 ردود سريعة</h1></div>
+  <div class="card">
+    <input id="q" class="in" placeholder="ابحث عن المنتج بالاسم أو الباركود…" autocomplete="off">
+    <div id="res" class="res"></div>
+  </div>
+  <div class="card" id="sel" hidden></div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center;margin:0"><b>ردود جاهزة</b><span class="mu">عدّل أيّ نصّ — يُحفظ على جهازك</span></div>
+    <div id="tpls"></div>
+    <div class="row"><input id="phone" class="in" style="flex:1;min-width:200px" placeholder="رقم الزبون (اختياري) — لفتح محادثته مباشرةً" inputmode="tel"></div>
+  </div>
+  <div class="mu">يفتح واتساب بزنس وإنستغرام من داخل التطبيق — بلا فقاعة فوق التطبيقات الأخرى.</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var K = 'gmt_quick_replies_v1', P = null;
+  var DEF = [
+    { id: 'avail', t: '✅ متوفّر', x: 'أهلاً وسهلاً 🌹\n{الاسم} متوفّر عنّا بسعر {السعر}.\n{الرابط}\nبتحب نحجزلك ياه؟' },
+    { id: 'na', t: '⏳ غير متوفّر', x: 'أهلاً وسهلاً 🌹\n{الاسم} حالياً غير متوفّر، ومنبلّغك أوّل ما يوصل إن شاء الله.' },
+    { id: 'order', t: '🚚 طريقة الطلب', x: 'لطلب {الاسم}: ابعتلنا الاسم الكامل ورقم الهاتف والمحافظة، والتوصيل لكل سوريا 🚚\nالسعر {السعر} — والدفع عند الاستلام.' },
+    { id: 'post', t: '📣 كليشة بوست', x: 'احصل من مجموعة ميديا تيك التجارية على العرض: {الاسم} بسعر {السعر} 🔥\n{الرابط}\nالحساب الرسمي بوكالة كانون — ميديا تيك' }
+  ];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 1800); }
+  function tpls() { try { var s = JSON.parse(localStorage.getItem(K) || 'null'); if (Array.isArray(s) && s.length) return s; } catch (_) {} return DEF.slice(); }
+  function saveTpls(a) { try { localStorage.setItem(K, JSON.stringify(a)); } catch (_) {} }
+  function db() { return (window.GMT_DB && GMT_DB.MAIN) || null; }
+  function sess() { try { return JSON.parse(localStorage.getItem('gmt_session') || 'null'); } catch (_) { return null; } }
+  function fill(x) {
+    if (!P) return x;
+    var price = Number(P.price) > 0 ? '$' + Number(P.price) : 'حسب الطلب';
+    return x.replace(/\{الاسم\}/g, P.name || '').replace(/\{السعر\}/g, price).replace(/\{الرابط\}/g, P.store_url || '').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function paintTpls() {
+    $('tpls').innerHTML = tpls().map(function (t, i) {
+      return '<div class="tpl"><div class="h">' + esc(t.t) + '</div><textarea data-i="' + i + '">' + esc(fill(t.x)) + '</textarea>' +
+        '<div class="row"><button class="btn" data-a="copy" data-i="' + i + '">نسخ</button><button class="btn wa" data-a="wa" data-i="' + i + '">واتساب بزنس</button>' +
+        '<button class="btn ig" data-brand="instagram" data-a="ig" data-i="' + i + '">إنستغرام</button><button class="btn" data-a="keep" data-i="' + i + '" title="احفظ هذا النصّ قالباً">حفظ القالب</button></div></div>';
+    }).join('');
+  }
+  function intlPhone(p) { var d = String(p || '').replace(/[^0-9+]/g, ''); if (d.indexOf('+') === 0) return d.slice(1); if (d.indexOf('00') === 0) return d.slice(2); if (d.indexOf('0') === 0) return '963' + d.slice(1); return d; }
+  function openWA(text) {
+    var ph = intlPhone($('phone').value), web = 'https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(text);
+    if (/Android/i.test(navigator.userAgent || '')) {
+      location.href = 'intent://send/' + (ph ? '?phone=' + ph + '&' : '?') + 'text=' + encodeURIComponent(text) + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=' + encodeURIComponent(web) + ';end';
+    } else window.open(web, '_blank', 'noopener');
+  }
+  function openIG(text) {
+    try { navigator.clipboard.writeText(text); } catch (_) {}
+    toast('نُسخ النصّ — الصقه في رسالة إنستغرام');
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent || '')) location.href = 'instagram://direct-inbox';
+    else window.open('https://www.instagram.com/direct/inbox/', '_blank', 'noopener');
+  }
+  $('tpls').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-a]'); if (!b) return;
+    var i = +b.getAttribute('data-i'), ta = $('tpls').querySelector('textarea[data-i="' + i + '"]'), text = ta.value;
+    var a = b.getAttribute('data-a');
+    if (a === 'copy') { try { navigator.clipboard.writeText(text); toast('نُسخ ✓'); } catch (_) { ta.select(); document.execCommand('copy'); toast('نُسخ ✓'); } }
+    else if (a === 'wa') openWA(text);
+    else if (a === 'ig') openIG(text);
+    else if (a === 'keep') {
+      var all = tpls(), raw = text;
+      if (P) raw = raw.split(P.name || '\u0000').join('{الاسم}').split(Number(P.price) > 0 ? '$' + Number(P.price) : '\u0000').join('{السعر}').split(P.store_url || '\u0000').join('{الرابط}');
+      all[i].x = raw; saveTpls(all); toast('حُفظ القالب');
+    }
+  });
+  var tq = null;
+  $('q').addEventListener('input', function () { clearTimeout(tq); tq = setTimeout(search, 300); });
+  async function search() {
+    var q = $('q').value.trim(), d = db(); if (q.length < 2 || !d) { $('res').innerHTML = ''; return; }
+    var H = { apikey: d.key, Authorization: 'Bearer ' + d.key }, enc = encodeURIComponent('*' + q + '*'), rows = [];
+    var tries = ['or=(name.ilike.' + enc + ',barcode.ilike.' + enc + ',alt_names.ilike.' + enc + ',search_terms.ilike.' + enc + ')', 'or=(name.ilike.' + enc + ',barcode.ilike.' + enc + ')'];
+    for (var t = 0; t < tries.length; t++) {
+      try { var r = await fetch(d.url + '/rest/v1/products?select=*&' + tries[t] + '&limit=12', { headers: H }); if (r.ok) { rows = await r.json(); break; } } catch (_) { break; }
+    }
+    window.__qrRows = rows;
+    $('res').innerHTML = rows.length ? rows.map(function (p, i) {
+      return '<div class="ri" data-p="' + i + '">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" onerror="this.style.visibility=\'hidden\'">' : '<span class="ph"></span>') +
+        '<span><b>' + esc(p.name) + '</b><small>' + (Number(p.price) > 0 ? '$' + Number(p.price) : '') + (p.barcode ? ' · ' + esc(p.barcode) : '') + '</small></span></div>';
+    }).join('') : '<div class="mu" style="padding:8px">لا نتائج.</div>';
+  }
+  $('res').addEventListener('click', async function (e) {
+    var it = e.target.closest('[data-p]'); if (!it) return;
+    P = window.__qrRows[+it.getAttribute('data-p')];
+    var s = sess(), br = s && s.branch_key, here = br ? Number(P[br]) || 0 : null;
+    var cols = []; try { var d = db(); var r = await fetch(d.url + '/rest/v1/inv_columns?select=key_name,display_name&is_branch=eq.true', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } }); if (r.ok) cols = await r.json(); } catch (_) {}
+    var tot = cols.reduce(function (a, c) { return a + (Number(P[c.key_name]) || 0); }, 0);
+    $('sel').hidden = false;
+    $('sel').innerHTML = '<div class="ri on" style="cursor:default">' + (P.image_url ? '<img src="' + esc(P.image_url) + '" alt="">' : '<span class="ph"></span>') +
+      '<span><b>' + esc(P.name) + '</b><small>' + (Number(P.price) > 0 ? 'السعر $' + Number(P.price) + ' · ' : '') + (here != null ? 'في فرعك ' + here + ' · ' : '') + 'المجموع ' + tot + '</small></span></div>' +
+      (P.store_url ? '<div class="row"><a class="btn" href="' + esc(P.store_url) + '" target="_blank" rel="noopener">فتح في المتجر</a></div>' : '');
+    paintTpls();
+    $('tpls').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  paintTpls();
+})();
+</script>
+<!-- (2026-10-05 ش) وثيقة التصميم ٢٠–٢١: «لا أزرار عائمة في كل السيستم» — الحارس على كل صفحةٍ داخليّة -->
+<script src="gmt-nofab.js?v=20261007z5"></script>
+</body>
+</html>

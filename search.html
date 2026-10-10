@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
+   بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
+window.GMT_PUBLIC = 1;</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Canon General Media Tech - البحث عن الكفالة</title>
+    
+    <link rel="stylesheet" href="lib/tailwind.css?v=20261007z5">
+    <link rel="stylesheet" href="lib/fa/all.min.css?v=20261003">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap');
+
+        :root {
+            --canon-red: #D5001C;
+            --canon-dark: #111111;
+            --canon-gradient: linear-gradient(135deg, #D5001C 0%, #8B000D 100%);
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f8fafc;
+            color: var(--canon-dark);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bg-canon-gradient { background: var(--canon-gradient); }
+
+        @keyframes pulse-red {
+            0%   { box-shadow: 0 0 0 0 rgba(230, 0, 18, 0.4); }
+            70%  { box-shadow: 0 0 0 10px rgba(230, 0, 18, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(230, 0, 18, 0); }
+        }
+        .pulse-red { animation: pulse-red 2s infinite; }
+
+        @keyframes smoothAppear {
+            0%   { opacity: 0; transform: translateY(15px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .smooth-appear {
+            animation: smoothAppear 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 5px solid var(--canon-red);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(230, 0, 18, 0.08);
+            border-color: var(--canon-red) !important;
+            background: white !important;
+        }
+    </style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة -->
+  <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
+  <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+  <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 pb-12">
+  <script src="gmt-image-guard.js?v=20261007y"></script>
+  <script src="gmt-config.js?v=20261003"></script>
+  <script src="gmt-brand.js?v=20261003"></script>
+  <script src="gmt-updater.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+  <script src="gmt-sound.js?v=20261004" defer></script>
+  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-ask.js?v=20261010b" defer></script>
+  <script src="gmt-share.js?v=20261003" defer></script>
+<script src="gmt-endpoint.js?v=20261010b"></script>
+  <script src="gmt-staff.js?v=20261010b"></script>
+
+
+    <!-- Header -->
+    <header class="w-full max-w-md bg-[#000000] rounded-[2rem] p-6 shadow-xl shadow-gray-400/40 mb-6 text-center mt-4 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-[#D5001C]/20 rounded-full -ml-12 -mb-12"></div>
+        
+        <div class="bg-white inline-flex p-2.5 rounded-[1.2rem] mb-4 relative z-10 shadow-lg">
+            <!-- (2026-09-26) البديل النصّي «Canon GMT» أُزيل — يسقط على لوغو الشركة المضمَّن -->
+            <img src="canonlogo.png" alt="General Media Tech" class="h-14 w-auto mx-auto rounded-lg object-contain"
+                 onerror="this.onerror=null;this.src=(window.GMT_BRAND&&GMT_BRAND.logo)||'logo.jpg'">
+        </div>
+        
+        <h1 class="text-2xl font-black text-white relative z-10 tracking-tight text-center">التحقق من الكفالة</h1>
+        <div class="h-1 w-12 bg-[#D5001C] mx-auto mt-3 mb-3 rounded-full relative z-10"></div>
+        <h3 class="text-sm font-bold text-gray-300 relative z-10">ابحث عن كفالتك بسهولة وسرعة</h3>
+    </header>
+
+    <!-- Search Box -->
+    <div class="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-xl shadow-gray-200/50 border border-white relative">
+        <label class="block text-[10px] font-black text-gray-400 mb-2 px-1 uppercase tracking-widest text-center">
+            أدخل رقم الكفالة أو رقم الفاتورة
+        </label>
+        <div class="flex gap-2">
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="رقم الكفالة أو رقم الفاتورة"
+                class="flex-1 bg-gray-50 p-4 rounded-2xl text-sm font-bold border border-gray-100 text-center text-gray-800 transition-all"
+                onkeypress="if(event.key==='Enter') searchWarranty()"
+            >
+            <button
+                onclick="searchWarranty()"
+                id="searchBtn"
+                class="bg-canon-gradient text-white w-16 rounded-2xl flex items-center justify-center hover:shadow-lg hover:shadow-red-500/30 active:scale-95 transition-all shrink-0"
+            >
+                <i class="fas fa-search text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Error Message -->
+        <p id="errorMsg" class="text-xs font-bold text-[#D5001C] mt-4 text-center hidden items-center justify-center gap-1">
+            <i class="fas fa-exclamation-circle"></i>
+            لم يتم العثور على كفالة بهذه البيانات
+        </p>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" class="hidden my-12 flex-col items-center gap-4">
+        <div class="spinner"></div>
+        <p class="text-sm font-bold text-gray-500">جارٍ البحث في قاعدة البيانات...</p>
+    </div>
+
+    <!-- Warranty Types Modal -->
+    <div id="warrantyTypesModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(0,0,0,0.6)">
+        <div class="bg-white rounded-[2rem] w-full max-w-md max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-black text-gray-900">أنواع الكفالات</h2>
+                <button onclick="closeWarrantyModal()" class="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                    <i class="fas fa-times text-gray-600"></i>
+                </button>
+            </div>
+
+            <!-- Standard -->
+            <div class="bg-gray-50 border-r-4 border-gray-600 p-5 rounded-l-xl mb-4 shadow-sm">
+                <h3 class="text-base font-black text-gray-800 mb-3 flex items-center gap-2">
+                    <i class="fas fa-shield-alt text-gray-600"></i> الباقة الأساسية (Standard)
+                </h3>
+                <ul class="space-y-2 text-gray-700 text-sm leading-relaxed">
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل هذا الضمان عيوب التصنيع فقط، ولا يشمل أي أعطال ناتجة عن سوء الاستخدام، أو الكسر، أو السوائل، أو الصدمات، أو التعديلات غير المعتمدة.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل الضمان بطارية الجهاز وفق شروط الشركة المصنعة.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يسقط الضمان في حال فتح الجهاز أو العبث به من قبل جهة غير معتمدة.</li>
+                </ul>
+            </div>
+
+            <!-- Plus -->
+            <div class="bg-green-50 border-r-4 border-green-600 p-5 rounded-l-xl mb-4 shadow-sm">
+                <h3 class="text-base font-black text-green-800 mb-3 flex items-center gap-2">
+                    <i class="fas fa-star text-green-600"></i> باقة بلس (Plus)
+                </h3>
+                <ul class="space-y-2 text-gray-700 text-sm leading-relaxed">
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل هذا الضمان عيوب التصنيع فقط، إضافة إلى خصم بنسبة 50% من تكلفة أجور الصيانة للأعطال الناتجة عن سوء الاستخدام.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>لا يشمل الخصم سعر قطع التبديل، ويتم احتسابها بشكل كامل على العميل.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل الضمان بطارية الجهاز وفق شروط الشركة المصنعة.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يسقط الضمان في حال وجود كسر متعمد، أو أضرار جسيمة، أو فتح الجهاز من قبل جهة غير معتمدة.</li>
+                </ul>
+            </div>
+
+            <!-- Extreme -->
+            <div class="bg-red-50 border-r-4 border-[#D5001C] p-5 rounded-l-xl shadow-sm">
+                <h3 class="text-base font-black text-red-800 mb-3 flex items-center gap-2">
+                    <i class="fas fa-meteor text-[#D5001C]"></i> باقة لوكال إكستريم (Extreme)
+                </h3>
+                <ul class="space-y-2 text-gray-700 text-sm leading-relaxed">
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل هذا الضمان عيوب التصنيع فقط، ولا يشمل أي أعطال ناتجة عن سوء الاستخدام، أو الكسر، أو السوائل، أو الصدمات.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يشمل هذا الضمان صيانة مجانية كاملة لمدة سنة واحدة من تاريخ الشراء، وتشمل أجور الصيانة فقط.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>لا يشمل الضمان سعر قطع التبديل، ويتم احتسابها بشكل منفصل على العميل.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>لا يشمل الضمان الأضرار الناتجة عن الإهمال الشديد، أو الكسر المتعمد، أو السوائل، أو الاستخدام غير الطبيعي للجهاز.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle text-[6px] text-gray-500 mt-2 shrink-0"></i>يسقط الضمان في حال فتح الجهاز أو التعديل عليه من قبل جهة غير معتمدة.</li>
+                </ul>
+            </div>
+
+            <button onclick="closeWarrantyModal()" class="w-full mt-6 bg-[#D5001C] hover:bg-red-800 text-white font-black py-3 rounded-2xl transition-colors">
+                فهمت، شكراً
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="w-full max-w-md mt-6 grid grid-cols-2 gap-4">
+        <button onclick="openWarrantyModal()" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-shield-alt text-xl"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">أنواع الكفالات</span>
+        </button>
+
+        <a href="site.html#about" data-gmt-link="site#about" target="_blank" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-users text-xl"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">من نحن</span>
+        </a>
+
+        <a href="site.html" data-gmt-link="site" target="_blank" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i class="fas fa-globe text-xl"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">موقعنا الإلكتروني</span>
+        </a>
+
+        <!-- 🔴 (2026-10-03) كان هنا `wa.me/963900000000` — رقمٌ مُختلَق لا يملكه أحد.
+             صار الرابط يُضبَط من `GMTContact` (مصدرٌ واحد)، وإن لم يكن هناك رقمٌ
+             صالح يُخفى الزرّ بدل أن يفتح محادثةً مع مجهول. -->
+        <a href="#" data-gmt-contact="whatsapp" data-gmt-contact-text="مرحباً، أودّ الاستفسار" target="_blank" style="display:none;" class="bg-white p-5 rounded-[1.5rem] shadow-lg shadow-gray-200/40 border border-gray-100 flex flex-col items-center justify-center gap-3 hover:border-[#D5001C]/30 hover:shadow-xl hover:-translate-y-1 transition-all group duration-300 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-[#D5001C] group-hover:bg-[#D5001C] group-hover:text-white transition-colors duration-300">
+                <i class="fab fa-whatsapp text-xl"></i>
+            </div>
+            <span class="text-[13px] font-black text-gray-700 group-hover:text-[#D5001C] transition-colors">تواصل معنا</span>
+        </a>
+    </div>
+    
+    <script>
+        // =====================================================
+        // ⚙️ SUPABASE — نفس إعدادات نظام الكفالة
+        // =====================================================
+        const SUPABASE_URL     = 'https://abppuwylukzpqckazegk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo';
+        const TABLE_NAME        = 'warranties';
+        // =====================================================
+
+        function openWarrantyModal() {
+            const m = document.getElementById('warrantyTypesModal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeWarrantyModal() {
+            const m = document.getElementById('warrantyTypesModal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+            document.body.style.overflow = 'auto';
+        }
+        // إغلاق عند الضغط خارج الـ modal
+        document.getElementById('warrantyTypesModal').addEventListener('click', function(e) {
+            if (e.target === this) closeWarrantyModal();
+        });
+
+        /* ═══════════════════════════════════════════════════════════════════
+           البحث عن الكفالة — حقلاً حقلاً.
+
+           🔴 (2026-10-03) كان استعلاماً واحداً:
+               or=(short_id.eq.X,invoice_no.eq.X,serial_no.eq.X)
+           وفيه عطلان يُصيبان **العميل** مباشرةً:
+
+           ① `res.ok` **لم يكن يُفحَص إطلاقاً**. فإن ردّت القاعدة 400 — وهذا يحدث
+              متى كان أحد هذه الأعمدة رقميّاً والمُدخَل نصّاً («invalid input
+              syntax for type bigint») — فإنّ `res.json()` يُعيد **كائن الخطأ**
+              لا مصفوفة، فيصير `found = null`، فنقول للعميل:
+                  «لم يتم العثور على كفالة بهذه البيانات»
+              وكفالته موجودة، والقاعدة لم تُسأل عنها أصلاً. وقد وقع هذا فعلاً
+              قبلاً في هذا السطر نفسه (كان `serial_number` بدل `serial_no`).
+           ② عمودٌ واحدٌ يُسقِط الاستعلام كلّه (نمط P1) — فلو رُفض `invoice_no`
+              لَما بحثنا في `short_id` ولا في `serial_no`.
+
+           الآن: سؤالٌ لكل حقلٍ على حِدَة. فشل حقلٍ لا يُسقِط البقيّة، وفشل
+           **الكلّ** يُعلَن فشلاً لا «غير موجودة».
+           ═══════════════════════════════════════════════════════════════════ */
+        async function lookupWarranty(input) {
+            const FIELDS = ['short_id', 'invoice_no', 'serial_no'];
+            const enc = encodeURIComponent(input);
+            let anyAnswered = false, lastErr = null;
+            for (const f of FIELDS) {
+                const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`
+                          + `?select=short_id&${f}=eq.${enc}&limit=1`;
+                try {
+                    const res = await fetch(url, {
+                        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+                    });
+                    if (!res.ok) {                      // ⬅ كان غائباً تماماً
+                        const body = await res.text();
+                        const e = new Error(body || ('HTTP ' + res.status));
+                        e.status = res.status; e.body = body;
+                        throw e;
+                    }
+                    anyAnswered = true;                 // القاعدة أجابت عن هذا الحقل
+                    const rows = await res.json();
+                    if (Array.isArray(rows) && rows.length && rows[0].short_id) return rows[0];
+                } catch (e) { lastErr = e; }
+            }
+            /* ولا حقلٌ واحدٌ أُجيب عنه ⇒ هذا فشلٌ لا نتيجةُ بحثٍ فارغة */
+            if (!anyAnswered) throw (lastErr || new Error('تعذّر سؤال القاعدة'));
+            return null;                                // أُجيبَ فعلاً، ولا كفالة
+        }
+
+        /* فشلٌ في السؤال — لا نقول «غير موجودة» لأنّها قد تكون موجودة */
+        function showSearchFailure(err) {
+            const el = document.getElementById('errorMsg');
+            if (!el) return;
+            const net = /failed to fetch|networkerror|load failed|network request failed/i
+                        .test(String((err && err.message) || err || ''));
+            el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> '
+                + (net ? 'تعذّر الاتصال بالخادم — تحقّق من الإنترنت وأعِد المحاولة.'
+                       : 'تعذّر إتمام البحث الآن — أعِد المحاولة، وإن تكرّر راسِلنا برقم كفالتك.')
+                + '<br><span style="font-weight:600;opacity:.8">(هذا لا يعني أنّ كفالتك غير موجودة)</span>';
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+
+        /* نتيجةُ بحثٍ فارغة حقيقيّة — نُعيد النصّ الأصليّ */
+        function showSearchNotFound() {
+            const el = document.getElementById('errorMsg');
+            if (!el) return;
+            el.innerHTML = '<i class="fas fa-exclamation-circle"></i> لم يتم العثور على كفالة بهذه البيانات';
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+
+        async function searchWarranty() {
+            const input = document.getElementById('searchInput').value.trim();
+            /* (٧ ي-٤) زرّ البحث بحقلٍ فارغ كان لا يفعل شيئاً — الزبون يضغط ويظنّه معطّلاً. الآن يدلّه على الحقل. */
+            if (!input) {
+                const el = document.getElementById('searchInput');
+                el.focus(); el.placeholder = 'اكتب رقم الكفالة أو رقم الفاتورة هنا أوّلاً';
+                el.style.boxShadow = '0 0 0 2px #D5001C'; setTimeout(() => { el.style.boxShadow = ''; }, 1600);
+                return;
+            }
+
+            const errorMsg = document.getElementById('errorMsg');
+            const loader   = document.getElementById('loader');
+            const searchBtn = document.getElementById('searchBtn');
+
+            // Reset
+            errorMsg.classList.add('hidden');
+            errorMsg.classList.remove('flex');
+
+            // Show loader
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+            searchBtn.disabled = true;
+
+            try {
+                const found = await lookupWarranty(input);
+
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+                searchBtn.disabled = false;
+
+                if (found && found.short_id) {
+                    /* 🔴 (2026-10-03) كان: `index.html?w=…` — و`index.html` هي
+                       **بوّابة النظام الداخلية** لا شهادة الكفالة، ولا تقرأ `?w=`.
+                       فالعميل الذي يجد كفالته كان يُرمى على صفحةٍ داخلية ولا يرى
+                       شهادته أبداً. صفحةُ الشهادة هي `guarantee.html?w=<short_id>`
+                       وهي نفسها الرابط الذي تُصدره صفحةُ الكفالة. */
+                    window.location.href = `guarantee.html?w=${encodeURIComponent(found.short_id)}`;
+                } else {
+                    showSearchNotFound();
+                }
+
+            } catch (error) {
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+                searchBtn.disabled = false;
+                /* 🔧 (2026-10-03) كان أيّ فشلٍ شبكيّ يُعرَض للعميل كأنّ «الكفالة
+                   غير موجودة» — فيظنّ أنّ كفالته ضاعت والقاعدةُ لم تُسأل أصلاً.
+                   نفصل «لم نجد» عن «لم نستطع السؤال». */
+                showSearchFailure(error);
+                console.error('Search error:', error);
+            }
+        }
+    </script>
+<script>
+/* م20: دعوة بارزة لتفعيل الإشعارات (مرة واحدة) */
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'default') return;
+    if (localStorage.getItem('gmt_notif_prompted') === '1') return;
+    /* (٧ ي-٤ · المراجعة البصريّة) كانت شريطاً عائماً أسفل الشاشة يظهر وحده. الدعوة باقية (طلبك) لكن في مكانها:
+       بطاقةٌ تحت صندوق البحث، ضمن الصفحة — لا تطفو ولا تغطّي شيئاً. */
+    const b = document.createElement('div');
+    b.id = 'gmt-nf';
+    b.style.cssText = 'width:100%;max-width:28rem;margin:16px auto 0;background:#111827;color:#fff;border-radius:16px;padding:13px 15px;font-family:Cairo,Arial,sans-serif;direction:rtl;display:flex;align-items:center;gap:10px;box-sizing:border-box;';
+    b.innerHTML = '<div style="flex:1;font-size:12.5px;font-weight:700;line-height:1.7;">🔔 فعّل الإشعارات ليصلك كل جديد عن كفالتك وعروض جنرال ميديا تك</div>'+
+      '<button id="gmt-nf-ok" style="background:#e11d48;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-weight:900;font-family:inherit;font-size:12px;cursor:pointer;white-space:nowrap;">تفعيل</button>'+
+      '<button id="gmt-nf-x" style="background:transparent;color:#5b6472;border:none;font-size:16px;cursor:pointer;">✕</button>';
+    const box = document.getElementById('searchInput') && document.getElementById('searchInput').closest('.max-w-md');
+    if (box && box.parentNode) box.parentNode.insertBefore(b, box.nextSibling); else return;
+    document.getElementById('gmt-nf-ok').onclick = async () => { try { await Notification.requestPermission(); } catch(_){} localStorage.setItem('gmt_notif_prompted','1'); b.remove(); };
+    document.getElementById('gmt-nf-x').onclick  = () => { localStorage.setItem('gmt_notif_prompted','1'); b.remove(); };
+  } catch (_) {}
+});
+</script>
+<script>
+/* م27: بطاقات الصفحة السريعة — عبّئ الروابط هنا (الفارغة تُخفى تلقائياً) */
+(function(){
+  const QUICK = [ '' ];   // 👥 «من نحن» ← رابط الموقع الرئيسي + #about
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('a[href="#"]').forEach((a, i) => {
+      const u = (QUICK[i] || '').trim();
+      if (u) { a.href = u; a.target = '_blank'; a.rel = 'noopener'; }
+      else { a.style.display = 'none'; }
+    });
+  });
+})();
+</script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-fitrow.js?v=20261007z5"></script>
+
+<script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
+   يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
+(function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('warranty');}catch(e){}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(go,420);});else setTimeout(go,420);})();</script>
+</body>
+</html>
