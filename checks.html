@@ -7,7 +7,7 @@ window.GMT_INTERNAL = 1;</script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🔬 مركز الفحوصات الشامل — GMT</title>
+<title>🔬 الفحص الشامل — GMT</title>
 <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <style>
@@ -57,14 +57,14 @@ window.GMT_INTERNAL = 1;</script>
   .empty{text-align:center;color:var(--muted);padding:40px}
 </style>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261011e"></script>
+<script src="gmt-tools.js?v=20261011g"></script>
 <script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>🔬 مركز الفحوصات الشامل</h1>
-    <div class="sub">زر واحد — كل البوتات تفحص النظام بوتاً وراء بوت، فحص حقيقي كامل بلا اختصار</div>
+    <h1>🔬 الفحص الشامل</h1>
+    <div class="sub">زر واحد — كل الفحوصات (النواة · الفحص الذاتي · الفاحص العميق · الفاحص المركزي · الحرّاس · الترابط · المال · الكتابة الفعلية) بالتتابع، وتقريرٌ كاملٌ واحد</div>
     <div class="src-tag" style="margin-top:8px;display:inline-block">مصدر التقرير: فحص يدوي</div>
   </header>
 
@@ -81,6 +81,15 @@ window.GMT_INTERNAL = 1;</script>
   <div id="results">
     <div class="empty">اضغط «ابدأ الفحص الشامل» — ستفحص البوتات النظام بالكامل، وتعرض تقريراً مفصّلاً لكل بوت.</div>
   </div>
+  <!-- (١١ ت١) كانت خمس أدواتٍ فحصٍ منفصلة؛ هذه الصفحة تشغّل كل ما فيها. الصفحات القديمة باقية للمرجع وللفحص الجزئي: -->
+  <div class="bot" style="margin-top:18px"><div class="bot-head" style="font-size:14px">أدوات فرعية (للفحص الجزئي فقط — لا حاجة لها مع الفحص الشامل)</div>
+    <div class="bot-body" style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="btn ghost" style="padding:8px 14px;font-size:13px;text-decoration:none" href="central_inspector.html">الفاحص المركزي — صفحةً صفحة</a>
+      <a class="btn ghost" style="padding:8px 14px;font-size:13px;text-decoration:none" href="guard_bots.html">بوتات الحماية</a>
+      <a class="btn ghost" style="padding:8px 14px;font-size:13px;text-decoration:none" href="test_board.html">لوحة التجريب</a>
+      <a class="btn ghost" style="padding:8px 14px;font-size:13px;text-decoration:none" href="check.html">التشخيص القديم</a>
+      <a class="btn ghost" style="padding:8px 14px;font-size:13px;text-decoration:none" href="system_tools.html">أدوات المالك</a>
+    </div></div>
 </div>
 
   <script src="gmt-config.js?v=20261003"></script>
@@ -106,6 +115,16 @@ window.__GMT_SOURCE = 'check';
 
 // قائمة البوتات الفاحصة (بالترتيب)
 var BOTS = [
+  /* (١١ ت١ — Notes ٩ ت١ ٦:٣٦ ص) «الفحوصات متباعدة جداً وصعبة الوصول — أداة واحدة؛ أكثر من مكان للفحص وكل مكان يفحص شيئاً».
+     ضُمّ هنا ما كان مفرَّقاً: التشخيص السريع (check.html) · الفحص الذاتي والصحة · الفاحص العميق (كان داخل «أدوات المالك»).
+     بوتات الحماية ولوحة التجريب كانت تشغّل بوتات هذه الصفحة نفسها فلا تكرار. */
+  { id:'core', icon:'🧱', name:'ملفات النواة (تشخيص سريع)', desc:'gmt-core.js وأخواتها: موجودة وسليمة وتعرّف الوحدات (كان check.html)',
+    get:function(){ return window.GMTCoreCheck; }, run:'run' },
+  { id:'selfcheck', icon:'🩺', name:'الفحص الذاتي والصحة', desc:'أصول · جداول · دوال · هوية · عامل الخدمة',
+    get:function(){ return window.GMTSelfCheck ? { run:function(){ return GMTSelfCheck.run(false).then(function(rs){ return (rs||[]).map(function(r){
+        return { status: r.level==='bad'?'bad':r.level==='warn'?'warn':'ok', title:r.title, detail:r.detail||'' }; }); }); } } : null; }, run:'run' },
+  { id:'deep', icon:'🔭', name:'الفاحص العميق (قراءة فقط)', desc:'مخطّط القاعدة · الحرّاس · الأزرار · سلامة البيانات — بلا كتابة',
+    get:function(){ return window.GMTDeepRO; }, run:'run' },
   { id:'inspector', icon:'🔬', name:'الفاحص المركزي', desc:'يفتح كل صفحة ويفحص كل زر ورابط وحقل وواجهة',
     get:function(){ return window.GMTInspect; }, run:'report' },
   { id:'warden', icon:'🐞', name:'الحارس', desc:'يراقب الأخطاء الحية ويسجّلها',
@@ -183,6 +202,38 @@ window.GMTDbWriteTest = {
                 why:'الفاتورة التجريبية بقيت بالقاعدة!', fix:'احذف يدوياً: invoices حيث customer_name = __TEST__'});
     }
     return out;
+  }
+};
+
+/* التشخيص السريع للنواة (كان check.html): الملف موجود؟ حجمه معقول؟ يعرّف الوحدات؟ — دون eval ولا تنفيذٍ مكرَّر */
+window.GMTCoreCheck = {
+  run: async function(){
+    var out = [];
+    var files = [ ['gmt-core.js', ['GMTCache','syncCollection']], ['gmt-auth.js', ['GMTAuth']], ['gmt-account.js', ['GMTAccount']],
+                  ['gmt-ask.js', ['GMTAsk']], ['gmt-tools.js', ['GMTTools']], ['gmt-oplog.js', ['GMTOpLog']] ];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i][0], sigs = files[i][1], st = 0, txt = '', err = '';
+      try { var r = await fetch(f + '?t=' + Date.now(), { cache:'no-store' }); st = r.status; txt = await r.text(); } catch(e){ err = e.message; }
+      if (st !== 200 || txt.length < 500) { out.push({ status:'bad', title:f+' غير سليم', detail:'HTTP '+st+' · '+txt.length+' حرف'+(err?' · '+err:''), why:'الملف مفقود أو ناقص على الاستضافة', fix:'ارفع آخر نسخة من '+f }); continue; }
+      var miss = sigs.filter(function(g){ return txt.indexOf(g) < 0; });
+      if (miss.length) { out.push({ status:'bad', title:f+': نسخة قديمة/خاطئة', detail:'لا يحوي '+miss.join('، '), why:'المرفوع ليس آخر نسخة', fix:'ارفع آخر '+f }); continue; }
+      var g0 = sigs[0], loaded = (typeof window[g0] !== 'undefined');
+      out.push({ status: loaded ? 'ok' : 'warn', title: f, detail: txt.length+' حرف · '+(loaded ? g0+' معرَّفة في هذه الصفحة' : g0+' غير محمّلة في هذه الصفحة (طبيعيّ إن كانت الوحدة لا تُحمَّل هنا)') });
+    }
+    return out;
+  }
+};
+/* الفاحص العميق بوضع القراءة فقط — يُحمَّل عند الطلب (كبير) ويُحوَّل ناتجه لشكل البوتات */
+window.GMTDeepRO = {
+  run: async function(){
+    if (!window.GMTDeepInspector || !GMTDeepInspector.scan) {
+      await new Promise(function(ok){ var s = document.createElement('script'); s.src = 'gmt-deep-inspector.js?v=20261011e'; s.onload = ok; s.onerror = ok; document.head.appendChild(s); });
+    }
+    if (!window.GMTDeepInspector || !GMTDeepInspector.scan) return [{ status:'bad', title:'الفاحص العميق غير محمّل', detail:'تعذّر تحميل gmt-deep-inspector.js', why:'الملف مفقود', fix:'ارفع gmt-deep-inspector.js' }];
+    var rep = await GMTDeepInspector.scan();          // scan = run({write:false}): قراءةٌ فقط
+    return (rep && rep.log || []).map(function(x){
+      return { status: x.ok===true ? 'ok' : (x.ok==='warn' ? 'warn' : (x.ok===false ? 'bad' : 'info')), title:'['+x.area+'] '+x.step, detail:x.detail||'', why:x.pattern?('نمط: '+x.pattern):'' };
+    });
   }
 };
 
@@ -366,13 +417,13 @@ el('copyall').onclick = function(){
 };
 </script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-hints.js?v=20261011g"></script>
 <script src="gmt-selfcheck.js?v=20261011b"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261011f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011f"></script>
+<script src="gmt-whatsnew.js?v=20261011g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

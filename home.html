@@ -217,7 +217,7 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261011e"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261011e"></script>
-<script src="gmt-tools.js?v=20261011e"></script>
+<script src="gmt-tools.js?v=20261011g"></script>
 <script src="gmt-account.js?v=20261011e"></script>
 <script src="gmt-icons.js?v=20261011a"></script>
 <script src="gmt-ask.js?v=20261011e"></script>
@@ -383,7 +383,7 @@ a.btn{text-decoration:none}
       '<button class="x" type="button" data-unpin="' + esc(x.f) + '" aria-label="إزالة">' + ic('close', 14) + '</button></a>';
   }
   function allPages() {
-    var tools = st.role === 'guest' ? T.forRole('guest') : T.all;
+    var tools = st.role === 'guest' ? T.forRole('guest') : T.all.filter(function (x) { return !x.p; });   /* الفرعيّة تُفتح من أداة أبيها (الفحص الشامل) */
     var G = T.groups.map(function (g) { return { g: g, i: tools.filter(function (x) { return x.g === g.id; }) }; }).filter(function (r) { return r.i.length; });
     var tot = G.reduce(function (a, r) { return a + r.i.length; }, 0);
     return '<details class="card allp" style="margin-top:14px" id="allp"><summary><b style="font-size:16px">كل صفحات النظام</b><span class="chip">' + tot + '</span><span class="sp"></span><span class="mu">' + G.length + ' مجموعات</span></summary>' +
@@ -965,7 +965,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261011b"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261011f"></script>
-<script src="gmt-whatsnew.js?v=20261011f"></script>
+<script src="gmt-whatsnew.js?v=20261011g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>

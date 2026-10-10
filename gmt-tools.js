@@ -26,6 +26,8 @@
                                        'admin'  ⇐ الأدمن وحده
      k   كلماتٌ للبحث               ds وصفٌ بديلٌ يراه الموظّف (اختياريّ)
      n   اسمٌ قصيرٌ للشريط السفليّ على الهاتف (اختياريّ)
+     p   (١١ ت١) أداةٌ فرعيّة: صفحةُ الأب التي تُفتح منها — لا تظهر على الرئيسيّة ولا في البحث، وتبقى صفحتُها محميّةً
+         كما هي (الحارس يقرأ السجلّ كلّه). «الفحوصات متباعدة جداً… أداة واحدة» (Notes ٩ ت١ ٦:٣٦ ص).
 
    ⚠️ الإخفاءُ هنا ليس حماية: كلُّ صفحةٍ إداريّة تحرس نفسها. هذا الملفّ
       يقرّر ما **يُعرض** فقط، كي لا يرى الموظّفُ زرّاً لا يعمل له.
@@ -147,15 +149,15 @@
     /* ── عقل النظام والفحص ── */
     { f: 'تفعيل_عقل_النظام.html', t: 'تفعيل عقل النظام', d: 'رابط الوسيط ومفاتيح الذكاء', ic: 'brain', g: 'brain', a: 'admin',
       k: 'عقل ذكاء وسيط مفتاح api' },
-    { f: 'checks.html', t: 'مركز الفحوصات', d: 'تشغيل البوتات واحداً تلو الآخر وأخذ التقرير', ic: 'flask', g: 'brain', a: 'admin',
+    { f: 'checks.html', t: 'الفحص الشامل', d: 'كل الفحوصات بالتتابع في مكانٍ واحد، وتقريرٌ كاملٌ واحدٌ يُنسخ', ic: 'flask', g: 'brain', a: 'admin',
       k: 'فحص فحوصات بوتات تقرير' },
-    { f: 'central_inspector.html', t: 'مركز الفحص الشامل', d: 'يفتح كل صفحة ويفحص أزرارها وروابطها', ic: 'search', g: 'brain', a: 'admin',
+    { f: 'central_inspector.html', p: 'checks.html', t: 'مركز الفحص الشامل', d: 'يفتح كل صفحة ويفحص أزرارها وروابطها', ic: 'search', g: 'brain', a: 'admin',
       k: 'فاحص مفتش شامل' },
-    { f: 'check.html', t: 'تشخيص سريع', d: 'حالة الاتصال والقواعد بلمحة', ic: 'info', g: 'brain', a: 'admin',
+    { f: 'check.html', p: 'checks.html', t: 'تشخيص سريع', d: 'حالة الاتصال والقواعد بلمحة', ic: 'info', g: 'brain', a: 'admin',
       k: 'تشخيص اتصال قاعدة' },
-    { f: 'guard_bots.html', t: 'بوتات الحماية', d: 'الحرّاس الذين يراقبون الأخطاء', ic: 'bot', g: 'brain', a: 'admin',
+    { f: 'guard_bots.html', p: 'checks.html', t: 'بوتات الحماية', d: 'الحرّاس الذين يراقبون الأخطاء', ic: 'bot', g: 'brain', a: 'admin',
       k: 'بوت بوتات حماية حارس' },
-    { f: 'test_board.html', t: 'لوحة التجريب', d: 'تجريب الأدوات المنجَزة بأمان', ic: 'grid', g: 'brain', a: 'admin',
+    { f: 'test_board.html', p: 'checks.html', t: 'لوحة التجريب', d: 'تجريب الأدوات المنجَزة بأمان', ic: 'grid', g: 'brain', a: 'admin',
       k: 'تجريب تجربة ساندبوكس' },
     { f: 'system_tools.html', t: 'أدوات المالك', d: 'ما تجرّبه · فحص النشر · العمل بلا إنترنت · الفاحص العميق · طبيب المخطط',
       ic: 'settings', g: 'brain', a: 'admin', k: 'نشر 404 بلا انترنت تنزيل فاحص عميق مخطط اعمدة' },
@@ -232,7 +234,7 @@
     visible: visible,
     /* الأدواتُ التي يراها هذا الدور، بترتيب المجموعات */
     forRole: function (role) {
-      return TOOLS.filter(function (x) { return visible(x, role); });
+      return TOOLS.filter(function (x) { return visible(x, role) && !x.p; });
     },
     find: function (f) {
       for (var i = 0; i < TOOLS.length; i++) {
@@ -244,7 +246,7 @@
     /* بحثٌ يتسامح مع الهمزات والتاء المربوطة: «اداره» تجد «إدارة» */
     search: function (q, role) {
       var n = norm(q).trim();
-      var list = TOOLS.filter(function (x) { return visible(x, role); });
+      var list = TOOLS.filter(function (x) { return visible(x, role) && !x.p; });    /* الفرعيّة (p) تُفتح من أداة أبيها */
       if (!n) return list;
       var words = n.split(/\s+/);
       return list.map(function (x) {
