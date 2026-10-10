@@ -189,7 +189,12 @@
     try {
       if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin.tryLogin) {
         var ad = await GMTAuth.admin.tryLogin(user, pw);
-        if (ad && ad.ok) { try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {} return { admin: true, name: ad.name }; }
+        if (ad && ad.ok) {
+          try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {}
+          try { if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login', ad.name); } catch (_) {}
+          return { admin: true, name: ad.name };
+        }
+        if (ad && ad.known) { try { if (GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login_fail', user, true); } catch (_) {} }
         adminKnown = !!(ad && ad.known);
         if (ad && ad.error && !ad.known && /محاولات كثيرة/.test(ad.error)) throw new Error(ad.error);
       }
@@ -364,7 +369,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261011c';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261011d';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });
@@ -566,6 +571,18 @@
     setInterval(pendingBanner, 3000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootApproval); else bootApproval();
+
+  /* (١١ ت١) سجل العمليات: يُحمَّل على كل صفحةٍ داخليّة (ما عدا أدوات الفحص — تُنشئ بياناتٍ تجريبيّةً وتحذفها) */
+  function loadOpLog() {
+    try {
+      if (global.GMTOpLog || publicPage() || global.GMT_NO_OPLOG) return;
+      if (/^(check|checks|central_inspector|guard_bots|guard_bots_19|test_board|system_tools)\.html$/.test(currentFile())) return;
+      if (document.querySelector('script[src^="gmt-oplog.js"]')) return;
+      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011d'; s.defer = true;
+      (document.head || document.documentElement).appendChild(s);
+    } catch (_) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadOpLog); else loadOpLog();
 
   global.GMTPerm = { can: can, adminOnly: adminOnly, guard: guard, unlock: unlock, file: currentFile };
   if (!global.GMT_NO_GUARD) guard();

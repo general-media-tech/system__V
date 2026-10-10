@@ -920,6 +920,11 @@
 
   /* ═══════════════ المُشغّل ═══════════════ */
   async function run(opts) {
+    /* (١١ ت١) سجل العمليات لا يسجّل بيانات الفحص — هي تُنشأ لتُحذف */
+    global.__gmtOpLogMute = true;
+    try { return await run_(opts); } finally { global.__gmtOpLogMute = false; }
+  }
+  async function run_(opts) {
     opts = opts || {};
     const write = opts.write === true;
     LOG = [];

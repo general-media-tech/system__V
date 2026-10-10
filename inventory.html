@@ -3,7 +3,9 @@
 <head>
 <script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
    الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
-window.GMT_INTERNAL = 1;</script>
+window.GMT_INTERNAL = 1;
+/* (١١ ت١) سجل العمليات: المنتجات يسجّلها الجرد بنفسه (قبل ← بعد) — فلا يسجّلها المراقب العام مرّتين */
+window.GMT_OPLOG_SKIP = ['products'];</script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -2219,8 +2221,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261011a"></script>
-<script src="gmt-account.js?v=20261011c"></script>
+<script src="gmt-tools.js?v=20261011d"></script>
+<script src="gmt-account.js?v=20261011d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
 #cards-grid > *{content-visibility:auto;contain-intrinsic-size:auto 260px}
@@ -2262,18 +2264,19 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261011c"></script>
+  <script src="gmt-core.js?v=20261011d"></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
   <script src="gmt-icons.js?v=20261011a" defer></script>
-  <script src="gmt-ask.js?v=20261011c" defer></script>
+  <script src="gmt-ask.js?v=20261011d" defer></script>
+  <script src="gmt-oplog.js?v=20261011d" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011a"></script>
-  <script src="gmt-auth.js?v=20261011c"></script>
+  <script src="gmt-auth.js?v=20261011d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
@@ -2525,6 +2528,11 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="btn btn-ghost btn-sm" onclick="gmtInvUndoPanel()" title="تراجع (Ctrl+Z) وسجلّ الحذف والتعديل والنقل">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
       تراجع <span data-undo-count style="font-size:11px;color:var(--text3)"></span>
+    </button>
+
+    <button class="btn btn-ghost btn-sm" onclick="gmtOpLogOpen()" title="سجلّ العمليات: من فعل ماذا ومتى (للأدمن)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/></svg>
+      سجل العمليات
     </button>
 
     <div class="sep"></div>
@@ -2951,6 +2959,11 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="more-action-btn" onclick="closeMoreSheet(); gmtInvUndoPanel();">
       <div class="more-action-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></div>
       <span class="more-action-label">تراجع <span data-undo-count></span></span>
+    </button>
+
+    <button class="more-action-btn" onclick="closeMoreSheet(); gmtOpLogOpen();">
+      <div class="more-action-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/></svg></div>
+      <span class="more-action-label">سجل العمليات</span>
     </button>
 
     <button class="more-action-btn" data-admin="ربط المتجر" onclick="closeMoreSheet(); openBridgeTool();">
@@ -4739,6 +4752,17 @@ window.gmtSyncRename = gmtSyncRename;
     wr(LS_U, u);
     var l = rd(LS_L); l.push({ at: act.at, text: act.text, kind: act.kind }); wr(LS_L, l.slice(-MAXL));
     paintUndoBtn();
+    /* (١١ ت١) سجل العمليات على القاعدة (يراه الأدمن من أي جهاز) — بجانب سجلّ الجهاز هذا */
+    try {
+      if (window.GMTOpLog) {
+        if (act.kind === 'edit') GMTOpLog.log({ action: 'product_edit', entity: 'products', entityId: act.id, entityName: act.pname,
+          field: Object.keys(act.before || {}).map(colLabel).join('، '), oldValue: act.before, newValue: act.after });
+        else if (act.kind === 'delete') GMTOpLog.log({ action: 'product_delete', entity: 'products', entityId: act.id, entityName: act.pname,
+          oldValue: { name: act.pname, barcode: act.row && act.row.barcode, price: act.row && act.row.price } });
+        else if (act.kind === 'stock') GMTOpLog.log({ action: act.op === 'add_branch_stock' ? 'stock_add' : 'stock_deduct', entity: 'products', entityId: act.id, entityName: act.pname,
+          field: colLabel(act.branch), newValue: { qty: act.qty } });
+      }
+    } catch (_) {}
   }
   var _f = window.fetch.bind(window);
   window.fetch = async function (input, init) {
@@ -4754,17 +4778,18 @@ window.gmtSyncRename = gmtSyncRename;
             var body = JSON.parse((init && init.body) || '{}'), keys = Object.keys(body).filter(function (k) { return k !== 'in_transit' && k !== 'updated_at'; });
             if (keys.length) {
               var before = {}; keys.forEach(function (k) { before[k] = p[k] === undefined ? null : p[k]; });
-              pending = { kind: 'edit', id: id, before: before, text: 'تعديل ' + keys.map(colLabel).join('، ') + ' — «' + (p.name || id) + '»' };
+              var after = {}; keys.forEach(function (k) { after[k] = body[k]; });
+              pending = { kind: 'edit', id: id, before: before, after: after, pname: p.name || '', text: 'تعديل ' + keys.map(colLabel).join('، ') + ' — «' + (p.name || id) + '»' };
             }
           } else if (p && method === 'DELETE') {
-            pending = { kind: 'delete', id: id, row: JSON.parse(JSON.stringify(p)), text: 'حذف «' + (p.name || id) + '»' };
+            pending = { kind: 'delete', id: id, row: JSON.parse(JSON.stringify(p)), pname: p.name || '', text: 'حذف «' + (p.name || id) + '»' };
           }
         }
         var r = url.match(/\/rest\/v1\/rpc\/(add_branch_stock|deduct_branch_stock)/);
         var b = r ? JSON.parse((init && init.body) || '{}') : null, pp = b ? prodOf(b.p_product_id) : null;
         /* (٧ ط) منتجاتُ الفاحص الذاتي ليست في القائمة المحمّلة ⇒ لا تدخل سجلّ التراجع */
         if (r && pp && !inTransferFlow()) {
-          pending = { kind: 'stock', op: r[1], id: b.p_product_id, branch: b.p_branch_key, qty: Number(b.p_qty) || 0,
+          pending = { kind: 'stock', op: r[1], id: b.p_product_id, branch: b.p_branch_key, qty: Number(b.p_qty) || 0, pname: (pp && pp.name) || '',
                       text: (r[1] === 'add_branch_stock' ? 'إضافة ' : 'خصم ') + (Number(b.p_qty) || 0) + ' — ' + colLabel(b.p_branch_key) + ' — «' + ((pp && pp.name) || b.p_product_id) + '»' };
         }
       } catch (_) { pending = null; }
@@ -4822,6 +4847,7 @@ window.gmtSyncRename = gmtSyncRename;
     document.querySelectorAll('[data-undo-count]').forEach(function (el) { el.textContent = n ? '(' + n + ')' : ''; });
   }
   window.gmtInvUndo = undoLast; window.gmtInvUndoPanel = openUndoPanel;
+  window.gmtOpLogOpen = function () { if (window.GMTOpLog) GMTOpLog.open({ cat: 'stock' }); else showToast('سجل العمليات لم يُحمَّل بعد — أعد المحاولة بعد لحظة', 'warning'); };
   document.addEventListener('DOMContentLoaded', paintUndoBtn);
   document.addEventListener('keydown', function (e) {
     var t = (document.activeElement || {}).tagName || '';
@@ -13493,7 +13519,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261011b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011a"></script>
+<script src="gmt-whatsnew.js?v=20261011d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

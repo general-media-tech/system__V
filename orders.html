@@ -84,8 +84,8 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261011a"></script>
-<script src="gmt-account.js?v=20261011c"></script>
+<script src="gmt-tools.js?v=20261011d"></script>
+<script src="gmt-account.js?v=20261011d"></script>
 </head>
 <body class="pb-28">
   <script src="gmt-image-guard.js?v=20261007y"></script>
@@ -93,17 +93,17 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261011c"></script>
+  <script src="gmt-core.js?v=20261011d"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011a" defer></script>
   <script src="gmt-icons.js?v=20261011a" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261011c" defer></script>
+  <script src="gmt-ask.js?v=20261011d" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011a"></script>
-  <script src="gmt-auth.js?v=20261011c"></script>
+  <script src="gmt-auth.js?v=20261011d"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-receipt.js?v=20261011a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -987,6 +987,8 @@ const TELEGRAM_CHAT_ID = '-1003859889022';
 // نظام اسم المشغّل — يُطلب مرة واحدة لكل متصفح
 // ══════════════════════════════════════════════
 const GMT_OPERATOR_KEY = 'gmt_operator_name';
+/* (١١ ت١) سجل العمليات: القيمة السابقة للأوردر قبل تعديله (تظهر «الحالة: قيد التجهيز ← في الطريق») */
+window.GMT_OPLOG_BEFORE = Object.assign(window.GMT_OPLOG_BEFORE || {}, { gmt_orders: function (id) { try { return orders.find(function (o) { return String(o.id) === String(id); }) || null; } catch (e) { return null; } } });
 
 // (2026-08-15) زر «شاشات تعريف النظام» كان بلا دالة — يُربط بمحرّك الدليل
 function showWelcomeSlidesForce(){
@@ -7522,7 +7524,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011a"></script>
+<script src="gmt-whatsnew.js?v=20261011d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

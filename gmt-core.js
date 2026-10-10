@@ -701,6 +701,7 @@
       try { return window.GMTRole.isAdmin() ? (sessionStorage.getItem('gmt_admin_name') || '') : ''; } catch (e) { return ''; }
     },
     revoke: function () {
+      try { if (window.GMTRole.isAdmin() && window.GMTOpLog) window.GMTOpLog.log({ action: 'admin_logout', entity: 'admin_accounts', entityName: window.GMTRole.name() }); } catch (e) {}
       try { sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_sov_ok'); } catch (e) {}
       /* ⚠️ admin_pos.html كانت تكتب `gmt_admin_auth` في localStorage ولا تُمحى أبداً ⇒ بعد «خروج الأدمن» تبقى أدوات النقاط مفتوحةً لمن يأتي بعده */
       try { localStorage.removeItem('gmt_admin_auth'); } catch (e) {}

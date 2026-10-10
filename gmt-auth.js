@@ -319,6 +319,17 @@
         return '';
     }
 
+    /* حدثٌ في سجلّ العمليات (إن كانت الوحدة محمَّلة، وإلّا ننتظر جاهزيّتها) — لا يعطّل الدخول أبداً */
+    function auditEvent(action, name, throttled) {
+        var e = { action: action, entity: 'admin_accounts', entityName: name };
+        if (action === 'admin_login' || (action === 'admin_add' && /أوّل حساب/.test(name))) e.actor = 'الأدمن ' + String(name).replace(/ \(أوّل حساب\)$/, '');
+        function go() { try { if (throttled) global.GMTOpLog.logThrottled('adminfail', e, 30000); else global.GMTOpLog.log(e); } catch (x) {} }
+        try {
+            if (global.GMTOpLog) go();
+            else global.addEventListener('gmt:oplog-ready', go, { once: true });
+        } catch (x) {}
+    }
+
     /* الدخول: bootstrap=true فقط من نافذة «دخول الإدارة» (لا من نموذج الدخول العادي) */
     async function adminCheck(name, pw, bootstrap) {
         var e0 = badName(name); if (e0) return { error: e0 };
@@ -333,12 +344,14 @@
             var first = await makeAccount(name, pw, 'أوّل حساب');
             try { await writeAdmins([first]); } catch (e) { return { error: (e && e.message) || 'تعذّر إنشاء الحساب' }; }
             okReset();
+            auditEvent('admin_add', first.n + ' (أوّل حساب)');
             return { ok: true, name: first.n, created: true };
         }
         var k = normName(name), acc = null;
         for (var i = 0; i < r.list.length; i++) if (r.list[i] && r.list[i].k === k) { acc = r.list[i]; break; }
         if (!acc || !(await verify(acc, pw))) {
             failed();
+            if (acc || bootstrap) auditEvent('admin_login_fail', name, true);
             return { ok: false, known: !!acc, error: 'اسم المستخدم أو كلمة السرّ غير صحيحة', field: 'pw', clear: true };
         }
         okReset();
@@ -371,6 +384,7 @@
             }
         });
         if (!res || !res.ok) return null;
+        auditEvent('admin_login', res.name);
         try { localStorage.setItem('gmt_admin_last', res.name); } catch (e) {}
         try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(res.name); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (e) {}
         if (res.created) {
@@ -398,7 +412,7 @@
         if (r.list.some(function (a) { return a.k === k; })) throw new Error('هذا الاسم موجود');
         var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
         r.list.push(await makeAccount(name, pw, me));
-        await writeAdmins(r.list); return true;
+        await writeAdmins(r.list); auditEvent('admin_add', String(name).trim()); return true;
     }
     async function setAdminPassword(name, pw) {
         needAdmin();
@@ -408,7 +422,7 @@
         if (!acc) throw new Error('الحساب غير موجود');
         var fresh = await makeAccount(acc.n, pw, acc.by);
         acc.s = fresh.s; acc.i = fresh.i; acc.h = fresh.h; acc.pw_at = new Date().toISOString();
-        await writeAdmins(r.list); return true;
+        await writeAdmins(r.list); auditEvent('admin_pw', acc.n); return true;
     }
     async function removeAdmin(name) {
         needAdmin();
@@ -417,7 +431,8 @@
         var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
         if (normName(me) === k) throw new Error('لا تحذف حسابك أنت — اطلب من أدمنٍ آخر');
         if (r.list.length <= 1) throw new Error('هذا آخر حساب أدمن — لا يُحذف');
-        await writeAdmins(r.list.filter(function (a) { return a.k !== k; })); return true;
+        var gone = ''; r.list.forEach(function (a) { if (a.k === k) gone = a.n; });
+        await writeAdmins(r.list.filter(function (a) { return a.k !== k; })); auditEvent('admin_remove', gone); return true;
     }
 
     global.GMTAuth = {
@@ -428,7 +443,7 @@
             login: adminLogin,                                   /* نافذة اسم+كلمة سرّ ⇒ الاسم أو null */
             tryLogin: function (name, pw) { return adminCheck(name, pw, false); },   /* من نموذج الدخول العادي: بلا إنشاء */
             list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
-            normalize: normName
+            normalize: normName, _audit: auditEvent
         }
     };
 }(typeof window !== 'undefined' ? window : this));
