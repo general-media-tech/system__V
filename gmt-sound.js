@@ -195,28 +195,34 @@
        كان طنيناً منخفضاً فقط (محرّكٌ يقترب ويبتعد) بلا زمورٍ ولا فرامل. الآن ثلاثُ لحظات:
          ① المحرّك يقترب (قصير) · ② زمورٌ مزدوج النغمة «بيب… بيب» كزمور الشاحنات · ③ احتكاك دواليب (ضجيجٌ مُرشَّح يهبط). */
     truck: function () {
+      /* (11 ت١ · طلبك مرّتين) «صوت سيارة الشحن لازم يكون صوت دواليب وزمور، ويبدأ مع فتح صفحة التتبّع مباشرةً والسيارة عم تمشي».
+         الترتيب القديم كان محرّكاً أولاً (٠٫٦ث) ثم الزمور (٠٫٥) ثم الزحطة (١٫٢٥) فيبدو متأخراً عن حركة الشاحنة.
+         الآن يبدأ **من الصفر** بدواليب تدحرج على الطريق (ضجيجٌ ضيّق النطاق + همهمة منخفضة)، والزمور المزدوج في ٠٫٣٥ و٠٫٨٠،
+         وزحطةُ الدواليب تختم عند ١٫١٠. المدّة الكلّية ≈ ١٫٧ث. */
       var c = ensure(); if (!c) return;
       var t0 = c.currentTime;
-      /* ① محرّكٌ يقترب — نصف ثانيةٍ فقط، تحت الزمور */
+      /* ① دواليب على الطريق — من اللحظة الأولى */
+      noise({ from: 420, to: 700, dur: 1.45, gain: .11, at: 0, attack: .05, band: true, q: .9 });
+      noise({ from: 1500, to: 900, dur: 1.2, gain: .04, at: 0, attack: .08, band: true, q: 1.1 });
+      /* همهمةُ المحرّك تحت الدواليب */
       var o = c.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(58, t0);
-      o.frequency.linearRampToValueAtTime(92, t0 + .55);
+      o.frequency.setValueAtTime(52, t0); o.frequency.linearRampToValueAtTime(84, t0 + 1.2);
       var f = c.createBiquadFilter(); f.type = 'lowpass';
-      f.frequency.setValueAtTime(240, t0); f.frequency.linearRampToValueAtTime(720, t0 + .55);
+      f.frequency.setValueAtTime(220, t0); f.frequency.linearRampToValueAtTime(520, t0 + 1.2);
       var g = c.createGain();
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(.14, t0 + .30);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + .62);
+      g.gain.exponentialRampToValueAtTime(.10, t0 + .12);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.35);
       o.connect(f); f.connect(g); g.connect(master);
-      o.start(t0); o.stop(t0 + .66);
-      /* ② زمورٌ مزدوج: نغمتان معاً (٤١٥ + ٥٢٥) مرّتين — بيب بيب */
-      [.50, .90].forEach(function (at) {
+      o.start(t0); o.stop(t0 + 1.4);
+      /* ② زمورٌ مزدوج النغمة «بيب… بيب» */
+      [.35, .80].forEach(function (at) {
         tone({ f: 415, type: 'square', dur: .27, gain: .15, at: at, attack: .01, lp: 2000 });
         tone({ f: 525, type: 'square', dur: .27, gain: .13, at: at, attack: .01, lp: 2000 });
       });
-      /* ③ زحطة دواليب — ضجيجٌ ضيّق النطاق يهبط صعوداً ثمّ ينطفئ */
-      noise({ from: 2800, to: 1100, dur: .55, gain: .13, at: 1.25, attack: .06, band: true, q: 1.4 });
-      noise({ from: 5200, to: 2200, dur: .45, gain: .05, at: 1.28, attack: .05, band: true, q: 2.2 });
+      /* ③ زحطة دواليب تختم المشهد */
+      noise({ from: 2800, to: 1100, dur: .5, gain: .13, at: 1.10, attack: .05, band: true, q: 1.4 });
+      noise({ from: 5200, to: 2200, dur: .4, gain: .05, at: 1.12, attack: .04, band: true, q: 2.2 });
     },
 
     /* (١١ ت١ — ملاحظات · «صوتٌ في كل مكان») أصواتٌ جديدة للأحداث التي كانت صامتة */
@@ -244,6 +250,29 @@
     del: function () {             /* حذف: هبوطٌ منخفض */
       tone({ f: 300, f2: 140, type: 'triangle', dur: .20, gain: .22, attack: .004, lp: 1800 });
     },
+    back: function () {            /* رجوع: نغمتان هابطتان قصيرتان ناعمتان */
+      tone({ f: 660, f2: 470, type: 'sine', dur: .13, gain: .17, attack: .004, lp: 3000 });
+      tone({ f: 470, f2: 360, type: 'sine', dur: .14, gain: .13, at: .08, attack: .004, lp: 2600 });
+    },
+    moneyOut: function () {        /* مال يخرج (مصروف · سحب · ترحيل): عملةٌ تهبط */
+      tone({ f: A5, f2: E5, type: 'triangle', dur: .22, gain: .20, lp: 6500 });
+      tone({ f: E5, f2: 330, type: 'triangle', dur: .30, gain: .15, at: .10, lp: 5200 });
+      noise({ from: 3600, to: 1800, dur: .16, gain: .04, band: true, q: 2, at: .02 });
+    },
+    notify: function () {          /* إشعارٌ جديد: نغمتان عُلويتان لطيفتان */
+      tone({ f: Cs6, type: 'sine', dur: .16, gain: .20 });
+      tone({ f: E6, type: 'sine', dur: .30, gain: .17, at: .13, lp: 7000 });
+    },
+    open: function () {            /* فتحُ نافذة/لوحة: صعودٌ قصير */
+      tone({ f: 520, f2: 780, type: 'sine', dur: .11, gain: .12, attack: .004, lp: 3600 });
+    },
+    close: function () {           /* إغلاقُ نافذة/لوحة: هبوطٌ قصير */
+      tone({ f: 700, f2: 450, type: 'sine', dur: .11, gain: .11, attack: .004, lp: 3200 });
+    },
+    copy: function () {            /* نسخ: نقرةٌ مزدوجة رفيعة */
+      tone({ f: 1800, type: 'sine', dur: .04, gain: .10, attack: .002, lp: 4200 });
+      tone({ f: 2400, type: 'sine', dur: .05, gain: .09, at: .05, attack: .002, lp: 4800 });
+    },
     click: function () {           /* نقرةٌ خافتة جداً لأزرار الواجهة */
       tone({ f: 1250, type: 'sine', dur: .028, gain: .06, attack: .002, lp: 2600 });
     },
@@ -255,7 +284,17 @@
       if (!isOn()) return;
       var fn = SOUNDS[name];
       if (!fn) return;
-      if (!unlocked) { if (!(opt && opt.queue === false)) pending = name; return; }
+      if (!unlocked) {
+        /* (11 ت١) بعض المتصفّحات تسمح بالتشغيل بلا لمسة (زائرٌ سبق أن تفاعل مع الموقع · رابطٌ فُتح من تطبيق) فيكون السياق «running» فوراً.
+           كنّا ننتظر اللمسة الأولى دائماً ⇒ صوتُ دخول التتبّع يتأخّر عن حركة الشاحنة حتى حين يُسمح بتشغيله. الآن: نجرّب أولاً، وإلا نؤجّل لأوّل لمسة. */
+        var c0 = ensure();
+        if (c0 && c0.state === 'running') { unlocked = true; }
+        else {
+          if (!(opt && opt.queue === false)) pending = name;
+          try { if (c0 && c0.state === 'suspended') c0.resume().then(function () { if (c0.state === 'running' && !unlocked) { unlocked = true; if (pending) { var q = pending; pending = null; play(q); } } }).catch(function () {}); } catch (_) {}
+          return;
+        }
+      }
       var c = ensure(); if (!c) return;
       if (c.state === 'suspended') { c.resume().catch(function () {}); }
       fn();
@@ -326,6 +365,8 @@
     if (WARN_T.test(ty)) return 'warn';
     if (/تسجيل الخروج|تمّ الخروج|تم الخروج/.test(t)) return 'logout';
     if (/تسجيل الدخول|أهلاً بعودتك/.test(t)) return 'login';
+    if (/مصروف|صرف|سحب|ترحيل|خُصم من الصندوق|نُقل.*من صندوق/.test(t)) return 'moneyOut';
+    if (/نُسخ|تم النسخ/.test(t)) return 'copy';
     if (/تحصيل|دُفع|مدفوع|قُبض|سداد|الصندوق|عمولة|فاتورة.*(أُنشئت|حُفظت|اعتُمدت|تم)/.test(t)) return 'cash';
     if (/(عميل|زبون).*(أُضيف|إضافة|جديد|حُفظ|سُجّل)|(أُضيف|إضافة|سُجّل).*(عميل|زبون)/.test(t)) return 'customer';
     if (/(أوردر|طلب).*(أُنشئ|إنشاء|أُضيف|اعتماد)/.test(t)) return 'order';
@@ -363,7 +404,8 @@
       if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('[data-nosound]') || el.id === 'gmt-sound-btn') return;
       var n = Date.now(); if (n - lastClick < 70) return; lastClick = n;
       var cls = (typeof el.className === 'string' ? el.className : '') + ' ' + (el.getAttribute('data-act') || '') + ' ' + (el.getAttribute('data-danger') || '');
-      play(/danger|trash|delete|remove|\bdel\b/i.test(cls) ? 'del' : 'click');
+      var txt = ((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' + (el.title || '')).slice(0, 60);
+      play(/danger|trash|delete|remove|\bdel\b/i.test(cls) ? 'del' : (/(^|\s)(رجوع|عودة|السابق|back)(\s|$)/i.test(txt) || /\bback\b|data-back/.test(cls + ' ' + (el.id || '')) ? 'back' : 'click'));
     } catch (_) {}
   }, true);
 

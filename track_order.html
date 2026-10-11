@@ -165,7 +165,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261011n"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261011h" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
@@ -744,7 +744,8 @@ window.trkContactBranch = trkContactBranch;
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
    يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
 (function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('truck');}catch(e){}}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(go,420);});else setTimeout(go,420);})();</script>
+/* (11 ت١) فوراً مع ظهور الشاحنة (لا بعد ٤٢٠مس): يُشغَّل في الحال إن سمح المتصفّح، وإلا عند أوّل لمسة (قيدٌ من المتصفّح لا نملك تجاوزه) */
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();</script>
 </body>
 </html>
 
