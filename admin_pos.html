@@ -460,7 +460,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   #topbar{gap:8px!important;padding:10px 12px!important;flex-wrap:nowrap}
   #topbar .tb-badge{display:none}
   #topbar .tb-title{font-size:15px!important;white-space:nowrap}
-  .tb-help span{display:none}
+  .tb-help span:not(.gmt-ei){display:none} /* gmt-icons يحوّل 🏷️ إلى span.gmt-ei — إخفاؤه كان يترك مربّعاً فارغاً */
   .tb-help{width:38px;justify-content:center;padding:0}
   #main-tabs{overflow-x:auto;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #main-tabs::-webkit-scrollbar{display:none}
