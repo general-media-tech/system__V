@@ -141,7 +141,7 @@
     var list = cands.slice(0, 12).map(function (m) { var p = m.p; return { barcode: p.barcode || '', name: p.name, price: p.price, stock: stockOf(p), link: p.store_url || p.store_link || '', group: p.group_name || '' }; });
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'screen', text: String(text || '').slice(0, 3000), image: img ? img.b64 : '', image_type: img ? img.type : '', candidates: list }) });
-    if (!r.ok) throw new Error('الوسيط ردّ ' + r.status + ' — ' + (await r.text().catch(function () { return ''; })).slice(0, 140));
+    if (!r.ok) { var tx = await r.text().catch(function () { return ''; }); throw new Error(global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, tx, url) : ('الوسيط ردّ ' + r.status + ' — ' + tx.slice(0, 140))); }
     var d = await r.json();
     if (d.error) throw new Error(d.error);
     return { analysis: d.analysis || null, imageUsed: d.image_used === true, provider: d.provider || '' };
@@ -164,7 +164,7 @@
     }
     if (global.GMTOpLog) go();
     else {
-      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011j'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
+      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011k'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
     }
     return items.length;
   }

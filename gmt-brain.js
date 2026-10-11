@@ -273,8 +273,8 @@
     var body = { mode: 'product', url: (o && o.url) || '', hint: (o && o.hint) || '' };
     if (o && o.file) { body.image = await shrinkB64(o.file); body.image_type = 'image/jpeg'; }
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    var j = {}; try { j = await r.json(); } catch (_) {}
-    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
+    if (!r.ok || j.error) throw new Error(j.error || (global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, rawTxt, url) : ('HTTP ' + r.status)));
     return j.product || {};
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -442,6 +442,7 @@
     try { var kb = kbFind(question); if (kb) return kb.a + '<br><span style="font-size:11px;color:#526077">📚 من سجلّ المعرفة — بلا استهلاك رصيد</span>'; } catch (_) {}
     var url = endpoint();
     if (!url) throw new Error('not-configured');
+    try { var pb = global.GMTEndpoint && GMTEndpoint.problem && GMTEndpoint.problem(url); if (pb) { var e0 = new Error('رابط الوسيط المضبوط لا يصلح: ' + pb + '. صحّحه من «أدخل رابط الوسيط».'); e0.fixEndpoint = true; throw e0; } } catch (e1) { if (e1 && e1.fixEndpoint) throw e1; }
     var ctx = collectContext();
     // أرفق البيانات الحيّة المتعلّقة بالسؤال — كي يجيب من بياناتك لا من معرفته
     try { ctx.liveData = await collectLiveData(question); } catch (e) { ctx.liveData = { error: 'تعذّر جلب البيانات الحيّة' }; }
@@ -455,7 +456,11 @@
         question: question
       })
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (await r.text().catch(function () { return ''; })).slice(0, 160));
+    if (!r.ok) {
+      var bodyTxt = await r.text().catch(function () { return ''; });
+      var ex = global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, bodyTxt, url) : ('HTTP ' + r.status + ' — ' + bodyTxt.slice(0, 160));
+      var er = new Error(ex); er.fixEndpoint = (r.status === 405 || r.status === 404 || r.status === 401 || r.status === 403 || r.status === 0); throw er;
+    }
     var d = await r.json();
     var answer = d.answer || d.reply || d.text || (d.content && d.content[0] && d.content[0].text) || '';
     if (!answer) throw new Error('ردّ فارغ من الوسيط');
@@ -472,7 +477,7 @@
 
   function openScreen(text) {
     if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
-    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261011f';
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261011k';
     sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
     sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
     (document.head || document.documentElement).appendChild(sc);
@@ -582,12 +587,14 @@
         if (String(e.message) === 'not-configured') {
           t.querySelector('div').innerHTML =
             '<b>لم يُفعَّل بعد</b><br>عقل النظام يحتاج وسيطاً آمناً (Edge Function) — المفتاح لا يوضع في الكود.<br>' +
-            'خطوات التفعيل في ملف <b>_تفعيل_عقل_النظام.md</b>.<br><br>' +
+            'خطوات التفعيل في صفحة <b>تفعيل عقل النظام</b> (تفعيل_عقل_النظام.html).<br><br>' +
             '<button id="gb-cfg" style="background:#0f172a;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">أدخل رابط الوسيط</button>';
           var cb = t.querySelector('#gb-cfg');
           if (cb) cb.onclick = function () { configure(); };
         } else {
-          t.querySelector('div').innerHTML = '<span style="color:#b91c1c">تعذّر الاتصال: ' + esc(e.message) + '</span>';
+          t.querySelector('div').innerHTML = '<span style="color:#b91c1c">تعذّر الاتصال: ' + fmt(e.message) + '</span>' +
+            (e.fixEndpoint ? '<br><br><button id="gb-cfg2" style="background:#0f172a;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">أدخل رابط الوسيط الصحيح</button>' : '');
+          var cb2 = t.querySelector('#gb-cfg2'); if (cb2) cb2.onclick = function () { configure(); };
         }
       }
       busy = false;
@@ -603,6 +610,8 @@
     var v = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('رابط وسيط عقل النظام (Supabase Edge Function):\n\nمثال:\nhttps://<project>.supabase.co/functions/v1/gmt-brain\n\n(المفتاح يبقى داخل الوسيط ولا يظهر في الكود)', { value: cur });
     if (v === null) return;
     v = v.trim();
+    var pb2 = v && window.GMTEndpoint && GMTEndpoint.problem ? GMTEndpoint.problem(v) : '';
+    if (pb2) { alert('⛔ لم يُحفَظ: ' + pb2); return; }
     try { v ? localStorage.setItem(CFG_KEY, v) : localStorage.removeItem(CFG_KEY); } catch (_) {}
     /* (٨ ت — تدقيق المطابقة) «يقول حُفظ ولا يُحفظ»: كان يكتب على هذا الجهاز فقط، ثمّ عند التحميل التالي تكتب
        gmt-endpoint.js قيمةَ القاعدة فوقه. الآن يُحفظ في إعدادات النظام (gmt_settings) لكل الأجهزة — كبقيّة الروابط. */

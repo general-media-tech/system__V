@@ -202,10 +202,24 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     } catch (e) { return warn('تعذّر فحص حدّ الصفوف', e.message); }
   }
 
+  /* ⑦ (١١ ت١) رابط وسيط العقل: مضبوطٌ ويصلح؟ — «HTTP 405 Not Allowed» كان رابطَ موقعٍ ثابت لا دالة. قراءة فقط، بلا شبكة. */
+  function checkEndpoints() {
+    try {
+      if (!global.GMTEndpoint || !GMTEndpoint.get || !GMTEndpoint.problem) return ok('فحص رابط الوسيط غير متاح على هذه الصفحة');
+      var out = [];
+      ['brain', 'shop'].forEach(function (k) {
+        var u = GMTEndpoint.get(k); if (!u) return;
+        var pr = GMTEndpoint.problem(u); if (pr) out.push((GMTEndpoint.kinds[k] || {}).label + ': ' + pr);
+      });
+      return out.length ? bad('رابط وسيطٍ لا يصلح: ' + out.length, out.join(' · ') + ' — صحّحه من «تفعيل عقل النظام»') : ok('روابط الوسيط (إن ضُبطت) صالحة الشكل');
+    } catch (e) { return warn('تعذّر فحص رابط الوسيط', e.message); }
+  }
+
   async function run(verbose) {
     var results = [];
     results.push(checkRules());
     results.push(checkBrand());
+    results.push(checkEndpoints());
     results.push(await checkAssets());
     results.push(await checkDatabase());
     results.push(await checkRpc());

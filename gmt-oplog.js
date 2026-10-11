@@ -49,7 +49,7 @@
     user_lock: 'قفل جهاز مستخدم', user_toggle: 'إيقاف/تفعيل مستخدم', user_delete: 'حذف مستخدم', user_approve: 'موافقة على حساب',
     product_edit: 'تعديل منتج', product_delete: 'حذف منتج', stock_add: 'إضافة كمّية', stock_deduct: 'خصم كمّية', qty_manual: 'تعديل كمّية يدوي',
     invoice_admin_create: 'فاتورة من الإدارة', password_change: 'تغيير كلمة سرّ', unmet_demand: 'طلب غير متوفّر', unmet_resolved: 'طلب غير متوفّر — عولج',
-    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)'
+    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف'
   };
   var KEY_AR = {
     status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', qty: 'الكمية',
@@ -284,7 +284,7 @@
     if (/^(admin_|user_|password)/.test(r.action || '')) return 'accounts';
     if (/^unmet_/.test(r.action || '')) return 'orders';
     if (/^rfq_/.test(r.action || '')) return 'stock';
-    if (/^(product_|stock_|qty_)/.test(r.action || '')) return 'stock';
+    if (/^(product_|stock_|qty_|category_)/.test(r.action || '')) return 'stock';
     if (/^policy_/.test(r.action || '')) return 'system';
     if (/^invoice/.test(r.action || '')) return 'money';
     return 'system';

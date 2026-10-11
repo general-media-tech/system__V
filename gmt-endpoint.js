@@ -76,6 +76,36 @@
     return mem || {};
   }
 
+  /* ══ (١١ ت١) «تعذّر الاتصال: HTTP 405 — Not Allowed» ══════════════════════════════════════════════
+     الجذر: الرابط المضبوط للوسيط كان رابط **موقعٍ ثابت** (GitHub Pages ينقّل POST بصفحة «405 Not Allowed» بتذييل nginx)
+     لا رابط دالة Supabase — والنظام يقبل أيَّ رابط https بلا فحص، ثمّ يعرض للمستخدم نصَّ صفحة HTML الخام فلا يفهم شيئاً.
+     العلاج: ① لا نحفظ رابطاً لا يصلح لـPOST (problem) ② نترجم ردّ الخطأ إلى سبب وحلّ بالعربية (explain). */
+  function problem(url) {
+    var u = String(url == null ? '' : url).trim(); if (!u) return '';
+    var a; try { a = new URL(u); } catch (_) { return 'الرابط غير صالح — يجب أن يبدأ بـhttps:// ويكون رابطاً كاملاً'; }
+    var host = a.hostname.toLowerCase(), path = a.pathname || '/';
+    try { if (host === String(location.hostname || '').toLowerCase()) return 'هذا رابط الموقع نفسه — صفحات الموقع لا تقبل POST (تردّ 405)'; } catch (_) {}
+    if (/\.github\.io$/.test(host)) return 'هذا رابط موقعٍ على GitHub Pages — صفحات ثابتة لا تقبل POST (تردّ 405). المطلوب رابط دالة Supabase';
+    if (/\.(html?|js|css|json|png|jpe?g|svg|ico)$/i.test(path)) return 'الرابط يشير إلى ملف (' + path.split('/').pop() + ') لا إلى دالة';
+    if (/\.supabase\.co$/.test(host) && !/^\/functions\/v1\/[^/]+/.test(path)) return 'رابط Supabase هذا ليس لدالة — الشكل الصحيح: https://<المشروع>.supabase.co/functions/v1/<اسم الدالة>';
+    return '';
+  }
+  function explain(status, body, url) {
+    var st = Number(status) || 0, b = String(body == null ? '' : body), html = /<\s*(html|head|body|title)\b/i.test(b);
+    var pr = url ? problem(url) : '';
+    if (st === 405 || (html && st >= 400 && st < 500 && st !== 404 && st !== 401 && st !== 403)) {
+      return 'الرابط المضبوط يردّ بصفحة موقع (HTTP ' + st + ' «Not Allowed») — أي أنّه **ليس وسيطاً**، بل موقعٌ ثابت لا يقبل الطلبات المرسَلة له. ' +
+        (pr ? 'السبب: ' + pr + '. ' : 'غالباً لُصق رابط الموقع (GitHub Pages) بدل رابط دالة Supabase. ') +
+        'الشكل الصحيح: https://<المشروع>.supabase.co/functions/v1/gmt-brain — صحّحه من «تفعيل عقل النظام» أو زرّ «أدخل رابط الوسيط».';
+    }
+    if (st === 404) return 'لا توجد دالة على هذا الرابط (HTTP 404) — إمّا لم تُنشر بعد، أو اسمها في الرابط لا يطابق اسم الدالة المنشورة.';
+    if (st === 401 || st === 403) return 'الوسيط رفض الطلب (HTTP ' + st + ') — غالباً نُشرت الدالة بدون الخيار --no-verify-jwt: أعد نشرها بـ«supabase functions deploy gmt-brain --no-verify-jwt».';
+    if (st === 429) return 'تجاوز الاستهلاك المسموح (HTTP 429) — انتظر دقيقة أو أضف مفتاحاً آخر للوسيط.';
+    if (st >= 500) return 'الدالة وصلتها الرسالة لكنّها فشلت داخلياً (HTTP ' + st + ') — افتح سجلّات الدالة في Supabase (غالباً مفتاح Gemini/Claude ناقص أو رصيده انتهى).';
+    if (st === 0) return 'تعذّر الوصول للوسيط أصلاً — لا إنترنت، أو الدالة لا تسمح بهذا الموقع (CORS).';
+    return 'ردّ الوسيط برمز HTTP ' + st + '.';
+  }
+
   /* القيمة الفعّالة: القاعدة أوّلاً (للنظام كلّه)، ثمّ المحلّي (توافقٌ خلفيّ) */
   function get(kind) {
     var k = KINDS[kind];
@@ -90,6 +120,7 @@
     if (!k) throw new Error('نوعٌ غير معروف');
     var v = String(url || '').trim();
     if (v && !/^https?:\/\//i.test(v)) throw new Error('الرابط يجب أن يبدأ بـhttps://');
+    var bad = problem(v); if (bad) throw new Error(bad);          /* لا نحفظ رابطاً لن يعمل أبداً */
     lsSet(k.local, v);                       // يعمل فوراً على هذا الجهاز
     var d = db();
     if (!d) return { local: true, system: false };
@@ -232,7 +263,7 @@
   }
 
   global.GMTEndpoint = {
-    get: get, set: set, load: load, kinds: KINDS,
+    get: get, set: set, load: load, kinds: KINDS, problem: problem, explain: explain,
     setting: setting, settingFresh: settingFresh, setSetting: setSetting,
     notice: notice, open: prompt_, migrate: migrateLocal
   };

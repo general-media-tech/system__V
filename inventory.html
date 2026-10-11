@@ -2271,11 +2271,11 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-sound.js?v=20261011h" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
-  <script src="gmt-oplog.js?v=20261011j" defer></script>
+  <script src="gmt-oplog.js?v=20261011k" defer></script>
   <script src="gmt-stock.js?v=20261007t" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-<script src="gmt-endpoint.js?v=20261011a"></script>
+<script src="gmt-endpoint.js?v=20261011k"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
@@ -2541,6 +2541,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       مجموعة جديدة
     </button>
+    <button class="btn btn-ghost btn-sm" data-admin="إنشاء تصنيف" onclick="gmCatOpen()" style="font-weight:800;" title="التصنيف أكبر من المجموعة: يجمع عدّة مجموعات">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      تصنيف جديد
+    </button>
 
     <div class="sep"></div>
 
@@ -2751,6 +2755,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <div><div id="gm-stat-groups" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">مجموعة</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
+      <div style="width:30px;height:30px;background:#EEF2FF;border-radius:8px;display:flex;align-items:center;justify-content:center;">🏷️</div>
+      <div><div id="gm-stat-cats" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">تصنيف</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
       <div style="width:30px;height:30px;background:#F0FDF4;border-radius:8px;display:flex;align-items:center;justify-content:center;">📦</div>
       <div><div id="gm-stat-linked" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">منتج مرتبط</div></div>
     </div>
@@ -2758,7 +2766,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <div style="width:30px;height:30px;background:#FFF7ED;border-radius:8px;display:flex;align-items:center;justify-content:center;">🔗</div>
       <div><div id="gm-stat-unlinked" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">بدون مجموعة</div></div>
     </div>
-    <div style="margin-right:auto;display:flex;align-items:center;">
+    <div style="margin-right:auto;display:flex;align-items:center;gap:8px;">
+      <button data-admin="إنشاء تصنيف" onclick="gmCatOpen()" style="background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;white-space:nowrap;">+ تصنيف جديد</button>
       <button data-admin="إنشاء مجموعة" onclick="gmOpenGroupModal()" style="background:var(--red);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         مجموعة جديدة
@@ -2770,6 +2779,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <div style="padding:12px 16px 8px;background:#fff;border-bottom:1px solid #EBEBEB;">
     <div style="background:#F5F5F5;border-radius:12px;padding:4px;display:flex;gap:2px;">
       <button id="gm-tab-groups" onclick="gmSwitchTab('groups')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:#fff;color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer;font-family:'Cairo',sans-serif;">المجموعات</button>
+      <button id="gm-tab-categories" onclick="gmSwitchTab('categories')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:transparent;color:#5b6472;cursor:pointer;font-family:'Cairo',sans-serif;">التصنيفات</button>
       <button id="gm-tab-products" onclick="gmSwitchTab('products')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:transparent;color:#5b6472;cursor:pointer;font-family:'Cairo',sans-serif;">المنتجات</button>
     </div>
   </div>
@@ -2792,6 +2802,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <!-- Groups Main Content -->
   <div style="padding:14px 16px 100px;">
     <div id="gm-view-groups"><div id="gm-groups-list" style="display:flex;flex-direction:column;gap:10px;"></div></div>
+    <div id="gm-view-categories" style="display:none;"><div id="gm-cats-list" style="display:flex;flex-direction:column;gap:10px;"></div></div>
     <div id="gm-view-products" style="display:none;"><div id="gm-products-list" style="display:flex;flex-direction:column;gap:8px;"></div></div>
   </div>
 
@@ -2919,6 +2930,12 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       </div>
       <span class="more-action-label">مجموعة جديدة</span>
+    </button>
+    <button class="more-action-btn" data-admin="إنشاء تصنيف" onclick="closeMoreSheet(); gmCatOpen();">
+      <div class="more-action-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <span class="more-action-label">تصنيف جديد</span>
     </button>
 
     <button class="more-action-btn" onclick="closeMoreSheet(); setFilter('zero', document.querySelector('[data-filter=zero]'));">
@@ -3529,6 +3546,39 @@ window.pm2Sync=pm2Sync;
   </div>
 </div>
 
+<!-- (١١ ت١) التصنيفات — أكبر من المجموعة: يجمع عدّة مجموعات (تصوير ← كاميرات · عدسات). على مستوى الصفحة كي تفتح من أيّ شاشة -->
+<div class="modal-overlay" id="cat-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="cat-modal-title">إنشاء تصنيف جديد</h2>
+      <button class="btn-icon" onclick="closeModal('cat-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;line-height:1.8;color:#1e40af;">
+        <b>التصنيف أكبر من المجموعة</b>: يجمع عدّة مجموعات تحته. مثال: التصنيف «تصوير» يضمّ المجموعات «كاميرات» و«عدسات». يُعيَّن على مستوى المجموعة — فكلّ منتجات المجموعة المختارة تدخل التصنيف.
+      </div>
+      <input type="hidden" id="cat-old-name">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label"><span class="required">*</span> اسم التصنيف</label>
+        <input type="text" id="cat-name" class="form-input" placeholder="مثال: تصوير، صوت، إضاءة..." autocomplete="off">
+      </div>
+      <label class="form-label">المجموعات داخل هذا التصنيف</label>
+      <input type="text" id="cat-search" class="form-input" placeholder="بحث في المجموعات..." oninput="gmCatRenderList()" style="margin-bottom:8px;">
+      <div class="group-select-actions">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="gmCatSelectAll(true)">تحديد الكل</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="gmCatSelectAll(false)">إلغاء الكل</button>
+        <span class="group-selected-count" id="cat-count">0 مجموعة</span>
+      </div>
+      <div id="cat-groups-list" style="max-height:40vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+      <div id="cat-msg" style="font-size:12px;font-weight:700;margin-top:8px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cat-modal')">إلغاء</button>
+      <button class="btn btn-primary" id="cat-save-btn" onclick="gmCatSave()">حفظ التصنيف</button>
+    </div>
+  </div>
+</div>
+
 <!-- Bulk Image Upload Modal -->
 <div class="modal-overlay" id="bulk-img-modal" style="display:none;">
   <div class="modal modal-xl">
@@ -3769,16 +3819,6 @@ window.pm2Sync=pm2Sync;
                 <button onclick="stPickApply()" class="btn btn-primary btn-sm">➕ أضف المحدّد</button>
               </span>
             </div>
-          </div>
-        </div>
-        <!-- 🧾 لوحة تسوية فواتير النقل المعلّقة (تشمل السابقة) -->
-        <div id="st-settle-ov" style="display:none;position:fixed;inset:0;z-index:99997;background:rgba(15,23,42,.9);align-items:center;justify-content:center;padding:14px">
-          <div style="background:var(--surface);border-radius:14px;max-width:660px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
-              <b style="font-size:14px">🧾 فواتير نقل تحتاج تسوية</b>
-              <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">×</button>
-            </div>
-            <div id="st-settle-body" style="padding:12px;overflow-y:auto"></div>
           </div>
         </div>
         <div id="st-scan-ov" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.9);align-items:center;justify-content:center;flex-direction:column;gap:12px">
@@ -5687,12 +5727,15 @@ function renderGroupChips() {
      تصنيفٌ لأيّ منتج، والمجموعات تُعرض داخل التصنيف المختار فقط. */
   const _cats = [...new Set(allProducts.map(p => p.category || '').filter(Boolean))].sort();
   let catRow = document.getElementById('category-chips-row');
-  if (_cats.length) {
+  /* (١١ ت١) زرّ «＋ تصنيف» في الصفّ نفسه — كان إنشاء التصنيف بلا أيّ مدخل ظاهر. الصفّ يظهر للأدمن حتى بلا تصنيفات. */
+  const _isAdm = (function(){ try { return !!(window.GMTRole && GMTRole.isAdmin()); } catch (_) { return false; } })();
+  const _addCat = '<div class="filter-chip" data-admin="إنشاء تصنيف" onclick="gmCatOpen()" title="إنشاء تصنيف يجمع عدّة مجموعات" style="border-style:dashed;white-space:nowrap">＋ تصنيف</div>';
+  if (_cats.length || _isAdm) {
     if (!catRow) { catRow = document.createElement('div'); catRow.id = 'category-chips-row'; catRow.className = 'filter-bar';
       catRow.style.cssText = 'display:flex;background:var(--surface);border-top:1px solid var(--border);padding:6px 20px;gap:6px;overflow-x:auto;';
       container.parentNode.insertBefore(catRow, container); }
     catRow.innerHTML = '<span class="filter-label" style="white-space:nowrap">التصنيف:</span>' +
-      `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` +
+      _addCat + (_cats.length ? `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` : '') +
       _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" onclick="setCategory('${escHtml(c)}')">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
   } else if (catRow) { catRow.remove(); }
   const _scope = currentCategory ? allProducts.filter(p => (p.category || '') === currentCategory) : allProducts;
@@ -5712,7 +5755,9 @@ function renderGroupChips() {
     const count = allProducts.filter(p => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g)).length;
     return `<div class="filter-chip${currentGroup === g ? ' active' : ''}" onclick="setGroup('${escHtml(g)}')">${escHtml(g)} <span class="badge">${count}</span></div>`;
   }).join('');
-  container.innerHTML = allBtn + noGroupBtn + chips;
+  container.innerHTML = '<span class="filter-label" style="white-space:nowrap">المجموعة:</span>'
+    + '<div class="filter-chip" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" title="إنشاء مجموعة جديدة" style="border-style:dashed;white-space:nowrap">＋ مجموعة</div>'
+    + allBtn + noGroupBtn + chips;
 }
 
 // ============================================
@@ -10031,16 +10076,18 @@ function gmUpdateStats(){
   const groups=gmGetGroupNames(),linked=gmAllProducts.filter(p=>p.group_name).length;
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   s('gm-stat-groups',groups.length); s('gm-stat-linked',linked); s('gm-stat-unlinked',gmAllProducts.length-linked);
+  try{ s('gm-stat-cats',Object.keys(gmCatMap()).length); }catch(_){}
 }
 
 function gmSwitchTab(tab){
   gmCurrentTab=tab;
-  const tabs=['groups','products'];
+  const tabs=['groups','categories','products'];
   tabs.forEach(t=>{
     const btn=document.getElementById('gm-tab-'+t);
     if(btn){btn.style.background=t===tab?'#fff':'transparent';btn.style.color=t===tab?'var(--red)':'#888';btn.style.boxShadow=t===tab?'0 2px 8px rgba(0,0,0,.08)':'none';}
   });
   document.getElementById('gm-view-groups').style.display=tab==='groups'?'':'none';
+  { const vc=document.getElementById('gm-view-categories'); if(vc) vc.style.display=tab==='categories'?'':'none'; }
   document.getElementById('gm-view-products').style.display=tab==='products'?'':'none';
   document.getElementById('gm-filter-bar').style.display=tab==='products'?'flex':'none';
   gmRenderCurrent();
@@ -10060,7 +10107,7 @@ window.gmSetFilter=gmSetFilter;
 function gmOnSearch(q){gmSearchQ=(q||'').toLowerCase().trim();gmRenderCurrent();}
 window.gmOnSearch=gmOnSearch;
 
-function gmRenderCurrent(){ if(gmCurrentTab==='groups') gmRenderGroups(); else gmRenderProducts(); }
+function gmRenderCurrent(){ if(gmCurrentTab==='groups') gmRenderGroups(); else if(gmCurrentTab==='categories') gmRenderCategories(); else gmRenderProducts(); }
 
 function gmRenderGroupChips(){
   const names=gmGetGroupNames();
@@ -10285,6 +10332,187 @@ async function gmDeleteGroup(groupName){
   }catch(e){showToast('خطأ: '+e.message,'error');}
   hideLoading(); gmUpdateStats();gmRenderGroupChips();gmRenderCurrent();
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   🏷️ التصنيفات — «ما لقيتُ أين أنشئ صنفاً يجمع مجموعات من المنتجات» (بلاغ ١٠ ت١)
+   الجذر: التصنيف (products.category — أكبر من المجموعة، قرار ٥ ت١ البند ٥٧) كان **حقلاً في نموذج المنتج فقط**:
+   لا شاشة تنشئه ولا تعدّله ولا تحذفه، ولا يظهر إلا حين يكتبه أحدٌ بيده على منتج. والمجموعات لها زرّ
+   «مجموعة جديدة» ولوحة — فبدا التصنيف غير موجود. العلاج: نافذة إنشاء/تعديل على مستوى الصفحة (تُفتح من أيّ
+   شاشة) + تبويب «التصنيفات» في لوحة المجموعات + أزرار ظاهرة (الأدوات · المزيد على الهاتف · صفّ الفلاتر).
+   التصنيف يُعيَّن على مستوى المجموعة (كل منتجات المجموعة)، ويُتحقَّق من عدد الصفوف التي عدّلتها القاعدة فعلاً.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+let gmCatSel = new Set(), gmCatEditing = '', gmCatBusy = false;
+function gmCatProducts(){ return (typeof allProducts!=='undefined' && allProducts.length) ? allProducts : (typeof gmAllProducts!=='undefined' ? gmAllProducts : []); }
+function gmCatMap(){
+  const m={};
+  gmCatProducts().forEach(p=>{
+    const c=String(p.category||'').trim(); if(!c) return;
+    const e=m[c]||(m[c]={name:c,n:0,groups:{}}); e.n++;
+    const g=String(p.group_name||'').trim(); if(g) e.groups[g]=(e.groups[g]||0)+1;
+  });
+  return m;
+}
+function gmCatGroupMap(){
+  const m={};
+  gmCatProducts().forEach(p=>{
+    const g=String(p.group_name||'').trim(); if(!g) return;
+    const e=m[g]||(m[g]={name:g,n:0,cats:{}}); e.n++;
+    const c=String(p.category||'').trim(); if(c) e.cats[c]=(e.cats[c]||0)+1;
+  });
+  return m;
+}
+function gmCatRefresh(){
+  try{ if(typeof renderGroupChips==='function') renderGroupChips(); }catch(_){}
+  try{ if(typeof renderAll==='function') renderAll(); }catch(_){}
+  try{ gmUpdateStats(); gmRenderCurrent(); }catch(_){}
+}
+function gmCatApplyLocal(fn){
+  [ (typeof allProducts!=='undefined'?allProducts:[]), (typeof gmAllProducts!=='undefined'?gmAllProducts:[]) ].forEach(arr=>{ try{ arr.forEach(fn); }catch(_){} });
+}
+function gmRenderCategories(){
+  const c=document.getElementById('gm-cats-list'); if(!c) return;
+  const m=gmCatMap(); let names=Object.keys(m).sort((a,b)=>a.localeCompare(b,'ar'));
+  if(gmSearchQ) names=names.filter(n=>n.toLowerCase().includes(gmSearchQ)||Object.keys(m[n].groups).some(g=>g.toLowerCase().includes(gmSearchQ)));
+  if(!names.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#5b6472;line-height:1.9;"><div style="font-size:46px;opacity:.45;margin-bottom:10px;">🏷️</div>${Object.keys(m).length?'لا نتائج للبحث':'<b>لا توجد تصنيفات بعد.</b><br>التصنيف أكبر من المجموعة: يجمع عدّة مجموعات (مثل «تصوير» ← «كاميرات» و«عدسات»).<br>اضغط «+ تصنيف جديد» لإنشاء أوّل تصنيف.'}</div>`;
+    return;
+  }
+  c.innerHTML=names.map(n=>{
+    const e=m[n], gs=Object.keys(e.groups).sort((a,b)=>a.localeCompare(b,'ar'));
+    const prev=gs.slice(0,4).map(g=>escH(g)).join(' · ')+(gs.length>4?` +${gs.length-4}`:'');
+    return `<div style="background:#fff;border-radius:14px;border:1.5px solid #EBEBEB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+        <div style="width:44px;height:44px;background:#EEF2FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">🏷️</div>
+        <div style="min-width:0;flex:1;"><div style="font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(n)}</div>
+          <div style="font-size:12px;color:#5b6472;margin-top:2px;">${gs.length} مجموعة · ${e.n} منتج</div>
+          ${gs.length?`<div style="font-size:11px;color:#8b95a5;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${prev}</div>`:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <button data-admin="تعديل التصنيف" data-c="${escH(n)}" onclick="gmCatOpen(this.dataset.c)" style="padding:6px 12px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;">تعديل</button>
+        <button data-admin="حذف التصنيف" data-c="${escH(n)}" onclick="gmCatDelete(this.dataset.c)" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:9px;cursor:pointer;font-size:14px;" title="حذف التصنيف (المنتجات والمجموعات تبقى)">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function gmCatOpen(existing){
+  gmCatEditing=existing||'';
+  const g=id=>document.getElementById(id);
+  g('cat-modal-title').textContent=existing?'تعديل التصنيف':'إنشاء تصنيف جديد';
+  g('cat-old-name').value=existing||'';
+  g('cat-name').value=existing||'';
+  g('cat-search').value='';
+  g('cat-msg').textContent='';
+  g('cat-save-btn').disabled=false;
+  gmCatSel=new Set();
+  if(existing){ const e=gmCatMap()[existing]; if(e) Object.keys(e.groups).forEach(x=>gmCatSel.add(x)); }
+  gmCatRenderList();
+  g('cat-modal').style.display='flex';
+  setTimeout(()=>{ try{ g('cat-name').focus(); }catch(_){} },60);
+}
+window.gmCatOpen=gmCatOpen;
+function gmCatRenderList(){
+  const box=document.getElementById('cat-groups-list'); if(!box) return;
+  const q=(document.getElementById('cat-search').value||'').toLowerCase().trim();
+  const gm=gmCatGroupMap(); let names=Object.keys(gm).sort((a,b)=>a.localeCompare(b,'ar'));
+  if(q) names=names.filter(n=>n.toLowerCase().includes(q));
+  const cnt=document.getElementById('cat-count'); if(cnt) cnt.textContent=gmCatSel.size+' مجموعة محدّدة';
+  if(!names.length){ box.innerHTML=`<div style="padding:18px;text-align:center;color:#5b6472;font-size:13px;line-height:1.8;">${Object.keys(gm).length?'لا نتائج':'لا توجد مجموعات بعد — أنشئ مجموعة أولاً («مجموعة جديدة») ثم أضفها إلى تصنيف.'}</div>`; return; }
+  box.innerHTML=names.map(n=>{
+    const e=gm[n], on=gmCatSel.has(n);
+    const others=Object.keys(e.cats).filter(c=>c!==(document.getElementById('cat-name').value||'').trim());
+    const note=others.length?`<span style="font-size:11px;color:#b45309;">الآن في: ${others.map(escH).join('، ')}</span>`:'';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid ${on?'var(--red)':'#EBEBEB'};background:${on?'#fff5f5':'#fff'};border-radius:11px;cursor:pointer;">
+      <input type="checkbox" data-g="${escH(n)}" ${on?'checked':''} onchange="gmCatToggle(this.dataset.g,this.checked)" style="width:18px;height:18px;flex-shrink:0;">
+      <span style="flex:1;min-width:0;"><b style="font-size:13px;">${escH(n)}</b> <span style="font-size:12px;color:#5b6472;">· ${e.n} منتج</span><br>${note}</span></label>`;
+  }).join('');
+}
+function gmCatToggle(g,on){ if(on) gmCatSel.add(g); else gmCatSel.delete(g); gmCatRenderList(); }
+function gmCatSelectAll(on){
+  const q=(document.getElementById('cat-search').value||'').toLowerCase().trim();
+  Object.keys(gmCatGroupMap()).filter(n=>!q||n.toLowerCase().includes(q)).forEach(n=>{ if(on) gmCatSel.add(n); else gmCatSel.delete(n); });
+  gmCatRenderList();
+}
+window.gmCatToggle=gmCatToggle; window.gmCatSelectAll=gmCatSelectAll; window.gmCatRenderList=gmCatRenderList;
+
+/* PATCH واحد على products بمرشّح، ويُرجع عدد الصفوف التي عدّلتها القاعدة **فعلاً** (لا نصدّق 204 الصامت) */
+async function gmCatPatch(filter, value){
+  const {url,key}=getMainSBConfig();
+  if(!url||!key) throw new Error('إعدادات القاعدة غير متاحة');
+  const r=await fetch(`${url}/rest/v1/products?${filter}`,{method:'PATCH',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({category:value})});
+  const t=await r.text();
+  if(!r.ok){
+    if(/category/i.test(t)&&/PGRST204|does not exist|schema cache/i.test(t)) throw new Error('عمود «التصنيف» غير موجود في القاعدة — شغّل SQL ٢٤ أولاً');
+    throw new Error('رفضت القاعدة التعديل (HTTP '+r.status+')'+(t?': '+t.slice(0,120):''));
+  }
+  let rows=[]; try{ rows=JSON.parse(t); }catch(_){}
+  return Array.isArray(rows)?rows.length:0;
+}
+const gmCatEnc=v=>encodeURIComponent(String(v));
+async function gmCatSave(){
+  if(gmCatBusy) return;
+  const name=(document.getElementById('cat-name').value||'').trim().replace(/\s+/g,' ');
+  const old=gmCatEditing;
+  const msg=document.getElementById('cat-msg');
+  const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
+  if(!name){ say('اكتب اسم التصنيف'); return; }
+  if(name.length>60){ say('الاسم طويل (٦٠ حرفاً كحدّ أقصى)'); return; }
+  const cats=gmCatMap(), sel=[...gmCatSel];
+  if(old && old!==name && cats[name]){ say('يوجد تصنيف بهذا الاسم — اختر اسماً آخر'); return; }
+  if(!sel.length){ say(old?'أزلتَ كلّ المجموعات — لحذف التصنيف استعمل زرّ 🗑️ في تبويب «التصنيفات»':'اختر مجموعة واحدة على الأقلّ — التصنيف يُحفَظ داخل منتجات المجموعات فلا يبقى بدونها'); return; }
+  const prev=old&&cats[old]?Object.keys(cats[old].groups):[];
+  const removed=prev.filter(g=>!gmCatSel.has(g));
+  const gm=gmCatGroupMap();
+  gmCatBusy=true; document.getElementById('cat-save-btn').disabled=true; showLoading('جارٍ حفظ التصنيف…');
+  let touched=0, expected=0, renamedN=0;
+  try{
+    /* ١) إعادة التسمية: كلّ منتجات التصنيف القديم */
+    if(old&&old!==name){
+      const exp=cats[old]?cats[old].n:0;
+      const n=await gmCatPatch('category=eq.'+gmCatEnc(old), name);
+      renamedN=n; if(n<exp) throw new Error('أعادت القاعدة تسمية '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. حدّث الصفحة وأعد المحاولة');
+      gmCatApplyLocal(p=>{ if((p.category||'')===old) p.category=name; });
+    }
+    /* ٢) المجموعات المختارة تدخل التصنيف */
+    for(const g of sel){
+      const exp=gm[g]?gm[g].n:0; expected+=exp;
+      const n=await gmCatPatch('group_name=eq.'+gmCatEnc(g), name);
+      if(n<exp) throw new Error('المجموعة «'+g+'»: عدّلتْ القاعدة '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. لم يكتمل الحفظ');
+      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g) p.category=name; });
+    }
+    /* ٣) المجموعات التي أُزيلت تخرج منه */
+    for(const g of removed){
+      await gmCatPatch('group_name=eq.'+gmCatEnc(g)+'&category=eq.'+gmCatEnc(name), null);
+      gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (p.category||'')===name) p.category=null; });
+    }
+    hideLoading();
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_save', entity:'products', entityName:name, field:'التصنيف', newValue:{ category:name, groups:sel.join('، '), removed:removed.join('، ')||undefined, renamed_from:(old&&old!==name)?old:undefined }, meta:{ n:touched } }); }catch(_){}
+    closeModal('cat-modal');
+    showToast('✅ '+(old?'حُفظ التصنيف':'أُنشئ التصنيف')+' «'+name+'» — '+sel.length+' مجموعة · '+touched+' منتج'+(removed.length?(' · أُزيلت '+removed.length+' مجموعة'):'' ));
+  }catch(e){
+    hideLoading();
+    say('⛔ '+(e&&e.message||e));
+  }finally{
+    gmCatBusy=false; const b=document.getElementById('cat-save-btn'); if(b) b.disabled=false;
+    gmCatRefresh();
+  }
+}
+window.gmCatSave=gmCatSave;
+async function gmCatDelete(name){
+  const e=gmCatMap()[name]; if(!e) return;
+  if(!(await GMTAsk.confirm('حذف التصنيف «'+name+'»؟\nيُزال الاسم من '+e.n+' منتج في '+Object.keys(e.groups).length+' مجموعة. المنتجات والمجموعات نفسها تبقى كما هي.',{title:'حذف تصنيف',okText:'حذف التصنيف',danger:true}))) return;
+  showLoading('جارٍ حذف التصنيف…');
+  try{
+    const n=await gmCatPatch('category=eq.'+gmCatEnc(name), null);
+    if(n<e.n) throw new Error('أزالت القاعدة الاسم من '+n+' من '+e.n+' منتج فقط — ربما لا صلاحية. حدّث الصفحة');
+    gmCatApplyLocal(p=>{ if((p.category||'')===name) p.category=null; });
+    if(typeof currentCategory!=='undefined' && currentCategory===name){ try{ currentCategory=''; }catch(_){} }
+    hideLoading();
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_delete', entity:'products', entityName:name, field:'التصنيف', oldValue:{ category:name }, meta:{ n:n } }); }catch(_){}
+    showToast('🗑️ حُذف التصنيف «'+name+'» ('+n+' منتج)');
+  }catch(err){ hideLoading(); showToast('⛔ '+(err&&err.message||err),'error'); }
+  finally{ gmCatRefresh(); }
+}
+window.gmCatDelete=gmCatDelete; window.gmRenderCategories=gmRenderCategories;
 
 function gmOpenModal(id){const e=document.getElementById(id);if(e){e.style.display='flex';document.body.style.overflow='hidden';}}
 function gmCloseModal(id){const e=document.getElementById(id);if(e){e.style.display='none';document.body.style.overflow='';}}
@@ -10807,7 +11035,8 @@ async function stOpenSettlements(){
     stuck=(Array.isArray(r2?.data)?r2.data:(Array.isArray(r2)?r2:[])).filter(x=>!x.settled);
   }catch(e){}
   const byT={}; failed.forEach(f=>{ (byT[f.transfer_id]=byT[f.transfer_id]||[]).push(f); });
-  const ids=new Set([...stuck.map(s=>s.id), ...Object.keys(byT)]);
+  /* String(): معرّف الفاتورة رقمٌ في قائمة «المعلّقة» ومفتاحُ كائنٍ (نصّ) في قائمة البنود الفاشلة — بلا توحيد تُعَدّ الفاتورة الواحدة مرّتين */
+  const ids=new Set([...stuck.map(s=>String(s.id)), ...Object.keys(byT)]);
   if(!ids.size){
     body.innerHTML='<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
     return;
@@ -13526,12 +13755,12 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261011b"></script>
+<script src="gmt-selfcheck.js?v=20261011k"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261011f"></script>
+<script src="gmt-brain.js?v=20261011k"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011j"></script>
+<script src="gmt-whatsnew.js?v=20261011k"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
@@ -13539,5 +13768,17 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
+<!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
+     فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->
+<div id="st-settle-ov" style="display:none;position:fixed;inset:0;z-index:99997;background:rgba(15,23,42,.9);align-items:center;justify-content:center;padding:14px">
+  <div style="background:var(--surface);border-radius:14px;max-width:660px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <b style="font-size:14px">🧾 فواتير نقل تحتاج تسوية</b>
+      <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">×</button>
+    </div>
+    <div id="st-settle-body" style="padding:12px;overflow-y:auto"></div>
+  </div>
+</div>
+
 </body>
 </html>
