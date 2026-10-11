@@ -3965,51 +3965,58 @@ async function openInvoiceHistory() {
   await loadInvoiceHistory();
 }
 
-async function loadInvoiceHistory() {
+let _histOffset = 0, _histHasMore = false;
+async function loadInvoiceHistory(more) {
   const subEl = document.getElementById('inv-hist-sub');
   const listEl= document.getElementById('inv-hist-list');
-  if (subEl)  subEl.textContent = 'جارٍ التحميل...';
-  if (listEl) listEl.innerHTML  = '<div style="text-align:center;padding:30px;color:var(--text3);">⏳ جارٍ التحميل...</div>';
-
+  const PAGE = 400;      // (11 ت١ · H2) كان 60 فاتورة فقط ⇒ ما قبلها لا يُرجَع ولا يُبحث فيه
+  if (!more) {
+    _histOffset = 0;
+    if (subEl)  subEl.textContent = 'جارٍ التحميل...';
+    if (listEl) listEl.innerHTML  = '<div style="text-align:center;padding:30px;color:var(--text3);">⏳ جارٍ التحميل...</div>';
+  }
   try {
     const r = await sbFetchTimeout(
       CONFIG.SUPABASE_URL + '/rest/v1/invoices?branch_key=eq.' + branch.key +
-      '&order=created_at.desc&limit=60&select=*',
+      '&order=created_at.desc&limit=' + PAGE + '&offset=' + _histOffset + '&select=*',
       { headers: sbHeaders() }, 10000
     );
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    allHistoryInvoices = await r.json();
+    const page = await r.json();
+    _histHasMore = Array.isArray(page) && page.length === PAGE;
+    _histOffset += Array.isArray(page) ? page.length : 0;
+    if (more) allHistoryInvoices = allHistoryInvoices.concat(page); else allHistoryInvoices = page;
 
-    // ── جلب حالة العمولات الفعلية من جدول invoice_commissions وربطها بكل فاتورة ──
-    // (إصلاح خطأ صامت: كانت حالة العمولة تُقرأ خطأً من عمود غير موجود في invoices)
+    // ── جلب حالة العمولات الفعلية من جدول invoice_commissions (على دفعات — رابط 400 معرّف يتجاوز حدّ الطول) ──
     try {
-      const ids = allHistoryInvoices.map(i => i.id).filter(Boolean);
-      if (ids.length) {
+      const ids = page.map(i => i.id).filter(Boolean);
+      const byInv = new Map();
+      for (let k = 0; k < ids.length; k += 80) {
         const commR = await sbFetchTimeout(
-          CONFIG.SUPABASE_URL + '/rest/v1/invoice_commissions?invoice_id=in.(' + ids.join(',') + ')&select=*',
+          CONFIG.SUPABASE_URL + '/rest/v1/invoice_commissions?invoice_id=in.(' + ids.slice(k, k + 80).join(',') + ')&select=*',
           { headers: sbHeaders() }, 8000
         );
-        if (commR.ok) {
-          const comms = await commR.json();
-          const commMap = new Map(comms.map(c => [c.invoice_id, c]));
-          allHistoryInvoices.forEach(inv => {
-            const c = commMap.get(inv.id);
-            if (c) {
-              inv._comm_amount   = Number(c.amount) || 0;
-              inv._comm_approved = !!c.approved;
-              inv._comm_paid     = !!c.paid;
-              inv._comm_zeroed   = !!(c.zeroed || c.is_zeroed) || (c.approved && Number(c.amount) === 0);
-              inv._comm_reason   = c.reason || c.zero_reason || c.note || '';
-            }
-          });
-        }
+        if (commR.ok) (await commR.json()).forEach(c => { const a2 = byInv.get(c.invoice_id) || []; a2.push(c); byInv.set(c.invoice_id, a2); });
       }
+      /* (11 ت١ · H1) للفاتورة الواحدة عدّة صفوف عمولة (بند لكل صف + عكس المرتجع + يدوي): المجموع لا آخر صفّ،
+         والحالة «معتمدة/مدفوعة/مصفّرة» لا تُعلَن إلا إن كانت كلُّ الصفوف كذلك. */
+      page.forEach(inv => {
+        const rows = byInv.get(inv.id);
+        if (rows && rows.length) {
+          inv._comm_amount   = rows.reduce((s2, c) => s2 + (Number(c.amount) || 0), 0);
+          inv._comm_approved = rows.every(c => !!c.approved);
+          inv._comm_paid     = rows.every(c => !!c.paid);
+          inv._comm_zeroed   = rows.every(c => !!(c.zeroed || c.is_zeroed) || (c.approved && Number(c.amount) === 0));
+          inv._comm_reason   = (rows.find(c => c.reason || c.zero_reason || c.note) || {}).reason || (rows.find(c => c.note) || {}).note || '';
+        }
+      });
     } catch(ce) { console.warn('[invoice-history] فشل جلب حالة العمولات:', ce.message); }
 
-    if (subEl) subEl.textContent = allHistoryInvoices.length + ' فاتورة';
+    if (subEl) subEl.textContent = allHistoryInvoices.length + ' فاتورة' + (_histHasMore ? '+' : '');
     renderInvoiceHistory();
   } catch(e) {
-    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">خطأ في التحميل: ' + e.message + '</div>';
+    if (listEl && !more) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;">خطأ في التحميل: ' + e.message + '</div>';
+    else showToast('تعذّر تحميل المزيد: ' + e.message, 'err');
   }
 }
 
@@ -4108,6 +4115,7 @@ function renderInvoiceHistory() {
         </div>` : '')}
     </div>`;
   }).join('');
+  if (_histHasMore) listEl.insertAdjacentHTML('beforeend', '<button type="button" onclick="loadInvoiceHistory(true)" style="display:block;width:100%;margin:10px 0;padding:11px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;">تحميل فواتير أقدم</button>');
 }
 
 // تنفيذ فاتورة أنشأتها الإدارة: تسجيل التنفيذ + طباعة الفاتورة
@@ -4117,11 +4125,17 @@ async function executeAdminInvoice(invId) {
   if (!(await GMTUI.confirm(`تأكيد تنفيذ الفاتورة #${inv.inv_number || inv.id}؟\nسيتم تسجيلها كمنفّذة وطباعتها.`))) return;
   showLoad('جارٍ التنفيذ...');
   try {
-    await sbFetch('PATCH', `/rest/v1/invoices?id=eq.${invId}`, {
-      admin_exec_status: 'executed',
-      admin_exec_by: currentUser?.display_name || (branch ? branch.name : 'فرع'),
-      admin_exec_at: new Date().toISOString(),
-    });
+    /* (11 ت١ · AE1) كان `sbFetch('PATCH', url, body)` وsbFetch(url, opts) ⇒ طلبٌ GET لرابطٍ نسبي (404) لا يُفحَص، والواجهة تعلن «نُفِّذت». */
+    const _er = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}`, {
+      method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({
+        admin_exec_status: 'executed',
+        admin_exec_by: currentUser?.display_name || (branch ? branch.name : 'فرع'),
+        admin_exec_at: new Date().toISOString(),
+      })
+    }, 10000);
+    if (!_er.ok) throw new Error('HTTP ' + _er.status);
+    { const _rows = await _er.json().catch(() => []); if (!Array.isArray(_rows) || !_rows.length) throw new Error('لم تُحدَّث أيّ فاتورة (صلاحيات؟)'); }
     inv.admin_exec_status = 'executed';
     inv.admin_exec_by = currentUser?.display_name || (branch ? branch.name : 'فرع');
     hideLoad();
@@ -5277,10 +5291,56 @@ async function validateCoupon() {
     disc = Math.min(disc, cartTotal);
     statusEl.style.color='#15803d';
     statusEl.textContent=`✅ كوبون نشط — خصم ${cp.discount_type==='percent'?cp.discount_value+'%':'$'+Number(cp.discount_value).toFixed(2)} = خصم $${disc.toFixed(2)}`;
+    try { updateRemainingDisplay(); } catch (_) {}
   } catch(e) {
     _activeCoupon=null; statusEl.style.color='#dc2626';
     statusEl.textContent='⚠️ تعذّر التحقق — ' + e.message;
   }
+}
+
+/* قفلٌ ذرّي للأوردر المختار **قبل** إنشاء الفاتورة (O1): كاشيران اختارا الأوردر نفسه قبل قفله فتُنشأ فاتورتان وتُخصم البضاعة مرّتين
+   ثم تُفشِل الثانيةُ الربطَ ببلاغٍ فقط. PATCH مشروط (غير مقفول) بـreturn=representation: 'ok' | 'taken' | نصّ خطأ. */
+async function claimOrder(orderId) {
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_orders?id=eq.${encodeURIComponent(orderId)}&or=(is_locked.is.false,is_locked.is.null)`, {
+    method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({ is_locked: true, prepared_by: currentUser?.display_name || null, prepared_at: new Date().toISOString() })
+  });
+  if (!r.ok) return 'HTTP ' + r.status;
+  const rows = await r.json().catch(() => null);
+  return Array.isArray(rows) ? (rows.length ? 'ok' : 'taken') : 'تعذّر قراءة ردّ القفل';
+}
+async function releaseOrder(orderId) {
+  await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_orders?id=eq.${encodeURIComponent(orderId)}&is_locked=eq.true&invoice_id=is.null`, {
+    method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ is_locked: false, prepared_by: null, prepared_at: null })
+  });
+}
+/* تفرّد رقم الفاتورة (X2): الترقيم «اقرأ الأكبر ثم +1» بلا قفل — جهازان بالاسم نفسه يحفظان معاً فيأخذان الرقم نفسه.
+   بعد الإدراج نتحقق: إن وُجدت فاتورة أقدم (created_at ثم id) بالرقم نفسه فنحن الخاسر ⇒ رقم جديد. (حتى يُضاف UNIQUE في SQL 36.) */
+async function ensureUniqueInvNumber(invoice) {
+  try {
+    if (!invoice || !invoice.id || !invoice.inv_number) return invoice && invoice.inv_number;
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?inv_number=eq.${encodeURIComponent(invoice.inv_number)}&select=id,created_at&order=created_at.asc,id.asc&limit=5`, { headers: sbHeaders() }, 6000);
+    if (!r.ok) return invoice.inv_number;
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length < 2 || String(rows[0].id) === String(invoice.id)) return invoice.inv_number;
+    /* أول رقم شاغر بعد رقمنا (لا نعتمد على قراءة «الأكبر» التي قد تسبقها كتابة جهاز آخر) */
+    const base = String(invoice.inv_number), hi = base.lastIndexOf('#');
+    let fresh = null;
+    if (hi >= 0) {
+      const prefix = base.slice(0, hi + 1), seq0 = parseInt(base.slice(hi + 1), 10);
+      for (let k = 1; k <= 25 && isFinite(seq0); k++) {
+        const cand = prefix + String(seq0 + k).padStart(6, '0');
+        const cr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?inv_number=eq.${encodeURIComponent(cand)}&select=id&limit=1`, { headers: sbHeaders() }, 6000);
+        if (cr.ok && !(await cr.json()).length) { fresh = cand; break; }
+      }
+    }
+    if (!fresh) fresh = await fetchNextInvNumber();
+    const pr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`, {
+      method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ inv_number: fresh }) }, 6000);
+    if (pr.ok) { const rr = await pr.json().catch(() => []); if (Array.isArray(rr) && rr.length) { invoice.inv_number = fresh; return fresh; } }
+  } catch (_) {}
+  return invoice.inv_number;
 }
 
 /* حجزٌ ذرّي للكوبون **قبل** إنشاء الفاتورة: PATCH مشروط (is_used=false/null) بـreturn=representation.
@@ -6090,7 +6150,7 @@ function offerAddSplit(p, items) {
     let line = i === items.length - 1 ? Math.round((total - used) * 100) / 100
              : Math.round(total * (((Number(x.prod.price) || 0) * q || 1) / base) * 100) / 100;
     used += line;
-    const unit = Math.round((line / q) * 100) / 100;
+    const unit = Math.round((line / q) * 1e6) / 1e6;   /* دقّة كافية كي يُساوي مجموع الأسطر سعر الباقة تماماً (100 على ×3 = 33.333333 لا 33.33) — OF2 */
     if (cart[x.prod.id]) { cart[x.prod.id].qty += q; cart[x.prod.id].price = unit; cart[x.prod.id]._from_offer = p._offer_id; }
     else cart[x.prod.id] = { prod: x.prod, qty: q, price: unit, _from_offer: p._offer_id, _offer_name: p.name, _seq: ++_cartSeq };
   });
@@ -6974,8 +7034,8 @@ function updateRemainingDisplay() {
   const amt   = parseFloat(document.getElementById('partialPaymentAmount')?.value || '0') || 0;
   const total = (_orderMode === 'existing' && _selectedOrder && Number(_selectedOrder.price) > 0)
     ? Number(_selectedOrder.price)
-    : cartTotal();
-  const remaining = Math.max(0, Math.round((total - amt) * 100) / 100);  /* [OWN-MONEY-ROUND] */
+    : computeOrderLinkedTotal().finalTotal;          // بعد الكوبون/الخصم اليدوي — نفس رقم الحفظ (RM1)
+  const remaining = round2(Math.max(0, total - amt));  /* [OWN-MONEY-ROUND] */
   el.textContent = remaining > 0
     ? `المتبقي على الزبون: $${remaining.toFixed(2)}`
     : (amt > 0 ? '✅ ستُسجَّل كمدفوعة بالكامل' : '');
@@ -7361,6 +7421,25 @@ window.createOrderFromInvoice = createOrderFromInvoice;
 /* ══ (2026-10-06 · فحصٌ مضادّ) حفظ الفاتورة: ضغطتان سريعتان كانتا تبدآن حفظين متوازيين قبل أن يُرفع علم «حُفظ».
    حارسٌ واحد: لا حفظ ثانٍ وهذا قيد التنفيذ. ══ */
 let __saveAndFinishBusy = false;
+/* تفكيك سطر باقة («سطر واحد بسعر العرض») إلى مكوّناتها للتخزين والمخزون (OF1): كان يُخصم مخزون 'OFFER_<id>' (لا وجود له) فيبقى مخزون المكوّنات
+   كما هو، ويُحفظ product_id نصّيٌّ غير uuid. السعر يُوزَّع على المكوّنات بنسبة أسعارها، ويُصحَّح الفرق على آخر مكوّن. */
+function offerComponents(item) {
+  const p = item.prod || {};
+  if (!p._is_offer || !Array.isArray(p._offer_items) || !p._offer_items.length || p._offer_items_unknown) return null;
+  const comps = p._offer_items.map(oi => ({ oi, prod: allProducts.find(x => String(x.id) === String(oi.id) && !x._is_offer) })).filter(c => c.prod);
+  if (!comps.length) return null;
+  const lineTotal = round2(Number(item.price) * Number(item.qty));
+  const base = comps.reduce((s2, c) => s2 + (Number(c.prod.price) || 0) * (Number(c.oi.qty) || 1), 0) || comps.length;
+  let used = 0;
+  return comps.map((c, i) => {
+    const q = (Number(c.oi.qty) || 1) * Number(item.qty);
+    const share = i === comps.length - 1 ? round2(lineTotal - used)
+                : round2(lineTotal * (((Number(c.prod.price) || 0) * (Number(c.oi.qty) || 1) || 1) / base));
+    used += share;
+    return { prod: c.prod, qty: q, line: share, unit: Math.round((share / q) * 1e6) / 1e6 };
+  });
+}
+
 async function saveAndFinish() {
   if (__saveAndFinishBusy) { try { showToast('⏳ الحفظ جارٍ — لحظة', 'info'); } catch (_) {} return; }
   __saveAndFinishBusy = true;
@@ -7437,7 +7516,9 @@ async function _saveAndFinishInner() {
   let realInvNum = invNum;
   try { realInvNum = await fetchNextInvNumber(); } catch(_) {}
   invNum = realInvNum;
-  let _couponClaimed = false, _invoiceCreated = false, _claimedCode = '';   // لتحرير الكوبون إن فشل الحفظ قبل إنشاء الفاتورة
+  let _couponClaimed = false, _invoiceCreated = false, _claimedCode = '', _orderClaimedId = null;   // لتحرير الكوبون إن فشل الحفظ قبل إنشاء الفاتورة
+  let _offlinePack = null;                                   // الحمولة الكاملة للطابور المحلي إن انقطع الاتصال في أيّ مرحلة
+  const _progress = { invoiceId: null, itemsDone: false, stock: {}, commDone: false, couponDone: false };   // ما أُنجز فعلاً (تُكمله المزامنة بلا تكرار)
 
   try {
     const _ctSave = computeOrderLinkedTotal();
@@ -7533,20 +7614,6 @@ async function _saveAndFinishInner() {
     }
     const _issues = [];                       // أي خلل بعد إنشاء الفاتورة يُعرض للكاشير ويُوسَم للمراجعة — لا «نجاح كاذب»
 
-    /* ─── حجز الكوبون ذرّياً **قبل** إنشاء الفاتورة (كان يُختَم بعد الحفظ بلا انتظار فيمنح كاشيران الخصم نفسه — K4) ─── */
-    if (_couponCode && _activeCoupon && _couponDisc > 0 && !_linkedOrderDiscount) {
-      const cl = await claimCoupon(_couponCode);
-      if (cl === 'used') {
-        _activeCoupon = null;
-        const _ce = document.getElementById('couponCode'); if (_ce) _ce.value = '';
-        const _cs = document.getElementById('couponStatus'); if (_cs) { _cs.style.display = 'none'; _cs.textContent = ''; }
-        hideLoad();
-        showToast('⛔ الكوبون استُهلك للتو من جهاز آخر — أُزيل الخصم. راجع الإجمالي الجديد ثم احفظ', 'err');
-        return;
-      }
-      if (cl !== 'ok') throw new Error('تعذّر حجز الكوبون: ' + cl);
-      _couponClaimed = true; _claimedCode = _couponCode;
-    }
     // ─── ١. إنشاء الفاتورة ───
     const _invPayload = {
       inv_number      : realInvNum,
@@ -7576,6 +7643,99 @@ async function _saveAndFinishInner() {
       user_id         : currentUser?.id || null,
     };
     if (_extColsMissing) { delete _invPayload.prepaid_channel; delete _invPayload.paid_external; }
+
+    /* صفوف البنود والعمولة تُحسب مرّةً واحدة هنا (قبل أيّ كتابة) فتُستعمل في الحفظ المباشر وفي الطابور المحلي بلا اختلاف. */
+    const _isTrainingInvoice = (document.getElementById('custName')?.value || '').startsWith('[تدريب]');
+    const _unknownOffers = [];
+    const _itemRows = items.flatMap(i => {
+      const comps = offerComponents(i);
+      if (comps) {
+        return comps.map(c => ({
+          product_id: c.prod.id, product_name: c.prod.name + ' (ضمن «' + i.prod.name + '»)', branch_key: branch.key, qty: c.qty,
+          unit_price: c.unit, actual_price: c.unit, sale_price: c.unit,
+          wholesale_price: Number(c.prod.wholesale_price) || 0, purchase_price: Number(c.prod.net_cost) || Number(c.prod.wholesale_price) || 0,
+          cost_price: Number(c.prod.net_cost) || 0, commission: 0, total: c.line, bundle_of: String(i.prod.name),
+        }));
+      }
+      if (i.prod._is_offer) _unknownOffers.push(i.prod.name);
+      return [(function () {
+      const ws   = Number(i.prod.wholesale_price) || 0;
+      const nc   = Number(i.prod.net_cost)         || 0;
+      const commUnit = (ws > 0) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
+      return {
+        product_id      : i.prod.id,
+        product_name    : i.prod.name,
+        branch_key      : branch.key,
+        qty             : i.qty,
+        unit_price      : i.price,
+        actual_price    : i.price,
+        sale_price      : i.price,
+        wholesale_price : ws,
+        purchase_price  : nc || ws,
+        cost_price      : nc,
+        commission      : parseFloat(commUnit.toFixed(4)),
+        total           : round2(i.price * i.qty),
+      };
+      })()];
+    });
+    const _orderLinked0 = !!(_orderMode === 'existing' && _selectedOrder) || !!(_orderMode === 'new');
+    const _awaiting = (saleType === 'آجل (شحن)' && _remaining > 0.01);   // م6-ب: عمولة الآجل لا تُستحق إلا عند اكتمال التحصيل
+    const _commRows0 = [];
+    if (!_isTrainingInvoice && !isHeadquarters() && !_orderLinked0) {
+      for (const item of items) {
+        const wholesale = Number(item.prod.wholesale_price) || 0;
+        if (wholesale > 0) {
+          const eff    = _effPrice(item);
+          const margin = eff - wholesale;
+          _commRows0.push({
+            branch_key : branch.key,
+            cashier_name: (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || null, // م6: نسبة كل عمولة لكاشيرها
+            awaiting_collection: _awaiting,
+            amount     : commissionLine(eff, wholesale, item.qty),
+            note       : eff <= wholesale + 1e-9
+              ? `${item.prod.name} · بيع دون سعر الجملة · قيد المراجعة`
+              : `${item.prod.name} · هامش: $${margin.toFixed(2)}/وحدة · تلقائي`,
+            paid       : false,
+            approved   : false,
+            created_by : 'auto',
+          });
+        }
+      }
+    }
+    _offlinePack = {
+      invoiceData : Object.assign({}, _invPayload),
+      items       : _itemRows,
+      commissions : _commRows0,
+      couponCode  : (_couponCode && _couponDisc > 0 && !_linkedOrderDiscount) ? _couponCode : null,
+      isTraining  : _isTrainingInvoice,
+      orderLinked : _orderLinked0,
+      progress    : _progress,
+    };
+
+    /* ─── حجز الكوبون ذرّياً **قبل** إنشاء الفاتورة (كان يُختَم بعد الحفظ بلا انتظار فيمنح كاشيران الخصم نفسه — K4) ─── */
+    if (saleType === 'آجل (شحن)' && _orderMode === 'existing' && _selectedOrder) {
+      const oc = await claimOrder(_selectedOrder.id);
+      if (oc === 'taken') {
+        hideLoad();
+        showToast('⛔ هذا الأوردر ارتبط للتو بفاتورة أخرى — حدّث قائمة الأوردرات واختر غيره. لم تُحفظ فاتورة', 'err');
+        return;
+      }
+      if (oc !== 'ok') throw new Error('تعذّر قفل الأوردر: ' + oc);
+      _orderClaimedId = _selectedOrder.id;
+    }
+    if (_couponCode && _activeCoupon && _couponDisc > 0 && !_linkedOrderDiscount) {
+      const cl = await claimCoupon(_couponCode);
+      if (cl === 'used') {
+        _activeCoupon = null;
+        const _ce = document.getElementById('couponCode'); if (_ce) _ce.value = '';
+        const _cs = document.getElementById('couponStatus'); if (_cs) { _cs.style.display = 'none'; _cs.textContent = ''; }
+        hideLoad();
+        showToast('⛔ الكوبون استُهلك للتو من جهاز آخر — أُزيل الخصم. راجع الإجمالي الجديد ثم احفظ', 'err');
+        return;
+      }
+      if (cl !== 'ok') throw new Error('تعذّر حجز الكوبون: ' + cl);
+      _couponClaimed = true; _claimedCode = _couponCode; _progress.couponDone = true;
+    }
     /* إسقاطٌ دقيق للعمود الناقص وحده (لا الحمولة كلّها): الـFallbacks القديمة الثلاثة كانت تُسقط الخصم والدفعة والكوبون
        وحالة الدفع معاً بصمت فيضيع الدَّين (F3/G1) — وتعيد المحاولة بلا فحص فتتكرّر الفاتورة إن ضاع الردّ بعد الإدراج (G1). */
     let invRes = await sbPostAdaptive('/rest/v1/invoices', _invPayload, { keep: ['inv_number', 'branch_key', 'total'] });
@@ -7594,28 +7754,11 @@ async function _saveAndFinishInner() {
       throw new Error('فشل استرجاع معرّف الفاتورة من قاعدة البيانات');
     }
     _invoiceCreated = true;
+    { const _un = await ensureUniqueInvNumber(invoice); if (_un && _un !== realInvNum) { realInvNum = _un; invNum = _un; } }
 
     // ─── ٢. حفظ بنود الفاتورة (يُتحقَّق من النتيجة: فاتورة بلا بنود = تراجع كامل قبل أي خصم للمخزون) ───
-    const itemsPayload = items.map(i => {
-      const ws   = Number(i.prod.wholesale_price) || 0;
-      const nc   = Number(i.prod.net_cost)         || 0;
-      const commUnit = (ws > 0) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
-      return {
-        invoice_id      : invoice.id,
-        product_id      : i.prod.id,
-        product_name    : i.prod.name,
-        branch_key      : branch.key,
-        qty             : i.qty,
-        unit_price      : i.price,
-        actual_price    : i.price,
-        sale_price      : i.price,
-        wholesale_price : ws,
-        purchase_price  : nc || ws,
-        cost_price      : nc,
-        commission      : parseFloat(commUnit.toFixed(4)),
-        total           : round2(i.price * i.qty),
-      };
-    });
+    const itemsPayload = _itemRows.map(r => ({ invoice_id: invoice.id, ...r }));
+    _progress.invoiceId = invoice.id;
     let itRes = await sbPostAdaptive('/rest/v1/invoice_items', itemsPayload, { keep: ['invoice_id', 'product_id', 'qty', 'unit_price'] });
     if (itRes.error) { await new Promise(r => setTimeout(r, 700)); itRes = await sbPostAdaptive('/rest/v1/invoice_items', itemsPayload, { keep: ['invoice_id', 'product_id', 'qty', 'unit_price'] }); }
     if (itRes.error) {
@@ -7627,14 +7770,15 @@ async function _saveAndFinishInner() {
       } catch (_) {}
       try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind: 'financial', severity: 'critical', feature: 'POS-SAVE', rule: 'OWN-ITEMS-WITH-INVOICE',
         title: 'فشل حفظ بنود الفاتورة', what: 'الفاتورة ' + realInvNum + ': ' + itRes.error, how: _gone ? 'أُلغيت الفاتورة ولم يُخصم مخزون.' : 'تعذّر إلغاء الفاتورة — بقيت بلا بنود.', why: 'مراجعة فورية.' }); } catch (_) {}
-      if (_gone) { _invoiceCreated = false; throw new Error('تعذّر حفظ بنود الفاتورة (' + itRes.error + ') — أُلغيت الفاتورة ولم يُخصم شيء من المخزون. أعد المحاولة'); }
+      if (_gone) { _invoiceCreated = false; _progress.invoiceId = null; _progress.itemsDone = false; throw new Error('تعذّر حفظ بنود الفاتورة (' + itRes.error + ') — أُلغيت الفاتورة ولم يُخصم شيء من المخزون. أعد المحاولة'); }
       throw new Error('⛔ الفاتورة ' + realInvNum + ' حُفظت بلا بنود وتعذّر إلغاؤها — أبلغ الإدارة فوراً ولا تُسلّم البضاعة قبل المراجعة');
     }
+    _progress.itemsDone = true;
     const _droppedIt = (itRes.dropped || []);
     if (_droppedIt.length) console.warn('[GMT] أعمدة ناقصة في invoice_items أُسقطت:', _droppedIt.join('، '));
 
     // ─── ٣. جلب المخزون الحديث (مع timeout) ───
-    const freshIds = items.map(i => i.prod.id).join(',');
+    const freshIds = [...new Set(_itemRows.map(r => r.product_id).filter(x => x && !/^OFFER_/.test(String(x))))].join(',');
     let freshStock = {};
     try {
       const fr = await sbFetchTimeout(
@@ -7648,24 +7792,30 @@ async function _saveAndFinishInner() {
     } catch(e) {}
 
     // ─── ٤. خصم المخزون ─── (يُتخطى في وضع التدريب)
-    const _isTrainingInvoice = (document.getElementById('custName')?.value || '').startsWith('[تدريب]');
     const stockErrors = [], oversold = [];
-    if (_isTrainingInvoice) {
-      console.log('[GMT Training] تخطي خصم المخزون — فاتورة تدريبية');
-    } else
-    for (const item of items) {
-      const currentQty = freshStock[item.prod.id] !== undefined
-        ? freshStock[item.prod.id]
-        : (Number(item.prod[branch.key]) || 0);
-      const res = await adjustBranchStockAtomic(item.prod.id, branch.key, item.qty, 'dec', currentQty);
-      if (!res.ok) { stockErrors.push(item.prod.name + (res.error ? ' (' + String(res.error).slice(0, 60) + ')' : '')); continue; }
-      if (res.insufficient) oversold.push(item.prod.name + ' (متاح ' + currentQty + '، بِيع ' + item.qty + ')');
+    if (_isTrainingInvoice) console.log('[GMT Training] تخطي خصم المخزون — فاتورة تدريبية');
+    /* الخصم على صفوف البنود المخزَّنة (تشمل مكوّنات الباقات)، مجمَّعةً بالمنتج */
+    const _stockMap = new Map();
+    for (const r of _itemRows) {
+      const k = String(r.product_id); if (!k || /^OFFER_/.test(k)) continue;
+      const cur = _stockMap.get(k) || { id: r.product_id, name: String(r.product_name || '').replace(/ \(ضمن .*$/, ''), qty: 0 };
+      cur.qty += Number(r.qty) || 0; _stockMap.set(k, cur);
+    }
+    if (_unknownOffers.length) _issues.push('عرضٌ بلا مكوّنات معروفة لم يُخصم مخزونه: ' + _unknownOffers.join('، ') + ' — صحّح المخزون يدوياً');
+    if (!_isTrainingInvoice)
+    for (const sm of _stockMap.values()) {
+      const pr = allProducts.find(x => String(x.id) === String(sm.id)) || {};
+      const currentQty = freshStock[sm.id] !== undefined ? freshStock[sm.id] : (Number(pr[branch.key]) || 0);
+      const res = await adjustBranchStockAtomic(sm.id, branch.key, sm.qty, 'dec', currentQty);
+      if (!res.ok) { stockErrors.push(sm.name + (res.error ? ' (' + String(res.error).slice(0, 60) + ')' : '')); continue; }
+      _progress.stock[String(sm.id)] = true;
+      if (res.insufficient) oversold.push(sm.name + ' (متاح ' + currentQty + '، بِيع ' + sm.qty + ')');
       const newQty = res.newQty;
       // تحديث محلي فوري
-      const idx = allProducts.findIndex(x => String(x.id) === String(item.prod.id));
+      const idx = allProducts.findIndex(x => String(x.id) === String(sm.id));
       if (idx >= 0) allProducts[idx][branch.key] = newQty;
       // تحديث cart
-      if (cart[item.prod.id]) cart[item.prod.id].prod[branch.key] = newQty;
+      if (cart[sm.id]) cart[sm.id].prod[branch.key] = newQty;
     }
     if (stockErrors.length) _issues.push('تعذّر خصم المخزون لـ: ' + stockErrors.join('، ') + ' — صحّح الكمية يدوياً');
     if (oversold.length) _issues.push('بيعٌ تجاوز المتاح: ' + oversold.join('، ') + ' — صُفِّر المخزون');
@@ -7678,44 +7828,18 @@ async function _saveAndFinishInner() {
        🔴 (11 ت١) وكان الشرط يستعمل متغيّراً غير معرَّفاً (`cashPayment`) داخل try/catch صامت ⇒ **لا تُنشأ عمولة لأي فاتورة
        «آجل (شحن)» إطلاقاً** (D01). الآن: المتبقّي المحسوب أعلاه، والفشل يُعرض ويُوسَم للمراجعة.
        ═══════════════════════════════════════════════════════════════════════ */
-    const _orderLinked =
-          !!(_orderMode === 'existing' && _selectedOrder)        // رُبطت بأوردر قائم
-       || !!(_orderMode === 'new')                                // ستُنشئ أوردراً وتُربَط به
-       || !!(invoice && (invoice.order_id || invoice.order_serial)); // أو كانت مرتبطةً أصلاً
+    const _orderLinked = _orderLinked0 || !!(invoice && (invoice.order_id || invoice.order_serial));   // أو كانت مرتبطةً أصلاً
     if (_orderLinked) {
       console.info('[عمولة] لا عمولة: الفاتورة مرتبطة بأوردر (قرار المالك ت٩).');
     }
-    if (!_isTrainingInvoice && !isHeadquarters() && !_orderLinked) {
+    if (!_orderLinked && _commRows0.length) {
       try {
-        const commPayloads = [];
-        const _awaiting = (saleType === 'آجل (شحن)' && _remaining > 0.01);   // م6-ب: عمولة الآجل لا تُستحق إلا عند اكتمال التحصيل
-        for (const item of items) {
-          const wholesale = Number(item.prod.wholesale_price) || 0;
-          if (wholesale > 0) {
-            const eff    = _effPrice(item);
-            const margin = eff - wholesale;
-            // نسجّل العمولة حتى لو كانت سالبة عند البيع دون سعر الجملة
-            commPayloads.push({
-              invoice_id : invoice.id,
-              branch_key : branch.key,
-              cashier_name: (window.currentUser && (window.currentUser.display_name || window.currentUser.username)) || null, // م6: نسبة كل عمولة لكاشيرها
-              awaiting_collection: _awaiting,
-              amount     : commissionLine(eff, wholesale, item.qty),
-              note       : eff <= wholesale + 1e-9
-                ? `${item.prod.name} · بيع دون سعر الجملة · قيد المراجعة`
-                : `${item.prod.name} · هامش: $${margin.toFixed(2)}/وحدة · تلقائي`,
-              paid       : false,
-              approved   : false,
-              created_by : 'auto',
-            });
-          }
-        }
-        if (commPayloads.length) {
-          const cRes = await sbPostAdaptive('/rest/v1/invoice_commissions', commPayloads, { keep: _awaiting ? ['awaiting_collection', 'invoice_id', 'amount'] : ['invoice_id', 'amount'] });
-          if (cRes.error) _issues.push('تعذّر تسجيل عمولة هذه الفاتورة (' + String(cRes.error).slice(0, 80) + ') — أضفها من «أدمن نقاط البيع ← الفواتير»');
-        }
+        const cRes = await sbPostAdaptive('/rest/v1/invoice_commissions', _commRows0.map(r => ({ invoice_id: invoice.id, ...r })),
+          { keep: _awaiting ? ['awaiting_collection', 'invoice_id', 'amount'] : ['invoice_id', 'amount'] });
+        if (cRes.error) _issues.push('تعذّر تسجيل عمولة هذه الفاتورة (' + String(cRes.error).slice(0, 80) + ') — أضفها من «أدمن نقاط البيع ← الفواتير»');
+        else _progress.commDone = true;
       } catch(ce) { _issues.push('تعذّر تسجيل عمولة هذه الفاتورة: ' + ((ce && ce.message) || ce)); }
-    } // end !isHeadquarters
+    } else _progress.commDone = true;
 
     /* لقطة الحفظ: ما أُغلق بالقاعدة هو ما يُطبَع ويُرسل (D09) — بعد التصفير أدناه كانت الطباعة تُظهر الإجمالي قبل الخصم. */
     window.__saleSnap = { invNum: realInvNum, rawTotal: _rawTotal, discount: _totalDiscount, finalTotal: grandTotal,
@@ -7853,6 +7977,7 @@ ${escH(offerShortageNote)}
     hideLoad();
     /* فشل قبل إنشاء الفاتورة وقد حُجز الكوبون ⇒ يُحرَّر كي لا يضيع على الزبون (والنسخة الأوفلاين تحجزه عند المزامنة) */
     if (_couponClaimed && !_invoiceCreated) { try { await releaseCoupon(_claimedCode); } catch (_) {} }
+    if (_orderClaimedId != null && !_invoiceCreated) { try { await releaseOrder(_orderClaimedId); } catch (_) {} }
     // حفظ أوفلاين عند انقطاع الشبكة
     if (!navigator.onLine || /fetch|network|Failed|timeout|abort|Load failed/i.test(String(e.message))) {
       const _ctOffline = computeOrderLinkedTotal();
@@ -7867,7 +7992,12 @@ ${escH(offerShortageNote)}
         if (idx >= 0) allProducts[idx][branch.key] = u.newQty;
       });
       saveProductsOffline(allProducts);
-      await savePendingInvoice({
+      /* (11 ت١ · OFF2/4/5) الحمولة الكاملة (نوع البيع · الدفعة · المتبقي · الخصم · الكوبون · العمولة · العملة) وما أُنجز منها فعلاً —
+         كانت 7 حقول فقط فتُزامَن الفاتورة «مدفوعة» بلا عمولة ولا ختم كوبون ويضيع الدَّين. */
+      await savePendingInvoice(_offlinePack ? {
+        invoiceData: _offlinePack.invoiceData, items: _offlinePack.items, commissions: _offlinePack.commissions,
+        couponCode: _offlinePack.couponCode, isTraining: _offlinePack.isTraining, progress: _offlinePack.progress, stockUpdates,
+      } : {
         invoiceData: {
           inv_number  : realInvNum,
           branch_key  : branch.key,
@@ -9618,64 +9748,149 @@ async function deletePendingInvoice(localId) {
   } catch(e) {}
 }
 
+/* ══ (11 ت١ · مراجعة مالية) طابور الأوفلاين: مزامنة مفردة + تراجع أسّي + مراحل مستمرّة ══
+   الجذر: `updateOfflineBadge` تنادي `syncPendingInvoices` وهذه تنادي الأولى في نهايتها بلا قفل ولا تأخير ⇒ والخادم لا يردّ
+   والمتصفّح «online» حلقة ≈130 طلب/ثانية (OFF6)؛ وحدث `online` + الإقلاع + حفظ جديد = ثلاث مزامنات متوازية تُكرّر الفاتورة
+   وتخصم المخزون مرّتين (OFF3)؛ والحمولة 7 حقول فقط فتضيع العمولة والدَّين والكوبون (OFF2/4/5).
+   الآن: قفلٌ واحد، تراجعٌ 5ث←5د، كل فاتورة تمرّ بمراحل (كوبون ← فاتورة ← بنود ← مخزون ← عمولة) تُحفظ بعد كل مرحلة فلا تتكرّر
+   أيٌّ منها بعد قطعٍ أو إعادة تشغيل، والفاتورة الموجودة (أُدرجت ثم ضاع الردّ) تُتبنّى بدل أن تتكرّر. */
+let _syncRunning = null, _syncFails = 0, _syncNextAt = 0, _syncTimer = null;
+async function updatePendingInvoice(localId, patch) {
+  try {
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PENDING, 'readwrite'); const st = tx.objectStore(STORE_PENDING);
+      const g = st.get(localId);
+      g.onsuccess = () => { const cur = g.result; if (!cur) return resolve(false); st.put(Object.assign({}, cur, patch)); };
+      tx.oncomplete = () => resolve(true); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+    });
+  } catch (_) {}
+}
+function maybeSyncPending() {
+  if (!navigator.onLine || _syncRunning || Date.now() < _syncNextAt) return;
+  syncPendingInvoices().catch(() => {});
+}
 async function updateOfflineBadge() {
   const pending  = await getPendingInvoices();
   const banner   = document.getElementById('offline-banner');
   const countEl  = document.getElementById('offline-pending-count');
+  if (!banner) return;
   if (pending.length > 0 && !navigator.onLine) {
     banner.classList.add('show');
     if (countEl) countEl.textContent = pending.length + ' فاتورة معلقة';
   } else if (pending.length > 0 && navigator.onLine) {
     banner.classList.add('show');
     if (countEl) countEl.textContent = `جارٍ مزامنة ${pending.length} فاتورة...`;
-    await syncPendingInvoices();
+    if (!_syncTimer) _syncTimer = setInterval(maybeSyncPending, 15000);
+    maybeSyncPending();
   } else {
     banner.classList.remove('show');
+    if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
   }
 }
 
-async function syncPendingInvoices() {
+function syncPendingInvoices() {
+  if (_syncRunning) return _syncRunning;                    // مزامنة واحدة في كل وقت — الثانية تنتظر نتيجة الأولى
+  _syncRunning = _syncPendingInner().finally(() => { _syncRunning = null; });
+  return _syncRunning;
+}
+async function _syncPendingInner() {
   const pending = await getPendingInvoices();
-  if (!pending.length) { document.getElementById('offline-banner').classList.remove('show'); return; }
-  let synced = 0;
-  let failed = 0, lastErr = "";   // 🔧 (2026-08-23) عدّاد الفشل — كان الفشل يُبتلع بلا أثر
-  let itemErrors = 0;
+  if (!pending.length) { document.getElementById('offline-banner')?.classList.remove('show'); return; }
+  let synced = 0, failed = 0, lastErr = '', flagged = 0;
   for (const inv of pending) {
+    const P = Object.assign({ invoiceId: null, itemsDone: false, stock: {}, commDone: false, couponDone: false }, inv.progress || {});
+    P.stock = Object.assign({}, P.stock || {});
+    const persist = () => updatePendingInvoice(inv._localId, { progress: P });
     try {
-      const invRes = await sbPost('/rest/v1/invoices', inv.invoiceData);
-      if (invRes.error) continue;
-      const savedInv = invRes.data[0];
-      const items = inv.items.map(it => ({ ...it, invoice_id: savedInv.id }));
-      const itemsRes = await sbPost('/rest/v1/invoice_items', items);
-      if (itemsRes.error) itemErrors++; // الفاتورة محفوظة، بس البنود فشلت — نكمل ونحاول نخصم المخزون برضه
-
-      // ─── خصم مخزون ذرّي — بيتصالح مع القيمة الحقيقية بالسيرفر وقت المزامنة (مو رقم قديم
-      //     محسوب من كاش الجهاز وقت الانقطاع)، لأنه فترات الأوفلاين ممكن تطول ليوم كامل وأكتر
-      //     وممكن يصير تغييرات فعلية عالمخزون بنفس هالفترة من جهاز/فرع تاني ───
-      const bk = inv.invoiceData.branch_key || branch?.key;
-      if (bk) {
-        for (const it of inv.items) {
-          const pid = it.product_id;
-          if (!pid) continue;
-          let fallbackCur = 0;
-          try {
-            const fr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/products?id=eq.${pid}&select=${bk}`, { headers: sbHeaders() }, 6000);
-            if (fr.ok) { const fd = await fr.json(); fallbackCur = Number(fd?.[0]?.[bk]) || 0; }
-          } catch(e) {}
-          await adjustBranchStockAtomic(pid, bk, it.qty, 'dec', fallbackCur);
+      const idata = Object.assign({}, inv.invoiceData || {});
+      const itemRows = inv.items || [];
+      const commRows = inv.commissions || [];
+      const notes = [];
+      // ١) الكوبون: حجزٌ ذرّي (قد يكون استُهلك أثناء الانقطاع — البيع تمّ فعلاً فتُسجَّل الفاتورة وتُوسَم للمراجعة)
+      if (inv.couponCode && !P.couponDone) {
+        const cl = await claimCoupon(inv.couponCode);
+        if (cl === 'used') { notes.push('الكوبون ' + inv.couponCode + ' كان قد استُهلك قبل المزامنة'); P.couponDone = true; }
+        else if (cl === 'ok') P.couponDone = true;
+        else throw new Error('تعذّر حجز الكوبون: ' + cl);
+        await persist();
+      }
+      // ٢) الفاتورة: نتبنّى الموجودة (أُدرجت ثم ضاع الردّ/انقطعنا) بدل التكرار
+      let savedInv = null;
+      if (P.invoiceId) savedInv = { id: P.invoiceId, inv_number: idata.inv_number };
+      if (!savedInv) {
+        const ex = await findInvoiceByNumber(idata.inv_number, idata.total, idata.items_count);
+        if (ex) savedInv = ex;
+      }
+      if (!savedInv) {
+        if (notes.length) { idata.review_status = 'pending'; idata.notes = [idata.notes, '⚠️ ' + notes.join(' | ')].filter(Boolean).join(' | '); }
+        const invRes = await sbPostAdaptive('/rest/v1/invoices', idata, { keep: ['inv_number', 'branch_key', 'total'] });
+        if (invRes.error) throw new Error('الفاتورة: ' + invRes.error);
+        savedInv = invRes.data[0];
+      }
+      P.invoiceId = savedInv.id; await persist();
+      if (idata.order_id && !P.orderLinked) {            // الأوردر المختار أوفلاين يُقفل ويُربط الآن
+        try { await linkExistingOrderToInvoice(idata.order_id, savedInv.id, idata.inv_number); P.orderLinked = true; await persist(); }
+        catch (le) { notes.push('تعذّر ربط الأوردر #' + (idata.order_serial || idata.order_id) + ': ' + ((le && le.message) || le)); }
+      }
+      // ٣) البنود: لا تُدرَج إن وُجدت (مزامنة سابقة انقطعت بعد الفاتورة)
+      if (!P.itemsDone) {
+        let have = 0;
+        try {
+          const hr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoice_items?invoice_id=eq.${encodeURIComponent(savedInv.id)}&select=id&limit=1`, { headers: sbHeaders() }, 8000);
+          if (hr.ok) have = (await hr.json()).length;
+        } catch (_) {}
+        if (!have) {
+          const itRes = await sbPostAdaptive('/rest/v1/invoice_items', itemRows.map(it => ({ ...it, invoice_id: savedInv.id })), { keep: ['invoice_id', 'product_id', 'qty', 'unit_price'] });
+          if (itRes.error) throw new Error('البنود: ' + itRes.error);
         }
+        P.itemsDone = true; await persist();
+      }
+      // ٤) المخزون: خصمٌ نسبيّ ذرّي لكل منتج مرّةً واحدة (مسجَّل بالمراحل) — على الرصيد الحالي لا على نسخة الجهاز القديمة
+      const bk = idata.branch_key || branch?.key;
+      let stockFail = 0;
+      if (bk && !inv.isTraining) {
+        for (const it of itemRows) {
+          const pid = String(it.product_id || ''); if (!pid || P.stock[pid]) continue;
+          let cur = NaN;
+          try {
+            const fr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(pid)}&select=${bk}`, { headers: sbHeaders() }, 6000);
+            if (fr.ok) { const fd = await fr.json(); cur = Number(fd?.[0]?.[bk]) || 0; }
+          } catch (_) {}
+          const r = await adjustBranchStockAtomic(pid, bk, it.qty, 'dec', cur);
+          if (r.ok) { P.stock[pid] = true; await persist(); } else stockFail++;
+        }
+      }
+      if (stockFail) throw new Error('المخزون: تعذّر خصم ' + stockFail + ' منتج');
+      // ٥) العمولة: لا تُدرَج إن وُجدت
+      if (!P.commDone) {
+        if (commRows.length) {
+          let have = 0;
+          try {
+            const hr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(savedInv.id)}&select=id&limit=1`, { headers: sbHeaders() }, 8000);
+            if (hr.ok) have = (await hr.json()).length;
+          } catch (_) {}
+          if (!have) {
+            const cr = await sbPostAdaptive('/rest/v1/invoice_commissions', commRows.map(r => ({ ...r, invoice_id: savedInv.id })), { keep: ['invoice_id', 'amount'] });
+            if (cr.error) throw new Error('العمولة: ' + cr.error);
+          }
+        }
+        P.commDone = true; await persist();
+      }
+      if (notes.length && savedInv.id) {
+        flagged++;
+        try { await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(savedInv.id)}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ review_status: 'pending' }) }, 8000); } catch (_) {}
       }
 
       await deletePendingInvoice(inv._localId);
       synced++;
-      await notifyNewInvoice(savedInv, inv.invoiceData.total || 0, inv.items?.length || 0);
+      try { await notifyNewInvoice(savedInv, idata.total || 0, itemRows.length || 0); } catch (_) {}
     } catch(e) {
-      /* 🔧 (2026-08-23) [P1] كان `catch(e) {}` فارغاً يبتلع فشل مزامنة الفاتورة كاملةً
-         ⇒ تبقى معلّقة إلى الأبد بلا سبب معروف، والكاشير يرى «تمت مزامنة 0» فقط.
-         الآن: تُحصى وتُبلَّغ، وتبقى في الطابور (لا تُحذف) كي لا يضيع البيع. */
+      /* تبقى في الطابور (لا تُحذف) كي لا يضيع البيع؛ ما أُنجز من مراحلها محفوظ فلا يتكرّر عند الإعادة. */
       failed++;
       const msg = (e && e.message) ? e.message : String(e);
       lastErr = msg;
+      await updatePendingInvoice(inv._localId, { _attempts: (inv._attempts || 0) + 1, _lastErr: msg.slice(0, 200) });
       try {
         if (window.GMTBug && GMTBug.log)
           GMTBug.log('error', 'فشل مزامنة فاتورة معلّقة: ' + msg,
@@ -9684,25 +9899,30 @@ async function syncPendingInvoices() {
     }
   }
   if (failed > 0) {
+    _syncFails++;
+    _syncNextAt = Date.now() + Math.min(300000, 5000 * Math.pow(3, Math.min(_syncFails - 1, 4)));   // 5ث ← 15ث ← 45ث ← 2.25د ← 5د
     try {
-      if (window.GMTWarden && GMTWarden.flag) {
+      if (window.GMTWarden && GMTWarden.flag && _syncFails >= 3) {
         GMTWarden.flag({ kind:'financial', severity:'high', feature:'POS-OFFLINE', rule:'OWN-NO-LOST-SALE',
           title: failed + ' فاتورة لم تُزامَن',
-          what:'بقيت ' + failed + ' فاتورة في الطابور بعد محاولة المزامنة. آخر خطأ: ' + lastErr,
+          what:'بقيت ' + failed + ' فاتورة في الطابور بعد ' + _syncFails + ' محاولات. آخر خطأ: ' + lastErr,
           why:'لم تُحذف — ستُعاد المحاولة. إن تكرّر فراجع الاتصال وصلاحيات RLS.' });
       }
     } catch(_) {}
-    showToast('⚠️ ' + failed + ' فاتورة لم تُزامَن بعد — ما زالت محفوظة وستُعاد المحاولة', 'err');
+    if (_syncFails <= 2) showToast('⚠️ ' + failed + ' فاتورة لم تُزامَن بعد — ما زالت محفوظة وستُعاد المحاولة', 'err');
+  } else {
+    _syncFails = 0; _syncNextAt = 0;
   }
   if (synced > 0) {
-    showToast(`✅ تمت مزامنة ${synced} فاتورة بنجاح${itemErrors ? ` (تحذير: ${itemErrors} فاتورة فشل حفظ تفاصيل بنودها — راجعها بالسجل)` : ''}`, itemErrors ? 'inf' : 'ok');
+    showToast(`✅ تمت مزامنة ${synced} فاتورة بنجاح${flagged ? ` (${flagged} منها وُسمت للمراجعة)` : ''}`, flagged ? 'inf' : 'ok');
     await loadProducts();
   }
-  updateOfflineBadge();
+  const left = await getPendingInvoices();
+  if (!left.length) document.getElementById('offline-banner')?.classList.remove('show');
 }
 
 // مراقبة حالة الشبكة
-window.addEventListener('online',  () => { updateOfflineBadge(); });
+window.addEventListener('online',  () => { _syncNextAt = 0; updateOfflineBadge(); });
 window.addEventListener('offline', () => {
   document.getElementById('offline-banner').classList.add('show');
   const el = document.getElementById('offline-pending-count');

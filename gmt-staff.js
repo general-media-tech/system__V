@@ -3473,6 +3473,40 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     return { sales, moved, cashBox, owed, periodComms, periodOwed, pending: pending.length, pendingSum, paidEver, invCount: invs.length, held: held.length, heldSum };
   }
 
+  /* (11 ت١ · مراجعة مالية) تقريب السنت + إشعار بنافذة النظام (لا alert المتصفّح) */
+  const r2 = (x) => { const n = Number(x); return isFinite(n) ? Math.round((n + (n >= 0 ? 1e-9 : -1e-9)) * 100) / 100 : 0; };
+  const say = (m) => { try { if (window.GMTAsk && GMTAsk.alert) return GMTAsk.alert(m); } catch (_) {} try { alert(m); } catch (_) {} return Promise.resolve(); };
+
+  /* خطّة الدفع الجزئي (D07): كان `doSettle` يختم **كل** عمولات الفترة «مدفوعة» مهما كان المبلغ المدفوع (دفع 10 من 30 ⇒ الثلاثة paid
+     ويختفي الباقي 20 من الحساب الجاري)، ويقبل صفراً وسالباً وما يزيد على المستحق. الآن: تُختم الصفوف الأقدم فالأحدث حتى يستغرق المبلغ،
+     وصفّ الحدّ يُقسَم (الجزء المدفوع يُختم والباقي صفٌّ جديد غير مدفوع)، والصفوف السالبة/الصفرية (ديون الكاشير) تُختم دائماً لأنها تُنقص المستحق. */
+  function planPay(rows, pay) {
+    const t = (r) => new Date(r.approved_at || r.created_at || 0).getTime();
+    const sorted = rows.slice().sort((a, b) => t(a) - t(b));
+    const neg = sorted.filter((r) => Number(r.amount) <= 0.0001);
+    const pos = sorted.filter((r) => Number(r.amount) > 0.0001);
+    let budget = r2(pay + neg.reduce((s, r) => s - Number(r.amount), 0));
+    const stamp = neg.map((r) => r.id); let split = null;
+    for (const r of pos) {
+      const a = r2(r.amount);
+      if (budget >= a - 0.004) { stamp.push(r.id); budget = r2(budget - a); }
+      else if (budget > 0.004) { split = { row: r, payPart: budget, rest: r2(a - budget) }; budget = 0; break; }
+      else break;
+    }
+    return { stamp, split };
+  }
+  /* ختمٌ مشروطٌ بالتحقق: PATCH بـreturn=representation ومقارنة عدد المختوم بالمتوقَّع (RLS/تحديث متزامن من مدير آخر يمرّان بلا خطأ) */
+  async function stampRows(ids, settlementId) {
+    if (!ids.length) return [];
+    const res = await window.sb('PATCH', `/rest/v1/invoice_commissions?id=in.(${ids.join(',')})&paid=eq.false`,
+      { paid: true, paid_at: new Date().toISOString(), settlement_id: settlementId }, { Prefer: 'return=representation' });
+    const rows = Array.isArray(res) ? res : (Array.isArray(res && res.data) ? res.data : []);
+    if (rows.length !== ids.length) {
+      throw new Error('ختم ' + rows.length + ' من ' + ids.length + ' عمولة فقط — دُفع بعضها من تسوية أخرى أو تعذّرت الكتابة. راجع سجل التسويات قبل أي دفع');
+    }
+    return rows;
+  }
+
   /* ══ الترقيم الرسمي للتسوية ══ */
   async function nextNo(row) {
     const ins = await window.sb('POST', '/rest/v1/gmt_settlements', row, { Prefer: 'return=representation' });
@@ -3623,7 +3657,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   /* ══ العملية ١: التسوية الدورية (الأساسية) ══ */
   async function doSettle() {
     const d = S.data;
-    if (!d.periodComms.length) return alert('لا عمولات موافقة بهذه الفترة');
+    if (!d.periodComms.length) return say('لا عمولات موافقة بهذه الفترة');
     const b = (window.branches || []).find((x) => x.key_name === S.branchKey) || {};
     const maxPay = d.periodOwed;
 
@@ -3651,26 +3685,59 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       if (S.busy) return; S.busy = true;
       const btn = document.getElementById('st-go'); btn.disabled = true; btn.textContent = 'جارٍ الاعتماد…';
       try {
-        const pay = parseFloat(document.getElementById('st-pay').value) || 0;
+        const raw = String(document.getElementById('st-pay').value).trim();
+        const pay = r2(Number(raw));
         const note = document.getElementById('st-note').value.trim();
-        const ids = d.periodComms.map((c) => c.id);
+        if (!raw || !isFinite(pay) || pay <= 0) throw new Error('أدخل مبلغاً أكبر من صفر');
+        if (pay > d.periodOwed + 0.005) throw new Error('المبلغ أكبر من مستحقات الفترة (' + money(d.periodOwed) + ')');
+        const allIds = d.periodComms.map((c) => c.id);
+        // تحقّق من حداثة الصفوف (دفعها مدير آخر؟ تغيّر مبلغها؟) قبل أيّ كتابة
+        const fresh = await window.sb('GET', `/rest/v1/invoice_commissions?id=in.(${allIds.join(',')})&select=id,paid,amount`);
+        const fm = new Map((fresh || []).map((r) => [String(r.id), r]));
+        for (const c of d.periodComms) {
+          const f = fm.get(String(c.id));
+          if (!f || f.paid || Math.abs(Number(f.amount) - Number(c.amount)) > 0.004) throw new Error('تغيّرت العمولات منذ فتح الشاشة (دُفع بعضها أو عُدّل) — أغلق الشاشة وافتحها من جديد');
+        }
+        const plan = planPay(d.periodComms, pay);
+        const stampedCount = plan.stamp.length + (plan.split ? 1 : 0);
         const rec = await nextNo({
           branch_key: S.branchKey, cashier_name: S.cashier || null, kind: 'settlement',
           period_from: S.from, period_to: S.to,
           comm_total: d.periodOwed, paid_amount: pay, withdraw_amount: 0,
           cash_before: d.cashBox, cash_after: d.cashBox,
-          owed_after: Math.max(0, d.owed - pay), invoice_count: ids.length,
+          owed_after: Math.max(0, r2(d.owed - pay)), invoice_count: stampedCount,
           note: note || null, created_by: 'admin',
         });
-        // ختم العمولات — دفعة واحدة (العمولة المختومة لا تدخل تسوية ثانية أبداً)
-        // &paid=eq.false ⇒ القاعدة نفسها تمنع دفع عمولة مدفوعة مسبقاً (منع التحصيل المزدوج عبر التبويبات)
-        await window.sb('PATCH', `/rest/v1/invoice_commissions?id=in.(${ids.join(',')})&paid=eq.false`,
-          { paid: true, paid_at: new Date().toISOString(), settlement_id: rec.id }, { Prefer: 'return=minimal' });
-        (window.allComm || []).forEach((c) => { if (ids.includes(c.id)) { c.paid = true; c.settlement_id = rec.id; } });
+        // ١) صفّ الحدّ يُقسَم: الباقي صفٌّ جديد (غير معتمد مؤقتاً كي لا يُحسب مرّتين) ثم يُختم الجزء المدفوع ثم يُعتمد الباقي
+        let restRow = null;
+        if (plan.split) {
+          const o = plan.split.row;
+          const ins = await window.sb('POST', '/rest/v1/invoice_commissions', {
+            invoice_id: o.invoice_id, branch_key: o.branch_key, cashier_name: o.cashier_name || null,
+            amount: plan.split.rest, paid: false, approved: false,
+            note: 'رصيد مرحَّل من التسوية ' + rec.settlement_no + ' (جزء من عمولة دُفع بعضها)', created_by: 'auto_split',
+          }, { Prefer: 'return=representation' });
+          restRow = Array.isArray(ins) ? ins[0] : ins;
+          if (!restRow || restRow.id == null) throw new Error('تعذّر تسجيل الرصيد المرحَّل — لم يُختم شيء');
+          const cut = await window.sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${o.id}&paid=eq.false`, { amount: plan.split.payPart }, { Prefer: 'return=representation' });
+          const cutRows = Array.isArray(cut) ? cut : (Array.isArray(cut && cut.data) ? cut.data : []);
+          if (cutRows.length !== 1) throw new Error('تعذّر تقسيم العمولة (دُفعت من تسوية أخرى؟) — راجع سجل التسويات');
+          o.amount = plan.split.payPart;
+        }
+        // ٢) الختم — العمولة المختومة لا تدخل تسوية ثانية أبداً (&paid=eq.false + عدّ الصفوف)
+        const stampIds = plan.stamp.concat(plan.split ? [plan.split.row.id] : []);
+        await stampRows(stampIds, rec.id);
+        if (restRow) {
+          const ap = await window.sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${restRow.id}`,
+            { approved: true, approved_at: plan.split.row.approved_at || new Date().toISOString() }, { Prefer: 'return=minimal' });
+          restRow.approved = true; restRow.approved_at = plan.split.row.approved_at || new Date().toISOString();
+          (window.allComm = window.allComm || []).push(restRow);
+        }
+        (window.allComm || []).forEach((c) => { if (stampIds.map(String).includes(String(c.id))) { c.paid = true; c.settlement_id = rec.id; } });
         document.getElementById('st-dlg')?.remove();
-        alert('✅ اعتُمدت التسوية ' + rec.settlement_no + '\nالمدفوع: ' + money(pay) + (d.owed - pay > 0.01 ? '\nالباقي بذمتك له: ' + money(d.owed - pay) : '\nخالص بالكامل ✓'));
+        await say('✅ اعتُمدت التسوية ' + rec.settlement_no + '\nالمدفوع: ' + money(pay) + (d.owed - pay > 0.01 ? '\nالباقي بذمتك له: ' + money(r2(d.owed - pay)) + ' (يظهر بالتسوية القادمة)' : '\nخالص بالكامل ✓'));
         render();
-      } catch (e) { alert('تعذّرت التسوية: ' + e.message); }
+      } catch (e) { await say('تعذّرت التسوية: ' + e.message); }
       finally { S.busy = false; }
     };
   }
@@ -3752,12 +3819,11 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         owed_after: Math.max(0, d.owed - (Number(c.amount) || 0)), invoice_count: 1,
         note: 'دفع عمولة فاتورة مفردة', created_by: 'admin',
       });
-      await window.sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${c.id}&paid=eq.false`,
-        { paid: true, paid_at: new Date().toISOString(), settlement_id: rec.id }, { Prefer: 'return=minimal' });
+      await stampRows([c.id], rec.id);
       c.paid = true; c.settlement_id = rec.id;
-      alert('✅ دُفعت العمولة — ' + rec.settlement_no);
+      await say('✅ دُفعت العمولة — ' + rec.settlement_no);
       render();
-    } catch (e) { alert('تعذّر الدفع: ' + e.message); }
+    } catch (e) { await say('تعذّر الدفع: ' + e.message); }
     finally { S.busy = false; }
   }
 
@@ -3788,8 +3854,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       invoice_count: new Set(ids.map((id) => (((window.allComm || []).find((c) => String(c.id) === String(id)) || {}).invoice_id) || ('r' + id))).size,
       note: note || null, created_by: 'admin',
     });
-    await window.sb('PATCH', `/rest/v1/invoice_commissions?id=in.(${ids.join(',')})&paid=eq.false`,
-      { paid: true, paid_at: new Date().toISOString(), settlement_id: rec.id }, { Prefer: 'return=minimal' });
+    await stampRows(ids, rec.id);      // يُتحقَّق من عدد المختوم فعلاً (دفعٌ مزدوج من واجهة متقادمة كان يمرّ بصمت — C5)
     (window.allComm || []).forEach((c) => { if (ids.map(String).includes(String(c.id))) { c.paid = true; c.settlement_id = rec.id; } });
     if (document.getElementById('settl-ov')) render();
     return rec;

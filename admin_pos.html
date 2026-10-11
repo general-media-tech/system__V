@@ -673,9 +673,12 @@ function invComm(invId) {
   if (!rows.length) return undefined;
   if (rows.length === 1) return rows[0];
   const sum = rows.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  /* (11 ت١ · E4) حالة الفاتورة (معتمدة/مدفوعة) من صفوفها الأصلية؛ صفّ عكس المرتجع يدخل في المبلغ لا في الحالة (وإلا قلب الأصلَ المدفوع إلى «غير مدفوع») */
+  const _core = rows.filter(c => c.created_by !== 'auto_refund_reversal');
+  const _st = _core.length ? _core : rows;
   return Object.assign({}, rows[0], {
     amount: Math.round(sum * 100) / 100,
-    approved: rows.every(c => c.approved), paid: rows.every(c => c.paid),
+    approved: _st.every(c => c.approved), paid: _st.every(c => c.paid),
     awaiting_collection: rows.some(c => c.awaiting_collection && !c.paid),
     invoice_collected: rows.every(c => c.invoice_collected),
     note: rows.map(c => c.note).filter(Boolean).join(' · '), _rows: rows
@@ -813,11 +816,19 @@ async function loadCommissions() {
     allComm = await _sbAll('/rest/v1/invoice_commissions?order=created_at.desc');   /* (٨ ث) كلّها */
   } catch(e) { allComm = []; }
 }
+/* (11 ت١ · B1) «فواتير غير محصَّلة» كانت تضمّ كل فاتورة بيعها «آجل» حتى المسدَّدة بالكامل (المتبقّي 0) فيتضخّم العدّ وتُعرَض للتحصيل ثانيةً.
+   المفتوح = متبقٍّ > 0، أو قديمةٌ بلا حقول دفع (لا remaining ولا حالة) فنفترضها مفتوحة حتى يُراجعها المالك. */
+function isOpenDebt(r) {
+  if (!r) return false;
+  const rem = r.remaining_amount;
+  if (rem != null && rem !== '') return Number(rem) > 0.004;
+  return String(r.payment_status || '') !== 'paid';
+}
 async function loadDebts() {
   try {
     // نجرّب مع sale_type أولاً
     const rows = await sb('GET', '/rest/v1/invoices?sale_type=eq.آجل (شحن)&order=created_at.desc&limit=2000&select=id,inv_number,branch_key,branch_name,total,customer_name,customer_phone,created_at,payment_status,paid_amount,remaining_amount');
-    allDebts = Array.isArray(rows) ? rows : [];
+    allDebts = (Array.isArray(rows) ? rows : []).filter(isOpenDebt);
   } catch(e) {
     // إذا فشل (العمود غير موجود) نجلب الكل ونصفّي محلياً
     try {
@@ -1832,19 +1843,29 @@ async function confirmApproveCommission(commId, branchKey, originalAmount) {
     /* 🛡️ (2026-08-24) شرط ذرّي: بلا `approved=is.false` كان يمكن اعتماد العمولة
        **مرّتين** (ضغطتان أو جهازان) فتُكتب قيمة جديدة فوق قيمة معتمَدة وتُرسل
        إشعارات مكرّرة. الآن: من يفوز بالتبديل وحده يُكمل. */
-    const _upd = await sb('PATCH',
-      `/rest/v1/invoice_commissions?id=eq.${commId}&approved=is.false`,
-      updateBody, { Prefer:'return=representation' });
-    const _rw = Array.isArray(_upd?.data) ? _upd.data : (Array.isArray(_upd) ? _upd : []);
-    if (!_rw.length) {
+    /* (11 ت١ · C4/G2) `approved=is.false` لا يطابق الصفوف التي أنشأتها نقطة البيع بلا حقل (null) فتُرفض بحجّة «معتمدة مسبقاً»،
+       وفاتورةٌ صفّها الأول معتمَد وفيها صفّ عكس مرتجع جديد كانت لا تُعتمد أبداً (المعرّف المرسَل هو الصفّ الأول المعتمَد). */
+    const _NA = 'or=(approved.is.false,approved.is.null)';
+    const _mainDone = !!(_c0 && _c0.approved);
+    if (_mainDone && !_sibs.length) {
       showToast('⛔ هذه العمولة معتمَدة مسبقاً — لم يتغيّر شيء', 'err');
       return;
     }
-    const c = allComm.find(x => String(x.id) === String(commId));
-    if (c) { c.approved = true; c.approved_at = new Date().toISOString(); c.amount = _mainAmt; if (note) c.note = note; }
+    if (!_mainDone) {
+      const _upd = await sb('PATCH',
+        `/rest/v1/invoice_commissions?id=eq.${commId}&${_NA}`,
+        updateBody, { Prefer:'return=representation' });
+      const _rw = Array.isArray(_upd?.data) ? _upd.data : (Array.isArray(_upd) ? _upd : []);
+      if (!_rw.length) {
+        showToast('⛔ هذه العمولة معتمَدة مسبقاً — لم يتغيّر شيء', 'err');
+        return;
+      }
+      const c = allComm.find(x => String(x.id) === String(commId));
+      if (c) { c.approved = true; c.approved_at = new Date().toISOString(); c.amount = _mainAmt; if (note) c.note = note; }
+    }
     for (const r of _sibs) {
       try {
-        const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&approved=is.false`,
+        const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&${_NA}`,
           { approved: true, approved_at: new Date().toISOString() }, { Prefer: 'return=representation' });
         const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
         if (w2.length) { r.approved = true; r.approved_at = new Date().toISOString(); }
@@ -1893,6 +1914,10 @@ async function recordInvoiceCollection(invId, branchKey) {
 }
 
 async function collectFullComm(commId, branchKey, amount) {
+  /* (11 ت١ · D1/م6-ب) عمولة الفاتورة الآجلة «معلّقة» حتى يُحصَّل ثمنها؛ كان هذا الزرّ يدفعها ويختمها مدفوعة والزبون لم يدفع (remaining>0). */
+  { const _cH = allComm.find(x => String(x.id) === String(commId));
+    const _hold = _cH ? invCommRows(_cH.invoice_id).some(r => r.awaiting_collection && !r.paid) : false;
+    if (_hold) { showToast('⛔ هذه عمولة فاتورة آجلة لم يُحصَّل ثمنها بعد — حصّل الفاتورة أولاً من «الديون» ثم تُستحق العمولة', 'err'); return; } }
   if (!await GMTAsk.confirm(`تحصيل كامل المبلغ + العمولة (${amount.toFixed(2)}$) معاً؟`)) return;
   try {
     // م6 (دمج 2026-07-11): كل دفع عمولة يمر عبر سجل التسويات ويُختم برقم — لا ازدواج
@@ -1972,19 +1997,22 @@ async function editCommission(commId) {
     const _amtE = Math.round((amount - _othE) * 100) / 100;
     /* (١١ ت١) تعديل الأدمن للعمولة وحفظها = موافقته عليها (لا موافقة ثانية). تُعتمد هي وبقيّة صفوف فاتورتها غير المدفوعة. */
     const _nowE = new Date().toISOString();
-    await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${commId}`, {
+    /* (11 ت١ · C3) لا تعديل لعمولة مدفوعة/مختومة بتسوية (تغيّر مبلغها يُفسد سجلّ ما دُفع فعلاً) — شرطٌ في القاعدة + عدّ الصفوف */
+    if (_cE && _cE.paid) { showToast('⛔ هذه العمولة مدفوعة ومختومة بتسوية — لا تُعدَّل. أنشئ تسوية/قيداً عكسياً بدلاً من ذلك', 'err'); return; }
+    const _eu = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${commId}&paid=eq.false`, {
       amount: _amtE,
       note      : _note,
       created_by: 'admin',
       approved: true,
       approved_at: (_cE && _cE.approved && _cE.approved_at) ? _cE.approved_at : _nowE,
-    }, { Prefer:'return=minimal' });
+    }, { Prefer:'return=representation' });
+    { const _er = Array.isArray(_eu?.data) ? _eu.data : (Array.isArray(_eu) ? _eu : []); if (!_er.length) { showToast('⛔ لم تُعدَّل العمولة — دُفعت أو حُذفت من جهاز آخر. حدّث الصفحة', 'err'); return; } }
     const c = allComm.find(x => String(x.id) === String(commId));
     if (c) { c.amount = _amtE; c.note = _note; c.created_by = 'admin'; c.approved = true; c.approved_at = c.approved_at || _nowE; }
     if (_cE) {
       for (const r of invCommRows(_cE.invoice_id).filter(r => String(r.id) !== String(commId) && !r.approved && !r.paid)) {
         try {
-          const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&approved=is.false`, { approved: true, approved_at: _nowE }, { Prefer: 'return=representation' });
+          const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&or=(approved.is.false,approved.is.null)`, { approved: true, approved_at: _nowE }, { Prefer: 'return=representation' });
           const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
           if (w2.length) { r.approved = true; r.approved_at = _nowE; }
         } catch (_) {}
@@ -1996,13 +2024,25 @@ async function editCommission(commId) {
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
 }
 
+let __saveCommBusy = false;
 async function saveCommission(invId, branchKey) {
   const amountEl = document.getElementById(`comm-amount-${invId}`);
   const noteEl   = document.getElementById(`comm-note-${invId}`);
   const amount   = parseFloat(amountEl?.value);
   if (isNaN(amount) || amount <= 0) { showToast('أدخل مبلغ العمولة', 'err'); return; }
-
+  /* (11 ت١ · C1/C2) ضغطتان على «حفظ» أنتجتا صفّي عمولة، والإضافة فوق عمولةٍ مسجَّلة (من جهاز آخر/نقطة البيع) تضاعفها.
+     الآن: قفل نقر + فحص الصفوف الموجودة من القاعدة نفسها قبل الإدراج. */
+  if (__saveCommBusy) return; __saveCommBusy = true;
   try {
+    const _ex = await sb('GET', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(invId)}&select=id,amount,paid`);
+    const _exRows = Array.isArray(_ex?.data) ? _ex.data : (Array.isArray(_ex) ? _ex : []);
+    if (_exRows.length) {
+      const tot = _exRows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+      showToast('⛔ لهذه الفاتورة عمولة مسجَّلة (' + tot.toFixed(2) + '$) — عدّلها من «تعديل العمولة» بدل إضافة عمولة ثانية', 'err');
+      try { await loadCommissions(); } catch (_) {}
+      return;
+    }
+
     /* (١١ ت١ — Notes ٨ ت١ ٨:٥٧م) «أثناء مراجعة الفواتير عندما أدخل عمولة جديدة وأكبس حفظ لازم خلاص تتسيف… وليس أنني أرجع أضطر أعمل لها موافقة
        على هذه العمولة — هذا غلط». الأدمن الذي يكتب العمولة بيده ويحفظها هو من وافق عليها: تُحفَظ معتمَدةً ولا تدخل قائمة «بانتظار الموافقة». */
     const res = await sb('POST', '/rest/v1/invoice_commissions', {
@@ -2021,6 +2061,7 @@ async function saveCommission(invId, branchKey) {
     closeModal();
     renderInvoices();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __saveCommBusy = false; }
 }
 
 /* م6 (دمج 2026-07-11): المسار القديم أُلغي — كل دفع يمر عبر شاشة الحساب الجاري
@@ -2443,9 +2484,19 @@ async function _cv3_saveComm() {
       : (_cv3_sel.note || null);
     const payload = { invoice_id:_cv3_sel.id, branch_key:_cv3_sel.branch_key,
       amount:parseFloat(comm.toFixed(2)), note:_ovNote, created_by:'admin' };
-    if (_cv3_sel._comm_id) {
-      await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${_cv3_sel._comm_id}`,
-        { amount:payload.amount, note:payload.note }, { Prefer:'return=minimal' });
+    /* (11 ت١ · V1) للفاتورة صفوفٌ عدّة (بند لكل صف): المبلغ المكتوب هو المجموع ⇒ يحمل صفٌّ واحد الفرق عن بقيّة الصفوف
+       (كان يُكتب المجموع كاملاً فوق صفٍّ واحد وتبقى البقيّة فيتضاعف المجموع 43.98 ← 63.98). وعمولة مدفوعة لا تُعدَّل. */
+    const _fr = await sb('GET', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(_cv3_sel.id)}&select=id,amount,paid&order=id.asc`);
+    const _frRows = Array.isArray(_fr?.data) ? _fr.data : (Array.isArray(_fr) ? _fr : []);
+    if (_frRows.some(r => r.paid)) throw new Error('عمولة هذه الفاتورة (كلها أو بعضها) مدفوعة بتسوية — لا تُعدَّل من هنا');
+    if (_frRows.length) {
+      const main = _frRows.find(r => String(r.id) === String(_cv3_sel._comm_id)) || _frRows[0];
+      const others = _frRows.filter(r => String(r.id) !== String(main.id)).reduce((t, r) => t + (Number(r.amount) || 0), 0);
+      const mu = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${main.id}&paid=eq.false`,
+        { amount: Math.round((payload.amount - others) * 100) / 100, note:payload.note }, { Prefer:'return=representation' });
+      const mr = Array.isArray(mu?.data) ? mu.data : (Array.isArray(mu) ? mu : []);
+      if (!mr.length) throw new Error('لم تُحدَّث العمولة (دُفعت أو حُذفت من جهاز آخر)');
+      _cv3_sel._comm_id = main.id;
     } else {
       const res = await sb('POST', '/rest/v1/invoice_commissions', {...payload, paid:false, approved:false});
       const rec = Array.isArray(res)?res[0]:res;
@@ -3601,33 +3652,67 @@ function branchDebtInvoiceRowHtml(d) {
 
 /* ═══ م6-ب (قرار المالك 2026-07-11): عمولة البيع الآجل «معلّقة» حتى يُحصَّل ثمن
    الفاتورة فعلياً. عند اكتمال التحصيل تُحرَّر فتصبح قابلة للموافقة والتسوية. ═══ */
+/* ══ (11 ت١ · D17) تحصيلٌ واحد موثوق: يقرأ الفاتورة من القاعدة، يتحقق من المبلغ، ويكتب بشرط (remaining الحالية) ثم يعدّ الصفوف.
+   الجذر: التحصيل كان يحسب «المدفوع = المحلي السابق + الدفعة» من نسخة الشاشة ⇒ جهازان يحصّلان معاً فتضيع دفعة (paid=50 بدل 90)،
+   والضغطتان تُسجّلان التحصيل مرّتين، و«تحصيل كامل ديون الفرع» لا يحرّر عمولاتها المعلّقة أبداً. ══ */
+async function applyInvoiceCollection(invId, amount) {
+  amount = Math.round((Number(amount) + 1e-9) * 100) / 100;
+  if (!(amount > 0)) throw new Error('مبلغ غير صحيح');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const fr = await sb('GET', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}&select=id,total,paid_amount,remaining_amount,payment_status`);
+    const fl = Array.isArray(fr?.data) ? fr.data : (Array.isArray(fr) ? fr : []);
+    const f = fl[0]; if (!f) throw new Error('الفاتورة غير موجودة');
+    const hasRem = f.remaining_amount != null && f.remaining_amount !== '';
+    const rem = Math.round((hasRem ? Number(f.remaining_amount) : Math.max(0, (Number(f.total) || 0) - (Number(f.paid_amount) || 0))) * 100) / 100;
+    if (rem <= 0.004) throw new Error('هذه الفاتورة محصَّلة بالكامل مسبقاً');
+    if (amount > rem + 0.004) throw new Error('المبلغ (' + amount.toFixed(2) + '$) أكبر من المتبقّي (' + rem.toFixed(2) + '$)');
+    const paidPrev = Number(f.paid_amount) || 0;
+    const newRem = Math.round(Math.max(0, rem - amount) * 100) / 100;
+    const body = { payment_status: newRem <= 0.004 ? 'paid' : 'partial', paid_amount: Math.round((paidPrev + amount) * 100) / 100, remaining_amount: newRem };
+    const cond = hasRem ? `remaining_amount=eq.${f.remaining_amount}` : 'remaining_amount=is.null';
+    const up = await sb('PATCH', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}&${cond}`, body, { Prefer: 'return=representation' });
+    const ur = Array.isArray(up?.data) ? up.data : (Array.isArray(up) ? up : []);
+    if (ur.length === 1) {
+      try { const a = (allDebts || []).find(x => String(x.id) === String(invId)); if (a) Object.assign(a, body); } catch (_) {}
+      try { const ai = (allInvoices || []).find(x => String(x.id) === String(invId)); if (ai) Object.assign(ai, body); } catch (_) {}
+      try { await GMTAudit?.log?.({ action: 'invoice_collect', entity: 'invoices', entityId: String(invId), reason: 'تحصيل ' + amount.toFixed(2) + '$ — المتبقّي ' + newRem.toFixed(2) + '$' }); } catch (_) {}
+      return { amount, remaining: newRem, paid: body.paid_amount, complete: newRem <= 0.004 };
+    }
+    // تغيّرت الفاتورة بين القراءة والكتابة (تحصيل من جهاز آخر) ⇒ نُعيد القراءة
+  }
+  throw new Error('تغيّرت الفاتورة من جهاز آخر أثناء التحصيل — حدّث الصفحة وأعد المحاولة');
+}
 async function releaseCommOnCollect(invId) {
   try {
-    const c = allComm.find(x => x.invoice_id === invId && x.awaiting_collection);
-    if (!c) return;
-    await sb('PATCH', `/rest/v1/invoice_commissions?invoice_id=eq.${invId}`,
-      { awaiting_collection: false }, { Prefer: 'return=minimal' });
-    allComm.forEach(x => { if (x.invoice_id === invId) x.awaiting_collection = false; });
-    showToast('💜 تحرّرت عمولة الفاتورة الآجلة — صارت مستحقة', 'ok');
-  } catch (e) { console.warn('[comm] تعذّر تحرير عمولة الآجل:', e.message); }
+    /* (11 ت١) الشرط على القاعدة لا على النسخة المحلية المتقادمة، ومقارنة المعرّف نصّاً (رقم/نصّ)، ويُتحقَّق من وجود صفوف حُرِّرت */
+    const r = await sb('PATCH', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(invId)}&awaiting_collection=eq.true`,
+      { awaiting_collection: false }, { Prefer: 'return=representation' });
+    const rows = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : []);
+    allComm.forEach(x => { if (String(x.invoice_id) === String(invId)) x.awaiting_collection = false; });
+    if (rows.length) showToast('💜 تحرّرت عمولة الفاتورة الآجلة — صارت مستحقة', 'ok');
+  } catch (e) { console.warn('[comm] تعذّر تحرير عمولة الآجل:', e.message); showToast('⚠️ تعذّر تحرير عمولة الفاتورة — حرّرها يدوياً', 'err'); }
 }
 
 // خيار 1: تحصيل كامل المبلغ + تسجيل العمولة كدين عليّ (الإدارة)
+let __collectBusy = false;
 async function collectDebtInvoice(invId, mode, remaining, commAmount) {
+  if (__collectBusy) return;
   const label = mode === 'full_with_comm' ? 'تحصيل كامل + العمولة كدين علي' : 'تحصيل مع اقتطاع العمولة';
   if (!await GMTAsk.confirm(`${label}\nالمبلغ: ${remaining.toFixed(2)}$${commAmount>0?` (عمولة: ${commAmount.toFixed(2)}$)`:''}`)) return;
+  __collectBusy = true;
   try {
-    await releaseCommOnCollect(invId);   // م6-ب: تحرير عمولة الآجل عند التحصيل الكامل
-    await sb('PATCH', `/rest/v1/invoices?id=eq.${invId}`,
-      /* (٨ ت) المدفوع = ما دُفع سابقاً + الباقي المُحصَّل الآن (لا الباقي وحده) */
-      { payment_status: 'paid', paid_amount: Math.round(((Number(((allDebts || []).find(x => String(x.id) === String(invId)) || {}).paid_amount) || 0) + remaining) * 100) / 100, remaining_amount: 0 },
-      { Prefer:'return=minimal' });
+    // المتبقّي الفعلي من القاعدة (لا من نسخة الشاشة) — وبلا ضياع دفعة جهازٍ آخر
+    const res = await applyInvoiceCollection(invId, remaining);
+    if (res.complete) await releaseCommOnCollect(invId);   // م6-ب: تحرير عمولة الآجل عند التحصيل الكامل
 
     if (mode === 'full_with_comm' && commAmount > 0) {
-      // العمولة تُسجَّل كدين على الإدارة (يُسجَّل في الديون اليدوية كـ i_owe)
-      const inv = allDebts.find(d => String(d.id) === String(invId));
-      await sb('POST', '/rest/v1/gmt_manual_debts', {
-        direction: 'i_owe', person_name: (inv?.branch_name||'فرع') + ' — عمولة فاتورة #' + (inv?.inv_number||''),
+      // العمولة تُسجَّل كدين على الإدارة (يُسجَّل في الديون اليدوية كـ i_owe) — مرّةً واحدة لكل فاتورة
+      const inv = allDebts.find(d => String(d.id) === String(invId)) || {};
+      const who = (inv.branch_name||'فرع') + ' — عمولة فاتورة #' + (inv.inv_number||'');
+      let dup = false;
+      try { dup = (await sb('GET', `/rest/v1/gmt_manual_debts?person_name=eq.${encodeURIComponent(who)}&direction=eq.i_owe&select=id&limit=1`) || []).length > 0; } catch (_) {}
+      if (!dup) await sb('POST', '/rest/v1/gmt_manual_debts', {
+        direction: 'i_owe', person_name: who,
         amount: commAmount, note: 'عمولة محصَّلة مع الفاتورة — مستحقة للفرع',
         settled: false, created_at: new Date().toISOString(),
       });
@@ -3641,62 +3726,58 @@ async function collectDebtInvoice(invId, mode, remaining, commAmount) {
       }
     }
 
-    allDebts = allDebts.filter(d => d.id !== invId);
+    allDebts = allDebts.filter(d => String(d.id) !== String(invId));
     await loadManualDebts();
     showToast('✅ تم التحصيل', 'ok');
     closeModal();
     renderDebts();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __collectBusy = false; }
 }
 
 // خيار 2: تحصيل مبلغ جزئي — الباقي يبقى ديناً
 async function collectDebtPartial(invId, remaining) {
+  if (__collectBusy) return;
   const amountStr = await GMTAsk.prompt(`أدخل المبلغ المُحصَّل من أصل ${remaining.toFixed(2)}$:`);
   if (amountStr === null) return;
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0 || amount > remaining) { showToast('مبلغ غير صحيح', 'err'); return; }
-
+  const amount = parseFloat(String(amountStr).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,٫]/g, '.'));
+  if (isNaN(amount) || amount <= 0 || amount > remaining + 0.004) { showToast('مبلغ غير صحيح', 'err'); return; }
+  __collectBusy = true;
   try {
-    const newRemaining = remaining - amount;
-    const newStatus = newRemaining <= 0.01 ? 'paid' : 'partial';
-    /* (٨ ت — تدقيق المطابقة) كان `paid_amount: amount` يكتب الدفعة الأخيرة فوق المدفوع سابقاً (50 + 50 ⇐ 50) —
-       فينقص المقبوض في الصندوق والمحاسبة. المدفوع = السابق + هذه الدفعة. */
-    const _dInv = (allDebts || []).find(x => String(x.id) === String(invId)) || (allInvoices || []).find(x => String(x.id) === String(invId)) || {};
-    const _prevPaid = Number(_dInv.paid_amount) || 0;
-    const _newPaid = Math.round((_prevPaid + amount) * 100) / 100;
-    await sb('PATCH', `/rest/v1/invoices?id=eq.${invId}`,
-      { payment_status: newStatus, paid_amount: _newPaid, remaining_amount: Math.max(0,newRemaining) },
-      { Prefer:'return=minimal' });
-    try { const _ai = (allInvoices || []).find(x => String(x.id) === String(invId)); if (_ai) { _ai.paid_amount = _newPaid; _ai.remaining_amount = Math.max(0, newRemaining); _ai.payment_status = newStatus; } } catch (_) {}
-
-    if (newStatus === 'paid') {
+    const res = await applyInvoiceCollection(invId, amount);   // المدفوع = ما في القاعدة الآن + هذه الدفعة (لا نسخة الشاشة)
+    if (res.complete) {
       await releaseCommOnCollect(invId);   // م6-ب: اكتمل السداد → تُستحق العمولة
-      allDebts = allDebts.filter(d => d.id !== invId);
-    } else {
-      const d = allDebts.find(x => String(x.id) === String(invId));
-      if (d) { d.remaining_amount = newRemaining; d.payment_status = 'partial'; d.paid_amount = _newPaid; }
+      allDebts = allDebts.filter(d => String(d.id) !== String(invId));
     }
-    showToast(`✅ تم تحصيل ${amount.toFixed(2)}$ — الباقي ${Math.max(0,newRemaining).toFixed(2)}$ في صندوق الفرع`, 'ok');
+    showToast(`✅ تم تحصيل ${amount.toFixed(2)}$ — الباقي ${res.remaining.toFixed(2)}$ في صندوق الفرع`, 'ok');
     closeModal();
     renderDebts();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __collectBusy = false; }
 }
 
-// تحصيل كل ديون فرع دفعة واحدة
+// تحصيل كل ديون فرع دفعة واحدة — فاتورةً فاتورة (متتابعة)، وتُحرَّر عمولات الآجل، ويُبلَّغ بما فشل
 async function collectAllBranchDebts(branchKey, total) {
+  if (__collectBusy) return;
   if (!await GMTAsk.confirm(`تحصيل كامل ديون هذا الفرع (${total.toFixed(2)}$)؟`)) return;
   const items = allDebts.filter(d => (d.branch_key||'unknown') === branchKey);
+  __collectBusy = true;
+  let okN = 0; const bad = [];
   try {
-    await Promise.all(items.map(d =>
-      sb('PATCH', `/rest/v1/invoices?id=eq.${d.id}`,
-        { payment_status: 'paid', paid_amount: Math.round(((Number(d.paid_amount) || 0) + (Number(d.remaining_amount ?? d.total) || 0)) * 100) / 100, remaining_amount: 0 },   /* (٨ ت) السابق + الباقي */
-        { Prefer:'return=minimal' })
-    ));
-    allDebts = allDebts.filter(d => (d.branch_key||'unknown') !== branchKey);
-    showToast('✅ تم تحصيل كامل ديون الفرع', 'ok');
+    for (const d of items) {
+      try {
+        const rem = Number(d.remaining_amount != null && d.remaining_amount !== '' ? d.remaining_amount : (Number(d.total) || 0) - (Number(d.paid_amount) || 0)) || 0;
+        const res = await applyInvoiceCollection(d.id, rem);
+        if (res.complete) await releaseCommOnCollect(d.id);
+        okN++;
+      } catch (e) { bad.push('#' + (d.inv_number || d.id) + ': ' + ((e && e.message) || e)); }
+    }
+    allDebts = allDebts.filter(d => !((d.branch_key||'unknown') === branchKey && !bad.some(b => b.indexOf('#' + (d.inv_number || d.id) + ':') === 0)));
+    if (bad.length) showToast('⚠️ حُصِّلت ' + okN + ' وتعذّرت ' + bad.length + ' — ' + bad[0], 'err');
+    else showToast('✅ تم تحصيل كامل ديون الفرع (' + okN + ' فاتورة)', 'ok');
     closeModal();
     renderDebts();
-  } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  } finally { __collectBusy = false; }
 }
 
 
@@ -4698,7 +4779,12 @@ function aiUpdateTotal() {
   if (el) el.textContent = total.toFixed(2) + ' $';
 }
 
-async function aiCreateInvoice() {
+let __aiBusy = false;
+async function aiCreateInvoice() {   /* (11 ت١ · D3) قفل نقر يشمل نافذة التأكيد (كانت الأزرار تُعطَّل بعدها فقط ⇒ ضغطتان = فاتورتان) */
+  if (__aiBusy) return; __aiBusy = true;
+  try { return await _aiCreateInvoiceInner(); } finally { __aiBusy = false; }
+}
+async function _aiCreateInvoiceInner() {
   const branchKey = document.getElementById('ai-branch').value;
   const branchObj = branches.find(b => b.key_name === branchKey);
   const branchName = branchObj?.display_name || branchKey;
@@ -4742,8 +4828,9 @@ async function aiCreateInvoice() {
       inv_number: invNumber,
       branch_key: branchKey,
       branch_name: branchName,
-      total: total,
+      total: Math.round(total * 100) / 100,
       items_count: itemsCount,
+      discount_amount: discount > 0 ? Math.round(Math.min(discount, subtotal) * 100) / 100 : null,   /* (11 ت١ · D2) كان الخصم يُطرح من الإجمالي ولا يُسجَّل فلا يظهر بالتقارير */
       customer_name: customer || null,
       customer_phone: ((document.getElementById('ai-phone') || {}).value || '').trim() || null,
       sale_type: 'نقدي',
@@ -4756,11 +4843,18 @@ async function aiCreateInvoice() {
     };
     if (_lo) { invPayload.order_id = _lo.id; invPayload.order_serial = _lo.serial_code || null; }
     let invRes;
-    try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); }
-    catch (e1) {
-      if (!_lo) throw e1;   /* القاعدة لا تعرف order_serial/order_id ⇒ نحفظ الفاتورة بلا العمودين، والربط يبقى على الأوردر */
-      delete invPayload.order_serial;
-      try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); } catch (e2) { delete invPayload.order_id; invRes = await sb('POST', '/rest/v1/invoices', invPayload); }
+    for (let tries = 0; ; tries++) {      /* إسقاطٌ دقيق للعمود الناقص وحده ثم إعادة المحاولة */
+      try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); break; }
+      catch (e0) {
+        const m = String((e0 && e0.message) || '');
+        if (tries > 4) throw e0;
+        if (/discount_amount/i.test(m) && 'discount_amount' in invPayload) { delete invPayload.discount_amount; continue; }
+        if (_lo && /order_serial/i.test(m) && 'order_serial' in invPayload) { delete invPayload.order_serial; continue; }
+        if (_lo && /order_id/i.test(m) && 'order_id' in invPayload) { delete invPayload.order_id; continue; }
+        if (_lo && 'order_serial' in invPayload) { delete invPayload.order_serial; continue; }   /* القاعدة لا تعرف order_serial/order_id ⇒ نحفظ بلا العمودين، والربط يبقى على الأوردر */
+        if (_lo && 'order_id' in invPayload) { delete invPayload.order_id; continue; }
+        throw e0;
+      }
     }
     const invId = Array.isArray(invRes) && invRes[0] ? invRes[0].id : null;
     let orderLinkErr = '';
@@ -4785,7 +4879,19 @@ async function aiCreateInvoice() {
         unit_price: it.price,
         total: it.price * it.qty,
       }));
-      await sb('POST', '/rest/v1/invoice_items', itemsPayload).catch(() => {});
+      /* (11 ت١ · D4) كان `.catch(() => {})` ⇒ فاتورة بلا بنود يُخصم مخزونها ويُعلَن نجاحها. الآن: فشل البنود = إلغاء الفاتورة قبل أي خصم. */
+      let _itErr = null;
+      try { await sb('POST', '/rest/v1/invoice_items', itemsPayload); }
+      catch (e1) { _itErr = e1; }
+      if (_itErr && /Could not find the '(?:[^']+)' column|column/i.test(String(_itErr.message || ''))) {      // عمود ناقص: barcode مثلاً ⇒ بلا الحقول الاختيارية
+        try { await sb('POST', '/rest/v1/invoice_items', itemsPayload.map(r => { const { barcode, ...rest } = r; return rest; })); _itErr = null; } catch (e2) { _itErr = e2; }
+      }
+      if (_itErr) {
+        let gone = false;
+        try { const dr = await sb('DELETE', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}`); gone = Array.isArray(dr) ? dr.length > 0 : true; } catch (_) {}
+        if (gone && _lo) { try { await sb('PATCH', `/rest/v1/gmt_orders?id=eq.${encodeURIComponent(_lo.id)}&invoice_id=eq.${encodeURIComponent(invId)}`, { invoice_id: null, invoice_number: null, linked_invoice_id: null, is_locked: false }, { Prefer: 'return=minimal' }); } catch (_) {} }
+        throw new Error('تعذّر حفظ بنود الفاتورة (' + (_itErr.message || _itErr) + ')' + (gone ? ' — أُلغيت الفاتورة ولم يُخصم شيء' : ' — ⛔ تعذّر إلغاء الفاتورة، أبلغ الإدارة'));
+      }
     }
 
     // 4. خصم المخزون من الفرع — (٨ ت — تدقيق المطابقة) كان ينادي `decrement_branch_stock` وهي غير موجودة في أيّ
@@ -4807,8 +4913,16 @@ async function aiCreateInvoice() {
     let commError = '';
     if (withCommission && invId) {
       try {
+        /* (11 ت١ · D2) كان amount:0 دائماً («سجلّ فارغ») — الآن عمولة محسوبة بنفس صيغة نقطة البيع: (سعر البيع الفعلي بعد الخصم − الجملة) × النسبة × الكمية */
+        let _rate = 0.5;
+        try { const rr = await sb('GET', '/rest/v1/gmt_settings?key=eq.commission_rate&select=value'); const v = parseFloat(((Array.isArray(rr?.data) ? rr.data : rr)[0] || {}).value); if (isFinite(v) && v >= 0 && v <= 1) _rate = v; } catch (_) {}
+        let _wsMap = {};
+        try { const pr = await sb('GET', `/rest/v1/products?id=in.(${_aiCart.map(it => it.id).join(',')})&select=id,wholesale_price`); (Array.isArray(pr?.data) ? pr.data : pr).forEach(r => { _wsMap[String(r.id)] = Number(r.wholesale_price) || 0; }); } catch (_) {}
+        const _ratio = subtotal > 0 ? Math.max(0, Math.min(1, total / subtotal)) : 1;
+        const _cAmt = Math.round(_aiCart.reduce((t, it) => { const ws = _wsMap[String(it.id)] || 0; return ws > 0 ? t + (it.price * _ratio - ws) * _rate * it.qty : t; }, 0) * 100) / 100;
         await sb('POST', '/rest/v1/invoice_commissions', {
-          invoice_id: invId, branch_key: branchKey, amount: 0, approved: false, paid: false, created_at: now,
+          invoice_id: invId, branch_key: branchKey, amount: _cAmt, approved: false, paid: false, created_at: now,
+          cashier_name: 'الأدمن ' + _admName, note: 'عمولة فاتورة إدارة — محسوبة تلقائياً (راجعها وعدّل)', created_by: 'admin',
         });
       } catch(e) {
         /* 🔧 (2026-08-23) [P1] كان `catch(e) {}` فارغاً ⇒ فشل إنشاء سجلّ العمولة
