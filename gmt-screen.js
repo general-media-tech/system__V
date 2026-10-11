@@ -164,7 +164,7 @@
     }
     if (global.GMTOpLog) go();
     else {
-      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011m'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
+      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011n'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
     }
     return items.length;
   }

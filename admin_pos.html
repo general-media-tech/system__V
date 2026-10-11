@@ -500,13 +500,13 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261011m"></script>
+  <script src="gmt-core.js?v=20261011n"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011h" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
-  <script src="gmt-stock.js?v=20261007t" defer></script>
+  <script src="gmt-stock.js?v=20261011n" defer></script>
   <script src="gmt-share.js?v=20261003" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
   <script src="gmt-auth.js?v=20261011e"></script>
@@ -517,7 +517,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261010b"></script>
+  <script src="gmt-staff.js?v=20261011n"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -6366,87 +6366,86 @@ async function openStockTransferDetailAdmin(id) {
 }
 window.openStockTransferDetailAdmin = openStockTransferDetailAdmin;
 
+let __cancelTrBusy = false;
 async function cancelStockTransferAdmin(id) {
-  if (!await GMTAsk.confirm('هل أنت متأكد من إلغاء فاتورة النقل؟ ستُعاد كل الكميات للفرع المُصدِّر فوراً.')) return;
+  if (__cancelTrBusy) return;
+  if (!await GMTAsk.confirm('هل أنت متأكد من إلغاء فاتورة النقل؟ ستُعاد الكميات **المنقولة فعلاً** إلى الفرع المُصدِّر.')) return;
   const t = allStockTransfersAdmin.find(x => String(x.id) === String(id));
   if (!t) return;
+  __cancelTrBusy = true;
+  /* (11 ت١ · T-09) الإلغاء كان بلا قفل ولا شرط حالة ⇒ ضغطتان (أو واجهة متقادمة بعد استلام الفرع) تُعيدان الكمية مرّتين فيتضخّم مخزون المصدر،
+     ويُعاد ما **لم يُخصم أصلاً** (بند فاشل كميّته المطلوبة) فيتضخّم أيضاً. الآن: قفل ذرّي بحالة انتقالية، وإعادة **المنقول فعلاً** فقط عبر الوحدة
+     المتحقَّقة، وتراجع كامل عند أول فشل بحيث لا تبقى فاتورة نصف مُعادة. */
+  const prevStatus = (t.status === 'needs_settlement') ? 'needs_settlement' : 'pending';
+  let claimed = false;
+  const undoClaim = async () => { if (claimed) { try { await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, { status: prevStatus }, { Prefer: 'return=minimal' }); } catch (_) {} } };
   try {
+    const cl = await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=in.(pending,needs_settlement)`, { status: 'reopening' }, { Prefer: 'return=representation' });
+    const clr = Array.isArray(cl?.data) ? cl.data : (Array.isArray(cl) ? cl : []);
+    if (clr.length !== 1) { showToast('⛔ حالة الفاتورة تغيّرت (استُلمت أو أُلغيت أو يجري تعديلها) — حدّث الصفحة. لم يُلمس المخزون', 'err'); try { await loadStockTransfersAdmin?.(); } catch (_) {} return; }
+    claimed = true;
+
     const items = await sb('GET', `/rest/v1/stock_transfer_items?transfer_id=eq.${id}&select=*`);
-    const transitFails = [];
-    const restoreFails = [];
+    const noteNames = (String(t.note || '').match(/تعذّر خصم\s*\d+\s*صنف\s*:\s*(.+)$/) || [, ''])[1].split(/[،,]\s*/).map(x => x.trim()).filter(Boolean);
+    const movedOf = (it) => {
+      const noReq = (it.requested_qty == null || it.requested_qty === '');
+      if (noReq && noteNames.indexOf(String(it.product_name || '').trim()) >= 0) return 0;      // فاشل قديم: لم يُخصم منه شيء
+      return Number(it.qty) || 0;
+    };
+    const done = [], restoreFails = [];
     for (const it of items) {
-      // (2026-08-26) [OWN-STOCK-TRUTH] كان فشل الإعادة يرمي فيقطع الحلقة ⇒ باقي البنود
-      //   لا تعود للفرع المُصدِّر، والفاتورة لا تُلغى، والرسالة مبهمة. الآن كل بند مستقل.
+      const q = movedOf(it); if (q <= 0) continue;
+      let ok = false, err = '';
       try {
-        await sb('POST', '/rest/v1/rpc/add_branch_stock', { p_product_id: it.product_id, p_branch_key: t.from_branch, p_qty: it.qty });
-      } catch (e) {
-        restoreFails.push({ pid: it.product_id, qty: it.qty, err: (e && e.message) || String(e) });
-        console.warn('[GMT] فشل إعادة كمية عند إلغاء النقل:', it.product_id, e);
-        continue;   // لا تُصفّر عبوره — الكمية لم تعد بعد
-      }
-      try {
-        const prod = await sb('GET', `/rest/v1/products?id=eq.${it.product_id}&select=in_transit`);
-        const cur = (prod[0] && prod[0].in_transit) || {};
-        const newQty = Math.max(0, (Number(cur[t.to_branch]) || 0) - it.qty);
-        await sb('PATCH', `/rest/v1/products?id=eq.${it.product_id}`, { in_transit: { ...cur, [t.to_branch]: newQty } }, { Prefer: 'return=minimal' });
-        /* ✅ (2026-08-23) تحقّق فعلي: الكمية أُعيدت للفرع المُصدِّر بالفعل عبر RPC،
-           فإن فشل تصفير العبور بقيت محسوبةً **مرّتين** (في الفرع وفي العبور). */
-        const vf = await sb('GET', `/rest/v1/products?id=eq.${it.product_id}&select=in_transit`);
-        const got = Number(((vf[0] && vf[0].in_transit) || {})[t.to_branch]) || 0;
-        if (got !== newQty) transitFails.push({ pid: it.product_id, qty: it.qty, expected: newQty, got });
-      } catch (e) {
-        /* 🔧 (2026-08-23) [P1] كان `catch (e) {}` فارغاً يبتلع فشل تصفير رصيد العبور
-           ⇒ الكمية تعود للفرع المُصدِّر **وتبقى في العبور** ⇒ **مخزون مضاعف** بلا أثر. */
-        transitFails.push({ pid: it.product_id, qty: it.qty, err: (e && e.message) || String(e) });
-      }
+        if (window.GMTStock && GMTStock.move) { const mv = await GMTStock.move('add', it.product_id, t.from_branch, q); ok = !!(mv && mv.ok); err = mv && mv.error; }
+        else { await sb('POST', '/rest/v1/rpc/add_branch_stock', { p_product_id: it.product_id, p_branch_key: t.from_branch, p_qty: q }); ok = true; }
+      } catch (e) { err = (e && e.message) || String(e); }
+      if (!ok) { restoreFails.push({ name: it.product_name, err }); break; }
+      done.push({ pid: it.product_id, q });
     }
-    if (transitFails.length) {
-      try {
-        if (window.GMTWarden && GMTWarden.flag) {
-          GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
-            title:'مخزون مضاعف بعد إلغاء نقل',
-            what: transitFails.length + ' قطعة أُعيدت للفرع المُصدِّر لكن **لم يُصفَّر رصيد عبورها** لفرع ' + t.to_branch + '.',
-            how:'فشل تحديث in_transit أثناء إلغاء فاتورة النقل ' + id + '.',
-            why:'الكمية محسوبة مرّتين الآن. صحّح in_transit يدوياً لهذه المنتجات.' });
-        } else if (window.GMTBug && GMTBug.log) {
-          GMTBug.log('error', 'فشل تصفير العبور عند إلغاء النقل', { type:'transit_reset_fail', transferId:id, items:transitFails });
-        }
-      } catch (_) {}
-      showToast('⚠️ أُعيدت الكميات لكن تعذّر تصفير العبور لـ' + transitFails.length + ' منتج — راجعها فوراً (خطر ازدواج)', 'err');
-    }
-    // (2026-08-26) لا تُلغَ الفاتورة وفيها بنود لم تعد للفرع المُصدِّر — الإلغاء يُفقد أثرها نهائياً
     if (restoreFails.length) {
-      try {
-        if (window.GMTWarden && GMTWarden.flag) {
-          GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
-            title:'بنود لم تعد للفرع المُصدِّر',
-            what: restoreFails.length + ' بند تعذّرت إعادته أثناء إلغاء فاتورة النقل ' + id + '.',
-            how:'فشل نداء add_branch_stock (قد تكون الدالة مفقودة أو RLS).',
-            why:'الفاتورة لم تُلغَ حفاظاً على الأثر — عالج السبب ثم أعد المحاولة.' });
-        }
-      } catch (_) {}
-      showToast('⚠️ تعذّرت إعادة ' + restoreFails.length + ' بند — لم تُلغَ الفاتورة', 'err');
-      alert('تعذّرت إعادة ' + restoreFails.length + ' بند إلى فرع ' + (t.from_branch_name || t.from_branch) + '.\n\n' +
-            'لم تُلغَ الفاتورة عمداً حتى لا يضيع أثر البضاعة — عالج السبب ثم أعد المحاولة.\n' +
-            'السبب الأرجح: الدالة add_branch_stock غير موجودة بالقاعدة (شغّل _SQL_2️⃣7️⃣) أو صلاحيات RLS.');
+      for (const d of done) { try { if (window.GMTStock && GMTStock.move) await GMTStock.move('deduct', d.pid, t.from_branch, d.q); } catch (_) {} }   // تراجع عمّا أُعيد
+      await undoClaim(); claimed = false;
+      try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
+        title:'تعذّر إلغاء فاتورة نقل', what:'الفاتورة ' + id + ': ' + restoreFails[0].name + ' — ' + restoreFails[0].err, how:'فشلت إعادة الكمية للمصدر', why:'تراجع كامل؛ الفاتورة كما كانت.' }); } catch (_) {}
+      await GMTAsk.alert('تعذّرت إعادة «' + restoreFails[0].name + '» إلى فرع ' + (t.from_branch_name || t.from_branch) + ' (' + (restoreFails[0].err || '') + ').\n\nلم يتغيّر شيء: عادت الفاتورة كما كانت وأُلغيت أيّ إعادة جزئية. عالج السبب ثم أعد المحاولة.', { title: 'تعذّر الإلغاء' });
       renderStockTransfersAdmin();
       return;
     }
+    // العبور (للعرض فقط): يُنقَص بالمنقول، وفشله لا يمنع الإلغاء لكنّه يُبلَّغ
+    const transitFails = [];
+    for (const d of done) {
+      try {
+        const prod = await sb('GET', `/rest/v1/products?id=eq.${d.pid}&select=in_transit`);
+        const cur = (prod[0] && prod[0].in_transit) || {};
+        const newQty = Math.max(0, (Number(cur[t.to_branch]) || 0) - d.q);
+        await sb('PATCH', `/rest/v1/products?id=eq.${d.pid}`, { in_transit: { ...cur, [t.to_branch]: newQty } }, { Prefer: 'return=minimal' });
+      } catch (e) { transitFails.push(d.pid); }
+    }
+    if (transitFails.length) showToast('⚠️ أُعيدت الكميات لكن تعذّر تصفير العبور لـ' + transitFails.length + ' منتج (عرضٌ فقط) — راجعه', 'err');
 
-    await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}`, {
-      status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: 'الأدمن'
-    }, { Prefer: 'return=minimal' });
+    const fin = await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, {
+      status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الأدمن'
+    }, { Prefer: 'return=representation' });
+    const finr = Array.isArray(fin?.data) ? fin.data : (Array.isArray(fin) ? fin : []);
+    claimed = false;
+    if (finr.length !== 1) {
+      await GMTAsk.alert('أُعيدت الكميات إلى المصدر لكن تعذّر ختم الفاتورة «مُلغاة».\n\n⛔ لا تضغط «إلغاء» مرّة أخرى — أبلغ الإدارة لتصحيح حالتها يدوياً.', { title: 'الحالة لم تُحدَّث' });
+      renderStockTransfersAdmin(); return;
+    }
+    try { await GMTAudit?.log?.({ action: 'transfer_cancel', entity: 'branch_stock_transfers', entityId: String(id), entityName: t.transfer_number, reason: 'إلغاء إداري — أُعيد ' + done.length + ' صنف للمصدر' }); } catch (_) {}
     await sb('POST', '/rest/v1/branch_notifications', {
       branch_key: t.from_branch, type: 'transfer_cancelled', ref_id: id,
       message: `❌ تم إلغاء فاتورة النقل #${t.transfer_number} وإعادة الكمية لفرعك`
     });
     sendTelegram(`❌ <b>تم إلغاء فاتورة نقل مخزون</b>\n#${t.transfer_number}\n📤 ${t.from_branch_name} → 📥 ${t.to_branch_name}\nبواسطة الأدمن`);
     closeModal();
-    showToast('تم إلغاء الفاتورة وإعادة الكمية', 'ok');
+    showToast('تم إلغاء الفاتورة وإعادة الكمية المنقولة', 'ok');
     renderStockTransfersAdmin();
   } catch (e) {
+    await undoClaim();
     showToast('خطأ: ' + e.message, 'err');
-  }
+  } finally { __cancelTrBusy = false; }
 }
 window.cancelStockTransferAdmin = cancelStockTransferAdmin;
 
@@ -6568,10 +6567,10 @@ renderOffers = function(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261011m"></script>
+<script src="gmt-brain.js?v=20261011n"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011m"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

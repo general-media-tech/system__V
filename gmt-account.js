@@ -578,7 +578,7 @@
       if (global.GMTOpLog || publicPage() || global.GMT_NO_OPLOG) return;
       if (/^(check|checks|central_inspector|guard_bots|guard_bots_19|test_board|system_tools)\.html$/.test(currentFile())) return;
       if (document.querySelector('script[src^="gmt-oplog.js"]')) return;
-      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011m'; s.defer = true;
+      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011n'; s.defer = true;
       (document.head || document.documentElement).appendChild(s);
     } catch (_) {}
   }
