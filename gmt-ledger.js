@@ -247,7 +247,7 @@
           note: tag + ' دفعها: ' + payer + (delta < 0 ? ' · تخفيض' : ''),
           is_general: !branch, approved: true, approved_at: nowIso,
           created_at: (!rows.length && opts.backdate) ? opts.backdate : nowIso,
-          kind: parts[i][2], requested_by: payer
+          kind: parts[i][2], requested_by: payer, created_by: payer     /* created_by موجودٌ في قاعدتك؛ kind/requested_by تُسقَط إن غابت */
         };
         var saved = await postAdaptive(api, 'gmt_expenses', row);
         if (!saved) throw new Error('لم يُسجَّل صفُّ الدفتر');

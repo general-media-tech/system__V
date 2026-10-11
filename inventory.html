@@ -11437,13 +11437,21 @@ async function stOpenSettlements(onlyId){
       if(!open.length && onlyId==null) continue;       // لا ناقص حقيقي (وسم قديم) — لا نعرضها إلا بطلب صريح
       blocks.push({t,views,open});
     }
+    /* (٨ ج) فواتير عالقة على «قيد الاستلام/التعديل» — حالتها بقيت من نسخةٍ قديمة أو من إخفاقٍ أثناء الاستلام. كانت تمنع التسوية والاستلام معاً
+       بلا أيّ زرّ يفكّها (في قاعدتك أربعٌ منها). الفكّ للأدمن: تعود «تحتاج تسوية» إن كانت فيها أصنافٌ لم تُخصم، وإلا «معلّقة». */
+    const stuck=all.filter(t=>(t.status==='receiving'||t.status==='reopening') && (onlyId==null||onlyId===''||String(t.id)===String(onlyId)));
+    const stuckHtml = stuck.length ? ('<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px;color:#991b1b;line-height:1.9">'
+      +'<b>🔒 '+stuck.length+' فاتورة عالقة</b> على «'+(stuck.some(t=>t.status==='receiving')?'قيد الاستلام':'')+(stuck.some(t=>t.status==='receiving')&&stuck.some(t=>t.status==='reopening')?' / ':'')+(stuck.some(t=>t.status==='reopening')?'قيد التعديل':'')+'» — لا تقبل تسويةً ولا استلاماً حتى تُفكّ. تأكّد أنّ لا أحد يستلمها الآن ثم اضغط «فكّ العلق» (للأدمن، يُسجَّل باسمك):'
+      +stuck.map(t=>'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:7px;padding-top:7px;border-top:1px dashed #fecaca"><span><b>'+escHtml(t.transfer_number||('#'+t.id))+'</b> · '+escHtml(t.from_branch_name||t.from_branch||'')+' ← '+escHtml(t.to_branch_name||t.to_branch||'')+(stNamesFromNote(t).length?' · '+stNamesFromNote(t).length+' صنف لم يُخصم':'')+'</span>'
+        +'<button onclick="stUnstick(\''+t.id+'\')" style="background:#991b1b;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">فكّ العلق'+((window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin())?'':' 🔒')+'</button></div>').join('')
+      +'</div>') : '';
     if(!blocks.length){
-      body.innerHTML='<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
+      body.innerHTML=stuckHtml+(stuck.length?'':'')+'<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
       try{ stRefreshSettleCount(); }catch(_){}
       return;
     }
     const isAdm=(function(){ try{ return !!(window.GMTRole&&GMTRole.isAdmin()); }catch(_){ return false; } })();
-    body.innerHTML =
+    body.innerHTML = stuckHtml +
       '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9a3412;line-height:1.85">'
       +'<b>'+blocks.length+' فاتورة</b> فيها أصناف لم تُخصم كاملةً. لكل صنف: <b>«أعِد المحاولة»</b> يخصم المتاح الآن من المصدر ويكمّل الفاتورة بأعدادك؛ '
       +'وإن كان المصدر ناقصاً فـ<b>«ارفع المصدر وأضِف»</b> (يرفع المخزون بقدر الناقص بتوثيقٍ باسمك) أو <b>«لم تُنقل»</b> لشطب الباقي. '
@@ -11606,6 +11614,31 @@ async function stFill(itemId, transferId, mode, opts){
 /* (٨ ج) طلبك: «الأشياء التي في المخزون أقلّ منها عند فاتورة النقل ياخذني فوراً إلى الفرع لتعديل الكمية لما أعمل تسوية».
    لا شاشةٌ جديدة: نافذةٌ فوق التسوية بالرصيد الحاليّ لهذا الصنف في فرع المصدر، تكتب الرصيد الصحيح، فيُعدَّل بالحركة الذرّية
    (إضافة/خصم بالفرق) مع سببٍ باسمك، ثمّ تُعاد القائمة وتُعرَض «أعِد المحاولة» إن صار الرصيد كافياً. */
+let _stUnstickBusy=false;
+async function stUnstick(transferId){
+  if(_stUnstickBusy) return; _stUnstickBusy=true;
+  try{
+    if(!(await GMTRole.requireAdmin('فكّ فاتورة نقل عالقة'))) return;
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+    const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    if(t.status!=='receiving' && t.status!=='reopening'){ showToast('الفاتورة ليست عالقة (حالتها: '+t.status+')','info'); await stOpenSettlements(window.__stOnly); return; }
+    const hasFail = stNamesFromNote(t).length>0;
+    const target = hasFail ? 'needs_settlement' : 'pending';
+    const why=await GMTAsk.prompt('فكّ الفاتورة «'+(t.transfer_number||t.id)+'» العالقة على «'+(t.status==='receiving'?'قيد الاستلام':'قيد التعديل')+'» وإعادتها إلى «'+(hasFail?'تحتاج تسوية':'معلّقة (بانتظار الاستلام)')+'».\n\nتأكّد أنّ لا أحد يستلمها أو يعدّلها الآن. ما استُلم سابقاً موسومٌ ولا يُضاف مرّتين.\nاكتب السبب (إجباري):',{title:'فكّ فاتورة عالقة',okText:'فكّ'});
+    if(why===null) return;
+    if(!String(why).trim()){ showToast('السبب إجباري','error'); return; }
+    const r=await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=in.(receiving,reopening)',{status:target},{Prefer:'return=representation'});
+    if(r.error) throw new Error(r.error);
+    if(!stRows(r).length) throw new Error('تغيّرت حالة الفاتورة أثناء ذلك (ربما انتهى الاستلام) — حدّث الصفحة');
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_unstick', entity:'branch_stock_transfers', entityId:String(transferId), entityName:t.transfer_number||'',
+      oldValue:t.status, newValue:target, reason:String(why).trim() }); }catch(_){}
+    showToast('✅ فُكّت الفاتورة — صارت «'+(hasFail?'تحتاج تسوية':'معلّقة')+'»','success');
+    await loadStockTransfers().catch(()=>{});
+    await stOpenSettlements(window.__stOnly);
+  }catch(e){ showToast('⚠ '+(e.message||e),'error'); }
+  finally{ _stUnstickBusy=false; }
+}
+window.stUnstick=stUnstick;
 let _stEditBusy=false;
 async function stEditSource(itemId, transferId){
   if(_stEditBusy) return; _stEditBusy=true;
@@ -11882,6 +11915,8 @@ async function stRefreshSettleCount(){
     stRows(r1).filter(x=>!x.settled).forEach(x=>ids.add(String(x.id)));
     const r2=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=500');
     stRows(r2).forEach(x=>ids.add(String(x.transfer_id)));
+    const r3=await sbFetch('GET','/rest/v1/branch_stock_transfers?status=in.(receiving,reopening)&select=id&limit=200');   /* العالقة تُعدّ أيضاً (٨ ج) */
+    stRows(r3).forEach(x=>ids.add(String(x.id)));
     const n=ids.size;
     if(n){ el.textContent=n; el.style.display=''; } else el.style.display='none';
   }catch(e){}
