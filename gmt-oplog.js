@@ -186,6 +186,10 @@
     if ((method !== 'PATCH' && method !== 'DELETE') || global.__gmtOpLogMute) return null;
     var m = String(url || '').match(GUARD_Q);
     if (!m || GUARD_NO.test(m[1])) return null;
+    /* فلتر مفتاحيّ **وحده**: PATCH مشروط (id=eq.5&status=eq.receiving) صفرُه مشروع — خسارةُ سباقٍ مقصودة لا «عدم حفظ» */
+    var qs = String(url).split('?')[1] || '';
+    var filters = qs.split('&').filter(function (x) { return x && !/^(select|limit|columns|order|on_conflict)=/.test(x); });
+    if (filters.length !== 1) return null;
     return { table: m[1], key: m[2], id: decodeURIComponent(m[3]) };
   }
   function withCount(init) {

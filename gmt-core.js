@@ -441,7 +441,10 @@
     is: function (keyOrName) {
       const v = String(keyOrName == null ? '' : keyOrName).toLowerCase().trim();
       if (!v) return false;
-      return TRANSIT_KEYS.some(function (k) { return v.indexOf(k) !== -1; });
+      /* (١١ ت١) الرمزان القصيران «de» و«cn» يُطابقان **كلمةً كاملة** لا جزءاً: كانت المطابقة النصّية تجعل
+         مفتاح نقطة بيعٍ جديدة مثل deirezzor أو mcnair «موقع عبور» فتُستثنى من المبيعات والمستخدمين والعمولات. */
+      const toks = v.split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
+      return TRANSIT_KEYS.some(function (k) { return k.length <= 2 ? toks.indexOf(k) !== -1 : v.indexOf(k) !== -1; });
     },
     /* يُنقّي مصفوفةً من مواقع العبور. `get` يستخرج المفتاح من العنصر. */
     filterOut: function (arr, get) {
@@ -841,7 +844,9 @@
     isMgmt: function (keyOrName) {
       const v = String(keyOrName == null ? '' : keyOrName).toLowerCase().trim();
       if (!v) return false;
-      return MGMT_BRANCH_KEYS.some(function (k) { return v.indexOf(k) !== -1; });
+      /* (١١ ت١) الرمزان اللاتينيّان القصيران (hlb · halb) يُطابقان كلمةً كاملة لا جزءاً من مفتاحٍ آخر. */
+      const toks = v.split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
+      return MGMT_BRANCH_KEYS.some(function (k) { return (/^[a-z]+$/.test(k) && k.length <= 4) ? toks.indexOf(k) !== -1 : v.indexOf(k) !== -1; });
     },
 
     /* موقعُ عبورٍ لا نقطةُ بيع — يُوجَّه إلى المصدر الموحّد */

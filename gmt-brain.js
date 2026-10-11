@@ -611,7 +611,7 @@
     if (v === null) return;
     v = v.trim();
     var pb2 = v && window.GMTEndpoint && GMTEndpoint.problem ? GMTEndpoint.problem(v) : '';
-    if (pb2) { alert('⛔ لم يُحفَظ: ' + pb2); return; }
+    if (pb2) { if (window.GMTAsk && GMTAsk.alert) GMTAsk.alert('لم يُحفَظ: ' + pb2, { title: 'رابط لا يصلح', icon: 'danger' }); else alert('⛔ لم يُحفَظ: ' + pb2); return; }
     try { v ? localStorage.setItem(CFG_KEY, v) : localStorage.removeItem(CFG_KEY); } catch (_) {}
     /* (٨ ت — تدقيق المطابقة) «يقول حُفظ ولا يُحفظ»: كان يكتب على هذا الجهاز فقط، ثمّ عند التحميل التالي تكتب
        gmt-endpoint.js قيمةَ القاعدة فوقه. الآن يُحفظ في إعدادات النظام (gmt_settings) لكل الأجهزة — كبقيّة الروابط. */

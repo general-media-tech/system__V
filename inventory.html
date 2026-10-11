@@ -1137,7 +1137,7 @@ body.inv-list #list-view { display: block; }
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 9000;
+  z-index: 2147483000;   /* (١١ ت١) فوق كلّ اللوحات (التسوية ٩٩٩٩٧ · الماسح ٩٩٩٩٨) وتحت نوافذ GMTAsk — كانت ٩٠٠٠ فلا يُرى إشعارٌ داخل اللوحات */
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -3597,9 +3597,10 @@ window.pm2Sync=pm2Sync;
       <button class="btn-icon" onclick="closeModal('pos-modal')">&#x2715;</button>
     </div>
     <div class="modal-body">
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;line-height:1.8;color:#1e40af;">
-        نقطة البيع = <b>عمود مخزون</b> لكلّ المنتجات. الإنشاء والإلغاء يحتاجان <b>كلمة السرّ السيادية</b> وتُفحص في القاعدة نفسها. الإلغاء <b>إخفاءٌ لا حذف</b>: يبقى عمودها وتاريخها، ولا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون.
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.8;color:#1e40af;">
+        نقطة البيع = <b>عمود مخزون</b> لكلّ المنتجات. الإنشاء والإلغاء يمرّان بدالّتين في القاعدة تفحصان <b>كلمة سرّ نقاط البيع</b> هناك (مستقلّة عن الكلمات الأخرى). الإلغاء <b>إخفاءٌ لا حذف</b>: يبقى عمودها وتاريخها، ولا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون أو عمولات غير مدفوعة.
       </div>
+      <div id="pos-sec" style="font-size:12px;line-height:1.8;margin-bottom:12px;"></div>
       <label class="form-label">النقاط الفعّالة</label>
       <div id="pos-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
       <div style="border-top:1px solid var(--border);padding-top:12px;">
@@ -5775,7 +5776,7 @@ function renderGroupChips() {
       container.parentNode.insertBefore(catRow, container); }
     catRow.innerHTML = '<span class="filter-label" style="white-space:nowrap">التصنيف:</span>' +
       _addCat + (_cats.length ? `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` : '') +
-      _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" onclick="setCategory('${escHtml(c)}')">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
+      _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" data-c="${escHtml(c)}" onclick="setCategory(this.dataset.c)">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
   } else if (catRow) { catRow.remove(); }
   const _scope = currentCategory ? allProducts.filter(p => (p.category || '') === currentCategory) : allProducts;
   // استخرج كل المجموعات الفريدة (داخل التصنيف المختار)
@@ -5792,7 +5793,7 @@ function renderGroupChips() {
   const noGroupBtn = noGroupCount > 0 ? `<div class="filter-chip${currentGroup === '__none__' ? ' active' : ''}" onclick="setGroup('__none__')" style="border-color:#c2410c;color:${currentGroup === '__none__' ? 'white' : '#c2410c'};background:${currentGroup === '__none__' ? '#c2410c' : '#fff7ed'};">بدون تصنيف <span class="badge" style="background:${currentGroup === '__none__' ? 'rgba(255,255,255,0.3)' : '#c2410c'};color:white;">${noGroupCount}</span></div>` : '';
   const chips = groups.map(g => {
     const count = allProducts.filter(p => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g)).length;
-    return `<div class="filter-chip${currentGroup === g ? ' active' : ''}" onclick="setGroup('${escHtml(g)}')">${escHtml(g)} <span class="badge">${count}</span></div>`;
+    return `<div class="filter-chip${currentGroup === g ? ' active' : ''}" data-g="${escHtml(g)}" onclick="setGroup(this.dataset.g)">${escHtml(g)} <span class="badge">${count}</span></div>`;
   }).join('');
   container.innerHTML = '<span class="filter-label" style="white-space:nowrap">المجموعة:</span>'
     + '<div class="filter-chip" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" title="إنشاء مجموعة جديدة" style="border-style:dashed;white-space:nowrap">＋ مجموعة</div>'
@@ -7314,7 +7315,8 @@ function renderColumnList() {
         <div class="col-type">${getTypeName(col.type)} • key: ${col.key}</div>
       </div>
       <div class="col-badges">${badges.join('')}</div>
-      ${!col.fixed ? `<div style="display:flex;gap:6px;">
+      ${col.isBranch && !col.fixed ? `<div style="max-width:150px;font-size:11px;line-height:1.5;color:#5b6472;">نقطة بيع — تُدار من «نقاط البيع» (إنشاء/إلغاء بكلمة السرّ)</div>`
+        : !col.fixed ? `<div style="display:flex;gap:6px;">
         <button class="btn-icon" onclick="openEditColumnModal('${col.id}')" title="تعديل">✏️</button>
         <button class="btn-icon" onclick="deleteColumn('${col.id}')" title="حذف" style="color:var(--danger);">🗑️</button>
       </div>` : '<div style="width:60px;"></div>'}
@@ -7465,6 +7467,7 @@ async function saveColumn() {
 }
 
 async function deleteColumn(id) {
+  { const _c = columns.find(c => String(c.id) === String(id)); if (_c && _c.isBranch) { showToast('هذه نقطة بيع — تُلغى من «نقاط البيع» (بكلمة سرّها، وبعد التحقّق من المخزون والشحنات)', 'warning'); return; } }
   if (!await GMTAsk.confirm('هل تريد حذف هذا العمود؟')) return;
   columns = columns.filter(c => c.id !== id);
   if (!isDemo) await sbFetch('DELETE', `/rest/v1/inv_columns?id=eq.${id}`);
@@ -10496,27 +10499,36 @@ async function gmCatSave(){
   if(!name){ say('اكتب اسم التصنيف'); return; }
   if(name.length>60){ say('الاسم طويل (٦٠ حرفاً كحدّ أقصى)'); return; }
   const cats=gmCatMap(), sel=[...gmCatSel];
-  if(old && old!==name && cats[name]){ say('يوجد تصنيف بهذا الاسم — اختر اسماً آخر'); return; }
-  if(!sel.length){ say(old?'أزلتَ كلّ المجموعات — لحذف التصنيف استعمل زرّ 🗑️ في تبويب «التصنيفات»':'اختر مجموعة واحدة على الأقلّ — التصنيف يُحفَظ داخل منتجات المجموعات فلا يبقى بدونها'); return; }
+  const renaming=!!old && old!==name;
+  if(renaming && cats[name]){ say('يوجد تصنيف بهذا الاسم — اختر اسماً آخر'); return; }
+  /* إعادة التسمية وحدها مسموحة حتى بلا مجموعات (تصنيفٌ منتجاته بلا مجموعة لا يمكن غير ذلك) */
+  if(!sel.length && !renaming){ say(old?'أزلتَ كلّ المجموعات — لحذف التصنيف استعمل زرّ 🗑️ في تبويب «التصنيفات»':'اختر مجموعة واحدة على الأقلّ — التصنيف يُحفَظ داخل منتجات المجموعات فلا يبقى بدونها'); return; }
   const prev=old&&cats[old]?Object.keys(cats[old].groups):[];
   const removed=prev.filter(g=>!gmCatSel.has(g));
-  const gm=gmCatGroupMap();
+  const prods=gmCatProducts();
+  const inGroup=g=>prods.filter(p=>String(p.group_name||'').trim()===g);
   gmCatBusy=true; document.getElementById('cat-save-btn').disabled=true; showLoading('جارٍ حفظ التصنيف…');
-  let touched=0, expected=0, renamedN=0;
+  let touched=0, renamedN=0;
   try{
     /* ١) إعادة التسمية: كلّ منتجات التصنيف القديم */
-    if(old&&old!==name){
+    if(renaming){
       const exp=cats[old]?cats[old].n:0;
       const n=await gmCatPatch('category=eq.'+gmCatEnc(old), name);
       renamedN=n; if(n<exp) throw new Error('أعادت القاعدة تسمية '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. حدّث الصفحة وأعد المحاولة');
       gmCatApplyLocal(p=>{ if((p.category||'')===old) p.category=name; });
+      try{ if(typeof currentCategory!=='undefined' && currentCategory===old) currentCategory=name; }catch(_){}
     }
-    /* ٢) المجموعات المختارة تدخل التصنيف */
+    /* ٢) المجموعات المختارة تدخل التصنيف.
+          · مجموعةٌ جديدة على التصنيف ⇒ كلّ منتجاتها تنتقل إليه (الواجهة نبّهت «الآن في: …»).
+          · مجموعةٌ كانت فيه أصلاً ⇒ نلمس غير المصنَّف فقط، فلا نسحب منتجاً صنّفه المالك تحت تصنيفٍ آخر. */
     for(const g of sel){
-      const exp=gm[g]?gm[g].n:0; expected+=exp;
-      const n=await gmCatPatch('group_name=eq.'+gmCatEnc(g), name);
-      if(n<exp) throw new Error('المجموعة «'+g+'»: عدّلتْ القاعدة '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. لم يكتمل الحفظ');
-      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g) p.category=name; });
+      const isNew=!prev.includes(g);
+      const targets=inGroup(g).filter(p=>isNew||!String(p.category||'').trim()||String(p.category).trim()===name);
+      if(!targets.length) continue;
+      const filter='group_name=eq.'+gmCatEnc(g)+(isNew?'':'&or=(category.is.null,category.eq.)');
+      const n=await gmCatPatch(filter, name);
+      if(n<targets.length) throw new Error('المجموعة «'+g+'»: عدّلتْ القاعدة '+n+' من '+targets.length+' منتج فقط — ربما لا صلاحية. لم يكتمل الحفظ');
+      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (isNew||!String(p.category||'').trim()||String(p.category).trim()===name)) p.category=name; });
     }
     /* ٣) المجموعات التي أُزيلت تخرج منه */
     for(const g of removed){
@@ -10524,9 +10536,9 @@ async function gmCatSave(){
       gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (p.category||'')===name) p.category=null; });
     }
     hideLoading();
-    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_save', entity:'products', entityName:name, field:'التصنيف', newValue:{ category:name, groups:sel.join('، '), removed:removed.join('، ')||undefined, renamed_from:(old&&old!==name)?old:undefined }, meta:{ n:touched } }); }catch(_){}
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_save', entity:'products', entityName:name, field:'التصنيف', newValue:{ category:name, groups:sel.join('، '), removed:removed.join('، ')||undefined, renamed_from:renaming?old:undefined }, meta:{ n:touched+renamedN } }); }catch(_){}
     closeModal('cat-modal');
-    showToast('✅ '+(old?'حُفظ التصنيف':'أُنشئ التصنيف')+' «'+name+'» — '+sel.length+' مجموعة · '+touched+' منتج'+(removed.length?(' · أُزيلت '+removed.length+' مجموعة'):'' ));
+    showToast('✅ '+(old?'حُفظ التصنيف':'أُنشئ التصنيف')+' «'+escHtml(name)+'» — '+sel.length+' مجموعة · '+(touched||renamedN)+' منتج'+(removed.length?(' · أُزيلت '+removed.length+' مجموعة'):'' ));
   }catch(e){
     hideLoading();
     say('⛔ '+(e&&e.message||e));
@@ -10547,7 +10559,7 @@ async function gmCatDelete(name){
     if(typeof currentCategory!=='undefined' && currentCategory===name){ try{ currentCategory=''; }catch(_){} }
     hideLoading();
     try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_delete', entity:'products', entityName:name, field:'التصنيف', oldValue:{ category:name }, meta:{ n:n } }); }catch(_){}
-    showToast('🗑️ حُذف التصنيف «'+name+'» ('+n+' منتج)');
+    showToast('🗑️ حُذف التصنيف «'+escHtml(name)+'» ('+n+' منتج)');
   }catch(err){ hideLoading(); showToast('⛔ '+(err&&err.message||err),'error'); }
   finally{ gmCatRefresh(); }
 }
@@ -10560,16 +10572,23 @@ window.gmCatDelete=gmCatDelete; window.gmRenderCategories=gmRenderCategories;
    السيادية **هناك** (لا في المتصفّح) فلا يتجاوزهما تعديلُ الواجهة. الإلغاء ناعم (إخفاء) — لا حذف عمود ولا بيانات.
    ═══════════════════════════════════════════════════════════════════════════════════ */
 const POS_PROTECTED = ['haleb', 'germany', 'china'];
-const POS_TL = {'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'w','ي':'y','ى':'a','ئ':'e','ؤ':'o','ء':''};
+/* كلماتٌ تعاملها بقيّة النظام كفرع الإدارة أو كموقع عبور (مطابقةٌ نصّية في gmt-core.js) — يمنعها SQL ٣٤ أيضاً */
+const POS_RESERVED_RE = /(haleb|aleppo|hlb|halb|germany|deutschland|china|zhongguo)|(^|_)(de|cn)(_|$)/;
+const POS_SYSCOLS = ['xmin','xmax','cmin','cmax','ctid','tableoid'];
+const POS_TL = {'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'w','ي':'y','ى':'a','ئ':'e','ؤ':'o','ء':'',
+  '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+function posKeyOk(k){ return /^[a-z][a-z0-9_]{2,23}$/.test(k) && !/^(pg_|gmt_)/.test(k) && !POS_SYSCOLS.includes(k) && !POS_RESERVED_RE.test(k); }
 function posKeyFromName(n){
   let k=''; for(const ch of String(n||'').normalize('NFKC')){
     if(POS_TL[ch]!==undefined) k+=POS_TL[ch]; else if(/[a-zA-Z0-9]/.test(ch)) k+=ch.toLowerCase(); else if(/[\s_-]/.test(ch)) k+='_';
   }
   k=k.replace(/_+/g,'_').replace(/^_|_$/g,'');
   if(!k) return '';
-  if(!/^[a-z]/.test(k)) k='pos_'+k;
-  if(k.length<3) k='pos_'+k;
-  return k.slice(0,24).replace(/_$/,'');
+  if(!/^[a-z]/.test(k) || /^(pg_|gmt_)/.test(k) || k.length<3) k='pos_'+k;
+  k=k.slice(0,24).replace(/_$/,'');
+  const taken=new Set((columns||[]).map(c=>c.key));
+  let base=k, i=2; while(taken.has(k)){ const sfx=String(i++); k=base.slice(0,24-sfx.length)+sfx; }
+  return k;
 }
 function posSyncKey(){
   const k=document.getElementById('pos-new-key'); if(!k||k.dataset.touched==='1') return;
@@ -10577,6 +10596,7 @@ function posSyncKey(){
 }
 function posActive(){ return (columns||[]).filter(c=>c.isBranch && !c.fixed); }
 function posStockOf(key){ let t=0,n=0; (allProducts||[]).forEach(p=>{ const v=Number(p[key])||0; if(v){ t+=v; n++; } }); return {t,n}; }
+let posStatus=null;   // {protected:boolean} | {missing:true} | null
 function posRender(){
   const box=document.getElementById('pos-list'); if(!box) return;
   const list=posActive();
@@ -10591,28 +10611,47 @@ function posRender(){
     </div>`;
   }).join('');
 }
+const POS_ACTIVATE_SQL="select public.gmt_pos_set_secret_admin('كلمة-قويّة-لا-تقلّ-عن-١٠-أحرف');";
+function posRenderSec(){
+  const el=document.getElementById('pos-sec'); if(!el) return;
+  if(!posStatus){ el.innerHTML='<span style="color:#5b6472;">جارٍ فحص حماية الخادم…</span>'; return; }
+  if(posStatus.missing){ el.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 12px;color:#991b1b;"><b>لم يُشغَّل ملف SQL رقم ٣٤</b> («إنشاء وإلغاء نقطة بيع») في القاعدة بعد — لا يمكن الإنشاء أو الإلغاء قبله.</div>'; return; }
+  if(!posStatus.protected){ el.innerHTML='<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;color:#92400e;"><b>حماية الخادم غير مفعَّلة</b> — ترفض الدالّتان كلّ طلب إلى أن تفعّلها مرّة واحدة: شغّل هذا السطر في محرّر SQL في Supabase (باختيار كلمتك أنت):<div dir="ltr" style="margin-top:6px;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-family:ui-monospace,monospace;font-size:11.5px;text-align:left;word-break:break-all;">'+escH(POS_ACTIVATE_SQL)+'</div></div>'; return; }
+  el.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#166534;"><span>حماية الخادم مفعّلة ✓</span><button class="btn btn-ghost btn-sm" data-admin="تغيير كلمة سرّ نقاط البيع" onclick="posChangeSecret()">تغيير كلمة السرّ</button></div>';
+}
+async function posLoadStatus(){
+  posStatus=null; posRenderSec();
+  try{ const r=await posRpc('gmt_pos_status',{}); posStatus=(r&&typeof r==='object')?{protected:!!r.protected}:{protected:false}; }
+  catch(e){ posStatus=/SQL رقم ٣٤/.test(e&&e.message||'')?{missing:true}:{protected:false,err:String(e&&e.message||e)}; }
+  posRenderSec();
+}
 function posOpen(){
   document.getElementById('pos-msg').textContent='';
   const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
   document.getElementById('pos-new-name').value='';
   posRender();
   document.getElementById('pos-modal').style.display='flex';
+  posLoadStatus();
 }
 window.posOpen=posOpen; window.posSyncKey=posSyncKey;
 const POS_ERR={
-  bad_secret:'كلمة السرّ السيادية غير صحيحة. (تُفحص في القاعدة: المعتمدة هي المحفوظة في «الأمان والمستخدمون»، لا ما على هذا الجهاز.)',
+  bad_secret:'كلمة سرّ نقاط البيع غير صحيحة. (هي الكلمة التي فعّلتَها في ملف SQL ٣٤ — مستقلّة عن الكلمة السيادية وعن كلمات الأدمن.)',
+  not_protected:'حماية الخادم غير مفعَّلة بعد — شغّل في محرّر SQL: '+POS_ACTIVATE_SQL,
+  locked:'قُفل الإنشاء والإلغاء مؤقّتاً بعد محاولاتٍ خاطئة كثيرة (٨ خلال ٥ دقائق). انتظر قليلاً ثمّ أعد المحاولة.',
+  weak_secret:'كلمة السرّ الجديدة ضعيفة — ١٠ أحرف على الأقلّ ومختلفة عن القديمة وعن الافتراضية.',
   bad_key:'المعرّف غير صالح — ٣ إلى ٢٤ حرفاً: إنجليزية صغيرة وأرقام و_ ويبدأ بحرف (ولا يبدأ بـ pg_ أو gmt_).',
+  reserved_key:'هذا المعرّف يحوي كلمةً محجوزة يعاملها النظام كفرع الإدارة أو كموقع عبور (haleb · aleppo · hlb · halb · germany · china · de · cn …) — اختر معرّفاً آخر.',
   bad_name:'الاسم يجب أن يكون بين حرفين و٤٠ حرفاً.',
   exists:'توجد نقطة بيع فعّالة بهذا المعرّف.',
-  key_taken:'هذا المعرّف يطابق عموداً آخر في جدول المنتجات (مثل السعر أو الباركود) — اختر معرّفاً مختلفاً.',
+  key_taken:'هذا المعرّف يطابق عموداً أو سطراً آخر في النظام (مثل السعر أو الباركود أو عمودٍ مخصّص) — اختر معرّفاً مختلفاً.',
   dup_name:'يوجد نقطة بيع فعّالة بهذا الاسم — اختر اسماً آخر.',
   too_many:r=>'بلغتَ الحدّ الأقصى ('+(r.max||30)+' نقطة).',
   protected:'هذه نقطة أساسية (حلب · ألمانيا · الصين) ولا تُلغى.',
   not_active:'هذه النقطة غير فعّالة أصلاً — حدّث الصفحة.',
-  has_stock:r=>'فيها مخزون: '+r.qty+' قطعة في '+r.products+' منتج. انقله إلى نقطة أخرى أو فرّغها أولاً (زرّ «تفريغ نقطة بيع» في صفحة النقل بين الفروع) ثم ألغِها.',
-  has_transit:r=>'يوجد '+r.products+' منتج لها كمّيات «في الطريق» إلى/من هذه النقطة — أتمّ استلامها أولاً.',
+  has_stock:r=>'فيها مخزون: '+r.qty+' قطعة في '+r.products+' منتج. انقله إلى نقطة أخرى أو فرّغه أولاً (زرّ «تفريغ نقطة بيع» في صفحة النقل بين الفروع) ثم ألغِها.',
   open_transfers:r=>'يوجد '+r.count+' فاتورة نقل مفتوحة (معلّقة/قيد الاستلام/تحتاج تسوية) تخصّ هذه النقطة — أغلقها أولاً.',
-  has_users:r=>'يوجد '+r.count+' مستخدم فعّال مُسنَد لهذه النقطة — انقلهم لنقطة أخرى أو أوقفهم من «الأمان والمستخدمون» أولاً.'
+  has_users:r=>'يوجد '+r.count+' مستخدم فعّال مُسنَد لهذه النقطة — انقلهم لنقطة أخرى أو أوقفهم من «الأمان والمستخدمون» أولاً.',
+  unpaid_commissions:r=>'يوجد '+r.count+' عمولة غير مدفوعة لهذه النقطة — سدّدها أو سوّها من «أدمن نقاط البيع» أولاً.'
 };
 function posErrText(r){ const m=POS_ERR[r&&r.error]; return typeof m==='function'?m(r):(m||('رفضت القاعدة: '+((r&&r.error)||'خطأ غير معروف'))); }
 async function posRpc(fn,args){
@@ -10628,58 +10667,96 @@ async function posRpc(fn,args){
 }
 function posWho(){ try{ return (window.GMTRole&&GMTRole.name&&GMTRole.name())||localStorage.getItem('gmt_operator_name')||''; }catch(_){ return ''; } }
 async function posAskSecret(msg){
-  const v=await GMTAsk.prompt(msg,{title:'كلمة السرّ السيادية',inputType:'password',placeholder:'••••',icon:'danger',okText:'تأكيد'});
+  const v=await GMTAsk.prompt(msg,{title:'كلمة سرّ نقاط البيع',inputType:'password',placeholder:'••••',icon:'danger',okText:'تأكيد'});
   return v===null?null:String(v);
 }
-async function posRefresh(){
+/* يعرض الخطأ داخل النافذة + إشعاراً (النافذة طويلة وقد يكون سطر الخطأ تحت الشاشة) */
+function posSay(t,ok){
+  const msg=document.getElementById('pos-msg'); if(!msg) return;
+  msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c';
+  try{ msg.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(_){}
+  if(!ok){ try{ showToast(String(t).slice(0,160),'error'); }catch(_){} }
+}
+/* يُعيد تحميل الأعمدة والمنتجات ثمّ يتحقّق أنّ العرض طابق القاعدة (loadColumns يبتلع أخطاءه فلا نصدّق صمته) */
+async function posRefresh(expectKey,expectActive){
   try{ await loadColumns(); }catch(_){}
   try{ await loadProducts(); }catch(_){}
+  try{ if(!expectActive && typeof currentBranchFilter!=='undefined' && currentBranchFilter===expectKey) currentBranchFilter=''; }catch(_){}
   try{ renderAll(); }catch(_){}
   try{ if(typeof renderBranchFilterRow==='function') renderBranchFilterRow(); }catch(_){}
   posRender();
+  const now=(columns||[]).some(c=>c.key===expectKey && c.isBranch);
+  if(now!==expectActive){ try{ showToast('تمّت العملية في القاعدة لكنّ العرض لم يتحدّث — حدّث الصفحة (F5).','warning'); }catch(_){} }
 }
 let posBusy=false;
 async function posCreate(){
   if(posBusy) return;
-  const msg=document.getElementById('pos-msg'); const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
   const name=(document.getElementById('pos-new-name').value||'').trim().replace(/\s+/g,' ');
   const key=(document.getElementById('pos-new-key').value||'').trim().toLowerCase();
-  if(name.length<2){ say(POS_ERR.bad_name); return; }
-  if(!/^[a-z][a-z0-9_]{2,23}$/.test(key)||/^(pg_|gmt_)/.test(key)){ say(POS_ERR.bad_key); return; }
-  const sec=await posAskSecret('إنشاء نقطة البيع «'+name+'» (المعرّف: '+key+').\nسيُضاف عمود مخزون لكلّ المنتجات. اكتب كلمة السرّ السيادية للتأكيد:');
-  if(sec===null) return;
-  posBusy=true; document.getElementById('pos-create-btn').disabled=true; showLoading('جارٍ إنشاء نقطة البيع…');
+  if(name.length<2){ posSay(POS_ERR.bad_name); return; }
+  if(!posKeyOk(key)){ posSay(POS_RESERVED_RE.test(key)?POS_ERR.reserved_key:POS_ERR.bad_key); return; }
+  if(posStatus&&posStatus.missing){ posSay('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ أولاً.'); return; }
+  if(posStatus&&posStatus.protected===false){ posSay(POS_ERR.not_protected); return; }
+  posBusy=true; document.getElementById('pos-create-btn').disabled=true;
   try{
-    const r=await posRpc('gmt_create_pos',{p_secret:sec,p_key:key,p_name:name,p_icon:null,p_actor:posWho()||null});
-    hideLoading();
-    if(!r||!r.ok){ say('⛔ '+posErrText(r)); return; }
+    const sec=await posAskSecret('إنشاء نقطة البيع «'+name+'» (المعرّف: '+key+').\nسيُضاف عمود مخزون لكلّ المنتجات. اكتب كلمة سرّ نقاط البيع للتأكيد:');
+    if(sec===null) return;
+    if(!sec){ posSay(POS_ERR.bad_secret); return; }
+    showLoading('جارٍ إنشاء نقطة البيع…');
+    let r; try{ r=await posRpc('gmt_create_pos',{p_secret:sec,p_key:key,p_name:name,p_icon:null,p_actor:posWho()||null}); } finally { hideLoading(); }
+    if(!r){ posSay('لم تُنفَّذ العملية — ردٌّ فارغ من القاعدة (وضع التدريب لا ينفّذها).'); return; }
+    if(!r.ok){ posSay(posErrText(r)); return; }
     document.getElementById('pos-new-name').value=''; const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
-    say((r.reactivated?'أُعيد تفعيل نقطة البيع «':'أُنشئت نقطة البيع «')+r.name+'» — تظهر الآن في كلّ الشاشات (الجرد · النقل · المشتريات · المستخدمون).',true);
-    showLoading('جارٍ تحديث الجرد…'); await posRefresh(); hideLoading();
-    showToast('✅ '+(r.reactivated?'أُعيد تفعيل ':'أُنشئت نقطة البيع ')+'«'+r.name+'»');
-  }catch(e){ hideLoading(); say('⛔ '+(e&&e.message||e)); }
+    posSay((r.reactivated?'أُعيد تفعيل نقطة البيع «':'أُنشئت نقطة البيع «')+r.name+'» — تظهر الآن في كلّ الشاشات (الجرد · النقل · المشتريات · المستخدمون).',true);
+    showLoading('جارٍ تحديث الجرد…'); try{ await posRefresh(r.key,true); } finally { hideLoading(); }
+    showToast('✅ '+(r.reactivated?'أُعيد تفعيل ':'أُنشئت نقطة البيع ')+'«'+escHtml(r.name)+'»');
+  }catch(e){ posSay(String(e&&e.message||e)); }
   finally{ posBusy=false; const b=document.getElementById('pos-create-btn'); if(b) b.disabled=false; }
 }
 async function posRetire(key,name){
   if(posBusy) return;
-  const msg=document.getElementById('pos-msg'); const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
   const st=posStockOf(key);
-  if(st.n>0){ say('⛔ '+POS_ERR.has_stock({qty:st.t,products:st.n})); return; }
-  if(!(await GMTAsk.confirm('إلغاء نقطة البيع «'+name+'»؟\nتُخفى من كلّ الشاشات ويبقى عمودها وتاريخها محفوظين (لا حذف). تستطيع إعادة تفعيلها لاحقاً بإنشائها بالمعرّف نفسه ('+key+').',{title:'إلغاء نقطة بيع',okText:'متابعة',danger:true}))) return;
-  const sec=await posAskSecret('اكتب كلمة السرّ السيادية لإلغاء «'+name+'»:');
-  if(sec===null) return;
-  posBusy=true; showLoading('جارٍ إلغاء نقطة البيع…');
+  if(st.n>0){ posSay(POS_ERR.has_stock({qty:st.t,products:st.n})); return; }
+  if(posStatus&&posStatus.missing){ posSay('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ أولاً.'); return; }
+  if(posStatus&&posStatus.protected===false){ posSay(POS_ERR.not_protected); return; }
+  posBusy=true;
   try{
-    const r=await posRpc('gmt_retire_pos',{p_secret:sec,p_key:key,p_actor:posWho()||null,p_reason:'إلغاء من شاشة الجرد'});
-    hideLoading();
-    if(!r||!r.ok){ say('⛔ '+posErrText(r)); return; }
-    say('أُلغيت نقطة البيع «'+r.name+'» (إخفاء — العمود والتاريخ محفوظان).',true);
-    showLoading('جارٍ تحديث الجرد…'); await posRefresh(); hideLoading();
-    showToast('🗑️ أُلغيت نقطة البيع «'+r.name+'»');
-  }catch(e){ hideLoading(); say('⛔ '+(e&&e.message||e)); }
+    if(!(await GMTAsk.confirm('إلغاء نقطة البيع «'+name+'»؟\nتُخفى من كلّ الشاشات ويبقى عمودها وتاريخها محفوظين (لا حذف). تستطيع إعادة تفعيلها لاحقاً بإنشائها بالمعرّف نفسه ('+key+').',{title:'إلغاء نقطة بيع',okText:'متابعة',danger:true}))) return;
+    const sec=await posAskSecret('اكتب كلمة سرّ نقاط البيع لإلغاء «'+name+'»:');
+    if(sec===null) return;
+    if(!sec){ posSay(POS_ERR.bad_secret); return; }
+    showLoading('جارٍ إلغاء نقطة البيع…');
+    let r; try{ r=await posRpc('gmt_retire_pos',{p_secret:sec,p_key:key,p_actor:posWho()||null,p_reason:'إلغاء من شاشة الجرد'}); } finally { hideLoading(); }
+    if(!r){ posSay('لم تُنفَّذ العملية — ردٌّ فارغ من القاعدة (وضع التدريب لا ينفّذها).'); return; }
+    if(!r.ok){ posSay(posErrText(r)); return; }
+    posSay('أُلغيت نقطة البيع «'+r.name+'» (إخفاء — العمود والتاريخ محفوظان).'+(r.invoices>0?' تنبيه: لها '+r.invoices+' فاتورة تاريخية ستبقى في إجمالي التقارير ولن تظهر كصفّ فرع في أدمن نقاط البيع.':''),true);
+    showLoading('جارٍ تحديث الجرد…'); try{ await posRefresh(r.key,false); } finally { hideLoading(); }
+    showToast('🗑️ أُلغيت نقطة البيع «'+escHtml(r.name)+'»');
+  }catch(e){ posSay(String(e&&e.message||e)); }
   finally{ posBusy=false; }
 }
-window.posCreate=posCreate; window.posRetire=posRetire;
+async function posChangeSecret(){
+  if(posBusy) return;
+  posBusy=true;
+  try{
+    const res=await GMTAsk.form('تغيير كلمة سرّ نقاط البيع. ١٠ أحرف على الأقلّ، ولا تكتبها في أيّ مكانٍ عامّ.',{
+      title:'تغيير كلمة السرّ',icon:'danger',okText:'تغيير',
+      fields:[{k:'old',label:'الكلمة الحالية',type:'password',dir:'ltr',autocomplete:'current-password'},
+              {k:'n1',label:'الكلمة الجديدة',type:'password',dir:'ltr',autocomplete:'new-password'},
+              {k:'n2',label:'أعد كتابة الجديدة',type:'password',dir:'ltr',autocomplete:'new-password'}],
+      submit:async function(v){
+        if(!v.old) return {error:POS_ERR.bad_secret,field:'old'};
+        if((v.n1||'').length<10) return {error:POS_ERR.weak_secret,field:'n1'};
+        if(v.n1!==v.n2) return {error:'الكلمتان غير متطابقتين',field:'n2',clear:true};
+        let r; try{ r=await posRpc('gmt_pos_change_secret',{p_old:v.old,p_new:v.n1,p_actor:posWho()||null}); }catch(e){ return {error:String(e&&e.message||e)}; }
+        if(r&&r.ok) return {result:r};
+        return {error:posErrText(r),field:(r&&r.error==='weak_secret')?'n1':'old',clear:true};
+      }});
+    if(res&&res.ok){ posSay('غُيّرت كلمة سرّ نقاط البيع.',true); showToast('✅ غُيّرت كلمة سرّ نقاط البيع'); }
+  }catch(e){ posSay(String(e&&e.message||e)); }
+  finally{ posBusy=false; }
+}
+window.posCreate=posCreate; window.posRetire=posRetire; window.posChangeSecret=posChangeSecret;
 
 function gmOpenModal(id){const e=document.getElementById(id);if(e){e.style.display='flex';document.body.style.overflow='hidden';}}
 function gmCloseModal(id){const e=document.getElementById(id);if(e){e.style.display='none';document.body.style.overflow='';}}

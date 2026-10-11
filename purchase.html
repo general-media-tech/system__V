@@ -3551,7 +3551,11 @@ function _brLabel(k){
   return (b && (b.display_name||b.label)) || ({germany:'ألمانيا',china:'الصين',haleb:'حلب',homs:'حمص',daraa:'درعا',kurani:'الكوراني',sarmada:'سرمدا',fakhouri:'الفاخوري',hny_sbyl:'هاني سبيل'}[k]) || k;
 }
 function _destBranchKeys(){
-  return getAllBranchKeys().filter(k=>k!=='germany'&&k!=='china');
+  /* (١١ ت١) وجهات الاستلام = النقاط **الفعّالة** من inv_columns. القائمة الثابتة كانت تُضاف دائماً فتُعرَض نقطةٌ ملغاة
+     (SQL ٣٤) وتستقبل بضاعةً في عمودٍ مخفيّ. الثابتة احتياطٌ فقط إن تعذّرت قراءة الجدول. */
+  const live=(allBranches||[]).map(b=>b.key_name).filter(Boolean);
+  const base=live.length?live:getAllBranchKeys();
+  return base.filter(k=>k!=='germany'&&k!=='china');
 }
 function _movedMap(s){
   const m=s.transfer_moved;

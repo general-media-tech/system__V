@@ -312,7 +312,11 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
       var pb = window.GMTEndpoint && GMTEndpoint.problem && GMTEndpoint.problem(url);
       if (pb) { $('k-msg').textContent = '⛔ الرابط المضبوط لا يصلح: ' + pb; $('k-msg').style.color = '#b91c1c'; return; }
       var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'status' }) });
-      if (!r.ok) { var tx = await r.text().catch(function () { return ''; }); $('k-msg').textContent = '⛔ ' + (window.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, tx, url) : 'HTTP ' + r.status); $('k-msg').style.color = '#b91c1c'; return; }
+      if (!r.ok) {
+        var tx = await r.text().catch(function () { return ''; }), jj = null; try { jj = JSON.parse(tx); } catch (_) {}
+        if (jj && jj.error && r.status < 500 && r.status !== 404 && r.status !== 401 && r.status !== 403) { $('k-msg').textContent = 'الوسيط القديم لا يعرف هذا الفحص — أعِد نشره (ردّه: ' + String(jj.error).slice(0, 80) + ')'; $('k-msg').style.color = '#b45309'; return; }
+        $('k-msg').textContent = '⛔ ' + (window.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, tx, url) : 'HTTP ' + r.status) + (jj && jj.error ? ' — ردّ الوسيط: ' + String(jj.error).slice(0, 100) : ''); $('k-msg').style.color = '#b91c1c'; return;
+      }
       var j = await r.json();
       $('k-msg').textContent = j.error ? 'الوسيط القديم لا يعرف هذا الفحص — أعِد نشره' : ('في الوسيط الآن: ' + j.gemini + ' مفتاح Gemini · ' + j.anthropic + ' مفتاح Claude · الترتيب: ' + j.order);
       $('k-msg').style.color = j.error ? '#b45309' : '#047857';
