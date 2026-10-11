@@ -10523,12 +10523,12 @@ async function gmCatSave(){
           · مجموعةٌ كانت فيه أصلاً ⇒ نلمس غير المصنَّف فقط، فلا نسحب منتجاً صنّفه المالك تحت تصنيفٍ آخر. */
     for(const g of sel){
       const isNew=!prev.includes(g);
-      const targets=inGroup(g).filter(p=>isNew||!String(p.category||'').trim()||String(p.category).trim()===name);
+      const targets=inGroup(g).filter(p=>isNew||!String(p.category||'').trim());   /* ما صار باسم التصنيف أصلاً لا يحتاج لمسة */
       if(!targets.length) continue;
       const filter='group_name=eq.'+gmCatEnc(g)+(isNew?'':'&or=(category.is.null,category.eq.)');
       const n=await gmCatPatch(filter, name);
       if(n<targets.length) throw new Error('المجموعة «'+g+'»: عدّلتْ القاعدة '+n+' من '+targets.length+' منتج فقط — ربما لا صلاحية. لم يكتمل الحفظ');
-      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (isNew||!String(p.category||'').trim()||String(p.category).trim()===name)) p.category=name; });
+      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (isNew||!String(p.category||'').trim())) p.category=name; });
     }
     /* ٣) المجموعات التي أُزيلت تخرج منه */
     for(const g of removed){
