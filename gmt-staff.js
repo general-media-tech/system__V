@@ -379,9 +379,18 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
           var row = Array.isArray(arr) ? arr[0] : arr;
           if (!row) { rec.verified = false; rec.note = 'الصف غير موجود بعد الكتابة'; save(); return; }
 
+          /* (٨ ج) إنذارٌ كاذب موثَّق: PostgREST يُرجع timestamptz بصيغة «…+00:00» وأرقام numeric بذيل «.00» بينما الحمولة «…Z» و«65» —
+             فكانت المقارنة النصّيّة تُعلن «كتابة صامتة الفشل» حرجاً على كل ختم وقت (shipped_at · receipt_at · notified_*). نقارن بالمعنى. */
+          var same = function (a, b) {
+            if (String(a) === String(b)) return true;
+            var sa = String(a).trim(), sb = String(b).trim();
+            if (sa !== '' && sb !== '' && isFinite(Number(sa)) && isFinite(Number(sb))) return Math.abs(Number(sa) - Number(sb)) < 1e-9;
+            if (/^\d{4}-\d{2}-\d{2}[T ]/.test(sa) && /^\d{4}-\d{2}-\d{2}[T ]/.test(sb)) { var da = Date.parse(sa), db = Date.parse(sb); if (!isNaN(da) && !isNaN(db)) return Math.abs(da - db) <= 1000; }
+            return false;
+          };
           var bad = keys.filter(function (k) {
             if (payload[k] === null || payload[k] === undefined) return false;
-            return String(row[k]) !== String(payload[k]);
+            return !same(row[k], payload[k]);
           });
           if (bad.length) {
             rec.verified = false;
@@ -3507,6 +3516,15 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     return rows;
   }
 
+  /* حركة صندوق → branch_transfers بما يتحمّله جدولك (GMTCashTx في gmt-core.js) */
+  async function cashPost(row) {
+    const r = await window.GMTCashTx.post(async (body) => {
+      try { return { ok: true, data: await window.sb('POST', '/rest/v1/branch_transfers', body, { Prefer: 'return=representation' }) }; }
+      catch (e) { return { ok: false, text: String((e && e.message) || e) }; }
+    }, row);
+    if (!r || !r.ok) throw new Error((r && (r.text || r.error)) || 'تعذّر تسجيل حركة الصندوق');
+    return r.data;
+  }
   /* ══ الترقيم الرسمي للتسوية ══ */
   async function nextNo(row) {
     const ins = await window.sb('POST', '/rest/v1/gmt_settlements', row, { Prefer: 'return=representation' });
@@ -3787,7 +3805,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
           owed_after: d.owed, invoice_count: 0, note: note || null, created_by: 'admin',
         });
         // حركة الصندوق بنفس جدول النظام (لتنعكس بكل الشاشات)
-        const t = await window.sb('POST', '/rest/v1/branch_transfers', {
+        const t = await cashPost({
           branch_key: S.branchKey, amount: amt,
           note: 'سحب — ' + rec.settlement_no + (note ? ' · ' + note : ''),
           transfer_date: today(), confirmed_by: 'admin',

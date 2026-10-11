@@ -95,16 +95,16 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-config.js?v=20261003"></script>
   <script src="gmt-brand.js?v=20261003"></script>
 <script src="gmt-updater.js?v=20261010b"></script>
-<script src="gmt-core.js?v=20261011n"></script>
+<script src="gmt-core.js?v=20261011p"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
 <script src="gmt-ask.js?v=20261011e" defer></script>
-<script src="gmt-share.js?v=20261003" defer></script>
+<script src="gmt-share.js?v=20261011p" defer></script>
 <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011m"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
-<script src="gmt-staff.js?v=20261011n"></script>
+<script src="gmt-staff.js?v=20261011p"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════════
 //  مركز الفحوصات — يشغّل البوتات بالتسلسل، تقرير حي مفصّل لكل بوت
@@ -227,7 +227,7 @@ window.GMTCoreCheck = {
 window.GMTDeepRO = {
   run: async function(){
     if (!window.GMTDeepInspector || !GMTDeepInspector.scan) {
-      await new Promise(function(ok){ var s = document.createElement('script'); s.src = 'gmt-deep-inspector.js?v=20261011e'; s.onload = ok; s.onerror = ok; document.head.appendChild(s); });
+      await new Promise(function(ok){ var s = document.createElement('script'); s.src = 'gmt-deep-inspector.js?v=20261011p'; s.onload = ok; s.onerror = ok; document.head.appendChild(s); });
     }
     if (!window.GMTDeepInspector || !GMTDeepInspector.scan) return [{ status:'bad', title:'الفاحص العميق غير محمّل', detail:'تعذّر تحميل gmt-deep-inspector.js', why:'الملف مفقود', fix:'ارفع gmt-deep-inspector.js' }];
     var rep = await GMTDeepInspector.scan();          // scan = run({write:false}): قراءةٌ فقط

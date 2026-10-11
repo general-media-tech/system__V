@@ -159,7 +159,15 @@
       title: 'حساباتٌ جديدة بانتظار الموافقة',
       why: 'مستخدمٌ أنشأ حساباً ويتصفّح فقط حتى توافق.',
       go: { label: 'الأمان والمستخدمون', href: 'الأمان_والمستخدمون.html' },
-      run: function () { return countOf('gmt_users', 'approved=is.false'); },
+      /* (٨ ج) عمود gmt_users.approved لا يوجد في قاعدتك (SQL 25 لم يُشغَّل) فكان كلُّ فحصٍ يرمي 42703 ويُسجَّل «حرجاً» —
+         نتذكّر غيابه لهذه الجلسة فلا نعيد السؤال. (مفتاح user_pending_<id> يغطّي الموافقة بدونه.) */
+      run: function () {
+        try { if (sessionStorage.getItem('gmt_no_users_approved') === '1') return Promise.resolve({ n: 0 }); } catch (_) {}
+        return Promise.resolve(countOf('gmt_users', 'approved=is.false')).then(function (res) {
+          if (res && res.err && /42703|approved|does not exist/i.test(String(res.err))) { try { sessionStorage.setItem('gmt_no_users_approved', '1'); } catch (_) {} return { n: 0 }; }
+          return res;
+        });
+      },
       tone: 'warn'
     }
   );

@@ -2264,7 +2264,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261011n"></script>
+  <script src="gmt-core.js?v=20261011p"></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -2273,7 +2273,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-oplog.js?v=20261011n" defer></script>
   <script src="gmt-stock.js?v=20261011n" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011m"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
@@ -2281,7 +2281,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261011n"></script>
+  <script src="gmt-staff.js?v=20261011p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -3153,6 +3153,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       </section>
     </div>
     <div class="modal-footer pm2-foot">
+      <!-- (٨ ج) «اختفى زرّ حذف المنتجات»: الحذف كان في صفّ الجدول وحده؛ ومع العرض الافتراضيّ الجديد (قائمة/بطاقات) لم يعد ظاهراً. صار هنا وفي التفاصيل والبطاقة -->
+      <button class="btn btn-danger" id="pm2-del-btn" type="button" style="display:none;margin-inline-end:auto" onclick="pm2DeleteCurrent()">🗑 حذف المنتج</button>
       <button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button>
       <button class="btn btn-primary" onclick="saveProduct()">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -5619,6 +5621,7 @@ function renderCards() {
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" onclick="openDetailModal('${p.id}')">تفاصيل</button>
             <button class="btn btn-primary btn-sm" onclick="openProductModal('${p.id}')">تعديل</button>
+            <button class="btn btn-ghost btn-sm" onclick="invGuardedDelete('${p.id}')" title="${invDimTitle('حذف المنتج')}" style="color:var(--danger);border-color:#fecaca;${invDimStyle()}">حذف</button>
           </div>
         </div>
       </div>
@@ -6061,9 +6064,17 @@ function openProductModal(id = null) {
   }
   pm2Lists();
   try { pm2Sync(); } catch (_) {}
+  { const _db = document.getElementById('pm2-del-btn'); if (_db) _db.style.display = id ? '' : 'none'; }
 
   modal.style.display = 'flex';
 }
+/* حذف المنتج المفتوح للتعديل — بحارس الأدمن ثم تأكيد الحذف نفسه (يتحقّق من ارتباطه بفاتورة) */
+async function pm2DeleteCurrent() {
+  const id = editingProductId; if (!id) return;
+  closeModal('product-modal');
+  await invGuardedDelete(String(id));
+}
+window.pm2DeleteCurrent = pm2DeleteCurrent;
 
 /* (٧ ط) قوائم الاقتراح للتصنيف والماركة من المنتجات الموجودة — لا تكرار بتهجئاتٍ مختلفة */
 function pm2Lists() {
@@ -6723,7 +6734,8 @@ function openDetailModal(id) {
   <button onclick="openProductMovement('${escHtml(String(p.id))}','${escHtml((p.barcode||'').replace(/'/g,''))}')" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;border:none;border-radius:11px;padding:12px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/></svg>
     كشف حركة المنتج (بيع · إرجاع · نقل · شراء)
-  </button>`;
+  </button>
+  <button onclick="closeModal('detail-modal');invGuardedDelete('${escHtml(String(p.id))}')" title="${invDimTitle('حذف المنتج')}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;background:#fff5f5;color:#dc2626;border:1.5px solid #fecaca;border-radius:12px;padding:11px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;${invDimStyle()}">🗑 حذف هذا المنتج</button>`;
 
   document.getElementById('detail-modal-body').innerHTML = html;
   document.getElementById('detail-modal').style.display = 'flex';
@@ -11387,6 +11399,7 @@ function stSettleCss(){
   document.head.appendChild(st);
 }
 async function stOpenSettlements(onlyId){
+  window.__stOnly = onlyId;
   const ov=document.getElementById('st-settle-ov'); if(!ov) return;
   stSettleCss();
   ov.style.display='flex';
@@ -11462,6 +11475,7 @@ async function stOpenSettlements(onlyId){
                 +'<div class="st-sl-btns">'
                   +(have!=null&&have>0?'<button class="pri" onclick="stFill(\''+v.id+'\',\''+t.id+'\',\'avail\')">'+(enough?'أعِد المحاولة ('+v.open+')':'انقل المتاح ('+Math.min(have,v.open)+')')+'</button>':'')
                   +(!enough?'<button class="warn" onclick="stFill(\''+v.id+'\',\''+t.id+'\',\'raise\')">ارفع المصدر وأضِف'+(isAdm?'':' 🔒')+'</button>':'')
+                  +'<button onclick="stEditSource(\''+v.id+'\',\''+t.id+'\')" title="يفتح رصيد هذا الصنف في '+escHtml(t.from_branch_name||t.from_branch||'المصدر')+' لتكتب الرصيد الصحيح هنا دون مغادرة الشاشة">✏️ عدّل رصيد '+escHtml(t.from_branch_name||t.from_branch||'المصدر')+(isAdm?'':' 🔒')+'</button>'
                   +'<button onclick="stWaive(\''+v.id+'\',\''+t.id+'\')">لم تُنقل'+(isAdm?'':' 🔒')+'</button>'
                 +'</div></div>';
             }).join('')
@@ -11589,6 +11603,45 @@ async function stFill(itemId, transferId, mode, opts){
     return {ok:false,error:e.message||String(e)};
   }finally{ if(!opts.inBatch) _stFillBusy=false; }
 }
+/* (٨ ج) طلبك: «الأشياء التي في المخزون أقلّ منها عند فاتورة النقل ياخذني فوراً إلى الفرع لتعديل الكمية لما أعمل تسوية».
+   لا شاشةٌ جديدة: نافذةٌ فوق التسوية بالرصيد الحاليّ لهذا الصنف في فرع المصدر، تكتب الرصيد الصحيح، فيُعدَّل بالحركة الذرّية
+   (إضافة/خصم بالفرق) مع سببٍ باسمك، ثمّ تُعاد القائمة وتُعرَض «أعِد المحاولة» إن صار الرصيد كافياً. */
+let _stEditBusy=false;
+async function stEditSource(itemId, transferId){
+  if(_stEditBusy) return; _stEditBusy=true;
+  try{
+    if(!(await GMTRole.requireAdmin('تعديل رصيد الفرع المصدر لتسوية فاتورة نقل'))) return;
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+    const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&select=*');
+    const it=stRows(ri)[0]; if(!it) throw new Error('البند غير موجود');
+    const v=stView(it,t);
+    const have=await GMTStock.readQty(v.product_id, t.from_branch);
+    const bname=t.from_branch_name||t.from_branch;
+    const val=await GMTAsk.prompt('«'+v.name+'» في '+bname+'\nالرصيد المسجَّل الآن: '+have+' · الناقص المطلوب نقله: '+v.open+'\n\nاكتب الرصيد الصحيح (الموجود فعلاً):',{title:'تعديل رصيد '+bname,value:String(have),inputType:'number',dir:'ltr',okText:'متابعة'});
+    if(val===null) return;
+    const n=Math.round(parseFloat(String(val).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))));
+    if(!isFinite(n)||n<0){ showToast('أدخل رقماً صحيحاً (٠ أو أكثر)','error'); return; }
+    if(n===have){ showToast('الرصيد كما هو — لم يتغيّر شيء','info'); return; }
+    const why=await GMTAsk.prompt('تعديل رصيد «'+v.name+'» في '+bname+' من '+have+' إلى '+n+' ('+(n>have?'+':'')+(n-have)+')\n\nاكتب السبب (إجباري — يُسجَّل باسمك):',{title:'سبب التعديل',okText:'حفظ'});
+    if(why===null) return;
+    if(!String(why).trim()){ showToast('السبب إجباري','error'); return; }
+    const mv=await GMTStock.move(n>have?'add':'deduct', v.product_id, t.from_branch, Math.abs(n-have));
+    if(!mv.ok) throw new Error('تعذّر تعديل الرصيد: '+(mv.error||'غير معروف'));
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'branch_stock_set', entity:'products', entityId:v.product_id, entityName:v.name,
+      oldValue:String(have), newValue:String(n), reason:'تسوية فاتورة نقل '+(t.transfer_number||t.id)+' — '+String(why).trim() }); }catch(_){}
+    showToast('✅ رصيد «'+v.name+'» في '+bname+': '+have+' ← '+n,'success');
+    await loadProducts().catch(()=>{});
+    await stOpenSettlements(window.__stOnly);
+    if(n>=v.open && await GMTAsk.confirm('الرصيد الآن يكفي ('+n+'). أُكمل نقل الـ'+v.open+' الناقصة الآن؟',{title:'إكمال النقل',okText:'نعم، أكمل',cancelText:'لاحقاً'})){
+      _stEditBusy=false;
+      await stFill(itemId, transferId, 'avail', {onlyId:window.__stOnly});
+    }
+  }catch(e){ showToast('⚠ '+(e.message||e),'error'); }
+  finally{ _stEditBusy=false; }
+}
+window.stEditSource=stEditSource;
+
 /* «أعِد المحاولة» لكل الأصناف الناقصة في فاتورة — متتابع، يُلخَّص في نهايته */
 async function stFillAll(transferId){
   if(_stFillBusy) return; _stFillBusy=true;

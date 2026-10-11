@@ -4191,12 +4191,25 @@
        • المقبوض/فاتورة = paid_amount إن وُجد، وإلا total
          (نقدي=كامل · آجل=الدفعة · مرتجع=سالب · صفوف قديمة=total)
        • المُرحّل = Σ amount حيث type <> 'expense'
-       • مصاريف الصندوق = Σ |amount| حيث type = 'expense'
+       • مصاريف الصندوق = −Σ amount حيث type = 'expense' (الخصم سالب؛ الاسترداد موجب)
        • فواتير [تدريب] مستثناة دائماً
    ═══════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
   if (window.GMTCash) return;
+  /* (٨ ج) المقبوض الفعليّ من فاتورة. قاعدتك فيها فواتير قديمة «نقدي · مدفوعة · المتبقي 0» لكن paid_amount = 0
+     (العمود جاء بعدها بقيمةٍ افتراضيّة 0) فكانت تُحسب 0 في الصندوق وهي مقبوضةٌ كاملة — فصار صندوق الفرع أقلّ من الحقيقة.
+     القاعدة: paid_amount إن كان موجباً؛ وإلا (الإجمالي − المتبقي) إن عُرف المتبقي؛ وإلا الإجمالي.
+     (الآجل غير المسدّد: المتبقي = الإجمالي ⇒ 0 ✓ · المرتجع: الإجمالي سالب والمتبقي 0 ⇒ يُنقص ✓). */
+  function invCash(i) {
+    if (!i) return 0;
+    var total = Number(i.total); if (isNaN(total)) total = 0;
+    var paid = (i.paid_amount != null && i.paid_amount !== '') ? Number(i.paid_amount) : null;
+    if (paid !== null && !isNaN(paid) && Math.abs(paid) > 0.004) return paid;
+    var rem = (i.remaining_amount != null && i.remaining_amount !== '') ? Number(i.remaining_amount) : null;
+    if (rem !== null && !isNaN(rem)) return total - rem;
+    return (paid !== null && !isNaN(paid)) ? paid : total;
+  }
   function expected(invoices, transfers) {
     invoices  = Array.isArray(invoices)  ? invoices  : [];
     transfers = Array.isArray(transfers) ? transfers : [];
@@ -4210,8 +4223,7 @@
        المبلغ يبقى في **المبيعات والمحاسبة** — يُستبعد من **الصندوق** فقط.
        دفاعي: إن لم تُشغَّل ملف SQL الأساس (SQL/أرشيف_SQL.html) فالعمود غائب ⇒ صفر ⇒ السلوك كما كان. */
     var cashReceived = real.reduce(function (s, i) {
-      var v = (i && i.paid_amount != null) ? Number(i.paid_amount) : Number(i && i.total);
-      if (isNaN(v)) v = 0;
+      var v = invCash(i);
       var ext = Number(i && i.paid_external) || 0;
       if (ext > 0) v -= ext;
       return s + v;
@@ -4222,8 +4234,10 @@
       .reduce(function (s, t) { return s + Math.abs(Number(t.amount) || 0); }, 0);
     var transferred = transfers.filter(function (t) { return t && t.type !== 'expense' && t.type !== 'collection'; })
       .reduce(function (s, t) { return s + (Number(t.amount) || 0); }, 0);
+    /* (٨ ج) مصروف الصندوق سالبُ الإشارة دائماً (−مبلغ) — فالمجموع بإشارته: خصمٌ يُنقص الصندوق، واستردادٌ موجب
+       (تخفيض دفعة فاتورة شراء كانت من درج الفرع) يُعيد إليه. كان Math.abs يعدّ الاسترداد خصماً ثانياً. */
     var cashExpenses = transfers.filter(function (t) { return t && t.type === 'expense'; })
-      .reduce(function (s, t) { return s + Math.abs(Number(t.amount) || 0); }, 0);
+      .reduce(function (s, t) { return s - (Number(t.amount) || 0); }, 0);
     var external = real.reduce(function (s, i) {
       return s + (Number(i && i.paid_external) || 0);
     }, 0);
@@ -4236,5 +4250,54 @@
       expected: Math.max(0, cashReceived + collected - transferred - cashExpenses)
     };
   }
-  window.GMTCash = { expected: expected };
+  window.GMTCash = { expected: expected, invCash: invCash };
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GMTCashTx — كتابة حركات الصندوق في branch_transfers بما يتحمّله جدولُك
+   ───────────────────────────────────────────────────────────────────────────
+   جذرٌ وُجد بقراءة القاعدة الحيّة: الجدول أُنشئ أصلاً لنقل البضاعة وفيه أعمدةٌ إلزاميّة (transfer_number · from_branch ·
+   from_branch_name · to_branch · to_branch_name) لا تكتبها حركاتُ الصندوق ⇒ كل إدراجٍ يُرفض (23502) ⇒ لا ترحيل ولا
+   تحصيل أوردر ولا خصم مصروف دخل القاعدة قط. وinvoice_id كان bigint بينما معرّفات الفواتير uuid (22P02).
+   الحلّ هنا بلا لمس القاعدة: نُكمل الأعمدة الإلزاميّة بقيمٍ صادقة (مصدر = الفرع · وجهة = الإدارة · رقمٌ فريد)،
+   ونُسقط ما لا يوجد من أعمدةٍ (PGRST204) ونحوّل invoice_id إلى الملاحظة إن رُفض نوعُه. (ملف SQL 36 يُصلح الجدول نفسه.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.GMTCashTx) return;
+  function uniq() { return 'CASH-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+  function fill(row) {
+    var r = Object.assign({}, row || {});
+    var bk = r.branch_key || '';
+    if (r.transfer_number == null) r.transfer_number = uniq();
+    if (r.from_branch == null) r.from_branch = bk || 'central';
+    if (r.from_branch_name == null) r.from_branch_name = r.branch_name || bk || 'الإدارة';
+    if (r.to_branch == null) r.to_branch = 'central';
+    if (r.to_branch_name == null) r.to_branch_name = 'الإدارة';
+    return r;
+  }
+  /* send(body) → Promise<{ok, status, text, data}> ؛ يعيد المحاولة بتعديلٍ واحد لكلّ علّة معروفة */
+  async function post(send, row, opts) {
+    opts = opts || {};
+    var body = opts.raw ? Object.assign({}, row) : fill(row);
+    var res, moved = {};
+    for (var n = 0; n < 8; n++) {
+      res = await send(body);
+      if (res && res.ok) return Object.assign({ moved: moved }, res);
+      var t = String((res && (res.text || res.error)) || '');
+      var m = /Could not find the '([^']+)' column|column "?([a-z_]+)"? (?:of relation "[a-z_]+" )?does not exist/i.exec(t);
+      var col = m && (m[1] || m[2]);
+      if (col && col in body) { delete body[col]; continue; }
+      if (/22P02|invalid input syntax for type (bigint|uuid)/i.test(t) && body.invoice_id != null) {
+        moved.invoice_id = body.invoice_id;
+        body.note = ((body.note || '') + ' · [invoice_id=' + body.invoice_id + ']').replace(/^ · /, '');
+        delete body.invoice_id; continue;
+      }
+      var nn = /null value in column "([a-z_]+)"/i.exec(t);
+      if (nn && body[nn[1]] == null) { body[nn[1]] = nn[1] === 'transfer_number' ? uniq() : (nn[1].indexOf('name') >= 0 ? 'الإدارة' : 'central'); continue; }
+      break;
+    }
+    return res;
+  }
+  window.GMTCashTx = { fill: fill, post: post, uniq: uniq };
 })();

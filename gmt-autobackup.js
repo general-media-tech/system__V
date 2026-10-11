@@ -57,7 +57,8 @@
   function auto() {
     if (!isAdmin() || !due() || !db()) return;
     var run = function () { snapshot(false).then(function (s) { try { console.info('[GMT] نسخةٌ احتياطيّة تلقائيّة على هذا الجهاز:', s.counts); } catch (_) {} }).catch(function (e) { try { console.warn('[GMT] تعذّرت النسخة التلقائيّة:', e && e.message); } catch (_) {} }); };
-    setTimeout(function () { (global.requestIdleCallback || setTimeout)(run, 2000); }, 15000);
+    /* (٨ ج) requestIdleCallback(fn, 2000) يرمي TypeError («not of type IdleRequestOptions») — الوسيط الثاني كائنٌ {timeout} لا رقم */
+    setTimeout(function () { if (global.requestIdleCallback) { try { global.requestIdleCallback(run, { timeout: 2000 }); } catch (_) { setTimeout(run, 2000); } } else setTimeout(run, 2000); }, 15000);
   }
   global.GMTAutoBackup = { snapshot: snapshot, list: list, remove: function (id) { return tx('readwrite', function (s) { return s.delete(id); }); }, due: due };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();

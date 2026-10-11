@@ -181,19 +181,20 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261011n"></script>
+  <script src="gmt-core.js?v=20261011p"></script>
+  <script src="gmt-ledger.js?v=20261011p"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-stock.js?v=20261011n" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011m"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261011n"></script>
+  <script src="gmt-staff.js?v=20261011p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -649,6 +650,12 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         <div id="remaining-display" class="w-full p-2.5 bg-white rounded-xl text-sm font-black border border-gray-200 text-gmt-red">$ 0.00</div>
       </div>
     </div>
+    <div class="grid grid-cols-2 gap-3" data-payer-box>
+      <div><label class="block text-[10px] font-bold text-gray-500 mb-1">من دفع؟ <span class="text-gray-400">(يُسجَّل في المحاسبة)</span></label>
+        <select id="in-payer" data-payer-sel class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></select></div>
+      <div><label class="block text-[10px] font-bold text-gray-500 mb-1">اسم الدافع (إن «آخر»)</label>
+        <input type="text" id="in-payer-name" data-payer-name placeholder="اسم من دفع" class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
+    </div>
   </div>
 
   <!-- Summary -->
@@ -793,6 +800,12 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">الباقي</label>
         <div id="ins-remaining-display" class="w-full p-2.5 bg-white rounded-xl text-sm font-black border border-gray-200 text-gmt-red">$ 0.00</div>
       </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3" data-payer-box>
+      <div><label class="block text-[10px] font-bold text-gray-500 mb-1">من دفع؟ <span class="text-gray-400">(يُسجَّل في المحاسبة)</span></label>
+        <select id="ins-payer" data-payer-sel class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></select></div>
+      <div><label class="block text-[10px] font-bold text-gray-500 mb-1">اسم الدافع (إن «آخر»)</label>
+        <input type="text" id="ins-payer-name" data-payer-name placeholder="اسم من دفع" class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
     </div>
   </div>
 
@@ -1033,7 +1046,72 @@ async function sb(method,path,body=null,xtra={}){
   const ct=r.headers.get('content-type')||'';
   const d=ct.includes('json')?await r.json():{};
   if(!r.ok){throw new Error(Array.isArray(d)?'err':(d?.message||d?.error||'HTTP '+r.status));}
+  if(method!=='GET' && path.indexOf('/rest/v1/import_log')===0){ try{ledgerAfterWrite(method,path,d);}catch(_){} }   /* (٨ ج) أيّ تعديلٍ على فاتورة شراء ⇒ يتبدّل المصروف والمحاسبة تلقائياً */
   return d;
+}
+
+/* ═══ (٨ ج) ربط فاتورة الشراء بالمصاريف والمحاسبة — gmt-ledger.js ═══
+   كلُّ كتابةٍ على import_log (إنشاء · تعديل مبلغ/دفعة/جمارك · وصول · حذف) تُطابق دفتر المحاسبة بالفرق فقط:
+   دفعةٌ جديدة ⇒ قيد مصروف (مشتريات) باسم من دفع؛ زيادةٌ ⇒ قيدٌ بالفرق؛ نقصٌ ⇒ قيدٌ سالب؛ حذف الفاتورة ⇒ عكسُ كل قيودها.
+   لا يُحذف قيدٌ ولا يُعدَّل — فالأثر كاملٌ للتدقيق. فشل الربط لا يُفشل حفظ الفاتورة (تُربط لاحقاً من لوحة المحاسبة). */
+let poRows=[];
+const _ledgerApi={sb:(m,p,b,x)=>sb(m,p,b,x)};
+const _ledgerTimers={};
+function purchasePayer(){
+  const sel=document.querySelector('#instantModal.open [data-payer-sel]')||document.querySelector('#addModal:not(.hidden) [data-payer-sel]')||document.getElementById('in-payer')||document.getElementById('ins-payer');
+  const v=sel?sel.value:'';
+  const nameEl=sel?sel.closest('[data-payer-box]').querySelector('[data-payer-name]'):null;
+  const typed=(nameEl&&nameEl.value||'').trim();
+  const who=(window.GMTRole&&GMTRole.name&&GMTRole.name())||'';
+  if(v&&v.indexOf('branch:')===0){const k=v.slice(7);const b=(allBranches||[]).find(x=>x.key_name===k);return{payer:'صندوق '+((b&&b.display_name)||k),branch:k,branchName:(b&&b.display_name)||k};}
+  if(v==='other')return{payer:typed||'آخر',branch:null};
+  return{payer:who||'الإدارة',branch:null};
+}
+function initPayerUI(){
+  document.querySelectorAll('[data-payer-sel]').forEach(sel=>{
+    const keep=sel.value;
+    sel.innerHTML='<option value="">الإدارة'+((window.GMTRole&&GMTRole.name&&GMTRole.name())?' ('+eh(GMTRole.name())+')':'')+'</option>'+
+      (allBranches||[]).filter(b=>b.key_name&&!/germany|china/i.test(b.key_name)).map(b=>'<option value="branch:'+eh(b.key_name)+'">صندوق '+eh(b.display_name||b.key_name)+'</option>').join('')+
+      '<option value="other">شخصٌ آخر…</option>';
+    if(keep)sel.value=keep;
+    sel.onchange=()=>{const nm=sel.closest('[data-payer-box]').querySelector('[data-payer-name]');if(nm)nm.style.opacity=sel.value==='other'?'1':'.45';};
+    sel.onchange();
+  });
+}
+async function loadPoRows(){
+  try{const r=await sb('GET','/rest/v1/gmt_expenses?note=like.'+encodeURIComponent('*[PO:*')+'&select=id,amount,currency,note,created_at,requested_by,branch_key&order=created_at.asc&limit=1000');poRows=Array.isArray(r)?r:[];}catch(_){poRows=[];}
+}
+function poPayLine(s){
+  if(!window.GMTLedger)return'';
+  const rows=GMTLedger.ledgerRows(poRows,s.id).filter(e=>GMTLedger.poInfo(e).part==='g'||GMTLedger.poInfo(e).part==='c');
+  if(!rows.length)return'';
+  const fmt=e=>{const t=GMTLedger.poInfo(e);const who=((/دفعها:\s*([^·\]]+)/.exec(String(e.note||''))||[])[1]||e.requested_by||'').trim();const a=Number(e.amount)||0;
+    return '<span class="inline-block bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full text-[10px] font-bold">'+(t.part==='c'?'🛃':'💵')+' '+(a<0?'−':'')+Math.abs(a).toFixed(2)+'$ · '+eh(who||'—')+' · '+new Date(e.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+'</span>';};
+  return '<div class="flex flex-wrap gap-1 mb-2">'+rows.map(fmt).join('')+'</div>';
+}
+function ledgerAfterWrite(method,path,d){
+  if(!window.GMTLedger)return;
+  const m=/^\/rest\/v1\/import_log(?:\?id=eq\.([^&]+))?/.exec(path);if(!m)return;
+  let id=m[1];
+  if(method==='POST'){const row=Array.isArray(d)?d[0]:d;id=row&&row.id;}
+  if(method==='DELETE'){
+    const row=(ships||[]).find(x=>String(x.id)===String(id));
+    if(row)GMTLedger.reversePurchase(_ledgerApi,row,{payer:'النظام (حذف الفاتورة)'}).then(r=>{if(r&&r.error)toast('⚠️ تعذّر عكس قيود المحاسبة لفاتورة محذوفة: '+r.error,'err');else loadPoRows().then(render);});
+    return;
+  }
+  if(id==null)return;
+  clearTimeout(_ledgerTimers[id]);
+  _ledgerTimers[id]=setTimeout(()=>ledgerSyncId(id),450);
+}
+async function ledgerSyncId(id){
+  try{
+    const rows=await sb('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(id)+'&select=*');
+    const row=Array.isArray(rows)?rows[0]:null;if(!row)return;
+    const pp=purchasePayer();
+    const r=await GMTLedger.syncPurchase(_ledgerApi,row,{payer:pp.payer,payerBranch:pp.branch,branchName:pp.branchName,backdate:row.created_at||row.inv_date||undefined});
+    if(r.error){toast('⚠️ تعذّر ربط الدفعة بالمحاسبة: '+r.error+' — تُربط لاحقاً من لوحة المحاسبة','err');return;}
+    if((r.posted||[]).length){await loadPoRows();render();toast('🔗 دُوّن في المحاسبة: '+r.posted.map(x=>(x.part==='c'?'جمارك/شحن ':'دفعة ')+(x.delta>0?'+':'')+x.delta.toFixed(2)+'$').join(' · ')+' — دافعها: '+pp.payer,'ok');}
+  }catch(e){console.warn('[ledger]',e&&e.message);}
 }
 async function upload(path,file){
   window._gmtUploading=(window._gmtUploading||0)+1;   // (2026-07-24) عدّاد الرفع الجاري
@@ -1092,6 +1170,7 @@ async function _waitForGMTCache(maxMs){
     ]);
     ships=Array.isArray(s)?s:[];
     allBranches=Array.isArray(cols)?cols:[];
+    try{initPayerUI();}catch(_){} loadPoRows().then(()=>{try{render();}catch(_){}});
 
     // المنتجات: من نفس الكاش المحلي المشترك مع نظام الجرد (IndexedDB) — لا تحميل كامل متكرر
     const sbConfig={url:SB,key:KEY};
@@ -1238,6 +1317,7 @@ function render(){
           ${s.invoice_file_url?`<a href="${eh(s.invoice_file_url)}" target="_blank" class="text-blue-600 underline mr-auto text-[10px]">عرض الفاتورة</a>`:''}
         </div>
       </div>
+      ${poPayLine(s)}
       ${items.length?`<div class="flex flex-wrap gap-1 mb-3">${items.slice(0,4).map(i=>`<span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold">${eh(i.name||'')} ×${i.qty}</span>`).join('')}${items.length>4?`<span class="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold">+${items.length-4}</span>`:''}</div>`:''}
       ${!arrived?`<button onclick="markArrived('${s.id}')" class="w-full bg-black text-white py-2.5 rounded-xl text-xs font-black hover:bg-gray-800 flex justify-center items-center gap-2">
         <i data-lucide="check" class="w-4 h-4"></i> وصلت — ترحيل للمخزون
@@ -1271,6 +1351,7 @@ function render(){
           ${items.length} صنف · ${items.reduce((a,i)=>a+Number(i.qty||0),0)} وحدة
         </div>
       </div>
+      ${poPayLine(s)}
       ${items.length?`<div class="flex flex-wrap gap-1">${items.slice(0,4).map(i=>`<span class="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-bold">${eh(i.name||'')} ×${i.qty}</span>`).join('')}${items.length>4?`<span class="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold">+${items.length-4}</span>`:''}</div>`:''}
     </div>`;
   };

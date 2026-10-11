@@ -458,7 +458,12 @@
   }
   async function pendingUsers() {
     var out = [];
-    try { out = (await rest('GET', '/rest/v1/gmt_users?approved=is.false&select=id,display_name,username,branch_key,created_at')) || []; } catch (_) { out = []; }
+    /* (٨ ج) غياب العمود (SQL 25 لم يُشغَّل) لا يُعاد سؤاله في كل فتحٍ — كان يملأ تقرير الحارس بـ42703 */
+    var _noCol = false; try { _noCol = sessionStorage.getItem('gmt_no_users_approved') === '1'; } catch (_) {}
+    if (!_noCol) {
+      try { out = (await rest('GET', '/rest/v1/gmt_users?approved=is.false&select=id,display_name,username,branch_key,created_at')) || []; }
+      catch (e) { out = []; if (/42703|approved|does not exist/i.test(String(e && e.message))) { try { sessionStorage.setItem('gmt_no_users_approved', '1'); } catch (_) {} } }
+    }
     try {
       var ks = (await rest('GET', '/rest/v1/gmt_settings?key=like.user_pending_*&select=key')) || [];
       var ids = ks.map(function (k) { return String(k.key).replace('user_pending_', ''); }).filter(function (id) { return !out.some(function (u) { return String(u.id) === id; }); });

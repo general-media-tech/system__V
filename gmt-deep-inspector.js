@@ -841,7 +841,7 @@
 
         /* ④ حركة الصندوق — كما deductExpenseFromBranchCashbox، مرّة واحدة لأن الثانية لم تفُز */
         if (first.length === 1) {
-          const bt = one(await api('POST', 'branch_transfers', { branch_key: 'haleb', branch_name: TAG, amount: -1, type: 'expense', note: TAG + ' مصروف فحص', created_by: TAG }));
+          const bt = one(await api('POST', 'branch_transfers', (window.GMTCashTx ? GMTCashTx.fill : (r) => r)({ branch_key: 'haleb', branch_name: TAG, amount: -1, type: 'expense', note: TAG + ' مصروف فحص', created_by: TAG })));
           if (bt && bt.id) made.bt.push(bt.id);
           const got = await api('GET', `branch_transfers?created_by=eq.${encodeURIComponent(TAG)}&type=eq.expense&select=id,amount`) || [];
           const okBox = got.length === 1 && Number(got[0].amount) === -1;

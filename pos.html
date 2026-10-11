@@ -1215,14 +1215,14 @@ window.GMT_FEATURES = [
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261011n"></script>
+  <script src="gmt-core.js?v=20261011p"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-stock.js?v=20261011n" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
   <script src="gmt-auth.js?v=20261011e"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -1231,7 +1231,7 @@ window.GMT_FEATURES = [
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261011n"></script>
+  <script src="gmt-staff.js?v=20261011p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -5706,7 +5706,8 @@ async function confirmRefund() {
     } catch (_) {}
     const _srcInv = _freshInv || refundInvoice;
     _debtRem = Math.max(0, Number(_srcInv.remaining_amount) || 0);
-    _paidNow = (_srcInv.paid_amount != null && isFinite(Number(_srcInv.paid_amount))) ? Number(_srcInv.paid_amount) : Number(_srcInv.total) || 0;
+    /* (٨ ج) فواتير قديمة «مدفوعة · المتبقي 0» لكن paid_amount = 0 ⇒ المقبوض الحقيقيّ = الإجمالي (GMTCash.invCash) */
+    _paidNow = (window.GMTCash && GMTCash.invCash) ? GMTCash.invCash(_srcInv) : ((_srcInv.paid_amount != null && isFinite(Number(_srcInv.paid_amount))) ? Number(_srcInv.paid_amount) : Number(_srcInv.total) || 0);
     const debtCancelled = round2(Math.min(_debtRem, totalRefund));           // يُلغى من الدين أولاً
     const cashBack = round2(Math.max(0, totalRefund - debtCancelled));       // الباقي نقداً (≤ المقبوض)
 

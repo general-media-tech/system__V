@@ -114,6 +114,8 @@
       document.body.appendChild(fr);
       await new Promise(function (res) { fr.onload = res; fr.srcdoc = wrap(html, title); });
       var doc = fr.contentDocument;
+      /* (٨ ج) letter-spacing ≠ 0 يجعل html2canvas يرسم كل حرفٍ عربيّ وحده (معزولاً ومعكوساً) — نُصفّره قسراً */
+      try { var _ls = doc.createElement('style'); _ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(_ls); } catch (e) {}
       await Promise.race([
         doc.fonts ? doc.fonts.ready : Promise.resolve(),
         new Promise(function (r) { setTimeout(r, 700); })

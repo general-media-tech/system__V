@@ -93,14 +93,14 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261011n"></script>
+  <script src="gmt-core.js?v=20261011p"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-stock.js?v=20261011n" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
 <script src="gmt-endpoint.js?v=20261011m"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
@@ -108,7 +108,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-receipt.js?v=20261011e" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261011n"></script>
+  <script src="gmt-staff.js?v=20261011p"></script>
 
 
 <!-- ════════ HEADER ════════ -->
@@ -4006,7 +4006,11 @@ async function addCollectionToBranchCashbox(o) {
             headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
             body   : JSON.stringify(body)
         });
-        let r = await post(payload);
+        /* (٨ ج) جدولك يُلزم أعمدة البضاعة (transfer_number…) ويُنكر invoice_id كـbigint ⇒ كان كلُّ تحصيلٍ يُرفض — GMTCashTx يُكمل ويتكيّف */
+        const _sent = window.GMTCashTx
+            ? await GMTCashTx.post(async (body) => { const rr = await post(body); const tx = rr.ok ? '' : await rr.clone().text().catch(() => ''); return { ok: rr.ok, status: rr.status, text: tx, resp: rr }; }, payload)
+            : { resp: await post(payload) };
+        let r = _sent.resp;
         if (!r.ok && r.status !== 409) {
             const why = await r.clone().text().catch(() => '');
             /* PostgREST يقول صراحةً أي عمودٍ أزعجه (42703 / PGRST204) */
@@ -4176,6 +4180,9 @@ function sheetToBlob(html) {
                    لا في كل فتحة لصفحة الأوردرات. */
                 if (window.GMTLazyLib) await GMTLazyLib.need('html2canvas');
                 const doc = fr.contentDocument;
+                /* (٨ ج) الجذر في «العربية مفكّكة/مقلوبة» بالصورة: html2canvas يرسم **كل حرفٍ وحده** متى كان letter-spacing ≠ 0
+                   (فيفقد الحرفُ العربيّ سياقَه فيظهر معزولاً ومعكوساً). نُصفّره قسراً مهما كتبت ورقةٌ في CSS. */
+                try { const _ls = doc.createElement('style'); _ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(_ls); } catch (_) {}
                 // انتظار الخطوط بمهلة قصوى — لا ينتظر الشبكة إلى ما لا نهاية
                 await Promise.race([
                     doc.fonts ? doc.fonts.ready : Promise.resolve(),
@@ -6823,8 +6830,8 @@ function buildOrderSheetHTML(o, withPrint) {
            والاسم طويل فيملأ العرض ويبدو قريباً، أمّا السطر القصير تحته فيسبح
            وحده في الطرف الآخر. ⇒ المحاذاة إلى جهة الشعار: يلتصق السطران به معاً. */
         '.hd-n { text-align:right; padding-inline-start:12px; border-inline-start:2px solid #F0D3D7; }' +
-        '.hd-n h1 { font-size:19px; font-weight:900; letter-spacing:-.3px; line-height:1.15; color:#111827; }' +
-        '.hd-n p { font-size:10px; color:#5b6472; font-weight:700; margin-top:3px; letter-spacing:.1px; }' +
+        '.hd-n h1 { font-size:19px; font-weight:900; letter-spacing:0; line-height:1.15; color:#111827; }' +
+        '.hd-n p { font-size:10px; color:#5b6472; font-weight:700; margin-top:3px; letter-spacing:0; }' +
         /* (2026-09-26 · طلب المالك) اللوغو الرسمي بدل البديل النصّي «GMT»:
            «أزل الشعارات التي تضعها أنت GMT لأنها عم تخرب أشكال».
            الصورة **مضمَّنة base64** من GMT_BRAND ⇒ تظهر في الطباعة وفي الصورة
@@ -6861,7 +6868,7 @@ function buildOrderSheetHTML(o, withPrint) {
            ⚠️ التظليل بـrgba لا بلون صلب: لو أسقطت الطابعة الخلفية بقي العنوان
               أحمر داكناً على أبيض — أي أنّ الشكل يخفّ ولا ينكسر. */
         'thead th { background:rgba(213,0,28,.055); color:#8B0010; font-size:11.5px; font-weight:900;' +
-                   'padding:11px 12px; border-bottom:1.5px solid rgba(213,0,28,.35); letter-spacing:.2px; }' +
+                   'padding:11px 12px; border-bottom:1.5px solid rgba(213,0,28,.35); letter-spacing:0; }' +
         /* (2026-09-27 · تذكير المالك) «سطر عادي وسطر فيه شفّة رمادية… وعند الفصل
            بين الصفوف خطوط رمادية خفيفة — يعطي شكل نظام ERP احترافي».
            الشفّة خفيفة جداً (#FAFBFC) كي تبقى الصفوف بيضاء الإحساس كما طلب سابقاً،
@@ -6913,9 +6920,9 @@ function buildOrderSheetHTML(o, withPrint) {
         '.pay-t .ci, .pay-t .tx { position:relative; z-index:1; }' +
         '.pay-t .ci { width:26px; height:26px; flex-shrink:0; color:#fff; opacity:.95; }' +
         '.pay-t .ci svg { width:100%; height:100%; }' +
-        '.pay-t .l { font-size:11px; font-weight:800; color:#fff; letter-spacing:.3px; opacity:.92; }' +
+        '.pay-t .l { font-size:11px; font-weight:800; color:#fff; letter-spacing:0; opacity:.92; }' +
         '.pay-t .v { font-size:34px; font-weight:900; line-height:1.02; direction:ltr;' +
-                    'letter-spacing:-.8px; color:#fff; }' +
+                    'letter-spacing:0; color:#fff; }' +
         '.pay-t .sub { display:block; font-size:9.5px; font-weight:700; color:#fff; opacity:.85; margin-top:2px; }' +
         '.pay-n { flex:1; min-width:0; padding:11px 14px; }' +
         '.pay-n .nh { display:flex; align-items:center; gap:6px; margin-bottom:3px; }' +
@@ -6950,8 +6957,8 @@ function buildOrderSheetHTML(o, withPrint) {
            ظهر نصّ التنبيه موسَّطاً وفوقه خطّ فاصل لا محلّ له. تصادم أسماء الأصناف
            لا يُنتج خطأً، يُنتج شكلاً خاطئاً — ولا يُكتشَف إلّا بالنظر. */
         '.pgft { margin-top:26px; padding-top:13px; border-top:1px solid #F0D3D7; text-align:center; }' +
-        '.pgft b { display:block; font-size:13px; font-weight:900; color:#D5001C; letter-spacing:.2px; }' +
-        '.pgft .en { display:block; font-size:9.5px; font-weight:800; color:#5b6472; margin-top:2px; letter-spacing:.4px; }' +
+        '.pgft b { display:block; font-size:13px; font-weight:900; color:#D5001C; letter-spacing:0; }' +
+        '.pgft .en { display:block; font-size:9.5px; font-weight:800; color:#5b6472; margin-top:2px; letter-spacing:0; }' +
         '.pgft .nb { display:block; font-size:10.5px; font-weight:800; color:#B45309; margin-top:8px; }' +
         '.pgft p { font-size:10px; color:#B6BBC4; font-weight:700; margin-top:4px; }' +
         /* صندوق «قابل للكسر» — مستقلّ عن صندوق الشروط (طلب المالك) */
