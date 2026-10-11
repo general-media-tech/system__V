@@ -268,6 +268,31 @@
       fr.onerror = rej; fr.readAsDataURL(file);
     });
   }
+  /* (11 ت١ · طلب المالك) «مواصفات علي بابا ما لازم يطلب مني ارفع صورة المنتج — لازم ياخذ الصورة اللي عندي مع الاسم اللي عندي».
+     نقرأ صورة المنتج المحفوظة (رابط في القاعدة) كبايتات: fetch ثم Canvas كاحتياط CORS؛ وإن تعذّرتا يُكمَل البحث بالاسم وحده. */
+  function urlToBlob(u) {
+    return new Promise(function (resolve) {
+      var done = false, fin = function (b) { if (!done) { done = true; resolve(b || null); } };
+      setTimeout(function () { fin(null); }, 15000);
+      try {
+        fetch(u, { mode: 'cors' }).then(function (r) { return r.ok ? r.blob() : null; }).then(function (b) {
+          if (b && /^image\//.test(b.type || 'image/')) return fin(b);
+          viaCanvas();
+        }).catch(viaCanvas);
+      } catch (_) { viaCanvas(); }
+      function viaCanvas() {
+        try {
+          var im = new Image(); im.crossOrigin = 'anonymous';
+          im.onload = function () {
+            try { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); c.toBlob(function (b) { fin(b); }, 'image/jpeg', 0.9); }
+            catch (_) { fin(null); }
+          };
+          im.onerror = function () { fin(null); };
+          im.src = u;
+        } catch (_) { fin(null); }
+      }
+    });
+  }
   async function importProduct(o) {
     var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
     var body = { mode: 'product', url: (o && o.url) || '', hint: (o && o.hint) || '' };
@@ -286,23 +311,34 @@
     var inp = 'width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;box-sizing:border-box';
     w.innerHTML = '<div style="width:100%;max-width:560px;max-height:90vh;overflow:auto;background:#fff;border-radius:22px;padding:18px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
       '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:17px;flex:1">🧠 مواصفات منتج من علي بابا</b><button data-x style="border:0;background:#f1f5f9;border-radius:10px;padding:6px 12px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button></div>' +
-      '<div style="font-size:12.5px;color:#526077;margin:4px 0 10px">الصق رابط صفحة المنتج، أو ارفع صورته — يجمع العقل المواصفات كاملة، وتراجعها قبل التطبيق.</div>' +
+      ((preset && (preset.imageUrl || preset.name))
+        ? '<div style="display:flex;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:14px;padding:8px 10px;margin:6px 0 10px;background:#f8fafc">' +
+            (preset.imageUrl ? '<img src="' + h(preset.imageUrl) + '" alt="" style="width:54px;height:54px;object-fit:contain;border-radius:10px;background:#fff" onerror="this.remove()">' : '') +
+            '<div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + h(preset.name || '') + '</b>' +
+            '<span style="font-size:12px;color:#526077">سأبحث بصورة المنتج واسمه الموجودَين عندك — لا حاجة لرفع صورة. تقدر تضيف رابطاً أو ملاحظة لدقّة أكبر.</span></div></div>'
+        : '<div style="font-size:12.5px;color:#526077;margin:4px 0 10px">الصق رابط صفحة المنتج، أو ارفع صورته — يجمع العقل المواصفات كاملة، وتراجعها قبل التطبيق.</div>') +
       '<input id="pi-url" dir="ltr" style="' + inp + '" placeholder="https://www.alibaba.com/product-detail/..." value="' + h((preset && preset.url) || '') + '">' +
-      '<div style="display:flex;gap:8px;margin-top:8px"><label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed #cbd5e1;border-radius:12px;padding:10px;cursor:pointer;font-weight:800;font-size:13px">📷 صورة المنتج<input id="pi-img" type="file" accept="image/*" hidden></label>' +
-      '<input id="pi-hint" style="' + inp + ';flex:1.4" placeholder="ملاحظة (اختياري): اسم أو موديل"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed #cbd5e1;border-radius:12px;padding:10px;cursor:pointer;font-weight:800;font-size:13px">' + ((preset && preset.imageUrl) ? '📷 صورة أخرى (اختياري)' : '📷 صورة المنتج') + '<input id="pi-img" type="file" accept="image/*" hidden></label>' +
+      '<input id="pi-hint" style="' + inp + ';flex:1.4" placeholder="ملاحظة (اختياري): اسم أو موديل" value="' + h((preset && preset.name) || '') + '"></div>' +
       '<div id="pi-err" style="min-height:1.2em;margin-top:8px;color:#b91c1c;font-size:13px;font-weight:800"></div>' +
       '<button id="pi-go" style="width:100%;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">ابحث واجمع المواصفات</button>' +
       '<div id="pi-res" style="margin-top:12px"></div></div>';
     document.body.appendChild(w);
     var $ = function (id) { return w.querySelector('#' + id); }, file = null, last = null;
     w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-x]')) w.remove(); });
-    $('pi-img').addEventListener('change', function () { file = this.files && this.files[0]; this.parentNode.firstChild.textContent = file ? '📷 ' + file.name.slice(0, 22) : '📷 صورة المنتج'; });
+    $('pi-img').addEventListener('change', function () { file = this.files && this.files[0]; this.parentNode.firstChild.textContent = file ? '📷 ' + file.name.slice(0, 22) : ((preset && preset.imageUrl) ? '📷 صورة أخرى (اختياري)' : '📷 صورة المنتج'); });
     $('pi-go').addEventListener('click', async function () {
       var b = this; $('pi-err').textContent = '';
-      if (!$('pi-url').value.trim() && !file) { $('pi-err').textContent = 'الصق رابطاً أو اختر صورة'; return; }
+      var hasPreset = !!(preset && (preset.imageUrl || preset.name));
+      if (!$('pi-url').value.trim() && !file && !hasPreset && !$('pi-hint').value.trim()) { $('pi-err').textContent = 'الصق رابطاً أو اختر صورة'; return; }
       b.disabled = true; b.textContent = 'العقل يبحث… (قد يأخذ نصف دقيقة)';
       try {
-        var pr = await importProduct({ url: $('pi-url').value.trim(), file: file, hint: $('pi-hint').value.trim() }); last = pr;
+        var useFile = file;
+        if (!useFile && preset && preset.imageUrl) {
+          useFile = await urlToBlob(preset.imageUrl);
+          if (!useFile) $('pi-err').textContent = 'تعذّرت قراءة صورة المنتج — سأبحث باسمه وحده.';
+        }
+        var pr = await importProduct({ url: $('pi-url').value.trim(), file: useFile, hint: $('pi-hint').value.trim() }); last = pr;
         var specs = Array.isArray(pr.specs) ? pr.specs.filter(function (s) { return s && s.k; }) : [];
         $('pi-res').innerHTML = '<div style="border:1px solid #e2e8f0;border-radius:16px;padding:12px">' +
           '<div style="display:flex;gap:10px">' + ((pr.images && pr.images[0]) ? '<img src="' + h(pr.images[0]) + '" style="width:72px;height:72px;object-fit:contain;border-radius:12px;background:#f8fafc" onerror="this.remove()">' : '') +

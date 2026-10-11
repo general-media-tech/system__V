@@ -4014,7 +4014,11 @@ let searchQuery = '';
 let sortCol = null;
 let sortDir = 'asc';
 /* (٨ ت) الموظّف العاديّ يبدأ بالقائمة المبسّطة، والأدمن بالجدول الكامل */
-let currentView = (function () { try { return (window.GMTRole && GMTRole.isAdmin()) ? 'table' : 'list'; } catch (_) { return 'table'; } })();
+/* (11 ت١ · طلب المالك) «طريقة العرض اللي بختارها مرّة وحدة تبقى تلقائيّة لحتى أغيّرها» — تُحفظ على الجهاز. */
+let currentView = (function () {
+  try { var sv = localStorage.getItem('gmt_inv_view'); if (sv === 'table' || sv === 'list' || sv === 'cards') return sv; } catch (_) {}
+  try { return (window.GMTRole && GMTRole.isAdmin()) ? 'table' : 'list'; } catch (_) { return 'table'; }
+})();
 let editingProductId = null;
 let deletingProductId = null;
 let editingColumnId = null;
@@ -4702,9 +4706,53 @@ async function gmtSpecsFromAlibaba(id) {
     }
     Object.assign(p, payload);
     showToast(`✅ حُفظت ${Object.keys(specs).filter(k => !k.startsWith('__')).length} مواصفة لـ«${p.name}»`, 'success');
-  }, { url: '' });
+  }, { url: '', name: p.name || '', imageUrl: p.image_url || '' });
 }
 window.gmtSpecsFromAlibaba = gmtSpecsFromAlibaba;
+
+/* ══ (11 ت١ · طلب المالك) «زر ينقلني على أداة إدارة المنتجات أو إدارة هذا المنتج لأعدّل وصفه ورابطه في المتجر وكل شيء —
+   بدل ما أدخل هناك أدخل إليها من هون». لوحة واحدة من تفاصيل المنتج تجمع كل ما يخصّه: البيانات · المتجر · المواصفات ·
+   الحركة · النقل. لا منطق جديد: كلّ بلاطة تنادي الدالّة الموجودة نفسها. ══ */
+function gmtManageProduct(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  const old = document.getElementById('gmt-manage-ov'); if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'gmt-manage-ov'; ov.setAttribute('data-keep-fab', '1');
+  const wide = innerWidth > 700;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147482000;background:rgba(15,18,25,.5);display:flex;align-items:' + (wide ? 'center' : 'flex-end') + ';justify-content:center;direction:rtl;font-family:inherit';
+  const tile = (k, t, d, adm) => `<button type="button" data-k="${k}"${adm ? ' data-admin="' + t + '"' : ''} style="display:block;width:100%;text-align:right;border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:11px 13px;font:inherit;cursor:pointer"><b style="display:block;font-size:14px;color:#0f1219">${t}</b><span style="display:block;font-size:12px;color:#526077;margin-top:2px;line-height:1.6">${d}</span></button>`;
+  const storeOpen = p.store_url && /^https?:\/\//i.test(String(p.store_url));
+  ov.innerHTML = `<div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#f8fafc;border-radius:${wide ? 22 : '22px 22px 0 0'};padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(15,18,25,.25)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      ${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" style="width:46px;height:46px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">` : ''}
+      <div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#526077;font-weight:800">إدارة هذا المنتج</div><b style="font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name || '')}</b></div>
+      <button type="button" data-k="x" style="border:0;background:#e2e8f0;border-radius:10px;padding:7px 13px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button>
+    </div>
+    <div style="display:grid;gap:8px">
+      ${tile('edit', 'تعديل بيانات المنتج', 'الاسم · المجموعة والتصنيف · الماركة · الأسماء البديلة · الأسعار · الصور · الكميّات', 1)}
+      ${tile('store', 'المتجر الإلكتروني', 'وصف المنتج وصوره وسعره ورابطه في المتجر — تُفتح صفحة المنتج في إدارة المتجر', 1)}
+      ${storeOpen ? tile('view', 'عرض المنتج في المتجر', 'كما يراه الزبون الآن') : ''}
+      ${tile('ali', 'المواصفات التلقائية', 'يبحث العقل بصورة المنتج واسمه الموجودَين عندك (علي بابا وغيره) — تراجعها قبل الحفظ', 1)}
+      ${tile('mov', 'حركة المنتج', 'بيع · إرجاع · نقل · شراء')}
+      ${tile('tr', 'فاتورة نقل لهذا المنتج', 'بين الفروع — بكمية تحدّدها', 1)}
+    </div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', ev => {
+    if (ev.target === ov) { ov.remove(); return; }
+    const b = ev.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
+    if (k === 'x') { ov.remove(); return; }
+    ov.remove();
+    try {
+      if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} openProductModal(p.id); }
+      else if (k === 'store') window.open('admin_store.html?edit=inv:' + encodeURIComponent(p.id) + '&bc=' + encodeURIComponent(p.barcode || '') + '&n=' + encodeURIComponent(p.name || ''), '_blank', 'noopener');
+      else if (k === 'view') window.open(p.store_url, '_blank', 'noopener');
+      else if (k === 'ali') gmtSpecsFromAlibaba(p.id);
+      else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
+      else if (k === 'tr') { try { closeModal('detail-modal'); } catch (_) {} stFromSelection([p.id]); }
+    } catch (er) { showToast('تعذّر: ' + (er && er.message || er), 'error'); }
+  });
+}
+window.gmtManageProduct = gmtManageProduct;
 
 
 /* ══ (2026-10-06 ش) البند ١٧٢: «أداة المنتجات التي نشتريها + بوت تيليغرام + تصدير PDF/HTML».
@@ -5584,6 +5632,7 @@ function invUseList() {
 function renderList() {
   const on = invUseList();
   document.body.classList.toggle('inv-list', on);
+  try { _applyViewDisplay(); } catch (_) {}
   const grid = document.getElementById('list-grid');
   const vt = document.getElementById('view-toggle');
   if (vt && vt._v !== currentView) { vt._v = currentView; vt.querySelectorAll('button').forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + currentView + "'") >= 0)); }
@@ -6664,7 +6713,8 @@ function openDetailModal(id) {
   }
 
   // زر كشف حركة المنتج (بيع/إرجاع/نقل/شراء)
-  html += `<button data-admin="مواصفات من علي بابا" onclick="gmtSpecsFromAlibaba('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:8px 0;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:10px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;">🧠 مواصفات من علي بابا — رابط أو صورة</button>
+  html += `<button onclick="gmtManageProduct('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:12px 0 8px;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font-family:inherit;font-weight:900;font-size:14px;cursor:pointer;">إدارة هذا المنتج — الوصف · المتجر · التصنيف · المواصفات</button>
+  <button data-admin="مواصفات من علي بابا" onclick="gmtSpecsFromAlibaba('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:8px 0;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:10px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;">مواصفات تلقائية من علي بابا — بصورة المنتج واسمه</button>
   <button onclick="openProductMovement('${escHtml(String(p.id))}','${escHtml((p.barcode||'').replace(/'/g,''))}')" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;border:none;border-radius:11px;padding:12px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/></svg>
     كشف حركة المنتج (بيع · إرجاع · نقل · شراء)
@@ -8721,22 +8771,19 @@ function loadJsBarcode(cb) {
 }
 
 
+function _applyViewDisplay() {
+  const tw = document.getElementById('table-wrap'), cv = document.getElementById('cards-view');
+  if (!tw || !cv) return;
+  if (currentView === 'list' || invUseList()) { tw.style.display = ''; cv.style.display = ''; }
+  else if (currentView === 'table') { tw.style.display = 'block'; cv.style.display = 'none'; }
+  else { tw.style.display = 'none'; cv.style.display = 'block'; }
+}
 function setView(view, btn) {
   currentView = view;
+  try { localStorage.setItem('gmt_inv_view', view); } catch (_) {}
   document.querySelectorAll('#view-toggle button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (view === 'list') {
-    document.getElementById('table-wrap').style.display = '';
-    document.getElementById('cards-view').style.display = '';
-  } else if (view === 'table') {
-    document.getElementById('table-wrap').style.display = 'block';
-    document.getElementById('cards-view').style.display = 'none';
-  } else {
-    document.getElementById('table-wrap').style.display = 'none';
-    document.getElementById('cards-view').style.display = 'block';
-  }
-
+  if (btn) btn.classList.add('active');
+  _applyViewDisplay();
   renderAll();
 }
 

@@ -1254,6 +1254,15 @@ async function loadAllData(){
             const _e = new URLSearchParams(location.search).get('edit') || '';
             const [_t, _id] = [_e.split(':')[0], _e.split(':').slice(1).join(':')];
             if (_t === 'prod' && adminData.products.some(p => String(p.id) === String(_id))) openProdModal(_id);
+            else if (_t === 'inv') {
+                /* (11 ت١) القادم من «إدارة هذا المنتج» في الجرد: نطابق منتج المتجر بمعرّف الجرد ثم بالباركود ثم بالاسم */
+                const _q = new URLSearchParams(location.search), _bc = (_q.get('bc') || '').trim(), _nm = (_q.get('n') || '').trim();
+                const _hit = adminData.products.find(p => p.inv_id != null && String(p.inv_id) === String(_id))
+                          || (_bc && adminData.products.find(p => p.barcode && String(p.barcode).trim() === _bc))
+                          || (_nm && adminData.products.find(p => p.name && String(p.name).trim() === _nm));
+                if (_hit) openProdModal(_hit.id);
+                else showToast('هذا المنتج غير مربوط بالمتجر بعد — اربطه من «الربط بالمتجر» أو أضفه هنا', 'info');
+            }
             else if (_t === 'offer') openOfferModal(_id);
             else if (_t === 'branch') openBranchModal(_id);
         } catch (_) {}
