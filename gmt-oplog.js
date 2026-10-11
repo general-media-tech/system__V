@@ -49,7 +49,7 @@
     user_lock: 'قفل جهاز مستخدم', user_toggle: 'إيقاف/تفعيل مستخدم', user_delete: 'حذف مستخدم', user_approve: 'موافقة على حساب',
     product_edit: 'تعديل منتج', product_delete: 'حذف منتج', stock_add: 'إضافة كمّية', stock_deduct: 'خصم كمّية', qty_manual: 'تعديل كمّية يدوي',
     invoice_admin_create: 'فاتورة من الإدارة', password_change: 'تغيير كلمة سرّ', unmet_demand: 'طلب غير متوفّر', unmet_resolved: 'طلب غير متوفّر — عولج',
-    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف'
+    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف', pos_create: 'إنشاء نقطة بيع', pos_retire: 'إلغاء نقطة بيع', pos_secret_fail: 'محاولة سرّية خاطئة (نقاط البيع)'
   };
   var KEY_AR = {
     status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', qty: 'الكمية',

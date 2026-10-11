@@ -2545,6 +2545,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
       تصنيف جديد
     </button>
+    <button class="btn btn-ghost btn-sm" data-admin="إدارة نقاط البيع" onclick="posOpen()" style="font-weight:800;" title="إنشاء نقطة بيع جديدة أو إلغاء نقطة (بكلمة السرّ السيادية)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+      نقاط البيع
+    </button>
 
     <div class="sep"></div>
 
@@ -2936,6 +2940,12 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
       </div>
       <span class="more-action-label">تصنيف جديد</span>
+    </button>
+    <button class="more-action-btn" data-admin="إدارة نقاط البيع" onclick="closeMoreSheet(); posOpen();">
+      <div class="more-action-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+      </div>
+      <span class="more-action-label">نقاط البيع</span>
     </button>
 
     <button class="more-action-btn" onclick="closeMoreSheet(); setFilter('zero', document.querySelector('[data-filter=zero]'));">
@@ -3575,6 +3585,35 @@ window.pm2Sync=pm2Sync;
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('cat-modal')">إلغاء</button>
       <button class="btn btn-primary" id="cat-save-btn" onclick="gmCatSave()">حفظ التصنيف</button>
+    </div>
+  </div>
+</div>
+
+<!-- (١١ ت١) نقاط البيع — إنشاء/إلغاء من داخل النظام (SQL ٣٤). على مستوى الصفحة كي تفتح من أيّ شاشة -->
+<div class="modal-overlay" id="pos-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">نقاط البيع</h2>
+      <button class="btn-icon" onclick="closeModal('pos-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;line-height:1.8;color:#1e40af;">
+        نقطة البيع = <b>عمود مخزون</b> لكلّ المنتجات. الإنشاء والإلغاء يحتاجان <b>كلمة السرّ السيادية</b> وتُفحص في القاعدة نفسها. الإلغاء <b>إخفاءٌ لا حذف</b>: يبقى عمودها وتاريخها، ولا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون.
+      </div>
+      <label class="form-label">النقاط الفعّالة</label>
+      <div id="pos-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <label class="form-label">+ نقطة بيع جديدة</label>
+        <div class="form-group" style="margin-bottom:8px;">
+          <input type="text" id="pos-new-name" class="form-input" placeholder="الاسم الظاهر — مثال: اللاذقية" autocomplete="off" oninput="posSyncKey()" maxlength="40">
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <input type="text" id="pos-new-key" class="form-input" dir="ltr" placeholder="المعرّف بالإنجليزية — مثال: latakia" autocomplete="off" maxlength="24" oninput="this.dataset.touched='1'" style="font-family:ui-monospace,monospace;text-align:left;">
+          <div class="form-hint">٣–٢٤ حرفاً: إنجليزية صغيرة وأرقام و_ ويبدأ بحرف. لا يُغيَّر بعد الإنشاء. لإعادة تفعيل نقطة ألغيتَها سابقاً أنشئها بالمعرّف نفسه.</div>
+        </div>
+        <button class="btn btn-primary" id="pos-create-btn" onclick="posCreate()" style="width:100%;">إنشاء نقطة البيع</button>
+      </div>
+      <div id="pos-msg" style="font-size:12px;font-weight:700;margin-top:10px;line-height:1.8;"></div>
     </div>
   </div>
 </div>
@@ -10513,6 +10552,134 @@ async function gmCatDelete(name){
   finally{ gmCatRefresh(); }
 }
 window.gmCatDelete=gmCatDelete; window.gmRenderCategories=gmRenderCategories;
+
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   🏪 نقاط البيع — إنشاء وإلغاء من داخل النظام (قرار المالك ١٠ ت١: الخيار الأول = دالة SECURITY DEFINER، SQL ٣٤)
+   الجذر: نقطة البيع = عمود كمّيات حقيقيّ في products + سطر في inv_columns. الواجهة القديمة كانت تُضيف السطر فقط
+   والعمود لا يُضاف عبر REST ⇒ نقطةٌ «شبه موجودة». الآن تُنشأ وتُلغى عبر دالتين في القاعدة تفحصان كلمة السرّ
+   السيادية **هناك** (لا في المتصفّح) فلا يتجاوزهما تعديلُ الواجهة. الإلغاء ناعم (إخفاء) — لا حذف عمود ولا بيانات.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+const POS_PROTECTED = ['haleb', 'germany', 'china'];
+const POS_TL = {'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'w','ي':'y','ى':'a','ئ':'e','ؤ':'o','ء':''};
+function posKeyFromName(n){
+  let k=''; for(const ch of String(n||'').normalize('NFKC')){
+    if(POS_TL[ch]!==undefined) k+=POS_TL[ch]; else if(/[a-zA-Z0-9]/.test(ch)) k+=ch.toLowerCase(); else if(/[\s_-]/.test(ch)) k+='_';
+  }
+  k=k.replace(/_+/g,'_').replace(/^_|_$/g,'');
+  if(!k) return '';
+  if(!/^[a-z]/.test(k)) k='pos_'+k;
+  if(k.length<3) k='pos_'+k;
+  return k.slice(0,24).replace(/_$/,'');
+}
+function posSyncKey(){
+  const k=document.getElementById('pos-new-key'); if(!k||k.dataset.touched==='1') return;
+  k.value=posKeyFromName(document.getElementById('pos-new-name').value);
+}
+function posActive(){ return (columns||[]).filter(c=>c.isBranch && !c.fixed); }
+function posStockOf(key){ let t=0,n=0; (allProducts||[]).forEach(p=>{ const v=Number(p[key])||0; if(v){ t+=v; n++; } }); return {t,n}; }
+function posRender(){
+  const box=document.getElementById('pos-list'); if(!box) return;
+  const list=posActive();
+  if(!list.length){ box.innerHTML='<div style="padding:14px;text-align:center;color:#5b6472;font-size:13px;">لا نقاط بيع</div>'; return; }
+  box.innerHTML=list.map(c=>{
+    const st=posStockOf(c.key), prot=POS_PROTECTED.includes(c.key);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid #EBEBEB;border-radius:11px;background:#fff;">
+      <div style="flex:1;min-width:0;"><b style="font-size:13px;">${escH(c.displayName)}</b> <span dir="ltr" style="font-size:11px;color:#8b95a5;font-family:ui-monospace,monospace;">${escH(c.key)}</span><br>
+        <span style="font-size:12px;color:#5b6472;">${st.t} قطعة في ${st.n} منتج</span></div>
+      ${prot?'<span style="font-size:11px;font-weight:800;color:#166534;background:#f0fdf4;border-radius:8px;padding:3px 9px;">أساسية</span>'
+            :`<button class="btn btn-ghost btn-sm" data-admin="إلغاء نقطة بيع" data-k="${escH(c.key)}" data-n="${escH(c.displayName)}" onclick="posRetire(this.dataset.k,this.dataset.n)" style="color:#b91c1c;border-color:#fca5a5;">إلغاء</button>`}
+    </div>`;
+  }).join('');
+}
+function posOpen(){
+  document.getElementById('pos-msg').textContent='';
+  const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
+  document.getElementById('pos-new-name').value='';
+  posRender();
+  document.getElementById('pos-modal').style.display='flex';
+}
+window.posOpen=posOpen; window.posSyncKey=posSyncKey;
+const POS_ERR={
+  bad_secret:'كلمة السرّ السيادية غير صحيحة. (تُفحص في القاعدة: المعتمدة هي المحفوظة في «الأمان والمستخدمون»، لا ما على هذا الجهاز.)',
+  bad_key:'المعرّف غير صالح — ٣ إلى ٢٤ حرفاً: إنجليزية صغيرة وأرقام و_ ويبدأ بحرف (ولا يبدأ بـ pg_ أو gmt_).',
+  bad_name:'الاسم يجب أن يكون بين حرفين و٤٠ حرفاً.',
+  exists:'توجد نقطة بيع فعّالة بهذا المعرّف.',
+  key_taken:'هذا المعرّف يطابق عموداً آخر في جدول المنتجات (مثل السعر أو الباركود) — اختر معرّفاً مختلفاً.',
+  dup_name:'يوجد نقطة بيع فعّالة بهذا الاسم — اختر اسماً آخر.',
+  too_many:r=>'بلغتَ الحدّ الأقصى ('+(r.max||30)+' نقطة).',
+  protected:'هذه نقطة أساسية (حلب · ألمانيا · الصين) ولا تُلغى.',
+  not_active:'هذه النقطة غير فعّالة أصلاً — حدّث الصفحة.',
+  has_stock:r=>'فيها مخزون: '+r.qty+' قطعة في '+r.products+' منتج. انقله إلى نقطة أخرى أو فرّغها أولاً (زرّ «تفريغ نقطة بيع» في صفحة النقل بين الفروع) ثم ألغِها.',
+  has_transit:r=>'يوجد '+r.products+' منتج لها كمّيات «في الطريق» إلى/من هذه النقطة — أتمّ استلامها أولاً.',
+  open_transfers:r=>'يوجد '+r.count+' فاتورة نقل مفتوحة (معلّقة/قيد الاستلام/تحتاج تسوية) تخصّ هذه النقطة — أغلقها أولاً.',
+  has_users:r=>'يوجد '+r.count+' مستخدم فعّال مُسنَد لهذه النقطة — انقلهم لنقطة أخرى أو أوقفهم من «الأمان والمستخدمون» أولاً.'
+};
+function posErrText(r){ const m=POS_ERR[r&&r.error]; return typeof m==='function'?m(r):(m||('رفضت القاعدة: '+((r&&r.error)||'خطأ غير معروف'))); }
+async function posRpc(fn,args){
+  const {url,key}=getMainSBConfig(); if(!url||!key) throw new Error('إعدادات القاعدة غير متاحة');
+  const r=await fetch(`${url}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  const t=await r.text();
+  if(!r.ok){
+    if(r.status===404||/PGRST202|Could not find the function/i.test(t)) throw new Error('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ («إنشاء وإلغاء نقطة بيع») من مجلّد SQL أولاً.');
+    throw new Error('HTTP '+r.status+(t?': '+t.slice(0,140):''));
+  }
+  let j; try{ j=JSON.parse(t); }catch(_){ throw new Error('ردٌّ غير مفهوم من القاعدة'); }
+  return j;
+}
+function posWho(){ try{ return (window.GMTRole&&GMTRole.name&&GMTRole.name())||localStorage.getItem('gmt_operator_name')||''; }catch(_){ return ''; } }
+async function posAskSecret(msg){
+  const v=await GMTAsk.prompt(msg,{title:'كلمة السرّ السيادية',inputType:'password',placeholder:'••••',icon:'danger',okText:'تأكيد'});
+  return v===null?null:String(v);
+}
+async function posRefresh(){
+  try{ await loadColumns(); }catch(_){}
+  try{ await loadProducts(); }catch(_){}
+  try{ renderAll(); }catch(_){}
+  try{ if(typeof renderBranchFilterRow==='function') renderBranchFilterRow(); }catch(_){}
+  posRender();
+}
+let posBusy=false;
+async function posCreate(){
+  if(posBusy) return;
+  const msg=document.getElementById('pos-msg'); const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
+  const name=(document.getElementById('pos-new-name').value||'').trim().replace(/\s+/g,' ');
+  const key=(document.getElementById('pos-new-key').value||'').trim().toLowerCase();
+  if(name.length<2){ say(POS_ERR.bad_name); return; }
+  if(!/^[a-z][a-z0-9_]{2,23}$/.test(key)||/^(pg_|gmt_)/.test(key)){ say(POS_ERR.bad_key); return; }
+  const sec=await posAskSecret('إنشاء نقطة البيع «'+name+'» (المعرّف: '+key+').\nسيُضاف عمود مخزون لكلّ المنتجات. اكتب كلمة السرّ السيادية للتأكيد:');
+  if(sec===null) return;
+  posBusy=true; document.getElementById('pos-create-btn').disabled=true; showLoading('جارٍ إنشاء نقطة البيع…');
+  try{
+    const r=await posRpc('gmt_create_pos',{p_secret:sec,p_key:key,p_name:name,p_icon:null,p_actor:posWho()||null});
+    hideLoading();
+    if(!r||!r.ok){ say('⛔ '+posErrText(r)); return; }
+    document.getElementById('pos-new-name').value=''; const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
+    say((r.reactivated?'أُعيد تفعيل نقطة البيع «':'أُنشئت نقطة البيع «')+r.name+'» — تظهر الآن في كلّ الشاشات (الجرد · النقل · المشتريات · المستخدمون).',true);
+    showLoading('جارٍ تحديث الجرد…'); await posRefresh(); hideLoading();
+    showToast('✅ '+(r.reactivated?'أُعيد تفعيل ':'أُنشئت نقطة البيع ')+'«'+r.name+'»');
+  }catch(e){ hideLoading(); say('⛔ '+(e&&e.message||e)); }
+  finally{ posBusy=false; const b=document.getElementById('pos-create-btn'); if(b) b.disabled=false; }
+}
+async function posRetire(key,name){
+  if(posBusy) return;
+  const msg=document.getElementById('pos-msg'); const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
+  const st=posStockOf(key);
+  if(st.n>0){ say('⛔ '+POS_ERR.has_stock({qty:st.t,products:st.n})); return; }
+  if(!(await GMTAsk.confirm('إلغاء نقطة البيع «'+name+'»؟\nتُخفى من كلّ الشاشات ويبقى عمودها وتاريخها محفوظين (لا حذف). تستطيع إعادة تفعيلها لاحقاً بإنشائها بالمعرّف نفسه ('+key+').',{title:'إلغاء نقطة بيع',okText:'متابعة',danger:true}))) return;
+  const sec=await posAskSecret('اكتب كلمة السرّ السيادية لإلغاء «'+name+'»:');
+  if(sec===null) return;
+  posBusy=true; showLoading('جارٍ إلغاء نقطة البيع…');
+  try{
+    const r=await posRpc('gmt_retire_pos',{p_secret:sec,p_key:key,p_actor:posWho()||null,p_reason:'إلغاء من شاشة الجرد'});
+    hideLoading();
+    if(!r||!r.ok){ say('⛔ '+posErrText(r)); return; }
+    say('أُلغيت نقطة البيع «'+r.name+'» (إخفاء — العمود والتاريخ محفوظان).',true);
+    showLoading('جارٍ تحديث الجرد…'); await posRefresh(); hideLoading();
+    showToast('🗑️ أُلغيت نقطة البيع «'+r.name+'»');
+  }catch(e){ hideLoading(); say('⛔ '+(e&&e.message||e)); }
+  finally{ posBusy=false; }
+}
+window.posCreate=posCreate; window.posRetire=posRetire;
 
 function gmOpenModal(id){const e=document.getElementById(id);if(e){e.style.display='flex';document.body.style.overflow='hidden';}}
 function gmCloseModal(id){const e=document.getElementById(id);if(e){e.style.display='none';document.body.style.overflow='';}}
