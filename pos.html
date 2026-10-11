@@ -1337,6 +1337,12 @@ window.GMT_FEATURES = [
 ══════════════════════════════════════ -->
 <div id="main-app">
 
+  <!-- شريط الأدمن الداخل كموظف (ثابت أعلى الصفحة — ليس زرّاً عائماً) -->
+  <div id="acting-bar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#0f1219;color:#fff;padding:8px 14px;font-size:12.5px;font-weight:800;direction:rtl;">
+    <span data-acting-text style="line-height:1.6"></span>
+    <button type="button" onclick="exitActingAdmin()" style="flex:0 0 auto;background:#D5001C;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">خروج للإدارة</button>
+  </div>
+
   <!-- ══ HEADER ══ -->
   <header class="header">
     <div class="logo">
@@ -2693,6 +2699,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateOfflineBadge();
   document.getElementById('picker-company').textContent = CONFIG.COMPANY_NAME;
 
+  /* (11 ت١) دخول الأدمن كموظف نقطة: جلسة التبويب (sessionStorage) لا جلسة الجهاز — فلا يتسرّب شيء إلى موظّف يستعمل الجهاز نفسه */
+  try {
+    const act = JSON.parse(sessionStorage.getItem('gmt_acting') || 'null');
+    if (act && act.branch_key && window.GMTRole && GMTRole.isAdmin()) {
+      currentUser = { id: null, username: 'admin:' + (act.admin || ''), display_name: 'الأدمن ' + (act.admin || ''), branch_key: act.branch_key, branch_name: act.branch_name || act.branch_key, acting_admin: true, acting_admin_name: act.admin || '' };
+      branch = { key: act.branch_key, name: act.branch_name || act.branch_key };
+      document.getElementById('picker-screen').style.display = 'none';
+      try {
+        const bar = document.getElementById('acting-bar');
+        if (bar) { bar.style.display = 'flex'; bar.querySelector('[data-acting-text]').textContent = 'أنت داخلٌ كأدمن (' + (act.admin || '') + ') بصفة كاشير «' + (branch.name) + '» — فواتيرك تُكتب باسمك ولا عمولة لها'; }
+        document.documentElement.setAttribute('data-acting', '1');
+      } catch (_) {}
+      resolveBranchDisplayName();
+      await bootApp();
+      return;
+    }
+    if (act) sessionStorage.removeItem('gmt_acting');          // مفتاح قديم بلا صلاحية أدمن: يُتجاهل ويُمسح
+  } catch (_) {}
+
   // ── استعادة الجلسة المحفوظة تلقائياً ──
   try {
     const savedSession   = localStorage.getItem('gmt_session');
@@ -2745,6 +2770,7 @@ async function resolveBranchDisplayName() {
     const hit = list.find(b => b.key === branch.key);
     if (!hit || !hit.name || hit.name === branch.key) return;
     branch.name = hit.name;
+    if (currentUser && currentUser.acting_admin) { try { currentUser.branch_name = hit.name; } catch (_) {} return; }
     try {
       const s = JSON.parse(localStorage.getItem('gmt_session') || '{}');
       s.branch_name = hit.name;
@@ -2812,7 +2838,14 @@ function renderBranchesPicker(branchList, isOffline = false) {
   }
 }
 
+function exitActingAdmin() {
+  try { GMTAudit?.log?.({ action: 'admin_exit_pos', entity: 'pos', entityId: branch ? branch.key : '', entityName: branch ? branch.name : '', reason: 'خروج الأدمن من نقطة البيع' }); } catch (_) {}
+  try { sessionStorage.removeItem('gmt_acting'); } catch (_) {}
+  location.href = 'admin_pos.html';
+}
+window.exitActingAdmin = exitActingAdmin;
 function changeBranch() {
+  if (currentUser && currentUser.acting_admin) { exitActingAdmin(); return; }
   localStorage.removeItem('gmt_branch');
   branch = null;
   cart = {};
@@ -7598,7 +7631,8 @@ async function _saveAndFinishInner() {
         if (!_ch.inDrawer) _paidExternal = Math.round(_pp * 100) / 100;
       }
     } catch (_) {}
-    const _notesParts = [_custNotesRaw, _prepaidNote, offerShortageNote].filter(Boolean);
+    const _actNote = (currentUser && currentUser.acting_admin) ? ('أنشأها الأدمن ' + (currentUser.acting_admin_name || '') + ' نيابةً عن نقطة «' + (branch ? branch.name : '') + '»') : null;
+    const _notesParts = [_custNotesRaw, _prepaidNote, offerShortageNote, _actNote].filter(Boolean);
     const _notesWithOfferFlag = _notesParts.length ? _notesParts.join(' | ') : null;
 
     // ─── حساب حقول الدفع (مقرَّبة للسنت، والدفعة محصورة بين 0 والإجمالي) ───
@@ -7681,7 +7715,7 @@ async function _saveAndFinishInner() {
     const _orderLinked0 = !!(_orderMode === 'existing' && _selectedOrder) || !!(_orderMode === 'new');
     const _awaiting = (saleType === 'آجل (شحن)' && _remaining > 0.01);   // م6-ب: عمولة الآجل لا تُستحق إلا عند اكتمال التحصيل
     const _commRows0 = [];
-    if (!_isTrainingInvoice && !isHeadquarters() && !_orderLinked0) {
+    if (!_isTrainingInvoice && !isHeadquarters() && !_orderLinked0 && !(currentUser && currentUser.acting_admin)) {
       for (const item of items) {
         const wholesale = Number(item.prod.wholesale_price) || 0;
         if (wholesale > 0) {
@@ -9107,6 +9141,7 @@ async function bootApp() {
 }
 
 async function logoutUser() {
+  if (currentUser && currentUser.acting_admin) { exitActingAdmin(); return; }
   if (!(await GMTUI.confirm('تسجيل الخروج؟'))) return;
 
   // فك قفل الجهاز عالسيرفر — بدون هذا كان المستخدم يضل مربوط بنفس الجهاز للأبد
