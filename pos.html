@@ -8248,6 +8248,16 @@ function manualBarcodeSearch() {
 // ══════════════════════════════════════════════════════════════════════════
 let _dailyCloseSaving = false;   // 🔒 قفل إعادة الدخول (بند الدستور ٣)
 let _dcData = null;
+/* 🔴 (مراجعة ACCT-2 / I-09) حساب الصندوق يحتاج remaining_amount وpayment_status وpaid_external — وإلا اختلف رقم الكاشير عن رقم الأدمن
+   (الفواتير القديمة «مدفوعة» بمقبوض 0، وما قُبض عبر شام كاش/بنك يُستبعد من الدرج). العمود قد لا يوجد في قاعدتك ⇒ ننزل درجةً درجة. */
+let _invColTier = 0;
+async function fetchBranchInvoices(base, h, cols) {
+  const tiers = [cols + ',remaining_amount,payment_status,notes,paid_external', cols + ',remaining_amount,payment_status,notes', cols + ',remaining_amount,payment_status,paid_external', cols + ',remaining_amount,payment_status', cols];
+  for (let t = _invColTier; t < tiers.length; t++) {
+    const r = await fetch(`${base}/invoices?branch_key=eq.${branch.key}&select=${tiers[t]}`, {headers:h});
+    if (r.ok || t === tiers.length - 1) { _invColTier = t; return r; }
+  }
+}
 
 async function openDailyClose() {
   if (!branch?.key) { showToast('اختر الفرع أولاً', 'err'); return; }
@@ -8256,10 +8266,10 @@ async function openDailyClose() {
   try {
     const base = `${CONFIG.SUPABASE_URL}/rest/v1`;
     const [rInv, rTr, rComm, rExp] = await Promise.all([
-      fetch(`${base}/invoices?branch_key=eq.${branch.key}&select=total,paid_amount,customer_name,sale_type,discount_amount,coupon_code,created_at`, {headers:h}),
+      fetchBranchInvoices(base, h, 'total,paid_amount,customer_name,sale_type,discount_amount,coupon_code,created_at'),
       fetch(`${base}/branch_transfers?branch_key=eq.${branch.key}&select=amount,type,created_at`, {headers:h}),
       fetch(`${base}/invoice_commissions?branch_key=eq.${branch.key}&select=amount,created_at`, {headers:h}),
-      fetch(`${base}/gmt_expenses?branch_key=eq.${branch.key}&approved=is.true&select=amount,currency,exchange_rate,is_general,created_at`, {headers:h}),
+      fetch(`${base}/gmt_expenses?branch_key=eq.${branch.key}&approved=is.true&select=amount,currency,exchange_rate,is_general,created_at,note`, {headers:h}),
     ]);
     const invAll  = rInv.ok  ? await rInv.json()  : [];
     const trAll   = rTr.ok   ? await rTr.json()   : [];
@@ -8290,7 +8300,8 @@ async function openDailyClose() {
       discounts  : invToday.reduce((s,i)=>s+num(i.discount_amount),0),
       coupons    : invToday.filter(i=>i.coupon_code).length,
       commissions: commAll.filter(isToday).reduce((s,c)=>s+num(c.amount),0),
-      expenses   : expAll.filter(isToday).reduce((s,e)=>s+usd(e.amount,e.currency,e.exchange_rate),0),
+      /* قيود دفتر الشراء [PO:…] خروجُ نقدٍ (يظهر خصمه في «مصاريف الصندوق» أدناه) لا مصروفُ تشغيل (مراجعة ACCT-6) */
+      expenses   : expAll.filter(e => isToday(e) && !/\[PO:[^\]]+\]/.test(String(e.note||''))).reduce((s,e)=>s+usd(e.amount,e.currency,e.exchange_rate),0),
     };
     _dcData = { box, S, branchKey: branch.key, branchName: branch.name };
 
@@ -8449,7 +8460,7 @@ async function loadBranchStats() {
   if (!branch?.key) return;
   try {
     const h = sbHeaders();
-    const rInv       = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?branch_key=eq.${branch.key}&select=total,paid_amount,customer_name,sale_type`, {headers:h});
+    const rInv       = await fetchBranchInvoices(`${CONFIG.SUPABASE_URL}/rest/v1`, h, 'total,paid_amount,customer_name,sale_type');
     const invDataRaw = rInv.ok ? await rInv.json() : [];
     // استثناء فواتير التدريب — ما إلها أثر مالي حقيقي وما لازم تدخل أي إحصائية
     const invData     = invDataRaw.filter(r => !String(r.customer_name||'').startsWith('[تدريب]'));

@@ -3448,7 +3448,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const today = () => new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
-  const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); };
+  const monthStart = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; };   /* (مراجعة ACCT-11) مكوّنات محلّية — toISOString كانت تُرجع آخر يومٍ من الشهر السابق عند UTC+3 */
 
   const S = { branchKey: null, cashier: '', from: monthStart(), to: today(), data: null, busy: false };
 

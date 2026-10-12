@@ -205,13 +205,13 @@
       var d0 = new Date(); d0 = new Date(d0.getFullYear(), d0.getMonth(), 1).toISOString();
       var inv = await q('MAIN', 'invoices?select=total,sale_type,customer_name,branch_key&created_at=gte.' + encodeURIComponent(d0) + '&limit=20000');
       var com = await q('MAIN', 'invoice_commissions?select=amount&created_at=gte.' + encodeURIComponent(d0) + '&limit=20000');
-      var exp = await q('MAIN', 'gmt_expenses?select=amount,currency,exchange_rate,kind,approved&approved=is.true&created_at=gte.' + encodeURIComponent(d0) + '&limit=5000');
+      var exp = await q('MAIN', 'gmt_expenses?select=amount,currency,exchange_rate,kind,approved,note&approved=is.true&created_at=gte.' + encodeURIComponent(d0) + '&limit=5000');
       if (Array.isArray(inv)) {
         inv = inv.filter(function (r) { return !String(r.customer_name || '').startsWith('[تدريب]'); });
         var sales = inv.filter(function (r) { return !/مرتجع/.test(r.sale_type || '') && Number(r.total) > 0; }).reduce(function (s, r) { return s + Number(r.total); }, 0);
         var rets = inv.filter(function (r) { return /مرتجع/.test(r.sale_type || '') || Number(r.total) < 0; }).reduce(function (s, r) { return s + Math.abs(Number(r.total) || 0); }, 0);
         var cm = (com || []).reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
-        var ex = (exp || []).filter(function (e) { return !/^رأسمالي/.test(e.kind || ''); }).reduce(function (s, e) { return s + (e.currency === 'syp' ? (Number(e.amount) || 0) / (Number(e.exchange_rate) || 140) : (Number(e.amount) || 0)); }, 0);
+        var ex = (exp || []).filter(function (e) { return !/^رأسمالي/.test(e.kind || '') && !/\[PO:[^\]]+\]/.test(e.note || ''); })   /* قيود دفتر الشراء خروجُ نقدٍ لا مصروف (مراجعة ACCT-6) */.reduce(function (s, e) { return s + (e.currency === 'syp' ? (Number(e.amount) || 0) / (Number(e.exchange_rate) || 140) : (Number(e.amount) || 0)); }, 0);
         out.monthMoney = { sales: Math.round(sales), returns: Math.round(rets), commissions: Math.round(cm), expenses: Math.round(ex), note: 'الربح الصافي يحتاج تكلفة البضاعة — هذه أرقام المبيعات والمصاريف فقط' };
       }
     }

@@ -1054,18 +1054,37 @@ async function sb(method,path,body=null,xtra={}){
    كلُّ كتابةٍ على import_log (إنشاء · تعديل مبلغ/دفعة/جمارك · وصول · حذف) تُطابق دفتر المحاسبة بالفرق فقط:
    دفعةٌ جديدة ⇒ قيد مصروف (مشتريات) باسم من دفع؛ زيادةٌ ⇒ قيدٌ بالفرق؛ نقصٌ ⇒ قيدٌ سالب؛ حذف الفاتورة ⇒ عكسُ كل قيودها.
    لا يُحذف قيدٌ ولا يُعدَّل — فالأثر كاملٌ للتدقيق. فشل الربط لا يُفشل حفظ الفاتورة (تُربط لاحقاً من لوحة المحاسبة). */
+/* الدفعة النقدية: الخانة الفارغة = null (البضاعة مدفوعة كاملةً) · الصفر الصريح = 0 (آجل: لم يُدفع شيء) · رقم = رقم.
+   كان الحفظ بـ parseFloat(v)||null يدمج الحالتين فيستحيل تسجيل فاتورة غير مدفوعة (مراجعة ACCT-3). */
+function cashOrNull(v){if(v==null)return null;const t=String(v).replace(/[^\d.\-]/g,'');if(t===''||t==='-'||t==='.')return null;const n=parseFloat(t);return isNaN(n)?null:n;}
 let poRows=[];
 const _ledgerApi={sb:(m,p,b,x)=>sb(m,p,b,x)};
 const _ledgerTimers={};
+/* من دفع؟ يُقرأ **متزامناً** من النافذة المفتوحة وقت الكتابة (كان يُقرأ بعد 450ms فيجد النافذة قد أُغلقت فيرجع لاختيار نافذةٍ أخرى — مراجعة I-01).
+   لا نافذة مفتوحة ⇒ لا اختيار صريح (explicit:false) فيرث الدفتر آخر دافعٍ لهذه الفاتورة. */
 function purchasePayer(){
-  const sel=document.querySelector('#instantModal.open [data-payer-sel]')||document.querySelector('#addModal:not(.hidden) [data-payer-sel]')||document.getElementById('in-payer')||document.getElementById('ins-payer');
-  const v=sel?sel.value:'';
-  const nameEl=sel?sel.closest('[data-payer-box]').querySelector('[data-payer-name]'):null;
+  const sel=document.querySelector('#instantModal.open [data-payer-sel]')||document.querySelector('#addModal:not(.hidden) [data-payer-sel]');
+  if(!sel)return{payer:'',branch:null,explicit:false};
+  const v=sel.value;
+  const nameEl=sel.closest('[data-payer-box]').querySelector('[data-payer-name]');
   const typed=(nameEl&&nameEl.value||'').trim();
   const who=(window.GMTRole&&GMTRole.name&&GMTRole.name())||'';
-  if(v&&v.indexOf('branch:')===0){const k=v.slice(7);const b=(allBranches||[]).find(x=>x.key_name===k);return{payer:'صندوق '+((b&&b.display_name)||k),branch:k,branchName:(b&&b.display_name)||k};}
-  if(v==='other')return{payer:typed||'آخر',branch:null};
-  return{payer:who||'الإدارة',branch:null};
+  if(v&&v.indexOf('branch:')===0){const k=v.slice(7);const b=(allBranches||[]).find(x=>x.key_name===k);return{payer:'صندوق '+((b&&b.display_name)||k),branch:k,branchName:(b&&b.display_name)||k,explicit:true};}
+  if(v==='other')return{payer:typed||'آخر',branch:null,explicit:true};
+  return{payer:who||'الإدارة',branch:null,explicit:true};
+}
+/* قيمة الدافع الافتراضيّة عند فتح نافذة: الإدارة؛ وعند تعديل فاتورةٍ دُفع بعضها من درج فرعٍ ⇒ ذلك الفرع (فلا يتبدّل الدافع بصمت) */
+function resetPayer(selId,pid){
+  const sel=document.getElementById(selId);if(!sel)return;
+  let v='';
+  if(pid!=null&&window.GMTLedger){
+    const rows=GMTLedger.ledgerRows(poRows,pid).slice().sort((a,b)=>GMTLedger.poInfo(a).seq-GMTLedger.poInfo(b).seq);
+    const last=rows.pop();
+    if(last&&last.branch_key&&Array.from(sel.options).some(o=>o.value==='branch:'+last.branch_key))v='branch:'+last.branch_key;
+  }
+  sel.value=v;
+  const nm=sel.closest('[data-payer-box]');const ne=nm&&nm.querySelector('[data-payer-name]');if(ne)ne.value='';
+  if(sel.onchange)sel.onchange();
 }
 function initPayerUI(){
   document.querySelectorAll('[data-payer-sel]').forEach(sel=>{
@@ -1079,7 +1098,7 @@ function initPayerUI(){
   });
 }
 async function loadPoRows(){
-  try{const r=await sb('GET','/rest/v1/gmt_expenses?note=like.'+encodeURIComponent('*[PO:*')+'&select=id,amount,currency,note,created_at,requested_by,branch_key&order=created_at.asc&limit=1000');poRows=Array.isArray(r)?r:[];}catch(_){poRows=[];}
+  try{const r=await sb('GET','/rest/v1/gmt_expenses?note=like.'+encodeURIComponent('*[PO:*')+'&select=id,amount,currency,note,created_at,requested_by,branch_key,voided,is_general&order=created_at.desc&limit=2000');poRows=Array.isArray(r)?r:[];}catch(_){poRows=[];}
 }
 function poPayLine(s){
   if(!window.GMTLedger)return'';
@@ -1089,6 +1108,7 @@ function poPayLine(s){
     return '<span class="inline-block bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full text-[10px] font-bold">'+(t.part==='c'?'🛃':'💵')+' '+(a<0?'−':'')+Math.abs(a).toFixed(2)+'$ · '+eh(who||'—')+' · '+new Date(e.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'})+'</span>';};
   return '<div class="flex flex-wrap gap-1 mb-2">'+rows.map(fmt).join('')+'</div>';
 }
+const _ledgerPayer={};
 function ledgerAfterWrite(method,path,d){
   if(!window.GMTLedger)return;
   const m=/^\/rest\/v1\/import_log(?:\?id=eq\.([^&]+))?/.exec(path);if(!m)return;
@@ -1100,17 +1120,21 @@ function ledgerAfterWrite(method,path,d){
     return;
   }
   if(id==null)return;
+  const pp=purchasePayer();                                   /* متزامناً — قبل أن تُغلَق النافذة */
+  if(pp.explicit||!_ledgerPayer[id])_ledgerPayer[id]=pp;
   clearTimeout(_ledgerTimers[id]);
   _ledgerTimers[id]=setTimeout(()=>ledgerSyncId(id),450);
 }
 async function ledgerSyncId(id){
   try{
+    const pp=_ledgerPayer[id]||{payer:'',explicit:false};delete _ledgerPayer[id];
     const rows=await sb('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(id)+'&select=*');
     const row=Array.isArray(rows)?rows[0]:null;if(!row)return;
-    const pp=purchasePayer();
-    const r=await GMTLedger.syncPurchase(_ledgerApi,row,{payer:pp.payer,payerBranch:pp.branch,branchName:pp.branchName,backdate:row.created_at||row.inv_date||undefined});
+    const o={payer:pp.explicit?pp.payer:'',payerDefault:(window.GMTRole&&GMTRole.name&&GMTRole.name())||''};
+    if(pp.explicit){o.payerBranch=pp.branch||null;o.branchName=pp.branchName;}     /* null = الإدارة صراحةً */
+    const r=await GMTLedger.syncPurchase(_ledgerApi,row,o);
     if(r.error){toast('⚠️ تعذّر ربط الدفعة بالمحاسبة: '+r.error+' — تُربط لاحقاً من لوحة المحاسبة','err');return;}
-    if((r.posted||[]).length){await loadPoRows();render();toast('🔗 دُوّن في المحاسبة: '+r.posted.map(x=>(x.part==='c'?'جمارك/شحن ':'دفعة ')+(x.delta>0?'+':'')+x.delta.toFixed(2)+'$').join(' · ')+' — دافعها: '+pp.payer,'ok');}
+    if((r.posted||[]).length){await loadPoRows();render();toast('🔗 دُوّن في المحاسبة: '+r.posted.map(x=>(x.part==='c'?'جمارك/شحن ':'دفعة ')+(x.delta>0?'+':'')+x.delta.toFixed(2)+'$').join(' · ')+' — دافعها: '+(pp.explicit?pp.payer:'كما سبق'),'ok');}
   }catch(e){console.warn('[ledger]',e&&e.message);}
 }
 async function upload(path,file){
@@ -1371,6 +1395,7 @@ function openAddModal(){
   document.getElementById('modal-title').textContent='تسجيل شحنة استيراد جديدة';
   resetForm();
   document.getElementById('addModal').classList.remove('hidden');
+  try{resetPayer('in-payer');}catch(_){}
   lucide.createIcons();
 }
 function openEdit(id){
@@ -1397,7 +1422,7 @@ function openEdit(id){
   document.getElementById('cost-shipping').value=s.cost_shipping||'';
   document.getElementById('cost-customs').value=s.cost_customs||'';
   document.getElementById('cost-local').value=s.cost_local||'';
-  document.getElementById('in-cash-payment').value=s.cash_payment||'';
+  document.getElementById('in-cash-payment').value=(s.cash_payment!=null?s.cash_payment:'');
   document.getElementById('file-hint').classList.toggle('hidden',!fileUrl);
   document.getElementById('file-prev').classList.add('hidden');
   document.getElementById('excel-prev').classList.add('hidden');
@@ -1405,6 +1430,7 @@ function openEdit(id){
   setType(s.inv_type||'germany');
   renderCart(); updateSum();
   document.getElementById('addModal').classList.remove('hidden');
+  try{resetPayer('in-payer',id);}catch(_){}
   lucide.createIcons();
 }
 function closeAddModal(){document.getElementById('addModal').classList.add('hidden');cart=[];exRows=[];fileUrl='';imgUrl='';}
@@ -1437,6 +1463,7 @@ function openInstantModal(){
   document.getElementById('ins-currency').value='USD';
   document.getElementById('ins-branch').value='';
   document.getElementById('ins-remaining-display').textContent='$ 0.00';
+  try{resetPayer('ins-payer');}catch(_){}
   renderInsCart();
   document.getElementById('instantModal').classList.add('open');
   lucide.createIcons();
@@ -1677,7 +1704,7 @@ async function saveInstantPurchase(){
       total_amount:insCart.reduce((s,c)=>s+(c.qty*c.unitPrice),0),
       items_count:insCart.length,
       total_qty:insCart.reduce((s,c)=>s+c.qty,0),
-      cash_payment:parseFloat(document.getElementById('ins-cash-payment').value)||null,
+      cash_payment:cashOrNull(document.getElementById('ins-cash-payment').value),
       items_snapshot:insCart.map(c=>({
         id:c.product.id,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,
         qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),
@@ -1723,7 +1750,7 @@ function openInstantInvModal(){
     sector:document.getElementById('ins-sector').value.trim(),
     shipping_notes:document.getElementById('ins-notes').value.trim(),
     dest_branch:branch,
-    cash_payment:parseFloat(document.getElementById('ins-cash-payment').value)||null,
+    cash_payment:cashOrNull(document.getElementById('ins-cash-payment').value),
     items_snapshot:insCart.map(c=>({name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice,whole_price:c.wholePrice,sale_price:c.salePrice,total:c.qty*c.unitPrice,notes:c.notes||'',is_new:c.isNew}))
   };
   openInstantInvData(fakeData,'مسودة',branchName);
@@ -1745,7 +1772,7 @@ function openInstantInvData(s,invNum,branchName){
   }));
   const origTotal=items.reduce((a,i)=>a+(i.qty*i.unitPrice),0);
   const cashRaw=s.cash_payment!=null?Number(s.cash_payment):null;
-  const cash=(cashRaw&&cashRaw>0)?cashRaw:origTotal;
+  const cash=(cashRaw!=null&&!isNaN(cashRaw))?cashRaw:origTotal;
   const data={
     invNum:invNum||'—',invDate:s.inv_date||'',invType:'instant',
     supplier:s.supplier||'',supplierPhone:s.supplier_phone||'',
@@ -2923,7 +2950,7 @@ function getInvData(shipData){
   const ct=Number(fromForm('cost_transport','cost-transport'))||0;const cs=Number(fromForm('cost_shipping','cost-shipping'))||0;const cc=Number(fromForm('cost_customs','cost-customs'))||0;const cl=Number(fromForm('cost_local','cost-local'))||0;
   const totalCosts=ct+cs+cc+cl;const origTotal=items.reduce((s,i)=>s+(i.qty*i.unitPrice),0);
   const _rawCash=s.cash_payment!=null?Number(s.cash_payment):parseFloat(document.getElementById('in-cash-payment')?.value??'');
-  const cash=(!isNaN(_rawCash)&&_rawCash>0)?_rawCash:origTotal;
+  const cash=(!isNaN(_rawCash))?_rawCash:origTotal;
   const printDate=s.updated_at?fd(s.updated_at):fd(new Date().toISOString());
   const grandTotal=origTotal+totalCosts;const expenses15=grandTotal*0.15;const netCostTotal=grandTotal+expenses15;
   const totalSaleRev=items.reduce((a,i)=>a+(Number(i.qty||0)*Number(i.salePrice||0)),0);const totalMinRev=items.reduce((a,i)=>a+(Number(i.qty||0)*Number(i.minPrice||0)),0);
@@ -3047,7 +3074,7 @@ function recalcInv(){
   const totalCosts=ct+cs+cc+cl;
   const origTotal=parseFloat((document.getElementById('inv-orig-total')?.textContent||'0').replace(/[^\d.-]/g,''))||0;
   const grandTotal=origTotal+totalCosts;
-  const cashRaw=getF('cash');const cash=cashRaw>0?cashRaw:origTotal;const remaining=grandTotal-cash;
+  const _cashEl=document.querySelector('#invPage [data-field="cash"]');const _cashV=cashOrNull(_cashEl?.textContent||_cashEl?.value||'');const cash=_cashV!=null?_cashV:origTotal;const remaining=grandTotal-cash;
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v.toFixed(2);};
   s('inv-total-costs',totalCosts);s('inv-costs-sum',totalCosts);s('inv-grand-total',grandTotal);s('inv-remaining',remaining);
 
@@ -3206,7 +3233,7 @@ async function saveInvEdits(){
   const totalCosts=ct+cs+cc+cl;
   const origTotal=d_items_ref.reduce((s,i)=>s+(i.qty*(i.unitPrice||0)),0);
   const grandTotal=origTotal+totalCosts;
-  const cashVal=getN('cash');
+  const cashVal=cashOrNull(getF('cash'));
 
   // ── 4. حدّث نموذج الإدخال (الخلفية) ──
   const si=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!=='')el.value=v;};
@@ -3221,7 +3248,7 @@ async function saveInvEdits(){
   if(cs)si('cost-shipping',cs);
   if(cc)si('cost-customs',cc);
   if(cl)si('cost-local',cl);
-  if(cashVal>0)si('in-cash-payment',cashVal);
+  if(cashVal!=null)si('in-cash-payment',cashVal);
 
   // ── 5. فحص التعارضات في الأسعار قبل الحفظ ──
   const conflicts=[];
@@ -3280,7 +3307,7 @@ async function saveInvEdits(){
     cost_shipping:cs||null,
     cost_customs:cc||null,
     cost_local:cl||null,
-    cash_payment:cashVal||null,
+    cash_payment:cashVal,
     costs_paid:false,
     // items من d_items_ref مباشرة
     items_snapshot:d_items_ref.map(i=>({
@@ -3326,7 +3353,7 @@ async function saveInvEdits(){
   if(fromListForSave?.id){
     const costPayload={
       cost_transport:ct||null,cost_shipping:cs||null,cost_customs:cc||null,cost_local:cl||null,
-      cash_payment:cashVal||null,
+      cash_payment:cashVal,
       total_amount:d_items_ref.reduce((s,i)=>s+(i.qty*(i.unitPrice||0)),0),
       items_count:d_items_ref.length,
       total_qty:d_items_ref.reduce((s,i)=>s+i.qty,0),
@@ -3495,7 +3522,7 @@ async function saveShipment(){
     const now=new Date().toISOString();
     const _landedSnap=computeLandedCosts(cart);   // PUR-7: تُؤرشَف بالفاتورة للتدقيق
     const coreEntry={inv_number:num,inv_type:invType,supplier:document.getElementById('in-supplier').value.trim()||null,supplier_inv:document.getElementById('in-sup-inv').value.trim()||null,inv_date:_cleanDate(document.getElementById('in-date').value)||null,eta_date:_cleanDate(document.getElementById('in-eta').value)||null,shipping_company:document.getElementById('in-ship').value.trim()||null,tracking_number:document.getElementById('in-track').value.trim()||null,shipping_notes:document.getElementById('in-notes').value.trim()||null,invoice_file_url:fileUrl||null,source_branch:src,dest_branch:BR_DEST,status:editId?(ships.find(x=>String(x.id)===String(editId))?.status||'transit'):'transit',total_amount:cart.reduce((s,c)=>s+(c.qty*c.unitPrice),0),items_count:cart.length,total_qty:cart.reduce((s,c)=>s+c.qty,0),items_snapshot:cart.map(c=>({id:c.product.id,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice||0,whole_price:c.wholePrice||0,sale_price:c.salePrice||0,notes:c.notes||'',total:c.qty*c.unitPrice,landed_cost:_landedSnap[c.product.id]||c.unitPrice,is_new:c.isNew||false}))};
-    const extEntry={supplier_phone:document.getElementById('in-sup-phone').value.trim()||null,supplier_address:document.getElementById('in-sup-address').value.trim()||null,supplier_contact:document.getElementById('in-sup-contact').value.trim()||null,currency:document.getElementById('in-currency').value||'USD',sector:document.getElementById('in-sector').value.trim()||null,cost_transport:gv('cost-transport')||null,cost_shipping:gv('cost-shipping')||null,cost_customs:gv('cost-customs')||null,cost_local:gv('cost-local')||null,cash_payment:gv('in-cash-payment')||null,updated_at:now};
+    const extEntry={supplier_phone:document.getElementById('in-sup-phone').value.trim()||null,supplier_address:document.getElementById('in-sup-address').value.trim()||null,supplier_contact:document.getElementById('in-sup-contact').value.trim()||null,currency:document.getElementById('in-currency').value||'USD',sector:document.getElementById('in-sector').value.trim()||null,cost_transport:gv('cost-transport')||null,cost_shipping:gv('cost-shipping')||null,cost_customs:gv('cost-customs')||null,cost_local:gv('cost-local')||null,cash_payment:cashOrNull(document.getElementById('in-cash-payment')?.value),updated_at:now};
     let entry={...coreEntry,...extEntry};
     // 🔁 حارس التكرار (2026-07-11): لا تُدخَل فاتورة برقم موجود مسبقاً دون تحذير
     if (!editId && window.GMTIntegrity) {
@@ -4396,7 +4423,7 @@ async function importToSystem(){
       inv_date:BD.inv_date||null,eta_date:BD.eta_date||null,currency:BD.currency||'USD',sector:BD.sector||null,
       shipping_company:BD.shipping_company||null,tracking_number:BD.tracking_number||null,shipping_notes:BD.shipping_notes||null,
       cost_transport:BD.cost_transport||null,cost_shipping:BD.cost_shipping||null,cost_customs:BD.cost_customs||null,cost_local:BD.cost_local||null,
-      cash_payment:BD.cash_payment||null,status:BD.status||'transit',
+      cash_payment:cashOrNull(BD.cash_payment),status:BD.status||'transit',
       source_branch:BD.source_branch||'germany',dest_branch:BD.dest_branch||'haleb',
       total_amount:BD.total_amount||0,items_count:finalSnapshot.length,
       total_qty:finalSnapshot.reduce((s,i)=>s+(i.qty||0),0),
@@ -4560,7 +4587,7 @@ async function saveInvCloud(){
     }));
     const ct=getCost('ct'),cs=getCost('cs'),cc=getCost('cc'),cl=getCost('cl');
     const cashEl=document.querySelector('#invPage .inv-field[data-field="cash"]');
-    const cash=parseFloat((cashEl?.textContent||'0').replace(/[^\d.-]/g,''))||0;
+    const cash=cashOrNull(cashEl?.textContent);
     const payload={
       supplier:getF('supplier')||fromList?.supplier||null,
       supplier_phone:getF('supplierPhone')||fromList?.supplier_phone||null,
@@ -4575,7 +4602,7 @@ async function saveInvCloud(){
       cost_shipping:cs||fromList?.cost_shipping||null,
       cost_customs:cc||fromList?.cost_customs||null,
       cost_local:cl||fromList?.cost_local||null,
-      cash_payment:cash||fromList?.cash_payment||null,
+      cash_payment:(cash!=null?cash:cashOrNull(fromList?.cash_payment)),
       total_amount:snapshot.reduce((s,i)=>s+(i.qty*(i.unit_price||0)),0),
       items_count:snapshot.length,
       total_qty:snapshot.reduce((s,i)=>s+i.qty,0),
@@ -5028,7 +5055,7 @@ async function importInvJSON(inp){
       cost_shipping:data.cost_shipping||null,
       cost_customs:data.cost_customs||null,
       cost_local:data.cost_local||null,
-      cash_payment:data.cash_payment||null,
+      cash_payment:cashOrNull(data.cash_payment),
       status:data.status||'transit',
       source_branch:data.source_branch||'germany',
       dest_branch:data.dest_branch||'haleb',

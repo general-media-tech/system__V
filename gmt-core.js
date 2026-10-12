@@ -4199,16 +4199,34 @@
   if (window.GMTCash) return;
   /* (٨ ج) المقبوض الفعليّ من فاتورة. قاعدتك فيها فواتير قديمة «نقدي · مدفوعة · المتبقي 0» لكن paid_amount = 0
      (العمود جاء بعدها بقيمةٍ افتراضيّة 0) فكانت تُحسب 0 في الصندوق وهي مقبوضةٌ كاملة — فصار صندوق الفرع أقلّ من الحقيقة.
-     القاعدة: paid_amount إن كان موجباً؛ وإلا (الإجمالي − المتبقي) إن عُرف المتبقي؛ وإلا الإجمالي.
-     (الآجل غير المسدّد: المتبقي = الإجمالي ⇒ 0 ✓ · المرتجع: الإجمالي سالب والمتبقي 0 ⇒ يُنقص ✓). */
+     🔴 (مراجعة ACCT-1) لكن هذا الاستدلال لا يصحّ إلّا على **بيعٍ نقديٍّ موجب الإجمالي**:
+       • المرتجع (إجمالي سالب): paid_amount = −المردود نقداً، وصفرٌ صريح = «خُصم من دين الزبون» (لا نقد خرج) ⇒ نأخذ المسجَّل كما هو.
+       • الآجل: صفرٌ صريح = لم يُقبض شيء بعد ⇒ 0 (والتحصيل اللاحق يرفع paid_amount فيُحسب).
+       القاعدة:  إجمالي ≤ 0 ⇒ المسجَّل (أو الإجمالي إن غاب) · paid موجب ⇒ paid · آجل ⇒ paid (أو الإجمالي−المتبقي إن غاب)
+                 · نقدي بلا paid ⇒ الإجمالي − المتبقي إن عُرف، وإلا «مدفوعة» ⇒ الإجمالي، وإلا الإجمالي. */
   function invCash(i) {
     if (!i) return 0;
     var total = Number(i.total); if (isNaN(total)) total = 0;
     var paid = (i.paid_amount != null && i.paid_amount !== '') ? Number(i.paid_amount) : null;
-    if (paid !== null && !isNaN(paid) && Math.abs(paid) > 0.004) return paid;
+    if (paid !== null && isNaN(paid)) paid = null;
     var rem = (i.remaining_amount != null && i.remaining_amount !== '') ? Number(i.remaining_amount) : null;
-    if (rem !== null && !isNaN(rem)) return total - rem;
-    return (paid !== null && !isNaN(paid)) ? paid : total;
+    if (rem !== null && isNaN(rem)) rem = null;
+    if (total <= -0.004) {
+      /* مرتجع: paid_amount = −المردود نقداً. صفرٌ بلا أثر ⇒ مرتجعٌ قديم رُدّ نقدُه كاملاً (يُنقص). صفرٌ مع «أُلغي من الدين: $X» في الملاحظة
+         (كاتب المرتجع الحالي يدوّنها) ⇒ جزءٌ X منه خُصم من دين الزبون فلم يخرج نقد: النقد الخارج = |الإجمالي| − X. */
+      if (paid !== null && Math.abs(paid) > 0.004) return paid;
+      var dm = /أُلغي من الدين:\s*\$?\s*([0-9]+(?:\.[0-9]+)?)/.exec(String(i.notes || ''));
+      if (dm) return Math.min(0, total + Number(dm[1]));
+      return total;
+    }
+    if (total <= 0.004) return paid !== null ? paid : total;
+    if (paid !== null && Math.abs(paid) > 0.004) return paid;
+    var credit = String(i.sale_type || '').indexOf('آجل') >= 0;
+    if (credit) return paid !== null ? paid : (rem !== null ? total - rem : 0);
+    if (rem !== null) return total - rem;
+    var st = String(i.payment_status || '');
+    if (paid !== null && !/^(paid|مدفوع)/i.test(st)) return paid;
+    return total;
   }
   function expected(invoices, transfers) {
     invoices  = Array.isArray(invoices)  ? invoices  : [];
@@ -4287,7 +4305,14 @@
       var t = String((res && (res.text || res.error)) || '');
       var m = /Could not find the '([^']+)' column|column "?([a-z_]+)"? (?:of relation "[a-z_]+" )?does not exist/i.exec(t);
       var col = m && (m[1] || m[2]);
-      if (col && col in body) { delete body[col]; continue; }
+      if (col && col in body) {
+        /* (مراجعة I-13) أعمدة الربط بالأوردر/الفاتورة لا تُسقَط بصمت: أثرها يُحفظ في الملاحظة (للتدقيق ولمنع التحصيل المزدوج) */
+        if (/^(order_id|order_serial|invoice_id)$/.test(col) && body[col] != null) {
+          moved[col] = body[col];
+          body.note = ((body.note || '') + ' · [' + col + '=' + body[col] + ']').replace(/^ · /, '');
+        }
+        delete body[col]; continue;
+      }
       if (/22P02|invalid input syntax for type (bigint|uuid)/i.test(t) && body.invoice_id != null) {
         moved.invoice_id = body.invoice_id;
         body.note = ((body.note || '') + ' · [invoice_id=' + body.invoice_id + ']').replace(/^ · /, '');
