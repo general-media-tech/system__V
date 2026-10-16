@@ -92,7 +92,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-config.js?v=20261003"></script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261016b"></script>
+  <script src="gmt-core.js?v=20261016c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -2023,7 +2023,7 @@ window.GMT_INTERNAL = 1;</script>
                     <style id="stk-page"></style>
                     <script>
                       (function(){
-                        var S={ '100x50':['100mm 50mm','96mm','46mm','0.62'], '80x50':['80mm 50mm','76mm','46mm','0.55'], '100x70':['100mm 70mm','96mm','66mm','0.75'], 'A6':['A6 landscape','140mm','auto','0.95'], 'A5':['A5 landscape','200mm','auto','1'] };
+                        var S={ '100x50':['100mm 50mm','96mm','46mm','0.62'], '80x50':['80mm 50mm','76mm','46mm','0.55'], '100x70':['100mm 70mm','96mm','66mm','0.75'], 'A6':['148mm 105mm','140mm','auto','0.95'], 'A5':['210mm 148mm','200mm','auto','1'] };
                         var sel=document.getElementById('stk-size'), k='gmt_warranty_sticker_size';
                         try{ var v=localStorage.getItem(k); if(v&&S[v]) sel.value=v; else sel.value='A5'; }catch(e){ sel.value='A5'; }
                         function apply(){ var z=S[sel.value]||S.A5; try{localStorage.setItem(k,sel.value);}catch(e){}

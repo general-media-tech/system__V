@@ -260,7 +260,9 @@
   window.gmtCanonFail = function (img) {
     try {
       var i = Number(img.getAttribute('data-canon-i') || 0);
-      if (i < CANON_SRC.length) { img.setAttribute('data-canon-i', String(i + 1)); img.src = CANON_SRC[i]; return; }
+      /* gimgAllow: حارس الصور (gmt-image-guard) يعترض كل src خارجي ويستبدله بنائبٍ ينتظر ظهور الصورة على الشاشة — فتعلق سلسلة
+         الشعار على صورةٍ في شاشةٍ مخفيّة. شعار كانون صغير وثابت ولا يهمّ egress، فنحمّله مباشرةً. */
+      if (i < CANON_SRC.length) { img.setAttribute('data-canon-i', String(i + 1)); try { img.dataset.gimgAllow = '1'; } catch (_) {} img.src = CANON_SRC[i]; return; }
       img.onerror = null;
       var sp = document.createElement('span');
       sp.textContent = 'Canon';
