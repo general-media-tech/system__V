@@ -53,6 +53,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 #main-tabs::-webkit-scrollbar{display:none;}
 .main-tab{padding:12px 16px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;border:none;background:none;cursor:pointer;color:rgba(255,255,255,0.5);border-bottom:3px solid transparent;white-space:nowrap;transition:all 0.15s;}
 .main-tab.active{color:white;border-bottom-color:var(--red);}
+/* (١١ ت١ — ملاحظات) على الكمبيوتر كل التبويبات ظاهرة: كان آخر تبويب («الكوبونات») مقصوصاً خارج الشاشة بلا أيّ إشارة. الهاتف يبقى بالتمرير. */
+@media (min-width:900px){ #main-tabs{flex-wrap:wrap;overflow-x:visible;} }
 
 /* CONTENT */
 #app-content{padding:16px;max-width:900px;margin:0 auto;padding-bottom:40px;}
@@ -458,7 +460,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   #topbar{gap:8px!important;padding:10px 12px!important;flex-wrap:nowrap}
   #topbar .tb-badge{display:none}
   #topbar .tb-title{font-size:15px!important;white-space:nowrap}
-  .tb-help span{display:none}
+  .tb-help span:not(.gmt-ei){display:none} /* gmt-icons يحوّل 🏷️ إلى span.gmt-ei — إخفاؤه كان يترك مربّعاً فارغاً */
   .tb-help{width:38px;justify-content:center;padding:0}
   #main-tabs{overflow-x:auto;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #main-tabs::-webkit-scrollbar{display:none}
@@ -492,22 +494,22 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261012a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
-  <script src="gmt-stock.js?v=20261007t" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-stock.js?v=20261011n" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-  <script src="gmt-auth.js?v=20261003"></script>
+  <script src="gmt-auth.js?v=20261011e"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
@@ -515,7 +517,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261010b"></script>
+  <script src="gmt-ledger.js?v=20261012a"></script>
+  <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -610,6 +613,8 @@ let branches    = [];
 let activeBranch= 'all';
 let activeTab   = 'overview';
 let allInvoices = [];
+/* (١١ ت١) سجل العمليات: الفاتورة قبل تعديلها */
+window.GMT_OPLOG_BEFORE = Object.assign(window.GMT_OPLOG_BEFORE || {}, { invoices: function (id) { try { return allInvoices.find(function (i) { return String(i.id) === String(id); }) || null; } catch (e) { return null; } } });
 let allTransfers= [];
 let allComm     = [];
 /* (٨ ت — تدقيق المطابقة) عمولةُ الفاتورة = **مجموعُ صفوفها**. نقطة البيع تكتب صفّاً لكل بند، وكانت هذه الصفحة
@@ -621,8 +626,19 @@ function invCommRows(invId) { return allComm.filter(c => String(c.invoice_id) ==
    وشارة «🟢 ربح جيد» على بطاقة الفاتورة تُخمَّن من العمولة × ٢ — فظهرت «ربح جيد» لفاتورةٍ خاسرة.
    الآن: الربح = إجمالي الفاتورة (بعد الخصم) − كلفة قطعها (net_cost وإلّا cost_price) − عمولتها.
    والفاتورة التي لا نعرف كلفة قطعها لا تُعطى شارةً مخترَعة. */
+/* (٨ ج) حركة صندوق → branch_transfers بما يتحمّله جدولك (أعمدة البضاعة الإلزاميّة · invoice_id) — انظر GMTCashTx في gmt-core.js */
+async function adminCashPost(row) {
+  const r = await GMTCashTx.post(async (body) => {
+    try { return { ok: true, data: await sb('POST', '/rest/v1/branch_transfers', body) }; }
+    catch (e) { return { ok: false, text: String((e && e.message) || e) }; }
+  }, row);
+  if (!r || !r.ok) throw new Error((r && (r.text || r.error)) || 'تعذّر تسجيل حركة الصندوق');
+  return r.data;
+}
 let _costById = {}, _costByName = {}, _itemsByInv = {}, _costReady = false;
-async function _sbAll(path) {
+/* 🔴 (مراجعة ACCT-13) الترقيم بـ offset بلا ترتيبٍ فريد يكرّر صفوفاً أو يُسقط أخرى بين الصفحات (فيتضخّم/ينقص الصندوق والكلفة).
+   نضيف id كمفتاح كسر تعادل؛ فإن رفضه الجدول (لا عمود id) نرجع للمسار الأصلي. */
+async function _sbAllRaw(path) {
   const out = [];
   for (let off = 0; off < 60000; off += 1000) {
     const rows = await sb('GET', path + (path.indexOf('?') >= 0 ? '&' : '?') + 'limit=1000&offset=' + off);
@@ -631,6 +647,17 @@ async function _sbAll(path) {
     if (rows.length < 1000) break;
   }
   return out;
+}
+async function _sbAll(path) {
+  let strict = path;
+  const m = /([?&])order=([^&]+)/.exec(path);
+  if (!m) strict = path + (path.indexOf('?') >= 0 ? '&' : '?') + 'order=id.asc';
+  else if (!/(^|,)id\./.test(m[2])) {
+    const dir = /\.desc$/.test(m[2]) ? 'desc' : 'asc';
+    strict = path.replace(m[0], m[1] + 'order=' + m[2] + ',id.' + dir);
+  }
+  if (strict === path) return _sbAllRaw(path);
+  try { return await _sbAllRaw(strict); } catch (e) { return _sbAllRaw(path); }
 }
 async function loadCostData() {
   try {
@@ -669,9 +696,12 @@ function invComm(invId) {
   if (!rows.length) return undefined;
   if (rows.length === 1) return rows[0];
   const sum = rows.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  /* (11 ت١ · E4) حالة الفاتورة (معتمدة/مدفوعة) من صفوفها الأصلية؛ صفّ عكس المرتجع يدخل في المبلغ لا في الحالة (وإلا قلب الأصلَ المدفوع إلى «غير مدفوع») */
+  const _core = rows.filter(c => c.created_by !== 'auto_refund_reversal');
+  const _st = _core.length ? _core : rows;
   return Object.assign({}, rows[0], {
     amount: Math.round(sum * 100) / 100,
-    approved: rows.every(c => c.approved), paid: rows.every(c => c.paid),
+    approved: _st.every(c => c.approved), paid: _st.every(c => c.paid),
     awaiting_collection: rows.some(c => c.awaiting_collection && !c.paid),
     invoice_collected: rows.every(c => c.invoice_collected),
     note: rows.map(c => c.note).filter(Boolean).join(' · '), _rows: rows
@@ -762,7 +792,7 @@ async function bootApp() {
   try {
     const cols = await sb('GET', '/rest/v1/inv_columns?is_branch=eq.true&order=sort_order.asc&select=key_name,display_name,icon');
     branches = Array.isArray(cols) ? cols : [];
-    await Promise.all([loadInvoices(), loadTransfers(), loadCommissions(), loadTgConfig(), loadDebts(), loadManualDebts(), loadExpenses(), loadPurchases(), loadOrdersForAccounting(), loadReservationsForAccounting(), loadCustomers(), loadStockTransfersAdmin()]);
+    await Promise.all([loadInvoices(), loadTransfers(), loadCommissions(), loadTgConfig(), loadDebts(), loadManualDebts(), loadExpenses(), loadPurchases(), accLoadOpening(), loadOrdersForAccounting(), loadReservationsForAccounting(), loadCustomers(), loadStockTransfersAdmin()]);
     /* (٨ ت) رابطٌ مباشر لتبويب: admin_pos.html?tab=customers (أداة «العملاء» من الرئيسيّة) */
     { let _t0 = 'overview'; try { const q = new URLSearchParams(location.search).get('tab'); if (q && /^[a-zA-Z]+$/.test(q) && document.querySelector(`.main-tab[onclick="switchTab('${q}')"]`)) _t0 = q; } catch (_) {}
       switchTab(_t0);
@@ -790,7 +820,15 @@ async function loadInvoices() {
   // نجرّب أولاً مع الأعمدة الكاملة، وإذا فشل نرجع للأعمدة الأساسية
   try {
     /* (٨ ث) كانت أحدث ٣٠٠٠ فقط — فكشف شهرٍ قديم والمحاسبة يُسقطان فواتير. الآن كلّها صفحةً صفحة. */
-    const rows = await _sbAll('/rest/v1/invoices?order=created_at.desc&select=id,inv_number,branch_key,branch_name,total,items_count,customer_name,customer_phone,created_at,sale_type,payment_status,paid_amount,remaining_amount,cashier_name');
+    /* 🔴 (مراجعة ACCT-2) paid_external كان غائباً عن الاستعلام ⇒ استبعاد ما قُبض عبر شام كاش/بنك من الصندوق كان معطَّلاً.
+       العمود قد لا يوجد في قاعدتك (SQL الأساس لم يُشغَّل) ⇒ مسارٌ بالعمود، فإن رُفض فمسارٌ بدونه. */
+    const base = 'id,inv_number,branch_key,branch_name,total,items_count,customer_name,customer_phone,created_at,sale_type,payment_status,paid_amount,remaining_amount,cashier_name';
+    let rows, lastErr;
+    for (const extra of [',notes,paid_external', ',notes', ',paid_external', '']) {
+      try { rows = await _sbAll('/rest/v1/invoices?order=created_at.desc&select=' + base + extra); lastErr = null; break; }
+      catch (e0) { lastErr = e0; }
+    }
+    if (lastErr) throw lastErr;
     allInvoices = rows;
   } catch(e) {
     try {
@@ -809,11 +847,19 @@ async function loadCommissions() {
     allComm = await _sbAll('/rest/v1/invoice_commissions?order=created_at.desc');   /* (٨ ث) كلّها */
   } catch(e) { allComm = []; }
 }
+/* (11 ت١ · B1) «فواتير غير محصَّلة» كانت تضمّ كل فاتورة بيعها «آجل» حتى المسدَّدة بالكامل (المتبقّي 0) فيتضخّم العدّ وتُعرَض للتحصيل ثانيةً.
+   المفتوح = متبقٍّ > 0، أو قديمةٌ بلا حقول دفع (لا remaining ولا حالة) فنفترضها مفتوحة حتى يُراجعها المالك. */
+function isOpenDebt(r) {
+  if (!r) return false;
+  const rem = r.remaining_amount;
+  if (rem != null && rem !== '') return Number(rem) > 0.004;
+  return String(r.payment_status || '') !== 'paid';
+}
 async function loadDebts() {
   try {
     // نجرّب مع sale_type أولاً
     const rows = await sb('GET', '/rest/v1/invoices?sale_type=eq.آجل (شحن)&order=created_at.desc&limit=2000&select=id,inv_number,branch_key,branch_name,total,customer_name,customer_phone,created_at,payment_status,paid_amount,remaining_amount');
-    allDebts = Array.isArray(rows) ? rows : [];
+    allDebts = (Array.isArray(rows) ? rows : []).filter(isOpenDebt);
   } catch(e) {
     // إذا فشل (العمود غير موجود) نجلب الكل ونصفّي محلياً
     try {
@@ -1828,19 +1874,29 @@ async function confirmApproveCommission(commId, branchKey, originalAmount) {
     /* 🛡️ (2026-08-24) شرط ذرّي: بلا `approved=is.false` كان يمكن اعتماد العمولة
        **مرّتين** (ضغطتان أو جهازان) فتُكتب قيمة جديدة فوق قيمة معتمَدة وتُرسل
        إشعارات مكرّرة. الآن: من يفوز بالتبديل وحده يُكمل. */
-    const _upd = await sb('PATCH',
-      `/rest/v1/invoice_commissions?id=eq.${commId}&approved=is.false`,
-      updateBody, { Prefer:'return=representation' });
-    const _rw = Array.isArray(_upd?.data) ? _upd.data : (Array.isArray(_upd) ? _upd : []);
-    if (!_rw.length) {
+    /* (11 ت١ · C4/G2) `approved=is.false` لا يطابق الصفوف التي أنشأتها نقطة البيع بلا حقل (null) فتُرفض بحجّة «معتمدة مسبقاً»،
+       وفاتورةٌ صفّها الأول معتمَد وفيها صفّ عكس مرتجع جديد كانت لا تُعتمد أبداً (المعرّف المرسَل هو الصفّ الأول المعتمَد). */
+    const _NA = 'or=(approved.is.false,approved.is.null)';
+    const _mainDone = !!(_c0 && _c0.approved);
+    if (_mainDone && !_sibs.length) {
       showToast('⛔ هذه العمولة معتمَدة مسبقاً — لم يتغيّر شيء', 'err');
       return;
     }
-    const c = allComm.find(x => String(x.id) === String(commId));
-    if (c) { c.approved = true; c.approved_at = new Date().toISOString(); c.amount = _mainAmt; if (note) c.note = note; }
+    if (!_mainDone) {
+      const _upd = await sb('PATCH',
+        `/rest/v1/invoice_commissions?id=eq.${commId}&${_NA}`,
+        updateBody, { Prefer:'return=representation' });
+      const _rw = Array.isArray(_upd?.data) ? _upd.data : (Array.isArray(_upd) ? _upd : []);
+      if (!_rw.length) {
+        showToast('⛔ هذه العمولة معتمَدة مسبقاً — لم يتغيّر شيء', 'err');
+        return;
+      }
+      const c = allComm.find(x => String(x.id) === String(commId));
+      if (c) { c.approved = true; c.approved_at = new Date().toISOString(); c.amount = _mainAmt; if (note) c.note = note; }
+    }
     for (const r of _sibs) {
       try {
-        const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&approved=is.false`,
+        const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&${_NA}`,
           { approved: true, approved_at: new Date().toISOString() }, { Prefer: 'return=representation' });
         const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
         if (w2.length) { r.approved = true; r.approved_at = new Date().toISOString(); }
@@ -1872,11 +1928,12 @@ async function recordInvoiceCollection(invId, branchKey) {
     if (!inv) return;
     const num = String(inv.inv_number || inv.id);
     const mark = 'تحصيل الفاتورة #' + num;
-    if ((allTransfers || []).some(t => String(t.note || '').indexOf(mark) >= 0)) return;   // مُحصَّلة سابقاً
-    let amt = (inv.paid_amount != null) ? Number(inv.paid_amount) : Number(inv.total);
+    /* (مراجعة ACCT-10) مطابقة تامّة: «…#1» لا تكفي ملاحظة «…#12» — العلامة تنتهي بـ « —» */
+    if ((allTransfers || []).some(t => String(t.note || '').indexOf(mark + ' —') >= 0)) return;   // مُحصَّلة سابقاً
+    let amt = (window.GMTCash && GMTCash.invCash) ? GMTCash.invCash(inv) : ((inv.paid_amount != null) ? Number(inv.paid_amount) : Number(inv.total));
     amt = (Number(amt) || 0) - (Number(inv.paid_external) || 0);
     if (!(amt > 0)) return;
-    const res = await sb('POST', '/rest/v1/branch_transfers', {
+    const res = await adminCashPost({
       branch_key: branchKey || inv.branch_key, amount: Math.round(amt * 100) / 100,
       note: mark + ' — نقلٌ من صندوق الفرع إلى الإدارة',
       transfer_date: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
@@ -1889,6 +1946,10 @@ async function recordInvoiceCollection(invId, branchKey) {
 }
 
 async function collectFullComm(commId, branchKey, amount) {
+  /* (11 ت١ · D1/م6-ب) عمولة الفاتورة الآجلة «معلّقة» حتى يُحصَّل ثمنها؛ كان هذا الزرّ يدفعها ويختمها مدفوعة والزبون لم يدفع (remaining>0). */
+  { const _cH = allComm.find(x => String(x.id) === String(commId));
+    const _hold = _cH ? invCommRows(_cH.invoice_id).some(r => r.awaiting_collection && !r.paid) : false;
+    if (_hold) { showToast('⛔ هذه عمولة فاتورة آجلة لم يُحصَّل ثمنها بعد — حصّل الفاتورة أولاً من «الديون» ثم تُستحق العمولة', 'err'); return; } }
   if (!await GMTAsk.confirm(`تحصيل كامل المبلغ + العمولة (${amount.toFixed(2)}$) معاً؟`)) return;
   try {
     // م6 (دمج 2026-07-11): كل دفع عمولة يمر عبر سجل التسويات ويُختم برقم — لا ازدواج
@@ -1966,32 +2027,64 @@ async function editCommission(commId) {
     const _cE = allComm.find(x => String(x.id) === String(commId));
     const _othE = _cE ? invCommRows(_cE.invoice_id).filter(r => String(r.id) !== String(commId)).reduce((t, r) => t + (Number(r.amount) || 0), 0) : 0;
     const _amtE = Math.round((amount - _othE) * 100) / 100;
-    await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${commId}`, {
+    /* (١١ ت١) تعديل الأدمن للعمولة وحفظها = موافقته عليها (لا موافقة ثانية). تُعتمد هي وبقيّة صفوف فاتورتها غير المدفوعة. */
+    const _nowE = new Date().toISOString();
+    /* (11 ت١ · C3) لا تعديل لعمولة مدفوعة/مختومة بتسوية (تغيّر مبلغها يُفسد سجلّ ما دُفع فعلاً) — شرطٌ في القاعدة + عدّ الصفوف */
+    if (_cE && _cE.paid) { showToast('⛔ هذه العمولة مدفوعة ومختومة بتسوية — لا تُعدَّل. أنشئ تسوية/قيداً عكسياً بدلاً من ذلك', 'err'); return; }
+    const _eu = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${commId}&paid=eq.false`, {
       amount: _amtE,
       note      : _note,
       created_by: 'admin',
-    }, { Prefer:'return=minimal' });
+      approved: true,
+      approved_at: (_cE && _cE.approved && _cE.approved_at) ? _cE.approved_at : _nowE,
+    }, { Prefer:'return=representation' });
+    { const _er = Array.isArray(_eu?.data) ? _eu.data : (Array.isArray(_eu) ? _eu : []); if (!_er.length) { showToast('⛔ لم تُعدَّل العمولة — دُفعت أو حُذفت من جهاز آخر. حدّث الصفحة', 'err'); return; } }
     const c = allComm.find(x => String(x.id) === String(commId));
-    if (c) { c.amount = _amtE; c.note = _note; c.created_by = 'admin'; }
+    if (c) { c.amount = _amtE; c.note = _note; c.created_by = 'admin'; c.approved = true; c.approved_at = c.approved_at || _nowE; }
+    if (_cE) {
+      for (const r of invCommRows(_cE.invoice_id).filter(r => String(r.id) !== String(commId) && !r.approved && !r.paid)) {
+        try {
+          const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&or=(approved.is.false,approved.is.null)`, { approved: true, approved_at: _nowE }, { Prefer: 'return=representation' });
+          const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
+          if (w2.length) { r.approved = true; r.approved_at = _nowE; }
+        } catch (_) {}
+      }
+    }
     showToast('تم تعديل العمولة ✓', 'ok');
     closeModal();
     renderInvoices();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
 }
 
+let __saveCommBusy = false;
 async function saveCommission(invId, branchKey) {
   const amountEl = document.getElementById(`comm-amount-${invId}`);
   const noteEl   = document.getElementById(`comm-note-${invId}`);
   const amount   = parseFloat(amountEl?.value);
   if (isNaN(amount) || amount <= 0) { showToast('أدخل مبلغ العمولة', 'err'); return; }
-
+  /* (11 ت١ · C1/C2) ضغطتان على «حفظ» أنتجتا صفّي عمولة، والإضافة فوق عمولةٍ مسجَّلة (من جهاز آخر/نقطة البيع) تضاعفها.
+     الآن: قفل نقر + فحص الصفوف الموجودة من القاعدة نفسها قبل الإدراج. */
+  if (__saveCommBusy) return; __saveCommBusy = true;
   try {
+    const _ex = await sb('GET', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(invId)}&select=id,amount,paid`);
+    const _exRows = Array.isArray(_ex?.data) ? _ex.data : (Array.isArray(_ex) ? _ex : []);
+    if (_exRows.length) {
+      const tot = _exRows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+      showToast('⛔ لهذه الفاتورة عمولة مسجَّلة (' + tot.toFixed(2) + '$) — عدّلها من «تعديل العمولة» بدل إضافة عمولة ثانية', 'err');
+      try { await loadCommissions(); } catch (_) {}
+      return;
+    }
+
+    /* (١١ ت١ — Notes ٨ ت١ ٨:٥٧م) «أثناء مراجعة الفواتير عندما أدخل عمولة جديدة وأكبس حفظ لازم خلاص تتسيف… وليس أنني أرجع أضطر أعمل لها موافقة
+       على هذه العمولة — هذا غلط». الأدمن الذي يكتب العمولة بيده ويحفظها هو من وافق عليها: تُحفَظ معتمَدةً ولا تدخل قائمة «بانتظار الموافقة». */
     const res = await sb('POST', '/rest/v1/invoice_commissions', {
       invoice_id: invId,
       branch_key: branchKey,
       amount,
       note: noteEl?.value.trim() || null,
       paid: false,
+      approved: true,
+      approved_at: new Date().toISOString(),
       created_by: 'admin'
     });
     const newComm = Array.isArray(res) ? res[0] : res;
@@ -2000,6 +2093,7 @@ async function saveCommission(invId, branchKey) {
     closeModal();
     renderInvoices();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __saveCommBusy = false; }
 }
 
 /* م6 (دمج 2026-07-11): المسار القديم أُلغي — كل دفع يمر عبر شاشة الحساب الجاري
@@ -2422,9 +2516,19 @@ async function _cv3_saveComm() {
       : (_cv3_sel.note || null);
     const payload = { invoice_id:_cv3_sel.id, branch_key:_cv3_sel.branch_key,
       amount:parseFloat(comm.toFixed(2)), note:_ovNote, created_by:'admin' };
-    if (_cv3_sel._comm_id) {
-      await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${_cv3_sel._comm_id}`,
-        { amount:payload.amount, note:payload.note }, { Prefer:'return=minimal' });
+    /* (11 ت١ · V1) للفاتورة صفوفٌ عدّة (بند لكل صف): المبلغ المكتوب هو المجموع ⇒ يحمل صفٌّ واحد الفرق عن بقيّة الصفوف
+       (كان يُكتب المجموع كاملاً فوق صفٍّ واحد وتبقى البقيّة فيتضاعف المجموع 43.98 ← 63.98). وعمولة مدفوعة لا تُعدَّل. */
+    const _fr = await sb('GET', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(_cv3_sel.id)}&select=id,amount,paid&order=id.asc`);
+    const _frRows = Array.isArray(_fr?.data) ? _fr.data : (Array.isArray(_fr) ? _fr : []);
+    if (_frRows.some(r => r.paid)) throw new Error('عمولة هذه الفاتورة (كلها أو بعضها) مدفوعة بتسوية — لا تُعدَّل من هنا');
+    if (_frRows.length) {
+      const main = _frRows.find(r => String(r.id) === String(_cv3_sel._comm_id)) || _frRows[0];
+      const others = _frRows.filter(r => String(r.id) !== String(main.id)).reduce((t, r) => t + (Number(r.amount) || 0), 0);
+      const mu = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${main.id}&paid=eq.false`,
+        { amount: Math.round((payload.amount - others) * 100) / 100, note:payload.note }, { Prefer:'return=representation' });
+      const mr = Array.isArray(mu?.data) ? mu.data : (Array.isArray(mu) ? mu : []);
+      if (!mr.length) throw new Error('لم تُحدَّث العمولة (دُفعت أو حُذفت من جهاز آخر)');
+      _cv3_sel._comm_id = main.id;
     } else {
       const res = await sb('POST', '/rest/v1/invoice_commissions', {...payload, paid:false, approved:false});
       const rec = Array.isArray(res)?res[0]:res;
@@ -3124,7 +3228,7 @@ async function savePartialTransfer(branchKey, pendingFull) {
 
   const b = branches.find(x=>x.key_name===branchKey);
   try {
-    const res = await sb('POST', '/rest/v1/branch_transfers', {
+    const res = await adminCashPost({
       branch_key   : branchKey,
       amount,
       note         : note || (remaining>0.01?`تحصيل جزئي — متبقي ${remaining.toFixed(2)}$`:'تحصيل كامل'),
@@ -3217,7 +3321,7 @@ async function saveTransfer() {
   }
 
   try {
-    const res = await sb('POST', '/rest/v1/branch_transfers', {
+    const res = await adminCashPost({
       branch_key  : branchKey,
       amount,
       note        : note || null,
@@ -3580,33 +3684,75 @@ function branchDebtInvoiceRowHtml(d) {
 
 /* ═══ م6-ب (قرار المالك 2026-07-11): عمولة البيع الآجل «معلّقة» حتى يُحصَّل ثمن
    الفاتورة فعلياً. عند اكتمال التحصيل تُحرَّر فتصبح قابلة للموافقة والتسوية. ═══ */
+/* ══ (11 ت١ · D17) تحصيلٌ واحد موثوق: يقرأ الفاتورة من القاعدة، يتحقق من المبلغ، ويكتب بشرط (remaining الحالية) ثم يعدّ الصفوف.
+   الجذر: التحصيل كان يحسب «المدفوع = المحلي السابق + الدفعة» من نسخة الشاشة ⇒ جهازان يحصّلان معاً فتضيع دفعة (paid=50 بدل 90)،
+   والضغطتان تُسجّلان التحصيل مرّتين، و«تحصيل كامل ديون الفرع» لا يحرّر عمولاتها المعلّقة أبداً. ══ */
+async function applyInvoiceCollection(invId, amount) {
+  amount = Math.round((Number(amount) + 1e-9) * 100) / 100;
+  if (!(amount > 0)) throw new Error('مبلغ غير صحيح');
+  /* 🔴 (مراجعة ACCT-9) أوردر الشحن المرتبط بالفاتورة يكتب تحصيلاً type='collection' يُدخل الصندوق ثمنَ الفاتورة، ولا يُحدّث الفاتورة نفسها
+     (فيبقى دينها مفتوحاً). تحصيلها هنا أيضاً يُضاعف النقد. ننبّه قبل الكتابة بدل أن يمرّ بصمت. */
+  { const _dup = (allTransfers || []).filter(t => t && t.type === 'collection' && (String(t.invoice_id || '') === String(invId) || String(t.note || '').indexOf('invoice_id=' + invId) >= 0));
+    if (_dup.length) {
+      const got = _dup.reduce((s2, t) => s2 + Math.abs(Number(t.amount) || 0), 0);
+      if (!await GMTAsk.confirm('⚠️ حُصِّل ثمنٌ لهذه الفاتورة سابقاً عبر أوردر الشحن (' + got.toFixed(2) + '$ دخلت الصندوق).\nتحصيلها هنا أيضاً يُدخل الصندوق مرّةً ثانية.\n\nاضغط «موافق» فقط إن كان هذا مبلغاً إضافياً فعلياً قبضتَه الآن.', { title: 'خطر تحصيلٍ مزدوج' }))
+        throw new Error('أُلغي تفادياً للتحصيل المزدوج مع تحصيل أوردر الشحن');
+    } }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const fr = await sb('GET', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}&select=id,total,paid_amount,remaining_amount,payment_status`);
+    const fl = Array.isArray(fr?.data) ? fr.data : (Array.isArray(fr) ? fr : []);
+    const f = fl[0]; if (!f) throw new Error('الفاتورة غير موجودة');
+    const hasRem = f.remaining_amount != null && f.remaining_amount !== '';
+    const rem = Math.round((hasRem ? Number(f.remaining_amount) : Math.max(0, (Number(f.total) || 0) - (Number(f.paid_amount) || 0))) * 100) / 100;
+    if (rem <= 0.004) throw new Error('هذه الفاتورة محصَّلة بالكامل مسبقاً');
+    if (amount > rem + 0.004) throw new Error('المبلغ (' + amount.toFixed(2) + '$) أكبر من المتبقّي (' + rem.toFixed(2) + '$)');
+    const paidPrev = Number(f.paid_amount) || 0;
+    const newRem = Math.round(Math.max(0, rem - amount) * 100) / 100;
+    const body = { payment_status: newRem <= 0.004 ? 'paid' : 'partial', paid_amount: Math.round((paidPrev + amount) * 100) / 100, remaining_amount: newRem };
+    const cond = hasRem ? `remaining_amount=eq.${f.remaining_amount}` : 'remaining_amount=is.null';
+    const up = await sb('PATCH', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}&${cond}`, body, { Prefer: 'return=representation' });
+    const ur = Array.isArray(up?.data) ? up.data : (Array.isArray(up) ? up : []);
+    if (ur.length === 1) {
+      try { const a = (allDebts || []).find(x => String(x.id) === String(invId)); if (a) Object.assign(a, body); } catch (_) {}
+      try { const ai = (allInvoices || []).find(x => String(x.id) === String(invId)); if (ai) Object.assign(ai, body); } catch (_) {}
+      try { await GMTAudit?.log?.({ action: 'invoice_collect', entity: 'invoices', entityId: String(invId), reason: 'تحصيل ' + amount.toFixed(2) + '$ — المتبقّي ' + newRem.toFixed(2) + '$' }); } catch (_) {}
+      return { amount, remaining: newRem, paid: body.paid_amount, complete: newRem <= 0.004 };
+    }
+    // تغيّرت الفاتورة بين القراءة والكتابة (تحصيل من جهاز آخر) ⇒ نُعيد القراءة
+  }
+  throw new Error('تغيّرت الفاتورة من جهاز آخر أثناء التحصيل — حدّث الصفحة وأعد المحاولة');
+}
 async function releaseCommOnCollect(invId) {
   try {
-    const c = allComm.find(x => x.invoice_id === invId && x.awaiting_collection);
-    if (!c) return;
-    await sb('PATCH', `/rest/v1/invoice_commissions?invoice_id=eq.${invId}`,
-      { awaiting_collection: false }, { Prefer: 'return=minimal' });
-    allComm.forEach(x => { if (x.invoice_id === invId) x.awaiting_collection = false; });
-    showToast('💜 تحرّرت عمولة الفاتورة الآجلة — صارت مستحقة', 'ok');
-  } catch (e) { console.warn('[comm] تعذّر تحرير عمولة الآجل:', e.message); }
+    /* (11 ت١) الشرط على القاعدة لا على النسخة المحلية المتقادمة، ومقارنة المعرّف نصّاً (رقم/نصّ)، ويُتحقَّق من وجود صفوف حُرِّرت */
+    const r = await sb('PATCH', `/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(invId)}&awaiting_collection=eq.true`,
+      { awaiting_collection: false }, { Prefer: 'return=representation' });
+    const rows = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : []);
+    allComm.forEach(x => { if (String(x.invoice_id) === String(invId)) x.awaiting_collection = false; });
+    if (rows.length) showToast('💜 تحرّرت عمولة الفاتورة الآجلة — صارت مستحقة', 'ok');
+  } catch (e) { console.warn('[comm] تعذّر تحرير عمولة الآجل:', e.message); showToast('⚠️ تعذّر تحرير عمولة الفاتورة — حرّرها يدوياً', 'err'); }
 }
 
 // خيار 1: تحصيل كامل المبلغ + تسجيل العمولة كدين عليّ (الإدارة)
+let __collectBusy = false;
 async function collectDebtInvoice(invId, mode, remaining, commAmount) {
+  if (__collectBusy) return;
   const label = mode === 'full_with_comm' ? 'تحصيل كامل + العمولة كدين علي' : 'تحصيل مع اقتطاع العمولة';
   if (!await GMTAsk.confirm(`${label}\nالمبلغ: ${remaining.toFixed(2)}$${commAmount>0?` (عمولة: ${commAmount.toFixed(2)}$)`:''}`)) return;
+  __collectBusy = true;
   try {
-    await releaseCommOnCollect(invId);   // م6-ب: تحرير عمولة الآجل عند التحصيل الكامل
-    await sb('PATCH', `/rest/v1/invoices?id=eq.${invId}`,
-      /* (٨ ت) المدفوع = ما دُفع سابقاً + الباقي المُحصَّل الآن (لا الباقي وحده) */
-      { payment_status: 'paid', paid_amount: Math.round(((Number(((allDebts || []).find(x => String(x.id) === String(invId)) || {}).paid_amount) || 0) + remaining) * 100) / 100, remaining_amount: 0 },
-      { Prefer:'return=minimal' });
+    // المتبقّي الفعلي من القاعدة (لا من نسخة الشاشة) — وبلا ضياع دفعة جهازٍ آخر
+    const res = await applyInvoiceCollection(invId, remaining);
+    if (res.complete) await releaseCommOnCollect(invId);   // م6-ب: تحرير عمولة الآجل عند التحصيل الكامل
 
     if (mode === 'full_with_comm' && commAmount > 0) {
-      // العمولة تُسجَّل كدين على الإدارة (يُسجَّل في الديون اليدوية كـ i_owe)
-      const inv = allDebts.find(d => String(d.id) === String(invId));
-      await sb('POST', '/rest/v1/gmt_manual_debts', {
-        direction: 'i_owe', person_name: (inv?.branch_name||'فرع') + ' — عمولة فاتورة #' + (inv?.inv_number||''),
+      // العمولة تُسجَّل كدين على الإدارة (يُسجَّل في الديون اليدوية كـ i_owe) — مرّةً واحدة لكل فاتورة
+      const inv = allDebts.find(d => String(d.id) === String(invId)) || {};
+      const who = (inv.branch_name||'فرع') + ' — عمولة فاتورة #' + (inv.inv_number||'');
+      let dup = false;
+      try { dup = (await sb('GET', `/rest/v1/gmt_manual_debts?person_name=eq.${encodeURIComponent(who)}&direction=eq.i_owe&select=id&limit=1`) || []).length > 0; } catch (_) {}
+      if (!dup) await sb('POST', '/rest/v1/gmt_manual_debts', {
+        direction: 'i_owe', person_name: who,
         amount: commAmount, note: 'عمولة محصَّلة مع الفاتورة — مستحقة للفرع',
         settled: false, created_at: new Date().toISOString(),
       });
@@ -3620,62 +3766,58 @@ async function collectDebtInvoice(invId, mode, remaining, commAmount) {
       }
     }
 
-    allDebts = allDebts.filter(d => d.id !== invId);
+    allDebts = allDebts.filter(d => String(d.id) !== String(invId));
     await loadManualDebts();
     showToast('✅ تم التحصيل', 'ok');
     closeModal();
     renderDebts();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __collectBusy = false; }
 }
 
 // خيار 2: تحصيل مبلغ جزئي — الباقي يبقى ديناً
 async function collectDebtPartial(invId, remaining) {
+  if (__collectBusy) return;
   const amountStr = await GMTAsk.prompt(`أدخل المبلغ المُحصَّل من أصل ${remaining.toFixed(2)}$:`);
   if (amountStr === null) return;
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0 || amount > remaining) { showToast('مبلغ غير صحيح', 'err'); return; }
-
+  const amount = parseFloat(String(amountStr).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,٫]/g, '.'));
+  if (isNaN(amount) || amount <= 0 || amount > remaining + 0.004) { showToast('مبلغ غير صحيح', 'err'); return; }
+  __collectBusy = true;
   try {
-    const newRemaining = remaining - amount;
-    const newStatus = newRemaining <= 0.01 ? 'paid' : 'partial';
-    /* (٨ ت — تدقيق المطابقة) كان `paid_amount: amount` يكتب الدفعة الأخيرة فوق المدفوع سابقاً (50 + 50 ⇐ 50) —
-       فينقص المقبوض في الصندوق والمحاسبة. المدفوع = السابق + هذه الدفعة. */
-    const _dInv = (allDebts || []).find(x => String(x.id) === String(invId)) || (allInvoices || []).find(x => String(x.id) === String(invId)) || {};
-    const _prevPaid = Number(_dInv.paid_amount) || 0;
-    const _newPaid = Math.round((_prevPaid + amount) * 100) / 100;
-    await sb('PATCH', `/rest/v1/invoices?id=eq.${invId}`,
-      { payment_status: newStatus, paid_amount: _newPaid, remaining_amount: Math.max(0,newRemaining) },
-      { Prefer:'return=minimal' });
-    try { const _ai = (allInvoices || []).find(x => String(x.id) === String(invId)); if (_ai) { _ai.paid_amount = _newPaid; _ai.remaining_amount = Math.max(0, newRemaining); _ai.payment_status = newStatus; } } catch (_) {}
-
-    if (newStatus === 'paid') {
+    const res = await applyInvoiceCollection(invId, amount);   // المدفوع = ما في القاعدة الآن + هذه الدفعة (لا نسخة الشاشة)
+    if (res.complete) {
       await releaseCommOnCollect(invId);   // م6-ب: اكتمل السداد → تُستحق العمولة
-      allDebts = allDebts.filter(d => d.id !== invId);
-    } else {
-      const d = allDebts.find(x => String(x.id) === String(invId));
-      if (d) { d.remaining_amount = newRemaining; d.payment_status = 'partial'; d.paid_amount = _newPaid; }
+      allDebts = allDebts.filter(d => String(d.id) !== String(invId));
     }
-    showToast(`✅ تم تحصيل ${amount.toFixed(2)}$ — الباقي ${Math.max(0,newRemaining).toFixed(2)}$ في صندوق الفرع`, 'ok');
+    showToast(`✅ تم تحصيل ${amount.toFixed(2)}$ — الباقي ${res.remaining.toFixed(2)}$ في صندوق الفرع`, 'ok');
     closeModal();
     renderDebts();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { __collectBusy = false; }
 }
 
-// تحصيل كل ديون فرع دفعة واحدة
+// تحصيل كل ديون فرع دفعة واحدة — فاتورةً فاتورة (متتابعة)، وتُحرَّر عمولات الآجل، ويُبلَّغ بما فشل
 async function collectAllBranchDebts(branchKey, total) {
+  if (__collectBusy) return;
   if (!await GMTAsk.confirm(`تحصيل كامل ديون هذا الفرع (${total.toFixed(2)}$)؟`)) return;
   const items = allDebts.filter(d => (d.branch_key||'unknown') === branchKey);
+  __collectBusy = true;
+  let okN = 0; const bad = [];
   try {
-    await Promise.all(items.map(d =>
-      sb('PATCH', `/rest/v1/invoices?id=eq.${d.id}`,
-        { payment_status: 'paid', paid_amount: Math.round(((Number(d.paid_amount) || 0) + (Number(d.remaining_amount ?? d.total) || 0)) * 100) / 100, remaining_amount: 0 },   /* (٨ ت) السابق + الباقي */
-        { Prefer:'return=minimal' })
-    ));
-    allDebts = allDebts.filter(d => (d.branch_key||'unknown') !== branchKey);
-    showToast('✅ تم تحصيل كامل ديون الفرع', 'ok');
+    for (const d of items) {
+      try {
+        const rem = Number(d.remaining_amount != null && d.remaining_amount !== '' ? d.remaining_amount : (Number(d.total) || 0) - (Number(d.paid_amount) || 0)) || 0;
+        const res = await applyInvoiceCollection(d.id, rem);
+        if (res.complete) await releaseCommOnCollect(d.id);
+        okN++;
+      } catch (e) { bad.push('#' + (d.inv_number || d.id) + ': ' + ((e && e.message) || e)); }
+    }
+    allDebts = allDebts.filter(d => !((d.branch_key||'unknown') === branchKey && !bad.some(b => b.indexOf('#' + (d.inv_number || d.id) + ':') === 0)));
+    if (bad.length) showToast('⚠️ حُصِّلت ' + okN + ' وتعذّرت ' + bad.length + ' — ' + bad[0], 'err');
+    else showToast('✅ تم تحصيل كامل ديون الفرع (' + okN + ' فاتورة)', 'ok');
     closeModal();
     renderDebts();
-  } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
+  } finally { __collectBusy = false; }
 }
 
 
@@ -3694,7 +3836,7 @@ async function loadPurchases() {
 
 async function loadExpenses() {
   try {
-    const rows = await sb('GET', '/rest/v1/gmt_expenses?order=created_at.desc&limit=2000');
+    const rows = await _sbAll('/rest/v1/gmt_expenses?order=created_at.desc');   /* (مراجعة ACCT-13) كلّها صفحةً صفحة — الصندوق المتراكم يحتاج كل المصاريف */
     allExpenses = (Array.isArray(rows) ? rows : []).filter(r => !r.voided);   // إخفاء المُبطَل (يبقى بالقاعدة للتدقيق)
   } catch(e) { allExpenses = []; }
 }
@@ -3705,7 +3847,9 @@ function renderExpenses() {
 
   const pending  = list.filter(e => !e.approved);
   const approved = list.filter(e => e.approved);
-  const totalApprovedUSD = approved.reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
+  const _isPO = (e) => !!(window.GMTLedger && GMTLedger.poInfo(e));
+  const totalApprovedUSD = approved.filter(e => !_isPO(e)).reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
+  const totalPOUSD = approved.filter(_isPO).reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
 
   c.innerHTML = `
     ${branchFilterHtml()}
@@ -3733,6 +3877,7 @@ function renderExpenses() {
       <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;text-align:center;">
         <div style="font-size:10px;font-weight:800;color:#991b1b;">إجمالي المصاريف المعتمدة</div>
         <div style="font-size:18px;font-weight:900;color:#dc2626;">${totalApprovedUSD.toFixed(2)}$</div>
+        ${Math.abs(totalPOUSD) > 0.004 ? `<div style="font-size:10px;font-weight:800;color:#0f766e;margin-top:4px;">+ ${totalPOUSD.toFixed(2)}$ مشتريات وجمارك من فواتير الشراء (خروج نقد، ليست مصروف ربح)</div>` : ''}
       </div>
     </div>
 
@@ -3788,6 +3933,7 @@ async function approveAllPendingExpenses() {
 window.approveAllPendingExpenses = approveAllPendingExpenses;
 
 function expenseCardHtml(e) {
+  const _poT = window.GMTLedger ? GMTLedger.poInfo(e) : null;
   const dateStr = new Date(e.created_at).toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
   const b = branches.find(x => x.key_name === e.branch_key);
   const currencyLabel = e.currency === 'usd' ? '$' : 'ل.س';
@@ -3799,7 +3945,8 @@ function expenseCardHtml(e) {
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
       <div style="min-width:0;flex:1;">
         <div style="font-size:13px;font-weight:900;">${escH(e.title||'مصروف')}${e.kind ? ` <span style="font-size:10px;font-weight:800;background:#f1f5f9;color:#475569;border-radius:6px;padding:1px 7px;">${escH(e.kind)}</span>` : ''}${!e.approved ? ` <span style="font-size:10px;font-weight:900;background:#fef3c7;color:#b45309;border-radius:6px;padding:1px 7px;">بانتظار موافقتك</span>` : ''}</div>
-        ${e.requested_by ? `<div style="font-size:11px;color:var(--text3);font-weight:700;">سجّله: ${escH(e.requested_by)}</div>` : ''}
+        ${e.requested_by ? `<div style="font-size:11px;color:var(--text3);font-weight:700;">${_poT ? 'دفعها' : 'سجّله'}: ${escH(e.requested_by)}</div>` : ''}
+        ${_poT ? `<div style="font-size:10.5px;font-weight:800;color:#0f766e;margin-top:2px;">🔗 مرتبط بفاتورة شراء #${escH((allPurchases.find(x => String(x.id) === String(_poT.pid)) || {}).inv_number || _poT.pid)} — يتبدّل تلقائياً مع تعديلها (عدّلها من فاتورة الشراء)</div>` : ''}
         <div style="font-size:11px;color:var(--text3);font-weight:700;margin-top:2px;">
           ${e.branch_key ? `${b?.icon||'🏪'} ${escH(b?.display_name||e.branch_key)} · ` : '🏢 عام (إدارة) · '}${dateStr}
         </div>
@@ -3823,9 +3970,9 @@ function expenseCardHtml(e) {
         <button onclick="approveExpense('${e.id}')"
           style="background:#dcfce7;color:#15803d;border:1.5px solid #86efac;border-radius:7px;padding:5px 10px;
                  font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;">✅ موافقة</button>` : ''}
-        <button onclick="deleteExpense('${e.id}')"
+        ${_poT ? '' : `<button onclick="deleteExpense('${e.id}')"
           style="background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);border-radius:7px;padding:5px 10px;
-                 font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;">🗑</button>
+                 font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;">🗑</button>`}
       </div>
     </div>
   </div>`;
@@ -4021,6 +4168,8 @@ async function editExpenseAmount(id) {
 }
 
 async function deleteExpense(id) {
+  const _e = allExpenses.find(x => String(x.id) === String(id));
+  if (_e && window.GMTLedger && GMTLedger.poInfo(_e)) { showToast('هذا الصفّ يتبع فاتورة شراء — عدّل الدفعة من فاتورة الشراء فيتبدّل هنا تلقائياً', 'err'); return; }
   // ADM-4 (2026-08-03): المصاريف سجلّ مالي — تُبطَل مع أثر بدل الحذف النهائي.
   const reason = await GMTAsk.prompt('⚠️ إبطال المصروف\n\nلا يُحذف — يبقى بالقاعدة للتدقيق ويُخفى من القائمة.\nاكتب سبب الإبطال (إجباري):');
   if (reason === null) return;
@@ -4030,7 +4179,23 @@ async function deleteExpense(id) {
       { voided:true, voided_at:new Date().toISOString(), voided_by:'admin', void_reason:reason.trim() },
       { Prefer:'return=minimal' });
     allExpenses = allExpenses.filter(x => x.id !== id);
-    showToast('✅ أُبطل المصروف (محفوظ للتدقيق)', 'ok');
+    /* 🔴 (مراجعة ACCT-7) مصروفٌ معتمد دُفع من درج فرعٍ خُصم من صندوقه بحركة type='expense' — إبطاله بلا عكس تلك الحركة يُبقي الدرج ناقصاً للأبد
+       بينما يُمحى المصروف من الربح. نعكسها بحركةٍ موجبة (استرداد) بنفس القيمة. */
+    let _reverted = '';
+    if (_e && _e.approved && _e.branch_key && window.GMTLedger && GMTLedger.cashSource(_e) === 'branch') {
+      try {
+        const b = branches.find(x => x.key_name === _e.branch_key);
+        const usdAmt = Math.abs(GMTLedger.usd(_e));
+        const res = await adminCashPost({
+          branch_key: _e.branch_key, branch_name: b?.display_name || _e.branch_key, amount: usdAmt, type: 'expense',
+          note: 'إبطال مصروف: ' + (_e.title || '') + ' — استرداد لصندوق الفرع', created_by: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة', created_at: new Date().toISOString()
+        });
+        const t = Array.isArray(res) ? res[0] : (Array.isArray(res?.data) ? res.data[0] : res);
+        if (t && t.branch_key) allTransfers.push(t);
+        _reverted = ' · أُعيد ' + usdAmt.toFixed(2) + '$ لصندوق الفرع';
+      } catch (e2) { _reverted = ' · ⚠️ تعذّر عكس خصم الصندوق: ' + ((e2 && e2.message) || e2); }
+    }
+    showToast('✅ أُبطل المصروف (محفوظ للتدقيق)' + _reverted, _reverted.indexOf('⚠️') >= 0 ? 'err' : 'ok');
     renderExpenses();
   } catch(e) { showToast('خطأ: ' + e.message + ' — شغّل _SQL/1️⃣2️⃣ لتفعيل الإبطال', 'err'); }
 }
@@ -4040,7 +4205,7 @@ async function deductExpenseFromBranchCashbox(branchKey, amount, currency, excha
   try {
     const usdAmount = currency === 'usd' ? amount : amount / (Number(exchangeRate)|| (window.GMT_DEFAULT_RATE||140));
     const b = branches.find(x => x.key_name === branchKey);
-    await sb('POST', '/rest/v1/branch_transfers', {
+    await adminCashPost({
       branch_key  : branchKey,
       branch_name : b?.display_name || branchKey,
       amount      : -Math.abs(usdAmount),   // سالب = خصم من الصندوق
@@ -4406,11 +4571,41 @@ function viewCustomerInvoices(phone, name) {
 let _aiCart = [];          // بنود الفاتورة: [{id, name, barcode, price, qty, stock}]
 let _aiProducts = [];      // كل المنتجات (تُحمّل مرة)
 
+/* ══ (11 ت١ · طلب المالك) «ادخل نقطة البيع كأني موظّف فيها وأنا الأدمن، بنفس واجهتهم تماماً» ══
+   يفتح نقطة البيع نفسها (pos.html) على فرع تختاره: مخزونه وكاشيره كما يراهما الموظف. الجلسة في sessionStorage (هذا التبويب فقط) فلا تمسّ
+   جلسة أيّ موظف على الجهاز. كل فاتورة تُكتب باسمك «الأدمن …» ومعها ملاحظة «نيابةً عن نقطة X»، ولا عمولة تلقائية لها. شريط ثابت أعلى الصفحة
+   يذكّرك بأنك داخل كأدمن وفيه زرّ الخروج. */
+async function adminEnterPos(branchKey) {
+  const b = (branches || []).find(x => x.key_name === branchKey);
+  if (!b) { showToast('اختر نقطة بيع', 'err'); return; }
+  if (!(await GMTRole.requireAdmin('الدخول إلى نقطة بيع كموظف'))) return;
+  let nm = '';
+  try { nm = ((window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}
+  if (!nm) {
+    const n = await GMTAsk.prompt('اكتب اسمك — يُكتب على كل فاتورة تنشئها داخل نقطة البيع («الأدمن …»).', { title: 'اسم الأدمن', okText: 'متابعة' });
+    if (n === null || !String(n).trim()) return;
+    nm = String(n).trim();
+    try { localStorage.setItem('gmt_operator_name', nm); } catch (_) {}
+  }
+  try { sessionStorage.setItem('gmt_acting', JSON.stringify({ branch_key: b.key_name, branch_name: b.display_name || b.key_name, admin: nm, at: Date.now() })); } catch (_) { showToast('تعذّر فتح الجلسة (التخزين محجوب)', 'err'); return; }
+  try { await GMTAudit?.log?.({ action: 'admin_enter_pos', entity: 'pos', entityId: b.key_name, entityName: b.display_name || b.key_name, reason: 'دخول الأدمن ' + nm + ' إلى نقطة البيع كموظف' }); } catch (_) {}
+  location.href = 'pos.html?acting=1';
+}
+window.adminEnterPos = adminEnterPos;
+
 async function renderAdminInvoice() {
   const c = document.getElementById('app-content');
+  const _posBtns = (branches || []).filter(b => !isExcludedBranch(b.key_name)).map(b =>
+    `<button type="button" onclick="adminEnterPos('${escH(b.key_name)}')" style="padding:11px 16px;border:1.5px solid var(--border);border-radius:11px;background:var(--surface);font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">${escH(b.display_name || b.key_name)}</button>`).join('');
   c.innerHTML = `
     <div style="max-width:800px;margin:0 auto;">
-      <h2 style="font-size:18px;font-weight:900;margin:0 0 4px;">🧾 إنشاء فاتورة من الإدارة</h2>
+      <div style="background:#0f1219;color:#fff;border-radius:16px;padding:16px 16px 14px;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:900;">ادخل نقطة بيع كموظّف فيها</div>
+        <div style="font-size:12.5px;opacity:.82;margin:4px 0 12px;line-height:1.8;">تفتح واجهة الكاشير نفسها (مخزون النقطة وأسعارها وفواتيرها) وأنت الأدمن. تُكتب فواتيرك باسمك ومعها «نيابةً عن النقطة»، ولا عمولة لها تلقائياً.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${_posBtns || '<span style="opacity:.7;font-size:12px">لا توجد نقاط بيع</span>'}</div>
+      </div>
+      <details style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:800;font-size:13px;color:var(--text2);padding:6px 2px;">أو نموذج الفاتورة المبسّط من الإدارة (بدون واجهة الكاشير)</summary>
+      <h2 style="font-size:18px;font-weight:900;margin:10px 0 4px;">🧾 إنشاء فاتورة من الإدارة</h2>
       <p style="font-size:12px;color:var(--text2);margin:0 0 16px;">تُخصم الكمية من مخزون الفرع المحدد، وتظهر للفرع كفاتورة تحتاج تنفيذ (طباعة/تسليم).</p>
 
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;">
@@ -4478,6 +4673,7 @@ async function renderAdminInvoice() {
       <button onclick="aiCreateInvoice()" id="ai-create-btn" style="width:100%;padding:15px;background:linear-gradient(135deg,#15803d,#22c55e);color:#fff;border:none;border-radius:13px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:900;cursor:pointer;">
         ✅ إنشاء الفاتورة وخصمها من مخزون الفرع
       </button>
+      </details>
     </div>`;
 
   // تحميل المنتجات مرة
@@ -4677,7 +4873,12 @@ function aiUpdateTotal() {
   if (el) el.textContent = total.toFixed(2) + ' $';
 }
 
-async function aiCreateInvoice() {
+let __aiBusy = false;
+async function aiCreateInvoice() {   /* (11 ت١ · D3) قفل نقر يشمل نافذة التأكيد (كانت الأزرار تُعطَّل بعدها فقط ⇒ ضغطتان = فاتورتان) */
+  if (__aiBusy) return; __aiBusy = true;
+  try { return await _aiCreateInvoiceInner(); } finally { __aiBusy = false; }
+}
+async function _aiCreateInvoiceInner() {
   const branchKey = document.getElementById('ai-branch').value;
   const branchObj = branches.find(b => b.key_name === branchKey);
   const branchName = branchObj?.display_name || branchKey;
@@ -4695,6 +4896,18 @@ async function aiCreateInvoice() {
 
   if (!await GMTAsk.confirm(`إنشاء فاتورة من الإدارة على فرع "${branchName}":\n\n• المنتجات: ${_aiCart.length} (${itemsCount} قطعة)\n• الإجمالي: ${total.toFixed(2)}$\n• العمولة: ${withCommission ? 'نعم' : 'لا'}\n\nسيُخصم من مخزون الفرع فوراً، وتظهر للفرع كفاتورة تحتاج تنفيذ.`)) return;
 
+  /* (٢٠٢٦-١٠-١١ · ملاحظات ٨ ت١ ٨:٠٧م) «فواتير اللي بينشاها الأدمن… ينكتب إنه تم الإنشاء بواسطة الأدمن الفلاني».
+     كان cashier_name = اسم الفرع عمداً «ليظهر كأن الفرع أنشأها» ⇒ لا أثر لمن أنشأها فعلاً. الآن يُكتب اسم الأدمن
+     (يُسأل مرّةً واحدة على هذا الجهاز ويُحفظ بنفس مفتاح «اسم المشغّل» في الأوردرات). والفرع يبقى في branch_key/branch_name. */
+  let _admName = '';
+  try { _admName = ((window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}   /* الأدمن بحساب باسمه ⇒ اسمه */
+  if (!_admName) {
+    const _n = await GMTAsk.prompt('اكتب اسمك — يُكتب على كل فاتورةٍ تنشئها من الإدارة («تم الإنشاء بواسطة الأدمن …»). مرّةً واحدة على هذا الجهاز.', { title: 'اسم الأدمن', okText: 'حفظ' });
+    if (_n === null || !String(_n).trim()) { showToast('لم تُنشأ الفاتورة — اسم الأدمن مطلوب', 'err'); return; }
+    _admName = String(_n).trim();
+    try { localStorage.setItem('gmt_operator_name', _admName); } catch (_) {}
+  }
+
   const btn = document.getElementById('ai-create-btn');
   btn.disabled = true; btn.textContent = 'جارٍ الإنشاء...';
 
@@ -4709,25 +4922,33 @@ async function aiCreateInvoice() {
       inv_number: invNumber,
       branch_key: branchKey,
       branch_name: branchName,
-      total: total,
+      total: Math.round(total * 100) / 100,
       items_count: itemsCount,
+      discount_amount: discount > 0 ? Math.round(Math.min(discount, subtotal) * 100) / 100 : null,   /* (11 ت١ · D2) كان الخصم يُطرح من الإجمالي ولا يُسجَّل فلا يظهر بالتقارير */
       customer_name: customer || null,
       customer_phone: ((document.getElementById('ai-phone') || {}).value || '').trim() || null,
       sale_type: 'نقدي',
       payment_status: 'paid',   /* (٨ ت) كانت 'مدفوعة' هنا و'paid' في كل مكان آخر */
-      cashier_name: branchName,   // تظهr كأن الفرع أنشأها
+      cashier_name: 'الأدمن ' + _admName,   // (١١ ت١) من أنشأها فعلاً — لا اسم الفرع
       created_by_admin: true,
       admin_exec_status: 'pending',
-      notes: 'تم الإنشاء بواسطة الإدارة (أدمن)',
+      notes: 'تم الإنشاء بواسطة الإدارة — الأدمن ' + _admName,
       created_at: now,
     };
     if (_lo) { invPayload.order_id = _lo.id; invPayload.order_serial = _lo.serial_code || null; }
     let invRes;
-    try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); }
-    catch (e1) {
-      if (!_lo) throw e1;   /* القاعدة لا تعرف order_serial/order_id ⇒ نحفظ الفاتورة بلا العمودين، والربط يبقى على الأوردر */
-      delete invPayload.order_serial;
-      try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); } catch (e2) { delete invPayload.order_id; invRes = await sb('POST', '/rest/v1/invoices', invPayload); }
+    for (let tries = 0; ; tries++) {      /* إسقاطٌ دقيق للعمود الناقص وحده ثم إعادة المحاولة */
+      try { invRes = await sb('POST', '/rest/v1/invoices', invPayload); break; }
+      catch (e0) {
+        const m = String((e0 && e0.message) || '');
+        if (tries > 4) throw e0;
+        if (/discount_amount/i.test(m) && 'discount_amount' in invPayload) { delete invPayload.discount_amount; continue; }
+        if (_lo && /order_serial/i.test(m) && 'order_serial' in invPayload) { delete invPayload.order_serial; continue; }
+        if (_lo && /order_id/i.test(m) && 'order_id' in invPayload) { delete invPayload.order_id; continue; }
+        if (_lo && 'order_serial' in invPayload) { delete invPayload.order_serial; continue; }   /* القاعدة لا تعرف order_serial/order_id ⇒ نحفظ بلا العمودين، والربط يبقى على الأوردر */
+        if (_lo && 'order_id' in invPayload) { delete invPayload.order_id; continue; }
+        throw e0;
+      }
     }
     const invId = Array.isArray(invRes) && invRes[0] ? invRes[0].id : null;
     let orderLinkErr = '';
@@ -4752,7 +4973,19 @@ async function aiCreateInvoice() {
         unit_price: it.price,
         total: it.price * it.qty,
       }));
-      await sb('POST', '/rest/v1/invoice_items', itemsPayload).catch(() => {});
+      /* (11 ت١ · D4) كان `.catch(() => {})` ⇒ فاتورة بلا بنود يُخصم مخزونها ويُعلَن نجاحها. الآن: فشل البنود = إلغاء الفاتورة قبل أي خصم. */
+      let _itErr = null;
+      try { await sb('POST', '/rest/v1/invoice_items', itemsPayload); }
+      catch (e1) { _itErr = e1; }
+      if (_itErr && /Could not find the '(?:[^']+)' column|column/i.test(String(_itErr.message || ''))) {      // عمود ناقص: barcode مثلاً ⇒ بلا الحقول الاختيارية
+        try { await sb('POST', '/rest/v1/invoice_items', itemsPayload.map(r => { const { barcode, ...rest } = r; return rest; })); _itErr = null; } catch (e2) { _itErr = e2; }
+      }
+      if (_itErr) {
+        let gone = false;
+        try { const dr = await sb('DELETE', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}`); gone = Array.isArray(dr) ? dr.length > 0 : true; } catch (_) {}
+        if (gone && _lo) { try { await sb('PATCH', `/rest/v1/gmt_orders?id=eq.${encodeURIComponent(_lo.id)}&invoice_id=eq.${encodeURIComponent(invId)}`, { invoice_id: null, invoice_number: null, linked_invoice_id: null, is_locked: false }, { Prefer: 'return=minimal' }); } catch (_) {} }
+        throw new Error('تعذّر حفظ بنود الفاتورة (' + (_itErr.message || _itErr) + ')' + (gone ? ' — أُلغيت الفاتورة ولم يُخصم شيء' : ' — ⛔ تعذّر إلغاء الفاتورة، أبلغ الإدارة'));
+      }
     }
 
     // 4. خصم المخزون من الفرع — (٨ ت — تدقيق المطابقة) كان ينادي `decrement_branch_stock` وهي غير موجودة في أيّ
@@ -4774,8 +5007,16 @@ async function aiCreateInvoice() {
     let commError = '';
     if (withCommission && invId) {
       try {
+        /* (11 ت١ · D2) كان amount:0 دائماً («سجلّ فارغ») — الآن عمولة محسوبة بنفس صيغة نقطة البيع: (سعر البيع الفعلي بعد الخصم − الجملة) × النسبة × الكمية */
+        let _rate = 0.5;
+        try { const rr = await sb('GET', '/rest/v1/gmt_settings?key=eq.commission_rate&select=value'); const v = parseFloat(((Array.isArray(rr?.data) ? rr.data : rr)[0] || {}).value); if (isFinite(v) && v >= 0 && v <= 1) _rate = v; } catch (_) {}
+        let _wsMap = {};
+        try { const pr = await sb('GET', `/rest/v1/products?id=in.(${_aiCart.map(it => it.id).join(',')})&select=id,wholesale_price`); (Array.isArray(pr?.data) ? pr.data : pr).forEach(r => { _wsMap[String(r.id)] = Number(r.wholesale_price) || 0; }); } catch (_) {}
+        const _ratio = subtotal > 0 ? Math.max(0, Math.min(1, total / subtotal)) : 1;
+        const _cAmt = Math.round(_aiCart.reduce((t, it) => { const ws = _wsMap[String(it.id)] || 0; return ws > 0 ? t + (it.price * _ratio - ws) * _rate * it.qty : t; }, 0) * 100) / 100;
         await sb('POST', '/rest/v1/invoice_commissions', {
-          invoice_id: invId, branch_key: branchKey, amount: 0, approved: false, paid: false, created_at: now,
+          invoice_id: invId, branch_key: branchKey, amount: _cAmt, approved: false, paid: false, created_at: now,
+          cashier_name: 'الأدمن ' + _admName, note: 'عمولة فاتورة إدارة — محسوبة تلقائياً (راجعها وعدّل)', created_by: 'admin',
         });
       } catch(e) {
         /* 🔧 (2026-08-23) [P1] كان `catch(e) {}` فارغاً ⇒ فشل إنشاء سجلّ العمولة
@@ -4808,7 +5049,9 @@ ${stockErrors ? `⚠️ تعذّر خصم ${stockErrors} منتج من المخ�
 
     showToast(stockErrors ? `⚠️ أُنشئت الفاتورة لكن تعذّر خصم ${stockErrors} منتج` : (commError ? '⚠️ أُنشئت الفاتورة لكن فشل سجلّ العمولة — أضِفها يدوياً' : (orderLinkErr ? '⚠️ أُنشئت الفاتورة لكن تعذّر ربطها بالأوردر — اربطه من الأوردرات' : '✅ تم إنشاء الفاتورة وخصمها من الفرع' + (_lo ? ' وربطها بالأوردر #' + (_lo.serial_code || _lo.id) : ''))), (stockErrors||commError||orderLinkErr) ? 'err' : 'ok');
     _aiCart = []; _aiLinkedOrder = null;
-    renderAdminInvoice();
+    /* (٨ ج) طلبك: «لما أنشئ فاتورة فوراً تعرض لي شاشة الفواتير الأساسية» — نحدّث القائمة ثم نفتحها بدل إعادة رسم نموذج الإنشاء */
+    try { await Promise.all([loadInvoices(), loadCommissions()]); } catch (_) {}
+    try { switchTab('invoices'); window.scrollTo(0, 0); } catch (_) { renderAdminInvoice(); }
   } catch(e) {
     showToast('خطأ: ' + e.message, 'err');
     btn.disabled = false; btn.textContent = '✅ إنشاء الفاتورة وخصمها من مخزون الفرع';
@@ -5578,12 +5821,123 @@ function isHalebBranch(key) {
 }
 
 // ── فلترة بحسب الشهر المُختار (افتراضياً الشهر الحالي) ──
-let accSelectedMonth = new Date().toISOString().slice(0,7); // 'YYYY-MM'
+/* (مراجعة ACCT-11) الأشهر بالتوقيت المحلّي لا UTC — فاتورة بعد منتصف الليل بتوقيت دمشق كانت تُحسب في الشهر السابق */
+const __ymLocal = (v) => { const s = String(v == null ? '' : v); if (s.length <= 10) return s.slice(0, 7); const d = new Date(s); if (isNaN(d.getTime())) return s.slice(0, 7); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+let accSelectedMonth = __ymLocal(new Date().toISOString()); // 'YYYY-MM' | 'all'
+let __accUserPicked = false;   /* لم يختر المستخدم شهراً بعد ⇒ إن خلا الشهر الحاليّ من الفواتير نفتح «كل الفترة» بدل صفرٍ صامت */
 
 function accInMonth(dateStr, ym) {
   if (!dateStr) return false;
-  return String(dateStr).slice(0,7) === ym;
+  if (ym === 'all') return true;          /* (٨ ج) «كل الفترة» */
+  return __ymLocal(dateStr) === ym;
 }
+
+/* ══ (٨ ج) رصيد الصندوق الافتتاحيّ — رقمٌ واحد في gmt_settings (acc_opening_balance) ══
+   الصندوق المتراكم = افتتاحي + كل ما دخل − كل ما خرج منذ أوّل حركةٍ مسجَّلة. من دون افتتاحيّ يبدأ من الصفر
+   (ويُظهر سالباً إن صُرف أكثر مما سُجّل دخوله — كمشتريات دفعتَها من مالٍ سابق للنظام). */
+let accOpeningBalance = 0;
+async function accLoadOpening() {
+  try {
+    const r = await sb('GET', '/rest/v1/gmt_settings?key=eq.acc_opening_balance&select=value');
+    const row = (Array.isArray(r) ? r : (r && r.data) || [])[0];
+    accOpeningBalance = row ? (parseFloat(row.value) || 0) : 0;
+  } catch (e) { accOpeningBalance = 0; }
+}
+async function accEditOpening() {
+  const v = await GMTAsk.prompt('الرصيد الافتتاحيّ للصندوق المركزي بالدولار — ما كان معك قبل أوّل حركةٍ في النظام (أو رأس المال الذي وضعتَه):', { title: 'رصيد افتتاحيّ', value: String(accOpeningBalance || 0), inputType: 'number', dir: 'ltr' });
+  if (v === null) return;
+  const n = parseFloat(String(v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  if (!isFinite(n)) { showToast('أدخل رقماً صحيحاً', 'err'); return; }
+  const rounded = Math.round(n * 100) / 100;
+  try {
+    try { await sb('POST', '/rest/v1/gmt_settings?on_conflict=key', { key: 'acc_opening_balance', value: String(rounded) }, { Prefer: 'resolution=merge-duplicates,return=minimal' }); }
+    catch (e1) { await sb('PATCH', '/rest/v1/gmt_settings?key=eq.acc_opening_balance', { value: String(rounded) }, { Prefer: 'return=minimal' }); }
+    const back = await sb('GET', '/rest/v1/gmt_settings?key=eq.acc_opening_balance&select=value');
+    const row = (Array.isArray(back) ? back : (back && back.data) || [])[0];
+    if (!row || Math.abs((parseFloat(row.value) || 0) - rounded) > 0.004) throw new Error('لم يثبت الرقم في القاعدة (راجع صلاحيات gmt_settings)');
+    accOpeningBalance = rounded;
+    try { if (window.GMTAudit) await GMTAudit.log({ action: 'acc_opening_balance', entity: 'gmt_settings', entityId: 'acc_opening_balance', entityName: 'رصيد افتتاحي', reason: 'تعديل الرصيد الافتتاحيّ للصندوق المركزي إلى ' + rounded + '$' }); } catch (_) {}
+    showToast('✅ حُفظ الرصيد الافتتاحيّ', 'ok');
+    renderAccounting();
+  } catch (e) { showToast('تعذّر الحفظ: ' + ((e && e.message) || e), 'err'); }
+}
+window.accEditOpening = accEditOpening;
+
+/* ربط فواتير الشراء بالمصاريف — دفتر إضافيّ (gmt-ledger.js)؛ يُعرَض ما سيُسجَّل قبل الكتابة ولا شيء يتغيّر بلا موافقتك */
+let __accLinkBusy = false;
+async function accLinkPurchases() {
+  if (__accLinkBusy) return; __accLinkBusy = true;
+  try {
+    const list = GMTLedger.drift(allPurchases, allExpenses, allTransfers);
+    if (!list.length) { showToast('كل فواتير الشراء مربوطة بالمحاسبة', 'ok'); return; }
+    const lines = list.slice(0, 12).map(d => '• #' + (d.purchase.inv_number || d.purchase.id) + ' ' + (d.purchase.supplier || '') + (d.orphan ? ' (فاتورة محذوفة — عكس قيودها)' : '') +
+      (Math.abs(d.dg) >= 0.005 ? ' · دفعة ' + (d.dg > 0 ? '+' : '') + d.dg.toFixed(2) + '$' : '') +
+      (Math.abs(d.dc) >= 0.005 ? ' · جمارك/شحن ' + (d.dc > 0 ? '+' : '') + d.dc.toFixed(2) + '$' : '') +
+      (d.missingMoves ? ' · ' + d.missingMoves + ' حركة درج ناقصة' : '')).join('\n');
+    if (!await GMTAsk.confirm('سيُسجَّل في المصاريف (خروج نقد لا مصروف ربح) ما دُفع على ' + list.length + ' فاتورة شراء، بتواريخ فواتيرها، ودافعُها «' + ((window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة') + '»:\n\n' + lines + (list.length > 12 ? '\n… و' + (list.length - 12) + ' أخرى' : '') + '\n\nمتابعة؟', { title: 'ربط فواتير الشراء بالمحاسبة' })) return;
+    const api = { sb: (m, p2, b, x) => sb(m, p2, b, x) };
+    const payer = (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة';
+    let posted = 0, failed = 0, firstErr = '';
+    for (const d of list) {
+      /* 🔴 (مراجعة I-03) لا نُزامن أبداً من صفٍّ مخبَّأ: بين فتح الصفحة وضغط «متابعة» قد تُعدَّل الفاتورة من شاشة الشراء فتُسجَّل
+         «تخفيضات» وهمية. نعيد قراءتها الآن؛ وإن اختفت (محذوفة) فنعكس قيودها اليتيمة. */
+      let fresh = d.purchase;
+      try {
+        const rows = await sb('GET', '/rest/v1/import_log?id=eq.' + encodeURIComponent(d.purchase.id) + '&select=*');
+        fresh = (Array.isArray(rows) && rows[0]) || { id: d.purchase.id, inv_number: d.purchase.inv_number, cash_payment: 0, costs_paid: false };
+      } catch (e) { failed++; firstErr = firstErr || (e && e.message) || 'تعذّرت قراءة الفاتورة'; continue; }
+      const r = await GMTLedger.syncPurchase(api, fresh, { payer, backdate: fresh.created_at || fresh.inv_date || undefined });
+      posted += (r.posted || []).length; if (r.error) { failed++; firstErr = firstErr || r.error; }
+    }
+    await loadExpenses();
+    showToast(failed ? ('⚠️ رُبط ' + posted + ' وتعذّر ' + failed + ': ' + firstErr) : ('✅ رُبطت ' + posted + ' دفعة بالمحاسبة'), failed ? 'err' : 'ok');
+    renderAccounting();
+  } finally { __accLinkBusy = false; }
+}
+window.accLinkPurchases = accLinkPurchases;
+
+/* 🔴 (مراجعة ACCT-8) مصاريف فروعٍ معتمدة قبل أن تعمل حركات الصندوق (جدولك رفض كل إدراج: أعمدة البضاعة الإلزاميّة) ليس لها حركة خصم من درج فرعها —
+   فتُحسب في الربح ولا تنقص صندوق الفرع. نكتشفها (فرع + مبلغ + عنوان ⇢ لا حركة type='expense' مطابقة) ونعرضها للموافقة قبل أيّ كتابة. */
+function legacyBranchExpenses() {
+  if (!window.GMTLedger) return [];
+  const trs = (allTransfers || []).filter(t => t && t.type === 'expense');
+  const used = new Set();
+  return (allExpenses || []).filter(e => {
+    if (!e || !e.approved || e.voided || !e.branch_key || GMTLedger.poInfo(e) || GMTLedger.cashSource(e) !== 'branch') return false;
+    const a = Math.abs(GMTLedger.usd(e)), title = String(e.title || '');
+    const k = trs.findIndex((t, ix) => !used.has(ix) && t.branch_key === e.branch_key && Math.abs(Math.abs(Number(t.amount) || 0) - a) < 0.011 &&
+      (!title || String(t.note || '').indexOf(title) >= 0));
+    if (k >= 0) { used.add(k); return false; }
+    return a >= 0.005;
+  });
+}
+let __accLegacyBusy = false;
+async function accLinkLegacyExpenses() {
+  if (__accLegacyBusy) return; __accLegacyBusy = true;
+  try {
+    const list = legacyBranchExpenses();
+    if (!list.length) { showToast('كل مصاريف الفروع المعتمدة لها خصمٌ في صندوق فرعها', 'ok'); return; }
+    const tot = list.reduce((s2, e) => s2 + Math.abs(GMTLedger.usd(e)), 0);
+    const lines = list.slice(0, 12).map(e => '• ' + ((branches.find(b => b.key_name === e.branch_key) || {}).display_name || e.branch_key) + ' · ' + (e.title || '—') + ' · ' + Math.abs(GMTLedger.usd(e)).toFixed(2) + '$').join('\n');
+    if (!await GMTAsk.confirm('سيُخصم من صناديق الفروع (بتواريخ اعتماد مصاريفها) ' + tot.toFixed(2) + '$ هي ' + list.length + ' مصروفاً معتمداً دُفع من الفرع ولم يُخصم أصلاً:\n\n' + lines + (list.length > 12 ? '\n… و' + (list.length - 12) + ' أخرى' : '') + '\n\nإن كانت الإدارة هي من دفعتها فلا توافق وعدّل المصروف أولاً.\nمتابعة؟', { title: 'خصم مصاريف الفروع القديمة من صناديقها' })) return;
+    let ok = 0, bad = 0, firstErr = '';
+    for (const e of list) {
+      try {
+        const b = branches.find(x => x.key_name === e.branch_key);
+        const res = await adminCashPost({
+          branch_key: e.branch_key, branch_name: b?.display_name || e.branch_key, amount: -Math.abs(GMTLedger.usd(e)), type: 'expense',
+          note: 'مصروف: ' + (e.title || ''), created_by: 'الإدارة (ربط مصروف قديم)', created_at: e.approved_at || e.created_at || new Date().toISOString()
+        });
+        const t = Array.isArray(res) ? res[0] : (Array.isArray(res?.data) ? res.data[0] : res);
+        if (t && t.branch_key) allTransfers.push(t); ok++;
+      } catch (e2) { bad++; firstErr = firstErr || ((e2 && e2.message) || String(e2)); }
+    }
+    showToast(bad ? ('⚠️ خُصم ' + ok + ' وتعذّر ' + bad + ': ' + firstErr) : ('✅ خُصم ' + ok + ' مصروفاً من صناديق فروعها'), bad ? 'err' : 'ok');
+    await loadTransfers();
+    renderAccounting();
+  } finally { __accLegacyBusy = false; }
+}
+window.accLinkLegacyExpenses = accLinkLegacyExpenses;
 
 
 /* ══ (2026-10-05 ن-٣) كشف الحساب الشهري — البند ٤٧ ودراسة P0-د
@@ -5593,7 +5947,7 @@ function accInMonth(dateStr, ym) {
    ألوانُه مسارُ المستندات المحاسبيّة: كحليّ #1f348f وأزرقُ باهت — كالفاتورة. ══ */
 function openStatement(ym) {
   const old = document.getElementById('gmt-stmt'); if (old) old.remove();
-  const months = [...new Set(allInvoices.map(i => String(i.created_at || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+  const months = [...new Set(allInvoices.map(i => __ymLocal(i.created_at || '')).filter(Boolean))].sort().reverse();
   if (ym && !months.includes(ym)) months.unshift(ym);
   const sellers = [...new Set(allInvoices.map(i => i.cashier_name).filter(Boolean))].sort();
   const w = document.createElement('div'); w.id = 'gmt-stmt'; w.setAttribute('data-keep-fab', '1');
@@ -5624,7 +5978,7 @@ function openStatement(ym) {
 }
 
 async function buildStatement(ym, bk, seller, cust, preWin) {
-  const inM = d => String(d || '').slice(0, 7) === ym;
+  const inM = d => __ymLocal(d || '') === ym;
   const usd = e => e.currency === 'usd' || !e.currency ? Number(e.amount) || 0 : (Number(e.amount) || 0) / (Number(e.exchange_rate) || (window.GMT_DEFAULT_RATE || 140));
   const isRet = i => String(i.sale_type || '').includes('مرتجع') || Number(i.total) < 0;
   const cq = (cust || '').toLowerCase();
@@ -5645,9 +5999,15 @@ async function buildStatement(ym, bk, seller, cust, preWin) {
      فنطابق كلّ قطعةٍ بصفّها. ما لا يطابق (تعديلٌ يدويّ مثلاً) يبقى على سطر الفاتورة. */
   const commRowsOf = id => invCommRows(id).slice();
   const _paidByAdmin = e => /دفعتها الإدارة/.test(String(e.note || ''));
-  const exps = (bk || !seller) ? allExpenses.filter(e => e.approved && inM(e.created_at) && (!bk || e.branch_key === bk)) : [];
+  /* 🔴 (مراجعة ACCT-6) قيود دفتر الشراء [PO:…] خروجُ نقدٍ لا مصروفُ ربح: لا تدخل «المصاريف المعتمدة» ولا الصافي (فالبضاعة كلفة داخل net_cost) —
+     تُعرض في جدولٍ منفصل. وصندوق الفرع يُحدَّد بـ GMTLedger.cashSource لا بالبحث عن «دفعتها الإدارة» في الملاحظة. */
+  const _isPO = e => !!(window.GMTLedger && GMTLedger.poInfo(e));
+  const _fromBox = e => (window.GMTLedger ? GMTLedger.cashSource(e) === 'branch' : !_paidByAdmin(e));
+  const expsAll = (bk || !seller) ? allExpenses.filter(e => e.approved && inM(e.created_at) && (!bk || e.branch_key === bk)) : [];
+  const exps = expsAll.filter(e => !_isPO(e));
+  const poRows = expsAll.filter(_isPO);
   const trs = bk ? (allTransfers || []).filter(t => inM(t.created_at) && t.branch_key === bk && t.type !== 'expense') : [];
-  const T = { sales: 0, ret: 0, comm: 0, exp: 0, cap: 0, tr: 0, col: 0, pcs: 0, due: 0, expBox: 0 };
+  const T = { sales: 0, ret: 0, comm: 0, exp: 0, cap: 0, tr: 0, col: 0, pcs: 0, due: 0, expBox: 0, po: 0 };
   const _cap = e => /^رأسمالي/.test(String(e.kind || '')) || /النوع:\s*رأسمالي/.test(String(e.note || ''));
   const f2 = n => (Number(n) || 0).toFixed(2);
   let rowsHtml = '';
@@ -5669,13 +6029,16 @@ async function buildStatement(ym, bk, seller, cust, preWin) {
     rowsHtml += `<tr class="${r ? 'ret' : 'inv'}"><td>${new Date(inv.created_at).toLocaleDateString('en-GB')}</td><td>${escH(inv.inv_number || inv.id)}${r ? ' <b>مرتجع</b>' : ''}</td>` +
       `<td>${escH(inv.customer_name || '—')}</td><td>${escH(inv.cashier_name || '—')}</td><td></td><td></td><td class="n">${f2(inv.total)}</td><td class="n">${c ? f2(c) + (its.length && Math.abs(rest) > 0.004 && Math.abs(rest - c) > 0.004 ? '<br><small>منها على الفاتورة ' + f2(rest) + '</small>' : '') : '—'}</td></tr>` + itHtml;
   });
-  exps.forEach(e => { if (_cap(e)) T.cap += usd(e); else T.exp += usd(e); if (!_paidByAdmin(e)) T.expBox += usd(e); });
+  exps.forEach(e => { if (_cap(e)) T.cap += usd(e); else T.exp += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
+  poRows.forEach(e => { T.po += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
   /* المصاريف مفصّلةً — كان سطراً واحداً بالمجموع */
   const expHtml = exps.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">المصاريف المعتمدة (${exps.length})</h3>
 <table><thead><tr><th style="width:11%">التاريخ</th><th>البند</th><th style="width:14%">الفرع</th><th style="width:13%">المبلغ</th><th style="width:9%">الصرف</th><th style="width:10%">بالدولار</th><th style="width:15%">من</th></tr></thead><tbody>${
     exps.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}${_cap(e) ? ' <b>رأسمالي</b>' : ''}</td>` +
       `<td>${escH((branches.find(b => b.key_name === e.branch_key) || {}).display_name || e.branch_key || 'عام')}</td><td class="n">${f2(e.amount)} ${e.currency === 'usd' ? '$' : 'ل.س'}</td>` +
-      `<td class="n">${e.currency === 'usd' ? '—' : escH(e.exchange_rate || (window.GMT_DEFAULT_RATE || 140))}</td><td class="n">${f2(usd(e))}</td><td>${_paidByAdmin(e) ? 'دفعتها الإدارة' : 'صندوق الفرع'}</td></tr>`).join('')}</tbody></table>` : '';
+      `<td class="n">${e.currency === 'usd' ? '—' : escH(e.exchange_rate || (window.GMT_DEFAULT_RATE || 140))}</td><td class="n">${f2(usd(e))}</td><td>${_fromBox(e) ? 'صندوق الفرع' : 'دفعتها الإدارة'}</td></tr>`).join('')}</tbody></table>` : '';
+  const poHtml = poRows.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">مشتريات وجمارك مدفوعة — خروج نقد لا مصروف ربح (${poRows.length})</h3>
+<table><thead><tr><th style="width:11%">التاريخ</th><th>البند</th><th style="width:13%">بالدولار</th><th style="width:26%">من دفع</th></tr></thead><tbody>${poRows.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}</td><td class="n">${f2(usd(e))}</td><td>${escH(((/دفعها:\s*([^·\]]+)/.exec(String(e.note || '')) || [])[1] || e.requested_by || '—').trim())}</td></tr>`).join('')}</tbody></table>` : '';
   trs.forEach(t => { if (t.type === 'collection') T.col += Math.abs(Number(t.amount) || 0); else T.tr += Number(t.amount) || 0; });
   const bName = bk ? ((branches.find(b => b.key_name === bk) || {}).display_name || bk) : 'كل الفروع';
   const net = T.sales - T.ret - T.comm - T.exp;
@@ -5699,7 +6062,7 @@ td.n{text-align:left;direction:ltr}tr.inv td{background:#f7f9fd;font-weight:700}
 <tr class="net"><td>الصافي</td><td class="n">$${f2(net)}</td></tr>${T.cap ? `<tr><td>مشتريات رأسماليّة (أصول — خارج الصافي)</td><td class="n">$${f2(T.cap)}</td></tr>` : ''}</tbody></table>
 <table><tbody>${bk ? `<tr><td>المُرحَّل للإدارة</td><td class="n">$${f2(T.tr)}</td></tr><tr><td>تحصيلات الشحن</td><td class="n">$${f2(T.col)}</td></tr>` : '<tr><td colspan="2">الترحيلات تظهر عند اختيار فرعٍ واحد</td></tr>'}
 <tr><td>عدد الفواتير</td><td class="n">${invs.filter(i => !isRet(i)).length}</td></tr><tr><td>عدد المرتجعات</td><td class="n">${invs.filter(isRet).length}</td></tr></tbody></table></div>
-${expHtml}
+${expHtml}${poHtml}
 <table style="margin-top:12px"><thead><tr><th colspan="2">${seller ? 'ما له (البائع)' : 'ما له'}</th><th colspan="2">${seller ? '' : 'ما عليه'}</th></tr></thead><tbody>
 <tr><td>عمولات معتمدة لم تُصرف</td><td class="n">$${f2(T.due)}</td>${seller ? '<td colspan="2"></td>' : `<td>${bk ? 'صافي نقد الشهر للإدارة' : 'صافي نقد الشهر'}<br><small>المبيعات − المرتجعات − مصاريف دُفعت من الصندوق${bk ? ' − ما رُحِّل' : ''}</small></td><td class="n">$${f2(T.sales - T.ret - T.expBox - (bk ? T.tr : 0))}</td>`}</tr>
 </tbody></table>
@@ -5713,6 +6076,7 @@ ${expHtml}
 window.openStatement = openStatement;
 
 function renderAccounting() {
+  if (!__accUserPicked && accSelectedMonth !== 'all' && allInvoices.length && !allInvoices.some(i => accInMonth(i.created_at, accSelectedMonth))) accSelectedMonth = 'all';
   const ym = accSelectedMonth;
   const c = document.getElementById('app-content');
   c.innerHTML = `<div class="empty-state"><div style="font-size:32px;">⏳</div><p style="margin-top:8px;font-weight:700;">جارٍ تجميع البيانات المحاسبية...</p></div>`;
@@ -5724,21 +6088,6 @@ function renderAccounting() {
   const totalSalesAllBranches = allInvoices
     .filter(i => !isExcludedBranch(i.branch_key))
     .reduce((s,i) => s + (Number(i.total)||0), 0);
-
-  const totalSalesThisMonth = allInvoices
-    .filter(i => !isExcludedBranch(i.branch_key) && accInMonth(i.created_at, ym))
-    .reduce((s,i) => s + (Number(i.total)||0), 0);
-
-  // ════════ 2) العمولات (تُخصَم من صافي حلب — هي مستحقة للفروع) ════════
-  const totalCommThisMonth = allComm
-    .filter(c2 => { const inv = allInvoices.find(i=>String(i.id) === String(c2.invoice_id)); return inv && accInMonth(inv.created_at, ym); })
-    .reduce((s,c2) => s + (Number(c2.amount)||0), 0);
-
-  // ════════ 3) الترحيلات الفعلية المستلمة في حلب (من صناديق الفروع) ════════
-  const totalTransferredThisMonth = allTransfers
-    /* (٨ ت) تحصيلُ أوردرٍ يدخل درج الفرع — ليس ترحيلاً إلى حلب */
-    .filter(t => accInMonth(t.created_at, ym) && (t.type !== 'expense') && (t.type !== 'collection'))
-    .reduce((s,t) => s + (Number(t.amount)||0), 0);
 
   // المعلّق (غير مرحَّل بعد) من كل الفروع
   const totalPendingNotTransferred = (() => {
@@ -5754,22 +6103,14 @@ function renderAccounting() {
     }, 0);
   })();
 
-  // ════════ 4) المصاريف (فروع + عامة) — كلها تُخصَم من حلب ════════
+  // ════════ 4) المصاريف المعلّقة (الاعتماد والصندوق والربح من gmt-ledger.js) ════════
   /* (2026-10-05 ن-٣) البند ٢٠٩ — «مشتريات مو للبيع (سيارة · لابتوب · رفوف)»: المصروف الرأسمالي أصلٌ يبقى،
      فلا يُطرح من ربح الشهر. يُعرض وحده تحت «مشتريات رأسماليّة». النوع من عمود kind (SQL ٢٣)،
      أو من «النوع: رأسمالي» في الملاحظة إن سُجِّل قبل تشغيله. */
-  const _isCapital = (e) => /^رأسمالي/.test(String(e.kind || '')) || /النوع:\s*رأسمالي/.test(String(e.note || ''));
-  const approvedExpenses = allExpenses.filter(e => e.approved && !_isCapital(e));
-  const capitalThisMonthUSD = allExpenses.filter(e => e.approved && _isCapital(e) && accInMonth(e.created_at, ym))
-    .reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0)/(Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
-  const expensesThisMonthUSD = approvedExpenses
-    .filter(e => accInMonth(e.created_at, ym))
-    .reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0)/(Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
   const pendingExpenses = allExpenses.filter(e => !e.approved);
 
   // ════════ 5) فواتير الشراء — قيمة المنتجات + التكاليف المؤجَّلة (جمارك/شحن) ════════
   const purchasesThisMonth = allPurchases.filter(p => accInMonth(p.created_at || p.inv_date, ym));
-  const totalPurchasesValue = purchasesThisMonth.reduce((s,p) => s + (Number(p.total_amount)||0), 0);
   // التكاليف المؤجَّلة غير المدفوعة (جمارك + شحن + نقل + محلي)
   const unpaidCostsShipments = allPurchases.filter(p => {
     const hasCosts = (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0) > 0;
@@ -5807,21 +6148,27 @@ function renderAccounting() {
   // ════════ 9) ديون فواتير غير محصَّلة (آجل) ════════
   const totalUnpaidInvoices = allDebts.reduce((s,d)=>s+(Number(d.remaining_amount ?? d.total)||0),0);
 
-  // ════════ 10) صندوق حلب المركزي — كل شيء يرحل إليها ════════
-  // = مبيعات حلب المباشرة + الترحيلات المستلمة من الفروع - العمولات المستحقة - المصاريف المعتمدة - تكاليف الاستيراد المدفوعة
-  /* (٨ ث) كان «مبيعات حلب» كلَّ الفترة بجانب ترحيلات الشهر ومصاريفه — صار مقبوضَ الشهر نفسه (كـGMTCash) */
-  const halebDirectSales = halebInvoices.filter(i => accInMonth(i.created_at, ym) && !String(i.customer_name || '').startsWith('[تدريب]'))
-    .reduce((s,i)=>s+(((i.paid_amount != null) ? Number(i.paid_amount) : Number(i.total)) || 0) - (Number(i.paid_external) || 0),0);
-  const halebCashbox = halebDirectSales + totalTransferredThisMonth - totalCommThisMonth - expensesThisMonthUSD - capitalThisMonthUSD; /* (ن-٣) الرأسماليّ خرج من الصندوق نقداً وإن لم يُطرح من الربح */
-
-  // ════════ 11) صافي الربح الشامل (تقديري) ════════
-  // صافي = إجمالي المبيعات - العمولات - المصاريف - قيمة المشتريات (تكلفة البضاعة)
-  /* (٨ ث) الربح = المبيعات − كلفةُ ما بِيع (لا قيمةُ ما اشتُري هذا الشهر) − العمولات − المصاريف.
-     المشتريات تبقى ظاهرةً وحدها كخروج نقد. وما لا كلفة له يُعدّ ويُقال. */
-  const _monthInvs = allInvoices.filter(i => !isExcludedBranch(i.branch_key) && accInMonth(i.created_at, ym));
-  let cogsThisMonth = 0, cogsUnknown = 0;
-  _monthInvs.forEach(i => { const k = invCost(i.id); if (k.known) cogsThisMonth += ((Number(i.total) || 0) < 0 ? -1 : 1) * k.cost; else cogsUnknown++; });
-  const netProfitEstimate = totalSalesThisMonth - cogsThisMonth - totalCommThisMonth - expensesThisMonthUSD;
+  // ════════ 10+11) صندوق الإدارة المركزي + الربح — من دفتر واحد (gmt-ledger.js) ════════
+  /* (٨ ج — إعادة تأهيل لوحة المحاسبة) البطاقتان كانتا تُظهران 0.00$ لأنّ الصندوق كان يُحسب لشهرٍ واحد فقط (والصندوق رصيدٌ متراكم)،
+     والربح يعدّ فواتير بلا كلفة معروفة كأنّ كلفتها صفر. الآن: الصندوق منذ البداية (+ حركة الفترة)، والربح على معروفة الكلفة
+     مع عدّ ما لا كلفة له وقوله، ودفعات فواتير الشراء والجمارك خروجُ نقدٍ لا مصروفُ ربح (كلفتُها داخل net_cost). */
+  const _lctx = { invoices: allInvoices, transfers: allTransfers, comm: allComm, expenses: allExpenses,
+                  isMgmt: isHalebBranch, isExcluded: isExcludedBranch, opening: accOpeningBalance };
+  const _range = ym === 'all' ? null : { ym };
+  const LC  = GMTLedger.centralCash(_lctx, null);              // منذ البداية
+  const LCm = _range ? GMTLedger.centralCash(_lctx, _range) : null;   // حركة الفترة
+  const LP  = GMTLedger.profit(_lctx, _range, invCost);
+  const _periodLbl = ym === 'all' ? 'كل الفترة' : ym;
+  const _supplierDue = GMTLedger.supplierPayable(allPurchases);
+  const _driftList = GMTLedger.drift(allPurchases, allExpenses, allTransfers);
+  const _legacyList = legacyBranchExpenses();
+  const _driftSum = _driftList.reduce((s, d) => s + Math.abs(d.dg) + Math.abs(d.dc), 0);
+  const _firstDate = [...allInvoices.map(i => i.created_at), ...allTransfers.map(t => t.created_at), ...allExpenses.map(e => e.created_at)]
+    .filter(Boolean).map(d => String(d).slice(0, 10)).sort()[0] || '';
+  const _m = (n) => { const v = Number(n) || 0; return (v < -0.004 ? '−' : '') + Math.abs(v).toFixed(2) + '$'; };
+  const _row = (label, v, sign, always) => (always || Math.abs(Number(v) || 0) > 0.004)
+    ? `<div style="display:flex;justify-content:space-between;gap:10px;opacity:${Math.abs(Number(v) || 0) > 0.004 ? 1 : .55};"><span>${sign} ${label}</span><span dir="ltr">${_m(v)}</span></div>` : '';
+  const _lastInvDate = allInvoices.map(i => String(i.created_at || '').slice(0, 10)).filter(Boolean).sort().pop() || '';
 
   // ── قائمة الأشهر المتاحة للفلترة ──
   const allDates = [
@@ -5829,52 +6176,82 @@ function renderAccounting() {
     ...allExpenses.map(e=>e.created_at),
     ...allPurchases.map(p=>p.created_at||p.inv_date),
   ].filter(Boolean);
-  const monthsSet = new Set(allDates.map(d => String(d).slice(0,7)));
-  monthsSet.add(ym);
+  const monthsSet = new Set(allDates.map(d => __ymLocal(d)));
+  if (ym !== 'all') monthsSet.add(ym);
   const monthsList = [...monthsSet].sort().reverse();
 
   c.innerHTML = `
     <div class="sec-head">
       <div class="sec-title">📊 النظام المحاسبي الشامل</div>
-      <select id="acc-month-select" onchange="accSelectedMonth=this.value;renderAccounting();"
+      <select id="acc-month-select" onchange="__accUserPicked=true;accSelectedMonth=this.value;renderAccounting();"
         style="border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;
                font-family:'Cairo',sans-serif;font-size:12px;font-weight:800;">
+        <option value="all" ${ym==='all'?'selected':''}>كل الفترة</option>
         ${monthsList.map(m => `<option value="${m}" ${m===ym?'selected':''}>${m}</option>`).join('')}
       </select>
     </div>
 
     <!-- (2026-10-05 ن-٣) البند ٤٧: كشف الحساب الشهري -->
-    <button onclick="openStatement('${ym}')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:start;background:#fff;border:1.5px solid #c9d3ea;border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-family:inherit;">
+    <button onclick="openStatement('${ym === 'all' ? __ymLocal(new Date().toISOString()) : ym}')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:start;background:#fff;border:1.5px solid #c9d3ea;border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-family:inherit;">
       <span style="width:34px;height:34px;border-radius:11px;background:#eef3fa;color:#1f348f;display:grid;place-items:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
       <span style="flex:1;"><b style="display:block;font-size:14px;color:#0f1219;">كشف حساب شهري</b>
         <small style="color:#5b6472;font-weight:700;">لنقطة بيع أو بائع أو زبون — كل قطعة وعمولتها، والمرتجعات والمصاريف والترحيلات</small></span>
       <span style="font-size:12px;font-weight:800;color:#1f348f;">فتح ←</span></button>
 
-    <!-- صندوق حلب المركزي -->
+    <!-- صندوق الإدارة المركزي — رصيدٌ متراكم (لا حركة شهر) -->
     <div style="background:linear-gradient(135deg,#7c2d12,#991b1b);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;">
-      <div style="font-size:11px;font-weight:800;opacity:0.85;margin-bottom:4px;">🏛️ صندوق حلب المركزي (الصندوق الرئيسي)</div>
-      <div style="font-size:30px;font-weight:900;">${halebCashbox.toFixed(2)}$</div>
-      <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;font-weight:700;opacity:0.9;flex-wrap:wrap;">
-        <span>+ مبيعات حلب: ${halebDirectSales.toFixed(2)}$</span>
-        <span>+ ترحيلات الفروع: ${totalTransferredThisMonth.toFixed(2)}$</span>
-        <span>- عمولات: ${totalCommThisMonth.toFixed(2)}$</span>
-        <span>- مصاريف: ${expensesThisMonthUSD.toFixed(2)}$</span>
-        ${capitalThisMonthUSD > 0 ? `<span>- مشتريات رأسماليّة: ${capitalThisMonthUSD.toFixed(2)}$</span>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <div style="font-size:11px;font-weight:800;opacity:0.85;margin-bottom:4px;">🏛️ صندوق الإدارة المركزي — رصيدٌ متراكم${_firstDate ? ' منذ ' + _firstDate : ''}</div>
+          <div style="font-size:30px;font-weight:900;" dir="ltr">${_m(LC.total)}</div>
+        </div>
+        <button onclick="accEditOpening()" style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:9px;padding:6px 10px;font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;">✏️ رصيد افتتاحيّ</button>
       </div>
+      <div style="margin-top:10px;font-size:11px;font-weight:700;line-height:1.9;">
+        ${_row('رصيد افتتاحيّ', LC.lines.opening, '+', true)}
+        ${_row('مقبوض مبيعات المقرّ (حلب)', LC.lines.salesCash, '+')}
+        ${_row('تحصيلات الشحن في درج المقرّ', LC.lines.collections, '+')}
+        ${_row('ما رُحِّل من الفروع الأخرى', LC.lines.branchIn, '+')}
+        ${_row('مصاريف دُفعت من درج المقرّ', LC.lines.drawerExp, '−')}
+        ${_row('عمولات مدفوعة', LC.lines.commPaid, '−')}
+        ${_row('مصاريف الإدارة (عامّة / دفعتَها أنت)', LC.lines.expCentral, '−')}
+        ${_row('مشتريات رأسماليّة', LC.lines.capitalCentral, '−')}
+        ${_row('دفعات فواتير الشراء', LC.lines.purchasesPaid, '−')}
+        ${_row('جمارك وشحن مدفوعة', LC.lines.importPaid, '−')}
+      </div>
+      ${LC.total < 0 ? '<div style="margin-top:8px;font-size:10.5px;font-weight:700;background:rgba(0,0,0,.25);border-radius:8px;padding:6px 9px;">⚠️ الرصيد سالب: ما صُرف مسجَّلاً يفوق ما دخل مسجَّلاً. أضِف «رصيد افتتاحيّ» (ما كان معك قبل بدء التسجيل أو رأس المال) فيستقيم الرقم.</div>' : ''}
+      ${LCm ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.25);font-size:11px;font-weight:800;display:flex;justify-content:space-between;"><span>حركة ${_periodLbl} (دخل − خرج)</span><span dir="ltr">${_m(LCm.total)}</span></div>` : ''}
+      <details style="margin-top:8px;font-size:10.5px;opacity:.92;"><summary style="cursor:pointer;font-weight:800;">كيف يُحسب؟</summary>
+        <div style="line-height:1.9;margin-top:4px;">يدخل: مقبوض مبيعات المقرّ فعلاً (لا الإجمالي) + ما رحّلتَه من الفروع + تحصيلات الشحن. يخرج: مصاريف درج المقرّ + عمولات <b>دفعتَها فعلاً</b> (لا المستحقّة) + مصاريف الإدارة وما دفعتَه أنت عن فرع + دفعات الشراء والجمارك.
+        المصروف الذي خرج من <b>درج فرعٍ آخر</b> لا يُنقَص هنا ثانيةً (نقص من ذلك الدرج فوصل إليك أقلّ). فواتير [تدريب] وفرع العبور مستثناة.</div>
+      </details>
     </div>
 
-    <!-- صافي الربح الشهري -->
-    <div style="background:${netProfitEstimate>=0?'linear-gradient(135deg,#15803d,#166534)':'linear-gradient(135deg,#b91c1c,#7f1d1d)'};
-                border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;">
-      <div style="font-size:11px;font-weight:800;opacity:0.85;margin-bottom:4px;">💎 صافي الربح التقديري — ${ym}</div>
-      <div style="font-size:28px;font-weight:900;">${netProfitEstimate.toFixed(2)}$</div>
-      <div style="font-size:10px;font-weight:700;opacity:0.9;margin-top:6px;">
-        مبيعات (${totalSalesThisMonth.toFixed(2)}$) − كلفة المباع (${cogsThisMonth.toFixed(2)}$) − عمولات (${totalCommThisMonth.toFixed(2)}$) − مصاريف (${expensesThisMonthUSD.toFixed(2)}$)
-        ${!_costReady ? '<br>⏳ جارٍ تحميل كلفة القطع…' : (cogsUnknown ? `<br>⚠️ ${cogsUnknown} فاتورة بلا كلفة معروفة لبعض قطعها — ربحها غير محسوب هنا` : '')}
-        <br>المشتريات هذا الشهر (خروج نقد لا مصروف): ${totalPurchasesValue.toFixed(2)}$
-      </div>
+    <!-- الربح — على الفواتير معروفة الكلفة فقط -->
+    <div style="background:${LP.profit >= 0 ? 'linear-gradient(135deg,#15803d,#166534)' : 'linear-gradient(135deg,#b91c1c,#7f1d1d)'};border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;">
+      <div style="font-size:11px;font-weight:800;opacity:0.85;margin-bottom:4px;">💎 الربح الفعليّ — ${_periodLbl}</div>
+      <div style="font-size:28px;font-weight:900;" dir="ltr">${_m(LP.profit)}</div>
+      ${LP.invCount === 0 ? `<div style="margin-top:8px;font-size:11px;font-weight:700;background:rgba(0,0,0,.22);border-radius:8px;padding:8px 10px;line-height:1.8;">لا فواتير في ${_periodLbl}${_lastInvDate ? ' — آخر فاتورة بتاريخ ' + _lastInvDate : ''}. <button onclick="accSelectedMonth='all';renderAccounting();" style="background:#fff;color:#14532d;border:0;border-radius:7px;padding:3px 10px;font-family:inherit;font-weight:900;cursor:pointer;margin-inline-start:6px;">اعرض كل الفترة</button></div>` : `
+      <div style="font-size:10.5px;font-weight:700;opacity:0.95;margin-top:6px;line-height:1.9;">
+        (مبيعات ${_m(LP.salesKnown)} − كلفة المباع ${_m(LP.cogs)} − عمولات ${_m(LP.comm)}) − مصاريف تشغيل ${_m(LP.expenses)}
+        <br>${LP.invCount} فاتورة في الفترة · مبيعاتها كلّها ${_m(LP.salesAll)}
+        ${!_costReady ? '<br>⏳ جارٍ تحميل كلفة القطع…' : (LP.unknownCount ? `<br>⚠️ ${LP.unknownCount} فاتورة (${_m(LP.unknownSales)}) <b>بلا كلفة معروفة</b> لبعض قطعها — لا تدخل الربح. أدخل كلفة القطع من «إدارة المنتجات» فتدخل.` : '')}
+        ${LP.capital > 0.004 ? `<br>خارج الربح: مشتريات رأسماليّة ${_m(LP.capital)}` : ''}
+        ${LP.poOut > 0.004 ? `<br>خارج الربح: مشتريات وجمارك دُفعت (خروج نقد، كلفتها داخل net_cost) ${_m(LP.poOut)}` : ''}
+      </div>`}
     </div>
+
+    ${_legacyList.length ? `
+    <div style="background:#fff7ed;border:1.5px solid #fb923c;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;font-size:12px;font-weight:800;color:#9a3412;line-height:1.8;">🧾 ${_legacyList.length} مصروفاً معتمداً لفروع (${_legacyList.reduce((s2, e) => s2 + Math.abs(GMTLedger.usd(e)), 0).toFixed(2)}$) دُفع من الفرع ولم يُخصم من صندوقه — فصندوق الفرع أعلى من الواقع.</div>
+      <button onclick="accLinkLegacyExpenses()" style="background:#ea580c;color:#fff;border:0;border-radius:9px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:900;cursor:pointer;">راجعها وأخصمها</button>
+    </div>` : ''}
+    ${_driftList.length ? `
+    <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;font-size:12px;font-weight:800;color:#92400e;line-height:1.8;">🔗 ${_driftList.length} فاتورة شراء لم تُربط دفعاتها بالمحاسبة (${_driftSum.toFixed(2)}$) أو ينقصها خصمٌ من درج فرع — فلا تظهر في الصندوق ولا «من دفع».</div>
+      <button onclick="accLinkPurchases()" style="background:#d97706;color:#fff;border:0;border-radius:9px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:900;cursor:pointer;">اربطها الآن</button>
+    </div>` : ''}
 
     <!-- شبكة الملخصات -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
@@ -5907,6 +6284,16 @@ function renderAccounting() {
       <div class="acc-card" style="border-right:4px solid #c2410c;">
         <div class="acc-card-lbl">✈️ بضائع قيد الاستيراد</div>
         <div class="acc-card-val" style="color:#c2410c;">${inTransitValue.toFixed(2)}$</div>
+      </div>
+
+      <div class="acc-card" style="border-right:4px solid #7c3aed;">
+        <div class="acc-card-lbl">💳 مستحق للموردين (بضاعة)</div>
+        <div class="acc-card-val" style="color:#7c3aed;">${_supplierDue.toFixed(2)}$</div>
+      </div>
+
+      <div class="acc-card" style="border-right:4px solid #0f766e;">
+        <div class="acc-card-lbl">🧾 مشتريات وجمارك مدفوعة — ${_periodLbl}</div>
+        <div class="acc-card-val" style="color:#0f766e;">${LP.poOut.toFixed(2)}$</div>
       </div>
 
       <div class="acc-card" style="border-right:4px solid #be123c;">
@@ -5994,26 +6381,23 @@ function purchaseCostsPendingRowHtml(p) {
 async function markPurchaseCostsPaid(purchaseId) {
   const p = allPurchases.find(x => String(x.id) === String(purchaseId));
   if (!p) return;
-  const totalCosts = (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
-  if (!await GMTAsk.confirm(`تأكيد دفع تكاليف الجمارك/الشحن (${totalCosts.toFixed(2)}$) لفاتورة #${p.inv_number||p.id}؟\nسيُسجَّل كمصروف معتمد فوراً.`)) return;
-
+  const totalCosts = GMTLedger.costsTotal(p);
+  const payer = await GMTAsk.prompt(`تأكيد دفع تكاليف الجمارك/الشحن (${totalCosts.toFixed(2)}$) لفاتورة #${p.inv_number||p.id}.\nمن دفعها؟ (يُحفظ اسمه على القيد)`, { title: 'من دفع الجمارك والشحن؟', value: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة' });
+  if (payer === null) return;
   try {
+    /* (٨ ج) لا مصروفٌ عامّ يُحسب مرّتين (الكلفة داخل net_cost + المصروف): قيدُ دفترٍ مرتبطٌ بالفاتورة، خروجَ نقدٍ فقط */
     await sb('PATCH', `/rest/v1/import_log?id=eq.${purchaseId}`, { costs_paid: true }, { Prefer:'return=minimal' });
     p.costs_paid = true;
-
-    // تسجيله كمصروف عام معتمد تلقائياً (يدخل في حسابات المحاسبة)
-    const res = await sb('POST', '/rest/v1/gmt_expenses', {
-      branch_key: null,
-      title: `جمارك/شحن — فاتورة شراء #${p.inv_number||p.id} (${p.supplier||''})`,
-      amount: totalCosts, currency: 'usd', exchange_rate: null,
-      note: 'دفعة مؤجَّلة لتكاليف استيراد', is_general: true,
-      approved: true, approved_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    });
-    const rec = Array.isArray(res) ? res[0] : res;
-    if (rec) allExpenses.unshift(rec);
-
-    showToast('✅ تم تسجيل الدفع — أُضيف كمصروف معتمد', 'ok');
+    /* (مراجعة I-03) الصفّ الطازج لا المخبَّأ: الدفعة على الفاتورة قد تكون عُدّلت من شاشة الشراء بعد فتح هذه الصفحة */
+    let fresh = p;
+    try { const rows = await sb('GET', `/rest/v1/import_log?id=eq.${encodeURIComponent(purchaseId)}&select=*`); if (Array.isArray(rows) && rows[0]) { fresh = rows[0]; const ix = allPurchases.findIndex(x => String(x.id) === String(purchaseId)); if (ix >= 0) allPurchases[ix] = fresh; } } catch (_) {}
+    const r = await GMTLedger.syncPurchase({ sb: (m, pp, b, x) => sb(m, pp, b, x) }, fresh, { payer: String(payer).trim() || 'الإدارة' });
+    if (r.error) {
+      showToast('⚠️ سُجّل «تُدفع» لكن تعذّر قيد المحاسبة: ' + r.error + ' — اضغط «اربطها الآن»', 'err');
+    } else {
+      showToast('✅ تم تسجيل الدفع — دخل المحاسبة (دافعها: ' + (String(payer).trim() || 'الإدارة') + ')', 'ok');
+    }
+    await loadExpenses();
     renderAccounting();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
 }
@@ -6219,87 +6603,86 @@ async function openStockTransferDetailAdmin(id) {
 }
 window.openStockTransferDetailAdmin = openStockTransferDetailAdmin;
 
+let __cancelTrBusy = false;
 async function cancelStockTransferAdmin(id) {
-  if (!await GMTAsk.confirm('هل أنت متأكد من إلغاء فاتورة النقل؟ ستُعاد كل الكميات للفرع المُصدِّر فوراً.')) return;
+  if (__cancelTrBusy) return;
+  if (!await GMTAsk.confirm('هل أنت متأكد من إلغاء فاتورة النقل؟ ستُعاد الكميات **المنقولة فعلاً** إلى الفرع المُصدِّر.')) return;
   const t = allStockTransfersAdmin.find(x => String(x.id) === String(id));
   if (!t) return;
+  __cancelTrBusy = true;
+  /* (11 ت١ · T-09) الإلغاء كان بلا قفل ولا شرط حالة ⇒ ضغطتان (أو واجهة متقادمة بعد استلام الفرع) تُعيدان الكمية مرّتين فيتضخّم مخزون المصدر،
+     ويُعاد ما **لم يُخصم أصلاً** (بند فاشل كميّته المطلوبة) فيتضخّم أيضاً. الآن: قفل ذرّي بحالة انتقالية، وإعادة **المنقول فعلاً** فقط عبر الوحدة
+     المتحقَّقة، وتراجع كامل عند أول فشل بحيث لا تبقى فاتورة نصف مُعادة. */
+  const prevStatus = (t.status === 'needs_settlement') ? 'needs_settlement' : 'pending';
+  let claimed = false;
+  const undoClaim = async () => { if (claimed) { try { await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, { status: prevStatus }, { Prefer: 'return=minimal' }); } catch (_) {} } };
   try {
+    const cl = await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=in.(pending,needs_settlement)`, { status: 'reopening' }, { Prefer: 'return=representation' });
+    const clr = Array.isArray(cl?.data) ? cl.data : (Array.isArray(cl) ? cl : []);
+    if (clr.length !== 1) { showToast('⛔ حالة الفاتورة تغيّرت (استُلمت أو أُلغيت أو يجري تعديلها) — حدّث الصفحة. لم يُلمس المخزون', 'err'); try { await loadStockTransfersAdmin?.(); } catch (_) {} return; }
+    claimed = true;
+
     const items = await sb('GET', `/rest/v1/stock_transfer_items?transfer_id=eq.${id}&select=*`);
-    const transitFails = [];
-    const restoreFails = [];
+    const noteNames = (String(t.note || '').match(/تعذّر خصم\s*\d+\s*صنف\s*:\s*(.+)$/) || [, ''])[1].split(/[،,]\s*/).map(x => x.trim()).filter(Boolean);
+    const movedOf = (it) => {
+      const noReq = (it.requested_qty == null || it.requested_qty === '');
+      if (noReq && noteNames.indexOf(String(it.product_name || '').trim()) >= 0) return 0;      // فاشل قديم: لم يُخصم منه شيء
+      return Number(it.qty) || 0;
+    };
+    const done = [], restoreFails = [];
     for (const it of items) {
-      // (2026-08-26) [OWN-STOCK-TRUTH] كان فشل الإعادة يرمي فيقطع الحلقة ⇒ باقي البنود
-      //   لا تعود للفرع المُصدِّر، والفاتورة لا تُلغى، والرسالة مبهمة. الآن كل بند مستقل.
+      const q = movedOf(it); if (q <= 0) continue;
+      let ok = false, err = '';
       try {
-        await sb('POST', '/rest/v1/rpc/add_branch_stock', { p_product_id: it.product_id, p_branch_key: t.from_branch, p_qty: it.qty });
-      } catch (e) {
-        restoreFails.push({ pid: it.product_id, qty: it.qty, err: (e && e.message) || String(e) });
-        console.warn('[GMT] فشل إعادة كمية عند إلغاء النقل:', it.product_id, e);
-        continue;   // لا تُصفّر عبوره — الكمية لم تعد بعد
-      }
-      try {
-        const prod = await sb('GET', `/rest/v1/products?id=eq.${it.product_id}&select=in_transit`);
-        const cur = (prod[0] && prod[0].in_transit) || {};
-        const newQty = Math.max(0, (Number(cur[t.to_branch]) || 0) - it.qty);
-        await sb('PATCH', `/rest/v1/products?id=eq.${it.product_id}`, { in_transit: { ...cur, [t.to_branch]: newQty } }, { Prefer: 'return=minimal' });
-        /* ✅ (2026-08-23) تحقّق فعلي: الكمية أُعيدت للفرع المُصدِّر بالفعل عبر RPC،
-           فإن فشل تصفير العبور بقيت محسوبةً **مرّتين** (في الفرع وفي العبور). */
-        const vf = await sb('GET', `/rest/v1/products?id=eq.${it.product_id}&select=in_transit`);
-        const got = Number(((vf[0] && vf[0].in_transit) || {})[t.to_branch]) || 0;
-        if (got !== newQty) transitFails.push({ pid: it.product_id, qty: it.qty, expected: newQty, got });
-      } catch (e) {
-        /* 🔧 (2026-08-23) [P1] كان `catch (e) {}` فارغاً يبتلع فشل تصفير رصيد العبور
-           ⇒ الكمية تعود للفرع المُصدِّر **وتبقى في العبور** ⇒ **مخزون مضاعف** بلا أثر. */
-        transitFails.push({ pid: it.product_id, qty: it.qty, err: (e && e.message) || String(e) });
-      }
+        if (window.GMTStock && GMTStock.move) { const mv = await GMTStock.move('add', it.product_id, t.from_branch, q); ok = !!(mv && mv.ok); err = mv && mv.error; }
+        else { await sb('POST', '/rest/v1/rpc/add_branch_stock', { p_product_id: it.product_id, p_branch_key: t.from_branch, p_qty: q }); ok = true; }
+      } catch (e) { err = (e && e.message) || String(e); }
+      if (!ok) { restoreFails.push({ name: it.product_name, err }); break; }
+      done.push({ pid: it.product_id, q });
     }
-    if (transitFails.length) {
-      try {
-        if (window.GMTWarden && GMTWarden.flag) {
-          GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
-            title:'مخزون مضاعف بعد إلغاء نقل',
-            what: transitFails.length + ' قطعة أُعيدت للفرع المُصدِّر لكن **لم يُصفَّر رصيد عبورها** لفرع ' + t.to_branch + '.',
-            how:'فشل تحديث in_transit أثناء إلغاء فاتورة النقل ' + id + '.',
-            why:'الكمية محسوبة مرّتين الآن. صحّح in_transit يدوياً لهذه المنتجات.' });
-        } else if (window.GMTBug && GMTBug.log) {
-          GMTBug.log('error', 'فشل تصفير العبور عند إلغاء النقل', { type:'transit_reset_fail', transferId:id, items:transitFails });
-        }
-      } catch (_) {}
-      showToast('⚠️ أُعيدت الكميات لكن تعذّر تصفير العبور لـ' + transitFails.length + ' منتج — راجعها فوراً (خطر ازدواج)', 'err');
-    }
-    // (2026-08-26) لا تُلغَ الفاتورة وفيها بنود لم تعد للفرع المُصدِّر — الإلغاء يُفقد أثرها نهائياً
     if (restoreFails.length) {
-      try {
-        if (window.GMTWarden && GMTWarden.flag) {
-          GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
-            title:'بنود لم تعد للفرع المُصدِّر',
-            what: restoreFails.length + ' بند تعذّرت إعادته أثناء إلغاء فاتورة النقل ' + id + '.',
-            how:'فشل نداء add_branch_stock (قد تكون الدالة مفقودة أو RLS).',
-            why:'الفاتورة لم تُلغَ حفاظاً على الأثر — عالج السبب ثم أعد المحاولة.' });
-        }
-      } catch (_) {}
-      showToast('⚠️ تعذّرت إعادة ' + restoreFails.length + ' بند — لم تُلغَ الفاتورة', 'err');
-      alert('تعذّرت إعادة ' + restoreFails.length + ' بند إلى فرع ' + (t.from_branch_name || t.from_branch) + '.\n\n' +
-            'لم تُلغَ الفاتورة عمداً حتى لا يضيع أثر البضاعة — عالج السبب ثم أعد المحاولة.\n' +
-            'السبب الأرجح: الدالة add_branch_stock غير موجودة بالقاعدة (شغّل _SQL_2️⃣7️⃣) أو صلاحيات RLS.');
+      for (const d of done) { try { if (window.GMTStock && GMTStock.move) await GMTStock.move('deduct', d.pid, t.from_branch, d.q); } catch (_) {} }   // تراجع عمّا أُعيد
+      await undoClaim(); claimed = false;
+      try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind:'financial', severity:'critical', feature:'ADMIN-TRANSFER', rule:'OWN-STOCK-TRUTH',
+        title:'تعذّر إلغاء فاتورة نقل', what:'الفاتورة ' + id + ': ' + restoreFails[0].name + ' — ' + restoreFails[0].err, how:'فشلت إعادة الكمية للمصدر', why:'تراجع كامل؛ الفاتورة كما كانت.' }); } catch (_) {}
+      await GMTAsk.alert('تعذّرت إعادة «' + restoreFails[0].name + '» إلى فرع ' + (t.from_branch_name || t.from_branch) + ' (' + (restoreFails[0].err || '') + ').\n\nلم يتغيّر شيء: عادت الفاتورة كما كانت وأُلغيت أيّ إعادة جزئية. عالج السبب ثم أعد المحاولة.', { title: 'تعذّر الإلغاء' });
       renderStockTransfersAdmin();
       return;
     }
+    // العبور (للعرض فقط): يُنقَص بالمنقول، وفشله لا يمنع الإلغاء لكنّه يُبلَّغ
+    const transitFails = [];
+    for (const d of done) {
+      try {
+        const prod = await sb('GET', `/rest/v1/products?id=eq.${d.pid}&select=in_transit`);
+        const cur = (prod[0] && prod[0].in_transit) || {};
+        const newQty = Math.max(0, (Number(cur[t.to_branch]) || 0) - d.q);
+        await sb('PATCH', `/rest/v1/products?id=eq.${d.pid}`, { in_transit: { ...cur, [t.to_branch]: newQty } }, { Prefer: 'return=minimal' });
+      } catch (e) { transitFails.push(d.pid); }
+    }
+    if (transitFails.length) showToast('⚠️ أُعيدت الكميات لكن تعذّر تصفير العبور لـ' + transitFails.length + ' منتج (عرضٌ فقط) — راجعه', 'err');
 
-    await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}`, {
-      status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: 'الأدمن'
-    }, { Prefer: 'return=minimal' });
+    const fin = await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, {
+      status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الأدمن'
+    }, { Prefer: 'return=representation' });
+    const finr = Array.isArray(fin?.data) ? fin.data : (Array.isArray(fin) ? fin : []);
+    claimed = false;
+    if (finr.length !== 1) {
+      await GMTAsk.alert('أُعيدت الكميات إلى المصدر لكن تعذّر ختم الفاتورة «مُلغاة».\n\n⛔ لا تضغط «إلغاء» مرّة أخرى — أبلغ الإدارة لتصحيح حالتها يدوياً.', { title: 'الحالة لم تُحدَّث' });
+      renderStockTransfersAdmin(); return;
+    }
+    try { await GMTAudit?.log?.({ action: 'transfer_cancel', entity: 'branch_stock_transfers', entityId: String(id), entityName: t.transfer_number, reason: 'إلغاء إداري — أُعيد ' + done.length + ' صنف للمصدر' }); } catch (_) {}
     await sb('POST', '/rest/v1/branch_notifications', {
       branch_key: t.from_branch, type: 'transfer_cancelled', ref_id: id,
       message: `❌ تم إلغاء فاتورة النقل #${t.transfer_number} وإعادة الكمية لفرعك`
     });
     sendTelegram(`❌ <b>تم إلغاء فاتورة نقل مخزون</b>\n#${t.transfer_number}\n📤 ${t.from_branch_name} → 📥 ${t.to_branch_name}\nبواسطة الأدمن`);
     closeModal();
-    showToast('تم إلغاء الفاتورة وإعادة الكمية', 'ok');
+    showToast('تم إلغاء الفاتورة وإعادة الكمية المنقولة', 'ok');
     renderStockTransfersAdmin();
   } catch (e) {
+    await undoClaim();
     showToast('خطأ: ' + e.message, 'err');
-  }
+  } finally { __cancelTrBusy = false; }
 }
 window.cancelStockTransferAdmin = cancelStockTransferAdmin;
 
@@ -6414,18 +6797,18 @@ renderOffers = function(){
   <script>document.addEventListener("DOMContentLoaded",()=>window.GMTTraining&&GMTTraining.mount("admin"));</script>
   <!-- 🩺 فحص صحة القاعدة (2026-07-12) — 12 استعلام تدقيق، قراءة فقط -->
   <script src="gmt-guide-admin.js?v=20261003"></script>
-<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-hints.js?v=20261011h"></script>
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
+<script src="gmt-brain.js?v=20261012a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

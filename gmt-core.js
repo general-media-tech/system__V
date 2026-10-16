@@ -441,7 +441,10 @@
     is: function (keyOrName) {
       const v = String(keyOrName == null ? '' : keyOrName).toLowerCase().trim();
       if (!v) return false;
-      return TRANSIT_KEYS.some(function (k) { return v.indexOf(k) !== -1; });
+      /* (١١ ت١) الرمزان القصيران «de» و«cn» يُطابقان **كلمةً كاملة** لا جزءاً: كانت المطابقة النصّية تجعل
+         مفتاح نقطة بيعٍ جديدة مثل deirezzor أو mcnair «موقع عبور» فتُستثنى من المبيعات والمستخدمين والعمولات. */
+      const toks = v.split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
+      return TRANSIT_KEYS.some(function (k) { return k.length <= 2 ? toks.indexOf(k) !== -1 : v.indexOf(k) !== -1; });
     },
     /* يُنقّي مصفوفةً من مواقع العبور. `get` يستخرج المفتاح من العنصر. */
     filterOut: function (arr, get) {
@@ -691,17 +694,30 @@
     isAdmin: function () {
       try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) { return false; }
     },
-    grant: function () {
+    /* (١١ ت١) الأدمن صار حساباً باسم: grant(name) يحفظ الاسم لهذه الجلسة، name() يُرجعه («تمّ بواسطة الأدمن …») */
+    grant: function (name) {
       try { sessionStorage.setItem(ADMIN_SESSION_KEY, '1'); } catch (e) {}
+      try { if (name) sessionStorage.setItem('gmt_admin_name', String(name)); } catch (e) {}
       window.GMTRole.repaint();
     },
+    name: function () {
+      try { return window.GMTRole.isAdmin() ? (sessionStorage.getItem('gmt_admin_name') || '') : ''; } catch (e) { return ''; }
+    },
     revoke: function () {
-      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+      try { if (window.GMTRole.isAdmin() && window.GMTOpLog) window.GMTOpLog.log({ action: 'admin_logout', entity: 'admin_accounts', entityName: window.GMTRole.name() }); } catch (e) {}
+      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_sov_ok'); } catch (e) {}
+      /* ⚠️ admin_pos.html كانت تكتب `gmt_admin_auth` في localStorage ولا تُمحى أبداً ⇒ بعد «خروج الأدمن» تبقى أدوات النقاط مفتوحةً لمن يأتي بعده */
+      try { localStorage.removeItem('gmt_admin_auth'); } catch (e) {}
       window.GMTRole.repaint();
     },
     /* يطلب الصلاحية إن لم تكن مفتوحة. يُرجع Promise<boolean>. */
     requireAdmin: async function (whatFor) {
       if (window.GMTRole.isAdmin()) return true;
+      /* حسابٌ باسمه وكلمة سرّه — لا كلمةٌ مشتركة. النافذة تمنح الجلسة بنفسها. */
+      if (window.GMTAuth && window.GMTAuth.admin && window.GMTAuth.admin.login) {
+        const nm = await window.GMTAuth.admin.login(whatFor || 'هذا الإجراء');
+        return !!nm;
+      }
       if (!window.GMTAuth || !window.GMTAuth.ask) return true;   /* بلا وحدة سرّ لا نقفل */
       const ok = await window.GMTAuth.ask('sovereign',
         '🔒 ' + (whatFor || 'هذا الإجراء') + ' — للأدمن');
@@ -828,7 +844,9 @@
     isMgmt: function (keyOrName) {
       const v = String(keyOrName == null ? '' : keyOrName).toLowerCase().trim();
       if (!v) return false;
-      return MGMT_BRANCH_KEYS.some(function (k) { return v.indexOf(k) !== -1; });
+      /* (١١ ت١) الرمزان اللاتينيّان القصيران (hlb · halb) يُطابقان كلمةً كاملة لا جزءاً من مفتاحٍ آخر. */
+      const toks = v.split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
+      return MGMT_BRANCH_KEYS.some(function (k) { return (/^[a-z]+$/.test(k) && k.length <= 4) ? toks.indexOf(k) !== -1 : v.indexOf(k) !== -1; });
     },
 
     /* موقعُ عبورٍ لا نقطةُ بيع — يُوجَّه إلى المصدر الموحّد */
@@ -4173,12 +4191,43 @@
        • المقبوض/فاتورة = paid_amount إن وُجد، وإلا total
          (نقدي=كامل · آجل=الدفعة · مرتجع=سالب · صفوف قديمة=total)
        • المُرحّل = Σ amount حيث type <> 'expense'
-       • مصاريف الصندوق = Σ |amount| حيث type = 'expense'
+       • مصاريف الصندوق = −Σ amount حيث type = 'expense' (الخصم سالب؛ الاسترداد موجب)
        • فواتير [تدريب] مستثناة دائماً
    ═══════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
   if (window.GMTCash) return;
+  /* (٨ ج) المقبوض الفعليّ من فاتورة. قاعدتك فيها فواتير قديمة «نقدي · مدفوعة · المتبقي 0» لكن paid_amount = 0
+     (العمود جاء بعدها بقيمةٍ افتراضيّة 0) فكانت تُحسب 0 في الصندوق وهي مقبوضةٌ كاملة — فصار صندوق الفرع أقلّ من الحقيقة.
+     🔴 (مراجعة ACCT-1) لكن هذا الاستدلال لا يصحّ إلّا على **بيعٍ نقديٍّ موجب الإجمالي**:
+       • المرتجع (إجمالي سالب): paid_amount = −المردود نقداً، وصفرٌ صريح = «خُصم من دين الزبون» (لا نقد خرج) ⇒ نأخذ المسجَّل كما هو.
+       • الآجل: صفرٌ صريح = لم يُقبض شيء بعد ⇒ 0 (والتحصيل اللاحق يرفع paid_amount فيُحسب).
+       القاعدة:  إجمالي ≤ 0 ⇒ المسجَّل (أو الإجمالي إن غاب) · paid موجب ⇒ paid · آجل ⇒ paid (أو الإجمالي−المتبقي إن غاب)
+                 · نقدي بلا paid ⇒ الإجمالي − المتبقي إن عُرف، وإلا «مدفوعة» ⇒ الإجمالي، وإلا الإجمالي. */
+  function invCash(i) {
+    if (!i) return 0;
+    var total = Number(i.total); if (isNaN(total)) total = 0;
+    var paid = (i.paid_amount != null && i.paid_amount !== '') ? Number(i.paid_amount) : null;
+    if (paid !== null && isNaN(paid)) paid = null;
+    var rem = (i.remaining_amount != null && i.remaining_amount !== '') ? Number(i.remaining_amount) : null;
+    if (rem !== null && isNaN(rem)) rem = null;
+    if (total <= -0.004) {
+      /* مرتجع: paid_amount = −المردود نقداً. صفرٌ بلا أثر ⇒ مرتجعٌ قديم رُدّ نقدُه كاملاً (يُنقص). صفرٌ مع «أُلغي من الدين: $X» في الملاحظة
+         (كاتب المرتجع الحالي يدوّنها) ⇒ جزءٌ X منه خُصم من دين الزبون فلم يخرج نقد: النقد الخارج = |الإجمالي| − X. */
+      if (paid !== null && Math.abs(paid) > 0.004) return paid;
+      var dm = /أُلغي من الدين:\s*\$?\s*([0-9]+(?:\.[0-9]+)?)/.exec(String(i.notes || ''));
+      if (dm) return Math.min(0, total + Number(dm[1]));
+      return total;
+    }
+    if (total <= 0.004) return paid !== null ? paid : total;
+    if (paid !== null && Math.abs(paid) > 0.004) return paid;
+    var credit = String(i.sale_type || '').indexOf('آجل') >= 0;
+    if (credit) return paid !== null ? paid : (rem !== null ? total - rem : 0);
+    if (rem !== null) return total - rem;
+    var st = String(i.payment_status || '');
+    if (paid !== null && !/^(paid|مدفوع)/i.test(st)) return paid;
+    return total;
+  }
   function expected(invoices, transfers) {
     invoices  = Array.isArray(invoices)  ? invoices  : [];
     transfers = Array.isArray(transfers) ? transfers : [];
@@ -4192,8 +4241,7 @@
        المبلغ يبقى في **المبيعات والمحاسبة** — يُستبعد من **الصندوق** فقط.
        دفاعي: إن لم تُشغَّل ملف SQL الأساس (SQL/أرشيف_SQL.html) فالعمود غائب ⇒ صفر ⇒ السلوك كما كان. */
     var cashReceived = real.reduce(function (s, i) {
-      var v = (i && i.paid_amount != null) ? Number(i.paid_amount) : Number(i && i.total);
-      if (isNaN(v)) v = 0;
+      var v = invCash(i);
       var ext = Number(i && i.paid_external) || 0;
       if (ext > 0) v -= ext;
       return s + v;
@@ -4204,8 +4252,10 @@
       .reduce(function (s, t) { return s + Math.abs(Number(t.amount) || 0); }, 0);
     var transferred = transfers.filter(function (t) { return t && t.type !== 'expense' && t.type !== 'collection'; })
       .reduce(function (s, t) { return s + (Number(t.amount) || 0); }, 0);
+    /* (٨ ج) مصروف الصندوق سالبُ الإشارة دائماً (−مبلغ) — فالمجموع بإشارته: خصمٌ يُنقص الصندوق، واستردادٌ موجب
+       (تخفيض دفعة فاتورة شراء كانت من درج الفرع) يُعيد إليه. كان Math.abs يعدّ الاسترداد خصماً ثانياً. */
     var cashExpenses = transfers.filter(function (t) { return t && t.type === 'expense'; })
-      .reduce(function (s, t) { return s + Math.abs(Number(t.amount) || 0); }, 0);
+      .reduce(function (s, t) { return s - (Number(t.amount) || 0); }, 0);
     var external = real.reduce(function (s, i) {
       return s + (Number(i && i.paid_external) || 0);
     }, 0);
@@ -4218,5 +4268,61 @@
       expected: Math.max(0, cashReceived + collected - transferred - cashExpenses)
     };
   }
-  window.GMTCash = { expected: expected };
+  window.GMTCash = { expected: expected, invCash: invCash };
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GMTCashTx — كتابة حركات الصندوق في branch_transfers بما يتحمّله جدولُك
+   ───────────────────────────────────────────────────────────────────────────
+   جذرٌ وُجد بقراءة القاعدة الحيّة: الجدول أُنشئ أصلاً لنقل البضاعة وفيه أعمدةٌ إلزاميّة (transfer_number · from_branch ·
+   from_branch_name · to_branch · to_branch_name) لا تكتبها حركاتُ الصندوق ⇒ كل إدراجٍ يُرفض (23502) ⇒ لا ترحيل ولا
+   تحصيل أوردر ولا خصم مصروف دخل القاعدة قط. وinvoice_id كان bigint بينما معرّفات الفواتير uuid (22P02).
+   الحلّ هنا بلا لمس القاعدة: نُكمل الأعمدة الإلزاميّة بقيمٍ صادقة (مصدر = الفرع · وجهة = الإدارة · رقمٌ فريد)،
+   ونُسقط ما لا يوجد من أعمدةٍ (PGRST204) ونحوّل invoice_id إلى الملاحظة إن رُفض نوعُه. (ملف SQL 36 يُصلح الجدول نفسه.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.GMTCashTx) return;
+  function uniq() { return 'CASH-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+  function fill(row) {
+    var r = Object.assign({}, row || {});
+    var bk = r.branch_key || '';
+    if (r.transfer_number == null) r.transfer_number = uniq();
+    if (r.from_branch == null) r.from_branch = bk || 'central';
+    if (r.from_branch_name == null) r.from_branch_name = r.branch_name || bk || 'الإدارة';
+    if (r.to_branch == null) r.to_branch = 'central';
+    if (r.to_branch_name == null) r.to_branch_name = 'الإدارة';
+    return r;
+  }
+  /* send(body) → Promise<{ok, status, text, data}> ؛ يعيد المحاولة بتعديلٍ واحد لكلّ علّة معروفة */
+  async function post(send, row, opts) {
+    opts = opts || {};
+    var body = opts.raw ? Object.assign({}, row) : fill(row);
+    var res, moved = {};
+    for (var n = 0; n < 8; n++) {
+      res = await send(body);
+      if (res && res.ok) return Object.assign({ moved: moved }, res);
+      var t = String((res && (res.text || res.error)) || '');
+      var m = /Could not find the '([^']+)' column|column "?([a-z_]+)"? (?:of relation "[a-z_]+" )?does not exist/i.exec(t);
+      var col = m && (m[1] || m[2]);
+      if (col && col in body) {
+        /* (مراجعة I-13) أعمدة الربط بالأوردر/الفاتورة لا تُسقَط بصمت: أثرها يُحفظ في الملاحظة (للتدقيق ولمنع التحصيل المزدوج) */
+        if (/^(order_id|order_serial|invoice_id)$/.test(col) && body[col] != null) {
+          moved[col] = body[col];
+          body.note = ((body.note || '') + ' · [' + col + '=' + body[col] + ']').replace(/^ · /, '');
+        }
+        delete body[col]; continue;
+      }
+      if (/22P02|invalid input syntax for type (bigint|uuid)/i.test(t) && body.invoice_id != null) {
+        moved.invoice_id = body.invoice_id;
+        body.note = ((body.note || '') + ' · [invoice_id=' + body.invoice_id + ']').replace(/^ · /, '');
+        delete body.invoice_id; continue;
+      }
+      var nn = /null value in column "([a-z_]+)"/i.exec(t);
+      if (nn && body[nn[1]] == null) { body[nn[1]] = nn[1] === 'transfer_number' ? uniq() : (nn[1].indexOf('name') >= 0 ? 'الإدارة' : 'central'); continue; }
+      break;
+    }
+    return res;
+  }
+  window.GMTCashTx = { fill: fill, post: post, uniq: uniq };
 })();

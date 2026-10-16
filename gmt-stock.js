@@ -276,11 +276,24 @@
     var r = await rest('GET', 'stock_transfer_items?transfer_id=eq.' + encodeURIComponent(id) + '&select=*');
     if (!r.ok || !Array.isArray(r.data)) { res.error = 'تعذّر جلب البنود (HTTP ' + r.status + ')'; return res; }
     if (!r.data.length) { res.error = 'الفاتورة بلا بنود'; return res; }
+    /* (11 ت١ · T-02) الفواتير القديمة بلا عمود «المطلوب»: الأصناف الفاشلة لم تُصفَّر كميّتها (qty = المطلوب) وتُعرَف فقط بأسمائها في ملاحظة الفاتورة.
+       استلامُها كان يُضيف للوجهة كميّةً **لم تُخصم من المصدر** (تضاعف المخزون). الآن تُتخطّى حتى تُسوَّى. */
+    var legacy = [];
+    try {
+      var hdr = await rest('GET', 'branch_stock_transfers?id=eq.' + encodeURIComponent(id) + '&select=note,settled&limit=1');
+      if (hdr.ok && Array.isArray(hdr.data) && hdr.data[0] && !hdr.data[0].settled) {
+        var mm = String(hdr.data[0].note || '').match(/تعذّر خصم\s*\d+\s*صنف\s*:\s*(.+)$/);
+        if (mm) legacy = mm[1].split(/[،,]\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+      }
+    } catch (_) {}
     for (var i = 0; i < r.data.length; i++) {
       var it = r.data[i], nm = it.product_name || it.product_id || '—', q = Number(it.qty) || 0;
       if (itemReceived(it)) { res.skipped.push({ name: nm, why: 'استُلم سابقاً' }); continue; }
-      /* لم يُخصم من المصدر ⇒ لا يُضاف للوجهة؛ تسويتُه (من الجرد) تنقله فعلاً حين تتمّ */
-      if (it.deduction_failed) { res.waiting.push({ name: nm, why: 'لم يُخصم من المصدر — بانتظار التسوية' }); continue; }
+      var noReq = (it.requested_qty == null || it.requested_qty === '');
+      if (noReq && legacy.indexOf(String(it.product_name || '').trim()) >= 0) { res.waiting.push({ name: nm, why: 'لم يُخصم من المصدر — بانتظار التسوية' }); continue; }
+      /* لم يُخصم من المصدر ⇒ لا يُضاف للوجهة؛ تسويتُه (من الجرد) تنقله فعلاً حين تتمّ.
+         بند ناقصٌ جزئياً (qty > 0 وdeduction_failed) يُستلم منه ما نُقل فعلاً فقط، والباقي يُضاف عند تسويته. */
+      if (it.deduction_failed && q <= 0) { res.waiting.push({ name: nm, why: 'لم يُخصم من المصدر — بانتظار التسوية' }); continue; }
       if (q <= 0 || !it.product_id) { res.skipped.push({ name: nm, why: 'كميّة صفر' }); continue; }
       var mv = await move('add', it.product_id, to, q);
       if (!mv.ok) { res.failed.push({ name: nm, why: friendly(mv.error) }); continue; }

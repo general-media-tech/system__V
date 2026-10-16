@@ -51,7 +51,9 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     var urls = new Set();
     document.querySelectorAll('img[src],link[href],script[src]').forEach(function (n) {
       var u = n.getAttribute('src') || n.getAttribute('href') || '';
-      if (!u || /^(data:|https?:|#)/.test(u)) return;
+      /* (١١ ت١ — ملاحظات) blob: معاينة صورةٍ رفعها الموظف للتوّ (إيصال الشحن مثلاً) لا ملفّ استضافة — فكانت تُحسب «أصلاً ناقصاً (تعذّر)»
+         وتصل تقرير الصحّة على تيليغرام بلا سبب. كذلك mailto/tel/javascript. */
+      if (!u || /^(data:|blob:|https?:|#|mailto:|tel:|javascript:|about:)/.test(u)) return;
       urls.add(u.split('?')[0]);
     });
     var missing = [];
@@ -200,10 +202,24 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     } catch (e) { return warn('تعذّر فحص حدّ الصفوف', e.message); }
   }
 
+  /* ⑦ (١١ ت١) رابط وسيط العقل: مضبوطٌ ويصلح؟ — «HTTP 405 Not Allowed» كان رابطَ موقعٍ ثابت لا دالة. قراءة فقط، بلا شبكة. */
+  function checkEndpoints() {
+    try {
+      if (!global.GMTEndpoint || !GMTEndpoint.get || !GMTEndpoint.problem) return ok('فحص رابط الوسيط غير متاح على هذه الصفحة');
+      var out = [];
+      ['brain', 'shop'].forEach(function (k) {
+        var u = GMTEndpoint.get(k); if (!u) return;
+        var pr = GMTEndpoint.problem(u); if (pr) out.push((GMTEndpoint.kinds[k] || {}).label + ': ' + pr);
+      });
+      return out.length ? bad('رابط وسيطٍ لا يصلح: ' + out.length, out.join(' · ') + ' — صحّحه من «تفعيل عقل النظام»') : ok('روابط الوسيط (إن ضُبطت) صالحة الشكل');
+    } catch (e) { return warn('تعذّر فحص رابط الوسيط', e.message); }
+  }
+
   async function run(verbose) {
     var results = [];
     results.push(checkRules());
     results.push(checkBrand());
+    results.push(checkEndpoints());
     results.push(await checkAssets());
     results.push(await checkDatabase());
     results.push(await checkRpc());
@@ -216,10 +232,16 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
     var tag = '[GMT الفحص الذاتي]';
     if (bads.length) {
-      console.group('%c' + tag + ' 🔴 ' + bads.length + ' مشكلة', 'color:#D5001C;font-weight:bold');
-      bads.forEach(function (r) { console.error('🔴 ' + r.title, r.detail); });
-      warns.forEach(function (r) { console.warn('🟠 ' + r.title, r.detail); });
-      console.groupEnd();
+      /* الفحص يطبع نتيجته بـconsole.error، وعقل النظام يلتقط كلّ console.error «أخطاءَ جلسة»
+         فكان تقرير الصحة يعدّ نتيجة الفحص نفسَها خطأً ثانياً ويكرّرها (بلاغ المالك ١٠ ت١).
+         العلَم يُخبره أن هذا السطر ليس خطأ جلسة. */
+      global.__gmtSelfLog = true;
+      try {
+        console.group('%c' + tag + ' 🔴 ' + bads.length + ' مشكلة', 'color:#D5001C;font-weight:bold');
+        bads.forEach(function (r) { console.error('🔴 ' + r.title, r.detail); });
+        warns.forEach(function (r) { console.warn('🟠 ' + r.title, r.detail); });
+        console.groupEnd();
+      } finally { global.__gmtSelfLog = false; }
       banner(bads, warns);
     } else if (verbose) {
       console.group('%c' + tag + ' ✅ سليم', 'color:#15803d;font-weight:bold');

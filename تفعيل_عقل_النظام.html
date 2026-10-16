@@ -54,16 +54,16 @@ window.GMT_INTERNAL = 1;</script>
   footer{text-align:center;font-size:11.5px;color:var(--mut);font-weight:700;margin-top:24px}
   @media(max-width:520px){ body{padding:16px 16px 50px} h1{font-size:19px} table{font-size:11.5px} }
 </style>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
 <div class="wrap">
@@ -263,8 +263,9 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
 </div>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-endpoint.js?v=20261011m"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
@@ -308,7 +309,14 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
     var url = ''; try { url = (window.GMTEndpoint && GMTEndpoint.get && GMTEndpoint.get('brain')) || localStorage.getItem('gmt_brain_endpoint') || ''; } catch (_) {}
     if (!url) { $('k-msg').textContent = 'أدخل رابط الوسيط أوّلاً'; $('k-msg').style.color = '#b91c1c'; return; }
     try {
+      var pb = window.GMTEndpoint && GMTEndpoint.problem && GMTEndpoint.problem(url);
+      if (pb) { $('k-msg').textContent = '⛔ الرابط المضبوط لا يصلح: ' + pb; $('k-msg').style.color = '#b91c1c'; return; }
       var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'status' }) });
+      if (!r.ok) {
+        var tx = await r.text().catch(function () { return ''; }), jj = null; try { jj = JSON.parse(tx); } catch (_) {}
+        if (jj && jj.error && r.status < 500 && r.status !== 404 && r.status !== 401 && r.status !== 403) { $('k-msg').textContent = 'الوسيط القديم لا يعرف هذا الفحص — أعِد نشره (ردّه: ' + String(jj.error).slice(0, 80) + ')'; $('k-msg').style.color = '#b45309'; return; }
+        $('k-msg').textContent = '⛔ ' + (window.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, tx, url) : 'HTTP ' + r.status) + (jj && jj.error ? ' — ردّ الوسيط: ' + String(jj.error).slice(0, 100) : ''); $('k-msg').style.color = '#b91c1c'; return;
+      }
       var j = await r.json();
       $('k-msg').textContent = j.error ? 'الوسيط القديم لا يعرف هذا الفحص — أعِد نشره' : ('في الوسيط الآن: ' + j.gemini + ' مفتاح Gemini · ' + j.anthropic + ' مفتاح Claude · الترتيب: ' + j.order);
       $('k-msg').style.color = j.error ? '#b45309' : '#047857';

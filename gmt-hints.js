@@ -50,6 +50,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       'opacity:0;transition:opacity .15s;pointer-events:none;font-weight:600;');
     var arrow = el('div', 'position:absolute;width:12px;height:12px;background:#0f172a;transform:rotate(45deg);');
     arrow.setAttribute('data-arrow', '1');
+    bubble.setAttribute('data-gmt-hints', '1');          /* كي لا يعدّه فحصُ «هل الزرّ ظاهرٌ فعلاً» غطاءً فوق الزرّ */
     bubble.appendChild(arrow);
     document.body.appendChild(bubble);
     return bubble;
@@ -114,6 +115,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   function spotlight(target) {
     if (!spot) {
       spot = el('div', 'position:fixed;inset:0;z-index:' + Z + ';pointer-events:none;transition:box-shadow .2s');
+      spot.setAttribute('data-gmt-hints', '1');
       document.body.appendChild(spot);
     }
     var r = target.getBoundingClientRect();
@@ -128,7 +130,54 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
   /* ── نصّ الشرح: من data-hint، وإلا من title، وإلا من نصّ الزر ── */
   function hintOf(node) {
-    return (node.getAttribute('data-hint') || node.getAttribute('title') || '').trim();
+    var cur = (node.getAttribute('data-hint') || node.getAttribute('title') || '').trim();
+    if (cur) return cur;
+    return autoDescribe(node) || '';
+  }
+
+  /* ═══ (١١ ت١ — Notes ١٠ ت١ · «شو هالزر نقّحها بشكل كبير: تفلت أزرار / تأخذك لأزرار مو موجودة / لمناطق خارج الشاشة …
+         كل زرّ على حدة، وتؤثّر عليه بشكلٍ كامل») ═══
+     ١) التغطية: كان يشرح فقط ما عليه data-hint (نقطة البيع ٣٦ من ١٣٦ زرّاً · الأوردرات ١٩ من ١٢٥ · الجرد ١٣ من ٢٥٥ · أدمن النقاط صفر).
+        الآن كل زرٍّ ظاهر: الشرح المكتوب باليد أوّلاً، ثمّ title/aria-label، ثمّ شرحٌ **تلقائيّ صادق** من اسم دالّة الزرّ
+        («يفتح …» · «يحفظ …») — ويُوسَم «شرح تلقائي» ولا يُدّعى أكثر ممّا يُعرف.
+     ٢) الصدق في «هل هو ظاهرٌ فعلاً»: فحصٌ **بعد التمرير**: العنصر داخل الشاشة ≥٤٠٪ من مساحته، وأعلى عنصرٍ عند مركزه هو هو (لا نافذةٌ فوقه
+        ولا حاويةٌ بـoverflow تقصّه) — وإلّا يُتخطّى ولا يُؤشَّر على فراغ.
+     ٣) نافذةٌ مفتوحة ⇒ الجولة على ما داخلها فقط (ما خلفها مغطّى).
+     ٤) التكرار (أزرار «تعديل» في ٦٠ صفّاً) ⇒ تُشرح مرّةً واحدة مع العدد. ═══ */
+  var VERB = [
+    [/^(open|show|view|display|goto|go|nav|launch|start|begin)/i, 'يفتح'], [/^(save|submit|apply|commit|store|update|set(?!view|mode|tab))/i, 'يحفظ'],
+    [/^(delete|remove|del|clear|erase|drop|purge|drain)/i, 'يحذف (يطلب تأكيداً)'], [/^(print|pdf)/i, 'يطبع'],
+    [/^(export|download|dl|backup)/i, 'يصدّر/ينزّل ملفاً'], [/^(import|upload|pick|choose|attach)/i, 'يستورد/يرفع'],
+    [/^(toggle|switch|setview|setmode|settab|select|tab|filter|sort|group)/i, 'يبدّل العرض/الفلتر'], [/^(close|hide|dismiss|cancel|back|exit|end)/i, 'يغلق/يلغي'],
+    [/^(refresh|reload|sync|load|fetch|retry)/i, 'يحدّث/يعيد التحميل'], [/^(search|find|scan|lookup)/i, 'يبحث/يمسح'],
+    [/^(add|new|create|insert|plus|append)/i, 'يضيف/ينشئ'], [/^(edit|modify|change|rename)/i, 'يعدّل'],
+    [/^(confirm|approve|accept|ok|done|finish|complete|receive|collect|settle)/i, 'يؤكّد/يعتمد'], [/^(share|send|notify|whatsapp|wa|telegram|tg|call|contact)/i, 'يشارك/يرسل/يتواصل'],
+    [/^(copy|clone|duplicate)/i, 'ينسخ'], [/^(undo|redo|restore|revert|rollback)/i, 'يتراجع/يستعيد'], [/^(next|prev|previous|more|page)/i, 'ينتقل']
+  ];
+  function labelOf(n) {
+    var t = (n.getAttribute('aria-label') || n.innerText || n.value || n.getAttribute('placeholder') || '').replace(/\s+/g, ' ').trim();
+    return t.length > 40 ? t.slice(0, 38) + '…' : t;
+  }
+  function handlerName(n) {
+    var oc = n.getAttribute && n.getAttribute('onclick'); if (!oc) return '';
+    var m = String(oc).replace(/^\s*(?:closeMoreSheet\(\);?\s*|event\.stopPropagation\(\);?\s*)+/, '').match(/([A-Za-z_$][\w$]*)\s*\(/);
+    return m ? m[1] : '';
+  }
+  function escH(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function autoDescribe(n) {
+    var tag = (n.tagName || '').toLowerCase(), lab = escH(labelOf(n));      /* نصّ الزرّ قد يحمل بياناتٍ (اسم منتج…) — لا يُحقَن كـHTML */
+    if (tag === 'a') {
+      var href = n.getAttribute('href') || '';
+      if (!href || href === '#' || /^javascript:/i.test(href)) return lab ? 'رابط «' + lab + '»' : '';
+      return (lab ? '«' + lab + '» — ' : '') + 'ينقلك إلى صفحة أخرى' + (/^https?:|^tel:|^mailto:/i.test(href) ? ' (خارج النظام)' : '');
+    }
+    if (tag === 'select') return (lab ? lab + ' — ' : '') + 'قائمة اختيار: يغيّر ما يُعرض أو يُحفَظ';
+    if (tag === 'input' && /checkbox|radio/i.test(n.type)) return 'خانة اختيار' + (lab ? ' «' + lab + '»' : '');
+    if (tag === 'input' || tag === 'textarea') return (lab ? 'حقل «' + lab + '»' : 'حقل إدخال');
+    var hn = handlerName(n), verb = '';
+    if (hn) for (var i = 0; i < VERB.length; i++) if (VERB[i][0].test(hn)) { verb = VERB[i][1]; break; }
+    if (!lab && !verb) return '';
+    return '<span style="opacity:.6;font-size:11px">شرح تلقائي</span><br>' + (lab ? '«' + lab + '»' : 'زرّ') + (verb ? ' — ' + verb : ' — زرّ في هذه الصفحة') + (hn ? ' <span dir="ltr" style="opacity:.45;font-size:10.5px">(' + escH(hn) + ')</span>' : '');
   }
 
   /* ① التلميح الفوري */
@@ -145,19 +194,56 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   function onLeave(e) { if (!inTour && e.target.closest && e.target.closest('[data-hint]')) hide(); }
 
   /* ② الجولة على الأزرار الحقيقية */
+  var ACTIONABLE = 'button,[role="button"],a[href],input[type="button"],input[type="submit"],select,[data-hint],[onclick]';
+  function insideInert(n) {
+    for (var p = n; p && p.nodeType === 1; p = p.parentElement) {
+      if (p.hasAttribute('inert') || p.getAttribute('aria-hidden') === 'true' || p.hidden) return true;
+      if (p.tagName === 'DETAILS' && !p.open && p !== n && !(n.closest('summary'))) return true;
+    }
+    return false;
+  }
+  /* نافذةٌ مفتوحة فوق الصفحة؟ ⇒ نحصر الجولة بها */
+  function topLayer() {
+    var cands = document.querySelectorAll('[role="dialog"],[aria-modal="true"],.modal,.gmtask-ov,[id$="Modal"],[id$="-modal"],.modal-overlay,.overlay');
+    var best = null, bz = -1;
+    cands.forEach(function (m) {
+      if (m.closest('[data-gmt-hints]')) return;
+      var cs = getComputedStyle(m), r = m.getBoundingClientRect();
+      if (cs.display === 'none' || cs.visibility === 'hidden' || r.width < 40 || r.height < 40) return;
+      var covers = r.width >= innerWidth * 0.9 && r.height >= innerHeight * 0.6 && (cs.position === 'fixed' || cs.position === 'absolute');
+      var z = parseInt(cs.zIndex, 10) || 0;
+      if ((covers || /dialog/.test(m.getAttribute('role') || '') || m.getAttribute('aria-modal') === 'true') && z >= bz) { best = m; bz = z; }
+    });
+    /* نوافذ تُبنى بلا role/class معروف (طبقةٌ ثابتة تغطّي الشاشة مباشرةً تحت body) */
+    Array.prototype.forEach.call(document.body.children, function (m) {
+      if (m.hasAttribute('data-gmt-hints') || m.tagName === 'SCRIPT' || m.tagName === 'STYLE') return;
+      var cs = getComputedStyle(m), r = m.getBoundingClientRect();
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return;
+      if (r.width < innerWidth * 0.9 || r.height < innerHeight * 0.6) return;
+      var z = parseInt(cs.zIndex, 10) || 0;
+      if (z >= 100 && z >= bz && m.querySelector('button,a[href],input,select,[onclick]') && !/gmt-refresh|gmt-update|gmt-cache|gmt-training|gmt-sovereign/.test(m.id || '')) { best = m; bz = z; }
+    });
+    return best;
+  }
   function collect() {
-    var out = [];
-    document.querySelectorAll('[data-hint]').forEach(function (n) {
-      var r = n.getBoundingClientRect();
-      var vis = r.width > 0 && r.height > 0 && getComputedStyle(n).visibility !== 'hidden';
-      if (vis && hintOf(n)) out.push(n);
+    var out = [], seen = {}, layer = topLayer();
+    var root = layer || document;
+    root.querySelectorAll(ACTIONABLE).forEach(function (n) {
+      if (n.closest('[data-gmt-hints]')) return;
+      if (n.disabled || n.getAttribute('aria-disabled') === 'true') return;
+      if (n.tagName === 'DIV' && n.hasAttribute('onclick') && !labelOf(n) && !hintOf(n)) return;
+      if (!aliveAndVisible(n) || insideInert(n)) return;
+      var d = hintOf(n); if (!d) return;
+      var key = (labelOf(n) + '|' + handlerName(n) + '|' + (n.getAttribute('href') || '')).slice(0, 120);
+      if (seen[key]) { seen[key].__gmtDup = (seen[key].__gmtDup || 1) + 1; return; }
+      n.__gmtDup = 1; seen[key] = n; out.push(n);
     });
     // ترتيب بصري: الأعلى ثم الأيمن (واجهة RTL)
     out.sort(function (a, b) {
       var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
       return (Math.round(ra.top / 40) - Math.round(rb.top / 40)) || (rb.left - ra.left);
     });
-    return out;
+    return out.slice(0, 80);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -186,6 +272,27 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     } catch (_) { return false; }
   }
 
+  /* ظاهرٌ فعلاً على الشاشة الآن: داخل الإطار ≥٤٠٪ وأعلى عنصرٍ عند مركزه هو هو (لا غطاء ولا قصّ) */
+  function trulyVisible(n) {
+    try {
+      if (!aliveAndVisible(n)) return false;
+      var r = n.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+      var iw = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)), ih = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+      if (iw * ih < 0.4 * r.width * r.height) return false;
+      var xs = [0.5, 0.25, 0.75], hit = false;
+      for (var i = 0; i < xs.length && !hit; i++) {
+        var x = Math.min(Math.max(r.left + r.width * xs[i], 0), vw - 1), y = Math.min(Math.max(r.top + r.height / 2, 0), vh - 1);
+        var stack = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
+        for (var k = 0; k < stack.length; k++) {
+          var t = stack[k]; if (!t || (t.closest && t.closest('[data-gmt-hints]'))) continue;
+          hit = (t === n || n.contains(t) || t.contains(n)); break;                 // أوّل عنصرٍ حقيقيّ فوق النقطة
+        }
+      }
+      return hit;
+    } catch (_) { return false; }
+  }
+
+  var tourSkipped = 0;                // كم زرّاً تخطّته الجولة لأنّه غير ظاهرٍ فعلاً (للاختبار والتقرير)
   var _dir = 1;                       // اتّجاه السير — لتخطّي المفقود بذكاء
   var _follow = null;                 // متابعُ الموضع أثناء الجولة
 
@@ -198,13 +305,16 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     var n = tourList[i];
     if (!n || !aliveAndVisible(n)) return endTour();
     tourIdx = i;
-    try { n.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+    clearSpot(); hide();                  /* لا يبقى ثقبُ/فقاعةُ الخطوة السابقة معلَّقَين فوق عنصرٍ آخر أثناء التخطّي */
+    try { n.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch (_) {}
     setTimeout(function () {
-      /* قد يختفي أثناء انتظار التمرير — نُعيد الفحص لا نَفترض */
-      if (!aliveAndVisible(n)) { step(_dir >= 0 ? 1 : -1); return; }
-      spotlight(n); place(n, hintOf(n), true);
+      /* قد يختفي أثناء التمرير، أو يبقى مقصوصاً/مغطّى — نُعيد الفحص الحقيقيّ لا نَفترض، ونتخطّى بصمت */
+      if (!trulyVisible(n)) { tourSkipped++; try { (global.__gmtHintSkips = global.__gmtHintSkips || []).push(String(labelOf(n) || n.id || n.className).slice(0, 40)); } catch (_) {} step(_dir >= 0 ? 1 : -1); return; }
+      spotlight(n);
+      var dup = n.__gmtDup > 1 ? '<div style="opacity:.65;font-size:11px;margin-top:4px">يتكرّر ' + n.__gmtDup + ' مرّة في هذه الشاشة (مثلاً في كل صفّ) — يُشرح هنا مرّة واحدة</div>' : '';
+      place(n, hintOf(n) + dup, true);
       startFollow(n);
-    }, 220);
+    }, 90);
   }
 
   /* يُبقي الثقب ملتصقاً بالزرّ أثناء التمرير — وينهي الجولة إن اختفى الزرّ */
@@ -212,7 +322,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     stopFollow();
     _follow = setInterval(function () {
       if (!inTour) return stopFollow();
-      if (!aliveAndVisible(n)) { stopFollow(); step(_dir >= 0 ? 1 : -1); return; }
+      if (!trulyVisible(n)) { stopFollow(); step(_dir >= 0 ? 1 : -1); return; }
       spotlight(n);
     }, 260);
   }
@@ -226,9 +336,10 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     show(next);
   }
   function startTour() {
+    tourSkipped = 0;
     tourList = collect();
     if (!tourList.length) {
-      alert('لا توجد أزرار مشروحة في هذه الصفحة بعد.\nتُشرح بإضافة data-hint="..." على الزر.');
+      try { (window.GMTAsk ? GMTAsk.alert : alert)('لا أزرار ظاهرة لأشرحها الآن في هذه الشاشة.', { title: 'شو هالزر؟' }); } catch (_) {}
       return;
     }
     inTour = true;
@@ -307,6 +418,9 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       if (n) place(n, text || hintOf(n), false);
     },
     count: function () { return collect().length; },
+    skipped: function () { return tourSkipped; },
+    _state: function () { return { idx: tourIdx, el: tourList[tourIdx] || null, n: tourList.length, on: inTour }; },
+    _collect: collect, _trulyVisible: trulyVisible, _describe: hintOf, _auto: autoDescribe,
     mount: mountButton
   };
 })(window);

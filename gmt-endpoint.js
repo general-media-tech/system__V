@@ -76,6 +76,37 @@
     return mem || {};
   }
 
+  /* ══ (١١ ت١) «تعذّر الاتصال: HTTP 405 — Not Allowed» ══════════════════════════════════════════════
+     الجذر: الرابط المضبوط للوسيط كان رابط **موقعٍ ثابت** (GitHub Pages ينقّل POST بصفحة «405 Not Allowed» بتذييل nginx)
+     لا رابط دالة Supabase — والنظام يقبل أيَّ رابط https بلا فحص، ثمّ يعرض للمستخدم نصَّ صفحة HTML الخام فلا يفهم شيئاً.
+     العلاج: ① لا نحفظ رابطاً لا يصلح لـPOST (problem) ② نترجم ردّ الخطأ إلى سبب وحلّ بالعربية (explain). */
+  function problem(url) {
+    var u = String(url == null ? '' : url).trim(); if (!u) return '';
+    var a; try { a = new URL(u); } catch (_) { return 'الرابط غير صالح — يجب أن يبدأ بـhttps:// ويكون رابطاً كاملاً'; }
+    var host = a.hostname.toLowerCase(), path = a.pathname || '/';
+    try { if (a.host.toLowerCase() === String(location.host || '').toLowerCase()) return 'هذا رابط الموقع نفسه — صفحات الموقع لا تقبل POST (تردّ 405)'; } catch (_) {}
+    if (/\.github\.io$/.test(host)) return 'هذا رابط موقعٍ على GitHub Pages — صفحات ثابتة لا تقبل POST (تردّ 405). المطلوب رابط دالة Supabase';
+    if (/\.(html?|js|css|json|png|jpe?g|svg|ico)$/i.test(path)) return 'الرابط يشير إلى ملف (' + path.split('/').pop() + ') لا إلى دالة';
+    /* شكلان موثَّقان لدوال Supabase: <ref>.supabase.co/functions/v1/<fn> و <ref>.functions.supabase.co/<fn> */
+    if (/\.supabase\.co$/.test(host) && !/\.functions\.supabase\.co$/.test(host) && !/^\/functions\/v1\/[^/]+/.test(path)) return 'رابط Supabase هذا ليس لدالة — الشكل الصحيح: https://<المشروع>.supabase.co/functions/v1/<اسم الدالة>';
+    return '';
+  }
+  function explain(status, body, url) {
+    var st = Number(status) || 0, b = String(body == null ? '' : body), html = /<\s*(html|head|body|title)\b/i.test(b);
+    var pr = url ? problem(url) : '';
+    if (st === 405 || (html && st >= 400 && st < 500 && st !== 404 && st !== 401 && st !== 403)) {
+      return 'الرابط المضبوط يردّ بصفحة موقع (HTTP ' + st + ' «Not Allowed») — أي أنّه ليس وسيطاً، بل موقعٌ ثابت لا يقبل الطلبات المرسَلة له. ' +
+        (pr ? 'السبب: ' + pr + '. ' : 'غالباً لُصق رابط الموقع (GitHub Pages) بدل رابط دالة Supabase. ') +
+        'الشكل الصحيح: https://<المشروع>.supabase.co/functions/v1/gmt-brain — صحّحه من «تفعيل عقل النظام» أو زرّ «أدخل رابط الوسيط».';
+    }
+    if (st === 404) return 'لا توجد دالة على هذا الرابط (HTTP 404) — إمّا لم تُنشر بعد، أو اسمها في الرابط لا يطابق اسم الدالة المنشورة.';
+    if (st === 401 || st === 403) return 'الوسيط رفض الطلب (HTTP ' + st + ') — غالباً نُشرت الدالة بدون الخيار --no-verify-jwt: أعد نشرها بـ«supabase functions deploy gmt-brain --no-verify-jwt».';
+    if (st === 429) return 'تجاوز الاستهلاك المسموح (HTTP 429) — انتظر دقيقة أو أضف مفتاحاً آخر للوسيط.';
+    if (st >= 500) return 'الدالة وصلتها الرسالة لكنّها فشلت داخلياً (HTTP ' + st + ') — افتح سجلّات الدالة في Supabase (غالباً مفتاح Gemini/Claude ناقص أو رصيده انتهى).';
+    if (st === 0) return 'تعذّر الوصول للوسيط أصلاً — لا إنترنت، أو الدالة لا تسمح بهذا الموقع (CORS).';
+    return 'ردّ الوسيط برمز HTTP ' + st + '.';
+  }
+
   /* القيمة الفعّالة: القاعدة أوّلاً (للنظام كلّه)، ثمّ المحلّي (توافقٌ خلفيّ) */
   function get(kind) {
     var k = KINDS[kind];
@@ -90,6 +121,7 @@
     if (!k) throw new Error('نوعٌ غير معروف');
     var v = String(url || '').trim();
     if (v && !/^https?:\/\//i.test(v)) throw new Error('الرابط يجب أن يبدأ بـhttps://');
+    var bad = problem(v); if (bad) throw new Error(bad);          /* لا نحفظ رابطاً لن يعمل أبداً */
     lsSet(k.local, v);                       // يعمل فوراً على هذا الجهاز
     var d = db();
     if (!d) return { local: true, system: false };
@@ -116,6 +148,32 @@
     } catch (e) {
       return { local: true, system: false, why: e && e.message };
     }
+  }
+
+  /* ══ (١١ ت١ ٢٠٢٦ — ملاحظات) مفاتيح تشغيلٍ عامّة في gmt_settings — غير الروابط ══
+     الجدول نفسه الذي تُحفَظ فيه الروابط وكلمات السرّ، فلا جدول جديد ولا SQL. أوّل مستعمِلٍ: «قفل الأوردرات» (orders_lock).
+     القراءة الطازجة تتجاوز كاش الدقائق العشر — لأنّ مفتاحاً يَحكم عملية مالية لا يجوز أن يتأخّر سريانُه عشر دقائق. */
+  function setting(key) { var c = readCache() || mem || {}; return c[key]; }
+  async function settingFresh(key) { var c = await load(true); return (c || {})[key]; }
+  async function setSetting(key, value) {
+    var d = db();
+    if (!d) return { system: false, why: 'إعدادات القاعدة غير متاحة' };
+    var v = String(value == null ? '' : value);
+    var H = { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' };
+    try {
+      var r = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', { method: 'POST',
+        headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, H), body: JSON.stringify({ key: key, value: v }) });
+      if (!r.ok) {
+        var r2 = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(key), { method: 'PATCH',
+          headers: Object.assign({ Prefer: 'return=representation' }, H), body: JSON.stringify({ value: v }) });
+        if (!r2.ok) return { system: false, why: 'HTTP ' + r2.status };
+        var rows = await r2.json().catch(function () { return []; });
+        if (!Array.isArray(rows) || !rows.length) return { system: false, why: 'لا سطر لهذا المفتاح — شغّل SQL الإعدادات' };
+      }
+      mem = null; at = 0;
+      var back = await settingFresh(key);                 /* لا نصدّق الكتابة قبل أن نقرأها */
+      return String(back == null ? '' : back) === v ? { system: true } : { system: false, why: 'لم يثبت في القاعدة (قرأتُ «' + back + '»)' };
+    } catch (e) { return { system: false, why: e && e.message }; }
   }
 
   /* رفعُ ما ضُبط محلّياً قبل اليوم إلى القاعدة — مرّةً، بلا إزعاج المالك */
@@ -166,7 +224,7 @@
   function prompt_(kind) {
     var k = KINDS[kind]; if (!k) return;
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.6);'
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483640;background:rgba(0,0,0,.6);'
       + 'display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:inherit';
     ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%">'
       + '<div style="font-weight:900;font-size:16px;margin-bottom:6px">' + k.label + '</div>'
@@ -206,7 +264,8 @@
   }
 
   global.GMTEndpoint = {
-    get: get, set: set, load: load, kinds: KINDS,
+    get: get, set: set, load: load, kinds: KINDS, problem: problem, explain: explain,
+    setting: setting, settingFresh: settingFresh, setSetting: setSetting,
     notice: notice, open: prompt_, migrate: migrateLocal
   };
 

@@ -37,7 +37,7 @@
   (function captureErrors() {
     var oe = console.error;
     console.error = function () {
-      try { errLog.push(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0, 300)); if (errLog.length > 40) errLog.shift(); } catch (_) {}
+      try { if (!global.__gmtSelfLog) errLog.push(Array.prototype.slice.call(arguments).map(String).join(' ').slice(0, 300)); if (errLog.length > 40) errLog.shift(); } catch (_) {}
       return oe.apply(console, arguments);
     };
     addEventListener('error', function (e) {
@@ -205,13 +205,13 @@
       var d0 = new Date(); d0 = new Date(d0.getFullYear(), d0.getMonth(), 1).toISOString();
       var inv = await q('MAIN', 'invoices?select=total,sale_type,customer_name,branch_key&created_at=gte.' + encodeURIComponent(d0) + '&limit=20000');
       var com = await q('MAIN', 'invoice_commissions?select=amount&created_at=gte.' + encodeURIComponent(d0) + '&limit=20000');
-      var exp = await q('MAIN', 'gmt_expenses?select=amount,currency,exchange_rate,kind,approved&approved=is.true&created_at=gte.' + encodeURIComponent(d0) + '&limit=5000');
+      var exp = await q('MAIN', 'gmt_expenses?select=amount,currency,exchange_rate,kind,approved,note&approved=is.true&created_at=gte.' + encodeURIComponent(d0) + '&limit=5000');
       if (Array.isArray(inv)) {
         inv = inv.filter(function (r) { return !String(r.customer_name || '').startsWith('[تدريب]'); });
         var sales = inv.filter(function (r) { return !/مرتجع/.test(r.sale_type || '') && Number(r.total) > 0; }).reduce(function (s, r) { return s + Number(r.total); }, 0);
         var rets = inv.filter(function (r) { return /مرتجع/.test(r.sale_type || '') || Number(r.total) < 0; }).reduce(function (s, r) { return s + Math.abs(Number(r.total) || 0); }, 0);
         var cm = (com || []).reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
-        var ex = (exp || []).filter(function (e) { return !/^رأسمالي/.test(e.kind || ''); }).reduce(function (s, e) { return s + (e.currency === 'syp' ? (Number(e.amount) || 0) / (Number(e.exchange_rate) || 140) : (Number(e.amount) || 0)); }, 0);
+        var ex = (exp || []).filter(function (e) { return !/^رأسمالي/.test(e.kind || '') && !/\[PO:[^\]]+\]/.test(e.note || ''); })   /* قيود دفتر الشراء خروجُ نقدٍ لا مصروف (مراجعة ACCT-6) */.reduce(function (s, e) { return s + (e.currency === 'syp' ? (Number(e.amount) || 0) / (Number(e.exchange_rate) || 140) : (Number(e.amount) || 0)); }, 0);
         out.monthMoney = { sales: Math.round(sales), returns: Math.round(rets), commissions: Math.round(cm), expenses: Math.round(ex), note: 'الربح الصافي يحتاج تكلفة البضاعة — هذه أرقام المبيعات والمصاريف فقط' };
       }
     }
@@ -268,39 +268,77 @@
       fr.onerror = rej; fr.readAsDataURL(file);
     });
   }
+  /* (11 ت١ · طلب المالك) «مواصفات علي بابا ما لازم يطلب مني ارفع صورة المنتج — لازم ياخذ الصورة اللي عندي مع الاسم اللي عندي».
+     نقرأ صورة المنتج المحفوظة (رابط في القاعدة) كبايتات: fetch ثم Canvas كاحتياط CORS؛ وإن تعذّرتا يُكمَل البحث بالاسم وحده. */
+  function urlToBlob(u) {
+    return new Promise(function (resolve) {
+      var done = false, fin = function (b) { if (!done) { done = true; resolve(b || null); } };
+      setTimeout(function () { fin(null); }, 15000);
+      try {
+        fetch(u, { mode: 'cors' }).then(function (r) { return r.ok ? r.blob() : null; }).then(function (b) {
+          if (b && /^image\//.test(b.type || 'image/')) return fin(b);
+          viaCanvas();
+        }).catch(viaCanvas);
+      } catch (_) { viaCanvas(); }
+      function viaCanvas() {
+        try {
+          var im = new Image(); im.crossOrigin = 'anonymous';
+          im.onload = function () {
+            try { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); c.toBlob(function (b) { fin(b); }, 'image/jpeg', 0.9); }
+            catch (_) { fin(null); }
+          };
+          im.onerror = function () { fin(null); };
+          im.src = u;
+        } catch (_) { fin(null); }
+      }
+    });
+  }
   async function importProduct(o) {
     var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
     var body = { mode: 'product', url: (o && o.url) || '', hint: (o && o.hint) || '' };
     if (o && o.file) { body.image = await shrinkB64(o.file); body.image_type = 'image/jpeg'; }
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    var j = {}; try { j = await r.json(); } catch (_) {}
-    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
+    if (!r.ok || j.error) throw new Error(j.error || (global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, rawTxt, url) : ('HTTP ' + r.status)));
     return j.product || {};
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function productImportDialog(onApply, preset) {
     var w = document.createElement('div'); w.setAttribute('data-keep-fab', '1');
-    w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
+    /* (١٠ ت١ — ملاحظات) نفس نمط «نافذة الرابط خلف العقل»: هذه النافذة تُفتح من أزرار لوحة العقل (علي بابا · سجل المعرفة)
+       ولوحةُ العقل 2147483400 فكانت تختفي تحتها. الآن فوقها (ودون نوافذ السؤال 2147483640). */
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483500;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
     var inp = 'width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;box-sizing:border-box';
     w.innerHTML = '<div style="width:100%;max-width:560px;max-height:90vh;overflow:auto;background:#fff;border-radius:22px;padding:18px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
       '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:17px;flex:1">🧠 مواصفات منتج من علي بابا</b><button data-x style="border:0;background:#f1f5f9;border-radius:10px;padding:6px 12px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button></div>' +
-      '<div style="font-size:12.5px;color:#526077;margin:4px 0 10px">الصق رابط صفحة المنتج، أو ارفع صورته — يجمع العقل المواصفات كاملة، وتراجعها قبل التطبيق.</div>' +
+      ((preset && (preset.imageUrl || preset.name))
+        ? '<div style="display:flex;gap:10px;align-items:center;border:1px solid #e2e8f0;border-radius:14px;padding:8px 10px;margin:6px 0 10px;background:#f8fafc">' +
+            (preset.imageUrl ? '<img src="' + h(preset.imageUrl) + '" alt="" style="width:54px;height:54px;object-fit:contain;border-radius:10px;background:#fff" onerror="this.remove()">' : '') +
+            '<div style="flex:1;min-width:0"><b style="font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + h(preset.name || '') + '</b>' +
+            '<span style="font-size:12px;color:#526077">سأبحث بصورة المنتج واسمه الموجودَين عندك — لا حاجة لرفع صورة. تقدر تضيف رابطاً أو ملاحظة لدقّة أكبر.</span></div></div>'
+        : '<div style="font-size:12.5px;color:#526077;margin:4px 0 10px">الصق رابط صفحة المنتج، أو ارفع صورته — يجمع العقل المواصفات كاملة، وتراجعها قبل التطبيق.</div>') +
       '<input id="pi-url" dir="ltr" style="' + inp + '" placeholder="https://www.alibaba.com/product-detail/..." value="' + h((preset && preset.url) || '') + '">' +
-      '<div style="display:flex;gap:8px;margin-top:8px"><label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed #cbd5e1;border-radius:12px;padding:10px;cursor:pointer;font-weight:800;font-size:13px">📷 صورة المنتج<input id="pi-img" type="file" accept="image/*" hidden></label>' +
-      '<input id="pi-hint" style="' + inp + ';flex:1.4" placeholder="ملاحظة (اختياري): اسم أو موديل"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed #cbd5e1;border-radius:12px;padding:10px;cursor:pointer;font-weight:800;font-size:13px">' + ((preset && preset.imageUrl) ? '📷 صورة أخرى (اختياري)' : '📷 صورة المنتج') + '<input id="pi-img" type="file" accept="image/*" hidden></label>' +
+      '<input id="pi-hint" style="' + inp + ';flex:1.4" placeholder="ملاحظة (اختياري): اسم أو موديل" value="' + h((preset && preset.name) || '') + '"></div>' +
       '<div id="pi-err" style="min-height:1.2em;margin-top:8px;color:#b91c1c;font-size:13px;font-weight:800"></div>' +
       '<button id="pi-go" style="width:100%;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">ابحث واجمع المواصفات</button>' +
       '<div id="pi-res" style="margin-top:12px"></div></div>';
     document.body.appendChild(w);
     var $ = function (id) { return w.querySelector('#' + id); }, file = null, last = null;
     w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-x]')) w.remove(); });
-    $('pi-img').addEventListener('change', function () { file = this.files && this.files[0]; this.parentNode.firstChild.textContent = file ? '📷 ' + file.name.slice(0, 22) : '📷 صورة المنتج'; });
+    $('pi-img').addEventListener('change', function () { file = this.files && this.files[0]; this.parentNode.firstChild.textContent = file ? '📷 ' + file.name.slice(0, 22) : ((preset && preset.imageUrl) ? '📷 صورة أخرى (اختياري)' : '📷 صورة المنتج'); });
     $('pi-go').addEventListener('click', async function () {
       var b = this; $('pi-err').textContent = '';
-      if (!$('pi-url').value.trim() && !file) { $('pi-err').textContent = 'الصق رابطاً أو اختر صورة'; return; }
+      var hasPreset = !!(preset && (preset.imageUrl || preset.name));
+      if (!$('pi-url').value.trim() && !file && !hasPreset && !$('pi-hint').value.trim()) { $('pi-err').textContent = 'الصق رابطاً أو اختر صورة'; return; }
       b.disabled = true; b.textContent = 'العقل يبحث… (قد يأخذ نصف دقيقة)';
       try {
-        var pr = await importProduct({ url: $('pi-url').value.trim(), file: file, hint: $('pi-hint').value.trim() }); last = pr;
+        var useFile = file;
+        if (!useFile && preset && preset.imageUrl) {
+          useFile = await urlToBlob(preset.imageUrl);
+          if (!useFile) $('pi-err').textContent = 'تعذّرت قراءة صورة المنتج — سأبحث باسمه وحده.';
+        }
+        var pr = await importProduct({ url: $('pi-url').value.trim(), file: useFile, hint: $('pi-hint').value.trim() }); last = pr;
         var specs = Array.isArray(pr.specs) ? pr.specs.filter(function (s) { return s && s.k; }) : [];
         $('pi-res').innerHTML = '<div style="border:1px solid #e2e8f0;border-radius:16px;padding:12px">' +
           '<div style="display:flex;gap:10px">' + ((pr.images && pr.images[0]) ? '<img src="' + h(pr.images[0]) + '" style="width:72px;height:72px;object-fit:contain;border-radius:12px;background:#f8fafc" onerror="this.remove()">' : '') +
@@ -418,7 +456,9 @@
   function kbPanel() {
     var all = kbAll().slice().reverse();
     var w = document.createElement('div'); w.setAttribute('data-keep-fab', '1');
-    w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
+    /* (١٠ ت١ — ملاحظات) نفس نمط «نافذة الرابط خلف العقل»: هذه النافذة تُفتح من أزرار لوحة العقل (علي بابا · سجل المعرفة)
+       ولوحةُ العقل 2147483400 فكانت تختفي تحتها. الآن فوقها (ودون نوافذ السؤال 2147483640). */
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483500;background:rgba(15,18,25,.45);display:grid;place-items:center;padding:14px;direction:rtl;font-family:inherit';
     w.innerHTML = '<div style="width:100%;max-width:560px;max-height:86vh;overflow:auto;background:#fff;border-radius:22px;padding:18px">' +
       '<div style="display:flex;gap:8px;align-items:center"><b style="flex:1;font-size:17px">📚 ما تعلّمه العقل (' + all.length + ')</b>' +
       '<button data-clear style="border:0;background:#fff1f2;color:#b91c1c;border-radius:10px;padding:6px 10px;font:inherit;font-weight:800;cursor:pointer">مسح السجلّ</button>' +
@@ -438,6 +478,7 @@
     try { var kb = kbFind(question); if (kb) return kb.a + '<br><span style="font-size:11px;color:#526077">📚 من سجلّ المعرفة — بلا استهلاك رصيد</span>'; } catch (_) {}
     var url = endpoint();
     if (!url) throw new Error('not-configured');
+    try { var pb = global.GMTEndpoint && GMTEndpoint.problem && GMTEndpoint.problem(url); if (pb) { var e0 = new Error('رابط الوسيط المضبوط لا يصلح: ' + pb + '. صحّحه من «أدخل رابط الوسيط».'); e0.fixEndpoint = true; throw e0; } } catch (e1) { if (e1 && e1.fixEndpoint) throw e1; }
     var ctx = collectContext();
     // أرفق البيانات الحيّة المتعلّقة بالسؤال — كي يجيب من بياناتك لا من معرفته
     try { ctx.liveData = await collectLiveData(question); } catch (e) { ctx.liveData = { error: 'تعذّر جلب البيانات الحيّة' }; }
@@ -451,7 +492,11 @@
         question: question
       })
     });
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (await r.text().catch(function () { return ''; })).slice(0, 160));
+    if (!r.ok) {
+      var bodyTxt = await r.text().catch(function () { return ''; });
+      var ex = global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, bodyTxt, url) : ('HTTP ' + r.status + ' — ' + bodyTxt.slice(0, 160));
+      var er = new Error(ex); er.fixEndpoint = (r.status === 405 || r.status === 404 || r.status === 401 || r.status === 403 || r.status === 0); throw er;
+    }
     var d = await r.json();
     var answer = d.answer || d.reply || d.text || (d.content && d.content[0] && d.content[0].text) || '';
     if (!answer) throw new Error('ردّ فارغ من الوسيط');
@@ -466,6 +511,13 @@
     return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
   }
 
+  function openScreen(text) {
+    if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261011m';
+    sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
+    sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
+    (document.head || document.documentElement).appendChild(sc);
+  }
   function openPanel(preset) {
     var old = document.getElementById('gmt-brain-panel'); if (old) { old.remove(); }
     var p = document.createElement('div');
@@ -514,6 +566,8 @@
             : '<span style="color:#15803d">✅ ما في أخطاء مرصودة بهالجلسة.</span>'));
 
     var chips = [
+      /* (١١ ت١ — Notes ٨ ت١ ١٠:٢٠م) «زر اسمه تحليل الشاشة: صورة منتج أو طلب زبون برسالة نصّية، أو الاثنين معاً» */
+      ['🖼️ تحليل الشاشة', '__SCREEN__'],
       ['🔴 فسّرلي الأخطاء الحالية', 'في أخطاء مرصودة بالنظام هلق؟ فسّرلي كل واحد: شو يعني، هل هو خطير، شو تأثيره على الشغل، وشو الحل.'],
       ['📘 كيف أستعمل هالصفحة؟', 'أنا موظف جديد — اشرحلي هالصفحة خطوة بخطوة: شو بتعمل وشو أهم الأزرار وشو الأخطاء الشائعة.'],
       ['🏦 كيف بيتحسب الصندوق؟', 'كيف بيتحسب رقم الصندوق بالنظام؟ وشو بيزيده وشو بينقّصه؟'],
@@ -544,6 +598,7 @@
       q = (q || input.value || '').trim();
       if (q === '__ALIBABA__') { productImportDialog(null); return; }
       if (q === '__KB__') { kbPanel(); return; }
+      if (q === '__SCREEN__') { openScreen(); return; }
       if (q === '__HEALTH__') {
         add('me', '🩺 افحص صحة النظام');
         var t0 = add('bot', '<span style="opacity:.5">جارٍ الفحص…</span>');
@@ -568,12 +623,14 @@
         if (String(e.message) === 'not-configured') {
           t.querySelector('div').innerHTML =
             '<b>لم يُفعَّل بعد</b><br>عقل النظام يحتاج وسيطاً آمناً (Edge Function) — المفتاح لا يوضع في الكود.<br>' +
-            'خطوات التفعيل في ملف <b>_تفعيل_عقل_النظام.md</b>.<br><br>' +
+            'خطوات التفعيل في صفحة <b>تفعيل عقل النظام</b> (تفعيل_عقل_النظام.html).<br><br>' +
             '<button id="gb-cfg" style="background:#0f172a;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">أدخل رابط الوسيط</button>';
           var cb = t.querySelector('#gb-cfg');
           if (cb) cb.onclick = function () { configure(); };
         } else {
-          t.querySelector('div').innerHTML = '<span style="color:#b91c1c">تعذّر الاتصال: ' + esc(e.message) + '</span>';
+          t.querySelector('div').innerHTML = '<span style="color:#b91c1c">تعذّر الاتصال: ' + fmt(e.message) + '</span>' +
+            (e.fixEndpoint ? '<br><br><button id="gb-cfg2" style="background:#0f172a;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">أدخل رابط الوسيط الصحيح</button>' : '');
+          var cb2 = t.querySelector('#gb-cfg2'); if (cb2) cb2.onclick = function () { configure(); };
         }
       }
       busy = false;
@@ -589,6 +646,8 @@
     var v = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('رابط وسيط عقل النظام (Supabase Edge Function):\n\nمثال:\nhttps://<project>.supabase.co/functions/v1/gmt-brain\n\n(المفتاح يبقى داخل الوسيط ولا يظهر في الكود)', { value: cur });
     if (v === null) return;
     v = v.trim();
+    var pb2 = v && window.GMTEndpoint && GMTEndpoint.problem ? GMTEndpoint.problem(v) : '';
+    if (pb2) { if (window.GMTAsk && GMTAsk.alert) GMTAsk.alert('لم يُحفَظ: ' + pb2, { title: 'رابط لا يصلح', icon: 'danger' }); else alert('⛔ لم يُحفَظ: ' + pb2); return; }
     try { v ? localStorage.setItem(CFG_KEY, v) : localStorage.removeItem(CFG_KEY); } catch (_) {}
     /* (٨ ت — تدقيق المطابقة) «يقول حُفظ ولا يُحفظ»: كان يكتب على هذا الجهاز فقط، ثمّ عند التحميل التالي تكتب
        gmt-endpoint.js قيمةَ القاعدة فوقه. الآن يُحفظ في إعدادات النظام (gmt_settings) لكل الأجهزة — كبقيّة الروابط. */
@@ -731,6 +790,7 @@
     configure: configure,
     context: collectContext,
     explainErrors: function () { openPanel('في أخطاء مرصودة بالنظام هلق؟ فسّرلي كل واحد: شو يعني، هل هو خطير، شو تأثيره، وشو الحل.'); },
+    analyzeScreen: openScreen,
     healthReport: function () { return healthReport(true); },   // تشغيل يدوي فوري
     isReady: function () { return !!endpoint(); },
     telegramReady: function () { return !!tg(); }

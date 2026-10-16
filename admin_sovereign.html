@@ -79,21 +79,21 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261012a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
+  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-  <script src="gmt-auth.js?v=20261003"></script>
-  <script src="gmt-staff.js?v=20261010b"></script>
+  <script src="gmt-auth.js?v=20261011e"></script>
+  <script src="gmt-staff.js?v=20261012a"></script>
 
 
     <!-- شاشة القفل -->
@@ -104,9 +104,8 @@ window.GMT_INTERNAL = 1;</script>
                 <div class="t2">الأدمن الكلي — لوحة التحكم الموحّدة</div>
                 <div class="t3">وصول محصور بالإدارة العليا</div>
             </div>
-            <input id="lockPass" type="password" placeholder="كلمة السر السيادية" onkeydown="if(event.key==='Enter')unlock()">
             <div id="lockErr" class="lock-err">كلمة السر غير صحيحة</div>
-            <button class="lock-btn" onclick="unlock()">دخول ←</button>
+            <button class="lock-btn" onclick="unlock()">دخول الإدارة ←</button>
         </div>
     </div>
 
@@ -224,11 +223,6 @@ window.GMT_INTERNAL = 1;</script>
             if (!window.GMTIcon || !GMTIcon.svg) { if ((n || 0) < 40) setTimeout(function () { paintIcons((n || 0) + 1); }, 100); return; }
             document.querySelectorAll('.card .icon[data-ic]').forEach(function (el) { el.innerHTML = GMTIcon.svg(el.getAttribute('data-ic'), 24); });
         })();
-        // ═══ كلمة السر السيادية — غيّرها لكلمتك ═══
-        // كلمة السر: 0000 افتراضياً — تُغيَّر من زر 🔐 (تُحفظ محلياً بهذا الجهاز)
-        /* 🔧 (2026-10-03 · ت٤) المصدر الواحد بدل رقمٍ مكتوبٍ نصّاً */
-        const SOVEREIGN_PASSWORD = localStorage.getItem('gmt_pw_sovereign')
-            || (window.GMTAuth && GMTAuth.DEFAULT) || '2003';
 
         // معرّفات الأدوات (مفاتيح الروابط المحفوظة نفسها من النسخة السابقة — لا تُسأل مجدداً)
         const TOOLS = {
@@ -243,17 +237,19 @@ window.GMT_INTERNAL = 1;</script>
             backup:          { name:'النسخ الاحتياطي', sovereign:true },
         };
 
+        /* (١١ ت١) دخولٌ بحساب الأدمن (الاسم + كلمة السرّ) — لا بالكلمة السيادية المشتركة.
+           الجذر: هذه البوّابة كانت تقبل الكلمة السيادية وحدها، فبقي باب «الأدمن الكلي» مفتوحاً لكلّ من يعرفها
+           (وافتراضيتها منشورة) حتى بعد وجود حسابات بأسماء. أوّل مرّة (بلا حسابات) تُنشئ الكلمة السيادية الحساب الأول. */
         async function unlock() {
-            const v = document.getElementById('lockPass').value;
-            /* (2026-09-27) المصدر الواحد: ما يُضبط من «الأمان والمستخدمون» يسري هنا
-               وفي فكّ أختام الجرد والمشتريات معاً. والقيمة المحلّية تبقى مقبولة. */
-            let ok = (v === SOVEREIGN_PASSWORD);
-            if (!ok && window.GMTAuth) { try { ok = await GMTAuth.check('sovereign', v); } catch (_) {} }
+            let ok = false;
+            try { ok = window.GMTRole ? await GMTRole.requireAdmin('الأدمن الكلي') : false; } catch (_) {}
             if (ok) {
-                sessionStorage.setItem('gmt_sov_ok', '1');
+                try { sessionStorage.setItem('gmt_sov_ok', '1'); } catch (_) {}
+                document.getElementById('lockErr').style.display = 'none';
                 showMain();
             } else {
-                document.getElementById('lockErr').style.display = 'block';
+                const er = document.getElementById('lockErr');
+                if (er) { er.textContent = 'لم يتمّ الدخول — اضغط «دخول الإدارة» وأدخل اسمك وكلمة سرّك'; er.style.display = 'block'; }
             }
         }
         function showMain() {
@@ -277,7 +273,7 @@ window.GMT_INTERNAL = 1;</script>
             document.getElementById('tabbar').style.display = 'none';
             document.getElementById('content').style.display = 'none';
             document.getElementById('lock').style.display = 'flex';
-            document.getElementById('lockPass').value = '';
+            { const lp = document.getElementById('lockPass'); if (lp) lp.value = ''; }
         }
 
         function urlKey(id) { return 'gmt_sov_url_' + id; }
@@ -382,14 +378,14 @@ function savePwManager(){ openPwManager(); }
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) --><!-- 🩺 لوحة صحة النظام (للأدمن) -->
   <script src="gmt-guide-sovereign.js?v=20261003"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-hints.js?v=20261003"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-hints.js?v=20261011h"></script>
+<script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
+<script src="gmt-brain.js?v=20261012a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

@@ -58,8 +58,8 @@ window.GMT_INTERNAL = 1;</script>
   .back:hover{color:var(--red)}
 </style>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
 
@@ -111,6 +111,46 @@ window.GMT_INTERNAL = 1;</script>
       لا كنصّ، فمن يقرأ الجدول لا يقرأ الكلمة.
     </div>
     <div id="pw-rows"></div>
+  </div>
+
+  <!-- ══ سياسات التشغيل ══════════════════════════════════════════════════ -->
+  <div class="card">
+    <h2>سياسات التشغيل</h2>
+    <div class="desc">مفاتيح عامّة تُحفَظ في إعدادات النظام فتسري على كل الأجهزة معاً.</div>
+    <div class="row">
+      <div class="lbl">قفل الأوردرات <span class="tag" id="ol-state">…</span></div>
+      <div class="desc" style="margin:6px 0 0">
+        «بعد ما يستقر النظام وتنتهي التحديثات ويصير كل شيء مسيطراً عليه بالجرد: ما بيصير أوردر يمشي بدون ما يتفوتر.»
+        حين يُفعَّل: لا يتقدّم أي أوردر إلى <b>محضّرة · في الطريق · بانتظار التحصيل · تم التحصيل</b> ما لم يكن مرتبطاً بفاتورة،
+        من أي شاشة (التعديل · الشحن · تأكيد الاستلام · التحصيل). <b>مُعطَّل الآن</b> إلى أن تقرّر.
+      </div>
+      <div class="field"><button class="btn ok" id="ol-btn" onclick="toggleOrdersLock()">…</button></div>
+      <div id="ol-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ══ حسابات الأدمن ═══════════════════════════════════════════════════ -->
+  <div class="card" id="admins-card">
+    <h2>حسابات الأدمن</h2>
+    <div class="desc">
+      الأدمن صار <b>حساباً باسم وكلمة سرّ</b> (لا كلمةً مشتركة): تعرف من دخل، ويمكن أكثر من أدمن، وتُكتب أسماؤهم على ما ينشئونه.
+      تُحفَظ <b>كبصمة</b> (PBKDF2 بمِلحٍ لكل حساب) لا كنصّ. الدخول من نموذج الدخول العادي بالاسم وكلمة السرّ، أو من «دخول الإدارة».
+      <b>أوّل حساب</b>: اضغط «دخول الإدارة» واكتب الاسم الذي تريده مع كلمة السرّ السيادية الحالية فيُنشأ الحساب.
+    </div>
+    <div class="row">
+      <div class="lbl">جلستك الآن: <span class="tag" id="ad-me">…</span></div>
+      <div id="ad-list" class="desc" style="margin:8px 0 0">⏳ …</div>
+      <div class="field"><button class="btn ok" id="ad-login" onclick="adminSignIn()" style="display:none">دخول الإدارة</button></div>
+    </div>
+    <div class="row" id="ad-add-row" style="display:none">
+      <div class="lbl">إضافة أدمن</div>
+      <div class="field">
+        <input id="ad-name" placeholder="اسم المستخدم (يظهر على الفواتير)" autocomplete="off">
+        <input id="ad-pw" type="password" placeholder="كلمة السرّ (٨ أحرف فأكثر يُنصح بها)" autocomplete="new-password">
+        <button class="btn ok" onclick="addAdminAcc()">إضافة</button>
+      </div>
+    </div>
+    <div id="ad-msg" class="msg"></div>
   </div>
 
   <!-- ══ المستخدمون ══════════════════════════════════════════════════════ -->
@@ -169,14 +209,15 @@ window.GMT_INTERNAL = 1;</script>
   </div>
 </div>
 
-<script src="gmt-core.js?v=20261010b"></script>
+<script src="gmt-core.js?v=20261012a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
-<script src="gmt-ask.js?v=20261010b" defer></script>
-<script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
+<script src="gmt-ask.js?v=20261011e" defer></script>
+<script src="gmt-share.js?v=20261011p" defer></script>
 <script src="gmt-notify.js?v=20261010b" defer></script>
-<script src="gmt-auth.js?v=20261003"></script>
+<script src="gmt-auth.js?v=20261011e"></script>
+<script src="gmt-endpoint.js?v=20261011m"></script>
 <script>
 (function () {
   'use strict';
@@ -203,6 +244,101 @@ window.GMT_INTERNAL = 1;</script>
     return txt ? JSON.parse(txt) : null;
   }
 
+  /* (١١ ت١ ٢٠٢٦ — ملاحظات) «لما بحذف مستخدم… ما عم يفشل الحذف وما عم يتأكد الحذف».
+     الجذر: PATCH/DELETE في PostgREST لا يفشلان حين لا يطابقان أي سجلّ أو حين تمنعهما سياسة RLS — يعيدان 204 وصفر صفوف،
+     فكان النظام يعتبر العمليةَ نجحت وهي لم تحدث. الآن: نطلب الصفوف المتأثّرة (return=representation) ونرفض أن تكون فارغة،
+     وبعد الحذف نقرأ السجلّ للتأكّد أنّه اختفى فعلاً، وبعدها نُعلن النتيجة صراحةً. نفس النمط في كل زرّ كتابة بهذه الصفحة. */
+  async function sbChecked(method, path, body, what) {
+    var rows = await sb(method, path, body, { Prefer: 'return=representation' });
+    if (!Array.isArray(rows) || !rows.length) {
+      throw new Error('لم يتغيّر أي سجلّ' + (what ? ' (' + what + ')' : '') + ' — الحساب غير موجود أو أنّ صلاحيات القاعدة تمنع العملية. حدّث الصفحة وجرّب، وإن تكرّر راجع سياسات gmt_users.');
+    }
+    return rows;
+  }
+  function say(kind, text) {
+    var m = $('u-msg'); if (!m) return;
+    m.className = 'msg ' + kind; m.textContent = text;
+  }
+
+  /* ══ سياسات التشغيل — قفل الأوردرات (٩ ت١ ٥:٥٢) ══ */
+  var OL_ON = false;
+  function paintOl() {
+    var st = $('ol-state'), bt = $('ol-btn'); if (!st || !bt) return;
+    st.className = 'tag ' + (OL_ON ? 'set' : 'dev');
+    st.textContent = OL_ON ? 'مُفعَّل' : 'مُعطَّل';
+    bt.className = 'btn ' + (OL_ON ? 'bad' : 'ok');
+    bt.textContent = OL_ON ? 'ألغِ القفل (اسمح بتقدّم الأوردر بلا فاتورة)' : 'فعّل القفل (لا أوردر بلا فاتورة)';
+    bt.disabled = false;
+  }
+  async function loadPolicies() {
+    try { OL_ON = String(await GMTEndpoint.settingFresh('orders_lock') || '') === '1'; } catch (_) { OL_ON = false; }
+    paintOl();
+  }
+  window.toggleOrdersLock = async function () {
+    var bt = $('ol-btn'), m = $('ol-msg'); if (!bt) return;
+    var next = !OL_ON;
+    if (next && !(await GMTAsk.confirm('تفعيل «قفل الأوردرات»: لن يتقدّم أي أوردر غير مُفوتَر إلى محضّرة/في الطريق/بانتظار التحصيل/تم التحصيل، على كل الأجهزة. متأكّد؟', { title: 'قفل الأوردرات', okText: 'فعّل القفل', danger: true }))) return;
+    bt.disabled = true; m.className = 'msg'; m.textContent = '⏳ جارٍ الحفظ…';
+    var r = await GMTEndpoint.setSetting('orders_lock', next ? '1' : '0');
+    if (r.system) { OL_ON = next; m.className = 'msg ok'; m.textContent = next ? '✅ فُعِّل القفل — يسري الآن على كل الأجهزة' : '✅ أُلغي القفل'; }
+    else { m.className = 'msg bad'; m.textContent = '🔴 لم يُحفَظ للنظام: ' + (r.why || 'سبب غير معروف'); }
+    paintOl();
+  };
+
+
+  /* ══ حسابات الأدمن (١١ ت١: قرار المالك «حسابات») ══ */
+  function adSay(kind, text) { var m = $('ad-msg'); if (m) { m.className = 'msg ' + kind; m.textContent = text; } }
+  function adMe() { try { return (window.GMTRole && GMTRole.isAdmin()) ? (GMTRole.name() || '') : null; } catch (_) { return null; } }
+  async function loadAdmins() {
+    var box = $('ad-list'), me = adMe(), meEl = $('ad-me');
+    var inAdmin = me !== null;
+    if (meEl) { meEl.className = 'tag ' + (inAdmin ? 'set' : 'dev'); meEl.textContent = inAdmin ? (me ? 'أدمن: ' + me : 'أدمن (جلسة قديمة بلا اسم)') : 'خارج وضع الإدارة'; }
+    $('ad-login').style.display = inAdmin && me ? 'none' : '';
+    $('ad-add-row').style.display = inAdmin && me ? '' : 'none';
+    var list;
+    try { list = await GMTAuth.admin.list(); }
+    catch (e) { box.textContent = '🔴 ' + ((e && e.message) || 'تعذّرت القراءة'); return; }
+    if (!list.length) { box.innerHTML = '<span class="tag dev">لا حسابات بعد</span> — اضغط «دخول الإدارة» لإنشاء أوّل حساب.'; return; }
+    box.innerHTML = list.map(function (a) {
+      var mine = me && GMTAuth.admin.normalize(a.name) === GMTAuth.admin.normalize(me);
+      return '<div class="row" style="margin:6px 0"><div class="lbl">' + esc(a.name) + (mine ? ' <span class="tag set">أنت</span>' : '') +
+        (a.at ? ' <span class="desc" style="display:inline">· أُنشئ ' + esc(String(a.at).slice(0, 10)) + (a.by ? ' بواسطة ' + esc(a.by) : '') + '</span>' : '') + '</div>' +
+        (inAdmin && me ? '<div class="field"><button class="btn ghost" data-adpw="' + esc(a.name) + '">تغيير كلمة السرّ</button>' +
+          (mine ? '' : '<button class="btn bad" data-addel="' + esc(a.name) + '">حذف</button>') + '</div>' : '') + '</div>';
+    }).join('');
+  }
+  window.adminSignIn = async function () {
+    var nm = await GMTAuth.admin.login('إدارة حسابات الأدمن');
+    if (nm) { adSay('ok', '✅ دخلتَ باسم ' + nm); await loadAdmins(); }
+  };
+  window.addAdminAcc = async function () {
+    var n = $('ad-name').value, p = $('ad-pw').value;
+    adSay('', '⏳ جارٍ الحفظ…');
+    try {
+      await GMTAuth.admin.add(n, p);
+      $('ad-name').value = ''; $('ad-pw').value = '';
+      adSay('ok', '✅ أُضيف الأدمن «' + n.trim() + '»' + (p.length < 8 ? ' — كلمة سرّه قصيرة، يُنصح بـ٨ أحرف فأكثر' : ''));
+      await loadAdmins();
+    } catch (e) { adSay('bad', '🔴 ' + ((e && e.message) || 'تعذّر الحفظ')); }
+  };
+  document.addEventListener('click', async function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-adpw],[data-addel]'); if (!b) return;
+    var name = b.getAttribute('data-adpw') || b.getAttribute('data-addel');
+    try {
+      if (b.hasAttribute('data-adpw')) {
+        var np = await GMTAsk.prompt('كلمة السرّ الجديدة للأدمن «' + name + '» (٨ أحرف فأكثر يُنصح بها):', { title: 'تغيير كلمة السرّ', inputType: 'password', okText: 'حفظ' });
+        if (np === null) return;
+        await GMTAuth.admin.setPassword(name, np);
+        adSay('ok', '✅ غُيّرت كلمة سرّ «' + name + '»' + (String(np).length < 8 ? ' — قصيرة، يُنصح بـ٨ أحرف فأكثر' : ''));
+      } else {
+        if (!(await GMTAsk.confirm('حذف حساب الأدمن «' + name + '»؟ لن يستطيع الدخول بعد الآن.', { title: 'حذف أدمن', okText: 'احذف', danger: true }))) return;
+        await GMTAuth.admin.remove(name);
+        adSay('ok', '✅ حُذف حساب «' + name + '»');
+        await loadAdmins();
+      }
+    } catch (e) { adSay('bad', '🔴 ' + ((e && e.message) || 'تعذّر التنفيذ')); }
+  });
+
   // ══ الدخول ══
   window.unlock = async function () {
     var pw = $('gate-pw').value;
@@ -212,6 +348,8 @@ window.GMT_INTERNAL = 1;</script>
     $('gate').style.display = 'none';
     $('app').style.display = '';
     renderPasswords();
+    loadPolicies();
+    loadAdmins();
     loadUsers();
   };
 
@@ -290,6 +428,8 @@ window.GMT_INTERNAL = 1;</script>
       });
     } catch (_) {}
   }
+  /* (١١ ت١) سجل العمليات: المستخدم قبل تعديله/حذفه (الاسم + «قبل ← بعد») */
+  window.GMT_OPLOG_BEFORE = Object.assign(window.GMT_OPLOG_BEFORE || {}, { gmt_users: function (id) { try { return USERS.find(function (u) { return String(u.id) === String(id); }) || null; } catch (e) { return null; } } });
   async function loadUsers() {
     loadBranchOptions();
     var tb = $('u-rows');
@@ -462,30 +602,34 @@ window.GMT_INTERNAL = 1;</script>
       if (t.hasAttribute('data-u-ren')) {
         var nn = await GMTAsk.prompt('الاسم الظاهر على الفاتورة:', { title: 'تعديل الاسم', value: u.display_name || '', defaultValue: u.display_name || '', okText: 'حفظ' });
         if (nn === null || !nn.trim()) return;
-        await sb('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id),
-                 { display_name: nn.trim() }, { Prefer: 'return=minimal' });
+        await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), { display_name: nn.trim() }, 'تعديل الاسم');
+        say('ok', '✅ حُفظ الاسم');
       } else if (t.hasAttribute('data-u-pw')) {
         var np = await GMTAsk.prompt('كلمة السرّ الجديدة لـ ' + (u.display_name || u.username) + ':', { title: 'تغيير كلمة السرّ', inputType: 'password', okText: 'حفظ' });
         if (np === null || !np) return;
-        await sb('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id),
-                 { password_hash: b64(np) }, { Prefer: 'return=minimal' });
+        await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), { password_hash: b64(np) }, 'كلمة السرّ');
+        say('ok', '✅ تغيّرت كلمة السرّ');
       } else if (t.hasAttribute('data-u-dev')) {
         var mkOpen = (u.last_device_id !== OPEN_DEVICE);
         if (!(await GMTAsk.confirm(mkOpen
               ? 'اجعل «' + (u.display_name || u.username) + '» حساباً عامّاً؟ أي جهاز يستطيع الدخول به.'
               : 'اقفله على جهاز واحد؟ يُربَط بأوّل جهاز يدخل منه بعد الآن.', { title: 'قفل الجهاز', okText: mkOpen ? 'اجعله عامّاً' : 'اقفله' }))) return;
-        await sb('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id),
-                 { last_device_id: mkOpen ? OPEN_DEVICE : null }, { Prefer: 'return=minimal' });
+        await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), { last_device_id: mkOpen ? OPEN_DEVICE : null }, 'قفل الجهاز');
+        say('ok', mkOpen ? '✅ الحساب صار عامّاً (أي جهاز)' : '✅ الحساب مقفول على جهاز واحد');
       } else if (t.hasAttribute('data-u-tog')) {
-        await sb('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id),
-                 { is_active: u.is_active === false }, { Prefer: 'return=minimal' });
+        await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), { is_active: u.is_active === false }, 'الإيقاف/التفعيل');
+        say('ok', u.is_active === false ? '✅ فُعّل الحساب' : '✅ أُوقف الحساب');
       } else {
         /* الحذف يحتاج تأكيداً باسم المستخدم نفسه: زرّ حذفٍ بضغطة واحدة بجانب
            زرّ «إيقاف» وصفةٌ لحذف حساب بالخطأ. والإيقاف يكفي في أغلب الحالات. */
         var typed = await GMTAsk.prompt('حذف نهائي للحساب. اكتب اسم المستخدم للتأكيد: ' + (u.username || ''), { title: 'حذف حساب', danger: true, icon: 'danger', okText: 'حذف نهائي' });
         if (typed === null) return;
         if (String(typed).trim() !== String(u.username || '').trim()) { await GMTAsk.alert('لم يطابق — لم يُحذف شيء.'); return; }
-        await sb('DELETE', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), null, { Prefer: 'return=minimal' });
+        await sbChecked('DELETE', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), null, 'الحذف');
+        /* تأكيدٌ ثانٍ: نقرأ السجلّ — يجب ألّا يوجد. */
+        var still = await sb('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id) + '&select=id', null, {});
+        if (Array.isArray(still) && still.length) throw new Error('الحذف لم يثبت — الحساب ما زال موجوداً في القاعدة. راجع صلاحيات الحذف في gmt_users.');
+        say('ok', '✅ حُذف الحساب «' + (u.username || '') + '» نهائياً وتأكّدتُ من القاعدة');
       }
       loadUsers();
     } catch (err) { GMTAsk.alert(err.message || 'فشل', { title: 'تعذّر الحفظ' }); }
@@ -498,7 +642,7 @@ window.GMT_INTERNAL = 1;</script>
     var T = window.GMTTools;
     if (!T) { GMTAsk.alert('سجلّ الأدوات لم يُحمَّل — حدّث الصفحة'); return; }
     var cur = (GRANTS[String(u.id)] || []).slice();
-    var adminTools = T.all.filter(function (x) { return x.a === 'admin' && !T.all.some(function (y) { return y.f === x.f && y.a !== 'admin'; }); });
+    var adminTools = T.all.filter(function (x) { return x.a === 'admin' && x.f.indexOf('?') < 0 && !T.all.some(function (y) { return y.f === x.f && y.a !== 'admin'; }); });   /* (١١ ت١) مداخل التبويبات (?tab=) ليست صلاحيّاتٍ منفردة — الحراسة على الصفحة */
     var html = T.groups.map(function (g) {
       var items = adminTools.filter(function (x) { return x.g === g.id; });
       if (!items.length) return '';
@@ -537,8 +681,8 @@ window.GMT_INTERNAL = 1;</script>
 })();
 </script>
 <!-- 🆕 «شو الجديد» — أخبار داخلية، لا تُحمَّل على صفحات الزبون -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

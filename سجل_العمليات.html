@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>سجل العمليات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261005r"></script>
+<script src="gmt-core.js?v=20261012a"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261011e"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
+<script src="gmt-ask.js?v=20261011e"></script>
+<script src="gmt-oplog.js?v=20261011n"></script>
+<script src="gmt-icons.js?v=20261011h" defer></script>
+<script src="gmt-sound.js?v=20261011o" defer></script>
+<!-- (١١ ت١ — Notes ٩ ت١ ٦:٤٧ ص) «ضيف شي غير التراجع هو السجل — سجل العمليات بيسجل شو انشغل».
+     كل كتابةٍ ناجحة على الجداول المهمّة (أوردرات · فواتير · مصاريف · مستخدمون · صلاحيات · قفل الأوردرات…) وكل دخول/خروج أدمن
+     تُسجَّل في gmt_audit (إضافة وقراءة فقط) بفاعلها: الأدمن باسمه أو الموظّف. للإدارة وحدها (حارس الصفحات). -->
+<style>
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:#0f1219;font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:18px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.top h1{margin:0;font-size:20px;flex:1}
+.card{background:#fff;border:1px solid rgba(15,18,25,.08);border-radius:22px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06)}
+.sub{color:#5b6472;font-size:12.5px;margin:0 0 12px}
+.btn{border:1px solid rgba(15,18,25,.1);background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-weight:700;cursor:pointer;color:inherit;text-decoration:none}
+@media (prefers-color-scheme:dark){body{background:#0b1220;color:#e2e8f0}.card{background:#0f172a;border-color:#1e293b}.btn{background:#1e293b;color:#e2e8f0;border-color:#334155}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>سجل العمليات</h1></div>
+  <p class="sub">من فعل ماذا ومتى وما الذي تغيّر — أوردرات · فواتير · مصاريف · مخزون · مستخدمون · دخول الأدمن. سجلٌّ للإضافة والقراءة فقط: لا يُعدَّل ولا يُحذف من الواجهة.</p>
+  <div id="log" class="card"></div>
+</div>
+<script>
+(function () {
+  function go() { if (window.GMTOpLog) GMTOpLog.mount(document.getElementById('log'), {}); else setTimeout(go, 150); }
+  go();
+})();
+</script>
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261010b" defer></script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
+</body>
+</html>

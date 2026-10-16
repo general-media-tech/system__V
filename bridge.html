@@ -147,23 +147,23 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261012a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
-  <script src="gmt-stock.js?v=20261007t" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
+  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-stock.js?v=20261011n" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-enrich.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261010b"></script>
+  <script src="gmt-staff.js?v=20261012a"></script>
 
 
 <!-- ══ LOADING ══ -->
@@ -496,8 +496,20 @@ function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
 function openModal(id){ document.getElementById(id).classList.remove('hidden'); }
 
 // إجمالي كمية منتج الجرد
+/* (١١ ت١) نقاط البيع من inv_columns لا من قائمةٍ مكتوبة: نقطةٌ جديدة (SQL ٣٤) كانت ستُحسب في الجرد ولا تدخل
+   مخزون المتجر، فيظهر منتجٌ «نافد» في المتجر وهو متوفّر فيها. الاحتياطي: القائمة القديمة إن تعذّرت القراءة. */
+let BR_KEYS=['homs','daraa','haleb','kurani','sarmada','fakhouri'];
+async function bridgeLoadBranchKeys(){
+  try{
+    const r=await fetchWithTimeout(getInvURL()+'/rest/v1/inv_columns?is_branch=eq.true&include_in_total=eq.true&select=key_name&order=sort_order.asc',{headers:invHeaders()});
+    if(!r.ok) return;
+    const rows=await r.json();
+    const ks=(Array.isArray(rows)?rows:[]).map(x=>String(x.key_name||'')).filter(k=>/^[a-z][a-z0-9_]*$/.test(k)&&k!=='germany'&&k!=='china');
+    if(ks.length) BR_KEYS=ks;
+  }catch(_){}
+}
 function invTotal(p){
-  return ['homs','daraa','haleb','kurani','sarmada','fakhouri'].reduce((s,k)=>s+(Number(p[k])||0),0);
+  return BR_KEYS.reduce((s,k)=>s+(Number(p[k])||0),0);
 }
 
 // هل منتج الجرد مرتبط بالمتجر؟ (عبر barcode)
@@ -577,6 +589,7 @@ async function _waitForGMTCache(maxMs){
 }
 
 async function loadInv(){
+  await bridgeLoadBranchKeys();
   if(window.GMTCache){
     const sbConfig={url:getInvURL(), key:getInvKEY()};
     /* 🔴 عطلٌ ثانٍ في السطر نفسه: كان `const {rows} = await _waitForGMTCache()`
@@ -588,12 +601,12 @@ async function loadInv(){
     await _waitForGMTCache();
     const { rows } = await GMTCache.syncCollection({
       name:'inv_products', table:'products', sbConfig,
-      liveFields:['homs','daraa','haleb','kurani','sarmada','fakhouri'],
+      liveFields:BR_KEYS.slice(),
       imageField:'image_url', idField:'id'
     });
     return rows||[];
   }
-  const cols = 'id,name,short,price,barcode,image_url,group_name,wholesale_price,cost_price,store_url,homs,daraa,haleb,kurani,sarmada,fakhouri';
+  const cols = 'id,name,short,price,barcode,image_url,group_name,wholesale_price,cost_price,store_url,'+BR_KEYS.join(',');
   /* (2026-10-06) البند ٨٣: الملخّص يحتاج المواصفات والمتوافقات (SQL ٢١) والماركة (٢٧) — قراءةٌ متدرّجة:
      إن لم تعرفها القاعدة نعود للأعمدة الأساسيّة فلا يتعطّل الجسر. */
   let url  = getInvURL()+'/rest/v1/products?order=name.asc&limit=1000&select='+cols+',specs,compat,brand';
@@ -1399,15 +1412,15 @@ window.addEventListener('DOMContentLoaded', () => {
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
   <script src="gmt-guide-bridge.js?v=20261003"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
+<script src="gmt-brain.js?v=20261012a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

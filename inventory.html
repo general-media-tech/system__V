@@ -3,7 +3,9 @@
 <head>
 <script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
    الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
-window.GMT_INTERNAL = 1;</script>
+window.GMT_INTERNAL = 1;
+/* (١١ ت١) سجل العمليات: المنتجات يسجّلها الجرد بنفسه (قبل ← بعد) — فلا يسجّلها المراقب العام مرّتين */
+window.GMT_OPLOG_SKIP = ['products'];</script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -1135,7 +1137,7 @@ body.inv-list #list-view { display: block; }
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 9000;
+  z-index: 2147483000;   /* (١١ ت١) فوق كلّ اللوحات (التسوية ٩٩٩٩٧ · الماسح ٩٩٩٩٨) وتحت نوافذ GMTAsk — كانت ٩٠٠٠ فلا يُرى إشعارٌ داخل اللوحات */
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2219,8 +2221,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261010b"></script>
-<script src="gmt-account.js?v=20261010b"></script>
+<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-account.js?v=20261011e"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
 #cards-grid > *{content-visibility:auto;contain-intrinsic-size:auto 260px}
@@ -2262,23 +2264,24 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261010b"></script>
+  <script src="gmt-core.js?v=20261012a"></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261004" defer></script>
-  <script src="gmt-icons.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261010b" defer></script>
-  <script src="gmt-stock.js?v=20261007t" defer></script>
-  <script src="gmt-share.js?v=20261003" defer></script>
+  <script src="gmt-sound.js?v=20261011o" defer></script>
+  <script src="gmt-icons.js?v=20261011h" defer></script>
+  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-oplog.js?v=20261011n" defer></script>
+  <script src="gmt-stock.js?v=20261011n" defer></script>
+  <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-<script src="gmt-endpoint.js?v=20261010b"></script>
-  <script src="gmt-auth.js?v=20261003"></script>
-  <script src="gmt-scan.js?v=20261003"></script>
+<script src="gmt-endpoint.js?v=20261011m"></script>
+  <script src="gmt-auth.js?v=20261011e"></script>
+  <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261010b"></script>
+  <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -2527,11 +2530,24 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       تراجع <span data-undo-count style="font-size:11px;color:var(--text3)"></span>
     </button>
 
+    <button class="btn btn-ghost btn-sm" onclick="gmtOpLogOpen()" title="سجلّ العمليات: من فعل ماذا ومتى (للأدمن)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/></svg>
+      سجل العمليات
+    </button>
+
     <div class="sep"></div>
 
     <button class="btn btn-ghost btn-sm" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" style="font-weight:800;">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       مجموعة جديدة
+    </button>
+    <button class="btn btn-ghost btn-sm" data-admin="إنشاء تصنيف" onclick="gmCatOpen()" style="font-weight:800;" title="التصنيف أكبر من المجموعة: يجمع عدّة مجموعات">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      تصنيف جديد
+    </button>
+    <button class="btn btn-ghost btn-sm" data-admin="إدارة نقاط البيع" onclick="posOpen()" style="font-weight:800;" title="إنشاء نقطة بيع جديدة أو إلغاء نقطة (بكلمة السرّ السيادية)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+      نقاط البيع
     </button>
 
     <div class="sep"></div>
@@ -2743,6 +2759,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <div><div id="gm-stat-groups" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">مجموعة</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
+      <div style="width:30px;height:30px;background:#EEF2FF;border-radius:8px;display:flex;align-items:center;justify-content:center;">🏷️</div>
+      <div><div id="gm-stat-cats" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">تصنيف</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
       <div style="width:30px;height:30px;background:#F0FDF4;border-radius:8px;display:flex;align-items:center;justify-content:center;">📦</div>
       <div><div id="gm-stat-linked" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">منتج مرتبط</div></div>
     </div>
@@ -2750,7 +2770,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <div style="width:30px;height:30px;background:#FFF7ED;border-radius:8px;display:flex;align-items:center;justify-content:center;">🔗</div>
       <div><div id="gm-stat-unlinked" style="font-size:16px;font-weight:800;line-height:1;">—</div><div style="font-size:10px;color:#5b6472;font-weight:500;">بدون مجموعة</div></div>
     </div>
-    <div style="margin-right:auto;display:flex;align-items:center;">
+    <div style="margin-right:auto;display:flex;align-items:center;gap:8px;">
+      <button data-admin="إنشاء تصنيف" onclick="gmCatOpen()" style="background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;white-space:nowrap;">+ تصنيف جديد</button>
       <button data-admin="إنشاء مجموعة" onclick="gmOpenGroupModal()" style="background:var(--red);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         مجموعة جديدة
@@ -2762,6 +2783,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <div style="padding:12px 16px 8px;background:#fff;border-bottom:1px solid #EBEBEB;">
     <div style="background:#F5F5F5;border-radius:12px;padding:4px;display:flex;gap:2px;">
       <button id="gm-tab-groups" onclick="gmSwitchTab('groups')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:#fff;color:var(--red);box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer;font-family:'Cairo',sans-serif;">المجموعات</button>
+      <button id="gm-tab-categories" onclick="gmSwitchTab('categories')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:transparent;color:#5b6472;cursor:pointer;font-family:'Cairo',sans-serif;">التصنيفات</button>
       <button id="gm-tab-products" onclick="gmSwitchTab('products')" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;border-radius:10px;border:none;background:transparent;color:#5b6472;cursor:pointer;font-family:'Cairo',sans-serif;">المنتجات</button>
     </div>
   </div>
@@ -2784,6 +2806,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <!-- Groups Main Content -->
   <div style="padding:14px 16px 100px;">
     <div id="gm-view-groups"><div id="gm-groups-list" style="display:flex;flex-direction:column;gap:10px;"></div></div>
+    <div id="gm-view-categories" style="display:none;"><div id="gm-cats-list" style="display:flex;flex-direction:column;gap:10px;"></div></div>
     <div id="gm-view-products" style="display:none;"><div id="gm-products-list" style="display:flex;flex-direction:column;gap:8px;"></div></div>
   </div>
 
@@ -2912,6 +2935,18 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       </div>
       <span class="more-action-label">مجموعة جديدة</span>
     </button>
+    <button class="more-action-btn" data-admin="إنشاء تصنيف" onclick="closeMoreSheet(); gmCatOpen();">
+      <div class="more-action-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <span class="more-action-label">تصنيف جديد</span>
+    </button>
+    <button class="more-action-btn" data-admin="إدارة نقاط البيع" onclick="closeMoreSheet(); posOpen();">
+      <div class="more-action-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>
+      </div>
+      <span class="more-action-label">نقاط البيع</span>
+    </button>
 
     <button class="more-action-btn" onclick="closeMoreSheet(); setFilter('zero', document.querySelector('[data-filter=zero]'));">
       <div class="more-action-icon" style="font-size:20px;">⚠️</div>
@@ -2951,6 +2986,11 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="more-action-btn" onclick="closeMoreSheet(); gmtInvUndoPanel();">
       <div class="more-action-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></div>
       <span class="more-action-label">تراجع <span data-undo-count></span></span>
+    </button>
+
+    <button class="more-action-btn" onclick="closeMoreSheet(); gmtOpLogOpen();">
+      <div class="more-action-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/></svg></div>
+      <span class="more-action-label">سجل العمليات</span>
     </button>
 
     <button class="more-action-btn" data-admin="ربط المتجر" onclick="closeMoreSheet(); openBridgeTool();">
@@ -3113,6 +3153,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       </section>
     </div>
     <div class="modal-footer pm2-foot">
+      <!-- (٨ ج) «اختفى زرّ حذف المنتجات»: الحذف كان في صفّ الجدول وحده؛ ومع العرض الافتراضيّ الجديد (قائمة/بطاقات) لم يعد ظاهراً. صار هنا وفي التفاصيل والبطاقة -->
+      <button class="btn btn-danger" id="pm2-del-btn" type="button" style="display:none;margin-inline-end:auto" onclick="pm2DeleteCurrent()">🗑 حذف المنتج</button>
       <button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button>
       <button class="btn btn-primary" onclick="saveProduct()">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -3516,6 +3558,69 @@ window.pm2Sync=pm2Sync;
   </div>
 </div>
 
+<!-- (١١ ت١) التصنيفات — أكبر من المجموعة: يجمع عدّة مجموعات (تصوير ← كاميرات · عدسات). على مستوى الصفحة كي تفتح من أيّ شاشة -->
+<div class="modal-overlay" id="cat-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="cat-modal-title">إنشاء تصنيف جديد</h2>
+      <button class="btn-icon" onclick="closeModal('cat-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;line-height:1.8;color:#1e40af;">
+        <b>التصنيف أكبر من المجموعة</b>: يجمع عدّة مجموعات تحته. مثال: التصنيف «تصوير» يضمّ المجموعات «كاميرات» و«عدسات». يُعيَّن على مستوى المجموعة — فكلّ منتجات المجموعة المختارة تدخل التصنيف.
+      </div>
+      <input type="hidden" id="cat-old-name">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label"><span class="required">*</span> اسم التصنيف</label>
+        <input type="text" id="cat-name" class="form-input" placeholder="مثال: تصوير، صوت، إضاءة..." autocomplete="off">
+      </div>
+      <label class="form-label">المجموعات داخل هذا التصنيف</label>
+      <input type="text" id="cat-search" class="form-input" placeholder="بحث في المجموعات..." oninput="gmCatRenderList()" style="margin-bottom:8px;">
+      <div class="group-select-actions">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="gmCatSelectAll(true)">تحديد الكل</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="gmCatSelectAll(false)">إلغاء الكل</button>
+        <span class="group-selected-count" id="cat-count">0 مجموعة</span>
+      </div>
+      <div id="cat-groups-list" style="max-height:40vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+      <div id="cat-msg" style="font-size:12px;font-weight:700;margin-top:8px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cat-modal')">إلغاء</button>
+      <button class="btn btn-primary" id="cat-save-btn" onclick="gmCatSave()">حفظ التصنيف</button>
+    </div>
+  </div>
+</div>
+
+<!-- (١١ ت١) نقاط البيع — إنشاء/إلغاء من داخل النظام (SQL ٣٤). على مستوى الصفحة كي تفتح من أيّ شاشة -->
+<div class="modal-overlay" id="pos-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">نقاط البيع</h2>
+      <button class="btn-icon" onclick="closeModal('pos-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.8;color:#1e40af;">
+        نقطة البيع = <b>عمود مخزون</b> لكلّ المنتجات. الإنشاء والإلغاء يمرّان بدالّتين في القاعدة تفحصان <b>كلمة سرّ نقاط البيع</b> هناك (مستقلّة عن الكلمات الأخرى). الإلغاء <b>إخفاءٌ لا حذف</b>: يبقى عمودها وتاريخها، ولا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون أو عمولات غير مدفوعة.
+      </div>
+      <div id="pos-sec" style="font-size:12px;line-height:1.8;margin-bottom:12px;"></div>
+      <label class="form-label">النقاط الفعّالة</label>
+      <div id="pos-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <label class="form-label">+ نقطة بيع جديدة</label>
+        <div class="form-group" style="margin-bottom:8px;">
+          <input type="text" id="pos-new-name" class="form-input" placeholder="الاسم الظاهر — مثال: اللاذقية" autocomplete="off" oninput="posSyncKey()" maxlength="40">
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <input type="text" id="pos-new-key" class="form-input" dir="ltr" placeholder="المعرّف بالإنجليزية — مثال: latakia" autocomplete="off" maxlength="24" oninput="this.dataset.touched='1'" style="font-family:ui-monospace,monospace;text-align:left;">
+          <div class="form-hint">٣–٢٤ حرفاً: إنجليزية صغيرة وأرقام و_ ويبدأ بحرف. لا يُغيَّر بعد الإنشاء. لإعادة تفعيل نقطة ألغيتَها سابقاً أنشئها بالمعرّف نفسه.</div>
+        </div>
+        <button class="btn btn-primary" id="pos-create-btn" onclick="posCreate()" style="width:100%;">إنشاء نقطة البيع</button>
+      </div>
+      <div id="pos-msg" style="font-size:12px;font-weight:700;margin-top:10px;line-height:1.8;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Bulk Image Upload Modal -->
 <div class="modal-overlay" id="bulk-img-modal" style="display:none;">
   <div class="modal modal-xl">
@@ -3652,7 +3757,7 @@ window.pm2Sync=pm2Sync;
       </button>
       <h2 style="font-size:16px;font-weight:900;margin:0;">🚚 نقل المخزون بفاتورة رسمية</h2>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;min-width:0;">
       <button class="btn btn-ghost btn-sm" onclick="openBranchLedger()">📊 سجل الفرع الشامل</button>
       <!-- 🧾 تسوية الفواتير المعلّقة — تشمل السابقة التي لم تُخصم بنودها -->
       <button class="btn btn-ghost btn-sm" onclick="stOpenSettlements()" title="فواتير نقل فيها بنود لم تُخصم — تشمل السابقة" style="color:#b45309">
@@ -3672,6 +3777,8 @@ window.pm2Sync=pm2Sync;
       style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid var(--border);background:var(--red);color:#fff;white-space:nowrap;cursor:pointer;">الكل</button>
     <button class="st-subtab" id="st-subtab-pending" onclick="switchStockTransferSubTab('pending')"
       style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap;cursor:pointer;">في الطريق</button>
+    <button class="st-subtab" id="st-subtab-needs_settlement" onclick="switchStockTransferSubTab('needs_settlement')"
+      style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid #fecaca;background:#fef2f2;color:#b91c1c;white-space:nowrap;cursor:pointer;"><span class="st-dot"></span>تحتاج تسوية</button>
     <button class="st-subtab" id="st-subtab-received" onclick="switchStockTransferSubTab('received')"
       style="padding:6px 14px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap;cursor:pointer;">مستلمة</button>
     <button class="st-subtab" id="st-subtab-cancelled" onclick="switchStockTransferSubTab('cancelled')"
@@ -3756,16 +3863,6 @@ window.pm2Sync=pm2Sync;
                 <button onclick="stPickApply()" class="btn btn-primary btn-sm">➕ أضف المحدّد</button>
               </span>
             </div>
-          </div>
-        </div>
-        <!-- 🧾 لوحة تسوية فواتير النقل المعلّقة (تشمل السابقة) -->
-        <div id="st-settle-ov" style="display:none;position:fixed;inset:0;z-index:99997;background:rgba(15,23,42,.9);align-items:center;justify-content:center;padding:14px">
-          <div style="background:var(--surface);border-radius:14px;max-width:660px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
-              <b style="font-size:14px">🧾 فواتير نقل تحتاج تسوية</b>
-              <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">×</button>
-            </div>
-            <div id="st-settle-body" style="padding:12px;overflow-y:auto"></div>
           </div>
         </div>
         <div id="st-scan-ov" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.9);align-items:center;justify-content:center;flex-direction:column;gap:12px">
@@ -3921,7 +4018,11 @@ let searchQuery = '';
 let sortCol = null;
 let sortDir = 'asc';
 /* (٨ ت) الموظّف العاديّ يبدأ بالقائمة المبسّطة، والأدمن بالجدول الكامل */
-let currentView = (function () { try { return (window.GMTRole && GMTRole.isAdmin()) ? 'table' : 'list'; } catch (_) { return 'table'; } })();
+/* (11 ت١ · طلب المالك) «طريقة العرض اللي بختارها مرّة وحدة تبقى تلقائيّة لحتى أغيّرها» — تُحفظ على الجهاز. */
+let currentView = (function () {
+  try { var sv = localStorage.getItem('gmt_inv_view'); if (sv === 'table' || sv === 'list' || sv === 'cards') return sv; } catch (_) {}
+  try { return (window.GMTRole && GMTRole.isAdmin()) ? 'table' : 'list'; } catch (_) { return 'table'; }
+})();
 let editingProductId = null;
 let deletingProductId = null;
 let editingColumnId = null;
@@ -4088,17 +4189,20 @@ function showCfgError(msg) {
 // ============================================
 // SUPABASE API HELPERS
 // ============================================
-async function sbFetch(method, path, body = null) {
+async function sbFetch(method, path, body = null, extraHeaders = null) {
   // PATCH و DELETE يُرجعان 204 بدون body — لا نحتاج representation
+  /* (11 ت١ · T-01) الوسيط الرابع كان **يُتجاهَل**: ثلاثة مواضع تمرّر {Prefer:'return=representation'} (قفل الاستلام · قفل التعديل · قفل التسوية)
+     فتصل الطلبات `return=minimal` ⇒ 204 بلا صفوف ⇒ «القفل» يقرأ صفراً ويُجهِض بعد أن غيّر الخادم الحالة فعلاً ⇒ فواتير عالقة للأبد
+     في receiving/reopening وبلا زرّ. الآن يُدمج ويغلب. */
   const preferHeader = (method === 'PATCH' || method === 'DELETE') ? 'return=minimal' : 'return=representation';
   const opts = {
     method,
-    headers: {
+    headers: Object.assign({
       'apikey': SUPABASE_KEY,
       'Authorization': 'Bearer ' + SUPABASE_KEY,
       'Content-Type': 'application/json',
       'Prefer': preferHeader
-    }
+    }, extraHeaders || {})
   };
   if (body) opts.body = JSON.stringify(body);
   let r;
@@ -4609,9 +4713,53 @@ async function gmtSpecsFromAlibaba(id) {
     }
     Object.assign(p, payload);
     showToast(`✅ حُفظت ${Object.keys(specs).filter(k => !k.startsWith('__')).length} مواصفة لـ«${p.name}»`, 'success');
-  }, { url: '' });
+  }, { url: '', name: p.name || '', imageUrl: p.image_url || '' });
 }
 window.gmtSpecsFromAlibaba = gmtSpecsFromAlibaba;
+
+/* ══ (11 ت١ · طلب المالك) «زر ينقلني على أداة إدارة المنتجات أو إدارة هذا المنتج لأعدّل وصفه ورابطه في المتجر وكل شيء —
+   بدل ما أدخل هناك أدخل إليها من هون». لوحة واحدة من تفاصيل المنتج تجمع كل ما يخصّه: البيانات · المتجر · المواصفات ·
+   الحركة · النقل. لا منطق جديد: كلّ بلاطة تنادي الدالّة الموجودة نفسها. ══ */
+function gmtManageProduct(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  const old = document.getElementById('gmt-manage-ov'); if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'gmt-manage-ov'; ov.setAttribute('data-keep-fab', '1');
+  const wide = innerWidth > 700;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147482000;background:rgba(15,18,25,.5);display:flex;align-items:' + (wide ? 'center' : 'flex-end') + ';justify-content:center;direction:rtl;font-family:inherit';
+  const tile = (k, t, d, adm) => `<button type="button" data-k="${k}"${adm ? ' data-admin="' + t + '"' : ''} style="display:block;width:100%;text-align:right;border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:11px 13px;font:inherit;cursor:pointer"><b style="display:block;font-size:14px;color:#0f1219">${t}</b><span style="display:block;font-size:12px;color:#526077;margin-top:2px;line-height:1.6">${d}</span></button>`;
+  const storeOpen = p.store_url && /^https?:\/\//i.test(String(p.store_url));
+  ov.innerHTML = `<div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#f8fafc;border-radius:${wide ? 22 : '22px 22px 0 0'};padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(15,18,25,.25)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      ${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" style="width:46px;height:46px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">` : ''}
+      <div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#526077;font-weight:800">إدارة هذا المنتج</div><b style="font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name || '')}</b></div>
+      <button type="button" data-k="x" style="border:0;background:#e2e8f0;border-radius:10px;padding:7px 13px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button>
+    </div>
+    <div style="display:grid;gap:8px">
+      ${tile('edit', 'تعديل بيانات المنتج', 'الاسم · المجموعة والتصنيف · الماركة · الأسماء البديلة · الأسعار · الصور · الكميّات', 1)}
+      ${tile('store', 'المتجر الإلكتروني', 'وصف المنتج وصوره وسعره ورابطه في المتجر — تُفتح صفحة المنتج في إدارة المتجر', 1)}
+      ${storeOpen ? tile('view', 'عرض المنتج في المتجر', 'كما يراه الزبون الآن') : ''}
+      ${tile('ali', 'المواصفات التلقائية', 'يبحث العقل بصورة المنتج واسمه الموجودَين عندك (علي بابا وغيره) — تراجعها قبل الحفظ', 1)}
+      ${tile('mov', 'حركة المنتج', 'بيع · إرجاع · نقل · شراء')}
+      ${tile('tr', 'فاتورة نقل لهذا المنتج', 'بين الفروع — بكمية تحدّدها', 1)}
+    </div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', ev => {
+    if (ev.target === ov) { ov.remove(); return; }
+    const b = ev.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
+    if (k === 'x') { ov.remove(); return; }
+    ov.remove();
+    try {
+      if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} openProductModal(p.id); }
+      else if (k === 'store') window.open('admin_store.html?edit=inv:' + encodeURIComponent(p.id) + '&bc=' + encodeURIComponent(p.barcode || '') + '&n=' + encodeURIComponent(p.name || ''), '_blank', 'noopener');
+      else if (k === 'view') window.open(p.store_url, '_blank', 'noopener');
+      else if (k === 'ali') gmtSpecsFromAlibaba(p.id);
+      else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
+      else if (k === 'tr') { try { closeModal('detail-modal'); } catch (_) {} stFromSelection([p.id]); }
+    } catch (er) { showToast('تعذّر: ' + (er && er.message || er), 'error'); }
+  });
+}
+window.gmtManageProduct = gmtManageProduct;
 
 
 /* ══ (2026-10-06 ش) البند ١٧٢: «أداة المنتجات التي نشتريها + بوت تيليغرام + تصدير PDF/HTML».
@@ -4739,6 +4887,17 @@ window.gmtSyncRename = gmtSyncRename;
     wr(LS_U, u);
     var l = rd(LS_L); l.push({ at: act.at, text: act.text, kind: act.kind }); wr(LS_L, l.slice(-MAXL));
     paintUndoBtn();
+    /* (١١ ت١) سجل العمليات على القاعدة (يراه الأدمن من أي جهاز) — بجانب سجلّ الجهاز هذا */
+    try {
+      if (window.GMTOpLog) {
+        if (act.kind === 'edit') GMTOpLog.log({ action: 'product_edit', entity: 'products', entityId: act.id, entityName: act.pname,
+          field: Object.keys(act.before || {}).map(colLabel).join('، '), oldValue: act.before, newValue: act.after });
+        else if (act.kind === 'delete') GMTOpLog.log({ action: 'product_delete', entity: 'products', entityId: act.id, entityName: act.pname,
+          oldValue: { name: act.pname, barcode: act.row && act.row.barcode, price: act.row && act.row.price } });
+        else if (act.kind === 'stock') GMTOpLog.log({ action: act.op === 'add_branch_stock' ? 'stock_add' : 'stock_deduct', entity: 'products', entityId: act.id, entityName: act.pname,
+          field: colLabel(act.branch), newValue: { qty: act.qty } });
+      }
+    } catch (_) {}
   }
   var _f = window.fetch.bind(window);
   window.fetch = async function (input, init) {
@@ -4754,17 +4913,18 @@ window.gmtSyncRename = gmtSyncRename;
             var body = JSON.parse((init && init.body) || '{}'), keys = Object.keys(body).filter(function (k) { return k !== 'in_transit' && k !== 'updated_at'; });
             if (keys.length) {
               var before = {}; keys.forEach(function (k) { before[k] = p[k] === undefined ? null : p[k]; });
-              pending = { kind: 'edit', id: id, before: before, text: 'تعديل ' + keys.map(colLabel).join('، ') + ' — «' + (p.name || id) + '»' };
+              var after = {}; keys.forEach(function (k) { after[k] = body[k]; });
+              pending = { kind: 'edit', id: id, before: before, after: after, pname: p.name || '', text: 'تعديل ' + keys.map(colLabel).join('، ') + ' — «' + (p.name || id) + '»' };
             }
           } else if (p && method === 'DELETE') {
-            pending = { kind: 'delete', id: id, row: JSON.parse(JSON.stringify(p)), text: 'حذف «' + (p.name || id) + '»' };
+            pending = { kind: 'delete', id: id, row: JSON.parse(JSON.stringify(p)), pname: p.name || '', text: 'حذف «' + (p.name || id) + '»' };
           }
         }
         var r = url.match(/\/rest\/v1\/rpc\/(add_branch_stock|deduct_branch_stock)/);
         var b = r ? JSON.parse((init && init.body) || '{}') : null, pp = b ? prodOf(b.p_product_id) : null;
         /* (٧ ط) منتجاتُ الفاحص الذاتي ليست في القائمة المحمّلة ⇒ لا تدخل سجلّ التراجع */
         if (r && pp && !inTransferFlow()) {
-          pending = { kind: 'stock', op: r[1], id: b.p_product_id, branch: b.p_branch_key, qty: Number(b.p_qty) || 0,
+          pending = { kind: 'stock', op: r[1], id: b.p_product_id, branch: b.p_branch_key, qty: Number(b.p_qty) || 0, pname: (pp && pp.name) || '',
                       text: (r[1] === 'add_branch_stock' ? 'إضافة ' : 'خصم ') + (Number(b.p_qty) || 0) + ' — ' + colLabel(b.p_branch_key) + ' — «' + ((pp && pp.name) || b.p_product_id) + '»' };
         }
       } catch (_) { pending = null; }
@@ -4821,7 +4981,20 @@ window.gmtSyncRename = gmtSyncRename;
     var n = 0, u = rd(LS_U), bs = []; u.forEach(function (a) { if (bs.indexOf(a.burst) < 0) bs.push(a.burst); }); n = bs.length;
     document.querySelectorAll('[data-undo-count]').forEach(function (el) { el.textContent = n ? '(' + n + ')' : ''; });
   }
+  /* (١١ ت١) روابط مباشرة من «أداة التسويات»: inventory.html?settle=1 تسوية فواتير النقل · ?audit=1 تدقيق الفواتير والجرد */
+  try {
+    var _qs = new URLSearchParams(location.search), _go = _qs.get('settle') ? 'settle' : (_qs.get('audit') ? 'audit' : '');
+    if (_go) { var _n = 0, _t = setInterval(function () {
+      _n++;
+      try {
+        if (_go === 'settle' && typeof stOpenSettlements === 'function' && typeof switchAppMode === 'function' && document.getElementById('st-settle-ov')) { clearInterval(_t); switchAppMode('transfer'); stOpenSettlements(); }
+        else if (_go === 'audit' && window.GMTIntegrity && GMTIntegrity.open) { clearInterval(_t); GMTIntegrity.open(); }
+      } catch (_) {}
+      if (_n > 60) clearInterval(_t);
+    }, 500); }
+  } catch (_) {}
   window.gmtInvUndo = undoLast; window.gmtInvUndoPanel = openUndoPanel;
+  window.gmtOpLogOpen = function () { if (window.GMTOpLog) GMTOpLog.open({ cat: 'stock' }); else showToast('سجل العمليات لم يُحمَّل بعد — أعد المحاولة بعد لحظة', 'warning'); };
   document.addEventListener('DOMContentLoaded', paintUndoBtn);
   document.addEventListener('keydown', function (e) {
     var t = (document.activeElement || {}).tagName || '';
@@ -5448,6 +5621,7 @@ function renderCards() {
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" onclick="openDetailModal('${p.id}')">تفاصيل</button>
             <button class="btn btn-primary btn-sm" onclick="openProductModal('${p.id}')">تعديل</button>
+            <button class="btn btn-ghost btn-sm" onclick="invGuardedDelete('${p.id}')" title="${invDimTitle('حذف المنتج')}" style="color:var(--danger);border-color:#fecaca;${invDimStyle()}">حذف</button>
           </div>
         </div>
       </div>
@@ -5466,6 +5640,7 @@ function invUseList() {
 function renderList() {
   const on = invUseList();
   document.body.classList.toggle('inv-list', on);
+  try { _applyViewDisplay(); } catch (_) {}
   const grid = document.getElementById('list-grid');
   const vt = document.getElementById('view-toggle');
   if (vt && vt._v !== currentView) { vt._v = currentView; vt.querySelectorAll('button').forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + currentView + "'") >= 0)); }
@@ -5649,13 +5824,16 @@ function renderGroupChips() {
      تصنيفٌ لأيّ منتج، والمجموعات تُعرض داخل التصنيف المختار فقط. */
   const _cats = [...new Set(allProducts.map(p => p.category || '').filter(Boolean))].sort();
   let catRow = document.getElementById('category-chips-row');
-  if (_cats.length) {
+  /* (١١ ت١) زرّ «＋ تصنيف» في الصفّ نفسه — كان إنشاء التصنيف بلا أيّ مدخل ظاهر. الصفّ يظهر للأدمن حتى بلا تصنيفات. */
+  const _isAdm = (function(){ try { return !!(window.GMTRole && GMTRole.isAdmin()); } catch (_) { return false; } })();
+  const _addCat = '<div class="filter-chip" data-admin="إنشاء تصنيف" onclick="gmCatOpen()" title="إنشاء تصنيف يجمع عدّة مجموعات" style="border-style:dashed;white-space:nowrap">＋ تصنيف</div>';
+  if (_cats.length || _isAdm) {
     if (!catRow) { catRow = document.createElement('div'); catRow.id = 'category-chips-row'; catRow.className = 'filter-bar';
       catRow.style.cssText = 'display:flex;background:var(--surface);border-top:1px solid var(--border);padding:6px 20px;gap:6px;overflow-x:auto;';
       container.parentNode.insertBefore(catRow, container); }
     catRow.innerHTML = '<span class="filter-label" style="white-space:nowrap">التصنيف:</span>' +
-      `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` +
-      _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" onclick="setCategory('${escHtml(c)}')">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
+      _addCat + (_cats.length ? `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` : '') +
+      _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" data-c="${escHtml(c)}" onclick="setCategory(this.dataset.c)">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
   } else if (catRow) { catRow.remove(); }
   const _scope = currentCategory ? allProducts.filter(p => (p.category || '') === currentCategory) : allProducts;
   // استخرج كل المجموعات الفريدة (داخل التصنيف المختار)
@@ -5672,9 +5850,11 @@ function renderGroupChips() {
   const noGroupBtn = noGroupCount > 0 ? `<div class="filter-chip${currentGroup === '__none__' ? ' active' : ''}" onclick="setGroup('__none__')" style="border-color:#c2410c;color:${currentGroup === '__none__' ? 'white' : '#c2410c'};background:${currentGroup === '__none__' ? '#c2410c' : '#fff7ed'};">بدون تصنيف <span class="badge" style="background:${currentGroup === '__none__' ? 'rgba(255,255,255,0.3)' : '#c2410c'};color:white;">${noGroupCount}</span></div>` : '';
   const chips = groups.map(g => {
     const count = allProducts.filter(p => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g)).length;
-    return `<div class="filter-chip${currentGroup === g ? ' active' : ''}" onclick="setGroup('${escHtml(g)}')">${escHtml(g)} <span class="badge">${count}</span></div>`;
+    return `<div class="filter-chip${currentGroup === g ? ' active' : ''}" data-g="${escHtml(g)}" onclick="setGroup(this.dataset.g)">${escHtml(g)} <span class="badge">${count}</span></div>`;
   }).join('');
-  container.innerHTML = allBtn + noGroupBtn + chips;
+  container.innerHTML = '<span class="filter-label" style="white-space:nowrap">المجموعة:</span>'
+    + '<div class="filter-chip" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" title="إنشاء مجموعة جديدة" style="border-style:dashed;white-space:nowrap">＋ مجموعة</div>'
+    + allBtn + noGroupBtn + chips;
 }
 
 // ============================================
@@ -5884,9 +6064,17 @@ function openProductModal(id = null) {
   }
   pm2Lists();
   try { pm2Sync(); } catch (_) {}
+  { const _db = document.getElementById('pm2-del-btn'); if (_db) _db.style.display = id ? '' : 'none'; }
 
   modal.style.display = 'flex';
 }
+/* حذف المنتج المفتوح للتعديل — بحارس الأدمن ثم تأكيد الحذف نفسه (يتحقّق من ارتباطه بفاتورة) */
+async function pm2DeleteCurrent() {
+  const id = editingProductId; if (!id) return;
+  closeModal('product-modal');
+  await invGuardedDelete(String(id));
+}
+window.pm2DeleteCurrent = pm2DeleteCurrent;
 
 /* (٧ ط) قوائم الاقتراح للتصنيف والماركة من المنتجات الموجودة — لا تكرار بتهجئاتٍ مختلفة */
 function pm2Lists() {
@@ -6541,11 +6729,13 @@ function openDetailModal(id) {
   }
 
   // زر كشف حركة المنتج (بيع/إرجاع/نقل/شراء)
-  html += `<button data-admin="مواصفات من علي بابا" onclick="gmtSpecsFromAlibaba('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:8px 0;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:10px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;">🧠 مواصفات من علي بابا — رابط أو صورة</button>
+  html += `<button onclick="gmtManageProduct('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:12px 0 8px;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font-family:inherit;font-weight:900;font-size:14px;cursor:pointer;">إدارة هذا المنتج — الوصف · المتجر · التصنيف · المواصفات</button>
+  <button data-admin="مواصفات من علي بابا" onclick="gmtSpecsFromAlibaba('${escHtml(String(p.id))}')" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:8px 0;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:10px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;">مواصفات تلقائية من علي بابا — بصورة المنتج واسمه</button>
   <button onclick="openProductMovement('${escHtml(String(p.id))}','${escHtml((p.barcode||'').replace(/'/g,''))}')" style="width:100%;margin-top:14px;background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;border:none;border-radius:11px;padding:12px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/></svg>
     كشف حركة المنتج (بيع · إرجاع · نقل · شراء)
-  </button>`;
+  </button>
+  <button onclick="closeModal('detail-modal');invGuardedDelete('${escHtml(String(p.id))}')" title="${invDimTitle('حذف المنتج')}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;background:#fff5f5;color:#dc2626;border:1.5px solid #fecaca;border-radius:12px;padding:11px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;${invDimStyle()}">🗑 حذف هذا المنتج</button>`;
 
   document.getElementById('detail-modal-body').innerHTML = html;
   document.getElementById('detail-modal').style.display = 'flex';
@@ -7192,7 +7382,8 @@ function renderColumnList() {
         <div class="col-type">${getTypeName(col.type)} • key: ${col.key}</div>
       </div>
       <div class="col-badges">${badges.join('')}</div>
-      ${!col.fixed ? `<div style="display:flex;gap:6px;">
+      ${col.isBranch && !col.fixed ? `<div style="max-width:150px;font-size:11px;line-height:1.5;color:#5b6472;">نقطة بيع — تُدار من «نقاط البيع» (إنشاء/إلغاء بكلمة السرّ)</div>`
+        : !col.fixed ? `<div style="display:flex;gap:6px;">
         <button class="btn-icon" onclick="openEditColumnModal('${col.id}')" title="تعديل">✏️</button>
         <button class="btn-icon" onclick="deleteColumn('${col.id}')" title="حذف" style="color:var(--danger);">🗑️</button>
       </div>` : '<div style="width:60px;"></div>'}
@@ -7343,6 +7534,7 @@ async function saveColumn() {
 }
 
 async function deleteColumn(id) {
+  { const _c = columns.find(c => String(c.id) === String(id)); if (_c && _c.isBranch) { showToast('هذه نقطة بيع — تُلغى من «نقاط البيع» (بكلمة سرّها، وبعد التحقّق من المخزون والشحنات)', 'warning'); return; } }
   if (!await GMTAsk.confirm('هل تريد حذف هذا العمود؟')) return;
   columns = columns.filter(c => c.id !== id);
   if (!isDemo) await sbFetch('DELETE', `/rest/v1/inv_columns?id=eq.${id}`);
@@ -8596,22 +8788,19 @@ function loadJsBarcode(cb) {
 }
 
 
+function _applyViewDisplay() {
+  const tw = document.getElementById('table-wrap'), cv = document.getElementById('cards-view');
+  if (!tw || !cv) return;
+  if (currentView === 'list' || invUseList()) { tw.style.display = ''; cv.style.display = ''; }
+  else if (currentView === 'table') { tw.style.display = 'block'; cv.style.display = 'none'; }
+  else { tw.style.display = 'none'; cv.style.display = 'block'; }
+}
 function setView(view, btn) {
   currentView = view;
+  try { localStorage.setItem('gmt_inv_view', view); } catch (_) {}
   document.querySelectorAll('#view-toggle button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (view === 'list') {
-    document.getElementById('table-wrap').style.display = '';
-    document.getElementById('cards-view').style.display = '';
-  } else if (view === 'table') {
-    document.getElementById('table-wrap').style.display = 'block';
-    document.getElementById('cards-view').style.display = 'none';
-  } else {
-    document.getElementById('table-wrap').style.display = 'none';
-    document.getElementById('cards-view').style.display = 'block';
-  }
-
+  if (btn) btn.classList.add('active');
+  _applyViewDisplay();
   renderAll();
 }
 
@@ -9993,16 +10182,18 @@ function gmUpdateStats(){
   const groups=gmGetGroupNames(),linked=gmAllProducts.filter(p=>p.group_name).length;
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   s('gm-stat-groups',groups.length); s('gm-stat-linked',linked); s('gm-stat-unlinked',gmAllProducts.length-linked);
+  try{ s('gm-stat-cats',Object.keys(gmCatMap()).length); }catch(_){}
 }
 
 function gmSwitchTab(tab){
   gmCurrentTab=tab;
-  const tabs=['groups','products'];
+  const tabs=['groups','categories','products'];
   tabs.forEach(t=>{
     const btn=document.getElementById('gm-tab-'+t);
     if(btn){btn.style.background=t===tab?'#fff':'transparent';btn.style.color=t===tab?'var(--red)':'#888';btn.style.boxShadow=t===tab?'0 2px 8px rgba(0,0,0,.08)':'none';}
   });
   document.getElementById('gm-view-groups').style.display=tab==='groups'?'':'none';
+  { const vc=document.getElementById('gm-view-categories'); if(vc) vc.style.display=tab==='categories'?'':'none'; }
   document.getElementById('gm-view-products').style.display=tab==='products'?'':'none';
   document.getElementById('gm-filter-bar').style.display=tab==='products'?'flex':'none';
   gmRenderCurrent();
@@ -10022,7 +10213,7 @@ window.gmSetFilter=gmSetFilter;
 function gmOnSearch(q){gmSearchQ=(q||'').toLowerCase().trim();gmRenderCurrent();}
 window.gmOnSearch=gmOnSearch;
 
-function gmRenderCurrent(){ if(gmCurrentTab==='groups') gmRenderGroups(); else gmRenderProducts(); }
+function gmRenderCurrent(){ if(gmCurrentTab==='groups') gmRenderGroups(); else if(gmCurrentTab==='categories') gmRenderCategories(); else gmRenderProducts(); }
 
 function gmRenderGroupChips(){
   const names=gmGetGroupNames();
@@ -10247,6 +10438,389 @@ async function gmDeleteGroup(groupName){
   }catch(e){showToast('خطأ: '+e.message,'error');}
   hideLoading(); gmUpdateStats();gmRenderGroupChips();gmRenderCurrent();
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   🏷️ التصنيفات — «ما لقيتُ أين أنشئ صنفاً يجمع مجموعات من المنتجات» (بلاغ ١٠ ت١)
+   الجذر: التصنيف (products.category — أكبر من المجموعة، قرار ٥ ت١ البند ٥٧) كان **حقلاً في نموذج المنتج فقط**:
+   لا شاشة تنشئه ولا تعدّله ولا تحذفه، ولا يظهر إلا حين يكتبه أحدٌ بيده على منتج. والمجموعات لها زرّ
+   «مجموعة جديدة» ولوحة — فبدا التصنيف غير موجود. العلاج: نافذة إنشاء/تعديل على مستوى الصفحة (تُفتح من أيّ
+   شاشة) + تبويب «التصنيفات» في لوحة المجموعات + أزرار ظاهرة (الأدوات · المزيد على الهاتف · صفّ الفلاتر).
+   التصنيف يُعيَّن على مستوى المجموعة (كل منتجات المجموعة)، ويُتحقَّق من عدد الصفوف التي عدّلتها القاعدة فعلاً.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+let gmCatSel = new Set(), gmCatEditing = '', gmCatBusy = false;
+function gmCatProducts(){ return (typeof allProducts!=='undefined' && allProducts.length) ? allProducts : (typeof gmAllProducts!=='undefined' ? gmAllProducts : []); }
+function gmCatMap(){
+  const m={};
+  gmCatProducts().forEach(p=>{
+    const c=String(p.category||'').trim(); if(!c) return;
+    const e=m[c]||(m[c]={name:c,n:0,groups:{}}); e.n++;
+    const g=String(p.group_name||'').trim(); if(g) e.groups[g]=(e.groups[g]||0)+1;
+  });
+  return m;
+}
+function gmCatGroupMap(){
+  const m={};
+  gmCatProducts().forEach(p=>{
+    const g=String(p.group_name||'').trim(); if(!g) return;
+    const e=m[g]||(m[g]={name:g,n:0,cats:{}}); e.n++;
+    const c=String(p.category||'').trim(); if(c) e.cats[c]=(e.cats[c]||0)+1;
+  });
+  return m;
+}
+function gmCatRefresh(){
+  try{ if(typeof renderGroupChips==='function') renderGroupChips(); }catch(_){}
+  try{ if(typeof renderAll==='function') renderAll(); }catch(_){}
+  try{ gmUpdateStats(); gmRenderCurrent(); }catch(_){}
+}
+function gmCatApplyLocal(fn){
+  [ (typeof allProducts!=='undefined'?allProducts:[]), (typeof gmAllProducts!=='undefined'?gmAllProducts:[]) ].forEach(arr=>{ try{ arr.forEach(fn); }catch(_){} });
+}
+function gmRenderCategories(){
+  const c=document.getElementById('gm-cats-list'); if(!c) return;
+  const m=gmCatMap(); let names=Object.keys(m).sort((a,b)=>a.localeCompare(b,'ar'));
+  if(gmSearchQ) names=names.filter(n=>n.toLowerCase().includes(gmSearchQ)||Object.keys(m[n].groups).some(g=>g.toLowerCase().includes(gmSearchQ)));
+  if(!names.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#5b6472;line-height:1.9;"><div style="font-size:46px;opacity:.45;margin-bottom:10px;">🏷️</div>${Object.keys(m).length?'لا نتائج للبحث':'<b>لا توجد تصنيفات بعد.</b><br>التصنيف أكبر من المجموعة: يجمع عدّة مجموعات (مثل «تصوير» ← «كاميرات» و«عدسات»).<br>اضغط «+ تصنيف جديد» لإنشاء أوّل تصنيف.'}</div>`;
+    return;
+  }
+  c.innerHTML=names.map(n=>{
+    const e=m[n], gs=Object.keys(e.groups).sort((a,b)=>a.localeCompare(b,'ar'));
+    const prev=gs.slice(0,4).map(g=>escH(g)).join(' · ')+(gs.length>4?` +${gs.length-4}`:'');
+    return `<div style="background:#fff;border-radius:14px;border:1.5px solid #EBEBEB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+        <div style="width:44px;height:44px;background:#EEF2FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">🏷️</div>
+        <div style="min-width:0;flex:1;"><div style="font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(n)}</div>
+          <div style="font-size:12px;color:#5b6472;margin-top:2px;">${gs.length} مجموعة · ${e.n} منتج</div>
+          ${gs.length?`<div style="font-size:11px;color:#8b95a5;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${prev}</div>`:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <button data-admin="تعديل التصنيف" data-c="${escH(n)}" onclick="gmCatOpen(this.dataset.c)" style="padding:6px 12px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;">تعديل</button>
+        <button data-admin="حذف التصنيف" data-c="${escH(n)}" onclick="gmCatDelete(this.dataset.c)" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:9px;cursor:pointer;font-size:14px;" title="حذف التصنيف (المنتجات والمجموعات تبقى)">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function gmCatOpen(existing){
+  gmCatEditing=existing||'';
+  const g=id=>document.getElementById(id);
+  g('cat-modal-title').textContent=existing?'تعديل التصنيف':'إنشاء تصنيف جديد';
+  g('cat-old-name').value=existing||'';
+  g('cat-name').value=existing||'';
+  g('cat-search').value='';
+  g('cat-msg').textContent='';
+  g('cat-save-btn').disabled=false;
+  gmCatSel=new Set();
+  if(existing){ const e=gmCatMap()[existing]; if(e) Object.keys(e.groups).forEach(x=>gmCatSel.add(x)); }
+  gmCatRenderList();
+  g('cat-modal').style.display='flex';
+  setTimeout(()=>{ try{ g('cat-name').focus(); }catch(_){} },60);
+}
+window.gmCatOpen=gmCatOpen;
+function gmCatRenderList(){
+  const box=document.getElementById('cat-groups-list'); if(!box) return;
+  const q=(document.getElementById('cat-search').value||'').toLowerCase().trim();
+  const gm=gmCatGroupMap(); let names=Object.keys(gm).sort((a,b)=>a.localeCompare(b,'ar'));
+  if(q) names=names.filter(n=>n.toLowerCase().includes(q));
+  const cnt=document.getElementById('cat-count'); if(cnt) cnt.textContent=gmCatSel.size+' مجموعة محدّدة';
+  if(!names.length){ box.innerHTML=`<div style="padding:18px;text-align:center;color:#5b6472;font-size:13px;line-height:1.8;">${Object.keys(gm).length?'لا نتائج':'لا توجد مجموعات بعد — أنشئ مجموعة أولاً («مجموعة جديدة») ثم أضفها إلى تصنيف.'}</div>`; return; }
+  box.innerHTML=names.map(n=>{
+    const e=gm[n], on=gmCatSel.has(n);
+    const others=Object.keys(e.cats).filter(c=>c!==(document.getElementById('cat-name').value||'').trim());
+    const note=others.length?`<span style="font-size:11px;color:#b45309;">الآن في: ${others.map(escH).join('، ')}</span>`:'';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid ${on?'var(--red)':'#EBEBEB'};background:${on?'#fff5f5':'#fff'};border-radius:11px;cursor:pointer;">
+      <input type="checkbox" data-g="${escH(n)}" ${on?'checked':''} onchange="gmCatToggle(this.dataset.g,this.checked)" style="width:18px;height:18px;flex-shrink:0;">
+      <span style="flex:1;min-width:0;"><b style="font-size:13px;">${escH(n)}</b> <span style="font-size:12px;color:#5b6472;">· ${e.n} منتج</span><br>${note}</span></label>`;
+  }).join('');
+}
+function gmCatToggle(g,on){ if(on) gmCatSel.add(g); else gmCatSel.delete(g); gmCatRenderList(); }
+function gmCatSelectAll(on){
+  const q=(document.getElementById('cat-search').value||'').toLowerCase().trim();
+  Object.keys(gmCatGroupMap()).filter(n=>!q||n.toLowerCase().includes(q)).forEach(n=>{ if(on) gmCatSel.add(n); else gmCatSel.delete(n); });
+  gmCatRenderList();
+}
+window.gmCatToggle=gmCatToggle; window.gmCatSelectAll=gmCatSelectAll; window.gmCatRenderList=gmCatRenderList;
+
+/* PATCH واحد على products بمرشّح، ويُرجع عدد الصفوف التي عدّلتها القاعدة **فعلاً** (لا نصدّق 204 الصامت) */
+async function gmCatPatch(filter, value){
+  const {url,key}=getMainSBConfig();
+  if(!url||!key) throw new Error('إعدادات القاعدة غير متاحة');
+  const r=await fetch(`${url}/rest/v1/products?${filter}`,{method:'PATCH',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({category:value})});
+  const t=await r.text();
+  if(!r.ok){
+    if(/category/i.test(t)&&/PGRST204|does not exist|schema cache/i.test(t)) throw new Error('عمود «التصنيف» غير موجود في القاعدة — شغّل SQL ٢٤ أولاً');
+    throw new Error('رفضت القاعدة التعديل (HTTP '+r.status+')'+(t?': '+t.slice(0,120):''));
+  }
+  let rows=[]; try{ rows=JSON.parse(t); }catch(_){}
+  return Array.isArray(rows)?rows.length:0;
+}
+const gmCatEnc=v=>encodeURIComponent(String(v));
+async function gmCatSave(){
+  if(gmCatBusy) return;
+  const name=(document.getElementById('cat-name').value||'').trim().replace(/\s+/g,' ');
+  const old=gmCatEditing;
+  const msg=document.getElementById('cat-msg');
+  const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
+  if(!name){ say('اكتب اسم التصنيف'); return; }
+  if(name.length>60){ say('الاسم طويل (٦٠ حرفاً كحدّ أقصى)'); return; }
+  const cats=gmCatMap(), sel=[...gmCatSel];
+  const renaming=!!old && old!==name;
+  if(renaming && cats[name]){ say('يوجد تصنيف بهذا الاسم — اختر اسماً آخر'); return; }
+  /* إعادة التسمية وحدها مسموحة حتى بلا مجموعات (تصنيفٌ منتجاته بلا مجموعة لا يمكن غير ذلك) */
+  if(!sel.length && !renaming){ say(old?'أزلتَ كلّ المجموعات — لحذف التصنيف استعمل زرّ 🗑️ في تبويب «التصنيفات»':'اختر مجموعة واحدة على الأقلّ — التصنيف يُحفَظ داخل منتجات المجموعات فلا يبقى بدونها'); return; }
+  const prev=old&&cats[old]?Object.keys(cats[old].groups):[];
+  const removed=prev.filter(g=>!gmCatSel.has(g));
+  const prods=gmCatProducts();
+  const inGroup=g=>prods.filter(p=>String(p.group_name||'').trim()===g);
+  gmCatBusy=true; document.getElementById('cat-save-btn').disabled=true; showLoading('جارٍ حفظ التصنيف…');
+  let touched=0, renamedN=0;
+  try{
+    /* ١) إعادة التسمية: كلّ منتجات التصنيف القديم */
+    if(renaming){
+      const exp=cats[old]?cats[old].n:0;
+      const n=await gmCatPatch('category=eq.'+gmCatEnc(old), name);
+      renamedN=n; if(n<exp) throw new Error('أعادت القاعدة تسمية '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. حدّث الصفحة وأعد المحاولة');
+      gmCatApplyLocal(p=>{ if((p.category||'')===old) p.category=name; });
+      try{ if(typeof currentCategory!=='undefined' && currentCategory===old) currentCategory=name; }catch(_){}
+    }
+    /* ٢) المجموعات المختارة تدخل التصنيف.
+          · مجموعةٌ جديدة على التصنيف ⇒ كلّ منتجاتها تنتقل إليه (الواجهة نبّهت «الآن في: …»).
+          · مجموعةٌ كانت فيه أصلاً ⇒ نلمس غير المصنَّف فقط، فلا نسحب منتجاً صنّفه المالك تحت تصنيفٍ آخر. */
+    for(const g of sel){
+      const isNew=!prev.includes(g);
+      const targets=inGroup(g).filter(p=>isNew||!String(p.category||'').trim());   /* ما صار باسم التصنيف أصلاً لا يحتاج لمسة */
+      if(!targets.length) continue;
+      const filter='group_name=eq.'+gmCatEnc(g)+(isNew?'':'&or=(category.is.null,category.eq.)');
+      const n=await gmCatPatch(filter, name);
+      if(n<targets.length) throw new Error('المجموعة «'+g+'»: عدّلتْ القاعدة '+n+' من '+targets.length+' منتج فقط — ربما لا صلاحية. لم يكتمل الحفظ');
+      touched+=n; gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (isNew||!String(p.category||'').trim())) p.category=name; });
+    }
+    /* ٣) المجموعات التي أُزيلت تخرج منه */
+    for(const g of removed){
+      await gmCatPatch('group_name=eq.'+gmCatEnc(g)+'&category=eq.'+gmCatEnc(name), null);
+      gmCatApplyLocal(p=>{ if((p.group_name||'')===g && (p.category||'')===name) p.category=null; });
+    }
+    hideLoading();
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_save', entity:'products', entityName:name, field:'التصنيف', newValue:{ category:name, groups:sel.join('، '), removed:removed.join('، ')||undefined, renamed_from:renaming?old:undefined }, meta:{ n:touched+renamedN } }); }catch(_){}
+    closeModal('cat-modal');
+    showToast('✅ '+(old?'حُفظ التصنيف':'أُنشئ التصنيف')+' «'+escHtml(name)+'» — '+sel.length+' مجموعة · '+(touched||renamedN)+' منتج'+(removed.length?(' · أُزيلت '+removed.length+' مجموعة'):'' ));
+  }catch(e){
+    hideLoading();
+    say('⛔ '+(e&&e.message||e));
+  }finally{
+    gmCatBusy=false; const b=document.getElementById('cat-save-btn'); if(b) b.disabled=false;
+    gmCatRefresh();
+  }
+}
+window.gmCatSave=gmCatSave;
+async function gmCatDelete(name){
+  const e=gmCatMap()[name]; if(!e) return;
+  if(!(await GMTAsk.confirm('حذف التصنيف «'+name+'»؟\nيُزال الاسم من '+e.n+' منتج في '+Object.keys(e.groups).length+' مجموعة. المنتجات والمجموعات نفسها تبقى كما هي.',{title:'حذف تصنيف',okText:'حذف التصنيف',danger:true}))) return;
+  showLoading('جارٍ حذف التصنيف…');
+  try{
+    const n=await gmCatPatch('category=eq.'+gmCatEnc(name), null);
+    if(n<e.n) throw new Error('أزالت القاعدة الاسم من '+n+' من '+e.n+' منتج فقط — ربما لا صلاحية. حدّث الصفحة');
+    gmCatApplyLocal(p=>{ if((p.category||'')===name) p.category=null; });
+    if(typeof currentCategory!=='undefined' && currentCategory===name){ try{ currentCategory=''; }catch(_){} }
+    hideLoading();
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_delete', entity:'products', entityName:name, field:'التصنيف', oldValue:{ category:name }, meta:{ n:n } }); }catch(_){}
+    showToast('🗑️ حُذف التصنيف «'+escHtml(name)+'» ('+n+' منتج)');
+  }catch(err){ hideLoading(); showToast('⛔ '+(err&&err.message||err),'error'); }
+  finally{ gmCatRefresh(); }
+}
+window.gmCatDelete=gmCatDelete; window.gmRenderCategories=gmRenderCategories;
+
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   🏪 نقاط البيع — إنشاء وإلغاء من داخل النظام (قرار المالك ١٠ ت١: الخيار الأول = دالة SECURITY DEFINER، SQL ٣٤)
+   الجذر: نقطة البيع = عمود كمّيات حقيقيّ في products + سطر في inv_columns. الواجهة القديمة كانت تُضيف السطر فقط
+   والعمود لا يُضاف عبر REST ⇒ نقطةٌ «شبه موجودة». الآن تُنشأ وتُلغى عبر دالتين في القاعدة تفحصان كلمة السرّ
+   السيادية **هناك** (لا في المتصفّح) فلا يتجاوزهما تعديلُ الواجهة. الإلغاء ناعم (إخفاء) — لا حذف عمود ولا بيانات.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+const POS_PROTECTED = ['haleb', 'germany', 'china'];
+/* كلماتٌ تعاملها بقيّة النظام كفرع الإدارة أو كموقع عبور (مطابقةٌ نصّية في gmt-core.js) — يمنعها SQL ٣٤ أيضاً */
+const POS_RESERVED_RE = /(haleb|aleppo|hlb|halb|germany|deutschland|china|zhongguo)|(^|_)(de|cn)(_|$)/;
+const POS_SYSCOLS = ['xmin','xmax','cmin','cmax','ctid','tableoid'];
+const POS_TL = {'ا':'a','أ':'a','إ':'a','آ':'a','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h','خ':'kh','د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m','ن':'n','ه':'h','ة':'a','و':'w','ي':'y','ى':'a','ئ':'e','ؤ':'o','ء':'',
+  '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+function posKeyOk(k){ return /^[a-z][a-z0-9_]{2,23}$/.test(k) && !/^(pg_|gmt_)/.test(k) && !POS_SYSCOLS.includes(k) && !POS_RESERVED_RE.test(k); }
+function posKeyFromName(n){
+  let k=''; for(const ch of String(n||'').normalize('NFKC')){
+    if(POS_TL[ch]!==undefined) k+=POS_TL[ch]; else if(/[a-zA-Z0-9]/.test(ch)) k+=ch.toLowerCase(); else if(/[\s_-]/.test(ch)) k+='_';
+  }
+  k=k.replace(/_+/g,'_').replace(/^_|_$/g,'');
+  if(!k) return '';
+  if(!/^[a-z]/.test(k) || /^(pg_|gmt_)/.test(k) || k.length<3) k='pos_'+k;
+  k=k.slice(0,24).replace(/_$/,'');
+  const taken=new Set((columns||[]).map(c=>c.key));
+  let base=k, i=2; while(taken.has(k)){ const sfx=String(i++); k=base.slice(0,24-sfx.length)+sfx; }
+  return k;
+}
+function posSyncKey(){
+  const k=document.getElementById('pos-new-key'); if(!k||k.dataset.touched==='1') return;
+  k.value=posKeyFromName(document.getElementById('pos-new-name').value);
+}
+function posActive(){ return (columns||[]).filter(c=>c.isBranch && !c.fixed); }
+function posStockOf(key){ let t=0,n=0; (allProducts||[]).forEach(p=>{ const v=Number(p[key])||0; if(v){ t+=v; n++; } }); return {t,n}; }
+let posStatus=null;   // {protected:boolean} | {missing:true} | null
+function posRender(){
+  const box=document.getElementById('pos-list'); if(!box) return;
+  const list=posActive();
+  if(!list.length){ box.innerHTML='<div style="padding:14px;text-align:center;color:#5b6472;font-size:13px;">لا نقاط بيع</div>'; return; }
+  box.innerHTML=list.map(c=>{
+    const st=posStockOf(c.key), prot=POS_PROTECTED.includes(c.key);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid #EBEBEB;border-radius:11px;background:#fff;">
+      <div style="flex:1;min-width:0;"><b style="font-size:13px;">${escH(c.displayName)}</b> <span dir="ltr" style="font-size:11px;color:#8b95a5;font-family:ui-monospace,monospace;">${escH(c.key)}</span><br>
+        <span style="font-size:12px;color:#5b6472;">${st.t} قطعة في ${st.n} منتج</span></div>
+      ${prot?'<span style="font-size:11px;font-weight:800;color:#166534;background:#f0fdf4;border-radius:8px;padding:3px 9px;">أساسية</span>'
+            :`<button class="btn btn-ghost btn-sm" data-admin="إلغاء نقطة بيع" data-k="${escH(c.key)}" data-n="${escH(c.displayName)}" onclick="posRetire(this.dataset.k,this.dataset.n)" style="color:#b91c1c;border-color:#fca5a5;">إلغاء</button>`}
+    </div>`;
+  }).join('');
+}
+const POS_ACTIVATE_SQL="select public.gmt_pos_set_secret_admin('كلمة-قويّة-لا-تقلّ-عن-١٠-أحرف');";
+function posRenderSec(){
+  const el=document.getElementById('pos-sec'); if(!el) return;
+  if(!posStatus){ el.innerHTML='<span style="color:#5b6472;">جارٍ فحص حماية الخادم…</span>'; return; }
+  if(posStatus.missing){ el.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 12px;color:#991b1b;"><b>لم يُشغَّل ملف SQL رقم ٣٤</b> («إنشاء وإلغاء نقطة بيع») في القاعدة بعد — لا يمكن الإنشاء أو الإلغاء قبله.</div>'; return; }
+  if(!posStatus.protected){ el.innerHTML='<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;color:#92400e;"><b>حماية الخادم غير مفعَّلة</b> — ترفض الدالّتان كلّ طلب إلى أن تفعّلها مرّة واحدة: شغّل هذا السطر في محرّر SQL في Supabase (باختيار كلمتك أنت):<div dir="ltr" style="margin-top:6px;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;font-family:ui-monospace,monospace;font-size:11.5px;text-align:left;word-break:break-all;">'+escH(POS_ACTIVATE_SQL)+'</div></div>'; return; }
+  el.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#166534;"><span>حماية الخادم مفعّلة ✓</span><button class="btn btn-ghost btn-sm" data-admin="تغيير كلمة سرّ نقاط البيع" onclick="posChangeSecret()">تغيير كلمة السرّ</button></div>';
+}
+async function posLoadStatus(){
+  posStatus=null; posRenderSec();
+  try{ const r=await posRpc('gmt_pos_status',{}); posStatus=(r&&typeof r==='object')?{protected:!!r.protected}:{protected:false}; }
+  catch(e){ posStatus=/SQL رقم ٣٤/.test(e&&e.message||'')?{missing:true}:{protected:false,err:String(e&&e.message||e)}; }
+  posRenderSec();
+}
+function posOpen(){
+  document.getElementById('pos-msg').textContent='';
+  const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
+  document.getElementById('pos-new-name').value='';
+  posRender();
+  document.getElementById('pos-modal').style.display='flex';
+  posLoadStatus();
+}
+window.posOpen=posOpen; window.posSyncKey=posSyncKey;
+const POS_ERR={
+  bad_secret:'كلمة سرّ نقاط البيع غير صحيحة. (هي الكلمة التي فعّلتَها في ملف SQL ٣٤ — مستقلّة عن الكلمة السيادية وعن كلمات الأدمن.)',
+  not_protected:'حماية الخادم غير مفعَّلة بعد — شغّل في محرّر SQL: '+POS_ACTIVATE_SQL,
+  locked:'قُفل الإنشاء والإلغاء مؤقّتاً بعد محاولاتٍ خاطئة كثيرة (٨ خلال ٥ دقائق). انتظر قليلاً ثمّ أعد المحاولة.',
+  weak_secret:'كلمة السرّ الجديدة ضعيفة — ١٠ أحرف على الأقلّ ومختلفة عن القديمة وعن الافتراضية.',
+  bad_key:'المعرّف غير صالح — ٣ إلى ٢٤ حرفاً: إنجليزية صغيرة وأرقام و_ ويبدأ بحرف (ولا يبدأ بـ pg_ أو gmt_).',
+  reserved_key:'هذا المعرّف يحوي كلمةً محجوزة يعاملها النظام كفرع الإدارة أو كموقع عبور (haleb · aleppo · hlb · halb · germany · china · de · cn …) — اختر معرّفاً آخر.',
+  bad_name:'الاسم يجب أن يكون بين حرفين و٤٠ حرفاً.',
+  exists:'توجد نقطة بيع فعّالة بهذا المعرّف.',
+  key_taken:'هذا المعرّف يطابق عموداً أو سطراً آخر في النظام (مثل السعر أو الباركود أو عمودٍ مخصّص) — اختر معرّفاً مختلفاً.',
+  dup_name:'يوجد نقطة بيع فعّالة بهذا الاسم — اختر اسماً آخر.',
+  too_many:r=>'بلغتَ الحدّ الأقصى ('+(r.max||30)+' نقطة).',
+  protected:'هذه نقطة أساسية (حلب · ألمانيا · الصين) ولا تُلغى.',
+  not_active:'هذه النقطة غير فعّالة أصلاً — حدّث الصفحة.',
+  has_stock:r=>'فيها مخزون: '+r.qty+' قطعة في '+r.products+' منتج. انقله إلى نقطة أخرى أو فرّغه أولاً (زرّ «تفريغ نقطة بيع» في صفحة النقل بين الفروع) ثم ألغِها.',
+  open_transfers:r=>'يوجد '+r.count+' فاتورة نقل مفتوحة (معلّقة/قيد الاستلام/تحتاج تسوية) تخصّ هذه النقطة — أغلقها أولاً.',
+  has_users:r=>'يوجد '+r.count+' مستخدم فعّال مُسنَد لهذه النقطة — انقلهم لنقطة أخرى أو أوقفهم من «الأمان والمستخدمون» أولاً.',
+  unpaid_commissions:r=>'يوجد '+r.count+' عمولة غير مدفوعة لهذه النقطة — سدّدها أو سوّها من «أدمن نقاط البيع» أولاً.'
+};
+function posErrText(r){ const m=POS_ERR[r&&r.error]; return typeof m==='function'?m(r):(m||('رفضت القاعدة: '+((r&&r.error)||'خطأ غير معروف'))); }
+async function posRpc(fn,args){
+  const {url,key}=getMainSBConfig(); if(!url||!key) throw new Error('إعدادات القاعدة غير متاحة');
+  const r=await fetch(`${url}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  const t=await r.text();
+  if(!r.ok){
+    if(r.status===404||/PGRST202|Could not find the function/i.test(t)) throw new Error('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ («إنشاء وإلغاء نقطة بيع») من مجلّد SQL أولاً.');
+    throw new Error('HTTP '+r.status+(t?': '+t.slice(0,140):''));
+  }
+  let j; try{ j=JSON.parse(t); }catch(_){ throw new Error('ردٌّ غير مفهوم من القاعدة'); }
+  return j;
+}
+function posWho(){ try{ return (window.GMTRole&&GMTRole.name&&GMTRole.name())||localStorage.getItem('gmt_operator_name')||''; }catch(_){ return ''; } }
+async function posAskSecret(msg){
+  const v=await GMTAsk.prompt(msg,{title:'كلمة سرّ نقاط البيع',inputType:'password',placeholder:'••••',icon:'danger',okText:'تأكيد'});
+  return v===null?null:String(v);
+}
+/* يعرض الخطأ داخل النافذة + إشعاراً (النافذة طويلة وقد يكون سطر الخطأ تحت الشاشة) */
+function posSay(t,ok){
+  const msg=document.getElementById('pos-msg'); if(!msg) return;
+  msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c';
+  try{ msg.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(_){}
+  if(!ok){ try{ showToast(String(t).slice(0,160),'error'); }catch(_){} }
+}
+/* يُعيد تحميل الأعمدة والمنتجات ثمّ يتحقّق أنّ العرض طابق القاعدة (loadColumns يبتلع أخطاءه فلا نصدّق صمته) */
+async function posRefresh(expectKey,expectActive){
+  try{ await loadColumns(); }catch(_){}
+  try{ await loadProducts(); }catch(_){}
+  try{ if(!expectActive && typeof currentBranchFilter!=='undefined' && currentBranchFilter===expectKey) currentBranchFilter=''; }catch(_){}
+  try{ renderAll(); }catch(_){}
+  try{ if(typeof renderBranchFilterRow==='function') renderBranchFilterRow(); }catch(_){}
+  posRender();
+  const now=(columns||[]).some(c=>c.key===expectKey && c.isBranch);
+  if(now!==expectActive){ try{ showToast('تمّت العملية في القاعدة لكنّ العرض لم يتحدّث — حدّث الصفحة (F5).','warning'); }catch(_){} }
+}
+let posBusy=false;
+async function posCreate(){
+  if(posBusy) return;
+  const name=(document.getElementById('pos-new-name').value||'').trim().replace(/\s+/g,' ');
+  const key=(document.getElementById('pos-new-key').value||'').trim().toLowerCase();
+  if(name.length<2){ posSay(POS_ERR.bad_name); return; }
+  if(!posKeyOk(key)){ posSay(POS_RESERVED_RE.test(key)?POS_ERR.reserved_key:POS_ERR.bad_key); return; }
+  if(posStatus&&posStatus.missing){ posSay('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ أولاً.'); return; }
+  if(posStatus&&posStatus.protected===false){ posSay(POS_ERR.not_protected); return; }
+  posBusy=true; document.getElementById('pos-create-btn').disabled=true;
+  try{
+    const sec=await posAskSecret('إنشاء نقطة البيع «'+name+'» (المعرّف: '+key+').\nسيُضاف عمود مخزون لكلّ المنتجات. اكتب كلمة سرّ نقاط البيع للتأكيد:');
+    if(sec===null) return;
+    if(!sec){ posSay(POS_ERR.bad_secret); return; }
+    showLoading('جارٍ إنشاء نقطة البيع…');
+    let r; try{ r=await posRpc('gmt_create_pos',{p_secret:sec,p_key:key,p_name:name,p_icon:null,p_actor:posWho()||null}); } finally { hideLoading(); }
+    if(!r){ posSay('لم تُنفَّذ العملية — ردٌّ فارغ من القاعدة (وضع التدريب لا ينفّذها).'); return; }
+    if(!r.ok){ posSay(posErrText(r)); return; }
+    document.getElementById('pos-new-name').value=''; const nk=document.getElementById('pos-new-key'); nk.value=''; nk.dataset.touched='';
+    posSay((r.reactivated?'أُعيد تفعيل نقطة البيع «':'أُنشئت نقطة البيع «')+r.name+'» — تظهر الآن في كلّ الشاشات (الجرد · النقل · المشتريات · المستخدمون).',true);
+    showLoading('جارٍ تحديث الجرد…'); try{ await posRefresh(r.key,true); } finally { hideLoading(); }
+    showToast('✅ '+(r.reactivated?'أُعيد تفعيل ':'أُنشئت نقطة البيع ')+'«'+escHtml(r.name)+'»');
+  }catch(e){ posSay(String(e&&e.message||e)); }
+  finally{ posBusy=false; const b=document.getElementById('pos-create-btn'); if(b) b.disabled=false; }
+}
+async function posRetire(key,name){
+  if(posBusy) return;
+  const st=posStockOf(key);
+  if(st.n>0){ posSay(POS_ERR.has_stock({qty:st.t,products:st.n})); return; }
+  if(posStatus&&posStatus.missing){ posSay('الدالة غير موجودة في القاعدة — شغّل ملف SQL رقم ٣٤ أولاً.'); return; }
+  if(posStatus&&posStatus.protected===false){ posSay(POS_ERR.not_protected); return; }
+  posBusy=true;
+  try{
+    if(!(await GMTAsk.confirm('إلغاء نقطة البيع «'+name+'»؟\nتُخفى من كلّ الشاشات ويبقى عمودها وتاريخها محفوظين (لا حذف). تستطيع إعادة تفعيلها لاحقاً بإنشائها بالمعرّف نفسه ('+key+').',{title:'إلغاء نقطة بيع',okText:'متابعة',danger:true}))) return;
+    const sec=await posAskSecret('اكتب كلمة سرّ نقاط البيع لإلغاء «'+name+'»:');
+    if(sec===null) return;
+    if(!sec){ posSay(POS_ERR.bad_secret); return; }
+    showLoading('جارٍ إلغاء نقطة البيع…');
+    let r; try{ r=await posRpc('gmt_retire_pos',{p_secret:sec,p_key:key,p_actor:posWho()||null,p_reason:'إلغاء من شاشة الجرد'}); } finally { hideLoading(); }
+    if(!r){ posSay('لم تُنفَّذ العملية — ردٌّ فارغ من القاعدة (وضع التدريب لا ينفّذها).'); return; }
+    if(!r.ok){ posSay(posErrText(r)); return; }
+    posSay('أُلغيت نقطة البيع «'+r.name+'» (إخفاء — العمود والتاريخ محفوظان).'+(r.invoices>0?' تنبيه: لها '+r.invoices+' فاتورة تاريخية ستبقى في إجمالي التقارير ولن تظهر كصفّ فرع في أدمن نقاط البيع.':''),true);
+    showLoading('جارٍ تحديث الجرد…'); try{ await posRefresh(r.key,false); } finally { hideLoading(); }
+    showToast('🗑️ أُلغيت نقطة البيع «'+escHtml(r.name)+'»');
+  }catch(e){ posSay(String(e&&e.message||e)); }
+  finally{ posBusy=false; }
+}
+async function posChangeSecret(){
+  if(posBusy) return;
+  posBusy=true;
+  try{
+    const res=await GMTAsk.form('تغيير كلمة سرّ نقاط البيع. ١٠ أحرف على الأقلّ، ولا تكتبها في أيّ مكانٍ عامّ.',{
+      title:'تغيير كلمة السرّ',icon:'danger',okText:'تغيير',
+      fields:[{k:'old',label:'الكلمة الحالية',type:'password',dir:'ltr',autocomplete:'current-password'},
+              {k:'n1',label:'الكلمة الجديدة',type:'password',dir:'ltr',autocomplete:'new-password'},
+              {k:'n2',label:'أعد كتابة الجديدة',type:'password',dir:'ltr',autocomplete:'new-password'}],
+      submit:async function(v){
+        if(!v.old) return {error:POS_ERR.bad_secret,field:'old'};
+        if((v.n1||'').length<10) return {error:POS_ERR.weak_secret,field:'n1'};
+        if(v.n1!==v.n2) return {error:'الكلمتان غير متطابقتين',field:'n2',clear:true};
+        let r; try{ r=await posRpc('gmt_pos_change_secret',{p_old:v.old,p_new:v.n1,p_actor:posWho()||null}); }catch(e){ return {error:String(e&&e.message||e)}; }
+        if(r&&r.ok) return {result:r};
+        return {error:posErrText(r),field:(r&&r.error==='weak_secret')?'n1':'old',clear:true};
+      }});
+    if(res&&res.ok){ posSay('غُيّرت كلمة سرّ نقاط البيع.',true); showToast('✅ غُيّرت كلمة سرّ نقاط البيع'); }
+  }catch(e){ posSay(String(e&&e.message||e)); }
+  finally{ posBusy=false; }
+}
+window.posCreate=posCreate; window.posRetire=posRetire; window.posChangeSecret=posChangeSecret;
 
 function gmOpenModal(id){const e=document.getElementById(id);if(e){e.style.display='flex';document.body.style.overflow='hidden';}}
 function gmCloseModal(id){const e=document.getElementById(id);if(e){e.style.display='none';document.body.style.overflow='';}}
@@ -10754,139 +11328,402 @@ function stCloseScanner(){
    🧾 لوحة تسوية فواتير النقل المعلّقة — تشمل **الفواتير السابقة**
    الكود القديم كان يوسم البند الفاشل لكن التحذير يُطمَس ⇒ البيانات في القاعدة.
    ═══════════════════════════════════════════════════════════════════════ */
-async function stOpenSettlements(){
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   🧾 تسوية فواتير النقل الناقصة — إعادة كتابة كاملة (11 ت١ · طلب المالك)
+   «الفواتير التي يتعذّر فيها نقل مخزون تبقى معلّقة وعليها نقطة · بالضغط عليها يكتب لي الأصناف التي تعذّر خصمها
+    وأعيد إدخالها · وإن لم يوجد شيءٌ في الفرع المصدر أعدّله يدوياً · المهم أن تصل الفاتورة بالأعداد التي أدخلتُها».
+
+   المعادلة الثابتة لكل بند:  المطلوب = المنقول + المشطوب + المعلَّق
+        المطلوب  = requested_qty   (يُكتب لكل بند عند الإنشاء ولا يُغيَّر)      [قديمة: = qty لأنها لم تُصفَّر]
+        المنقول  = qty             (ما خُصم فعلاً من المصدر)
+        المشطوب  = waived_qty      («لم تُنقل» — قرار موثَّق)
+        المعلَّق  = المطلوب − المنقول − المشطوب  (>0 ⇒ البند ناقص)
+   • «أعِد المحاولة»: يخصم min(المعلَّق، المتاح الآن) من المصدر ويزيد المنقول — الضغطة الثانية لا تُضاعف لأن الحالة تُقرأ من القاعدة
+     من جديد (المعلَّق صار صفراً) ولأن الكتابة مشروطة بقيمة qty المقروءة.
+   • «ارفع المصدر وأضِف» (أدمن): يرفع مخزون المصدر بالفرق (يُدقَّق باسمك وسببك) ثم يُكمل الكمية كاملةً — فتصل الفاتورة بأعدادك.
+   • «لم تُنقل» (أدمن): يشطب المعلَّق بسببٍ موثَّق — بلا لمس المخزون.
+   • حين يصير كل المعلَّق صفراً تعود الفاتورة تلقائياً «في الطريق» ويُنظَّف سطر الملاحظة — لا «ختم يدوي».
+   • فاتورة قديمة لا تحمل أعمدة requested_qty/deduction_failed: الأصناف الفاشلة تُقرأ من سطر ملاحظة الفاتورة ويعمل «أعِد المحاولة»
+     كاملاً أو «لم تُنقل» (الجزئي يحتاج SQL يظهر لك نصّه جاهزاً).
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+const ST_SCHEMA_SQL = "alter table public.stock_transfer_items\n  add column if not exists requested_qty numeric,\n  add column if not exists deduction_failed boolean default false,\n  add column if not exists failed_reason text,\n  add column if not exists waived_qty numeric not null default 0;";
+function stRows(r){ return Array.isArray(r?.data)?r.data:(Array.isArray(r)?r:[]); }
+function stHasCols(it){ return !!it && ('requested_qty' in it) && ('waived_qty' in it); }
+function stNamesFromNote(t){
+  const m=String((t&&t.note)||'').match(/تعذّر خصم\s*\d+\s*صنف\s*:\s*(.+)$/);
+  return m ? m[1].split(/[،,]\s*/).map(x=>x.trim()).filter(Boolean) : [];
+}
+/* نموذج عرض موحَّد لبند فاتورة نقل: المطلوب/المنقول/المشطوب/المعلَّق */
+function stView(it, t){
+  const qty=Number(it.qty)||0, waived=Number(it.waived_qty)||0;
+  const hasReq = it.requested_qty!=null && it.requested_qty!=='';
+  const noteNames = (!hasReq && t && !t.settled) ? stNamesFromNote(t) : [];
+  const legacyFailed = !hasReq && noteNames.indexOf(String(it.product_name||'').trim())>=0;
+  const req = hasReq ? Number(it.requested_qty) : qty;                // قديمة: qty لم تُصفَّر فهي المطلوب
+  const moved = legacyFailed ? 0 : qty;                              // قديمة فاشلة: لم يُخصم منها شيء
+  const open = Math.max(0, Math.round((req - moved - waived)*1000)/1000);
+  return { id:it.id, product_id:it.product_id, name:it.product_name||'—', image_url:it.image_url||'', req, moved, waived, open, legacy: legacyFailed, row: it };
+}
+async function stFetchItems(transferIds){
+  const out=[];
+  for(let i=0;i<transferIds.length;i+=40){
+    const r=await sbFetch('GET','/rest/v1/stock_transfer_items?transfer_id=in.('+transferIds.slice(i,i+40).join(',')+')&select=*');
+    if(r.error) throw new Error(r.error);
+    out.push(...stRows(r));
+  }
+  return out;
+}
+/* ملخّص الفاتورة: عدد الأصناف الناقصة (للنقطة والشارة) — من أحدث بنودها */
+async function stOpenCountOf(t, items){
+  const its = items || stRows(await sbFetch('GET','/rest/v1/stock_transfer_items?transfer_id=eq.'+t.id+'&select=*'));
+  const views = its.map(x=>stView(x,t));
+  return { views, open: views.filter(v=>v.open>0).length };
+}
+(function(){ if(document.getElementById('st-dot-css')) return; const st=document.createElement('style'); st.id='st-dot-css';
+  st.textContent='.st-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);margin-inline-end:6px;vertical-align:middle}';
+  document.head.appendChild(st); })();
+function stSettleCss(){
+  if(document.getElementById('st-settle-css')) return;
+  const st=document.createElement('style'); st.id='st-settle-css';
+  st.textContent =
+    '#st-settle-ov>div{max-width:680px}'
+    +'.st-sl-item{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0;border-top:1px dashed var(--border)}'
+    +'.st-sl-nums{display:flex;flex-wrap:wrap;gap:6px;font-size:11.5px}'
+    +'.st-sl-nums span{padding:2px 8px;border-radius:999px;background:var(--surface2);font-weight:700;white-space:nowrap}'
+    +'.st-sl-btns{display:flex;flex-wrap:wrap;gap:6px}'
+    +'.st-sl-btns button{border-radius:9px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:inherit}'
+    +'.st-sl-btns .pri{background:#15803d;color:#fff;border-color:#15803d}'
+    +'.st-sl-btns .warn{background:#fff7ed;border-color:#fdba74;color:#9a3412}'
+    +'.st-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);margin-inline-end:6px;vertical-align:middle}'
+    +'@media (min-width:900px){#st-settle-ov>div{max-width:1040px}.st-sl-item{grid-template-columns:minmax(220px,2.2fr) minmax(260px,2fr) auto;align-items:center}}';
+  document.head.appendChild(st);
+}
+async function stOpenSettlements(onlyId){
+  window.__stOnly = onlyId;
   const ov=document.getElementById('st-settle-ov'); if(!ov) return;
+  stSettleCss();
   ov.style.display='flex';
   const body=document.getElementById('st-settle-body');
   body.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3)">جارٍ الفحص…</div>';
-  let failed=[], stuck=[];
   try{
-    const r1=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=id,transfer_id,product_id,product_name,barcode,qty,requested_qty&limit=300');
-    failed=Array.isArray(r1?.data)?r1.data:(Array.isArray(r1)?r1:[]);
-  }catch(e){}
-  try{
-    const r2=await sbFetch('GET','/rest/v1/branch_stock_transfers?status=eq.needs_settlement&select=id,transfer_number,from_branch,to_branch,from_branch_name,to_branch_name,note,settled,created_at&limit=200');
-    stuck=(Array.isArray(r2?.data)?r2.data:(Array.isArray(r2)?r2:[])).filter(x=>!x.settled);
-  }catch(e){}
-  const byT={}; failed.forEach(f=>{ (byT[f.transfer_id]=byT[f.transfer_id]||[]).push(f); });
-  const ids=new Set([...stuck.map(s=>s.id), ...Object.keys(byT)]);
-  if(!ids.size){
-    body.innerHTML='<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
-    return;
-  }
-  const meta={}; stuck.forEach(s=>meta[s.id]=s);
-  body.innerHTML =
-    '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9a3412">⚠️ <b>'
-    + ids.size + ' فاتورة</b> فيها بنود لم تُخصم. لكل بند قرّر: <b>«لم تُنقل»</b> (تبقى في المصدر) أو <b>«نُقلت فعلياً»</b> (يُصحَّح المخزون الآن).</div>'
-    /* 🔴 (2026-09-27) السبب الأكثر شيوعاً — وقد أثبته تقرير الفاحص العميق عندك:
-       `deduct_branch_stock` و`add_branch_stock` **غير معرَّفتين في القاعدة**.
-       وبلا هاتين الدالّتين يفشل خصم **كل** فاتورة نقل فتُوسَم «تحتاج تسوية»،
-       فتبقى معلّقة في الطريق. وتسوية الفواتير واحدةً واحدةً لا تُصلح السبب:
-       الفاتورة التالية ستقع في نفس المكان. نقولها هنا بصراحة كي لا يظنّ أحد
-       أنّ العطل في الفواتير نفسها. */
-    + (ids.size >= 3
-       ? '<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;padding:10px 12px;'
-         + 'margin-bottom:10px;font-size:12px;color:#991B1B;line-height:1.85">'
-         + '🔎 <b>تتكرّر مع كل فاتورة؟ فالسبب ليس الفواتير.</b><br>'
-         + 'دوالّ المخزون الذرّية (<code>deduct_branch_stock</code> و<code>add_branch_stock</code>) '
-         + 'قد تكون غير مُشغَّلة في قاعدة البيانات — وبلاها يفشل الخصم دائماً.<br>'
-         + '<b>الحلّ:</b> شغّل ملفّ <code>🔟 دوال المخزون</code> من مجلّد <code>SQL</code>، '
-         + 'ثمّ سوِّ الفواتير القديمة من هنا مرّة واحدة.</div>'
-       : '')
-    + [...ids].map(id=>{
-        const m=meta[id]||{}; const its=byT[id]||[];
-        return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">'
-          + '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">'
-          + escHtml(m.transfer_number||('#'+id)) + '</b><span style="font-size:11px;color:var(--text3)">'
-          + escHtml(m.from_branch_name||m.from_branch||'') + ' ← ' + escHtml(m.to_branch_name||m.to_branch||'') + '</span></div>'
-          + (m.note?'<div style="font-size:11px;color:#9a3412;margin-top:3px">'+escHtml(m.note)+'</div>':'')
-          + (its.length ? '<div style="margin-top:7px">' + its.map(it=>
-              '<div style="display:flex;gap:6px;align-items:center;justify-content:space-between;padding:5px 0;border-top:1px dashed var(--border);flex-wrap:wrap">'
-              + '<span style="font-size:12px;font-weight:700">' + escHtml(it.product_name||'—')
-              + ' <span style="color:var(--text3);font-weight:400">×' + (it.requested_qty||it.qty||0) + '</span></span><span style="display:flex;gap:5px">'
-              + '<button onclick="stSettleItem(\'' + it.id + '\',\'' + id + '\',false)" style="background:#f1f5f9;border:1px solid var(--border);border-radius:7px;padding:3px 9px;font-size:11px;cursor:pointer">لم تُنقل</button>'
-              + '<button onclick="stSettleItem(\'' + it.id + '\',\'' + id + '\',true)" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">نُقلت فعلياً</button>'
-              + '</span></div>').join('') + '</div>'
-            : '<div style="font-size:11.5px;color:var(--text3);margin-top:6px">لا بنود موسومة — أغلقها إن سُوّيت.</div>')
-          + '<div style="text-align:left;margin-top:8px"><button onclick="stCloseTransfer(\'' + id + '\')" style="background:#15803d;color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11.5px;font-weight:700;cursor:pointer">✔ اختم الفاتورة كمُسوّاة</button></div></div>';
-      }).join('');
-}
-async function stSettleItem(itemId, transferId, wasMoved){
-  const reason = await GMTAsk.prompt(wasMoved
-    ? 'البضاعة نُقلت فعلياً — سيُخصم من المصدر ويُضاف للوجهة الآن.\n\nسبب التسوية:'
-    : 'البضاعة لم تُنقل (بقيت في المصدر) — لا تعديل على المخزون.\n\nسبب التسوية:');
-  if(reason===null) return;
-  if(!String(reason).trim()){ showToast('السبب إجباري','error'); return; }
-  showLoading('جارٍ التسوية…');
-  try{
-    /* 🛡️ قفل ذرّي على البند: يمنع تسويته مرّتين (خصم/إضافة مزدوجة). */
-    const _cl = await sbFetch('PATCH',
-      `/rest/v1/stock_transfer_items?id=eq.${itemId}&deduction_failed=is.true`,
-      { failed_reason:'قيد التسوية…' }, { Prefer:'return=representation' });
-    const _rw = Array.isArray(_cl?.data)?_cl.data:(Array.isArray(_cl)?_cl:[]);
-    if(_rw.length!==1){
-      hideLoading();
-      showToast('⛔ هذا البند سُوّي مسبقاً أو يجري تسويته — لم يُلمس المخزون','error');
-      stOpenSettlements(); return;
-    }
-    if(wasMoved){
-      const r=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&select=product_id,qty,requested_qty');
-      const it=(Array.isArray(r?.data)?r.data:r)[0];
-      const tt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=from_branch,to_branch');
-      const tr=(Array.isArray(tt?.data)?tt.data:tt)[0];
-      const q=Number(it?.requested_qty||it?.qty||0);
-      if(it&&tr&&q>0){
-        /* ══ طلباتك ن٨ و ن٩ (2026-10-03) ══
-           كان هذا المسار ينادي الدالّتين الذرّيتين مباشرةً. وهما **غير
-           موجودتين في قاعدتك** (شاشتُك تقولها حرفياً)، فكانت التسوية نفسُها
-           تفشل — أي أنّ حتى **علاج** الفاتورة الناقصة كان معطوباً بنفس السبب.
-           الآن عبر `GMTStock`: الدالّةُ الذرّية أوّلاً، وإن غابت فمسارٌ
-           احتياطيٌّ بقراءةٍ وكتابةٍ **وقراءةٍ تحقّقية**. ومعه سؤالُ ن٩ إن
-           كان المطلوب أكبر من مخزون المصدر. */
-        if (window.GMTStock) {
-          const mv = await GMTStock.transfer({
-            productId: it.product_id, fromBranch: tr.from_branch, toBranch: tr.to_branch,
-            qty: q, productName: it.product_name || ''
-          });
-          if (!mv.ok) {
-            hideLoading();
-            showToast(mv.cancelled ? '↩︎ أُوقفت التسوية' : ('⚠ ' + (mv.error || 'تعذّرت الحركة')), 'error');
-            return;
-          }
-          if (mv.path === 'fallback') showToast('✅ تمّت بالمسار الاحتياطي — شغّل SQL ١١ ليصير ذرّياً','ok');
-          if (mv.raised) showToast('⬆️ رُفع مخزون المصدر ' + mv.raised + ' قطعة بموافقتك','ok');
-        } else {
-          const d=await sbFetch('POST','/rest/v1/rpc/deduct_branch_stock',{p_product_id:it.product_id,p_branch_key:tr.from_branch,p_qty:q});
-          if(d.error||d.data===false){ hideLoading(); showToast('⚠ تعذّر الخصم — الرصيد غير كافٍ في المصدر','error'); return; }
-          const a=await sbFetch('POST','/rest/v1/rpc/add_branch_stock',{p_product_id:it.product_id,p_branch_key:tr.to_branch,p_qty:q});
-          if(a.error){
-            await sbFetch('POST','/rest/v1/rpc/add_branch_stock',{p_product_id:it.product_id,p_branch_key:tr.from_branch,p_qty:q});
-            hideLoading();
-            showToast('⚠ تعذّرت الإضافة للفرع المستقبِل — أُعيدت الكمية للمصدر','error');
-            return;
-          }
-        }
+    /* الفواتير المرشّحة: كل فاتورة بحالة «تحتاج تسوية» (غير مختومة) + كل فاتورة غير مُلغاة فيها بند موسوم فاشل */
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=400');
+    const all=stRows(rt).filter(t=>t.status!=='cancelled');
+    let cand=all.filter(t=>t.status==='needs_settlement' && !t.settled);
+    try{
+      const rf=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=500');
+      const fid=new Set(stRows(rf).map(x=>String(x.transfer_id)));
+      all.forEach(t=>{ if(fid.has(String(t.id)) && !cand.some(c=>String(c.id)===String(t.id))) cand.push(t); });
+    }catch(_){}
+    if(onlyId!=null && onlyId!=='') cand=cand.filter(t=>String(t.id)===String(onlyId));
+    const items = cand.length ? await stFetchItems(cand.map(t=>t.id)) : [];
+    const byT={}; items.forEach(i=>{ (byT[i.transfer_id]=byT[i.transfer_id]||[]).push(i); });
+    /* المتاح الآن في المصدر لكل بند ناقص (قراءة حديثة، لا الكاش) */
+    const need={};   // fromBranch -> Set(product_id)
+    cand.forEach(t=>(byT[t.id]||[]).forEach(i=>{ const v=stView(i,t); if(v.open>0){ (need[t.from_branch]=need[t.from_branch]||new Set()).add(String(i.product_id)); } }));
+    const stock={};
+    for(const bk of Object.keys(need)){
+      const ids=[...need[bk]];
+      for(let k=0;k<ids.length;k+=60){
+        const r=await sbFetch('GET','/rest/v1/products?id=in.('+ids.slice(k,k+60).join(',')+')&select=id,'+bk);
+        stRows(r).forEach(p=>{ stock[bk+'|'+p.id]=Number(p[bk])||0; });
       }
     }
-    await sbFetch('PATCH','/rest/v1/stock_transfer_items?id=eq.'+itemId,
-      { deduction_failed:false, failed_reason:(wasMoved?'سُوّيت (نُقلت فعلياً): ':'سُوّيت (لم تُنقل): ')+String(reason).trim() });
-    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_settle_item', entity:'stock_transfer_items', entityId:itemId, entityName:'تسوية بند نقل', newValue:(wasMoved?'نُقلت فعلياً':'لم تُنقل'), reason:String(reason).trim() }); }catch(e){}
-    hideLoading(); showToast('✅ سُوّي البند','ok');
-    stOpenSettlements(); await loadProducts();
-  }catch(e){ hideLoading(); showToast('خطأ: '+(e.message||e),'error'); }
+    const blocks=[]; let schemaWarn=false;
+    for(const t of cand){
+      const views=(byT[t.id]||[]).map(i=>stView(i,t));
+      if(views.length && !stHasCols(views[0].row)) schemaWarn=true;
+      const open=views.filter(v=>v.open>0);
+      if(!open.length && onlyId==null) continue;       // لا ناقص حقيقي (وسم قديم) — لا نعرضها إلا بطلب صريح
+      blocks.push({t,views,open});
+    }
+    /* (٨ ج) فواتير عالقة على «قيد الاستلام/التعديل» — حالتها بقيت من نسخةٍ قديمة أو من إخفاقٍ أثناء الاستلام. كانت تمنع التسوية والاستلام معاً
+       بلا أيّ زرّ يفكّها (في قاعدتك أربعٌ منها). الفكّ للأدمن: تعود «تحتاج تسوية» إن كانت فيها أصنافٌ لم تُخصم، وإلا «معلّقة». */
+    const stuck=all.filter(t=>(t.status==='receiving'||t.status==='reopening') && (onlyId==null||onlyId===''||String(t.id)===String(onlyId)));
+    const stuckHtml = stuck.length ? ('<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px;color:#991b1b;line-height:1.9">'
+      +'<b>🔒 '+stuck.length+' فاتورة عالقة</b> على «'+(stuck.some(t=>t.status==='receiving')?'قيد الاستلام':'')+(stuck.some(t=>t.status==='receiving')&&stuck.some(t=>t.status==='reopening')?' / ':'')+(stuck.some(t=>t.status==='reopening')?'قيد التعديل':'')+'» — لا تقبل تسويةً ولا استلاماً حتى تُفكّ. تأكّد أنّ لا أحد يستلمها الآن ثم اضغط «فكّ العلق» (للأدمن، يُسجَّل باسمك):'
+      +stuck.map(t=>'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:7px;padding-top:7px;border-top:1px dashed #fecaca"><span><b>'+escHtml(t.transfer_number||('#'+t.id))+'</b> · '+escHtml(t.from_branch_name||t.from_branch||'')+' ← '+escHtml(t.to_branch_name||t.to_branch||'')+(stNamesFromNote(t).length?' · '+stNamesFromNote(t).length+' صنف لم يُخصم':'')+'</span>'
+        +'<button onclick="stUnstick(\''+t.id+'\')" style="background:#991b1b;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">فكّ العلق'+((window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin())?'':' 🔒')+'</button></div>').join('')
+      +'</div>') : '';
+    if(!blocks.length){
+      body.innerHTML=stuckHtml+(stuck.length?'':'')+'<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
+      try{ stRefreshSettleCount(); }catch(_){}
+      return;
+    }
+    const isAdm=(function(){ try{ return !!(window.GMTRole&&GMTRole.isAdmin()); }catch(_){ return false; } })();
+    body.innerHTML = stuckHtml +
+      '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9a3412;line-height:1.85">'
+      +'<b>'+blocks.length+' فاتورة</b> فيها أصناف لم تُخصم كاملةً. لكل صنف: <b>«أعِد المحاولة»</b> يخصم المتاح الآن من المصدر ويكمّل الفاتورة بأعدادك؛ '
+      +'وإن كان المصدر ناقصاً فـ<b>«ارفع المصدر وأضِف»</b> (يرفع المخزون بقدر الناقص بتوثيقٍ باسمك) أو <b>«لم تُنقل»</b> لشطب الباقي. '
+      +'كل نقرةٍ آمنة التكرار: لا تُضاعف الكمية.</div>'
+      +(schemaWarn?('<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#991b1b;line-height:1.85">'
+        +'⚠️ قاعدتك لا تحمل أعمدة «المطلوب» (<code>requested_qty</code>) بعد، فالفواتير القديمة تُسوّى <b>كاملةً أو تُشطب</b> (الجزئي يحتاج هذه الأعمدة). شغّل هذا مرّةً واحدة في محرّر SQL:'
+        +'<pre dir="ltr" style="direction:ltr;text-align:left;background:#fff;border:1px solid #fecaca;border-radius:8px;padding:8px;margin:6px 0 4px;font-size:11px;white-space:pre-wrap;user-select:all">'+escHtml(ST_SCHEMA_SQL)+'</pre>'
+        +'<button onclick="try{navigator.clipboard.writeText(ST_SCHEMA_SQL);showToast(\'نُسخ\',\'success\')}catch(e){}" style="background:#991b1b;color:#fff;border:0;border-radius:8px;padding:5px 12px;font-size:11.5px;font-weight:800;cursor:pointer">نسخ</button></div>'):'')
+      + blocks.map(({t,views,open})=>{
+          const sumReq=views.reduce((q,v)=>q+v.req,0), sumMoved=views.reduce((q,v)=>q+v.moved,0);
+          return '<div style="border:1px solid var(--border);border-radius:12px;padding:11px;margin-bottom:10px">'
+            +'<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">'
+            +'<b style="font-size:14px"><span class="st-dot"></span>'+escHtml(t.transfer_number||('#'+t.id))+'</b>'
+            +'<span style="font-size:12px;color:var(--text3)">'+escHtml(t.from_branch_name||t.from_branch||'')+' ← '+escHtml(t.to_branch_name||t.to_branch||'')+'</span></div>'
+            +'<div style="font-size:11.5px;color:#9a3412;margin-top:3px">المطلوب '+sumReq+' قطعة · المنقول فعلاً '+sumMoved+' · الناقص '+open.reduce((q,v)=>q+v.open,0)+' في '+open.length+' صنف'+(t.status==='received'?' · الفاتورة مستلمة (الإكمال يُضيف للوجهة فوراً)':'')+'</div>'
+            +(open.length>1?'<div style="margin-top:8px"><button onclick="stFillAll(\''+t.id+'\')" style="background:#15803d;color:#fff;border:0;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit">⟳ أعِد المحاولة لكل الأصناف الناقصة ('+open.length+')</button></div>':'')
+            +open.map(v=>{
+              const have = stock[t.from_branch+'|'+v.product_id];
+              const haveTxt = (have==null)?'—':have;
+              const enough = have!=null && have>=v.open;
+              return '<div class="st-sl-item">'
+                +'<div style="display:flex;gap:8px;align-items:center;min-width:0">'
+                  +(v.image_url?'<img src="'+escHtml(v.image_url)+'" alt="" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--surface2)" onerror="this.style.visibility=\'hidden\'">':'<div style="width:38px;height:38px;border-radius:8px;background:var(--surface2);flex:0 0 auto"></div>')
+                  +'<b style="font-size:12.5px;line-height:1.5;overflow-wrap:anywhere">'+escHtml(v.name)+'</b></div>'
+                +'<div class="st-sl-nums"><span>المطلوب <b>'+v.req+'</b></span><span>المنقول <b>'+v.moved+'</b></span>'
+                  +(v.waived?'<span>المشطوب <b>'+v.waived+'</b></span>':'')
+                  +'<span style="background:#fee2e2;color:#991b1b">الناقص <b>'+v.open+'</b></span>'
+                  +'<span style="background:'+(enough?'#dcfce7':'#fef3c7')+';color:'+(enough?'#166534':'#92400e')+'">المتاح الآن في المصدر <b>'+haveTxt+'</b></span></div>'
+                +'<div class="st-sl-btns">'
+                  +(have!=null&&have>0?'<button class="pri" onclick="stFill(\''+v.id+'\',\''+t.id+'\',\'avail\')">'+(enough?'أعِد المحاولة ('+v.open+')':'انقل المتاح ('+Math.min(have,v.open)+')')+'</button>':'')
+                  +(!enough?'<button class="warn" onclick="stFill(\''+v.id+'\',\''+t.id+'\',\'raise\')">ارفع المصدر وأضِف'+(isAdm?'':' 🔒')+'</button>':'')
+                  +'<button onclick="stEditSource(\''+v.id+'\',\''+t.id+'\')" title="يفتح رصيد هذا الصنف في '+escHtml(t.from_branch_name||t.from_branch||'المصدر')+' لتكتب الرصيد الصحيح هنا دون مغادرة الشاشة">✏️ عدّل رصيد '+escHtml(t.from_branch_name||t.from_branch||'المصدر')+(isAdm?'':' 🔒')+'</button>'
+                  +'<button onclick="stWaive(\''+v.id+'\',\''+t.id+'\')">لم تُنقل'+(isAdm?'':' 🔒')+'</button>'
+                +'</div></div>';
+            }).join('')
+            +'</div>';
+        }).join('');
+    try{ stRefreshSettleCount(); }catch(_){}
+  }catch(e){
+    body.innerHTML='<div style="padding:18px;color:#991b1b;font-size:13px;line-height:1.8">⚠️ تعذّر فحص الفواتير: '+escHtml(e.message||String(e))+'</div>';
+  }
 }
-async function stCloseTransfer(transferId){
-  const who = await GMTAsk.prompt('اسم من يختم التسوية:'); if(who===null) return;
-  if(!String(who).trim()){ showToast('الاسم إجباري','error'); return; }
-  const note = await GMTAsk.prompt('ملاحظة التسوية (اختياري):') || '';
-  showLoading('جارٍ الختم…');
+/* تحديث رأس الفاتورة بعد أي تغيير: تعود «في الطريق» تلقائياً حين لا ناقص، وإلّا «تحتاج تسوية» بملاحظة بأسماء الباقي */
+async function stRecomputeTransfer(transferId, resolvedNames){
+  const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+  const t=stRows(rt)[0]; if(!t) return null;
+  const its=await stFetchItems([transferId]);
+  /* الفواتير القديمة (بلا أعمدة): حالة «ناقص» لا تُحفظ إلا في أسماء ملاحظة الفاتورة ⇒ الاسم الذي سُوّي للتوّ يُحذف من الملاحظة قبل الحساب */
+  const resolved=(resolvedNames||[]).map(x=>String(x).trim());
+  const keepNames=stNamesFromNote(t).filter(n=>resolved.indexOf(n)<0);
+  const noteNow = keepNames.length ? ('تعذّر خصم '+keepNames.length+' صنف: '+keepNames.join('، ')) : (/^تعذّر خصم/.test(String(t.note||'')) ? null : t.note);
+  const views=its.map(i=>stView(i,Object.assign({},t,{note:noteNow})));
+  /* الاسماء القديمة (من الملاحظة) تُعتبر حلّت إن لم يعد لها ناقص: نحسبها من النموذج الجديد */
+  const openV=views.filter(v=>v.open>0);
+  const patch={};
+  if(openV.length){
+    patch.note='تعذّر خصم '+openV.length+' صنف: '+openV.map(v=>v.name).join('، ');
+    if(t.status==='pending') patch.status='needs_settlement';
+  }else{
+    if(t.status==='needs_settlement') patch.status='pending';
+    if(/^تعذّر خصم/.test(String(t.note||''))) patch.note=null;
+  }
+  if('short_items' in t) patch.short_items=openV.length;
+  if(!Object.keys(patch).length) return {t, open:openV.length};
+  const r=await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=in.(pending,needs_settlement,received)',patch,{Prefer:'return=representation'});
+  if(r.error) throw new Error('تعذّر تحديث الفاتورة: '+r.error);
+  return {t:Object.assign(t,patch), open:openV.length};
+}
+/* كتابة بند بحقولٍ تتحمّل غياب الأعمدة الجديدة (تُسقط العمود الناقص وحده) ومشروطة بقيمة qty المقروءة */
+async function stPatchItem(itemId, expectQty, body){
+  let b=Object.assign({}, body);
+  for(let k=0;k<5;k++){
+    const r=await sbFetch('PATCH','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&qty=eq.'+expectQty, b, {Prefer:'return=representation'});
+    if(!r.error){ const rows=stRows(r); if(rows.length===1) return rows[0]; throw new Error('تغيّر البند من جهاز آخر أثناء التسوية — أعد فتح الشاشة'); }
+    const m=String(r.error).match(/Could not find the '([^']+)' column|column [\w.]*?(\w+) does not exist/i);
+    const col=m&&(m[1]||m[2]);
+    if(col && (col in b)){ delete b[col]; continue; }
+    throw new Error(r.error);
+  }
+  throw new Error('تعذّرت كتابة البند');
+}
+let _stFillBusy=false;
+/* mode: 'avail' = انقل المتاح (ولا يتجاوزه) · 'raise' = ارفع المصدر بقدر الناقص (أدمن) ثم أكمل */
+async function stFill(itemId, transferId, mode, opts){
+  opts=opts||{};
+  if(_stFillBusy && !opts.inBatch){ showToast('⏳ عمليةٌ جارية — لحظة','info'); return {ok:false,busy:true}; }
+  if(!opts.inBatch) _stFillBusy=true;
+  const quiet=!!opts.inBatch;
   try{
-    await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId,
-      { settled:true, settled_at:new Date().toISOString(), settled_by:String(who).trim(), settlement_note:note });
-    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_settled', entity:'branch_stock_transfers', entityId:transferId, entityName:'ختم تسوية فاتورة نقل', reason:note||'—' }); }catch(e){}
-    hideLoading(); showToast('✔ خُتمت الفاتورة كمُسوّاة','ok'); stOpenSettlements();
-  }catch(e){ hideLoading(); showToast('خطأ: '+(e.message||e),'error'); }
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+    const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    if(t.status==='cancelled') throw new Error('الفاتورة مُلغاة');
+    if(t.status==='receiving'||t.status==='reopening') throw new Error('الفاتورة قيد الاستلام/التعديل الآن');
+    const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&select=*');
+    const it=stRows(ri)[0]; if(!it) throw new Error('البند غير موجود');
+    const v=stView(it,t);
+    if(v.open<=0){ if(!quiet) showToast('لا ناقص في هذا البند — سُوّي سابقاً','info'); return {ok:true,noop:true}; }
+    if(!stHasCols(it) && mode!=='avail' ){ /* قديمة: الرفع مسموح لكن الإكمال كامل */ }
+    const have=await GMTStock.readQty(v.product_id, t.from_branch);
+    let take=Math.min(v.open, have);
+    let raised=0;
+    if(mode==='raise'){
+      if(have<v.open){
+        if(!(await GMTRole.requireAdmin('رفع مخزون الفرع المصدر لإكمال فاتورة نقل'))) return {ok:false,cancelled:true};
+        const why=await GMTAsk.prompt('رفع مخزون «'+v.name+'» في المصدر من '+have+' إلى '+v.open+' (+'+(v.open-have)+')\n\nاكتب السبب (إجباري — يُسجَّل باسمك):',{title:'رفع مخزون المصدر',okText:'ارفع وأضِف'});
+        if(why===null) return {ok:false,cancelled:true};
+        if(!String(why).trim()){ showToast('السبب إجباري','error'); return {ok:false}; }
+        const up=await GMTStock.move('add', v.product_id, t.from_branch, v.open-have);
+        if(!up.ok) throw new Error('تعذّر رفع مخزون المصدر: '+up.error);
+        raised=v.open-have; take=v.open;
+        try{ if(window.GMTAudit) await GMTAudit.log({ action:'branch_stock_raised', entity:'products', entityId:v.product_id, entityName:v.name,
+          newValue:String(v.open), oldValue:String(have), reason:'تسوية فاتورة نقل '+(t.transfer_number||t.id)+' — '+String(why).trim() }); }catch(_){}
+      }
+    }
+    if(take<=0) throw new Error('لا مخزون متاح في المصدر لهذا الصنف — ارفع المصدر أو اختر «لم تُنقل»');
+    if(!stHasCols(it) && take<v.open) throw new Error('هذه فاتورة قديمة بلا أعمدة «المطلوب»: النقل الجزئي غير ممكن — ارفع المصدر أو شغّل SQL الأعمدة (يظهر في أعلى الشاشة)');
+    const mv=await GMTStock.move('deduct', v.product_id, t.from_branch, take);
+    if(!mv.ok) throw new Error('تعذّر الخصم من المصدر: '+(mv.error||'غير معروف'));
+    const newMoved = (v.legacy ? 0 : v.moved) + take;
+    const newOpen = Math.max(0, v.req - newMoved - v.waived);
+    const body = { qty:newMoved };
+    if(stHasCols(it)){ body.requested_qty=v.req; body.deduction_failed = newOpen>0; body.failed_reason = newOpen>0 ? ('ناقص '+newOpen+' — جُلب '+newMoved+' من '+v.req) : ('سُوّي ✓ '+new Date().toLocaleDateString('ar-SY')); }
+    else if('deduction_failed' in it){ body.deduction_failed = newOpen>0; }
+    try{
+      await stPatchItem(itemId, Number(it.qty)||0, body);
+    }catch(pe){
+      /* الخصم تمّ والكتابة فشلت ⇒ نُعيد الكمية للمصدر كي لا تضيع، ونُبلغ */
+      let back=false; try{ const bk=await GMTStock.move('add', v.product_id, t.from_branch, take); back=bk.ok; }catch(_){}
+      throw new Error((pe.message||pe)+(back?' — أُعيدت الكمية للمصدر':' — ⛔ تعذّرت إعادة الكمية للمصدر، راجع المخزون يدوياً'));
+    }
+    /* فاتورة مستلمة سابقاً: الكمية الجديدة تُضاف للوجهة الآن (وإلا بقيت في الطريق إلى الأبد) */
+    if(t.status==='received' || (window.GMTStock && GMTStock.itemReceived && GMTStock.itemReceived(it))){   // البند (أو الفاتورة) استُلم سابقاً: الإضافة للوجهة مباشرةً
+      const ad=await GMTStock.move('add', v.product_id, t.to_branch, take);
+      if(!ad.ok){
+        try{ await GMTStock.move('add', v.product_id, t.from_branch, take); await stPatchItem(itemId, newMoved, { qty:v.moved }); }catch(_){}
+        throw new Error('تعذّرت إضافة الكمية للفرع المستقبِل: '+(ad.error||'')+' — أُلغيت الحركة');
+      }
+    }else{
+      try{                                  // in_transit للعرض فقط
+        const pr=await sbFetch('GET','/rest/v1/products?id=eq.'+v.product_id+'&select=in_transit');
+        const cur=(stRows(pr)[0]||{}).in_transit||{};
+        const nt=Object.assign({},cur,{[t.to_branch]:(Number(cur[t.to_branch])||0)+take});
+        await sbFetch('PATCH','/rest/v1/products?id=eq.'+v.product_id,{in_transit:nt});
+      }catch(_){}
+    }
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_fill', entity:'stock_transfer_items', entityId:itemId, entityName:v.name,
+      oldValue:String(v.moved), newValue:String(newMoved), reason:'فاتورة '+(t.transfer_number||t.id)+(raised?(' · رُفع المصدر '+raised):'')+' · مطلوب '+v.req }); }catch(_){}
+    await stRecomputeTransfer(transferId, v.legacy?[v.name]:[]);
+    if(!quiet){
+      showToast(newOpen>0?('✅ نُقل '+take+' — بقي '+newOpen+' ناقصاً'):'✅ اكتمل الصنف بأعدادك ('+v.req+')','success');
+      await loadProducts().catch(()=>{}); await loadStockTransfers().catch(()=>{});
+      stOpenSettlements(opts.onlyId);
+    }
+    return {ok:true,take,remaining:newOpen,raised};
+  }catch(e){
+    if(!quiet) showToast('⚠ '+(e.message||e),'error');
+    return {ok:false,error:e.message||String(e)};
+  }finally{ if(!opts.inBatch) _stFillBusy=false; }
 }
+/* (٨ ج) طلبك: «الأشياء التي في المخزون أقلّ منها عند فاتورة النقل ياخذني فوراً إلى الفرع لتعديل الكمية لما أعمل تسوية».
+   لا شاشةٌ جديدة: نافذةٌ فوق التسوية بالرصيد الحاليّ لهذا الصنف في فرع المصدر، تكتب الرصيد الصحيح، فيُعدَّل بالحركة الذرّية
+   (إضافة/خصم بالفرق) مع سببٍ باسمك، ثمّ تُعاد القائمة وتُعرَض «أعِد المحاولة» إن صار الرصيد كافياً. */
+let _stUnstickBusy=false;
+async function stUnstick(transferId){
+  if(_stUnstickBusy) return; _stUnstickBusy=true;
+  try{
+    if(!(await GMTRole.requireAdmin('فكّ فاتورة نقل عالقة'))) return;
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+    const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    if(t.status!=='receiving' && t.status!=='reopening'){ showToast('الفاتورة ليست عالقة (حالتها: '+t.status+')','info'); await stOpenSettlements(window.__stOnly); return; }
+    const hasFail = stNamesFromNote(t).length>0;
+    const target = hasFail ? 'needs_settlement' : 'pending';
+    const why=await GMTAsk.prompt('فكّ الفاتورة «'+(t.transfer_number||t.id)+'» العالقة على «'+(t.status==='receiving'?'قيد الاستلام':'قيد التعديل')+'» وإعادتها إلى «'+(hasFail?'تحتاج تسوية':'معلّقة (بانتظار الاستلام)')+'».\n\nتأكّد أنّ لا أحد يستلمها أو يعدّلها الآن. ما استُلم سابقاً موسومٌ ولا يُضاف مرّتين.\nاكتب السبب (إجباري):',{title:'فكّ فاتورة عالقة',okText:'فكّ'});
+    if(why===null) return;
+    if(!String(why).trim()){ showToast('السبب إجباري','error'); return; }
+    const r=await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=in.(receiving,reopening)',{status:target},{Prefer:'return=representation'});
+    if(r.error) throw new Error(r.error);
+    if(!stRows(r).length) throw new Error('تغيّرت حالة الفاتورة أثناء ذلك (ربما انتهى الاستلام) — حدّث الصفحة');
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_unstick', entity:'branch_stock_transfers', entityId:String(transferId), entityName:t.transfer_number||'',
+      oldValue:t.status, newValue:target, reason:String(why).trim() }); }catch(_){}
+    showToast('✅ فُكّت الفاتورة — صارت «'+(hasFail?'تحتاج تسوية':'معلّقة')+'»','success');
+    await loadStockTransfers().catch(()=>{});
+    await stOpenSettlements(window.__stOnly);
+  }catch(e){ showToast('⚠ '+(e.message||e),'error'); }
+  finally{ _stUnstickBusy=false; }
+}
+window.stUnstick=stUnstick;
+let _stEditBusy=false;
+async function stEditSource(itemId, transferId){
+  if(_stEditBusy) return; _stEditBusy=true;
+  try{
+    if(!(await GMTRole.requireAdmin('تعديل رصيد الفرع المصدر لتسوية فاتورة نقل'))) return;
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*');
+    const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&select=*');
+    const it=stRows(ri)[0]; if(!it) throw new Error('البند غير موجود');
+    const v=stView(it,t);
+    const have=await GMTStock.readQty(v.product_id, t.from_branch);
+    const bname=t.from_branch_name||t.from_branch;
+    const val=await GMTAsk.prompt('«'+v.name+'» في '+bname+'\nالرصيد المسجَّل الآن: '+have+' · الناقص المطلوب نقله: '+v.open+'\n\nاكتب الرصيد الصحيح (الموجود فعلاً):',{title:'تعديل رصيد '+bname,value:String(have),inputType:'number',dir:'ltr',okText:'متابعة'});
+    if(val===null) return;
+    const n=Math.round(parseFloat(String(val).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))));
+    if(!isFinite(n)||n<0){ showToast('أدخل رقماً صحيحاً (٠ أو أكثر)','error'); return; }
+    if(n===have){ showToast('الرصيد كما هو — لم يتغيّر شيء','info'); return; }
+    const why=await GMTAsk.prompt('تعديل رصيد «'+v.name+'» في '+bname+' من '+have+' إلى '+n+' ('+(n>have?'+':'')+(n-have)+')\n\nاكتب السبب (إجباري — يُسجَّل باسمك):',{title:'سبب التعديل',okText:'حفظ'});
+    if(why===null) return;
+    if(!String(why).trim()){ showToast('السبب إجباري','error'); return; }
+    const mv=await GMTStock.move(n>have?'add':'deduct', v.product_id, t.from_branch, Math.abs(n-have));
+    if(!mv.ok) throw new Error('تعذّر تعديل الرصيد: '+(mv.error||'غير معروف'));
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'branch_stock_set', entity:'products', entityId:v.product_id, entityName:v.name,
+      oldValue:String(have), newValue:String(n), reason:'تسوية فاتورة نقل '+(t.transfer_number||t.id)+' — '+String(why).trim() }); }catch(_){}
+    showToast('✅ رصيد «'+v.name+'» في '+bname+': '+have+' ← '+n,'success');
+    await loadProducts().catch(()=>{});
+    await stOpenSettlements(window.__stOnly);
+    if(n>=v.open && await GMTAsk.confirm('الرصيد الآن يكفي ('+n+'). أُكمل نقل الـ'+v.open+' الناقصة الآن؟',{title:'إكمال النقل',okText:'نعم، أكمل',cancelText:'لاحقاً'})){
+      _stEditBusy=false;
+      await stFill(itemId, transferId, 'avail', {onlyId:window.__stOnly});
+    }
+  }catch(e){ showToast('⚠ '+(e.message||e),'error'); }
+  finally{ _stEditBusy=false; }
+}
+window.stEditSource=stEditSource;
+
+/* «أعِد المحاولة» لكل الأصناف الناقصة في فاتورة — متتابع، يُلخَّص في نهايته */
+async function stFillAll(transferId){
+  if(_stFillBusy) return; _stFillBusy=true;
+  try{
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*'); const t=stRows(rt)[0]; if(!t) return;
+    const its=await stFetchItems([transferId]);
+    const todo=its.map(i=>stView(i,t)).filter(v=>v.open>0);
+    let okN=0, doneFull=0, partial=0; const bad=[];
+    let n=0;
+    for(const v of todo){
+      n++; try{ showLoading('جارٍ إعادة المحاولة… '+n+' / '+todo.length); }catch(_){}
+      const r=await stFill(v.id, transferId, 'avail', {inBatch:true});
+      if(r.ok&&!r.noop){ okN++; if(r.remaining>0) partial++; else doneFull++; } else if(!r.ok) bad.push(v.name+': '+(r.error||''));
+    }
+    try{ hideLoading(); }catch(_){}
+    await loadProducts().catch(()=>{}); await loadStockTransfers().catch(()=>{});
+    await stOpenSettlements();
+    const msg='اكتمل '+doneFull+' صنفاً'+(partial?(' · '+partial+' جزئياً (المتاح فقط)'):'')+(bad.length?(' · تعذّر '+bad.length):'')
+      +(bad.length||partial?'\n\nما بقي ناقصاً: ارفع مخزون المصدر لأصنافه أو اشطبه بـ«لم تُنقل».':'\n\nالفاتورة صارت كاملةً بأعدادك.');
+    await GMTAsk.alert(msg+(bad.length?('\n\n• '+bad.slice(0,6).join('\n• ')):''),{title:'نتيجة إعادة المحاولة'});
+  }catch(e){ try{ hideLoading(); }catch(_){} showToast('خطأ: '+(e.message||e),'error'); }
+  finally{ _stFillBusy=false; }
+}
+/* «لم تُنقل»: شطبُ المعلَّق بسببٍ موثَّق (أدمن) — لا لمس للمخزون */
+async function stWaive(itemId, transferId){
+  if(_stFillBusy) return; _stFillBusy=true;
+  try{
+    if(!(await GMTRole.requireAdmin('شطب كمية لم تُنقل من فاتورة نقل'))) return;
+    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&select=*'); const t=stRows(rt)[0]; if(!t) throw new Error('الفاتورة غير موجودة');
+    const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+itemId+'&select=*'); const it=stRows(ri)[0]; if(!it) throw new Error('البند غير موجود');
+    const v=stView(it,t); if(v.open<=0){ showToast('لا ناقص في هذا البند','info'); return; }
+    const reason=await GMTAsk.prompt('«'+v.name+'»: لم تُنقل '+v.open+' قطعة (تبقى في المصدر) — لا تعديل على المخزون.\n\nسبب الشطب (إجباري):',{title:'شطب كمية لم تُنقل',okText:'اشطب'});
+    if(reason===null) return;
+    if(!String(reason).trim()){ showToast('السبب إجباري','error'); return; }
+    const body={ qty:v.legacy?0:v.moved };
+    if(stHasCols(it)){ body.requested_qty=v.req; body.waived_qty=v.waived+v.open; body.deduction_failed=false; body.failed_reason='شُطب: '+String(reason).trim(); }
+    else if('deduction_failed' in it){ body.deduction_failed=false; body.failed_reason='شُطب: '+String(reason).trim(); }
+    await stPatchItem(itemId, Number(it.qty)||0, body);
+    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_waive', entity:'stock_transfer_items', entityId:itemId, entityName:v.name, newValue:String(v.open), reason:'فاتورة '+(t.transfer_number||t.id)+': '+String(reason).trim() }); }catch(_){}
+    await stRecomputeTransfer(transferId, v.legacy?[v.name]:[]);
+    showToast('✅ شُطب الناقص من «'+v.name+'»','success');
+    await loadStockTransfers().catch(()=>{});
+    stOpenSettlements();
+  }catch(e){ showToast('⚠ '+(e.message||e),'error'); }
+  finally{ _stFillBusy=false; }
+}
+/* اسمٌ قديم يُبقى للتوافق: كانت تختم الفاتورة يدوياً — صارت الإعادة تلقائية */
+async function stCloseTransfer(transferId){ try{ await stRecomputeTransfer(transferId); }catch(_){} stOpenSettlements(); }
+async function stSettleItem(itemId, transferId, wasMoved){ return wasMoved ? stFill(itemId, transferId, 'avail') : stWaive(itemId, transferId); }
 function stCloseSettlements(){ const o=document.getElementById('st-settle-ov'); if(o) o.style.display='none'; }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -10927,7 +11764,7 @@ async function stEditTransfer(transferId){
      تأكيد الاستلام (received/confirmed/completed) لأن المخزون دخل الفرع الآخر. */
   const LOCKED = ['received','confirmed','completed'];
   if(tr.status && LOCKED.includes(tr.status)){
-    alert('⛔ الفاتورة ' + (tr.transfer_number||'') + ' **مستلَمة** — لا تُعدَّل.\n\n' +
+    await GMTAsk.alert('⛔ الفاتورة ' + (tr.transfer_number||'') + ' **مستلَمة** — لا تُعدَّل.\n\n' +
           'المخزون دخل الفرع المستقبِل فعلاً. استعمل «🔁 تكرار» لإنشاء فاتورة جديدة.');
     return;
   }
@@ -10954,36 +11791,52 @@ async function stEditTransfer(transferId){
   let items=[];
   try{
     const r=await sbFetch('GET','/rest/v1/stock_transfer_items?transfer_id=eq.'+transferId+'&select=*');
-    items=Array.isArray(r?.data)?r.data:(Array.isArray(r)?r:[]);
+    items=stRows(r);
   }catch(e){}
-  let restored=0, failed=0;
+  /* (11 ت١ · T-11) كان `try{ await sbFetch(...) }catch{failed++}` — وsbFetch لا ترمي أبداً (تُرجع {error}) ⇒ فشل الإعادة لا يُعَدّ، والفاتورة
+     تُلغى على أي حال والمخزون لم يرجع. الآن: كل إعادة تُفحَص (GMTStock مع القراءة التحقّقية)، وعند أول فشل يُتراجَع عمّا أُعيد
+     وتعود الفاتورة كما كانت ولا تُلغى. وكميّة المسوّدة = **المطلوب** (تشمل الأصناف الناقصة) لا المنقول فقط. */
+  const _prev = tr.status === 'draft' ? 'draft' : (tr.status === 'needs_settlement' ? 'needs_settlement' : 'pending');
+  const _undo = async () => { try{ await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=eq.reopening',{status:_prev}); }catch(_){} };
+  const done=[]; let failedItem=null;
   for(const it of items){
-    if(it.deduction_failed) continue;               // لم يُخصم أصلاً
-    try{
-      await sbFetch('POST','/rest/v1/rpc/add_branch_stock',
-        { p_product_id: it.product_id, p_branch_key: tr.from_branch, p_qty: Number(it.qty)||0 });
-      restored++;
-    }catch(e){ failed++; }
+    const v=stView(it,tr);
+    if(v.moved<=0) continue;                       // لم يُخصم منه شيء
+    const mv=await GMTStock.move('add', it.product_id, tr.from_branch, v.moved);
+    if(!mv.ok){ failedItem={name:v.name,err:mv.error}; break; }
+    done.push({pid:it.product_id,q:v.moved});
   }
+  if(failedItem){
+    for(const d of done){ try{ await GMTStock.move('deduct', d.pid, tr.from_branch, d.q); }catch(_){} }   // تراجع عمّا أُعيد
+    await _undo(); hideLoading();
+    await GMTAsk.alert('تعذّرت إعادة «'+failedItem.name+'» إلى مخزون المصدر ('+(failedItem.err||'')+').\n\nلم يتغيّر شيء: عادت الفاتورة كما كانت، ويمكن إعادة المحاولة.',{title:'تعذّر فكّ الفاتورة'});
+    try{ await loadStockTransfers(); }catch(_){}
+    return;
+  }
+  const restored=done.length, failed=0;
   try{
-    await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId,
-      { status:'cancelled', note: (tr.note?tr.note+' | ':'') + 'فُكَّت للتعديل ' + new Date().toLocaleString('ar-SY') });
+    const cr=await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=eq.reopening',
+      { status:'cancelled', note: (tr.note?tr.note+' | ':'') + 'فُكَّت للتعديل ' + new Date().toLocaleString('ar-SY') },{Prefer:'return=representation'});
+    if(cr.error || !stRows(cr).length) throw new Error(cr.error||'لم تُحدَّث الحالة');
     if(window.GMTAudit) await GMTAudit.log({ action:'transfer_reopen', entity:'branch_stock_transfers',
-      entityId:transferId, entityName:tr.transfer_number, reason:'فكّ الفاتورة للتعديل' });
+      entityId:transferId, entityName:tr.transfer_number, reason:'فكّ الفاتورة للتعديل — أُعيد '+restored+' صنف للمصدر' });
     stLogMove(transferId, tr.transfer_number, 'reopen', 'فُكَّت للتعديل');
-  }catch(e){}
-  hideLoading();
-  if(failed){
-    showToast('⚠️ أُعيد '+restored+' بند وتعذّر '+failed+' — راجع «🧾 تسوية معلّقة»','error');
+  }catch(e){
+    /* المخزون عاد لكن الحالة لم تُختم: نُبلغ بوضوح لئلا تُعاد العملية فيعود المخزون مرّتين */
+    hideLoading();
+    await GMTAsk.alert('أُعيدت الكميات إلى المصدر لكن تعذّر ختم الفاتورة «مُلغاة» ('+(e.message||e)+').\n\n⛔ لا تضغط «تعديل» مرّة أخرى على هذه الفاتورة — أبلغ الإدارة لتصحيح حالتها يدوياً.',{title:'الحالة لم تُحدَّث'});
+    return;
   }
+  hideLoading();
   // افتحها كمسوّدة
   const fresh={};
   items.forEach(it=>{
     const p=(allProducts||[]).find(x=>String(x.id) === String(it.product_id)); if(!p) return;
+    const _v=stView(it,tr);
     fresh[it.product_id]={ id:it.product_id, name:it.product_name||p.name, barcode:it.barcode||p.barcode||'',
-      image_url:it.image_url||p.image_url||'', qty:Number(it.qty)||1,
+      image_url:it.image_url||p.image_url||'', qty:(_v.req||Number(it.qty)||1),
       unit_cost:Number(it.unit_cost)||0, sale_price:Number(it.sale_price)||0,
-      maxAvail:(Number(p[tr.from_branch])||0)+(Number(it.qty)||0) };
+      maxAvail:(Number(p[tr.from_branch])||0)+(_v.moved||0) };
   });
   closeModal('st-detail-modal');
   stState={ fromBranch:tr.from_branch, toBranch:tr.to_branch, items:fresh, title:tr.title||'' };
@@ -11057,9 +11910,14 @@ function showStockFnBanner() {
 async function stRefreshSettleCount(){
   try{
     const el=document.getElementById('st-settle-count'); if(!el) return;
-    const r=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=300');
-    const rows=Array.isArray(r?.data)?r.data:(Array.isArray(r)?r:[]);
-    const n=new Set(rows.map(x=>x.transfer_id)).size;
+    const ids=new Set();
+    const r1=await sbFetch('GET','/rest/v1/branch_stock_transfers?status=eq.needs_settlement&select=id,settled&limit=400');
+    stRows(r1).filter(x=>!x.settled).forEach(x=>ids.add(String(x.id)));
+    const r2=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=500');
+    stRows(r2).forEach(x=>ids.add(String(x.transfer_id)));
+    const r3=await sbFetch('GET','/rest/v1/branch_stock_transfers?status=in.(receiving,reopening)&select=id&limit=200');   /* العالقة تُعدّ أيضاً (٨ ج) */
+    stRows(r3).forEach(x=>ids.add(String(x.id)));
+    const n=ids.size;
     if(n){ el.textContent=n; el.style.display=''; } else el.style.display='none';
   }catch(e){}
 }
@@ -11150,7 +12008,7 @@ async function loadStockTransfers() {
 let stSetupMissing = false;
 
 function updateStockTransferBadge() {
-  const pending = allStockTransfers.filter(t => t.status === 'pending').length;
+  const pending = allStockTransfers.filter(t => t.status === 'pending' || t.status === 'needs_settlement').length;
   document.querySelectorAll('.transfer-tab-badge').forEach(badge => {
     badge.textContent = pending || '';
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
@@ -11185,21 +12043,26 @@ function renderStockTransferList() {
     return;
   }
   wrap.innerHTML = allStockTransfers.map(t => {
+    /* (11 ت١) كل حالة باسمها العربي — كانت needs_settlement/receiving/reopening تظهر كلّها «في الطريق»، فلا يعرف أحد أن الفاتورة ناقصة */
     const statusMap = {
-      pending:   { label: '🟡 في الطريق', color: '#b45309' },
-      received:  { label: '✅ مستلمة',    color: '#15803d' },
-      cancelled: { label: '❌ مُلغاة',     color: '#9ca3af' }
+      pending:          { label: '🟡 في الطريق', color: '#b45309' },
+      needs_settlement: { label: '<span class="st-dot"></span>تحتاج تسوية', color: '#b91c1c' },
+      receiving:        { label: '⏳ جارٍ الاستلام', color: '#0369a1' },
+      reopening:        { label: '✏️ جارٍ التعديل',  color: '#0369a1' },
+      received:         { label: '✅ مستلمة',    color: '#15803d' },
+      cancelled:        { label: '❌ مُلغاة',     color: '#9ca3af' }
     };
-    const s = statusMap[t.status] || statusMap.pending;
+    const s = statusMap[t.status] || { label: escHtml(String(t.status||'—')), color: '#5b6472' };
     const d = new Date(t.created_at);
     const dateStr = d.toLocaleDateString('ar-SY', { day: '2-digit', month: '2-digit', year: 'numeric' });
     return `
       <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;"
            onclick="openStockTransferDetail('${t.id}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-          <div style="font-weight:900;font-size:13px;">🚚 ${escHtml(t.transfer_number)}</div>
+          <div style="font-weight:900;font-size:13px;">${t.status === 'needs_settlement' ? '<span class="st-dot" title="تحتاج تسوية"></span>' : '🚚 '}${escHtml(t.transfer_number)}</div>
           <div style="font-size:11px;font-weight:800;color:${s.color};">${s.label}</div>
         </div>
+        ${t.status === 'needs_settlement' ? `<div style="font-size:11.5px;color:#9a3412;background:#fff7ed;border-radius:8px;padding:6px 9px;margin-bottom:6px;line-height:1.7;">${escHtml(t.note || 'بعض الأصناف لم تُخصم')}</div>` : ''}
         <div style="font-size:12px;color:var(--text2);font-weight:700;">
           📤 ${escHtml(t.from_branch_name)} &nbsp;→&nbsp; 📥 ${escHtml(t.to_branch_name)}
         </div>
@@ -11804,16 +12667,36 @@ async function _saveStockTransferInner() {
 
   showLoading('جارٍ حفظ فاتورة النقل...');
   try {
-    // ١) تحقق نهائي من توفر الكمية (بيانات حديثة من DB لمنع التزامن الخاطئ)
+    // ١) قراءة حديثة لمخزون المصدر على دفعات (رابطٌ بـ٣٧+ معرّفاً يتجاوز حدّ الطول فكان الفحص يُتخطّى بصمت — T-24). فشل القراءة = توقّف.
     const ids = items.map(i => i.id);
-    const fresh = await sbFetch('GET', `/rest/v1/products?id=in.(${ids.join(',')})&select=id,${fromKey}`);
-    if (!fresh.error && Array.isArray(fresh.data)) {
-      for (const row of fresh.data) {
-        const it = items.find(i => String(i.id) === String(row.id));
-        if (it && it.qty > (Number(row[fromKey]) || 0)) {
-          hideLoading();
-          return showToast(`${it.name}: الكمية المتاحة الآن ${row[fromKey] || 0} فقط`, 'error');
-        }
+    const _haveNow = {};
+    for (let _k = 0; _k < ids.length; _k += 80) {
+      const fr = await sbFetch('GET', `/rest/v1/products?id=in.(${ids.slice(_k, _k + 80).join(',')})&select=id,${fromKey}`);
+      if (fr.error || !Array.isArray(fr.data)) { hideLoading(); return showToast('تعذّر قراءة مخزون المصدر الحالي (' + (fr.error || '؟') + ') — لم يُحفظ شيء', 'error'); }
+      fr.data.forEach(row => { _haveNow[String(row.id)] = Number(row[fromKey]) || 0; });
+    }
+    /* (11 ت١ · T-18/ن٩) كمية أكبر من المخزون: كان الفحصُ يُجهِض الحفظ قبل أن يصل إلى خيار «ارفع المصدر» (لا يُفعَّل أبداً).
+       الآن ثلاثة خيارات صريحة: انقل المتاح فقط (والباقي «ناقص» للتسوية) · ارفع المصدر وأتمّ (أدمن، بتوثيق) · إلغاء. */
+    var _raiseAll = false, _availOnly = false;
+    {
+      const _short = items.filter(i => i.qty > (_haveNow[String(i.id)] || 0)).map(i => ({ name: i.name, have: _haveNow[String(i.id)] || 0, want: i.qty }));
+      if (_short.length) {
+        hideLoading();
+        const _lines = _short.slice(0, 8).map(x => '• ' + x.name + ': موجود ' + x.have + ' · مطلوب ' + x.want).join('\n');
+        const _choice = await GMTAsk.choose(
+          _short.length + ' صنفاً كميّتُه أكبر من مخزون المصدر:\n\n' + _lines + (_short.length > 8 ? '\n… و' + (_short.length - 8) + ' غيرها' : '') +
+          '\n\nماذا تفعل؟', {
+            title: 'كمياتٌ أكبر من المخزون',
+            choices: [
+              { k: 'avail', t: 'انقل المتاح فقط — والباقي يبقى «ناقصاً» أسوّيه لاحقاً', pri: 1 },
+              { k: 'raise', t: 'ارفع مخزون المصدر وأتمّ النقل بأعدادي (أدمن)' }
+            ], cancelText: 'إلغاء — أعدّل الكميات' });
+        if (!_choice) return;
+        if (_choice === 'raise') {
+          if (!(await GMTRole.requireAdmin('رفع مخزون المصدر لإتمام فاتورة نقل'))) return;
+          _raiseAll = true;
+        } else _availOnly = true;
+        showLoading('جارٍ حفظ فاتورة النقل...');
       }
     }
 
@@ -11835,36 +12718,36 @@ async function _saveStockTransferInner() {
     }
     const transfer = headerRes.data[0];
 
-    // ٤) البنود
-    await sbFetch('POST', '/rest/v1/stock_transfer_items', items.map(i => ({
+    // ٤) البنود — يُكتب «المطلوب» (requested_qty) لكل بند ولا يُغيَّر بعدها؛ والنتيجة تُفحَص (فاتورة بلا بنود = تراجعٌ كامل قبل أيّ خصم)
+    const _itemRows = items.map(i => ({
       transfer_id: transfer.id, product_id: i.id, product_name: i.name,
       barcode: i.barcode || null, image_url: i.image_url || null,
-      qty: i.qty, unit_cost: i.unit_cost || 0, sale_price: i.sale_price || 0
-    })));
+      qty: i.qty, requested_qty: i.qty, unit_cost: i.unit_cost || 0, sale_price: i.sale_price || 0
+    }));
+    let _colsMissing = false, _itErr = null;
+    for (let _k = 0; _k < 4; _k++) {
+      const _ir = await sbFetch('POST', '/rest/v1/stock_transfer_items', _itemRows);
+      if (!_ir.error) { _itErr = null; break; }
+      _itErr = _ir.error;
+      const _m = String(_ir.error).match(/Could not find the '([^']+)' column|column [\w.]*?(\w+) does not exist/i);
+      const _col = _m && (_m[1] || _m[2]);
+      if (_col === 'requested_qty') { _itemRows.forEach(r => { delete r.requested_qty; }); _colsMissing = true; continue; }
+      break;
+    }
+    if (_itErr) {
+      let _gone = false;
+      try { const dr = await sbFetch('DELETE', `/rest/v1/branch_stock_transfers?id=eq.${transfer.id}`, null, { Prefer: 'return=representation' }); _gone = stRows(dr).length > 0; } catch (_) {}
+      hideLoading();
+      return showToast('تعذّر حفظ بنود الفاتورة (' + _itErr + ')' + (_gone ? ' — أُلغيت الفاتورة ولم يُخصم شيء' : ' — ⛔ تعذّر إلغاء رأس الفاتورة #' + transfer.transfer_number + '، احذفه يدوياً'), 'error');
+    }
+    try { localStorage.removeItem(ST_DRAFT_KEY); stDraftBadge(); } catch (e) {}   // الفاتورة وُجدت: المسوّدة لا تُستأنف (كانت تُعيد خصم الناجح وتُنشئ ثانية)
+    if (_colsMissing) { try { showToast('ℹ️ قاعدتك بلا أعمدة «المطلوب» — النقل الجزئي معطَّل (كاملٌ أو يفشل). شغّل SQL الأعمدة من «تسوية معلّقة»', 'info'); } catch (_) {} }
 
     // ٥) خصم المخزون عبر RPC آمن + تحديث in_transit للوجهة
     let anyFail = false;
     const failedItems = [];
     /* ن٨ · ن٩ — حالةُ الدفعة */
     let _usedFallback = false, _raisedTotal = 0;
-    let _raiseAll = false;
-    /* سؤالٌ واحدٌ قبل الدفعة: هل نرفع المصدر تلقائياً عند النقص؟
-       (بلاه يُسأل المالك مرّةً لكل بندٍ ناقص — ٣١ نافذةً في فاتورةٍ واحدة.) */
-    try {
-      const _short = [];
-      for (const _it of items) {
-        const _have = Number((allProducts || []).find(p => String(p.id) === String(_it.id))?.[fromKey]) || 0;
-        if (_it.qty > _have) _short.push({ name: _it.name, have: _have, want: _it.qty });
-      }
-      if (_short.length && window.GMTAsk) {
-        const _lines = _short.slice(0, 8).map(x => '• ' + x.name + ': موجود ' + x.have + ' · مطلوب ' + x.want).join('\n');
-        _raiseAll = await GMTAsk.confirm(
-          _short.length + ' صنفاً كميّتُه أكبر من مخزون المصدر:\n\n' + _lines +
-          (_short.length > 8 ? '\n… و' + (_short.length - 8) + ' غيرها' : '') +
-          '\n\nهل أرفع مخزون المصدر لها ثمّ أُتمّ النقل؟',
-          { title: 'كمياتٌ أكبر من المخزون', okText: 'ارفع وأتمّ', cancelText: 'لا — انقل المتاح فقط', icon: 'ask' });
-      }
-    } catch (_) {}
     /* 🔧 (2026-08-24) [P9] الخصم يمشي بنداً بنداً — بفاتورة من 212 بنداً تتجمّد
        الواجهة بلا أي مؤشّر فيظنّ المالك أن النظام علّق. الخصم **يجب** أن يبقى
        متسلسلاً (كل بند له نتيجة نجاح/فشل مستقلّة تُبنى عليها التسوية)، لكن
@@ -11891,55 +12774,65 @@ async function _saveStockTransferInner() {
             كي لا يُسأل ٣١ مرّة في فاتورةٍ واحدة.
          ══════════════════════════════════════════════════════════════════ */
       let ok;
+      let _take = it.qty;
       if (window.GMTStock) {
-        /* ⚠️ تصحيحٌ مهمّ لنفسي قبل أن أكتب السطر: هذا المسار **يخصم من
-           المصدر فقط**، والإضافةُ للفرع المستقبِل تحدث لاحقاً عند «تأكيد
-           الاستلام» (ولهذا يُكتب `in_transit` هنا). فلو استعملتُ
-           `GMTStock.transfer` — وهي تخصم **وتضيف** — لتضاعفت الكميّة في
-           الوجهة: مرّةً الآن ومرّةً عند الاستلام. فنستعمل `move('deduct')`
-           وحدها، ونُطبّق رفعَ ن٩ بأنفسنا قبلها. */
-        if (_raiseAll) {
-          const _have = await GMTStock.readQty(it.id, fromKey).catch(() => null);
-          if (_have !== null && it.qty > _have) {
-            const _up = await GMTStock.move('add', it.id, fromKey, it.qty - _have);
-            if (_up.ok) {
-              _raisedTotal += (it.qty - _have);
-              try { if (window.GMTAudit) await GMTAudit.log({ action:'branch_stock_raised',
-                entity:'products', entityId: it.id, entityName: it.name,
-                reason:'ن٩ · رُفع مخزون المصدر ('+fromKey+') من '+_have+' إلى '+it.qty+' بموافقتك قبل النقل' }); } catch(_){}
-            }
+        /* ⚠️ هذا المسار **يخصم من المصدر فقط**، والإضافةُ للفرع المستقبِل تحدث لاحقاً عند «تأكيد الاستلام» (ولهذا يُكتب in_transit).
+           فلو استعملتُ GMTStock.transfer (تخصم **وتضيف**) لتضاعفت الكميّة في الوجهة. فنستعمل move('deduct') وحدها. */
+        /* (11 ت١ · T-07) الدالّة الذرّية تُقصّ عند الصفر **بلا خطأ** (خصمُ 5 من 3 ⇒ 0 وتُسجَّل 5 فتظهر 5 في الوجهة وهمياً).
+           نقرأ الرصيد الحالي أولاً: ما يكفي يُخصم كاملاً، وما لا يكفي: يُخصم المتاح فقط (إن وُجدت أعمدة «المطلوب») ويبقى الباقي «ناقصاً» للتسوية. */
+        let _have = null; try { _have = await GMTStock.readQty(it.id, fromKey); } catch (_) {}
+        if (_raiseAll && _have !== null && it.qty > _have) {
+          const _up = await GMTStock.move('add', it.id, fromKey, it.qty - _have);
+          if (_up.ok) {
+            _raisedTotal += (it.qty - _have);
+            try { if (window.GMTAudit) await GMTAudit.log({ action:'branch_stock_raised',
+              entity:'products', entityId: it.id, entityName: it.name,
+              reason:'ن٩ · رُفع مخزون المصدر ('+fromKey+') من '+_have+' إلى '+it.qty+' بموافقتك قبل النقل' }); } catch(_){}
+            _have = it.qty;
           }
         }
-        const _mv = await GMTStock.move('deduct', it.id, fromKey, it.qty);
-        if (_mv.ok && _mv.path === 'fallback') _usedFallback = true;
-        ok = _mv.ok ? { data: true } : { error: _mv.error || 'تعذّرت الحركة' };
-        if (!_mv.ok) { try { console.warn('[GMT] تعذّر خصم «' + it.name + '»:', _mv.error); } catch (_) {} }
+        if (_have !== null && _have < it.qty) _take = _colsMissing ? 0 : Math.max(0, _have);
+        if (_take <= 0) { ok = { error: 'لا مخزون كافٍ في المصدر (المتاح ' + (_have === null ? '؟' : _have) + ' والمطلوب ' + it.qty + ')' }; _take = 0; }
+        else {
+          const _mv = await GMTStock.move('deduct', it.id, fromKey, _take);
+          if (_mv.ok && _mv.path === 'fallback') _usedFallback = true;
+          ok = _mv.ok ? { data: true } : { error: _mv.error || 'تعذّرت الحركة' };
+          if (!_mv.ok) { _take = 0; try { console.warn('[GMT] تعذّر خصم «' + it.name + '»:', _mv.error); } catch (_) {} }
+        }
       } else {
         ok = await sbFetch('POST', '/rest/v1/rpc/deduct_branch_stock', {
           p_product_id: it.id, p_branch_key: fromKey, p_qty: it.qty
         });
       }
-      if (ok.error || ok.data === false) {
+      if (ok.error || ok.data === false || _take < it.qty) {
         anyFail = true;
-        failedItems.push(it.name);
-        (window.__stFailWhy = window.__stFailWhy || []).push(String(ok.error || 'سببٌ غير معروف').slice(0, 160));
-        // حرج: المخزون لم يُخصم فعلياً لهذا الصنف — يجب تصحيح السجل المحفوظ
-        // ليعكس الواقع بدل أن يبقى يعرض كمية لم تُنقل فعلياً
-        await sbFetch('PATCH', `/rest/v1/stock_transfer_items?transfer_id=eq.${transfer.id}&product_id=eq.${it.id}`, {
-          qty: 0, deduction_failed: true
-        }).catch(() => {});
-        continue;
+        failedItems.push(_take > 0 ? (it.name + ' (' + _take + ' من ' + it.qty + ')') : it.name);
+        (window.__stFailWhy = window.__stFailWhy || []).push(String(ok.error || (_take > 0 ? 'الرصيد لا يكفي كاملاً' : 'سببٌ غير معروف')).slice(0, 160));
+        /* وسمُ البند: المنقول فعلاً (qty) + المطلوب + «فاشل». تُسقَط الأعمدة الناقصة وحدها، والنتيجة تُفحَص (كانت `.catch(()=>{})` تبتلعها
+           فيبقى البند بكميته الكاملة ويُعرَض كأنه نُقل — وهو ما رأيتَه: «×1» لكل الأصناف الـ٣٧). */
+        let _mark = { qty: _take, requested_qty: it.qty, deduction_failed: true, failed_reason: String(ok.error || 'الرصيد لا يكفي كاملاً').slice(0, 160) };
+        let _marked = false;
+        for (let _k = 0; _k < 5 && !_marked; _k++) {
+          const _pr = await sbFetch('PATCH', `/rest/v1/stock_transfer_items?transfer_id=eq.${transfer.id}&product_id=eq.${it.id}`, _mark, { Prefer: 'return=representation' });
+          if (!_pr.error) { _marked = stRows(_pr).length > 0; break; }
+          const _m2 = String(_pr.error).match(/Could not find the '([^']+)' column|column [\w.]*?(\w+) does not exist/i);
+          const _c2 = _m2 && (_m2[1] || _m2[2]);
+          if (_c2 && (_c2 in _mark)) { if (_c2 === 'requested_qty' && _take > 0) { _mark.qty = it.qty; _take = 0; } delete _mark[_c2]; continue; }
+          break;
+        }
+        if (!_marked) (window.__stMarkFail = window.__stMarkFail || []).push(it.name);
+        if (_take > 0) { /* خُصم جزئياً ⇒ تابع إلى in_transit بالمنقول فعلاً */ } else continue;
       }
 
       // تحديث in_transit (للعرض فقط — لا يؤثر على الكميات الحقيقية)
       const prodRow = (allProducts || []).find(p => String(p.id) === String(it.id));
       const curTransit = (prodRow?.in_transit) || {};
-      const newTransit = { ...curTransit, [toKey]: (Number(curTransit[toKey]) || 0) + it.qty };
+      const newTransit = { ...curTransit, [toKey]: (Number(curTransit[toKey]) || 0) + _take };
       await sbFetch('PATCH', `/rest/v1/products?id=eq.${it.id}`, { in_transit: newTransit });
 
       const idx = allProducts.findIndex(p => String(p.id) === String(it.id));
       if (idx >= 0) {
-        allProducts[idx][fromKey]    = Math.max(0, (Number(allProducts[idx][fromKey]) || 0) - it.qty);
+        allProducts[idx][fromKey]    = Math.max(0, (Number(allProducts[idx][fromKey]) || 0) - _take);
         allProducts[idx].in_transit  = newTransit;
         if (window.GMTCache) GMTCache.bulkPut('inv_products', [allProducts[idx]]).catch(() => {});
       }
@@ -11956,10 +12849,12 @@ async function _saveStockTransferInner() {
        برسالة «ناقصة — تحتاج تسوية» تبقى ظاهرة. */
     if (anyFail) {
       try {
-        await sbFetch('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${transfer.id}`, {
+        const _hr = await sbFetch('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${transfer.id}`, {
           status: 'needs_settlement',
-          note: 'تعذّر خصم ' + failedItems.length + ' صنف: ' + failedItems.join('، ')
-        });
+          /* أسماء الأصناف فقط في الملاحظة (بلا «(3 من 5)») — تُقرأ منها الفواتير القديمة بلا أعمدة */
+          note: 'تعذّر خصم ' + failedItems.length + ' صنف: ' + failedItems.map(n => n.replace(/\s*\(\d+ من \d+\)$/, '')).join('، ')
+        }, { Prefer: 'return=representation' });
+        if (_hr.error || !stRows(_hr).length) showToast('⚠ تعذّر وسم الفاتورة «تحتاج تسوية» — ابحث عنها في قائمة النقل وراجعها', 'error');
       } catch (_) {}
       try {
         if (window.GMTWarden && GMTWarden.flag) {
@@ -12051,27 +12946,34 @@ async function _saveStockTransferInner() {
     );
 
     hideLoading();
+    let _afterFailMsg = null;
     if (anyFail) {
       /* لا رسالة نجاح عند وجود إخفاق — كانت تطمس التحذير وتوهم باكتمال النقل. */
-      alert('⚠️ الفاتورة #' + transfer.transfer_number + ' حُفظت **ناقصة**.\n\n' +
-            'تعذّر خصم ' + failedItems.length + ' صنف:\n• ' + failedItems.join('\n• ') +
-            '\n\nهذه الأصناف لم تُنقل فعلياً.\nالسبب كما ردّت القاعدة:\n' + (function () {
-              var w = window.__stFailWhy || [], c = {}; w.forEach(function (x) { c[x] = (c[x] || 0) + 1; });
-              window.__stFailWhy = [];
-              return Object.keys(c).slice(0, 4).map(function (k) { return '— ' + k + ' (' + c[k] + ')'; }).join('\n') +
-                (/PGRST203|best candidate|function/i.test(w.join(' ')) ? '\n⇐ دوال المخزون في قاعدتك متضاربة: شغّل SQL/1_جديد_بالترتيب/29_توحيد_دوال_المخزون.sql' : '');
-            })() + '\n' +
-            'الفاتورة موسومة «تحتاج تسوية» — راجعها وأعد الأصناف الناقصة.');
-      showToast('⚠️ نقل ناقص — ' + failedItems.length + ' صنف لم يُخصم · الفاتورة تحتاج تسوية', 'error');
+      const _why = (function () {
+        var w = window.__stFailWhy || [], c = {}; w.forEach(function (x) { c[x] = (c[x] || 0) + 1; });
+        window.__stFailWhy = [];
+        return Object.keys(c).slice(0, 4).map(function (k) { return '— ' + k + ' (' + c[k] + ')'; }).join('\n') +
+          (/PGRST203|best candidate|function/i.test(w.join(' ')) ? '\n⇐ دوال المخزون في قاعدتك متضاربة: شغّل SQL/1_جديد_بالترتيب/29_توحيد_دوال_المخزون.sql' : '');
+      })();
+      const _mk = (window.__stMarkFail || []); window.__stMarkFail = [];
+      _afterFailMsg = '⚠️ الفاتورة #' + transfer.transfer_number + ' حُفظت **ناقصة**.\n\n' +
+        'تعذّر خصم ' + failedItems.length + ' صنف (كاملاً أو جزئياً):\n• ' + failedItems.slice(0, 12).join('\n• ') + (failedItems.length > 12 ? '\n… و' + (failedItems.length - 12) + ' غيرها' : '') +
+        '\n\nالسبب كما ردّت القاعدة:\n' + _why +
+        (_mk.length ? '\n\n⚠️ تعذّر وسم ' + _mk.length + ' بنداً في القاعدة (أعمدة ناقصة) — الفاتورة تحمل أسماءها في ملاحظتها وتُسوّى منها.' : '') +
+        '\n\nالفاتورة موسومة بنقطة حمراء «تحتاج تسوية». اضغط «سوِّ الناقص الآن» لإعادة إدخال الأصناف الناقصة حتى تصل بأعدادك.';
+      showToast('⚠️ نقل ناقص — ' + failedItems.length + ' صنف لم يُخصم كاملاً · الفاتورة تحتاج تسوية', 'error');
     } else {
       showToast('✅ تم حفظ فاتورة النقل بنجاح', 'success');
       stLogMove(transfer.id, transfer.transfer_number, 'created', items.length+' بند · '+(fromCol?.displayName||fromKey)+' ← '+(toCol?.displayName||toKey));
-      try{ localStorage.removeItem(ST_DRAFT_KEY); stDraftBadge(); }catch(e){}   // 📝 الختم يمسح المسوّدة
     }
     closeModal('new-stock-transfer-modal');
     updateStats();
     renderAll();
     await loadStockTransfers();
+    if (_afterFailMsg) {
+      const _go = await GMTAsk.confirm(_afterFailMsg, { title: 'فاتورة نقل ناقصة', okText: 'سوِّ الناقص الآن', cancelText: 'لاحقاً', icon: 'ask' });
+      if (_go) { try { switchAppMode('transfer'); } catch (_) {} stOpenSettlements(transfer.id); }
+    }
 
   } catch (err) {
     hideLoading();
@@ -12088,12 +12990,16 @@ async function openStockTransferDetail(id) {
   stCurrentDetail = t;
   const { data: items } = await sbFetch('GET', `/rest/v1/stock_transfer_items?transfer_id=eq.${id}&select=*`);
   const list = Array.isArray(items) ? items : [];
-  const totalQty  = list.reduce((s,i)=>s+i.qty,0);
-  const totalCost = list.reduce((s,i)=>s+(i.unit_cost||0)*i.qty,0);
-  const totalSale = list.reduce((s,i)=>s+(i.sale_price||0)*i.qty,0);
+  /* (11 ت١) المجاميع على **المنقول فعلاً** (لا المطلوب): الأصناف الـ٣٧ الفاشلة كانت تُحسب ضمن «١٣٠ قطعة · $٥٩٧٠» وهي لم تُخصم */
+  const _movedOf = (i) => stView(i, t).moved;
+  const totalQty  = list.reduce((s,i)=>s+_movedOf(i),0);
+  const totalCost = list.reduce((s,i)=>s+(i.unit_cost||0)*_movedOf(i),0);
+  const totalSale = list.reduce((s,i)=>s+(i.sale_price||0)*_movedOf(i),0);
   const profit    = totalSale - totalCost;
 
-  const statusMap = { pending:'🟡 في الطريق', received:'✅ مستلمة', cancelled:'❌ مُلغاة' };
+  const statusMap = { pending:'🟡 في الطريق', needs_settlement:'🔴 تحتاج تسوية', receiving:'⏳ جارٍ الاستلام', reopening:'✏️ جارٍ التعديل', received:'✅ مستلمة', cancelled:'❌ مُلغاة' };
+  const views = list.map(i => stView(i, t));
+  const openViews = views.filter(v => v.open > 0);
 
   // Show/hide signature reminder
   const reminder = document.getElementById('st-signature-reminder');
@@ -12122,7 +13028,9 @@ async function openStockTransferDetail(id) {
         <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;${idx%2?'background:var(--surface2)':''}">
           ${i.image_url ? `<img data-orig-src="${escHtml(i.image_url)}" src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--surface2);" onerror="this.style.visibility='hidden'">` : '<div style="width:40px;height:40px;background:var(--surface2);border-radius:8px;flex:0 0 auto;"></div>'}
           <div style="flex:1;font-weight:700;">${escHtml(i.product_name)}</div>
-          <span style="background:var(--red-light);color:var(--red);border-radius:6px;padding:2px 8px;font-weight:900;">× ${i.qty}</span>
+          ${(() => { const v = stView(i, t); return v.open > 0
+            ? `<span style="background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 8px;font-weight:900;white-space:nowrap" title="المطلوب ${v.req} · المنقول ${v.moved}">${v.moved} من ${v.req} · ناقص ${v.open}</span>`
+            : `<span style="background:var(--red-light);color:var(--red);border-radius:6px;padding:2px 8px;font-weight:900;">× ${v.moved}${v.waived ? ` <small style="font-weight:700">(شُطب ${v.waived})</small>` : ''}</span>`; })()}
           <span style="color:var(--text3);">$${(i.sale_price||0).toFixed(2)}</span>
         </div>`).join('')}
     </div>
@@ -12143,9 +13051,10 @@ async function openStockTransferDetail(id) {
                تُدفَن بلا طريق للخروج. -->
           <div style="background:#FEF2F2;border:1.5px solid #FECACA;color:#B91C1C;border-radius:9px;
                       padding:9px 11px;font-size:11.5px;font-weight:800;margin-bottom:10px;line-height:1.75;">
-            ⚠️ هذه الفاتورة <b>تحتاج تسوية</b>: تعذّر خصم بعض الأصناف من الفرع المُصدِّر.<br>
+            <span class="st-dot"></span>هذه الفاتورة <b>تحتاج تسوية</b>: ${openViews.length ? ('<b>' + openViews.length + ' صنف</b> لم يُخصم كاملاً من الفرع المُصدِّر') : 'تعذّر خصم بعض الأصناف من الفرع المُصدِّر'}.<br>
             ${escHtml(t.note || '')}<br>
-            <span style="font-weight:700">تأكيد الاستلام هنا يُدخِل الكميات للفرع المستلم — تأكّد أوّلاً أنّها وصلت فعلاً.</span>
+            <button type="button" onclick="closeModal('st-detail-modal');stOpenSettlements('${t.id}')" style="margin-top:7px;background:#b91c1c;color:#fff;border:0;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit">🧾 سوِّ الناقص (${openViews.length || '?'}) — أعِد إدخال الأصناف</button><br>
+            <span style="font-weight:700">تأكيد الاستلام هنا يُدخِل المنقول فعلاً فقط للفرع المستلم — الأصناف الناقصة تبقى معلّقة للتسوية.</span>
           </div>` : ''}
         <div style="font-weight:800;font-size:13px;margin-bottom:4px;">✅ تأكيد الاستلام</div>
         <div style="font-size:11px;color:var(--warning);font-weight:700;margin-bottom:10px;background:#fef3c7;border-radius:8px;padding:7px 10px;">
@@ -13483,23 +14392,35 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
   };
 })();
 </script>
-<script src="gmt-hints.js?v=20261003"></script>
+<script src="gmt-hints.js?v=20261011h"></script>
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261010b"></script>
+<script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261010b"></script>
+<script src="gmt-brain.js?v=20261012a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261010b"></script>
-<script src="gmt-refresh.js?v=20261007z4"></script>
+<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
+<!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
+     فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->
+<div id="st-settle-ov" style="display:none;position:fixed;inset:0;z-index:99997;background:rgba(15,23,42,.9);align-items:center;justify-content:center;padding:14px">
+  <div style="background:var(--surface);border-radius:14px;max-width:660px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <b style="font-size:14px">🧾 فواتير نقل تحتاج تسوية</b>
+      <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">×</button>
+    </div>
+    <div id="st-settle-body" style="padding:12px;overflow-y:auto"></div>
+  </div>
+</div>
+
 </body>
 </html>
