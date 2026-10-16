@@ -161,7 +161,8 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261012a"></script>
+  <script src="gmt-core.js?v=20261016b"></script>
+  <script src="gmt-invoice-tpl.js?v=20261016a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -217,7 +218,7 @@ window.GMT_PUBLIC = 1;</script>
     <div class="intro-partners-container">
         <div class="intro-partners-row">
             <!-- (2026-09-26) حُذفت ثلاث <img src=""> فارغة: المتصفّح يفسّر src الفارغ
-                 على أنّه عنوان الصفحة نفسها فيعيد طلبها مكان الصورة. --><img src="canonlogo.png" alt="canon" onerror="this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:12px;font-family:Cairo,Arial,sans-serif;&quot;>Canon</span>'">
+                 على أنّه عنوان الصفحة نفسها فيعيد طلبها مكان الصورة. --><img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="canon" onerror="this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:12px;font-family:Cairo,Arial,sans-serif;&quot;>Canon</span>'">
         </div>
     </div>
 </div>
@@ -519,22 +520,55 @@ async function fetchStoreRecord() {
     } catch(e) { console.warn('fetchStore:', e.message); return null; }
 }
 
+/* ══ التقييمات — تكيّفٌ مع اسم عمود النصّ (تقرير الحارس ١٢ ت١: 42703 «column gmt_comments.text does not exist») ══
+   قاعدة المتجر ليست قاعدة المخزون ولا أصل إليها من هنا، وجدولها قد يسمّي عمود النصّ غير «text». عمودٌ غير موجود يرفض الطلب كلّه
+   فتصير التقييمات فارغةً بصمت ويتكرّر خطأ 400 في كل فتحة. الآن نجرّب أسماء الأعمدة المعروفة بالتدرّج، ونتذكّر ما نجح (محلّياً)
+   فلا نكرّر الطلبات الفاشلة، ونوحّد النتيجة في الحقل text. لا نستعمل select('*') كي لا تصل هواتف المقيّمين لكل زائر. */
+const _CMT_TXT = ['text', 'comment', 'content', 'message', 'body', 'review'];
+const _CMT_LS = 'gmt_cmt_txtcol';
+function _cmtMissingCol(err) { return /42703|PGRST204|does not exist|Could not find/i.test(((err && err.code) || '') + ' ' + ((err && err.message) || '')); }
+function _cmtCols() {
+    let saved = ''; try { saved = localStorage.getItem(_CMT_LS) || ''; } catch (_) {}
+    return saved ? [saved].concat(_CMT_TXT.filter(c => c !== saved)) : _CMT_TXT.slice();
+}
 async function fetchComments() {
     const cached = _cache.get('comments');
     if (cached) return cached;
     try {
-        /* (٨ ث — تدقيق المطابقة) كان select('*') — فأرقام هواتف المقيّمين تصل لكل زائر في ردّ الشبكة (وإن لم تُرسَم).
-           الآن الأعمدة المعروضة فقط؛ وإن لم يوجد عمود rating نسقط إلى الأساسيّة. */
-        let {data,error} = await _sb.from(CONFIG.TABLE_COMMENTS).select('id,name,text,rating,created_at').order('created_at',{ascending:false});
-        if(error) ({data,error} = await _sb.from(CONFIG.TABLE_COMMENTS).select('id,name,text,created_at').order('created_at',{ascending:false}));
-        if(error) throw error;
-        _cache.set('comments', data||[]);
-        return data||[];
+        let rows = null, used = '', lastErr = null;
+        outer: for (const col of _cmtCols()) {
+            for (const withRating of [true, false]) {
+                const sel = ['id', 'name', col].concat(withRating ? ['rating'] : []).concat(['created_at']).join(',');
+                const r = await _sb.from(CONFIG.TABLE_COMMENTS).select(sel).order('created_at', { ascending: false });
+                if (!r.error) { rows = r.data || []; used = col; break outer; }
+                lastErr = r.error;
+                if (!_cmtMissingCol(r.error)) throw r.error;           // شبكة/صلاحيات — لا معنى لتجربة بقيّة الأسماء
+            }
+        }
+        if (!rows) throw lastErr || new Error('no comments column');
+        try { localStorage.setItem(_CMT_LS, used); } catch (_) {}
+        if (used !== 'text') rows = rows.map(r => Object.assign({}, r, { text: r[used] }));
+        _cache.set('comments', rows);
+        return rows;
     } catch { return []; }
 }
 async function insertComment(data) {
-    try { const {error} = await _sb.from(CONFIG.TABLE_COMMENTS).insert([data]); if(error)throw error; _cache.del('comments'); return true; }
-    catch { return false; }
+    try {
+        let lastErr = null;
+        for (const col of _cmtCols()) {
+            const row = Object.assign({}, data);
+            if (col !== 'text' && 'text' in row) { row[col] = row.text; delete row.text; }
+            const { error } = await _sb.from(CONFIG.TABLE_COMMENTS).insert([row]);
+            if (!error) { try { localStorage.setItem(_CMT_LS, col); } catch (_) {} _cache.del('comments'); return true; }
+            lastErr = error;
+            if (!_cmtMissingCol(error)) break;                          // ليس «عموداً ناقصاً» — لا نغيّر الاسم
+            /* أيُّ عمودٍ ناقص؟ إن كان عمود النصّ نفسه جرّبنا الاسم التالي؛ وإن كان rating/phone توقّفنا ليُسقطهما استدعاءُ التدرّج في الواجهة */
+            const m = String(error.message || '').match(/'([^']+)' column|\.([a-z_]+) does not exist|column "?([a-z_]+)"?/i);
+            const missing = m ? (m[1] || m[2] || m[3] || '') : '';
+            if (missing && missing !== col) break;
+        }
+        return false;
+    } catch { return false; }
 }
 
 // JSONBin orders
@@ -1105,6 +1139,39 @@ function showInvoice({orderId,name,phone,address,notes,payment,items,subtotal,to
     const overlay = document.getElementById('invoice-overlay');
     if(!overlay) return;
     const sheet = document.getElementById('invoice-sheet');
+    /* 🔴 (ملاحظات ١٣ ت١ ١٢:٤٣م) «فاتورة المتجر حطّلها قالب نفس فاتورة المبيع» — القالب مصدرٌ واحد (gmt-invoice-tpl.js) تشاركه
+       نقطة البيع. نعرضه في إطارٍ مصغَّر على الشاشة، وزرّ «تحميل الفاتورة» يطبع نفس الورقة A4. التصميم القديم أدناه
+       احتياطٌ فقط إن لم يُحمَّل الملف (فلا تُحرَم الزبون من فاتورته). */
+    try {
+        if (window.GMTInvoiceTpl) {
+            const html = GMTInvoiceTpl.storeHTML({
+                ref: orderId, name: name, phone: phone, address: address, notes: notes, payment: payment,
+                items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+                subtotal: subtotal, delivery: DELIVERY_FEE, discount: Math.max(0, subtotal + DELIVERY_FEE - total), total: total   // الخصم = كوبون (المجموع + التوصيل − الإجمالي)
+            });
+            window.__storeInvoiceHTML = html;
+            sheet.innerHTML = `
+            <div id="invoice-frame-wrap" style="overflow:hidden;background:#f1f5f9;border-radius:20px 20px 0 0;">
+                <iframe id="invoice-frame" title="الفاتورة" style="width:794px;height:1123px;border:0;background:#fff;transform-origin:top right;display:block;margin:0 auto;"></iframe>
+            </div>
+            <div style="padding:16px;padding-bottom:32px;display:flex;gap:10px;border-top:1px solid #f0f0f0;">
+                <button onclick="downloadInvoice()" style="flex:1;background:#D5001C;color:white;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <i class="ph ph-download-simple"></i> تحميل الفاتورة
+                </button>
+                <a href="track_order.html?o=${encodeURIComponent(orderId||'')}" target="_blank" style="flex:1;background:#111;color:white;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;">
+                    <i class="ph ph-map-pin"></i> تابع طلبك من هون
+                </a>
+                <button onclick="closeInvoice()" style="width:48px;height:48px;background:#f5f5f5;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="ph ph-x" style="font-size:18px;color:#555;"></i>
+                </button>
+            </div>`;
+            overlay.classList.add('active');
+            const fr = document.getElementById('invoice-frame'), wrap = document.getElementById('invoice-frame-wrap');
+            const fit = () => { const k = Math.min(1, (wrap.clientWidth || 390) / 794); fr.style.transform = 'scale(' + k + ')'; wrap.style.height = Math.round(1123 * k) + 'px'; fr.style.marginTop = '0'; };
+            fr.srcdoc = html; fit(); window.addEventListener('resize', fit, { passive: true });
+            return;
+        }
+    } catch (_e) { console.warn('[GMT] قالب فاتورة المتجر المشترك تعذّر — التصميم الاحتياطي:', _e && _e.message); }
     const itemsHTML = items.map(item=>{
         const lineTotal = (parseFloat(item.price)||0)*(item.qty||1);
         const vs = item.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';
@@ -1190,11 +1257,16 @@ window.closeInvoice = function(){
 };
 
 window.downloadInvoice = function(){
+    if (window.__storeInvoiceHTML && document.getElementById('invoice-frame')) {
+        const w2 = window.open('', '_blank'); if (!w2) { showToast('اسمح بالنوافذ المنبثقة', 'error'); return; }
+        w2.document.write(window.__storeInvoiceHTML.replace('</body>', '<script>setTimeout(function(){window.print()},500)<\/script></body>')); w2.document.close();
+        return;
+    }
     const printable = document.getElementById('invoice-printable');
     if(!printable){ showToast('لا توجد فاتورة','error'); return; }
     // Use print to save as PDF/image
     const w = window.open('','_blank','width=400,height=700');
-    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800&display=swap" rel="stylesheet"><script src="lib/phosphor/regular/style.css?v=20261003"></` + `script><style>body{font-family:'Tajawal',sans-serif;margin:0;padding:0;background:white;direction:rtl;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>${printable.outerHTML}<script>window.onload=function(){window.print();}</` + `script>
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><script src="lib/phosphor/regular/style.css?v=20261003"></` + `script><style>body{font-family:'Tajawal',sans-serif;margin:0;padding:0;background:white;direction:rtl;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>${printable.outerHTML}<script>window.onload=function(){window.print();}</` + `script>
 </body></html>`);
     w.document.close();
 };

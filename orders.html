@@ -93,7 +93,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261012a"></script>
+  <script src="gmt-core.js?v=20261016b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -105,7 +105,9 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-endpoint.js?v=20261011m"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
-<script src="gmt-receipt.js?v=20261011e" defer></script>
+<script src="gmt-receipt.js?v=20261016b" defer></script>
+<script src="gmt-custcache.js?v=20261016a" defer></script>
+<script src="gmt-invoice-tpl.js?v=20261016a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -135,8 +137,13 @@ window.GMT_INTERNAL = 1;</script>
             <input type="text" id="searchInput" oninput="render()" placeholder="بحث سريع..." class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold border border-gray-200 transition-all text-center">
         </div>
         <div class="grid grid-cols-2 lg:flex lg:flex-wrap lg:basis-full gap-2 w-full">
-            <!-- (2026-09-26 · طلب المالك) أُزيل «تحقق من الشحنة» نهائياً — التتبّع صار على
-                 بطاقة الأوردر نفسها بزرّ يعرف شركتها ورقم تتبّعها. مكانه: «أماكن الوصول». -->
+            <!-- (2026-09-26 · طلب المالك) أُزيل «تحقق من الشحنة» من هنا ونُقل التتبّع إلى بطاقة الأوردر.
+                 🔴 (ملاحظات ١٣ ت١ ١٢:٥٦م) «رجّع زرّ التحقق من الشحنة بالأوردرات بالأعلى لكن فقط للمفتي، ماله علاقة بالشحنات
+                 يلي تحت — زرّ مستقل». الأحدث يغلب: عاد زرٌّ **مستقلّ** هنا (لا يلمس أزرار البطاقات)، وكل ما فيه خاصٌّ بالمفتي. -->
+            <button type="button" onclick="openVerifyShipment()" data-hint="التحقق من شحنة المفتي: اكتب رقم التتبّع أو صوّر الإيصال ⇠ يظهر الأوردر المطابق، ويُفتح موقع المفتي، وتقدر تراسل الفرع المُرسِل للتأكد من الحوالة."
+                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                🔎 التحقق من الشحنة <span class="text-[9px] font-black text-red">المفتي</span>
+            </button>
             <!-- (2026-09-26 · بلاغ المالك) «ما لازم يطلع منبثق… ليست مريحة وفيها شيء
                  عم يختفي» ⇒ صفحة كاملة في تبويب: بلا سقف ارتفاع ولا تمرير داخل تمرير،
                  وتُطبَع وتُرسَل كرابط. -->
@@ -600,8 +607,41 @@ window.GMT_INTERNAL = 1;</script>
             </select>
         </div>
 
+        <!-- (ملاحظات ١٦ ت١) الفرع المُرسِل: يظهر **لشركة المفتي فقط**، والافتراضي «حلب – السريان» إن لم يُغيَّر -->
+        <div id="ship-from-wrap" class="hidden mb-4 text-right">
+            <label for="ship-from" class="block text-[11px] font-black text-gray-600 mb-1.5">🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة</label>
+            <select id="ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>
+            <p class="text-[10px] font-bold text-gray-400 mt-1">الافتراضي «حلب – السريان». غيّره فقط إن سلّمتَ الشحنة لمكتبٍ آخر — منه تُراسَل الحوالة لاحقاً.</p>
+        </div>
+
         <button onclick="confirmShipping()" class="w-full bg-dark text-white py-4 rounded-xl font-black text-base active:scale-95 transition-transform">اعتماد الشحن وإرسال الكليشيه</button>
         <button onclick="closeModal('shipModal'); document.getElementById('ship-img-input').value=''; document.getElementById('ship-img-input-camera').value=''; resetShipPreview();" class="mt-3 text-gray-400 text-xs font-bold uppercase">إلغاء</button>
+    </div>
+</div>
+
+<!-- ════════ MODAL: التحقق من الشحنة (المفتي فقط) — ملاحظات ١٣ ت١ ════════ -->
+<div id="verifyShipModal" class="fixed inset-0 bg-black/60 hidden z-[112] p-4 flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col">
+        <div class="flex justify-between items-center px-6 pt-5 pb-3 border-b border-gray-100 shrink-0">
+            <h3 class="font-black text-lg text-gray-800">🔎 التحقق من شحنة المفتي</h3>
+            <button type="button" onclick="closeModal('verifyShipModal')" class="text-gray-300 hover:text-red" aria-label="إغلاق"><i data-lucide="x-circle" class="w-7 h-7"></i></button>
+        </div>
+        <div class="px-6 py-4 overflow-y-auto custom-scroll flex-1">
+            <label for="vs-num" class="block text-[11px] font-black text-gray-600 mb-1.5">رقم تتبّع الشحنة</label>
+            <div class="flex gap-2 mb-2">
+                <input id="vs-num" inputmode="numeric" dir="ltr" placeholder="مثال: 1234567" oninput="verifyShipmentSearch()"
+                       class="flex-1 p-3 bg-gray-50 rounded-xl text-base font-black text-center border border-gray-200">
+                <label class="cursor-pointer shrink-0">
+                    <span class="flex items-center justify-center h-full px-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 text-xs font-black hover:border-red hover:text-red">📷 من الإيصال</span>
+                    <input type="file" id="vs-img" accept="image/*" class="hidden" onchange="verifyShipmentFromImage(this)">
+                </label>
+            </div>
+            <p id="vs-status" class="text-[11px] font-bold text-gray-500 mb-3 min-h-[16px]" role="status" aria-live="polite"></p>
+            <div id="vs-result" class="space-y-3"></div>
+        </div>
+        <div class="px-6 pb-5 pt-2 shrink-0 border-t border-gray-100">
+            <button type="button" id="vs-open" onclick="verifyShipmentOpenSite()" class="w-full bg-dark text-white py-3 rounded-xl font-black text-sm active:scale-95 transition-transform">📋 انسخ الرقم وافتح موقع المفتي</button>
+        </div>
     </div>
 </div>
 
@@ -1346,6 +1386,12 @@ function escHtmlOrders(s){ return String(s||'').replace(/&/g,'&amp;').replace(/<
 
 loadBranchesFromDB();
 loadOrders();
+/* ذاكرة أسماء الزبائن المحلية (ملاحظات ١٢ ت١): نحفظ زبائن الأوردرات المحمّلة الآن ثم نملأ الباقي بالخلفية (مرّة كل ٦ ساعات) */
+setTimeout(() => { try {
+    if (!window.GMTCustCache) return;
+    GMTCustCache.remember((orders || []).map(o => ({ name: o.name, phone: o.phone, address: o.address })));
+    GMTCustCache.warm({ base: SUPA_URL, headers: SB_HEADERS, orders: true });
+} catch (_) {} }, 6000);
 setInterval(loadOrders, 30000);
 
 function setConnStatus(ok) {
@@ -1768,6 +1814,8 @@ function cardHTML(o) {
                  لحالة **الشحن وحدها**: بعد الاستلام لا معنى لتبليغ الوصول. -->
             ${(o.status === 'shipped' || o.status === 'delivered') ? `<button onclick="contactShipOffice(${o.id})" data-hint="مراسلة فرع شركة الشحن بخصوص هذه الشحنة — رسالة جاهزة على واتساب بزنس"
                      class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600" title="فرع شركة الشحن">🏢</button>` : ''}
+            ${(o.shipping_company === 'المفتي' && o.status === 'delivered') ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
+                     class="h-10 px-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 text-[11px] font-black hover:bg-emerald-100 shrink-0" title="مراسلة الفرع المُرسِل للتأكد من الحوالة">💸 الحوالة</button>` : ''}
             ${o.status === 'shipped' && o.notified_arrival_at && o.phone
               ? `<button onclick="contactCustomerArrival(${o.id})" data-hint="تواصل مع الزبون على واتساب بزنس — رسالة جاهزة: وصلت شحنتك من الشركة (باسم الزبون وشركة الشحن والمكتب). بدل زرّ التبليغ بعد أن بُلِّغ بالوصول."
                     class="w-10 h-10 bg-emerald-600 border border-emerald-700 rounded-xl flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shrink-0" title="تواصل مع الزبون على واتساب (بُلِّغ بالوصول)">
@@ -1809,13 +1857,24 @@ async function custSuggest(val){
       const url = `${SUPA_URL}/rest/v1/${TABLE}?or=(name.ilike.${enc},phone.ilike.${enc})&select=name,phone,address,created_at&order=created_at.desc&limit=40`;
       /* (٨ ت — تدقيق المطابقة · «الصهر») سجلُّ الزبائن واحد: كان الاقتراح يقرأ الأوردرات وحدها، فزبونٌ سجّلته
          نقطة البيع أو المتجر لا يظهر هنا. الآن سجلُّ الزبائن (gmt_customers) أوّلاً ثمّ الأوردرات — بلا تكرار. */
-      const [r, rc] = await Promise.all([
-        fetch(url, { headers: SB_HEADERS }),
-        fetch(`${SUPA_URL}/rest/v1/gmt_customers?or=(name.ilike.${enc},phone.ilike.${enc})&select=*&limit=8`, { headers: SB_HEADERS }).catch(() => null)
-      ]);
-      if(!r.ok && !(rc && rc.ok)) return;
-      let rows = r.ok ? await r.json() : [];
-      try { if (rc && rc.ok) { const cs = await rc.json(); rows = (Array.isArray(cs) ? cs : []).filter(c => !c.is_blocked).map(c => ({ name: c.name, phone: c.phone, address: c.address || c.last_address || '' })).concat(rows); } } catch(_) {}
+      /* 🔴 (ملاحظات ١٢ ت١ ١٠:٢١م) «اقتراح أسامي العملاء يجب أن يكون مخزّناً محلياً مو بس عند الاتصال بالإنترنت».
+         الشبكة أوّلاً (أحدث) وما يعود منها يُحفَظ في GMTCustCache؛ إن فشلت الشبكة (انقطاع/مهلة) نقرأ من الذاكرة المحلية
+         ونُنبّه الموظّف أنّ الاقتراح من الذاكرة. */
+      let rows = [], offline = false;
+      try {
+        const [r, rc] = await Promise.all([
+          fetch(url, { headers: SB_HEADERS }),
+          fetch(`${SUPA_URL}/rest/v1/gmt_customers?or=(name.ilike.${enc},phone.ilike.${enc})&select=*&limit=8`, { headers: SB_HEADERS }).catch(() => null)
+        ]);
+        if(!r.ok && !(rc && rc.ok)) throw new Error('http ' + r.status);
+        rows = r.ok ? await r.json() : [];
+        try { if (window.GMTCustCache && Array.isArray(rows)) GMTCustCache.remember(rows); } catch(_) {}
+        try { if (rc && rc.ok) { const cs = await rc.json(); try { if (window.GMTCustCache) GMTCustCache.remember(cs); } catch(_) {} rows = (Array.isArray(cs) ? cs : []).filter(c => !c.is_blocked).map(c => ({ name: c.name, phone: c.phone, address: c.address || c.last_address || '' })).concat(rows); } } catch(_) {}
+      } catch (_net) {
+        if (!window.GMTCustCache) return;
+        offline = true;
+        rows = (await GMTCustCache.search(val, 20)).filter(c => !c.is_blocked);
+      }
       // دمج حسب الهاتف (الأحدث يبقى) — لا تكرار لنفس العميل
       const seen = new Set(), uniq = [];
       for(const o of rows){
@@ -1826,7 +1885,7 @@ async function custSuggest(val){
       }
       _custSugCache = uniq;
       if(!uniq.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
-      box.innerHTML = uniq.map((o,i) =>
+      box.innerHTML = (offline ? '<div class="px-3 py-1.5 text-[10px] font-black text-amber-700 bg-amber-50 border-b border-amber-100">📴 لا اتصال — اقتراحات من الذاكرة المحلية</div>' : '') + uniq.map((o,i) =>
         `<button type="button" onclick="pickCust(${i})" class="w-full text-right px-3 py-2.5 hover:bg-red-50 border-b border-gray-50 last:border-0 flex flex-col gap-0.5">
            <span class="text-sm font-black text-gray-800">${escHtmlOrders(o.name||'—')}</span>
            <span class="text-[11px] text-gray-400 font-bold">${escHtmlOrders(o.phone||'')}${o.address?' · '+escHtmlOrders(o.address):''}</span>
@@ -2959,6 +3018,7 @@ window.openShipModal = (id) => {
     // إظهار/إخفاء التحذير
     const warn = document.getElementById('ship-company-warn');
     if (warn) warn.classList.toggle('hidden', !!(o && o.shipping_company));
+    try { window.syncShipFromBox(o ? shipFromOf(o) : MUFTI_DEFAULT_FROM); } catch (_) {}
     document.getElementById('shipModal').classList.remove('hidden');
 };
 
@@ -2990,6 +3050,26 @@ function previewShipImage(input) {
    طلبك: «لما أرفع صورة الإيصال تبحث عن رقم التتبّع وتعبّيه، وإن ما عرفتَه أدخله يدوي… فقط إيصالات المفتي».
    ما بتكتب فوق رقمٍ كتبه الموظف بإيده، وبتقول صراحةً إذا فشلت. المنطق في gmt-receipt.js. */
 let _shipRcptFile = null, _shipRcptAuto = false;
+/* مراحل القراءة (ملاحظات ١٥ ت١: «إذا ما لقيه ياخده من الباركود أو يتعرّف عليه من الصورة بشكل أقوى») */
+const TRACK_STAGE_TXT = {
+    native:   'جارٍ تجربة قارئ المتصفّح للباركود…',
+    enhanced: 'جارٍ تحسين الصورة وإعادة قراءة الباركود…',
+    ocr:      'جارٍ التعرّف على الأرقام المطبوعة في الإيصال (أول مرّة تُحمَّل المكتبة — قد يطول قليلاً)…'
+};
+/* نتيجة التعرّف على النصّ (OCR) تقديريّة ⇒ لا تُملأ تلقائياً: نعرض المرشّحين ليضغط الموظّفُ الصحيح */
+function trackCandidatesHTML(cands, target) {
+    return '<span class="block mb-1">🔎 لم أجد باركوداً، لكنّي قرأتُ هذه الأرقام من نصّ الإيصال — اضغط الرقم الصحيح (أو اكتبه):</span>' +
+        '<span class="flex flex-wrap gap-1.5 justify-center">' + cands.map(n =>
+            '<button type="button" dir="ltr" onclick="pickTrackCandidate(\'' + escH(n) + '\',\'' + target + '\')" ' +
+            'class="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm font-black text-gray-800 hover:bg-amber-100">' + escH(n) + '</button>').join('') + '</span>';
+}
+window.pickTrackCandidate = (n, target) => {
+    const inp = document.getElementById(target === 'vs' ? 'vs-num' : 'ship-tracking'), st = document.getElementById(target === 'vs' ? 'vs-status' : 'ship-track-auto');
+    if (!inp) return;
+    inp.value = n; _shipRcptAuto = false;
+    if (st) { st.className = 'text-[11px] font-black text-emerald-600 mb-3'; st.textContent = '✅ اخترتَ الرقم ' + n; }
+    if (target === 'vs') verifyShipmentSearch();
+};
 async function shipReadTracking(force) {
     const st = document.getElementById('ship-track-auto');
     const inp = document.getElementById('ship-tracking');
@@ -3002,9 +3082,12 @@ async function shipReadTracking(force) {
     const myFile = _shipRcptFile;
     try {
         if (!window.GMTReceipt) throw new Error('وحدة القراءة لم تُحمَّل');
-        const r = await GMTReceipt.readTracking(myFile);
+        const r = await GMTReceipt.readTracking(myFile, { onStage: k => { if (myFile === _shipRcptFile && TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } });
         if (myFile !== _shipRcptFile) return;                          // تغيّرت الصورة أثناء القراءة
-        if (r.number) {
+        if (r.number && r.method === 'ocr') {
+            st.className = 'text-[11px] font-bold text-amber-700 mb-3';
+            st.innerHTML = trackCandidatesHTML(r.candidates && r.candidates.length ? r.candidates : [r.number], 'ship');
+        } else if (r.number) {
             inp.value = r.number; _shipRcptAuto = true;
             st.className = 'text-[11px] font-black text-emerald-600 mb-3';
             st.textContent = '✅ قُرئ رقم التتبّع من الإيصال (' + r.number + ') — راجعه قبل الاعتماد';
@@ -3083,6 +3166,8 @@ window.confirmShipping = async () => {
     try {
         await sbUpdate(shipOrderId, data);
         orders[idx] = { ...orders[idx], ...data };
+        /* الفرع المُرسِل (المفتي فقط) — حفظٌ منفصل لا يكسر الشحن إن غاب العمود */
+        if (company === MUFTI_CO) await saveShipFrom(shipOrderId, (document.getElementById('ship-from') || {}).value || MUFTI_DEFAULT_FROM);
         closeModal('shipModal');
         render();
         showToast('🚚 تم اعتماد الشحن — جارٍ إرسال الكليشيه...', 'ok');
@@ -4393,7 +4478,12 @@ async function notifyWithSheet(o, html, fileName, text) {
            والصورة تنحفظ». كان يفتح المحادثة بالنصّ دائماً، والصورة زرٌّ ثانويّ. الآن حيث يدعم الجهاز مشاركة الملفّات
            (الموبايل): تُشارَك الصورة نفسها (تختار واتساب ⇠ الزبون) والنصّ في الحافظة لتلصقه تحتها. وعلى الكمبيوتر
            (لا مشاركة ملفّات) يبقى المسار القديم: المحادثة + شريط «أرفق الصورة». */
-        if (blob && !_prior) {
+        /* 🔴 (ملاحظات ١٣ ت١ ١٠:٠٧) «عندما أنشئ أوردر جديد ما عم يتم التبليغ مباشرةً في الواتساب بزنس — بالرسالة عم يعطيني مشاركة
+           هذا الشيء، كثير غلط». الأحدث يلغي ما كتبتُه فوق في ٨ ت١ جزئياً: مُنتقي «المشاركة» (navigator.share) لا يعرف رقم الزبون فيسأل
+           عن التطبيق ثم عن الزبون. الافتراضي الآن: **تُفتح محادثة الزبون في واتساب بزنس مباشرةً بالنصّ جاهزاً**، والصورة تُحفظ على الجهاز
+           ويبقى زرّ «أرفق الصورة الآن» (وهو وحده يفتح مُنتقي المشاركة). مَن يريد المشاركة أولاً يفعّلها: localStorage.gmt_notify_share_first='1'. */
+        let _shareFirst = false; try { _shareFirst = localStorage.getItem('gmt_notify_share_first') === '1'; } catch (_) {}
+        if (blob && !_prior && _shareFirst) {
             try {
                 const _f = new File([blob], name, { type: blob.type || 'image/jpeg' });
                 if (navigator.canShare && navigator.canShare({ files: [_f] }) && navigator.share) {
@@ -4662,6 +4752,185 @@ window.contactShipOffice = (id) => {
         ? 'intent://send/?phone=' + d + '&text=' + encodeURIComponent(msg) + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=' + encodeURIComponent(web) + ';end'
         : web;
     window.open(url, '_blank');
+};
+
+/* ═════════════════════════════════════════════════════════════════════
+   🏢 الفرع المُرسِل + التحقق من الشحنة — المفتي فقط  (ملاحظات ١٣ و١٦ ت١ ٢٠٢٦)
+   ─────────────────────────────────────────────────────────────────────
+   طلبك: «في نظام الأوردرات يتحدّد **فقط في شركة المفتي** الفرع المُرسِل، وهو يكون تلقائياً **حلب السريان** إذا لم نحدّد
+   أو نغيّر. وزر مراسلة الفرع المستلم بعد تأكيد استلام الزبون… مراسلة **ليس الفرع المستلم وإنما الفرع المُرسِل** للتأكد من
+   حوالتها، وبتنبعث: مرحباً معكم أ.محمد من القسم المالي لمجموعة ميديا تك التجارية، حابين نتأكد عن حوالة الإيصال هذا مبعوث
+   بتاريخ [تاريخ الشحن] والوجهة [..] واسم المستلم [..] والحوالة [..] — كليشة».
+   ورجوع «التحقق من الشحنة» بالأعلى للمفتي فقط وبزرٍّ مستقلٍّ عن أزرار الشحنات.
+
+   التخزين: العمود gmt_orders.ship_from_office بصيغة «المدينة|المكتب». إن لم يوجد العمود (SQL غير مُشغَّل) يُحفَظ على هذا
+   الجهاز فقط ولا يتعطّل الشحن — فالحفظ هنا **منفصلٌ** عن تحديث الشحن الأساسي عمداً (لا يُكسر اعتمادُ شحنٍ بسبب حقلٍ ثانوي).
+   الأرقام كلها من دليل المكاتب GMTOffices (أرقام المالك) — لا رقم مُخترَع: مكتبٌ بلا رقم ⇒ نقول ذلك صراحةً.
+   ═════════════════════════════════════════════════════════════════════ */
+const MUFTI_CO = 'المفتي';
+const MUFTI_DEFAULT_FROM = 'حلب|السريان';
+const SHIPFROM_LS = 'gmt_ship_from';
+
+function muftiOffices() {
+    const d = (window.GMTOffices && GMTOffices.data && GMTOffices.data[MUFTI_CO]) || {};
+    const out = [];
+    Object.keys(d).forEach(city => (d[city] || []).forEach(of =>
+        out.push({ key: city + '|' + of.name, city: city, name: of.name, phone: String(of.phone || '').trim() })));
+    return out;
+}
+function muftiOfficeByKey(key) { return muftiOffices().find(x => x.key === key) || null; }
+function shipFromLabel(key) { const a = String(key || MUFTI_DEFAULT_FROM).split('|'); return a[0] + (a[1] ? ' – ' + a[1] : ''); }
+function shipFromLocal() { try { return JSON.parse(localStorage.getItem(SHIPFROM_LS) || '{}') || {}; } catch (_) { return {}; } }
+function shipFromOf(o) {
+    if (!o) return MUFTI_DEFAULT_FROM;
+    return o.ship_from_office || shipFromLocal()[o.id] || MUFTI_DEFAULT_FROM;
+}
+function shipFromOptionsHTML(sel) {
+    const byCity = {};
+    muftiOffices().forEach(x => { (byCity[x.city] = byCity[x.city] || []).push(x); });
+    const cities = Object.keys(byCity).sort((a, b) => (a === 'حلب' ? -1 : b === 'حلب' ? 1 : a.localeCompare(b, 'ar')));
+    return cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
+        '<option value="' + escH(x.key) + '"' + (x.key === sel ? ' selected' : '') + '>' + escH(x.city + ' – ' + x.name) +
+        (x.phone ? '' : ' (بلا رقم)') + '</option>').join('') + '</optgroup>').join('');
+}
+/* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة. */
+async function saveShipFrom(id, key) {
+    const o = orders.find(x => x.id == id); if (o) o.ship_from_office = key;
+    try { await sbUpdate(id, { ship_from_office: key }); return true; }
+    catch (e) {
+        console.warn('[GMT] تعذّر حفظ الفرع المُرسِل بالقاعدة (يُحفَظ محلياً):', e && e.message);
+        try { const m = shipFromLocal(); m[id] = key; localStorage.setItem(SHIPFROM_LS, JSON.stringify(m)); } catch (_) {}
+        return false;
+    }
+}
+window.syncShipFromBox = function (current) {
+    const wrap = document.getElementById('ship-from-wrap'), sel = document.getElementById('ship-from');
+    const comp = (document.getElementById('ship-company') || {}).value || '';
+    if (!wrap || !sel) return;
+    const show = comp === MUFTI_CO;
+    wrap.classList.toggle('hidden', !show);
+    if (show && (!sel.options.length || current)) sel.innerHTML = shipFromOptionsHTML(current || sel.value || MUFTI_DEFAULT_FROM);
+};
+document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') window.syncShipFromBox(); });
+
+function orderDestination(o) {
+    return String(o.address || '').split('·')[0].replace(/☎.*$/, '').trim();
+}
+/* الكليشة — نصّ المالك حرفياً بترتيبٍ مقروء. أ.محمد ثابتٌ في الكليشة (لا اسم الموظّف). */
+function buildSendingBranchText(o) {
+    const d = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '—';
+    const amt = collectOf(o);
+    return 'مرحباً، معكم أ. محمد من القسم المالي لمجموعة ميديا تك التجارية.\n' +
+        'حابّين نتأكد عن حوالة الإيصال هذا:\n' +
+        '📅 مبعوث بتاريخ: ' + d + '\n' +
+        '📍 الوجهة: ' + (orderDestination(o) || '—') + '\n' +
+        '👤 اسم المستلم: ' + (o.name || '—') + '\n' +
+        '💵 الحوالة: ' + (amt > 0 ? '$' + amt.toLocaleString() : '—') + '\n' +
+        (o.tracking_number ? '🔖 رقم التتبّع: ' + o.tracking_number + '\n' : '') +
+        'شكراً لكم.';
+}
+window.contactSendingBranch = (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (o.shipping_company && o.shipping_company !== MUFTI_CO) { showToast('مراسلة الفرع المُرسِل خاصّة بشحنات المفتي', 'err'); return; }
+    const key = shipFromOf(o), of = muftiOfficeByKey(key);
+    if (!of || !of.phone) {
+        GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «🔎 التحقق من الشحنة» ثم راسله.',
+            { title: 'لا رقم للفرع المُرسِل', icon: 'danger' });
+        return;
+    }
+    const txt = buildSendingBranchText(o);
+    copyToClipboard(txt);
+    const win = openWhatsAppChat(of.phone, txt);
+    if (!win) { showToast('منع المتصفّح فتح واتساب — النصّ منسوخ، الصقه في محادثة ' + shipFromLabel(key), 'err'); return; }
+    showToast('📤 فُتحت محادثة الفرع المُرسِل: ' + shipFromLabel(key) + ' — الكليشة جاهزة', 'ok');
+};
+window.setShipFrom = async (id, key) => {
+    const ok = await saveShipFrom(id, key);
+    showToast(ok ? '✅ حُفظ الفرع المُرسِل: ' + shipFromLabel(key) : '⚠️ حُفظ على هذا الجهاز فقط (عمود القاعدة غير موجود)', ok ? 'ok' : 'err');
+    verifyShipmentSearch();
+};
+
+/* ── التحقق من الشحنة (المفتي) ── */
+function digitsOnly(s) {
+    return String(s == null ? '' : s)
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
+        .replace(/\D/g, '');
+}
+window.openVerifyShipment = () => {
+    const i = document.getElementById('vs-num'); if (i) i.value = '';
+    const f = document.getElementById('vs-img'); if (f) f.value = '';
+    const st = document.getElementById('vs-status'); if (st) st.textContent = '';
+    document.getElementById('verifyShipModal').classList.remove('hidden');
+    verifyShipmentSearch();
+    setTimeout(() => { try { i && i.focus(); } catch (_) {} }, 50);
+};
+window.verifyShipmentSearch = () => {
+    const box = document.getElementById('vs-result'); if (!box) return;
+    const num = digitsOnly((document.getElementById('vs-num') || {}).value);
+    const btn = document.getElementById('vs-open'); if (btn) btn.disabled = !num;
+    if (btn) btn.classList.toggle('opacity-40', !num);
+    if (num.length < 3) {
+        /* بلا رقم: آخر شحنات المفتي الجارية (في الطريق / بانتظار التحصيل) لاختيار واحدةٍ منها */
+        const live = orders.filter(o => o.shipping_company === MUFTI_CO && (o.status === 'shipped' || o.status === 'delivered'))
+            .sort((a, b) => new Date(b.shipped_at || b.created_at || 0) - new Date(a.shipped_at || a.created_at || 0)).slice(0, 12);
+        box.innerHTML = live.length
+            ? '<p class="text-[10px] font-black text-gray-400">شحنات المفتي الجارية — أو اكتب رقماً للبحث:</p>' + live.map(vsCardHTML).join('')
+            : '<p class="text-[12px] font-bold text-gray-400 text-center py-6">اكتب رقم التتبّع أو صوّر الإيصال.</p>';
+        return;
+    }
+    const hit = orders.filter(o => { const t = digitsOnly(o.tracking_number); return t && (t === num || t.endsWith(num) || (num.length >= 5 && t.includes(num))); });
+    box.innerHTML = hit.length ? hit.map(vsCardHTML).join('')
+        : '<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[12px] font-bold text-amber-700">لا يوجد أوردر مسجَّل بهذا الرقم عندنا.<br>' +
+          'تقدر مع ذلك تتحقق من الشحنة في موقع المفتي بالزر أدناه، ثم تضيف الرقم للأوردر من «تعديل».</div>';
+};
+function vsCardHTML(o) {
+    const isM = o.shipping_company === MUFTI_CO;
+    const key = shipFromOf(o), of = muftiOfficeByKey(key);
+    const when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '—';
+    const st = { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' }[o.status] || o.status;
+    return '<div class="border border-gray-200 rounded-2xl p-3 bg-white">' +
+        '<div class="flex justify-between items-start gap-2"><p class="font-black text-sm text-gray-800">' + escH(o.name || '') + '</p>' +
+        '<span class="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 shrink-0">' + escH(st) + '</span></div>' +
+        '<p class="text-[11px] font-bold text-gray-500 mt-0.5">' + escH(orderDestination(o) || '—') + '</p>' +
+        '<p class="text-[11px] font-bold text-gray-500">📅 ' + escH(when) + ' · 💵 $' + escH(collectOf(o).toLocaleString()) +
+        (o.tracking_number ? ' · 🔖 <span dir="ltr">' + escH(o.tracking_number) + '</span>' : '') + '</p>' +
+        (isM ? '' : '<p class="text-[11px] font-black text-amber-600 mt-1">⚠️ هذا الأوردر مسجَّلٌ على شركة «' + escH(o.shipping_company || 'بلا شركة') + '» لا المفتي.</p>') +
+        (isM ? '<label class="block text-[10px] font-black text-gray-500 mt-2 mb-1">🏢 الفرع المُرسِل</label>' +
+               '<select onchange="setShipFrom(' + o.id + ', this.value)" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-black text-gray-700">' + shipFromOptionsHTML(key) + '</select>' +
+               '<button type="button" onclick="contactSendingBranch(' + o.id + ')" ' + (of && of.phone ? '' : 'disabled ') +
+               'class="mt-2 w-full bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black disabled:opacity-40">📤 مراسلة الفرع المُرسِل للتأكد من الحوالة</button>' : '') +
+        '<button type="button" onclick="closeModal(\'verifyShipModal\'); var s=document.getElementById(\'searchInput\'); if(s){s.value=' + JSON.stringify(String(o.tracking_number || o.name || '')).replace(/"/g, '&quot;') + '; render();}" ' +
+        'class="mt-2 w-full bg-gray-100 text-gray-700 py-2 rounded-xl text-[11px] font-black">عرض بطاقة الأوردر</button></div>';
+}
+window.verifyShipmentOpenSite = async () => {
+    const num = digitsOnly((document.getElementById('vs-num') || {}).value);
+    if (!num) { showToast('اكتب رقم التتبّع أولاً', 'err'); return; }
+    const url = trackUrlFor(MUFTI_CO);
+    if (!url) { showToast('لا رابط تتبّعٍ مسجَّل للمفتي', 'err'); return; }
+    const copied = await copyToClipboard(num);
+    window.open(url, '_blank', 'noopener');
+    showToast(copied ? '✅ نُسخ الرقم ' + num + ' — الصقه بموقع المفتي' : '🔖 الرقم: ' + num + ' — انسخه يدوياً والصقه بموقع المفتي', copied ? 'ok' : 'err');
+};
+window.verifyShipmentFromImage = async (input) => {
+    const file = input && input.files && input.files[0]; if (!file) return;
+    const st = document.getElementById('vs-status'), inp = document.getElementById('vs-num');
+    st.className = 'text-[11px] font-bold text-gray-500 mb-3 min-h-[16px]'; st.textContent = 'جارٍ قراءة رقم التتبّع من الصورة…';
+    try {
+        if (!window.GMTReceipt) throw new Error('وحدة القراءة لم تُحمَّل');
+        const r = await GMTReceipt.readTracking(file, { onStage: k => { if (TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } });
+        if (r.number && r.method === 'ocr') {
+            st.className = 'text-[11px] font-bold text-amber-700 mb-3'; st.innerHTML = trackCandidatesHTML(r.candidates && r.candidates.length ? r.candidates : [r.number], 'vs');
+        } else if (r.number) {
+            inp.value = r.number; verifyShipmentSearch();
+            st.className = 'text-[11px] font-black text-emerald-600 mb-3'; st.textContent = '✅ قُرئ الرقم (' + r.number + ') — راجعه قبل الاعتماد';
+        } else {
+            st.className = 'text-[11px] font-black text-amber-600 mb-3'; st.textContent = '⚠️ لم أستطع قراءة الرقم من الصورة — اكتبه يدوياً.';
+        }
+    } catch (e) {
+        st.className = 'text-[11px] font-black text-amber-600 mb-3'; st.textContent = '⚠️ تعذّرت القراءة (' + (e && e.message || 'خطأ') + ') — اكتب الرقم يدوياً.';
+    }
+    input.value = '';
 };
 
 function gmtSetCompany(pfx, company) {
@@ -6643,20 +6912,15 @@ window.storeOrderInvoice = async (id) => {
     try { items = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : (o.items_json || []); } catch (_) { items = []; }
     if (!Array.isArray(items) || !items.length) items = [{ name: o.product || '—', qty: Number(o.qty) || 1, price: Number(o.price) || 0 }];
     const total = Number(o.price) || items.reduce((s, x) => s + (Number(x.price) || 0) * (Number(x.qty) || 1), 0);
-    /* (٨ ت — تدقيق المطابقة) «فاتورته بالصور»: صورة كل بند (من الطلب، وإلّا من المنتج في الجرد بالاسم/الباركود) */
-    const _img = (x) => x.image_url || x.image || '';
-    const rows = items.map((x, i) => `<tr><td>${i + 1}</td><td style="width:54px">${_img(x) ? `<img src="${escH(_img(x))}" alt="" style="width:46px;height:46px;object-fit:contain;display:block;margin:auto" onerror="this.style.display='none'">` : ''}</td><td>${escH(x.name || x.product_name || '—')}</td><td>${Number(x.qty) || 1}</td><td dir="ltr">${(x.price != null && Number(x.price) > 0) ? '$' + Number(x.price).toFixed(2) : '—'}</td></tr>`).join('');
-    const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة طلب المتجر ${escH(String(ref))}</title>
-<style>@page{size:A5;margin:9mm}body{font-family:Cairo,Tahoma,sans-serif;color:#0f172a}.h{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #D5001C;padding-bottom:8px;margin-bottom:10px}
-.h b{font-size:17px}.mu{color:#526077;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12.5px}th{background:#f1f5f9}td,th{border:1px solid #e2e8f0;padding:6px;text-align:right}
-.t{margin-top:10px;font-size:15px;font-weight:900;text-align:left}</style></head><body>
-<div class="h"><div><b>فاتورة طلب المتجر</b><div class="mu">مجموعة ميديا تيك التجارية · المتجر الإلكتروني</div></div><div style="text-align:left"><b dir="ltr">#${escH(String(ref))}</b><div class="mu">${new Date(o.created_at || Date.now()).toLocaleDateString('ar-SY')}</div></div></div>
-<div class="mu" style="margin-bottom:8px">الزبون: <b style="color:#0f172a">${escH(o.name || '')}</b> · ${escH(o.phone || '')}${o.address ? ' · ' + escH(o.address) : ''}</div>
-<table><thead><tr><th>#</th><th>الصورة</th><th>المنتج</th><th>العدد</th><th>السعر</th></tr></thead><tbody>${rows}</tbody></table>
-<div class="t">الإجمالي: <span dir="ltr">$${total.toFixed(2)}</span></div>
-<div class="mu" style="margin-top:14px">هذه فاتورة الطلب كما ورد من المتجر — فاتورة البيع الرسميّة تصدر من نقطة البيع عند تجهيز الطلب.</div>
-<script>setTimeout(function(){window.print()},400)<\/script></body></html>`;
+    /* 🔴 (ملاحظات ١٣ ت١ ١٢:٤٣م) «فاتورة المتجر حطّلها قالب نفس فاتورة المبيع» — القالب مصدرٌ واحد (gmt-invoice-tpl.js)
+       تشاركه نقطة البيع. كان هنا تصميمٌ خاصّ (A5 بسيط). الأسعار كما طلبها الزبون، والإجمالي = قيمة الأوردر المسجَّلة. */
+    if (!window.GMTInvoiceTpl) { showToast('قالب الفاتورة لم يُحمَّل — حدّث الصفحة', 'err'); return; }
     const w = window.open('', '_blank'); if (!w) { showToast('اسمح بالنوافذ المنبثقة', 'err'); return; }
+    const html = GMTInvoiceTpl.storeHTML({
+        ref: String(ref), name: o.name, phone: o.phone, address: o.address, notes: '',
+        items: items.map(x => ({ name: x.name || x.product_name || x.product, qty: x.qty, price: x.price })),
+        total: total, created_at: o.created_at
+    }, { autoPrint: true });
     w.document.write(html); w.document.close();
 };
 
@@ -7531,7 +7795,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-whatsnew.js?v=20261016b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

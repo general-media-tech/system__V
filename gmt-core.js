@@ -248,6 +248,27 @@
     } catch (e) {}
   }
 
+  /* ═══ شعار كانون الحقيقي — «لوجو كانون بينحط كتابه… لازم تاخذ لوجو كانون من الإنترنت» (طلب المالك ١٥ ت١) ═══
+     الملف المحلّي canonlogo.png غير مرفوع في المستودع (404) فكانت الصفحات تضع كلمة «Canon» نصّاً.
+     الآن سلسلة مصادر تُجرَّب بالترتيب عند فشل الصورة: ① canonlogo.png المحلّي (إن رفعتَه فهو الأوّل) ② شعار Canon الرسمي (wordmark) من ويكيميديا كومنز
+     ③ مسار Special:FilePath ④ وأخيراً النصّ كما كان. الصور المعلَّمة data-gmt-guarded لا يلمسها حارس الصور (كان سيبدّلها بشعار الشركة). */
+  var CANON_SRC = [
+    'https://upload.wikimedia.org/wikipedia/commons/0/0a/Canon_wordmark.svg',
+    'https://commons.wikimedia.org/wiki/Special:FilePath/Canon_wordmark.svg?width=640'
+  ];
+  window.GMTCanonSources = CANON_SRC.slice();
+  window.gmtCanonFail = function (img) {
+    try {
+      var i = Number(img.getAttribute('data-canon-i') || 0);
+      if (i < CANON_SRC.length) { img.setAttribute('data-canon-i', String(i + 1)); img.src = CANON_SRC[i]; return; }
+      img.onerror = null;
+      var sp = document.createElement('span');
+      sp.textContent = 'Canon';
+      sp.setAttribute('style', 'display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif');
+      if (img.parentNode) img.parentNode.replaceChild(sp, img);
+    } catch (e) { try { img.style.visibility = 'hidden'; } catch (_) {} }
+  };
+
   window.GMTBrand = {
     version: 1.0,
     get: function (k) { return k ? B[k] : B; },

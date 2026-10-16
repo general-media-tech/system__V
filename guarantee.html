@@ -92,7 +92,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-config.js?v=20261003"></script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261012a"></script>
+  <script src="gmt-core.js?v=20261016b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -108,8 +108,7 @@ window.GMT_INTERNAL = 1;</script>
         
         <div id="intro-stage-1" class="intro-stage absolute inset-0 flex flex-col items-center justify-center p-6 hidden">
             <div class="mb-8 opacity-0 animate-fade-in" style="animation-delay: 0.1s;">
-                <img src="canonlogo.png" alt="Canon Logo" class="w-40 h-auto"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-40 h-auto">
             </div>
             <h1 class="text-3xl font-bold text-gray-800 mb-2 opacity-0 animate-fade-in" style="animation-delay: 0.6s;">أهلاً بكم</h1>
             <p class="text-lg text-gray-500 opacity-0 animate-fade-in" style="animation-delay: 1.0s;">شكراً لثقتكم – شركة General Media Tech</p>
@@ -117,8 +116,7 @@ window.GMT_INTERNAL = 1;</script>
 
         <div id="intro-stage-2" class="intro-stage absolute inset-0 flex flex-col items-center justify-center p-6 hidden">
              <div class="mb-10 opacity-80 scale-75 transform transition-all duration-500">
-                <img src="canonlogo.png" alt="Canon Logo" class="w-32 h-auto"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-32 h-auto">
             </div>
             <h2 class="text-2xl font-bold text-gray-800 mb-2 animate-fade-in">أهلاً بك <span id="introCustomerName" class="text-canon-red"></span></h2>
             <p class="text-gray-500 mb-6 text-sm">جارٍ تحميل كفالتكم...</p>
@@ -355,8 +353,7 @@ window.GMT_INTERNAL = 1;</script>
                 
                 <div>
                     <div class="mb-3">
-                         <img src="canonlogo.png" alt="Canon Logo" class="w-24 h-auto"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                         <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-24 h-auto">
                     </div>
                     <h1 class="text-2xl font-bold text-black uppercase tracking-wide">Warranty Certificate</h1>
                     <h2 class="text-canon-red font-bold text-lg mt-1">Canon General Media Tech</h2>
@@ -611,8 +608,7 @@ window.GMT_INTERNAL = 1;</script>
     <div id="activation-welcome-view" class="fixed inset-0 z-[95] bg-white hidden flex-col items-center justify-center text-center p-6 opacity-0 transition-opacity duration-500">
         <div class="max-w-md w-full animate-slide-up">
             <div class="mb-6">
-                <img src="canonlogo.png" alt="Canon Logo" class="w-28 h-auto mx-auto"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-28 h-auto mx-auto">
             </div>
             <div class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6 border-2 border-canon-red">
                 <i class="fas fa-shield-halved text-canon-red text-2xl"></i>
@@ -633,8 +629,7 @@ window.GMT_INTERNAL = 1;</script>
         <div class="max-w-2xl w-full mx-auto px-4 py-10">
 
             <div class="text-center mb-8">
-                <img src="canonlogo.png" alt="Canon Logo" class="w-20 h-auto mx-auto mb-4"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-20 h-auto mx-auto mb-4">
                 <h1 class="text-2xl font-bold text-black">اتفاقية تفعيل الكفالة الإلكترونية</h1>
                 <p class="text-gray-500 text-sm mt-3 leading-relaxed">مرحباً بك، هذه هي وثيقة الكفالة الإلكترونية الخاصة بمنتجك.<br>
                 يرجى قراءة جميع المعلومات التالية بعناية، حيث يعتبر إتمام عملية التفعيل موافقة كاملة على جميع البنود الواردة في هذه الوثيقة.</p>
@@ -717,8 +712,7 @@ window.GMT_INTERNAL = 1;</script>
     <div id="signature-view" class="fixed inset-0 z-[95] bg-gray-50 hidden flex-col overflow-y-auto opacity-0 transition-opacity duration-500">
         <div class="max-w-xl w-full mx-auto px-4 py-10">
             <div class="text-center mb-8">
-                <img src="canonlogo.png" alt="Canon Logo" class="w-20 h-auto mx-auto mb-4"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                <img data-gmt-guarded="1" onerror="gmtCanonFail(this)" src="canonlogo.png" alt="Canon Logo" class="w-20 h-auto mx-auto mb-4">
                 <h1 class="text-2xl font-bold text-black">التوقيع الإلكتروني</h1>
                 <p class="text-gray-500 text-sm mt-2">الخطوة الأخيرة لتفعيل كفالتك الإلكترونية</p>
             </div>
@@ -1991,7 +1985,7 @@ window.GMT_INTERNAL = 1;</script>
                 <head>
                     <meta charset="UTF-8">
                     <title>طباعة ملصق الكفالة</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
                     <style>
                         body { font-family: 'Cairo', sans-serif; background: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
                         .controls { position: absolute; top: 20px; text-align: center; width: 100%; }
@@ -2011,7 +2005,7 @@ window.GMT_INTERNAL = 1;</script>
                         .sticker-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }
                         .footer-text { font-size: 11px; color: #555; line-height: 1.5; }
                         .footer-logo { max-width: 90px; height: auto; }
-                        @media print { body { background: white; padding: 0; display: block; } .controls { display: none; } .sticker-wrapper { box-shadow: none; border: 1px solid #000; margin: 0; page-break-inside: avoid; } }
+                        @media print { html, body { height: auto !important; min-height: 0 !important; } body { background: white; padding: 0; margin: 0; display: block; } .controls { display: none !important; } .sticker-wrapper { box-shadow: none; border: 1px solid #000; margin: 0; page-break-inside: avoid; } }
                     </style>
                 </head>
                 <body>
@@ -2029,7 +2023,7 @@ window.GMT_INTERNAL = 1;</script>
                     <style id="stk-page"></style>
                     <script>
                       (function(){
-                        var S={ '100x50':['100mm 50mm','96mm','46mm','0.62'], '80x50':['80mm 50mm','76mm','46mm','0.55'], '100x70':['100mm 70mm','96mm','66mm','0.75'], 'A6':['A6','140mm','auto','0.95'], 'A5':['A5','200mm','auto','1'] };
+                        var S={ '100x50':['100mm 50mm','96mm','46mm','0.62'], '80x50':['80mm 50mm','76mm','46mm','0.55'], '100x70':['100mm 70mm','96mm','66mm','0.75'], 'A6':['A6 landscape','140mm','auto','0.95'], 'A5':['A5 landscape','200mm','auto','1'] };
                         var sel=document.getElementById('stk-size'), k='gmt_warranty_sticker_size';
                         try{ var v=localStorage.getItem(k); if(v&&S[v]) sel.value=v; else sel.value='A5'; }catch(e){ sel.value='A5'; }
                         function apply(){ var z=S[sel.value]||S.A5; try{localStorage.setItem(k,sel.value);}catch(e){}
@@ -2039,8 +2033,7 @@ window.GMT_INTERNAL = 1;</script>
                     <\/script>
                     <div class="sticker-wrapper">
                         <div class="sticker-header">
-                            <img src="canonlogo.png" alt="Canon Logo"
-                 onerror="this.onerror=null;this.outerHTML='<span style=&quot;display:inline-flex;align-items:center;justify-content:center;color:#D5001C;font-weight:900;font-size:0.9em;font-family:Cairo,Arial,sans-serif&quot;>Canon</span>'">
+                            <img data-gmt-guarded="1" onerror="try{window.opener.gmtCanonFail(this)}catch(e){this.onerror=null;this.outerHTML='<b style=color:#D5001C;font-size:20px>Canon</b>'}" src="canonlogo.png" alt="Canon Logo">
                             <div style="font-weight: bold; color: #333; font-size: 16px;">Official Warranty</div>
                         </div>
                         <div class="sticker-body">
@@ -2394,7 +2387,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-brain.js?v=20261012a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261011n"></script>
+<script src="gmt-whatsnew.js?v=20261016b"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>

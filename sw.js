@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261012a';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261016b';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -54,7 +54,7 @@ const CORE = [
   /* (2026-10-04 ي) الواجهةُ الرئيسيّة الجديدة تحتاجها لتفتح بلا إنترنت */
   './gmt-ui.css', './gmt-tools.js', './gmt-account.js', './gmt-icons.js', './gmt-home.js', './gmt-ask.js',
   './gmt-intro.js', './gmt-sound.js', './gmt-refresh.js', './gmt-autobackup.js', './gmt-notify.js', './gmt-whatsnew.js',
-  './gmt-learn.js', './gmt-receipt.js', './gmt-oplog.js', './gmt-screen.js', './gmt-lessons.js', './gmt-nofab.js', './gmt-fitrow.js', './gmt-stock.js', './gmt-bidi.js', './gmt-ledger.js', './gmt-share.js',
+  './gmt-learn.js', './gmt-receipt.js', './gmt-oplog.js', './gmt-screen.js', './gmt-lessons.js', './gmt-nofab.js', './gmt-fitrow.js', './gmt-stock.js', './gmt-bidi.js', './gmt-ledger.js', './gmt-share.js', './gmt-custcache.js', './gmt-invoice-tpl.js',
   './logo.jpg', './favicon.ico',
 ];
 
