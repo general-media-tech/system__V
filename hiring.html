@@ -499,7 +499,7 @@ button{font-family:inherit;cursor:pointer}
 .q-block{margin:0}
 .q-sep{height:1px;background:rgba(15,18,25,.08);margin:22px 0}
 </style>
-  <script src="gmt-config.js?v=20261017b"></script>
+  <script src="gmt-config.js?v=20261017c"></script>
   <script src="gmt-ask.js?v=20261011e" defer></script>
   <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
@@ -942,14 +942,12 @@ function pageSteps(p){ return (PAGES[p] || []).map(id => STEPS.find(s => s.id ==
 const TYPING_SAMPLE = 'نحن نبحث عن أشخاص طموحين يحبون التعلم ويتقنون التعامل مع العملاء باحترافية';
 
 /* ── إعدادات التكامل الخارجي ──────────────────────────────
-   عدّل القيم التالية بعد إنشاء بوت Telegram الخاص بالموارد البشرية:
-   1) أنشئ بوت عبر @BotFather وخذ التوكن (BOT_TOKEN)
-   2) تحدث مع البوت مرة واحدة، ثم خذ CHAT_ID من:
-      https://api.telegram.org/bot<التوكن>/getUpdates
-   3) للعمل مع مجموعة، أضف البوت للمجموعة واستخدم chat_id الخاص بها (رقم سالب)
+   ⛔ (17 ت1 · بعد اختراق بوت النظام) لا تكتب مفتاح أي بوت في هذا الملفّ ولا في أي ملفّ آخر — المستودع عامّ، وهكذا سُرق البوت السابق.
+   لتفعيل إشعارات التوظيف: ضع BOT_TOKEN = 'gmt-relay' (علامة الوسيط لا مفتاح) و CHAT_ID = معرّف مجموعة الموارد البشرية،
+   ثم أضف ذلك المعرّف إلى السرّ TG_ALLOWED_CHATS في Supabase ← Edge Functions ← Secrets (المفتاح الحقيقي سرّ TG_BOT_TOKEN هناك فقط).
 ──────────────────────────────────────────────────────────*/
 const TELEGRAM_CONFIG = {
-  BOT_TOKEN: 'YOUR_BOT_TOKEN_HERE',   // ضع التوكن هنا
+  BOT_TOKEN: 'YOUR_BOT_TOKEN_HERE',   // ⛔ لا مفتاح هنا — 'gmt-relay' فقط (انظر أعلاه)
   CHAT_ID:  'YOUR_CHAT_ID_HERE',      // ضع الشات آيدي هنا
 };
 /* 🔴 (2026-10-03) كان `963900000000` — رقمٌ مُختلَق: زرّ الواتساب العائم كان
@@ -1968,7 +1966,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261017b"></script>
+<script src="gmt-whatsnew.js?v=20261017c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
@@ -1976,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', () => {
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
-<script src="gmt-endpoint.js?v=20261011m"></script>
+<script src="gmt-endpoint.js?v=20261017c"></script>
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
    يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */

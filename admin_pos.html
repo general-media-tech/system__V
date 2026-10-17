@@ -500,7 +500,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 <body>
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261017b"></script>
+  <script src="gmt-core.js?v=20261017c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -1783,12 +1783,11 @@ const TG_BOT = 'gmt-relay';   // (17 ت1) علامة الوسيط لا مفتا�
 const TG_CID = '-1003870992994';
 async function sendAdminTG(text) {
   try {
-    // يستخدم _tgToken إذا حُمّل من Supabase، وإلا يرجع للثابت
-    const tok  = _tgToken || TG_BOT;
-    const chat = _tgChat  || TG_CID;
-    await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{
+    /* (17 ت1 · اختراق البوت) لا مفتاح ولا محادثة من gmt_settings: الجدول يقرؤه ويكتبه مفتاح القاعدة العامّ،
+       فكان مفتاح البوت مكشوفاً فيه، ويستطيع أيّ أحدٍ تحويل تبليغات العمولات والديون لبوته. دائماً عبر الوسيط. */
+    await fetch(`https://api.telegram.org/bot${TG_BOT}/sendMessage`,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ chat_id: chat, text, parse_mode:'HTML' })
+      body: JSON.stringify({ chat_id: TG_CID, text, parse_mode:'HTML' })
     });
   } catch(e) {}
 }
@@ -3354,18 +3353,9 @@ function closeModal() { document.getElementById('modal').style.display = 'none';
 // ══════════════════════════════════════════
 // TELEGRAM NOTIFICATIONS
 // ══════════════════════════════════════════
-let _tgToken = '';
-let _tgChat  = '';
-
-async function loadTgConfig() {
-  try {
-    const rows = await sb('GET', `/rest/v1/gmt_settings?key=in.(telegram_bot_token,telegram_chat_id)&select=key,value`);
-    (Array.isArray(rows)?rows:[]).forEach(r => {
-      if (r.key === 'telegram_bot_token') _tgToken = r.value;
-      if (r.key === 'telegram_chat_id')   _tgChat  = r.value;
-    });
-  } catch(_) {}
-}
+/* (17 ت1 · اختراق البوت) كان يقرأ telegram_bot_token / telegram_chat_id من gmt_settings ويفضّلهما على الثابت —
+   والجدول مقروءٌ ومكتوبٌ بالمفتاح العامّ (فيه كان مفتاح البوت مكشوفاً، وبه يُحوَّل التبليغ لبوتٍ غريب). صار لا يقرأ شيئاً. */
+async function loadTgConfig() { /* عمداً فارغة — الوسيط gmt-tg وحده يعرف البوت */ }
 
 /* 🔧 (2026-10-03 · بلاغ «التبليغ صار بطيئاً ومعلَّقاً») مهلةٌ صارمة:
    طلبٌ بلا مهلة إلى تيليغرام يبقى معلّقاً دقائق على شبكةٍ ضعيفة أو حين
@@ -3373,7 +3363,7 @@ async function loadTgConfig() {
    والفشل يُسجَّل في الكونسول ولا يُبتلَع (كان `catch(_){}` صامتاً تماماً). */
 async function sendTelegram(text) {
   /* (٨ ث) الإرسال نفسه نسخةٌ واحدة: GMTUtil.tg */
-  return GMTUtil.tg(text, { token: _tgToken || TG_BOT, chat: _tgChat || TG_CID });
+  return GMTUtil.tg(text, { token: TG_BOT, chat: TG_CID });
 }
 
 // ══════════════════════════════════════════
@@ -6804,10 +6794,10 @@ renderOffers = function(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261012a"></script>
+<script src="gmt-brain.js?v=20261017c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261017b"></script>
+<script src="gmt-whatsnew.js?v=20261017c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -39,6 +39,19 @@
 
   var mem = null, at = 0;
 
+  /* (17 ت1 · بعد اختراق البوت) gmt_settings يقرؤه ويكتبه مفتاح القاعدة العامّ — فأيّ غريبٍ كان يستطيع وضع رابط خادمه مكان
+     الوسيط، فتذهب أسئلة الموظفين ولقطات «تحليل الشاشة» ومحادثات زبائن المتجر إليه. الآن لا يُقبل إلا رابط دالّةٍ على
+     **مشروعنا نفسه** (gmt-brain / gmt-shop)، وما سواه يُتجاهل. والعقل له رابطٌ ثابت معروف فلا يحتاج ضبطاً أصلاً. */
+  function ref() {
+    var d = db(), m = d && /^https:\/\/([a-z0-9]+)\.supabase\.co/i.exec(d.url || '');
+    return m ? m[1].toLowerCase() : 'ysawzwtmodkqqbqoiojj';
+  }
+  function trusted(url, kind) {
+    var m = /^https:\/\/([a-z0-9]+)\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-(brain|shop)\/?$/i.exec(String(url == null ? '' : url).trim());
+    return !!m && m[1].toLowerCase() === ref() && (!kind || m[2].toLowerCase() === kind);
+  }
+  function pinned(kind) { return kind === 'brain' ? 'https://' + ref() + '.supabase.co/functions/v1/gmt-brain' : ''; }
+
   function db() {
     try { if (global.GMT_DB && GMT_DB.MAIN) return GMT_DB.MAIN; } catch (_) {}
     return null;
@@ -113,7 +126,8 @@
     if (!k) return '';
     var c = readCache() || mem || {};
     var fromDb = String(c[k.db] || '').trim();
-    return fromDb || ls(k.local);
+    var v = fromDb || ls(k.local);
+    return trusted(v, kind) ? v : pinned(kind);
   }
 
   async function set(kind, url) {
@@ -122,6 +136,7 @@
     var v = String(url || '').trim();
     if (v && !/^https?:\/\//i.test(v)) throw new Error('الرابط يجب أن يبدأ بـhttps://');
     var bad = problem(v); if (bad) throw new Error(bad);          /* لا نحفظ رابطاً لن يعمل أبداً */
+    if (v && !trusted(v, kind)) throw new Error('لا يُقبل إلا رابط دالّة النظام نفسه: https://' + ref() + '.supabase.co/functions/v1/gmt-' + kind);
     lsSet(k.local, v);                       // يعمل فوراً على هذا الجهاز
     var d = db();
     if (!d) return { local: true, system: false };
@@ -264,7 +279,7 @@
   }
 
   global.GMTEndpoint = {
-    get: get, set: set, load: load, kinds: KINDS, problem: problem, explain: explain,
+    get: get, set: set, load: load, kinds: KINDS, problem: problem, explain: explain, trusted: trusted,
     setting: setting, settingFresh: settingFresh, setSetting: setSetting,
     notice: notice, open: prompt_, migrate: migrateLocal
   };

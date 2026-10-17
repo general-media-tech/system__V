@@ -89,11 +89,11 @@ window.GMT_INTERNAL = 1;</script>
 </head>
 <body class="pb-28">
   <script src="gmt-image-guard.js?v=20261007y"></script>
-  <script src="gmt-config.js?v=20261017b"></script>
+  <script src="gmt-config.js?v=20261017c"></script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261017b"></script>
+  <script src="gmt-core.js?v=20261017c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -102,7 +102,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-stock.js?v=20261011n" defer></script>
   <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261010b" defer></script>
-<script src="gmt-endpoint.js?v=20261011m"></script>
+<script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-receipt.js?v=20261016b" defer></script>
@@ -1279,6 +1279,9 @@ async function tgRememberMsg(orderId, res) {
 }
 
 async function tgDeleteOldMsg(orderId) {
+    /* (17 ت1 · اختراق البوت) الوسيط لا يحذف رسائل إطلاقاً: بلا تسجيل دخولٍ حقيقي لا يمكنه التمييز بين موظّفنا وغريبٍ يملك
+       مفتاح القاعدة العامّ — وكان الحذف يُستغلّ لمحو سجلّ القنوات. رسالة «التعديل» الجديدة تُرسَل كالعادة وتبقى القديمة. */
+    return false;
     const o = orders.find(x => x.id == orderId);
     const mid = o?.tg_msg_id;
     if (!mid) return false;
@@ -6732,7 +6735,8 @@ window.confirmResArrived = async (id) => {
                 fd.append('photo', blob, `reservation_arrived_${r.id}.png`);
                 fd.append('caption', caption);
                 fd.append('parse_mode', 'Markdown');
-                await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method:'POST', body:fd });
+                const _r = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method:'POST', body:fd });
+                if (!_r.ok) throw new Error('HTTP ' + _r.status);   // (17 ت1) لا «تمّ» على ردٍّ فاشل ⇒ يرجع للنصّ
                 showToast('📤 تم إرسال إشعار الوصول للتلغرام', 'ok');
             } catch(e) {
                 // fallback نصي
@@ -7791,11 +7795,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261012a"></script>
+<script src="gmt-brain.js?v=20261017c"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261017b"></script>
+<script src="gmt-whatsnew.js?v=20261017c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

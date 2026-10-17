@@ -23,21 +23,28 @@
     }
     return r;
   }
-  /* نداءٌ للوسيط بمسارٍ ما (sendMessage · jsonbin-order …) بمفتاح القاعدة العامّ — لا سرّ في المتصفّح */
+  /* نداءٌ للوسيط بمسارٍ ما (sendMessage · jsonbin-order …) بمفتاح القاعدة العامّ — لا سرّ في المتصفّح.
+     مهلةٌ ٢٠ ثانية (كما بقيّة طلبات النظام)، وانقطاع الشبكة **يُرفَض** كما كان مع الطريق المباشر — فلا تظنّ صفحةٌ أنّ التبليغ وصل. */
   function relay(path, opts) {
     var db = g.GMT_DB && g.GMT_DB.MAIN;
     if (!db || !db.url || !db.key) return Promise.resolve(fail('لا قاعدة للوسيط في هذه الصفحة'));
     opts = Object.assign({}, opts || {});
     var headers = new Headers(opts.headers || {});
     headers.set('Authorization', 'Bearer ' + db.key); headers.set('apikey', db.key);
+    var ac = (typeof AbortController === 'function' && !opts.signal) ? new AbortController() : null, tm = null;
+    if (ac) { opts.signal = ac.signal; tm = setTimeout(function () { try { ac.abort(); } catch (_) {} }, opts.timeoutMs || 20000); }
+    delete opts.timeoutMs;
     return nativeFetch.call(g, db.url + '/functions/v1/gmt-tg/' + path, Object.assign(opts, { method: 'POST', headers: headers }))
-      .then(warn, function (e) { return fail('تعذّر الوصول للوسيط: ' + ((e && e.message) || e)); });
+      .then(function (r) { if (tm) clearTimeout(tm); return warn(r); }, function (e) { if (tm) clearTimeout(tm); throw e; });
   }
+  /* نسخة الطلب للصندوق الاحتياطي: الحقول النصّية الأساسيّة فقط (لا كائنات المنتجات الكاملة) */
+  var ORDER_KEYS = ['id', 'name', 'phone', 'address', 'product', 'price', 'subtotal', 'delivery', 'branch', 'notes', 'status', 'payment', 'coupon', 'discount', 'created_at', 'source'];
   g.GMTRelay = {
     call: relay,
-    /* نسخة الطلب الاحتياطيّة في JSONBin (مفتاحها سرّ JSONBIN_MASTER_KEY في الوسيط) ⇒ true/false */
+    /* نسخة الطلب الاحتياطيّة في JSONBin (مفتاحها سرّ JSONBIN_MASTER_KEY في الوسيط) ⇒ true/false — بمهلة ٨ ثوانٍ */
     jsonbinOrder: function (order) {
-      return relay('jsonbin-order', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: order }) })
+      var o = {}; ORDER_KEYS.forEach(function (k) { if (order && order[k] != null && typeof order[k] !== 'object') o[k] = order[k]; });
+      return relay('jsonbin-order', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: o }), timeoutMs: 8000 })
         .then(function (r) { return !!(r && r.ok); }, function () { return false; });
     }
   };

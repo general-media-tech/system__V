@@ -161,7 +161,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261017b"></script>
+  <script src="gmt-core.js?v=20261017c"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
@@ -1082,14 +1082,17 @@ async function submitOrder(name, phone, address, notes, payment) {
         return line;
     }).join(' + ');
     const orderData = {id:orderId,name,phone,address,product:productLines,price:total.toFixed(2),subtotal:subtotal.toFixed(2),delivery:DELIVERY_FEE.toFixed(2),branch:'المتجر الإلكتروني',notes:notes||'',status:'pending',payment,items:[...store.cart],coupon:couponInfo};
-    let msg = `🛍️ <b>طلب جديد! ${orderId}</b>\n👤 ${name}\n📱 ${phone}\n📍 ${address}\n━━━━━━━━\n`;
-    store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';msg+=`• ${i.name}${vs?` [${vs}]`:''} x${i.qty} — ${parseFloat(i.price).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
-    if(couponInfo) msg+=`━━━━━━━━\n🎟️ كوبون: ${couponInfo.code} — خصم ${couponInfo.discount} ${CONFIG.CURRENCY}\n`;
+    /* (17 ت1) ما يكتبه الزبون يُهرَّب قبل وضعه في رسالة HTML — كان يستطيع حقن رابطٍ في قناة الطلبات */
+    const _e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : (x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    let msg = `🛍️ <b>طلب جديد! ${_e(orderId)}</b>\n👤 ${_e(name)}\n📱 ${_e(phone)}\n📍 ${_e(address)}\n━━━━━━━━\n`;
+    store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';msg+=`• ${_e(i.name)}${vs?` [${_e(vs)}]`:''} x${i.qty} — ${parseFloat(i.price).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
+    if(couponInfo) msg+=`━━━━━━━━\n🎟️ كوبون: ${_e(couponInfo.code)} — خصم ${couponInfo.discount} ${CONFIG.CURRENCY}\n`;
     msg += `━━━━━━━━\n🚚 التوصيل: ${DELIVERY_FEE.toFixed(2)} ${CONFIG.CURRENCY}\n💰 <b>الإجمالي: ${total.toFixed(2)} ${CONFIG.CURRENCY}</b>\n💳 ${payment==='cod'?'عند الاستلام':payment==='whatsapp'?'واتساب':'شام كاش'}`;
-    if(notes) msg+=`\n📝 ${notes}`;
+    if(notes) msg+=`\n📝 ${_e(notes)}`;
     if(payment==='cod') {
-        const localOk = await insertOrder(orderData);              // نسخة jsonbin (احتياط)
-        const supaRes = await insertOrderToSupabase(orderData);    // النظام الأساسي (كاشير): ok | dup | fail
+        /* (17 ت1) النسختان معاً لا بالتتابع — كانت النسخة الاحتياطيّة تؤخّر الحفظ الأساسي إن أبطأ الوسيط */
+        const [localOk, supaRes] = await Promise.all([insertOrder(orderData),            // نسخة jsonbin عبر الوسيط (احتياط)
+                                                      insertOrderToSupabase(orderData)]); // النظام الأساسي (كاشير): ok | dup | fail
         await sendTG(msg);
         const reached = supaRes==='ok' || supaRes==='dup' || localOk;   // وصل مخزناً واحداً على الأقل
         if (!reached) {

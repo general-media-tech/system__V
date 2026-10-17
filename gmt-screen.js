@@ -134,7 +134,7 @@
   /* ── الوسيط ── */
   function endpoint() {
     try { if (global.GMTEndpoint && GMTEndpoint.get) { var u = GMTEndpoint.get('brain'); if (u) return u; } } catch (_) {}
-    try { return localStorage.getItem('gmt_brain_endpoint') || ''; } catch (_) { return ''; }
+    try { var v = localStorage.getItem('gmt_brain_endpoint') || ''; return /^https:\/\/ysawzwtmodkqqbqoiojj\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-brain\/?$/i.test(v) ? v : ''; } catch (_) { return ''; }   // (17 ت1) دالّة مشروعنا فقط
   }
   async function askAI(text, img, cands) {
     var url = endpoint(); if (!url) return { off: true };

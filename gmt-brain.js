@@ -360,7 +360,8 @@
 
   function endpoint() {
     try { if (global.GMTEndpoint && GMTEndpoint.get) { var u = GMTEndpoint.get('brain'); if (u) return u; } } catch (_) {}
-    try { return localStorage.getItem(CFG_KEY) || ''; } catch (_) { return ''; }
+    /* (17 ت1) رابطٌ محفوظ على الجهاز لا يُقبل إلا إن كان دالّة مشروعنا — لا يُحوَّل العقل لخادمٍ غريب */
+    try { var v = localStorage.getItem(CFG_KEY) || ''; return /^https:\/\/ysawzwtmodkqqbqoiojj\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-brain\/?$/i.test(v) ? v : ''; } catch (_) { return ''; }
   }
 
   /* ═══ (2026-10-05 ص) البند ١٤٠: «ذكاءٌ محلّي للأسئلة البسيطة بلا استهلاك كريدت».
@@ -513,7 +514,7 @@
 
   function openScreen(text) {
     if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
-    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261011m';
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261017c';
     sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
     sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
     (document.head || document.documentElement).appendChild(sc);
@@ -668,13 +669,12 @@
   function tg() {
     var C = global.GMT_CONFIG || global.CONFIG || {};
     var G = global.GMT_TELEGRAM || {};   /* (ر) بوت التبليغ في مكانٍ واحد — كان التقرير يفشل لأنّ الرمز لم يكن على أغلب الصفحات */
-    var tok = global.TELEGRAM_TOKEN || C.TELEGRAM_BOT_TOKEN || C.TELEGRAM_TOKEN || G.token || '';
-    var chat = global.TELEGRAM_CHAT_ID || C.TELEGRAM_CHAT_ID || G.chat || '';
-    try {
-      tok  = tok  || localStorage.getItem('gmt_tg_token') || '';
-      chat = chat || localStorage.getItem('gmt_tg_chat')  || '';
-    } catch (_) {}
-    return (tok && chat && tok !== '...') ? { tok: tok, chat: chat } : null;
+    /* (17 ت1 · اختراق البوت) لا مفتاح بوتٍ في المتصفّح إطلاقاً: العلامة «gmt-relay» دائماً، والوسيط gmt-tg يعرف البوت.
+       كان يقبل مفتاحاً محفوظاً على الجهاز (gmt_tg_token) فيرسل مباشرةً لتيليغرام خارج الوسيط. القناة الافتراضيّة: قناة الأدمن. */
+    var tok = 'gmt-relay';
+    var chat = global.TELEGRAM_CHAT_ID || C.TELEGRAM_CHAT_ID || G.chat || '-1003870992994';
+    try { localStorage.removeItem('gmt_tg_token'); } catch (_) {}
+    return { tok: tok, chat: chat };
   }
 
   async function sendTG(text) {
@@ -752,17 +752,11 @@
   })();
 
   window.gmtSetTelegram = async function () {
-    var cur = tg();
-    var tok = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('توكن بوت تيليجرام (لإرسال تقرير الصحة):', { value: (cur && cur.tok) || '' });
-    if (tok === null) return;
-    var chat = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('معرّف المحادثة (Chat ID):', { value: (cur && cur.chat) || '' });
-    if (chat === null) return;
-    try {
-      tok.trim()  ? localStorage.setItem('gmt_tg_token', tok.trim())  : localStorage.removeItem('gmt_tg_token');
-      chat.trim() ? localStorage.setItem('gmt_tg_chat',  chat.trim()) : localStorage.removeItem('gmt_tg_chat');
-    } catch (_) {}
-    alert(tg() ? '✅ جاهز — تقرير الصحة رح يوصلك على تيليجرام.' : '🗑️ أُزيل الإعداد.');
+    /* (17 ت1) لم يعد يُطلب مفتاح بوت هنا — المفتاح سرٌّ في الوسيط (Supabase ← Edge Functions ← Secrets ← TG_BOT_TOKEN) */
+    var msg = 'تقرير الصحة يُرسَل عبر وسيط النظام إلى قناة الأدمن. لا تكتب مفتاح البوت في أي مكانٍ داخل النظام: يوضع مرّةً واحدة في إعدادات الخادم (Supabase ← Edge Functions ← Secrets ← TG_BOT_TOKEN).';
+    if (window.GMTAsk && GMTAsk.alert) await GMTAsk.alert(msg); else console.info(msg);
   };
+
 
   function mount() {
     /* (2026-08-26 · طلب المالك) الصفحة التي فيها زر «🧠 عقل النظام» ضمن أزرارها العلوية

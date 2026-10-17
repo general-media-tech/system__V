@@ -71,5 +71,29 @@ const ROOT = path.resolve(__dirname, '../..');
     ok(has === true && relay3.includes('jsonbin-order') && direct3.length === 0, 'insertOrder في المتجر ⇒ الوسيط (' + has + ')');
     await b.browser.close();
   }
+  // ٤) (v2 بعد المراجعة) أدمن النقاط يتجاهل مفتاح/محادثة gmt_settings · رابط العقل مثبّت · انقطاع الشبكة يُرفَض
+  {
+    console.log('— admin_pos.html / orders.html (v2)');
+    await H.call('/rest/v1/gmt_settings', [{ key: 'telegram_bot_token', value: '111:EVILTOKEN' }, { key: 'telegram_chat_id', value: '999999' }, { key: 'brain_endpoint', value: 'https://evil.example/functions/v1/gmt-brain' }]).catch(() => {});
+    const b = await H.open('admin_pos.html', { w: 1366, h: 800, wait: 4000, init: H.ADMIN_INIT });
+    const rel = [], dir = [];
+    await b.ctx.route('**/functions/v1/gmt-tg/**', r => { rel.push(r.request().postData() || ''); r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"result":{"message_id":7}}' }); });
+    await b.ctx.route('https://api.telegram.org/**', r => { dir.push(r.request().url()); r.fulfill({ status: 200, body: '{"ok":true}' }); });
+    await b.pg.evaluate(async () => { await loadTgConfig(); await sendAdminTG('اختبار'); if (typeof sendTelegram === 'function') await sendTelegram('اختبار ٢'); });
+    ok(dir.length === 0 && rel.length >= 1 && rel.every(x => /-1003870992994/.test(x) && !/999999/.test(x)), 'أدمن النقاط لا يقرأ مفتاحاً ولا محادثة من gmt_settings — دائماً الوسيط وقناة الأدمن');
+    const ep = await b.pg.evaluate(() => window.GMTEndpoint ? GMTEndpoint.get('brain') : 'none');
+    ok(ep === 'none' || /^https:\/\/ysawzwtmodkqqbqoiojj\.supabase\.co\/functions\/v1\/gmt-brain$/.test(ep), 'رابط العقل مثبّت على دالّة مشروعنا رغم الرابط الغريب في الإعدادات (' + ep + ')');
+    await b.browser.close();
+    const c = await H.open('orders.html', { w: 390, h: 800, wait: 3500, init: H.ADMIN_INIT });
+    await c.ctx.route('**/functions/v1/gmt-tg/**', r => r.abort('failed'));
+    const res = await c.pg.evaluate(async () => {
+      try { await fetch('https://api.telegram.org/botgmt-relay/sendMessage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"chat_id":"-1003859889022","text":"x"}' }); return 'resolved'; }
+      catch (e) { return 'rejected'; }
+    });
+    ok(res === 'rejected', 'انقطاع الشبكة إلى الوسيط يُرفَض (فلا تعرض صفحةٌ «تمّ الإرسال»)');
+    const ep2 = await c.pg.evaluate(() => window.GMTEndpoint ? GMTEndpoint.get('brain') : 'none');
+    ok(ep2 === 'none' || /ysawzwtmodkqqbqoiojj\.supabase\.co\/functions\/v1\/gmt-brain$/.test(ep2), 'الأوردرات: رابط العقل مثبّت (' + ep2 + ')');
+    await c.browser.close();
+  }
   console.log(fails ? 'FAILS=' + fails : 'ALL PASS'); process.exit(fails ? 1 : 0);
 })();
