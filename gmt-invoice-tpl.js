@@ -50,7 +50,32 @@
     return html;
   }
 
+  /* رمز QR **محلّياً** (17 ت1 · قاعدة «لا خدمات خارجية لتوليد الصور»): كان يُطلب من api.qrserver.com فتخرج الفاتورة المطبوعة
+     بلا رمز حين ينقطع الإنترنت. الآن يُبنى بمكتبة ZXing الموجودة في lib/ كصورة SVG مضمَّنة (data:) — بلا شبكة.
+     إن لم تكن ZXing محمَّلة في الصفحة (المتجر مثلاً، تجنّباً لـ٣٠٠ كيلوبايت على الزبون) نرجع للخدمة كما كان. */
+  var _qrMemo = {};
+  function qrLocal(text, color) {
+    var ZX = global.ZXing;
+    if (!ZX || !ZX.QRCodeWriter || !ZX.EncodeHintType) return null;
+    var key = color + '|' + text;
+    if (_qrMemo[key]) return _qrMemo[key];
+    var hints = new Map(); hints.set(ZX.EncodeHintType.MARGIN, 1);
+    var m = new ZX.QRCodeWriter().encode(String(text), ZX.BarcodeFormat.QR_CODE, 0, 0, hints);
+    var W = m.getWidth(), H = m.getHeight(), d = '';
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        if (!m.get(x, y)) continue;
+        var run = 1; while (x + run < W && m.get(x + run, y)) run++;     // دمج المربّعات المتجاورة ⇒ صورة أصغر
+        d += 'M' + x + ' ' + y + 'h' + run + 'v1h-' + run + 'z';
+        x += run - 1;
+      }
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" shape-rendering="crispEdges">' +
+              '<rect width="100%" height="100%" fill="#fff"/><path d="' + d + '" fill="#' + String(color || '000000').replace('#', '') + '"/></svg>';
+    return (_qrMemo[key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+  }
   function qr(text, size, color) {
+    try { var local = qrLocal(text, color); if (local) return local; } catch (_) {}
     return 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(text) +
            '&color=' + String(color || '000000').replace('#', '') + '&bgcolor=ffffff&margin=4&format=png';
   }

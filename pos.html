@@ -1216,7 +1216,7 @@ window.GMT_FEATURES = [
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261016c"></script>
-  <script src="gmt-invoice-tpl.js?v=20261016a"></script>
+  <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -3633,6 +3633,8 @@ var TEMPLATE_CANON = "<!DOCTYPE html>\n<html lang=\"en\" dir=\"ltr\">\n<head>\n<
 var MGMT_PHONE_NUM   = '+963 939773715';
 
 function makeQRImgSrc(text, size, color) {
+  /* (17 ت1) محلّياً أوّلاً بمكتبة ZXing المحمَّلة في هذه الصفحة — فاتورةٌ تُطبع بلا إنترنت تحمل رموزها. الخدمة احتياطٌ فقط. */
+  try { if (window.GMTInvoiceTpl && GMTInvoiceTpl.qr) return GMTInvoiceTpl.qr(text, size, color); } catch (_) {}
   var col = (color || '000000').replace('#','');
   return 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size
        + '&data=' + encodeURIComponent(text)

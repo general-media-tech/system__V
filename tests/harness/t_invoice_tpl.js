@@ -14,6 +14,14 @@ const CAP = ' window.__bufs=[]; window.open=function(){ var b=[]; var w={closed:
   const html = await p.pg.evaluate(() => (window.__bufs || []).map(b => b.join('')).join('\n====\n'));
   ok(/فاتورة مبيع/.test(html) && /زبون اختبار/.test(html) && /INV-T1/.test(html) && /كاميرا تجربة 1/.test(html), 'إعادة طباعة فاتورة مبيع A4 تعمل بالقالب المشترك (اسم الزبون · الرقم · البند)');
   ok(!/{{[a-z_]+}}/i.test(html.replace(/\{\{ITEMS_ROWS\}\}/g, '')), 'لا مفاتيح {{...}} متروكة بلا ملء');
+  ok(/src="data:image\/svg\+xml/.test(html) && !/api\.qrserver\.com/.test(html), 'رموز QR في الفاتورة تُولَّد محلّياً (بلا خدمة خارجية)');
+  const qrOk = await p.pg.evaluate(async () => {
+    const u = GMTInvoiceTpl.qr('https://example.com/store.html#coupon', 58, 'b91c1c');
+    const im = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = u; });
+    const cv = document.createElement('canvas'); cv.width = cv.height = 120; const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 120, 120); c.drawImage(im, 0, 0, 120, 120);
+    try { return new ZXing.MultiFormatReader().decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText(); } catch (e) { return 'ERR ' + e; }
+  });
+  ok(qrOk === 'https://example.com/store.html#coupon', 'رمز QR المحلّي يُقرأ فعلاً بقارئ باركود: ' + qrOk);
   console.log('   errs(pos):', p.errs.filter(e => !/400|404|Failed|أصول ناقصة/.test(e)).slice(0, 3));
   await p.browser.close();
   // ٢) أوردر المتجر
