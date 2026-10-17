@@ -1,0 +1,20 @@
+const H = require('./h.js');
+const OUT = __dirname + '/';
+const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
+(async () => {
+  await H.seed();
+  const all = (await H.call('/__dump', undefined, 'GET')).products;
+  const { browser, pg, errs } = await H.open('purchase.html', { init: H.ADMIN_INIT, w: 1100, h: 900, wait: 6000, mobile: false });
+  await pg.evaluate(() => { openAddModal(); });
+  await pg.setInputFiles('#excel-file', OUT + 'rfq_out.xlsx');
+  await pg.waitForTimeout(4000);
+  const ex = await pg.evaluate(() => exRows.map(r => ({ n: r.name, bc: r.barcode, q: r.qty, p: r.netCost, img: !!r.image_url })));
+  console.log(JSON.stringify(ex));
+  ok(ex.length >= 2 && ex.every(r => r.bc), 'المستورد القياسي يقرأ عمود الباركود: ' + ex.length + ' بنداً');
+  ok(ex.every(r => r.img), 'الصور المضمّنة (ExcelJS) تُقرأ وتُنسب للصفوف الصحيحة');
+  await pg.evaluate(() => importExcel()); await pg.waitForTimeout(1500);
+  const c = await pg.evaluate(() => ({ n: cart.length, newOnes: cart.filter(x => x.product._pending).length, ids: cart.map(x => x.product.id) }));
+  ok(c.n === ex.length && c.newOnes === 0, 'كلّها طابقت منتجاتنا بالباركود ولم يُنشأ منتجٌ جديد: ' + JSON.stringify(c).slice(0, 120));
+  console.log('errors:', errs.filter(e => !/404|400|Failed|favicon/.test(e)).slice(0, 4));
+  await browser.close();
+})();

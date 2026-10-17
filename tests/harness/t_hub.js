@@ -1,0 +1,22 @@
+const H = require('./h.js');
+const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
+(async () => {
+  await H.seed();
+  const { browser, pg, errs } = await H.open('checks.html', { init: H.ADMIN_INIT, w: 1100, h: 900, wait: 5000, mobile: false });
+  const names = await pg.evaluate(() => BOTS.map(b => b.id));
+  ok(names.slice(0, 3).join() === 'core,selfcheck,deep', 'الخطوات الجديدة أوّلاً: ' + names.join(','));
+  const core = await pg.evaluate(() => GMTCoreCheck.run());
+  ok(core.length === 6 && core.every(c => c.status !== 'bad'), 'ملفات النواة: ' + core.map(c => c.status).join(','));
+  const deep = await pg.evaluate(() => GMTDeepRO.run().then(r => ({ n: r.length, st: r.reduce((a, x) => (a[x.status] = (a[x.status] || 0) + 1, a), {}), sample: r.slice(0, 3).map(x => x.title) })));
+  console.log('   الفاحص العميق:', JSON.stringify(deep));
+  ok(deep.n > 5, 'الفاحص العميق (قراءة فقط) يعمل ويُحوَّل ناتجه');
+  const wrote = ((await H.call('/__dump', undefined, 'GET')).products || []).filter(p => /__GMT_TEST__|^TEST-/.test((p.name || '') + (p.barcode || ''))).length;
+  ok(wrote === 0, 'الوضع قراءة فقط: لا بيانات تجريبية كُتبت (' + wrote + ')');
+  await pg.click('#run');
+  await pg.waitForFunction(() => /اكتمل الفحص الشامل/.test(document.getElementById('pstat').textContent), null, { timeout: 420000 });
+  const rep = await pg.evaluate(() => fullReport.join('\n'));
+  ok(/ملفات النواة/.test(rep) && /الفحص الذاتي والصحة/.test(rep) && /الفاحص العميق/.test(rep) && /الفاحص المركزي/.test(rep), 'التقرير الكامل يضمّ الفحوصات كلّها في مكانٍ واحد (' + rep.split('\n').length + ' سطراً)');
+  console.log(rep.split('\n').filter(l => /بوت \d|📊/.test(l)).join('\n'));
+  console.log('errors:', errs.filter(e => !/404|400|Failed|favicon|Failed to load/.test(e)).slice(0, 4));
+  await browser.close();
+})();
