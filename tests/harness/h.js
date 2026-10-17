@@ -35,6 +35,7 @@ async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mob
   pg.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
   await ctx.route('**/*.supabase.co/**', async route => {
     const u = route.request().url(); const i = u.indexOf('/rest/v1/');
+    if (/\/functions\/v1\/gmt-tg\//.test(u)) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false,"relay":"not_configured"}' });   // كالواقع: المرحّل غير مضبوط بعد
     if (i < 0) return route.fulfill({ status: 200, body: '{}' });
     try { const r = await route.fetch({ url: M + u.slice(i) }); await route.fulfill({ response: r }); } catch (e) { try { await route.abort(); } catch (_) {} }
   });

@@ -132,3 +132,32 @@
      يُقرأ من هنا لإشعار «حساب جديد». إن غيّرتَ البوت غيّره هنا وفي pos.html. */
   global.GMT_TELEGRAM = { token: '8608745716:AAEfP5Oh_AdALuPcHMhLVsULRvqc59q2e-0', chat: '-1003870992994' };
 })(window);
+
+/* ═══ (17 ت1 2026) مرحّل تيليغرام — مفتاح البوت يخرج من الصفحات العامّة ═══
+   كان مفتاح البوت مكتوباً في الصفحات والمستودع عامّ. كل طلبٍ إلى api.telegram.org/bot…/<عملية> يُحوَّل هنا إلى دالّة
+   الخادم gmt-tg (تعرف المفتاح وحدها). إن لم تُضبط الدالّة بعد (503) نرجع للطريق القديم كي لا يضيع أي تبليغ قبل
+   تدوير المفتاح. نسخةٌ مطابقة في gmt-config.js و gmt-core.js — تعمل مرّةً واحدة أيّهما حُمِّل أوّلاً. */
+(function (g) {
+  if (!g || g.__gmtTgRelay || typeof g.fetch !== 'function') return;
+  g.__gmtTgRelay = true;
+  var nativeFetch = g.fetch, RE = /^https:\/\/api\.telegram\.org\/bot[^/]+\/([A-Za-z]+)(\?[^#]*)?$/;
+  var relayOff = false;                       // 503 مرّة ⇒ لا نعيد المحاولة في هذه الصفحة
+  g.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var m = RE.exec(url), db = g.GMT_DB && g.GMT_DB.MAIN;
+    if (!m || !db || !db.url || !db.key || relayOff) return nativeFetch.apply(g, arguments);
+    var args = arguments, opts = Object.assign({}, init || {});
+    var headers = new Headers(opts.headers || {});
+    headers.set('Authorization', 'Bearer ' + db.key); headers.set('apikey', db.key);
+    var body = opts.body;
+    if (m[2] && (body == null || body === '')) {            // نداءٌ بمعاملات في الرابط ⇒ جسم JSON
+      var o = {}; new URLSearchParams(m[2].slice(1)).forEach(function (v, k) { o[k] = v; });
+      body = JSON.stringify(o); headers.set('Content-Type', 'application/json');
+    }
+    return nativeFetch.call(g, db.url + '/functions/v1/gmt-tg/' + m[1], Object.assign(opts, { method: 'POST', headers: headers, body: body }))
+      .then(function (r) {
+        if (r.status === 503 || r.status === 404) { relayOff = true; return nativeFetch.apply(g, args); }
+        return r;
+      }, function () { return nativeFetch.apply(g, args); });
+  };
+})(typeof window !== 'undefined' ? window : this);
