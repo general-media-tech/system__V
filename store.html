@@ -161,7 +161,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261007y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261016c"></script>
+  <script src="gmt-core.js?v=20261017b"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
@@ -371,9 +371,8 @@ const CONFIG = {
     SUPABASE_ANON_KEY:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGxkd3lsenJranpxdGFpc2N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTEzNTQsImV4cCI6MjA5MTA2NzM1NH0.RKsdAg4v7TcuMhBepztJtRdTtsR-f8cMcoDXKmnZXO0',
     TABLE_STORE:        'gmt_store',
     TABLE_COMMENTS:     'gmt_comments',
-    JSONBIN_API_KEY:    '$2a$10$vC0Evv1i72n9vOlH36x.2Ot9Nt2Pz4ToGhm4mdcEx69Lb/TzYlpOe',
-    ORDERS_BIN_ID:      '69adf58dd0ea881f40fdbe19',
-    TELEGRAM_BOT_TOKEN: '8608745716:AAEfP5Oh_AdALuPcHMhLVsULRvqc59q2e-0',
+    /* (17 ت1) مفتاح JSONBin ورقم الصندوق خرجا من الصفحة العامّة إلى الوسيط gmt-tg (سرّ JSONBIN_MASTER_KEY) — كان أيّ أحدٍ يقرأ طلبات الزبائن بهما */
+    TELEGRAM_BOT_TOKEN: 'gmt-relay',   // (17 ت1) علامة الوسيط لا مفتاح — المفتاح الحقيقي سرّ TG_BOT_TOKEN في gmt-tg (المستودع عامّ)
     TELEGRAM_CHAT_ID:   '-1003815557954',
     WHATSAPP_NUMBER:    '963939773715',
     CURRENCY:           '$',
@@ -571,19 +570,9 @@ async function insertComment(data) {
     } catch { return false; }
 }
 
-// JSONBin orders
-async function _jbFetch(binId) {
-    if(!binId||binId==='...') return null;
-    try { const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:{'X-Master-Key':CONFIG.JSONBIN_API_KEY}}); if(!r.ok)throw new Error('HTTP '+r.status); const d=await r.json(); return d.record; }
-    catch { return null; }
-}
-async function _jbUpdate(binId,key,newData) {
-    if(!binId||binId==='...') return true;
-    try { const cur=await _jbFetch(binId)||{}; const merged={...cur,[key]:newData}; const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CONFIG.JSONBIN_API_KEY},body:JSON.stringify(merged)}); return r.ok; }
-    catch { return false; }
-}
+// JSONBin orders — نسخة احتياطيّة عبر الوسيط (المفتاح لا يصل المتصفّح). إن لم يُضبط السرّ ⇒ false والقاعدة تبقى الأساس.
 async function insertOrder(orderData) {
-    try { const rec=await _jbFetch(CONFIG.ORDERS_BIN_ID); const orders=Array.isArray(rec?.orders)?rec.orders:[]; orders.push(orderData); return await _jbUpdate(CONFIG.ORDERS_BIN_ID,'orders',orders); }
+    try { return !!(window.GMTRelay && await GMTRelay.jsonbinOrder(orderData)); }
     catch { return false; }
 }
 

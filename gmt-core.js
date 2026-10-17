@@ -1,31 +1,57 @@
 /* gmt-core.js — النواة المشتركة · دُمج 2026-07-24 · يشمل التحكّم بالظهور + تذكير التحديث */
 
-/* ═══ (17 ت1 2026) مرحّل تيليغرام — مفتاح البوت يخرج من الصفحات العامّة ═══
-   كان مفتاح البوت مكتوباً في الصفحات والمستودع عامّ. كل طلبٍ إلى api.telegram.org/bot…/<عملية> يُحوَّل هنا إلى دالّة
-   الخادم gmt-tg (تعرف المفتاح وحدها). إن لم تُضبط الدالّة بعد (503) نرجع للطريق القديم كي لا يضيع أي تبليغ قبل
-   تدوير المفتاح. نسخةٌ مطابقة في gmt-config.js و gmt-core.js — تعمل مرّةً واحدة أيّهما حُمِّل أوّلاً. */
+/* ═══ (17 ت1 2026) الوسيط — مفاتيح البوت وJSONBin لا تُكتب في الصفحات العامّة ═══
+   بلاغك (17 ت1): «كان هناك وصول غريب إلى البوت… غيّر اسمه إلى اسمٍ روسي وجعله يعمل لصالحه، فحذفته تيليغرام. السبب المرجّح
+   وجود توكن البوت في كل مكان». المستودع عامّ ⇒ أيّ أحدٍ قرأ المفتاح. الآن الصفحات تكتب علامةً لا قيمة لها «gmt-relay» مكان المفتاح،
+   وكل طلبٍ إلى api.telegram.org/botgmt-relay/<عملية> يُحوَّل إلى دالّة الخادم gmt-tg (المفتاح سرٌّ فيها وحدها: TG_BOT_TOKEN).
+   لا رجوع للطريق المباشر أبداً (لم يعد في الصفحات مفتاحٌ يُرجَع إليه) — إن لم يُضبط السرّ تُرجع الدالّة 503 فتعرف الصفحة أن التبليغ لم يصل.
+   بوتٌ آخر أدخله المستخدم بيده على جهازه (بثّ العروض) لا يحمل العلامة ⇒ يمرّ كما هو.
+   نسخةٌ مطابقة في gmt-config.js و gmt-core.js — تعمل مرّةً واحدة أيّهما حُمِّل أوّلاً. */
 (function (g) {
   if (!g || g.__gmtTgRelay || typeof g.fetch !== 'function') return;
   g.__gmtTgRelay = true;
-  var nativeFetch = g.fetch, RE = /^https:\/\/api\.telegram\.org\/bot[^/]+\/([A-Za-z]+)(\?[^#]*)?$/;
-  var relayOff = false;                       // 503 مرّة ⇒ لا نعيد المحاولة في هذه الصفحة
-  g.fetch = function (input, init) {
-    var url = typeof input === 'string' ? input : (input && input.url) || '';
-    var m = RE.exec(url), db = g.GMT_DB && g.GMT_DB.MAIN;
-    if (!m || !db || !db.url || !db.key || relayOff) return nativeFetch.apply(g, arguments);
-    var args = arguments, opts = Object.assign({}, init || {});
+  var nativeFetch = g.fetch, MARK = 'gmt-relay', warned = false;
+  var RE = /^https:\/\/api\.telegram\.org\/bot([^/]+)\/([A-Za-z]+)(\?[^#]*)?$/;
+  function fail(desc) {
+    return new Response(JSON.stringify({ ok: false, relay: 'unreachable', description: desc }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } });
+  }
+  function warn(r) {
+    if (r && r.status === 503 && !warned) {
+      warned = true;
+      try { console.warn('[GMT] بوت تيليغرام غير مضبوط بعد في الوسيط — ضع TG_BOT_TOKEN في أسرار Supabase (Edge Functions ← Secrets). التبليغ لم يُرسَل.'); } catch (_) {}
+    }
+    return r;
+  }
+  /* نداءٌ للوسيط بمسارٍ ما (sendMessage · jsonbin-order …) بمفتاح القاعدة العامّ — لا سرّ في المتصفّح */
+  function relay(path, opts) {
+    var db = g.GMT_DB && g.GMT_DB.MAIN;
+    if (!db || !db.url || !db.key) return Promise.resolve(fail('لا قاعدة للوسيط في هذه الصفحة'));
+    opts = Object.assign({}, opts || {});
     var headers = new Headers(opts.headers || {});
     headers.set('Authorization', 'Bearer ' + db.key); headers.set('apikey', db.key);
-    var body = opts.body;
-    if (m[2] && (body == null || body === '')) {            // نداءٌ بمعاملات في الرابط ⇒ جسم JSON
-      var o = {}; new URLSearchParams(m[2].slice(1)).forEach(function (v, k) { o[k] = v; });
+    return nativeFetch.call(g, db.url + '/functions/v1/gmt-tg/' + path, Object.assign(opts, { method: 'POST', headers: headers }))
+      .then(warn, function (e) { return fail('تعذّر الوصول للوسيط: ' + ((e && e.message) || e)); });
+  }
+  g.GMTRelay = {
+    call: relay,
+    /* نسخة الطلب الاحتياطيّة في JSONBin (مفتاحها سرّ JSONBIN_MASTER_KEY في الوسيط) ⇒ true/false */
+    jsonbinOrder: function (order) {
+      return relay('jsonbin-order', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: order }) })
+        .then(function (r) { return !!(r && r.ok); }, function () { return false; });
+    }
+  };
+  g.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var m = RE.exec(url);
+    if (!m || m[1] !== MARK) return nativeFetch.apply(g, arguments);
+    var opts = Object.assign({}, init || {}), body = opts.body;
+    var headers = new Headers(opts.headers || {});
+    if (m[3] && (body == null || body === '')) {            // نداءٌ بمعاملات في الرابط ⇒ جسم JSON
+      var o = {}; new URLSearchParams(m[3].slice(1)).forEach(function (v, k) { o[k] = v; });
       body = JSON.stringify(o); headers.set('Content-Type', 'application/json');
     }
-    return nativeFetch.call(g, db.url + '/functions/v1/gmt-tg/' + m[1], Object.assign(opts, { method: 'POST', headers: headers, body: body }))
-      .then(function (r) {
-        if (r.status === 503 || r.status === 404) { relayOff = true; return nativeFetch.apply(g, args); }
-        return r;
-      }, function () { return nativeFetch.apply(g, args); });
+    return relay(m[2], Object.assign(opts, { headers: headers, body: body }));
   };
 })(typeof window !== 'undefined' ? window : this);
 
