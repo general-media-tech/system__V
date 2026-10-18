@@ -11,6 +11,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="مجموعة ميديا تيك التجارية"><!-- (٨ ث) اسم التطبيق كما طلبت — كان «ميديا تيك» -->
 <script>window.GMT_INTERNAL = 1; window.GMT_HOME_SHELL = 1; window.GMT_INTRO_MANUAL = 1;</script>
+<!-- (١٨ ت1 · برومبت «انترو افتتاح النظام») إن كان انترو الافتتاح سيظهر في هذه الجلسة: لا تُرسم الرئيسيّة قبله (لا وميض).
+     وحارسُ CSS يُظهرها بعد ٧ث مهما حدث — فلا تبقى الشاشة بيضاء إن تعطّل أيّ سكربت. -->
+<script>try{(function(){if(sessionStorage.getItem('gmt_welcome_shown')==='1'||!localStorage.getItem('gmt_intro_seen_build'))return;var s=null;try{s=JSON.parse(localStorage.getItem('gmt_session')||'null')}catch(e){}if(sessionStorage.getItem('gmt_admin_mode')==='1'||(s&&(s.id!=null||s.username)))document.documentElement.classList.add('gw-pre')})()}catch(e){}</script>
+<style>html.gw-pre body{visibility:hidden;animation:gwSafe 0s 7s forwards}@keyframes gwSafe{to{visibility:visible}}</style>
 <!-- ═══════════════════════════════════════════════════════════════════════════
      home.html — الواجهة الرئيسية · (2026-10-04 م)
 
@@ -669,14 +673,37 @@ a.btn{text-decoration:none}
     var I = window.GMTIntro, why = null;
     try { why = I && I.why ? I.why() : null; } catch (_) {}
     var homeP = load();
+    var WL = window.GMTWelcome;
     if (why && I && I.maybe) {
+      if (WL) WL.skip();      /* الانترو الطويل (أوّل تشغيل/تثبيت) هو نفسه شاشة التحميل — لا انترو ثانٍ فوقه */
       var w = W();
       var dataP = (w && w.data) ? w.data({ onStep: function (t) { try { I.say(t); } catch (_) {} } }) : null;
       I.maybe({ tasks: [homeP, dataP].filter(Boolean) }).then(function () { fillDevice(); });
       if (wantImages()) Promise.resolve(dataP).then(function (r) { startImages(r && r.rows); }, function () { startImages(); });
-    } else if (wantImages()) {
-      setTimeout(function () { startImages(); }, 1500);
+    } else {
+      if (WL && WL.pending()) welcome(homeP); else document.documentElement.classList.remove('gw-pre');
+      if (wantImages()) setTimeout(function () { startImages(); }, 1500);
     }
+  }
+  /* (١٨ ت1 · برومبت «انترو افتتاح النظام») مرّةً في الجلسة: الشاحنة الهادئة + «أهلاً بك، [اسمك من الجلسة]»
+     + شريطٌ مربوطٌ بمراحل التجهيز الحقيقية أدناه — لا يكتمل قبلها، وفشلُ أيٍّ منها يُعرض بوضوح مع «إعادة المحاولة / متابعة». */
+  function welcome(homeP) {
+    var s = session(), nm = '', first = true;
+    try { nm = A() ? ((window.GMTRole && GMTRole.name && GMTRole.name()) || '') : ((window.GMTHome && GMTHome.name && GMTHome.name()) || (s && s.display_name) || ''); } catch (_) {}
+    GMTWelcome.run({ name: nm, steps: [
+      { label: 'التحقق من جلسة المستخدم', run: function () { if (roleNow() === 'guest') throw new Error('لا جلسة على هذا الجهاز'); } },
+      { label: 'تحميل الصلاحيات', run: function () {
+          if (A()) return null;
+          var s0 = session();
+          if (!s0 || s0.id == null || !window.GMTAccount || !GMTAccount.grants || navigator.onLine === false) return null;
+          return GMTAccount.grants(s0.id);
+        } },
+      { label: 'تحميل بيانات الرئيسية', weight: 2, run: function () {
+          var p = first ? homeP : load(); first = false;
+          return Promise.resolve(p).then(function () { if (st.err) throw new Error(st.err); });
+        } },
+      { label: 'تجهيز الواجهة', run: function () { return document.readyState === 'complete' ? null : new Promise(function (r) { window.addEventListener('load', function () { r(); }, { once: true }); }); } }
+    ] });
   }
 
   /* بطاقة الجهاز — داخل الصفحة (لا زرّ عائم): تنزيل الصور · تثبيت التطبيق · الإشعارات */
@@ -948,6 +975,7 @@ a.btn{text-decoration:none}
     if (!ok) return;
     try { if (window.GMTSound) GMTSound.play('logout'); } catch (_) {}      /* (١١ ت١) صوت الخروج */
     if (A()) { try { GMTRole.revoke(); } catch (_) {} } else { try { localStorage.removeItem('gmt_session'); } catch (_) {} }
+    try { sessionStorage.removeItem('gmt_welcome_shown'); } catch (_) {}   /* دخولٌ جديد = جلسةٌ جديدة ⇒ انترو الافتتاح مرّةً أخرى */
     st.data = null; st.mode = 'login'; st.pick = null; st.ferr = ''; st.scr = 'home'; toast('تمّ تسجيل الخروج'); load();
   }
 
@@ -1032,6 +1060,7 @@ a.btn{text-decoration:none}
      (انترو أم لا) بعد اكتمال تحميل السكربتات. (الفحص كشفها: التطبيق المثبَّت في أوّل فتحٍ
      لم يكن يعرض انتروه لأنّ GMTIntro لم يكن موجوداً بعد) */
   st.role = roleNow(); render();
+  if (st.role === 'guest') document.documentElement.classList.remove('gw-pre');
   if (st.role !== 'guest') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enter); else enter(); }
   /* (٢٠٢٦-١٠-١١ · ملاحظات ٨ ت١ ٨:٠٧م) «الرابط للشخص: بيطلع له انترو البداية فوراً، بيحمّل البيانات، ثمّ بيطلب منه تسجيل الدخول أو إنشاء حساب».
      هذا يُلغي قرار ٦ ت١ «الزائر ⇐ الدخول فوراً بلا انترو» (الأحدث يغلب). الانترو يُعرَض للزائر على جهازٍ جديد قبل نموذج الدخول،
@@ -1057,6 +1086,10 @@ a.btn{text-decoration:none}
 <script src="gmt-whatsnew.js?v=20261018d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
+<script src="gmt-welcome.js?v=20261018e"></script>
+<!-- (١٨ ت1) روابط «تتبّع» من الرئيسيّة تنتقل بانطلاق الشاحنة (gmt-launch.js) كما في الموقع -->
+<script src="gmt-launch.js?v=20261018e" defer></script>
+<script>document.addEventListener('DOMContentLoaded',function(){try{if(window.GMTLaunch)GMTLaunch.bind(document,function(a){return /(^|\/)track_order\.html([?#]|$)/.test(a.getAttribute('href')||'')})}catch(e){}});</script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <script>setTimeout(function () { try { GMTShell.repaint(); } catch (_) {} }, 1200);</script>
 <script src="gmt-autobackup.js?v=20261006"></script>

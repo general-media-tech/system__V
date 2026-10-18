@@ -4,6 +4,7 @@
 <script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
    بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
 window.GMT_PUBLIC = 1;</script>
+<script src="gmt-launch.js?v=20261018e"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -434,8 +435,21 @@ window.GMT_PUBLIC = 1;</script>
             const l1Text2 = document.getElementById('l1-text2');
             const layer1 = document.getElementById('layer1');
 
+            /* 🚚 (برومبت ١٨ ت1 «مشهد انطلاق السيارة والانتقال بين صفحات HTML» — gmt-launch.js):
+               · وصلنا من صفحةٍ أخرى بانطلاق الشاحنة ⇒ الدخان يغطّي الصفحة من أوّل رسم وينكشف بعد تحميلها — لا ترحيب ثانٍ.
+               · فُتحت مباشرة (رابط واتساب مثلاً) ⇒ فيديو الانطلاق طبقةً فوقها، وتحت دخانه تُزال شاشة الترحيب ثمّ يتبدّد.
+               · الفيديو لم يبدأ (شبكة/متصفّح) ⇒ الترحيب السابق كما هو (الشاحنة المفرّغة أدناه). */
+            const L = window.GMTLaunch;
+            if (L && L.arriving()) { layer1.style.display = 'none'; return; }
             document.body.style.overflow = 'hidden';
-
+            if (L) {
+                L.cover(() => { layer1.style.display = 'none'; document.body.style.overflow = 'auto'; },
+                        { texts: ['أهلاً بكم', 'شكراً لثقتكم – شركة General Media Tech'] })
+                 .catch(welcomeHtml);
+                return;
+            }
+            welcomeHtml();
+            function welcomeHtml() {
             /* 🚐 (طلبك ١٨ ت1) «طوّل الانترو شوي بحيث يتلاءم مع الشاحنة … الدخان الذي خلفها يبدو أكبر ثمّ يفتح من خلف الدخان صفحة التتبّع»:
                ٠ث تدخل الشاحنة من اليسار (١٫٨ث) ⇐ تقف وهي تعمل والدخان يخرج ⇐ ٤٫٣ث تنطلق يميناً ويكبر دخانها حتى يملأ الشاشة
                ⇐ ٥٫٣ث تصير الخلفيّة شفّافة ويتبدّد الدخان فتنكشف صفحة التتبّع من خلفه ⇐ ٦٫٧ث تُزال الشاشة. */
@@ -489,6 +503,7 @@ window.GMT_PUBLIC = 1;</script>
                 GMTVan.stop(vw);
             }, 5400);
             setTimeout(() => { layer1.style.display = 'none'; }, 6900);
+            }
         });
 
         // ════════ إعدادات Supabase ════════
@@ -723,8 +738,15 @@ window.GMT_PUBLIC = 1;</script>
             const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
             const now = new Date();
             const hoursSinceShipped = o.shipped_at ? (now - new Date(o.shipped_at)) / 3600000 : 0;
-            const ORDER = ['pending','prepared','shipped','delivered','completed'];
-            let currentStepIndex = Math.max(0, ORDER.indexOf(o.status));
+            /* (١٨ ت1 · طلبك: «لما نأكّد من عندنا تأكيد الاستلام في الأوردرات يظهر في التتبّع إنّه الشخص استلمها»)
+               في الأوردرات «✅ تم الاستلام» تجعل الحالة delivered (= استلمها الزبون وبقي التحصيل بيننا وبين شركة الشحن)
+               ثمّ «تم التحصيل» ⇒ completed. فللزبون كلتاهما «تم الاستلام». وكانت الصفحة تعرض delivered «وصلت — بانتظار
+               الاستلام» فيظنّ الزبون أنّ شحنته لم تُسلَّم. أمّا «وصلت — بانتظار الاستلام» فهي الشحنة المشحونة التي أُرسل
+               عنها إشعار الوصول (notified_arrival_at) ولم يُؤكَّد استلامها بعد. */
+            const received = o.status === 'delivered' || o.status === 'completed';
+            let currentStepIndex = received ? 4
+                : (o.status === 'shipped' && o.notified_arrival_at) ? 3
+                : Math.max(0, ['pending','prepared','shipped'].indexOf(o.status));
 
             // ── لوحة الشحن: تظهر من «تم الشحن» فصاعداً ──
             const shipped = ['shipped','delivered','completed'].includes(o.status);
@@ -764,7 +786,7 @@ window.GMT_PUBLIC = 1;</script>
                     cbtn.classList.toggle('hidden', !num);
                 }
                 // إيصال الشحن — مؤقّت: يُمسح تلقائياً عند «تم الاستلام» في الأوردرات
-                window._trkReceipt = (o.receipt_img && o.status !== 'completed') ? o.receipt_img : null;
+                window._trkReceipt = (o.receipt_img && !received) ? o.receipt_img : null;
                 const rb = document.getElementById('res-receipt-btn');
                 if (rb) rb.classList.toggle('hidden', !window._trkReceipt);
             } else {
@@ -778,7 +800,7 @@ window.GMT_PUBLIC = 1;</script>
                 { icon: 'file-check',   title: 'تمت الفوترة — بانتظار الشحن',   desc: 'طلبك جاهز ومفوتَر وبانتظار تسليمه لشركة الشحن' },
                 { icon: 'truck',        title: 'تم الشحن',                      desc: 'شُحن طلبك' + co + trk + ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة') },
                 { icon: 'map-pin',      title: 'وصلت — بانتظار الاستلام',       desc: 'وصلت شحنتك إلى [' + _esc(o.address || 'عنوانكم') + ']' + (o.shipping_company ? ' لدى ' + _esc(o.shipping_company) : '') },
-                { icon: 'check-circle', title: 'تم الاستلام',                   desc: 'استلمتَ طلبك — شكراً لثقتك بجنرال ميديا تيك 🤍' }
+                { icon: 'check-circle', title: 'تم الاستلام',                   desc: 'استلمتَ طلبك' + (received && o.delivered_at ? ' بتاريخ ' + _esc(new Date(o.delivered_at).toLocaleDateString('ar-SY', { year: 'numeric', month: 'long', day: 'numeric' })) : '') + ' — شكراً لثقتك بجنرال ميديا تيك 🤍' }
             ];
 
             const timelineContainer = document.getElementById('timelineContainer');
