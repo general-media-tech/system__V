@@ -200,7 +200,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="font-weight:700;margin:6px 0 4px;color:#5b6472;">Anon Key</div>
       <input id="cfg-inv-key" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:11px;direction:ltr;" placeholder="eyJ...">
       <div style="font-weight:700;margin:6px 0 4px;color:#5b6472;">📄 اسم ملف صفحة المتجر (الذي يفتحه زر "عرض في المتجر")</div>
-      <input id="cfg-storefront-file" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:11px;direction:ltr;" placeholder="index__12_.html">
+      <input id="cfg-storefront-file" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:11px;direction:ltr;" placeholder="store.html">
     </div>
     <div>
       <div style="font-weight:700;margin-bottom:4px;color:#5b6472;">🔸 Supabase المتجر — URL</div>
@@ -437,8 +437,12 @@ try {
 // اسم/مسار ملف صفحة المتجر — قابل للتهيئة (موحّد مع نظام الجرد عبر نفس مفتاح localStorage)
 // كان هذا الاسم ثابتاً بالكود سابقاً بقيمة مخمّنة قد لا تطابق الملف الفعلي، فيُخزَّن رابط
 // store_url مكسور يقرأه حتى نظام نقطة البيع. الآن: يُطلب من المستخدم مرة عند غيابه بدل التخمين.
+/* (18 ت1 · لقطتك ١) كانت تسألك «اسم ملفّ المتجر (مثال: index.html)» — سؤالٌ لا يعرف جوابه إلا المبرمج.
+   صفحة المتجر في نظامك هي store.html (بجانب هذه الصفحة) وتفتح المنتج من الرابط `#product=…` ⇒ هي الافتراضيّة،
+   ولا سؤال. وتبقى قابلةً للتغيير من إعدادات الأداة لمن يريد ملفّاً آخر. */
+var STOREFRONT_DEFAULT = 'store.html';
 function getStorefrontFile(){
-  return localStorage.getItem('br_storefront_file') || '';
+  return localStorage.getItem('br_storefront_file') || STOREFRONT_DEFAULT;
 }
 
 // يضمن وجود اسم ملف صالح قبل بناء أي رابط متجر — يسأل المستخدم مرة ويحفظ
@@ -735,7 +739,7 @@ function applyConfig(){
   const su  = document.getElementById('cfg-store-url').value.trim().replace(/\/$/,'');
   const sk  = document.getElementById('cfg-store-key').value.trim();
   const st  = document.getElementById('cfg-store-table').value.trim() || 'gmt_store';
-  const sf  = document.getElementById('cfg-storefront-file').value.trim() || 'index__12_.html';
+  const sf  = document.getElementById('cfg-storefront-file').value.trim() || STOREFRONT_DEFAULT;
   if(!iu||!ik||!su||!sk){ alert('يرجى ملء جميع الحقول'); return; }
   localStorage.setItem('br_inv_url',    iu);
   localStorage.setItem('br_inv_key',    ik);
@@ -1419,7 +1423,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-brain.js?v=20261017c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261018a"></script>
+<script src="gmt-whatsnew.js?v=20261018d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
