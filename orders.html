@@ -272,6 +272,20 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="حمص">حمص</option>
                 <option value="اللاذقية">اللاذقية</option>
             </select>
+            <!-- (وثيقة الطلبات §٢ · «يدخل هذا في الفلترة لما بدي أعرف وين أموال التحصيل: مفتي فرقان، مفتي سريان…») الفرع المُرسِل
+                 المختار عند الشحن صار فلتراً. الخيارات تُبنى من الأوردرات نفسها (لا قائمة مُخترَعة) — انظر syncSenderFilter. -->
+            <select id="filter-sendbranch" onchange="render()" data-hint="الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة: لتعرف وين أموال التحصيل (مفتي فرقان · مفتي سريان …)."
+                    class="flex-1 min-w-[140px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
+                <option value="">🏢 كل الفروع المُرسِلة</option>
+            </select>
+            <!-- (وثيقة الطلبات §٢ · «مراسلة الفرع المُرسِل… لا أعرف إذا رجعت الحوالة أو لا وبيدخل بالفلترة») حالة الحوالة فلترٌ أيضاً -->
+            <select id="filter-transfer" onchange="render()" data-hint="حالة مراسلة الفرع المُرسِل بخصوص الحوالة: لم تُراسَل · رُوسِل بانتظار الحوالة · وصلت الحوالة (شحنات المفتي)."
+                    class="flex-1 min-w-[140px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
+                <option value="">💸 كل حالات الحوالة</option>
+                <option value="none">لم تُراسَل</option>
+                <option value="asked">رُوسِل — بانتظار الحوالة</option>
+                <option value="received">وصلت الحوالة</option>
+            </select>
             <button onclick="clearFilters()" id="clear-filters-btn" class="hidden px-3 py-2.5 bg-red text-white rounded-xl text-xs font-black">✕ إزالة الفلتر</button>
         </div>
 
@@ -1409,6 +1423,10 @@ function render() {
     const q          = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const fCompany   = (document.getElementById('filter-company')?.value || '');
     const fBranch    = (document.getElementById('filter-branch')?.value  || '');
+    /* (وثيقة الطلبات §٢) فلتر الفرع المُرسِل + فلتر حالة الحوالة — يُبنى الأوّل من الأوردرات نفسها قبل قراءة قيمته */
+    try { syncSenderFilter(); } catch (_) {}
+    const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
+    const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
     const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[] };
     const branchTot  = {};
     const companyTot = {};
@@ -1422,7 +1440,9 @@ function render() {
         const matchQ  = !q || (o.name||'').toLowerCase().includes(q) || (o.phone||'').includes(q) || (o.product||'').toLowerCase().includes(q);
         const matchC  = !fCompany || (o.shipping_company||'') === fCompany;
         const matchB  = !fBranch  || (o.branch||'') === fBranch;
-        if (!matchQ || !matchC || !matchB) return;
+        const matchS  = !fSend    || senderKeyOf(o) === fSend;
+        const matchT  = !fTransfer || transferFilterOf(o) === fTransfer;
+        if (!matchQ || !matchC || !matchB || !matchS || !matchT) return;
         if (groups[o.status]) groups[o.status].push(o);
         const p = Number(o.price) || 0;
         if (o.status==='pending')   sumP += p;
@@ -1462,7 +1482,7 @@ function render() {
 
     // زر مسح الفلتر
     const clearBtn = document.getElementById('clear-filters-btn');
-    if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch);
+    if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch && !fSend && !fTransfer);
 
     // إجمالي غير محصّل
     const grand = sumP + sumS + sumD;
@@ -1789,6 +1809,7 @@ function cardHTML(o) {
             <div class="font-bold">${buildProductLine(o)}</div>
             <p>📍 ${escH(o.address||'')}</p>
             ${o.branch ? `<p>🏭 شُحن من: <span style="font-weight:900">${escH(o.branch)}</span>${o.shipping_company ? ` — <span class="text-orange-500">${escH(o.shipping_company)}</span>` : ''}</p>` : ''}
+            ${senderInfoHTML(o)}
             ${o.tracking_number ? `<p class="${c.text} font-black">🔖 ${escH(o.tracking_number)}</p>` : ''}
             ${o.shipped_at ? `<p class="text-[9px] text-gray-400">🕒 شُحن: <span dir="ltr">${new Date(o.shipped_at).toLocaleString('en-GB',{hour12:true})}</span></p>` : ''}
             ${o.notes ? `<p class="text-gray-600" title="ملاحظاتٌ داخلية — لا تُطبع على الفاتورة">📝 ${escH(o.notes)}</p>` : ''}
@@ -3672,8 +3693,12 @@ function switchTab(t) { currentTab = t; render(); }
 function clearFilters() {
     const fc = document.getElementById('filter-company');
     const fb = document.getElementById('filter-branch');
+    const fs = document.getElementById('filter-sendbranch');
+    const ft = document.getElementById('filter-transfer');
     if (fc) fc.value = '';
     if (fb) fb.value = '';
+    if (fs) fs.value = '';
+    if (ft) ft.value = '';
     render();
 }
 
@@ -4849,23 +4874,29 @@ function shipFromOf(o) {
     if (!o) return MUFTI_DEFAULT_FROM;
     return o.ship_from_office || shipFromLocal()[o.id] || MUFTI_DEFAULT_FROM;
 }
+/* القيمة المحدَّدة فعلاً (قاعدة ثم الجهاز) — بلا الافتراضي: لنعرف هل اختار أحدٌ فرعاً أم هو «السريان» الافتراضي */
+function shipFromExplicit(o) { return (o && (o.ship_from_office || shipFromLocal()[o.id])) || null; }
 function shipFromOptionsHTML(sel) {
     const byCity = {};
     muftiOffices().forEach(x => { (byCity[x.city] = byCity[x.city] || []).push(x); });
     const cities = Object.keys(byCity).sort((a, b) => (a === 'حلب' ? -1 : b === 'حلب' ? 1 : a.localeCompare(b, 'ar')));
-    return cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
+    let html = cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
         '<option value="' + escH(x.key) + '"' + (x.key === sel ? ' selected' : '') + '>' + escH(x.city + ' – ' + x.name) +
         (x.phone ? '' : ' (بلا رقم)') + '</option>').join('') + '</optgroup>').join('');
+    /* (وثيقة الطلبات §٢) قيمةٌ محفوظةٌ على أوردرٍ قديم لم تعد في دليل المكاتب: نُبقيها خياراً ظاهراً كي لا يُستبدل فرعٌ
+       آخر بصمتٍ عند الحفظ (كان المتصفّح يعرض أوّل خيار وكأنه المحفوظ). */
+    if (sel && !muftiOfficeByKey(sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ' (غير مُدرَج في الدليل)</option>' + html;
+    return html;
 }
-/* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة. */
+/* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة.
+   (وثيقة الطلبات §٢) صار الحفظ يفحص الاستجابة: صفٌّ لم يتغيّر في القاعدة ⇒ فشل صريح لا «نجاح كاذب». */
 async function saveShipFrom(id, key) {
     const o = orders.find(x => x.id == id); if (o) o.ship_from_office = key;
-    try { await sbUpdate(id, { ship_from_office: key }); return true; }
-    catch (e) {
-        console.warn('[GMT] تعذّر حفظ الفرع المُرسِل بالقاعدة (يُحفَظ محلياً):', e && e.message);
-        try { const m = shipFromLocal(); m[id] = key; localStorage.setItem(SHIPFROM_LS, JSON.stringify(m)); } catch (_) {}
-        return false;
-    }
+    const r = await orderPatchChecked(id, { ship_from_office: key });
+    if (r.ok && !r.queued) return true;
+    if (!r.ok) console.warn('[GMT] تعذّر حفظ الفرع المُرسِل بالقاعدة (يُحفَظ محلياً):', r.error);
+    try { const m = shipFromLocal(); m[id] = key; localStorage.setItem(SHIPFROM_LS, JSON.stringify(m)); } catch (_) {}
+    return r.ok;   // في طابور الاتصال ⇒ نجاحٌ مؤجَّل (ونسخةٌ محلية احتياطاً)
 }
 window.syncShipFromBox = function (current) {
     const wrap = document.getElementById('ship-from-wrap'), sel = document.getElementById('ship-from');
@@ -4876,6 +4907,119 @@ window.syncShipFromBox = function (current) {
     if (show && (!sel.options.length || current)) sel.innerHTML = shipFromOptionsHTML(current || sel.value || MUFTI_DEFAULT_FROM);
 };
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') window.syncShipFromBox(); });
+
+/* ═════════════════════════════════════════════════════════════════════
+   💸 الفرع المُرسِل + مراسلته (الحوالة) داخل الأوردر وفي الفلترة   (وثيقة الطلبات §٢ · ١٨ ت١)
+   ─────────────────────────────────────────────────────────────────────
+   طلبك: «لما يتم شحن أوردر مختار فرع الشركة يدخل في الفلترة لما بدي أعرف وين أموال التحصيل: مفتي فرقان، مفتي سريان وإلى
+   آخره» + «في نفس الأوردر يكون عندي شيء اسمه مراسلة الفرع المُرسِل، يعني لا أعرف إذا رجعت الحوالة أو لا، وبيدخل هذا
+   الموضوع في الفلترة» + «أثناء تعديل الطلب ممكن نعدّل الفرع المُرسِل… والفرع ممكن يكون تلقائياً السريان وممكن تعديله».
+   • ثلاث حالات للمراسلة: لم تُراسَل · رُوسِل — بانتظار الحوالة · وصلت الحوالة. **تُضبط بيدك فقط** — فتحُ واتساب لا يعني
+     أنّ الرسالة أُرسلت، فلا نُغيّرها نحن.
+   • التخزين: gmt_orders.transfer_state (+ transfer_at). إن لم يوجد العمود بعد (SQL غير مُشغَّل) تُحفَظ على هذا الجهاز بمفتاح
+     رقم الأوردر — كما فعلنا مع ship_from_office — وتُعرَض وتُفلتَر منه مع تنبيهٍ صريح أنها محلية.
+   • الفرع المُرسِل والحوالة خاصّان بشحنات **المفتي** بعد الشحن (في الطريق فما بعد).
+   ═════════════════════════════════════════════════════════════════════ */
+/* كتابةٌ على الأوردر **مع فحص الاستجابة** — لا «نجاح كاذب»:
+   ① خطأ القاعدة (عمود ناقص · صلاحية) ⇒ ok:false مع السبب  ② PostgREST يُرجع [] حين لم يتغيّر أيّ صفّ (RLS أو معرّف غير موجود)
+   ⇒ فشل  ③ بلا إنترنت تدخل طابور GMTSync ⇒ ok:true, queued:true (ويُنبَّه المستخدم أنها لم تصل بعد). */
+async function orderPatchChecked(id, patch) {
+    try {
+        const r = await sbUpdate(id, patch);
+        if (Array.isArray(r) && r.length === 0) return { ok: false, error: 'لم يتغيّر أيّ صفّ في القاعدة (صلاحية أو الأوردر غير موجود)' };
+        return { ok: true, queued: !!(Array.isArray(r) && r[0] && r[0]._pendingSync) };
+    } catch (e) { return { ok: false, error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
+}
+function _colMissing(msg) { return /column|schema cache|PGRST204|42703/i.test(String(msg || '')); }
+function lsMap(key) { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) { return {}; } }
+function lsMapSet(key, id, val) {
+    try { const m = lsMap(key); if (val == null) delete m[id]; else m[id] = val; localStorage.setItem(key, JSON.stringify(m)); } catch (_) {}
+}
+/* رسالة تقول الحقيقة بعد حفظ حقلٍ ثانويّ: ok ⇒ حُفظ · queued ⇒ بانتظار الإنترنت · غير ذلك ⇒ على هذا الجهاز فقط وسبب ذلك */
+function savedMsg(what, r) {
+    if (r.ok && !r.queued) return { t: '✅ حُفظ ' + what, type: 'ok' };
+    if (r.ok) return { t: '📴 ' + what + ': بانتظار الإنترنت — يُرسَل تلقائياً عند عودته', type: 'inf' };
+    return { t: '⚠️ ' + what + ' حُفظ على هذا الجهاز فقط — ' + (_colMissing(r.error) ? 'عمود القاعدة غير موجود بعد (SQL)' : 'لم يُحفظ في القاعدة: ' + r.error), type: 'err' };
+}
+
+const TRANSFER_LS = 'gmt_transfer_state';
+const TRANSFER_STATES = [
+    { k: 'none',     t: 'لم تُراسَل' },
+    { k: 'asked',    t: 'رُوسِل — بانتظار الحوالة' },
+    { k: 'received', t: 'وصلت الحوالة' }
+];
+function transferLabel(k) { const s = TRANSFER_STATES.find(x => x.k === k); return s ? s.t : TRANSFER_STATES[0].t; }
+function transferStateOf(o) {
+    if (!o) return 'none';
+    if (o.transfer_state === 'asked' || o.transfer_state === 'received') return o.transfer_state;
+    const l = lsMap(TRANSFER_LS)[o.id];
+    return (l && (l.s === 'asked' || l.s === 'received')) ? l.s : 'none';
+}
+/* هل للأوردر فرعٌ مُرسِل وحوالة؟ — شحنات المفتي بعد الشحن فقط */
+function hasSenderInfo(o) { return !!o && o.shipping_company === MUFTI_CO && SHIPPED_OR_LATER.indexOf(o.status) !== -1; }
+/* مفتاح الفرع المُرسِل لغرض الفلترة/العرض: المحدَّد صراحةً، وإلا الافتراضي «السريان» للمشحون فقط (قبل الشحن لا فرعَ بعد) */
+function senderKeyOf(o) {
+    if (!o || o.shipping_company !== MUFTI_CO) return null;
+    return shipFromExplicit(o) || (SHIPPED_OR_LATER.indexOf(o.status) !== -1 ? MUFTI_DEFAULT_FROM : null);
+}
+function transferFilterOf(o) { return hasSenderInfo(o) ? transferStateOf(o) : null; }
+
+/* خيارات فلتر الفرع المُرسِل — من الأوردرات المحمَّلة نفسها: لا أسماءَ مُخترَعة، وما اختيرتَه يبقى حتى لو لم يعد له أوردر */
+function syncSenderFilter() {
+    const sel = document.getElementById('filter-sendbranch'); if (!sel) return;
+    const cur = sel.value || '';
+    const keys = [];
+    (typeof orders !== 'undefined' ? orders : []).forEach(o => { const k = senderKeyOf(o); if (k && keys.indexOf(k) === -1) keys.push(k); });
+    if (cur && keys.indexOf(cur) === -1) keys.push(cur);
+    keys.sort((a, b) => shipFromLabel(a).localeCompare(shipFromLabel(b), 'ar'));
+    const sig = keys.join('~');
+    if (sel.getAttribute('data-sig') === sig) return;          // لا نُعيد بناء قائمةٍ قد تكون مفتوحةً أمام المستخدم
+    sel.setAttribute('data-sig', sig);
+    sel.innerHTML = '<option value="">🏢 كل الفروع المُرسِلة</option>' +
+        keys.map(k => '<option value="' + escH(k) + '">' + escH(shipFromLabel(k)) + '</option>').join('');
+    sel.value = cur;
+}
+
+/* شارة الفرع المُرسِل + حالة الحوالة على البطاقة (اضغط الحالة لتغييرها) */
+function senderInfoHTML(o) {
+    if (!hasSenderInfo(o)) return '';
+    const st = transferStateOf(o);
+    const cls = st === 'received' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+              : st === 'asked'    ? 'bg-amber-50 border-amber-300 text-amber-700'
+              :                     'bg-gray-50 border-gray-300 text-gray-600';
+    return `<div class="flex items-center gap-1.5 flex-wrap" data-sender-info>
+        <span>🏢 المُرسِل: <span class="font-black text-gray-700">${escH(shipFromLabel(shipFromOf(o)))}</span></span>
+        <button type="button" data-transfer-chip="${escH(st)}" onclick="openTransferState(${o.id})"
+            data-hint="حالة مراسلة الفرع المُرسِل بخصوص الحوالة — اضغط لتغييرها (لم تُراسَل · رُوسِل · وصلت الحوالة)."
+            class="px-2.5 py-1 rounded-lg border text-[10.5px] font-black ${cls}" title="حالة مراسلة الفرع المُرسِل (الحوالة) — اضغط لتغييرها">💸 ${escH(transferLabel(st))}</button>
+    </div>`;
+}
+
+async function saveTransferState(id, state) {
+    const o = orders.find(x => x.id == id);
+    const at = state === 'none' ? null : new Date().toISOString();
+    const r = await orderPatchChecked(id, { transfer_state: state === 'none' ? null : state, transfer_at: at });
+    if (o) { o.transfer_state = state === 'none' ? null : state; o.transfer_at = at; }
+    if (r.ok && !r.queued) lsMapSet(TRANSFER_LS, id, null);         // القاعدة هي المرجع — لا نسخةً محلية قديمة تُحيي قيمةً ملغاة
+    else lsMapSet(TRANSFER_LS, id, { s: state, at: at });             // فشل/بلا إنترنت ⇒ على هذا الجهاز (ويُقال ذلك صراحةً)
+    return r;
+}
+window.openTransferState = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    const cur = transferStateOf(o);
+    const k = await GMTAsk.choose('🏢 الفرع المُرسِل: ' + shipFromLabel(shipFromOf(o)) + '\nالحالة الآن: ' + transferLabel(cur) +
+        '\n\nحدّد حالة مراسلة الفرع المُرسِل بخصوص حوالة هذه الشحنة:', {
+        title: 'مراسلة الفرع المُرسِل — الحوالة', icon: 'ask',
+        /* الحالة الحالية أوّلاً: زرّ Enter في نافذة الاختيار يضغط أوّل خيار — فيكون «لا تغيير» لا «لم تُراسَل» بالخطأ */
+        choices: TRANSFER_STATES.slice().sort((a, b) => (b.k === cur) - (a.k === cur))
+            .map(s => ({ k: s.k, t: (s.k === cur ? '✔ ' : '') + s.t, pri: s.k === cur ? 1 : 0 }))
+    });
+    if (!k || k === cur) return;
+    const r = await saveTransferState(id, k);
+    const m = savedMsg('الحالة «' + transferLabel(k) + '»', r);
+    showToast(m.t, m.type);
+    render();
+};
 
 function orderDestination(o) {
     return String(o.address || '').split('·')[0].replace(/☎.*$/, '').trim();
