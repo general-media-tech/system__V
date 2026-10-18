@@ -31,16 +31,16 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++
       await pg.waitForURL(/orders\.html\?wn=58/, { timeout: 8000 }).catch(() => {});
       await pg.waitForTimeout(6000);
       const o = await pg.evaluate(() => {
-        const t = document.querySelector('[onclick="openVerifyShipment()"]');
+        const t = document.querySelector('[onclick="openMuftiSite()"]');
         return { url: location.href.split('/').pop(), coach: !!document.getElementById('gwn-coach'), outlined: t && t.classList.contains('gwn-target'), dot: !!(t && t.querySelector(':scope > .gwn-dot.gwn-pulse')), coachTxt: (document.getElementById('gwn-coach') || {}).innerText };
       });
       ok(/orders\.html\?wn=58/.test(decodeURIComponent(o.url)), 'وصل للأوردرات ' + o.url);
       ok(o.coach, 'شريط الإرشاد ظاهر: ' + (o.coachTxt || '').slice(0, 80));
       ok(o.outlined && o.dot, 'الزرّ مؤطّر وعليه نقطة نابضة');
       await pg.screenshot({ path: 'wnt_orders_arrive.png' });
-      await pg.evaluate(() => { const t = document.querySelector('[onclick="openVerifyShipment()"]'); t.click(); });
+      await pg.evaluate(() => { const t = document.querySelector('[onclick="openMuftiSite()"]'); t.click(); });
       await pg.waitForTimeout(800);
-      const a = await pg.evaluate(() => ({ un: GMTWhatsNew.untried(), dot: !!document.querySelector('[onclick="openVerifyShipment()"] > .gwn-dot') }));
+      const a = await pg.evaluate(() => ({ un: GMTWhatsNew.untried(), dot: !!document.querySelector('[onclick="openMuftiSite()"] > .gwn-dot') }));
       ok(!a.un.includes(58) && !a.dot, 'ضغط الميزة نفسها أطفأ علامتها (الباقي: ' + a.un.join(',') + ')');
       await pg.goto(pg.url().replace(/orders\.html.*/, 'home.html'));
       await pg.waitForTimeout(5000);

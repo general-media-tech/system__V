@@ -325,12 +325,21 @@ a.btn{text-decoration:none}
       '<label class="srch dk">' + ic('search', 17) + '<input id="q" placeholder="بحث في النظام" autocomplete="off" aria-label="بحث في النظام"></label>' +
       '<div id="gmt-refresh-bar" class="gmt-refresh-bar" data-keep-fab="1"></div></header>';
   }
-  var PILL = ['pos.html', 'orders.html', 'inventory.html'];
+  /* (18 ت1 · لقطتك ٦) «الزرّ الذي أشرت لك عليه لا يمكن ربطه مع شيء» — الشريط السفلي كان ثابتاً في الكود.
+     صار قابلاً للتخصيص من «تخصيص»: الخانات الثلاث + زرّ «＋» الأوسط (إجراءات سريعة أو أيّ صفحة). يُحفظ على الجهاز لكل دور. */
+  var PILL_DEF = ['pos.html', 'orders.html', 'inventory.html'], LS_PILL = 'gmt_pill_v1_';
+  function pillCfg() {
+    var c = null, d = { s: PILL_DEF.slice(), plus: 'qa' };
+    try { c = JSON.parse(lsGet(LS_PILL + (A() ? 'admin' : 'staff'), 'null')); } catch (_) {}
+    if (!c || !Array.isArray(c.s) || c.s.length !== 3) return d;
+    return { s: c.s.map(function (f, i) { return T.find(f) ? f : d.s[i]; }), plus: (c.plus === 'qa' || T.find(c.plus)) ? c.plus : 'qa' };
+  }
   function pill() {
-    /* (دراسة ٢) أربعة ثابتة + «＋» للإجراءات السريعة — وهذه الأربعة لا تُكرَّر في «أدواتي» على الهاتف */
-    return '<nav class="pill" data-keep-fab="1">' + navB('home', 1) + navB(PILL[0], 1) +
-      '<button class="pplus" type="button" data-act="qa" aria-label="إجراءات سريعة">' + ic('plus', 24) + '</button>' +
-      navB(PILL[1], 1) + navB(PILL[2], 1) + '</nav>';
+    /* (دراسة ٢) أربعة + «＋» — وهذه لا تُكرَّر في «أدواتي» على الهاتف */
+    var c = pillCfg(), px = c.plus !== 'qa' && T.find(c.plus);
+    var plus = px ? '<a class="pplus" href="' + esc(px.f) + '" data-tool="' + esc(px.f) + '"' + (canOpen(px.f) ? '' : ' data-locked="1"') + ' aria-label="' + esc(px.t) + '">' + ic(px.ic || 'plus', 24) + '</a>'
+                  : '<button class="pplus" type="button" data-act="qa" aria-label="إجراءات سريعة">' + ic('plus', 24) + '</button>';
+    return '<nav class="pill" data-keep-fab="1">' + navB('home', 1) + navB(c.s[0], 1) + plus + navB(c.s[1], 1) + navB(c.s[2], 1) + '</nav>';
   }
   /* (دراسة ٨) «إجراءات سريعة» — أدواتٌ صغيرة خارج الأدوات الكبيرة، كلٌّ يفتح الإجراء مباشرة */
   var QA = [
@@ -398,17 +407,26 @@ a.btn{text-decoration:none}
           }).join('') + '</div>';
       }).join('') + '</details>';
   }
-  function home() {
+  /* الأدوات المعروضة فعلاً في شبكة «أدواتي» على هذا الجهاز — هي نفسها ما تعرضه نافذة التخصيص */
+  function shownTools() {
     var q = quick().map(T.find).filter(Boolean);
     if (phone()) {
+      var PILL = pillCfg().s;
       var shown = q.filter(function (x) { return PILL.indexOf(x.f) < 0; });
-      if (shown.length < 6) {
+      /* (18 ت1 · لقطتك ٦ «زرّ التخصيص لا يعمل») كانت تُكمَّل بأدواتٍ افتراضيّة **دائماً** — فإذا أزلتَ أداةً حلّت محلّها أخرى
+         فبدا أنّ شيئاً لم يتغيّر. التكميل الآن فقط لمن لم يخصّص أدواته بعد. */
+      var customized = lsGet(LS_Q + (A() ? 'admin' : 'staff'), 'null') !== 'null';
+      if (!customized && shown.length < 6) {
         ['sales_log.html', 'أماكن_الوصول.html', 'دليل_التوافقيات_والمواصفات.html', 'ردود_سريعة.html', 'labels.html', 'guarantee.html', 'track_order.html']
-          .map(T.find).filter(function (x) { return x && PILL.indexOf(x.f) < 0 && !shown.some(function (y) { return y.f === x.f; }); })
+          .map(T.find).filter(function (x) { return x && PILL.indexOf(x.f) < 0 && canOpen(x.f) && !shown.some(function (y) { return y.f === x.f; }); })
           .slice(0, 6 - shown.length).forEach(function (x) { shown.push(x); });
       }
       q = shown;
     }
+    return q;
+  }
+  function home() {
+    var q = shownTools();
     /* (18 ت1) طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم» — بطاقةٌ أعلى الرئيسية */
     var wn = '<div id="wn-home-slot">' + (window.GMTWhatsNew && GMTWhatsNew.homeCard ? GMTWhatsNew.homeCard() : '') + '</div>';
     return wn + '<div id="pend-slot"></div><div id="dev-slot"></div>' + hero() + kpis() + qaRow() +
@@ -818,6 +836,72 @@ a.btn{text-decoration:none}
     var onPop = function () { if (ov.isConnected) ov.remove(); window.removeEventListener('popstate', onPop); };
     window.addEventListener('popstate', onPop);
   }
+  /* ═══ (18 ت1 · لقطتك ٦) شاشة «تخصيص الرئيسية» ═══
+     كان «تخصيص» يضع × على البطاقات فقط، والإضافة مخفيّةٌ خلف ضغطةٍ طويلة داخل «كل صفحات النظام» — فبدا الزرّ لا يعمل.
+     الآن نافذةٌ واحدة واضحة: أدواتي (إضافة · إزالة · ترتيب ↑↓) + الشريط السفلي (الخانات الثلاث وزرّ ＋). حفظ · الافتراضي. */
+  function custSheet() {
+    var r = A() ? 'admin' : 'staff', q = shownTools().map(function (x) { return x.f; }), cfg = pillCfg(), adding = false, term = '';
+    var pool = (st.role === 'guest' ? T.forRole('guest') : T.all.filter(function (x) { return !x.p; })).filter(function (x) { return canOpen(x.f); });
+    var ov = modal('<div id="cs-body"></div>');
+    function opt(sel, withQa) {
+      return (withQa ? '<option value="qa"' + (sel === 'qa' ? ' selected' : '') + '>＋ إجراءات سريعة (الافتراضي)</option>' : '') +
+        pool.map(function (x) { return '<option value="' + esc(x.f) + '"' + (sel === x.f ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
+    }
+    function draw() {
+      var b = ov.querySelector('#cs-body');
+      var avail = pool.filter(function (x) { return q.indexOf(x.f) < 0 && (!term || (x.t + ' ' + (x.d || '')).indexOf(term) >= 0); });
+      b.innerHTML = '<div class="row" style="margin-bottom:8px"><b style="font-size:17px" class="sp">تخصيص الرئيسية</b><button class="ib" type="button" data-x aria-label="إغلاق">' + ic('close', 16) + '</button></div>' +
+        '<div style="font-weight:900;margin:6px 0">أدواتي <span class="chip">' + q.length + '/12</span></div>' +
+        (q.length ? q.map(function (f, i) {
+          var x = T.find(f) || { t: f, ic: 'box' };
+          return '<div class="row" style="gap:6px;padding:7px 8px;border:1px solid var(--ln,rgba(15,18,25,.1));border-radius:12px;margin-bottom:6px;background:#fff">' +
+            '<span class="ico" style="display:grid;place-items:center;width:30px;height:30px">' + ic(x.ic, 17) + '</span><b class="sp" style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.t) + '</b>' +
+            '<button class="ib" type="button" data-cs-up="' + i + '" aria-label="أعلى"' + (i ? '' : ' disabled') + '>↑</button>' +
+            '<button class="ib" type="button" data-cs-dn="' + i + '" aria-label="أسفل"' + (i < q.length - 1 ? '' : ' disabled') + '>↓</button>' +
+            '<button class="ib" type="button" data-cs-rm="' + i + '" aria-label="إزالة">' + ic('close', 14) + '</button></div>';
+        }).join('') : '<div class="mu" style="padding:6px 0">لا أدوات — أضف من القائمة.</div>') +
+        (adding
+          ? '<label class="srch" style="margin:6px 0">' + ic('search', 16) + '<input id="cs-q" placeholder="ابحث عن أداة لإضافتها…" value="' + esc(term) + '" autocomplete="off"></label>' +
+            '<div style="max-height:220px;overflow:auto">' + (avail.map(function (x) {
+              return '<button type="button" class="row" data-cs-add="' + esc(x.f) + '" style="width:100%;gap:8px;padding:8px;border:0;border-bottom:1px solid #f1f2f4;background:none;text-align:start;cursor:pointer">' + ic(x.ic, 16) + '<span class="sp" style="font-weight:800;font-size:13px">' + esc(x.t) + '</span>' + ic('plus', 15) + '</button>';
+            }).join('') || '<div class="mu" style="padding:8px">لا نتائج</div>') + '</div>'
+          : '<button class="btn sm" type="button" data-cs-addopen="1" style="margin:4px 0 10px"' + (q.length >= 12 ? ' disabled' : '') + '>' + ic('plus', 15) + 'أضف أداة</button>') +
+        '<div style="font-weight:900;margin:12px 0 6px">الشريط السفلي (الهاتف)</div>' +
+        '<div class="mu" style="font-size:12px;margin-bottom:6px">الرئيسية ثابتة أوّلاً · اختر ما تفتحه الخانات وزرّ ＋ الأوسط</div>' +
+        ['الخانة ١', 'الخانة ٢', 'الخانة ٣'].map(function (l, i) {
+          return '<label style="display:block;font-size:12px;font-weight:800;margin-top:6px">' + l + '</label><select class="in" data-cs-slot="' + i + '">' + opt(cfg.s[i], false) + '</select>';
+        }).join('') +
+        '<label style="display:block;font-size:12px;font-weight:800;margin-top:6px">زرّ ＋ الأوسط</label><select class="in" data-cs-plus="1">' + opt(cfg.plus, true) + '</select>' +
+        '<div class="row" style="gap:8px;margin-top:14px"><button class="btn p sp" type="button" data-cs-save="1" style="justify-content:center;padding:12px">حفظ</button>' +
+        '<button class="btn" type="button" data-cs-reset="1" style="padding:12px">الافتراضي</button></div>';
+      var qi = b.querySelector('#cs-q'); if (qi) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+    }
+    ov.addEventListener('input', function (e) { if (e.target.id === 'cs-q') { term = e.target.value.trim(); draw(); } });
+    ov.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.hasAttribute('data-cs-slot')) cfg.s[+t.getAttribute('data-cs-slot')] = t.value;
+      if (t.hasAttribute('data-cs-plus')) cfg.plus = t.value;
+    });
+    ov.addEventListener('click', function (e) {
+      var t = e.target.closest('button'); if (!t || t.disabled) return;
+      var i;
+      if (t.hasAttribute('data-cs-up')) { i = +t.getAttribute('data-cs-up'); q.splice(i - 1, 0, q.splice(i, 1)[0]); draw(); }
+      else if (t.hasAttribute('data-cs-dn')) { i = +t.getAttribute('data-cs-dn'); q.splice(i + 1, 0, q.splice(i, 1)[0]); draw(); }
+      else if (t.hasAttribute('data-cs-rm')) { q.splice(+t.getAttribute('data-cs-rm'), 1); draw(); }
+      else if (t.hasAttribute('data-cs-addopen')) { adding = true; draw(); }
+      else if (t.hasAttribute('data-cs-add')) { if (q.length < 12) q.push(t.getAttribute('data-cs-add')); adding = q.length < 12; term = ''; draw(); }
+      else if (t.hasAttribute('data-cs-save')) {
+        setQuick(q); lsSet(LS_PILL + r, JSON.stringify(cfg));
+        st.editing = false; closeTop(false); render(); toast('حُفظ التخصيص');
+      } else if (t.hasAttribute('data-cs-reset')) {
+        lsSet(LS_Q + r, 'null'); lsSet(LS_PILL + r, 'null');
+        st.editing = false; closeTop(false); render(); toast('عادت الرئيسية إلى الافتراضي');
+      }
+    });
+    draw();
+    return ov;
+  }
+
   function qaSheet() {
     var ov = modal('<div class="row" style="margin-bottom:8px"><b style="font-size:16px" class="sp">إجراءات سريعة</b><button class="ib" type="button" data-x aria-label="إغلاق">' + ic('close', 16) + '</button></div>' +
       '<div class="qa qa-g">' + QA.map(function (a) { var lk = !canOpen(a.f); return '<a class="qai' + (a.hot ? ' hot' : '') + (lk ? ' locked' : '') + '" href="' + esc(a.f + (a.q || '')) + '" data-tool="' + esc(a.f) + '"' + (lk ? ' data-locked="1"' : '') + '><i>' + ic(a.ic, 22) + '</i><span>' + esc(a.t) + '</span></a>'; }).join('') + '</div>');
@@ -919,8 +1003,8 @@ a.btn{text-decoration:none}
     else if (k === 'refresh') { try { GMTRefresh.soft(); } catch (_) { location.reload(); } }
     else if (k === 'logout') logout();
     else if (k === 'reload') load();
-    else if (k === 'edit') { st.editing = !st.editing; render(); }
-    else if (k === 'resetq') { lsSet(LS_Q + (A() ? 'admin' : 'staff'), 'null'); st.editing = false; toast('عادت أدواتك إلى الافتراضي'); render(); }
+    else if (k === 'edit') { custSheet(); }
+    else if (k === 'resetq') { lsSet(LS_Q + (A() ? 'admin' : 'staff'), 'null'); lsSet(LS_PILL + (A() ? 'admin' : 'staff'), 'null'); st.editing = false; toast('عادت أدواتك إلى الافتراضي'); render(); }
     else if (k === 'news') { if (window.GMTWhatsNew && GMTWhatsNew.open) GMTWhatsNew.open(); else location.href = 'شو_الجديد.html'; }
   });
   document.addEventListener('submit', function (e) {
@@ -970,7 +1054,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261017c"></script>
-<script src="gmt-whatsnew.js?v=20261018a"></script>
+<script src="gmt-whatsnew.js?v=20261018b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>

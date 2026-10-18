@@ -8,7 +8,11 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m)
     { name: 'سامر مسارات', phone: '0933111333', product: 'كاميرا', qty: 1, price: 100, status: 'shipped', branch: 'حلب', address: 'حمص', shipping_company: 'مسارات', tracking_number: '555123' }]);
   const { browser, pg, errs } = await H.open('orders.html', { init: H.ADMIN_INIT + ' window.__opened=[]; window.open=(u)=>{window.__opened.push(u);return {};}; Object.defineProperty(navigator,"userAgent",{get:()=>"Mozilla/5.0 (Linux; Android 13) Chrome/120"}); window.__shared=0; navigator.share=async()=>{window.__shared++}; navigator.canShare=()=>true;', w: 390, h: 900, wait: 5000 });
   // ١) الزرّ العلوي موجود
-  ok(await pg.evaluate(() => !![...document.querySelectorAll('button')].find(b => /openVerifyShipment/.test(b.getAttribute('onclick') || '') && /التحقق من الشحنة/.test(b.textContent))), 'زرّ «التحقق من الشحنة» العلوي موجود');
+  ok(await pg.evaluate(() => !![...document.querySelectorAll('button')].find(b => /openMuftiSite/.test(b.getAttribute('onclick') || '') && /التحقق من الشحنة/.test(b.textContent))), 'زرّ «التحقق من الشحنة» العلوي موجود');
+  // (18 ت1 · لقطة المالك ٣) الزرّ العلوي يفتح موقع المفتي مباشرةً — بلا نافذة ولا قائمة أوردرات
+  await pg.evaluate(() => { const b = [...document.querySelectorAll('button')].find(b => /openMuftiSite/.test(b.getAttribute('onclick') || '')); b.click(); });
+  const top = await pg.evaluate(() => ({ u: window.__opened.slice(-1)[0] || '', modal: !document.getElementById('verifyShipModal').classList.contains('hidden') }));
+  ok(/^https?:\/\//.test(top.u) && !top.modal, 'الزرّ العلوي فتح رابط المفتي مباشرةً بلا نافذة: ' + top.u);
   // ٢) نافذة التحقق: بحث بالرقم
   await pg.evaluate(() => openVerifyShipment());
   await pg.fill('#vs-num', '1966820');
