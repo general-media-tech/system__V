@@ -30,7 +30,8 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
     for (const [nm, id] of [['قيد التجهيز', P], ['في الطريق', S], ['مكتمل', C], ['متجر', ST]]) {
       const g = await geo(id);
       ok(g && g.prim && g.more, nm + ': الزرّ الرئيسي و⋮ موجودان ' + JSON.stringify(g));
-      ok(g && g.prim && g.prim.h <= 48 && g.prim.w >= (w < 700 ? 150 : 150), nm + ': الزرّ الرئيسي واضح بسطرٍ واحد ' + (g && JSON.stringify(g.prim)));
+      /* المعيار: سطرٌ واحد (ارتفاع ≤ 48) وعرضٌ يتّسع لنصّه — على 360 (أضيق هاتف شائع) 140px تكفي «📦 إرسال للشحن» بسطرٍ واحد */
+      ok(g && g.prim && g.prim.h <= 48 && g.prim.w >= (w < 380 ? 140 : 150), nm + ': الزرّ الرئيسي واضح بسطرٍ واحد ' + (g && JSON.stringify(g.prim)));
       ok(g && g.over === 0 && !g.hs, nm + ': لا شيء مقصوص ولا طفح أفقي');
       ok(g && g.mw >= 36, nm + ': زرّ ⋮ بحجم قابل للّمس (' + (g && g.mw) + 'px)');
     }
@@ -62,7 +63,7 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
     await pg.evaluate((id) => openLinkTransferInvoice(id), S);
     await pg.waitForSelector('#trf-link-ov [data-i]');
     const lst = await pg.evaluate(() => [...document.querySelectorAll('#trf-link-ov [data-i]')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-    ok(lst.length === 2 && /TRF-20261005-0930/.test(lst[0]) && /دمشق/.test(lst[0]) && /قيد الانتظار/.test(lst[0]), 'المنتقي يعرض فواتير النقل الموجودة (الأحدث أولاً): ' + lst.join(' || '));
+    ok(lst.length === 2 && /TRF-20261005-0930/.test(lst[0]) && /دمشق/.test(lst[0]) && /في الطريق/.test(lst[0]),'المنتقي يعرض فواتير النقل الموجودة (الأحدث أولاً): ' + lst.join(' || '));
     await pg.fill('#trf-link-ov [data-q]', '1010'); await pg.waitForTimeout(600);
     const lst2 = await pg.evaluate(() => [...document.querySelectorAll('#trf-link-ov [data-i]')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
     ok(lst2.length === 1 && /TRF-20261001-1010/.test(lst2[0]), 'البحث برقم الفاتورة: ' + lst2.join(' || '));

@@ -1943,7 +1943,8 @@ async function saveTransferInvoice(id, no) {
     if (r.ok && !r.queued) lsMapSet(TRFLINK_LS, id, null); else lsMapSet(TRFLINK_LS, id, { no: no || '' });
     return r;
 }
-const TRF_STATUS_AR = { pending: 'قيد الانتظار', cancelled: 'ملغاة', needs_settlement: 'تحتاج تسوية', receiving: 'قيد الاستلام', completed: 'مكتملة', received: 'مكتملة' };
+/* أسماء حالات فاتورة النقل كما تعرضها شاشة النقل في لوحة نقاط البيع نفسها (لا تسمياتٌ جديدة) */
+const TRF_STATUS_AR = { pending: 'في الطريق', needs_settlement: 'تحتاج تسوية', receiving: 'جارٍ الاستلام', reopening: 'جارٍ التعديل', received: 'مستلمة', completed: 'مستلمة', cancelled: 'ملغاة' };
 async function loadTransferInvoices(q) {
     const f = q ? '&transfer_number=ilike.' + encodeURIComponent('*' + q + '*') : '';
     const r = await fetch(`${SUPA_URL}/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=40${f}`, { headers: SB_HEADERS });
@@ -1952,7 +1953,10 @@ async function loadTransferInvoices(q) {
         throw new Error('HTTP ' + r.status);
     }
     const rows = await r.json();
-    return { rows: Array.isArray(rows) ? rows : [] };
+    /* الأحدث أوّلاً — نرتّب هنا أيضاً فلا نعتمد على ترتيب الخادم وحده */
+    const list = Array.isArray(rows) ? rows.slice() : [];
+    list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return { rows: list };
 }
 window.openLinkTransferInvoice = (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
@@ -3167,10 +3171,11 @@ document.getElementById('formEdit').onsubmit = async (e) => {
                 if (m.type !== 'ok') _secWarn.push(m.t);
             }
         }
-        /* تاريخ استلام الزبون: إن حُوِّلت الحالة إلى «بانتظار التحصيل» من هنا (وليس من زرّ تأكيد الاستلام) نسجّله أيضاً */
-        if (data.status === 'delivered' && _prevOrder.status !== 'delivered') {
-            const r = await saveDeliveredAt(id);
-            if (!r.ok) _secWarn.push('⚠️ تاريخ استلام الزبون حُفظ على هذا الجهاز فقط — ' + (_colMissing(r.error) ? 'عمود القاعدة غير موجود بعد (SQL)' : r.error));
+        /* تاريخ استلام الزبون: إن حُوِّلت الحالة إلى «بانتظار التحصيل» من هنا (وليس من زرّ تأكيد الاستلام) نسجّله أيضاً —
+           فقط إن جاءت من مرحلةٍ قبل الاستلام؛ الرجوع من «تم التحصيل» لا يعني استلاماً جديداً فلا نكتب فوق تاريخه الحقيقي */
+        if ((data.status === 'delivered' || data.status === 'completed') && ['pending', 'prepared', 'shipped'].indexOf(_prevOrder.status) !== -1) {
+            const w = deliveredSaveWarn(await saveDeliveredAt(id));
+            if (w) _secWarn.push(w);
         }
 
         if (_phoneChanged && _wasNotified) {
@@ -3483,7 +3488,7 @@ window.executeConfirm = async () => {
         await sbUpdateOrThrow(id, patch);                // صفٌّ لم يتغيّر في القاعدة ⇒ لا «تم تحديث الحالة» كاذبة
         if (idx >= 0) Object.assign(orders[idx], patch);
         /* (وثيقة الطلبات §٥) تاريخ استلام الزبون — لرسالة شركة الشحن. حفظٌ ثانويّ منفصل: لا يكسر التأكيد إن غاب العمود */
-        if (type === 'delivered') saveDeliveredAt(id).then(r => { if (!r.ok && !_colMissing(r.error)) showToast('⚠️ تاريخ استلام الزبون لم يُحفظ في القاعدة: ' + r.error, 'err'); }).catch(() => {});
+        if (type === 'delivered') saveDeliveredAt(id).then(r => { const w = deliveredSaveWarn(r); if (w) showToast(w, 'err'); }).catch(() => {});
 
         /* 🔧 (2026-09-26 · طلب المالك) «تم الاستلام» و«تم التحصيل» **بلا صورة** —
            الصورة تُرسَل مع *الطلب الجديد* وحده. (withPhoto=false) */
@@ -5194,6 +5199,16 @@ async function saveDeliveredAt(id) {
     if (r.ok && !r.queued) lsMapSet(DELIVERED_LS, id, null); else lsMapSet(DELIVERED_LS, id, { at: at });
     return r;
 }
+/* تنبيهٌ صادق إن لم يصل تاريخ الاستلام القاعدة. غياب العمود (SQL لم يُشغَّل) يُقال **مرّةً في الجلسة** لا مع كل تأكيد استلام؛
+   أيّ خطأٍ آخر يُقال كلّ مرّة. في طابور الاتصال ⇒ لا تنبيه (يُرسَل مع الحالة نفسها عند عودة الإنترنت). */
+function deliveredSaveWarn(r) {
+    if (!r || r.ok) return '';
+    if (_colMissing(r.error)) {
+        try { if (sessionStorage.getItem('gmt_delivered_col_warned')) return ''; sessionStorage.setItem('gmt_delivered_col_warned', '1'); } catch (_) {}
+        return '⚠️ تاريخ استلام الزبون يُحفَظ على هذا الجهاز فقط — عمود القاعدة غير موجود بعد (SQL)';
+    }
+    return '⚠️ تاريخ استلام الزبون لم يُحفظ في القاعدة (حُفظ على هذا الجهاز): ' + r.error;
+}
 /* نصّ تاريخ الاستلام للرسائل: التاريخ إن وُجد، وإلا الحقيقة (لم يُستلم بعد / غير مسجَّل) */
 function receiptDateText(o) {
     const d = deliveredAtOf(o);
@@ -5250,7 +5265,8 @@ window.contactSendingBranch = (id) => {
     if (o.shipping_company && o.shipping_company !== MUFTI_CO) { showToast('مراسلة الفرع المُرسِل خاصّة بشحنات المفتي', 'err'); return; }
     const key = shipFromOf(o), of = muftiOfficeByKey(key);
     if (!of || !of.phone) {
-        GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «🔎 التحقق من الشحنة» ثم راسله.',
+        /* (١٨ ت١) زرّ «🔎 التحقق من الشحنة» بالأعلى صار يفتح موقع المفتي مباشرةً — فتغيير الفرع صار من «تعديل» الأوردر أو من ⋮ */
+        GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «تعديل» الأوردر (خانة الفرع المُرسِل) أو من ⋮ ← «بحث برقم التتبّع»، ثم راسله.',
             { title: 'لا رقم للفرع المُرسِل', icon: 'danger' });
         return;
     }
