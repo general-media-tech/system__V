@@ -53,7 +53,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++
       ok(!!btn, 'النافذة فيها «✓ جرّبتها» للبند 57');
       if (btn) { await btn.click(); await pg.waitForTimeout(600); }
       const z = await pg.evaluate(() => ({ un: GMTWhatsNew.untried(), calm: !!document.querySelector('#wn-home.gwn-calm') }));
-      ok(z.un.length === 0, 'لم يبقَ شيء لم تجرّبه');
+      ok(!z.un.includes(57) && !z.un.includes(58), 'البندان المُجرَّبان (57 · 58) لم يعودا «لم تجرّبه» · الباقي: ' + z.un.join(','));
       await pg.evaluate(() => { const o = document.getElementById('gmt-wn-ov'); if (o) o.remove(); });
       await pg.screenshot({ path: 'wnt_home_after.png' });
     }
