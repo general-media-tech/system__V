@@ -2490,6 +2490,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <!-- Toolbar -->
   <div id="toolbar">
     <span style="font-size:13px;color:var(--text3);" id="result-count">يتم التحميل...</span>
+    <!-- ⚡ (١٨ ت١ · وثيقة الطلبات §7) «يبدو في الاول فارغا»: الجرد يُرسم فوراً من نسخة الجهاز وهذا يقول إنّه يتحدّث — ليس زرّاً -->
+    <span id="inv-refresh-ind" role="status" aria-live="polite" style="display:none"></span>
     <div class="sep"></div>
 
     <div class="view-toggle" id="view-toggle">
@@ -4122,17 +4124,25 @@ async function _waitForGMTCache(maxMs){
   SUPABASE_KEY = key;
   BUCKET = bucket;
 
-  showLoading('جارٍ الاتصال بقاعدة البيانات...');
+  /* ⚡ (١٨ ت١ · وثيقة الطلبات §7) «اول ما بفتحه كثير عم بيطول ليفتح البيانات عم يبدو في الاول فارغا»:
+     الطلبات المستقلّة تنطلق معاً (كانت خمسة متتابعة قبل أوّل صفّ)، وآخر نسخة على هذا الجهاز تُرسم فوراً أثناءها.
+     ستارة «جارٍ الاتصال» لا تظهر إلا لجهازٍ لا نسخة عليه بعد. التفاصيل عند invPaintFromCache. */
+  const _testP  = sbFetch('GET', '/rest/v1/products?select=count&limit=1');
+  const _setupP = setupTables();
+  const _colsP  = loadColumns();
+  invPrefetchProducts();
+  const _painted = await invPaintFromCache();
+  if (!_painted) showLoading('جارٍ الاتصال بقاعدة البيانات...');
 
   try {
     // Test connection
-    const resp = await sbFetch('GET', '/rest/v1/products?select=count&limit=1');
+    const resp = await _testP;
     if (resp.error && !resp.error.includes('does not exist') && !resp.error.includes('relation')) {
       throw new Error(resp.error);
     }
 
     // Create tables if needed
-    await setupTables();
+    await _setupP;
 
     document.getElementById('supabase-config').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -4147,7 +4157,7 @@ async function _waitForGMTCache(maxMs){
     if (window.supabase && typeof window.supabase.createClient === 'function') {
       sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
-    await loadColumns();
+    await _colsP;
     await loadProducts();
     loadStockTransfers().catch(() => {});
     startStockTransferPolling();
@@ -4168,6 +4178,13 @@ async function _waitForGMTCache(maxMs){
 
   } catch(e) {
     hideLoading();
+    /* ⚡ (١٨ ت١) على الشاشة نسخةُ الجهاز ⇒ تبقى ظاهرة (كانت شاشة الإعداد تحلّ محلّها فلا يرى شيئاً بلا إنترنت) */
+    if (_painted) {
+      invRefreshInd('offline');
+      gmtShowOfflineBadge(true);
+      showToast('🔌 تعذّر الاتصال — معروضةٌ آخر نسخة على هذا الجهاز (للعرض فقط): ' + e.message, 'warning');
+      return;
+    }
     showCfgError('فشل الاتصال: ' + e.message);
   }
 }
@@ -4271,24 +4288,12 @@ async function loadColumns() {
       // الأعمدة الثابتة دائماً تُبنى من الكود (صورة، اسم، باركود، سعر)
       const fixedCols = columns.filter(c => c.fixed);
       // كل العواميد الديناميكية تأتي من Supabase
-      const dbCols = data.map((d, idx) => ({
-        id: d.id,
-        dbId: d.id,
-        displayName: d.display_name,
-        key: d.key_name,
-        type: d.col_type,
-        fixed: false,
-        showTable: d.show_table !== false,
-        showForm: d.show_form !== false,
-        includeInTotal: d.include_in_total === true,
-        required: d.is_required === true,
-        icon: d.icon || '🏪',
-        isBranch: d.is_branch === true,
-        options: d.options || [],
-        sortOrder: d.sort_order !== undefined ? d.sort_order : idx
-      }));
+      const dbCols = invColsFromRows(data);
       columns = [...fixedCols, ...dbCols];
       enforceTransitLock();
+      window.__invColsLive = true;
+      /* ⚡ (١٨ ت١) نسخةٌ على الجهاز كي تُرسم الفروع الصحيحة فوراً في الفتح التالي (نفس مفتاح التجهيز الأوّل gmt-warmup) */
+      try { if (window.GMTCache && GMTCache.replaceCollection) GMTCache.replaceCollection('inv_inv_columns', data).catch(() => {}); } catch (_) {}
 
     } else if (!error) {
       // inv_columns فاضي → احفظ العواميد الافتراضية للـ DB لأول مرة
@@ -4342,6 +4347,25 @@ async function loadColumns() {
     console.error('loadColumns error:', e);
   }
 }
+/* صفوف inv_columns (كما في القاعدة) ⇒ أعمدة الجرد الديناميكية — مشتركة بين التحميل من الخادم والرسم من نسخة الجهاز */
+function invColsFromRows(data) {
+  return data.map((d, idx) => ({
+    id: d.id,
+    dbId: d.id,
+    displayName: d.display_name,
+    key: d.key_name,
+    type: d.col_type,
+    fixed: false,
+    showTable: d.show_table !== false,
+    showForm: d.show_form !== false,
+    includeInTotal: d.include_in_total === true,
+    required: d.is_required === true,
+    icon: d.icon || '🏪',
+    isBranch: d.is_branch === true,
+    options: d.options || [],
+    sortOrder: d.sort_order !== undefined ? d.sort_order : idx
+  }));
+}
 
 async function saveColumnToDB(col) {
   if (isDemo) return { data: col };
@@ -4388,15 +4412,24 @@ async function loadProducts() {
 
   try {
     await _waitForGMTCache();
-    const { rows, fromCache, offline } = await GMTCache.syncCollection({
+    /* ⚡ (١٨ ت١) الجلب بدأ مع فتح الصفحة (invPrefetchProducts) بالتوازي مع الأعمدة — يُستهلك مرّةً واحدة؛ وكل نداءٍ لاحق يجلب من جديد */
+    const _pre = _invProdPrefetch; _invProdPrefetch = null;
+    const { rows, fromCache, offline } = await (_pre || GMTCache.syncCollection({
       name: 'inv_products',
       table: 'products',
       sbConfig,
       liveFields: branchKeys,         // الكميات — تُحدَّث دائماً بطلب خفيف منفصل
       imageField: 'image_url',
       idField: 'id'
-    });
-    allProducts = (rows || []).map(normalizeProduct);
+    }));
+    /* الخادم لم يردّ ولا كاش ⇒ لا نمسح نسخةَ الجهاز المعروضة بقائمةٍ فارغة */
+    if (!(offline && !fromCache && window.__invFromCache && allProducts.length)) allProducts = (rows || []).map(normalizeProduct);
+    /* ⚡ (١٨ ت١) البيانات حيّة الآن ⇒ يختفي «يتحدّث…» وتعود الكتابة. وإن بقي الردّ من الكاش (بلا اتصال) يبقى المؤشّر «نسخة الجهاز». */
+    window.__invFromCache = !!offline;
+    if (!offline) window.__invProdsLive = true;
+    invRefreshInd(offline ? 'offline' : false);
+    /* (١٨ ت١) العمليات الجماعية تنسخ المنتجات عند فتحها — إن فُتحت على نسخة الجهاز تُعاد نسختها من الحيّة */
+    try { if (!offline && typeof bulkInited !== 'undefined' && bulkInited && typeof bulkInit === 'function') bulkInit(); } catch (_) {}
     /* فهرس فواتير الشراء — في الخلفية بلا حجب التحميل. حين يصل تُعاد الرسمة
        فيختفي زرّ «عرض فاتورة الشراء» عن القطع غير المربوطة (بلاغ المالك). */
     loadPurchaseBarcodeIndex().then(ix => { if (ix) { try { renderAll(); } catch (_) {} } }).catch(() => {});
@@ -4406,6 +4439,9 @@ async function loadProducts() {
     } else if (offline) {
       showToast('🔌 وضع عدم الاتصال — يعمل النظام بالبيانات المحفوظة محلياً', 'warning');
     }
+    /* ⚡ (١٨ ت١) المنتجات تُرسم حال وصولها — كانت تنتظر طلب العروض أيضاً قبل أوّل رسمة. الشارات تُضاف بعده برسمةٍ ثانية. */
+    try { renderAll(); } catch (_) {}
+    _offersSig = JSON.stringify(allOffers);
 
     // جلب العروض الفعّالة من gmt_offers (الجدول الموحّد) — العرض المفرد يرتبط بمنتج
     // عبر product_id، والباقة عبر products JSON. نحترم تاريخ الانتهاء ends_at.
@@ -4428,12 +4464,15 @@ async function loadProducts() {
       });
     } catch(_) { allOffers = []; }
   } catch(e) {
-    allProducts = [];
+    if (!(window.__invFromCache && allProducts.length)) allProducts = [];   /* (١٨ ت١) لا تُمسح نسخة الجهاز المعروضة */
     showToast('خطأ في التحميل: ' + e.message, 'error');
   }
 
-  renderAll();
+  /* (١٨ ت١) رُسمت المنتجات أعلاه؛ الرسمة الثانية فقط إن تغيّرت العروض (٢٠٠٠ منتج × ثلاثة عروض رسمٌ ليس مجانياً) */
+  if (_offersSig === null || _offersSig !== JSON.stringify(allOffers)) renderAll();
+  _offersSig = null;
 }
+let _offersSig = null;
 
 // مؤشر بسيط لوضع عدم الاتصال
 function gmtShowOfflineBadge(offline) {
@@ -4450,6 +4489,96 @@ function gmtShowOfflineBadge(offline) {
     el.remove();
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   ⚡ فتح الجرد فوراً — طلب المالك (وثيقة الطلبات §7، ١٨ ت١):
+   «في نظام الجرد المخزون اول ما بفتحه كثير عم بيطول ليفتح البيانات عم يبدو في الاول فارغا هذا الشيء كثير خط».
+   السبب المقيس (tests/harness/t_inv1_fast.js · ٢٠٠٠ منتج · شبكة بطيئة): لا صفّ قبل خمسة طلبات **متتابعة** — فحص الاتصال ·
+   فحص الجداول · الأعمدة · كل المنتجات · العروض — والصفحة فارغة طوالها. ونسخة المنتجات على الجهاز (IndexedDB:
+   gmt_cache_db › col_inv_products، يكتبها كل تحميل ويكتبها التجهيز الأوّل gmt-warmup) كانت تُقرأ **فقط** عند انقطاع الشبكة.
+   الآن:
+     ① تُرسم آخر نسخة على هذا الجهاز (المنتجات + الفروع) فوراً، ومعها في شريط الأدوات «⟳ يتحدّث…».
+     ② الطلبات المستقلّة تنطلق معاً، والمنتجات تُرسم حال وصولها (العروض بعدها).
+     ③ حين يصل الخادم تحلّ بياناته محلّ النسخة ويختفي المؤشّر. جهازٌ بلا نسخة: كما كان (ستارة التحميل).
+   🛡️ ما دامت المعروضة نسخةَ الجهاز تُمنع الكتابة على المنتجات برسالة (invStaleBlock) — لا يُحفظ اسمٌ أو سعرٌ قديم
+      فوق أحدث منه. فواتير النقل والتسوية تقرأ رصيد المصدر من الخادم لحظة الحفظ أصلاً.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+let _invProdPrefetch = null;
+window.__invFromCache = false;
+function invPrefetchProducts() {
+  if (isDemo || !window.GMTCache || !GMTCache.syncCollection) return;
+  try {
+    /* المفاتيح نفسها التي تُحفظ بعد نجاح الاتصال (getMainSBConfig يقرؤها لاحقاً) — قبل حفظها نمرّرها مباشرةً */
+    _invProdPrefetch = GMTCache.syncCollection({ name: 'inv_products', table: 'products', sbConfig: { url: SUPABASE_URL, key: SUPABASE_KEY }, imageField: 'image_url', idField: 'id' });
+    _invProdPrefetch.catch(() => {});
+  } catch (_) { _invProdPrefetch = null; }
+}
+/* قراءة مفتاحٍ من مخزن GMTCache مباشرةً بلا شبكة (GMTCache.syncCollection لا يقرأ الكاش إلا بعد فشل الشبكة).
+   لا تُنشئ القاعدة إن لم تكن موجودة، ولا تحدّد رقم نسخة كي لا تصطدم بترقيةٍ من gmt-core. */
+function _invIdbPeek(key) {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    try {
+      if (typeof indexedDB === 'undefined') return fin(null);
+      const rq = indexedDB.open('gmt_cache_db');
+      rq.onupgradeneeded = e => { try { e.target.transaction.abort(); } catch (_) {} };   // جهازٌ بلا نسخة ⇒ لا نُنشئ شيئاً
+      rq.onsuccess = () => {
+        const db = rq.result;
+        try {
+          if (!db.objectStoreNames.contains('gmt_collections')) { db.close(); return fin(null); }
+          const g = db.transaction('gmt_collections', 'readonly').objectStore('gmt_collections').get(key);
+          g.onsuccess = () => { const v = g.result; try { db.close(); } catch (_) {} fin(v || null); };
+          g.onerror = () => { try { db.close(); } catch (_) {} fin(null); };
+        } catch (_) { try { db.close(); } catch (e2) {} fin(null); }
+      };
+      rq.onerror = () => fin(null);
+      rq.onblocked = () => fin(null);
+      setTimeout(() => fin(null), 2500);   // لا ننتظر نسخة الجهاز أكثر ممّا تستغرقه الشبكة
+    } catch (_) { fin(null); }
+  });
+}
+async function invPaintFromCache() {
+  if (isDemo) return false;
+  try {
+    const [pc, cc] = await Promise.all([_invIdbPeek('col_inv_products'), _invIdbPeek('col_inv_inv_columns')]);
+    const prows = pc && Array.isArray(pc.rows) ? pc.rows : null;
+    const crows = cc && Array.isArray(cc.rows) ? cc.rows : null;
+    if (!prows || !prows.length || !crows || !crows.length) return false;   // لا نسخة كاملة ⇒ السلوك القديم
+    if (window.__invProdsLive) return false;                                  // سبقنا الخادم
+    if (!window.__invColsLive) {
+      const ord = r => (r.sort_order === null || r.sort_order === undefined) ? 1e9 : Number(r.sort_order);
+      columns = [...columns.filter(c => c.fixed), ...invColsFromRows(crows.slice().sort((a, b) => ord(a) - ord(b)))];
+      enforceTransitLock();
+    }
+    allProducts = prows.map(normalizeProduct);
+    window.__invFromCache = true;
+    document.getElementById('supabase-config').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    invRefreshInd(true, pc.savedAt);
+    renderAll();
+    return true;
+  } catch (e) { try { console.warn('[الجرد] تعذّر الرسم من نسخة الجهاز:', e && e.message); } catch (_) {} return false; }
+}
+/* مؤشّر شريط الأدوات: true = «يتحدّث…» · 'offline' = لا اتصال (نسخة الجهاز) · false = مخفيّ */
+function invRefreshInd(state, savedAt) {
+  const el = document.getElementById('inv-refresh-ind'); if (!el) return;
+  if (!state) { el.style.display = 'none'; return; }
+  let age = '';
+  try { if (savedAt) { const m = Math.max(0, Math.round((Date.now() - Number(savedAt)) / 60000)); age = m < 1 ? 'قبل لحظات' : (m < 60 ? 'قبل ' + m + ' د' : (m < 1440 ? 'قبل ' + Math.round(m / 60) + ' س' : 'قبل ' + Math.round(m / 1440) + ' يوم')); } } catch (_) {}
+  el.dataset.state = state === 'offline' ? 'offline' : 'sync';
+  el.innerHTML = state === 'offline'
+    ? '⚠ لا اتصال — نسخة الجهاز'
+    : '<span class="inv-ri-spin" aria-hidden="true">⟳</span> يتحدّث…';
+  el.title = (state === 'offline' ? 'تعذّر الاتصال بالخادم — المعروض آخر نسخة محفوظة على هذا الجهاز (للعرض فقط)' : 'المعروض آخر نسخة محفوظة على هذا الجهاز' + (age ? ' (' + age + ')' : '') + ' — تُستبدل بالبيانات الحيّة حال وصولها') ;
+  el.style.display = 'inline-flex';
+}
+/* يُرجع true (ويُبلغ) إن كانت المعروضة نسخة الجهاز — يُنادى في أوّل كل حفظٍ على المنتجات */
+function invStaleBlock(what) {
+  if (!window.__invFromCache) return false;
+  showToast('⏳ لحظة — الجرد يتحدّث من الخادم (المعروض الآن نسخة هذا الجهاز). ' + (what ? '«' + what + '» ' : '') + 'أعد المحاولة بعد ثوانٍ كي لا تُحفظ قيمةٌ قديمة.', 'warning');
+  return true;
+}
+window.invStaleBlock = invStaleBlock;
 
 
 
