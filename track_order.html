@@ -116,7 +116,7 @@ window.GMT_PUBLIC = 1;</script>
              • فوقها: فيديوك (الدواليب تدور، دخان العادم، الصوت الحقيقي) — يظهر بتلاشٍ ناعم لحظة يبدأ فعلاً.
              • زرّ السمّاعة **داخل المشهد** (لا زرّ عائم) — يشغّل صوت الفيديو الحقيقي ويكتمه.
              • من ضبط جهازه على «تقليل الحركة»: الصورة ثابتة فقط — لا فيديو ولا تحميل له. */
-        .van-wrap { width: 100%; max-width: 340px; margin: 0 auto; }
+        .van-wrap { width: 100%; max-width: 340px; margin-inline: auto; }   /* (لا margin:0 — كانت تلغي mt-6 فيلتصق المشهد بالنصّ) */
         .van-wrap--welcome { max-width: 360px; }
         @media (min-width: 768px) { .van-wrap--welcome { max-width: 440px; } }
         /* شاشة الترحيب ثابتة على كامل الشاشة بلا تمرير: على هاتفٍ أفقيّ (ارتفاعٌ قصير) نصغّر المشهد بنسبته كي لا يُقصّ النصّ تحته */
@@ -231,7 +231,7 @@ window.GMT_PUBLIC = 1;</script>
                  بدل الرسم (التفاصيل في تعليق «الشاحنة الجديدة» في الأنماط أعلاه وفي GMTVan أدناه). -->
             <div class="van-stage" id="van-welcome">
                 <div class="road-wrapper"><div class="road-line"></div></div>
-                <img class="van-still" src="img/delivery/van.jpg" width="900" height="376" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
+                <img class="van-still" src="img/delivery/van.jpg" width="900" height="374" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
                 <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
                        data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
                        disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
@@ -291,7 +291,7 @@ window.GMT_PUBLIC = 1;</script>
         <div class="van-wrap mt-6">
             <div class="van-stage" id="van-verify">
                 <div class="road-wrapper"><div class="road-line"></div></div>
-                <img class="van-still" src="img/delivery/van.jpg" width="900" height="376" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
+                <img class="van-still" src="img/delivery/van.jpg" width="900" height="374" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
                 <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
                        data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
                        disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
@@ -896,7 +896,12 @@ window.trkContactBranch = trkContactBranch;
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
    يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
-(function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('truck');}catch(e){}}
+/* (18 ت1) مع فيديو الشاحنة صار للصفحة صوتها الحقيقي (زرّ السمّاعة داخل المشهد) — فالصوت الاصطناعي (زمّور + دواليب) لا يُشغَّل
+   فوقه وإلا تداخل الصوتان عند أوّل لمسة. يبقى كما هو لمن فعّل «تقليل الحركة» (صورة ثابتة بلا فيديو ولا صوت حقيقي). */
+(function(){var done=false;function go(){if(done)return;done=true;try{
+  var calm=false;try{calm=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(_){}
+  if(window.GMTVan&&!calm)return;
+  window.GMTSound&&GMTSound.play('truck');}catch(e){}}
 /* (11 ت١) فوراً مع ظهور الشاحنة (لا بعد ٤٢٠مس): يُشغَّل في الحال إن سمح المتصفّح، وإلا عند أوّل لمسة (قيدٌ من المتصفّح لا نملك تجاوزه) */
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();})();</script>
 </body>
