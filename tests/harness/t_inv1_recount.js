@@ -73,6 +73,8 @@ const autoPrompt = (pg, answer) => pg.evaluate(a => { window.__prompts = []; win
   ok(rowB && /المطلوب 7/.test(rowB.txt) && /المتاح الآن 0/.test(rowB.txt) && /الناقص 7/.test(rowB.txt) && /TRF-1/.test(rowB.br) && /TRF-2/.test(rowB.br), 'S1 صنف B: فاتورتان تسحبان من رصيدٍ واحد ⇒ المطلوب 7 (4+3) · المتاح 0 · الناقص 7');
   ok(rowD && /المطلوب 2/.test(rowD.txt) && /المتاح الآن 1/.test(rowD.txt) && /الناقص 1/.test(rowD.txt) && rep.heads.some(h => /من «درعا»/.test(h)) && rep.heads.some(h => /من «حلب»/.test(h)), 'S1 صنف D من فرعٍ مصدرٍ آخر (درعا): المطلوب 2 · المتاح 1 · الناقص 1 — والأصناف مجمّعةٌ تحت عنوان كل فرعٍ مصدر');
   ok(rep.raiseBtn && rep.availBtn && /3/.test(rep.sum) && /11/.test(rep.sum), 'S1 زرّا التنفيذ ظاهران والملخّص: 3 أصناف · 11 قطعة ناقصة');
+  const g1 = await pg.evaluate(() => { const b = document.getElementById('st-settle-body'); const r = document.getElementById('st-recount-box').getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, over: b.scrollWidth > b.clientWidth + 1, boxIn: r.left >= 0 && r.right <= innerWidth + 1 }; });
+  ok(g1.sw <= g1.cw + 1 && !g1.over && g1.boxIn, 'S1 1366: لا طفح أفقي وصندوق العدّ ضمن الشاشة');
   let d = await dump();
   ok(stateStr(d) === 'A:2/0 B:0/0 C:10/0 D:0/1 E:6/0', 'S1 العدّ وحده لا يلمس المخزون (قراءة فقط): ' + stateStr(d));
   await pg.screenshot({ path: `${OUT}/inv1_recount_1366.png` });

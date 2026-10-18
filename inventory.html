@@ -11775,13 +11775,15 @@ async function stRecountApply(mode){
       return { r, by, target: r.have+by };
     });
     const raises=plan.filter(p=>p.by>0);
+    const planItems=plan.reduce((q,p)=>q+p.r.items.length,0), planInv=new Set();
+    plan.forEach(p=>p.r.items.forEach(x=>planInv.add(String(x.t.id))));
     let reason='';
     if(raises.length){
       stRcProgress('');
       if(!(await GMTRole.requireAdmin('رفع مخزون المصدر لإكمال فواتير النقل المعلّقة'))) return {ok:false,cancelled:true};
       const lines=raises.slice(0,8).map(p=>'• '+p.r.name+': +'+p.by+' (من '+p.r.have+' إلى '+p.target+')').join('\n');
       const why=await GMTAsk.prompt('سيُرفع مخزون المصدر لـ '+raises.length+' صنف (+'+raises.reduce((q,p)=>q+p.by,0)+' قطعة):\n'+lines
-        +(raises.length>8?('\n… و'+(raises.length-8)+' غيرها'):'')+'\n\nثم يُكمل '+rep.items+' بنداً في '+rep.invoices+' فاتورة.\nاكتب السبب (إجباري — يُسجَّل باسمك):',
+        +(raises.length>8?('\n… و'+(raises.length-8)+' غيرها'):'')+'\n\nثم يُكمل '+planItems+' بنداً في '+planInv.size+' فاتورة.\nاكتب السبب (إجباري — يُسجَّل باسمك):',
         {title:'ارفع الناقص وأكمل الكل',value:'إكمال فواتير النقل المعلّقة بعد إعادة العدّ',okText:'ارفع وأكمل'});
       if(why===null) return {ok:false,cancelled:true};
       if(!String(why).trim()){ showToast('السبب إجباري','error'); return {ok:false}; }
@@ -11789,7 +11791,7 @@ async function stRecountApply(mode){
     }
     const res={ mode, full:0, partial:0, failed:[], raisedTotal:0, raisedRows:0, logFail:0, hdrFail:[], warn:0, at:Date.now() };
     const touched=new Map();     // transferId -> {t, names:[], n}
-    const total=plan.reduce((q,p)=>q+p.r.items.length,0); let done=0;
+    const total=planItems; let done=0;
     const tick=n=>{ done+=(n||1); stRcProgress('جارٍ التنفيذ… '+Math.min(done,total)+' / '+total); };
     stRcProgress('جارٍ التنفيذ… 0 / '+total);
     const runGroup=async (p)=>{
@@ -13429,7 +13431,7 @@ async function _saveStockTransferInner() {
         'تعذّر خصم ' + failedItems.length + ' صنف (كاملاً أو جزئياً):\n• ' + failedItems.slice(0, 12).join('\n• ') + (failedItems.length > 12 ? '\n… و' + (failedItems.length - 12) + ' غيرها' : '') +
         '\n\nالسبب كما ردّت القاعدة:\n' + _why +
         (_mk.length ? '\n\n⚠️ تعذّر وسم ' + _mk.length + ' بنداً في القاعدة (أعمدة ناقصة) — الفاتورة تحمل أسماءها في ملاحظتها وتُسوّى منها.' : '') +
-        '\n\nالفاتورة موسومة بنقطة حمراء «تحتاج تسوية». اضغط «سوِّ الناقص الآن» لإعادة إدخال الأصناف الناقصة حتى تصل بأعدادك.';
+        '\n\nالفاتورة موسومة بنقطة حمراء «تحتاج تسوية». اضغط «سوِّ الناقص الآن»: يُعاد عدّ الكميات ويُعرض ما ينقص في المصدر لترفعه وتُكمل الفاتورة بأعدادك بضغطة أو اثنتين.';
       showToast('⚠️ نقل ناقص — ' + failedItems.length + ' صنف لم يُخصم كاملاً · الفاتورة تحتاج تسوية', 'error');
     } else {
       showToast('✅ تم حفظ فاتورة النقل بنجاح', 'success');
@@ -13522,7 +13524,7 @@ async function openStockTransferDetail(id) {
                       padding:9px 11px;font-size:11.5px;font-weight:800;margin-bottom:10px;line-height:1.75;">
             <span class="st-dot"></span>هذه الفاتورة <b>تحتاج تسوية</b>: ${openViews.length ? ('<b>' + openViews.length + ' صنف</b> لم يُخصم كاملاً من الفرع المُصدِّر') : 'تعذّر خصم بعض الأصناف من الفرع المُصدِّر'}.<br>
             ${escHtml(t.note || '')}<br>
-            <button type="button" onclick="closeModal('st-detail-modal');stOpenSettlements('${t.id}')" style="margin-top:7px;background:#b91c1c;color:#fff;border:0;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit">🧾 سوِّ الناقص (${openViews.length || '?'}) — أعِد إدخال الأصناف</button><br>
+            <button type="button" onclick="closeModal('st-detail-modal');stOpenSettlements('${t.id}')" style="margin-top:7px;background:#b91c1c;color:#fff;border:0;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit">🔄 أعِد العدّ وسوِّ الناقص (${openViews.length || '?'})</button><br>
             <span style="font-weight:700">تأكيد الاستلام هنا يُدخِل المنقول فعلاً فقط للفرع المستلم — الأصناف الناقصة تبقى معلّقة للتسوية.</span>
           </div>` : ''}
         <div style="font-weight:800;font-size:13px;margin-bottom:4px;">✅ تأكيد الاستلام</div>
