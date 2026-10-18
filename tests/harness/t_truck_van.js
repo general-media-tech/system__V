@@ -2,7 +2,9 @@
 // صوتها الحقيقي بلا زرّ، الترحيب أطول وينتهي بدخانٍ يملأ الشاشة ثمّ تنكشف الصفحة من خلفه، والشاحنة نفسها في شاشة التحقق.
 const H = require('./h.js');
 let pass = 0, fail = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fail++; };
-const PLAYS = 'window.__plays=[]; HTMLMediaElement.prototype.play=function(){window.__plays.push(this.src||""); return Promise.resolve();}; HTMLMediaElement.prototype.pause=function(){window.__paused=(window.__paused||0)+1;};';
+/* (١٨ ت1 · برومبت «انطلاق السيارة») الترحيب صار فيديو الانطلاق (gmt-launch.js · يختبره t_launch_intro.js)، وهذه الشاحنة المفرّغة
+   صارت **احتياطه** حين لا يقدر المتصفّح على الفيديو — فنُعطّل الفيديو هنا (canPlayType = '') لنختبر الاحتياط كما كان. */
+const PLAYS = 'HTMLMediaElement.prototype.canPlayType=function(){return ""}; window.__plays=[]; HTMLMediaElement.prototype.play=function(){window.__plays.push(this.src||""); return Promise.resolve();}; HTMLMediaElement.prototype.pause=function(){window.__paused=(window.__paused||0)+1;};';
 (async () => {
   await H.seed();
   await H.call('/rest/v1/gmt_orders', [{ name: 'شاهين در ه', phone: '0933250051', product: 'كاميرا', qty: 1, price: 1004, status: 'shipped', branch: 'حلب', address: 'دمشق', shipping_company: 'المفتي', tracking_number: '202470', shipped_at: '2026-10-16T08:40:58Z' }]);

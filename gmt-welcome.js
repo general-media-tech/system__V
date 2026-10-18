@@ -102,7 +102,9 @@
     var vid = host.querySelector('video');
     if (vid) {
       vid.muted = true; vid.defaultMuted = true;
-      vid.src = DIR + 'intro-loop.mp4?v=' + VER;
+      var ext = 'mp4';
+      try { if (!vid.canPlayType('video/mp4; codecs="avc1.640028"') && vid.canPlayType('video/webm; codecs="vp9"')) ext = 'webm'; } catch (_) {}
+      vid.src = DIR + 'intro-loop.' + ext + '?v=' + VER;
       try { var pp = vid.play(); if (pp && pp.catch) pp.catch(function () {}); } catch (_) {}
       vid.addEventListener('error', function () { vid.removeAttribute('src'); }, { once: true });
     }

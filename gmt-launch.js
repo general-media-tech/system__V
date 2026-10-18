@@ -51,8 +51,17 @@
 
   function reduced() { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } }
   function variant() { return global.innerHeight > global.innerWidth * 1.05 ? 'p' : 'l'; }
+  /* MP4 (H.264) لكروم وسفاري وأغلب الهواتف، وWebM (VP9) لمتصفّحاتٍ بلا H.264 (Chromium مفتوح المصدر وبعض فايرفوكس لينكس) */
+  var EXT = (function () {
+    try {
+      var v = doc.createElement('video'); if (!v.canPlayType) return '';
+      if (v.canPlayType('video/mp4; codecs="avc1.640028"')) return 'mp4';
+      if (v.canPlayType('video/webm; codecs="vp9"')) return 'webm';
+    } catch (_) {}
+    return '';
+  })();
   function file(kind, v) {
-    var n = kind === 'video' ? 'launch-' + v + '.mp4' : kind === 'cover' ? 'launch-cover-' + v + '.webp' : 'launch-map-' + v + '.png';
+    var n = kind === 'video' ? 'launch-' + v + '.' + EXT : kind === 'cover' ? 'launch-cover-' + v + '.webp' : 'launch-map-' + v + '.png';
     return DIR + n + '?v=' + VER;
   }
   function soundOn() {
@@ -62,9 +71,7 @@
   }
   function emit(name, detail) { try { doc.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch (_) {} }
   function fileOf(u) { try { return decodeURIComponent(new URL(u, location.href).pathname.split('/').pop() || ''); } catch (_) { return ''; } }
-  function canVideo() {
-    try { var v = doc.createElement('video'); return !!(v.canPlayType && v.canPlayType('video/mp4; codecs="avc1.640028"')); } catch (_) { return false; }
-  }
+  function canVideo() { return !!EXT; }
 
   /* ── الأنماط ───────────────────────────────────────────────────────────── */
   function css() {
