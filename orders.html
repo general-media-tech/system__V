@@ -378,6 +378,10 @@ window.GMT_INTERNAL = 1;</script>
                     class="w-full mt-2 bg-gray-900 hover:bg-black text-white py-2.5 rounded-lg text-xs font-black transition-colors">
                 ⬇️ عبّي الحقول تلقائياً
             </button>
+            <label class="flex items-center gap-2 mt-2 text-[11px] font-black text-gray-600 cursor-pointer select-none">
+                <input type="checkbox" id="sp-prod-on" class="w-4 h-4 accent-gray-900" onchange="spToggleProducts(this)">
+                🔎 تعرّف تلقائي على المنتجات <span class="font-bold text-gray-400">(أطفئه ليبقى نصّ المنتجات لك تحدّده)</span>
+            </label>
             <div id="sp-result" class="text-[10.5px] font-bold mt-2 leading-relaxed"></div>
             <!-- (2026-09-26 · طلب المالك) رموز سهلة على الصفّ الأوّل من أي كيبورد،
                  يحفظها الموظّف بسرعة، وتتقدّم على كل تحليل: قرار الإنسان لا يُراجَع. -->
@@ -2273,6 +2277,7 @@ window.phoneSpan = phoneSpan;
 function nameWorthy(line) {
     const t = String(line || '').trim();
     if (!t || /[0-9٠-٩]/.test(t)) return false;
+    if (SP_STRONG.test(t) || spIsFiller(t)) return false;      // (§١٠) «مرحبا بدي اطلب» ليست اسماً
     const letters = (t.match(/\p{L}/gu) || []).length;
     if (letters < 2 || letters > 60) return false;
     const r = detectRegion(t);
@@ -2321,6 +2326,9 @@ function smartPasteName(el, raw) {
 
     let s = picked.line.replace(/[^\p{L}\s.'’\-]/gu, ' ').replace(/\s+/g, ' ').trim();
     if (s.length > 60) s = s.slice(0, 60).trim();       // أطول اسم معقول
+    /* (§١٠) «الاسم لازم يكون أربع كلمات أو أقل» — الزائد يبقى لك لتحدّده */
+    const _lim = spLimitName(s);
+    if (_lim.extra) { s = _lim.name; try { _spExtra.push(_lim.extra); } catch (_) {} }
     el.value = s;
 
     /* لا نخترع اسماً: إن لم يوجد سطرٌ صالح نترك الحقل فارغاً وننبّه. */
@@ -2429,6 +2437,7 @@ function smartPasteAddr(el, raw) {
    ══════════════════════════════════════════════════════════════════════════ */
 let _spConsumed = [];
 window._spConsumed = _spConsumed;
+let _spExtra = [];          // (§١٠) ما لم يُفهم من العلامات أو زاد عن ٤ كلمات في الاسم — يُترك للموظّف
 
 /* يبني قائمة ما استُهلك من نصّ الرسالة (تُستدعى من smartPasteAddr أيضاً) */
 function consumedAddressParts(raw, formCompany) {
@@ -2604,6 +2613,104 @@ window.applyProdSuggestion = (idx, jsonName) => {
    يملأ: الاسم · الهاتف · العنوان (والشركة) · صفوف المنتجات.
    لا يدهس حقلاً عبّأه الموظّف يدوياً إلا إن كان فارغاً.
    ══════════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════════
+   🏷️ اللصق الذكي v2 — (وثيقة الطلبات §١٠ · 17 ت1)  طلبك:
+   «كلمة الاسم ما ياخذها · كلمة الرقم ما ياخذها ويعرف إنّه بعدها رقم · العنوان كمان
+    نفس الشيء · الأشياء اللي ما فهمها يتركها لي إمّا أنسخها أو أحدّد شو هي ·
+    تشغيل تعرّف تلقائي للمنتجات أو إطفاؤه · الاسم أربع كلمات أو أقل».
+   ① الكلمات-العلامات (الاسم · الرقم/الهاتف/الموبايل · العنوان/المحافظة/المدينة/المنطقة ·
+      ملاحظة · الطلب/المنتج) تُعرَف **علاماتٍ** تُعلن نوع ما بعدها، ولا تُؤخذ قيمةً أبداً.
+   ② الأرقام العربية (٠-٩) تُقرأ كأرقام — كان «٠٩٤٤…» لا يُعرَف هاتفاً.
+   ③ التحيّات وكلام الطلب («مرحبا بدي اطلب» · «السلام عليكم») لا تُؤخذ اسماً.
+   ④ الاسم ≤ ٤ كلمات («عبد الرحمن» و«أبو علي» كلمةٌ واحدة بمعناها)، والزائد يبقى لك.
+   ⑤ ما لم يُفهم يُعرض وحده (لا يُعاد ما فُهم) لتنسخه أو تحدّده: منتج · اسم · رقم · عنوان · ملاحظة.
+   بلا أيّ أداة خارجية.
+   ══════════════════════════════════════════════════════════════════════════ */
+function spDigits(s) {
+    return String(s || '').replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0)).replace(/\u0640/g, '');
+}
+const SP_LABELS = {
+    phone: ['رقم الهاتف', 'رقم الموبايل', 'رقم الجوال', 'رقم التلفون', 'رقم التليفون', 'رقم الواتس', 'رقم الواتساب', 'رقم التواصل', 'رقم الزبون', 'رقم المستلم',
+            'الهاتف', 'هاتف', 'الموبايل', 'موبايل', 'الجوال', 'جوال', 'التلفون', 'تلفون', 'التليفون', 'تليفون', 'الواتساب', 'واتساب', 'الواتس', 'واتس', 'الرقم', 'رقم',
+            'phone', 'mobile', 'tel', 'whatsapp'],
+    name:  ['اسم الزبون', 'اسم المستلم', 'اسم العميل', 'الاسم الكامل', 'الاسم الثلاثي', 'الاسم', 'اسم', 'المستلم', 'name'],
+    addr:  ['العنوان بالتفصيل', 'العنوان', 'عنوان', 'المحافظة', 'محافظة', 'المدينة', 'مدينة', 'الوجهة', 'المنطقة', 'منطقة', 'مكان التسليم', 'مكان الاستلام', 'address', 'city'],
+    note:  ['ملاحظات', 'ملاحظة', 'notes', 'note'],
+    prod:  ['الطلبية', 'الطلب', 'المنتجات', 'المنتج', 'الصنف', 'الاصناف', 'الأصناف', 'order', 'product']
+};
+const SP_KIND = {};
+const _spVar = w => w.replace(/[اأإآ]/g, '[اأإآ]').replace(/[ةه](?=$|\s)/g, '[ةه]').replace(/[يى](?=$|\s)/g, '[يى]').replace(/ /g, '\\s+');
+const SP_LBL_RE = (() => {
+    const all = [];
+    Object.keys(SP_LABELS).forEach(k => SP_LABELS[k].forEach(w => { all.push([w, k]); }));
+    all.sort((a, b) => b[0].length - a[0].length);
+    all.forEach(([w, k]) => { SP_KIND[spKey(w)] = k; });
+    return new RegExp('(^|[^\\p{L}])(' + all.map(([w]) => _spVar(w)).join('|') + ')(?=$|[^\\p{L}])([ \\t]*[:：=\\-–—]?[ \\t]*)', 'giu');
+})();
+function spKey(w) { return String(w || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة(?=$|\s)/g, 'ه').replace(/ى(?=$|\s)/g, 'ي').replace(/\s+/g, ' ').trim(); }
+/* كلمات التحيّة والطلب: سطرٌ كلّه منها ⇒ تحيّة تُتجاهل · وأيّ سطرٍ فيه إحدى «القويّة» لا يصلح اسماً */
+const SP_FILLER = new Set(['مرحبا', 'مرحباً', 'مرحبتين', 'هلا', 'اهلا', 'أهلا', 'اهلين', 'أهلين', 'السلام', 'عليكم', 'وعليكم', 'سلام', 'صباح', 'مساء', 'الخير', 'النور',
+    'لو', 'سمحت', 'لوسمحت', 'من', 'فضلك', 'بدي', 'بدّي', 'اريد', 'أريد', 'حابب', 'حاب', 'اطلب', 'أطلب', 'طلب', 'طلبية', 'شكرا', 'شكراً', 'يعطيك', 'العافية', 'الله',
+    'تحياتي', 'ممكن', 'يا', 'ريت', 'ياريت', 'الو', 'ألو', 'اخي', 'أخي', 'استاذ', 'أستاذ', 'عندكم', 'منكم', 'لكم', 'رح', 'ابعتولي', 'بعتولي', 'ارسلولي', 'أرسلولي', 'هيك', 'و']);
+const SP_STRONG = /(^|\s)(مرحب|السلام|سلام عليكم|بدي|بدّي|اطلب|أطلب|اريد|أريد|لو ?سمحت|شكر|يعطيك|ممكن|عندكم|ابعتولي|بعتولي|ارسلولي|أرسلولي)/;
+function spIsFiller(line) {
+    const w = String(line || '').replace(/[^\p{L}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+    return w.length > 0 && w.every(x => SP_FILLER.has(x));
+}
+/* الاسم بوحدات المعنى: «عبد/أبو/أم/ابن/بن/آل» تلتصق بما بعدها فتُحسب كلمةً واحدة */
+function spNameUnits(s) {
+    const w = String(s || '').split(/\s+/).filter(Boolean), u = [];
+    for (let i = 0; i < w.length; i++) {
+        if (/^(عبد|عبدال|أبو|ابو|أبي|ابي|أم|ام|ابن|بن|بنت|آل|ذو)$/.test(w[i]) && i + 1 < w.length) { u.push(w[i] + ' ' + w[i + 1]); i++; }
+        else u.push(w[i]);
+    }
+    return u;
+}
+function spCleanName(v) { return String(v || '').replace(/[0-9٠-٩]/g, ' ').replace(/[^\p{L}\s.'’\-]/gu, ' ').replace(/\s+/g, ' ').trim(); }
+function spLimitName(v) {
+    const u = spNameUnits(spCleanName(v));
+    return { name: u.slice(0, 4).join(' '), extra: u.slice(4).join(' ') };
+}
+/* يقرأ العلامات: سطرٌ يبدأ بعلامة يُقسَّم عند كل علامة فيه · وفي غيره تُقبل العلامة المتبوعة بـ«:» فقط.
+   علامةٌ في وسط السطر بلا «:» تُقبل فقط إن تبعها ما يناسبها (رقم هاتف بعد «رقم» — فـ«شارع رقم 5» ليست علامة). */
+function spParseLabels(text) {
+    const out = { name: '', phone: '', addr: [], note: [], prod: [], rest: [], fillers: [], extra: [], labels: 0 };
+    String(text || '').split('\n').forEach(line0 => {
+        const line = line0.trim(); if (!line) return;
+        SP_LBL_RE.lastIndex = 0;
+        const ms = [...line.matchAll(SP_LBL_RE)].map(m => ({ at: m.index + m[1].length, end: m.index + m[0].length, kind: SP_KIND[spKey(m[2])], colon: /[:：=\-–—]/.test(m[3]) }));
+        const lead = ms.length && line.slice(0, ms[0].at).replace(/[\s\-•*·▪️🔹🔸✅☑️📌]+/gu, '') === '';
+        const ok = ms.filter((m, i) => {
+            if (m.colon) return true;
+            if (!lead) return false;
+            if (i === 0) return true;
+            const after = line.slice(m.end).trim();
+            if (m.kind === 'phone') return SY_PHONE_RE.test(after.slice(0, 22));
+            return /^\p{L}/u.test(after);
+        });
+        if (!ok.length) { (spIsFiller(line) ? out.fillers : out.rest).push(line); return; }
+        const pre = line.slice(0, ok[0].at).trim();
+        if (pre && !/^[\s\-•*·]+$/.test(pre)) (spIsFiller(pre) ? out.fillers : out.rest).push(pre);
+        ok.forEach((m, i) => {
+            out.labels++;
+            const v = line.slice(m.end, i + 1 < ok.length ? ok[i + 1].at : line.length).trim().replace(/^[:：=\-–—\s]+|[\s,،.;؛]+$/g, '');
+            if (!v) return;
+            if (m.kind === 'name') { if (!out.name) out.name = v; else out.extra.push(v); }
+            else if (m.kind === 'phone') { const ph = v.match(SY_PHONE_RE); if (ph && !out.phone) out.phone = ph[0]; else out.extra.push(v); }
+            else if (m.kind === 'addr') out.addr.push(v);
+            else if (m.kind === 'note') out.note.push(v);
+            else out.prod.push(v);
+        });
+    });
+    return out;
+}
+window.spParseLabels = spParseLabels;
+/* مفتاح «تعرّف تلقائي على المنتجات» — يُحفظ على هذا الجهاز */
+const SP_PROD_LS = 'gmt_sp_products';
+function spProductsOn() { try { return localStorage.getItem(SP_PROD_LS) !== 'off'; } catch (_) { return true; } }
+window.spToggleProducts = function (el) { try { localStorage.setItem(SP_PROD_LS, el.checked ? 'on' : 'off'); } catch (_) {} };
+try { const _c = document.getElementById('sp-prod-on'); if (_c) _c.checked = spProductsOn(); } catch (_) {}
+
 window.clearSmartPaste = () => {
     const a = document.getElementById('sp-text'); if (a) a.value = '';
     const r = document.getElementById('sp-result'); if (r) r.innerHTML = '';
@@ -2612,18 +2719,29 @@ window.clearSmartPaste = () => {
 window.smartFillFromPaste = async () => {
     const ta = document.getElementById('sp-text');
     const out = document.getElementById('sp-result');
-    const raw = (ta && ta.value || '').trim();
-    if (!raw) { if (out) out.innerHTML = '<span class="text-red-600">الصق رسالة الزبون أوّلاً.</span>'; return; }
+    const raw0 = spDigits(ta && ta.value || '').trim();
+    if (!raw0) { if (out) out.innerHTML = '<span class="text-red-600">الصق رسالة الزبون أوّلاً.</span>'; return; }
 
     const lines = [];
     const push = (ok, txt) => lines.push(
         `<div class="${ok ? 'text-emerald-700' : 'text-amber-700'}">${ok ? '✅' : '⚠️'} ${escH(txt)}</div>`);
 
+    /* (§١٠) العلامات والتحيّات أوّلاً — ثمّ يعمل كلّ حقلٍ على نصيبه فقط */
+    const LB = spParseLabels(raw0);
+    const raw = LB.rest.join('\n');                       // ما لا علامة عليه (بلا تحيّات)
+    _spExtra = LB.extra.slice();
+    if (LB.fillers.length) push(true, 'تجاهلنا التحية: «' + LB.fillers.join(' · ').slice(0, 60) + '»');
+
     /* ── الاسم ── */
     const nameEl = document.getElementById('in-name');
     if (nameEl) {
         const before = nameEl.value.trim();
-        smartPasteName(nameEl, raw);
+        if (LB.name) {
+            const nm = spLimitName(LB.name);
+            nameEl.value = nm.name;
+            _spNameLine = LB.name; window._spNameLine = _spNameLine;
+            if (nm.extra) { _spExtra.push(nm.extra); push(false, 'الاسم أطول من ٤ كلمات — أخذنا «' + nm.name + '» والباقي «' + nm.extra + '» تحت لتحدّده'); }
+        } else smartPasteName(nameEl, raw);
         if (nameEl.value.trim()) push(true, 'الاسم: ' + nameEl.value.trim());
         else { nameEl.value = before; push(false, 'ما لقينا سطراً يصلح اسماً — اكتبه يدوياً'); }
     }
@@ -2631,7 +2749,7 @@ window.smartFillFromPaste = async () => {
     /* ── الهاتف ── */
     const phoneEl = document.getElementById('in-phone');
     if (phoneEl) {
-        const m = raw.match(SY_PHONE_RE);
+        const m = LB.phone ? LB.phone.match(SY_PHONE_RE) : raw0.match(SY_PHONE_RE);
         if (m) {
             let d = m[0].replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
             if (d[0] !== '0') d = '0' + d;
@@ -2641,10 +2759,10 @@ window.smartFillFromPaste = async () => {
         } else push(false, 'ما لقينا رقم هاتف في الرسالة');
     }
 
-    /* ── العنوان + الشركة ── */
+    /* ── العنوان + الشركة ── (ما بعد «العنوان/المحافظة/المدينة…» إن وُجد، وإلا البحث في النصّ) */
     const addrEl = document.getElementById('in-addr');
     if (addrEl) {
-        smartPasteAddr(addrEl, raw);
+        smartPasteAddr(addrEl, LB.addr.length ? LB.addr.join(' ') : raw);
         const co = (document.getElementById('in-company') || {}).value || '';
         if (addrEl.value.includes('—')) push(true, 'العنوان: ' + addrEl.value + (co ? ' · شركة ' + co : ''));
         else push(false, 'العنوان غير مؤكّد: ' + (addrEl.value || '—') + ' — راجعه');
@@ -2655,9 +2773,17 @@ window.smartFillFromPaste = async () => {
         كلمة 100$ أيضاً ما عرفها».
        يُنتزع **قبل** المنتجات ويُحذف من نصّها: لو بقي «100$» في سطر المنتجات
        لطابقه المحرّك بـ«YM S100» — وهو ما حدث فعلاً. */
+    /* ── الملاحظات المعلَّمة ── */
+    if (LB.note.length) {
+        const n = document.getElementById('in-notes');
+        if (n) { n.value = (n.value.trim() ? n.value.trim() + '\n' : '') + LB.note.join('\n'); push(true, 'ملاحظة: ' + LB.note.join(' · ').slice(0, 60)); }
+    }
+    /* نصّ المنتجات: ما بعد «الطلب/المنتج» + ما لا علامة عليه — **بلا رقم الهاتف**: كان كلّ ما قبل الرقم يُرمى
+       فتضيع منتجاتٌ كُتبت قبله؛ الآن يُحذف الهاتف وسطرُ الاسم والعنوانُ المستهلك فقط، وما بقي يُطابَق أو يبقى لك. */
+    const prodText = LB.prod.concat(LB.rest).join('\n').replace(new RegExp(SY_PHONE_RE.source, 'g'), ' ');
     let _priceInfo = { amount: null, currency: '' };
     try {
-        if (window.GMTSuggest && GMTSuggest.price) _priceInfo = GMTSuggest.price(raw);
+        if (window.GMTSuggest && GMTSuggest.price) _priceInfo = GMTSuggest.price(prodText);
         if (_priceInfo.amount !== null) {
             const pEl = document.getElementById('in-price');
             if (pEl) {
@@ -2675,9 +2801,24 @@ window.smartFillFromPaste = async () => {
         }
     } catch (_) {}
 
-    /* ── المنتجات ── */
-    const res = await fillProductsFromText(_priceInfo.amount !== null ? _priceInfo.clean : raw);
-    res.lines.forEach(l => lines.push(l));
+    /* ── المنتجات ── (مفتاح «تعرّف تلقائي على المنتجات») */
+    const _pt = _priceInfo.amount !== null ? _priceInfo.clean : prodText;
+    if (spProductsOn()) {
+        const res = await fillProductsFromText(_pt);
+        res.lines.forEach(l => lines.push(l));
+    } else {
+        const cont0 = document.getElementById('add-items-container');
+        if (cont0) { cont0.innerHTML = ''; addItemCounter = 0; }
+        const tmp = { value: '' }; smartPasteProduct(tmp, _pt);
+        _spUnknownText = tmp.value.trim();
+        lines.push('<div class="text-gray-500">⏸ التعرّف التلقائي على المنتجات مُطفأ — ' + (_spUnknownText ? 'النصّ تحت، حدّده بنفسك:' : 'ما بقي نصّ.') + '</div>');
+        if (_spUnknownText) lines.push('<div id="sp-unknown-host"></div>');
+    }
+    /* ما لم يُفهم من العلامات (اسمٌ زائد · رقمٌ ثانٍ…) يُضاف لما يُترك لك */
+    if (_spExtra.length) {
+        _spUnknownText = (_spUnknownText ? _spUnknownText + '\n' : '') + _spExtra.join('\n');
+        if (!lines.some(l => /sp-unknown-host/.test(l))) lines.push('<div id="sp-unknown-host"></div>');
+    }
 
     if (out) out.innerHTML = lines.join('');
     /* اللوحة تُبنى **بعد** إدراج التقرير: قبله لا يوجد العنصر المُستهدَف */
@@ -2718,16 +2859,10 @@ async function fillProductsFromText(raw) {
 
            الآن: كل ما في الرسالة يُسلَّم إلى اللوحة لتقسّمه وتحدّده بنفسك.
            ══════════════════════════════════════════════════════════════════ */
-        const _all = String(raw || '').trim();
-        if (_all) {
-            lines.push('<div class="text-amber-700">⚠️ ما تعرّفنا على أي منتج — '
-                     + 'النصّ كلّه تحت، قسّمه وحدّد كل سطر:</div>');
-            _spUnknownText = _all;
-            lines.push('<div id="sp-unknown-host"></div>');
-        } else {
-            lines.push('<div class="text-amber-700">⚠️ ما لقينا منتجات في الرسالة</div>');
-            _spUnknownText = '';
-        }
+        /* (§١٠ · 19 ت1) «الأشياء اللي ما فهمها يتركها لي»: نصّ المنتجات صار يأتي بلا الهاتف، فإن فرغ بعد حذف
+           الاسم والعنوان فقد فُهمت الرسالة كلّها — لا نُعيدها كاملةً كأنّها مجهولة (كان يكرّر الاسم والرقم والعنوان). */
+        lines.push('<div class="text-gray-500">ℹ️ ما في منتجات في الرسالة — فُهمت كلّها (اسم · رقم · عنوان)</div>');
+        _spUnknownText = '';
         try { addItemRow('add'); } catch (_) {}
         return { lines };
     }
@@ -5697,6 +5832,8 @@ function splitUnknown() {
           '<button type="button" data-k="prod"  class="px-2 py-0.5 rounded-lg bg-gray-900 text-white border border-gray-900 font-black text-[11px]">📦 منتج</button>' +
           '<button type="button" data-k="note"  class="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 font-black text-[11px]">📝 ملاحظة</button>' +
           '<button type="button" data-k="addr"  class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 font-black text-[11px]">📍 عنوان</button>' +
+          '<button type="button" data-k="name"  class="px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-100 font-black text-[11px]">👤 اسم</button>' +
+          '<button type="button" data-k="phone" class="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-black text-[11px]">📞 رقم</button>' +
           '<button type="button" data-k="skip"  class="px-2 py-0.5 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 font-black text-[11px]">✕ تجاهل</button>' +
           '<span data-k="msg" class="text-[11px] font-black"></span>' +
         '</div>' +
@@ -5721,6 +5858,18 @@ function splitUnknown() {
                     } catch (_) {}
                     addItemRow('add', q.clean || text, q.qty, { state: 'choose', raw: text, cands });
                     msg.textContent = '✅ أُضيف منتجاً'; msg.style.color = '#047857';
+                } else if (kind === 'name') {
+                    const n = document.getElementById('in-name');
+                    const nm = spLimitName(text);
+                    if (n) n.value = nm.name;
+                    msg.textContent = nm.name ? '✅ صار الاسم' : '⚠️ لا حروف'; msg.style.color = nm.name ? '#6D28D9' : '#B45309';
+                } else if (kind === 'phone') {
+                    const ph = spDigits(text).match(SY_PHONE_RE), pe = document.getElementById('in-phone');
+                    if (ph && pe) {
+                        let d = ph[0].replace(/[^0-9]/g, '').replace(/^(00963|963)/, ''); if (d[0] !== '0') d = '0' + d;
+                        pe.value = d; try { validatePhone(pe); } catch (_) {}
+                        msg.textContent = '✅ صار الرقم'; msg.style.color = '#B45309';
+                    } else { msg.textContent = '⚠️ ليس رقم هاتف'; msg.style.color = '#B91C1C'; return; }
                 } else if (kind === 'note') {
                     const n = document.getElementById('in-notes');
                     if (n) n.value = n.value.trim() ? (n.value.trim() + '\n' + text) : text;
@@ -8385,7 +8534,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261019a"></script>
+<script src="gmt-whatsnew.js?v=20261019b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
