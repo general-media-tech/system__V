@@ -4145,6 +4145,7 @@ async function _waitForGMTCache(maxMs){
   const _setupP = setupTables();
   const _colsP  = loadColumns();
   invPrefetchProducts();
+  [_testP, _setupP, _colsP].forEach(pr => { try { pr.catch(() => {}); } catch (_) {} });   // رفضُها يُعالَج عند انتظارها أدناه — لا «unhandled rejection» أثناء رسم النسخة
   const _painted = await invPaintFromCache();
   if (!_painted) showLoading('جارٍ الاتصال بقاعدة البيانات...');
 
@@ -4492,6 +4493,7 @@ async function loadProducts() {
     } catch(_) { allOffers = []; }
   } catch(e) {
     if (!(window.__invFromCache && allProducts.length)) allProducts = [];   /* (١٨ ت١) لا تُمسح نسخة الجهاز المعروضة */
+    if (window.__invFromCache) invRefreshInd('offline');                       /* ولا يبقى «يتحدّث…» دائراً بلا نهاية: التحديث فشل */
     showToast('خطأ في التحميل: ' + e.message, 'error');
   }
 
@@ -11768,6 +11770,7 @@ async function stRecountApply(mode){
   if(_stFillBusy){ showToast('⏳ عمليةٌ جارية — لحظة','info'); return {ok:false,busy:true}; }
   _stFillBusy=true;
   const only=window.__stOnly;
+  let _alertBak=null, alertsHeld=0;      // نوافذ تنبيه سجلّ العمليات تُحجب أثناء الدفعة وتُلخَّص في البيان
   document.querySelectorAll('#st-recount-box .st-rc-acts button').forEach(b=>{ b.disabled=true; });
   try{
     /* ما كتبه المالك في خانات «ارفع بمقدار» — يُقرأ قبل أيّ انتظار */
@@ -11805,6 +11808,18 @@ async function stRecountApply(mode){
     const total=planItems; let done=0;
     const tick=n=>{ done+=(n||1); stRcProgress('جارٍ التنفيذ… '+Math.min(done,total)+' / '+total); };
     stRcProgress('جارٍ التنفيذ… 0 / '+total);
+    /* ⚡ رؤوس الفواتير المعنيّة: قراءةٌ واحدة لحظة التنفيذ (كان كل بندٍ يقرأ رأس فاتورته من جديد). البند نفسه يُقرأ قبل خصمه ويُكتب مشروطاً بقيمته. */
+    const hdr=new Map();
+    {
+      const tids=[...planInv], chunks=[];
+      for(let k=0;k<tids.length;k+=40) chunks.push(tids.slice(k,k+40));
+      const parts=await Promise.all(chunks.map(c=>sbFetch('GET','/rest/v1/branch_stock_transfers?id=in.('+c.join(',')+')&select=*')));
+      parts.forEach(r=>{ if(r.error) throw new Error('تعذّر قراءة الفواتير: '+r.error); stRows(r).forEach(t=>hdr.set(String(t.id),t)); });
+    }
+    const logPs=[];              // وعود سطور سجلّ العمليات (تُفحَص في النهاية)
+    /* سجلّ العمليات الفاشل ينبّه مرّةً واحدة في بيان النتيجة لا نافذةً لكل بند */
+    _alertBak=window.alert;
+    window.alert=function(){ alertsHeld++; };
     const runGroup=async (p)=>{
       const r=p.r;
       /* ① رفع المصدر إلى «الهدف» — الرصيد يُقرأ من جديد قبل الرفع كي لا يرفع جهازان معاً مرّتين */
@@ -11825,18 +11840,16 @@ async function stRecountApply(mode){
       /* ② إكمال بنود هذا الصنف — متتابعةً لأنها تتشارك رصيداً واحداً */
       for(const x of r.items){
         try{
-          const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+x.t.id+'&select=*');
-          if(rt.error) throw new Error('تعذّر قراءة الفاتورة: '+rt.error);
-          const t2=stRows(rt)[0]; if(!t2) throw new Error('الفاتورة غير موجودة');
+          const t2=hdr.get(String(x.t.id)); if(!t2) throw new Error('الفاتورة غير موجودة');
           if(t2.status==='cancelled') throw new Error('الفاتورة مُلغاة');
           if(t2.status==='receiving'||t2.status==='reopening') throw new Error('الفاتورة قيد الاستلام/التعديل الآن');
           const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+x.it.id+'&select=*');
           if(ri.error) throw new Error('تعذّر قراءة البند: '+ri.error);
           const it2=stRows(ri)[0]; if(!it2) throw new Error('البند غير موجود');
-          const c=await stFillCore(t2, it2, { reasonExtra:'إعادة العدّ' });
+          const c=await stFillCore(t2, it2, { reasonExtra:'إعادة العدّ', deferLog:true });
           if(!c.noop){
             if(c.remaining>0) res.partial++; else res.full++;
-            if(!c.logged) res.logFail++;
+            if(c.logP) logPs.push(c.logP);
             if(c.warn) res.warn++;
             let tt=touched.get(String(t2.id)); if(!tt){ tt={t:t2,names:[],n:0,take:0}; touched.set(String(t2.id),tt); }
             tt.n++; tt.take+=c.take; if(c.v.legacy) tt.names.push(c.v.name);
@@ -11845,14 +11858,14 @@ async function stRecountApply(mode){
         tick(1);
       }
     };
-    /* أربعة مسارات متوازية بين **منتجات مختلفة** (صفّ المنتج الواحد وعمود «في الطريق» فيه لا يُكتبان من مسارين معاً) */
+    /* ستة مسارات متوازية بين **منتجات مختلفة** (صفّ المنتج الواحد وعمود «في الطريق» فيه لا يُكتبان من مسارين معاً) */
     const byProd=new Map();
     plan.forEach(p=>{ const k=String(p.r.product_id); if(!byProd.has(k)) byProd.set(k,[]); byProd.get(k).push(p); });
     const queue=[...byProd.values()];
-    await Promise.all(Array.from({length:Math.min(4,queue.length)}, async()=>{ while(queue.length){ const grp=queue.shift(); for(const p of grp) await runGroup(p); } }));
-    /* رأس كل فاتورة مرّةً واحدة + سطرٌ في «سجلّ حركة الفاتورة» */
+    await Promise.all(Array.from({length:Math.min(6,queue.length)}, async()=>{ while(queue.length){ const grp=queue.shift(); for(const p of grp) await runGroup(p); } }));
+    /* رأس كل فاتورة مرّةً واحدة (على التوازي بين الفواتير) + سطرٌ في «سجلّ حركة الفاتورة» */
     stRcProgress('جارٍ تحديث حالة الفواتير…');
-    for(const [tid,tt] of touched){
+    await Promise.all([...touched].map(async ([tid,tt])=>{
       const no=tt.t.transfer_number||('#'+tid);
       try{ await stRecomputeTransfer(tid, tt.names); }catch(e){ res.hdrFail.push(no+' ('+(e.message||e)+')'); }
       try{
@@ -11862,11 +11875,16 @@ async function stRecountApply(mode){
           if(lg===false) res.logFail++;
         }
       }catch(_){ res.logFail++; }
-    }
+    }));
+    (await Promise.all(logPs)).forEach(ok=>{ if(ok===false) res.logFail++; });
+    window.alert=_alertBak; _alertBak=null;
+    if(alertsHeld && !res.logFail) res.logFail=alertsHeld;
     window.__stRecountResult=res;
     showToast(res.failed.length?('⚠ أُكمل '+res.full+' بنداً وتعذّر '+res.failed.length):('✅ أُكمل '+(res.full+res.partial)+' بنداً'+(res.raisedTotal?(' · رُفع المصدر '+res.raisedTotal):'')), res.failed.length?'warning':'success');
-    await loadProducts().catch(()=>{}); await loadStockTransfers().catch(()=>{});
+    /* ⚡ إعادة قراءة الجرد والفواتير تجري مع فحص اللوحة لا قبله (كانت متتابعة: ثلاثة انتظاراتٍ خلف بعضها) */
+    const _refresh=Promise.all([loadProducts().catch(()=>{}), loadStockTransfers().catch(()=>{})]);
     await stOpenSettlements(only);
+    await _refresh;
     return Object.assign({ok:true}, res);
   }catch(e){
     stRcProgress('');
@@ -11874,6 +11892,7 @@ async function stRecountApply(mode){
     try{ await stOpenSettlements(only); }catch(_){}
     return {ok:false,error:e.message||String(e)};
   }finally{
+    if(_alertBak){ window.alert=_alertBak; _alertBak=null; }
     _stFillBusy=false;
     document.querySelectorAll('#st-recount-box .st-rc-acts button').forEach(b=>{ b.disabled=false; });
   }
@@ -12044,10 +12063,14 @@ async function stFillCore(t, it, o){
       if(pw.error) throw new Error(pw.error);
     }catch(_){ warn='in_transit'; }
   }
-  let logged=true;
-  try{ if(window.GMTAudit) logged = (await GMTAudit.log({ action:'transfer_fill', entity:'stock_transfer_items', entityId:it.id, entityName:v.name,
-    oldValue:String(v.moved), newValue:String(newMoved), reason:'فاتورة '+(t.transfer_number||t.id)+(o.raised?(' · رُفع المصدر '+o.raised):'')+(o.reasonExtra?(' · '+o.reasonExtra):'')+' · مطلوب '+v.req })) !== false; }catch(_){ logged=false; }
-  return {ok:true, take, remaining:newOpen, v, warn, logged};
+  /* سجلّ العمليات: يُنتظَر هنا (أعِد المحاولة) أو يُسلَّم وعداً للمُنادي (o.deferLog — إعادة العدّ) كي لا يقف بندٌ خلف كتابة سطر سجلّ؛ يتحقّق منه المُنادي في النهاية */
+  const logP=(async()=>{
+    try{ return window.GMTAudit ? ((await GMTAudit.log({ action:'transfer_fill', entity:'stock_transfer_items', entityId:it.id, entityName:v.name,
+      oldValue:String(v.moved), newValue:String(newMoved), reason:'فاتورة '+(t.transfer_number||t.id)+(o.raised?(' · رُفع المصدر '+o.raised):'')+(o.reasonExtra?(' · '+o.reasonExtra):'')+' · مطلوب '+v.req })) !== false) : true; }
+    catch(_){ return false; }
+  })();
+  const logged = o.deferLog ? true : await logP;
+  return {ok:true, take, remaining:newOpen, v, warn, logged, logP};
 }
 /* mode: 'avail' = انقل المتاح (ولا يتجاوزه) · 'raise' = ارفع المصدر بقدر الناقص (أدمن) ثم أكمل */
 async function stFill(itemId, transferId, mode, opts){

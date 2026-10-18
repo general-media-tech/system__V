@@ -30,6 +30,7 @@ async function newCtx(browser, w) {
     const u = route.request().url(); const i = u.indexOf('/rest/v1/');
     if (/\/functions\/v1\/gmt-tg\//.test(u)) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false,"relay":"not_configured"}' });
     if (i < 0) return route.fulfill({ status: 200, body: '{}' });
+    if (globalThis.__OFFLINE) return route.abort();     // الزيارة ٤: الخادم لا يردّ أبداً
     try {
       await new Promise(r => setTimeout(r, BASE_DELAY));
       const r = await route.fetch({ url: H.M + u.slice(i) });
@@ -46,9 +47,13 @@ async function newCtx(browser, w) {
     const t0 = performance.now();
     const mark = () => {
       if (window.__firstRowAt == null && document.querySelector('#table-body tr[data-id], #cards-grid [data-id], #cards-grid .product-card, #list-grid [data-id]')) window.__firstRowAt = performance.now() - t0;
-      if (window.__liveRowAt == null && document.body && /منتج سرعة 0 \(حيّ\)/.test(document.body.innerText || '')) window.__liveRowAt = performance.now() - t0;
+      /* textContent لا innerText: innerText يفرض تخطيط ٢٠٠٠ صفّ كل ٢٥ms فيبطئ الصفحة نفسها ويشوّه القياس */
+      if (window.__liveRowAt == null) {
+        const g = id => { const e = document.getElementById(id); return e ? e.textContent : ''; };
+        if (/منتج سرعة 0 \(حيّ\)/.test(g('table-body') + g('list-grid') + g('cards-grid'))) window.__liveRowAt = performance.now() - t0;
+      }
     };
-    const iv = setInterval(mark, 25); setTimeout(() => clearInterval(iv), 60000);
+    const iv = setInterval(mark, 50); setTimeout(() => clearInterval(iv), 60000);
   });
   return { ctx, errs };
 }
@@ -163,6 +168,29 @@ const counts = () => ({
       const kept = await p3.evaluate(() => !!document.querySelector('[data-keep="1"]'));
       ok(kept, `${w}: الخادم أعاد بيانات مطابقة ⇒ لم تُعد الصفحة رسم ${N} صفّاً بلا فرق`);
       await p3.close();
+
+      // ── الزيارة ٤: الخادم لا يردّ (بلا إنترنت) ⇒ نسخة الجهاز تبقى ظاهرة بدل شاشة الإعداد، مع مؤشّر «لا اتصال» وكتابةٌ ممنوعة ──
+      globalThis.__OFFLINE = true;
+      const v4 = await visit(ctx, errs);
+      const p4 = v4.pg;
+      await p4.waitForTimeout(4500);
+      const off = await p4.evaluate(() => ({
+        n: (window.allProducts || []).length,
+        rows: document.querySelectorAll('#table-body tr[data-id], #list-grid .sl-row').length,
+        ind: (() => { const e = document.getElementById('inv-refresh-ind'); return e ? { vis: e.offsetParent !== null, txt: e.innerText.trim(), st: e.dataset.state } : null; })(),
+        cfg: getComputedStyle(document.getElementById('supabase-config')).display,
+        app: getComputedStyle(document.getElementById('app')).display,
+        overlay: getComputedStyle(document.getElementById('loading-overlay')).display,
+        blocked: (typeof invStaleBlock === 'function') ? invStaleBlock('x') : null,
+        sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth
+      }));
+      console.log(`${w} بلا اتصال:`, JSON.stringify(off));
+      ok(off.n === N && off.rows >= N && off.app === 'block' && off.cfg === 'none' && off.overlay === 'none', `${w}: بلا اتصال بالخادم: نسخة الجهاز (${off.rows} صفّاً) تبقى ظاهرة — لا شاشة إعداد ولا صفحة فارغة ولا ستارة تحميل`);
+      ok(off.ind && off.ind.vis && off.ind.st === 'offline' && /لا اتصال/.test(off.ind.txt), `${w}: مؤشّر «لا اتصال — نسخة الجهاز» ظاهر (لا «يتحدّث…» كاذبة)`);
+      ok(off.blocked === true && off.sw <= off.cw + 1, `${w}: الكتابة على المنتجات ممنوعة ما دام المعروض نسخة الجهاز، ولا طفح أفقي`);
+      await p4.screenshot({ path: `${OUT}/inv1_fast_${w}_offline.png` });
+      await p4.close();
+      globalThis.__OFFLINE = false;
     }
     await browser.close();
   }
