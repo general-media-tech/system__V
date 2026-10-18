@@ -396,6 +396,97 @@
         return res.name;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       📱 «تذكّر هذا الجهاز» لحساب الأدمن (١٨ ت١ · وثيقة الطلبات ٩)
+       نصّك: «احفظ انت المستخدمين الادمن او لا معهم صلاحيه في كل شيء … ما في كل مره توجعني للمستخدم العادي».
+       الجذر: وضع الإدارة في sessionStorage ⇒ يُمحى بإغلاق التطبيق، فيعود الجهاز عند كل فتحٍ إلى جلسة الموظّف المحفوظة.
+
+       التصميم (بلا SQL ولا كلمة سرّ محفوظة):
+         · عند «تذكّر هذا الجهاز» نولّد **رمزاً عشوائياً** (٣٢ بايت) يبقى على الجهاز وحده (localStorage)،
+           ونكتب في gmt_settings مفتاحاً للجهاز `admin_device_<id>` فيه **بصمة** الرمز فقط (SHA-256 بالمِلح) + مِلح
+           الحساب لحظتها. لا كلمة سرّ ولا الرمز نفسه في القاعدة.
+         · عند فتح التطبيق: نقرأ مفتاح الجهاز وحساب الأدمن من القاعدة ونطابق البصمة ⇒ GMTRole.grant(الاسم).
+         · تغيير كلمة سرّ الحساب (مِلح جديد) أو حذفه أو «خروج» من الجهاز ⇒ يسقط التذكّر وحده.
+         · بلا شبكة ⇒ لا نفتح الإدارة (الفشل مغلق كبقيّة حسابات الأدمن) ولا نمحو التذكّر — يُعاد عند عودة الاتصال.
+       ═══════════════════════════════════════════════════════════════════════ */
+    var DEV_KEY = 'admin_device_';
+    var LS_DEV = 'gmt_admin_device_v1';
+    function devLocal() {
+        try { var o = JSON.parse(localStorage.getItem(LS_DEV) || 'null'); return (o && o.id && o.t && o.k) ? o : null; } catch (e) { return null; }
+    }
+    async function devHash(token) { var h = await sha('admin-device|' + token); if (!h) throw new Error('المتصفّح لا يدعم التشفير — افتح النظام عبر https'); return h; }
+    async function readDevRec(id) {
+        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
+        var r = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + id) + '&select=value', { headers: restHeaders(d), cache: 'no-store' });
+        if (!r.ok) throw new Error('تعذّر قراءة تذكّر الجهاز (HTTP ' + r.status + ')');
+        var rows = await r.json();
+        if (!Array.isArray(rows) || !rows.length || rows[0].value == null) return null;
+        try { return JSON.parse(rows[0].value); } catch (e) { return null; }
+    }
+    /* يحفظ تذكّر الجهاز للأدمن الداخل الآن — يُنادى بعد دخولٍ صحيح فقط (الجلسة مفتوحة باسمه) */
+    async function rememberDevice(name) {
+        needAdmin();
+        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
+        var k = normName(name || me);
+        if (!k || (me && normName(me) !== k)) throw new Error('لا يُحفَظ على الجهاز إلّا حساب الأدمن الداخل الآن');
+        var r = await readAdmins(), acc = null;
+        r.list.forEach(function (a) { if (a && a.k === k) acc = a; });
+        if (!acc) throw new Error('الحساب غير موجود');
+        var old = devLocal();
+        var id = toHex(global.crypto.getRandomValues(new Uint8Array(9)));
+        var token = toHex(global.crypto.getRandomValues(new Uint8Array(32)));
+        var rec = { k: acc.k, n: acc.n, s: acc.s, h: await devHash(token), at: new Date().toISOString(), ua: String((global.navigator && navigator.userAgent) || '').slice(0, 120) };
+        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
+        var w = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', {
+            method: 'POST', headers: restHeaders(d, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
+            body: JSON.stringify([{ key: DEV_KEY + id, value: JSON.stringify(rec) }])
+        });
+        if (!w.ok) throw new Error('تعذّر حفظ تذكّر الجهاز (HTTP ' + w.status + ')');
+        var back = await readDevRec(id);                         /* لا نصدّق الكتابة قبل أن نقرأها */
+        if (!back || back.h !== rec.h) throw new Error('تذكّر الجهاز لم يثبت في القاعدة — لم يُحفَظ');
+        try { localStorage.setItem(LS_DEV, JSON.stringify({ id: id, t: token, k: acc.k, n: acc.n, at: rec.at })); }
+        catch (e) { throw new Error('تخزين الجهاز محجوب — لا يمكن التذكّر'); }
+        if (old && old.id !== id) { try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + old.id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {} }
+        auditEvent('admin_device_remember', acc.n);
+        return { name: acc.n };
+    }
+    /* يفتح وضع الإدارة من التذكّر: {ok,name} · {ok:false, offline:true} (يبقى التذكّر) · {ok:false, gone:true} (سقط ومُحي) */
+    var _restoring = null;
+    function restoreDevice() {
+        if (_restoring) return _restoring;
+        _restoring = (async function () {
+            var loc = devLocal();
+            if (!loc) return { ok: false, none: true };
+            try { if (global.GMTRole && global.GMTRole.isAdmin && global.GMTRole.isAdmin() && normName(global.GMTRole.name()) === loc.k) return { ok: true, name: global.GMTRole.name() }; } catch (e) {}
+            var rec, r;
+            try { rec = await readDevRec(loc.id); r = await readAdmins(); }
+            catch (e) { return { ok: false, offline: true, error: (e && e.message) || 'لا اتصال' }; }
+            var acc = null;
+            r.list.forEach(function (a) { if (a && a.k === loc.k) acc = a; });
+            var good = false;
+            try { good = !!(rec && acc && rec.k === acc.k && rec.s === acc.s && same(String(rec.h || ''), await devHash(loc.t))); } catch (e) { good = false; }
+            if (!good) {
+                /* حسابٌ حُذف · كلمة سرٍّ تغيّرت · أُلغي الجهاز من مكانٍ آخر ⇒ التذكّر سقط: نمحوه كي لا نعيد السؤال في كل فتح */
+                try { localStorage.removeItem(LS_DEV); } catch (e) {}
+                return { ok: false, gone: true };
+            }
+            try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(acc.n); else { sessionStorage.setItem('gmt_admin_mode', '1'); sessionStorage.setItem('gmt_admin_name', acc.n); } } catch (e) {}
+            try { localStorage.setItem('gmt_admin_last', acc.n); } catch (e) {}
+            return { ok: true, name: acc.n };
+        })().finally(function () { _restoring = null; });
+        return _restoring;
+    }
+    /* «خروج» من الجهاز: يُمحى التذكّر محلّياً ومن القاعدة (فلا يصلح الرمز إن نُسخ) */
+    async function forgetDevice() {
+        var loc = devLocal(); if (!loc) return true;
+        try { localStorage.removeItem(LS_DEV); } catch (e) {}
+        var d = db();
+        if (d) { try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + loc.id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {} }
+        auditEvent('admin_device_forget', loc.n);
+        return true;
+    }
+    function rememberedDevice() { var o = devLocal(); return o ? { name: o.n, k: o.k, at: o.at || '' } : null; }
+
     async function listAdmins() { var r = await readAdmins(); return r.list.map(function (a) { return { name: a.n, at: a.at || '', by: a.by || '' }; }); }
     function needAdmin() {
         if (!global.GMTRole || !global.GMTRole.isAdmin || !global.GMTRole.isAdmin()) throw new Error('إدارة الحسابات للأدمن وحده — ادخل بحسابك أوّلاً');
@@ -443,6 +534,8 @@
             login: adminLogin,                                   /* نافذة اسم+كلمة سرّ ⇒ الاسم أو null */
             tryLogin: function (name, pw) { return adminCheck(name, pw, false); },   /* من نموذج الدخول العادي: بلا إنشاء */
             list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
+            /* (١٨ ت١) «تذكّر هذا الجهاز» — رمزٌ على الجهاز وبصمته في القاعدة (لا كلمة سرّ محفوظة) */
+            rememberDevice: rememberDevice, restoreDevice: restoreDevice, forgetDevice: forgetDevice, remembered: rememberedDevice,
             normalize: normName, _audit: auditEvent
         }
     };
