@@ -106,6 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-receipt.js?v=20261016b" defer></script>
+<script src="gmt-docscan.js?v=20261019c" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -613,8 +614,8 @@ window.GMT_INTERNAL = 1;</script>
         <div class="mb-3">
             <div id="ship-img-preview" class="w-full border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 text-gray-400 mb-2">
                 <i data-lucide="image-plus" class="w-6 h-6"></i>
-                <span class="text-xs font-bold">إرفاق صورة كليشيه الشحن (اختياري)</span>
-                <span class="text-[10px] text-gray-300">إذا لم ترفع صورة سيتم توليدها تلقائياً</span>
+                <span class="text-xs font-bold">📄 مسح إشعار الشحن (اختياري)</span>
+                <span class="text-[10px] text-gray-300">صوّره أو اختره — يُقصّ ويُحسَّن تلقائياً · وإن لم ترفع صورة تُولَّد الكليشيه</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <label class="cursor-pointer">
@@ -3377,6 +3378,7 @@ window.triggerDelete = () => {
 
 window.openShipModal = (id) => {
     shipOrderId = id;
+    _shipScan = null;
     _shipRcptFile = null; _shipRcptAuto = false;
     const _st = document.getElementById('ship-track-auto'); if (_st) { _st.classList.add('hidden'); _st.textContent = ''; }
     document.getElementById('ship-tracking').value = '';
@@ -3416,11 +3418,44 @@ function previewShipImage(input) {
     // clear camera input
     const cam = document.getElementById('ship-img-input-camera');
     if (cam) cam.value = '';
-    const url = URL.createObjectURL(file);
-    const preview = document.getElementById('ship-img-preview');
-    preview.innerHTML = `<img src="${url}" class="w-full max-h-40 object-contain rounded-lg" /><span class="text-xs font-bold text-emerald-600 mt-1">✅ تم اختيار الصورة</span>`;
-    _shipRcptFile = file; shipReadTracking();
+    shipScanFile(file, '✅ تم اختيار الصورة');
 }
+
+/* ══ 📄 مسح إشعار الشحن — (19 ت1 · برومبت «الماسح الضوئي الذكي») ══
+   كل صورةٍ تُختار أو تُلتقط تفتح الماسح الداخلي (gmt-docscan.js): اكتشاف الورقة · قصّ · تصحيح منظور · إزالة ظلال ·
+   وضوح · أبيض وأسود اختياري · زوايا يدوية · مقارنة بالأصل. **الأصل يبقى**: يذهب كما هو إلى أرشيف تيليغرام، والنسخة
+   الممسوحة الأوضح تُحفظ على الأوردر وتُقرأ منها الأرقام (ثمّ من الأصل إن لم يُقرأ شيء). إلغاء الماسح ⇒ الصورة كما هي.
+   لكل شركات الشحن؛ قراءة الرقم للمفتي فقط كما كانت. */
+let _shipScan = null;
+async function shipScanFile(file, label) {
+    _shipScan = null;
+    let use = file;
+    if (window.GMTDocScan) {
+        try {
+            const r = await GMTDocScan.open(file, {
+                title: 'مسح إشعار الشحن',
+                onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } }
+            });
+            if (r && r.retake) return;
+            if (r && r.scanned) {
+                _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode };
+                use = _shipScan.scanned;
+            }
+        } catch (e) { showToast('⚠️ تعذّر الماسح (' + (e && e.message || e) + ') — استُعملت الصورة كما هي', 'err'); }
+    }
+    const preview = document.getElementById('ship-img-preview');
+    const url = URL.createObjectURL(use);
+    preview.innerHTML = `<img src="${url}" class="w-full max-h-48 object-contain rounded-lg bg-white" />` +
+        (_shipScan
+            ? `<span class="text-xs font-bold text-emerald-600 mt-1">📄 مُسح ضوئياً${_shipScan.mode === 'bw' ? ' (أبيض وأسود)' : ''} — الأصل محفوظ</span>` +
+              `<button type="button" onclick="shipRescan()" class="text-[11px] font-black text-gray-500 underline">✂️ إعادة المسح / تعديل الزوايا</button>`
+            : `<span class="text-xs font-bold text-emerald-600 mt-1">${escH(label || '✅ تم اختيار الصورة')}</span>`);
+    _shipRcptFile = use; shipReadTracking();
+}
+window.shipRescan = () => {
+    const f = _shipScan ? _shipScan.original : null;
+    if (f) shipScanFile(f);
+};
 
 /* ══ (٢٠٢٦-١٠-١١ · ملاحظات ١٠ ت١) قراءة رقم التتبّع تلقائياً من صورة إيصال «المفتي» فقط ══
    طلبك: «لما أرفع صورة الإيصال تبحث عن رقم التتبّع وتعبّيه، وإن ما عرفتَه أدخله يدوي… فقط إيصالات المفتي».
@@ -3458,7 +3493,13 @@ async function shipReadTracking(force) {
     const myFile = _shipRcptFile;
     try {
         if (!window.GMTReceipt) throw new Error('وحدة القراءة لم تُحمَّل');
-        const r = await GMTReceipt.readTracking(myFile, { onStage: k => { if (myFile === _shipRcptFile && TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } });
+        const _onSt = { onStage: k => { if (myFile === _shipRcptFile && TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } };
+        let r = await GMTReceipt.readTracking(myFile, _onSt);
+        /* (19 ت1) النسخة الممسوحة أوّلاً؛ إن لم يُقرأ منها رقمٌ مؤكَّد نجرّب الأصل (لا نخسر ما كان يُقرأ قبل الماسح) */
+        if (!(r && r.number && r.method !== 'ocr') && _shipScan && myFile === _shipScan.scanned) {
+            const r2 = await GMTReceipt.readTracking(_shipScan.original, _onSt);
+            if (r2 && r2.number && (r2.method !== 'ocr' || !(r && r.number))) r = r2;
+        }
         if (myFile !== _shipRcptFile) return;                          // تغيّرت الصورة أثناء القراءة
         if (r.number && r.method === 'ocr') {
             st.className = 'text-[11px] font-bold text-amber-700 mb-3';
@@ -3534,7 +3575,7 @@ window.confirmShipping = async () => {
     // احفظ نسخة مضغوطة من صورة الإيصال داخل الأوردر (مؤقّتة — تُمسح عند التحصيل)
     const _camF = document.getElementById('ship-img-input-camera');
     const _libF = document.getElementById('ship-img-input');
-    const _file = (_camF && _camF.files && _camF.files[0]) || (_libF && _libF.files && _libF.files[0]) || null;
+    const _file = (_shipScan && _shipScan.scanned) || (_camF && _camF.files && _camF.files[0]) || (_libF && _libF.files && _libF.files[0]) || null;
     if (_file) {
         const durl = await compressReceipt(_file);
         if (durl && durl.length < 900000) {         // حدّ أمان ~0.9MB للصفّ الواحد
@@ -4011,10 +4052,7 @@ function previewShipImageCamera(input) {
     // clear gallery input
     const gal = document.getElementById('ship-img-input');
     if (gal) gal.value = '';
-    const url = URL.createObjectURL(file);
-    const preview = document.getElementById('ship-img-preview');
-    preview.innerHTML = `<img src="${url}" class="w-full max-h-40 object-contain rounded-lg" /><span class="text-xs font-bold text-emerald-600 mt-1">✅ تم التقاط الصورة</span>`;
-    _shipRcptFile = file; shipReadTracking();
+    shipScanFile(file, '✅ تم التقاط الصورة');
 }
 
 // ══ Follow-Up Badge ══
@@ -8534,7 +8572,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261019b"></script>
+<script src="gmt-whatsnew.js?v=20261019c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
