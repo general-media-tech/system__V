@@ -326,6 +326,16 @@ body {
   flex-wrap: wrap;
 }
 
+/* ⚡ مؤشّر «يتحدّث…» — الجرد المعروض من نسخة الجهاز بانتظار بيانات الخادم (وثيقة الطلبات §7) */
+#inv-refresh-ind {
+  align-items: center; gap: 7px; padding: 5px 16px; font-size: 12px; font-weight: 800;
+  color: var(--text2); background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+#inv-refresh-ind[data-state="offline"] { color: #92400e; background: #fffbeb; border-bottom-color: #fde68a; }
+#inv-refresh-ind .inv-ri-spin { display: inline-block; animation: inv-ri-rot 1s linear infinite; font-size: 14px; line-height: 1; }
+@keyframes inv-ri-rot { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #inv-refresh-ind .inv-ri-spin { animation: none; } }
+
 #toolbar .sep {
   width: 1px;
   height: 24px;
@@ -2433,6 +2443,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <span id="stats-toggle-tx">إخفاء الملخّص</span>
     <span id="stats-toggle-sum" style="margin-right:auto;display:none;font-weight:800;color:var(--text2);"></span>
   </button>
+  <!-- ⚡ (١٨ ت١ · وثيقة الطلبات §7) «اول ما بفتحه كثير عم بيطول ليفتح البيانات عم يبدو في الاول فارغا»:
+       الجرد يُرسم فوراً من آخر نسخة على الجهاز، وهذا الشريط يقول إنّه يتحدّث من الخادم — ليس زرّاً.
+       خارج #toolbar عمداً: شريط الأدوات مخفيّ على الهاتف فكان المؤشّر لا يُرى هناك. -->
+  <div id="inv-refresh-ind" role="status" aria-live="polite" style="display:none"></div>
   <!-- ══ (2026-10-04) طلبُك: «الإيموجي الموجود بالجنب الإجمالي وسعر مستهلك
        والصورة، والإيموجي الموجود داخل كلّ فرع — كثير سيّئين، بدنا نغيّرهم».
        والسببُ ليس ذوقاً: الرمزُ التعبيريّ **يرسمه نظامُ التشغيل لا نحن**،
@@ -2490,8 +2504,6 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <!-- Toolbar -->
   <div id="toolbar">
     <span style="font-size:13px;color:var(--text3);" id="result-count">يتم التحميل...</span>
-    <!-- ⚡ (١٨ ت١ · وثيقة الطلبات §7) «يبدو في الاول فارغا»: الجرد يُرسم فوراً من نسخة الجهاز وهذا يقول إنّه يتحدّث — ليس زرّاً -->
-    <span id="inv-refresh-ind" role="status" aria-live="polite" style="display:none"></span>
     <div class="sep"></div>
 
     <div class="view-toggle" id="view-toggle">
@@ -4211,6 +4223,11 @@ async function sbFetch(method, path, body = null, extraHeaders = null) {
   /* (11 ت١ · T-01) الوسيط الرابع كان **يُتجاهَل**: ثلاثة مواضع تمرّر {Prefer:'return=representation'} (قفل الاستلام · قفل التعديل · قفل التسوية)
      فتصل الطلبات `return=minimal` ⇒ 204 بلا صفوف ⇒ «القفل» يقرأ صفراً ويُجهِض بعد أن غيّر الخادم الحالة فعلاً ⇒ فواتير عالقة للأبد
      في receiving/reopening وبلا زرّ. الآن يُدمج ويغلب. */
+  /* 🛡️ (١٨ ت١ · وثيقة الطلبات §7) المعروض الآن نسخةُ الجهاز (الجرد يتحدّث) ⇒ لا كتابة على المنتجات: كانت ستُحفظ قيمةٌ
+     (اسم/سعر/كمية) مأخوذةٌ من نسخةٍ أقدم فوق ما في الخادم. تنتهي هذه الحالة حال وصول بيانات الخادم (ثوانٍ). */
+  if (method !== 'GET' && /^\/rest\/v1\/products(\?|$)/.test(path) && invStaleBlock('')) {
+    return { error: 'الجرد يتحدّث من الخادم — أعد المحاولة بعد ثوانٍ', data: null };
+  }
   const preferHeader = (method === 'PATCH' || method === 'DELETE') ? 'return=minimal' : 'return=representation';
   const opts = {
     method,
@@ -4424,6 +4441,8 @@ async function loadProducts() {
     }));
     /* الخادم لم يردّ ولا كاش ⇒ لا نمسح نسخةَ الجهاز المعروضة بقائمةٍ فارغة */
     if (!(offline && !fromCache && window.__invFromCache && allProducts.length)) allProducts = (rows || []).map(normalizeProduct);
+    /* ⚡ (١٨ ت١) بيانات الخادم مطابقةٌ تماماً لما رُسم من نسخة الجهاز (الحالة الغالبة) ⇒ لا نعيد رسم ٢٠٠٠ صفّ بلا فرق */
+    const _sameAsPainted = !!(window.__invFromCache && _invPaintSig && !offline && _invPaintSig === invDataSig());
     /* ⚡ (١٨ ت١) البيانات حيّة الآن ⇒ يختفي «يتحدّث…» وتعود الكتابة. وإن بقي الردّ من الكاش (بلا اتصال) يبقى المؤشّر «نسخة الجهاز». */
     window.__invFromCache = !!offline;
     if (!offline) window.__invProdsLive = true;
@@ -4440,7 +4459,7 @@ async function loadProducts() {
       showToast('🔌 وضع عدم الاتصال — يعمل النظام بالبيانات المحفوظة محلياً', 'warning');
     }
     /* ⚡ (١٨ ت١) المنتجات تُرسم حال وصولها — كانت تنتظر طلب العروض أيضاً قبل أوّل رسمة. الشارات تُضاف بعده برسمةٍ ثانية. */
-    try { renderAll(); } catch (_) {}
+    if (!_sameAsPainted) { try { renderAll(); } catch (_) {} }
     _offersSig = JSON.stringify(allOffers);
 
     // جلب العروض الفعّالة من gmt_offers (الجدول الموحّد) — العرض المفرد يرتبط بمنتج
@@ -4505,6 +4524,13 @@ function gmtShowOfflineBadge(offline) {
    ═══════════════════════════════════════════════════════════════════════════════════════════════ */
 let _invProdPrefetch = null;
 window.__invFromCache = false;
+const INV_QUICK_ROWS = 60;      // الدفعة الأولى المرسومة من نسخة الجهاز (تملأ الشاشة على الهاتف والكمبيوتر)
+let _invPaintSig = '';          // بصمة ما رُسم كاملاً من نسخة الجهاز — إن طابقها الخادم لا نعيد الرسم
+/* بصمة المنتجات والأعمدة المعروضة (لمقارنة نسخة الجهاز بردّ الخادم) */
+function invDataSig() {
+  try { return JSON.stringify([columns.map(c => [c.key, c.displayName, c.showTable, c.isBranch, c.colOrder, c.includeInTotal]), allProducts]); }
+  catch (_) { return ''; }
+}
 function invPrefetchProducts() {
   if (isDemo || !window.GMTCache || !GMTCache.syncCollection) return;
   try {
@@ -4555,7 +4581,13 @@ async function invPaintFromCache() {
     document.getElementById('supabase-config').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     invRefreshInd(true, pc.savedAt);
-    renderAll();
+    /* أوّل دفعة صفوف فقط (تظهر في أجزاء من الثانية)، ثم الرسمة الكاملة بعد أن يرسم المتصفّح الدفعة الأولى فعلاً */
+    window.__invQuickN = INV_QUICK_ROWS;
+    try { renderAll(); } finally { window.__invQuickN = 0; }
+    requestAnimationFrame(() => setTimeout(() => {
+      if (window.__invProdsLive || _invPaintSig) return;          // الخادم سبق ورسم كل شيء
+      try { renderAll(); _invPaintSig = invDataSig(); } catch (_) {}
+    }, 30));
     return true;
   } catch (e) { try { console.warn('[الجرد] تعذّر الرسم من نسخة الجهاز:', e && e.message); } catch (_) {} return false; }
 }
@@ -4570,7 +4602,7 @@ function invRefreshInd(state, savedAt) {
     ? '⚠ لا اتصال — نسخة الجهاز'
     : '<span class="inv-ri-spin" aria-hidden="true">⟳</span> يتحدّث…';
   el.title = (state === 'offline' ? 'تعذّر الاتصال بالخادم — المعروض آخر نسخة محفوظة على هذا الجهاز (للعرض فقط)' : 'المعروض آخر نسخة محفوظة على هذا الجهاز' + (age ? ' (' + age + ')' : '') + ' — تُستبدل بالبيانات الحيّة حال وصولها') ;
-  el.style.display = 'inline-flex';
+  el.style.display = 'flex';
 }
 /* يُرجع true (ويُبلغ) إن كانت المعروضة نسخة الجهاز — يُنادى في أوّل كل حفظٍ على المنتجات */
 function invStaleBlock(what) {
@@ -5246,11 +5278,21 @@ function loadDemoData() {
 function renderAll() {
   applyFilters();
   updateStats();
-  renderTable();
-  renderCards();
-  renderList();
+  /* ⚡ (١٨ ت١ · وثيقة الطلبات §7) كانت الطرائق الثلاث (جدول + بطاقات + قائمة) تُرسم كلّها لكل ٢٠٠٠ منتج وإن كان واحدٌ منها
+     فقط ظاهراً — مقيس: ~١٫٦ ثانية من الخيط الرئيسي قبل أوّل صفّ. الآن تُرسم الطريقة الظاهرة وحدها؛ وتبديلُ الطريقة
+     (setView) أو تدويرُ الشاشة أو وضعُ التعديل يعيد renderAll فتُرسم الطريقة الجديدة عند ظهورها. */
+  const _av = invActiveView();
+  renderTableHead();
+  if (_av === 'table') renderTableBody();
+  if (_av === 'cards') renderCards();
+  renderList();                       // خفيفة: تضبط صنف الجسم وإظهار الأقسام، وترسم القائمة إن كانت هي الظاهرة
   renderPagination();
   if (typeof gmtResolveVisibleImages === 'function') gmtResolveVisibleImages();
+}
+/* أيّ طرائق العرض ظاهرة الآن: 'list' (هاتف أو اختيار) · 'cards' · 'table' */
+function invActiveView() {
+  if (invUseList()) return 'list';
+  return currentView === 'cards' ? 'cards' : 'table';
 }
 
 function applyFilters() {
@@ -5321,6 +5363,8 @@ function getTotal(p) {
 }
 
 function getPagedProducts() {
+  /* ⚡ (١٨ ت١) الرسمة الأولى من نسخة الجهاز: أوّل دفعة صفوف فقط كي تظهر في أجزاء من الثانية، وتتبعها رسمةٌ كاملة فوراً (invPaintFromCache) */
+  if (window.__invQuickN) return filteredProducts.slice(0, window.__invQuickN);
   if (pageSize >= 9999) return filteredProducts;
   const start = (currentPage - 1) * pageSize;
   return filteredProducts.slice(start, start + pageSize);
@@ -5331,6 +5375,8 @@ function getPagedProducts() {
 // ============================================
 function renderTable() {
   renderTableHead();
+  /* (١٨ ت١) الجدول غير ظاهر (قائمة الهاتف/البطاقات) ⇒ لا نرسم ٢٠٠٠ صفّ لا يراها أحد؛ renderAll ترسمه حين يُختار */
+  if (invActiveView() !== 'table') return;
   renderTableBody();
 }
 
