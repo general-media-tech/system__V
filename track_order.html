@@ -97,34 +97,6 @@ window.GMT_PUBLIC = 1;</script>
             background: repeating-linear-gradient(to right, transparent, transparent 15px, #fff 15px, #fff 30px);
             animation: roadMove 0.6s linear infinite;
         }
-        .truck-img {
-            position: relative;
-            z-index: 10;
-            width: 100%;
-            max-width: 250px;
-            margin: 0 auto;
-            margin-bottom: 8px;
-            animation: truckMove 2.5s ease-in-out infinite;
-        }
-        .smoke-container {
-            position: absolute;
-            bottom: 25px;
-            right: 15%;
-            z-index: 5;
-        }
-        .smoke {
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            background: #d1d5db;
-            border-radius: 50%;
-            filter: blur(4px);
-            opacity: 0;
-        }
-        .smoke-1 { animation: smokeFlow 1.5s infinite; }
-        .smoke-2 { animation: smokeFlow 1.5s 0.5s infinite; }
-        .smoke-3 { animation: smokeFlow 1.5s 1s infinite; }
-
         @keyframes roadMove {
             0% { transform: translateX(0); }
             100% { transform: translateX(30px); }
@@ -133,9 +105,86 @@ window.GMT_PUBLIC = 1;</script>
             0%, 100% { transform: translateX(0) translateY(0); }
             50% { transform: translateX(-5px) translateY(-2px); }
         }
-        @keyframes smokeFlow {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-            100% { transform: translate(45px, -20px) scale(2.5); opacity: 0; }
+
+        /* ═══ 🚐 الشاحنة الجديدة (وثيقة الطلبات ١٢) ═══
+           طلبك: «استبدل هذه الشاحنه بالشاحنه الموجوده في رابط تتبع الخاص فينا لانها سيئه هناك هذه اجمل وافضل
+           يمكنك استخدام ايضا الفيديو بما انه الفيديو فيه حركه الدواليب في دخان من العادم فيه اصوات حقيقيه».
+           كان هنا رسمُ SVG مركّب (شاشة الترحيب) ورمزُ 🚚 (شاشة «جارٍ تتبع شحنتكم») + دخانٌ مرسوم بدوائر.
+           الآن مشهدٌ واحد بنفس الشكل في الموضعين:
+             • الطبقة السفلى: صورتك نفسها (img/delivery/van.jpg = m06 بشعار Canon — مطابقة للفيديو)
+               تمشي على الطريق بنفس الحركة القديمة — تظهر إلى أن يبدأ الفيديو، وتبقى إن لم يعمل.
+             • فوقها: فيديوك (الدواليب تدور، دخان العادم، الصوت الحقيقي) — يظهر بتلاشٍ ناعم لحظة يبدأ فعلاً.
+             • زرّ السمّاعة **داخل المشهد** (لا زرّ عائم) — يشغّل صوت الفيديو الحقيقي ويكتمه.
+             • من ضبط جهازه على «تقليل الحركة»: الصورة ثابتة فقط — لا فيديو ولا تحميل له. */
+        .van-wrap { width: 100%; max-width: 340px; margin: 0 auto; }
+        .van-wrap--welcome { max-width: 360px; }
+        @media (min-width: 768px) { .van-wrap--welcome { max-width: 440px; } }
+        /* شاشة الترحيب ثابتة على كامل الشاشة بلا تمرير: على هاتفٍ أفقيّ (ارتفاعٌ قصير) نصغّر المشهد بنسبته كي لا يُقصّ النصّ تحته */
+        @media (max-height: 560px) { .van-wrap--welcome { max-width: max(160px, calc((100vh - 190px) * 1.7778)); } }
+        .van-stage {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 1.25rem;
+            overflow: hidden;
+            background: #fff;
+            isolation: isolate;
+        }
+        @supports not (aspect-ratio: 1 / 1) { .van-stage { height: 0; padding-top: 56.25%; } }
+        .van-stage .road-wrapper { left: 4%; width: 92%; bottom: 9%; z-index: 0; }
+        .van-still {
+            position: absolute;
+            left: 4%;
+            bottom: 13%;
+            width: 92%;
+            height: auto;
+            z-index: 1;
+            animation: truckMove 2.5s ease-in-out infinite;
+        }
+        .van-video {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: transparent;
+            opacity: 0;
+            transition: opacity .45s ease;
+            z-index: 2;
+        }
+        .van-stage.is-playing .van-video { opacity: 1; }
+        .van-stage.is-playing .van-still { visibility: hidden; animation: none; transition: visibility 0s .5s; }
+        .van-sound {
+            position: absolute;
+            top: 8px;
+            left: 8px;                       /* نهاية السطر في صفحةٍ عربية — فوق السماء الفارغة في المشهد */
+            z-index: 3;
+            width: 40px;                     /* هدفُ لمسٍ مريح على الهاتف */
+            height: 40px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(17, 17, 17, .55);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .35);
+            cursor: pointer;
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+        .van-sound:focus-visible { outline: 2px solid var(--gmt-red); outline-offset: 2px; }
+        .van-sound .vs-on, .van-sound .vs-off { display: flex; }
+        .van-sound .vs-on { display: none; }
+        .van-sound[aria-pressed="true"] { background: var(--gmt-red); border-color: transparent; }
+        .van-sound[aria-pressed="true"] .vs-on { display: flex; }
+        .van-sound[aria-pressed="true"] .vs-off { display: none; }
+        .van-sound svg { width: 18px; height: 18px; }
+        /* لا فيديو (تقليل الحركة · متصفّح لا يشغّله · ملفّ لم يصل) ⇒ الصورة وحدها ولا زرّ صوتٍ بلا صوت */
+        .van-stage.van-novideo .van-video,
+        .van-stage.van-novideo .van-sound { display: none; }
+        @media (prefers-reduced-motion: reduce) {
+            .van-still, .van-stage .road-line { animation: none; }
+            .van-video, .van-sound { display: none; }
         }
 
         /* --- التأثيرات الجديدة للظهور والاختفاء اللطيف --- */
@@ -176,35 +225,20 @@ window.GMT_PUBLIC = 1;</script>
 
     <!-- المرحلة 1: شاشة الترحيب -->
     <div id="layer1" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center px-4 text-center">
-        <div id="l1-logo" class="w-full max-w-[320px] relative h-40 opacity-0 transition-opacity duration-[800ms] flex items-end justify-center">
-            <div class="smoke-container">
-                <div class="smoke smoke-1"></div>
-                <div class="smoke smoke-2"></div>
-                <div class="smoke smoke-3"></div>
-            </div>
-            <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود، فيفشل الطلب
-                 على كل فتحة لصفحة الزبون، ويرمي onerror خطأ outerHTML.
-                 البديل المقصود كان الإيموجي — فنستعمله مباشرةً. -->
-            <!-- (2026-10-04 م) بلاغك وصورة ١٣: «فيه هذا الشعار المتحرك تبع الشاحنة… مو موجود في رابط التتبّع الأساسي».
-                 السبب: صورة الشاحنة truck.png لم تكن في المشروع فاستُبدلت يوماً بالرمز 🚚. أُعيد رسمُها حرفياً كما في
-                 صورتك: صندوقٌ أبيض بشعارنا، كابينةٌ بنافذةٍ زرقاء، وحدةُ تبريد، عجلتان، وطريقٌ متقطّع — بلا ملفٍّ خارجيّ. -->
-            <svg class="truck-img" role="img" aria-label="شاحنة ميديا تيك" viewBox="0 0 300 120" style="width:240px;height:auto;display:block">
-              <rect x="112" y="18" width="178" height="80" fill="#fff" stroke="#111" stroke-width="2"/>
-              <image href="logo.jpg" x="162" y="24" width="78" height="68" preserveAspectRatio="xMidYMid meet"/>
-              <rect x="96" y="22" width="20" height="14" rx="2" fill="#f3f4f6" stroke="#111" stroke-width="1.6"/>
-              <path d="M96 25h20M96 29h20M96 33h20" stroke="#9ca3af" stroke-width="1"/>
-              <path d="M112 98V40H76c-5 0-8 3-10 8l-8 26v24z" fill="#fff" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M104 46H78l-7 22h33z" fill="#5aaee8" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/>
-              <path d="M90 50l-5 9h5l-3 7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="54" y="86" width="10" height="10" rx="2" fill="#e5e7eb" stroke="#111" stroke-width="1.6"/>
-              <rect x="60" y="96" width="232" height="8" fill="#222"/>
-              <circle cx="88" cy="104" r="12" fill="#111"/><circle cx="88" cy="104" r="5" fill="#cbd5e1"/>
-              <circle cx="252" cy="104" r="12" fill="#111"/><circle cx="252" cy="104" r="5" fill="#cbd5e1"/>
-              <rect x="0" y="114" width="300" height="5" rx="2" fill="#2b2b2b"/>
-              <path d="M8 116.5h16M40 116.5h16M72 116.5h16M104 116.5h16M136 116.5h16M168 116.5h16M200 116.5h16M232 116.5h16M264 116.5h16" stroke="#fff" stroke-width="1.6"/>
-            </svg>
-            <div class="road-wrapper">
-                <div class="road-line"></div>
+        <div id="l1-logo" class="van-wrap van-wrap--welcome relative opacity-0 transition-opacity duration-[800ms]">
+            <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود ⇒ استُبدل بالرمز 🚚، ثم (2026-10-04 م) برسم SVG مركّب.
+                 (وثيقة الطلبات ١٢) طلبك: «استبدل هذه الشاحنه … لانها سيئه هناك هذه اجمل وافضل» ⇒ صورتك وفيديوك
+                 بدل الرسم (التفاصيل في تعليق «الشاحنة الجديدة» في الأنماط أعلاه وفي GMTVan أدناه). -->
+            <div class="van-stage" id="van-welcome">
+                <div class="road-wrapper"><div class="road-line"></div></div>
+                <img class="van-still" src="img/delivery/van.jpg" width="900" height="376" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
+                <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
+                       data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
+                       disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
+                <button type="button" class="van-sound" data-nosound aria-pressed="false" aria-label="تشغيل صوت الشاحنة" title="تشغيل صوت الشاحنة">
+                    <span class="vs-off"><i data-lucide="volume-x"></i></span>
+                    <span class="vs-on"><i data-lucide="volume-2"></i></span>
+                </button>
             </div>
         </div>
         <h2 id="l1-text1" class="text-2xl font-black mt-6 text-black opacity-0 transition-opacity duration-[800ms]">أهلاً بكم</h2>
@@ -251,18 +285,20 @@ window.GMT_PUBLIC = 1;</script>
         <h2 id="l2-name" class="text-2xl font-black text-gray-800 text-center"></h2>
         <p class="text-sm font-bold text-gray-500 mt-2 text-center">جارٍ تتبع شحنتكم...</p>
         
-        <div class="w-full max-w-[150px] relative h-24 mt-6 flex items-end justify-center">
-            <div class="smoke-container" style="bottom: 12px; right: 10%; transform: scale(0.6); transform-origin: bottom right;">
-                <div class="smoke smoke-1"></div>
-                <div class="smoke smoke-2"></div>
-                <div class="smoke smoke-3"></div>
-            </div>
-            <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود، فيفشل الطلب
-                 على كل فتحة لصفحة الزبون، ويرمي onerror خطأ outerHTML.
-                 البديل المقصود كان الإيموجي — فنستعمله مباشرةً. -->
-            <span class="truck-img" role="img" aria-label="شحن" style="max-width: 110px; margin-bottom: 5px;" style="display:inline-flex;align-items:center;justify-content:center;font-size:42px;line-height:1">🚚</span>
-            <div class="road-wrapper" style="bottom: 0;">
-                <div class="road-line"></div>
+        <!-- (2026-09-26) كان <img src="truck.png"> (ملفّ غير موجود) ثم الرمز 🚚.
+             (وثيقة الطلبات ١٢) نفس مشهد شاشة الترحيب: صورتك + فيديوك + زرّ الصوت داخله.
+             الفيديو هنا لا يُحمَّل مع الصفحة — يبدأ تحميله فقط لحظة تظهر هذه الشاشة (GMTVan.start). -->
+        <div class="van-wrap mt-6">
+            <div class="van-stage" id="van-verify">
+                <div class="road-wrapper"><div class="road-line"></div></div>
+                <img class="van-still" src="img/delivery/van.jpg" width="900" height="376" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
+                <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
+                       data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
+                       disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
+                <button type="button" class="van-sound" data-nosound aria-pressed="false" aria-label="تشغيل صوت الشاحنة" title="تشغيل صوت الشاحنة">
+                    <span class="vs-off"><i data-lucide="volume-x"></i></span>
+                    <span class="vs-on"><i data-lucide="volume-2"></i></span>
+                </button>
             </div>
         </div>
     </div>
@@ -358,6 +394,116 @@ window.GMT_PUBLIC = 1;</script>
     </div>
 
     <script>
+        /* ═══════════════════════════════════════════════════════════════════
+           🚐 GMTVan — مشهد الشاحنة الجديدة (وثيقة الطلبات ١٢)
+           طلبك: «يمكنك استخدام ايضا الفيديو بما انه الفيديو فيه حركه الدواليب في دخان من العادم
+           فيه اصوات حقيقيه … وتستفيد من الصوت».
+
+           • start(مشهد): يربط مصادر الفيديو **الآن فقط** (لا تُحمَّل مع الصفحة) ويشغّله من أوّله مكتوماً —
+             المتصفّحات لا تسمح بالتشغيل التلقائي إلا مكتوماً. MP4 أولاً (آيفون وكل الهواتف)، و WebM احتياطٌ
+             لمتصفّحٍ لا يقرأ MP4. الصورة تحته تبقى ظاهرة إلى أن يبدأ الفيديو فعلاً (حدث playing).
+           • stop(مشهد): يوقفه ويكتمه حين تختفي شاشته — لا صوتَ من شاشةٍ لا تُرى.
+           • زرّ السمّاعة داخل المشهد: يشغّل الصوت الحقيقي أو يكتمه. ولمستُه نفسها تُشغّل الفيديو إن كان
+             المتصفّح منع تشغيله تلقائياً (مثل وضع توفير الطاقة في آيفون).
+           • صدقٌ لا ادّعاء: إن رفض المتصفّح الصوت يعود الزرّ إلى «مكتوم» ويكمل الفيديو بلا صوت.
+           • صوتٌ واحد فقط: المشهد الأخير الذي بدأ (أو ضُغط زرّه) هو وحده المسموع.
+           • «تقليل الحركة» في الجهاز ⇒ الصورة الثابتة فقط، ولا يُحمَّل الفيديو أصلاً.
+           ═══════════════════════════════════════════════════════════════════ */
+        const GMTVan = (function () {
+            let reduce = false;
+            try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+            let soundOn = false;        // صوت الفيديو — يبدأ مكتوماً دائماً، ولا يُفتح إلا بزرّ السمّاعة
+            let active = null;          // المشهد المسموع
+
+            const vid = stage => stage && stage.querySelector('video.van-video');
+
+            function paint() {
+                document.querySelectorAll('.van-stage .van-sound').forEach(b => {
+                    const t = soundOn ? 'كتم صوت الشاحنة' : 'تشغيل صوت الشاحنة';
+                    b.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+                    b.setAttribute('aria-label', t);
+                    b.title = t;
+                });
+            }
+            function applyMute() {
+                const a = vid(active);
+                document.querySelectorAll('.van-stage video.van-video').forEach(v => { v.muted = !(soundOn && v === a); });
+            }
+            function noVideo(stage) {
+                stage.classList.add('van-novideo');
+                stage.classList.remove('is-playing');
+            }
+            /* ربط المصادر مرّةً واحدة لكل مشهد — هنا فقط يبدأ التحميل.
+               المصادر لا تُكتب <source> في الصفحة عمداً: عنصرُ <source> بلا رابط يجعل المتصفّح «يفشل» مبكراً
+               ويطلق خطأً قد يُحسَب لاحقاً فشلاً حقيقياً. فتُنشأ هنا لحظة الحاجة: MP4 أولاً (آيفون وكل الهواتف) ثم WebM. */
+            const SOURCES = [['mp4', 'video/mp4; codecs="avc1.640028, mp4a.40.2"'], ['webm', 'video/webm; codecs="vp9, opus"']];
+            function attach(stage) {
+                const v = vid(stage);
+                if (!v) return null;
+                if (v.dataset.attached) return v;
+                v.dataset.attached = '1';
+                let last = null;
+                SOURCES.forEach(([k, type]) => {
+                    const u = v.getAttribute('data-' + k);
+                    if (!u) return;
+                    const s = document.createElement('source');
+                    s.src = u; s.type = type;
+                    v.appendChild(s); last = s;
+                });
+                /* لم يصلح أيّ مصدر (ملفّ لم يصل · متصفّح لا يقرأه) ⇒ تبقى الصورة، ويختفي زرّ صوتٍ لا صوتَ وراءه */
+                if (last) last.addEventListener('error', () => noVideo(stage));
+                v.addEventListener('error', () => noVideo(stage));
+                v.addEventListener('playing', () => stage.classList.add('is-playing'));
+                v.muted = true;
+                v.load();
+                return v;
+            }
+            function play(stage) {
+                const v = vid(stage);
+                if (!v) return;
+                applyMute();
+                let p;
+                try { p = v.play(); } catch (_) { p = null; }
+                if (p && typeof p.catch === 'function') p.catch(() => {
+                    if (!v.muted) {
+                        /* المتصفّح رفض الصوت ⇒ نقول الحقيقة: الزرّ «مكتوم»، ونكمل الحركة بلا صوت */
+                        soundOn = false; paint(); applyMute();
+                        v.play().catch(() => {});
+                    }
+                    /* وإن رُفض التشغيل كلّه تبقى الصورة تمشي على الطريق، ولمسةُ السمّاعة تشغّله */
+                });
+            }
+            function start(stage) {
+                if (!stage) return;
+                if (reduce) { noVideo(stage); return; }
+                const v = attach(stage);
+                if (!v || stage.classList.contains('van-novideo')) return;
+                active = stage;
+                try { if (v.readyState > 0) v.currentTime = 0; } catch (_) {}
+                play(stage);
+            }
+            function stop(stage) {
+                const v = vid(stage);
+                if (!v) return;
+                try { v.pause(); } catch (_) {}
+                v.muted = true;
+                if (active === stage) active = null;
+            }
+            function toggle(stage) {
+                if (!stage || stage.classList.contains('van-novideo')) return;
+                soundOn = !soundOn;
+                active = stage;
+                paint();
+                attach(stage);
+                play(stage);
+            }
+            document.querySelectorAll('.van-stage .van-sound').forEach(b => {
+                b.addEventListener('click', () => toggle(b.closest('.van-stage')));
+            });
+            return { start, stop, toggle, isSoundOn: () => soundOn, reduced: () => reduce };
+        })();
+        window.GMTVan = GMTVan;
+
         document.addEventListener('DOMContentLoaded', () => {
             const l1Logo = document.getElementById('l1-logo');
             const l1Text1 = document.getElementById('l1-text1');
@@ -365,6 +511,9 @@ window.GMT_PUBLIC = 1;</script>
             const layer1 = document.getElementById('layer1');
 
             document.body.style.overflow = 'hidden';
+
+            /* 🚐 شاشة الترحيب ظاهرةٌ من اللحظة الأولى ⇒ فيديو الشاحنة يبدأ معها */
+            GMTVan.start(document.getElementById('van-welcome'));
 
             setTimeout(() => { l1Logo.style.opacity = '1'; }, 0);
             setTimeout(() => { l1Text1.style.opacity = '1'; }, 800);
@@ -375,8 +524,9 @@ window.GMT_PUBLIC = 1;</script>
                 setTimeout(() => {
                     layer1.style.display = 'none';
                     document.body.style.overflow = 'auto';
-                }, 800); 
-            }, 3500); 
+                    GMTVan.stop(document.getElementById('van-welcome'));   // شاشةٌ اختفت ⇒ لا فيديو ولا صوت منها
+                }, 800);
+            }, 3500);
         });
 
         // ════════ إعدادات Supabase ════════
@@ -510,6 +660,8 @@ window.GMT_PUBLIC = 1;</script>
                     // ظهور شاشة التحميل (الشاحنة) بنعومة
                     layer2.classList.remove('hidden', 'smooth-disappear');
                     layer2.classList.add('flex', 'smooth-appear');
+                    /* 🚐 (وثيقة الطلبات ١٢) الشاشة ظهرت الآن ⇒ الآن فقط يبدأ تحميل فيديو الشاحنة وتشغيله */
+                    GMTVan.start(document.getElementById('van-verify'));
 
                     setTimeout(() => {
                         // بدء اختفاء شاشة التحميل بنعومة
@@ -520,6 +672,7 @@ window.GMT_PUBLIC = 1;</script>
                         setTimeout(() => {
                             layer2.classList.add('hidden');
                             layer2.classList.remove('flex', 'smooth-disappear');
+                            GMTVan.stop(document.getElementById('van-verify'));
                             showTimeline(order);
                         }, 500);
 
