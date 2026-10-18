@@ -1,6 +1,7 @@
+// (بنود «جرّبها» الأحدث من 66 تُعلَّم مُجرَّبة كي يبقى بند 58 الذي يختبره هذا الملفّ في البطاقة — البطاقة تعرض عدداً محدوداً)
 // «شو الجديد» التفاعلي: بطاقة الرئيسية · نقاط الروابط · «جرّبها» يوصل للميزة · الضغط يطفئ العلامة · زرّ الهاتف ظاهر
 const { open, seed } = require('./h.js');
-const INIT = (seenV, staff) => `try{ localStorage.setItem('gmt_whatsnew_seen','${seenV}'); localStorage.setItem('gmt_intro_seen_build','x');
+const INIT = (seenV, staff) => `try{ localStorage.setItem('gmt_whatsnew_seen','${seenV}'); if (!localStorage.getItem('gmt_wn_tried')) localStorage.setItem('gmt_wn_tried', JSON.stringify({ 70: 1 })); localStorage.setItem('gmt_intro_seen_build','x');
  localStorage.setItem('gmt_session', JSON.stringify(${staff ? "{id:2,username:'samer',display_name:'سامر',branch_key:'daraa',branch_name:'درعا'}" : "{id:1,username:'t',display_name:'فاحص',branch_key:'haleb',branch_name:'حلب'}"}));
  localStorage.setItem('gmt_branch','${staff ? 'daraa' : 'haleb'}');
  ${staff ? "sessionStorage.removeItem('gmt_admin_mode');" : "sessionStorage.setItem('gmt_admin_mode','1'); localStorage.setItem('gmt_operator_name','فاحص النظام');"} }catch(e){}

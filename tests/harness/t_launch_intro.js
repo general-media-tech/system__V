@@ -49,29 +49,11 @@ async function siteToTrack(w, h) {
   await browser.close();
 }
 
-async function homeWelcome(w, h) {
-  console.log(`— انترو افتتاح النظام ${w}×${h}`);
-  const { browser, pg, errs } = await H.open('home.html', { init: H.STAFF_INIT + PUB, w, h, wait: 300 });
-  const s = await pg.evaluate(() => { const g = document.getElementById('gmt-welcome'); return { on: !!g, h2: g ? g.querySelector('h2').textContent : '', sub: g ? g.querySelector('.gw-sub').textContent : '', vid: !!(g && g.querySelector('video')) }; });
-  ok(s.on, 'الانترو ظاهر عند فتح النظام');
-  ok(s.h2 === 'أهلاً بك، سامر', 'الترحيب باسم الجلسة الحقيقي: ' + s.h2);
-  ok(/جارٍ تجهيز النظام، يرجى الانتظار/.test(s.sub), 'نصّ «جارٍ تجهيز النظام…»');
-  ok(s.vid, 'فيديو الشاحنة طبقةً في الانترو');
-  const hidden = await pg.evaluate(() => { const g = document.getElementById('gmt-welcome'); const r = g.getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1 && getComputedStyle(g).zIndex > 1000; });
-  ok(hidden, 'الانترو يغطّي النظام كلّه حتى يجهز');
-  const widths = [];
-  for (let i = 0; i < 30; i++) {
-    const v = await pg.evaluate(() => { const b = document.querySelector('#gmt-welcome .gw-bar'); return b ? Number(b.getAttribute('aria-valuenow')) : -1; });
-    widths.push(v); if (v < 0) break; await pg.waitForTimeout(150);
-  }
-  const seen = widths.filter(x => x >= 0);
-  ok(seen.every((x, i) => i === 0 || x >= seen[i - 1]), 'الشريط لا يتراجع: ' + seen.join(','));
-  await pg.waitForFunction(() => !document.getElementById('gmt-welcome'), null, { timeout: 15000 }).catch(() => {});
-  ok(await pg.evaluate(() => !document.getElementById('gmt-welcome')), 'اختفى الانترو حين جهز النظام');
-  ok(await pg.evaluate(() => !document.documentElement.classList.contains('gw-pre') && getComputedStyle(document.body).visibility === 'visible'), 'الرئيسيّة ظاهرة بعده');
-  ok(await pg.evaluate(() => sessionStorage.getItem('gmt_welcome_shown') === '1'), 'سُجّل «رُئي» لهذه الجلسة');
-  await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(800);
-  ok(await pg.evaluate(() => !document.getElementById('gmt-welcome')), 'لا يتكرّر عند إعادة التحميل في الجلسة نفسها');
+async function homeNoIntro(w, h) {
+  console.log(`— فتح النظام بلا انترو الشاحنة ${w}×${h}`);
+  const { browser, pg, errs } = await H.open('home.html', { init: H.STAFF_INIT + PUB, w, h, wait: 1500 });
+  const s = await pg.evaluate(() => ({ ov: !!document.getElementById('gmt-welcome'), pre: document.documentElement.classList.contains('gw-pre'), vis: getComputedStyle(document.body).visibility, mod: typeof window.GMTWelcome }));
+  ok(!s.ov && !s.pre && s.vis === 'visible' && s.mod === 'undefined', 'الرئيسيّة تُفتح مباشرةً كما كانت (لا انترو شاحنة في النظام)');
   ok(!errs.length, 'لا أخطاء JS ' + errs.join(' | '));
   await browser.close();
 }
@@ -106,8 +88,8 @@ async function trackReceived() {
   await trackDirect(1366, 768);
   await siteToTrack(390, 844);
   await siteToTrack(1366, 768);
-  await homeWelcome(390, 844);
-  await homeWelcome(1366, 768);
+  await homeNoIntro(390, 844);
+  await homeNoIntro(1366, 768);
   await trackReceived();
   console.log(fails ? `FAIL=${fails}` : 'ALL PASS');
   process.exit(fails ? 1 : 0);
