@@ -146,6 +146,11 @@ window.GMT_INTERNAL = 1;</script>
                     class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 🔎 التحقق من الشحنة <span class="text-[9px] font-black text-red">المفتي</span>
             </button>
+            <!-- (١٨ ت1 · تعديلك الإلزامي) «إعداد ضمن إعدادات نظام الأوردرات باسم الفرع الافتراضي لشركة الشحن» -->
+            <button type="button" onclick="openOrdersSettings()" data-hint="إعدادات الأوردرات: الفرع الافتراضي لشركة الشحن (المفتي) — للمخوَّل."
+                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                ⚙️ إعدادات الأوردرات
+            </button>
             <!-- (2026-09-26 · بلاغ المالك) «ما لازم يطلع منبثق… ليست مريحة وفيها شيء
                  عم يختفي» ⇒ صفحة كاملة في تبويب: بلا سقف ارتفاع ولا تمرير داخل تمرير،
                  وتُطبَع وتُرسَل كرابط. -->
@@ -563,7 +568,7 @@ window.GMT_INTERNAL = 1;</script>
             <div id="edit-sender-wrap" class="hidden space-y-2 p-3 rounded-2xl border border-gray-200 bg-gray-50/70">
                 <label for="edit-ship-from" class="block text-[11px] font-black text-gray-600">🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة</label>
                 <select id="edit-ship-from" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>
-                <p class="text-[10px] font-bold text-gray-400 -mt-1">الافتراضي «حلب – السريان». غيّره فقط إن سُلِّمت الشحنة لمكتبٍ آخر.</p>
+                <p class="text-[10px] font-bold text-gray-400 -mt-1">المحفوظ على الأوردر يبقى كما هو؛ للأوردر بلا فرع يُقترَح الافتراضي من ⚙️ إعدادات الأوردرات. غيّره فقط إن سُلِّمت الشحنة لمكتبٍ آخر.</p>
                 <div id="edit-transfer-wrap" class="hidden">
                     <label for="edit-transfer-state" class="block text-[11px] font-black text-gray-600 mb-1">💸 مراسلة الفرع المُرسِل — الحوالة</label>
                     <select id="edit-transfer-state" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-black text-gray-700">
@@ -642,7 +647,7 @@ window.GMT_INTERNAL = 1;</script>
         <div id="ship-from-wrap" class="hidden mb-4 text-right">
             <label for="ship-from" class="block text-[11px] font-black text-gray-600 mb-1.5">🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة</label>
             <select id="ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>
-            <p class="text-[10px] font-bold text-gray-400 mt-1">الافتراضي «حلب – السريان». غيّره فقط إن سلّمتَ الشحنة لمكتبٍ آخر — منه تُراسَل الحوالة لاحقاً.</p>
+            <p id="ship-from-src" class="text-[10px] font-bold text-gray-500 mt-1"></p>
         </div>
 
         <button onclick="confirmShipping()" class="w-full bg-dark text-white py-4 rounded-xl font-black text-base active:scale-95 transition-transform">اعتماد الشحن وإرسال الكليشيه</button>
@@ -3252,7 +3257,9 @@ window.openShipModal = (id) => {
     // إظهار/إخفاء التحذير
     const warn = document.getElementById('ship-company-warn');
     if (warn) warn.classList.toggle('hidden', !!(o && o.shipping_company));
-    try { window.syncShipFromBox(o ? shipFromOf(o) : MUFTI_DEFAULT_FROM); } catch (_) {}
+    try { window.syncShipFromBox(shipFromExplicit(o), true); } catch (_) {}
+    /* الإعداد قد تغيّر من جهازٍ آخر: نقرؤه الآن، وإن لم يلمس أحدٌ القائمة بعدُ نُعيد ملأها به */
+    loadShipFromSetting().then(() => { const sel = document.getElementById('ship-from'); if (sel && sel.getAttribute('data-src') === 'default' || (sel && sel.getAttribute('data-src') === 'none')) window.syncShipFromBox(null, true); });
     document.getElementById('shipModal').classList.remove('hidden');
 };
 
@@ -3373,6 +3380,11 @@ window.confirmShipping = async () => {
         return;
     }
     if (warn) warn.classList.add('hidden');
+    if (company === MUFTI_CO && !((document.getElementById('ship-from') || {}).value)) {
+        paintShipFromSrc();
+        showToast('⚠️ اختر الفرع المُرسِل — ' + (shipFromDefault().why || 'لم يُحدَّد'), 'err');
+        return;
+    }
 
     const idx = orders.findIndex(o => o.id == shipOrderId);
     if (idx < 0) return;
@@ -3402,7 +3414,7 @@ window.confirmShipping = async () => {
         orders[idx] = { ...orders[idx], ...data };
         /* الفرع المُرسِل (المفتي فقط) — حفظٌ منفصل لا يكسر الشحن إن غاب العمود */
         if (company === MUFTI_CO) {
-            const _sfKey = (document.getElementById('ship-from') || {}).value || MUFTI_DEFAULT_FROM;
+            const _sfKey = (document.getElementById('ship-from') || {}).value;
             const _sfm = savedMsg('الفرع المُرسِل «' + shipFromLabel(_sfKey) + '»', await saveShipFromR(shipOrderId, _sfKey));
             if (_sfm.type !== 'ok') showToast(_sfm.t, _sfm.type);     // «على هذا الجهاز فقط» تُقال صراحةً ولا تُخفى
         }
@@ -5016,8 +5028,38 @@ window.contactShipOffice = (id) => {
    الأرقام كلها من دليل المكاتب GMTOffices (أرقام المالك) — لا رقم مُخترَع: مكتبٌ بلا رقم ⇒ نقول ذلك صراحةً.
    ═════════════════════════════════════════════════════════════════════ */
 const MUFTI_CO = 'المفتي';
-const MUFTI_DEFAULT_FROM = 'حلب|السريان';
 const SHIPFROM_LS = 'gmt_ship_from';
+/* ═══ (١٨ ت1 · تعديلك الإلزامي) أولويّة تحديد الفرع المُرسِل + «الفرع الافتراضي لشركة الشحن» من الإعدادات ═══
+   ١) اختيارك الصريح للفرع  ٢) فرعٌ اكتُشف من إيصال الشحن **بثقةٍ كافية** (حتى لو غير السريان أو خارج حلب)
+   ٣) الإعداد «الفرع الافتراضي لشركة الشحن» — محفوظٌ في القاعدة (gmt_settings · المفتاح orders_default_ship_from)
+      وبدأ «حلب|السريان» عند تطبيق الميزة، ويُغيَّر من ⚙️ إعدادات الأوردرات لا من الكود
+   ٤) إن تعذّر كلّ ذلك (لا إعداد · فرعٌ لم يعد في دليل فروع المفتي) ⇒ تنبيهٌ واضح ونطلب منك الاختيار — لا فرعٌ عشوائي.
+   الاكتشاف غير المؤكّد لا يُعتمد: يُعرض مع المرشّحين لتصحّحه. والأوردرات السابقة: ما حُفظ عليها لا يُلمس، والمشحونة بلا فرعٍ
+   محفوظ تبقى «السريان» (افتراضي زمنها) — فتغيير الإعداد يسري على الجديدة فقط. */
+const MUFTI_LEGACY_FROM = 'حلب|السريان';
+const SHIPFROM_SET_KEY = 'orders_default_ship_from';
+const SHIPFROM_SET_LS = 'gmt_set_default_ship_from';
+let shipFromSetting = (() => { try { return localStorage.getItem(SHIPFROM_SET_LS) || null; } catch (_) { return null; } })();
+let shipFromSettingLoaded = false;
+async function loadShipFromSetting() {
+    try {
+        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.${SHIPFROM_SET_KEY}&select=value`, { headers: SB_HEADERS });
+        if (r.ok) {
+            const rows = await r.json();
+            shipFromSetting = (Array.isArray(rows) && rows[0] && rows[0].value) || null;
+            shipFromSettingLoaded = true;
+            try { if (shipFromSetting) localStorage.setItem(SHIPFROM_SET_LS, shipFromSetting); else localStorage.removeItem(SHIPFROM_SET_LS); } catch (_) {}
+        }
+    } catch (_) {}
+    return shipFromSetting;
+}
+/* الافتراضي الصالح الآن (موجودٌ في دليل فروع المفتي) — أو null مع السبب ليُعرض تنبيهاً */
+function shipFromDefault() {
+    const k = shipFromSetting;
+    if (!k) return { key: null, why: 'لم يُحدَّد «الفرع الافتراضي لشركة الشحن» في ⚙️ إعدادات الأوردرات' };
+    if (!muftiOfficeByKey(k)) return { key: null, why: 'الفرع الافتراضي «' + shipFromLabel(k) + '» لم يعد في دليل فروع المفتي — غيّره من ⚙️ إعدادات الأوردرات' };
+    return { key: k, why: '' };
+}
 
 function muftiOffices() {
     const d = (window.GMTOffices && GMTOffices.data && GMTOffices.data[MUFTI_CO]) || {};
@@ -5027,11 +5069,12 @@ function muftiOffices() {
     return out;
 }
 function muftiOfficeByKey(key) { return muftiOffices().find(x => x.key === key) || null; }
-function shipFromLabel(key) { const a = String(key || MUFTI_DEFAULT_FROM).split('|'); return a[0] + (a[1] ? ' – ' + a[1] : ''); }
+function shipFromLabel(key) { if (!key) return 'غير محدَّد'; const a = String(key).split('|'); return a[0] + (a[1] ? ' – ' + a[1] : ''); }
 function shipFromLocal() { try { return JSON.parse(localStorage.getItem(SHIPFROM_LS) || '{}') || {}; } catch (_) { return {}; } }
 function shipFromOf(o) {
-    if (!o) return MUFTI_DEFAULT_FROM;
-    return o.ship_from_office || shipFromLocal()[o.id] || MUFTI_DEFAULT_FROM;
+    const ex = shipFromExplicit(o); if (ex) return ex;
+    if (o && ['shipped', 'delivered', 'completed'].indexOf(o.status) !== -1) return MUFTI_LEGACY_FROM;   // مشحونٌ قديم بلا فرعٍ محفوظ: افتراضي زمنه
+    return shipFromDefault().key || '';
 }
 /* القيمة المحدَّدة فعلاً (قاعدة ثم الجهاز) — بلا الافتراضي: لنعرف هل اختار أحدٌ فرعاً أم هو «السريان» الافتراضي */
 function shipFromExplicit(o) { return (o && (o.ship_from_office || shipFromLocal()[o.id])) || null; }
@@ -5058,15 +5101,122 @@ async function saveShipFromR(id, key) {
     return r;      // في طابور الاتصال ⇒ نجاحٌ مؤجَّل (ونسخةٌ محلية احتياطاً)
 }
 async function saveShipFrom(id, key) { return (await saveShipFromR(id, key)).ok; }
-window.syncShipFromBox = function (current) {
+/* يملأ القائمة: key محدَّد ⇒ مختار · لا key ⇒ خيار «— اختر الفرع المُرسِل —» مختار (لا يختار المتصفّح أوّل فرعٍ وحده) */
+function shipFromFill(sel, key) {
+    sel.innerHTML = (key ? '' : '<option value="" selected>— اختر الفرع المُرسِل —</option>') + shipFromOptionsHTML(key || '');
+    if (!key) sel.value = '';
+}
+/* سطرٌ تحت القائمة يقول من أين جاء الفرع — ومعه التنبيهات (افتراضي غير صالح · اكتشافٌ غير مؤكّد) */
+function paintShipFromSrc() {
+    const sel = document.getElementById('ship-from'), box = document.getElementById('ship-from-src');
+    if (!sel || !box) return;
+    const src = sel.getAttribute('data-src') || '', d = shipFromDefault();
+    let html = '', cls = 'text-gray-500';
+    if (!sel.value) { html = '⚠️ ' + escH(d.why || 'لم يُحدَّد الفرع') + ' — اختر الفرع المُرسِل قبل اعتماد الشحن.'; cls = 'text-red-600'; }
+    else if (src === 'manual') html = '✋ اختيارك — لا يُستبدَل بالافتراضي ولا بما يُقرأ من الإيصال.';
+    else if (src === 'receipt') html = '🧾 من إيصال الشحن: «' + escH(shipFromLabel(sel.value)) + '» — صحّحه إن لزم.';
+    else if (src === 'saved') html = '📌 المحفوظ على هذا الأوردر.';
+    else if (src === 'default') html = '⚙️ الافتراضي من إعدادات الأوردرات: «' + escH(shipFromLabel(sel.value)) + '» — غيّره فقط إن سلّمتَ الشحنة لمكتبٍ آخر.';
+    const un = sel.getAttribute('data-unsure');
+    if (un) {
+        let u = {}; try { u = JSON.parse(un) || {}; } catch (_) {}
+        const cands = (u.candidates || []).filter(k => muftiOfficeByKey(k)).slice(0, 4);
+        html += '<span class="block mt-1 text-amber-700">⚠️ تعذّر التأكّد من فرع الشحن المصدر في الإيصال' + (u.text ? ' (قُرئ: «' + escH(String(u.text).slice(0, 40)) + '»)' : '') +
+            '. يرجى اختيار الفرع يدوياً أو إعادة تصوير الإيصال' + (sel.value ? ' — وإن لم تختر يبقى «' + escH(shipFromLabel(sel.value)) + '»' : '') + '.</span>' +
+            (cands.length ? '<span class="flex flex-wrap gap-1 mt-1">' + cands.map(k => '<button type="button" class="px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 font-black" data-shipfrom-pick="' + escH(k) + '">' + escH(shipFromLabel(k)) + '</button>').join('') + '</span>' : '');
+        if (cls !== 'text-red-600') cls = 'text-gray-600';
+    }
+    box.className = 'text-[10px] font-bold mt-1 ' + cls;
+    box.innerHTML = html;
+}
+window.syncShipFromBox = function (explicitKey, rebuild) {
     const wrap = document.getElementById('ship-from-wrap'), sel = document.getElementById('ship-from');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!wrap || !sel) return;
     const show = comp === MUFTI_CO;
     wrap.classList.toggle('hidden', !show);
-    if (show && (!sel.options.length || current)) sel.innerHTML = shipFromOptionsHTML(current || sel.value || MUFTI_DEFAULT_FROM);
+    if (rebuild) { sel.removeAttribute('data-unsure'); sel.removeAttribute('data-src'); }
+    if (show && (rebuild || !sel.options.length)) {
+        if (explicitKey) { shipFromFill(sel, explicitKey); sel.setAttribute('data-src', 'saved'); }
+        else { const d = shipFromDefault(); shipFromFill(sel, d.key); sel.setAttribute('data-src', d.key ? 'default' : 'none'); }
+    }
+    paintShipFromSrc();
 };
-document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') window.syncShipFromBox(); });
+/* ٢) فرعٌ قُرئ من إيصال الشحن — يُستدعى من قارئ الإيصال/الماسح: det = { key, confident, candidates:[key…], text }
+   يُرجع ما فعله: 'manual-kept' (اختيارك يبقى) · 'applied' (موثوق ⇒ اعتُمد) · 'unsure' (يُعرض ولا يُعتمد) · 'no-box' */
+window.applyDetectedShipFrom = function (det) {
+    const sel = document.getElementById('ship-from');
+    if (!sel || document.getElementById('ship-from-wrap').classList.contains('hidden')) return 'no-box';
+    det = det || {};
+    if (sel.getAttribute('data-src') === 'manual') {
+        if (det.key && det.key !== sel.value) sel.setAttribute('data-unsure', JSON.stringify({ text: 'الإيصال يشير إلى «' + shipFromLabel(det.key) + '» وأُبقي اختيارك', candidates: [det.key] }));
+        paintShipFromSrc(); return 'manual-kept';
+    }
+    if (det.key && det.confident && muftiOfficeByKey(det.key)) {
+        shipFromFill(sel, det.key); sel.setAttribute('data-src', 'receipt'); sel.removeAttribute('data-unsure');
+        paintShipFromSrc(); return 'applied';
+    }
+    sel.setAttribute('data-unsure', JSON.stringify({ text: det.text || '', candidates: (det.candidates || (det.key ? [det.key] : [])) }));
+    paintShipFromSrc(); return 'unsure';
+};
+document.addEventListener('change', (e) => {
+    if (!e.target) return;
+    if (e.target.id === 'ship-company') window.syncShipFromBox(null, !document.getElementById('ship-from').options.length);
+    if (e.target.id === 'ship-from') { e.target.setAttribute('data-src', e.target.value ? 'manual' : 'none'); e.target.removeAttribute('data-unsure'); paintShipFromSrc(); }
+});
+document.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('[data-shipfrom-pick]') : null; if (!b) return;
+    const sel = document.getElementById('ship-from'); if (!sel) return;
+    shipFromFill(sel, b.getAttribute('data-shipfrom-pick')); sel.setAttribute('data-src', 'manual'); sel.removeAttribute('data-unsure'); paintShipFromSrc();
+});
+
+/* ⚙️ إعدادات الأوردرات — «الفرع الافتراضي لشركة الشحن» (للمخوَّل فقط · يُحفظ في القاعدة لا في الكود) */
+window.openOrdersSettings = async function () {
+    if (window.GMTRole && GMTRole.requireAdmin) { if (!(await GMTRole.requireAdmin('تغيير إعدادات الأوردرات'))) return; }
+    await loadShipFromSetting();
+    const cur = shipFromSetting, d = shipFromDefault();
+    const ov = document.createElement('div');
+    ov.id = 'orders-settings';
+    ov.className = 'fixed inset-0 z-[200] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4';
+    ov.innerHTML = '<div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 text-right max-h-[90vh] overflow-auto" role="dialog" aria-modal="true">' +
+        '<h3 class="text-lg font-black mb-1">⚙️ إعدادات الأوردرات</h3>' +
+        '<label for="os-ship-from" class="block text-[12px] font-black text-gray-700 mt-3 mb-1">🏢 الفرع الافتراضي لشركة الشحن (المفتي)</label>' +
+        '<select id="os-ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>' +
+        '<p class="text-[11px] font-bold text-gray-500 mt-2 leading-relaxed">يُستعمل فقط حين لا تختار الفرع ولا يُقرأ من الإيصال بثقة. يسري على الأوردرات الجديدة فقط — الأوردرات السابقة تبقى على فرعها.</p>' +
+        (d.key ? '' : '<p class="text-[11px] font-black text-red-600 mt-2">⚠️ ' + escH(d.why) + '</p>') +
+        '<p id="os-msg" class="text-[11px] font-black mt-2"></p>' +
+        '<div class="flex gap-2 mt-4"><button type="button" id="os-save" class="flex-1 bg-dark text-white py-3 rounded-xl font-black">حفظ</button>' +
+        '<button type="button" id="os-cancel" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-black">إلغاء</button></div></div>';
+    document.body.appendChild(ov);
+    const sel = ov.querySelector('#os-ship-from');
+    shipFromFill(sel, d.key ? cur : '');
+    const close = () => ov.remove();
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    ov.querySelector('#os-cancel').addEventListener('click', close);
+    ov.querySelector('#os-save').addEventListener('click', async () => {
+        const v = sel.value, msg = ov.querySelector('#os-msg'), btn = ov.querySelector('#os-save');
+        if (!v || !muftiOfficeByKey(v)) { msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = 'اختر فرعاً من دليل فروع المفتي.'; return; }
+        if (btn.disabled) return; btn.disabled = true; btn.textContent = 'لحظة…';
+        try {
+            const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?on_conflict=key`, {
+                method: 'POST', headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+                body: JSON.stringify({ key: SHIPFROM_SET_KEY, value: v, updated_at: new Date().toISOString() })
+            });
+            const rows = r.ok ? await r.json() : null;
+            if (!r.ok || !Array.isArray(rows) || !rows[0] || rows[0].value !== v) throw new Error(r.ok ? 'لم يتأكّد الحفظ في القاعدة' : 'HTTP ' + r.status);
+            const old = cur;
+            shipFromSetting = v; shipFromSettingLoaded = true;
+            try { localStorage.setItem(SHIPFROM_SET_LS, v); } catch (_) {}
+            try { if (window.GMTOpLog && GMTOpLog.log) GMTOpLog.log({ action: 'update', entity: 'gmt_settings', entityName: 'الفرع الافتراضي لشركة الشحن', before: old, after: v }); } catch (_) {}
+            close();
+            showToast('✅ الفرع الافتراضي لشركة الشحن: ' + shipFromLabel(v) + ' — للأوردرات الجديدة', 'ok');
+        } catch (e) {
+            btn.disabled = false; btn.textContent = 'حفظ';
+            msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = '❌ لم يُحفظ: ' + (e && e.message || e) + ' — لم يتغيّر شيء.';
+        }
+    });
+};
+loadShipFromSetting();
 
 /* ═════════════════════════════════════════════════════════════════════
    💸 الفرع المُرسِل + مراسلته (الحوالة) داخل الأوردر وفي الفلترة   (وثيقة الطلبات §٢ · ١٨ ت١)
@@ -5126,7 +5276,7 @@ function hasSenderInfo(o) { return !!o && o.shipping_company === MUFTI_CO && SHI
 /* مفتاح الفرع المُرسِل لغرض الفلترة/العرض: المحدَّد صراحةً، وإلا الافتراضي «السريان» للمشحون فقط (قبل الشحن لا فرعَ بعد) */
 function senderKeyOf(o) {
     if (!o || o.shipping_company !== MUFTI_CO) return null;
-    return shipFromExplicit(o) || (SHIPPED_OR_LATER.indexOf(o.status) !== -1 ? MUFTI_DEFAULT_FROM : null);
+    return shipFromExplicit(o) || (SHIPPED_OR_LATER.indexOf(o.status) !== -1 ? MUFTI_LEGACY_FROM : null);
 }
 function transferFilterOf(o) { return hasSenderInfo(o) ? transferStateOf(o) : null; }
 
@@ -5231,11 +5381,11 @@ window.syncEditSender = function (o) {
     if (!isM) return;
     const cur = o || orders.find(x => x.id == (document.getElementById('edit-id') || {}).value) || null;
     if (cur && (o || sel.getAttribute('data-for') !== String(cur.id))) {
-        sel.innerHTML = shipFromOptionsHTML(shipFromOf(cur));
+        shipFromFill(sel, shipFromOf(cur));
         sel.setAttribute('data-for', String(cur.id));
         if (ts) ts.value = transferStateOf(cur);
     } else if (!sel.options.length) {
-        sel.innerHTML = shipFromOptionsHTML(MUFTI_DEFAULT_FROM);
+        shipFromFill(sel, shipFromDefault().key);
     }
     const st = (document.getElementById('edit-status') || {}).value || '';
     if (tw) tw.classList.toggle('hidden', SHIPPED_OR_LATER.indexOf(st) === -1);
@@ -8235,7 +8385,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261018f"></script>
+<script src="gmt-whatsnew.js?v=20261018g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

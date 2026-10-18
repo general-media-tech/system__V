@@ -15,6 +15,7 @@ async function seed() {
   const prods = await call('/rest/v1/products', Array.from({ length: 12 }, (_, i) => ({ name: `كاميرا تجربة ${i}`, barcode: `BC${String(i).padStart(4, '0')}`, price: 100 + i, wholesale_price: 80, cost_price: 60, haleb: 6, daraa: 2, group_name: i % 2 ? 'كاميرات' : 'إضاءة', category: 'تصوير' })));
   await call('/rest/v1/gmt_customers', { name: 'زبون سابق', phone: '0999111222', branch_key: 'haleb', branch_name: 'حلب' });
   await call('/rest/v1/gmt_users', [{ username: 'samer', display_name: 'سامر', branch_key: 'daraa', is_active: true, password_hash: 'MTIzNA==' }]);
+  await call('/rest/v1/gmt_settings', { key: 'orders_default_ship_from', value: 'حلب|السريان' });   // كالقاعدة الحقيقية (شُغّل 18 ت1): «الفرع الافتراضي لشركة الشحن»
   return { prods };
 }
 
