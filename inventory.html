@@ -4226,8 +4226,11 @@ async function sbFetch(method, path, body = null, extraHeaders = null) {
      فتصل الطلبات `return=minimal` ⇒ 204 بلا صفوف ⇒ «القفل» يقرأ صفراً ويُجهِض بعد أن غيّر الخادم الحالة فعلاً ⇒ فواتير عالقة للأبد
      في receiving/reopening وبلا زرّ. الآن يُدمج ويغلب. */
   /* 🛡️ (١٨ ت١ · وثيقة الطلبات §7) المعروض الآن نسخةُ الجهاز (الجرد يتحدّث) ⇒ لا كتابة على المنتجات: كانت ستُحفظ قيمةٌ
-     (اسم/سعر/كمية) مأخوذةٌ من نسخةٍ أقدم فوق ما في الخادم. تنتهي هذه الحالة حال وصول بيانات الخادم (ثوانٍ). */
-  if (method !== 'GET' && /^\/rest\/v1\/products(\?|$)/.test(path) && invStaleBlock('')) {
+     (اسم/سعر/كمية) مأخوذةٌ من نسخةٍ أقدم فوق ما في الخادم. تنتهي هذه الحالة حال وصول بيانات الخادم (ثوانٍ).
+     يُستثنى تحديث «في الطريق» وحده (in_transit): يُقرأ من الخادم قبل كتابته في النقل والتسوية فلا يعتمد على المعروض. */
+  if (method !== 'GET' && /^\/rest\/v1\/products(\?|$)/.test(path)
+      && !(body && Object.keys(body).length && Object.keys(body).every(k => k === 'in_transit'))
+      && invStaleBlock('')) {
     return { error: 'الجرد يتحدّث من الخادم — أعد المحاولة بعد ثوانٍ', data: null };
   }
   const preferHeader = (method === 'PATCH' || method === 'DELETE') ? 'return=minimal' : 'return=representation';
@@ -4453,7 +4456,10 @@ async function loadProducts() {
     try { if (!offline && typeof bulkInited !== 'undefined' && bulkInited && typeof bulkInit === 'function') bulkInit(); } catch (_) {}
     /* فهرس فواتير الشراء — في الخلفية بلا حجب التحميل. حين يصل تُعاد الرسمة
        فيختفي زرّ «عرض فاتورة الشراء» عن القطع غير المربوطة (بلاغ المالك). */
-    loadPurchaseBarcodeIndex().then(ix => { if (ix) { try { renderAll(); } catch (_) {} } }).catch(() => {});
+    /* ⚡ (١٨ ت١) الفهرس لا يظهر إلا في صفوف الجدول (زرّ فاتورة الشراء) ⇒ لا إعادة رسم لقائمةٍ أو بطاقات، ولا لفهرسٍ كان محمّلاً أصلاً وقت الرسم الأخير
+       (invPaintFromCache تقرؤه من نسخة الجهاز قبل الرسم) — كانت تُبدَّل ٢٠٠٠ صفّ بلا فرق في كل فتح. */
+    const _hadPurchIdx = !!_purchaseBarcodes;
+    loadPurchaseBarcodeIndex().then(ix => { if (ix && !_hadPurchIdx && invActiveView() === 'table') { try { renderAll(); } catch (_) {} } }).catch(() => {});
     gmtShowOfflineBadge(offline);
     if (offline && !fromCache) {
       showToast('⚠️ تعذّر الاتصال بالخادم ولا توجد بيانات محلية محفوظة بعد', 'error');
@@ -4579,6 +4585,7 @@ async function invPaintFromCache() {
       enforceTransitLock();
     }
     allProducts = prows.map(normalizeProduct);
+    if (!_purchaseBarcodes) { const ls = _purchIdxFromLS(); if (ls) _purchaseBarcodes = ls; }   // زرّ «فاتورة الشراء» يُرسم في الصفوف الأولى نفسها لا بعدها
     window.__invFromCache = true;
     document.getElementById('supabase-config').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -7176,18 +7183,22 @@ function _indexBarcodes(rows) {
   return linked;
 }
 
+/* فهرس الباركودات المحفوظ على الجهاز (صالحٌ ساعة) — مشتركٌ بين التحميل ورسم الجرد الفوري من نسخة الجهاز */
+function _purchIdxFromLS() {
+  try {
+    const raw = localStorage.getItem(PURCH_IDX_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.b) && (Date.now() - (d.at || 0)) < PURCH_IDX_TTL) return new Set(d.b);
+    }
+  } catch (_) {}
+  return null;
+}
 async function loadPurchaseBarcodeIndex(force) {
   if (_purchaseBarcodes && !force) return _purchaseBarcodes;
   if (!force) {
-    try {
-      const raw = localStorage.getItem(PURCH_IDX_KEY);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d && Array.isArray(d.b) && (Date.now() - (d.at || 0)) < PURCH_IDX_TTL) {
-          _purchaseBarcodes = new Set(d.b); return _purchaseBarcodes;
-        }
-      }
-    } catch (_) {}
+    const ls = _purchIdxFromLS();
+    if (ls) { _purchaseBarcodes = ls; return _purchaseBarcodes; }
   }
   const r = await sbFetch('GET', '/rest/v1/import_log?select=items_snapshot&limit=2000').catch(() => ({ error: 1 }));
   if (!r || r.error) {
