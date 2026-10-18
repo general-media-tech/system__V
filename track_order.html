@@ -106,85 +106,67 @@ window.GMT_PUBLIC = 1;</script>
             50% { transform: translateX(-5px) translateY(-2px); }
         }
 
-        /* ═══ 🚐 الشاحنة الجديدة (وثيقة الطلبات ١٢) ═══
-           طلبك: «استبدل هذه الشاحنه بالشاحنه الموجوده في رابط تتبع الخاص فينا لانها سيئه هناك هذه اجمل وافضل
-           يمكنك استخدام ايضا الفيديو بما انه الفيديو فيه حركه الدواليب في دخان من العادم فيه اصوات حقيقيه».
-           كان هنا رسمُ SVG مركّب (شاشة الترحيب) ورمزُ 🚚 (شاشة «جارٍ تتبع شحنتكم») + دخانٌ مرسوم بدوائر.
-           الآن مشهدٌ واحد بنفس الشكل في الموضعين:
-             • الطبقة السفلى: صورتك نفسها (img/delivery/van.jpg = m06 بشعار Canon — مطابقة للفيديو)
-               تمشي على الطريق بنفس الحركة القديمة — تظهر إلى أن يبدأ الفيديو، وتبقى إن لم يعمل.
-             • فوقها: فيديوك (الدواليب تدور، دخان العادم، الصوت الحقيقي) — يظهر بتلاشٍ ناعم لحظة يبدأ فعلاً.
-             • زرّ السمّاعة **داخل المشهد** (لا زرّ عائم) — يشغّل صوت الفيديو الحقيقي ويكتمه.
-             • من ضبط جهازه على «تقليل الحركة»: الصورة ثابتة فقط — لا فيديو ولا تحميل له. */
+        /* ═══ 🚐 الشاحنة (وثيقة الطلبات ١٢ · ثمّ طلبك ١٨ ت1) ═══
+           طلبك: «فرّغها … ليس فيديو يعرض وإنما جزء من الـHTML · تتحرك الدواليب والدخان · خلفيّة وراها بيضاء، ما في قصاصات
+           ما في أجزاء من الطريق أو ألوان خلفها · بدون زرّ إطفاء الصوت · طوّل الانترو شوي · اجعل الدخان الذي خلفها يبدو أكبر،
+           ثمّ يفتح من خلف الدخان صفحة التتبّع».
+           ⇒ ثلاث قطع مفرّغة من صورتك (m06 بشعار Canon): جسم الشاحنة + الدولابان (كلٌّ يدور حول مركزه الحقيقي المقاس من الجنط)
+             فوق خلفيّةٍ بيضاء فقط · دخانٌ من العادم بـCSS · صوت الشاحنة الحقيقي من فيديوك (ملفّ صوت لا فيديو) بلا زرّ.
+             في الترحيب: تدخل الشاحنة من اليسار، تقف وهي تعمل، ثمّ تنطلق ويكبر دخانها حتى يملأ الشاشة، ومن خلفه تظهر الصفحة. */
         .van-wrap { width: 100%; max-width: 340px; margin-inline: auto; }   /* (لا margin:0 — كانت تلغي mt-6 فيلتصق المشهد بالنصّ) */
-        .van-wrap--welcome { max-width: 360px; }
-        @media (min-width: 768px) { .van-wrap--welcome { max-width: 440px; } }
-        /* شاشة الترحيب ثابتة على كامل الشاشة بلا تمرير: على هاتفٍ أفقيّ (ارتفاعٌ قصير) نصغّر المشهد بنسبته كي لا يُقصّ النصّ تحته */
-        @media (max-height: 560px) { .van-wrap--welcome { max-width: max(160px, calc((100vh - 190px) * 1.7778)); } }
-        .van-stage {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            border-radius: 1.25rem;
-            overflow: hidden;
-            background: #fff;
-            isolation: isolate;
+        .van-wrap--welcome { max-width: 380px; }
+        @media (min-width: 768px) { .van-wrap--welcome { max-width: 460px; } }
+        /* شاشة الترحيب ثابتة بلا تمرير: على هاتفٍ أفقيّ (ارتفاعٌ قصير) نصغّر المشهد بنسبته كي لا يُقصّ النصّ تحته */
+        @media (max-height: 560px) { .van-wrap--welcome { max-width: max(170px, calc((100vh - 190px) * 2.47)); } }
+        .van-scene { position: relative; width: 100%; padding: 2% 0 1%; background: #fff; }
+        #van-verify { overflow: hidden; }   /* دخان شاشة التحقق يبقى داخل بطاقتها (كان يطفح على ٣٢٠px) */
+        #van-verify .van-drive { width: 84%; margin-left: 16%; }   /* مكانٌ للدخان خلفها داخل البطاقة */
+        .van-drive { position: relative; width: 100%; will-change: transform; }
+        .van-car { position: relative; width: 100%; aspect-ratio: 890 / 360; }
+        @supports not (aspect-ratio: 1 / 1) { .van-car { height: 0; padding-top: 40.45%; } }
+        .van-car picture, .van-car img { position: absolute; display: block; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+        .van-car picture { inset: 0; }
+        .van-body { inset: 0; width: 100%; height: 100%; }
+        /* الدولابان: مواضعهما من القياس على الصورة نفسها (٨٩٠×٣٦٠) — يدوران حول مركز الجنط فلا يتمايلان */
+        .van-wheel { transform-origin: 50% 50%; animation: vanSpin .42s linear infinite; }
+        .van-wheel--r { left: 8.652%; top: 63.889%; width: 13.933%; }
+        .van-wheel--f { left: 71.236%; top: 64.167%; width: 14.494%; }
+        @keyframes vanSpin { to { transform: rotate(360deg); } }
+        .van-scene.is-moving .van-car { animation: vanBob .34s ease-in-out infinite alternate; }
+        @keyframes vanBob { from { transform: translateY(0); } to { transform: translateY(-1.1%); } }
+        /* دخان العادم خلف الشاحنة (أكبر — طلبك) */
+        .van-smoke { position: absolute; left: -6%; bottom: 9%; width: 34%; aspect-ratio: 1 / 1; pointer-events: none; z-index: 0; }
+        .van-smoke i { position: absolute; right: 0; bottom: 0; width: 62%; aspect-ratio: 1 / 1; border-radius: 50%; opacity: 0;
+            background: radial-gradient(circle, rgba(140,140,140,.55) 0%, rgba(175,175,175,.32) 42%, rgba(215,215,215,0) 70%);
+            animation: vanPuff 1.7s ease-out infinite; }
+        .van-smoke i:nth-child(2) { animation-delay: .34s; }
+        .van-smoke i:nth-child(3) { animation-delay: .68s; }
+        .van-smoke i:nth-child(4) { animation-delay: 1.02s; }
+        .van-smoke i:nth-child(5) { animation-delay: 1.36s; }
+        @keyframes vanPuff {
+            0%   { transform: translate(0, 0) scale(.25); opacity: 0; }
+            12%  { opacity: .9; }
+            100% { transform: translate(-150%, -70%) scale(1.9); opacity: 0; }
         }
-        @supports not (aspect-ratio: 1 / 1) { .van-stage { height: 0; padding-top: 56.25%; } }
-        .van-stage .road-wrapper { left: 4%; width: 92%; bottom: 9%; z-index: 0; }
-        .van-still {
-            position: absolute;
-            left: 4%;
-            bottom: 13%;
-            width: 92%;
-            height: auto;
-            z-index: 1;
-            animation: truckMove 2.5s ease-in-out infinite;
-        }
-        .van-video {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: transparent;
-            opacity: 0;
-            transition: opacity .45s ease;
-            z-index: 2;
-        }
-        .van-stage.is-playing .van-video { opacity: 1; }
-        .van-stage.is-playing .van-still { visibility: hidden; animation: none; transition: visibility 0s .5s; }
-        .van-sound {
-            position: absolute;
-            top: 8px;
-            left: 8px;                       /* نهاية السطر في صفحةٍ عربية — فوق السماء الفارغة في المشهد */
-            z-index: 3;
-            width: 40px;                     /* هدفُ لمسٍ مريح على الهاتف */
-            height: 40px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(17, 17, 17, .55);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, .35);
-            cursor: pointer;
-            -webkit-backdrop-filter: blur(4px);
-            backdrop-filter: blur(4px);
-        }
-        .van-sound:focus-visible { outline: 2px solid var(--gmt-red); outline-offset: 2px; }
-        .van-sound .vs-on, .van-sound .vs-off { display: flex; }
-        .van-sound .vs-on { display: none; }
-        .van-sound[aria-pressed="true"] { background: var(--gmt-red); border-color: transparent; }
-        .van-sound[aria-pressed="true"] .vs-on { display: flex; }
-        .van-sound[aria-pressed="true"] .vs-off { display: none; }
-        .van-sound svg { width: 18px; height: 18px; }
-        /* لا فيديو (تقليل الحركة · متصفّح لا يشغّله · ملفّ لم يصل) ⇒ الصورة وحدها ولا زرّ صوتٍ بلا صوت */
-        .van-stage.van-novideo .van-video,
-        .van-stage.van-novideo .van-sound { display: none; }
+        .van-car { z-index: 1; }
+        /* الترحيب: تدخل من اليسار ⇐ تقف وهي تعمل ⇐ تنطلق يميناً */
+        #van-welcome .van-drive { transform: translateX(-140%); }
+        #van-welcome.arrived .van-drive { transform: translateX(0); transition: transform 1.8s cubic-bezier(.16,.84,.32,1); }
+        #van-welcome.leaving .van-drive { transform: translateX(160%); transition: transform 1.25s cubic-bezier(.55,0,.85,.35); }
+        /* الدخان الكبير الذي يملأ الشاشة ثمّ تنكشف الصفحة من خلفه */
+        #layer1 { overflow: hidden; transition: background-color .9s ease; }
+        .van-cloud { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+        .van-cloud i { position: absolute; width: 75vmax; aspect-ratio: 1 / 1; margin: -37.5vmax 0 0 -37.5vmax; border-radius: 50%; opacity: 0;
+            background: radial-gradient(circle, rgba(244,244,244,1) 0%, rgba(236,236,236,.96) 38%, rgba(255,255,255,0) 70%);
+            transition: transform 1.15s cubic-bezier(.2,.7,.3,1), opacity .5s ease; }
+        #layer1.smoke-grow .van-cloud i { opacity: 1; }
+        #layer1.smoke-clear { background-color: transparent !important; }
+        #layer1.smoke-clear .van-cloud i { opacity: 0; transition: transform 1.4s ease-out, opacity 1.3s ease; }
+        #layer1.smoke-grow #l1-text1, #layer1.smoke-grow #l1-text2 { opacity: 0 !important; transition: opacity .6s ease; }
         @media (prefers-reduced-motion: reduce) {
-            .van-still, .van-stage .road-line { animation: none; }
-            .van-video, .van-sound { display: none; }
+            .van-wheel, .van-smoke i, .van-scene.is-moving .van-car { animation: none; }
+            #van-welcome .van-drive, #van-welcome.arrived .van-drive, #van-welcome.leaving .van-drive { transform: none; transition: none; }
+            .van-cloud { display: none; }
         }
 
         /* --- التأثيرات الجديدة للظهور والاختفاء اللطيف --- */
@@ -227,20 +209,20 @@ window.GMT_PUBLIC = 1;</script>
     <div id="layer1" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center px-4 text-center">
         <div id="l1-logo" class="van-wrap van-wrap--welcome relative opacity-0 transition-opacity duration-[800ms]">
             <!-- (2026-09-26) كان <img src="truck.png"> وهو ملفّ غير موجود ⇒ استُبدل بالرمز 🚚، ثم (2026-10-04 م) برسم SVG مركّب.
-                 (وثيقة الطلبات ١٢) طلبك: «استبدل هذه الشاحنه … لانها سيئه هناك هذه اجمل وافضل» ⇒ صورتك وفيديوك
-                 بدل الرسم (التفاصيل في تعليق «الشاحنة الجديدة» في الأنماط أعلاه وفي GMTVan أدناه). -->
-            <div class="van-stage" id="van-welcome">
-                <div class="road-wrapper"><div class="road-line"></div></div>
-                <img class="van-still" src="img/delivery/van.jpg" width="900" height="374" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
-                <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
-                       data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
-                       disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
-                <button type="button" class="van-sound" data-nosound aria-pressed="false" aria-label="تشغيل صوت الشاحنة" title="تشغيل صوت الشاحنة">
-                    <span class="vs-off"><i data-lucide="volume-x"></i></span>
-                    <span class="vs-on"><i data-lucide="volume-2"></i></span>
-                </button>
+                 (وثيقة الطلبات ١٢ · ثمّ ١٨ ت1) شاحنتك مفرّغةً من صورتك بشعار Canon — جسمٌ + دولابان يدوران + دخان، على أبيض فقط،
+                 جزءٌ من الصفحة لا فيديو (التفاصيل في تعليق «الشاحنة» في الأنماط أعلاه وفي GMTVan أدناه). -->
+            <div class="van-scene" id="van-welcome">
+                <div class="van-drive">
+                    <div class="van-smoke" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="van-car">
+                        <picture><source srcset="img/delivery/van-body.webp" type="image/webp"><img class="van-body" src="img/delivery/van-body.png" width="890" height="360" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async"></picture>
+                        <img class="van-wheel van-wheel--r" src="img/delivery/van-wheel-r.webp" width="124" height="124" alt="" aria-hidden="true" onerror="this.remove()">
+                        <img class="van-wheel van-wheel--f" src="img/delivery/van-wheel-f.webp" width="129" height="129" alt="" aria-hidden="true" onerror="this.remove()">
+                    </div>
+                </div>
             </div>
         </div>
+        <div class="van-cloud" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <h2 id="l1-text1" class="text-2xl font-black mt-6 text-black opacity-0 transition-opacity duration-[800ms]">أهلاً بكم</h2>
         <p id="l1-text2" class="font-bold mt-4 text-black opacity-0 transition-opacity duration-[800ms] overflow-hidden">
             شكراً لثقتكم – شركة General Media Tech
@@ -286,19 +268,17 @@ window.GMT_PUBLIC = 1;</script>
         <p class="text-sm font-bold text-gray-500 mt-2 text-center">جارٍ تتبع شحنتكم...</p>
         
         <!-- (2026-09-26) كان <img src="truck.png"> (ملفّ غير موجود) ثم الرمز 🚚.
-             (وثيقة الطلبات ١٢) نفس مشهد شاشة الترحيب: صورتك + فيديوك + زرّ الصوت داخله.
-             الفيديو هنا لا يُحمَّل مع الصفحة — يبدأ تحميله فقط لحظة تظهر هذه الشاشة (GMTVan.start). -->
+             (وثيقة الطلبات ١٢ · ١٨ ت1) نفس شاحنة الترحيب المفرّغة: الدواليب تدور والدخان يخرج وصوتها يعمل ما دامت ظاهرة. -->
         <div class="van-wrap mt-6">
-            <div class="van-stage" id="van-verify">
-                <div class="road-wrapper"><div class="road-line"></div></div>
-                <img class="van-still" src="img/delivery/van.jpg" width="900" height="374" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async">
-                <video class="van-video" muted playsinline webkit-playsinline loop preload="metadata" poster="img/delivery/van.jpg"
-                       data-mp4="img/delivery/van.mp4" data-webm="img/delivery/van.webm"
-                       disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
-                <button type="button" class="van-sound" data-nosound aria-pressed="false" aria-label="تشغيل صوت الشاحنة" title="تشغيل صوت الشاحنة">
-                    <span class="vs-off"><i data-lucide="volume-x"></i></span>
-                    <span class="vs-on"><i data-lucide="volume-2"></i></span>
-                </button>
+            <div class="van-scene" id="van-verify">
+                <div class="van-drive">
+                    <div class="van-smoke" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="van-car">
+                        <picture><source srcset="img/delivery/van-body.webp" type="image/webp"><img class="van-body" src="img/delivery/van-body.png" width="890" height="360" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async"></picture>
+                        <img class="van-wheel van-wheel--r" src="img/delivery/van-wheel-r.webp" width="124" height="124" alt="" aria-hidden="true" onerror="this.remove()">
+                        <img class="van-wheel van-wheel--f" src="img/delivery/van-wheel-f.webp" width="129" height="129" alt="" aria-hidden="true" onerror="this.remove()">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -395,112 +375,56 @@ window.GMT_PUBLIC = 1;</script>
 
     <script>
         /* ═══════════════════════════════════════════════════════════════════
-           🚐 GMTVan — مشهد الشاحنة الجديدة (وثيقة الطلبات ١٢)
-           طلبك: «يمكنك استخدام ايضا الفيديو بما انه الفيديو فيه حركه الدواليب في دخان من العادم
-           فيه اصوات حقيقيه … وتستفيد من الصوت».
-
-           • start(مشهد): يربط مصادر الفيديو **الآن فقط** (لا تُحمَّل مع الصفحة) ويشغّله من أوّله مكتوماً —
-             المتصفّحات لا تسمح بالتشغيل التلقائي إلا مكتوماً. MP4 أولاً (آيفون وكل الهواتف)، و WebM احتياطٌ
-             لمتصفّحٍ لا يقرأ MP4. الصورة تحته تبقى ظاهرة إلى أن يبدأ الفيديو فعلاً (حدث playing).
-           • stop(مشهد): يوقفه ويكتمه حين تختفي شاشته — لا صوتَ من شاشةٍ لا تُرى.
-           • زرّ السمّاعة داخل المشهد: يشغّل الصوت الحقيقي أو يكتمه. ولمستُه نفسها تُشغّل الفيديو إن كان
-             المتصفّح منع تشغيله تلقائياً (مثل وضع توفير الطاقة في آيفون).
-           • صدقٌ لا ادّعاء: إن رفض المتصفّح الصوت يعود الزرّ إلى «مكتوم» ويكمل الفيديو بلا صوت.
-           • صوتٌ واحد فقط: المشهد الأخير الذي بدأ (أو ضُغط زرّه) هو وحده المسموع.
-           • «تقليل الحركة» في الجهاز ⇒ الصورة الثابتة فقط، ولا يُحمَّل الفيديو أصلاً.
+           🚐 GMTVan — الشاحنة المفرّغة (طلبك ١٨ ت1: «ليس فيديو، جزء من الـHTML … بدون زرّ إطفاء الصوت»)
+           • start(مشهد): الدواليب والدخان يتحرّكان (CSS) + صوت الشاحنة الحقيقي (من فيديوك، ملفّ صوت) يعمل.
+           • stop(مشهد): يخفت الصوت ويتوقّف حين تختفي الشاحنة.
+           • لا زرّ صوت. لكنّ المتصفّحات تمنع أيّ صوتٍ قبل أوّل لمسة من الزائر — قيدٌ في المتصفّح لا نملك تجاوزه:
+             فإن مُنع الصوت عند الفتح يبدأ تلقائياً مع أوّل لمسة/ضغطة ما دامت الشاحنة ظاهرة.
+           • «تقليل الحركة» في الجهاز ⇒ الشاحنة ثابتة بلا دخان ولا حركة (والصوت كما هو).
            ═══════════════════════════════════════════════════════════════════ */
         const GMTVan = (function () {
             let reduce = false;
             try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
-            let soundOn = false;        // صوت الفيديو — يبدأ مكتوماً دائماً، ولا يُفتح إلا بزرّ السمّاعة
-            let active = null;          // المشهد المسموع
-
-            const vid = stage => stage && stage.querySelector('video.van-video');
-
-            function paint() {
-                document.querySelectorAll('.van-stage .van-sound').forEach(b => {
-                    const t = soundOn ? 'كتم صوت الشاحنة' : 'تشغيل صوت الشاحنة';
-                    b.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
-                    b.setAttribute('aria-label', t);
-                    b.title = t;
-                });
+            let audio = null, want = 0, fadeT = 0;
+            function el() {
+                if (audio) return audio;
+                try { audio = new Audio('img/delivery/van-sound.mp3'); audio.preload = 'auto'; audio.loop = true; } catch (_) { audio = null; }
+                return audio;
             }
-            function applyMute() {
-                const a = vid(active);
-                document.querySelectorAll('.van-stage video.van-video').forEach(v => { v.muted = !(soundOn && v === a); });
+            function play() {
+                const a = el(); if (!a || !want) return;
+                clearInterval(fadeT); a.volume = 1;
+                try { const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
             }
-            function noVideo(stage) {
-                stage.classList.add('van-novideo');
-                stage.classList.remove('is-playing');
+            function fade() {
+                const a = audio; if (!a) return;
+                clearInterval(fadeT);
+                fadeT = setInterval(() => {
+                    const v = Math.max(0, (a.volume || 0) - 0.12);
+                    try { a.volume = v; } catch (_) {}
+                    if (v <= 0 || a.paused) { clearInterval(fadeT); try { a.pause(); a.volume = 1; } catch (_) {} }
+                }, 70);
             }
-            /* ربط المصادر مرّةً واحدة لكل مشهد — هنا فقط يبدأ التحميل.
-               المصادر لا تُكتب <source> في الصفحة عمداً: عنصرُ <source> بلا رابط يجعل المتصفّح «يفشل» مبكراً
-               ويطلق خطأً قد يُحسَب لاحقاً فشلاً حقيقياً. فتُنشأ هنا لحظة الحاجة: MP4 أولاً (آيفون وكل الهواتف) ثم WebM. */
-            const SOURCES = [['mp4', 'video/mp4; codecs="avc1.640028, mp4a.40.2"'], ['webm', 'video/webm; codecs="vp9, opus"']];
-            function attach(stage) {
-                const v = vid(stage);
-                if (!v) return null;
-                if (v.dataset.attached) return v;
-                v.dataset.attached = '1';
-                let last = null;
-                SOURCES.forEach(([k, type]) => {
-                    const u = v.getAttribute('data-' + k);
-                    if (!u) return;
-                    const s = document.createElement('source');
-                    s.src = u; s.type = type;
-                    v.appendChild(s); last = s;
-                });
-                /* لم يصلح أيّ مصدر (ملفّ لم يصل · متصفّح لا يقرأه) ⇒ تبقى الصورة، ويختفي زرّ صوتٍ لا صوتَ وراءه */
-                if (last) last.addEventListener('error', () => noVideo(stage));
-                v.addEventListener('error', () => noVideo(stage));
-                v.addEventListener('playing', () => stage.classList.add('is-playing'));
-                v.muted = true;
-                v.load();
-                return v;
+            /* أوّل لمسة/ضغطة: إن كانت الشاحنة ظاهرة والصوت مُنع ⇒ يبدأ الآن. وإلّا نُهيّئ عنصر الصوت (آيفون) ليعمل لاحقاً في شاشة التحقق. */
+            let primed = false;
+            function onGesture() {
+                const a = el(); if (!a) return;
+                if (want) { if (a.paused) play(); }
+                else if (!primed) { a.muted = true; const p = a.play(); if (p && p.then) p.then(() => { a.pause(); a.muted = false; a.currentTime = 0; }, () => { a.muted = false; }); }
+                primed = true;
             }
-            function play(stage) {
-                const v = vid(stage);
-                if (!v) return;
-                applyMute();
-                let p;
-                try { p = v.play(); } catch (_) { p = null; }
-                if (p && typeof p.catch === 'function') p.catch(() => {
-                    if (!v.muted) {
-                        /* المتصفّح رفض الصوت ⇒ نقول الحقيقة: الزرّ «مكتوم»، ونكمل الحركة بلا صوت */
-                        soundOn = false; paint(); applyMute();
-                        v.play().catch(() => {});
-                    }
-                    /* وإن رُفض التشغيل كلّه تبقى الصورة تمشي على الطريق، ولمسةُ السمّاعة تشغّله */
-                });
+            ['pointerdown', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, onGesture, { capture: true, passive: true }));
+            function start(scene) {
+                if (!scene) return;
+                scene.classList.add('is-moving');
+                want++; play();
             }
-            function start(stage) {
-                if (!stage) return;
-                if (reduce) { noVideo(stage); return; }
-                const v = attach(stage);
-                if (!v || stage.classList.contains('van-novideo')) return;
-                active = stage;
-                try { if (v.readyState > 0) v.currentTime = 0; } catch (_) {}
-                play(stage);
+            function stop(scene) {
+                if (scene) scene.classList.remove('is-moving');
+                want = Math.max(0, want - 1);
+                if (!want) fade();
             }
-            function stop(stage) {
-                const v = vid(stage);
-                if (!v) return;
-                try { v.pause(); } catch (_) {}
-                v.muted = true;
-                if (active === stage) active = null;
-            }
-            function toggle(stage) {
-                if (!stage || stage.classList.contains('van-novideo')) return;
-                soundOn = !soundOn;
-                active = stage;
-                paint();
-                attach(stage);
-                play(stage);
-            }
-            document.querySelectorAll('.van-stage .van-sound').forEach(b => {
-                b.addEventListener('click', () => toggle(b.closest('.van-stage')));
-            });
-            return { start, stop, toggle, isSoundOn: () => soundOn, reduced: () => reduce };
+            return { start, stop, reduced: () => reduce, audio: el };
         })();
         window.GMTVan = GMTVan;
 
@@ -512,21 +436,59 @@ window.GMT_PUBLIC = 1;</script>
 
             document.body.style.overflow = 'hidden';
 
-            /* 🚐 شاشة الترحيب ظاهرةٌ من اللحظة الأولى ⇒ فيديو الشاحنة يبدأ معها */
-            GMTVan.start(document.getElementById('van-welcome'));
-
+            /* 🚐 (طلبك ١٨ ت1) «طوّل الانترو شوي بحيث يتلاءم مع الشاحنة … الدخان الذي خلفها يبدو أكبر ثمّ يفتح من خلف الدخان صفحة التتبّع»:
+               ٠ث تدخل الشاحنة من اليسار (١٫٨ث) ⇐ تقف وهي تعمل والدخان يخرج ⇐ ٤٫٣ث تنطلق يميناً ويكبر دخانها حتى يملأ الشاشة
+               ⇐ ٥٫٣ث تصير الخلفيّة شفّافة ويتبدّد الدخان فتنكشف صفحة التتبّع من خلفه ⇐ ٦٫٧ث تُزال الشاشة. */
+            const vw = document.getElementById('van-welcome');
+            const cloud = layer1.querySelector('.van-cloud');
+            GMTVan.start(vw);
             setTimeout(() => { l1Logo.style.opacity = '1'; }, 0);
+            requestAnimationFrame(() => requestAnimationFrame(() => vw.classList.add('arrived')));
             setTimeout(() => { l1Text1.style.opacity = '1'; }, 800);
             setTimeout(() => { l1Text2.style.opacity = '1'; }, 1600);
 
+            function done() {
+                layer1.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                GMTVan.stop(vw);
+            }
+            if (GMTVan.reduced() || !cloud) {
+                setTimeout(() => { layer1.classList.add('fade-out-screen'); setTimeout(done, 800); }, 4300);
+                return;
+            }
+            /* سحب الدخان تبدأ من عادم الشاحنة (حيث هي على الشاشة) وتتفرّق لتغطّي الشاشة كلّها */
+            const SPOTS = [[18, 70], [42, 62], [70, 58], [88, 40], [30, 30], [58, 22], [12, 18], [82, 82], [50, 90]];
+            const puffs = Array.prototype.slice.call(cloud.children);
+            function placeCloud() {
+                const sm = vw.querySelector('.van-smoke');
+                const r = sm ? sm.getBoundingClientRect() : { left: innerWidth * .3, top: innerHeight * .5, width: 0, height: 0 };
+                const ox = r.left + r.width * .7, oy = r.top + r.height * .8;
+                puffs.forEach((p, i) => {
+                    const t = SPOTS[i % SPOTS.length], tx = t[0] / 100 * innerWidth, ty = t[1] / 100 * innerHeight;
+                    p.style.left = tx + 'px'; p.style.top = ty + 'px';
+                    p.style.transition = 'none';
+                    p.style.transform = 'translate(' + (ox - tx) + 'px,' + (oy - ty) + 'px) scale(.06)';
+                });
+                void cloud.offsetWidth;
+                puffs.forEach((p, i) => {
+                    p.style.transition = '';
+                    p.style.transitionDelay = (i * 0.07) + 's';
+                    p.style.transform = 'translate(0,0) scale(1)';
+                });
+            }
             setTimeout(() => {
-                layer1.classList.add('fade-out-screen');
-                setTimeout(() => {
-                    layer1.style.display = 'none';
-                    document.body.style.overflow = 'auto';
-                    GMTVan.stop(document.getElementById('van-welcome'));   // شاشةٌ اختفت ⇒ لا فيديو ولا صوت منها
-                }, 800);
-            }, 3500);
+                placeCloud();
+                layer1.classList.add('smoke-grow');
+                vw.classList.add('leaving');
+            }, 4300);
+            setTimeout(() => {
+                document.body.style.overflow = 'auto';
+                puffs.forEach(p => { p.style.transitionDelay = '0s'; p.style.transform = 'translate(0,0) scale(1.35)'; });
+                layer1.classList.add('smoke-clear');
+                l1Logo.style.opacity = '0';
+                GMTVan.stop(vw);
+            }, 5400);
+            setTimeout(() => { layer1.style.display = 'none'; }, 6900);
         });
 
         // ════════ إعدادات Supabase ════════
