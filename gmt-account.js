@@ -192,7 +192,11 @@
         if (ad && ad.ok) {
           try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {}
           try { if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login', ad.name); } catch (_) {}
-          return { admin: true, name: ad.name };
+          noteAdmin(ad.name);
+          var ares = { admin: true, name: ad.name };
+          /* (١٨ ت١) «تذكّر هذا الجهاز»: فشلُه لا يُفشل الدخول، لكنّه يُعلَن ولا يُقال «تمّ» قبل أن يثبت في القاعدة */
+          if (o.remember) { try { await GMTAuth.admin.rememberDevice(ad.name); ares.remembered = true; } catch (re) { ares.rememberError = (re && re.message) || 'تعذّر تذكّر الجهاز'; } }
+          return ares;
         }
         if (ad && ad.known) { try { if (GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login_fail', user, true); } catch (_) {} }
         adminKnown = !!(ad && ad.known);
@@ -231,6 +235,7 @@
       var pr = await getKey('user_profile_' + u.id);
       if (pr && pr.center) { sess.center_name = pr.center; lsSet('gmt_session', JSON.stringify(sess)); lsSet('gmt_profile_' + u.id, JSON.stringify(pr)); }
     } catch (_) {}
+    noteStaff(sess, !!o.remember);
     return { session: sess };
   }
 
@@ -309,6 +314,7 @@
     if (o.center != null) { prof.center = String(o.center).trim(); s.center_name = prof.center; lsSet('gmt_session', JSON.stringify(s)); }
     if (o.photo) prof.photo = o.photo;
     if (Object.keys(prof).length) { try { await saveProfile(s.id, prof); } catch (_) { lsSet('gmt_profile_' + s.id, JSON.stringify(Object.assign({}, profileCached(s.id) || {}, prof))); } }
+    try { refreshCurrent(); } catch (_) {}      /* (١٨ ت١) قائمة حسابات الجهاز تتبع اسمك الجديد */
     return s;
   }
 
@@ -354,30 +360,42 @@
     var n = String(name || '').trim(); if (!n) return;
     upsert({ t: 'admin', k: admNorm(n), name: n, at: Date.now() }); setActive('admin:' + admNorm(n));
   }
+  /* هل هذا الأدمن «مُذكَّر» على الجهاز؟ — {name,k} أو null. صفحاتٌ تحمّل هذا الملفّ قبل gmt-auth.js (نقطة البيع):
+     نقرأ علامة التذكّر نفسها من localStorage مباشرةً. */
+  function remInfo(k) {
+    try { if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin.remembered) return GMTAuth.admin.remembered(k) || null; } catch (_) {}
+    if (global.GMTAuth) return null;
+    try {
+      var all = JSON.parse(lsGet('gmt_admin_devices_v2', '[]')) || [];
+      var o1 = JSON.parse(lsGet('gmt_admin_device_v1', 'null')); if (o1) all.push(o1);
+      for (var i = 0; i < all.length; i++) if (all[i] && all[i].k === k && all[i].t) return { name: all[i].n, k: all[i].k };
+    } catch (_) {}
+    return null;
+  }
   /* لقطة الجلسة الحاليّة تُحدَّث قبل الانتقال عنها (الاسم والمركز قد تغيّرا من «حسابي») */
   function refreshCurrent() {
     var s = session(); if (!s || s.id == null) return;
     var a = acctsRead(), ch = false;
-    a.forEach(function (x) { if (x.t === 'staff' && String(x.id) === String(s.id)) { x.name = s.display_name || x.name; x.branch_name = s.branch_name || x.branch_name; if (x.rem) x.sess = s; ch = true; } });
+    a.forEach(function (x) { if (x.t === 'staff' && String(x.id) === String(s.id)) { x.name = s.display_name || x.name; x.username = s.username || x.username; x.branch_name = s.branch_name || x.branch_name; if (x.rem) x.sess = s; ch = true; } });
     if (ch) acctsWrite(a);
   }
   function savedList() {
-    var rd = null; try { rd = global.GMTAuth && GMTAuth.admin && GMTAuth.admin.remembered ? GMTAuth.admin.remembered() : null; } catch (_) {}
     var s = session(), adm = isAdmin(), an = ''; try { an = adm && global.GMTRole && GMTRole.name ? GMTRole.name() : ''; } catch (_) {}
     return acctsRead().map(function (x) {
       var o = { key: acctKey(x), t: x.t, name: x.name || x.username || '', username: x.username || '', branch_key: x.branch_key || '', branch_name: x.branch_name || '', at: x.at || 0 };
-      if (x.t === 'admin') { o.rem = !!(rd && rd.k === x.k); o.current = adm && admNorm(an) === x.k; }
+      if (x.t === 'admin') { o.rem = !!remInfo(x.k); o.current = adm && admNorm(an) === x.k; }
       else { o.rem = !!(x.rem && x.sess); o.current = !adm && !!s && String(s.id) === String(x.id); }
       return o;
     });
   }
-  /* خروجٌ صريح: لا جلسة محفوظة بعده (يبقى الاسم في القائمة ويُطلب سرّه) */
-  function loggedOut(kind, idOrName) {
+  /* خروجٌ صريح: لا جلسة محفوظة بعده (يبقى الاسم في القائمة ويُطلب سرّه). للأدمن يُمحى رمز الجهاز من القاعدة أيضاً. */
+  async function loggedOut(kind, idOrName) {
     var k = kind === 'admin' ? 'admin:' + admNorm(idOrName) : 'staff:' + idOrName;
     var a = acctsRead();
     a.forEach(function (x) { if (acctKey(x) === k) { delete x.rem; delete x.sess; } });
     acctsWrite(a);
     if (activeKey() === k) setActive('');
+    if (kind === 'admin') { try { await GMTAuth.admin.forgetDevice(admNorm(idOrName)); } catch (_) {} }
   }
   /* إزالة الحساب من الجهاز كلّياً (الحساب نفسه في القاعدة لا يُلمس) */
   async function forgetAcct(key) {
@@ -385,18 +403,46 @@
     a = a.filter(function (x) { if (acctKey(x) === key) { hit = x; return false; } return true; });
     acctsWrite(a);
     if (hit && hit.t === 'admin') {
-      try { var rd = GMTAuth.admin.remembered(); if (rd && rd.k === hit.k) await GMTAuth.admin.forgetDevice(); } catch (_) {}
+      try { if (remInfo(hit.k)) await GMTAuth.admin.forgetDevice(hit.k); } catch (_) {}
     }
     if (activeKey() === key) setActive('');
     return !!hit;
   }
-  /* التبديل: {ok,kind} · {needPw:true, username} (حسابٌ غير مُذكَّر — اطلب كلمة سرّه) · {error} */
+  /* تشغيل/إيقاف «تذكّر هذا الجهاز» للحساب الحالي — {ok} أو {error} (لا نقول «تمّ» قبل أن يثبت) */
+  async function setRemember(key, on) {
+    var x = null; acctsRead().forEach(function (y) { if (acctKey(y) === key) x = y; });
+    if (!x) return { error: 'الحساب غير موجود على هذا الجهاز' };
+    if (x.t === 'staff') {
+      var s = session();
+      if (!s || String(s.id) !== String(x.id)) return { error: 'ادخل بهذا الحساب أوّلاً ثم فعّل «تذكّر هذا الجهاز»' };
+      refreshCurrent(); noteStaff(s, !!on);
+      return { ok: true, on: !!on };
+    }
+    try {
+      if (on) { if (!isAdmin() || admNorm(global.GMTRole && GMTRole.name ? GMTRole.name() : '') !== x.k) return { error: 'ادخل بهذا الحساب أوّلاً ثم فعّل «تذكّر هذا الجهاز»' }; await GMTAuth.admin.rememberDevice(x.name); }
+      else await GMTAuth.admin.forgetDevice(x.k);
+    } catch (e) { return { error: (e && e.message) || 'تعذّر الحفظ' }; }
+    return { ok: true, on: !!on };
+  }
+  /* هل الحساب ما زال قائماً وفعّالاً؟ — null إن تعذّر السؤال (لا اتصال: جلسات الموظّفين تعمل بلا شبكة كما كانت) */
+  async function staffStatus(id) {
+    try {
+      var rows = await rest('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id) + '&select=id,is_active');
+      if (!Array.isArray(rows)) return null;
+      if (!rows.length) return { gone: true };
+      return { active: rows[0].is_active !== false };
+    } catch (_) { return null; }
+  }
+  /* التبديل: {ok,kind} · {needPw:true, kind, username|name} (حسابٌ غير مُذكَّر — اطلب كلمة سرّه) · {error} */
   async function switchTo(key) {
     var x = null; acctsRead().forEach(function (y) { if (acctKey(y) === key) x = y; });
     if (!x) return { error: 'الحساب غير موجود على هذا الجهاز' };
     refreshCurrent();
     if (x.t === 'staff') {
       if (!x.rem || !x.sess) return { needPw: true, kind: 'staff', username: x.username, name: x.name };
+      var st = await staffStatus(x.id);
+      if (st && st.gone) { await forgetAcct(key); return { error: 'هذا الحساب لم يعد موجوداً — أُزيل من الجهاز' }; }
+      if (st && st.active === false) return { error: 'هذا الحساب موقوف — تواصل مع الإدارة' };
       /* موظّفٌ لا أدمن: وضع الإدارة لهذا التبويب يُغلق (حساب الأدمن المُذكَّر يبقى في القائمة) */
       try { if (isAdmin() && global.GMTRole && GMTRole.revoke) GMTRole.revoke(); } catch (_) {}
       try { sessionStorage.removeItem('gmt_admin_mode'); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_acting'); } catch (_) {}
@@ -408,9 +454,8 @@
     }
     /* أدمن */
     try {
-      var rd = global.GMTAuth && GMTAuth.admin && GMTAuth.admin.remembered ? GMTAuth.admin.remembered() : null;
-      if (rd && rd.k === x.k) {
-        var r = await GMTAuth.admin.restoreDevice();
+      if (remInfo(x.k) && global.GMTAuth && GMTAuth.admin && GMTAuth.admin.restoreDevice) {
+        var r = await GMTAuth.admin.restoreDevice(x.k);
         if (r && r.ok) { setActive(key); return { ok: true, kind: 'admin', name: r.name }; }
         if (r && r.offline) return { error: 'لا اتصال بالقاعدة — تعذّر التحقّق من حساب الإدارة. أعد المحاولة بعد عودة الإنترنت' };
       }
@@ -421,17 +466,23 @@
   /* هل آخر ما اختير على هذا الجهاز أدمنٌ مُذكَّر؟ (يُفتح عند فتح التطبيق بدل الموظّف) */
   function activeAdmin() {
     var k = activeKey(); if (k.indexOf('admin:') !== 0) return null;
-    var rd = null;
-    try { rd = global.GMTAuth && GMTAuth.admin && GMTAuth.admin.remembered ? GMTAuth.admin.remembered() : null; } catch (_) {}
-    /* صفحاتٌ تحمّل هذا الملفّ قبل gmt-auth.js (نقطة البيع · أدمن النقاط): نقرأ علامة التذكّر نفسها مباشرةً */
-    if (!rd && !global.GMTAuth) { try { var o = JSON.parse(lsGet('gmt_admin_device_v1', 'null')); if (o && o.k && o.t) rd = { k: o.k, name: o.n }; } catch (_) {} }
-    return (rd && 'admin:' + rd.k === k) ? rd : null;
+    var r = remInfo(k.slice(6));
+    return r ? { k: k.slice(6), name: r.name } : null;
+  }
+  /* «حساب آخر»: الجلسة الحاليّة تُغلق والحساب يبقى في القائمة (والمُذكَّر منه يعود بضغطة) — بخلاف «خروج» الذي ينسى التذكّر */
+  function leaveCurrent() {
+    var s = session(), adm = isAdmin();
+    if (adm) { try { refreshCurrent(); GMTRole.revoke(); } catch (_) {} try { sessionStorage.removeItem('gmt_acting'); } catch (_) {} }
+    else { refreshCurrent(); try { localStorage.removeItem('gmt_session'); } catch (_) {} }
+    setActive('');
+    return !!(s || adm);
   }
 
   global.GMTAccount = {
     /* (١٨ ت١) حسابات الجهاز والتبديل بضغطة */
     saved: { list: savedList, noteStaff: noteStaff, noteAdmin: noteAdmin, loggedOut: loggedOut, forget: forgetAcct,
-             switchTo: switchTo, active: activeKey, setActive: setActive, activeAdmin: activeAdmin, refresh: refreshCurrent },
+             switchTo: switchTo, active: activeKey, setActive: setActive, activeAdmin: activeAdmin, refresh: refreshCurrent,
+             setRemember: setRemember, leave: leaveCurrent },
     OPEN_DEVICE: OPEN_DEVICE, branches: branches, signup: signup, login: login,
     session: session, setSession: setSession, isAdmin: isAdmin,
     saveProfile: saveProfile, profile: profileCached,
@@ -529,11 +580,12 @@
     if (document.body) showLock(); else document.addEventListener('DOMContentLoaded', showLock);
     /* (١٨ ت١) أدمنٌ مُذكَّر على هذا الجهاز وهو آخر من اختير ⇒ نفتح وضع الإدارة من التذكّر بدل شاشة القفل
        (فتح أداةٍ إداريّة برابطٍ مباشر في جلسةٍ جديدة) — الفحص في القاعدة كالدخول تماماً. */
-    if (activeAdmin()) {
+    var _ra = activeAdmin();
+    if (_ra) {
       var tryRem = function () {
         ensureAuth().then(function (okA) {
           if (!okA || !global.GMTAuth || !GMTAuth.admin || !GMTAuth.admin.restoreDevice) return;
-          GMTAuth.admin.restoreDevice().then(function (r) { if (r && r.ok && can(f)) unlock(); }, function () {});
+          GMTAuth.admin.restoreDevice(_ra.k).then(function (r) { if (r && r.ok && can(f)) unlock(); }, function () {});
         });
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryRem); else tryRem();
@@ -718,6 +770,11 @@
     } catch (_) {}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadOpLog); else loadOpLog();
+
+  /* (١٨ ت١ · وثيقة الطلبات ٩) «المستخدم العادي أوّل ما يفتح التطبيق ⇒ تفتح له نقطته مباشرة»:
+     علامةُ «هذا التبويب فُتح» تضعها كلُّ صفحةٍ داخليّةٍ غير الرئيسيّة، فيعرف home.html أنّ الدخول إليه الآن تنقّلٌ داخليّ
+     (زرّ «الرئيسية» من نقطة البيع مثلاً) لا فتحُ تطبيقٍ جديد — فلا يرتدّ المستخدم إلى نقطته كلّما أراد الرئيسيّة. */
+  try { if (!/^(home|index)\.html$/i.test(currentFile())) sessionStorage.setItem('gmt_tab_seen', '1'); } catch (_) {}
 
   global.GMTPerm = { can: can, adminOnly: adminOnly, guard: guard, unlock: unlock, file: currentFile };
   if (!global.GMT_NO_GUARD) guard();

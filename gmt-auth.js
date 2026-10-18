@@ -387,6 +387,8 @@
         auditEvent('admin_login', res.name);
         try { localStorage.setItem('gmt_admin_last', res.name); } catch (e) {}
         try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(res.name); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (e) {}
+        /* (١٨ ت١) كلُّ أدمنٍ دخل من هذا الجهاز يظهر في «حسابات هذا الجهاز» (التذكّر نفسه اختياريّ ويُفعَّل من هناك) */
+        try { if (global.GMTAccount && global.GMTAccount.saved) global.GMTAccount.saved.noteAdmin(res.name); } catch (e) {}
         if (res.created) {
             try {
                 if (global.GMTAsk) global.GMTAsk.alert('أُنشئ حساب الأدمن «' + res.name + '». من الآن تدخل الإدارة باسمك وكلمة سرّك (من نموذج الدخول العادي أو «دخول الإدارة»).' +
@@ -405,14 +407,35 @@
          · عند «تذكّر هذا الجهاز» نولّد **رمزاً عشوائياً** (٣٢ بايت) يبقى على الجهاز وحده (localStorage)،
            ونكتب في gmt_settings مفتاحاً للجهاز `admin_device_<id>` فيه **بصمة** الرمز فقط (SHA-256 بالمِلح) + مِلح
            الحساب لحظتها. لا كلمة سرّ ولا الرمز نفسه في القاعدة.
+         · يمكن تذكّر أكثر من أدمن على الجهاز نفسه (قائمة: لكل حساب رمزه) — لا يمحو أحدُهم الآخر.
          · عند فتح التطبيق: نقرأ مفتاح الجهاز وحساب الأدمن من القاعدة ونطابق البصمة ⇒ GMTRole.grant(الاسم).
          · تغيير كلمة سرّ الحساب (مِلح جديد) أو حذفه أو «خروج» من الجهاز ⇒ يسقط التذكّر وحده.
          · بلا شبكة ⇒ لا نفتح الإدارة (الفشل مغلق كبقيّة حسابات الأدمن) ولا نمحو التذكّر — يُعاد عند عودة الاتصال.
        ═══════════════════════════════════════════════════════════════════════ */
     var DEV_KEY = 'admin_device_';
-    var LS_DEV = 'gmt_admin_device_v1';
-    function devLocal() {
-        try { var o = JSON.parse(localStorage.getItem(LS_DEV) || 'null'); return (o && o.id && o.t && o.k) ? o : null; } catch (e) { return null; }
+    var LS_DEV = 'gmt_admin_device_v1';          /* قديم: حسابٌ واحد — يُقرأ ويُهاجَر إلى القائمة */
+    var LS_DEVS = 'gmt_admin_devices_v2';        /* [{id,t,k,n,at}] */
+    function devAll() {
+        var out = [];
+        try {
+            var a = JSON.parse(localStorage.getItem(LS_DEVS) || '[]');
+            if (Array.isArray(a)) a.forEach(function (o) { if (o && o.id && o.t && o.k) out.push(o); });
+        } catch (e) {}
+        try {                                                  /* ترحيل النسخة الأحاديّة إن وُجدت */
+            var o1 = JSON.parse(localStorage.getItem(LS_DEV) || 'null');
+            if (o1 && o1.id && o1.t && o1.k && !out.some(function (x) { return x.k === o1.k; })) out.push(o1);
+        } catch (e) {}
+        return out;
+    }
+    function devWrite(list) {
+        localStorage.setItem(LS_DEVS, JSON.stringify(list));
+        try { localStorage.removeItem(LS_DEV); } catch (e) {}
+    }
+    function devLocal(k) {
+        var all = devAll();
+        if (k == null) return all[0] || null;
+        for (var i = 0; i < all.length; i++) if (all[i].k === k) return all[i];
+        return null;
     }
     async function devHash(token) { var h = await sha('admin-device|' + token); if (!h) throw new Error('المتصفّح لا يدعم التشفير — افتح النظام عبر https'); return h; }
     async function readDevRec(id) {
@@ -423,6 +446,9 @@
         if (!Array.isArray(rows) || !rows.length || rows[0].value == null) return null;
         try { return JSON.parse(rows[0].value); } catch (e) { return null; }
     }
+    async function delDevRec(d, id) {
+        try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {}
+    }
     /* يحفظ تذكّر الجهاز للأدمن الداخل الآن — يُنادى بعد دخولٍ صحيح فقط (الجلسة مفتوحة باسمه) */
     async function rememberDevice(name) {
         needAdmin();
@@ -432,7 +458,7 @@
         var r = await readAdmins(), acc = null;
         r.list.forEach(function (a) { if (a && a.k === k) acc = a; });
         if (!acc) throw new Error('الحساب غير موجود');
-        var old = devLocal();
+        var old = devLocal(k);
         var id = toHex(global.crypto.getRandomValues(new Uint8Array(9)));
         var token = toHex(global.crypto.getRandomValues(new Uint8Array(32)));
         var rec = { k: acc.k, n: acc.n, s: acc.s, h: await devHash(token), at: new Date().toISOString(), ua: String((global.navigator && navigator.userAgent) || '').slice(0, 120) };
@@ -444,18 +470,23 @@
         if (!w.ok) throw new Error('تعذّر حفظ تذكّر الجهاز (HTTP ' + w.status + ')');
         var back = await readDevRec(id);                         /* لا نصدّق الكتابة قبل أن نقرأها */
         if (!back || back.h !== rec.h) throw new Error('تذكّر الجهاز لم يثبت في القاعدة — لم يُحفَظ');
-        try { localStorage.setItem(LS_DEV, JSON.stringify({ id: id, t: token, k: acc.k, n: acc.n, at: rec.at })); }
-        catch (e) { throw new Error('تخزين الجهاز محجوب — لا يمكن التذكّر'); }
-        if (old && old.id !== id) { try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + old.id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {} }
+        try {
+            var keep = devAll().filter(function (x) { return x.k !== acc.k; });
+            keep.unshift({ id: id, t: token, k: acc.k, n: acc.n, at: rec.at });
+            devWrite(keep);
+        } catch (e) { await delDevRec(d, id); throw new Error('تخزين الجهاز محجوب — لا يمكن التذكّر'); }
+        if (old && old.id !== id) await delDevRec(d, old.id);
         auditEvent('admin_device_remember', acc.n);
         return { name: acc.n };
     }
-    /* يفتح وضع الإدارة من التذكّر: {ok,name} · {ok:false, offline:true} (يبقى التذكّر) · {ok:false, gone:true} (سقط ومُحي) */
-    var _restoring = null;
-    function restoreDevice() {
-        if (_restoring) return _restoring;
-        _restoring = (async function () {
-            var loc = devLocal();
+    /* يفتح وضع الإدارة من التذكّر: {ok,name} · {ok:false, offline:true} (يبقى التذكّر) · {ok:false, gone:true} (سقط ومُحي)
+       k = الحساب المطلوب (مطبَّعاً)؛ بلاه ⇒ أحدث حسابٍ مُذكَّر. */
+    var _restoring = {};
+    function restoreDevice(k) {
+        var loc = devLocal(k == null ? null : k);
+        var rk = loc ? loc.k : '_none';
+        if (_restoring[rk]) return _restoring[rk];
+        _restoring[rk] = (async function () {
             if (!loc) return { ok: false, none: true };
             try { if (global.GMTRole && global.GMTRole.isAdmin && global.GMTRole.isAdmin() && normName(global.GMTRole.name()) === loc.k) return { ok: true, name: global.GMTRole.name() }; } catch (e) {}
             var rec, r;
@@ -467,25 +498,27 @@
             try { good = !!(rec && acc && rec.k === acc.k && rec.s === acc.s && same(String(rec.h || ''), await devHash(loc.t))); } catch (e) { good = false; }
             if (!good) {
                 /* حسابٌ حُذف · كلمة سرٍّ تغيّرت · أُلغي الجهاز من مكانٍ آخر ⇒ التذكّر سقط: نمحوه كي لا نعيد السؤال في كل فتح */
-                try { localStorage.removeItem(LS_DEV); } catch (e) {}
+                try { devWrite(devAll().filter(function (x) { return x.k !== loc.k; })); } catch (e) {}
                 return { ok: false, gone: true };
             }
             try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(acc.n); else { sessionStorage.setItem('gmt_admin_mode', '1'); sessionStorage.setItem('gmt_admin_name', acc.n); } } catch (e) {}
             try { localStorage.setItem('gmt_admin_last', acc.n); } catch (e) {}
             return { ok: true, name: acc.n };
-        })().finally(function () { _restoring = null; });
-        return _restoring;
+        })().finally(function () { delete _restoring[rk]; });
+        return _restoring[rk];
     }
-    /* «خروج» من الجهاز: يُمحى التذكّر محلّياً ومن القاعدة (فلا يصلح الرمز إن نُسخ) */
-    async function forgetDevice() {
-        var loc = devLocal(); if (!loc) return true;
-        try { localStorage.removeItem(LS_DEV); } catch (e) {}
+    /* «خروج» من الجهاز: يُمحى التذكّر محلّياً ومن القاعدة (فلا يصلح الرمز إن نُسخ). k بلاه ⇒ كلّ الحسابات */
+    async function forgetDevice(k) {
+        var all = devAll(), gone = all.filter(function (x) { return k == null || x.k === k; });
+        if (!gone.length) return true;
+        try { devWrite(all.filter(function (x) { return !(k == null || x.k === k); })); } catch (e) {}
         var d = db();
-        if (d) { try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + loc.id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {} }
-        auditEvent('admin_device_forget', loc.n);
+        if (d) { for (var i = 0; i < gone.length; i++) await delDevRec(d, gone[i].id); }
+        gone.forEach(function (x) { auditEvent('admin_device_forget', x.n); });
         return true;
     }
-    function rememberedDevice() { var o = devLocal(); return o ? { name: o.n, k: o.k, at: o.at || '' } : null; }
+    function rememberedDevice(k) { var o = devLocal(k == null ? null : k); return o ? { name: o.n, k: o.k, at: o.at || '' } : null; }
+    function rememberedAll() { return devAll().map(function (o) { return { name: o.n, k: o.k, at: o.at || '' }; }); }
 
     async function listAdmins() { var r = await readAdmins(); return r.list.map(function (a) { return { name: a.n, at: a.at || '', by: a.by || '' }; }); }
     function needAdmin() {
@@ -535,7 +568,7 @@
             tryLogin: function (name, pw) { return adminCheck(name, pw, false); },   /* من نموذج الدخول العادي: بلا إنشاء */
             list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
             /* (١٨ ت١) «تذكّر هذا الجهاز» — رمزٌ على الجهاز وبصمته في القاعدة (لا كلمة سرّ محفوظة) */
-            rememberDevice: rememberDevice, restoreDevice: restoreDevice, forgetDevice: forgetDevice, remembered: rememberedDevice,
+            rememberDevice: rememberDevice, restoreDevice: restoreDevice, forgetDevice: forgetDevice, remembered: rememberedDevice, rememberedAll: rememberedAll,
             normalize: normName, _audit: auditEvent
         }
     };
