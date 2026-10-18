@@ -119,6 +119,8 @@ window.GMT_PUBLIC = 1;</script>
         .van-wrap { width: 100%; max-width: 340px; margin: 0 auto; }
         .van-wrap--welcome { max-width: 360px; }
         @media (min-width: 768px) { .van-wrap--welcome { max-width: 440px; } }
+        /* شاشة الترحيب ثابتة على كامل الشاشة بلا تمرير: على هاتفٍ أفقيّ (ارتفاعٌ قصير) نصغّر المشهد بنسبته كي لا يُقصّ النصّ تحته */
+        @media (max-height: 560px) { .van-wrap--welcome { max-width: max(160px, calc((100vh - 190px) * 1.7778)); } }
         .van-stage {
             position: relative;
             width: 100%;
@@ -157,8 +159,8 @@ window.GMT_PUBLIC = 1;</script>
             top: 8px;
             left: 8px;                       /* نهاية السطر في صفحةٍ عربية — فوق السماء الفارغة في المشهد */
             z-index: 3;
-            width: 36px;
-            height: 36px;
+            width: 40px;                     /* هدفُ لمسٍ مريح على الهاتف */
+            height: 40px;
             border-radius: 999px;
             display: flex;
             align-items: center;
