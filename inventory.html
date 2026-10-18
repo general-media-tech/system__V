@@ -3777,6 +3777,8 @@ window.pm2Sync=pm2Sync;
       <button class="btn btn-ghost btn-sm" onclick="stOpenSettlements()" title="فواتير نقل فيها بنود لم تُخصم — تشمل السابقة" style="color:#b45309">
         🧾 تسوية معلّقة <span id="st-settle-count" style="display:none;background:#D5001C;color:#fff;border-radius:99px;padding:0 6px;font-size:10px;margin-right:3px"></span>
       </button>
+      <!-- 🔄 (١٨ ت١ · وثيقة الطلبات §1) «كبسة زر ترجع تعدّد الكميات وتحدّد لي كل شيء مو موجود في المخزون المصدر لحتى أرفع الكمية» -->
+      <button class="btn btn-ghost btn-sm" id="st-recount-btn" onclick="stRecount()" title="يعيد عدّ كميات الفواتير غير المنقولة ويعرض كل ما ليس متوفّراً في المصدر لترفعه بضغطة" style="color:#15803d">🔄 إعادة العدّ</button>
       <!-- 📝 [T19] استئناف المسوّدة — ظاهر دائماً لا يعتمد على سؤال يظهر مرّة -->
       <button class="btn btn-ghost btn-sm" onclick="stResumeDraft()" title="متابعة المسوّدة المحفوظة">📝 استئناف المسوّدة</button>
       <button class="btn btn-primary btn-sm" id="new-transfer-invoice-btn" data-admin="فاتورة نقل" onclick="openNewStockTransferModal()">+ فاتورة نقل جديدة</button>
@@ -11570,9 +11572,300 @@ function stSettleCss(){
     +'.st-sl-btns .pri{background:#15803d;color:#fff;border-color:#15803d}'
     +'.st-sl-btns .warn{background:#fff7ed;border-color:#fdba74;color:#9a3412}'
     +'.st-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);margin-inline-end:6px;vertical-align:middle}'
-    +'@media (min-width:900px){#st-settle-ov>div{max-width:1040px}.st-sl-item{grid-template-columns:minmax(220px,2.2fr) minmax(260px,2fr) auto;align-items:center}}';
+    /* ── «إعادة العدّ» ── */
+    +'.st-rc{border:1.5px solid #fdba74;background:#fffaf5;border-radius:12px;padding:11px;margin-bottom:12px}'
+    +'.st-rc-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;align-items:baseline;font-size:12px;color:var(--text3)}'
+    +'.st-rc-head b{font-size:14px;color:var(--text)}'
+    +'.st-rc-sum{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px;font-size:12px}'
+    +'.st-rc-sum span{padding:3px 10px;border-radius:999px;font-weight:700}'
+    +'.st-rc-sum .m{background:#fee2e2;color:#991b1b}.st-rc-sum .g{background:#dcfce7;color:#166534}'
+    +'.st-rc-acts{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0}'
+    +'.st-rc-acts button{flex:1 1 200px;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:900;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-family:inherit;min-height:44px}'
+    +'.st-rc-acts button.pri{background:#15803d;color:#fff;border-color:#15803d}'
+    +'.st-rc-acts button:disabled{opacity:.55;cursor:wait}'
+    +'.st-rc-hint{font-size:11.5px;color:var(--text3);line-height:1.8;margin-bottom:6px}'
+    +'.st-rc-ok{background:#dcfce7;color:#166534;border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:800;margin-top:8px}'
+    +'.st-rc-warn{background:#fef3c7;color:#92400e;border-radius:9px;padding:8px 11px;font-size:12px;margin-top:8px;line-height:1.8}'
+    +'.st-rc-br{font-size:12px;font-weight:900;color:var(--text2);margin:10px 0 2px}'
+    +'.st-rc-row{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0;border-top:1px dashed #fdba74}'
+    +'.st-rc-name{display:flex;gap:8px;align-items:center;min-width:0}'
+    +'.st-rc-name img,.st-rc-name i{width:38px;height:38px;border-radius:8px;object-fit:cover;flex:0 0 auto;background:var(--surface2)}'
+    +'.st-rc-name b{display:block;font-size:12.5px;line-height:1.5;overflow-wrap:anywhere}'
+    +'.st-rc-name small{display:block;font-size:11px;color:var(--text3);overflow-wrap:anywhere}'
+    +'.st-sl-nums .miss{background:#fee2e2;color:#991b1b}'
+    +'.st-rc-raise{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--text2)}'
+    +'.st-rc-raise input{width:84px;padding:7px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-weight:800;text-align:center;font-family:inherit;direction:ltr;background:#fff;color:var(--text)}'
+    +'.st-rc-prog{display:flex;align-items:center;gap:8px;background:#eff6ff;color:#1e3a8a;border-radius:9px;padding:9px 11px;font-size:13px;font-weight:800;margin-bottom:8px}'
+    +'.st-rc-res{border-radius:10px;padding:10px 12px;margin-bottom:9px;font-size:12.5px;line-height:1.85}'
+    +'.st-rc-res.good{background:#dcfce7;color:#166534}.st-rc-res.bad{background:#fef3c7;color:#92400e}'
+    +'.st-rc-res ul{margin:4px 0 0;padding-inline-start:18px}'
+    +'.st-rc-prog .inv-ri-spin{display:inline-block;animation:inv-ri-rot 1s linear infinite}'
+    +'@media (min-width:900px){#st-settle-ov>div{max-width:1040px}.st-sl-item{grid-template-columns:minmax(220px,2.2fr) minmax(260px,2fr) auto;align-items:center}.st-rc-row{grid-template-columns:minmax(220px,2.2fr) minmax(260px,2fr) auto;align-items:center}}';
   document.head.appendChild(st);
 }
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   🔄 «إعادة العدّ» — فواتير النقل غير المنقولة أو الناقصة (وثيقة الطلبات §1، ١٨ ت١)
+   نصّ المالك: «في فواتير النقل مازلت اعاني من مشاكل مثلا عندما يكون فواتير سابقه غير منقوله او فيها مواد ناقصه ام يطلب من
+   اعاده انتقال يدويا رغم من وجود تعديل المخزون او اعد لادخال تلقائيا للكل وهذا غلط يجب ان يكون في كبسه زر يرجع يعدد الكميات
+   ويحدد لي كل شيء مو موجود منه في المخزون المصدر لحتى ارفع الكميه · لازم الموضوع ينحل خلال كبسه زر واحده او اثنتين على الاقل
+   وليس كل واحده يدويا الا اذا في شيء بدي اعدله يدويا · كثير عم بيطول».
+   ما يفعله الزرّ (واحد): يقرأ من الخادم الآن كل بندٍ لم يُنقل في كل الفواتير المعلّقة، ويجمعها **حسب الصنف في الفرع المصدر** (فاتورتان تسحبان
+   من رصيدٍ واحد تُجمعان — وإلا ظهر الرصيد كافياً لكلٍّ منهما وهو لا يكفيهما معاً)، ويعرض لكل صنفٍ ناقص: المطلوب · المتاح الآن · الناقص.
+   ثم ضغطةٌ ثانية:
+     «ارفع الناقص وأكمل الكل» (أدمن) — يرفع المصدر بالناقص (أو بما كتبتَه أنت في خانة «ارفع بمقدار» إن عدّلتها) ثم يُكمل كل البنود بأعدادها.
+     «انقل المتاح فقط» — بلا رفع: ينقل ما يكفي ويبقى الباقي ناقصاً.
+   الأمان (نفس قواعد التسوية القائمة، بلا تراجع عنها):
+     • لا خصمٌ مضاعف: كل بندٍ يُقرأ من القاعدة قبل خصمه، والكتابة على البند مشروطة بقيمة qty المقروءة، وأيّ فشلٍ بعد الخصم يُعيد الكمية.
+     • الرفع «إلى هدف» لا «بمقدار»: هدفٌ = الرصيد المقروء + الناقص؛ وقبل الرفع يُقرأ الرصيد من جديد فلا يرفع جهازان معاً مرّتين.
+     • كل حركة مخزون تُفحَص (GMTStock.move) وتُسجَّل في سجلّ العمليات: رفع المصدر (branch_stock_raised) · كل بند (transfer_fill) ·
+       وسطرٌ على الفاتورة (transfer_recount) يظهر في «سجلّ الحركة».
+     • قفلٌ واحد مشترك مع «أعِد المحاولة»/«لم تُنقل» (_stFillBusy): ضغطتان سريعتان لا تعملان معاً.
+   السرعة: القراءة على مرحلتين متوازيتين (كانت متتابعة)، والتنفيذ على أربعة مسارات متوازية **بين أصنافٍ مختلفة** (بنود الصنف الواحد متتابعة)،
+   ورأس كل فاتورة يُحدَّث مرّةً واحدة في النهاية، والمنتجات تُعاد قراءتها مرّةً واحدة — كان كل بند يُعيد تحميل الجرد كله ويفتح اللوحة من جديد.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+/* قراءةٌ حديثة واحدة لكل ما لم يُنقل — مشتركةٌ بين لوحة التسوية و«إعادة العدّ». أيّ قراءةٍ فاشلة تُرمى (لا «لا شيء معلّق» كاذبة). */
+async function stScanOpen(onlyId){
+  const [rt, rf] = await Promise.all([
+    sbFetch('GET','/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=400'),
+    sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=500')
+  ]);
+  if(rt.error) throw new Error('تعذّر قراءة فواتير النقل: '+rt.error);
+  /* الفواتير المرشّحة: كل فاتورة بحالة «تحتاج تسوية» (غير مختومة) + كل فاتورة غير مُلغاة فيها بند موسوم فاشل.
+     (استعلام الوسم اختياري: قاعدةٌ بلا عمود deduction_failed تُرجع خطأً فتبقى المرشّحة بالحالة وحدها) */
+  const all=stRows(rt).filter(t=>t.status!=='cancelled');
+  const cand=all.filter(t=>t.status==='needs_settlement' && !t.settled);
+  if(!rf.error){
+    const fid=new Set(stRows(rf).map(x=>String(x.transfer_id)));
+    all.forEach(t=>{ if(fid.has(String(t.id)) && !cand.some(c=>String(c.id)===String(t.id))) cand.push(t); });
+  }
+  const only=(onlyId!=null && onlyId!=='');
+  const cands = only ? cand.filter(t=>String(t.id)===String(onlyId)) : cand;
+  const ids=cands.map(t=>t.id), chunks=[];
+  for(let i=0;i<ids.length;i+=40) chunks.push(ids.slice(i,i+40));
+  const parts=await Promise.all(chunks.map(c=>sbFetch('GET','/rest/v1/stock_transfer_items?transfer_id=in.('+c.join(',')+')&select=*')));
+  const byT={};
+  parts.forEach(r=>{ if(r.error) throw new Error('تعذّر قراءة بنود الفواتير: '+r.error); stRows(r).forEach(i=>{ (byT[i.transfer_id]=byT[i.transfer_id]||[]).push(i); }); });
+  /* المتاح الآن في المصدر لكل بند ناقص (قراءة حديثة، لا الكاش) */
+  const need={};   // fromBranch -> Set(product_id)
+  cands.forEach(t=>(byT[t.id]||[]).forEach(i=>{ const v=stView(i,t); if(v.open>0 && v.product_id){ (need[t.from_branch]=need[t.from_branch]||new Set()).add(String(i.product_id)); } }));
+  const stock={}, reqs=[];
+  Object.keys(need).forEach(bk=>{
+    const pids=[...need[bk]];
+    for(let k=0;k<pids.length;k+=60) reqs.push(sbFetch('GET','/rest/v1/products?id=in.('+pids.slice(k,k+60).join(',')+')&select=id,'+bk).then(r=>({bk,r})));
+  });
+  (await Promise.all(reqs)).forEach(({bk,r})=>{
+    if(r.error) throw new Error('تعذّر قراءة رصيد المصدر ('+bk+'): '+r.error);
+    stRows(r).forEach(p=>{ stock[bk+'|'+p.id]=Number(p[bk])||0; });
+  });
+  return { all, cand: cands, byT, stock, at: Date.now() };
+}
+/* يجمع البنود الناقصة حسب (الفرع المصدر + الصنف) ويحسب الناقص الحقيقي: الناقص = max(0, المطلوب كلّه − المتاح الآن) */
+function stBuildRecount(sc){
+  const rows=new Map(), blocked=[];
+  let items=0; const inv=new Set();
+  /* الأقدم أولاً: حين يشحّ الرصيد تأخذه الفاتورة الأقدم */
+  const cands=sc.cand.slice().sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||'')) || ((Number(a.id)||0)-(Number(b.id)||0)));
+  cands.forEach(t=>{
+    (sc.byT[t.id]||[]).slice().sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0)).forEach(it=>{
+      const v=stView(it,t); if(v.open<=0) return;
+      if(t.status==='receiving'||t.status==='reopening'){ blocked.push({t,v}); return; }
+      const key=t.from_branch+'|'+v.product_id;
+      let r=rows.get(key);
+      if(!r){ r={ key, branch:t.from_branch, branchName:t.from_branch_name||t.from_branch, product_id:v.product_id, name:v.name, image_url:v.image_url, need:0, have:sc.stock[key], items:[], nos:[] }; rows.set(key,r); }
+      r.need+=v.open; r.items.push({t,it,v}); items++; inv.add(String(t.id));
+      const no=t.transfer_number||('#'+t.id); if(r.nos.indexOf(no)<0) r.nos.push(no);
+    });
+  });
+  const list=[...rows.values()];
+  list.forEach(r=>{ r.known = r.have!=null && isFinite(r.have); r.missing = r.known ? Math.max(0, r.need-r.have) : null; });
+  const short=list.filter(r=>r.known && r.missing>0), ready=list.filter(r=>r.known && r.missing===0), unknown=list.filter(r=>!r.known);
+  return { rows:list, short, ready, unknown, blocked, items, invoices:inv.size, missingTotal: short.reduce((q,r)=>q+r.missing,0), at: sc.at };
+}
+/* بيان آخر تنفيذ — يبقى ظاهراً حتى العدّ التالي (لا نافذةٌ تُغلق فتضيع النتيجة) */
+function stRcResultHtml(){
+  const res=window.__stRecountResult; if(!res) return '';
+  const bad=res.failed.length||res.logFail||res.hdrFail.length;
+  return '<div class="st-rc-res '+(bad?'bad':'good')+'" role="status"><b>'+(bad?'⚠ انتهى التنفيذ مع ملاحظات':'✅ تمّ التنفيذ')+'</b>'
+    +'<div>أُكمل <b>'+res.full+'</b> بنداً بأعداده'+(res.partial?(' · <b>'+res.partial+'</b> جزئياً (المتاح فقط)'):'')
+    +(res.raisedTotal?(' · رُفع مخزون المصدر <b>'+res.raisedTotal+'</b> قطعة في <b>'+res.raisedRows+'</b> صنف'):'')
+    +(res.failed.length?(' · تعذّر <b>'+res.failed.length+'</b>'):'')+'</div>'
+    +(res.failed.length?('<ul>'+res.failed.slice(0,8).map(x=>'<li>'+escHtml(x)+'</li>').join('')+(res.failed.length>8?'<li>… و'+(res.failed.length-8)+' غيرها</li>':'')+'</ul>'):'')
+    +(res.hdrFail.length?('<div>⚠ تعذّر تحديث حالة الفاتورة: '+escHtml(res.hdrFail.join('، '))+' — أعِد العدّ.</div>'):'')
+    +(res.warn?('<div>ℹ️ تعذّر تحديث «في الطريق» (للعرض فقط) لـ '+res.warn+' بنداً — المخزون نفسه سليم.</div>'):'')
+    +(res.logFail?('<div>⚠ لم يُسجَّل في سجلّ العمليات '+res.logFail+' حركة (الحركة نفسها تمّت) — تحقّق من جدول gmt_audit.</div>'):'')
+    +'</div>';
+}
+function stRecountHtml(rep, isAdm){
+  const time=new Date(rep.at||Date.now()).toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  let h='<div id="st-recount-box" class="st-rc">'+stRcResultHtml();
+  h+='<div class="st-rc-head"><b>🔄 نتيجة العدّ</b><span>'+time+' · '+rep.invoices+' فاتورة · '+rep.items+' بنداً لم يُنقل</span></div>';
+  if(rep.unknown.length){
+    h+='<div class="st-rc-warn">⚠ تعذّر معرفة رصيد المصدر لـ '+rep.unknown.length+' صنف (حُذفت من الجرد؟): '+escHtml(rep.unknown.slice(0,4).map(r=>r.name).join('، '))+(rep.unknown.length>4?' …':'')+' — لن تُمسّ.</div>';
+  }
+  if(rep.blocked.length){
+    h+='<div class="st-rc-warn">🔒 '+rep.blocked.length+' بنداً في فواتير «قيد الاستلام/التعديل» — لا يُنفَّذ عليها شيء حتى تُفكّ (أسفل).</div>';
+  }
+  const nReady=rep.ready.length;
+  if(!rep.short.length){
+    if(nReady){
+      h+='<div class="st-rc-ok">✅ كل ما لم يُنقل متوفّرٌ الآن في مصدره ('+nReady+' صنف) — اضغط للنقل.</div>'
+        +'<div class="st-rc-acts"><button class="pri" id="st-rc-avail" onclick="stRecountApply(\'avail\')">⟳ انقل الكل ('+rep.items+' بنداً)</button>'
+        +'<button onclick="stRecount(window.__stOnly)">🔄 أعِد العدّ</button></div>';
+    }else{
+      h+='<div class="st-rc-warn">لا بند قابل للتنفيذ الآن.</div><div class="st-rc-acts"><button onclick="stRecount(window.__stOnly)">🔄 أعِد العدّ</button></div>';
+    }
+  }else{
+    h+='<div class="st-rc-sum"><span class="m"><b>'+rep.short.length+'</b> صنف ناقص في المصدر</span><span class="m"><b>'+rep.missingTotal+'</b> قطعة ناقصة</span>'
+      +(nReady?('<span class="g"><b>'+nReady+'</b> صنف متوفّر وجاهز</span>'):'')+'</div>';
+    h+='<div class="st-rc-acts">'
+      +'<button class="pri" id="st-rc-raise" onclick="stRecountApply(\'raise\')">⬆ ارفع الناقص وأكمل الكل'+(isAdm?'':' 🔒')+'</button>'
+      +'<button id="st-rc-avail" onclick="stRecountApply(\'avail\')">انقل المتاح فقط</button>'
+      +'<button onclick="stRecount(window.__stOnly)">🔄 أعِد العدّ</button></div>';
+    h+='<div class="st-rc-hint">«ارفع الناقص» يرفع مخزون المصدر بالمكتوب في خانة «ارفع بمقدار» (الناقص تلقائياً — عدّله إن شئت) ثم يُكمل كل البنود؛ يُسجَّل باسمك بسببٍ واحد.</div>';
+    h+='<div class="st-rc-list">';
+    let lastBranch=null; const multi=new Set(rep.short.map(r=>r.branch)).size>1;
+    rep.short.forEach(r=>{
+      if(multi && r.branch!==lastBranch){ h+='<div class="st-rc-br">من «'+escHtml(r.branchName)+'»</div>'; lastBranch=r.branch; }
+      h+='<div class="st-rc-row">'
+        +'<div class="st-rc-name">'+(r.image_url?'<img src="'+escHtml(r.image_url)+'" alt="" onerror="this.style.visibility=\'hidden\'">':'<i></i>')
+        +'<span><b>'+escHtml(r.name)+'</b><small>'+escHtml(r.nos.slice(0,3).join('، '))+(r.nos.length>3?' …':'')+(multi?'':(' · من «'+escHtml(r.branchName)+'»'))+'</small></span></div>'
+        +'<div class="st-sl-nums"><span>المطلوب <b>'+r.need+'</b></span><span>المتاح الآن <b>'+r.have+'</b></span><span class="miss">الناقص <b>'+r.missing+'</b></span></div>'
+        +'<label class="st-rc-raise">ارفع بمقدار<input type="number" min="0" step="1" inputmode="numeric" value="'+r.missing+'" data-rc-key="'+escHtml(r.key)+'" data-def="'+r.missing+'" oninput="this.dataset.touched=\'1\'" aria-label="ارفع '+escHtml(r.name)+' بمقدار"></label>'
+        +'</div>';
+    });
+    h+='</div>';
+  }
+  return h+'</div>';
+}
+/* عدٌّ جديد من زرّ «🔄 إعادة العدّ» (يُمسح بيان التنفيذ السابق). الوسيط: فاتورةٌ واحدة (تسوية فاتورة بعينها) أو بلا وسيط = كل المعلّقة. */
+async function stRecount(onlyId){
+  window.__stRecountResult=null;
+  return stOpenSettlements(onlyId);
+}
+window.stRecount=stRecount;
+/* شريط تقدّم داخل صندوق العدّ — ستارة التحميل العامّة (z-index 9999) تقع خلف لوحة التسوية فلا تُرى هنا */
+function stRcProgress(text){
+  const box=document.getElementById('st-recount-box'); if(!box) return;
+  let p=box.querySelector('.st-rc-prog');
+  if(!p){ p=document.createElement('div'); p.className='st-rc-prog'; p.setAttribute('role','status'); box.insertBefore(p, box.firstChild); }
+  p.innerHTML=text?('<span class="inv-ri-spin" aria-hidden="true">⟳</span> '+escHtml(text)):'';
+  p.style.display=text?'flex':'none';
+}
+/* تنفيذ «إعادة العدّ». mode='raise' (أدمن): يرفع الناقص ثم يُكمل كل البنود · mode='avail': ينقل المتاح فقط ويُبقي الباقي ناقصاً.
+   تُقرأ الحالة من القاعدة من جديد لحظة الضغط (لا يُعتمد على ما رُسم)، فالضغطة الثانية لا تجد ما تفعله ولا تضاعف شيئاً. */
+async function stRecountApply(mode){
+  if(_stFillBusy){ showToast('⏳ عمليةٌ جارية — لحظة','info'); return {ok:false,busy:true}; }
+  _stFillBusy=true;
+  const only=window.__stOnly;
+  document.querySelectorAll('#st-recount-box .st-rc-acts button').forEach(b=>{ b.disabled=true; });
+  try{
+    /* ما كتبه المالك في خانات «ارفع بمقدار» — يُقرأ قبل أيّ انتظار */
+    const ov={};
+    document.querySelectorAll('#st-recount-box input[data-rc-key]').forEach(i=>{
+      if(i.dataset.touched!=='1') return;
+      const n=Number(String(i.value).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+      ov[i.dataset.rcKey]=isFinite(n)?Math.max(0,Math.round(n)):0;
+    });
+    stRcProgress('جارٍ العدّ من جديد…');
+    const sc=await stScanOpen(only), rep=stBuildRecount(sc);
+    if(!rep.items){ stRcProgress(''); showToast('لا بنود معلّقة تُنفَّذ الآن — كل شيء مُسوّى','info'); await stOpenSettlements(only); return {ok:true,noop:true}; }
+    /* الخطة: لكل (فرع+صنف): الرفع المطلوب وهدف الرصيد. الصنف المجهول الرصيد لا يُمسّ. */
+    const plan=rep.rows.filter(r=>r.known).map(r=>{
+      const by = mode==='raise' ? ((r.key in ov) ? ov[r.key] : r.missing) : 0;
+      return { r, by, target: r.have+by };
+    });
+    const raises=plan.filter(p=>p.by>0);
+    let reason='';
+    if(raises.length){
+      stRcProgress('');
+      if(!(await GMTRole.requireAdmin('رفع مخزون المصدر لإكمال فواتير النقل المعلّقة'))) return {ok:false,cancelled:true};
+      const lines=raises.slice(0,8).map(p=>'• '+p.r.name+': +'+p.by+' (من '+p.r.have+' إلى '+p.target+')').join('\n');
+      const why=await GMTAsk.prompt('سيُرفع مخزون المصدر لـ '+raises.length+' صنف (+'+raises.reduce((q,p)=>q+p.by,0)+' قطعة):\n'+lines
+        +(raises.length>8?('\n… و'+(raises.length-8)+' غيرها'):'')+'\n\nثم يُكمل '+rep.items+' بنداً في '+rep.invoices+' فاتورة.\nاكتب السبب (إجباري — يُسجَّل باسمك):',
+        {title:'ارفع الناقص وأكمل الكل',value:'إكمال فواتير النقل المعلّقة بعد إعادة العدّ',okText:'ارفع وأكمل'});
+      if(why===null) return {ok:false,cancelled:true};
+      if(!String(why).trim()){ showToast('السبب إجباري','error'); return {ok:false}; }
+      reason=String(why).trim();
+    }
+    const res={ mode, full:0, partial:0, failed:[], raisedTotal:0, raisedRows:0, logFail:0, hdrFail:[], warn:0, at:Date.now() };
+    const touched=new Map();     // transferId -> {t, names:[], n}
+    const total=plan.reduce((q,p)=>q+p.r.items.length,0); let done=0;
+    const tick=n=>{ done+=(n||1); stRcProgress('جارٍ التنفيذ… '+Math.min(done,total)+' / '+total); };
+    stRcProgress('جارٍ التنفيذ… 0 / '+total);
+    const runGroup=async (p)=>{
+      const r=p.r;
+      /* ① رفع المصدر إلى «الهدف» — الرصيد يُقرأ من جديد قبل الرفع كي لا يرفع جهازان معاً مرّتين */
+      if(p.by>0){
+        try{
+          const haveNow=await GMTStock.readQty(r.product_id, r.branch);
+          const up=Math.max(0, p.target-haveNow);
+          if(up>0){
+            const mv=await GMTStock.move('add', r.product_id, r.branch, up);
+            if(!mv.ok) throw new Error(mv.error||'غير معروف');
+            res.raisedTotal+=up; res.raisedRows++;
+            const lg = window.GMTAudit ? await GMTAudit.log({ action:'branch_stock_raised', entity:'products', entityId:r.product_id, entityName:r.name,
+              oldValue:String(haveNow), newValue:String(haveNow+up), reason:'إعادة عدّ فواتير النقل ('+r.nos.join('، ')+') — '+reason }) : true;
+            if(lg===false) res.logFail++;
+          }
+        }catch(e){ res.failed.push(r.name+': تعذّر رفع مخزون المصدر — '+(e.message||e)); tick(r.items.length); return; }
+      }
+      /* ② إكمال بنود هذا الصنف — متتابعةً لأنها تتشارك رصيداً واحداً */
+      for(const x of r.items){
+        try{
+          const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?id=eq.'+x.t.id+'&select=*');
+          if(rt.error) throw new Error('تعذّر قراءة الفاتورة: '+rt.error);
+          const t2=stRows(rt)[0]; if(!t2) throw new Error('الفاتورة غير موجودة');
+          if(t2.status==='cancelled') throw new Error('الفاتورة مُلغاة');
+          if(t2.status==='receiving'||t2.status==='reopening') throw new Error('الفاتورة قيد الاستلام/التعديل الآن');
+          const ri=await sbFetch('GET','/rest/v1/stock_transfer_items?id=eq.'+x.it.id+'&select=*');
+          if(ri.error) throw new Error('تعذّر قراءة البند: '+ri.error);
+          const it2=stRows(ri)[0]; if(!it2) throw new Error('البند غير موجود');
+          const c=await stFillCore(t2, it2, { reasonExtra:'إعادة العدّ' });
+          if(!c.noop){
+            if(c.remaining>0) res.partial++; else res.full++;
+            if(!c.logged) res.logFail++;
+            if(c.warn) res.warn++;
+            let tt=touched.get(String(t2.id)); if(!tt){ tt={t:t2,names:[],n:0,take:0}; touched.set(String(t2.id),tt); }
+            tt.n++; tt.take+=c.take; if(c.v.legacy) tt.names.push(c.v.name);
+          }
+        }catch(e){ res.failed.push(r.name+' ('+(x.t.transfer_number||x.t.id)+'): '+(e.message||e)); }
+        tick(1);
+      }
+    };
+    /* أربعة مسارات متوازية بين **منتجات مختلفة** (صفّ المنتج الواحد وعمود «في الطريق» فيه لا يُكتبان من مسارين معاً) */
+    const byProd=new Map();
+    plan.forEach(p=>{ const k=String(p.r.product_id); if(!byProd.has(k)) byProd.set(k,[]); byProd.get(k).push(p); });
+    const queue=[...byProd.values()];
+    await Promise.all(Array.from({length:Math.min(4,queue.length)}, async()=>{ while(queue.length){ const grp=queue.shift(); for(const p of grp) await runGroup(p); } }));
+    /* رأس كل فاتورة مرّةً واحدة + سطرٌ في «سجلّ حركة الفاتورة» */
+    stRcProgress('جارٍ تحديث حالة الفواتير…');
+    for(const [tid,tt] of touched){
+      const no=tt.t.transfer_number||('#'+tid);
+      try{ await stRecomputeTransfer(tid, tt.names); }catch(e){ res.hdrFail.push(no+' ('+(e.message||e)+')'); }
+      try{
+        if(window.GMTAudit){
+          const lg=await GMTAudit.log({ action:'transfer_recount', entity:'branch_stock_transfers', entityId:String(tid), entityName:no, sovereign:false,
+            newValue:String(tt.take), reason:'إعادة العدّ: أُكمل '+tt.n+' بنداً ('+tt.take+' قطعة)'+(res.raisedTotal?(' · رُفع المصدر '+res.raisedTotal):'')+(reason?(' — '+reason):'') });
+          if(lg===false) res.logFail++;
+        }
+      }catch(_){ res.logFail++; }
+    }
+    window.__stRecountResult=res;
+    showToast(res.failed.length?('⚠ أُكمل '+res.full+' بنداً وتعذّر '+res.failed.length):('✅ أُكمل '+(res.full+res.partial)+' بنداً'+(res.raisedTotal?(' · رُفع المصدر '+res.raisedTotal):'')), res.failed.length?'warning':'success');
+    await loadProducts().catch(()=>{}); await loadStockTransfers().catch(()=>{});
+    await stOpenSettlements(only);
+    return Object.assign({ok:true}, res);
+  }catch(e){
+    stRcProgress('');
+    showToast('⚠ '+(e.message||e),'error');
+    try{ await stOpenSettlements(only); }catch(_){}
+    return {ok:false,error:e.message||String(e)};
+  }finally{
+    _stFillBusy=false;
+    document.querySelectorAll('#st-recount-box .st-rc-acts button').forEach(b=>{ b.disabled=false; });
+  }
+}
+window.stRecountApply=stRecountApply;
 async function stOpenSettlements(onlyId){
   window.__stOnly = onlyId;
   const ov=document.getElementById('st-settle-ov'); if(!ov) return;
@@ -11581,29 +11874,10 @@ async function stOpenSettlements(onlyId){
   const body=document.getElementById('st-settle-body');
   body.innerHTML='<div style="padding:18px;text-align:center;color:var(--text3)">جارٍ الفحص…</div>';
   try{
-    /* الفواتير المرشّحة: كل فاتورة بحالة «تحتاج تسوية» (غير مختومة) + كل فاتورة غير مُلغاة فيها بند موسوم فاشل */
-    const rt=await sbFetch('GET','/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=400');
-    const all=stRows(rt).filter(t=>t.status!=='cancelled');
-    let cand=all.filter(t=>t.status==='needs_settlement' && !t.settled);
-    try{
-      const rf=await sbFetch('GET','/rest/v1/stock_transfer_items?deduction_failed=is.true&select=transfer_id&limit=500');
-      const fid=new Set(stRows(rf).map(x=>String(x.transfer_id)));
-      all.forEach(t=>{ if(fid.has(String(t.id)) && !cand.some(c=>String(c.id)===String(t.id))) cand.push(t); });
-    }catch(_){}
-    if(onlyId!=null && onlyId!=='') cand=cand.filter(t=>String(t.id)===String(onlyId));
-    const items = cand.length ? await stFetchItems(cand.map(t=>t.id)) : [];
-    const byT={}; items.forEach(i=>{ (byT[i.transfer_id]=byT[i.transfer_id]||[]).push(i); });
-    /* المتاح الآن في المصدر لكل بند ناقص (قراءة حديثة، لا الكاش) */
-    const need={};   // fromBranch -> Set(product_id)
-    cand.forEach(t=>(byT[t.id]||[]).forEach(i=>{ const v=stView(i,t); if(v.open>0){ (need[t.from_branch]=need[t.from_branch]||new Set()).add(String(i.product_id)); } }));
-    const stock={};
-    for(const bk of Object.keys(need)){
-      const ids=[...need[bk]];
-      for(let k=0;k<ids.length;k+=60){
-        const r=await sbFetch('GET','/rest/v1/products?id=in.('+ids.slice(k,k+60).join(',')+')&select=id,'+bk);
-        stRows(r).forEach(p=>{ stock[bk+'|'+p.id]=Number(p[bk])||0; });
-      }
-    }
+    /* (١٨ ت١) القراءة الحديثة في مكانٍ واحد (stScanOpen) يشاركها «إعادة العدّ» — وأيّ قراءةٍ فاشلة تُرمى فتظهر رسالة الخطأ
+       (كانت تُظهر «لا فواتير معلّقة ✅» كذباً لو فشل الطلب). */
+    const sc=await stScanOpen(onlyId);
+    const {all,cand,byT,stock}=sc;
     const blocks=[]; let schemaWarn=false;
     for(const t of cand){
       const views=(byT[t.id]||[]).map(i=>stView(i,t));
@@ -11621,12 +11895,14 @@ async function stOpenSettlements(onlyId){
         +'<button onclick="stUnstick(\''+t.id+'\')" style="background:#991b1b;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">فكّ العلق'+((window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin())?'':' 🔒')+'</button></div>').join('')
       +'</div>') : '';
     if(!blocks.length){
-      body.innerHTML=stuckHtml+(stuck.length?'':'')+'<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
+      body.innerHTML=stRcResultHtml()+stuckHtml+(stuck.length?'':'')+'<div style="padding:26px;text-align:center"><div style="font-size:34px">✅</div><div style="font-weight:800;margin-top:6px">لا فواتير معلّقة</div><div style="font-size:12px;color:var(--text3);margin-top:4px">كل عمليات النقل مكتملة الخصم</div></div>';
       try{ stRefreshSettleCount(); }catch(_){}
       return;
     }
     const isAdm=(function(){ try{ return !!(window.GMTRole&&GMTRole.isAdmin()); }catch(_){ return false; } })();
-    body.innerHTML = stuckHtml +
+    /* (١٨ ت١) «إعادة العدّ»: كل ما لم يُنقل مجموعاً حسب الصنف في مصدره، مع ما ينقص — وزرّا التنفيذ (أعلى اللوحة) */
+    const rep=stBuildRecount(sc);
+    body.innerHTML = stRecountHtml(rep,isAdm) + stuckHtml +
       '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9a3412;line-height:1.85">'
       +'<b>'+blocks.length+' فاتورة</b> فيها أصناف لم تُخصم كاملةً. لكل صنف: <b>«أعِد المحاولة»</b> يخصم المتاح الآن من المصدر ويكمّل الفاتورة بأعدادك؛ '
       +'وإن كان المصدر ناقصاً فـ<b>«ارفع المصدر وأضِف»</b> (يرفع المخزون بقدر الناقص بتوثيقٍ باسمك) أو <b>«لم تُنقل»</b> لشطب الباقي. '
@@ -11709,6 +11985,57 @@ async function stPatchItem(itemId, expectQty, body){
   throw new Error('تعذّرت كتابة البند');
 }
 let _stFillBusy=false;
+/* نواة «أكمل بنداً»: خصمٌ من المصدر + كتابة البند + إضافةٌ للوجهة (فاتورة مستلمة) أو «في الطريق» + سجلّ العمليات.
+   مشتركةٌ بين «أعِد المحاولة» (بندٌ بندٌ) و«إعادة العدّ» (دفعة): مسارٌ واحد فلا يختلف سلوك الأمان بينهما.
+   الرصيد يُقرأ من القاعدة قبل الخصم (الدالّة الذرّية تُقصّ عند الصفر بلا خطأ فتُسجَّل كمّيةٌ لم تُخصم)، وكل كتابةٍ تُفحَص،
+   وأيّ فشلٍ بعد الخصم يُعيد الكمية للمصدر. ترمي Error عند الإخفاق. */
+async function stFillCore(t, it, o){
+  o=o||{};
+  const v=stView(it,t);
+  if(v.open<=0) return {ok:true,noop:true,v};
+  const have=await GMTStock.readQty(v.product_id, t.from_branch);
+  const take=Math.min(v.open, have);
+  if(take<=0) throw new Error('لا مخزون متاح في المصدر لهذا الصنف — ارفع المصدر أو اختر «لم تُنقل»');
+  if(!stHasCols(it) && take<v.open) throw new Error('هذه فاتورة قديمة بلا أعمدة «المطلوب»: النقل الجزئي غير ممكن — ارفع المصدر أو شغّل SQL الأعمدة (يظهر في أعلى الشاشة)');
+  const mv=await GMTStock.move('deduct', v.product_id, t.from_branch, take);
+  if(!mv.ok) throw new Error('تعذّر الخصم من المصدر: '+(mv.error||'غير معروف'));
+  const newMoved = (v.legacy ? 0 : v.moved) + take;
+  const newOpen = Math.max(0, v.req - newMoved - v.waived);
+  const body = { qty:newMoved };
+  if(stHasCols(it)){ body.requested_qty=v.req; body.deduction_failed = newOpen>0; body.failed_reason = newOpen>0 ? ('ناقص '+newOpen+' — جُلب '+newMoved+' من '+v.req) : ('سُوّي ✓ '+new Date().toLocaleDateString('ar-SY')); }
+  else if('deduction_failed' in it){ body.deduction_failed = newOpen>0; }
+  try{
+    await stPatchItem(it.id, Number(it.qty)||0, body);
+  }catch(pe){
+    /* الخصم تمّ والكتابة فشلت ⇒ نُعيد الكمية للمصدر كي لا تضيع، ونُبلغ */
+    let back=false; try{ const bk=await GMTStock.move('add', v.product_id, t.from_branch, take); back=bk.ok; }catch(_){}
+    throw new Error((pe.message||pe)+(back?' — أُعيدت الكمية للمصدر':' — ⛔ تعذّرت إعادة الكمية للمصدر، راجع المخزون يدوياً'));
+  }
+  /* فاتورة مستلمة سابقاً: الكمية الجديدة تُضاف للوجهة الآن (وإلا بقيت في الطريق إلى الأبد) */
+  let warn=null;
+  if(t.status==='received' || (window.GMTStock && GMTStock.itemReceived && GMTStock.itemReceived(it))){   // البند (أو الفاتورة) استُلم سابقاً: الإضافة للوجهة مباشرةً
+    const ad=await GMTStock.move('add', v.product_id, t.to_branch, take);
+    if(!ad.ok){
+      /* الإلغاء يُفحَص هو الآخر: لا نقول «أُلغيت الحركة» وهي لم تُلغَ */
+      let undone=false;
+      try{ const bk=await GMTStock.move('add', v.product_id, t.from_branch, take); await stPatchItem(it.id, newMoved, { qty:v.moved }); undone=bk.ok; }catch(_){}
+      throw new Error('تعذّرت إضافة الكمية للفرع المستقبِل: '+(ad.error||'')+(undone?' — أُلغيت الحركة':' — ⛔ تعذّر إلغاء الحركة كاملاً، راجع الفاتورة والمخزون يدوياً'));
+    }
+  }else{
+    try{                                  // in_transit للعرض فقط — يُفحَص ويُنبَّه عليه ولا يُسقط التسوية
+      const pr=await sbFetch('GET','/rest/v1/products?id=eq.'+v.product_id+'&select=in_transit');
+      if(pr.error) throw new Error(pr.error);
+      const cur=(stRows(pr)[0]||{}).in_transit||{};
+      const nt=Object.assign({},cur,{[t.to_branch]:(Number(cur[t.to_branch])||0)+take});
+      const pw=await sbFetch('PATCH','/rest/v1/products?id=eq.'+v.product_id,{in_transit:nt});
+      if(pw.error) throw new Error(pw.error);
+    }catch(_){ warn='in_transit'; }
+  }
+  let logged=true;
+  try{ if(window.GMTAudit) logged = (await GMTAudit.log({ action:'transfer_fill', entity:'stock_transfer_items', entityId:it.id, entityName:v.name,
+    oldValue:String(v.moved), newValue:String(newMoved), reason:'فاتورة '+(t.transfer_number||t.id)+(o.raised?(' · رُفع المصدر '+o.raised):'')+(o.reasonExtra?(' · '+o.reasonExtra):'')+' · مطلوب '+v.req })) !== false; }catch(_){ logged=false; }
+  return {ok:true, take, remaining:newOpen, v, warn, logged};
+}
 /* mode: 'avail' = انقل المتاح (ولا يتجاوزه) · 'raise' = ارفع المصدر بقدر الناقص (أدمن) ثم أكمل */
 async function stFill(itemId, transferId, mode, opts){
   opts=opts||{};
@@ -11725,10 +12052,9 @@ async function stFill(itemId, transferId, mode, opts){
     const v=stView(it,t);
     if(v.open<=0){ if(!quiet) showToast('لا ناقص في هذا البند — سُوّي سابقاً','info'); return {ok:true,noop:true}; }
     if(!stHasCols(it) && mode!=='avail' ){ /* قديمة: الرفع مسموح لكن الإكمال كامل */ }
-    const have=await GMTStock.readQty(v.product_id, t.from_branch);
-    let take=Math.min(v.open, have);
     let raised=0;
     if(mode==='raise'){
+      const have=await GMTStock.readQty(v.product_id, t.from_branch);
       if(have<v.open){
         if(!(await GMTRole.requireAdmin('رفع مخزون الفرع المصدر لإكمال فاتورة نقل'))) return {ok:false,cancelled:true};
         const why=await GMTAsk.prompt('رفع مخزون «'+v.name+'» في المصدر من '+have+' إلى '+v.open+' (+'+(v.open-have)+')\n\nاكتب السبب (إجباري — يُسجَّل باسمك):',{title:'رفع مخزون المصدر',okText:'ارفع وأضِف'});
@@ -11736,51 +12062,19 @@ async function stFill(itemId, transferId, mode, opts){
         if(!String(why).trim()){ showToast('السبب إجباري','error'); return {ok:false}; }
         const up=await GMTStock.move('add', v.product_id, t.from_branch, v.open-have);
         if(!up.ok) throw new Error('تعذّر رفع مخزون المصدر: '+up.error);
-        raised=v.open-have; take=v.open;
+        raised=v.open-have;
         try{ if(window.GMTAudit) await GMTAudit.log({ action:'branch_stock_raised', entity:'products', entityId:v.product_id, entityName:v.name,
           newValue:String(v.open), oldValue:String(have), reason:'تسوية فاتورة نقل '+(t.transfer_number||t.id)+' — '+String(why).trim() }); }catch(_){}
       }
     }
-    if(take<=0) throw new Error('لا مخزون متاح في المصدر لهذا الصنف — ارفع المصدر أو اختر «لم تُنقل»');
-    if(!stHasCols(it) && take<v.open) throw new Error('هذه فاتورة قديمة بلا أعمدة «المطلوب»: النقل الجزئي غير ممكن — ارفع المصدر أو شغّل SQL الأعمدة (يظهر في أعلى الشاشة)');
-    const mv=await GMTStock.move('deduct', v.product_id, t.from_branch, take);
-    if(!mv.ok) throw new Error('تعذّر الخصم من المصدر: '+(mv.error||'غير معروف'));
-    const newMoved = (v.legacy ? 0 : v.moved) + take;
-    const newOpen = Math.max(0, v.req - newMoved - v.waived);
-    const body = { qty:newMoved };
-    if(stHasCols(it)){ body.requested_qty=v.req; body.deduction_failed = newOpen>0; body.failed_reason = newOpen>0 ? ('ناقص '+newOpen+' — جُلب '+newMoved+' من '+v.req) : ('سُوّي ✓ '+new Date().toLocaleDateString('ar-SY')); }
-    else if('deduction_failed' in it){ body.deduction_failed = newOpen>0; }
-    try{
-      await stPatchItem(itemId, Number(it.qty)||0, body);
-    }catch(pe){
-      /* الخصم تمّ والكتابة فشلت ⇒ نُعيد الكمية للمصدر كي لا تضيع، ونُبلغ */
-      let back=false; try{ const bk=await GMTStock.move('add', v.product_id, t.from_branch, take); back=bk.ok; }catch(_){}
-      throw new Error((pe.message||pe)+(back?' — أُعيدت الكمية للمصدر':' — ⛔ تعذّرت إعادة الكمية للمصدر، راجع المخزون يدوياً'));
-    }
-    /* فاتورة مستلمة سابقاً: الكمية الجديدة تُضاف للوجهة الآن (وإلا بقيت في الطريق إلى الأبد) */
-    if(t.status==='received' || (window.GMTStock && GMTStock.itemReceived && GMTStock.itemReceived(it))){   // البند (أو الفاتورة) استُلم سابقاً: الإضافة للوجهة مباشرةً
-      const ad=await GMTStock.move('add', v.product_id, t.to_branch, take);
-      if(!ad.ok){
-        try{ await GMTStock.move('add', v.product_id, t.from_branch, take); await stPatchItem(itemId, newMoved, { qty:v.moved }); }catch(_){}
-        throw new Error('تعذّرت إضافة الكمية للفرع المستقبِل: '+(ad.error||'')+' — أُلغيت الحركة');
-      }
-    }else{
-      try{                                  // in_transit للعرض فقط
-        const pr=await sbFetch('GET','/rest/v1/products?id=eq.'+v.product_id+'&select=in_transit');
-        const cur=(stRows(pr)[0]||{}).in_transit||{};
-        const nt=Object.assign({},cur,{[t.to_branch]:(Number(cur[t.to_branch])||0)+take});
-        await sbFetch('PATCH','/rest/v1/products?id=eq.'+v.product_id,{in_transit:nt});
-      }catch(_){}
-    }
-    try{ if(window.GMTAudit) await GMTAudit.log({ action:'transfer_fill', entity:'stock_transfer_items', entityId:itemId, entityName:v.name,
-      oldValue:String(v.moved), newValue:String(newMoved), reason:'فاتورة '+(t.transfer_number||t.id)+(raised?(' · رُفع المصدر '+raised):'')+' · مطلوب '+v.req }); }catch(_){}
+    const c=await stFillCore(t, it, { raised });
     await stRecomputeTransfer(transferId, v.legacy?[v.name]:[]);
     if(!quiet){
-      showToast(newOpen>0?('✅ نُقل '+take+' — بقي '+newOpen+' ناقصاً'):'✅ اكتمل الصنف بأعدادك ('+v.req+')','success');
+      showToast(c.remaining>0?('✅ نُقل '+c.take+' — بقي '+c.remaining+' ناقصاً'):'✅ اكتمل الصنف بأعدادك ('+v.req+')','success');
       await loadProducts().catch(()=>{}); await loadStockTransfers().catch(()=>{});
       stOpenSettlements(opts.onlyId);
     }
-    return {ok:true,take,remaining:newOpen,raised};
+    return {ok:true,take:c.take,remaining:c.remaining,raised};
   }catch(e){
     if(!quiet) showToast('⚠ '+(e.message||e),'error');
     return {ok:false,error:e.message||String(e)};
@@ -12135,7 +12429,7 @@ async function stShowHistory(transferId){
   }
   const LBL={ transfer_created:'📝 أُنشئت', transfer_sent:'📤 أُرسلت', transfer_received:'📥 استُلمت',
               transfer_reopen:'✏️ فُتحت للتعديل', transfer_cancelled:'🚫 أُلغيت',
-              transfer_settled:'✔ سُوّيت', transfer_settle_item:'🧾 تسوية بند' };
+              transfer_settled:'✔ سُوّيت', transfer_settle_item:'🧾 تسوية بند', transfer_recount:'🔄 إعادة عدّ وإكمال' };
   box.innerHTML='<div style="font-size:12px;font-weight:800;margin:8px 0 5px">📜 سجلّ الحركة</div>'
     + rows.map(r=>{
         const d=r.at?new Date(r.at).toLocaleString('ar-SY'):'';
@@ -14591,7 +14885,11 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
   <div style="background:var(--surface);border-radius:14px;max-width:660px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
       <b style="font-size:14px">🧾 فواتير نقل تحتاج تسوية</b>
-      <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">×</button>
+      <span style="display:flex;align-items:center;gap:6px">
+        <!-- 🔄 (١٨ ت١ · وثيقة الطلبات §1) يعيد العدّ من الخادم الآن ويعرض الناقص من المصدر — بعد أيّ تعديلٍ يدويّ على المخزون -->
+        <button id="st-recount-hdr-btn" onclick="stRecount(window.__stOnly)" title="يعيد عدّ الكميات ويعرض كل ما ليس متوفّراً في المصدر" style="background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit">🔄 إعادة العدّ</button>
+        <button onclick="stCloseSettlements()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)" aria-label="إغلاق">×</button>
+      </span>
     </div>
     <div id="st-settle-body" style="padding:12px;overflow-y:auto"></div>
   </div>
