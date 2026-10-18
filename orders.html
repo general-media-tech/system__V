@@ -272,6 +272,20 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="حمص">حمص</option>
                 <option value="اللاذقية">اللاذقية</option>
             </select>
+            <!-- (وثيقة الطلبات §٢ · «يدخل هذا في الفلترة لما بدي أعرف وين أموال التحصيل: مفتي فرقان، مفتي سريان…») الفرع المُرسِل
+                 المختار عند الشحن صار فلتراً. الخيارات تُبنى من الأوردرات نفسها (لا قائمة مُخترَعة) — انظر syncSenderFilter. -->
+            <select id="filter-sendbranch" onchange="render()" data-hint="الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة: لتعرف وين أموال التحصيل (مفتي فرقان · مفتي سريان …)."
+                    class="flex-1 min-w-[140px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
+                <option value="">🏢 كل الفروع المُرسِلة</option>
+            </select>
+            <!-- (وثيقة الطلبات §٢ · «مراسلة الفرع المُرسِل… لا أعرف إذا رجعت الحوالة أو لا وبيدخل بالفلترة») حالة الحوالة فلترٌ أيضاً -->
+            <select id="filter-transfer" onchange="render()" data-hint="حالة مراسلة الفرع المُرسِل بخصوص الحوالة: لم تُراسَل · رُوسِل بانتظار الحوالة · وصلت الحوالة (شحنات المفتي)."
+                    class="flex-1 min-w-[140px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
+                <option value="">💸 كل حالات الحوالة</option>
+                <option value="none">لم تُراسَل</option>
+                <option value="asked">رُوسِل — بانتظار الحوالة</option>
+                <option value="received">وصلت الحوالة</option>
+            </select>
             <button onclick="clearFilters()" id="clear-filters-btn" class="hidden px-3 py-2.5 bg-red text-white rounded-xl text-xs font-black">✕ إزالة الفلتر</button>
         </div>
 
@@ -544,6 +558,21 @@ window.GMT_INTERNAL = 1;</script>
             <select id="edit-company" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold border border-transparent text-gray-700">
                 <option value="">شركة الشحن (اختياري)</option>
             </select>
+            <!-- (وثيقة الطلبات §٢ · «أثناء تعديل الطلب ممكن نعدّل الفرع المُرسِل يعني تكون خانة موجودة… والفرع ممكن يكون تلقائياً السريان
+                 وممكن تعديله») يظهر لشركة المفتي فقط؛ وحالة مراسلة الفرع (الحوالة) بعد الشحن فقط. -->
+            <div id="edit-sender-wrap" class="hidden space-y-2 p-3 rounded-2xl border border-gray-200 bg-gray-50/70">
+                <label for="edit-ship-from" class="block text-[11px] font-black text-gray-600">🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة</label>
+                <select id="edit-ship-from" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>
+                <p class="text-[10px] font-bold text-gray-400 -mt-1">الافتراضي «حلب – السريان». غيّره فقط إن سُلِّمت الشحنة لمكتبٍ آخر.</p>
+                <div id="edit-transfer-wrap" class="hidden">
+                    <label for="edit-transfer-state" class="block text-[11px] font-black text-gray-600 mb-1">💸 مراسلة الفرع المُرسِل — الحوالة</label>
+                    <select id="edit-transfer-state" class="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-black text-gray-700">
+                        <option value="none">لم تُراسَل</option>
+                        <option value="asked">رُوسِل — بانتظار الحوالة</option>
+                        <option value="received">وصلت الحوالة</option>
+                    </select>
+                </div>
+            </div>
             <input id="edit-prod" type="hidden" value="">
             <input id="edit-qty"  type="hidden" value="1">
             <select id="edit-status" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold border border-transparent text-gray-700">
@@ -1409,6 +1438,10 @@ function render() {
     const q          = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const fCompany   = (document.getElementById('filter-company')?.value || '');
     const fBranch    = (document.getElementById('filter-branch')?.value  || '');
+    /* (وثيقة الطلبات §٢) فلتر الفرع المُرسِل + فلتر حالة الحوالة — يُبنى الأوّل من الأوردرات نفسها قبل قراءة قيمته */
+    try { syncSenderFilter(); } catch (_) {}
+    const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
+    const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
     const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[] };
     const branchTot  = {};
     const companyTot = {};
@@ -1422,7 +1455,9 @@ function render() {
         const matchQ  = !q || (o.name||'').toLowerCase().includes(q) || (o.phone||'').includes(q) || (o.product||'').toLowerCase().includes(q);
         const matchC  = !fCompany || (o.shipping_company||'') === fCompany;
         const matchB  = !fBranch  || (o.branch||'') === fBranch;
-        if (!matchQ || !matchC || !matchB) return;
+        const matchS  = !fSend    || senderKeyOf(o) === fSend;
+        const matchT  = !fTransfer || transferFilterOf(o) === fTransfer;
+        if (!matchQ || !matchC || !matchB || !matchS || !matchT) return;
         if (groups[o.status]) groups[o.status].push(o);
         const p = Number(o.price) || 0;
         if (o.status==='pending')   sumP += p;
@@ -1462,7 +1497,7 @@ function render() {
 
     // زر مسح الفلتر
     const clearBtn = document.getElementById('clear-filters-btn');
-    if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch);
+    if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch && !fSend && !fTransfer);
 
     // إجمالي غير محصّل
     const grand = sumP + sumS + sumD;
@@ -1789,63 +1824,72 @@ function cardHTML(o) {
             <div class="font-bold">${buildProductLine(o)}</div>
             <p>📍 ${escH(o.address||'')}</p>
             ${o.branch ? `<p>🏭 شُحن من: <span style="font-weight:900">${escH(o.branch)}</span>${o.shipping_company ? ` — <span class="text-orange-500">${escH(o.shipping_company)}</span>` : ''}</p>` : ''}
+            ${senderInfoHTML(o)}
+            ${transferInvoiceOf(o) ? `<p data-transfer-link>🔗 فاتورة نقل: <span class="font-black text-gray-700" dir="ltr">#${escH(transferInvoiceOf(o))}</span></p>` : ''}
             ${o.tracking_number ? `<p class="${c.text} font-black">🔖 ${escH(o.tracking_number)}</p>` : ''}
             ${o.shipped_at ? `<p class="text-[9px] text-gray-400">🕒 شُحن: <span dir="ltr">${new Date(o.shipped_at).toLocaleString('en-GB',{hour12:true})}</span></p>` : ''}
             ${o.notes ? `<p class="text-gray-600" title="ملاحظاتٌ داخلية — لا تُطبع على الفاتورة">📝 ${escH(o.notes)}</p>` : ''}
         </div>
-        ${_btnRow !== null ? _btnRow : `<div class="flex gap-2">
-            ${actionBtn}
-            <!-- ⛔ (2026-10-03 · قرار المالك ت٨) أُزيل **زرّ واتساب الزبون** من
-                 بطاقات الأوردرات: «احذف واتساب الزبون من البطاقات · أبقِ واتساب
-                 المكاتب». وكان زرّاً أخضر على كل بطاقة يفتح محادثةً فارغةً مع
-                 الزبون بلا رسالةٍ ولا غرض — ومعه مربّعٌ رماديّ ميّت لمن لا رقم له.
-                 والتبليغاتُ المفيدة كلّها تلقائيّةٌ أصلاً (الشحن عند اعتماده ·
-                 استلام الطلب عند إنشائه · الشكر عند تأكيد الاستلام).
-                 ⚠️ ما بقي: واتساب **المكاتب** (التواصل مع مكتب الشحن) — وهو ما
-                 طلب المالك إبقاءه صريحاً. -->
-            ${/* 📤 طلبك ١٢٠: «زرّ مشاركة PDF في كل مكان لا حفظ وطباعة فقط».
-                  زرُّ الطباعة بقي كما هو — أُضيف بجانبه لا بدلاً منه. */ ''}
-            ${isStoreOrder(o) ? `<button onclick="storeOrderInvoice(${o.id})" class="h-10 px-3 bg-white border border-red-200 rounded-xl flex items-center justify-center gap-1 text-red-700 text-[11px] font-black hover:bg-red-50 transition-colors shrink-0" title="فاتورة طلب المتجر — بالأسعار التي طلبها الزبون">🧾 فاتورته</button>` : ''}
-            <button onclick="shareOrderPdf(${o.id})" class="w-10 h-10 bg-slate-900 border border-slate-900 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-colors shrink-0" title="مشاركة PDF — يذهب مباشرةً لواتساب">
+        ${_btnRow !== null ? _btnRow : otherButtonsHTML(o, c, actionBtn)}
+    </div>`;
+}
+
+/* ══ أزرار بقية المراحل (قيد التجهيز · محضّرة · في الطريق · مكتمل) ═══════════════════════════════════════════════
+   (وثيقة الطلبات §٤ · «اجعلهم أصغر… أو أعِد ترتيبهم… أو أضِف زرّ ثلاث نقاط فيه كل الأزرار المخفيّة»)
+   كل الأزرار الصغيرة تُجمَع في مصفوفة؛ فإن كثرت (لا يتّسع معها الزرّ الرئيسيّ على ٣٩٠px) نزلت إلى سطرٍ ثانٍ تحت الزرّ الرئيسيّ
+   كما في بطاقة «بانتظار التحصيل» — فيبقى «تأكيد الاستلام» و«إرسال للشحن» كبيرَين بسطرٍ واحد. ولا شيء حُذف: كل زرٍّ كما كان،
+   وأُضيف ⋮ في آخرها (فيه الأزرار المخفيّة: ربط فاتورة نقل · المرتجع · الفرع المُرسِل…). */
+function moreBtnHTML(o) {
+    return `<button onclick="openCardMore(${o.id})" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-lg font-black leading-none" title="خيارات أخرى: ربط فاتورة نقل · المرتجع · الفرع المُرسِل · التحقق…" aria-label="خيارات أخرى" data-card-more>⋮</button>`;
+}
+function otherButtonsHTML(o, c, actionBtn) {
+    const icons = [];    // كل عنصر {h: html, w: عرضه بوحدة زرّ 40px}
+    const add = (h, w) => { if (h) icons.push({ h: h, w: w || 1 }); };
+    /* ⛔ (2026-10-03 · قرار المالك ت٨) أُزيل **زرّ واتساب الزبون** من بطاقات الأوردرات: «احذف واتساب الزبون من البطاقات · أبقِ
+       واتساب المكاتب» — والتبليغاتُ المفيدة كلّها تلقائيّةٌ أصلاً (الشحن عند اعتماده · استلام الطلب عند إنشائه · الشكر عند تأكيد
+       الاستلام). ما بقي: واتساب **المكاتب** (التواصل مع مكتب الشحن). */
+    /* 📤 طلبك ١٢٠: «زرّ مشاركة PDF في كل مكان لا حفظ وطباعة فقط». زرُّ الطباعة بقي كما هو — أُضيف بجانبه لا بدلاً منه. */
+    add(isStoreOrder(o) ? `<button onclick="storeOrderInvoice(${o.id})" class="h-10 px-3 bg-white border border-red-200 rounded-xl flex items-center justify-center gap-1 text-red-700 text-[11px] font-black hover:bg-red-50 transition-colors shrink-0" title="فاتورة طلب المتجر — بالأسعار التي طلبها الزبون">🧾 فاتورته</button>` : '', 2);
+    add(`<button onclick="shareOrderPdf(${o.id})" class="w-10 h-10 bg-slate-900 border border-slate-900 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-colors shrink-0" title="مشاركة PDF — يذهب مباشرةً لواتساب">
                 <i data-lucide="share-2" class="w-4 h-4"></i>
-            </button>
-            <button onclick="printOrder(${o.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors shrink-0" title="طباعة فاتورة">
+            </button>`);
+    add(`<button onclick="printOrder(${o.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors shrink-0" title="طباعة فاتورة">
                 <i data-lucide="printer" class="w-4 h-4"></i>
-            </button>
-            ${trackBtnHTML(o)}
-            <!-- (2026-09-26 · طلب المالك) لا زرّ لتبليغ استلام الطلب إطلاقاً:
-                 «مجرّد ما أدخلنا الطلب لحاله راح ينقلنا على الواتساب» ⇒ تلقائي فقط. -->
-            <!-- (2026-09-26 · بلاغ المالك) «بعد تأكيد الاستلام ما في داعي لكي يكون
-                 في زرّ تبليغ — استبدله برسالة تلقائية». فزرّ «تبليغ وصول» صار
-                 لحالة **الشحن وحدها**: بعد الاستلام لا معنى لتبليغ الوصول. -->
-            ${(o.status === 'shipped' || o.status === 'delivered') ? `<button onclick="contactShipOffice(${o.id})" data-hint="مراسلة فرع شركة الشحن بخصوص هذه الشحنة — رسالة جاهزة على واتساب بزنس"
-                     class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600" title="فرع شركة الشحن">🏢</button>` : ''}
-            ${(o.shipping_company === 'المفتي' && o.status === 'delivered') ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
-                     class="h-10 px-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 text-[11px] font-black hover:bg-emerald-100 shrink-0" title="مراسلة الفرع المُرسِل للتأكد من الحوالة">💸 الحوالة</button>` : ''}
-            ${o.status === 'shipped' && o.notified_arrival_at && o.phone
-              ? `<button onclick="contactCustomerArrival(${o.id})" data-hint="تواصل مع الزبون على واتساب بزنس — رسالة جاهزة: وصلت شحنتك من الشركة (باسم الزبون وشركة الشحن والمكتب). بدل زرّ التبليغ بعد أن بُلِّغ بالوصول."
+            </button>`);
+    add(trackBtnHTML(o));
+    /* (2026-09-26 · طلب المالك) لا زرّ لتبليغ استلام الطلب إطلاقاً: «مجرّد ما أدخلنا الطلب لحاله راح ينقلنا على الواتساب» ⇒ تلقائي فقط.
+       (2026-09-26 · بلاغ المالك) «بعد تأكيد الاستلام ما في داعي لكي يكون في زرّ تبليغ» ⇒ «تبليغ وصول» لحالة **الشحن وحدها**. */
+    add((o.status === 'shipped' || o.status === 'delivered') ? `<button onclick="contactShipOffice(${o.id})" data-hint="مراسلة فرع شركة الشحن بخصوص هذه الشحنة — رسالة جاهزة على واتساب بزنس"
+                     class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600" title="فرع شركة الشحن">🏢</button>` : '');
+    add((o.shipping_company === 'المفتي' && o.status === 'delivered') ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
+                     class="h-10 px-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 text-[11px] font-black hover:bg-emerald-100 shrink-0" title="مراسلة الفرع المُرسِل للتأكد من الحوالة">💸 الحوالة</button>` : '', 2);
+    if (o.status === 'shipped' && o.notified_arrival_at && o.phone) {
+        add(`<button onclick="contactCustomerArrival(${o.id})" data-hint="تواصل مع الزبون على واتساب بزنس — رسالة جاهزة: وصلت شحنتك من الشركة (باسم الزبون وشركة الشحن والمكتب). بدل زرّ التبليغ بعد أن بُلِّغ بالوصول."
                     class="w-10 h-10 bg-emerald-600 border border-emerald-700 rounded-xl flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shrink-0" title="تواصل مع الزبون على واتساب (بُلِّغ بالوصول)">
                 <i data-lucide="message-circle" class="w-4 h-4"></i>
-            </button>`
-              : o.status === 'shipped'
-              ? `<button onclick="shareOrder(${o.id},'arrived')" data-hint="تبليغ وصول الشحنة للزبون — بلا صورة. (تبليغ الشحن تلقائي عند اعتماد الشحن، وتبليغ استلام الطلب تلقائي عند إنشائه، ورسالة الشكر تلقائية عند تأكيد الاستلام.)"
+            </button>`);
+    } else if (o.status === 'shipped') {
+        add(`<button onclick="shareOrder(${o.id},'arrived')" data-hint="تبليغ وصول الشحنة للزبون — بلا صورة. (تبليغ الشحن تلقائي عند اعتماد الشحن، وتبليغ استلام الطلب تلقائي عند إنشائه، ورسالة الشكر تلقائية عند تأكيد الاستلام.)"
                     class="w-10 h-10 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-600 hover:bg-emerald-100 transition-colors shrink-0 relative" title="${o.notified_arrival_at ? 'تم تبليغ الوصول مسبقاً — اضغط للإرسال مرّة أخرى' : 'تبليغ وصول'}">
                 <i data-lucide="${o.notified_arrival_at ? 'check-check' : 'bell-ring'}" class="w-4 h-4"></i>
-            </button>`
-              : ''}
-            <!-- بعد الاستلام: إعادة إرسال رسالة الشكر والتقييم إن لم تُفتَح تلقائياً -->
-            ${(o.status === 'delivered' || o.status === 'completed') && o.phone
-              ? `<button onclick="openAfterDeliveryMessage(orders.find(x=>x.id==${o.id}))" data-hint="رسالة الشكر والتقييم — تُفتح تلقائياً عند تأكيد الاستلام؛ هذا الزرّ لإعادة إرسالها."
+            </button>`);
+    }
+    /* بعد الاستلام: إعادة إرسال رسالة الشكر والتقييم إن لم تُفتَح تلقائياً */
+    add(((o.status === 'delivered' || o.status === 'completed') && o.phone) ? `<button onclick="openAfterDeliveryMessage(orders.find(x=>x.id==${o.id}))" data-hint="رسالة الشكر والتقييم — تُفتح تلقائياً عند تأكيد الاستلام؛ هذا الزرّ لإعادة إرسالها."
                     class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-colors shrink-0" title="رسالة الشكر والتقييم">
                 <i data-lucide="heart-handshake" class="w-4 h-4"></i>
-            </button>`
-              : ''}
-            ${o.receipt_img ? `<button onclick="viewReceipt(${o.id})" data-hint="صورة إيصال الشحن المرفوعة — محفوظة مؤقّتاً وتُمسح تلقائياً عند تأكيد التحصيل."
+            </button>` : '');
+    add(o.receipt_img ? `<button onclick="viewReceipt(${o.id})" data-hint="صورة إيصال الشحن المرفوعة — محفوظة مؤقّتاً وتُمسح تلقائياً عند تأكيد التحصيل."
                     class="w-10 h-10 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center text-amber-600 hover:bg-amber-100 transition-colors shrink-0" title="عرض إيصال الشحن">
                 <i data-lucide="receipt" class="w-4 h-4"></i>
-            </button>` : ''}
-        </div>`}
-    </div>`;
+            </button>` : '');
+    add(moreBtnHTML(o));
+    /* الزرّ الرئيسيّ يحتاج ≈ ١١٠px على الأقلّ: ما يتّسع معه ٤ أزرار صغيرة بعرض ٣٩٠px، وما زاد ينزل لسطرٍ ثانٍ */
+    const units = icons.reduce((n, x) => n + x.w, 0);
+    const html = icons.map(x => x.h).join('');
+    return units <= 4
+        ? `<div class="flex gap-2">${actionBtn}${html}</div>`
+        : `<div class="flex gap-2">${actionBtn}</div><div class="flex gap-2 mt-2 justify-end flex-wrap">${html}</div>`;
 }
 
 /* ══ (18 ت1 · لقطتك ٢) بطاقة «بانتظار التحصيل» ══════════════════════════════
@@ -1859,13 +1903,116 @@ function _onclickOf(html) {
 }
 function cardMoreItems(o) {
     const items = [];
-    const tr = trackBtnHTML(o), trOn = _onclickOf(tr);
-    items.push({ ic: '🔎', t: 'التحقق من الشحنة / تتبّعها', on: trOn, off: trOn ? '' : 'لا رابط تتبّعٍ لهذه الشركة' });
-    items.push({ ic: '🏢', t: 'مراسلة فرع الوجهة (شركة الشحن)', on: 'contactShipOffice(' + o.id + ')' });
+    const later = SHIPPED_OR_LATER.indexOf(o.status) !== -1;     // شُحن فما بعد
+    if (later) {
+        const tr = trackBtnHTML(o), trOn = _onclickOf(tr);
+        items.push({ ic: '🔎', t: 'التحقق من الشحنة / تتبّعها', on: trOn, off: trOn ? '' : 'لا رابط تتبّعٍ لهذه الشركة' });
+    }
+    if (o.status === 'shipped' || o.status === 'delivered') items.push({ ic: '🏢', t: 'مراسلة فرع الوجهة (شركة الشحن)', on: 'contactShipOffice(' + o.id + ')' });
+    /* (وثيقة الطلبات §٢) الفرع المُرسِل وحالة الحوالة + البحث برقم التتبّع/قراءة الإيصال (نافذة «التحقق» القديمة بقيت قابلةً للوصول
+       بعد أن صار زرّ الأعلى يفتح موقع المفتي مباشرةً) — لشحنات المفتي */
+    if (hasSenderInfo(o)) {
+        items.push({ ic: '💸', t: 'الفرع المُرسِل وحالة الحوالة', off: shipFromLabel(shipFromOf(o)) + ' · ' + transferLabel(transferStateOf(o)), on: 'openTransferState(' + o.id + ')' });
+        items.push({ ic: '📷', t: 'بحث برقم التتبّع أو قراءته من إيصال (المفتي)', on: 'openVerifyShipment()' });
+    }
     if (o.receipt_img) items.push({ ic: '🧾', t: 'عرض إيصال الشحن', on: 'viewReceipt(' + o.id + ')' });
     if (isStoreOrder(o)) items.push({ ic: '🧾', t: 'فاتورة طلب المتجر', on: 'storeOrderInvoice(' + o.id + ')' });
+    /* (وثيقة الطلبات §٤ · «كل الأزرار المخفيّة للأوردرات المرتجعة وربط فاتورة نقل بأوردر شحن») */
+    const tl = transferInvoiceOf(o);
+    items.push({ ic: '🔗', t: tl ? 'فاتورة النقل المرتبطة #' + tl + ' — تغيير أو فكّ' : 'ربط فاتورة نقل بهذا الأوردر', on: 'openLinkTransferInvoice(' + o.id + ')' });
+    if (o.invoice_number || o.invoice_id) items.push({ ic: '🧾', t: 'بطاقة الفاتورة المرتبطة #' + (o.invoice_number || o.invoice_id), off: 'بنودها ودفعها — ومنها طباعة/كفالة/مرتجع', on: "openLinkedInvoice('" + String(o.id).replace(/'/g, '') + "')" });
+    if (o.is_locked) items.push({ ic: '↩︎', t: 'مرتجع الفاتورة / فكّ الارتباط', off: 'كلّ خيار يمرّ بمرتجع الفاتورة في نقطة البيع', on: 'openLinkedActions(' + o.id + ')' });
     return items;
 }
+
+/* ══ ربط فاتورة نقل بأوردر شحن (وثيقة الطلبات §٤) ═══════════════════════════════════════════════════════════════
+   طلبك: «زرّ ثلاث نقاط فيه… ربط فاتورة نقل بأوردر شحن». الرابط = **مرجعٌ محفوظٌ على الأوردر**: gmt_orders.transfer_invoice_no
+   (رقم فاتورة النقل كما في branch_stock_transfers.transfer_number). المنتقي يقرأ فواتير النقل الموجودة فعلاً (بحثٌ بالرقم يجلب الأقدم) —
+   لا نكتب رقماً من عندنا. إن غاب العمود (SQL غير مُشغَّل) يُحفَظ الرابط على هذا الجهاز بمفتاح رقم الأوردر ويُقال ذلك صراحةً. */
+const TRFLINK_LS = 'gmt_transfer_link';
+function transferInvoiceOf(o) {
+    if (!o) return '';
+    if (o.transfer_invoice_no) return String(o.transfer_invoice_no);
+    const l = lsMap(TRFLINK_LS)[o.id];
+    return (l && l.no) ? String(l.no) : '';
+}
+async function saveTransferInvoice(id, no) {
+    const o = orders.find(x => x.id == id);
+    const r = await orderPatchChecked(id, { transfer_invoice_no: no || null });
+    if (o) o.transfer_invoice_no = no || null;
+    if (r.ok && !r.queued) lsMapSet(TRFLINK_LS, id, null); else lsMapSet(TRFLINK_LS, id, { no: no || '' });
+    return r;
+}
+/* أسماء حالات فاتورة النقل كما تعرضها شاشة النقل في لوحة نقاط البيع نفسها (لا تسمياتٌ جديدة) */
+const TRF_STATUS_AR = { pending: 'في الطريق', needs_settlement: 'تحتاج تسوية', receiving: 'جارٍ الاستلام', reopening: 'جارٍ التعديل', received: 'مستلمة', completed: 'مستلمة', cancelled: 'ملغاة' };
+async function loadTransferInvoices(q) {
+    const f = q ? '&transfer_number=ilike.' + encodeURIComponent('*' + q + '*') : '';
+    const r = await fetch(`${SUPA_URL}/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=40${f}`, { headers: SB_HEADERS });
+    if (!r.ok) {
+        if (r.status === 404) return { rows: [], missing: true };
+        throw new Error('HTTP ' + r.status);
+    }
+    const rows = await r.json();
+    /* الأحدث أوّلاً — نرتّب هنا أيضاً فلا نعتمد على ترتيب الخادم وحده */
+    const list = Array.isArray(rows) ? rows.slice() : [];
+    list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return { rows: list };
+}
+window.openLinkTransferInvoice = (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    const cur = transferInvoiceOf(o);
+    const old = document.getElementById('trf-link-ov'); if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'trf-link-ov';
+    ov.className = 'fixed inset-0 z-[9000] bg-black/50 flex items-end sm:items-center justify-center';
+    ov.innerHTML = '<div class="bg-white w-full sm:w-[460px] rounded-t-3xl sm:rounded-3xl p-4 pb-6 max-h-[88vh] flex flex-col" role="dialog" aria-label="ربط فاتورة نقل">' +
+        '<div class="flex items-center justify-between mb-2"><p class="font-black text-gray-800 text-sm">🔗 ربط فاتورة نقل — ' + escH(o.name || '') + '</p>' +
+        '<button type="button" data-x class="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 font-black">✕</button></div>' +
+        (cur ? '<div class="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-2xl p-3 mb-2"><span class="text-[12px] font-black text-emerald-800">المرتبطة الآن: <span dir="ltr">#' + escH(cur) + '</span></span>' +
+               '<button type="button" data-unlink class="px-3 py-1.5 rounded-xl bg-white border border-red-200 text-red-700 text-[11px] font-black">فكّ الارتباط</button></div>' : '') +
+        '<input type="search" data-q placeholder="ابحث برقم فاتورة النقل…" dir="ltr" class="w-full p-3 mb-2 bg-gray-50 rounded-xl text-sm font-bold border border-gray-200 text-center">' +
+        '<div data-list class="overflow-y-auto flex-1 space-y-2"><p class="text-center text-gray-400 text-xs font-bold py-6">جارٍ تحميل فواتير النقل…</p></div></div>';
+    document.body.appendChild(ov);
+    const list = ov.querySelector('[data-list]'), qi = ov.querySelector('[data-q]');
+    let rowsNow = [], tmr = null, seq = 0;
+    const paint = (msg) => {
+        if (msg) { list.innerHTML = '<p class="text-center text-gray-500 text-xs font-bold py-6">' + escH(msg) + '</p>'; return; }
+        list.innerHTML = rowsNow.map((t, i) => {
+            const no = String(t.transfer_number || t.id);
+            const d = String(t.created_at || '').replace('T', ' ').slice(0, 10);
+            return '<button type="button" data-i="' + i + '" class="w-full text-right p-3 rounded-2xl border ' + (no === cur ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-gray-50') + '">' +
+                '<span class="block text-[13px] font-black text-gray-800" dir="ltr" style="text-align:right">#' + escH(no) + '</span>' +
+                '<span class="block text-[11px] font-bold text-gray-500 mt-0.5">' + escH((t.from_branch_name || t.from_branch || '—') + ' ← ' + (t.to_branch_name || t.to_branch || '—')) +
+                ' · ' + escH(d) + ' · ' + escH(TRF_STATUS_AR[t.status] || t.status || '') + '</span></button>';
+        }).join('');
+    };
+    const load = async (q) => {
+        const my = ++seq;
+        try {
+            const r = await loadTransferInvoices(q);
+            if (my !== seq) return;
+            rowsNow = r.rows;
+            if (r.missing) paint('جدول فواتير النقل غير موجود في القاعدة — لا فواتير نقل لتربطها.');
+            else if (!rowsNow.length) paint(q ? 'لا فاتورة نقل بهذا الرقم.' : 'لا توجد فواتير نقل في النظام بعد.');
+            else paint();
+        } catch (e) { if (my === seq) paint('تعذّر تحميل فواتير النقل: ' + (e && e.message || 'خطأ')); }
+    };
+    const apply = async (no) => {
+        ov.remove();
+        const r = await saveTransferInvoice(id, no);
+        const m = savedMsg(no ? 'ربط فاتورة النقل #' + no : 'فكّ ارتباط فاتورة النقل', r);
+        showToast(m.t, m.type);
+        render();
+    };
+    ov.addEventListener('click', (e) => {
+        if (e.target === ov || e.target.closest('[data-x]')) { ov.remove(); return; }
+        if (e.target.closest('[data-unlink]')) { apply(''); return; }
+        const b = e.target.closest('[data-i]'); if (!b) return;
+        const t = rowsNow[+b.getAttribute('data-i')]; if (t) apply(String(t.transfer_number || t.id));
+    });
+    qi.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(() => load(qi.value.trim()), 250); });
+    load('');
+};
 function deliveredButtonsHTML(o, c) {
     const isM = o.shipping_company === MUFTI_CO;
     const big = 'flex-1 min-w-0 py-3.5 rounded-xl text-[13px] font-black whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors';
@@ -1880,7 +2027,7 @@ function deliveredButtonsHTML(o, c) {
             <button onclick="printOrder(${o.id})" class="${sm} bg-gray-50 border border-gray-200 text-gray-500 hover:text-gray-700" title="طباعة فاتورة"><i data-lucide="printer" class="w-4 h-4"></i></button>
             ${o.phone ? `<button onclick="openAfterDeliveryMessage(orders.find(x=>x.id==${o.id}))" data-hint="رسالة الشكر والتقييم — تُفتح تلقائياً عند تأكيد الاستلام؛ هذا الزرّ لإعادة إرسالها."
                 class="${sm} bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100" title="رسالة الشكر والتقييم"><i data-lucide="heart-handshake" class="w-4 h-4"></i></button>` : ''}
-            <button onclick="openCardMore(${o.id})" class="${sm} bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-lg font-black leading-none" title="خيارات أخرى: التحقق · مراسلة فرع الوجهة · عرض الإيصال" aria-label="خيارات أخرى">⋮</button>
+            ${moreBtnHTML(o)}
         </div>`;
 }
 window.openCardMore = (id) => {
@@ -2953,6 +3100,7 @@ window.openEditModal = async (id) => {
         }
     } catch (_) {}
     initEditModal(o);
+    try { window.syncEditSender(o); } catch (_) {}       // الفرع المُرسِل + حالة الحوالة (المفتي فقط) — وثيقة الطلبات §٢
     document.getElementById('editModal').classList.remove('hidden');
 };
 
@@ -3002,11 +3150,33 @@ document.getElementById('formEdit').onsubmit = async (e) => {
     const _newPhone  = String(data.phone || '').replace(/[^0-9]/g, '');
     const _phoneChanged = !!_oldPhone && !!_newPhone && _oldPhone !== _newPhone;
     const _wasNotified  = !!(_prevOrder.notified_new_at || _prevOrder.notified_ship_at || _prevOrder.notified_arrival_at);
+    const _prevFrom = shipFromOf(_prevOrder), _prevTransfer = transferStateOf(_prevOrder);
+    const _secWarn = [];                                  // تنبيهات الحقول الثانوية (الفرع المُرسِل/الحوالة/تاريخ الاستلام) — تُقال ولا تُخفى
 
     try {
-        await sbUpdate(id, data);
+        await sbUpdateOrThrow(id, data);                  // (وثيقة الطلبات §٢) صفٌّ لم يتغيّر ⇒ خطأ صريح لا «تم تعديل الطلب»
         const idx = orders.findIndex(o => o.id == id);
         if (idx >= 0) orders[idx] = { ...orders[idx], ...data };
+
+        /* (وثيقة الطلبات §٢ · «أثناء تعديل الطلب ممكن نعدّل الفرع المُرسِل») حفظٌ منفصل لا يكسر تعديل الطلب إن غاب العمود */
+        if (data.shipping_company === MUFTI_CO) {
+            const _sf = document.getElementById('edit-ship-from'), _ts = document.getElementById('edit-transfer-state');
+            const _tsVisible = !document.getElementById('edit-transfer-wrap').classList.contains('hidden');
+            if (_sf && _sf.value && _sf.value !== _prevFrom) {
+                const r = await saveShipFromR(id, _sf.value), m = savedMsg('الفرع المُرسِل «' + shipFromLabel(_sf.value) + '»', r);
+                if (m.type !== 'ok') _secWarn.push(m.t);
+            }
+            if (_ts && _tsVisible && _ts.value !== _prevTransfer) {
+                const r = await saveTransferState(id, _ts.value), m = savedMsg('حالة مراسلة الفرع «' + transferLabel(_ts.value) + '»', r);
+                if (m.type !== 'ok') _secWarn.push(m.t);
+            }
+        }
+        /* تاريخ استلام الزبون: إن حُوِّلت الحالة إلى «بانتظار التحصيل» من هنا (وليس من زرّ تأكيد الاستلام) نسجّله أيضاً —
+           فقط إن جاءت من مرحلةٍ قبل الاستلام؛ الرجوع من «تم التحصيل» لا يعني استلاماً جديداً فلا نكتب فوق تاريخه الحقيقي */
+        if ((data.status === 'delivered' || data.status === 'completed') && ['pending', 'prepared', 'shipped'].indexOf(_prevOrder.status) !== -1) {
+            const w = deliveredSaveWarn(await saveDeliveredAt(id));
+            if (w) _secWarn.push(w);
+        }
 
         if (_phoneChanged && _wasNotified) {
             const reset = { notified_new_at: null, notified_ship_at: null, notified_arrival_at: null };
@@ -3023,7 +3193,7 @@ document.getElementById('formEdit').onsubmit = async (e) => {
 
         render();
         closeModal('editModal');
-        if (!(_phoneChanged && _wasNotified)) showToast('✅ تم تعديل الطلب', 'ok');
+        if (!(_phoneChanged && _wasNotified)) showToast(_secWarn.length ? '✅ تم تعديل الطلب — لكن:\n' + _secWarn.join('\n') : '✅ تم تعديل الطلب', _secWarn.length ? 'err' : 'ok');
         /* (٨ ث — تدقيق المطابقة) «إعادة التبليغ لما يتغيّر الرقم»: كان يُطلب من الموظّف أن يتذكّر. الآن يُعرض
            عليه فوراً آخرُ تبليغٍ وصل الرقمَ القديم، ليرسله للجديد بضغطة (واتساب يحتاج ضغطةً منه — لا يُرسَل خفيةً). */
         if (_phoneChanged && _wasNotified) {
@@ -3228,10 +3398,14 @@ window.confirmShipping = async () => {
         }
     }
     try {
-        await sbUpdate(shipOrderId, data);
+        await sbUpdateOrThrow(shipOrderId, data);        // صفٌّ لم يتغيّر ⇒ خطأ صريح، لا «تم اعتماد الشحن» كاذبة
         orders[idx] = { ...orders[idx], ...data };
         /* الفرع المُرسِل (المفتي فقط) — حفظٌ منفصل لا يكسر الشحن إن غاب العمود */
-        if (company === MUFTI_CO) await saveShipFrom(shipOrderId, (document.getElementById('ship-from') || {}).value || MUFTI_DEFAULT_FROM);
+        if (company === MUFTI_CO) {
+            const _sfKey = (document.getElementById('ship-from') || {}).value || MUFTI_DEFAULT_FROM;
+            const _sfm = savedMsg('الفرع المُرسِل «' + shipFromLabel(_sfKey) + '»', await saveShipFromR(shipOrderId, _sfKey));
+            if (_sfm.type !== 'ok') showToast(_sfm.t, _sfm.type);     // «على هذا الجهاز فقط» تُقال صراحةً ولا تُخفى
+        }
         closeModal('shipModal');
         render();
         showToast('🚚 تم اعتماد الشحن — جارٍ إرسال الكليشيه...', 'ok');
@@ -3311,8 +3485,10 @@ window.executeConfirm = async () => {
         patch.receipt_at  = null;
     }
     try {
-        await sbUpdate(id, patch);
+        await sbUpdateOrThrow(id, patch);                // صفٌّ لم يتغيّر في القاعدة ⇒ لا «تم تحديث الحالة» كاذبة
         if (idx >= 0) Object.assign(orders[idx], patch);
+        /* (وثيقة الطلبات §٥) تاريخ استلام الزبون — لرسالة شركة الشحن. حفظٌ ثانويّ منفصل: لا يكسر التأكيد إن غاب العمود */
+        if (type === 'delivered') saveDeliveredAt(id).then(r => { const w = deliveredSaveWarn(r); if (w) showToast(w, 'err'); }).catch(() => {});
 
         /* 🔧 (2026-09-26 · طلب المالك) «تم الاستلام» و«تم التحصيل» **بلا صورة** —
            الصورة تُرسَل مع *الطلب الجديد* وحده. (withPhoto=false) */
@@ -3672,8 +3848,12 @@ function switchTab(t) { currentTab = t; render(); }
 function clearFilters() {
     const fc = document.getElementById('filter-company');
     const fb = document.getElementById('filter-branch');
+    const fs = document.getElementById('filter-sendbranch');
+    const ft = document.getElementById('filter-transfer');
     if (fc) fc.value = '';
     if (fb) fb.value = '';
+    if (fs) fs.value = '';
+    if (ft) ft.value = '';
     render();
 }
 
@@ -4808,9 +4988,13 @@ window.contactShipOffice = (id) => {
     if (!phone) { showToast('لا رقم لمكتب الشحن في عنوان هذا الأوردر — اختر المكتب من الاقتراحات عند الإضافة', 'err'); return; }
     let d = phone.replace(/[^0-9+]/g, ''); if (d[0] === '+') d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1);
     const who = (typeof getOperatorName === 'function' && getOperatorName()) || '';
-    const msg = 'مرحباً، معكم ' + (who ? 'أ. ' + who + ' ' : '') + 'من مجموعة ميديا تيك التجارية. ' +
-        'بخصوص شحنة باسم ' + (o.name || '') + (o.tracking_number ? ' — رقم التتبّع ' + o.tracking_number : '') +
-        (o.shipping_company ? ' (' + o.shipping_company + ')' : '') + '. حابّين نستفسر عن وضعها، وشكراً.';
+    /* (وثيقة الطلبات §٥ · «في الرسالة التي نرسلها إلى شركة الشحن: رقم التتبّع وتاريخ الشحن وتاريخ استلام الزبون أيضاً») */
+    const msg = 'مرحباً، معكم ' + (who ? 'أ. ' + who + ' ' : '') + 'من مجموعة ميديا تيك التجارية.\n' +
+        'بخصوص شحنة باسم ' + (o.name || '') + (o.shipping_company ? ' (' + o.shipping_company + ')' : '') + ':\n' +
+        '🔖 رقم التتبّع: ' + (o.tracking_number || '—') + '\n' +
+        '📅 تاريخ الشحن: ' + shipDateText(o) + '\n' +
+        '📬 تاريخ استلام الزبون: ' + receiptDateText(o) + '\n' +
+        'حابّين نستفسر عن وضعها، وشكراً.';
     const web = 'https://wa.me/' + d + '?text=' + encodeURIComponent(msg);
     const url = /Android/i.test(navigator.userAgent || '')
         ? 'intent://send/?phone=' + d + '&text=' + encodeURIComponent(msg) + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=' + encodeURIComponent(web) + ';end'
@@ -4849,24 +5033,31 @@ function shipFromOf(o) {
     if (!o) return MUFTI_DEFAULT_FROM;
     return o.ship_from_office || shipFromLocal()[o.id] || MUFTI_DEFAULT_FROM;
 }
+/* القيمة المحدَّدة فعلاً (قاعدة ثم الجهاز) — بلا الافتراضي: لنعرف هل اختار أحدٌ فرعاً أم هو «السريان» الافتراضي */
+function shipFromExplicit(o) { return (o && (o.ship_from_office || shipFromLocal()[o.id])) || null; }
 function shipFromOptionsHTML(sel) {
     const byCity = {};
     muftiOffices().forEach(x => { (byCity[x.city] = byCity[x.city] || []).push(x); });
     const cities = Object.keys(byCity).sort((a, b) => (a === 'حلب' ? -1 : b === 'حلب' ? 1 : a.localeCompare(b, 'ar')));
-    return cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
+    let html = cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
         '<option value="' + escH(x.key) + '"' + (x.key === sel ? ' selected' : '') + '>' + escH(x.city + ' – ' + x.name) +
         (x.phone ? '' : ' (بلا رقم)') + '</option>').join('') + '</optgroup>').join('');
+    /* (وثيقة الطلبات §٢) قيمةٌ محفوظةٌ على أوردرٍ قديم لم تعد في دليل المكاتب: نُبقيها خياراً ظاهراً كي لا يُستبدل فرعٌ
+       آخر بصمتٍ عند الحفظ (كان المتصفّح يعرض أوّل خيار وكأنه المحفوظ). */
+    if (sel && !muftiOfficeByKey(sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ' (غير مُدرَج في الدليل)</option>' + html;
+    return html;
 }
-/* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة. */
-async function saveShipFrom(id, key) {
+/* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة.
+   (وثيقة الطلبات §٢) صار الحفظ يفحص الاستجابة: صفٌّ لم يتغيّر في القاعدة ⇒ فشل صريح لا «نجاح كاذب». */
+async function saveShipFromR(id, key) {
     const o = orders.find(x => x.id == id); if (o) o.ship_from_office = key;
-    try { await sbUpdate(id, { ship_from_office: key }); return true; }
-    catch (e) {
-        console.warn('[GMT] تعذّر حفظ الفرع المُرسِل بالقاعدة (يُحفَظ محلياً):', e && e.message);
-        try { const m = shipFromLocal(); m[id] = key; localStorage.setItem(SHIPFROM_LS, JSON.stringify(m)); } catch (_) {}
-        return false;
-    }
+    const r = await orderPatchChecked(id, { ship_from_office: key });
+    if (r.ok && !r.queued) return r;
+    if (!r.ok) console.warn('[GMT] تعذّر حفظ الفرع المُرسِل بالقاعدة (يُحفَظ محلياً):', r.error);
+    try { const m = shipFromLocal(); m[id] = key; localStorage.setItem(SHIPFROM_LS, JSON.stringify(m)); } catch (_) {}
+    return r;      // في طابور الاتصال ⇒ نجاحٌ مؤجَّل (ونسخةٌ محلية احتياطاً)
 }
+async function saveShipFrom(id, key) { return (await saveShipFromR(id, key)).ok; }
 window.syncShipFromBox = function (current) {
     const wrap = document.getElementById('ship-from-wrap'), sel = document.getElementById('ship-from');
     const comp = (document.getElementById('ship-company') || {}).value || '';
@@ -4877,20 +5068,196 @@ window.syncShipFromBox = function (current) {
 };
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') window.syncShipFromBox(); });
 
+/* ═════════════════════════════════════════════════════════════════════
+   💸 الفرع المُرسِل + مراسلته (الحوالة) داخل الأوردر وفي الفلترة   (وثيقة الطلبات §٢ · ١٨ ت١)
+   ─────────────────────────────────────────────────────────────────────
+   طلبك: «لما يتم شحن أوردر مختار فرع الشركة يدخل في الفلترة لما بدي أعرف وين أموال التحصيل: مفتي فرقان، مفتي سريان وإلى
+   آخره» + «في نفس الأوردر يكون عندي شيء اسمه مراسلة الفرع المُرسِل، يعني لا أعرف إذا رجعت الحوالة أو لا، وبيدخل هذا
+   الموضوع في الفلترة» + «أثناء تعديل الطلب ممكن نعدّل الفرع المُرسِل… والفرع ممكن يكون تلقائياً السريان وممكن تعديله».
+   • ثلاث حالات للمراسلة: لم تُراسَل · رُوسِل — بانتظار الحوالة · وصلت الحوالة. **تُضبط بيدك فقط** — فتحُ واتساب لا يعني
+     أنّ الرسالة أُرسلت، فلا نُغيّرها نحن.
+   • التخزين: gmt_orders.transfer_state (+ transfer_at). إن لم يوجد العمود بعد (SQL غير مُشغَّل) تُحفَظ على هذا الجهاز بمفتاح
+     رقم الأوردر — كما فعلنا مع ship_from_office — وتُعرَض وتُفلتَر منه مع تنبيهٍ صريح أنها محلية.
+   • الفرع المُرسِل والحوالة خاصّان بشحنات **المفتي** بعد الشحن (في الطريق فما بعد).
+   ═════════════════════════════════════════════════════════════════════ */
+/* كتابةٌ على الأوردر **مع فحص الاستجابة** — لا «نجاح كاذب»:
+   ① خطأ القاعدة (عمود ناقص · صلاحية) ⇒ ok:false مع السبب  ② PostgREST يُرجع [] حين لم يتغيّر أيّ صفّ (RLS أو معرّف غير موجود)
+   ⇒ فشل  ③ بلا إنترنت تدخل طابور GMTSync ⇒ ok:true, queued:true (ويُنبَّه المستخدم أنها لم تصل بعد). */
+async function orderPatchChecked(id, patch) {
+    try {
+        const r = await sbUpdate(id, patch);
+        if (Array.isArray(r) && r.length === 0) return { ok: false, error: 'لم يتغيّر أيّ صفّ في القاعدة (صلاحية أو الأوردر غير موجود)' };
+        return { ok: true, queued: !!(Array.isArray(r) && r[0] && r[0]._pendingSync) };
+    } catch (e) { return { ok: false, error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
+}
+/* نسخةٌ ترمي عند الفشل — لمسارات الحفظ الأساسية (استلام/تحصيل/شحن/تعديل) التي تعرض «خطأ: …»: صفٌّ لم يتغيّر ليس نجاحاً */
+async function sbUpdateOrThrow(id, data) {
+    const r = await orderPatchChecked(id, data);
+    if (!r.ok) throw new Error(r.error);
+    return r;
+}
+function _colMissing(msg) { return /column|schema cache|PGRST204|42703/i.test(String(msg || '')); }
+function lsMap(key) { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) { return {}; } }
+function lsMapSet(key, id, val) {
+    try { const m = lsMap(key); if (val == null) delete m[id]; else m[id] = val; localStorage.setItem(key, JSON.stringify(m)); } catch (_) {}
+}
+/* رسالة تقول الحقيقة بعد حفظ حقلٍ ثانويّ: ok ⇒ حُفظ · queued ⇒ بانتظار الإنترنت · غير ذلك ⇒ على هذا الجهاز فقط وسبب ذلك */
+function savedMsg(what, r) {
+    if (r.ok && !r.queued) return { t: '✅ حُفظ ' + what, type: 'ok' };
+    if (r.ok) return { t: '📴 ' + what + ': بانتظار الإنترنت — يُرسَل تلقائياً عند عودته', type: 'inf' };
+    return { t: '⚠️ ' + what + ' حُفظ على هذا الجهاز فقط — ' + (_colMissing(r.error) ? 'عمود القاعدة غير موجود بعد (SQL)' : 'لم يُحفظ في القاعدة: ' + r.error), type: 'err' };
+}
+
+const TRANSFER_LS = 'gmt_transfer_state';
+const TRANSFER_STATES = [
+    { k: 'none',     t: 'لم تُراسَل' },
+    { k: 'asked',    t: 'رُوسِل — بانتظار الحوالة' },
+    { k: 'received', t: 'وصلت الحوالة' }
+];
+function transferLabel(k) { const s = TRANSFER_STATES.find(x => x.k === k); return s ? s.t : TRANSFER_STATES[0].t; }
+function transferStateOf(o) {
+    if (!o) return 'none';
+    if (o.transfer_state === 'asked' || o.transfer_state === 'received') return o.transfer_state;
+    const l = lsMap(TRANSFER_LS)[o.id];
+    return (l && (l.s === 'asked' || l.s === 'received')) ? l.s : 'none';
+}
+/* هل للأوردر فرعٌ مُرسِل وحوالة؟ — شحنات المفتي بعد الشحن فقط */
+function hasSenderInfo(o) { return !!o && o.shipping_company === MUFTI_CO && SHIPPED_OR_LATER.indexOf(o.status) !== -1; }
+/* مفتاح الفرع المُرسِل لغرض الفلترة/العرض: المحدَّد صراحةً، وإلا الافتراضي «السريان» للمشحون فقط (قبل الشحن لا فرعَ بعد) */
+function senderKeyOf(o) {
+    if (!o || o.shipping_company !== MUFTI_CO) return null;
+    return shipFromExplicit(o) || (SHIPPED_OR_LATER.indexOf(o.status) !== -1 ? MUFTI_DEFAULT_FROM : null);
+}
+function transferFilterOf(o) { return hasSenderInfo(o) ? transferStateOf(o) : null; }
+
+/* خيارات فلتر الفرع المُرسِل — من الأوردرات المحمَّلة نفسها: لا أسماءَ مُخترَعة، وما اختيرتَه يبقى حتى لو لم يعد له أوردر */
+function syncSenderFilter() {
+    const sel = document.getElementById('filter-sendbranch'); if (!sel) return;
+    const cur = sel.value || '';
+    const keys = [];
+    (typeof orders !== 'undefined' ? orders : []).forEach(o => { const k = senderKeyOf(o); if (k && keys.indexOf(k) === -1) keys.push(k); });
+    if (cur && keys.indexOf(cur) === -1) keys.push(cur);
+    keys.sort((a, b) => shipFromLabel(a).localeCompare(shipFromLabel(b), 'ar'));
+    const sig = keys.join('~');
+    if (sel.getAttribute('data-sig') === sig) return;          // لا نُعيد بناء قائمةٍ قد تكون مفتوحةً أمام المستخدم
+    sel.setAttribute('data-sig', sig);
+    sel.innerHTML = '<option value="">🏢 كل الفروع المُرسِلة</option>' +
+        keys.map(k => '<option value="' + escH(k) + '">' + escH(shipFromLabel(k)) + '</option>').join('');
+    sel.value = cur;
+}
+
+/* شارة الفرع المُرسِل + حالة الحوالة على البطاقة (اضغط الحالة لتغييرها) */
+function senderInfoHTML(o) {
+    if (!hasSenderInfo(o)) return '';
+    const st = transferStateOf(o);
+    const cls = st === 'received' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+              : st === 'asked'    ? 'bg-amber-50 border-amber-300 text-amber-700'
+              :                     'bg-gray-50 border-gray-300 text-gray-600';
+    return `<div class="flex items-center gap-1.5 flex-wrap" data-sender-info>
+        <span>🏢 المُرسِل: <span class="font-black text-gray-700">${escH(shipFromLabel(shipFromOf(o)))}</span></span>
+        <button type="button" data-transfer-chip="${escH(st)}" onclick="openTransferState(${o.id})"
+            data-hint="حالة مراسلة الفرع المُرسِل بخصوص الحوالة — اضغط لتغييرها (لم تُراسَل · رُوسِل · وصلت الحوالة)."
+            class="px-2.5 py-1 rounded-lg border text-[10.5px] font-black ${cls}" title="حالة مراسلة الفرع المُرسِل (الحوالة) — اضغط لتغييرها">💸 ${escH(transferLabel(st))}</button>
+    </div>`;
+}
+
+async function saveTransferState(id, state) {
+    const o = orders.find(x => x.id == id);
+    const at = state === 'none' ? null : new Date().toISOString();
+    const r = await orderPatchChecked(id, { transfer_state: state === 'none' ? null : state, transfer_at: at });
+    if (o) { o.transfer_state = state === 'none' ? null : state; o.transfer_at = at; }
+    if (r.ok && !r.queued) lsMapSet(TRANSFER_LS, id, null);         // القاعدة هي المرجع — لا نسخةً محلية قديمة تُحيي قيمةً ملغاة
+    else lsMapSet(TRANSFER_LS, id, { s: state, at: at });             // فشل/بلا إنترنت ⇒ على هذا الجهاز (ويُقال ذلك صراحةً)
+    return r;
+}
+window.openTransferState = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    const cur = transferStateOf(o);
+    const k = await GMTAsk.choose('🏢 الفرع المُرسِل: ' + shipFromLabel(shipFromOf(o)) + '\nالحالة الآن: ' + transferLabel(cur) +
+        '\n\nحدّد حالة مراسلة الفرع المُرسِل بخصوص حوالة هذه الشحنة:', {
+        title: 'مراسلة الفرع المُرسِل — الحوالة', icon: 'ask',
+        /* الحالة الحالية أوّلاً: زرّ Enter في نافذة الاختيار يضغط أوّل خيار — فيكون «لا تغيير» لا «لم تُراسَل» بالخطأ */
+        choices: TRANSFER_STATES.slice().sort((a, b) => (b.k === cur) - (a.k === cur))
+            .map(s => ({ k: s.k, t: (s.k === cur ? '✔ ' : '') + s.t, pri: s.k === cur ? 1 : 0 }))
+    });
+    if (!k || k === cur) return;
+    const r = await saveTransferState(id, k);
+    const m = savedMsg('الحالة «' + transferLabel(k) + '»', r);
+    showToast(m.t, m.type);
+    render();
+};
+
+/* ── تاريخ استلام الزبون (وثيقة الطلبات §٥ · رسالة شركة الشحن تحمل «تاريخ استلام الزبون») ──
+   لم يكن للأوردر عمودٌ لهذا التاريخ (receipt_at هو وقت رفع صورة إيصال الشحن لا استلام الزبون!). فنسجّله عند تأكيد الاستلام في
+   gmt_orders.delivered_at، وإن غاب العمود يُحفَظ على الجهاز. الأوردرات التي استُلمت قبل اليوم بلا تاريخ ⇒ «غير مسجَّل» (لا نخترع تاريخاً). */
+const DELIVERED_LS = 'gmt_delivered_at';
+function deliveredAtOf(o) { return (o && (o.delivered_at || (lsMap(DELIVERED_LS)[o.id] || {}).at)) || null; }
+async function saveDeliveredAt(id) {
+    const at = new Date().toISOString();
+    const o = orders.find(x => x.id == id); if (o) o.delivered_at = at;
+    const r = await orderPatchChecked(id, { delivered_at: at });
+    if (r.ok && !r.queued) lsMapSet(DELIVERED_LS, id, null); else lsMapSet(DELIVERED_LS, id, { at: at });
+    return r;
+}
+/* تنبيهٌ صادق إن لم يصل تاريخ الاستلام القاعدة. غياب العمود (SQL لم يُشغَّل) يُقال **مرّةً في الجلسة** لا مع كل تأكيد استلام؛
+   أيّ خطأٍ آخر يُقال كلّ مرّة. في طابور الاتصال ⇒ لا تنبيه (يُرسَل مع الحالة نفسها عند عودة الإنترنت). */
+function deliveredSaveWarn(r) {
+    if (!r || r.ok) return '';
+    if (_colMissing(r.error)) {
+        try { if (sessionStorage.getItem('gmt_delivered_col_warned')) return ''; sessionStorage.setItem('gmt_delivered_col_warned', '1'); } catch (_) {}
+        return '⚠️ تاريخ استلام الزبون يُحفَظ على هذا الجهاز فقط — عمود القاعدة غير موجود بعد (SQL)';
+    }
+    return '⚠️ تاريخ استلام الزبون لم يُحفظ في القاعدة (حُفظ على هذا الجهاز): ' + r.error;
+}
+/* نصّ تاريخ الاستلام للرسائل: التاريخ إن وُجد، وإلا الحقيقة (لم يُستلم بعد / غير مسجَّل) */
+function receiptDateText(o) {
+    const d = deliveredAtOf(o);
+    if (d) { try { return new Date(d).toLocaleDateString('en-GB'); } catch (_) {} }
+    return (o && (o.status === 'delivered' || o.status === 'completed')) ? 'غير مسجَّل' : 'لم يُستلم بعد';
+}
+function shipDateText(o) {
+    if (o && o.shipped_at) { try { return new Date(o.shipped_at).toLocaleDateString('en-GB'); } catch (_) {} }
+    return '—';
+}
+
+/* نافذة التعديل: الفرع المُرسِل (وحالة الحوالة بعد الشحن) لشركة المفتي فقط — تتبدّل مع الشركة والحالة المختارتين في النافذة نفسها.
+   `o` يُمرَّر عند فتح النافذة فنملأ الخانتين من الأوردر؛ بعدها (تبديل الشركة/الحالة) نُبقي ما اختاره المستخدم. */
+window.syncEditSender = function (o) {
+    const wrap = document.getElementById('edit-sender-wrap'), sel = document.getElementById('edit-ship-from');
+    const tw = document.getElementById('edit-transfer-wrap'), ts = document.getElementById('edit-transfer-state');
+    if (!wrap || !sel) return;
+    const isM = ((document.getElementById('edit-company') || {}).value || '') === MUFTI_CO;
+    wrap.classList.toggle('hidden', !isM);
+    if (!isM) return;
+    const cur = o || orders.find(x => x.id == (document.getElementById('edit-id') || {}).value) || null;
+    if (cur && (o || sel.getAttribute('data-for') !== String(cur.id))) {
+        sel.innerHTML = shipFromOptionsHTML(shipFromOf(cur));
+        sel.setAttribute('data-for', String(cur.id));
+        if (ts) ts.value = transferStateOf(cur);
+    } else if (!sel.options.length) {
+        sel.innerHTML = shipFromOptionsHTML(MUFTI_DEFAULT_FROM);
+    }
+    const st = (document.getElementById('edit-status') || {}).value || '';
+    if (tw) tw.classList.toggle('hidden', SHIPPED_OR_LATER.indexOf(st) === -1);
+};
+document.addEventListener('change', (e) => { if (e.target && (e.target.id === 'edit-company' || e.target.id === 'edit-status')) window.syncEditSender(); });
+
 function orderDestination(o) {
     return String(o.address || '').split('·')[0].replace(/☎.*$/, '').trim();
 }
 /* الكليشة — نصّ المالك حرفياً بترتيبٍ مقروء. أ.محمد ثابتٌ في الكليشة (لا اسم الموظّف). */
 function buildSendingBranchText(o) {
-    const d = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '—';
+    const d = shipDateText(o);
     const amt = collectOf(o);
+    /* (وثيقة الطلبات §٥ · «الرسالة التي نرسلها إلى شركة الشحن نذكر فيها رقم التتبّع وتاريخ الشحن وتاريخ استلام الزبون») */
     return 'مرحباً، معكم أ. محمد من القسم المالي لمجموعة ميديا تك التجارية.\n' +
         'حابّين نتأكد عن حوالة الإيصال هذا:\n' +
         '📅 مبعوث بتاريخ: ' + d + '\n' +
+        '📬 تاريخ استلام الزبون: ' + receiptDateText(o) + '\n' +
         '📍 الوجهة: ' + (orderDestination(o) || '—') + '\n' +
         '👤 اسم المستلم: ' + (o.name || '—') + '\n' +
         '💵 الحوالة: ' + (amt > 0 ? '$' + amt.toLocaleString() : '—') + '\n' +
-        (o.tracking_number ? '🔖 رقم التتبّع: ' + o.tracking_number + '\n' : '') +
+        '🔖 رقم التتبّع: ' + (o.tracking_number || '—') + '\n' +
         'شكراً لكم.';
 }
 window.contactSendingBranch = (id) => {
@@ -4898,7 +5265,8 @@ window.contactSendingBranch = (id) => {
     if (o.shipping_company && o.shipping_company !== MUFTI_CO) { showToast('مراسلة الفرع المُرسِل خاصّة بشحنات المفتي', 'err'); return; }
     const key = shipFromOf(o), of = muftiOfficeByKey(key);
     if (!of || !of.phone) {
-        GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «🔎 التحقق من الشحنة» ثم راسله.',
+        /* (١٨ ت١) زرّ «🔎 التحقق من الشحنة» بالأعلى صار يفتح موقع المفتي مباشرةً — فتغيير الفرع صار من «تعديل» الأوردر أو من ⋮ */
+        GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «تعديل» الأوردر (خانة الفرع المُرسِل) أو من ⋮ ← «بحث برقم التتبّع»، ثم راسله.',
             { title: 'لا رقم للفرع المُرسِل', icon: 'danger' });
         return;
     }
@@ -5009,6 +5377,7 @@ function gmtSetCompany(pfx, company) {
     if (![...sel.options].some(x => x.value === company)) sel.add(new Option(company, company));
     sel.value = company;
     sel.classList.add('ring-2', 'ring-emerald-300'); setTimeout(() => sel.classList.remove('ring-2', 'ring-emerald-300'), 1600);
+    if (pfx === 'edit') { try { window.syncEditSender(); } catch (_) {} }   // تحديد الشركة تلقائياً من العنوان لا يُطلق حدث change
 }
 function gmtCompanyFromRegion(pfx) {
     if (!window.GMTOffices) return;
@@ -5539,8 +5908,9 @@ function firstName(full) {
 function afterDeliveryText(o) {
     const nm = firstName(o && o.name);
     const L = [];
-    L.push('مرحبا' + (nm ? ' ' + nm : '') + '، معك ' + AFTER_DELIVERY_AGENT + ' من ميديا تيك.');
-    L.push('وصلك الطلب بخير؟ حابة أعرف كيف كانت تجربتك معنا وشو رأيك بالمنتج.');
+    /* (وثيقة الطلبات §٥ · ١٨ ت١) «مراسلة الشخص: مرحبا، كيف كان رأيك في المنتج» — سؤالُك بنصّك أوّلاً ثم التعريف باسم الموظّفة (مختصرة كما طلبتَ) */
+    L.push('مرحبا' + (nm ? ' ' + nm : '') + '، كيف كان رأيك في المنتج؟');
+    L.push('معك ' + AFTER_DELIVERY_AGENT + ' من ميديا تيك، حابة أعرف كيف كانت تجربتك معنا.');
     if (AFTER_DELIVERY_COUPON > 0) {
         L.push('');
         L.push('وإذا حبيت تشاركنا ستوري، منبعتلك كوبون لطلبك الجاي لحدّ $'
