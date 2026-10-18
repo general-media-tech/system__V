@@ -33,6 +33,9 @@
      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
   var NEWS = [
+    { v: 61, tag: 'جديد', at: '2026-10-18T07:00:00Z', t: '«شو الجديد» صار ظاهراً: بطاقة أعلى الرئيسية + نقطة حمراء على كل ميزة لم تجرّبها',
+      d: 'أعلى الرئيسية بطاقة **🆕 شو الجديد** لكل مستخدم فيها آخر التحديثات. كل ميزة جديدة لها زرّ **«جرّبها ←»** يأخذك إلى مكانها مباشرةً وعليها نقطة حمراء نابضة. وعلى بطاقات الأدوات والروابط نقطة حمراء صغيرة لكل صفحة فيها ميزة لم تجرّبها — **وتبقى العلامة حتى تضغط الميزة نفسها أو «✓ جرّبتها»**. وزرّ ✨ «شو الجديد» صار ظاهراً بالشريط العلوي على الهاتف أيضاً، وعليه عدد ما لم تقرأه أو تجرّبه.',
+      w: 'على الهاتف كان زرّ «شو الجديد» مخفيّاً (في القائمة الجانبية فقط)، وفي بقية الصفحات أيقونة بلا اسم — فلم يكن له مكانٌ واضح، والعلامة كانت تنطفئ بمجرّد فتح النافذة لا بتجربة الميزة.' },
     { v: 60, tag: 'إصلاح', at: '2026-10-17T20:30:00Z', t: 'تبليغات تيليغرام عادت تعمل — البوت الجديد عبر الوسيط الآمن',
       d: 'رسائل الأوردرات ونقاط البيع والأدمن والجرد والكفالات وطلبات المتجر تصل الآن عبر البوت الجديد. جُرّبت القنوات الأربع من الخادم ووصلت رسالة اختبار لكلٍّ منها. مفتاح البوت محفوظ سرّاً على الخادم فقط.',
       w: 'البوت السابق حُذف بعد اختراقه، فتوقّفت كل التبليغات حتى ضُبط البوت الجديد.' },
@@ -42,11 +45,13 @@
     { v: 58, tag: 'جديد', at: '2026-10-16T09:30:00Z', t: 'الأوردرات: التحقق من شحنة المفتي + الفرع المُرسِل ومراسلة الحوالة · تبليغ واتساب مباشر · قراءة أقوى للتتبّع',
       d: 'زرّ «🔎 التحقق من الشحنة» عاد أعلى صفحة الأوردرات (للمفتي فقط، مستقلّ عن أزرار الشحنات): اكتب رقم التتبّع أو صوّر الإيصال فيُظهر الأوردر المطابق ويفتح موقع المفتي. عند شحن أوردرٍ بالمفتي صار تختار «الفرع المُرسِل» (الافتراضي حلب – السريان)، وبعد تأكيد الاستلام يظهر زرّ «💸 الحوالة» يراسل الفرع المُرسِل (لا المستلِم) بكليشة جاهزة: تاريخ الشحن والوجهة واسم المستلم والحوالة. تبليغ الأوردر الجديد يفتح محادثة الزبون في واتساب بزنس مباشرةً بلا نافذة «مشاركة». قراءة رقم التتبّع من الصورة أقوى: تجرّب الباركود بأكثر من طريقة، وإن لم تجده تقرأ الأرقام المطبوعة وتعرض لك المرشّحين لتضغط الصحيح. اقتراح أسماء الزبائن يعمل الآن بلا إنترنت (من ذاكرة الجهاز). فاتورة المتجر بنفس قالب فاتورة المبيع.',
       w: 'مُنتقي «المشاركة» كان يسأل عن التطبيق ثم عن الزبون ولا يعرف الرقم. والاقتراحات كانت تختفي عند انقطاع الإنترنت. وفاتورة المتجر كانت بتصميمٍ مختلف عن فاتورة المبيع. ورقم الإيصال لا يُقرأ إن كان الباركود باهتاً أو مائلاً.',
-      pages: ['orders.html', 'pos.html'] },
+      pages: ['orders.html', 'pos.html'],
+      go: [{ p: 'orders.html', sel: '[onclick="openVerifyShipment()"]', l: 'زرّ «🔎 التحقق من الشحنة» أعلى الأوردرات' }] },
     { v: 57, tag: 'إصلاح', at: '2026-10-11T16:33:32Z', t: 'مراجعة مالية قبل الإطلاق: البيع والمرتجع والعمولات والتحصيل والنقل',
       d: 'اختبارات سيناريوهات كاملة على نقطة البيع والأدمن (أكثر من ١٢٠ حالة) كشفت أعطالاً وأُصلحت: عمولة البيع الآجل لم تكن تُسجَّل أبداً · فاتورة بلا بنود كانت تُعلَن «ناجحة» · الطابور الأوفلاين يكرّر الفواتير ويُسقط العمولة والدَّين · المرتجع يتجاوز ما دفعه الزبون · تسوية العمولة الجزئية كانت تُخفي الباقي · تحصيل الديون يضيّع دفعات · التقريب بالسنت · الخصم اليدوي · الباقات. وفي النقل: فاتورة النقل الناقصة صارت عليها نقطة حمراء، وبالضغط عليها تُعرض الأصناف الناقصة مع «أعِد المحاولة» و«ارفع المصدر وأضِف» و«لم تُنقل»، فتصل الفاتورة بالأعداد التي أدخلتَها. وفي الجرد: طريقة العرض تُحفظ، وزرّ «إدارة هذا المنتج»، ومواصفات علي بابا تأخذ صورة المنتج واسمه.',
       w: 'لم تكن هناك اختبارات تغطّي المسارات المالية معاً. هذه الدفعة تحوّل كل خطأ وُجد إلى اختبارٍ يعمل قبل كل نشر.',
-      pages: ['pos.html', 'admin_pos.html', 'inventory.html'] },
+      pages: ['pos.html', 'admin_pos.html', 'inventory.html'],
+      go: [{ p: 'inventory.html', sel: 'button[onclick^="gmtManageProduct"]', l: 'زرّ «إدارة هذا المنتج»', h: 'افتح أيّ منتج في الجرد — الزرّ الأحمر في تفاصيله' }] },
     { v: 56, tag: 'جديد', t: 'نقاط البيع: إنشاء وإلغاء من داخل النظام (بكلمة سرّ تُفحص في القاعدة)',
       d: 'نافذة «نقاط البيع» (الأدوات على الكمبيوتر · «المزيد» على الهاتف): تعرض النقاط الفعّالة بمخزون كلٍّ منها، وتنشئ نقطةً بالاسم والمعرّف (يُقترح من الاسم)، وتُلغي نقطةً إلغاءً ناعماً (إخفاء — يبقى عمودها وتاريخها وتُعاد بالمعرّف نفسه). لا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون أو عمولات غير مدفوعة. وكلمات «de/cn/hlb/halb» القصيرة صارت تُطابَق كلمةً كاملة فلا يُعامَل مفتاحٌ مثل deirezzor كموقع عبور. وتعديل التصنيف لا يسحب منتجاً صنّفتَه تحت تصنيفٍ آخر، ومدير «الأعمدة» لم يعد يعدّل نقاط البيع.',
       w: 'الواجهة كانت تُضيف سطراً في inv_columns فقط والعمود الفعلي لا يُضاف عبر REST فتُنشأ نقطةٌ شبه موجودة. الآن دالّتان في القاعدة (SQL ٣٤) تفحصان كلمة سرّ نقاط البيع **هناك** — في جدولٍ لا يقرؤه المفتاح العام ولا يكتبه (كلمات gmt_settings يكتبها المفتاح العام فكانت الحماية بها وهماً). تُفعَّل الحماية مرّةً واحدة بسطرٍ تشغّله في محرّر SQL (تعرضه النافذة جاهزاً)، وقبله ترفض الدالّتان كلّ طلب.',
@@ -409,6 +414,30 @@
   ];
   VERSION = NEWS.reduce(function (m, n) { return n.v > m ? n.v : m; }, 0);
 
+  /* ══ (18 ت1) «جرّبها» — علاماتٌ تبقى حتى تفتح الميزة ══════════════════════
+     طلبك (واتساب): «يحط لي على كل … ملف او شيء فيه ميزه جديده نقطه، ولما ادخل يحط لي نقطه حمراء اخرى
+     او اشاره انه في شيء جديد لحتى اوصل لها واجربها، يعني اللي ما فتحتها تظل في عليها علامه».
+     · البند الذي فيه `go` (مكان الميزة: الصفحة p + العنصر sel + وصفه l) يبقى «لم تجرّبه» حتى:
+       تضغط الميزة نفسها، أو «✓ جرّبتها». قراءةُ النافذة وحدها لا تُطفئه.
+     · نقطةٌ حمراء على كل رابطٍ/بطاقةٍ تفتح صفحةً فيها ميزةٌ لم تجرّبها، ونقطةٌ نابضة على الميزة داخل الصفحة.
+     · البنود الأقدم من TRY_FROM تُعدّ مُجرَّبة (كي لا تمتلئ الشاشة بنقاط تحديثات قديمة).
+     · الحالة على هذا الجهاز (كما «مقروء»). */
+  var TRY_FROM = 57;
+  var LS_TRY = 'gmt_wn_tried';
+  function triedMap() {
+    try { var o = JSON.parse(localStorage.getItem(LS_TRY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
+  }
+  function markTried(v) {
+    var o = triedMap(); o[v] = 1;
+    try { localStorage.setItem(LS_TRY, JSON.stringify(o)); } catch (e) {}
+    changed();
+  }
+  function untried(n, map) {
+    return !!(n && n.go && n.go.length && n.v >= TRY_FROM && !(map || triedMap())[n.v]);
+  }
+  function fresh(n, s, map) { return n.v > s || untried(n, map); }
+  function byV(v) { for (var i = 0; i < NEWS.length; i++) if (NEWS[i].v === +v) return NEWS[i]; return null; }
+
   // ══ الأدوات ══════════════════════════════════════════════════════════════
 
   function internalUI() {
@@ -429,9 +458,16 @@
     try { localStorage.setItem(LS_KEY, String(VERSION)); } catch (e) {}
   }
 
+  /* الرئيسية مركزُ كل الأدوات ⇒ تعرض كل البنود لا بنودها فقط */
+  function isHome(p) {
+    var me = p === undefined ? page() : p;
+    return me === 'home.html' || ((me === '' || me === 'index.html') && !!global.GMT_HOME_SHELL);
+  }
+
   /* بنود هذه الصفحة — البند بلا pages يظهر في كل صفحة داخلية */
   function forPage(p) {
     var me = p || page();
+    if (isHome(me)) return NEWS.slice();
     return NEWS.filter(function (n) {
       if (!n.pages || !n.pages.length) return true;
       for (var i = 0; i < n.pages.length; i++)
@@ -440,9 +476,10 @@
     });
   }
 
+  /* ما يستحقّ انتباهك هنا: لم تقرأه بعد، أو فيه ميزةٌ لم تجرّبها */
   function unseenCount() {
-    var s = seen();
-    return forPage().filter(function (n) { return n.v > s; }).length;
+    var s = seen(), m = triedMap();
+    return forPage().filter(function (n) { return fresh(n, s, m); }).length;
   }
 
   function esc(s) {
@@ -465,13 +502,15 @@
     if (!internalUI()) return;
     var old = document.getElementById('gmt-wn-ov');
     if (old) old.remove();
-    var s = seen();
+    var s = seen(), tm = triedMap();
     var items = forPage();
     if (onlyUnseen) items = items.filter(function (n) { return n.v > s; });
     if (!items.length) {
       if (!onlyUnseen) toast('ما في جديد لهذه الصفحة');
       return;
     }
+    /* ما لم تجرّبه أوّلاً، ثمّ الأحدث */
+    items = items.slice().sort(function (a, b) { return (untried(b, tm) - untried(a, tm)) || (b.v - a.v); });
 
     var ov = document.createElement('div');
     ov.id = 'gmt-wn-ov';
@@ -486,7 +525,8 @@
           '<div style="min-width:0">' +
             '<div style="font-weight:900;font-size:15px;color:#111827">شو الجديد</div>' +
             '<div style="font-size:11px;color:#5b6472;font-weight:700">' +
-              items.length + ' تحديث يخصّ هذه الصفحة</div>' +
+              items.length + (isHome() ? ' تحديث في كل النظام' : ' تحديث يخصّ هذه الصفحة') +
+              (items.some(function (n) { return untried(n, tm); }) ? ' · <span style="color:#D5001C">● ميزاتٌ لم تجرّبها بعد</span>' : '') + '</div>' +
           '</div>' +
           '<button id="gmt-wn-x" style="margin-inline-start:auto;background:#F5F6FA;border:0;border-radius:10px;' +
             'padding:7px 15px;font-weight:900;font-size:12.5px;cursor:pointer;font-family:inherit;color:#374151">' +
@@ -498,18 +538,21 @@
 
     var body = ov.querySelector('#gmt-wn-body');
     body.innerHTML = items.map(function (n) {
-      var c = TAGC[n.tag] || ['#374151', '#F3F4F6'];
+      var c = TAGC[n.tag] || ['#374151', '#F3F4F6'], ut = untried(n, tm);
       return '<div style="border:1px solid #E9ECF1;border-radius:13px;padding:11px 13px;margin-bottom:9px' +
-             (n.v > s ? ';background:#FFFBEB;border-color:#FDE68A' : '') + '">' +
+             (ut ? ';background:#FFF5F5;border-color:#FECACA' : n.v > s ? ';background:#FFFBEB;border-color:#FDE68A' : '') + '">' +
         '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px">' +
+          (ut ? '<span class="gwn-dot gwn-inl" aria-hidden="true"></span>' : '') +
           '<span style="background:' + c[1] + ';color:' + c[0] + ';border-radius:8px;padding:1px 9px;' +
             'font-size:10.5px;font-weight:900">' + esc(n.tag) + '</span>' +
           '<span style="font-weight:900;font-size:13.5px;color:#111827">' + esc(n.t) + '</span>' +
-          (n.v > s ? '<span style="font-size:10px;font-weight:900;color:#B45309">جديد عليك</span>' : '') +
+          (ut ? '<span style="font-size:10px;font-weight:900;color:#D5001C">لم تجرّبها بعد</span>'
+              : n.v > s ? '<span style="font-size:10px;font-weight:900;color:#B45309">جديد عليك</span>' : '') +
         '</div>' +
         '<div style="font-size:12.5px;font-weight:600;color:#374151;line-height:1.9">' + fmt(n.d) + '</div>' +
         (n.w ? '<div style="font-size:11.5px;font-weight:700;color:#5b6472;line-height:1.8;margin-top:4px">'
                + fmt(n.w) + '</div>' : '') +
+        tryRow(n, ut) +
       '</div>';
     }).join('') +
     '<a href="شو_الجديد.html" target="_blank" rel="noopener" ' +
@@ -532,6 +575,257 @@
     setTimeout(function () { t.remove(); }, 2600);
   }
 
+  // ══ «جرّبها» · بطاقة الرئيسية · النقاط ══════════════════════════════════
+
+  function css() {
+    if (document.getElementById('gwn-css')) return;
+    var st = document.createElement('style');
+    st.id = 'gwn-css';
+    st.textContent =
+      '.gwn-dot{position:absolute;top:5px;inset-inline-end:5px;width:10px;height:10px;border-radius:50%;background:#D5001C;' +
+        'box-shadow:0 0 0 2px #fff;pointer-events:none;z-index:3}' +
+      '.gwn-dot.gwn-inl{position:relative;top:auto;inset-inline-end:auto;display:inline-block;flex:0 0 auto}' +
+      '.gwn-dot.gwn-pulse:after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid #D5001C;animation:gwnP 1.4s ease-out infinite}' +
+      '.gwn-target{outline:2px solid #D5001C!important;outline-offset:2px;border-radius:10px}' +
+      '.gwn-flash{animation:gwnF 1s ease-in-out 3}' +
+      '@keyframes gwnP{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.6);opacity:0}}' +
+      '@keyframes gwnF{50%{box-shadow:0 0 0 6px rgba(213,0,28,.35)}}' +
+      '@media (prefers-reduced-motion:reduce){.gwn-dot.gwn-pulse:after,.gwn-flash{animation:none}}' +
+      '.gwn-btn{border:0;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:900;font-size:12px;cursor:pointer;line-height:1.3}' +
+      '.gwn-go{background:#D5001C;color:#fff}.gwn-ok{background:#F3F4F6;color:#374151}' +
+      '#wn-home{position:relative;border:1px solid rgba(213,0,28,.25);border-radius:18px;background:#fff;padding:14px 14px 10px;margin:0 0 14px;' +
+        'box-shadow:0 1px 2px rgba(15,18,25,.05);font-family:inherit}' +
+      '#wn-home .gwn-h{display:flex;align-items:center;gap:8px}' +
+      '#wn-home .gwn-h b{font-size:16px;font-weight:900;color:#0f1219}' +
+      '#wn-home .gwn-n{background:#D5001C;color:#fff;border-radius:999px;min-width:22px;height:22px;padding:0 7px;display:inline-grid;place-items:center;font-size:12px;font-weight:900}' +
+      '#wn-home .gwn-sub{font-size:11.5px;color:#5b6472;font-weight:700;margin:4px 0 8px;line-height:1.7}' +
+      '#wn-home .gwn-it{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid #F0F1F4}' +
+      '#wn-home .gwn-it .gwn-tx{flex:1;min-width:0}' +
+      '#wn-home .gwn-it .gwn-tx b{display:block;font-size:13px;font-weight:900;color:#111827;line-height:1.5}' +
+      '#wn-home .gwn-it .gwn-tx small{display:block;font-size:11px;color:#5b6472;font-weight:700}' +
+      '#wn-home .gwn-acts{display:flex;gap:6px;flex:0 0 auto}' +
+      '#wn-home.gwn-calm{border-color:rgba(15,18,25,.1);padding:10px 14px}' +
+      '#gwn-coach{position:fixed;z-index:2147482000;inset-inline:12px;bottom:16px;margin:auto;max-width:460px;background:#111827;color:#fff;' +
+        'border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:9px;font-family:Cairo,Tahoma,sans-serif;direction:rtl;' +
+        'box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:12.5px;font-weight:800;line-height:1.7}' +
+      '#gwn-coach .gwn-ok{background:#fff;color:#111827}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  /* اسم الصفحة كما في قائمة الأدوات */
+  function pageName(f) {
+    try { var x = global.GMTTools && GMTTools.find(f); if (x && x.t) return x.t; } catch (e) {}
+    return String(f || '').replace(/\.html$/i, '').replace(/_/g, ' ');
+  }
+  function goOf(n) { return (n && n.go && n.go[0]) || null; }
+  function tryHref(n) {
+    var g = goOf(n); if (!g) return '';
+    return g.p + (g.p.indexOf('?') >= 0 ? '&' : '?') + 'wn=' + n.v;
+  }
+  function tryRow(n, ut) {
+    var g = goOf(n); if (!g) return '';
+    return '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px">' +
+      '<button type="button" class="gwn-btn gwn-go" data-wn-try="' + n.v + '">جرّبها ←</button>' +
+      (ut ? '<button type="button" class="gwn-btn gwn-ok" data-wn-done="' + n.v + '">✓ جرّبتها</button>' : '<span style="font-size:11px;font-weight:800;color:#047857">✓ جرّبتها</span>') +
+      '<span style="font-size:11px;font-weight:700;color:#5b6472">في: ' + esc(pageName(g.p)) + (g.l ? ' · ' + esc(g.l) : '') + '</span></div>';
+  }
+
+  /* بطاقة «شو الجديد» في الرئيسية — لكل مستخدم (طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم») */
+  function homeCard() {
+    if (!internalUI()) return '';
+    css();
+    var s = seen(), tm = triedMap();
+    var all = NEWS.slice().sort(function (a, b) { return b.v - a.v; });
+    var fr = all.filter(function (n) { return fresh(n, s, tm); });
+    fr.sort(function (a, b) { return (untried(b, tm) - untried(a, tm)) || (b.v - a.v); });
+    if (!fr.length) {
+      var last = all[0];
+      return '<section id="wn-home" class="gwn-calm"><div class="gwn-h"><span aria-hidden="true">🆕</span><b>شو الجديد</b>' +
+        '<span style="font-size:12px;color:#5b6472;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' +
+        (last ? 'آخر تحديث: ' + esc(last.t) : 'لا تحديثات') + '</span>' +
+        '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">كل الجديد</button></div></section>';
+    }
+    var nt = fr.filter(function (n) { return untried(n, tm); }).length;
+    var shown = fr.slice(0, 4);
+    return '<section id="wn-home" aria-label="شو الجديد"><div class="gwn-h"><span aria-hidden="true">🆕</span><b>شو الجديد</b>' +
+      '<span class="gwn-n">' + fr.length + '</span><span style="flex:1"></span>' +
+      '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">كل الجديد</button></div>' +
+      '<div class="gwn-sub">' + (nt ? '<span style="color:#D5001C">●</span> ' + nt + ' ميزة لم تجرّبها بعد — اضغط «جرّبها» يأخذك إليها وعليها نقطةٌ حمراء، وتبقى العلامة حتى تجرّبها.'
+                                   : 'تحديثاتٌ لم تقرأها بعد.') + '</div>' +
+      shown.map(function (n) {
+        var ut = untried(n, tm), g = goOf(n);
+        return '<div class="gwn-it">' + (ut ? '<span class="gwn-dot gwn-inl" aria-hidden="true"></span>' : '<span style="width:10px;flex:0 0 auto"></span>') +
+          '<div class="gwn-tx"><b>' + esc(n.t) + '</b><small>' + esc(n.tag || '') + (g ? ' · ' + esc(pageName(g.p)) : '') + '</small></div>' +
+          '<div class="gwn-acts">' + (g ? '<button type="button" class="gwn-btn gwn-go" data-wn-try="' + n.v + '">جرّبها ←</button>'
+                                        : '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">اقرأ</button>') + '</div></div>';
+      }).join('') +
+      (fr.length > shown.length ? '<div style="text-align:center;padding-top:6px"><button type="button" class="gwn-btn gwn-ok" data-wn-open="1">و' + (fr.length - shown.length) + ' غيرها…</button></div>' : '') +
+      '</section>';
+  }
+  function refreshCard() {
+    var el = document.getElementById('wn-home') || document.getElementById('wn-home-slot');
+    if (!el) return;
+    var h = homeCard();
+    if (el.id === 'wn-home-slot') { el.innerHTML = h; return; }
+    var t = document.createElement('div'); t.innerHTML = h;
+    if (t.firstChild) el.replaceWith(t.firstChild); else el.remove();
+  }
+
+  function changed() {
+    try { paintBadge(); } catch (e) {}
+    try { refreshCard(); } catch (e) {}
+    try { paintDots(); } catch (e) {}
+  }
+
+  /* أوّل عنصرٍ ظاهر من بدائل sel (مفصولة بـ «||») */
+  function findTarget(sel) {
+    var alts = String(sel || '').split('||');
+    for (var i = 0; i < alts.length; i++) {
+      var els; try { els = document.querySelectorAll(alts[i].trim()); } catch (e) { continue; }
+      for (var j = 0; j < els.length; j++) {
+        var r = els[j].getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return els[j];
+      }
+    }
+    return null;
+  }
+  function linkPage(a) {
+    var f = a.getAttribute('data-tool') || a.getAttribute('href') || '';
+    if (/^(https?:|mailto:|tel:|#|javascript:)/i.test(f)) return '';
+    try { f = decodeURIComponent(f.split('#')[0].split('?')[0].split('/').pop() || ''); } catch (e) {}
+    return f.toLowerCase();
+  }
+  function addDot(el, pulse) {
+    if (!el || el.querySelector(':scope > .gwn-dot')) return;
+    try { if (getComputedStyle(el).position === 'static') { el.style.position = 'relative'; el.setAttribute('data-gwn-pos', '1'); } } catch (e) {}
+    var d = document.createElement('span');
+    d.className = 'gwn-dot' + (pulse ? ' gwn-pulse' : '');
+    d.setAttribute('aria-hidden', 'true');
+    el.appendChild(d);
+  }
+  function dropDot(el) {
+    var d = el && el.querySelector(':scope > .gwn-dot'); if (d) d.remove();
+    if (el && el.getAttribute('data-gwn-pos')) { el.style.position = ''; el.removeAttribute('data-gwn-pos'); }
+    if (el) el.classList.remove('gwn-target');
+  }
+
+  var armed = {};
+  function paintDots() {
+    if (!internalUI() || !document.body) return;
+    css();
+    var tm = triedMap(), me = page(), pages = {}, here = [];
+    NEWS.forEach(function (n) {
+      if (!untried(n, tm)) return;
+      n.go.forEach(function (g) {
+        var p = String(g.p || '').toLowerCase();
+        if (p === me || (isHome(me) && isHome(p))) here.push({ n: n, g: g }); else pages[p] = 1;
+      });
+    });
+    /* ① نقطة على كل رابط/بطاقة تفتح صفحةً فيها ميزةٌ لم تجرّبها (لا على الرابط المقفل) */
+    var links = document.querySelectorAll('a[href],[data-tool]');
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i];
+      if (a.closest('#gmt-wn-ov,#wn-home,#gwn-coach')) continue;
+      var on = !!pages[linkPage(a)] && a.getAttribute('data-locked') !== '1';
+      var has = a.querySelector(':scope > .gwn-dot:not(.gwn-pulse)');
+      if (on && !has) addDot(a, false); else if (!on && has) dropDot(a);
+    }
+    /* ② داخل الصفحة: نقطةٌ نابضة على الميزة نفسها، وضغطُها = جرّبتها */
+    var keep = {};
+    here.forEach(function (x) {
+      var el = findTarget(x.g.sel); if (!el) return;
+      keep[x.n.v] = 1;
+      if (armed[x.n.v] === el) return;
+      if (armed[x.n.v]) dropDot(armed[x.n.v]);
+      armed[x.n.v] = el;
+      addDot(el, true);
+      if (!el.title) el.title = '🆕 جديد: ' + (x.g.l || x.n.t);
+      el.addEventListener('click', function () { if (armed[x.n.v] === el) markTried(x.n.v); }, { capture: true, once: true });
+    });
+    Object.keys(armed).forEach(function (v) { if (!keep[v]) { dropDot(armed[v]); delete armed[v]; } });
+  }
+
+  /* شريطٌ صغير أسفل الشاشة حين تصل بـ«جرّبها»: أين الميزة + «✓ جرّبتها» */
+  function coach(n, g, el) {
+    var old = document.getElementById('gwn-coach'); if (old) old.remove();
+    css();
+    var c = document.createElement('div');
+    c.id = 'gwn-coach';
+    c.setAttribute('data-keep-fab', '1');
+    c.innerHTML = '<span class="gwn-dot gwn-inl gwn-pulse" aria-hidden="true"></span><span style="flex:1;min-width:0">' +
+      (el ? 'هنا: <b>' + esc(g.l || n.t) + '</b> — عليها نقطةٌ حمراء. جرّبها.' : 'الميزة: <b>' + esc(g.l || n.t) + '</b>' + (g.h ? ' — ' + esc(g.h) : '')) + '</span>' +
+      '<button type="button" class="gwn-btn gwn-ok" data-wn-done="' + n.v + '">✓ جرّبتها</button>' +
+      '<button type="button" class="gwn-btn" style="background:transparent;color:#cbd5e1" data-wn-x="1" aria-label="إغلاق">✕</button>';
+    document.body.appendChild(c);
+  }
+  function arrive() {
+    var v; try { v = new URLSearchParams(location.search).get('wn'); } catch (e) { return; }
+    var n = byV(v); if (!n || !n.go) return;
+    var me = page(), g = null;
+    n.go.forEach(function (x) { if (!g && String(x.p || '').toLowerCase() === me) g = x; });
+    if (!g) return;
+    var tries = 0;
+    var t = setInterval(function () {
+      var el = findTarget(g.sel);
+      if (el || ++tries > 25) {
+        clearInterval(t);
+        if (el) {
+          try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+          el.classList.add('gwn-target', 'gwn-flash');
+          setTimeout(function () { el.classList.remove('gwn-flash'); }, 3200);
+        }
+        coach(n, g, el);
+        paintDots();
+      }
+    }, 600);
+  }
+
+  function goTry(v) {
+    var n = byV(v), g = goOf(n); if (!g) return;
+    var ov = document.getElementById('gmt-wn-ov'); if (ov) { markSeen(); ov.remove(); }
+    var me = page();
+    var mine = null;
+    n.go.forEach(function (x) { if (!mine && String(x.p || '').toLowerCase() === me) mine = x; });
+    if (mine) {
+      var el = findTarget(mine.sel);
+      if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} el.classList.add('gwn-target', 'gwn-flash'); setTimeout(function () { el.classList.remove('gwn-flash'); }, 3200); }
+      coach(n, mine, el); paintDots();
+      return;
+    }
+    location.href = tryHref(n);
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('[data-wn-try],[data-wn-done],[data-wn-open],[data-wn-x]') : null;
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if (t.hasAttribute('data-wn-try')) goTry(t.getAttribute('data-wn-try'));
+    else if (t.hasAttribute('data-wn-done')) {
+      markTried(+t.getAttribute('data-wn-done'));
+      var c = document.getElementById('gwn-coach'); if (c && c.contains(t)) c.remove();
+      var ov = document.getElementById('gmt-wn-ov'); if (ov && ov.contains(t)) { ov.remove(); open(false); }
+      toast('تمام — أُزيلت علامتها');
+    }
+    else if (t.hasAttribute('data-wn-open')) open(false);
+    else if (t.hasAttribute('data-wn-x')) { var cc = document.getElementById('gwn-coach'); if (cc) cc.remove(); }
+  }, true);
+
+  var obsT = 0;
+  function observe() {
+    if (observe.on || !global.MutationObserver || !document.body) return;
+    observe.on = 1;
+    new MutationObserver(function () {
+      if (obsT) return;
+      obsT = setTimeout(function () {
+        obsT = 0;
+        var tm = triedMap();
+        if (NEWS.some(function (n) { return untried(n, tm); })) paintDots();
+        var slot = document.getElementById('wn-home-slot');
+        if (slot && !slot.firstChild) refreshCard();
+      }, 400);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
   // ══ الزرّ ════════════════════════════════════════════════════════════════
 
   function paintBadge() {
@@ -545,6 +839,10 @@
 
   function mount() {
     if (!internalUI()) return;
+    css(); observe();
+    try { paintDots(); } catch (e) {}
+    try { var slot = document.getElementById('wn-home-slot'); if (slot && !slot.firstChild) refreshCard(); } catch (e) {}
+    if (!mount.arrived) { mount.arrived = 1; try { arrive(); } catch (e) {} }
     if (!forPage().length) return;                 // لا أخبار لهذه الصفحة ⇒ لا زرّ
     if (document.getElementById('gmt-wn-fab')) return;
     var b = document.createElement('button');
@@ -618,7 +916,10 @@
     forPage: forPage,
     version: VERSION,
     unseen: unseenCount,
-    reset: function () { try { localStorage.removeItem(LS_KEY); } catch (e) {} paintBadge(); }
+    homeCard: homeCard,
+    tried: function (v) { markTried(+v); },
+    untried: function () { var m = triedMap(); return NEWS.filter(function (n) { return untried(n, m); }).map(function (n) { return n.v; }); },
+    reset: function () { try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_TRY); } catch (e) {} changed(); }
   };
 
   if (document.readyState !== 'loading') setTimeout(mount, 900);

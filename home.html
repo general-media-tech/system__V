@@ -184,7 +184,10 @@ a.btn{text-decoration:none}
   .tb-hi b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tb-hi small{display:block;color:var(--mu,#5b6472);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tb .sp{display:none}
-  .tb #gmt-sound-btn,.tb #gmt-refresh-btn,.tb #gmt-wn-fab{display:none!important}   /* (أعلى خصوصيّةً من نمط الأزرار الموحّد) — في البانر الجانبي */
+  .tb #gmt-sound-btn,.tb #gmt-refresh-btn{display:none!important}   /* (أعلى خصوصيّةً من نمط الأزرار الموحّد) — في البانر الجانبي */
+  /* (18 ت1) «شو الجديد ماله زر» — كان مخفيّاً هنا على الهاتف (في الدرج الجانبي فقط). صار ظاهراً بالشريط + بطاقةٌ أعلى الرئيسية.
+     وعدّادُه يبقى داخل حدود الشريط (كان يبرز ٣px فيُحسب طفحاً) */
+  .tb #gmt-wn-fab [data-n]{inset-inline-end:-1px!important;top:-3px!important}
   .hd-news{display:none!important}
   .g.c4{display:none!important}
   .hsp{display:none}
@@ -406,7 +409,9 @@ a.btn{text-decoration:none}
       }
       q = shown;
     }
-    return '<div id="pend-slot"></div><div id="dev-slot"></div>' + hero() + kpis() + qaRow() +
+    /* (18 ت1) طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم» — بطاقةٌ أعلى الرئيسية */
+    var wn = '<div id="wn-home-slot">' + (window.GMTWhatsNew && GMTWhatsNew.homeCard ? GMTWhatsNew.homeCard() : '') + '</div>';
+    return wn + '<div id="pend-slot"></div><div id="dev-slot"></div>' + hero() + kpis() + qaRow() +
       '<div class="row wr" style="margin-bottom:10px"><h3 style="margin:0">' + (A() ? 'كل أدواتك' : 'أدواتي') + '</h3><span class="sp"></span>' +
       '<button class="btn sm" type="button" data-act="edit">' + (st.editing ? ic('check', 16) + 'تمّ' : ic('edit', 16) + 'تخصيص') + '</button>' +
       '<button class="btn sm hd-news" type="button" data-act="news">' + ic('star', 16) + ' ما الجديد</button></div>' +
@@ -965,7 +970,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261011m"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261017c"></script>
-<script src="gmt-whatsnew.js?v=20261017d"></script>
+<script src="gmt-whatsnew.js?v=20261018a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
