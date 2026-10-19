@@ -1,7 +1,0 @@
-task: TASK-0100
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: TASK_REGISTRY.md handoffs/SESSION_LOG.md
-claimed_at: 2026-10-19T22:34:21Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0100
