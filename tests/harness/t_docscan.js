@@ -108,6 +108,9 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
     const ui = await pg.evaluate(() => { const g = document.getElementById('gds'); if (!g) return null; const r = g.getBoundingClientRect(); const bs = [...g.querySelectorAll('.gds-bar button')]; return { full: r.width >= innerWidth - 1 && r.height >= innerHeight - 1, btns: bs.map(b => b.textContent.trim()), fit: bs.every(b => { const q = b.getBoundingClientRect(); return q.right <= innerWidth + 1 && q.left >= -1 && q.bottom <= innerHeight + 1; }), handles: g.querySelectorAll('.gds-h').length }; });
     ok(ui && ui.full && ui.handles === 4, 'الماسح يُفتح ملء الشاشة بأربع زوايا قابلة للسحب');
     ok(ui && ui.fit, 'كل الأزرار داخل الشاشة: ' + (ui ? ui.btns.join(' · ') : ''));
+    await pg.waitForFunction(() => document.querySelectorAll('#gds .gds-bar svg').length > 0, null, { timeout: 4000 }).catch(() => {});
+    const bigIcon = await pg.evaluate(() => Math.max(0, ...[...document.querySelectorAll('#gds .gds-bar svg')].map(s => s.getBoundingClientRect().width)));
+    ok(bigIcon > 0 && bigIcon < 40, 'أيقونات الأزرار بحجمها الطبيعي (لا تتضخّم فوق الماسح): ' + Math.round(bigIcon) + 'px');
     // سحب زاوية يدوياً
     const before = await pg.evaluate(() => document.querySelector('#gds .gds-h').style.left);
     const hb = await pg.$('#gds .gds-h'); const bb = await hb.boundingBox();

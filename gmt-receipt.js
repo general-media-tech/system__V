@@ -267,10 +267,16 @@
       document.head.appendChild(s);
     });
   }
+  var tessP = null;
+  function loadTess() {
+    if (global.Tesseract) return Promise.resolve();
+    if (!tessP) { tessP = loadScript('lib/ocr/tesseract.min.js?v=20261016'); tessP.catch(function () { tessP = null; }); }
+    return tessP;
+  }
   function getOCR() {
     if (ocrWorkerP) return ocrWorkerP;
     ocrWorkerP = (async function () {
-      if (!global.Tesseract) await loadScript('lib/ocr/tesseract.min.js?v=20261016');
+      await loadTess();
       var base = new URL('lib/ocr/', document.baseURI).href;
       var w = await global.Tesseract.createWorker('eng', 1, {
         workerPath: base + 'worker.min.js', corePath: base + 'tesseract-core-lstm.wasm.js', langPath: base,
@@ -291,19 +297,31 @@
     if (dig < 4 || dig / w.length < 0.7) return null;
     return w.replace(/[A-Za-z|]/g, function (ch) { return CONFUSE[ch] || ''; });
   }
-  function rankCandidates(words, imgH) {
-    var seen = {}, out = [];
+  /* (19 ت1) أرقام هواتف مكاتب المفتي (من دليل المكاتب) — بلا الصفر الأوّل لأنّ OCR قد يُلصق بها خانةً أو يُسقطه */
+  function muftiPhones() {
+    var d = (global.GMTOffices && global.GMTOffices.data && global.GMTOffices.data['المفتي']) || {}, out = [];
+    Object.keys(d).forEach(function (c) { (d[c] || []).forEach(function (o) { var p = latin(o.phone || '').replace(/\D/g, ''); if (p.length >= 9) out.push(p.replace(/^0/, '')); }); });
+    return out;
+  }
+  function rankCandidates(words, imgH, imgW) {
+    var seen = {}, out = [], phones = muftiPhones();
     words.forEach(function (wd) {
       var d = digitsOfWord(wd.text); if (!d || d.length < 5 || d.length > 12) return;
-      if (/^(09\d{8}|9639\d{8}|00963\d+)$/.test(d)) return;                 // هاتفٌ سوريّ — ليس رقم تتبّع
+      if (/^(09\d{8}|9\d{8}|9639\d{8}|00963\d+)$/.test(d)) return;          // هاتفٌ سوريّ (أو بلا صفره) — ليس رقم تتبّع
+      if (phones.some(function (p) { return d.indexOf(p) !== -1; })) return;    // هاتف مكتبٍ للمفتي ملتصقٌ بخانة
       if (/^(19|20)\d{2}(0[1-9]|1[0-2])\d{2}$/.test(d)) return;               // تاريخٌ مُلصَق
+      if (/^(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}$/.test(d)) return;  // تاريخٌ يومٌ-شهرٌ-سنة مُلصَق (10-10-2026)
+      if (/\d{1,2}\s*[-\/.]\s*(\d{1,2}\s*[-\/.]\s*)?(19|20)\d{2}/.test(latin(wd.text))) return;   // تاريخٌ بفواصل
       var y = wd.bbox ? (wd.bbox.y0 + wd.bbox.y1) / 2 / imgH : 0.5, hgt = wd.bbox ? (wd.bbox.y1 - wd.bbox.y0) : 0;
+      var x = (wd.bbox && imgW) ? (wd.bbox.x0 + wd.bbox.x1) / 2 / imgW : 0.5;
+      var tr = !!(wd.bbox && imgW) && x > 0.45 && y < 0.4;                      // أعلى اليمين — موضع رقم المفتي المطبوع
       var score = (y < 0.45 ? 3 : y < 0.6 ? 1 : 0)                              // أعلى الإيصال ⇐ أرجح
+                + (tr ? 1.5 : 0)
                 + (d.length >= 6 && d.length <= 9 ? 2 : 0)                      // طول رقم المفتي المعتاد
                 + Math.min(2, hgt / (imgH * 0.02))                              // الخطّ الكبير ⇐ أرجح
                 + (wd.confidence || 0) / 50;
-      if (seen[d]) { seen[d].score += 0.5; return; }
-      seen[d] = { number: d, score: score }; out.push(seen[d]);
+      if (seen[d]) { seen[d].score += 0.5; seen[d].tr = seen[d].tr || tr; return; }
+      seen[d] = { number: d, score: score, tr: tr }; out.push(seen[d]);
     });
     return out.sort(function (a, b) { return b.score - a.score; });
   }
@@ -318,7 +336,7 @@
       var words = [];
       ((res.data && res.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
         (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
-      var cands = rankCandidates(words, cv.height);
+      var cands = rankCandidates(words, cv.height, cv.width);
       /* ثقة الاتّجاه = متوسّط ثقة الكلمات الطويلة (≥٣ أحرف) — أدقّ من ثقة الصفحة لأنّ الفراغ لا يُخفّضها */
       var long = words.filter(function (w) { return String(w.text || '').replace(/\s/g, '').length >= 3; });
       var conf = long.length ? long.reduce(function (a, w) { return a + (w.confidence || 0); }, 0) / long.length : 0;
@@ -373,7 +391,7 @@
         }
       }
       if (!best) { stage('native'); best = await nativePass(L, push); }
-      if (!best) { stage('enhanced'); best = await enhancedPass(ZX, L, opts, push, count); }
+      if (!best && !opts.quick) { stage('enhanced'); best = await enhancedPass(ZX, L, opts, push, count); }   // quick: بلا التحسين الثقيل
       if (!best && opts.ocr !== false) {
         stage('ocr');
         try { best = await ocrPass(L, opts, count); }
@@ -384,5 +402,201 @@
                 : { number: null, all: all, tries: count.n };
   }
 
-  global.GMTReceipt = { readTracking: readTracking, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  /* ═══ (19 ت1 · برومبت «الماسح الضوئي الذكي» — ثالثاً ورابعاً) قراءة إيصال «المفتي» كاملاً ═══
+     ١) نوع الإيصال: اسم الشركة (المفتي/AlMufti) أو رقم هاتف أحد مكاتبها من الدليل ⇐ مؤكَّد. بنيةُ إيصال شحنٍ بلا علامةٍ للمفتي
+        ⇐ «غير مؤكَّد» (لا يُنسَب الإيصال لشركةٍ خاطئة: النتائج تُعرض للمراجعة ولا يُملأ شيءٌ تلقائياً).
+     ٢) رقم التتبّع من مصدرين: الباركود/QR (ZXing — ما فيه رقمٌ فعلاً فقط) والرقم المطبوع أعلى اليمين (تعرّفٌ محلّي على الأرقام).
+        تطابقا ⇐ تحقّقٌ ناجح · اختلفا ⇐ لا يُعتمد أيٌّ منهما · مصدرٌ واحد ⇐ يُعرض مع مصدره · لا شيء ⇐ «تعذر قراءة رقم التتبع».
+        الرقم نصٌّ دوماً (الأصفار في أوّله تبقى) والأرقام العربية/الهندية تُحوَّل لاتينيّة.
+     ٣) الفرع المصدر: تعرّفٌ محلّي على النصّ العربي (lib/ocr/ara) ⇐ ما بعد كلمة «المصدر» حتى «الوجهة» (الوجهة لا تُقرأ أبداً)
+        ⇐ مقارنةٌ تقريبيّة مع فروع المفتي في دليل المكاتب (أخطاء التنقيط الشائعة: جلي = حلب · اللسريان = السريان).
+        يُعتمد تلقائياً فقط حين تكون المطابقة واضحة ومتقدّمة على التالية بفارق؛ وإلّا تُعرض الفروع المحتملة والنصّ المقروء. */
+  var araP = null;
+  function getARA() {
+    if (araP) return araP;
+    araP = (async function () {
+      await loadTess();
+      var base = new URL('lib/ocr/', document.baseURI).href;
+      return global.Tesseract.createWorker('ara', 1, {
+        workerPath: base + 'worker.min.js', corePath: base + 'tesseract-core-lstm.wasm.js', langPath: base,
+        gzip: true, cacheMethod: 'none'
+      });
+    })();
+    araP.catch(function () { araP = null; });
+    return araP;
+  }
+  /* هيكل الكلمة العربية بلا نقاط (أخطاء OCR الأكثر شيوعاً هي في النقاط): ب ت ث ن ي ⇒ ٮ · ج خ ⇒ ح · ق ⇒ ف · ز ⇒ ر … */
+  var SK = { 'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ٱ': 'ا', 'ب': 'ٮ', 'ت': 'ٮ', 'ث': 'ٮ', 'ن': 'ٮ', 'ي': 'ٮ', 'ى': 'ٮ', 'ئ': 'ٮ',
+             'ج': 'ح', 'خ': 'ح', 'ذ': 'د', 'ز': 'ر', 'ش': 'س', 'ض': 'ص', 'ظ': 'ط', 'غ': 'ع', 'ق': 'ف', 'ة': 'ه', 'ؤ': 'و' };
+  function skel(t) {
+    return latin(t).replace(/[ً-ٰٟـ​-‏؜‪-‮]/g, '')
+      .replace(/[أإآٱبتثنيىئجخذزشضظغقةؤ]/g, function (c) { return SK[c]; });
+  }
+  function lev(a, b) {
+    var m = a.length, n = b.length, i, j, prev = [], cur = [];
+    for (j = 0; j <= n; j++) prev[j] = j;
+    for (i = 1; i <= m; i++) {
+      cur = [i];
+      for (j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[n];
+  }
+  function sim(a, b) { if (!a || !b) return 0; return 1 - lev(a, b) / Math.max(a.length, b.length); }
+  /* «ال» في أوّل كل كلمة لا تُميّز فرعاً عن فرع (الباب/السريان) ⇒ تُحذف من الطرفين قبل المقارنة */
+  function noAl(t) { return String(t).split(' ').map(function (w) { return w.replace(/^ال/, ''); }).join(' '); }
+  function bareW(w) { return String(w).replace(/[:：.,،؛;!؟?'"()\[\]{}…«»“”]+/g, ''); }
+
+  /* بنية إيصال الشحن (للاتّجاه والنوع): كم كلمةً معروفةً من الإيصال ظهرت في النصّ المقروء */
+  var RC_KEYS = ['المرسل', 'المصدر', 'الوجهة', 'الموبايل', 'الشحن', 'تتبع', 'الباركود', 'جاهزة', 'للارسال', 'الرئيسي',
+                 'توقيع', 'التوصيل', 'البضاعة', 'الطرود', 'الاجمالي', 'المدفوع', 'التحصيل', 'المحتوى'].map(skel);
+  function structScore(text) { var s = skel(text); return RC_KEYS.filter(function (k) { return s.indexOf(k) !== -1; }).length; }
+  function receiptType(text) {
+    var s = skel(text), digits = latin(text).replace(/\D+/g, '|'), st = structScore(text), why = [];
+    if (/مفٮٮ/.test(s)) why.push('اسم الشركة');
+    if (/mufti/i.test(text)) why.push('شعار AlMufti');
+    var ph = muftiPhones().filter(function (p) { return digits.indexOf(p) !== -1; });
+    if (ph.length) why.push('هاتف مكتبٍ للمفتي');
+    if (why.length) return { kind: 'mufti', why: why.join(' + '), struct: st };
+    if (st >= 3) return { kind: 'unsure', why: 'إيصال شحنٍ لكن بلا علامةٍ واضحة للمفتي (اسم/شعار/هاتف)', struct: st };
+    return { kind: 'unknown', why: 'لم يُقرأ نصّ الإيصال بوضوح', struct: st };
+  }
+
+  /* ما بعد «المصدر» حتى «الوجهة» (أو نهاية السطر/٥ كلمات) — الوجهة لا تُؤخذ أبداً */
+  var K_SRC = skel('المصدر'), K_DST = skel('الوجهة'), K_STOP = ['المرسل', 'الموبايل', 'الهاتف'].map(skel);
+  function isKey(w, k, th) {
+    var s = skel(bareW(w)); if (s.length < 3) return false;
+    return sim(s, k) >= th || sim(s.replace(/^ا?ل/, ''), k.replace(/^ال/, '')) >= th;
+  }
+  function wordsOf(line) { return String(line).split(/[\s|<>]+/).filter(Boolean); }
+  function takeValue(ws, from) {
+    var out = [];
+    for (var m = from; m < ws.length && out.length < 5; m++) {
+      if (isKey(ws[m], K_DST, 0.6) || K_STOP.some(function (k) { return isKey(ws[m], k, 0.8); })) break;
+      if (bareW(ws[m])) out.push(bareW(ws[m]));
+    }
+    return out;
+  }
+  function sourceSegment(text) {
+    var lines = String(text || '').split(/\n+/);
+    for (var i = 0; i < lines.length; i++) {
+      var ws = wordsOf(lines[i]);
+      for (var j = 0; j < ws.length; j++) {
+        if (!isKey(ws[j], K_SRC, 0.67)) continue;
+        var val = takeValue(ws, j + 1);
+        if (!val.length && i + 1 < lines.length) val = takeValue(wordsOf(lines[i + 1]), 0);
+        return { seg: val.join(' '), line: lines[i].trim() };
+      }
+    }
+    return null;
+  }
+
+  function muftiOfficeList() {
+    var d = (global.GMTOffices && global.GMTOffices.data && global.GMTOffices.data['المفتي']) || {}, out = [];
+    Object.keys(d).forEach(function (c) { (d[c] || []).forEach(function (o) { out.push({ key: c + '|' + o.name, city: c, name: o.name, addr: o.addr || '' }); }); });
+    return out;
+  }
+  /* أفضل تشابه بين اسمٍ (كلمة أو أكثر) وأيّ مقطعٍ متتالٍ من كلمات النصّ */
+  function bestNgram(toks, target) {
+    var t = noAl(skel(target).replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim()), tw = t.split(' ').length, best = 0;
+    if (!t) return 0;
+    for (var n = Math.max(1, tw - 1); n <= tw + 1; n++) {
+      for (var i = 0; i + n <= toks.length; i++) best = Math.max(best, sim(noAl(toks.slice(i, i + n).join(' ')), t));
+    }
+    return best;
+  }
+  function matchBranch(seg) {
+    var toks = String(seg || '').split(/[\s\-–—_\/.,،:]+/).map(bareW)
+      .filter(function (w) { return /[؀-ۿ]/.test(w); }).map(function (w) { return skel(w.replace(/[0-9٠-٩]+/g, '')); })
+      .filter(function (w) { return w.length >= 2; });
+    if (!toks.length) return { key: null, confident: false, candidates: [], text: seg || '' };
+    var list = muftiOfficeList().map(function (o) {
+      var offS = bestNgram(toks, o.name), cityS = bestNgram(toks, o.city);
+      var aw = String(o.addr).split(/\s+/).filter(function (w) { return w.length >= 3; }).map(skel);
+      var addrS = aw.length ? aw.filter(function (w) { return toks.some(function (t) { return sim(noAl(t), noAl(w)) >= 0.85; }); }).length / aw.length : 0;
+      return { key: o.key, city: o.city, offS: offS, cityS: cityS, score: offS * 0.7 + cityS * 0.3 + addrS * 0.05 };
+    }).sort(function (a, b) { return (b.score - a.score) || ((a.city === 'حلب' ? 0 : 1) - (b.city === 'حلب' ? 0 : 1)); });
+    var top = list[0], second = list[1];
+    var confident = !!top && top.score >= 0.82 && top.offS >= 0.8 && (!second || top.score - second.score >= 0.12);
+    var cands = list.filter(function (x) { return x.score >= 0.5; }).slice(0, 4).map(function (x) { return x.key; });
+    /* المدينة وحدها مقروءة (والمكتب لا) ⇒ المرشّحون هم فروع تلك المدينة، لا فروعٌ من مدنٍ أخرى تشبه حروفُها */
+    if (!confident && top && top.offS < 0.8) {
+      var city = list.filter(function (x) { return x.cityS >= 0.85; }).map(function (x) { return x.city; })[0];
+      if (city) cands = list.filter(function (x) { return x.city === city; }).slice(0, 6).map(function (x) { return x.key; });
+    }
+    return { key: confident ? top.key : null, confident: confident, candidates: cands, text: seg, best: top ? { key: top.key, score: +top.score.toFixed(2) } : null };
+  }
+
+  /* صورةٌ للتعرّف العربي: أقصى القنوات (أقلام التعليم الملوّنة تصير فاتحة والحبر يبقى غامقاً) + تكبيرٌ حتى ٢× */
+  function araCanvas(im, rot) {
+    var cv0 = crop(im, [0, 0, 1, 1], rot, 2400);
+    var k = Math.min(2, 2400 / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(cv0.width * k); cv.height = Math.round(cv0.height * k);
+    var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv0, 0, 0, cv.width, cv.height);
+    var id = c.getImageData(0, 0, cv.width, cv.height), d = id.data;
+    for (var i = 0; i < d.length; i += 4) { var v = Math.max(d[i], d[i + 1], d[i + 2]); d[i] = d[i + 1] = d[i + 2] = v; }
+    c.putImageData(id, 0, 0);
+    return cv;
+  }
+
+  /* يقرأ إيصال المفتي. file = الصورة الممسوحة (أو الأصل) · opts.original = الأصل (احتياطٌ للباركود) · opts.onStage(k) */
+  async function readMufti(file, opts) {
+    opts = opts || {};
+    var t0 = Date.now(), stage = function (k) { try { if (opts.onStage) opts.onStage(k); } catch (_) {} };
+    var L = await loadImage(file), out = { type: null, barcode: null, printed: null, tracking: null, branch: null, text: '', rot: 0 };
+    try {
+      /* النصّ (عاملان في الخلفية) والباركود (الخيط الرئيسي) يعملان معاً */
+      var textP = (async function () {
+        stage('ara');
+        var ara = await getARA(), w = L.im.naturalWidth, h = L.im.naturalHeight;
+        var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
+        for (var r = 0; r < rots.length; r++) {
+          var res = await ara.recognize(araCanvas(L.im, rots[r]));
+          var txt = (res && res.data && res.data.text) || '', sc = structScore(txt);
+          if (opts.trace) opts.trace.push({ rot: rots[r], struct: sc });
+          if (!best || sc > best.sc) best = { rot: rots[r], txt: txt, sc: sc };
+          if (sc >= 3) break;                                       // اتّجاهٌ سليم: كلماتُ الإيصال مقروءة
+        }
+        out.text = best.txt; out.rot = best.rot;
+        if (best.sc < 2) return null;                               // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
+        stage('digits');
+        var eng = await getOCR(), cv = enhance(crop(L.im, [0, 0, 1, 1], best.rot, 2400), 'contrast');
+        var er = await eng.recognize(cv, {}, { blocks: true }), words = [];
+        ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+          (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
+        out.engText = (er.data && er.data.text) || '';
+        return rankCandidates(words, cv.height, cv.width);
+      })();
+      textP.catch(function () {});
+      stage('barcode');
+      var bc = await readTracking(file, { ocr: false });
+      /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
+      if (!bc.number && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true });
+      if (bc.number) out.barcode = { number: bc.number, raw: bc.raw, how: bc.how };
+      var cands = null;
+      try { cands = await textP; } catch (e) { out.textError = (e && e.message) || String(e); }
+      cands = cands || [];
+      var tr = cands.filter(function (c) { return c.tr; });
+      out.printed = tr.length ? { number: tr[0].number, candidates: tr.slice(0, 4).map(function (c) { return c.number; }) } : null;
+      out.allDigits = cands.slice(0, 6).map(function (c) { return c.number; });
+
+      /* قواعد التحقّق (برومبت المالك ثالثاً-أ) */
+      var b = out.barcode && out.barcode.number, p = out.printed && out.printed.number;
+      if (b && cands.some(function (c) { return c.number === b; })) out.tracking = { status: 'match', number: b };
+      else if (b && p) out.tracking = { status: 'differ', barcode: b, printed: p };
+      else if (b) out.tracking = { status: 'barcode', number: b };
+      else if (p) out.tracking = { status: 'printed', number: p, candidates: out.printed.candidates };
+      else out.tracking = { status: 'none' };
+
+      out.type = receiptType(out.text + '\n' + (out.engText || ''));
+      var src = sourceSegment(out.text);
+      out.branch = src ? matchBranch(src.seg) : { key: null, confident: false, candidates: [], text: '' };
+      if (src) out.branch.line = src.line;
+      if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
+    } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
+    out.ms = Date.now() - t0;
+    return out;
+  }
+
+  global.GMTReceipt = { readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(window);

@@ -342,7 +342,7 @@
       '#gds .gds-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px;touch-action:none}' +
       '#gds .gds-wrap{position:relative;max-width:100%;max-height:100%}' +
       '#gds canvas.gds-img{display:block;max-width:100%;max-height:calc(100vh - 190px);object-fit:contain;background:#222;border-radius:6px}' +
-      '#gds svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +
+      '#gds .gds-wrap>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +   /* لا تلمس أيقونات الأزرار (gmt-icons) — كانت تتضخّم ملء الشاشة */
       '#gds .gds-h{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(213,0,28,.25);border:3px solid #ff3b4e;touch-action:none;cursor:grab}' +
       '#gds .gds-msg{min-height:20px;text-align:center;font-size:12.5px;font-weight:800;color:#fbbf24;padding:0 12px}' +
       '#gds .gds-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}' +

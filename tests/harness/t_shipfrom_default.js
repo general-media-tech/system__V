@@ -51,7 +51,7 @@ async function dbOrder(id) { return (await H.call('/rest/v1/gmt_orders?id=eq.' +
     r = await pg.evaluate(() => applyDetectedShipFrom({ key: 'حلب|شارع بارون', confident: false, candidates: ['حلب|شارع بارون', 'حلب|الفرقان'], text: 'حلب-ال؟؟' }));
     b = await box();
     ok(r === 'unsure' && b.v === 'حلب|السريان', 'غير مؤكّد ⇒ لم يُعتمد التخمين وبقي الافتراضي: ' + b.v);
-    ok(/تعذّر التأكّد من فرع الشحن المصدر/.test(b.msg) && b.cands.length === 2, 'رسالة عدم التأكّد + مرشّحان للاختيار');
+    ok(/تعذر التأكد من فرع الشحن المصدر/.test(b.msg) && b.cands.length === 2, 'رسالة عدم التأكّد + مرشّحان للاختيار');
     await pg.click('[data-shipfrom-pick="حلب|الفرقان"]');
     b = await box();
     ok(b.v === 'حلب|الفرقان' && b.src === 'manual', 'تصحيح المستخدم من المرشّحين ⇒ اختياره');
