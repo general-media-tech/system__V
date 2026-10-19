@@ -1231,6 +1231,7 @@ window.GMT_FEATURES = [
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
   <script src="gmt-suggest.js?v=20261010b"></script>
+  <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -3227,7 +3228,12 @@ async function _loadProductsFromServer(isFirst = false) {
        (min_stock) — فلا فلتر «تصنيف ⇠ مجموعات» ولا بحثٌ بالماركة، وحدّ التنبيه دائماً ٥. نطلبها، وإن لم يكن
        عمودٌ منها في قاعدتك بعد (ملف SQL لم يُشغَّل) نُسقطه ونعيد الطلب بدل أن تفشل المنتجات كلّها. */
     let _xc = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock'];
-    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) _xc = k.c; } catch (_) {}   /* يُعاد الفحص يوميّاً — فيظهر عمودٌ أضفتَه بملف SQL */
+    /* (19 ت1 · TASK-0109) «التصنيفات في الجرد فقط لا في نقاط البيع»: الجذر هنا. كان وقتُ الذاكرة يُكتب من جديد في **كل**
+       تحميل، فمن يفتح نقطة البيع يومياً لا تنتهي ذاكرته أبداً — وعمودُ «التصنيف» الذي سقط مرّةً قبل تشغيل SQL ٢٤ بقي
+       ساقطاً إلى الأبد رغم وجوده الآن في القاعدة. الآن: الذاكرة تُكتب فقط بعد فحصٍ كاملٍ فعلي، وتنتهي بعد يوم،
+       واسمُها تغيّر (gmt_pos_xcols2) فتُهمَل الذاكرة القديمة العالقة على كل الأجهزة فوراً. */
+    let _xcFromCache = false;
+    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols2') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) { _xc = k.c; _xcFromCache = true; } } catch (_) {}
     let r;
     for (let _i = 0; _i < 8; _i++) {
       r = await fetch(
@@ -3239,7 +3245,7 @@ async function _loadProductsFromServer(isFirst = false) {
       const _bad = _xc.find(c => _m.indexOf(c) >= 0);
       _xc = _bad ? _xc.filter(c => c !== _bad) : [];
     }
-    try { localStorage.setItem('gmt_pos_xcols', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {}
+    if (!_xcFromCache && r.ok) { try { localStorage.setItem('gmt_pos_xcols2', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {} }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const freshProds = await r.json();
 
@@ -5974,24 +5980,41 @@ function newInvoice() {
    وداخل التصنيف يعرض لي المجموعات» — كان الجرد وحده يفعلها، ونقطة البيع صفُّ مجموعاتٍ واحدٌ عريض.
    الآن صفُّ «التصنيف» فوق المجموعات (يظهر فقط إن كان للمنتجات تصنيف — SQL ٢٤)، واختيارُه يقلّص المجموعات إلى ما فيه. */
 let activeTopCat = 'all';
+/* (19 ت1 · TASK-0109/0110) شجرة التصنيفات كالجرد (gmt-cat.js): صفُّ الرئيسية، وتحته «داخل التصنيف» بفروع المختار،
+   ثمّ المجموعات التي تحت المختار بكلّ فروعه. activeTopCat يحمل المسار الكامل («إضاءة › ستوديو») أو 'all'. */
 function buildCategoryPills(allGroups) {
   window._posAllGroups = allGroups || [];
   const row = document.getElementById('catsRow');
-  const catMap = {};
-  (allProducts || []).forEach(p => {
-    const c = String(p.category || '').trim(); if (!c) return;
-    (catMap[c] = catMap[c] || new Set()).add(p.group_name || '');
-    try { (window.GMTProdGroup ? GMTProdGroup.extras(p) : []).forEach(g => catMap[c].add(g)); } catch (_) {}
-  });
-  const cats = Object.keys(catMap).sort((a, b) => a.localeCompare(b, 'ar'));
-  if (activeTopCat !== 'all' && !catMap[activeTopCat]) activeTopCat = 'all';
+  const C = window.GMTCat;
+  const tree = C.tree(allProducts || []);
+  const tops = C.children(tree);
+  if (activeTopCat !== 'all' && !C.find(tree, activeTopCat)) activeTopCat = 'all';
+  const pill = (path, label, on) => `<button class="cat-pill${on ? ' on' : ''}" data-c="${escH(path)}" onclick="setTopCat(this.dataset.c)"><span class="cn">${escH(label)}</span></button>`;
   let top = document.getElementById('catTopRow');
-  if (cats.length) {
+  if (tops.length) {
     if (!top) { top = document.createElement('div'); top.className = 'cats cats-top'; top.id = 'catTopRow'; row.parentNode.insertBefore(top, row); }
-    top.innerHTML = `<span class="cats-lbl">التصنيف</span><button class="cat-pill${activeTopCat === 'all' ? ' on' : ''}" onclick="setTopCat('all')"><span class="cn">الكل</span></button>` +
-      cats.map(c => `<button class="cat-pill${activeTopCat === c ? ' on' : ''}" onclick="setTopCat('${escH(c)}')"><span class="cn">${escH(c)}</span></button>`).join('');
+    top.innerHTML = `<span class="cats-lbl">التصنيف</span>` + pill('all', 'الكل', activeTopCat === 'all') +
+      tops.map(n => pill(n.path, n.name + (C.children(n).length ? ' ‹' : ''), activeTopCat !== 'all' && C.under(activeTopCat, n.path))).join('');
   } else if (top) top.remove();
-  const groups = (activeTopCat === 'all') ? window._posAllGroups : window._posAllGroups.filter(g => catMap[activeTopCat].has(g));
+  /* صفّ الفروع: فروع المختار، أو إخوته إن كان فرعاً بلا فروع */
+  let sub = document.getElementById('catSubRow');
+  const cur = activeTopCat !== 'all' ? C.find(tree, activeTopCat) : null;
+  const host = cur && C.children(cur).length ? cur : (cur && C.depth(activeTopCat) > 1 ? C.find(tree, C.parent(activeTopCat)) : null);
+  if (host && top) {
+    if (!sub) { sub = document.createElement('div'); sub.className = 'cats cats-top cats-sub'; sub.id = 'catSubRow'; row.parentNode.insertBefore(sub, row); }
+    sub.innerHTML = `<span class="cats-lbl">داخل «${escH(host.name)}»</span>` + pill(host.path, 'الكل', activeTopCat === host.path) +
+      C.children(host).map(n => pill(n.path, n.name + (C.children(n).length ? ' ‹' : ''), C.under(activeTopCat, n.path))).join('');
+  } else if (sub) sub.remove();
+  let groups = window._posAllGroups;
+  if (activeTopCat !== 'all') {
+    const inCat = new Set();
+    (allProducts || []).forEach(p => {
+      if (!C.under(p.category, activeTopCat)) return;
+      inCat.add(p.group_name || '');
+      try { (window.GMTProdGroup ? GMTProdGroup.extras(p) : []).forEach(g => inCat.add(g)); } catch (_) {}
+    });
+    groups = groups.filter(g => inCat.has(g));
+  }
   if (activeCat !== 'all' && groups.indexOf(activeCat) < 0) activeCat = 'all';
   const allBtn = `<button class="cat-pill${activeCat === 'all' ? ' on' : ''}" onclick="setCat('all',this)"><span class="cn">الكل</span></button>`;   /* (٦ ج) بلا إيموجي — كنموذج الهويّة */
   const groupBtns = groups.map(g =>
@@ -6000,6 +6023,8 @@ function buildCategoryPills(allGroups) {
   row.innerHTML = allBtn + groupBtns;
 }
 function setTopCat(c) {
+  /* ضغطةٌ ثانية على المختار تعود لأبيه (أو «الكل») — كالجرد */
+  if (c !== 'all' && c === activeTopCat) c = GMTCat.parent(c) || 'all';
   activeTopCat = c; activeCat = 'all';
   buildCategoryPills(window._posAllGroups || []);
   renderProds();
@@ -6036,7 +6061,7 @@ function renderProds() {
     if (activeStock === 'instock') { if (qty === 0) return false; }
     if (activeStock === 'low')     { if (!(qty > 0 && qty <= 2)) return false; }
     // فلتر التصنيف
-    if (activeTopCat !== 'all' && String(p.category || '').trim() !== activeTopCat) return false;
+    if (activeTopCat !== 'all' && !GMTCat.under(p.category, activeTopCat)) return false;   /* (19 ت1) والفروع تحته */
     if (activeCat !== 'all' && !(window.GMTProdGroup ? GMTProdGroup.inGroup(p, activeCat) : p.group_name === activeCat)) return false;   /* (٨ ت) + المجموعات الإضافيّة */
     // بحث
     /* (٨ ت — تدقيق المطابقة) نفس بحث الجرد (gmt-suggest.js): كل كلمة بأيّ ترتيب + الماركة والمجموعة والتصنيف */
