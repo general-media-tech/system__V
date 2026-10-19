@@ -2266,6 +2266,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261017c"></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
+  <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261011o" defer></script>
@@ -3571,6 +3572,11 @@ window.pm2Sync=pm2Sync;
         <b>التصنيف أكبر من المجموعة</b>: يجمع عدّة مجموعات تحته. مثال: التصنيف «تصوير» يضمّ المجموعات «كاميرات» و«عدسات». يُعيَّن على مستوى المجموعة — فكلّ منتجات المجموعة المختارة تدخل التصنيف.
       </div>
       <input type="hidden" id="cat-old-name">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">داخل التصنيف <span style="font-weight:400;color:#5b6472;font-size:12px;">(اتركه فارغاً لتصنيفٍ رئيسي — مثال: اختر «إضاءة» لتصنع «ستوديو» داخلها)</span></label>
+        <input type="text" id="cat-parent" list="cat-parent-list" class="form-input" placeholder="تصنيف رئيسي" autocomplete="off" oninput="gmCatRenderList()">
+        <datalist id="cat-parent-list"></datalist>
+      </div>
       <div class="form-group" style="margin-bottom:12px;">
         <label class="form-label"><span class="required">*</span> اسم التصنيف</label>
         <input type="text" id="cat-name" class="form-input" placeholder="مثال: تصوير، صوت، إضاءة..." autocomplete="off">
@@ -5158,7 +5164,7 @@ function applyFilters() {
   }
 
   // (س) التصنيف أوّلاً ثمّ المجموعة
-  if (currentCategory) items = items.filter(p => (p.category || '') === currentCategory);
+  if (currentCategory) items = items.filter(p => GMTCat.under(p.category, currentCategory));   /* (19 ت1) والتصنيفات الفرعية تحته */
   // Group filter
   if (currentGroup === '__none__') {
     items = items.filter(p => !(p.group_name || '').trim());
@@ -5805,7 +5811,7 @@ function setFilter(f, el) {
 }
 
 function setCategory(c) {
-  currentCategory = (currentCategory === c) ? '' : c;   // ضغطةٌ واحدة تختار، والثانية تُلغي
+  currentCategory = (currentCategory === c) ? GMTCat.parent(c) : c;   // ضغطةٌ تختار، والثانية تعود للتصنيف الأب (أو «الكل»)
   currentGroup = '';
   currentPage = 1;
   renderAll();
@@ -5823,20 +5829,38 @@ function renderGroupChips() {
   if (!container) return;
   /* (2026-10-05 س) البند ٥٧: «الفلاتر: تصنيف ثمّ مجموعة». صفُّ التصنيفات يظهر فوق المجموعات متى وُجد
      تصنيفٌ لأيّ منتج، والمجموعات تُعرض داخل التصنيف المختار فقط. */
-  const _cats = [...new Set(allProducts.map(p => p.category || '').filter(Boolean))].sort();
+  /* (19 ت1 · TASK-0110) شجرة: صفُّ التصنيفات الرئيسية، وتحته صفُّ «داخل التصنيف» بفروع المختار (gmt-cat.js) */
+  const _tree = GMTCat.tree(allProducts);
+  const _tops = GMTCat.children(_tree);
+  const _cats = _tops.map(n => n.path);
   let catRow = document.getElementById('category-chips-row');
   /* (١١ ت١) زرّ «＋ تصنيف» في الصفّ نفسه — كان إنشاء التصنيف بلا أيّ مدخل ظاهر. الصفّ يظهر للأدمن حتى بلا تصنيفات. */
   const _isAdm = (function(){ try { return !!(window.GMTRole && GMTRole.isAdmin()); } catch (_) { return false; } })();
   const _addCat = '<div class="filter-chip" data-admin="إنشاء تصنيف" onclick="gmCatOpen()" title="إنشاء تصنيف يجمع عدّة مجموعات" style="border-style:dashed;white-space:nowrap">＋ تصنيف</div>';
+  if (currentCategory && !GMTCat.find(_tree, currentCategory)) currentCategory = '';
+  const _chip = n => `<div class="filter-chip${GMTCat.under(currentCategory, n.path) && currentCategory ? ' active' : ''}" data-c="${escHtml(n.path)}" onclick="setCategory(this.dataset.c)">${escHtml(n.name)}${GMTCat.children(n).length ? ' ‹' : ''} <span class="badge">${n.n}</span></div>`;
   if (_cats.length || _isAdm) {
     if (!catRow) { catRow = document.createElement('div'); catRow.id = 'category-chips-row'; catRow.className = 'filter-bar';
       catRow.style.cssText = 'display:flex;background:var(--surface);border-top:1px solid var(--border);padding:6px 20px;gap:6px;overflow-x:auto;';
       container.parentNode.insertBefore(catRow, container); }
     catRow.innerHTML = '<span class="filter-label" style="white-space:nowrap">التصنيف:</span>' +
       _addCat + (_cats.length ? `<div class="filter-chip${!currentCategory ? ' active' : ''}" onclick="setCategory('')">الكل</div>` : '') +
-      _cats.map(c => `<div class="filter-chip${currentCategory === c ? ' active' : ''}" data-c="${escHtml(c)}" onclick="setCategory(this.dataset.c)">${escHtml(c)} <span class="badge">${allProducts.filter(p => p.category === c).length}</span></div>`).join('');
+      _tops.map(_chip).join('');
   } else if (catRow) { catRow.remove(); }
-  const _scope = currentCategory ? allProducts.filter(p => (p.category || '') === currentCategory) : allProducts;
+  /* صفُّ الفروع: فروعُ المختار، أو إخوتُه إن كان فرعاً بلا فروع (فتنتقل بينها بضغطة) */
+  let subRow = document.getElementById('category-sub-row');
+  const _cur = currentCategory ? GMTCat.find(_tree, currentCategory) : null;
+  const _host = _cur && GMTCat.children(_cur).length ? _cur : (currentCategory && GMTCat.depth(currentCategory) > 1 ? GMTCat.find(_tree, GMTCat.parent(currentCategory)) : null);
+  if (_host && catRow) {
+    if (!subRow) { subRow = document.createElement('div'); subRow.id = 'category-sub-row'; subRow.className = 'filter-bar';
+      subRow.style.cssText = 'display:flex;background:var(--surface);border-top:1px dashed var(--border);padding:6px 20px;gap:6px;overflow-x:auto;';
+      catRow.parentNode.insertBefore(subRow, catRow.nextSibling); }
+    subRow.innerHTML = `<span class="filter-label" style="white-space:nowrap">داخل «${escHtml(_host.name)}»:</span>` +
+      `<div class="filter-chip${currentCategory === _host.path ? ' active' : ''}" data-c="${escHtml(_host.path)}" onclick="setCategory(this.dataset.c)">الكل (${_host.n})</div>` +
+      GMTCat.children(_host).map(n => `<div class="filter-chip${GMTCat.under(currentCategory, n.path) ? ' active' : ''}" data-c="${escHtml(n.path)}" onclick="setCategory(this.dataset.c)">${escHtml(n.name)}${GMTCat.children(n).length ? ' ‹' : ''} <span class="badge">${n.n}</span></div>`).join('') +
+      `<div class="filter-chip" data-admin="إنشاء تصنيف فرعي" data-p="${escHtml(_host.path)}" onclick="gmCatOpen('', this.dataset.p)" style="border-style:dashed;white-space:nowrap">＋ فرعي</div>`;
+  } else if (subRow) { subRow.remove(); }
+  const _scope = currentCategory ? allProducts.filter(p => GMTCat.under(p.category, currentCategory)) : allProducts;
   // استخرج كل المجموعات الفريدة (داخل التصنيف المختار)
   const _gx = p => [p.group_name || ''].concat(window.GMTProdGroup ? GMTProdGroup.extras(p) : []);   /* (٨ ت) + الإضافيّة */
   const groups = [...new Set([].concat(..._scope.map(_gx)).filter(Boolean))].sort();
@@ -10478,35 +10502,48 @@ function gmCatApplyLocal(fn){
 }
 function gmRenderCategories(){
   const c=document.getElementById('gm-cats-list'); if(!c) return;
-  const m=gmCatMap(); let names=Object.keys(m).sort((a,b)=>a.localeCompare(b,'ar'));
-  if(gmSearchQ) names=names.filter(n=>n.toLowerCase().includes(gmSearchQ)||Object.keys(m[n].groups).some(g=>g.toLowerCase().includes(gmSearchQ)));
-  if(!names.length){
-    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#5b6472;line-height:1.9;"><div style="font-size:46px;opacity:.45;margin-bottom:10px;">🏷️</div>${Object.keys(m).length?'لا نتائج للبحث':'<b>لا توجد تصنيفات بعد.</b><br>التصنيف أكبر من المجموعة: يجمع عدّة مجموعات (مثل «تصوير» ← «كاميرات» و«عدسات»).<br>اضغط «+ تصنيف جديد» لإنشاء أوّل تصنيف.'}</div>`;
+  /* (19 ت1 · TASK-0110) شجرة: التصنيف الرئيسي وتحته فروعه مُزاحةً — ولكلٍّ «＋ فرعي» */
+  const root=GMTCat.tree(gmCatProducts());
+  const q=gmSearchQ||'';
+  const hit=n=>!q||n.path.toLowerCase().includes(q)||Object.keys(n.groups).some(g=>g.toLowerCase().includes(q))||GMTCat.children(n).some(hit);
+  const tops=GMTCat.children(root).filter(hit);
+  if(!tops.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:#5b6472;line-height:1.9;"><div style="font-size:46px;opacity:.45;margin-bottom:10px;">🏷️</div>${GMTCat.children(root).length?'لا نتائج للبحث':'<b>لا توجد تصنيفات بعد.</b><br>التصنيف أكبر من المجموعة: يجمع عدّة مجموعات (مثل «تصوير» ← «كاميرات» و«عدسات»)، ويمكن أن يحوي تصنيفات فرعية (مثل «إضاءة» ← «ستوديو»).<br>اضغط «+ تصنيف جديد» لإنشاء أوّل تصنيف.'}</div>`;
     return;
   }
-  c.innerHTML=names.map(n=>{
-    const e=m[n], gs=Object.keys(e.groups).sort((a,b)=>a.localeCompare(b,'ar'));
+  const card=(n,lvl)=>{
+    const gs=Object.keys(n.groups).sort((a,b)=>a.localeCompare(b,'ar'));
+    const kids=GMTCat.children(n).filter(hit);
     const prev=gs.slice(0,4).map(g=>escH(g)).join(' · ')+(gs.length>4?` +${gs.length-4}`:'');
-    return `<div style="background:#fff;border-radius:14px;border:1.5px solid #EBEBEB;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+    const sub=GMTCat.children(n).length;
+    return `<div data-cat-node="${escH(n.path)}" style="background:${lvl?'#fafbff':'#fff'};border-radius:14px;border:1.5px solid ${lvl?'#e0e7ff':'#EBEBEB'};padding:${lvl?'10px 12px':'14px 16px'};display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-        <div style="width:44px;height:44px;background:#EEF2FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;">🏷️</div>
-        <div style="min-width:0;flex:1;"><div style="font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(n)}</div>
-          <div style="font-size:12px;color:#5b6472;margin-top:2px;">${gs.length} مجموعة · ${e.n} منتج</div>
+        <div style="width:${lvl?34:44}px;height:${lvl?34:44}px;background:#EEF2FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:${lvl?17:22}px;">${lvl?'↳':'🏷️'}</div>
+        <div style="min-width:0;flex:1;"><div style="font-size:${lvl?14:15}px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(n.name)}</div>
+          <div style="font-size:12px;color:#5b6472;margin-top:2px;">${gs.length} مجموعة${sub?` · ${sub} تصنيف فرعي`:''} · ${n.n} منتج</div>
           ${gs.length?`<div style="font-size:11px;color:#8b95a5;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${prev}</div>`:''}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-        <button data-admin="تعديل التصنيف" data-c="${escH(n)}" onclick="gmCatOpen(this.dataset.c)" style="padding:6px 12px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;">تعديل</button>
-        <button data-admin="حذف التصنيف" data-c="${escH(n)}" onclick="gmCatDelete(this.dataset.c)" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:9px;cursor:pointer;font-size:14px;" title="حذف التصنيف (المنتجات والمجموعات تبقى)">🗑️</button>
-      </div>
+        <button data-admin="تعديل التصنيف" data-c="${escH(n.path)}" onclick="gmCatOpen(this.dataset.c)" style="padding:6px 12px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;">تعديل</button>
+        <button data-admin="إنشاء تصنيف فرعي" data-c="${escH(n.path)}" onclick="gmCatOpen('',this.dataset.c)" aria-label="تصنيف فرعي داخل «${escH(n.name)}»" style="padding:6px 10px;background:#EEF2FF;color:#3730a3;border:none;border-radius:9px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;">＋ فرعي</button>
+        <button data-admin="حذف التصنيف" data-c="${escH(n.path)}" onclick="gmCatDelete(this.dataset.c)" style="width:32px;height:32px;background:#fee2e2;border:none;border-radius:9px;cursor:pointer;font-size:14px;" title="حذف التصنيف (المنتجات والمجموعات تبقى)">🗑️</button>
+      </div></div>
+      ${kids.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-inline-start:${lvl?14:22}px;">${kids.map(k=>card(k,lvl+1)).join('')}</div>`:''}
     </div>`;
-  }).join('');
+  };
+  c.innerHTML=tops.map(n=>card(n,0)).join('');
 }
-function gmCatOpen(existing){
+function gmCatOpen(existing, parentPath){
   gmCatEditing=existing||'';
   const g=id=>document.getElementById(id);
-  g('cat-modal-title').textContent=existing?'تعديل التصنيف':'إنشاء تصنيف جديد';
+  const par=existing?GMTCat.parent(existing):GMTCat.clean(parentPath||'');
+  g('cat-modal-title').textContent=existing?'تعديل التصنيف':(par?'تصنيف فرعي داخل «'+GMTCat.leaf(par)+'»':'إنشاء تصنيف جديد');
   g('cat-old-name').value=existing||'';
-  g('cat-name').value=existing||'';
+  g('cat-name').value=existing?GMTCat.leaf(existing):'';
+  /* (19 ت1) «داخل التصنيف»: فارغ = رئيسي. القائمة تستثني التصنيف نفسه وفروعه (لا يدخل في نفسه) */
+  g('cat-parent').value=par;
+  g('cat-parent-list').innerHTML=GMTCat.allPaths(GMTCat.tree(gmCatProducts())).filter(x=>!existing||!GMTCat.under(x,existing)).map(x=>`<option value="${escH(x)}">`).join('');
   g('cat-search').value='';
   g('cat-msg').textContent='';
   g('cat-save-btn').disabled=false;
@@ -10526,7 +10563,7 @@ function gmCatRenderList(){
   if(!names.length){ box.innerHTML=`<div style="padding:18px;text-align:center;color:#5b6472;font-size:13px;line-height:1.8;">${Object.keys(gm).length?'لا نتائج':'لا توجد مجموعات بعد — أنشئ مجموعة أولاً («مجموعة جديدة») ثم أضفها إلى تصنيف.'}</div>`; return; }
   box.innerHTML=names.map(n=>{
     const e=gm[n], on=gmCatSel.has(n);
-    const others=Object.keys(e.cats).filter(c=>c!==(document.getElementById('cat-name').value||'').trim());
+    const others=Object.keys(e.cats).filter(c=>c!==gmCatFull());
     const note=others.length?`<span style="font-size:11px;color:#b45309;">الآن في: ${others.map(escH).join('، ')}</span>`:'';
     return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid ${on?'var(--red)':'#EBEBEB'};background:${on?'#fff5f5':'#fff'};border-radius:11px;cursor:pointer;">
       <input type="checkbox" data-g="${escH(n)}" ${on?'checked':''} onchange="gmCatToggle(this.dataset.g,this.checked)" style="width:18px;height:18px;flex-shrink:0;">
@@ -10555,18 +10592,29 @@ async function gmCatPatch(filter, value){
   return Array.isArray(rows)?rows.length:0;
 }
 const gmCatEnc=v=>encodeURIComponent(String(v));
+function gmCatFull(){
+  const g=id=>document.getElementById(id);
+  return GMTCat.join(g('cat-parent')?g('cat-parent').value:'', (g('cat-name').value||'').trim().replace(/\s+/g,' '));
+}
 async function gmCatSave(){
   if(gmCatBusy) return;
-  const name=(document.getElementById('cat-name').value||'').trim().replace(/\s+/g,' ');
+  const leafName=(document.getElementById('cat-name').value||'').trim().replace(/\s+/g,' ');
+  const parentIn=(document.getElementById('cat-parent').value||'');
   const old=gmCatEditing;
   const msg=document.getElementById('cat-msg');
   const say=(t,ok)=>{ msg.textContent=t; msg.style.color=ok?'#166534':'#b91c1c'; };
-  if(!name){ say('اكتب اسم التصنيف'); return; }
-  if(name.length>60){ say('الاسم طويل (٦٠ حرفاً كحدّ أقصى)'); return; }
+  if(!leafName){ say('اكتب اسم التصنيف'); return; }
+  if(!GMTCat.validName(leafName)){ say('الرمز «›» محجوزٌ للفصل بين التصنيف وفرعه — احذفه من الاسم واختر «داخل التصنيف»'); return; }
+  if(leafName.length>60){ say('الاسم طويل (٦٠ حرفاً كحدّ أقصى)'); return; }
+  const name=GMTCat.join(parentIn, leafName);   /* (19 ت1 · TASK-0110) المسار الكامل: «إضاءة › ستوديو» */
+  if(old && GMTCat.under(name, old) && name!==old){ say('لا يمكن نقل التصنيف إلى داخل نفسه أو أحد فروعه'); return; }
   const cats=gmCatMap(), sel=[...gmCatSel];
+  const _tree=GMTCat.tree(gmCatProducts());
   const renaming=!!old && old!==name;
-  if(renaming && cats[name]){ say('يوجد تصنيف بهذا الاسم — اختر اسماً آخر'); return; }
+  if(renaming && GMTCat.find(_tree, name)){ say('يوجد تصنيف بهذا الاسم في المكان نفسه — اختر اسماً آخر'); return; }
+  const _desc=old?GMTCat.allPaths(_tree).filter(x=>x!==old&&GMTCat.under(x,old)):[];
   /* إعادة التسمية وحدها مسموحة حتى بلا مجموعات (تصنيفٌ منتجاته بلا مجموعة لا يمكن غير ذلك) */
+  if(!sel.length && !renaming && old && _desc.length){ say('لا تغيير — التصنيف يحوي فروعاً فقط',true); return; }
   if(!sel.length && !renaming){ say(old?'أزلتَ كلّ المجموعات — لحذف التصنيف استعمل زرّ 🗑️ في تبويب «التصنيفات»':'اختر مجموعة واحدة على الأقلّ — التصنيف يُحفَظ داخل منتجات المجموعات فلا يبقى بدونها'); return; }
   const prev=old&&cats[old]?Object.keys(cats[old].groups):[];
   const removed=prev.filter(g=>!gmCatSel.has(g));
@@ -10581,7 +10629,14 @@ async function gmCatSave(){
       const n=await gmCatPatch('category=eq.'+gmCatEnc(old), name);
       renamedN=n; if(n<exp) throw new Error('أعادت القاعدة تسمية '+n+' من '+exp+' منتج فقط — ربما لا صلاحية. حدّث الصفحة وأعد المحاولة');
       gmCatApplyLocal(p=>{ if((p.category||'')===old) p.category=name; });
-      try{ if(typeof currentCategory!=='undefined' && currentCategory===old) currentCategory=name; }catch(_){}
+      /* (19 ت1) الفروع تتبع أباها: «إضاءة › ستوديو» ⇐ «إنارة › ستوديو» */
+      for(const d of _desc){
+        const nd=name+d.slice(old.length), exp=gmCatProducts().filter(p=>(p.category||'')===d).length;
+        const k=await gmCatPatch('category=eq.'+gmCatEnc(d), nd);
+        if(k<exp) throw new Error('الفرع «'+d+'»: عُدّل '+k+' من '+exp+' منتج فقط — لم يكتمل النقل');
+        renamedN+=k; gmCatApplyLocal(p=>{ if((p.category||'')===d) p.category=nd; });
+      }
+      try{ if(typeof currentCategory!=='undefined' && GMTCat.under(currentCategory,old)) currentCategory=name+currentCategory.slice(old.length); }catch(_){}
     }
     /* ٢) المجموعات المختارة تدخل التصنيف.
           · مجموعةٌ جديدة على التصنيف ⇒ كلّ منتجاتها تنتقل إليه (الواجهة نبّهت «الآن في: …»).
@@ -10614,17 +10669,34 @@ async function gmCatSave(){
 }
 window.gmCatSave=gmCatSave;
 async function gmCatDelete(name){
-  const e=gmCatMap()[name]; if(!e) return;
-  if(!(await GMTAsk.confirm('حذف التصنيف «'+name+'»؟\nيُزال الاسم من '+e.n+' منتج في '+Object.keys(e.groups).length+' مجموعة. المنتجات والمجموعات نفسها تبقى كما هي.',{title:'حذف تصنيف',okText:'حذف التصنيف',danger:true}))) return;
+  /* (19 ت1 · TASK-0110) حذف تصنيفٍ فيه فروع: منتجاته المباشرة تعود لأبيه (أو بلا تصنيف إن كان رئيسياً)،
+     وفروعه تصعد مستوىً واحداً — لا يضيع تصنيفٌ فرعيٌّ صنعتَه بحذف أبيه. */
+  const root=GMTCat.tree(gmCatProducts()), node=GMTCat.find(root,name); if(!node) return;
+  const par=GMTCat.parent(name), direct=gmCatProducts().filter(p=>(p.category||'')===name).length;
+  const desc=GMTCat.allPaths(root).filter(x=>x!==name&&GMTCat.under(x,name));
+  const msgTxt='حذف التصنيف «'+GMTCat.leaf(name)+'»؟\n'+
+    (direct?('يُزال من '+direct+' منتج في '+Object.keys(node.groups).length+' مجموعة'+(par?(' فتعود إلى «'+GMTCat.leaf(par)+'»'):'')+'. '):'')+
+    (desc.length?('فروعه ('+GMTCat.children(node).length+') تصعد مستوىً واحداً'+(par?(' داخل «'+GMTCat.leaf(par)+'»'):' فتصير تصنيفاتٍ رئيسية')+'. '):'')+
+    'المنتجات والمجموعات نفسها تبقى كما هي.';
+  if(!(await GMTAsk.confirm(msgTxt,{title:'حذف تصنيف',okText:'حذف التصنيف',danger:true}))) return;
   showLoading('جارٍ حذف التصنيف…');
+  let n=0;
   try{
-    const n=await gmCatPatch('category=eq.'+gmCatEnc(name), null);
-    if(n<e.n) throw new Error('أزالت القاعدة الاسم من '+n+' من '+e.n+' منتج فقط — ربما لا صلاحية. حدّث الصفحة');
-    gmCatApplyLocal(p=>{ if((p.category||'')===name) p.category=null; });
-    if(typeof currentCategory!=='undefined' && currentCategory===name){ try{ currentCategory=''; }catch(_){} }
+    if(direct){
+      n=await gmCatPatch('category=eq.'+gmCatEnc(name), par||null);
+      if(n<direct) throw new Error('عدّلت القاعدة '+n+' من '+direct+' منتج فقط — ربما لا صلاحية. حدّث الصفحة');
+      gmCatApplyLocal(p=>{ if((p.category||'')===name) p.category=par||null; });
+    }
+    for(const d of desc){
+      const nd=GMTCat.join(par, d.slice(name.length+GMTCat.SEP.length)), exp=gmCatProducts().filter(p=>(p.category||'')===d).length;
+      const k=await gmCatPatch('category=eq.'+gmCatEnc(d), nd);
+      if(k<exp) throw new Error('الفرع «'+d+'»: عُدّل '+k+' من '+exp+' منتج فقط — لم يكتمل');
+      n+=k; gmCatApplyLocal(p=>{ if((p.category||'')===d) p.category=nd; });
+    }
+    if(typeof currentCategory!=='undefined' && GMTCat.under(currentCategory,name)){ try{ currentCategory=par; }catch(_){} }
     hideLoading();
-    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_delete', entity:'products', entityName:name, field:'التصنيف', oldValue:{ category:name }, meta:{ n:n } }); }catch(_){}
-    showToast('🗑️ حُذف التصنيف «'+escHtml(name)+'» ('+n+' منتج)');
+    try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_delete', entity:'products', entityName:name, field:'التصنيف', oldValue:{ category:name }, meta:{ n:n, subs:desc.length||undefined } }); }catch(_){}
+    showToast('🗑️ حُذف التصنيف «'+escHtml(GMTCat.leaf(name))+'» ('+n+' منتج)');
   }catch(err){ hideLoading(); showToast('⛔ '+(err&&err.message||err),'error'); }
   finally{ gmCatRefresh(); }
 }
