@@ -6,8 +6,9 @@ const PUB = `try{ localStorage.setItem('gmt_sound','off'); }catch(e){}`;
 async function trackDirect(w, h) {
   console.log(`— فتح التتبّع مباشرةً (رابط خارجي) ${w}×${h}`);
   const { browser, pg, errs } = await H.open('track_order.html', { init: PUB + `window.__ev=[];document.addEventListener('gmt:launch-cover',()=>__ev.push(['cover',performance.now()]));document.addEventListener('gmt:launch-done',()=>__ev.push(['done',performance.now()]));`, w, h, wait: 900 });
-  const s1 = await pg.evaluate(() => { const o = document.getElementById('gmt-launch'); const v = o && o.querySelector('video'); return { ov: !!o, src: v ? v.currentSrc || v.src : '', blocks: o ? getComputedStyle(o).pointerEvents : '' }; });
-  ok(s1.ov && /launch-[lp]\.(mp4|webm)/.test(s1.src), 'طبقة الفيديو فوق الصفحة: ' + s1.src.split('/').pop());
+  /* (19 ت1 · TASK-0106) المشهد صار طريقاً من A إلى B بشاحنةٍ أصغر ثمّ ضباباً بالرسم — لا فيديو */
+  const s1 = await pg.evaluate(() => { const o = document.getElementById('gmt-launch'); return { ov: !!o, road: !!(o && o.querySelector('.gr-van')), vid: o ? o.querySelectorAll('video').length : -1, blocks: o ? getComputedStyle(o).pointerEvents : '' }; });
+  ok(s1.ov && s1.road && s1.vid === 0, 'طبقة الانطلاق فوق الصفحة: الشاحنة على الطريق (بلا فيديو)');
   ok(s1.blocks === 'auto', 'الطبقة تمنع النقر أثناء الانتقال');
   const key = await pg.evaluate(() => { const e = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }); document.dispatchEvent(e); return e.defaultPrevented; });
   ok(key, 'لوحة المفاتيح ممنوعة أثناء الانتقال');
@@ -16,7 +17,7 @@ async function trackDirect(w, h) {
   ok(cv.cov, 'إشارة التغطية الكاملة gmt:launch-cover أُطلقت');
   ok(cv.l1 === 'none', 'تحت الدخان أُزيلت شاشة الترحيب');
   await pg.waitForFunction(() => window.__ev.some(e => e[0] === 'done'), null, { timeout: 12000 }).catch(() => {});
-  const end = await pg.evaluate(() => ({ done: window.__ev.some(e => e[0] === 'done'), left: !!document.getElementById('gmt-launch') || !!document.querySelector('.gmt-launch-dis,.gmt-launch-fade'), input: !!document.getElementById('searchInput').offsetParent, ovf: document.documentElement.scrollWidth - innerWidth }));
+  const end = await pg.evaluate(() => ({ done: window.__ev.some(e => e[0] === 'done'), left: !!document.getElementById('gmt-launch') || !!document.querySelector('.gr-fog'), input: !!document.getElementById('searchInput').offsetParent, ovf: document.documentElement.scrollWidth - innerWidth }));
   ok(end.done && !end.left, 'تبدّد الدخان وانكشفت الصفحة (لا طبقة باقية)');
   ok(end.input, 'صندوق البحث ظاهر وقابل للاستعمال');
   ok(end.ovf <= 1, 'لا طفح أفقي');
@@ -39,11 +40,11 @@ async function siteToTrack(w, h) {
   ok(await pg.evaluate(() => !!document.getElementById('gmt-launch')), 'النقر شغّل طبقة الانطلاق بدل الانتقال الفوري');
   await pg.waitForURL(/track_order\.html/, { timeout: 12000 }).catch(() => {});
   ok(/track_order\.html/.test(pg.url()), 'انتقل إلى صفحة التتبّع عند التغطية');
-  const a1 = await pg.evaluate(() => ({ cls: document.documentElement.classList.contains('gmt-arriving') || !!document.querySelector('.gmt-launch-dis,.gmt-launch-fade'), l1: getComputedStyle(document.getElementById('layer1')).display }));
+  const a1 = await pg.evaluate(() => ({ cls: document.documentElement.classList.contains('gmt-arriving') || !!document.querySelector('.gr-fog'), l1: getComputedStyle(document.getElementById('layer1')).display }));
   ok(a1.cls, 'الصفحة الجديدة بدأت مغطّاةً بالدخان');
   ok(a1.l1 === 'none', 'لا ترحيب ثانٍ بعد الانتقال');
-  await pg.waitForFunction(() => !document.documentElement.classList.contains('gmt-arriving') && !document.querySelector('.gmt-launch-dis,.gmt-launch-fade'), null, { timeout: 12000 }).catch(() => {});
-  ok(await pg.evaluate(() => !document.documentElement.classList.contains('gmt-arriving') && !document.querySelector('.gmt-launch-dis,.gmt-launch-fade')), 'تبدّد الدخان بعد تحميل الصفحة');
+  await pg.waitForFunction(() => !document.documentElement.classList.contains('gmt-arriving') && !document.querySelector('.gr-fog'), null, { timeout: 12000 }).catch(() => {});
+  ok(await pg.evaluate(() => !document.documentElement.classList.contains('gmt-arriving') && !document.querySelector('.gr-fog')), 'تبدّد الدخان بعد تحميل الصفحة');
   const own = errs.slice(base).filter(e => !/أصول ناقصة: 1 favicon\.ico \(تعذّر\)|status of 400 \(Bad Request\)/.test(e));
   ok(!errs.slice(0, base).length && !own.length, 'لا أخطاء JS من الانتقال ' + own.join(' | '));
   await browser.close();

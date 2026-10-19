@@ -4,7 +4,7 @@
 <script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
    بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
 window.GMT_PUBLIC = 1;</script>
-<script src="gmt-launch.js?v=20261018f"></script>
+<script src="gmt-road.js?v=20261019a"></script><script src="gmt-launch.js?v=20261019a"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -264,24 +264,13 @@ window.GMT_PUBLIC = 1;</script>
     </div>
 
     <!-- المرحلة 2: شاشة التحقق مع الشاحنة -->
+    <!-- (19 ت1 · TASK-0107 · خطّة العمل §٢) «بعد إدخال رقم التتبّع: أهلاً بك، [اسم الزبون] والشاحنة تمشي على مهلها على المسار من A إلى B
+         بدل شريط التحميل، مع بيب بيب مرّة، ويكتمل المسار حين يكتمل التحميل فعلاً، ثمّ تظهر النتيجة. رقمٌ غير موجود ⇒ رسالة واضحة».
+         الشاحنة نفسها (gmt-road.js) — كانت هنا شاحنةً كبيرة تقف مكانها ٤ ثوانٍ ثابتة مهما كان التحميل. -->
     <div id="layer2" class="hidden w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 border border-white mt-8 flex-col items-center justify-center">
         <h2 id="l2-name" class="text-2xl font-black text-gray-800 text-center"></h2>
-        <p class="text-sm font-bold text-gray-500 mt-2 text-center">جارٍ تتبع شحنتكم...</p>
-        
-        <!-- (2026-09-26) كان <img src="truck.png"> (ملفّ غير موجود) ثم الرمز 🚚.
-             (وثيقة الطلبات ١٢ · ١٨ ت1) نفس شاحنة الترحيب المفرّغة: الدواليب تدور والدخان يخرج وصوتها يعمل ما دامت ظاهرة. -->
-        <div class="van-wrap mt-6">
-            <div class="van-scene" id="van-verify">
-                <div class="van-drive">
-                    <div class="van-smoke" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-                    <div class="van-car">
-                        <picture><source srcset="img/delivery/van-body.webp" type="image/webp"><img class="van-body" src="img/delivery/van-body.png" width="890" height="360" alt="شاحنة توصيل جنرال ميديا تيك" decoding="async"></picture>
-                        <img class="van-wheel van-wheel--r" src="img/delivery/van-wheel-r.webp" width="124" height="124" alt="" aria-hidden="true" onerror="this.remove()">
-                        <img class="van-wheel van-wheel--f" src="img/delivery/van-wheel-f.webp" width="129" height="129" alt="" aria-hidden="true" onerror="this.remove()">
-                    </div>
-                </div>
-            </div>
-        </div>
+        <p id="l2-sub" class="text-sm font-bold text-gray-500 mt-2 text-center">جارٍ تتبع شحنتكم...</p>
+        <div id="trk-road" class="w-full mt-6"></div>
     </div>
 
     <!-- بطاقة النتائج -->
@@ -618,8 +607,23 @@ window.GMT_PUBLIC = 1;</script>
             errorMsg.classList.add('hidden');
             errorMsg.classList.remove('smooth-appear');
 
-            loader.classList.remove('hidden');
             document.getElementById('searchBtn').disabled = true;
+            /* (19 ت1 · TASK-0107) الشاحنة على المسار بدل مؤشّر التحميل: تمشي على مهلها ما دام البحث جارياً، ولا تبلغ B قبل أن يكتمل فعلاً */
+            const roadHost = document.getElementById('trk-road');
+            if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; }
+            let useRoad = false;
+            try { if (window.GMTRoad && roadHost) { window._trkRoad = GMTRoad.create(roadHost, {}); window._trkRoad.creep(.85); useRoad = true; } }
+            catch (_) { window._trkRoad = null; roadHost.innerHTML = ''; }   /* تعذّر المشهد ⇒ مؤشّر التحميل القديم — البحث لا يتوقّف أبداً */
+            if (useRoad) {
+                document.getElementById('l2-name').innerText = 'نبحث عن شحنتك…';
+                document.getElementById('l2-sub').innerText = 'لحظة — الشاحنة في الطريق';
+                layer2.classList.remove('hidden', 'smooth-disappear');
+                layer2.classList.add('flex', 'smooth-appear');
+                GMTVan.start(layer2);
+            } else loader.classList.remove('hidden');
+            const _t0 = Date.now();
+            const hideLayer2 = () => { layer2.classList.add('hidden'); layer2.classList.remove('flex', 'smooth-appear', 'smooth-disappear');
+                GMTVan.stop(layer2); if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; } };
 
             try {
                 // البحث في Supabase بـ tracking_number أو phone أو id
@@ -632,37 +636,37 @@ window.GMT_PUBLIC = 1;</script>
                 document.getElementById('searchBtn').disabled = false;
 
                 if(order) {
-                    document.getElementById('l2-name').innerText = `أهلاً بك ${order.name}`;
-                    
-                    // ظهور شاشة التحميل (الشاحنة) بنعومة
-                    layer2.classList.remove('hidden', 'smooth-disappear');
-                    layer2.classList.add('flex', 'smooth-appear');
-                    /* 🚐 (وثيقة الطلبات ١٢) الشاشة ظهرت الآن ⇒ الآن فقط يبدأ تحميل فيديو الشاحنة وتشغيله */
-                    GMTVan.start(document.getElementById('van-verify'));
-
-                    setTimeout(() => {
-                        // بدء اختفاء شاشة التحميل بنعومة
-                        layer2.classList.remove('smooth-appear');
-                        layer2.classList.add('smooth-disappear');
-
-                        // الانتظار حتى تنتهي حركة الاختفاء (500ms) ثم عرض النتائج
-                        setTimeout(() => {
-                            layer2.classList.add('hidden');
-                            layer2.classList.remove('flex', 'smooth-disappear');
-                            GMTVan.stop(document.getElementById('van-verify'));
-                            showTimeline(order);
-                        }, 500);
-
-                    }, 4000);
+                    const nm = String(order.name || '').trim();
+                    document.getElementById('l2-name').innerText = nm ? `أهلاً بك، ${nm}` : 'أهلاً بك';
+                    document.getElementById('l2-sub').innerText = 'وجدنا شحنتك';
+                    if (!useRoad) {
+                        layer2.classList.remove('hidden', 'smooth-disappear');
+                        layer2.classList.add('flex', 'smooth-appear');
+                        GMTVan.start(layer2);
+                    }
+                    /* «بيب بيب» مرّة واحدة (يتبع مفتاح الأصوات) — ثمّ تُكمل الشاحنة إلى B فتظهر النتيجة */
+                    try { if (window.GMTSound && GMTSound.play) GMTSound.play('horn'); } catch (_) {}
+                    const r = window._trkRoad;
+                    const wait = Math.max(0, 900 - (Date.now() - _t0));   // تمشي ولو قليلاً قبل أن تصل — لا قفزة
+                    await new Promise(z => setTimeout(z, wait));
+                    if (r) await r.to(1, 1100); else await new Promise(z => setTimeout(z, 1200));
+                    await new Promise(z => setTimeout(z, 350));
+                    layer2.classList.remove('smooth-appear');
+                    layer2.classList.add('smooth-disappear');
+                    await new Promise(z => setTimeout(z, 450));
+                    hideLayer2();
+                    showTimeline(order);
 
                 } else {
-                    errorMsg.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> الرقم المدخل غير صحيح!';
+                    hideLayer2();
+                    errorMsg.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4"></i> لم نجد شحنةً بهذا الرقم — تأكّد من رقم الشحنة، أو اكتب رقم جوالك المسجَّل في الطلب.';
                     errorMsg.classList.remove('hidden');
                     errorMsg.classList.add('smooth-appear');
                     try { lucide.createIcons(); } catch (_) {}
                 }
             } catch (error) {
                 loader.classList.add('hidden');
+                hideLayer2();
                 document.getElementById('searchBtn').disabled = false;
                 /* 🔴 (2026-10-03) هذا الـcatch كان **فارغاً من أي رسالة**: يُخفي
                    المؤشّر ويُعيد تمكين الزرّ ولا يقول شيئاً. فالزبون يضغط «ابحث»

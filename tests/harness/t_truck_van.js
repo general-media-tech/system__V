@@ -3,8 +3,9 @@
 const H = require('./h.js');
 let pass = 0, fail = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fail++; };
 /* (١٨ ت1 · برومبت «انطلاق السيارة») الترحيب صار فيديو الانطلاق (gmt-launch.js · يختبره t_launch_intro.js)، وهذه الشاحنة المفرّغة
-   صارت **احتياطه** حين لا يقدر المتصفّح على الفيديو — فنُعطّل الفيديو هنا (canPlayType = '') لنختبر الاحتياط كما كان. */
-const PLAYS = 'HTMLMediaElement.prototype.canPlayType=function(){return ""}; window.__plays=[]; HTMLMediaElement.prototype.play=function(){window.__plays.push(this.src||""); return Promise.resolve();}; HTMLMediaElement.prototype.pause=function(){window.__paused=(window.__paused||0)+1;};';
+   صارت **احتياطه** حين لا يقدر المتصفّح على الفيديو — فنُعطّل الفيديو هنا (canPlayType = '') لنختبر الاحتياط كما كان.
+   (19 ت1 · TASK-0106) الانتقال صار طريقاً + ضباباً بالرسم (gmt-road.js) لا فيديو — فنُعطّل مشهد الطريق هنا كي نصل إلى الاحتياط نفسه. */
+const PLAYS = 'window.GMTRoad={create:function(){throw new Error("off")},fog:function(){throw new Error("off")}}; HTMLMediaElement.prototype.canPlayType=function(){return ""}; window.__plays=[]; HTMLMediaElement.prototype.play=function(){window.__plays.push(this.src||""); return Promise.resolve();}; HTMLMediaElement.prototype.pause=function(){window.__paused=(window.__paused||0)+1;};';
 (async () => {
   await H.seed();
   await H.call('/rest/v1/gmt_orders', [{ name: 'شاهين در ه', phone: '0933250051', product: 'كاميرا', qty: 1, price: 1004, status: 'shipped', branch: 'حلب', address: 'دمشق', shipping_company: 'المفتي', tracking_number: '202470', shipped_at: '2026-10-16T08:40:58Z' }]);
@@ -32,19 +33,13 @@ const PLAYS = 'HTMLMediaElement.prototype.canPlayType=function(){return ""}; win
     const c = await pg.evaluate(() => ({ l1: getComputedStyle(document.getElementById('layer1')).display, of: document.body.style.overflow, hs: document.documentElement.scrollWidth > innerWidth + 2 }));
     ok(c.l1 === 'none' && c.of === 'auto', 'انكشفت صفحة التتبّع من خلف الدخان');
     ok(!c.hs, 'لا طفح أفقي');
-    // شاشة التحقق: نفس الشاحنة + صوتها
-    await pg.evaluate(() => { window.__plays = []; });
+    /* (19 ت1 · TASK-0107) شاشة التحقق صارت الشاحنة على المسار A⇐B بدل التحميل («أهلاً بك، [الاسم]» + بيب بيب) — يختبرها t_track_road.js.
+       هنا: حتى لو تعذّر مشهد الطريق (معطَّلٌ عمداً في هذا الاختبار) يعمل البحث بمؤشّر التحميل القديم وتظهر النتيجة. */
     await pg.fill('#searchInput', '202470'); await pg.click('#searchBtn');
-    await pg.waitForTimeout(1200);
-    const d = await pg.evaluate(() => { const v = document.getElementById('van-verify'); const r = v.getBoundingClientRect();
-      return { vis: r.width > 100 && r.height > 30, moving: v.classList.contains('is-moving'), wheels: [...v.querySelectorAll('.van-wheel')].filter(x => getComputedStyle(x).animationName === 'vanSpin').length, plays: window.__plays.slice(), hs: document.documentElement.scrollWidth > innerWidth + 2 }; });
-    ok(d.vis && d.moving && d.wheels === 2, 'شاشة «جارٍ تتبّع شحنتكم»: نفس الشاحنة والدولابان يدوران');
-    ok(d.plays.some(s => /van-sound\.mp3/.test(s)), 'صوتها يعمل في شاشة التحقق');
+    await pg.waitForFunction(() => !document.getElementById('resultCard').classList.contains('hidden'), null, { timeout: 9000 }).catch(() => {});
+    const d = await pg.evaluate(() => ({ res: !document.getElementById('resultCard').classList.contains('hidden'), name: document.getElementById('res-name').innerText, hs: document.documentElement.scrollWidth > innerWidth + 2 }));
+    ok(d.res && /شاهين/.test(d.name), 'بلا مشهد الطريق: البحث يعمل وتظهر النتيجة (' + d.name + ')');
     ok(!d.hs, 'لا طفح في شاشة التحقق');
-    if (w === 390) await pg.screenshot({ path: '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e1c021/scratchpad/harness/van_verify_390.png' });
-    await pg.waitForTimeout(4200);
-    const e = await pg.evaluate(() => ({ moving: document.getElementById('van-verify').classList.contains('is-moving'), l2: document.getElementById('layer2').classList.contains('hidden') }));
-    ok(!e.moving && e.l2, 'انتهت شاشة التحقق: توقّفت الشاحنة وصوتها');
     const real = errs.filter(x => !/404|400|favicon|Failed to load/.test(x));
     ok(real.length === 0, 'لا أخطاء JS ' + real.slice(0, 2).join(' | '));
     await browser.close();

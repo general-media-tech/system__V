@@ -225,6 +225,14 @@
       noise({ from: 5200, to: 2200, dur: .4, gain: .05, at: 1.12, attack: .04, band: true, q: 2.2 });
     },
 
+    /* (19 ت1 · TASK-0107) «بيب بيب» وحده — مرّةً واحدة حين تجد شاشةُ التتبّع شحنةَ الزبون (زمور الشاحنة نفسه بلا الدواليب) */
+    horn: function () {
+      [0, .45].forEach(function (at) {
+        tone({ f: 415, type: 'square', dur: .27, gain: .15, at: at, attack: .01, lp: 2000 });
+        tone({ f: 525, type: 'square', dur: .27, gain: .13, at: at, attack: .01, lp: 2000 });
+      });
+    },
+
     /* (١١ ت١ — ملاحظات · «صوتٌ في كل مكان») أصواتٌ جديدة للأحداث التي كانت صامتة */
     login: function () {           /* دخول: نغمتان صاعدتان */
       tone({ f: E5, type: 'sine', dur: .20, gain: .26, at: 0 });
