@@ -1,0 +1,7 @@
+task: TASK-0108
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/wonderful-noether-fxb1fi
+files: gmt-notify.js tests/harness/t_notify_perm.js
+claimed_at: 2026-10-19T20:35:39Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0108
