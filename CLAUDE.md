@@ -1,0 +1,17 @@
+# تعليمات Claude Code لهذا المشروع
+
+## ⛔ قبل أي تعديل — إلزامي لكل جلسة ولكل وكيل
+1. اقرأ **[`PROJECT_CONSTITUTION.md`](PROJECT_CONSTITUTION.md)** كاملاً — هو القاعدة الحاكمة للعمل متعدد الجلسات.
+2. اقرأ **[`TASK_REGISTRY.md`](TASK_REGISTRY.md)** — سجل المهام الوحيد. لا تنشئ سجلاً آخر.
+3. انتقل إلى فرع التنسيق المكتوب في [`scripts/gov.conf`](scripts/gov.conf) وزامِن:
+   `git fetch origin <COORD> && git checkout -B <COORD> origin/<COORD>` — **بإذن المالك المكتوب في الدستور (ملحق المادة ٩)**، حتى لو أعطتك بيئتك فرعاً آخر. إن لم تستطع، فصرّح بذلك للمالك.
+4. شغّل `scripts/gov.sh start` (حالة Git · الأقفال · التسليمات · المهام غير المنتهية) وطابقها مع الملفات الفعلية.
+5. احجز مهمةً واحدة قبل لمس أيّ ملف: `scripts/gov.sh claim TASK-xxxx "الملفات"`. الحجز مضمون فقط إن نجح الدفع.
+6. عند الاقتراب من نفاد التوكنز أو أيّ توقّف: بروتوكول التسليم (المادة ٧) ⇐ `handoffs/TASK-xxxx.md` من القالب في [`handoffs/README.md`](handoffs/README.md)، ثمّ تقرير الجلسة في [`handoffs/SESSION_LOG.md`](handoffs/SESSION_LOG.md).
+
+## حقائق المشروع
+- نظامٌ ثابت (HTML/JS بلا بناء) على GitHub Pages + Supabase. **المستودع عامّ** ⇐ لا أسرار ولا تفاصيل ثغرات في أيّ ملف.
+- **فرع التنسيق هو فرع النشر الحيّ اليوم** ⇐ كل دفعٍ إليه يصل للمستخدمين (انظر TASK-0101).
+- رفع `VERSION` في `sw.js` و`?v=` مع كل نشرٍ يغيّر ملفّات الواجهة.
+- التحقق: `tests/harness/` (`syntax.js` · `sweep.js` · `t_*.js`) — طريقة التشغيل في [`tests/harness/README.md`](tests/harness/README.md).
+- وثائق المتطلبات والاختبارات والتدقيق في [`docs/`](docs/README.md) — «قاعدة الطلبات والتعديلات» فيها سارية.
