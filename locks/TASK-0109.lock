@@ -1,7 +1,0 @@
-task: TASK-0109
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/wonderful-noether-fxb1fi
-files: pos.html tests/harness/t_pos_cats.js
-claimed_at: 2026-10-19T20:52:57Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0109
