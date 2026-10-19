@@ -130,7 +130,11 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
     ok(st.origSize === fs.statSync(synthFile).size && st.scanType === 'image/jpeg', 'الأصل محفوظ كما هو (نفس الحجم) والممسوحة JPEG');
     if (w === 390) {
       await pg.fill('#ship-tracking', '5500991');
-      await pg.evaluate(() => confirmShipping()); await pg.waitForTimeout(3000);
+      pg.evaluate(() => confirmShipping()).catch(() => {}); await pg.waitForTimeout(900);
+      /* القراءة (رقم/فرع) قد تكون جارية بعد ⇒ سؤال «⏳ لحظة» (مقصود) — نختار «احفظ الآن» */
+      const waitQ = await pg.evaluate(() => { const b = [...document.querySelectorAll('.gmtask-ov button')].find(x => /احفظ الآن/.test(x.textContent)); if (b) { b.click(); return true; } return false; });
+      if (waitQ) console.log('    (القراءة كانت جارية ⇒ سُئلتُ «انتظر أو احفظ الآن» ⇒ احفظ الآن)');
+      await pg.waitForTimeout(3000);
       for (let i = 0; i < 4 && await pg.evaluate(() => !!document.querySelector('.gmtask-ov')); i++) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(300); }
       const db = (await H.call('/rest/v1/gmt_orders?id=eq.' + o1.id, undefined, 'GET'))[0];
       ok(db.status === 'shipped' && /^data:image\/jpeg/.test(db.receipt_img || ''), 'اعتماد الشحن حفظ النسخة الممسوحة على الأوردر');

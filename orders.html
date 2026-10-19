@@ -105,8 +105,8 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
-<script src="gmt-receipt.js?v=20261019d" defer></script>
-<script src="gmt-docscan.js?v=20261019d" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-receipt.js?v=20261019e" defer></script>
+<script src="gmt-docscan.js?v=20261019e" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -606,7 +606,7 @@ window.GMT_INTERNAL = 1;</script>
 <div id="shipModal" class="fixed inset-0 bg-black/60 hidden z-[110] p-4 flex items-center justify-center backdrop-blur-sm">
     <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl text-center">
         <i data-lucide="truck" class="w-12 h-12 text-red mx-auto mb-4"></i>
-        <h3 class="font-black text-xl mb-5 text-gray-800">تأكيد الشحن</h3>
+        <h3 id="ship-title" class="font-black text-xl mb-5 text-gray-800">تأكيد الشحن</h3>
         <input id="ship-tracking" placeholder="رقم تتبع الشحنة (اختياري)" oninput="_shipRcptAuto=false" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold text-center mb-1 border border-gray-200 transition-all">
         <p id="ship-track-auto" class="hidden text-[11px] font-bold text-gray-500 mb-3 min-h-[16px]" role="status" aria-live="polite"></p>
 
@@ -615,7 +615,7 @@ window.GMT_INTERNAL = 1;</script>
             <div id="ship-img-preview" class="w-full border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 text-gray-400 mb-2">
                 <i data-lucide="image-plus" class="w-6 h-6"></i>
                 <span class="text-xs font-bold">📄 مسح إشعار الشحن (اختياري)</span>
-                <span class="text-[10px] text-gray-300">صوّره أو اختره — يُقصّ ويُحسَّن تلقائياً · وإن لم ترفع صورة تُولَّد الكليشيه</span>
+                <span id="ship-hint" class="text-[10px] text-gray-300">صوّره أو اختره — يُقصّ ويُحسَّن تلقائياً · وإن لم ترفع صورة تُولَّد الكليشيه</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <label class="cursor-pointer">
@@ -655,7 +655,7 @@ window.GMT_INTERNAL = 1;</script>
             <p id="ship-from-src" class="text-[10px] font-bold text-gray-500 mt-1"></p>
         </div>
 
-        <button onclick="confirmShipping()" class="w-full bg-dark text-white py-4 rounded-xl font-black text-base active:scale-95 transition-transform">اعتماد الشحن وإرسال الكليشيه</button>
+        <button id="ship-confirm-btn" onclick="confirmShipping()" class="w-full bg-dark text-white py-4 rounded-xl font-black text-base active:scale-95 transition-transform disabled:opacity-60">اعتماد الشحن وإرسال الكليشيه</button>
         <button onclick="closeModal('shipModal'); document.getElementById('ship-img-input').value=''; document.getElementById('ship-img-input-camera').value=''; resetShipPreview();" class="mt-3 text-gray-400 text-xs font-bold uppercase">إلغاء</button>
     </div>
 </div>
@@ -1926,6 +1926,10 @@ function cardMoreItems(o) {
         items.push({ ic: '📷', t: 'بحث برقم التتبّع أو قراءته من إيصال (المفتي)', on: 'openVerifyShipment()' });
     }
     if (o.receipt_img) items.push({ ic: '🧾', t: 'عرض إيصال الشحن', on: 'viewReceipt(' + o.id + ')' });
+    /* (برومبت «الماسح الضوئي الذكي» خامساً) مسح/إرفاق إيصالٍ لأوردرٍ موجود — لا يغيّر حالته. للمشحون فما بعد
+       (قبل الشحن يُرفق الإيصال من «تأكيد الشحن» نفسه، وقائمة «قيد التجهيز» تبقى كما طلبتَ: ربط فاتورة النقل فقط) */
+    if (later) items.push({ ic: '📄', t: o.receipt_img ? 'مسح إيصال شحنٍ جديد لهذا الأوردر' : 'مسح إيصال الشحن وإرفاقه بالأوردر',
+                 off: 'قصّ وتحسين' + (o.shipping_company === MUFTI_CO || !o.shipping_company ? ' · قراءة الرقم والفرع (المفتي)' : '') + ' · لا استبدال صامت', on: 'openReceiptAttach(' + o.id + ')' });
     if (isStoreOrder(o)) items.push({ ic: '🧾', t: 'فاتورة طلب المتجر', on: 'storeOrderInvoice(' + o.id + ')' });
     /* (وثيقة الطلبات §٤ · «كل الأزرار المخفيّة للأوردرات المرتجعة وربط فاتورة نقل بأوردر شحن») */
     const tl = transferInvoiceOf(o);
@@ -3376,12 +3380,18 @@ window.triggerDelete = () => {
     requestConfirm(id, 'force_delete');
 };
 
-window.openShipModal = (id) => {
+/* mode: 'ship' (تأكيد الشحن — كما كان) · 'attach' (برومبت «الماسح الضوئي الذكي» خامساً: إرفاق/مسح إيصال لأوردرٍ موجود بلا تغيير حالته) */
+window.openReceiptAttach = (id) => window.openShipModal(id, 'attach');
+window.openShipModal = (id, mode) => {
     shipOrderId = id;
-    _shipScan = null;
+    _shipMode = mode === 'attach' ? 'attach' : 'ship';
+    _shipScan = null; _shipRead = null; _shipReading = false;
     _shipRcptFile = null; _shipRcptAuto = false;
     const _st = document.getElementById('ship-track-auto'); if (_st) { _st.classList.add('hidden'); _st.textContent = ''; }
-    document.getElementById('ship-tracking').value = '';
+    const _o0 = orders.find(x => x.id == id), _att = _shipMode === 'attach';
+    document.getElementById('ship-tracking').value = (_att && _o0 && _o0.tracking_number) ? String(_o0.tracking_number) : '';   // المحفوظ يبقى — القراءة تُقارن به فقط
+    const _t = document.getElementById('ship-title'); if (_t) _t.textContent = _att ? '📄 إيصال الشحن — ' + ((_o0 && (_o0.serial_code || _o0.name)) || ('#' + id)) : 'تأكيد الشحن';
+    const _b = document.getElementById('ship-confirm-btn'); if (_b) { _b.textContent = _att ? 'حفظ الإيصال على الأوردر' : 'اعتماد الشحن وإرسال الكليشيه'; _b.disabled = false; }
     const inp = document.getElementById('ship-img-input');
     if (inp) inp.value = '';
     const cam = document.getElementById('ship-img-input-camera');
@@ -3406,7 +3416,7 @@ function resetShipPreview() {
     preview.innerHTML = `
         <i data-lucide="image-plus" class="w-6 h-6"></i>
         <span class="text-xs font-bold">إرفاق صورة كليشيه الشحن (اختياري)</span>
-        <span class="text-[10px] text-gray-300">إذا لم ترفع صورة سيتم توليدها تلقائياً</span>`;
+        <span class="text-[10px] text-gray-300">${_shipMode === 'attach' ? 'صوّره أو اختره — يُقصّ ويُحسَّن ويُقرأ تلقائياً' : 'إذا لم ترفع صورة سيتم توليدها تلقائياً'}</span>`;
     const cam = document.getElementById('ship-img-input-camera');
     if (cam) cam.value = '';
     lucide.createIcons();
@@ -3427,6 +3437,7 @@ function previewShipImage(input) {
    الممسوحة الأوضح تُحفظ على الأوردر وتُقرأ منها الأرقام (ثمّ من الأصل إن لم يُقرأ شيء). إلغاء الماسح ⇒ الصورة كما هي.
    لكل شركات الشحن؛ قراءة الرقم للمفتي فقط كما كانت. */
 let _shipScan = null;
+let _shipMode = 'ship', _shipReading = false, _shipSaving = false;   // (خامساً) وضع النافذة · قراءةٌ جارية · حفظٌ جارٍ (لا حفظ مزدوج)
 async function shipScanFile(file, label) {
     _shipScan = null;
     let use = file;
@@ -3515,8 +3526,8 @@ function shipReadPaint(r, typed) {
     }
     if (typed && fill) {                                             // رقم الموظف يبقى — نقارن فقط
         const mine = inp.value.trim();
-        h += mine === fill ? '<span class="block mt-1">✔️ يطابق الرقم الذي كتبتَه.</span>'
-                           : '<span class="block mt-1 text-amber-700">⚠️ ما كتبتَه (' + escH(mine) + ') يختلف عن الإيصال — أُبقي رقمك.</span>' + row([shipTrackBtn(fill, 'استعمل ' + fill)]);
+        h += mine === fill ? '<span class="block mt-1">✔️ يطابق الرقم الموجود في الحقل.</span>'
+                           : '<span class="block mt-1 text-amber-700">⚠️ الرقم الموجود في الحقل (' + escH(mine) + ') يختلف عن الإيصال — أُبقي كما هو.</span>' + row([shipTrackBtn(fill, 'استعمل ' + fill)]);
         fill = null;
     }
     if (fill) { inp.value = fill; _shipRcptAuto = true; }
@@ -3535,7 +3546,7 @@ async function shipReadTracking(force) {
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
     st.textContent = 'جارٍ قراءة الإيصال: الباركود + الرقم المطبوع + الفرع المصدر… (أوّل مرّة تُحمَّل مكتبة التعرّف — قد يطول قليلاً)';
     const myFile = _shipRcptFile;
-    _shipRead = null;
+    _shipRead = null; _shipReading = true;
     try {
         if (!window.GMTReceipt || !GMTReceipt.readMufti) throw new Error('وحدة القراءة لم تُحمَّل');
         const r = await GMTReceipt.readMufti(myFile, { original: (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : null });
@@ -3548,7 +3559,147 @@ async function shipReadTracking(force) {
         if (myFile !== _shipRcptFile) return;
         st.className = 'text-[11px] font-black text-amber-600 mb-3';
         st.textContent = '⚠️ تعذّرت قراءة الإيصال (' + (e && e.message || 'خطأ') + ') — أدخل الرقم واختر الفرع يدوياً.';
+    } finally { if (myFile === _shipRcptFile) _shipReading = false; }
+}
+
+/* ══ (19 ت1 · برومبت «الماسح الضوئي الذكي» خامساً) ربط الإيصال بالأوردر ══
+   • الحقول الموجودة تُستعمل كما هي: receipt_img (النسخة الممسوحة المضغوطة — مؤقّتة حتى «تم التحصيل») · receipt_at · tracking_number ·
+     shipping_company · ship_from_office. والأصل يبقى في أرشيف تيليغرام (كما كان) ويُسجَّل رقم رسالته.
+   • عمودٌ واحد جديد receipt_meta (jsonb): حالة التحقّق من رقم التتبّع وكيف حُسم · حالة الفرع ومصدره · نوع الإيصال · من أضافه ومتى ·
+     مكان الأصل في تيليغرام · الإيصالات السابقة إن اخترتَ «الاحتفاظ بالنسختين».
+   • رقم تتبّعٍ مسجَّل على أوردرٍ آخر ⇒ تحذيرٌ قبل الحفظ، والمتابعة للمخوَّل فقط.
+   • إيصالٌ سابق على الأوردر ⇒ لا استبدال صامت: «الاحتفاظ بالنسختين» أو «استبدال السابق» أو إلغاء.
+   • لا حفظ مزدوج: زرّ الحفظ يُقفل حتى ينتهي الحفظ. */
+function shipPickedFiles() {
+    const cam = document.getElementById('ship-img-input-camera'), lib = document.getElementById('ship-img-input');
+    return (cam && cam.files && cam.files[0]) || (lib && lib.files && lib.files[0]) || null;
+}
+function shipReceiptFile() { return (_shipScan && _shipScan.scanned) || shipPickedFiles(); }
+function shipOriginalFile() { return (_shipScan && _shipScan.original) || shipPickedFiles(); }
+/* أوردرات أخرى (غير محذوفة) عليها الرقم نفسه — من القائمة المحمّلة ومن القاعدة (قد لا تكون كل الأوردرات محمّلة) */
+async function trackingTakenBy(num, id) {
+    num = String(num || '').trim(); if (!num) return [];
+    const m = {};
+    orders.forEach(o => { if (String(o.id) !== String(id) && !o.is_deleted && String(o.tracking_number || '').trim() === num) m[o.id] = o; });
+    try {
+        const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?tracking_number=eq.${encodeURIComponent(num)}&id=neq.${encodeURIComponent(id)}&select=id,name,serial_code,status,is_deleted&limit=10`, { headers: SB_HEADERS });
+        if (r.ok) (await r.json()).forEach(o => { if (!o.is_deleted) m[o.id] = m[o.id] || o; });
+    } catch (_) {}
+    return Object.values(m);
+}
+async function confirmTrackingDup(num, id) {
+    const hits = await trackingTakenBy(num, id);
+    if (!hits.length) return true;
+    const list = hits.map(x => '• ' + (x.serial_code || '#' + x.id) + ' — ' + (x.name || '') + (x.status ? ' (' + (ORDER_STATUS_AR[x.status] || x.status) + ')' : '')).join('\n');
+    const k = await GMTAsk.choose('رقم التتبّع ' + num + ' مسجَّلٌ على ' + (hits.length > 1 ? 'أوردراتٍ أخرى' : 'أوردرٍ آخر') + ':\n' + list +
+        '\n\nقد يكون خطأً في الرقم أو إيصالاً لأوردرٍ آخر — راجعه قبل الحفظ.', {
+        title: '⚠️ رقم تتبّع مكرّر', icon: 'danger', cancelText: 'رجوع للتصحيح',
+        choices: [{ k: 'go', t: 'متابعة رغم التكرار (للمخوَّل)' }] });
+    if (k !== 'go') return false;
+    if (window.GMTRole && GMTRole.requireAdmin) return !!(await GMTRole.requireAdmin('حفظ رقم تتبّعٍ مسجَّلٍ على أوردرٍ آخر'));
+    return true;
+}
+/* إيصالٌ محفوظ ⇒ 'both' | 'replace' | null (إلغاء). لا إيصال ⇒ 'new' */
+async function receiptKeepChoice(o) {
+    if (!o || !o.receipt_img) return 'new';
+    const when = o.receipt_at ? new Date(o.receipt_at).toLocaleString('ar-SY', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+    return GMTAsk.choose('لهذا الأوردر إيصال شحنٍ محفوظ' + (when ? ' (' + when + ')' : '') + '. ماذا نفعل بالإيصال الجديد؟\n(الأصل في الحالتين محفوظ في أرشيف تيليغرام.)', {
+        title: '🧾 إيصالٌ سابق', icon: 'ask', cancelText: 'إلغاء',
+        choices: [{ k: 'both', t: 'الاحتفاظ بالنسختين', pri: 1 }, { k: 'replace', t: 'استبدال السابق بالجديد' }] });
+}
+/* نسخةٌ أصغر للإيصال السابق المحتفَظ به (كي لا يتضخّم صفّ الأوردر) */
+function shrinkDataUrl(durl, maxW = 640, q = 0.55) {
+    return new Promise(res => {
+        try {
+            const im = new Image();
+            im.onload = () => { try { const k = Math.min(1, maxW / (im.width || maxW)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+                cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/jpeg', q)); } catch (_) { res(durl); } };
+            im.onerror = () => res(durl); im.src = durl;
+        } catch (_) { res(durl); }
+    });
+}
+/* بيانات الإيصال للحفظ — من نتيجة القراءة (إن وُجدت) ومن الحقول كما هي لحظة الحفظ */
+async function buildReceiptMeta(o, keep, company, finalNum) {
+    const r = _shipRead, T = (r && r.tracking) || null, sel = document.getElementById('ship-from');
+    const seen = T ? [T.number, T.barcode, T.printed].concat(T.candidates || []).filter(Boolean).map(String) : [];
+    const src = !finalNum ? 'none' : (_shipRcptAuto ? 'auto' : (seen.indexOf(finalNum) !== -1 ? 'picked' : 'typed'));
+    const prevMeta = (o && o.receipt_meta && typeof o.receipt_meta === 'object') ? o.receipt_meta : {};
+    let prev = Array.isArray(prevMeta.prev) ? prevMeta.prev.slice() : [];
+    if (keep === 'both' && o && o.receipt_img) prev.push({ img: await shrinkDataUrl(o.receipt_img), at: o.receipt_at || null, by: prevMeta.by || null,
+        track: o.tracking_number || null, orig_tg: prevMeta.orig_tg || null });
+    return {
+        v: 1, at: new Date().toISOString(), by: (typeof getOperatorName === 'function' ? getOperatorName() : '') || null,
+        company: company || null, via: _shipMode, scanned: !!_shipScan, mode: _shipScan ? _shipScan.mode : null,
+        type: r && r.type ? { kind: r.type.kind, why: r.type.why || '' } : null,
+        track: { status: T ? T.status : (company === MUFTI_CO ? (_shipReading ? 'reading' : 'not_read') : 'scan_only'),
+                 barcode: (r && r.barcode && r.barcode.number) || null, printed: (r && r.printed && r.printed.number) || null,
+                 final: finalNum || null, source: src },
+        branch: (company === MUFTI_CO && sel) ? { src: sel.getAttribute('data-src') || 'none', key: sel.value || null,
+                 read: r && r.branch ? { key: r.branch.key || null, confident: !!r.branch.confident, text: String(r.branch.text || '').slice(0, 80), candidates: (r.branch.candidates || []).slice(0, 4) } : null } : null,
+        orig_tg: null, prev: prev
+    };
+}
+/* قراءةٌ جارية لحظة الحفظ ⇒ نسأل (قد تكشف رقماً مكرّراً أو فرعاً آخر) */
+async function waitReadingOrGo() {
+    if (!_shipReading) return true;
+    const k = await GMTAsk.choose('قراءة الإيصال (رقم التتبّع والفرع) لم تنتهِ بعد.', { title: '⏳ لحظة', cancelText: 'سأنتظر',
+        choices: [{ k: 'go', t: 'احفظ الآن بلا انتظار' }] });
+    return k === 'go';
+}
+/* يحفظ رقم رسالة الأصل في تيليغرام داخل receipt_meta (حفظٌ ثانويّ لا يُفشل شيئاً) */
+async function saveReceiptTg(id, msgId) {
+    if (!msgId) return;
+    const i = orders.findIndex(x => x.id == id); if (i < 0 || !orders[i].receipt_meta) return;
+    const meta = { ...orders[i].receipt_meta, orig_tg: { chat: TELEGRAM_CHAT_ID, msg: msgId } };
+    const r = await orderPatchChecked(id, { receipt_meta: meta });
+    if (r.ok) orders[i].receipt_meta = meta;
+}
+/* أرشفة الأصل في تيليغرام لإيصالٍ مُرفقٍ لاحقاً (وضع «إرفاق») — يُرجع رقم الرسالة أو null */
+async function sendReceiptArchive(o, file) {
+    if (!file) return null;
+    try {
+        const fd = new FormData();
+        fd.append('chat_id', TELEGRAM_CHAT_ID);
+        fd.append('photo', file, 'receipt_' + o.id + '.jpg');
+        /* نصٌّ عاديّ بلا Markdown: اسمٌ فيه _ أو * كان سيجعل تيليغرام يرفض الصورة فيضيع الأصل */
+        fd.append('caption', '🧾 إيصال شحن مُرفق بأوردر\n' + (o.serial_code ? '🔢 ' + o.serial_code + '\n' : '') + '👤 ' + (o.name || '—') + '\n🚚 ' + (o.shipping_company || '—') +
+            (o.tracking_number ? '\n🔖 رقم التتبّع: ' + o.tracking_number : '') + '\n🆔 #' + o.id);
+        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+        const d = await res.json().catch(() => ({}));
+        return (res.ok && d && d.result && d.result.message_id) || null;
+    } catch (_) { return null; }
+}
+function shipBusy(on) { _shipSaving = on; const b = document.getElementById('ship-confirm-btn'); if (b) b.disabled = !!on; }
+
+/* حفظ إيصالٍ لأوردرٍ موجود (لا يغيّر حالته) */
+async function confirmReceiptAttach() {
+    const idx = orders.findIndex(x => x.id == shipOrderId); if (idx < 0) return;
+    const o = orders[idx];
+    const file = shipReceiptFile();
+    if (!file) { showToast('📄 صوّر الإيصال أو اختره أوّلاً', 'err'); return; }
+    if (!(await waitReadingOrGo())) return;
+    const company = (document.getElementById('ship-company').value || '').trim() || o.shipping_company || '';
+    const tracking = document.getElementById('ship-tracking').value.trim();
+    if (tracking && tracking !== String(o.tracking_number || '').trim() && !(await confirmTrackingDup(tracking, o.id))) return;
+    const keep = await receiptKeepChoice(o); if (!keep) return;
+    const durl = await compressReceipt(file);
+    if (!durl || durl.length >= 900000) { showToast('⚠️ تعذّر تجهيز صورة الإيصال للحفظ (كبيرة أو تالفة) — جرّب صورةً أخرى', 'err'); return; }
+    const data = { receipt_img: durl, receipt_at: new Date().toISOString(), receipt_meta: await buildReceiptMeta(o, keep, company, tracking) };
+    if (tracking && tracking !== String(o.tracking_number || '').trim()) data.tracking_number = tracking;
+    if (company && company !== o.shipping_company) data.shipping_company = company;
+    await sbUpdateOrThrow(o.id, data);
+    orders[idx] = { ...o, ...data };
+    if (company === MUFTI_CO) {
+        const sel = document.getElementById('ship-from'), k = sel && sel.value, src = sel && sel.getAttribute('data-src');
+        if (k && (src === 'receipt' || src === 'manual') && k !== shipFromExplicit(o)) {
+            const m = savedMsg('الفرع المُرسِل «' + shipFromLabel(k) + '»', await saveShipFromR(o.id, k));
+            if (m.type !== 'ok') showToast(m.t, m.type);
+        }
     }
+    closeModal('shipModal');
+    render();
+    showToast('🧾 حُفظ الإيصال على الأوردر' + (keep === 'both' ? ' — والسابق محفوظٌ معه' : keep === 'replace' ? ' — بدل السابق' : ''), 'ok');
+    sendReceiptArchive(orders[idx], shipOriginalFile()).then(mid => saveReceiptTg(o.id, mid));
 }
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') shipReadTracking(); });
 
@@ -3578,6 +3729,13 @@ function compressReceipt(file, maxW = 900, quality = 0.62) {
 }
 
 window.confirmShipping = async () => {
+    if (_shipSaving) return;                                  // (خامساً) لا حفظ مزدوج: ضغطةٌ ثانية أثناء الحفظ لا تفعل شيئاً
+    shipBusy(true);
+    try { if (_shipMode === 'attach') await confirmReceiptAttach(); else await confirmShippingRun(); }
+    catch (err) { showToast('خطأ: ' + (err && err.message || err), 'err'); }
+    finally { shipBusy(false); }
+};
+async function confirmShippingRun() {
     const tracking = document.getElementById('ship-tracking').value.trim();
     const company  = document.getElementById('ship-company').value.trim();
     const warn     = document.getElementById('ship-company-warn');
@@ -3599,21 +3757,24 @@ window.confirmShipping = async () => {
     if (idx < 0) return;
     const _lockMsg = await ordersLockBlock(orders[idx], 'shipped');
     if (_lockMsg) { GMTAsk.alert(_lockMsg, { title: 'الأوردر غير مُفوتَر', icon: 'danger' }); return; }
+    const _file = shipReceiptFile(), _hadOrig = !!shipPickedFiles();
+    if (_file && !(await waitReadingOrGo())) return;
+    if (tracking && tracking !== String(orders[idx].tracking_number || '').trim() && !(await confirmTrackingDup(tracking, shipOrderId))) return;
+    const _keep = _file ? await receiptKeepChoice(orders[idx]) : 'new';
+    if (!_keep) return;
     const data = {
         status: 'shipped',
         tracking_number:  tracking || null,
         shipped_at:       new Date().toISOString(),
         shipping_company: company,
     };
-    // احفظ نسخة مضغوطة من صورة الإيصال داخل الأوردر (مؤقّتة — تُمسح عند التحصيل)
-    const _camF = document.getElementById('ship-img-input-camera');
-    const _libF = document.getElementById('ship-img-input');
-    const _file = (_shipScan && _shipScan.scanned) || (_camF && _camF.files && _camF.files[0]) || (_libF && _libF.files && _libF.files[0]) || null;
+    // احفظ نسخة مضغوطة من صورة الإيصال داخل الأوردر (مؤقّتة — تُمسح عند التحصيل) + بياناتها (التحقّق · الفرع · من أضافها)
     if (_file) {
         const durl = await compressReceipt(_file);
         if (durl && durl.length < 900000) {         // حدّ أمان ~0.9MB للصفّ الواحد
             data.receipt_img = durl;
             data.receipt_at  = new Date().toISOString();
+            data.receipt_meta = await buildReceiptMeta(orders[idx], _keep, company, tracking);
         } else if (durl) {
             console.warn('[GMT] صورة الإيصال كبيرة بعد الضغط — لن تُحفظ محلياً (تبقى في تيليجرام)');
         }
@@ -3630,7 +3791,8 @@ window.confirmShipping = async () => {
         closeModal('shipModal');
         render();
         showToast('🚚 تم اعتماد الشحن — جارٍ إرسال الكليشيه...', 'ok');
-        await sendShippingLabel({ ...orders[idx], ...data, tracking_number: tracking || orders[idx].tracking_number });
+        const _mid = await sendShippingLabel({ ...orders[idx], ...data, tracking_number: tracking || orders[idx].tracking_number });
+        if (_hadOrig && data.receipt_meta) saveReceiptTg(shipOrderId, _mid);     // مكان الأصل في أرشيف تيليغرام
 
         /* 📲 (2026-08-26 · طلب المالك) تبليغ الشحن **يفتح تلقائياً** بعد اعتماد الشحن:
            واتساب بزنس على محادثة الزبون والرسالة جاهزة — يبقى الضغط على «إرسال» فقط.
@@ -3704,6 +3866,9 @@ window.executeConfirm = async () => {
     if (newStatus === 'completed' && o && o.receipt_img) {
         patch.receipt_img = null;
         patch.receipt_at  = null;
+        /* النسخ السابقة المحتفَظ بها مؤقّتةٌ مثلها — تُمسح صورها، وتبقى بيانات التحقّق ومكان الأصل في تيليغرام */
+        if (o.receipt_meta && Array.isArray(o.receipt_meta.prev) && o.receipt_meta.prev.length)
+            patch.receipt_meta = { ...o.receipt_meta, prev: o.receipt_meta.prev.map(p => ({ ...p, img: null })), cleared_at: new Date().toISOString() };
     }
     try {
         await sbUpdateOrThrow(id, patch);                // صفٌّ لم يتغيّر في القاعدة ⇒ لا «تم تحديث الحالة» كاذبة
@@ -5083,6 +5248,27 @@ window.copyOfficeLine = async (json) => {
 /* 🚫 لا أزرار عائمة — نُقل الحارس إلى **gmt-nofab.js** (2026-09-26) كي تستعمله
    نقطة البيع وباقي الصفحات من مصدر واحد بدل نسخة في كل صفحة (OWN-SINGLE-SOURCE). */
 
+/* (خامساً) ما حُفظ مع الإيصال: التحقّق من الرقم · الفرع ومصدره · من أضافه · مكان الأصل · الإيصالات السابقة المحتفَظ بها */
+const RCPT_TRACK_AR = { match: '✅ تطابق المطبوع مع الباركود', differ: '⚠️ المطبوع ≠ الباركود — حُسم يدوياً', barcode: 'من الباركود فقط', printed: 'من الرقم المطبوع فقط',
+    none: 'تعذّرت القراءة', not_read: 'لم يُقرأ', reading: 'حُفظ قبل انتهاء القراءة', scan_only: 'مسحٌ فقط (شركة غير المفتي)' };
+const RCPT_SRC_AR = { auto: 'مُلئ تلقائياً', picked: 'اختاره الموظّف من المقروء', typed: 'كتبه الموظّف', none: 'بلا رقم' };
+const RCPT_BRANCH_AR = { receipt: 'من الإيصال', manual: 'اختيار يدوي', default: 'الافتراضي من الإعدادات', saved: 'المحفوظ سابقاً', none: 'غير محدَّد' };
+function receiptMetaHTML(o) {
+    const m = o && o.receipt_meta; if (!m || typeof m !== 'object') return '';
+    const t = m.track || {}, b = m.branch, rows = [];
+    if (t.status) rows.push('🔖 الرقم: ' + escH(t.final || '—') + ' · ' + escH(RCPT_TRACK_AR[t.status] || t.status) + (t.source && t.final ? ' · ' + escH(RCPT_SRC_AR[t.source] || t.source) : '') +
+        (t.status === 'differ' ? ' (الباركود ' + escH(t.barcode || '—') + ' · المطبوع ' + escH(t.printed || '—') + ')' : ''));
+    if (b) rows.push('🏢 الفرع: ' + escH(shipFromLabel(b.key)) + ' · ' + escH(RCPT_BRANCH_AR[b.src] || b.src || '') + (b.read && !b.read.confident && b.read.text ? ' · المقروء: «' + escH(b.read.text) + '»' : ''));
+    if (m.type && m.type.kind && m.type.kind !== 'mufti') rows.push('⚠️ لم يُتأكَّد أنّه إيصال المفتي');
+    rows.push('👤 ' + escH(m.by || 'غير معروف') + (m.at ? ' · ' + escH(new Date(m.at).toLocaleString('ar-SY', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) : '') +
+        (m.scanned ? ' · مُسح ضوئياً' : '') + (m.orig_tg && m.orig_tg.msg ? ' · الأصل في تيليغرام (رسالة ' + escH(m.orig_tg.msg) + ')' : ''));
+    const prev = Array.isArray(m.prev) ? m.prev.filter(p => p && p.img) : [];
+    return '<div class="px-4 pt-2 text-[11px] font-bold text-gray-600 space-y-0.5 text-right">' + rows.map(r => '<p>' + r + '</p>').join('') + '</div>' +
+        (prev.length ? '<div class="px-4 pt-2 text-right"><p class="text-[11px] font-black text-gray-700 mb-1">🗂️ إيصالات سابقة محتفَظ بها (' + prev.length + ')</p><div class="flex gap-2 overflow-x-auto">' +
+            prev.map((p, i) => '<a href="' + p.img + '" download="receipt-' + escH(o.serial_code || o.id) + '-' + (i + 1) + '.jpg" class="shrink-0 text-center"><img src="' + p.img + '" class="h-20 rounded-lg border border-gray-200 bg-gray-50" alt="إيصال سابق">' +
+                '<span class="block text-[9px] text-gray-400">' + escH(p.at ? new Date(p.at).toLocaleDateString('ar-SY') : '') + (p.track ? ' · ' + escH(p.track) : '') + '</span></a>').join('') + '</div></div>' : '');
+}
+
 /* ══ عارض إيصال الشحن داخل الأوردرات (بدل البحث في تيليجرام) ══ */
 window.viewReceipt = (id) => {
     const o = orders.find(x => x.id == id);
@@ -5101,6 +5287,7 @@ window.viewReceipt = (id) => {
           <button onclick="document.getElementById('receiptViewer').remove()" class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 font-black">✕</button>
         </div>
         <img src="${o.receipt_img}" class="w-full max-h-[65vh] object-contain bg-gray-50" alt="إيصال الشحن">
+        ${receiptMetaHTML(o)}
         <div class="px-4 py-3 flex gap-2">
           <a href="${o.receipt_img}" download="receipt-${escH(o.serial_code || o.id)}.jpg"
              class="flex-1 text-center bg-gray-800 text-white py-2.5 rounded-xl text-xs font-black">⬇️ تنزيل</a>
@@ -5358,8 +5545,10 @@ window.applyDetectedShipFrom = function (det) {
     const sel = document.getElementById('ship-from');
     if (!sel || document.getElementById('ship-from-wrap').classList.contains('hidden')) return 'no-box';
     det = det || {};
-    if (sel.getAttribute('data-src') === 'manual') {
-        if (det.key && det.key !== sel.value) sel.setAttribute('data-unsure', JSON.stringify({ kind: 'conflict', text: 'الإيصال يشير إلى «' + shipFromLabel(det.key) + '» — أُبقي اختيارك اليدوي', candidates: [det.key] }));
+    /* اختيارك — أو فرعٌ محفوظٌ على الأوردر سابقاً (اختاره أحدٌ قبلك) — لا يُستبدل بما يُقرأ من الإيصال: يُعرض الفرق مع زرٍّ لاعتماده */
+    const _src0 = sel.getAttribute('data-src');
+    if (_src0 === 'manual' || _src0 === 'saved') {
+        if (det.key && det.key !== sel.value) sel.setAttribute('data-unsure', JSON.stringify({ kind: 'conflict', text: 'الإيصال يشير إلى «' + shipFromLabel(det.key) + '» — أُبقي ' + (_src0 === 'saved' ? 'الفرع المحفوظ على الأوردر' : 'اختيارك اليدوي') + ' (اضغط الفرع أدناه لاعتماده)', candidates: [det.key] }));
         paintShipFromSrc(); return 'manual-kept';
     }
     if (det.key && det.confident && muftiOfficeByKey(det.key)) {
@@ -6597,6 +6786,8 @@ async function sendShippingLabel(o) {
         });
         if (!res.ok) throw new Error('Telegram photo failed');
         showToast('📤 تم إرسال الكليشيه للتلغرام', 'ok');
+        const _d = await res.json().catch(() => null);
+        return (_d && _d.result && _d.result.message_id) || null;      // (خامساً) رقم رسالة الأصل — يُسجَّل في receipt_meta
     } catch(e) {
         showToast('⚠️ تعذّر إرسال الصورة: ' + e.message, 'err');
         // fallback: رسالة نصية
@@ -8609,7 +8800,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261019d"></script>
+<script src="gmt-whatsnew.js?v=20261019e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
