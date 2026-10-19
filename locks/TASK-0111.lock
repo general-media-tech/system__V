@@ -1,7 +1,0 @@
-task: TASK-0111
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/wonderful-noether-fxb1fi
-files: orders.html track_order.html gmt-receipt.js gmt-docscan.js gmt-mufti-branches.js tests/harness/t_*
-claimed_at: 2026-10-19T21:04:25Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0111
