@@ -105,6 +105,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
+<script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-receipt.js?v=20261019e" defer></script>
 <script src="gmt-docscan.js?v=20261019e" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
@@ -3691,6 +3692,12 @@ async function confirmReceiptAttach() {
     orders[idx] = { ...o, ...data };
     if (company === MUFTI_CO) {
         const sel = document.getElementById('ship-from'), k = sel && sel.value, src = sel && sel.getAttribute('data-src');
+        /* (19 ت1 · TASK-0051) قائمة مراجعة التصحيحات: قرأ الإيصال نصّاً للمصدر واختار الموظّف فرعاً غيره (أو القراءة لم تكن واثقة) */
+        try {
+            const rb = _shipRead && _shipRead.branch;
+            if (k && rb && String(rb.text || '').trim() && (k !== rb.key || !rb.confident) && window.GMTMuftiBank)
+                GMTMuftiBank.recordCorrection({ read: rb.text, readKey: rb.key || null, confident: !!rb.confident, chosen: k, order: o.id, by: (typeof getOperatorName === 'function' ? getOperatorName() : '') || null });
+        } catch (_) {}
         if (k && (src === 'receipt' || src === 'manual') && k !== shipFromExplicit(o)) {
             const m = savedMsg('الفرع المُرسِل «' + shipFromLabel(k) + '»', await saveShipFromR(o.id, k));
             if (m.type !== 'ok') showToast(m.t, m.type);
@@ -5455,6 +5462,8 @@ function shipFromDefault() {
 }
 
 function muftiOffices() {
+    /* (19 ت1 · TASK-0051) من بنك الفروع: بلا المعطَّل، ومعه ما أضافه المالك بيده */
+    if (window.GMTMuftiBank) return GMTMuftiBank.list().map(x => ({ key: x.key, city: x.city, name: x.name, phone: x.phone }));
     const d = (window.GMTOffices && GMTOffices.data && GMTOffices.data[MUFTI_CO]) || {};
     const out = [];
     Object.keys(d).forEach(city => (d[city] || []).forEach(of =>
@@ -5480,7 +5489,7 @@ function shipFromOptionsHTML(sel) {
         (x.phone ? '' : ' (بلا رقم)') + '</option>').join('') + '</optgroup>').join('');
     /* (وثيقة الطلبات §٢) قيمةٌ محفوظةٌ على أوردرٍ قديم لم تعد في دليل المكاتب: نُبقيها خياراً ظاهراً كي لا يُستبدل فرعٌ
        آخر بصمتٍ عند الحفظ (كان المتصفّح يعرض أوّل خيار وكأنه المحفوظ). */
-    if (sel && !muftiOfficeByKey(sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ' (غير مُدرَج في الدليل)</option>' + html;
+    if (sel && !muftiOfficeByKey(sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ((window.GMTMuftiBank && GMTMuftiBank.byKey(sel)) ? ' (معطَّل في بنك الفروع)' : ' (غير مُدرَج في الدليل)') + '</option>' + html;
     return html;
 }
 /* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة.
@@ -5498,6 +5507,8 @@ async function saveShipFrom(id, key) { return (await saveShipFromR(id, key)).ok;
 function shipFromFill(sel, key) {
     sel.innerHTML = (key ? '' : '<option value="" selected>— اختر الفرع المُرسِل —</option>') + shipFromOptionsHTML(key || '');
     if (!key) sel.value = '';
+    /* (19 ت1 · TASK-0051) منتقي الفروع بالبحث — حقلٌ فوق القائمة (اسم · مدينة · اسم بديل · رقم) */
+    if (window.GMTMuftiBank) { GMTMuftiBank.attachSearch(sel); const q = sel.previousElementSibling; if (q && q.hasAttribute('data-bank-q')) q.value = ''; }
 }
 /* سطرٌ تحت القائمة يقول من أين جاء الفرع — ومعه التنبيهات (افتراضي غير صالح · اكتشافٌ غير مؤكّد) */
 function paintShipFromSrc() {
@@ -5582,6 +5593,7 @@ window.openOrdersSettings = async function () {
         '<label for="os-ship-from" class="block text-[12px] font-black text-gray-700 mt-3 mb-1">🏢 الفرع الافتراضي لشركة الشحن (المفتي)</label>' +
         '<select id="os-ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>' +
         '<p class="text-[11px] font-bold text-gray-500 mt-2 leading-relaxed">يُستعمل فقط حين لا تختار الفرع ولا يُقرأ من الإيصال بثقة. يسري على الأوردرات الجديدة فقط — الأوردرات السابقة تبقى على فرعها.</p>' +
+        '<button type="button" id="os-bank" data-admin="بنك فروع المفتي" class="w-full mt-3 bg-indigo-50 text-indigo-800 py-2.5 rounded-xl font-black text-sm">🏦 بنك فروع المفتي — الأسماء البديلة · التعطيل · مراجعة التصحيحات</button>' +
         (d.key ? '' : '<p class="text-[11px] font-black text-red-600 mt-2">⚠️ ' + escH(d.why) + '</p>') +
         '<p id="os-msg" class="text-[11px] font-black mt-2"></p>' +
         '<div class="flex gap-2 mt-4"><button type="button" id="os-save" class="flex-1 bg-dark text-white py-3 rounded-xl font-black">حفظ</button>' +
@@ -5592,6 +5604,7 @@ window.openOrdersSettings = async function () {
     const close = () => ov.remove();
     ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
     ov.querySelector('#os-cancel').addEventListener('click', close);
+    ov.querySelector('#os-bank').addEventListener('click', () => { close(); if (window.GMTMuftiBank) GMTMuftiBank.openManager(); });
     ov.querySelector('#os-save').addEventListener('click', async () => {
         const v = sel.value, msg = ov.querySelector('#os-msg'), btn = ov.querySelector('#os-save');
         if (!v || !muftiOfficeByKey(v)) { msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = 'اختر فرعاً من دليل فروع المفتي.'; return; }

@@ -492,6 +492,8 @@
   }
 
   function muftiOfficeList() {
+    /* (19 ت1 · TASK-0051) بنك الفروع: المعطَّل لا يُقرأ، وما أضافه المالك يُقرأ، ومع كل فرعٍ أسماؤه البديلة */
+    if (global.GMTMuftiBank) return GMTMuftiBank.list().map(function (o) { return { key: o.key, city: o.city, name: o.name, addr: o.addr || '', aliases: o.aliases || [] }; });
     var d = (global.GMTOffices && global.GMTOffices.data && global.GMTOffices.data['المفتي']) || {}, out = [];
     Object.keys(d).forEach(function (c) { (d[c] || []).forEach(function (o) { out.push({ key: c + '|' + o.name, city: c, name: o.name, addr: o.addr || '' }); }); });
     return out;
@@ -511,7 +513,7 @@
       .filter(function (w) { return w.length >= 2; });
     if (!toks.length) return { key: null, confident: false, candidates: [], text: seg || '' };
     var list = muftiOfficeList().map(function (o) {
-      var offS = bestNgram(toks, o.name), cityS = bestNgram(toks, o.city);
+      var offS = [o.name].concat(o.aliases || []).reduce(function (m, n) { return Math.max(m, bestNgram(toks, n)); }, 0), cityS = bestNgram(toks, o.city);
       var aw = String(o.addr).split(/\s+/).filter(function (w) { return w.length >= 3; }).map(skel);
       var addrS = aw.length ? aw.filter(function (w) { return toks.some(function (t) { return sim(noAl(t), noAl(w)) >= 0.85; }); }).length / aw.length : 0;
       return { key: o.key, city: o.city, offS: offS, cityS: cityS, score: offS * 0.7 + cityS * 0.3 + addrS * 0.05 };
