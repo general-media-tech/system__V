@@ -2394,7 +2394,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
           مجموعات</button>
         <button id="mode-btn-storelink" data-admin="ربط المتجر" class="u-seg__i" data-mode="storelink" onclick='openBridgeTool()' title="ربط المتجر (أداة Bridge)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           المتجر</button>
-        <button id="mode-btn-transfer" class="u-seg__i" data-mode="transfer" onclick='switchAppMode("transfer")' title="نقل المخزون بفاتورة رسمية" role="tab" aria-selected="false"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h15v13H3zM16 8h4l3 3v5h-7V8z"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
+        <button id="mode-btn-transfer" data-admin="فواتير النقل" class="u-seg__i" data-mode="transfer" onclick='switchAppMode("transfer")' title="نقل المخزون بفاتورة رسمية" role="tab" aria-selected="false"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h15v13H3zM16 8h4l3 3v5h-7V8z"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
           النقل
           <span class="transfer-tab-badge" style="display:none;position:absolute;top:1px;left:1px;background:var(--red);color:#fff;border-radius:999px;font-size:9px;min-width:15px;height:15px;align-items:center;justify-content:center;font-weight:900;padding:0 3px;"></span></button>
       </div>
@@ -3014,7 +3014,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       <span class="more-action-label">فرز القديمة</span>
     </button>
 
-    <button class="more-action-btn" onclick="closeMoreSheet(); switchAppMode('transfer');" style="position:relative;">
+    <!-- (19 ت1 · TASK-0108) فواتير النقل للإدارة: الموظّف يؤكّد استلام ما يصل فرعَه من نقطة البيع نفسها -->
+    <button class="more-action-btn" data-admin="فواتير النقل" onclick="closeMoreSheet(); switchAppMode('transfer');" style="position:relative;">
       <div class="more-action-icon">🚚</div>
       <span class="more-action-label">نقل المخزون</span>
       <span class="transfer-tab-badge" style="display:none;position:absolute;top:2px;left:14px;background:var(--red);color:#fff;border-radius:999px;font-size:9px;min-width:15px;height:15px;align-items:center;justify-content:center;font-weight:900;padding:0 3px;"></span>

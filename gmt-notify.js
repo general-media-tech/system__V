@@ -70,6 +70,7 @@
   var ITEMS = [
     {
       id: 'transfers_unconfirmed',
+      admin: true,
       title: 'فواتير نقلٍ بانتظار تأكيد الاستلام',
       why: 'بضاعةٌ خرجت من فرعٍ ولم يُقِرّ الفرعُ الآخر باستلامها — فرقُ الجرد يبقى معلّقاً.',
       go: { label: 'فواتير النقل', href: 'inventory.html' },
@@ -94,6 +95,7 @@
     },
     {
       id: 'imports_not_transferred',
+      admin: true,
       title: 'فواتير استيرادٍ وصلت ولم تُرحَّل للمخزون',
       why: 'بضاعةٌ وصلت ولا تظهر في الجرد — فالبيعُ يرفضها وهي موجودةٌ في المستودع.',
       go: { label: 'المشتريات', href: 'purchase.html' },
@@ -110,6 +112,7 @@
     },
     {
       id: 'hiring_new',
+      admin: true,
       title: 'طلباتُ توظيفٍ جديدة',
       why: 'طلبٌ وصل ولم يُراجَع.',
       go: { label: 'التوظيف', href: 'أدمن_التوظيف.html' },   /* (٨ ت) كان يفتح استمارة المتقدّم لا لوحة الإدارة */
@@ -132,6 +135,7 @@
     },
     {
       id: 'expenses_pending',
+      admin: true,
       title: 'مصاريف بانتظار موافقتك',
       why: 'مصروفٌ سجّلته نقطة بيع ولم يُعتمد — الصندوق لا يُخصم حتى توافق.',
       go: { label: 'أدمن نقاط البيع', href: 'admin_pos.html' },
@@ -140,6 +144,7 @@
     },
     {
       id: 'commissions_pending',
+      admin: true,
       title: 'عمولاتٌ بانتظار مراجعتك',
       why: 'فواتير بيعٍ عمولتها لم تُعتمد بعد.',
       go: { label: 'أدمن نقاط البيع', href: 'admin_pos.html' },
@@ -148,6 +153,7 @@
     },
     {
       id: 'transfers_received_today',
+      admin: true,
       title: 'فواتير نقلٍ أكّد فرعُها استلامَها اليوم',
       why: 'الفرع المستلِم أقرّ بوصول البضاعة وأُضيفت لمخزونه — للاطّلاع.',
       go: { label: 'فواتير النقل', href: 'inventory.html' },
@@ -156,6 +162,7 @@
     },
     {
       id: 'accounts_pending',
+      admin: true,
       title: 'حساباتٌ جديدة بانتظار الموافقة',
       why: 'مستخدمٌ أنشأ حساباً ويتصفّح فقط حتى توافق.',
       go: { label: 'الأمان والمستخدمون', href: 'الأمان_والمستخدمون.html' },
@@ -174,10 +181,31 @@
 
   var _lastResults = null;
 
+  /* (19 ت1 · TASK-0108) طلب المالك بلقطة اللوحة: «هذه الأشياء لا يجب أن تُدخل مستخدماً عادياً إلى فواتير النقل
+     والأشياء السياديّة». كانت اللوحة تعرض البنود كلّها لكلّ من يفتحها، وزرُّ «افتح فواتير النقل» يوصله للجرد.
+     الآن: البنود الموسومة admin لا تظهر لغير الأدمن **ولا تُسأل القاعدة عنها** (فلا يتسرّب عددها)، إلا بندُ
+     صفحةٍ إداريّة منحها الأدمن له بالاسم (GMTPerm). بنودُ فواتير النقل وجهتُها الجرد (صفحة موظّف) فلا تظهر له أبداً. */
+  function isAdmin() {
+    try { if (global.GMTRole && GMTRole.isAdmin) return !!GMTRole.isAdmin(); } catch (_) {}
+    try { return sessionStorage.getItem('gmt_admin_mode') === '1'; } catch (_) { return false; }
+  }
+  function canOpen(href) {
+    var P = global.GMTPerm;
+    return !P || !P.can || P.can(href);
+  }
+  function visible(it) {
+    if (isAdmin()) return true;
+    var P = global.GMTPerm;
+    if (it.admin) return !!(P && P.adminOnly && P.adminOnly(it.go.href) && P.can(it.go.href));
+    return canOpen(it.go.href);
+  }
+  function visibleItems() { return ITEMS.filter(visible); }
+
   async function collect() {
     var out = [];
-    for (var i = 0; i < ITEMS.length; i++) {
-      var it = ITEMS[i];
+    var list = visibleItems();
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
       /* eslint-disable no-await-in-loop */
       var r = await it.run();
       out.push({ item: it, n: r.n, err: r.err });
@@ -273,7 +301,7 @@
           '<div style="flex:1;min-width:0">' +
             '<div class="gn-t">' + esc(r.item.title) + '</div>' +
             '<div class="gn-w">' + esc(r.err ? ('تعذّرت القراءة: ' + r.err + ' — لا أكتب «صفر» لأنّي لا أعرف.') : r.item.why) + '</div>' +
-            ((!r.err && r.n > 0) ? '<a class="gn-go" href="' + esc(r.item.go.href) + '">افتح ' + esc(r.item.go.label) + ' ↗</a>' : '') +
+            ((!r.err && r.n > 0 && (isAdmin() || canOpen(r.item.go.href))) ? '<a class="gn-go" href="' + esc(r.item.go.href) + '">افتح ' + esc(r.item.go.label) + ' ↗</a>' : '') +
           '</div></div>';
       });
       if (!anyAction) {
@@ -350,6 +378,7 @@
   global.GMTNotify = {
     open: open,
     items: ITEMS,
+    visibleItems: visibleItems,
     collect: collect,
     last: function () { return _lastResults; },
     mount: mountButton
