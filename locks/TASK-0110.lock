@@ -1,7 +1,0 @@
-task: TASK-0110
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/wonderful-noether-fxb1fi
-files: inventory.html pos.html gmt-cat.js
-claimed_at: 2026-10-19T20:42:40Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0110
