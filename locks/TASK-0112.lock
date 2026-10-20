@@ -1,7 +1,0 @@
-task: TASK-0112
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-account.js pos.html الأمان_والمستخدمون.html js/app.js sql:gmt_user_secrets
-claimed_at: 2026-10-20T17:20:10Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0112
