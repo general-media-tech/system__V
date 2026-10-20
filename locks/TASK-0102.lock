@@ -1,0 +1,7 @@
+task: TASK-0102
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: admin_store.html admin_site.html gmt-auth.js gmt-staff.js
+claimed_at: 2026-10-20T16:47:02Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0102
