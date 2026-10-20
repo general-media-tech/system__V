@@ -5492,7 +5492,11 @@ async function loadShipFromSetting() {
 function shipFromDefault() {
     const k = shipFromSetting;
     if (!k) return { key: null, why: 'لم يُحدَّد «الفرع الافتراضي لشركة الشحن» في ⚙️ إعدادات الأوردرات' };
-    if (!muftiOfficeByKey(k)) return { key: null, why: 'الفرع الافتراضي «' + shipFromLabel(k) + '» لم يعد في دليل فروع المفتي — غيّره من ⚙️ إعدادات الأوردرات' };
+    if (!muftiOfficeByKey(k)) {
+        /* (20 ت1 · TASK-0115) فرعٌ عطّلتَه في بنك الفروع ليس «غير موجود» — نقول ما حدث فعلاً، ولا نختار بديلاً عشوائياً */
+        const off = window.GMTMuftiBank && GMTMuftiBank.byKey(k);
+        return { key: null, why: 'الفرع الافتراضي «' + shipFromLabel(k) + '» ' + (off ? 'معطَّلٌ في 🏦 بنك فروع المفتي' : 'لم يعد في دليل فروع المفتي') + ' — غيّره من ⚙️ إعدادات الأوردرات' };
+    }
     return { key: k, why: '' };
 }
 
