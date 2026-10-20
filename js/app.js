@@ -124,7 +124,7 @@
          حقلٍ لا تطلبه (حدث في عمولات الأدمن مع `order_id`).
          وتُطلَب بقراءةٍ متدرّجة: لو لم تعرف القاعدة `role` تُرفَض القائمة كلّها
          ⇒ لا دخولَ لأحد. */
-      const _U = 'username,display_name,password_hash,is_active,branch_key';
+      const _U = 'id,username,display_name,password_hash,is_active,branch_key';
       let rows = null, roleKnown = true;
       for (const cols of [_U + ',role', _U]) {
         try {
@@ -135,7 +135,8 @@
       }
       const user = (rows || [])[0];
 
-      const ok = user && user.is_active !== false && b64Variants(p).includes(user.password_hash);
+      /* (20 ت1 · TASK-0112) الفحص في القاعدة (GMTPw) — والمقارنة القديمة احتياطٌ إن لم يُحمَّل */
+      const ok = user && user.is_active !== false && (window.GMTPw ? await GMTPw.check(user, p).catch(() => false) : b64Variants(p).includes(user.password_hash));
       if (!ok) { err.textContent = 'بيانات الدخول غير صحيحة أو الحساب موقوف'; err.style.display = 'block'; return; }
 
       /* ═══════════════════════════════════════════════════════════════════

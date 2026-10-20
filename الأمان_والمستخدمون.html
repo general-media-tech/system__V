@@ -59,7 +59,7 @@ window.GMT_INTERNAL = 1;</script>
 </style>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261011h"></script>
-<script src="gmt-account.js?v=20261011e"></script>
+<script src="gmt-account.js?v=20261020a"></script>
 </head>
 <body>
 
@@ -515,10 +515,14 @@ window.GMT_INTERNAL = 1;</script>
     }
     m.className = 'msg'; m.textContent = '⏳ …';
     try {
-      await sb('POST', '/rest/v1/gmt_users', {
-        display_name: name, username: user, password_hash: b64(pw),
+      /* (20 ت1 · TASK-0112) الحساب يُنشأ بلا كلمةٍ مقروءة، ثمّ تُحفظ الكلمة مشفّرةً في الجدول المغلق */
+      var _made = await sb('POST', '/rest/v1/gmt_users', {
+        display_name: name, username: user, password_hash: GMTPw.PLACEHOLDER,
         branch_key: br || null, is_active: true
-      }, { Prefer: 'return=minimal' });
+      }, { Prefer: 'return=representation' });
+      var _row = Array.isArray(_made) ? _made[0] : _made;
+      if (!_row || !_row.id) throw new Error('أُنشئ الحساب لكن تعذّرت قراءته لحفظ كلمة السرّ — عيّنها من «تغيير كلمة السرّ»');
+      await GMTPw.set(_row.id, pw);
       m.className = 'msg ok'; m.textContent = '✅ أُضيف';
       $('u-name').value = ''; $('u-user').value = ''; $('u-pw').value = '';
       loadUsers();
@@ -568,9 +572,9 @@ window.GMT_INTERNAL = 1;</script>
            الآن: كلمةٌ عشوائيّةٌ لا تُحفظ ولا تُستعمل، لأنّ الدخول صار
            **بالكلمة السيادية** وحدها (البوّابة في pos.html). ووجودُ هاشٍ
            عشوائيّ يَسُدّ المسارات التي تفحص الهاش مباشرةً. */
-        var _rnd = 'trial-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        /* (TASK-0112) لا كلمة أصلاً: «*» لا يطابقها شيء، والدخول بالكلمة السيادية وحدها */
         await sb('POST', '/rest/v1/gmt_users', {
-          display_name: 'مستخدم تجربة', username: '0000', password_hash: b64(_rnd),
+          display_name: 'مستخدم تجربة', username: '0000', password_hash: GMTPw.PLACEHOLDER,
           branch_key: key, is_active: true, last_device_id: OPEN_DEVICE
         }, { Prefer: 'return=minimal' });
         made.push(brs[i].display_name || key);
@@ -607,7 +611,8 @@ window.GMT_INTERNAL = 1;</script>
       } else if (t.hasAttribute('data-u-pw')) {
         var np = await GMTAsk.prompt('كلمة السرّ الجديدة لـ ' + (u.display_name || u.username) + ':', { title: 'تغيير كلمة السرّ', inputType: 'password', okText: 'حفظ' });
         if (np === null || !np) return;
-        await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(id), { password_hash: b64(np) }, 'كلمة السرّ');
+        if (String(np).length < 4) { say('bad', 'كلمة السرّ: ٤ أحرف على الأقلّ'); return; }
+        await GMTPw.set(id, np);                         /* (TASK-0112) مشفّرةً في الجدول المغلق */
         say('ok', '✅ تغيّرت كلمة السرّ');
       } else if (t.hasAttribute('data-u-dev')) {
         var mkOpen = (u.last_device_id !== OPEN_DEVICE);

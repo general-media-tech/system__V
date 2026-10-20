@@ -78,6 +78,30 @@ class H(BaseHTTPRequestHandler):
         if not sel or sel == '*': return rows
         cols = [c for c in sel.split(',') if c]
         return [{c: r.get(c) for c in cols} for r in rows]
+    def pw_rpc(self, fn, b):
+        # (20 ت1 · TASK-0112) كالدوال الحقيقية: الكلمة في «جدولٍ مغلق» (_secrets — لا يُقرأ عبر REST) والقديمة تُرحَّل عند أوّل نجاح
+        import hashlib, base64
+        sec = DB.setdefault('_secrets', {})
+        H = lambda pw: 'bf$' + hashlib.sha256(('salt|' + pw).encode()).hexdigest()
+        uid = str(b.get('p_user')); users = [r for r in tbl('gmt_users') if str(r.get('id')) == uid]
+        def check(pw):
+            if not pw: return False
+            if uid in sec: return sec[uid] == H(pw)
+            if not users: return False
+            u = users[0]; lh = u.get('password_hash') or ''
+            ok = lh not in ('', '*') and (lh == base64.b64encode(pw.encode()).decode() or lh == pw)
+            if ok: sec[uid] = H(pw); u['password_hash'] = '*'; u['password'] = None
+            return ok
+        def put(pw):
+            sec[uid] = H(pw)
+            for u in users: u['password_hash'] = '*'; u['password'] = None
+        if fn == 'gmt_pw_check': return check(b.get('p_pw') or '')
+        if fn == 'gmt_pw_change':
+            if not check(b.get('p_old') or ''): return False
+            put(b.get('p_new') or ''); return True
+        if fn == 'gmt_pw_set':
+            if not users: return False
+            put(b.get('p_new') or ''); return True
     def rest(self, method):
         path, q, body = self.parse()
         if path == '/__reset': DB.clear(); return self.reply(200, {})
@@ -95,12 +119,15 @@ class H(BaseHTTPRequestHandler):
                 if OPTS['old_rpc_false'] and fn=='deduct_branch_stock' and cur + delta < 0: return self.reply(200, False)
                 r[br] = max(0, cur + delta)
                 return self.reply(200, r[br])
+            if fn in ('gmt_pw_check','gmt_pw_change','gmt_pw_set') and not OPTS.get('no_pw_fn'):
+                return self.reply(200, self.pw_rpc(fn, body or {}))
             if fn in ('gmt_create_pos','gmt_retire_pos','gmt_pos_status','gmt_pos_change_secret') and not OPTS.get('no_pos_fn'):
                 return self.reply(200, self.pos_rpc(fn, body or {}))
             return self.reply(404, {'code':'PGRST202','message':'Could not find the function'})
         m = re.match(r'^/rest/v1/(\w+)$', path)
         if not m: return self.reply(404, {'message':'not found'})
         t = m.group(1)
+        if t.startswith('_'): return self.reply(401, {'code':'42501','message':'permission denied'})
         if t in MISSING: return self.reply(404, {'code':'42P01','message':'relation "%s" does not exist' % t})
         if method == 'GET':
             return self.reply(200, self.proj(self.filt(t, q), q))

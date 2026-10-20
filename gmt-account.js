@@ -116,7 +116,7 @@
     if (ex && ex.length) throw new Error('اسم المستخدم «' + user + '» مستعمل في هذا الفرع — اختر غيره');
     /* (2026-10-05 ع) قرارك: «المستخدم بينشئ حساب وبيدخل عادي، بس ما بيحسن يعمل شي لحتى الإدارة توافق —
        تصفّح فقط متل وضع التدريب». ⇒ approved=false (SQL ٢٥). بلا العمود: مفتاح user_pending_<id>. */
-    var newRow = { display_name: name, username: user, password_hash: b64(pw),
+    var newRow = { display_name: name, username: user, password_hash: GMTPw.PLACEHOLDER,
                    branch_key: o.branch.key, is_active: true, last_device_id: OPEN_DEVICE, approved: false };
     var made, viaKey = false;
     try { made = await rest('POST', '/rest/v1/gmt_users', newRow, 'return=representation'); }
@@ -132,6 +132,7 @@
       row = back && back[0];
     }
     if (!row) throw new Error('أُرسل الحساب لكن تعذّرت قراءته — جرّب تسجيل الدخول');
+    await GMTPw.set(row.id, pw);                    /* (TASK-0112) الكلمة إلى الجدول المغلق مشفّرةً */
     if (viaKey) { try { await setKey('user_pending_' + row.id, true); } catch (_) {} }
     row.approved = false;
     var s = setSession(row, o.branch);
@@ -206,7 +207,8 @@
       if (adminKnown) throw new Error('كلمة السرّ غير صحيحة');      /* حساب أدمن بكلمة خاطئة: لا «غير موجود» المضلِّلة */
       throw new Error(o.branch && o.branch.key ? 'اسم المستخدم غير موجود في هذا الفرع' : 'اسم المستخدم غير موجود — تأكّد منه أو أنشئ حساباً');
     }
-    var okPw = rows.filter(function (r) { return r.password_hash === b64(pw) || r.password_hash === pw; });
+    var okPw = [];
+    for (var ri = 0; ri < rows.length; ri++) { if (await GMTPw.check(rows[ri], pw)) okPw.push(rows[ri]); }   /* (TASK-0112) الفحص في القاعدة */
     if (!okPw.length) throw new Error('كلمة السرّ غير صحيحة');
     var live = okPw.filter(function (r) { return r.is_active !== false; });
     if (!live.length) throw new Error('هذا الحساب موقوف — تواصل مع الإدارة');
@@ -287,9 +289,8 @@
     var un = String(o.username || '').trim().toLowerCase();
     if (un && un !== String(s.username || '').toLowerCase()) {
       if (!/^[a-z0-9_.]{3,30}$/.test(un)) throw new Error('اسم الدخول: ٣ أحرف على الأقلّ — إنجليزيّة صغيرة وأرقام و _ و . فقط');
-      var me = await rest('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(s.id) + '&select=password_hash');
-      var ch = me && me[0] && me[0].password_hash;
-      if (!o.oldPw || (ch !== b64(String(o.oldPw)) && ch !== String(o.oldPw))) throw new Error('لتغيير اسم الدخول اكتب كلمة السرّ الحالية');
+      var me = await rest('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(s.id) + '&select=id,password_hash');
+      if (!o.oldPw || !(await GMTPw.check(me && me[0], o.oldPw))) throw new Error('لتغيير اسم الدخول اكتب كلمة السرّ الحالية');
       var dup = await rest('GET', '/rest/v1/gmt_users?username=eq.' + encodeURIComponent(un) + '&select=id');
       if (Array.isArray(dup) && dup.some(function (r) { return String(r.id) !== String(s.id); })) throw new Error('اسم الدخول «' + un + '» مأخوذ — اختر غيره');
       patch.username = un;
@@ -297,10 +298,8 @@
     if (o.newPw) {
       if (String(o.newPw).length < 4) throw new Error('كلمة السرّ الجديدة: ٤ أحرف على الأقلّ');
       if (o.newPw2 != null && o.newPw2 !== o.newPw) throw new Error('كلمتا السرّ الجديدتان غير متطابقتين');
-      var rows = await rest('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(s.id) + '&select=password_hash');
-      var cur = rows && rows[0] && rows[0].password_hash;
-      if (cur !== b64(String(o.oldPw || '')) && cur !== String(o.oldPw || '')) throw new Error('كلمة السرّ الحالية غير صحيحة');
-      patch.password_hash = b64(String(o.newPw));
+      /* (TASK-0112) التحقّق والتغيير معاً في القاعدة — لا تُقرأ الكلمة القديمة ولا تُكتب في gmt_users */
+      await GMTPw.change(s.id, o.oldPw, o.newPw);
     }
     if (Object.keys(patch).length) await rest('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(s.id), patch, 'return=minimal');
     if (patch.display_name) { s.display_name = patch.display_name; lsSet('gmt_session', JSON.stringify(s)); }
@@ -311,6 +310,36 @@
     if (Object.keys(prof).length) { try { await saveProfile(s.id, prof); } catch (_) { lsSet('gmt_profile_' + s.id, JSON.stringify(Object.assign({}, profileCached(s.id) || {}, prof))); } }
     return s;
   }
+
+  /* ═══ GMTPw — كلمات سرّ الموظّفين تُفحص وتُحفظ **في القاعدة** (20 ت1 · TASK-0112) ═══
+     كان password_hash مجرّد base64 لكلمة السرّ — يُعكس فوراً — ويقرؤه أيّ أحدٍ بالمفتاح العام، والمقارنة تجري في المتصفّح.
+     الآن: الدوال gmt_pw_check / gmt_pw_change / gmt_pw_set (SECURITY DEFINER) تحفظ bcrypt في جدولٍ مغلق
+     gmt_user_secrets لا يصل إليه المفتاح العام، وتُرحّل الصيغة القديمة عند أوّل دخولٍ ناجح.
+     احتياط: إن لم تكن الدوال في القاعدة بعد (404) نعود للمقارنة القديمة كي لا يتوقّف الدخول. */
+  function noRpc(e) { return /404|PGRST202|Could not find the function|does not exist/i.test(String(e && e.message || e)); }
+  var GMTPw = {
+    check: async function (row, pw) {
+      if (!row) return false;
+      try { return (await rest('POST', '/rest/v1/rpc/gmt_pw_check', { p_user: row.id, p_pw: String(pw || '') })) === true; }
+      catch (e) {
+        if (!noRpc(e)) throw e;
+        var h = row.password_hash; return !!h && h !== '*' && (h === b64(String(pw || '')) || h === String(pw || ''));
+      }
+    },
+    change: async function (id, oldPw, newPw) {
+      var r = await rest('POST', '/rest/v1/rpc/gmt_pw_change', { p_user: id, p_old: String(oldPw || ''), p_new: String(newPw || '') });
+      if (r !== true) throw new Error('كلمة السرّ الحالية غير صحيحة');
+      return true;
+    },
+    set: async function (id, newPw) {
+      var r = await rest('POST', '/rest/v1/rpc/gmt_pw_set', { p_user: id, p_new: String(newPw || '') });
+      if (r !== true) throw new Error('تعذّر حفظ كلمة السرّ');
+      return true;
+    },
+    /* القيمة التي تُكتب في password_hash عند الإنشاء (العمود إلزامي): لا شيء يُقرأ منها — الكلمة في الجدول المغلق */
+    PLACEHOLDER: '*'
+  };
+  global.GMTPw = GMTPw;
 
   global.GMTAccount = {
     OPEN_DEVICE: OPEN_DEVICE, branches: branches, signup: signup, login: login,
