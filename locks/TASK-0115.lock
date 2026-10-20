@@ -1,0 +1,7 @@
+task: TASK-0115
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: tests/harness/t_prompts_1018.js orders.html gmt-docscan.js
+claimed_at: 2026-10-20T17:58:40Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0115
