@@ -507,13 +507,21 @@
     }
     return best;
   }
+  var GEN_LEAD = /^(خلف|امام|أمام|جانب|بجانب|قرب|مقابل|بالقرب من|شرقي|غربي|شمالي|جنوبي)\s+/;
+  function officeVariants(o) {
+    var out = [o.name].concat(o.aliases || []), n = String(o.name || '').trim(), k = 0;
+    while (GEN_LEAD.test(n) && k++ < 3) { n = n.replace(GEN_LEAD, '').trim(); if (n.split(/\s+/).join('').length >= 4) out.push(n); }
+    return out;
+  }
   function matchBranch(seg) {
     var toks = String(seg || '').split(/[\s\-–—_\/.,،:]+/).map(bareW)
       .filter(function (w) { return /[؀-ۿ]/.test(w); }).map(function (w) { return skel(w.replace(/[0-9٠-٩]+/g, '')); })
       .filter(function (w) { return w.length >= 2; });
     if (!toks.length) return { key: null, confident: false, candidates: [], text: seg || '' };
     var list = muftiOfficeList().map(function (o) {
-      var offS = [o.name].concat(o.aliases || []).reduce(function (m, n) { return Math.max(m, bestNgram(toks, n)); }, 0), cityS = bestNgram(toks, o.city);
+      /* (20 ت1 · TASK-0116 · إيصال المالك «درعا-دوار الحمامة») الدليل يسمّي المكتب «خلف دوار الحمامة» والإيصال «دوار الحمامة»:
+         كلمةٌ عامّة واحدة («خلف/جانب/مقابل…») كانت تُنزل التشابه إلى 0.81 تحت العتبة. نقارن أيضاً بالاسم بلا كلماته العامّة في أوّله. */
+      var offS = officeVariants(o).reduce(function (m, n) { return Math.max(m, bestNgram(toks, n)); }, 0), cityS = bestNgram(toks, o.city);
       var aw = String(o.addr).split(/\s+/).filter(function (w) { return w.length >= 3; }).map(skel);
       var addrS = aw.length ? aw.filter(function (w) { return toks.some(function (t) { return sim(noAl(t), noAl(w)) >= 0.85; }); }).length / aw.length : 0;
       return { key: o.key, city: o.city, offS: offS, cityS: cityS, score: offS * 0.7 + cityS * 0.3 + addrS * 0.05 };
@@ -552,14 +560,38 @@
         stage('ara');
         var ara = await getARA(), w = L.im.naturalWidth, h = L.im.naturalHeight;
         var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
-        for (var r = 0; r < rots.length; r++) {
-          var res = await ara.recognize(araCanvas(L.im, rots[r]));
-          var txt = (res && res.data && res.data.text) || '', sc = structScore(txt);
-          if (opts.trace) opts.trace.push({ rot: rots[r], struct: sc });
-          if (!best || sc > best.sc) best = { rot: rots[r], txt: txt, sc: sc };
-          if (sc >= 3) break;                                       // اتّجاهٌ سليم: كلماتُ الإيصال مقروءة
+        /* (20 ت1 · TASK-0116 · إيصالات المالك الخمسة) ثلاثة أسباب كانت تُسقط الفرع:
+           ① صورةٌ لم تمرّ بالماسح (أُلغي أو «كما هي») تُقرأ بلا تحسين — والتحسين نفسه هو ما يجعل «المصدر» مقروءاً.
+              ⇒ غير الممسوحة تُحسَّن بطبقة الماسح (لون) قبل القراءة.
+           ② كان يُختار الاتّجاه بعدد كلمات الإيصال وحده ويتوقّف عند ٣ — فيُقبل اتّجاهٌ قُرئ هيكله ولم يُقرأ سطر «المصدر».
+              ⇒ الأفضل = فرعٌ واثق ثمّ «المصدر» موجود ثمّ عدد الكلمات؛ والتوقّف عند فرعٍ واثق فقط.
+           ③ لا فرع بعد الاتّجاهات ⇒ محاولةٌ أخيرة بالأبيض والأسود في أفضل اتّجاه (أنجح على الحبر الحراري الباهت). */
+        var DS = global.GMTDocScan, srcIm = L.im;
+        function asImg(cv) { try { cv.naturalWidth = cv.width; cv.naturalHeight = cv.height; } catch (_) {} return cv; }
+        function processed(mode) {
+          if (!DS || !DS.process || !DS.detectNorm) return null;
+          try { var d = DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
         }
-        out.text = best.txt; out.rot = best.rot;
+        if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
+        function attempt(im, rot, tag) {
+          return ara.recognize(araCanvas(im, rot)).then(function (res) {
+            var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
+            var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag };
+            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag });
+            return a;
+          });
+        }
+        for (var r = 0; r < rots.length; r++) {
+          var a = await attempt(srcIm, rots[r], srcIm === L.im ? 'as-is' : 'color');
+          if (!best || a.rank > best.rank) best = a;
+          if (a.m && a.m.confident) break;                          // اتّجاهٌ سليم والفرع واضح
+          if (r >= 1 && best.sc >= 3 && best.src) break;            // «المصدر» مقروء في اتّجاهٍ سليم — لا داعي للبقيّة
+        }
+        if (!(best.m && best.m.confident) && best.sc >= 2) {
+          var bw = processed('bw');
+          if (bw) { var a2 = await attempt(bw, best.rot, 'bw'); if (a2.rank > best.rank) best = a2; }
+        }
+        out.text = best.txt; out.rot = best.rot; out._best = best;
         if (best.sc < 2) return null;                               // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
         stage('digits');
         var eng = await getOCR(), cv = enhance(crop(L.im, [0, 0, 1, 1], best.rot, 2400), 'contrast');
@@ -591,8 +623,9 @@
       else out.tracking = { status: 'none' };
 
       out.type = receiptType(out.text + '\n' + (out.engText || ''));
-      var src = sourceSegment(out.text);
-      out.branch = src ? matchBranch(src.seg) : { key: null, confident: false, candidates: [], text: '' };
+      var src = (out._best && out._best.src) || sourceSegment(out.text);
+      out.branch = src ? ((out._best && out._best.src === src && out._best.m) || matchBranch(src.seg)) : { key: null, confident: false, candidates: [], text: '' };
+      delete out._best;
       if (src) out.branch.line = src.line;
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
