@@ -2387,7 +2387,7 @@ function smartPasteAddr(el, raw) {
             const inText = GMTOffices.companyInText ? GMTOffices.companyInText(s) : '';
             const hit = GMTOffices.resolve(region, formCo, s);
             if (hit) {
-                _spConsumed = [region, hit.city, hit.name].filter(Boolean);
+                _spConsumed = [region, hit.city, hit.name].concat(spOfficeWords(hit.name, s)).filter(Boolean);
                 window._spConsumed = _spConsumed;
                 el.value = hit.city + ' — ' + hit.name + (hit.addr ? ' · ' + hit.addr : '') +
                            (hit.phone ? ' ☎ ' + hit.phone : '');
@@ -2445,6 +2445,18 @@ let _spConsumed = [];
 window._spConsumed = _spConsumed;
 let _spExtra = [];          // (§١٠) ما لم يُفهم من العلامات أو زاد عن ٤ كلمات في الاسم — يُترك للموظّف
 
+/* (20 ت1 · TASK-0114) «درعا الحمامة» ⇐ مكتب «خلف دوار الحمامة»: الاسم كاملاً ليس في الرسالة فلا يُحذف، فكانت «الحمامة»
+   تبقى منتجاً/مجهولاً. هذه كلمات اسم المكتب المميِّزة الموجودة فعلاً في الرسالة (لا «خلف/دوار/جانب…») — تُحذف معه. */
+function spOfficeWords(officeName, text) {
+    const GEN = /^(خلف|امام|أمام|جانب|بجانب|قرب|مقابل|دوار|دوّار|شارع|ساحة|حي|حيّ|مفرق|طريق|بناء|مبنى|سوق|كراج|مدخل|نزلة|طلعة|جسر)$/;
+    const nf = (window.GMTOffices && GMTOffices.norm) ? GMTOffices.norm : (x => String(x || '').trim());
+    const t = nf(text), out = [];
+    String(officeName || '').split(/\s+/).forEach(w => {
+        const b = w.replace(/^ال/, '');
+        if (b.length >= 3 && !GEN.test(w) && !GEN.test(b) && t.indexOf(nf(b)) !== -1) out.push(w);
+    });
+    return out;
+}
 /* يبني قائمة ما استُهلك من نصّ الرسالة (تُستدعى من smartPasteAddr أيضاً) */
 function consumedAddressParts(raw, formCompany) {
     const out = [];
@@ -2455,7 +2467,10 @@ function consumedAddressParts(raw, formCompany) {
         try {
             if (window.GMTOffices && GMTOffices.resolve) {
                 const hit = GMTOffices.resolve(region, formCompany || '', flat);
-                if (hit) { out.push(hit.city); out.push(hit.name); }
+                if (hit) {
+                    out.push(hit.city); out.push(hit.name);
+                    out.push(...spOfficeWords(hit.name, flat));
+                }
             }
         } catch (_) {}
     }
@@ -2536,7 +2551,7 @@ function smartPasteProduct(el, raw, consumed) {
 /* v2: أُضيف السعر والمخزون ورابط المتجر — تحتاجها القائمة المنسدلة الحيّة كي
    يعرف الموظّف قبل الوعد للزبون: متوفّر أم لا وبكم. تغيير المفتاح يُبطل الخبيئة
    القديمة تلقائياً بلا كود ترحيل. */
-const PROD_CACHE_KEY = 'gmt_prod_catalog_v3';
+const PROD_CACHE_KEY = 'gmt_prod_catalog_v4';   /* (20 ت1 · TASK-0114) v4: الكتالوج المحفوظ سابقاً بلا صور/أسعار يُهمَل */
 const PROD_CACHE_TTL = 12 * 3600 * 1000;
 let _prodCatalog = null;
 
@@ -2559,9 +2574,13 @@ async function loadProductCatalog(force) {
            إن ذُكر عمود غير موجود (النمط P1)، والمالك لم يشغّل SQL 37 بعد — فلو
            طلبنا search_terms مباشرةً لسقط الكتالوج كلّه ومعه كل الاقتراحات.
            كل محاولة تُسقط ما قد يكون غائباً وتبقي ما قبله. */
+        /* 🔴 (20 ت1 · TASK-0114 · لقطة المالك «الصورة ما بتبين») العمود `aleppo_main` **غير موجود** في القاعدة —
+           فكانت المحاولتان الأوليان تُرفضان دائماً ويسقط الكتالوج إلى «id,name,barcode»: لا صور ولا أسعار ولا
+           مخزون ولا مصطلحات بحث (فضعفت المطابقة نفسها أيضاً). مخزن حلب الرئيسي هو العمود `haleb` (inv_columns). */
         const _tries = [
-            'id,name,barcode,price,image_url,store_url,group_name,short,search_terms,compat,aleppo_main',
-            'id,name,barcode,price,image_url,store_url,group_name,short,aleppo_main',
+            'id,name,barcode,price,image_url,store_url,group_name,short,search_terms,compat,haleb',
+            'id,name,barcode,price,image_url,store_url,group_name,short,search_terms,compat',
+            'id,name,barcode,price,image_url,group_name',
             'id,name,barcode'
         ];
         let r = null, url = '';
@@ -2574,7 +2593,7 @@ async function loadProductCatalog(force) {
         const rows = (await r.json()).map(p => ({
             id: p.id, name: p.name, barcode: p.barcode, price: p.price,
             image_url: p.image_url, store_url: p.store_url, group_name: p.group_name, short: p.short,
-            search_terms: p.search_terms, compat: p.compat, qty: p.aleppo_main }));
+            search_terms: p.search_terms, compat: p.compat, qty: p.haleb }));
         _prodCatalog = window.GMTSuggest
             ? GMTSuggest.prepare(rows)
             : (rows || []).filter(p => p && p.name).map(p => ({
@@ -2920,6 +2939,7 @@ async function fillProductsFromText(raw) {
 
     /* الموسوم بـ # منتجٌ قطعاً ويتقدّم في الترتيب — قرار الإنسان أوّلاً */
     if (forced.prod.length) parts = forced.prod.concat(parts).slice(0, 12);
+    const forcedSet = new Set(forced.prod);
     if (forced.addr.length) dropped.push(...forced.addr);
     if (forced.note.length) {
         const nEl = document.getElementById('in-notes');
@@ -2975,8 +2995,23 @@ async function fillProductsFromText(raw) {
         const _q   = qtyRead(part);
         const qty  = _q.qty;
         const text = _q.clean || part;
-        /* (ق) «أو ألغي زرّ التعرّف على المنتجات ويعود ما يتعرّف من الجرد — تنكتب مثل ما هي حرفياً» */
-        if (!gmtRecogOn()) { addItemRow('add', text, qty); return; }
+        /* (20 ت1 · TASK-0114) «ما يُعرف أنّه منتج يُضاف، وما لا يُعرف أمنتجٌ أم ملاحظةٌ أم عنوان يُترك لي»:
+           الموسوم بـ# منتجٌ قطعاً (قرار الإنسان) — يُكتب كما هو في الوضعين. */
+        if (forcedSet.has(part)) {
+            const fc = (catalog.length && window.GMTSuggest) ? GMTSuggest.suggest(text, catalog, 3, 0.35) : [];
+            const fb = fc[0], fsure = gmtRecogOn() && fb && fb.score >= 0.97 && !fb.tie;
+            matched++;
+            try { addItemRow('add', fsure ? fb.name : text, qty, { pid: fsure && fb.product ? String(fb.product.id) : '', bc: fsure && fb.product ? String(fb.product.barcode || '') : '', state: 'ok', raw: part }); } catch (_) {}
+            return;
+        }
+        /* (ق) «أو ألغي زرّ التعرّف على المنتجات ويعود ما يتعرّف من الجرد — تنكتب مثل ما هي حرفياً»
+           (20 ت1 · TASK-0114) حرفياً = بنصّ الزبون لا باسم الجرد — لكن **ما يُشبه منتجاً في الجرد فقط**؛ سطرٌ لا يشبه
+           أيّ منتج (اسم مكان · ملاحظة) لم يُعرف أنّه منتج ⇒ يُترك لك في «ما تعرّفنا عليهم» ولا يُضاف صفّاً. */
+        if (!gmtRecogOn()) {
+            const lc = (catalog.length && window.GMTSuggest) ? GMTSuggest.suggest(text, catalog, 1, 0.35) : [];
+            if (catalog.length && (!lc.length || lc[0].score < 0.45)) { notUnderstood++; unmatched.push(part); return; }
+            addItemRow('add', text, qty); return;
+        }
         /* (ق) ما اخترتَه سابقاً لهذا النصّ نفسه ⇒ يُعرف فوراً */
         const _mem = gmtRecogMemGet()[gmtRecogKey(text)] || gmtRecogMemGet()[gmtRecogKey(part)];
         if (_mem && catalog.some(c => String(c.name).trim() === _mem.n)) {
@@ -8813,7 +8848,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261019f"></script>
+<script src="gmt-whatsnew.js?v=20261020b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
