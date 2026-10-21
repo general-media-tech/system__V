@@ -7,7 +7,8 @@
    `git fetch origin <COORD> && git checkout -B <COORD> origin/<COORD>` — **بإذن المالك المكتوب في الدستور (ملحق المادة ٩)**، حتى لو أعطتك بيئتك فرعاً آخر. إن لم تستطع، فصرّح بذلك للمالك.
 4. شغّل `scripts/gov.sh start` (حالة Git · الأقفال · التسليمات · المهام غير المنتهية) وطابقها مع الملفات الفعلية.
 5. احجز مهمةً واحدة قبل لمس أيّ ملف: `scripts/gov.sh claim TASK-xxxx "الملفات"`. الحجز مضمون فقط إن نجح الدفع.
-6. عند الاقتراب من نفاد التوكنز أو أيّ توقّف: بروتوكول التسليم (المادة ٧) ⇐ `handoffs/TASK-xxxx.md` من القالب في [`handoffs/README.md`](handoffs/README.md)، ثمّ تقرير الجلسة في [`handoffs/SESSION_LOG.md`](handoffs/SESSION_LOG.md).
+6. اقرأ آخر طلبات المالك المحفوظة حرفياً في جدول `gmt_owner_log` (قاعدة Supabase الرئيسية · عبر أداة Supabase) وأدرِج كل رسالةٍ جديدة منه **قبل** تنفيذها — ملحق المالك (ب) في الدستور.
+7. عند الاقتراب من نفاد التوكنز أو أيّ توقّف: بروتوكول التسليم (المادة ٧) ⇐ `handoffs/TASK-xxxx.md` من القالب في [`handoffs/README.md`](handoffs/README.md)، ثمّ تقرير الجلسة في [`handoffs/SESSION_LOG.md`](handoffs/SESSION_LOG.md).
 
 ## حقائق المشروع
 - نظامٌ ثابت (HTML/JS بلا بناء) على GitHub Pages + Supabase. **المستودع عامّ** ⇐ لا أسرار ولا تفاصيل ثغرات في أيّ ملف.
