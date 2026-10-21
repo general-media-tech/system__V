@@ -1,0 +1,7 @@
+task: TASK-0117
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: PROJECT_CONSTITUTION.md CLAUDE.md TASK_REGISTRY.md handoffs/SESSION_LOG.md
+claimed_at: 2026-10-21T06:30:18Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0117
