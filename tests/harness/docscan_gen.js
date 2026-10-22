@@ -31,14 +31,19 @@ window.__mkCase = function (o, tex) {
   const id = x.getImageData(0, 0, W, H), d = id.data, td = tex.getContext('2d').getImageData(0, 0, tw, th).data;
   const minx = Math.max(0, Math.floor(Math.min(...q.map(p => p[0])))), maxx = Math.min(W - 1, Math.ceil(Math.max(...q.map(p => p[0]))));
   const miny = Math.max(0, Math.floor(Math.min(...q.map(p => p[1])))), maxy = Math.min(H - 1, Math.ceil(Math.max(...q.map(p => p[1]))));
-  for (let y = miny; y <= maxy; y++) for (let X = minx; X <= maxx; X++) {
-    const w = Hm[6] * X + Hm[7] * y + 1, u = (Hm[0] * X + Hm[1] * y + Hm[2]) / w, v = (Hm[3] * X + Hm[4] * y + Hm[5]) / w;
+  const cv2 = o.curve || 0;   // حوافّ مقوّسة (إيصالٌ مجعّد): إزاحةٌ جيبيّة لإحداثيّات النسيج
+  const pad = cv2 ? Math.ceil(cv2 * Math.max(W, H)) : 0;
+  for (let y = Math.max(0, miny - pad); y <= Math.min(H - 1, maxy + pad); y++) for (let X = Math.max(0, minx - pad); X <= Math.min(W - 1, maxx + pad); X++) {
+    const w = Hm[6] * X + Hm[7] * y + 1; let u = (Hm[0] * X + Hm[1] * y + Hm[2]) / w, v = (Hm[3] * X + Hm[4] * y + Hm[5]) / w;
+    if (cv2) { u += Math.sin(v / th * Math.PI) * cv2 * tw * 0.9 * (u / tw - 0.5) * 2; v += Math.sin(u / tw * Math.PI * 2) * cv2 * th * 0.5; }
     if (u < 0 || v < 0 || u >= tw - 1 || v >= th - 1) continue;
     const ti = ((v | 0) * tw + (u | 0)) * 4, k = (y * W + X) * 4, lit = 0.86 + 0.12 * (u / tw) - (o.lowlight ? 0.35 : 0);
     d[k] = td[ti] * lit * 0.97; d[k + 1] = td[ti + 1] * lit * 0.98; d[k + 2] = Math.min(255, td[ti + 2] * lit * 1.03);
   }
   x.putImageData(id, 0, 0);
   if (o.hand) { x.fillStyle = '#c99a83'; x.beginPath(); x.ellipse(o.hand[0] * W, o.hand[1] * H, o.hand[2] * W, o.hand[3] * H, 0.3, 0, 7); x.fill(); }
+  if (o.fingers) o.fingers.forEach(f => { x.fillStyle = '#b8846d'; x.beginPath(); x.ellipse(f[0] * W, f[1] * H, 0.05 * W, 0.035 * H, f[2] || 0, 0, 7); x.fill(); });
+  if (o.glare) { const g = x.createRadialGradient(o.glare[0] * W, o.glare[1] * H, 0, o.glare[0] * W, o.glare[1] * H, o.glare[2] * W); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
   if (o.shade) { const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
   if (o.noise) { const id2 = x.getImageData(0, 0, W, H), e = id2.data; let s = 3; for (let i = 0; i < e.length; i += 4) { s = (s * 16807) % 2147483647; const n = (s / 2147483647 - 0.5) * o.noise; e[i] += n; e[i + 1] += n; e[i + 2] += n; } x.putImageData(id2, 0, 0); }
   let out = bg;
