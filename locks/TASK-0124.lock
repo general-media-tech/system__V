@@ -1,7 +1,0 @@
-task: TASK-0124
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: orders.html sw.js gmt-whatsnew.js tests/harness
-claimed_at: 2026-10-22T15:55:14Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0124
