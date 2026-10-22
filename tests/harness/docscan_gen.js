@@ -69,7 +69,7 @@ window.__SYN = [
 ];
 window.__err = function (pred, gt) {     // أكبر خطأ ركن ÷ القطر (النِسَب مقيّدة بالإطار) + هل قُصّ شيءٌ من الورقة
   const cl = p => [Math.max(0, Math.min(1, p[0])), Math.max(0, Math.min(1, p[1]))];
-  const G = gt.map(cl), P = pred, diag = Math.SQRT2;
+  const G = GMTDocScan._order(gt.map(cl)), P = GMTDocScan._order(pred.map(p => p.slice())), diag = Math.SQRT2;   // نفس ترتيب الأركان للطرفين
   const e = Math.max(...G.map((g, i) => Math.hypot(P[i][0] - g[0], P[i][1] - g[1]))) / diag;
   // قصّ: أبعد ركن GT خارج الرباعي المتوقّع
   function sd(px, py) { let md = Infinity; for (let i = 0; i < 4; i++) { const A = P[i], B = P[(i + 1) % 4], L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1; md = Math.min(md, ((B[0] - A[0]) * (py - A[1]) - (B[1] - A[1]) * (px - A[0])) / L); } return md; }

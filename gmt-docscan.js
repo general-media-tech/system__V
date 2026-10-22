@@ -215,7 +215,11 @@
         for (yy = 0; yy < H; yy++) { u[yy * W + xx] = s * kk; var ai = (yy + rad + 1) * W + xx, ri = (yy - rad) * W + xx; s += t[ai > lastR + xx ? lastR + xx : ai] - t[ri < xx ? xx : ri]; } }
       return u;
     }
-    var Ps = blur(P, 3), Lb = blur(blur(L, 2), 2), Ub = blur(U, 3), Vb = blur(V, 3);
+    var Ps = blur(P, 3), Lb = blur(blur(L, 2), 2), Ub = blur(U, 3), Vb = blur(V, 3), Lm = blur(L, 5);
+    /* (TASK-0125) «حبر»: بكسلٌ أغمق من جواره القريب بوضوح (٢٥+) وسط محيطٍ فاتح — خطوط النصّ والجداول المطبوعة. الخلفيات
+       الداكنة (لوحة مفاتيح) والمتدرّجة (خشب) لا تعطي حبراً؛ ورقٌ خلف طيّةٍ أو ظلٍّ أو حول يدٍ يعطيه. */
+    var INK = new Uint8Array(n);
+    for (i = 0; i < n; i++) if (Lm[i] >= 110 && Lm[i] - L[i] >= 25) INK[i] = 1;
     function at(arr, px, py) { px = px | 0; py = py | 0; if (px < 0 || py < 0 || px >= W || py >= H) return -1; return arr[py * W + px]; }
     /* الفرق بين نقطتين (سطوعٌ ولون) — بلا افتراض أيّهما أفتح */
     function fdiff(x1, y1, x2, y2) {
@@ -270,6 +274,30 @@
     }
     cand.sort(function (p, q) { return q.v - p.v; });
     cand = cand.slice(0, 140);
+    /* (TASK-0125) تدقيق كل خطٍّ مرشّح بنقاط حافّته (مربّعات صغرى كلّية): هاف يعطي أقرب درجةٍ صحيحة، وعلى حافّةٍ طويلة مائلة نصفُ
+       درجةٍ يُبعد طرفيها ٤–٥ بكسل فلا «تلمس» الحافّةُ إلّا جزءاً من الخط ⇒ تخسر أمام خطوط الجدول داخل الورقة (المائلة والمنظور:
+       ٥٥–٦٦٪ قصّ في مسح السيناريوهات). */
+    function fitLine(l) {
+      for (var it = 0; it < 2; it++) {
+        var px0 = l.r * l.cs, py0 = l.r * l.sn, dx = -l.sn, dy = l.cs, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, m = 0;
+        for (var s5 = -D; s5 <= D; s5 += 1.5) {
+          var X = px0 + dx * s5, Y = py0 + dy * s5; if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+          for (var q5 = -3; q5 <= 3; q5++) {
+            var qx = Math.round(X + l.cs * q5), qy = Math.round(Y + l.sn * q5); if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+            var kk = qy * W + qx; if (!E[kk]) continue;
+            var dp = Math.cos(A[kk]) * l.cs + Math.sin(A[kk]) * l.sn; if (dp < 0.9 && dp > -0.9) continue;
+            sx += qx; sy += qy; sxx += qx * qx; syy += qy * qy; sxy += qx * qy; m++; break;
+          }
+        }
+        if (m < 12) return;
+        var mx = sx / m, my = sy / m, cxx = sxx / m - mx * mx, cyy = syy / m - my * my, cxy = sxy / m - mx * my;
+        var th = 0.5 * Math.atan2(2 * cxy, cxx - cyy), nxx = -Math.sin(th), nyy = Math.cos(th);   // th = اتّجاه الخط ⇒ العمود عليه
+        if (nxx * l.cs + nyy * l.sn < 0) { nxx = -nxx; nyy = -nyy; }
+        l.cs = nxx; l.sn = nyy; l.r = mx * nxx + my * nyy;
+        var tdeg = Math.atan2(nyy, nxx) * 180 / Math.PI; l.t = ((tdeg % 180) + 180) % 180;
+      }
+    }
+    cand.forEach(fitLine);
     function edgeAt(px, py, cs, sn) {     // حافّةٌ ضمن ±٢ على العمود، اتّجاهها عموديٌّ على الخط ⇒ +1 (تدرّجٌ مع العمود) أو -1 (عكسه) أو 0
       for (var q = -2; q <= 2; q++) {
         var qx = Math.round(px + cs * q), qy = Math.round(py + sn * q); if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
@@ -289,7 +317,16 @@
       }
       l.run = best;
     });
-    var lines = cand.filter(function (l) { return l.run >= Math.min(W, H) * 0.1; }).sort(function (p, q) { return q.run - p.run; }).slice(0, 30);
+    var lines = [];
+    cand.filter(function (l) { return l.run >= Math.min(W, H) * 0.1; }).sort(function (p, q) { return q.run - p.run; }).forEach(function (l) {
+      if (lines.length >= 30) return;
+      var dup = lines.some(function (o) {                        // بعد التدقيق قد يلتقي مرشّحان على الخط نفسه
+        var same = Math.abs(o.cs - l.cs) < 0.03 && Math.abs(o.sn - l.sn) < 0.03 && Math.abs(o.r - l.r) < 5;
+        var flip = Math.abs(o.cs + l.cs) < 0.03 && Math.abs(o.sn + l.sn) < 0.03 && Math.abs(o.r + l.r) < 5;
+        return same || flip;
+      });
+      if (!dup) lines.push(l);
+    });
     [[0, 0], [0, W - 1], [90, 0], [90, H - 1]].forEach(function (q) { lines.push({ t: q[0], r: q[1], cs: CS[q[0]], sn: SN[q[0]], border: 1 }); });   // إطار الصورة (ورقةٌ تتجاوزه)
     lines.forEach(function (l, li) { l.id = li; });
 
@@ -316,14 +353,16 @@
     function convex(q) { var sg = 0; for (var z = 0; z < 4; z++) { var a = q[z], b = q[(z + 1) % 4], c = q[(z + 2) % 4], cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]); if (!cr) return false; if (!sg) sg = cr > 0 ? 1 : -1; else if ((cr > 0 ? 1 : -1) !== sg) return false; } return true; }
     var pairs = [], mnD = Math.min(W, H) * 0.12;
     for (i = 0; i < lines.length; i++) for (var j = i + 1; j < lines.length; j++) if (ang(lines[i], lines[j]) <= 35 && dist(lines[i], lines[j]) >= mnD) pairs.push([lines[i], lines[j]]);
-    var tops = [], cache = {}, mx2 = W * 0.08, my2 = H * 0.08;
+    /* (TASK-0125) ركنٌ خارج الصورة حتى ٣٥٪: إيصالٌ مائل قرب طرف الصورة يخرج رأسُ ركنه منها كثيراً (كان ٨٪ فيُرفض الرباعيّ الصحيح
+       ويُختار رباعيٌّ داخليّ يقصّ الورقة). ما يضبط ذلك: نصفُ كل ضلعٍ على الأقلّ ظاهرٌ في الصورة (frac). */
+    var tops = [], cache = {}, mx2 = W * 0.35, my2 = H * 0.35;
     for (var pa = 0; pa < pairs.length; pa++) for (var pb = pa + 1; pb < pairs.length; pb++) {
       var Pa = pairs[pa], Pb = pairs[pb];
       if (ang(Pa[0], Pb[0]) < 40 || ang(Pa[1], Pb[1]) < 40) continue;
       var Q = [inter(Pa[0], Pb[0]), inter(Pa[0], Pb[1]), inter(Pa[1], Pb[1]), inter(Pa[1], Pb[0])], bad = !Q[0] || !Q[1] || !Q[2] || !Q[3];
       for (var z = 0; z < 4 && !bad; z++) if (Q[z][0] < -mx2 || Q[z][0] > W + mx2 || Q[z][1] < -my2 || Q[z][1] > H + my2) bad = true;
       if (bad || !convex(Q)) continue;
-      var ar = polyArea(Q); if (ar < n * 0.1) continue;
+      var ar = polyArea(Q); if (ar < n * 0.06) continue;   // (TASK-0125) إيصالٌ مصوَّرٌ من بعيد: ٦٪ من الصورة (كان ١٠٪ ⇒ «الصورة كاملة»)
       var cxq = (Q[0][0] + Q[1][0] + Q[2][0] + Q[3][0]) / 4, cyq = (Q[0][1] + Q[1][1] + Q[2][1] + Q[3][1]) / 4;
       var sides = [[Pa[0], Q[0], Q[1], Pb[0], Pb[1]], [Pb[1], Q[1], Q[2], Pa[0], Pa[1]], [Pa[1], Q[2], Q[3], Pb[1], Pb[0]], [Pb[0], Q[3], Q[0], Pa[1], Pa[0]]], sc = [], ok = true, nb = 0;
       for (z = 0; z < 4; z++) {
@@ -338,10 +377,24 @@
       if (!ok) continue;
       var ms = 0, mc = 0, mins = 1, minc = 1;
       sc.forEach(function (q) { ms += q.sup / 4; mc += q.con / 4; if (q.sup < mins) mins = q.sup; if (q.con < minc) minc = q.con; });
+      /* الصغير (٦–١٠٪ · إيصالٌ مصوَّرٌ من بعيد ⇒ منظورٌ خفيف): أربعة حدودٍ حقيقيّةٍ واضحة وأضلاعٌ متقابلة شبه متوازية (لا حدّ يدٍ مائل) */
+      if (ar < n * 0.1 && (nb || minc < 0.6 || mins < 0.5 || ang(Pa[0], Pa[1]) > 12 || ang(Pb[0], Pb[1]) > 12)) continue;
       /* الرباعيّ بقدر أضعف أضلاعه: سطرٌ مطبوع داخل الورقة يأتي بتباينٍ أضعف من حدّها الحقيقي */
       tops.push({ q: Q, score: ms * 0.25 + mins * 0.15 + mc * 0.15 + minc * 0.3 + (ar / n) * 0.15 - nb * 0.04, minc: minc, nb: nb, sc: sc, area: ar });
     }
     tops.sort(function (p, q) { return q.score - p.score; });
+    /* الصغير (٦–١٠٪) وحوله حبرٌ قريبٌ يقارب ما فيه ⇒ جدولٌ أو إطارٌ داخل الإيصال لا الإيصال نفسه ⇒ يُستبعد */
+    var rg0 = Math.max(4, Math.round(Math.min(W, H) * 0.05)), mg0 = Math.max(3, Math.round(Math.min(W, H) * 0.025));
+    tops = tops.filter(function (t) {
+      if (t.area >= n * 0.1) return true;
+      var Qo = order(t.q), x0 = W, x1 = 0, y0 = H, y1 = 0, iN = 0, iS = 0, rN = 0, rS = 0;
+      Qo.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+      for (var yy = Math.max(1, (y0 - rg0) | 0); yy < Math.min(H - 1, y1 + rg0); yy += 2) for (var xx = Math.max(1, (x0 - rg0) | 0); xx < Math.min(W - 1, x1 + rg0); xx += 2) {
+        var d0 = sdq(Qo, xx, yy);
+        if (d0 > mg0) { iN++; iS += INK[yy * W + xx]; } else if (d0 < -mg0 && d0 > -rg0) { rN++; rS += INK[yy * W + xx]; }
+      }
+      return !(iN && rN && rS / rN > (iS / iN) * 0.3 + 0.002);
+    });
     /* 🛡️ حارس القصّ (كالطريقة ①) للخطوط الأضعف: محتوى كثيف خارج الرباعيّ يقارب ما داخله ⇒ الأضلاع تقصّ الورقة.
        (لا يُطبَّق على الخطوط القويّة: خلفيّةٌ مخطّطة — خشبٌ أو بلاط — تبدو له «محتوى» فيُرفض الصحيح.) */
     var strong = pct(0.9) * 0.8, mg = Math.max(4, Math.round(Math.min(W, H) * 0.03));
@@ -368,11 +421,29 @@
         for (var e4 = 0; e4 < 4; e4++) { var A4 = Qo[e4], B4 = Qo[(e4 + 1) % 4], L4 = Math.hypot(B4[0] - A4[0], B4[1] - A4[1]) || 1; md = Math.min(md, ((B4[0] - A4[0]) * (pp[1] - A4[1]) - (B4[1] - A4[1]) * (pp[0] - A4[0])) / L4); }
         return md >= tol; });
     }
-    for (i = 1; b0 && i < tops.length && i < 60; i++) {
+    /* كثافة الحبر داخل رباعيّ big وخارج small (بعيداً عن أضلاع small بهامش) — small=null ⇒ داخل big كلّه */
+    function sdq(Q, px, py) { var md = Infinity; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4], L5 = Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1; md = Math.min(md, ((B5[0] - A5[0]) * (py - A5[1]) - (B5[1] - A5[1]) * (px - A5[0])) / L5); } return md; }
+    var mgI = Math.max(3, Math.round(Math.min(W, H) * 0.025));
+    function inkIn(bigQ, smallQ) {
+      var Bq = order(bigQ), Sq = smallQ ? order(smallQ) : null, N2 = 0, S2 = 0;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
+        if (sdq(Bq, xx, yy) < mgI || (Sq && sdq(Sq, xx, yy) > -mgI)) continue;
+        N2++; S2 += INK[yy * W + xx];
+      }
+      return N2 > 30 ? S2 / N2 : 0;
+    }
+    var inkChecks = 0;
+    for (i = 1; b0 && i < tops.length && i < 300; i++) {
       var t2 = tops[i], big = t2.area >= b0.area * 1.8, mcnb = 1;
       t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
-      if (t2.score < b0.score - (big ? 0.15 : 0.08) || t2.nb > 1 || mcnb < (big ? 0.45 : 0.6) || t2.area < b0.area * 1.25 || t2.area <= best.area) continue;
-      if (contains(t2, best)) best = t2;
+      if (t2.nb > 2 || t2.area < b0.area * 1.25 || t2.area <= best.area || !contains(t2, best)) continue;
+      var near = t2.nb <= 1 && t2.score >= b0.score - (big ? 0.15 : 0.08) && mcnb >= (big ? 0.45 : 0.6);
+      /* (TASK-0125) أو: ما يزيده الأكبر فيه حبرُ الإيصال نفسه (≥٣٥٪ من كثافته داخل الأفضل) ⇒ الأفضل قطع الورقة عند طيّةٍ أو ظلٍّ
+         حادّ أو حول يد، أو الورقة تتجاوز إطار الصورة والإطار ضلعها الرابع — مهما كانت درجته (بحدٍّ أدنى صالح) */
+      var inky = false;
+      /* ضلعان على الإطار مسموحان هنا: منظورٌ حادّ يُخرج الطرف العريض من الورقة من جهتين (الحبر هو الدليل) — بحدٍّ أقصى ٨ فحوص (ثقيلة) */
+      if (!near && mcnb >= 0.5 && t2.score >= 0.45 && t2.area >= best.area * 1.25 && inkChecks < 8) { inkChecks++; var inkB = inkIn(best.q, null); inky = inkB > 0.004 && inkIn(t2.q, best.q) >= inkB * 0.35; }
+      if (near || inky) { best = t2; best.inky = inky; }
     }
     /* لصق كل ضلعٍ على الحدّ الحقيقي القريب (±٦٪): نحرّك طرفيه على العموديّ (خشنٌ ثمّ دقيق) ونختار الأقوى سنداً وتبايناً */
     function refine(Q) {
@@ -381,6 +452,9 @@
       for (var z = 0; z < 4; z++) {
         var P1 = Q[z], P2 = Q[(z + 1) % 4], ux = P2[0] - P1[0], uy = P2[1] - P1[1], ln = Math.hypot(ux, uy) || 1, nx = -uy / ln, ny = ux / ln, bst = null;
         if ((cx - P1[0]) * nx + (cy - P1[1]) * ny < 0) { nx = -nx; ny = -ny; }          // n نحو الداخل
+        /* ضلعٌ على إطار الصورة (الورقة تتجاوزه) يبقى كما هو — لا يُلصق على شيءٍ داخل الورقة */
+        var onB = function (p) { return p[0] <= 1.5 ? 'l' : p[0] >= W - 2.5 ? 'r' : p[1] <= 1.5 ? 't' : p[1] >= H - 2.5 ? 'b' : ''; }, b1 = onB(P1);
+        if (b1 && b1 === onB(P2)) { newL.push({ cs: -uy / ln, sn: ux / ln, r: P1[0] * (-uy / ln) + P1[1] * (ux / ln) }); snapped++; continue; }
         var tryAt = function (da, db) {
           var A1 = [P1[0] + nx * da, P1[1] + ny * da], B1 = [P2[0] + nx * db, P2[1] + ny * db];
           var vx = B1[0] - A1[0], vy = B1[1] - A1[1], vl = Math.hypot(vx, vy) || 1, l = { cs: -vy / vl, sn: vx / vl };
@@ -408,7 +482,55 @@
       }
       return N2 ? S2 / N2 : 0;
     }
-    return { best: best, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+
+    /* (TASK-0125) «ورقةٌ تتجاوز الإطار»: إيصالٌ مصوَّرٌ عن قرب أعرض من الصورة (أو مائلٌ يخرج طرفه) ⇒ ضلعان حقيقيّان قويّان
+       والإطار ضلعاها الآخران. لا يُستعمل إلّا بدل «الصورة كاملة»، وبشرط ألّا يكون خارجه حبر (لا قصّ: حبرٌ خارجه ≥١٥٪ من داخله
+       ⇒ الأضلاع داخل الورقة ⇒ يُرفض). */
+    function inkOut(Q) {
+      var Qo = order(Q), N2 = 0, S2 = 0;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) { if (sdq(Qo, xx, yy) > -mgI) continue; N2++; S2 += INK[yy * W + xx]; }
+      return N2 > 30 ? S2 / N2 : 0;
+    }
+    /* لون الورقة داخل رباعيّ: وسيط السطوع واللون لنقاطٍ بلا حبر */
+    function paperColor(Qo) {
+      var ls = [], us = [], vs = [];
+      for (var a = 1; a < 16; a++) for (var b = 1; b < 16; b++) {
+        var u = a / 16, v = b / 16, top = [Qo[0][0] + (Qo[1][0] - Qo[0][0]) * u, Qo[0][1] + (Qo[1][1] - Qo[0][1]) * u], bot = [Qo[3][0] + (Qo[2][0] - Qo[3][0]) * u, Qo[3][1] + (Qo[2][1] - Qo[3][1]) * u];
+        var px = (top[0] + (bot[0] - top[0]) * v) | 0, py = (top[1] + (bot[1] - top[1]) * v) | 0;
+        if (px < 0 || py < 0 || px >= W || py >= H || INK[py * W + px]) continue;
+        var k2 = py * W + px; ls.push(Lb[k2]); us.push(Ub[k2]); vs.push(Vb[k2]);
+      }
+      var med = function (a) { a.sort(function (p, q) { return p - q; }); return a.length ? a[a.length >> 1] : 0; };
+      return [med(ls), med(us), med(vs)];
+    }
+    /* ضلع الإطار: هل الشريط المحاذي له ورقٌ فعلاً (يشبه لون الورقة) — لا خلفيّةٌ قريبة اللون؟ نسبة النقاط المشابهة */
+    function paperAtBorder(Qo, z, col) {
+      var A1 = Qo[z], B1 = Qo[(z + 1) % 4], cx = (Qo[0][0] + Qo[2][0]) / 2, cy = (Qo[0][1] + Qo[2][1]) / 2, ux = B1[0] - A1[0], uy = B1[1] - A1[1], ln = Math.hypot(ux, uy) || 1, nx = -uy / ln, ny = ux / ln, hit = 0, cnt = 0;
+      if ((cx - A1[0]) * nx + (cy - A1[1]) * ny < 0) { nx = -nx; ny = -ny; }
+      for (var f = 0.05; f <= 0.95; f += 0.03) {
+        var px = (A1[0] + ux * f + nx * 3) | 0, py = (A1[1] + uy * f + ny * 3) | 0;
+        if (px < 0 || py < 0 || px >= W || py >= H || INK[py * W + px]) continue;
+        var k2 = py * W + px, dl = Lb[k2] - col[0], du = Ub[k2] - col[1], dv = Vb[k2] - col[2];
+        cnt++; if (Math.sqrt(dl * dl + 2 * du * du + 2 * dv * dv) < 20) hit++;
+      }
+      return cnt ? hit / cnt : 0;
+    }
+    var partial = null, pChecks = 0;
+    for (i = 0; i < tops.length && i < 300 && !partial && pChecks < 10; i++) {
+      var tp = tops[i]; if (tp.nb < 1 || tp.nb > 2 || tp.score < 0.3 || tp.area < n * 0.25) continue;   // ورقةٌ مقرّبة كبيرة — لا شريطٌ رفيع
+      var strongS = tp.sc.every(function (q) { return q.border || (q.con >= 0.7 && q.sup >= 0.5); });
+      if (!strongS) continue;
+      pChecks++;
+      var iin = inkIn(tp.q, null);
+      if (!(iin > 0.01 && inkOut(tp.q) < iin * 0.15 && guard(tp.q))) continue;   // وحارس القصّ أيضاً (رموزٌ وشعارٌ خارجه = ورقة)
+      var Qo3 = order(tp.q), col = paperColor(Qo3), okB = true;
+      for (var z3 = 0; z3 < 4 && okB; z3++) {
+        var A6 = Qo3[z3], B6 = Qo3[(z3 + 1) % 4], onEdge = (A6[0] <= 2 && B6[0] <= 2) || (A6[0] >= W - 3 && B6[0] >= W - 3) || (A6[1] <= 2 && B6[1] <= 2) || (A6[1] >= H - 3 && B6[1] >= H - 3);
+        if (onEdge && paperAtBorder(Qo3, z3, col) < 0.7) okB = false;
+      }
+      if (okB) partial = tp;
+    }
+    return { best: best, partial: partial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -561,8 +683,13 @@
       old = detect(id);
       if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04) { rf = lq.refine(old.corners); how = 'region'; }
     }
+    /* (TASK-0125) اختير الأكبر لأنّ حبر الإيصال يمتدّ إليه ⇒ يُقدَّم على المنطقة التقريبيّة إن كانت داخله وأصغر منه بوضوح (≤٨٥٪)
+       وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
+    else if (b && b.inky && b.score >= 0.45 && (!(old = detect(id)).ok || old.fill ||
+             (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
     else if ((old = old || detect(id)).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
-    else if (b && b.score >= 0.6 && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }
+    else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
+    if (!rf && lq.partial) { rf = lq.refine(lq.partial.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
     if (rf) q = grow(order(rf.q), rf.snapped === 4 ? 0.005 : 0.015, W, H);
     else if (old && old.fill) { q = old.corners; how = 'fill'; }
     var norm = function (qq) { return qq.map(function (p) { return [Math.max(0, Math.min(1, p[0] / W)), Math.max(0, Math.min(1, p[1] / H))]; }); };
