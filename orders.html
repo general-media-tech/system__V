@@ -3423,7 +3423,7 @@ window.openReceiptAttach = (id) => window.openShipModal(id, 'attach');
 window.openShipModal = (id, mode) => {
     shipOrderId = id;
     _shipMode = mode === 'attach' ? 'attach' : 'ship';
-    _shipScan = null; _shipRead = null; _shipReading = false;
+    _shipScan = null; _shipRead = null; _shipReading = false; _shipEarly = null; _shipOrig = null;
     _shipRcptFile = null; _shipRcptAuto = false;
     const _st = document.getElementById('ship-track-auto'); if (_st) { _st.classList.add('hidden'); _st.textContent = ''; }
     const _o0 = orders.find(x => x.id == id), _att = _shipMode === 'attach';
@@ -3479,7 +3479,8 @@ function previewShipImage(input) {
 let _shipScan = null;
 let _shipMode = 'ship', _shipReading = false, _shipSaving = false;   // (خامساً) وضع النافذة · قراءةٌ جارية · حفظٌ جارٍ (لا حفظ مزدوج)
 async function shipScanFile(file, label) {
-    _shipScan = null;
+    _shipScan = null; _shipOrig = file;
+    if (_shipEarly && _shipEarly.orig !== file) _shipEarly = null;
     /* (TASK-0122) القارئ يُحمَّل وأنت في شاشة الماسح — لا بعدها */
     if (((document.getElementById('ship-company') || {}).value || '') === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();
     let use = file;
@@ -3487,6 +3488,7 @@ async function shipScanFile(file, label) {
         try {
             const r = await GMTDocScan.open(file, {
                 title: 'مسح إشعار الشحن',
+                onDetected: (det, rot) => shipStartEarlyRead(file, rot === 0 && det && det.ok ? det.corners : null),   // (TASK-0126)
                 onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } }
             });
             if (r && r.retake) return;
@@ -3583,48 +3585,94 @@ function shipReadPaint(r, typed) {
     st.className = 'text-[11px] font-black mb-3 ' + cls;
     st.innerHTML = h;
 }
+/* (22 ت1 · TASK-0126 · المالك: «شغّل القراءة مع المسح لتوفير الوقت»)
+   كانت القراءة تبدأ بعد «اعتماد» في الماسح. الآن تبدأ لحظة يكتشف الماسح حدود الورقة (وأنت ما زلت تراجع الزوايا) على الصورة
+   الأصلية بزوايا الاكتشاف نفسها، فيُملأ الرقم والفرع خلف الماسح ويكون الغالب جاهزاً عند «اعتماد». بعد الماسح: نتيجة القراءة
+   المبكرة تُعتمد؛ وما نقصها (رقمٌ أو فرعٌ بثقة) يُقرأ من النسخة الممسوحة النهائية ويُدمج. */
+let _shipEarly = null, _shipOrig = null;
+function shipReadHooks(isMine, typed, force) {
+    const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
+    const H = { branchDone: false, earlyKey: null };
+    /* (22 ت1 · TASK-0118) كلٌّ يظهر فور قراءته: رقم الباركود (ثانية تقريباً) ثمّ الفرع — لا انتظار للقراءة كاملة */
+    H.onTracking = t => {
+        if (!isMine() || !t || !t.number) return;
+        if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
+        st.className = 'text-[11px] font-black text-emerald-700 mb-3';
+        st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (H.branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
+    };
+    H.onBranch = b => {
+        if (!isMine() || !b) return;
+        H.branchDone = true; if (window.applyDetectedShipFrom(b) === 'applied') H.earlyKey = b.key;
+        const w = st.querySelector('[data-wait]');
+        if (w) { w.removeAttribute('data-wait'); w.className = 'text-emerald-700'; w.textContent = ' · الفرع المصدر: ' + shipFromLabel(b.key); }
+    };
+    return H;
+}
+/* تبدأ القراءة مع الماسح — corners من اكتشافه (أو null فيكتشف القارئ بنفسه) */
+function shipStartEarlyRead(orig, corners) {
+    const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
+    if (!st || !inp || !window.GMTReceipt || !GMTReceipt.readMufti) return;
+    if (((document.getElementById('ship-company') || {}).value || '') !== 'المفتي') return;
+    if (_shipOrig !== orig || (_shipEarly && _shipEarly.orig === orig)) return;
+    const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig, typed, false);
+    st.className = 'text-[11px] font-bold text-gray-500 mb-3';
+    st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر (مع المسح)…';
+    _shipReading = true;
+    const E = { orig, typed, hooks, done: false, stop: false };
+    E.p = GMTReceipt.readMufti(orig, { corners: corners || null, cancel: () => E.stop, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
+        .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
+    _shipEarly = E;
+}
+/* دمج قراءتين: ما نقص الأخيرة يُؤخذ من الأولى */
+function shipMergeReads(a, b) {
+    if (!a || a.error) return b;
+    const out = Object.assign({}, b), has = t => t && t.status && t.status !== 'none';
+    if (!has(b.tracking) && has(a.tracking)) { out.tracking = a.tracking; out.barcode = a.barcode; out.printed = a.printed; }
+    /* فرعٌ من قراءةٍ أُوقفت قبل التحقّق من الشركة لا يُؤخذ إلّا إن ثبت أنّها للمفتي */
+    if (!(b.branch && b.branch.confident) && a.branch && a.branch.confident && (!a.cancelled || (a.type && a.type.kind === 'mufti'))) out.branch = a.branch;
+    if (!(b.type && b.type.kind === 'mufti') && a.type && a.type.kind === 'mufti') out.type = a.type;
+    if (!String(out.text || '').trim()) out.text = a.text;
+    return out;
+}
 async function shipReadTracking(force) {
     const st = document.getElementById('ship-track-auto');
     const inp = document.getElementById('ship-tracking');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!st || !inp) return;
     if (!_shipRcptFile || comp !== 'المفتي') { st.classList.add('hidden'); st.textContent = ''; return; }   // بقية الشركات: مسحٌ فقط
-    const typed = !!inp.value.trim() && !_shipRcptAuto;
-    st.className = 'text-[11px] font-bold text-gray-500 mb-3';
-    st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر…';
-    const myFile = _shipRcptFile;
+    const myFile = _shipRcptFile, orig = (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : myFile;
+    const isMine = () => myFile === _shipRcptFile;
+    const early = (!force && _shipEarly && _shipEarly.orig === orig) ? _shipEarly : null;
+    const typed = early ? early.typed : (!!inp.value.trim() && !_shipRcptAuto);
+    const H = early ? early.hooks : shipReadHooks(isMine, typed, force);
+    if (!early) {
+        st.className = 'text-[11px] font-bold text-gray-500 mb-3';
+        st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر…';
+    }
     _shipRead = null; _shipReading = true;
-    let branchDone = false;
     try {
         if (!window.GMTReceipt || !GMTReceipt.readMufti) throw new Error('وحدة القراءة لم تُحمَّل');
-        /* (22 ت1 · TASK-0118) كلٌّ يظهر فور قراءته: رقم الباركود (ثانية تقريباً) ثمّ الفرع — لا انتظار للقراءة كاملة */
-        const onTracking = t => {
-            if (myFile !== _shipRcptFile || !t || !t.number) return;
-            if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
-            st.className = 'text-[11px] font-black text-emerald-700 mb-3';
-            st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
-        };
-        let earlyKey = null;
-        const onBranch = b => {
-            if (myFile !== _shipRcptFile || !b) return;
-            branchDone = true; if (window.applyDetectedShipFrom(b) === 'applied') earlyKey = b.key;
-            const w = st.querySelector('[data-wait]');
-            if (w) { w.removeAttribute('data-wait'); w.className = 'text-emerald-700'; w.textContent = ' · الفرع المصدر: ' + shipFromLabel(b.key); }
-        };
-        const r = await GMTReceipt.readMufti(myFile, { original: (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : null, onTracking, onBranch });
-        if (myFile !== _shipRcptFile) return;                          // تغيّرت الصورة أثناء القراءة
+        /* قراءةٌ مبكرة لم تنتهِ عند إغلاق الماسح (إيصالٌ صعب) ⇒ تتوقّف عند خطوتها التالية ونأخذ ما وجدته، فلا تنتظر بقيّتها ثمّ قراءةً ثانية */
+        if (early && !early.done) early.stop = true;
+        let r = early ? await early.p : null;
+        if (r && r.error) r = null;
+        if (!r || r.cancelled || !r.tracking || r.tracking.status === 'none' || !(r.branch && r.branch.confident)) {
+            const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, onTracking: H.onTracking, onBranch: H.onBranch });
+            r = shipMergeReads(r, r2);
+        }
+        if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
         _shipRead = r;
         shipReadPaint(r, typed && !force);
         const b = r.branch || {};
         /* فرعٌ اعتُمد مبكراً ثمّ تبيّن أنّ الإيصال ليس للمفتي ⇒ يعود الافتراضي (ما لم تغيّره بيدك في الأثناء) */
         const sel = document.getElementById('ship-from');
-        if (earlyKey && !(b.confident && b.key === earlyKey) && sel && sel.getAttribute('data-src') === 'receipt' && sel.value === earlyKey) window.syncShipFromBox(null, true);
+        if (H.earlyKey && !(b.confident && b.key === H.earlyKey) && sel && sel.getAttribute('data-src') === 'receipt' && sel.value === H.earlyKey) window.syncShipFromBox(null, true);
         window.applyDetectedShipFrom({ key: b.key, confident: !!b.confident, candidates: b.candidates || [], text: b.text || '' });
     } catch (e) {
-        if (myFile !== _shipRcptFile) return;
+        if (!isMine()) return;
         st.className = 'text-[11px] font-black text-amber-600 mb-3';
         st.textContent = '⚠️ تعذّرت قراءة الإيصال (' + (e && e.message || 'خطأ') + ') — أدخل الرقم واختر الفرع يدوياً.';
-    } finally { if (myFile === _shipRcptFile) _shipReading = false; }
+    } finally { if (isMine()) _shipReading = false; }
 }
 
 /* ══ (19 ت1 · برومبت «الماسح الضوئي الذكي» خامساً) ربط الإيصال بالأوردر ══

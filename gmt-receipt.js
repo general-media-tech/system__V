@@ -621,14 +621,16 @@
       var bcP = (async function () {
         /* (TASK-0122) ميزانيّة محاولات الباركود البطيئة ١٠ث هنا (لا ٢٢): الصورة ممسوحة ومقوَّمة أصلاً، وفي إيصالاتك لم تنجح
            المحاولات البطيئة قطّ حيث فشلت السريعة — كانت تُبقي «جارٍ القراءة» ظاهرةً بعد ظهور الفرع بعشرين ثانية. */
-        var bc = await readTracking(file, { ocr: false, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen; } });
+        var bc = await readTracking(file, { ocr: false, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen || cancelled(); } });
         fastDone(null);
         /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
-        if (!bc.number && !printedSeen && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen; } });
+        if (!bc.number && !printedSeen && !cancelled() && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen || cancelled(); } });
         if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
         return bc;
       })();
-      var bcDone = null, printedSeen = false;           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
+      var bcDone = null, printedSeen = false;
+      /* (TASK-0126) opts.cancel() ⇒ تتوقّف القراءة عند الخطوة التالية وتُعيد ما وجدته (قراءةٌ مبكرة لم تنتهِ والماسح أُغلق) */
+      var cancelled = function () { return !!(opts.cancel && opts.cancel()); };           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
       bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
       var textP = (async function () {
         var araLoad = getARA();                                    // تحميل المكتبة بالتوازي مع الباركود
@@ -648,7 +650,8 @@
         function asImg(cv) { try { cv.naturalWidth = cv.width; cv.naturalHeight = cv.height; } catch (_) {} return cv; }
         function processed(mode) {
           if (!DS || !DS.process || !DS.detectNorm) return null;
-          try { var d = DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
+          /* (TASK-0126) زوايا جاهزة من الماسح (القراءة بدأت معه) ⇒ لا اكتشافٌ ثانٍ */
+          try { var d = opts.corners ? { corners: opts.corners } : DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
         }
         if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
         function attempt(im, rot, tag, box) {
@@ -667,22 +670,23 @@
            والنصّ المقروء يُطابَق مع فروع المفتي المعروفة (بنك الفروع + أسماؤها البديلة) — لا يُعتمد ما لا يشبه فرعاً. */
         var tagOf = function () { return srcIm === L.im ? 'as-is' : 'color'; };
         var cellRots = up != null ? [up] : rots;
-        for (var cr = 0; cr < cellRots.length && !(best && best.m && best.m.confident); cr++) {
+        for (var cr = 0; cr < cellRots.length && !(best && best.m && best.m.confident) && !cancelled(); cr++) {
           var ac = await attempt(srcIm, cellRots[cr], tagOf(), CELL);
           if (ac.m && ac.m.confident) best = ac;
         }
-        if (up != null && !(best && best.m && best.m.confident)) {
+        if (up != null && !(best && best.m && best.m.confident) && !cancelled()) {
           var ab = await attempt(srcIm, up, tagOf(), BAND);
           if (ab.m && ab.m.confident) best = ab;
         }
-        for (var r = 0; r < rots.length && !(best && best.m && best.m.confident); r++) {
+        for (var r = 0; r < rots.length && !(best && best.m && best.m.confident) && !cancelled(); r++) {
           var a = await attempt(srcIm, rots[r], srcIm === L.im ? 'as-is' : 'color');
           if (!best || a.rank > best.rank) best = a;
           if (a.m && a.m.confident) break;                          // اتّجاهٌ سليم والفرع واضح
           if (up != null && r === 0 && a.src) break;                // اتّجاه الـQR صحيح و«المصدر» مقروء
           if (r >= 1 && best.sc >= 3 && best.src) break;            // «المصدر» مقروء في اتّجاهٍ سليم — لا داعي للبقيّة
         }
-        if (!(best.m && best.m.confident) && best.sc >= 2) {
+        if (!best) { out.cancelled = true; return null; }               // أُلغيت قبل أيّ قراءة
+        if (!(best.m && best.m.confident) && best.sc >= 2 && !cancelled()) {
           var bw = processed('bw');
           if (bw) { var a2 = await attempt(bw, best.rot, 'bw'); if (a2.rank > best.rank) best = a2; }
         }
@@ -691,6 +695,7 @@
         /* قُرئت خانةٌ أو شريطٌ فقط ⇒ علامات الشركة (اسمها أعلى الإيصال · هواتف مكاتبها في التذييل) لم تُقرأ. قاعدة 18 ت1: لا يُنسب
            إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع. */
         if (best.box && best.m && best.m.confident && receiptType(best.txt).kind !== 'mufti') {
+          if (cancelled()) { out.cancelled = true; return []; }       // لم يُتحقّق من الشركة ⇒ يُعلَّم ناقصاً
           stage('mark');
           var foot = (await attempt(srcIm, best.rot, 'mark', MARK_FOOT)).txt;      // التذييل أوّلاً: هواتف المكاتب أوثق من الاسم المطبوع باهتاً
           out.text = best.txt + '\n' + foot; out.footText = foot;
@@ -698,6 +703,7 @@
         }
         if (best.sc < 2 && !(best.m && best.m.confident)) return null;   // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
         if (bcDone && bcDone.number) return [];                     // ③ الباركود يكفي (ولا ننتظر محاولاته البطيئة إن لم ينتهِ)
+        if (cancelled()) { out.cancelled = true; return []; }
         stage('digits');
         var eng = await getOCR(), cv = enhance(crop(L.im, [0, 0, 1, 1], best.rot, 2400), 'contrast');
         var er = await eng.recognize(cv, {}, { blocks: true }), words = [];

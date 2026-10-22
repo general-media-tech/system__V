@@ -16,7 +16,7 @@
      • التحسين يقسم على إضاءة الخلفية (لا يرسم ولا يُكمل شيئاً): الحبر يبقى حبراً،
        والأرقام والباركود كما هي.
 
-   GMTDocScan.open(file, { title }) ⇒ Promise<null | { retake:true } |
+   GMTDocScan.open(file, { title, onRetake, onDetected(det, rot) }) ⇒ Promise<null | { retake:true } |
         { original: File, scanned: Blob, mode: 'color'|'bw', corners, rotation }>
    GMTDocScan.detect(imageData) · GMTDocScan.process(img, corners, rot, mode) — للاختبار
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -600,11 +600,15 @@
         /* (TASK-0123) الاكتشاف بالخطوط أثقل (≈١ث على هاتفٍ متوسّط): النافذة تظهر فوراً بالصورة، والزوايا «تُلصق» بعد لحظة.
            لمستَ زاويةً قبلها ⇒ اختيارك يبقى · ضغطتَ «قصّ» قبلها ⇒ يُكمَل الاكتشاف أوّلاً. */
         var rot = 0, det = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]], ok: true, why: '' }, corners = det.corners, mode = 'color', view = 'edit', result = null, busy = false;
-        var pending = 0, touched = false;
+        var pending = 0, touched = false, reported = false;
         function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) corners = det.corners; }
         function detectSoon() {
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
-          pending = setTimeout(function () { pending = -1; detectNow(); if (view === 'edit') { paintQuad(); say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.'); } }, 60);
+          pending = setTimeout(function () {
+            pending = -1; detectNow(); if (view === 'edit') { paintQuad(); say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.'); }
+            /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
+            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners, ok: det.ok, how: det.how }, rot); } catch (_) {} }
+          }, 60);
         }
         var root = doc.createElement('div'); root.id = 'gds'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
         root.innerHTML =
