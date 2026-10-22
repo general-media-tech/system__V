@@ -3473,8 +3473,8 @@ function previewShipImage(input) {
 
 /* ══ 📄 مسح إشعار الشحن — (19 ت1 · برومبت «الماسح الضوئي الذكي») ══
    كل صورةٍ تُختار أو تُلتقط تفتح الماسح الداخلي (gmt-docscan.js): اكتشاف الورقة · قصّ · تصحيح منظور · إزالة ظلال ·
-   وضوح · أبيض وأسود اختياري · زوايا يدوية · مقارنة بالأصل. **الأصل يبقى**: يذهب كما هو إلى أرشيف تيليغرام، والنسخة
-   الممسوحة الأوضح تُحفظ على الأوردر وتُقرأ منها الأرقام (ثمّ من الأصل إن لم يُقرأ شيء). إلغاء الماسح ⇒ الصورة كما هي.
+   وضوح · أبيض وأسود اختياري · زوايا يدوية · مقارنة بالأصل. النسخة الممسوحة الأوضح تُحفظ على الأوردر وتُقرأ منها الأرقام
+   (ثمّ من الأصل إن لم يُقرأ شيء)، **وهي التي تُرسل إلى تيليغرام** (22 ت1 · TASK-0124 — كان الأصل يُرسل). إلغاء الماسح ⇒ الصورة كما هي.
    لكل شركات الشحن؛ قراءة الرقم للمفتي فقط كما كانت. */
 let _shipScan = null;
 let _shipMode = 'ship', _shipReading = false, _shipSaving = false;   // (خامساً) وضع النافذة · قراءةٌ جارية · حفظٌ جارٍ (لا حفظ مزدوج)
@@ -3501,7 +3501,7 @@ async function shipScanFile(file, label) {
     /* الارتفاع بـ style لا بالصنف max-h-48: هذا الصنف غير موجود في lib/tailwind.css المبنيّ مسبقاً فكانت الصورة بطولها كاملاً */
     preview.innerHTML = `<img src="${url}" class="w-full object-contain rounded-lg bg-white" style="max-height:12rem" />` +
         (_shipScan
-            ? `<span class="text-xs font-bold text-emerald-600 mt-1">📄 مُسح ضوئياً${_shipScan.mode === 'bw' ? ' (أبيض وأسود)' : ''} — الأصل محفوظ</span>` +
+            ? `<span class="text-xs font-bold text-emerald-600 mt-1">📄 مُسح ضوئياً${_shipScan.mode === 'bw' ? ' (أبيض وأسود)' : ''} — هذه النسخة تُحفظ وتُرسل للتلغرام</span>` +
               `<button type="button" onclick="shipRescan()" class="text-[11px] font-black text-gray-500 underline">✂️ إعادة المسح / تعديل الزوايا</button>`
             : `<span class="text-xs font-bold text-emerald-600 mt-1">${escH(label || '✅ تم اختيار الصورة')}</span>`);
     _shipRcptFile = use; shipReadTracking();
@@ -3629,9 +3629,9 @@ async function shipReadTracking(force) {
 
 /* ══ (19 ت1 · برومبت «الماسح الضوئي الذكي» خامساً) ربط الإيصال بالأوردر ══
    • الحقول الموجودة تُستعمل كما هي: receipt_img (النسخة الممسوحة المضغوطة — مؤقّتة حتى «تم التحصيل») · receipt_at · tracking_number ·
-     shipping_company · ship_from_office. والأصل يبقى في أرشيف تيليغرام (كما كان) ويُسجَّل رقم رسالته.
+     shipping_company · ship_from_office. والنسخة الممسوحة تُرسل إلى أرشيف تيليغرام (TASK-0124) ويُسجَّل رقم رسالتها.
    • عمودٌ واحد جديد receipt_meta (jsonb): حالة التحقّق من رقم التتبّع وكيف حُسم · حالة الفرع ومصدره · نوع الإيصال · من أضافه ومتى ·
-     مكان الأصل في تيليغرام · الإيصالات السابقة إن اخترتَ «الاحتفاظ بالنسختين».
+     مكان الإيصال في تيليغرام · الإيصالات السابقة إن اخترتَ «الاحتفاظ بالنسختين».
    • رقم تتبّعٍ مسجَّل على أوردرٍ آخر ⇒ تحذيرٌ قبل الحفظ، والمتابعة للمخوَّل فقط.
    • إيصالٌ سابق على الأوردر ⇒ لا استبدال صامت: «الاحتفاظ بالنسختين» أو «استبدال السابق» أو إلغاء.
    • لا حفظ مزدوج: زرّ الحفظ يُقفل حتى ينتهي الحفظ. */
@@ -3640,7 +3640,6 @@ function shipPickedFiles() {
     return (cam && cam.files && cam.files[0]) || (lib && lib.files && lib.files[0]) || null;
 }
 function shipReceiptFile() { return (_shipScan && _shipScan.scanned) || shipPickedFiles(); }
-function shipOriginalFile() { return (_shipScan && _shipScan.original) || shipPickedFiles(); }
 /* أوردرات أخرى (غير محذوفة) عليها الرقم نفسه — من القائمة المحمّلة ومن القاعدة (قد لا تكون كل الأوردرات محمّلة) */
 async function trackingTakenBy(num, id) {
     num = String(num || '').trim(); if (!num) return [];
@@ -3668,7 +3667,7 @@ async function confirmTrackingDup(num, id) {
 async function receiptKeepChoice(o) {
     if (!o || !o.receipt_img) return 'new';
     const when = o.receipt_at ? new Date(o.receipt_at).toLocaleString('ar-SY', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
-    return GMTAsk.choose('لهذا الأوردر إيصال شحنٍ محفوظ' + (when ? ' (' + when + ')' : '') + '. ماذا نفعل بالإيصال الجديد؟\n(الأصل في الحالتين محفوظ في أرشيف تيليغرام.)', {
+    return GMTAsk.choose('لهذا الأوردر إيصال شحنٍ محفوظ' + (when ? ' (' + when + ')' : '') + '. ماذا نفعل بالإيصال الجديد؟\n(الإيصال الممسوح في الحالتين محفوظ في أرشيف تيليغرام.)', {
         title: '🧾 إيصالٌ سابق', icon: 'ask', cancelText: 'إلغاء',
         choices: [{ k: 'both', t: 'الاحتفاظ بالنسختين', pri: 1 }, { k: 'replace', t: 'استبدال السابق بالجديد' }] });
 }
@@ -3711,7 +3710,7 @@ async function waitReadingOrGo() {
         choices: [{ k: 'go', t: 'احفظ الآن بلا انتظار' }] });
     return k === 'go';
 }
-/* يحفظ رقم رسالة الأصل في تيليغرام داخل receipt_meta (حفظٌ ثانويّ لا يُفشل شيئاً) */
+/* يحفظ رقم رسالة الإيصال في تيليغرام داخل receipt_meta.orig_tg (الاسم باقٍ للتوافق؛ صارت النسخة الممسوحة — TASK-0124) */
 async function saveReceiptTg(id, msgId) {
     if (!msgId) return;
     const i = orders.findIndex(x => x.id == id); if (i < 0 || !orders[i].receipt_meta) return;
@@ -3719,14 +3718,14 @@ async function saveReceiptTg(id, msgId) {
     const r = await orderPatchChecked(id, { receipt_meta: meta });
     if (r.ok) orders[i].receipt_meta = meta;
 }
-/* أرشفة الأصل في تيليغرام لإيصالٍ مُرفقٍ لاحقاً (وضع «إرفاق») — يُرجع رقم الرسالة أو null */
+/* أرشفة الإيصال (النسخة الممسوحة — TASK-0124) في تيليغرام لإيصالٍ مُرفقٍ لاحقاً (وضع «إرفاق») — يُرجع رقم الرسالة أو null */
 async function sendReceiptArchive(o, file) {
     if (!file) return null;
     try {
         const fd = new FormData();
         fd.append('chat_id', TELEGRAM_CHAT_ID);
         fd.append('photo', file, 'receipt_' + o.id + '.jpg');
-        /* نصٌّ عاديّ بلا Markdown: اسمٌ فيه _ أو * كان سيجعل تيليغرام يرفض الصورة فيضيع الأصل */
+        /* نصٌّ عاديّ بلا Markdown: اسمٌ فيه _ أو * كان سيجعل تيليغرام يرفض الصورة فيضيع الإيصال */
         fd.append('caption', '🧾 إيصال شحن مُرفق بأوردر\n' + (o.serial_code ? '🔢 ' + o.serial_code + '\n' : '') + '👤 ' + (o.name || '—') + '\n🚚 ' + (o.shipping_company || '—') +
             (o.tracking_number ? '\n🔖 رقم التتبّع: ' + o.tracking_number : '') + '\n🆔 #' + o.id);
         const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
@@ -3770,7 +3769,7 @@ async function confirmReceiptAttach() {
     closeModal('shipModal');
     render();
     showToast('🧾 حُفظ الإيصال على الأوردر' + (keep === 'both' ? ' — والسابق محفوظٌ معه' : keep === 'replace' ? ' — بدل السابق' : ''), 'ok');
-    sendReceiptArchive(orders[idx], shipOriginalFile()).then(mid => saveReceiptTg(o.id, mid));
+    sendReceiptArchive(orders[idx], shipReceiptFile()).then(mid => saveReceiptTg(o.id, mid));      // (TASK-0124) الممسوحة لا الأصل
 }
 document.addEventListener('change', (e) => {
     if (!e.target || e.target.id !== 'ship-company') return;
@@ -3780,7 +3779,7 @@ document.addEventListener('change', (e) => {
 
 /* ══ صورة إيصال الشحن المؤقّتة (2026-08-26 · طلب المالك) ══
    تُحفظ نسخة **مضغوطة** داخل الأوردر ليراها الموظف من هنا بدل البحث في تيليجرام،
-   وتُمسح تلقائياً عند «تم التحصيل». النسخة الأصلية الدائمة تبقى في تيليجرام. */
+   وتُمسح تلقائياً عند «تم التحصيل». النسخة الدائمة (الممسوحة) تبقى في تيليجرام. */
 function compressReceipt(file, maxW = 900, quality = 0.62) {
     return new Promise((resolve) => {
         try {
@@ -3867,7 +3866,7 @@ async function confirmShippingRun() {
         render();
         showToast('🚚 تم اعتماد الشحن — جارٍ إرسال الكليشيه...', 'ok');
         const _mid = await sendShippingLabel({ ...orders[idx], ...data, tracking_number: tracking || orders[idx].tracking_number });
-        if (_hadOrig && data.receipt_meta) saveReceiptTg(shipOrderId, _mid);     // مكان الأصل في أرشيف تيليغرام
+        if (_hadOrig && data.receipt_meta) saveReceiptTg(shipOrderId, _mid);     // مكان الإيصال (الممسوح) في أرشيف تيليغرام
 
         /* 📲 (2026-08-26 · طلب المالك) تبليغ الشحن **يفتح تلقائياً** بعد اعتماد الشحن:
            واتساب بزنس على محادثة الزبون والرسالة جاهزة — يبقى الضغط على «إرسال» فقط.
@@ -5336,7 +5335,7 @@ function receiptMetaHTML(o) {
     if (b) rows.push('🏢 الفرع: ' + escH(shipFromLabel(b.key)) + ' · ' + escH(RCPT_BRANCH_AR[b.src] || b.src || '') + (b.read && !b.read.confident && b.read.text ? ' · المقروء: «' + escH(b.read.text) + '»' : ''));
     if (m.type && m.type.kind && m.type.kind !== 'mufti') rows.push('⚠️ لم يُتأكَّد أنّه إيصال المفتي');
     rows.push('👤 ' + escH(m.by || 'غير معروف') + (m.at ? ' · ' + escH(new Date(m.at).toLocaleString('ar-SY', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) : '') +
-        (m.scanned ? ' · مُسح ضوئياً' : '') + (m.orig_tg && m.orig_tg.msg ? ' · الأصل في تيليغرام (رسالة ' + escH(m.orig_tg.msg) + ')' : ''));
+        (m.scanned ? ' · مُسح ضوئياً' : '') + (m.orig_tg && m.orig_tg.msg ? ' · في تيليغرام (رسالة ' + escH(m.orig_tg.msg) + ')' : ''));
     const prev = Array.isArray(m.prev) ? m.prev.filter(p => p && p.img) : [];
     return '<div class="px-4 pt-2 text-[11px] font-bold text-gray-600 space-y-0.5 text-right">' + rows.map(r => '<p>' + r + '</p>').join('') + '</div>' +
         (prev.length ? '<div class="px-4 pt-2 text-right"><p class="text-[11px] font-black text-gray-700 mb-1">🗂️ إيصالات سابقة محتفَظ بها (' + prev.length + ')</p><div class="flex gap-2 overflow-x-auto">' +
@@ -6829,17 +6828,10 @@ window.shareReservation = (id) => {
 // ══ إرسال كليشيه الشحن كصورة للتلغرام ══
 async function sendShippingLabel(o) {
     try {
-        const imgInput    = document.getElementById('ship-img-input');
-        const imgInputCam = document.getElementById('ship-img-input-camera');
-        let blob;
-
-        if (imgInputCam && imgInputCam.files && imgInputCam.files[0]) {
-            blob = imgInputCam.files[0];
-        } else if (imgInput && imgInput.files && imgInput.files[0]) {
-            blob = imgInput.files[0];
-        } else {
-            blob = await buildShippingLabelImage(o);
-        }
+        /* (22 ت1 · TASK-0124 · المالك: «لازم الإيصال الممسوح ضوئياً ينبعث على التليجرام وليس الصورة الأساسية»)
+           النسخة الممسوحة إن مرّت الصورة بالماسح، والصورة كما هي إن أُلغي الماسح، والكليشيه المولَّدة إن لم تُرفع صورة. */
+        let blob = shipReceiptFile(), fname = `shipping_${o.id}.jpg`;
+        if (!blob) { blob = await buildShippingLabelImage(o); fname = `shipping_${o.id}.png`; }
         const items = parseItemsFromOrder(o);
         const prodList = items.map(i => `• ${i.name}${i.qty > 1 ? ' × ' + i.qty : ''}`).join('\n');
         const shippedDate = new Date().toLocaleDateString('ar-SY', { day:'2-digit', month:'long', year:'numeric' });
@@ -6862,7 +6854,7 @@ async function sendShippingLabel(o) {
 
         const fd = new FormData();
         fd.append('chat_id', TELEGRAM_CHAT_ID);
-        fd.append('photo', blob, `shipping_${o.id}.png`);
+        fd.append('photo', blob, fname);
         fd.append('caption', caption);
         fd.append('parse_mode', 'Markdown');
 
@@ -6872,7 +6864,7 @@ async function sendShippingLabel(o) {
         if (!res.ok) throw new Error('Telegram photo failed');
         showToast('📤 تم إرسال الكليشيه للتلغرام', 'ok');
         const _d = await res.json().catch(() => null);
-        return (_d && _d.result && _d.result.message_id) || null;      // (خامساً) رقم رسالة الأصل — يُسجَّل في receipt_meta
+        return (_d && _d.result && _d.result.message_id) || null;      // (خامساً) رقم رسالة الإيصال في تيليغرام — يُسجَّل في receipt_meta
     } catch(e) {
         showToast('⚠️ تعذّر إرسال الصورة: ' + e.message, 'err');
         // fallback: رسالة نصية
@@ -8890,7 +8882,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261022d"></script>
+<script src="gmt-whatsnew.js?v=20261022e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

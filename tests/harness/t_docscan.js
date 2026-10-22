@@ -126,8 +126,12 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
     await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /اعتماد/.test(b.textContent)).click());
     await pg.waitForFunction(() => !document.getElementById('gds'), null, { timeout: 8000 }).catch(() => {});
     const st = await pg.evaluate(() => ({ prev: document.getElementById('ship-img-preview').innerText, scan: !!_shipScan, origSize: _shipScan && _shipScan.original.size, scanType: _shipScan && _shipScan.scanned.type }));
-    ok(st.scan && /مُسح ضوئياً — الأصل محفوظ/.test(st.prev), 'المعاينة: «مُسح ضوئياً — الأصل محفوظ»');
+    ok(st.scan && /مُسح ضوئياً — هذه النسخة تُحفظ وتُرسل للتلغرام/.test(st.prev), 'المعاينة: «مُسح ضوئياً — هذه النسخة تُحفظ وتُرسل للتلغرام» (TASK-0124)');
     ok(st.origSize === fs.statSync(synthFile).size && st.scanType === 'image/jpeg', 'الأصل محفوظ كما هو (نفس الحجم) والممسوحة JPEG');
+    /* (22 ت1 · TASK-0124) ما يُرسل إلى تيليغرام: الممسوحة (JPEG) لا الأصل (PNG في هذا الاختبار) */
+    const tg = [];
+    await pg.route(/functions\/v1\/gmt-tg\//, r => { const b = r.request().postDataBuffer(); if (/sendPhoto/.test(r.request().url()) && b) tg.push(b); r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"result":{"message_id":777}}' }); });   // تيليغرام عبر الوسيط gmt-tg
+    const isScan = b => { const i = b.indexOf('name="photo"'); if (i < 0) return null; const part = b.slice(i, i + 400).toString('latin1'); return { jpeg: /Content-Type: image\/jpeg/i.test(part) && b.indexOf(Buffer.from([0xFF, 0xD8, 0xFF]), i) > 0, png: b.indexOf(Buffer.from([0x89, 0x50, 0x4E, 0x47]), i) > 0, name: (part.match(/filename="([^"]+)"/) || [])[1] }; };
     if (w === 390) {
       await pg.fill('#ship-tracking', '5500991');
       pg.evaluate(() => confirmShipping()).catch(() => {}); await pg.waitForTimeout(900);
@@ -138,6 +142,23 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
       for (let i = 0; i < 4 && await pg.evaluate(() => !!document.querySelector('.gmtask-ov')); i++) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(300); }
       const db = (await H.call('/rest/v1/gmt_orders?id=eq.' + o1.id, undefined, 'GET'))[0];
       ok(db.status === 'shipped' && /^data:image\/jpeg/.test(db.receipt_img || ''), 'اعتماد الشحن حفظ النسخة الممسوحة على الأوردر');
+      const ph = tg.map(isScan).filter(Boolean);
+      ok(ph.length === 1 && ph[0].jpeg && !ph[0].png && /shipping_\d+\.jpg/.test(ph[0].name || ''), 'تيليغرام (اعتماد الشحن) استلم النسخة الممسوحة لا الأصل: ' + JSON.stringify(ph));
+      ok(db.receipt_meta && db.receipt_meta.orig_tg && db.receipt_meta.orig_tg.msg === 777, 'رقم رسالة الإيصال في تيليغرام مسجَّل على الأوردر');
+      // وضع «إرفاق إيصال» لاحقاً: الممسوحة أيضاً
+      tg.length = 0;
+      await pg.evaluate(id => openReceiptAttach(id), o1.id); await pg.waitForTimeout(400);
+      await pg.setInputFiles('#ship-img-input', synthFile);
+      await pg.waitForSelector('#gds', { timeout: 8000 }).catch(() => {});
+      await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /قصّ وتحسين/.test(b.textContent)).click());
+      await pg.waitForFunction(() => [...document.querySelectorAll('#gds .gds-bar button')].some(b => /اعتماد/.test(b.textContent)), null, { timeout: 15000 }).catch(() => {});
+      await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /اعتماد/.test(b.textContent)).click());
+      await pg.waitForFunction(() => !document.getElementById('gds'), null, { timeout: 8000 }).catch(() => {});
+      pg.evaluate(() => confirmReceiptAttach()).catch(() => {}); await pg.waitForTimeout(900);
+      for (let i = 0; i < 6; i++) { const clicked = await pg.evaluate(() => { const b = [...document.querySelectorAll('.gmtask-ov button')].find(x => /احفظ الآن|الاحتفاظ بالنسختين/.test(x.textContent)); if (b) { b.click(); return true; } return false; }); if (!clicked) break; await pg.waitForTimeout(500); }
+      await pg.waitForTimeout(2500);
+      const ph2 = tg.map(isScan).filter(Boolean);
+      ok(ph2.length === 1 && ph2[0].jpeg && !ph2[0].png, 'تيليغرام («إرفاق إيصال» لاحقاً) استلم النسخة الممسوحة لا الأصل: ' + JSON.stringify(ph2));
     } else {
       // إلغاء الماسح ⇒ الصورة كما هي
       await pg.evaluate(id => openShipModal(id), o1.id); await pg.waitForTimeout(300);
