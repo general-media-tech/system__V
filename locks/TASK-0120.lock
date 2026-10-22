@@ -1,7 +1,0 @@
-task: TASK-0120
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-receipt.js orders.html tests/harness
-claimed_at: 2026-10-22T11:35:06Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0120
