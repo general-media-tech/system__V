@@ -78,17 +78,18 @@ async function readCase(pg, spec, before) {
     await pg.addScriptTag({ url: H.BASE + 'lib/zxing.min.js?v=20261003' });
     await pg.evaluate(id => openShipModal(id), o1.id); await pg.waitForTimeout(500);
 
+    /* (22 ت1 · TASK-0118 · المالك: «طلبت فقط يقرا رقم التتبع… والفرع المصدر») الباركود المقروء يكفي: لا قراءة ثانية للصفحة كلّها
+       لمقارنة الرقم المطبوع (كانت تضاعف الزمن وتقرأ الأسماء والهواتف). المطبوع يُقرأ فقط حين لا يُقرأ الباركود. */
     let r = await readCase(pg, { qr: '0123456', printed: '0123456', src: 'حلب-الفرقان' });
-    ok(r.r && r.r.tracking.status === 'match' && r.track === '0123456', 'المطبوع = الباركود ⇒ يُعتمد ويُسجَّل التحقّق، والصفر الأوّل باقٍ: ' + r.track + ' (' + r.ms + 'ms)');
-    ok(/تطابق الرقم المطبوع مع الباركود/.test(r.status), 'رسالة «تطابق … تحقّقٌ ناجح»');
+    ok(r.r && r.r.tracking.status === 'barcode' && r.track === '0123456', 'الباركود مقروء ⇒ يُعتمد فوراً، والصفر الأوّل باقٍ: ' + r.track + ' (' + r.ms + 'ms)');
+    ok(/من الباركود/.test(r.status) && !/المطبوع/.test(r.status), 'رسالة «رقم التتبّع … من الباركود» بلا ذكر مقارنة: ' + r.status.slice(0, 60));
+    ok(!/المرسل|الموبايل|0939773715|أحمد خالد/.test(r.status), 'لا يُعرض اسمٌ ولا هاتف من الإيصال (سطر المصدر وحده)');
     ok(r.from === 'حلب|الفرقان' && r.src === 'receipt' && /من إيصال الشحن/.test(r.fromBox), 'الفرع المصدر من الإيصال (الفرقان لا السريان الافتراضي) ومصدره ظاهر: ' + r.from);
 
     if (w === 1366) {
+      /* قاعدة «المطبوع ≠ الباركود» ما زالت في الكود (حالة differ) لكنها لا تُستدعى حين يُقرأ الباركود — بطلب المالك 22 ت1 */
       r = await readCase(pg, { qr: '0123456', printed: '0123999', src: 'حلب-الفرقان' });
-      ok(r.r && r.r.tracking.status === 'differ' && r.track === '', 'المطبوع ≠ الباركود ⇒ لا يُعتمد أيٌّ منهما: ' + JSON.stringify(r.r && r.r.tracking));
-      ok(r.btns.some(b => /المطبوع: 0123999/.test(b)) && r.btns.some(b => /الباركود: 0123456/.test(b)), 'تُعرض القيمتان ليحسم المستخدم: ' + r.btns.join(' · '));
-      await pg.evaluate(() => [...document.querySelectorAll('#ship-track-auto button')].find(b => /الباركود/.test(b.textContent)).click());
-      ok(await pg.evaluate(() => document.getElementById('ship-tracking').value) === '0123456', 'اختيار «الباركود» يملأ الرقم');
+      ok(r.r && r.r.tracking.status === 'barcode' && r.track === '0123456', 'الباركود يُعتمد ولا يُقرأ المطبوع للمقارنة: ' + JSON.stringify(r.r && r.r.tracking));
 
       r = await readCase(pg, { printed: '765432', src: 'حلب-السريان' });
       ok(r.r && r.r.tracking.status === 'printed' && r.track === '' && r.btns.includes('765432'), 'مصدرٌ واحد (المطبوع) ⇒ يُعرض مع مصدره ولا يُملأ وحده: ' + JSON.stringify(r.r && r.r.tracking));
@@ -132,7 +133,7 @@ async function readCase(pg, spec, before) {
           return { ms: Math.round(performance.now() - t0), track: document.getElementById('ship-tracking').value, t: _shipRead.tracking, type: _shipRead.type.kind, from: document.getElementById('ship-from').value, src: document.getElementById('ship-from').getAttribute('data-src') };
         }, b64);
         ok(x.type === 'mufti' && x.from === key && x.src === 'receipt', f + ': إيصال المفتي ⇒ الفرع المصدر «' + x.from + '» من الإيصال (' + x.ms + 'ms)');
-        if (num) ok(x.t.status === 'match' && x.track === num, f + ': رقم التتبّع ' + x.track + ' — ' + x.t.status);
+        if (num) ok(/match|barcode/.test(x.t.status) && x.track === num, f + ': رقم التتبّع ' + x.track + ' — ' + x.t.status);
         else ok(x.t.status !== 'match' || x.track, f + ': (الرقم المطبوع مقصوصٌ في الصورة) حالة الرقم: ' + JSON.stringify(x.t));
       }
     }

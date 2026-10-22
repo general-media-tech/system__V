@@ -106,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261020d" defer></script>
+<script src="gmt-receipt.js?v=20261022a" defer></script>
 <script src="gmt-docscan.js?v=20261019e" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -3541,6 +3541,9 @@ function shipReadPaint(r, typed) {
     const T = (r && r.tracking) || { status: 'none' }, ty = (r && r.type) || {}, sure = ty.kind === 'mufti';
     const row = a => '<span class="flex flex-wrap gap-1.5 justify-center mt-1">' + a.join('') + '</span>';
     let h = '', cls = 'text-emerald-700', fill = null;
+    /* (22 ت1 · TASK-0118) رقم الباركود يُملأ فور قراءته (اخترتَ «المفتي» قبل القراءة) — فإن لم يتأكّد النوع بعدها نُنبّه فقط */
+    let early = !!(_shipRcptAuto && T.status === 'barcode' && inp.value.trim() === String(T.number));
+    if (early && !sure) { inp.value = ''; _shipRcptAuto = false; early = false; }   // ليس إيصال المفتي بتأكيد ⇒ يُسحب ما مُلئ مبكراً
     if (!sure) h += '<span class="block mb-1 text-amber-700">⚠️ لم أتأكّد أنّ هذه الصورة إيصال «المفتي» (' + escH(ty.why || 'لم يُقرأ النصّ') + ') — لم يُملأ شيءٌ تلقائياً، راجع بنفسك.</span>';
     if (T.status === 'match') {
         h += '✅ رقم التتبّع <b dir="ltr">' + escH(T.number) + '</b> — تطابق الرقم المطبوع مع الباركود (تحقّقٌ ناجح).';
@@ -3550,7 +3553,7 @@ function shipReadPaint(r, typed) {
         h += '⚠️ الرقم المطبوع يختلف عن الباركود — لم أعتمد أيّاً منهما. انظر إلى الورقة واختر الصحيح (أو اكتبه):' +
              row([shipTrackBtn(T.printed, 'المطبوع: ' + T.printed), shipTrackBtn(T.barcode, 'الباركود: ' + T.barcode)]);
     } else if (T.status === 'barcode') {
-        h += '✅ قُرئ رقم التتبّع <b dir="ltr">' + escH(T.number) + '</b> من <b>الباركود</b> فقط (الرقم المطبوع لم يُقرأ للمقارنة) — راجعه قبل الاعتماد.';
+        h += '✅ رقم التتبّع <b dir="ltr">' + escH(T.number) + '</b> — من الباركود.';
         if (sure) fill = T.number; else h += row([shipTrackBtn(T.number)]);
     } else if (T.status === 'printed') {
         cls = 'text-amber-700';
@@ -3560,15 +3563,16 @@ function shipReadPaint(r, typed) {
         cls = 'text-amber-700';
         h += '⚠️ تعذر قراءة رقم التتبع — أدخله يدوياً. <button type="button" onclick="shipReadTracking(true)" class="underline">أعد المحاولة</button>';
     }
-    if (typed && fill) {                                             // رقم الموظف يبقى — نقارن فقط
+    if (typed && fill && !early) {                                             // رقم الموظف يبقى — نقارن فقط
         const mine = inp.value.trim();
         h += mine === fill ? '<span class="block mt-1">✔️ يطابق الرقم الموجود في الحقل.</span>'
                            : '<span class="block mt-1 text-amber-700">⚠️ الرقم الموجود في الحقل (' + escH(mine) + ') يختلف عن الإيصال — أُبقي كما هو.</span>' + row([shipTrackBtn(fill, 'استعمل ' + fill)]);
         fill = null;
     }
     if (fill) { inp.value = fill; _shipRcptAuto = true; }
-    if (r && r.text && r.text.trim()) h += '<details class="mt-1 text-gray-500 font-bold"><summary class="cursor-pointer">النصّ المقروء من الإيصال</summary>' +
-        '<pre dir="rtl" class="whitespace-pre-wrap text-[10px] text-right bg-gray-50 rounded-lg p-2 max-h-32 overflow-auto">' + escH(r.text.trim().slice(0, 900)) + '</pre></details>';
+    /* لا يُعرض نصّ الإيصال كاملاً (فيه اسم الزبون وهاتفه — غير مطلوب): سطر «المصدر» وحده */
+    const srcTxt = r && r.branch && r.branch.text;
+    if (srcTxt) h += '<span class="block mt-1 text-gray-500 font-bold">«المصدر» كما قُرئ: <span dir="rtl">' + escH(String(srcTxt).slice(0, 60)) + '</span></span>';
     st.className = 'text-[11px] font-black mb-3 ' + cls;
     st.innerHTML = h;
 }
@@ -3580,12 +3584,24 @@ async function shipReadTracking(force) {
     if (!_shipRcptFile || comp !== 'المفتي') { st.classList.add('hidden'); st.textContent = ''; return; }   // بقية الشركات: مسحٌ فقط
     const typed = !!inp.value.trim() && !_shipRcptAuto;
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
-    st.textContent = 'جارٍ قراءة الإيصال: الباركود + الرقم المطبوع + الفرع المصدر… (أوّل مرّة تُحمَّل مكتبة التعرّف — قد يطول قليلاً)';
+    st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر…';
     const myFile = _shipRcptFile;
     _shipRead = null; _shipReading = true;
+    let branchDone = false;
     try {
         if (!window.GMTReceipt || !GMTReceipt.readMufti) throw new Error('وحدة القراءة لم تُحمَّل');
-        const r = await GMTReceipt.readMufti(myFile, { original: (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : null });
+        /* (22 ت1 · TASK-0118) كلٌّ يظهر فور قراءته: رقم الباركود (ثانية تقريباً) ثمّ الفرع — لا انتظار للقراءة كاملة */
+        const onTracking = t => {
+            if (myFile !== _shipRcptFile || !t || !t.number) return;
+            if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
+            st.className = 'text-[11px] font-black text-emerald-700 mb-3';
+            st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (branchDone ? '' : ' <span class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
+        };
+        const onBranch = b => {
+            if (myFile !== _shipRcptFile || !b) return;
+            branchDone = true; window.applyDetectedShipFrom(b);
+        };
+        const r = await GMTReceipt.readMufti(myFile, { original: (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : null, onTracking, onBranch });
         if (myFile !== _shipRcptFile) return;                          // تغيّرت الصورة أثناء القراءة
         _shipRead = r;
         shipReadPaint(r, typed && !force);
@@ -8852,7 +8868,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261020d"></script>
+<script src="gmt-whatsnew.js?v=20261022a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

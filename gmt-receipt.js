@@ -166,6 +166,21 @@
     return m;
   }
 
+  /* (22 ت1 · TASK-0118) اتّجاه الإيصال من رمز QR: الرمز مطبوعٌ قائماً على الإيصال، فزاوية حافّته العليا في القصّة (وقد أُديرت rot)
+     تعطي الدوران الذي يجعل الإيصال قائماً (0/90/180/270) ⇐ يُقرأ النصّ العربي مرّةً واحدة بدل تجربة الاتّجاهات الأربعة. */
+  function uprightFrom(p0, p1, rot) {
+    var th = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI, R = Math.round((rot - th) / 90) * 90;
+    return ((R % 360) + 360) % 360;
+  }
+  function zxUpright(ZX, res, rot) {
+    try {
+      if (!res || res.getBarcodeFormat() !== ZX.BarcodeFormat.QR_CODE) return null;
+      var pts = res.getResultPoints();                                   // QR: [أسفل-يسار، أعلى-يسار، أعلى-يمين، …]
+      if (!pts || pts.length < 3) return null;
+      return uprightFrom({ x: pts[1].getX(), y: pts[1].getY() }, { x: pts[2].getX(), y: pts[2].getY() }, rot);
+    } catch (_) { return null; }
+  }
+
   /* ── الطبقة ٢: القارئ الأصلي للمتصفّح (BarcodeDetector — كروم أندرويد) ──
      أقوى بكثير من ZXing على صور الهاتف المائلة/الباهتة، ولا يكلّف تحميل شيء. غير متوفّر على كل الأجهزة فنتخطّاه بصمت. */
   async function nativePass(L, push) {
@@ -188,7 +203,8 @@
             var txt = res[k].rawValue; if (!txt) continue;
             push(txt);
             var ex = extractNumber(txt);
-            if (ex) return { number: ex.number, how: ex.how + ' (قارئ المتصفّح)', raw: txt, method: 'native' };
+            var cp = res[k].cornerPoints, up = (res[k].format === 'qr_code' && cp && cp.length >= 2) ? uprightFrom(cp[0], cp[1], rots[j]) : null;
+            if (ex) return { number: ex.number, how: ex.how + ' (قارئ المتصفّح)', raw: txt, method: 'native', upright: up };
           }
         } catch (_) {}
         await new Promise(function (r) { setTimeout(r, 0); });
@@ -222,11 +238,12 @@
   })();
   async function enhancedPass(ZX, L, opts, push, count) {
     var reader = new ZX.MultiFormatReader(); reader.setHints(hints(ZX));
+    var last = null;
     function tryCanvas(cv) {
       var txt = null;
       [ZX.HybridBinarizer, ZX.GlobalHistogramBinarizer].forEach(function (B) {
         if (txt) return;
-        try { txt = reader.decode(new ZX.BinaryBitmap(new B(new ZX.HTMLCanvasElementLuminanceSource(cv)))).getText(); } catch (_) { txt = null; }
+        try { last = reader.decode(new ZX.BinaryBitmap(new B(new ZX.HTMLCanvasElementLuminanceSource(cv)))); txt = last.getText(); } catch (_) { txt = null; }
       });
       return txt;
     }
@@ -243,14 +260,14 @@
       for (var r = 0; r < plan[p][1].length; r++) {
         var part = sub(rotated, plan[p][1][r], opts.maxSide || 2000);
         for (var m = 0; m < plan[p][2].length; m++) {
-          if (Date.now() - t0 > budget) return null;
+          if (Date.now() - t0 > budget || (opts.stop && opts.stop())) return null;
           count.n++;
           var txt = tryCanvas(enhance(part, plan[p][2][m]));
           await new Promise(function (res) { setTimeout(res, 0); });
           if (!txt) continue;
           push(txt);
           var ex = extractNumber(txt);
-          if (ex) return { number: ex.number, how: ex.how + ' (بعد تحسين الصورة' + (plan[p][0] % 90 ? ' وتعديل الميلان' : '') + ')', raw: txt, method: 'enhanced' };
+          if (ex) return { number: ex.number, how: ex.how + ' (بعد تحسين الصورة' + (plan[p][0] % 90 ? ' وتعديل الميلان' : '') + ')', raw: txt, method: 'enhanced', upright: zxUpright(ZX, last, plan[p][0]) };
         }
       }
     }
@@ -364,6 +381,7 @@
          فلم يفكّ حتى رمزاً نظيفاً صنعتُه بنفسي، بينما هذا المسار يفكّه. لا نعتمد على ما لم نجرّبه. */
       var reader = new ZX.MultiFormatReader();
       reader.setHints(hints(ZX));
+      var last = null, upright = null;
       var tryCanvas = function (cv) {
         var txt = null;
         [ZX.HybridBinarizer, ZX.GlobalHistogramBinarizer].forEach(function (B) {
@@ -372,6 +390,7 @@
             var bm = new ZX.BinaryBitmap(new B(new ZX.HTMLCanvasElementLuminanceSource(cv)));
             var res = reader.decode(bm);
             txt = res && res.getText ? res.getText() : null;
+            if (txt) last = res;
           } catch (_) { txt = null; }
         });
         return txt;
@@ -386,10 +405,13 @@
           await new Promise(function (r) { setTimeout(r, 0); });
           if (!txt) continue;
           push(txt);
+          if (upright === null) upright = zxUpright(ZX, last, rots[j]);       // أيّ QR يكفي للاتّجاه حتى لو لم يحمل رقماً
           var ex = extractNumber(txt);
           if (ex) best = { number: ex.number, how: ex.how, raw: txt, method: 'zxing' };
         }
       }
+      if (best) best.upright = upright;
+      try { if (opts.onFast) opts.onFast(best ? best : { number: null, upright: upright }); } catch (_) {}
       if (!best) { stage('native'); best = await nativePass(L, push); }
       if (!best && !opts.quick) { stage('enhanced'); best = await enhancedPass(ZX, L, opts, push, count); }   // quick: بلا التحسين الثقيل
       if (!best && opts.ocr !== false) {
@@ -398,7 +420,7 @@
         catch (e) { console.warn('[GMT] تعذّر التعرّف على النصّ:', e && e.message); }
       }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
-    return best ? { number: best.number, how: best.how, raw: best.raw, method: best.method, candidates: best.candidates, all: all, tries: count.n }
+    return best ? { number: best.number, how: best.how, raw: best.raw, method: best.method, candidates: best.candidates, upright: best.upright == null ? null : best.upright, all: all, tries: count.n }
                 : { number: null, all: all, tries: count.n };
   }
 
@@ -460,6 +482,16 @@
     if (why.length) return { kind: 'mufti', why: why.join(' + '), struct: st };
     if (st >= 3) return { kind: 'unsure', why: 'إيصال شحنٍ لكن بلا علامةٍ واضحة للمفتي (اسم/شعار/هاتف)', struct: st };
     return { kind: 'unknown', why: 'لم يُقرأ نصّ الإيصال بوضوح', struct: st };
+  }
+
+  /* «شركة <اسمٌ غير المفتي>» مقروءة ⇒ إيصال شركةٍ أخرى: لا يُنسب للمفتي حتى لو شابه سطر «المصدر» أحد فروعها */
+  function otherCompany(text) {
+    var re = /سركه\s+(\S+)/g, m, K = skel('مفتي');
+    while ((m = re.exec(skel(text)))) {
+      var w = noAl(bareW(m[1]));
+      if (w.length >= 4 && sim(w, K) < 0.5) return true;          // اسمٌ مقروء (لا بقايا مشوّهة) ولا يشبه «المفتي»
+    }
+    return false;
   }
 
   /* ما بعد «المصدر» حتى «الوجهة» (أو نهاية السطر/٥ كلمات) — الوجهة لا تُؤخذ أبداً */
@@ -538,9 +570,14 @@
   }
 
   /* صورةٌ للتعرّف العربي: أقصى القنوات (أقلام التعليم الملوّنة تصير فاتحة والحبر يبقى غامقاً) + تكبيرٌ حتى ٢× */
-  function araCanvas(im, rot) {
-    var cv0 = crop(im, [0, 0, 1, 1], rot, 2400);
-    var k = Math.min(2, 2400 / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
+  function araCanvas(im, rot, band) {
+    var max = 2400, cv0 = crop(im, [0, 0, 1, 1], rot, max);
+    if (band) {                                                  // شريطٌ أفقيّ فقط من الإيصال القائم (حيث سطر «المصدر»)
+      var y0 = Math.round(cv0.height * band[0]), bh = Math.max(8, Math.round(cv0.height * (band[1] - band[0]))), bc = document.createElement('canvas');
+      bc.width = cv0.width; bc.height = bh; bc.getContext('2d').drawImage(cv0, 0, y0, cv0.width, bh, 0, 0, cv0.width, bh);
+      cv0 = bc;
+    }
+    var k = Math.min(2, max / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
     cv.width = Math.round(cv0.width * k); cv.height = Math.round(cv0.height * k);
     var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv0, 0, 0, cv.width, cv.height);
     var id = c.getImageData(0, 0, cv.width, cv.height), d = id.data;
@@ -555,11 +592,31 @@
     var t0 = Date.now(), stage = function (k) { try { if (opts.onStage) opts.onStage(k); } catch (_) {} };
     var L = await loadImage(file), out = { type: null, barcode: null, printed: null, tracking: null, branch: null, text: '', rot: 0 };
     try {
-      /* النصّ (عاملان في الخلفية) والباركود (الخيط الرئيسي) يعملان معاً */
+      /* (22 ت1 · TASK-0118 · المالك: «عم يطوّل كثير… طلبت فقط رقم التتبع والفرع المصدر»)
+         ① الباركود أوّلاً وسريعاً، ورقمه يُبلَّغ للواجهة فوراً (opts.onTracking) دون انتظار قراءة النصّ.
+         ② اتّجاه الإيصال من رمز QR ⇐ قراءةٌ عربية واحدة بدل حتى خمس.
+         ③ قُرئ الباركود ⇐ لا قراءة ثانية لأرقام الصفحة كلّها (كانت تقرأ الهواتف والأسماء لمقارنةٍ لم تعد مطلوبة).
+         ④ لا يُقرأ اسمٌ ولا هاتف: من النصّ يُؤخذ سطر «المصدر» وحده. */
+      var fastDone, fastP = new Promise(function (ok) { fastDone = ok; });
+      stage('barcode');
+      var bcP = (async function () {
+        var bc = await readTracking(file, { ocr: false, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen; } });
+        fastDone(null);
+        /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
+        if (!bc.number && !printedSeen && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen; } });
+        if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
+        return bc;
+      })();
+      var bcDone = null, printedSeen = false;           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
+      bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
       var textP = (async function () {
+        var araLoad = getARA();                                    // تحميل المكتبة بالتوازي مع الباركود
+        var fast = await fastP, up = fast && fast.upright != null ? fast.upright : null;
         stage('ara');
-        var ara = await getARA(), w = L.im.naturalWidth, h = L.im.naturalHeight;
+        var ara = await araLoad, w = L.im.naturalWidth, h = L.im.naturalHeight;
         var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
+        if (up != null) rots = [up].concat(rots.filter(function (x) { return x !== up; }));
+        if (opts.trace) opts.trace.push({ upright: up });
         /* (20 ت1 · TASK-0116 · إيصالات المالك الخمسة) ثلاثة أسباب كانت تُسقط الفرع:
            ① صورةٌ لم تمرّ بالماسح (أُلغي أو «كما هي») تُقرأ بلا تحسين — والتحسين نفسه هو ما يجعل «المصدر» مقروءاً.
               ⇒ غير الممسوحة تُحسَّن بطبقة الماسح (لون) قبل القراءة.
@@ -573,18 +630,24 @@
           try { var d = DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
         }
         if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
-        function attempt(im, rot, tag) {
-          return ara.recognize(araCanvas(im, rot)).then(function (res) {
+        function attempt(im, rot, tag, band) {
+          return ara.recognize(araCanvas(im, rot, band)).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
             var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag };
-            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag });
+            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (band ? '/band' : '') });
             return a;
           });
         }
-        for (var r = 0; r < rots.length; r++) {
+        /* الاتّجاه معروف ⇒ أوّلاً شريط الوسط فقط (سطر «المصدر» وقع بين ٤٨٪ و٦١٪ من الارتفاع في كل إيصالات المالك) — نصف المساحة تقريباً */
+        if (up != null) {
+          var ab = await attempt(srcIm, up, srcIm === L.im ? 'as-is' : 'color', [0.25, 0.8]);
+          if (ab.m && ab.m.confident) best = ab;
+        }
+        for (var r = 0; r < rots.length && !(best && best.m && best.m.confident); r++) {
           var a = await attempt(srcIm, rots[r], srcIm === L.im ? 'as-is' : 'color');
           if (!best || a.rank > best.rank) best = a;
           if (a.m && a.m.confident) break;                          // اتّجاهٌ سليم والفرع واضح
+          if (up != null && r === 0 && a.src) break;                // اتّجاه الـQR صحيح و«المصدر» مقروء
           if (r >= 1 && best.sc >= 3 && best.src) break;            // «المصدر» مقروء في اتّجاهٍ سليم — لا داعي للبقيّة
         }
         if (!(best.m && best.m.confident) && best.sc >= 2) {
@@ -592,20 +655,21 @@
           if (bw) { var a2 = await attempt(bw, best.rot, 'bw'); if (a2.rank > best.rank) best = a2; }
         }
         out.text = best.txt; out.rot = best.rot; out._best = best;
-        if (best.sc < 2) return null;                               // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
+        if (best.m && best.m.confident && opts.onBranch && (receiptType(best.txt).kind === 'mufti' || !otherCompany(best.txt))) { try { opts.onBranch({ key: best.m.key, confident: true, candidates: best.m.candidates || [], text: best.m.text || '' }); } catch (_) {} }
+        if (best.sc < 2 && !(best.m && best.m.confident)) return null;   // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
+        if (bcDone && bcDone.number) return [];                     // ③ الباركود يكفي (ولا ننتظر محاولاته البطيئة إن لم ينتهِ)
         stage('digits');
         var eng = await getOCR(), cv = enhance(crop(L.im, [0, 0, 1, 1], best.rot, 2400), 'contrast');
         var er = await eng.recognize(cv, {}, { blocks: true }), words = [];
         ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
           (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
         out.engText = (er.data && er.data.text) || '';
-        return rankCandidates(words, cv.height, cv.width);
+        var rk = rankCandidates(words, cv.height, cv.width);
+        if (rk.some(function (c) { return c.tr; })) printedSeen = true;
+        return rk;
       })();
       textP.catch(function () {});
-      stage('barcode');
-      var bc = await readTracking(file, { ocr: false });
-      /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
-      if (!bc.number && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true });
+      var bc = await bcP;
       if (bc.number) out.barcode = { number: bc.number, raw: bc.raw, how: bc.how };
       var cands = null;
       try { cands = await textP; } catch (e) { out.textError = (e && e.message) || String(e); }
@@ -627,6 +691,8 @@
       out.branch = src ? ((out._best && out._best.src === src && out._best.m) || matchBranch(src.seg)) : { key: null, confident: false, candidates: [], text: '' };
       delete out._best;
       if (src) out.branch.line = src.line;
+      /* سطر «المصدر» مطابقٌ بثقة لفرعٍ من فروع المفتي = بنية إيصال المفتي (والموظف اختار «المفتي» قبل القراءة) */
+      if (out.type.kind !== 'mufti' && out.branch.confident && !otherCompany(out.text)) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
     out.ms = Date.now() - t0;
