@@ -106,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261022a" defer></script>
+<script src="gmt-receipt.js?v=20261022b" defer></script>
 <script src="gmt-docscan.js?v=20261019e" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -8022,15 +8022,20 @@ window.addEventListener('load', function () {
     });
 });
 
-/* (2026-10-06 · دراسة الرئيسيّة ٨) «＋ أوردر» من الرئيسيّة يفتح نافذة الإضافة مباشرةً */
+/* (22 ت1 · TASK-0121 · المالك: «لما بفتح الأوردرات لا تلقائياً يدخلني على إنشاء أوردر إلا إذا أنا كبست على زر إنشاء أوردر»)
+   كان «أوردر» في «إجراءات سريعة» بالرئيسيّة (?new=1) يفتح نافذة الإضافة وحده. الآن: الأوردرات تُفتح على القائمة دائماً،
+   و?new=1 يُبرز زرّ «إضافة طلب» فقط — والنافذة لا تُفتح إلا بضغطتك. */
 (function () {
     if (!/[?&]new=1/.test(location.search)) return;
+    try { history.replaceState(null, '', location.pathname); } catch (_) {}
     let n = 0; const t = setInterval(() => {
         n++;
-        if (typeof initAddModal === 'function' && document.getElementById('addModal')) {
+        const b = document.querySelector('button[onclick*="addModal"]');
+        if (b && b.getBoundingClientRect().width > 0) {
             clearInterval(t);
-            try { history.replaceState(null, '', location.pathname); } catch (_) {}
-            document.getElementById('addModal').classList.remove('hidden'); initAddModal();
+            try { b.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+            b.style.outline = '3px solid #fbbf24'; b.style.outlineOffset = '3px';     // يبقى حتى أوّل لمسة
+            document.addEventListener('pointerdown', () => { b.style.outline = ''; b.style.outlineOffset = ''; }, { once: true, capture: true });
         } else if (n > 40) clearInterval(t);
     }, 250);
 })();
@@ -8877,7 +8882,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261022a"></script>
+<script src="gmt-whatsnew.js?v=20261022b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
