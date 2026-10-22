@@ -26,7 +26,7 @@
   if (!doc || global.GMTDocScan) return;
 
   var WORK_MAX = 2400;      // أطول ضلعٍ للمعالجة (يكفي للنصّ الصغير والباركود)
-  var DET_MAX = 640;        // للاكتشاف فقط
+  var DET_MAX = 512;        // للاكتشاف فقط (TASK-0123: ٥١٢ — ثابت النتائج بين ٤٤٨ و٥٦٠ وأسرع من ٦٤٠)
 
   /* ── أدوات ─────────────────────────────────────────────────────────────── */
   function loadImg(file) {
@@ -190,6 +190,227 @@
     return { corners: quad, ok: true, why: '', diag: diag };
   }
 
+  /* ── ①ب اكتشاف الورقة بحوافّها المستقيمة (22 ت1 · TASK-0123 · المالك: «الاكتشاف التلقائي لحدود الورقة مو شغّال عالسوا») ──
+     الطريقة ① تبحث عن «أفتح منطقةٍ وأقلّها لوناً»، فتفشل حين تشبه الخلفيّةُ الورقة: يدٌ أو قماشٌ فاتح بجانبها، طاولةٌ بيضاء،
+     رزمة أوراقٍ بجانب الإيصال — ورقٌ حراريٌّ مزرقّ قد تكون الخلفيّة أفتح منه. وحين تنجح تأتي حدودها تقريبيّةً فتُبقي شرائط خلفية.
+     هنا كما في تطبيقات المسح: حواف (سوبل + كبت اللاأعظمي) ⇒ تحويل هاف (صوت كل حافّة بقدر اختلاف جانبيها: حدّ الورقة ثقيل،
+     والسطر المطبوع والنصّ — ورقٌ على جانبيه — خفيف) ⇒ أزواج خطوطٍ متقابلة ⇒ رباعيّات ⇒ لكل ضلع: سندُ الحافّة على طوله +
+     الفرق بين جانبيه (سطوعاً ولوناً، أيّهما أفتح) ⇒ الرباعيّ بقدر أضعف أضلاعه. ثمّ «لصق» كل ضلعٍ على الحدّ القريب بدقّة.
+     على مجموعة تقييم (صور المالك + ١٤ صورةً مركّبة من إيصالٍ حراريٍّ حقيقي على خلفيات مختلفة): ١٨ من ٢٠ بخطأ ≤٣٪ من القطر
+     مقابل ٦ من ٢٠ للطريقة ①، وصورتا المالك اللتان فشلتا (الإيصال المطويّ في اليد · المسح على الهاتف بشرائط خلفية) صحيحتان. */
+  function lineQuad(id) {
+    var W = id.width, H = id.height, d = id.data, n = W * H, i, x, y, k;
+    var L = new Float32Array(n), P = new Float32Array(n), U = new Float32Array(n), V = new Float32Array(n);
+    for (i = 0; i < n; i++) {
+      var r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = 0.299 * r + 0.587 * g + 0.114 * b;
+      L[i] = l; var v = l - 0.6 * (mx - mn); P[i] = v < 0 ? 0 : v; U[i] = b - (r + g) / 2; V[i] = r - g;
+    }
+    function blur(a, rad) {     // صندوقيّ منفصل بأطرافٍ ممدودة
+      var t = new Float32Array(n), u = new Float32Array(n), xx, yy, s, kk = 1 / (2 * rad + 1), row, last, lastR = (H - 1) * W;
+      for (yy = 0; yy < H; yy++) { row = yy * W; last = row + W - 1; s = a[row] * (rad + 1);
+        for (xx = 1; xx <= rad; xx++) s += a[row + (xx < W ? xx : W - 1)];
+        for (xx = 0; xx < W; xx++) { t[row + xx] = s * kk; var ad = row + xx + rad + 1, rm = row + xx - rad; s += a[ad > last ? last : ad] - a[rm < row ? row : rm]; } }
+      for (xx = 0; xx < W; xx++) { s = t[xx] * (rad + 1);
+        for (yy = 1; yy <= rad; yy++) s += t[(yy < H ? yy : H - 1) * W + xx];
+        for (yy = 0; yy < H; yy++) { u[yy * W + xx] = s * kk; var ai = (yy + rad + 1) * W + xx, ri = (yy - rad) * W + xx; s += t[ai > lastR + xx ? lastR + xx : ai] - t[ri < xx ? xx : ri]; } }
+      return u;
+    }
+    var Ps = blur(P, 3), Lb = blur(blur(L, 2), 2), Ub = blur(U, 3), Vb = blur(V, 3);
+    function at(arr, px, py) { px = px | 0; py = py | 0; if (px < 0 || py < 0 || px >= W || py >= H) return -1; return arr[py * W + px]; }
+    /* الفرق بين نقطتين (سطوعٌ ولون) — بلا افتراض أيّهما أفتح */
+    function fdiff(x1, y1, x2, y2) {
+      x1 = x1 | 0; y1 = y1 | 0; x2 = x2 | 0; y2 = y2 | 0;
+      if (x1 < 0 || y1 < 0 || x1 >= W || y1 >= H || x2 < 0 || y2 < 0 || x2 >= W || y2 >= H) return -1;
+      var a1 = y1 * W + x1, a2 = y2 * W + x2, dl = Lb[a1] - Lb[a2], du = Ub[a1] - Ub[a2], dv = Vb[a1] - Vb[a2];
+      return Math.sqrt(dl * dl + 2 * du * du + 2 * dv * dv);
+    }
+    /* سوبل على السطوع واللون معاً وعلى نسخةٍ أنعم ⇒ كبت اللاأعظمي (الزاوية لبكسلات الحافّة وحدها).
+       (حدّ ورقةٍ مزرقّة على قماشٍ رماديّ محبّب فرقُه لونٌ أكثر منه سطوعاً، وحبّات القماش «حوافّ» سطوعٍ تطغى عليه.) */
+    var M = new Float32Array(n), GX = new Float32Array(n), GY = new Float32Array(n), A = new Float32Array(n), mh = new Uint32Array(512);
+    function sob(a, k2, o) { o[0] = a[k2 + 1 - W] + 2 * a[k2 + 1] + a[k2 + 1 + W] - a[k2 - 1 - W] - 2 * a[k2 - 1] - a[k2 - 1 + W]; o[1] = a[k2 + W - 1] + 2 * a[k2 + W] + a[k2 + W + 1] - a[k2 - W - 1] - 2 * a[k2 - W] - a[k2 - W + 1]; }
+    var gl = [0, 0], gu = [0, 0], gv = [0, 0];
+    for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) {
+      k = y * W + x; sob(Lb, k, gl); sob(Ub, k, gu); sob(Vb, k, gv);
+      var ml = gl[0] * gl[0] + gl[1] * gl[1], mu = 2 * (gu[0] * gu[0] + gu[1] * gu[1]), mv = 2 * (gv[0] * gv[0] + gv[1] * gv[1]);
+      var mm = Math.sqrt(ml + mu + mv), gd = ml >= mu && ml >= mv ? gl : (mu >= mv ? gu : gv);      // الاتّجاه من القناة الأقوى
+      M[k] = mm; GX[k] = gd[0]; GY[k] = gd[1]; mh[mm > 511 ? 511 : mm | 0]++;
+    }
+    function pct(f) { var c = 0; for (var h = 0; h < 512; h++) { c += mh[h]; if (c >= n * f) return h || 1; } return 1; }
+    var tLow = Math.max(6, pct(0.95) * 0.22), E = new Uint8Array(n), ex = [];
+    for (y = 2; y < H - 2; y++) for (x = 2; x < W - 2; x++) {
+      k = y * W + x; var m = M[k]; if (m < tLow) continue;
+      var ax = GX[k] < 0 ? -GX[k] : GX[k], ay = GY[k] < 0 ? -GY[k] : GY[k], m1, m2;
+      if (ax > ay * 2.414) { m1 = M[k - 1]; m2 = M[k + 1]; }
+      else if (ay > ax * 2.414) { m1 = M[k - W]; m2 = M[k + W]; }
+      else if (GX[k] * GY[k] > 0) { m1 = M[k - W - 1]; m2 = M[k + W + 1]; }
+      else { m1 = M[k - W + 1]; m2 = M[k + W - 1]; }
+      if (m >= m1 && m >= m2) { E[k] = 1; ex.push(k); A[k] = Math.atan2(GY[k], GX[k]); }
+    }
+    /* هاف: كل بكسل حافّة يصوّت حول اتّجاه تدرّجه (±٥°) بوزن الفرق بين جانبيه */
+    var OFF = Math.max(4, Math.round(Math.min(W, H) * 0.022)), D = Math.ceil(Math.hypot(W, H)), NR = 2 * D + 1, acc = new Float32Array(180 * NR), CS = [], SN = [], t;
+    for (t = 0; t < 180; t++) { CS[t] = Math.cos(t * Math.PI / 180); SN[t] = Math.sin(t * Math.PI / 180); }
+    for (var e = 0; e < ex.length; e++) {
+      k = ex[e]; x = k % W; y = (k / W) | 0;
+      var ca = Math.cos(A[k]), sa = Math.sin(A[k]), fd = fdiff(x + ca * OFF, y + sa * OFF, x - ca * OFF, y - sa * OFF);
+      var wv = fd < 0 ? 0.3 : Math.max(0.05, Math.min(1, fd / 30)), deg = ((A[k] * 180 / Math.PI) % 180 + 180) % 180, t0 = Math.round(deg);
+      for (var dt = -5; dt <= 5; dt++) { var tt = (t0 + dt + 180) % 180; acc[tt * NR + Math.round(x * CS[tt] + y * SN[tt]) + D] += wv; }
+    }
+    var minV = Math.min(W, H) * 0.05, cand = [];
+    for (t = 0; t < 180; t++) for (var rr = 0; rr < NR; rr++) {
+      var val = acc[t * NR + rr]; if (val < minV) continue;
+      var isMax = true;
+      for (var a2 = -3; a2 <= 3 && isMax; a2++) for (var b2 = -6; b2 <= 6; b2++) {
+        if (!a2 && !b2) continue;
+        var ta = t + a2, ra = rr + b2;
+        if (ta < 0 || ta >= 180) { ta = (ta + 180) % 180; ra = NR - 1 - rr + b2; }
+        if (ra < 0 || ra >= NR) continue;
+        var w2 = acc[ta * NR + ra]; if (w2 > val || (w2 === val && ta * NR + ra < t * NR + rr)) { isMax = false; break; }
+      }
+      if (isMax) cand.push({ t: t, r: rr - D, v: val, cs: CS[t], sn: SN[t] });
+    }
+    cand.sort(function (p, q) { return q.v - p.v; });
+    cand = cand.slice(0, 140);
+    function edgeAt(px, py, cs, sn) {     // حافّةٌ ضمن ±٢ على العمود، اتّجاهها عموديٌّ على الخط ⇒ +1 (تدرّجٌ مع العمود) أو -1 (عكسه) أو 0
+      for (var q = -2; q <= 2; q++) {
+        var qx = Math.round(px + cs * q), qy = Math.round(py + sn * q); if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+        var kk = qy * W + qx; if (!E[kk]) continue;
+        var dp = Math.cos(A[kk]) * cs + Math.sin(A[kk]) * sn; if (dp > 0.85 || dp < -0.85) return 1;
+      }
+      return 0;
+    }
+    /* المرشّحون بأطول امتدادٍ متّصل «حدّيّ» (حافّة + فرقٌ واضح بين الجانبين) لا بعدد الأصوات: خطوط الخشب والنصّ كثيرة الأصوات */
+    cand.forEach(function (l) {
+      var px0 = l.r * l.cs, py0 = l.r * l.sn, dx = -l.sn, dy = l.cs, run = 0, best = 0, gap = 0;
+      for (var s3 = -D; s3 <= D; s3 += 2) {
+        var X = px0 + dx * s3, Y = py0 + dy * s3; if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+        var good = edgeAt(X, Y, l.cs, l.sn);
+        if (good) { var f3 = fdiff(X + l.cs * OFF, Y + l.sn * OFF, X - l.cs * OFF, Y - l.sn * OFF); if (f3 >= 0 && f3 < 15) good = 0; }
+        if (good) { run += 2 + gap; gap = 0; if (run > best) best = run; } else { gap += 2; if (gap > 10) { run = 0; gap = 0; } }
+      }
+      l.run = best;
+    });
+    var lines = cand.filter(function (l) { return l.run >= Math.min(W, H) * 0.1; }).sort(function (p, q) { return q.run - p.run; }).slice(0, 30);
+    [[0, 0], [0, W - 1], [90, 0], [90, H - 1]].forEach(function (q) { lines.push({ t: q[0], r: q[1], cs: CS[q[0]], sn: SN[q[0]], border: 1 }); });   // إطار الصورة (ورقةٌ تتجاوزه)
+    lines.forEach(function (l, li) { l.id = li; });
+
+    /* عتبة «الورقيّة» (أوتسو) — لأضلاع إطار الصورة فقط */
+    var hist = new Uint32Array(256), tot = 0; for (i = 0; i < n; i += 2) { hist[Ps[i] > 255 ? 255 : Ps[i] | 0]++; tot++; }
+    var pth = otsu(hist, tot);
+    function inter(l1, l2) { var det = l1.cs * l2.sn - l1.sn * l2.cs; if (Math.abs(det) < 1e-6) return null; return [(l1.r * l2.sn - l2.r * l1.sn) / det, (l1.cs * l2.r - l2.cs * l1.r) / det]; }
+    /* ضلعٌ من P1 إلى P2 على الخط l، والداخل باتّجاه sgn: سندُ الحافّة (٠–١) والفرق بين الجانبين (٠–١) */
+    function sideScore(l, P1, P2, sgn) {
+      var len = Math.hypot(P2[0] - P1[0], P2[1] - P1[1]), steps = Math.max(8, Math.round(len / 2)), sup = 0, con = 0, cnt = 0, nx = l.cs * sgn, ny = l.sn * sgn;
+      for (var s = 0; s <= steps; s++) {
+        var f = 0.04 + 0.92 * s / steps, px = P1[0] + (P2[0] - P1[0]) * f, py = P1[1] + (P2[1] - P1[1]) * f;
+        if (px < -1 || py < -1 || px > W || py > H) continue;
+        cnt++;
+        if (l.border) { if (at(Ps, px + nx * OFF, py + ny * OFF) > pth) sup++; con += 0.5; continue; }   // الإطار: لا تباين يُقاس ⇒ محايد
+        sup += edgeAt(px, py, l.cs, l.sn);
+        var fd2 = fdiff(px + nx * OFF, py + ny * OFF, px - nx * OFF, py - ny * OFF);
+        if (fd2 >= 0) con += Math.min(1, fd2 / 30);
+      }
+      return cnt ? { sup: sup / cnt, con: con / cnt, frac: cnt / (steps + 1), border: !!l.border } : null;
+    }
+    function ang(l1, l2) { var a = Math.abs(l1.t - l2.t) % 180; return a > 90 ? 180 - a : a; }
+    function dist(l1, l2) { var cx = W / 2, cy = H / 2, si = cx * l1.cs + cy * l1.sn - l1.r, px = cx - si * l1.cs, py = cy - si * l1.sn; return Math.abs(px * l2.cs + py * l2.sn - l2.r); }
+    function convex(q) { var sg = 0; for (var z = 0; z < 4; z++) { var a = q[z], b = q[(z + 1) % 4], c = q[(z + 2) % 4], cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]); if (!cr) return false; if (!sg) sg = cr > 0 ? 1 : -1; else if ((cr > 0 ? 1 : -1) !== sg) return false; } return true; }
+    var pairs = [], mnD = Math.min(W, H) * 0.12;
+    for (i = 0; i < lines.length; i++) for (var j = i + 1; j < lines.length; j++) if (ang(lines[i], lines[j]) <= 35 && dist(lines[i], lines[j]) >= mnD) pairs.push([lines[i], lines[j]]);
+    var tops = [], cache = {}, mx2 = W * 0.08, my2 = H * 0.08;
+    for (var pa = 0; pa < pairs.length; pa++) for (var pb = pa + 1; pb < pairs.length; pb++) {
+      var Pa = pairs[pa], Pb = pairs[pb];
+      if (ang(Pa[0], Pb[0]) < 40 || ang(Pa[1], Pb[1]) < 40) continue;
+      var Q = [inter(Pa[0], Pb[0]), inter(Pa[0], Pb[1]), inter(Pa[1], Pb[1]), inter(Pa[1], Pb[0])], bad = !Q[0] || !Q[1] || !Q[2] || !Q[3];
+      for (var z = 0; z < 4 && !bad; z++) if (Q[z][0] < -mx2 || Q[z][0] > W + mx2 || Q[z][1] < -my2 || Q[z][1] > H + my2) bad = true;
+      if (bad || !convex(Q)) continue;
+      var ar = polyArea(Q); if (ar < n * 0.1) continue;
+      var cxq = (Q[0][0] + Q[1][0] + Q[2][0] + Q[3][0]) / 4, cyq = (Q[0][1] + Q[1][1] + Q[2][1] + Q[3][1]) / 4;
+      var sides = [[Pa[0], Q[0], Q[1], Pb[0], Pb[1]], [Pb[1], Q[1], Q[2], Pa[0], Pa[1]], [Pa[1], Q[2], Q[3], Pb[1], Pb[0]], [Pb[0], Q[3], Q[0], Pa[1], Pa[0]]], sc = [], ok = true, nb = 0;
+      for (z = 0; z < 4; z++) {
+        var ln = sides[z][0], sg2 = (cxq * ln.cs + cyq * ln.sn - ln.r) > 0 ? 1 : -1, i1 = sides[z][3].id, i2 = sides[z][4].id;
+        var key = ln.id + ':' + (i1 < i2 ? i1 + ',' + i2 : i2 + ',' + i1) + ':' + sg2, ss = cache[key];   // الضلع نفسه يتكرّر في رباعيّاتٍ كثيرة
+        if (ss === undefined) ss = cache[key] = sideScore(ln, sides[z][1], sides[z][2], sg2);
+        if (!ss || ss.frac < 0.5) { ok = false; break; }
+        if (ln.border) nb++;
+        else if (ss.sup < 0.3 || ss.con < 0.35) { ok = false; break; }
+        sc.push(ss);
+      }
+      if (!ok) continue;
+      var ms = 0, mc = 0, mins = 1, minc = 1;
+      sc.forEach(function (q) { ms += q.sup / 4; mc += q.con / 4; if (q.sup < mins) mins = q.sup; if (q.con < minc) minc = q.con; });
+      /* الرباعيّ بقدر أضعف أضلاعه: سطرٌ مطبوع داخل الورقة يأتي بتباينٍ أضعف من حدّها الحقيقي */
+      tops.push({ q: Q, score: ms * 0.25 + mins * 0.15 + mc * 0.15 + minc * 0.3 + (ar / n) * 0.15 - nb * 0.04, minc: minc, nb: nb, sc: sc, area: ar });
+    }
+    tops.sort(function (p, q) { return q.score - p.score; });
+    /* 🛡️ حارس القصّ (كالطريقة ①) للخطوط الأضعف: محتوى كثيف خارج الرباعيّ يقارب ما داخله ⇒ الأضلاع تقصّ الورقة.
+       (لا يُطبَّق على الخطوط القويّة: خلفيّةٌ مخطّطة — خشبٌ أو بلاط — تبدو له «محتوى» فيُرفض الصحيح.) */
+    var strong = pct(0.9) * 0.8, mg = Math.max(4, Math.round(Math.min(W, H) * 0.03));
+    function guard(Q) {
+      Q = order(Q);
+      var inN = 0, inS = 0, outN = 0, outS = 0;
+      for (var yy = mg; yy < H - mg; yy += 2) for (var xx = mg; xx < W - mg; xx += 2) {
+        var md = Infinity;
+        for (var e3 = 0; e3 < 4; e3++) { var A3 = Q[e3], B3 = Q[(e3 + 1) % 4], L3 = Math.hypot(B3[0] - A3[0], B3[1] - A3[1]) || 1; md = Math.min(md, ((B3[0] - A3[0]) * (yy - A3[1]) - (B3[1] - A3[1]) * (xx - A3[0])) / L3); }
+        if (Math.abs(md) < mg) continue;
+        var st2 = M[yy * W + xx] > strong ? 1 : 0;
+        if (md > 0) { inN++; inS += st2; } else { outN++; outS += st2; }
+      }
+      return !(outN > (inN + outN) * 0.04 && outS / Math.max(1, outN) > (inS / Math.max(1, inN)) * 0.5);
+    }
+
+    /* طيّة الإيصال (نصفٌ مضاء ونصفٌ في الظلّ) تبدو حدّاً مستقيماً متبايناً ⇒ رباعيٌّ لنصف الورقة. لا قصّ: رباعيٌّ صالح أكبر
+       (×١٫٢٥ فأكثر) يحوي الأفضل ودرجته قريبة ⇒ يُؤخذ (إيصال المالك المطويّ في اليد). */
+    var b0 = tops[0] || null, best = b0;
+    function contains(big, small) {
+      var Qo = order(big.q), tol = -Math.min(W, H) * 0.04;      // «تحويه تقريباً»: حدود الطريقة ① تقريبيّة
+      return small.q.every(function (pp) { var md = Infinity;
+        pp = [Math.max(0, Math.min(W - 1, pp[0])), Math.max(0, Math.min(H - 1, pp[1]))];       // ركنٌ خارج الصورة (ورقةٌ تتجاوزها) يُقاس على إطارها
+        for (var e4 = 0; e4 < 4; e4++) { var A4 = Qo[e4], B4 = Qo[(e4 + 1) % 4], L4 = Math.hypot(B4[0] - A4[0], B4[1] - A4[1]) || 1; md = Math.min(md, ((B4[0] - A4[0]) * (pp[1] - A4[1]) - (B4[1] - A4[1]) * (pp[0] - A4[0])) / L4); }
+        return md >= tol; });
+    }
+    for (i = 1; b0 && i < tops.length && i < 60; i++) {
+      var t2 = tops[i], big = t2.area >= b0.area * 1.8, mcnb = 1;
+      t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
+      if (t2.score < b0.score - (big ? 0.15 : 0.08) || t2.nb > 1 || mcnb < (big ? 0.45 : 0.6) || t2.area < b0.area * 1.25 || t2.area <= best.area) continue;
+      if (contains(t2, best)) best = t2;
+    }
+    /* لصق كل ضلعٍ على الحدّ الحقيقي القريب (±٦٪): نحرّك طرفيه على العموديّ (خشنٌ ثمّ دقيق) ونختار الأقوى سنداً وتبايناً */
+    function refine(Q) {
+      Q = order(Q);
+      var R = Math.max(6, Math.round(Math.min(W, H) * 0.06)), cx = (Q[0][0] + Q[1][0] + Q[2][0] + Q[3][0]) / 4, cy = (Q[0][1] + Q[1][1] + Q[2][1] + Q[3][1]) / 4, newL = [], snapped = 0;
+      for (var z = 0; z < 4; z++) {
+        var P1 = Q[z], P2 = Q[(z + 1) % 4], ux = P2[0] - P1[0], uy = P2[1] - P1[1], ln = Math.hypot(ux, uy) || 1, nx = -uy / ln, ny = ux / ln, bst = null;
+        if ((cx - P1[0]) * nx + (cy - P1[1]) * ny < 0) { nx = -nx; ny = -ny; }          // n نحو الداخل
+        var tryAt = function (da, db) {
+          var A1 = [P1[0] + nx * da, P1[1] + ny * da], B1 = [P2[0] + nx * db, P2[1] + ny * db];
+          var vx = B1[0] - A1[0], vy = B1[1] - A1[1], vl = Math.hypot(vx, vy) || 1, l = { cs: -vy / vl, sn: vx / vl };
+          l.r = A1[0] * l.cs + A1[1] * l.sn;
+          var ss = sideScore(l, A1, B1, (cx * l.cs + cy * l.sn - l.r) > 0 ? 1 : -1); if (!ss || ss.frac < 0.5) return;
+          var sc2 = ss.sup * 0.5 + ss.con * 0.5 - Math.max(0, da + db) * 0.0008;      // تعادل ⇒ الأبعد للخارج (لا قصّ)
+          if (!bst || sc2 > bst.sc) bst = { sc: sc2, l: l, ss: ss, da: da, db: db };
+        };
+        for (var da0 = -R; da0 <= R; da0 += 3) for (var db0 = -R; db0 <= R; db0 += 3) tryAt(da0, db0);
+        if (bst) { var bda = bst.da, bdb = bst.db; for (var fa = -2; fa <= 2; fa++) for (var fb = -2; fb <= 2; fb++) if (fa || fb) tryAt(bda + fa, bdb + fb); }
+        if (bst && bst.ss.sup >= 0.35 && bst.ss.con >= 0.5) { newL.push(bst.l); snapped++; }
+        else { var nx2 = -uy / ln, ny2 = ux / ln; newL.push({ cs: nx2, sn: ny2, r: P1[0] * nx2 + P1[1] * ny2 }); }
+      }
+      var out = Q.map(function (p) { return p.slice(); });
+      for (z = 0; z < 4; z++) { var c = inter(newL[(z + 3) % 4], newL[z]); if (c) out[z] = c; }
+      return { q: out, snapped: snapped };
+    }
+    /* كثافة المحتوى (تدرّجاتٌ قويّة = حبر) في ما يزيده رباعيٌّ كبير على صغير — بعيداً عن أضلاع الصغير */
+    function extraInk(bigQ, smallQ) {
+      var Bq = order(bigQ), Sq = order(smallQ), N2 = 0, S2 = 0;
+      function sd(Q, px, py) { var md = Infinity; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4], L5 = Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1; md = Math.min(md, ((B5[0] - A5[0]) * (py - A5[1]) - (B5[1] - A5[1]) * (px - A5[0])) / L5); } return md; }
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
+        if (sd(Bq, xx, yy) < mg || sd(Sq, xx, yy) > -mg) continue;
+        N2++; if (M[yy * W + xx] > strong) S2++;
+      }
+      return N2 ? S2 / N2 : 0;
+    }
+    return { best: best, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+  }
+
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
   function grow(q, f, W, H) {
     var cx = 0, cy = 0; q.forEach(function (p) { cx += p[0] / 4; cy += p[1] / 4; });
@@ -325,10 +546,29 @@
     var out = warp(work, corners.map(function (p) { return [p[0] * work.width, p[1] * work.height]; }), 2000);
     return enhance(out, mode);
   }
+  /* الترتيب (TASK-0123): ① خطوطٌ قويّة على الأضلاع الأربعة (درجة ≥٠٫٧ وأضعف تباين ≥٠٫٧) ⇒ تُعتمد (ما لم تجد الطريقة ①
+     منطقةً أكبر بكثير تحويها) ⇒ ② وإلّا الطريقة ① (المنطقة الفاتحة) إن نجحت ⇒ ③ وإلّا خطوطٌ أضعف (≥٠٫٦) إن مرّت بحارس القصّ ⇒ ④ ورقةٌ تملأ الصورة ⇒ الصورة كاملة ⇒ ⑤ الصورة كاملة
+     لتحدّدها بيدك. وفي ①②③ يُلصق كل ضلعٍ على الحدّ الحقيقي القريب، والتوسيع للخارج ٠٫٥٪ فقط (كان ١٫٥٪ على حدودٍ تقريبيّة
+     فيُبقي شرائط خلفيّة — لقطة المالك) و١٫٥٪ إن بقي ضلعٌ بلا لصق. */
   function detectNorm(img, rot) {
-    var c = drawScaled(img, DET_MAX, rot), id = c.getContext('2d').getImageData(0, 0, c.width, c.height);
-    var r = detect(id), q = r.ok ? grow(r.corners, 0.015, c.width, c.height) : r.corners;
-    return { corners: q.map(function (p) { return [p[0] / c.width, p[1] / c.height]; }), ok: r.ok, why: r.why, diag: r.diag };
+    var c = drawScaled(img, DET_MAX, rot), W = c.width, H = c.height, id = c.getContext('2d').getImageData(0, 0, W, H);
+    var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf;
+    if (b && b.score >= 0.7 && b.minc >= 0.7) {
+      rf = lq.refine(b.q); how = 'lines';
+      /* لا قصّ: الطريقة ① وجدت منطقةً أكبر بكثير (×١٫٣٥) تحوي الخطوط، وفي الزيادة حبر (نصّ · رموز: كثافة ≥٤٪) ⇒ الخطوط قطعت
+         جزءاً من الورقة (حدٌّ بين ترويسةٍ بيضاء وجدولٍ ملوّن في إيصالٍ مطبوع بالألوان، ويدٌ تغطّي الحدّ الحقيقي) ⇒ المنطقة الأكبر.
+         زيادةٌ بلا حبر (رزمة أوراقٍ بيضاء بجانب الإيصال: ١–٢٪) ⇒ تبقى الخطوط. في التجربة: القصّ ٨–٢٢٪ · الرزمة ≤٢٫٣٪. */
+      old = detect(id);
+      if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04) { rf = lq.refine(old.corners); how = 'region'; }
+    }
+    else if ((old = old || detect(id)).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
+    else if (b && b.score >= 0.6 && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }
+    if (rf) q = grow(order(rf.q), rf.snapped === 4 ? 0.005 : 0.015, W, H);
+    else if (old && old.fill) { q = old.corners; how = 'fill'; }
+    var norm = function (qq) { return qq.map(function (p) { return [Math.max(0, Math.min(1, p[0] / W)), Math.max(0, Math.min(1, p[1] / H))]; }); };
+    if (q) return { corners: norm(q), ok: true, why: old && old.fill ? old.why : '', how: how, diag: old && old.diag };
+    var r = old || detect(id);
+    return { corners: norm([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]]), ok: false, why: r.why || 'لم تتميّز الورقة عن الخلفية', how: 'none', diag: r.diag };
   }
 
   /* ── ④ الواجهة ───────────────────────────────────────────────────────────── */
@@ -357,7 +597,15 @@
     css();
     return loadImg(file).then(function (img) {
       return new Promise(function (resolve) {
-        var rot = 0, det = detectNorm(img, rot), corners = det.corners, mode = 'color', view = 'edit', result = null, busy = false;
+        /* (TASK-0123) الاكتشاف بالخطوط أثقل (≈١ث على هاتفٍ متوسّط): النافذة تظهر فوراً بالصورة، والزوايا «تُلصق» بعد لحظة.
+           لمستَ زاويةً قبلها ⇒ اختيارك يبقى · ضغطتَ «قصّ» قبلها ⇒ يُكمَل الاكتشاف أوّلاً. */
+        var rot = 0, det = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]], ok: true, why: '' }, corners = det.corners, mode = 'color', view = 'edit', result = null, busy = false;
+        var pending = 0, touched = false;
+        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) corners = det.corners; }
+        function detectSoon() {
+          if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
+          pending = setTimeout(function () { pending = -1; detectNow(); if (view === 'edit') { paintQuad(); say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.'); } }, 60);
+        }
         var root = doc.createElement('div'); root.id = 'gds'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
         root.innerHTML =
           '<div class="gds-top">📄 ' + (opts.title || 'مسح المستند') + ' <small id="gds-sub"></small></div>' +
@@ -385,7 +633,7 @@
             var h = doc.createElement('div'); h.className = 'gds-h'; h.setAttribute('data-i', i); wrap.appendChild(h); handles.push(h);
             (function (k, el) {
               el.addEventListener('pointerdown', function (e) {
-                e.preventDefault(); el.setPointerCapture(e.pointerId);
+                e.preventDefault(); el.setPointerCapture(e.pointerId); touched = true;
                 function mv(ev) { var r = cv.getBoundingClientRect(); corners[k] = [Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height))]; paintQuad(); }
                 function up() { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); }
                 el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
@@ -393,11 +641,11 @@
             })(i, h);
           }
           requestAnimationFrame(paintQuad);
-          say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.');
+          if (!pending) say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.');
           bar.innerHTML = '';
-          btn('↻ تدوير', function () { rot = (rot + 90) % 360; det = detectNorm(img, rot); corners = det.corners; showEdit(); });
-          btn('🔄 اكتشاف تلقائي', function () { det = detectNorm(img, rot); corners = det.corners; showEdit(); });
-          btn('⬜ الصفحة كاملة', function () { corners = [[0, 0], [1, 0], [1, 1], [0, 1]]; paintQuad(); say(''); });
+          btn('↻ تدوير', function () { rot = (rot + 90) % 360; corners = [[0, 0], [1, 0], [1, 1], [0, 1]]; showEdit(); detectSoon(); });
+          btn('🔄 اكتشاف تلقائي', function () { detectSoon(); });
+          btn('⬜ الصفحة كاملة', function () { if (pending > 0) clearTimeout(pending); pending = 0; touched = true; corners = [[0, 0], [1, 0], [1, 1], [0, 1]]; paintQuad(); say(''); });
           btn('📷 إعادة التصوير', retake);
           btn('✕ إلغاء', function () { finish(null); });
           btn('✔ قصّ وتحسين', function () { run(); }, 'p');
@@ -410,7 +658,7 @@
           handles.forEach(function (h, i) { h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; });
         }
         function run() {
-          if (busy) return; busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
+          if (busy) return; detectNow(); busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
           setTimeout(function () {
             try { result = process(img, corners, rot, mode); busy = false; showResult(); }
             catch (e) { busy = false; say('❌ تعذّرت المعالجة: ' + (e && e.message || e) + ' — جرّب «الصفحة كاملة» أو أعد التصوير.'); }
@@ -438,10 +686,10 @@
           void cmp;
         }
         global.addEventListener('resize', paintQuad);
-        showEdit();
+        showEdit(); detectSoon();
       });
     });
   }
 
-  global.GMTDocScan = { open: open, detect: detect, process: process, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
+  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
 })(window);
