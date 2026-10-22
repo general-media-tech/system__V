@@ -1,0 +1,7 @@
+task: TASK-0128
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: orders.html gmt-docscan.js gmt-receipt.js tests/harness/t_ship_flow_fail.js
+claimed_at: 2026-10-22T20:53:07Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0128
