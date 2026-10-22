@@ -485,7 +485,15 @@
   }
 
   /* «شركة <اسمٌ غير المفتي>» مقروءة ⇒ إيصال شركةٍ أخرى: لا يُنسب للمفتي حتى لو شابه سطر «المصدر» أحد فروعها */
-  function otherCompany(text) {
+  /* تذييلٌ فيه رقم هاتفٍ مقروء (٩ أرقام فأكثر) وليس فيه أيٌّ من هواتف مكاتب المفتي ولا اسمها ⇒ إيصال شركةٍ أخرى */
+  function foreignFooter(foot) {
+    if (!foot || /مفٮٮ/.test(skel(foot)) || /mufti/i.test(foot)) return false;
+    var digits = latin(foot).replace(/\D+/g, '|');
+    if (!/\d{9,}/.test(digits)) return false;
+    return !muftiPhones().some(function (p) { return digits.indexOf(p) !== -1; });
+  }
+  function otherCompany(text, foot) {
+    if (foreignFooter(foot)) return true;
     var re = /سركه\s+(\S+)/g, m, K = skel('مفتي');
     while ((m = re.exec(skel(text)))) {
       var w = noAl(bareW(m[1]));
@@ -569,12 +577,15 @@
     return { key: confident ? top.key : null, confident: confident, candidates: cands, text: seg, best: top ? { key: top.key, score: +top.score.toFixed(2) } : null };
   }
 
+  var CELL = [0.38, 0.36, 1, 0.72], BAND = [0, 0.25, 1, 0.8];   // خانة «المصدر» · شريط الوسط (نِسَب من الإيصال القائم)
+  var MARK_TOP = [0, 0, 1, 0.38], MARK_FOOT = [0, 0.74, 1, 1];   // اسم الشركة/شعارها · تذييل هواتف مكاتبها
   /* صورةٌ للتعرّف العربي: أقصى القنوات (أقلام التعليم الملوّنة تصير فاتحة والحبر يبقى غامقاً) + تكبيرٌ حتى ٢× */
-  function araCanvas(im, rot, band) {
+  function araCanvas(im, rot, box) {
     var max = 2400, cv0 = crop(im, [0, 0, 1, 1], rot, max);
-    if (band) {                                                  // شريطٌ أفقيّ فقط من الإيصال القائم (حيث سطر «المصدر»)
-      var y0 = Math.round(cv0.height * band[0]), bh = Math.max(8, Math.round(cv0.height * (band[1] - band[0]))), bc = document.createElement('canvas');
-      bc.width = cv0.width; bc.height = bh; bc.getContext('2d').drawImage(cv0, 0, y0, cv0.width, bh, 0, 0, cv0.width, bh);
+    if (box) {                                                   // جزءٌ فقط من الإيصال القائم [x0, y0, x1, y1] (نِسَب) — حيث سطر «المصدر»
+      var x0 = Math.round(cv0.width * box[0]), y0 = Math.round(cv0.height * box[1]);
+      var bw = Math.max(8, Math.round(cv0.width * (box[2] - box[0]))), bh = Math.max(8, Math.round(cv0.height * (box[3] - box[1]))), bc = document.createElement('canvas');
+      bc.width = bw; bc.height = bh; bc.getContext('2d').drawImage(cv0, x0, y0, bw, bh, 0, 0, bw, bh);
       cv0 = bc;
     }
     var k = Math.min(2, max / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
@@ -630,17 +641,28 @@
           try { var d = DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
         }
         if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
-        function attempt(im, rot, tag, band) {
-          return ara.recognize(araCanvas(im, rot, band)).then(function (res) {
+        function attempt(im, rot, tag, box) {
+          return ara.recognize(araCanvas(im, rot, box)).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
-            var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag };
-            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (band ? '/band' : '') });
+            var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null };
+            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') });
             return a;
           });
         }
-        /* الاتّجاه معروف ⇒ أوّلاً شريط الوسط فقط (سطر «المصدر» وقع بين ٤٨٪ و٦١٪ من الارتفاع في كل إيصالات المالك) — نصف المساحة تقريباً */
-        if (up != null) {
-          var ab = await attempt(srcIm, up, srcIm === L.im ? 'as-is' : 'color', [0.25, 0.8]);
+        /* (22 ت1 · TASK-0120 · المالك: «لا تحتاج قراءة كل الإيصال… هي في ثاني سطر في الجدول… فقط المصدر»)
+           ١) خانة «المصدر» وحدها: عمود المرسِل (يمين الإيصال القائم) حول السطر الثاني من الجدول — في إيصالاتك الستّة وقع السطر
+              بين ٤٦٪ و٦١٪ من الارتفاع وطرفه الأيمن عند ٩٢–٩٩٪ من العرض ⇒ المربّع [٣٨–١٠٠٪ × ٣٦–٧٢٪] ≈ خُمس الإيصال.
+              اتّجاه الـQR معروف ⇒ مرّةٌ واحدة؛ غير معروف ⇒ الخانة في كل اتّجاه (رخيصة) قبل أيّ صفحةٍ كاملة.
+           ٢) لم تكفِ ⇒ شريط الوسط بعرض الإيصال (الاتّجاه معروف) ⇒ ٣) الصفحة كاملة كما كانت.
+           والنصّ المقروء يُطابَق مع فروع المفتي المعروفة (بنك الفروع + أسماؤها البديلة) — لا يُعتمد ما لا يشبه فرعاً. */
+        var tagOf = function () { return srcIm === L.im ? 'as-is' : 'color'; };
+        var cellRots = up != null ? [up] : rots;
+        for (var cr = 0; cr < cellRots.length && !(best && best.m && best.m.confident); cr++) {
+          var ac = await attempt(srcIm, cellRots[cr], tagOf(), CELL);
+          if (ac.m && ac.m.confident) best = ac;
+        }
+        if (up != null && !(best && best.m && best.m.confident)) {
+          var ab = await attempt(srcIm, up, tagOf(), BAND);
           if (ab.m && ab.m.confident) best = ab;
         }
         for (var r = 0; r < rots.length && !(best && best.m && best.m.confident); r++) {
@@ -656,6 +678,14 @@
         }
         out.text = best.txt; out.rot = best.rot; out._best = best;
         if (best.m && best.m.confident && opts.onBranch && (receiptType(best.txt).kind === 'mufti' || !otherCompany(best.txt))) { try { opts.onBranch({ key: best.m.key, confident: true, candidates: best.m.candidates || [], text: best.m.text || '' }); } catch (_) {} }
+        /* قُرئت خانةٌ أو شريطٌ فقط ⇒ علامات الشركة (اسمها أعلى الإيصال · هواتف مكاتبها في التذييل) لم تُقرأ. قاعدة 18 ت1: لا يُنسب
+           إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع. */
+        if (best.box && best.m && best.m.confident && receiptType(best.txt).kind !== 'mufti') {
+          stage('mark');
+          var foot = (await attempt(srcIm, best.rot, 'mark', MARK_FOOT)).txt;      // التذييل أوّلاً: هواتف المكاتب أوثق من الاسم المطبوع باهتاً
+          out.text = best.txt + '\n' + foot; out.footText = foot;
+          if (receiptType(foot).kind !== 'mufti' && !foreignFooter(foot)) out.text += '\n' + (await attempt(srcIm, best.rot, 'mark', MARK_TOP)).txt;
+        }
         if (best.sc < 2 && !(best.m && best.m.confident)) return null;   // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
         if (bcDone && bcDone.number) return [];                     // ③ الباركود يكفي (ولا ننتظر محاولاته البطيئة إن لم ينتهِ)
         stage('digits');
@@ -692,7 +722,7 @@
       delete out._best;
       if (src) out.branch.line = src.line;
       /* سطر «المصدر» مطابقٌ بثقة لفرعٍ من فروع المفتي = بنية إيصال المفتي (والموظف اختار «المفتي» قبل القراءة) */
-      if (out.type.kind !== 'mufti' && out.branch.confident && !otherCompany(out.text)) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
+      if (out.type.kind !== 'mufti' && out.branch.confident && !otherCompany(out.text, out.footText)) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
     out.ms = Date.now() - t0;

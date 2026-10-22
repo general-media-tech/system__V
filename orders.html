@@ -3598,17 +3598,23 @@ async function shipReadTracking(force) {
             if (myFile !== _shipRcptFile || !t || !t.number) return;
             if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
             st.className = 'text-[11px] font-black text-emerald-700 mb-3';
-            st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (branchDone ? '' : ' <span class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
+            st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
         };
+        let earlyKey = null;
         const onBranch = b => {
             if (myFile !== _shipRcptFile || !b) return;
-            branchDone = true; window.applyDetectedShipFrom(b);
+            branchDone = true; if (window.applyDetectedShipFrom(b) === 'applied') earlyKey = b.key;
+            const w = st.querySelector('[data-wait]');
+            if (w) { w.removeAttribute('data-wait'); w.className = 'text-emerald-700'; w.textContent = ' · الفرع المصدر: ' + shipFromLabel(b.key); }
         };
         const r = await GMTReceipt.readMufti(myFile, { original: (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : null, onTracking, onBranch });
         if (myFile !== _shipRcptFile) return;                          // تغيّرت الصورة أثناء القراءة
         _shipRead = r;
         shipReadPaint(r, typed && !force);
         const b = r.branch || {};
+        /* فرعٌ اعتُمد مبكراً ثمّ تبيّن أنّ الإيصال ليس للمفتي ⇒ يعود الافتراضي (ما لم تغيّره بيدك في الأثناء) */
+        const sel = document.getElementById('ship-from');
+        if (earlyKey && !(b.confident && b.key === earlyKey) && sel && sel.getAttribute('data-src') === 'receipt' && sel.value === earlyKey) window.syncShipFromBox(null, true);
         window.applyDetectedShipFrom({ key: b.key, confident: !!b.confident, candidates: b.candidates || [], text: b.text || '' });
     } catch (e) {
         if (myFile !== _shipRcptFile) return;
