@@ -71,21 +71,25 @@
 
   var PARAMS = /^(id|no|num|number|track|tracking|trackingno|trackingnumber|awb|bill|shipment|shipmentid|code|ref|barcode|waybill|sn)$/i;
 
+  /* (TASK-0127) رقمٌ بشكل هاتفٍ سوريّ (٩ أرقام فأكثر يبدأ بـ0 أو 963 أو 00963) ليس رقم تتبّع — رمز QR ثانٍ في الإيصال قد يحمل
+     هاتف المكتب أو رابط واتساب، فكان رقمه يُعتمد «رقم تتبّع». أرقام تتبّع المفتي في كل الإيصالات ٦ أرقام. */
+  function phoneLike(n) { return /^(00963|963|0)\d{8,}$/.test(n); }
   /* يستخرج «رقم التتبّع» من نصّ رمزٍ مقروء. null إن لم يجد ما يصلح. */
   function extractNumber(text) {
     var t = latin(text).trim();
     if (!t) return null;
-    if (/^\d{4,14}$/.test(t)) return { number: t, how: 'رقم صِرف' };
+    if (/^(tel|sms|smsto|mailto|whatsapp|geo|wifi|mecard|begin):/i.test(t) || /(^|\/\/)(www\.)?(wa\.me|api\.whatsapp\.com|t\.me)\b/i.test(t)) return null;   // هاتف · واتساب · تيليغرام · بطاقة اتّصال
+    if (/^\d{4,14}$/.test(t)) return phoneLike(t) ? null : { number: t, how: 'رقم صِرف' };
     var u = null;
     try { if (/^https?:\/\//i.test(t)) u = new URL(t); } catch (_) {}
     if (u) {
       var found = null;
-      u.searchParams.forEach(function (v, k) { if (!found && PARAMS.test(k) && /^\d{4,14}$/.test(latin(v))) found = latin(v); });
+      u.searchParams.forEach(function (v, k) { if (!found && PARAMS.test(k) && /^\d{4,14}$/.test(latin(v)) && !phoneLike(latin(v))) found = latin(v); });
       if (found) return { number: found, how: 'من رابط' };
-      var seg = u.pathname.split('/').filter(Boolean).reverse().map(latin).filter(function (x) { return /^\d{4,14}$/.test(x); })[0];
+      var seg = u.pathname.split('/').filter(Boolean).reverse().map(latin).filter(function (x) { return /^\d{4,14}$/.test(x) && !phoneLike(x); })[0];
       if (seg) return { number: seg, how: 'من رابط' };
     }
-    var m = t.match(/\d{5,14}/g);
+    var m = (t.match(/\d{5,14}/g) || []).filter(function (x) { return !phoneLike(x); });
     if (m && m.length) {
       m.sort(function (a, b) { return a.length - b.length; });
       return { number: m[0], how: 'من نصّ الرمز' };
@@ -559,6 +563,9 @@
   function officeVariants(o) {
     var out = [o.name].concat(o.aliases || []), n = String(o.name || '').trim(), k = 0;
     while (GEN_LEAD.test(n) && k++ < 3) { n = n.replace(GEN_LEAD, '').trim(); if (n.split(/\s+/).join('').length >= 4) out.push(n); }
+    /* (TASK-0127) اسمٌ من ٣ كلمات فأكثر («السكن الجامعي وحدة 18») يُقرأ أحياناً بأوّل كلمتين فقط ⇒ هما اسمٌ بديل (إن طالتا ≥٨ أحرف) */
+    var ws = n.replace(/[0-9٠-٩]+/g, ' ').split(/\s+/).filter(Boolean);
+    if (ws.length >= 3 && (ws[0] + ws[1]).length >= 8) out.push(ws[0] + ' ' + ws[1]);
     return out;
   }
   function matchBranch(seg) {
@@ -575,7 +582,19 @@
       return { key: o.key, city: o.city, offS: offS, cityS: cityS, score: offS * 0.7 + cityS * 0.3 + addrS * 0.05 };
     }).sort(function (a, b) { return (b.score - a.score) || ((a.city === 'حلب' ? 0 : 1) - (b.city === 'حلب' ? 0 : 1)); });
     var top = list[0], second = list[1];
-    var confident = !!top && top.score >= 0.82 && top.offS >= 0.8 && (!second || top.score - second.score >= 0.12);
+    /* (TASK-0127) فرعان في المدينة نفسها واسم أحدهما داخل اسم الآخر («بانياس» و«بانياس البلد») وكلاهما مقروءٌ كاملاً ⇒ الأطول
+       (النصّ «بانياس-بانياس البلد» يحوي الاثنين؛ لو كان المقصود «بانياس» لما قُرئت «البلد»). كانا يتعادلان ⇒ «غير مؤكَّد». */
+    /* اسمٌ «داخل» آخر بالكلمات كاملةً (لا بالحروف: هيكل «الباب» داخل هيكل «السريان») */
+    var nw = function (x) { return noAl(skel(String(x.key.split('|')[1] || '').replace(/[0-9٠-٩]+/g, ' '))).split(/\s+/).filter(Boolean); };
+    var inside = function (a, b) { var A = nw(a), B = nw(b); return A.length < B.length && A.every(function (w) { return B.indexOf(w) !== -1; }); };
+    if (top && second && top.city === second.city && top.offS >= 0.95 && second.offS >= 0.95) {
+      var lg = inside(second, top) ? top : inside(top, second) ? second : null;
+      if (lg) { var sh = lg === top ? second : top; list = [lg].concat(list.filter(function (x) { return x !== lg && x !== sh; })); top = lg; second = list[1]; }
+    }
+    /* والعكس: اختير القصير («بانياس») وله في المدينة نفسها فرعٌ اسمه يحويه («بانياس البلد») ⇒ لا يُعتمد تلقائياً أبداً — يُعرضان معاً.
+       غياب «البلد» ليس دليلاً: خطّ قلمٍ أو إصبعٌ أو طيّةٌ عليها فتُقرأ «بانياس-بانياس» (مسح الصور الصعبة: اعتُمد «بانياس» خطأً مرّتين). */
+    var nested = !!top && list.some(function (x) { return x !== top && x.city === top.city && inside(top, x); });
+    var confident = !!top && !nested && top.score >= 0.82 && top.offS >= 0.8 && (!second || top.score - second.score >= 0.12);
     var cands = list.filter(function (x) { return x.score >= 0.5; }).slice(0, 4).map(function (x) { return x.key; });
     /* المدينة وحدها مقروءة (والمكتب لا) ⇒ المرشّحون هم فروع تلك المدينة، لا فروعٌ من مدنٍ أخرى تشبه حروفُها */
     if (!confident && top && top.offS < 0.8) {
@@ -621,8 +640,11 @@
       var bcP = (async function () {
         /* (TASK-0122) ميزانيّة محاولات الباركود البطيئة ١٠ث هنا (لا ٢٢): الصورة ممسوحة ومقوَّمة أصلاً، وفي إيصالاتك لم تنجح
            المحاولات البطيئة قطّ حيث فشلت السريعة — كانت تُبقي «جارٍ القراءة» ظاهرةً بعد ظهور الفرع بعشرين ثانية. */
-        var bc = await readTracking(file, { ocr: false, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen || cancelled(); } });
+        /* (TASK-0127) opts.lite = { text, rot }: قراءةٌ ثانية بعد مبكرةٍ اكتملت على الصورة نفسها ⇒ الباركود السريع فقط (بلا التحسين
+           ولا الأصل)، والنصّ (إن نقص الفرع) في اتّجاهها المعروف وحده — فرصةٌ ثانية رخيصة بدل إعادة كل شيء (كانت ٢٥–٣٠ث) */
+        var bc = await readTracking(file, { ocr: false, quick: !!opts.lite, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen || cancelled(); } });
         fastDone(null);
+        if (opts.lite) { if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} } return bc; }
         /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
         if (!bc.number && !printedSeen && !cancelled() && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen || cancelled(); } });
         if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
@@ -633,12 +655,14 @@
       var cancelled = function () { return !!(opts.cancel && opts.cancel()); };           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
       bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
       var textP = (async function () {
+        if (opts.lite && !opts.lite.text) return [];               // الفرع وُجد في القراءة المبكرة
         var araLoad = getARA();                                    // تحميل المكتبة بالتوازي مع الباركود
         var fast = await fastP, up = fast && fast.upright != null ? fast.upright : null;
+        if (opts.lite && opts.lite.rot != null) up = opts.lite.rot;
         stage('ara');
         var ara = await araLoad, w = L.im.naturalWidth, h = L.im.naturalHeight;
         var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
-        if (up != null) rots = [up].concat(rots.filter(function (x) { return x !== up; }));
+        if (up != null) rots = opts.lite ? [up] : [up].concat(rots.filter(function (x) { return x !== up; }));
         if (opts.trace) opts.trace.push({ upright: up });
         /* (20 ت1 · TASK-0116 · إيصالات المالك الخمسة) ثلاثة أسباب كانت تُسقط الفرع:
            ① صورةٌ لم تمرّ بالماسح (أُلغي أو «كما هي») تُقرأ بلا تحسين — والتحسين نفسه هو ما يجعل «المصدر» مقروءاً.
@@ -682,7 +706,8 @@
           var a = await attempt(srcIm, rots[r], srcIm === L.im ? 'as-is' : 'color');
           if (!best || a.rank > best.rank) best = a;
           if (a.m && a.m.confident) break;                          // اتّجاهٌ سليم والفرع واضح
-          if (up != null && r === 0 && a.src) break;                // اتّجاه الـQR صحيح و«المصدر» مقروء
+          if (up != null && r === 0 && (a.src || a.sc >= 3)) break; // اتّجاه الـQR صحيح (و«المصدر» مقروء، أو بنية الإيصال مقروءة فيه ⇒ لا فائدة من
+                                                                    // الاتّجاهات الأخرى: كانت ٣ قراءاتٍ كاملة إضافية ~٩ث لإيصالٍ «المصدر» فيه غير مقروء · TASK-0127)
           if (r >= 1 && best.sc >= 3 && best.src) break;            // «المصدر» مقروء في اتّجاهٍ سليم — لا داعي للبقيّة
         }
         if (!best) { out.cancelled = true; return null; }               // أُلغيت قبل أيّ قراءة
@@ -693,8 +718,9 @@
         out.text = best.txt; out.rot = best.rot; out._best = best;
         if (best.m && best.m.confident && opts.onBranch && (receiptType(best.txt).kind === 'mufti' || !otherCompany(best.txt))) { try { opts.onBranch({ key: best.m.key, confident: true, candidates: best.m.candidates || [], text: best.m.text || '' }); } catch (_) {} }
         /* قُرئت خانةٌ أو شريطٌ فقط ⇒ علامات الشركة (اسمها أعلى الإيصال · هواتف مكاتبها في التذييل) لم تُقرأ. قاعدة 18 ت1: لا يُنسب
-           إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع. */
-        if (best.box && best.m && best.m.confident && receiptType(best.txt).kind !== 'mufti') {
+           إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع.
+           (TASK-0127) والصفحة كاملة كذلك: تذييلها فيها مقروءٌ مشوَّشاً فلم يُكشف إيصال شركةٍ أخرى (القدموس) ونُسب للمفتي بسطر «المصدر». */
+        if (best.m && best.m.confident && receiptType(best.txt).kind !== 'mufti') {
           if (cancelled()) { out.cancelled = true; return []; }       // لم يُتحقّق من الشركة ⇒ يُعلَّم ناقصاً
           stage('mark');
           var foot = (await attempt(srcIm, best.rot, 'mark', MARK_FOOT)).txt;      // التذييل أوّلاً: هواتف المكاتب أوثق من الاسم المطبوع باهتاً
@@ -715,12 +741,13 @@
         return rk;
       })();
       textP.catch(function () {});
-      var bc = await bcP;
+      /* (TASK-0128) مكتبة الباركود لم تُحمَّل (بلا إنترنت/ملفٌّ ناقص) ⇒ لا تُسقط القراءة كلّها: الفرع والرقم المطبوع يُقرآن من النصّ */
+      var bc = await bcP.catch(function (e) { out.barcodeError = (e && e.message) || String(e); return { number: null }; });
       if (bc.number) out.barcode = { number: bc.number, raw: bc.raw, how: bc.how };
       var cands = null;
       try { cands = await textP; } catch (e) { out.textError = (e && e.message) || String(e); }
       cands = cands || [];
-      var tr = cands.filter(function (c) { return c.tr; });
+      var tr = cands.filter(function (c) { return c.tr && c.number.length >= 6; });   // (TASK-0127) أرقام المفتي ٦ أرقام: «35501» من ظلٍّ على إيصالٍ بلا رقمٍ مطبوع كان يُقترح
       out.printed = tr.length ? { number: tr[0].number, candidates: tr.slice(0, 4).map(function (c) { return c.number; }) } : null;
       out.allDigits = cands.slice(0, 6).map(function (c) { return c.number; });
 
@@ -738,7 +765,8 @@
       delete out._best;
       if (src) out.branch.line = src.line;
       /* سطر «المصدر» مطابقٌ بثقة لفرعٍ من فروع المفتي = بنية إيصال المفتي (والموظف اختار «المفتي» قبل القراءة) */
-      if (out.type.kind !== 'mufti' && out.branch.confident && !otherCompany(out.text, out.footText)) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
+      out.foreign = out.type.kind !== 'mufti' && otherCompany(out.text, out.footText);    // دليل شركةٍ أخرى (اسمها أو تذييلٌ بهواتف غير هواتف المفتي)
+      if (out.type.kind !== 'mufti' && out.branch.confident && !out.foreign) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
     out.ms = Date.now() - t0;

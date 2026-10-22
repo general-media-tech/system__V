@@ -106,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261023a" defer></script>
+<script src="gmt-receipt.js?v=20261023c" defer></script>
 <script src="gmt-docscan.js?v=20261023b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -3493,7 +3493,7 @@ async function shipScanFile(file, label) {
             });
             if (r && r.retake) return;
             if (r && r.scanned) {
-                _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode };
+                _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode, corners: r.corners || null, rotation: r.rotation || 0 };
                 use = _shipScan.scanned;
             }
         } catch (e) { showToast('⚠️ تعذّر الماسح (' + (e && e.message || e) + ') — استُعملت الصورة كما هي', 'err'); }
@@ -3618,7 +3618,7 @@ function shipStartEarlyRead(orig, corners) {
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
     st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر (مع المسح)…';
     _shipReading = true;
-    const E = { orig, typed, hooks, done: false, stop: false };
+    const E = { orig, typed, hooks, done: false, stop: false, corners: corners || null };
     E.p = GMTReceipt.readMufti(orig, { corners: corners || null, cancel: () => E.stop, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
         .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
     _shipEarly = E;
@@ -3632,6 +3632,14 @@ function shipMergeReads(a, b) {
     if (!(b.branch && b.branch.confident) && a.branch && a.branch.confident && (!a.cancelled || (a.type && a.type.kind === 'mufti'))) out.branch = a.branch;
     if (!(b.type && b.type.kind === 'mufti') && a.type && a.type.kind === 'mufti') out.type = a.type;
     if (!String(out.text || '').trim()) out.text = a.text;
+    /* (TASK-0127) لا فرع مؤكَّد في الاثنتين ⇒ تبقى المرشَّحات والنصّ المقروء من التي وجدتها (كانت تضيع إن لم تجد الثانية سطر «المصدر») */
+    if (!(out.branch && out.branch.confident) && a.branch && !a.branch.confident && (a.branch.candidates || []).length && !((out.branch || {}).candidates || []).length) out.branch = a.branch;
+    /* (TASK-0127) قراءةٌ وجدت دليل شركةٍ أخرى (تذييلٌ بهواتفها) والأخرى نسبته للمفتي بسطر «المصدر» وحده ⇒ لا يُنسب للمفتي */
+    const strong = t => t && t.kind === 'mufti' && !/سطر «المصدر»/.test(t.why || '');
+    if ((a.foreign || b.foreign) && !strong(a.type) && !strong(b.type)) {
+        out.type = (a.foreign ? a.type : b.type); out.foreign = true;
+        out.branch = Object.assign({}, out.branch || {}, { key: null, confident: false });
+    }
     return out;
 }
 async function shipReadTracking(force) {
@@ -3657,7 +3665,12 @@ async function shipReadTracking(force) {
         let r = early ? await early.p : null;
         if (r && r.error) r = null;
         if (!r || r.cancelled || !r.tracking || r.tracking.status === 'none' || !(r.branch && r.branch.confident)) {
-            const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, onTracking: H.onTracking, onBranch: H.onBranch });
+            /* (TASK-0127) المبكرة اكتملت على الصورة نفسها (أُلغي الماسح) أو على زوايا الماسح نفسها (لم تُعدَّل ولم تُدَر) ⇒ نصّها قُرئ فعلاً:
+               لا تُعاد القراءة كلّها (كانت ٢٥–٣٠ث لإيصالٍ بلا باركود أو بلا «المصدر») — باركودٌ سريع، و«المصدر» في اتّجاهه المعروف وحده إن نقص الفرع */
+            const same = !!(r && !r.cancelled && early && (myFile === early.orig || (early.corners && _shipScan && myFile === _shipScan.scanned && !_shipScan.rotation &&
+                Array.isArray(_shipScan.corners) && _shipScan.corners.every((p, i) => Math.abs(p[0] - early.corners[i][0]) < 0.01 && Math.abs(p[1] - early.corners[i][1]) < 0.01))));
+            const lite = same ? { text: !(r.branch && r.branch.confident), rot: r.rot != null ? r.rot : null } : null;
+            const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, lite, onTracking: H.onTracking, onBranch: H.onBranch });
             r = shipMergeReads(r, r2);
         }
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
@@ -8930,7 +8943,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261023b"></script>
+<script src="gmt-whatsnew.js?v=20261023c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

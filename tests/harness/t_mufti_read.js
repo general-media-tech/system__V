@@ -68,6 +68,25 @@ async function readCase(pg, spec, before) {
     ok(u.d.confident && u.d.key === 'دمشق|فكتوريا', 'فرعٌ خارج حلب يُعتمد حين يكون واضحاً (دمشق|فكتوريا)');
     ok(!u.e.confident && !u.e.key, 'نصٌّ لا يشبه فرعاً ⇒ لا فرع');
     ok(u.t1 === 'mufti' && u.t2 === 'mufti' && u.t3 === 'unsure', 'نوع الإيصال: الاسم أو هاتف مكتب المفتي ⇒ مؤكَّد · بنية إيصالٍ بلا علامة ⇒ غير مؤكَّد');
+    // (23 ت1 · TASK-0127) من مسح ٧٢ إيصالاً وهميّاً (فروع المفتي الـ٣٦ · باركود/مطبوع/لا شيء · تدوير · ضبابية · دقّة منخفضة · شركةٌ أخرى)
+    const v = await pg.evaluate(() => {
+      const m = s => { const x = GMTReceipt._matchBranch(s); return (x.confident ? '✓' : '?') + (x.key || ''); };
+      const n = s => (GMTReceipt.extractNumber(s) || {}).number || null;
+      const mg = shipMergeReads({ type: { kind: 'unsure' }, foreign: true, branch: { key: null, confident: false, candidates: ['سرمدا|سرمدا'] } },
+        { type: { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي' }, branch: { key: 'سرمدا|سرمدا', confident: true }, tracking: { status: 'barcode', number: '409702' } });
+      const mc = shipMergeReads({ type: { kind: 'mufti', why: 'اسم الشركة' }, branch: { key: null, confident: false, candidates: ['سرمدا|سرمدا'], text: 'شرمنا' } },
+        { type: { kind: 'mufti', why: 'اسم الشركة' }, branch: { key: null, confident: false, candidates: [], text: '' } });
+      return { b0: m('بانياس-باتياتي البلة'), b1: m('بانياس-بانياس البلد'), b2: m('بانياس - بانياس'), b3: m('حلب-السكن الجامعي'), b4: m('حلب-الباب'),
+        p: [n('https://wa.me/963965112158'), n('tel:+963965112158'), n('0965112158'), n('https://x.example/c/00963965112158')], q: [n('205086'), n('0451400'), n('https://x.example/t?awb=7345512&tel=0965112158')],
+        mg: { c: mg.branch.confident, t: mg.type.kind }, mc: mc.branch.candidates };
+    });
+    ok(v.b1 === '✓بانياس|بانياس البلد' && v.b2 === '?', '«بانياس-بانياس البلد» ⇒ بانياس البلد (كانا يتعادلان) · «بانياس - بانياس» ⇒ لا يُعتمد (قد تكون «البلد» تحت خطّ قلم): ' + v.b1 + ' · ' + v.b2);
+    ok(v.b0 === '?', '«بانياس-باتياتي البلة» (خطّ قلمٍ على «البلد») ⇒ لا يُعتمد «بانياس» — يُعرض الاثنان: ' + v.b0);
+    ok(v.b3 === '✓حلب|السكن الجامعي وحدة 18' && v.b4 === '✓حلب|الباب', '«حلب-السكن الجامعي» (بلا «وحدة 18») ⇒ فرعها · ولا يمسّ «حلب-الباب»: ' + v.b3);
+    ok(v.p.every(x => x === null), 'رمز QR بهاتفٍ أو رابط واتساب ليس رقم تتبّع: ' + JSON.stringify(v.p));
+    ok(v.q.join() === '205086,0451400,7345512', 'أرقام التتبّع الصحيحة باقية (والصفر الأوّل): ' + v.q.join());
+    ok(v.mg.c === false && v.mg.t !== 'mufti', 'قراءةٌ وجدت تذييل شركةٍ أخرى ⇒ لا تنسبه الأخرى للمفتي بسطر «المصدر» وحده: ' + JSON.stringify(v.mg));
+    ok(v.mc.join() === 'سرمدا|سرمدا', 'لا فرع مؤكَّد في القراءتين ⇒ المرشَّحات من التي وجدتها تبقى: ' + v.mc.join());
     await browser.close();
   }
 
