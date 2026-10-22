@@ -604,8 +604,10 @@ window.GMT_INTERNAL = 1;</script>
 </div>
 
 <!-- ════════ MODAL: شحن ════════ -->
-<div id="shipModal" class="fixed inset-0 bg-black/60 hidden z-[110] p-4 flex items-center justify-center backdrop-blur-sm">
-    <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl text-center">
+<!-- (22 ت1 · TASK-0119) «النافذة معلّقة وما بتتحرّك لحتى أعطيه إرسال»: كانت مثبّتةً في الوسط بلا تمرير، فإذا طالت (صورة الإيصال)
+     خرج أعلاها وأسفلها — وزرّ الإرسال — من الشاشة. الآن تتمرّر، و margin:auto يُبقيها في الوسط حين تتّسع لها الشاشة. -->
+<div id="shipModal" class="fixed inset-0 bg-black/60 hidden z-[110] p-4 flex overflow-y-auto backdrop-blur-sm">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl text-center" style="margin:auto">
         <i data-lucide="truck" class="w-12 h-12 text-red mx-auto mb-4"></i>
         <h3 id="ship-title" class="font-black text-xl mb-5 text-gray-800">تأكيد الشحن</h3>
         <input id="ship-tracking" placeholder="رقم تتبع الشحنة (اختياري)" oninput="_shipRcptAuto=false" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold text-center mb-1 border border-gray-200 transition-all">
@@ -3492,7 +3494,8 @@ async function shipScanFile(file, label) {
     }
     const preview = document.getElementById('ship-img-preview');
     const url = URL.createObjectURL(use);
-    preview.innerHTML = `<img src="${url}" class="w-full max-h-48 object-contain rounded-lg bg-white" />` +
+    /* الارتفاع بـ style لا بالصنف max-h-48: هذا الصنف غير موجود في lib/tailwind.css المبنيّ مسبقاً فكانت الصورة بطولها كاملاً */
+    preview.innerHTML = `<img src="${url}" class="w-full object-contain rounded-lg bg-white" style="max-height:12rem" />` +
         (_shipScan
             ? `<span class="text-xs font-bold text-emerald-600 mt-1">📄 مُسح ضوئياً${_shipScan.mode === 'bw' ? ' (أبيض وأسود)' : ''} — الأصل محفوظ</span>` +
               `<button type="button" onclick="shipRescan()" class="text-[11px] font-black text-gray-500 underline">✂️ إعادة المسح / تعديل الزوايا</button>`
