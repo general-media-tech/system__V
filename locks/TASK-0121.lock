@@ -1,0 +1,7 @@
+task: TASK-0121
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: orders.html home.html sw.js gmt-whatsnew.js tests/harness
+claimed_at: 2026-10-22T12:03:56Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0121
