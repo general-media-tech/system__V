@@ -57,7 +57,7 @@
       var url = URL.createObjectURL(file);
       var im = new Image();
       im.onload = function () { ok({ im: im, url: url }); };
-      im.onerror = function () { URL.revokeObjectURL(url); bad(new Error('تعذّر فتح الصورة')); };
+      im.onerror = function () { URL.revokeObjectURL(url); var er = new Error('تعذّر فتح الصورة'); er.code = 'bad-image'; bad(er); };
       im.src = url;
     });
   }
@@ -760,6 +760,8 @@
       else out.tracking = { status: 'none' };
 
       out.type = receiptType(out.text + '\n' + (out.engText || ''));
+      /* (TASK-0128) قارئ النصّ لم يُحمَّل (بلا إنترنت أوّل مرّة) ⇒ يُقال ذلك لا «لم يُقرأ النصّ بوضوح» */
+      if (out.textError && out.type.kind !== 'mufti' && !String(out.text || '').trim()) { out.type.why = 'تعذّر تحميل قارئ النصّ — تحقّق من الاتصال ثمّ «أعد المحاولة»'; out.ocrMissing = true; }
       var src = (out._best && out._best.src) || sourceSegment(out.text);
       out.branch = src ? ((out._best && out._best.src === src && out._best.m) || matchBranch(src.seg)) : { key: null, confident: false, candidates: [], text: '' };
       delete out._best;

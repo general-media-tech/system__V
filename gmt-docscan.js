@@ -33,7 +33,7 @@
     return new Promise(function (ok, bad) {
       var url = URL.createObjectURL(file), im = new Image();
       im.onload = function () { ok(im); setTimeout(function () { URL.revokeObjectURL(url); }, 4000); };
-      im.onerror = function () { URL.revokeObjectURL(url); bad(new Error('تعذّر فتح الصورة')); };
+      im.onerror = function () { URL.revokeObjectURL(url); var er = new Error('تعذّر فتح الصورة'); er.code = 'bad-image'; bad(er); };   // (TASK-0128) ملفٌّ تالف أو ليس صورة
       im.src = url;
     });
   }

@@ -106,8 +106,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261023c" defer></script>
-<script src="gmt-docscan.js?v=20261023b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-receipt.js?v=20261023d" defer></script>
+<script src="gmt-docscan.js?v=20261023d" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -659,7 +659,7 @@ window.GMT_INTERNAL = 1;</script>
         </div>
 
         <button id="ship-confirm-btn" onclick="confirmShipping()" class="w-full bg-dark text-white py-4 rounded-xl font-black text-base active:scale-95 transition-transform disabled:opacity-60">اعتماد الشحن وإرسال الكليشيه</button>
-        <button onclick="closeModal('shipModal'); document.getElementById('ship-img-input').value=''; document.getElementById('ship-img-input-camera').value=''; resetShipPreview();" class="mt-3 text-gray-400 text-xs font-bold uppercase">إلغاء</button>
+        <button onclick="closeModal('shipModal'); document.getElementById('ship-img-input').value=''; document.getElementById('ship-img-input-camera').value=''; resetShipPreview(); _shipOrig = null; _shipRcptFile = null;" class="mt-3 text-gray-400 text-xs font-bold uppercase">إلغاء</button>
     </div>
 </div>
 
@@ -3496,7 +3496,16 @@ async function shipScanFile(file, label) {
                 _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode, corners: r.corners || null, rotation: r.rotation || 0 };
                 use = _shipScan.scanned;
             }
-        } catch (e) { showToast('⚠️ تعذّر الماسح (' + (e && e.message || e) + ') — استُعملت الصورة كما هي', 'err'); }
+        } catch (e) {
+            /* (TASK-0128) ملفٌّ تالف أو ليس صورة (PDF · HEIC لا يفتحه المتصفّح) ⇒ لا «يُستعمل كما هو» فيُحفظ ويُرسل إيصالاً لا يُفتح */
+            if (e && e.code === 'bad-image') {
+                showToast('⚠️ هذا الملف ليس صورةً يمكن فتحها — صوّر الإيصال أو اختر صورته (JPG/PNG) من جديد', 'err');
+                ['ship-img-input', 'ship-img-input-camera'].forEach(id => { const x = document.getElementById(id); if (x) x.value = ''; });
+                _shipOrig = null; _shipScan = null; _shipRcptFile = null; resetShipPreview(); shipReadTracking();
+                return;
+            }
+            showToast('⚠️ تعذّر الماسح (' + (e && e.message || e) + ') — استُعملت الصورة كما هي', 'err');
+        }
     }
     const preview = document.getElementById('ship-img-preview');
     const url = URL.createObjectURL(use);
@@ -3580,6 +3589,7 @@ function shipReadPaint(r, typed) {
     }
     if (fill) { inp.value = fill; _shipRcptAuto = true; }
     /* لا يُعرض نصّ الإيصال كاملاً (فيه اسم الزبون وهاتفه — غير مطلوب): سطر «المصدر» وحده */
+    if (r && r.ocrMissing) h += ' <button type="button" onclick="shipReadTracking(true)" class="underline">أعد المحاولة</button>';
     const srcTxt = r && r.branch && r.branch.text;
     if (srcTxt) h += '<span class="block mt-1 text-gray-500 font-bold">«المصدر» كما قُرئ: <span dir="rtl">' + escH(String(srcTxt).slice(0, 60)) + '</span></span>';
     st.className = 'text-[11px] font-black mb-3 ' + cls;
@@ -3614,12 +3624,13 @@ function shipStartEarlyRead(orig, corners) {
     if (!st || !inp || !window.GMTReceipt || !GMTReceipt.readMufti) return;
     if (((document.getElementById('ship-company') || {}).value || '') !== 'المفتي') return;
     if (_shipOrig !== orig || (_shipEarly && _shipEarly.orig === orig)) return;
-    const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig, typed, false);
+    const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig && shipIsMufti(), typed, false);
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
     st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر (مع المسح)…';
     _shipReading = true;
     const E = { orig, typed, hooks, done: false, stop: false, corners: corners || null };
-    E.p = GMTReceipt.readMufti(orig, { corners: corners || null, cancel: () => E.stop, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
+    /* (TASK-0128) تتوقّف أيضاً إن اختيرت صورةٌ أخرى أو أُغلقت النافذة (_shipOrig تغيّر) أو تغيّرت الشركة — كانت تستمرّ وتأخذ المعالج */
+    E.p = GMTReceipt.readMufti(orig, { corners: corners || null, cancel: () => E.stop || _shipOrig !== orig || !shipIsMufti(), onTracking: hooks.onTracking, onBranch: hooks.onBranch })
         .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
     _shipEarly = E;
 }
@@ -3647,9 +3658,11 @@ async function shipReadTracking(force) {
     const inp = document.getElementById('ship-tracking');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!st || !inp) return;
-    if (!_shipRcptFile || comp !== 'المفتي') { st.classList.add('hidden'); st.textContent = ''; return; }   // بقية الشركات: مسحٌ فقط
+    if (!_shipRcptFile || comp !== 'المفتي') { st.classList.add('hidden'); st.textContent = ''; _shipReading = false; return; }   // بقية الشركات: مسحٌ فقط (ولا «قراءةٌ جارية» تمنع الحفظ)
     const myFile = _shipRcptFile, orig = (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : myFile;
-    const isMine = () => myFile === _shipRcptFile;
+    /* (TASK-0128) «لي» = الصورة نفسها ما زالت المختارة ولم تُختر صورةٌ أخرى بعدها (_shipOrig) · وتُعرض النتيجة فقط والشركة ما زالت
+       «المفتي» (غيّرتَها أثناء القراءة ⇒ لا يُملأ شيء) */
+    const own = () => myFile === _shipRcptFile && (_shipOrig == null || _shipOrig === orig), isMine = () => own() && shipIsMufti();
     const early = (!force && _shipEarly && _shipEarly.orig === orig) ? _shipEarly : null;
     const typed = early ? early.typed : (!!inp.value.trim() && !_shipRcptAuto);
     const H = early ? early.hooks : shipReadHooks(isMine, typed, force);
@@ -3660,9 +3673,11 @@ async function shipReadTracking(force) {
     _shipRead = null; _shipReading = true;
     try {
         if (!window.GMTReceipt || !GMTReceipt.readMufti) throw new Error('وحدة القراءة لم تُحمَّل');
-        /* قراءةٌ مبكرة لم تنتهِ عند إغلاق الماسح (إيصالٌ صعب) ⇒ تتوقّف عند خطوتها التالية ونأخذ ما وجدته، فلا تنتظر بقيّتها ثمّ قراءةً ثانية */
-        if (early && !early.done) early.stop = true;
+        /* قراءةٌ مبكرة لم تنتهِ عند إغلاق الماسح (إيصالٌ صعب) ⇒ تتوقّف عند خطوتها التالية ونأخذ ما وجدته، فلا تنتظر بقيّتها ثمّ قراءةً ثانية.
+           (TASK-0128) إلّا إن أُلغي الماسح: الصورة هي نفسها ⇒ تُنتظر المبكرة (كانت تُوقف ثمّ تُعاد القراءة كاملةً على الصورة ذاتها) */
+        if (early && !early.done && myFile !== early.orig) early.stop = true;
         let r = early ? await early.p : null;
+        if (!own()) return;                                             // اختيرت صورةٌ أخرى أثناء الانتظار ⇒ لا قراءة ثانية لهذه
         if (r && r.error) r = null;
         if (!r || r.cancelled || !r.tracking || r.tracking.status === 'none' || !(r.branch && r.branch.confident)) {
             /* (TASK-0127) المبكرة اكتملت على الصورة نفسها (أُلغي الماسح) أو على زوايا الماسح نفسها (لم تُعدَّل ولم تُدَر) ⇒ نصّها قُرئ فعلاً:
@@ -3670,7 +3685,7 @@ async function shipReadTracking(force) {
             const same = !!(r && !r.cancelled && early && (myFile === early.orig || (early.corners && _shipScan && myFile === _shipScan.scanned && !_shipScan.rotation &&
                 Array.isArray(_shipScan.corners) && _shipScan.corners.every((p, i) => Math.abs(p[0] - early.corners[i][0]) < 0.01 && Math.abs(p[1] - early.corners[i][1]) < 0.01))));
             const lite = same ? { text: !(r.branch && r.branch.confident), rot: r.rot != null ? r.rot : null } : null;
-            const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, lite, onTracking: H.onTracking, onBranch: H.onBranch });
+            const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, lite, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
             r = shipMergeReads(r, r2);
         }
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
@@ -3684,9 +3699,11 @@ async function shipReadTracking(force) {
     } catch (e) {
         if (!isMine()) return;
         st.className = 'text-[11px] font-black text-amber-600 mb-3';
-        st.textContent = '⚠️ تعذّرت قراءة الإيصال (' + (e && e.message || 'خطأ') + ') — أدخل الرقم واختر الفرع يدوياً.';
-    } finally { if (isMine()) _shipReading = false; }
+        st.textContent = e && e.code === 'bad-image' ? '⚠️ الصورة تالفة أو ليست صورة — صوّر الإيصال من جديد أو أدخل الرقم واختر الفرع يدوياً.'
+                       : '⚠️ تعذّرت قراءة الإيصال (' + (e && e.message || 'خطأ') + ') — أدخل الرقم واختر الفرع يدوياً.';
+    } finally { if (own()) _shipReading = false; }
 }
+function shipIsMufti() { return ((document.getElementById('ship-company') || {}).value || '') === 'المفتي'; }
 
 /* ══ (19 ت1 · برومبت «الماسح الضوئي الذكي» خامساً) ربط الإيصال بالأوردر ══
    • الحقول الموجودة تُستعمل كما هي: receipt_img (النسخة الممسوحة المضغوطة — مؤقّتة حتى «تم التحصيل») · receipt_at · tracking_number ·
@@ -3835,6 +3852,8 @@ async function confirmReceiptAttach() {
 document.addEventListener('change', (e) => {
     if (!e.target || e.target.id !== 'ship-company') return;
     if (e.target.value === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122)
+    /* (TASK-0128) شركةٌ أخرى ⇒ رقمٌ مُلئ تلقائياً من قراءة المفتي يُسحب (لم تكتبه أنت) */
+    if (e.target.value !== 'المفتي' && _shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
     shipReadTracking();
 });
 
@@ -6049,7 +6068,8 @@ window.verifyShipmentFromImage = async (input) => {
     st.className = 'text-[11px] font-bold text-gray-500 mb-3 min-h-[16px]'; st.textContent = 'جارٍ قراءة رقم التتبّع من الصورة…';
     try {
         if (!window.GMTReceipt) throw new Error('وحدة القراءة لم تُحمَّل');
-        const r = await GMTReceipt.readTracking(file, { onStage: k => { if (TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } });
+        /* (TASK-0128) ميزانيّة المحاولات البطيئة ١٠ث كقراءة الشحن (كانت ٢٢ث: رمزٌ بلا رقم أو صورةٌ بلا باركود ⇒ ~٢٦ث انتظار) */
+        const r = await GMTReceipt.readTracking(file, { budgetMs: 10000, onStage: k => { if (TRACK_STAGE_TXT[k]) st.textContent = TRACK_STAGE_TXT[k]; } });
         if (r.number && r.method === 'ocr') {
             st.className = 'text-[11px] font-bold text-amber-700 mb-3'; st.innerHTML = trackCandidatesHTML(r.candidates && r.candidates.length ? r.candidates : [r.number], 'vs');
         } else if (r.number) {
@@ -8943,7 +8963,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261023c"></script>
+<script src="gmt-whatsnew.js?v=20261023d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
