@@ -18,8 +18,13 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261022b';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261022c';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
+/* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
+   صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
+   ⇒ «الكاش أوّلاً» في كاشٍ باسم إصدار المكتبة لا يُحذف مع كل نشرة. تغيير المكتبة ⇐ اسمٌ جديد هنا. */
+const OCR     = 'gmt-ocr-tess7.0.0';
+function isOcr(url) { return url.origin === location.origin && /\/lib\/ocr\//.test(url.pathname); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    🔴 (2026-10-03 · بلاغ المالك) «التطبيق لمّا عم افتحه وما في إنترنت ما عم
@@ -78,7 +83,7 @@ self.addEventListener('activate', (e) => {
     /* نحذف كاشات المكتبات القديمة فقط — وكاش الصفحات يبقى.
        (كان الحذف يشمل الصفحات، فيفقد المستخدم كل ما خزّنه مع كل نشرة.) */
     await Promise.all(keys
-      .filter(k => k !== PAGES && !k.startsWith(VERSION))
+      .filter(k => k !== PAGES && k !== OCR && !k.startsWith(VERSION))
       .map(k => caches.delete(k)));
     await self.clients.claim();
   })());
@@ -115,15 +120,15 @@ self.addEventListener('fetch', (e) => {
   /* 🔒 بيانات القاعدة والتخزين والإشعارات: شبكة فقط — لا كاش إطلاقاً */
   if (/supabase\.co$/.test(url.hostname) || /api\.telegram\.org$/.test(url.hostname) || /jsonbin/.test(url.hostname)) return;
 
-  /* المكتبات والخطوط: من الكاش أولاً (لا تتغيّر — مثبّتة الإصدار) */
-  if (isLib(url)) {
+  /* المكتبات والخطوط وقارئ الإيصال: من الكاش أولاً (لا تتغيّر — مثبّتة الإصدار) */
+  if (isLib(url) || isOcr(url)) {
     e.respondWith((async () => {
-      const c = await caches.open(LIBS);
+      const c = await caches.open(isOcr(url) ? OCR : LIBS);
       const hit = await c.match(req);
       if (hit) return hit;
       try {
         const res = await fetch(req);
-        if (res && (res.ok || res.type === 'opaque')) c.put(req, res.clone());
+        if (res && (res.ok || (res.type === 'opaque' && !isOcr(url)))) c.put(req, res.clone());
         return res;
       } catch (err) {
         return hit || Response.error();

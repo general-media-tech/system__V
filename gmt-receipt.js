@@ -290,13 +290,21 @@
     if (!tessP) { tessP = loadScript('lib/ocr/tesseract.min.js?v=20261016'); tessP.catch(function () { tessP = null; }); }
     return tessP;
   }
+  /* (22 ت1 · TASK-0122 · المالك: «عم تطوّل») نواة التعرّف بتعليمات SIMD (tesseract.js-core 7.0.0 نفسها، مطابقة لـ worker.min.js):
+     أسرع ×٣ تقريباً على النموذج نفسه وبالدقّة نفسها (خانة «المصدر» على إيصالاتك: ٢٫٧ث ⇐ ٠٫٨٦ث، ٥ من ٥ في الحالين).
+     كل هواتف أندرويد/آيفون الحديثة تدعمها؛ القديم يأخذ النواة العاديّة كما كان. */
+  var SIMD = (function () {
+    try { return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); }
+    catch (_) { return false; }
+  })();
+  var CORE_FILE = SIMD ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js';
   function getOCR() {
     if (ocrWorkerP) return ocrWorkerP;
     ocrWorkerP = (async function () {
       await loadTess();
       var base = new URL('lib/ocr/', document.baseURI).href;
       var w = await global.Tesseract.createWorker('eng', 1, {
-        workerPath: base + 'worker.min.js', corePath: base + 'tesseract-core-lstm.wasm.js', langPath: base,
+        workerPath: base + 'worker.min.js', corePath: base + CORE_FILE, langPath: base,
         gzip: true, cacheMethod: 'none'
       });
       await w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' });   // 11 = نصٌّ متناثر
@@ -440,7 +448,7 @@
       await loadTess();
       var base = new URL('lib/ocr/', document.baseURI).href;
       return global.Tesseract.createWorker('ara', 1, {
-        workerPath: base + 'worker.min.js', corePath: base + 'tesseract-core-lstm.wasm.js', langPath: base,
+        workerPath: base + 'worker.min.js', corePath: base + CORE_FILE, langPath: base,
         gzip: true, cacheMethod: 'none'
       });
     })();
@@ -611,7 +619,9 @@
       var fastDone, fastP = new Promise(function (ok) { fastDone = ok; });
       stage('barcode');
       var bcP = (async function () {
-        var bc = await readTracking(file, { ocr: false, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen; } });
+        /* (TASK-0122) ميزانيّة محاولات الباركود البطيئة ١٠ث هنا (لا ٢٢): الصورة ممسوحة ومقوَّمة أصلاً، وفي إيصالاتك لم تنجح
+           المحاولات البطيئة قطّ حيث فشلت السريعة — كانت تُبقي «جارٍ القراءة» ظاهرةً بعد ظهور الفرع بعشرين ثانية. */
+        var bc = await readTracking(file, { ocr: false, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen; } });
         fastDone(null);
         /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
         if (!bc.number && !printedSeen && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen; } });
@@ -729,5 +739,12 @@
     return out;
   }
 
-  global.GMTReceipt = { readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  /* (TASK-0122) تحميل القارئ مسبقاً — يُستدعى حين تفتح نافذة الشحن للمفتي أو تختار صورة: المكتبة والنموذج يُحمَّلان
+     أثناء شاشة الماسح بدل أن يبدأ تحميلهما بعد ضغطة «تمّ». لا يقرأ شيئاً ولا يُفشل شيئاً. */
+  function warm() {
+    try { loadZX().catch(function () {}); } catch (_) {}
+    try { getARA().catch(function () {}); } catch (_) {}
+  }
+
+  global.GMTReceipt = { warm: warm, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(window);

@@ -106,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261022b" defer></script>
+<script src="gmt-receipt.js?v=20261022c" defer></script>
 <script src="gmt-docscan.js?v=20261019e" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -3446,6 +3446,8 @@ window.openShipModal = (id, mode) => {
     /* الإعداد قد تغيّر من جهازٍ آخر: نقرؤه الآن، وإن لم يلمس أحدٌ القائمة بعدُ نُعيد ملأها به */
     loadShipFromSetting().then(() => { const sel = document.getElementById('ship-from'); if (sel && sel.getAttribute('data-src') === 'default' || (sel && sel.getAttribute('data-src') === 'none')) window.syncShipFromBox(null, true); });
     document.getElementById('shipModal').classList.remove('hidden');
+    /* (TASK-0122) شحنٌ عبر المفتي ⇒ يبدأ تحميل قارئ الإيصال الآن (من كاش الجهاز بعد أوّل مرّة) */
+    if (((document.getElementById('ship-company') || {}).value || '') === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) setTimeout(() => GMTReceipt.warm(), 600);
 };
 
 function resetShipPreview() {
@@ -3478,6 +3480,8 @@ let _shipScan = null;
 let _shipMode = 'ship', _shipReading = false, _shipSaving = false;   // (خامساً) وضع النافذة · قراءةٌ جارية · حفظٌ جارٍ (لا حفظ مزدوج)
 async function shipScanFile(file, label) {
     _shipScan = null;
+    /* (TASK-0122) القارئ يُحمَّل وأنت في شاشة الماسح — لا بعدها */
+    if (((document.getElementById('ship-company') || {}).value || '') === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();
     let use = file;
     if (window.GMTDocScan) {
         try {
@@ -3768,7 +3772,11 @@ async function confirmReceiptAttach() {
     showToast('🧾 حُفظ الإيصال على الأوردر' + (keep === 'both' ? ' — والسابق محفوظٌ معه' : keep === 'replace' ? ' — بدل السابق' : ''), 'ok');
     sendReceiptArchive(orders[idx], shipOriginalFile()).then(mid => saveReceiptTg(o.id, mid));
 }
-document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ship-company') shipReadTracking(); });
+document.addEventListener('change', (e) => {
+    if (!e.target || e.target.id !== 'ship-company') return;
+    if (e.target.value === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122)
+    shipReadTracking();
+});
 
 /* ══ صورة إيصال الشحن المؤقّتة (2026-08-26 · طلب المالك) ══
    تُحفظ نسخة **مضغوطة** داخل الأوردر ليراها الموظف من هنا بدل البحث في تيليجرام،
@@ -8882,7 +8890,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261022b"></script>
+<script src="gmt-whatsnew.js?v=20261022c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
