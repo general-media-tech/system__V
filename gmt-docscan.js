@@ -1010,7 +1010,19 @@
     hideDone(c, rot, exclude);
     var id = c.getContext('2d').getImageData(0, 0, W, H);
     var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf, sep;
-    var oldM = null, D0 = function () { return oldM || (oldM = detect(id)); };   // (TASK-0137 · أسرع) الطريقة ① مرّةً واحدة (كانت تُعاد حتى ٣ مرّات)
+    var oldM = null, D0 = function () { return oldM || (oldM = detect(id)); };
+    /* (TASK-0138) رباعيٌّ معقول لورقةٍ مستطيلة مصوَّرة: كل زاويةٍ بين ٥٥° و١٢٥°. الطريقة ① أعطت في صورتين حقيقيّتين رباعياً شبه مثلّث
+       (زاوية ٤٦° و٥٢°) يقطع الإيصال قطرياً (إضاءةٌ برتقاليّة · أصابع وإيصالٌ مجاور) — كل القصوص الصحيحة في صور المالك بين ٧٢° و١١٨°.
+       لا يُرفض (رفضه أسقط رقمين: القصّ — ولو مائلاً — يكبّر الباركود للقارئ) بل يُعلَّم «راجع الحدود» (كهرماني) بدل «اكتُشفت» (أخضر) */
+    var sane = function (qq) {
+      var Q = order(qq.map(function (p) { return [p[0], p[1]]; }));
+      for (var i = 0; i < 4; i++) {
+        var p = Q[i], a = Q[(i + 3) % 4], c = Q[(i + 1) % 4], v1x = a[0] - p[0], v1y = a[1] - p[1], v2x = c[0] - p[0], v2y = c[1] - p[1];
+        var ang = Math.acos(Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / ((Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y)) || 1)))) * 180 / Math.PI;
+        if (ang < 55 || ang > 125) return false;
+      }
+      return true;
+    };   // (TASK-0137 · أسرع) الطريقة ① مرّةً واحدة (كانت تُعاد حتى ٣ مرّات)
     if (b && b.score >= 0.7 && b.minc >= 0.7) {
       rf = lq.refine(b.q); how = 'lines';
       /* لا قصّ: الطريقة ① وجدت منطقةً أكبر بكثير (×١٫٣٥) تحوي الخطوط، وفي الزيادة حبر (نصّ · رموز: كثافة ≥٤٪) ⇒ الخطوط قطعت
@@ -1030,7 +1042,7 @@
        وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
     else if (b && b.inky && b.score >= 0.45 && (!(old = D0()).ok || old.fill ||
              (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
-    else if ((old = old || D0()).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
+    else if ((old = old || D0()).ok && !old.fill) { rf = lq.refine(old.corners); how = sane(old.corners) ? 'region' : 'odd'; }
     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
     var pt = !rf && lq.partial();
     if (pt) { rf = lq.refine(pt.q); how = 'partial'; }
@@ -1039,7 +1051,9 @@
        مقطوع). في صور المالك كان يجد حدود الإيصال صحيحةً فيُرفض لأنّ حارس القصّ يعدّ حوافّ الخلفيّة (لوحة مفاتيح · يد · طاولة) «محتوى»
        فتُعرض الصورة كاملة: ٤ من ٩ صورٍ بلا حدود صارت تُقصّ. رباعيٌّ ثلاثة أضلاعه على الإطار حول جزءٍ أبيض من الإيصال كان يقطع ٣٠٪ منه في
        المسح ⇒ شرطا الإطار والحبر. الحالة «راجع الحدود» (كهرماني). */
-    if (!rf && b && b.score >= 0.55 && b.nb <= 1) {
+    /* (TASK-0138) أو ضلعان على الإطار متقابلان (إيصالٌ أطول من الصورة يمتدّ من حافّتها إلى الحافّة المقابلة — فوق رزمة إيصالات) */
+    var spans = b && b.nb === 2 && b.sc && ((b.sc[0].border && b.sc[2].border) || (b.sc[1].border && b.sc[3].border));
+    if (!rf && b && b.score >= 0.55 && (b.nb <= 1 || spans)) {
       var ws = sep || lq.paperSep(b.q), inInk = ws.pin >= 0.8 ? lq.inkIn(b.q, null) : 0;
       if (inInk >= 0.01 && lq.inkIn([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]], b.q) <= Math.max(0.006, inInk * 0.25)) { rf = lq.refine(b.q); how = 'weak'; }
     }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
@@ -1100,6 +1114,7 @@
     var h = String(det.how || '');
     if (/^fill/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: الورقة تملأ الصورة تقريباً' };
     if (/^partial/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: جزءٌ من الورقة خارج الصورة' };
+    if (/^odd/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: شكلها غير معتاد — اسحب الأركان إلى أطراف الإيصال' };
     if (/^weak/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: اكتُشفت بثقةٍ أقلّ — تأكّد أنّها حول الإيصال كلّه' };
     return { k: 'ok', col: '#22c55e', txt: '✅ اكتُشفت الورقة' + (det.poly ? ' · حوافّ منحنية (' + det.poly.length + ' نقطة)' : '') };
   }
