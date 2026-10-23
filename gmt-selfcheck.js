@@ -75,7 +75,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     var C = global.GMT_CONFIG || {};
     var dbs = global.GMT_DB || C.DATABASES || null;
     if (!dbs) return warn('تعذّر قراءة إعداد القواعد', 'gmt-config.js غير محمّل في هذه الصفحة');
-    var out = [], probes = {
+    var out = [], gone = [], probes = {
       MAIN:     ['gmt_orders', 'invoices', 'products', 'branch_transfers', 'gmt_daily_closes'],
       SITE:     ['site_settings', 'agents'],
       STORE:    ['products'],
@@ -90,9 +90,20 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
             { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
           if (r.status === 404 || r.status === 400) out.push(k + '.' + tables[i] + ' مفقود');
           else if (!r.ok) out.push(k + '.' + tables[i] + ' (' + r.status + ')');
-        } catch (e) { out.push(k + ' تعذّر الاتصال'); break; }
+        } catch (e) { gone.push(k); break; }
       }
     }
+    /* (TASK-0132) لا ردّ إطلاقاً (خطأ شبكة — لا رمز HTTP) وغيرها يردّ ⇒ المشروع نفسه غير موجود (حُذف أو أُوقف: عنوانه لم يعد له DNS)،
+       لا «جداول مفقودة». كانت الرسالة «SITE تعذّر الاتصال» تتكرّر في كل تقرير بلا سبب ولا حلّ. */
+    var anyUp = Object.keys(probes).some(function (k) { return gone.indexOf(k) < 0 && probes[k].length && dbs[k] && dbs[k].url && dbs[k].key; });
+    if (gone.length && !out.length) return bad('قاعدةٌ لا تردّ: ' + gone.join(' · '), gone.map(function (k) {
+      return anyUp ? k + ': المشروع لا يردّ إطلاقاً (' + (dbs[k].url || '').replace(/^https:\/\//, '').split('.')[0] + ' — محذوف أو موقوف في Supabase) — يُستعاد من لوحة الحساب المالك أو تُنقل جداوله؛ القرار عند المالك. صفحات الموقع تعمل بالاحتياطي.'
+                   : k + ' تعذّر الاتصال (لا إنترنت؟)';
+    }).join(' · '));
+    gone.forEach(function (k) {
+      out.push(anyUp ? k + ': المشروع لا يردّ إطلاقاً (' + (dbs[k].url || '').replace(/^https:\/\//, '').split('.')[0] + ' — محذوف أو موقوف في Supabase) — يُستعاد من لوحة الحساب المالك أو تُنقل جداوله؛ القرار عند المالك'
+                     : k + ' تعذّر الاتصال (لا إنترنت؟)');
+    });
     return out.length
       ? bad('جداول مفقودة أو غير متاحة: ' + out.length, out.slice(0, 6).join(' · ') + ' — راجع «SQL/أرشيف_SQL.html» (والقاعدة المتوقّفة تُستعاد من لوحة Supabase)')
       : ok('كل الجداول الحرجة موجودة');
@@ -295,5 +306,5 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   if (document.readyState === 'complete') auto();
   else addEventListener('load', auto);
 
-  global.GMTSelfCheck = { run: run, checkAssets: checkAssets, checkBrand: checkBrand };
+  global.GMTSelfCheck = { run: run, checkAssets: checkAssets, checkBrand: checkBrand, checkDatabase: checkDatabase };
 })(window);

@@ -1825,7 +1825,8 @@ function cardHTML(o) {
             ? `<div class="mb-1"><span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:900;color:#1e3a8a;">🚚 نقلٌ بين الفروع — ليس بيعاً</span></div>`
         : isStoreOrder(o)
             ? `<div class="mb-1"><span style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:900;color:#991b1b;">🏪 من المتجر</span></div>`
-            : (o.entered_by ? `<div class="mb-1"><span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;color:#1e40af;">👨‍💼 ${escH(o.entered_by)}</span></div>` : '')}
+            /* (TASK-0132 · تقرير الصحّة: «لونٌ أزرق خارج الهوية») شارة «من أدخله» رماديّةٌ محايدة — الأحمر لشارة «من المتجر» فيبقى التمييز */
+            : (o.entered_by ? `<div class="mb-1"><span style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;color:#374151;">👨‍💼 ${escH(o.entered_by)}</span></div>` : '')}
         <div class="flex justify-between items-start mb-3 pl-6">
             <div>
                 <h4 class="font-black text-gray-800 text-sm flex items-center gap-1.5 flex-wrap">${escH(o.name)}${notifyDots(o)}</h4>
@@ -8998,13 +8999,13 @@ try {
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
-<script src="gmt-selfcheck.js?v=20261011m"></script>
+<script src="gmt-selfcheck.js?v=20261023h"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261017c"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261023g"></script>
+<script src="gmt-whatsnew.js?v=20261023h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
