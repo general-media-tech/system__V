@@ -33,6 +33,7 @@
   /* (TASK-0130) يُحمَّل أيضاً في عامل القراءة (Web Worker — بلا document): المعالجة نفسها (التقويم والتحسين) هناك على OffscreenCanvas
      فلا تحجز الواجهة؛ الواجهة (open) في الصفحة وحدها */
   var IN_WORKER = !doc;
+  var DS_SELF = (!IN_WORKER && doc.currentScript && doc.currentScript.src) || '';   // (TASK-0137) الملفّ نفسه عاملاً للاكتشاف
 
   var WORK_MAX = 2400;      // أطول ضلعٍ للمعالجة (يكفي للنصّ الصغير والباركود)
   var DET_MAX = 512;        // للاكتشاف فقط (TASK-0123: ٥١٢ — ثابت النتائج بين ٤٤٨ و٥٦٠ وأسرع من ٦٤٠)
@@ -240,6 +241,7 @@
     /* سوبل على السطوع واللون معاً وعلى نسخةٍ أنعم ⇒ كبت اللاأعظمي (الزاوية لبكسلات الحافّة وحدها).
        (حدّ ورقةٍ مزرقّة على قماشٍ رماديّ محبّب فرقُه لونٌ أكثر منه سطوعاً، وحبّات القماش «حوافّ» سطوعٍ تطغى عليه.) */
     var M = new Float32Array(n), GX = new Float32Array(n), GY = new Float32Array(n), A = new Float32Array(n), mh = new Uint32Array(512);
+    var CA = new Float64Array(n), SA = new Float64Array(n);   // (TASK-0137) جيب وجيب تمام زاوية كل بكسل حافّة — تُحسب مرّة (كانت في كل استدعاء)
     function sob(a, k2, o) { o[0] = a[k2 + 1 - W] + 2 * a[k2 + 1] + a[k2 + 1 + W] - a[k2 - 1 - W] - 2 * a[k2 - 1] - a[k2 - 1 + W]; o[1] = a[k2 + W - 1] + 2 * a[k2 + W] + a[k2 + W + 1] - a[k2 - W - 1] - 2 * a[k2 - W] - a[k2 - W + 1]; }
     var gl = [0, 0], gu = [0, 0], gv = [0, 0];
     for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) {
@@ -257,14 +259,14 @@
       else if (ay > ax * 2.414) { m1 = M[k - W]; m2 = M[k + W]; }
       else if (GX[k] * GY[k] > 0) { m1 = M[k - W - 1]; m2 = M[k + W + 1]; }
       else { m1 = M[k - W + 1]; m2 = M[k + W - 1]; }
-      if (m >= m1 && m >= m2) { E[k] = 1; ex.push(k); A[k] = Math.atan2(GY[k], GX[k]); }
+      if (m >= m1 && m >= m2) { E[k] = 1; ex.push(k); A[k] = Math.atan2(GY[k], GX[k]); CA[k] = Math.cos(A[k]); SA[k] = Math.sin(A[k]); }
     }
     /* هاف: كل بكسل حافّة يصوّت حول اتّجاه تدرّجه (±٥°) بوزن الفرق بين جانبيه */
     var OFF = Math.max(4, Math.round(Math.min(W, H) * 0.022)), D = Math.ceil(Math.hypot(W, H)), NR = 2 * D + 1, acc = new Float32Array(180 * NR), CS = [], SN = [], t;
     for (t = 0; t < 180; t++) { CS[t] = Math.cos(t * Math.PI / 180); SN[t] = Math.sin(t * Math.PI / 180); }
     for (var e = 0; e < ex.length; e++) {
       k = ex[e]; x = k % W; y = (k / W) | 0;
-      var ca = Math.cos(A[k]), sa = Math.sin(A[k]), fd = fdiff(x + ca * OFF, y + sa * OFF, x - ca * OFF, y - sa * OFF);
+      var ca = CA[k], sa = SA[k], fd = fdiff(x + ca * OFF, y + sa * OFF, x - ca * OFF, y - sa * OFF);
       var wv = fd < 0 ? 0.3 : Math.max(0.05, Math.min(1, fd / 30)), deg = ((A[k] * 180 / Math.PI) % 180 + 180) % 180, t0 = Math.round(deg);
       for (var dt = -5; dt <= 5; dt++) { var tt = (t0 + dt + 180) % 180; acc[tt * NR + Math.round(x * CS[tt] + y * SN[tt]) + D] += wv; }
     }
@@ -294,7 +296,7 @@
           for (var q5 = -3; q5 <= 3; q5++) {
             var qx = Math.round(X + l.cs * q5), qy = Math.round(Y + l.sn * q5); if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
             var kk = qy * W + qx; if (!E[kk]) continue;
-            var dp = Math.cos(A[kk]) * l.cs + Math.sin(A[kk]) * l.sn; if (dp < 0.9 && dp > -0.9) continue;
+            var dp = CA[kk] * l.cs + SA[kk] * l.sn; if (dp < 0.9 && dp > -0.9) continue;
             sx += qx; sy += qy; sxx += qx * qx; syy += qy * qy; sxy += qx * qy; m++; break;
           }
         }
@@ -311,7 +313,7 @@
       for (var q = -2; q <= 2; q++) {
         var qx = Math.round(px + cs * q), qy = Math.round(py + sn * q); if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
         var kk = qy * W + qx; if (!E[kk]) continue;
-        var dp = Math.cos(A[kk]) * cs + Math.sin(A[kk]) * sn; if (dp > 0.85 || dp < -0.85) return 1;
+        var dp = CA[kk] * cs + SA[kk] * sn; if (dp > 0.85 || dp < -0.85) return 1;
       }
       return 0;
     }
@@ -1008,12 +1010,13 @@
     hideDone(c, rot, exclude);
     var id = c.getContext('2d').getImageData(0, 0, W, H);
     var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf, sep;
+    var oldM = null, D0 = function () { return oldM || (oldM = detect(id)); };   // (TASK-0137 · أسرع) الطريقة ① مرّةً واحدة (كانت تُعاد حتى ٣ مرّات)
     if (b && b.score >= 0.7 && b.minc >= 0.7) {
       rf = lq.refine(b.q); how = 'lines';
       /* لا قصّ: الطريقة ① وجدت منطقةً أكبر بكثير (×١٫٣٥) تحوي الخطوط، وفي الزيادة حبر (نصّ · رموز: كثافة ≥٤٪) ⇒ الخطوط قطعت
          جزءاً من الورقة (حدٌّ بين ترويسةٍ بيضاء وجدولٍ ملوّن في إيصالٍ مطبوع بالألوان، ويدٌ تغطّي الحدّ الحقيقي) ⇒ المنطقة الأكبر.
          زيادةٌ بلا حبر (رزمة أوراقٍ بيضاء بجانب الإيصال: ١–٢٪) ⇒ تبقى الخطوط. في التجربة: القصّ ٨–٢٢٪ · الرزمة ≤٢٫٣٪. */
-      old = detect(id);
+      old = D0();
       if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04) { rf = lq.refine(old.corners); how = 'region'; }
     }
     /* (TASK-0130 · صور المالك الحقيقيّة) إيصالٌ ممسوكٌ باليد فوق خلفيّةٍ داكنة وحدُّه عند إطار الصورة أو بجانبه إيصالٌ آخر: الخطوط وجدت
@@ -1022,15 +1025,24 @@
        تُقدَّم الخطوط فقط إن فشلت المنطقة، أو كان ما تزيده المنطقةُ عليها ليس ورقاً (<٥٠٪: خلفيّةٌ وإيصالٌ مجاور) وما تزيده هي ورقاً.
        خطوطٌ أوسع من الورقة (عروق خشبٍ موازية لحدّها) ⇒ ما تزيده ليس ورقاً ⇒ المنطقة كما كانت */
     else if (b && b.score >= 0.45 && (sep = lq.paperSep(b.q)).pin >= 0.78 && sep.pout <= 0.07 &&
-             (!(old = detect(id)).ok || old.fill || (lq.paperIn(old.corners, b.q) < 0.5 && lq.paperIn(b.q, old.corners) >= 0.5))) { rf = lq.refine(b.q); how = 'lines'; }
+             (!(old = D0()).ok || old.fill || (lq.paperIn(old.corners, b.q) < 0.5 && lq.paperIn(b.q, old.corners) >= 0.5))) { rf = lq.refine(b.q); how = 'lines'; }
     /* (TASK-0125) اختير الأكبر لأنّ حبر الإيصال يمتدّ إليه ⇒ يُقدَّم على المنطقة التقريبيّة إن كانت داخله وأصغر منه بوضوح (≤٨٥٪)
        وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
-    else if (b && b.inky && b.score >= 0.45 && (!(old = detect(id)).ok || old.fill ||
+    else if (b && b.inky && b.score >= 0.45 && (!(old = D0()).ok || old.fill ||
              (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
-    else if ((old = old || detect(id)).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
+    else if ((old = old || D0()).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
     var pt = !rf && lq.partial();
-    if (pt) { rf = lq.refine(pt.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
+    if (pt) { rf = lq.refine(pt.q); how = 'partial'; }
+    /* (TASK-0137 · المالك seq 37: «لسّه القصّ التلقائي ضعيف وما عم يكتشف») قبل «الصورة كاملة»: رباعيّ الخطوط الأضعف (درجة ≥٠٫٥٥) يُقبل
+       إن كان داخله ورقاً (≥٨٠٪) وفيه حبر (≥١٪) وضلعٌ واحد على الأكثر على إطار الصورة وخارجه بلا حبر (حبر الخارج ≤ ربع حبر الداخل: لا نصّ
+       مقطوع). في صور المالك كان يجد حدود الإيصال صحيحةً فيُرفض لأنّ حارس القصّ يعدّ حوافّ الخلفيّة (لوحة مفاتيح · يد · طاولة) «محتوى»
+       فتُعرض الصورة كاملة: ٤ من ٩ صورٍ بلا حدود صارت تُقصّ. رباعيٌّ ثلاثة أضلاعه على الإطار حول جزءٍ أبيض من الإيصال كان يقطع ٣٠٪ منه في
+       المسح ⇒ شرطا الإطار والحبر. الحالة «راجع الحدود» (كهرماني). */
+    if (!rf && b && b.score >= 0.55 && b.nb <= 1) {
+      var ws = sep || lq.paperSep(b.q), inInk = ws.pin >= 0.8 ? lq.inkIn(b.q, null) : 0;
+      if (inInk >= 0.01 && lq.inkIn([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]], b.q) <= Math.max(0.006, inInk * 0.25)) { rf = lq.refine(b.q); how = 'weak'; }
+    }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
     if (rf) { var ex = lq.expand(rf.q); if (ex) { rf = lq.refine(ex); how += '+expand'; } }
     /* (TASK-0134) ورقتان في رباعيٍّ واحد ⇒ تُخفى الصغرى ويُعاد الاكتشاف (حتى ثلاث أوراق) */
     if (rf && (depth || 0) < 2) {
@@ -1047,7 +1059,7 @@
     else if (old && old.fill) { q = old.corners; how = 'fill'; }
     var norm = function (qq) { return qq.map(function (p) { return [Math.max(0, Math.min(1, p[0] / W)), Math.max(0, Math.min(1, p[1] / H))]; }); };
     if (q) return { corners: norm(q), poly: tr ? norm(tr.poly) : null, ci: tr ? tr.ci : null, ok: true, why: old && old.fill ? old.why : '', how: how + (tr ? '+curve' + tr.poly.length : ''), diag: old && old.diag };
-    var r = old || detect(id);
+    var r = old || D0();
     return { corners: norm([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]]), ok: false, why: r.why || 'لم تتميّز الورقة عن الخلفية', how: 'none', diag: r.diag };
   }
 
@@ -1088,10 +1100,33 @@
     var h = String(det.how || '');
     if (/^fill/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: الورقة تملأ الصورة تقريباً' };
     if (/^partial/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: جزءٌ من الورقة خارج الصورة' };
+    if (/^weak/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: اكتُشفت بثقةٍ أقلّ — تأكّد أنّها حول الإيصال كلّه' };
     return { k: 'ok', col: '#22c55e', txt: '✅ اكتُشفت الورقة' + (det.poly ? ' · حوافّ منحنية (' + det.poly.length + ' نقطة)' : '') };
   }
 
   /* ── ④ الواجهة ───────────────────────────────────────────────────────────── */
+  /* (TASK-0137 · المالك seq 37: «خلّي الموضوع أسرع») الاكتشاف في عاملٍ مستقلّ (الملفّ نفسه): كان ~٠٫٨ث على هاتفٍ متوسّط تتجمّد فيها
+     الشاشة. الصفحة تصغّر الصورة (بالاتّجاه المطلوب) إلى حجم الاكتشاف وتنقلها، والعامل يكتشف عليها — بالبكسلات نفسها ⇒ النتيجة نفسها.
+     لا عامل (ملفٌّ مُضمَّن · متصفّحٌ بلا OffscreenCanvas) أو فشل ⇒ في الصفحة كما كان. */
+  var dWorker = null, dJobs = {}, dSeq = 0;
+  function detWorker() {
+    if (dWorker) return dWorker;
+    if (dWorker === false || !DS_SELF || typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') { dWorker = false; return null; }
+    try {
+      dWorker = new Worker(DS_SELF);
+      dWorker.onmessage = function (e) { var m = e.data || {}, j = dJobs[m.id]; if (!j) return; delete dJobs[m.id]; if (m.det) j.ok(m.det); else j.no(new Error(m.error || 'detect')); };
+      dWorker.onerror = function () { Object.keys(dJobs).forEach(function (k) { dJobs[k].no(new Error('worker')); delete dJobs[k]; }); try { dWorker.terminate(); } catch (_) {} dWorker = false; };
+    } catch (_) { dWorker = false; }
+    return dWorker || null;
+  }
+  function detectOff(img, rot, exclude) {
+    var Wk = detWorker(), local = function () { return detectNorm(img, rot, exclude); };
+    if (!Wk) return Promise.resolve().then(local);
+    var c = drawScaled(img, DET_MAX, rot), ex = (exclude || []).filter(function (e) { return e && (e.rot || 0) === (rot || 0); }).map(function (e) { return { poly: e.poly, rot: 0, grow: e.grow }; });
+    return createImageBitmap(c).then(function (bm) {
+      return new Promise(function (ok, no) { var id = ++dSeq; dJobs[id] = { ok: ok, no: no }; Wk.postMessage({ cmd: 'detect', id: id, bm: bm, exclude: ex }, [bm]); setTimeout(function () { if (dJobs[id]) { delete dJobs[id]; no(new Error('timeout')); } }, 6000); });   // عاملٌ عالق ⇒ في الصفحة بعد ٦ث
+    }).catch(local);
+  }
   var PADS = 24;                                                         // هامش الصورة داخل مساحتها: يتّسع لمقبضٍ على حافّتها
   function css() {
     if (doc.getElementById('gds-css')) return;
@@ -1170,15 +1205,25 @@
             try { var P0 = { key: k, cv: null, blob: null }; done(P0, process(img, cs, r0, m0, sh)); pre = P0; } catch (_) {}
           }, delay || 30);
         }
-        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot, opts.exclude); if (!touched) setFromDet(det); }
+        /* (TASK-0137) الاكتشاف في عامله (detectOff) ⇒ الشاشة تستجيب أثناءه. detTok: تدويرٌ أو اكتشافٌ أحدث أو «الصفحة كاملة» أو الرسم
+           ⇒ نتيجةٌ سابقة تصل متأخّرة تُهمل. detP: اكتشافٌ جارٍ ⇒ «قصّ» ينتظره */
+        var detTok = 0, detP = null;
+        function applyDet(d, before) { det = d; if (!touched) { setFromDet(det); if (before) { undo.push(before); redo = []; } } }
+        function detectNow() { if (!pending || detP) return; if (pending > 0) clearTimeout(pending); pending = 0; detTok++; applyDet(detectNorm(img, rot, opts.exclude)); }
         function detectSoon() {
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
+          var tok = ++detTok;
           pending = setTimeout(function () {
-            pending = -1; var before = snap(); detectNow(); if (!touched) { undo.push(before); redo = []; }
-            if (view === 'edit') { paint(); showStatus(); keepCheck(); }
-            /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
-            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), poly: det.poly || null, ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
-            precompute(30);
+            pending = -1; var before = snap(), myP;
+            myP = detP = detectOff(img, rot, opts.exclude).then(function (d) {
+              if (detP === myP) detP = null;
+              if (tok !== detTok) return;
+              pending = 0; applyDet(d, before);
+              if (view === 'edit') { paint(); showStatus(); keepCheck(); }
+              /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
+              if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), poly: det.poly || null, ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
+              precompute(30);
+            });
           }, 60);
         }
         var root = doc.createElement('div'); root.id = 'gds'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
@@ -1195,7 +1240,7 @@
         var handles = [], ghosts = [], st = statusOf(null), shown = null;
         function say(t, col) { msg.textContent = t || ''; msg.style.color = col || ''; }   // الحالة بلونها (أخضر/كهرماني/أحمر) · غيرها كهرماني
         function btn(label, fn, cls, where) { var b = doc.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', fn); (where || bar).appendChild(b); return b; }
-        function finish(v) { if (keepT) clearInterval(keepT); root.remove(); doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
+        function finish(v) { detTok++; if (keepT) clearInterval(keepT); root.remove();   /* أُغلق الماسح قبل انتهاء الاكتشاف ⇒ نتيجته تُهمل (لا onDetected بعد الإغلاق) */ doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); if (drawing) cancelDraw(); else finish(null); return; }
           if (view !== 'edit') return;
@@ -1324,7 +1369,7 @@
         function doRedo() { if (!redo.length) return; undo.push(snap()); restore(redo.pop()); touched = true; paint(); precompute(300); }
         /* ── الرسم اليدوي: اضغط حول الورقة نقطةً بعد نقطة، ثمّ النقطة الأولى أو «إغلاق المحيط» ── */
         function startDraw() {
-          if (pending > 0) clearTimeout(pending); pending = 0;
+          if (pending > 0) clearTimeout(pending); pending = 0; detTok++; detP = null;
           drawing = snap(); drawing.u = undo.length; redo = []; P = []; CI = [0, 1, 2, 3]; sel = -1; touched = true; showEdit(true);
           say('✏️ اضغط على حدود الورقة نقطةً بعد نقطة (حتى عند كل انحناء)، ثمّ اضغط النقطة الأولى أو «إغلاق المحيط». ↶ يلغي آخر نقطة.');
         }
@@ -1440,7 +1485,7 @@
           if (!drawing) {
             btn('↻ تدوير', function () { rot = (rot + 90) % 360; z = 1; tx = ty = 0; cv.style.transform = ''; P = [[0, 0], [1, 0], [1, 1], [0, 1]]; CI = [0, 1, 2, 3]; undo = []; redo = []; showEdit(); detectSoon(); });
             btn('🔄 اكتشاف تلقائي', function () { detectSoon(); });
-            btn('⬜ الصفحة كاملة', function () { if (pending > 0) clearTimeout(pending); pending = 0; push(); touched = true; P = [[0, 0], [1, 0], [1, 1], [0, 1]]; CI = [0, 1, 2, 3]; sel = -1; manual(); paint(); precompute(300); });
+            btn('⬜ الصفحة كاملة', function () { if (pending > 0) clearTimeout(pending); pending = 0; detTok++; detP = null; push(); touched = true; P = [[0, 0], [1, 0], [1, 1], [0, 1]]; CI = [0, 1, 2, 3]; sel = -1; manual(); paint(); precompute(300); });
             btn('📷 إعادة التصوير', retake);
             btn('✕ إلغاء', function () { finish(null); });
             btn('✔ قصّ وتحسين', function () { run(); }, 'p');
@@ -1449,7 +1494,9 @@
           if (!pending && !drawing) showStatus();
         }
         function run() {
-          if (busy) return; detectNow();
+          if (busy) return;
+          if (detP) { var wp = detP; busy = true; say('🔍 لحظة — يكتمل اكتشاف الحدود…'); wp.then(function () { busy = false; run(); }, function () { busy = false; run(); }); return; }
+          detectNow();
           if (opts.keepIn && !drawing) { keepCheck(); if (!keepOk && !keepAsk) { keepAsk = true; say('⚠️ القصّ سيقطع رقم التتبّع من النسخة المحفوظة — اضغط «✔ قصّ وتحسين» مرّةً ثانية للمتابعة، أو «↔️ شمل الرقم»', '#f59e0b'); return; } }
           if (drawing) { closeDraw(); if (drawing) return; }
           if (P.length < 4 || !simple(P)) { say('❌ المحيط غير صالح (يقطع نفسه) — صحّحه أو ↶.'); return; }
@@ -1527,5 +1574,13 @@
       });
     });
   }
-  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, _warpPoly: warpPoly, warpOnly: warpOnly, applyMode: applyMode, _poly: { cornersOf: cornersOf, simple: simple, normPoly: normPoly }, statusOf: statusOf, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
+  /* (TASK-0137) عامل الاكتشاف: هذا الملفّ نفسه حين يكون هو سكربت العامل (في عامل القارئ يُستورد ولا يمسّ رسائله) */
+  if (IN_WORKER && /gmt-docscan/.test(String(global.location && global.location.href))) {
+    global.onmessage = function (e) {
+      var m = e.data || {}; if (m.cmd !== 'detect') return;
+      try { var d = detectNorm(m.bm, 0, m.exclude || null); try { m.bm.close(); } catch (_) {} global.postMessage({ id: m.id, det: { corners: d.corners, poly: d.poly || null, ci: d.ci || null, ok: d.ok, why: d.why || '', how: d.how } }); }
+      catch (err) { global.postMessage({ id: m.id, error: String(err && err.message || err) }); }
+    };
+  }
+  global.GMTDocScan = { open: open, _detectOff: detectOff, detect: detect, lineQuad: lineQuad, process: process, _warpPoly: warpPoly, warpOnly: warpOnly, applyMode: applyMode, _poly: { cornersOf: cornersOf, simple: simple, normPoly: normPoly }, statusOf: statusOf, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
 })(typeof window !== 'undefined' ? window : self);

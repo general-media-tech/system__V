@@ -116,7 +116,8 @@ const resultSig = pg => pg.evaluate(() => { const c = document.querySelector('#g
       const s2 = await st(pg); ok(Math.hypot(s2.P[i][0] - target[0], s2.P[i][1] - target[1]) < 0.004, 'سحبٌ وهي مكبَّرة يضع النقطة بدقّة', [s2.P[i], target]); }
     else ok(false, 'ركنٌ ظاهر وهي مكبَّرة'); }
   await click(pg, '−'); await click(pg, '−'); await click(pg, '−'); s = await st(pg); ok(s.z === 1, 'تصغير للأصل', s.z);
-  await click(pg, 'اكتشاف تلقائي'); await pg.waitForTimeout(400); s = await st(pg); ok(s.hs.length === n0 && /اكتُشفت/.test(s.msg), 'اكتشاف تلقائي يعيد المحيط المكتشف', s.hs.length);
+  await click(pg, 'اكتشاف تلقائي'); await pg.waitForTimeout(100);   // الاكتشاف في عامله (TASK-0137) ⇒ يُنتظر انتهاؤه لا زمنٌ ثابت
+  await pg.waitForFunction(() => !/جارٍ اكتشاف/.test(document.querySelector('#gds .gds-msg').textContent), null, { timeout: 10000 }); await pg.waitForTimeout(100); s = await st(pg); ok(s.hs.length === n0 && /اكتُشفت/.test(s.msg), 'اكتشاف تلقائي يعيد المحيط المكتشف', s.hs.length);
   await click(pg, 'قصّ وتحسين'); await pg.waitForFunction(() => [...document.querySelectorAll('#gds button')].some(b => b.textContent.includes('اعتماد')), null, { timeout: 15000 });
   await click(pg, 'اعتماد'); await pg.waitForFunction(() => window.__out !== undefined, null, { timeout: 8000 });
   out = await pg.evaluate(() => ({ poly: window.__out.poly && window.__out.poly.length, status: window.__out.status, w: window.__out.width, h: window.__out.height }));

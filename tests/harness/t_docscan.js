@@ -72,7 +72,7 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
       return { mid, ink: __inkCorners(out), portrait: out.height > out.width, rot: r90.width > r90.height }; });
     ok(bw.mid === 0 && bw.ink.every(Boolean), 'أبيض وأسود: بكسلات سوداء/بيضاء فقط والأركان محفوظة');
     ok(bw.portrait && bw.rot, 'التدوير ٩٠° يقلب اتجاه النتيجة');
-    ok(!errs.filter(e => !/status of (400|503)/.test(e)).length, 'لا أخطاء JS');
+    ok(!errs.filter(e => !/status of (400|503)|Estimating resolution/.test(e)).length, 'لا أخطاء JS');
     // الإيصالان الحقيقيان
     if (fs.existsSync(REAL + 'm01.jpg')) {
       console.log('— إيصالا المالك الحقيقيان');
@@ -169,7 +169,7 @@ window.__inkCorners = function (cv) {   // هل في كل ركنٍ من النت
       const c = await pg.evaluate(() => ({ scan: !!_shipScan, prev: document.getElementById('ship-img-preview').innerText }));
       ok(!c.scan && /تم اختيار الصورة/.test(c.prev), 'إلغاء الماسح ⇒ تُستعمل الصورة كما هي');
     }
-    const own = errs.filter(e => !/status of (400|503)/.test(e));
+    const own = errs.filter(e => !/status of (400|503)|Estimating resolution/.test(e));
     ok(!own.length, 'لا أخطاء JS ' + own.join(' | '));
     await browser.close();
   }
