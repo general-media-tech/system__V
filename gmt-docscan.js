@@ -16,9 +16,14 @@
      • التحسين يقسم على إضاءة الخلفية (لا يرسم ولا يُكمل شيئاً): الحبر يبقى حبراً،
        والأرقام والباركود كما هي.
 
-   GMTDocScan.open(file, { title, onRetake, onDetected(det, rot) }) ⇒ Promise<null | { retake:true } |
-        { original: File, scanned: Blob, mode: 'color'|'bw', corners, rotation }>
-   GMTDocScan.detect(imageData) · GMTDocScan.process(img, corners, rot, mode) — للاختبار
+   (23 ت1 · TASK-0131 · «ماسحٌ بمستوى CamScanner») المحيط بعدد نقاطٍ متغيّر: الاكتشاف يتتبّع حافّة الورقة الفعليّة بين أركانها
+   (٤ نقاط للمستقيمة · أكثر للمنحنية/المطعوجة) وتُقوَّم برقعة «كونز» · محرّرٌ كامل: سحب · «+» لإضافة نقطة · حذف · رسم الحدود
+   من الصفر · تراجع/إعادة · تكبير وتحريك · مكبّرةٌ تحت الإصبع · حالةٌ واضحة (اكتُشفت/راجعها/تعذّر) · خمسة أنماط والأصل محفوظ.
+
+   GMTDocScan.open(file, { title, onRetake, onDetected(det, rot), processor, onProcessed, init }) ⇒ Promise<null | { retake:true } |
+        { original: File, scanned: Blob, mode: 'orig'|'color'|'magic'|'gray'|'bw', corners, poly|null, ci|null, rotation, status: 'ok'|'review'|'fail'|'manual' }>
+        init = نتيجةٌ سابقة ⇒ يُفتح بحدودها ونمطها (إعادة تعديل صفحة)
+   GMTDocScan.detectNorm(img, rot) ⇒ { corners, poly, ci, ok, how } · process(img, corners, rot, mode, { poly, ci }) — للاختبار
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -618,10 +623,73 @@
       }
       return N2 > 30 ? S2 / N2 : 1;
     }
-    return { best: best, partial: findPartial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    /* (TASK-0131) حدود الورقة الفعليّة بين أركانها الأربعة: على كل ضلعٍ نقاطٌ كل ~٨ بكسل، ولكلٍّ يُبحث على العموديّ (±٤٫٥٪) عن أقوى
+       انتقالٍ «ورقٌ في الداخل ⇐ لا ورق في الخارج» بحافّةٍ متّجهةٍ مع العموديّ. لا دليل ⇒ يُستوفى من الجيران. الضلع شبه مستقيم ⇒ بلا نقاط؛
+       وإلّا تُبسَّط (دوغلاس-بوكر) فتبقى النقاط التي تمثّل انحناءه فقط. ضلعٌ على إطار الصورة يبقى مستقيماً. */
+    function trace(Q) {
+      Q = order(Q);
+      var cx = (Q[0][0] + Q[1][0] + Q[2][0] + Q[3][0]) / 4, cy = (Q[0][1] + Q[1][1] + Q[2][1] + Q[3][1]) / 4;
+      var R = Math.max(4, Math.round(Math.min(W, H) * 0.045)), off = Math.max(2, Math.round(Math.min(W, H) * 0.012));
+      var eps = Math.max(2, Math.min(W, H) * 0.008), poly = [], ci = [];
+      function onFrameSeg(A, B) { return (A[0] <= 2 && B[0] <= 2) || (A[0] >= W - 3 && B[0] >= W - 3) || (A[1] <= 2 && B[1] <= 2) || (A[1] >= H - 3 && B[1] >= H - 3); }
+      function dp(pts, a, b, keep) {             // دوغلاس-بوكر على [a..b]
+        var A = pts[a], B = pts[b], dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1, mi = -1, md = 0;
+        for (var i = a + 1; i < b; i++) { var d = Math.abs(dx * (pts[i][1] - A[1]) - dy * (pts[i][0] - A[0])) / L; if (d > md) { md = d; mi = i; } }
+        if (md > eps && mi > 0) { keep[mi] = 1; dp(pts, a, mi, keep); dp(pts, mi, b, keep); }
+      }
+      for (var z = 0; z < 4; z++) {
+        var A = Q[z], B = Q[(z + 1) % 4], ux = B[0] - A[0], uy = B[1] - A[1], L = Math.hypot(ux, uy) || 1, nx = -uy / L, ny = ux / L;
+        if ((cx - A[0]) * nx + (cy - A[1]) * ny > 0) { nx = -nx; ny = -ny; }     // n نحو الخارج
+        ci.push(poly.length); poly.push(A.slice());
+        if (onFrameSeg(A, B) || L < 24) continue;
+        var ns = Math.max(5, Math.round(L / 8)), ds = [], pts = [];
+        for (var k = 1; k < ns; k++) {
+          var f = k / ns, px = A[0] + ux * f, py = A[1] + uy * f, best = 0, bd = NaN;
+          if (f < 0.07 || f > 0.93) { ds.push(NaN); continue; }        // قرب الركن: حافّة الضلع المجاور تختلط به ⇒ يُستوفى
+          for (var d = -R; d <= R; d++) {
+            var X = Math.round(px + nx * d), Y = Math.round(py + ny * d); if (X < 1 || Y < 1 || X >= W - 1 || Y >= H - 1) continue;
+            var kk = Y * W + X, g = Math.abs(GX[kk] * nx + GY[kk] * ny) / (Math.hypot(GX[kk], GY[kk]) || 1); if (g < 0.7) continue;
+            var ix = Math.round(px + nx * (d - off)), iy = Math.round(py + ny * (d - off)), ox = Math.round(px + nx * (d + off)), oy = Math.round(py + ny * (d + off));
+            if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
+            var pin = Ps[iy * W + ix], pout = (ox < 0 || oy < 0 || ox >= W || oy >= H) ? 0 : Ps[oy * W + ox];
+            if (!(pin > pth && pout < pth)) continue;                  // ورقٌ في الداخل ولا ورق في الخارج
+            var sc = M[kk] * (pin - pout) - Math.abs(d) * 0.02;        // تعادل ⇒ الأقرب للضلع
+            if (sc > best) { best = sc; bd = d; }
+          }
+          ds.push(Math.abs(bd) >= R - 1 ? NaN : bd);                     // عند حدّ البحث تماماً ⇒ ليس حافّة الورقة (خطٌّ داخليّ أو خلفيّة)
+        }
+        /* (صور المالك: إيصالٌ تملؤه إضاءةٌ برتقاليّة · ورقةٌ ثانية بجانبه) حافّةٌ وُجدت على أقلّ من ٦٠٪ من الضلع، أو تقفز بين عيّنتين
+           متجاورتين أكثر من نصف مدى البحث ⇒ ما تتبّعه خطوطٌ داخليّة لا حافّة الورقة ⇒ الضلع يبقى مستقيماً (كان يتبعها فتتشوّه النسخة).
+           الورقة المنحنية فعلاً: حافّتها على الضلع كلّه تقريباً وبانحناءٍ سلس. */
+        var nIn = 0, nOk = 0, jmp = 0, prev = NaN, gap = 0, run = 0;
+        for (var j2 = 0; j2 < ds.length; j2++) {
+          var f2 = (j2 + 1) / ns; if (f2 < 0.07 || f2 > 0.93) continue; nIn++;
+          if (!isNaN(ds[j2])) { nOk++; run = 0; if (!isNaN(prev)) jmp = Math.max(jmp, Math.abs(ds[j2] - prev)); } else gap = Math.max(gap, ++run);
+          prev = ds[j2];
+        }
+        /* وفجوةٌ متّصلة بلا حافّة أطول من خُمس الضلع (يدٌ تغطّي طرفه: يُستوفى خطّاً منكسراً) ⇒ مستقيم أيضاً */
+        if (nOk < nIn * 0.6 || gap > nIn * 0.2 || jmp > Math.max(3, R * 0.3)) continue;
+        /* لا دليل ⇒ استيفاءٌ من الجيران (والطرفان على الضلع نفسه) · ثمّ وسيطٌ ثلاثيّ يمحو نتوءاً منفرداً */
+        var vals = [0].concat(ds, [0]);
+        for (var a = 1; a < vals.length - 1; a++) if (isNaN(vals[a])) { var l = a - 1, r = a + 1; while (r < vals.length - 1 && isNaN(vals[r])) r++; for (var t = a; t < r; t++) vals[t] = vals[l] + (vals[r] - vals[l]) * (t - l) / (r - l); a = r - 1; }
+        var sm = vals.slice(); for (a = 1; a < vals.length - 1; a++) { var m3 = [vals[a - 1], vals[a], vals[a + 1]].sort(function (p, q) { return p - q; }); sm[a] = m3[1]; }
+        if (Math.max.apply(null, sm.map(Math.abs)) < eps) continue;       // مستقيمٌ عمليّاً
+        for (a = 0; a < sm.length; a++) { var ff = a / ns; pts.push([A[0] + ux * ff + nx * sm[a], A[1] + uy * ff + ny * sm[a]]); }
+        var keep = {}; dp(pts, 0, pts.length - 1, keep);
+        /* نقطتان أقرب من ٦٪ من طول الضلع ⇒ واحدة (لا عنقود نقاطٍ عند ركن) */
+        var last = A, minD = L * 0.06;
+        for (a = 1; a < pts.length - 1; a++) if (keep[a] && Math.hypot(pts[a][0] - last[0], pts[a][1] - last[1]) >= minD && Math.hypot(pts[a][0] - B[0], pts[a][1] - B[1]) >= minD) { poly.push(pts[a]); last = pts[a]; }
+      }
+      return { poly: poly, ci: ci };
+    }
+    return { best: best, partial: findPartial, trace: trace, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
+  function growPts(pts, f, W, H) {
+    var cx = 0, cy = 0; pts.forEach(function (p) { cx += p[0] / pts.length; cy += p[1] / pts.length; });
+    return pts.map(function (p) { return [Math.max(0, Math.min(W - 1, cx + (p[0] - cx) * (1 + f))), Math.max(0, Math.min(H - 1, cy + (p[1] - cy) * (1 + f)))]; });
+  }
   function grow(q, f, W, H) {
     var cx = 0, cy = 0; q.forEach(function (p) { cx += p[0] / 4; cy += p[1] / 4; });
     return q.map(function (p) {
@@ -770,10 +838,80 @@
     return cv;
   }
 
-  function process(img, corners, rot, mode) {
-    var work = drawScaled(img, WORK_MAX, rot);
-    var out = warp(work, corners.map(function (p) { return [p[0] * work.width, p[1] * work.height]; }), 2000);
-    return enhance(out, mode);
+  /* (TASK-0131) محيطٌ متعدّد النقاط (poly: نقاطٌ مرتّبة · ci: مواضع الأركان الأربعة فيه: أعلى-يسار · أعلى-يمين · أسفل-يمين · أسفل-يسار).
+     التقويم: التحويل المنظوريّ من الأركان يزيل منظور التصوير، ثمّ رقعة «كونز» بين الحواف الأربع كما تظهر بعده تمطّ كل سطرٍ إلى مكانه:
+     الحافّة المنحنية تصير مستقيمة والمحتوى بين الحواف يتبعها (لا مستطيلٌ تقريبيّ يقصّ طرف الورقة المنتفخ أو يُدخل خلفيّتها). */
+  function inv3(m) {
+    var a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
+    var A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C; if (Math.abs(det) < 1e-12) return null;
+    return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+  }
+  function sidePath(poly, ci, z) { var a = ci[z], b = ci[(z + 1) % 4], out = [], i = a; for (var g = 0; g <= poly.length; g++) { out.push(poly[i]); if (i === b) break; i = (i + 1) % poly.length; } return out; }
+  function pathLen(p) { var L = 0; for (var i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return L; }
+  /* نقطةٌ على المسار عند نسبة طولٍ s ∈ [٠،١] */
+  function atLen(p, s) {
+    var L = pathLen(p), want = s * L, acc = 0;
+    for (var i = 1; i < p.length; i++) { var l = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (acc + l >= want || i === p.length - 1) { var t = l ? Math.min(1, Math.max(0, (want - acc) / l)) : 0; return [p[i - 1][0] + (p[i][0] - p[i - 1][0]) * t, p[i - 1][1] + (p[i][1] - p[i - 1][1]) * t]; } acc += l; }
+    return p[p.length - 1];
+  }
+  function warpPoly(src, poly, ci, maxSide) {
+    var Q = [0, 1, 2, 3].map(function (z) { return poly[ci[z]]; });
+    var top = sidePath(poly, ci, 0), right = sidePath(poly, ci, 1), bottom = sidePath(poly, ci, 2).slice().reverse(), left = sidePath(poly, ci, 3).slice().reverse();
+    var w = Math.max(pathLen(top), pathLen(bottom)), h = Math.max(pathLen(left), pathLen(right)), k = Math.min(1, (maxSide || 2000) / Math.max(w, h));
+    w = Math.max(8, Math.round(w * k)); h = Math.max(8, Math.round(h * k));
+    var H1 = homography(1, 1, Q), Hi = H1 && inv3(H1); if (!Hi) throw new Error('تعذّر تصحيح المنظور');
+    var toR = function (p) { var z = Hi[6] * p[0] + Hi[7] * p[1] + Hi[8]; return [(Hi[0] * p[0] + Hi[1] * p[1] + Hi[2]) / z, (Hi[3] * p[0] + Hi[4] * p[1] + Hi[5]) / z]; };
+    var T = top.map(toR), Bt = bottom.map(toR), Lf = left.map(toR), Rt = right.map(toR);
+    var cT = new Float64Array(2 * w), cB = new Float64Array(2 * w), cL = new Float64Array(2 * h), cR = new Float64Array(2 * h), x, y, q;
+    for (x = 0; x < w; x++) { var sx = (x + 0.5) / w; q = atLen(T, sx); cT[2 * x] = q[0]; cT[2 * x + 1] = q[1]; q = atLen(Bt, sx); cB[2 * x] = q[0]; cB[2 * x + 1] = q[1]; }
+    for (y = 0; y < h; y++) { var ty = (y + 0.5) / h; q = atLen(Lf, ty); cL[2 * y] = q[0]; cL[2 * y + 1] = q[1]; q = atLen(Rt, ty); cR[2 * y] = q[0]; cR[2 * y + 1] = q[1]; }
+    var S = src.getContext('2d').getImageData(0, 0, src.width, src.height), sd = S.data, SW = S.width, SH = S.height;
+    var out = canvasOf(w, h), O = out.getContext('2d').createImageData(w, h), od = O.data;
+    for (y = 0; y < h; y++) {
+      var t = (y + 0.5) / h, lx = cL[2 * y], ly = cL[2 * y + 1], rx = cR[2 * y], ry = cR[2 * y + 1];
+      for (x = 0; x < w; x++) {
+        var s2 = (x + 0.5) / w;
+        var u = (1 - t) * cT[2 * x] + t * cB[2 * x] + (1 - s2) * lx + s2 * rx - s2, v = (1 - t) * cT[2 * x + 1] + t * cB[2 * x + 1] + (1 - s2) * ly + s2 * ry - t;
+        var zz = H1[6] * u + H1[7] * v + 1, px = (H1[0] * u + H1[1] * v + H1[2]) / zz, py = (H1[3] * u + H1[4] * v + H1[5]) / zz, o = (y * w + x) * 4;
+        if (px < 0 || py < 0 || px > SW - 1 || py > SH - 1) { od[o] = od[o + 1] = od[o + 2] = 255; od[o + 3] = 255; continue; }
+        var x0 = px | 0, y0 = py | 0, fx = px - x0, fy = py - y0, x1 = Math.min(SW - 1, x0 + 1), y1 = Math.min(SH - 1, y0 + 1);
+        var i00 = (y0 * SW + x0) * 4, i10 = (y0 * SW + x1) * 4, i01 = (y1 * SW + x0) * 4, i11 = (y1 * SW + x1) * 4;
+        for (var c = 0; c < 3; c++) od[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+        od[o + 3] = 255;
+      }
+    }
+    out.getContext('2d').putImageData(O, 0, 0);
+    return out;
+  }
+  /* التقويم وحده (بلا تحسين): منظوريٌّ من أربع زوايا، أو «كونز» لمحيطٍ متعدّد النقاط */
+  function warpOnly(img, corners, rot, shape) {
+    var work = drawScaled(img, WORK_MAX, rot), sc = function (p) { return [p[0] * work.width, p[1] * work.height]; };
+    return shape && shape.poly && shape.poly.length > 4 && shape.ci ? warpPoly(work, shape.poly.map(sc), shape.ci, 2000) : warp(work, corners.map(sc), 2000);
+  }
+  /* (TASK-0131) أنماط النسخة النهائيّة — كلّها من النسخة المقوَّمة نفسها، والأصل محفوظ (لا يُفقد شيءٌ بتبديل النمط):
+     orig الأصل مقوَّماً بلا تحسين · color تلقائي (إزالة الظلّ + تباين + وضوح) · magic ألوانٌ زاهية وخلفيّةٌ بيضاء · gray رماديّ · bw أبيض وأسود */
+  var MODES = ['orig', 'color', 'magic', 'gray', 'bw'];
+  function applyMode(base, mode) {
+    var c = canvasOf(base.width, base.height); c.getContext('2d').drawImage(base, 0, 0);
+    if (mode === 'orig') return c;
+    if (mode === 'bw') return enhance(c, 'bw');
+    enhance(c, 'color');
+    if (mode !== 'gray' && mode !== 'magic') return c;
+    var x = c.getContext('2d'), I = x.getImageData(0, 0, c.width, c.height), d = I.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var r = d[i], g = d[i + 1], b = d[i + 2], l = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (mode === 'gray') { d[i] = d[i + 1] = d[i + 2] = l; continue; }
+      /* «ألوان»: تشبّعٌ ×١٫٤ للحبر الملوّن والأختام · ورقٌ قريبٌ من الأبيض ⇐ أبيض */
+      if (l > 215 && Math.max(r, g, b) - Math.min(r, g, b) < 40) { d[i] = d[i + 1] = d[i + 2] = 255; continue; }
+      var k = 1.4; r = l + (r - l) * k; g = l + (g - l) * k; b = l + (b - l) * k;
+      d[i] = r < 0 ? 0 : r > 255 ? 255 : r; d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    x.putImageData(I, 0, 0);
+    return c;
+  }
+  function process(img, corners, rot, mode, shape) {
+    var out = warpOnly(img, corners, rot, shape);
+    return mode === 'color' || mode === 'bw' ? enhance(out, mode) : applyMode(out, mode || 'color');
   }
   /* (TASK-0130) هندسة النسخة المقوَّمة كما يصنعها process (بلا تدوير): أبعادها w×h والتحويل إليها — دون صنعها */
   function rectGeom(img, corners) {
@@ -830,12 +968,58 @@
     var pt = !rf && lq.partial();
     if (pt) { rf = lq.refine(pt.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
     if (rf) { var ex = lq.expand(rf.q); if (ex) { rf = lq.refine(ex); how += '+expand'; } }
-    if (rf) q = grow(order(rf.q), rf.snapped === 4 ? 0.005 : 0.015, W, H);
+    var tr = null;
+    if (rf) {
+      var gf = rf.snapped === 4 ? 0.005 : 0.015;
+      q = grow(order(rf.q), gf, W, H);
+      try { tr = lq.trace(rf.q); } catch (_) { tr = null; }
+      if (tr && tr.poly.length > 4) { var gq = growPts(tr.poly, gf, W, H); tr = { poly: gq, ci: tr.ci }; tr.ci.forEach(function (ix, j) { tr.poly[ix] = q[j].slice(); }); if (!simple(tr.poly)) tr = null; } else tr = null;
+    }
     else if (old && old.fill) { q = old.corners; how = 'fill'; }
     var norm = function (qq) { return qq.map(function (p) { return [Math.max(0, Math.min(1, p[0] / W)), Math.max(0, Math.min(1, p[1] / H))]; }); };
-    if (q) return { corners: norm(q), ok: true, why: old && old.fill ? old.why : '', how: how, diag: old && old.diag };
+    if (q) return { corners: norm(q), poly: tr ? norm(tr.poly) : null, ci: tr ? tr.ci : null, ok: true, why: old && old.fill ? old.why : '', how: how + (tr ? '+curve' + tr.poly.length : ''), diag: old && old.diag };
     var r = old || detect(id);
     return { corners: norm([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]]), ok: false, why: r.why || 'لم تتميّز الورقة عن الخلفية', how: 'none', diag: r.diag };
+  }
+
+  /* ── (TASK-0131) هندسة المحيط متعدّد النقاط ─────────────────────────────── */
+  function signedArea(P) { var s = 0; for (var i = 0; i < P.length; i++) { var a = P[i], b = P[(i + 1) % P.length]; s += a[0] * b[1] - b[0] * a[1]; } return s / 2; }
+  function segX(a, b, c, d) {
+    function o(p, q, r) { var v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); return v > 1e-12 ? 1 : v < -1e-12 ? -1 : 0; }
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  }
+  /* محيطٌ لا يقطع نفسه */
+  function simple(P) {
+    var n = P.length;
+    for (var i = 0; i < n; i++) for (var j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; if (segX(P[i], P[(i + 1) % n], P[j], P[(j + 1) % n])) return false; }
+    return true;
+  }
+  /* اتّجاهٌ واحد دائماً (أعلى-يسار ⇐ أعلى-يمين ⇐ أسفل-يمين ⇐ أسفل-يسار في إحداثيّات الشاشة) */
+  function normPoly(P) { return signedArea(P) < 0 ? P.slice().reverse() : P.slice(); }
+  /* أركان المستند الأربعة من نقاط المحيط: أكبر رباعيٍّ رؤوسه منها (بترتيبها)، والأوّل أقربها إلى أعلى-يسار */
+  function cornersOf(P) {
+    var n = P.length, bi = [0, 1, 2, 3], best = -1, i, j, k, l;
+    if (n > 4 && n <= 64) {
+      for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) for (k = j + 1; k < n; k++) for (l = k + 1; l < n; l++) {
+        var a = P[i], b = P[j], c = P[k], d = P[l], ar = Math.abs((a[0] * b[1] - b[0] * a[1]) + (b[0] * c[1] - c[0] * b[1]) + (c[0] * d[1] - d[0] * c[1]) + (d[0] * a[1] - a[0] * d[1]));
+        if (ar > best) { best = ar; bi = [i, j, k, l]; }
+      }
+    } else if (n > 64) {                                            // كثيرة جداً ⇒ الأقرب إلى أركان الإطار المحيط
+      var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; P.forEach(function (p) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+      bi = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(function (c) { var m = 0, md = 1e9; P.forEach(function (p, q) { var dd = Math.hypot(p[0] - c[0], p[1] - c[1]); if (dd < md) { md = dd; m = q; } }); return m; });
+      if (new Set(bi).size < 4) bi = [0, Math.floor(n / 4), Math.floor(n / 2), Math.floor(3 * n / 4)];
+      bi.sort(function (p, q) { return p - q; });
+    }
+    var t = 0, mm = Infinity; bi.forEach(function (ix, q) { var s = P[ix][0] + P[ix][1]; if (s < mm) { mm = s; t = q; } });
+    return [bi[t], bi[(t + 1) % 4], bi[(t + 2) % 4], bi[(t + 3) % 4]];
+  }
+  /* حالة الاكتشاف كما تُعرض: اكتُشفت (أخضر) · راجعها (كهرماني) · تعذّر (أحمر). كان الإطار أحمرَ دائماً مهما كانت النتيجة — اللون لم يكن يعني شيئاً */
+  function statusOf(det) {
+    if (!det || !det.ok) return { k: 'fail', col: '#ef4444', txt: '❌ تعذّر اكتشاف الورقة — ارسم حدودها بنفسك (✏️ رسم الحدود) أو اسحب النقاط إلى أطرافها' };
+    var h = String(det.how || '');
+    if (/^fill/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: الورقة تملأ الصورة تقريباً' };
+    if (/^partial/.test(h)) return { k: 'review', col: '#f59e0b', txt: '⚠️ راجع الحدود: جزءٌ من الورقة خارج الصورة' };
+    return { k: 'ok', col: '#22c55e', txt: '✅ اكتُشفت الورقة' + (det.poly ? ' · حوافّ منحنية (' + det.poly.length + ' نقطة)' : '') };
   }
 
   /* ── ④ الواجهة ───────────────────────────────────────────────────────────── */
@@ -844,18 +1028,24 @@
     var st = doc.createElement('style'); st.id = 'gds-css';
     st.textContent =
       '#gds{position:fixed;inset:0;z-index:2147482500;background:#0b0d10;color:#fff;display:flex;flex-direction:column;direction:rtl;font-family:inherit}' +
-      '#gds .gds-top{display:flex;align-items:center;gap:8px;padding:10px 12px;font-weight:900;font-size:15px}' +
+      '#gds .gds-top{display:flex;align-items:center;gap:8px;padding:8px 12px 4px;font-weight:900;font-size:15px}' +
       '#gds .gds-top small{font-weight:700;color:#9aa3ae;font-size:12px}' +
-      '#gds .gds-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px;touch-action:none}' +
-      '#gds .gds-wrap{position:relative;max-width:100%;max-height:100%}' +
-      '#gds canvas.gds-img{display:block;max-width:100%;max-height:calc(100vh - 190px);object-fit:contain;background:#222;border-radius:6px}' +
-      '#gds .gds-wrap>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +   /* لا تلمس أيقونات الأزرار (gmt-icons) — كانت تتضخّم ملء الشاشة */
-      '#gds .gds-h{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(213,0,28,.25);border:3px solid #ff3b4e;touch-action:none;cursor:grab}' +
+      '#gds .gds-tools{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;padding:2px 8px 6px}' +
+      '#gds .gds-tools button{padding:7px 9px;font-size:12px;border-radius:10px}' +
+      '#gds .gds-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px;touch-action:none;overflow:hidden}' +
+      '#gds .gds-wrap{position:relative;max-width:100%;max-height:100%;overflow:hidden;touch-action:none}' +
+      '#gds canvas.gds-img{display:block;max-width:100%;max-height:calc(100vh - 230px);background:#222;border-radius:6px;transform-origin:0 0}' +
+      '#gds .gds-wrap>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}' +   /* لا تلمس أيقونات الأزرار (gmt-icons) — كانت تتضخّم ملء الشاشة */
+      '#gds .gds-h{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid var(--gds-c,#22c55e);touch-action:none;cursor:grab;box-sizing:border-box}' +
+      '#gds .gds-h.x{width:22px;height:22px;margin:-11px 0 0 -11px;border-width:3px}' +
+      '#gds .gds-h.sel{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}' +
+      '#gds .gds-g{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(0,0,0,.45);border:2px dashed rgba(255,255,255,.75);color:#fff;font:900 13px/16px sans-serif;text-align:center;touch-action:none;cursor:copy;box-sizing:border-box}' +
+      '#gds .gds-loupe{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.6);pointer-events:none;display:none;overflow:hidden;background:#000}' +
       '#gds .gds-msg{min-height:20px;text-align:center;font-size:12.5px;font-weight:800;color:#fbbf24;padding:0 12px}' +
-      '#gds .gds-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px 10px calc(10px + env(safe-area-inset-bottom))}' +
+      '#gds .gds-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}' +
       '#gds button{font:inherit;font-weight:900;font-size:13px;border-radius:12px;padding:10px 12px;border:1px solid #2a2f37;background:#1a1e24;color:#fff;cursor:pointer}' +
       '#gds button.p{background:#D5001C;border-color:#D5001C}#gds button.on{background:#fff;color:#111}' +
-      '#gds button:disabled{opacity:.5}';
+      '#gds button:disabled{opacity:.45}';
     (doc.head || doc.documentElement).appendChild(st);
   }
 
@@ -864,148 +1054,352 @@
     css();
     return loadImg(file).then(function (img) {
       return new Promise(function (resolve) {
-        /* (TASK-0123) الاكتشاف بالخطوط أثقل (≈١ث على هاتفٍ متوسّط): النافذة تظهر فوراً بالصورة، والزوايا «تُلصق» بعد لحظة.
-           لمستَ زاويةً قبلها ⇒ اختيارك يبقى · ضغطتَ «قصّ» قبلها ⇒ يُكمَل الاكتشاف أوّلاً. */
-        var rot = 0, det = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]], ok: true, why: '' }, corners = det.corners, mode = 'color', view = 'edit', result = null, busy = false;
+        /* (TASK-0123) الاكتشاف بالخطوط أثقل (≈١ث على هاتفٍ متوسّط): النافذة تظهر فوراً بالصورة، والحدود «تُلصق» بعد لحظة.
+           لمستَ نقطةً قبلها ⇒ اختيارك يبقى · ضغطتَ «قصّ» قبلها ⇒ يُكمَل الاكتشاف أوّلاً. */
+        var rot = 0, det = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]], ok: true, why: '', how: '' }, mode = 'color', view = 'edit', result = null, busy = false;
         var pending = 0, touched = false, reported = false;
-        /* (TASK-0130) النسخة الممسوحة تُجهَّز في الخلفية لحظة الاكتشاف (وبعد سحب زاوية) وأنت تراجع الزوايا ⇒ «قصّ وتحسين» و«اعتماد» فوريّان
-           إن لم تتغيّر الزوايا، والقراءة المبكرة تأخذها (opts.onProcessed) بدل معالجة الصورة مرّةً ثانية (كانت ٢–٣ث مكرّرة على الهاتف) */
-        var pre = null, preT = 0;
-        function keyOf() { return JSON.stringify([corners, rot, mode]); }
+        /* (TASK-0131) المحيط: نقاطٌ بعددٍ متغيّر P (نِسَبٌ من الصورة المعروضة، مرتّبة) وأركانه الأربعة CI (مواضعها في P).
+           أربع نقاط = الورقة المستقيمة كما كانت · أكثر ⇒ حوافٌّ منحنية تُقوَّم برقعة «كونز». corners (للمستدعين) = الأركان الأربعة. */
+        var P = [[0, 0], [1, 0], [1, 1], [0, 1]], CI = [0, 1, 2, 3], undo = [], redo = [], sel = -1, drawing = null;
+        function snap() { return { P: P.map(function (p) { return p.slice(); }), CI: CI.slice() }; }
+        function push() { undo.push(snap()); if (undo.length > 80) undo.shift(); redo = []; }
+        function restore(s) { P = s.P.map(function (p) { return p.slice(); }); CI = s.CI.slice(); sel = -1; }
+        function corners() { return CI.map(function (i) { return P[i].slice(); }); }
+        function shape() { return P.length > 4 ? { poly: P.map(function (p) { return p.slice(); }), ci: CI.slice() } : null; }
+        function setFromDet(d) {
+          if (d.poly && d.ci) { P = d.poly.map(function (p) { return p.slice(); }); CI = d.ci.slice(); }
+          else { P = d.corners.map(function (p) { return p.slice(); }); CI = [0, 1, 2, 3]; }
+        }
+        /* (TASK-0130) النسخة الممسوحة تُجهَّز في الخلفية لحظة الاكتشاف (وبعد كل تعديل) وأنت تراجع ⇒ «قصّ وتحسين» و«اعتماد» فوريّان
+           إن لم يتغيّر المحيط، والقراءة المبكرة تأخذها (opts.onProcessed) بدل معالجة الصورة مرّةً ثانية */
+        var pre = null, preT = 0, base = null;
+        function keyOf(m) { return JSON.stringify([P, CI, rot, m || mode]); }
         function precompute(delay) {
           if (preT) clearTimeout(preT);
           preT = setTimeout(function () {
-            preT = 0; if (view !== 'edit' || busy || pending) return;
+            preT = 0; if (view !== 'edit' || busy || pending || drawing) return;
             var k = keyOf(); if (pre && pre.key === k) return;
-            var cs = corners.map(function (p) { return p.slice(); }), r0 = rot, m0 = mode;
-            var done = function (P, cv) {
-              P.cv = cv; P.cv.toBlob(function (bl) { P.blob = bl; }, 'image/jpeg', 0.9);
+            var cs = corners(), sh = shape(), r0 = rot, m0 = mode;
+            var done = function (Pp, cv) {
+              Pp.cv = cv; Pp.cv.toBlob(function (bl) { Pp.blob = bl; }, 'image/jpeg', 0.9);
               if (opts.onProcessed && r0 === 0 && m0 === 'color') { try { opts.onProcessed(cv, cs); } catch (_) {} }
               return cv;
             };
             /* (TASK-0130) معالجٌ في خيطٍ آخر (opts.processor ⇒ وعدٌ بقماش أو null): المعالجة لا تحجز الواجهة ولا قراءة الفرع */
-            if (opts.processor) {
+            if (opts.processor && (m0 === 'color' || m0 === 'bw')) {
               var Pw = { key: k, cv: null, blob: null, wait: null }; pre = Pw;
-              var local = function () { return process(img, cs, r0, m0); };
-              Pw.wait = Promise.resolve().then(function () { return opts.processor(cs, r0, m0, img); }).then(function (cv) { return cv || local(); }, local)
+              var local = function () { return process(img, cs, r0, m0, sh); };
+              Pw.wait = Promise.resolve().then(function () { return opts.processor(cs, r0, m0, img, sh); }).then(function (cv) { return cv || local(); }, local)
                 .then(function (cv) { return done(Pw, cv); }).catch(function () { if (pre === Pw) pre = null; return null; });
               return;
             }
-            try { var P = { key: k, cv: null, blob: null }; done(P, process(img, cs, r0, m0)); pre = P; } catch (_) {}
+            try { var P0 = { key: k, cv: null, blob: null }; done(P0, process(img, cs, r0, m0, sh)); pre = P0; } catch (_) {}
           }, delay || 30);
         }
-        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) corners = det.corners; }
+        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) setFromDet(det); }
         function detectSoon() {
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
           pending = setTimeout(function () {
-            pending = -1; detectNow(); if (view === 'edit') { paintQuad(); say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.'); }
+            pending = -1; var before = snap(); detectNow(); if (!touched) { undo.push(before); redo = []; }
+            if (view === 'edit') { paint(); showStatus(); }
             /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
-            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
+            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), poly: det.poly || null, ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
             precompute(30);
           }, 60);
         }
         var root = doc.createElement('div'); root.id = 'gds'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
         root.innerHTML =
           '<div class="gds-top">📄 ' + (opts.title || 'مسح المستند') + ' <small id="gds-sub"></small></div>' +
-          '<div class="gds-stage"><div class="gds-wrap"><canvas class="gds-img"></canvas><svg aria-hidden="true"><polygon fill="rgba(213,0,28,.12)" stroke="#ff3b4e" stroke-width="2"/></svg></div></div>' +
+          '<div class="gds-tools"></div>' +
+          '<div class="gds-stage"><div class="gds-wrap"><canvas class="gds-img"></canvas><svg aria-hidden="true"><polygon fill="rgba(34,197,94,.12)" stroke="#22c55e" stroke-width="2" vector-effect="non-scaling-stroke"/><polyline fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/></svg><div class="gds-loupe"><canvas width="120" height="120"></canvas></div></div></div>' +
           '<div class="gds-msg" role="status" aria-live="polite"></div>' +
           '<div class="gds-bar"></div>';
         doc.body.appendChild(root);
-        var wrap = root.querySelector('.gds-wrap'), cv = root.querySelector('canvas'), svg = root.querySelector('svg'), poly = svg.querySelector('polygon');
-        var msg = root.querySelector('.gds-msg'), bar = root.querySelector('.gds-bar'), sub = root.querySelector('#gds-sub');
-        var handles = [];
-        function say(t) { msg.textContent = t || ''; }
-        function btn(label, fn, cls) { var b = doc.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', fn); bar.appendChild(b); return b; }
-        function finish(v) { root.remove(); doc.removeEventListener('keydown', onKey, true); resolve(v); }
-        function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); finish(null); } }
+        var stage = root.querySelector('.gds-stage'), wrap = root.querySelector('.gds-wrap'), cv = root.querySelector('canvas.gds-img'), svg = root.querySelector('svg');
+        var polyEl = svg.querySelector('polygon'), lineEl = svg.querySelector('polyline'), loupe = root.querySelector('.gds-loupe'), lcv = loupe.querySelector('canvas');
+        var msg = root.querySelector('.gds-msg'), bar = root.querySelector('.gds-bar'), tools = root.querySelector('.gds-tools'), sub = root.querySelector('#gds-sub');
+        var handles = [], ghosts = [], st = statusOf(null), shown = null;
+        function say(t, col) { msg.textContent = t || ''; msg.style.color = col || ''; }   // الحالة بلونها (أخضر/كهرماني/أحمر) · غيرها كهرماني
+        function btn(label, fn, cls, where) { var b = doc.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', fn); (where || bar).appendChild(b); return b; }
+        function finish(v) { root.remove(); doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
+        function onKey(e) {
+          if (e.key === 'Escape') { e.preventDefault(); if (drawing) cancelDraw(); else finish(null); return; }
+          if (view !== 'edit') return;
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
+          else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); doRedo(); }
+          else if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && !/input|textarea/i.test((e.target && e.target.tagName) || '')) { e.preventDefault(); delPoint(); }
+        }
         /* الكاميرا تُفتح من داخل ضغطة الزرّ نفسها (المتصفّحات تمنع فتحها خارج لمسة المستخدم) */
         function retake() { try { if (opts.onRetake) opts.onRetake(); } catch (_) {} finish({ retake: true }); }
         doc.addEventListener('keydown', onKey, true);
 
-        function showEdit() {
-          view = 'edit'; sub.textContent = 'اسحب الزوايا الحمراء إلى أطراف الورقة';
-          var c = drawScaled(img, 1400, rot); cv.width = c.width; cv.height = c.height; cv.getContext('2d').drawImage(c, 0, 0);
-          svg.style.display = '';
-          handles.forEach(function (h) { h.remove(); }); handles = [];
-          for (var i = 0; i < 4; i++) {
-            var h = doc.createElement('div'); h.className = 'gds-h'; h.setAttribute('data-i', i); wrap.appendChild(h); handles.push(h);
-            (function (k, el) {
-              el.addEventListener('pointerdown', function (e) {
-                e.preventDefault(); el.setPointerCapture(e.pointerId); touched = true;
-                function mv(ev) { var r = cv.getBoundingClientRect(); corners[k] = [Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height))]; paintQuad(); }
-                function up() { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); precompute(400); }
-                el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
-              });
-            })(i, h);
-          }
-          requestAnimationFrame(paintQuad);
-          if (!pending) say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.');
-          bar.innerHTML = '';
-          btn('↻ تدوير', function () { rot = (rot + 90) % 360; corners = [[0, 0], [1, 0], [1, 1], [0, 1]]; showEdit(); detectSoon(); });
-          btn('🔄 اكتشاف تلقائي', function () { detectSoon(); });
-          btn('⬜ الصفحة كاملة', function () { if (pending > 0) clearTimeout(pending); pending = 0; touched = true; corners = [[0, 0], [1, 0], [1, 1], [0, 1]]; paintQuad(); say(''); });
-          btn('📷 إعادة التصوير', retake);
-          btn('✕ إلغاء', function () { finish(null); });
-          btn('✔ قصّ وتحسين', function () { run(); }, 'p');
+        /* ── التكبير والتحريك: الصورة وحدها تُكبَّر (CSS transform)، والنقاط فوقها بحجمها الثابت ── */
+        var z = 1, tx = 0, ty = 0;
+        function cw() { return cv.offsetWidth || 1; }
+        function ch() { return cv.offsetHeight || 1; }
+        function clampPan() { var W = cw(), H = ch(); tx = Math.min(0, Math.max(W - W * z, tx)); ty = Math.min(0, Math.max(H - H * z, ty)); }
+        function applyZoom() { clampPan(); cv.style.transform = z === 1 ? '' : 'translate(' + tx + 'px,' + ty + 'px) scale(' + z + ')'; paint(); }
+        function zoomAt(nz, px, py) { nz = Math.max(1, Math.min(6, nz)); var k = nz / z; tx = px - (px - tx) * k; ty = py - (py - ty) * k; z = nz; applyZoom(); }
+        function toScr(p) { return [tx + p[0] * cw() * z, ty + p[1] * ch() * z]; }
+        function fromEv(e) { var r = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - r.left - tx) / (cw() * z))), Math.max(0, Math.min(1, (e.clientY - r.top - ty) / (ch() * z)))]; }
+        function local(e) { var r = wrap.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+        /* ── المكبّرة: أثناء سحب نقطة تظهر منطقتها مكبَّرة فوق الإصبع (الحافّة تحت الإصبع لا تُرى) ── */
+        function showLoupe(p) {
+          var s = toScr(p), W = cw(), lc = lcv.getContext('2d'), sx = p[0] * cv.width, sy = p[1] * cv.height, R = cv.width / W * 22 / Math.max(1, z * 0.6);
+          lc.fillStyle = '#000'; lc.fillRect(0, 0, 120, 120);
+          lc.drawImage(cv, sx - R, sy - R, 2 * R, 2 * R, 0, 0, 120, 120);
+          lc.strokeStyle = st.col; lc.lineWidth = 1.5; lc.beginPath(); lc.moveTo(60, 48); lc.lineTo(60, 72); lc.moveTo(48, 60); lc.lineTo(72, 60); lc.stroke();
+          var lx = s[0] - 60, ly = s[1] - 150; if (ly < 4) ly = s[1] + 40; lx = Math.max(4, Math.min(wrap.clientWidth - 124, lx));
+          loupe.style.left = lx + 'px'; loupe.style.top = ly + 'px'; loupe.style.display = 'block';
         }
-        function paintQuad() {
+        function hideLoupe() { loupe.style.display = 'none'; }
+
+        function paint() {
           if (view !== 'edit') return;
-          var r = cv.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
-          var pts = corners.map(function (p) { return [r.left - wr.left + p[0] * r.width, r.top - wr.top + p[1] * r.height]; });
-          poly.setAttribute('points', pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
-          handles.forEach(function (h, i) { h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; });
+          var pts = P.map(toScr), col = drawing ? '#fbbf24' : st.col;
+          root.style.setProperty('--gds-c', col);
+          if (drawing) {
+            polyEl.setAttribute('points', ''); lineEl.setAttribute('points', pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
+          } else {
+            lineEl.setAttribute('points', '');
+            polyEl.setAttribute('points', pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
+            polyEl.setAttribute('stroke', col); polyEl.setAttribute('fill', col === '#ef4444' ? 'rgba(239,68,68,.10)' : col === '#f59e0b' ? 'rgba(245,158,11,.10)' : 'rgba(34,197,94,.12)');
+          }
+          /* نقاطٌ بعدد المحيط: الأركان الأربعة كبيرة، الإضافيّة أصغر، والمحدّدة بيضاء */
+          while (handles.length < P.length) handles.push(mkHandle());
+          while (handles.length > P.length) handles.pop().remove();
+          handles.forEach(function (h, i) { h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; h.className = 'gds-h' + (CI.indexOf(i) < 0 || drawing ? ' x' : '') + (i === sel ? ' sel' : ''); h.setAttribute('data-i', i); });
+          /* «+» في منتصف كل ضلع: اضغطه لإضافة نقطةٍ هناك (أو اسحبه مباشرةً) — يختفي على ضلعٍ قصيرٍ جداً على الشاشة */
+          var want = drawing ? 0 : P.length;
+          while (ghosts.length < want) ghosts.push(mkGhost());
+          while (ghosts.length > want) ghosts.pop().remove();
+          ghosts.forEach(function (g, i) {
+            var a = pts[i], b = pts[(i + 1) % pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            g.style.display = L < 70 ? 'none' : ''; g.style.left = (a[0] + b[0]) / 2 + 'px'; g.style.top = (a[1] + b[1]) / 2 + 'px'; g.setAttribute('data-i', i);
+          });
+          updTools();
+        }
+        function mkHandle() {
+          var h = doc.createElement('div'); h.className = 'gds-h'; wrap.appendChild(h);
+          h.addEventListener('pointerdown', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            var i = +h.getAttribute('data-i');
+            if (drawing && i === 0 && P.length >= 3) { closeDraw(); return; }         // الضغط على النقطة الأولى يُغلق المحيط
+            dragPoint(i, e, h);
+          });
+          return h;
+        }
+        function mkGhost() {
+          var g = doc.createElement('div'); g.className = 'gds-g'; g.textContent = '+'; wrap.appendChild(g);
+          g.addEventListener('pointerdown', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            var i = +g.getAttribute('data-i'), a = P[i], b = P[(i + 1) % P.length];
+            push(); P.splice(i + 1, 0, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]); CI = CI.map(function (c) { return c > i ? c + 1 : c; });
+            touched = true; sel = i + 1; paint(); dragPoint(i + 1, e, handles[i + 1], true);
+          });
+          return g;
+        }
+        /* سحب نقطة: لا يُقبل موضعٌ يجعل المحيط يقطع نفسه (تبقى في آخر موضعٍ صالح) */
+        function dragPoint(i, e, el, pushed) {
+          var start = snap(), moved = false; sel = i; touched = true;
+          try { el.setPointerCapture(e.pointerId); } catch (_) {}
+          function mv(ev) {
+            var p = fromEv(ev), old = P[i]; P[i] = p;
+            if (!drawing && P.length > 3 && !simple(P)) P[i] = old; else moved = true;
+            paint(); showLoupe(P[i]);
+          }
+          function up() {
+            el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); hideLoupe();
+            if (moved && !pushed) { undo.push(start); if (undo.length > 80) undo.shift(); redo = []; }
+            if (!drawing && (moved || pushed)) { reCorner(); manual(); precompute(400); }
+            paint();
+          }
+          el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+          showLoupe(P[i]); paint();
+        }
+        /* ركنٌ حُذف أو محيطٌ رُسم ⇒ الأركان الأربعة من جديد (أكبر رباعيٍّ من نقاطه) */
+        function reCorner() { if (P.length >= 4 && signedArea(P) < 0) { P = normPoly(P); CI = cornersOf(P); } }
+        /* أوّل تعديلٍ يدويّ ⇒ الحالة «حدودٌ حدّدتها بنفسك» (لا يبقى إطارٌ أحمر/كهرماني على حدودٍ صحّحتها) */
+        function manual() { if (drawing || st.k === 'ok' || st.k === 'manual') return; st = { k: 'manual', col: '#22c55e', txt: '✋ حدودٌ حدّدتها بنفسك — اضغط «✔ قصّ وتحسين»' }; say(st.txt, st.col); }
+        function delPoint() {
+          if (drawing) { if (P.length) { push(); P.pop(); sel = -1; paint(); } return; }
+          if (sel < 0 || P.length <= 4) { say(P.length <= 4 ? 'المحيط أربع نقاطٍ على الأقلّ — اسحب الركن بدل حذفه.' : 'اضغط نقطةً أوّلاً لتحديدها ثمّ «حذف».'); return; }
+          push(); var wasCorner = CI.indexOf(sel) >= 0; P.splice(sel, 1);
+          if (wasCorner || !simple(P)) CI = cornersOf(normPoly(P)), P = normPoly(P); else CI = CI.map(function (c) { return c > sel ? c - 1 : c; });
+          sel = -1; touched = true; say(''); manual(); paint(); precompute(300);
+        }
+        function addPoint() {
+          /* نقطةٌ في منتصف أطول ضلع (أو اضغط «+» على الضلع الذي تريده) */
+          var bi = 0, bl = -1; for (var i = 0; i < P.length; i++) { var a = P[i], b = P[(i + 1) % P.length], L = Math.hypot((b[0] - a[0]) * cw(), (b[1] - a[1]) * ch()); if (L > bl) { bl = L; bi = i; } }
+          push(); var a2 = P[bi], b2 = P[(bi + 1) % P.length]; P.splice(bi + 1, 0, [(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2]); CI = CI.map(function (c) { return c > bi ? c + 1 : c; });
+          sel = bi + 1; touched = true; manual(); paint(); precompute(300); say('أُضيفت نقطة (بيضاء) — اسحبها إلى حافّة الورقة.');
+        }
+        function doUndo() {
+          if (drawing && undo.length <= drawing.u) { cancelDraw(); return; }                 // تراجعٌ قبل أوّل نقطةٍ مرسومة ⇒ خروجٌ من الرسم
+          if (!undo.length) return; redo.push(snap()); restore(undo.pop()); touched = true; paint(); precompute(300);
+        }
+        function doRedo() { if (!redo.length) return; undo.push(snap()); restore(redo.pop()); touched = true; paint(); precompute(300); }
+        /* ── الرسم اليدوي: اضغط حول الورقة نقطةً بعد نقطة، ثمّ النقطة الأولى أو «إغلاق المحيط» ── */
+        function startDraw() {
+          if (pending > 0) clearTimeout(pending); pending = 0;
+          drawing = snap(); drawing.u = undo.length; redo = []; P = []; CI = [0, 1, 2, 3]; sel = -1; touched = true; showEdit(true);
+          say('✏️ اضغط على حدود الورقة نقطةً بعد نقطة (حتى عند كل انحناء)، ثمّ اضغط النقطة الأولى أو «إغلاق المحيط». ↶ يلغي آخر نقطة.');
+        }
+        function closeDraw() {
+          if (P.length < 4) { say('أضف ٤ نقاطٍ على الأقلّ.'); return; }
+          var np = normPoly(P);
+          if (!simple(np)) { say('❌ المحيط يقطع نفسه — حرّك النقاط أو ↶ ثمّ أعد.'); return; }
+          /* تراجعٌ بعد الإغلاق ⇒ الحدود التي كانت قبل الرسم (لا نقاط الرسم واحدةً واحدة) */
+          undo.length = drawing.u; undo.push({ P: drawing.P, CI: drawing.CI }); redo = [];
+          P = np; CI = cornersOf(P); drawing = null; st = { k: 'manual', col: '#22c55e', txt: '✅ حدودٌ رسمتها بنفسك (' + P.length + ' نقطة) — اضغط «✔ قصّ وتحسين»' };
+          showEdit(); precompute(30);
+        }
+        function cancelDraw() { if (!drawing) return; undo.length = drawing.u; restore(drawing); drawing = null; showEdit(); }
+        function showStatus() { if (drawing) return; if (st.k !== 'manual' || !touched) st = statusOf(det); say(st.txt, st.col); paint(); }
+
+        /* ── إيماءات الخشبة: سحبٌ بإصبعين = تكبير · إصبعٌ على صورةٍ مكبَّرة = تحريك · نقرة في وضع الرسم = نقطة ── */
+        var ptrs = {}, gest = null;
+        stage.addEventListener('pointerdown', function (e) {
+          if (view !== 'edit' || e.target.closest('.gds-h,.gds-g,button')) return;
+          ptrs[e.pointerId] = local(e); try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+          var ids = Object.keys(ptrs);
+          if (ids.length === 2) { var a = ptrs[ids[0]], b = ptrs[ids[1]]; gest = { pinch: true, d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z0: z, mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; }
+          else gest = { pinch: false, s: local(e), tx0: tx, ty0: ty, moved: false, p: fromEv(e) };
+        });
+        stage.addEventListener('pointermove', function (e) {
+          if (!ptrs[e.pointerId] || !gest) return;
+          ptrs[e.pointerId] = local(e);
+          var ids = Object.keys(ptrs);
+          if (gest.pinch && ids.length >= 2) { var a = ptrs[ids[0]], b = ptrs[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]); zoomAt(gest.z0 * d / gest.d0, gest.mid[0], gest.mid[1]); return; }
+          var c = local(e), dx = c[0] - gest.s[0], dy = c[1] - gest.s[1];
+          if (Math.hypot(dx, dy) > 8) gest.moved = true;
+          if (gest.moved && z > 1) { tx = gest.tx0 + dx; ty = gest.ty0 + dy; applyZoom(); }
+        });
+        function endPtr(e) {
+          if (!ptrs[e.pointerId]) return;
+          delete ptrs[e.pointerId];
+          if (gest && !gest.pinch && !gest.moved && drawing) {           // نقرةٌ في وضع الرسم ⇒ نقطة (أو إغلاق قرب الأولى)
+            var p = gest.p;
+            if (P.length >= 3) { var f = toScr(P[0]), q = toScr(p); if (Math.hypot(f[0] - q[0], f[1] - q[1]) < 26) { closeDraw(); gest = null; return; } }
+            undo.push(snap()); redo = []; P.push(p); sel = P.length - 1; paint();
+          } else if (gest && !gest.pinch && !gest.moved) { sel = -1; paint(); }
+          if (!Object.keys(ptrs).length) gest = null;
+        }
+        stage.addEventListener('pointerup', endPtr); stage.addEventListener('pointercancel', endPtr);
+        stage.addEventListener('wheel', function (e) { if (view !== 'edit') return; e.preventDefault(); var c = local(e); zoomAt(z * Math.exp(-e.deltaY * 0.0015), c[0], c[1]); }, { passive: false });
+
+        var tb = {};
+        function updTools() {
+          if (!tb.undo) return;
+          tb.undo.disabled = !undo.length; tb.redo.disabled = !redo.length;
+          tb.del.disabled = drawing ? !P.length : !(sel >= 0 && P.length > 4);
+          if (tb.close) tb.close.style.display = drawing ? '' : 'none';
+          tb.zout.disabled = z <= 1;
+        }
+        function showEdit(keep) {
+          view = 'edit'; sub.textContent = drawing ? 'ارسم حدود الورقة' : 'اسحب النقاط إلى حدود الورقة · «+» يضيف نقطة';
+          if (!shown || shown.rot !== rot) shown = { rot: rot, c: drawScaled(img, 1400, rot) };
+          var c = shown.c; if (!keep || cv.width !== c.width) { cv.width = c.width; cv.height = c.height; } cv.getContext('2d').drawImage(c, 0, 0);
+          svg.style.display = '';
+          tools.innerHTML = ''; tools.style.display = '';
+          tb.undo = btn('↶ تراجع', function () { doUndo(); }, '', tools);
+          tb.redo = btn('↷ إعادة', function () { doRedo(); }, '', tools);
+          tb.add = btn('➕ نقطة', function () { addPoint(); }, '', tools); if (drawing) tb.add.style.display = 'none';
+          tb.del = btn(drawing ? '⌫ آخر نقطة' : '➖ حذف النقطة', function () { delPoint(); }, '', tools);
+          tb.draw = btn(drawing ? '✕ إلغاء الرسم' : '✏️ رسم الحدود', function () { if (drawing) cancelDraw(); else startDraw(); }, drawing ? 'on' : '', tools);
+          tb.close = btn('⭕ إغلاق المحيط', function () { closeDraw(); }, 'p', tools);
+          tb.zin = btn('🔍+', function () { zoomAt(z * 1.6, cw() / 2, ch() / 2); }, '', tools);
+          tb.zout = btn('🔍−', function () { if (z <= 1.6) { z = 1; tx = ty = 0; applyZoom(); } else zoomAt(z / 1.6, cw() / 2, ch() / 2); }, '', tools);
+          bar.innerHTML = '';
+          if (!drawing) {
+            btn('↻ تدوير', function () { rot = (rot + 90) % 360; z = 1; tx = ty = 0; cv.style.transform = ''; P = [[0, 0], [1, 0], [1, 1], [0, 1]]; CI = [0, 1, 2, 3]; undo = []; redo = []; showEdit(); detectSoon(); });
+            btn('🔄 اكتشاف تلقائي', function () { detectSoon(); });
+            btn('⬜ الصفحة كاملة', function () { if (pending > 0) clearTimeout(pending); pending = 0; push(); touched = true; P = [[0, 0], [1, 0], [1, 1], [0, 1]]; CI = [0, 1, 2, 3]; sel = -1; manual(); paint(); precompute(300); });
+            btn('📷 إعادة التصوير', retake);
+            btn('✕ إلغاء', function () { finish(null); });
+            btn('✔ قصّ وتحسين', function () { run(); }, 'p');
+          }
+          requestAnimationFrame(function () { applyZoom(); });
+          if (!pending && !drawing) showStatus();
         }
         function run() {
           if (busy) return; detectNow();
+          if (drawing) { closeDraw(); if (drawing) return; }
+          if (P.length < 4 || !simple(P)) { say('❌ المحيط غير صالح (يقطع نفسه) — صحّحه أو ↶.'); return; }
           if (preT) { clearTimeout(preT); preT = 0; }
           if (pre && pre.key === keyOf() && pre.cv) { result = pre.cv; showResult(); return; }          // جاهزةٌ من الخلفيّة
           if (pre && pre.key === keyOf() && pre.wait) {                                          // تُجهَّز الآن في الخيط الآخر ⇒ تُنتظر
             var Pq = pre; busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
-            Pq.wait.then(function (cv) {
+            Pq.wait.then(function (c) {
               busy = false; if (view !== 'edit') return;
-              if (cv && pre === Pq) { result = cv; showResult(); } else run();
+              if (c && pre === Pq) { result = c; showResult(); } else run();
             });
             return;
           }
           busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
           setTimeout(function () {
             try {
-              result = process(img, corners, rot, mode); busy = false;
+              var cs = corners(), sh = shape();
+              base = { key: JSON.stringify([P, CI, rot]), cv: warpOnly(img, cs, rot, sh) };
+              result = applyMode(base.cv, mode); busy = false;
               /* (TASK-0130) «قصّ» قبل أن تُجهَّز النسخة في الخلفية ⇒ هذه هي، والقراءة تأخذها (لا تعالج الصورة مرّةً ثانية) */
-              if (opts.onProcessed && rot === 0 && mode === 'color') { try { opts.onProcessed(result, corners.map(function (p) { return p.slice(); })); } catch (_) {} }
+              if (opts.onProcessed && rot === 0 && mode === 'color') { try { opts.onProcessed(result, cs); } catch (_) {} }
               showResult();
             }
             catch (e) { busy = false; say('❌ تعذّرت المعالجة: ' + (e && e.message || e) + ' — جرّب «الصفحة كاملة» أو أعد التصوير.'); }
           }, 30);
         }
+        /* نمطٌ آخر: من النسخة المقوَّمة نفسها (تُقوَّم مرّةً واحدة) — والأصل محفوظ، فالرجوع لأيّ نمط بلا خسارة */
+        function setMode(m) {
+          if (busy || m === mode) return; mode = m;
+          busy = true; say('جارٍ تطبيق النمط…');
+          setTimeout(function () {
+            try {
+              var k = JSON.stringify([P, CI, rot]);
+              if (!base || base.key !== k) base = { key: k, cv: warpOnly(img, corners(), rot, shape()) };
+              result = applyMode(base.cv, mode); busy = false; showResult();
+            } catch (e) { busy = false; say('❌ ' + (e && e.message || e)); }
+          }, 20);
+        }
+        var MODE_TXT = { orig: '🖼 الأصل', color: '✨ تلقائي', magic: '🌈 ألوان', gray: '◐ رمادي', bw: '⚫ أبيض وأسود' };
         function showResult(orig) {
-          view = 'result'; sub.textContent = orig ? 'الأصل' : (mode === 'bw' ? 'أبيض وأسود' : 'ملوّنة محسّنة');
-          handles.forEach(function (h) { h.remove(); }); handles = []; svg.style.display = 'none';
-          var src = orig ? drawScaled(img, 1400, rot) : result;
+          view = 'result'; sub.textContent = orig ? 'الصورة الأصلية' : MODE_TXT[mode].slice(2);
+          handles.forEach(function (h) { h.remove(); }); handles = []; ghosts.forEach(function (g) { g.remove(); }); ghosts = [];
+          svg.style.display = 'none'; hideLoupe(); z = 1; tx = ty = 0; cv.style.transform = '';
+          var src = orig ? (shown && shown.rot === rot ? shown.c : drawScaled(img, 1400, rot)) : result;
           cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0);
-          say('');
+          say(''); tools.innerHTML = '';
+          if (!orig) MODES.forEach(function (m) { btn(MODE_TXT[m], function () { setMode(m); }, m === mode ? 'on' : '', tools); });
           bar.innerHTML = '';
-          btn(mode === 'bw' ? '🎨 ملوّنة' : '⚫ أبيض وأسود', function () { mode = mode === 'bw' ? 'color' : 'bw'; run(); });
-          var cmp = btn(orig ? '📄 النسخة الممسوحة' : '👁 قارن بالأصل', function () { showResult(!orig); }, orig ? 'on' : '');
-          btn('↩ تعديل الزوايا', function () { showEdit(); });
+          btn(orig ? '📄 النسخة الممسوحة' : '👁 قارن بالأصل', function () { showResult(!orig); }, orig ? 'on' : '');
+          btn('↩ تعديل الحدود', function () { showEdit(); });
           btn('📷 إعادة التصوير', retake);
           btn('✅ اعتماد', function () {
             if (busy) return;
-            if (pre && result === pre.cv && pre.blob) { finish({ original: file, scanned: pre.blob, mode: mode, corners: corners, rotation: rot, width: result.width, height: result.height }); return; }
+            var out = { original: file, scanned: null, mode: mode, corners: corners(), poly: shape() ? P.map(function (p) { return p.slice(); }) : null, ci: shape() ? CI.slice() : null, rotation: rot, width: result.width, height: result.height, status: st.k };
+            if (pre && result === pre.cv && pre.blob) { out.scanned = pre.blob; finish(out); return; }
             busy = true;
             result.toBlob(function (b) {
               busy = false;
               if (!b) { say('❌ تعذّر حفظ الصورة — أعد المحاولة.'); return; }
-              finish({ original: file, scanned: b, mode: mode, corners: corners, rotation: rot, width: result.width, height: result.height });
+              out.scanned = b; finish(out);
             }, 'image/jpeg', 0.9);
           }, 'p');
-          void cmp;
         }
-        global.addEventListener('resize', paintQuad);
-        showEdit(); detectSoon();
+        function onResize() { if (view === 'edit') applyZoom(); }
+        global.addEventListener('resize', onResize);
+        /* (TASK-0131) إعادة تعديل صفحةٍ ممسوحة: opts.init = نتيجةٌ سابقة (corners · poly/ci · rotation · mode) ⇒ تُفتح بحدودها هي، بلا اكتشافٍ جديد */
+        var I0 = opts.init;
+        if (I0 && I0.corners && I0.corners.length === 4) {
+          rot = I0.rotation || 0; mode = MODES.indexOf(I0.mode) >= 0 ? I0.mode : mode;
+          if (I0.poly && I0.ci && I0.poly.length > 4) { P = I0.poly.map(function (p) { return p.slice(); }); CI = I0.ci.slice(); } else { P = I0.corners.map(function (p) { return p.slice(); }); CI = [0, 1, 2, 3]; }
+          det = { corners: I0.corners, poly: I0.poly || null, ci: I0.ci || null, ok: true, how: 'init' }; touched = true;
+          st = { k: 'manual', col: '#22c55e', txt: '✋ حدودك السابقة — عدّلها ثمّ «✔ قصّ وتحسين» · «🔄 اكتشاف تلقائي» يعيد الاكتشاف' };
+          showEdit(); precompute(30);
+        } else { showEdit(); detectSoon(); }
       });
     });
   }
-
-  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
+  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, _warpPoly: warpPoly, warpOnly: warpOnly, applyMode: applyMode, _poly: { cornersOf: cornersOf, simple: simple, normPoly: normPoly }, statusOf: statusOf, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
 })(typeof window !== 'undefined' ? window : self);

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>الماسح الضوئي — GMT</title>
+<link rel="icon" href="favicon.ico">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261017c"></script>
+<script src="gmt-core.js?v=20261017c"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-tools.js?v=20261023g"></script>
+<script src="gmt-account.js?v=20261020a"></script>
+<script src="gmt-ask.js?v=20261011e"></script>
+<script src="gmt-icons.js?v=20261011h" defer></script>
+<script src="gmt-sound.js?v=20261019f" defer></script>
+<script src="gmt-docscan.js?v=20261023g"></script>
+<!-- ══ (TASK-0131 · المالك seq 33: «ماسح مستندات قريب من CamScanner») ماسحٌ متعدّد الصفحات: كل صورةٍ تفتح الماسح (حدودٌ بأربع نقاط
+     أو أكثر تتبع حافّة الورقة · رسم الحدود باليد · أنماط) ⇒ صفحاتٌ تُرتَّب وتُعدَّل وتُحذف ⇒ PDF (عالي/مضغوط) · صور · نصٌّ مستخرج محلّياً.
+     كل المعالجة على الجهاز نفسه: لا رفع ولا خدمة خارجيّة (lib/jspdf · lib/jszip · lib/ocr). ══ -->
+<style>
+:root{--red:#D5001C;--rs:#fff1f2;--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472;--ok:#16a34a;--warn:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
+.w{max-width:900px;margin:0 auto;padding:16px 14px 40px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px}.top h1{margin:0;font-size:19px;flex:1}
+.btn{border:1px solid var(--ln);background:#fff;border-radius:12px;padding:9px 13px;font:inherit;font-weight:800;cursor:pointer;color:var(--tx);text-decoration:none;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}.btn:disabled{opacity:.5;cursor:default}
+.btn.s{padding:6px 9px;font-size:12.5px;border-radius:10px}
+.card{background:#fff;border:1px solid var(--ln);border-radius:20px;padding:14px;box-shadow:0 10px 30px rgba(15,18,25,.05);margin-bottom:12px}
+.card h2{margin:0 0 8px;font-size:15.5px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mu{color:var(--mu);font-size:12.5px}
+.add{display:grid;grid-template-columns:1fr 1fr;gap:8px}.add .btn{padding:14px 10px;font-size:15px}
+.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pg{border:1px solid var(--ln);border-radius:14px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:6px;position:relative}
+.pg.drag{opacity:.4}.pg.over{outline:2px dashed var(--red);outline-offset:2px}
+.pg .th{width:100%;aspect-ratio:3/4;object-fit:contain;background:#f1f5f9;border-radius:10px;cursor:zoom-in}
+.pg .n{position:absolute;top:12px;inset-inline-start:12px;background:#0f1219;color:#fff;border-radius:99px;font-size:12px;font-weight:900;padding:1px 9px}
+.pg .tag{font-size:11.5px;font-weight:800;color:var(--ok)}.pg .tag.m{color:var(--warn)}
+.pg .acts{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.empty{text-align:center;color:var(--mu);padding:22px 8px;border:2px dashed var(--ln);border-radius:14px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:800;flex:1;min-width:150px}
+.in,select{width:100%;border:1px solid var(--ln);border-radius:12px;padding:9px 12px;font:inherit;background:#fff}
+textarea{width:100%;border:1px solid var(--ln);border-radius:12px;padding:10px;font:inherit;font-size:14px;min-height:160px;resize:vertical;direction:auto;unicode-bidi:plaintext}
+.prog{height:6px;background:#eef0f3;border-radius:99px;overflow:hidden;margin-top:8px}.prog i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.toast{position:fixed;bottom:20px;inset-inline:0;margin:auto;width:max-content;max-width:92%;background:#0f1219;color:#fff;padding:9px 16px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;display:flex;gap:10px;align-items:center;z-index:50}.toast.on{opacity:1;pointer-events:auto}
+.toast button{background:none;border:0;color:#fca5a5;font:inherit;font-weight:900;cursor:pointer}
+.view{position:fixed;inset:0;background:rgba(10,12,16,.92);display:none;align-items:center;justify-content:center;z-index:40;padding:14px}.view.on{display:flex}
+.view img{max-width:100%;max-height:100%;border-radius:8px;background:#fff}
+.chk{display:flex;gap:6px;align-items:center;font-size:13.5px;font-weight:700}
+@media (max-width:420px){.pages{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top"><a class="btn" href="home.html" aria-label="الرئيسية">→</a><h1>📄 الماسح الضوئي</h1></div>
+
+  <div class="card">
+    <h2>أضف صفحات</h2>
+    <div class="add">
+      <button class="btn p" id="b-cam" type="button">📷 تصوير صفحة</button>
+      <button class="btn" id="b-pick" type="button">🖼 اختيار صور</button>
+    </div>
+    <input id="in-cam" type="file" accept="image/*" capture="environment" hidden>
+    <input id="in-pick" type="file" accept="image/*" multiple hidden>
+    <div class="mu" style="margin-top:8px">كل صورة تفتح الماسح: حدود الورقة تُكتشف تلقائياً (٤ نقاط أو أكثر تتبع الحافّة المنحنية) · اسحب النقاط أو أضف نقاطاً أو ارسم الحدود بنفسك · الصورة الأصلية تبقى محفوظة. كل المعالجة على جهازك.</div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2 style="margin:0">الصفحات <span class="mu" id="cnt"></span></h2><span class="mu">اسحب الصفحة لترتيبها أو استعمل ↑ ↓</span></div>
+    <div id="pages" class="pages"></div>
+    <div id="empty" class="empty">لا صفحات بعد — صوّر مستنداً أو اختر صوره.</div>
+  </div>
+
+  <div class="card" id="exp">
+    <h2>تصدير</h2>
+    <div class="row">
+      <label class="f">اسم الملفّ<input id="fname" class="in" autocomplete="off"></label>
+      <label class="f">الجودة<select id="q"><option value="hi">عالية (للأرشفة والطباعة)</option><option value="lo">مضغوطة (للواتساب والتلغرام)</option></select></label>
+      <label class="f">حجم الصفحة<select id="psize"><option value="a4">A4</option><option value="img">بحجم الصورة</option></select></label>
+    </div>
+    <details style="margin-top:8px"><summary class="mu" style="cursor:pointer;font-weight:800">خيارات إضافيّة (اختياريّة)</summary>
+      <div class="row" style="margin-top:8px">
+        <label class="f">علامة مائيّة على كل صفحة<input id="wm" class="in" placeholder="مثال: نسخة — General Media Tech" autocomplete="off"></label>
+        <label class="f">كلمة سرّ لفتح الـPDF<input id="pw" class="in" type="password" autocomplete="new-password" placeholder="بلا كلمة سرّ"></label>
+      </div>
+      <div class="mu">كلمة السرّ حمايةٌ أساسيّة (تشفير PDF القياسي القديم) — لا تعتمد عليها لمستنداتٍ شديدة الحساسيّة.</div>
+    </details>
+    <div class="row" style="margin-top:10px">
+      <button class="btn p" id="b-pdf" type="button">📄 تصدير PDF</button>
+      <button class="btn" id="b-zip" type="button">🖼 تنزيل الصور</button>
+      <button class="btn" id="b-share" type="button" hidden>📤 مشاركة PDF</button>
+    </div>
+    <div class="prog" id="prog" hidden><i></i></div>
+    <div class="mu" id="expmsg" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <h2>استخراج النصّ (OCR)</h2>
+    <div class="row">
+      <span class="chk"><input type="checkbox" id="l-ara" checked> عربي</span>
+      <span class="chk"><input type="checkbox" id="l-eng" checked> English</span>
+      <span class="chk" title="ملفّ اللغة الألمانيّة غير مضاف إلى النظام بعد"><input type="checkbox" id="l-deu" disabled> Deutsch <span class="mu">(غير متاح بعد)</span></span>
+      <button class="btn" id="b-ocr" type="button">🔤 استخراج النصّ</button>
+    </div>
+    <div class="prog" id="oprog" hidden><i></i></div>
+    <div class="mu" id="ocrmsg" style="margin:6px 0"></div>
+    <div id="ocrout" hidden>
+      <textarea id="txt" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:6px"><button class="btn s" id="b-copy" type="button">📋 نسخ</button><button class="btn s" id="b-txt" type="button">⬇ تنزيل نصّ</button></div>
+    </div>
+  </div>
+</div>
+<div class="view" id="view" role="dialog" aria-label="معاينة الصفحة"><img alt=""></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span></span></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  /* الصفحة: { id, original (ملف الصورة كما التُقطت), scanned (Blob الممسوحة), url, res (نتيجة الماسح: corners · poly · ci · rotation · mode · status), w, h } */
+  var pages = [], seq = 0, busy = false, exported = true;
+  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  $('fname').value = 'GMT-scan-' + today();                         // اسمٌ لاتينيّ افتراضيّاً: بعض المتصفّحات تستبدل الاسم العربي بـ«download»
+  var toastT = 0;
+  function toast(t, undoFn) {
+    var el = $('toast'); el.querySelector('span').textContent = t;
+    var old = el.querySelector('button'); if (old) old.remove();
+    if (undoFn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = 'تراجع'; b.onclick = function () { undoFn(); el.classList.remove('on'); }; el.appendChild(b); }
+    el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('on'); }, undoFn ? 6000 : 2600);
+  }
+  function loadScript(src) {
+    return new Promise(function (ok, no) {
+      if (document.querySelector('script[data-src="' + src + '"]')) return ok();
+      var s = document.createElement('script'); s.src = src; s.setAttribute('data-src', src); s.onload = function () { ok(); }; s.onerror = function () { no(new Error('تعذّر تحميل ' + src)); }; document.head.appendChild(s);
+    });
+  }
+  function blobImg(blob) {
+    return new Promise(function (ok, no) { var u = URL.createObjectURL(blob), im = new Image(); im.onload = function () { ok(im); setTimeout(function () { URL.revokeObjectURL(u); }, 0); }; im.onerror = function () { URL.revokeObjectURL(u); no(new Error('صورة تالفة')); }; im.src = u; });
+  }
+
+  /* ── الإضافة: كل صورةٍ تفتح الماسح بالدور ── */
+  $('b-cam').onclick = function () { $('in-cam').value = ''; $('in-cam').click(); };
+  $('b-pick').onclick = function () { $('in-pick').value = ''; $('in-pick').click(); };
+  $('in-cam').onchange = function () { addFiles([].slice.call(this.files || [])); };
+  $('in-pick').onchange = function () { addFiles([].slice.call(this.files || [])); };
+  async function addFiles(files) {
+    if (!files.length) return;
+    if (!window.GMTDocScan) { toast('⚠️ الماسح لم يُحمَّل — حدّث الصفحة'); return; }
+    if (busy) { toast('انتظر انتهاء الصفحة الحاليّة'); return; }
+    busy = true;
+    try {
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i], r;
+        try { r = await GMTDocScan.open(f, { title: 'صفحة ' + (pages.length + 1) + (files.length > 1 ? ' (' + (i + 1) + ' من ' + files.length + ')' : '') }); }
+        catch (e) { toast('⚠️ «' + (f.name || 'الصورة') + '» ليست صورةً يمكن فتحها — تُخطّى'); continue; }
+        if (r && r.retake) { busy = false; $('in-cam').value = ''; $('in-cam').click(); return; }
+        if (!r || !r.scanned) continue;                                   // أُلغي ⇒ تُخطّى هذه الصورة فقط
+        put({ id: ++seq, original: f, scanned: r.scanned, res: r, w: r.width, h: r.height });
+      }
+    } finally { busy = false; }
+  }
+  function put(p, at) {
+    p.url = URL.createObjectURL(p.scanned);
+    if (at == null) pages.push(p); else pages.splice(at, 0, p);
+    exported = false; paint();
+  }
+
+  /* ── الصفحات ── */
+  var dragId = null;
+  function paint() {
+    var box = $('pages'); box.innerHTML = '';
+    $('empty').hidden = pages.length > 0; $('cnt').textContent = pages.length ? '(' + pages.length + ')' : '';
+    ['b-pdf', 'b-zip', 'b-ocr', 'b-share'].forEach(function (id) { $(id).disabled = !pages.length; });
+    pages.forEach(function (p, i) {
+      var el = document.createElement('div'); el.className = 'pg'; el.draggable = true; el.setAttribute('data-id', p.id);
+      var st = p.res && p.res.status, poly = p.res && p.res.poly;
+      el.innerHTML = '<img class="th" alt="صفحة ' + (i + 1) + '"><span class="n">' + (i + 1) + '</span>' +
+        '<span class="tag' + (st === 'manual' ? ' m' : '') + '">' + (st === 'manual' ? '✋ حدودٌ يدويّة' : '✅ حدودٌ مكتشفة') + (poly ? ' · ' + poly.length + ' نقطة' : '') + '</span>' +
+        '<div class="acts"></div>';
+      el.querySelector('img').src = p.url;
+      el.querySelector('img').onclick = function () { var v = $('view'); v.querySelector('img').src = p.url; v.classList.add('on'); };
+      var acts = el.querySelector('.acts');
+      var mk = function (t, label, fn, dis) { var b = document.createElement('button'); b.type = 'button'; b.className = 'btn s'; b.textContent = t; b.title = label; b.setAttribute('aria-label', label); b.disabled = !!dis; b.onclick = fn; acts.appendChild(b); };
+      mk('↑', 'نقل للأمام', function () { move(i, i - 1); }, i === 0);
+      mk('↓', 'نقل للخلف', function () { move(i, i + 1); }, i === pages.length - 1);
+      mk('🗑', 'حذف الصفحة', function () { del(i); });
+      mk('✏️', 'تعديل الحدود والنمط', function () { reedit(i); });
+      mk('↻', 'تدوير ٩٠°', function () { rotate(i); });
+      mk('الأصل', 'تنزيل الصورة الأصليّة', function () { save(p.original, (p.original.name || ('page-' + (i + 1) + '-original.jpg'))); });
+      el.addEventListener('dragstart', function (e) { dragId = p.id; el.classList.add('drag'); try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(p.id)); } catch (_) {} });
+      el.addEventListener('dragend', function () { dragId = null; el.classList.remove('drag'); });
+      el.addEventListener('dragover', function (e) { if (dragId == null || dragId === p.id) return; e.preventDefault(); el.classList.add('over'); });
+      el.addEventListener('dragleave', function () { el.classList.remove('over'); });
+      el.addEventListener('drop', function (e) { e.preventDefault(); el.classList.remove('over'); var from = pages.findIndex(function (q) { return q.id === dragId; }); if (from >= 0) move(from, i); });
+      box.appendChild(el);
+    });
+  }
+  $('view').onclick = function () { this.classList.remove('on'); };
+  function move(a, b) { if (b < 0 || b >= pages.length || a === b) return; var p = pages.splice(a, 1)[0]; pages.splice(b, 0, p); exported = false; paint(); }
+  function del(i) {
+    var p = pages.splice(i, 1)[0]; paint();
+    toast('حُذفت الصفحة ' + (i + 1), function () { pages.splice(Math.min(i, pages.length), 0, p); paint(); });
+    setTimeout(function () { if (pages.indexOf(p) < 0) URL.revokeObjectURL(p.url); }, 7000);
+  }
+  /* تعديلٌ على الأصل نفسه بحدوده ونمطه السابقين (لا يُعاد التصوير ولا تُفقد الحدود) */
+  async function reedit(i) {
+    if (busy) return; busy = true;
+    var p = pages[i];
+    try {
+      var r = await GMTDocScan.open(p.original, { title: 'تعديل الصفحة ' + (i + 1), init: p.res });
+      if (r && r.scanned) { URL.revokeObjectURL(p.url); p.scanned = r.scanned; p.res = r; p.w = r.width; p.h = r.height; p.url = URL.createObjectURL(r.scanned); exported = false; paint(); toast('✅ عُدّلت الصفحة ' + (i + 1)); }
+    } catch (e) { toast('⚠️ تعذّر فتح الصفحة: ' + (e && e.message || e)); }
+    busy = false;
+  }
+  async function rotate(i) {
+    var p = pages[i], im = await blobImg(p.scanned), c = document.createElement('canvas');
+    c.width = im.naturalHeight; c.height = im.naturalWidth;
+    var x = c.getContext('2d'); x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(im, 0, 0);
+    var b = await new Promise(function (ok) { c.toBlob(ok, 'image/jpeg', 0.92); }); if (!b) return;
+    URL.revokeObjectURL(p.url); p.scanned = b; p.w = c.width; p.h = c.height; p.url = URL.createObjectURL(b);
+    if (p.res) p.res = Object.assign({}, p.res, { rotation: ((p.res.rotation || 0) + 90) % 360 });   // التعديل يفتح بالاتّجاه الجديد
+    exported = false; paint();
+  }
+
+  /* ── التصدير ── */
+  function save(blob, name) {
+    var a = document.createElement('a'), u = URL.createObjectURL(blob); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+  function fname(ext) { var n = ($('fname').value || '').trim().replace(/[\\/:*?"<>|]+/g, '-') || ('GMT-scan-' + today()); return n + ext; }
+  function prog(id, f) { var el = $(id); el.hidden = f == null; if (f != null) el.querySelector('i').style.width = Math.round(f * 100) + '%'; }
+  /* الصفحة كما تُصدَّر: الجودة (أقصى ضلع وضغط JPEG) + العلامة المائيّة إن طُلبت */
+  async function render(p, hi, wm) {
+    var im = await blobImg(p.scanned), max = hi ? 2600 : 1400, k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+    var c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+    var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+    if (wm) {
+      var fs = Math.max(18, Math.round(Math.min(c.width, c.height) / 14));
+      x.save(); x.translate(c.width / 2, c.height / 2); x.rotate(-Math.atan2(c.height, c.width));
+      x.font = '900 ' + fs + 'px Tahoma, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(213,0,28,.18)';
+      x.fillText(wm, 0, 0); x.restore();
+    }
+    return { c: c, data: c.toDataURL('image/jpeg', hi ? 0.9 : 0.62) };
+  }
+  var lastPdf = null;
+  async function makePdf() {
+    if (!pages.length) return null;
+    var hi = $('q').value === 'hi', a4 = $('psize').value === 'a4', wm = $('wm').value.trim(), pw = $('pw').value;
+    $('expmsg').textContent = 'جارٍ التحضير…'; prog('prog', 0);
+    await loadScript('lib/jspdf.umd.min.js?v=20261003');
+    var J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('مكتبة PDF غير متاحة');
+    var pdf = null;
+    for (var i = 0; i < pages.length; i++) {
+      var r = await render(pages[i], hi, wm), w = r.c.width, h = r.c.height, land = w > h;
+      var fmt = a4 ? 'a4' : [w * 0.75, h * 0.75], ori = land ? 'l' : 'p';
+      if (!pdf) {
+        var o = { unit: 'pt', format: fmt, orientation: ori, compress: true };
+        if (pw) o.encryption = { userPassword: pw, ownerPassword: pw + '\u0001gmt', userPermissions: ['print', 'copy'] };
+        pdf = new J(o);
+      } else pdf.addPage(fmt, ori);
+      var PW = pdf.internal.pageSize.getWidth(), PH = pdf.internal.pageSize.getHeight(), m = a4 ? 18 : 0;
+      var s = Math.min((PW - 2 * m) / w, (PH - 2 * m) / h), dw = w * s, dh = h * s;
+      pdf.addImage(r.data, 'JPEG', (PW - dw) / 2, (PH - dh) / 2, dw, dh, undefined, 'FAST');
+      prog('prog', (i + 1) / pages.length); $('expmsg').textContent = 'صفحة ' + (i + 1) + ' من ' + pages.length + '…';
+      await new Promise(function (ok) { setTimeout(ok, 0); });
+    }
+    pdf.setProperties({ title: fname(''), creator: 'GMT — الماسح الضوئي' });
+    var blob = pdf.output('blob'); lastPdf = new File([blob], fname('.pdf'), { type: 'application/pdf' });
+    $('expmsg').textContent = '✅ ' + lastPdf.name + ' · ' + pages.length + ' صفحة · ' + (blob.size / 1048576).toFixed(2) + ' م.ب' + (pw ? ' · محميّ بكلمة سرّ' : '');
+    prog('prog', null);
+    return lastPdf;
+  }
+  $('b-pdf').onclick = async function () {
+    var b = this; b.disabled = true;
+    try { var f = await makePdf(); if (f) { save(f, f.name); exported = true; } }
+    catch (e) { $('expmsg').textContent = '❌ تعذّر إنشاء الـPDF: ' + (e && e.message || e); prog('prog', null); }
+    b.disabled = !pages.length;
+  };
+  if (navigator.canShare) {
+    try { if (navigator.canShare({ files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] })) $('b-share').hidden = false; } catch (_) {}
+  }
+  $('b-share').onclick = async function () {
+    try { var f = await makePdf(); if (f) { await navigator.share({ files: [f], title: f.name }); exported = true; } }
+    catch (e) { if (!(e && e.name === 'AbortError')) $('expmsg').textContent = '❌ تعذّرت المشاركة: ' + (e && e.message || e); }
+  };
+  $('b-zip').onclick = async function () {
+    var b = this; b.disabled = true;
+    try {
+      var hi = $('q').value === 'hi', wm = $('wm').value.trim();
+      if (pages.length === 1) { var r1 = await render(pages[0], hi, wm); var bl = await new Promise(function (ok) { r1.c.toBlob(ok, 'image/jpeg', hi ? 0.9 : 0.62); }); save(bl, fname('.jpg')); b.disabled = false; return; }
+      await loadScript('lib/jszip.min.js?v=20261003'); var z = new window.JSZip();
+      for (var i = 0; i < pages.length; i++) {
+        var r = await render(pages[i], hi, wm); var bb = await new Promise(function (ok) { r.c.toBlob(ok, 'image/jpeg', hi ? 0.9 : 0.62); });
+        z.file(('0' + (i + 1)).slice(-2) + '.jpg', bb); prog('prog', (i + 1) / pages.length);
+      }
+      save(await z.generateAsync({ type: 'blob' }), fname('.zip')); prog('prog', null); $('expmsg').textContent = '✅ ' + pages.length + ' صور'; exported = true;
+    } catch (e) { $('expmsg').textContent = '❌ ' + (e && e.message || e); prog('prog', null); }
+    b.disabled = !pages.length;
+  };
+
+  /* ── استخراج النصّ: Tesseract محلّياً (lib/ocr) — لا ترسل الصفحات لأيّ خدمة ── */
+  var ocrW = null, ocrLang = '';
+  var SIMD = (function () { try { return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch (_) { return false; } })();
+  async function ocrWorker(lang) {
+    if (ocrW && ocrLang === lang) return ocrW;
+    if (ocrW) { try { await ocrW.terminate(); } catch (_) {} ocrW = null; }
+    await loadScript('lib/ocr/tesseract.min.js?v=20261016');
+    var base = new URL('lib/ocr/', document.baseURI).href;
+    ocrW = await window.Tesseract.createWorker(lang, 1, { workerPath: base + 'worker.min.js', corePath: base + (SIMD ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'), langPath: base, gzip: true, cacheMethod: 'none' });
+    await ocrW.setParameters({ preserve_interword_spaces: '1' });
+    ocrLang = lang; return ocrW;
+  }
+  $('b-ocr').onclick = async function () {
+    var langs = [$('l-ara').checked && 'ara', $('l-eng').checked && 'eng'].filter(Boolean);
+    if (!langs.length) { $('ocrmsg').textContent = 'اختر لغةً واحدة على الأقلّ.'; return; }
+    var b = this; b.disabled = true; $('ocrmsg').textContent = 'جارٍ تحميل محرّك التعرّف (أوّل مرّة أبطأ)…'; prog('oprog', 0);
+    try {
+      var w = await ocrWorker(langs.join('+')), out = [];
+      for (var i = 0; i < pages.length; i++) {
+        $('ocrmsg').textContent = 'صفحة ' + (i + 1) + ' من ' + pages.length + '…';
+        var r = await w.recognize(pages[i].scanned);
+        out.push((pages.length > 1 ? '—— صفحة ' + (i + 1) + ' ——\n' : '') + String(r.data.text || '').trim());
+        prog('oprog', (i + 1) / pages.length);
+      }
+      $('txt').value = out.join('\n\n'); $('ocrout').hidden = false;
+      $('ocrmsg').textContent = '✅ استُخرج النصّ — راجعه قبل استعماله (التعرّف الآليّ قد يخطئ في بعض الحروف).';
+    } catch (e) { $('ocrmsg').textContent = '❌ تعذّر استخراج النصّ: ' + (e && e.message || e); }
+    prog('oprog', null); b.disabled = !pages.length;
+  };
+  $('b-copy').onclick = function () { var t = $('txt'); t.select(); try { navigator.clipboard.writeText(t.value).then(function () { toast('📋 نُسخ'); }, function () { document.execCommand('copy'); toast('📋 نُسخ'); }); } catch (_) { document.execCommand('copy'); toast('📋 نُسخ'); } };
+  $('b-txt').onclick = function () { save(new Blob([$('txt').value], { type: 'text/plain;charset=utf-8' }), fname('.txt')); };
+
+  /* لا تضيع الصفحات بإغلاقٍ عرَضيّ (هي على الجهاز فقط حتى تُصدَّر) */
+  window.addEventListener('beforeunload', function (e) { if (pages.length && !exported) { e.preventDefault(); e.returnValue = ''; } });
+  paint();
+  window.__scanner = { pages: pages, makePdf: makePdf };
+})();
+</script>
+<script src="gmt-nofab.js?v=20261007z5"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261019f" defer></script>
+<script src="gmt-pwa.js?v=20261010b"></script>
+<script src="gmt-whatsnew.js?v=20261023g"></script>
+<script src="gmt-refresh.js?v=20261011a"></script>
+</body>
+</html>

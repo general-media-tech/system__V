@@ -441,10 +441,11 @@
   function viaWorker(file, opts) {
     return wcall({ cmd: 'read', sid: sidOf(file), file: file, opts: { budgetMs: opts.budgetMs, quick: !!opts.quick, maxSide: opts.maxSide } }, opts);
   }
-  /* (TASK-0130) النسخة المقوَّمة الكاملة في العامل (للماسح: «قصّ وتحسين» · وللقراءة) ⇒ قماشٌ في الصفحة أو null */
-  function processIn(file, corners, rot, mode, dims) {
+  /* (TASK-0130) النسخة المقوَّمة الكاملة في العامل (للماسح: «قصّ وتحسين» · وللقراءة) ⇒ قماشٌ في الصفحة أو null
+     (TASK-0131) shape = { poly, ci }: محيطٌ بأكثر من أربع نقاط (حوافّ منحنية) ⇒ يُقوَّم برقعة «كونز» كما في الصفحة */
+  function processIn(file, corners, rot, mode, dims, shape) {
     var ds = dsURL(); if (!ds) return Promise.resolve(null);
-    return wcall({ cmd: 'process', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, mode: mode || 'color', ds: ds, dims: dims || null }).then(function (bm) {
+    return wcall({ cmd: 'process', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, mode: mode || 'color', ds: ds, dims: dims || null, shape: shape || null }).then(function (bm) {
       if (!bm) return null;
       var c = newCanvas(bm.width, bm.height); c.getContext('2d').drawImage(bm, 0, 0); try { bm.close(); } catch (_) {}
       return c;
@@ -477,7 +478,7 @@
       var sameDims = function (bm) { if (m.dims && (Math.abs(bm.width - m.dims[0]) > 2 || Math.abs(bm.height - m.dims[1]) > 2)) throw new Error('dims'); return bm; };
       if (m.cmd === 'process') {
         sessBm(m.sid, m.file).then(sameDims).then(function (bm) {
-          var cv = needDS(m.ds).process(bm, m.corners, m.rot, m.mode), out = cv.transferToImageBitmap(); post('done', out, [out]);
+          var cv = needDS(m.ds).process(bm, m.corners, m.rot, m.mode, m.shape), out = cv.transferToImageBitmap(); post('done', out, [out]);
         }).catch(function () { post('error', null); });
         return;
       }

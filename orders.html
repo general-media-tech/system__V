@@ -84,7 +84,7 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261011h"></script>
+<script src="gmt-tools.js?v=20261023g"></script>
 <script src="gmt-account.js?v=20261020a"></script>
 </head>
 <body class="pb-28">
@@ -106,8 +106,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261023f" defer></script>
-<script src="gmt-docscan.js?v=20261023f" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-receipt.js?v=20261023g" defer></script>
+<script src="gmt-docscan.js?v=20261023g" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -3497,16 +3497,16 @@ async function shipScanFile(file, label) {
         try {
             const r = await GMTDocScan.open(file, {
                 title: 'مسح إشعار الشحن',
-                onDetected: (det, rot) => { if (!rot && det && det.img) giveGeom({ corners: det.corners, ok: det.ok, img: det.img, full: fullP }); },
+                onDetected: (det, rot) => { if (!rot && det && det.img) giveGeom({ corners: det.corners, poly: det.poly || null, ok: det.ok, img: det.img, full: fullP }); },
                 /* (TASK-0130) النسخة المقوَّمة تُصنع في عامل القراءة (الصورة مفكوكةٌ فيه أصلاً) — لا تحجز الواجهة ولا قراءة الفرع */
-                processor: (window.GMTReceipt && GMTReceipt.processIn) ? (c, r, m, img) => GMTReceipt.processIn(file, c, r, m, img ? [img.naturalWidth || img.width, img.naturalHeight || img.height] : null) : null,
+                processor: (window.GMTReceipt && GMTReceipt.processIn) ? (c, r, m, img, sh) => GMTReceipt.processIn(file, c, r, m, img ? [img.naturalWidth || img.width, img.naturalHeight || img.height] : null, sh) : null,
                 onProcessed: (cv, corners) => { if (geomQ && sameQ(corners, geomQ)) giveFull(cv); },
                 onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } }
             });
             giveGeom(null); giveFull(null);                              // أُغلق الماسح ⇒ ما لم يُعطَ يصنعه القارئ بنفسه
             if (r && r.retake) return;
             if (r && r.scanned) {
-                _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode, corners: r.corners || null, rotation: r.rotation || 0 };
+                _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode, corners: r.corners || null, poly: r.poly || null, rotation: r.rotation || 0 };
                 use = _shipScan.scanned;
             }
         } catch (e) {
@@ -3648,7 +3648,7 @@ function shipStartEarlyRead(orig) {
     _shipReading = true;
     const E = { orig, typed, hooks, done: false, stop: false, corners: null, num: null };
     let geomOk = null; const geomP = new Promise(ok => { geomOk = ok; });
-    E.giveGeom = g => { if (!geomOk) return; if (g && g.corners) E.corners = g.corners.map(p => p.slice()); geomOk(g || null); geomOk = null; };
+    E.giveGeom = g => { if (!geomOk) return; if (g && g.corners) { E.corners = g.corners.map(p => p.slice()); E.poly = g.poly ? g.poly.map(p => p.slice()) : null; } geomOk(g || null); geomOk = null; };
     const onTr = hooks.onTracking; hooks.onTracking = t => { if (t && t.number) E.num = t.number; onTr(t); };
     /* (TASK-0128) تتوقّف أيضاً إن اختيرت صورةٌ أخرى أو أُغلقت النافذة (_shipOrig تغيّر) أو تغيّرت الشركة — كانت تستمرّ وتأخذ المعالج */
     E.p = GMTReceipt.readMufti(orig, { geom: () => geomP, numDone: () => !!E.num,
@@ -3716,8 +3716,10 @@ async function shipReadTracking(force) {
         if (!r || r.cancelled || !r.tracking || r.tracking.status === 'none' || !(r.branch && r.branch.confident)) {
             /* (TASK-0127) المبكرة اكتملت على الصورة نفسها (أُلغي الماسح) أو على زوايا الماسح نفسها (لم تُعدَّل ولم تُدَر) ⇒ نصّها قُرئ فعلاً:
                لا تُعاد القراءة كلّها (كانت ٢٥–٣٠ث لإيصالٍ بلا باركود أو بلا «المصدر») — باركودٌ سريع، و«المصدر» في اتّجاهه المعروف وحده إن نقص الفرع */
+            /* (TASK-0131) والمحيط نفسه: نقاطٌ أُضيفت أو حُرّكت بين الأركان (حافّةٌ منحنية صُحّحت باليد) ⇒ نسخةٌ أخرى ⇒ ليست «نفسها» */
+            const near = (A, B) => (!A && !B) || (Array.isArray(A) && Array.isArray(B) && A.length === B.length && A.every((p, i) => Math.abs(p[0] - B[i][0]) < 0.01 && Math.abs(p[1] - B[i][1]) < 0.01));
             const same = !!(r && !r.cancelled && early && (myFile === early.orig || (early.corners && _shipScan && myFile === _shipScan.scanned && !_shipScan.rotation &&
-                Array.isArray(_shipScan.corners) && _shipScan.corners.every((p, i) => Math.abs(p[0] - early.corners[i][0]) < 0.01 && Math.abs(p[1] - early.corners[i][1]) < 0.01))));
+                near(_shipScan.corners, early.corners) && near(_shipScan.poly, early.poly || null))));
             const lite = same ? { text: !(r.branch && r.branch.confident), rot: r.rot != null ? r.rot : null } : null;
             const needText = !(r && r.branch && r.branch.confident), needNum = !(r && r.tracking && r.tracking.status !== 'none');
             if (needText || needNum) {
@@ -9002,7 +9004,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261023f"></script>
+<script src="gmt-whatsnew.js?v=20261023g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
