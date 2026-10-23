@@ -1086,6 +1086,7 @@
   }
 
   /* ── ④ الواجهة ───────────────────────────────────────────────────────────── */
+  var PADS = 24;                                                         // هامش الصورة داخل مساحتها: يتّسع لمقبضٍ على حافّتها
   function css() {
     if (doc.getElementById('gds-css')) return;
     var st = doc.createElement('style'); st.id = 'gds-css';
@@ -1095,12 +1096,16 @@
       '#gds .gds-top small{font-weight:700;color:#9aa3ae;font-size:12px}' +
       '#gds .gds-tools{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;padding:2px 8px 6px}' +
       '#gds .gds-tools button{padding:7px 9px;font-size:12px;border-radius:10px}' +
-      '#gds .gds-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px;touch-action:none;overflow:hidden}' +
-      '#gds .gds-wrap{position:relative;max-width:100%;max-height:100%;overflow:hidden;touch-action:none}' +
-      '#gds canvas.gds-img{display:block;max-width:100%;max-height:calc(100vh - 230px);background:#222;border-radius:6px;transform-origin:0 0}' +
-      '#gds .gds-wrap>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}' +   /* لا تلمس أيقونات الأزرار (gmt-icons) — كانت تتضخّم ملء الشاشة */
+      /* (TASK-0135 · المالك: «أحد أطراف الخطوط خارج الإطار فما فيني أمسك المقبض») الصورة تُقاس على المساحة الفعليّة بين الأزرار (كانت
+         من ارتفاع الشاشة كلّه فيختفي طرفها السفلي تحتها) · هامشٌ حولها يتّسع للمقبض كاملاً · المقابض خارج القصّ (لا تُقصّ مع الصورة) */
+      '#gds .gds-stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:' + PADS + 'px;touch-action:none;overflow:hidden}' +
+      '#gds .gds-wrap{position:relative;touch-action:none}' +
+      '#gds .gds-clip{position:relative;overflow:hidden;border-radius:6px}' +
+      '#gds canvas.gds-img{display:block;max-width:none;background:#222;transform-origin:0 0}' +
+      '#gds .gds-clip>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}' +   /* لا تلمس أيقونات الأزرار (gmt-icons) — كانت تتضخّم ملء الشاشة */
       '#gds .gds-h{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid var(--gds-c,#22c55e);touch-action:none;cursor:grab;box-sizing:border-box}' +
       '#gds .gds-h.x{width:22px;height:22px;margin:-11px 0 0 -11px;border-width:3px}' +
+      '#gds .gds-h::before,#gds .gds-g::before{content:"";position:absolute;inset:-10px;border-radius:50%}' +   /* مساحة لمسٍ ≥٤٤ بكسل */
       '#gds .gds-h.sel{background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}' +
       '#gds .gds-g{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(0,0,0,.45);border:2px dashed rgba(255,255,255,.75);color:#fff;font:900 13px/16px sans-serif;text-align:center;touch-action:none;cursor:copy;box-sizing:border-box}' +
       '#gds .gds-loupe{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.6);pointer-events:none;display:none;overflow:hidden;background:#000}' +
@@ -1174,11 +1179,11 @@
         root.innerHTML =
           '<div class="gds-top">📄 ' + (opts.title || 'مسح المستند') + ' <small id="gds-sub"></small></div>' +
           '<div class="gds-tools"></div>' +
-          '<div class="gds-stage"><div class="gds-wrap"><canvas class="gds-img"></canvas><svg aria-hidden="true"><polygon fill="rgba(34,197,94,.12)" stroke="#22c55e" stroke-width="2" vector-effect="non-scaling-stroke"/><polyline fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/></svg><div class="gds-loupe"><canvas width="120" height="120"></canvas></div></div></div>' +
+          '<div class="gds-stage"><div class="gds-wrap"><div class="gds-clip"><canvas class="gds-img"></canvas><svg aria-hidden="true"><polygon fill="rgba(34,197,94,.12)" stroke="#22c55e" stroke-width="2" vector-effect="non-scaling-stroke"/><polyline fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/></svg></div><div class="gds-loupe"><canvas width="120" height="120"></canvas></div></div></div>' +
           '<div class="gds-msg" role="status" aria-live="polite"></div>' +
           '<div class="gds-bar"></div>';
         doc.body.appendChild(root);
-        var stage = root.querySelector('.gds-stage'), wrap = root.querySelector('.gds-wrap'), cv = root.querySelector('canvas.gds-img'), svg = root.querySelector('svg');
+        var stage = root.querySelector('.gds-stage'), wrap = root.querySelector('.gds-wrap'), cv = root.querySelector('canvas.gds-img'), svg = root.querySelector('.gds-clip>svg');
         var polyEl = svg.querySelector('polygon'), lineEl = svg.querySelector('polyline'), loupe = root.querySelector('.gds-loupe'), lcv = loupe.querySelector('canvas');
         var msg = root.querySelector('.gds-msg'), bar = root.querySelector('.gds-bar'), tools = root.querySelector('.gds-tools'), sub = root.querySelector('#gds-sub');
         var handles = [], ghosts = [], st = statusOf(null), shown = null;
@@ -1198,6 +1203,13 @@
 
         /* ── التكبير والتحريك: الصورة وحدها تُكبَّر (CSS transform)، والنقاط فوقها بحجمها الثابت ── */
         var z = 1, tx = 0, ty = 0;
+        /* الصورة بأكبر حجمٍ يتّسع في المساحة بين الأزرار (بعد بنائها) — لا من ارتفاع الشاشة */
+        function fitCanvas() {
+          var sw = stage.clientWidth - 2 * PADS, sh = stage.clientHeight - 2 * PADS;
+          if (sw < 40 || sh < 40 || !cv.width) return;
+          var k = Math.min(sw / cv.width, sh / cv.height);
+          cv.style.width = Math.max(1, Math.floor(cv.width * k)) + 'px'; cv.style.height = Math.max(1, Math.floor(cv.height * k)) + 'px';
+        }
         function cw() { return cv.offsetWidth || 1; }
         function ch() { return cv.offsetHeight || 1; }
         function clampPan() { var W = cw(), H = ch(); tx = Math.min(0, Math.max(W - W * z, tx)); ty = Math.min(0, Math.max(H - H * z, ty)); }
@@ -1232,14 +1244,15 @@
           /* نقاطٌ بعدد المحيط: الأركان الأربعة كبيرة، الإضافيّة أصغر، والمحدّدة بيضاء */
           while (handles.length < P.length) handles.push(mkHandle());
           while (handles.length > P.length) handles.pop().remove();
-          handles.forEach(function (h, i) { h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; h.className = 'gds-h' + (CI.indexOf(i) < 0 || drawing ? ' x' : '') + (i === sel ? ' sel' : ''); h.setAttribute('data-i', i); });
+          var inView = function (q) { return z === 1 || (q[0] >= -2 && q[1] >= -2 && q[0] <= cw() + 2 && q[1] <= ch() + 2); };   // مكبَّرة: ما خرج عن المعروض يُخفى
+          handles.forEach(function (h, i) { h.style.display = i === sel || inView(pts[i]) ? '' : 'none'; /* المسحوبة تبقى ظاهرة */ h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; h.className = 'gds-h' + (CI.indexOf(i) < 0 || drawing ? ' x' : '') + (i === sel ? ' sel' : ''); h.setAttribute('data-i', i); });
           /* «+» في منتصف كل ضلع: اضغطه لإضافة نقطةٍ هناك (أو اسحبه مباشرةً) — يختفي على ضلعٍ قصيرٍ جداً على الشاشة */
           var want = drawing ? 0 : P.length;
           while (ghosts.length < want) ghosts.push(mkGhost());
           while (ghosts.length > want) ghosts.pop().remove();
           ghosts.forEach(function (g, i) {
             var a = pts[i], b = pts[(i + 1) % pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-            g.style.display = L < 70 ? 'none' : ''; g.style.left = (a[0] + b[0]) / 2 + 'px'; g.style.top = (a[1] + b[1]) / 2 + 'px'; g.setAttribute('data-i', i);
+            g.style.display = L < 70 || !inView([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]) ? 'none' : ''; g.style.left = (a[0] + b[0]) / 2 + 'px'; g.style.top = (a[1] + b[1]) / 2 + 'px'; g.setAttribute('data-i', i);
           });
           updTools();
         }
@@ -1383,7 +1396,7 @@
             btn('✕ إلغاء', function () { finish(null); });
             btn('✔ قصّ وتحسين', function () { run(); }, 'p');
           }
-          requestAnimationFrame(function () { applyZoom(); });
+          requestAnimationFrame(function () { fitCanvas(); applyZoom(); });
           if (!pending && !drawing) showStatus();
         }
         function run() {
@@ -1432,7 +1445,7 @@
           svg.style.display = 'none'; hideLoupe(); z = 1; tx = ty = 0; cv.style.transform = '';
           var src = orig ? (shown && shown.rot === rot ? shown.c : drawScaled(img, 1400, rot)) : result;
           cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0);
-          say(''); tools.innerHTML = '';
+          say(''); tools.innerHTML = ''; requestAnimationFrame(fitCanvas);
           if (!orig) MODES.forEach(function (m) { btn(MODE_TXT[m], function () { setMode(m); }, m === mode ? 'on' : '', tools); });
           bar.innerHTML = '';
           btn(orig ? '📄 النسخة الممسوحة' : '👁 قارن بالأصل', function () { showResult(!orig); }, orig ? 'on' : '');
@@ -1450,7 +1463,7 @@
             }, 'image/jpeg', 0.9);
           }, 'p');
         }
-        function onResize() { if (view === 'edit') applyZoom(); }
+        function onResize() { fitCanvas(); if (view === 'edit') applyZoom(); }
         global.addEventListener('resize', onResize);
         /* (TASK-0131) إعادة تعديل صفحةٍ ممسوحة: opts.init = نتيجةٌ سابقة (corners · poly/ci · rotation · mode) ⇒ تُفتح بحدودها هي، بلا اكتشافٍ جديد */
         var I0 = opts.init;
