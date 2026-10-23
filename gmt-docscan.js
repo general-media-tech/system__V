@@ -23,7 +23,8 @@
    GMTDocScan.open(file, { title, onRetake, onDetected(det, rot), processor, onProcessed, init }) ⇒ Promise<null | { retake:true } |
         { original: File, scanned: Blob, mode: 'orig'|'color'|'magic'|'gray'|'bw', corners, poly|null, ci|null, rotation, status: 'ok'|'review'|'fail'|'manual' }>
         init = نتيجةٌ سابقة ⇒ يُفتح بحدودها ونمطها (إعادة تعديل صفحة)
-   GMTDocScan.detectNorm(img, rot) ⇒ { corners, poly, ci, ok, how } · process(img, corners, rot, mode, { poly, ci }) — للاختبار
+   opts.exclude = [{ poly, rot }] ⇒ أوراقٌ مُسحت من الصورة نفسها يتجاوزها الاكتشاف (TASK-0134)
+   GMTDocScan.detectNorm(img, rot, exclude) ⇒ { corners, poly, ci, ok, how } · process(img, corners, rot, mode, { poly, ci }) — للاختبار
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -614,6 +615,47 @@
       }
       return { pin: iN ? iP / iN : 0, pout: oN ? oP / oN : 1, oN: oN };
     }
+    /* (TASK-0134 · «عدّة أوراق في صورة واحدة») رباعيٌّ يضمّ ورقتين متجاورتين حوافّهما على استقامةٍ واحدة: شريطٌ بلا ورق (<٢٠٪) يقطعه
+       من حافّةٍ إلى حافّة، عرضه ≥٣٪، وعلى جانبيه ورقٌ (≥٦٠٪) وكلّ جانبٍ ≥٢٠٪ ⇒ { drop: الجانب الأصغر من منتصف الشريط إلى ما بعد
+       طرفه } فيُخفى ويُعاد الاكتشاف على الورقة الأكبر وحدها (الأخرى: «➕ ورقة أخرى من الصورة نفسها» في صفحة الماسح) */
+    function gap(Q) {
+      Q = order(Q);
+      var at = function (u, v) { var a = Q[0], b = Q[1], c = Q[2], d = Q[3]; return [(1 - v) * ((1 - u) * a[0] + u * b[0]) + v * ((1 - u) * d[0] + u * c[0]), (1 - v) * ((1 - u) * a[1] + u * b[1]) + v * ((1 - u) * d[1] + u * c[1])]; };
+      var N = 100, M = 32;
+      /* لون الخلفيّة: حلقةٌ خارج الرباعيّ مباشرةً. الشريط يُعدّ فاصلاً بين ورقتين فقط إن كان بلونها (≥٧٠٪ من عيّناته) — شريطٌ ملوّن
+         داخل الإيصال (ترويسة جدول · ظلّ · لونٌ مطبوع) ليس ورقاً أبيض لكنّه ليس الخلفيّة أيضاً (أوّل نسخةٍ بلا هذا قسمت إيصالاتٍ سليمة) */
+      var bl = [], bu = [], bv = [];
+      for (var e = 0; e < 4; e++) for (var q2 = 0.05; q2 < 0.96; q2 += 0.03) {
+        var pb = e === 0 ? at(q2, -0.035) : e === 1 ? at(q2, 1.035) : e === 2 ? at(-0.035, q2) : at(1.035, q2), bx = pb[0] | 0, by = pb[1] | 0;
+        if (bx < 0 || by < 0 || bx >= W || by >= H) continue; var bk = by * W + bx; bl.push(Lb[bk]); bu.push(Ub[bk]); bv.push(Vb[bk]);
+      }
+      if (bl.length < 12) return null;
+      var mean = function (a) { var t = 0; a.forEach(function (v) { t += v; }); return t / a.length; }, mL = mean(bl), mU = mean(bu), mV = mean(bv);
+      var sdL = Math.sqrt(mean(bl.map(function (v) { return (v - mL) * (v - mL); }))), tolL = Math.max(25, 2 * sdL);
+      if (sdL > 30) return null;                                            // خلفيّةٌ متفاوتة (ظلٌّ على نصفها) ⇒ لا يُحكم بلونها
+      var bgLike = function (kk) { return Math.abs(Lb[kk] - mL) < tolL && Math.abs(Ub[kk] - mU) < 20 && Math.abs(Vb[kk] - mV) < 20; };
+      for (var axis = 0; axis < 2; axis++) {
+        var pr = [], i, j, k, best = null;
+        for (i = 0; i < N; i++) {
+          var t = (i + 0.5) / N, sP = 0, n = 0;
+          for (j = 0; j < M; j++) { var r = 0.06 + 0.88 * (j + 0.5) / M, pq = axis ? at(r, t) : at(t, r), X = pq[0] | 0, Y = pq[1] | 0; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; n++; if (Ps[Y * W + X] > pth) sP++; }
+          pr.push(n ? sP / n : 1);
+        }
+        for (i = 0; i < N;) { if (pr[i] < 0.2) { j = i; while (j < N && pr[j] < 0.2) j++; if (!best || j - i > best[1] - best[0]) best = [i, j]; i = j; } else i++; }
+        if (!best || best[1] - best[0] < 3 || best[0] < 20 || best[1] > N - 20) continue;
+        var sL = 0, sR = 0; for (k = 0; k < best[0]; k++) sL += pr[k]; for (k = best[1]; k < N; k++) sR += pr[k];
+        if (sL / best[0] < 0.6 || sR / (N - best[1]) < 0.6) continue;
+        var gN = 0, gB = 0;
+        for (i = best[0]; i < best[1]; i++) for (j = 0; j < M; j++) {
+          var r2 = 0.06 + 0.88 * (j + 0.5) / M, pg = axis ? at(r2, (i + 0.5) / N) : at((i + 0.5) / N, r2), gx = pg[0] | 0, gy = pg[1] | 0;
+          if (gx < 0 || gy < 0 || gx >= W || gy >= H) continue; gN++; if (bgLike(gy * W + gx)) gB++;
+        }
+        if (!gN || gB / gN < 0.7) continue;
+        var m = (best[0] + best[1]) / 2 / N, left = best[0] < N - best[1], lo = left ? -0.03 : m, hi = left ? m : 1.03;
+        return { axis: axis, drop: axis ? [at(-0.03, lo), at(1.03, lo), at(1.03, hi), at(-0.03, hi)] : [at(lo, -0.03), at(hi, -0.03), at(hi, 1.03), at(lo, 1.03)] };
+      }
+      return null;
+    }
     /* نسبة «الورقيّ» فيما يزيده رباعيٌّ كبير على صغير (بعيداً عن أضلاع الصغير) */
     function paperIn(bigQ, smallQ) {
       var Bq = order(bigQ), Sq = order(smallQ), N2 = 0, S2 = 0;
@@ -682,7 +724,7 @@
       }
       return { poly: poly, ci: ci };
     }
-    return { best: best, partial: findPartial, trace: trace, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    return { best: best, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -941,8 +983,24 @@
      منطقةً أكبر بكثير تحويها) ⇒ ② وإلّا الطريقة ① (المنطقة الفاتحة) إن نجحت ⇒ ③ وإلّا خطوطٌ أضعف (≥٠٫٦) إن مرّت بحارس القصّ ⇒ ④ ورقةٌ تملأ الصورة ⇒ الصورة كاملة ⇒ ⑤ الصورة كاملة
      لتحدّدها بيدك. وفي ①②③ يُلصق كل ضلعٍ على الحدّ الحقيقي القريب، والتوسيع للخارج ٠٫٥٪ فقط (كان ١٫٥٪ على حدودٍ تقريبيّة
      فيُبقي شرائط خلفيّة — لقطة المالك) و١٫٥٪ إن بقي ضلعٌ بلا لصق. */
-  function detectNorm(img, rot) {
-    var c = drawScaled(img, DET_MAX, rot), W = c.width, H = c.height, id = c.getContext('2d').getImageData(0, 0, W, H);
+  /* (TASK-0134) عدّة أوراق في صورةٍ واحدة: ما مُسح منها (exclude = [{ poly, rot }] نِسَبٌ في الاتّجاه نفسه) يُطلى بلون الخلفيّة
+     (متوسّط أركان الصورة الأربعة) موسَّعاً قليلاً ⇒ الاكتشاف يجد الورقة التالية لا نفسها مرّةً ثانية */
+  function hideDone(c, rot, exclude) {
+    var ex = (exclude || []).filter(function (e) { return e && e.poly && e.poly.length >= 3 && (e.rot || 0) === (rot || 0); });
+    if (!ex.length) return;
+    var x = c.getContext('2d'), W = c.width, H = c.height, k = Math.max(4, Math.round(Math.min(W, H) * 0.03)), sum = [0, 0, 0], n = 0;
+    x.setTransform(1, 0, 0, 1, 0, 0);                                     // drawScaled تركت إزاحة التدوير على السياق
+    [[0, 0], [W - k, 0], [0, H - k], [W - k, H - k]].forEach(function (o) { var d = x.getImageData(o[0], o[1], k, k).data; for (var i = 0; i < d.length; i += 4) { sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2]; n++; } });
+    x.fillStyle = 'rgb(' + Math.round(sum[0] / n) + ',' + Math.round(sum[1] / n) + ',' + Math.round(sum[2] / n) + ')';
+    ex.forEach(function (e) {
+      var P = growPts(e.poly.map(function (p) { return [p[0] * W, p[1] * H]; }), e.grow == null ? 0.04 : e.grow, W * 3, H * 3);
+      x.beginPath(); P.forEach(function (p, i) { if (i) x.lineTo(p[0], p[1]); else x.moveTo(p[0], p[1]); }); x.closePath(); x.fill();
+    });
+  }
+  function detectNorm(img, rot, exclude, depth) {
+    var c = drawScaled(img, DET_MAX, rot), W = c.width, H = c.height;
+    hideDone(c, rot, exclude);
+    var id = c.getContext('2d').getImageData(0, 0, W, H);
     var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf, sep;
     if (b && b.score >= 0.7 && b.minc >= 0.7) {
       rf = lq.refine(b.q); how = 'lines';
@@ -968,6 +1026,11 @@
     var pt = !rf && lq.partial();
     if (pt) { rf = lq.refine(pt.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
     if (rf) { var ex = lq.expand(rf.q); if (ex) { rf = lq.refine(ex); how += '+expand'; } }
+    /* (TASK-0134) ورقتان في رباعيٍّ واحد ⇒ تُخفى الصغرى ويُعاد الاكتشاف (حتى ثلاث أوراق) */
+    if (rf && (depth || 0) < 2) {
+      var gp = lq.gap(rf.q);
+      if (gp) { var dr = detectNorm(img, rot, (exclude || []).concat([{ poly: gp.drop.map(function (p) { return [p[0] / W, p[1] / H]; }), rot: rot || 0, grow: 0 }]), (depth || 0) + 1); if (dr.ok) { dr.how += '+split'; return dr; } }
+    }
     var tr = null;
     if (rf) {
       var gf = rf.snapped === 4 ? 0.005 : 0.015;
@@ -1096,7 +1159,7 @@
             try { var P0 = { key: k, cv: null, blob: null }; done(P0, process(img, cs, r0, m0, sh)); pre = P0; } catch (_) {}
           }, delay || 30);
         }
-        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) setFromDet(det); }
+        function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot, opts.exclude); if (!touched) setFromDet(det); }
         function detectSoon() {
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
           pending = setTimeout(function () {
