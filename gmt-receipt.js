@@ -607,7 +607,55 @@
   var CELL = [0.38, 0.36, 1, 0.72], BAND = [0, 0.25, 1, 0.8];   // خانة «المصدر» · شريط الوسط (نِسَب من الإيصال القائم)
   var MARK_TOP = [0, 0, 1, 0.38], MARK_FOOT = [0, 0.74, 1, 1];   // اسم الشركة/شعارها · تذييل هواتف مكاتبها
   /* صورةٌ للتعرّف العربي: أقصى القنوات (أقلام التعليم الملوّنة تصير فاتحة والحبر يبقى غامقاً) + تكبيرٌ حتى ٢× */
-  function araCanvas(im, rot, box) {
+  /* (TASK-0129) وسيط ٣×٣ على السطوع (أقصى القنوات): يمحو تشويش صورةٍ ليليّة («سرمدا» قُرئت «شرمنا») ويُبقي خطّ الحبر */
+  function median3(cv) {
+    var w = cv.width, h = cv.height, c = cv.getContext('2d'), id = c.getImageData(0, 0, w, h), d = id.data, g = new Uint8Array(w * h), o = new Uint8Array(w * h), i, x, y;
+    for (i = 0; i < w * h; i++) g[i] = Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+    var p = new Uint8Array(9), t;
+    function op(a, b) { if (p[a] > p[b]) { t = p[a]; p[a] = p[b]; p[b] = t; } }      // شبكة فرزٍ لوسيط ٩ (Paeth) — أسرع بكثير من sort
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      var q = y * w + x;
+      if (y === 0 || x === 0 || y === h - 1 || x === w - 1) { o[q] = g[q]; continue; }
+      p[0] = g[q - w - 1]; p[1] = g[q - w]; p[2] = g[q - w + 1]; p[3] = g[q - 1]; p[4] = g[q]; p[5] = g[q + 1]; p[6] = g[q + w - 1]; p[7] = g[q + w]; p[8] = g[q + w + 1];
+      op(1, 2); op(4, 5); op(7, 8); op(0, 1); op(3, 4); op(6, 7); op(1, 2); op(4, 5); op(7, 8); op(0, 3); op(5, 8); op(4, 7); op(3, 6); op(1, 4); op(2, 5); op(4, 7); op(4, 2); op(6, 4); op(4, 2);
+      o[q] = p[4];
+    }
+    for (i = 0; i < w * h; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = o[i]; }
+    c.putImageData(id, 0, 0);
+    return cv;
+  }
+  /* (TASK-0129) خطوط الجدول (أفقيّةٌ وعموديّة طويلة) تُربك تقسيم الصفحة في Tesseract: خانة «المصدر» واضحةٌ تماماً داخل إطارها
+     ولا يقرؤها (يقرأ عمود المرسَل إليه بدلها) ⇒ تُمحى الخطوط الطويلة (≥٢٥٪ من العرض · ≥٦٠٪ من الارتفاع) قبل القراءة */
+  function unrule(cv) {
+    var w = cv.width, h = cv.height, c = cv.getContext('2d'), id = c.getImageData(0, 0, w, h), d = id.data, x, y, i, run;
+    /* «داكن» نسبةً لسطوع الورقة (وسيط الخانة): في إضاءةٍ خافتة الورقة نفسها أغمق من أيّ عتبةٍ ثابتة فكان النصّ كلّه يُمحى */
+    var hist = new Uint32Array(256), tot = w * h, acc = 0, med = 255;
+    for (i = 0; i < tot; i++) hist[d[i * 4]]++;
+    for (i = 0; i < 256; i++) { acc += hist[i]; if (acc >= tot / 2) { med = i; break; } }
+    var TH = Math.min(140, med * 0.55), dark = function (q) { return d[q * 4] < TH; }, wipe = [], wiped = 0;
+    for (y = 0; y < h; y++) { run = 0; for (x = 0; x <= w; x++) { if (x < w && dark(y * w + x)) run++; else { if (run >= w * 0.25) wipe.push([y * w + x - run, 1, run]); run = 0; } } }
+    for (x = 0; x < w; x++) { run = 0; for (y = 0; y <= h; y++) { if (y < h && dark(y * w + x)) run++; else { if (run >= h * 0.6) wipe.push([(y - run) * w + x, w, run]); run = 0; } } }
+    wipe.forEach(function (r) { wiped += r[2]; });
+    if (!wipe.length || wiped > tot * 0.08) return cv;              // خطوطٌ أكثر من ٨٪ من الخانة ⇒ ليست خطوط جدول (ظلامٌ/ظلّ) ⇒ لا تُمسّ
+    wipe.forEach(function (r) { for (i = 0; i < r[2]; i++) { var q = (r[0] + i * r[1]) * 4; d[q] = d[q + 1] = d[q + 2] = med; } });
+    c.putImageData(id, 0, 0);
+    return cv;
+  }
+  /* مستوى التشويش: متوسّط |السطوع − وسيط جواره ٣×٣| على عيّنةٍ من النقاط — صورةٌ نظيفة ~١–٣ · ليليّة مشوّشة أعلى بكثير */
+  function noiseOf(cv) {
+    var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data, p = new Uint8Array(9), t, sum = 0, cnt = 0;
+    function op(a, b) { if (p[a] > p[b]) { t = p[a]; p[a] = p[b]; p[b] = t; } }
+    var step = Math.max(1, Math.floor(Math.sqrt(w * h / 20000)));
+    for (var y = 1; y < h - 1; y += step) for (var x = 1; x < w - 1; x += step) {
+      var k = 0; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) p[k++] = d[((y + dy) * w + x + dx) * 4];
+      var g = p[4];
+      op(1, 2); op(4, 5); op(7, 8); op(0, 1); op(3, 4); op(6, 7); op(1, 2); op(4, 5); op(7, 8); op(0, 3); op(5, 8); op(4, 7); op(3, 6); op(1, 4); op(2, 5); op(4, 7); op(4, 2); op(6, 4); op(4, 2);
+      sum += Math.abs(g - p[4]); cnt++;
+    }
+    return cnt ? sum / cnt : 0;
+  }
+  var NOISY = 2.5;   // عتبة «مشوّشة» لمتوسّط |السطوع − الوسيط| على خانةٍ مكبَّرة: إيصالات المالك الحقيقية ٠٫٢–٠٫٨ · ليليّةٌ مُصطنعة ٣–٦٫٥
+  function araCanvas(im, rot, box, dn) {
     var max = 2400, cv0 = crop(im, [0, 0, 1, 1], rot, max);
     if (box) {                                                   // جزءٌ فقط من الإيصال القائم [x0, y0, x1, y1] (نِسَب) — حيث سطر «المصدر»
       var x0 = Math.round(cv0.width * box[0]), y0 = Math.round(cv0.height * box[1]);
@@ -615,13 +663,14 @@
       bc.width = bw; bc.height = bh; bc.getContext('2d').drawImage(cv0, x0, y0, bw, bh, 0, 0, bw, bh);
       cv0 = bc;
     }
+    if (dn) cv0 = median3(cv0);
     var k = Math.min(2, max / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
     cv.width = Math.round(cv0.width * k); cv.height = Math.round(cv0.height * k);
     var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv0, 0, 0, cv.width, cv.height);
     var id = c.getImageData(0, 0, cv.width, cv.height), d = id.data;
     for (var i = 0; i < d.length; i += 4) { var v = Math.max(d[i], d[i + 1], d[i + 2]); d[i] = d[i + 1] = d[i + 2] = v; }
     c.putImageData(id, 0, 0);
-    return cv;
+    return box ? unrule(cv) : cv;
   }
 
   /* يقرأ إيصال المفتي. file = الصورة الممسوحة (أو الأصل) · opts.original = الأصل (احتياطٌ للباركود) · opts.onStage(k) */
@@ -657,7 +706,11 @@
       var textP = (async function () {
         if (opts.lite && !opts.lite.text) return [];               // الفرع وُجد في القراءة المبكرة
         var araLoad = getARA();                                    // تحميل المكتبة بالتوازي مع الباركود
-        var fast = await fastP, up = fast && fast.upright != null ? fast.upright : null;
+        /* (TASK-0129) لا تنتظر البحث السريع عن الباركود كاملاً (بلا باركودٍ مقروء: ~٦ث على هاتفٍ متوسّط) — ٢٫٥ث على الأكثر، ثمّ يبدأ
+           النصّ؛ واتّجاه الـQR إن ظهر بعدها يُستعمل في الخطوات التالية */
+        var fastVal; fastP.then(function (f) { fastVal = f; });
+        var fast = await Promise.race([fastP, new Promise(function (z) { setTimeout(z, 2500); })]), up = fast && fast.upright != null ? fast.upright : null;
+        var lateUp = function () { if (up == null && fastVal && fastVal.upright != null) { up = fastVal.upright; return true; } return false; };
         if (opts.lite && opts.lite.rot != null) up = opts.lite.rot;
         stage('ara');
         var ara = await araLoad, w = L.im.naturalWidth, h = L.im.naturalHeight;
@@ -678,11 +731,16 @@
           try { var d = opts.corners ? { corners: opts.corners } : DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
         }
         if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
-        function attempt(im, rot, tag, box) {
-          return ara.recognize(araCanvas(im, rot, box)).then(function (res) {
+        /* (TASK-0129) صورةٌ ليليّة مشوّشة ⇒ كلّ قراءةٍ بعد إزالة التشويش: Tesseract على الضوضاء بطيءٌ جداً (قراءة التذييل وحدها ~٤٠ث)
+           ويخطئ. يُقاس التشويش مرّةً على أوّل خانةٍ تُقرأ */
+        var noisy = null;
+        function attempt(im, rot, tag, box, dn) {
+          var useDn = !!(dn || noisy === true), acv = araCanvas(im, rot, box, useDn);
+          if (noisy === null) { noisy = noiseOf(acv) > NOISY; out.noise = noisy; if (opts.trace) opts.trace.push({ noise: +noiseOf(acv).toFixed(2) }); }
+          return ara.recognize(acv).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
-            var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null };
-            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') });
+            var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null, dn: useDn };
+            if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') + (dn ? '/dn' : '') });
             return a;
           });
         }
@@ -693,11 +751,16 @@
            ٢) لم تكفِ ⇒ شريط الوسط بعرض الإيصال (الاتّجاه معروف) ⇒ ٣) الصفحة كاملة كما كانت.
            والنصّ المقروء يُطابَق مع فروع المفتي المعروفة (بنك الفروع + أسماؤها البديلة) — لا يُعتمد ما لا يشبه فرعاً. */
         var tagOf = function () { return srcIm === L.im ? 'as-is' : 'color'; };
-        var cellRots = up != null ? [up] : rots;
+        var cellRots = up != null ? [up] : rots, triedCell = {};
         for (var cr = 0; cr < cellRots.length && !(best && best.m && best.m.confident) && !cancelled(); cr++) {
+          if (lateUp()) { if (triedCell[up]) break; cellRots = [up]; cr = 0; }        // اتّجاه الـQR وصل متأخّراً ⇒ هو وحده
+          triedCell[cellRots[cr]] = 1;
           var ac = await attempt(srcIm, cellRots[cr], tagOf(), CELL);
           if (ac.m && ac.m.confident) best = ac;
+          /* (TASK-0129) «المصدر» مقروءٌ هنا (أو الاتّجاه معروف من الـQR) والفرع غير واضح ⇒ الخانة نفسها بعد إزالة التشويش (صورةٌ ليليّة) */
+          else if ((ac.src || up != null) && !ac.dn && !cancelled()) { var ad = await attempt(srcIm, cellRots[cr], tagOf(), CELL, true); if (ad.m && ad.m.confident) best = ad; }
         }
+        if (lateUp() || (up != null && rots[0] !== up && !opts.lite)) rots = [up].concat(rots.filter(function (x) { return x !== up; }));
         if (up != null && !(best && best.m && best.m.confident) && !cancelled()) {
           var ab = await attempt(srcIm, up, tagOf(), BAND);
           if (ab.m && ab.m.confident) best = ab;
@@ -717,27 +780,42 @@
         }
         out.text = best.txt; out.rot = best.rot; out._best = best;
         if (best.m && best.m.confident && opts.onBranch && (receiptType(best.txt).kind === 'mufti' || !otherCompany(best.txt))) { try { opts.onBranch({ key: best.m.key, confident: true, candidates: best.m.candidates || [], text: best.m.text || '' }); } catch (_) {} }
+        if (best.sc < 2 && !(best.m && best.m.confident)) return null;   // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
+        var rk = [];
+        if (!(bcDone && bcDone.number)) {                              // ③ الباركود يكفي (ولا ننتظر محاولاته البطيئة إن لم ينتهِ)
+          if (cancelled()) { out.cancelled = true; return []; }
+          stage('digits');
+          /* (TASK-0129) أوّلاً على النسخة المقصوصة المقوَّمة (srcIm): موضع «أعلى اليمين» نسبةً للإيصال لا للصورة، والأرقام بلا منظورٍ مائل
+             (صورةٌ بمنظورٍ حادّ قُرئ رقمها المطبوع بخانةٍ خاطئة). لم يُوجد فيها ⇒ الصورة الأصلية كما كان (صورٌ منخفضة الدقّة تُقرأ منها أحياناً) */
+          var eng = await getOCR();
+          var digitsOn = async function (im) {
+            var cv = crop(im, [0, 0, 1, 1], best.rot, 2400); if (noisy) cv = median3(cv); cv = enhance(cv, 'contrast');
+            var er = await eng.recognize(cv, {}, { blocks: true }), words = [];
+            ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+              (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
+            out.engText = (out.engText ? out.engText + '\n' : '') + ((er.data && er.data.text) || '');
+            return rankCandidates(words, cv.height, cv.width);
+          };
+          var hasTr = function (l) { return l.some(function (c) { return c.tr && c.number.length >= 6; }); };
+          rk = await digitsOn(srcIm);
+          if (!hasTr(rk) && srcIm !== L.im && !cancelled() && !(bcDone && bcDone.number)) {
+            var seen2 = {}; rk.forEach(function (c) { seen2[c.number] = c; });
+            (await digitsOn(L.im)).forEach(function (c) { if (seen2[c.number]) { seen2[c.number].score = Math.max(seen2[c.number].score, c.score); seen2[c.number].tr = seen2[c.number].tr || c.tr; } else { seen2[c.number] = c; rk.push(c); } });
+            rk.sort(function (a, b) { return b.score - a.score; });
+          }
+          if (rk.some(function (c) { return c.tr; })) printedSeen = true;
+        }
         /* قُرئت خانةٌ أو شريطٌ فقط ⇒ علامات الشركة (اسمها أعلى الإيصال · هواتف مكاتبها في التذييل) لم تُقرأ. قاعدة 18 ت1: لا يُنسب
            إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع.
            (TASK-0127) والصفحة كاملة كذلك: تذييلها فيها مقروءٌ مشوَّشاً فلم يُكشف إيصال شركةٍ أخرى (القدموس) ونُسب للمفتي بسطر «المصدر». */
-        if (best.m && best.m.confident && receiptType(best.txt).kind !== 'mufti') {
-          if (cancelled()) { out.cancelled = true; return []; }       // لم يُتحقّق من الشركة ⇒ يُعلَّم ناقصاً
+        /* (TASK-0129) بعد قراءة الأرقام: تقرأ هواتف التذييل أصلاً ⇒ هاتف مكتبٍ للمفتي فيها يكفي ولا تُقرأ العلامات (~٤ث على هاتفٍ متوسّط) */
+        if (best.m && best.m.confident && receiptType(best.txt + '\n' + (out.engText || '')).kind !== 'mufti') {
+          if (cancelled()) { out.cancelled = true; return rk; }       // لم يُتحقّق من الشركة ⇒ يُعلَّم ناقصاً
           stage('mark');
           var foot = (await attempt(srcIm, best.rot, 'mark', MARK_FOOT)).txt;      // التذييل أوّلاً: هواتف المكاتب أوثق من الاسم المطبوع باهتاً
           out.text = best.txt + '\n' + foot; out.footText = foot;
           if (receiptType(foot).kind !== 'mufti' && !foreignFooter(foot)) out.text += '\n' + (await attempt(srcIm, best.rot, 'mark', MARK_TOP)).txt;
         }
-        if (best.sc < 2 && !(best.m && best.m.confident)) return null;   // لا اتّجاه مقروء ⇒ لا رقم مطبوع موثوق الموضع
-        if (bcDone && bcDone.number) return [];                     // ③ الباركود يكفي (ولا ننتظر محاولاته البطيئة إن لم ينتهِ)
-        if (cancelled()) { out.cancelled = true; return []; }
-        stage('digits');
-        var eng = await getOCR(), cv = enhance(crop(L.im, [0, 0, 1, 1], best.rot, 2400), 'contrast');
-        var er = await eng.recognize(cv, {}, { blocks: true }), words = [];
-        ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
-          (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
-        out.engText = (er.data && er.data.text) || '';
-        var rk = rankCandidates(words, cv.height, cv.width);
-        if (rk.some(function (c) { return c.tr; })) printedSeen = true;
         return rk;
       })();
       textP.catch(function () {});

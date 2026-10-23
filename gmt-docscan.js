@@ -424,11 +424,11 @@
     /* كثافة الحبر داخل رباعيّ big وخارج small (بعيداً عن أضلاع small بهامش) — small=null ⇒ داخل big كلّه */
     function sdq(Q, px, py) { var md = Infinity; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4], L5 = Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1; md = Math.min(md, ((B5[0] - A5[0]) * (py - A5[1]) - (B5[1] - A5[1]) * (px - A5[0])) / L5); } return md; }
     var mgI = Math.max(3, Math.round(Math.min(W, H) * 0.025));
-    function inkIn(bigQ, smallQ) {
-      var Bq = order(bigQ), Sq = smallQ ? order(smallQ) : null, N2 = 0, S2 = 0;
+    function inkIn(bigQ, smallQ, ink) {
+      var Bq = order(bigQ), Sq = smallQ ? order(smallQ) : null, N2 = 0, S2 = 0, I = ink || INK;
       for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
         if (sdq(Bq, xx, yy) < mgI || (Sq && sdq(Sq, xx, yy) > -mgI)) continue;
-        N2++; S2 += INK[yy * W + xx];
+        N2++; S2 += I[yy * W + xx];
       }
       return N2 > 30 ? S2 / N2 : 0;
     }
@@ -486,10 +486,26 @@
     /* (TASK-0125) «ورقةٌ تتجاوز الإطار»: إيصالٌ مصوَّرٌ عن قرب أعرض من الصورة (أو مائلٌ يخرج طرفه) ⇒ ضلعان حقيقيّان قويّان
        والإطار ضلعاها الآخران. لا يُستعمل إلّا بدل «الصورة كاملة»، وبشرط ألّا يكون خارجه حبر (لا قصّ: حبرٌ خارجه ≥١٥٪ من داخله
        ⇒ الأضلاع داخل الورقة ⇒ يُرفض). */
-    function inkOut(Q) {
-      var Qo = order(Q), N2 = 0, S2 = 0;
-      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) { if (sdq(Qo, xx, yy) > -mgI) continue; N2++; S2 += INK[yy * W + xx]; }
+    function inkOut(Q, ink) {
+      var Qo = order(Q), N2 = 0, S2 = 0, I = ink || INK;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) { if (sdq(Qo, xx, yy) > -mgI) continue; N2++; S2 += I[yy * W + xx]; }
       return N2 > 30 ? S2 / N2 : 0;
+    }
+    /* كثافة الحبر في شريطٍ خارج الضلع z مباشرةً (بعرض ٦٪ من الصورة، على امتداد الضلع) */
+    function inkBeyond(Qo, z, ink) {
+      var A1 = Qo[z], B1 = Qo[(z + 1) % 4], cx = (Qo[0][0] + Qo[2][0]) / 2, cy = (Qo[0][1] + Qo[2][1]) / 2, ux = B1[0] - A1[0], uy = B1[1] - A1[1], ln = Math.hypot(ux, uy) || 1, nx = -uy / ln, ny = ux / ln, N2 = 0, S2 = 0, bw = Math.max(6, Math.round(Math.min(W, H) * 0.06));
+      if ((cx - A1[0]) * nx + (cy - A1[1]) * ny > 0) { nx = -nx; ny = -ny; }           // n نحو الخارج
+      for (var f = 0.08; f <= 0.92; f += 0.02) for (var dd = mgI; dd <= mgI + bw; dd += 2) {
+        var px = (A1[0] + ux * f + nx * dd) | 0, py = (A1[1] + uy * f + ny * dd) | 0;
+        if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1) continue;
+        N2++; S2 += ink[py * W + px];
+      }
+      return N2 > 20 ? S2 / N2 : 0;
+    }
+    var INK2 = null;   // حبرٌ بعتبةٍ نسبيّة — حتى في ظلٍّ عميق
+    function inkRel() {
+      if (!INK2) { INK2 = new Uint8Array(n); for (var k3 = 0; k3 < n; k3++) if (Lm[k3] >= 25 && Lm[k3] - L[k3] >= Math.max(12, Lm[k3] * 0.15)) INK2[k3] = 1; }
+      return INK2;
     }
     /* لون الورقة داخل رباعيّ: وسيط السطوع واللون لنقاطٍ بلا حبر */
     function paperColor(Qo) {
@@ -511,7 +527,8 @@
         var px = (A1[0] + ux * f + nx * 3) | 0, py = (A1[1] + uy * f + ny * 3) | 0;
         if (px < 0 || py < 0 || px >= W || py >= H || INK[py * W + px]) continue;
         var k2 = py * W + px, dl = Lb[k2] - col[0], du = Ub[k2] - col[1], dv = Vb[k2] - col[2];
-        cnt++; if (Math.sqrt(dl * dl + 2 * du * du + 2 * dv * dv) < 20) hit++;
+        /* (TASK-0129) ظلٌّ متدرّج يُغمق طرف الورقة حتى ٥٠٪ ⇒ اللون نفسه بسطوعٍ أقلّ: السطوع بوزنٍ أخفّ (ربع) والصبغة كما هي */
+        cnt++; if (Math.sqrt(dl * dl + 2 * du * du + 2 * dv * dv) < 20 || Math.sqrt(dl * dl * 0.09 + 2 * du * du + 2 * dv * dv) < 14) hit++;
       }
       return cnt ? hit / cnt : 0;
     }
@@ -521,8 +538,15 @@
       var strongS = tp.sc.every(function (q) { return q.border || (q.con >= 0.7 && q.sup >= 0.5); });
       if (!strongS) continue;
       pChecks++;
-      var iin = inkIn(tp.q, null);
-      if (!(iin > 0.01 && inkOut(tp.q) < iin * 0.15 && guard(tp.q))) continue;   // وحارس القصّ أيضاً (رموزٌ وشعارٌ خارجه = ورقة)
+      var iin = inkIn(tp.q, null), iout = inkOut(tp.q);
+      /* (TASK-0129) ورقٌ حراريّ رماديّ أغمق من قماشٍ حوله (أو في ظلّ): حبرُه لا يُعدّ «حبراً» بالعتبة المطلقة ⇒ بالعتبة النسبيّة هنا وحدها */
+      if (!(iin > 0.01)) { var ink2 = inkRel(); iin = inkIn(tp.q, null, ink2); iout = inkOut(tp.q, ink2); }
+      if (!(iin > 0.01 && iout < iin * 0.15 && guard(tp.q))) continue;   // وحارس القصّ أيضاً (رموزٌ وشعارٌ خارجه = ورقة)
+      /* (TASK-0129) وخلف كل ضلعٍ حقيقيّ مباشرةً لا حبر: نصّ الإيصال المستمرّ بعد الضلع ⇒ الضلع خطّ ظلٍّ أو طيّة داخل الورقة لا حدّها
+         (الحبر خارج الرباعيّ كلّه يذوب في مساحة الخلفيّة الكبيرة فلا يكشفه) */
+      var Qb = order(tp.q), ir = inkRel(), iin2 = inkIn(tp.q, null, ir), beyond = false;     // نسبيّاً: نصّ الإيصال في الظلّ حبرٌ أيضاً
+      for (var zb = 0; zb < 4 && !beyond; zb++) { if (tp.sc[zb] && tp.sc[zb].border) continue; if (inkBeyond(Qb, zb, ir) > iin2 * 0.3) beyond = true; }
+      if (beyond) continue;
       var Qo3 = order(tp.q), col = paperColor(Qo3), okB = true;
       for (var z3 = 0; z3 < 4 && okB; z3++) {
         var A6 = Qo3[z3], B6 = Qo3[(z3 + 1) % 4], onEdge = (A6[0] <= 2 && B6[0] <= 2) || (A6[0] >= W - 3 && B6[0] >= W - 3) || (A6[1] <= 2 && B6[1] <= 2) || (A6[1] >= H - 3 && B6[1] >= H - 3);
@@ -530,7 +554,46 @@
       }
       if (okB) partial = tp;
     }
-    return { best: best, partial: partial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    /* (TASK-0129) حارسٌ أخير: ضلعٌ (ليس على الإطار) خلفه الورقةُ نفسها بحبرها ⇒ الرباعيّ يقصّ الورقة (ظلّ الهاتف الحادّ على نصف ورقةٍ
+       أكبر من الصورة · طيّة) ⇒ أكبرُ رباعيٍّ يحويه وأضلاعه كلّها كذلك سليمة. «الورقة نفسها» = حبرٌ (نسبيّ: يبقى في الظلّ) بكثافة نصف
+       ما داخله + صبغة الشريط صبغة الورقة (الظلّ يُغمق ولا يغيّر الصبغة؛ خطوط الخشب «حبرٌ» نسبيّ لكن صبغتها غيرها — بلا هذا الشرط
+       أفسد ٣ صورٍ على خشب). لا بديل ⇒ يبقى كما هو (لا أسوأ). */
+    function onFrame(Qo, z) { var A6 = Qo[z], B6 = Qo[(z + 1) % 4]; return (A6[0] <= 2 && B6[0] <= 2) || (A6[0] >= W - 3 && B6[0] >= W - 3) || (A6[1] <= 2 && B6[1] <= 2) || (A6[1] >= H - 3 && B6[1] >= H - 3); }
+    function paperBeyond(Qo, z, col) {
+      var A1 = Qo[z], B1 = Qo[(z + 1) % 4], cx = (Qo[0][0] + Qo[2][0]) / 2, cy = (Qo[0][1] + Qo[2][1]) / 2, ux = B1[0] - A1[0], uy = B1[1] - A1[1], ln = Math.hypot(ux, uy) || 1, nx = -uy / ln, ny = ux / ln, N2 = 0, S2 = 0, bw = Math.max(6, Math.round(Math.min(W, H) * 0.06));
+      if ((cx - A1[0]) * nx + (cy - A1[1]) * ny > 0) { nx = -nx; ny = -ny; }
+      for (var f = 0.08; f <= 0.92; f += 0.04) for (var dd = mgI; dd <= mgI + bw; dd += 3) {
+        var px = (A1[0] + ux * f + nx * dd) | 0, py = (A1[1] + uy * f + ny * dd) | 0;
+        if (px < 1 || py < 1 || px >= W - 1 || py >= H - 1) continue;
+        var k2 = py * W + px; if (INK2[k2]) continue;
+        var du = Ub[k2] - col[1], dv = Vb[k2] - col[2]; N2++; if (Math.sqrt(2 * du * du + 2 * dv * dv) < 12) S2++;
+      }
+      return N2 > 10 ? S2 / N2 : 0;
+    }
+    function cutsInk(Q, k) {
+      var Qo = order(Q), ir = inkRel(), ii = inkIn(Q, null, ir);
+      if (!(ii > 0.01)) return false;
+      var col = null;
+      for (var z7 = 0; z7 < 4; z7++) {
+        if (onFrame(Qo, z7) || inkBeyond(Qo, z7, ir) <= ii * k) continue;
+        col = col || paperColor(Qo);
+        if (paperBeyond(Qo, z7, col) > 0.6) return true;
+      }
+      return false;
+    }
+    function expand(Q) {
+      if (!cutsInk(Q, 0.5)) return null;
+      /* البديل: أكبر (بعد طرح ما يزيده الأوّل من خلفيّة) ويغطّي حبرَ الأوّل كلّه تقريباً (لا «يحويه» هندسيّاً: الأوّل قد يمتدّ فوق
+         الورقة إلى إطار الصورة) وأضلاعه سليمة */
+      var ir = inkRel(), ii = inkIn(Q, null, ir), a0 = polyArea(Q), checks = 0;
+      for (var i8 = 0; i8 < tops.length && i8 < 300 && checks < 12; i8++) {
+        var t8 = tops[i8]; if (t8.nb > 2 || t8.score < 0.3 || t8.area < a0) continue;
+        checks++;
+        if (inkIn(Q, t8.q, ir) < ii * 0.15 && inkIn(t8.q, Q, ir) > ii * 0.3 && !cutsInk(t8.q, 0.3) && guard(t8.q)) return t8.q;
+      }
+      return null;
+    }
+    return { best: best, partial: partial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -690,6 +753,7 @@
     else if ((old = old || detect(id)).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
     if (!rf && lq.partial) { rf = lq.refine(lq.partial.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
+    if (rf) { var ex = lq.expand(rf.q); if (ex) { rf = lq.refine(ex); how += '+expand'; } }
     if (rf) q = grow(order(rf.q), rf.snapped === 4 ? 0.005 : 0.015, W, H);
     else if (old && old.fill) { q = old.corners; how = 'fill'; }
     var norm = function (qq) { return qq.map(function (p) { return [Math.max(0, Math.min(1, p[0] / W)), Math.max(0, Math.min(1, p[1] / H))]; }); };

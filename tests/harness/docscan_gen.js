@@ -44,6 +44,7 @@ window.__mkCase = function (o, tex) {
   if (o.hand) { x.fillStyle = '#c99a83'; x.beginPath(); x.ellipse(o.hand[0] * W, o.hand[1] * H, o.hand[2] * W, o.hand[3] * H, 0.3, 0, 7); x.fill(); }
   if (o.fingers) o.fingers.forEach(f => { x.fillStyle = '#b8846d'; x.beginPath(); x.ellipse(f[0] * W, f[1] * H, 0.05 * W, 0.035 * H, f[2] || 0, 0, 7); x.fill(); });
   if (o.glare) { const g = x.createRadialGradient(o.glare[0] * W, o.glare[1] * H, 0, o.glare[0] * W, o.glare[1] * H, o.glare[2] * W); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
+  if (o.halfShadow) { x.fillStyle = 'rgba(0,0,0,.38)'; x.beginPath(); x.moveTo(0, 0); x.lineTo(W * o.halfShadow[0], 0); x.lineTo(W * o.halfShadow[1], H); x.lineTo(0, H); x.fill(); }   // ظلّ الهاتف على نصف الصورة (حدٌّ حادّ)
   if (o.shade) { const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); x.fillStyle = g; x.fillRect(0, 0, W, H); }
   if (o.noise) { const id2 = x.getImageData(0, 0, W, H), e = id2.data; let s = 3; for (let i = 0; i < e.length; i += 4) { s = (s * 16807) % 2147483647; const n = (s / 2147483647 - 0.5) * o.noise; e[i] += n; e[i + 1] += n; e[i + 2] += n; } x.putImageData(id2, 0, 0); }
   let out = bg;
