@@ -25,7 +25,7 @@ async function idle(pg, ms) { await pg.waitForFunction(() => !_shipReading && !d
   }
   fs.writeFileSync(F.bad, Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4000, 7)]));     // رأس JPEG ثمّ بيانات تالفة
   fs.writeFileSync(F.pdf, '%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF');
-  await pg.evaluate(() => { const R = GMTReceipt.readMufti; window.__reads = []; GMTReceipt.readMufti = function (f, o) { const e = { at: performance.now(), early: !!(o && 'corners' in o), lite: !!(o && o.lite), cancel: o && o.cancel }; __reads.push(e); return R.apply(this, arguments).then(x => { e.done = performance.now(); return x; }); }; });
+  await pg.evaluate(() => { const R = GMTReceipt.readMufti; window.__reads = []; GMTReceipt.readMufti = function (f, o) { const e = { at: performance.now(), early: !!(o && (o.geom || 'corners' in o)), lite: !!(o && o.lite), cancel: o && o.cancel }; __reads.push(e); return R.apply(this, arguments).then(x => { e.done = performance.now(); return x; }); }; });
   const open = async id => { await pg.evaluate(id => openShipModal(id), id); await pg.waitForTimeout(300); await pg.evaluate(() => { __reads.length = 0; }); };
 
   // ١) إلغاء الماسح والقراءة المبكرة جارية ⇒ تُكمَل على الصورة كما هي ولا تُعاد القراءة كاملة

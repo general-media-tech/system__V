@@ -23,7 +23,10 @@
 (function (global) {
   'use strict';
   var doc = global.document;
-  if (!doc || global.GMTDocScan) return;
+  if (global.GMTDocScan) return;
+  /* (TASK-0130) يُحمَّل أيضاً في عامل القراءة (Web Worker — بلا document): المعالجة نفسها (التقويم والتحسين) هناك على OffscreenCanvas
+     فلا تحجز الواجهة؛ الواجهة (open) في الصفحة وحدها */
+  var IN_WORKER = !doc;
 
   var WORK_MAX = 2400;      // أطول ضلعٍ للمعالجة (يكفي للنصّ الصغير والباركود)
   var DET_MAX = 512;        // للاكتشاف فقط (TASK-0123: ٥١٢ — ثابت النتائج بين ٤٤٨ و٥٦٠ وأسرع من ٦٤٠)
@@ -37,7 +40,7 @@
       im.src = url;
     });
   }
-  function canvasOf(w, h) { var c = doc.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+  function canvasOf(w, h) { if (IN_WORKER) return new OffscreenCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); var c = doc.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
   /* الصورة مصغّرةً إلى أطول ضلعٍ max، مع التدوير (٠/٩٠/١٨٠/٢٧٠) */
   function drawScaled(img, max, rot) {
     var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
@@ -532,6 +535,8 @@
       }
       return cnt ? hit / cnt : 0;
     }
+    /* (TASK-0130) يُحسب عند الحاجة فقط (لا رباعيّ آخر صالح) — كان يُحسب دائماً: ~١ث من ~٢ث للاكتشاف على هاتفٍ متوسّط */
+    function findPartial() {
     var partial = null, pChecks = 0;
     for (i = 0; i < tops.length && i < 300 && !partial && pChecks < 10; i++) {
       var tp = tops[i]; if (tp.nb < 1 || tp.nb > 2 || tp.score < 0.3 || tp.area < n * 0.25) continue;   // ورقةٌ مقرّبة كبيرة — لا شريطٌ رفيع
@@ -553,6 +558,8 @@
         if (onEdge && paperAtBorder(Qo3, z3, col) < 0.7) okB = false;
       }
       if (okB) partial = tp;
+    }
+    return partial;
     }
     /* (TASK-0129) حارسٌ أخير: ضلعٌ (ليس على الإطار) خلفه الورقةُ نفسها بحبرها ⇒ الرباعيّ يقصّ الورقة (ظلّ الهاتف الحادّ على نصف ورقةٍ
        أكبر من الصورة · طيّة) ⇒ أكبرُ رباعيٍّ يحويه وأضلاعه كلّها كذلك سليمة. «الورقة نفسها» = حبرٌ (نسبيّ: يبقى في الظلّ) بكثافة نصف
@@ -593,7 +600,25 @@
       }
       return null;
     }
-    return { best: best, partial: partial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    /* (TASK-0130) فصل الورقة عن الخلفيّة: نسبة «الورقيّ» داخل الرباعيّ (بعيداً عن أضلاعه) ونسبته خارجه */
+    function paperSep(Q) {
+      var Qo = order(Q), iN = 0, iP = 0, oN = 0, oP = 0;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
+        var d0 = sdq(Qo, xx, yy), pp = Ps[yy * W + xx] > pth ? 1 : 0;
+        if (d0 > mgI) { iN++; iP += pp; } else if (d0 < -mgI) { oN++; oP += pp; }
+      }
+      return { pin: iN ? iP / iN : 0, pout: oN ? oP / oN : 1, oN: oN };
+    }
+    /* نسبة «الورقيّ» فيما يزيده رباعيٌّ كبير على صغير (بعيداً عن أضلاع الصغير) */
+    function paperIn(bigQ, smallQ) {
+      var Bq = order(bigQ), Sq = order(smallQ), N2 = 0, S2 = 0;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
+        if (sdq(Bq, xx, yy) < mgI || sdq(Sq, xx, yy) > -mgI) continue;
+        N2++; if (Ps[yy * W + xx] > pth) S2++;
+      }
+      return N2 > 30 ? S2 / N2 : 1;
+    }
+    return { best: best, partial: findPartial, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -634,11 +659,15 @@
     var w = Math.max(dist(q[0], q[1]), dist(q[3], q[2])), h = Math.max(dist(q[0], q[3]), dist(q[1], q[2]));
     var k = Math.min(1, (maxSide || 2000) / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
     var Hm = homography(w, h, q); if (!Hm) throw new Error('تعذّر تصحيح المنظور');
+    return sampleWarp(srcCanvas, 0, 0, Hm, 0, 0, w, h);
+  }
+  /* يملأ مستطيل الإخراج [bx, by, w×h] من النسخة المقوَّمة بالتحويل Hm (إخراج ⇒ إحداثيّات «العمل»)، والمصدر قماشٌ مبدؤه (ox, oy) منها */
+  function sampleWarp(srcCanvas, ox, oy, Hm, bx, by, w, h) {
     var S = srcCanvas.getContext('2d').getImageData(0, 0, srcCanvas.width, srcCanvas.height), sd = S.data, SW = S.width, SH = S.height;
     var out = canvasOf(w, h), O = out.getContext('2d').createImageData(w, h), od = O.data;
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
-        var z = Hm[6] * x + Hm[7] * y + 1, sx = (Hm[0] * x + Hm[1] * y + Hm[2]) / z, sy = (Hm[3] * x + Hm[4] * y + Hm[5]) / z;
+        var X9 = x + bx, Y9 = y + by, z = Hm[6] * X9 + Hm[7] * Y9 + 1, sx = (Hm[0] * X9 + Hm[1] * Y9 + Hm[2]) / z - ox, sy = (Hm[3] * X9 + Hm[4] * Y9 + Hm[5]) / z - oy;
         var o = (y * w + x) * 4;
         if (sx < 0 || sy < 0 || sx > SW - 1 || sy > SH - 1) { od[o] = od[o + 1] = od[o + 2] = 255; od[o + 3] = 255; continue; }
         var x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0, x1 = Math.min(SW - 1, x0 + 1), y1 = Math.min(SH - 1, y0 + 1);
@@ -681,48 +710,63 @@
       }
       bg.push(boxBlur(boxBlur(m, sw, sh, 3), sw, sh, 3));
     }
-    function bgAt(ch, X, Y) {
-      var fx = Math.min(sw - 1.001, Math.max(0, X / w * sw - .5)), fy = Math.min(sh - 1.001, Math.max(0, Y / h * sh - .5));
-      var x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, B = bg[ch];
-      return (B[y0 * sw + x0] * (1 - tx) + B[y0 * sw + x0 + 1] * tx) * (1 - ty) + (B[(y0 + 1) * sw + x0] * (1 - tx) + B[(y0 + 1) * sw + x0 + 1] * tx) * ty;
+    /* (TASK-0130) الخلفيّة بالاستيفاء الخطّيّ نفسه لكن بجداول مسبقة (لا حساب نِسَبٍ وقصٍّ لكل بكسل) · ومسارٌ واحدٌ للكسب والتباين معاً
+       (المئين ٢٪ من عيّنة) · والوضوح على البيانات نفسها بلا قراءةٍ ثانية — النتيجة هي نفسها تقريباً و~٣× أسرع (كان ٢ث من «قصّ» على هاتفٍ متوسّط) */
+    var B0 = bg[0], X0 = new Int32Array(w), TX = new Float32Array(w), x9, y9;
+    for (x9 = 0; x9 < w; x9++) { var fx9 = Math.min(sw - 1.001, Math.max(0, x9 / w * sw - .5)); X0[x9] = fx9 | 0; TX[x9] = fx9 - X0[x9]; }
+    function bgRow(Y, out) {
+      var fy = Math.min(sh - 1.001, Math.max(0, Y / h * sh - .5)), y0 = fy | 0, ty = fy - y0, r0 = y0 * sw, r1 = r0 + sw;
+      for (var X = 0; X < w; X++) { var x0 = X0[X], tx = TX[X], a0 = B0[r0 + x0], a1 = B0[r1 + x0]; out[X] = (a0 + (B0[r0 + x0 + 1] - a0) * tx) * (1 - ty) + (a1 + (B0[r1 + x0 + 1] - a1) * tx) * ty; }
     }
-    /* توازن الأبيض: لون الورق = متوسّط ألوان البكسلات القريبة من خلفيّتها (الورق نفسه لا الحبر) */
-    var wr = 0, wg = 0, wb = 0, wn = 0, p;
-    for (p = 0; p < w * h; p += 7) {
-      var q4 = p * 4, l0 = 0.299 * d[q4] + 0.587 * d[q4 + 1] + 0.114 * d[q4 + 2];
-      if (l0 > bgAt(0, p % w, (p / w) | 0) * 0.9) { wr += d[q4]; wg += d[q4 + 1]; wb += d[q4 + 2]; wn++; }
+    var row = new Float32Array(w);
+    /* توازن الأبيض: لون الورق = متوسّط ألوان البكسلات القريبة من خلفيّتها (الورق نفسه لا الحبر) — وعيّنة السطوع بعد الكسب للمئين */
+    var wr = 0, wg = 0, wb = 0, wn = 0, p, Y, X, hist = new Uint32Array(256), hn = 0;
+    for (Y = 0; Y < h; Y += 3) {
+      bgRow(Y, row);
+      for (X = (Y * 7) % 3; X < w; X += 3) {
+        p = (Y * w + X) * 4; var bgv = row[X], l0 = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+        if (l0 > bgv * 0.9) { wr += d[p]; wg += d[p + 1]; wb += d[p + 2]; wn++; }
+      }
     }
     var gr = 1, gg = 1, gb = 1;
     if (wn > 50) { var ml = (wr + wg + wb) / (3 * wn); gr = Math.min(1.35, Math.max(0.75, ml / (wr / wn))); gg = Math.min(1.35, Math.max(0.75, ml / (wg / wn))); gb = Math.min(1.35, Math.max(0.75, ml / (wb / wn))); }
-    var L = new Float32Array(w * h), hist = new Uint32Array(256);
-    for (var Y = 0; Y < h; Y++) for (var X = 0; X < w; X++) {
-      p = (Y * w + X) * 4;
-      var gain = 245 / Math.max(24, bgAt(0, X, Y));
-      var r2 = d[p] * gain * gr, g2 = d[p + 1] * gain * gg, b2 = d[p + 2] * gain * gb;
-      d[p] = r2 > 255 ? 255 : r2; d[p + 1] = g2 > 255 ? 255 : g2; d[p + 2] = b2 > 255 ? 255 : b2;
-      var l = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]; L[Y * w + X] = l; hist[l | 0]++;
+    for (Y = 1; Y < h; Y += 3) {
+      bgRow(Y, row);
+      for (X = 1; X < w; X += 3) {
+        p = (Y * w + X) * 4; var gn = 245 / Math.max(24, row[X]), r1 = d[p] * gn * gr, g1 = d[p + 1] * gn * gg, b1 = d[p + 2] * gn * gb;
+        var l1 = 0.299 * (r1 > 255 ? 255 : r1) + 0.587 * (g1 > 255 ? 255 : g1) + 0.114 * (b1 > 255 ? 255 : b1); hist[l1 | 0]++; hn++;
+      }
     }
     /* شدّ التباين: ٢٪ الأغمق ⇒ حبرٌ أسود، والورق أبيض — بلا قصّ للرماديّ الخفيف */
     var n = w * h, acc = 0, lo = 0;
-    for (var t = 0; t < 256; t++) { acc += hist[t]; if (acc > n * 0.02) { lo = t; break; } }
-    lo = Math.min(lo, 120); var hi = 242, sc = 255 / Math.max(40, hi - lo);
-    if (mode === 'bw') {
+    for (var t = 0; t < 256; t++) { acc += hist[t]; if (acc > hn * 0.02) { lo = t; break; } }
+    lo = Math.min(lo, 120); var hi = 242, sc = 255 / Math.max(40, hi - lo), bw = mode === 'bw', L = bw ? new Uint8Array(n) : null, hist2 = bw ? new Uint32Array(256) : null;
+    for (Y = 0; Y < h; Y++) {
+      bgRow(Y, row);
+      for (X = 0; X < w; X++) {
+        p = (Y * w + X) * 4;
+        var gain = 245 / Math.max(24, row[X]), r2 = d[p] * gain * gr, g2 = d[p + 1] * gain * gg, b2 = d[p + 2] * gain * gb;
+        r2 = r2 > 255 ? 255 : r2; g2 = g2 > 255 ? 255 : g2; b2 = b2 > 255 ? 255 : b2;
+        if (bw) { var lb = (0.299 * r2 + 0.587 * g2 + 0.114 * b2) | 0; L[Y * w + X] = lb; hist2[lb]++; continue; }
+        var u = (r2 - lo) * sc; d[p] = u < 0 ? 0 : u > 255 ? 255 : u;
+        u = (g2 - lo) * sc; d[p + 1] = u < 0 ? 0 : u > 255 ? 255 : u;
+        u = (b2 - lo) * sc; d[p + 2] = u < 0 ? 0 : u > 255 ? 255 : u;
+      }
+    }
+    if (bw) {
       /* الإضاءة صارت متجانسة (الورق ≈ ٢٤٥) ⇒ الحبر ما دون ~٧٠٪ من بياض الورق؛ أوتسو وحده كان ينجرّ نحو
          الطاولة الداكنة والقلم الملوّن فيُسوّد بقعاً كاملة (m01). العتبة بين ١٤٠ و١٧٥ تُبقي النصّ الباهت. */
-      var th = Math.min(175, Math.max(140, otsu(hist, n) + 10));
+      var th = Math.min(175, Math.max(140, otsu(hist2, n) + 10));
       for (p = 0; p < n; p++) { var bwv = L[p] < th ? 0 : 255; d[p * 4] = d[p * 4 + 1] = d[p * 4 + 2] = bwv; }
-    } else {
-      for (p = 0; p < n * 4; p += 4) for (var c2 = 0; c2 < 3; c2++) { var u = (d[p + c2] - lo) * sc; d[p + c2] = u < 0 ? 0 : u > 255 ? 255 : u; }
+    } else if (n < 6e6) {
+      /* وضوحٌ خفيف (unsharp) للنسخة الملوّنة فقط */
+      var bl = new Float32Array(n);
+      for (p = 0; p < n; p++) bl[p] = 0.299 * d[p * 4] + 0.587 * d[p * 4 + 1] + 0.114 * d[p * 4 + 2];
+      var B2 = boxBlur(bl, w, h, 1);
+      for (p = 0; p < n; p++) { var dl = (bl[p] - B2[p]) * 0.6, q4 = p * 4, z2;
+        z2 = d[q4] + dl; d[q4] = z2 < 0 ? 0 : z2 > 255 ? 255 : z2; z2 = d[q4 + 1] + dl; d[q4 + 1] = z2 < 0 ? 0 : z2 > 255 ? 255 : z2; z2 = d[q4 + 2] + dl; d[q4 + 2] = z2 < 0 ? 0 : z2 > 255 ? 255 : z2; }
     }
     ctx.putImageData(I, 0, 0);
-    /* وضوحٌ خفيف (unsharp) للنسخة الملوّنة فقط */
-    if (mode !== 'bw' && w * h < 6e6) {
-      var J = ctx.getImageData(0, 0, w, h), e = J.data, bl = new Float32Array(n);
-      for (p = 0; p < n; p++) bl[p] = 0.299 * e[p * 4] + 0.587 * e[p * 4 + 1] + 0.114 * e[p * 4 + 2];
-      var B2 = boxBlur(bl, w, h, 1);
-      for (p = 0; p < n; p++) { var dl = (bl[p] - B2[p]) * 0.6; for (var c3 = 0; c3 < 3; c3++) { var z2 = e[p * 4 + c3] + dl; e[p * 4 + c3] = z2 < 0 ? 0 : z2 > 255 ? 255 : z2; } }
-      ctx.putImageData(J, 0, 0);
-    }
     return cv;
   }
 
@@ -731,13 +775,37 @@
     var out = warp(work, corners.map(function (p) { return [p[0] * work.width, p[1] * work.height]; }), 2000);
     return enhance(out, mode);
   }
+  /* (TASK-0130) هندسة النسخة المقوَّمة كما يصنعها process (بلا تدوير): أبعادها w×h والتحويل إليها — دون صنعها */
+  function rectGeom(img, corners) {
+    var IW = img.naturalWidth || img.width, IH = img.naturalHeight || img.height, k0 = Math.min(1, WORK_MAX / Math.max(IW, IH));
+    var WW = Math.max(1, Math.round(IW * k0)), WH = Math.max(1, Math.round(IH * k0));
+    var q = corners.map(function (p) { return [p[0] * WW, p[1] * WH]; });
+    var w = Math.max(dist(q[0], q[1]), dist(q[3], q[2])), h = Math.max(dist(q[0], q[3]), dist(q[1], q[2])), k = Math.min(1, 2000 / Math.max(w, h));
+    return { k0: k0, WW: WW, WH: WH, q: q, w: Math.round(w * k), h: Math.round(h * k) };
+  }
+  /* (TASK-0130) جزءٌ واحد من النسخة المقوَّمة المحسَّنة (box = [x0, y0, x1, y1] نِسَبٌ منها · بلا تدوير): يُرسم من الأصل ما يقع تحته
+     فقط ويُقوَّم ويُحسَّن وحده. خانة «المصدر» (≈خُمس الإيصال) تُقرأ لحظة اكتشاف الحدود — كانت تنتظر النسخة الكاملة (~٢ث على هاتفٍ متوسّط) */
+  function processBox(img, corners, box, mode) {
+    var G = rectGeom(img, corners), Hm = homography(G.w, G.h, G.q); if (!Hm) throw new Error('تعذّر تصحيح المنظور');
+    var bx0 = Math.max(0, Math.round(box[0] * G.w)), by0 = Math.max(0, Math.round(box[1] * G.h));
+    var bw = Math.max(8, Math.min(G.w, Math.round(box[2] * G.w)) - bx0), bh = Math.max(8, Math.min(G.h, Math.round(box[3] * G.h)) - by0);
+    var xs = [], ys = [];
+    [[bx0, by0], [bx0 + bw, by0], [bx0 + bw, by0 + bh], [bx0, by0 + bh]].forEach(function (p) {
+      var z = Hm[6] * p[0] + Hm[7] * p[1] + 1; xs.push((Hm[0] * p[0] + Hm[1] * p[1] + Hm[2]) / z); ys.push((Hm[3] * p[0] + Hm[4] * p[1] + Hm[5]) / z);
+    });
+    var sx0 = Math.max(0, Math.floor(Math.min.apply(null, xs)) - 2), sy0 = Math.max(0, Math.floor(Math.min.apply(null, ys)) - 2);
+    var sx1 = Math.min(G.WW, Math.ceil(Math.max.apply(null, xs)) + 3), sy1 = Math.min(G.WH, Math.ceil(Math.max.apply(null, ys)) + 3);
+    var src = canvasOf(Math.max(2, sx1 - sx0), Math.max(2, sy1 - sy0));
+    if (sx1 - sx0 >= 2 && sy1 - sy0 >= 2) src.getContext('2d').drawImage(img, sx0 / G.k0, sy0 / G.k0, (sx1 - sx0) / G.k0, (sy1 - sy0) / G.k0, 0, 0, sx1 - sx0, sy1 - sy0);
+    return enhance(sampleWarp(src, sx0, sy0, Hm, bx0, by0, bw, bh), mode);
+  }
   /* الترتيب (TASK-0123): ① خطوطٌ قويّة على الأضلاع الأربعة (درجة ≥٠٫٧ وأضعف تباين ≥٠٫٧) ⇒ تُعتمد (ما لم تجد الطريقة ①
      منطقةً أكبر بكثير تحويها) ⇒ ② وإلّا الطريقة ① (المنطقة الفاتحة) إن نجحت ⇒ ③ وإلّا خطوطٌ أضعف (≥٠٫٦) إن مرّت بحارس القصّ ⇒ ④ ورقةٌ تملأ الصورة ⇒ الصورة كاملة ⇒ ⑤ الصورة كاملة
      لتحدّدها بيدك. وفي ①②③ يُلصق كل ضلعٍ على الحدّ الحقيقي القريب، والتوسيع للخارج ٠٫٥٪ فقط (كان ١٫٥٪ على حدودٍ تقريبيّة
      فيُبقي شرائط خلفيّة — لقطة المالك) و١٫٥٪ إن بقي ضلعٌ بلا لصق. */
   function detectNorm(img, rot) {
     var c = drawScaled(img, DET_MAX, rot), W = c.width, H = c.height, id = c.getContext('2d').getImageData(0, 0, W, H);
-    var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf;
+    var lq = lineQuad(id), b = lq.best, q = null, how = '', old = null, rf, sep;
     if (b && b.score >= 0.7 && b.minc >= 0.7) {
       rf = lq.refine(b.q); how = 'lines';
       /* لا قصّ: الطريقة ① وجدت منطقةً أكبر بكثير (×١٫٣٥) تحوي الخطوط، وفي الزيادة حبر (نصّ · رموز: كثافة ≥٤٪) ⇒ الخطوط قطعت
@@ -746,13 +814,21 @@
       old = detect(id);
       if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04) { rf = lq.refine(old.corners); how = 'region'; }
     }
+    /* (TASK-0130 · صور المالك الحقيقيّة) إيصالٌ ممسوكٌ باليد فوق خلفيّةٍ داكنة وحدُّه عند إطار الصورة أو بجانبه إيصالٌ آخر: الخطوط وجدت
+       حدوده بدقّة (درجةٌ متوسّطة لأنّ ضلعاً على الإطار) لكنّها رُفضت، فالمنطقة ضمّت الإيصال المجاور (لا قصّ) أو لم يُكتشف شيء.
+       الدليل: داخل الرباعيّ ورقٌ كلّه تقريباً (≥٧٨٪) وخارجه لا ورق تقريباً (≤٧٪) ⇒ هو الورقة كلّها — ما لم تكن المنطقة أدقّ:
+       تُقدَّم الخطوط فقط إن فشلت المنطقة، أو كان ما تزيده المنطقةُ عليها ليس ورقاً (<٥٠٪: خلفيّةٌ وإيصالٌ مجاور) وما تزيده هي ورقاً.
+       خطوطٌ أوسع من الورقة (عروق خشبٍ موازية لحدّها) ⇒ ما تزيده ليس ورقاً ⇒ المنطقة كما كانت */
+    else if (b && b.score >= 0.45 && (sep = lq.paperSep(b.q)).pin >= 0.78 && sep.pout <= 0.07 &&
+             (!(old = detect(id)).ok || old.fill || (lq.paperIn(old.corners, b.q) < 0.5 && lq.paperIn(b.q, old.corners) >= 0.5))) { rf = lq.refine(b.q); how = 'lines'; }
     /* (TASK-0125) اختير الأكبر لأنّ حبر الإيصال يمتدّ إليه ⇒ يُقدَّم على المنطقة التقريبيّة إن كانت داخله وأصغر منه بوضوح (≤٨٥٪)
        وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
     else if (b && b.inky && b.score >= 0.45 && (!(old = detect(id)).ok || old.fill ||
              (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
     else if ((old = old || detect(id)).ok && !old.fill) { rf = lq.refine(old.corners); how = 'region'; }
     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
-    if (!rf && lq.partial) { rf = lq.refine(lq.partial.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
+    var pt = !rf && lq.partial();
+    if (pt) { rf = lq.refine(pt.q); how = 'partial'; }   // (TASK-0125) بدل «الصورة كاملة»: ورقةٌ تتجاوز الإطار
     if (rf) { var ex = lq.expand(rf.q); if (ex) { rf = lq.refine(ex); how += '+expand'; } }
     if (rf) q = grow(order(rf.q), rf.snapped === 4 ? 0.005 : 0.015, W, H);
     else if (old && old.fill) { q = old.corners; how = 'fill'; }
@@ -792,13 +868,40 @@
            لمستَ زاويةً قبلها ⇒ اختيارك يبقى · ضغطتَ «قصّ» قبلها ⇒ يُكمَل الاكتشاف أوّلاً. */
         var rot = 0, det = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]], ok: true, why: '' }, corners = det.corners, mode = 'color', view = 'edit', result = null, busy = false;
         var pending = 0, touched = false, reported = false;
+        /* (TASK-0130) النسخة الممسوحة تُجهَّز في الخلفية لحظة الاكتشاف (وبعد سحب زاوية) وأنت تراجع الزوايا ⇒ «قصّ وتحسين» و«اعتماد» فوريّان
+           إن لم تتغيّر الزوايا، والقراءة المبكرة تأخذها (opts.onProcessed) بدل معالجة الصورة مرّةً ثانية (كانت ٢–٣ث مكرّرة على الهاتف) */
+        var pre = null, preT = 0;
+        function keyOf() { return JSON.stringify([corners, rot, mode]); }
+        function precompute(delay) {
+          if (preT) clearTimeout(preT);
+          preT = setTimeout(function () {
+            preT = 0; if (view !== 'edit' || busy || pending) return;
+            var k = keyOf(); if (pre && pre.key === k) return;
+            var cs = corners.map(function (p) { return p.slice(); }), r0 = rot, m0 = mode;
+            var done = function (P, cv) {
+              P.cv = cv; P.cv.toBlob(function (bl) { P.blob = bl; }, 'image/jpeg', 0.9);
+              if (opts.onProcessed && r0 === 0 && m0 === 'color') { try { opts.onProcessed(cv, cs); } catch (_) {} }
+              return cv;
+            };
+            /* (TASK-0130) معالجٌ في خيطٍ آخر (opts.processor ⇒ وعدٌ بقماش أو null): المعالجة لا تحجز الواجهة ولا قراءة الفرع */
+            if (opts.processor) {
+              var Pw = { key: k, cv: null, blob: null, wait: null }; pre = Pw;
+              var local = function () { return process(img, cs, r0, m0); };
+              Pw.wait = Promise.resolve().then(function () { return opts.processor(cs, r0, m0, img); }).then(function (cv) { return cv || local(); }, local)
+                .then(function (cv) { return done(Pw, cv); }).catch(function () { if (pre === Pw) pre = null; return null; });
+              return;
+            }
+            try { var P = { key: k, cv: null, blob: null }; done(P, process(img, cs, r0, m0)); pre = P; } catch (_) {}
+          }, delay || 30);
+        }
         function detectNow() { if (!pending) return; if (pending > 0) clearTimeout(pending); pending = 0; det = detectNorm(img, rot); if (!touched) corners = det.corners; }
         function detectSoon() {
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
           pending = setTimeout(function () {
             pending = -1; detectNow(); if (view === 'edit') { paintQuad(); say(det.ok ? '' : '⚠️ ' + (det.why || 'لم تُكتشف الورقة') + ' — حدّد الزوايا بيدك.'); }
             /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
-            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners, ok: det.ok, how: det.how }, rot); } catch (_) {} }
+            if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
+            precompute(30);
           }, 60);
         }
         var root = doc.createElement('div'); root.id = 'gds'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
@@ -830,7 +933,7 @@
               el.addEventListener('pointerdown', function (e) {
                 e.preventDefault(); el.setPointerCapture(e.pointerId); touched = true;
                 function mv(ev) { var r = cv.getBoundingClientRect(); corners[k] = [Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height))]; paintQuad(); }
-                function up() { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); }
+                function up() { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); precompute(400); }
                 el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
               });
             })(i, h);
@@ -853,9 +956,25 @@
           handles.forEach(function (h, i) { h.style.left = pts[i][0] + 'px'; h.style.top = pts[i][1] + 'px'; });
         }
         function run() {
-          if (busy) return; detectNow(); busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
+          if (busy) return; detectNow();
+          if (preT) { clearTimeout(preT); preT = 0; }
+          if (pre && pre.key === keyOf() && pre.cv) { result = pre.cv; showResult(); return; }          // جاهزةٌ من الخلفيّة
+          if (pre && pre.key === keyOf() && pre.wait) {                                          // تُجهَّز الآن في الخيط الآخر ⇒ تُنتظر
+            var Pq = pre; busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
+            Pq.wait.then(function (cv) {
+              busy = false; if (view !== 'edit') return;
+              if (cv && pre === Pq) { result = cv; showResult(); } else run();
+            });
+            return;
+          }
+          busy = true; say('جارٍ القصّ وتصحيح المنظور وتحسين الوضوح…');
           setTimeout(function () {
-            try { result = process(img, corners, rot, mode); busy = false; showResult(); }
+            try {
+              result = process(img, corners, rot, mode); busy = false;
+              /* (TASK-0130) «قصّ» قبل أن تُجهَّز النسخة في الخلفية ⇒ هذه هي، والقراءة تأخذها (لا تعالج الصورة مرّةً ثانية) */
+              if (opts.onProcessed && rot === 0 && mode === 'color') { try { opts.onProcessed(result, corners.map(function (p) { return p.slice(); })); } catch (_) {} }
+              showResult();
+            }
             catch (e) { busy = false; say('❌ تعذّرت المعالجة: ' + (e && e.message || e) + ' — جرّب «الصفحة كاملة» أو أعد التصوير.'); }
           }, 30);
         }
@@ -871,7 +990,9 @@
           btn('↩ تعديل الزوايا', function () { showEdit(); });
           btn('📷 إعادة التصوير', retake);
           btn('✅ اعتماد', function () {
-            if (busy) return; busy = true;
+            if (busy) return;
+            if (pre && result === pre.cv && pre.blob) { finish({ original: file, scanned: pre.blob, mode: mode, corners: corners, rotation: rot, width: result.width, height: result.height }); return; }
+            busy = true;
             result.toBlob(function (b) {
               busy = false;
               if (!b) { say('❌ تعذّر حفظ الصورة — أعد المحاولة.'); return; }
@@ -886,5 +1007,5 @@
     });
   }
 
-  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
-})(window);
+  global.GMTDocScan = { open: open, detect: detect, lineQuad: lineQuad, process: process, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
+})(typeof window !== 'undefined' ? window : self);

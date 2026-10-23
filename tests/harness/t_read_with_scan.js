@@ -1,5 +1,7 @@
 // (22 ت1 · TASK-0126) المالك: «شغّل القراءة مع المسح لتوفير الوقت» — القراءة تبدأ لحظة يكتشف الماسح الحدود (والماسح مفتوح)،
 // فيُملأ الرقم والفرع خلفه، وعند «اعتماد» لا قراءة ثانية إن كفت الأولى. وما نقصها يُقرأ من النسخة الممسوحة ويُدمج.
+// (23 ت1 · TASK-0130) المالك: «القراءة تبلش قبل المسح… كل وحدة منفصلة وبيشتغلو سوا» — القراءة تبدأ مع اختيار الصورة قبل ظهور الماسح
+// (الباركود في عامله فوراً)، والفرع يأخذ حدود الورقة من الماسح لحظة اكتشافها (opts.geom).
 const H = require('./h.js'), fs = require('fs');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const src = fs.readFileSync(__dirname + '/t_mufti_read.js', 'utf8');
@@ -16,7 +18,10 @@ const FILE = '/tmp/gmt-out/read-with-scan.jpg', FILE2 = '/tmp/gmt-out/read-with-
       x.fillStyle = '#2b2f36'; x.fillRect(0, 0, c.width, c.height); x.translate(950, 600); x.rotate(0.05); x.drawImage(r, -750, -380); return c.toDataURL('image/jpeg', 0.92).split(',')[1]; }, spec);
     fs.writeFileSync(f, Buffer.from(b64, 'base64'));
   }
-  await pg.evaluate(() => { const R = GMTReceipt.readMufti; window.__reads = []; GMTReceipt.readMufti = function (f, o) { __reads.push({ at: performance.now(), early: !!(o && 'corners' in o), corners: !!(o && o.corners) }); return R.apply(this, arguments); }; });
+  await pg.evaluate(() => { const R = GMTReceipt.readMufti; window.__reads = []; GMTReceipt.readMufti = function (f, o) {
+    const e = { at: performance.now(), early: !!(o && (o.geom || 'corners' in o)), geom: !!(o && o.geom), scannerShown: !!document.getElementById('gds'), gotCorners: null }; __reads.push(e);
+    if (o && o.geom) { const g0 = o.geom; o = Object.assign({}, o, { geom: () => g0().then(g => { e.gotCorners = !!(g && g.corners && g.img); return g; }) }); }
+    return R.call(this, f, o); }; });
 
   await pg.evaluate(id => openShipModal(id), o1.id); await pg.waitForTimeout(500);
   await pg.setInputFiles('#ship-img-input', FILE);
@@ -24,7 +29,7 @@ const FILE = '/tmp/gmt-out/read-with-scan.jpg', FILE2 = '/tmp/gmt-out/read-with-
   // ننتظر والماسح مفتوح — لا ضغط
   let mid = null;
   for (let i = 0; i < 60; i++) { await pg.waitForTimeout(250); mid = await pg.evaluate(() => ({ open: !!document.getElementById('gds'), track: document.getElementById('ship-tracking').value, from: document.getElementById('ship-from').value, src: document.getElementById('ship-from').getAttribute('data-src'), reads: __reads.slice() })); if (mid.track && mid.src === 'receipt') break; }
-  ok(mid.open && mid.reads.length === 1 && mid.reads[0].early && mid.reads[0].corners, 'القراءة بدأت والماسح مفتوح، بزوايا الماسح نفسه: ' + JSON.stringify(mid.reads.map(r => r.early)));
+  ok(mid.open && mid.reads.length === 1 && mid.reads[0].geom && !mid.reads[0].scannerShown && mid.reads[0].gotCorners, 'القراءة بدأت مع اختيار الصورة قبل ظهور الماسح، وأخذت حدود الورقة من الماسح: ' + JSON.stringify(mid.reads.map(r => ({ geom: r.geom, beforeScanner: !r.scannerShown, corners: r.gotCorners }))));
   ok(mid.open && mid.track === '0451400' && mid.from === 'حلب|الفرقان' && mid.src === 'receipt', 'الرقم والفرع مُلئا خلف الماسح قبل «اعتماد»: ' + mid.track + ' · ' + mid.from);
   // الآن: قصّ ⇒ اعتماد ⇒ النتيجة فوراً بلا قراءة ثانية
   await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /قصّ وتحسين/.test(b.textContent)).click());

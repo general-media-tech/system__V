@@ -35,12 +35,17 @@
 (function (global) {
   'use strict';
   if (global.GMTReceipt) return;
+  /* (TASK-0130 · المالك seq 28: «كل وحدة منفصلة وبيشتغلو سوا») الملفّ نفسه يعمل أيضاً «عاملاً» (Web Worker) في خيطٍ مستقلّ:
+     قراءة الباركود هناك لا تحجز الواجهة ولا قراءة الفرع ولا الماسح. في العامل لا document: القماش OffscreenCanvas والصورة ImageBitmap */
+  var IN_WORKER = typeof document === 'undefined';
+  var SELF_URL = (!IN_WORKER && document.currentScript && document.currentScript.src) || '';
 
   var ZX_SRC = 'lib/zxing.min.js?v=20261003';
   var zxP = null;
 
   function loadZX() {
     if (global.ZXing) return Promise.resolve(global.ZXing);
+    if (IN_WORKER) { try { importScripts(ZX_SRC); } catch (e) { return Promise.reject(e); } return global.ZXing ? Promise.resolve(global.ZXing) : Promise.reject(new Error('ZXing لم تُعرَّف')); }
     if (zxP) return zxP;
     zxP = new Promise(function (ok, bad) {
       var s = document.createElement('script');
@@ -53,10 +58,13 @@
   }
 
   function loadImage(file) {
+    if (IN_WORKER) return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(function () { return createImageBitmap(file); })
+      .then(function (bm) { return { im: bm, url: null }; }, function () { var er = new Error('تعذّر فتح الصورة'); er.code = 'bad-image'; throw er; });
     return new Promise(function (ok, bad) {
       var url = URL.createObjectURL(file);
       var im = new Image();
-      im.onload = function () { ok({ im: im, url: url }); };
+      /* (TASK-0130) decode(): فكّ صورة الهاتف الضخمة (١٢ ميغابكسل) في خيط المتصفّح الجانبي — كان أوّل رسمٍ يفكّها على الخيط الرئيسي */
+      im.onload = function () { var go = function () { ok({ im: im, url: url }); }; if (im.decode) im.decode().then(go, go); else go(); };
       im.onerror = function () { URL.revokeObjectURL(url); var er = new Error('تعذّر فتح الصورة'); er.code = 'bad-image'; bad(er); };
       im.src = url;
     });
@@ -105,17 +113,28 @@
     [0, .25, 1, .5]
   ];
 
+  function newCanvas(w, h) {
+    w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h));
+    if (IN_WORKER) return new OffscreenCanvas(w, h);
+    var c = document.createElement('canvas'); c.width = w; c.height = h; return c;
+  }
+  /* مصدر السطوع لـZXing: في الصفحة من القماش مباشرةً (كما كان) · في العامل من بكسلاته (المصدر الأوّل يطلب document) — المعادلة نفسها */
+  function lumSrc(ZX, cv) {
+    if (!IN_WORKER) return new ZX.HTMLCanvasElementLuminanceSource(cv);
+    var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data, g = new Uint8ClampedArray(w * h);
+    for (var i = 0, j = 0; j < g.length; i += 4, j++) g[j] = d[i + 3] === 0 ? 255 : (306 * d[i] + 601 * d[i + 1] + 117 * d[i + 2] + 512) >> 10;
+    return new ZX.RGBLuminanceSource(g, w, h);
+  }
   function crop(im, r, rot, maxSide) {
-    var sw = im.naturalWidth, sh = im.naturalHeight;
+    var sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     var sx = Math.round(sw * r[0]), sy = Math.round(sh * r[1]);
     var cw = Math.max(8, Math.round(sw * r[2])), ch = Math.max(8, Math.round(sh * r[3]));
     var long = Math.max(cw, ch);
     var k = long < 700 ? Math.min(3, 900 / long) : Math.min(1, maxSide / long);   // صغيرةٌ ⇒ كبّرها · ضخمةٌ ⇒ صغّرها
     var w = Math.max(8, Math.round(cw * k)), h = Math.max(8, Math.round(ch * k));
-    var cv = document.createElement('canvas');
     /* الزاوية قد تكون ٩٠/٢٧٠ (تدوير الهاتف) أو ميلاً صغيراً (±٦° ±١٢°): نكبّر القماش ليسع الصورة المُدارة كاملةً */
     var rad = rot * Math.PI / 180, ca = Math.abs(Math.cos(rad)), sa = Math.abs(Math.sin(rad));
-    cv.width = Math.max(8, Math.round(w * ca + h * sa)); cv.height = Math.max(8, Math.round(w * sa + h * ca));
+    var cv = newCanvas(Math.max(8, Math.round(w * ca + h * sa)), Math.max(8, Math.round(w * sa + h * ca)));
     var c = cv.getContext('2d');
     c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
     c.translate(cv.width / 2, cv.height / 2);
@@ -128,7 +147,7 @@
   /* تحسين التباين: رمادي ⇒ مدّ المدرّج بين المئين ٢ و٩٨ (+ اختياريّاً عتبة أوتسو).
      يعالج أكثر ما يُفشل القراءة في صور الهاتف: إضاءةٌ باهتة، ورقٌ رماديّ، حبرٌ حراريّ شاحب. */
   function enhance(src, mode) {
-    var cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height;
+    var cv = newCanvas(src.width, src.height);
     var c = cv.getContext('2d'); c.drawImage(src, 0, 0);
     var img = c.getImageData(0, 0, cv.width, cv.height), d = img.data, n = cv.width * cv.height, i;
     var g = new Uint8ClampedArray(n), hist = new Uint32Array(256);
@@ -223,7 +242,7 @@
     var sx = Math.round(sw * r[0]), sy = Math.round(sh * r[1]);
     var cw = Math.max(8, Math.round(sw * r[2])), ch = Math.max(8, Math.round(sh * r[3]));
     var long = Math.max(cw, ch), k = long < 700 ? Math.min(3, 900 / long) : Math.min(1, maxSide / long);
-    var o = document.createElement('canvas'); o.width = Math.max(8, Math.round(cw * k)); o.height = Math.max(8, Math.round(ch * k));
+    var o = newCanvas(Math.max(8, Math.round(cw * k)), Math.max(8, Math.round(ch * k)));
     var c = o.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, o.width, o.height); c.imageSmoothingEnabled = true;
     c.drawImage(cv, sx, sy, cw, ch, 0, 0, o.width, o.height);
     return o;
@@ -247,7 +266,7 @@
       var txt = null;
       [ZX.HybridBinarizer, ZX.GlobalHistogramBinarizer].forEach(function (B) {
         if (txt) return;
-        try { last = reader.decode(new ZX.BinaryBitmap(new B(new ZX.HTMLCanvasElementLuminanceSource(cv)))); txt = last.getText(); } catch (_) { txt = null; }
+        try { last = reader.decode(new ZX.BinaryBitmap(new B(lumSrc(ZX, cv)))); txt = last.getText(); } catch (_) { txt = null; }
       });
       return txt;
     }
@@ -361,7 +380,7 @@
     for (var r = 0; r < rots.length; r++) {
       var cv = enhance(crop(L.im, [0, 0, 1, 1], rots[r], 2400), 'contrast');
       count.n++;
-      var res = await worker.recognize(cv, {}, { blocks: true });
+      var res = await worker.recognize(toPGM(cv), {}, { blocks: true });
       var words = [];
       ((res.data && res.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
         (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
@@ -381,10 +400,120 @@
   /* يقرأ رقم التتبّع من ملفّ صورة. يُرجع { number, how, raw, all, tries, method, candidates? } أو { number: null, all, tries }.
      الترتيب (يتوقّف عند أوّل رقمٍ صالح): ① ZXing على الصورة وأجزائها ② قارئ المتصفّح الأصلي ③ ZXing بعد تحسين التباين وبميلان
      ④ التعرّف على النصّ OCR (opts.ocr === false يعطّله). opts.onStage('native'|'enhanced'|'ocr') يُخبر الواجهة بالمرحلة. */
+  /* ── (TASK-0130) عامل الباركود: الصفحة تُرسل الملفّ، والعامل يفكّه ويقرأ رموزه في خيطه ويُعيد النتيجة (والسريعة فور ظهورها) ──
+     لا عامل (متصفّحٌ قديم بلا OffscreenCanvas · فشل تحميله) ⇒ null ⇒ القراءة في الصفحة كما كانت تماماً. */
+  var bcW = null, bcWBad = false, bcSeq = 0, bcJobs = {};
+  function bcWorker() {
+    if (bcW || bcWBad) return bcW;
+    try {
+      if (IN_WORKER || !SELF_URL || typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined' ||
+          !new OffscreenCanvas(1, 1).getContext('2d')) { bcWBad = true; return null; }
+      bcW = new Worker(SELF_URL);
+      bcW.onmessage = function (e) { var m = e.data || {}, j = bcJobs[m.id]; if (j) j(m); };
+      bcW.onerror = function () {                                  // تعذّر تحميله ⇒ كل ما ينتظره يعود للصفحة، ولا عامل بعدها
+        bcWBad = true; try { bcW.terminate(); } catch (_) {} bcW = null;
+        Object.keys(bcJobs).forEach(function (k) { var j = bcJobs[k]; if (j) j({ kind: 'error', res: null }); });
+      };
+    } catch (_) { bcWBad = true; bcW = null; }
+    return bcW;
+  }
+  /* «جلسة» لكل صورة: العامل يفكّها مرّةً واحدة ويُبقيها لمهامّها كلّها (الباركود · الخانات · النسخة الكاملة) */
+  var sidMap = typeof WeakMap !== 'undefined' ? new WeakMap() : null, sidN = 0;
+  function sidOf(file) { if (!sidMap || !file || typeof file !== 'object') return 0; var v = sidMap.get(file); if (!v) { v = ++sidN; sidMap.set(file, v); } return v; }
+  function dsURL() { try { var t = document.querySelector('script[src*="gmt-docscan.js"]'); return t ? t.src : ''; } catch (_) { return ''; } }
+  /* مهمّةٌ في العامل ⇒ وعدٌ بنتيجتها (null إن لم يوجد عامل أو فشلت — فيعمل المستدعي في الصفحة كما كان) */
+  function wcall(msg, opts, transfer) {
+    opts = opts || {};
+    var W = bcWorker(); if (!W) return Promise.resolve(null);
+    return new Promise(function (ok) {
+      var id = ++bcSeq, iv = 0, done = false;
+      function end(v) { if (done) return; done = true; delete bcJobs[id]; if (iv) clearInterval(iv); ok(v); }
+      bcJobs[id] = function (m) {
+        if (m.kind === 'fast') { try { if (opts.onFast) opts.onFast(m.res); } catch (_) {} }
+        else if (m.kind === 'stage') { try { if (opts.onStage) opts.onStage(m.res); } catch (_) {} }
+        else end(m.kind === 'done' ? m.res : null);
+      };
+      if (opts.stop) iv = setInterval(function () { if (opts.stop()) { try { W.postMessage({ cmd: 'stop', id: id }); } catch (_) {} clearInterval(iv); iv = 0; } }, 100);
+      msg.id = id;
+      try { W.postMessage(msg, transfer || []); } catch (_) { end(null); }
+    });
+  }
+  function viaWorker(file, opts) {
+    return wcall({ cmd: 'read', sid: sidOf(file), file: file, opts: { budgetMs: opts.budgetMs, quick: !!opts.quick, maxSide: opts.maxSide } }, opts);
+  }
+  /* (TASK-0130) النسخة المقوَّمة الكاملة في العامل (للماسح: «قصّ وتحسين» · وللقراءة) ⇒ قماشٌ في الصفحة أو null */
+  function processIn(file, corners, rot, mode, dims) {
+    var ds = dsURL(); if (!ds) return Promise.resolve(null);
+    return wcall({ cmd: 'process', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, mode: mode || 'color', ds: ds, dims: dims || null }).then(function (bm) {
+      if (!bm) return null;
+      var c = newCanvas(bm.width, bm.height); c.getContext('2d').drawImage(bm, 0, 0); try { bm.close(); } catch (_) {}
+      return c;
+    }, function () { return null; });
+  }
+  /* (TASK-0130) خانةٌ للقراءة العربية جاهزةً من العامل (مقوَّمة · مُدارة قائمة · مكبَّرة · رماديّة · بلا خطوط الجدول) ⇒ { width, height, g, pgm } أو null */
+  function boxIn(file, corners, rot, box, dn, dims, mode) {
+    var ds = dsURL(); if (!ds) return Promise.resolve(null);
+    return wcall({ cmd: 'box', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, box: box, dn: !!dn, ds: ds, dims: dims || null, mode: mode || 'color' }).then(function (r) {
+      if (!r || !r.pgm) return null;
+      return { width: r.width, height: r.height, pgm: r.pgm, g: r.pgm.subarray(r.pgm.length - r.width * r.height) };
+    }, function () { return null; });
+  }
+  if (IN_WORKER) {
+    var wJobs = {}, sess = {}, sessOrder = [];
+    var sessBm = function (sid, file) {
+      var S = sid && sess[sid];
+      if (S) return S;
+      S = loadImage(file).then(function (L) { return L.im; });
+      if (sid) { sess[sid] = S; sessOrder.push(sid); while (sessOrder.length > 2) delete sess[sessOrder.shift()]; }
+      return S;
+    };
+    var needDS = function (url) { if (!global.GMTDocScan && url) importScripts(url); if (!global.GMTDocScan) throw new Error('no docscan'); return global.GMTDocScan; };
+    global.onmessage = function (e) {
+      var m = e.data || {};
+      if (m.cmd === 'stop') { if (wJobs[m.id]) wJobs[m.id].stop = true; return; }
+      if (m.cmd === 'warm') { loadZX().catch(function () {}); return; }
+      var post = function (kind, res, tr) { try { global.postMessage({ id: m.id, kind: kind, res: res }, tr || []); } catch (_) {} };
+      /* صورة العامل بأبعادٍ غير أبعاد صورة الصفحة (اتّجاه EXIF طُبّق في واحدةٍ دون الأخرى) ⇒ الزوايا لا تنطبق ⇒ ترفض فتعمل الصفحة */
+      var sameDims = function (bm) { if (m.dims && (Math.abs(bm.width - m.dims[0]) > 2 || Math.abs(bm.height - m.dims[1]) > 2)) throw new Error('dims'); return bm; };
+      if (m.cmd === 'process') {
+        sessBm(m.sid, m.file).then(sameDims).then(function (bm) {
+          var cv = needDS(m.ds).process(bm, m.corners, m.rot, m.mode), out = cv.transferToImageBitmap(); post('done', out, [out]);
+        }).catch(function () { post('error', null); });
+        return;
+      }
+      if (m.cmd === 'box') {
+        sessBm(m.sid, m.file).then(sameDims).then(function (bm) {
+          var o = araBox(needDS(m.ds), bm, m.corners, m.rot, m.box, m.dn, null, m.mode); post('done', { width: o.width, height: o.height, pgm: o.pgm }, [o.pgm.buffer]);
+        }).catch(function () { post('error', null); });
+        return;
+      }
+      if (m.cmd !== 'read') return;
+      var J = wJobs[m.id] = { stop: false };
+      var o = m.opts || {};
+      readTracking(m.file, { ocr: false, sid: m.sid, budgetMs: o.budgetMs, quick: o.quick, maxSide: o.maxSide,
+        onFast: function (f) { post('fast', f); }, onStage: function (k) { post('stage', k); }, stop: function () { return J.stop; } })
+        .then(function (r) { post('done', r); }, function () { post('error', null); })
+        .then(function () { delete wJobs[m.id]; });
+    };
+  }
+
   async function readTracking(file, opts) {
     opts = opts || {};
+    /* (TASK-0130) في العامل إن أمكن (opts.worker === false ⇒ في الصفحة). التعرّف على النصّ (OCR) يبقى في الصفحة: له عامله أصلاً */
+    if (!IN_WORKER && opts.worker !== false) {
+      var wr = await viaWorker(file, opts);
+      if (wr) {
+        if (!wr.number && opts.ocr !== false && !(opts.stop && opts.stop())) {
+          var Lw = await loadImage(file), cw = { n: wr.tries || 0 };
+          try { try { if (opts.onStage) opts.onStage('ocr'); } catch (_) {} var ob = await ocrPass(Lw, opts, cw); if (ob) { wr = { number: ob.number, how: ob.how, raw: ob.raw, method: ob.method, candidates: ob.candidates, upright: null, all: wr.all || [], tries: cw.n }; } }
+          catch (e) { console.warn('[GMT] تعذّر التعرّف على النصّ:', e && e.message); }
+          finally { try { URL.revokeObjectURL(Lw.url); } catch (_) {} }
+        }
+        return wr;
+      }
+    }
     var ZX = await loadZX();
-    var L = await loadImage(file);
+    var L = (IN_WORKER && opts.sid) ? { im: await sessBm(opts.sid, file), url: null } : await loadImage(file);
     var all = [], count = { n: 0 }, best = null, seen = {};
     function push(t) { if (t && !seen[t]) { seen[t] = 1; all.push(t); } }
     function stage(k) { try { if (opts.onStage) opts.onStage(k); } catch (_) {} }
@@ -399,7 +528,7 @@
         [ZX.HybridBinarizer, ZX.GlobalHistogramBinarizer].forEach(function (B) {
           if (txt) return;
           try {
-            var bm = new ZX.BinaryBitmap(new B(new ZX.HTMLCanvasElementLuminanceSource(cv)));
+            var bm = new ZX.BinaryBitmap(new B(lumSrc(ZX, cv)));
             var res = reader.decode(bm);
             txt = res && res.getText ? res.getText() : null;
             if (txt) last = res;
@@ -407,7 +536,7 @@
         });
         return txt;
       };
-      for (var i = 0; i < REGIONS.length && !best; i++) {
+      for (var i = 0; i < REGIONS.length && !best && !(opts.stop && opts.stop()); i++) {
         var rots = (i === 0) ? [0, 90, 270] : [0, 90];
         for (var j = 0; j < rots.length && !best; j++) {
           var cv = crop(L.im, REGIONS[i], rots[j], opts.maxSide || 1800);
@@ -500,9 +629,15 @@
   /* تذييلٌ فيه رقم هاتفٍ مقروء (٩ أرقام فأكثر) وليس فيه أيٌّ من هواتف مكاتب المفتي ولا اسمها ⇒ إيصال شركةٍ أخرى */
   function foreignFooter(foot) {
     if (!foot || /مفٮٮ/.test(skel(foot)) || /mufti/i.test(foot)) return false;
-    var digits = latin(foot).replace(/\D+/g, '|');
-    if (!/\d{9,}/.test(digits)) return false;
-    return !muftiPhones().some(function (p) { return digits.indexOf(p) !== -1; });
+    var runs = latin(foot).match(/\d{9,}/g);
+    if (!runs) return false;
+    /* (TASK-0130 · صورةٌ حقيقيّة) هاتف المكتب مقروءٌ بخانةٍ ناقصة أو خاطئة كان يكفي ليُعدّ الإيصال لشركةٍ أخرى فيُسحب فرعه ⇒
+       رقمٌ على بُعد خانتين من هاتفٍ للمفتي هو هاتفه (هواتف شركةٍ أخرى تختلف في خاناتٍ كثيرة) */
+    var phones = muftiPhones();
+    return !runs.some(function (r) {
+      var d = r.replace(/^0/, '');
+      return phones.some(function (p) { return d.indexOf(p) !== -1 || lev(d, p) <= 2; });
+    });
   }
   function otherCompany(text, foot) {
     if (foreignFooter(foot)) return true;
@@ -552,10 +687,18 @@
   }
   /* أفضل تشابه بين اسمٍ (كلمة أو أكثر) وأيّ مقطعٍ متتالٍ من كلمات النصّ */
   function bestNgram(toks, target) {
-    var t = noAl(skel(target).replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim()), tw = t.split(' ').length, best = 0;
+    var t0 = skel(target).replace(/[0-9]+/g, '').replace(/\s+/g, ' ').trim(), t = noAl(t0), tw = t.split(' ').length, best = 0;
     if (!t) return 0;
+    /* (TASK-0130 · صورتان حقيقيّتان) اسمٌ قصير جداً بلا «ال» («الباب» ⇒ ٮاٮ) يطابق تماماً بقيّة كلمةٍ أطول: «السريان» قُرئت «السرر يان»
+       فطابقت «يان» (ٮاٮ) «الباب» واعتُمدت خطأً. ثلاثة أحرفٍ بلا نقاط ليست دليلاً ⇒ اسمٌ كهذا يُقارن بـ«ال» (الكلمة كما تُكتب) */
+    var keepAl = t0 !== t && t.replace(/\s+/g, '').length <= 3, f = keepAl ? function (x) { return x; } : noAl, tt = keepAl ? t0 : t;
     for (var n = Math.max(1, tw - 1); n <= tw + 1; n++) {
-      for (var i = 0; i + n <= toks.length; i++) best = Math.max(best, sim(noAl(toks.slice(i, i + n).join(' ')), t));
+      for (var i = 0; i + n <= toks.length; i++) {
+        var g = toks.slice(i, i + n);
+        best = Math.max(best, sim(f(g.join(' ')), tt));
+        /* وكلمةٌ قسمها القارئ اثنتين («السرر يان») ⇒ تُقارن ملتصقةً أيضاً */
+        if (n >= 2) best = Math.max(best, sim(g.map(f).join(''), tt.replace(/\s+/g, '')));
+      }
     }
     return best;
   }
@@ -626,28 +769,34 @@
   }
   /* (TASK-0129) خطوط الجدول (أفقيّةٌ وعموديّة طويلة) تُربك تقسيم الصفحة في Tesseract: خانة «المصدر» واضحةٌ تماماً داخل إطارها
      ولا يقرؤها (يقرأ عمود المرسَل إليه بدلها) ⇒ تُمحى الخطوط الطويلة (≥٢٥٪ من العرض · ≥٦٠٪ من الارتفاع) قبل القراءة */
-  function unrule(cv) {
-    var w = cv.width, h = cv.height, c = cv.getContext('2d'), id = c.getImageData(0, 0, w, h), d = id.data, x, y, i, run;
+  /* (TASK-0130) صورة القراءة العربية «رماديّةٌ خام» { width, height, g } (لا قماش): تُقرأ بكسلاتها مرّةً واحدة، وتُمحى خطوطها ويُقاس
+     تشويشها عليها، وتُعطى للقارئ PGM بلا نسخ (pgm يحمل الترويسة قبلها) — كانت ٤ قراءاتٍ وكتابتان لقماشٍ من ٢ ميغابكسل (~١٫٥ث على هاتفٍ متوسّط) */
+  function grayOf(w, h) {
+    var head = 'P5\n' + w + ' ' + h + '\n255\n', pgm = new Uint8Array(head.length + w * h);
+    for (var i = 0; i < head.length; i++) pgm[i] = head.charCodeAt(i);
+    return { width: w, height: h, g: pgm.subarray(head.length), pgm: pgm };
+  }
+  function unrule(o) {
+    var w = o.width, h = o.height, d = o.g, x, y, i, run;
     /* «داكن» نسبةً لسطوع الورقة (وسيط الخانة): في إضاءةٍ خافتة الورقة نفسها أغمق من أيّ عتبةٍ ثابتة فكان النصّ كلّه يُمحى */
     var hist = new Uint32Array(256), tot = w * h, acc = 0, med = 255;
-    for (i = 0; i < tot; i++) hist[d[i * 4]]++;
+    for (i = 0; i < tot; i++) hist[d[i]]++;
     for (i = 0; i < 256; i++) { acc += hist[i]; if (acc >= tot / 2) { med = i; break; } }
-    var TH = Math.min(140, med * 0.55), dark = function (q) { return d[q * 4] < TH; }, wipe = [], wiped = 0;
-    for (y = 0; y < h; y++) { run = 0; for (x = 0; x <= w; x++) { if (x < w && dark(y * w + x)) run++; else { if (run >= w * 0.25) wipe.push([y * w + x - run, 1, run]); run = 0; } } }
-    for (x = 0; x < w; x++) { run = 0; for (y = 0; y <= h; y++) { if (y < h && dark(y * w + x)) run++; else { if (run >= h * 0.6) wipe.push([(y - run) * w + x, w, run]); run = 0; } } }
+    var TH = Math.min(140, med * 0.55), wipe = [], wiped = 0;
+    for (y = 0; y < h; y++) { run = 0; for (x = 0; x <= w; x++) { if (x < w && d[y * w + x] < TH) run++; else { if (run >= w * 0.25) wipe.push([y * w + x - run, 1, run]); run = 0; } } }
+    for (x = 0; x < w; x++) { run = 0; for (y = 0; y <= h; y++) { if (y < h && d[y * w + x] < TH) run++; else { if (run >= h * 0.6) wipe.push([(y - run) * w + x, w, run]); run = 0; } } }
     wipe.forEach(function (r) { wiped += r[2]; });
-    if (!wipe.length || wiped > tot * 0.08) return cv;              // خطوطٌ أكثر من ٨٪ من الخانة ⇒ ليست خطوط جدول (ظلامٌ/ظلّ) ⇒ لا تُمسّ
-    wipe.forEach(function (r) { for (i = 0; i < r[2]; i++) { var q = (r[0] + i * r[1]) * 4; d[q] = d[q + 1] = d[q + 2] = med; } });
-    c.putImageData(id, 0, 0);
-    return cv;
+    if (!wipe.length || wiped > tot * 0.08) return o;               // خطوطٌ أكثر من ٨٪ من الخانة ⇒ ليست خطوط جدول (ظلامٌ/ظلّ) ⇒ لا تُمسّ
+    wipe.forEach(function (r) { for (i = 0; i < r[2]; i++) d[r[0] + i * r[1]] = med; });
+    return o;
   }
   /* مستوى التشويش: متوسّط |السطوع − وسيط جواره ٣×٣| على عيّنةٍ من النقاط — صورةٌ نظيفة ~١–٣ · ليليّة مشوّشة أعلى بكثير */
-  function noiseOf(cv) {
-    var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data, p = new Uint8Array(9), t, sum = 0, cnt = 0;
+  function noiseOf(o) {
+    var w = o.width, h = o.height, d = o.g, p = new Uint8Array(9), t, sum = 0, cnt = 0;
     function op(a, b) { if (p[a] > p[b]) { t = p[a]; p[a] = p[b]; p[b] = t; } }
     var step = Math.max(1, Math.floor(Math.sqrt(w * h / 20000)));
     for (var y = 1; y < h - 1; y += step) for (var x = 1; x < w - 1; x += step) {
-      var k = 0; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) p[k++] = d[((y + dy) * w + x + dx) * 4];
+      var k = 0; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) p[k++] = d[(y + dy) * w + x + dx];
       var g = p[4];
       op(1, 2); op(4, 5); op(7, 8); op(0, 1); op(3, 4); op(6, 7); op(1, 2); op(4, 5); op(7, 8); op(0, 3); op(5, 8); op(4, 7); op(3, 6); op(1, 4); op(2, 5); op(4, 7); op(4, 2); op(6, 4); op(4, 2);
       sum += Math.abs(g - p[4]); cnt++;
@@ -655,29 +804,71 @@
     return cnt ? sum / cnt : 0;
   }
   var NOISY = 2.5;   // عتبة «مشوّشة» لمتوسّط |السطوع − الوسيط| على خانةٍ مكبَّرة: إيصالات المالك الحقيقية ٠٫٢–٠٫٨ · ليليّةٌ مُصطنعة ٣–٦٫٥
+  /* (TASK-0130) خانةٌ في الإيصال القائم (بعد التدوير rot) ⇐ الخانة نفسها في النسخة المقوَّمة قبل التدوير */
+  function rotBox(rot, b) {
+    return rot === 90 ? [b[1], 1 - b[2], b[3], 1 - b[0]] : rot === 180 ? [1 - b[2], 1 - b[3], 1 - b[0], 1 - b[1]] :
+           rot === 270 ? [1 - b[3], b[0], 1 - b[1], b[2]] : b;
+  }
+  function rotCanvas(c, rot) {
+    if (!rot) return c;
+    var side = rot === 90 || rot === 270, o = newCanvas(side ? c.height : c.width, side ? c.width : c.height), x = o.getContext('2d');
+    x.translate(o.width / 2, o.height / 2); x.rotate(rot * Math.PI / 180); x.drawImage(c, -c.width / 2, -c.height / 2);
+    return o;
+  }
+  var ARA_MARGIN = 0;
+  /* (TASK-0130) خانةٌ من الإيصال القائم مباشرةً من الأصل وزوايا الماسح: تُقوَّم وتُحسَّن وحدها ثمّ تُدار وتُكبَّر بمقياس المسار الكامل نفسه */
+  function araBox(DS, img, corners, rot, box, dn, margin, mode) {
+    mode = mode === 'bw' ? 'bw' : 'color';
+    var max = 2400, G = DS.rectGeom(img, corners), L0 = Math.max(G.w, G.h), sF = L0 < 700 ? Math.min(3, 900 / L0) : Math.min(1, max / L0);
+    var rb = rotBox(rot, box), m = margin == null ? ARA_MARGIN : margin, pb;
+    if (m > 0) {
+      /* التحسين يقدّر إضاءة الخلفيّة من جوار كل نقطة: خانةٌ وحدها تخسر جوار أطرافها فتختلف عن قصّ النسخة الكاملة (وقراءتها معها).
+         تُحسَّن الخانة بهامشٍ حولها ثمّ يُقصّ الهامش */
+      var eb = [Math.max(0, rb[0] - m), Math.max(0, rb[1] - m), Math.min(1, rb[2] + m), Math.min(1, rb[3] + m)], pe = DS.processBox(img, corners, eb, mode);
+      var sx = pe.width / (eb[2] - eb[0]), sy = pe.height / (eb[3] - eb[1]), ox = Math.round((rb[0] - eb[0]) * sx), oy = Math.round((rb[1] - eb[1]) * sy);
+      pb = newCanvas(Math.max(8, Math.round((rb[2] - rb[0]) * sx)), Math.max(8, Math.round((rb[3] - rb[1]) * sy)));
+      pb.getContext('2d').drawImage(pe, ox, oy, pb.width, pb.height, 0, 0, pb.width, pb.height);
+    } else pb = DS.processBox(img, corners, rb, mode);
+    var cv0 = rotCanvas(pb, rot);
+    if (dn) cv0 = median3(cv0);
+    return araFinish(cv0, sF * Math.min(2, max / (sF * Math.max(cv0.width, cv0.height))), true);
+  }
   function araCanvas(im, rot, box, dn) {
     var max = 2400, cv0 = crop(im, [0, 0, 1, 1], rot, max);
     if (box) {                                                   // جزءٌ فقط من الإيصال القائم [x0, y0, x1, y1] (نِسَب) — حيث سطر «المصدر»
       var x0 = Math.round(cv0.width * box[0]), y0 = Math.round(cv0.height * box[1]);
-      var bw = Math.max(8, Math.round(cv0.width * (box[2] - box[0]))), bh = Math.max(8, Math.round(cv0.height * (box[3] - box[1]))), bc = document.createElement('canvas');
-      bc.width = bw; bc.height = bh; bc.getContext('2d').drawImage(cv0, x0, y0, bw, bh, 0, 0, bw, bh);
+      var bw = Math.max(8, Math.round(cv0.width * (box[2] - box[0]))), bh = Math.max(8, Math.round(cv0.height * (box[3] - box[1]))), bc = newCanvas(bw, bh);
+      bc.getContext('2d').drawImage(cv0, x0, y0, bw, bh, 0, 0, bw, bh);
       cv0 = bc;
     }
     if (dn) cv0 = median3(cv0);
-    var k = Math.min(2, max / Math.max(cv0.width, cv0.height)), cv = document.createElement('canvas');
-    cv.width = Math.round(cv0.width * k); cv.height = Math.round(cv0.height * k);
+    return araFinish(cv0, Math.min(2, max / Math.max(cv0.width, cv0.height)), !!box);
+  }
+  function araFinish(cv0, k, isBox) {
+    var cv = newCanvas(cv0.width * k, cv0.height * k);
     var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv0, 0, 0, cv.width, cv.height);
-    var id = c.getImageData(0, 0, cv.width, cv.height), d = id.data;
-    for (var i = 0; i < d.length; i += 4) { var v = Math.max(d[i], d[i + 1], d[i + 2]); d[i] = d[i + 1] = d[i + 2] = v; }
-    c.putImageData(id, 0, 0);
-    return box ? unrule(cv) : cv;
+    var d = c.getImageData(0, 0, cv.width, cv.height).data, o = grayOf(cv.width, cv.height), g = o.g;
+    for (var i = 0, j = 0; j < g.length; i += 4, j++) { var a = d[i], b = d[i + 1], e = d[i + 2]; g[j] = a > b ? (a > e ? a : e) : (b > e ? b : e); }
+    return isBox ? unrule(o) : o;
+  }
+  /* (TASK-0130) صورةٌ رماديّة خام (PGM) لقارئ النصّ بدل القماش: المكتبة كانت ترمّز القماش PNG على الخيط الرئيسي ثمّ تفكّه في عاملها
+     (~نصف ثانية لكل قراءة على هاتفٍ متوسّط) — النصّ المقروء هو نفسه حرفاً بحرف */
+  function toPGM(cv) {
+    if (cv.pgm) return cv.pgm;
+    var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data, head = 'P5\n' + w + ' ' + h + '\n255\n', g = new Uint8Array(head.length + w * h), i, j;
+    for (i = 0; i < head.length; i++) g[i] = head.charCodeAt(i);
+    for (i = 0, j = head.length; i < d.length; i += 4, j++) g[j] = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+    return g;
   }
 
   /* يقرأ إيصال المفتي. file = الصورة الممسوحة (أو الأصل) · opts.original = الأصل (احتياطٌ للباركود) · opts.onStage(k) */
   async function readMufti(file, opts) {
     opts = opts || {};
     var t0 = Date.now(), stage = function (k) { try { if (opts.onStage) opts.onStage(k); } catch (_) {} };
-    var L = await loadImage(file), out = { type: null, barcode: null, printed: null, tracking: null, branch: null, text: '', rot: 0 };
+    /* (TASK-0130) opts.geom() ⇒ وعدٌ بنسخة الماسح المقوَّمة { cv, corners } (أو null): القراءة تبدأ مع اختيار الصورة قبل الماسح، والفرع
+       ينتظر نسخته بدل معالجة الصورة مرّةً ثانية. معها لا تُحمَّل الصورة الأصليّة في الصفحة إلّا عند الحاجة (فكٌّ ثانٍ لـ١٢ ميغابكسل) */
+    var Lp = null, getL = function () { return Lp || (Lp = loadImage(file)); };
+    var L = opts.geom ? null : await getL(), out = { type: null, barcode: null, printed: null, tracking: null, branch: null, text: '', rot: 0 };
     try {
       /* (22 ت1 · TASK-0118 · المالك: «عم يطوّل كثير… طلبت فقط رقم التتبع والفرع المصدر»)
          ① الباركود أوّلاً وسريعاً، ورقمه يُبلَّغ للواجهة فوراً (opts.onTracking) دون انتظار قراءة النصّ.
@@ -691,29 +882,72 @@
            المحاولات البطيئة قطّ حيث فشلت السريعة — كانت تُبقي «جارٍ القراءة» ظاهرةً بعد ظهور الفرع بعشرين ثانية. */
         /* (TASK-0127) opts.lite = { text, rot }: قراءةٌ ثانية بعد مبكرةٍ اكتملت على الصورة نفسها ⇒ الباركود السريع فقط (بلا التحسين
            ولا الأصل)، والنصّ (إن نقص الفرع) في اتّجاهها المعروف وحده — فرصةٌ ثانية رخيصة بدل إعادة كل شيء (كانت ٢٥–٣٠ث) */
-        var bc = await readTracking(file, { ocr: false, quick: !!opts.lite, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: function () { return printedSeen || cancelled(); } });
+        /* (TASK-0130) opts.numDone() ⇒ الرقم وُجد من مصدرٍ آخر (باركود النسخة الممسوحة) فتتوقّف محاولات الأصل البطيئة */
+        /* (TASK-0130) الرقم المطبوع قُرئ ⇒ تُمهَل محاولات الباركود ٣ث فقط (في عاملها: لا تؤخّر شيئاً): إن وجدته طابقا (تحقّقٌ يُملأ تلقائياً)
+           بدل «مطبوعٌ فقط» ينتظر ضغطتك — كانت تتوقّف فوراً */
+        var numDone = function () { return (printedSeen && Date.now() - printedAt > 3000) || cancelled() || !!(opts.numDone && opts.numDone()); };
+        var bc = await readTracking(file, { ocr: false, quick: !!opts.lite, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: numDone });
         fastDone(null);
         if (opts.lite) { if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} } return bc; }
         /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
-        if (!bc.number && !printedSeen && !cancelled() && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: function () { return printedSeen || cancelled(); } });
+        if (!bc.number && !numDone() && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: numDone });
         if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
         return bc;
       })();
-      var bcDone = null, printedSeen = false;
+      var bcDone = null, printedSeen = false, printedAt = 0;
       /* (TASK-0126) opts.cancel() ⇒ تتوقّف القراءة عند الخطوة التالية وتُعيد ما وجدته (قراءةٌ مبكرة لم تنتهِ والماسح أُغلق) */
       var cancelled = function () { return !!(opts.cancel && opts.cancel()); };           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
       bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
       var textP = (async function () {
         if (opts.lite && !opts.lite.text) return [];               // الفرع وُجد في القراءة المبكرة
         var araLoad = getARA();                                    // تحميل المكتبة بالتوازي مع الباركود
-        /* (TASK-0129) لا تنتظر البحث السريع عن الباركود كاملاً (بلا باركودٍ مقروء: ~٦ث على هاتفٍ متوسّط) — ٢٫٥ث على الأكثر، ثمّ يبدأ
-           النصّ؛ واتّجاه الـQR إن ظهر بعدها يُستعمل في الخطوات التالية */
-        var fastVal; fastP.then(function (f) { fastVal = f; });
-        var fast = await Promise.race([fastP, new Promise(function (z) { setTimeout(z, 2500); })]), up = fast && fast.upright != null ? fast.upright : null;
+        /* (TASK-0130 · المالك seq 28: «مو نفسها بتقرا الرقم ثم الفرع») لا تنتظر قراءة الفرع الباركودَ أبداً (كانت حتى ٢٫٥ث): اتّجاه رمز
+           QR يُستعمل إن كان قد وصل حين تبدأ (وغالباً يصل: الباركود في عامله يبدأ مع اختيار الصورة)، أو حين يصل بعدها (lateUp) */
+        var fastVal = null; fastP.then(function (f) { fastVal = f; });
+        var up = null;
         var lateUp = function () { if (up == null && fastVal && fastVal.upright != null) { up = fastVal.upright; return true; } return false; };
         if (opts.lite && opts.lite.rot != null) up = opts.lite.rot;
+        var DS = global.GMTDocScan, srcIm = null, gCorners = opts.corners || null, gImg = null;
+        function asImg(cv) { try { cv.naturalWidth = cv.width; cv.naturalHeight = cv.height; } catch (_) {} return cv; }
+        /* (TASK-0130) الماسح أعطى الحدود وصورته (لحظة الاكتشاف) ⇒ مصدرٌ «افتراضي»: كل خانةٍ تُقوَّم وحدها عند طلبها، والنسخة الكاملة
+           (للصفحة كاملةً والأرقام) تؤخذ من الماسح حين يجهّزها — أو تُصنع هنا إن لم يجهّزها */
+        function virtSrc(g) {
+          var G = DS.rectGeom(g.img, g.corners), V = { virt: true, width: G.w, height: G.h, naturalWidth: G.w, naturalHeight: G.h, _f: null };
+          var dims = [g.img.naturalWidth || g.img.width, g.img.naturalHeight || g.img.height];
+          /* الخانة تُجهَّز في العامل (لا تحجز الواجهة ولا تنتظر الماسح) — أو هنا إن لم يوجد عامل */
+          V.ara = function (rot, box, dn, mode) { return boxIn(file, g.corners, rot, box, dn, dims, mode).then(function (o) { return o || araBox(DS, g.img, g.corners, rot, box, dn, null, mode); }); };
+          V.full = function () {
+            var mk = function () { return DS.process(g.img, g.corners, 0, 'color'); };
+            return V._f || (V._f = Promise.resolve(g.full).then(function (cv) { return cv || mk(); }, mk).then(asImg));
+          };
+          return V;
+        }
+        var fullOf = async function (im) { return im && im.virt ? await im.full() : im; };
+        async function processed(mode) {
+          /* (TASK-0130) النسخة التي جهّزها الماسح في الخلفية للزوايا نفسها ⇒ لا معالجةٌ ثانية للصورة */
+          if (mode === 'color' && opts.srcCanvas) { try { var pc = opts.srcCanvas(); if (pc) return asImg(pc); } catch (_) {} }
+          if (!DS || !DS.process || !DS.detectNorm) return null;
+          var im = gImg || (await getL()).im;
+          /* (TASK-0126) زوايا جاهزة من الماسح (القراءة بدأت معه) ⇒ لا اكتشافٌ ثانٍ */
+          try { var d = gCorners ? { corners: gCorners } : DS.detectNorm(im, 0); gCorners = d.corners; return asImg(DS.process(im, d.corners, 0, mode)); } catch (_) { return null; }
+        }
+        if (!opts.original) {
+          var g = null;
+          if (opts.geom) { try { g = await opts.geom(); } catch (_) { g = null; } }
+          if (cancelled()) { out.cancelled = true; return null; }
+          if (g && g.cv) { srcIm = asImg(g.cv); gCorners = g.corners || gCorners; }
+          else if (g && g.img && g.corners && DS && DS.processBox && DS.rectGeom) { gImg = g.img; gCorners = g.corners; try { srcIm = virtSrc(g); } catch (_) { srcIm = null; } }
+          if (!srcIm) srcIm = await processed('color');
+        }
+        if (!srcIm) { L = await getL(); srcIm = L.im; }
+        var isAsIs = function () { return !!opts.original || !!(L && srcIm === L.im); };
+        /* بلا الماسح (قراءةٌ مباشرة · ثانيةٌ بعد المسح بزوايا أخرى): لا شيء ينتظره النصّ، فيُمهَل الباركود السريع (في عامله) ٠٫٦ث على الأكثر
+           ليُعرف الاتّجاه من الـQR — قراءةٌ عربية واحدة بدل تجربة الاتّجاهات. مع الماسح (opts.geom) لا انتظار: حدود الورقة تصل بعده أصلاً */
+        if (!opts.geom && up == null) await Promise.race([fastP, new Promise(function (z) { setTimeout(z, 600); })]);
         stage('ara');
-        var ara = await araLoad, w = L.im.naturalWidth, h = L.im.naturalHeight;
+        var ara = await araLoad; lateUp();
+        /* الاتّجاه الأرجح من شكل الإيصال المقوَّم (عرضيٌّ ⇒ ٠ ثمّ ١٨٠) لا من الصورة كلّها */
+        var w = srcIm.naturalWidth || srcIm.width, h = srcIm.naturalHeight || srcIm.height;
         var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
         if (up != null) rots = opts.lite ? [up] : [up].concat(rots.filter(function (x) { return x !== up; }));
         if (opts.trace) opts.trace.push({ upright: up });
@@ -723,21 +957,14 @@
            ② كان يُختار الاتّجاه بعدد كلمات الإيصال وحده ويتوقّف عند ٣ — فيُقبل اتّجاهٌ قُرئ هيكله ولم يُقرأ سطر «المصدر».
               ⇒ الأفضل = فرعٌ واثق ثمّ «المصدر» موجود ثمّ عدد الكلمات؛ والتوقّف عند فرعٍ واثق فقط.
            ③ لا فرع بعد الاتّجاهات ⇒ محاولةٌ أخيرة بالأبيض والأسود في أفضل اتّجاه (أنجح على الحبر الحراري الباهت). */
-        var DS = global.GMTDocScan, srcIm = L.im;
-        function asImg(cv) { try { cv.naturalWidth = cv.width; cv.naturalHeight = cv.height; } catch (_) {} return cv; }
-        function processed(mode) {
-          if (!DS || !DS.process || !DS.detectNorm) return null;
-          /* (TASK-0126) زوايا جاهزة من الماسح (القراءة بدأت معه) ⇒ لا اكتشافٌ ثانٍ */
-          try { var d = opts.corners ? { corners: opts.corners } : DS.detectNorm(L.im, 0); return asImg(DS.process(L.im, d.corners, 0, mode)); } catch (_) { return null; }
-        }
-        if (!opts.original) { var en = processed('color'); if (en) srcIm = en; }
         /* (TASK-0129) صورةٌ ليليّة مشوّشة ⇒ كلّ قراءةٍ بعد إزالة التشويش: Tesseract على الضوضاء بطيءٌ جداً (قراءة التذييل وحدها ~٤٠ث)
            ويخطئ. يُقاس التشويش مرّةً على أوّل خانةٍ تُقرأ */
         var noisy = null;
-        function attempt(im, rot, tag, box, dn) {
-          var useDn = !!(dn || noisy === true), acv = araCanvas(im, rot, box, useDn);
+        async function attempt(im, rot, tag, box, dn, mode) {
+          if (!box) im = await fullOf(im);                         // الصفحة كاملة ⇒ النسخة الكاملة (الخانات تُقوَّم وحدها)
+          var useDn = !!(dn || noisy === true), acv = im.virt ? await im.ara(rot, box, useDn, mode) : araCanvas(im, rot, box, useDn);
           if (noisy === null) { noisy = noiseOf(acv) > NOISY; out.noise = noisy; if (opts.trace) opts.trace.push({ noise: +noiseOf(acv).toFixed(2) }); }
-          return ara.recognize(acv).then(function (res) {
+          return ara.recognize(toPGM(acv)).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
             var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null, dn: useDn };
             if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') + (dn ? '/dn' : '') });
@@ -750,23 +977,40 @@
               اتّجاه الـQR معروف ⇒ مرّةٌ واحدة؛ غير معروف ⇒ الخانة في كل اتّجاه (رخيصة) قبل أيّ صفحةٍ كاملة.
            ٢) لم تكفِ ⇒ شريط الوسط بعرض الإيصال (الاتّجاه معروف) ⇒ ٣) الصفحة كاملة كما كانت.
            والنصّ المقروء يُطابَق مع فروع المفتي المعروفة (بنك الفروع + أسماؤها البديلة) — لا يُعتمد ما لا يشبه فرعاً. */
-        var tagOf = function () { return srcIm === L.im ? 'as-is' : 'color'; };
-        var cellRots = up != null ? [up] : rots, triedCell = {};
+        var tagOf = function () { return isAsIs() ? 'as-is' : 'color'; };
+        var cellRots = up != null ? [up] : rots, triedCell = {}, cellBest = null;
         for (var cr = 0; cr < cellRots.length && !(best && best.m && best.m.confident) && !cancelled(); cr++) {
           if (lateUp()) { if (triedCell[up]) break; cellRots = [up]; cr = 0; }        // اتّجاه الـQR وصل متأخّراً ⇒ هو وحده
           triedCell[cellRots[cr]] = 1;
           var ac = await attempt(srcIm, cellRots[cr], tagOf(), CELL);
+          if (!cellBest || ac.rank > cellBest.rank) cellBest = ac;
           if (ac.m && ac.m.confident) best = ac;
+          /* (TASK-0130) الخانة قُوِّمت وحدها ولم يُقرأ الفرع، وهذا الاتّجاه مرجّح (بنية الإيصال أو «المصدر» أو الـQR) ⇒ الخانة نفسها مقصوصةً من
+             النسخة الكاملة (تحسينٌ بجوارٍ أوسع): قراءتان مستقلّتان — على صورك قرأت كلٌّ منهما ما لم تقرأه الأخرى (١٣ و١٥ من ٢٧ ⇒ معاً ١٨) */
+          if (!(best && best.m && best.m.confident) && srcIm.virt && (ac.src || ac.sc >= 2 || up != null) && !cancelled()) {
+            var af = await attempt(await srcIm.full(), cellRots[cr], tagOf(), CELL);
+            if (af.m && af.m.confident) best = af; else if (af.rank > ac.rank) ac = af;
+          }
           /* (TASK-0129) «المصدر» مقروءٌ هنا (أو الاتّجاه معروف من الـQR) والفرع غير واضح ⇒ الخانة نفسها بعد إزالة التشويش (صورةٌ ليليّة) */
-          else if ((ac.src || up != null) && !ac.dn && !cancelled()) { var ad = await attempt(srcIm, cellRots[cr], tagOf(), CELL, true); if (ad.m && ad.m.confident) best = ad; }
+          if (!(best && best.m && best.m.confident) && (ac.src || up != null) && !ac.dn && !cancelled()) { var ad = await attempt(srcIm, cellRots[cr], tagOf(), CELL, true); if (ad.m && ad.m.confident) best = ad; }
+          /* (TASK-0130 · صورتان حقيقيّتان: صورة شاشة · ليليّةٌ مشوّشة) الخانة بالأبيض والأسود (عتبة على إضاءةٍ متجانسة) — كان ينجح فيهما
+             «الأبيض والأسود» للصفحة كاملةً فقط وبعد كل القراءات الكاملة (١٣–١٩ث) */
+          if (!(best && best.m && best.m.confident) && srcIm.virt && (cellBest.sc >= 2 || ac.src || up != null) && !cancelled()) {
+            var aw = await attempt(srcIm, cellRots[cr], 'bw', CELL, false, 'bw'); if (aw.m && aw.m.confident) best = aw;
+          }
+          if (cellBest.sc >= 2) break;                               // (TASK-0130) بنية الإيصال قُرئت ⇒ الاتّجاه عُرف: لا خانةَ في الاتّجاهات الأخرى (شريط الوسط فيه أدناه)
         }
         if (lateUp() || (up != null && rots[0] !== up && !opts.lite)) rots = [up].concat(rots.filter(function (x) { return x !== up; }));
-        if (up != null && !(best && best.m && best.m.confident) && !cancelled()) {
-          var ab = await attempt(srcIm, up, tagOf(), BAND);
+        /* (TASK-0130 · صورةٌ حقيقيّة) لا QR، لكنّ بنية الإيصال قُرئت في الخانة باتّجاهٍ ما ⇒ هو الاتّجاه: شريط الوسط فيه أيضاً (كان للـQR وحده)
+           وتبدأ به الصفحة كاملة — كانت ٨ قراءاتٍ كاملة بلا جدوى (~١٥ث) قبل أن تُقرأ الخانة نفسها بعد المسح */
+        var bandRot = up != null ? up : (cellBest && cellBest.sc >= 2 ? cellBest.rot : null);
+        if (up == null && bandRot != null && rots[0] !== bandRot) rots = [bandRot].concat(rots.filter(function (x) { return x !== bandRot; }));
+        if (bandRot != null && !(best && best.m && best.m.confident) && !cancelled()) {
+          var ab = await attempt(srcIm, bandRot, tagOf(), BAND);
           if (ab.m && ab.m.confident) best = ab;
         }
         for (var r = 0; r < rots.length && !(best && best.m && best.m.confident) && !cancelled(); r++) {
-          var a = await attempt(srcIm, rots[r], srcIm === L.im ? 'as-is' : 'color');
+          var a = await attempt(srcIm, rots[r], tagOf());
           if (!best || a.rank > best.rank) best = a;
           if (a.m && a.m.confident) break;                          // اتّجاهٌ سليم والفرع واضح
           if (up != null && r === 0 && (a.src || a.sc >= 3)) break; // اتّجاه الـQR صحيح (و«المصدر» مقروء، أو بنية الإيصال مقروءة فيه ⇒ لا فائدة من
@@ -775,8 +1019,14 @@
         }
         if (!best) { out.cancelled = true; return null; }               // أُلغيت قبل أيّ قراءة
         if (!(best.m && best.m.confident) && best.sc >= 2 && !cancelled()) {
-          var bw = processed('bw');
+          var bw = await processed('bw');
           if (bw) { var a2 = await attempt(bw, best.rot, 'bw'); if (a2.rank > best.rank) best = a2; }
+        }
+        /* (TASK-0130 · صورةٌ حقيقيّة تحت ضوءٍ برتقاليّ وحدودها خاطئة) آخر محاولة: الأصل كما هو بلا تقويمٍ ولا تحسين — حدودٌ خاطئة تُميل
+           النصّ وتمطّه، والتحسين يُفسد ورقاً ملوّن الإضاءة؛ في الاتّجاه الذي قُرئت فيه بنية الإيصال (أو اتّجاه الـQR) */
+        if (!(best.m && best.m.confident) && !isAsIs() && !cancelled()) {
+          var oim = gImg || (await getL()).im, orot = best.sc >= 2 || up == null ? best.rot : up;
+          var a3 = await attempt(oim, orot, 'orig'); if (a3.rank > best.rank) best = a3;
         }
         out.text = best.txt; out.rot = best.rot; out._best = best;
         if (best.m && best.m.confident && opts.onBranch && (receiptType(best.txt).kind === 'mufti' || !otherCompany(best.txt))) { try { opts.onBranch({ key: best.m.key, confident: true, candidates: best.m.candidates || [], text: best.m.text || '' }); } catch (_) {} }
@@ -789,21 +1039,42 @@
              (صورةٌ بمنظورٍ حادّ قُرئ رقمها المطبوع بخانةٍ خاطئة). لم يُوجد فيها ⇒ الصورة الأصلية كما كان (صورٌ منخفضة الدقّة تُقرأ منها أحياناً) */
           var eng = await getOCR();
           var digitsOn = async function (im) {
-            var cv = crop(im, [0, 0, 1, 1], best.rot, 2400); if (noisy) cv = median3(cv); cv = enhance(cv, 'contrast');
-            var er = await eng.recognize(cv, {}, { blocks: true }), words = [];
+            var cv = crop(await fullOf(im), [0, 0, 1, 1], best.rot, 2400); if (noisy) cv = median3(cv); cv = enhance(cv, 'contrast');
+            var er = await eng.recognize(toPGM(cv), {}, { blocks: true }), words = [];
             ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
               (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
             out.engText = (out.engText ? out.engText + '\n' : '') + ((er.data && er.data.text) || '');
             return rankCandidates(words, cv.height, cv.width);
           };
           var hasTr = function (l) { return l.some(function (c) { return c.tr && c.number.length >= 6; }); };
+          /* (TASK-0130 · صورةٌ حقيقيّة: الرقم «210062» واضحٌ ولم يُقرأ) الصفحة كاملةً لم تجد رقماً ⇒ قصّةُ أعلى يمين الإيصال القائم حيث
+             يُطبع الرقم (تتجاوز حدّه قليلاً: حدودٌ تقريبيّة تقصّه) بنمط «كتلة نصّ»: في نمط النصّ المتناثر يتفتّت الرقم «2100» + «62» */
+          var digitsBox = async function () {
+            var BX = [0.45, -0.07, 1.03, 0.4], c0;
+            if (srcIm.virt) c0 = rotCanvas(DS.processBox(gImg, gCorners, rotBox(best.rot, BX), 'color'), best.rot);
+            else { var fc = crop(srcIm, [0, 0, 1, 1], best.rot, 2400), bx0 = Math.round(fc.width * 0.45), by1 = Math.round(fc.height * 0.4); c0 = newCanvas(fc.width - bx0, by1); c0.getContext('2d').drawImage(fc, bx0, 0, fc.width - bx0, by1, 0, 0, fc.width - bx0, by1); }
+            var kk = srcIm.virt ? Math.min(2, 2400 / Math.max(srcIm.width, srcIm.height)) : 1, cv = newCanvas(c0.width * kk, c0.height * kk);
+            cv.getContext('2d').drawImage(c0, 0, 0, cv.width, cv.height); if (noisy) cv = median3(cv); cv = enhance(cv, 'contrast');
+            await eng.setParameters({ tessedit_pageseg_mode: '6' });
+            try {
+              var er = await eng.recognize(toPGM(cv), {}, { blocks: true }), words = [];
+              ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+                (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
+              out.engText = (out.engText ? out.engText + '\n' : '') + ((er.data && er.data.text) || '');
+              return rankCandidates(words, cv.height, cv.width).map(function (c) { c.tr = c.number.length >= 6; return c; });   // القصّة كلّها «أعلى اليمين»
+            } finally { await eng.setParameters({ tessedit_pageseg_mode: '11' }); }
+          };
           rk = await digitsOn(srcIm);
-          if (!hasTr(rk) && srcIm !== L.im && !cancelled() && !(bcDone && bcDone.number)) {
+          /* الصفحة كاملةً أوّلاً (أدقّ خاناتٍ حين تقرأ: القصّة بنمط الكتلة أخطأت خانةً في ٢ من ٧٢ إيصالاً مُصطنعاً) — والقصّة حين لا تجد شيئاً */
+          if (!hasTr(rk) && !cancelled() && !(bcDone && bcDone.number) && DS && (!srcIm.virt || (gImg && gCorners))) {
+            try { var bxk = await digitsBox(); if (hasTr(bxk)) rk = bxk.concat(rk); } catch (_) {}
+          }
+          if (!hasTr(rk) && !isAsIs() && !cancelled() && !(bcDone && bcDone.number)) {
             var seen2 = {}; rk.forEach(function (c) { seen2[c.number] = c; });
-            (await digitsOn(L.im)).forEach(function (c) { if (seen2[c.number]) { seen2[c.number].score = Math.max(seen2[c.number].score, c.score); seen2[c.number].tr = seen2[c.number].tr || c.tr; } else { seen2[c.number] = c; rk.push(c); } });
+            (await digitsOn((await getL()).im)).forEach(function (c) { if (seen2[c.number]) { seen2[c.number].score = Math.max(seen2[c.number].score, c.score); seen2[c.number].tr = seen2[c.number].tr || c.tr; } else { seen2[c.number] = c; rk.push(c); } });
             rk.sort(function (a, b) { return b.score - a.score; });
           }
-          if (rk.some(function (c) { return c.tr; })) printedSeen = true;
+          if (rk.some(function (c) { return c.tr; })) { printedSeen = true; printedAt = Date.now(); }
         }
         /* قُرئت خانةٌ أو شريطٌ فقط ⇒ علامات الشركة (اسمها أعلى الإيصال · هواتف مكاتبها في التذييل) لم تُقرأ. قاعدة 18 ت1: لا يُنسب
            إيصالٌ للمفتي بلا دليل ⇒ قراءةٌ صغيرة للأعلى والتذييل **بعد** إظهار الفرع (لا تؤخّره): شركةٌ أخرى ⇒ يُسحب الفرع.
@@ -848,7 +1119,7 @@
       out.foreign = out.type.kind !== 'mufti' && otherCompany(out.text, out.footText);    // دليل شركةٍ أخرى (اسمها أو تذييلٌ بهواتف غير هواتف المفتي)
       if (out.type.kind !== 'mufti' && out.branch.confident && !out.foreign) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
-    } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
+    } finally { if (Lp) Lp.then(function (x) { try { URL.revokeObjectURL(x.url); } catch (_) {} }, function () {}); }
     out.ms = Date.now() - t0;
     return out;
   }
@@ -856,9 +1127,12 @@
   /* (TASK-0122) تحميل القارئ مسبقاً — يُستدعى حين تفتح نافذة الشحن للمفتي أو تختار صورة: المكتبة والنموذج يُحمَّلان
      أثناء شاشة الماسح بدل أن يبدأ تحميلهما بعد ضغطة «تمّ». لا يقرأ شيئاً ولا يُفشل شيئاً. */
   function warm() {
-    try { loadZX().catch(function () {}); } catch (_) {}
+    /* (TASK-0130) الباركود في عامله ⇒ المكتبة تُحمَّل هناك (لا تُحلَّل ٣٠٠ كيلوبايت على الخيط الرئيسي)؛ بلا عامل ⇒ في الصفحة كما كان */
+    var W = bcWorker();
+    if (W) { try { W.postMessage({ cmd: 'warm' }); } catch (_) {} }
+    else try { loadZX().catch(function () {}); } catch (_) {}
     try { getARA().catch(function () {}); } catch (_) {}
   }
 
-  global.GMTReceipt = { warm: warm, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
-})(window);
+  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+})(typeof window !== 'undefined' ? window : self);
