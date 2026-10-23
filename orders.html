@@ -106,8 +106,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261011e"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261023g" defer></script>
-<script src="gmt-docscan.js?v=20261023j" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-receipt.js?v=20261023k" defer></script>
+<script src="gmt-docscan.js?v=20261023k" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -3502,7 +3502,9 @@ async function shipScanFile(file, label) {
                 /* (TASK-0130) النسخة المقوَّمة تُصنع في عامل القراءة (الصورة مفكوكةٌ فيه أصلاً) — لا تحجز الواجهة ولا قراءة الفرع */
                 processor: (window.GMTReceipt && GMTReceipt.processIn) ? (c, r, m, img, sh) => GMTReceipt.processIn(file, c, r, m, img ? [img.naturalWidth || img.width, img.naturalHeight || img.height] : null, sh) : null,
                 onProcessed: (cv, corners) => { if (geomQ && sameQ(corners, geomQ)) giveFull(cv); },
-                onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } }
+                onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } },
+                /* (TASK-0136 · المالك seq 37) القصّ لا يقطع رقم التتبّع: موضعه من القراءة المبكرة على الأصل */
+                keepIn: () => (_shipEarly && _shipEarly.orig === file && _shipEarly.boxes) || []
             });
             giveGeom(null); giveFull(null);                              // أُغلق الماسح ⇒ ما لم يُعطَ يصنعه القارئ بنفسه
             if (r && r.retake) return;
@@ -3647,12 +3649,13 @@ function shipStartEarlyRead(orig) {
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
     st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر (مع المسح)…';
     _shipReading = true;
-    const E = { orig, typed, hooks, done: false, stop: false, corners: null, num: null };
+    const E = { orig, typed, hooks, done: false, stop: false, corners: null, num: null, boxes: [] };
     let geomOk = null; const geomP = new Promise(ok => { geomOk = ok; });
     E.giveGeom = g => { if (!geomOk) return; if (g && g.corners) { E.corners = g.corners.map(p => p.slice()); E.poly = g.poly ? g.poly.map(p => p.slice()) : null; } geomOk(g || null); geomOk = null; };
     const onTr = hooks.onTracking; hooks.onTracking = t => { if (t && t.number) E.num = t.number; onTr(t); };
     /* (TASK-0128) تتوقّف أيضاً إن اختيرت صورةٌ أخرى أو أُغلقت النافذة (_shipOrig تغيّر) أو تغيّرت الشركة — كانت تستمرّ وتأخذ المعالج */
-    E.p = GMTReceipt.readMufti(orig, { geom: () => geomP, numDone: () => !!E.num,
+    /* (TASK-0136) موضع الرقم في الأصل (الـQR · الرقم المطبوع) ⇒ E.boxes ⇒ الماسح لا يقصّه (opts.keepIn) */
+    E.p = GMTReceipt.readMufti(orig, { geom: () => geomP, numDone: () => !!E.num, onNumBox: b => { if (b) E.boxes.push(b); },
         cancel: () => E.stop || _shipOrig !== orig || !shipIsMufti(), onTracking: hooks.onTracking, onBranch: hooks.onBranch })
         .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
     _shipEarly = E;
@@ -9005,7 +9008,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261023j"></script>
+<script src="gmt-whatsnew.js?v=20261023k"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -195,6 +195,21 @@
     var th = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI, R = Math.round((rot - th) / 90) * 90;
     return ((R % 360) + 360) % 360;
   }
+  /* (TASK-0136) نقاطٌ في قصّة crop(im, r, rot, maxSide) ⇒ نِسَبٌ من الصورة الأصليّة (عكس حساب crop نفسه) */
+  function cropToNorm(im, r, rot, maxSide, pts) {
+    var sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
+    var cw = Math.max(8, Math.round(sw * r[2])), ch = Math.max(8, Math.round(sh * r[3])), long = Math.max(cw, ch);
+    var k = long < 700 ? Math.min(3, 900 / long) : Math.min(1, maxSide / long), w = Math.max(8, Math.round(cw * k)), h = Math.max(8, Math.round(ch * k));
+    var rad = rot * Math.PI / 180, ca = Math.cos(rad), sa = Math.sin(rad);
+    var W = Math.max(8, Math.round(w * Math.abs(ca) + h * Math.abs(sa))), H = Math.max(8, Math.round(w * Math.abs(sa) + h * Math.abs(ca)));
+    return pts.map(function (p) { var dx = p[0] - W / 2, dy = p[1] - H / 2, ux = dx * ca + dy * sa, uy = -dx * sa + dy * ca; return [r[0] + (ux + w / 2) / w * r[2], r[1] + (uy + h / 2) / h * r[3]]; });
+  }
+  /* مستطيلٌ يحيط بنقاط (نِسَب) موسَّعاً بنسبةٍ من حجمه ⇒ [x0, y0, x1, y1] */
+  function boxOf(pts, pad) {
+    var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), mx = (x1 - x0) * (pad || 0), my = (y1 - y0) * (pad || 0);
+    return [Math.max(0, x0 - mx), Math.max(0, y0 - my), Math.min(1, x1 + mx), Math.min(1, y1 + my)];   // لكلّ محورٍ هامشه (النِّسب ليست مربّعة)
+  }
   function zxUpright(ZX, res, rot) {
     try {
       if (!res || res.getBarcodeFormat() !== ZX.BarcodeFormat.QR_CODE) return null;
@@ -549,7 +564,11 @@
           push(txt);
           if (upright === null) upright = zxUpright(ZX, last, rots[j]);       // أيّ QR يكفي للاتّجاه حتى لو لم يحمل رقماً
           var ex = extractNumber(txt);
-          if (ex) best = { number: ex.number, how: ex.how, raw: txt, method: 'zxing' };
+          if (ex) {
+            best = { number: ex.number, how: ex.how, raw: txt, method: 'zxing' };
+            /* (TASK-0136) موضع الرمز في الصورة الأصليّة: مراكز «عيون» الـQR الثلاث موسَّعةً لحوافّه ⇒ الماسح لا يقصّه */
+            try { var rp = last.getResultPoints(); if (rp && rp.length >= 3) best.box = boxOf(cropToNorm(L.im, REGIONS[i], rots[j], opts.maxSide || 1800, rp.slice(0, 3).map(function (q) { return [q.getX(), q.getY()]; })), 0.35); } catch (_) {}
+          }
         }
       }
       if (best) best.upright = upright;
@@ -562,7 +581,7 @@
         catch (e) { console.warn('[GMT] تعذّر التعرّف على النصّ:', e && e.message); }
       }
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
-    return best ? { number: best.number, how: best.how, raw: best.raw, method: best.method, candidates: best.candidates, upright: best.upright == null ? null : best.upright, all: all, tries: count.n }
+    return best ? { number: best.number, how: best.how, raw: best.raw, method: best.method, candidates: best.candidates, upright: best.upright == null ? null : best.upright, box: best.box || null, all: all, tries: count.n }
                 : { number: null, all: all, tries: count.n };
   }
 
@@ -877,6 +896,11 @@
          ③ قُرئ الباركود ⇐ لا قراءة ثانية لأرقام الصفحة كلّها (كانت تقرأ الهواتف والأسماء لمقارنةٍ لم تعد مطلوبة).
          ④ لا يُقرأ اسمٌ ولا هاتف: من النصّ يُؤخذ سطر «المصدر» وحده. */
       var fastDone, fastP = new Promise(function (ok) { fastDone = ok; });
+      /* (TASK-0136 · المالك seq 37: «سوّي قراءة الرقم خاصّة حتى قبل المسح وقبل التحديد لأنّه ممكن القصّ يقصّ الرقم») الرقم وحدةٌ
+         مستقلّة على الصورة الأصليّة: الباركود (في عامله، كما كان) ثمّ — إن لم يوجد خلال ١٫٥ث — الرقم المطبوع من الأصل بالتوازي مع
+         قراءة الفرع (كان يُقرأ بعد الفرع ومن النسخة المقصوصة وحدها: قصٌّ قطع الرقم ⇒ لا رقم). وموضعه (opts.onNumBox) ⇒ الماسح يُبقيه داخل حدوده. */
+      var numBox = function (b) { if (b && opts.onNumBox) { try { opts.onNumBox(b); } catch (_) {} } };
+      fastP.then(function (f) { if (f && f.box) numBox(f.box); });
       stage('barcode');
       var bcP = (async function () {
         /* (TASK-0122) ميزانيّة محاولات الباركود البطيئة ١٠ث هنا (لا ٢٢): الصورة ممسوحة ومقوَّمة أصلاً، وفي إيصالاتك لم تنجح
@@ -896,6 +920,26 @@
         return bc;
       })();
       var bcDone = null, printedSeen = false, printedAt = 0;
+      var unrot = function (r, p) { return r === 90 ? [p[1], 1 - p[0]] : r === 180 ? [1 - p[0], 1 - p[1]] : r === 270 ? [1 - p[1], p[0]] : p; };
+      var origDigitsP = (opts.lite || opts.original) ? null : (async function () {
+        var f = await Promise.race([fastP, new Promise(function (z) { setTimeout(z, 1500); })]);
+        if ((f && f.number) || (bcDone && bcDone.number) || cancelled()) return null;
+        /* اتّجاه الإيصال من رمز QR (ولو لم يحمل الرقم) إن وُجد · وإلّا كما التُقطت، ولا يُقبل حينها إلّا رقمٌ مقروءٌ بثقةٍ عالية (≥٧٥):
+           نصٌّ مقلوب يُقرأ أرقاماً عشوائيّة بثقةٍ منخفضة (إيصالٌ بلا رقمٍ مقلوبٌ ١٨٠° أعطى «00915860» في المسح) — والمسار المتأخّر يعرف
+           الاتّجاه من النصّ العربي */
+        var known = !!(f && f.upright != null), eng = await getOCR(), Lo = await getL(), r = known ? f.upright : 0;
+        if ((bcDone && bcDone.number) || cancelled()) return null;
+        var cv = enhance(crop(Lo.im, [0, 0, 1, 1], r, 2400), 'contrast');
+        var er = await eng.recognize(toPGM(cv), {}, { blocks: true }), words = [];
+        ((er.data && er.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+          (ln.words || []).forEach(function (wd) { words.push({ text: wd.text, bbox: wd.bbox, confidence: wd.confidence }); }); }); }); });
+        if (!known) { words = words.filter(function (wd) { return (wd.confidence || 0) >= 75; }); if (!words.length) return null; }
+        var rk0 = rankCandidates(words, cv.height, cv.width), top = rk0.filter(function (c) { return c.number.length >= 6 && c.number.length <= 9 && (c.tr || c.score >= 6); })[0];
+        if (top) words.forEach(function (wd) {
+          if (wd.bbox && digitsOfWord(wd.text) === top.number) numBox(boxOf([unrot(r, [wd.bbox.x0 / cv.width, wd.bbox.y0 / cv.height]), unrot(r, [wd.bbox.x1 / cv.width, wd.bbox.y1 / cv.height])], 0.15));
+        });
+        return { rot: r, cands: rk0 };
+      })().catch(function () { return null; });
       /* (TASK-0126) opts.cancel() ⇒ تتوقّف القراءة عند الخطوة التالية وتُعيد ما وجدته (قراءةٌ مبكرة لم تنتهِ والماسح أُغلق) */
       var cancelled = function () { return !!(opts.cancel && opts.cancel()); };           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
       bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
@@ -1072,7 +1116,11 @@
           }
           if (!hasTr(rk) && !isAsIs() && !cancelled() && !(bcDone && bcDone.number)) {
             var seen2 = {}; rk.forEach(function (c) { seen2[c.number] = c; });
-            (await digitsOn((await getL()).im)).forEach(function (c) { if (seen2[c.number]) { seen2[c.number].score = Math.max(seen2[c.number].score, c.score); seen2[c.number].tr = seen2[c.number].tr || c.tr; } else { seen2[c.number] = c; rk.push(c); } });
+            var addC = function (list) { list.forEach(function (c) { if (seen2[c.number]) { seen2[c.number].score = Math.max(seen2[c.number].score, c.score); seen2[c.number].tr = seen2[c.number].tr || c.tr; } else { seen2[c.number] = c; rk.push(c); } }); };
+            /* (TASK-0136) قراءة الأصل بدأت مبكراً (بالتوازي مع الفرع) ⇒ نتيجتها جاهزةٌ غالباً · لم تجد ⇒ الأصل باتّجاه الإيصال المعروف الآن */
+            var od = origDigitsP ? await origDigitsP : null;
+            if (od && od.cands.length) addC(od.cands);
+            if (!hasTr(rk) && !cancelled() && (!od || od.rot !== best.rot)) addC(await digitsOn((await getL()).im));
             rk.sort(function (a, b) { return b.score - a.score; });
           }
           if (rk.some(function (c) { return c.tr; })) { printedSeen = true; printedAt = Date.now(); }

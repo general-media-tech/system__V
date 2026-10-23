@@ -411,8 +411,7 @@
       Q = order(Q);
       var inN = 0, inS = 0, outN = 0, outS = 0;
       for (var yy = mg; yy < H - mg; yy += 2) for (var xx = mg; xx < W - mg; xx += 2) {
-        var md = Infinity;
-        for (var e3 = 0; e3 < 4; e3++) { var A3 = Q[e3], B3 = Q[(e3 + 1) % 4], L3 = Math.hypot(B3[0] - A3[0], B3[1] - A3[1]) || 1; md = Math.min(md, ((B3[0] - A3[0]) * (yy - A3[1]) - (B3[1] - A3[1]) * (xx - A3[0])) / L3); }
+        var md = sdq(Q, xx, yy);
         if (Math.abs(md) < mg) continue;
         var st2 = M[yy * W + xx] > strong ? 1 : 0;
         if (md > 0) { inN++; inS += st2; } else { outN++; outS += st2; }
@@ -431,7 +430,15 @@
         return md >= tol; });
     }
     /* كثافة الحبر داخل رباعيّ big وخارج small (بعيداً عن أضلاع small بهامش) — small=null ⇒ داخل big كلّه */
-    function sdq(Q, px, py) { var md = Infinity; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4], L5 = Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1; md = Math.min(md, ((B5[0] - A5[0]) * (py - A5[1]) - (B5[1] - A5[1]) * (px - A5[0])) / L5); } return md; }
+    /* (TASK-0137 · «أسرع») بُعد البكسل عن أضلاع الرباعيّ — يُستدعى لكل بكسل في حلقاتٍ كثيرة، وكان يعيد حساب أطوال الأضلاع في كل
+       استدعاء (ثلث زمن الاكتشاف كلّه). الآن تُحسب مرّةً لكل رباعيّ (تُحفظ عليه) بالعمليّات الحسابيّة نفسها حرفياً ⇒ النتائج نفسها */
+    function sdq(Q, px, py) {
+      var E = Q.__e;
+      if (!E) { E = []; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4]; E.push(A5[0], A5[1], B5[0] - A5[0], B5[1] - A5[1], Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1); } Q.__e = E; }
+      var md = Infinity;
+      for (var k = 0; k < 20; k += 5) { var v = (E[k + 2] * (py - E[k + 1]) - E[k + 3] * (px - E[k])) / E[k + 4]; if (v < md) md = v; }
+      return md;
+    }
     var mgI = Math.max(3, Math.round(Math.min(W, H) * 0.025));
     function inkIn(bigQ, smallQ, ink) {
       var Bq = order(bigQ), Sq = smallQ ? order(smallQ) : null, N2 = 0, S2 = 0, I = ink || INK;
@@ -484,9 +491,8 @@
     /* كثافة المحتوى (تدرّجاتٌ قويّة = حبر) في ما يزيده رباعيٌّ كبير على صغير — بعيداً عن أضلاع الصغير */
     function extraInk(bigQ, smallQ) {
       var Bq = order(bigQ), Sq = order(smallQ), N2 = 0, S2 = 0;
-      function sd(Q, px, py) { var md = Infinity; for (var e5 = 0; e5 < 4; e5++) { var A5 = Q[e5], B5 = Q[(e5 + 1) % 4], L5 = Math.hypot(B5[0] - A5[0], B5[1] - A5[1]) || 1; md = Math.min(md, ((B5[0] - A5[0]) * (py - A5[1]) - (B5[1] - A5[1]) * (px - A5[0])) / L5); } return md; }
       for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
-        if (sd(Bq, xx, yy) < mg || sd(Sq, xx, yy) > -mg) continue;
+        if (sdq(Bq, xx, yy) < mg || sdq(Sq, xx, yy) > -mg) continue;
         N2++; if (M[yy * W + xx] > strong) S2++;
       }
       return N2 ? S2 / N2 : 0;
@@ -1169,7 +1175,7 @@
           if (pending > 0) clearTimeout(pending); touched = false; say('🔍 جارٍ اكتشاف حدود الورقة…');
           pending = setTimeout(function () {
             pending = -1; var before = snap(); detectNow(); if (!touched) { undo.push(before); redo = []; }
-            if (view === 'edit') { paint(); showStatus(); }
+            if (view === 'edit') { paint(); showStatus(); keepCheck(); }
             /* (TASK-0126) أوّل اكتشاف ⇒ يُبلَّغ المستدعي (نافذة الشحن تبدأ قراءة الرقم والفرع وأنت ما زلت في الماسح) */
             if (opts.onDetected && !reported) { reported = true; try { opts.onDetected({ corners: det.corners.map(function (p) { return p.slice(); }), poly: det.poly || null, ok: det.ok, how: det.how, img: img }, rot); } catch (_) {} }
             precompute(30);
@@ -1189,7 +1195,7 @@
         var handles = [], ghosts = [], st = statusOf(null), shown = null;
         function say(t, col) { msg.textContent = t || ''; msg.style.color = col || ''; }   // الحالة بلونها (أخضر/كهرماني/أحمر) · غيرها كهرماني
         function btn(label, fn, cls, where) { var b = doc.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', fn); (where || bar).appendChild(b); return b; }
-        function finish(v) { root.remove(); doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
+        function finish(v) { if (keepT) clearInterval(keepT); root.remove(); doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); if (drawing) cancelDraw(); else finish(null); return; }
           if (view !== 'edit') return;
@@ -1288,7 +1294,7 @@
           function up() {
             el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); hideLoupe();
             if (moved && !pushed) { undo.push(start); if (undo.length > 80) undo.shift(); redo = []; }
-            if (!drawing && (moved || pushed)) { reCorner(); manual(); precompute(400); }
+            if (!drawing && (moved || pushed)) { reCorner(); manual(); precompute(400); keepCheck(); }
             paint();
           }
           el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
@@ -1365,8 +1371,50 @@
         stage.addEventListener('pointerup', endPtr); stage.addEventListener('pointercancel', endPtr);
         stage.addEventListener('wheel', function (e) { if (view !== 'edit') return; e.preventDefault(); var c = local(e); zoomAt(z * Math.exp(-e.deltaY * 0.0015), c[0], c[1]); }, { passive: false });
 
+        /* ── (TASK-0136 · المالك seq 37: «ممكن القصّ التلقائي يقصّ الرقم وما ينتبه عليه مدخل الأوردرات») مناطق يجب أن تبقى داخل
+           الحدود: opts.keepIn() ⇒ [[x0, y0, x1, y1]…] نِسَبٌ من الصورة الأصليّة بلا تدوير (موضع رقم التتبّع: الـQR والرقم المطبوع).
+           اكتشافٌ تلقائيّ قطعها ⇒ تُوسَّع الحدود وحدها · حدودٌ عدّلتها بيدك تقطعها ⇒ تنبيهٌ و«↔️ شمل الرقم»، و«قصّ» يطلب ضغطةً ثانية ── */
+        var keepOk = true, keepAsk = false, keepT = 0;
+        function rotPt(q, r) { return r === 90 ? [1 - q[1], q[0]] : r === 180 ? [1 - q[0], 1 - q[1]] : r === 270 ? [q[1], 1 - q[0]] : q; }
+        function inPoly(Q, q) { var c = false; for (var i = 0, j = Q.length - 1; i < Q.length; j = i++) { var a = Q[i], b = Q[j]; if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+        function keepMissing() {
+          if (drawing || P.length < 3 || !opts.keepIn) return [];
+          var bx = []; try { bx = opts.keepIn() || []; } catch (_) {}
+          return bx.map(function (k) { return [[k[0], k[1]], [k[2], k[1]], [k[2], k[3]], [k[0], k[3]]].map(function (q) { return rotPt(q, rot); }); })
+                   .filter(function (pts) { return pts.some(function (q) { return !inPoly(P, q); }); });
+        }
+        /* كل نقطةٍ خارج المحيط ⇒ الضلع الذي هي أبعد ما تكون خارجه يُدفع للخارج بقدرها (+١٫٥٪) — حتى تدخل كلّها */
+        function includePts(pts) {
+          var Q = P.map(function (q) { return q.slice(); }), sg = signedArea(Q) >= 0 ? 1 : -1;
+          for (var it = 0; it < 24; it++) {
+            var outs = pts.filter(function (q) { return !inPoly(Q, q); }); if (!outs.length) break;
+            var q = outs[0], bi = -1, bd = 0;
+            for (var i = 0; i < Q.length; i++) { var a = Q[i], b = Q[(i + 1) % Q.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, d = sg * ((q[0] - a[0]) * (b[1] - a[1]) - (q[1] - a[1]) * (b[0] - a[0])) / L; if (d > bd) { bd = d; bi = i; } }
+            if (bi < 0) break;
+            var A = Q[bi], B = Q[(bi + 1) % Q.length], L2 = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = sg * (B[1] - A[1]) / L2, ny = -sg * (B[0] - A[0]) / L2, mv = bd + 0.015;
+            [A, B].forEach(function (v) { v[0] = Math.max(0, Math.min(1, v[0] + nx * mv)); v[1] = Math.max(0, Math.min(1, v[1] + ny * mv)); });
+          }
+          return pts.every(function (q) { return inPoly(Q, q); }) && simple(Q) ? Q : null;
+        }
+        function keepFix(byHand) {
+          var all = []; keepMissing().forEach(function (pts) { all = all.concat(pts); });
+          if (!all.length) return true;
+          var Q = includePts(all); if (!Q) return false;
+          push(); P = Q; if (byHand) touched = true; keepOk = true; keepAsk = false; paint(); precompute(200);
+          say(byHand ? '↔️ شُمل رقم التتبّع داخل الحدود' : '↔️ وُسّعت الحدود لتشمل رقم التتبّع (كان القصّ التلقائي يقطعه)', '#22c55e');
+          return true;
+        }
+        function keepCheck() {
+          if (view !== 'edit' || busy || drawing || pending) return;
+          var miss = keepMissing();
+          if (!miss.length) { if (!keepOk) { keepOk = true; keepAsk = false; showStatus(); } return; }
+          if (!touched && keepFix(false)) return;                              // الاكتشاف التلقائي قطعه ⇒ يُوسَّع وحده
+          if (keepOk) { keepOk = false; say('⚠️ الحدود تقطع رقم التتبّع — اسحبها لتشمله أو اضغط «↔️ شمل الرقم»', '#f59e0b'); updTools(); }
+        }
+        if (opts.keepIn) keepT = setInterval(keepCheck, 300);
         var tb = {};
         function updTools() {
+          if (tb.keep) tb.keep.style.display = keepOk || drawing ? 'none' : '';
           if (!tb.undo) return;
           tb.undo.disabled = !undo.length; tb.redo.disabled = !redo.length;
           tb.del.disabled = drawing ? !P.length : !(sel >= 0 && P.length > 4);
@@ -1386,6 +1434,7 @@
           tb.draw = btn(drawing ? '✕ إلغاء الرسم' : '✏️ رسم الحدود', function () { if (drawing) cancelDraw(); else startDraw(); }, drawing ? 'on' : '', tools);
           tb.close = btn('⭕ إغلاق المحيط', function () { closeDraw(); }, 'p', tools);
           tb.zin = btn('🔍+', function () { zoomAt(z * 1.6, cw() / 2, ch() / 2); }, '', tools);
+          tb.keep = btn('↔️ شمل الرقم', function () { if (!keepFix(true)) say('تعذّر شمله تلقائياً — اسحب الحدود حوله بيدك', '#f59e0b'); updTools(); }, 'p', tools);
           tb.zout = btn('🔍−', function () { if (z <= 1.6) { z = 1; tx = ty = 0; applyZoom(); } else zoomAt(z / 1.6, cw() / 2, ch() / 2); }, '', tools);
           bar.innerHTML = '';
           if (!drawing) {
@@ -1401,6 +1450,7 @@
         }
         function run() {
           if (busy) return; detectNow();
+          if (opts.keepIn && !drawing) { keepCheck(); if (!keepOk && !keepAsk) { keepAsk = true; say('⚠️ القصّ سيقطع رقم التتبّع من النسخة المحفوظة — اضغط «✔ قصّ وتحسين» مرّةً ثانية للمتابعة، أو «↔️ شمل الرقم»', '#f59e0b'); return; } }
           if (drawing) { closeDraw(); if (drawing) return; }
           if (P.length < 4 || !simple(P)) { say('❌ المحيط غير صالح (يقطع نفسه) — صحّحه أو ↶.'); return; }
           if (preT) { clearTimeout(preT); preT = 0; }
