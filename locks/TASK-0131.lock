@@ -1,0 +1,7 @@
+task: TASK-0131
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: gmt-docscan.js gmt-receipt.js orders.html scanner.html gmt-tools.js home.html gmt-whatsnew.js sw.js tests/harness
+claimed_at: 2026-10-23T12:41:10Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0131
