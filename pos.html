@@ -5920,6 +5920,7 @@ function newInvoice() {
   cart    = {};
   invNum  = mkInvNum();
   isSaved = false;
+  _saleRef = null;                     // (TASK-0010) بيعٌ جديد ⇒ هويّةٌ جديدة
   window.__saleSnap = null;
   { const _md = document.getElementById('haleb-manual-discount'); if (_md) _md.value = ''; }   // الخصم اليدوي لا يبقى للفاتورة التالية (M2)
   saleType = 'نقدي';
@@ -7487,6 +7488,26 @@ window.createOrderFromInvoice = createOrderFromInvoice;
 /* ══ (2026-10-06 · فحصٌ مضادّ) حفظ الفاتورة: ضغطتان سريعتان كانتا تبدآن حفظين متوازيين قبل أن يُرفع علم «حُفظ».
    حارسٌ واحد: لا حفظ ثانٍ وهذا قيد التنفيذ. ══ */
 let __saveAndFinishBusy = false;
+/* ══ (24 ت1 · TASK-0010 · وثيقة الطلبات §٩: «في فواتير النقد … المضاعفة أو التكرار الغير المبرر امنع كل هذه الأشياء») ══
+   هويّة عملية البيع: مفتاحٌ واحد لسلّة البيع الحاليّة يبقى ثابتاً عبر كل محاولات الحفظ (والطابور الأوفلاين)، ويُحفظ في
+   invoices.client_ref وعليه فهرسٌ فريد في القاعدة ⇒ الفاتورة نفسها لا تُدرج مرّتين مهما تكرّر الإرسال، و«هل هذه فاتورتي؟»
+   تُعرف بالمطابقة الدقيقة لا بتخمين الرقم والإجمالي. يُصفَّر مع «فاتورة جديدة» فقط. */
+let _saleRef = null;
+function mkSaleRef() {
+  try { if (window.crypto && crypto.randomUUID) return 'pos-' + crypto.randomUUID(); } catch (_) {}
+  return 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
+}
+/* الفاتورة التي تحمل هذه الهويّة (أو null) — مطابقةٌ دقيقة */
+async function findInvoiceByRef(ref) {
+  if (!ref) return null;
+  try {
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?client_ref=eq.${encodeURIComponent(ref)}&select=*&limit=1`, { headers: sbHeaders() }, 8000);
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return (Array.isArray(rows) && rows[0]) || null;
+  } catch (_) { return null; }
+}
+function isDupKeyErr(err, idx) { return /duplicate key|23505|already exists/i.test(String(err || '')) && (!idx || String(err || '').indexOf(idx) !== -1); }
 /* تفكيك سطر باقة («سطر واحد بسعر العرض») إلى مكوّناتها للتخزين والمخزون (OF1): كان يُخصم مخزون 'OFFER_<id>' (لا وجود له) فيبقى مخزون المكوّنات
    كما هو، ويُحفظ product_id نصّيٌّ غير uuid. السعر يُوزَّع على المكوّنات بنسبة أسعارها، ويُصحَّح الفرق على آخر مكوّن. */
 function offerComponents(item) {
@@ -7577,6 +7598,7 @@ async function _saveAndFinishInner() {
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>'; }
 
   showLoad('جارٍ حفظ الفاتورة...');
+  if (!_saleRef) _saleRef = mkSaleRef();     // (TASK-0010) ثابتةٌ لهذه السلّة عبر كل محاولات الحفظ
 
   // ─── جلب الرقم التسلسلي الصحيح من قاعدة البيانات (خارج try ليتوفر في catch) ───
   let realInvNum = invNum;
@@ -7584,6 +7606,7 @@ async function _saveAndFinishInner() {
   invNum = realInvNum;
   let _couponClaimed = false, _invoiceCreated = false, _claimedCode = '', _orderClaimedId = null;   // لتحرير الكوبون إن فشل الحفظ قبل إنشاء الفاتورة
   let _offlinePack = null;                                   // الحمولة الكاملة للطابور المحلي إن انقطع الاتصال في أيّ مرحلة
+  let _stagesDone = false;                                   // (TASK-0010) انتهت كتابة الفاتورة وبنودها ومخزونها وعمولتها
   const _progress = { invoiceId: null, itemsDone: false, stock: {}, commDone: false, couponDone: false };   // ما أُنجز فعلاً (تُكمله المزامنة بلا تكرار)
 
   try {
@@ -7708,6 +7731,7 @@ async function _saveAndFinishInner() {
       exchange_rate   : invoiceCurrency === 'syp' ? exchangeRate : null,
       cashier_name    : currentUser?.display_name || null,
       user_id         : currentUser?.id || null,
+      client_ref      : _saleRef,          // (TASK-0010) هويّة عملية البيع — فريدة في القاعدة
     };
     if (_extColsMissing) { delete _invPayload.prepaid_channel; delete _invPayload.paid_external; }
 
@@ -7807,8 +7831,17 @@ async function _saveAndFinishInner() {
        وحالة الدفع معاً بصمت فيضيع الدَّين (F3/G1) — وتعيد المحاولة بلا فحص فتتكرّر الفاتورة إن ضاع الردّ بعد الإدراج (G1). */
     let invRes = await sbPostAdaptive('/rest/v1/invoices', _invPayload, { keep: ['inv_number', 'branch_key', 'total'] });
     if (invRes.error && /timeout|failed to fetch|networkerror|network|abort|load failed/i.test(String(invRes.error))) {
-      const _ex = await findInvoiceByNumber(realInvNum, grandTotal, itemsCount);   // نجح الإدراج وضاع الردّ؟
+      /* نجح الإدراج وضاع الردّ؟ مطابقةٌ دقيقة بهويّة البيع، ثمّ (لقاعدةٍ بلا العمود) بالرقم والإجمالي وعدد القطع */
+      const _ex = (await findInvoiceByRef(_saleRef)) || await findInvoiceByNumber(realInvNum, grandTotal, itemsCount);
       if (_ex) invRes = { data: [_ex], error: null, dropped: [] };
+    }
+    if (invRes.error && isDupKeyErr(invRes.error, 'client_ref')) {
+      /* (TASK-0010) هذه السلّة لها فاتورةٌ من محاولةٍ سابقة لم تكتمل ⇒ لا فاتورة ثانية: نُكمل تلك من حيث توقّفت عبر طابور
+         المراحل (يفحص البنود والعمولة قبل إدراجها، والمخزون مسجَّلٌ لكل منتج) */
+      const _prev = await findInvoiceByRef(_saleRef);
+      if (!_prev) throw new Error('فشل حفظ الفاتورة: ' + invRes.error);
+      _progress.invoiceId = _prev.id; _invoiceCreated = true;
+      const _e = new Error('RESUME_PREV_INVOICE'); _e.resumeInvoice = _prev; throw _e;
     }
     if (invRes.error) throw new Error('فشل حفظ الفاتورة: ' + invRes.error);
     const _droppedInv = invRes.dropped || [];
@@ -7925,6 +7958,7 @@ async function _saveAndFinishInner() {
       try { GMTAsk.alert('الفاتورة #' + realInvNum + ' حُفظت وبها ما يحتاج مراجعة:\n\n• ' + _issues.join('\n• ') + '\n\nوُسمت «قيد المراجعة» وستظهر للإدارة.', { title: 'تنبيه بعد الحفظ' }); } catch (_) {}
     }
 
+    _stagesDone = true;                          // (TASK-0010) كل مراحل الكتابة انتهت — ما بعدها عرضٌ وإشعارات فقط
     // ─── ٦. إشعارات (fire-and-forget) ───
     notifyNewInvoice(invoice, grandTotal, itemsCount).catch(() => {});
     // تعليم الكوبون كمستخدم بعد نجاح الحفظ
@@ -8045,6 +8079,46 @@ ${escH(offerShortageNote)}
     /* فشل قبل إنشاء الفاتورة وقد حُجز الكوبون ⇒ يُحرَّر كي لا يضيع على الزبون (والنسخة الأوفلاين تحجزه عند المزامنة) */
     if (_couponClaimed && !_invoiceCreated) { try { await releaseCoupon(_claimedCode); } catch (_) {} }
     if (_orderClaimedId != null && !_invoiceCreated) { try { await releaseOrder(_orderClaimedId); } catch (_) {} }
+    /* ══ (TASK-0010) الفاتورة موجودة في القاعدة ⇒ لا تبقى السلّة «غير محفوظة» فيُعاد حفظها فاتورةً ثانية ══
+       كان أيّ خطأٍ غير شبكيّ بعد الإدراج (بنودٌ تعذّر حفظها وإلغاء الفاتورة، أو خطأ عرضٍ بعد الحفظ) يترك isSaved=false،
+       فيضغط الكاشير «حفظ» ثانيةً ⇒ فاتورةٌ ثانية برقمٍ جديد وخصم مخزونٍ مرّتين. */
+    if (_stagesDone) {                                    // كُتب كلّ شيء — الخطأ في العرض أو الإشعار فقط
+      isSaved = true;
+      try { renderProds(); renderPrint(); } catch (_) {}
+      try { document.getElementById('successMsg').textContent = `تم حفظ الفاتورة #${invNum} بنجاح ✓`; } catch (_) {}
+      showToast('⚠️ حُفظت الفاتورة، لكن تعذّر عرض جزءٍ من الشاشة: ' + ((e && e.message) || e), 'err');
+      try { goTo('v-success'); } catch (_) {}
+      return;
+    }
+    if (_invoiceCreated && _offlinePack && _progress.invoiceId) {
+      const _ri = e && e.resumeInvoice;
+      if (_ri) {
+        /* محاولةٌ سابقة لهذه السلّة أنشأت الفاتورة. تُكمَل فقط إن كانت هي نفسها (الإجمالي وعدد القطع) — وإلّا لا نخلط سلّتين */
+        const _same = Math.abs(Number(_ri.total) - Number(_offlinePack.invoiceData.total)) < 0.005 && Number(_ri.items_count) === Number(_offlinePack.invoiceData.items_count);
+        if (!_same) {
+          try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind: 'financial', severity: 'critical', feature: 'POS-SAVE', rule: 'OWN-NO-DUP-INVOICE',
+            title: 'سلّة عُدّلت بعد حفظٍ جزئي', what: 'الفاتورة ' + _ri.inv_number + ' حُفظت لهذه السلّة سابقاً (إجمالي ' + _ri.total + ')، ثمّ عُدّلت السلّة (إجمالي ' + _offlinePack.invoiceData.total + ').',
+            how: 'لم تُنشأ فاتورةٌ ثانية.', why: 'مراجعة الفاتورة ' + _ri.inv_number + ' في «الفواتير».' }); } catch (_) {}
+          GMTAsk.alert('هذه السلّة حُفظت سابقاً بالفاتورة #' + _ri.inv_number + ' (إجمالي $' + Number(_ri.total).toFixed(2) + ')، ثمّ تغيّرت.\n\nلم تُنشأ فاتورةٌ ثانية منعاً للتكرار. راجِع الفاتورة #' + _ri.inv_number + ' في «الفواتير» — وإن كان بيعاً جديداً فعلاً فابدأ «فاتورة جديدة».',
+            { title: '⛔ منعاً لتكرار الفاتورة', icon: 'danger' });
+          return;
+        }
+        realInvNum = _ri.inv_number || realInvNum; invNum = realInvNum; _offlinePack.invoiceData.inv_number = realInvNum;
+      }
+      await savePendingInvoice({
+        invoiceData: _offlinePack.invoiceData, items: _offlinePack.items, commissions: _offlinePack.commissions,
+        couponCode: _offlinePack.couponCode, isTraining: _offlinePack.isTraining, orderLinked: _offlinePack.orderLinked,
+        progress: _progress, stockUpdates: [],
+      });
+      gmtSnapshotLastInvoice();
+      isSaved = true;
+      try { renderProds(); renderPrint(); } catch (_) {}
+      document.getElementById('successMsg').textContent = `حُفظت الفاتورة #${invNum} — يُكمَل ما بقي منها تلقائياً خلال لحظات`;
+      showToast('⚠️ الفاتورة #' + invNum + ' حُفظت وبقي منها جزء (' + ((e && e.message && e.message !== 'RESUME_PREV_INVOICE') ? e.message : 'من محاولةٍ سابقة') + ') — يُكمَل تلقائياً، لا تحفظها مرّةً ثانية', 'err');
+      try{ if(window.GMTSound) GMTSound.play('cash'); }catch(_){} goTo('v-success');
+      updateOfflineBadge();
+      return;
+    }
     // حفظ أوفلاين عند انقطاع الشبكة
     if (!navigator.onLine || /fetch|network|Failed|timeout|abort|Load failed/i.test(String(e.message))) {
       const _ctOffline = computeOrderLinkedTotal();
@@ -9891,7 +9965,13 @@ async function updateOfflineBadge() {
 
 function syncPendingInvoices() {
   if (_syncRunning) return _syncRunning;                    // مزامنة واحدة في كل وقت — الثانية تنتظر نتيجة الأولى
-  _syncRunning = _syncPendingInner().finally(() => { _syncRunning = null; });
+  /* (TASK-0010) والقفل يشمل كل تبويبات الجهاز: الطابور واحد (IndexedDB) فكان تبويبان مفتوحان يزامنان الفاتورة نفسها معاً
+     ويخصمان مخزونها مرّتين. قفل المتصفّح (Web Locks): من وجده محجوزاً يتخطّى — صاحبه يُكمل. */
+  const _run = () => _syncPendingInner();
+  _syncRunning = ((navigator.locks && navigator.locks.request)
+      ? navigator.locks.request('gmt-pos-sync', { ifAvailable: true }, (lock) => lock ? _run() : null)
+      : _run())
+    .finally(() => { _syncRunning = null; });
   return _syncRunning;
 }
 async function _syncPendingInner() {
@@ -9918,13 +9998,32 @@ async function _syncPendingInner() {
       // ٢) الفاتورة: نتبنّى الموجودة (أُدرجت ثم ضاع الردّ/انقطعنا) بدل التكرار
       let savedInv = null;
       if (P.invoiceId) savedInv = { id: P.invoiceId, inv_number: idata.inv_number };
-      if (!savedInv) {
+      /* (TASK-0010) «هل أُدرجت فاتورتي؟» بالهويّة أوّلاً (دقيقة)، ثمّ — للفواتير المعلّقة قبل هذا التحديث بلا هويّة — بالرقم والإجمالي */
+      if (!savedInv && idata.client_ref) savedInv = await findInvoiceByRef(idata.client_ref);
+      if (!savedInv && !idata.client_ref) {
         const ex = await findInvoiceByNumber(idata.inv_number, idata.total, idata.items_count);
         if (ex) savedInv = ex;
       }
       if (!savedInv) {
         if (notes.length) { idata.review_status = 'pending'; idata.notes = [idata.notes, '⚠️ ' + notes.join(' | ')].filter(Boolean).join(' | '); }
-        const invRes = await sbPostAdaptive('/rest/v1/invoices', idata, { keep: ['inv_number', 'branch_key', 'total'] });
+        let invRes = await sbPostAdaptive('/rest/v1/invoices', idata, { keep: ['inv_number', 'branch_key', 'total'] });
+        if (invRes.error && idata.client_ref && isDupKeyErr(invRes.error, 'client_ref')) {
+          const mine = await findInvoiceByRef(idata.client_ref);              // أُدرجت للتوّ (تبويبٌ آخر/ردٌّ ضائع) ⇒ نتبنّاها
+          if (mine) invRes = { data: [mine], error: null };
+        }
+        if (invRes.error && isDupKeyErr(invRes.error, 'inv_number')) {
+          /* الرقم أخذه جهازٌ آخر أثناء الانقطاع (والفاتورة ليست لنا — الهويّة لم تطابق) ⇒ رقمٌ جديد بدل أن تعلق الفاتورة في
+             الطابور إلى الأبد فيُعيد الكاشير إدخالها يدوياً (تكرار) */
+          const oldNo = idata.inv_number;
+          let fresh = null; try { fresh = await fetchNextInvNumber(); } catch (_) {}
+          if (fresh && fresh !== oldNo) {
+            idata.inv_number = fresh;
+            idata.review_status = 'pending';
+            idata.notes = [idata.notes, '⚠️ رقمها تغيّر عند المزامنة من ' + oldNo + ' إلى ' + fresh + ' (الرقم أخذه جهازٌ آخر أثناء الانقطاع)'].filter(Boolean).join(' | ');
+            await updatePendingInvoice(inv._localId, { invoiceData: Object.assign({}, inv.invoiceData, { inv_number: fresh, review_status: idata.review_status, notes: idata.notes }) });
+            invRes = await sbPostAdaptive('/rest/v1/invoices', idata, { keep: ['inv_number', 'branch_key', 'total'] });
+          }
+        }
         if (invRes.error) throw new Error('الفاتورة: ' + invRes.error);
         savedInv = invRes.data[0];
       }
@@ -10091,7 +10190,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024a"></script>
+<script src="gmt-whatsnew.js?v=20261024b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

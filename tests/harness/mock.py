@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qsl, unquote
 DB = {}; SEQ = itertools.count(1)
 MISSING = {'gmt_reservations', 'nonexistent_tbl'}
-OPTS = {'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False}
+OPTS = {'unique_invoices': True, 'drop_reply': [], 'fail_post': [], 'block_delete': [], 'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False}
 def tbl(t): return DB.setdefault(t, [])
 def cmp_val(v, raw):
     if raw == 'null': return v is None
@@ -28,8 +28,8 @@ def match(row, k, expr):
     if op == 'in':
         vals = val.strip('()').split(',')
         return v is not None and str(v) in vals
-    if op == 'like':
-        pat = '^' + re.escape(val).replace('\\*','.*') + '$'
+    if op == 'like':                            # كـPostgREST: «*» و«%» كلاهما محرف بدل (كان «%» حرفياً فيفشل بحث «الرقم الأكبر»)
+        pat = '^' + re.escape(val).replace('\\*','.*').replace('%','.*') + '$'
         return v is not None and re.match(pat, str(v)) is not None
     if op in ('gt','lt','gte','lte'):
         if v is None: return False
@@ -73,6 +73,22 @@ class H(BaseHTTPRequestHandler):
         sel = dict(q).get('select')
         lim = dict(q).get('limit')
         off = dict(q).get('offset')
+        order = dict(q).get('order')
+        if order:                                     # كـPostgREST: «col.desc,col2.asc» (+ nullsfirst/nullslast) — كان يُتجاهل
+            def keyf(c):
+                def k(r):
+                    v = r.get(c)
+                    try: v = (0, float(v)) if v is not None and not isinstance(v, bool) and str(v).strip() != '' and float(v) == float(v) else (1, str(v))
+                    except Exception: v = (1, str(v))
+                    return v
+                return k
+            rows = list(rows)
+            for part in reversed([x for x in order.split(',') if x]):
+                bits = part.split('.'); col = bits[0]; desc = 'desc' in bits[1:]
+                nf = 'nullsfirst' in bits[1:] or (desc and 'nullslast' not in bits[1:])
+                nn = [r for r in rows if r.get(col) is not None]; nulls = [r for r in rows if r.get(col) is None]
+                nn.sort(key=keyf(col), reverse=desc)
+                rows = (nulls + nn) if nf else (nn + nulls)
         if off: rows = rows[int(off):]
         if lim: rows = rows[:int(lim)]
         if not sel or sel == '*': return rows
@@ -138,6 +154,14 @@ class H(BaseHTTPRequestHandler):
                     return self.reply(400, {'code':'PGRST204','message':"Could not find the '%s' column of '%s' in the schema cache" % (c, t)})
         if method == 'POST':
             rows = body if isinstance(body, list) else [body]
+            if t in OPTS['fail_post']:                 # (TASK-0010) فشلٌ مُحاكى مرّةً لكل ظهورٍ للجدول في القائمة
+                OPTS['fail_post'].remove(t); return self.reply(500, {'message': 'simulated failure on ' + t})
+            if t == 'invoices' and OPTS.get('unique_invoices'):   # كالقاعدة الحقيقية: inv_number فريد · client_ref فريد إن وُجد
+                for r in rows:
+                    for col, idx in (('inv_number', 'invoices_inv_number_key'), ('client_ref', 'invoices_client_ref_key')):
+                        v = (r or {}).get(col)
+                        if v is not None and any(x.get(col) == v for x in tbl(t)):
+                            return self.reply(409, {'code': '23505', 'message': 'duplicate key value violates unique constraint "%s"' % idx})
             out = []
             oc = dict(q).get('on_conflict'); merge = 'merge-duplicates' in (self.headers.get('Prefer') or '')
             for r in rows:
@@ -148,6 +172,8 @@ class H(BaseHTTPRequestHandler):
                 if 'id' not in r: r['id'] = str(uuid.uuid4()) if t == 'products' else next(SEQ)
                 r.setdefault('created_at','2026-10-07T00:00:00Z')
                 tbl(t).append(r); out.append(r)
+            if t in OPTS['drop_reply']:                # (TASK-0010) أُدرج فعلاً ثمّ ضاع الردّ (انقطاع) — لا يُرسَل شيء
+                OPTS['drop_reply'].remove(t); self.close_connection = True; return
             return self.reply(201, out)
         if method == 'PATCH':
             rows = self.filt(t, q)
@@ -160,7 +186,7 @@ class H(BaseHTTPRequestHandler):
             return self.mut_reply(rows)
         if method == 'DELETE':
             rows = self.filt(t, q)
-            if t in OPTS['rls_block']: rows = []
+            if t in OPTS['rls_block'] or t in OPTS['block_delete']: rows = []
             DB[t] = [r for r in tbl(t) if r not in rows]
             return self.mut_reply(rows)
     def pos_rpc(self, fn, b):

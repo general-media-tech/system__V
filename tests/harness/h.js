@@ -10,7 +10,7 @@ async function call(path, data, method = 'POST') {
 
 async function seed() {
   await call('/__reset', {});
-  await call('/__opts', { reject_cols: [], unique_order_invoice: true, old_rpc_false: false, rls_block: [], no_pos_fn: false, sov: '2003', pos_protected: true, pos_locked: false });
+  await call('/__opts', { unique_invoices: true, drop_reply: [], fail_post: [], block_delete: [], reject_cols: [], unique_order_invoice: true, old_rpc_false: false, rls_block: [], no_pos_fn: false, sov: '2003', pos_protected: true, pos_locked: false });
   await call('/rest/v1/inv_columns', [['haleb', 'حلب'], ['daraa', 'درعا']].map(([k, n], i) => ({ key_name: k, display_name: n, col_type: 'number', include_in_total: true, is_branch: true, show_form: true, show_table: true, sort_order: i })));
   const prods = await call('/rest/v1/products', Array.from({ length: 12 }, (_, i) => ({ name: `كاميرا تجربة ${i}`, barcode: `BC${String(i).padStart(4, '0')}`, price: 100 + i, wholesale_price: 80, cost_price: 60, haleb: 6, daraa: 2, group_name: i % 2 ? 'كاميرات' : 'إضاءة', category: 'تصوير' })));
   await call('/rest/v1/gmt_customers', { name: 'زبون سابق', phone: '0999111222', branch_key: 'haleb', branch_name: 'حلب' });
