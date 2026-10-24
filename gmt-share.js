@@ -1,37 +1,45 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   gmt-share.js — مشاركةُ PDF في كل مكان، لا حفظٌ وطباعةٌ فقط
-   أُنشئ: 2026-10-03 · طلبك ١٢٠
+   gmt-share.js — مشاركةُ PDF/صورة في كل مكان، لا حفظٌ وطباعةٌ فقط
+   أُنشئ: 2026-10-03 · طلبك ١٢٠ — أُعيدت كتابته 2026-10-11
 
-   طلبُك: «زرّ **مشاركة PDF** في كل مكان لا حفظ وطباعة فقط».
+   طلبُك الأوّل: «زرّ **مشاركة PDF** في كل مكان لا حفظ وطباعة فقط».
+   وطلبُك الجديد: «شارك الـPDF **بدون طباعة**» + «لا خدمة خارجية لإنشاء الصور» + «العربية مشوّهة».
 
-   المشكلة اليوم: كلُّ مخرجٍ في النظام (فاتورة · أوردر · كفالة · عقد · تقرير)
-   ينتهي بزرّ «طباعة». وعلى الموبايل — وهو جهازُ الموظّف الفعليّ — «طباعة»
-   تعني حوارَ النظام ثمّ «حفظ كـPDF» إلى مجلّد التنزيلات، ثمّ يفتح الموظّف
-   مديرَ الملفّات ثمّ واتساب ثمّ يبحث عن الملفّ. أربعُ خطواتٍ لإرسال ورقة.
-
-   ما يفعله هذا الملفّ: زرٌّ واحد يبني PDF ويُسلّمه إلى **لوحة المشاركة
-   الأصلية** للنظام (`navigator.share`) فتظهر واتساب وتيليغرام والبريد
-   مباشرةً. خطوةٌ واحدة بدل أربع.
-
-   وكيف يُبنى الـPDF بلا مكتبةٍ ثقيلة: لا نُحمّل مُولّد PDF (كان ذلك سيُعيد
-   عطل ١٦٩ نفسه). نستعمل محرّك الطباعة الموجود في المتصفّح عبر إطارٍ مخفيّ —
-   وهو نفسه الذي يُنتج الـPDF اليوم — ثمّ:
-     • إن دعم الجهاز مشاركة الملفّات ⇒ نُشارك ملفّاً.
-     • وإن لم يدعم ⇒ نفتح حوار الطباعة/الحفظ كما كان، **ونقول للموظّف
-       صراحةً** أنّ جهازه لا يدعم المشاركة المباشرة — لا زرٌّ يبدو معطوباً.
-
-   ⚠️ قاعدةٌ التزمتُها: هذا الملفّ **لا يحذف** أيَّ زرّ طباعةٍ قائم. يُضيف
-      خياراً إلى جانبه. إلغاءُ الطباعة لم تطلبه، وبعضُ المطبوعات تُطبَع ورقياً
-      فعلاً (ملصق الكفالة · الفاتورة الحرارية).
+   ما يفعله هذا الملفّ الآن:
+     ① **يبني الملفّ أوّلاً** (PDF أو صورة) عبر المُصيِّر الداخلي GMTRender (gmt-render.js):
+        المتصفّح نفسه يرسم الورقة بخطّ Cairo المستضاف — لا خدمة خارجية ولا html2canvas أوّلاً.
+     ② ثم يُسلّمه للوحة المشاركة الأصلية `navigator.share({files})`.
+        • المتصفّحات تشترط «نقرةً حديثة» (≈٥ث) للمشاركة، والبناء قد يطول ⇒ إن انقضى الوقت أو رُفضت
+          (NotAllowedError) تظهر نافذةُ «الملفّ جاهز» بأزرار [شارك] [نزّل] [انسخ الصورة]، ونقرتُك عليها تُجدّد الإذن.
+        • إلغاؤك من لوحة المشاركة (AbortError) = صمتٌ تامّ، لا رسالة خطأ.
+        • الجهاز بلا مشاركة ملفّات (كمبيوتر) ⇒ **تنزيلٌ مباشر** للملفّ، وللصورة نسخٌ للحافظة أيضاً
+          لتلصقها في واتساب ويب. ❌ لا يُفتح حوار الطباعة أبداً من هنا.
+     ③ حوار الطباعة صار **زرّ «طباعة» الصريح فقط** (`GMTShare.print`).
 
    الاستعمال:
-     GMTShare.sheet(htmlString, 'فاتورة-123')        // ورقةٌ جاهزة
-     GMTShare.element(el, 'تقرير-اليوم')             // عنصرٌ في الصفحة
-     GMTShare.button({ get: () => html, name: 'x' }) // يبني زرّاً جاهزاً
+     GMTShare.sheet(htmlString, 'فاتورة-123', { width: 660 })   // PDF لورقةٍ جاهزة
+     GMTShare.image(htmlString, 'GMT-order.jpg', { text, width: 660, scale: 1200/660 })
+     GMTShare.element(el, 'تقرير-اليوم')                          // عنصرٌ في الصفحة (PDF)
+     GMTShare.deliver(blob, 'name.pdf', { text, t0 })             // تسليم ملفّ جاهز (مشاركة/نزّل/انسخ)
+     GMTShare.button({ get: () => html, name: 'x' })              // زرّ جاهز
+     GMTShare.print(html, 'title')                                 // طباعة صريحة فقط
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
   if (global.GMTShare) return;
+
+  /* مسار هذا الملف: لتحميل gmt-render.js بجواره في الصفحات التي لا تحمل وسمه (الكفالة/الجرد/نقطة البيع) */
+  var SELF = '', SELF_Q = '';
+  try {
+    var _cs = document.currentScript;
+    if (_cs && _cs.src) {
+      SELF = _cs.src.replace(/[?#].*$/, '').replace(/[^\/]*$/, '');
+      SELF_Q = (_cs.src.match(/\?[^#]*/) || [''])[0];   /* نفس رمز الإصدار ?v= ⇒ يتجدّد مع رفع الإصدار بلا رقمٍ مكتوب هنا */
+    }
+  } catch (e) {}
+
+  var STALE_MS = 4000;      /* بعد هذه المدّة من النقرة نفترض انتهاء «التنشيط العابر» فلا نجرّب share مباشرة */
+  var _busy = false;
 
   function say(msg, kind) {
     try {
@@ -44,11 +52,11 @@
   /* هل يستطيع هذا الجهاز مشاركةَ ملفّ فعلاً؟
      ⚠️ `navigator.share` وحدَها لا تكفي: أجهزةٌ تدعم مشاركة النصّ ولا تدعم
      الملفّات. ولذلك نسأل `canShare({files})` — وهذا هو الفحص الصحيح. */
-  function canShareFiles() {
+  function canShareFiles(file) {
     try {
       if (!global.navigator || !navigator.share || !navigator.canShare) return false;
-      var probe = new File([new Blob(['x'], { type: 'text/plain' })], 'p.txt', { type: 'text/plain' });
-      return navigator.canShare({ files: [probe] });
+      var f = file || new File([new Blob(['x'], { type: 'text/plain' })], 'p.txt', { type: 'text/plain' });
+      return !!navigator.canShare({ files: [f] });
     } catch (e) { return false; }
   }
 
@@ -64,7 +72,7 @@
       '@page{margin:8mm}</style></head><body>' + html + '</body></html>';
   }
 
-  /* يفتح حوارَ الطباعة لورقةٍ في إطارٍ مخفيّ — المسارُ الاحتياطي */
+  /* ── الطباعة: **زرّ «طباعة» الصريح فقط** — لا تُستعمل كمسارٍ احتياطيّ للمشاركة ── */
   function printSheet(html, title) {
     return new Promise(function (resolve) {
       var fr = document.createElement('iframe');
@@ -90,117 +98,166 @@
     });
   }
 
-  /* يبني PDF من ورقةٍ ويُشاركه. يُرجع 'shared' | 'printed' | 'failed'. */
-  async function sheet(html, name) {
-    var title = String(name || 'مستند').replace(/[\\/:*?"<>|]/g, '-');
+  /* ── تحميل المُصيِّر الداخلي عند الحاجة (الصفحات التي لا تحمله في وسومها) ── */
+  var _renderP = null;
+  function ensureRender() {
+    if (global.GMTRender) return Promise.resolve(global.GMTRender);
+    if (_renderP) return _renderP;
+    _renderP = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      var tag = document.querySelector('script[src*="gmt-render.js"]');   /* الصفحة تحمل الوسم ⇒ نفس الرابط بالضبط */
+      s.src = tag ? tag.src : ((SELF || '') + 'gmt-render.js' + SELF_Q);
+      s.onload = function () { global.GMTRender ? res(global.GMTRender) : rej(new Error('GMTRender')); };
+      s.onerror = function () { _renderP = null; rej(new Error('تعذّر تحميل مُصيِّر الصور')); };
+      document.head.appendChild(s);
+    });
+    return _renderP;
+  }
 
-    if (!canShareFiles()) {
-      /* نقولها صراحةً بدل زرٍّ يبدو معطوباً */
-      say('جهازك لا يدعم مشاركة الملفّات مباشرةً — سيُفتح الحفظ/الطباعة، ثمّ أرفِق الملفّ.', 'err');
-      await printSheet(html, title);
-      return 'printed';
-    }
+  /* ── بناء الملفّات ── */
+  var RENDER_MSG = 'تعذّر تجهيز الملفّ على هذا الجهاز. حدّث الصفحة وأعد المحاولة.';
+  function safeName(n) { return String(n || 'مستند').replace(/[\\/:*?"<>|]/g, '-'); }
 
-    /* المسار المدعوم: نحوّل الورقة إلى صورةٍ عالية الدقّة ثمّ إلى PDF بصفحةٍ
-       واحدة. نستعمل ما هو محمَّلٌ أصلاً، ونُحمّل عند الحاجة فقط (درس ١٦٩). */
+  async function buildPdf(html, name, opt) {
+    opt = opt || {};
+    var R = await ensureRender();
+    return R.toPdf(wrap(html, name), { title: safeName(name), width: opt.width || 794, scale: opt.scale || 2.5, fit: opt.fit || 'auto' });
+  }
+  async function buildImage(html, opt) {
+    opt = opt || {};
+    var R = await ensureRender();
+    return R.toBlob(wrap(html, 'صورة'), { width: opt.width || 660, scale: opt.scale || (1200 / 660), type: opt.type || 'image/jpeg', quality: opt.quality == null ? 0.92 : opt.quality });
+  }
+
+  /* ── تنزيل مباشر (anchor) ── */
+  function download(blob, fileName) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 15000);
+  }
+
+  /* ── نسخ صورة للحافظة (للصقها في واتساب ويب): Chrome يقبل image/png فقط ── */
+  async function toPng(blob) {
+    if (blob.type === 'image/png') return blob;
+    var bmp = await createImageBitmap(blob);
+    var cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
+    cv.getContext('2d').drawImage(bmp, 0, 0);
+    return new Promise(function (res, rej) { cv.toBlob(function (b) { b ? res(b) : rej(new Error('png')); }, 'image/png'); });
+  }
+  async function copyImage(blob) {
     try {
-      if (typeof global.html2canvas === 'undefined' && global.GMTLazyLib) {
-        await global.GMTLazyLib.need('html2canvas');
+      if (!(navigator.clipboard && navigator.clipboard.write && global.ClipboardItem)) return false;
+      var png = await toPng(blob);
+      await navigator.clipboard.write([new global.ClipboardItem({ 'image/png': png })]);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* الجهاز بلا مشاركة ملفّات: تنزيلٌ مباشر (+ نسخ الصورة). **لا حوار طباعة.** */
+  async function saveDirect(blob, fileName, isImg) {
+    download(blob, fileName);
+    if (isImg) {
+      var copied = await copyImage(blob);
+      say(copied ? '✅ نُزِّلت الصورة ونُسخت — الصقها (Ctrl+V) في المحادثة'
+                 : '⬇️ نُزِّلت الصورة على جهازك — أرفقها من التنزيلات');
+    } else {
+      say('⬇️ نُزِّل ملفّ PDF على جهازك — أرفقه من التنزيلات');
+    }
+    return 'downloaded';
+  }
+
+  /* نافذة «الملفّ جاهز»: نقرتك على أحد أزرارها تُجدّد إذن المشاركة */
+  async function chooseReady(blob, file, fileName, isImg, o) {
+    if (!global.GMTAsk || !global.GMTAsk.choose) return saveDirect(blob, fileName, isImg);
+    for (;;) {
+      var choices = [{ k: 'share', t: '📤 شارك', pri: 1 }, { k: 'save', t: '⬇️ نزّل' }];
+      if (isImg) choices.push({ k: 'copy', t: '📋 انسخ الصورة' });
+      var k = await global.GMTAsk.choose('الملفّ جاهز (' + (isImg ? 'صورة' : 'PDF') + '). اختر ما تريد فعله به:', { title: 'جاهز للمشاركة', icon: 'info', choices: choices, cancelText: 'إغلاق' });
+      if (!k) return 'cancelled';
+      if (k === 'save') { download(blob, fileName); say('⬇️ نُزِّل الملفّ على جهازك'); return 'downloaded'; }
+      if (k === 'copy') {
+        if (await copyImage(blob)) { say('✅ نُسخت الصورة — الصقها في المحادثة'); return 'copied'; }
+        say('تعذّر نسخ الصورة على هذا الجهاز — استعمل «نزّل»', 'err'); continue;
       }
-      if (typeof global.html2canvas === 'undefined') throw new Error('محوّل الصورة غير متاح');
-
-      var fr = document.createElement('iframe');
-      fr.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;height:400px;border:0;visibility:hidden;';
-      document.body.appendChild(fr);
-      await new Promise(function (res) { fr.onload = res; fr.srcdoc = wrap(html, title); });
-      var doc = fr.contentDocument;
-      /* (٨ ج) letter-spacing ≠ 0 يجعل html2canvas يرسم كل حرفٍ عربيّ وحده (معزولاً ومعكوساً) — نُصفّره قسراً */
-      try { var _ls = doc.createElement('style'); _ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(_ls); } catch (e) {}
-      await Promise.race([
-        doc.fonts ? doc.fonts.ready : Promise.resolve(),
-        new Promise(function (r) { setTimeout(r, 700); })
-      ]).catch(function () {});
-      var h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 400);
-      fr.style.height = h + 'px';
-      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
-      var canvas = await global.html2canvas(doc.body, {
-        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
-        width: 794, windowWidth: 794, height: h, windowHeight: h
-      });
-      try { fr.remove(); } catch (e) {}
-
-      var jpeg = canvas.toDataURL('image/jpeg', 0.92);
-      var pdfBlob = imageToPdfBlob(jpeg, canvas.width, canvas.height);
-      var file = new File([pdfBlob], title + '.pdf', { type: 'application/pdf' });
-      if (!navigator.canShare({ files: [file] })) throw new Error('الجهاز رفض ملفّ PDF');
-      await navigator.share({ files: [file], title: title });
-      return 'shared';
-    } catch (e) {
-      if (e && e.name === 'AbortError') return 'failed';      /* ألغى المستخدم — لا رسالة */
-      console.warn('[GMT] تعذّرت مشاركة PDF:', e && e.message);
-      say('تعذّرت المشاركة المباشرة — سيُفتح الحفظ/الطباعة.', 'err');
-      await printSheet(html, title);
-      return 'printed';
+      try { await navigator.share({ files: [file], title: o.title, text: o.text }); return 'shared'; }
+      catch (e) {
+        if (e && e.name === 'AbortError') return 'cancelled';
+        say('تعذّرت المشاركة المباشرة — استعمل «نزّل»', 'err');
+      }
     }
   }
 
-  /* ── PDF بصفحةٍ واحدة من صورةٍ واحدة ──
-     نكتب الـPDF بأنفسنا (بنيةٌ بسيطة: صفحةٌ واحدة + صورة JPEG مُدمَجة).
-     لماذا لا مكتبة: أصغرُ مُولّد PDF يُقارب ٣٠٠ كيلوبايت — وهو بالضبط ما
-     أزلتُه من الصفحات في البلاغ ١٦٩. وهذه البنية كافيةٌ لورقةٍ واحدة. */
-  function imageToPdfBlob(dataUrl, pxW, pxH) {
-    var b64 = dataUrl.split(',')[1];
-    var bin = atob(b64);
-    var img = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) img[i] = bin.charCodeAt(i);
-
-    /* A4 بالنقاط: 595.28 × 841.89 — نُلائم العرض ونحفظ النسبة */
-    var A4W = 595.28, A4H = 841.89;
-    var scale = Math.min(A4W / pxW, A4H / pxH);
-    var w = pxW * scale, h = pxH * scale;
-    var x = (A4W - w) / 2, y = A4H - h - ((A4H - h) / 2);
-
-    var enc = new TextEncoder();
-    var parts = [], offsets = [], pos = 0;
-    function push(bytes) {
-      parts.push(bytes); pos += bytes.length;
+  /* ── تسليمُ ملفّ جاهز. يرجع: 'shared' | 'downloaded' | 'copied' | 'cancelled' ──
+     o: { text, title, t0 (وقت النقرة الأصلية) } */
+  async function deliver(blob, fileName, o) {
+    o = o || {};
+    var t0 = o.t0 || Date.now();
+    var isImg = /^image\//.test(blob.type || '');
+    var file;
+    try { file = new File([blob], fileName, { type: blob.type || (isImg ? 'image/jpeg' : 'application/pdf') }); } catch (e) { return saveDirect(blob, fileName, isImg); }
+    if (!canShareFiles(file)) return saveDirect(blob, fileName, isImg);
+    /* المتصفّح يمنح «تنشيطاً عابراً» ≈٥ث بعد النقرة؛ البناء الطويل يستهلكه ⇒ لا نجرّب share إن انتهى */
+    var stale = (Date.now() - t0 > STALE_MS) || (navigator.userActivation && navigator.userActivation.isActive === false);
+    if (!stale) {
+      try { await navigator.share({ files: [file], title: o.title, text: o.text }); return 'shared'; }
+      catch (e) {
+        if (e && e.name === 'AbortError') return 'cancelled';               /* ألغى المستخدم — صمتٌ تامّ */
+        if (!(e && e.name === 'NotAllowedError')) {
+          console.warn('[GMT] share فشلت:', e && e.name, e && e.message);
+          say('تعذّرت المشاركة المباشرة — نزّلنا الملفّ لك', 'err');
+          return saveDirect(blob, fileName, isImg);
+        }
+      }
     }
-    function obj(n, body) {
-      offsets[n] = pos;
-      push(enc.encode(n + ' 0 obj\n' + body + '\nendobj\n'));
-    }
-    push(enc.encode('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
-    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-    obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + A4W.toFixed(2) + ' ' + A4H.toFixed(2) + ']' +
-           ' /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
-    /* الصورة */
-    offsets[4] = pos;
-    push(enc.encode('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + pxW + ' /Height ' + pxH +
-      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + img.length + ' >>\nstream\n'));
-    push(img);
-    push(enc.encode('\nendstream\nendobj\n'));
-    var content = 'q\n' + w.toFixed(2) + ' 0 0 ' + h.toFixed(2) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' cm\n/Im0 Do\nQ\n';
-    obj(5, '<< /Length ' + content.length + ' >>\nstream\n' + content + 'endstream');
+    return chooseReady(blob, file, fileName, isImg, o);
+  }
 
-    var xrefPos = pos;
-    var xref = 'xref\n0 6\n0000000000 65535 f \n';
-    for (var n = 1; n <= 5; n++) xref += String(offsets[n]).padStart(10, '0') + ' 00000 n \n';
-    xref += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF\n';
-    push(enc.encode(xref));
+  function lock() { if (_busy) { say('⏳ هناك مشاركة قيد التنفيذ — انتظر قليلاً', 'err'); return false; } _busy = true; return true; }
 
-    return new Blob(parts, { type: 'application/pdf' });
+  /* يبني PDF من ورقةٍ ويُشاركه. يُرجع 'shared' | 'downloaded' | 'cancelled' | 'failed'. */
+  async function sheet(html, name, opt) {
+    opt = opt || {};
+    var t0 = opt.t0 || Date.now();
+    var title = safeName(name);
+    if (!lock()) return 'failed';
+    try {
+      var blob = await buildPdf(html, title, opt);
+      return await deliver(blob, title + '.pdf', { title: title, text: opt.text, t0: t0 });
+    } catch (e) {
+      console.warn('[GMT] تعذّر بناء PDF:', e && e.message, e && e.causes);
+      say((e && e.code === 'RENDER_FAILED') ? e.message : RENDER_MSG, 'err');
+      return 'failed';
+    } finally { _busy = false; }
+  }
+
+  /* يبني صورةً من ورقةٍ ويُشاركها (مع نصّ اختياري) */
+  async function image(html, name, opt) {
+    opt = opt || {};
+    var t0 = opt.t0 || Date.now();
+    var base = safeName(name).replace(/\.(png|jpe?g)$/i, '');
+    if (!lock()) return 'failed';
+    try {
+      var blob = await buildImage(html, opt);
+      var ext = blob.type === 'image/png' ? '.png' : '.jpg';
+      return await deliver(blob, base + ext, { title: base, text: opt.text, t0: t0 });
+    } catch (e) {
+      console.warn('[GMT] تعذّر بناء الصورة:', e && e.message, e && e.causes);
+      say((e && e.code === 'RENDER_FAILED') ? e.message : RENDER_MSG, 'err');
+      return 'failed';
+    } finally { _busy = false; }
   }
 
   /* يشارك عنصراً موجوداً في الصفحة (مع أنماطها) */
-  async function element(el, name) {
+  async function element(el, name, opt) {
     if (!el) { say('لا يوجد ما يُشارَك', 'err'); return 'failed'; }
     var styles = '';
     try {
       styles = Array.prototype.map.call(document.querySelectorAll('style'), function (s) { return s.textContent; }).join('\n');
     } catch (e) {}
     var html = (styles ? '<style>' + styles + '</style>' : '') + el.outerHTML;
-    return sheet(html, name);
+    return sheet(html, name, opt);
   }
 
   /* زرٌّ جاهز — يُستعمل في الصفحات التي تريد إضافته بسطرٍ واحد */
@@ -217,12 +274,12 @@
         'font-family:inherit;cursor:pointer;';
     }
     b.onclick = async function () {
-      var old = b.textContent;
+      var old = b.textContent, t0 = Date.now();
       b.disabled = true; b.textContent = '⏳ جارٍ التجهيز…';
       try {
         var html = (typeof opts.get === 'function') ? await opts.get() : '';
         if (!html) { say('لا يوجد ما يُشارَك', 'err'); return; }
-        await sheet(html, (typeof opts.name === 'function') ? opts.name() : (opts.name || 'مستند'));
+        await sheet(html, (typeof opts.name === 'function') ? opts.name() : (opts.name || 'مستند'), { t0: t0, width: opts.width });
       } finally { b.disabled = false; b.textContent = old; }
     };
     return b;
@@ -230,11 +287,17 @@
 
   global.GMTShare = {
     sheet: sheet,
+    image: image,
     element: element,
     button: button,
+    deliver: deliver,
+    download: download,
+    copyImage: copyImage,
+    print: printSheet,
     canShareFiles: canShareFiles,
     /* مكشوفةٌ للفحص */
-    _pdf: imageToPdfBlob,
-    _wrap: wrap
+    _wrap: wrap,
+    _buildPdf: buildPdf,
+    _buildImage: buildImage
   };
 })(window);
