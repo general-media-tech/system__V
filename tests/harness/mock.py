@@ -142,6 +142,9 @@ class H(BaseHTTPRequestHandler):
                 if OPTS['old_rpc_false'] and fn=='deduct_branch_stock' and cur + delta < 0: return self.reply(200, False)
                 r[br] = max(0, cur + delta)
                 return self.reply(200, r[br])
+            if fn == 'next_stock_transfer_number':      # كالقاعدة: TRF-00011 (أكبر رقمٍ بخمس خانات + 1)
+                nums = [int(m2.group(1)) for r in tbl('branch_stock_transfers') for m2 in [re.match(r'^TRF-(\d{5})$', str(r.get('transfer_number') or ''))] if m2]
+                return self.reply(200, 'TRF-%05d' % ((max(nums) if nums else 0) + 1))
             if fn in ('gmt_pw_check','gmt_pw_change','gmt_pw_set') and not OPTS.get('no_pw_fn'):
                 return self.reply(200, self.pw_rpc(fn, body or {}))
             if fn in ('gmt_create_pos','gmt_retire_pos','gmt_pos_status','gmt_pos_change_secret') and not OPTS.get('no_pos_fn'):

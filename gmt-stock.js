@@ -298,7 +298,8 @@
       if (it.deduction_failed && q <= 0) { res.waiting.push({ name: nm, why: 'لم يُخصم من المصدر — بانتظار التسوية' }); continue; }
       if (q <= 0 || !it.product_id) { res.skipped.push({ name: nm, why: 'كميّة صفر' }); continue; }
       var mv = await move('add', it.product_id, to, q);
-      if (!mv.ok) { res.failed.push({ name: nm, why: friendly(mv.error) }); continue; }
+      /* (TASK-0150) id البند + هل السبب انقطاع اتصال (net) — لفصل البنود المتعذّرة فعلاً إلى فاتورةٍ جديدة، لا ما فشل لانقطاعٍ عابر */
+      if (!mv.ok) { var _why = friendly(mv.error); res.failed.push({ name: nm, why: _why, id: it.id, net: _why === 'انقطع الاتصال' }); continue; }
       try { await decTransit(it.product_id, to, q); } catch (_) {}
       var mk = false; try { mk = await markReceived(it.id); } catch (_) {}
       if (!mk) res.unmarked.push(nm);
@@ -309,10 +310,51 @@
     return res;
   }
 
+  /* (24 ت1 · TASK-0150 · المالك seq 57) «إذا في أصناف تعذّر نقلها لا تتعلّق الفاتورة كاملة … ننقصها هالبند وهذاك البند تتحوّل
+     لفاتورة جديدة معلّقة لبين ما نصلح الموضوع». البنود غير المستلَمة المعطاة تُنقل إلى فاتورةٍ جديدة «في الطريق» بالمصدر والوجهة
+     نفسيهما («متبقٍّ من TRF-…»)، فتُختم الأصلية مستلَمةً بما وصل. وإن تعذّر نقل أيٍّ منها يُتراجَع كلّياً (لا فاتورة فارغة ولا بندٌ يتيم). */
+  async function splitFailed(opts) {
+    opts = opts || {};
+    var id = opts.transferId, ids = (opts.itemIds || []).filter(Boolean).map(String);
+    var out = { ok: false, number: '', id: null, error: '' };
+    if (!id || !ids.length) { out.error = 'مُدخَلٌ ناقص'; return out; }
+    var h = await rest('GET', 'branch_stock_transfers?id=eq.' + encodeURIComponent(id) + '&select=*&limit=1');
+    if (!h.ok || !Array.isArray(h.data) || !h.data[0]) { out.error = 'تعذّر قراءة الفاتورة (HTTP ' + h.status + ')'; return out; }
+    var t = h.data[0];
+    var num = '';
+    var nr = await rest('POST', 'rpc/next_stock_transfer_number', {});
+    if (nr.ok && typeof nr.data === 'string' && /^TRF-/.test(nr.data)) num = nr.data;
+    if (!num) {
+      var d = new Date(), p = function (x) { return String(x).padStart(2, '0'); };
+      num = 'TRF-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '-' + Math.random().toString(36).slice(2, 5).toUpperCase();
+    }
+    var ins = await rest('POST', 'branch_stock_transfers?select=*', {
+      transfer_number: num, from_branch: t.from_branch, from_branch_name: t.from_branch_name || null,
+      to_branch: t.to_branch, to_branch_name: t.to_branch_name || null, status: 'pending',
+      created_by: opts.by || 'فصلٌ تلقائي عند الاستلام', is_locked: true,
+      title: 'متبقٍّ من ' + (t.transfer_number || ''),
+      note: 'فُصلت من ' + (t.transfer_number || id) + ' عند الاستلام' + (opts.reason ? ' — ' + String(opts.reason).slice(0, 400) : '')
+    }, 'return=representation');
+    if (!ins.ok || !Array.isArray(ins.data) || !ins.data[0]) { out.error = 'تعذّر إنشاء الفاتورة الجديدة (HTTP ' + ins.status + ')'; return out; }
+    var nt = ins.data[0];
+    var mv = await rest('PATCH', 'stock_transfer_items?transfer_id=eq.' + encodeURIComponent(id) + '&id=in.(' + ids.map(encodeURIComponent).join(',') + ')',
+      { transfer_id: nt.id }, 'return=representation');
+    var moved = (mv.ok && Array.isArray(mv.data)) ? mv.data.length : 0;
+    if (moved !== ids.length) {
+      if (moved) await rest('PATCH', 'stock_transfer_items?transfer_id=eq.' + encodeURIComponent(nt.id), { transfer_id: id }, 'return=minimal');
+      await rest('DELETE', 'branch_stock_transfers?id=eq.' + encodeURIComponent(nt.id), null, 'return=minimal');   // رأسٌ أنشأناه للتوّ فارغ
+      out.error = 'تعذّر نقل البنود إلى الفاتورة الجديدة (نُقل ' + moved + ' من ' + ids.length + ') — أُلغيت ولم يتغيّر شيء';
+      return out;
+    }
+    out.ok = true; out.number = nt.transfer_number || num; out.id = nt.id;
+    return out;
+  }
+
   global.GMTStock = {
     move: move,
     transfer: transfer,
     receiveTransfer: receiveTransfer,
+    splitFailed: splitFailed,
     itemReceived: itemReceived,
     readQty: readQty,
     /* هل تعمل الدالّةُ الذرّية؟ null = لم نعرف بعد */

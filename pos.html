@@ -1223,7 +1223,7 @@ window.GMT_FEATURES = [
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
-  <script src="gmt-stock.js?v=20261025a" defer></script>
+  <script src="gmt-stock.js?v=20261025b" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
@@ -3197,13 +3197,24 @@ async function _confirmIncomingTransfer(id) {
     return;
   }
   const added = R.added.length, failed = R.failed.map(f => f.name + ' — ' + f.why);
-  const allOk = R.ok;
+  /* (TASK-0150 · المالك seq 57) بندٌ تعذّرت إضافته فعلاً (منتجٌ محذوف · صلاحية…) لا يعلّق الفاتورة كلّها: يُفصل إلى فاتورةٍ جديدة
+     «في الطريق» وتُختم هذه مستلَمةً بما وصل. أمّا الانقطاع فلا يُفصل — الإكمال يعيده (TASK-0147). */
+  let _split = null;
+  const _hard = R.failed.filter(f => f.id && !f.net);
+  if (_hard.length && _hard.length === R.failed.length) {
+    _rcvProgress(true, { num: t.transfer_number, text: 'جارٍ فصل ' + _hard.length + ' بند إلى فاتورةٍ جديدة…' });
+    try { _split = await GMTStock.splitFailed({ transferId: id, itemIds: _hard.map(f => f.id), by: _who, reason: 'تعذّرت إضافة: ' + _hard.map(f => f.name + ' (' + f.why + ')').join('، ') }); }
+    catch (e) { _split = { ok: false, error: (e && e.message) || String(e) }; }
+  }
+  const _splitOk = !!(_split && _split.ok);
+  const allOk = R.ok || _splitOk;
   const _photoUrl = (allOk && _photo) ? await _posUploadReceipt(id, _photo) : null;
   _rcvProgress(true, { num: t.transfer_number, text: 'جارٍ حفظ حالة الفاتورة…' });
   /* الحالة النهائية: تُعاد المحاولة ٣ مرّات عند انقطاعٍ عابر أو خطأ خادم (5xx) — كان طلباً واحداً يضيع مع أوّل انقطاع */
   let statusSaved = false;
   const _final = JSON.stringify(allOk
-    ? Object.assign({ status: 'received', received_at: new Date().toISOString(), received_by: _who }, _photoUrl ? { signature_url: _photoUrl } : {})
+    ? Object.assign({ status: 'received', received_at: new Date().toISOString(), received_by: _who }, _photoUrl ? { signature_url: _photoUrl } : {},
+                    _splitOk ? { note: (t.note ? t.note + ' | ' : '') + 'فُصل ' + _hard.length + ' بند إلى ' + _split.number + ': ' + _hard.map(f => f.name).join('، ') } : {})
     : { status: prevStatus, note: (t.note ? t.note + ' | ' : '') + 'تعذّرت إضافة: ' + R.failed.map(f => f.name).join('، ') });
   for (let _a = 0; _a < 3 && !statusSaved; _a++) {
     if (_a) await new Promise(r => setTimeout(r, 1500 * _a));
@@ -3225,15 +3236,19 @@ async function _confirmIncomingTransfer(id) {
       sendTelegram('<b>📦 استلام فاتورة نقل — GMT</b>\n<b>الفاتورة:</b> ' + escH(t.transfer_number || id) +
         '\n<b>من:</b> ' + escH(t.from_branch_name || t.from_branch || '—') + ' ← <b>إلى:</b> ' + escH(branch.name || branch.key) +
         '\n<b>البنود:</b> ' + added + (R.waiting.length ? ' · ' + R.waiting.length + ' بانتظار تسوية' : '') +
+        (_splitOk ? '\n<b>فُصل:</b> ' + _hard.length + ' بند تعذّرت إضافته ⇐ فاتورة جديدة ' + escH(_split.number) : '') +
         '\n<b>المستلِم:</b> ' + escH((currentUser && (currentUser.display_name || currentUser.name)) || 'نقطة البيع') +
         '\n<b>الوقت:</b> ' + new Date().toLocaleString('ar-SY') + (_photoUrl ? '\n<b>الإثبات:</b> صورة محفوظة على الفاتورة' : '\n<b>الإثبات:</b> بلا صورة'));
     } catch (_) {}
     const prior = R.skipped.filter(x => /سابقاً/.test(x.why)).length;
     await GMTAsk.alert('✅ اكتمل الاستلام: أُضيف ' + added + ' بند إلى مخزون فرعك' + (prior ? ' (و' + prior + ' استُلم في محاولةٍ سابقة)' : '') + '.' +
-          (R.waiting.length ? '\n\nℹ️ ' + R.waiting.length + ' بند لم يُخصم من المصدر — بانتظار تسوية الإدارة.' : ''));
+          (R.waiting.length ? '\n\nℹ️ ' + R.waiting.length + ' بند لم يُخصم من المصدر — بانتظار تسوية الإدارة.' : '') +
+          (_splitOk ? '\n\n📦 تعذّرت إضافة ' + _hard.length + ' بند:\n• ' + failed.join('\n• ') +
+            '\n\nفُصل إلى فاتورةٍ جديدة معلّقة ' + _split.number + ' حتى يُصلَح — وهذه الفاتورة اكتملت ولم تعلق.' : ''));
   } else {
     await GMTAsk.alert('⚠️ استُلم ' + added + ' بند، وتعذّر ' + failed.length + ':\n• ' + failed.join('\n• ') +
-          '\n\nأُعيدت الفاتورة للانتظار — أعد الاستلام بأمان: سيُكمل الباقي فقط.');
+          '\n\nأُعيدت الفاتورة للانتظار — أعد الاستلام بأمان: سيُكمل الباقي فقط.' +
+          (_split && !_split.ok ? '\n\n(تعذّر فصلها إلى فاتورةٍ جديدة: ' + _split.error + ')' : ''));
   }
   await loadIncomingTransfers();
   await openIncomingTransfers();
@@ -10394,7 +10409,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025a"></script>
+<script src="gmt-whatsnew.js?v=20261025b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

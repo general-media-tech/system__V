@@ -2283,7 +2283,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261025a" defer></script>
+  <script src="gmt-stock.js?v=20261025b" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -13842,21 +13842,33 @@ async function stConfirmReceived(transferId, signatureBlob) {
       }
     });
 
+    /* (TASK-0150 · المالك seq 57) بندٌ تعذّرت إضافته فعلاً لا يعلّق الفاتورة كلّها: يُفصل إلى فاتورةٍ جديدة «في الطريق»
+       (gmt-stock.js · splitFailed) وتُختم هذه مستلَمةً بما وصل. الانقطاع لا يُفصل. */
+    let _split = null;
+    const _hard = R.failed.filter(f => f.id && !f.net);
+    if (!R.ok && _hard.length && _hard.length === R.failed.length && GMTStock.splitFailed) {
+      try { showLoading('جارٍ فصل ' + _hard.length + ' بند إلى فاتورةٍ جديدة…'); } catch (_) {}
+      try { _split = await GMTStock.splitFailed({ transferId, itemIds: _hard.map(f => f.id), by: receivedBy, reason: 'تعذّرت إضافة: ' + _hard.map(f => f.name + ' (' + f.why + ')').join('، ') }); }
+      catch (e) { _split = { ok: false, error: (e && e.message) || String(e) }; }
+    }
+    const _splitOk = !!(_split && _split.ok);
+
     // (2026-08-26) لا تُختم الفاتورة «مستلمة» وفيها بنود لم تدخل المخزون فعلاً
-    if (!R.ok) {
+    if (!R.ok && !_splitOk) {
       await release('تعذّر استلام: ' + R.failed.map(f => f.name).join('، '));
       hideLoading();
       await GMTAsk.alert('استُلم ' + R.added.length + ' بند، وتعذّرت إضافة ' + R.failed.length + ' إلى مخزون ' + (t.to_branch_name || t.to_branch) + ':\n• ' +
             R.failed.map(f => f.name + ' — ' + f.why).join('\n• ') +
-            '\n\nالفاتورة عادت كما كانت. **إعادة الاستلام آمنة**: ما استُلم موسومٌ ولن يُضاف مرّتين.', { title: 'استلامٌ ناقص' });
+            '\n\nالفاتورة عادت كما كانت. **إعادة الاستلام آمنة**: ما استُلم موسومٌ ولن يُضاف مرّتين.' +
+            (_split && !_split.ok ? '\n\n(تعذّر فصلها إلى فاتورةٍ جديدة: ' + _split.error + ')' : ''), { title: 'استلامٌ ناقص' });
       await loadProducts();
       return;
     }
 
-    await sbFetch('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${transferId}`, {
+    await sbFetch('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${transferId}`, Object.assign({
       status: 'received', received_at: new Date().toISOString(),
       received_by: receivedBy, signature_url: signatureUrl
-    });
+    }, _splitOk ? { note: (t.note ? t.note + ' | ' : '') + 'فُصل ' + _hard.length + ' بند إلى ' + _split.number + ': ' + _hard.map(f => f.name).join('، ') } : {}));
     claimed = false;
 
     await sendStockTransferTG(`✅ تم استلام النقل #${t.transfer_number}\n📥 ${t.to_branch_name}\n👤 ${receivedBy}`);
@@ -13865,6 +13877,8 @@ async function stConfirmReceived(transferId, signatureBlob) {
     const extra = (R.waiting.length ? ' · ' + R.waiting.length + ' بند بانتظار التسوية' : '') +
                   (R.skipped.filter(x => /سابقاً/.test(x.why)).length ? ' · تُخطّي ما استُلم سابقاً' : '');
     showToast('✅ تم تأكيد الاستلام' + extra, 'success');
+    if (_splitOk) await GMTAsk.alert('📦 تعذّرت إضافة ' + _hard.length + ' بند:\n• ' + _hard.map(f => f.name + ' — ' + f.why).join('\n• ') +
+      '\n\nفُصل إلى فاتورةٍ جديدة معلّقة ' + _split.number + ' حتى يُصلَح — والفاتورة ' + (t.transfer_number || '') + ' اكتملت ولم تعلق.', { title: 'استلامٌ مع فصل' });
     closeModal('st-detail-modal');
     renderAll();
     updateStats();
@@ -14980,7 +14994,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025a"></script>
+<script src="gmt-whatsnew.js?v=20261025b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

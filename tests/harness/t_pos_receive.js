@@ -86,13 +86,14 @@ const PAGE = process.env.POS_PAGE || 'pos.html';
       { transfer_id: tC.id, product_id: p4.id, product_name: p4.name, qty: 1, requested_qty: 1 },
       { transfer_id: tC.id, product_id: p5.id, product_name: p5.name, qty: 5, requested_qty: 5 }]);
     let down = false, marks = 0, fail503 = 0;
-    await ctx.route('**/*.supabase.co/**', async (route) => {
+    const dropRoute = async (route) => {
       const u = route.request().url(), m = route.request().method();
       if (down) return route.abort('internetdisconnected');
       if (m === 'PATCH' && /stock_transfer_items\?id=eq\./.test(u) && ++marks === 1) { await route.fallback(); down = true; return; }   // ينقطع بعد أوّل بند
       if (fail503 > 0 && m === 'PATCH' && /branch_stock_transfers\?/.test(u) && /"status":"received"/.test(route.request().postData() || '')) { fail503--; return route.fulfill({ status: 503, body: '{}' }); }   // الحالة النهائية وحدها
       return route.fallback();
-    });
+    };
+    await ctx.route('**/*.supabase.co/**', dropRoute);
     const rC = await receive('TRF-R3');
     down = false;
     s = await dump(); let trC = s.branch_stock_transfers.find(x => x.id === tC.id);
@@ -115,6 +116,20 @@ const PAGE = process.env.POS_PAGE || 'pos.html';
     ok(trC.status === 'received' && got(p3.id) === 2 && got(p4.id) === 1 && got(p5.id) === 5 && fail503 === 0, '«↻ أكمِل الاستلام» ⇒ الباقي فقط (الأوّل لم يُضاعَف 2 · 1 · 5) والحالة received رغم 503 عابر: ' + trC.status + ' · ' + [got(p3.id), got(p4.id), got(p5.id)]);
     ok(rD.alerts.some(a => /اكتمل الاستلام/.test(a) && /استُلم في محاولةٍ سابقة/.test(a)), 'الرسالة: اكتمل · وبندٌ استُلم في محاولةٍ سابقة');
     ok(!/·/.test(String(trC.received_by)), 'اسم المستلِم النهائيّ بلا رمز الاستيلاء: ' + trC.received_by);
+    // ── TASK-0150 (seq 57): بندٌ منتجه محذوف (كـSNBLY) لا يعلّق الفاتورة: تُستلم بما وصل، والبند يُفصل لفاتورةٍ جديدة «في الطريق» ──
+    await ctx.unroute('**/*.supabase.co/**', dropRoute);   // هذا المعالج وحده (بلا معالجٍ تُزال كلّ المسارات بما فيها توصيل القاعدة الوهمية)
+    const GONE = '29f7fe2f-877a-44fe-8aa4-80ad6931fc57';
+    const [tE] = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TRF-00003', status: 'pending', from_branch: 'haleb', to_branch: 'daraa', from_branch_name: 'حلب', to_branch_name: 'درعا' }]);
+    await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: tE.id, product_id: p4.id, product_name: p4.name, qty: 3 }, { transfer_id: tE.id, product_id: GONE, product_name: 'SNBLY', qty: 1 }]);
+    const p4before = Number((await dump()).products.find(x => x.id === p4.id).daraa);
+    const rE = await receive('TRF-00003');
+    s = await dump();
+    const trE = s.branch_stock_transfers.find(x => x.id === tE.id), trNew = s.branch_stock_transfers.find(x => /متبقٍّ من TRF-00003/.test(x.title || ''));
+    ok(trE.status === 'received' && Number(s.products.find(x => x.id === p4.id).daraa) === p4before + 3, 'الفاتورة اكتملت بما وصل (لم تعلق «في الطريق»): ' + trE.status);
+    ok(trNew && trNew.status === 'pending' && s.stock_transfer_items.some(i => i.product_name === 'SNBLY' && i.transfer_id === trNew.id), 'و«SNBLY» في فاتورةٍ جديدة معلّقة ' + (trNew && trNew.transfer_number));
+    ok(rE.alerts.some(a => /اكتمل الاستلام/.test(a) && /فُصل إلى فاتورةٍ جديدة معلّقة/.test(a)), 'الرسالة: اكتمل + فُصل البند إلى فاتورة جديدة');
+    await pg.evaluate(async () => { await loadIncomingTransfers(); await openIncomingTransfers(); }); await pg.waitForTimeout(400);
+    ok(await pg.evaluate((n) => !!document.querySelector('[data-trf="' + n + '"]') && !document.querySelector('[data-trf="TRF-00003"]'), trNew && trNew.transfer_number), 'في «وارد»: الجديدة ظاهرة والأصلية اختفت (مستلَمة)');
     const bad = errs.filter(e => !/favicon|أصول ناقصة|Failed to load resource|internetdisconnected|ERR_INTERNET_DISCONNECTED|Failed to fetch|503|قاعدةٌ لا تردّ/.test(e));   // الانقطاع المحاكى يُطلق تنبيه «قاعدة لا تردّ» في الكونسول — متوقَّع
     ok(bad.length === 0, 'لا أخطاء JS: ' + JSON.stringify(bad.slice(0, 3)));
     await browser.close();
