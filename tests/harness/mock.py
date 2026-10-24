@@ -119,6 +119,13 @@ class H(BaseHTTPRequestHandler):
             if not users: return False
             put(b.get('p_new') or ''); return True
     def rest(self, method):
+        # (24 ت1 · seq 48) كـPostgREST الحيّ: جسمٌ بلا 'Content-Type: application/json' ⇒ 400 PGRST102.
+        # كان المحاكي يقبل أيّ نوع فنجح «تأكيد الاستلام» في الاختبار وهو مرفوضٌ دائماً على القاعدة الحقيقية.
+        if method in ('POST', 'PATCH') and self.path.startswith('/rest/v1/') and int(self.headers.get('Content-Length') or 0) > 0:
+            ct = (self.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+            if ct not in ('application/json', 'application/vnd.pgrst.object+json', 'text/csv', 'application/x-www-form-urlencoded'):
+                self.rfile.read(int(self.headers.get('Content-Length') or 0))
+                return self.reply(400, {'code': 'PGRST102', 'details': None, 'hint': None, 'message': 'Content-Type not acceptable: ' + (ct or '(none)')})
         path, q, body = self.parse()
         if path == '/__reset': DB.clear(); return self.reply(200, {})
         if path == '/__opts': OPTS.update(body or {}); return self.reply(200, OPTS)

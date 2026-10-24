@@ -3086,16 +3086,25 @@ async function confirmIncomingTransfer(id) {
      كان يتحقّق من الحالة ⇒ ضغطتان متزامنتان (أو أدمن + كاشير) تُضيفان الكمية
      **مرّتين**. الحل: نُبدّل الحالة أولاً بشرط `status=in.(pending,needs_settlement)`،
      فمن يفوز بالتبديل وحده يُكمل الإضافة. الخاسر يتوقّف بلا أي كتابة على المخزون. */
-  let claimed = false;
+  /* (24 ت1 · seq 48 «مازالت لا تعمل») الجذر: طلبات الاستلام الثلاثة هنا كانت بلا 'Content-Type: application/json'
+     (sbHeaders لا تضعه) ⇒ القاعدة الحيّة ترفضها «400 PGRST102 Content-Type not acceptable: text/plain» ⇒ كل تأكيد استلام
+     من نقطة البيع ينتهي بـ«يجري استلامها الآن» بلا أن يُستلم شيء. والخطأ الحقيقي صار يُعرض بنصّه لا كأنه سباق. */
+  let claimed = false, claimErr = '';
   try {
     const cl = await sbFetch(
       `${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=in.(pending,needs_settlement)`,
       { method:'PATCH',
-        headers: { ...sbHeaders(), Prefer: 'return=representation' },
+        headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
         body: JSON.stringify({ status:'receiving', received_by: (currentUser && currentUser.name) || 'نقطة البيع' }) });
+    if (!cl.ok) claimErr = 'HTTP ' + cl.status + ' ' + String(await cl.text().catch(() => '')).slice(0, 160);
     const rows = cl.ok ? await cl.json() : [];
     claimed = Array.isArray(rows) && rows.length === 1;
-  } catch (e) {}
+  } catch (e) { claimErr = (e && e.message) || String(e); }
+  if (!claimed && claimErr) {
+    hideLoading && hideLoading();
+    await GMTAsk.alert('⚠️ تعذّر بدء الاستلام — لم تُضف أي كمية.\n\n' + claimErr + '\n\nتحقّق من الاتصال وأعد المحاولة.');
+    return;
+  }
   if (!claimed) {
     hideLoading && hideLoading();
     await GMTAsk.alert('⛔ هذه الفاتورة يجري استلامها الآن أو استُلمت مسبقاً.\n\nلم تُضف أي كمية — تفادياً للازدواج.');
@@ -3108,7 +3117,7 @@ async function confirmIncomingTransfer(id) {
   async function _release(reason) {
     try {
       await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.receiving`, {
-        method: 'PATCH', headers: sbHeaders(),
+        method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending', note: (t.note ? t.note + ' | ' : '') + 'أُلغي استلام: ' + reason })
       });
     } catch (_) {}
@@ -3134,7 +3143,7 @@ async function confirmIncomingTransfer(id) {
   let statusSaved = false;
   try {
     const sr = await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.receiving`, {
-      method: 'PATCH', headers: sbHeaders(),
+      method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(allOk
         ? Object.assign({ status: 'received', received_at: new Date().toISOString(), received_by: (currentUser && (currentUser.display_name || currentUser.name)) || 'نقطة البيع' },
                         _photoUrl ? { signature_url: _photoUrl } : {})
@@ -10322,7 +10331,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024i"></script>
+<script src="gmt-whatsnew.js?v=20261024j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
