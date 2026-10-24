@@ -23,9 +23,10 @@ const ADMIN_INIT = `try{ localStorage.setItem('gmt_whatsnew_seen','999'); localS
  localStorage.setItem('gmt_session', JSON.stringify({id:1,username:'t',display_name:'فاحص',branch_key:'haleb',branch_name:'حلب'})); localStorage.setItem('gmt_branch','haleb');
  sessionStorage.setItem('gmt_admin_mode','1'); localStorage.setItem('gmt_operator_name','فاحص النظام'); }catch(e){}
  window.print=()=>{}; window.open=()=>null;`;
+/* (TASK-0030) gmt_tab_seen: الموظّف «داخل التطبيق» — فتحُ التطبيق من جديد يذهب به إلى نقطة بيعه (يختبره t_users_s_accounts) */
 const STAFF_INIT = `try{ localStorage.setItem('gmt_whatsnew_seen','999'); localStorage.setItem('gmt_intro_seen_build','x');
  localStorage.setItem('gmt_session', JSON.stringify({id:2,username:'samer',display_name:'سامر',branch_key:'daraa',branch_name:'درعا'})); localStorage.setItem('gmt_branch','daraa');
- sessionStorage.removeItem('gmt_admin_mode'); }catch(e){}
+ sessionStorage.removeItem('gmt_admin_mode'); sessionStorage.setItem('gmt_tab_seen','1'); }catch(e){}
  window.print=()=>{}; window.open=()=>null;`;
 
 async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true } = {}) {

@@ -1206,7 +1206,7 @@ window.GMT_FEATURES = [
   <script src="gmt-brand.js?v=20261003"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261023g"></script>
-<script src="gmt-account.js?v=20261020a"></script>
+<script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
 #prodsGrid > *{content-visibility:auto;contain-intrinsic-size:auto 240px}
@@ -1226,7 +1226,7 @@ window.GMT_FEATURES = [
   <script src="gmt-stock.js?v=20261011n" defer></script>
   <script src="gmt-share.js?v=20261011p" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
-  <script src="gmt-auth.js?v=20261011e"></script>
+  <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
@@ -9212,6 +9212,8 @@ async function doLogin() {
       device_id   : myDevice,
     };
     localStorage.setItem('gmt_session', JSON.stringify(currentUser));
+    /* (TASK-0030) من دخل من نقطة البيع يظهر أيضاً في «حسابات هذا الجهاز» (التذكّر كما كان له) */
+    try { if (window.GMTAccount && GMTAccount.saved) GMTAccount.saved.noteStaff(Object.assign({}, currentUser, { branch_name: branch.name }), null); } catch (_) {}
 
     // إشعار تيليجرام بتسجيل الدخول مع كل بيانات الجهاز
     sendTelegram(
@@ -10205,7 +10207,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024c"></script>
+<script src="gmt-whatsnew.js?v=20261024d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

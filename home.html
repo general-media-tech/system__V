@@ -151,6 +151,21 @@ a.ni{color:var(--mu)}
 .auth .adm{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:10px;border-radius:12px;border:1px dashed var(--ln);background:none;color:var(--tx);font-weight:700}
 .auth .adm:hover{border-color:var(--red);color:var(--red)}
 .auth .hint{margin-top:10px;font-size:12px;color:var(--mu);text-align:center}
+/* ══ (١٨ ت١ · وثيقة الطلبات ٩) حسابات هذا الجهاز + «تذكّر هذا الجهاز» ══ */
+.fc label.remb{display:flex;align-items:flex-start;gap:9px;margin:12px 0 0;font-size:13.5px;font-weight:700;color:var(--tx);cursor:pointer;line-height:1.5}
+.remb input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--red);flex:none}
+.remb small{display:block;font-weight:600;font-size:11.5px;color:var(--mu)}
+.accts-h{display:flex;align-items:center;gap:8px;margin:14px 0 6px;font-size:12.5px;font-weight:800;color:var(--mu)}
+.accts{display:grid;gap:8px}
+.acct{display:flex;align-items:center;gap:6px;border:1px solid var(--ln);border-radius:14px;background:var(--sf);padding:4px;min-width:0}
+.acct.on{border-color:rgba(213,0,28,.45);background:var(--rs)}
+.acct-go{flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:none;padding:6px 8px;text-align:start;border-radius:11px;color:var(--tx)}
+.acct-go:hover:not(:disabled){background:#fafbfc}.acct-go:disabled{cursor:default;opacity:1}
+.acct-t{flex:1;min-width:0}.acct-t b{display:block;font-size:14px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.acct-t small{display:block;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct .chip{flex:none}
+.acct-x{flex:none;width:34px;height:34px;border-radius:10px;border:1px solid var(--ln);background:var(--sf);display:grid;place-items:center;color:var(--mu);padding:0}
+.acct-x:hover{color:var(--red);border-color:var(--red)}
+.auth-back{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--rd);font-weight:800;padding:4px 0;margin-bottom:6px}
 /* بطاقة الجهاز في الرئيسيّة: تثبيت التطبيق · الإشعارات · تنزيل الصور — داخل الصفحة لا عائمة */
 .dvc{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .dvc .sp{min-width:180px}.dvc .bar{margin-top:8px}
@@ -219,9 +234,9 @@ a.btn{text-decoration:none}
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-core.js?v=20261017c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-<script src="gmt-auth.js?v=20261011e"></script>
+<script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-tools.js?v=20261023g"></script>
-<script src="gmt-account.js?v=20261020a"></script>
+<script src="gmt-account.js?v=20261024d"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261011e"></script>
 <script src="gmt-sound.js?v=20261019f" defer></script>
@@ -231,12 +246,30 @@ a.btn{text-decoration:none}
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-home.js?v=20261007z5"></script>
 <script>
+/* ═══ (١٨ ت١ · وثيقة الطلبات ٩) «المستخدم العادي اول ما يفتح التطبيق مباشره … بيفتح له هو لحاله نقطه تبيعه اللي هو اختارها» ═══
+   فتحُ التطبيق (تبويبٌ جديد / تشغيلُ التطبيق المثبَّت) على الرئيسية والجهازُ فيه موظّفٌ داخل ⇒ ننتقل إلى نقطة بيعه مباشرةً
+   بدل أن يمرّ على الرئيسية كلَّ مرّة. لا ننتقل: للأدمن (وضعُ الإدارة مفتوح، أو أدمنٌ مُذكَّر سيُفتح بعد قليل) · لرابطٍ بمعاملات
+   (?sovereign=1 · #need-admin …) · ولا حين نأتي من صفحةٍ داخليّة (زرّ «الرئيسية» من نقطة البيع) — علامة gmt_tab_seen
+   تضعها كل صفحةٍ داخليّة (gmt-account.js). فالرئيسيّةُ تبقى في متناوله من شريط نقطة البيع. */
+(function () {
+  try {
+    var seen = sessionStorage.getItem('gmt_tab_seen'); sessionStorage.setItem('gmt_tab_seen', '1');
+    if (seen || location.search || location.hash) return;
+    if (sessionStorage.getItem('gmt_admin_mode') === '1') return;
+    if (window.GMTAccount && GMTAccount.saved && GMTAccount.saved.activeAdmin()) return;
+    var s0 = JSON.parse(localStorage.getItem('gmt_session') || 'null');
+    if (s0 && s0.id != null && s0.branch_key && localStorage.getItem('gmt_branch') === s0.branch_key) { window.__gmtGoPos = true; location.replace('pos.html'); }
+  } catch (_) {}
+})();
+</script>
+<script>
 (function () {
   'use strict';
+  if (window.__gmtGoPos) return;            /* انتقلنا إلى نقطة البيع — لا نرسم الرئيسية */
   var T = window.GMTTools, $ = function (i) { return document.getElementById(i); };
   var LOGO = 'logo.jpg', LS_Q = 'gmt_quick_v2_', LS_FLOW = 'gmt_flow_done_v1';
   var st = { role: 'guest', data: null, err: null, loading: false, editing: false, counted: false,
-             scr: 'home', mode: 'login', branch: null, branches: null, ferr: '', photo: null, pick: null };
+             scr: 'home', mode: 'login', branch: null, branches: null, ferr: '', photo: null, pick: null, rem: false, restoring: false };
   var lastPtr = { type: 'mouse', x: 0, y: 0 }, stack = [], bip = null;
 
   /* ── أدوات صغيرة ── */
@@ -311,7 +344,8 @@ a.btn{text-decoration:none}
       '<h6>الإدارة</h6>' + ['inventory.html', 'sales_log.html', 'admin_pos.html', 'أدمن_التوظيف.html'].map(function (f) { return navB(f); }).join('') +
       '<h6>الزبون</h6>' + ['store.html', 'track_order.html'].map(function (f) { return navB(f); }).join('') +
       '<div class="me"><div class="row">' + av + '<div style="min-width:0"><b>' + esc(nm || 'موظّف') + '</b><small>' + (A() ? 'الإدارة' : esc(brName() ? 'فرع ' + brName() : '')) + '</small></div></div>' +
-      '<div class="row" style="margin-top:9px">' + (A() ? '' : '<button class="btn sm" type="button" data-act="me">' + ic('user', 15) + 'حسابي</button><button class="btn sm" type="button" data-act="admin">' + ic('lock', 15) + 'الإدارة</button>') +
+      '<div class="row wr" style="margin-top:9px">' + (A() ? '' : '<button class="btn sm" type="button" data-act="me">' + ic('user', 15) + 'حسابي</button><button class="btn sm" type="button" data-act="admin">' + ic('lock', 15) + 'الإدارة</button>') +
+      '<button class="btn sm" type="button" data-act="accts">' + ic('swap', 15) + 'حساب آخر</button>' +
       '<button class="btn sm" type="button" data-act="logout">' + ic('logout', 15) + 'خروج</button></div></div></aside>';
   }
   function topbar() {
@@ -446,6 +480,90 @@ a.btn{text-decoration:none}
      قبلها كلّها. الآن شاشةٌ واحدة: «دخول» أو «حساب جديد» أو «دخول الإدارة»، وتعريفُ
      المجموعة والنظام صار في الانترو الذي يُعرض **بعد** الدخول مرّةً على الجهاز.
      والدخول باسم المستخدم وكلمة السرّ فقط — الفرع يُعرف من الحساب. */
+  /* ═══ (١٨ ت١ · وثيقة الطلبات ٩) حسابات هذا الجهاز ═══
+     نصّك: «احفظ انت المستخدمين الادمن او لا معهم صلاحيه في كل شيء يعني انا ممكن اسجل نفس الجهاز في اكثر من مستخدم عادي ما في كل
+     مره توجعني للمستخدم العادي». كلُّ من دخل من هذا الجهاز يظهر هنا؛ «ضغطة واحدة» لمن فعّل «تذكّر هذا الجهاز»، وغيرُه يطلب كلمة سرّه كما اليوم. */
+  function savedAccts() { try { return (window.GMTAccount && GMTAccount.saved) ? GMTAccount.saved.list() : []; } catch (_) { return []; } }
+  function acctSub(a) { return a.t === 'admin' ? 'أدمن · كل الفروع' : ('موظّف' + (a.branch_name ? ' · فرع ' + a.branch_name : '')); }
+  function acctRows(list) {
+    return '<div class="accts">' + list.map(function (a) {
+      return '<div class="acct' + (a.current ? ' on' : '') + '"><button type="button" class="acct-go" data-acct="' + esc(a.key) + '"' + (a.current ? ' disabled' : '') + '>' +
+        '<span class="av"' + (a.t === 'admin' ? ' style="background:var(--red)"' : '') + '>' + esc((a.name || '؟').charAt(0)) + '</span>' +
+        '<span class="acct-t"><b>' + esc(a.name) + '</b><small>' + esc(acctSub(a)) + '</small></span>' +
+        (a.current ? '<span class="chip ok">الحالي</span>' : a.rem ? '<span class="chip ok">ضغطة واحدة</span>' : '<span class="chip">كلمة السرّ</span>') +
+        '</button><button type="button" class="acct-x" data-acct-x="' + esc(a.key) + '" aria-label="إزالة ' + esc(a.name) + ' من هذا الجهاز" title="إزالة من هذا الجهاز">' + ic('close', 15) + '</button></div>';
+    }).join('') + '</div>';
+  }
+  /* بعد دخول موظّف (دخول · حساب جديد · تبديل): نقطةُ بيعه مباشرةً — إلّا إن كان الانترو ينتظر (أوّل مرّة على الجهاز) فيمرّ على الرئيسيّة كما كان */
+  function afterLogin(isStaff) {
+    if (isStaff) {
+      var I = window.GMTIntro, why = null;
+      try { why = I && I.why ? I.why() : null; } catch (_) {}
+      if (!why) { location.href = 'pos.html'; return; }
+    }
+    enter();
+  }
+  async function switchAcct(key) {
+    if (busy) return; busy = true;
+    var x = savedAccts().filter(function (a) { return a.key === key; })[0];
+    try {
+      var r = await GMTAccount.saved.switchTo(key);
+      if (r.ok) {
+        try { if (window.GMTSound) GMTSound.play('login'); } catch (_) {}
+        closeAll(); st.ferr = ''; st.pick = null;
+        toast('أهلاً ' + (r.kind === 'admin' ? (r.name || '') + ' — وضع الإدارة' : ((r.session && r.session.display_name) || '')));
+        busy = false; afterLogin(r.kind === 'staff'); return;
+      }
+      busy = false;
+      if (r.error) { if (stack.length) { var ae = $('a-err'); if (ae) ae.textContent = r.error; } else { st.ferr = r.error; var k0 = snap(); render(); restore(k0); } return; }
+      if (r.needPw) {
+        var uname = r.kind === 'admin' ? r.name : r.username;
+        if (st.role === 'guest') {                                   /* شاشة الدخول: نملأ الاسم ونضع المؤشّر على كلمة السرّ */
+          st.mode = 'login'; st.pick = null; st.ferr = ''; var kk = snap(); kk['f-user'] = uname || ''; kk['f-pw'] = ''; render(); restore(kk);
+          var pf = $('f-pw'); if (pf) { try { pf.focus(); } catch (_) {} }
+          toast('اكتب كلمة سرّ «' + ((x && x.name) || uname) + '»'); return;
+        }
+        /* داخلٌ بحسابٍ آخر: لا نخرج منه قبل أن تصحّ كلمة السرّ الجديدة */
+        closeAll();
+        var res = await GMTAsk.form('الدخول بحساب «' + ((x && x.name) || uname) + '» — يحتاج كلمة سرّه (لم يُفعَّل «تذكّر هذا الجهاز» له).', {
+          title: 'حسابات هذا الجهاز', icon: 'edit', okText: 'دخول',
+          fields: [{ k: 'pw', label: 'كلمة السرّ', type: 'password', placeholder: '••••', dir: 'ltr', autocomplete: 'current-password' }],
+          submit: async function (v) {
+            try {
+              var lr = await GMTAccount.login({ username: uname, password: v.pw, remember: false });
+              if (lr.needPos) return { error: 'حسابٌ مقفولٌ على جهازٍ واحد — ادخل من نقطة البيع على جهازك' };
+              return { result: lr };
+            } catch (e) { return { error: (e && e.message) || 'تعذّر الدخول', field: 'pw', clear: true }; }
+          }
+        });
+        if (res && (res.admin || res.session)) { toast('أهلاً ' + (res.admin ? (res.name || '') + ' — وضع الإدارة' : (res.session.display_name || ''))); afterLogin(!res.admin); }
+      }
+    } catch (e) { busy = false; toast((e && e.message) || 'تعذّر التبديل'); }
+  }
+  async function forgetAcctUI(key) {
+    var x = savedAccts().filter(function (a) { return a.key === key; })[0]; if (!x) return;
+    var ok = true;
+    try { ok = await GMTAsk.confirm('تُزال «' + x.name + '» من قائمة هذا الجهاز' + (x.rem ? ' ويُلغى تذكّرُه' : '') + '؟ الحسابُ نفسه لا يُمسّ — يعود بكلمة سرّه متى أردت.', { title: 'إزالة من هذا الجهاز', okText: 'إزالة', danger: true }); } catch (_) {}
+    if (!ok) return;
+    try { await GMTAccount.saved.forget(key); } catch (_) {}
+    if (stack.length) paintAccts(); else { var kf = snap(); render(); restore(kf); }
+  }
+  function paintAccts() {
+    var l = $('a-list'); if (!l) return;
+    var list = savedAccts(); l.innerHTML = list.length ? acctRows(list) : '<div class="note">لا حسابات محفوظة بعد.</div>';
+    var cur = list.filter(function (a) { return a.current; })[0], c = $('a-rem'); if (c && cur) c.checked = !!cur.rem;
+  }
+  /* «حساب آخر»: قائمة الحسابات + تذكّر هذا الجهاز للحساب الحالي + دخولٌ بحسابٍ جديد */
+  function acctsDialog() {
+    var list = savedAccts(), cur = list.filter(function (a) { return a.current; })[0];
+    var ov = modal('<div class="row" style="margin-bottom:6px"><b style="font-size:17px" class="sp">حسابات هذا الجهاز</b><button class="ib" type="button" data-x aria-label="إغلاق">' + ic('close', 16) + '</button></div>' +
+      '<div class="fc" style="text-align:start;max-width:none"><div class="mu">اضغط حساباً للانتقال إليه — «ضغطة واحدة» لمن فعّل «تذكّر هذا الجهاز»، وغيرُه يطلب كلمة سرّه.</div>' +
+      '<div style="margin-top:10px" id="a-list">' + (list.length ? acctRows(list) : '<div class="note">لا حسابات محفوظة بعد.</div>') + '</div>' +
+      (cur ? '<label class="remb" for="a-rem"><input type="checkbox" id="a-rem" data-rem-key="' + esc(cur.key) + '"' + (cur.rem ? ' checked' : '') + '><span>تذكّر هذا الجهاز لحسابي (' + esc(cur.name) + ')<small>يُفتح بضغطة واحدة بلا كلمة سرّ. لا تفعّله على جهازٍ يستعمله غيرك.</small></span></label>' : '') +
+      '<div class="err" id="a-err" aria-live="polite"></div>' +
+      '<button class="btn" type="button" data-act="acct-add" style="width:100%;justify-content:center;padding:11px;margin-top:6px">' + ic('plus', 16) + 'دخول بحسابٍ آخر</button></div>');
+    return ov;
+  }
   function brChips(list, attr, sel) {
     return '<div class="brs">' + list.map(function (b, i) {
       var on = sel && sel.key === b.key;
@@ -459,11 +577,13 @@ a.btn{text-decoration:none}
       '<p class="mu">' + (L ? 'ادخل بحسابك لتبدأ العمل' : 'أنشئ حسابك على فرعك — تتصفّح فوراً، والتعديل بعد موافقة الإدارة') + '</p></div></div>';
     var seg = '<div class="seg" role="tablist"><button type="button" role="tab" data-act="to-login" class="' + (L ? 'on' : '') + '" aria-selected="' + L + '">تسجيل الدخول</button>' +
       '<button type="button" role="tab" data-act="to-signup" class="' + (L ? '' : 'on') + '" aria-selected="' + !L + '">حساب جديد</button></div>';
-    var form;
+    var form, sv = L ? savedAccts() : [];
+    var svBlock = sv.length ? '<div class="accts-h">' + ic('users', 15) + 'حسابات هذا الجهاز — اضغط حسابك</div>' + acctRows(sv) : '';
     if (L) {
       form = '<form id="af" class="card" novalidate data-kind="login">' +
         '<label for="f-user">اسم المستخدم</label><input class="in" id="f-user" name="username" dir="ltr" autocapitalize="off" autocomplete="username" spellcheck="false">' +
         '<label for="f-pw">كلمة السرّ</label><input class="in" id="f-pw" name="password" type="password" autocomplete="current-password">' +
+        '<label class="remb" for="f-rem"><input type="checkbox" id="f-rem"' + (st.rem ? ' checked' : '') + '><span>تذكّر هذا الجهاز<small>أدخل لاحقاً بضغطة واحدة من قائمة الحسابات بلا كلمة سرّ. لا تفعّله على جهازٍ يستعمله غيرك.</small></span></label>' +
         (st.pick && st.pick.length ? '<label>اختر فرعك</label>' + brChips(st.pick, 'data-pk', null) : '') +
         '<div class="err" aria-live="polite">' + esc(st.ferr) + '</div>' +
         '<button class="btn p" id="nx" type="submit" style="width:100%;justify-content:center;padding:12px;margin-top:8px">دخول</button></form>';
@@ -490,7 +610,7 @@ a.btn{text-decoration:none}
       '<ul><li><i>' + ic('cart', 16) + '</i>نقطة البيع والفواتير</li><li><i>' + ic('box', 16) + '</i>الجرد والمخزون والنقل بين الفروع</li>' +
       '<li><i>' + ic('truck', 16) + '</i>الأوردرات والشحن</li><li><i>' + ic('shield', 16) + '</i>الكفالات والعقود</li></ul>' +
       '<small>بعد الدخول لأوّل مرّة على هذا الجهاز: تعريفٌ قصير بالنظام، وخلفه تُحمَّل المنتجات — ثمّ تُفتح أدواتك حسب صلاحيّتك.</small></aside>';
-    return '<div class="auth-w"><div class="fc auth">' + hd + seg + form + adm + cust + '</div>' + side + '</div>';
+    return '<div class="auth-w"><div class="fc auth">' + hd + seg + svBlock + form + adm + cust + '</div>' + side + '</div>';
   }
 
   function render() {
@@ -498,6 +618,10 @@ a.btn{text-decoration:none}
     document.body.className = 'role-' + st.role;
     var d = $('dev');
     d.className = 'dev' + (phone() ? ' phone' : '');
+    if (st.restoring) {              /* أدمنٌ مُذكَّر على هذا الجهاز: لا نُظهر شاشة الدخول ولا حساب الموظّف قبل أن نتحقّق من القاعدة */
+      d.innerHTML = '<div class="flow"><div class="fc"><div class="logo-b"><img src="' + LOGO + '" alt=""></div><h1 style="margin:0 0 6px;font-size:20px">جارٍ فتح حسابك…</h1><p class="mu" style="margin:0">نتحقّق من «تذكّر هذا الجهاز»</p></div></div>';
+      return;
+    }
     /* أزرارُ الوحدات تعيش في عنصرٍ واحدٍ ثابت ننقله مع كل رسم — فلا تضيع بعد إعادة الرسم */
     var oldBar = $('gmt-refresh-bar'); if (oldBar && oldBar.parentNode) oldBar.parentNode.removeChild(oldBar);
     if (st.role === 'guest') {
@@ -621,8 +745,9 @@ a.btn{text-decoration:none}
     try {
       var s = await GMTAccount.signup({ branch: st.branch, display_name: v('f-name'), username: v('f-user'), password: v('f-pw'), password2: v('f-pw2'), center: v('f-center') });
       if (st.photo) { try { await GMTAccount.saveProfile(s.id, { photo: st.photo, center: v('f-center').trim() }); } catch (_) { lsSet('gmt_profile_' + s.id, JSON.stringify({ photo: st.photo, center: v('f-center').trim() })); } }
+      try { GMTAccount.saved.noteStaff(s, false); } catch (_) {}
       st.ferr = ''; toast('أهلاً بك — أُنشئ حسابك في فرع ' + st.branch.name);
-      busy = false; enter();
+      busy = false; afterLogin(true);
     } catch (e) { busy = false; failForm(e, 'تعذّر الإكمال'); }
   }
   async function doLogin(btn, branch) {
@@ -630,12 +755,17 @@ a.btn{text-decoration:none}
     var v = function (id) { return ($(id) || {}).value || ''; };
     busy = true; if (btn) { btn.disabled = true; btn.textContent = 'لحظة…'; }
     try {
-      var r = await GMTAccount.login({ branch: branch || null, username: v('f-user'), password: v('f-pw') });
-      if (r.admin) { st.ferr = ''; st.pick = null; toast('أهلاً بك ' + (r.name || '') + ' — وضع الإدارة'); busy = false; enter(); return; }
+      var r = await GMTAccount.login({ branch: branch || null, username: v('f-user'), password: v('f-pw'), remember: !!st.rem });
+      if (r.admin) {
+        st.ferr = ''; st.pick = null;
+        toast(r.rememberError ? 'دخلتَ بوضع الإدارة — لكن لم يُحفَظ تذكّر الجهاز: ' + r.rememberError
+                              : 'أهلاً بك ' + (r.name || '') + ' — وضع الإدارة' + (r.remembered ? ' · وسيُذكَر هذا الجهاز' : ''));
+        busy = false; enter(); return;
+      }
       if (r.needPos) { busy = false; st.ferr = 'حسابك مقفولٌ على جهازٍ واحد — ادخل من نقطة البيع على جهازك.'; var k = snap(); render(); restore(k); setTimeout(function () { location.href = 'pos.html'; }, 1800); return; }
       try { await GMTAccount.grants(r.session.id); } catch (_) {}
-      st.ferr = ''; st.pick = null; toast('أهلاً بك ' + (r.session.display_name || ''));
-      busy = false; enter();
+      st.ferr = ''; st.pick = null; toast('أهلاً بك ' + (r.session.display_name || '') + (st.rem ? ' · وسيُذكَر هذا الجهاز' : ''));
+      busy = false; afterLogin(true);
     } catch (e) {
       busy = false;
       if (e && e.code === 'pick' && e.branches) st.pick = e.branches;
@@ -947,7 +1077,9 @@ a.btn{text-decoration:none}
     try { ok = await GMTAsk.confirm(A() ? 'تخرج من وضع الإدارة على هذا الجهاز؟' : 'تسجّل الخروج من حسابك على هذا الجهاز؟', { title: 'تسجيل الخروج', okText: 'خروج' }); } catch (_) {}
     if (!ok) return;
     try { if (window.GMTSound) GMTSound.play('logout'); } catch (_) {}      /* (١١ ت١) صوت الخروج */
-    if (A()) { try { GMTRole.revoke(); } catch (_) {} } else { try { localStorage.removeItem('gmt_session'); } catch (_) {} }
+    /* (١٨ ت١) خروجٌ صريح ⇒ «تذكّر هذا الجهاز» يسقط لهذا الحساب (يبقى اسمه في القائمة ويطلب كلمة سرّه) */
+    if (A()) { var an0 = ''; try { an0 = GMTRole.name ? GMTRole.name() : ''; } catch (_) {} try { GMTRole.revoke(); } catch (_) {} try { await GMTAccount.saved.loggedOut('admin', an0); } catch (_) {} }
+    else { var ss0 = session(); try { localStorage.removeItem('gmt_session'); } catch (_) {} try { if (ss0) GMTAccount.saved.loggedOut('staff', ss0.id); } catch (_) {} }
     st.data = null; st.mode = 'login'; st.pick = null; st.ferr = ''; st.scr = 'home'; toast('تمّ تسجيل الخروج'); load();
   }
 
@@ -979,6 +1111,8 @@ a.btn{text-decoration:none}
     var go = e.target.closest('[data-go]'); if (go) { scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); return; }
     var b = e.target.closest('[data-b]'); if (b && st.branches) { st.branch = st.branches[+b.getAttribute('data-b')]; try { lsSet('gmt_branch_pick', st.branch.key); } catch (_) {} st.ferr = ''; var kb = snap(); render(); restore(kb); return; }
     var pk = e.target.closest('[data-pk]'); if (pk && st.pick) { var chosen = st.pick[+pk.getAttribute('data-pk')]; doLogin($('nx'), chosen); return; }
+    var ag = e.target.closest('[data-acct]'); if (ag) { switchAcct(ag.getAttribute('data-acct')); return; }
+    var ax = e.target.closest('[data-acct-x]'); if (ax) { forgetAcctUI(ax.getAttribute('data-acct-x')); return; }
     var a = e.target.closest('[data-act]'); if (!a) return;
     var k = a.getAttribute('data-act');
     if (k === 'retry') { st.branches = null; st.ferr = ''; render(); }
@@ -996,6 +1130,8 @@ a.btn{text-decoration:none}
     else if (k === 'img-go') { imgOk = false; startImages(null, true); }
     else if (k === 'img-ok') { imgOk = true; fillDevice(); }
     else if (k === 'admin') adminLogin();
+    else if (k === 'accts') acctsDialog();
+    else if (k === 'acct-add') { closeAll(); try { GMTAccount.saved.leave(); } catch (_) {} st.data = null; st.mode = 'login'; st.pick = null; st.ferr = ''; st.scr = 'home'; load(); }
     else if (k === 'me') meDialog();
     else if (k === 'drawer') drawer();
     else if (k === 'qa') qaSheet();
@@ -1012,6 +1148,19 @@ a.btn{text-decoration:none}
     e.preventDefault();
     var btn = $('nx'); if (!btn || btn.disabled) return;
     if (f.getAttribute('data-kind') === 'signup') doSignup(btn); else doLogin(btn, null);
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t) return;
+    if (t.id === 'f-rem') { st.rem = !!t.checked; return; }
+    if (t.id === 'a-rem') {                            /* تذكّر هذا الجهاز للحساب الحالي — لا نقول «تمّ» قبل أن يثبت */
+      var want = !!t.checked, key = t.getAttribute('data-rem-key'), ae = $('a-err'); if (ae) ae.textContent = '';
+      t.disabled = true;
+      GMTAccount.saved.setRemember(key, want).then(function (r) {
+        t.disabled = false;
+        if (r && r.ok) { toast(want ? 'سيُذكَر هذا الجهاز لحسابك' : 'أُلغي تذكّر هذا الجهاز'); paintAccts(); }
+        else { t.checked = !want; if (ae) ae.textContent = (r && r.error) || 'تعذّر الحفظ'; }
+      }, function (er) { t.disabled = false; t.checked = !want; if (ae) ae.textContent = (er && er.message) || 'تعذّر الحفظ'; });
+    }
   });
   document.addEventListener('focusin', function (e) { if (e.target && e.target.id === 'q') { e.target.blur(); palette(''); } });
   document.addEventListener('keydown', function (e) {
@@ -1031,12 +1180,26 @@ a.btn{text-decoration:none}
   /* `enter()` يحتاج وحدة الانترو، وهي تُحمَّل **بعد** هذا السكربت — فالرسم الآن، والقرار
      (انترو أم لا) بعد اكتمال تحميل السكربتات. (الفحص كشفها: التطبيق المثبَّت في أوّل فتحٍ
      لم يكن يعرض انتروه لأنّ GMTIntro لم يكن موجوداً بعد) */
+  /* (١٨ ت١) آخر من اختير على هذا الجهاز أدمنٌ مُذكَّر ⇒ نفتح وضع الإدارة من التذكّر (بدل الارتداد إلى الموظّف العادي في كل فتح) */
+  var _ra = null; try { _ra = (!isAdmin() && window.GMTAccount && GMTAccount.saved) ? GMTAccount.saved.activeAdmin() : null; } catch (_) {}
+  if (_ra && window.GMTAuth && GMTAuth.admin && GMTAuth.admin.restoreDevice) {
+    st.restoring = true; render();
+    GMTAuth.admin.restoreDevice(_ra.k).then(function (r) {
+      st.restoring = false;
+      if (r && r.ok) { try { GMTAccount.saved.setActive('admin:' + _ra.k); } catch (_) {} toast('أهلاً ' + (r.name || '') + ' — وضع الإدارة'); }
+      else if (r && r.offline) toast('لا اتصال — تعذّر التحقّق من حساب الإدارة المُذكَّر على هذا الجهاز');
+      else if (r && r.gone) toast('انتهى تذكّر حساب الإدارة على هذا الجهاز — ادخل بكلمة السرّ');
+      st.role = roleNow(); render();
+      if (st.role !== 'guest') enter();
+    }, function () { st.restoring = false; st.role = roleNow(); render(); if (st.role !== 'guest') enter(); });
+  } else {
   st.role = roleNow(); render();
   if (st.role !== 'guest') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enter); else enter(); }
+  }
   /* (٢٠٢٦-١٠-١١ · ملاحظات ٨ ت١ ٨:٠٧م) «الرابط للشخص: بيطلع له انترو البداية فوراً، بيحمّل البيانات، ثمّ بيطلب منه تسجيل الدخول أو إنشاء حساب».
      هذا يُلغي قرار ٦ ت١ «الزائر ⇐ الدخول فوراً بلا انترو» (الأحدث يغلب). الانترو يُعرَض للزائر على جهازٍ جديد قبل نموذج الدخول،
      وهو نفسُه شاشةُ تحميل البيانات (يُقلَع التنزيل الأوّلي معه). ويُسجَّل «رُئي» فلا يتكرّر بعد الدخول. إن رُئي سابقاً يظهر الدخول مباشرة. */
-  if (st.role === 'guest') {
+  if (st.role === 'guest' && !st.restoring) {
     var guestIntro = function () {
       try {
         var I = window.GMTIntro; if (!I || !I.why || !I.why()) return;
@@ -1054,7 +1217,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261023h"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261017c"></script>
-<script src="gmt-whatsnew.js?v=20261024c"></script>
+<script src="gmt-whatsnew.js?v=20261024d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- (١٨ ت1) روابط «تتبّع» من الرئيسيّة تنتقل بانطلاق الشاحنة (gmt-launch.js) كما في الموقع -->
