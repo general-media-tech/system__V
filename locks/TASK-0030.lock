@@ -1,7 +1,0 @@
-task: TASK-0030
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-account.js gmt-auth.js home.html pos.html gmt-whatsnew.js sw.js tests/harness/t_users_s_accounts.js TASK_REGISTRY.md handoffs/TASK-0030.md
-claimed_at: 2026-10-24T12:50:15Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0030
