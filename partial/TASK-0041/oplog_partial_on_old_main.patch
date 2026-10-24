@@ -1,0 +1,1407 @@
+diff --git a/gmt-account.js b/gmt-account.js
+index ca294d5..dca63da 100644
+--- a/gmt-account.js
++++ b/gmt-account.js
+@@ -183,10 +183,29 @@
+   async function login(o) {
+     var user = cleanUser(o.username), pw = String(o.password || '');
+     if (!user || !pw) throw new Error('اكتب اسم المستخدم وكلمة السرّ');
++    /* (١١ ت١ · Notes ٨ ت١) «الاسم المستخدم … وكلمة السر فبيدخل لصلاحيات إدارية، والباقي بينشئ حساباً»:
++       نموذج الدخول واحد. إن كان الاسم حسابَ أدمن وكلمته صحيحة ⇒ وضع الإدارة باسمه (لا فرع ولا جلسة موظّف). */
++    var adminKnown = false;
++    try {
++      if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin.tryLogin) {
++        var ad = await GMTAuth.admin.tryLogin(user, pw);
++        if (ad && ad.ok) {
++          try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {}
++          try { if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login', ad.name); } catch (_) {}
++          return { admin: true, name: ad.name };
++        }
++        if (ad && ad.known) { try { if (GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login_fail', user, true); } catch (_) {} }
++        adminKnown = !!(ad && ad.known);
++        if (ad && ad.error && !ad.known && /محاولات كثيرة/.test(ad.error)) throw new Error(ad.error);
++      }
++    } catch (e) { if (e && /محاولات كثيرة/.test(e.message || '')) throw e; }
+     var q = '/rest/v1/gmt_users?username=eq.' + encodeURIComponent(user) +
+             (o.branch && o.branch.key ? '&branch_key=eq.' + encodeURIComponent(o.branch.key) : '') + '&select=*';
+     var rows = await rest('GET', q);
+-    if (!rows || !rows.length) throw new Error(o.branch && o.branch.key ? 'اسم المستخدم غير موجود في هذا الفرع' : 'اسم المستخدم غير موجود — تأكّد منه أو أنشئ حساباً');
++    if (!rows || !rows.length) {
++      if (adminKnown) throw new Error('كلمة السرّ غير صحيحة');      /* حساب أدمن بكلمة خاطئة: لا «غير موجود» المضلِّلة */
++      throw new Error(o.branch && o.branch.key ? 'اسم المستخدم غير موجود في هذا الفرع' : 'اسم المستخدم غير موجود — تأكّد منه أو أنشئ حساباً');
++    }
+     var okPw = rows.filter(function (r) { return r.password_hash === b64(pw) || r.password_hash === pw; });
+     if (!okPw.length) throw new Error('كلمة السرّ غير صحيحة');
+     var live = okPw.filter(function (r) { return r.is_active !== false; });
+@@ -328,7 +347,9 @@
+   function lockCss() {
+     if (document.getElementById('gmt-lock-css')) return;
+     var st = document.createElement('style'); st.id = 'gmt-lock-css';
+-    st.textContent = 'html.gmt-locked body>*:not(#' + LOCK_ID + '){display:none!important}' +
++    /* (١١ ت١) استثناء نوافذ السؤال: «دخول الإدارة» من شاشة القفل يفتح نافذةَ GMTAsk في body — وكانت تُخفى بـdisplay:none
++       مع بقيّة الصفحة فلا تظهر أيّ نافذةٍ ولا يمكن فتح الصفحة المقفولة أبداً (اكتُشف باختبار القفل فعلياً). */
++    st.textContent = 'html.gmt-locked body>*:not(#' + LOCK_ID + '):not(.gmtask-ov){display:none!important}' +
+       '#' + LOCK_ID + '{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;' +
+       'background:radial-gradient(900px 420px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;' +
+       "font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;color:#0f1219;direction:rtl}" +
+@@ -348,7 +369,7 @@
+   function ensureAuth() {
+     return new Promise(function (res) {
+       if (global.GMTAuth) return res(true);
+-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261003';
++      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261011e';
+       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
+       document.head.appendChild(s);
+     });
+@@ -356,11 +377,14 @@
+   async function adminUnlock(msg) {
+     /* بلا وحدة كلمات السرّ لا نفتح — وحدةُ الأدوار القديمة كانت تفتح بلا سؤال إن غابت */
+     if (!(await ensureAuth()) || !global.GMTAuth || !GMTAuth.ask) { msg.textContent = 'تعذّر تحميل وحدة كلمات السرّ — حدّث الصفحة'; return; }
+-    var ok = await GMTAuth.ask('sovereign', '🔒 فتح «' + toolTitle(currentFile()) + '» — للإدارة');
+-    if (ok) {
+-      try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (_) {}
+-      unlock();
+-    } else msg.textContent = 'كلمة السرّ غير صحيحة';
++    /* (١١ ت١) حساب أدمن باسمه — لا الكلمة السيادية المشتركة. النافذة تمنح الجلسة بنفسها. */
++    var ok;
++    if (GMTAuth.admin && GMTAuth.admin.login) ok = !!(await GMTAuth.admin.login('فتح «' + toolTitle(currentFile()) + '»'));
++    else {
++      ok = await GMTAuth.ask('sovereign', '🔒 فتح «' + toolTitle(currentFile()) + '» — للإدارة');
++      if (ok) { try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (_) {} }
++    }
++    if (ok) unlock(); else msg.textContent = 'لم يُفتح — الدخول للأدمن وحده';
+   }
+   function unlock() {
+     document.documentElement.classList.remove('gmt-locked');
+@@ -434,7 +458,12 @@
+   }
+   async function pendingUsers() {
+     var out = [];
+-    try { out = (await rest('GET', '/rest/v1/gmt_users?approved=is.false&select=id,display_name,username,branch_key,created_at')) || []; } catch (_) { out = []; }
++    /* (٨ ج) غياب العمود (SQL 25 لم يُشغَّل) لا يُعاد سؤاله في كل فتحٍ — كان يملأ تقرير الحارس بـ42703 */
++    var _noCol = false; try { _noCol = sessionStorage.getItem('gmt_no_users_approved') === '1'; } catch (_) {}
++    if (!_noCol) {
++      try { out = (await rest('GET', '/rest/v1/gmt_users?approved=is.false&select=id,display_name,username,branch_key,created_at')) || []; }
++      catch (e) { out = []; if (/42703|approved|does not exist/i.test(String(e && e.message))) { try { sessionStorage.setItem('gmt_no_users_approved', '1'); } catch (_) {} } }
++    }
+     try {
+       var ks = (await rest('GET', '/rest/v1/gmt_settings?key=like.user_pending_*&select=key')) || [];
+       var ids = ks.map(function (k) { return String(k.key).replace('user_pending_', ''); }).filter(function (id) { return !out.some(function (u) { return String(u.id) === id; }); });
+@@ -548,6 +577,18 @@
+   }
+   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootApproval); else bootApproval();
+ 
++  /* (١١ ت١) سجل العمليات: يُحمَّل على كل صفحةٍ داخليّة (ما عدا أدوات الفحص — تُنشئ بياناتٍ تجريبيّةً وتحذفها) */
++  function loadOpLog() {
++    try {
++      if (global.GMTOpLog || publicPage() || global.GMT_NO_OPLOG) return;
++      if (/^(check|checks|central_inspector|guard_bots|guard_bots_19|test_board|system_tools)\.html$/.test(currentFile())) return;
++      if (document.querySelector('script[src^="gmt-oplog.js"]')) return;
++      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011n'; s.defer = true;
++      (document.head || document.documentElement).appendChild(s);
++    } catch (_) {}
++  }
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadOpLog); else loadOpLog();
++
+   global.GMTPerm = { can: can, adminOnly: adminOnly, guard: guard, unlock: unlock, file: currentFile };
+   if (!global.GMT_NO_GUARD) guard();
+ })(window);
+diff --git a/gmt-auth.js b/gmt-auth.js
+index 2a70a51..b5ae106 100644
+--- a/gmt-auth.js
++++ b/gmt-auth.js
+@@ -225,9 +225,225 @@
+         return ok;
+     }
+ 
++
++    /* ═══════════════════════════════════════════════════════════════════════
++       👤 حسابات الأدمن بأسماء (قرار المالك ١٠ ت١: «حسابات» — الحساب الحالي «محمد خير»)
++
++       الجذر: «دخول الإدارة» كان كلمةً سرّيةً مشتركة (السيادية) ⇒ لا يُعرف من دخل، ولا يمكن أكثر من أدمن،
++       ولا «تمّ بواسطة الأدمن الفلاني». ملاحظاتك (٨ ت١): «اسم المستخدم محمد خير وكلمة السر … فيدخل لصلاحيات
++       إدارية، والباقي ينشئ حساباً ويخضع للمراجعة».
++
++       التصميم (بلا SQL جديد):
++         · الحسابات في `gmt_settings` بالمفتاح `admin_accounts` — مصفوفة JSON: {n الاسم · k اسمٌ مطبَّع ·
++           s مِلح عشوائي لكل حساب · i عدد الدورات · h بصمة PBKDF2-SHA256}. لا نصَّ صريحاً ولا كلمة في الكود.
++         · أوّل مرّة (لا حسابات): الكلمة **السيادية الحالية** تُنشئ أوّل حساب بالاسم الذي يكتبه صاحبها —
++           لا نبذر كلمةً في الشيفرة المنشورة. وبعدها لا تفتح السيادية وضع الإدارة (تبقى لعمليات الأختام فقط).
++         · الشبكة: إن تعذّرت قراءة الحسابات **لا** نُنشئ ولا نُدخل (الفشل مغلق) — خلاف «لا حسابات» الحقيقي.
++         · الجلسة: `GMTRole.grant(name)` ⇒ sessionStorage؛ والاسم يُكتب على الفواتير/الإجراءات.
++
++       ⚠️ صراحةً: هذه حمايةُ واجهة. الجدول مقروءٌ بالمفتاح العام، وكلمةٌ من ٤ أرقام تُكسَر بالتخمين في ثوانٍ
++          مهما كانت الخوارزمية (١٠٠٠٠ احتمال فقط). كلمةٌ من ٨ أحرف+ تغيّر الحساب كلّياً. الحماية الحقيقية RLS.
++       ═══════════════════════════════════════════════════════════════════════ */
++    var ADMIN_KEY = 'admin_accounts';
++    var ADMIN_ITERS = 120000;
++    var FAIL_KEY = 'gmt_admin_fails';
++
++    function normName(x) {
++        return String(x == null ? '' : x).normalize('NFKC').replace(/[ً-ٟـ]/g, '')
++            .replace(/\s+/g, '').toLowerCase();       /* بلا مسافات كلّها: نموذج الدخول العادي يحذفها من اسم المستخدم (cleanUser) فيجب أن يتطابقا */
++    }
++    function toHex(u8) { return Array.prototype.map.call(u8, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
++    function fromHex(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
++    async function pbkdf2(pw, saltHex, iters) {
++        if (!global.crypto || !global.crypto.subtle) throw new Error('المتصفّح لا يدعم التشفير — افتح النظام عبر https');
++        var key = await global.crypto.subtle.importKey('raw', new TextEncoder().encode(String(pw)), 'PBKDF2', false, ['deriveBits']);
++        var bits = await global.crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: fromHex(saltHex), iterations: iters }, key, 256);
++        return toHex(new Uint8Array(bits));
++    }
++    async function makeAccount(name, pw, by) {
++        var salt = toHex(global.crypto.getRandomValues(new Uint8Array(16)));
++        return { n: String(name).trim(), k: normName(name), s: salt, i: ADMIN_ITERS, h: await pbkdf2(pw, salt, ADMIN_ITERS), at: new Date().toISOString(), by: by || '' };
++    }
++    /* ثابتُ الزمن قدر الإمكان */
++    function same(a, b) { if (a.length !== b.length) return false; var d = 0; for (var i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
++
++    function restHeaders(d, extra) {
++        return Object.assign({ apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, extra || {});
++    }
++    /* قراءة طازجة (لا كاش): {list} أو يرمي عند تعذّر القراءة/فساد البيانات — لا نخلط «فشل» بـ«لا حسابات» */
++    async function readAdmins() {
++        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
++        var r = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + ADMIN_KEY + '&select=value', { headers: restHeaders(d), cache: 'no-store' });
++        if (!r.ok) throw new Error('تعذّر قراءة حسابات الإدارة (HTTP ' + r.status + ')');
++        var rows = await r.json();
++        if (!Array.isArray(rows) || !rows.length || rows[0].value == null || String(rows[0].value).trim() === '') return { list: [], raw: '' };
++        var list;
++        try { list = JSON.parse(rows[0].value); } catch (e) { throw new Error('بيانات حسابات الإدارة تالفة — لا أُكمل'); }
++        if (!Array.isArray(list)) throw new Error('بيانات حسابات الإدارة تالفة — لا أُكمل');
++        return { list: list, raw: String(rows[0].value) };
++    }
++    async function writeAdmins(list) {
++        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
++        var v = JSON.stringify(list);
++        var r = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', {
++            method: 'POST', headers: restHeaders(d, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
++            body: JSON.stringify([{ key: ADMIN_KEY, value: v }])
++        });
++        if (!r.ok) throw new Error('تعذّر حفظ الحسابات (HTTP ' + r.status + ')');
++        var back = await readAdmins();                          /* لا نصدّق الكتابة قبل أن نقرأها */
++        if (back.raw !== v) throw new Error('الحفظ لم يثبت في القاعدة — لم يتغيّر شيء');
++        return true;
++    }
++    async function verify(acc, pw) {
++        try { return same(await pbkdf2(pw, acc.s, acc.i || ADMIN_ITERS), String(acc.h)); } catch (e) { return false; }
++    }
++
++    /* تأخيرٌ تصاعديّ على التخمين — على الواجهة فقط (سقفٌ للاستعمال العاديّ لا للمهاجم) */
++    function lockLeft() {
++        try { var o = JSON.parse(sessionStorage.getItem(FAIL_KEY) || 'null'); if (o && o.until > Date.now()) return Math.ceil((o.until - Date.now()) / 1000); } catch (e) {}
++        return 0;
++    }
++    function failed() {
++        try {
++            var o = JSON.parse(sessionStorage.getItem(FAIL_KEY) || 'null') || { n: 0, until: 0 };
++            o.n++; if (o.n >= 4) o.until = Date.now() + Math.min(60000, 2000 * Math.pow(2, o.n - 4));
++            sessionStorage.setItem(FAIL_KEY, JSON.stringify(o));
++        } catch (e) {}
++    }
++    function okReset() { try { sessionStorage.removeItem(FAIL_KEY); } catch (e) {} }
++
++    function badName(n) {
++        n = String(n || '').trim();
++        if (n.length < 2) return 'اكتب اسم المستخدم (حرفان على الأقل)';
++        if (n.length > 40) return 'اسم المستخدم طويل (٤٠ حرفاً كحدّ أقصى)';
++        return '';
++    }
++
++    /* حدثٌ في سجلّ العمليات (إن كانت الوحدة محمَّلة، وإلّا ننتظر جاهزيّتها) — لا يعطّل الدخول أبداً */
++    function auditEvent(action, name, throttled) {
++        var e = { action: action, entity: 'admin_accounts', entityName: name };
++        if (action === 'admin_login' || (action === 'admin_add' && /أوّل حساب/.test(name))) e.actor = 'الأدمن ' + String(name).replace(/ \(أوّل حساب\)$/, '');
++        function go() { try { if (throttled) global.GMTOpLog.logThrottled('adminfail', e, 30000); else global.GMTOpLog.log(e); } catch (x) {} }
++        try {
++            if (global.GMTOpLog) go();
++            else global.addEventListener('gmt:oplog-ready', go, { once: true });
++        } catch (x) {}
++    }
++
++    /* الدخول: bootstrap=true فقط من نافذة «دخول الإدارة» (لا من نموذج الدخول العادي) */
++    async function adminCheck(name, pw, bootstrap) {
++        var e0 = badName(name); if (e0) return { error: e0 };
++        pw = String(pw == null ? '' : pw); if (!pw) return { error: 'اكتب كلمة السرّ' };
++        var wait = lockLeft(); if (wait) return { error: 'محاولات كثيرة — انتظر ' + wait + ' ثانية ثمّ أعد المحاولة', field: 'pw' };
++        var r;
++        try { r = await readAdmins(); } catch (e) { return { error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
++        if (!r.list.length) {
++            if (!bootstrap) return { ok: false, none: true };
++            var okSov = false; try { okSov = await check('sovereign', pw); } catch (e) {}
++            if (!okSov) { failed(); return { error: 'لا يوجد حساب أدمن بعد. أوّل حساب يُنشأ بكلمة السرّ السيادية الحالية — وهي غير صحيحة.', field: 'pw', clear: true }; }
++            var first = await makeAccount(name, pw, 'أوّل حساب');
++            try { await writeAdmins([first]); } catch (e) { return { error: (e && e.message) || 'تعذّر إنشاء الحساب' }; }
++            okReset();
++            auditEvent('admin_add', first.n + ' (أوّل حساب)');
++            return { ok: true, name: first.n, created: true };
++        }
++        var k = normName(name), acc = null;
++        for (var i = 0; i < r.list.length; i++) if (r.list[i] && r.list[i].k === k) { acc = r.list[i]; break; }
++        if (!acc || !(await verify(acc, pw))) {
++            failed();
++            if (acc || bootstrap) auditEvent('admin_login_fail', name, true);
++            return { ok: false, known: !!acc, error: 'اسم المستخدم أو كلمة السرّ غير صحيحة', field: 'pw', clear: true };
++        }
++        okReset();
++        return { ok: true, name: acc.n };
++    }
++
++    /* نافذة «دخول الإدارة»: اسم + كلمة سرّ. تمنح الجلسة بنفسها وتُرجع الاسم أو null */
++    async function adminLogin(whatFor) {
++        var msg = (whatFor ? whatFor + ' — ' : '') + 'للأدمن فقط. اكتب اسم المستخدم وكلمة السرّ.';
++        if (!global.GMTAsk || !global.GMTAsk.form) {
++            var n = global.prompt(msg + '\n(اسم المستخدم)'); if (n === null) return null;
++            var p = global.prompt('كلمة السرّ'); if (p === null) return null;
++            var rr = await adminCheck(n, p, true);
++            if (rr.ok) { try { global.GMTRole && global.GMTRole.grant(rr.name); } catch (e) {} return rr.name; }
++            try { global.alert(rr.error || 'رُفض'); } catch (e) {}
++            return null;
++        }
++        var last = '';
++        try { last = localStorage.getItem('gmt_admin_last') || ''; } catch (e) {}
++        var res = await global.GMTAsk.form(msg, {
++            title: 'دخول الإدارة', icon: 'danger', okText: 'دخول',
++            fields: [
++                { k: 'name', label: 'اسم المستخدم', value: last, placeholder: 'اسمك كما سُجّل', autocomplete: 'username' },
++                { k: 'pw', label: 'كلمة السرّ', type: 'password', placeholder: '••••', dir: 'ltr', autocomplete: 'current-password' }
++            ],
++            submit: async function (v) {
++                var r = await adminCheck(v.name, v.pw, true);
++                if (r.ok) return { result: r };
++                return { error: r.error || 'رُفض', field: r.field || 'name', clear: r.clear };
++            }
++        });
++        if (!res || !res.ok) return null;
++        auditEvent('admin_login', res.name);
++        try { localStorage.setItem('gmt_admin_last', res.name); } catch (e) {}
++        try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(res.name); else sessionStorage.setItem('gmt_admin_mode', '1'); } catch (e) {}
++        if (res.created) {
++            try {
++                if (global.GMTAsk) global.GMTAsk.alert('أُنشئ حساب الأدمن «' + res.name + '». من الآن تدخل الإدارة باسمك وكلمة سرّك (من نموذج الدخول العادي أو «دخول الإدارة»).' +
++                    '\n\nكلمة السرّ السيادية لم تعد تفتح وضع الإدارة — تبقى لفكّ الأختام وما شابه.', { title: 'تمّ', icon: 'info' });
++            } catch (e) {}
++        }
++        return res.name;
++    }
++
++    async function listAdmins() { var r = await readAdmins(); return r.list.map(function (a) { return { name: a.n, at: a.at || '', by: a.by || '' }; }); }
++    function needAdmin() {
++        if (!global.GMTRole || !global.GMTRole.isAdmin || !global.GMTRole.isAdmin()) throw new Error('إدارة الحسابات للأدمن وحده — ادخل بحسابك أوّلاً');
++    }
++    function pwProblem(pw) {
++        pw = String(pw || '');
++        if (pw.length < 4) return 'كلمة السرّ قصيرة جداً (٤ أحرف على الأقلّ)';
++        return '';
++    }
++    async function addAdmin(name, pw) {
++        needAdmin();
++        var e0 = badName(name) || pwProblem(pw); if (e0) throw new Error(e0);
++        var r = await readAdmins(), k = normName(name);
++        if (r.list.some(function (a) { return a.k === k; })) throw new Error('هذا الاسم موجود');
++        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
++        r.list.push(await makeAccount(name, pw, me));
++        await writeAdmins(r.list); auditEvent('admin_add', String(name).trim()); return true;
++    }
++    async function setAdminPassword(name, pw) {
++        needAdmin();
++        var e0 = pwProblem(pw); if (e0) throw new Error(e0);
++        var r = await readAdmins(), k = normName(name), acc = null;
++        r.list.forEach(function (a) { if (a.k === k) acc = a; });
++        if (!acc) throw new Error('الحساب غير موجود');
++        var fresh = await makeAccount(acc.n, pw, acc.by);
++        acc.s = fresh.s; acc.i = fresh.i; acc.h = fresh.h; acc.pw_at = new Date().toISOString();
++        await writeAdmins(r.list); auditEvent('admin_pw', acc.n); return true;
++    }
++    async function removeAdmin(name) {
++        needAdmin();
++        var r = await readAdmins(), k = normName(name);
++        if (!r.list.some(function (a) { return a.k === k; })) throw new Error('الحساب غير موجود');
++        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
++        if (normName(me) === k) throw new Error('لا تحذف حسابك أنت — اطلب من أدمنٍ آخر');
++        if (r.list.length <= 1) throw new Error('هذا آخر حساب أدمن — لا يُحذف');
++        var gone = ''; r.list.forEach(function (a) { if (a.k === k) gone = a.n; });
++        await writeAdmins(r.list.filter(function (a) { return a.k !== k; })); auditEvent('admin_remove', gone); return true;
++    }
++
+     global.GMTAuth = {
+         DEFAULT: DEFAULT_PW,          /* ⬅ تقرؤه كل صفحة بدل كتابة الرقم */
+         KINDS: KINDS, check: check, ask: ask, isDefault: isDefault,
+-        setDb: setDb, setLocal: setLocal, load: load, sha: sha
++        setDb: setDb, setLocal: setLocal, load: load, sha: sha,
++        admin: {
++            login: adminLogin,                                   /* نافذة اسم+كلمة سرّ ⇒ الاسم أو null */
++            tryLogin: function (name, pw) { return adminCheck(name, pw, false); },   /* من نموذج الدخول العادي: بلا إنشاء */
++            list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
++            normalize: normName, _audit: auditEvent
++        }
+     };
+ }(typeof window !== 'undefined' ? window : this));
+diff --git a/gmt-oplog.js b/gmt-oplog.js
+new file mode 100644
+index 0000000..2abc790
+--- /dev/null
++++ b/gmt-oplog.js
+@@ -0,0 +1,925 @@
++/* ═══════════════════════════════════════════════════════════════════════════
++   gmt-oplog.js — «سجل العمليات»: من فعل ماذا، ومتى، وما الذي تغيّر
++   أُنشئ: 2026-10-11 · طلبك (Notes ٩ ت١ ٦:٤٧ ص): «ضيف شي غير التراجع هو السجل — سجل العمليات بيسجل شو انشغل».
++
++   ما كان موجوداً قبل: «التراجع والسجلّ» في الجرد وحده، وسجلّه **على الجهاز** (آخر ٦٠ حركة) ⇒ لا يراه الأدمن من
++   جهازه، ويزول بمسح المتصفّح. وجدول `gmt_audit` (SQL الأساس) تكتب فيه ثلاثةُ مواضع فقط (التعديل اليدوي للكمّيات...).
++
++   الحلّ (نفس فلسفة «تراجع الجرد» و«سلّة المحذوفات»): نصطاد الكتابة عند **طبقة الشبكة** بدل تعديل مئة موضع حفظ:
++     كلُّ POST/PATCH/DELETE ناجح على جدولٍ مهمّ ⇒ سطرٌ في `gmt_audit`: الفاعل (الأدمن باسمه أو الموظّف) · الصفحة ·
++     الجدول · المعرّف · الاسم · الحقول المتغيّرة (قبل ← بعد إن عرفنا «قبل») · الوقت.
++   • الكتابة دفعاتٌ كلّ ٢٫٥ ثانية (طلبٌ واحد لا طلب لكل عملية) وتُحفَظ محلّياً إن فشلت وتُعاد (لا يضيع أثرٌ دون إنترنت).
++   • لا تُسجَّل كلماتُ السرّ ولا بصماتها ولا مفاتيح الإعدادات الحسّاسة (تُسجَّل «تغيّرت» دون قيمة).
++   • لا تعطّل أيّ كتابة: التسجيل بعد نجاحها وفي try/catch، وبالمفتاح نفسه الذي تكتب به الصفحة.
++   • جدول gmt_audit للإضافة والقراءة فقط (لا تعديل ولا حذف من المفتاح العام) ⇒ سجلٌّ لا يُمحى من الواجهة.
++   • العرض: لوحةٌ (من زرّ «سجل العمليات» بجانب «تراجع» في الجرد) وصفحةٌ كاملة «سجل_العمليات.html» للأدمن.
++
++   الواجهة:
++     GMTOpLog.log({action, entity, entityId, entityName, field, oldValue, newValue, reason, meta})   ← حدثٌ يدويّ
++     GMTOpLog.before(table, fn)   ← الصفحة تعرّف كيف تُرجع «الصفّ قبل التعديل» (لتظهر القيمة القديمة)
++     GMTOpLog.skipTables([...])   ← جداولُ تسجّلها الصفحة بنفسها
++     GMTOpLog.open(opts) · GMTOpLog.mount(el, opts)
++   ═══════════════════════════════════════════════════════════════════════════ */
++(function (global) {
++  'use strict';
++  if (global.GMTOpLog) return;
++
++  var Q_KEY = 'gmt_oplog_q_v1', MAXQ = 200, FLUSH_MS = 2500;
++
++  /* الجدول ⇒ اسمه للعرض. ما ليس هنا لا يُسجَّل (الضجيج: بنود الفواتير · التتبّع · الأخطاء · الرسائل…) */
++  var T = {
++    gmt_orders: 'أوردر', gmt_customers: 'زبون', invoices: 'فاتورة', invoice_commissions: 'عمولة', gmt_expenses: 'مصروف',
++    gmt_manual_debts: 'دين', gmt_settlements: 'تسوية', gmt_daily_closes: 'تقفيل يومي', gmt_price_changes: 'تغيير سعر',
++    gmt_offers: 'عرض', gmt_coupons: 'كوبون', branch_transfers: 'ترحيل صندوق', branch_stock_transfers: 'فاتورة نقل مخزون',
++    warranties: 'كفالة', gmt_users: 'مستخدم', gmt_job_applications: 'طلب توظيف', stock_receipts: 'استلام بضاعة',
++    stock_counts: 'جرد', inv_columns: 'فرع/عمود الجرد', gmt_settings: 'إعداد', products: 'منتج',
++    import_log: 'فاتورة شراء'      /* فواتير المشتريات (purchase.html) — «سجل العمليات في كل أداة… والمشتريات» */
++  };
++  var VERB = { POST: ['create', 'إنشاء'], PATCH: ['update', 'تعديل'], PUT: ['update', 'تعديل'], DELETE: ['delete', 'حذف'] };
++  var CAT = { // الفئة للفلاتر
++    stock: ['products', 'inv_columns', 'branch_stock_transfers', 'stock_counts', 'stock_moves', 'stock_transfer_items'],
++    orders: ['gmt_orders', 'gmt_customers', 'warranties', 'gmt_job_applications'],
++    money: ['invoices', 'invoice_commissions', 'gmt_expenses', 'gmt_manual_debts', 'gmt_settlements', 'gmt_daily_closes', 'gmt_price_changes', 'gmt_offers', 'gmt_coupons', 'branch_transfers'],
++    purchases: ['import_log', 'stock_receipts'],
++    accounts: ['gmt_users'],
++    system: ['gmt_settings']
++  };
++  var CAT_AR = { all: 'الكل', stock: 'المخزون', orders: 'الأوردرات والزبائن', money: 'الفواتير والمال', purchases: 'المشتريات', accounts: 'الحسابات والدخول', system: 'النظام' };
++  /* ألوانُ الفئات — كلّها تحقّق نسبة تباين ≥ 4.5:1 (WCAG AA) نصّاً على خلفيتها، في الفاتح والداكن. [نصّ، خلفية فاتحة، نصّ داكن، خلفية داكنة] */
++  var CAT_CLR = {
++    stock:     ['#1e40af', '#dbeafe', '#bfdbfe', '#1e3a8a'],
++    orders:    ['#9a3412', '#ffedd5', '#fed7aa', '#7c2d12'],
++    money:     ['#166534', '#dcfce7', '#bbf7d0', '#14532d'],
++    purchases: ['#115e59', '#ccfbf1', '#99f6e4', '#134e4a'],
++    accounts:  ['#9f1239', '#ffe4e6', '#fecdd3', '#881337'],
++    system:    ['#334155', '#e2e8f0', '#e2e8f0', '#334155']
++  };
++  /* كلُّ رمزِ عمليةٍ تكتبه أيُّ صفحةٍ (GMTAudit.log · GMTOpLog.log · الاصطياد عند الشبكة) له عنوانٌ عربيٌّ هنا.
++     [العنوان · الفئة · النوع: n عاديّ · w تنبيه (فشل/تجاوز) · d حذف/إلغاء]. غير المعروف يأخذ عنواناً مقروءاً من actionLabel() لا رمزاً إنجليزياً. */
++  var ACT = {
++    /* دخول وحسابات */
++    admin_login: ['دخول أدمن', 'accounts', 'n'], admin_logout: ['خروج أدمن', 'accounts', 'n'], admin_login_fail: ['محاولة دخول أدمن فاشلة', 'accounts', 'w'],
++    admin_add: ['إضافة حساب أدمن', 'accounts', 'n'], admin_pw: ['تغيير كلمة سرّ أدمن', 'accounts', 'w'], admin_remove: ['حذف حساب أدمن', 'accounts', 'd'],
++    admin_device_add: ['تذكّر جهازٍ للأدمن (دخول دائم ١٤ يوماً)', 'accounts', 'n'], admin_device_revoke: ['إلغاء تذكّر جهازٍ للأدمن', 'accounts', 'w'],
++    admin_device_restore: ['استعادة دخول الأدمن تلقائياً من جهاز متذكَّر', 'accounts', 'n'],
++    admin_enter_pos: ['دخول الأدمن إلى نقطة بيع كموظّف', 'accounts', 'n'], admin_exit_pos: ['خروج الأدمن من نقطة البيع', 'accounts', 'n'],
++    user_pw: ['تغيير كلمة سرّ مستخدم', 'accounts', 'w'], user_rename: ['تغيير اسم مستخدم', 'accounts', 'n'], user_lock: ['قفل جهاز مستخدم', 'accounts', 'n'],
++    user_toggle: ['إيقاف أو تفعيل مستخدم', 'accounts', 'w'], user_delete: ['حذف مستخدم', 'accounts', 'd'], user_approve: ['موافقة على حساب جديد', 'accounts', 'n'],
++    password_change: ['تغيير كلمة سرّ', 'accounts', 'w'], pos_secret_fail: ['محاولة سرّية خاطئة (إدارة نقاط البيع)', 'accounts', 'w'],
++    /* المخزون */
++    product_edit: ['تعديل منتج', 'stock', 'n'], product_delete: ['حذف منتج', 'stock', 'd'], stock_add: ['إضافة كمّية إلى مخزون نقطة بيع', 'stock', 'n'],
++    stock_deduct: ['خصم كمّية من مخزون نقطة بيع', 'stock', 'n'], qty_manual: ['تعديل كمّية يدوياً (بتصريح سيادي)', 'stock', 'w'],
++    qty_unlock: ['فكّ قفل الكمّيات للتعديل اليدوي', 'stock', 'w'], category_save: ['حفظ تصنيف', 'stock', 'n'], category_delete: ['حذف تصنيف', 'stock', 'd'],
++    branch_stock_raised: ['رفع مخزون نقطة المصدر قبل النقل', 'stock', 'w'], branch_stock_set: ['ضبط مخزون نقطة بيع يدوياً', 'stock', 'w'],
++    drain_pos_prepared: ['تجهيز فاتورة تفريغ نقطة بيع', 'stock', 'w'],
++    transfer_created: ['إنشاء فاتورة نقل مخزون', 'stock', 'n'], transfer_sent: ['إرسال فاتورة نقل', 'stock', 'n'], transfer_received: ['استلام فاتورة نقل', 'stock', 'n'],
++    transfer_sent_to_branch: ['إرسال فاتورة نقل إلى نقطة البيع', 'stock', 'n'], transfer_admin_confirm: ['تأكيد إداري لفاتورة نقل', 'stock', 'n'],
++    transfer_fill: ['إعادة إدخال بندٍ ناقص في فاتورة نقل', 'stock', 'n'], transfer_waive: ['إسقاط بندٍ ناقص من فاتورة نقل', 'stock', 'w'],
++    transfer_reopen: ['فتح فاتورة نقل للتعديل', 'stock', 'w'], transfer_cancel: ['إلغاء فاتورة نقل وإعادة الكمّيات', 'stock', 'd'],
++    transfer_cancelled: ['إلغاء فاتورة نقل', 'stock', 'd'], transfer_settled: ['تسوية فاتورة نقل', 'stock', 'n'], transfer_settle_item: ['تسوية بندٍ في فاتورة نقل', 'stock', 'n'],
++    /* الأوردرات والزبائن */
++    order_status: ['تغيير حالة أوردر', 'orders', 'n'], policy_orders_lock: ['تغيير «قفل الأوردرات»', 'system', 'w'],
++    unmet_demand: ['زبون طلب صنفاً غير متوفّر', 'orders', 'n'], unmet_resolved: ['معالجة طلبٍ لصنفٍ غير متوفّر', 'orders', 'n'],
++    /* الفواتير والمال */
++    invoice_admin_create: ['إنشاء فاتورة من الإدارة', 'money', 'n'], invoice_collect: ['تحصيل مبلغٍ من فاتورة', 'money', 'n'],
++    commission_admin_override: ['عمولةٌ استثنائيةٌ بقرار الأدمن', 'money', 'w'], acc_opening_balance: ['تعديل الرصيد الافتتاحي للصندوق المركزي', 'money', 'w'],
++    /* المشتريات */
++    rfq_export: ['تصدير طلب عرض سعر للمورّد', 'purchases', 'n'],
++    /* النظام */
++    write_noop: ['تعديلٌ لم يُحفَظ (لا صلاحية أو السجلّ محذوف)', 'system', 'w'], pos_create: ['إنشاء نقطة بيع', 'system', 'n'], pos_retire: ['إلغاء نقطة بيع', 'system', 'd'],
++    manual_edit: ['تعديل يدوي', 'system', 'w']
++  };
++  var ACT_AR = (function () { var o = {}; for (var k in ACT) o[k] = ACT[k][0]; return o; })();       // توافقٌ مع من يقرأ GMTOpLog.labels.actions
++  /* تسمية الحقول. مفاتيح أعمدة المخزون (نقاط البيع) تُحلّ من inv_columns وقت العرض: haleb ← «مخزون حلب». */
++  var KEY_AR = {
++    status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', net_cost: 'صافي الكلفة', qty: 'الكمية',
++    address: 'العنوان', product: 'المنتج', shipping_company: 'شركة الشحن', tracking_number: 'رقم التتبّع', notified_arrival_at: 'تبليغ الوصول',
++    invoice_id: 'الفاتورة', invoice_number: 'رقم الفاتورة', inv_number: 'رقم الفاتورة', branch: 'نقطة البيع', branch_key: 'نقطة البيع', branch_name: 'نقطة البيع', amount: 'المبلغ', total: 'الإجمالي',
++    cashier_name: 'الكاشير', notes: 'ملاحظات', note: 'ملاحظة', is_active: 'فعّال', display_name: 'الاسم الظاهر', username: 'اسم المستخدم', group_name: 'المجموعة',
++    category: 'التصنيف', barcode: 'الباركود', approved: 'الموافقة', commission: 'العمولة', discount: 'الخصم', paid: 'المدفوع', title: 'العنوان',
++    last_device_id: 'قفل الجهاز', center: 'المركز', payment_status: 'حالة الدفع', paid_amount: 'المدفوع', remaining_amount: 'المتبقّي',
++    awaiting_collection: 'بانتظار التحصيل', cancelled_at: 'وقت الإلغاء', cancelled_by: 'ألغاها', transfer_number: 'رقم فاتورة النقل',
++    from_branch: 'من نقطة', to_branch: 'إلى نقطة', items_count: 'عدد الأصناف', currency: 'العملة', description: 'الوصف', image_url: 'الصورة',
++    brand: 'الماركة', aliases: 'أسماء بديلة', description_ar: 'الوصف', extra_groups: 'مجموعات إضافية', count: 'العدد', value: 'القيمة', type: 'النوع',
++    customer_name: 'اسم الزبون', customer_phone: 'هاتف الزبون', order_serial: 'رقم الأوردر', transferred: 'رُحّلت', arrived: 'وصلت', code: 'الرمز', reason: 'السبب'
++  };
++  var ST_AR = { pending: 'قيد التجهيز', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل', reserved: 'محجوز', cancelled: 'ملغى', canceled: 'ملغى',
++    paid: 'مدفوعة', partial: 'مدفوعة جزئياً', unpaid: 'غير مدفوعة', approved: 'معتمدة', rejected: 'مرفوضة', draft: 'مسوّدة', sent: 'مُرسَلة', received: 'مُستلَمة',
++    arrived: 'وصلت', receiving: 'قيد الاستلام', settled: 'مُسوّاة', open: 'مفتوحة', closed: 'مغلقة', active: 'فعّال', inactive: 'موقوف' };
++  var PAGE_AR = { 'pos.html': 'نقطة البيع', 'orders.html': 'الأوردرات', 'inventory.html': 'الجرد والمخزون', 'purchase.html': 'المشتريات', 'admin_pos.html': 'أدمن نقاط البيع',
++    'home.html': 'الواجهة الرئيسية', 'index.html': 'الواجهة الرئيسية', 'sales_log.html': 'سجل المبيعات', 'guarantee.html': 'إنشاء كفالة', 'guarantee_admin.html': 'إدارة الكفالات',
++    'labels.html': 'طابعة الملصقات', 'bridge.html': 'الجسر', 'passwords.html': 'كلمات السر', 'admin_sovereign.html': 'الأدمن الكلي', 'admin_store.html': 'أدمن المتجر', 'admin_site.html': 'أدمن الموقع',
++    'backup.html': 'النسخ الاحتياطي', 'deal.html': 'العقود', 'check.html': 'تشخيص سريع', 'checks.html': 'الفحص الشامل', 'store.html': 'المتجر الإلكتروني', 'site.html': 'الموقع الرسمي',
++    'الأمان_والمستخدمون.html': 'الأمان والمستخدمون', 'أداة_التسويات.html': 'أداة التسويات', 'سجل_العمليات.html': 'سجل العمليات', 'ما_يجب_شراؤه.html': 'ما يجب أن نشتريه',
++    'طلبات_غير_متوفرة.html': 'ما يطلبه الزبائن ولا نملكه', 'العروض_والتسعير.html': 'العروض والتسعير والكوبونات', 'المنتجات.html': 'المنتجات', 'سلة_المحذوفات.html': 'سلّة المحذوفات' };
++  /* إعدادات النظام: نسجّل الجوهريّ فقط (كلمات السرّ · الصلاحيات · القفل · الوسيط) — بقيّة المفاتيح ضجيجٌ (ملفّات تعريف · كاش) */
++  var SET_AR = { orders_lock: 'قفل الأوردرات', admin_password: 'كلمة سرّ أدمن النقاط', pw_sovereign: 'كلمة السرّ السيادية', pw_store: 'كلمة سرّ المتجر',
++    pw_warranty: 'كلمة سرّ الكفالات', pw_purchase: 'كلمة سرّ المشتريات', pw_backup: 'كلمة سرّ النسخ الاحتياطي', brain_endpoint: 'رابط وسيط عقل النظام',
++    shop_endpoint: 'رابط وسيط المتجر' };
++  var SET_OK = /^(pw_|tool_grants_|user_pending_|orders_lock$|admin_password$|brain_|shop_endpoint$|[a-z_]*endpoint$)/;
++  var SECRET_K = /pass|pwd|token|secret|api_?key|hash|sha256|pw_|admin_accounts/i;
++  var SKIP_K = { updated_at: 1, created_at: 1, id: 1 };
++
++  var skip = {}, beforeFns = {}, queue = [], timer = null, off = false;
++  var _raw = global.fetch ? global.fetch.bind(global) : null;
++
++  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} return null; }
++  function db() { try { return (global.GMT_DB && global.GMT_DB.MAIN) || null; } catch (_) { return null; } }
++  function page() { try { return decodeURIComponent(location.pathname.split('/').pop() || 'index.html'); } catch (_) { return 'unknown'; } }
++  function trunc(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; }
++  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
++
++  function actor() {
++    try { if (global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()) { var n = GMTRole.name && GMTRole.name(); return n ? 'الأدمن ' + n : 'الأدمن'; } } catch (_) {}
++    try { var s = JSON.parse(ls('gmt_session') || 'null'); if (s && (s.display_name || s.username)) return s.display_name || s.username; } catch (_) {}
++    var op = ls('gmt_operator_name'); if (op) return op;
++    return 'غير معروف';
++  }
++
++  /* ── سياقُ الفاعل: الدور + نقطة البيع (للتنسيب: «سجل لكل نقطة بيع وبالتنسيب») ──
++     • الأدمن العاديّ بلا نقطة (الإدارة) — إلّا حين «يدخل نقطة بيع كموظّف» (sessionStorage.gmt_acting) فتُنسَب العملية للنقطة.
++       لا نقرأ gmt_session للأدمن: قد تبقى من موظّفٍ سابق على الجهاز فتنسب عملية الإدارة لنقطةٍ خطأ.
++     • الموظّف: نقطةُ جلسته (gmt_session.branch_key) ثم gmt_branch. */
++  function isAdminNow() { try { return !!(global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()); } catch (_) { return false; } }
++  function ctx() {
++    var admin = isAdminNow(), c = { actor: actor(), role: admin ? 'admin' : 'staff', branch: '', acting: false };
++    try {
++      var a = JSON.parse(sessionStorage.getItem('gmt_acting') || 'null');
++      if (a && a.branch_key) { c.branch = String(a.branch_key); c.acting = true; }
++    } catch (_) {}
++    if (!c.branch && !admin) {
++      try { var s = JSON.parse(ls('gmt_session') || 'null'); if (s && s.branch_key) c.branch = String(s.branch_key); } catch (_) {}
++      if (!c.branch) c.branch = ls('gmt_branch') || '';
++    }
++    return c;
++  }
++  function metaWith(meta) {
++    var c = ctx(), m = {}, k;
++    if (meta && typeof meta === 'object') for (k in meta) m[k] = meta[k];
++    if (m.branch == null && c.branch) m.branch = c.branch;
++    if (m.role == null) m.role = c.role;
++    if (c.acting && m.acting == null) m.acting = 1;
++    return m;
++  }
++
++  /* ── الكتابة: طابورٌ يُفرَّغ دفعةً واحدة ── */
++  function loadQ() { try { var a = JSON.parse(ls(Q_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
++  function saveQ(a) { ls(Q_KEY, a.length ? JSON.stringify(a.slice(-MAXQ)) : null); }
++  function enqueue(row) {
++    queue.push(row);
++    if (queue.length > MAXQ) queue.shift();
++    if (!timer) timer = setTimeout(flush, FLUSH_MS);
++  }
++  async function flush(keepalive) {
++    clearTimeout(timer); timer = null;
++    var d = db(); if (!d || !_raw || off) return;
++    var rows = loadQ().concat(queue); queue = [];
++    if (!rows.length) return;
++    try {
++      var r = await _raw(d.url + '/rest/v1/gmt_audit', {
++        method: 'POST', keepalive: keepalive === true && JSON.stringify(rows).length < 60000,
++        headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
++        body: JSON.stringify(rows)
++      });
++      if (r.ok) { saveQ([]); return; }
++      /* الجدول غير منشأ (404/400 مخطّط) ⇒ نتوقّف عن المحاولة في هذه الجلسة بدل إغراق الشبكة */
++      if (r.status === 404 || r.status === 400) { off = true; saveQ([]); try { console.warn('[GMTOpLog] جدول gmt_audit غير متاح — السجلّ متوقّف (شغّل SQL الأساس)'); } catch (_) {} return; }
++      saveQ(rows);
++    } catch (_) { saveQ(rows); }
++  }
++  function rowOf(e) {
++    return {
++      at: new Date().toISOString(), actor: e.actor || actor(), page: page(),
++      action: e.action || 'manual', entity: e.entity || null,
++      entity_id: e.entityId != null ? String(e.entityId) : null, entity_name: e.entityName ? trunc(e.entityName, 120) : null,
++      field: e.field ? trunc(e.field, 160) : null,
++      old_value: e.oldValue != null ? trunc(typeof e.oldValue === 'string' ? e.oldValue : JSON.stringify(e.oldValue), 1500) : null,
++      new_value: e.newValue != null ? trunc(typeof e.newValue === 'string' ? e.newValue : JSON.stringify(e.newValue), 1500) : null,
++      reason: e.reason || null, sovereign: false, meta: metaWith(e.meta)
++    };
++  }
++  function log(e) { try { enqueue(rowOf(e || {})); return true; } catch (_) { return false; } }
++
++  /* ── الاصطياد عند طبقة الشبكة ── */
++  function maskVal(k, v, table) {
++    if (SECRET_K.test(k)) return '••• (تغيّرت)';
++    if (v && typeof v === 'object') return trunc(JSON.stringify(v), 80);
++    return trunc(v, 80);
++  }
++  function summarize(table, method, body, before) {
++    var obj = Array.isArray(body) ? body[0] : body;
++    if (!obj || typeof obj !== 'object') return { fields: [], nv: null, ov: null, name: '' };
++    var keys = Object.keys(obj).filter(function (k) { return !SKIP_K[k]; });
++    var nv = {}, ov = {};
++    if (table === 'gmt_settings') {
++      /* الإعدادات: المفتاح هو الاسم، والقيمة لا تُكتب إن كانت حسّاسة */
++      var kk = obj.key != null ? String(obj.key) : '';
++      var secret = SECRET_K.test(kk) || /^(pw_|admin_|brain|endpoint|gmt_brain)/.test(kk) || /endpoint$/.test(kk);
++      var nm = SET_AR[kk] || (/^tool_grants_/.test(kk) ? 'صلاحيات المستخدم #' + kk.replace('tool_grants_', '') : kk);
++      var val = secret ? '••• (تغيّرت)' : (kk === 'orders_lock' ? (String(obj.value) === '1' ? 'مُفعَّل' : 'مُعطَّل') : trunc(obj.value, 120));
++      return { fields: [nm || 'قيمة'], nv: { value: val }, ov: null, name: nm };
++    }
++    var shown = keys.slice(0, 8);
++    shown.forEach(function (k) {
++      nv[k] = maskVal(k, obj[k], table);
++      if (before && before[k] !== undefined && method !== 'POST') ov[k] = maskVal(k, before[k], table);
++    });
++    var name = obj.name || obj.customer_name || obj.inv_number || obj.invoice_number || obj.title || obj.display_name || obj.username || obj.transfer_number || obj.code
++      || (before && (before.name || before.customer_name || before.inv_number || before.display_name || before.username)) || '';
++    return { fields: shown, nv: nv, ov: Object.keys(ov).length ? ov : null, name: name, more: keys.length - shown.length };
++  }
++  function classify(url, method, init) {
++    var m = url.match(/\/rest\/v1\/([a-z_0-9]+)(?:\?([^#]*))?$/);
++    if (!m) return null;
++    var table = m[1];
++    if (!T[table] || skip[table] || (global.GMT_OPLOG_SKIP && global.GMT_OPLOG_SKIP.indexOf(table) >= 0) || global.__gmtOpLogMute) return null;
++    var v = VERB[method]; if (!v) return null;
++    var q = m[2] || '';
++    var idm = q.match(/(?:^|&)(id|key|username)=eq\.([^&]+)/);
++    var body = null;
++    try { body = init && init.body && typeof init.body === 'string' ? JSON.parse(init.body) : null; } catch (_) {}
++    if (method !== 'DELETE' && !body) return null;
++    var id = idm ? decodeURIComponent(idm[2]) : null;
++    /* بيانات الفاحص الذاتي (موسومة) لا تدخل السجلّ — هي تُنشأ لتُحذف */
++    try { if (body && /__GMT_TEST__|"barcode":"TEST-|"code":"TESTCP-|"username":"gmttest\d+/.test(JSON.stringify(body))) return null; } catch (_) {}
++    if (table === 'gmt_settings') {
++      var key = id || (body && !Array.isArray(body) ? body.key : (body && body[0] && body[0].key)) || '';
++      if (!SET_OK.test(String(key)) || key === 'admin_accounts') return null;     // admin_accounts: أحداثه صريحة (admin_add…)
++      if (method === 'POST') v = VERB.PATCH;                                       // upsert إعداد = تعديل لا «إنشاء»
++      id = id || String(key);
++    }
++    return { table: table, method: method, verb: v, id: id, idKey: idm ? idm[1] : null, body: body, q: q };
++  }
++  var WRITE = /^(POST|PATCH|PUT|DELETE)$/;
++  /* ── حارس «النجاح الصامت» ────────────────────────────────────────────────
++     الجذر: PostgREST يردّ 204 «ناجحاً» حتى لو لم يُعدِّل أيَّ صفّ (سياسة RLS تمنع، أو السجلّ حُذف) — فتقول الصفحة
++     «تمّ الحفظ» والقاعدة لم تتغيّر (وقعت في حذف المستخدم). عشرات المواضع تكتب بـ`return=minimal` فلا تستطيع التحقّق.
++     العلاج عند طبقة الشبكة بلا لمس الصفحات: لكلّ PATCH/DELETE يستهدف سجلّاً واحداً (id|key|username=eq.) نضيف
++     `count=exact` إلى Prefer (لا يغيّر الحالة ولا الجسم) ونقرأ `Content-Range`: إن انتهى بـ«/0» فلم يُعدَّل شيء ⇒ تنبيهٌ صريح
++     + سطرٌ في السجلّ، ولا نُسجّل «تعديلاً ناجحاً» كاذباً. تنبيهٌ فقط — لا نغيّر ردّ القاعدة كي لا نكسر ما يعتمد عليه. */
++  var GUARD_Q = /\/rest\/v1\/([a-z_0-9]+)\?(?:[^#]*&)?(id|key|username)=eq\.([^&#]+)/;
++  var GUARD_NO = /^(gmt_audit|gmt_settings)$/;     // الإعدادات تُكتب بـupsert، وسجلّ التدقيق إدراجٌ فقط
++  var _noopAt = {};
++  function guardOf(url, method) {
++    if ((method !== 'PATCH' && method !== 'DELETE') || global.__gmtOpLogMute) return null;
++    var m = String(url || '').match(GUARD_Q);
++    if (!m || GUARD_NO.test(m[1])) return null;
++    /* فلتر مفتاحيّ **وحده**: PATCH مشروط (id=eq.5&status=eq.receiving) صفرُه مشروع — خسارةُ سباقٍ مقصودة لا «عدم حفظ» */
++    var qs = String(url).split('?')[1] || '';
++    var filters = qs.split('&').filter(function (x) { return x && !/^(select|limit|columns|order|on_conflict)=/.test(x); });
++    if (filters.length !== 1) return null;
++    return { table: m[1], key: m[2], id: decodeURIComponent(m[3]) };
++  }
++  function withCount(init) {
++    var out = {}; for (var k in init) out[k] = init[k];
++    var h = init.headers, add = 'count=exact';
++    if (h && typeof h.get === 'function' && typeof h.set === 'function') {
++      var nh = new Headers(h), cur = nh.get('Prefer') || '';
++      if (/count=/.test(cur)) return init;
++      nh.set('Prefer', cur ? cur + ',' + add : add); out.headers = nh; return out;
++    }
++    if (Array.isArray(h)) {
++      for (var i = 0; i < h.length; i++) if (String(h[i][0]).toLowerCase() === 'prefer') {
++        if (/count=/.test(h[i][1])) return init;
++        out.headers = h.map(function (x) { return x.slice(); }); out.headers[i][1] = h[i][1] + ',' + add; return out;
++      }
++      out.headers = h.concat([['Prefer', add]]); return out;
++    }
++    var o = {}; h = h || {};
++    var pk = null; for (var k2 in h) { o[k2] = h[k2]; if (k2.toLowerCase() === 'prefer') pk = k2; }
++    if (pk) { if (/count=/.test(o[pk])) return init; o[pk] = o[pk] + ',' + add; } else o.Prefer = add;
++    out.headers = o; return out;
++  }
++  function zeroRows(res) {
++    try { var cr = res && res.headers && res.headers.get && res.headers.get('content-range'); return !!cr && /\/0$/.test(cr); } catch (_) { return false; }
++  }
++  function reportNoop(g, method) {
++    var now = Date.now(), key = g.table + ':' + g.id;
++    if (_noopAt[key] && now - _noopAt[key] < 5000) return; _noopAt[key] = now;
++    var label = T[g.table] || g.table;
++    try { console.warn('[GMT] كتابة لم تُغيّر أيَّ صفّ: ' + method + ' ' + g.table + ' ' + g.key + '=' + g.id); } catch (_) {}
++    try {
++      if (global.GMTUI && GMTUI.toast) GMTUI.toast('لم يُحفَظ التغيير في «' + label + '» — القاعدة لم تعدّل أيّ سجلّ (غالباً لا صلاحية، أو السجلّ حُذف). حدّث الصفحة وأعد المحاولة.', 6500);
++    } catch (_) {}
++    try {
++      enqueue(rowOf({ action: 'write_noop', entity: g.table, entityId: g.id, entityName: label, field: method === 'DELETE' ? 'حذف' : 'تعديل', meta: { method: method } }));
++    } catch (_) {}
++  }
++
++  /* ── إثراء ما تكتبه الصفحات الأخرى في gmt_audit (GMTAudit.log في gmt-staff.js) ────────────────
++     الجذر (من بيانات القاعدة الحيّة): GMTAudit.log يقرأ الفاعل من gmt_session.name وهو غير موجود (الحقل display_name)،
++     فيسقط إلى gmt_branch فيُكتب الفاعل «haleb» (مفتاح الفرع لا اسم الموظّف)، وإلى «غير معروف» حين لا جلسة (الأدمن داخل نقطة
++     بيع). ولا يكتب نقطة البيع ولا الدور. بدل تعديل ثلاثة عشر موضعاً نُثري السطر **عند الشبكة** بسياقٍ واحد صحيح (نفس
++     طريقتنا في الحارس): فاعلٌ باسمه ودورٌ ونقطة بيع. لا نمسّ ما كتبته الصفحة صراحةً (فاعلٌ حقيقيّ · meta.branch). */
++  function isRawActor(a) {
++    a = String(a == null ? '' : a).trim();
++    if (!a || a === 'غير معروف' || a === 'unknown') return true;
++    var bm = branchMapSync();
++    if (bm[a] || bm[a.toLowerCase()]) return true;           // مفتاح فرعٍ مكتوبٌ كاسم فاعل
++    try { var cb = ctx().branch; return !!cb && cb === a; } catch (_) { return false; }
++  }
++  function enrichAudit(init) {
++    try {
++      var body = JSON.parse(init.body), arr = Array.isArray(body) ? body : [body], c = ctx(), changed = false;
++      arr.forEach(function (r) {
++        if (!r || typeof r !== 'object') return;
++        if (isRawActor(r.actor) && c.actor && c.actor !== 'غير معروف') { r.actor = c.actor; changed = true; }
++        var m = r.meta && typeof r.meta === 'object' && !Array.isArray(r.meta) ? r.meta : {};
++        if (m.role == null || (m.branch == null && c.branch)) { r.meta = metaWith(m); changed = true; }
++      });
++      if (!changed) return init;
++      var out = {}; for (var k in init) out[k] = init[k];
++      out.body = JSON.stringify(Array.isArray(body) ? arr : arr[0]);
++      return out;
++    } catch (_) { return init; }
++  }
++  function install() {
++    if (!_raw || global.__gmtOpLogFetch) return;
++    global.__gmtOpLogFetch = true;
++    var inner = global.fetch.bind(global);
++    global.fetch = function (input, init) {
++      var info = null, before = null;
++      try {
++        var url = typeof input === 'string' ? input : (input && input.url) || '';
++        var method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
++        if (WRITE.test(method) && /\/rest\/v1\//.test(url) && !/\/gmt_audit/.test(url)) {
++          info = classify(url, method, init);
++          var bf = beforeFns[info.table] || (global.GMT_OPLOG_BEFORE && global.GMT_OPLOG_BEFORE[info.table]);
++          if (info && info.id && bf) { try { before = bf(info.id); } catch (_) { before = null; } }
++        }
++      } catch (_) { info = null; }
++      try {
++        if (typeof input === 'string' && init && typeof init.body === 'string' && String(init.method || '').toUpperCase() === 'POST' &&
++            /\/rest\/v1\/gmt_audit(\?|$)/.test(input) && !global.__gmtOpLogMute) init = enrichAudit(init);
++      } catch (_) {}
++      var g = null;
++      try {
++        if (typeof input === 'string' && init && !global.__gmtOpLogMute) {
++          var gm = String(init.method || 'GET').toUpperCase();
++          g = guardOf(input, gm);
++          if (g) g.method = gm;
++          /* وما نتتبّعه في السجلّ نعدّه كذلك (أيّ فلتر): لا نكتب «تعديلاً ناجحاً» لعمليةٍ لم تغيّر شيئاً — بلا تنبيه للمستخدم */
++          if (g || (info && (gm === 'PATCH' || gm === 'DELETE'))) init = withCount(init);
++        }
++      } catch (_) { g = null; }
++      var p = inner(input, init);
++      if (!info && !g) return p;
++      return p.then(function (res) {
++        var zero = false;
++        try { zero = !!(res && res.ok && zeroRows(res)); if (zero && g) reportNoop(g, g.method); } catch (_) {}
++        if (!info) return res;
++        try {
++          if (res && res.ok && !zero) {
++            var s = summarize(info.table, info.method, info.body, before);
++            var skipEmpty = info.method !== 'DELETE' && !s.fields.length;
++            if (!skipEmpty) {
++              var label = T[info.table];
++              /* أوردر: تغيير الحالة يُسمّى باسمه */
++              var act = info.verb[0] + ':' + info.table, special = '';
++              if (info.table === 'gmt_orders' && info.method === 'PATCH' && info.body && info.body.status) special = 'order_status';
++              if (info.table === 'gmt_settings' && info.method === 'DELETE' && /^user_pending_/.test(info.id || '')) { special = 'user_approve'; s.name = 'حساب #' + info.id.replace('user_pending_', ''); }
++              enqueue(rowOf({
++                action: special || act, entity: info.table, entityId: info.id || (Array.isArray(info.body) ? '' : (info.body && info.body.id)) || '',
++                entityName: s.name || label, field: s.fields.join('، ') + (s.more > 0 ? ' +' + s.more : ''),
++                oldValue: s.ov, newValue: s.nv, meta: { verb: info.verb[1], label: label, n: Array.isArray(info.body) ? info.body.length : 1 }
++              }));
++            }
++          }
++        } catch (_) {}
++        return res;
++      });
++    };
++  }
++
++  /* ═══ العرض ═══
++     طلب المالك (لقطة الهاتف): «السجل: الألوان والعملية والطريقة والمستخدم والوقت كلّها غير واضحة · أخطاء تباين · رموز إنجليزية
++     qty_unlock / transfer_admin_confirm / drain_pos_prepared · رمادي باهت · haleb صغيرة».
++     الجذور: ① الوضع الداكن كان يُلوّن النص بألوانٍ فاتحة على خلفيةٍ تركها الصفحة فاتحة/داكنة بلا قاعدة (تباين منخفض)
++             ② قاموس العناوين ناقص (كلُّ رمزٍ لا يعرفه يُعرض كما هو) ③ مفتاح الفرع haleb يُعرض خاماً بدل «حلب»
++             ④ الفاعل المكتوب «haleb» لا اسم الموظّف ⑤ لا مكان (أداة/نقطة بيع) ولا وقتٌ مطلق.
++     التصميم: بطاقةٌ لكل عملية (عنوانٌ كبير · من · أين · متى · ما تغيّر · السبب) + فلاتر + وعلى الشاشة العريضة جدولٌ مع لوحة تفاصيل. */
++
++  /* ── أعمدة المخزون/الفروع من inv_columns: اسمٌ للعرض بدل المفتاح الخام (haleb ← حلب) ── */
++  var COLS_KEY = 'gmt_oplog_cols_v1', _cols = null, _colsAt = 0;
++  function colsCached() {
++    if (_cols) return _cols;
++    try { var o = JSON.parse(ls(COLS_KEY) || 'null'); if (o && o.v) { _cols = o.v; _colsAt = o.at || 0; return _cols; } } catch (_) {}
++    var m = {};
++    try { (JSON.parse(ls('gmt_branches_cache_v1') || '[]') || []).forEach(function (b) { if (b && b.key) m[b.key] = { n: b.name || b.key, b: true }; }); } catch (_) {}
++    return (_cols = m);
++  }
++  async function loadCols(force) {
++    var d = db(); if (!d || !_raw) return colsCached();
++    if (!force && _colsAt && Date.now() - _colsAt < 6 * 3600e3) return _cols;
++    try {
++      var r = await _raw(d.url + '/rest/v1/inv_columns?select=key_name,display_name,is_branch', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
++      if (r.ok) {
++        var rows = await r.json(), m = {};
++        (rows || []).forEach(function (c) { if (c && c.key_name) m[c.key_name] = { n: c.display_name || c.key_name, b: c.is_branch === true }; });
++        if (Object.keys(m).length) { _cols = m; _colsAt = Date.now(); ls(COLS_KEY, JSON.stringify({ at: _colsAt, v: m })); }
++      }
++    } catch (_) {}
++    return colsCached();
++  }
++  /* مفتاح ⇒ اسم (للفروع فقط) */
++  function branchMapSync() {
++    var c = colsCached(), m = {}, k;
++    for (k in c) if (c[k] && c[k].b) { m[k] = c[k].n; m[String(k).toLowerCase()] = c[k].n; }
++    return m;
++  }
++  /* اسمٌ للعرض لنقطةٍ بيعٍ من مفتاحها أو من اسمها العربيّ */
++  function branchName(key) {
++    key = String(key == null ? '' : key).trim(); if (!key) return '';
++    var m = branchMapSync();
++    if (m[key]) return m[key];
++    if (m[key.toLowerCase()]) return m[key.toLowerCase()];
++    for (var k in m) if (m[k] === key) return key;           // وصل اسماً عربيّاً أصلاً
++    return /[a-z]/i.test(key) && !/[؀-ۿ]/.test(key) ? '' : key;   // مفتاحٌ إنجليزيّ غير معروف ⇒ لا نعرضه خاماً
++  }
++
++  /* ── من/أين/متى ── */
++  function metaOf(r) {
++    var m = r && r.meta;
++    if (typeof m === 'string') { try { m = JSON.parse(m); } catch (_) { m = null; } }
++    return m && typeof m === 'object' ? m : {};
++  }
++  function parseJ(v) {
++    if (v == null || v === '') return null;
++    if (typeof v === 'object') return v;
++    try { var j = JSON.parse(v); return j; } catch (_) { return v; }
++  }
++  function actInfo(r) {
++    var a = String(r.action || ''), x = ACT[a];
++    if (a === 'order_status') x = ACT.order_status;
++    if (x) return { t: x[0], c: x[1], k: x[2] };
++    var m = a.match(/^(create|update|delete):(.+)$/);
++    if (m) {
++      var noun = T[m[2]] || 'سجل', verb = ({ create: 'إنشاء', update: 'تعديل', delete: 'حذف' })[m[1]], c = 'system';
++      for (var cc in CAT) if (CAT[cc].indexOf(m[2]) >= 0) { c = cc; break; }
++      var t = verb + ' ' + noun;
++      if (m[2] === 'gmt_settings' && r.entity_name) t = verb + ' إعداد: ' + r.entity_name;
++      if (m[2] === 'gmt_orders') { var nv0 = parseJ(r.new_value); if (m[1] === 'update' && nv0 && typeof nv0 === 'object' && nv0.status) t = ACT.order_status[0]; }
++      return { t: t, c: c, k: m[1] === 'delete' ? 'd' : 'n', tech: false };
++    }
++    /* رمزٌ غير معروف: نصٌّ عربيّ مقروء، والرمز الأصليّ في «تفاصيل فنّية» فقط */
++    var c2 = 'system';
++    if (/^(admin_|user_|password)/.test(a)) c2 = 'accounts'; else if (/^(product_|stock_|qty_|category_|transfer_|branch_stock)/.test(a)) c2 = 'stock';
++    else if (/^(invoice|commission|acc_)/.test(a)) c2 = 'money'; else if (/^(unmet_)/.test(a)) c2 = 'orders'; else if (/^(rfq_|purchase)/.test(a)) c2 = 'purchases';
++    else if (r.entity) for (var c3 in CAT) if (CAT[c3].indexOf(r.entity) >= 0) { c2 = c3; break; }
++    return { t: 'عملية أخرى في النظام', c: c2, k: 'n', unknown: true };
++  }
++  function catOf(r) { return actInfo(r).c; }
++  function actionLabel(r) { return actInfo(r).t; }
++  function whoOf(r) {
++    var a = String(r.actor == null ? '' : r.actor).trim(), m = metaOf(r), bm = branchMapSync(), role = m.role === 'admin' ? 'admin' : (m.role === 'staff' ? 'staff' : '');
++    var out = { name: '', role: role || 'staff', raw: a, acting: !!m.acting };
++    if (/^الأدمن(\s|$)/.test(a)) { out.role = 'admin'; out.name = a.replace(/^الأدمن\s*/, '') || 'أدمن بلا اسم'; }
++    else if (!a || a === 'غير معروف') { out.role = role || 'unknown'; out.name = 'غير محدّد'; }
++    else if (bm[a] || bm[a.toLowerCase()]) { out.role = 'staff'; out.name = 'موظّف نقطة ' + (bm[a] || bm[a.toLowerCase()]); out.branchKey = a; out.legacy = true; }
++    else { out.name = a; if (!role && /^[A-Za-z0-9_.\-]+$/.test(a)) out.latin = true; }
++    return out;
++  }
++  function branchOf(r) {
++    var m = metaOf(r), key = m.branch || '', explicit = !!key;
++    if (!key && r.entity === 'pos' && r.entity_id) { key = r.entity_id; explicit = true; }
++    if (!key) { var w = whoOf(r); if (w.branchKey) { key = w.branchKey; explicit = true; } }
++    if (!key) {
++      var nv = parseJ(r.new_value), ov = parseJ(r.old_value);
++      [nv, ov].forEach(function (o) { if (!key && o && typeof o === 'object' && !Array.isArray(o)) key = o.branch_key || o.branch || o.branch_name || ''; });
++    }
++    if (!key) return null;
++    var n = branchName(key);
++    if (n) return { key: String(key), name: n };
++    return explicit ? { key: String(key), name: 'غير معروفة (محذوفة أو أُعيدت تسميتها)' } : null;
++  }
++  function toolOf(r) {
++    var p = String(r.page || '');
++    if (PAGE_AR[p]) return PAGE_AR[p];
++    try { var t = global.GMTTools && GMTTools.find && GMTTools.find(p); if (t && t.t) return t.t; } catch (_) {}
++    return p ? 'صفحة أخرى' : '—';
++  }
++  var AR_D = '٠١٢٣٤٥٦٧٨٩';
++  function arN(n) { return String(n).replace(/\d/g, function (d) { return AR_D[+d]; }); }
++  function relAr(t) {
++    var s = (Date.now() - t) / 1000;
++    if (s < 45) return 'الآن';
++    var m = Math.round(s / 60);
++    if (m < 60) return m <= 1 ? 'قبل دقيقة' : m === 2 ? 'قبل دقيقتين' : 'قبل ' + arN(m) + (m <= 10 ? ' دقائق' : ' دقيقة');
++    var h = Math.round(s / 3600);
++    if (h < 24) return h <= 1 ? 'قبل ساعة' : h === 2 ? 'قبل ساعتين' : 'قبل ' + arN(h) + (h <= 10 ? ' ساعات' : ' ساعة');
++    var d0 = new Date(); d0.setHours(0, 0, 0, 0);
++    var days = Math.round((d0.getTime() - new Date(new Date(t).setHours(0, 0, 0, 0)).getTime()) / 864e5);
++    if (days <= 1) return 'أمس';
++    if (days === 2) return 'قبل يومين';
++    if (days <= 10) return 'قبل ' + arN(days) + ' أيام';
++    if (days < 30) return 'قبل ' + arN(days) + ' يوماً';
++    var mo = Math.round(days / 30);
++    return mo <= 1 ? 'قبل شهر' : mo === 2 ? 'قبل شهرين' : 'قبل ' + arN(mo) + (mo <= 10 ? ' أشهر' : ' شهراً');
++  }
++  function absAr(t, withDay) {
++    try {
++      var d = new Date(t);
++      var day = d.toLocaleDateString('ar-SY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
++      var tm = d.toLocaleTimeString('ar-SY', { hour: 'numeric', minute: '2-digit', hour12: true });
++      return withDay === false ? tm : day + '، الساعة ' + tm;      // لا نقطة وسطى «·»: تُقرأ ٠ بجانب الأرقام العربية
++    } catch (_) { return String(t || ''); }
++  }
++  function dayKey(t) { var d = new Date(t); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
++  function dayLabel(t) {
++    var d = new Date(t), td = new Date(); td.setHours(0, 0, 0, 0);
++    var diff = Math.round((td.getTime() - new Date(t).setHours(0, 0, 0, 0)) / 864e5);
++    var full = d.toLocaleDateString('ar-SY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
++    return diff === 0 ? 'اليوم — ' + full : diff === 1 ? 'أمس — ' + full : full;
++  }
++
++  /* ── ما تغيّر: قائمة {label, old, nw} بالعربية الواضحة ── */
++  function fieldLabel(k) {
++    var c = colsCached();
++    if (c[k]) return c[k].b ? 'مخزون ' + c[k].n : (c[k].n ? 'رصيد ' + c[k].n : k);
++    return KEY_AR[k] || null;
++  }
++  function fmtVal(k, v) {
++    if (v == null || v === '') return '—';
++    if (v === true || v === 'true') return 'نعم';
++    if (v === false || v === 'false') return 'لا';
++    if (k === 'status' || k === 'payment_status') { var sv = String(v); if (ST_AR[sv]) return ST_AR[sv]; }
++    if (v && typeof v === 'object') { try { return Array.isArray(v) ? v.map(function (x) { return typeof x === 'object' ? JSON.stringify(x) : x; }).join('، ') : JSON.stringify(v); } catch (_) { return String(v); } }
++    var s = String(v);
++    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) { var t = Date.parse(s); if (!isNaN(t)) return absAr(t); }
++    return s;
++  }
++  function changes(r) {
++    var o = parseJ(r.old_value), n = parseJ(r.new_value), out = [];
++    var isO = function (x) { return x && typeof x === 'object' && !Array.isArray(x); };
++    if (isO(n)) {
++      Object.keys(n).forEach(function (k) {
++        if (/^(created_at|updated_at|id)$/.test(k)) return;
++        out.push({ k: k, label: fieldLabel(k), old: isO(o) && k in o ? fmtVal(k, o[k]) : null, nw: fmtVal(k, n[k]) });
++      });
++      return out;
++    }
++    if (o != null || n != null) {
++      var lab = r.field && !/،/.test(r.field) ? (fieldLabel(r.field) || r.field) : null;
++      out.push({ k: '', label: lab, old: o != null ? fmtVal('', o) : null, nw: n != null ? fmtVal('', n) : '—' });
++      return out;
++    }
++    return out;
++  }
++  function shortId(r) {
++    var id = r.entity_id == null ? '' : String(r.entity_id);
++    return id && id.length <= 12 && id !== String(r.entity_name || '') ? id : '';
++  }
++
++  /* ── تجميع الدفعات المتكرّرة (٢٥ سطراً «إعادة إدخال بند» من فاتورة واحدة) في بطاقةٍ واحدة ── */
++  function bursts(list) {
++    var out = [], cur = null;
++    function sig(r) { var b = branchOf(r); return [r.actor, r.action, r.page, b ? b.key : ''].join('|'); }
++    list.forEach(function (r) {
++      var t = new Date(r.at).getTime();
++      if (cur && cur.sig === sig(r) && Math.abs(cur.last - t) <= 10 * 60e3 && !/^admin_login/.test(r.action || '')) { cur.rows.push(r); cur.last = t; }
++      else { cur = { sig: sig(r), rows: [r], last: t }; out.push(cur); }
++    });
++    return out.map(function (g) { return { r: g.rows[0], rows: g.rows.length >= 3 ? g.rows : null, one: g.rows.length >= 3 ? null : g.rows }; })
++      .reduce(function (acc, g) { if (g.one) g.one.forEach(function (r) { acc.push({ r: r, rows: null }); }); else acc.push(g); return acc; }, []);
++  }
++
++  /* ── الأنماط: متغيّراتٌ للفاتح والداكن، كلّ زوجٍ نصٍّ/خلفيةٍ ≥ 4.5:1 (يُفحَص في اختبار التباين) ── */
++  var CSS =
++    '.ol,.ol-modal{--ol-bg:#ffffff;--ol-bg2:#f1f5f9;--ol-fg:#0f172a;--ol-mut:#475569;--ol-line:#cbd5e1;--ol-acc:#a80016;--ol-accbg:#fee2e2;--ol-old:#991b1b;--ol-oldbg:#fee2e2;--ol-new:#14532d;--ol-newbg:#dcfce7;--ol-warn:#7c2d12;--ol-warnbg:#ffedd5;--ol-sel:#fef2f2}' +
++    '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ol,:root:not([data-theme="light"]) .ol-modal{--ol-bg:#0f172a;--ol-bg2:#1e293b;--ol-fg:#f1f5f9;--ol-mut:#cbd5e1;--ol-line:#475569;--ol-acc:#fda4af;--ol-accbg:#4c0519;--ol-old:#fecaca;--ol-oldbg:#450a0a;--ol-new:#bbf7d0;--ol-newbg:#052e16;--ol-warn:#fed7aa;--ol-warnbg:#431407;--ol-sel:#1e1b2e}}' +
++    '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ol-card,:root:not([data-theme="light"]) .ol-c{--cfg:var(--cfd);--cbg:var(--cbd);--cat:var(--cfd)}}' +
++    ':root[data-theme="dark"] .ol-card,:root[data-theme="dark"] .ol-c{--cfg:var(--cfd);--cbg:var(--cbd);--cat:var(--cfd)}' +
++    ':root[data-theme="dark"] .ol,:root[data-theme="dark"] .ol-modal{--ol-bg:#0f172a;--ol-bg2:#1e293b;--ol-fg:#f1f5f9;--ol-mut:#cbd5e1;--ol-line:#475569;--ol-acc:#fda4af;--ol-accbg:#4c0519;--ol-old:#fecaca;--ol-oldbg:#450a0a;--ol-new:#bbf7d0;--ol-newbg:#052e16;--ol-warn:#fed7aa;--ol-warnbg:#431407;--ol-sel:#1e1b2e}' +
++    '.ol{font-family:Cairo,Tajawal,"Segoe UI",Tahoma,system-ui,sans-serif;direction:rtl;color:var(--ol-fg);background:var(--ol-bg);font-size:15px;line-height:1.7}' +
++    '.ol *{box-sizing:border-box}' +
++    '.ol-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}' +
++    '.ol-q,.ol-sel{border:1.5px solid var(--ol-line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14.5px;background:var(--ol-bg);color:var(--ol-fg);outline:none;min-height:44px}' +
++    '.ol-q{flex:1 1 220px;min-width:0}.ol-sel{flex:1 1 170px;min-width:0}' +
++    '.ol-q::placeholder{color:var(--ol-mut);opacity:1}' +
++    '.ol-q:focus,.ol-sel:focus,.ol-c:focus-visible,.ol-b:focus-visible,.ol-card:focus-visible{border-color:var(--ol-acc);outline:2px solid var(--ol-acc);outline-offset:1px}' +
++    '.ol-lb{display:block;font-size:12.5px;font-weight:800;color:var(--ol-mut);margin:0 2px 3px}' +
++    '.ol-fl{display:flex;flex-direction:column;flex:1 1 140px;min-width:0}.ol-fl .ol-sel{flex:none;width:100%}' +
++    '.ol-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 10px}' +
++    '.ol-c,.ol-b{border:1.5px solid var(--ol-line);background:var(--ol-bg);border-radius:99px;padding:7px 14px;font:inherit;font-size:14px;font-weight:800;color:var(--ol-fg);cursor:pointer;min-height:40px;display:inline-flex;align-items:center;gap:6px}' +
++    '.ol-b{border-radius:12px}' +
++    '.ol-c .ol-n0{font-size:12px;font-weight:800;background:var(--ol-bg2);color:var(--ol-mut);border-radius:99px;padding:0 7px;min-width:22px;text-align:center}' +
++    '.ol-c.on{background:var(--ol-fg);border-color:var(--ol-fg);color:var(--ol-bg)}.ol-c.on .ol-n0{background:var(--ol-bg);color:var(--ol-fg)}' +
++    '.ol-c .ol-dot{width:11px;height:11px;border-radius:50%;flex:none;background:var(--cfg)}' +
++    '.ol-card,.ol-c{--cfg:var(--cfl);--cbg:var(--cbl);--cat:var(--cfl)}' +
++    '.ol-dd{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;align-items:center}.ol-dd .ol-b.on{background:var(--ol-fg);color:var(--ol-bg);border-color:var(--ol-fg)}' +
++    '.ol-sum{font-size:13.5px;font-weight:700;color:var(--ol-mut);margin:0 2px 8px}' +
++    '.ol-day{position:sticky;top:var(--gmt-topbars,0px);z-index:2;background:var(--ol-bg2);color:var(--ol-fg);font-weight:900;font-size:14px;padding:6px 12px;border-radius:10px;margin:14px 0 8px}' +
++    '.ol-card{border:1.5px solid var(--ol-line);border-inline-start:6px solid var(--cat,var(--ol-line));border-radius:14px;background:var(--ol-bg);padding:12px 14px;margin:0 0 10px;cursor:default;display:block}' +
++    '.ol-card[data-k="w"]{background:var(--ol-warnbg)}.ol-card[data-k="d"]{background:var(--ol-oldbg)}' +
++    '.ol-card.sel{outline:3px solid var(--ol-acc);outline-offset:0}' +
++    '.ol-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}' +
++    '.ol-cat{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:2px 11px;font-size:13px;font-weight:900;background:var(--cbg);color:var(--cfg)}' +
++    '.ol-flag{border-radius:99px;padding:2px 10px;font-size:12.5px;font-weight:900;background:var(--ol-warn);color:var(--ol-warnbg)}' +
++    '.ol-card[data-k="d"] .ol-flag{background:var(--ol-old);color:var(--ol-oldbg)}' +
++    '.ol-when{margin-inline-start:auto;text-align:end;font-size:13px;color:var(--ol-mut);font-weight:700}.ol-when b{color:var(--ol-fg);font-weight:900}' +
++    '.ol-title{margin:6px 0 2px;font-size:19px;font-weight:900;line-height:1.5;color:var(--ol-fg)}' +
++    '.ol-x{display:inline-block;margin-inline-start:8px;font-size:13.5px;font-weight:900;border-radius:99px;padding:0 10px;background:var(--ol-fg);color:var(--ol-bg);vertical-align:middle}' +
++    '.ol-ent{font-size:15.5px;font-weight:800;color:var(--ol-fg);word-break:break-word}.ol-ent small{font-size:13px;font-weight:700;color:var(--ol-mut);margin-inline-start:6px}' +
++    '.ol-chg{margin:8px 0 2px;display:flex;flex-direction:column;gap:5px}' +
++    '.ol-ch{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:15px;background:var(--ol-bg2);border-radius:10px;padding:6px 10px;word-break:break-word}' +
++    '.ol-k{font-weight:900;color:var(--ol-fg)}.ol-k:after{content:":";margin-inline-start:2px}.ol-arrow{color:var(--ol-mut);font-weight:900}' +
++    '.ol-o{background:var(--ol-oldbg);color:var(--ol-old);border-radius:7px;padding:0 8px;font-weight:800;text-decoration:line-through;text-decoration-thickness:1.5px}' +
++    '.ol-n{background:var(--ol-newbg);color:var(--ol-new);border-radius:7px;padding:0 8px;font-weight:900}.ol-n.long{background:transparent;color:var(--ol-fg);padding:0;font-weight:700;line-height:1.8}' +
++    '.ol-code{font-family:ui-monospace,Consolas,monospace;direction:ltr;unicode-bidi:isolate;background:var(--ol-bg);border:1px solid var(--ol-line);border-radius:6px;padding:0 6px;font-size:13px;color:var(--ol-fg)}' +
++    '.ol-rsn{margin:6px 0 0;font-size:14.5px;color:var(--ol-fg);word-break:break-word}.ol-rsn b{color:var(--ol-mut);font-weight:900}' +
++    '.ol-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--ol-line)}' +
++    '.ol-i small{display:block;font-size:12.5px;font-weight:800;color:var(--ol-mut)}.ol-i span{font-size:14.5px;font-weight:800;color:var(--ol-fg);word-break:break-word}' +
++    '.ol-role{display:inline-block;margin-inline-start:6px;border-radius:99px;padding:0 9px;font-size:12.5px;font-weight:900;vertical-align:middle}' +
++    '.ol-role.admin{background:var(--ol-fg);color:var(--ol-bg)}.ol-role.staff{background:var(--ol-bg2);color:var(--ol-fg);border:1px solid var(--ol-line)}.ol-role.unknown{background:var(--ol-warnbg);color:var(--ol-warn)}' +
++    '.ol-em{text-align:center;color:var(--ol-mut);padding:30px 8px;font-size:15px;font-weight:700}' +
++    '.ol-w{padding:12px 14px;border-radius:14px;background:var(--ol-warnbg);border:1.5px solid var(--ol-warn);color:var(--ol-warn);font-weight:800;font-size:14.5px;line-height:1.8}' +
++    '.ol-more{text-align:center;margin-top:10px}.ol-tech{margin-top:10px;font-size:13px;color:var(--ol-mut)}.ol-tech summary{cursor:pointer;font-weight:800}.ol-tech div{margin-top:4px;word-break:break-all}' +
++    /* الشاشة العريضة: جدولٌ ولوحة تفاصيل (على الهاتف: بطاقاتٌ كاملة) */
++    '.ol-split{display:block}' +
++    '.ol-wide .ol-split{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start}' +
++    '.ol-detail{display:none}' +
++    '.ol-wide .ol-detail{display:block;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;border:1.5px solid var(--ol-line);border-radius:16px;padding:14px 16px;background:var(--ol-bg)}' +
++    '.ol-detail .ol-card{border:0;border-inline-start:0;padding:0;margin:0;background:transparent}' +
++    '.ol-wide .ol-list .ol-card{cursor:pointer;display:grid;grid-template-columns:150px minmax(0,1fr) 190px 150px;column-gap:14px;align-items:start;padding:10px 14px}' +
++    '.ol-wide .ol-list .ol-card:hover{background:var(--ol-bg2)}' +
++    '.ol-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}' +
++    '.ol-wide .ol-list .ol-card .ol-top{display:contents}' +
++    '.ol-wide .ol-list .ol-card .ol-when{grid-column:1;grid-row:1/span 4;margin:0;text-align:start;font-size:13px}' +
++    '.ol-wide .ol-list .ol-card .ol-tags{grid-column:4;grid-row:1;align-self:start}' +
++    '.ol-wide .ol-list .ol-card .ol-title{grid-column:2;grid-row:1;margin:0;font-size:17px}.ol-wide .ol-list .ol-card .ol-ent{grid-column:2;grid-row:2;font-size:14.5px}' +
++    '.ol-wide .ol-list .ol-card .ol-chg{grid-column:2;grid-row:3;margin:4px 0 0}.ol-wide .ol-list .ol-card .ol-rsn{grid-column:2;grid-row:4;font-size:13.5px}' +
++    '.ol-wide .ol-list .ol-card .ol-info{display:contents}' +
++    '.ol-wide .ol-list .ol-card .ol-i{grid-column:3;grid-row:1/span 4}.ol-wide .ol-list .ol-card .ol-i+.ol-i{grid-column:4;grid-row:2/span 3}' +
++    '@media (max-width:640px){.ol-chips,.ol-dd{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:3px}.ol-chips>*,.ol-dd>*{flex:none}.ol-dd>span[style]{display:none}.ol-q{flex:1 1 100%}}' +
++    '.ol-modal{background:var(--ol-bg);color:var(--ol-fg)}';
++  function injectCss() {
++    var st = document.getElementById('gmt-oplog-css');
++    if (!st) { st = document.createElement('style'); st.id = 'gmt-oplog-css'; (document.head || document.documentElement).appendChild(st); }
++    if (st.textContent !== CSS) st.textContent = CSS;
++  }
++
++  function cardHTML(it, full) {
++    var r = it.r, info = actInfo(r), cat = info.c, clr = CAT_CLR[cat] || CAT_CLR.system;
++    var w = whoOf(r), b = branchOf(r), t = new Date(r.at).getTime(), ch = changes(r), n = it.rows ? it.rows.length : 1;
++    var style = '--cfl:' + clr[0] + ';--cbl:' + clr[1] + ';--cfd:' + clr[2] + ';--cbd:' + clr[3];
++    var roleTxt = w.role === 'admin' ? 'أدمن' : w.role === 'unknown' ? 'غير معروف' : 'موظّف';
++    var ent = '';
++    if (it.rows) {
++      var names = []; it.rows.forEach(function (x) { if (x.entity_name && names.indexOf(x.entity_name) < 0) names.push(x.entity_name); });
++      ent = '<div class="ol-ent">' + names.slice(0, full ? 30 : 4).map(function (x) { return '<bdi>' + esc(x) + '</bdi>'; }).join('، ') + (names.length > (full ? 30 : 4) ? ' <small>و ' + arN(names.length - (full ? 30 : 4)) + ' غيرها</small>' : '') + '</div>';
++      ch = [];
++    } else if (r.entity_name) {
++      var sid = shortId(r);
++      ent = '<div class="ol-ent"><bdi>' + esc(r.entity_name) + '</bdi>' + (T[r.entity] && T[r.entity] !== r.entity_name ? '<small>' + esc(T[r.entity]) + '</small>' : '') + (sid ? '<small>#<bdi>' + esc(sid) + '</bdi></small>' : '') + '</div>';
++    }
++    var chHTML = '';
++    if (ch.length) {
++      var shown = full ? ch : ch.slice(0, 3);
++      chHTML = '<div class="ol-chg">' + shown.map(function (c) {
++        var lab = c.label ? '<span class="ol-k">' + esc(c.label) + '</span>' : (c.k ? '<span class="ol-k"><span class="ol-code">' + esc(c.k) + '</span></span>' : '');
++        return '<div class="ol-ch">' + lab + (c.old != null ? '<span class="ol-o"><bdi>' + esc(c.old) + '</bdi></span><span class="ol-arrow" aria-label="أصبح">←</span>' : '') + '<span class="ol-n' + (String(c.nw).length > 46 ? ' long' : '') + '"><bdi>' + esc(c.nw) + '</bdi></span></div>';
++      }).join('') + (ch.length > shown.length ? '<div class="ol-sum">و ' + arN(ch.length - shown.length) + ' تغييراتٍ أخرى — اضغط البطاقة للتفاصيل</div>' : '') + '</div>';
++    }
++    var rsn = r.reason ? '<div class="ol-rsn"><b>السبب:</b> ' + esc(trunc(r.reason, full ? 600 : 160)) + '</div>' : '';
++    var posTxt = b ? 'نقطة بيع ' + b.name : 'الإدارة (ليست نقطة بيع)';
++    var whoTxt = '<bdi>' + esc(w.name) + '</bdi>' + '<em class="ol-role ' + w.role + '">' + roleTxt + '</em>';
++    var actingTxt = w.acting ? ' <small style="display:inline;color:inherit">(دخل النقطة كموظّف)</small>' : '';
++    var flag = info.k === 'w' ? '<span class="ol-flag">يحتاج انتباهاً</span>' : info.k === 'd' ? '<span class="ol-flag">حذف / إلغاء</span>' : '';
++    var tech = '';
++    if (full) {
++      tech = '<details class="ol-tech"><summary>تفاصيل فنّية</summary><div>رمز العملية: <span class="ol-code">' + esc(r.action || '') + '</span></div>' +
++        '<div>الصفحة: <span class="ol-code">' + esc(r.page || '') + '</span></div>' + (r.entity ? '<div>الجدول: <span class="ol-code">' + esc(r.entity) + '</span></div>' : '') +
++        (r.entity_id ? '<div>المعرّف: <span class="ol-code">' + esc(r.entity_id) + '</span></div>' : '') + (r.field ? '<div>الحقول: <span class="ol-code">' + esc(r.field) + '</span></div>' : '') + '</div></details>';
++    }
++    return '<article class="ol-card" style="' + style + '" data-k="' + info.k + '" data-cat="' + cat + '">' +
++      '<div class="ol-top"><span class="ol-tags"><span class="ol-cat">' + esc(CAT_AR[cat] || '') + '</span>' + flag + '</span>' +
++      '<span class="ol-when"><b>' + esc(relAr(t)) + '</b><br>' + esc(absAr(t)) + '</span></div>' +
++      '<h3 class="ol-title">' + esc(info.t) + (n > 1 ? '<span class="ol-x">× ' + arN(n) + '</span>' : '') + '</h3>' + ent + chHTML + rsn +
++      '<div class="ol-info"><div class="ol-i"><small>من فعل ذلك</small><span>' + whoTxt + actingTxt + '</span></div>' +
++      '<div class="ol-i"><small>أين</small><span>' + esc(toolOf(r)) + '<br>' + esc(posTxt) + '</span></div></div>' + tech + '</article>';
++  }
++
++  /* يبني اللوحة داخل عنصر. opts: {cat, branch, user, days, limit} */
++  function mount(el, opts) {
++    opts = opts || {};
++    injectCss();
++    var st = { rows: [], cat: opts.cat || 'all', branch: opts.branch || 'all', user: opts.user || 'all', q: '', days: opts.days || 0, busy: false, end: false, err: '', sel: null, auto: 0, items: [] };
++    el.classList.add('ol');
++    var presets = [[0, 'كل الأيام'], [1, 'اليوم'], [7, 'آخر ٧ أيام'], [30, 'آخر ٣٠ يوماً']];
++    el.innerHTML =
++      '<div class="ol-bar"><input class="ol-q" type="search" placeholder="ابحث: اسم منتج · اسم موظّف · نوع عملية · رقم…" aria-label="بحث في السجل">' +
++      '<label class="ol-fl"><span class="ol-lb">نقطة البيع</span><select class="ol-sel" data-f="branch" aria-label="نقطة البيع"></select></label>' +
++      '<label class="ol-fl"><span class="ol-lb">الموظّف أو الأدمن</span><select class="ol-sel" data-f="user" aria-label="المستخدم"></select></label></div>' +
++      '<div class="ol-dd" role="group" aria-label="الفترة">' + presets.map(function (p) { return '<button type="button" class="ol-b" data-d="' + p[0] + '">' + p[1] + '</button>'; }).join('') +
++      '<span style="flex:1"></span><button type="button" class="ol-b" data-r>تحديث</button><button type="button" class="ol-b" data-cp>نسخ كنص</button></div>' +
++      '<div class="ol-chips" role="group" aria-label="نوع العملية">' + Object.keys(CAT_AR).map(function (k) {
++        return '<button type="button" class="ol-c" data-c="' + k + '"' + (k === 'all' ? '' : ' style="--cfl:' + CAT_CLR[k][0] + ';--cfd:' + CAT_CLR[k][2] + '"') + '>' + (k === 'all' ? '' : '<i class="ol-dot"></i>') + '<span>' + CAT_AR[k] + '</span><span class="ol-n0" data-n="' + k + '"></span></button>';
++      }).join('') + '</div>' +
++      '<div class="ol-sum" data-sum></div>' +
++      '<div class="ol-split"><div><div class="ol-list"><div class="ol-em">جارٍ التحميل…</div></div><div class="ol-more"></div></div><aside class="ol-detail" aria-live="polite"></aside></div>';
++    var list = el.querySelector('.ol-list'), more = el.querySelector('.ol-more'), qIn = el.querySelector('.ol-q'), detail = el.querySelector('.ol-detail'), sum = el.querySelector('[data-sum]');
++    var selB = el.querySelector('[data-f="branch"]'), selU = el.querySelector('[data-f="user"]');
++
++    function wide() {
++      var w = el.clientWidth || el.offsetWidth || 0, on = w >= 940 && opts.layout !== 'cards';
++      if (on === el.classList.contains('ol-wide')) return;
++      el.classList.toggle('ol-wide', on); if (st.items.length) paint();
++    }
++    try { new ResizeObserver(wide).observe(el); } catch (_) { global.addEventListener('resize', wide); }
++    wide();
++
++    function passes(r, skipCat) {
++      if (!skipCat && st.cat !== 'all' && catOf(r) !== st.cat) return false;
++      if (st.days) { var since = Date.now() - st.days * 864e5; if (st.days === 1) { var d0 = new Date(); d0.setHours(0, 0, 0, 0); since = d0.getTime(); } if (new Date(r.at).getTime() < since) return false; }
++      if (st.branch !== 'all') { var b = branchOf(r); if (st.branch === '__admin') { if (b) return false; } else if (!b || b.key !== st.branch) return false; }
++      if (st.user !== 'all') { var w = whoOf(r); if ((w.role + ':' + w.name) !== st.user) return false; }
++      var q = st.q.trim().toLowerCase();
++      if (q) {
++        var wh = whoOf(r), bb = branchOf(r);
++        var hay = [wh.name, wh.raw, toolOf(r), actionLabel(r), bb ? bb.name : '', r.entity_name, r.entity_id, r.field, r.old_value, r.new_value, r.reason, CAT_AR[catOf(r)]].join(' ').toLowerCase();
++        if (hay.indexOf(q) < 0) return false;
++      }
++      return true;
++    }
++    function visible() { return st.rows.filter(function (r) { return passes(r, false); }); }
++
++    function fillSelects() {
++      var bm = colsCached(), keys = {}, k;
++      for (k in bm) if (bm[k] && bm[k].b) keys[k] = bm[k].n;
++      st.rows.forEach(function (r) { var b = branchOf(r); if (b && !keys[b.key]) keys[b.key] = b.name; });
++      var ob = '<option value="all">كل نقاط البيع (مختلطة)</option><option value="__admin">الإدارة فقط (بلا نقطة بيع)</option>' +
++        Object.keys(keys).map(function (x) { return '<option value="' + esc(x) + '">نقطة بيع ' + esc(keys[x]) + ' وحدها</option>'; }).join('');
++      if (selB.getAttribute('data-sig') !== ob) { selB.innerHTML = ob; selB.setAttribute('data-sig', ob); }
++      selB.value = st.branch;
++      var users = {}; st.rows.forEach(function (r) { var w = whoOf(r); users[w.role + ':' + w.name] = (w.role === 'admin' ? 'الأدمن ' : (w.role === 'unknown' ? '' : 'الموظّف ')) + w.name; });
++      var ou = '<option value="all">كل المستخدمين</option>' + Object.keys(users).sort().map(function (x) { return '<option value="' + esc(x) + '">' + esc(users[x]) + '</option>'; }).join('');
++      if (selU.getAttribute('data-sig') !== ou) { selU.innerHTML = ou; selU.setAttribute('data-sig', ou); }
++      selU.value = st.user;
++    }
++    function paintDetail() {
++      if (!el.classList.contains('ol-wide')) { detail.innerHTML = ''; return; }
++      var it = st.items[st.sel != null ? st.sel : 0];
++      detail.innerHTML = it ? cardHTML(it, true) : '<div class="ol-em">اختر عملية من القائمة لتظهر تفاصيلها هنا.</div>';
++    }
++    function paint() {
++      fillSelects();
++      el.querySelectorAll('[data-d]').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-d') === st.days); });
++      el.querySelectorAll('[data-c]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-c') === st.cat); });
++      var counts = { all: 0 };
++      st.rows.forEach(function (r) { if (!passes(r, true)) return; counts.all++; var c = catOf(r); counts[c] = (counts[c] || 0) + 1; });
++      el.querySelectorAll('[data-n]').forEach(function (s) { s.textContent = arN(counts[s.getAttribute('data-n')] || 0); });
++      if (st.err) { list.innerHTML = '<div class="ol-w">' + st.err + '</div>'; more.innerHTML = ''; sum.textContent = ''; detail.innerHTML = ''; return; }
++      var v = visible();
++      sum.textContent = v.length ? 'يُعرض ' + arN(Math.min(v.length, 400)) + ' من ' + arN(v.length) + ' عملية' + (st.rows.length < 1 ? '' : ' (محمَّل ' + arN(st.rows.length) + ' من السجلّ)') : '';
++      st.items = bursts(v.slice(0, 400));
++      if (!st.items.length) {
++        list.innerHTML = '<div class="ol-em">' + (st.rows.length ? 'لا توجد عمليات بهذا الفلتر. جرّب «كل الأيام» أو «كل نقاط البيع».' : 'لا عمليات مسجّلة بعد — تظهر هنا كلّ عمليةٍ تُنفَّذ من الآن.') + '</div>';
++      } else {
++        var lastDay = '';
++        list.innerHTML = st.items.map(function (it, i) {
++          var dk = dayKey(it.r.at), head = '';
++          if (dk !== lastDay) { lastDay = dk; head = '<div class="ol-day">' + esc(dayLabel(it.r.at)) + '</div>'; }
++          return head + cardHTML(it, false).replace('<article ', '<article data-i="' + i + '" ');
++        }).join('');
++        var isWide = el.classList.contains('ol-wide');
++        if (isWide && st.sel == null) st.sel = 0;
++        list.querySelectorAll('.ol-card').forEach(function (cd) { if (isWide) cd.setAttribute('tabindex', '0'); });
++        if (st.sel != null && list.querySelector('[data-i="' + st.sel + '"]')) list.querySelector('[data-i="' + st.sel + '"]').classList.add('sel');
++      }
++      more.innerHTML = st.end ? (st.rows.length > 20 ? '<span class="ol-sum">انتهى السجلّ — هذه كلّ العمليات</span>' : '') : '<button type="button" class="ol-b" data-m>' + (st.busy ? 'جارٍ التحميل…' : 'عرض عملياتٍ أقدم') + '</button>';
++      paintDetail();
++      /* الفلتر ضيّق والمحمَّل قليل ⇒ نكمل التحميل تلقائياً (حتى ١٦٠٠ سطر) كي لا يبدو «لا شيء» وهو في الصفحة التالية */
++      if (!st.end && !st.busy && st.auto < 7 && (st.cat !== 'all' || st.branch !== 'all' || st.user !== 'all' || st.q || st.days) && v.length < 25) { st.auto++; load(false); }
++    }
++    async function load(reset) {
++      if (st.busy) return; st.busy = true;
++      var d = db(); if (!d) { st.err = 'إعدادات القاعدة غير محمّلة.'; st.busy = false; paint(); return; }
++      if (reset) { st.rows = []; st.end = false; st.err = ''; st.auto = 0; }
++      try { await flush(); } catch (_) {}                                   /* ما في الطابور يصل قبل القراءة */
++      try { await loadCols(reset); } catch (_) {}
++      var lim = opts.limit || 200;
++      try {
++        var r = await _raw(d.url + '/rest/v1/gmt_audit?select=*&order=at.desc&limit=' + lim + '&offset=' + st.rows.length,
++          { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key }, cache: 'no-store' });
++        if (!r.ok) {
++          st.err = (r.status === 404 || r.status === 400) ? 'جدول <b>gmt_audit</b> غير منشأ — شغّل ملف SQL الأساس («0_الأساس_الرئيسية_جزء1.sql») ثم أعد التحديث.' : 'تعذّرت قراءة السجلّ (HTTP ' + r.status + ').';
++        } else {
++          var rows = await r.json(); if (!Array.isArray(rows)) rows = [];
++          st.rows = st.rows.concat(rows); if (rows.length < lim) st.end = true;
++          st.rows.sort(function (x, y) { return new Date(y.at) - new Date(x.at); });     // الأحدث أوّلاً دائماً (لا نعتمد على ترتيب الخادم وحده)
++        }
++      } catch (e) { st.err = 'لا اتصال بالقاعدة الآن — أعد المحاولة.'; }
++      st.busy = false; paint();
++    }
++    el.addEventListener('click', function (e) {
++      var c = e.target.closest('[data-c]'), d = e.target.closest('[data-d]'), card = e.target.closest('.ol-card[data-i]');
++      if (c) { st.cat = c.getAttribute('data-c'); st.sel = null; st.auto = 0; paint(); }
++      else if (d) { st.days = +d.getAttribute('data-d'); st.sel = null; st.auto = 0; paint(); }
++      else if (e.target.closest('[data-r]')) load(true);
++      else if (e.target.closest('[data-m]')) load(false);
++      else if (e.target.closest('[data-cp]')) {
++        var txt = visible().slice(0, 300).map(function (r) {
++          var w = whoOf(r), b = branchOf(r), ch = changes(r).map(function (x) { return (x.label || x.k) + ': ' + (x.old != null ? x.old + ' ← ' : '') + x.nw; }).join('، ');
++          return [absAr(new Date(r.at).getTime()), actionLabel(r), r.entity_name || '', w.name + ' (' + (w.role === 'admin' ? 'أدمن' : 'موظّف') + ')', toolOf(r), b ? 'نقطة بيع ' + b.name : 'الإدارة', ch, r.reason || ''].join(' | ');
++        }).join('\n');
++        try { navigator.clipboard.writeText(txt); if (global.GMTAsk && GMTAsk.alert) GMTAsk.alert('نُسخ ' + arN(Math.min(300, visible().length)) + ' سطراً من السجلّ كنصّ.', { title: 'تمّ النسخ' }); } catch (_) {}
++      }
++      else if (card && el.classList.contains('ol-wide')) {
++        st.sel = +card.getAttribute('data-i');
++        list.querySelectorAll('.ol-card.sel').forEach(function (x) { x.classList.remove('sel'); }); card.classList.add('sel'); paintDetail();
++      }
++    });
++    el.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('ol-card') && el.classList.contains('ol-wide')) { e.preventDefault(); e.target.click(); } });
++    el.addEventListener('change', function (e) {
++      var f = e.target.getAttribute && e.target.getAttribute('data-f');
++      if (f === 'branch') st.branch = e.target.value; else if (f === 'user') st.user = e.target.value; else return;
++      st.sel = null; st.auto = 0; paint();
++    });
++    qIn.addEventListener('input', function () { st.q = qIn.value; st.sel = null; st.auto = 0; paint(); });
++    load(true);
++    return { reload: function () { return load(true); }, state: st };
++  }
++
++  /* نافذة اللوحة (للأدمن). opts: {cat} أو {branch}؛ أو نصٌّ = فئة */
++  async function open(opts) {
++    if (typeof opts === 'string') opts = { cat: opts };
++    opts = opts || {};
++    try {
++      if (global.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('سجل العمليات'))) return;
++    } catch (_) {}
++    injectCss();
++    var old = document.getElementById('gmt-oplog-ov'); if (old) old.remove();
++    var ov = document.createElement('div'); ov.id = 'gmt-oplog-ov'; ov.setAttribute('data-keep-fab', '1'); ov.setAttribute('data-full', '1'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'سجل العمليات');
++    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483200;background:rgba(15,23,42,.6);display:flex;align-items:flex-end;justify-content:center;direction:rtl';
++    var scope = opts.branch ? ' — نقطة بيع ' + (branchName(opts.branch) || '') : (opts.cat && CAT_AR[opts.cat] ? ' — ' + CAT_AR[opts.cat] : '');
++    ov.innerHTML = '<div class="ol-modal" style="width:min(1180px,100%);height:min(94vh,900px);border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:0 -12px 50px rgba(0,0,0,.4)">' +
++      '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1.5px solid var(--ol-line)"><b style="font-size:19px;flex:1;font-family:inherit">سجل العمليات' + esc(scope) + '</b>' +
++      '<button data-x type="button" style="border:1.5px solid var(--ol-line);background:var(--ol-bg2);color:var(--ol-fg);border-radius:12px;padding:9px 18px;font:inherit;font-size:15px;font-weight:900;cursor:pointer;min-height:44px">إغلاق</button></div>' +
++      '<div data-body style="padding:12px 18px 18px;overflow:auto;flex:1"></div></div>';
++    document.body.appendChild(ov);
++    function onKey(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey, true); } }
++    document.addEventListener('keydown', onKey, true);
++    ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-x]')) { ov.remove(); document.removeEventListener('keydown', onKey, true); } });
++    mount(ov.querySelector('[data-body]'), opts);
++  }
++
++  /* ── مدخلُ «سجل العمليات» في الشريط العلويّ للأدوات (للأدمن): أوردرات · مشتريات · نقطة البيع · أدمن النقاط ──
++     الجرد له زرّه الخاصّ بجانب «تراجع». لا زرّ عائم: يُزرَع داخل #gmt-refresh-bar (نفس مكان زرّي الأصوات والإشعارات). */
++  function scopeForPage() {
++    var p = page();
++    if (p === 'orders.html') return { cat: 'orders' };
++    if (p === 'purchase.html') return { cat: 'purchases' };
++    if (p === 'pos.html') { var c = ctx(); return c.branch ? { branch: c.branch } : {}; }
++    if (p === 'admin_pos.html') return { cat: 'money' };
++    return null;
++  }
++  function mountEntry() {
++    try {
++      if (!global.GMT_INTERNAL) return;
++      var sc = scopeForPage(), btn = document.getElementById('gmt-oplog-btn');
++      if (!sc || !isAdminNow()) { if (btn) btn.remove(); return; }
++      var bar = document.getElementById('gmt-refresh-bar');
++      if (!bar || btn) return;
++      btn = document.createElement('button'); btn.id = 'gmt-oplog-btn'; btn.type = 'button'; btn.setAttribute('data-keep-fab', '1');
++      btn.setAttribute('aria-label', 'سجل العمليات: من فعل ماذا ومتى'); btn.title = 'سجل العمليات: من فعل ماذا ومتى (للأدمن)';
++      btn.style.cssText = 'display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 11px;border-radius:12px;border:1px solid rgba(15,18,25,.10);background:#fff;color:#0f1219;font:800 12.5px Cairo,Tajawal,system-ui,sans-serif;cursor:pointer;flex:0 0 auto;white-space:nowrap';
++      btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="gmt-oplog-lbl">سجل العمليات</span>';
++      btn.addEventListener('click', function () { open(scopeForPage() || {}); });
++      var st = document.getElementById('gmt-oplog-btn-css');
++      if (!st) { st = document.createElement('style'); st.id = 'gmt-oplog-btn-css'; st.textContent = '@media (max-width:520px){#gmt-oplog-btn .gmt-oplog-lbl{display:none}#gmt-oplog-btn{width:40px;padding:0;justify-content:center}}#gmt-oplog-btn:hover{border-color:#D5001C;color:#D5001C}'; (document.head || document.documentElement).appendChild(st); }
++      bar.appendChild(btn);
++    } catch (_) {}
++  }
++
++  /* ── إقلاع ── */
++  function boot() {
++    try {
++      if (global.GMT_PUBLIC === true || global.GMT_PUBLIC === 1) return;
++      install();
++      flush();                                              // ما بقي من جلسةٍ سابقة (انقطاع)
++      global.addEventListener('online', function () { flush(); });
++      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); });
++      global.addEventListener('pagehide', function () { flush(true); });
++      /* أسماء نقاط البيع من inv_columns (تُخزَّن ٦ ساعات) — يحتاجها الإثراء والعرض */
++      setTimeout(function () { loadCols().catch(function () {}); }, 1200);
++      /* مدخل «سجل العمليات» للأدمن في شريط الأداة — يُعاد فحصه لأنّ الشريط والجلسة يظهران متأخّرَين */
++      var _t = 0, _iv = setInterval(function () { mountEntry(); if (++_t > 40) { clearInterval(_iv); } }, 1500);
++      document.addEventListener('gmt:admin-restored', mountEntry);
++    } catch (_) {}
++  }
++  global.GMTOpLog = {
++    log: log, flush: flush, open: open, mount: mount,
++    /* حدثٌ بتخفيف: لا يتكرّر نفس المفتاح أكثر من مرّة كلّ minGapMs (محاولات الدخول الفاشلة) */
++    logThrottled: function (key, e, minGapMs) {
++      try { var k = 'gmt_oplog_t_' + key, last = +ls(k) || 0; if (Date.now() - last < (minGapMs || 30000)) return false; ls(k, String(Date.now())); } catch (_) {}
++      return log(e);
++    },
++    before: function (table, fn) { beforeFns[table] = fn; },
++    skipTables: function (arr) { (arr || []).forEach(function (t) { skip[t] = 1; }); },
++    labels: { tables: T, actions: ACT_AR, categories: CAT_AR, fields: KEY_AR, pages: PAGE_AR },
++    actor: actor, context: ctx, actionLabel: actionLabel, categoryOf: catOf, entry: mountEntry,
++    _classify: classify, _summarize: summarize, _enrich: enrichAudit
++  };
++  boot();
++  try { global.dispatchEvent(new CustomEvent('gmt:oplog-ready')); } catch (_) {}
++})(typeof window !== 'undefined' ? window : this);
+diff --git a/gmt-whatsnew.js b/gmt-whatsnew.js
+index 76b7141..61a5969 100644
+--- a/gmt-whatsnew.js
++++ b/gmt-whatsnew.js
+@@ -24,13 +24,63 @@
+   'use strict';
+ 
+   /* يُرفَع مع كل دفعة تحديثات — هو ما يقيس «هل رأى الموظّف الجديد؟» */
+-  var VERSION = 43;
++  /* (١١ ت١ ٢٠٢٦) كان رقماً يُرفَع باليد، فنُسي: بقي 43 وأعلى بندٍ في NEWS هو 45 ⇒ «شو الجديد» يعتبر البندين 44 و45 غير مقروءَين
++     أبداً (الشارة لا تنطفئ والنافذة تعود). نمطٌ معروف: ثابتٌ يكرّر معلومةً موجودةً في مكانٍ آخر. صار يُحسَب من السجلّ نفسه. */
++  var VERSION = 0;
+   var LS_KEY = 'gmt_whatsnew_seen';
+ 
+   /* ══ السجل ══════════════════════════════════════════════════════════════
+      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
+      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
+   var NEWS = [
++    { v: 57, tag: 'إصلاح', at: '2026-10-11T16:33:32Z', t: 'مراجعة مالية قبل الإطلاق: البيع والمرتجع والعمولات والتحصيل والنقل',
++      d: 'اختبارات سيناريوهات كاملة على نقطة البيع والأدمن (أكثر من ١٢٠ حالة) كشفت أعطالاً وأُصلحت: عمولة البيع الآجل لم تكن تُسجَّل أبداً · فاتورة بلا بنود كانت تُعلَن «ناجحة» · الطابور الأوفلاين يكرّر الفواتير ويُسقط العمولة والدَّين · المرتجع يتجاوز ما دفعه الزبون · تسوية العمولة الجزئية كانت تُخفي الباقي · تحصيل الديون يضيّع دفعات · التقريب بالسنت · الخصم اليدوي · الباقات. وفي النقل: فاتورة النقل الناقصة صارت عليها نقطة حمراء، وبالضغط عليها تُعرض الأصناف الناقصة مع «أعِد المحاولة» و«ارفع المصدر وأضِف» و«لم تُنقل»، فتصل الفاتورة بالأعداد التي أدخلتَها. وفي الجرد: طريقة العرض تُحفظ، وزرّ «إدارة هذا المنتج»، ومواصفات علي بابا تأخذ صورة المنتج واسمه.',
++      w: 'لم تكن هناك اختبارات تغطّي المسارات المالية معاً. هذه الدفعة تحوّل كل خطأ وُجد إلى اختبارٍ يعمل قبل كل نشر.',
++      pages: ['pos.html', 'admin_pos.html', 'inventory.html'] },
++    { v: 56, tag: 'جديد', t: 'نقاط البيع: إنشاء وإلغاء من داخل النظام (بكلمة سرّ تُفحص في القاعدة)',
++      d: 'نافذة «نقاط البيع» (الأدوات على الكمبيوتر · «المزيد» على الهاتف): تعرض النقاط الفعّالة بمخزون كلٍّ منها، وتنشئ نقطةً بالاسم والمعرّف (يُقترح من الاسم)، وتُلغي نقطةً إلغاءً ناعماً (إخفاء — يبقى عمودها وتاريخها وتُعاد بالمعرّف نفسه). لا تُلغى وفيها مخزون أو شحنة مفتوحة أو مستخدمون فعّالون أو عمولات غير مدفوعة. وكلمات «de/cn/hlb/halb» القصيرة صارت تُطابَق كلمةً كاملة فلا يُعامَل مفتاحٌ مثل deirezzor كموقع عبور. وتعديل التصنيف لا يسحب منتجاً صنّفتَه تحت تصنيفٍ آخر، ومدير «الأعمدة» لم يعد يعدّل نقاط البيع.',
++      w: 'الواجهة كانت تُضيف سطراً في inv_columns فقط والعمود الفعلي لا يُضاف عبر REST فتُنشأ نقطةٌ شبه موجودة. الآن دالّتان في القاعدة (SQL ٣٤) تفحصان كلمة سرّ نقاط البيع **هناك** — في جدولٍ لا يقرؤه المفتاح العام ولا يكتبه (كلمات gmt_settings يكتبها المفتاح العام فكانت الحماية بها وهماً). تُفعَّل الحماية مرّةً واحدة بسطرٍ تشغّله في محرّر SQL (تعرضه النافذة جاهزاً)، وقبله ترفض الدالّتان كلّ طلب.',
++      pages: ['inventory.html'] },
++    { v: 55, tag: 'جديد', t: 'التصنيفات: إنشاء وتعديل وحذف · زرّ «تسوية معلّقة» يعمل · شرح خطأ 405 بالعقل',
++      d: 'صار للتصنيف (الأكبر من المجموعة، يجمع عدّة مجموعات) مدخلٌ ظاهر: زرّ «＋ تصنيف» في صفّ التصنيف على شاشة الجرد، و«تصنيف جديد» في الأدوات وفي «المزيد» على الهاتف، وتبويب «التصنيفات» في لوحة المجموعات (تعديل · إعادة تسمية · حذف). كما أُضيف «＋ مجموعة» وتسمية «المجموعة:» في صفّها. وزرّ «🧾 تسوية معلّقة» في فاتورة النقل صار يفتح اللوحة فعلاً. وخطأ «HTTP 405 Not Allowed» بالعقل صار يشرح سببه (رابط الوسيط هو رابط موقع لا دالة) ويرفض حفظ رابط كهذا، وتقرير الصحة يكشفه.',
++      w: 'التصنيف كان حقلاً داخل نموذج المنتج فقط فلا شاشة تنشئه فبدا غير موجود. وزرّ التسوية كان يجلب البيانات ويفتح لوحةً داخل حاويةٍ مخفيّة فلا يُرى شيء، والفاتورة الواحدة كانت تُعدّ مرّتين (معرّف رقم ونصّ). وخطأ 405 يعني أنّ الرابط المضبوط للوسيط يشير إلى GitHub Pages (صفحات ثابتة لا تقبل POST) لا إلى دالة Supabase، وكان النظام يعرض صفحة HTML الخام بدل شرحٍ.',
++      pages: ['inventory.html'] },
++    { v: 54, tag: 'إصلاح', t: 'لا «تمّ الحفظ» كاذب بعد الآن + بوّابات الإدارة بحساب الأدمن باسمه',
++      d: 'إذا ضغطتَ حفظ أو حذف والقاعدة لم تعدّل أيّ سجلّ (صلاحية تمنع، أو السجلّ حُذف من جهاز آخر) يظهر الآن تنبيهٌ صريح بدل الصمت، ويُسجَّل سطرٌ «كتابة لم تُغيّر شيئاً» في سجل العمليات، ولا يُسجَّل «تعديل ناجح» لم يحدث. وصار «الأدمن الكلي» و«العروض والتسعير والكوبونات» يُفتحان بحساب الأدمن (الاسم + كلمة السرّ) لا بالكلمة السيادية المشتركة، ومن دخل بحسابه لا يُسأل مرّة ثانية.',
++      w: 'PostgREST يردّ 204 «ناجحاً» حتى حين يمنع RLS التعديل أو يكون السجلّ محذوفاً، فكانت الصفحات تعلن النجاح (وقعت في حذف المستخدم). والبوّابتان كانتا تقبلان الكلمة السيادية المشتركة (وافتراضيتها منشورة) حتى بعد وجود حسابات بأسماء، وتسألان ثانيةً بعد دخول الإدارة. التنبيه لا يغيّر ردّ القاعدة: لا يكسر شيئاً يعتمد عليه.',
++      pages: [] },
++    { v: 53, tag: 'جديد', t: 'الموقع الإلكتروني بالهوية الجديدة — واجهة للكمبيوتر وأخرى للهاتف',
++      d: 'أُعيد بناء الصفحة العامة (site.html) بنفس لغة النظام: أحمر #D5001C وزوايا مدوّرة ورأس زجاجي. هيرو متحرّك (تبديل بالأسهم أو السحب)، بطاقات خدمات يبرز فيها المتجر وتتبّع الطلب، روابط سريعة، «لماذا نحن»، أخبار وعروض، «الفروع والوكلاء» في تبويبين (الفروع من بيانات المتجر مجمّعة بالمحافظة مع اتصال وواتساب)، واشتراك يصل عبر واتساب. على الهاتف: قائمة تنفتح تحت الرأس وشريط سفلي (الرئيسية · المتجر · تتبّع · كفالة · تواصل) وشريط أخبار أفقي.',
++      w: 'الصفحة القديمة كانت أحجام خطوطها ٤٫٥px، وقسم الاشتراك مخفياً دائماً ولا شيء يعمل فيه، وبطاقات بلا روابط، وأخبار احتياطية مختلَقة تظهر عند تعطّل القاعدة. الآن: لا خطّ أصغر من ١١px، كل بطاقة لها وجهة حقيقية، وعند تعطّل قاعدة الموقع تظهر الروابط الحقيقية وحالة «لا أخبار» صادقة بدل أخبار مُختلَقة، وكل نصٍّ وروابط القاعدة تُنقّى (لا javascript:).',
++      pages: ['site.html'] },
++    { v: 52, tag: 'جديد', t: 'أداة التسويات: كل ما يحتاج تسوية في مكان واحد مع الشرح والتصرّف الصحيح',
++      d: 'تفحص القاعدة مباشرةً وتعرض سبع حالات: فواتير نقل تحتاج تسوية (بنود لم تُخصم) · فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل · أرقام فواتير مكرّرة · مخزون أكبر من مجموع فواتير شرائه · منتجات بلا فاتورة شراء · أوردرات متقدّمة بلا فاتورة · مصاريف بانتظار موافقتك. لكل حالة: ما هي · ما أثرها · التصرّف الصحيح، وأسماء أوّل العناصر، وزرٌّ يفتح الشاشة التي تُنفَّذ منها التسوية مباشرةً (لوحة تسوية النقل · تدقيق الفواتير والجرد · الفاتورة بعينها في المشتريات · المصاريف).',
++      w: 'عمداً لا تعدّل شيئاً بنفسها: كلّ تسويةٍ تمسّ المخزون أو المال تحتاج كلمة السرّ السيادية وسبباً وتُسجَّل في شاشاتها الأصلية، فلا نفتح باباً ثانياً أضعف. وأُضيفت روابط مباشرة: inventory.html?settle=1 و?audit=1 وpurchase.html?q=رقم_الفاتورة.',
++      pages: [] },
++    { v: 51, tag: 'تحسين', t: '«شو هالزر؟» يشرح كل زرٍّ ظاهر ولا يؤشّر على ما ليس موجوداً · «الفحص الشامل» أداة واحدة',
++      d: 'شو هالزر: كان يشرح الأزرار التي كُتب لها شرحٌ يدويّ فقط (نقطة البيع ٣٦ من ١٣٦ زرّاً، الجرد ١٣ من ٢٥٥، أدمن النقاط صفر). صار يمشي على كل زرٍّ ظاهرٍ في الشاشة: الشرح المكتوب أوّلاً، ثمّ شرحٌ تلقائيّ صادقٌ من اسم دالّة الزرّ (يُوسَم «شرح تلقائي»)، والمتكرّر في الصفوف يُشرح مرّة مع عدده. وإن فُتحت نافذةٌ يقتصر على ما داخلها.',
++      w: 'والجذر الذي أُصلح: كان يؤشّر على أزرارٍ مخفيّةٍ أو مقصوصةٍ أو مغطّاةٍ لأنّه يتأكّد من وجودها قبل التمرير لا بعده. الآن يتأكّد بعد التمرير أن الزرّ داخل الشاشة وأنّ أعلى عنصرٍ عند مركزه هو هو، وإلا يتخطّاه بصمت. «الفحص الشامل»: أداةٌ واحدة تشغّل ١٢ فحصاً بالتتابع (النواة · الفحص الذاتي · الفاحص العميق قراءةً فقط · المركزي · الحارس · الذاتي · الشامل · الترابط · المال · الصحة · الكود · الكتابة) وتنسخ تقريراً واحداً؛ والأدوات الفرعية القديمة لم تعد على الرئيسيّة (تُفتح من داخلها).',
++      pages: [] },
++    { v: 50, tag: 'جديد', t: 'تحليل الشاشة في عقل النظام + أداة «ما يطلبه الزبائن ولا نملكه»',
++      d: 'من عقل النظام ← «تحليل الشاشة»: الصق رسالة الزبون و/أو ارفع صورة (منتج أو لقطة محادثة) فيعرض لك ما عندنا بصوره وأسعاره ومخزونه في كل فرع وروابطه، ويكتب لك ردّاً جاهزاً تنسخه أو ترسله بواتساب. يعمل بلا ذكاءٍ ولا رصيد لما يمكن مطابقته (كلمات الرسالة · الموديل · مجموعة المنتج · باركود ظاهر في الصورة)، ومع وسيط العقل يقرأ الصورة نفسها ويحدّد الأصناف المطلوبة ويربطها بمنتجاتك.',
++      w: 'وكلّ صنفٍ لا نملكه ولا شبيهه (أو نفد) يُسجَّل تلقائياً — ويُعلَن ذلك في النتيجة — ليُرى في الأداة الجديدة «ما يطلبه الزبائن ولا نملكه»: الأكثر طلباً أولاً، مع مرّات الطلب ونموذج الرسالة، ودمجٌ للصياغات المتقاربة، و«تمّ توفيره»، وإضافةٌ يدويّة. قراءة الصور بالذكاء تحتاج نشر نسخة الوسيط المحدَّثة (وضع screen).',
++      pages: [] },
++    { v: 49, tag: 'جديد', t: 'أداة «ما يجب أن نشتريه» + ملف طلب عرض سعر للمورّد + استيراده كمسوّدة فاتورة شراء',
++      d: 'كل المنتجات التي مخزونها أقلّ من الحدّ (١٠ افتراضياً، وتغيّره) بصورها، مصنّفةً بأصلها: الصين · سوريا · ألمانيا — من أقدم فاتورة شراء دخل فيها المنتج، مع آخر مورّد وآخر سعر شراء. فلاتر: الحدّ · الفرع · المجموعة · الأصل · النافد فقط · بحث، وتحدّد ما تريد وتعدّل الكمّيات (المقترح = الهدف − المخزون). تصدّر «ملف طلب عرض سعر» Excel: ورقةٌ لكل أصل بالصور وبعمود الباركود مفتاحاً، بلا أيّ سعر بيع أو كلفة داخلية، وبتعليماتٍ بالعربية والإنكليزية للمورّد. وتطبع/تصدّر PDF أو تنسخ كنصّ.',
++      w: 'حين يعيد المورّد الملف مسعَّراً: «المشتريات ← استيراد عرض سعر مورّد» يطابق بالباركود (لا بالاسم ولا بالصورة) فتبقى الصور والأسماء من قاعدتك، ويأخذ سعر الشراء والكمّية والملاحظات، ويفتح مسودّةً تراجعها قبل الحفظ؛ وما لم يسعّره المورّد يُبلَّغ عنه ولا يدخل. مستورد Excel القياسيّ صار يفهم عمود «الباركود» أيضاً.',
++      pages: [] },
++    { v: 48, tag: 'جديد', t: 'سجل العمليات: من فعل ماذا ومتى (بجانب «تراجع» في الجرد وأداةٌ على الرئيسيّة)',
++      d: 'كل تعديلٍ يُنفَّذ في النظام يُسجَّل في قاعدة البيانات بفاعله: أوردرات (تغيّر الحالة: قيد التجهيز ← في الطريق) · فواتير · مصاريف · ديون · مستخدمون (الاسم · الإيقاف · الحذف) · صلاحيات · قفل الأوردرات · كلمات السرّ (دون القيمة) · تعديل المنتجات والكمّيات (قبل ← بعد) · دخول الأدمن وخروجه ومحاولاته الفاشلة. تراه من «سجل العمليات» على الرئيسيّة (للأدمن) أو من زرّ «سجل العمليات» في الجرد، بفلاتر (مخزون · أوردرات · مال · حسابات · نظام) وبحث وفترة.',
++      w: 'السجلّ للإضافة والقراءة فقط (لا يُعدَّل ولا يُحذف من الواجهة)، ولا يحفظ كلمات سرّ، ويحتفظ بما لم يصل القاعدة (انقطاع) ويعيد إرساله.',
++      pages: [] },
++    { v: 47, tag: 'تحسين', t: 'الأدمن بحسابٍ باسمٍ وكلمة سرّ · إصلاح نافذة «شو الجديد» المزاحة على الهاتف',
++      d: 'دخول الإدارة صار باسم المستخدم وكلمة السرّ (لا كلمةً سيادية مشتركة): من نموذج الدخول العادي أو «دخول الإدارة»، ويمكن أكثر من أدمن، ويُكتب اسم الأدمن على ما ينشئه (فاتورة الإدارة · الأوردرات) · إدارة الحسابات (إضافة · تغيير كلمة السرّ · حذف) من «الأمان والمستخدمون ← حسابات الأدمن» · أوّل حساب يُنشأ بـ«دخول الإدارة»: اكتب اسمك وكلمة السرّ السيادية الحالية فيُحفَظ حسابك مشفّراً، وبعدها لا تفتح السيادية وضع الإدارة · الخروج من وضع الإدارة صار يُغلق أدوات نقاط البيع أيضاً.',
++      w: 'وأُصلحت أعطال: صفحة «نقل المخزون» على الهاتف كانت أعرض من الشاشة (صفّ أزرارها بلا التفاف) فتنزاح نافذة «شو الجديد» وتُقصّ يساراً · «دخول الإدارة» من شاشة القفل كانت تفتح نافذةً لا تظهر أبداً فلا يمكن فتح الصفحة المقفولة · تقرير الصحّة كان يكرّر نتيجة الفحص نفسها كأنّها «أخطاء جلسة».',
++      pages: [] },
++    { v: 46, tag: 'إصلاح', t: 'زرّ «الرئيسية» في كل صفحة · أصواتٌ في كل مكان · رقم تتبّع المفتي من الإيصال · قفل الأوردرات',
++      d: 'زرّ «الرئيسية» ثابتٌ في الشريط العلويّ على كل صفحةٍ داخلية (كان الخروج من الفحص الشامل مستحيلاً) · تبويبات أدمن النقاط كلّها صارت أدواتٍ على الرئيسيّة (مراجعة الفواتير · الصندوق والتسويات · نقل المخزون · سجل التقفيلات · الديون · المصاريف · المحاسبة · فاتورة من الإدارة) · الأصوات: زمور شاحنةٍ «بيب بيب» وزحطة دواليب بدل الطنين، وصوتٌ لكل حفظٍ وخطأٍ ودخولٍ وخروجٍ وتحصيلٍ وعميلٍ جديد وقراءة باركود ونقرة زرّ · الأوردرات: رفع صورة إيصال «المفتي» يقرأ رقم التتبّع من الباركود ويعبّيه (وإلا تُدخله يدوياً) · بعد تبليغ الزبون بالوصول يصير زرّ التبليغ زرَّ واتساب برسالةٍ جاهزة، وزرّ مراسلة مكتب الشحن يبقى بعد تأكيد الاستلام · فاتورة الأدمن تُكتب باسمه («تم الإنشاء بواسطة الأدمن …») · أوّل فتحٍ على جهازٍ جديد: الانترو ثم تسجيل الدخول · «قفل الأوردرات»: مفتاحٌ جاهزٌ ومُعطَّل في «الأمان والمستخدمون ← سياسات التشغيل».',
++      w: 'وأُصلحت أعطال: نافذة «رابط الوسيط» كانت تظهر خلف نافذة عقل النظام (وكذلك نافذتا «علي بابا» و«سجلّ المعرفة») · حذف مستخدمٍ كان يبدو ناجحاً وهو لم يحدث حين تمنعه صلاحيات القاعدة — صار يتحقّق ويقول الحقيقة · تقرير الصحّة كان يشكو «أصلاً ناقصاً» من معاينة صورةٍ رُفعت للتوّ · الإيموجي في أدوات الإدارة صار أيقونات تلقائياً · «شو الجديد» كان يعتبر آخر بندين غير مقروءَين أبداً · آخر تبويب بأدمن النقاط لم يعد يُقصّ على الكمبيوتر · خمس أدواتٍ داخلية (أدمن التوظيف · العروض والتسعير · المنتجات · ردود سريعة · سلّة المحذوفات) كانت بلا الشريط العلويّ فلا تحديث ولا جرس ولا رجوع — دخلت الشريط الموحَّد.',
++      pages: [] },
+     { v: 45, tag: 'تحسين', t: '🧮 كشف حسابٍ بعمولة كل قطعة · مراجعة المصاريف آخر الشهر · رصيد الزبون على الفاتورة · العروض والتسعير والكوبونات بأداةٍ واحدة',
+       d: 'المال: «موافقة على الكل» للمصاريف المعلّقة بمصدر دفعٍ واحد، والمعتمدة مجمّعةٌ شهراً شهراً بمجموعها · سعر الصرف يقرّره الأدمن عند الموافقة · كشف الحساب الشهري: عمولة كل قطعة على سطرها، والمصاريف مفصّلة بندًا بندًا، وسطر «ما له / ما عليه» · الربح على الفاتورة والمحاسبة من كلفة القطع المباعة لا من المشتريات · فاتورة الأدمن من أوردر تُربط به من الطرفين وبلا عمولة · كل المنتجات والفواتير تُحمَّل (كانت أوّل ٥٠٠/٣٠٠٠ فقط) · تبويب «الموظفون» في الأدمن صار عرضاً، والتعديل كلّه من «الأمان والمستخدمون» · تغيّر اسم الدخول من «حسابي» بكلمة سرّك · «العروض والتسعير والكوبونات» أداةٌ مستقلّة بوصولٍ سياديّ.',
+       w: 'نقطة البيع: «رصيده قبل الفاتورة وبعدها» صار رقماً حقيقيّاً · زبائن فرعك أوّلاً في البحث (وكان اختيار الزبون من القائمة لا يعمل) · قائمة «أوردر موجود» فيها القطع، وضغطةٌ طويلة تعرضه · تأكيد استلام النقل بصورةٍ وإشعار للإدارة · إعادة طباعة الفاتورة لم تعد تُمنع كنافذةٍ منبثقة. الأوردرات: شركة الشحن في نافذة التعديل · بطاقة الفاتورة المرتبطة وزرّ فتحها · تغيّر الرقم ⇒ يُعرض عليك إعادة التبليغ · تبليغ الزبون لم يعد ينتظر التيليغرام · زرّ 🏢 يجد مكتب البرامكة لا القدم. المتجر: تقييمٌ برقم هاتف، والرقم فوق المتجر متوسّط تقييماتك الحقيقيّ لا «4.9» ثابتة · «فروعنا ووكلاؤنا» نافذةٌ بفروعك · قلم تعديل على كل منتج في المعاينة · المساعد صار أيقونةً في الرأس. وغيرها: شريط التحديث لم يعد عائماً · الانترو فيه «التالي» · اسم التطبيق «مجموعة ميديا تيك التجارية» · صورة المتقدّم للتوظيف تصل الإدارة · الأدمن الكلي فاتح وبلا إيموجي.',
+@@ -347,6 +397,7 @@
+       d: 'تصدير كتالوج المنتجات بالصور والأسعار من الجرد.',
+       pages: ['inventory.html'] }
+   ];
++  VERSION = NEWS.reduce(function (m, n) { return n.v > m ? n.v : m; }, 0);
+ 
+   // ══ الأدوات ══════════════════════════════════════════════════════════════
+ 
+diff --git "a/\330\263\330\254\331\204_\330\247\331\204\330\271\331\205\331\204\331\212\330\247\330\252.html" "b/\330\263\330\254\331\204_\330\247\331\204\330\271\331\205\331\204\331\212\330\247\330\252.html"
+new file mode 100644
+index 0000000..2d48e2c
+--- /dev/null
++++ "b/\330\263\330\254\331\204_\330\247\331\204\330\271\331\205\331\204\331\212\330\247\330\252.html"
+@@ -0,0 +1,54 @@
++<!DOCTYPE html>
++<html lang="ar" dir="rtl">
++<head>
++<meta charset="UTF-8">
++<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
++<title>سجل العمليات — GMT</title>
++<link rel="icon" href="favicon.ico">
++<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
++<script>window.GMT_INTERNAL = 1;</script>
++<script src="gmt-config.js?v=20261005r"></script>
++<script src="gmt-core.js?v=20261011p"></script>
++<script src="gmt-bidi.js?v=20261007z"></script>
++<script src="gmt-auth.js?v=20261011e"></script>
++<script src="gmt-tools.js?v=20261011h"></script>
++<script src="gmt-account.js?v=20261011e"></script>
++<script src="gmt-ask.js?v=20261011e"></script>
++<script src="gmt-oplog.js?v=20261011n"></script>
++<script src="gmt-icons.js?v=20261011h" defer></script>
++<script src="gmt-sound.js?v=20261011o" defer></script>
++<!-- (١١ ت١ — Notes ٩ ت١ ٦:٤٧ ص) «ضيف شي غير التراجع هو السجل — سجل العمليات بيسجل شو انشغل».
++     كل كتابةٍ ناجحة على الجداول المهمّة (أوردرات · فواتير · مصاريف · مستخدمون · صلاحيات · قفل الأوردرات…) وكل دخول/خروج أدمن
++     تُسجَّل في gmt_audit (إضافة وقراءة فقط) بفاعلها: الأدمن باسمه أو الموظّف. للإدارة وحدها (حارس الصفحات). -->
++<style>
++body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:#0f1219;font:15px/1.7 Cairo,'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
++.wrap{max-width:1360px;margin:0 auto;padding:16px}
++.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
++.top h1{margin:0;font-size:22px;font-weight:900;flex:1}
++.card{background:#fff;border:1px solid rgba(15,18,25,.12);border-radius:20px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06)}
++.sub{color:#475569;font-size:14px;margin:0 0 12px;line-height:1.8}
++@media (max-width:600px){.wrap{padding:12px}.card{padding:12px;border-radius:16px}.top h1{font-size:20px}}
++@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body{background:#0b1220;color:#f1f5f9}:root:not([data-theme="light"]) .card{background:#0f172a;border-color:#334155}:root:not([data-theme="light"]) .sub{color:#cbd5e1}}
++:root[data-theme="dark"] body{background:#0b1220;color:#f1f5f9}:root[data-theme="dark"] .card{background:#0f172a;border-color:#334155}:root[data-theme="dark"] .sub{color:#cbd5e1}
++</style>
++</head>
++<body>
++<div class="wrap">
++  <div class="top"><h1>سجل العمليات</h1></div>
++  <p class="sub">كلُّ ما تمّ في النظام: <b>من</b> فعل (أدمن أو موظّف) · <b>ماذا</b> فعل · <b>أين</b> (في أيّ أداة وأيّ نقطة بيع) · <b>متى</b> · وما الذي تغيّر (من ← إلى). تستطيع رؤية كل نقطة بيع وحدها أو الكلّ مختلطاً. السجلّ للقراءة فقط: لا يُعدَّل ولا يُحذف من الواجهة.</p>
++  <div id="log" class="card"></div>
++</div>
++<script>
++(function () {
++  function go() { if (window.GMTOpLog) { var q = {}; try { var u = new URLSearchParams(location.search); if (u.get('cat')) q.cat = u.get('cat'); if (u.get('branch')) q.branch = u.get('branch'); } catch (_) {} GMTOpLog.mount(document.getElementById('log'), q); } else setTimeout(go, 150); }
++  go();
++})();
++</script>
++<script src="gmt-nofab.js?v=20261007z5"></script>
++<script src="gmt-updater.js?v=20261010b"></script>
++<script src="gmt-notify.js?v=20261010b" defer></script>
++<script src="gmt-pwa.js?v=20261010b"></script>
++<script src="gmt-whatsnew.js?v=20261011n"></script>
++<script src="gmt-refresh.js?v=20261011a"></script>
++</body>
++</html>

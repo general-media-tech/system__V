@@ -1,0 +1,2677 @@
+diff --git a/gmt-core.js b/gmt-core.js
+index 2385424..02735ad 100644
+--- a/gmt-core.js
++++ b/gmt-core.js
+@@ -724,6 +724,96 @@
+       if (ok) window.GMTRole.grant();
+       return !!ok;
+     },
++    /* ═════════════════════════════════════════════════════════════════════
++       🛡️ requireSovereign — «الصلاحية السيادية» لكل حذفٍ/إبطال (2026-10-11 · قاعدة المالك)
++       «الحذف لا يكفي فيه كتابة السبب: لازم كلمة السرّ السيادية **أو** مستخدم أدمن مسمّى مسجَّل دخوله».
++       • جلسة أدمن **باسم** (GMTRole.name()) ⇒ يكفي السبب (لا نُعيد سؤال كلمة السرّ).
++       • جلسة أدمن **بلا اسم** (grant() القديم بعد كلمة سيادية مشتركة) **لا تُقبل**: لا نعرف مَن هو فلا يُسجَّل باسمه.
++       • غير ذلك ⇒ نافذةٌ واحدة: السبب (إلزامي ≥٣ أحرف) + اسم الأدمن (اختياري) + كلمة السرّ.
++           اسمٌ مكتوب ⇒ حساب الأدمن (ويُفتح له وضع الأدمن)، بلا اسم ⇒ كلمة السرّ السيادية.
++       • التحقّق **داخل النافذة**: كلمةٌ خاطئة لا تُغلقها (خطأ سطريّ) + تأخيرٌ تصاعديّ بعد ٤ أخطاء (نفس مفتاح gmt_admin_fails).
++       • الرجوع: { ok:true, reason, by, via:'admin_session'|'admin_login'|'sovereign_pw', at } أو null (إلغاء/رفض) ⇒ المنادي يتوقّف.
++       • السجلّ: GMTOpLog.log({action:'sov_authorized', …, reason, meta:{what, via, by}}) — الفاعل الفعلي (الموظّف) يبقى في actor.
++       • حمايةُ واجهة (كبقيّة النظام): الحماية الحقيقية RLS. ويضع علامةً window.__gmtSov لـ٩٠ث ليستعملها حارس الشبكة لاحقاً.
++       opts: { details, entity, entityId, entityName, minReason, okText, count } */
++    requireSovereign: async function (whatFor, opts) {
++      opts = opts || {};
++      var R = window.GMTRole;
++      var minReason = opts.minReason || 3;
++      if (R._sovOpen) return null;                     /* نافذةٌ مفتوحة أصلاً (ضغطتان متتاليتان) — لا نكدّس نافذتين */
++      if (!window.GMTAsk || !window.GMTAsk.form || !window.GMTAuth) {
++        /* لا نفتح الباب عند غياب وحدة السؤال: الحذف خطِر، والفشل المغلق أسلم من «لا نقفل» */
++        console.warn('[GMT] requireSovereign: GMTAsk/GMTAuth غير محمَّلين — رُفض الإجراء');
++        try { if (window.GMTAsk && window.GMTAsk.alert) window.GMTAsk.alert('تعذّر فتح نافذة الصلاحية (وحدة الأمان غير محمَّلة). حدّث الصفحة وأعد المحاولة.', { title: 'تعذّر', icon: 'danger' }); } catch (e) {}
++        return null;
++      }
++      var FAIL = 'gmt_admin_fails';                    /* مفتاح GMTAuth نفسه: التخمين عبر أيّ بوّابة يُحسب معاً */
++      var lockLeft = function () { try { var o = JSON.parse(sessionStorage.getItem(FAIL) || 'null'); if (o && o.until > Date.now()) return Math.ceil((o.until - Date.now()) / 1000); } catch (e) {} return 0; };
++      var failedOnce = function () { try { var o = JSON.parse(sessionStorage.getItem(FAIL) || 'null') || { n: 0, until: 0 }; o.n++; if (o.n >= 4) o.until = Date.now() + Math.min(60000, 2000 * Math.pow(2, o.n - 4)); sessionStorage.setItem(FAIL, JSON.stringify(o)); } catch (e) {} };
++      var okReset = function () { try { sessionStorage.removeItem(FAIL); } catch (e) {} };
++
++      var named = R.isAdmin() ? R.name() : '';         /* جلسة بلا اسم ⇒ '' ⇒ تُعامَل كغير مصرَّح */
++      var fields = [{ k: 'reason', label: 'سبب الإجراء (إلزامي)', placeholder: 'اكتب السبب بوضوح…' }];
++      if (!named) {
++        var last = ''; try { last = localStorage.getItem('gmt_admin_last') || ''; } catch (e) {}
++        fields.push({ k: 'name', label: 'اسم الأدمن — اتركه فارغاً إن كنت ستستعمل كلمة السرّ السيادية', value: last, placeholder: 'اسم حساب الأدمن (اختياري)', autocomplete: 'username' });
++        fields.push({ k: 'pw', label: 'كلمة السرّ (كلمة سرّ الأدمن أو السيادية)', type: 'password', dir: 'ltr', placeholder: '••••', autocomplete: 'current-password' });
++      }
++      var msg = (opts.details ? String(opts.details) + '\n\n' : '') +
++        (named ? 'يُنفَّذ باسم الأدمن «' + named + '». اكتب السبب ثمّ تأكيد.'
++               : 'هذا الإجراء يحتاج صلاحية سيادية: ادخل باسم أدمن وكلمة سرّه، أو اكتب كلمة السرّ السيادية.');
++      var via = '', who = '';
++      R._sovOpen = true;
++      var grant;
++      try {
++        grant = await window.GMTAsk.form(msg, {
++          title: whatFor || 'إجراء خطِر', icon: 'danger', okText: opts.okText || 'نفّذ', fields: fields,
++          submit: async function (v) {
++            var reason = String(v.reason || '').trim();
++            if (reason.length < minReason) return { error: 'اكتب السبب (' + (minReason === 3 ? '٣' : minReason) + ' أحرف على الأقل)', field: 'reason' };
++            if (named) { via = 'admin_session'; who = named; return { result: { ok: true, reason: reason, by: who, via: via, at: new Date().toISOString() } }; }
++            var w = lockLeft(); if (w) return { error: 'محاولات كثيرة — انتظر ' + w + ' ثانية ثمّ أعد المحاولة', field: 'pw' };
++            var pw = String(v.pw == null ? '' : v.pw); if (!pw) return { error: 'اكتب كلمة السرّ', field: 'pw' };
++            var nm = String(v.name || '').trim();
++            if (nm) {                                  /* حساب أدمن مسمّى */
++              if (!window.GMTAuth.admin || !window.GMTAuth.admin.tryLogin) return { error: 'حسابات الأدمن غير متاحة الآن — استعمل كلمة السرّ السيادية (اترك الاسم فارغاً)', field: 'name' };
++              var r = await window.GMTAuth.admin.tryLogin(nm, pw);   /* يحسب الإخفاق ويطبّق التأخير بنفسه */
++              if (r && r.ok) {
++                via = 'admin_login'; who = r.name; okReset();
++                try { localStorage.setItem('gmt_admin_last', r.name); } catch (e) {}
++                try { R.grant(r.name); } catch (e) {}
++                try { if (window.GMTAuth.admin._audit) window.GMTAuth.admin._audit('admin_login', r.name); } catch (e) {}
++                return { result: { ok: true, reason: reason, by: who, via: via, at: new Date().toISOString() } };
++              }
++              if (r && r.none) return { error: 'لا يوجد حساب أدمن بهذا الاسم بعد — اترك الاسم فارغاً واكتب كلمة السرّ السيادية', field: 'name' };
++              return { error: (r && r.error) || 'اسم الأدمن أو كلمة السرّ غير صحيحة', field: (r && r.field) || 'pw', clear: true };
++            }
++            var okSov = false;
++            try { okSov = await window.GMTAuth.check('sovereign', pw); } catch (e) { okSov = false; }
++            if (okSov) { via = 'sovereign_pw'; who = 'كلمة السرّ السيادية'; okReset(); return { result: { ok: true, reason: reason, by: who, via: via, at: new Date().toISOString() } }; }
++            failedOnce();
++            return { error: 'كلمة السرّ السيادية غير صحيحة', field: 'pw', clear: true };
++          }
++        });
++      } finally { R._sovOpen = false; }
++      if (!grant || !grant.ok) return null;            /* إلغاء أو Escape */
++      try { window.__gmtSov = { until: Date.now() + 90000, by: grant.by, via: grant.via, reason: grant.reason, what: whatFor || '' }; } catch (e) {}
++      try {
++        if (window.GMTOpLog && window.GMTOpLog.log) window.GMTOpLog.log({
++          action: 'sov_authorized', entity: opts.entity || 'sovereign', entityId: opts.entityId, entityName: opts.entityName || whatFor || '',
++          reason: grant.reason, meta: { what: whatFor || '', via: grant.via, by: grant.by, count: opts.count != null ? opts.count : undefined }
++        });
++      } catch (e) {}
++      return grant;
++    },
++    /* تفويضٌ **واحد** لعمليةٍ جماعية: يُظهر في النافذة ما سيُنفَّذ (details: العدد والإجمالي) ثم يُنفّذ fn(grant) مرّةً واحدة.
++       null إن لم يُفوَّض. وإن رمت fn يُمرَّر الخطأ للمنادي (ليُعلِن الفشل بصدق). سطرُ سجلٍّ واحد فقط لا سطرٌ لكل عنصر. */
++    sovereignScope: async function (whatFor, opts, fn) {
++      var g = await window.GMTRole.requireSovereign(whatFor, opts);
++      if (!g) return null;
++      try { return { ok: true, grant: g, result: await fn(g) }; }
++      finally { try { delete window.__gmtSov; } catch (e) {} }
++    },
+     /* نمطُ الزرّ الباهت + القفل — يُستعمل في بناء الصفوف */
+     dimStyle: function () {
+       return window.GMTRole.isAdmin() ? '' : 'opacity:.42;';
+diff --git a/gmt-render.js b/gmt-render.js
+new file mode 100644
+index 0000000..bddd446
+--- /dev/null
++++ b/gmt-render.js
+@@ -0,0 +1,500 @@
++/* ═══════════════════════════════════════════════════════════════════════════
++   gmt-render.js — مُصيِّر الصور وPDF **الداخلي** (بلا خدمة خارجية، بلا مكتبة تخمّن النصّ)
++   أُنشئ: 2026-10-11 · طلب المالك: «لا تستعمل خدمة خارجية لإنشاء الصور، اجعلها خدمة داخلية.
++   والعربية في صورة/PDF الأوردر مشوّهة».
++
++   لماذا كانت العربية مشوّهة؟ لأنّ html2canvas **لا يعرف الخطّ ولا التشكيل**: يقرأ نصّ الصفحة
++   ويُعيد رسمه حرفاً حرفاً بنفسه، فيفقد الحرف العربيّ سياقه (شكله المتّصل واتجاهه) ويتزحزح النصّ.
++   الجذر ليس في CSS الورقة بل في **طريقة الرسم**.
++
++   الحلّ الجذري: لا نُعيد رسم شيء. المتصفّح نفسه — بمحرّك التخطيط والتشكيل الذي يعرض به الصفحة —
++   يرسم الورقة، ونحن نأخذ نتيجته:
++     ① إطار مخفيّ (iframe) يحمل الورقة بعرضها الحقيقي ⇒ المتصفّح يخطّطها ويشكّل العربية
++     ② نُضمّن كل صورة كـ data: (الصورة الخارجية تُحجَب داخل SVG)
++     ③ نُضمّن خطّ Cairo كـ data: (الخطّ بالرابط لا يُحمَّل داخل صورة SVG — جُرِّب) ونحذف @import لـGoogle
++     ④ SVG/foreignObject ⇒ Image ⇒ canvas (المتصفّح يرسم HTML داخل SVG بنفس المحرّك)
++     ⑤ فحوص سلامة: ليست فارغة · ليست «ملوَّثة» (tainted) ⇒ وإلا نسقط إلى html2canvas (بعد تصفير letter-spacing)
++        ⇒ وإلا رسالة عربية واضحة. لا نجاح كاذب أبداً.
++
++   الاستعمال:
++     const blob = await GMTRender.toBlob(html, { width: 660, scale: 1200/660, type: 'image/jpeg', quality: .92 });
++     const canvas = await GMTRender.toCanvas(html, { width: 660, scale: 2 });
++     const pdf = await GMTRender.toPdf(html, { title: 'أوردر 123', fit: 'auto' });   // Blob
++     GMTRender.engine   // آخر محرّك استُعمل فعلاً: 'foreignObject' | 'html2canvas'
++
++   PDF: كاتب داخلي (A4 · هوامش ١٤ نقطة · Flate بلا فقد عبر CompressionStream مع predictor ⇒ يسقط إلى JPEG
++   إن غاب · يقطع لصفحات عند أسطر فارغة · /Title). ملاحظة: الصفحة صورة (لا نصّ قابل للتحديد) كما كانت قبلاً.
++   ═══════════════════════════════════════════════════════════════════════════ */
++(function (g) {
++  'use strict';
++  if (g.GMTRender) return;
++
++  /* مسار هذا الملف (لتحميل الخطوط من lib/fonts بجواره مهما كان مسار الصفحة) */
++  var SELF = '';
++  try { var cs = document.currentScript; if (cs && cs.src) SELF = cs.src.replace(/[?#].*$/, '').replace(/[^\/]*$/, ''); } catch (e) {}
++  function abs(rel) { try { return new URL(rel, SELF || document.baseURI).href; } catch (e) { return rel; } }
++
++  var MSG_FAIL = 'تعذّر تجهيز الصورة على هذا الجهاز. حدّث الصفحة وأعد المحاولة، وإن تكرّر الأمر استعمل زرّ «طباعة».';
++  var BLANK_PX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
++  var MAX_PIXELS = 16000000;           /* سقف مساحة الكانفس — iOS يرفض ما فوق ≈١٦٫٧ مليون بكسل */
++
++  /* ══ الخطّ: Cairo متغيّر (OFL) مستضاف في lib/fonts — نفس خطّ الموقع ══
++     النطاقات = ما في ملفّ الخطّ فعلاً (قِيست من cmap) فلا يُسحَب حرفٌ إلى ملفّ لا يحوي شكله. */
++  var FONT_FILES = [
++    { file: 'lib/fonts/Cairo-var-arabic.woff2',
++      range: 'U+0600-06FF,U+0750-077F,U+0870-08FF,U+200C-200F,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FEFF' },
++    { file: 'lib/fonts/Cairo-var-latin.woff2',
++      range: 'U+0020-007E,U+00A0-00FF,U+0102,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2013-2014,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2039-203A,U+2044,U+20AC,U+2122,U+2212,U+2215' }
++  ];
++  var _fontP = null, _fontAt = 0;
++  var lastFontOk = false;
++
++  function blobToDataURL(b) {
++    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(b); });
++  }
++  function timeout(ms, msg) { return new Promise(function (_, rej) { setTimeout(function () { rej(new Error(msg || 'timeout')); }, ms); }); }
++
++  /* يرجع CSS جاهزاً (@font-face بـdata:) أو '' إن تعذّر جلب الملفّين (بلا اتصال ولا كاش) ⇒ خطّ النظام */
++  function fontCss() {
++    if (_fontP && (lastFontOk || Date.now() - _fontAt < 20000)) return _fontP;   /* الفشل لا يُحفَظ إلا ٢٠ث */
++    _fontAt = Date.now();
++    _fontP = Promise.all(FONT_FILES.map(function (f) {
++      return fetch(abs(f.file), { cache: 'force-cache' }).then(function (r) {
++        if (!r.ok) throw new Error('font ' + r.status);
++        return r.blob();
++      }).then(function (b) { return blobToDataURL(new Blob([b], { type: 'font/woff2' })); })
++        .then(function (u) { return { u: u, range: f.range }; });
++    })).then(function (fs) {
++      lastFontOk = true;
++      return fs.map(function (f) {
++        return "@font-face{font-family:'Cairo';font-style:normal;font-weight:200 1000;font-display:block;" +
++               "src:url(" + f.u + ") format('woff2');unicode-range:" + f.range + "}";
++      }).join('\n');
++    }).catch(function (e) {
++      lastFontOk = false;
++      try { console.warn('[GMTRender] تعذّر تحميل خطّ Cairo المستضاف — سيُستعمل خطّ النظام:', e && e.message); } catch (_) {}
++      return '';
++    });
++    return _fontP;
++  }
++
++  /* تسخين: يُنزّل الخطّين مبكّراً (فيدخلان كاش الـservice worker) كي تعمل الصورة لاحقاً بلا إنترنت */
++  function warm() {
++    var go = function () { try { fontCss(); } catch (_) {} };
++    if (g.requestIdleCallback) g.requestIdleCallback(go, { timeout: 6000 }); else setTimeout(go, 2500);
++  }
++
++  /* ══ تجهيز HTML ══ */
++  function stripImports(css) { return css.replace(/@import\s+(?:url\((?:"[^"]*"|'[^']*'|[^)]*)\)|"[^"]*"|'[^']*')[^;]*;/gi, ''); }
++
++  function prepHtml(html, css) {
++    html = String(html == null ? '' : html);
++    if (!/<html[\s>]/i.test(html)) {
++      html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"></head><body style="margin:0;background:#fff">' + html + '</body></html>';
++    } else if (!/^\s*<!doctype/i.test(html)) {
++      html = '<!DOCTYPE html>' + html;
++    }
++    html = stripImports(html);                       /* لا Google @import: الخطّ يُضمَّن محلياً */
++    /* أوّل ما في الرأس: لا طباعة ولا نوافذ من داخل الورقة أثناء التصيير (ورقة «طباعة» تحمل window.print) */
++    var tag = '<script>try{window.print=function(){};window.open=function(){return null};}catch(e){}<\/script>' +
++              '<style id="gmt-render-fonts">' + (css || '') + '</style>';
++    if (/<head[^>]*>/i.test(html)) html = html.replace(/<head[^>]*>/i, function (m) { return m + tag; });
++    else html = html.replace(/<html[^>]*>/i, function (m) { return m + '<head>' + tag + '</head>'; });
++    return html;
++  }
++
++  function makeFrame(W, sandbox) {
++    var fr = document.createElement('iframe');
++    /* السكربتات تعمل لأنّ ورقة الأوردر تضبط نفسها بسكربت (fit: تصغير/عمودان لتتّسع على A4) والصورة يجب أن تطابق الطباعة؛
++       لكن بلا allow-modals/popups فلا print ولا نوافذ. */
++    fr.setAttribute('sandbox', sandbox || 'allow-same-origin allow-scripts');
++    fr.setAttribute('aria-hidden', 'true');
++    fr.tabIndex = -1;
++    fr.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + W + 'px;height:600px;border:0;visibility:hidden;pointer-events:none;';
++    document.body.appendChild(fr);
++    return fr;
++  }
++
++  function loadFrame(fr, html, ms) {
++    return new Promise(function (res, rej) {
++      var t = setTimeout(function () { rej(new Error('انتهت مهلة فتح الورقة')); }, ms || 15000);
++      fr.onload = function () { clearTimeout(t); res(fr.contentDocument); };
++      fr.onerror = function () { clearTimeout(t); rej(new Error('تعذّر فتح الورقة')); };
++      fr.srcdoc = html;
++    });
++  }
++
++  /* ينتظر الخطوط فعلاً (لا مهلة عمياء): نطلب الوجهين العربيّ واللاتينيّ بأوزان الورقة ثم fonts.ready */
++  function waitFonts(doc, hadFont) {
++    if (!doc.fonts) return Promise.resolve();
++    var jobs = [];
++    if (hadFont) {
++      [400, 600, 700, 800, 900].forEach(function (w) {
++        jobs.push(doc.fonts.load(w + ' 16px Cairo', 'ا').catch(function () {}));
++        jobs.push(doc.fonts.load(w + ' 16px Cairo', 'A').catch(function () {}));
++      });
++    }
++    return Promise.race([Promise.all(jobs).then(function () { return doc.fonts.ready; }), new Promise(function (r) { setTimeout(r, 4000); })]).catch(function () {});
++  }
++
++  /* الورقة تضبط نفسها بسكربت يسمع beforeprint (fit) ⇒ نطلقه بعد جاهزية الخطوط كي تُقاس الأبعاد بالخطّ الحقيقي ثم نتركها تستقرّ */
++  async function settle(doc) {
++    try { doc.defaultView.dispatchEvent(new Event('beforeprint')); } catch (_) {}
++    await new Promise(function (r) { setTimeout(r, 40); });
++    try { doc.defaultView.dispatchEvent(new Event('beforeprint')); } catch (_) {}
++    await new Promise(function (r) { setTimeout(r, 20); });
++  }
++
++  /* ارتفاع المحتوى الحقيقي. ⚠️ مع `zoom` على body يتضخّم body.scrollHeight (يُقاس بلا تكبير) بينما ارتفاع html الفعلي أقلّ
++     ⇒ كانت تظهر مساحة بيضاء ضخمة أسفل الصورة. نستعمل html فقط. */
++  function measureH(doc) {
++    var d = doc.documentElement;
++    return Math.ceil(Math.max(d.getBoundingClientRect().height, d.scrollHeight, 40));
++  }
++  /* سكربت الورقة يُصغّر الصفحة بـ zoom لتتّسع على ورقة طباعة واحدة (حتى ٠٫٦٢) فيصير نصّ الصورة/PDF مجهرياً — وهنا لا حاجة:
++     الصورة تطول والـPDF يُقطَّع لصفحات. نُزيل الـzoom ونُبقي تصنيفات الضغط (c1..c4). ويجب أن تلي المعايرةَ والتسلسلَ مباشرةً بلا await
++     (مؤقّتات fit بعد 180/600ms قد تعيد التكبير). */
++  function unzoom(doc, opt) {
++    if (opt && opt.keepFit) return;
++    try {
++      doc.body.style.zoom = '';
++      if (!doc.getElementById('gmt-render-nozoom')) {     /* !important يغلب أيّ إعادة تكبير لاحقة من مؤقّتات الورقة */
++        var st = doc.createElement('style'); st.id = 'gmt-render-nozoom'; st.textContent = 'body{zoom:1!important}';
++        doc.head.appendChild(st);
++      }
++    } catch (_) {}
++  }
++
++  /* ══ تضمين الموارد: كل شيء خارجي يُحجَب داخل صورة SVG فنحوّله إلى data: ══ */
++  function fetchDataURL(u, ms) {
++    var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
++    var t = ctl ? setTimeout(function () { ctl.abort(); }, ms || 9000) : null;
++    return fetch(u, { mode: 'cors', signal: ctl ? ctl.signal : undefined })
++      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.blob(); })
++      .then(blobToDataURL)
++      .then(function (d) { if (t) clearTimeout(t); return d; }, function (e) { if (t) clearTimeout(t); throw e; });
++  }
++
++  async function inlineCssUrls(css, base, warns) {
++    var re = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/g, m, jobs = [], seen = {};
++    while ((m = re.exec(css))) {
++      var raw = (m[1] != null ? m[1] : (m[2] != null ? m[2] : m[3])) || '';
++      if (!raw || /^(data:|#)/i.test(raw) || seen[raw]) continue;
++      seen[raw] = 1;
++      (function (r) {
++        var full; try { full = new URL(r, base).href; } catch (e) { full = r; }
++        jobs.push(fetchDataURL(full).then(function (d) { seen[r] = d; }, function () { seen[r] = BLANK_PX; warns.push('css url: ' + r.slice(0, 80)); }));
++      })(raw);
++    }
++    if (!jobs.length) return css;
++    await Promise.all(jobs);
++    return css.replace(re, function (all, a, b, c) {
++      var raw = (a != null ? a : (b != null ? b : c)) || '';
++      return seen[raw] && typeof seen[raw] === 'string' && !/^(data:|#)/i.test(raw) ? 'url("' + seen[raw] + '")' : all;
++    });
++  }
++
++  async function inlineResources(doc, warns) {
++    var base = doc.baseURI || document.baseURI;
++    var jobs = [];
++    Array.prototype.forEach.call(doc.querySelectorAll('img'), function (im) {
++      var src = im.getAttribute('src') || '';
++      im.removeAttribute('srcset'); im.removeAttribute('loading');
++      if (!src || /^data:/i.test(src)) return;
++      jobs.push((async function () {
++        try {
++          var full = new URL(src, base).href;
++          im.setAttribute('src', await fetchDataURL(full));
++        } catch (e) {
++          im.setAttribute('src', BLANK_PX);            /* صورة تعذّر جلبها ⇒ بكسل شفاف (لا tainted ولا فشل كامل) */
++          warns.push('img: ' + src.slice(0, 80));
++        }
++      })());
++    });
++    Array.prototype.forEach.call(doc.querySelectorAll('image,use'), function (el) {
++      var h = el.getAttribute('href') || el.getAttribute('xlink:href') || '';
++      if (!h || /^(data:|#)/i.test(h)) return;
++      jobs.push(fetchDataURL(new URL(h, base).href).then(function (d) { el.setAttribute('href', d); }, function () { el.removeAttribute('href'); warns.push('svg-image: ' + h.slice(0, 80)); }));
++    });
++    Array.prototype.forEach.call(doc.querySelectorAll('style'), function (st) {
++      if (st.id === 'gmt-render-fonts') return;
++      if (!/url\(/i.test(st.textContent)) return;
++      jobs.push(inlineCssUrls(st.textContent, base, warns).then(function (c) { st.textContent = c; }));
++    });
++    Array.prototype.forEach.call(doc.querySelectorAll('[style*="url("]'), function (el) {
++      jobs.push(inlineCssUrls(el.getAttribute('style'), base, warns).then(function (c) { el.setAttribute('style', c); }));
++    });
++    await Promise.all(jobs);
++  }
++
++  /* قيم الحقول تعيش في الخصائص لا في الوسوم ⇒ نكتبها في الوسوم قبل التسلسل */
++  function syncControls(doc) {
++    Array.prototype.forEach.call(doc.querySelectorAll('input,textarea,select'), function (el) {
++      try {
++        if (el.tagName === 'TEXTAREA') el.textContent = el.value;
++        else if (el.tagName === 'SELECT') Array.prototype.forEach.call(el.options, function (o) { if (o.selected) o.setAttribute('selected', ''); else o.removeAttribute('selected'); });
++        else if (el.type === 'checkbox' || el.type === 'radio') { if (el.checked) el.setAttribute('checked', ''); else el.removeAttribute('checked'); }
++        else el.setAttribute('value', el.value);
++      } catch (_) {}
++    });
++  }
++
++  /* ══ فحوص السلامة ══ */
++  function isTainted(cv) { try { cv.getContext('2d').getImageData(0, 0, 1, 1); return false; } catch (e) { return true; } }
++
++  /* نسبة البكسلات المختلفة عن الخلفية في نسخة مصغّرة — الورقة الحقيقية فيها نصّ وأشرطة (≥ بضعة بالمئة) */
++  function inkRatio(cv, bg) {
++    var w = 240, h = Math.max(8, Math.round(240 * cv.height / cv.width));
++    var s = document.createElement('canvas'); s.width = w; s.height = h;
++    var c = s.getContext('2d'); c.fillStyle = bg; c.fillRect(0, 0, w, h); c.drawImage(cv, 0, 0, w, h);
++    var d = c.getImageData(0, 0, w, h).data, n = 0, p = c.getImageData(0, 0, 1, 1).data;   /* ركن الصورة = الخلفية الفعلية */
++    for (var i = 0; i < d.length; i += 4) { if (Math.abs(d[i] - p[0]) + Math.abs(d[i + 1] - p[1]) + Math.abs(d[i + 2] - p[2]) > 36) n++; }
++    return n / (w * h);
++  }
++
++  function verifyCanvas(cv, bg, opt) {
++    if (!cv || !cv.width || !cv.height) throw new Error('كانفس فارغ');
++    if (isTainted(cv)) throw new Error('tainted');
++    if (!(opt && opt.allowBlank) && inkRatio(cv, bg) < 0.004) throw new Error('blank');
++    return cv;
++  }
++
++  function fitScale(W, H, scale) {
++    var s = Math.max(0.5, scale || 2);
++    var cap = Math.sqrt(MAX_PIXELS / Math.max(1, W * H));
++    return Math.min(s, cap);
++  }
++
++  /* ══ المحرّك الأوّل: SVG foreignObject ══ */
++  async function viaForeignObject(html, opt) {
++    var W = opt.width || 660, bg = opt.bg || '#ffffff', warns = [];
++    var css = await fontCss();
++    var fr = makeFrame(W);
++    try {
++      var doc = await loadFrame(fr, prepHtml(html, css));
++      await waitFonts(doc, !!css);
++      await settle(doc);
++      await inlineResources(doc, warns);
++      syncControls(doc);
++      Array.prototype.forEach.call(doc.querySelectorAll('script,noscript,link,iframe,object,embed,video,audio,canvas'), function (n) { n.remove(); });
++      unzoom(doc, opt);
++      var H = measureH(doc);
++      var xml = new XMLSerializer().serializeToString(doc.documentElement)
++        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
++      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
++        '<foreignObject x="0" y="0" width="' + W + '" height="' + H + '">' + xml + '</foreignObject></svg>';
++      var img = new Image(); img.decoding = 'sync';
++      var loaded = new Promise(function (res, rej) { img.onload = res; img.onerror = function () { rej(new Error('svg image failed')); }; });
++      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
++      await Promise.race([loaded, timeout(20000, 'svg image timeout')]);
++      try { if (img.decode) await img.decode(); } catch (_) {}
++      var sc = fitScale(W, H, opt.scale);
++      var cv = document.createElement('canvas');
++      cv.width = Math.round(W * sc); cv.height = Math.round(H * sc);
++      var ctx = cv.getContext('2d');
++      ctx.fillStyle = bg; ctx.fillRect(0, 0, cv.width, cv.height);
++      ctx.drawImage(img, 0, 0, cv.width, cv.height);
++      verifyCanvas(cv, bg, opt);
++      cv._gmt = { engine: 'foreignObject', font: !!css, warns: warns, cssW: W, cssH: H };
++      return cv;
++    } finally { setTimeout(function () { try { fr.remove(); } catch (_) {} }, 60); }
++  }
++
++  /* ══ المحرّك الاحتياطي: html2canvas (بعد تصفير letter-spacing لأنه يكسر العربية) ══ */
++  function ensureH2c() {
++    if (g.html2canvas) return Promise.resolve();
++    if (g.GMTLazyLib && g.GMTLazyLib.need) return g.GMTLazyLib.need('html2canvas');
++    return new Promise(function (res, rej) {
++      var s = document.createElement('script'); s.src = abs('lib/html2canvas.min.js');
++      s.onload = function () { res(); }; s.onerror = function () { rej(new Error('html2canvas')); };
++      document.head.appendChild(s);
++    });
++  }
++  async function viaHtml2canvas(html, opt) {
++    var W = opt.width || 660, bg = opt.bg || '#ffffff', warns = [];
++    await ensureH2c();
++    if (!g.html2canvas) throw new Error('html2canvas غير متاح');
++    var css = await fontCss();
++    var fr = makeFrame(W);
++    try {
++      var doc = await loadFrame(fr, prepHtml(html, css));
++      try { var ls = doc.createElement('style'); ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(ls); } catch (_) {}
++      await waitFonts(doc, !!css);
++      await settle(doc);
++      unzoom(doc, opt);
++      var H = measureH(doc);
++      fr.style.height = H + 'px';
++      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
++      var sc = fitScale(W, H, opt.scale);
++      var cv = await g.html2canvas(doc.body, { scale: sc, backgroundColor: bg, useCORS: true, logging: false, windowWidth: W, width: W, height: H, windowHeight: H });
++      verifyCanvas(cv, bg, opt);
++      cv._gmt = { engine: 'html2canvas', font: !!css, warns: warns, cssW: W, cssH: H };
++      return cv;
++    } finally { setTimeout(function () { try { fr.remove(); } catch (_) {} }, 60); }
++  }
++
++  /* ══ الواجهة ══ */
++  var api = { engine: '', lastErrors: [], message: MSG_FAIL };
++
++  async function toCanvas(html, opt) {
++    opt = opt || {};
++    var errs = [], cv;
++    if (opt.engine !== 'html2canvas') {
++      try { cv = await viaForeignObject(html, opt); api.engine = 'foreignObject'; api.lastErrors = []; return cv; }
++      catch (e) { errs.push('foreignObject: ' + (e && e.message)); try { console.warn('[GMTRender] foreignObject فشل — سقوط إلى html2canvas:', e && e.message); } catch (_) {} }
++    }
++    if (opt.engine !== 'foreignObject') {
++      try { cv = await viaHtml2canvas(html, opt); api.engine = 'html2canvas'; api.lastErrors = errs; return cv; }
++      catch (e) { errs.push('html2canvas: ' + (e && e.message)); }
++    }
++    api.lastErrors = errs;
++    var err = new Error(MSG_FAIL); err.code = 'RENDER_FAILED'; err.causes = errs;
++    throw err;
++  }
++
++  function canvasToBlob(cv, type, quality) {
++    return new Promise(function (res, rej) {
++      try { cv.toBlob(function (b) { b ? res(b) : rej(new Error('blob فارغ')); }, type || 'image/jpeg', quality == null ? 0.92 : quality); }
++      catch (e) { rej(e); }
++    });
++  }
++
++  async function toBlob(html, opt) {
++    opt = opt || {};
++    var cv = await toCanvas(html, opt);
++    var b = await canvasToBlob(cv, opt.type || 'image/jpeg', opt.quality);
++    if (!b || !b.size) { var err = new Error(MSG_FAIL); err.code = 'RENDER_FAILED'; throw err; }
++    return b;
++  }
++
++  /* ══ كاتب PDF داخلي ══ */
++  var enc = new TextEncoder();
++  async function deflate(u8) {
++    if (typeof CompressionStream === 'undefined') return null;
++    try {
++      var cs = new CompressionStream('deflate');                      /* zlib == FlateDecode */
++      var w = cs.writable.getWriter(); w.write(u8); w.close();
++      return new Uint8Array(await new Response(cs.readable).arrayBuffer());
++    } catch (e) { return null; }
++  }
++  function hexUtf16(s) {
++    var out = 'FEFF';
++    for (var i = 0; i < s.length; i++) out += s.charCodeAt(i).toString(16).padStart(4, '0').toUpperCase();
++    return out;
++  }
++  /* صفّ بلا «حبر» (لا نصّ ولا أشرطة داكنة؛ الخلفيات الفاتحة وخطوط الجدول الرمادية لا تُعدّ حبراً) ⇒ فجوةٌ آمنة للقطع */
++  function rowInkFree(d, W, y) {
++    var o = y * W * 4;
++    for (var x = 0; x < W; x++) { var i = o + x * 4; if (d[i] + d[i + 1] + d[i + 2] < 560) return false; }
++    return true;
++  }
++  /* أفضل مكان لقطع الصفحة: أطول فجوةٍ خالية من الحبر ضمن آخر ~١٥٪ من الصفحة (حدّ الصفّ بين بندين، لا بين سطرَي اسمٍ طويل) */
++  function findBreak(d, W, y0, yIdeal, sliceH) {
++    var lo = Math.max(y0 + Math.floor(sliceH * 0.5), yIdeal - Math.floor(sliceH * 0.15));
++    var best = -1, bestLen = 5, runEnd = -1;
++    for (var y = yIdeal - 1; y >= lo; y--) {
++      if (rowInkFree(d, W, y)) {
++        if (runEnd < 0) runEnd = y;
++        var len = runEnd - y + 1;
++        var atTop = (y === lo) || !rowInkFree(d, W, y - 1);
++        if (atTop && len > bestLen) { bestLen = len; best = y + Math.floor(len / 2); }
++      } else runEnd = -1;
++    }
++    return best;
++  }
++
++  async function pdfFromCanvas(cv, o) {
++    o = o || {};
++    var PW = 595.28, PH = 841.89, M = o.margin == null ? 14 : o.margin;
++    var W = cv.width, H = cv.height;
++    var cw = PW - 2 * M, ch = PH - 2 * M;
++    var k = cw / W;                                      /* نقطة لكل بكسل بعرض الصفحة كاملاً */
++    var fit = o.fit || 'auto';
++    var oneK = Math.min(k, ch / H);                      /* مقياس «صفحة واحدة» */
++    var full = null;                                     /* بكسلات الكانفس (مرّة واحدة): للقطع الذكي وللضغط بلا فقد */
++    try { full = cv.getContext('2d').getImageData(0, 0, W, H).data; } catch (_) { full = null; }
++    var plan;                                            /* [{sy, sh, w, h, x}] */
++    if (fit === 'one-page' || (fit === 'auto' && H * k <= ch * 1.0001) || (fit === 'auto' && oneK >= k * 0.88)) {
++      var w1 = W * oneK, h1 = H * oneK;
++      plan = [{ sy: 0, sh: H, w: w1, h: h1, x: (PW - w1) / 2 }];
++    } else {
++      var sliceH = Math.floor(ch / k), d = full;
++      plan = []; var y0 = 0;
++      while (y0 < H) {
++        var y1 = Math.min(H, y0 + sliceH);
++        if (y1 < H && d) { var br = findBreak(d, W, y0, y1, sliceH); if (br > y0) y1 = br; }
++        plan.push({ sy: y0, sh: y1 - y0, w: cw, h: (y1 - y0) * k, x: M });
++        y0 = y1;
++      }
++    }
++    var pages = plan.length;
++    var parts = [], pos = 0, offs = [];
++    var push = function (b) { parts.push(b); pos += b.length; };
++    var text = function (s) { return enc.encode(s); };
++    var obj = function (no, body) { offs[no] = pos; push(text(no + ' 0 obj\n' + body + '\nendobj\n')); };
++    push(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
++    var infoNo = 3 + pages * 3;
++    var kids = []; for (var p = 0; p < pages; p++) kids.push((3 + p * 3) + ' 0 R');
++    obj(1, '<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /DisplayDocTitle true >> >>');
++    obj(2, '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + pages + ' >>');
++    var allLossless = true;
++    var canFlate = typeof CompressionStream !== 'undefined' && o.lossless !== false && !!full;
++    for (var pi = 0; pi < pages; pi++) {
++      var pl = plan[pi], data = null, filter = '/DCTDecode', parms = '';
++      if (canFlate) {
++        /* RGB + predictor «Up» (PNG filter 2): الصفوف المتكرّرة (خلفية بيضاء) تُضغط جداً ⇒ ملفّ صغير وبلا فقد */
++        var buf = new Uint8Array((W * 3 + 1) * pl.sh), prev = new Uint8Array(W * 3), bo = 0;
++        for (var r = 0; r < pl.sh; r++) {
++          var so = (pl.sy + r) * W * 4, j = 0, first = (r === 0);
++          buf[bo++] = 2;
++          for (var x = 0; x < W; x++, so += 4, j += 3) {
++            var c0 = full[so], c1 = full[so + 1], c2 = full[so + 2];
++            buf[bo++] = first ? c0 : (c0 - prev[j]) & 255;
++            buf[bo++] = first ? c1 : (c1 - prev[j + 1]) & 255;
++            buf[bo++] = first ? c2 : (c2 - prev[j + 2]) & 255;
++            prev[j] = c0; prev[j + 1] = c1; prev[j + 2] = c2;
++          }
++        }
++        data = await deflate(buf);
++        if (data) { filter = '/FlateDecode'; parms = ' /DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns ' + W + ' >>'; }
++      }
++      if (!data) {                                       /* سقوط: JPEG عالي الجودة */
++        allLossless = false;
++        var sc = document.createElement('canvas'); sc.width = W; sc.height = pl.sh;
++        var sx = sc.getContext('2d'); sx.fillStyle = '#fff'; sx.fillRect(0, 0, W, pl.sh); sx.drawImage(cv, 0, pl.sy, W, pl.sh, 0, 0, W, pl.sh);
++        data = new Uint8Array(await (await canvasToBlob(sc, 'image/jpeg', 0.95)).arrayBuffer());
++        filter = '/DCTDecode'; parms = '';
++      }
++      var pn = 3 + pi * 3, cn = pn + 1, im = pn + 2;
++      var y = PH - M - pl.h;
++      obj(pn, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW.toFixed(2) + ' ' + PH.toFixed(2) + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + cn + ' 0 R >>');
++      var content = 'q\n' + pl.w.toFixed(2) + ' 0 0 ' + pl.h.toFixed(2) + ' ' + pl.x.toFixed(2) + ' ' + y.toFixed(2) + ' cm\n/Im0 Do\nQ\n';
++      obj(cn, '<< /Length ' + content.length + ' >>\nstream\n' + content + 'endstream');
++      offs[im] = pos;
++      push(text(im + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + W + ' /Height ' + pl.sh + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ' + filter + parms + ' /Length ' + data.length + ' >>\nstream\n'));
++      push(data); push(text('\nendstream\nendobj\n'));
++    }
++    var now = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
++    obj(infoNo, '<< /Title <' + hexUtf16(String(o.title || 'GMT')) + '> /Creator (GMT) /Producer (GMT) /CreationDate (D:' + now + 'Z) >>');
++    var xr = pos, x = 'xref\n0 ' + (infoNo + 1) + '\n0000000000 65535 f \n';
++    for (var i = 1; i <= infoNo; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
++    x += 'trailer\n<< /Size ' + (infoNo + 1) + ' /Root 1 0 R /Info ' + infoNo + ' 0 R >>\nstartxref\n' + xr + '\n%%EOF\n';
++    push(text(x));
++    return { blob: new Blob(parts, { type: 'application/pdf' }), pages: pages, lossless: allLossless, widthPx: W, heightPx: H };
++  }
++
++  /* src: ورقة HTML (نصّ) أو canvas جاهز ⇒ Blob من نوع application/pdf (والتفاصيل في GMTRender.lastPdf) */
++  async function toPdf(src, opt) {
++    opt = opt || {};
++    var cv = (typeof src === 'string') ? await toCanvas(src, { width: opt.width || 660, scale: opt.scale || 2.5, bg: opt.bg, engine: opt.engine }) : src;
++    var r = await pdfFromCanvas(cv, opt);
++    api.lastPdf = { pages: r.pages, lossless: r.lossless, engine: (cv._gmt && cv._gmt.engine) || '' };
++    return r.blob;
++  }
++
++  api.toCanvas = toCanvas; api.toBlob = toBlob; api.toPdf = toPdf; api.pdfFromCanvas = pdfFromCanvas;
++  api.canvasToBlob = canvasToBlob; api.fontCss = fontCss; api.warm = warm;
++  api._prepHtml = prepHtml; api._inkRatio = inkRatio;
++  api.lastPdf = null;
++  g.GMTRender = api;
++})(window);
+diff --git a/gmt-share.js b/gmt-share.js
+index 4fbc772..6cfe149 100644
+--- a/gmt-share.js
++++ b/gmt-share.js
+@@ -1,38 +1,40 @@
+ /* ═══════════════════════════════════════════════════════════════════════════
+-   gmt-share.js — مشاركةُ PDF في كل مكان، لا حفظٌ وطباعةٌ فقط
+-   أُنشئ: 2026-10-03 · طلبك ١٢٠
++   gmt-share.js — مشاركةُ PDF/صورة في كل مكان، لا حفظٌ وطباعةٌ فقط
++   أُنشئ: 2026-10-03 · طلبك ١٢٠ — أُعيدت كتابته 2026-10-11
+ 
+-   طلبُك: «زرّ **مشاركة PDF** في كل مكان لا حفظ وطباعة فقط».
++   طلبُك الأوّل: «زرّ **مشاركة PDF** في كل مكان لا حفظ وطباعة فقط».
++   وطلبُك الجديد: «شارك الـPDF **بدون طباعة**» + «لا خدمة خارجية لإنشاء الصور» + «العربية مشوّهة».
+ 
+-   المشكلة اليوم: كلُّ مخرجٍ في النظام (فاتورة · أوردر · كفالة · عقد · تقرير)
+-   ينتهي بزرّ «طباعة». وعلى الموبايل — وهو جهازُ الموظّف الفعليّ — «طباعة»
+-   تعني حوارَ النظام ثمّ «حفظ كـPDF» إلى مجلّد التنزيلات، ثمّ يفتح الموظّف
+-   مديرَ الملفّات ثمّ واتساب ثمّ يبحث عن الملفّ. أربعُ خطواتٍ لإرسال ورقة.
+-
+-   ما يفعله هذا الملفّ: زرٌّ واحد يبني PDF ويُسلّمه إلى **لوحة المشاركة
+-   الأصلية** للنظام (`navigator.share`) فتظهر واتساب وتيليغرام والبريد
+-   مباشرةً. خطوةٌ واحدة بدل أربع.
+-
+-   وكيف يُبنى الـPDF بلا مكتبةٍ ثقيلة: لا نُحمّل مُولّد PDF (كان ذلك سيُعيد
+-   عطل ١٦٩ نفسه). نستعمل محرّك الطباعة الموجود في المتصفّح عبر إطارٍ مخفيّ —
+-   وهو نفسه الذي يُنتج الـPDF اليوم — ثمّ:
+-     • إن دعم الجهاز مشاركة الملفّات ⇒ نُشارك ملفّاً.
+-     • وإن لم يدعم ⇒ نفتح حوار الطباعة/الحفظ كما كان، **ونقول للموظّف
+-       صراحةً** أنّ جهازه لا يدعم المشاركة المباشرة — لا زرٌّ يبدو معطوباً.
+-
+-   ⚠️ قاعدةٌ التزمتُها: هذا الملفّ **لا يحذف** أيَّ زرّ طباعةٍ قائم. يُضيف
+-      خياراً إلى جانبه. إلغاءُ الطباعة لم تطلبه، وبعضُ المطبوعات تُطبَع ورقياً
+-      فعلاً (ملصق الكفالة · الفاتورة الحرارية).
++   ما يفعله هذا الملفّ الآن:
++     ① **يبني الملفّ أوّلاً** (PDF أو صورة) عبر المُصيِّر الداخلي GMTRender (gmt-render.js):
++        المتصفّح نفسه يرسم الورقة بخطّ Cairo المستضاف — لا خدمة خارجية ولا html2canvas أوّلاً.
++     ② ثم يُسلّمه للوحة المشاركة الأصلية `navigator.share({files})`.
++        • المتصفّحات تشترط «نقرةً حديثة» (≈٥ث) للمشاركة، والبناء قد يطول ⇒ إن انقضى الوقت أو رُفضت
++          (NotAllowedError) تظهر نافذةُ «الملفّ جاهز» بأزرار [شارك] [نزّل] [انسخ الصورة]، ونقرتُك عليها تُجدّد الإذن.
++        • إلغاؤك من لوحة المشاركة (AbortError) = صمتٌ تامّ، لا رسالة خطأ.
++        • الجهاز بلا مشاركة ملفّات (كمبيوتر) ⇒ **تنزيلٌ مباشر** للملفّ، وللصورة نسخٌ للحافظة أيضاً
++          لتلصقها في واتساب ويب. ❌ لا يُفتح حوار الطباعة أبداً من هنا.
++     ③ حوار الطباعة صار **زرّ «طباعة» الصريح فقط** (`GMTShare.print`).
+ 
+    الاستعمال:
+-     GMTShare.sheet(htmlString, 'فاتورة-123')        // ورقةٌ جاهزة
+-     GMTShare.element(el, 'تقرير-اليوم')             // عنصرٌ في الصفحة
+-     GMTShare.button({ get: () => html, name: 'x' }) // يبني زرّاً جاهزاً
++     GMTShare.sheet(htmlString, 'فاتورة-123', { width: 660 })   // PDF لورقةٍ جاهزة
++     GMTShare.image(htmlString, 'GMT-order.jpg', { text, width: 660, scale: 1200/660 })
++     GMTShare.element(el, 'تقرير-اليوم')                          // عنصرٌ في الصفحة (PDF)
++     GMTShare.deliver(blob, 'name.pdf', { text, t0 })             // تسليم ملفّ جاهز (مشاركة/نزّل/انسخ)
++     GMTShare.button({ get: () => html, name: 'x' })              // زرّ جاهز
++     GMTShare.print(html, 'title')                                 // طباعة صريحة فقط
+    ═══════════════════════════════════════════════════════════════════════════ */
+ (function (global) {
+   'use strict';
+   if (global.GMTShare) return;
+ 
++  /* مسار هذا الملف: لتحميل gmt-render.js بجواره في الصفحات التي لا تحمل وسمه (الكفالة/الجرد/نقطة البيع) */
++  var SELF = '';
++  try { var _cs = document.currentScript; if (_cs && _cs.src) SELF = _cs.src.replace(/[?#].*$/, '').replace(/[^\/]*$/, ''); } catch (e) {}
++
++  var STALE_MS = 4000;      /* بعد هذه المدّة من النقرة نفترض انتهاء «التنشيط العابر» فلا نجرّب share مباشرة */
++  var _busy = false;
++
+   function say(msg, kind) {
+     try {
+       if (typeof global.showToast === 'function') { global.showToast(msg, kind === 'err' ? 'err' : 'ok'); return; }
+@@ -44,11 +46,11 @@
+   /* هل يستطيع هذا الجهاز مشاركةَ ملفّ فعلاً؟
+      ⚠️ `navigator.share` وحدَها لا تكفي: أجهزةٌ تدعم مشاركة النصّ ولا تدعم
+      الملفّات. ولذلك نسأل `canShare({files})` — وهذا هو الفحص الصحيح. */
+-  function canShareFiles() {
++  function canShareFiles(file) {
+     try {
+       if (!global.navigator || !navigator.share || !navigator.canShare) return false;
+-      var probe = new File([new Blob(['x'], { type: 'text/plain' })], 'p.txt', { type: 'text/plain' });
+-      return navigator.canShare({ files: [probe] });
++      var f = file || new File([new Blob(['x'], { type: 'text/plain' })], 'p.txt', { type: 'text/plain' });
++      return !!navigator.canShare({ files: [f] });
+     } catch (e) { return false; }
+   }
+ 
+@@ -64,7 +66,7 @@
+       '@page{margin:8mm}</style></head><body>' + html + '</body></html>';
+   }
+ 
+-  /* يفتح حوارَ الطباعة لورقةٍ في إطارٍ مخفيّ — المسارُ الاحتياطي */
++  /* ── الطباعة: **زرّ «طباعة» الصريح فقط** — لا تُستعمل كمسارٍ احتياطيّ للمشاركة ── */
+   function printSheet(html, title) {
+     return new Promise(function (resolve) {
+       var fr = document.createElement('iframe');
+@@ -90,117 +92,165 @@
+     });
+   }
+ 
+-  /* يبني PDF من ورقةٍ ويُشاركه. يُرجع 'shared' | 'printed' | 'failed'. */
+-  async function sheet(html, name) {
+-    var title = String(name || 'مستند').replace(/[\\/:*?"<>|]/g, '-');
++  /* ── تحميل المُصيِّر الداخلي عند الحاجة (الصفحات التي لا تحمله في وسومها) ── */
++  var _renderP = null;
++  function ensureRender() {
++    if (global.GMTRender) return Promise.resolve(global.GMTRender);
++    if (_renderP) return _renderP;
++    _renderP = new Promise(function (res, rej) {
++      var s = document.createElement('script');
++      s.src = (SELF || '') + 'gmt-render.js?v=20261011p';
++      s.onload = function () { global.GMTRender ? res(global.GMTRender) : rej(new Error('GMTRender')); };
++      s.onerror = function () { _renderP = null; rej(new Error('تعذّر تحميل مُصيِّر الصور')); };
++      document.head.appendChild(s);
++    });
++    return _renderP;
++  }
+ 
+-    if (!canShareFiles()) {
+-      /* نقولها صراحةً بدل زرٍّ يبدو معطوباً */
+-      say('جهازك لا يدعم مشاركة الملفّات مباشرةً — سيُفتح الحفظ/الطباعة، ثمّ أرفِق الملفّ.', 'err');
+-      await printSheet(html, title);
+-      return 'printed';
+-    }
++  /* ── بناء الملفّات ── */
++  var RENDER_MSG = 'تعذّر تجهيز الملفّ على هذا الجهاز. حدّث الصفحة وأعد المحاولة.';
++  function safeName(n) { return String(n || 'مستند').replace(/[\\/:*?"<>|]/g, '-'); }
+ 
+-    /* المسار المدعوم: نحوّل الورقة إلى صورةٍ عالية الدقّة ثمّ إلى PDF بصفحةٍ
+-       واحدة. نستعمل ما هو محمَّلٌ أصلاً، ونُحمّل عند الحاجة فقط (درس ١٦٩). */
++  async function buildPdf(html, name, opt) {
++    opt = opt || {};
++    var R = await ensureRender();
++    return R.toPdf(wrap(html, name), { title: safeName(name), width: opt.width || 794, scale: opt.scale || 2.5, fit: opt.fit || 'auto' });
++  }
++  async function buildImage(html, opt) {
++    opt = opt || {};
++    var R = await ensureRender();
++    return R.toBlob(wrap(html, 'صورة'), { width: opt.width || 660, scale: opt.scale || (1200 / 660), type: opt.type || 'image/jpeg', quality: opt.quality == null ? 0.92 : opt.quality });
++  }
++
++  /* ── تنزيل مباشر (anchor) ── */
++  function download(blob, fileName) {
++    var a = document.createElement('a');
++    a.href = URL.createObjectURL(blob); a.download = fileName;
++    a.style.display = 'none';
++    document.body.appendChild(a); a.click(); a.remove();
++    setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 15000);
++  }
++
++  /* ── نسخ صورة للحافظة (للصقها في واتساب ويب): Chrome يقبل image/png فقط ── */
++  async function toPng(blob) {
++    if (blob.type === 'image/png') return blob;
++    var bmp = await createImageBitmap(blob);
++    var cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
++    cv.getContext('2d').drawImage(bmp, 0, 0);
++    return new Promise(function (res, rej) { cv.toBlob(function (b) { b ? res(b) : rej(new Error('png')); }, 'image/png'); });
++  }
++  async function copyImage(blob) {
+     try {
+-      if (typeof global.html2canvas === 'undefined' && global.GMTLazyLib) {
+-        await global.GMTLazyLib.need('html2canvas');
+-      }
+-      if (typeof global.html2canvas === 'undefined') throw new Error('محوّل الصورة غير متاح');
++      if (!(navigator.clipboard && navigator.clipboard.write && global.ClipboardItem)) return false;
++      var png = await toPng(blob);
++      await navigator.clipboard.write([new global.ClipboardItem({ 'image/png': png })]);
++      return true;
++    } catch (e) { return false; }
++  }
+ 
+-      var fr = document.createElement('iframe');
+-      fr.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;height:400px;border:0;visibility:hidden;';
+-      document.body.appendChild(fr);
+-      await new Promise(function (res) { fr.onload = res; fr.srcdoc = wrap(html, title); });
+-      var doc = fr.contentDocument;
+-      /* (٨ ج) letter-spacing ≠ 0 يجعل html2canvas يرسم كل حرفٍ عربيّ وحده (معزولاً ومعكوساً) — نُصفّره قسراً */
+-      try { var _ls = doc.createElement('style'); _ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(_ls); } catch (e) {}
+-      await Promise.race([
+-        doc.fonts ? doc.fonts.ready : Promise.resolve(),
+-        new Promise(function (r) { setTimeout(r, 700); })
+-      ]).catch(function () {});
+-      var h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 400);
+-      fr.style.height = h + 'px';
+-      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+-      var canvas = await global.html2canvas(doc.body, {
+-        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+-        width: 794, windowWidth: 794, height: h, windowHeight: h
+-      });
+-      try { fr.remove(); } catch (e) {}
+-
+-      var jpeg = canvas.toDataURL('image/jpeg', 0.92);
+-      var pdfBlob = imageToPdfBlob(jpeg, canvas.width, canvas.height);
+-      var file = new File([pdfBlob], title + '.pdf', { type: 'application/pdf' });
+-      if (!navigator.canShare({ files: [file] })) throw new Error('الجهاز رفض ملفّ PDF');
+-      await navigator.share({ files: [file], title: title });
+-      return 'shared';
+-    } catch (e) {
+-      if (e && e.name === 'AbortError') return 'failed';      /* ألغى المستخدم — لا رسالة */
+-      console.warn('[GMT] تعذّرت مشاركة PDF:', e && e.message);
+-      say('تعذّرت المشاركة المباشرة — سيُفتح الحفظ/الطباعة.', 'err');
+-      await printSheet(html, title);
+-      return 'printed';
++  /* الجهاز بلا مشاركة ملفّات: تنزيلٌ مباشر (+ نسخ الصورة). **لا حوار طباعة.** */
++  async function saveDirect(blob, fileName, isImg) {
++    download(blob, fileName);
++    if (isImg) {
++      var copied = await copyImage(blob);
++      say(copied ? '✅ نُزِّلت الصورة ونُسخت — الصقها (Ctrl+V) في المحادثة'
++                 : '⬇️ نُزِّلت الصورة على جهازك — أرفقها من التنزيلات');
++    } else {
++      say('⬇️ نُزِّل ملفّ PDF على جهازك — أرفقه من التنزيلات');
+     }
++    return 'downloaded';
+   }
+ 
+-  /* ── PDF بصفحةٍ واحدة من صورةٍ واحدة ──
+-     نكتب الـPDF بأنفسنا (بنيةٌ بسيطة: صفحةٌ واحدة + صورة JPEG مُدمَجة).
+-     لماذا لا مكتبة: أصغرُ مُولّد PDF يُقارب ٣٠٠ كيلوبايت — وهو بالضبط ما
+-     أزلتُه من الصفحات في البلاغ ١٦٩. وهذه البنية كافيةٌ لورقةٍ واحدة. */
+-  function imageToPdfBlob(dataUrl, pxW, pxH) {
+-    var b64 = dataUrl.split(',')[1];
+-    var bin = atob(b64);
+-    var img = new Uint8Array(bin.length);
+-    for (var i = 0; i < bin.length; i++) img[i] = bin.charCodeAt(i);
+-
+-    /* A4 بالنقاط: 595.28 × 841.89 — نُلائم العرض ونحفظ النسبة */
+-    var A4W = 595.28, A4H = 841.89;
+-    var scale = Math.min(A4W / pxW, A4H / pxH);
+-    var w = pxW * scale, h = pxH * scale;
+-    var x = (A4W - w) / 2, y = A4H - h - ((A4H - h) / 2);
+-
+-    var enc = new TextEncoder();
+-    var parts = [], offsets = [], pos = 0;
+-    function push(bytes) {
+-      parts.push(bytes); pos += bytes.length;
++  /* نافذة «الملفّ جاهز»: نقرتك على أحد أزرارها تُجدّد إذن المشاركة */
++  async function chooseReady(blob, file, fileName, isImg, o) {
++    if (!global.GMTAsk || !global.GMTAsk.choose) return saveDirect(blob, fileName, isImg);
++    for (;;) {
++      var choices = [{ k: 'share', t: '📤 شارك', pri: 1 }, { k: 'save', t: '⬇️ نزّل' }];
++      if (isImg) choices.push({ k: 'copy', t: '📋 انسخ الصورة' });
++      var k = await global.GMTAsk.choose('الملفّ جاهز (' + (isImg ? 'صورة' : 'PDF') + '). اختر ما تريد فعله به:', { title: 'جاهز للمشاركة', icon: 'info', choices: choices, cancelText: 'إغلاق' });
++      if (!k) return 'cancelled';
++      if (k === 'save') { download(blob, fileName); say('⬇️ نُزِّل الملفّ على جهازك'); return 'downloaded'; }
++      if (k === 'copy') {
++        if (await copyImage(blob)) { say('✅ نُسخت الصورة — الصقها في المحادثة'); return 'copied'; }
++        say('تعذّر نسخ الصورة على هذا الجهاز — استعمل «نزّل»', 'err'); continue;
++      }
++      try { await navigator.share({ files: [file], title: o.title, text: o.text }); return 'shared'; }
++      catch (e) {
++        if (e && e.name === 'AbortError') return 'cancelled';
++        say('تعذّرت المشاركة المباشرة — استعمل «نزّل»', 'err');
++      }
+     }
+-    function obj(n, body) {
+-      offsets[n] = pos;
+-      push(enc.encode(n + ' 0 obj\n' + body + '\nendobj\n'));
++  }
++
++  /* ── تسليمُ ملفّ جاهز. يرجع: 'shared' | 'downloaded' | 'copied' | 'cancelled' ──
++     o: { text, title, t0 (وقت النقرة الأصلية) } */
++  async function deliver(blob, fileName, o) {
++    o = o || {};
++    var t0 = o.t0 || Date.now();
++    var isImg = /^image\//.test(blob.type || '');
++    var file;
++    try { file = new File([blob], fileName, { type: blob.type || (isImg ? 'image/jpeg' : 'application/pdf') }); } catch (e) { return saveDirect(blob, fileName, isImg); }
++    if (!canShareFiles(file)) return saveDirect(blob, fileName, isImg);
++    /* المتصفّح يمنح «تنشيطاً عابراً» ≈٥ث بعد النقرة؛ البناء الطويل يستهلكه ⇒ لا نجرّب share إن انتهى */
++    var stale = (Date.now() - t0 > STALE_MS) || (navigator.userActivation && navigator.userActivation.isActive === false);
++    if (!stale) {
++      try { await navigator.share({ files: [file], title: o.title, text: o.text }); return 'shared'; }
++      catch (e) {
++        if (e && e.name === 'AbortError') return 'cancelled';               /* ألغى المستخدم — صمتٌ تامّ */
++        if (!(e && e.name === 'NotAllowedError')) {
++          console.warn('[GMT] share فشلت:', e && e.name, e && e.message);
++          say('تعذّرت المشاركة المباشرة — نزّلنا الملفّ لك', 'err');
++          return saveDirect(blob, fileName, isImg);
++        }
++      }
+     }
+-    push(enc.encode('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
+-    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+-    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+-    obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + A4W.toFixed(2) + ' ' + A4H.toFixed(2) + ']' +
+-           ' /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+-    /* الصورة */
+-    offsets[4] = pos;
+-    push(enc.encode('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + pxW + ' /Height ' + pxH +
+-      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + img.length + ' >>\nstream\n'));
+-    push(img);
+-    push(enc.encode('\nendstream\nendobj\n'));
+-    var content = 'q\n' + w.toFixed(2) + ' 0 0 ' + h.toFixed(2) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' cm\n/Im0 Do\nQ\n';
+-    obj(5, '<< /Length ' + content.length + ' >>\nstream\n' + content + 'endstream');
+-
+-    var xrefPos = pos;
+-    var xref = 'xref\n0 6\n0000000000 65535 f \n';
+-    for (var n = 1; n <= 5; n++) xref += String(offsets[n]).padStart(10, '0') + ' 00000 n \n';
+-    xref += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF\n';
+-    push(enc.encode(xref));
+-
+-    return new Blob(parts, { type: 'application/pdf' });
++    return chooseReady(blob, file, fileName, isImg, o);
++  }
++
++  function lock() { if (_busy) { say('⏳ هناك مشاركة قيد التنفيذ — انتظر قليلاً', 'err'); return false; } _busy = true; return true; }
++
++  /* يبني PDF من ورقةٍ ويُشاركه. يُرجع 'shared' | 'downloaded' | 'cancelled' | 'failed'. */
++  async function sheet(html, name, opt) {
++    opt = opt || {};
++    var t0 = opt.t0 || Date.now();
++    var title = safeName(name);
++    if (!lock()) return 'failed';
++    try {
++      var blob = await buildPdf(html, title, opt);
++      return await deliver(blob, title + '.pdf', { title: title, text: opt.text, t0: t0 });
++    } catch (e) {
++      console.warn('[GMT] تعذّر بناء PDF:', e && e.message, e && e.causes);
++      say((e && e.code === 'RENDER_FAILED') ? e.message : RENDER_MSG, 'err');
++      return 'failed';
++    } finally { _busy = false; }
++  }
++
++  /* يبني صورةً من ورقةٍ ويُشاركها (مع نصّ اختياري) */
++  async function image(html, name, opt) {
++    opt = opt || {};
++    var t0 = opt.t0 || Date.now();
++    var base = safeName(name).replace(/\.(png|jpe?g)$/i, '');
++    if (!lock()) return 'failed';
++    try {
++      var blob = await buildImage(html, opt);
++      var ext = blob.type === 'image/png' ? '.png' : '.jpg';
++      return await deliver(blob, base + ext, { title: base, text: opt.text, t0: t0 });
++    } catch (e) {
++      console.warn('[GMT] تعذّر بناء الصورة:', e && e.message, e && e.causes);
++      say((e && e.code === 'RENDER_FAILED') ? e.message : RENDER_MSG, 'err');
++      return 'failed';
++    } finally { _busy = false; }
+   }
+ 
+   /* يشارك عنصراً موجوداً في الصفحة (مع أنماطها) */
+-  async function element(el, name) {
++  async function element(el, name, opt) {
+     if (!el) { say('لا يوجد ما يُشارَك', 'err'); return 'failed'; }
+     var styles = '';
+     try {
+       styles = Array.prototype.map.call(document.querySelectorAll('style'), function (s) { return s.textContent; }).join('\n');
+     } catch (e) {}
+     var html = (styles ? '<style>' + styles + '</style>' : '') + el.outerHTML;
+-    return sheet(html, name);
++    return sheet(html, name, opt);
+   }
+ 
+   /* زرٌّ جاهز — يُستعمل في الصفحات التي تريد إضافته بسطرٍ واحد */
+@@ -217,12 +267,12 @@
+         'font-family:inherit;cursor:pointer;';
+     }
+     b.onclick = async function () {
+-      var old = b.textContent;
++      var old = b.textContent, t0 = Date.now();
+       b.disabled = true; b.textContent = '⏳ جارٍ التجهيز…';
+       try {
+         var html = (typeof opts.get === 'function') ? await opts.get() : '';
+         if (!html) { say('لا يوجد ما يُشارَك', 'err'); return; }
+-        await sheet(html, (typeof opts.name === 'function') ? opts.name() : (opts.name || 'مستند'));
++        await sheet(html, (typeof opts.name === 'function') ? opts.name() : (opts.name || 'مستند'), { t0: t0, width: opts.width });
+       } finally { b.disabled = false; b.textContent = old; }
+     };
+     return b;
+@@ -230,11 +280,17 @@
+ 
+   global.GMTShare = {
+     sheet: sheet,
++    image: image,
+     element: element,
+     button: button,
++    deliver: deliver,
++    download: download,
++    copyImage: copyImage,
++    print: printSheet,
+     canShareFiles: canShareFiles,
+     /* مكشوفةٌ للفحص */
+-    _pdf: imageToPdfBlob,
+-    _wrap: wrap
++    _wrap: wrap,
++    _buildPdf: buildPdf,
++    _buildImage: buildImage
+   };
+ })(window);
+diff --git a/lib/fonts/Cairo-var-arabic.woff2 b/lib/fonts/Cairo-var-arabic.woff2
+new file mode 100644
+index 0000000000000000000000000000000000000000..57fcd997da9cfb0f0563a282f075eaccc9c9f663
+GIT binary patch
+literal 30896
+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
+Xz5C;KZ^PlBpFP>0{r^5&g9QKpb6F5L
+
+literal 0
+HcmV?d00001
+
+diff --git a/lib/fonts/Cairo-var-latin.woff2 b/lib/fonts/Cairo-var-latin.woff2
+new file mode 100644
+index 0000000000000000000000000000000000000000..bb047662a309050134fd9cf6e9a9526194ecba76
+GIT binary patch
+literal 33820
+zcmY)UQ;;T1u(pjpZQHipJ#E{zZQHhO+qUg#+qT`){NHb_6+2?rNk!yIRc76hab;Gz
+z%Zo7sfB^rk5L^K2e;W|wH2@G?@xQkJXaE0S*g;A-fpz4#L3aESYJy53>fi?a$|`~?
+zf#ekQfDkPP6C_CJf0Vm)Fd+Z{V_+8>5F0QlNVpFuAy}v#L<AHp1P<Ig>tSPV(KBkY
+zNps=$!5)plxE^3fkxx~Co(o52cr4H#@|5)RSDuU7*kX~v5(vrhR-1NRqDn}qC<z%V
+zQ=34%P;e*nktcpvOLRw?qt<{rqof(W3LiV~q8g_tu8==>jJ3ga0hyZPHJ2NC<nU;W
+zo5@9yi{l_>E?b%#PpWV+QU9)2#5NPZkTAm)iX4m>EU3bVOw+{IVd;av-`8Y6Nb<hF
+zroIAHaQQ-)WH|t>vUBN}fdA*>pf^X5%4a>0@6q}+Yiq(9i^{W{|HS?$POPq;U5(9u
+zQv(AA+8<}Ugi|fBaoSj9`E}$I<l?ly`|q@dNwZJ@A|a_^2oj+&6N;J!36wE7q_D%`
+zCFb--)k=|Q$t`qObc;~A)?0g<*4E_@^+En`I?ac#{tMtX@C9m>LhV*#0#maR4Q|$V
+zZ~3RXtIBenSeu!u191Ks@ox^#^9?Egcf3Cxfa0m2)4;?mk+tym8B(r&tD$IB`+;ax
+zyKyH=vF80g47OR<*HXd}$Eth1p)_If?y%dPI^q$*?bAI-6x*XaVN)oQ@OU?$>$_aF
+z%O+|C!RB2C<vuMMk8*+8WStqs0qe%>{jTK~g>D3<up7b2ogie}^QRklT6BqRpA;)1
+zQ$~f-ReEXp&!9Faa0=gNt1(I$tOq_@>l?p`fD&^6qc}?$Bkx)(NeDNcTqjOWGqh%Q
+z+aP&pia|R*;wDB`C~$YK^RF5*XVJgYk3W|_nibIgbLt&k)Tn)P>I8&-gn#WUgpvg(
+zem*Pf`iPZOH-^Mr5kBW=0jsA$;+GxH`T&qNg;*tU=65~Ng>gN127VVTLt@&YR5pA|
+z4I@W<)S<$J-i{Q$<2uuf;BS$`*3xFut$*2xO$c-poj-vUTpG1G*F>l@AZ>2mkbw|k
+zAN!xO3#PNzT8LVVKr~Px3{)pSy+m2fWf5pXLM9~8iex~Wq}e+r>}`rcR&do3{+78>
+z{*?;K)Lun5mF+nmvUUb}@-IXTQhX6W+pE80>lzp~CJ~A5hprz*pWaXAYoh3Eu9Oq^
+zo*#Fj)?qctIWM1(cy@;ekDIVgT$_7@TpI}4$WT<fznNN@tKpf}bzmIUQO*>Vj%^KX
+zoq{9UQ{rbzqO;*UD}V)XLY#eU%vqae!947N3~-5U>x3TNEEb(vPJ8J6EMm^$8%M32
+zvndX4<}oq)=#oEO3i6rs%4t;aXd8s6&wHO{S%*by-$bVH7c8DAqy>_};h*4U4)?6g
+zcBi%BxUcoUj~ZC~t%4(jDu~pi9FKga6$*ZPO=eI`Tuq~oJ`vFVLkut8ZD#EfoHDL6
+z*MF$Uz0GN-h!*U~pbZ@d-kgiz>&@$!=OsQ(bLF65{hG0OIghBh**S|gk$CqP<pB!G
+zc%@_(nK4dG$)*eWX{8!WN>PcQ1p054p5)HS=Tdd3nsuV+xkuJXbvq5eACca8_VL%M
+z_@$^wNQs0*A&4SeEHK0eYKumT-*Cwf6J*w7V#1#Uum3XfoyUoUNSSI5v==j!Tu#Fd
+zJeP^m&kBC)p&)Y(fcFIeP75}W7J4^0U;$s3k9MB&D#WN<h3Q(INjRk{)O75~ENuVy
+zUurkB6VbK`@i?VloP6Wxn#fiUP7H$?9!(SRO^x(uCpL~`>i*Ow-;;7mj(1wc-*Dhl
+zBs(C>9!i#BxQN$d+MoZ)2wUQeZkw>hKX#twayZutrLsvx&CGrq^G4{)xY)q0L4fs`
+zkX8*_!3YDg6h%{SQc_j1kCSl#5{4`(YptkUZGF&Q7~@ex;(3Xb_q~PTh$d!z03`}U
+z-Sl8pG>GM!6eY7lT7a6VD2Z~;V><4nHJQ$;&<P9>=)Xk-06;(l016p@hIZWIeJCjN
+zzL3*#Nawtr`Y}500RwmJ1rfv-6V7>`F8LTE<U_fjF;oClk28KGvWfZDK&PI6&gcPo
+ztl|cgVS6pVi%&Ptt~6gCFW%1VZwyWi{xYZ)D&Kowv@HkU<Q6=A6_>xdQTLGg3F@l9
+zB|J<F?~0w{8`ra~llFcke$KUy2(GENS372D2$M4!e|ow~7SZWOW##Lt9-sPNqMY08
+z{(hI7$)ovs+rIVFkNgBbZ{MT}v!gDMX9LM>+k|e~BIHOeLFRRFZ1seI0NTNTNmvvl
+z5QBCVXmi1gXw;Ef1>(yI;e}1aLpZ6MjE8VBcA=1RP<Jbt2HndN*?@HPv}D#mGphuH
+zV4;{f?)L|TLCL-zBm*Q2fCh9uaHDOx#5qNseJ411SdFnyCcyXOVB9_js9h0tvTfMS
+zw&_t`H|_$0`&>s9$8(|pEH1`73p@scx!+K{7ZW>#92y^9bA_{gPcx(bfPs~#z2xqP
+zSMTk1u=jKDAd(xu+c0B8K%ey|PVfaYAP@c4*bUE&ZGQUh?tu-EaSj`h3<Quf2V_72
+z2e9m3pP6vvdTqh51Tvs2j2i)D)PY$+dkj*;V9{q_6MvNHe0?yLVZKcNiBs<1aGOq(
+zEd%k+c|k9;?V05D<<E-ag=lUVyLg~;`C@=820vdXQA5A7N>mZ5N}S!UO_T8i!m?tP
+zjmyS8mjWO@d}1PGf9v))xa7uQP;Qo{+Z^#_#mj${(L!KlF$h?-_58K?<P4?hn60BT
+z;M=*kCJzOUo1-ATd2=S4o+b}JIR;&BZR1%;Z=sYAj%?Bje<NGp@-FR2L^SxAvdN`H
+z7Kl(Gt7rU47fJs*#o+J|vMZh2eDL(!vyQvE&h<}!<c2*lLv$&<tS!tHx4BK%5=~d=
+zfGzoC56Q6f#phlf$&{dJ!1w^MJ0p4<cX>6=b9`X2W{SLI%Fq6@6_;~A+=?T+93?w-
+zRR>_th&rCUXRupqaqj>8Rz2(8cZXptj*kZ-C3nW_AIh&+n`xw*Um-TLw)TKPTq-MV
+z=EL-|EH|Rwf)2o42Opzc96GUPRWnG~xvv4@J&$^>lJ4E*yUOF)lSod5uKu3R&xYcQ
+zK4k@ZA85(!uzg+$3g)Q(`O5L&r^?(qZu_qN&NNKdwY;az<%Y?rr=-nPYjJBeRW72L
+zaxD;t&w^h&^Tlkwc0!M60YpD(9s$9zYIALXwa%Pthw&g+I3*p)ySjNYU$GP>zbz$M
+z-HB>tRmw=0>zXgop5)SIsl3REIhEskkFL5$dT%jrpA|eesu!h!aYJ6wljpJ*@invw
+zFO{L1YTvjjNsyDc4=ioa!yT@0sT)O*-FrS+&R~4x<GWA>g|~V3&bBWWU4J3@HrNZ&
+z-w^x}>fe8JN3b-+X>>g(KCZrSD$Dyz{e0$R<SZGz<0=ITuMxi_O&TF4#RGkEJf<kI
+zmA6k<=)p#-`{2^%HHaV=#R`-wk)pQcytkVNLD*sN>zTsC)|uT1*?xL@DO;N3_I}@3
+z`4P^!=M<^$F6YyK_CsmW2ZQc{KT7lp%dHfeQ>{))-rCGZaCmR*aCl#Hz}+-q-L9ag
+zPCcycQ}GY|My&dLJ8H8q!(x}_igONh7v`PUJ{PAi2T_cS#KCcT?BWXe#AIli>@!oZ
+z&6MG3>_^nV<2~Z|*+hjCM?uRe&)WOE@-r2pQOX*||EUIXv{x~sWX5*J3+EOL5WD6*
+zfAZjWk-RTXB*~!K>CMYSq)!5kV79nYnZ)3gycqCi-8a^*E@fiY(-B|vL8fo5-97y`
+zyRBx%R(>VgC)2#Dn0&QVx!I9l;Y`y5_>ZWOa&%HQNqS=18lFQWaiHFci^|c}f7FN`
+z8$cJJAkCYjdk6Za1E$A0t~U{X@Q3BIKZSfZO<jG5lp(rbE_Dq|>W#qk_Xha-QFvUp
+z4xym7u)4-$T6SK;rw^t(ZM<#2u|E4u7hkzVuw|y>^S(vJ&pVF+mxwP1`i>#2SN(}I
+zB$CzYn6zq+3S65TKI*Kp$2&DjQ&Dk)+B3s_4QOT@jig^k2uHN+7tRC!r7F_Ne`&Zk
+zp6E<j@E4~CbV%g5R}X7jtxoSXXD$c<HucBoA+=7%@0-lLLqztpX0@bq6dM|cMB!yE
+zP<lbl@YXxepY<j1g<`9>#!0<ad6!kbX|%VuZqG_l(S055_>tLkpt@IP3%y?ONs-FY
+zM&!%EFIHn*&G$`$#7l!5Wly*CHCLMBcBP-);^h{tN`g3Y&a+31da}@VWn*EZGS47o
+z*s-Y|<qO}Msi=L<ehz&bYDjLAc2v2QWC7ZdD&@0sRAYPY{OPlnj`HfLNtL4aIJ=N5
+zw<=!6-TyD`I~rJwk+1=v0@%Q#$dQsXGKn@*i#pq5;}MIarO9foR<K@g<^$HMaWb7t
+zCS%^Vo!3hy>-1?^S$ZbB9TwmT1GpdYLHzAk)PiINhK2@3g9F3E2nvS?XFw#DNDvqt
+zA}lF77>Ni~P#B0rfha5yDJ>c*PWz9I8{(GcE!+wIrq6=TeGLxM)+n&Sj6t^u;DQmz
+zs8_%$cAiuFDF;ZcNLYCkVCPC?q1I>u(-B*u31^>gjtk*+>0*YLCXB}`${V~i@SNs(
+z)_LfKB_}i#6qXj27L*i}kY}%L)62xI2i(gc6G<^*vV~VfS1A7V!IuYs*Z=|`MPh;h
+z;aq$yPViSe$^z#LiQ2m4B?q&&PHyoqJHASQNtr}w2>=O&<2W4|858&G_4<;t^c<b`
+z=0yKeAfNF~(&_g@$~*N#=?FdhE9S{q%zHd66o_)^e!S>ss#|xPI=Apv-6-qUihmVG
+z<rV*NVl8fU#=w>W<B9!*-Sq2J+o8Sm5QhBpuUw0W2#OzZ4LUV{Mv!+<BXD!TSoXkl
+z9o4>5os*bz%r*bU_<Cv$g9gEXk*rknU-2QPWiCP-Igk&OO_)|8&99kf<7Z751l<VO
+zOKj@o$A}%d#!kM8ISrO$m}B4Ln`0`@><jw^cqQ4C-W0Q_CCLUJCGf&b*8>VmE2hD?
+z{@A<m_)&;^HXgV)N>}_f<^1lo-Ow433w*ac!3QD_04S)3$jEz82x3wbbV_M}9#gr^
+z3HXVo<QI+pX!{lt0m~{Td!c<$so*CjffFI$^;Ru<)*s_UO=rF5<mmou%P+Jiem{ND
+zfD@qk6y4<nCH?9G3U5n*{v{)pL&JL^yM+=)Xv%#d`+kZ6zyTUuK@2_ss1gDIr_*#G
+zaRh__L`*tiT(dwXHP2O`64I}#-Q%DT)Qpj@3=3c*)lhWBNPxr#7LiDRNy)P<>{m?f
+z%_*H^ueXy*Q>%0YEC!`#w@d<qQ-A{iH|U_n=$q;m8eW1-2#H*{xIiMrB+#4-l)H+m
+z-~k`!Iz)LAgo!14rBtTj$Mc-ZR^_=n-ELUmH=cEOlDVZ`EaK=N@NdBo`|LpHZ2^!p
+zIo`qv|BltF-UCYl)39q^!l#ccX(hk_8aTReM~j5*sHCsKKaXjofHp{grjyGy!<Ml&
+z)NKukpD)$xKlcK1Z~>M|R%;zy0(!^2m=hcc-`K1hmE1{bPz^$WBggGz{%&yn5Ujbt
+z<~A5(p$qyv{Xk@v)s0{x!A5geCeco^2g7h^3jFJ7=qgChg@<ew9x~hYe*5#^3InZ;
+z@6q#PiEHR>OOR;jfPsAwJf)TAsU!xZCP`OEbJc)Vw1dKg;~?n_UGUa<xzwFTy07iX
+zrz7dUcIn6T=#$FBAxRx5Tn|V@BEj8(IFZ=R=?t}A1YrC%<V3bchq9o%@I9MrT*3c~
+zpB(j)I6x_p6YsGVz#Jgsa?WHhVj|rPQJaeg)IdhMW(yDDJe%r_;(7dQ<NZacDl~G)
+zEj~kKsx+3`I;~IvT%}85u$I;dUs-N=9RzS7cn!cw&i-_g_8MR9>X7(c@MCsyXgjA3
+z?S^F7Im&bTSMla|9nD7U%R2Ur_DP62a20$YnvpkRUmL#f(}9P)s~-{s@;|bnXiQ**
+zVP#Tu#e*ctfsDxF%@H7FE=oX&Ei$lqjkiEl0Rg%czrvoCFews_2QtoZ>QX5E=E}I%
+zgP){1BlbMr+U<bMVVSzEa9jjM=!{gs2x$K6D!~gETHv`JY)4B8Jfl+3H<bduPi-xT
+ztk(sj5{*sNR~b+hX^ad#!Ul)LJyJYoPNHfTMj{H7Ov_Gz92rA-EK<BKQ4elBR1;wz
+zM1C#M>qMU@?srh76#GsRuc4l*C`{+Nykww06l-4GsbxsnK1}b9e02@l<I;Urb{I#`
+zv;K%Y5Ru-?bF(+EVgf92L2F+BX>IeI)8sj%-dLyr`c~IcUcpuM<o=kd3|}sUJ{13D
+z!wRWLGD{DN2@XcU-71NOcONL}X|pSNCEc=xlgKOpnF{4DyK@@E;v`K@NM!f2{E$Z0
+z(&trKu~j4KMH1jn6BZ^TaTX{ZZp{J20~(P)h@rEoL%<%e?8lYw0F-HgE(1rnz9TIZ
+zjt?Rx17^NRk1b5CClK>E)hU7hZ>wha0+}>#&~;&{m^lTez>2tzPi1Mn6|9cr(sCda
+zCmv^dJI0R6t`_afNM?jQ2`1@&Q8yrGvk}&Sic_KmHF94N8tT5T+07I9e*{V2(W0&6
+z`ps^&^o_%^D$;HKT=aMTEY&%Z=kaD>Tv|j=4%ki2UMIbx90<dX$8I*)N`WuL9FWxx
+zr-&qk08Z*k1XTqJ|G#e3aQEgyrU*QsRE#l~sh&s`<o}gmG#m^Q2IxFZ{S^mA2PPf?
+z?ekVxWEEf}f|r$mv|g-Gt-5RkB~C;N&9N9KHLB%6T1%0f$qzqzpQ?jGMvlyuv;@m#
+z1M5pxVwQ-xxGK-uDxh1yzF@MYvgOH~FB}g*T9Tf@x>8#;PAFe`cGKg;m?Y_U&@GJ#
+za#{m~3LuT9?3cLcklWxX=T#IestUZs9jtBE313=LE(4AY5xN=&WEs(Nwc{$Ex4~<9
+z3#Bun@TG^O-2<6biB;Ie5j0i05||^m5YL%xdQ7+pV_H6;RBplwt>wc*PJ^4n6vUux
+z<_8NT*`_hz5UHoI<mlL~Dt&X6+63f}j>(fklL5X?W;Q4Cg;U9&7GjM^2_p8hPttXl
+zaK${-e#7)}YXmW=#rp~#_XFGOzue3<eQ|}8D;X)5k1!@=Ri2DlwFH>;b9LMr+!&lH
+znsuZBApuDbjF3~n{QhfRCsU8S5`PC<@82Ebxv_`3Gq*RJ*-D!&M;Isr6m0#AoS_7;
+zAz3OEqGyGdOOix83NMRWyUXQMA9irdUA069)o8L*_LBcMgmr~drMU`7AfP9y&WSva
+zFv4A@d0Lkh<%9GivF7Z5MJ$Xbg2Nw1-j8-pR8g)ae>Vp`4q(EGnP(p^qk@wq#d!2B
+z0gzi-@(b+}c0q)R>vGVyCStH6VYP`Km}iTo_<w-ohC=eLUYUzZIiUVWD=;v4;Ic1X
+z${P`c1depPU1`5{Epk$zEe|mXdO5{92U7p1evgfz&}39B`ud#c<3xRl5i+GSuaf_#
+z#L#NF`NG@1ZH^K{8uDP>P92FRx-*(g0y&d8`tm9=*9o#+lg#q_o%nKSjGP>&n}2C=
+zgoA0c(j7&g{bY+OpG;!P{{ZW%>^s*64ILK>wPor3#w7s@Dd0j8v9`|XSTSd~<kAv(
+z_7V)LXzY}Z8Vwo85Tmr(^pWYaJcWw~>B%v0(ftYBDWdX%D|tJkbjqI84m<i~eBAhV
+zTbxs&xL{`E7z-j6b7DG;sO`;8n)HPuPNb8;ojAo5Io@N3Ie3(QBGH+TON#Kr2Oe=;
+zNdfU)E%6r~54uece-MUklCF9XSO8X<ugC>?LT^YLL=(1{gNpl)0a$z0dWnt5ab1;{
+zN;8G|!s(~Mh>HP_8W=tXLe$j^@ryf!WkJTeS)RoX_KV5m&hE14@CdC;&WO^&=<B%;
+zIqu#}tt)lpP`t9qGGEwAcMt~lK(<F)rPe9q+M!}N$4Rpc7pSaL)l|U7vNs};g{YCZ
+zQ|JVDyz&|u(ONhNi)_}VZ%opLoTP+$J|nXRu?HgeDKiXAfUy#%0K!lq;n$^8Y>&{c
+zZoN~JgmNDW61(c1U-mhY(C`%BiO4&3p)_tY9?$+UR<J5v$`K#VE~+e#-1rfxaR-Mn
+zR{+Z~<YH~SBWPDGJh(Y*AmMCtzL`?%yd6E(o^2y`HHjKpKc=fuMvJjZ0Xwl<%8QQq
+zU1^`G`reU8pg3WI0xat7{BWs*v)1{yi1Xw^aA4#7<Wijh$rtzz8xmQ5!Ts^fvORLa
+zyx-%H`ADEwadE`7aS+F4MOyQDCCblOK4_2xF5{L14KfD|<PD)78bsPKb3G#b--yga
+zGd_G*69lDs&5$JN_W=v&Jwt-7#zh>UqW1ZD6Y+ocYbsq%yrT+W#V-e{qiDx}$SL~_
+zF-_^w4+#m?^o-^$cB!63fXTOUra^IcjQ?w&L-ilIaKnbbe9a_4Rzg8jpQR@c2nRqy
+zIRz>aD092^^rd8&FAQFl()xkEp|EMicJHU!aF90&td9Rla|r8kqE8a<!yR>``XsFc
+zveJcEUJ8I=$7g4^$R3)lKO*FOxP7Raq(OP1%z^9<<jw1OK&|25T`xZnnaBsCKq((%
+z*<b{mTC)eFQyfN!C@GxUm>Z@|dFlC;N(VuFqY&UPONJ@kJmlZT5DA)l1x|bM|L^UZ
+z8d|7sWFRpAFR8ynA`%P96a+oO^Wg%A5EI2<8b#vJWY-{9u6Gt!w)=fF1n9gbM!2+W
+z`k!}Z*MQ6NR3$gF>~-X0uJ4g<so9Us)Lz7q^pAKXXc`uhilogzhp9Emnt4X;J~%j%
+zIUZYF9-a?2;y8mzqFLv*R-;5~2za+-HW;n;UXQ1@O*}Eh|Es6JrRx!fC8Mo+(Z-4m
+z#TGQt^EO%wVZmwW$6{9Rh+Fa;&ny*D;`s_a<Ky3)(w6~`=3_i$c9;L0rs-b$hn;q0
+z@aLGm1G`YU7m;T*v5VIZKr3dXnvfRDIsVu+x;x%U10Pybo#3WO<t*2ubnK|=%!f6{
+zI}*IxM~H;QV*?JQ+%CEi7t1pZw}YLP#7)3t)#5y5we<-x+BHwmDY(xOhAg;0*u|&x
+zJ|O1bcm>n^??jGP1E;9S+BEMkCCkZiZ@I_Gi)+g)exa)3)ATR`-T~iCgL`V8TpF3r
+zzm;{%0+-k12eY&rhc1)JL76jYaI@g)UVuf87g&f_4)6ulyvu;1H1}I2z3v-9xLQ<!
+zx^1{I*Jm)l0d4O+N}kY>;k0$2y+V(&V)o~#l4n5ha1sR=+tEW&AJx<j1iRkC^{TRU
+zbv9-MuT?y$bZ&+YY$x~@)NJD@x~=dwfoSUEsTuF4NcaQbl)P7NhN9l5N@i)D3vXWL
+z$dAoSWFL4xblauE-B`=y5id`U_QnPY-|qiMvR)^vBcQv(Y|<-IHF~p3(okR%G-t^F
+zfgt_(?n48tZsJprlDX({-HelNQ66~r*Zl1;{<giDDZ#0qH3fNP=6~c;;01&^OTzV*
+z&y%o88RITd#*LCY!(i9EkA-?q3tN%>%VxOuXAFYoA&+_abU0!`I?^zMhhT07M7`G0
+zl|*<Z8ZTVOHU4LUr3i$wCd6ir#E1+enJlI~fexR^_de=eu=#?$mXSPoOY&lH|EnBm
+zarbOO$3craFdTq{Y+`5{o0XE?Lehw7p31W-&6y<ge~j)$27|*$;K;yXBl<slt|CzR
+zcSDZ8AhN{sM29r~Yq!tXWxCReSE_-u`bnCqTC)@vPC?bU<HI4gOh@~g>pypOIvzS2
+z|IUEfN!GTGNjZSh5LG*mNP1k*CoJ8xp_7ywadS@pcc3jJr@A_l)4BurhLZi4>7t=6
+z?@hdOiM5Q#NS#nRh3Dg#vVsY3hLc<f1)Q8%Ed-pPkfI?P{4Unn#Rw0-3DVRx`Qy1^
+z0=$)h0`jUWBrP|zc#sA69{mhbi@s9=_m^jhgLxvG8eboqtH5;?x_$-U$^h-QFhfVN
+zr5#hh>+Dh=5fhxz%@j%<zgK8kDzO!<*^W-xs#^RO_BCgOLvJ~i8=5+w9G=%xCJ5#W
+z9>ph0XBPJ)(OE0VGLW&kAb@lmQ}~Io!r7}Psc9M#J`lRsP<cHcizTdD;ok9fH$FB!
+z2Ca{x>T^RYnot}IDcE%sVbBpifew<~0t%XcRtzg@GmCCo7MKdRIFShqVxLGL1k`gN
+zXggDno?O7uPSdp*rOunk>dHk%uxt>Cb*GHFT`Fl^i*St0a5l^4c_dYJ@Na^{kjd(x
+z$`oLSNfby^q$%qJ9>}ROx`>Ei@nV8{Bn|Mt74KN&D1?>Z0B9Fv?_=X395mp?Wpge<
+z(8*LprE4-Ypwk7#+~Gi`C2rn$Afi%}8NJHT1)qc(TjqbEGr@u)9MVCSzI9nqK3Es(
+zzicf0Ez?`+_lh3K2*zRF#@5r|wk3t%i!~-)VkpcFGB}~NC<F2NZ+fK?rM19kl3AXN
+zp#N<$$Zr#Z!P-DM&zCG1P13BeIzrE<kcZHZ?Na23g2bYG7jp(dJ8!g$=u^xfZ#0Z&
+z*3~rkLgjGp8;dyRaA5PZYE{en$BYvdXavBt-;M9CMQDZgv`af$b{Xm7@B!-qb@<Dz
+zIa)|oCz}g(QBh~%&M!=g9glrFiC6nn+KAruAV$DEoPS5Ver^%XCnjUvCOmh-7Qk@|
+z97eeOp=SxQOxW<$()PBY>7CupJE_V79Q{mFdLD1(7JGfVy)*aIhz%NczHy`p?jV8a
+zNc5@6L`nyhVE@Jgg^xr8k@Jn}n(&f%b_SDOTpcm2rk0?4r3**SXA3k<M0mQ{w#SU`
+z-B#ektTt{@899vfKLrYY!z)@_7OY(p7fk%X)OoVV{}v0Vly@b6uwXx8q_G4tvGN1p
+zdBI~cpesaTk^zN*45t6@O}75Zce<T|tohaMW<=-=(wIr;B2gz-Bd^p|-fSAJ5xxA`
+zABr81-9H6x7uf5HnaI`_{rfBFa!}eWu*vf~v*>aFL)~#ma6$P!F)%sUFxy0B;`mV_
+zj68N^3Ox`a!0Y*l`bv?ni~N=1I`_5?&{Ik2gko{ZiI|9(CouEAhjHQeMoD#$h*wC7
+z(tsP+8lBKkYQxeiXSuy`W!6vTi7`vvh6|H}t2{~q1!UUR4rt`KK_ZvFjAG7iY+0GG
+znps2m@@)dBUv-7m^l-C2KEz6g%5)J{CAv3KWJFX)-kcPh75V=HCnlU6D>ddJ06?@6
+zp(m-8#KK7bFMCba!$vtrP8HQ#%)&EF#w+5MuRsQ5wzeTJ^U;dQl5$eDw=pG$e>yr7
+z;*}hMLWd%nS!p)sf7?wPk>)FDSwda_=~1Gf5{Q#WLrLC@RASMSV;4^^k8gq0Z}9;C
+z)td3g8MSRm!!{;M*;t_u{T8`p7Yv+Py<aXsv0~(etQa{&Ez0>hr?psq7cpG2xG-f1
+zX%@dI&kG($d3fjJc`I+<N9w4xK(l=U@VVn`lRs<_DvQZUiUX0t{RBgbG!hlJw71F(
+zxJ4aDKy`-l5jhCLyw@dFL!&rC!SY#P+&(!PpRExpaJ-lI7Iecb&oTBSL6|Ujc%~ze
+zGI)YnHBeMSsGPC^cc$Ak$Md9*b6Hv8h9Mqf(ZR~kc(+Nq7j@*o!9wbiQ&A`~qjE&l
+zsE@rH5ThEEsso=D%r7Gd)_XC`0#AIrq0x*?Jx)BF9Txr9jkPdchn|;0a9D=ZSpbRn
+zk~z6x$gYSItEOR!Z(dH$l*FG~3t5$5&Ehg>NgcH|Y+o~L=Hllk;}p}>gH5+h#6Uxf
+zKuV%mFss+g^%X^qH<D!Rs@tebrs^Q6G$Ud|ja11;30Z6sCkavQoi^G-;3J3}L9H{I
+z$G&vdf_wiuer-EF9a~<Gae?P{AD!4fz(rN8#%QFLadV|z4N;!3_Kh0&f^!i5g7j!~
+zIEgx$R%6iYdi0Nu50{Afuvv4g8|;3V#0IR|F)iHxmf8OVy7IHWD$o6HcK5g5y0?Ap
+zp7P`THuL(sea!WA`-}D1*RS}C#r>e1-imD9{uvU4_-}OQ@q29<bp?IR)g9c;>{;g~
+za^EB;NZHX+hpYSyHb=F3mE3x%Ww;Agw~c7iWtNn&RFmn-Z<VCRD0>S3B*Hm`tJ3+V
+z%k?ZY`(U@jc)Rgdq<vPm|ME?ZV6W3>?eTj$zSCdM)~iXS`*AhY%Xm;v&41pen$r9X
+z2ljULS)#i2wD*)@R^JLsnhc9#j<x{o9^hkLccO>C@?9cFOsupVBqtc(iNZMpf<;{m
+z+<K@v(zf~&Q3sZSdz|h2wcl)`|6?AvJs208KQ}808qnu$3rKkTN=u}WzzmhZK`N@7
+z1KX2)c=OGGgHOyEB7wZ+f)-fUz32uwPXPYqrvW7l+_{r$nFAe(2<U(C*z*SgXg$oV
+z^RNL%3f)}r<da4r`z96;CIp*+yYySxZ|OJWyFM5BhocAHdrSvnu9)8zo|#gd9{#?4
+z5nP~DG(e>|i1PHf%Vd1~84%zECA(HU<<`>xBV>--{OYzotJOSvB~>UqvRV!d!ZYq@
+ztvze%((jk4qC|5lUdG2nYW1g7i%z<kTZT9-M4|*aQ-r4R+KyY3`b5I>$37q=Yjv{)
+z1Eb#e4Tl;@DyWWb=C38<QN$e|QwIMP{~dq(lQRI2&Nt8#`;YKxes(>szVfbpDR%kh
+zGz$zc;T?{wIl*lo2h7*}+-cj_yrk)$$z+@VJ*LyJ5h6Qg`%r3K*I~762?<TjMNW^;
+z7f3iL6q1w>Rfs4qDJn~%8Kt7Nw|SC)^V&t0n;9z0#vKkEI+aqbP$?BFHlx*IwN@z3
+zkk1zk|2`?W=6gWX&vnLr_I(Y(p4&L!=>I-e^ZRw~&-aqq|9#=jz5NhLMB#G|La-4B
+z87eL&5L5^?Ff@iFAt4e&6eH6C>6AzxnMA4=Bw}gQx-gwEDKS1ULaiUC<0*wkbC6Q1
+z6|CjDeW`o8SgVXt?<Wf`^5k*&8^>j~Xecft2xurk)G;wRD&Q#P$Q$~Gs;3Q@`ye0m
+zYycq$;obMQkYDk5>4o;ey5SAj3iVwqOIc=z2<#v*xw}>QDbd6LzSo0y$Ok(g2LKA@
+ziCejI1@e|^_Ps><!1rVunel^j|616#b?IQq3uJysfc$*{=W{pWHN4TQ(nu{NM!Rby
+zh_kGtVpo`g!_g$E&Ad0}fW|2>ui=`^WC2V|8Pp=mWxO=D#7rBxX3LcVgIG)@f&qab
+zck+%AP7LLU2N*;Xj{zk17BUCmU4g}RWGRV+;j!nzTfwY}^%V;Yy66&t0f+&EO&_P2
+z-FwQ~N|Qc9s|-zuO2=J_5eW%yeUjs>fpEiUKrtJW0@=XAo>V!+^Gn?RfcfjkDnkzk
+z01@L&T+mX-5duD%dD2M^)S*Fy#h;HnpjCHvEwFj|SYwg|O+9nPUOR)NfOiW<iRRjj
+zi`ieX+;9@Bc#h%0Jt=zYm6Qs69T3gGo5)sRuYt@tcG!>*KBd(`FA}3?i=`VP@4e`9
+zs48oxt?QWqn8Mdl8~t?amv_+CqOdm1r`H4}Uy7EBly55NQB3g}p5q747KDBz#zPaO
+zd4l$}Ujkbolm=h!SVqSMUy-_!4hBMTlz+h&k)X;%`C`=0R=E`RXqDz16Q$5k;Y^BK
+zy|kE@g=|%%#`cAy!>G|DfWTDbWIGE29#sb+%zqB=L!~jkLovx_f`-oC?O;TkoBjE<
+z*=i#)Om+UP>(H^It#c58-e7fDt`0ZzzH@QyNJMq+S)gVVVlc^$5vNi@o&r|PXd|_-
+zs^GZC`#)Y_astpwdo18|TJ!nYb1l>*5wR(8#yLAwkDdkc+xNDoZnm4$=ORpakEC^I
+zUn(<(<pvDqXpPa~o&yB00T1}!t2W!rJ^2h@x?<#XL=?QEu{Zwh)1_4<zq(Md4D|a^
+zNRFY}@$G0Hr0Kj#kG&S_YMx(4qq(-tRE)H9PdD4&R+E$V;(rk_8QiQ9b9FA33Irds
+zfkU_Jsui;N$=TaUPClE-DEfEDKD!fHUnGc!5}l+ae|^!r`1~S`oY@SGW&+=Hq`sp%
+zzCYW8T}HfGK12RmDvDW@u`V^0isdAPpAwDt)b=?=Vg)jmJa!FUCNurakG*TYsG)F*
+zD>%r>$6`)(BB3ixn$2yj27;1>^xG7-D|N^s+`o=5jb2}250-?SXf;Q7hy*tcZyA(&
+zp(i8+vze^VHFNLnO&f+%)>gK~S-CNpa-Y*uGW=T!dU&F*yi}~kTJWla&+REnSwoHB
+zvc|Nqz~ryQ(GBBE$jd-aIibz_sXnW69)5zrG~Vy>Eap_P9+Iu%G506-AZ7J#d!kv(
+z{XMiAt=dc-f1Hd7+sH!H3<smKky!~+{`VHoHxTU_k6@zgD83A3`}r~ZYZ~Hve}%Cw
+zKnss`^S%h%@aq5bm8TSEp=O^MT4PBIzw`5Tt41v{pKcZBzl2|1Gq9ey^=T#i9<X&V
+zT?N9T^0uViY(F9C8=5jRH-Ok)a{WRV!<L-bLevfHdoD<gy!&v2fwAG-qdvF%qj{;3
+zQk&5HcQM)u#<-v1{<45S^{nnQYKB5jK(FnNusCCvoMGf%n|;Hnk5;LDwoGr_HquOe
+zMF;Zuq*QlbG^P=p;ZOGbCdYlK6CA#|uRg|WiPK0${@W>6%V_sz{)Tmxek~9|r9$4H
+zy>X%SlvoQm45dP6YGM7fl;UPubS_?{2l3^6v{m!?ych7Me%8@K$jlC}yo74ZahP67
+zQ@-5ZL;QYZnkH-a{0kqo<RykXSf1p>ZE*of3(UQPeO}wx{YuS$zd<VMipEhQ&7ra<
+zPS&Nl9xB!!{3*9e5p>y34(|bLz$-_XE7tCJ+Ls}$gJ%tY1>EVm<J_v9_7(4bO{mM4
+zk(1K()CbV<*%&>%MK$!9h4p30@m+S1%PO`OO3`3qjwC8<G^Z6ZJ>z;t2Q4d~ZPv>6
+z9E&sEX@eSyp-(Fra3^NEyjjTByNBf&u_e4X&TH6jQK85l*2qAU%~iK>1mhGMPaliZ
+z-U@v5o}VNWpKGlSv4dq9jx+H+qpJN`lz^ZISy+rLiCz8}H*o%<X#J`zx#~MTU`aKI
+z>BH@ZXmPe>d%}2vA>$Q)yPbUV+GL!TKQD4EQrG!@-v<<+f8=gxGkUzAA_H`ZOTdd#
+zP%^7+{QiB3ja`}u!S^(4uh^pW8epAIjjFAkG3UTQkv<=2M&hK+65*-*nMYqkG8vP0
+zbKM7nK<*dcMb45xg5N$p?BV%@p(K^=V45X7)qnRk%snmhI5zw0KM~ag+HRc-ytMkd
+znWhOZL7|O!-HY`0tt%eTuZN`2{JxKZHd}9*$9>zqnzM}vy<UfeD$6fefiKNJ<_f#C
+zqhnSUVstX=7&~4`Vul6D)T=Z(-kg)}!lTyMxNW(m)t7^EacTM>tYPyAy^#X$kBWyH
+z+<<RuxWrYbf4j#B^hZe;sHMyBafy0_R9%Q_$z;Qcu(G^O!4-aW_ZJ;17)t-}pF_ZE
+z|2;2`p?SbzM!7V0+V*97+=O{6s+Cb0-$OWQIY*}}=n*|EEcF4DcAKR<qq_cy)<V7t
+zLuBse$7=RG?n?|&!h923i;q=vF!j-SpzQBj$-#jVd}~f3I~%@!k+hFRHF16`5M_UY
+zP9vyf0+!S9DX)|3_$qY-H=kuCbAgYag5d;yCJ6mu%v%R4giGF!`QVKF8EDu|7;>3%
+z?U@S4Z7B&62f@Qx@5fHTF*UbB_xDx!jD<xb$Wu|Z#D=^!y`S$*4i0OS#9{4aJFGBP
+zL9~vtPBU86^{;$qY2?59rxY;Z6Ri!=|J<a=VV>d`+eR|%DE<4a>i^xInQ;n#gr(L9
+zURS@Tq`w0_Ge324O@(UQx!DGHnZ^AgMgw=Nb$6~To=Q(-s&jQaB)6_tg~MeARam@k
+zTW@S%(;^IWwN0UVqYingK3>Q|P&Vb4^9#s2vH8r*E9qlJ)~{A?^a6Mqq3^AfB@$&v
+zxQUkfns>@_W-@O2HlRK8X0<Hjy{>q!94)jg&}3S6IdhsvYqodNaWvx%+sGUsMErX?
+zu4EK(E$9747qmtJQa`XduDY`VX0vl{D0c4{4h-k2U71K+Y(^uV<KC?MRyvpICRS%y
+z4~*VIA>mKFyKKs9yfIf5&N+$p3j9G?$^eEa=9g;oe%ccrXtcF%0~-8635Spmc@ZD^
+z{A~j9i;xQYYjA#N{uFGw=M0?VKmGIu$0NCe?c;>z)g9n`1|zK+$Y!AqF-7ky_s&<C
+zaHcJ&0B62ap4yHnw()6B;MD($tNah0TIzO4TLAjh!MX;m<zJ-JrjWI0aTucaVxL1%
+zUDCK1FvSc>l82Mn*&$~!iGqwujm>OQ!Rb%A8nDByPtM%}Myl|VkKb5MQ5d<jLw<Qb
+z;(~-wN!lNrN<L&^lhAKMLaGXwA2YG*%k7Q$)bFVW2mCbi$@mI94a(@`(Sra=+U+8`
+zN|V|6bS8|L3Y!(=CJ(QGHhk8;qdCHeBA0%N1EToXl_xVX@eo4g%Umt_)l`qg<M6eC
+zP8ORw=5Xf?HPdd6%;bRF&`3G?b>hKcCY+rYUNO&>+Gd)64qh)WQ%j~V<t{sum!FH6
+zbbj|WeK9(MYBcR^Z)K%U`R1!r^fmIg`*CpjI?208jOfP(#t_1rwMXMuZZc8vSS(a!
+zTbzDLr}EG-4<W>4Jy<WSUz|u7f~48}-EH9hk+JK8HA~?WS-duv&%$?idn7T5KN9)@
+zuJ6QCHz?HwV55<0q7hb%IPQmuL|kJ28Y#_Sc3~`xu+Ld_Q}t|JVWwPBHeXnDvfG&p
+zMh#|X(?02XYnb;}n>f%Q;r?p)uY;w9jMp!C;Ilgib;E&U&L+Zy1vpC@q%wV}$J8*O
+zI(hmVJ1Zx>Z|u-xa>Om#6cZmmGAs6uQisw6HaEgI<&B93GqZ-AcBzG%IG78kB{SjF
+zWo5b)8{;zV8uVmg9gRl;qVQA_B$Nb6G0H$m@dI)G4<cmV<79biScfW21|Uk9mT81v
+z0$K4r=@wkq6kSj*tgwltmpQl#rN{&n#Vqs&m6l3DvvHhXdas#G1>=w0Ds3P4?gunP
+z6xfjIMTG=I=|YuoM=AjuoakFzV_k0}aybBPJ+DJ7{<Q9%T6FBUK^$$rBKJuSWWFbG
+z4t_DentDD`K3X{+4Hk@gz6s7DAg+t_Ue(WBh@4dYXQ{!N%TtUV@@p^EB^Wyv_%SAH
+zwR!vf!l58OC7Z)+EA*@w#8nFl!c4s)Lbz!RuNnqVb#K%Xb{zM;>rLXVlc_Rn4qp;w
+z_MSxN4iYU*h&E$0=?QBboWtELSw+e@8jf31P<DjYz7x6Ohiwt{pYJ)Ckg(IVxC=fW
+z3z8lk^(2%vL}q-+@rN(cn5A0>;a!`&%#GQ~>kDay)NlLuk26(j|Jk)4jp#wSbd0ay
+zhjPB#T=E}pjy-yz;jyo{DYKIhHRDtq*GVi>I||m6D&)=GPHkHoPy;lTtWgx4s$)D=
+zZ~`(i%_^L>Cpx7~Rq{ZOi^zEKq*a2jc~BTQi^hbkx6Bl1^H3upRmFghgWvL5ZaIkI
+zypVn=x90EmJ2ao(Tk!Fg(98gFg?n!nAd+?j7x#g#4{VqzPjA%}YW{0c3XIex|4b^(
+z3OapuvpP3#82lHF94|q6lx5F^Vy<Cl>YhA>!K<$28{~TyXG_h*lJ1t-Wo2VGHF4=i
+zjCExp#KC;Opt0f$Oh4gue^xDAwbw@`h0j(H#|lTa^CqHCS$%fKh7gn6{$$50y^=Q$
+z!rzk$W10hEd=~$i>^0B}?K5uY$LbchS_b+ir`fWeV3rm5PcAv=>Yh>_4&KW0R}-%0
+z!kfK}Yo!QGMXrT4_|I+V-jYV8<bQWzu9aOFY|5g^^-x|nABRT4y&5UeLIJyA{S*l{
+zhS`Q~4CR|Cl8A<44l>h2{e7PgST6O6cU7=z`106IF#V}|nf+ou@$bUY%$d2DC4CiA
+zMM*pZ7=a}x6f|qQTQb!?Pjw(~ARJmpe+H?-_<OI=u=Lf@?OjfwQ4G`4Rct3=oj63{
+zw%lKq*n9}NM&pWHjHHH@Uj061CnjNkW0Es@N&lctxO<=D5&qXVCw>^23h8Mc!-l5l
+z)QFU#YtQMZ_E6T#9ETHK)%xq*bn;s9D!VURpXl!QT5}bDG?Tz&epBwgtE!C|gtFPz
+z$K2W~IyrYjXyyDmw+5!l>WTz*NUxWc9)NRGn&HXL5>m80@{{ANkO)5*xSgzdcDGKF
+zcepe<o1nR=xloa(U=Ir&mPFt31QV_SRZ~i;HKDTev+=OU&~_>K$xmu55Vllhr6gm)
+zOor(Vr@#DQs3FN9Y#9BHai{KX9b-K>{|^EUJ`6QBi!}E{_A=6T%;^%!d}^D8AF|XV
+zuT~7TltYoM`me5SC1B(2+U&)RT^!k{0}BEbZ=af+v4k(sp$tv<2v_t*5^0*h-6ksD
+zmT41Lu`TRM%GU|j@rAdG0@m}vma(`4=XV=Jh8@*<0TiKTu;TrS(#qi1B`B|&$uY@3
+zzW-a7IXsor-|{K5_Kz!mjnFtwLBagU{nz19#tzgjZL@|!KZosS8|@Ur%)?t+ol-%Q
+zgb?iCl#)A5(7dS3#y*2RHj}OVEYp0crXOkQhcFgLmW~LlzvQPKP0NIXqA+olE0`*+
+z^zQ@sKk{{$6Z(C3*SzGp9<)7Qd|#gfzTsDxrbB%bdE%BFVlqAbJ*IkBJOjVy7mqh;
+zTpqTMCKnX({GLi(`<Erc2A`h8p1(A2c*En5<#;5!y>LuyRyZ>(_<r|yDuQj+uA<3?
+z+$ww0qRML3a~;ecm8xx}dE&j{v5N$#Q?xCy0#<}!nt!NMhq!`FU9v0-7H`}>g+g$g
+ziz&rI6bOvcb>=VTq)3ImcIpKJN>w4R`3|nT&<BmYD|A#;l!&mAkZG-QRa>lFBKJtH
+z@}+FyM;^yqa1|!z;)~;AAuML3KLnk;{LS}gAA4K}tU8}Jr7tQ5$U=F&V!kb!$<W&T
+zB9mb@H;q}r{TxE>;sX`8K|C^QC_#$lNV#|=%JMVvV>fTGm#$`4ZbNIB93yY2@x#h`
+z6PGRj?MS0zs6?OqAYX*^e0~QGxzk2;)yRR7lDK__#?!#}J*~MMxX{wDK}1X>ie~a{
+z4y~PaH~WYbhC+VC{FO)h5}Zn=b~B>CE$~U0{Rx3tlaO_!HL$b%6ZoLvXgxB|Ue;v5
+zhFq7N0-3NZKQk@jojVz{81+zK+<A$B{->_lGG%;m-s;}#K7c?NgmDTBR+x~w1H=(P
+zk~Zy+ihn-Z-U5Q3rXVPGqO@${rJp&%w@c4J{TQFLzm7Qx>EGCNqgYsVNTXYbDxR9^
+zDW-E*YCkX8uVmH&CQq+YKYW2zX?t8zMrt#_Yv>z!$``{T=zLjDMr!`$#gVD6xeMgO
+zfXhE&b!THCUJF-iCf~zrb&jK|&$xzGgHhRAGq@{+h{BBCh*2m4Dayo6DH5KS&x6*(
+zgMoE?2oC{4LdqNz%!#YRb6ze&PjwP*tRl5!*!if$uJQV*Pd=(or`8P@^ShHK(Q<97
+z;EiSCl{e)QX8BJSVrSj*!$=LB@C?);i;2#jA(TBHXr{EYhOshM8f$!(<+qrX&On3L
+zN^q(8^cL6|)8<{bcj&U~X2uJGBBfltL3-WG;gRCiXWA7tcOrZ<vj&pW-Myd8*~b5&
+zNac!KUL&wtTyjKLct5riRyzc9@R7Yzg3?cSihmpM^PnO!bonnP#fO2&vLOS_q=8q#
+zZJIzp0Z#45qL@{`gg(R`<^E9z^vev$1?u038pS@{M6%S=>Ql$qYrf7F=3#p*rZrx$
+zSbM`osLMxQjrz#qC#_t_jMW4Q#b6Yt+2ObAD)*bEA-gDrDW_HT;A5ttiQ*qSV^18i
+z@FsuX>`fvwT2p2-z>~m*2x6N8uZkHyFnKTa2wru8%QT(vJeY14B&=XOImbQ_+OKpj
+zz2<K5xBrp!c(D70xSR8g<PAKvv(_HC_dg1qCwoZug+DE9ju*~EN<<3YQL6cFtT|j{
+z)c5^NyZ?j~agTIGx&1HtoIR82J(QpS8_3z%W!r5wV0@l3k0bXh+roc$P3g@e)MRtc
+z^X#($_psB3SafU~UU3|9Hd0oydv2bg;M>Pq|8u_vv1bD;3)`OHIyeK&vBVSiNLwCo
+z!B#h9{>HlNu-9CK)4lzS#T5_~kB)${_T*imEG<>h{H{E5L-m7G<d|cbQi;xDN^IU!
+zaYBDj|GEd~l-g?A_I%vOL;Z6-o^4WWqek9RnarOw;!5b530a))Zb6x3NQB8rZj@?_
+zqne5~B0`cm1vtybR0j=79wuANVGO|%iapTVd3<2aW0sZ>9?~F|dPSW`2U@y@i4sC>
+zOF$m(ZvHyi(mA<DG<y%6NR-OU2U5lq^G?28K7Hiq6iitUu#HnSG7XCuJXQP?_k@W@
+ztG)h{X#S#JZM#3&GD_tGO1{fV+WnL?n7uPqZxmL~m#r#rTLQIq3nsZXO!qnXDk=Z&
+zKMrgT2f@C{P#+~zowfRE-f=HmpS25q2#1tt-x876M6j_gsGf(C0e9dWlNNaCfMAd%
+z%)oKKw>>iRXrTCut|ssfj^DS^tGTkI=i>D6oK%d$^&xA_u2V(L-%m`D&q<BB%OXcv
+z2A`G!`-4MD?}t&8HvACuU^)uAB|0`alB(e}Jjy=`I}>%i39OWAqet5(pr_p}q^n%6
+zxwTuksi4`bv@0=dACx@*o-v&=+8mAcCuUrq9528I;=)lJY4mAQ0x@94HDkH84%rZ}
+za;09AGpRgnC}cwe6-8DdC-YW&r`cV0`}NwQlfaB?^ES4T%%5{;8q*54(-z`1cJs#H
+zNUL_p=Wjb|=b{$)p_{B$I}PLW0;I!|NGn%MuVt|!ZoDbP5ars%?aejV8yggk;45;5
+zRYmhlpfv&(e7|)ky5!?iFGxK4tRHiJq`8tO@*{D2;YT`o!M&7nrc;LE`wp^db|M-3
+z&*tukH~teuwK?C!(KRX+LA21Bs<u4uyQLO#G2;XA3#z6TPG%_aB9M^Tml>as+*6n3
+z3ux_GvZG#{uE@K_jLT|S;B!@~p3b0oRTc$n3_}53CwkjC?Z%NUuBDaJWoZ3GA#k=4
+zbqg=fyR&9qI9V(tFH7NpRd+ECmo*o;NW9Pd21qyk#HVoN&CM`=n6b*@`IPw8gze0=
+z5S?~b)%(DGVX0&2G1gh^#^Ww~={`ZiYZ#V4?B5GK@%}Mqh_JKT8MkO(5u79i{J%2<
+zE_h(^4N@be`9G-{&_Q9iAaTOlAl|3C`nj7rQrTFsOJ?Z=7p>I#d`WJ*MbWvwgi?-B
+zqjlG6+1%Y^xMCq}p1SCGtk3;WD1ds0!`lQIEy;Hi))2E95f`WLG2oe8(vV!`YiMn=
+zUen2L=STfg7yWM&!iJ<`FW(W1W%1k|YP2Fsr)>t*(wUi3i7<hG!2<WeY65B}m2pm*
+z@4Y^CkSRYD;5j-eUXpgatd9_xFBMd-!8up*PsS9z6!$K$b4q>R&N=Tx$vQBVLS<vu
+zax9A40Owvy{Kw5(6pbzzdF5SivN%sWv^oRhYk6v;-m)kyP7TZ0W<=D+xB}3qZj(PB
+zB)Ac{nWiu$`I)g0^B^^{Kif9SL|`25zQK8}toY(-_(m$Y6CXiJt)Y#OoZClS!Fe05
+zN1ZtImj}@s81<&|db52#ATj($TMmq*7&n`Z&fKP-vv}Q)ZnpJV7Oeu07qe73K6RYS
+zQX_4K0{IaH!}0(9kw;l5j;j?hH2r@7CqUT0<4p^kr>*(U@}Lzxm7o6{1b6l=xrkky
+ziO;-@U7nddH|shEOD3sv`$Z(C*Yf#}b1gflw1&kZ3dv#pY{#jJH^9dJEzQ`#50Iie
+zA9r7g$5*DmNP<%w{(FZ*a|5KLQMG;`TPn@orq&-JaXH9h9&e#5FVD4*$6JhOZ|3t)
+z3~^EXIXM9_{z6!Q*LQA0z-&j2znYfV;Jp1pOzir+5#sDf{#hq-0ghwZ3iFH=LA(?z
+z1q%Z;gBsrD-$K-bYR%v=@~qFu&|gsQYd4reKa_4}jZ2eF-}{91<q#{ERa?&+PTPEo
+zz4>(}(7l<oks#wYX7a3L&arG>1C2V4uBcNQB;2_|eKF`)BCGaSL*M~MANi{?5&C%(
+zpo!#`OTP#OI5U6YBJ?V7S%?S|fc!RFhl-{%a7uc31T-w0KV5AFa@Uv<t1<ttcBv7y
+zn&dl}MjaSpv7ZG83=Xkb!-0Vd<9z#YHZ^C*ylC6!oZNtaKI*0o|8!pT@|y^3y!VLU
+z58JPN;em6$ouywKa`d0Cv%iM*ABxY5xO?T)Ee+420ybWv>xqYrg^QkezUmxXjETnC
+zp|UCt2mq4%zT#Z^(3+PZdT@Vl{H|SNc*uJ`c+exCmn0th2y6jrz2iri+kG3mcHV~u
+z7!#AvQoy<0pCUZ?P`JC7@BL;<qH|<Q<FRLv<_l<mpCskLl*-vBHG3CzK7$6Bk(xcE
+z&ihFy>3>9jKaRrf7l)fKTW`JQ5bpo6+W$U#TGGkOXSU|^73M+0j}?0Drj=c{cx91k
+ze;>dLxBnb&{@u5}kyWPt>z%Vkm~W&Jjg_jozR+v8yw>Hc&JJvUTi)YeUhCc8^tx}o
+z^x7Bm)t9i(z2IXoe@f9O`c$83jn-<N)@uVB-$eM>Cz((9l+RehTGp|i4SW^QMh)SU
+zMwItw)DFDvPiNd+n>~Bi41cuGZbq^R;))df;1m`AUq(r=8K956@r8e}t(mVXI5LC?
+z)*b{vXczwgMgRbSfrJ2{*Kao3=zGymH(C*j7V$o&?H7Eg6`TOM!=(|uHj(WEx;7YS
+zN86Qw7}`q+T?dyW4D`X9kELdGvre1nryH&C#XnY{!%R{1(}@*SqX6^}Tv?uxo~4ay
+zHlh)=cB_)uFZjy*C*J8_M=6SGqO?~>29RSxbOa!a$O6cI>f4<4Ju}0z0rIO=B|-1d
+zDI3*nMEl}Z%sRsqMKu#N9T4>+Q~+-?AAFq<08<kR;~!V%0FOZk{+cYu6Y4<#e<C=`
+z-x^;A#5*U#PQ2+EoOrj8S!im#GR8k7bHHN|g1;skpC{CV0RBYq^!i)l%fO&H5$1;U
+zpZ24UxtHJnU#ZXHiVtT!bC;3n@gSY^zE~e201zlZ59bE}=+OWGWRjQ^sn=zZ7af|w
+zSv;>y)f%%j%e>ZMG1`E7(dW^z6ha;7Ec6((hAY4=!mY>s3U?(<aM%6o_(A+C{3q~V
+zBcQSaze@OfX1@3_;s+$obFb&;NL{4Gq?bsaBmI_ieFbUmL!Uu^k^I|=t1Buc**R<#
+zdjR|FDnI^*l;xE3tCvvUrhc9JGwNTcd)9E|C)Rr6CF&vSMe2L#RrFT+hxEU#-M_Aj
+z{v*b6#@=<O*A>^*XLb5p%wgu!x%I4#EH<xl@8{fuf1dLt=NFv6Z~AG|l}-N5(Gw|^
+zpmtMdQ&&<4Xn8b(c93?1p2b^A-^TzW+8N6r8Z;eR1g(a)LjBMQ=o0h>^da;O^b7Pr
+z;1{Nl#}qPE%t9v23^2=>oy_^njm$%=bWu2~ll48D%<f_janb|VaI=E~xNNSHYv;ze
+zUEG!21Ke9Y5pO1MId41fO@2;DB)^0o;Medw__O(I_-_f4LPvxkfG1Q69l~beeBo~4
+zS>Zdv$6->@NKv_HifCnibN<utn1Ug3m-tT!OM*z^lF^deQmM30#*>Yc9g^LUeJ{H&
+z=gZCVfV@>cN4{4+B!3w#REQN96t@*aisvz6Wt;MVa!{2L8>BL+e5z5ZjjHd|`D(q|
+zqdu-NXjWx5G(b=OApjD5fZzwvuv|SItqC_!ekYVEA&6N=jKu(=`;rd*^2F0`AD#Zv
+zP~*`RLEt_&0*iW<_{wL1Y}Wk4et0l~0VH?;1P=h(RAA5$jIf_WtXmEI5$alwgt744
+z%VmA(x+vl~>hBO?M(hU!A-^vSM1i)X*FoYRW9iqyMuvBWK*;okj{f{WooOv?v6KFy
+z=+1_`hL8Zc5!%fUWvA+nezcW^$>a`1&2bnMfTA-IA=Jb;5#M^q^sPaE`Sftr&nu91
+zxW40Gs6+qI1^NF0NNX2ab6p6y9d7q77*l#@DoKtlI|`DBG+f5?6AT}PVo0Qz<q%T7
+zMSzSO5te*oBQ1o~nmj=0s%=7Y4oq}(4OK*6HvMUd6Z^0H5a&Zgwx_E*WlKeP(!BO+
+z^~GdH#ke4kyRTPX<B^US<M0C#_W7=EY;dBM9<0Nz+6y4FV;JL&N(t={vEA0&X<1H<
+zumOf^W0uNdOHG0an#&NOo{bp7c}U*w#o~dFR08NE6j>>%Akik7FuX67miRe0LHQlW
+zB$b8aKxX6#jqqtTP70jJsD>{R9lWExo8axWdRb6mS&s1J1k=R2r^XrOLwXvT`T_s2
+zU*P+FFZZV}e!UydJb(YN^L<_v^;l^b&;r@lehdMSB4qyB{C)o$8deDUU}1A=Oq;+e
+zGJpi_(^~~rBtbP|DUuF=W?<oxFxHNCN{QS_g~<FFsT26GycN%f+Za*BHGS>1`rFbB
+znhP3cgmI9a(uy*|5KjhX)TLjhN38}s*?m1)<Og_Kt*{7|bt@~Z>y~ce&>+J{+d8#{
+z?+eE%hJEto0}0ZOp-osjK@etWUr&IaEqk~e?+ixLK*~4XXib#l@CUf4WkLBKFphCz
+zEAIpl2pGgyZG{4+l_@rT*U0w4%EePzYUfV3`_+0%c6R*3BIfr#XKsTiw4To=;i>WO
+zoh2SAMtM4jL+hxYN{&b)z6TUyud}3xx?Jr3<}e-gXk0Zy*tzb0qWejBxd9CL@^S#T
+z!~KUAgwzJdU0HZU@Xn1n(y>^3KpTNr%q6P%mP`U57fq3vsSatllD78lcq;FQ<_?<U
+z_l4AL5+yi@ZA}hwl+SyqjpqH~SWp*)_!>_SA4`1_HNXD({QS@St_dG486d|1an=Zv
+z*6WAX6v@|GwPme)>8>F=`@1_&m(GzR@~tn|&x13G;o*mCr-w!*$iIW}m!w~I@1~3A
+z+yt*V5Ee|4UjEb-z)FXH@-h{$L(PK?a_#x-0T*b`98Xr;?@?qI&5>)PD6%eCcO(n=
+zAyJ#fL|cz&!gZu4liPr;bqpnyu(TuA_&7MIiT&ECDbek2)>s<Y4${8`>iw~H!(_^7
+zuNL*s*fO;Jy%bmwU=m}7gt6<-Icxvl$9n|W5QW*PEG;`k^NtdC=EvQl3B${frUrj4
+zdaWBQhGbE{Nn6yDm7nem$_X%p6#%JBqp>#yqrI5Lr*jxo-1+Tt4nb(^n;G+=-o1<Z
+zc7b|r%_)KaK15*l<0~;o7#L_kJLOSiXZ|Q80Li~Mv{<%ntMR$<n{GES9d2n1QDr+D
+zSogaM-M5~zpKZ;+2Z4atn2&E1s$<5vR|x_H5Q*7Kcx!b?CNqkmeUl+z6Z6TP+qVSn
+zf74CP)2f8g^JMEM&2$ik@+H3mDlCK5<(jCiw-l8CO@a`$!-;xGfDZRegzXXKLMaNC
+zthBb0QYa63#3;}FsbB_JIPVdVQBHdZgr0zd)jZ+D<nX0TqGl_TxwD&7tAfDs5gTqv
+z@z1s~$p;4C>#LDHzWy$eAL4JTeDC{sZP-UYrf5Kf-a`Qxu*xkE(TU8XP_k5(@OM{(
+ztdTt8*RTzq{NN6qJXaEPZM;H0cu~*RKPt@R;VTsL2NxhOLkQk}^(e&qCVuDXXNvm6
+z!;CU;XX$V1AZrfed@nX-w-N9NG2-{|06bG$O_Ml^-Y`znw%2#O?vUSib~TZa9JPHU
+z6-uh(1A22YB$?w=ltv-6j+z<EGrOuTYBS$0suVBb1X<_;NOv<)uKPITcqFnXZj+S^
+z+l*)CZ<&`?-3M7<@L;b9x}HCIvaBT)-@x78XsJnoi<oV6jkjW?VCd=qOVWsn{(jHP
+zKR~P&?pZzF&W`0H7yS~y_&Hs*%MWIIYs0<OhCFn6BVz&$bA^cxhOt#fRBGTuka8oc
+zB@w0#N!0}4q+B$-^a=@V*w`o&b7Sy$?9}ry(u%QhP<10peZoD=J(FD|0Kv@FxhF*%
+zP8S&MGE_SxuOHx@b5V;F1(YnQXWa9IR0T;E0&opSMLWcBME}Zvz2=Ov+5!`|YG02X
+ze=fRKKKyl%pUC$lqeu2^m*#3Afa|d5cInCGq%E}dWvo~#iP`4|O7mMrv=t#D$=jDM
+zl~G(Mj{WAhm0Et{`$!SWFfq$nGC!1oe*L*LqGBzX8gAR9G7hv0l#M}T4kWYYUXo8N
+zNHPD}QIG$Br}*wneCc)-pa%xLi7~<(nZ$_g-whk$1ik2&3a%j-LITVP=gfLjM>7my
+zq7x=sAsr!coF80t7u+sfeRk}+ZsZ<{4YzgwI{?=pSYmUzB3#VUXD<UB&OgH8X?WS*
+zYB^+;5<$cq^%^qeUJ{3<Sqb#sXt>_<LsC+*y_yNVDJBrQi9!IvR>0%@B<-atq+#6T
+z$Z+o<iXZ56$k>0z8XE<AjAEc!fqO<Cnr1~Wjqm*Z703ap-zQ0ir}QS8vHnG7V_KBj
+zanCTMOCw4TW#{lrYB=jcyeG>3`GWpFwy2IquTGaqrKL5k9jk_$qbu?U{DY*<=)XE{
+z^5WQRXC;}>B%?Y>r6<Y2A}Q6g^#s|$UriQ!2#_3S3Vzd5c-rHm{y~4Ur6~erAmauF
+z(YDYgwtD3fn&NUraw-(7hL!f{kbuMcr5!a$2Ryn97eL2wEb`@hkrOv20wop1FtuFN
+zx8)3A<?xTM=O7cBJsU1mKk9er<lZ{TQQ9c?vq+|+eicjxo&x(%2ojig=5&y+1=uNK
+z!0lak+CYANc?^P-QT?LL%RsTSt{nj$HiQ&OfH2CQlEyRi8!nVz6YS;3Yl+g328<mc
+zr<Ha$+E1ThATY}Q`HjEGL;hOF|NoBTd$$YX_dsWTbEL2luS(A<5wN_f%dQd)yx`pl
+z>z3zh{nhE7d)53V=niTGd+UUh1K9@s>LW+LCvQ&vNZd!1H$n3ZIjQSkzNxRuy_W|l
+zpvT-aZSJj(@jUP^5P`049d4kzi|QBzE8`dTUv31K3-mMe{ipRxkn#pu;3&QaTpj|!
+z>^I_lz-Vh3qaf{h2E<P$puC-%7hx->F|g7AK{+YHTgsT<C2m}kT7bdo@q_r2&W8B|
+zeDi;={}jZ8XW?0UyDm&&QJ7VdLnO0Q3Bs9Rd`hf?IL!oEAjF|7=l?I3dX#(>#9S$s
+zPVz?itl=lw@_8Wvtz_gamKTx+HF!Y;US@bj-^!wC+Gim5nUj5SFtfCi!*p4Xrbx~q
+zwmWzy0csuT={<4N2i-P2626#hAz8e(s!z8ZJX}(4LXy>hD&x0i9|HV4Wabl0!~DT(
+zDyuM(S7Ow)&f^QqigL3~Hj!{4zYXtEIC~pDoO$w86h?$mQX=e8_asNaQGXS2kLpC^
+z5&Pi_@CEzCXG~&c;-!y)5rUW{c?^XnikpPi(TLfW)YER6IAeK{QBYdW2NE&cG)u=6
+zwd$<q-aBUt=!m3FPqFZ_y3xMq#l*Oq(Bs2i7%vBTN2ssk*hdV`iUn?xoMM`tq$_aH
+zw7p9Pa`qeqGtf`h`&jFe5C2F*EtMq+3>O1Zm*G3dnLxn1#2S9rPW7XSh}am~P7P7K
+zkZiTzZRi@xU0&SPMd>Owzx7tz@kR>}PLCL7dZxtV+w)ICN(&0U*u>y|r-@!p1y{H|
+z)fgj*DmXv$JwC6*ZZqgr#WI5V3+Q8;gM%-<Ms8orum;v}yQ8|HS`P_Ia*SbTCb^AB
+z8<I;w?T3EqWi8+{rb>K_<J@87lt8q?OSlk{U@=V5Z)%?ez#-E+S*|S@{$6uqRgTV*
+zn=fJ0DCYk4o@bC7E%x7;{4zD%>!gTO+3VsiK5gXWO)6@9duO#`e&@Ax+VaY(9{pCQ
+zfUpWyxvgPol^CtLHcE?1jYT@f86BhxHX_n*M9~wH!kdJ|XG7u3SPYF1aTYPah=cHQ
+zd_cmJ<90LL){#rvsyc9g4_1@m*wsqrIy;jpu<XJR*cX9GlF&SliX;l=`ggs55nA|M
+zR5JDuVJzD)388*%PcRI_uy?*L8$4~JFXkX^$&z$a+rkwnK6XVzl0@35!##@aMLQ%T
+zLW+eL`(S+xwuU%%yiyZh!WmgVBn>*Aij)Hq!y)T>w_ZnS7>uN`)zc?We%{%8b1mg!
+z@$~<$ym@7n(tUStZ0pWXhPxdLvEA{>NKJ+UL6Y>km{n`E!?$<3iu2ZdmXYd_@{MI}
+zcPbw4g1hXcf{<J(s;K8=Rb+y|cy<cM@LkcA6&5O7z0-uJ$L+%d;1OFT9=#*5kz8f%
+zV3fq8Car*6x)p}YiebUga6iP)VnbagZom+5F<K!@)6I<?!<9-yTuR`m$pD^iYN{Jo
+z3~=yqc-TQ>bP?DkwsHxZfWU2^Dc06!n$AWYsh(?CeykyW1FhzG^tzFZET6a--%tfu
+z0V|xQ3hB^|V=!+TyF<yL;9SI+DYvsPgvR`o21ABaNKINA`{e8<P_U2XWM7Hu9!Sqa
+zx2f+WCS1tPaxjQ>b`pHC)fb6}9ny}$!MhwyqBEf2;3SCFLW8C`xwjT5*q3?FzUcGm
+z4=T$r)O;ugvJ+S`MHULesx>o(|B`V(hVhFUq&kTIp`sq39|}#Gls?MH#>&-0U$TKI
+z(-@XvG&V3H7z~cE<~cfYUz}$7>5R>dobrwaU0)64^>P|qNNv)VjoyNz#*HPFCL6Tf
+z2=mFeNq7@y6c<Q5mqjAKjC<5;`wlYjaH=1NpTe)4#@0_bXvI#_EGR<yoQ9S~v)qH{
+z{7}^yW{1WK&V~s)3UYvldZN>nL4n0QuVtTS99Fw!3p>+YdN&NfyWA2YNgG(JnF)yy
+z5*Dv${pG3hff=HZ#ARuv=&6lzu#RcHb}I^aVaPr9Y!}mYKWmpT0&uhgEn14cZy=f#
+z;8Jn%G*N656oInH@Ek8ly}ggt79z<>3bRwmTratBNtVT=%fxZ?)(K`&j8&Yc&nwY^
+zrHJ}SWxR;Z?U{E4%!G#=kx4bUYwQM4DYX<nfFo<evVr}0uE;H&FoBfwuwo^93Z|YJ
+zn$86CYb};wKZgcf1eM~cZs&GdOIDT)E?zRT2G066`v$s0-At`FNlG+5HnvRB4u*uo
+ztzVWTL12>{6;~l*p^#$M6*T7j?K{`2kBV=Gzu(eWX-i9AVt0zBJd0vRU3k}%JXpS_
+z>58~VNE=EumR-U1+(Xg(lk%j55AYjFp!JsC?2awm0)qg5`TKJ}NXJX4UI5$z4vaAp
+zunGjB4#QtX@T@@wtOJ5Gi+Gh>dpqE1FqZu5XbTa-=_@IYdi`*Af$JmXbz*WZ0d;XL
+zbaaGD4?PqZ?zvCEqu^Vr;WVa8-U7;eW(2|q0js4xgTjTr_qWAWoHW<?ehc_GcKQcx
+zRr#4ouzcQfSLE$u^$QNT4QZvl&fJAOyW#fH0#ZnDDlT*v5Cp@bIw+?6`gPq#b^F{^
+zmpohrc}2V=4wh5lCu6I-TLry|);?hGcT{j4?t=Tw6(n$Y-PNj*(f~NC3tc7k38-f$
+zl4hW79v-clQ~IM;Fd`9pKu5I(3_a}(%#p>&BHK`9W<cWJtGY6(8VqpiN{g}$I&Cfz
+zO!qCa78;Ybuf$UiudgUAL5Hdf@(R5cA+7z&xwLiVJy-_jLUrZNPNqlaZKM>Iw=D`;
+z!NsXqt^!%N>O}RGY036^J>ExPF>pc>y38xDRq;Y%pQp^4p1IUsQfTs<7sTZnQ_Di(
+z5?RW4inMGMv<#9^x#agChh?zLt$jiTRk7@w7>~x7F8L%>+>0LLa5fmaG6Uu|4YZG5
+z2b5d-8pZo*!wTrJc<AVW(q3RITN3VML(4BClwAJ$OhbLZ+>~<f@Wsu9GcGh7t*}*A
+zPN*xT@m<}e;m_`PJ|*Ag@|EG**6toBLOz@sawbZmc$Dx6e$>AvM_eQJ!!~%RJ{*<t
+z<o>Z$N8JLOsNu0w%OBi8EQDtKZT;(j^SdK|_2<;|2hk`(Tp?}F9ZDT~=AxC`YRd>a
+z;t%j<=uPvvYMoRd!4p}N$&|Ipk?^HaI_FZ_z_)S)?ADe^C@<N(Bk!9J%J?yvbK23q
+z!spTR9giZrqZ~H~>V1cutQUzyf)aeRhhJAR=9x<0Y+{ZOqUtLnjj%&fYv9qRbJt|S
+z*xi_XPft%zW4dKE)PAzjn$;=*f~UVaXj!n1E9&s=orR(E|Glr?Ayuoxt2T9Br_9iG
+zv>fXp+CD!eafc?IG9_l__z_b&2!MwSoDb3aDkNGVBJpI46oRB9gssUJ7?O1}e7xCJ
+zWXiDS=Y{Af$gOC>L686QuDi3;O26x>P@`h?4lL7T_j#(uq+DfZh&`{jUJak&mH670
+z`@immb+FFp1<Y7Jy0d9a?6(r!_=m>woPkN99{Z?eJSVjSj&)Fql4#lf(auyAGP|i^
+z`%Gt=vh!dUlvH?bZP}xLylZ`c9WL~ZfR@C;JubX6!$&{gV!>2G6(XhH)7~0||4NRu
+zkeL?5Z_X<+;qY!-Ea|whTMvwG+Ir&QAeechm5RW})C$HVDWN`z%CqVQ&dXy4TgPE$
+z)?xJ5xm;V}sK7EtS^B{0@^U%(i%&do93QCnm9!XaT<FTUhs0zCDPviR#o|+4b>$y@
+zn8s_Cudir-s;>fnh<1>yVw$?d_-#!Rx}trE_r?SbWt0gWZo4Yb$gcCOrdoq~^R6aS
+z`qfv{3djLGjvjZkjRKsXbw(d0-KwgzQBhA(p;JOM)>(}sn~^l@Mh>PjWX6diw8AC`
+z=g`)$-IQcmWJyb&dxM~JL_i_LRF<_zOOTUzZg!941<45P=9_sErTsY0N<3q<5bjyf
+z*O5;pGehnnh_0g4l#VuLCIHO4ctk?-CqNaPyjc2VyH+Z~EFYu>QW5^&7e$44Tr&wr
+z?k`+9p6^2D3QG~b2G_Cmn=e$;G7VV}qP7H8v&be9Si@eNjx>%$%So<JMj8p%5Q3zr
+zwoDPo;S4Q(>`sCs!H6DVlOQEfIM?ZyR#t{0@*QT<4b`u*XsN(1XpYn2J39-az!y>q
+zpVMp|Gzx4WaWHB|um)a;X-~w;5@mJmI&u(H7B^p^A!K|OEsG$A+e(|-&_|nGcqGYc
+zF9k2cd)!=e%v*YIZe{f?uo2cxkDP?}VTX@l%?KD?&U^U`m{<`pR7tmHkAA!7+_}?i
+za^cFY$sOzGBmXUdbwT=e&E@`o@T03Y{MKFh^~YbXFrvz$AZwc0fkbl+UWM>Tc;s}j
+zFG5&E4R5hM*B>ib9c2TlL-a7|5)tbX*4Abc1deg2dgCqpa1dh@0SCc{XIM2Yr%rs#
+zBZyAUQ(us|HRL`+IEI!>>VOC~jQo<?E4F&^(bH-l?DG*Ef)H?TxNk#1QfUM5bGjeX
+zrg;CpZKo*IT|8nrqmD#J#S)?lc}r6k+<v=Dwe1z(ukBp6DEwD)xvx~7SU8P<3&-e2
+zF7ZOEyVkuQja3AKLo3oDJqW?n!$Baumx3uo88t36^?d#gE~LV0;)q`X2gctir{ft$
+zcww9Z0SP=q{u}<{&oSVr)BN9;4G_Byj7CUU{`nAru+c6+^b}YJ9>!wf+A_d<d~o2|
+z9U%T^J)1r%2xM*`KfgH!N%27UiO<c)KXH2h1pPkHb0c&<1r*I|)){<xexO63Ppn$V
+z#qPPAq`LLdI&g5{DliX(Y@jz@JyqVvI<NeMRU;pp-s6MYmXoDDGo2L<4(0+X*m=+U
+zuA3b^H{Jq1@UZt`(I++z)9Y`HK^WzI|NLSuty~8>2VzIuzKwgD7(}7;P(^T4*pr2m
+z!#hJD2z|lVPntpE0A?1RJWDo$Mowb??E6eH);W`j9lsZE-(-MR9E!vL!3%`1ETQah
+z58T_de9ao=XzfvlA_yc-`y_?8#U8aqR(xb@lCYbyVs@Gk3$jhY@&{}KYZ<0#7${u`
+zOrtb1X4O&zN^8?)Na9Gvk`2Rhl=*ZcUxrm_z!+RdDK(ykh@=>zI7x9$IL+w+Sv0@B
+zbZQO(INQrj%^R8<@H{sy4pVI~oZi2ue?V0gMHU5aKBcG|Zs%Y!Zs{tKf)41i)d)**
+z#d;`~TpjU*^@V^s;1QOkGUfsfO&6>YGLmT)5{*SRL~IYkteaX)qs=lV+@hl+cCW?-
+zl}=)<7Vo_a3l@Z#>Athk?70P6gH55^+;f=@LM4GFXijuPYEM+d3`o49$Ll^v@pv<?
+z%qe<sp0e=p1!L)v4hfR82W8J6!U^cuYyyuLQg<f=BP-z;y+7HJ=!IQ=cI)L>kzdOF
+z$!nt<y$j2l7szk2@L|jxu}J6eT008A&^Xb+tM~ev@**g=-^+}mJ+t+6b$CsahY}c&
+zI;?rcy}%ds&Kc)J?pMiw*t>E9{e&I9L9B10&v31Xau|T6-i+w(Xe63!g^H{sCIKzu
+z*v>-o)g?dJ%AZ;Wt1xrr_7n2kJ1DK_jW#yQPGbLrSEVukvd-$4qGZ=kR8U^#MKi*D
+zg@wVOQGj5=gU$N2-+aHz_nI$9N=C=Vlm7*jmmKYhjAZ@HYmdU)(K|ViD4Cdv*u*RI
+z;yNI4EM1(#1rC%%8)K~~i{!e;>vn`a=pYf%2izt{-K~1uZbfmdt!WbWIyTyN#OPJo
+zUeyyzq*h=d;y`mnyO25&kHohNk8>f-8Gwt$Lhh+Zn;&oB;bTOVN0jA;WV(=J(1eM8
+zXb*JgBf{8zYiI9(5`*x;|EIgVZA57TeknXDIw4uCOg&tU<J|5Z#WYD{UQPc43x!;3
+zP+)-A4YLe1w%U9DBcn?8v&4<=={f*l@7i~!{m<hA`+xYPgUfAHf(-fn)hql<-|{Vg
+zxyt9X24MqiYw0~8V<lHq%~*N8w4xaw-}IR1LqW2-0X!^*N-YsEzu2J*u3I#`ewn7o
+z;f@{(O$iJ5BKQ!+AZo`L;dP8s9QM~+4OBX(^)KeSj>CI{ha9$e5j}4j@HjVAX#j*w
+z{YG1R2V%_a+`XZ#u~`MB|KplV&kbdMnYJx8rEI{w;C^_px?Cq_>Bl;_hARUH2H&Qd
+zP0Ddbr|3eM5Aqmq2OLF9eq~QlP-JU6eOjN7gl|0LfoTUeS&k6lkg&jp6_~ojgSQFD
+zF^C>bOtJzGZJ8n?e`DP3L3d+?Uc$+|BId*O_XM08OgyyJ?aB*<F?&QUR2CTlSt<V2
+zn79OD@1po*Kxgsp(&L+3Q;5S?Xlof*^d9zTbwC8`r0s+4(Q!moSP|g#u93(HL=BKT
+zjvYDNy^Xvktfim|HkTIp7kru#{`fbh3nTDuXPUSuB5YHWa1zA@dJ744%BdleA#`;n
+z`)R@^X>tM+T%^-Z3JWd05mbb55Cyu_+$i#aDkXgMv`6fawvzg^;zf*7qn3GiW$fsL
+z!u-TBU5T)KjF(jaI9U%NxMl+pETV$|i6I(+cw9wEi8ZW0iiniXm9q*42xqYD_zN5!
+z>fPh{d;#1ce`*I!b7?fO%N4Q$TR5v#V*!rAJ-(v0AeMf--K^CRXCb?xRw`A2t5>|Q
+z(Xlr=@APGG|MoKp*~lp2!smj)kcJ5>$72|p6BQie0@8Fj7|=<Wx~FVHb^|-ttz$T$
+zXs@LLT@lc-Au&LRzAK!l>cjIPgR{WF3*^u?#R;PrQ3(ILGc~_^+vH^ktBXZT=LopO
+zlk1;OO{?A*-swI#Y8bOaOoI3id%L?3rQg>HUbF^<5j>k1n4RH&r)S7kt!DU#?q+7%
+zT?%R!P$0eE8@bEDrpHP6=bsXM!8VTW`6t&H00X$6IE=eBCS|uZ_!YFc+v*V*;4IV7
+z4da9AtB%$kD2N?XU9d}_1Yn(K+d)Lr_IA}Te;9^5%@^QyXhg8YYEC8AL7=qA@YEW@
+z0?|S>Xc_Qmi0R4dI-L@NpGMZ%dP5qz#BLzHOF9-qsjAwnoC!bG9R>({MmRf%iKy3U
+zN{|k1EV!3~{n9LsL}No>l%h9UcX}o~jjA+Nuo2TyD^0&B)QjHw{WKpGcq%B)lQMkB
+zE9mJc`BlEe&hc)^sMMFY*)0A(g~k4W8-E3qSY7oK^$aZ}MOG=z6*vsJoYmWrt_a?G
+z$Z<Qb3YYt`%b>0UMs*~9Ho<W+N5k##>^M8y3uPhh$6!j7#dSJxPX_2vYotOZh5L1e
+zi|brrXSS7A%sExUjF|&;0A;W|c6aj%^eCxJrZUFdP)NGdzGt=AMD;|>YGHAxq=>~$
+zS;CIZVl=^7+)O4_+|RY5MBg=qQ-T$9N;o8xiA5D;8O~;{09isSLLoiAH)qAc1$o)F
+zMk3tncF$rX($viSs#Xd}jZPuFx_rfFl0doN*51t=?<TX}nTu=|8vN)Bq@eO8IM#ak
+zSAS>Usl9K^3To}By9f4YM5Dwu`UMn6y*ObCqLY&wd$#)7k~*8w52zb2$gBptBFo=V
+zt%g9bb?aSSShceukt3R9;Nl}BY@5bvV;d^RpUC#ldTcjVTfh9Df7!&org=ebY(X?O
+zhyf#OeNNVR6yPG8oK9>`K+FgH=~B2%rjVET3+XT^;GO~Wo9UR*7UrhG<zq5f!jfcZ
+zbmOmNQquRUxnivgH3yS5t$nD1=WQHBU)bs%C>K`gMmtigGnY`+z!@AdnRhW3cTS(!
+zeube!Qj;HaMR&lP3>cI~#G7(Nq85XbWOfr0tXeq%C#dITf!>blwaR>j(O}SNRT7ys
+z0FDoXNSk&liOy`)OTfJ$2HG7m8~44`JdqDw?wIPzjFF+wuy<-)YiOVuy&aX1u|HF&
+zm~s33jl+lZghGaW-n6lk=}6$}qCgOoJ+QumhS@m&_G~ypf#hP5(KcR?8CZ&feq)rC
+zU~*DN(IibzJBk2h<f@^kt)fE`bww&?qhqn-^DM#$#Az?LA|L{|&{d(t6ePcc$fp7!
+zT(si0=K3repE8QkS>Ho6X{Q*}0#s?IQ)`T9Bh^!<&2iqy+d9``wB<V#b@F_AnwTt4
+zEOt>R=aD3CHhO0x8Sd>Q(Wzr0GuhWZU#c)Rn7cyf%f&=4yVWg2NyVD=^qE{s%i+od
+zT&Luc!n2qy=1L<?tpuEv7O3d;L+cb4?R>t9<_fDdbJ9&%By9&~*31-3yO7D4NrDHb
+z7?M@M@0%7|m5{@fc506VjAB_#6jBYyvk|mzMYNQX*rMl9sCisLP91nrQsQN$%ESc_
+zC68aAv_kh4v)S^Jo+&h@CPu4xKng2|ECVMQH0BBdj%aM|(Oykon9<h$Ze6$G4gdiZ
+zkUjuYc!I4pM+99$_ydlA-vBp&0=hN|^w-sJ8VKIh{z(?$pEm*vCvI_a^8jKU;c1rF
+zN+>2v7p6tx)Q`GHTG7D&=LRy!L7X()wANBvEYKk8rUrH#eY%Z<ot^(q`S+D?)q|}g
+zt@|ZU?hgF_9GC}_3i@IZ(|r0A*vZL_dl@>!@$ch|kO1%UCUC4ckV4Ym9Tg3^)x>KQ
+zP*78)y+bzd|4HweJ6?0T^z|CBazuJZUk7YHS(POuJ6rf__?w&-T$N;NdJZ^q=F}ec
+ze&7CH^Dk|1gCo^CdM$tB80iGC6}H(!(lAO0CWKUmqY_DMSn9wKv?wApCh_2;w()Oj
+zV7Ze?c|t3J_dtVea<exXj}d{@_Of9RrLm2m))&>bx}m%vG2Pn#R&gGupQky^G98#*
+ziskb3m(6u|4jJ@^PkpWgbX?SI(zR_>RIuZn+RI6hshQcoA>!{=e$>dHE;KQHDfN$j
+z*)MW2mjelbASoOzI4}Y%2-qvASHLx4Viq#sG`q|TC?}hW7W^8eBzs+NHXxgABvi)s
+z(n?9jwInuDl^y-`f>MbFPgTp{5>Ay?*WZ!NW&9M5hdTXPrlb%g_0_6Vd9cq#HO-kI
+z81Aq?7jEC$1L<vR!N`(+JK<_uUm;DE(BPB&!>2O{M(DA$8C(Mt1GGh6a&WXi1xjvI
+z^q7mpZ02HH*XMqid=wJ`KxPO*=qC#kSWm>ZPG~d^<j5fv22T<I`It$sb!p{*wdYK~
+zwurBqAkR~<Y$gTFFc)+1wr9PwlQi&D{1`o;U(kV;zl<zJ5tY&m@k0}v{&m8_MACYG
+za@V5_cP2N1eDxg<r`|O2Hu!bt7yqZZixmf(W0_=px(g_`GylvT2oCQmoeg71?XPo}
+zC+;p@pYG;+`6A!Sk5-mS1N`=>AwaXq(J;}t4WL7`$a5^g$uy**Q2cLXbv<M7A?_2J
+z#7!8$FcvR93ybcfAy~W(&*A>F6n{A#pyO!kQM7R<ew|+g#Kq<-nDq<z<0vny`uPK_
+zR4kfPL=1`duwNv=8alobvlZ>qH9olSa?*bl0Ilr<0rFF60`x~cldC5sD7Cd(3j9V8
+znE8i-M{{W`l6px90f@ei;sk}1z)|GO)t=VQzou4Cbp`mk5kY;d2PA6o9!GWuk%sy}
+z!DovKw>uCL-l&_Dqi}ge)Nz?6Fa*H}ba#;tfm9O%nbywp%hy;Gt}2C5Rygi)HPn?F
+zTppY<FPE&smKg}>q?GCDRLo={PX__KfZig`odpEy6ihM?^Uf1Y-&ID4v$co<6cPy>
+z>ut2uMyX^XQdmSAU3baN@=M(v4(z~r2Un=LC*&9WIwkb-m}LPtJjE3kUIRBYHMLAH
+zcFoO)Qd48YbKj`GL1JYJIf1jXY}T6HJ?OR<&33J{KLLy?31FSpnW3mfI<ZMxnq4nn
+zqa^ptz=oFY7y_#P{oSIj;rS*hxXh&1+H^S{OC+*A{fnzQI;tIh*@5%tfb-0DDlld2
+z0Ft^=9$M)fB;rMXR15fnelsZ`Oqw`1AgP77gLl`sw^%udNK{AglaIlIWi{MzS&nUo
+zH%m!A`{0n|lclM^_s8s9?b8Qor&5}onQndm)3$NhA_;u0b&9f?$V?wykBf?nO9Scx
+zt3*4kdQ*!tJuw&1WtPP%#Xsuo2tlf)g_-WAy!d#`opg9a=A!PKE93e9!O^mSQ6*K6
+zQGyEezmjc2Gyef2C#8oDG)buI$j7_aOf^Jv&~@SDS>lZ+POrkwf9B0`y6+$QU~$Db
+z8$YvCbOs`a2mW)&w~UXd5G^=;`Z*BY_PVl_@X1o|3^d3z7x?CVf0f7&`#tWoe)YyV
+zM#Ke+r!3UDD?S40fxX?>*~H3RLI&fbi=7@puW69a;z)^vwBS2N=nJyCw4kKzX9kR=
+z<hgVDk-QC9E#rbfU(~wIKM)a|m>|R$$03|u_*#)oZG`^3yB;Xt`N~=BAxJ@{s<cQ7
+z6lB#6Y1c}x(~wC;i?D#`Ok5P>c~khTub#snh5$rA0s1MPFBE3R^%S(DGdgHcu(;aE
+zCj8{-6RyA|;L09I;AL20{?4+ej&*t92KxWE-~LD;ZYtOS%CUG$@&CkXbtTrCzEhJg
+zqOF!Su1E6=iDQ6RF)7-`_~5zfI5S`Sb#XCVXWPlthMc>5SPDP{aU7QL;s7;K3G=Js
+z>WF)G-+6|UbPNI+)Djd%3`nCy;%ol2T3Df^1g`w|_kKUgcykNLU~caa4XNem77s)+
+zGG;sX0UTsF-3S{w*}hizNinb~9d`EXdKFexzA{(jfF=dmeb);=E?%Ar4#0kQ*5>u3
+zZCzG+BveoN4ic$?G{eec7KTP5Q8sR7W%*@TV~L47MbmGUAW&yKv*I!%+CAb!bjpXA
+z<K$9ZS0zO10Nce{I3ptD{48E{dL|DJj{<-VtPsQyYXphrb%Rl`lt{{Qw2vdw7OoA5
+zY3KFurexZk19~4FXP7keYi)v;wEk?T=>|ACoZUuSZD>)v-9QAAjoviQ`B4Ar0QNkC
+zoI};87$#aKmY-WFA!(E+hELCQUmsTN(5XU9C8RdZ6gwHow=akrOdN$#{NP)rZp=+|
+zbahKib=wbaaq&wsWx!*|uDesaT*G9B6y8SYs-(%3CF+7yMD7^1LhN(CkUo)!Fb6Vc
+z=jba_r&0X;Z>PiFxc&^VC;^G1=-*7AudOWX)#f5=KklXN*j++&=@@?-yauniAoRyB
+zkrFygG7%7j>SC;%ye!Z}inXy@EYAy0QO+Eejrh-K616M4VY($o_2KEF^i4$vx~rd;
+zTQJ5`RSDkeeAj?@45_&ynH>-4jXg=WEgTXCSm_1`?+jfgLy;^cn?n`=s?yhPJ)IE{
+z%@Z$oj+Tg4cs{VCp`W(i-Zmy(q4=G)=0>+vDv{i~`DDtUYleFe^X0^?26mU*x3}O+
+z?P(CtE8&b}f2_#@Qe0eYNv69OoYfi#qdCvAiT-HU+D<0F<>_g5`1Ve-aQ)UnZ@JJZ
+z<wM)`*(Yi5SRj+d-W;`rD9Q*?i11v*zCx+BRGR7bs>_3N$y9mL+WUd~9dK8T@r@yW
+zuw)}j>+am+nJ^8>e++`}o<PG=KH1{H>egl2`hj1-ADgG}^~g$-AQr+l;WHs<c&=3(
+znjH%^G)&8O>LCfi@H``^=V~Ttd2V?&lM>H^;eCZMIyQt2qN|_Grb_)_fm)qvGS^mR
+zQIsl<lQfmsk`%_tLo3UYHo@pAsX$VPQJ6HsG?V#1s^f*aZD<)cN;<VOk~`?WZOObr
+zt0dQ1xXY5gEfEqw*n`iDaHH0y_})|}vaZhn;`r^}Qlru7W0A{|>se$4G54*6WkE}y
+zS}M_5YNe4&NwL&cD64k&26Cvw4GH);skby~J9=Tc(~)B(kObLoR;w`12qKJfGSiOd
+z1xOOh@8{<8-*NrIU{TXW+UiMUCyKpZv(~&Q7R?VUxs$UKt=*g2nn*MrPZ$8~fF0#S
+zIYn--W;6ky)<&c<o4|W(>}K1sBI_ElcD@-J<q8QF2mu#_E(n)t%vU~OIW7VzBc;{V
+zM0*D@c0@we$ys+@PmnB2jDUh2lLSPBDx(H1NGKm=AXpaaT)q*M^(qqtow`v=4jo1X
+zQB+s{jN!aNv>e^ZLEX(fX*3XNCkZ70bW;>6{fyQcTU_P2a`b*0Ig*|9KiaZ85W&y6
+zJrsywiFEh~`d~5Yyf#9Vjv5LjQami^qsktQ&g*P7qs)rAtmoWNjtiyOFj`Fa%ygK=
+zTe2!~9vYGi9U|vFP)Z~l=7g(QC}KLOycN0ugElG8mvba~2@>c2YatZGs(!pydh0^U
+zl22lrB+Uff9A5OiukRRL(`b+fU3TQ6EIbg#?-0CioE!Es7I*f+JkS|N3`r3PmH7P_
+z$79n2T_c<%#*E{2%J_>Na<+s^ljG3QKOvXjs(ZVkAkLS|(hHex`~rsSSJmge=|iVX
+zxU+dh+kvQnbg?aCD3qv+P(+bBKAv<K{v#PSjku|Zu?8~1ED42~9r^UbTP~B|+SeR;
+znt2Q1tffboO)(iyuJo1fBpZjg!PKk-`F|z&({VVS5dPvfyTfX5xVbJJyb`^-1r$V8
+zbx-x9dSLt^)=p_{-L53)K7~h;V2#j8&4xHQZ>}Wfv<6&sL9+0saX}*&^VGL8J2c$K
+ziXV|QD4e$pl!w9&;k{cKv8`&bTAUxJI59^z%@6I~&8{Z<cRACfw!(2dUXn3eErjmK
+zvfe~?>Lh6c^N_XoUkMKml4SN6Nonx@;kVe^g(A?L{0bYKPAPU?b0sNtU6kEM3BiUU
+z6AVsur8Ziz9$d&2a`q6xBb2rZ;1$E`6WNw`EFh8MuDPtt_qpmE*!eck<M`<A-5n_(
+zvDY@qFb6)$dfCpNtZOJR=rHw#w4n-(Kx>7l;b(k7zT(uf<hB;Kxv`N+dpR~s9PU7G
+zyUR-ea-{0I5|m{<F7BE2z%;5Pnk9NP+h%5cy+6~s#oFoNz?(I@duU-L)3A|WX?~0V
+z<%I6pbaS@6qO^I&FJFJL;@|t-!4XStfls~Xjg5H!OJ6$T|JVOp*wxzxP2sbt*6y!;
+zr(I>cPnukC>!`ujqZvAeK~8#yk>SCc%>UlE!ppY#+?t&|$Nh68`>6kS{~!K8!#4gW
+z*l&0~Onma=v7$G(e_<FJp7rp`Y*_?Lnf#I`_F21RsSWrjbbD)USme5GbCM?L&0Hzt
+zZdHWhD5DYW{>$E|8N4<&XIzk)Cm9pU#dM(M&l`L+()w5c<!y?dytJts!&WG%;?RhC
+zH%X_Xg@u6muIWlQ1PmU<R_h?+9_9GdzT3ecmrd4BojkpWXu<mH*%CD~d~v3qS7cq7
+zk7lyzAOre0RYO_=(N40XtFMd(j1geR0!NQU7Wz+(9+GbW)!|<Z4fe5lO&ob={>|#@
+zmcgPn!sWF4Qg|4So7K;zBV7aC9a)?A)KJaV8-%cGh$swYxrU)-d0lfh_ViF-u`H_{
+zJ3_50WUxi<5SArV5PtS)p5d;A9ZLCBJ5$nsnch&FXz!Vw*s2fq+H-cgEuHNw*fLX`
+zr6{eh#<fWZsu2CW?}oxKb=JqvsKg<BJt;ocVp{FkqdX)JKV|RyOcUsH^^QD(Ha<H-
+z3{ack@X>Y_o7A){ga;vkB$dP*$4%8;@U!xsJ<qWvu`G>J{(Ru4jX)K@-0yxp8ln^Q
+zZ-Sm39DHv<K~NA(P;(>dLY!$ikB{9UKBS2upS8cmi_{mNb(@7iko!-e^-ofD)(v-K
+zVlc`G<G}2=t?%li;omMp9<3Iixfb`#o)qAZJ_jg-2dScan_E!3bSilx-5P=cKHI%B
+z*=^lPdU71jjZ%pb$;QWjjDgWs&!HQKUY^_i|2q!b!q4@{nB2)j=+*P>F;|kolW%hZ
+z+Egu%by{Zg5_ikVG_#MB_oasHm7X}X>DHbHz#<`idL)a>Sd?B{Rat=<;`%JMsqDsw
+zzYP->co1!?g!`|#84rlAZ!FzCU(Y#YSpE;cOE+cEL0$bb_Ik*3cCSotaA<rQh-@m{
+zxrJVSdNv)g=ln;!bA9D??2XKc2tpQJ(kQFd&Pq30S+U#S@a$x5W}L8Dqx`e0&~e+p
+z_8GTdlXL*g)P#k8>;oYdtfq7<H+g|#x6yA3$@6-pv%t%<YMZ>eR<|z36dSs>E0%=8
+zE>3WxT!=L|-)c<AsrG+S_s)3KhDYabxf2sjb?=t;4$D}&y=SO1-}awnE^81}?YEyr
+zz}2gi@;;l**$W<!Ki`3odR|c>rAJRJ)vM3}1n}d})4#_(K&t;4gJ8M!m-7bT8sh9k
+zP`H2h3?5(;o`8&QACLf52p@ruEjXbLuur(rmhP1mfz9e*q`=GT5iV87<EjLR1h0t!
+zomLPnX7OAw%++M1rM5LIs`LRJ6)i29wEvJrQXd}bkeak9gIe~QQ}h8!8aW<AAh>6G
+zHY7H2YfDt;d?*4a;PH84uIf5&oR}?S2KtEpj7q^QL6U_)wks(Y+?=Uy69+f9Ef^pM
+z+e)(2HU0FjEU9hx5q!RmI(S5X{o-cv&%bUOYDrOmqkFB~TeZhBR%;RP0vwoV)i8M!
+z(q^!INgf<aVua|fAJ7@ILUF&$`|XcIXMC|vhsO9${tJ-nba`RP0C@gcM$1Ax@*&ay
+zGzg#iXnzfO6R2>(sJRNtxdPPSOTebp;pa~74s>!w^a*LEO;7p|F3jo`hj1?p9>Kkr
+z$fNcDaJz)OOcvYn%IY3a0qkEAv-8-%hNpe8)*u?-a_QiYju=GAa^l%YZ&OtYVbG1X
+zPa?Ck0j$YgyZW@dl>G|9o4y_@2O!3lrEXXsNDp~XRgq;JN|I;*&JqtR>BX8}m;+(8
+zvKF>q`8U8@@DhxO*Q1mLp-&ng!bbR#aXwvV5q08}#+Z5&J@U$>tCoaR?7R9iAx^AT
+z9r|FPdpc2)jcu26=ghI_N;}~ReyUjkxlL<PkTjzRMFL@d9&<|WlGc;)oZyIGSzTUI
+z;w*O9P39~|ad~ZRO?7Q!i?6rc18hG3R{O*3Om`Q=PJpvfA&w_gJ|O*c{`4%M<2a2y
+zZoy8I)kOfmbBO^aTgt!ApaX4SY7vpPCQjP2mQq<ljgPg{omep($I`j2wj*pkaYw9a
+z1H{ZZ<=BE$Ayz~WzKo=S5Ba^1fcNMRQ~y4I_kN3z=aBbxe{;kjv?Br`lwOhqGYabO
+zc_K*DB;c9A;|R{D|9|~8HSOw08GtRa<V%3Rf^k0fxT|4u-!;&=iz{YT_)*wJKWh#D
+z-McP)EG6*wn=-mD^qf_zjsXsv4eJI0U9S`OkN;PEL?*K%Pt_gQF0fI;#BK^9K@K#)
+z+wezf`FnZ_MnK>EUye7_*B8_m0}+UA%MT%8wM84APQ@n88qNYmQDlr#-U|KhR?4I;
+zhxNFm#KEDiu0nINKwV-hE(SIwPVu+j^yU}ptZmzDeIbA1Z4RJ5v@QqOQtC~fiL4S#
+z&{PabGf-9JjOl9oQnuH-XzvS#VntMF6j2axD4-+3Nyaz7c-iwS{uPU?`>Hp5xbnQc
+z(w@D*>a=w>;ZMzn<DEN=!VjpmZ5b9DqvK=0boGV?Xg9~5NgW~>-D%L{ZM3R-D9MJu
+zaQju$jf?1-5fjEddJl%x%jQTRl!@W~aJ)1YA`sMjWF%q%4~m5%)s>{c?eE{!w>A@d
+z4t{a=T<r2+|Gw2LXSZzG-#@z|?L~cSv5O6s0|W3NhB)FI#Ohgct$V4oM-}MVflwNY
+zOmlGIE8>|e&)`wG?+^CPk{-Q#{*Uu)VjJQ^+=%5kgMR^LRR<cMe0E;*w^$?DN&Y{1
+zZ2yV%B&%NbOE7q_@XDTT{{6S`Lo1}ai{C%uV9HNM2(O#3*$Q7NdTjmFSIVxHrlW5Z
+zYOwoA{;d`S?`~O@a1t>TSOdQ5S*;*#=iaEQY91)4_GJ?~`^B(O94oVrNrgN6yV^4r
+zhg81munlheU=Nd-c*0A#F`rmyi!WIzcg5eZ)#;OazkPWz?}gLNANknZpAvsC&pi3J
+zLyKA{I{)+Qj|BmMJNaHeShPF5{-BKilYQtG0JwDQwbwqM{<&8#@PFqoam;2T03s9s
+z00RD>pgjIL1N1BXv@-fY`{A#6%Smv*>84Y_YT;ZG+CX1b-}dKmS2QO8!)=wiHaO`K
+zAo@T%z*tBEah8^IE+A}j&R?HDLhndz+I&K@3bDtza*p0AzuF<xivjfYiUPA!7U5<{
+z$Wq~~K$ObY)q>c0fLz#wUt=*LYsMuq7DxPw6f=*@>Zs)lS-8;=v24Es$p$(C3k#(k
+z>4Nwt$Hqc=Dm_AM3BsnrS}dq=nGiqKC23~GEyLSdPrSIyxXZahxSkL?NAc$xQAK)O
+z%&elBr9(?i25n#k9mqis@nDD0MDz&pMuvb8WDo?wz<-j6I0Ss(iKH<+ZX}iS0G(%<
+zT_$y|B>qpee%al}id~mI2Sv;tk<PKquexWW<fSH@H6-(mkQry5T_DyV(@y)awLtSw
+zAR!Sk4Frj($>r!KcV76k<Id2?T}<P53eGZCh`1HXG)kv1W|{?pGhH@6NL*iwSw%DY
+zy;@l<ownMjda1qS2D@7dpa%mQAq^~0Xz({rA*ARg=4=216z4KsFoUs@y6EU0G;$QT
+zyAS|GC4sq(qnAhs=>^fKqv0e0WdoZ0wE3JQ=z)GIMGD_#Vb`7cajeVQCkOyPJRMOX
+z{Ov+;?hWwQ^6c1JAIyFT%KRb}V}2NpdLrP7hk`)s2Sj2MjUmYj0|L+tLZIj*fU5!l
+zg(Dnug9I8A1uO|Pki{^-A!LDqLASml-2g0_G;<kXt)EFJn>{*M4QbuCnx>4CCK|0?
+zV!o+Mn+tYm)CW3xzPv_@R{hfDWwS(C_Z|<FYx2;EvL<?HscL;Ze0{A)lp0s+(>sga
+z&F(E!3fSZ`a|PXpTAX4{x8{Iu$){{JeS&V?yd)AS#plh`(zR&TuX~eAeX84%Qd)Y=
+z1W9W3u0^s^{(+5`$H^u={z_*#M>nS<J%;&qyC#u9eN#&#;cTF3#U_}AR&Vc_9%jX8
+zAX#Sj?%gCIPh76AA=7LNmIk;*_n2y3RI+rVNh0^gXf7^~P>qHfeyRRXNbtkw2N2=p
+zc*AjSU-20AhDb7vqWnp&$qA=?Ct8eH3e!%T@qOM_cRyaU1V1>V#hf>7w?m@8C1rH=
+z?f;{nwE9^Zt#lb~%4E@|L#K9LUDmR)>6Ya$*?M+9*PAWXo#p#Qzd;KO<bd_VU1UhH
+zVT&xb&^k+et;B6krOLdhT!p1ZEVoRhD%EP-vRAE7eI_6mtyCUY{~8PwG&p3Gs8FLp
+zivflhVT=i;m<@Y46ENK24c~tE-1lHcj&MXHp1=v3;0c+~k-*I<Y)rvIY=yUh)Ov?K
+zkB*2#k2O+bb~2%&snbBm;E1Ef?K0sTTYTxDZxK+0!@S@*FMG)=R;qVnf~|4@$!hNn
+zgyA3m+D#%%sJFRnWSmH3uQ7YouYUKNvo6fUi5mGtPt3%QV&X<Qs`&s9>yKD#ZeP=2
+z6ZTg-(yZxb$lczi#dZA)N+#t;Y_}YZGWPwpqvhPTK~AT>wjunQkLcj9c|@m^x6SMH
+zDH}Ti76iZnJpgS00KfqN2Xp{n25I1NRf5{8x4qSBS6btQsfnSfW;C`mE^KUVY>T9G
+zVKru1@V^xg`YjU-KU62W%(TX~roX|v4yDJ{gSGfvgH64jF3&*!iHzUkwfLV0;aJ+=
+zK$-lF$FbV8zpb+or&uo`vOi%G6!dkv`dXEyVxu|F>QoN8e8$dxbv*RV%?;mabaHn+
+MC;pWe|Mvg@0Lqn31poj5
+
+literal 0
+HcmV?d00001
+
+diff --git a/lib/fonts/README.txt b/lib/fonts/README.txt
+new file mode 100644
+index 0000000..fd1cbda
+--- /dev/null
++++ b/lib/fonts/README.txt
+@@ -0,0 +1,4 @@
++Cairo (variable, wght 200-1000) — نفس خطّ الموقع، مستضاف ذاتياً كي تُنشأ صورة/PDF الأوردر داخلياً بلا Google.
++الملفّان subset من Google Fonts: arabic + latin.
++Copyright 2009 The Cairo Project Authors (https://github.com/Gue3bara/Cairo)
++الترخيص: SIL Open Font License 1.1 — http://scripts.sil.org/OFL (يُسمح بالاستضافة وإعادة التوزيع مع هذا الإشعار)
+diff --git a/orders.html b/orders.html
+index fec5b4a..499b389 100644
+--- a/orders.html
++++ b/orders.html
+@@ -101,6 +101,7 @@ window.GMT_INTERNAL = 1;</script>
+   <script src="gmt-ask.js?v=20261011e" defer></script>
+   <script src="gmt-stock.js?v=20261011n" defer></script>
+   <script src="gmt-share.js?v=20261011p" defer></script>
++  <script src="gmt-render.js?v=20261011p" defer></script><!-- المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
+   <script src="gmt-notify.js?v=20261010b" defer></script>
+ <script src="gmt-endpoint.js?v=20261011m"></script>
+   <script src="gmt-auth.js?v=20261011e"></script>
+@@ -713,23 +714,7 @@ window.GMT_INTERNAL = 1;</script>
+     </div>
+ </div>
+ 
+-<!-- ════════ MODAL: سبب الحذف ════════ -->
+-<div id="deleteReasonModal" class="fixed inset-0 bg-black/60 hidden z-[130] p-4 flex items-center justify-center backdrop-blur-sm">
+-    <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl text-center">
+-        <i data-lucide="trash-2" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
+-        <h3 class="font-black text-xl mb-2 text-gray-800">سبب الحذف</h3>
+-        <p class="text-xs font-bold text-gray-400 mb-4">يرجى كتابة سبب حذف هذا الطلب — هذا الحقل إلزامي</p>
+-        <textarea id="deleteReasonInput" placeholder="اكتب سبب الحذف هنا... *" rows="3"
+-            class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold resize-none border border-gray-200 text-right transition-all mb-1"></textarea>
+-        <p id="deleteReasonError" class="text-xs text-red-500 font-bold mb-4 hidden">⚠️ سبب الحذف مطلوب</p>
+-        <div class="flex gap-3">
+-            <button onclick="executeDeleteWithReason()" class="flex-1 bg-red-600 text-white py-3.5 rounded-xl font-black text-sm active:scale-95 transition-transform flex items-center justify-center gap-2">
+-                <i data-lucide="trash-2" class="w-4 h-4"></i> تأكيد الحذف
+-            </button>
+-            <button onclick="closeModal('deleteReasonModal')" class="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-black text-sm active:scale-95 transition-transform">إلغاء</button>
+-        </div>
+-    </div>
+-</div>
++<!-- (2026-10-11) حُذف مودال «سبب الحذف» القديم: الحذف صار عبر GMTRole.requireSovereign (سبب + صلاحية سيادية في نافذة واحدة) -->
+ 
+ <!-- ════════ MODAL: تصدير ════════ -->
+ <div id="exportModal" class="fixed inset-0 bg-black/60 hidden z-[130] p-4 flex items-center justify-center backdrop-blur-sm">
+@@ -2936,10 +2921,11 @@ document.getElementById('formEdit').onsubmit = async (e) => {
+     }
+ };
+ 
+-window.triggerDelete = () => {
++window.triggerDelete = async () => {
+     const id = document.getElementById('edit-id').value;
+-    closeModal('editModal');
+-    requestConfirm(id, 'force_delete');
++    /* نُغلق نافذة التعديل **بعد** التفويض فقط: لو ألغى المستخدم يبقى في مكانه */
++    const done = await deleteOrderSovereign(id);
++    if (done) closeModal('editModal');
+ };
+ 
+ window.openShipModal = (id) => {
+@@ -3121,12 +3107,9 @@ async function ordersLockBlock(order, newStatus) {
+ 
+ window.requestConfirm = (id, type) => {
+     pendingAction = { id, type };
+-    // حذف → نعرض modal سبب الحذف
++    // حذف → صلاحية سيادية + سبب (نافذة واحدة)
+     if (type === 'delete' || type === 'force_delete') {
+-        document.getElementById('deleteReasonInput').value = '';
+-        document.getElementById('deleteReasonError').classList.add('hidden');
+-        document.getElementById('deleteReasonModal').classList.remove('hidden');
+-        lucide.createIcons();
++        deleteOrderSovereign(id);
+         return;
+     }
+     const titles = { delivered:'تأكيد الاستلام', completed:'تأكيد التحصيل' };
+@@ -3189,29 +3172,33 @@ window.executeConfirm = async () => {
+     pendingAction = { id:null, type:null };
+ };
+ 
+-// ══ تنفيذ الحذف مع سبب الحذف ══
+-window.executeDeleteWithReason = async () => {
+-    const reason = document.getElementById('deleteReasonInput').value.trim();
+-    if (!reason) {
+-        document.getElementById('deleteReasonError').classList.remove('hidden');
+-        document.getElementById('deleteReasonInput').style.borderColor = '#DC2626';
+-        return;
+-    }
+-    document.getElementById('deleteReasonError').classList.add('hidden');
+-    const { id } = pendingAction;
+-    closeModal('deleteReasonModal');
+-    if (!id) return;
++// ══ حذف أوردر — بصلاحية سيادية (2026-10-11 · قاعدة المالك) ══
++/* «الحذف لا يكفي فيه كتابة السبب»: كان أيّ موظف يكتب أيّ نصّ فيُحذف الأوردر نهائياً، والسبب لا يُخزَّن أصلاً (يذهب لنصّ تيليغرام فقط).
++   الآن: GMTRole.requireSovereign = كلمة السرّ السيادية أو أدمن مسمّى مسجَّل دخوله + سبب إلزامي (≥٣ أحرف) داخل نافذةٍ واحدة،
++   ويُسجَّل في سجلّ العمليات: مَن فوّض وكيف ولماذا. يرجع true إن حُذف فعلاً. */
++window.deleteOrderSovereign = async (id) => {
+     const deletedOrder = orders.find(o => o.id == id);
++    pendingAction = { id, type: 'delete' };
++    if (!deletedOrder) { showToast('الأوردر غير موجود (ربما حُذف)', 'err'); pendingAction = { id: null, type: null }; return false; }
++    const who = deletedOrder.name || 'بلا اسم';
++    const ref = deletedOrder.serial_code || ('#' + deletedOrder.id);
++    const g = await GMTRole.requireSovereign('حذف أوردر نهائياً', {
++        details: 'سيُحذف نهائياً من النظام:\n' + who + ' — ' + ref + ' — $' + (Number(deletedOrder.price) || 0).toLocaleString() +
++                 '\nحالته الآن: ' + statusAr(deletedOrder.status) + '\n(لا يمكن التراجع من هذه الصفحة.)',
++        entity: 'gmt_orders', entityId: deletedOrder.id, entityName: who + ' ' + ref, okText: 'احذف نهائياً'
++    });
++    if (!g) { pendingAction = { id: null, type: null }; return false; }      // ألغى أو رُفض — لم يُحذف شيء
++    let done = false;
+     try {
+-        await sbDelete(id);
+-        orders = orders.filter(o => o.id != id);
++        await sbDelete(deletedOrder.id);
++        orders = orders.filter(o => o.id != deletedOrder.id);
++        done = true;
+         showToast('🗑 تم حذف الطلب', 'ok');
+-        if (deletedOrder) {
+-            await sendDeleteAlert(deletedOrder, reason);
+-        }
+-    } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
++        await sendDeleteAlert(deletedOrder, g.reason, g);
++    } catch(err) { if (!done) showToast('تعذّر الحذف: ' + err.message + ' — لم يُحذف الأوردر', 'err'); }
+     pendingAction = { id:null, type:null };
+     render();
++    return done;
+ };
+ 
+ // ══ Smart Phone Input — يدعم الأرقام العربية والإنجليزية مع UX احترافي ══
+@@ -3319,25 +3306,45 @@ window.openExportModal = () => {
+     if (modal) { modal.classList.remove('hidden'); modal.style.display = 'flex'; }
+ };
+ 
++/* مفتاح الشهر YYYY-MM لأوردر — نفس تعريف exportCSV (مصدر واحد: ما يُصدَّر هو ما يُحذف) */
++function orderMonthKey(o) {
++    const d = new Date(o.created_at || 0);
++    return isNaN(d) ? '' : (d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
++}
+ window.executeExport = async (delCompleted) => {
+     const mk = (document.getElementById('exportMonth') || {}).value || '';
+     closeModal('exportModal');
+     exportCSV(mk);
+-    if (delCompleted) {
+-        const toDelete = orders.filter(o => o.status === 'completed');
+-        const deletedIds = [];
+-        let failCount = 0;
+-        for (const o of toDelete) {
+-            try { await sbDelete(o.id); deletedIds.push(o.id); }
+-            catch(e) { failCount++; }
+-        }
+-        orders = orders.filter(o => !deletedIds.includes(o.id));
+-        render();
+-        if (failCount === 0) {
+-            showToast(`🗑 حُذفت ${deletedIds.length} طلبات مكتملة`, 'ok');
+-        } else {
+-            showToast(`⚠️ حُذف ${deletedIds.length} — فشل حذف ${failCount} (تحقق من الاتصال وحاول مجدداً)`, 'err');
+-        }
++    if (!delCompleted) return;
++    /* 🔴 (2026-10-11) كان الحذف يشمل **كل** المكتملة مهما كانت الفترة المختارة، بينما التصدير لفترةٍ واحدة فقط ⇒ تُحذف طلبات
++       لم تُصدَّر قطّ. الآن نحذف المكتملة **ضمن الفترة المصدَّرة فقط**، وبتفويضٍ سياديٍّ واحد يعرض العدد والإجمالي. */
++    const toDelete = orders.filter(o => o.status === 'completed' && (!mk || orderMonthKey(o) === mk));
++    if (!toDelete.length) { showToast('لا توجد طلبات مكتملة في هذه الفترة لحذفها', 'err'); return; }
++    const total = toDelete.reduce((s, o) => s + (Number(o.price) || 0), 0);
++    const period = mk ? 'فترة ' + mk : 'كل الفترات';
++    let out = null;
++    try {
++        out = await GMTRole.sovereignScope('حذف ' + toDelete.length + ' طلباً مكتملاً نهائياً', {
++            details: 'نُزِّلت نسخة CSV الآن (' + period + ') — تأكّد أنّها حُفظت على جهازك.\nسيُحذف نهائياً ' + toDelete.length + ' طلباً مكتملاً بإجمالي $' + total.toLocaleString() + '.',
++            entity: 'gmt_orders', entityName: 'تصدير وحذف المكتملة (' + toDelete.length + ' طلب · ' + period + ')', count: toDelete.length, okText: 'احذف ' + toDelete.length + ' طلباً'
++        }, async () => {
++            const deletedIds = [];
++            let failCount = 0;
++            for (const o of toDelete) {
++                try { await sbDelete(o.id); deletedIds.push(o.id); }
++                catch (e) { failCount++; }
++            }
++            return { deletedIds, failCount };
++        });
++    } catch (e) { showToast('تعذّر الحذف: ' + (e && e.message || e), 'err'); return; }
++    if (!out) { showToast('أُلغي الحذف — لم يُحذف شيء (التصدير تمّ)', 'ok'); return; }
++    const { deletedIds, failCount } = out.result;
++    orders = orders.filter(o => !deletedIds.includes(o.id));
++    render();
++    if (failCount === 0) {
++        showToast(`🗑 حُذفت ${deletedIds.length} طلبات مكتملة`, 'ok');
++    } else {
++        showToast(`⚠️ حُذف ${deletedIds.length} — فشل حذف ${failCount} (تحقق من الاتصال وحاول مجدداً)`, 'err');
+     }
+ };
+ 
+@@ -3897,12 +3904,14 @@ window.orderOriginLabel = orderOriginLabel;
+ 
+ /* 📤 طلبك ١٢٠ — مشاركةُ ورقة الأوردر كـPDF (نفس ورقة الطباعة حرفاً بحرف) */
+ async function shareOrderPdf(id) {
++    const t0 = Date.now();
+     const o = orders.find(x => x.id == id);
+     if (!o) { showToast('الأوردر غير موجود', 'err'); return; }
+     if (!window.GMTShare) { showToast('وحدةُ المشاركة غير محمَّلة', 'err'); return; }
+     showToast('⏳ جارٍ تجهيز PDF…', 'ok');
+     const name = 'أوردر-' + (o.serial_code || o.id);
+-    const r = await window.GMTShare.sheet(buildOrderSheetHTML(o, false), name);
++    /* (2026-10-11) PDF يُبنى داخلياً أوّلاً ثم يُشارَك؛ بلا مشاركة ملفّات ⇒ تنزيل مباشر — **لا حوار طباعة** (الطباعة زرّ «طباعة» وحده) */
++    const r = await window.GMTShare.sheet(buildOrderSheetHTML(o, false), name, { width: SHEET_BASE_W, t0 });
+     if (r === 'shared') showToast('✅ تمّت المشاركة', 'ok');
+ }
+ window.shareOrderPdf = shareOrderPdf;
+@@ -4055,7 +4064,7 @@ async function sendTelegram(msg) {
+ }
+ 
+ // ══ تحذير حذف الطلب على التيليغرام ══
+-async function sendDeleteAlert(o, reason) {
++async function sendDeleteAlert(o, reason, grant) {
+     try {
+         const items = parseItemsFromOrder(o);
+         const prodList = items.map(i => `• ${i.name}${i.qty > 1 ? ' × ' + i.qty : ''}`).join('\n');
+@@ -4082,6 +4091,7 @@ async function sendDeleteAlert(o, reason) {
+             (o.notes ? `📝 *الملاحظات:* ${o.notes}\n` : '') +
+             `━━━━━━━━━━━━━━━━━━\n` +
+             `🗑 *سبب الحذف:* ${reason || '—'}\n` +
++            (grant ? `🛡 *فوّض بالحذف:* ${grant.by} (${grant.via === 'sovereign_pw' ? 'كلمة السرّ السيادية' : 'حساب أدمن'})\n` : '') +
+             `━━━━━━━━━━━━━━━━━━\n` +
+             `⚠️ هذا الطلب تم حذفه نهائياً من النظام`;
+ 
+@@ -4153,64 +4163,35 @@ async function buildInvoiceImage(o /*, items, grandTotal */) {
+     return sheetToBlob(buildOrderSheetHTML(o, false));
+ }
+ 
+-// ═ تحويل ورقة HTML كاملة إلى صورة (إطار مخفي + html2canvas) ═
+-/* 🔧 (2026-08-26) [P9] كانت المشاركة تستغرق وقتاً طويلاً والصورة تخرج رديئة:
+-   ① انتظار خطوط Google داخل الإطار + مهلة ثابتة 500ms لكل مشاركة.
+-   ② ارتفاع إطار ثابت 1400px ⇒ الطلبات الطويلة **تُقصّ**.
+-   ③ إخراج PNG بلا ضغط (ميغابايتات) ⇒ بطء ترميز، **وواتساب يعيد ضغطه بشدّة فتفسد الحروف**.
+-   الآن: بلا انتظار شبكة · ارتفاع حقيقي محسوب · JPEG بعرض ~1200px (أوضح بعد ضغط واتساب وأخفّ كثيراً). */
++// ═ تحويل ورقة HTML كاملة إلى صورة — عبر المُصيِّر الداخلي GMTRender (gmt-render.js) ═
++/* (2026-10-11 · طلب المالك) «لا خدمة خارجية لإنشاء الصور، والعربية مشوّهة»: الجذر أنّ html2canvas يُعيد رسم النصّ حرفاً حرفاً
++   بنفسه فيفقد التشكيل. الآن **المتصفّح نفسه** يخطّط ويشكّل الورقة بخطّ Cairo المستضاف (lib/fonts) ثم نلتقط النتيجة
++   (SVG/foreignObject ⇒ canvas)، مع فحوص سلامة (ليست فارغة/ملوَّثة) وسقوطٍ إلى html2canvas (بعد تصفير letter-spacing)
++   ثم رسالة عربية واضحة — لا نجاح كاذب. الحقن القسري لـletter-spacing:0 صار داخل GMTRender لمسار html2canvas الاحتياطي.
++   (قديماً — 2026-08-26 [P9]: بلا انتظار شبكة · ارتفاع حقيقي · JPEG بعرض ~1200px أوضح بعد ضغط واتساب وأخفّ كثيراً.) */
+ const SHEET_TARGET_W = 1200;   // عرض الصورة النهائي — مثالي لواتساب
+-function sheetToBlob(html) {
+-    return new Promise((resolve, reject) => {
+-        const BASE_W = 660;
+-        const fr = document.createElement('iframe');
+-        fr.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + BASE_W + 'px;height:600px;border:0;visibility:hidden;';
+-        document.body.appendChild(fr);
+-        let settled = false;
+-        const done = (v, err) => {
+-            if (settled) return; settled = true;
+-            setTimeout(() => fr.remove(), 400);
+-            err ? reject(err) : resolve(v);
+-        };
+-        // حارس زمني: لا تتعلّق الواجهة أبداً إن تعذّر الرسم
+-        const guard = setTimeout(() => done(null, new Error('انتهت مهلة تجهيز الصورة')), 15000);
+-        fr.onload = async () => {
+-            try {
+-                /* 🔴 بلاغ ١٦٩: html2canvas (198ك) تُحمَّل عند أوّل مشاركة صورة
+-                   لا في كل فتحة لصفحة الأوردرات. */
+-                if (window.GMTLazyLib) await GMTLazyLib.need('html2canvas');
+-                const doc = fr.contentDocument;
+-                /* (٨ ج) الجذر في «العربية مفكّكة/مقلوبة» بالصورة: html2canvas يرسم **كل حرفٍ وحده** متى كان letter-spacing ≠ 0
+-                   (فيفقد الحرفُ العربيّ سياقَه فيظهر معزولاً ومعكوساً). نُصفّره قسراً مهما كتبت ورقةٌ في CSS. */
+-                try { const _ls = doc.createElement('style'); _ls.textContent = '*{letter-spacing:0!important;word-spacing:0!important}'; doc.head.appendChild(_ls); } catch (_) {}
+-                // انتظار الخطوط بمهلة قصوى — لا ينتظر الشبكة إلى ما لا نهاية
+-                await Promise.race([
+-                    doc.fonts ? doc.fonts.ready : Promise.resolve(),
+-                    new Promise(r => setTimeout(r, 600))
+-                ]).catch(() => {});
+-                // الارتفاع الحقيقي للمحتوى ⇒ لا قصّ ولا فراغ زائد
+-                const h = Math.max(
+-                    doc.body.scrollHeight, doc.documentElement.scrollHeight, 600
+-                );
+-                fr.style.height = h + 'px';
+-                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+-                const canvas = await html2canvas(doc.body, {
+-                    scale: SHEET_TARGET_W / BASE_W,       // ≈1.82 ⇒ عرض 1200px
+-                    backgroundColor: '#ffffff',
+-                    useCORS: true, logging: false,
+-                    windowWidth: BASE_W, width: BASE_W,
+-                    height: h, windowHeight: h
+-                });
+-                clearTimeout(guard);
+-                canvas.toBlob(
+-                    b => b ? done(b) : done(null, new Error('blob فارغ')),
+-                    'image/jpeg', 0.92
+-                );
+-            } catch (e) { clearTimeout(guard); done(null, e); }
+-        };
+-        fr.srcdoc = html;
++const SHEET_BASE_W = 660;      // عرض الورقة بالبكسل (الأوردر مصمَّم لهذا العرض)
++function needRender() {
++    if (window.GMTRender) return Promise.resolve();
++    return new Promise((res, rej) => {
++        const s = document.createElement('script'); s.src = 'gmt-render.js?v=20261011p';
++        s.onload = () => window.GMTRender ? res() : rej(new Error('مُصيِّر الصور غير متاح'));
++        s.onerror = () => rej(new Error('تعذّر تحميل مُصيِّر الصور — تحقّق من الاتصال وحدّث الصفحة'));
++        document.head.appendChild(s);
+     });
+ }
++async function sheetToBlob(html) {
++    await needRender();
++    // حارس زمني: لا تتعلّق الواجهة أبداً إن تعذّر الرسم
++    let guard;
++    const timer = new Promise((_, rej) => { guard = setTimeout(() => rej(new Error('انتهت مهلة تجهيز الصورة — أعد المحاولة')), 30000); });
++    try {
++        return await Promise.race([
++            GMTRender.toBlob(html, { width: SHEET_BASE_W, scale: SHEET_TARGET_W / SHEET_BASE_W, type: 'image/jpeg', quality: 0.92 }),
++            timer
++        ]);
++    } finally { clearTimeout(guard); }
++}
+ 
+ // ═ مشاركة ورقة كصورة (واتساب/انستقرام/أي تطبيق) مع نص — وبديل تنزيل+واتساب نصي ═
+ /* ORD-3 (2026-07-13): قفل المشاركة. ضغطتان متتاليتان كانتا تستدعيان navigator.share
+@@ -4219,33 +4200,27 @@ let _sharing = false;
+ async function shareSheet(html, fileName, text) {
+     if (_sharing) { showToast('⏳ هناك مشاركة قيد التنفيذ — انتظر قليلاً', 'err'); return; }
+     _sharing = true;
++    const t0 = Date.now();   // لحظة النقرة — GMTShare يقرّر منها هل ما زال إذن المشاركة سارياً
+     document.querySelectorAll('[data-share-btn]').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
+     try {
+         showToast('⏳ جارٍ تجهيز الصورة...', 'ok');
+         const blob = await sheetToBlob(html);
+         /* 🔧 (2026-09-26) [جذر العطل] كان النوع مكتوباً image/png واللقطة فعلياً **JPEG**
+-           (sheetToBlob يُخرج 'image/jpeg')، والاسم ينتهي بـ.png ⇒ عدم تطابق النوع مع
+-           المحتوى، فهدف المشاركة (واتساب) **يرفض الملف بصمت**: تُرسل الكتابة وتضيع
+-           الصورة — وهو بالضبط العطل الذي أبلغ عنه المالك. النوع الآن من الـblob نفسه
+-           والامتداد يتبعه. ⇒ قاعدة OWN-MIME-MATCH. */
++           ⇒ هدف المشاركة (واتساب) **يرفض الملف بصمت**. النوع الآن من الـblob نفسه والامتداد يتبعه (قاعدة OWN-MIME-MATCH). */
+         const type = blob.type || 'image/jpeg';
+         const ext  = type === 'image/png' ? '.png' : '.jpg';
+         const name = fileName.replace(/\.(png|jpe?g)$/i, '') + ext;
+-        const file = new File([blob], name, { type: type });
+-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+-            await navigator.share({ files: [file], text });
+-            return;
++        /* (2026-10-11) الملفّ **جاهز أوّلاً** ثم المشاركة: إن انتهى إذن النقرة (>4ث) أو رُفضت ⇒ نافذة «جاهز» [شارك/نزّل/انسخ]،
++           وإلغاؤك من لوحة المشاركة صامت، وبلا دعم مشاركة ملفّات ⇒ تنزيل مباشر + نسخ الصورة. لا حوار طباعة. */
++        const r = await GMTShare.deliver(blob, name, { text, title: 'GMT', t0 });
++        /* كمبيوتر (لا مشاركة ملفّات): الصورة نُزِّلت ⇒ نفتح واتساب بالنصّ كالسابق ليُرفَق الملفّ يدوياً */
++        if ((r === 'downloaded' || r === 'copied') && !GMTShare.canShareFiles()) {
++            /* 🔴 بلاغ ٢٨ «صعوبة الانتقال إلى واتساب بزنس»: `wa.me` الخام يفتح واتساب العادي على أندرويد.
++               صار عبر `GMTWhatsApp` الذي يسمّي حزمة بزنس ومعه احتياطيّ تلقائي إن لم تكن مثبّتة. */
++            const _waText = text + '\n(الصورة نُزِّلت على جهازك — أرفقها)';
++            if (window.GMTWhatsApp) window.GMTWhatsApp.open('', _waText);
++            else window.open('https://wa.me/?text=' + encodeURIComponent(_waText), '_blank');
+         }
+-        const a = document.createElement('a');
+-        a.href = URL.createObjectURL(blob); a.download = fileName;
+-        document.body.appendChild(a); a.click(); a.remove();
+-        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+-        /* 🔴 بلاغ ٢٨ «صعوبة الانتقال إلى واتساب بزنس»: `wa.me` الخام يفتح واتساب
+-           العادي على أندرويد. صار عبر `GMTWhatsApp` الذي يسمّي حزمة بزنس
+-           ومعه احتياطيّ تلقائي إن لم تكن مثبّتة. */
+-        const _waText = text + '\n(الصورة نُزِّلت على جهازك — أرفقها)';
+-        if (window.GMTWhatsApp) window.GMTWhatsApp.open('', _waText);
+-        else window.open('https://wa.me/?text=' + encodeURIComponent(_waText), '_blank');
+     } catch (e) { if (!e || e.name !== 'AbortError') showToast('تعذّرت المشاركة: ' + (e && e.message || ''), 'err'); }
+     finally {
+         _sharing = false;   // ORD-3: يُفكّ القفل دائماً — حتى عند الإلغاء أو الفشل
+@@ -5589,6 +5564,7 @@ function buildShippingLabelImageLegacy(o) {
+         const canvas = document.createElement('canvas');
+         canvas.width = W; canvas.height = H;
+         const ctx = canvas.getContext('2d');
++        try { ctx.letterSpacing = '0px'; } catch (_) {}   // الملاذ الأخير: لا تباعد حروف يكسر اتّصال العربية
+ 
+         // خلفية بيضاء
+         ctx.fillStyle = '#FFFFFF';
+@@ -6399,15 +6375,24 @@ document.getElementById('formEditReservation').onsubmit = async (e) => {
+     finally { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
+ };
+ 
++/* (2026-10-11) حذف حجز = حذف سجلّ عربونٍ مدفوع ⇒ صلاحية سيادية + سبب (كان بنقرةٍ واحدة بلا تأكيد) */
+ window.deleteReservation = async () => {
+     const id = document.getElementById('res-edit-id').value;
++    const r = reservations.find(x => x.id == id) || {};
++    const dep = parseFloat(r.deposit) || 0;
++    const g = await GMTRole.requireSovereign('حذف حجز نهائياً', {
++        details: 'سيُحذف الحجز: ' + (r.name || '—') + (r.item ? ' — ' + r.item : '') +
++                 '\nالعربون المسجَّل: $' + dep.toLocaleString() + (dep > 0 ? ' (لا يُردّ تلقائياً — سوِّ المبلغ مع الزبون قبل الحذف)' : ''),
++        entity: RES_TABLE, entityId: id, entityName: (r.name || '') + (r.item ? ' — ' + r.item : ''), okText: 'احذف الحجز'
++    });
++    if (!g) return;                                  // ألغى أو رُفض — لم يُحذف شيء
+     closeModal('editReservationModal');
+     try {
+         await sbDeleteReservation(id);
+         reservations = reservations.filter(x => x.id != id);
+         renderReservations();
+         showToast('🗑 تم حذف الحجز', 'ok');
+-    } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
++    } catch(err) { showToast('تعذّر حذف الحجز: ' + err.message + ' — لم يُحذف', 'err'); }
+ };
+ 
+ // ── القطعة وصلت (reserved → arrived) ──
+@@ -6504,6 +6489,7 @@ window.convertToOrder = async (id) => {
+         const newOrder = Array.isArray(result) ? result[0] : result;
+         orders.unshift(newOrder);
+ 
++        /* SOV-EXEMPT: تحويل الحجز إلى أوردر (نقلٌ لا حذف) — أُنشئ الأوردر الجديد للتوّ بنفس البيانات ولا يضيع شيء */
+         await sbDeleteReservation(id);
+         reservations = reservations.filter(x => x.id != id);
+ 
+@@ -7418,13 +7404,14 @@ function openOrderPreview() {
+         الورقة: ما يُطبَع هو ما رآه بعينه حرفياً. */
+ /* 📤 طلبك ١٢٠ — مشاركةُ الورقة المعروضة في المعاينة كـPDF */
+ async function sharePreviewPdf() {
++    const t0 = Date.now();
+     const fr = document.getElementById('prevFrame');
+     const html = fr && fr.getAttribute('srcdoc');
+     if (!html) { showToast('افتح المعاينة أوّلاً', 'err'); return; }
+     if (!window.GMTShare) { showToast('وحدةُ المشاركة غير محمَّلة', 'err'); return; }
+     showToast('⏳ جارٍ تجهيز PDF…', 'ok');
+     const nm = (document.getElementById('in-name')?.value || 'أوردر').trim();
+-    const r = await window.GMTShare.sheet(html, 'أوردر-' + nm);
++    const r = await window.GMTShare.sheet(html, 'أوردر-' + nm, { width: SHEET_BASE_W, t0 });
+     if (r === 'shared') showToast('✅ تمّت المشاركة', 'ok');
+ }
+ window.sharePreviewPdf = sharePreviewPdf;
