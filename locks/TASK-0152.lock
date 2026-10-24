@@ -1,0 +1,7 @@
+task: TASK-0152
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: orders.html tests/harness/t_orders_amounts.js
+claimed_at: 2026-10-24T22:16:19Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0152
