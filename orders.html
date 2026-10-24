@@ -108,7 +108,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261023k" defer></script>
+<script src="gmt-receipt.js?v=20261025c" defer></script>
 <script src="gmt-docscan.js?v=20261023m" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -2139,7 +2139,7 @@ function expandOfficeAddress(addr) {
     if (!s || !window.GMTOffices) return s;
     if (/☎/.test(s)) return s;                                  // موسَّع مسبقاً
     try {
-        const co     = (document.getElementById('in-company') || {}).value || '';
+        const co     = gmtFormCo('in');                          // (TASK-0157) ما ملأه النظام لا يحصر
         const region = (typeof detectRegion === 'function') ? detectRegion(s) : '';
         if (region && GMTOffices.resolve) {
             const hit = GMTOffices.resolve(region, co, s);
@@ -2388,7 +2388,7 @@ function smartPasteAddr(el, raw) {
     if (region && window.GMTOffices && GMTOffices.resolve) {
         try {
             const sel = document.getElementById('in-company');
-            const formCo = (sel && sel.value) || '';
+            const formCo = gmtFormCo('in');                     // (TASK-0157) ما ملأه النظام لا يحصر
             const inText = GMTOffices.companyInText ? GMTOffices.companyInText(s) : '';
             const hit = GMTOffices.resolve(region, formCo, s);
             if (hit) {
@@ -2401,7 +2401,7 @@ function smartPasteAddr(el, raw) {
                    تبقى قابلة للتغيير من الموظّف أو ممن يعتمد الشحن. */
                 if (!formCo && sel && hit.company) {
                     const want = inText || hit.company;
-                    if ([...sel.options].some(o => o.value === want)) sel.value = want;
+                    if ([...sel.options].some(o => o.value === want)) { sel.value = want; sel.dataset.auto = '1'; }
                 }
                 const many = ((GMTOffices.data[hit.company] || {})[hit.city] || []).length;
                 const why = hit.source === 'form'  ? 'شركة النموذج'
@@ -2412,10 +2412,14 @@ function smartPasteAddr(el, raw) {
                           ' (' + why + (many > 1 ? ' · من ' + many + ' مكاتب' : '') + ')', 'ok');
                 return el.value;
             }
-            /* شركة محدَّدة لكن بلا مكتب مطابق ⇒ لا نقفز لشركة أخرى بصمت */
+            /* شركة اخترتَها بيدك لكن بلا مكتب مطابق ⇒ لا نقفز بصمت — نقول أيّ شركةٍ يملك مكتبُها هذا العنوان ونعرض مكاتبها */
             if (formCo) {
                 el.value = region;
-                showToast('⚠️ ما في مكتب لـ' + formCo + ' يطابق «' + region + '» — أكمله يدوياً', 'err');
+                const other = GMTOffices.resolve(region, '', s);
+                if (other && other.company) {
+                    showToast('🚚 «' + region + '» ليس فيه مكتب لـ' + formCo + ' — فيه مكتب لـ' + other.company + ': اختره من الاقتراحات فتتغيّر الشركة', 'ok');
+                    try { officeSuggest(region, 'in'); } catch (_) {}
+                } else showToast('⚠️ ما في مكتب لـ' + formCo + ' يطابق «' + region + '» — أكمله يدوياً', 'err');
                 return region;
             }
         } catch (_) {}
@@ -3282,7 +3286,7 @@ window.openEditModal = async (id) => {
             dst.innerHTML = [...src.options].map(op => `<option value="${escH(op.value)}">${escH(op.value ? op.textContent : 'شركة الشحن (اختياري)')}</option>`).join('');
             const co = String(o.shipping_company || '');
             if (co && ![...dst.options].some(op => op.value === co)) dst.insertAdjacentHTML('beforeend', `<option value="${escH(co)}">${escH(co)}</option>`);
-            dst.value = co;
+            dst.value = co; dst.dataset.auto = '';
         }
     } catch (_) {}
     initEditModal(o);
@@ -3441,16 +3445,18 @@ window.openShipModal = (id, mode) => {
     // pre-fill شركة الشحن إذا كانت محفوظة مسبقاً
     const o = orders.find(x => x.id == id);
     const compSel = document.getElementById('ship-company');
-    if (compSel) compSel.value = (o && o.shipping_company) ? o.shipping_company : '';
+    /* (TASK-0157 · المالك seq 60 «لازم يكون عندنا دوماً الأساسي هو المفتي إلا إذا غيّرنا أو حطّينا إيصال غير المفتي») —
+       كانت فارغة ⇒ قارئ إيصال المفتي لا يبدأ (يشترط «المفتي») فلا يُقرأ الإيصال ولا تُعرف الشركة */
+    if (compSel) { compSel.value = (o && o.shipping_company) ? o.shipping_company : 'المفتي'; compSel.dataset.auto = (o && o.shipping_company) ? 'saved' : '1'; }
     // إظهار/إخفاء التحذير
     const warn = document.getElementById('ship-company-warn');
-    if (warn) warn.classList.toggle('hidden', !!(o && o.shipping_company));
+    if (warn) warn.classList.toggle('hidden', !!(compSel && compSel.value));
     try { window.syncShipFromBox(shipFromExplicit(o), true); } catch (_) {}
     /* الإعداد قد تغيّر من جهازٍ آخر: نقرؤه الآن، وإن لم يلمس أحدٌ القائمة بعدُ نُعيد ملأها به */
     loadShipFromSetting().then(() => { const sel = document.getElementById('ship-from'); if (sel && sel.getAttribute('data-src') === 'default' || (sel && sel.getAttribute('data-src') === 'none')) window.syncShipFromBox(null, true); });
     document.getElementById('shipModal').classList.remove('hidden');
     /* (TASK-0122) شحنٌ عبر المفتي ⇒ يبدأ تحميل قارئ الإيصال الآن (من كاش الجهاز بعد أوّل مرّة) */
-    if (((document.getElementById('ship-company') || {}).value || '') === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) setTimeout(() => GMTReceipt.warm(), 600);
+    if (shipCanRead() && window.GMTReceipt && GMTReceipt.warm) setTimeout(() => GMTReceipt.warm(), 600);
 };
 
 function resetShipPreview() {
@@ -3485,7 +3491,7 @@ async function shipScanFile(file, label) {
     _shipScan = null; _shipOrig = file;
     if (_shipEarly && _shipEarly.orig !== file) _shipEarly = null;
     /* (TASK-0122) القارئ يُحمَّل وأنت في شاشة الماسح — لا بعدها */
-    if (((document.getElementById('ship-company') || {}).value || '') === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();
+    if (shipCanRead() && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();
     /* (TASK-0130 · المالك seq 28: «القراءة تبلش قبل المسح لأنها بتستغرق وقت طويل») الرقم والفرع يبدآن الآن مع اختيار الصورة، قبل أن
        يظهر الماسح: الباركود في عامله على الصورة الأصلية فوراً، والفرع ينتظر حدود الورقة ونسختها المقوَّمة من الماسح (opts.geom) */
     shipStartEarlyRead(file);
@@ -3574,15 +3580,18 @@ function shipTrackBtn(n, label) {
     return '<button type="button" dir="ltr" onclick="pickTrackCandidate(\'' + escH(n) + '\',\'ship\')" ' +
         'class="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm font-black text-gray-800 hover:bg-amber-100">' + escH(label || n) + '</button>';
 }
-function shipReadPaint(r, typed) {
+function shipReadPaint(r, typed, coNote) {
     const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
-    const T = (r && r.tracking) || { status: 'none' }, ty = (r && r.type) || {}, sure = ty.kind === 'mufti';
+    const T = (r && r.tracking) || { status: 'none' }, ty = (r && r.type) || {}, sure = ty.kind === 'mufti' && shipIsMufti();
     const row = a => '<span class="flex flex-wrap gap-1.5 justify-center mt-1">' + a.join('') + '</span>';
     let h = '', cls = 'text-emerald-700', fill = null;
+    if (coNote) h += '<span class="block mb-1 text-indigo-700">' + escH(coNote) + '</span>';
     /* (22 ت1 · TASK-0118) رقم الباركود يُملأ فور قراءته (اخترتَ «المفتي» قبل القراءة) — فإن لم يتأكّد النوع بعدها نُنبّه فقط */
     let early = !!(_shipRcptAuto && T.status === 'barcode' && inp.value.trim() === String(T.number));
     if (early && !sure) { inp.value = ''; _shipRcptAuto = false; early = false; }   // ليس إيصال المفتي بتأكيد ⇒ يُسحب ما مُلئ مبكراً
-    if (!sure) h += '<span class="block mb-1 text-amber-700">⚠️ لم أتأكّد أنّ هذه الصورة إيصال «المفتي» (' + escH(ty.why || 'لم يُقرأ النصّ') + ') — لم يُملأ شيءٌ تلقائياً، راجع بنفسك.</span>';
+    const _co = (document.getElementById('ship-company') || {}).value || '';
+    if (!sure && _co && _co !== 'المفتي') h += '<span class="block mb-1 text-amber-700">ℹ️ إيصال «' + escH(_co) + '»: الرقم لا يُملأ تلقائياً (القراءة الآلية لإيصالات المفتي) — اضغط الرقم إن طابق الورقة أو اكتبه.</span>';
+    else if (!sure) h += '<span class="block mb-1 text-amber-700">⚠️ لم أتأكّد أنّ هذه الصورة إيصال «المفتي» (' + escH(ty.why || 'لم يُقرأ النصّ') + ') — لم يُملأ شيءٌ تلقائياً، راجع بنفسك.</span>';
     if (T.status === 'match') {
         h += '✅ رقم التتبّع <b dir="ltr">' + escH(T.number) + '</b> — تطابق الرقم المطبوع مع الباركود (تحقّقٌ ناجح).';
         if (sure) fill = T.number; else h += row([shipTrackBtn(T.number)]);
@@ -3628,6 +3637,10 @@ function shipReadHooks(isMine, typed, force) {
     /* (22 ت1 · TASK-0118) كلٌّ يظهر فور قراءته: رقم الباركود (ثانية تقريباً) ثمّ الفرع — لا انتظار للقراءة كاملة */
     H.onTracking = t => {
         if (!isMine() || !t || !t.number) return;
+        if (!shipIsMufti()) {                                         // (TASK-0157) الشركة ليست المفتي بعد ⇒ لا يُملأ قبل أن يثبت نوع الإيصال
+            st.className = 'text-[11px] font-bold text-gray-500 mb-3';
+            st.textContent = 'قُرئ باركود (' + t.number + ') — جارٍ التعرّف على شركة الإيصال…'; return;
+        }
         if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
         st.className = 'text-[11px] font-black text-emerald-700 mb-3';
         st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (H.branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
@@ -3645,20 +3658,21 @@ function shipReadHooks(isMine, typed, force) {
 function shipStartEarlyRead(orig) {
     const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
     if (!st || !inp || !window.GMTReceipt || !GMTReceipt.readMufti) return;
-    if (((document.getElementById('ship-company') || {}).value || '') !== 'المفتي') return;
+    if (!shipCanRead()) return;                                   // (TASK-0157) شركةٌ غير المفتي اخترتَها بيدك ⇒ مسحٌ فقط
     if (_shipOrig !== orig || (_shipEarly && _shipEarly.orig === orig)) return;
-    const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig && shipIsMufti(), typed, false);
+    const gen = _shipCoGen;
+    const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig && gen === _shipCoGen, typed, false);
     st.className = 'text-[11px] font-bold text-gray-500 mb-3';
     st.textContent = 'جارٍ قراءة رقم التتبّع والفرع المصدر (مع المسح)…';
     _shipReading = true;
-    const E = { orig, typed, hooks, done: false, stop: false, corners: null, num: null, boxes: [] };
+    const E = { orig, typed, hooks, gen, done: false, stop: false, corners: null, num: null, boxes: [] };
     let geomOk = null; const geomP = new Promise(ok => { geomOk = ok; });
     E.giveGeom = g => { if (!geomOk) return; if (g && g.corners) { E.corners = g.corners.map(p => p.slice()); E.poly = g.poly ? g.poly.map(p => p.slice()) : null; } geomOk(g || null); geomOk = null; };
     const onTr = hooks.onTracking; hooks.onTracking = t => { if (t && t.number) E.num = t.number; onTr(t); };
     /* (TASK-0128) تتوقّف أيضاً إن اختيرت صورةٌ أخرى أو أُغلقت النافذة (_shipOrig تغيّر) أو تغيّرت الشركة — كانت تستمرّ وتأخذ المعالج */
     /* (TASK-0136) موضع الرقم في الأصل (الـQR · الرقم المطبوع) ⇒ E.boxes ⇒ الماسح لا يقصّه (opts.keepIn) */
     E.p = GMTReceipt.readMufti(orig, { geom: () => geomP, numDone: () => !!E.num, onNumBox: b => { if (b) E.boxes.push(b); },
-        cancel: () => E.stop || _shipOrig !== orig || !shipIsMufti(), onTracking: hooks.onTracking, onBranch: hooks.onBranch })
+        cancel: () => E.stop || _shipOrig !== orig || gen !== _shipCoGen, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
         .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
     _shipEarly = E;
 }
@@ -3686,12 +3700,13 @@ async function shipReadTracking(force) {
     const inp = document.getElementById('ship-tracking');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!st || !inp) return;
-    if (!_shipRcptFile || comp !== 'المفتي') { st.classList.add('hidden'); st.textContent = ''; _shipReading = false; return; }   // بقية الشركات: مسحٌ فقط (ولا «قراءةٌ جارية» تمنع الحفظ)
+    if (!_shipRcptFile || !shipCanRead()) { st.classList.add('hidden'); st.textContent = ''; _shipReading = false; return; }   // شركةٌ غير المفتي اخترتَها بيدك: مسحٌ فقط (ولا «قراءةٌ جارية» تمنع الحفظ)
     const myFile = _shipRcptFile, orig = (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : myFile;
     /* (TASK-0128) «لي» = الصورة نفسها ما زالت المختارة ولم تُختر صورةٌ أخرى بعدها (_shipOrig) · وتُعرض النتيجة فقط والشركة ما زالت
        «المفتي» (غيّرتَها أثناء القراءة ⇒ لا يُملأ شيء) */
-    const own = () => myFile === _shipRcptFile && (_shipOrig == null || _shipOrig === orig), isMine = () => own() && shipIsMufti();
-    const early = (!force && _shipEarly && _shipEarly.orig === orig) ? _shipEarly : null;
+    const gen = _shipCoGen;
+    const own = () => myFile === _shipRcptFile && (_shipOrig == null || _shipOrig === orig), isMine = () => own() && gen === _shipCoGen;
+    const early = (!force && _shipEarly && _shipEarly.orig === orig && _shipEarly.gen === gen) ? _shipEarly : null;
     const typed = early ? early.typed : (!!inp.value.trim() && !_shipRcptAuto);
     const H = early ? early.hooks : shipReadHooks(isMine, typed, force);
     if (!early) {
@@ -3737,7 +3752,8 @@ async function shipReadTracking(force) {
         }
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
         _shipRead = r;
-        shipReadPaint(r, typed && !force);
+        const _coNote = shipCompanyFromReceipt(r);                      // (TASK-0157) الإيصال يحسم الشركة ما لم تخترها بيدك
+        shipReadPaint(r, typed && !force, _coNote);
         const b = r.branch || {};
         /* فرعٌ اعتُمد مبكراً ثمّ تبيّن أنّ الإيصال ليس للمفتي ⇒ يعود الافتراضي (ما لم تغيّره بيدك في الأثناء) */
         const sel = document.getElementById('ship-from');
@@ -3751,6 +3767,27 @@ async function shipReadTracking(force) {
     } finally { if (own()) _shipReading = false; }
 }
 function shipIsMufti() { return ((document.getElementById('ship-company') || {}).value || '') === 'المفتي'; }
+/* (TASK-0157 · المالك seq 60 «لازم يكون عندنا دوماً الأساسي هو المفتي إلا إذا غيّرنا أو حطّينا إيصال غير المفتي» + «التعرّف على الشركة من
+   شكل الإيصال») — شركة نافذة الشحن موسومة: '1' افتراضيّ (المفتي) · 'saved' محفوظةٌ على الأوردر · '' اخترتَها بيدك في النافذة.
+   الإيصال يُقرأ ما لم تختر بيدك شركةً غير المفتي، وما يثبت من الإيصال (إيصال المفتي · أو اسم شركةٍ أخرى مقروء فيه) يحسم الشركة
+   ما لم تكن اخترتها بيدك. تغييرك للشركة يُلغي القراءة الجارية (_shipCoGen) كما كان. */
+let _shipCoGen = 0;
+function shipCoByUser() { const s = document.getElementById('ship-company'); return !!s && s.dataset.auto !== '1' && s.dataset.auto !== 'saved'; }
+function shipCanRead() { return shipIsMufti() || !shipCoByUser(); }
+function shipCompanyFromReceipt(r) {
+    const sel = document.getElementById('ship-company'); if (!sel || !r || r.cancelled) return '';
+    const cur = sel.value || '', mufti = r.type && r.type.kind === 'mufti';
+    const want = mufti ? MUFTI_CO : (r.company && r.company !== MUFTI_CO ? r.company : '');
+    if (!want || want === cur) return '';
+    if (shipCoByUser()) return '🚚 الإيصال يبدو لشركة «' + want + '» — أُبقيت «' + cur + '» كما اخترتها.';
+    if (![...sel.options].some(x => x.value === want)) sel.add(new Option(want, want));
+    sel.value = want; sel.dataset.auto = '1';
+    if (!mufti && _shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
+    try { window.syncShipFromBox(null, true); } catch (_) {}
+    const w = document.getElementById('ship-company-warn'); if (w) w.classList.add('hidden');
+    return '🚚 ' + (mufti ? 'هذا إيصال «المفتي» (' + (r.type.why || '') + ')' : 'اسم «' + want + '» مقروءٌ في الإيصال') +
+           ' — غيّرتُ شركة الشحن' + (cur ? ' من «' + cur + '»' : '') + ' إلى «' + want + '». غيّرها إن لم تكن كذلك.';
+}
 
 /* ══ (19 ت1 · برومبت «الماسح الضوئي الذكي» خامساً) ربط الإيصال بالأوردر ══
    • الحقول الموجودة تُستعمل كما هي: receipt_img (النسخة الممسوحة المضغوطة — مؤقّتة حتى «تم التحصيل») · receipt_at · tracking_number ·
@@ -3830,7 +3867,7 @@ async function buildReceiptMeta(o, keep, company, finalNum) {
 }
 /* قراءةٌ جارية لحظة الحفظ ⇒ نسأل (قد تكشف رقماً مكرّراً أو فرعاً آخر) */
 async function waitReadingOrGo() {
-    if (!_shipReading) return true;
+    if (!_shipReading || !shipIsMufti()) return true;            // (TASK-0157) قراءةٌ لشركةٍ غير المفتي لا تؤخّر الحفظ
     const k = await GMTAsk.choose('قراءة الإيصال (رقم التتبّع والفرع) لم تنتهِ بعد.', { title: '⏳ لحظة', cancelText: 'سأنتظر',
         choices: [{ k: 'go', t: 'احفظ الآن بلا انتظار' }] });
     return k === 'go';
@@ -3898,6 +3935,7 @@ async function confirmReceiptAttach() {
 }
 document.addEventListener('change', (e) => {
     if (!e.target || e.target.id !== 'ship-company') return;
+    e.target.dataset.auto = ''; _shipCoGen++;   // (TASK-0157) اخترتَها بيدك (الكود لا يطلق change) ⇒ تُحترم وتُلغى القراءة الجارية
     if (e.target.value === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122)
     /* (TASK-0128) شركةٌ أخرى ⇒ رقمٌ مُلئ تلقائياً من قراءة المفتي يُسحب (لم تكتبه أنت) */
     if (e.target.value !== 'المفتي' && _shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
@@ -5521,7 +5559,15 @@ function officeSuggest(val, which) {
     const co  = (document.getElementById(pfx === 'in' ? 'in-company' : 'edit-company') ||
                  document.getElementById('in-company') || {}).value || '';
     const q   = String(val || '').trim();
-    const res = q.length >= 2 ? GMTOffices.search(q, co || null, 10) : [];
+    /* (TASK-0157 · المالك seq 60 + seq 62 «لقيت سبب المشكلة … عم يعتمد على شركة المفتي، فإذا كاتب شيء في أفرع أخرى ما عم يطلع لي
+       في الشركات الأخرى … لازم يعرض لي مكاتب القدموس ومسارات وبابل … وكل الشركات») — كانت تبحث داخل الشركة المختارة وحدها،
+       والحقل يمتلئ المفتي تلقائياً ⇒ «الحريقة» (مسارات/القدموس فقط) لا تظهر. الآن: كل الشركات دائماً — المختارة أوّلاً ثمّ المفتي
+       ثمّ البقية، حتى ٦ مكاتب لكلّ شركة — واختيار مكتب يحدّد شركته. */
+    const _cn = c => (GMTOffices.canonCompany ? GMTOffices.canonCompany(c) : c);
+    const _rank = c => (co && _cn(c) === _cn(co)) ? 0 : (_cn(c) === 'المفتي' ? 1 : 2);
+    const _groups = new Map();
+    (q.length >= 2 ? (GMTOffices.search(q, null, 80) || []) : []).forEach(o => { const k = _cn(o.company); if (!_groups.has(k)) _groups.set(k, []); _groups.get(k).push(o); });
+    const res = [..._groups.entries()].sort((a, b) => _rank(a[0]) - _rank(b[0])).flatMap(([, l]) => l.slice(0, 6)).slice(0, 18);
     if (!res.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
     box.innerHTML = res.map(o =>
         `<button type="button" onclick="pickOffice(${JSON.stringify(JSON.stringify(o)).replace(/"/g,'&quot;')}, '${pfx}')"
@@ -6115,9 +6161,19 @@ window.verifyShipmentFromImage = async (input) => {
     input.value = '';
 };
 
-function gmtSetCompany(pfx, company) {
+/* (TASK-0157) شركةٌ ملأها النظام وحده (اللصق الذكي · المنطقة · الافتراضي) تُوسَم auto: لا تحصر الاقتراح ولا الحسم، ويستبدلها
+   ما يدلّ عليه العنوان. ما يختاره الموظّف بيده (أو مكتبٌ اختاره من الاقتراحات) يُحترم كما كان. */
+function gmtCoAuto(sel) { return !!(sel && sel.dataset && sel.dataset.auto === '1'); }
+function gmtFormCo(pfx) {
+    const sel = document.getElementById((pfx === 'edit' ? 'edit' : 'in') + '-company');
+    return (sel && sel.value && !gmtCoAuto(sel)) ? sel.value : '';
+}
+document.addEventListener('change', e => { const t = e.target; if (t && /^(in|edit)-company$/.test(t.id || '')) t.dataset.auto = ''; }, true);   // الكود لا يطلق change ⇒ هو اختيارك
+window.gmtCoAuto = gmtCoAuto; window.gmtFormCo = gmtFormCo;
+function gmtSetCompany(pfx, company, byUser) {
     if (!company) return;
     const sel = document.getElementById((pfx === 'edit' ? 'edit' : 'in') + '-company'); if (!sel) return;
+    sel.dataset.auto = byUser ? '' : '1';
     if (sel.value && sel.value === company) return;
     if (![...sel.options].some(x => x.value === company)) sel.add(new Option(company, company));
     sel.value = company;
@@ -6128,7 +6184,7 @@ function gmtCompanyFromRegion(pfx) {
     if (!window.GMTOffices) return;
     const a = document.getElementById((pfx === 'edit' ? 'edit' : 'in') + '-addr'); if (!a) return;
     const sel = document.getElementById((pfx === 'edit' ? 'edit' : 'in') + '-company');
-    if (!sel || sel.value) return;                       // حدّدتَها بنفسك ⇒ لا نغيّرها
+    if (!sel || (sel.value && !gmtCoAuto(sel))) return;  // حدّدتَها بنفسك ⇒ لا نغيّرها (أمّا ما ملأه النظام فيُعاد حسمه)
     const q = String(a.value || '').trim().split(/[—\-·,،]/)[0].trim(); if (q.length < 2) return;
     const res = GMTOffices.search(q, null, 30) || [];
     const cos = [...new Set(res.map(o => o.company).filter(Boolean))];
@@ -6149,7 +6205,7 @@ function pickOffice(json, which) {
     if (a) a.value = o.city + ' — ' + o.name + (o.addr ? ' · ' + o.addr : '') + (o.phone ? ' ☎ ' + o.phone : '');
     hideOfficeSug(pfx);
     /* (2026-10-06 ش) البند ٣: «تحديد المنطقة يدوياً ⇒ التعرّف التلقائي على شركة الشحن» — اختيار المكتب يحدّد شركته */
-    try { gmtSetCompany(pfx, o.company); } catch (_) {}
+    try { gmtSetCompany(pfx, o.company, true); } catch (_) {}   // اختيارٌ صريح من الموظّف
     showToast('📍 ' + o.city + ' — ' + o.name + (o.phone ? ' · ☎ ' + o.phone : ''), 'ok');
 }
 window.officeSuggest = officeSuggest; window.hideOfficeSug = hideOfficeSug; window.pickOffice = pickOffice;
@@ -7562,6 +7618,7 @@ function initAddModal() {
     const b = document.getElementById('in-branch');
     if (b && !b.value.trim()) b.value = 'حلب';
     _shipFeeEdited = false; _collectEdited = false;
+    try { const c = document.getElementById('in-company'); if (c) c.dataset.auto = ''; } catch (_) {}   // (TASK-0157) طلبٌ جديد بلا وسمٍ قديم
     refreshShipFee();
     try { paintRecogToggle(); } catch (_) {}
     try { _custLast = ''; const h = document.getElementById('cust-hint'); if (h) { h.className = 'hidden'; h.innerHTML = ''; } } catch (_) {}
@@ -8995,7 +9052,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025b"></script>
+<script src="gmt-whatsnew.js?v=20261025c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

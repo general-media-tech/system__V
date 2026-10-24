@@ -669,6 +669,26 @@
     return false;
   }
 
+  /* (TASK-0157 · المالك seq 60 «التعرّف على الشركة من شكل الإيصال») اسم شركة شحنٍ أخرى مقروءٌ في الإيصال ⇒ اسمها كما في قائمة الشركات.
+     «شركة <اسم>» أوّلاً، ثمّ الاسم وحده كلمةً كاملة (هيكلاً بلا نقاط) أو بالحروف اللاتينية. لا شيء ⇒ null (لا تخمين). */
+  var CO_NAMES = [['القدموس', /[qk]a?dmou?s/i], ['مسارات', /masarat/i], ['بابل', /\bbabel\b|\bbabil\b/i],
+                  ['الرافدين', /rafidain|rafedain/i], ['هافال', /\bhaval\b/i], ['الأهلية', /ahlia|ahliya/i]]
+    .map(function (c) { return { name: c[0], sk: noAl(skel(c[0])), lat: c[1] }; });
+  function companyOf(text) {
+    var raw = String(text || ''), s = skel(raw), i, m;
+    var byWord = function (w, th) {
+      w = noAl(bareW(w)); if (w.length < 4) return null;
+      for (i = 0; i < CO_NAMES.length; i++) if (w === CO_NAMES[i].sk || (CO_NAMES[i].sk.length >= 5 && sim(w, CO_NAMES[i].sk) >= th)) return CO_NAMES[i].name;
+      return null;
+    };
+    var re = /سركه\s+(\S+)/g;
+    while ((m = re.exec(s))) { var n = byWord(m[1], 0.8); if (n) return n; }
+    var ws = s.split(/[\s|<>]+/);
+    for (var k = 0; k < ws.length; k++) { var n2 = byWord(ws[k], 0.86); if (n2) return n2; }
+    for (i = 0; i < CO_NAMES.length; i++) if (CO_NAMES[i].lat.test(raw)) return CO_NAMES[i].name;
+    return null;
+  }
+
   /* ما بعد «المصدر» حتى «الوجهة» (أو نهاية السطر/٥ كلمات) — الوجهة لا تُؤخذ أبداً */
   var K_SRC = skel('المصدر'), K_DST = skel('الوجهة'), K_STOP = ['المرسل', 'الموبايل', 'الهاتف'].map(skel);
   function isKey(w, k, th) {
@@ -1168,6 +1188,7 @@
       out.foreign = out.type.kind !== 'mufti' && otherCompany(out.text, out.footText);    // دليل شركةٍ أخرى (اسمها أو تذييلٌ بهواتف غير هواتف المفتي)
       if (out.type.kind !== 'mufti' && out.branch.confident && !out.foreign) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
+      out.company = out.type.kind === 'mufti' ? 'المفتي' : companyOf(out.text + '\n' + (out.engText || '') + '\n' + (out.footText || ''));   // (TASK-0157)
     } finally { if (Lp) Lp.then(function (x) { try { URL.revokeObjectURL(x.url); } catch (_) {} }, function () {}); }
     out.ms = Date.now() - t0;
     return out;
@@ -1183,5 +1204,5 @@
     try { getARA().catch(function () {}); } catch (_) {}
   }
 
-  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(typeof window !== 'undefined' ? window : self);
