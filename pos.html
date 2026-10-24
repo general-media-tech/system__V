@@ -1223,7 +1223,7 @@ window.GMT_FEATURES = [
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
-  <script src="gmt-stock.js?v=20261011n" defer></script>
+  <script src="gmt-stock.js?v=20261025a" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
@@ -2953,7 +2953,8 @@ async function loadIncomingTransfers() {
   try {
     const r = await sbFetch(
       `${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?to_branch=eq.${encodeURIComponent(branch.key)}` +
-      `&status=in.(pending,needs_settlement)&select=*&order=created_at.desc&limit=50`,
+      /* (24 ت1 · TASK-0147) و«receiving»: استلامٌ انقطع في منتصفه كان يختفي من القائمة ويعلق للأبد — الآن يظهر «لم يكتمل» ويُكمَل */
+      `&status=in.(pending,needs_settlement,receiving)&select=*&order=created_at.desc&limit=50`,
       { headers: sbHeaders() });
     _incomingTransfers = r.ok ? await r.json() : [];
   } catch (e) { _incomingTransfers = []; }
@@ -3008,16 +3009,19 @@ async function openIncomingTransfers() {
   }
   body.innerHTML = _incomingTransfers.map(t => {
     const d = t.created_at ? new Date(t.created_at).toLocaleString('ar-SY') : '';
-    const warn = t.status === 'needs_settlement';
-    return '<div style="border:1px solid ' + (warn ? '#fca5a5' : '#e2e8f0') + ';border-radius:10px;padding:11px;margin-bottom:8px">' +
+    const warn = t.status === 'needs_settlement' || (t.status === 'receiving' && /تعذّر خصم/.test(t.note || ''));
+    const resume = t.status === 'receiving';
+    return '<div data-trf="' + escH(t.transfer_number || t.id) + '" style="border:1px solid ' + (resume ? '#f59e0b' : warn ? '#fca5a5' : '#e2e8f0') + ';border-radius:10px;padding:11px;margin-bottom:8px">' +
       '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">' +
         '<b style="font-size:13.5px">' + (t.transfer_number || '') + '</b>' +
         '<span style="font-size:11px;color:#526077">من ' + (t.from_branch_name || t.from_branch || '') + ' · ' + d + '</span></div>' +
       (t.title ? '<div style="font-size:12px;margin-top:3px">' + t.title + '</div>' : '') +
-      (warn ? '<div style="font-size:11.5px;color:#991b1b;margin-top:4px">⚠️ ناقصة — ' + (t.note || '') + '</div>' : '') +
+      (warn ? '<div style="font-size:11.5px;color:#991b1b;margin-top:4px">⚠️ ناقصة — ' + escH(String(t.note || '').split(' | ')[0]) + '</div>' : '') +
+      (resume ? '<div data-trf-resume style="font-size:11.5px;color:#92400e;background:#fffbeb;border-radius:8px;padding:6px 8px;margin-top:6px">⏳ استلامٌ بدأ ولم يكتمل' +
+        (t.received_by ? ' (' + escH(String(t.received_by).split(' · ')[0]) + ')' : '') + ' — غالباً انقطع الاتصال. «أكمِل الاستلام» يضيف الباقي فقط، وما أُضيف لا يُضاف مرّتين.</div>' : '') +
       '<div style="text-align:left;margin-top:9px;display:flex;gap:6px;justify-content:flex-end">' +
         '<button onclick="viewIncomingItems(\'' + t.id + '\')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 12px;font-size:11.5px;cursor:pointer">📋 البنود</button>' +
-        '<button onclick="confirmIncomingTransfer(\'' + t.id + '\')" style="background:#15803d;color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11.5px;font-weight:700;cursor:pointer">✔ تأكيد الاستلام</button>' +
+        '<button onclick="confirmIncomingTransfer(\'' + t.id + '\')" style="background:' + (resume ? '#b45309' : '#15803d') + ';color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:11.5px;font-weight:700;cursor:pointer">' + (resume ? '↻ أكمِل الاستلام' : '✔ تأكيد الاستلام') + '</button>' +
       '</div></div>';
   }).join('');
 }
@@ -3066,12 +3070,58 @@ async function _posUploadReceipt(id, file) {
     return r.ok ? `${CONFIG.SUPABASE_URL}/storage/v1/object/public/transfer-signatures/${name}` : null;
   } catch (_) { return null; }
 }
+/* (24 ت1 · TASK-0147 · المالك seq 57 «تأكيد استلام فاتورة النقل يجب أن يعطيني مؤشّر جارٍ الاستلام — ما بصير أكبس ولا زرّ ولا أغادر»)
+   كان مؤشّر التحميل العامّ (z-index 9999) تحت نافذة «نقل وارد» (99993) فلا يُرى، والأزرار تحته تُضغط، والمغادرة متاحة —
+   ومغادرةٌ/انطفاء شاشةٍ في منتصف الاستلام هو ما علّق TRF-00001 (seq 51). الآن: طبقةٌ فوق كل شيء (دون حوارات GMTAsk) تمنع
+   الضغط · «البند ٥ من ٢٨» وشريط تقدّم · تحذيرٌ عند إغلاق الصفحة أو تحديثها · وإبقاء الشاشة مضاءة (Wake Lock) ما دام الاستلام جارياً. */
+let __rcvBusy = false, __rcvWake = null;
+window.addEventListener('beforeunload', e => { if (__rcvBusy) { e.preventDefault(); e.returnValue = ''; return ''; } });
+async function _rcvProgress(on, o) {
+  let ov = document.getElementById('rcv-prog-ov');
+  if (!on) {
+    __rcvBusy = false; if (ov) ov.remove();
+    try { if (__rcvWake) __rcvWake.release(); } catch (_) {} __rcvWake = null;
+    return;
+  }
+  o = o || {};
+  if (!ov) {
+    __rcvBusy = true;
+    ov = document.createElement('div'); ov.id = 'rcv-prog-ov';
+    ov.setAttribute('role', 'alertdialog'); ov.setAttribute('aria-live', 'polite');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:18px;direction:rtl;touch-action:none';
+    ov.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:380px;padding:20px 18px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">' +
+      '<div class="spinner" style="margin:0 auto 10px"></div>' +
+      '<b data-rcv-title style="display:block;font-size:16px"></b>' +
+      '<div data-rcv-step style="font-size:13.5px;font-weight:800;margin-top:8px;color:#0f172a"></div>' +
+      '<div data-rcv-name style="font-size:12px;color:#526077;margin-top:3px;min-height:1.3em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>' +
+      '<div style="height:8px;background:#e2e8f0;border-radius:99px;margin-top:12px;overflow:hidden"><div data-rcv-bar style="height:100%;width:0;background:#15803d;border-radius:99px;transition:width .25s"></div></div>' +
+      '<div style="font-size:12px;color:#b45309;background:#fffbeb;border-radius:10px;padding:8px 10px;margin-top:12px;line-height:1.7">⏳ لا تغلق الصفحة ولا تخرج من التطبيق حتى يكتمل — الشاشة تبقى مضاءة.</div></div>';
+    ['click', 'pointerdown', 'touchstart', 'keydown'].forEach(ev => ov.addEventListener(ev, e => { e.stopPropagation(); if (ev !== 'touchstart') e.preventDefault(); }, true));
+    document.body.appendChild(ov);
+    try { if (navigator.wakeLock && navigator.wakeLock.request) __rcvWake = await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  ov.querySelector('[data-rcv-title]').textContent = '📦 جارٍ استلام ' + (o.num || 'الفاتورة');
+  ov.querySelector('[data-rcv-step]').textContent = o.n ? ('البند ' + o.i + ' من ' + o.n) : (o.text || '');
+  ov.querySelector('[data-rcv-name]').textContent = o.n ? (o.text || '') : '';
+  ov.querySelector('[data-rcv-bar]').style.width = (o.n ? Math.round(100 * o.i / o.n) : (o.text && /حفظ/.test(o.text) ? 100 : 4)) + '%';
+}
+/* أيّ استثناءٍ غير متوقَّع لا يترك طبقة «جارٍ الاستلام» تحجب التطبيق */
 async function confirmIncomingTransfer(id) {
+  try { return await _confirmIncomingTransfer(id); } finally { _rcvProgress(false); }
+}
+async function _confirmIncomingTransfer(id) {
   const t = _incomingTransfers.find(x => String(x.id) === String(id));
   if (!t) return;
-  const _how = await GMTAsk.choose('✔ تأكيد استلام الفاتورة ' + (t.transfer_number || '') + '\n\n' +
-               'ستُضاف الكميات إلى مخزون فرعك فوراً.', {
-    title: 'تأكيد الاستلام',
+  /* (24 ت1 · TASK-0147 · لقطة المالك seq 51) استلامٌ انقطع في منتصفه (الاتصال/التطبيق في الخلفية) كان يبقى «receiving» للأبد:
+     يختفي من القائمة، وكل محاولةٍ تقول «يجري استلامها الآن»، ولا يفكّه إلا أدمن الجرد. الآن يُكمَل من هنا. */
+  const _resume = t.status === 'receiving';
+  const _how = await GMTAsk.choose(_resume
+      ? '↻ إكمال استلام الفاتورة ' + (t.transfer_number || '') + '\n\n' +
+        'بدأ استلامها' + (t.received_by ? ' («' + String(t.received_by).split(' · ')[0] + '»)' : '') + ' ولم يكتمل — غالباً انقطع الاتصال.\n' +
+        'تأكّد أنّ لا أحد يستلمها الآن على جهازٍ آخر. سيُضاف ما بقي فقط، وما أُضيف سابقاً لا يُضاف مرّتين.'
+      : '✔ تأكيد استلام الفاتورة ' + (t.transfer_number || '') + '\n\n' +
+        'ستُضاف الكميات إلى مخزون فرعك فوراً.', {
+    title: _resume ? 'إكمال الاستلام' : 'تأكيد الاستلام',
     choices: [{ k: 'photo', t: 'صوّر البضاعة أو الإيصال الموقَّع وأكّد', pri: 1 }, { k: 'go', t: 'أكّد بلا صورة' }] });
   if (!_how) return;
   let _photo = null;
@@ -3079,7 +3129,7 @@ async function confirmIncomingTransfer(id) {
     _photo = await _posPickPhoto();
     if (!_photo) { if (!await GMTAsk.confirm('لم تُلتقط صورة — أتؤكّد الاستلام بلا صورة؟')) return; }
   }
-  showLoading && showLoading('جارٍ تأكيد الاستلام…');
+  await _rcvProgress(true, { num: t.transfer_number, text: _resume ? 'جارٍ إكمال الاستلام…' : 'جارٍ بدء الاستلام…' });
 
   /* 🛡️ (2026-08-24) ختم ذرّي مشروط — يمنع الإضافة المزدوجة نهائياً.
      الخطر المكتشَف: الجرد ونقطة البيع **كلاهما** يستطيع تأكيد الاستلام، ولا طرف
@@ -3089,36 +3139,46 @@ async function confirmIncomingTransfer(id) {
   /* (24 ت1 · seq 48 «مازالت لا تعمل») الجذر: طلبات الاستلام الثلاثة هنا كانت بلا 'Content-Type: application/json'
      (sbHeaders لا تضعه) ⇒ القاعدة الحيّة ترفضها «400 PGRST102 Content-Type not acceptable: text/plain» ⇒ كل تأكيد استلام
      من نقطة البيع ينتهي بـ«يجري استلامها الآن» بلا أن يُستلم شيء. والخطأ الحقيقي صار يُعرض بنصّه لا كأنه سباق. */
+  /* الاستيلاء يكتب «الاسم · رمزاً عشوائياً» في received_by. إكمالُ استلامٍ عالق يستولي بمقارنة-ثمّ-تبديل على الرمز
+     الذي رآه (received_by=eq.القديم) ⇒ جهازان يُكملان معاً: يفوز واحدٌ فقط. */
+  const _who = (currentUser && (currentUser.display_name || currentUser.name)) || 'نقطة البيع';
+  const _tok = _who + ' · ' + Math.random().toString(36).slice(2, 8);
+  const _claimQ = _resume
+    ? `status=eq.receiving&` + (t.received_by == null ? 'received_by=is.null' : 'received_by=eq.' + encodeURIComponent(t.received_by))
+    : `status=in.(pending,needs_settlement)`;
   let claimed = false, claimErr = '';
   try {
     const cl = await sbFetch(
-      `${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=in.(pending,needs_settlement)`,
+      `${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&${_claimQ}`,
       { method:'PATCH',
         headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ status:'receiving', received_by: (currentUser && currentUser.name) || 'نقطة البيع' }) });
+        body: JSON.stringify({ status:'receiving', received_by: _tok }) });
     if (!cl.ok) claimErr = 'HTTP ' + cl.status + ' ' + String(await cl.text().catch(() => '')).slice(0, 160);
     const rows = cl.ok ? await cl.json() : [];
     claimed = Array.isArray(rows) && rows.length === 1;
   } catch (e) { claimErr = (e && e.message) || String(e); }
   if (!claimed && claimErr) {
-    hideLoading && hideLoading();
+    _rcvProgress(false);
     await GMTAsk.alert('⚠️ تعذّر بدء الاستلام — لم تُضف أي كمية.\n\n' + claimErr + '\n\nتحقّق من الاتصال وأعد المحاولة.');
     return;
   }
   if (!claimed) {
-    hideLoading && hideLoading();
+    _rcvProgress(false);
     await GMTAsk.alert('⛔ هذه الفاتورة يجري استلامها الآن أو استُلمت مسبقاً.\n\nلم تُضف أي كمية — تفادياً للازدواج.');
     await loadIncomingTransfers(); await openIncomingTransfers();
     return;
   }
 
+  /* الحالة التي تعود إليها الفاتورة إن لم يكتمل الاستلام (العالقة: «تحتاج تسوية» إن كان فيها ما لم يُخصم — كأداة «فكّ العلق» في الجرد) */
+  const prevStatus = (t.status === 'needs_settlement' || (_resume && /تعذّر خصم/.test(t.note || ''))) ? 'needs_settlement' : 'pending';
+
   /* 🛡️ إن أخفق أي شيء بعد الاستيلاء، نُعيد الحالة كي لا تعلق الفاتورة على
-     `receiving` فلا يستطيع أحد استلامها أبداً. */
+     `receiving` فلا يستطيع أحد استلامها أبداً. (كانت تُعيدها «pending» دائماً فتضيع «تحتاج تسوية») */
   async function _release(reason) {
     try {
       await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.receiving`, {
         method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'pending', note: (t.note ? t.note + ' | ' : '') + 'أُلغي استلام: ' + reason })
+        body: JSON.stringify({ status: prevStatus, note: (t.note ? t.note + ' | ' : '') + 'أُلغي استلام: ' + reason })
       });
     } catch (_) {}
   }
@@ -3126,13 +3186,12 @@ async function confirmIncomingTransfer(id) {
   /* (٧ ط · البند ١٤٢ والفحص المضاد) المسار الواحد المشترك مع الجرد (gmt-stock.js):
      إضافة ⇐ إنزال «في الطريق» (كان ناقصاً هنا) ⇐ وسم كل بندٍ «استُلم» ⇒ إعادةُ المحاولة
      بعد استلامٍ ناقص تُكمل الباقي فقط ولا تُضاعف ما أُضيف. */
-  const prevStatus = (t.status === 'needs_settlement') ? 'needs_settlement' : 'pending';
   let R = null;
-  try { R = await GMTStock.receiveTransfer({ transferId: id, toBranch: branch.key }); }
+  try { R = await GMTStock.receiveTransfer({ transferId: id, toBranch: branch.key, onProgress: (i, n, nm) => _rcvProgress(true, { num: t.transfer_number, i, n, text: nm }) }); }
   catch (e) { R = { error: (e && e.message) || 'استثناء', added: [], failed: [], skipped: [], waiting: [] }; }
   if (R.error) {
     await _release(R.error);
-    hideLoading && hideLoading();
+    _rcvProgress(false);
     await GMTAsk.alert('⚠️ ' + R.error + ' — لم تُضف أي كمية وأُعيدت الفاتورة للانتظار.');
     await loadIncomingTransfers(); await openIncomingTransfers();
     return;
@@ -3140,22 +3199,26 @@ async function confirmIncomingTransfer(id) {
   const added = R.added.length, failed = R.failed.map(f => f.name + ' — ' + f.why);
   const allOk = R.ok;
   const _photoUrl = (allOk && _photo) ? await _posUploadReceipt(id, _photo) : null;
+  _rcvProgress(true, { num: t.transfer_number, text: 'جارٍ حفظ حالة الفاتورة…' });
+  /* الحالة النهائية: تُعاد المحاولة ٣ مرّات عند انقطاعٍ عابر أو خطأ خادم (5xx) — كان طلباً واحداً يضيع مع أوّل انقطاع */
   let statusSaved = false;
-  try {
-    const sr = await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.receiving`, {
-      method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(allOk
-        ? Object.assign({ status: 'received', received_at: new Date().toISOString(), received_by: (currentUser && (currentUser.display_name || currentUser.name)) || 'نقطة البيع' },
-                        _photoUrl ? { signature_url: _photoUrl } : {})
-        : { status: prevStatus, note: (t.note ? t.note + ' | ' : '') + 'تعذّرت إضافة: ' + R.failed.map(f => f.name).join('، ') })
-    });
-    statusSaved = !!(sr && sr.ok);
-    if (!statusSaved) console.warn('[GMT] فشل تحديث حالة فاتورة النقل:', id, sr && sr.status);
-  } catch (e) { console.warn('[GMT] استثناء أثناء تحديث حالة فاتورة النقل:', id, e); }
-  hideLoading && hideLoading();
+  const _final = JSON.stringify(allOk
+    ? Object.assign({ status: 'received', received_at: new Date().toISOString(), received_by: _who }, _photoUrl ? { signature_url: _photoUrl } : {})
+    : { status: prevStatus, note: (t.note ? t.note + ' | ' : '') + 'تعذّرت إضافة: ' + R.failed.map(f => f.name).join('، ') });
+  for (let _a = 0; _a < 3 && !statusSaved; _a++) {
+    if (_a) await new Promise(r => setTimeout(r, 1500 * _a));
+    try {
+      const sr = await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.receiving&received_by=eq.${encodeURIComponent(_tok)}`, {
+        method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' }, body: _final });
+      statusSaved = !!(sr && sr.ok);
+      if (!statusSaved) { console.warn('[GMT] فشل تحديث حالة فاتورة النقل:', id, sr && sr.status); if (sr && sr.status < 500) break; }
+    } catch (e) { console.warn('[GMT] استثناء أثناء تحديث حالة فاتورة النقل:', id, e); }
+  }
+  _rcvProgress(false);
   if (!statusSaved) {
-    await GMTAsk.alert('⚠️ أُضيف ' + added + ' بند إلى مخزونك، لكن تعذّر تحديث حالة الفاتورة (رقم ' + id + ').\n' +
-          'إعادة الاستلام آمنة — ما أُضيف موسومٌ ولن يُضاف مرّتين. وإن بقيت عالقة أبلغ الإدارة بهذا الرقم.');
+    await GMTAsk.alert('⚠️ لم يكتمل الاستلام — غالباً انقطع الاتصال.\n\n' +
+          'أُضيف ' + added + ' بند إلى مخزونك' + (R.failed.length ? '، وبقي ' + R.failed.length + ' لم يُضف بعد' : '') + '.\n' +
+          'الفاتورة ' + (t.transfer_number || '') + ' محفوظة «قيد الاستلام» ولن تضيع: حين يعود الاتصال افتح «📥 وارد» واضغط «↻ أكمِل الاستلام» — يضيف الباقي فقط، وما أُضيف لا يُضاف مرّتين.');
   } else if (allOk) {
     /* (٨ ث — تدقيق المطابقة) إشعار الإدارة حين يؤكّد الفرع المستلِم — كان التأكيد صامتاً */
     try {
@@ -10331,7 +10394,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024j"></script>
+<script src="gmt-whatsnew.js?v=20261025a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

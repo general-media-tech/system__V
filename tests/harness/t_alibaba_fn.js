@@ -3,7 +3,7 @@
 // يتحقّق من: الجذر (Gemini يرفض البحث ⇒ 502 بسببه الحقيقي لا {product:{}} بنجاحٍ كاذب) · قائمة المرشّحين · فحص الروابط · احتياطي DuckDuckGo ·
 // تنزيل الصور (SSRF/النوع/الحجم) · سياق الأسئلة بالأولويّة · web:true وgrounded وsearch_failed.
 const fs = require('fs'), path = require('path');
-const SRC = process.env.BRAIN_FN || '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e1c021/scratchpad/edge_brain_next/index.ts';
+const SRC = process.env.BRAIN_FN || '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e1c021/scratchpad/edge_brain_v5/index.ts';
 if (!fs.existsSync(SRC)) { console.log('تخطّي: مصدر الدالّة غير موجود: ' + SRC); process.exit(0); }
 let bad = 0; const ok = (c, m) => { console.log((c ? '✔ ' : '✘ ') + m); if (!c) bad++; };
 

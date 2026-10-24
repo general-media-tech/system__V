@@ -288,6 +288,8 @@
     } catch (_) {}
     for (var i = 0; i < r.data.length; i++) {
       var it = r.data[i], nm = it.product_name || it.product_id || '—', q = Number(it.qty) || 0;
+      /* (24 ت1 · TASK-0147) تقدّمٌ لكلّ بند: «جارٍ الاستلام: البند ٥ من ٢٨» (اختياري — لا يغيّر شيئاً لمن لا يمرّره) */
+      if (typeof opts.onProgress === 'function') { try { opts.onProgress(i + 1, r.data.length, nm); } catch (_) {} }
       if (itemReceived(it)) { res.skipped.push({ name: nm, why: 'استُلم سابقاً' }); continue; }
       var noReq = (it.requested_qty == null || it.requested_qty === '');
       if (noReq && legacy.indexOf(String(it.product_name || '').trim()) >= 0) { res.waiting.push({ name: nm, why: 'لم يُخصم من المصدر — بانتظار التسوية' }); continue; }
