@@ -1343,7 +1343,10 @@ window.GMT_FEATURES = [
   <!-- شريط الأدمن الداخل كموظف (ثابت أعلى الصفحة — ليس زرّاً عائماً) -->
   <div id="acting-bar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#0f1219;color:#fff;padding:8px 14px;font-size:12.5px;font-weight:800;direction:rtl;">
     <span data-acting-text style="line-height:1.6"></span>
-    <button type="button" onclick="exitActingAdmin()" style="flex:0 0 auto;background:#D5001C;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">خروج للإدارة</button>
+    <span style="display:flex;gap:6px;flex:0 0 auto">
+      <button type="button" onclick="actingSwitchBranch()" style="background:#fff;color:#0f1219;border:0;border-radius:9px;padding:6px 12px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">🔄 تبديل النقطة</button>
+      <button type="button" onclick="exitActingAdmin()" style="background:#D5001C;color:#fff;border:0;border-radius:9px;padding:6px 14px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">خروج للإدارة</button>
+    </span>
   </div>
 
   <!-- ══ HEADER ══ -->
@@ -1611,6 +1614,24 @@ window.GMT_FEATURES = [
       </div>
     </div>
     <div class="container">
+
+      <!-- (TASK-0145 · seq 45) «بيطلع له زر اسمه مع عمولة أو بدون عمولة» — للأدمن داخل النقطة وحده -->
+      <div class="card" id="actingCommBox" style="margin-bottom:12px;display:none;">
+        <div class="card-title">🛡 العمولة — أنت الأدمن</div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="actingCommBtns">
+            <button type="button" class="sale-type-btn active" data-acomm="off" onclick="setActingComm(false)">بدون عمولة</button>
+            <button type="button" class="sale-type-btn" data-acomm="on" onclick="setActingComm(true)">مع عمولة</button>
+          </div>
+          <div id="actingCommAmtBox" style="display:none;margin-top:12px;">
+            <div class="field" style="margin-bottom:0;">
+              <label>عمولة نقطة البيع على هذه الفاتورة ($)</label>
+              <input type="number" id="actingCommAmt" min="0" step="0.01" style="direction:ltr;" oninput="_actingCommEdited = true">
+              <div id="actingCommHint" style="font-size:11.5px;color:var(--text3);font-weight:700;margin-top:6px;line-height:1.7;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- قسم نوع البيع -->
       <div class="card" style="margin-bottom:12px;">
@@ -2706,12 +2727,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const act = JSON.parse(sessionStorage.getItem('gmt_acting') || 'null');
     if (act && act.branch_key && window.GMTRole && GMTRole.isAdmin()) {
-      currentUser = { id: null, username: 'admin:' + (act.admin || ''), display_name: 'الأدمن ' + (act.admin || ''), branch_key: act.branch_key, branch_name: act.branch_name || act.branch_key, acting_admin: true, acting_admin_name: act.admin || '' };
+      /* (TASK-0145) role:'admin' ⇒ صلاحيات الأدمن داخل النقطة (البيع تحت التكلفة · …) — «الإجراءات اللي بيعملها ليست كموظف وإنما أدمن» */
+      currentUser = { id: null, username: 'admin:' + (act.admin || ''), display_name: 'الأدمن ' + (act.admin || ''), branch_key: act.branch_key, branch_name: act.branch_name || act.branch_key, acting_admin: true, acting_admin_name: act.admin || '', role: 'admin' };
       branch = { key: act.branch_key, name: act.branch_name || act.branch_key };
       document.getElementById('picker-screen').style.display = 'none';
       try {
         const bar = document.getElementById('acting-bar');
-        if (bar) { bar.style.display = 'flex'; bar.querySelector('[data-acting-text]').textContent = 'أنت داخلٌ كأدمن (' + (act.admin || '') + ') بصفة كاشير «' + (branch.name) + '» — فواتيرك تُكتب باسمك ولا عمولة لها'; }
+        if (bar) { bar.style.display = 'flex'; bar.querySelector('[data-acting-text]').textContent = 'أنت داخلٌ كأدمن (' + (act.admin || '') + ') بصفة كاشير «' + (branch.name) + '» — فواتيرك تُكتب باسمك، بلا عمولة إلا إن اخترت «مع عمولة»'; }
         document.documentElement.setAttribute('data-acting', '1');
       } catch (_) {}
       resolveBranchDisplayName();
@@ -2719,6 +2741,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (act) sessionStorage.removeItem('gmt_acting');          // مفتاح قديم بلا صلاحية أدمن: يُتجاهل ويُمسح
+    /* (TASK-0145 · seq 45) «لما يكبس على نقطة البيع الطبيعي يطلع له الاختيار ويدخل بدون تسجيل دخول لأنه الأدمن» */
+    if (window.GMTRole && GMTRole.isAdmin()) { showAdminPicker(); return; }
   } catch (_) {}
 
   // ── استعادة الجلسة المحفوظة تلقائياً ──
@@ -2828,12 +2852,13 @@ function renderBranchesPicker(branchList, isOffline = false) {
   `).join('');
   document.getElementById('picker-spinner').style.display = 'none';
   document.getElementById('picker-label').style.display   = 'block';
-  document.getElementById('picker-sub').textContent       = isOffline
-    ? '⚡ وضع أوفلاين — فروع محفوظة مسبقاً'
-    : 'اختر فرعك — مرة وحدة بس 👇';
+  const _isAdm = !!(window.GMTRole && GMTRole.isAdmin());   // (TASK-0145) الأدمن يختار كل مرّة ويدخل بلا تسجيل دخول
+  document.getElementById('picker-sub').textContent       = _isAdm
+    ? '🛡 أنت أدمن — اختر نقطة البيع وادخل مباشرةً بلا تسجيل دخول'
+    : (isOffline ? '⚡ وضع أوفلاين — فروع محفوظة مسبقاً' : 'اختر فرعك — مرة وحدة بس 👇');
   grid.style.display = 'grid';
 
-  const saved = localStorage.getItem('gmt_branch');
+  const saved = _isAdm ? null : localStorage.getItem('gmt_branch');
   if (saved) {
     const b = branchList.find(x => x.key === saved);
     if (b) { selectBranch(b.key, b.name); return; }
@@ -2853,8 +2878,46 @@ async function exitActingAdmin() {
   location.href = 'admin_pos.html';
 }
 window.exitActingAdmin = exitActingAdmin;
+/* ══ (TASK-0145 · seq 45) الأدمن داخل نقاط البيع: «يتبدّل بين نقاط البيع» و«يدخل بلا تسجيل دخول» ══
+   اختيار نقطةٍ في شاشة الاختيار (والجلسة جلسة أدمن) ⇒ جلسة تبويبٍ للأدمن على تلك النقطة (gmt_acting) ثمّ إعادة فتح الصفحة.
+   لا تُمسّ جلسة الموظّف المحفوظة على الجهاز. */
+function showAdminPicker() {
+  document.getElementById('picker-screen').style.display = 'flex';
+  const sub = document.getElementById('picker-sub');
+  if (sub) sub.textContent = '🛡 أنت أدمن — اختر نقطة البيع وادخل مباشرةً بلا تسجيل دخول';
+  try { loadBranches(); } catch (_) {}
+}
+window.showAdminPicker = showAdminPicker;
+async function adminEnterBranch(key, name) {
+  if (!(window.GMTRole && GMTRole.isAdmin())) return;
+  let nm = '';
+  try { nm = ((GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}
+  if (!nm) {
+    const n = await GMTAsk.prompt('اكتب اسمك — يُكتب على كل فاتورة تنشئها داخل نقطة البيع («الأدمن …»).', { title: 'اسم الأدمن', okText: 'متابعة' });
+    if (n === null || !String(n).trim()) return;
+    nm = String(n).trim();
+    try { localStorage.setItem('gmt_operator_name', nm); } catch (_) {}
+  }
+  const prev = (currentUser && currentUser.acting_admin) ? branch : null;
+  try { sessionStorage.setItem('gmt_acting', JSON.stringify({ branch_key: key, branch_name: name || key, admin: nm, at: Date.now() })); } catch (_) { showToast('تعذّر فتح الجلسة (التخزين محجوب)', 'err'); return; }
+  try {
+    const _l = window.GMTAudit && GMTAudit.log && GMTAudit.log({ action: 'admin_enter_pos', entity: 'pos', entityId: key, entityName: name || key,
+      reason: prev ? ('الأدمن ' + nm + ' انتقل من نقطة «' + (prev.name || prev.key) + '» إلى «' + (name || key) + '»') : ('دخول الأدمن ' + nm + ' إلى نقطة البيع') });
+    if (_l && _l.then) await Promise.race([_l, new Promise(r => setTimeout(r, 1500))]);
+  } catch (_) {}
+  location.replace('pos.html?acting=1');
+}
+window.adminEnterBranch = adminEnterBranch;
+async function actingSwitchBranch() {
+  if (!(currentUser && currentUser.acting_admin)) return;
+  if (Object.keys(cart || {}).length && !isSaved) {
+    if (!(await GMTAsk.confirm('في السلّة ' + Object.keys(cart).length + ' صنف لم تُحفظ فاتورتها — تُفرَّغ عند الانتقال إلى نقطةٍ أخرى. متابعة؟', { title: 'تبديل نقطة البيع', okText: 'انتقل' }))) return;
+  }
+  showAdminPicker();
+}
+window.actingSwitchBranch = actingSwitchBranch;
 function changeBranch() {
-  if (currentUser && currentUser.acting_admin) { exitActingAdmin(); return; }
+  if (currentUser && currentUser.acting_admin) { actingSwitchBranch(); return; }   // (TASK-0145) تبديلٌ بين النقاط لا خروج
   localStorage.removeItem('gmt_branch');
   branch = null;
   cart = {};
@@ -5927,6 +5990,7 @@ function newInvoice() {
   invNum  = mkInvNum();
   isSaved = false;
   _saleRef = null;                     // (TASK-0010) بيعٌ جديد ⇒ هويّةٌ جديدة
+  _actingComm = false; _actingCommEdited = false;   // (TASK-0145) كل فاتورة أدمن تبدأ «بدون عمولة»
   window.__saleSnap = null;
   { const _md = document.getElementById('haleb-manual-discount'); if (_md) _md.value = ''; }   // الخصم اليدوي لا يبقى للفاتورة التالية (M2)
   saleType = 'نقدي';
@@ -6673,7 +6737,36 @@ function renderCheckout() {
   // إظهار/إخفاء حقل الخصم اليدوي — حلب فقط
   const halebBlock = document.getElementById('haleb-discount-block');
   if (halebBlock) halebBlock.style.display = isHeadquarters() ? '' : 'none';
+  paintActingComm();
 }
+
+/* (TASK-0145) عمولة فاتورة الأدمن: «بدون» افتراضياً · «مع» ⇒ مبلغٌ مقترَحٌ تلقائياً (نفس حساب عمولة الموظّف) يعدّله الأدمن،
+   يُعتمد فوراً بلا مراجعة الإدارة ويُنسب لنقطة البيع. */
+var _actingComm = false, _actingCommEdited = false;
+function actingAutoComm() {
+  let t = 0;
+  try { Object.values(cart).forEach(i => { const ws = Number(i.prod && i.prod.wholesale_price) || 0; if (ws > 0) t += commissionLine(Number(i.price) || 0, ws, Number(i.qty) || 1); }); } catch (_) {}
+  return round2(Math.max(0, t));
+}
+function setActingComm(on) { _actingComm = !!on; paintActingComm(); if (on) { const a = document.getElementById('actingCommAmt'); if (a) try { a.focus(); a.select(); } catch (_) {} } }
+window.setActingComm = setActingComm;
+function paintActingComm() {
+  const box = document.getElementById('actingCommBox'); if (!box) return;
+  const acting = !!(currentUser && currentUser.acting_admin);
+  box.style.display = acting ? '' : 'none';
+  if (!acting) return;
+  document.querySelectorAll('#actingCommBtns [data-acomm]').forEach(b => b.classList.toggle('active', (b.getAttribute('data-acomm') === 'on') === _actingComm));
+  const amtBox = document.getElementById('actingCommAmtBox'), amt = document.getElementById('actingCommAmt'), hint = document.getElementById('actingCommHint');
+  if (amtBox) amtBox.style.display = _actingComm ? '' : 'none';
+  const auto = actingAutoComm();
+  if (amt && !_actingCommEdited) amt.value = auto.toFixed(2);
+  if (hint) hint.textContent = 'محسوبة تلقائياً: $' + auto.toFixed(2) + ' (كعمولة الموظّف) — عدّلها كما تريد. تُعتمد فوراً بلا مراجعة الإدارة، وتبقى لنقطة «' + (branch ? branch.name : '') + '». ' +
+    'وإن رُبطت الفاتورة بأوردر فلا عمولة لها (قاعدة الأوردرات).';
+  /* نقطة الإدارة بلا عمولة أصلاً — لا نعرض «مع عمولة» */
+  const onBtn = document.querySelector('#actingCommBtns [data-acomm="on"]');
+  if (onBtn) { const hq = isHeadquarters(); onBtn.disabled = hq; onBtn.title = hq ? 'نقطة الإدارة بلا عمولة' : ''; if (hq && _actingComm) { _actingComm = false; paintActingComm(); } }
+}
+window.paintActingComm = paintActingComm;
 
 function validateCheckout() {
   const custName  = document.getElementById('custName')?.value.trim();
@@ -7701,7 +7794,12 @@ async function _saveAndFinishInner() {
         if (!_ch.inDrawer) _paidExternal = Math.round(_pp * 100) / 100;
       }
     } catch (_) {}
-    const _actNote = (currentUser && currentUser.acting_admin) ? ('أنشأها الأدمن ' + (currentUser.acting_admin_name || '') + ' نيابةً عن نقطة «' + (branch ? branch.name : '') + '»') : null;
+    /* (TASK-0145) مع عمولة ⇒ المبلغ الذي حدّده الأدمن (صفر أو أقلّ = بلا عمولة) */
+    /* قواعد النظام القائمة تبقى: نقطة الإدارة والفاتورة المرتبطة بأوردر بلا عمولة */
+    const _actCommAmt = (currentUser && currentUser.acting_admin && _actingComm && !isHeadquarters() && !((_orderMode === 'existing' && _selectedOrder) || _orderMode === 'new'))
+      ? round2(Math.max(0, parseFloat(document.getElementById('actingCommAmt')?.value || '0') || 0)) : 0;
+    const _actNote = (currentUser && currentUser.acting_admin) ? ('أنشأها الأدمن ' + (currentUser.acting_admin_name || '') + ' نيابةً عن نقطة «' + (branch ? branch.name : '') + '»' +
+      (_actCommAmt > 0 ? ' · بعمولة $' + _actCommAmt.toFixed(2) + ' حدّدها الأدمن' : '')) : null;
     const _notesParts = [_custNotesRaw, _prepaidNote, offerShortageNote, _actNote].filter(Boolean);
     const _notesWithOfferFlag = _notesParts.length ? _notesParts.join(' | ') : null;
 
@@ -7807,6 +7905,22 @@ async function _saveAndFinishInner() {
           });
         }
       }
+    }
+    /* (TASK-0145) الأدمن اختار «مع عمولة»: صفٌّ واحد بالمبلغ الذي حدّده، معتمَدٌ فوراً، لنقطة البيع (لا لكاشير)،
+       وعمولة البنود توزَّع بنسبة قيمتها كي تتّفق شاشات الربح والعمولات مع الصفّ. */
+    if (_actCommAmt > 0 && !_isTrainingInvoice) {
+      _commRows0.push({
+        branch_key : branch.key,
+        cashier_name: null,
+        awaiting_collection: _awaiting,
+        amount     : _actCommAmt,
+        note       : 'عمولة حدّدها الأدمن ' + (currentUser.acting_admin_name || '') + ' عند إنشاء الفاتورة — معتمدة',
+        paid       : false,
+        approved   : true,
+        created_by : 'admin',
+      });
+      const _base = _itemRows.filter(r => !r.bundle_of).reduce((t, r) => t + (Number(r.total) || 0), 0);
+      if (_base > 0) _itemRows.forEach(r => { if (r.bundle_of) return; r.commission = parseFloat(((_actCommAmt * (Number(r.total) || 0) / _base) / (Number(r.qty) || 1)).toFixed(4)); });
     }
     _offlinePack = {
       invoiceData : Object.assign({}, _invPayload),
@@ -9019,6 +9133,7 @@ async function getLocation() {
 
 // بعد اختيار الفرع → عرض شاشة الدخول أو الدخول المباشر إذا محفوظ
 async function selectBranch(key, name) {
+  if (window.GMTRole && GMTRole.isAdmin()) { await adminEnterBranch(key, name); return; }   // (TASK-0145) الأدمن بلا تسجيل دخول
   branch = { key, name };
   localStorage.setItem('gmt_branch', key);
 
@@ -10207,7 +10322,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024g"></script>
+<script src="gmt-whatsnew.js?v=20261024h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

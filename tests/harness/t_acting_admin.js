@@ -69,7 +69,7 @@ const closeDialogs = async pg => { for (let i = 0; i < 4 && await pg.evaluate(()
     await pg.evaluate(() => { try { closeInvDetailModal(); } catch (_) {} }); await closeDialogs(pg);
 
     // ٥) الخروج
-    await Promise.all([pg.waitForURL(/admin_pos\.html/, { timeout: 15000 }), pg.click('#acting-bar button')]);
+    await Promise.all([pg.waitForURL(/admin_pos\.html/, { timeout: 15000 }), pg.click('#acting-bar button:has-text("خروج للإدارة")')]);
     await pg.waitForTimeout(5000);
     ok(await pg.evaluate(() => sessionStorage.getItem('gmt_acting')) === null, 'الخروج يعيد للإدارة ويمسح جلسة الدخول');
     ok((await dump()).gmt_audit.some(a => a.action === 'admin_exit_pos'), 'سجلّ التدقيق: خروج الأدمن');
@@ -104,6 +104,97 @@ const closeDialogs = async pg => { for (let i = 0; i < 4 && await pg.evaluate(()
 
     const bad = errs.filter(e => !/favicon|أصول ناقصة|Failed to load resource/.test(e));
     ok(bad.length === 0, 'لا أخطاء JS في الإدارة/النقطة: ' + JSON.stringify(bad.slice(0, 3)));
+  }
+  // ══ TASK-0145 (رسالة المالك seq 45) ══ «يكبس على نقطة البيع الطبيعي ⇒ يطلع له الاختيار ويدخل بلا تسجيل دخول» ·
+  // «يتبدّل بين نقاط البيع» · «معه صلاحية تنزيل الفواتير تحت السعر» · «زرّ مع عمولة / بدون عمولة — يحدّدها هو ولا ترجع لمراجعة الإدارة»
+  for (const [w, mob] of [[390, true], [1366, false]]) {
+    console.log('— TASK-0145 · ' + w);
+    await H.seed();
+    await H.call('/rest/v1/inv_columns', [{ key_name: 'latakia', display_name: 'اللاذقية', col_type: 'number', include_in_total: true, is_branch: true, show_form: true, show_table: true, sort_order: 3 }]);
+    const [p] = await H.call('/rest/v1/products', [{ name: 'كاميرا العمولة', barcode: 'ACC1', price: 120, wholesale_price: 90, net_cost: 70, haleb: 9, daraa: 5, latakia: 4 }]);
+    // نقطة البيع العاديّة (لا رابط «ادخل كموظّف»): على الجهاز جلسة موظّفٍ محفوظة، والتبويب في وضع الإدارة
+    const A = await H.open('pos.html', { init: H.ADMIN_INIT, w, mobile: mob, wait: 6000 });
+    const s0 = await A.pg.evaluate(() => ({ picker: getComputedStyle(document.getElementById('picker-screen')).display, login: getComputedStyle(document.getElementById('login-screen')).display,
+      sub: document.getElementById('picker-sub').innerText, btns: [...document.querySelectorAll('#branches-grid .branch-btn')].map(b => b.innerText.trim()), user: window.currentUser && currentUser.username }));
+    ok(s0.picker !== 'none' && s0.login === 'none' && /أنت أدمن/.test(s0.sub) && !s0.user, 'نقطة البيع العاديّة للأدمن ⇒ شاشة اختيار النقطة «ادخل مباشرةً بلا تسجيل دخول» (لا جلسة موظّف): ' + s0.sub);
+    await Promise.all([A.pg.waitForURL(/pos\.html\?acting=1/, { timeout: 15000 }), A.pg.evaluate(() => { const b = [...document.querySelectorAll('#branches-grid .branch-btn')].find(x => /درعا/.test(x.innerText)); b.click(); })]);
+    await A.pg.waitForTimeout(6000);
+    let st = await A.pg.evaluate(() => ({ acting: !!(currentUser && currentUser.acting_admin), br: branch && branch.key, role: currentUser && currentUser.role, login: getComputedStyle(document.getElementById('login-screen')).display,
+      below: gmtCanSellBelowCost(), bar: document.getElementById('acting-bar').innerText }));
+    ok(st.acting && st.br === 'daraa' && st.login === 'none', 'اختار «درعا» ⇒ دخلها كأدمن مباشرةً بلا اسم مستخدم ولا كلمة سرّ');
+    ok(st.role === 'admin' && st.below === true, 'وله صلاحية الأدمن: البيع تحت التكلفة مسموح (gmtCanSellBelowCost)');
+    ok(/تبديل النقطة/.test(st.bar) && /خروج للإدارة/.test(st.bar), 'الشريط: «🔄 تبديل النقطة» و«خروج للإدارة»');
+    // مع عمولة: المبلغ مقترَح تلقائياً، يعدّله الأدمن، يُعتمد فوراً لنقطة البيع
+    await A.pg.evaluate((pid) => { newInvoice(); addToCartFromDetail(pid); saleType = 'نقدي'; const n = document.getElementById('custName'); if (n) n.value = 'زبون العمولة'; goTo('v-checkout'); }, p.id);
+    await A.pg.waitForTimeout(600);
+    const cb = await A.pg.evaluate(() => ({ vis: getComputedStyle(document.getElementById('actingCommBox')).display !== 'none', on: document.querySelector('#actingCommBtns .active').innerText.trim() }));
+    ok(cb.vis && cb.on === 'بدون عمولة', 'في «إتمام الطلب» بطاقة العمولة للأدمن — الافتراض «بدون عمولة»');
+    await A.pg.click('#actingCommBtns [data-acomm="on"]'); await A.pg.waitForTimeout(300);
+    const auto = await A.pg.evaluate(() => ({ v: document.getElementById('actingCommAmt').value, exp: commissionLine(120, 90, 1).toFixed(2), hint: document.getElementById('actingCommHint').innerText }));
+    ok(auto.v === auto.exp && /بلا مراجعة الإدارة/.test(auto.hint), '«مع عمولة» ⇒ مبلغٌ مقترَح تلقائياً (' + auto.v + ') كعمولة الموظّف');
+    await A.pg.fill('#actingCommAmt', '7.5');
+    await A.pg.evaluate(() => saveAndFinish()); await A.pg.waitForTimeout(2500); await closeDialogs(A.pg);
+    let d = await dump(); let iv = (d.invoices || []).find(i => i.customer_name === 'زبون العمولة') || {};
+    let cm = (d.invoice_commissions || []).filter(c => String(c.invoice_id) === String(iv.id));
+    ok(cm.length === 1 && Number(cm[0].amount) === 7.5 && cm[0].approved === true && cm[0].created_by === 'admin' && cm[0].branch_key === 'daraa' && !cm[0].cashier_name,
+      'العمولة كما حدّدها (7.5$) معتمدةٌ فوراً لنقطة «درعا» بلا مراجعة: ' + JSON.stringify(cm.map(c => [c.amount, c.approved, c.created_by, c.branch_key, c.cashier_name])));
+    ok(/بعمولة \$7\.50 حدّدها الأدمن/.test(iv.notes || '') && iv.cashier_name === 'الأدمن ' + ADMIN_NAME, 'الفاتورة: «أنشأها الأدمن … بعمولة $7.50» باسمه: ' + iv.notes);
+    const its = (d.invoice_items || []).filter(i => String(i.invoice_id) === String(iv.id));
+    ok(its.length === 1 && Math.abs(Number(its[0].commission) * Number(its[0].qty) - 7.5) < 0.01, 'وعمولة البند تساوي ما حدّده (شاشات الربح متّسقة): ' + its.map(i => i.commission));
+    // الفاتورة التالية تبدأ «بدون عمولة»
+    await A.pg.evaluate((pid) => { newInvoice(); addToCartFromDetail(pid); saleType = 'نقدي'; const n = document.getElementById('custName'); if (n) n.value = 'زبون بلا عمولة'; goTo('v-checkout'); }, p.id);
+    await A.pg.waitForTimeout(400);
+    ok(await A.pg.evaluate(() => document.querySelector('#actingCommBtns .active').innerText.trim()) === 'بدون عمولة', 'الفاتورة الجديدة تبدأ «بدون عمولة» من جديد');
+    await A.pg.evaluate(() => saveAndFinish()); await A.pg.waitForTimeout(2500); await closeDialogs(A.pg);
+    d = await dump(); iv = (d.invoices || []).find(i => i.customer_name === 'زبون بلا عمولة') || {};
+    ok(iv.id && !(d.invoice_commissions || []).some(c => String(c.invoice_id) === String(iv.id)), '«بدون عمولة» ⇒ بلا عمولة');
+    // التبديل بين النقاط
+    await A.pg.evaluate(() => { newInvoice(); });
+    await A.pg.click('#acting-bar button:has-text("تبديل النقطة")'); await A.pg.waitForTimeout(1500);
+    ok(await A.pg.evaluate(() => getComputedStyle(document.getElementById('picker-screen')).display) !== 'none', '«تبديل النقطة» ⇒ قائمة النقاط');
+    await Promise.all([A.pg.waitForNavigation({ timeout: 15000 }), A.pg.evaluate(() => { const b = [...document.querySelectorAll('#branches-grid .branch-btn')].find(x => /اللاذقية/.test(x.innerText)); b.click(); })]);
+    await A.pg.waitForTimeout(6000);
+    st = await A.pg.evaluate(() => ({ acting: !!(currentUser && currentUser.acting_admin), br: branch && branch.key, login: getComputedStyle(document.getElementById('login-screen')).display }));
+    ok(st.acting && st.br === 'latakia' && st.login === 'none', 'انتقل إلى «اللاذقية» كأدمن بلا تسجيل دخول');
+    ok((await dump()).gmt_audit.some(a => a.action === 'admin_enter_pos' && /انتقل من نقطة «درعا» إلى «اللاذقية»/.test(a.reason || '')), 'سجلّ التدقيق: «انتقل من نقطة درعا إلى اللاذقية»');
+    // نقطة الإدارة (حلب): بلا عمولة أصلاً
+    await A.pg.evaluate(() => actingSwitchBranch()); await A.pg.waitForTimeout(1200);
+    await Promise.all([A.pg.waitForNavigation({ timeout: 15000 }), A.pg.evaluate(() => { const b = [...document.querySelectorAll('#branches-grid .branch-btn')].find(x => /حلب/.test(x.innerText)); b.click(); })]);
+    await A.pg.waitForTimeout(6000);
+    await A.pg.evaluate((pid) => { newInvoice(); addToCartFromDetail(pid); goTo('v-checkout'); }, p.id); await A.pg.waitForTimeout(400);
+    ok(await A.pg.evaluate(() => branch.key === 'haleb' && document.querySelector('#actingCommBtns [data-acomm="on"]').disabled), 'نقطة الإدارة (حلب): «مع عمولة» معطّل — بلا عمولة أصلاً');
+    // «معه صلاحية قبول النقل»: الأدمن في نقطة «اللاذقية» يؤكّد استلام فاتورة نقلٍ واردة إليها
+    const [tr] = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TR-ADM-' + w, status: 'pending', from_branch: 'haleb', to_branch: 'latakia', from_branch_name: 'حلب', to_branch_name: 'اللاذقية' }]);
+    await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: tr.id, product_id: p.id, product_name: 'كاميرا العمولة', qty: 2, requested_qty: 2 }]);
+    const lt0 = Number(((await dump()).products.find(x => String(x.id) === String(p.id)) || {}).latakia);
+    // في السلّة صنفٌ لم تُحفظ فاتورته ⇒ التبديل يسأل أوّلاً (لا يضيع شيء بصمت)
+    await A.pg.evaluate(() => { actingSwitchBranch(); });
+    await A.pg.waitForSelector('.gmtask-ov', { timeout: 5000 });
+    ok(/تُفرَّغ عند الانتقال/.test(await A.pg.evaluate(() => document.querySelector('.gmtask-ov').innerText)), 'تبديل النقطة والسلّة غير محفوظة ⇒ يسأل قبل تفريغها');
+    await A.pg.click('.gmtask-ov .gmtask-b.pri'); await A.pg.waitForTimeout(1200);
+    await Promise.all([A.pg.waitForNavigation({ timeout: 15000 }), A.pg.evaluate(() => { const b = [...document.querySelectorAll('#branches-grid .branch-btn')].find(x => /اللاذقية/.test(x.innerText)); b.click(); })]);
+    await A.pg.waitForTimeout(6000);
+    const rc = await A.pg.evaluate(async (id) => {
+      try { await loadIncomingTransfers(); } catch (_) {}
+      const seen = (_incomingTransfers || []).some(t => String(t.id) === String(id));
+      GMTAsk.choose = async () => 'go';                     // «أكّد بلا صورة»
+      window.__trDone = false; confirmIncomingTransfer(id).then(() => { window.__trDone = true; }, () => { window.__trDone = true; });
+      return { seen, br: branch.key };
+    }, tr.id);
+    for (let k = 0; k < 20 && !(await A.pg.evaluate(() => window.__trDone)); k++) { await A.pg.waitForTimeout(500); await closeDialogs(A.pg); }
+    await A.pg.waitForTimeout(800); await closeDialogs(A.pg);
+    const dT = await dump();
+    const lt1 = Number((dT.products.find(x => String(x.id) === String(p.id)) || {}).latakia);
+    const trow = (dT.branch_stock_transfers || []).find(x => String(x.id) === String(tr.id)) || {};
+    ok(rc.seen && rc.br === 'latakia' && lt1 === lt0 + 2 && /received|completed|done/.test(String(trow.status)), 'الأدمن أكّد استلام فاتورة نقلٍ واردة إلى النقطة: مخزون اللاذقية ' + lt0 + '⇐' + lt1 + ' · الحالة ' + trow.status);
+    const bad = A.errs.filter(e => !/favicon|أصول ناقصة|Failed to load resource/.test(e));
+    ok(bad.length === 0, 'لا أخطاء JS: ' + JSON.stringify(bad.slice(0, 3)));
+    await A.browser.close();
+    // الموظّف العاديّ لم يتغيّر عليه شيء: تسجيل دخول ولا بطاقة عمولة ولا تحت التكلفة
+    const S = await H.open('pos.html', { init: H.STAFF_INIT, w, mobile: mob, wait: 6000 });
+    const ss = await S.pg.evaluate(() => { goTo('v-checkout'); return { user: currentUser && currentUser.username, below: gmtCanSellBelowCost(), box: getComputedStyle(document.getElementById('actingCommBox')).display }; });
+    ok(ss.user === 'samer' && ss.below === false && ss.box === 'none', 'الموظّف: جلسته كما هي · لا تحت التكلفة · لا بطاقة عمولة الأدمن');
+    await S.browser.close();
   }
   console.log(fails ? `FAIL=${fails} (pass ${pass})` : `ALL PASS (${pass})`);
   process.exit(fails ? 1 : 0);
