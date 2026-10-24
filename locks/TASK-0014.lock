@@ -1,7 +1,0 @@
-task: TASK-0014
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: مع TASK-0012: inventory.html
-claimed_at: 2026-10-24T10:52:55Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0014
