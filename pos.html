@@ -2841,9 +2841,15 @@ function renderBranchesPicker(branchList, isOffline = false) {
   }
 }
 
-function exitActingAdmin() {
-  try { GMTAudit?.log?.({ action: 'admin_exit_pos', entity: 'pos', entityId: branch ? branch.key : '', entityName: branch ? branch.name : '', reason: 'خروج الأدمن من نقطة البيع' }); } catch (_) {}
+let __exitActingBusy = false;
+async function exitActingAdmin() {
+  if (__exitActingBusy) return; __exitActingBusy = true;
   try { sessionStorage.removeItem('gmt_acting'); } catch (_) {}
+  /* (TASK-0011) كان الانتقال فوراً يقطع طلب السجلّ فيضيع «خروج الأدمن» ⇒ ننتظره بسقف ١٫٥ ث */
+  try {
+    const _l = window.GMTAudit && GMTAudit.log && GMTAudit.log({ action: 'admin_exit_pos', entity: 'pos', entityId: branch ? branch.key : '', entityName: branch ? branch.name : '', reason: 'خروج الأدمن من نقطة البيع' });
+    if (_l && _l.then) await Promise.race([_l, new Promise(r => setTimeout(r, 1500))]);
+  } catch (_) {}
   location.href = 'admin_pos.html';
 }
 window.exitActingAdmin = exitActingAdmin;
@@ -7024,7 +7030,15 @@ window.isOrderCollection = isOrderCollection; window.noCommissionMode = noCommis
 /* ══ POS-2 · حالة العمولة — أربع حالات بدل ثنائية ══
    كانت: approved نعم/لا فقط ⇒ الكاشير أعمى عن «مصفَّرة» و«مدفوعة» ولا يرى السبب.
    القاعدة المعتمدة: العمولة تُصفَّر ولا تُحذف — فالتصفير حالة يجب أن تظهر بوضوح. */
+/* (TASK-0011) «يبين عليهم أنّني أنا من أنشأها» — الملاحظة التي تكتبها نقطة البيع حين يبيع الأدمن داخلها */
+function gmtActingAdminOf(inv) {
+  const m = String((inv && inv.notes) || '').match(/أنشأها الأدمن (.*?) نيابةً عن نقطة/);
+  return m ? (m[1].trim() || 'الأدمن') : null;
+}
+window.gmtActingAdminOf = gmtActingAdminOf;
 function gmtCommState(inv) {
+  if (inv._comm_amount == null && gmtActingAdminOf(inv) != null)
+                                 return { id:'admin',    label:'أنشأها الأدمن ' + gmtActingAdminOf(inv) + ' · بلا عمولة', icon:'🛡', color:'#334155', bg:'#f1f5f9', reason: '' };
   if (inv._comm_zeroed)          return { id:'zeroed',   label:'مصفَّرة',        icon:'🚫', color:'#dc2626', bg:'#fef2f2', reason: inv._comm_reason || '' };
   if (inv._comm_paid)            return { id:'paid',     label:'مدفوعة',        icon:'💵', color:'#0369a1', bg:'#f0f9ff', reason: inv._comm_reason || '' };
   if (inv._comm_approved)        return { id:'approved', label:'معتمدة',        icon:'✅', color:'#15803d', bg:'#f0fdf4', reason: inv._comm_reason || '' };
@@ -7752,7 +7766,8 @@ async function _saveAndFinishInner() {
       return [(function () {
       const ws   = Number(i.prod.wholesale_price) || 0;
       const nc   = Number(i.prod.net_cost)         || 0;
-      const commUnit = (ws > 0) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
+      /* (TASK-0011) الأدمن داخل النقطة: «أكيد العمولة صفر» — والبند أيضاً (منه تُعبّأ شاشة العمولات في الإدارة) */
+      const commUnit = (ws > 0 && !(currentUser && currentUser.acting_admin)) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
       return {
         product_id      : i.prod.id,
         product_name    : i.prod.name,
@@ -10190,7 +10205,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024b"></script>
+<script src="gmt-whatsnew.js?v=20261024c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
