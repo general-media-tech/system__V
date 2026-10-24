@@ -1,7 +1,0 @@
-task: TASK-0010
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: pos.html gmt-core.js (طابور الأوفلاين) tests/harness/t_dup_invoice*.js TASK_REGISTRY.md
-claimed_at: 2026-10-24T11:12:14Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0010
