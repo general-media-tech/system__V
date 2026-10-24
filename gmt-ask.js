@@ -66,10 +66,8 @@
       'font-family:inherit;cursor:pointer;transition:filter .12s}',
       '.gmtask-b:hover{filter:brightness(.94)}',
       '.gmtask-b.pri{background:' + BRAND + ';color:#fff}',
-      '.gmtask-b.sec{background:#f1f5f9;color:#475569}',
-      '@media (prefers-color-scheme:dark){.gmtask-bx{background:#0f172a}.gmtask-hd{color:#e2e8f0}',
-      '.gmtask-bd{color:#cbd5e1}.gmtask-in{background:#1e293b;border-color:#334155;color:#e2e8f0}.gmtask-lb{color:#94a3b8}',
-      '.gmtask-b.sec{background:#1e293b;color:#cbd5e1}}'
+      '.gmtask-b.sec{background:#f1f5f9;color:#475569}'
+      /* (TASK-0143) أُزيلت قاعدة الوضع الداكن: كانت تجعل النوافذ داكنةً فوق صفحاتٍ فاتحة على هاتفٍ بالوضع الليليّ */
     ].join('');
     var st = document.createElement('style');
     st.id = 'gmtask-style'; st.textContent = css;

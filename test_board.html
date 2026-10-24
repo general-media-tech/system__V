@@ -11,29 +11,31 @@ window.GMT_INTERNAL = 1;</script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;font-family:'Cairo',sans-serif;}
-  body{background:#0f172a;color:#e2e8f0;padding:16px;line-height:1.7;}
+  /* (TASK-0143) كانت داكنةً بتصميمها — صارت فاتحةً بهويّة النظام (طلب المالك 9 ت1 «كل الصفحات بهذا اللون») */
+  :root{color-scheme:light}
+  body{background:#f4f5f7;color:#0f1219;padding:16px;line-height:1.7;}
   .wrap{max-width:920px;margin:0 auto;}
-  h1{font-size:22px;font-weight:900;text-align:center;margin-bottom:4px;color:#fff;}
-  .sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:20px;}
-  h2{font-size:16px;font-weight:800;margin:22px 0 10px;color:#fff;border-right:4px solid #ef4444;padding-right:10px;}
+  h1{font-size:22px;font-weight:900;text-align:center;margin-bottom:4px;color:#0f1219;}
+  .sub{text-align:center;color:#5b6472;font-size:13px;margin-bottom:20px;}
+  h2{font-size:16px;font-weight:800;margin:22px 0 10px;color:#0f1219;border-right:4px solid #D5001C;padding-right:10px;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
-  .card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:14px;transition:.15s;}
-  .card:hover{border-color:#ef4444;transform:translateY(-2px);}
+  .card{background:#fff;border:1px solid rgba(15,18,25,.10);border-radius:14px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.05);padding:14px;transition:.15s;}
+  .card:hover{border-color:#D5001C;transform:translateY(-2px);}
   .card .ico{font-size:26px;}
-  .card .nm{font-weight:800;font-size:15px;margin:6px 0;color:#fff;}
-  .card .ds{font-size:11.5px;color:#94a3b8;margin-bottom:10px;min-height:32px;}
+  .card .nm{font-weight:800;font-size:15px;margin:6px 0;color:#0f1219;}
+  .card .ds{font-size:11.5px;color:#5b6472;margin-bottom:10px;min-height:32px;}
   .btns{display:flex;gap:6px;}
   a.btn{flex:1;text-align:center;text-decoration:none;padding:8px;border-radius:9px;font-size:12px;font-weight:800;}
-  .b-open{background:#dc2626;color:#fff;}
-  .b-chk{background:#334155;color:#cbd5e1;cursor:pointer;border:none;}
-  .bot{background:#0e2a1e;border-color:#14532d;}
+  .b-open{background:#D5001C;color:#fff;}
+  .b-chk{background:#f1f5f9;color:#334155;cursor:pointer;border:none;}
+  .bot{background:#f0fdf4;border-color:#86efac;}
   .bot:hover{border-color:#22c55e;}
   .bot .b-open{background:#15803d;}
-  details{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px 14px;margin-bottom:10px;}
-  summary{font-weight:800;cursor:pointer;color:#fff;}
-  code{background:#0f172a;padding:2px 7px;border-radius:6px;color:#fca5a5;font-size:13px;}
+  details{background:#fff;border:1px solid rgba(15,18,25,.10);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  summary{font-weight:800;cursor:pointer;color:#0f1219;}
+  code{background:#fef2f2;padding:2px 7px;border-radius:6px;color:#991b1b;font-size:13px;}
   .sql-list{list-style:none;font-size:13px;line-height:2;}
-  .req{color:#fca5a5;font-weight:800;}
+  .req{color:#b91c1c;font-weight:800;}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:none;align-items:center;justify-content:center;padding:14px;}
   .modal.on{display:flex;}
   .mbox{background:#fff;color:#1e293b;border-radius:16px;max-width:440px;width:100%;max-height:85vh;overflow:auto;padding:18px;}
@@ -43,7 +45,7 @@ window.GMT_INTERNAL = 1;</script>
   .neu{margin-top:10px;padding:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;font-size:12px;color:#065f46;}
 </style>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-brand.js?v=20261003"></script>
@@ -69,7 +71,7 @@ window.GMT_INTERNAL = 1;</script>
   <h2>🗄️ ما يخصّ المهندس: SQL وخطة النشر</h2>
   <details open>
     <summary>① ملفات SQL — شغّلها بالترتيب (مهمّ)</summary>
-    <div style="margin-top:8px;font-size:12.5px;color:#cbd5e1;">⚠️ ليست قديمة — منها <span class="req">جديد وإلزامي</span>. كلها آمنة (<code>if not exists</code>) لا تمسّ البيانات.</div>
+    <div style="margin-top:8px;font-size:12.5px;color:#334155;">⚠️ ليست قديمة — منها <span class="req">جديد وإلزامي</span>. كلها آمنة (<code>if not exists</code>) لا تمسّ البيانات.</div>
     <ul class="sql-list">
       <li>أساسية: <code>1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣</code></li>
       <li class="req">جديدة إلزامية: <code>🔟</code> دوال المخزون · <code>1️⃣1️⃣</code> العروض/الصندوق · <code>1️⃣2️⃣</code> إبطال مالي · <code>1️⃣3️⃣</code> التسويات/الجرد · <code>1️⃣4️⃣</code> حد التنبيه min_stock · <code>SCHEMA_00_telemetry</code> لوحة الصحة</li>
@@ -78,7 +80,7 @@ window.GMT_INTERNAL = 1;</script>
   </details>
   <details>
     <summary>② الملفات المعدّلة — أعد نشرها</summary>
-    <div style="margin-top:8px;font-size:12.5px;color:#cbd5e1;line-height:2;">
+    <div style="margin-top:8px;font-size:12.5px;color:#334155;line-height:2;">
       الصفحات: المشتريات · الجرد · طابعة الملصقات · الأدوات الصغيرة.<br>
       البوتات: <code>gmt-core.js · gmt-staff.js · gmt-updater.js · gmt-training.js</code> + الأدلّة.<br>
       صفحات الفحص: الفاحص_المركزي · الفحوصات · تشخيص · بوتات_الحماية · الأدمن_السيادي.
@@ -86,7 +88,7 @@ window.GMT_INTERNAL = 1;</script>
   </details>
   <details>
     <summary>③ خطوات النشر + الاختبار</summary>
-    <div style="margin-top:8px;font-size:12.5px;color:#cbd5e1;line-height:2;">
+    <div style="margin-top:8px;font-size:12.5px;color:#334155;line-height:2;">
       1) شغّل SQL بالترتيب. 2) ارفع كل ملفات الحزمة. 3) افتح كل أداة من هذه اللوحة (بوضع سيادي) واتبع «قائمة الفحص». 4) شغّل الفاحص المركزي + بوتات الحماية وراجع التقارير.<br>
       التفاصيل الكاملة في <code>🚀_خطة_النشر_والتجريب.md</code>.
     </div>
@@ -153,7 +155,7 @@ function showChk(k){
 <script src="gmt-brain.js?v=20261017c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024f"></script>
+<script src="gmt-whatsnew.js?v=20261024g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

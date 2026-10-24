@@ -514,7 +514,7 @@
 
   function openScreen(text) {
     if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
-    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261017c';
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261024g';
     sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
     sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
     (document.head || document.documentElement).appendChild(sc);

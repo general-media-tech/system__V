@@ -14,12 +14,7 @@ window.GMT_INTERNAL = 1;</script>
     --warn:#B45309; --warnbg:#FFFBEB; --okbg:#ECFDF5; --ok:#047857; --codebg:#0F172A; --codefg:#E2E8F0;
     --badbg:#FEF2F2; --bad:#B91C1C;
   }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
-      --warnbg:#2A2210; --okbg:#0C2B22; --badbg:#2A1414;
-    }
-  }
+  /* (TASK-0143) النظام فاتحٌ دائماً بهويّته — أُزيلت قاعدة الوضع الداكن للهاتف (طلب المالك 9 ت1 · seq 43) */ :root{color-scheme:light}
   :root[data-theme="dark"]{
     --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26;
     --warnbg:#2A2210; --okbg:#0C2B22; --badbg:#2A1414;
@@ -60,7 +55,7 @@ window.GMT_INTERNAL = 1;</script>
        font-size:11px;font-weight:800;margin-inline-end:4px}
   @media(max-width:520px){ body{padding:16px 16px 50px} h1{font-size:18px} table{font-size:11.5px} }
 </style>
-  <script src="gmt-ask.js?v=20261011e" defer></script>
+  <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
@@ -330,7 +325,7 @@ window.GMT_INTERNAL = 1;</script>
 </div>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024f"></script>
+<script src="gmt-whatsnew.js?v=20261024g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

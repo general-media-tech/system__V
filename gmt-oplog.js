@@ -345,8 +345,7 @@
     '.ol-d{font-size:12.5px;color:#334155;line-height:1.9;margin-top:2px;word-break:break-word}' +
     '.ol-k{color:#64748b;font-weight:700}.ol-o{color:#b91c1c;text-decoration:line-through;text-decoration-color:#fca5a5}.ol-n{color:#15803d;font-weight:800}' +
     '.ol-p{font-size:11px;color:#94a3b8}.ol-em{text-align:center;color:#64748b;padding:26px 8px;font-size:13.5px}' +
-    '.ol-w{padding:12px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:13px;line-height:1.8}' +
-    '@media (prefers-color-scheme:dark){.ol{color:#e2e8f0}.ol-q{background:#1e293b;border-color:#334155;color:#e2e8f0}.ol-c,.ol-b{background:#1e293b;border-color:#334155;color:#cbd5e1}.ol-row{border-color:#273449}.ol-ent{color:#e2e8f0}.ol-d{color:#cbd5e1}}';
+    '.ol-w{padding:12px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:13px;line-height:1.8}';   /* (TASK-0143) أُزيلت قاعدة الوضع الداكن — النظام فاتحٌ دائماً */
   function injectCss() {
     if (document.getElementById('gmt-oplog-css')) return;
     var st = document.createElement('style'); st.id = 'gmt-oplog-css'; st.textContent = CSS;

@@ -164,7 +164,7 @@
     }
     if (global.GMTOpLog) go();
     else {
-      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261011n'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
+      var s = document.createElement('script'); s.src = 'gmt-oplog.js?v=20261024g'; s.onload = function () { setTimeout(go, 50); }; (document.head || document.documentElement).appendChild(s);
     }
     return items.length;
   }
@@ -184,8 +184,7 @@
     '.sc-chip{display:inline-block;border-radius:99px;padding:0 9px;font-size:11.5px;font-weight:900}.sc-ok{background:#dcfce7;color:#166534}.sc-lo{background:#fef3c7;color:#92400e}.sc-no{background:#fee2e2;color:#991b1b}.sc-sm{background:#e0e7ff;color:#3730a3}' +
     '.sc-sec{margin:14px 0 4px;font-weight:900;font-size:13.5px}' +
     '.sc-w{padding:10px 12px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:12.5px;line-height:1.8;margin:8px 0}' +
-    '.sc-u{padding:10px 12px;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;font-weight:700;font-size:12.5px;line-height:1.8;margin:8px 0}' +
-    '@media (prefers-color-scheme:dark){.sc-bx{background:#0f172a;color:#e2e8f0}.sc-ta{background:#1e293b;border-color:#334155;color:#e2e8f0}.sc-b{background:#1e293b;border-color:#334155;color:#cbd5e1}.sc-card{border-color:#334155}.sc-hd{border-color:#273449}}';
+    '.sc-u{padding:10px 12px;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;font-weight:700;font-size:12.5px;line-height:1.8;margin:8px 0}';   /* (TASK-0143) أُزيلت قاعدة الوضع الداكن — النظام فاتحٌ دائماً */
   function css() { if (document.getElementById('gmt-screen-css')) return; var st = document.createElement('style'); st.id = 'gmt-screen-css'; st.textContent = CSS; (document.head || document.documentElement).appendChild(st); }
 
   function replyTemplate(found, similarList) {
