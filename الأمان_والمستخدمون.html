@@ -12,50 +12,128 @@ window.GMT_INTERNAL = 1;</script>
 <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <style>
-  :root{ --red:#D5001C; --ink:#111827; --mut:#5b6472; --line:#E5E7EB; --bg:#F2F3F5; --card:#FFFFFF;
-         --ok:#047857; --okbg:#ECFDF5; --bad:#B91C1C; --badbg:#FEF2F2; --warn:#92400E; --warnbg:#FFFBEB; }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){ --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26; }
-  }
-  :root[data-theme="dark"]{ --ink:#F3F4F6; --mut:#5b6472; --line:#2A2F3A; --bg:#12151B; --card:#1A1E26; }
+  /* (TASK-0143 · طلب المالك seq 43 + 9 ت1 «كل الصفحات بهذا اللون اعد صقلها») الصفحة كانت تنقلب داكنةً على هاتفٍ بالوضع الليليّ
+     (prefers-color-scheme) والنظامُ كلّه فاتح بهويّته ⇒ «لا تتناسب مع نظامنا». الآن فاتحةٌ دائماً بمكوّنات الهويّة (gmt-ui.css):
+     ترويسةٌ بخطٍّ أحمر · بطاقاتٌ بيضاء · شاراتٌ بنصٍّ ولون · أزرارٌ بارتفاعٍ واحد · والمستخدمون بطاقاتٌ لا جدولٌ مقصوص على الهاتف. */
+  :root{ color-scheme: light;
+         --red:#D5001C; --red-h:#BF0019; --ink:#0f1219; --ink2:#334155; --mut:#5b6472; --line:rgba(15,18,25,.10); --bg:#f4f5f7; --card:#fff;
+         --ok:#166534; --okbg:#f0fdf4; --okbd:#86efac; --bad:#b91c1c; --badbg:#fef2f2; --badbd:#fecaca;
+         --warn:#92400e; --warnbg:#fffbeb; --warnbd:#fde68a; --info:#1e3a8a; --infobg:#eff6ff; --infobd:#bfdbfe; }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Cairo',system-ui,Tahoma,sans-serif;background:var(--bg);color:var(--ink);line-height:1.85;padding:14px}
-  .wrap{max-width:820px;margin:0 auto;padding-bottom:50px}
-  header{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-bottom:12px;
-         display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  header img{height:42px;width:auto;object-fit:contain;flex-shrink:0}
-  .hbar{padding-inline-start:12px;border-inline-start:2px solid var(--line)}
-  h1{font-size:16.5px;font-weight:900;color:var(--red)}
-  .sub{font-size:11.5px;color:var(--mut);font-weight:700}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px}
-  .card h2{font-size:14.5px;font-weight:900;margin-bottom:3px;display:flex;align-items:center;gap:7px}
-  .card .desc{font-size:12px;color:var(--mut);font-weight:700;margin-bottom:12px}
-  .row{border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:9px;background:transparent}
-  .row .lbl{font-weight:900;font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .tag{font-size:10px;font-weight:900;border-radius:7px;padding:2px 8px}
-  .tag.def{background:var(--warnbg);color:var(--warn);border:1px solid #FDE68A}
-  .tag.set{background:var(--okbg);color:var(--ok);border:1px solid #A7F3D0}
-  .tag.dev{background:#f1f3f6;color:#334155;border:1px solid #e2e8f0}
-  .field{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
-  input,select{flex:1;min-width:130px;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;
-        padding:9px 11px;font:inherit;font-size:13px;font-weight:700;color:var(--ink);outline:none}
-  input:focus,select:focus{border-color:var(--red)}
-  .btn{background:var(--red);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:inherit;
-        font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap}
-  .btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
-  .btn.ok{background:var(--ok)} .btn.bad{background:var(--bad)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .msg{font-size:12px;font-weight:800;margin-top:7px}
-  .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)}
-  .note{background:var(--warnbg);border:1px solid #FDE68A;border-radius:12px;padding:11px 13px;
-        font-size:12px;font-weight:700;line-height:1.95;color:var(--warn)}
-  .danger{background:var(--badbg);border:1px solid #FECACA;color:var(--bad)}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
-  th{font-weight:900;font-size:11px;color:var(--mut)}
-  .gate{max-width:380px;margin:60px auto;text-align:center}
-  .back{display:inline-block;margin-bottom:10px;font-size:12px;font-weight:800;color:var(--mut);text-decoration:none}
+  html,body{background:var(--bg)}
+  body{font-family:'Cairo',system-ui,Tahoma,sans-serif;color:var(--ink);line-height:1.8;padding:14px 14px 48px;-webkit-text-size-adjust:100%}
+  .wrap{max-width:900px;margin:0 auto}
+  .back{display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12.5px;font-weight:800;color:var(--mut);text-decoration:none}
   .back:hover{color:var(--red)}
+  /* الترويسة — نمط الفاتورة: اسمٌ عريض · فاصل · وصفٌ خافت · خطٌّ أحمر */
+  header.ph{display:flex;align-items:center;gap:12px;padding:6px 2px 12px;margin-bottom:12px;border-bottom:2px solid var(--red)}
+  header.ph img{height:40px;width:auto;object-fit:contain;flex-shrink:0;border-radius:8px}
+  .hbar{padding-inline-start:12px;border-inline-start:1px solid var(--line);min-width:0}
+  h1{font-size:19px;font-weight:900;color:var(--ink);line-height:1.4}
+  .sub{font-size:12px;color:var(--mut);font-weight:700}
+  /* ملخّص الحالة + التنقّل بين الأقسام */
+  .sum{display:grid;gap:8px;margin-bottom:10px}
+  .ban{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:14px;border:1.5px solid;font-size:12.8px;font-weight:700;line-height:1.85}
+  .ban b{font-weight:900}
+  .ban .go{margin-inline-start:auto;flex:none}
+  .ban.warn{background:var(--warnbg);border-color:var(--warnbd);color:var(--warn)}
+  .ban.ok{background:var(--okbg);border-color:var(--okbd);color:var(--ok)}
+  .ban.info{background:var(--infobg);border-color:var(--infobd);color:var(--info)}
+  .secnav{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;margin-bottom:4px;background:var(--bg);scrollbar-width:none}
+  .secnav::-webkit-scrollbar{display:none}
+  .secnav a{flex:none;display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;
+            color:var(--ink2);font-size:12.5px;font-weight:800;text-decoration:none;white-space:nowrap}
+  .secnav a:hover{border-color:var(--red);color:var(--red)}
+  /* البطاقات */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:14px;
+        box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.05);scroll-margin-top:62px}
+  .card h2{display:flex;align-items:center;gap:9px;font-size:15.5px;font-weight:900;color:var(--ink);margin-bottom:2px}
+  .card h2::after{content:'';flex:1;height:1px;background:linear-gradient(to left,var(--red),transparent);opacity:.55}
+  .card .desc,.desc{font-size:12.5px;color:var(--mut);font-weight:600;line-height:1.85;margin-bottom:12px}
+  .row{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:#fff}
+  .row .lbl,.lbl{font-weight:900;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ink)}
+  /* الشارات: لونٌ ونصٌّ معاً، ولا تنكسر أبداً */
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:900;border-radius:999px;padding:2px 10px;border:1px solid;
+       white-space:nowrap;line-height:1.8}
+  .tag.def{background:var(--warnbg);color:var(--warn);border-color:var(--warnbd)}
+  .tag.set{background:var(--okbg);color:var(--ok);border-color:var(--okbd)}
+  .tag.dev{background:#eef0f3;color:#475569;border-color:transparent}
+  .tag.bad{background:var(--badbg);color:var(--bad);border-color:var(--badbd)}
+  .field{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:stretch}
+  input,select{flex:1 1 180px;min-width:0;min-height:42px;background:#fff;border:1.5px solid var(--line);border-radius:10px;
+        padding:8px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);outline:none}
+  input::placeholder{color:#94a3b8;font-weight:500}
+  input:focus,select:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(213,0,28,.10)}
+  /* الأزرار — ارتفاعٌ واحد · الأحمر للفعل الأساسيّ وحده · الحذف إطارٌ أحمر لا كتلة */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 16px;border-radius:10px;
+       background:var(--red);color:#fff;border:1px solid var(--red);font:inherit;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;
+       transition:background .15s}
+  .btn:hover{background:var(--red-h)}
+  .btn.ok{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.ghost{background:#fff;color:var(--ink2);border-color:var(--line)}
+  .btn.ghost:hover{background:#f7f8fa}
+  .btn.bad{background:#fff;color:var(--bad);border-color:var(--badbd)}
+  .btn.bad:hover{background:var(--badbg)}
+  .btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn.sm{min-height:36px;padding:0 10px;font-size:12.5px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .msg{font-size:12.5px;font-weight:800;margin-top:8px}
+  .msg:empty{display:none}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)}
+  .note{background:var(--warnbg);border:1px solid var(--warnbd);border-radius:12px;padding:11px 13px;font-size:12.5px;font-weight:700;line-height:1.95;color:var(--warn)}
+  .danger{background:var(--badbg);border:1px solid var(--badbd);color:var(--bad)}
+  code{direction:ltr;unicode-bidi:isolate;font-size:12px;background:rgba(15,18,25,.06);border-radius:6px;padding:0 5px}
+  /* أقسامٌ تُطوى: الشرح الطويل لا يزاحم ما تعمله */
+  details.more{border:1px solid var(--line);border-radius:14px;background:#fff;margin-top:10px}
+  details.more>summary{cursor:pointer;list-style:none;padding:11px 13px;font-size:13px;font-weight:900;color:var(--ink2);display:flex;align-items:center;gap:8px}
+  details.more>summary::-webkit-details-marker{display:none}
+  details.more>summary::after{content:'▾';margin-inline-start:auto;color:var(--mut);transition:transform .15s}
+  details.more[open]>summary::after{transform:rotate(180deg)}
+  details.more>.in{padding:0 13px 13px}
+  /* كلمات السرّ */
+  .pw .lbl{justify-content:space-between}
+  .pw .field input{flex:1 1 200px}
+  /* المستخدمون — بطاقةٌ لكلّ مستخدم (كانت جدولاً بستّة أعمدة يُقصّ على الهاتف) */
+  .utools{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
+  .utools input{flex:2 1 220px}.utools select{flex:1 1 150px}
+  .ucount{font-size:12px;font-weight:700;color:var(--mut);margin:2px 2px 0}
+  .ugrp{display:flex;align-items:center;gap:8px;margin:16px 2px 8px;font-weight:900;font-size:13.5px;color:var(--ink)}
+  .ugrp small{color:var(--mut);font-weight:700;font-size:12px}
+  .ugrp::after{content:'';flex:1;height:1px;background:var(--line)}
+  .ulist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+  .ucard{border:1px solid var(--line);border-radius:16px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .ucard.off{background:#fafbfc}
+  .ucard.off .uname{color:var(--mut)}
+  .ucard.hl{outline:2px solid #2563eb;background:#eff6ff}
+  .uhead{display:flex;align-items:center;gap:10px;min-width:0}
+  .uav{width:40px;height:40px;border-radius:50%;background:#f1f5f9;color:var(--ink2);display:grid;place-items:center;font-weight:900;font-size:16px;flex:none}
+  .uid{min-width:0;flex:1}
+  .uname{font-weight:900;font-size:14.5px;line-height:1.45;overflow-wrap:anywhere}
+  .uuser{font-size:12px;font-weight:700;color:var(--mut);direction:ltr;unicode-bidi:isolate;display:inline-block}
+  .umeta{display:flex;gap:6px;flex-wrap:wrap}
+  .uact{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .uact .btn{min-height:38px;padding:4px 6px;font-size:12.5px;white-space:normal;line-height:1.35;text-align:center}
+  .uact .wide{grid-column:1/-1}
+  .uempty{text-align:center;color:var(--mut);font-weight:700;padding:18px 8px;font-size:13px}
+  /* حسابات الأدمن */
+  .alist{display:grid;gap:8px;margin-top:8px}
+  .arow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff}
+  .arow .anm{font-weight:900;font-size:14px}
+  .arow .aat{font-size:12px;color:var(--mut);font-weight:600}
+  .arow .aact{display:flex;gap:6px;margin-inline-start:auto}
+  /* البوّابة */
+  .gate{max-width:400px;margin:56px auto;text-align:center}
+  .gate .card{padding:22px 18px}
+  .gate img{height:46px;margin-bottom:6px}
+  .gate h2{justify-content:center}
+  .gate h2::after{display:none}
+  .gate input{width:100%;text-align:center;margin-top:4px}
+  @media (max-width:520px){
+    body{padding:10px 10px 40px}
+    .card{padding:14px 12px;border-radius:18px}
+    .ulist{grid-template-columns:1fr}
+    .ban{font-size:12.5px}
+  }
 </style>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261023g"></script>
@@ -69,144 +147,158 @@ window.GMT_INTERNAL = 1;</script>
      ══════════════════════════════════════════════════════════════════════ -->
 <div id="gate" class="gate">
   <div class="card">
+    <img src="logo.png" alt="مجموعة ميديا تيك" onerror="this.onerror=null;this.src='logo.jpg'">
     <h2>🔐 الأمان والمستخدمون</h2>
     <div class="desc">أدخل كلمة السرّ السيادية للمتابعة</div>
-    <input id="gate-pw" type="password" placeholder="كلمة السرّ السيادية" onkeydown="if(event.key==='Enter')unlock()">
+    <input id="gate-pw" type="password" placeholder="كلمة السرّ السيادية" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlock()">
     <div class="field"><button class="btn" style="flex:1" onclick="unlock()">دخول</button></div>
     <div id="gate-msg" class="msg"></div>
     <!-- (٧ ي-٤) كان هنا «إن لم تُغيّرها بعد فهي 0000» — رقمٌ خاطئ (الافتراضيّة غيره) ومكتوبٌ لكلّ من يفتح الصفحة. -->
-    <div class="desc" style="margin-top:10px">الكلمة لا تُعرض هنا عمداً. إن كانت ما تزال الافتراضيّة فغيّرها من هذه الصفحة بعد الدخول.</div>
+    <div class="desc" style="margin:12px 0 0">الكلمة لا تُعرض هنا عمداً. إن كانت ما تزال الافتراضيّة فغيّرها من هذه الصفحة بعد الدخول.</div>
   </div>
 </div>
 
 <div id="app" class="wrap" style="display:none">
-  <a class="back" href="home.html">→ رجوع للواجهة الرئيسية</a>
+  <a class="back" href="home.html">→ الرئيسية</a>
 
-  <header>
+  <header class="ph">
     <img src="logo.png" alt="مجموعة ميديا تيك" onerror="this.onerror=null;this.src='logo.jpg'">
     <div class="hbar">
-      <h1>🔐 الأمان والمستخدمون</h1>
-      <div class="sub">كل كلمات السرّ · وكل الحسابات — في مكان واحد</div>
+      <h1>الأمان والمستخدمون</h1>
+      <div class="sub">الموظّفون · حسابات الأدمن · كلمات سرّ النظام · سياسات التشغيل</div>
     </div>
   </header>
 
-  <!-- ══ عطل مكتشَف يستحقّ أن يُرى أوّلاً ══════════════════════════════════ -->
-  <div class="card">
-    <div class="note danger">
-      🔴 <b>عطل وجدناه وأصلحناه — اقرأه قبل أي شيء.</b><br>
-      كانت كلمة السرّ السيادية <b>مسارين منفصلين</b>: أداة السيادة تحفظ في مكان،
-      وفكّ ختم الجرد وفكّ ختم المشتريات يقرآن مكاناً آخر <b>لا يكتب فيه أحد</b>.
-      فكنتَ تغيّرها ولا تتغيّر عندهما، وتبقى الكلمة المكتوبة في الشيفرة المنشورة
-      مقبولةً عندهما.<br>
-      صار كل فحص يمرّ من مصدر واحد (<code>gmt-auth.js</code>)، وما تضبطه هنا يسري
-      على النظام كلّه. <b>غيّرها الآن — فالقديمة معروفة.</b>
+  <!-- (TASK-0143) ما يحتاج انتباهك الآن — سطرٌ لكلّ أمر، وزرٌّ يأخذك إليه -->
+  <div id="sec-sum" class="sum"></div>
+
+  <nav class="secnav" aria-label="أقسام الصفحة">
+    <a href="#s-users">👥 الموظّفون</a>
+    <a href="#admins-card">🛡 حسابات الأدمن</a>
+    <a href="#s-pw">🔑 كلمات سرّ النظام</a>
+    <a href="#s-pol">⚙️ سياسات التشغيل</a>
+  </nav>
+
+  <!-- ══ المستخدمون ══════════════════════════════════════════════════════ -->
+  <div class="card" id="s-users">
+    <h2>👥 الموظّفون والمستخدمون</h2>
+    <div class="desc">
+      حسابات الدخول لنقاط البيع والكفالة والعقود. لكلّ موظّف بطاقة: حالته، وفرعه، وعلى أيّ جهاز يدخل، وأزرار تعديله.
     </div>
+
+    <div class="utools">
+      <input id="u-q" type="search" placeholder="ابحث بالاسم أو اسم المستخدم" autocomplete="off">
+      <select id="u-fbr"><option value="">كل الفروع</option></select>
+    </div>
+    <div id="u-count" class="ucount"></div>
+    <div id="u-msg" class="msg"></div>
+    <div id="u-rows"><div class="uempty">⏳ جارٍ التحميل…</div></div>
+
+    <details class="more" id="u-add-box">
+      <summary>➕ إضافة مستخدم جديد</summary>
+      <div class="in">
+        <div class="field">
+          <input id="u-name" placeholder="الاسم الظاهر (محمد خير)">
+          <input id="u-user" placeholder="اسم المستخدم (بالإنكليزي)" dir="ltr" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <!-- (٨ ت — تدقيق المطابقة) كانت كلمة المستخدم الجديد تبدأ «2003» — وهي كلمة الأدمن نفسها؛ والفرع نصٌّ حرّ
+               يقترح «halab» والمفتاح الحقيقيّ «haleb». الآن: كلمةٌ تكتبها أنت، والفرع قائمةٌ من فروعك الحقيقيّة. -->
+          <input id="u-pw" placeholder="كلمة سرّ المستخدم (غير كلمة الأدمن)" autocomplete="new-password">
+          <select id="u-branch"><option value="">— الفرع —</option></select>
+          <button class="btn ok" onclick="addUser()">إضافة</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 🧪 (2026-09-27 · طلب المالك) «أنشئ الآن مستخدماً وهمياً بكل نقاط البيع،
+         اسمه 0000 وكلمة المرور 0000، يمكن تعديله بعدين». -->
+    <details class="more">
+      <summary>🧪 مستخدم التجربة <span class="tag def">0000 / 0000</span></summary>
+      <div class="in">
+        <div class="desc" style="margin:0">
+          يُنشأ في <b>كل فرع</b> دفعةً واحدة، <b>عامّاً</b> (أي جهاز يدخل منه). احذفه أو اقفله على جهاز متى شئت من بطاقته.
+        </div>
+        <div class="field"><button class="btn ok" onclick="makeTestUsers()">أنشئ مستخدم التجربة في كل الفروع</button></div>
+        <div id="t-msg" class="msg"></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ══ حسابات الأدمن ═══════════════════════════════════════════════════ -->
+  <div class="card" id="admins-card">
+    <h2>🛡 حسابات الأدمن</h2>
+    <div class="desc">
+      لكلّ أدمن <b>اسمٌ وكلمة سرّ</b>: تعرف من دخل، وتُكتب أسماؤهم على ما ينشئونه. الدخول من نموذج الدخول العادي أو من «دخول الإدارة».
+    </div>
+    <div class="row">
+      <div class="lbl">جلستك الآن: <span class="tag" id="ad-me">…</span></div>
+      <div id="ad-list" class="alist">⏳ …</div>
+      <div class="field"><button class="btn ok" id="ad-login" onclick="adminSignIn()" style="display:none">دخول الإدارة</button></div>
+    </div>
+    <div class="row" id="ad-add-row" style="display:none">
+      <div class="lbl">➕ إضافة أدمن</div>
+      <div class="field">
+        <input id="ad-name" placeholder="اسم الأدمن (يظهر على الفواتير)" autocomplete="off">
+        <input id="ad-pw" type="password" placeholder="كلمة السرّ (٨ أحرف فأكثر يُنصح بها)" autocomplete="new-password">
+        <button class="btn ok" onclick="addAdminAcc()">إضافة</button>
+      </div>
+    </div>
+    <div id="ad-msg" class="msg"></div>
+    <details class="more">
+      <summary>ℹ️ كيف تُحفظ؟ وكيف يُنشأ أوّل حساب؟</summary>
+      <div class="in desc" style="margin:0">
+        تُحفَظ <b>كبصمة</b> (PBKDF2 بمِلحٍ لكل حساب) لا كنصّ. <b>أوّل حساب</b>: اضغط «دخول الإدارة» واكتب الاسم الذي تريده مع كلمة السرّ السيادية الحالية فيُنشأ الحساب.
+      </div>
+    </details>
   </div>
 
   <!-- ══ كلمات السرّ ══════════════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="s-pw">
     <h2>🔑 كلمات سرّ النظام</h2>
     <div class="desc">
-      الحفظ في <b>قاعدة البيانات</b> ⇒ تسري على كل الأجهزة. وتُحفَظ <b>كبصمة</b>
-      لا كنصّ، فمن يقرأ الجدول لا يقرأ الكلمة.
+      تُحفَظ في <b>قاعدة البيانات</b> فتسري على كل الأجهزة، و<b>كبصمة</b> لا كنصّ: من يقرأ الجدول لا يقرأ الكلمة.
     </div>
     <div id="pw-rows"></div>
+    <!-- ══ عطلٌ أُصلح (كان بطاقةً حمراء أعلى الصفحة — نصّه كما هو) ══ -->
+    <details class="more">
+      <summary>ℹ️ عطلٌ وجدناه وأصلحناه في كلمة السرّ السيادية</summary>
+      <div class="in"><div class="note danger">
+        كانت كلمة السرّ السيادية <b>مسارين منفصلين</b>: أداة السيادة تحفظ في مكان،
+        وفكّ ختم الجرد وفكّ ختم المشتريات يقرآن مكاناً آخر <b>لا يكتب فيه أحد</b>.
+        فكنتَ تغيّرها ولا تتغيّر عندهما، وتبقى الكلمة المكتوبة في الشيفرة المنشورة
+        مقبولةً عندهما.<br>
+        صار كل فحص يمرّ من مصدر واحد (<code>gmt-auth.js</code>)، وما تضبطه هنا يسري
+        على النظام كلّه. <b>غيّرها الآن إن لم تفعل — فالقديمة معروفة.</b>
+      </div></div>
+    </details>
   </div>
 
   <!-- ══ سياسات التشغيل ══════════════════════════════════════════════════ -->
-  <div class="card">
-    <h2>سياسات التشغيل</h2>
+  <div class="card" id="s-pol">
+    <h2>⚙️ سياسات التشغيل</h2>
     <div class="desc">مفاتيح عامّة تُحفَظ في إعدادات النظام فتسري على كل الأجهزة معاً.</div>
     <div class="row">
       <div class="lbl">قفل الأوردرات <span class="tag" id="ol-state">…</span></div>
       <div class="desc" style="margin:6px 0 0">
-        «بعد ما يستقر النظام وتنتهي التحديثات ويصير كل شيء مسيطراً عليه بالجرد: ما بيصير أوردر يمشي بدون ما يتفوتر.»
         حين يُفعَّل: لا يتقدّم أي أوردر إلى <b>محضّرة · في الطريق · بانتظار التحصيل · تم التحصيل</b> ما لم يكن مرتبطاً بفاتورة،
-        من أي شاشة (التعديل · الشحن · تأكيد الاستلام · التحصيل). <b>مُعطَّل الآن</b> إلى أن تقرّر.
+        من أي شاشة (التعديل · الشحن · تأكيد الاستلام · التحصيل). وتجده أيضاً <b>شارةً أعلى صفحة الأوردرات</b> بجانب حالة الاتصال.
       </div>
       <div class="field"><button class="btn ok" id="ol-btn" onclick="toggleOrdersLock()">…</button></div>
       <div id="ol-msg" class="msg"></div>
     </div>
   </div>
 
-  <!-- ══ حسابات الأدمن ═══════════════════════════════════════════════════ -->
-  <div class="card" id="admins-card">
-    <h2>حسابات الأدمن</h2>
-    <div class="desc">
-      الأدمن صار <b>حساباً باسم وكلمة سرّ</b> (لا كلمةً مشتركة): تعرف من دخل، ويمكن أكثر من أدمن، وتُكتب أسماؤهم على ما ينشئونه.
-      تُحفَظ <b>كبصمة</b> (PBKDF2 بمِلحٍ لكل حساب) لا كنصّ. الدخول من نموذج الدخول العادي بالاسم وكلمة السرّ، أو من «دخول الإدارة».
-      <b>أوّل حساب</b>: اضغط «دخول الإدارة» واكتب الاسم الذي تريده مع كلمة السرّ السيادية الحالية فيُنشأ الحساب.
-    </div>
-    <div class="row">
-      <div class="lbl">جلستك الآن: <span class="tag" id="ad-me">…</span></div>
-      <div id="ad-list" class="desc" style="margin:8px 0 0">⏳ …</div>
-      <div class="field"><button class="btn ok" id="ad-login" onclick="adminSignIn()" style="display:none">دخول الإدارة</button></div>
-    </div>
-    <div class="row" id="ad-add-row" style="display:none">
-      <div class="lbl">إضافة أدمن</div>
-      <div class="field">
-        <input id="ad-name" placeholder="اسم المستخدم (يظهر على الفواتير)" autocomplete="off">
-        <input id="ad-pw" type="password" placeholder="كلمة السرّ (٨ أحرف فأكثر يُنصح بها)" autocomplete="new-password">
-        <button class="btn ok" onclick="addAdminAcc()">إضافة</button>
-      </div>
-    </div>
-    <div id="ad-msg" class="msg"></div>
-  </div>
-
-  <!-- ══ المستخدمون ══════════════════════════════════════════════════════ -->
-  <div class="card">
-    <h2>👥 المستخدمون والموظّفون</h2>
-    <div class="desc">
-      نفس حسابات الدخول لنقاط البيع والكفالة والعقود (جدول <code>gmt_users</code>)
-      — بنفس الترميز الذي تستعمله صفحة الأدمن، فلا ينكسر دخولٌ قائم.
-    </div>
-
-    <div class="row">
-      <div class="lbl">➕ إضافة مستخدم</div>
-      <div class="field">
-        <input id="u-name" placeholder="الاسم الظاهر (محمد خير)">
-        <input id="u-user" placeholder="اسم المستخدم (بالإنكليزي)">
-      </div>
-      <div class="field">
-        <!-- (٨ ت — تدقيق المطابقة) كانت كلمة المستخدم الجديد تبدأ «2003» — وهي كلمة الأدمن نفسها؛ والفرع نصٌّ حرّ
-             يقترح «halab» والمفتاح الحقيقيّ «haleb». الآن: كلمةٌ تكتبها أنت، والفرع قائمةٌ من فروعك الحقيقيّة. -->
-        <input id="u-pw" placeholder="كلمة سرّ المستخدم (غير كلمة الأدمن)" autocomplete="new-password">
-        <select id="u-branch"><option value="">— الفرع —</option></select>
-        <button class="btn ok" onclick="addUser()">إضافة</button>
-      </div>
-      <div id="u-msg" class="msg"></div>
-    </div>
-
-    <!-- 🧪 (2026-09-27 · طلب المالك) «أنشئ الآن مستخدماً وهمياً بكل نقاط البيع،
-         اسمه 0000 وكلمة المرور 0000، يمكن تعديله بعدين». -->
-    <div class="row">
-      <div class="lbl">🧪 مستخدم التجربة <span class="tag def">0000 / 0000</span></div>
-      <div class="desc" style="margin:6px 0 0">
-        يُنشأ في <b>كل فرع</b> دفعةً واحدة، <b>عامّاً</b> (أي جهاز يدخل منه).
-        احذفه أو اقفله على جهاز متى شئت من الجدول تحت.
-      </div>
-      <div class="field"><button class="btn ok" onclick="makeTestUsers()">أنشئ مستخدم التجربة في كل الفروع</button></div>
-      <div id="t-msg" class="msg"></div>
-    </div>
-
-    <div style="overflow:auto">
-      <table>
-        <thead><tr><th>الاسم</th><th>المستخدم</th><th>الفرع</th><th>الحالة</th><th>قفل الجهاز</th><th>إجراءات</th></tr></thead>
-        <tbody id="u-rows"><tr><td colspan="6" style="text-align:center;color:var(--mut)">…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="note">
-      ⚠️ <b>حدود هذه الحماية — بصراحة.</b><br>
+  <details class="more">
+    <summary>⚠️ حدود هذه الحماية — بصراحة</summary>
+    <div class="in"><div class="note">
       هذه كلمات <b>واجهة</b>: الصفحات تتّصل بالقاعدة بمفتاح عام، ومن يفتح أدوات
       المطوّر يستطيع تجاوز أي فحص في المتصفّح. الحماية الحقيقية الوحيدة هي
       <b>سياسات RLS</b> في Supabase.<br>
       فهذه تمنع الخطأ العابر وسوء الاستعمال اليومي — لا مهاجماً يعرف ما يفعل.
       ولا نقول غير ذلك كي لا تبني على وهم.
-    </div>
-  </div>
+    </div></div>
+  </details>
 </div>
 
 <script src="gmt-core.js?v=20261017c"></script>
@@ -298,13 +390,15 @@ window.GMT_INTERNAL = 1;</script>
     var list;
     try { list = await GMTAuth.admin.list(); }
     catch (e) { box.textContent = '🔴 ' + ((e && e.message) || 'تعذّرت القراءة'); return; }
-    if (!list.length) { box.innerHTML = '<span class="tag dev">لا حسابات بعد</span> — اضغط «دخول الإدارة» لإنشاء أوّل حساب.'; return; }
+    if (!list.length) { box.innerHTML = '<div class="desc" style="margin:0"><span class="tag dev">لا حسابات بعد</span> — اضغط «دخول الإدارة» لإنشاء أوّل حساب.</div>'; return; }
+    /* (TASK-0143) سطرٌ لكلّ أدمن: الاسم · «أنت» · متى أُنشئ ومن أنشأه · أزراره في طرف السطر */
     box.innerHTML = list.map(function (a) {
       var mine = me && GMTAuth.admin.normalize(a.name) === GMTAuth.admin.normalize(me);
-      return '<div class="row" style="margin:6px 0"><div class="lbl">' + esc(a.name) + (mine ? ' <span class="tag set">أنت</span>' : '') +
-        (a.at ? ' <span class="desc" style="display:inline">· أُنشئ ' + esc(String(a.at).slice(0, 10)) + (a.by ? ' بواسطة ' + esc(a.by) : '') + '</span>' : '') + '</div>' +
-        (inAdmin && me ? '<div class="field"><button class="btn ghost" data-adpw="' + esc(a.name) + '">تغيير كلمة السرّ</button>' +
-          (mine ? '' : '<button class="btn bad" data-addel="' + esc(a.name) + '">حذف</button>') + '</div>' : '') + '</div>';
+      return '<div class="arow"><span class="uav" style="width:34px;height:34px;font-size:14px">' + esc(String(a.name || '؟').charAt(0)) + '</span>' +
+        '<div style="min-width:0"><div class="anm">' + esc(a.name) + (mine ? ' <span class="tag set">أنت</span>' : '') + '</div>' +
+        (a.at ? '<div class="aat">أُنشئ ' + esc(String(a.at).slice(0, 10)) + (a.by ? ' · بواسطة ' + esc(a.by) : '') + '</div>' : '') + '</div>' +
+        (inAdmin && me ? '<div class="aact"><button class="btn ghost sm" data-adpw="' + esc(a.name) + '">🔑 كلمة السرّ</button>' +
+          (mine ? '' : '<button class="btn bad sm" data-addel="' + esc(a.name) + '">حذف</button>') + '</div>' : '') + '</div>';
     }).join('');
   }
   window.adminSignIn = async function () {
@@ -354,28 +448,43 @@ window.GMT_INTERNAL = 1;</script>
   };
 
   // ══ كلمات السرّ ══
+  /* (TASK-0143) «ما يحتاج انتباهك الآن» أعلى الصفحة: كلمات سرٍّ ما زالت الافتراضيّة · حساباتٌ بانتظار موافقتك */
+  var PW_DEFAULTS = -1, PENDING_N = -1;
+  function paintSummary() {
+    var box = $('sec-sum'); if (!box) return;
+    var h = [];
+    if (PW_DEFAULTS > 0) h.push('<div class="ban warn"><span>⚠️</span><div><b>' + PW_DEFAULTS + ' من كلمات سرّ النظام ما زالت الافتراضيّة</b> — معروفةٌ لكلّ من يقرأ الكود، غيّرها.</div><a class="btn ghost sm go" href="#s-pw">غيّرها</a></div>');
+    if (PENDING_N > 0) h.push('<div class="ban info"><span>⏳</span><div><b>' + PENDING_N + ' حساب بانتظار موافقتك</b> — يتصفّح فقط حتى توافق.</div><a class="btn ghost sm go" href="#s-users" data-pend-go="1">اعرضها</a></div>');
+    if (!h.length && PW_DEFAULTS === 0 && PENDING_N === 0) h.push('<div class="ban ok"><span>✅</span><div><b>لا شيء ينتظرك</b> — كلمات السرّ مضبوطة ولا حسابات بانتظار الموافقة.</div></div>');
+    box.innerHTML = h.join('');
+  }
+
   async function renderPasswords() {
     var box = $('pw-rows');
     var kinds = Object.keys(GMTAuth.KINDS);
     box.innerHTML = '<div class="desc">⏳ …</div>';
     try { await GMTAuth.load(false); } catch (e) {}   // نداء واحد للقاعدة لا ستّة
     box.innerHTML = '';
+    PW_DEFAULTS = 0;
     for (var i = 0; i < kinds.length; i++) {
       var kind = kinds[i], k = GMTAuth.KINDS[kind];
       var isDef = true, hasLocal = false;
       try { isDef = await GMTAuth.isDefault(kind); } catch (e) {}
       try { hasLocal = !!localStorage.getItem(k.local); } catch (e) {}
+      if (isDef && !hasLocal) PW_DEFAULTS++;
       var div = document.createElement('div');
-      div.className = 'row';
+      div.className = 'row pw';
+      /* (TASK-0143) الحالة شارةٌ قصيرة تحت العنوان، والشرح الطويل سطرٌ تحتها؛ وزرّ الإظهار نصٌّ لا رمزٌ يختفي على بعض الهواتف */
       div.innerHTML =
-        '<div class="lbl">🔒 ' + esc(k.label) +
-          (hasLocal ? ' <span class="tag dev">مضبوطة على هذا الجهاز</span>'
-                    : (isDef ? ' <span class="tag def">ما زالت الافتراضيّة — مكتوبةٌ في الكود المنشور، غيّرها</span>'
-                             : ' <span class="tag set">مضبوطة</span>')) +
+        '<div class="lbl"><span>🔒 ' + esc(k.label) + '</span>' +
+          (hasLocal ? '<span class="tag dev">مضبوطة على هذا الجهاز</span>'
+                    : (isDef ? '<span class="tag def">⚠️ ما زالت الافتراضيّة</span>'
+                             : '<span class="tag set">✓ مضبوطة</span>')) +
         '</div>' +
+        (isDef && !hasLocal ? '<div class="desc" style="margin:4px 0 0">الافتراضيّة مكتوبةٌ في الكود المنشور — غيّرها.</div>' : '') +
         '<div class="field">' +
-          '<input id="p_' + kind + '" type="password" placeholder="كلمة السرّ الجديدة">' +
-          '<button class="btn ghost" data-eye="' + kind + '">👁</button>' +
+          '<input id="p_' + kind + '" type="password" placeholder="كلمة السرّ الجديدة" autocomplete="new-password">' +
+          '<button class="btn ghost" data-eye="' + kind + '">إظهار</button>' +
           '<button class="btn" data-save="' + kind + '">حفظ للجميع</button>' +
         '</div>' +
         (hasLocal ? '<div class="field"><button class="btn ghost" data-clear="' + kind + '">' +
@@ -383,13 +492,14 @@ window.GMT_INTERNAL = 1;</script>
         '<div id="m_' + kind + '" class="msg"></div>';
       box.appendChild(div);
     }
+    paintSummary();
   }
 
   document.addEventListener('click', async function (e) {
     var t = e.target.closest ? e.target.closest('[data-save],[data-eye],[data-clear]') : null;
     if (!t) return;
     var eye = t.getAttribute('data-eye');
-    if (eye) { var el = $('p_' + eye); el.type = el.type === 'password' ? 'text' : 'password'; return; }
+    if (eye) { var el = $('p_' + eye); el.type = el.type === 'password' ? 'text' : 'password'; t.textContent = el.type === 'password' ? 'إظهار' : 'إخفاء'; return; }
     var clr = t.getAttribute('data-clear');
     if (clr) { GMTAuth.setLocal(clr, ''); renderPasswords(); return; }
     var kind = t.getAttribute('data-save');
@@ -436,10 +546,10 @@ window.GMT_INTERNAL = 1;</script>
     try {
       USERS = (await sb('GET', '/rest/v1/gmt_users?order=created_at.desc&select=*')) || [];
     } catch (e) {
-      tb.innerHTML = '<tr><td colspan="6" style="color:var(--bad);text-align:center">تعذّر تحميل المستخدمين: ' + esc(e.message) + '</td></tr>';
+      tb.innerHTML = '<div class="uempty" style="color:var(--bad)">تعذّر تحميل المستخدمين: ' + esc(e.message) + '</div>';
       return;
     }
-    if (!USERS.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mut)">لا مستخدمين</td></tr>'; return; }
+    if (!USERS.length) { tb.innerHTML = '<div class="uempty">لا مستخدمين بعد — أضِف أوّلهم من «➕ إضافة مستخدم جديد».</div>'; PENDING_N = 0; paintSummary(); return; }
     /* (2026-10-04 ي) الصلاحيات الإضافيّة لكل مستخدم — مفتاحٌ لكلّ واحد في gmt_settings */
     PENDING_KEYS = {};
     try { ((await sb('GET', '/rest/v1/gmt_settings?key=like.user_pending_*&select=key')) || []).forEach(function (r) { PENDING_KEYS[String(r.key).replace('user_pending_', '')] = true; }); } catch (_) {}
@@ -453,48 +563,82 @@ window.GMT_INTERNAL = 1;</script>
     var BRN = {};
     try { ((await sb('GET', '/rest/v1/inv_columns?select=key_name,display_name&is_branch=eq.true')) || []).forEach(function (r) { BRN[r.key_name] = r.display_name || r.key_name; }); } catch (_) {}
     BR_NAMES = BRN;
-    var _by = {}, _order = [];
-    USERS.forEach(function (u) { var k = u.branch_key || '—'; if (!_by[k]) { _by[k] = []; _order.push(k); } _by[k].push(u); });
-    _order.sort();
-    var _rows = [];
-    _order.forEach(function (k) {
-      _rows.push('<tr class="grp"><td colspan="6" style="background:#f7f8fa;font-weight:900;color:#0f1219">فرع ' + esc(BRN[k] || k) + ' <span style="color:#5b6472;font-weight:700">· ' + _by[k].length + ' مستخدم</span></td></tr>');
-      _by[k].forEach(function (u) { _rows.push(rowOf(u)); });
-    });
-    tb.innerHTML = _rows.join('');
-    /* (٨ ث) قادمٌ من «أدمن نقاط البيع ← الموظفون ← إدارة الحساب» ⇒ نُبرز صفّه */
+    PENDING_N = USERS.filter(function (u) { return u.approved === false || PENDING_KEYS[String(u.id)]; }).length;
+    paintSummary();
+    /* فلتر الفروع من فروع المستخدمين أنفسهم */
+    var fb = $('u-fbr');
+    if (fb) {
+      var cur = fb.value, keys = [];
+      USERS.forEach(function (u) { var k = u.branch_key || '—'; if (keys.indexOf(k) < 0) keys.push(k); });
+      keys.sort();
+      fb.innerHTML = '<option value="">كل الفروع (' + USERS.length + ')</option>' + keys.map(function (k) {
+        var n = USERS.filter(function (u) { return (u.branch_key || '—') === k; }).length;
+        return '<option value="' + esc(k) + '"' + (k === cur ? ' selected' : '') + '>' + esc(BRN[k] || k) + ' (' + n + ')</option>';
+      }).join('');
+    }
+    renderUsers();
+    /* (٨ ث) قادمٌ من «أدمن نقاط البيع ← الموظفون ← إدارة الحساب» ⇒ نُبرز بطاقته */
     try {
       var _q = new URLSearchParams(location.search).get('u');
-      var _tr = _q && tb.querySelector('tr[data-uid="' + String(_q).replace(/"/g, '') + '"]');
-      if (_tr) { _tr.style.outline = '2px solid #2563eb'; _tr.style.background = '#eff6ff'; _tr.scrollIntoView({ block: 'center' }); }
+      var _tr = _q && tb.querySelector('[data-uid="' + String(_q).replace(/"/g, '') + '"]');
+      if (_tr) { _tr.classList.add('hl'); _tr.scrollIntoView({ block: 'center' }); }
     } catch (_) {}
+  }
+  /* (TASK-0143) «تعرض لي كل فرع بفرعه شو فيه مستخدمين» — مجموعةٌ لكل فرع، وفيها بطاقةٌ لكل مستخدم.
+     البحث والفلتر يعيدان الرسم من الذاكرة بلا طلبٍ للقاعدة. */
+  var ONLY_PENDING = false;
+  function renderUsers() {
+    var tb = $('u-rows'); if (!tb) return;
+    var q = (($('u-q') || {}).value || '').trim().toLowerCase(), fbv = ($('u-fbr') || {}).value || '';
+    var list = USERS.filter(function (u) {
+      if (fbv && (u.branch_key || '—') !== fbv) return false;
+      if (ONLY_PENDING && !(u.approved === false || PENDING_KEYS[String(u.id)])) return false;
+      if (!q) return true;
+      return (String(u.display_name || '') + ' ' + String(u.username || '')).toLowerCase().indexOf(q) >= 0;
+    });
+    var cnt = $('u-count');
+    if (cnt) cnt.innerHTML = (list.length === USERS.length ? USERS.length + ' مستخدم' : 'يظهر ' + list.length + ' من ' + USERS.length) +
+      (ONLY_PENDING ? ' · بانتظار الموافقة فقط <button class="btn ghost sm" data-pend-all="1" style="min-height:28px;margin-inline-start:6px">اعرض الكل</button>' : '');
+    if (!list.length) { tb.innerHTML = '<div class="uempty">لا نتيجة — جرّب كلمةً أخرى أو «كل الفروع».</div>'; return; }
+    var _by = {}, _order = [];
+    list.forEach(function (u) { var k = u.branch_key || '—'; if (!_by[k]) { _by[k] = []; _order.push(k); } _by[k].push(u); });
+    _order.sort();
+    tb.innerHTML = _order.map(function (k) {
+      return '<div class="ugrp">فرع ' + esc(BR_NAMES[k] || k) + ' <small>· ' + _by[k].length + ' مستخدم</small></div>' +
+        '<div class="ulist">' + _by[k].map(cardOf).join('') + '</div>';
+    }).join('');
   }
   var GRANTS = {}, BR_NAMES = {};
   var PENDING_KEYS = {};
-  function rowOf(u) {
+  function cardOf(u) {
       var _g = (GRANTS[String(u.id)] || []).length;
       /* (2026-10-05 ع) الحساب الجديد يتصفّح فقط حتى توافق */
       var _pend = u.approved === false || PENDING_KEYS[String(u.id)];
-      return '<tr data-uid="' + esc(u.id) + '">' +
-        '<td>' + esc(u.display_name || '') + '</td>' +
-        '<td dir="ltr">' + esc(u.username || '') + '</td>' +
-        '<td>' + esc(BR_NAMES[u.branch_key] || u.branch_key || '—') + '</td>' +
-        '<td>' + (u.is_active === false ? '⛔ موقوف' : (_pend ? '<b style="color:#b45309">⏳ بانتظار الموافقة</b>' : '✅ فعّال')) + '</td>' +
-        '<td>' + (u.last_device_id === OPEN_DEVICE
-                   ? '<span class="tag set">🔓 عامّ</span>'
-                   : (u.last_device_id ? '<span class="tag dev">📱 مربوط</span>'
-                                       : '<span class="tag def">⏳ يُربَط بأوّل دخول</span>')) + '</td>' +
-        '<td style="white-space:nowrap">' +
-          '<button class="btn ghost" data-u-ren="' + esc(u.id) + '">✏️ اسم</button> ' +
-          '<button class="btn ghost" data-u-pw="' + esc(u.id) + '">🔑 كلمة</button> ' +
-          '<button class="btn ghost" data-u-dev="' + esc(u.id) + '">' +
-             (u.last_device_id === OPEN_DEVICE ? '📱 اقفل' : '🔓 عامّ') + '</button> ' +
-          '<button class="btn ghost" data-u-tog="' + esc(u.id) + '">' + (u.is_active === false ? 'تفعيل' : 'إيقاف') + '</button> ' +
-          (_pend ? '<button class="btn" data-u-appr="' + esc(u.id) + '" style="background:#15803d;color:#fff;border-color:#15803d">✓ موافقة</button> ' : '') +
-          '<button class="btn ghost" data-u-perm="' + esc(u.id) + '">الصلاحيات' + (_g ? ' (' + _g + ')' : '') + '</button> ' +
+      var _off = u.is_active === false;
+      var st = _off ? '<span class="tag bad">⛔ موقوف</span>' : (_pend ? '<span class="tag def">⏳ بانتظار الموافقة</span>' : '<span class="tag set">✓ فعّال</span>');
+      var dev = u.last_device_id === OPEN_DEVICE ? '<span class="tag set">🔓 عامّ — أيّ جهاز</span>'
+              : (u.last_device_id ? '<span class="tag dev">📱 مربوط بجهاز</span>' : '<span class="tag def">⏳ يُربَط بأوّل دخول</span>');
+      return '<div class="ucard' + (_off ? ' off' : '') + '" data-uid="' + esc(u.id) + '">' +
+        '<div class="uhead"><span class="uav">' + esc(String(u.display_name || u.username || '؟').charAt(0)) + '</span>' +
+          '<div class="uid"><div class="uname">' + esc(u.display_name || u.username || '') + '</div><span class="uuser">' + esc(u.username || '') + '</span></div>' + st + '</div>' +
+        '<div class="umeta">' + dev + (_g ? '<span class="tag dev">🧩 ' + _g + ' صلاحية إضافيّة</span>' : '') + '</div>' +
+        '<div class="uact">' +
+          (_pend ? '<button class="btn wide" data-u-appr="' + esc(u.id) + '">✓ موافقة على الحساب</button>' : '') +
+          '<button class="btn ghost" data-u-ren="' + esc(u.id) + '">✏️ الاسم</button>' +
+          '<button class="btn ghost" data-u-pw="' + esc(u.id) + '">🔑 كلمة السرّ</button>' +
+          '<button class="btn ghost" data-u-perm="' + esc(u.id) + '">🧩 الصلاحيات' + (_g ? ' (' + _g + ')' : '') + '</button>' +
+          '<button class="btn ghost" data-u-dev="' + esc(u.id) + '">' + (u.last_device_id === OPEN_DEVICE ? '📱 جهاز واحد' : '🔓 أيّ جهاز') + '</button>' +
+          '<button class="btn ghost" data-u-tog="' + esc(u.id) + '">' + (_off ? '▶️ تفعيل' : '⏸ إيقاف') + '</button>' +
           '<button class="btn bad" data-u-del="' + esc(u.id) + '">حذف</button>' +
-        '</td></tr>';
+        '</div></div>';
   }
+  /* البحث والفلتر و«اعرضها/اعرض الكل» */
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'u-q') renderUsers(); });
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'u-fbr') renderUsers(); });
+  document.addEventListener('click', function (e) {
+    var p = e.target.closest && e.target.closest('[data-pend-go],[data-pend-all]'); if (!p) return;
+    ONLY_PENDING = p.hasAttribute('data-pend-go'); renderUsers();
+  });
 
   window.addUser = async function () {
     /* (٨ ث) اسم الدخول بالأحرف الصغيرة — نقطة البيع تصغّر ما يكتبه الكاشير، فـ«Ahmad» المحفوظ هكذا لا يدخل أبداً
@@ -686,7 +830,7 @@ window.GMT_INTERNAL = 1;</script>
 })();
 </script>
 <!-- 🆕 «شو الجديد» — أخبار داخلية، لا تُحمَّل على صفحات الزبون -->
-<script src="gmt-whatsnew.js?v=20261024e"></script>
+<script src="gmt-whatsnew.js?v=20261024f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
