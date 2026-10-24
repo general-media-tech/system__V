@@ -1,7 +1,0 @@
-task: TASK-0105
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-render.js lib/fonts/ orders.html gmt-share.js gmt-whatsnew.js sw.js الأمان_والمستخدمون.html tests/harness/t_order_render.js TASK_REGISTRY.md handoffs/TASK-0105.md
-claimed_at: 2026-10-24T13:36:58Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0105
