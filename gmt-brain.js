@@ -300,7 +300,12 @@
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
     if (!r.ok || j.error) throw new Error(j.error || (global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, rawTxt, url) : ('HTTP ' + r.status)));
-    return j.product || {};
+    /* (24 ت1 · seq 46 «البحث بعلي بابا مو شغال») ردٌّ بلا اسمٍ ولا مواصفات كان يُعرض «—» و«لم تُجمع مواصفات» كأنه نجاح ⇒ رسالةٌ واضحة بدلاً منه */
+    if (j.empty || !j.product) throw new Error('لم يجد العقل مواصفاتٍ لهذا المنتج — الصق رابط صفحته على علي بابا، أو اكتب اسمه وموديله بدقّة ثمّ أعد البحث.');
+    var p = j.product;
+    /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
+    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [] }, enumerable: false }); } catch (_) {}
+    return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function productImportDialog(onApply, preset) {
@@ -340,10 +345,15 @@
         }
         var pr = await importProduct({ url: $('pi-url').value.trim(), file: useFile, hint: $('pi-hint').value.trim() }); last = pr;
         var specs = Array.isArray(pr.specs) ? pr.specs.filter(function (s) { return s && s.k; }) : [];
-        $('pi-res').innerHTML = '<div style="border:1px solid #e2e8f0;border-radius:16px;padding:12px">' +
+        var meta = pr._meta || {};
+        var srcLine = meta.from_memory ? '' : meta.engine === 'google' ? '🔎 من بحث Google' : meta.engine === 'duckduckgo' ? '🔎 من نتائج DuckDuckGo' : meta.page_ok ? '📄 من صفحة الرابط' : '';
+        $('pi-res').innerHTML =
+          (meta.from_memory ? '<div data-pi-memory style="border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:14px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;line-height:1.8">' +
+            '<b>⚠ ليست من صفحة المنتج</b> — البحث في الويب غير متاح الآن، فهذه مواصفاتٌ عامّة من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها قبل التطبيق، أو الصق رابط المنتج على علي بابا لنتيجةٍ دقيقة.</div>' : '') +
+          '<div style="border:1px solid #e2e8f0;border-radius:16px;padding:12px">' +
           '<div style="display:flex;gap:10px">' + ((pr.images && pr.images[0]) ? '<img src="' + h(pr.images[0]) + '" style="width:72px;height:72px;object-fit:contain;border-radius:12px;background:#f8fafc" onerror="this.remove()">' : '') +
           '<div style="flex:1"><b style="font-size:15px">' + h(pr.name_ar || pr.name_en || '—') + '</b><div style="font-size:12px;color:#526077" dir="ltr">' + h([pr.brand, pr.model].filter(Boolean).join(' · ')) + '</div>' +
-          '<div style="font-size:11.5px;margin-top:4px">الثقة: <b>' + h(pr.confidence || '—') + '</b>' + (pr.price_hint ? ' · سعر المصدر: ' + h(pr.price_hint) : '') + '</div></div></div>' +
+          '<div style="font-size:11.5px;margin-top:4px">الثقة: <b>' + h(pr.confidence || '—') + '</b>' + (pr.price_hint ? ' · سعر المصدر: ' + h(pr.price_hint) : '') + (srcLine ? ' · <span data-pi-src>' + srcLine + '</span>' : '') + '</div></div></div>' +
           (specs.length ? '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px">' + specs.map(function (s) { return '<tr><td style="padding:5px 8px;border:1px solid #eef2f7;background:#f8fafc;font-weight:800;width:38%">' + h(s.k) + '</td><td style="padding:5px 8px;border:1px solid #eef2f7">' + h(s.v) + '</td></tr>'; }).join('') + '</table>' : '<div style="color:#94a3b8;font-size:12.5px;margin-top:8px">لم تُجمع مواصفات.</div>') +
           ((pr.compat && pr.compat.length) ? '<div style="margin-top:8px;font-size:12.5px"><b>متوافق مع:</b> ' + pr.compat.map(h).join(' · ') + '</div>' : '') +
           (pr.description_ar ? '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;background:#fafbfc;border-radius:10px;padding:8px 10px">' + h(pr.description_ar) + '</div>' : '') +

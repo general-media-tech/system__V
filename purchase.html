@@ -5495,6 +5495,8 @@ async function gmtAutoCompat(list){
   for(const it of list){
     try{
       const pr=await GMTBrain.importProduct({hint:it.name+' — حدّد المنتج بدقّة واكتب متوافقاته (الكاميرات/العدسات/البطاريات التي يعمل معها)'});
+      /* (24 ت1) ردٌّ من معرفة الذكاء الاصطناعي العامّة (البحث في الويب غير متاح) لا يُكتب تلقائياً بلا مراجعة — متوافقاتٌ مخمَّنة تضرّ البيع */
+      if(pr&&pr._meta&&pr._meta.from_memory){skipped++;continue;}
       const specs={};(pr.specs||[]).forEach(x=>{if(x&&x.k)specs[String(x.k).slice(0,60)]=String(x.v==null?'':x.v).slice(0,300);});
       if(pr.description_ar)specs.__desc=String(pr.description_ar).slice(0,2000);
       const compat=(pr.compat||[]).join(' · ').slice(0,1000);
@@ -5834,10 +5836,10 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261023h"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261017c"></script>
+<script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261024h"></script>
+<script src="gmt-whatsnew.js?v=20261024i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
