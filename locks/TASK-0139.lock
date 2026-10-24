@@ -1,0 +1,7 @@
+task: TASK-0139
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: TASK_REGISTRY.md handoffs/TASK-0012.md handoffs/TASK-0014.md handoffs/TASK-0030.md handoffs/TASK-0105.md handoffs/TASK-0041.md handoffs/TASK-0040.md handoffs/SESSION_LOG.md + فروع جانبية wip/* (لا ملفات واجهة)
+claimed_at: 2026-10-24T10:41:23Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0139
