@@ -1,0 +1,7 @@
+task: TASK-0187
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: gmt-brain.js gmt-compat-kb.js gmt-suggest.js gmt-enrich-queue.js inventory.html pos.html المنتجات.html دليل_التوافقيات_والمواصفات.html gmt-whatsnew.js sw.js tests/harness/t_compat_web.js tests/harness/mock.py TASK_REGISTRY.md handoffs/SESSION_LOG.md
+claimed_at: 2026-10-25T22:43:02Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0187
