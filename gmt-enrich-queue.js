@@ -74,9 +74,10 @@
   async function enrichOne(p, extra) {
     extra = extra || {};
     var toks = nameTokens(p.name);
+    /* الملاحظة قصيرة: الوسيط يقصّها عند ٣٠٠ حرف وفيها أيضاً طلب المواصفات (GMTBrain · TASK-0173) */
     var hint = [p.name, p.brand, extra.hint].filter(Boolean).join(' — ') +
-      (toks.length ? ' — الاسم هو المرجع: الموديل/الحربة يجب أن يطابق «' + toks.join('»، «') + '»' : '') +
-      (extra.deep ? ' — بحث أعمق: تعرّف من الصورة والاسم معاً على المنتج الدقيق، ولا تعطِ موديلاً يخالف الاسم' : '');
+      (toks.length ? ' — الاسم هو المرجع: الموديل يطابق «' + toks.join('»، «') + '»' : '') +
+      (extra.deep ? ' — بحث أعمق: الصورة والاسم معاً' : '');
     var file = extra.noImage ? null : await imgBlob(p.image_url);
     var pr = await global.GMTBrain.importProduct({ url: extra.url || '', hint: hint, file: file });
     var meta = pr._meta || {}, imgs = [];

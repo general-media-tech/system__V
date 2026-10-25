@@ -293,9 +293,27 @@
       }
     });
   }
+  /* (25 ت1 · TASK-0173 · المالك seq 89: «ما بيعطيني قوّة واطيّة أو كهرباء أو جهد أو ألوان») الوسيط بلا بحث ويب يكتفي بمواصفاتٍ عامّة قليلة
+     (لإضاءة Godox SL60W: النوع ودرجة اللون والحربة فقط). طلبُ هذه المواصفات صراحةً مع الاسم أعاد من الوسيط الحيّ: ٦٠ واط · AC 100-240V ·
+     البطارية · اللون · الأبعاد والوزن «(تقريبي)» · ما في العلبة. الوسيط يقصّ الملاحظة عند ٣٠٠ حرف ⇒ الطلب داخلها دائماً. */
+  var SPEC_ASK = 'اذكر في specs: القدرة (واط) · الجهد/الكهرباء · البطارية · الألوان المتوفّرة · الأبعاد · الوزن · ما في العلبة؛ وما لا تعرفه يقيناً اكتب قيمته النموذجية وبعدها «(تقريبي)»';
+  function composeHint(h) {
+    h = String(h || '').replace(/\s+/g, ' ').trim();
+    var room = 300 - SPEC_ASK.length - 3;
+    if (h.length > room) h = h.slice(0, room);
+    return (h ? h + ' — ' : '') + SPEC_ASK;
+  }
+  /* مفاتيح المواصفات كما يعيدها النموذج أحياناً مشوّهة («k>») ⇒ أوّل مفتاحٍ يبدأ بـk ثمّ v */
+  function normSpecs(list) {
+    return (Array.isArray(list) ? list : []).map(function (s) {
+      if (!s || typeof s !== 'object') return null;
+      var ks = Object.keys(s), kk = ks.filter(function (x) { return /^k/i.test(x); })[0], vk = ks.filter(function (x) { return /^v/i.test(x); })[0];
+      return kk && vk ? { k: String(s[kk] == null ? '' : s[kk]).trim(), v: String(s[vk] == null ? '' : s[vk]).trim() } : null;
+    }).filter(function (s) { return s && s.k && s.v; });
+  }
   async function importProduct(o) {
     var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
-    var body = { mode: 'product', url: (o && o.url) || '', hint: (o && o.hint) || '' };
+    var body = { mode: 'product', url: (o && o.url) || '', hint: composeHint(o && o.hint) };
     if (o && o.file) { body.image = await shrinkB64(o.file); body.image_type = 'image/jpeg'; }
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
@@ -303,6 +321,7 @@
     /* (24 ت1 · seq 46 «البحث بعلي بابا مو شغال») ردٌّ بلا اسمٍ ولا مواصفات كان يُعرض «—» و«لم تُجمع مواصفات» كأنه نجاح ⇒ رسالةٌ واضحة بدلاً منه */
     if (j.empty || !j.product) throw new Error('لم يجد العقل مواصفاتٍ لهذا المنتج — الصق رابط صفحته على علي بابا، أو اكتب اسمه وموديله بدقّة ثمّ أعد البحث.');
     var p = j.product;
+    p.specs = normSpecs(p.specs);
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
     try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [] }, enumerable: false }); } catch (_) {}
     return p;
@@ -788,7 +807,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
     ask: ask,
     configure: configure,

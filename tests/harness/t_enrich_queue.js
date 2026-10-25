@@ -39,6 +39,13 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     const until = async (fn, ms = 20000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v || Date.now() - t0 > ms) return v; await pg.waitForTimeout(250); } };
     const over = () => pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [].some.call(document.querySelectorAll('#gmt-enrich-q *, #gmt-enrich-pick *'), el => { const r = el.getBoundingClientRect(); return r.width && (r.left < -1 || r.right > innerWidth + 1); }));
 
+    // ٠) (TASK-0173 · seq 89) كل طلبٍ للعقل يحمل طلب المواصفات (الواط · الجهد · البطارية · الألوان …) داخل حدّ الوسيط (٣٠٠ حرف) · ومفتاحٌ مشوّه «k>» لا يُسقط صفّه
+    const ch = await pg.evaluate(() => ({ a: GMTBrain._composeHint('اداپتر Adapter rings EF-M — الاسم هو المرجع: الموديل يطابق «EF-M»'), b: GMTBrain._composeHint('x'.repeat(500)),
+      n: GMTBrain._normSpecs([{ 'k>': 'ما في العلبة', v: 'محوّل' }, { k: 'الوزن', v: '130 غ' }]) }));
+    ok(ch.a.length <= 300 && /EF-M/.test(ch.a) && /القدرة \(واط\)/.test(ch.a) && /الألوان/.test(ch.a) && /تقريبي/.test(ch.a) && ch.b.length <= 300 && /القدرة/.test(ch.b),
+      W + ': طلب المواصفات مع الاسم داخل ٣٠٠ حرف (' + ch.a.length + ')');
+    ok(ch.n.length === 2 && ch.n[0].k === 'ما في العلبة', W + ': مفتاح المواصفة المشوّه يُقرأ ولا يضيع صفّه');
+
     // ١) الزرّ في شريط المجموعات ⇒ قائمةٌ قابلة للبحث فيها المجموعات بأعدادها
     const chip = await pg.evaluate(() => { const c = document.querySelector('[data-enrich-q]'); return !!(c && c.offsetParent); });
     ok(chip, W + ': زرّ «🧠 جهّز تلقائياً» ظاهر في شريط المجموعات');
