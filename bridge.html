@@ -628,15 +628,39 @@ async function loadStore(){
   return rows[0] || null;
 }
 
-async function saveStoreProducts(prods){
-  const url = getStoreURL()+'/rest/v1/'+getStoreTable()+'?id=eq.1';
-  const r = await fetch(url, {
-    method: 'PATCH',
-    headers: storeHeaders(),
-    body: JSON.stringify({ products: prods })
-  });
-  if(!r.ok && r.status !== 204){ const t=await r.text().catch(()=>''); throw new Error('حفظ المتجر HTTP '+r.status+': '+t); }
-
+/* (25 ت1 · TASK-0161 · المالك seq 73 «نفّذ كل ما يخصّ … الجسر» · REQ-0437 «تحديث المتجر يعيد كتابة الكتالوج كله» · REQ-0180)
+   كانت كل كتابةٍ تُرسل كتالوج المتجر **كاملاً** من نسخة لحظة فتح الجسر: منتجٌ أضافه أدمن المتجر (أو جهازٌ آخر) بعدها كان يُمحى
+   بصمت عند أوّل ربط/سعر/صورة — ولا يُتحقّق أنّ الصفّ تغيّر فعلاً («تم» ولو رُفضت الكتابة).
+   الآن: ① قراءةٌ طازجة للكتالوج قبل الكتابة مباشرةً ② التعديل وحده يُطبَّق عليها (mutate) ③ الكتابة مشروطةٌ بأنّ الكتالوج لم يتغيّر
+   منذ القراءة (updated_at) وتُرجع الصفّ ⇒ تغيّر بينهما ⇒ يُعاد من جديد ④ لا صفّ تغيّر ⇒ خطأٌ صريح لا «تم».
+   mutate(نسخة) ⇒ القائمة الجديدة · أو null (لا تغيير) · أو يرمي خطأً مفهوماً. */
+async function saveStoreProducts(mutate){
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const rec = await loadStore();
+    if (!rec) throw new Error('سجلّ المتجر (id=1) غير موجود');
+    const fresh = Array.isArray(rec.products) ? rec.products : [];
+    const next = mutate(fresh.map(sp => ({ ...sp })));
+    if (!next) { storeRec = rec; storeProds = fresh; if (Array.isArray(rec.categories)) storeCats = rec.categories; return { changed: false }; }
+    let url = getStoreURL()+'/rest/v1/'+getStoreTable()+'?id=eq.1&select=id';
+    const body = { products: next };
+    if ('updated_at' in rec) {
+      url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null';
+      body.updated_at = new Date().toISOString();
+    }
+    const r = await fetch(url, { method: 'PATCH', headers: { ...storeHeaders(), 'Prefer': 'return=representation' }, body: JSON.stringify(body) });
+    if (!r.ok) { const t = await r.text().catch(()=>''); throw new Error('حفظ المتجر HTTP '+r.status+': '+t.slice(0, 200)); }
+    const rows = await r.json().catch(() => null);
+    if (Array.isArray(rows) && rows.length) {
+      storeRec = Object.assign({}, rec, body); storeProds = next;
+      if (Array.isArray(rec.categories)) storeCats = rec.categories;
+      _clearStoreCache();
+      return { changed: true };
+    }
+    /* لا صفّ تغيّر: الكتالوج عُدّل بين القراءة والكتابة ⇒ نقرأ ونطبّق من جديد · أو الكتابة مرفوضة (تبقى صفراً بعد المحاولات) */
+  }
+  throw new Error('لم يُحفظ شيءٌ في المتجر (الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة) — أعد تحميل الجسر وحاول ثانيةً');
+}
+function _clearStoreCache(){
   /* 🔴 (2026-10-03 · بلاغ المالك) «المنتجات المربوطة من الجسر ما عم لاقيها
      في المتجر». المتجر يخزّن سجلّه في localStorage لخمس دقائق، والجسر والمتجر
      على **نفس الأصل** ⇒ نمسح كاش المتجر هنا بأنفسنا بعد كل كتابةٍ ناجحة، فيرى
@@ -646,13 +670,16 @@ async function saveStoreProducts(prods){
 }
 
 async function patchInv(id, data){
-  const url = getInvURL()+'/rest/v1/products?id=eq.'+encodeURIComponent(id);
+  /* (TASK-0161) يُرجع الصفّ المعدَّل: لا صفّ ⇒ لم يُحفظ (منتجٌ حُذف · كتابةٌ مرفوضة) — خطأٌ صريح لا «تم» */
+  const url = getInvURL()+'/rest/v1/products?id=eq.'+encodeURIComponent(id)+'&select=id';
   const r = await fetch(url, {
     method: 'PATCH',
-    headers: invHeaders(),
+    headers: { ...invHeaders(), 'Prefer': 'return=representation' },
     body: JSON.stringify(data)
   });
-  if(!r.ok && r.status !== 204){ const t=await r.text().catch(()=>''); throw new Error('تحديث الجرد HTTP '+r.status+': '+t); }
+  if(!r.ok){ const t=await r.text().catch(()=>''); throw new Error('تحديث الجرد HTTP '+r.status+': '+t); }
+  const rows = await r.json().catch(() => null);
+  if(!Array.isArray(rows) || !rows.length) throw new Error('لم يُحفظ في الجرد: المنتج غير موجود أو الكتابة مرفوضة');
 }
 
 async function reloadAll(){
@@ -1247,11 +1274,11 @@ async function mlSave(){
                      : mlPriceChoice==='store' ? (storeP.price||0)
                      : (invP.price||0); // same — لا فرق
 
-    // 1. تحديث المتجر: كتابة barcode + السعر الموحّد
-    const updatedProds = storeProds.map(sp =>
-      String(sp.id)===String(storeId) ? {...sp, barcode:invP.barcode, price:finalPrice} : sp
-    );
-    await saveStoreProducts(updatedProds);
+    // 1. تحديث المتجر: كتابة barcode + السعر الموحّد — على الكتالوج الطازج (TASK-0161)
+    await saveStoreProducts(fresh => {
+      if (!fresh.some(sp => String(sp.id) === String(storeId))) throw new Error('منتج المتجر لم يعد موجوداً (حُذف من أدمن المتجر؟) — أعد تحميل الجسر');
+      return fresh.map(sp => String(sp.id) === String(storeId) ? { ...sp, barcode: invP.barcode, price: finalPrice } : sp);
+    });
 
     // 2. تحديث الجرد: السعر الموحّد + store_url (رابط مطلق)
     /* ⚠️ بلا اسم ملفٍّ محفوظ كان الرابط يُكتب `#product=…` مكسوراً في الجرد
@@ -1264,8 +1291,7 @@ async function mlSave(){
     const storePageUrl = storeBase + '#product=' + encodeURIComponent(storeId);
     await patchInv(invId, { price: finalPrice, store_url: storePageUrl });
 
-    // تحديث محلي
-    storeProds = updatedProds;
+    // تحديث محلي (storeProds حُدّثت من الكتالوج الطازج داخل saveStoreProducts)
     const ii = invProds.findIndex(x=>String(x.id) === String(invId));
     if(ii>=0){ invProds[ii].price=finalPrice; invProds[ii].store_url=storePageUrl; }
 
@@ -1310,7 +1336,7 @@ async function mcSave(){
 
   showLoading('جارٍ الإنشاء...');
   try {
-    const newProd={
+    let newProd={
       id: 'p_' + Date.now(),   // ID بسيط متوافق مع المتجر
       inv_id: p.id,
       barcode: p.barcode || '',
@@ -1326,8 +1352,15 @@ async function mcSave(){
       options: []
     };
 
-    const updatedProds=[...storeProds, newProd];
-    await saveStoreProducts(updatedProds);
+    /* (TASK-0161) على الكتالوج الطازج · ومنتج جردٍ له منتجٌ في المتجر سلفاً (ضغطتان · جهازٌ آخر) لا يُنشأ مرّتين */
+    let existed = null;
+    await saveStoreProducts(fresh => {
+      existed = fresh.find(sp => sp.inv_id != null && String(sp.inv_id) === String(p.id)) || null;
+      if (existed) return null;
+      newProd.order = fresh.length + 1;
+      return [...fresh, newProd];
+    });
+    if (existed) newProd = existed;
 
     // تحديث store_url في الجرد
     const _sf2 = await ensureStorefrontFileAsk();
@@ -1337,13 +1370,13 @@ async function mcSave(){
        نقطة البيع فيفتح صفحةً غير موجودة. إمّا رابطٌ صحيح أو لا شيء. */
     if(storeUrl) await patchInv(p.id, { store_url: storeUrl });
 
-    storeProds=updatedProds;
     const idx=invProds.findIndex(x=>String(x.id) === String(p.id));
     if(idx>=0 && storeUrl) invProds[idx].store_url=storeUrl;
 
     updateStats(); buildGroupBars(); renderTab1(); renderTab2(); renderTab3();
     closeModal('modal-create');
-    toast('✅ تم إنشاء المنتج في المتجر — يظهر الآن في فئة: '+storeCats.find(c=>String(c.id) === String(catId))?.name);
+    toast(existed ? '⚠️ هذا المنتج موجودٌ في المتجر سلفاً («'+(existed.name||'')+'») — لم يُنشأ مرّةً ثانية، رُبط به'
+                  : '✅ تم إنشاء المنتج في المتجر — يظهر الآن في فئة: '+storeCats.find(c=>String(c.id) === String(catId))?.name);
   } catch(e){ toast('❌ '+e.message); }
   hideLoading();
 }
@@ -1371,9 +1404,11 @@ async function msSyncPrice(src){
   showLoading('جارٍ مزامنة السعر...');
   try {
     if(src==='inv'){
-      const updatedProds=storeProds.map(sp=>sp.id===msStoreId?{...sp,price:newPrice}:sp);
-      await saveStoreProducts(updatedProds);
-      storeProds=updatedProds;
+      /* (TASK-0161) المقارنة نصّاً (كانت === بين رقمٍ ونصّ ⇒ «تمّت المزامنة» بلا تغيير) · وعلى الكتالوج الطازج */
+      await saveStoreProducts(fresh => {
+        if (!fresh.some(sp => String(sp.id) === String(msStoreId))) throw new Error('منتج المتجر لم يعد موجوداً — أعد تحميل الجسر');
+        return fresh.map(sp => String(sp.id) === String(msStoreId) ? { ...sp, price: newPrice } : sp);
+      });
     } else {
       await patchInv(msInvId, { price: newPrice });
       const idx=invProds.findIndex(x=>String(x.id) === String(msInvId));
@@ -1396,11 +1431,14 @@ async function addImgToStore(invId, storeId){
 
   showLoading('جارٍ إضافة الصورة...');
   try {
-    const imgs=[...(storeP.images||[])];
-    if(!imgs.includes(invP.image_url)) imgs.push(invP.image_url);
-    const updatedProds=storeProds.map(sp=>sp.id===storeId?{...sp,images:imgs}:sp);
-    await saveStoreProducts(updatedProds);
-    storeProds=updatedProds;
+    await saveStoreProducts(fresh => {
+      const cur = fresh.find(sp => String(sp.id) === String(storeId));
+      if (!cur) throw new Error('منتج المتجر لم يعد موجوداً — أعد تحميل الجسر');
+      const imgs = [...(cur.images || [])];
+      if (imgs.includes(invP.image_url)) return null;          // موجودة سلفاً
+      imgs.push(invP.image_url);
+      return fresh.map(sp => String(sp.id) === String(storeId) ? { ...sp, images: imgs } : sp);
+    });
     updateStats(); renderTab3();
     toast('✅ تم إضافة الصورة للمتجر');
   } catch(e){ toast('❌ '+e.message); }
@@ -1423,7 +1461,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025g"></script>
+<script src="gmt-whatsnew.js?v=20261025h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
