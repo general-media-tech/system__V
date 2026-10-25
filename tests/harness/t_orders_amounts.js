@@ -19,6 +19,11 @@ async function press(pg, re) {
   await H.seed();
   for (const [w, h] of [[390, 844], [1366, 800]]) {
     console.log(`— ${w}×${h}`);
+    // (TASK-0166 · seq 79/82/86) أوردرات الأجور: 85 + 2 ⇒ 87 رقمٌ واحد · مكتملٌ بتحصيلٍ أقلّ ⇒ 85 كاملة في الحسابات
+    const [oFee, oDoneFee, oDonePart] = await H.call('/rest/v1/gmt_orders', [
+      { name: 'أجور ' + w, phone: '0933000706', product: 'كاميرا', qty: 1, price: 85, collect_amount: 87, status: 'pending', branch: 'حلب', address: 'دمشق', shipping_company: 'المفتي' },
+      { name: 'مكتمل أجور ' + w, phone: '0933000707', product: 'عدسة', qty: 1, price: 85, collect_amount: 87, status: 'completed', branch: 'حلب', address: 'حمص', shipping_company: 'المفتي' },
+      { name: 'مكتمل جزئي ' + w, phone: '0933000708', product: 'حامل', qty: 1, price: 85, collect_amount: 15, status: 'completed', branch: 'حلب', address: 'حماة', shipping_company: 'المفتي' }]);
     const [oFull, oPaid, oPart, oShip, oZero] = await H.call('/rest/v1/gmt_orders', [
       { name: 'كامل ' + w, phone: '0933000701', product: 'كاميرا', qty: 1, price: 50, status: 'pending', branch: 'حلب', address: 'دمشق', shipping_company: 'المفتي' },
       { name: 'مدفوع ' + w, phone: '0933000702', product: 'عدسة', qty: 1, price: 19, collect_amount: 0, status: 'pending', branch: 'حلب', address: 'حمص' },
@@ -122,7 +127,7 @@ async function press(pg, re) {
         out[k] = el ? { kind: el.getAttribute('data-amt-card'), text: el.innerText.replace(/\s+/g, ' ') } : null;
       }
       return out;
-    }, { full: oFull.id, paid: oPaid.id, part: oPart.id });
+    }, { full: oFull.id, paid: oPaid.id, part: oPart.id, fee: oFee.id });
     ok(cards.paid && cards.paid.kind === 'paid' && /\$19/.test(cards.paid.text) && /محصّلة مسبقاً/.test(cards.paid.text), 'بطاقة «تحصيل ٠»: $19 مشطوبة «✓ محصّلة مسبقاً» (كانت $0): ' + JSON.stringify(cards.paid));
     ok(cards.part && cards.part.kind === 'part' && /\$35/.test(cards.part.text) && /للتحصيل \$20/.test(cards.part.text), 'بطاقة جزئيّة: «$35 · للتحصيل $20»: ' + JSON.stringify(cards.part));
     ok(cards.full && cards.full.kind === 'full' && /\$50/.test(cards.full.text), 'بطاقة كاملة: $50 كما كانت');
@@ -132,13 +137,21 @@ async function press(pg, re) {
       rcptNew: !!document.querySelector(`[onclick="viewReceipt(${ids.ship})"] [data-rcpt-icon]`),
       rcptOld: !!document.querySelector(`[onclick="viewReceipt(${ids.ship})"] [data-lucide="receipt"], [onclick="viewReceipt(${ids.ship})"] .lucide-receipt`),
       sumPending: (document.getElementById('sumPending') || {}).textContent || '',
-      expect: orders.filter(o => o.status === 'pending').reduce((t, o) => t + (Number(o.price) || 0), 0)
+      sumCompleted: (document.getElementById('sumCompleted') || {}).textContent || '',
+      /* (TASK-0166 · seq 82 — يغلب seq 57) الجاري ⇒ ما بقي للتحصيل (المحصَّل مسبقاً خارجه) · المكتمل ⇒ الأكبر من القيمة والتحصيل */
+      expect: orders.filter(o => o.status === 'pending').reduce((t, o) => t + (o.collect_amount == null ? (Number(o.price) || 0) : Number(o.collect_amount)), 0),
+      expectC: orders.filter(o => o.status === 'completed').reduce((t, o) => t + Math.max(Number(o.price) || 0, o.collect_amount == null ? 0 : Number(o.collect_amount)), 0),
+      month: (() => { const m = buildMonthlyReport()[0]; return { total: m.total, completedAmt: m.completedAmt, pendingAmt: m.pendingAmt }; })(),
+      expectM: orders.reduce((t, o) => t + Math.max(Number(o.price) || 0, o.collect_amount == null ? 0 : Number(o.collect_amount)), 0)
     }), { full: oFull.id, ship: oShip.id });
     ok(ui.waPending && !ui.waShipped, 'زرّ واتساب الزبون على «قيد التجهيز» (لا على «في الطريق»): ' + JSON.stringify({ p: ui.waPending, s: ui.waShipped }));
     ok(ui.rcptNew && !ui.rcptOld, 'زرّ عرض الإيصال: ورقة بوليصةٍ بباركود لا أيقونة الفاتورة ($)');
     const url = await pg.evaluate((id) => { let u = ''; const W = window.open; window.open = (x) => { u = x; }; contactCustomerPending(id); window.open = W; return u; }, oFull.id);
     ok(/wa\.me\/963933000701|phone=963933000701/.test(url) && /%D8%A8%D8%AE%D8%B5%D9%88%D8%B5/.test(url), 'الزرّ يفتح واتساب الزبون (963…) برسالة «بخصوص طلبك»');
-    ok(ui.sumPending === '$' + ui.expect.toLocaleString() && ui.expect >= 16 + 19 + 35, 'مجموع «قيد التجهيز» بقيمة الطلب (16 و19 بتحصيل ٠ داخلة): ' + ui.sumPending + ' = ' + ui.expect);
+    ok(cards.fee && cards.fee.kind === 'full' && /\$87/.test(cards.fee.text) && !/\$85/.test(cards.fee.text), 'بطاقة أجور الشحن (85 + 2): رقمٌ واحد $87 لا «85 · للتحصيل 87»: ' + JSON.stringify(cards.fee));
+    ok(ui.sumCompleted === '$' + ui.expectC.toLocaleString() && ui.expectC >= 87 + 85, 'مجموع «تم التحصيل»: 87 كاملة لأوردر الأجور و85 كاملة لتحصيلٍ أقلّ (15): ' + ui.sumCompleted + ' = ' + ui.expectC);
+    ok(Math.abs(ui.month.total - ui.expectM) < 0.01 && ui.month.completedAmt >= 87 + 85, 'الملخّص الشهري (مبيعات الشحن): قيمة كل أوردر كاملة والمحصَّل مسبقاً داخل: ' + JSON.stringify(ui.month) + ' = ' + ui.expectM);
+    ok(ui.sumPending === '$' + ui.expect.toLocaleString() && ui.expect >= 16 + 0 + 15 + 87, 'مجموع «قيد التجهيز» بما بقي للتحصيل (المحصَّل مسبقاً خارجه · seq 82) — 87 للأجور: ' + ui.sumPending + ' = ' + ui.expect);
 
     const bad = errs.filter(e => !/favicon|أصول ناقصة|Failed to load resource|404/.test(e));
     ok(bad.length === 0, 'لا أخطاء JS: ' + JSON.stringify(bad.slice(0, 3)));

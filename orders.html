@@ -577,7 +577,7 @@ window.GMT_INTERNAL = 1;</script>
                            class="w-full p-4 bg-emerald-50 text-emerald-800 rounded-xl text-sm font-black border border-emerald-100">
                 </div>
             </div>
-            <p class="text-[10px] font-bold text-gray-400 -mt-1">قيمة الطلب تدخل في المجموع ولو كان المراد تحصيله ٠ (مدفوع شام كاش مثلاً).</p>
+            <p class="text-[10px] font-bold text-gray-400 -mt-1">قيمة الطلب تدخل كاملةً في الملخّص الشهري ولو كان المراد تحصيله ٠ (مدفوع شام كاش مثلاً) — ومجاميع «قيد التجهيز» و«بانتظار التحصيل» بالمراد تحصيله وحده. المراد تحصيله أكبر (أجور الشحن) ⇒ يُحسب هو رقماً واحداً.</p>
             <input required id="edit-branch" placeholder="فرع الشحن" list="branchesList"
                    class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold border border-transparent">
             <!-- (٨ ث — تدقيق المطابقة) كانت شركة الشحن تُختار عند الإنشاء فقط ولا تُعدَّل بعدها -->
@@ -1480,11 +1480,12 @@ function render() {
         const matchT  = !fTransfer || transferFilterOf(o) === fTransfer;
         if (!matchQ || !matchC || !matchB || !matchS || !matchT) return;
         if (groups[o.status]) groups[o.status].push(o);
-        const p = Number(o.price) || 0;
+        /* (TASK-0166) الجاري ⇒ ما بقي للتحصيل (المحصَّل مسبقاً خارجه) · المكتمل ⇒ قيمة الأوردر كاملة (87 إن زادت الأجور) */
+        const p = orderDue(o);
         if (o.status==='pending')   sumP += p;
         if (o.status==='shipped')   sumS += p;
         if (o.status==='delivered') sumD += p;
-        if (o.status==='completed') sumC += p;
+        if (o.status==='completed') sumC += orderValue(o);
         if (o.status==='shipped' || o.status==='delivered')
             branchTot[o.branch] = (branchTot[o.branch]||0) + p;
         if ((o.status==='shipped' || o.status==='delivered') && o.shipping_company)
@@ -3271,7 +3272,7 @@ window.renderSelectEditList = () => {
                     <p class="text-[11px] font-bold text-gray-500">${escH(o.phone||'')} · ${escH(o.product||'')}</p>
                 </div>
                 <div class="text-left">
-                    <p class="font-black text-red text-sm">$${Number(o.price).toLocaleString()}</p>
+                    <p class="font-black text-red text-sm">$${orderValue(o).toLocaleString()}</p>${dueLineHTML(o)}
                     <p class="text-[10px] font-bold text-gray-400 mt-0.5">${statusAr(o.status)}</p>
                 </div>
             </div>`).join('')
@@ -4540,10 +4541,10 @@ function buildMonthlyReport() {
             completed: 0, completedAmt: 0,
         });
         const m = map.get(key);
-        const p = Number(o.price) || 0;
-        m.count++; m.total += p;
-        const s = o.status;
-        if (m[s] !== undefined) { m[s]++; m[s + 'Amt'] += p; }
+        /* (TASK-0166 · seq 82) مبيعات الشحن للشهر = قيمة كل أوردر كاملة (والمحصَّل مسبقاً منها) · مبالغ الحالات الجارية = ما بقي للتحصيل */
+        const v = orderValue(o), s = o.status;
+        m.count++; m.total += v;
+        if (m[s] !== undefined) { m[s]++; m[s + 'Amt'] += (s === 'completed' ? v : orderDue(o)); }
     });
     return [...map.values()].sort((a, b) => b.key.localeCompare(a.key));   // الأحدث أولاً
 }
@@ -4555,7 +4556,8 @@ function monthRowHTML(m, hero) {
     const f = n => '$' + (Number(n) || 0).toLocaleString();
     const openC = m.pending + m.prepared + m.shipped + m.delivered;
     const openA = m.pendingAmt + m.preparedAmt + m.shippedAmt + m.deliveredAmt;
-    const pct   = m.total > 0 ? Math.round(m.completedAmt / m.total * 100) : 0;
+    const got   = Math.max(0, m.total - openA);                     // (TASK-0166) المحصَّل = المكتمل + المدفوع مسبقاً من الجاري
+    const pct   = m.total > 0 ? Math.round(got / m.total * 100) : 0;
     const chip  = (ic, n, lbl, cls) => n ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg ${cls} text-[10px] font-black">${ic} ${n} <span class="font-bold opacity-70">${lbl}</span></span>` : '';
     return `
       <div class="bg-white rounded-2xl ${hero ? 'border-r-4 border-emerald-500 card-shadow' : 'border border-gray-100'} p-4 mb-2.5">
@@ -4570,7 +4572,7 @@ function monthRowHTML(m, hero) {
           <div class="h-full bg-emerald-500 rounded-full transition-all" style="width:${pct}%"></div>
         </div>
         <div class="flex justify-between text-[10px] font-black mb-2.5">
-          <span class="text-emerald-600">محصَّل ${f(m.completedAmt)} · ${m.completed} طلب</span>
+          <span class="text-emerald-600">محصَّل ${f(got)} · ${m.completed} مكتمل</span>
           <span class="text-gray-400">${pct}%</span>
           <span class="text-orange-500">باقٍ ${f(openA)} · ${openC} طلب</span>
         </div>
@@ -4715,7 +4717,7 @@ function renderFollowUpList() {
                         ${o.tracking_number ? `<p class="text-[10px] font-black text-amber-600 mt-0.5">🔖 ${escH(o.tracking_number)}</p>` : ''}
                     </div>
                     <div class="text-left shrink-0 flex flex-col items-end gap-1">
-                        <p class="font-black text-red text-base">$${Number(o.price).toLocaleString()}</p>
+                        <p class="font-black text-red text-base">$${orderValue(o).toLocaleString()}</p>${dueLineHTML(o)}
                         <span class="text-[9px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full">اضغط للتفاصيل ←</span>
                     </div>
                 </div>
@@ -4731,7 +4733,8 @@ window.openFollowUpDetail = (id) => {
     window._currentFudOrderId = id;  // لتتبع الأوردر الحالي في الـ detail view
 
     document.getElementById('fud-name').textContent  = o.name || '';
-    document.getElementById('fud-price').textContent = '$' + Number(o.price).toLocaleString();
+    document.getElementById('fud-price').textContent = '$' + orderValue(o).toLocaleString() +
+        (collectOf(o) < orderValue(o) - 0.004 ? ' · للتحصيل $' + collectOf(o).toLocaleString() : '');   // (TASK-0166)
     document.getElementById('fud-phone').textContent = o.phone || '—';
     document.getElementById('fud-addr').textContent  = o.address || '—';
     document.getElementById('fud-notes').textContent = o.notes || '';
@@ -4881,7 +4884,7 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto, opts) {
     opts = opts || {};
     try {
         const items      = parseItemsFromOrder(o);
-        const grandTotal = Number(o.price) || 0;
+        const grandTotal = orderValue(o);                                   // (TASK-0166) 85 + أجور 2 ⇒ 87 رقماً واحداً
         const prodList   = items.map(i => `• ${i.name}${i.qty > 1 ? ' × ' + i.qty : ''}`).join('\n');
         const date       = new Date().toLocaleDateString('ar-SY', { day:'2-digit', month:'long', year:'numeric' });
 
@@ -4899,6 +4902,7 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto, opts) {
             `━━━━━━━━━━━━━━━━━━\n` +
             `📦 *المنتجات:*\n${prodList}\n` +
             `💵 *الإجمالي:* $${grandTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}\n` +
+            (collectOf(o) < grandTotal - 0.004 ? `💵 *المراد تحصيله:* $${collectOf(o).toLocaleString()}\n` : '') +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📅 *التوقيت:* ${date}`;
 
@@ -4929,7 +4933,7 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto, opts) {
         return { ok: true, replaced: !!j.replaced, why: j.why || '' };
     } catch(e) {
         // fallback نصي
-        sendTelegram(`${eventLabel}\nالزبون: ${o.name}\nالإجمالي: $${Number(o.price||0).toLocaleString()}${o.invoice_number ? '\nالفاتورة: #' + o.invoice_number : ''}`);
+        sendTelegram(`${eventLabel}\nالزبون: ${o.name}\nالإجمالي: $${orderValue(o).toLocaleString()}${o.invoice_number ? '\nالفاتورة: #' + o.invoice_number : ''}`);
         return null;
     }
 }
@@ -5218,7 +5222,7 @@ async function sendDeleteAlert(o, reason) {
             (o.tracking_number ? `🔖 *رقم التتبع:* ${o.tracking_number}\n` : '') +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📦 *المنتجات:*\n${prodList}\n` +
-            `💵 *الإجمالي:* $${Number(o.price||0).toLocaleString()}\n` +
+            `💵 *الإجمالي:* $${orderValue(o).toLocaleString()}\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📋 *الحالة وقت الحذف:* ${statusAr(o.status)}\n` +
             `📅 *تاريخ الإنشاء:* ${createdDate}\n` +
@@ -5239,7 +5243,7 @@ async function sendDeleteAlert(o, reason) {
         });
     } catch(e) {
         // fallback بسيط
-        sendTelegram(`🚨 تحذير: تم حذف طلب\nالزبون: ${o.name || '—'}\nالهاتف: ${o.phone || '—'}\nالإجمالي: $${Number(o.price||0).toLocaleString()}\n🗑 سبب الحذف: ${reason || '—'}`);
+        sendTelegram(`🚨 تحذير: تم حذف طلب\nالزبون: ${o.name || '—'}\nالهاتف: ${o.phone || '—'}\nالإجمالي: $${orderValue(o).toLocaleString()}\n🗑 سبب الحذف: ${reason || '—'}`);
     }
 }
 
@@ -5262,7 +5266,8 @@ async function sendNewOrderNotification(o, items, grandTotal) {
             `👨‍💼 *أُدخل بواسطة:* ${_opName}\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📦 *المنتجات:*\n${prodList}\n` +
-            `💵 *الإجمالي:* $${grandTotal.toFixed(2)}\n` +
+            `💵 *الإجمالي:* $${Math.max(Number(grandTotal) || 0, collectOf(o)).toFixed(2)}\n` +       // (TASK-0166)
+            (collectOf(o) < (Number(grandTotal) || 0) - 0.004 ? `💵 *المراد تحصيله:* $${collectOf(o).toLocaleString()}\n` : '') +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📅 *التاريخ:* ${dateStr}\n` +
             `🔖 *الحالة:* قيد التجهيز`;
@@ -6690,6 +6695,19 @@ function collectOf(o) {
     return (c === null || c === undefined || c === '') ? (Number(o && o.price) || 0) : (Number(c) || 0);
 }
 function prepaidOf(o) { return Math.max(0, (Number(o && o.price) || 0) - collectOf(o)); }
+/* (TASK-0166 · المالك seq 79 · 82 · 86 «87 كامل إذا التحصيل أكبر») — رقمان فقط:
+   • orderValue = قيمة الأوردر في الحسابات والفلاتر والشهر: المراد تحصيله أكبر من قيمة الطلب (أجور الشحن 85 + 2) ⇒ 87 كاملة رقماً واحداً ·
+     أقلّ (15 أو 0 — مدفوعٌ مسبقاً) ⇒ قيمة الطلب كاملة 85.
+   • orderDue = ما بقي للتحصيل = المراد تحصيله: المحصَّل مسبقاً لا يدخل مجاميع «قيد التجهيز» ولا «بانتظار التحصيل» ولا «المجموع الكلي» —
+     يظهر في الملخّص الشهري (مبيعات الشحن) وحده. */
+function orderValue(o) { return Math.max(Number(o && o.price) || 0, collectOf(o)); }
+function orderDue(o) { return o && o.status === 'completed' ? 0 : collectOf(o); }
+/* سطر «للتحصيل $X» الصغير تحت القيمة — حين يكون المراد تحصيله أقلّ من قيمة الأوردر فقط */
+function dueLineHTML(o) {
+    const v = orderValue(o), c = collectOf(o);
+    if (!(v > 0) || c >= v - 0.004) return '';
+    return `<span class="block text-[10px] font-black ${c > 0 ? 'text-amber-700' : 'text-emerald-700'}" data-due-line>${c > 0 ? 'للتحصيل $' + Number(c).toLocaleString() : '✓ محصّلة مسبقاً'}</span>`;
+}
 
 /* (TASK-0152 · seq 57 «الأوردر اللي حطّيت تحصيله صفر يطلع قيمته صفر في البطاقات … يطلع 19 مشطوبة إنه محصّلة، أو 35 ومحصّل منها 20
    فيطلع 35 · 15 فقط للتحصيل») — البطاقة تُظهر قيمة الطلب دائماً (هي ما يدخل المجموع)، ومعها حالة التحصيل. */
@@ -6697,6 +6715,7 @@ function orderAmountHTML(o, cls) {
     const p = Number(o && o.price) || 0, c = collectOf(o), f = n => '$' + Number(n).toLocaleString();
     if (p > 0 && c <= 0)
         return `<span class="text-left leading-tight shrink-0" data-amt-card="paid"><span class="${cls} font-black text-lg line-through decoration-2 opacity-60">${f(p)}</span><span class="block text-[10px] font-black text-emerald-700">✓ محصّلة مسبقاً</span></span>`;
+    if (c > p) return `<span class="${cls} font-black text-lg" data-amt-card="full">${f(c)}</span>`;   // (TASK-0166) أجور الشحن ⇒ رقمٌ واحد كامل
     if (p > 0 && Math.abs(c - p) >= 0.005)
         return `<span class="text-left leading-tight shrink-0" data-amt-card="part"><span class="${cls} font-black text-lg">${f(p)}</span><span class="block text-[10px] font-black text-amber-700">للتحصيل ${f(c)}</span></span>`;
     return `<span class="${cls} font-black text-lg" data-amt-card="full">${f(p)}</span>`;
@@ -7354,7 +7373,8 @@ async function sendShippingLabel(o) {
             `🚚 *شركة الشحن:* ${o.shipping_company || '—'}\n` +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📦 *المنتجات:*\n${prodList}\n` +
-            `💵 *الإجمالي:* $${Number(o.price).toLocaleString()}\n` +
+            `💵 *الإجمالي:* $${orderValue(o).toLocaleString()}\n` +
+            (collectOf(o) < orderValue(o) - 0.004 ? `💵 *المراد تحصيله:* $${collectOf(o).toLocaleString()}\n` : '') +   // (TASK-0166)
             `━━━━━━━━━━━━━━━━━━\n` +
             (o.tracking_number ? `🔖 *رقم التتبع:* ${o.tracking_number}\n` : '') +
             `📅 *تاريخ الشحن:* ${shippedDate}\n` +
@@ -7532,7 +7552,7 @@ function buildShippingLabelImageLegacy(o) {
         }
         drawLabel('المنتجات', _prodShown, 40, 140, 'ltr');
         /* 🔴 سعرٌ فارغ كان يُطبع `$NaN` على ورقة الزبون */
-        const _tot = Number(o.price);
+        const _tot = isFinite(Number(o.price)) ? orderValue(o) : NaN;      // (TASK-0166) 85 + أجور 2 ⇒ 87
         drawLabel('الإجمالي', isFinite(_tot) ? `$${_tot.toLocaleString()}` : '—', 40, 210, 'ltr');
         drawLabel('تاريخ الشحن', new Date().toLocaleDateString('ar-SY', { day:'2-digit', month:'long', year:'numeric' }), 40, 280, 'ltr');
 
@@ -9075,7 +9095,7 @@ window.openBulkPrint = () => {
             '<input type="checkbox" class="bp-chk w-4 h-4 accent-[#D5001C]" value="' + o.id + '" checked>' +
             '<span class="flex-1"><span class="block text-[13px] font-black text-gray-800">' + escH(o.name || '—') + '</span>' +
             '<span class="block text-[10px] text-gray-400 font-bold">' + escH(o.serial_code || '#' + o.id) +
-            ' · ' + escH(o.branch || '') + ' · $' + (Number(o.price) || 0).toLocaleString() + '</span></span>' +
+            ' · ' + escH(o.branch || '') + ' · $' + orderValue(o).toLocaleString() + '</span></span>' +
             '<span class="text-[10px] font-black px-2 py-1 rounded-lg ' +
             (o.status === 'pending' ? 'bg-gray-100 text-gray-600">⏳ بالانتظار' : 'bg-blue-50 text-blue-600">📦 جاهز') +
             '</span></label>';
@@ -9399,7 +9419,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025r"></script>
+<script src="gmt-whatsnew.js?v=20261025s"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
