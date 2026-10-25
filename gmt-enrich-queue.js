@@ -48,16 +48,41 @@
       items: S.items.map(function (it) { return { id: it.id, st: it.st === 'run' ? 'wait' : it.st, res: it.res || null, err: it.err || '' }; }) })); } catch (_) {}
   }
 
+  /* (TASK-0172 · المالك seq 87 «اسمه EF-M وجاب EF-EOS R — لازم ياخذ الصورة والاسم») رموز الموديل في اسم منتجك (EF-M · M50 · SB-1517 · RF)
+     هي المرجع: تُرسَل للعقل «يجب أن يطابقها»، وما لا تحمله النتيجة يُنبَّه عليه في البطاقة. */
+  function nameTokens(name) {
+    var out = [];
+    String(name || '').split(/[^A-Za-z0-9\-\/]+/).forEach(function (w) {
+      w = w.replace(/^[-\/]+|[-\/]+$/g, '');
+      if (w.length < 2 || !/[A-Za-z]/.test(w)) return;
+      if (!(/\d/.test(w) || /[-\/]/.test(w) || /^[A-Z]{2,5}$/.test(w))) return;
+      if (out.indexOf(w) === -1) out.push(w);
+    });
+    return out.slice(0, 6);
+  }
+  function missingTokens(p, r) {
+    if (!r) return [];
+    var words = {}, txt = [r.name_en, r.model, r.brand, r.compat, r.desc].concat((r.specs || []).map(function (s) { return s.k + ' ' + s.v; })).join(' ');
+    txt.toUpperCase().split(/[^A-Z0-9]+/).forEach(function (w) { if (w) words[w] = 1; });
+    var flat = txt.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+    return nameTokens(p.name).filter(function (t) {
+      var parts = t.toUpperCase().split(/[-\/]+/).filter(Boolean);
+      return !(parts.every(function (x) { return words[x]; }) || flat.indexOf(t.toUpperCase().replace(/[^A-Z0-9]+/g, '')) !== -1);
+    });
+  }
   /* ── العقل: كل ما يُجمع لمنتجٍ واحد ── */
   async function enrichOne(p, extra) {
     extra = extra || {};
-    var hint = [p.name, p.brand, extra.hint].filter(Boolean).join(' — ');
+    var toks = nameTokens(p.name);
+    var hint = [p.name, p.brand, extra.hint].filter(Boolean).join(' — ') +
+      (toks.length ? ' — الاسم هو المرجع: الموديل/الحربة يجب أن يطابق «' + toks.join('»، «') + '»' : '') +
+      (extra.deep ? ' — بحث أعمق: تعرّف من الصورة والاسم معاً على المنتج الدقيق، ولا تعطِ موديلاً يخالف الاسم' : '');
     var file = extra.noImage ? null : await imgBlob(p.image_url);
     var pr = await global.GMTBrain.importProduct({ url: extra.url || '', hint: hint, file: file });
     var meta = pr._meta || {}, imgs = [];
     (pr.images || []).forEach(function (u) { if (/^https?:\/\//i.test(u) && imgs.indexOf(u) === -1) imgs.push(u); });
     /* صورٌ مرشّحة إضافية من البحث — فقط حين يكون البحث متاحاً (نتيجةٌ من الذاكرة ⇒ البحث معطَّل: لا نداءٌ فاشلٌ آخر) */
-    if (!meta.from_memory) {
+    if (!meta.from_memory || extra.deep) {
       try { var ps = await proxy({ mode: 'product_search', hint: hint, url: extra.url || '' });
         (ps.candidates || []).forEach(function (c) { (c.image_urls || []).forEach(function (u) { if (/^https?:\/\//i.test(u) && imgs.indexOf(u) === -1) imgs.push(u); }); });
       } catch (_) {}
@@ -134,14 +159,21 @@
     var top = '<div style="display:flex;gap:10px;align-items:center">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">' : '') +
       '<div style="flex:1;min-width:0"><b style="display:block;font-size:15px">' + esc(p.name) + '</b><span style="font-size:12px;color:#526077">' + esc(p.barcode || '') + (p.group_name ? ' · ' + esc(p.group_name) : '') + '</span></div></div>';
     if (it.st === 'wait' || it.st === 'run') { box.innerHTML = top + '<div style="padding:24px 4px;text-align:center;color:#2563eb;font-weight:800">' + (it.st === 'run' ? '🔄 العقل يجمع معلوماته الآن…' : '⏳ بالانتظار — يأتي دوره بعد ما قبله') + '</div>'; return; }
-    if (it.st === 'err') { box.innerHTML = top + '<div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:10px;color:#991b1b;font-size:13px">⚠️ ' + esc(it.err) + '</div>' + againHTML() + '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button></div>'; return; }
-    if (it.st === 'saved' || it.st === 'skip') { box.innerHTML = top + '<div style="padding:18px 4px;text-align:center;font-weight:800;color:' + ST[it.st][2] + '">' + ST[it.st][0] + ' ' + ST[it.st][1] + '</div>'; return; }
+    var deepBtn = '<button type="button" data-act="deep" style="' + btn('#eff6ff', '#1d4ed8') + '">🔎 بحث أعمق</button>';
+    if (it.st === 'err') { box.innerHTML = top + '<div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:10px;color:#991b1b;font-size:13px">⚠️ ' + esc(it.err) + '</div>' + againHTML() + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + deepBtn + '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button></div>' + selfSearch(p); return; }
+    /* (TASK-0172 · المالك seq 88 «إذا تخطّيت منتج … لازم يبقى عندي: إعادة مراجعة أو زرّ إعادة بحث أعمق») المتخطّى والمحفوظ لا يصيران
+       طريقاً مسدوداً: البطاقة كاملة كما هي (تعدّل وتحفظ) مع «🔎 بحث أعمق» */
+    var banner = it.st === 'skip' ? '<div style="margin-top:10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:8px 10px;font-size:12.5px;font-weight:800;color:#334155">⏭️ تخطّيتَه — لم يُحفظ له شيء بعد. راجعه واحفظه، أو «🔎 بحث أعمق».</div>'
+               : it.st === 'saved' ? '<div style="margin-top:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:8px 10px;font-size:12.5px;font-weight:800;color:#047857">✅ حُفظ — تقدر تعدّل وتعيد الحفظ، أو «🔎 بحث أعمق».</div>' : '';
+    if ((it.st === 'saved' || it.st === 'skip') && !it.res) { box.innerHTML = top + banner + againHTML() + '<div style="display:flex;gap:8px;margin-top:10px">' + deepBtn + '</div>' + selfSearch(p); return; }
+    var miss = missingTokens(p, r);
+    var mismatch = miss.length ? '<div data-mismatch style="margin-top:10px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;padding:8px 10px;color:#991b1b;font-size:12.5px;line-height:1.7;font-weight:800">⚠️ النتيجة لا تطابق اسم منتجك: «' + miss.map(esc).join('»، «') + '» غير موجود فيها — قد تكون لمنتجٍ آخر. صحّحها أو «🔎 بحث أعمق».</div>' : '';
     var warn = r.from_memory ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;color:#92400e;font-size:12px;line-height:1.7">⚠️ ليست من صفحة المنتج — البحث في الويب غير متاح الآن، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
     var imgs = (r.images || []).map(function (u) {
       return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:6px;background:#fff;width:108px"><img src="' + esc(u) + '" alt="" style="width:100%;height:84px;object-fit:contain" onerror="this.parentNode.remove()">' +
         '<button type="button" data-img-main="' + esc(u) + '" style="' + btn('#0f1219', '#fff') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">رئيسية للجرد</button>' +
         (S.storeAddImages ? '<button type="button" data-img-store="' + esc(u) + '" style="' + btn('#ecfdf5', '#047857') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">+ صور المتجر</button>' : '') + '</div>'; }).join('');
-    box.innerHTML = top + warn +
+    box.innerHTML = top + banner + mismatch + warn +
       field('الاسم بالإنجليزية', 'name_en', r.name_en) + field('الماركة', 'brand', r.brand || p.brand || '') + field('الموديل', 'model', r.model) +
       field('الأسماء البديلة (يبحث بها الجرد)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model])) +
       field('الوصف (يظهر في المتجر)', 'desc', r.desc, true) +
@@ -156,9 +188,9 @@
         (S.storeAddImages ? '<button type="button" data-img-url-store style="' + btn('#ecfdf5', '#047857') + ';font-size:12px;padding:7px 10px">+ المتجر</button>' : '') + '</div>' +
         '<div data-img-msg style="font-size:12px;font-weight:800;margin-top:6px;min-height:1em"></div></div>' +
       (r.source ? '<div style="font-size:11px;color:#526077;margin-top:8px;overflow-wrap:anywhere">المصدر: ' + esc(r.source) + '</div>' : '') +
-      againHTML() +
-      '<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:#f8fafc;padding-top:8px"><button type="button" data-act="save" style="' + btn('#D5001C', '#fff') + ';flex:1">💾 حفظ والتالي</button>' +
-      '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button></div>' +
+      againHTML() + selfSearch(p) +
+      '<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:#f8fafc;padding-top:8px;flex-wrap:wrap"><button type="button" data-act="save" style="' + btn('#D5001C', '#fff') + ';flex:1">' + (it.st === 'ready' ? '💾 حفظ والتالي' : '💾 حفظ') + '</button>' +
+      deepBtn + (it.st === 'ready' ? '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button>' : '') + '</div>' +
       '<div data-save-msg style="font-size:12px;font-weight:800;margin-top:6px;min-height:1em"></div>';
   }
   function againHTML() {
@@ -166,6 +198,14 @@
       '<input data-again-url dir="ltr" placeholder="https://www.alibaba.com/product-detail/…" style="width:100%;box-sizing:border-box;margin-top:6px;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font:inherit;font-size:12px">' +
       '<input data-again-hint placeholder="ملاحظة: اسم أو موديل أدقّ" style="width:100%;box-sizing:border-box;margin-top:6px;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font:inherit;font-size:12px">' +
       '<button type="button" data-act="again" style="' + btn('#0f1219', '#fff') + ';margin-top:6px;font-size:12px;padding:7px 12px">أعد البحث (يعود لأوّل الطابور)</button></details>';
+  }
+  /* البحث بنفسك: صفحة نتائج علي بابا / صور Google باسم المنتج — تجد صفحته فتلصق رابطها في «🔁 أعد البحث» */
+  function selfSearch(p) {
+    var q = encodeURIComponent(String(p.name || '').replace(/\s+/g, ' ').trim());
+    var a = 'display:inline-block;border:1px solid #e2e8f0;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:800;color:#0f1219;text-decoration:none;background:#fff';
+    return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:11.5px;color:#526077">ابحث بنفسك: ' +
+      '<a target="_blank" rel="noopener" href="https://www.alibaba.com/trade/search?SearchText=' + q + '" style="' + a + '">علي بابا ↗</a>' +
+      '<a target="_blank" rel="noopener" href="https://www.google.com/search?tbm=isch&q=' + q + '" style="' + a + '">صور Google ↗</a></div>';
   }
   function btn(bg, fg) { return 'border:0;background:' + bg + ';color:' + fg + ';border-radius:10px;padding:10px 14px;font:inherit;font-weight:900;cursor:pointer'; }
   function mergeAlt(cur, add) {
@@ -226,8 +266,8 @@
     }
     var act = t.getAttribute('data-act');
     if (act === 'skip') { it.st = 'skip'; persist(); nextReady(); render(); return; }
-    if (act === 'again') {
-      it.again = { url: ((box.querySelector('[data-again-url]') || {}).value || '').trim(), hint: ((box.querySelector('[data-again-hint]') || {}).value || '').trim() };
+    if (act === 'again' || act === 'deep') {
+      it.again = { url: ((box.querySelector('[data-again-url]') || {}).value || '').trim(), hint: ((box.querySelector('[data-again-hint]') || {}).value || '').trim(), deep: act === 'deep' };
       it.st = 'wait'; it.res = null; it.retried = false;
       S.items.splice(S.items.indexOf(it), 1); var firstWait = S.items.findIndex(function (x) { return x.st === 'wait'; });
       S.items.splice(firstWait < 0 ? S.items.length : firstWait, 0, it);               // أوّل الانتظار: لا ينتظر الطابور كلّه
@@ -320,5 +360,5 @@
       draw();
     });
   }
-  global.GMTEnrichQueue = { open: open, close: close, pick: pick, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
+  global.GMTEnrichQueue = { open: open, close: close, pick: pick, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
 })(typeof window !== 'undefined' ? window : this);

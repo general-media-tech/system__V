@@ -11,7 +11,10 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
   GMTBrain.importProduct = async function (o) {
     window.__calls.push(o.hint || ''); await new Promise(r => setTimeout(r, 700));
     const n = (o.hint || '').split(' — ')[0], q = GMTEnrichQueue.state(), first = !!(q && q.items[0].p.name === n);   // صورٌ مرشّحة للأوّل فقط (كأنّ البحث وجدها)
-    const res = { name: n, name_en: 'EN ' + n, brand: 'Godox', model: 'M-' + n.slice(-1), description_ar: 'وصف ' + n + (/ملاحظة أدق/.test(o.hint) ? ' (بعد الملاحظة)' : ''),
+    const efm = /EF-M/.test(n);   // (TASK-0172) العقل أعطى موديلاً يخالف الاسم (EF-EOS R لمنتجٍ اسمه EF-M) — إلّا في «البحث الأعمق»
+    const res = efm && !/بحث أعمق/.test(o.hint) ? { name: n, name_en: 'Auto Focus Adapter EF-EOS R', brand: 'غير مصرح', model: 'EF-EOS R', description_ar: 'محول', specs: [{ k: 'الحربة', v: 'RF' }], compat: [], images: [], confidence: 'low', notes: '' } :
+      efm ? { name: n, name_en: 'Canon EF-EOS M Mount Adapter', brand: 'Canon', model: 'EF-EOS M', description_ar: 'محوّل عدسات EF إلى EOS M', specs: [{ k: 'الحربة', v: 'EF-M' }], compat: [], images: [], confidence: 'low', notes: '' } :
+      { name: n, name_en: 'EN ' + n, brand: 'Godox', model: 'M-' + n.slice(-1), description_ar: 'وصف ' + n + (/ملاحظة أدق/.test(o.hint) ? ' (بعد الملاحظة)' : ''),
       specs: [{ k: 'الأبعاد', v: '15×17 سم' }, { k: 'اللون', v: 'أسود' }], compat: ['Canon 600EX'], images: first ? ['https://img.example/a.png'] : [], confidence: 'low', notes: '' };
     Object.defineProperty(res, '_meta', { value: { from_memory: !first }, enumerable: false });
     return res;
@@ -22,6 +25,8 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     const { prods } = await H.seed();
     const lightIds = prods.filter((p, i) => i % 2 === 0).map(p => String(p.id));      // مجموعة «إضاءة»: 0 · 2 · 4 · 6 · 8 · 10
     for (const id of lightIds) await H.call('/rest/v1/products?id=eq.' + id, { store_url: 'store.html#product=p_1', alt_names: 'فلاش قديم' }, 'PATCH');   // كلّها مربوطة بمنتج المتجر نفسه (يكفي للاختبار)
+    const efmId = lightIds[5]; await H.call('/rest/v1/products?id=eq.' + efmId, { name: 'اداپتر Adapter rings EF-M' }, 'PATCH');   // (TASK-0172) لقطة المالك seq 87
+    prods.find(p => String(p.id) === efmId).name = 'اداپتر Adapter rings EF-M';
     const nameOf = id => (prods.find(p => String(p.id) === String(id)) || {}).name;
     await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-17T21:08:21.137229+00:00', categories: [{ id: 'c1', name: 'إضاءة', order: 1 }],
       products: [{ id: 'p_1', name: 'منتج متجر مربوط', price: 50, images: ['https://x.example/old.jpg'], category_id: 'c1' }] }]);
@@ -136,6 +141,31 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     const back = s.items.filter(x => x.st === 'ready').map(x => x.id);
     ok(s.items.length === 5 && !s.items.some(x => x.id === String(p0.id)) && readyBefore.every(id => back.includes(id)) && s.calls.length === callsBefore,
       W + ': استؤنف بلا إعادة: ' + s.items.map(x => x.st).join('،') + ' · نداءات ' + callsBefore + '⇒' + s.calls.length);
+
+    // ٨-ب) (TASK-0172 · seq 88) المتخطّى بعد إعادة الفتح ليس طريقاً مسدوداً: البطاقة كاملة + «🔎 بحث أعمق» + الحفظ منه
+    const skId = String(light[1].id);
+    await pg.evaluate(id => document.querySelector('#gmt-enrich-q [data-q-pick="' + id + '"]').click(), skId);
+    const sk = await pg.evaluate(() => { const b = document.querySelector('#gmt-enrich-q [data-q-card]'); return { banner: /تخطّيتَه/.test(b.innerText), f: !!b.querySelector('[data-f="name_en"]'), save: !!b.querySelector('[data-act="save"]'), deep: !!b.querySelector('[data-act="deep"]'), self: /علي بابا ↗/.test(b.innerText) }; });
+    ok(sk.banner && sk.f && sk.save && sk.deep && sk.self, W + ': المتخطّى يعرض بطاقته كاملة مع «حفظ» و«🔎 بحث أعمق» و«ابحث بنفسك»: ' + JSON.stringify(sk));
+    await pg.fill('#gmt-enrich-q [data-f="desc"]', 'وصفٌ بعد المراجعة الثانية');
+    await pg.click('#gmt-enrich-q [data-act="save"]');
+    await until(async () => (await st()).items.find(x => x.id === skId).st === 'saved', 6000);
+    const rk = await row(skId);
+    ok(rk.specs && rk.specs.__desc === 'وصفٌ بعد المراجعة الثانية' && rk.specs_checked_at, W + ': حُفظ من حالة «تخطّي» (وصفه وصل)');
+
+    // ٨-ج) (TASK-0172 · seq 87) نتيجةٌ تخالف اسم المنتج (EF-M ⇐ EF-EOS R) ⇒ تنبيهٌ أحمر · «بحث أعمق» يُعيدها بالاسم مرجعاً
+    await pg.evaluate(id => document.querySelector('#gmt-enrich-q [data-q-pick="' + id + '"]').click(), efmId);
+    const mm = await pg.evaluate(() => (document.querySelector('#gmt-enrich-q [data-mismatch]') || {}).innerText || '');
+    ok(/EF-M/.test(mm) && /لا تطابق/.test(mm), W + ': النتيجة المخالفة للاسم ⇒ «' + mm.replace(/\s+/g, ' ').slice(0, 70) + '»');
+    const nCalls = (await st()).calls.length;
+    await pg.click('#gmt-enrich-q [data-act="deep"]');
+    await until(async () => { const s = await st(); return s.calls.length > nCalls && s.items.find(x => x.id === efmId).st === 'ready'; }, 15000);
+    s = await st();
+    const dh = s.calls[s.calls.length - 1];
+    ok(/بحث أعمق/.test(dh) && /EF-M/.test(dh) && /الاسم هو المرجع/.test(dh), W + ': «بحث أعمق» أُرسل بالاسم مرجعاً: ' + dh.slice(0, 120));
+    await pg.evaluate(id => document.querySelector('#gmt-enrich-q [data-q-pick="' + id + '"]').click(), efmId);
+    const af = await pg.evaluate(() => ({ mm: !!document.querySelector('#gmt-enrich-q [data-mismatch]'), en: document.querySelector('#gmt-enrich-q [data-f="name_en"]').value }));
+    ok(!af.mm && /EF-EOS M/.test(af.en), W + ': بعد البحث الأعمق النتيجة تطابق الاسم ولا تنبيه: ' + af.en);
     await pg.click('#gmt-enrich-q [data-q-close]');
 
     // ٩) الإغلاق أثناء عمل العقل ثمّ الفتح فوراً ⇒ لا خطأ ولا خلط بين الجلستين
