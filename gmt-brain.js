@@ -340,6 +340,51 @@
     var c = looseJSON(j.answer); if (!c) return null;
     return { specs: normSpecs(c.specs), aliases_ar: cleanList(c.aliases_ar), aliases_en: cleanList(c.aliases_en) };
   }
+  /* (TASK-0183 · المالك seq 113 «الهودات والأغطية لازم يكون معها التوافق من دليل التوافقيات» · seq 118 «أكتب هود عدسة 50 STM 1.8 فيعطيني
+     الهود … نفس الشيء البطاريات») — طلبٌ ثالث للإكسسوارات وحدها: على ماذا يركّب، بأسماء الموديلات الكاملة (هي ما يُبحث به لاحقاً)،
+     بقواعد «دليل التوافقيات والمواصفات» نفسه (كود الهود لا يُستنتج من القطر · الغطاء بالقطر · أجيال البطاريات · اتّجاه المحوّل) */
+  var ACC_RE = /هود|hood|غطا|غطاء|أغطي|اغطي|\bcaps?\b|بطاري|battery|شاحن|charger|فلتر|filter|محو[ّ]?ل|adapter|\b(ET|EW|ES|HB|HN|HS|HR|LH|ALC|LP|NP|EN|BP|DMW|LC)-?[A-Z]{0,3}\d|\bE-\d/i;
+  function isAccessory(p, hint) { return ACC_RE.test([p && p.name_en, p && p.name_ar, p && p.name, p && p.model, p && p.category, hint].filter(Boolean).join(' ')); }
+  var COMPAT_SYS = 'أنت خبير توافق إكسسوارات التصوير لمتجر في سوريا. المطلوب: على ماذا يركّب هذا الإكسسوار — بأسماء الموديلات الكاملة التي يكتبها الزبون في البحث. أعد JSON فقط بلا أي نصّ وبلا ```:\n' +
+    '{"compat":[""],"note":""}\n' +
+    '• هود بايونيت (Canon ET-/EW-/ES- · Nikon HB- · Sony ALC-SH): كل عدسة يركّب عليها باسمها الكامل: الماركة والحربة والبعد البؤري والفتحة والجيل (مثل «Canon EF 50mm f/1.8 STM»). ' +
+    'كود الهود لا يُستنتج من قطر الفلتر أبداً — العلاقة خاصّة بكل عدسة. من الدليل: ES-68 ⇐ EF 50mm f/1.8 STM · ES-62 ⇐ EF 50mm f/1.8 II · ES-71 II ⇐ EF 50mm f/1.4 USM · ' +
+    'ET-65 III ⇐ EF 85mm f/1.8 USM، EF 100mm f/2 USM، EF 135mm f/2.8 Softfocus · ES-79 II ⇐ EF 85mm f/1.2L (و II) · ET-67 ⇐ EF 100mm f/2.8 Macro USM · ET-89 ⇐ RF 85mm f/1.2L · ET-77 ⇐ RF 85mm f/2 Macro IS STM. ' +
+    'اللواحق أجيالٌ لا تتبادل (ET-83 II ≠ ET-83 C).\n' +
+    '• غطاء عدسة أمامي · فلتر · هود لولبي أو مطّاطي (Nikon HN-/HR- · العامّ): أوّل بند «قطر الفلتر NNمم» ثمّ العدسات التي قطر فلترها الأمامي NN نفسه بالضبط، وبعد كل عدسة قطرها بين قوسين ' +
+    'مثل «Canon EF 24-105mm f/4L IS USM (77مم)» — عدسات الماركة المذكورة في اسم المنتج وحدها (كانون EF/EF-S/RF إن لم تُذكر ماركة). تحقّق من الجيل: الأجيال تختلف في القطر (EF 24-70mm f/2.8L الأوّل 77مم لكن II وRF 82مم · ' +
+    'EF 16-35mm f/2.8L الأوّل 77مم لكن II وIII 82مم). عدسةٌ لست متأكّداً من قطرها يقيناً لا تذكرها. الغطاء بالقطر لا بالشركة (E-67 II وLC-67B يتبادلان)، ولا يركب على العدسات ذات العدسة الأمامية المنفوخة.\n' +
+    '• غطاء خلفي · غطاء بودي · محوّل: الحربة (EF · EF-S · RF · EF-M · F · Z · E · MFT) والأجسام. المحوّل من حربةٍ بُعدها أكبر إلى أصغر فقط: EF ⇐ RF/E/Z/MFT يعمل، وRF أو Z ⇐ EF/F لا.\n' +
+    '• بطارية: كل الكاميرات والأجهزة باسمها الكامل (مثل «Canon EOS 5D Mark IV»)، وفي note الأجيال: LP-E6 ← E6N ← E6NH ← E6P الأحدث يعمل في الأقدم والأقدم في الأحدث بعمرٍ أقصر · EN-EL15 ← a ← b ← c تتبادل · NP-FZ100 وNP-FW50 لا تتبادلان.\n' +
+    '• شاحن: أكواد البطاريات التي يشحنها. • فلتر: القطر ثمّ العدسات.\n' +
+    'كل بندٍ قصير، حتى ٢٥ بنداً. ما لست متأكّداً منه لا تذكره — الغلط هنا يبيع قطعةً لا تركب. note سطرٌ واحد للموظّف أو فارغ.';
+  async function compatProduct(p, hint) {
+    var url = endpoint(); if (!url || !p) return null;
+    var head = [p.name_en || p.name_ar || p.name, p.brand, p.model, p.category].filter(Boolean).join(' · ');
+    var have = Array.isArray(p.compat) ? p.compat.join('، ') : String(p.compat || '');
+    var q = ('الإكسسوار: ' + head + (hint ? ' (اسمه عندنا: ' + String(hint).split(' — ')[0].slice(0, 120) + ')' : '') + (have ? '. التوافق المكتوب: ' + have : '')).slice(0, 1900) + '. أعد JSON فقط.';
+    var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, system: COMPAT_SYS, context: {} }) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    if (!r.ok || j.error) return null;
+    var c = looseJSON(j.answer); if (!c) return null;
+    var seen = {}, list = (Array.isArray(c.compat) ? c.compat : []).map(function (x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 90); })
+      .filter(function (x) { var z = x.toLowerCase(); if (!x || seen[z]) return false; seen[z] = 1; return true; }).slice(0, 25);
+    /* قطرٌ في اسم المنتج (77mm) ⇒ عدسةٌ قطرها المكتوب غيره تُحذف (جُرّب على الوسيط الحيّ: كان يضع عدسات 82مم في غطاء 77مم) */
+    var dm = String([p.name, p.name_en, p.name_ar, hint].filter(Boolean).join(' ')).match(/(\d{2,3})\s*(?:mm|مم|ملم)/i), D = dm ? dm[1] : '';
+    if (D) list = list.filter(function (x) { var m = x.match(/\((\d{2,3})\s*(?:mm|مم|ملم)\)/i); return !m || m[1] === D; });
+    return { compat: list, note: String(c.note || '').trim().slice(0, 200) };
+  }
+  function compatList(v) { return (Array.isArray(v) ? v : String(v || '').split(/\s*[·•\n]\s*|\s*[،,;]\s+/)).map(function (x) { return String(x || '').trim(); }).filter(Boolean); }
+  /* التوافق الجديد يُضاف لما كتبه المصدر (بلا تكرار) — المكتوب يبقى أوّلاً */
+  function mergeCompat(p, c) {
+    if (!p || !c || !c.compat || !c.compat.length) return 0;
+    var cur = compatList(p.compat), seen = {}, added = 0;
+    cur.forEach(function (x) { seen[x.toLowerCase()] = 1; });
+    c.compat.forEach(function (x) { if (!seen[x.toLowerCase()]) { seen[x.toLowerCase()] = 1; cur.push(x); added++; } });
+    p.compat = cur;
+    if (c.note && !/^\s*$/.test(c.note)) p.notes = [p.notes, c.note].filter(Boolean).join(' — ');
+    return added;
+  }
   /* يضيف ما ليس موجوداً فقط: مواصفةٌ بمفتاحٍ موجود (بعد تطبيع الهمزات والتعريف) تبقى كما جاءت من المصدر */
   function mergeComplete(p, c) {
     if (!p || !c) return 0;
@@ -364,8 +409,10 @@
     p.aliases_ar = cleanList(p.aliases_ar); p.aliases_en = cleanList(p.aliases_en);
     var added = 0;
     if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint)); } catch (_) { added = 0; } }
+    var compatAdded = 0;
+    if ((!o || o.complete !== false) && isAccessory(p, o && o.hint)) { try { compatAdded = mergeCompat(p, await compatProduct(p, o && o.hint)); } catch (_) { compatAdded = 0; } }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
-    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added }, enumerable: false }); } catch (_) {}
+    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -851,7 +898,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
     ask: ask,
     configure: configure,

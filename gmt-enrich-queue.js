@@ -120,7 +120,8 @@
       specs: (pr.specs || []).filter(function (s) { return s && s.k; }).map(function (s) { return { k: String(s.k), v: String(s.v == null ? '' : s.v) }; }),
       images: imgs.slice(0, 40), thumbs: thumbs, source: pr.source_url || page || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || '',
       page_ok: !!meta.page_ok, search: web || pics ? ((web && web.provider) || (pics && pics.provider) || '') : '', search_note: searchNote,
-      aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : []   // (TASK-0175) أسماء البحث الأخرى
+      aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : [],   // (TASK-0175) أسماء البحث الأخرى
+      compat_ai: !!meta.compat_added   // (TASK-0183) توافق الإكسسوار من طلب التوافق — يُراجَع
     };
   }
 
@@ -163,6 +164,8 @@
       (run ? ' · <b style="color:#2563eb">يعمل الآن على: ' + esc(run.p.name) + '</b>' : (c.wait ? (S.paused ? ' · ⏸️ متوقّف' : '') : ' · انتهى العقل من الطابور')) + '</span>' +
       '<div style="height:5px;background:#e2e8f0;border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:100%;width:' + Math.round(100 * (done + c.ready) / Math.max(1, S.items.length)) + '%;background:#16a34a"></div></div>';
     S.ov.querySelector('[data-q-pause]').textContent = S.paused ? '▶️ تابع' : '⏸️ إيقاف مؤقّت';
+    var sa = S.ov.querySelector('[data-q-saveall]');
+    if (sa && !S.savingAll) { sa.style.display = c.ready ? '' : 'none'; sa.textContent = '💾 احفظ كل الجاهز (' + c.ready + ')'; sa.disabled = false; }
     var list = S.ov.querySelector('[data-q-list]');
     list.innerHTML = S.items.map(function (x) { var t = ST[x.st];
       return '<button type="button" data-q-pick="' + esc(x.id) + '" style="display:flex;gap:6px;align-items:center;width:100%;text-align:right;border:1px solid ' + (String(x.id) === String(S.cur) ? '#0f1219' : '#e2e8f0') + ';background:#fff;border-radius:10px;padding:6px 8px;font:inherit;font-size:12px;cursor:pointer">' +
@@ -216,7 +219,7 @@
       field('الوصف (يظهر في المتجر)', 'desc', r.desc, true) +
       '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات</span><div data-rows>' + (r.specs || []).map(rowHTML).join('') + '</div>' +
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +
-      field('متوافق مع', 'compat', r.compat, true) +
+      field('متوافق مع' + (r.compat_ai ? ' — ⚠️ من الذكاء الاصطناعي بقواعد دليل التوافقيات: تأكّد من كل عدسة/جهاز قبل الحفظ (يُبحث به لاحقاً)' : ''), 'compat', r.compat, true) +
       '<div style="margin-top:12px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🖼️ الصور</span>' +
         (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:420px;overflow:auto">' + imgs + '</div>' +
@@ -258,6 +261,41 @@
     var rows = [].map.call(box.querySelectorAll('[data-spec-row]'), function (row) { return { k: row.querySelector('[data-k]').value.trim(), v: row.querySelector('[data-v]').value.trim() }; })
       .filter(function (s) { return s.k && s.v; });
     return { name_en: v('name_en'), brand: v('brand'), model: v('model'), alt: v('alt'), desc: v('desc'), compat: v('compat'), rows: rows };
+  }
+  /* (TASK-0183) ما في البطاقة لمنتجٍ جاهز لم تفتحه: نتيجة العقل كما هي (كما كانت ستظهر لك) */
+  function cardFromRes(it) {
+    var r = it.res || {};
+    return { name_en: String(r.name_en || '').trim(), brand: String(r.brand || it.p.brand || '').trim(), model: String(r.model || '').trim(),
+             alt: mergeAlt(it.p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || [])), desc: String(r.desc || '').trim(),
+             compat: String(r.compat || '').trim(), rows: (r.specs || []).filter(function (x) { return x && x.k && x.v; }) };
+  }
+  /* (TASK-0183 · المالك seq 115 «بعد ما أعمل حفظ للجميع ما في زرّ حفظ … أغلقت الأداة وما حفظ شيء») — حفظ كل الجاهز دفعةً واحدة:
+     المفتوح أمامك بما عدّلتَه فيه، والبقيّة بما جهّزه العقل. ما لا يطابق اسم منتجك (⚠️) لا يُحفظ معها — يبقى لمراجعتك */
+  async function saveAll() {
+    if (!S || S.savingAll) return { ok: 0, left: 0, fail: [] };
+    var s = S, cur = curItem(), list = s.items.filter(function (x) { return x.st === 'ready'; });
+    var mism = list.filter(function (x) { return missingTokens(x.p, x.res).length; }), go = list.filter(function (x) { return mism.indexOf(x) === -1; });
+    var sa = s.ov && s.ov.querySelector('[data-q-saveall]'), ok = 0, fail = [];
+    s.savingAll = true;
+    var curF = cur && cur.st === 'ready' ? readCard() : null;
+    for (var i = 0; i < go.length; i++) {
+      var it = go[i];
+      if (sa) { sa.disabled = true; sa.textContent = '💾 جارٍ الحفظ ' + (i + 1) + '/' + go.length + '…'; }
+      try {
+        var patch = buildPatch(it, it === cur && curF ? curF : cardFromRes(it));
+        var r = await s.save(it.p, patch);
+        if (r && r.error) throw new Error(r.error);
+        Object.assign(it.p, patch); if (s.onSaved) s.onSaved(it.p, patch);
+        it.st = 'saved'; ok++;
+      } catch (e) { fail.push(it.p.name + ': ' + ((e && e.message) || e)); }
+      persist();
+    }
+    s.savingAll = false;
+    if (S === s) { if (cur && cur.st === 'saved') nextReady(); render(); }
+    return { ok: ok, left: mism.length, fail: fail };
+  }
+  function saveAllMsg(r) {
+    return '✅ حُفظ ' + r.ok + (r.left ? ' · ⚠️ ' + r.left + ' لا تطابق اسم المنتج تُركت لمراجعتك' : '') + (r.fail.length ? ' · ❌ تعذّر ' + r.fail.length + ': ' + r.fail.slice(0, 2).join(' / ') : '');
   }
   /* الحفظ: أعمدة SQL ٢١/٢٧ نفسها التي تكتبها «مواصفات من علي بابا» — المواصفات (+__desc/__brand/__model) · التوافق · كلمات البحث ·
      الماركة · الأسماء البديلة · المصدر ومن راجع ومتى */
@@ -355,6 +393,7 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147482500;background:rgba(15,18,25,.5);display:flex;align-items:' + (wide ? 'center' : 'flex-end') + ';justify-content:center;direction:rtl;font-family:inherit';
     ov.innerHTML = '<div style="width:100%;max-width:' + (wide ? '1040px' : '100%') + ';height:' + (wide ? '90vh' : '94vh') + ';background:#f8fafc;border-radius:' + (wide ? '22px' : '22px 22px 0 0') + ';display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -20px 60px rgba(15,18,25,.25)">' +
       '<div style="display:flex;gap:8px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid #e2e8f0;background:#fff"><div data-q-head style="flex:1;min-width:0"></div>' +
+      '<button type="button" data-q-saveall style="' + btn('#D5001C', '#fff') + ';padding:8px 10px;font-size:12px;display:none"></button>' +
       '<button type="button" data-q-pause style="' + btn('#f1f5f9', '#0f1219') + ';padding:8px 10px;font-size:12px"></button><button type="button" data-q-close style="' + btn('#e2e8f0', '#0f1219') + ';padding:8px 12px;font-size:12px">إغلاق</button></div>' +
       '<div style="flex:1;min-height:0;display:flex;flex-direction:' + (wide ? 'row' : 'column') + '">' +
       '<div data-q-list style="' + (wide ? 'width:300px;border-left:1px solid #e2e8f0;' : 'max-height:22vh;border-bottom:1px solid #e2e8f0;') + 'overflow:auto;padding:8px;display:grid;gap:6px;align-content:start"></div>' +
@@ -370,9 +409,24 @@
     });
     ov.querySelector('[data-q-card]').addEventListener('change', onCardChange);
     ov.querySelector('[data-q-pause]').addEventListener('click', function () { S.paused = !S.paused; render(); if (!S.paused) pump(); });
-    ov.querySelector('[data-q-close]').addEventListener('click', function () { close(); });
+    ov.querySelector('[data-q-close]').addEventListener('click', function () { closeAsk(); });
+    ov.querySelector('[data-q-saveall]').addEventListener('click', async function () {
+      var r = await saveAll(); if (global.showToast) showToast('🧠 ' + saveAllMsg(r), r.fail.length ? 'error' : 'success');
+    });
     render(); pump();
     return S;
+  }
+  /* (TASK-0183 · seq 115) «إغلاق» وفي الطابور ما جهز ولم يُحفظ ⇒ لا يضيع بصمت: احفظه كلّه ثمّ أغلق · أو أغلق (يبقى على هذا الجهاز) · أو رجوع */
+  async function closeAsk() {
+    if (!S) return;
+    var n = counts().ready;
+    if (!n || !global.GMTAsk) return close();
+    var k = await GMTAsk.choose('عندك ' + n + ' منتج جاهز لم يُحفظ بعد في الجرد.\nنحفظها كلّها الآن (المفتوح بما عدّلتَه فيه) ثمّ نغلق؟', {
+      title: '💾 قبل الإغلاق', cancelText: 'رجوع',
+      choices: [{ k: 'save', t: 'احفظها كلها وأغلق', pri: 1 }, { k: 'close', t: 'أغلق بلا حفظ (تبقى على هذا الجهاز)' }] });
+    if (!S) return;
+    if (k === 'save') { var r = await saveAll(); if (global.showToast) showToast('🧠 ' + saveAllMsg(r), r.fail.length ? 'error' : 'success'); if (r.fail.length || r.left) return; close(true); return; }
+    if (k === 'close') close();
   }
   function close(silent) {
     if (!S) return;
@@ -415,5 +469,5 @@
       draw();
     });
   }
-  global.GMTEnrichQueue = { open: open, close: close, pick: pick, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
+  global.GMTEnrichQueue = { open: open, close: close, closeAsk: closeAsk, saveAll: saveAll, pick: pick, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
 })(typeof window !== 'undefined' ? window : this);

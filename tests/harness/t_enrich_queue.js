@@ -140,6 +140,12 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     s = await st();
     const callsBefore = s.calls.length, readyBefore = s.items.filter(x => x.st === 'ready').map(x => x.id);
     await pg.click('#gmt-enrich-q [data-q-close]');
+    /* (TASK-0183 · seq 115) وفيها جاهزٌ لم يُحفظ ⇒ «قبل الإغلاق» يسأل — «أغلق بلا حفظ» يُبقي الطابور على الجهاز (ما يختبره هذا البند) */
+    if (readyBefore.length) {
+      await until(() => pg.evaluate(() => [...document.querySelectorAll('.gmtask-ov')].some(x => /قبل الإغلاق/.test(x.innerText))), 6000);
+      await pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /قبل الإغلاق/.test(x.innerText)); const b = o && [...o.querySelectorAll('button')].find(b => /أغلق بلا حفظ/.test(b.textContent)); if (b) b.click(); });
+      await pg.waitForTimeout(400);
+    }
     ok(!(await pg.$('#gmt-enrich-q')), W + ': «إغلاق» يغلق الأداة');
     await pg.evaluate(() => { gmtEnrichPick(); });
     await pg.waitForSelector('#gmt-enrich-pick [data-pk]');
