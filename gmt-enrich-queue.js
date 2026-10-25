@@ -27,6 +27,18 @@
     try { if (global.GMTEndpoint && GMTEndpoint.get) { var u = GMTEndpoint.get('brain'); if (u) return u; } } catch (_) {}
     try { var v = localStorage.getItem('gmt_brain_endpoint') || ''; return /^https:\/\/ysawzwtmodkqqbqoiojj\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-brain\/?$/i.test(v) ? v : ''; } catch (_) { return ''; }
   }
+  /* (TASK-0040 · المالك seq 103–104 «الأفضل والمجاني» ⇐ «ابنِه وحطّ وسيط تاني وحطّ غوغل وجمناي») وسيط البحث gmt-search بجانب العقل:
+     Brave ثمّ Google ثمّ Gemini (كلٌّ بحدّه اليومي المجاني). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
+  function searchUrl() { var b = brainUrl(); return b ? b.replace(/\/gmt-brain\/?$/, '/gmt-search') : ''; }
+  async function search(kind, q, count) {
+    var u = searchUrl(); if (!u || !q) return null;
+    var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: kind, q: q, count: count }) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    if (!r.ok || j.error) { var e = new Error(j.error || ('HTTP ' + r.status)); e.code = j.code || r.status; throw e; }
+    return j;
+  }
+  /* صفحاتٌ ليست صفحة منتج (نتائج بحث · قوائم · متاجر كاملة) */
+  var LISTING = /\/(trade\/search|search|showroom|catalog|category|categories|wholesale|s)\b|[?&](q|k|searchtext|keyword)=/i;
   async function proxy(body) {
     var u = brainUrl(); if (!u) throw new Error('عقل النظام غير مفعّل');
     var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -79,11 +91,25 @@
       (toks.length ? ' — الاسم هو المرجع: الموديل يطابق «' + toks.join('»، «') + '»' : '') +
       (extra.deep ? ' — بحث أعمق: الصورة والاسم معاً' : '');
     var file = extra.noImage ? null : await imgBlob(p.image_url);
-    var pr = await global.GMTBrain.importProduct({ url: extra.url || '', hint: hint, file: file });
-    var meta = pr._meta || {}, imgs = [];
+    /* (TASK-0040) الاستعلام: الماركة والموديل كما في الاسم (أدقّ من الاسم العربي) — و«بحث أعمق» يسأل بصيغةٍ أخرى فتختلف النتائج */
+    var q = ([p.brand || '', toks.join(' ')].join(' ').trim() || p.name || '').slice(0, 120);
+    var page = extra.url || '', searchNote = '', web = null, pics = null;
+    if (q && !page) {
+      try { web = await search('web', extra.deep ? q + ' specifications datasheet' : q, 8); } catch (e) { searchNote = e && e.code === 'no_keys' ? 'no_keys' : ((e && e.message) || ''); }
+      var hit = web && (web.web || []).filter(function (w) { return w && /^https:\/\//i.test(w.url) && !LISTING.test(w.url); })[extra.deep ? 1 : 0];
+      if (!hit && web && extra.deep) hit = (web.web || []).filter(function (w) { return w && /^https:\/\//i.test(w.url) && !LISTING.test(w.url); })[0];
+      if (hit) page = hit.url;
+    }
+    var pr = await global.GMTBrain.importProduct({ url: page, hint: hint, file: file });
+    var meta = pr._meta || {}, imgs = [], thumbs = {};
     (pr.images || []).forEach(function (u) { if (/^https?:\/\//i.test(u) && imgs.indexOf(u) === -1) imgs.push(u); });
+    /* (TASK-0040 · seq 91 «على الأقل ٢٠ صورة: جميلة · إعلانية · خلفية بيضاء · صور مواصفات — أختار منها ٥–٦») */
+    if (q && searchNote !== 'no_keys') {
+      try { pics = await search('images', extra.deep ? q + ' product white background' : q, 40); } catch (e) { if (!searchNote) searchNote = e && e.code === 'no_keys' ? 'no_keys' : ((e && e.message) || ''); }
+      ((pics && pics.images) || []).forEach(function (im) { if (im && /^https:\/\//i.test(im.url) && imgs.indexOf(im.url) === -1) { imgs.push(im.url); if (im.thumb) thumbs[im.url] = im.thumb; } });
+    }
     /* صورٌ مرشّحة إضافية من البحث — فقط حين يكون البحث متاحاً (نتيجةٌ من الذاكرة ⇒ البحث معطَّل: لا نداءٌ فاشلٌ آخر) */
-    if (!meta.from_memory || extra.deep) {
+    if (imgs.length < 20 && (!meta.from_memory || extra.deep) && searchNote !== 'no_keys') {
       try { var ps = await proxy({ mode: 'product_search', hint: hint, url: extra.url || '' });
         (ps.candidates || []).forEach(function (c) { (c.image_urls || []).forEach(function (u) { if (/^https?:\/\//i.test(u) && imgs.indexOf(u) === -1) imgs.push(u); }); });
       } catch (_) {}
@@ -92,7 +118,8 @@
       name_en: pr.name_en || '', name_ar: pr.name || '', brand: pr.brand || '', model: pr.model || '',
       desc: pr.description_ar || '', compat: Array.isArray(pr.compat) ? pr.compat.join(' · ') : (pr.compat || ''),
       specs: (pr.specs || []).filter(function (s) { return s && s.k; }).map(function (s) { return { k: String(s.k), v: String(s.v == null ? '' : s.v) }; }),
-      images: imgs.slice(0, 12), source: pr.source_url || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || '',
+      images: imgs.slice(0, 40), thumbs: thumbs, source: pr.source_url || page || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || '',
+      page_ok: !!meta.page_ok, search: web || pics ? ((web && web.provider) || (pics && pics.provider) || '') : '', search_note: searchNote,
       aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : []   // (TASK-0175) أسماء البحث الأخرى
     };
   }
@@ -158,7 +185,7 @@
     if (box.getAttribute('data-for') === String(it.id) + ':' + it.st) return;      // لا نُعيد رسم ما تكتب فيه
     box.setAttribute('data-for', String(it.id) + ':' + it.st);
     var p = it.p, r = it.res || {};
-    var top = '<div style="display:flex;gap:10px;align-items:center">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">' : '') +
+    var top = '<div style="display:flex;gap:10px;align-items:center">' + (p.image_url ? '<img data-q-main-img src="' + esc(p.image_url) + '" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">' : '') +
       '<div style="flex:1;min-width:0"><b style="display:block;font-size:15px">' + esc(p.name) + '</b><span style="font-size:12px;color:#526077">' + esc(p.barcode || '') + (p.group_name ? ' · ' + esc(p.group_name) : '') + '</span></div></div>';
     if (it.st === 'wait' || it.st === 'run') { box.innerHTML = top + '<div style="padding:24px 4px;text-align:center;color:#2563eb;font-weight:800">' + (it.st === 'run' ? '🔄 العقل يجمع معلوماته الآن…' : '⏳ بالانتظار — يأتي دوره بعد ما قبله') + '</div>'; return; }
     var deepBtn = '<button type="button" data-act="deep" style="' + btn('#eff6ff', '#1d4ed8') + '">🔎 بحث أعمق</button>';
@@ -170,9 +197,17 @@
     if ((it.st === 'saved' || it.st === 'skip') && !it.res) { box.innerHTML = top + banner + againHTML() + '<div style="display:flex;gap:8px;margin-top:10px">' + deepBtn + '</div>' + selfSearch(p); return; }
     var miss = missingTokens(p, r);
     var mismatch = miss.length ? '<div data-mismatch style="margin-top:10px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;padding:8px 10px;color:#991b1b;font-size:12.5px;line-height:1.7;font-weight:800">⚠️ النتيجة لا تطابق اسم منتجك: «' + miss.map(esc).join('»، «') + '» غير موجود فيها — قد تكون لمنتجٍ آخر. صحّحها أو «🔎 بحث أعمق».</div>' : '';
-    var warn = r.from_memory ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;color:#92400e;font-size:12px;line-height:1.7">⚠️ ليست من صفحة المنتج — البحث في الويب غير متاح الآن، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
+    /* (TASK-0040 · seq 91 «رسالة ليست من صفحة المنتج») مصدر النتيجة بوضوح: صفحة المنتج (ورابطها) · أو المعرفة العامّة ولماذا */
+    var host = ''; try { host = r.source ? new URL(r.source).hostname.replace(/^www\./, '') : ''; } catch (_) { host = ''; }
+    var warn = (r.page_ok && host) ? '<div data-src-ok style="margin-top:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:8px 10px;color:#065f46;font-size:12px;line-height:1.7">📄 من صفحة المنتج: <a href="' + esc(r.source) + '" target="_blank" rel="noopener" dir="ltr">' + esc(host) + '</a>' + (r.search ? ' · وجدها البحث (' + esc(r.search) + ')' : '') + '</div>'
+      : r.from_memory ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;color:#92400e;font-size:12px;line-height:1.7">⚠️ ليست من صفحة المنتج — ' +
+        (r.search_note === 'no_keys' ? 'وسيط البحث بلا مفتاح بعد (أضف مفتاح Brave في أسرار Supabase ليبحث في الويب ويجلب الصور)' : 'لم يجد البحث صفحته الآن') + '، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
     var imgs = (r.images || []).map(function (u) {
-      return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:6px;background:#fff;width:108px"><img src="' + esc(u) + '" alt="" style="width:100%;height:84px;object-fit:contain" onerror="this.parentNode.remove()">' +
+      var th = (r.thumbs && r.thumbs[u]) || u;
+      return '<div data-img-tile style="border:1px solid #e2e8f0;border-radius:12px;padding:6px;background:#fff;width:108px;position:relative">' +
+        (S.storeAddImages ? '<label style="position:absolute;top:8px;right:8px;background:#fff;border-radius:8px;padding:1px 3px;line-height:0"><input type="checkbox" data-img-pick="' + esc(u) + '" style="width:18px;height:18px"></label>' : '') +
+        /* data-gimg-allow/done: صور المرشّحين تُعرض من مصدرها ولا يخزّنها حارس الصور على الجهاز (٤٠ صورة لكل منتج كانت ستملأ التخزين) */
+        '<img src="' + esc(th) + '" data-gimg-allow="1" data-gimg-done="1" alt="" loading="lazy" style="width:100%;height:84px;object-fit:contain" onerror="if(this.parentNode)this.parentNode.remove()">' +
         '<button type="button" data-img-main="' + esc(u) + '" style="' + btn('#0f1219', '#fff') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">رئيسية للجرد</button>' +
         (S.storeAddImages ? '<button type="button" data-img-store="' + esc(u) + '" style="' + btn('#ecfdf5', '#047857') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">+ صور المتجر</button>' : '') + '</div>'; }).join('');
     box.innerHTML = top + banner + mismatch + warn +
@@ -183,7 +218,10 @@
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +
       field('متوافق مع', 'compat', r.compat, true) +
       '<div style="margin-top:12px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🖼️ الصور</span>' +
-        (imgs ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + imgs + '</div>' : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
+        (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:420px;overflow:auto">' + imgs + '</div>' +
+          (S.storeAddImages ? '<button type="button" data-img-store-picked style="' + btn('#047857', '#fff') + ';margin-top:8px;font-size:12.5px;padding:8px 12px">+ أضف المحدَّد للمتجر (<span data-img-n>0</span>)</button>' : '')
+          : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.search_note === 'no_keys' ? ' (وسيط البحث بلا مفتاح بعد — أضف مفتاح Brave في أسرار Supabase)' : r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><label style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:7px 10px">📷 من جهازك<input type="file" accept="image/*" data-img-file hidden></label>' +
         '<input data-img-url dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:10px;padding:7px;font:inherit;font-size:12px">' +
         '<button type="button" data-img-url-main style="' + btn('#0f1219', '#fff') + ';font-size:12px;padding:7px 10px">رئيسية</button>' +
@@ -250,7 +288,8 @@
       if (r && r.error) throw new Error(r.error);
       it.p.image_url = pub; if (S.onSaved) S.onSaved(it.p, { image_url: pub });
       say('✅ صارت الصورة الرئيسية في الجرد', true);
-      var im = S.ov.querySelector('[data-q-card] img'); if (im) im.src = pub;
+      /* صورة المنتج في رأس البطاقة وحدها (كان «أوّل صورة في البطاقة»: منتجٌ بلا صورة ⇒ تُستبدل أوّل صورةٍ مرشّحة فتختفي من القائمة) */
+      var im = S.ov.querySelector('[data-q-card] [data-q-main-img]'); if (im) im.src = pub;
     } catch (e) { say('❌ ' + ((e && e.message) || e)); }
   }
   async function onCardClick(e) {
@@ -261,6 +300,14 @@
     if (t.hasAttribute('data-row-del')) { t.closest('[data-spec-row]').remove(); return; }
     if (t.hasAttribute('data-img-main')) return imageTo(it, t.getAttribute('data-img-main'), null, 'inv');
     if (t.hasAttribute('data-img-store')) return imageTo(it, t.getAttribute('data-img-store'), null, 'store');
+    if (t.hasAttribute('data-img-store-picked')) {
+      var urls = [].map.call(box.querySelectorAll('[data-img-pick]:checked'), function (c) { return c.getAttribute('data-img-pick'); });
+      var m1 = box.querySelector('[data-img-msg]');
+      if (!urls.length) { if (m1) { m1.style.color = '#b91c1c'; m1.textContent = 'علّم الصور أوّلاً (٥–٦)'; } return; }
+      try { if (m1) { m1.style.color = '#15803d'; m1.textContent = 'لحظة…'; } await S.storeAddImages(it.p, urls); if (m1) m1.textContent = '✅ أُضيفت ' + urls.length + ' صور لصور المنتج في المتجر'; }
+      catch (e2) { if (m1) { m1.style.color = '#b91c1c'; m1.textContent = '❌ ' + ((e2 && e2.message) || e2); } }
+      return;
+    }
     if (t.hasAttribute('data-img-url-main') || t.hasAttribute('data-img-url-store')) {
       var u = (box.querySelector('[data-img-url]') || {}).value || ''; u = u.trim();
       if (!/^https:\/\//i.test(u)) { var m0 = box.querySelector('[data-img-msg]'); if (m0) { m0.style.color = '#b91c1c'; m0.textContent = 'الصق رابط صورةٍ يبدأ بـ https://'; } return; }
@@ -315,6 +362,12 @@
     document.body.appendChild(ov); S.ov = ov;
     ov.querySelector('[data-q-list]').addEventListener('click', function (e) { var b = e.target.closest('[data-q-pick]'); if (!b) return; S.cur = b.getAttribute('data-q-pick'); render(); });
     ov.querySelector('[data-q-card]').addEventListener('click', onCardClick);
+    /* (TASK-0040) عدّاد الصور المعلَّمة على زرّ «أضف المحدَّد للمتجر» */
+    ov.querySelector('[data-q-card]').addEventListener('change', function (e) {
+      if (!e.target.hasAttribute('data-img-pick')) return;
+      var box = ov.querySelector('[data-q-card]'), n = box.querySelectorAll('[data-img-pick]:checked').length, el = box.querySelector('[data-img-n]'); if (el) el.textContent = n;
+      var tile = e.target.closest('[data-img-tile]'); if (tile) tile.style.borderColor = e.target.checked ? '#047857' : '#e2e8f0';
+    });
     ov.querySelector('[data-q-card]').addEventListener('change', onCardChange);
     ov.querySelector('[data-q-pause]').addEventListener('click', function () { S.paused = !S.paused; render(); if (!S.paused) pump(); });
     ov.querySelector('[data-q-close]').addEventListener('click', function () { close(); });
