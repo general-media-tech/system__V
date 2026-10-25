@@ -101,7 +101,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-stock.js?v=20261025e" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
-  <script src="gmt-render.js?v=20261024e" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
+  <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -9112,9 +9112,12 @@ window.openBulkPrint = () => {
           '<button onclick="bulkPrintToggle(false)" class="flex-1 text-[11px] font-black text-gray-600 bg-gray-50 border border-gray-200 rounded-lg py-2">إلغاء الكل</button>' +
         '</div>' +
         '<div class="overflow-auto flex-1">' + rows + '</div>' +
-        '<div class="px-4 py-3 border-t border-gray-100">' +
-          '<button onclick="doBulkPrint()" class="w-full bg-red text-white py-3 rounded-xl text-[13px] font-black">' +
+        /* (TASK-0167 · المالك seq 80/86 «ممكن ينطبع PDF وممكن يتشارك فوراً — مشاركة PDF للأوردرات للطباعة الجماعية») */
+        '<div class="px-4 py-3 border-t border-gray-100 grid grid-cols-2 gap-2">' +
+          '<button onclick="doBulkPrint()" class="bg-red text-white py-3 rounded-xl text-[13px] font-black">' +
             '🖨️ اطبع المحدَّد (<span id="bp-count">' + list.length + '</span>)</button>' +
+          '<button onclick="doBulkPdf()" data-bulk-pdf class="bg-white text-red border-2 border-red py-3 rounded-xl text-[13px] font-black">' +
+            '📤 مشاركة PDF</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(w);
@@ -9187,6 +9190,42 @@ window.doBulkPrint = () => {
     }, 1800);
     var m = document.getElementById('bulkPrint'); if (m) m.remove();
     showToast('🖨️ جارٍ تجهيز ' + picked.length + ' طلب للطباعة', 'ok');
+};
+
+/* (TASK-0167) ملفّ PDF واحد للمحدَّد — نفس الورقة ونفس الترتيب (أربعة بكل A4، الأوّل أعلى اليمين) — يُشارَك فوراً
+   (واتساب/أيّ تطبيق ⇒ يُطبع من أيّ جهاز) أو يُنزَّل · يُبنى بالمُصيِّر الداخلي (بلا خدمة خارجية) */
+let _bulkPdfBusy = false;
+window.doBulkPdf = async () => {
+    if (_bulkPdfBusy) return;
+    var ids = [...document.querySelectorAll('.bp-chk:checked')].map(function (c) { return c.value; });
+    if (!ids.length) { showToast('ما حدّدت ولا طلب', 'err'); return; }
+    var picked = ids.map(function (id) { return orders.find(function (o) { return String(o.id) === String(id); }); }).filter(Boolean);
+    var btn = document.querySelector('[data-bulk-pdf]'), t0 = Date.now();
+    _bulkPdfBusy = true;
+    try {
+        if (!window.GMTRender || !GMTRender.pdfFromPages) throw new Error('المُصيِّر لم يُحمَّل — حدّث الصفحة');
+        var PW = 1240, PH = Math.round(1240 * 297 / 210), CW = PW / 2, CH = PH / 2, pages = [];
+        for (var i = 0; i < picked.length; i++) {
+            if (btn) btn.textContent = '⏳ ' + (i + 1) + ' / ' + picked.length;
+            if (i % 4 === 0) { var pg = document.createElement('canvas'); pg.width = PW; pg.height = PH; var cx = pg.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, PW, PH); pages.push(pg); }
+            var sc = await GMTRender.toCanvas(buildOrderSheetHTML(picked[i], false), { width: SHEET_BASE_W, scale: 2 });
+            var q = i % 4, col = q % 2, row = Math.floor(q / 2), k = Math.min(CW / sc.width, CH / sc.height);
+            var w = sc.width * k, h = sc.height * k, x = (col === 0 ? CW : 0) + (CW - w) / 2, y = row * CH;   // RTL: الأوّل يميناً
+            var c = pages[pages.length - 1].getContext('2d');
+            c.imageSmoothingQuality = 'high'; c.drawImage(sc, x, y, w, h);
+            c.save(); c.setLineDash([10, 8]); c.strokeStyle = '#d1d5db'; c.lineWidth = 2; c.strokeRect((col === 0 ? CW : 0) + 1, y + 1, CW - 2, CH - 2); c.restore();
+        }
+        var name = 'أوردرات-للشحن-' + picked.length + '.pdf';
+        var blob = await GMTRender.pdfFromPages(pages, { title: 'أوردرات للشحن — ' + picked.length });
+        window.__lastBulkPdf = { pages: pages.length, size: blob.size, name: name };
+        var m = document.getElementById('bulkPrint'); if (m) m.remove();
+        await GMTShare.deliver(blob, name, { title: 'أوردرات للشحن', text: picked.length + ' أوردر للشحن — ' + pages.length + ' ورقة A4', t0: t0 });
+    } catch (e) {
+        showToast('تعذّر تجهيز PDF: ' + (e && e.message || e), 'err');
+    } finally {
+        _bulkPdfBusy = false;
+        if (btn && btn.isConnected) btn.textContent = '📤 مشاركة PDF';
+    }
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -9419,7 +9458,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025s"></script>
+<script src="gmt-whatsnew.js?v=20261025t"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

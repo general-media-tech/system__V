@@ -427,6 +427,14 @@
         y0 = y1;
       }
     }
+    plan.forEach(function (pl) { pl.cv = cv; pl.full = full; });
+    return writePdf(plan, o);
+  }
+
+  /* (TASK-0167) كاتب الصفحات: كل عنصر في plan صفحةٌ واحدة = شريحةٌ من كانفس {cv, full, sy, sh, w, h, x} */
+  async function writePdf(plan, o) {
+    o = o || {};
+    var PW = 595.28, PH = 841.89, M = o.margin == null ? 14 : o.margin;
     var pages = plan.length;
     var parts = [], pos = 0, offs = [];
     var push = function (b) { parts.push(b); pos += b.length; };
@@ -438,9 +446,9 @@
     obj(1, '<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /DisplayDocTitle true >> >>');
     obj(2, '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + pages + ' >>');
     var allLossless = true;
-    var canFlate = typeof CompressionStream !== 'undefined' && o.lossless !== false && !!full;
     for (var pi = 0; pi < pages; pi++) {
-      var pl = plan[pi], data = null, filter = '/DCTDecode', parms = '';
+      var pl = plan[pi], data = null, filter = '/DCTDecode', parms = '', cv = pl.cv, full = pl.full, W = cv.width;
+      var canFlate = typeof CompressionStream !== 'undefined' && o.lossless !== false && !!full;
       if (canFlate) {
         /* RGB + predictor «Up» (PNG filter 2): الصفوف المتكرّرة (خلفية بيضاء) تُضغط جداً ⇒ ملفّ صغير وبلا فقد */
         var buf = new Uint8Array((W * 3 + 1) * pl.sh), prev = new Uint8Array(W * 3), bo = 0;
@@ -466,7 +474,7 @@
         filter = '/DCTDecode'; parms = '';
       }
       var pn = 3 + pi * 3, cn = pn + 1, im = pn + 2;
-      var y = PH - M - pl.h;
+      var y = pl.y != null ? pl.y : PH - M - pl.h;
       obj(pn, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW.toFixed(2) + ' ' + PH.toFixed(2) + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + cn + ' 0 R >>');
       var content = 'q\n' + pl.w.toFixed(2) + ' 0 0 ' + pl.h.toFixed(2) + ' ' + pl.x.toFixed(2) + ' ' + y.toFixed(2) + ' cm\n/Im0 Do\nQ\n';
       obj(cn, '<< /Length ' + content.length + ' >>\nstream\n' + content + 'endstream');
@@ -480,7 +488,23 @@
     for (var i = 1; i <= infoNo; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
     x += 'trailer\n<< /Size ' + (infoNo + 1) + ' /Root 1 0 R /Info ' + infoNo + ' 0 R >>\nstartxref\n' + xr + '\n%%EOF\n';
     push(text(x));
-    return { blob: new Blob(parts, { type: 'application/pdf' }), pages: pages, lossless: allLossless, widthPx: W, heightPx: H };
+    return { blob: new Blob(parts, { type: 'application/pdf' }), pages: pages, lossless: allLossless, widthPx: plan[0] ? plan[0].cv.width : 0, heightPx: plan.reduce(function (t, p) { return t + p.sh; }, 0) };
+  }
+
+  /* (TASK-0167 · المالك seq 80/86 «PDF للأوردرات للطباعة الجماعية — ينطبع أو يتشارك فوراً») كل كانفس صفحة A4 كاملة
+     (مصغَّرة بنسبتها لتتّسع · في الوسط · الهامش opt.margin وافتراضه ٠) ⇒ Blob */
+  async function pdfFromPages(cvs, opt) {
+    opt = opt || {};
+    var PW = 595.28, PH = 841.89, M = opt.margin == null ? 0 : opt.margin;
+    var plan = (cvs || []).map(function (cv) {
+      var k = Math.min((PW - 2 * M) / cv.width, (PH - 2 * M) / cv.height), w = cv.width * k, h = cv.height * k, full = null;
+      try { full = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; } catch (_) { full = null; }
+      return { cv: cv, full: full, sy: 0, sh: cv.height, w: w, h: h, x: (PW - w) / 2, y: (PH - h) / 2 };
+    });
+    if (!plan.length) throw new Error('لا صفحات');
+    var r = await writePdf(plan, Object.assign({}, opt, { margin: M }));
+    api.lastPdf = { pages: r.pages, lossless: r.lossless, engine: 'pages' };
+    return r.blob;
   }
 
   /* src: ورقة HTML (نصّ) أو canvas جاهز ⇒ Blob من نوع application/pdf (والتفاصيل في GMTRender.lastPdf) */
@@ -492,7 +516,7 @@
     return r.blob;
   }
 
-  api.toCanvas = toCanvas; api.toBlob = toBlob; api.toPdf = toPdf; api.pdfFromCanvas = pdfFromCanvas;
+  api.toCanvas = toCanvas; api.toBlob = toBlob; api.toPdf = toPdf; api.pdfFromCanvas = pdfFromCanvas; api.pdfFromPages = pdfFromPages;
   api.canvasToBlob = canvasToBlob; api.fontCss = fontCss; api.warm = warm;
   api._prepHtml = prepHtml; api._inkRatio = inkRatio;
   api.lastPdf = null;
