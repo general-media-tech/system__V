@@ -1,7 +1,0 @@
-task: TASK-0158
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: pos.html inventory.html gmt-stock.js tests/harness/t_pos_rebuild.js
-claimed_at: 2026-10-25T05:06:59Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0158
