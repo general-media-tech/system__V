@@ -108,8 +108,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261025r" defer></script>
-<script src="gmt-docscan.js?v=20261023m" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-receipt.js?v=20261025v" defer></script>
+<script src="gmt-docscan.js?v=20261025v" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261010b"></script>
@@ -3845,7 +3845,7 @@ async function shipReadTracking(force) {
         if (r && r.reader !== 'other' && !r.cancelled && OTHER_READ_CO.indexOf(r.company) !== -1 && !(r.type && r.type.kind === 'mufti') && !shipCoByUser() && isMine())
             r = shipMergeOther(r, await shipReadOther(myFile, r.company, H, () => !isMine(), { scanned, handoff: true }));
         /* (TASK-0165 · المالك seq 77–78) قارئ المفتي لم يجد إيصال المفتي (لا علاماته ولا فرعه) ⇒ فحصٌ واحد بقارئ القدموس/مسارات (يعرف
-           شكل إيصاليهما): إيصالٌ لشركةٍ أخرى ⇒ يُقرأ بقارئها ويُسأل عنه — كان إيصال مسارات المصوَّر بالعرض يُقرأ «0031831» من هاتفه */
+           شكل إيصاليهما): إيصالٌ لشركةٍ أخرى ⇒ يُقرأ بقارئها ويُسأل عنه — كان إيصال مسارات المصوَّر بالعرض يُقرأ رقماً من هاتفه */
         if (r && r.reader !== 'other' && !r.cancelled && !(r.type && r.type.kind === 'mufti') && !(r.branch && r.branch.confident) && isMine()) {
             st.className = 'text-[11px] font-bold text-gray-500 mb-3'; st.textContent = 'لم يتّضح أنّه إيصال المفتي — أتحقّق من شكله (القدموس/مسارات)…';
             const chk = await GMTReceipt.readOther(myFile, { scanned, cancel: () => !isMine() }).catch(() => null);
@@ -9464,7 +9464,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025u"></script>
+<script src="gmt-whatsnew.js?v=20261025v"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

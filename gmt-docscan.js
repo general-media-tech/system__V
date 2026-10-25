@@ -210,10 +210,10 @@
      مقابل ٦ من ٢٠ للطريقة ①، وصورتا المالك اللتان فشلتا (الإيصال المطويّ في اليد · المسح على الهاتف بشرائط خلفية) صحيحتان. */
   function lineQuad(id) {
     var W = id.width, H = id.height, d = id.data, n = W * H, i, x, y, k;
-    var L = new Float32Array(n), P = new Float32Array(n), U = new Float32Array(n), V = new Float32Array(n);
+    var L = new Float32Array(n), P = new Float32Array(n), U = new Float32Array(n), V = new Float32Array(n), C = new Float32Array(n);
     for (i = 0; i < n; i++) {
       var r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = 0.299 * r + 0.587 * g + 0.114 * b;
-      L[i] = l; var v = l - 0.6 * (mx - mn); P[i] = v < 0 ? 0 : v; U[i] = b - (r + g) / 2; V[i] = r - g;
+      L[i] = l; var v = l - 0.6 * (mx - mn); P[i] = v < 0 ? 0 : v; U[i] = b - (r + g) / 2; V[i] = r - g; C[i] = mx - mn;
     }
     function blur(a, rad) {     // صندوقيّ منفصل بأطرافٍ ممدودة
       var t = new Float32Array(n), u = new Float32Array(n), xx, yy, s, kk = 1 / (2 * rad + 1), row, last, lastR = (H - 1) * W;
@@ -450,6 +450,17 @@
       }
       return N2 > 30 ? S2 / N2 : 0;
     }
+    /* متوسّط اللون (مدى القنوات mx−mn) والسطوع داخل big وخارج small */
+    function chromaIn(bigQ, smallQ) {
+      var Bq = order(bigQ), Sq = smallQ ? order(smallQ) : null, N2 = 0, S2 = 0, L2 = 0;
+      for (var yy = 1; yy < H - 1; yy += 2) for (var xx = 1; xx < W - 1; xx += 2) {
+        if (sdq(Bq, xx, yy) < mgI || (Sq && sdq(Sq, xx, yy) > -mgI)) continue;
+        N2++; S2 += C[yy * W + xx]; L2 += L[yy * W + xx];
+      }
+      return N2 > 30 ? { c: S2 / N2, l: L2 / N2 } : null;
+    }
+    /* ما يزيده big على small أغمق بوضوح (٣٥+) وأكثر لوناً (١٠+) من small نفسه ⇒ خلفيّة (قماش · مقعد) لا ورق */
+    function bgBand(bigQ, smallQ) { var ex = chromaIn(bigQ, smallQ), sm = ex && chromaIn(smallQ, null); return !!(ex && sm && ex.l < sm.l - 35 && ex.c > sm.c + 10); }
     var inkChecks = 0;
     for (i = 1; b0 && i < tops.length && i < 300; i++) {
       var t2 = tops[i], big = t2.area >= b0.area * 1.8, mcnb = 1;
@@ -461,6 +472,10 @@
       var inky = false;
       /* ضلعان على الإطار مسموحان هنا: منظورٌ حادّ يُخرج الطرف العريض من الورقة من جهتين (الحبر هو الدليل) — بحدٍّ أقصى ٨ فحوص (ثقيلة) */
       if (!near && mcnb >= 0.5 && t2.score >= 0.45 && t2.area >= best.area * 1.25 && inkChecks < 8) { inkChecks++; var inkB = inkIn(best.q, null); inky = inkB > 0.004 && inkIn(t2.q, best.q) >= inkB * 0.35; }
+      /* (TASK-0178 · إيصال مسارات المالك: ورقةٌ بيضاء باليد فوق جينز أزرق فاتح ومقعدٍ داكن) ما يزيده الأكبر أغمق بوضوح (٣٥+) وأكثر لوناً
+         (١٠+) من الورقة نفسها ⇒ خلفيّة (قماش · مقعد) لا نصف ورقةٍ بعد طيّة (نصف الطيّة في الظلّ أغمق لكنّه رماديٌّ كالورقة) ⇒ لا تكبير.
+         كان حدّ الجينز مع المقعد أقوى من حدّ الإيصال فاختير الرباعيّ الذي يضمّ الجينز. */
+      if (near && !inky && bgBand(t2.q, best.q)) near = false;
       if (near || inky) { best = t2; best.inky = inky; }
     }
     /* لصق كل ضلعٍ على الحدّ الحقيقي القريب (±٦٪): نحرّك طرفيه على العموديّ (خشنٌ ثمّ دقيق) ونختار الأقوى سنداً وتبايناً */
@@ -732,7 +747,7 @@
       }
       return { poly: poly, ci: ci };
     }
-    return { best: best, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    return { bgBand: bgBand, best: best, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -1029,8 +1044,12 @@
          جزءاً من الورقة (حدٌّ بين ترويسةٍ بيضاء وجدولٍ ملوّن في إيصالٍ مطبوع بالألوان، ويدٌ تغطّي الحدّ الحقيقي) ⇒ المنطقة الأكبر.
          زيادةٌ بلا حبر (رزمة أوراقٍ بيضاء بجانب الإيصال: ١–٢٪) ⇒ تبقى الخطوط. في التجربة: القصّ ٨–٢٢٪ · الرزمة ≤٢٫٣٪. */
       old = D0();
-      if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04) { rf = lq.refine(old.corners); how = 'region'; }
+      if (old.ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.35 && lq.contains(old.corners, b.q) && lq.extraInk(old.corners, b.q) >= 0.04 && !lq.bgBand(old.corners, b.q)) { rf = lq.refine(old.corners); how = 'region'; }
     }
+    /* (TASK-0178) المنطقة تضمّ رباعيّ خطوطٍ واضحاً وما تزيده عليه خلفيّةٌ أغمق وأكثر لوناً (ورقةٌ بيضاء فوق قماشٍ فاتح حوله مقعدٌ داكن:
+       الفاتح كلّه «منطقةٌ» واحدة) ⇒ الخطوط */
+    else if (b && b.score >= 0.6 && b.minc >= 0.6 && (old = D0()).ok && !old.fill && polyArea(old.corners) >= polyArea(b.q) * 1.25 &&
+             lq.contains(old.corners, b.q) && lq.bgBand(old.corners, b.q)) { rf = lq.refine(b.q); how = 'lines'; }
     /* (TASK-0130 · صور المالك الحقيقيّة) إيصالٌ ممسوكٌ باليد فوق خلفيّةٍ داكنة وحدُّه عند إطار الصورة أو بجانبه إيصالٌ آخر: الخطوط وجدت
        حدوده بدقّة (درجةٌ متوسّطة لأنّ ضلعاً على الإطار) لكنّها رُفضت، فالمنطقة ضمّت الإيصال المجاور (لا قصّ) أو لم يُكتشف شيء.
        الدليل: داخل الرباعيّ ورقٌ كلّه تقريباً (≥٧٨٪) وخارجه لا ورق تقريباً (≤٧٪) ⇒ هو الورقة كلّها — ما لم تكن المنطقة أدقّ:

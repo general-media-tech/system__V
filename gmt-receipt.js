@@ -427,10 +427,27 @@
       bcW.onmessage = function (e) { var m = e.data || {}, j = bcJobs[m.id]; if (j) j(m); };
       bcW.onerror = function () {                                  // تعذّر تحميله ⇒ كل ما ينتظره يعود للصفحة، ولا عامل بعدها
         bcWBad = true; try { bcW.terminate(); } catch (_) {} bcW = null;
-        Object.keys(bcJobs).forEach(function (k) { var j = bcJobs[k]; if (j) j({ kind: 'error', res: null }); });
+        Object.keys(bcJobs).forEach(function (k) { var j = bcJobs[k]; if (j && !pIds[k]) j({ kind: 'error', res: null }); });   // مهامّ عامل القصّ تبقى له
       };
     } catch (_) { bcWBad = true; bcW = null; }
     return bcW;
+  }
+  /* (TASK-0178 · المالك seq 100 «هون كتير — طوّل كمان»: «جارٍ القصّ وتصحيح المنظور…» طويلاً) — «قصّ وتحسين» كان في عامل الباركود نفسه:
+     قراءة الرمز تبدأ لحظة اختيار الصورة (حتى ١٥ث بلا رمزٍ مقروء) فتنتظر النسخةُ الممسوحة دورها خلفها. الآن لها عاملٌ ثانٍ (الملفّ نفسه)
+     يعمل **بالتوازي** على نواةٍ أخرى · تعذّر ⇒ عامل الباركود كما كان */
+  var pW = null, pWBad = false, pIds = {};
+  function procWorker() {
+    if (pW || pWBad) return pW;
+    if (!bcWorker()) { pWBad = true; return null; }               // لا عامل أصلاً ⇒ لا ثانٍ
+    try {
+      pW = new Worker(SELF_URL);
+      pW.onmessage = function (e) { var m = e.data || {}, j = bcJobs[m.id]; if (j) j(m); };
+      pW.onerror = function () {
+        pWBad = true; try { pW.terminate(); } catch (_) {} pW = null;
+        Object.keys(pIds).forEach(function (k) { var j = bcJobs[k]; if (j) j({ kind: 'error', res: null }); }); pIds = {};
+      };
+    } catch (_) { pWBad = true; pW = null; }
+    return pW;
   }
   /* «جلسة» لكل صورة: العامل يفكّها مرّةً واحدة ويُبقيها لمهامّها كلّها (الباركود · الخانات · النسخة الكاملة) */
   var sidMap = typeof WeakMap !== 'undefined' ? new WeakMap() : null, sidN = 0;
@@ -439,10 +456,11 @@
   /* مهمّةٌ في العامل ⇒ وعدٌ بنتيجتها (null إن لم يوجد عامل أو فشلت — فيعمل المستدعي في الصفحة كما كان) */
   function wcall(msg, opts, transfer) {
     opts = opts || {};
-    var W = bcWorker(); if (!W) return Promise.resolve(null);
+    var PW = opts.proc ? procWorker() : null, W = PW || bcWorker(); if (!W) return Promise.resolve(null);
     return new Promise(function (ok) {
       var id = ++bcSeq, iv = 0, done = false;
-      function end(v) { if (done) return; done = true; delete bcJobs[id]; if (iv) clearInterval(iv); ok(v); }
+      if (PW) pIds[id] = 1;
+      function end(v) { if (done) return; done = true; delete bcJobs[id]; delete pIds[id]; if (iv) clearInterval(iv); ok(v); }
       bcJobs[id] = function (m) {
         if (m.kind === 'fast') { try { if (opts.onFast) opts.onFast(m.res); } catch (_) {} }
         else if (m.kind === 'stage') { try { if (opts.onStage) opts.onStage(m.res); } catch (_) {} }
@@ -460,7 +478,7 @@
      (TASK-0131) shape = { poly, ci }: محيطٌ بأكثر من أربع نقاط (حوافّ منحنية) ⇒ يُقوَّم برقعة «كونز» كما في الصفحة */
   function processIn(file, corners, rot, mode, dims, shape) {
     var ds = dsURL(); if (!ds) return Promise.resolve(null);
-    return wcall({ cmd: 'process', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, mode: mode || 'color', ds: ds, dims: dims || null, shape: shape || null }).then(function (bm) {
+    return wcall({ cmd: 'process', sid: sidOf(file), file: file, corners: corners, rot: rot || 0, mode: mode || 'color', ds: ds, dims: dims || null, shape: shape || null }, { proc: true }).then(function (bm) {
       if (!bm) return null;
       var c = newCanvas(bm.width, bm.height); c.getContext('2d').drawImage(bm, 0, 0); try { bm.close(); } catch (_) {}
       return c;
