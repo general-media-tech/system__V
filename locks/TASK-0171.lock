@@ -1,0 +1,7 @@
+task: TASK-0171
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: orders.html gmt-whatsnew.js tests/harness/t_tg_replace.js
+claimed_at: 2026-10-25T10:44:10Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0171
