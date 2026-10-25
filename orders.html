@@ -106,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
-<script src="gmt-shipping-offices.js?v=20261003"></script>
+<script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-receipt.js?v=20261025f" defer></script>
 <script src="gmt-docscan.js?v=20261023m" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -283,7 +283,7 @@ window.GMT_INTERNAL = 1;</script>
             </select>
             <!-- (وثيقة الطلبات §٢ · «يدخل هذا في الفلترة لما بدي أعرف وين أموال التحصيل: مفتي فرقان، مفتي سريان…») الفرع المُرسِل
                  المختار عند الشحن صار فلتراً. الخيارات تُبنى من الأوردرات نفسها (لا قائمة مُخترَعة) — انظر syncSenderFilter. -->
-            <select id="filter-sendbranch" onchange="render()" data-hint="الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة: لتعرف وين أموال التحصيل (مفتي فرقان · مفتي سريان …)."
+            <select id="filter-sendbranch" onchange="render()" data-hint="فروع الحوالات — الفرع المُرسِل (المفتي · القدموس · مسارات) الذي سُلِّمت إليه الشحنة، فقط ما لنا عنده حوالات: لتعرف وين أموال التحصيل (مفتي فرقان · مفتي سريان …)."
                     class="flex-1 min-w-[140px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
                 <option value="">🏢 كل الفروع المُرسِلة</option>
             </select>
@@ -1484,7 +1484,7 @@ function render() {
         const matchQ  = !q || (o.name||'').toLowerCase().includes(q) || (o.phone||'').includes(q) || (o.product||'').toLowerCase().includes(q);
         const matchC  = !fCompany || (o.shipping_company||'') === fCompany;
         const matchB  = !fBranch  || (o.branch||'') === fBranch;
-        const matchS  = !fSend    || senderKeyOf(o) === fSend;
+        const matchS  = !fSend    || senderFilterKey(o) === fSend;
         const matchT  = !fTransfer || transferFilterOf(o) === fTransfer;
         if (!matchQ || !matchC || !matchB || !matchS || !matchT) return;
         if (groups[o.status]) groups[o.status].push(o);
@@ -1897,7 +1897,7 @@ function otherButtonsHTML(o, c, actionBtn) {
        (2026-09-26 · بلاغ المالك) «بعد تأكيد الاستلام ما في داعي لكي يكون في زرّ تبليغ» ⇒ «تبليغ وصول» لحالة **الشحن وحدها**. */
     add((o.status === 'shipped' || o.status === 'delivered') ? `<button onclick="contactShipOffice(${o.id})" data-hint="مراسلة فرع شركة الشحن بخصوص هذه الشحنة — رسالة جاهزة على واتساب بزنس"
                      class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-600 hover:text-red-600" title="فرع شركة الشحن">🏢</button>` : '');
-    add((o.shipping_company === 'المفتي' && o.status === 'delivered') ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
+    add((hasSenderInfo(o) && o.status === 'delivered') ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
                      class="h-10 px-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center text-emerald-700 text-[11px] font-black hover:bg-emerald-100 shrink-0" title="مراسلة الفرع المُرسِل للتأكد من الحوالة">💸 الحوالة</button>` : '', 2);
     if (o.status === 'shipped' && o.notified_arrival_at && o.phone) {
         add(`<button onclick="contactCustomerArrival(${o.id})" data-hint="تواصل مع الزبون على واتساب بزنس — رسالة جاهزة: وصلت شحنتك من الشركة (باسم الزبون وشركة الشحن والمكتب). بدل زرّ التبليغ بعد أن بُلِّغ بالوصول."
@@ -1950,7 +1950,7 @@ function cardMoreItems(o) {
        بعد أن صار زرّ الأعلى يفتح موقع المفتي مباشرةً) — لشحنات المفتي */
     if (hasSenderInfo(o)) {
         items.push({ ic: '💸', t: 'الفرع المُرسِل وحالة الحوالة', off: shipFromLabel(shipFromOf(o)) + ' · ' + transferLabel(transferStateOf(o)), on: 'openTransferState(' + o.id + ')' });
-        items.push({ ic: '📷', t: 'بحث برقم التتبّع أو قراءته من إيصال (المفتي)', on: 'openVerifyShipment()' });
+        if (o.shipping_company === MUFTI_CO) items.push({ ic: '📷', t: 'بحث برقم التتبّع أو قراءته من إيصال (المفتي)', on: 'openVerifyShipment()' });
     }
     if (o.receipt_img) items.push({ ic: '📦', t: 'عرض إيصال الشحن', on: 'viewReceipt(' + o.id + ')' });   // (TASK-0152) لا 🧾 (توحي بفاتورة)
     /* (برومبت «الماسح الضوئي الذكي» خامساً) مسح/إرفاق إيصالٍ لأوردرٍ موجود — لا يغيّر حالته. للمشحون فما بعد
@@ -2055,7 +2055,7 @@ window.openLinkTransferInvoice = (id) => {
     load('');
 };
 function deliveredButtonsHTML(o, c) {
-    const isM = o.shipping_company === MUFTI_CO;
+    const isM = hasSenderInfo(o);   // (TASK-0163) «💸 الحوالة» للمفتي والقدموس ومسارات
     const big = 'flex-1 min-w-0 py-3.5 rounded-xl text-[13px] font-black whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors';
     const sm = 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors';
     return `<div class="flex gap-2">
@@ -3380,7 +3380,7 @@ document.getElementById('formEdit').onsubmit = async (e) => {
         if (idx >= 0) orders[idx] = { ...orders[idx], ...data };
 
         /* (وثيقة الطلبات §٢ · «أثناء تعديل الطلب ممكن نعدّل الفرع المُرسِل») حفظٌ منفصل لا يكسر تعديل الطلب إن غاب العمود */
-        if (data.shipping_company === MUFTI_CO) {
+        if (TRANSFER_COS.indexOf(data.shipping_company) !== -1) {   // (TASK-0163) والقدموس ومسارات
             const _sf = document.getElementById('edit-ship-from'), _ts = document.getElementById('edit-transfer-state');
             const _tsVisible = !document.getElementById('edit-transfer-wrap').classList.contains('hidden');
             if (_sf && _sf.value && _sf.value !== _prevFrom) {
@@ -5838,6 +5838,7 @@ function shipFromLabel(key) { if (!key) return 'غير محدَّد'; const a = 
 function shipFromLocal() { try { return JSON.parse(localStorage.getItem(SHIPFROM_LS) || '{}') || {}; } catch (_) { return {}; } }
 function shipFromOf(o) {
     const ex = shipFromExplicit(o); if (ex) return ex;
+    if (o && o.shipping_company && o.shipping_company !== MUFTI_CO) return '';   // (TASK-0163) «السريان» افتراضيّ المفتي القديم لا يُنسب لغيرها
     if (o && ['shipped', 'delivered', 'completed'].indexOf(o.status) !== -1) return MUFTI_LEGACY_FROM;   // مشحونٌ قديم بلا فرعٍ محفوظ: افتراضي زمنه
     return shipFromDefault().key || '';
 }
@@ -6085,36 +6086,50 @@ function transferStateOf(o) {
     return (l && (l.s === 'asked' || l.s === 'received')) ? l.s : 'none';
 }
 /* هل للأوردر فرعٌ مُرسِل وحوالة؟ — شحنات المفتي بعد الشحن فقط */
-function hasSenderInfo(o) { return !!o && o.shipping_company === MUFTI_CO && SHIPPED_OR_LATER.indexOf(o.status) !== -1; }
+/* (25 ت1 · TASK-0163 · المالك seq 75 «ضع لهم فلترة حسب الفرع للحوالات — كل شركة إلها فلتر فروع للحوالات بالأوردرات») — القدموس
+   ومسارات مثل المفتي: الفرع المُرسِل وحالة الحوالة بعد الشحن — متى حُفظ فرعها (من الإيصال أو اختيارك؛ لا افتراضيّ قديم لهما) */
+const TRANSFER_COS = [MUFTI_CO, 'القدموس', 'مسارات'];
+function hasSenderInfo(o) {
+    if (!o || SHIPPED_OR_LATER.indexOf(o.status) === -1) return false;
+    if (o.shipping_company === MUFTI_CO) return true;
+    return TRANSFER_COS.indexOf(o.shipping_company) !== -1 && !!shipFromExplicit(o);
+}
 /* مفتاح الفرع المُرسِل لغرض الفلترة/العرض: المحدَّد صراحةً، وإلا الافتراضي «السريان» للمشحون فقط (قبل الشحن لا فرعَ بعد) */
 function senderKeyOf(o) {
+    if (o && TRANSFER_COS.indexOf(o.shipping_company) !== -1 && o.shipping_company !== MUFTI_CO) return shipFromExplicit(o);   // (TASK-0163)
     if (!o || o.shipping_company !== MUFTI_CO) return null;
     return shipFromExplicit(o) || (SHIPPED_OR_LATER.indexOf(o.status) !== -1 ? MUFTI_LEGACY_FROM : null);
 }
 function transferFilterOf(o) { return hasSenderInfo(o) ? transferStateOf(o) : null; }
+/* قيمة فلتر «فروع الحوالات»: «الشركة::المدينة|المكتب» — وفقط لأوردرٍ له حوالة (مبلغٌ يُحصَّل) · seq 75 «بيظهر بالفلتر فقط يلي إلنا عندهم حوالات» */
+function senderFilterKey(o) {
+    if (!hasSenderInfo(o) || !(collectOf(o) > 0)) return null;
+    const k = senderKeyOf(o) || shipFromExplicit(o); return k ? o.shipping_company + '::' + k : null;
+}
 
 /* خيارات فلتر الفرع المُرسِل — من الأوردرات المحمَّلة نفسها: لا أسماءَ مُخترَعة، وما اختيرتَه يبقى حتى لو لم يعد له أوردر */
+/* (TASK-0163 · seq 75) فروع الحوالات لكل شركة: مجموعةٌ لكلٍّ من المفتي والقدموس ومسارات — فقط الفروع التي لنا عندها حوالات
+   (أوردرات مشحونة بمبلغ تحصيل) · وفلتر الشركة يحصرها في فروع شركته */
 function syncSenderFilter() {
     const sel = document.getElementById('filter-sendbranch'); if (!sel) return;
-    const cur = sel.value || '';
+    const cur = sel.value || '', fCo = (document.getElementById('filter-company') || {}).value || '';
     const keys = [];
-    (typeof orders !== 'undefined' ? orders : []).forEach(o => { const k = senderKeyOf(o); if (k && keys.indexOf(k) === -1) keys.push(k); });
+    (typeof orders !== 'undefined' ? orders : []).forEach(o => { const k = senderFilterKey(o); if (k && keys.indexOf(k) === -1) keys.push(k); });
     if (cur && keys.indexOf(cur) === -1) keys.push(cur);
-    keys.sort((a, b) => shipFromLabel(a).localeCompare(shipFromLabel(b), 'ar'));
-    const sig = keys.join('~');
+    const cos = TRANSFER_COS.filter(co => (!fCo || fCo === co) && keys.some(k => k.indexOf(co + '::') === 0));
+    const sig = fCo + '#' + keys.slice().sort().join('~');
     if (sel.getAttribute('data-sig') === sig) return;          // لا نُعيد بناء قائمةٍ قد تكون مفتوحةً أمام المستخدم
     sel.setAttribute('data-sig', sig);
-    sel.innerHTML = '<option value="">🏢 كل الفروع المُرسِلة</option>' +
-        keys.map(k => '<option value="' + escH(k) + '">' + escH(shipFromLabel(k)) + '</option>').join('');
-    sel.value = cur;
+    sel.innerHTML = '<option value="">🏢 كل فروع الحوالات</option>' + cos.map(co => {
+        const ks = keys.filter(k => k.indexOf(co + '::') === 0).sort((a, b) => shipFromLabel(a.split('::')[1]).localeCompare(shipFromLabel(b.split('::')[1]), 'ar'));
+        return '<optgroup label="' + escH(co) + '">' + ks.map(k => '<option value="' + escH(k) + '">' + escH(co + ' · ' + shipFromLabel(k.split('::')[1])) + '</option>').join('') + '</optgroup>';
+    }).join('');
+    sel.value = cos.some(co => cur.indexOf(co + '::') === 0) ? cur : '';
 }
 
 /* شارة الفرع المُرسِل + حالة الحوالة على البطاقة (اضغط الحالة لتغييرها) */
 function senderInfoHTML(o) {
-    /* (TASK-0159) القدموس/مسارات: الفرع المصدر المحفوظ (من الإيصال أو اختيارك) — بلا حالة حوالة (تلك لشحنات المفتي) */
-    if (o && OTHER_READ_CO.indexOf(o.shipping_company) !== -1 && SHIPPED_OR_LATER.indexOf(o.status) !== -1 && shipFromExplicit(o))
-        return `<div class="flex items-center gap-1.5 flex-wrap" data-sender-info><span>🏢 المصدر: <span class="font-black text-gray-700">${escH(shipFromLabel(shipFromExplicit(o)))}</span></span></div>`;
-    if (!hasSenderInfo(o)) return '';
+    if (!hasSenderInfo(o)) return '';   // (TASK-0163) المفتي والقدموس ومسارات
     const st = transferStateOf(o);
     const cls = st === 'received' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
               : st === 'asked'    ? 'bg-amber-50 border-amber-300 text-amber-700'
@@ -6192,16 +6207,20 @@ window.syncEditSender = function (o) {
     const wrap = document.getElementById('edit-sender-wrap'), sel = document.getElementById('edit-ship-from');
     const tw = document.getElementById('edit-transfer-wrap'), ts = document.getElementById('edit-transfer-state');
     if (!wrap || !sel) return;
-    const isM = ((document.getElementById('edit-company') || {}).value || '') === MUFTI_CO;
+    /* (TASK-0163) والقدموس ومسارات: فرعها من بنك أفرعها وحالة الحوالة */
+    const co = (document.getElementById('edit-company') || {}).value || '', isM = TRANSFER_COS.indexOf(co) !== -1;
     wrap.classList.toggle('hidden', !isM);
     if (!isM) return;
+    const lab = wrap.querySelector('label[for="edit-ship-from"]');
+    if (lab) lab.textContent = co === MUFTI_CO ? '🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة' : '🏢 الفرع المُرسِل — مكتب «' + co + '» الذي سُلِّمت إليه الشحنة';
     const cur = o || orders.find(x => x.id == (document.getElementById('edit-id') || {}).value) || null;
-    if (cur && (o || sel.getAttribute('data-for') !== String(cur.id))) {
-        shipFromFill(sel, shipFromOf(cur));
+    if (cur && (o || sel.getAttribute('data-for') !== String(cur.id) || sel.getAttribute('data-co') !== co)) {
+        const k0 = (cur.shipping_company === co) ? shipFromOf(cur) : '';
+        shipFromFill(sel, k0 || shipFromDefault(co).key, co);
         sel.setAttribute('data-for', String(cur.id));
         if (ts) ts.value = transferStateOf(cur);
-    } else if (!sel.options.length) {
-        shipFromFill(sel, shipFromDefault().key);
+    } else if (!sel.options.length || sel.getAttribute('data-co') !== co) {
+        shipFromFill(sel, shipFromDefault(co).key, co);
     }
     const st = (document.getElementById('edit-status') || {}).value || '';
     if (tw) tw.classList.toggle('hidden', SHIPPED_OR_LATER.indexOf(st) === -1);
@@ -6228,8 +6247,8 @@ function buildSendingBranchText(o) {
 }
 window.contactSendingBranch = (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
-    if (o.shipping_company && o.shipping_company !== MUFTI_CO) { showToast('مراسلة الفرع المُرسِل خاصّة بشحنات المفتي', 'err'); return; }
-    const key = shipFromOf(o), of = muftiOfficeByKey(key);
+    if (o.shipping_company && TRANSFER_COS.indexOf(o.shipping_company) === -1) { showToast('مراسلة الفرع المُرسِل لشحنات المفتي والقدموس ومسارات', 'err'); return; }
+    const key = shipFromOf(o), of = coOfficeByKey(o.shipping_company || MUFTI_CO, key);   // (TASK-0163) هاتف الفرع من بنك شركته
     if (!of || !of.phone) {
         /* (١٨ ت١) زرّ «🔎 التحقق من الشحنة» بالأعلى صار يفتح موقع المفتي مباشرةً — فتغيير الفرع صار من «تعديل» الأوردر أو من ⋮ */
         GMTAsk.alert('الفرع المُرسِل «' + shipFromLabel(key) + '» ليس له رقمٌ في دليل المكاتب.\nاختر مكتباً آخر له رقم من «تعديل» الأوردر (خانة الفرع المُرسِل) أو من ⋮ ← «بحث برقم التتبّع»، ثم راسله.',
@@ -9313,7 +9332,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025i"></script>
+<script src="gmt-whatsnew.js?v=20261025j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
