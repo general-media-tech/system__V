@@ -1,0 +1,7 @@
+task: TASK-0175
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: gmt-brain.js gmt-enrich-queue.js inventory.html pos.html gmt-whatsnew.js tests/harness/t_alt_names.js
+claimed_at: 2026-10-25T16:52:22Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0175
