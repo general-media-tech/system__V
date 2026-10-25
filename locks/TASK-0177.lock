@@ -1,7 +1,0 @@
-task: TASK-0177
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-selfcheck.js passwords.html gmt-whatsnew.js tests/harness/t_selfcheck_plain.js
-claimed_at: 2026-10-25T17:24:02Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0177
