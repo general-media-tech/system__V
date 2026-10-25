@@ -131,7 +131,8 @@ async function readCase(pg, spec, before) {
       ok(r.r && r.r.type !== 'mufti' && r.track === '' && /لم أتأكّد أنّ هذه الصورة إيصال/.test(r.status), 'إيصالٌ بلا علامة المفتي ⇒ لا يُنسب إليه ولا يُملأ شيء: ' + (r.r && r.r.type));
       ok(r.src !== 'receipt', 'وفرعه لا يُعتمد تلقائياً');
 
-      await pg.selectOption('#ship-company', { index: 2 }).catch(() => {});
+      // (TASK-0159) القدموس ومسارات صارتا تُقرآن ⇒ شركةٌ لا يُقرأ إيصالها
+      await pg.evaluate(() => { const s = document.getElementById('ship-company'); s.value = [...s.options].map(o => o.value).find(v => v && ['المفتي', 'القدموس', 'مسارات'].indexOf(v) === -1); s.dispatchEvent(new Event('change', { bubbles: true })); });
       const other = await pg.evaluate(() => ({ comp: document.getElementById('ship-company').value, hidden: document.getElementById('ship-track-auto').classList.contains('hidden') }));
       ok(other.comp !== 'المفتي' && other.hidden, 'شركةٌ أخرى ⇒ مسحٌ فقط (لا قراءة): ' + other.comp);
       await pg.selectOption('#ship-company', 'المفتي');

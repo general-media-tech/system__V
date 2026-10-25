@@ -19,8 +19,9 @@ const FILE = '/tmp/gmt-out/read-with-scan.jpg', FILE2 = '/tmp/gmt-out/read-with-
     fs.writeFileSync(f, Buffer.from(b64, 'base64'));
   }
   await pg.evaluate(() => { const R = GMTReceipt.readMufti; window.__reads = []; GMTReceipt.readMufti = function (f, o) {
-    const e = { at: performance.now(), early: !!(o && (o.geom || 'corners' in o)), geom: !!(o && o.geom), scannerShown: !!document.getElementById('gds'), gotCorners: null }; __reads.push(e);
+    const e = { at: performance.now(), early: !!(o && (o.geom || 'corners' in o)), geom: !!(o && o.geom), asIs: !!(o && o.asIsFirst), scannerShown: !!document.getElementById('gds'), gotCorners: null, trace: [] }; __reads.push(e);
     if (o && o.geom) { const g0 = o.geom; o = Object.assign({}, o, { geom: () => g0().then(g => { e.gotCorners = !!(g && g.corners && g.img); return g; }) }); }
+    o = Object.assign({}, o || {}, { trace: e.trace });
     return R.call(this, f, o); }; });
 
   await pg.evaluate(id => openShipModal(id), o1.id); await pg.waitForTimeout(500);
@@ -29,7 +30,11 @@ const FILE = '/tmp/gmt-out/read-with-scan.jpg', FILE2 = '/tmp/gmt-out/read-with-
   // ننتظر والماسح مفتوح — لا ضغط
   let mid = null;
   for (let i = 0; i < 60; i++) { await pg.waitForTimeout(250); mid = await pg.evaluate(() => ({ open: !!document.getElementById('gds'), track: document.getElementById('ship-tracking').value, from: document.getElementById('ship-from').value, src: document.getElementById('ship-from').getAttribute('data-src'), reads: __reads.slice() })); if (mid.track && mid.src === 'receipt') break; }
-  ok(mid.open && mid.reads.length === 1 && mid.reads[0].geom && !mid.reads[0].scannerShown && mid.reads[0].gotCorners, 'القراءة بدأت مع اختيار الصورة قبل ظهور الماسح، وأخذت حدود الورقة من الماسح: ' + JSON.stringify(mid.reads.map(r => ({ geom: r.geom, beforeScanner: !r.scannerShown, corners: r.gotCorners }))));
+  // (TASK-0159 · المالك seq 71: «لازم يبلش مجرد ما انرفع الإيصال مو بعد القصّ والتصفية، وإذا ما عرف يرجع يحاول بعدهم») — الفرع يُقرأ أوّلاً من
+  // الصورة كما رُفعت؛ حدود الماسح (القصّ) تُستعمل فقط إن لم يُعرف منها
+  const asIsOk = r => r.trace.some(t => t.mode === 'as-is-first' && t.conf);
+  ok(mid.open && mid.reads.length === 1 && mid.reads[0].geom && mid.reads[0].asIs && !mid.reads[0].scannerShown && (asIsOk(mid.reads[0]) ? mid.reads[0].gotCorners === null : mid.reads[0].gotCorners),
+    'القراءة بدأت مع اختيار الصورة قبل ظهور الماسح — على الصورة كما رُفعت أوّلاً، وحدود الماسح فقط إن لم يُعرف الفرع: ' + JSON.stringify(mid.reads.map(r => ({ asIs: r.asIs, beforeScanner: !r.scannerShown, asIsBranch: asIsOk(r), corners: r.gotCorners }))));
   ok(mid.open && mid.track === '0451400' && mid.from === 'حلب|الفرقان' && mid.src === 'receipt', 'الرقم والفرع مُلئا خلف الماسح قبل «اعتماد»: ' + mid.track + ' · ' + mid.from);
   // الآن: قصّ ⇒ اعتماد ⇒ النتيجة فوراً بلا قراءة ثانية
   await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /قصّ وتحسين/.test(b.textContent)).click());
@@ -58,7 +63,7 @@ const FILE = '/tmp/gmt-out/read-with-scan.jpg', FILE2 = '/tmp/gmt-out/read-with-
   // شركةٌ أخرى ⇒ لا قراءة مبكرة
   await pg.evaluate(() => { __reads.length = 0; });
   await pg.evaluate(id => openShipModal(id), o1.id); await pg.waitForTimeout(400);
-  await pg.selectOption('#ship-company', { index: 2 }).catch(() => {});
+  await pg.evaluate(() => { const s = document.getElementById('ship-company'); s.value = [...s.options].map(o => o.value).find(v => v && ['المفتي', 'القدموس', 'مسارات'].indexOf(v) === -1); s.dispatchEvent(new Event('change', { bubbles: true })); });   // (TASK-0159) شركةٌ لا يُقرأ إيصالها
   await pg.setInputFiles('#ship-img-input', FILE);
   await pg.waitForSelector('#gds', { timeout: 8000 }); await pg.waitForTimeout(1500);
   const other = await pg.evaluate(() => ({ comp: document.getElementById('ship-company').value, reads: __reads.length }));

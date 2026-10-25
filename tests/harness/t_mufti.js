@@ -53,7 +53,11 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m)
   ok(btns.length === 1 && btns[0].includes(String(rows[0].id)), 'زرّ «الحوالة» على بطاقة المفتي المستلَمة فقط: ' + btns.join());
   // ٧) نافذة الشحن: الفرع المُرسِل يظهر للمفتي فقط
   await pg.evaluate((id) => openShipModal(id), rows[1].id);
-  ok(await pg.evaluate(() => document.getElementById('ship-from-wrap').classList.contains('hidden')), 'مسارات ⇒ لا اختيار فرع مُرسِل');
+  // (TASK-0159) لمسارات خانة «الفرع المصدر» من بنك أفرعها — وافتراضيّها من الإعدادات «حلب|الفرقان» (seq 73) لا «السريان» — وشركةٌ لا يُقرأ إيصالها ⇒ لا خانة
+  const msr = await pg.evaluate(() => ({ shown: !document.getElementById('ship-from-wrap').classList.contains('hidden'), v: document.getElementById('ship-from').value, src: document.getElementById('ship-from').getAttribute('data-src'), co: document.getElementById('ship-from').getAttribute('data-co'), lab: document.querySelector('#ship-from-wrap label').textContent }));
+  ok(msr.shown && msr.v === 'حلب|الفرقان' && msr.src === 'default' && msr.co === 'مسارات' && /الفرع المصدر/.test(msr.lab), 'مسارات ⇒ «الفرع المصدر» من فروع مسارات وافتراضيّها حلب|الفرقان: ' + JSON.stringify(msr));
+  await pg.evaluate(() => { const s = document.getElementById('ship-company'); s.value = [...s.options].map(o => o.value).find(v => v && ['المفتي', 'القدموس', 'مسارات'].indexOf(v) === -1); s.dispatchEvent(new Event('change', { bubbles: true })); });
+  ok(await pg.evaluate(() => document.getElementById('ship-from-wrap').classList.contains('hidden')), 'شركةٌ لا يُقرأ إيصالها ⇒ لا اختيار فرع مُرسِل');
   await pg.selectOption('#ship-company', 'المفتي');
   ok(await pg.evaluate(() => !document.getElementById('ship-from-wrap').classList.contains('hidden') && document.getElementById('ship-from').value === 'حلب|السريان'), 'المفتي ⇒ يظهر والافتراضي حلب|السريان');
   // ٧ب) اعتماد الشحن للمفتي يحفظ الفرع المُرسِل المختار (ويُكمل الشحن)

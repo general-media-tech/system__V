@@ -16,6 +16,7 @@ async function seed() {
   await call('/rest/v1/gmt_customers', { name: 'زبون سابق', phone: '0999111222', branch_key: 'haleb', branch_name: 'حلب' });
   await call('/rest/v1/gmt_users', [{ username: 'samer', display_name: 'سامر', branch_key: 'daraa', is_active: true, password_hash: 'MTIzNA==' }]);
   await call('/rest/v1/gmt_settings', { key: 'orders_default_ship_from', value: 'حلب|السريان' });   // كالقاعدة الحقيقية (شُغّل 18 ت1): «الفرع الافتراضي لشركة الشحن»
+  await call('/rest/v1/gmt_settings', [{ key: 'orders_default_ship_from_qadmous', value: 'حلب|الفرقان' }, { key: 'orders_default_ship_from_masarat', value: 'حلب|الفرقان' }]);   // (TASK-0159 · شُغّل 25 ت1)
   return { prods };
 }
 

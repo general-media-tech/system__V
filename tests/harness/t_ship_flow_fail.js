@@ -53,7 +53,8 @@ async function idle(pg, ms) { await pg.waitForFunction(() => !_shipReading && !d
   await open(o1.id);
   await pg.setInputFiles('#ship-img-input', F.a); await pg.waitForSelector('#gds', { timeout: 8000 }); await sleep(250);
   await btn(pg, 'إلغاء'); await sleep(100);
-  await pg.evaluate(() => { const sel = document.getElementById('ship-company'); sel.value = [...sel.options].map(o => o.value).find(v => v && v !== 'المفتي'); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  // (TASK-0159) القدموس ومسارات صارتا تُقرآن ⇒ شركةٌ لا يُقرأ إيصالها
+  await pg.evaluate(() => { const sel = document.getElementById('ship-company'); sel.value = [...sel.options].map(o => o.value).find(v => v && ['المفتي', 'القدموس', 'مسارات'].indexOf(v) === -1); sel.dispatchEvent(new Event('change', { bubbles: true })); });
   await sleep(9000);
   s = await state(pg);
   ok(!s.track && (s.hidden || !s.status), '٣) غيّرتَ الشركة أثناء القراءة ⇒ لا رقم ولا رسالة قراءة: «' + s.track + '» «' + s.status.slice(0, 60) + '»');

@@ -920,6 +920,12 @@
          مستقلّة على الصورة الأصليّة: الباركود (في عامله، كما كان) ثمّ — إن لم يوجد خلال ١٫٥ث — الرقم المطبوع من الأصل بالتوازي مع
          قراءة الفرع (كان يُقرأ بعد الفرع ومن النسخة المقصوصة وحدها: قصٌّ قطع الرقم ⇒ لا رقم). وموضعه (opts.onNumBox) ⇒ الماسح يُبقيه داخل حدوده. */
       var numBox = function (b) { if (b && opts.onNumBox) { try { opts.onNumBox(b); } catch (_) {} } };
+      /* (TASK-0159) رمز القدموس/مسارات ⇒ out.other (ورقمه لا يُبلَّغ رقماً للمفتي) · opts.stopOnOther ⇒ تتوقّف القراءة ويُسلَّم لقارئهما */
+      var noteCodes = function (x) {
+        if (out.other || !x) return;
+        var co = otherOf('', [x.raw].concat(x.all || []));
+        if (co) { out.other = { company: co, rot: x.upright != null ? x.upright : null, by: 'code' }; out.codes = { raw: x.raw, all: x.all || [], upright: x.upright }; }
+      };
       fastP.then(function (f) { if (f && f.box) numBox(f.box); });
       stage('barcode');
       var bcP = (async function () {
@@ -932,11 +938,11 @@
            بدل «مطبوعٌ فقط» ينتظر ضغطتك — كانت تتوقّف فوراً */
         var numDone = function () { return (printedSeen && Date.now() - printedAt > 3000) || cancelled() || !!(opts.numDone && opts.numDone()); };
         var bc = await readTracking(file, { ocr: false, quick: !!opts.lite, budgetMs: 10000, onFast: function (f) { fastDone(f); }, stop: numDone });
-        fastDone(null);
-        if (opts.lite) { if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} } return bc; }
+        fastDone(null); noteCodes(bc);
+        if (opts.lite) { if (bc.number && opts.onTracking && !out.other) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} } return bc; }
         /* الأصل احتياطاً — بلا طبقة التحسين الثقيلة (جُرّبت على الممسوحة الأوضح): كانت تضاعف الزمن بلا فائدة (٤٨ث ⇒ النصف) */
-        if (!bc.number && !numDone() && opts.original && opts.original !== file) bc = await readTracking(opts.original, { ocr: false, quick: true, stop: numDone });
-        if (bc.number && opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
+        if (!bc.number && !numDone() && opts.original && opts.original !== file) { bc = await readTracking(opts.original, { ocr: false, quick: true, stop: numDone }); noteCodes(bc); }
+        if (bc.number && opts.onTracking && !out.other) { try { opts.onTracking({ status: 'barcode', number: bc.number }); } catch (_) {} }
         return bc;
       })();
       var bcDone = null, printedSeen = false, printedAt = 0;
@@ -961,7 +967,7 @@
         return { rot: r, cands: rk0 };
       })().catch(function () { return null; });
       /* (TASK-0126) opts.cancel() ⇒ تتوقّف القراءة عند الخطوة التالية وتُعيد ما وجدته (قراءةٌ مبكرة لم تنتهِ والماسح أُغلق) */
-      var cancelled = function () { return !!(opts.cancel && opts.cancel()); };           // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
+      var cancelled = function () { return !!(opts.cancel && opts.cancel()) || !!(opts.stopOnOther && out.other); };   // قُرئ الرقم المطبوع ⇒ تتوقّف محاولات الباركود البطيئة
       bcP.then(function (x) { bcDone = x; }, function () { fastDone(null); });
       var textP = (async function () {
         if (opts.lite && !opts.lite.text) return [];               // الفرع وُجد في القراءة المبكرة
@@ -996,7 +1002,30 @@
           /* (TASK-0126) زوايا جاهزة من الماسح (القراءة بدأت معه) ⇒ لا اكتشافٌ ثانٍ */
           try { var d = gCorners ? { corners: gCorners } : DS.detectNorm(im, 0); gCorners = d.corners; return asImg(DS.process(im, d.corners, 0, mode)); } catch (_) { return null; }
         }
-        if (!opts.original) {
+        /* (TASK-0159 · المالك seq 71: «القارئ للمفتي لازم يبلش مجرد ما انرفع الإيصال مو بعد القصّ والتصفية، وإذا ما عرف يرجع يحاول بعدهم»)
+           opts.asIsFirst ⇒ «المصدر» يُقرأ أوّلاً من الصورة كما رُفعت — بلا انتظار حدود الماسح ولا قصٍّ ولا تحسين: اتّجاه الـQR إن عُرف،
+           وإلّا حتى ثلاثة اتّجاهات بحسب شكل الصورة. فرعٌ واضح ⇒ يُعتمد ولا قراءة بعد القصّ · غير ذلك ⇒ المسار كما كان (بعد القصّ
+           والتصفية)، ويبدأ بالاتّجاه الذي قُرئت فيه بنية الإيصال هنا. (الرقم يُقرأ من الأصل فوراً أصلاً: الباركود ثمّ المطبوع) */
+        var asIsBest = null;
+        if (opts.asIsFirst && !opts.original && !opts.lite && !cancelled()) {
+          var Lq = await getL(), araQ = await araLoad;
+          if (up == null) { await Promise.race([fastP, new Promise(function (z) { setTimeout(z, 600); })]); lateUp(); }
+          var qw = Lq.im.naturalWidth || Lq.im.width, qh = Lq.im.naturalHeight || Lq.im.height;
+          var qRots = up != null ? [up] : (qw >= qh ? [0, 180, 90] : [270, 90, 0]);
+          stage('ara');
+          for (var qi = 0; qi < qRots.length && !cancelled(); qi++) {
+            var qres = await araQ.recognize(toPGM(araCanvas(Lq.im, qRots[qi], null, false)));
+            var qt = (qres && qres.data && qres.data.text) || '', qsc = structScore(qt), qsg = sourceSegment(qt), qm = qsg ? matchBranch(qsg.seg) : null;
+            if (!out.other) { var qo = otherOf(qt); if (qo) out.other = { company: qo, rot: qRots[qi], by: 'text' }; }
+            var qa = { rot: qRots[qi], txt: qt, sc: qsc, src: qsg, m: qm, rank: (qm && qm.confident ? 1000 : 0) + (qsg ? 100 : 0) + qsc, tag: 'as-is', box: null, dn: false };
+            if (opts.trace) opts.trace.push({ rot: qa.rot, struct: qsc, src: !!qsg, conf: !!(qm && qm.confident), mode: 'as-is-first' });
+            if (!asIsBest || qa.rank > asIsBest.rank) asIsBest = qa;
+            if ((qm && qm.confident) || qsc >= 3) break;            // الفرع واضح · أو الاتّجاه عُرف (والفرع يُعاد بعد القصّ)
+          }
+          if (asIsBest && asIsBest.m && asIsBest.m.confident) { L = Lq; srcIm = Lq.im; }
+          else if (up == null && asIsBest && asIsBest.sc >= 3) up = asIsBest.rot;
+        }
+        if (!opts.original && !srcIm) {
           var g = null;
           if (opts.geom) { try { g = await opts.geom(); } catch (_) { g = null; } }
           if (cancelled()) { out.cancelled = true; return null; }
@@ -1013,7 +1042,7 @@
         var ara = await araLoad; lateUp();
         /* الاتّجاه الأرجح من شكل الإيصال المقوَّم (عرضيٌّ ⇒ ٠ ثمّ ١٨٠) لا من الصورة كلّها */
         var w = srcIm.naturalWidth || srcIm.width, h = srcIm.naturalHeight || srcIm.height;
-        var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = null;
+        var rots = w >= h ? [0, 180, 90, 270] : [270, 90, 0, 180], best = (asIsBest && asIsBest.m && asIsBest.m.confident) ? asIsBest : null;
         if (up != null) rots = opts.lite ? [up] : [up].concat(rots.filter(function (x) { return x !== up; }));
         if (opts.trace) opts.trace.push({ upright: up });
         /* (20 ت1 · TASK-0116 · إيصالات المالك الخمسة) ثلاثة أسباب كانت تُسقط الفرع:
@@ -1031,6 +1060,7 @@
           if (noisy === null) { noisy = noiseOf(acv) > NOISY; out.noise = noisy; if (opts.trace) opts.trace.push({ noise: +noiseOf(acv).toFixed(2) }); }
           return ara.recognize(toPGM(acv)).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
+            if (!out.other) { var oc = otherOf(txt); if (oc) out.other = { company: oc, rot: rot, by: 'text' }; }      // (TASK-0159)
             var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null, dn: useDn };
             if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') + (dn ? '/dn' : '') });
             return a;
@@ -1194,6 +1224,271 @@
     return out;
   }
 
+  /* ══ (TASK-0159 · المالك seq 69–70) إيصالات «القدموس» و«مسارات» ═══════════════════════════════════════════════════════════
+     «هي إيصالات القدموس — تدرّب تتعرّف عليهن وتاخد المصدر ورقم التتبّع، وعندك بنك الأفرع لتسهيل قراءة الفرع المصدر وتحديد رقمه»
+     + «هذه مسارات أيضاً — رقم التتبّع مكتوب في الأعلى خارج الجدول تحت كلمة فاتورة». معايرةٌ على صور المالك (لا تُحفظ: فيها زبائن):
+       القدموس — الباركود الخطّي أسفل الإيصال يحمل رقم الإشعار كاملاً: أربعة («26»+محرفان) · حرف (B/C) · ستّة أرقام. «المصدر: حلب»
+                 وتحتها في الخانة نفسها اسم المكتب («فرقان»/«جميلية») — يمينُ الصفّ الذي تحت رقم الإشعار.
+       مسارات — «فاتورة» وتحتها ٧ أرقام أعلى الإيصال خارج الجدول، ورمز QR يحملها أيضاً («#…#4100123_التاريخ_…#») · «المصدر : حلب -
+                 باب الفرج» (المدينة والمكتب في سطر) · يُصوَّر غالباً بالعرض.
+     الترتيب: الرموز (عامل الباركود نفسه) ⇐ اتّجاه الإيصال (QR أو كلماتٌ معروفة) ⇐ الرقم المطبوع بقارئ اللاتيني ⇐ «المصدر» بقارئ العربي
+     (من الصفحة، وإلّا من خانته مقصوصةً مكبَّرة) ⇐ مطابقة المكتب ببنك أفرع الشركة (gmt-shipping-offices) فيُعطى اسمه الكامل وهاتفه. */
+  var OTHER_CO = {
+    'القدموس': { kind: 'qadmous', marks: ['القدموس', 'للخدمات', 'البريدية', 'الحوالات', 'الدفع', 'الاشعار', 'الطباعة', 'الطرد'] },
+    'مسارات': { kind: 'masarat', marks: ['مسارات', 'اكسبرس', 'الطرود', 'فاتورة', 'للاستعلام', 'البضاعة', 'العرسل', 'نسخة'] }
+  };
+  var SHARED_MARKS = ['المصدر', 'الوجهة', 'المرسل', 'المجموع'].map(skel);
+  function marksOf(text, co) {
+    var s = skel(text), n = 0;
+    (OTHER_CO[co] ? OTHER_CO[co].marks : []).forEach(function (k) { if (s.indexOf(skel(k)) !== -1) n++; });
+    return n;
+  }
+  /* دليلٌ قويّ أنّ الإيصال للقدموس أو مسارات (قارئ المفتي يتوقّف عنده — TASK-0159): رمزه (باركود القدموس ١١ محرفاً · QR مسارات)،
+     أو نصٌّ ليس فيه علامة المفتي وفيه اسم الشركة مقروءاً أو كلمتان من كلماتها الخاصّة (لا الكلمات المشتركة بين الإيصالات) */
+  var STRONG_CO = { 'القدموس': ['القدموس', 'للخدمات', 'البريدية', 'الاشعار', 'الطباعة'], 'مسارات': ['مسارات', 'اكسبرس', 'فاتورة', 'للاستعلام'] };
+  function otherOf(text, raws) {
+    var codes = raws || [];
+    for (var i = 0; i < codes.length; i++) {
+      var r = latin(String(codes[i] || '')).trim(); if (!r) continue;
+      if (/^[0-9A-Za-z]{11}$/.test(r) && /[A-Za-z]/.test(r) && qadNumber(r)) return 'القدموس';
+      if (masFromQR(r)) return 'مسارات';
+    }
+    if (!text || receiptType(text).kind === 'mufti') return null;
+    var byName = companyOf(text); if (OTHER_CO[byName]) return byName;
+    var s = skel(text), n = {};
+    Object.keys(STRONG_CO).forEach(function (co) { n[co] = STRONG_CO[co].filter(function (k) { return s.indexOf(skel(k)) !== -1; }).length; });
+    if (n['القدموس'] >= 2 && !n['مسارات']) return 'القدموس';
+    if (n['مسارات'] >= 2 && !n['القدموس']) return 'مسارات';
+    return null;
+  }
+  function sharedOf(text) { var s = skel(text); return SHARED_MARKS.filter(function (k) { return s.indexOf(k) !== -1; }).length; }
+  /* رقم إشعار القدموس من نصّ (رمزٍ أو قراءة): 26 + محرفان · حرف · ستّة أرقام (القارئ قد يُسقط «2» الأولى أو يقرأ O/I/S/B بدل أرقام) */
+  function qadNumber(text) {
+    var fix = function (d) { return d.replace(/[Oo]/g, '0').replace(/[Il]/g, '1').replace(/[Ss]/g, '5').replace(/B/g, '8'); };
+    var t = latin(String(text || '')).replace(/[€£(]/g, 'C');
+    var toks = t.split(/[\s|,;:]+/);
+    for (var i = 0; i < toks.length; i++) {
+      var w = toks[i].replace(/[^0-9A-Za-z]/g, ''), m = w.match(/^2?(6[0-9A-Za-z]{2})([A-Za-z])([0-9OoIlSsB]{6})$/);
+      if (m) return '2' + m[1] + m[2].toUpperCase() + fix(m[3]);
+      /* «26» سقطت من القراءة (40C200345) — الحرف B/C وحده يُثبت أنّه رقم إشعار */
+      m = w.match(/^([0-9][0-9A-Za-z])([BCbc])([0-9OoIlSsB]{6})$/);
+      if (m) return '26' + m[1] + m[2].toUpperCase() + fix(m[3]);
+    }
+    /* مقسومٌ بمسافة («2642 c300456») */
+    var j = t.match(/(?:^|[^0-9A-Za-z])2?(6[0-9A-Za-z]{2})\s+([A-Za-z])\s*(\d{6})(?![0-9])/);
+    if (j) return '2' + j[1] + j[2].toUpperCase() + j[3];
+    return null;
+  }
+  /* رقم فاتورة مسارات من رمز QR: «#…#<الرقم>_<التاريخ>_…#» */
+  function masFromQR(raw) { var m = /#[^#]*#\s*(\d{6,8})_/.exec(latin(String(raw || ''))); return m ? m[1] : null; }
+  function canvasOf(src, rot, maxSide) {
+    var w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height, S = Math.min(1, (maxSide || 1600) / Math.max(w0, h0)), w = Math.round(w0 * S), h = Math.round(h0 * S);
+    var sw = rot % 180 ? h : w, sh = rot % 180 ? w : h, cv = newCanvas(sw, sh), c = cv.getContext('2d');
+    c.translate(sw / 2, sh / 2); c.rotate(rot * Math.PI / 180); c.drawImage(src, -w / 2, -h / 2, w, h);
+    return cv;
+  }
+  function subCanvas(cv, r, minW) {
+    var x = Math.max(0, Math.round(r[0] * cv.width)), y = Math.max(0, Math.round(r[1] * cv.height));
+    var w = Math.min(cv.width - x, Math.round(r[2] * cv.width)), h = Math.min(cv.height - y, Math.round(r[3] * cv.height));
+    var S = Math.max(1, Math.min(3, (minW || 1300) / Math.max(1, w))), o = newCanvas(Math.max(1, Math.round(w * S)), Math.max(1, Math.round(h * S)));
+    var c = o.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv, x, y, w, h, 0, 0, o.width, o.height);
+    return o;
+  }
+  function linesOf(res) {
+    var out = [];
+    (((res && res.data) || {}).blocks || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+      out.push({ text: ln.text || '', bbox: ln.bbox, words: (ln.words || []).map(function (wd) { return { text: wd.text, bbox: wd.bbox, conf: wd.confidence }; }) });
+    }); }); });
+    return out;
+  }
+  /* «المصدر» من سطور مقروءة: القيمة بعد الكلمة حتى «الوجهة/التاريخ/الفرع» · وفي القدموس اسم المكتب في السطر التالي (النصف الأيمن) */
+  var K_STOPS2 = ['الوجهة', 'التاريخ', 'الفرع', 'المرسل'].map(skel);
+  function otherSource(lines, pageW, co, th) {
+    th = th || 0.67;
+    for (var i = 0; i < lines.length; i++) {
+      var ws = lines[i].words, at = -1;
+      for (var j = 0; j < ws.length; j++) {
+        var bw = bareW(ws[j].text); if (!bw) continue;
+        if (isKey(bw, K_SRC, th) || isKey(bw.replace(/^و/, ''), K_SRC, th)) { at = j; break; }
+        var gl = bw.indexOf(':') > 0 ? bw.split(':')[0] : '';
+        if (gl && isKey(gl, K_SRC, th)) { at = j; break; }
+      }
+      if (at < 0) continue;
+      /* القدموس: خانة المصدر نصف الصفّ الأيمن ⇒ ما يسار حدّها (خانة الوجهة: «الوجهة: دمشق» مقروءةً مشوّهة) لا يُؤخذ */
+      var mid = ws[at].bbox ? (ws[at].bbox.x0 + ws[at].bbox.x1) / 2 : pageW * 0.75, lim = Math.min(pageW * 0.5, mid - pageW * 0.3);
+      var inCell = function (wd) { return co !== 'القدموس' || !wd.bbox || (wd.bbox.x0 + wd.bbox.x1) / 2 > lim; };
+      var val = [];
+      for (var k = at + 1; k < ws.length; k++) {
+        if (!inCell(ws[k])) continue;
+        var t = bareW(ws[k].text); if (!t || /^[-–—:؛.]+$/.test(t)) { if (val.length && /[-–—]/.test(ws[k].text)) val.push('-'); continue; }
+        if (K_STOPS2.some(function (s2) { return isKey(t, s2, 0.7); })) break;
+        val.push(t);
+        if (val.length >= 6) break;
+      }
+      /* اسمٌ ملتصقٌ بالكلمة («المصدر:حلب») */
+      var glued = String(ws[at].text || '').split(/[:：]/)[1]; if (glued && bareW(glued)) val.unshift(bareW(glued));
+      var city = '', office = '';
+      var joined = val.join(' ').replace(/\s*-\s*/g, ' - ').trim();
+      if (/ - /.test(joined)) { city = joined.split(' - ')[0].trim(); office = joined.split(' - ').slice(1).join(' ').trim(); }
+      else { var vw = joined.split(/\s+/).filter(Boolean); city = vw[0] || ''; office = vw.slice(1).join(' '); }
+      if (co === 'القدموس' && lines[i + 1]) {   // المكتب تحت المدينة في الخانة نفسها (يمين الصفّ) — ويُضاف لبقايا السطر نفسه إن وُجدت
+        var below = lines[i + 1].words.filter(function (wd) { return wd.bbox && (wd.bbox.x0 + wd.bbox.x1) / 2 > lim; })
+          .map(function (wd) { return bareW(wd.text); }).filter(Boolean).join(' ');
+        office = [office, below].filter(Boolean).join(' ');
+      }
+      return { city: city, office: office, text: (city + (office ? ' — ' + office : '')).trim(), line: lines[i].text };
+    }
+    return null;
+  }
+  /* بلا كلمة «المصدر» مقروءة (على خانةٍ مقصوصة فقط): أوّل مدينةٍ من بنك الشركة في السطور، وما بعدها/تحتها هو المكتب */
+  function citySource(lines, co) {
+    var cities = Object.keys(officesOf(co));
+    for (var i = 0; i < lines.length; i++) {
+      var ws = lines[i].words.map(function (wd) { return bareW(wd.text); }).filter(Boolean);
+      for (var j = 0; j < ws.length; j++) {
+        var w = skel(noAl(ws[j])), c = cities.filter(function (x) { return w.length >= 3 && sim(skel(noAl(x)), w) >= 0.75; })[0];
+        if (!c) continue;
+        var rest = ws.slice(j + 1).join(' ').replace(/^[-–—\s]+/, '').trim();
+        if (!rest && lines[i + 1]) rest = lines[i + 1].words.map(function (wd) { return bareW(wd.text); }).filter(Boolean).slice(0, 3).join(' ');
+        return { city: c, office: rest, text: c + (rest ? ' — ' + rest : ''), line: lines[i].text, relaxed: true };
+      }
+    }
+    return null;
+  }
+  function officesOf(co) { try { return (global.GMTOffices && global.GMTOffices.data && global.GMTOffices.data[co]) || {}; } catch (_) { return {}; } }
+  /* مطابقة «المصدر» ببنك أفرع الشركة: المدينة (تقريبيّة) ثمّ المكتب (هيكلٌ بلا نقاط وبلا «ال») */
+  function matchOther(co, src) {
+    var out = { key: null, confident: false, candidates: [], text: src ? src.text : '', city: '', office: '', phone: '' };
+    if (!src) return out;
+    var D = officesOf(co), cities = Object.keys(D), cs = skel(noAl(src.city || ''));
+    var city = cities.filter(function (c) { return cs && (skel(noAl(c)) === cs || sim(skel(noAl(c)), cs) >= 0.75); })[0] || '';
+    var pool = [];
+    (city ? [city] : cities).forEach(function (c) { (D[c] || []).forEach(function (o) { pool.push({ c: c, o: o }); }); });
+    var ofs = String(src.office || '').replace(/^م\s*\.?\s+/, '').trim();
+    var sk = function (x) { return skel(noAl(x)).replace(/\s+/g, ''); };
+    var ws = ofs.split(/\s+/).filter(function (w) { return sk(w).length >= 3; });
+    if (!ws.length) { out.city = city; return out; }
+    /* مسارات: «المصدر : حلب - باب الفرج» ⇐ الاسم كاملاً (لا كلمةٌ منه: «باب الفرج» ليست «الباب») ·
+       القدموس: سطر المكتب يحمل مكتب الوجهة أيضاً («فرقان حضارة») ⇐ كل كلمة/كلمتين، ضمن مكاتب مدينة المصدر (أو أوّل كلمتين إن لم تُقرأ) */
+    var vars = co === 'مسارات' ? [ofs].concat(ws.length > 1 ? [ws.slice(0, 2).join(' ')] : [])
+             : ws.slice(0, city ? 6 : 2).concat(ws.slice(0, city ? 5 : 1).map(function (w, i) { return w + ' ' + ws[i + 1]; }).filter(function (x) { return !/undefined/.test(x); }));
+    var sc = pool.map(function (x) {
+      var n = sk(x.o.name || ''), v = 0;
+      vars.forEach(function (q) { var qq = sk(q); if (qq.length >= 3) v = Math.max(v, qq === n ? 1 : sim(n, qq)); });
+      return { x: x, v: v };
+    }).sort(function (a, b) { return b.v - a.v; });
+    out.candidates = sc.filter(function (z) { return z.v >= 0.5; }).slice(0, 3).map(function (z) { return z.x.c + '|' + z.x.o.name; });
+    var top = sc[0];
+    if (top && top.v >= 0.75 && !(sc[1] && sc[1].v >= top.v - 0.02 && sc[1].x.o.name !== top.x.o.name)) {
+      out.key = top.x.c + '|' + top.x.o.name; out.confident = true; out.city = top.x.c; out.office = top.x.o.name; out.phone = top.x.o.phone || '';
+    } else out.city = city;
+    return out;
+  }
+  async function readOther(file, opts) {
+    opts = opts || {};
+    var t0 = Date.now(), co = OTHER_CO[opts.company] ? opts.company : null;
+    var out = { company: co, type: { kind: 'unknown', why: '' }, barcode: null, printed: null, tracking: { status: 'none' }, branch: { key: null, confident: false, candidates: [], text: '' }, text: '', rot: 0 };
+    var cancelled = function () { return !!(opts.cancel && opts.cancel()); };
+    var L = await loadImage(file);
+    try {
+      /* ① الرموز: باركود القدموس يحمل الرقم كاملاً · QR مسارات يحمله */
+      /* opts.codes: رموزٌ قرأها قارئ المفتي قبل أن يتوقّف (TASK-0159) ⇒ لا تُقرأ مرّةً ثانية */
+      var bc = opts.codes || null;
+      if (!bc) try { bc = await readTracking(file, { ocr: false, budgetMs: opts.budgetMs || 8000, stop: cancelled }); } catch (_) {}
+      var raws = []; if (bc) { if (bc.raw) raws.push(bc.raw); (bc.all || []).forEach(function (r) { if (typeof r === 'string') raws.push(r); }); }
+      var qB = null, mB = null;
+      raws.forEach(function (r) { if (!qB) qB = qadNumber(r) && /^[0-9A-Za-z]{11}$/.test(latin(r).trim()) ? qadNumber(r) : qB; if (!mB) mB = masFromQR(r); });
+      if (!mB && bc && bc.number && /^\d{7}$/.test(bc.number)) mB = bc.number;
+      var codeCo = qB ? 'القدموس' : (mB && raws.some(function (r) { return /masarat/i.test(r); })) ? 'مسارات' : null;
+      var early = (co || codeCo) === 'القدموس' ? qB : (co || codeCo) === 'مسارات' ? mB : null;
+      if (early) { out.barcode = { number: early, raw: raws[0] || '' }; if (opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: early }); } catch (_) {} } }
+      if (cancelled()) { out.cancelled = true; return out; }
+      /* ② الصفحة مقوَّمة (الماسح) إن أمكن ⇐ الاتّجاه: QR إن عُرف وإلّا الكلمات المعروفة */
+      var DS = global.GMTDocScan, page = L.im;
+      if (!opts.scanned && DS && DS.detectNorm && DS.process) { try { var d = DS.detectNorm(L.im, 0); if (d && d.ok) page = DS.process(L.im, d.corners, 0, 'color'); } catch (_) {} }
+      var ara = await getARA(), best = null;
+      /* opts.rot: الاتّجاه الذي قرأ فيه قارئ المفتي كلماتها ⇒ يُجرَّب أوّلاً */
+      var order = [opts.rot, bc && bc.upright, 0, 90, 270, 180].filter(function (v, i, a) { return v != null && a.indexOf(v) === i; });
+      var orient = async function (src) {
+        var b = null;
+        for (var oi = 0; oi < order.length && !cancelled(); oi++) {
+          var cvR = canvasOf(src, order[oi], 1500);
+          var rr = await ara.recognize(toPGM(cvR), {}, { blocks: true });
+          var txt = (rr.data && rr.data.text) || '';
+          var q1 = marksOf(txt, 'القدموس'), m1 = marksOf(txt, 'مسارات'), sh = sharedOf(txt), sc = Math.max(q1, m1) + sh;
+          if (!b || sc > b.sc) b = { rot: order[oi], sc: sc, q: q1, m: m1, txt: txt, res: rr, cv: cvR };
+          if (sc >= 4) break;
+        }
+        return b;
+      };
+      best = await orient(page);
+      if (best && best.sc <= 1 && page !== L.im && !cancelled()) { var b2 = await orient(L.im); if (b2 && b2.sc > best.sc) best = b2; }   // قصّ الماسح أخطأ الورقة ⇒ الصورة كما هي
+      if (!best || cancelled()) { out.cancelled = cancelled(); return out; }
+      out.rot = best.rot; out.text = best.txt;
+      /* ③ النوع: كلماتها · أو رمزها · أو إيصال المفتي */
+      var mt = receiptType(best.txt);
+      var det = codeCo || (best.q >= 2 && best.q > best.m ? 'القدموس' : best.m >= 2 && best.m > best.q ? 'مسارات' : null);
+      if (!det && mt.kind === 'mufti') { out.type = { kind: 'mufti', why: mt.why }; out.company = 'المفتي'; return out; }
+      if (det) { out.company = det; out.type = { kind: OTHER_CO[det].kind, why: codeCo ? 'رمز الإيصال' : 'اسم الشركة وكلماتها في الإيصال' }; }
+      else if (co) out.type = { kind: 'unsure', why: 'لم تُقرأ علامات «' + co + '» بوضوح' };
+      var C = out.company || co;
+      /* ④ الرقم المطبوع (قارئ اللاتيني على الصفحة في اتّجاهها) */
+      var eng = await getOCR(), er = await eng.recognize(toPGM(best.cv), {}, { blocks: true }), elines = linesOf(er), etext = (er.data && er.data.text) || '';
+      var printed = null, pBox = null;
+      if (C === 'القدموس') {
+        elines.some(function (ln) { return ln.words.some(function (wd) { var n = qadNumber(wd.text); if (n) { printed = n; pBox = wd.bbox; return true; } return false; }); });
+        if (!printed) printed = qadNumber(etext.replace(/\s+(?=\d{6}\b)/g, ''));
+        if (!printed && !cancelled()) {          // صفّ الرقم مقصوصاً مكبَّراً (بين الترويسة والجدول · يسار «ضد الدفع»)
+          var nc = subCanvas(best.cv, [0.2, 0.1, 0.75, 0.24], 1400), nr = await eng.recognize(toPGM(nc), {}, { blocks: true });
+          linesOf(nr).some(function (ln) { return ln.words.some(function (wd) { var n = qadNumber(wd.text); if (n) { printed = n; return true; } return false; }); });
+          if (!printed) printed = qadNumber(((nr.data && nr.data.text) || '').replace(/\s+(?=\d{6}\b)/g, ''));
+          if (opts.debug) (out._dbg = out._dbg || {}).numCrop = (nr.data && nr.data.text || '').replace(/\s+/g, ' ').slice(0, 200);
+        }
+      } else if (C === 'مسارات') {
+        var cands = [];
+        /* «للاستعلام: 021-9919» يُقرأ 0219919 — رقم الفاتورة لا يبدأ بصفر ولا فيه شَرطة */
+        elines.forEach(function (ln) { ln.words.forEach(function (wd) { var raw = latin(wd.text), t = raw.replace(/[^0-9]/g, ''); if (/^[1-9]\d{6}$/.test(t) && !/\d-\d/.test(raw) && wd.bbox) cands.push({ n: t, y: wd.bbox.y0, b: wd.bbox }); }); });
+        cands.sort(function (a, b) { return a.y - b.y; });
+        if (cands[0] && cands[0].y < best.cv.height * 0.45) { printed = cands[0].n; pBox = cands[0].b; }
+      }
+      if (printed) out.printed = { number: printed };
+      var bN = out.barcode && out.barcode.number;
+      out.tracking = bN && printed ? (bN.toLowerCase() === printed.toLowerCase() ? { status: 'match', number: bN } : { status: 'differ', barcode: bN, printed: printed })
+                   : bN ? { status: 'barcode', number: bN } : printed ? { status: 'printed', number: printed, candidates: [printed] } : { status: 'none' };
+      if (cancelled()) { out.cancelled = true; return out; }
+      /* ⑤ «المصدر»: من الصفحة · وإلّا من خانته مقصوصةً مكبَّرة */
+      var W = best.cv.width, Hh = best.cv.height, src = otherSource(linesOf(best.res), W, C);
+      if (opts.debug) { out._dbg = out._dbg || {}; out._dbg.lines = linesOf(best.res).map(function (l) { return l.text.trim(); }).filter(Boolean).slice(0, 14); out._dbg.eng = etext.replace(/\s+/g, ' ').slice(0, 240); out._dbg.src1 = src; out._dbg.tries = order; }
+      if (!src || !src.city) {
+        var bands = [];
+        if (C === 'مسارات') {
+          var dw = null;   // صفّ «المصدر» = صفّ التاريخ (يُقرأ جيّداً) — المصدر يمينه
+          elines.some(function (ln) { return ln.words.some(function (wd) { if (/20\d\d[\/.-]\d\d?[\/.-]\d\d?/.test(latin(wd.text)) && wd.bbox) { dw = wd.bbox; return true; } return false; }); });
+          if (dw) bands.push([Math.min(0.85, dw.x1 / W), Math.max(0, dw.y0 / Hh - 0.035), 1 - Math.min(0.85, dw.x1 / W), (dw.y1 - dw.y0) / Hh + 0.07]);
+          bands.push([0.55, pBox ? Math.max(0, pBox.y1 / Hh - 0.02) : 0.15, 0.45, 0.3]);
+        } else {
+          var y0 = pBox ? (pBox.y1 / Hh) : 0.22;
+          bands.push([0.5, Math.max(0, y0 - 0.01), 0.5, 0.13], [0.42, Math.max(0, y0 - 0.01), 0.58, 0.2]);
+        }
+        outer: for (var bi = 0; bi < bands.length && !cancelled(); bi++) {
+          /* (TASK-0159) والخانة بلا خطوط الجدول (unrule): خطوطٌ داكنة حول «المصدر» تُسقط الصفّ كلّه من قراءة النصّ */
+          var crop0 = subCanvas(best.cv, bands[bi], 1300), vars = [crop0, araFinish(crop0, 1, true), enhance(crop0, 'contrast'), enhance(crop0, 'bin')];
+          for (var vi = 0; vi < vars.length && !cancelled(); vi++) {
+            var r2 = await ara.recognize(vars[vi].pgm || toPGM(vars[vi]), {}, { blocks: true }), l2 = linesOf(r2);
+            /* على خانةٍ مقصوصة: عتبة الكلمة أوطأ («المعصد») · ومكتبٌ يطابق البنك يكفي ولو لم تُقرأ المدينة */
+            var s2 = otherSource(l2, vars[vi].width, C, 0.6) || citySource(l2, C);
+            if (opts.debug) { (out._dbg.crop = out._dbg.crop || []).push(bi + '/' + vi + ': ' + l2.map(function (l) { return l.text.trim(); }).filter(Boolean).slice(0, 4).join(' ⏎ ')); }
+            if (s2 && (s2.city || s2.office)) { if (!src || matchOther(C, s2).confident) src = s2; if (matchOther(C, s2).confident) break outer; }
+          }
+        }
+      }
+      out.branch = matchOther(C, src);
+      try { if (opts.onBranch && out.branch.confident) opts.onBranch(out.branch); } catch (_) {}
+    } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
+    out.ms = Date.now() - t0;
+    return out;
+  }
+
   /* (TASK-0122) تحميل القارئ مسبقاً — يُستدعى حين تفتح نافذة الشحن للمفتي أو تختار صورة: المكتبة والنموذج يُحمَّلان
      أثناء شاشة الماسح بدل أن يبدأ تحميلهما بعد ضغطة «تمّ». لا يقرأ شيئاً ولا يُفشل شيئاً. */
   function warm() {
@@ -1204,5 +1499,5 @@
     try { getARA().catch(function () {}); } catch (_) {}
   }
 
-  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _otherOf: otherOf, readOther: readOther, _qadNumber: qadNumber, _masFromQR: masFromQR, _matchOther: matchOther, _otherSource: otherSource, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(typeof window !== 'undefined' ? window : self);

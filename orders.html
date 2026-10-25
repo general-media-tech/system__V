@@ -108,7 +108,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261003"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261025c" defer></script>
+<script src="gmt-receipt.js?v=20261025f" defer></script>
 <script src="gmt-docscan.js?v=20261023m" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -666,7 +666,8 @@ window.GMT_INTERNAL = 1;</script>
             </select>
         </div>
 
-        <!-- (ملاحظات ١٦ ت١) الفرع المُرسِل: يظهر **لشركة المفتي فقط**، والافتراضي «حلب – السريان» إن لم يُغيَّر -->
+        <!-- (ملاحظات ١٦ ت١) الفرع المُرسِل: يظهر لشركة المفتي، والافتراضي «حلب – السريان» إن لم يُغيَّر
+             (TASK-0159) وللقدموس/مسارات «الفرع المصدر» من بنك أفرعهما مع هاتف المكتب — اختياريّ بلا افتراضي -->
         <div id="ship-from-wrap" class="hidden mb-4 text-right">
             <label for="ship-from" class="block text-[11px] font-black text-gray-600 mb-1.5">🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة</label>
             <select id="ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>
@@ -1955,7 +1956,7 @@ function cardMoreItems(o) {
     /* (برومبت «الماسح الضوئي الذكي» خامساً) مسح/إرفاق إيصالٍ لأوردرٍ موجود — لا يغيّر حالته. للمشحون فما بعد
        (قبل الشحن يُرفق الإيصال من «تأكيد الشحن» نفسه، وقائمة «قيد التجهيز» تبقى كما طلبتَ: ربط فاتورة النقل فقط) */
     if (later) items.push({ ic: '📄', t: o.receipt_img ? 'مسح إيصال شحنٍ جديد لهذا الأوردر' : 'مسح إيصال الشحن وإرفاقه بالأوردر',
-                 off: 'قصّ وتحسين' + (o.shipping_company === MUFTI_CO || !o.shipping_company ? ' · قراءة الرقم والفرع (المفتي)' : '') + ' · لا استبدال صامت', on: 'openReceiptAttach(' + o.id + ')' });
+                 off: 'قصّ وتحسين' + (o.shipping_company === MUFTI_CO || !o.shipping_company ? ' · قراءة الرقم والفرع (المفتي)' : OTHER_READ_CO.indexOf(o.shipping_company) !== -1 ? ' · قراءة الرقم والفرع (' + o.shipping_company + ')' : '') + ' · لا استبدال صامت', on: 'openReceiptAttach(' + o.id + ')' });
     if (isStoreOrder(o)) items.push({ ic: '🧾', t: 'فاتورة طلب المتجر', on: 'storeOrderInvoice(' + o.id + ')' });
     /* (وثيقة الطلبات §٤ · «كل الأزرار المخفيّة للأوردرات المرتجعة وربط فاتورة نقل بأوردر شحن») */
     const tl = transferInvoiceOf(o);
@@ -3612,7 +3613,9 @@ function shipTrackBtn(n, label) {
 }
 function shipReadPaint(r, typed, coNote) {
     const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
-    const T = (r && r.tracking) || { status: 'none' }, ty = (r && r.type) || {}, sure = ty.kind === 'mufti' && shipIsMufti();
+    /* (TASK-0159) «أكيد» = نوع الإيصال المقروء هو الشركة المختارة (المفتي · القدموس · مسارات) ⇒ الرقم يُملأ تلقائياً */
+    const KIND_CO = { mufti: MUFTI_CO, qadmous: 'القدموس', masarat: 'مسارات' };
+    const T = (r && r.tracking) || { status: 'none' }, ty = (r && r.type) || {}, sure = !!KIND_CO[ty.kind] && KIND_CO[ty.kind] === shipCurCo();
     const row = a => '<span class="flex flex-wrap gap-1.5 justify-center mt-1">' + a.join('') + '</span>';
     let h = '', cls = 'text-emerald-700', fill = null;
     if (coNote) h += '<span class="block mb-1 text-indigo-700">' + escH(coNote) + '</span>';
@@ -3620,8 +3623,8 @@ function shipReadPaint(r, typed, coNote) {
     let early = !!(_shipRcptAuto && T.status === 'barcode' && inp.value.trim() === String(T.number));
     if (early && !sure) { inp.value = ''; _shipRcptAuto = false; early = false; }   // ليس إيصال المفتي بتأكيد ⇒ يُسحب ما مُلئ مبكراً
     const _co = (document.getElementById('ship-company') || {}).value || '';
-    if (!sure && _co && _co !== 'المفتي') h += '<span class="block mb-1 text-amber-700">ℹ️ إيصال «' + escH(_co) + '»: الرقم لا يُملأ تلقائياً (القراءة الآلية لإيصالات المفتي) — اضغط الرقم إن طابق الورقة أو اكتبه.</span>';
-    else if (!sure) h += '<span class="block mb-1 text-amber-700">⚠️ لم أتأكّد أنّ هذه الصورة إيصال «المفتي» (' + escH(ty.why || 'لم يُقرأ النصّ') + ') — لم يُملأ شيءٌ تلقائياً، راجع بنفسك.</span>';
+    if (!sure && _co && _co !== 'المفتي' && !shipOtherCo()) h += '<span class="block mb-1 text-amber-700">ℹ️ إيصال «' + escH(_co) + '»: الرقم لا يُملأ تلقائياً (القراءة الآلية لإيصالات المفتي والقدموس ومسارات) — اضغط الرقم إن طابق الورقة أو اكتبه.</span>';
+    else if (!sure) h += '<span class="block mb-1 text-amber-700">⚠️ لم أتأكّد أنّ هذه الصورة إيصال «' + escH(_co || 'المفتي') + '» (' + escH(ty.why || 'لم يُقرأ النصّ') + ') — لم يُملأ شيءٌ تلقائياً، راجع بنفسك.</span>';
     if (T.status === 'match') {
         h += '✅ رقم التتبّع <b dir="ltr">' + escH(T.number) + '</b> — تطابق الرقم المطبوع مع الباركود (تحقّقٌ ناجح).';
         if (sure) fill = T.number; else h += row([shipTrackBtn(T.number)]);
@@ -3667,7 +3670,7 @@ function shipReadHooks(isMine, typed, force) {
     /* (22 ت1 · TASK-0118) كلٌّ يظهر فور قراءته: رقم الباركود (ثانية تقريباً) ثمّ الفرع — لا انتظار للقراءة كاملة */
     H.onTracking = t => {
         if (!isMine() || !t || !t.number) return;
-        if (!shipIsMufti()) {                                         // (TASK-0157) الشركة ليست المفتي بعد ⇒ لا يُملأ قبل أن يثبت نوع الإيصال
+        if (shipCurCo() !== (t.co || MUFTI_CO)) {                     // (TASK-0157/0159) الشركة ليست شركة هذا القارئ بعد ⇒ لا يُملأ قبل أن يثبت نوع الإيصال
             st.className = 'text-[11px] font-bold text-gray-500 mb-3';
             st.textContent = 'قُرئ باركود (' + t.number + ') — جارٍ التعرّف على شركة الإيصال…'; return;
         }
@@ -3677,6 +3680,7 @@ function shipReadHooks(isMine, typed, force) {
     };
     H.onBranch = b => {
         if (!isMine() || !b) return;
+        if (shipCurCo() !== (b.co || MUFTI_CO)) return;               // (TASK-0159) فرع شركةٍ لم تُعتمد بعد ⇒ يُطبَّق بعد حسم الشركة
         H.branchDone = true; if (window.applyDetectedShipFrom(b) === 'applied') H.earlyKey = b.key;
         const w = st.querySelector('[data-wait]');
         if (w) { w.removeAttribute('data-wait'); w.className = 'text-emerald-700'; w.textContent = ' · الفرع المصدر: ' + shipFromLabel(b.key); }
@@ -3688,7 +3692,7 @@ function shipReadHooks(isMine, typed, force) {
 function shipStartEarlyRead(orig) {
     const st = document.getElementById('ship-track-auto'), inp = document.getElementById('ship-tracking');
     if (!st || !inp || !window.GMTReceipt || !GMTReceipt.readMufti) return;
-    if (!shipCanRead()) return;                                   // (TASK-0157) شركةٌ غير المفتي اخترتَها بيدك ⇒ مسحٌ فقط
+    if (!shipCanRead()) return;                                   // (TASK-0157) شركةٌ لا يُقرأ إيصالها اخترتَها بيدك ⇒ مسحٌ فقط
     if (_shipOrig !== orig || (_shipEarly && _shipEarly.orig === orig)) return;
     const gen = _shipCoGen;
     const typed = !!inp.value.trim() && !_shipRcptAuto, hooks = shipReadHooks(() => _shipOrig === orig && gen === _shipCoGen, typed, false);
@@ -3701,8 +3705,19 @@ function shipStartEarlyRead(orig) {
     const onTr = hooks.onTracking; hooks.onTracking = t => { if (t && t.number) E.num = t.number; onTr(t); };
     /* (TASK-0128) تتوقّف أيضاً إن اختيرت صورةٌ أخرى أو أُغلقت النافذة (_shipOrig تغيّر) أو تغيّرت الشركة — كانت تستمرّ وتأخذ المعالج */
     /* (TASK-0136) موضع الرقم في الأصل (الـQR · الرقم المطبوع) ⇒ E.boxes ⇒ الماسح لا يقصّه (opts.keepIn) */
-    E.p = GMTReceipt.readMufti(orig, { geom: () => geomP, numDone: () => !!E.num, onNumBox: b => { if (b) E.boxes.push(b); },
-        cancel: () => E.stop || _shipOrig !== orig || gen !== _shipCoGen, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
+    /* (TASK-0159 · المالك seq 69–71) الشركة القدموس/مسارات ⇒ قارئهما مباشرةً · وإلّا قارئ المفتي: يبدأ على الصورة كما رُفعت (asIsFirst) ثمّ
+       بعد القصّ والتصفية إن لم يعرف — ودليلٌ قويّ أنّ الإيصال للقدموس/مسارات (رمزه · اسمه) ⇒ يتوقّف ويُسلَّم لقارئهما (ما لم تختر الشركة بيدك) */
+    const cancel = () => E.stop || _shipOrig !== orig || gen !== _shipCoGen, oco = shipOtherCo();
+    E.co = oco || MUFTI_CO;
+    E.p = (oco ? shipReadOther(orig, oco, hooks, cancel)
+        : GMTReceipt.readMufti(orig, { asIsFirst: true, stopOnOther: !shipCoByUser(), geom: () => geomP, numDone: () => !!E.num, onNumBox: b => { if (b) E.boxes.push(b); },
+            cancel, onTracking: hooks.onTracking, onBranch: hooks.onBranch })
+            .then(r => {
+                if (!(r && r.other) || cancel()) return r;
+                E.other = r.other.company;
+                if (!E.num) { st.className = 'text-[11px] font-bold text-gray-500 mb-3'; st.textContent = '🚚 يبدو إيصال «' + r.other.company + '» — جارٍ قراءة رقم التتبّع والفرع المصدر…'; }
+                return shipReadOther(orig, r.other.company, hooks, cancel, { rot: r.other.rot, codes: r.codes, handoff: true });
+            }))
         .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
     _shipEarly = E;
 }
@@ -3723,6 +3738,34 @@ function shipMergeReads(a, b) {
         out.type = (a.foreign ? a.type : b.type); out.foreign = true;
         out.branch = Object.assign({}, out.branch || {}, { key: null, confident: false });
     }
+    return out;
+}
+/* (TASK-0159) شركتا القارئ الثاني (إيصالاتهما معروفة البنية) — والشركة الحاليّة في نافذة الشحن */
+const OTHER_READ_CO = ['القدموس', 'مسارات'];
+function shipCurCo() { return (document.getElementById('ship-company') || {}).value || ''; }
+function shipOtherCo() { const c = shipCurCo(); return OTHER_READ_CO.indexOf(c) !== -1 ? c : ''; }
+function shipReadOther(file, co, H, cancel, hint) {
+    hint = hint || {};
+    return GMTReceipt.readOther(file, { company: co, rot: hint.rot, codes: hint.codes || null, scanned: !!hint.scanned, cancel,
+        onTracking: t => H.onTracking(Object.assign({ co: co }, t)), onBranch: b => H.onBranch(Object.assign({ co: co }, b)) })
+        .then(x => Object.assign(x, { reader: 'other', handoff: !!hint.handoff }));   // handoff: قارئ المفتي وجد دليلاً قويّاً (رمزها/اسمها)
+}
+/* دمج قراءتين لإيصال القدموس/مسارات (b الأخيرة): الأقوى من رقم التتبّع (تطابق > باركود > اختلاف > مطبوع) · فرعٌ واثق · النوع المؤكَّد.
+   a من قارئ المفتي (اكتمل ثمّ قُرئ اسم الشركة) وb لم تجد رقماً ⇒ أرقامه تُعرض للضغط فقط (لا تُملأ: ليست بصيغة رقم الشركة) */
+function shipMergeOther(a, b) {
+    if (!a || a.error) return b;
+    if (!b || b.error) return a;
+    const out = Object.assign({}, b), RK = { match: 4, barcode: 3, differ: 2, printed: 1 }, rk = t => (t && RK[t.status]) || 0;
+    if (a.reader !== 'other') {
+        if (!rk(b.tracking) && rk(a.tracking)) {
+            const T = a.tracking, nums = [T.number, T.barcode, T.printed].concat(T.candidates || []).filter(Boolean).filter((x, i, l) => l.indexOf(x) === i);
+            out.tracking = { status: 'printed', number: nums[0], candidates: nums };
+        }
+        return out;
+    }
+    if (rk(a.tracking) > rk(b.tracking)) { out.tracking = a.tracking; out.barcode = a.barcode; out.printed = a.printed; }
+    if (!(b.branch && b.branch.confident) && a.branch && (a.branch.confident || ((a.branch.candidates || []).length && !((b.branch || {}).candidates || []).length))) out.branch = a.branch;
+    if (['qadmous', 'masarat'].indexOf((b.type || {}).kind) === -1 && ['qadmous', 'masarat'].indexOf((a.type || {}).kind) !== -1) { out.type = a.type; out.company = a.company; }
     return out;
 }
 async function shipReadTracking(force) {
@@ -3749,12 +3792,31 @@ async function shipReadTracking(force) {
         /* (TASK-0130 · المالك seq 28) «اعتماد» لا يُوقف القراءة الجارية (كانت تُوقف ثمّ تُعاد على الممسوحة). وما لم يُقرأ بعد يبدأ على
            النسخة الممسوحة فوراً بالتوازي معها: الرقم (باركود الممسوحة في العامل) — والفرع بعد انتهائها إن نقص (أدناه) */
         let scanNum = null;
-        if (early && !early.done && !early.num && myFile !== early.orig)
-            scanNum = GMTReceipt.readTracking(myFile, { ocr: false, quick: true, stop: () => !isMine() || !!early.num })
-                .then(t => { if (t && t.number && !early.num && isMine()) { H.onTracking({ status: 'barcode', number: t.number }); return t; } return null; }, () => null);
+        /* (TASK-0159) رمز القدموس/مسارات في الممسوحة ليس رقماً للمفتي (الباركود ١١ محرفاً كان يُقرأ ستّة أرقام منه) */
+        const otherCode = t => !!(t && GMTReceipt._otherOf && GMTReceipt._otherOf('', [t.raw].concat(t.all || [])));
+        if (early && early.co === MUFTI_CO && !early.done && !early.num && myFile !== early.orig)
+            scanNum = GMTReceipt.readTracking(myFile, { ocr: false, quick: true, stop: () => !isMine() || !!early.num || !!early.other })
+                .then(t => { if (t && t.number && !otherCode(t) && !early.num && !early.other && isMine()) { H.onTracking({ status: 'barcode', number: t.number }); return t; } return null; }, () => null);
         let r = early ? await early.p : null;
         if (!own()) return;                                             // اختيرت صورةٌ أخرى أثناء الانتظار ⇒ لا قراءة ثانية لهذه
         if (r && r.error) r = null;
+        const oco = shipOtherCo(), scanned = myFile !== orig;
+        if (!r && oco) r = await shipReadOther(myFile, oco, H, () => !isMine(), { scanned });      // لا قراءة مبكرة (الشركة تغيّرت بعد الصورة)
+        if (r && r.reader === 'other') {
+            /* (TASK-0159) القدموس/مسارات: نقص الرقم أو الفرع ⇒ مرّةً ثانية على النسخة الممسوحة (بعد القصّ والتصفية) */
+            const T1 = r.tracking || { status: 'none' };
+            if (!r.cancelled && r.company && OTHER_READ_CO.indexOf(r.company) !== -1 && scanned && (T1.status === 'none' || !(r.branch && r.branch.confident)) && isMine())
+                r = shipMergeOther(r, await shipReadOther(myFile, r.company, H, () => !isMine(), { scanned: true, rot: r.rot, handoff: r.handoff }));
+            /* الشركة محفوظة/تلقائيّة والإيصال للمفتي — أو لم يثبت أنّه لها (لا علاماتها) ⇒ قارئ المفتي (ما لم تختر الشركة بيدك):
+               إيصال المفتي ⇒ نتيجته (فتصير الشركة المفتي) · غير ذلك ⇒ تبقى قراءة شركة الإيصال */
+            const kOk = r && r.type && ['qadmous', 'masarat'].indexOf(r.type.kind) !== -1;
+            if (r && !kOk && !r.handoff && !shipCoByUser() && isMine()) {
+                const rm = await GMTReceipt.readMufti(myFile, { original: scanned ? orig : null, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
+                if (rm && rm.type && rm.type.kind === 'mufti') r = rm;
+            }
+            if (!own()) return;
+            return shipReadFinish(r, H, typed, force, isMine);
+        }
         /* باركود الممسوحة (قُرئ بالتوازي) يُدمج دائماً: يطابق المطبوع ⇒ تحقّقٌ ناجح · يخالفه ⇒ لا يُعتمد أيٌّ منهما · لا شيء غيره ⇒ هو */
         const sn = scanNum ? await scanNum : null;
         if (sn && sn.number && r && !r.cancelled) {
@@ -3776,25 +3838,33 @@ async function shipReadTracking(force) {
             if (needText || needNum) {
                 /* الفرع موجود ⇒ الباركود السريع وحده · ينقص والنسخة نفسها ⇒ «المصدر» في اتّجاهه المعروف · ينقص والزوايا تغيّرت ⇒ قراءةٌ كاملة */
                 const lite2 = !needText ? { text: false, rot: null } : lite ? { text: true, rot: lite.rot } : null;
-                const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, lite: lite2, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
-                r = shipMergeReads(r, r2);
+                const r2 = await GMTReceipt.readMufti(myFile, { original: orig !== myFile ? orig : null, lite: lite2, stopOnOther: !shipCoByUser(), cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
+                r = (r2 && r2.other && isMine()) ? await shipReadOther(myFile, r2.other.company, H, () => !isMine(), { scanned, rot: r2.other.rot, codes: r2.codes, handoff: true }) : shipMergeReads(r, r2);
             }
         }
+        /* (TASK-0159) قارئ المفتي أكمل وقرأ اسم القدموس/مسارات في الإيصال (بلا دليلٍ أقوى أثناء القراءة) ⇒ قارئهما (ما لم تختر الشركة بيدك) */
+        if (r && r.reader !== 'other' && !r.cancelled && OTHER_READ_CO.indexOf(r.company) !== -1 && !(r.type && r.type.kind === 'mufti') && !shipCoByUser() && isMine())
+            r = shipMergeOther(r, await shipReadOther(myFile, r.company, H, () => !isMine(), { scanned, handoff: true }));
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
-        _shipRead = r;
-        const _coNote = shipCompanyFromReceipt(r);                      // (TASK-0157) الإيصال يحسم الشركة ما لم تخترها بيدك
-        shipReadPaint(r, typed && !force, _coNote);
-        const b = r.branch || {};
-        /* فرعٌ اعتُمد مبكراً ثمّ تبيّن أنّ الإيصال ليس للمفتي ⇒ يعود الافتراضي (ما لم تغيّره بيدك في الأثناء) */
-        const sel = document.getElementById('ship-from');
-        if (H.earlyKey && !(b.confident && b.key === H.earlyKey) && sel && sel.getAttribute('data-src') === 'receipt' && sel.value === H.earlyKey) window.syncShipFromBox(null, true);
-        window.applyDetectedShipFrom({ key: b.key, confident: !!b.confident, candidates: b.candidates || [], text: b.text || '' });
+        shipReadFinish(r, H, typed, force, isMine);
     } catch (e) {
         if (!isMine()) return;
         st.className = 'text-[11px] font-black text-amber-600 mb-3';
         st.textContent = e && e.code === 'bad-image' ? '⚠️ الصورة تالفة أو ليست صورة — صوّر الإيصال من جديد أو أدخل الرقم واختر الفرع يدوياً.'
                        : '⚠️ تعذّرت قراءة الإيصال (' + (e && e.message || 'خطأ') + ') — أدخل الرقم واختر الفرع يدوياً.';
     } finally { if (own()) _shipReading = false; }
+}
+/* نتيجة القراءة النهائية ⇒ الشركة (ما لم تخترها بيدك) · الرقم · الفرع المصدر (من بنك فروع شركة الإيصال) */
+function shipReadFinish(r, H, typed, force, isMine) {
+    if (!r || !isMine()) return;
+    _shipRead = r;
+    const _coNote = shipCompanyFromReceipt(r);                          // (TASK-0157) الإيصال يحسم الشركة ما لم تخترها بيدك
+    shipReadPaint(r, typed && !force, _coNote);
+    const b = r.branch || {};
+    /* فرعٌ اعتُمد مبكراً ثمّ تبيّن أنّ الإيصال ليس للمفتي ⇒ يعود الافتراضي (ما لم تغيّره بيدك في الأثناء) */
+    const sel = document.getElementById('ship-from');
+    if (H.earlyKey && !(b.confident && b.key === H.earlyKey) && sel && sel.getAttribute('data-src') === 'receipt' && sel.value === H.earlyKey) window.syncShipFromBox(null, true);
+    window.applyDetectedShipFrom({ key: b.key, confident: !!b.confident, candidates: b.candidates || [], text: b.text || '', co: r.reader === 'other' ? r.company : MUFTI_CO });
 }
 function shipIsMufti() { return ((document.getElementById('ship-company') || {}).value || '') === 'المفتي'; }
 /* (TASK-0157 · المالك seq 60 «لازم يكون عندنا دوماً الأساسي هو المفتي إلا إذا غيّرنا أو حطّينا إيصال غير المفتي» + «التعرّف على الشركة من
@@ -3803,7 +3873,7 @@ function shipIsMufti() { return ((document.getElementById('ship-company') || {})
    ما لم تكن اخترتها بيدك. تغييرك للشركة يُلغي القراءة الجارية (_shipCoGen) كما كان. */
 let _shipCoGen = 0;
 function shipCoByUser() { const s = document.getElementById('ship-company'); return !!s && s.dataset.auto !== '1' && s.dataset.auto !== 'saved'; }
-function shipCanRead() { return shipIsMufti() || !shipCoByUser(); }
+function shipCanRead() { return shipIsMufti() || !!shipOtherCo() || !shipCoByUser(); }   // (TASK-0159) والقدموس/مسارات
 function shipCompanyFromReceipt(r) {
     const sel = document.getElementById('ship-company'); if (!sel || !r || r.cancelled) return '';
     const cur = sel.value || '', mufti = r.type && r.type.kind === 'mufti';
@@ -3815,7 +3885,8 @@ function shipCompanyFromReceipt(r) {
     if (!mufti && _shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
     try { window.syncShipFromBox(null, true); } catch (_) {}
     const w = document.getElementById('ship-company-warn'); if (w) w.classList.add('hidden');
-    return '🚚 ' + (mufti ? 'هذا إيصال «المفتي» (' + (r.type.why || '') + ')' : 'اسم «' + want + '» مقروءٌ في الإيصال') +
+    const known = r.reader === 'other' && r.type && ['qadmous', 'masarat'].indexOf(r.type.kind) !== -1;   // (TASK-0159) تعرّف عليه قارئها (رمزه أو كلماته)
+    return '🚚 ' + (mufti ? 'هذا إيصال «المفتي» (' + (r.type.why || '') + ')' : known ? 'هذا إيصال «' + want + '» (' + (r.type.why || '') + ')' : 'اسم «' + want + '» مقروءٌ في الإيصال') +
            ' — غيّرتُ شركة الشحن' + (cur ? ' من «' + cur + '»' : '') + ' إلى «' + want + '». غيّرها إن لم تكن كذلك.';
 }
 
@@ -3887,17 +3958,17 @@ async function buildReceiptMeta(o, keep, company, finalNum) {
         v: 1, at: new Date().toISOString(), by: (typeof getOperatorName === 'function' ? getOperatorName() : '') || null,
         company: company || null, via: _shipMode, scanned: !!_shipScan, mode: _shipScan ? _shipScan.mode : null,
         type: r && r.type ? { kind: r.type.kind, why: r.type.why || '' } : null,
-        track: { status: T ? T.status : (company === MUFTI_CO ? (_shipReading ? 'reading' : 'not_read') : 'scan_only'),
+        track: { status: T ? T.status : ((company === MUFTI_CO || OTHER_READ_CO.indexOf(company) !== -1) ? (_shipReading ? 'reading' : 'not_read') : 'scan_only'),
                  barcode: (r && r.barcode && r.barcode.number) || null, printed: (r && r.printed && r.printed.number) || null,
                  final: finalNum || null, source: src },
-        branch: (company === MUFTI_CO && sel) ? { src: sel.getAttribute('data-src') || 'none', key: sel.value || null,
+        branch: ((company === MUFTI_CO || OTHER_READ_CO.indexOf(company) !== -1) && sel) ? { src: sel.getAttribute('data-src') || 'none', key: sel.value || null,
                  read: r && r.branch ? { key: r.branch.key || null, confident: !!r.branch.confident, text: String(r.branch.text || '').slice(0, 80), candidates: (r.branch.candidates || []).slice(0, 4) } : null } : null,
         orig_tg: null, prev: prev
     };
 }
 /* قراءةٌ جارية لحظة الحفظ ⇒ نسأل (قد تكشف رقماً مكرّراً أو فرعاً آخر) */
 async function waitReadingOrGo() {
-    if (!_shipReading || !shipIsMufti()) return true;            // (TASK-0157) قراءةٌ لشركةٍ غير المفتي لا تؤخّر الحفظ
+    if (!_shipReading || !(shipIsMufti() || shipOtherCo())) return true;   // (TASK-0157/0159) قراءةٌ لشركةٍ لا يُقرأ إيصالها لا تؤخّر الحفظ
     const k = await GMTAsk.choose('قراءة الإيصال (رقم التتبّع والفرع) لم تنتهِ بعد.', { title: '⏳ لحظة', cancelText: 'سأنتظر',
         choices: [{ k: 'go', t: 'احفظ الآن بلا انتظار' }] });
     return k === 'go';
@@ -3957,6 +4028,12 @@ async function confirmReceiptAttach() {
             const m = savedMsg('الفرع المُرسِل «' + shipFromLabel(k) + '»', await saveShipFromR(o.id, k));
             if (m.type !== 'ok') showToast(m.t, m.type);
         }
+    } else if (OTHER_READ_CO.indexOf(company) !== -1) {             // (TASK-0159) الفرع المصدر للقدموس/مسارات
+        const sel = document.getElementById('ship-from'), k = sel && sel.value, src = sel && sel.getAttribute('data-src');
+        if (k && (src === 'receipt' || src === 'manual') && k !== shipFromExplicit(o)) {
+            const m = savedMsg('الفرع المصدر «' + shipFromLabel(k) + '»', await saveShipFromR(o.id, k));
+            if (m.type !== 'ok') showToast(m.t, m.type);
+        }
     }
     closeModal('shipModal');
     render();
@@ -3966,9 +4043,9 @@ async function confirmReceiptAttach() {
 document.addEventListener('change', (e) => {
     if (!e.target || e.target.id !== 'ship-company') return;
     e.target.dataset.auto = ''; _shipCoGen++;   // (TASK-0157) اخترتَها بيدك (الكود لا يطلق change) ⇒ تُحترم وتُلغى القراءة الجارية
-    if (e.target.value === 'المفتي' && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122)
+    if ((e.target.value === 'المفتي' || OTHER_READ_CO.indexOf(e.target.value) !== -1) && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122/0159)
     /* (TASK-0128) شركةٌ أخرى ⇒ رقمٌ مُلئ تلقائياً من قراءة المفتي يُسحب (لم تكتبه أنت) */
-    if (e.target.value !== 'المفتي' && _shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
+    if (_shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }   // (TASK-0159) رقم شركةٍ أخرى لا يبقى
     shipReadTracking();
 });
 
@@ -4056,6 +4133,10 @@ async function confirmShippingRun() {
             const _sfKey = (document.getElementById('ship-from') || {}).value;
             const _sfm = savedMsg('الفرع المُرسِل «' + shipFromLabel(_sfKey) + '»', await saveShipFromR(shipOrderId, _sfKey));
             if (_sfm.type !== 'ok') showToast(_sfm.t, _sfm.type);     // «على هذا الجهاز فقط» تُقال صراحةً ولا تُخفى
+        } else if (OTHER_READ_CO.indexOf(company) !== -1) {
+            /* (TASK-0159) القدموس/مسارات: الفرع المصدر (من الإيصال أو اختيارك) يُحفظ إن حُدِّد — ليس شرطاً للشحن */
+            const _sfKey = (document.getElementById('ship-from') || {}).value;
+            if (_sfKey) { const _sfm = savedMsg('الفرع المصدر «' + shipFromLabel(_sfKey) + '»', await saveShipFromR(shipOrderId, _sfKey)); if (_sfm.type !== 'ok') showToast(_sfm.t, _sfm.type); }
         }
         closeModal('shipModal');
         render();
@@ -5695,20 +5776,33 @@ const SHIPFROM_SET_KEY = 'orders_default_ship_from';
 const SHIPFROM_SET_LS = 'gmt_set_default_ship_from';
 let shipFromSetting = (() => { try { return localStorage.getItem(SHIPFROM_SET_LS) || null; } catch (_) { return null; } })();
 let shipFromSettingLoaded = false;
+/* (TASK-0159 · المالك seq 73: «90% من الشحن من الفرقان بالنسبة للقدموس ومسارات … يعني الافتراضي في حالة تعذّر القراءة، وموجود بالإعدادات
+   الفرع الافتراضي فينا نغيّره») — افتراضيّ القدموس ومسارات: مفتاحٌ لكلٍّ منهما في gmt_settings (بدأ «حلب|الفرقان» 25 ت1)، يُغيَّر من ⚙️ */
+const SHIPFROM_CO_KEYS = { 'القدموس': 'orders_default_ship_from_qadmous', 'مسارات': 'orders_default_ship_from_masarat' };
+const SHIPFROM_CO_LS = 'gmt_set_default_ship_from_co';
+let shipFromCoSet = (() => { try { return JSON.parse(localStorage.getItem(SHIPFROM_CO_LS) || '{}') || {}; } catch (_) { return {}; } })();
 async function loadShipFromSetting() {
     try {
-        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.${SHIPFROM_SET_KEY}&select=value`, { headers: SB_HEADERS });
+        const keys = [SHIPFROM_SET_KEY].concat(Object.values(SHIPFROM_CO_KEYS));
+        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=in.(${keys.join(',')})&select=key,value`, { headers: SB_HEADERS });
         if (r.ok) {
-            const rows = await r.json();
-            shipFromSetting = (Array.isArray(rows) && rows[0] && rows[0].value) || null;
+            const rows = await r.json(), val = k => { const x = (Array.isArray(rows) ? rows : []).find(z => z.key === k); return (x && x.value) || null; };
+            shipFromSetting = val(SHIPFROM_SET_KEY);
+            shipFromCoSet = {}; Object.keys(SHIPFROM_CO_KEYS).forEach(co => { const v = val(SHIPFROM_CO_KEYS[co]); if (v) shipFromCoSet[co] = v; });
             shipFromSettingLoaded = true;
-            try { if (shipFromSetting) localStorage.setItem(SHIPFROM_SET_LS, shipFromSetting); else localStorage.removeItem(SHIPFROM_SET_LS); } catch (_) {}
+            try { if (shipFromSetting) localStorage.setItem(SHIPFROM_SET_LS, shipFromSetting); else localStorage.removeItem(SHIPFROM_SET_LS); localStorage.setItem(SHIPFROM_CO_LS, JSON.stringify(shipFromCoSet)); } catch (_) {}
         }
     } catch (_) {}
     return shipFromSetting;
 }
-/* الافتراضي الصالح الآن (موجودٌ في دليل فروع المفتي) — أو null مع السبب ليُعرض تنبيهاً */
-function shipFromDefault() {
+/* الافتراضي الصالح الآن (موجودٌ في دليل فروع الشركة) — أو null مع السبب ليُعرض تنبيهاً. بلا شركة ⇒ المفتي (كما كان) */
+function shipFromDefault(co) {
+    if (co && co !== MUFTI_CO) {
+        const k = shipFromCoSet[co] || null;
+        if (!k) return { key: null, why: 'لم يُحدَّد الفرع الافتراضي لـ«' + co + '» في ⚙️ إعدادات الأوردرات' };
+        if (!coOfficeByKey(co, k)) return { key: null, why: 'الفرع الافتراضي لـ«' + co + '» «' + shipFromLabel(k) + '» لم يعد في دليل مكاتبها — غيّره من ⚙️ إعدادات الأوردرات' };
+        return { key: k, why: '' };
+    }
     const k = shipFromSetting;
     if (!k) return { key: null, why: 'لم يُحدَّد «الفرع الافتراضي لشركة الشحن» في ⚙️ إعدادات الأوردرات' };
     if (!muftiOfficeByKey(k)) {
@@ -5729,6 +5823,17 @@ function muftiOffices() {
     return out;
 }
 function muftiOfficeByKey(key) { return muftiOffices().find(x => x.key === key) || null; }
+/* (TASK-0159) فروع شركة الشحن في نافذة الشحن: المفتي من بنك فروعه (كما كان) · القدموس/مسارات من دليل مكاتبهما (بنك الأفرع نفسه
+   الذي يطابق عليه قارئ إيصالهما — ومنه هاتف المكتب) */
+function coOffices(co) {
+    if (!co || co === MUFTI_CO) return muftiOffices();
+    const d = (window.GMTOffices && GMTOffices.data && GMTOffices.data[co]) || {};
+    const out = [];
+    Object.keys(d).forEach(city => (d[city] || []).forEach(of =>
+        out.push({ key: city + '|' + of.name, city: city, name: of.name, phone: String(of.phone || '').trim() })));
+    return out;
+}
+function coOfficeByKey(co, key) { return coOffices(co).find(x => x.key === key) || null; }
 function shipFromLabel(key) { if (!key) return 'غير محدَّد'; const a = String(key).split('|'); return a[0] + (a[1] ? ' – ' + a[1] : ''); }
 function shipFromLocal() { try { return JSON.parse(localStorage.getItem(SHIPFROM_LS) || '{}') || {}; } catch (_) { return {}; } }
 function shipFromOf(o) {
@@ -5738,16 +5843,17 @@ function shipFromOf(o) {
 }
 /* القيمة المحدَّدة فعلاً (قاعدة ثم الجهاز) — بلا الافتراضي: لنعرف هل اختار أحدٌ فرعاً أم هو «السريان» الافتراضي */
 function shipFromExplicit(o) { return (o && (o.ship_from_office || shipFromLocal()[o.id])) || null; }
-function shipFromOptionsHTML(sel) {
+function shipFromOptionsHTML(sel, co) {
+    co = co || MUFTI_CO;
     const byCity = {};
-    muftiOffices().forEach(x => { (byCity[x.city] = byCity[x.city] || []).push(x); });
+    coOffices(co).forEach(x => { (byCity[x.city] = byCity[x.city] || []).push(x); });
     const cities = Object.keys(byCity).sort((a, b) => (a === 'حلب' ? -1 : b === 'حلب' ? 1 : a.localeCompare(b, 'ar')));
     let html = cities.map(c => '<optgroup label="' + escH(c) + '">' + byCity[c].map(x =>
         '<option value="' + escH(x.key) + '"' + (x.key === sel ? ' selected' : '') + '>' + escH(x.city + ' – ' + x.name) +
         (x.phone ? '' : ' (بلا رقم)') + '</option>').join('') + '</optgroup>').join('');
     /* (وثيقة الطلبات §٢) قيمةٌ محفوظةٌ على أوردرٍ قديم لم تعد في دليل المكاتب: نُبقيها خياراً ظاهراً كي لا يُستبدل فرعٌ
        آخر بصمتٍ عند الحفظ (كان المتصفّح يعرض أوّل خيار وكأنه المحفوظ). */
-    if (sel && !muftiOfficeByKey(sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ((window.GMTMuftiBank && GMTMuftiBank.byKey(sel)) ? ' (معطَّل في بنك الفروع)' : ' (غير مُدرَج في الدليل)') + '</option>' + html;
+    if (sel && !coOfficeByKey(co, sel)) html = '<option value="' + escH(sel) + '" selected>' + escH(shipFromLabel(sel)) + ((co === MUFTI_CO && window.GMTMuftiBank && GMTMuftiBank.byKey(sel)) ? ' (معطَّل في بنك الفروع)' : ' (غير مُدرَج في الدليل)') + '</option>' + html;
     return html;
 }
 /* يحفظ الفرع المُرسِل — منفصلٌ عن تحديث الشحن، ولا يرمي أبداً. يُرجع true إن وصل القاعدة.
@@ -5762,27 +5868,35 @@ async function saveShipFromR(id, key) {
 }
 async function saveShipFrom(id, key) { return (await saveShipFromR(id, key)).ok; }
 /* يملأ القائمة: key محدَّد ⇒ مختار · لا key ⇒ خيار «— اختر الفرع المُرسِل —» مختار (لا يختار المتصفّح أوّل فرعٍ وحده) */
-function shipFromFill(sel, key) {
-    sel.innerHTML = (key ? '' : '<option value="" selected>— اختر الفرع المُرسِل —</option>') + shipFromOptionsHTML(key || '');
+function shipFromFill(sel, key, co) {
+    co = co || MUFTI_CO;
+    sel.innerHTML = (key ? '' : '<option value="" selected>— اختر الفرع ' + (co === MUFTI_CO ? 'المُرسِل' : 'المصدر') + ' —</option>') + shipFromOptionsHTML(key || '', co);
     if (!key) sel.value = '';
-    /* (19 ت1 · TASK-0051) منتقي الفروع بالبحث — حقلٌ فوق القائمة (اسم · مدينة · اسم بديل · رقم) */
-    if (window.GMTMuftiBank) { GMTMuftiBank.attachSearch(sel); const q = sel.previousElementSibling; if (q && q.hasAttribute('data-bank-q')) q.value = ''; }
+    sel.setAttribute('data-co', co);
+    /* (19 ت1 · TASK-0051) منتقي الفروع بالبحث — حقلٌ فوق القائمة (اسم · مدينة · اسم بديل · رقم) — يبحث في بنك فروع المفتي فيُخفى لغيرها */
+    if (window.GMTMuftiBank && co === MUFTI_CO) GMTMuftiBank.attachSearch(sel);
+    const q = sel.previousElementSibling;
+    if (q && q.hasAttribute('data-bank-q')) { q.value = ''; q.style.display = co === MUFTI_CO ? '' : 'none'; }
 }
 /* سطرٌ تحت القائمة يقول من أين جاء الفرع — ومعه التنبيهات (افتراضي غير صالح · اكتشافٌ غير مؤكّد) */
 function paintShipFromSrc() {
     const sel = document.getElementById('ship-from'), box = document.getElementById('ship-from-src');
     if (!sel || !box) return;
-    const src = sel.getAttribute('data-src') || '', d = shipFromDefault();
+    const co = sel.getAttribute('data-co') || MUFTI_CO, src = sel.getAttribute('data-src') || '', d = shipFromDefault(co);
     let html = '', cls = 'text-gray-500';
-    if (!sel.value) { html = '⚠️ ' + escH(d.why || 'لم يُحدَّد الفرع') + ' — اختر الفرع المُرسِل قبل اعتماد الشحن.'; cls = 'text-red-600'; }
-    else if (src === 'manual') html = '✋ اختيارك — لا يُستبدَل بالافتراضي ولا بما يُقرأ من الإيصال.';
-    else if (src === 'receipt') html = '🧾 من إيصال الشحن: «' + escH(shipFromLabel(sel.value)) + '» — صحّحه إن لزم.';
-    else if (src === 'saved') html = '📌 المحفوظ على هذا الأوردر.';
-    else if (src === 'default') html = '⚙️ الافتراضي من إعدادات الأوردرات: «' + escH(shipFromLabel(sel.value)) + '» — غيّره فقط إن سلّمتَ الشحنة لمكتبٍ آخر.';
+    /* (TASK-0159) القدموس/مسارات: الفرع المصدر اختياريّ (لا افتراضيّ له) — وهاتف المكتب من بنك الأفرع */
+    const _of = co !== MUFTI_CO && sel.value ? coOfficeByKey(co, sel.value) : null;
+    const tel = _of && _of.phone ? ' ☎ <span dir="ltr">' + escH(_of.phone) + '</span>' : '';
+    if (!sel.value && co !== MUFTI_CO) html = (d.why ? '⚠️ ' + escH(d.why) + ' — ' : '') + 'يُقرأ من إيصال «' + escH(co) + '» ومن بنك أفرعها (مع هاتف المكتب)، أو اختره من القائمة.';
+    else if (!sel.value) { html = '⚠️ ' + escH(d.why || 'لم يُحدَّد الفرع') + ' — اختر الفرع المُرسِل قبل اعتماد الشحن.'; cls = 'text-red-600'; }
+    else if (src === 'manual') html = '✋ اختيارك' + tel + ' — لا يُستبدَل ' + (co === MUFTI_CO ? 'بالافتراضي ولا ' : '') + 'بما يُقرأ من الإيصال.';
+    else if (src === 'receipt') html = '🧾 من إيصال الشحن: «' + escH(shipFromLabel(sel.value)) + '»' + tel + ' — صحّحه إن لزم.';
+    else if (src === 'saved') html = '📌 المحفوظ على هذا الأوردر.' + tel;
+    else if (src === 'default') html = '⚙️ الافتراضي من إعدادات الأوردرات: «' + escH(shipFromLabel(sel.value)) + '»' + tel + ' — غيّره فقط إن سلّمتَ الشحنة لمكتبٍ آخر.';
     const un = sel.getAttribute('data-unsure');
     if (un) {
         let u = {}; try { u = JSON.parse(un) || {}; } catch (_) {}
-        const cands = (u.candidates || []).filter(k => muftiOfficeByKey(k)).slice(0, 4);
+        const cands = (u.candidates || []).filter(k => coOfficeByKey(co, k)).slice(0, 4);
         html += (u.kind === 'conflict'
             ? '<span class="block mt-1 text-amber-700">🧾 ' + escH(u.text || '') + '</span>'
             : '<span class="block mt-1 text-amber-700">⚠️ تعذر التأكد من فرع الشحن المصدر. يرجى اختيار الفرع يدوياً أو إعادة تصوير الإيصال.' +
@@ -5792,6 +5906,7 @@ function paintShipFromSrc() {
             (cands.length ? '<span class="flex flex-wrap gap-1 mt-1">' + cands.map(k => '<button type="button" class="px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 font-black" data-shipfrom-pick="' + escH(k) + '">' + escH(shipFromLabel(k)) + '</button>').join('') + '</span>' : '');
         if (cls !== 'text-red-600') cls = 'text-gray-600';
     }
+    if (co !== MUFTI_CO && html && cls === 'text-red-600') cls = 'text-gray-600';
     box.className = 'text-[10px] font-bold mt-1 ' + cls;
     box.innerHTML = html;
 }
@@ -5799,11 +5914,24 @@ window.syncShipFromBox = function (explicitKey, rebuild) {
     const wrap = document.getElementById('ship-from-wrap'), sel = document.getElementById('ship-from');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!wrap || !sel) return;
-    const show = comp === MUFTI_CO;
+    /* (TASK-0159) يظهر للمفتي (كما كان) وللقدموس/مسارات (فروعهما من بنك الأفرع) — وتغيُّر الشركة يعيد بناء القائمة بفروعها */
+    const show = comp === MUFTI_CO || OTHER_READ_CO.indexOf(comp) !== -1;
     wrap.classList.toggle('hidden', !show);
+    const lab = wrap.querySelector('label[for="ship-from"]');
+    if (lab && show) lab.textContent = comp === MUFTI_CO ? '🏢 الفرع المُرسِل — مكتب المفتي الذي سُلِّمت إليه الشحنة' : '🏢 الفرع المصدر — مكتب «' + comp + '» الذي سُلِّمت إليه الشحنة';
+    if (show && sel.options.length && (sel.getAttribute('data-co') || MUFTI_CO) !== comp && !rebuild) {
+        rebuild = true;
+        const o = (typeof orders !== 'undefined' ? orders : []).find(x => x.id == shipOrderId);
+        if (!explicitKey && o && o.shipping_company === comp) explicitKey = shipFromExplicit(o);   // عودةٌ لشركة الأوردر ⇒ فرعها المحفوظ
+    }
     if (rebuild) { sel.removeAttribute('data-unsure'); sel.removeAttribute('data-src'); }
     if (show && (rebuild || !sel.options.length)) {
-        if (explicitKey) { shipFromFill(sel, explicitKey); sel.setAttribute('data-src', 'saved'); }
+        if (comp !== MUFTI_CO) {
+            const k = explicitKey && coOfficeByKey(comp, explicitKey) ? explicitKey : null;
+            if (k) { shipFromFill(sel, k, comp); sel.setAttribute('data-src', 'saved'); }
+            else { const d = shipFromDefault(comp); shipFromFill(sel, d.key, comp); sel.setAttribute('data-src', d.key ? 'default' : 'none'); }   // (seq 73) الافتراضي حين تتعذّر القراءة
+        }
+        else if (explicitKey) { shipFromFill(sel, explicitKey); sel.setAttribute('data-src', 'saved'); }
         else { const d = shipFromDefault(); shipFromFill(sel, d.key); sel.setAttribute('data-src', d.key ? 'default' : 'none'); }
     }
     paintShipFromSrc();
@@ -5814,14 +5942,16 @@ window.applyDetectedShipFrom = function (det) {
     const sel = document.getElementById('ship-from');
     if (!sel || document.getElementById('ship-from-wrap').classList.contains('hidden')) return 'no-box';
     det = det || {};
+    const co = sel.getAttribute('data-co') || MUFTI_CO;
+    if (det.co && det.co !== co) return 'other-co';                    // (TASK-0159) فرعٌ من بنك شركةٍ غير المعروضة الآن
     /* اختيارك — أو فرعٌ محفوظٌ على الأوردر سابقاً (اختاره أحدٌ قبلك) — لا يُستبدل بما يُقرأ من الإيصال: يُعرض الفرق مع زرٍّ لاعتماده */
     const _src0 = sel.getAttribute('data-src');
     if (_src0 === 'manual' || _src0 === 'saved') {
         if (det.key && det.key !== sel.value) sel.setAttribute('data-unsure', JSON.stringify({ kind: 'conflict', text: 'الإيصال يشير إلى «' + shipFromLabel(det.key) + '» — أُبقي ' + (_src0 === 'saved' ? 'الفرع المحفوظ على الأوردر' : 'اختيارك اليدوي') + ' (اضغط الفرع أدناه لاعتماده)', candidates: [det.key] }));
         paintShipFromSrc(); return 'manual-kept';
     }
-    if (det.key && det.confident && muftiOfficeByKey(det.key)) {
-        shipFromFill(sel, det.key); sel.setAttribute('data-src', 'receipt'); sel.removeAttribute('data-unsure');
+    if (det.key && det.confident && coOfficeByKey(co, det.key)) {
+        shipFromFill(sel, det.key, co); sel.setAttribute('data-src', 'receipt'); sel.removeAttribute('data-unsure');
         paintShipFromSrc(); return 'applied';
     }
     sel.setAttribute('data-unsure', JSON.stringify({ text: det.text || '', candidates: (det.candidates || (det.key ? [det.key] : [])) }));
@@ -5835,14 +5965,14 @@ document.addEventListener('change', (e) => {
 document.addEventListener('click', (e) => {
     const b = e.target && e.target.closest ? e.target.closest('[data-shipfrom-pick]') : null; if (!b) return;
     const sel = document.getElementById('ship-from'); if (!sel) return;
-    shipFromFill(sel, b.getAttribute('data-shipfrom-pick')); sel.setAttribute('data-src', 'manual'); sel.removeAttribute('data-unsure'); paintShipFromSrc();
+    shipFromFill(sel, b.getAttribute('data-shipfrom-pick'), sel.getAttribute('data-co') || MUFTI_CO); sel.setAttribute('data-src', 'manual'); sel.removeAttribute('data-unsure'); paintShipFromSrc();
 });
 
 /* ⚙️ إعدادات الأوردرات — «الفرع الافتراضي لشركة الشحن» (للمخوَّل فقط · يُحفظ في القاعدة لا في الكود) */
 window.openOrdersSettings = async function () {
     if (window.GMTRole && GMTRole.requireAdmin) { if (!(await GMTRole.requireAdmin('تغيير إعدادات الأوردرات'))) return; }
     await loadShipFromSetting();
-    const cur = shipFromSetting, d = shipFromDefault();
+    const cur = shipFromSetting, d = shipFromDefault(), curCo = Object.assign({}, shipFromCoSet);
     const ov = document.createElement('div');
     ov.id = 'orders-settings';
     ov.className = 'fixed inset-0 z-[200] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4';
@@ -5850,6 +5980,9 @@ window.openOrdersSettings = async function () {
         '<h3 class="text-lg font-black mb-1">⚙️ إعدادات الأوردرات</h3>' +
         '<label for="os-ship-from" class="block text-[12px] font-black text-gray-700 mt-3 mb-1">🏢 الفرع الافتراضي لشركة الشحن (المفتي)</label>' +
         '<select id="os-ship-from" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>' +
+        /* (TASK-0159 · seq 73) افتراضيّ القدموس ومسارات */
+        Object.keys(SHIPFROM_CO_KEYS).map((co, i) => '<label for="os-ship-from-' + i + '" class="block text-[12px] font-black text-gray-700 mt-3 mb-1">🏢 الفرع الافتراضي — ' + escH(co) + '</label>' +
+            '<select id="os-ship-from-' + i + '" data-co="' + escH(co) + '" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-700"></select>').join('') +
         '<p class="text-[11px] font-bold text-gray-500 mt-2 leading-relaxed">يُستعمل فقط حين لا تختار الفرع ولا يُقرأ من الإيصال بثقة. يسري على الأوردرات الجديدة فقط — الأوردرات السابقة تبقى على فرعها.</p>' +
         '<button type="button" id="os-bank" data-admin="بنك فروع المفتي" class="w-full mt-3 bg-indigo-50 text-indigo-800 py-2.5 rounded-xl font-black text-sm">🏦 بنك فروع المفتي — الأسماء البديلة · التعطيل · مراجعة التصحيحات</button>' +
         (d.key ? '' : '<p class="text-[11px] font-black text-red-600 mt-2">⚠️ ' + escH(d.why) + '</p>') +
@@ -5859,6 +5992,8 @@ window.openOrdersSettings = async function () {
     document.body.appendChild(ov);
     const sel = ov.querySelector('#os-ship-from');
     shipFromFill(sel, d.key ? cur : '');
+    const coSels = [...ov.querySelectorAll('select[id^="os-ship-from-"]')];
+    coSels.forEach(x => { const co = x.getAttribute('data-co'); shipFromFill(x, shipFromDefault(co).key ? curCo[co] : '', co); });
     const close = () => ov.remove();
     ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
     ov.querySelector('#os-cancel').addEventListener('click', close);
@@ -5866,20 +6001,28 @@ window.openOrdersSettings = async function () {
     ov.querySelector('#os-save').addEventListener('click', async () => {
         const v = sel.value, msg = ov.querySelector('#os-msg'), btn = ov.querySelector('#os-save');
         if (!v || !muftiOfficeByKey(v)) { msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = 'اختر فرعاً من دليل فروع المفتي.'; return; }
+        const coVals = coSels.map(x => ({ co: x.getAttribute('data-co'), v: x.value }));
+        const badCo = coVals.find(x => !x.v || !coOfficeByKey(x.co, x.v));
+        if (badCo) { msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = 'اختر الفرع الافتراضي لـ«' + badCo.co + '» من مكاتبها.'; return; }
         if (btn.disabled) return; btn.disabled = true; btn.textContent = 'لحظة…';
         try {
+            const at = new Date().toISOString(), body = [{ key: SHIPFROM_SET_KEY, value: v, updated_at: at }].concat(coVals.map(x => ({ key: SHIPFROM_CO_KEYS[x.co], value: x.v, updated_at: at })));
             const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?on_conflict=key`, {
                 method: 'POST', headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' },
-                body: JSON.stringify({ key: SHIPFROM_SET_KEY, value: v, updated_at: new Date().toISOString() })
+                body: JSON.stringify(body)
             });
             const rows = r.ok ? await r.json() : null;
-            if (!r.ok || !Array.isArray(rows) || !rows[0] || rows[0].value !== v) throw new Error(r.ok ? 'لم يتأكّد الحفظ في القاعدة' : 'HTTP ' + r.status);
+            if (!r.ok || !Array.isArray(rows) || !body.every(b => rows.some(x => x && x.key === b.key && x.value === b.value))) throw new Error(r.ok ? 'لم يتأكّد الحفظ في القاعدة' : 'HTTP ' + r.status);
             const old = cur;
             shipFromSetting = v; shipFromSettingLoaded = true;
-            try { localStorage.setItem(SHIPFROM_SET_LS, v); } catch (_) {}
-            try { if (window.GMTOpLog && GMTOpLog.log) GMTOpLog.log({ action: 'update', entity: 'gmt_settings', entityName: 'الفرع الافتراضي لشركة الشحن', before: old, after: v }); } catch (_) {}
+            coVals.forEach(x => { shipFromCoSet[x.co] = x.v; });
+            try { localStorage.setItem(SHIPFROM_SET_LS, v); localStorage.setItem(SHIPFROM_CO_LS, JSON.stringify(shipFromCoSet)); } catch (_) {}
+            try { if (window.GMTOpLog && GMTOpLog.log) {
+                if (old !== v) GMTOpLog.log({ action: 'update', entity: 'gmt_settings', entityName: 'الفرع الافتراضي لشركة الشحن', before: old, after: v });
+                coVals.forEach(x => { if (curCo[x.co] !== x.v) GMTOpLog.log({ action: 'update', entity: 'gmt_settings', entityName: 'الفرع الافتراضي — ' + x.co, before: curCo[x.co] || null, after: x.v }); });
+            } } catch (_) {}
             close();
-            showToast('✅ الفرع الافتراضي لشركة الشحن: ' + shipFromLabel(v) + ' — للأوردرات الجديدة', 'ok');
+            showToast('✅ الفرع الافتراضي: المفتي ' + shipFromLabel(v) + coVals.map(x => ' · ' + x.co + ' ' + shipFromLabel(x.v)).join('') + ' — للأوردرات الجديدة', 'ok');
         } catch (e) {
             btn.disabled = false; btn.textContent = 'حفظ';
             msg.className = 'text-[11px] font-black mt-2 text-red-600'; msg.textContent = '❌ لم يُحفظ: ' + (e && e.message || e) + ' — لم يتغيّر شيء.';
@@ -5968,6 +6111,9 @@ function syncSenderFilter() {
 
 /* شارة الفرع المُرسِل + حالة الحوالة على البطاقة (اضغط الحالة لتغييرها) */
 function senderInfoHTML(o) {
+    /* (TASK-0159) القدموس/مسارات: الفرع المصدر المحفوظ (من الإيصال أو اختيارك) — بلا حالة حوالة (تلك لشحنات المفتي) */
+    if (o && OTHER_READ_CO.indexOf(o.shipping_company) !== -1 && SHIPPED_OR_LATER.indexOf(o.status) !== -1 && shipFromExplicit(o))
+        return `<div class="flex items-center gap-1.5 flex-wrap" data-sender-info><span>🏢 المصدر: <span class="font-black text-gray-700">${escH(shipFromLabel(shipFromExplicit(o)))}</span></span></div>`;
     if (!hasSenderInfo(o)) return '';
     const st = transferStateOf(o);
     const cls = st === 'received' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
@@ -9162,7 +9308,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025e"></script>
+<script src="gmt-whatsnew.js?v=20261025f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
