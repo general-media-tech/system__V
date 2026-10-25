@@ -1338,23 +1338,15 @@ async function tgRememberMsg(orderId, res) {
     }
 }
 
-async function tgDeleteOldMsg(orderId) {
-    /* (17 ت1 · اختراق البوت) الوسيط لا يحذف رسائل إطلاقاً: بلا تسجيل دخولٍ حقيقي لا يمكنه التمييز بين موظّفنا وغريبٍ يملك
-       مفتاح القاعدة العامّ — وكان الحذف يُستغلّ لمحو سجلّ القنوات. رسالة «التعديل» الجديدة تُرسَل كالعادة وتبقى القديمة. */
-    return false;
-    const o = orders.find(x => x.id == orderId);
-    const mid = o?.tg_msg_id;
-    if (!mid) return false;
-    try {
-        const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/deleteMessage`, {
-            method : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, message_id: mid }),
-        });
-        if (!r.ok) { console.warn('[tg] تعذّر حذف الرسالة القديمة (قد تكون أقدم من 48 ساعة).'); return false; }
-        o.tg_msg_id = null;
-        return true;
-    } catch (e) { console.warn('[tg] deleteMessage:', e.message); return false; }
+/* (25 ت1 · TASK-0171 · المالك seq 85/86 «أعِد الحذف بأمان») الحذف المباشر من الصفحة أُلغي نهائياً (17 ت1 — كان يُستغلّ لمحو القنوات).
+   البديل «الاستبدال» في الوسيط (replacePhoto): يُرسل المعدَّلة ثمّ يحذف القديمة فقط إن كان هو من أرسلها لهذا الأوردر خلال ٤٧ ساعة
+   (سجلٌّ في الخادم: gmt_tg_ledger · نصّ المحذوفة يبقى فيه). لذلك كل رسالة أوردر تحمل معرّفه (gmt_order). */
+function tgReplaceWhy(why) {
+    if (!why) return '';
+    if (why === 'too-old') return 'الرسالة السابقة أقدم من 48 ساعة — تيليغرام لا يسمح بحذفها';
+    if (why === 'not-recorded') return 'الرسالة السابقة أُرسلت قبل تحديث الحذف الآمن فلا يحذفها النظام';
+    if (why === 'already-deleted') return 'الرسالة السابقة حُذفت من قبل';
+    return 'تعذّر حذف الرسالة السابقة (' + String(why).slice(0, 80) + ')';
 }
 
 async function sbUpdate(id, data) {
@@ -3436,11 +3428,11 @@ document.getElementById('formEdit').onsubmit = async (e) => {
             try {
                 const o = orders.find(x => x.id == id);
                 if (!o) return;
-                const wiped = await tgDeleteOldMsg(id);
                 /* الصورة تبقى هنا: هذا الإشعار **يستبدل** صورة الطلب القديمة بالمحدَّثة
-                   (المالك استثنى «تم التحصيل» و«تم الاستلام» فقط). */
-                await sendFullOrderNotification(o, wiped ? '✏️ تعديل طلب — استُبدلت الرسالة السابقة'
-                                                        : '✏️ تعديل طلب — تعذّر حذف الرسالة السابقة، اعتمد هذه', true);
+                   (المالك استثنى «تم التحصيل» و«تم الاستلام» فقط). (TASK-0171) الاستبدال في الوسيط: تُرسل هذه ثمّ تُحذف القديمة. */
+                const _old = o.tg_msg_id;
+                const _r = await sendFullOrderNotification(o, '✏️ تعديل طلب — هذه النسخة المعتمدة', true, { replace: _old });
+                if (_old && _r && _r.ok && !_r.replaced) showToast('✏️ أُرسلت النسخة المعدَّلة لتيليغرام — ' + tgReplaceWhy(_r.why) + '، فبقيت القديمة.', 'inf');
             } catch (e) { console.warn('[tg] إشعار التعديل:', e.message); }
         })();
     } catch(err) {
@@ -4818,8 +4810,9 @@ function showToast(msg, type='inf') {
    «إشعار تم التحصيل ما في داعي يبعث معه صورة · إشعار تم استلام المنتج ما في داعي
     يبعث معه صورة — بتنبعت فقط مع طلب جديد».
    withPhoto=true يبقى متاحاً لمن يحتاجه مستقبلاً بلا تغيير النداءات القائمة. */
-async function sendFullOrderNotification(o, eventLabel, withPhoto) {
-    if (!o) return;
+async function sendFullOrderNotification(o, eventLabel, withPhoto, opts) {
+    if (!o) return null;
+    opts = opts || {};
     try {
         const items      = parseItemsFromOrder(o);
         const grandTotal = Number(o.price) || 0;
@@ -4848,10 +4841,10 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto) {
             const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
                 method : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body   : JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: caption, parse_mode: 'Markdown' })
+                body   : JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: caption, parse_mode: 'Markdown', gmt_order: String(o.id) })
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            return;
+            return { ok: true };
         }
         const blob = await buildInvoiceImage(o, items, grandTotal);
         const fd   = new FormData();
@@ -4859,12 +4852,19 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto) {
         fd.append('photo',      blob, `order_event_${o.id}.jpg`);
         fd.append('caption',    caption);
         fd.append('parse_mode', 'Markdown');
-        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method:'POST', body:fd });
+        fd.append('gmt_order',  String(o.id));
+        /* (TASK-0171) تعديل ⇒ «استبدال»: الوسيط يرسل هذه ثمّ يحذف القديمة إن سجّلها هو لهذا الأوردر وكانت حديثة */
+        const rid = opts.replace != null && /^\d{1,15}$/.test(String(opts.replace)) ? String(opts.replace) : '';
+        if (rid) fd.append('replace_id', rid);
+        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${rid ? 'replacePhoto' : 'sendPhoto'}`, { method:'POST', body:fd });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        await tgRememberMsg(o.id, res);   /* 2026-07-12: نحفظ معرّف الرسالة لنحذفها عند التعديل */
+        let j = {}; try { j = await res.clone().json(); } catch (_) {}
+        await tgRememberMsg(o.id, res);   /* معرّف الرسالة الجديدة ⇐ تُستبدل هي في التعديل التالي */
+        return { ok: true, replaced: !!j.replaced, why: j.why || '' };
     } catch(e) {
         // fallback نصي
         sendTelegram(`${eventLabel}\nالزبون: ${o.name}\nالإجمالي: $${Number(o.price||0).toLocaleString()}${o.invoice_number ? '\nالفاتورة: #' + o.invoice_number : ''}`);
+        return null;
     }
 }
 
@@ -5209,6 +5209,7 @@ async function sendNewOrderNotification(o, items, grandTotal) {
         fd.append('photo', invoiceBlob, `invoice_${o.id}.png`);
         fd.append('caption', caption);
         fd.append('parse_mode', 'Markdown');
+        fd.append('gmt_order', String(o.id));   /* (TASK-0171) يسجّلها الوسيط لهذا الأوردر ⇒ تُستبدل عند تعديله */
 
         const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
             method: 'POST', body: fd
@@ -9332,7 +9333,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025l"></script>
+<script src="gmt-whatsnew.js?v=20261025m"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
