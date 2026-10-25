@@ -2,7 +2,8 @@
 // ⇒ فوراً يسألني: إنت كنت محدّدها المفتي وهاي الوجهة، والإيصال للقدموس أو مسارات — فتأكّد من الإيصال».
 // ١) الأوردر على «المفتي» (محفوظة عند الإنشاء) + إيصال مسارات ⇒ سؤال · «اعتمد مسارات» ⇒ الشركة مسارات ورقمها وفرعها
 // ٢) الأوردر على «مسارات» + إيصال القدموس ⇒ سؤال · «أبقِ مسارات» ⇒ تبقى ولا يُملأ رقم القدموس
-// ٣) أوردرٌ بلا شركة (الافتراضي المفتي) + إيصال مسارات ⇒ بلا سؤال: الإيصال يحسمها (كما كان — TASK-0157)
+// ٣) أوردرٌ بلا شركة (الافتراضي المفتي) + إيصال مسارات ⇒ سؤالٌ أيضاً (TASK-0174 · seq 91 «دائماً يقول لي إنت محدّد … نكمل ولا نغيّر») ⇒ «غيّر» ⇒ مسارات
+// (TASK-0174) السؤال يعرض صورة الإيصال واسم «المرسل إليه» المقروء مقابل زبون الأوردر
 const H = require('./h.js'), fs = require('fs');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const OUT = '/tmp/gmt-out'; try { fs.mkdirSync(OUT, { recursive: true }); } catch (_) {}
@@ -25,7 +26,9 @@ async function scanAndWait(pg, f) {
   await pg.waitForFunction(() => [...document.querySelectorAll('#gds .gds-bar button')].some(b => /اعتماد/.test(b.textContent)), null, { timeout: 15000 });
   await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /اعتماد/.test(b.textContent)).click());
 }
-const dialog = pg => pg.waitForSelector('.gmtask-ov', { timeout: 90000 }).then(() => pg.evaluate(() => { const o = document.querySelector('.gmtask-ov'); return { text: o.innerText.replace(/\s+/g, ' '), btns: [...o.querySelectorAll('button')].map(b => b.textContent.trim()) }; })).catch(() => null);
+const dialog = pg => pg.waitForSelector('.gmtask-ov', { timeout: 90000 }).then(() => pg.evaluate(() => { const o = document.querySelector('.gmtask-ov'), im = o.querySelector('img[data-gmtask-img]');
+  return { text: o.innerText.replace(/\s+/g, ' '), btns: [...o.querySelectorAll('button')].map(b => b.textContent.trim()), img: !!(im && im.complete && im.naturalWidth > 100) }; })).catch(() => null);
+const nameOf = pg => pg.waitForFunction(() => { const o = document.querySelector('.gmtask-ov'); const t = o ? o.innerText.replace(/\s+/g, ' ') : ''; return !/جارٍ قراءته/.test(t) && t; }, null, { timeout: 30000 }).then(h => h.jsonValue()).catch(() => '');
 const press = (pg, re) => pg.evaluate(src => { const b = [...document.querySelectorAll('.gmtask-ov button')].find(x => new RegExp(src).test(x.textContent)); if (b) b.click(); return !!b; }, re.source);
 (async () => {
   await H.seed();
@@ -47,34 +50,45 @@ const press = (pg, re) => pg.evaluate(src => { const b = [...document.querySelec
     const t0 = Date.now();
     await scanAndWait(pg, fm);
     let d = await dialog(pg);
-    ok(d && /محدَّد لشركة «المفتي»/.test(d.text) && /مسارات/.test(d.text) && /المزة/.test(d.text) && /تأكّد من الإيصال/.test(d.text),
+    ok(d && /إنت محدّد شركة «المفتي»/.test(d.text) && /مسارات/.test(d.text) && /المزة/.test(d.text) && /نكمل مع «المفتي» ولا نغيّر شركة الشحن/.test(d.text),
       W + ': «المفتي» من الإنشاء + إيصال مسارات ⇒ سؤالٌ فيه الشركة والوجهة (' + Math.round((Date.now() - t0) / 1000) + 'ث): ' + (d ? d.text.slice(0, 120) : 'لا سؤال'));
+    ok(d && d.img, W + ': السؤال يعرض صورة الإيصال');
+    // الاسم يُقرأ والسؤال ظاهر (لا يؤخّره) ⇒ يُنتظر حتى يُكتب فيه
+    // (صفّ «المرسل إليه» في إيصال مسارات المصطنع لا يُقرأ — في إيصالات مسارات الحقيقيّة يُقرأ؛ الاسم نفسه يُفحص على إيصال القدموس في ٢)
+    const nm = await nameOf(pg);
+    ok(/جارٍ قراءته/.test(d ? d.text : '') && /زبون الأوردر: «أوردر المفتي/.test(nm) && /الاسم المكتوب على الإيصال \(كما قُرئ\): («[^»]+»|لم يُقرأ — انظر الصورة)/.test(nm),
+      W + ': سطر الاسم المكتوب على الإيصال مقابل زبون الأوردر (يُقرأ والسؤال ظاهر): ' + ((String(nm).match(/الاسم المكتوب[^.]*/) || [''])[0]));
+    ok(d && d.btns.some(b => /غيّر إلى «مسارات»/.test(b)) && d.btns.some(b => /نكمل مع «المفتي»/.test(b)), W + ': الخياران «غيّر إلى مسارات» · «نكمل مع المفتي»: ' + (d ? d.btns.join(' | ') : ''));
     if (W === 390) await pg.screenshot({ path: OUT + '/receipt_mismatch_' + W + '.png' });
-    await press(pg, /اعتمد/);
+    await press(pg, /غيّر إلى/);
     await pg.waitForFunction(() => document.getElementById('ship-company').value === 'مسارات' && !!document.getElementById('ship-tracking').value, null, { timeout: 15000 }).catch(() => {});
     let r = await pg.evaluate(() => ({ co: document.getElementById('ship-company').value, t: document.getElementById('ship-tracking').value, from: document.getElementById('ship-from').value }));
-    ok(r.co === 'مسارات' && r.t === '4100123' && r.from === 'حلب|السليمانية', W + ': «اعتمد مسارات» ⇒ الشركة مسارات ورقمها وفرعها: ' + JSON.stringify(r));
+    ok(r.co === 'مسارات' && r.t === '4100123' && r.from === 'حلب|السليمانية', W + ': «غيّر إلى مسارات» ⇒ الشركة مسارات ورقمها وفرعها: ' + JSON.stringify(r));
     await pg.evaluate(() => closeModal('shipModal')); await pg.waitForTimeout(400);
 
     // ٢) «مسارات» محفوظة + إيصال القدموس ⇒ سؤال ⇒ «أبقِ مسارات»
     await pg.evaluate(id => openShipModal(id), oS.id); await pg.waitForTimeout(500);
     await scanAndWait(pg, fq);
     d = await dialog(pg);
-    ok(d && /محدَّد لشركة «مسارات»/.test(d.text) && /القدموس/.test(d.text), W + ': «مسارات» + إيصال القدموس ⇒ سؤال: ' + (d ? d.text.slice(0, 100) : 'لا سؤال'));
-    await press(pg, /أبقِ/);
+    ok(d && /إنت محدّد شركة «مسارات»/.test(d.text) && /القدموس/.test(d.text) && d.img, W + ': «مسارات» + إيصال القدموس ⇒ سؤالٌ بالصورة: ' + (d ? d.text.slice(0, 100) : 'لا سؤال'));
+    const nm2 = await nameOf(pg);
+    ok(/الاسم المكتوب على الإيصال \(كما قُرئ\): «سامر خليل» — زبون الأوردر: «أوردر مسارات/.test(nm2), W + ': «المرسل إليه» مقروءٌ من الإيصال («سامر خليل») مقابل زبون الأوردر: ' + ((String(nm2).match(/الاسم المكتوب[^.]*/) || [''])[0]));
+    await press(pg, /نكمل مع/);
     await pg.waitForFunction(() => !_shipReading, null, { timeout: 60000 }).catch(() => {});
     await pg.waitForTimeout(4000);
     r = await pg.evaluate(() => ({ co: document.getElementById('ship-company').value, t: document.getElementById('ship-tracking').value }));
-    ok(r.co === 'مسارات' && r.t !== '2641B100234', W + ': «أبقِ مسارات» ⇒ تبقى ولا يُملأ رقم القدموس: ' + JSON.stringify(r));
+    ok(r.co === 'مسارات' && r.t !== '2641B100234', W + ': «نكمل مع مسارات» ⇒ تبقى ولا يُملأ رقم القدموس: ' + JSON.stringify(r));
     await pg.evaluate(() => closeModal('shipModal')); await pg.waitForTimeout(400);
 
-    // ٣) بلا شركة (الافتراضي المفتي) + إيصال مسارات ⇒ بلا سؤال: الإيصال يحسمها
+    // ٣) بلا شركة (الافتراضي المفتي) + إيصال مسارات ⇒ سؤالٌ أيضاً ⇒ «غيّر» ⇒ مسارات ورقمها
     await pg.evaluate(id => openShipModal(id), oN.id); await pg.waitForTimeout(500);
     await scanAndWait(pg, fm);
-    await pg.waitForFunction(() => !_shipReading && _shipRead, null, { timeout: 90000 }).catch(() => {});
-    await pg.waitForTimeout(800);
-    r = await pg.evaluate(() => ({ co: document.getElementById('ship-company').value, ask: !!document.querySelector('.gmtask-ov'), t: document.getElementById('ship-tracking').value }));
-    ok(r.co === 'مسارات' && !r.ask && r.t === '4100123', W + ': بلا شركةٍ محدَّدة ⇒ لا سؤال والإيصال يحسمها: ' + JSON.stringify(r));
+    d = await dialog(pg);
+    ok(d && /إنت محدّد شركة «المفتي»/.test(d.text) && /مسارات/.test(d.text) && d.img, W + ': الافتراضي «المفتي» + إيصال مسارات ⇒ سؤالٌ بالصورة: ' + (d ? d.text.slice(0, 90) : 'لا سؤال'));
+    await press(pg, /غيّر إلى/);
+    await pg.waitForFunction(() => document.getElementById('ship-company').value === 'مسارات' && !!document.getElementById('ship-tracking').value, null, { timeout: 15000 }).catch(() => {});
+    r = await pg.evaluate(() => ({ co: document.getElementById('ship-company').value, t: document.getElementById('ship-tracking').value }));
+    ok(r.co === 'مسارات' && r.t === '4100123', W + ': «غيّر» ⇒ مسارات ورقمها: ' + JSON.stringify(r));
     await pg.evaluate(() => closeModal('shipModal'));
 
     const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource|Estimating resolution/.test(e));

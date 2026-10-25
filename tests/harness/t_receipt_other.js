@@ -67,7 +67,8 @@ async function makeImg(pg, kind, o, ph) {
       }, fs.readFileSync(files.q).toString('base64'));
       ok(ho.other && ho.other.company === 'القدموس' && ho.ms < ho.fullMs, 'قارئ المفتي يكتشف إيصال القدموس (' + (ho.other && ho.other.by) + ') ويتوقّف: ' + ho.ms + 'ms مقابل ' + ho.fullMs + 'ms لو أكمل');
     }
-    // ٣) نافذة الشحن — الشركة الافتراضية «المفتي» ⇒ إيصال القدموس يحسمها ويُقرأ رقمه وفرعه
+    // ٣) نافذة الشحن — الشركة الافتراضية «المفتي» ⇒ إيصال القدموس ⇒ سؤال (TASK-0174 · seq 91 «دائماً يقول لي إنت محدّد … نكمل ولا نغيّر»)
+    //    ⇒ «غيّر» ⇒ تصير شركة الإيصال ويُقرأ رقمه وفرعه
     for (const [o, f, co, num, key, tel] of [[o1, files.q, 'القدموس', '2641B100234', 'حلب|الفرقان', '0944676555'], [o2, files.m, 'مسارات', '4100123', 'حلب|السليمانية', '0989555807']]) {
       await pg.evaluate(id => openShipModal(id), o.id); await pg.waitForTimeout(500);
       const c0 = await pg.evaluate(() => document.getElementById('ship-company').value);
@@ -77,13 +78,18 @@ async function makeImg(pg, kind, o, ph) {
       await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /قصّ وتحسين/.test(b.textContent)).click());
       await pg.waitForFunction(() => [...document.querySelectorAll('#gds .gds-bar button')].some(b => /اعتماد/.test(b.textContent)), null, { timeout: 15000 });
       await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /اعتماد/.test(b.textContent)).click());
+      /* سؤال الشركة بالذات (نافذة «تبليغ الزبون» من حفظ الأوردر السابق قد تبقى مفتوحة) */
+      const askOv = () => [...document.querySelectorAll('.gmtask-ov')].find(x => /إنت محدّد شركة/.test(x.innerText));
+      await pg.waitForFunction(src => !!(new Function('return (' + src + ')()'))(), askOv.toString(), { timeout: 90000 }).catch(() => {});
+      const asked = await pg.evaluate(src => { const o = (new Function('return (' + src + ')()'))(); if (!o) return ''; const t = o.innerText.replace(/\s+/g, ' ');
+        const b = [...o.querySelectorAll('button')].find(x => /غيّر إلى/.test(x.textContent)); if (b) b.click(); return t; }, askOv.toString());
       await pg.waitForFunction(() => !_shipReading && _shipRead, null, { timeout: 90000 }).catch(() => {});
       const r = await pg.evaluate(() => ({ co: document.getElementById('ship-company').value, track: document.getElementById('ship-tracking').value, from: document.getElementById('ship-from').value,
         src: document.getElementById('ship-from').getAttribute('data-src'), wrap: !document.getElementById('ship-from-wrap').classList.contains('hidden'),
         lab: (document.querySelector('#ship-from-wrap label') || {}).textContent || '', note: document.getElementById('ship-from-src').innerText.replace(/\s+/g, ' '),
         status: document.getElementById('ship-track-auto').innerText.replace(/\s+/g, ' '), search: (() => { const q = document.querySelector('[data-bank-q="ship-from"]'); return q ? q.style.display : 'none'; })(),
         opts: [...document.getElementById('ship-from').options].map(x => x.value).filter(Boolean).length }));
-      ok(c0 === 'المفتي' && r.co === co && new RegExp('هذا إيصال «' + co + '»').test(r.status), W + ': الشركة الافتراضية «المفتي» ⇒ الإيصال حسمها «' + r.co + '» · ' + r.status.slice(0, 90));
+      ok(c0 === 'المفتي' && /إنت محدّد شركة «المفتي»/.test(asked) && asked.includes('«' + co + '»') && r.co === co, W + ': الشركة الافتراضية «المفتي» + إيصال «' + co + '» ⇒ سؤال ثمّ «غيّر» ⇒ «' + r.co + '» · ' + asked.slice(0, 80));
       /* (TASK-0165) رقمٌ مطبوع بلا باركودٍ مقروءٍ سريعاً ⇒ يُعرض للضغط (كإيصالات القدموس الحقيقيّة q1–q8) — الضغطة كما يفعلها الموظّف */
       if (!r.track) r.track = await pg.evaluate(n => { const b = [...document.querySelectorAll('#ship-track-auto button')].find(x => x.textContent.trim() === n); if (b) b.click(); return document.getElementById('ship-tracking').value; }, num);
       ok(r.track === num, W + ': رقم التتبّع مُلئ (تلقائياً بتطابق الباركود، أو بضغطةٍ على المطبوع المقروء) ' + r.track);

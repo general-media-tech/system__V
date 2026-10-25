@@ -787,6 +787,27 @@
     return { key: confident ? top.key : null, confident: confident, candidates: cands, text: seg, best: top ? { key: top.key, score: +top.score.toFixed(2) } : null };
   }
 
+  /* (TASK-0174 · المالك seq 90: أوردر «المفتي» وإيصال مسارات «المصدر: حلب - باب الفرج» ⇒ طابقه قارئ المفتي «حلب – الباب» فصار الإيصال
+     «للمفتي» وعُبّئ رقمه وفرعه) — سطر «المصدر» يُطابَق أيضاً ببنكَي القدموس ومسارات: يطابق مكتباً لهما **باسمه كاملاً** ومكتبُ المفتي
+     المطابق جزءٌ منه فقط («الباب» ⊂ «باب الفرج») أو لا يطابق ⇒ الإيصال لتلك الشركة (لا يُنسب للمفتي). اسمٌ مشترك بالكامل ⇒ لا حكم. */
+  function bankOther(seg, m) {
+    var t = String(seg || '').replace(/\s*[-–—]\s*/g, ' - ').replace(/\s+/g, ' ').trim(); if (!t) return null;
+    var city = '', office = '';
+    if (/ - /.test(t)) { city = t.split(' - ')[0].trim(); office = t.split(' - ').slice(1).join(' ').trim(); }
+    else { var w = t.split(' '); city = w[0] || ''; office = w.slice(1).join(' '); }
+    var words = function (x) { return noAl(skel(String(x || '').replace(/[0-9٠-٩]+/g, ' '))).split(/\s+/).filter(function (z) { return z.length >= 2; }); };
+    var mw = m && m.confident && m.key ? words(m.key.split('|')[1]) : [];
+    var cos = ['مسارات', 'القدموس'];
+    for (var i = 0; i < cos.length; i++) {
+      var mo = matchOther(cos[i], { city: city, office: office, text: t });
+      if (!mo.confident) continue;
+      var ow = words(mo.office);
+      var subset = mw.length && mw.length < ow.length && mw.every(function (x) { return ow.indexOf(x) !== -1; });
+      if (!mw.length || subset) return { company: cos[i], key: mo.key };
+    }
+    return null;
+  }
+
   var CELL = [0.38, 0.36, 1, 0.72], BAND = [0, 0.25, 1, 0.8];   // خانة «المصدر» · شريط الوسط (نِسَب من الإيصال القائم)
   var MARK_TOP = [0, 0, 1, 0.38], MARK_FOOT = [0, 0.74, 1, 1];   // اسم الشركة/شعارها · تذييل هواتف مكاتبها
   /* صورةٌ للتعرّف العربي: أقصى القنوات (أقلام التعليم الملوّنة تصير فاتحة والحبر يبقى غامقاً) + تكبيرٌ حتى ٢× */
@@ -1017,6 +1038,8 @@
             var qres = await araQ.recognize(toPGM(araCanvas(Lq.im, qRots[qi], null, false)));
             var qt = (qres && qres.data && qres.data.text) || '', qsc = structScore(qt), qsg = sourceSegment(qt), qm = qsg ? matchBranch(qsg.seg) : null;
             if (!out.other) { var qo = otherOf(qt); if (qo) out.other = { company: qo, rot: qRots[qi], by: 'text' }; }
+            var qb = qsg ? bankOther(qsg.seg, qm) : null;       // (TASK-0174) «المصدر» مكتبٌ لمسارات/القدموس لا للمفتي
+            if (qb) { if (!out.other) out.other = { company: qb.company, rot: qRots[qi], by: 'bank' }; if (qm) qm = Object.assign({}, qm, { key: null, confident: false }); }
             var qa = { rot: qRots[qi], txt: qt, sc: qsc, src: qsg, m: qm, rank: (qm && qm.confident ? 1000 : 0) + (qsg ? 100 : 0) + qsc, tag: 'as-is', box: null, dn: false };
             if (opts.trace) opts.trace.push({ rot: qa.rot, struct: qsc, src: !!qsg, conf: !!(qm && qm.confident), mode: 'as-is-first' });
             if (!asIsBest || qa.rank > asIsBest.rank) asIsBest = qa;
@@ -1061,6 +1084,8 @@
           return ara.recognize(toPGM(acv)).then(function (res) {
             var txt = (res && res.data && res.data.text) || '', sc = structScore(txt), sg = sourceSegment(txt), m = sg ? matchBranch(sg.seg) : null;
             if (!out.other) { var oc = otherOf(txt); if (oc) out.other = { company: oc, rot: rot, by: 'text' }; }      // (TASK-0159)
+            var ob = sg ? bankOther(sg.seg, m) : null;            // (TASK-0174)
+            if (ob) { if (!out.other) out.other = { company: ob.company, rot: rot, by: 'bank' }; if (m) m = Object.assign({}, m, { key: null, confident: false }); }
             var a = { rot: rot, txt: txt, sc: sc, src: sg, m: m, rank: (m && m.confident ? 1000 : 0) + (sg ? 100 : 0) + sc, tag: tag, box: box || null, dn: useDn };
             if (opts.trace) opts.trace.push({ rot: rot, struct: sc, src: !!sg, conf: !!(m && m.confident), mode: tag + (box ? '/' + (box === CELL ? 'cell' : box === BAND ? 'band' : 'mark') : '') + (dn ? '/dn' : '') });
             return a;
@@ -1216,9 +1241,13 @@
       if (src) out.branch.line = src.line;
       /* سطر «المصدر» مطابقٌ بثقة لفرعٍ من فروع المفتي = بنية إيصال المفتي (والموظف اختار «المفتي» قبل القراءة) */
       out.foreign = out.type.kind !== 'mufti' && otherCompany(out.text, out.footText);    // دليل شركةٍ أخرى (اسمها أو تذييلٌ بهواتف غير هواتف المفتي)
+      /* (TASK-0174) «المصدر» مكتبٌ لمسارات/القدموس (لا للمفتي) ⇒ ليس إيصال المفتي ولا يُؤخذ فرعه من بنك المفتي */
+      var bo = (src && out.type.kind !== 'mufti') ? bankOther(src.seg, out.branch) : null;
+      if (bo) { out.foreign = true; out.branch.confident = false; out.branch.key = null; if (!out.other) out.other = { company: bo.company, rot: out.rot != null ? out.rot : null, by: 'bank' }; }
       if (out.type.kind !== 'mufti' && out.branch.confident && !out.foreign) out.type = { kind: 'mufti', why: 'سطر «المصدر» بفرعٍ من فروع المفتي', struct: out.type.struct };
       if (out.type.kind !== 'mufti') { out.branch.confident = false; out.branch.key = null; }
       out.company = out.type.kind === 'mufti' ? 'المفتي' : companyOf(out.text + '\n' + (out.engText || '') + '\n' + (out.footText || ''));   // (TASK-0157)
+      if (bo && !OTHER_CO[out.company]) out.company = bo.company;                                                         // (TASK-0174) مكتب «المصدر» من بنكها
     } finally { if (Lp) Lp.then(function (x) { try { URL.revokeObjectURL(x.url); } catch (_) {} }, function () {}); }
     out.ms = Date.now() - t0;
     return out;
@@ -1260,6 +1289,30 @@
     if (n['القدموس'] >= 2 && !n['مسارات']) return 'القدموس';
     if (n['مسارات'] >= 2 && !n['القدموس']) return 'مسارات';
     return null;
+  }
+  /* (TASK-0174 · المالك seq 91 «ويعرض لي الإيصال مع الاسم المكتوب … ممكن إيصال لغير أوردر») اسم «المرسل إليه» كما قُرئ — للعرض فقط
+     (يقارنه الموظّف باسم زبون الأوردر)؛ لا يُحفظ ولا يُبنى عليه شيء */
+  function receiverOf(text) {
+    var lines = String(text || '').split(/\n+/);
+    for (var i = 0; i < lines.length; i++) {
+      var ws = lines[i].split(/\s+/).filter(Boolean), at = -1;
+      for (var j = 0; j < ws.length - 1; j++) {
+        var a = skel(bareW(ws[j])), b = skel(bareW(ws[j + 1]));
+        if (sim(noAl(a), skel('مرسل')) >= 0.75 && (sim(b.replace(/^[اا]/, ''), skel('ليه')) >= 0.66 || /^[الإا]?لٮه:?$/.test(b))) { at = j + 2; break; }
+      }
+      if (at < 0) continue;
+      var out = [];
+      for (var k = at; k < ws.length && out.length < 4; k++) {
+        var w = bareW(ws[k]); if (!w || /^[-–—:|]+$/.test(w)) continue;
+        if (/[0-9٠-٩]/.test(w)) break;
+        var sw = skel(w);
+        if (['هاٮڡ', 'الهاٮڡ', 'الموٮاٮل', 'الوحهه', 'المصدر', 'الٮارٮح'].some(function (x) { return sim(sw, x) >= 0.75; })) break;
+        if (/[؀-ۿ]/.test(w) && !/^(.)\1+$/.test(w)) out.push(w);       // «ووو» ضجيج
+      }
+      while (out.length > 1 && out[out.length - 1].length <= 2) out.pop();   // ذيلٌ من حرفين («تب») ضجيج القراءة
+      if (out.length) return out.join(' ');
+    }
+    return '';
   }
   function sharedOf(text) { var s = skel(text); return SHARED_MARKS.filter(function (k) { return s.indexOf(k) !== -1; }).length; }
   /* رقم إشعار القدموس من نصّ (رمزٍ أو قراءة): 26 + محرفان · حرف · ستّة أرقام (القارئ قد يُسقط «2» الأولى أو يقرأ O/I/S/B بدل أرقام) */
@@ -1520,6 +1573,27 @@
     return out;
   }
 
+  /* (TASK-0174 · المالك seq 91 «ويعرض لي الإيصال مع الاسم المكتوب») «المرسل إليه» — يُقرأ بعد ظهور سؤال الشركة (لا يؤخّره): الصفحة في
+     اتّجاه قراءتها ثمّ نصفاها وشريط الجدول مكبَّرة حتى يُوجد الاسم */
+  async function readReceiver(file, opts) {
+    opts = opts || {};
+    var cancelled = function () { return !!(opts.cancel && opts.cancel()); }, L = await loadImage(file);
+    try {
+      var ara = await getARA(), cv = canvasOf(L.im, opts.rot || 0, 2000);
+      /* خطوط الجدول تُسقط صفوفه من قراءة النصّ ⇒ كل قصّةٍ بلا خطوطها أوّلاً (unrule) ثمّ كما هي */
+      var tries = [null, [0.5, 0, 0.5, 1], [0, 0, 0.5, 1], [0, 0.12, 1, 0.5]];
+      for (var i = 0; i < tries.length && !cancelled(); i++) {
+        var c = tries[i] ? subCanvas(cv, tries[i], 1400) : cv, vars = [araFinish(c, 1, true), c];
+        for (var v = 0; v < vars.length && !cancelled(); v++) {
+          var res = await ara.recognize(vars[v].pgm || toPGM(vars[v])), txt = (res && res.data && res.data.text) || '', name = receiverOf(txt);
+          if (opts.trace) opts.trace.push(i + '/' + v + ': ' + txt);
+          if (name) return name;
+        }
+      }
+      return '';
+    } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
+  }
+
   /* (TASK-0122) تحميل القارئ مسبقاً — يُستدعى حين تفتح نافذة الشحن للمفتي أو تختار صورة: المكتبة والنموذج يُحمَّلان
      أثناء شاشة الماسح بدل أن يبدأ تحميلهما بعد ضغطة «تمّ». لا يقرأ شيئاً ولا يُفشل شيئاً. */
   function warm() {
@@ -1530,5 +1604,5 @@
     try { getARA().catch(function () {}); } catch (_) {}
   }
 
-  global.GMTReceipt = { warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _otherOf: otherOf, readOther: readOther, _qadNumber: qadNumber, _masFromQR: masFromQR, _matchOther: matchOther, _otherSource: otherSource, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  global.GMTReceipt = { _bankOther: bankOther, _receiverOf: receiverOf, readReceiver: readReceiver, warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _otherOf: otherOf, readOther: readOther, _qadNumber: qadNumber, _masFromQR: masFromQR, _matchOther: matchOther, _otherSource: otherSource, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(typeof window !== 'undefined' ? window : self);

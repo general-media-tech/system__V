@@ -97,19 +97,23 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     }, { id, res, pickCo, answer });
     const MUF = { tracking: { status: 'barcode', number: '778899' }, barcode: { number: '778899' }, type: { kind: 'mufti', why: 'اسم الشركة' }, branch: { key: 'K', confident: true, candidates: [], text: 'المصدر' }, company: 'المفتي' };
     const QAD = { tracking: { status: 'barcode', number: '5555' }, barcode: { number: '5555' }, type: { kind: 'unsure', why: 'بلا علامة' }, branch: { key: null, confident: false, candidates: [] }, company: 'القدموس', foreign: true };
-    let R = await rcpt(oQ.id, MUF, null, 'اعتمد');
-    ok(/محدَّد لشركة «القدموس»/.test(R.asked) && /«المفتي»/.test(R.asked) && R.calls === 1 && R.co === 'المفتي' && R.track === '778899' && R.fromShown && R.from === R.key && R.src === 'receipt',
-      'أوردر محفوظ «القدموس» + إيصال المفتي ⇒ سؤال (seq 78) ثمّ «اعتمد المفتي» ⇒ يُملأ الرقم والفرع: ' + JSON.stringify({ co: R.co, t: R.track, src: R.src, asked: R.asked.slice(0, 60) }));
-    R = await rcpt(oN.id, QAD);
+    let R = await rcpt(oQ.id, MUF, null, 'غيّر إلى');
+    ok(/إنت محدّد شركة «القدموس»/.test(R.asked) && /«المفتي»/.test(R.asked) && R.calls === 1 && R.co === 'المفتي' && R.track === '778899' && R.fromShown && R.from === R.key && R.src === 'receipt',
+      'أوردر محفوظ «القدموس» + إيصال المفتي ⇒ سؤال (seq 78) ثمّ «غيّر إلى المفتي» ⇒ يُملأ الرقم والفرع: ' + JSON.stringify({ co: R.co, t: R.track, src: R.src, asked: R.asked.slice(0, 60) }));
+    R = await rcpt(oN.id, QAD, null, 'غيّر إلى');
+    // (TASK-0174 · seq 91 «دائماً يقول لي إنت محدّد … نكمل ولا نغيّر») الافتراضيّة أيضاً ⇒ سؤال · «غيّر» ⇒ القدموس
     // (TASK-0159) صار يُقرأ بقارئ القدموس بعدها — هنا الصورة فارغة فلا يجد رقمه ⇒ رقم قارئ المفتي يُعرض للضغط فقط · وخانة «الفرع المصدر» تظهر للقدموس
     // بافتراضيّها من الإعدادات «حلب|الفرقان» (seq 73: «الافتراضي في حالة تعذّر القراءة»)
-    ok(R.calls === 1 && R.co === 'القدموس' && R.auto === '1' && R.track === '' && R.fromShown && R.from === 'حلب|الفرقان' && R.src === 'default' && /اسم «القدموس» مقروءٌ في الإيصال/.test(R.st) && /5555/.test(R.st),
-      'المفتي افتراضية + إيصالٌ عليه اسم القدموس ⇒ تصير القدموس، ولا يُملأ رقمٌ تلقائياً (يُعرض للضغط): ' + JSON.stringify({ co: R.co, t: R.track, st: R.st.slice(0, 90) }));
+    ok(/إنت محدّد شركة «المفتي»/.test(R.asked) && /«القدموس»/.test(R.asked) && R.calls === 1 && R.co === 'القدموس' && R.auto === '' && R.track === '' && R.fromShown && R.from === 'حلب|الفرقان' && R.src === 'default' && /5555/.test(R.st),
+      'المفتي افتراضية + إيصالٌ عليه اسم القدموس ⇒ سؤال ثمّ «غيّر» ⇒ القدموس، ولا يُملأ رقمٌ تلقائياً (يُعرض للضغط): ' + JSON.stringify({ co: R.co, t: R.track, asked: R.asked.slice(0, 50), st: R.st.slice(0, 90) }));
+    R = await rcpt(oN.id, QAD, null, 'نكمل مع');
+    ok(/إنت محدّد شركة «المفتي»/.test(R.asked) && R.calls === 2 && R.co === 'المفتي' && R.track === '' && /أُبقيت «المفتي» كما اخترتها/.test(R.st),
+      'المفتي افتراضية + إيصال القدموس ⇒ «نكمل مع المفتي» ⇒ تبقى ويُعاد بقارئ المفتي: ' + JSON.stringify({ calls: R.calls, co: R.co, st: R.st.slice(0, 80) }));
     R = await rcpt(oN.id, QAD, 'مسارات');
     // (TASK-0159 · seq 69–70) مسارات صارت تُقرأ — بقارئها لا بقارئ المفتي
     ok(R.calls === 0 && R.co === 'مسارات' && !R.stHidden && R.track === '' && /مسارات/.test(R.st), 'اخترتَ «مسارات» بيدك ⇒ يُقرأ بقارئ مسارات (لا المفتي) وتبقى مسارات: ' + JSON.stringify({ calls: R.calls, co: R.co, st: R.st.slice(0, 70) }));
-    R = await rcpt(oN.id, QAD, 'المفتي');
-    ok(R.calls === 1 && R.co === 'المفتي' && R.track === '' && /أُبقيت «المفتي» كما اخترتها/.test(R.st), 'اخترتَ «المفتي» بيدك وإيصالٌ عليه اسم القدموس ⇒ تبقى المفتي مع تنبيه: ' + R.st.slice(0, 80));
+    R = await rcpt(oN.id, QAD, 'المفتي', 'نكمل مع');
+    ok(/إنت محدّد شركة «المفتي»/.test(R.asked) && R.calls === 2 && R.co === 'المفتي' && R.track === '' && /أُبقيت «المفتي» كما اخترتها/.test(R.st), 'اخترتَ «المفتي» بيدك وإيصالٌ عليه اسم القدموس ⇒ سؤالٌ أيضاً ثمّ «نكمل» ⇒ تبقى المفتي: ' + R.st.slice(0, 80));
     R = await rcpt(oN.id, MUF);
     ok(R.co === 'المفتي' && R.track === '778899' && R.src === 'receipt' && !/غيّرتُ/.test(R.st), 'المفتي افتراضية + إيصال المفتي ⇒ كما كان (رقمٌ وفرع، بلا رسالة تغيير)');
     if (w === 390) {

@@ -114,6 +114,15 @@
       var bd = document.createElement('div');
       bd.className = 'gmtask-bd';
       bd.textContent = String(opts.message == null ? '' : opts.message);
+      /* (25 ت1 · TASK-0174 · المالك seq 91 «ويعرض لي الإيصال») صورةٌ اختياريّة تحت النصّ (opts.image) — اضغطها تكبر · والنصّ يتمرّر إن طال */
+      if (opts.image) {
+        var im = document.createElement('img');
+        im.src = opts.image; im.alt = ''; im.setAttribute('data-gmtask-img', '1');
+        im.style.cssText = 'display:block;width:100%;max-height:30vh;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc;margin-top:10px;cursor:zoom-in';
+        im.onclick = function () { var big = im.style.maxHeight !== 'none'; im.style.maxHeight = big ? 'none' : '30vh'; im.style.cursor = big ? 'zoom-out' : 'zoom-in'; };
+        bd.appendChild(im);
+        bd.style.maxHeight = '62vh'; bd.style.overflowY = 'auto';
+      }
 
       var input = null;
       if (opts.kind === 'prompt') {
@@ -255,7 +264,7 @@
       opts = opts || {};
       return dialog({ kind: 'choose', message: message,
         title: opts.title || 'اختيار', icon: opts.icon || 'ask',
-        choices: opts.choices || [], cancelText: opts.cancelText });
+        choices: opts.choices || [], cancelText: opts.cancelText, image: opts.image });
     },
     /* GMTAsk.form('رسالة', { title, icon, okText, fields:[{k,label,type,placeholder,value,dir}], submit(vals) }) ⇒ القيم/result أو null */
     form: function (message, opts) {
