@@ -20,6 +20,13 @@ async function dialog(pg) {
   await pg.waitForSelector('.gmtask-ov', { timeout: 6000 }).catch(() => {});
   return pg.evaluate(() => { const o = document.querySelector('.gmtask-ov'); return o ? { text: o.innerText.replace(/\s+/g, ' '), btns: [...o.querySelectorAll('button')].map(b => b.textContent.trim()) } : null; });
 }
+/* (TASK-0180) بعد كل إرفاقٍ محفوظ يُسأل «نرجع نبلّغ الزبون؟» ⇒ «لا» (كي لا تلتقطه نوافذ الخطوات التالية) — يُرجع هل ظهر */
+async function noRenotify(pg) {
+  const seen = await pg.waitForFunction(() => [...document.querySelectorAll('.gmtask-ov')].some(x => /عدّلتَ إيصال الشحن/.test(x.innerText)), null, { timeout: 5000 }).then(() => true, () => false);
+  await pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /عدّلتَ إيصال الشحن/.test(x.innerText)); const b = o && [...o.querySelectorAll('button')].find(x => x.textContent.trim() === 'لا'); if (b) b.click(); });
+  await pg.waitForTimeout(300);
+  return seen;
+}
 async function press(pg, re) {
   await pg.evaluate(src => { const rx = new RegExp(src); const b = [...document.querySelectorAll('.gmtask-ov button')].find(x => rx.test(x.textContent)); if (b) b.click(); }, re.source);
   await pg.waitForTimeout(400);
@@ -86,6 +93,7 @@ async function press(pg, re) {
     ok(d && /إيصالٌ سابق/.test(d.text) && d.btns.some(b => /الاحتفاظ بالنسختين/.test(b)) && d.btns.some(b => /استبدال السابق/.test(b)) && d.btns.some(b => /إلغاء/.test(b)), 'إيصالٌ محفوظ ⇒ لا استبدال صامت: ' + (d ? d.btns.join(' · ') : 'لا نافذة'));
     await press(pg, /الاحتفاظ بالنسختين/);
     await pg.waitForTimeout(2500);
+    ok(await noRenotify(pg), 'بعد حفظ الإيصال ⇒ «عدّلتَ إيصال الشحن — نرجع نبلّغ الزبون؟» (TASK-0180)');
     let B = await get(oB.id);
     ok(B.status === 'shipped' && B.tracking_number === 'DUP' + sfx, 'الإرفاق لا يغيّر حالة الأوردر ولا رقمه');
     ok(B.receipt_img && B.receipt_img !== tiny && B.receipt_meta && B.receipt_meta.prev && B.receipt_meta.prev.length === 1 && /^data:image/.test(B.receipt_meta.prev[0].img) && B.receipt_meta.prev[0].by === 'موظف سابق',
@@ -96,6 +104,7 @@ async function press(pg, re) {
     await pg.evaluate(id => openReceiptAttach(id), oB.id); await pg.waitForTimeout(300);
     await setReceipt(pg, '#fecaca', null);
     pg.evaluate(() => confirmShipping()); await dialog(pg); await press(pg, /استبدال السابق/); await pg.waitForTimeout(2500);
+    await noRenotify(pg);
     const B2 = await get(oB.id);
     ok(B2.receipt_img !== B.receipt_img && B2.receipt_meta.prev.length === 1, 'استبدال ⇒ الجديد بدل الحالي، والسابق المحتفَظ به باقٍ (' + B2.receipt_meta.prev.length + ')');
     await pg.evaluate(id => openReceiptAttach(id), oB.id); await pg.waitForTimeout(300);

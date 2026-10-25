@@ -3,6 +3,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qsl, unquote
 DB = {}; SEQ = itertools.count(1)
 MISSING = {'gmt_reservations', 'nonexistent_tbl'}
+# (TASK-0179) كالقاعدة الحقيقية: لكلّ صفٍّ أعمدة الجدول كلّها (الغائب null) — الأوردرات تكتشف أعمدتها من صفٍّ واحد (بلا receipt_img)
+SCHEMA = {'gmt_orders': ('id,name,phone,address,product,qty,price,branch,status,tracking_number,shipped_at,notes,created_at,updated_at,items_json,'
+                         'shipping_company,serial_code,linked_invoice_id,is_locked,prepared_by,prepared_at,prepared_branch,entered_by,invoice_id,'
+                         'invoice_number,tg_msg_id,tg_chat_id,created_by,updated_by,deleted_by,deleted_at,is_deleted,coupon,items,order_number,'
+                         'receipt_img,receipt_at,collect_amount,notified_new_at,notified_ship_at,notified_arrival_at,ship_from_office,transfer_state,'
+                         'transfer_at,transfer_invoice_no,delivered_at,receipt_meta').split(',')}
 OPTS = {'unique_invoices': True, 'drop_reply': [], 'fail_post': [], 'block_delete': [], 'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False}
 def tbl(t): return DB.setdefault(t, [])
 def cmp_val(v, raw):
@@ -156,7 +162,9 @@ class H(BaseHTTPRequestHandler):
         if t.startswith('_'): return self.reply(401, {'code':'42501','message':'permission denied'})
         if t in MISSING: return self.reply(404, {'code':'42P01','message':'relation "%s" does not exist' % t})
         if method == 'GET':
-            rows = self.proj(self.filt(t, q), q)
+            rows = self.filt(t, q)
+            if t in SCHEMA: rows = [dict({c: None for c in SCHEMA[t]}, **r) for r in rows]
+            rows = self.proj(rows, q)
             # كـPostgREST: ‎.single()‎ (Accept: vnd.pgrst.object+json) ⇒ كائنٌ واحد، أو 406 إن لم يكن صفّاً واحداً بالضبط (TASK-0162)
             if 'vnd.pgrst.object' in (self.headers.get('Accept') or ''):
                 if len(rows) != 1: return self.reply(406, {'code': 'PGRST116', 'message': 'JSON object requested, multiple (or no) rows returned'})

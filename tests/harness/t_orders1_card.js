@@ -12,9 +12,9 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
       { transfer_number: 'TRF-20261005-0930', from_branch_name: 'حلب', to_branch_name: 'دمشق', status: 'pending', created_at: '2026-10-05T09:30:00Z' }]);
     const rows = await H.call('/rest/v1/gmt_orders', [
       { name: 'قيد التجهيز', phone: '0933000011', product: 'كاميرا', qty: 1, price: 100, status: 'pending', branch: 'حلب', address: 'دمشق' },
-      { name: 'في الطريق مفتي', phone: '0933000012', product: 'كاميرا', qty: 1, price: 100, status: 'shipped', branch: 'حلب', address: 'دمشق — فكتوريا', shipping_company: 'المفتي', tracking_number: '5551', shipped_at: '2026-10-10T08:00:00Z', notified_arrival_at: '2026-10-12T08:00:00Z', receipt_img: 'data:image/png;base64,iVBORw0KGgo=' },
+      { name: 'في الطريق مفتي', phone: '0933000012', product: 'كاميرا', qty: 1, price: 100, status: 'shipped', branch: 'حلب', address: 'دمشق — فكتوريا', shipping_company: 'المفتي', tracking_number: '5551', shipped_at: '2026-10-10T08:00:00Z', notified_arrival_at: '2026-10-12T08:00:00Z', receipt_img: 'data:image/png;base64,iVBORw0KGgo=', receipt_at: '2026-10-10T08:00:00Z' },
       { name: 'مكتمل مرتبط', phone: '0933000013', product: 'كاميرا', qty: 1, price: 100, status: 'completed', branch: 'حلب', address: 'حمص', shipping_company: 'مسارات', tracking_number: '5552', invoice_number: 'INV-77', is_locked: true },
-      { name: 'متجر في الطريق', phone: '0933000014', product: 'كاميرا', qty: 1, price: 100, status: 'shipped', branch: 'حلب', address: 'حماة', shipping_company: 'مسارات', tracking_number: '5553', source: 'store' }]);
+      { name: 'متجر في الطريق', phone: '0933000014', product: 'كاميرا', qty: 1, price: 100, status: 'shipped', branch: 'حلب', address: 'حماة', shipping_company: 'مسارات', tracking_number: '5553', entered_by: 'المتجر الإلكتروني' }]);
     const [P, S, C, ST] = rows.map(r => r.id);
     const { browser, pg, errs } = await H.open('orders.html', { w, mobile: w < 700, h: 900, wait: 4500, init: H.ADMIN_INIT + ' window.__opened=[]; window.open=(u)=>{window.__opened.push(u);return {};};' });
     const geo = (id) => pg.evaluate((id) => {
