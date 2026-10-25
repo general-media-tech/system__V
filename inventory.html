@@ -2291,6 +2291,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
+<script src="gmt-specs.js?v=20261025i"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -5264,6 +5265,12 @@ function normalizeProduct(p) {
     brand: p.brand || '',
     alt_names: p.alt_names || '',
     search_terms: p.search_terms || '',
+    /* (25 ت1 · TASK-0162) المواصفات والتوافق (SQL ٢١) — كان المُطبِّع يُسقطها فلا تظهر في «تفاصيل المنتج» ولا يحملها الجسر بعد إعادة التحميل */
+    specs: p.specs || null,
+    compat: p.compat || '',
+    specs_source: p.specs_source || '',
+    specs_checked_at: p.specs_checked_at || null,
+    specs_checked_by: p.specs_checked_by || '',
     created_at: p.created_at || p.addedAt || '',
     in_transit: (p.in_transit && typeof p.in_transit === 'object') ? p.in_transit : {},
   };
@@ -6941,6 +6948,19 @@ function openDetailModal(id) {
       </div>`;
     });
     html += '</div>';
+  }
+
+  /* (25 ت1 · TASK-0162 · المالك seq 54: «هذا الجدول عم يجيبه ولكن ما في له مكان في تفاصيل المنتج — لازم يكون موجود في المتجر وفي الجرد
+     وفي تفاصيل المنتج») — الوصف والماركة وجدول المواصفات والتوافق كما حفظتها «المواصفات التلقائية»/الإثراء (gmt-specs.js) */
+  if (window.GMTSpecs) {
+    const _m = GMTSpecs.meta(p.specs), _tbl = GMTSpecs.tableHTML(p.specs, { compat: p.compat });
+    const _src = p.specs_checked_at ? `<div style="font-size:10.5px;color:var(--text3);margin-top:8px;">المصدر: ${escHtml(/^https?:/i.test(String(p.specs_source || '')) ? 'صفحة المنتج' : (p.specs_source || '—'))} · ${escHtml(new Date(p.specs_checked_at).toLocaleDateString('ar-SY'))}${p.specs_checked_by ? ' · ' + escHtml(p.specs_checked_by) : ''}</div>` : '';
+    html += `<div data-specs-box style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;">📋 المواصفات والوصف</div>
+      ${_m.desc ? `<p style="font-size:12.5px;line-height:1.8;margin:0 0 10px;white-space:pre-line;overflow-wrap:anywhere;">${escHtml(_m.desc)}</p>` : ''}
+      ${_tbl || `<div style="font-size:12px;color:var(--text3);line-height:1.7;">لا مواصفات محفوظة بعد — «🔎 مواصفات من علي بابا» أدناه يجلبها لتراجعها قبل الحفظ.</div>`}
+      ${_src}
+    </div>`;
   }
 
   // زر كشف حركة المنتج (بيع/إرجاع/نقل/شراء)
@@ -15015,7 +15035,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025h"></script>
+<script src="gmt-whatsnew.js?v=20261025i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

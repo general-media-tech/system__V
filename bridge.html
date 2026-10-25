@@ -163,6 +163,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-suggest.js?v=20261010b"></script>
   <script src="gmt-enrich.js?v=20261007z5"></script>
+  <script src="gmt-specs.js?v=20261025i"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -1277,7 +1278,9 @@ async function mlSave(){
     // 1. تحديث المتجر: كتابة barcode + السعر الموحّد — على الكتالوج الطازج (TASK-0161)
     await saveStoreProducts(fresh => {
       if (!fresh.some(sp => String(sp.id) === String(storeId))) throw new Error('منتج المتجر لم يعد موجوداً (حُذف من أدمن المتجر؟) — أعد تحميل الجسر');
-      return fresh.map(sp => String(sp.id) === String(storeId) ? { ...sp, barcode: invP.barcode, price: finalPrice } : sp);
+      /* (TASK-0162) والربط يحمل جدول المواصفات من الجرد إن وُجد (لا يمحو جدولاً في المتجر بفراغ) */
+      const _sp = window.GMTSpecs ? GMTSpecs.forStore(invP.specs) : [];
+      return fresh.map(sp => String(sp.id) === String(storeId) ? Object.assign({ ...sp, barcode: invP.barcode, price: finalPrice }, _sp.length ? { specs: _sp, compat: invP.compat || sp.compat || '' } : {}) : sp);
     });
 
     // 2. تحديث الجرد: السعر الموحّد + store_url (رابط مطلق)
@@ -1343,7 +1346,10 @@ async function mcSave(){
       name,
       short_name: p.short || name,
       price,
-      description: bridgeSummary(p),   /* (٦) البند ٨٣: ملخّص معلومات المنتج — لا وصفٌ فارغ */
+      /* (٦) البند ٨٣: ملخّص معلومات المنتج — لا وصفٌ فارغ · (TASK-0162) وإن وُجد جدول مواصفات فالوصف هو الوصف وحده (لا يكرّر الجدول) */
+      description: (window.GMTSpecs && GMTSpecs.rows(p.specs).length) ? (GMTSpecs.meta(p.specs).desc || '') : bridgeSummary(p),
+      specs: (window.GMTSpecs ? GMTSpecs.forStore(p.specs) : []),   /* (TASK-0162) جدول المواصفات في المتجر */
+      compat: p.compat || '',
       images: p.image_url ? [p.image_url] : [],
       category_id: catId,
       category_ids: [catId],
@@ -1461,7 +1467,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025h"></script>
+<script src="gmt-whatsnew.js?v=20261025i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

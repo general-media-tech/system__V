@@ -156,7 +156,12 @@ class H(BaseHTTPRequestHandler):
         if t.startswith('_'): return self.reply(401, {'code':'42501','message':'permission denied'})
         if t in MISSING: return self.reply(404, {'code':'42P01','message':'relation "%s" does not exist' % t})
         if method == 'GET':
-            return self.reply(200, self.proj(self.filt(t, q), q))
+            rows = self.proj(self.filt(t, q), q)
+            # كـPostgREST: ‎.single()‎ (Accept: vnd.pgrst.object+json) ⇒ كائنٌ واحد، أو 406 إن لم يكن صفّاً واحداً بالضبط (TASK-0162)
+            if 'vnd.pgrst.object' in (self.headers.get('Accept') or ''):
+                if len(rows) != 1: return self.reply(406, {'code': 'PGRST116', 'message': 'JSON object requested, multiple (or no) rows returned'})
+                return self.reply(200, rows[0])
+            return self.reply(200, rows)
         if method in ('POST','PATCH'):
             rr = body if isinstance(body, list) else [body or {}]
             for c in OPTS['reject_cols']:

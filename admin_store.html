@@ -1237,13 +1237,32 @@ async function checkConnection(){
 
 // ── DATA LAYER ────────────────────────────────
 async function fetchStore(){ const {data,error}=await _sb.from(CONFIG.TABLE_STORE).select('*').eq('id',1).single(); if(error)throw error; return data; }
-async function updateField(field,value){ const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error; }
+/* (25 ت1 · TASK-0162 · المالك seq 73 «الجسر» · REQ-0437) قائمة المنتجات تُكتب كاملةً من نسخة لحظة فتح هذه الصفحة ⇒ منتجٌ أضافه الجسر
+   (أو جهازٌ آخر) بعدها كان يُمحى عند أوّل حفظ هنا، وتعديلٌ وصله من الجسر (باركود · سعر · جدول مواصفات) يُستبدل بالقديم.
+   الآن قبل الكتابة: المنتجات من القاعدة طازجة ⇒ ما أُضيف من جهةٍ أخرى منذ الفتح يبقى · وما لم تعدّله أنت هنا وتغيّر هناك يؤخذ كما هو هناك ·
+   وما عدّلته/حذفته أنت يُكتب كما فعلت. */
+let _prodBase = new Map();
+function _snapProds(list){ _prodBase = new Map((list || []).map(p => [String(p.id), JSON.stringify(p)])); }
+async function _mergeProducts(local){
+    const rec = await fetchStore(), fresh = Array.isArray(rec && rec.products) ? rec.products : [];
+    const fMap = new Map(fresh.map(p => [String(p.id), p])), localIds = new Set(local.map(p => String(p.id)));
+    const out = local.map(p => { const id = String(p.id), b = _prodBase.get(id), f = fMap.get(id);
+        return (f && b !== undefined && JSON.stringify(p) === b && JSON.stringify(f) !== b) ? f : p; });
+    fresh.forEach(f => { const id = String(f.id); if (!localIds.has(id) && !_prodBase.has(id)) out.push(f); });
+    return out;
+}
+async function updateField(field,value){
+    if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
+    const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
+    if (field === 'products') _snapProds(value);
+}
 
 async function loadAllData(){
     try {
         const rec=await fetchStore();
         adminData.categories    = Array.isArray(rec.categories)    ? rec.categories    : [];
         adminData.products      = Array.isArray(rec.products)       ? rec.products      : [];
+        _snapProds(adminData.products);   // (TASK-0162) أساس الدمج عند الحفظ
         adminData.banners       = Array.isArray(rec.banners)        ? rec.banners       : [];
         adminData.offers        = Array.isArray(rec.offers)         ? rec.offers        : [];
         adminData.branches      = Array.isArray(rec.branches)       ? rec.branches      : [];
@@ -2074,7 +2093,8 @@ async function saveProduct(){
         inv_id:  document.getElementById('prod-inv-id')?.value.trim()||undefined,
     };
 
-    if(id){const i=adminData.products.findIndex(p=>String(p.id) === String(id));if(i>-1)adminData.products[i]=d;}else adminData.products.push(d);
+    /* (TASK-0162) التعديل يُبقي ما لا تحرّره هذه النافذة (جدول المواصفات · التوافق · ما يضيفه الجسر) — كان المنتج يُستبدل كاملاً فتُمحى */
+    if(id){const i=adminData.products.findIndex(p=>String(p.id) === String(id));if(i>-1)adminData.products[i]=Object.assign({},adminData.products[i],d);}else adminData.products.push(d);
     try{await updateField('products',adminData.products);closeModal('prod-modal');renderCatalogAdmin();showToast('تم الحفظ ✓');}catch(e){showToast('خطأ: '+e.message,'error');}
 }
 
@@ -3529,7 +3549,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025h"></script>
+<script src="gmt-whatsnew.js?v=20261025i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
