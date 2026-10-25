@@ -2292,6 +2292,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
 <script src="gmt-specs.js?v=20261025i"></script>
+<script src="gmt-enrich-queue.js?v=20261025l"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -4901,6 +4902,77 @@ async function gmtSpecsFromAlibaba(id) {
 }
 window.gmtSpecsFromAlibaba = gmtSpecsFromAlibaba;
 
+/* ══ (25 ت1 · TASK-0164 · المالك seq 75) «أداة تعمل تلقائياً لكل المنتجات — مجموعة مجموعة أو تصنيف تصنيف داخل الجرد … يزبّطهم
+   كلهم واحد تلو الآخر، ويشتغل في الخلفية وأنا عم راجع». الأداة نفسها في gmt-enrich-queue.js؛ هنا الاختيار والحفظ والصور. ══ */
+async function gmtEnrichPick() {
+  if (!window.GMTEnrichQueue) { showToast('أداة التجهيز لم تُحمَّل', 'error'); return; }
+  const done = p => !!p.specs_checked_at;
+  const gx = p => [p.group_name || ''].concat(window.GMTProdGroup ? GMTProdGroup.extras(p) : []);
+  const groups = [...new Set([].concat(...allProducts.map(gx)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
+  const inG = (p, g) => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g);
+  const cats = window.GMTCat ? [...new Set(allProducts.map(p => p.category || '').filter(Boolean).map(c => String(c).split('/')[0].trim()))].sort((a, b) => a.localeCompare(b, 'ar')) : [];
+  const inC = (p, c) => window.GMTCat ? GMTCat.under(p.category, c) : String(p.category || '').indexOf(c) === 0;
+  const secs = [];
+  const cur = [];
+  if (currentGroup && currentGroup !== '__none__') { const l = allProducts.filter(p => inG(p, currentGroup)); cur.push({ k: 'g:' + currentGroup, t: '📂 ' + currentGroup, n: l.length, left: l.filter(p => !done(p)).length }); }
+  if (currentCategory) { const l = allProducts.filter(p => inC(p, currentCategory)); cur.push({ k: 'c:' + currentCategory, t: '🏷️ ' + currentCategory, n: l.length, left: l.filter(p => !done(p)).length }); }
+  if (cur.length) secs.push({ title: 'المعروض الآن', items: cur });
+  secs.push({ title: 'المجموعات', items: groups.map(g => { const l = allProducts.filter(p => inG(p, g)); return { k: 'g:' + g, t: '📂 ' + g, n: l.length, left: l.filter(p => !done(p)).length }; }) });
+  if (cats.length) secs.push({ title: 'التصنيفات', items: cats.map(c => { const l = allProducts.filter(p => inC(p, c)); return { k: 'c:' + c, t: '🏷️ ' + c, n: l.length, left: l.filter(p => !done(p)).length }; }) });
+  if (!groups.length && !cats.length) { showToast('لا مجموعات ولا تصنيفات بعد — أنشئ مجموعة أوّلاً', 'warning'); return; }
+  const sel = await GMTEnrichQueue.pick({ message: 'اختر مجموعةً أو تصنيفاً — العقل يجهّز منتجاته واحداً تلو الآخر في الخلفية، وأنت تراجع ما جهز: تعدّل · تحفظ · تتخطّى · تضيف صوراً.', sections: secs });
+  if (!sel) return;
+  const k = sel.k, isG = k.indexOf('g:') === 0, name = k.slice(2);
+  let list = allProducts.filter(p => isG ? inG(p, name) : inC(p, name));
+  if (sel.onlyLeft) list = list.filter(p => !done(p));
+  if (!list.length) { showToast('لا منتجات في «' + name + '»', 'warning'); return; }
+  GMTEnrichQueue.open({
+    key: k, title: name, products: list, operator: posWho(),
+    /* الحفظ متحقَّق: صفٌّ عاد من الخادم وإلّا فلم يُحفظ (الرفض الصامت لا يُقال «حُفظ») */
+    save: async (p, patch) => {
+      const { data, error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}&select=id`, patch, { Prefer: 'return=representation' });
+      if (error && /specs|compat|search_terms|alt_names|brand|column/i.test(error)) return { error: 'أعمدة المواصفات/الماركة غير موجودة في القاعدة (SQL ٢١ و٢٧) — ' + error };
+      if (error) return { error };
+      if (!Array.isArray(data) || !data.length) return { error: 'الكتابة مرفوضة أو المنتج لم يعد موجوداً' };
+      return {};
+    },
+    upload: async (blob, kind) => {
+      const ext = /png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : 'jpg';
+      const f = new File([blob], 'img.' + ext, { type: blob.type || 'image/jpeg' });
+      const { url, error } = await sbUploadImg('enrich/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext, f);
+      if (error) throw new Error(error); return url;
+    },
+    storeAddImages: gmtStoreAddImages,
+    onSaved: () => {},
+    onClose: () => { try { renderAll(); } catch (_) {} }
+  });
+}
+window.gmtEnrichPick = gmtEnrichPick;
+/* صورٌ إضافية لمنتج المتجر المربوط (store_url «#product=<id>») — على كتالوج المتجر الطازج وكتابةٌ مشروطة متحقَّقة (كالجسر · TASK-0161) */
+async function gmtStoreAddImages(p, urls) {
+  const m = /#product=([^&]+)/.exec(String(p.store_url || ''));
+  if (!m) throw new Error('هذا المنتج غير مربوط بالمتجر بعد — اربطه من «الجسر» أوّلاً');
+  const sid = decodeURIComponent(m[1]), H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  for (let i = 0; i < 3; i++) {
+    const r = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
+    if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
+    const rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
+    const prods = Array.isArray(rec.products) ? rec.products : [], sp = prods.find(x => String(x.id) === String(sid));
+    if (!sp) throw new Error('منتج المتجر المربوط لم يعد موجوداً');
+    const imgs = (sp.images || []).slice(); let add = 0;
+    urls.forEach(u => { if (u && imgs.indexOf(u) === -1) { imgs.push(u); add++; } });
+    if (!add) return;
+    const next = prods.map(x => String(x.id) === String(sid) ? Object.assign({}, x, { images: imgs }) : x);
+    let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+    if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+    const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+    if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+    const rows = await w.json().catch(() => null);
+    if (Array.isArray(rows) && rows.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return; }
+  }
+  throw new Error('لم تُحفظ في المتجر (الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة)');
+}
+
 /* ══ (11 ت١ · طلب المالك) «زر ينقلني على أداة إدارة المنتجات أو إدارة هذا المنتج لأعدّل وصفه ورابطه في المتجر وكل شيء —
    بدل ما أدخل هناك أدخل إليها من هون». لوحة واحدة من تفاصيل المنتج تجمع كل ما يخصّه: البيانات · المتجر · المواصفات ·
    الحركة · النقل. لا منطق جديد: كلّ بلاطة تنادي الدالّة الموجودة نفسها. ══ */
@@ -5770,7 +5842,7 @@ function renderImgCell(p) {
        يضع النسخة **من الكاش المحلي**، ولا يلمس الشبكة إلا عند غياب الصورة. */
     return `<img class="product-img" src="${IMG_PLACEHOLDER}" data-orig-src="${escHtml(p.image_url)}" alt="${escHtml(p.name)}" loading="lazy" decoding="async"
       onclick="openLightbox('${p.image_url}')"
-      onerror="this.outerHTML='<div class=&quot;no-img img-broken&quot; title=&quot;الصورة مرفوعة لكن تعذّر تحميلها — الرابط مكسور&quot; onclick=&quot;openProductModal(\\'${p.id}\\')&quot;>⚠️</div>'">`;
+      onerror="if(this.parentNode)this.outerHTML='<div class=&quot;no-img img-broken&quot; title=&quot;الصورة مرفوعة لكن تعذّر تحميلها — الرابط مكسور&quot; onclick=&quot;openProductModal(\\'${p.id}\\')&quot;>⚠️</div>'">`;
   }
   return `<div class="no-img img-missing" title="لا توجد صورة لهذا المنتج — اضغط للرفع" onclick="openProductModal('${p.id}')">${(window.GMTIcon?GMTIcon.svg('camera',18):'')}</div>`;
 }
@@ -6076,6 +6148,7 @@ function renderGroupChips() {
   }).join('');
   container.innerHTML = '<span class="filter-label" style="white-space:nowrap">المجموعة:</span>'
     + '<div class="filter-chip" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" title="إنشاء مجموعة جديدة" style="border-style:dashed;white-space:nowrap">＋ مجموعة</div>'
+    + '<div class="filter-chip" data-admin="تجهيز المنتجات تلقائياً" data-enrich-q onclick="gmtEnrichPick()" title="العقل يجهّز منتجات مجموعة أو تصنيف واحداً تلو الآخر وأنت تراجع" style="white-space:nowrap;border-color:#0f1219">🧠 جهّز تلقائياً</div>'
     + allBtn + noGroupBtn + chips;
 }
 
@@ -6182,7 +6255,7 @@ function renderGroupProductsGrid() {
   grid.innerHTML = gcFilteredProducts.map(p => {
     const selected = gcSelectedIds.has(p.id);
     const imgHtml = p.image_url
-      ? `<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" class="gp-img" data-orig-src="${p.image_url}" onerror="this.outerHTML='<div class=&quot;gp-no-img&quot;>📦</div>'">`
+      ? `<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" class="gp-img" data-orig-src="${p.image_url}" onerror="if(this.parentNode)this.outerHTML='<div class=&quot;gp-no-img&quot;>📦</div>'">`
       : `<div class="gp-no-img">📦</div>`;
     const currentGroup = p.group_name ? `<div class="gp-sub">🗂️ ${escHtml(p.group_name)}</div>` : '';
     return `<div class="group-product-item${selected ? ' selected' : ''}" onclick="gcToggle('${p.id}')">
@@ -15035,7 +15108,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025j"></script>
+<script src="gmt-whatsnew.js?v=20261025l"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
