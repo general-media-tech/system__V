@@ -31,13 +31,22 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     const other = before.opts.find(v => v !== 'حلب|السريان');
     await pg.selectOption('#edit-ship-from', other);
     await pg.evaluate(() => document.getElementById('saveEditBtn').click()); await pg.waitForTimeout(1800);
+    /* (TASK-0169 · seq 83) بعد كل تعديل: «نرجع نبلّغ؟» ⇒ «لا» كما يجيب الموظّف */
+    const reAsk = await pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /نرجع نبلّغ/.test(x.innerText)); if (!o) return false; [...o.querySelectorAll('button')].find(b => b.textContent.trim() === 'لا').click(); return true; });
+    ok(reAsk, 'بعد التعديل يسأل «نرجع نبلّغ؟» (seq 83)');
+    await pg.waitForTimeout(300);
     const db = (await H.call('/__dump', undefined, 'GET')).gmt_orders.find(o => o.id == M);
     ok(db && db.ship_from_office === other, 'الحفظ يكتب الفرع الجديد في القاعدة: ' + (db && db.ship_from_office) + ' (المطلوب ' + other + ')');
     ok(await pg.evaluate((id) => (orders.find(o => o.id == id) || {}).ship_from_office, M) === other, 'الواجهة تحدّثت بلا إعادة تحميل');
     // تغيير الشركة لغير المفتي يُخفي الحقل
     await pg.evaluate(id => openEditModal(id), M); await pg.waitForTimeout(400);
-    await pg.evaluate(() => { const s = document.getElementById('edit-company'); s.value = [...s.options].map(o => o.value).find(v => v && v !== 'المفتي'); s.dispatchEvent(new Event('change', { bubbles: true })); });
-    ok(await pg.evaluate(() => document.getElementById('edit-sender-wrap').classList.contains('hidden')), 'شركةٌ غير المفتي ⇐ حقل الفرع المُرسِل يختفي');
+    /* (TASK-0163 · seq 75) القدموس ومسارات لهما فرعٌ مُرسِل من بنكهما ⇒ الحقل يبقى · شركةٌ بلا بنك ⇒ يختفي */
+    const setCo = pick => pg.evaluate(src => { const s = document.getElementById('edit-company'); s.value = [...s.options].map(o => o.value).find(new Function('v', 'return ' + src)); s.dispatchEvent(new Event('change', { bubbles: true }));
+      return { co: s.value, hidden: document.getElementById('edit-sender-wrap').classList.contains('hidden') }; }, pick);
+    let sc = await setCo("v === 'القدموس'");
+    ok(sc.co === 'القدموس' && !sc.hidden, 'القدموس ⇐ حقل الفرع المُرسِل يبقى (فروعها من بنكها — TASK-0163): ' + JSON.stringify(sc));
+    sc = await setCo("v && TRANSFER_COS.indexOf(v) === -1");
+    ok(sc.co && sc.hidden, 'شركةٌ بلا بنك فروع ⇐ حقل الفرع المُرسِل يختفي: ' + JSON.stringify(sc));
     const real = errs.filter(e => !/Failed to load resource/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
     await browser.close();
   }

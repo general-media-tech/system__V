@@ -3409,12 +3409,18 @@ document.getElementById('formEdit').onsubmit = async (e) => {
         closeModal('editModal');
         if (!(_phoneChanged && _wasNotified)) showToast(_secWarn.length ? '✅ تم تعديل الطلب — لكن:\n' + _secWarn.join('\n') : '✅ تم تعديل الطلب', _secWarn.length ? 'err' : 'ok');
         /* (٨ ث — تدقيق المطابقة) «إعادة التبليغ لما يتغيّر الرقم»: كان يُطلب من الموظّف أن يتذكّر. الآن يُعرض
-           عليه فوراً آخرُ تبليغٍ وصل الرقمَ القديم، ليرسله للجديد بضغطة (واتساب يحتاج ضغطةً منه — لا يُرسَل خفيةً). */
-        if (_phoneChanged && _wasNotified) {
-            const _mode = _prevOrder.notified_arrival_at ? 'arrived' : (_prevOrder.notified_ship_at ? 'shipped' : 'new');
+           عليه فوراً آخرُ تبليغٍ وصل الرقمَ القديم، ليرسله للجديد بضغطة (واتساب يحتاج ضغطةً منه — لا يُرسَل خفيةً).
+           (TASK-0169 · المالك seq 83 «لما يجري تعديل على أيّ أوردر يسألني إذا نرجع نبلّغ أو لا») ⇒ السؤال بعد **كل** تعديل: آخر تبليغٍ
+           وصل الزبون (أو «استلام الطلب» إن لم يُبلَّغ بعد) يُعاد بالتفاصيل المعدَّلة بضغطة — «لا» ⇒ لا شيء. تيليغرام يُحدَّث كما كان. */
+        {
+            const _mode = _prevOrder && _prevOrder.notified_arrival_at ? 'arrived' : (_prevOrder && _prevOrder.notified_ship_at ? 'shipped' : 'new');
             const _lbl = { arrived: 'تبليغ الوصول', shipped: 'تبليغ الشحن', new: 'تبليغ استلام الطلب' }[_mode];
-            GMTAsk.choose('تغيّر رقم الزبون، والتبليغات السابقة ذهبت للرقم القديم.\nأرسل «' + _lbl + '» للرقم الجديد ' + data.phone + ' الآن؟', {
-                title: 'إعادة التبليغ', choices: [{ k: 'go', t: 'أرسله الآن', pri: 1 }, { k: 'later', t: 'لاحقاً' }]
+            const _q = (_phoneChanged && _wasNotified)
+                ? 'تغيّر رقم الزبون، والتبليغات السابقة ذهبت للرقم القديم.\nأرسل «' + _lbl + '» للرقم الجديد ' + data.phone + ' الآن؟'
+                : 'عدّلتَ الأوردر — نرجع نبلّغ الزبون بالتعديل؟\nيُرسَل له «' + _lbl + '» بالتفاصيل الجديدة' + (data.phone ? ' على ' + data.phone : '') + '.';
+            GMTAsk.choose(_q, {
+                title: (_phoneChanged && _wasNotified) ? 'إعادة التبليغ' : 'نرجع نبلّغ؟',
+                choices: [{ k: 'go', t: (_phoneChanged && _wasNotified) ? 'أرسله الآن' : 'بلّغه الآن', pri: 1 }, { k: 'later', t: (_phoneChanged && _wasNotified) ? 'لاحقاً' : 'لا' }]
             }).then(k => {
                 if (k !== 'go') return;
                 const _o = orders.find(x => x.id == id); if (!_o) return;
@@ -9458,7 +9464,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025t"></script>
+<script src="gmt-whatsnew.js?v=20261025u"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

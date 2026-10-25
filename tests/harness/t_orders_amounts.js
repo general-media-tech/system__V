@@ -7,9 +7,12 @@ const get = async id => (await H.call('/rest/v1/gmt_orders?id=eq.' + id, undefin
 const tiny = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
 
 async function dialog(pg) {
-  await pg.waitForSelector('.gmtask-ov', { timeout: 6000 }).catch(() => {});
-  return pg.evaluate(() => { const o = document.querySelector('.gmtask-ov'); return o ? { text: o.innerText.replace(/\s+/g, ' '), btns: [...o.querySelectorAll('button')].map(b => b.textContent.trim()) } : null; });
+  await pg.waitForFunction(() => [...document.querySelectorAll('.gmtask-ov')].some(x => !/نرجع نبلّغ/.test(x.innerText)), null, { timeout: 6000 }).catch(() => {});
+  return pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].reverse().find(x => !/نرجع نبلّغ/.test(x.innerText)) || null; return o ? { text: o.innerText.replace(/\s+/g, ' '), btns: [...o.querySelectorAll('button')].map(b => b.textContent.trim()) } : null; });
 }
+/* (TASK-0169 · seq 83) بعد كل تعديل يُسأل «نرجع نبلّغ؟» ⇒ يُجاب «لا» (يُرجع: هل سُئل) */
+const noRenotify = pg => pg.waitForFunction(() => [...document.querySelectorAll('.gmtask-ov')].some(x => /نرجع نبلّغ/.test(x.innerText)), null, { timeout: 6000 })
+  .then(() => pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /نرجع نبلّغ/.test(x.innerText)); [...o.querySelectorAll('button')].find(b => b.textContent.trim() === 'لا').click(); return true; })).catch(() => false);
 async function press(pg, re) {
   await pg.evaluate(src => { const rx = new RegExp(src); const b = [...document.querySelectorAll('.gmtask-ov button')].find(x => rx.test(x.textContent)); if (b) b.click(); }, re.source);
   await pg.waitForTimeout(500);
@@ -101,6 +104,7 @@ async function press(pg, re) {
     ok(ed.p === '35' && ed.c === '15', 'التعديل يُظهر القيمتين: قيمة الطلب 35 · المراد تحصيله 15: ' + JSON.stringify(ed));
     await pg.evaluate(() => { document.getElementById('edit-collect').value = '20'; document.getElementById('saveEditBtn').click(); });
     await pg.waitForTimeout(1500);
+    ok(await noRenotify(pg), 'بعد حفظ التعديل يُسأل «نرجع نبلّغ؟» (seq 83) ⇒ «لا»');
     let g = await get(oPart.id);
     ok(Number(g.price) === 35 && Number(g.collect_amount) === 20, 'حفظ التعديل: قيمة 35 · تحصيل 20: ' + JSON.stringify({ p: g.price, c: g.collect_amount }));
     // تعديل التحصيل إلى ٠ ⇒ السؤال · «رجوع» ⇒ لا تغيير
@@ -113,7 +117,9 @@ async function press(pg, re) {
     // أوردر صفرُه قديم: تعديل الاسم وحده لا يسأل
     await pg.evaluate(async (id) => { closeModal('editModal'); await openEditModal(id); document.getElementById('edit-name').value = 'صفر قديم معدّل'; document.getElementById('saveEditBtn').click(); }, oZero.id);
     await pg.waitForTimeout(1500);
-    const noAsk = await pg.evaluate(() => !document.querySelector('.gmtask-ov'));
+    /* لا سؤال الصفر — والسؤال الوحيد «نرجع نبلّغ؟» (TASK-0169) */
+    const noAsk = await pg.evaluate(() => [...document.querySelectorAll('.gmtask-ov')].every(x => /نرجع نبلّغ/.test(x.innerText) && !/السبب/.test(x.innerText)));
+    await noRenotify(pg);
     g = await get(oZero.id);
     ok(noAsk && /معدّل/.test(g.name), 'صفرٌ محفوظ سابقاً: تعديلٌ آخر لا يسأل من جديد');
 
