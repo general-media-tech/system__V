@@ -1,7 +1,0 @@
-task: TASK-0163
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-shipping-offices.js orders.html gmt-whatsnew.js tests/harness/t_transfer_filter.js
-claimed_at: 2026-10-25T10:04:58Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0163
