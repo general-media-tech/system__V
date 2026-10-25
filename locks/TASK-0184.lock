@@ -1,0 +1,7 @@
+task: TASK-0184
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: gmt-enrich-queue.js inventory.html
+claimed_at: 2026-10-25T22:06:13Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0184
