@@ -1,7 +1,0 @@
-task: TASK-0161
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: bridge.html tests/harness/t_bridge_store.js
-claimed_at: 2026-10-25T07:33:55Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0161
