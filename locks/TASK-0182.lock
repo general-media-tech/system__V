@@ -1,0 +1,7 @@
+task: TASK-0182
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: orders.html
+claimed_at: 2026-10-25T21:25:17Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0182
