@@ -1,0 +1,7 @@
+task: TASK-0162
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: gmt-specs.js inventory.html store.html bridge.html tests/harness/t_specs_place.js
+claimed_at: 2026-10-25T07:38:02Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0162
