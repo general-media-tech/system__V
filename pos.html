@@ -1230,7 +1230,7 @@ window.GMT_FEATURES = [
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
-  <script src="gmt-suggest.js?v=20261010b"></script>
+  <script src="gmt-suggest.js?v=20261026e"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
@@ -3397,13 +3397,13 @@ async function _loadProductsFromServer(isFirst = false) {
     /* (٨ ت — تدقيق المطابقة) نقطة البيع كانت لا تقرأ التصنيف ولا الماركة ولا الأسماء البديلة ولا حدّ التنبيه
        (min_stock) — فلا فلتر «تصنيف ⇠ مجموعات» ولا بحثٌ بالماركة، وحدّ التنبيه دائماً ٥. نطلبها، وإن لم يكن
        عمودٌ منها في قاعدتك بعد (ملف SQL لم يُشغَّل) نُسقطه ونعيد الطلب بدل أن تفشل المنتجات كلّها. */
-    let _xc = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock'];
+    let _xc = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat'];   // (TASK-0185) «متوافق مع» يُبحث به (هود · غطاء · بطارية)
     /* (19 ت1 · TASK-0109) «التصنيفات في الجرد فقط لا في نقاط البيع»: الجذر هنا. كان وقتُ الذاكرة يُكتب من جديد في **كل**
        تحميل، فمن يفتح نقطة البيع يومياً لا تنتهي ذاكرته أبداً — وعمودُ «التصنيف» الذي سقط مرّةً قبل تشغيل SQL ٢٤ بقي
        ساقطاً إلى الأبد رغم وجوده الآن في القاعدة. الآن: الذاكرة تُكتب فقط بعد فحصٍ كاملٍ فعلي، وتنتهي بعد يوم،
-       واسمُها تغيّر (gmt_pos_xcols2) فتُهمَل الذاكرة القديمة العالقة على كل الأجهزة فوراً. */
+       واسمُها تغيّر (gmt_pos_xcols3) فتُهمَل الذاكرة القديمة العالقة على كل الأجهزة فوراً. */
     let _xcFromCache = false;
-    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols2') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) { _xc = k.c; _xcFromCache = true; } } catch (_) {}
+    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols3') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) { _xc = k.c; _xcFromCache = true; } } catch (_) {}
     let r;
     for (let _i = 0; _i < 8; _i++) {
       r = await fetch(
@@ -3415,7 +3415,7 @@ async function _loadProductsFromServer(isFirst = false) {
       const _bad = _xc.find(c => _m.indexOf(c) >= 0);
       _xc = _bad ? _xc.filter(c => c !== _bad) : [];
     }
-    if (!_xcFromCache && r.ok) { try { localStorage.setItem('gmt_pos_xcols2', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {} }
+    if (!_xcFromCache && r.ok) { try { localStorage.setItem('gmt_pos_xcols3', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {} }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const freshProds = await r.json();
 
@@ -10538,7 +10538,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026d"></script>
+<script src="gmt-whatsnew.js?v=20261026e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

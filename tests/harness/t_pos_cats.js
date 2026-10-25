@@ -31,17 +31,17 @@ const click = (pg, id, path) => pg.evaluate(([id, path]) => { const b = [...docu
     ok(await pg.evaluate(() => activeTopCat === 'إضاءة') && await count(pg) === 10, 'الضغطة الثانية على الفرع تعود لأبيه');
     await click(pg, 'catTopRow', 'all'); await pg.waitForTimeout(300);
     ok(await count(pg) === all && !(await rowTxt(pg, 'catSubRow')), '«الكل» يعيد كل شيء ويُخفي صفّ الفروع');
-    ok(await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('gmt_pos_xcols2')).c.includes('category'); } catch (e) { return false; } }), 'الذاكرة الجديدة تحمل «category» بعد فحصٍ كامل');
+    ok(await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('gmt_pos_xcols3')).c.includes('category'); } catch (e) { return false; } }), 'الذاكرة الجديدة تحمل «category» بعد فحصٍ كامل');
     ok(!(await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2)), 'لا طفح أفقي');
     const real = errs.filter(e => !/Failed to load resource/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
     await browser.close();
     // ٢) الذاكرة الجديدة الصالحة تُحترم ولا يُعاد كتابة وقتها (فتنتهي فعلاً بعد يوم)
     const t0 = Date.now() - 3600e3;
-    const B = await H.open('pos.html', { init: H.STAFF_INIT + `try{localStorage.setItem('gmt_pos_xcols2', JSON.stringify({c:['brand'], t:${t0}}));}catch(e){}`, w, mobile: mob, wait: 6000 });
-    const k = await B.pg.evaluate(() => JSON.parse(localStorage.getItem('gmt_pos_xcols2')));
+    const B = await H.open('pos.html', { init: H.STAFF_INIT + `try{localStorage.setItem('gmt_pos_xcols3', JSON.stringify({c:['brand'], t:${t0}}));}catch(e){}`, w, mobile: mob, wait: 6000 });
+    const k = await B.pg.evaluate(() => JSON.parse(localStorage.getItem('gmt_pos_xcols3')));
     ok(k.t === t0, 'تحميلٌ من الذاكرة لا يجدّد وقتها (كان هذا سبب بقاء العمود ساقطاً)');
     await B.browser.close();
-    const C2 = await H.open('pos.html', { init: H.STAFF_INIT + `try{localStorage.setItem('gmt_pos_xcols2', JSON.stringify({c:['brand'], t:${Date.now() - 2 * 864e5}}));}catch(e){}`, w, mobile: mob, wait: 6000 });
+    const C2 = await H.open('pos.html', { init: H.STAFF_INIT + `try{localStorage.setItem('gmt_pos_xcols3', JSON.stringify({c:['brand'], t:${Date.now() - 2 * 864e5}}));}catch(e){}`, w, mobile: mob, wait: 6000 });
     ok(/إضاءة/.test(await rowTxt(C2.pg, 'catTopRow') || ''), 'ذاكرةٌ عمرها يومان ⇐ فحصٌ كامل ⇐ يظهر التصنيف');
     await C2.browser.close();
   }

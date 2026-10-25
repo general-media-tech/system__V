@@ -528,7 +528,7 @@
      ═════════════════════════════════════════════════════════════════ */
   function _arN(s) {
       return eastDigits(String(s == null ? '' : s)).replace(/[ً-ْـ]/g, '')
-          .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').toLowerCase()
+          .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ء/g, '').toLowerCase()   // (TASK-0185) «غطاء» = «غطا»
           .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
   }
   function hayOf(text) { return ' ' + _arN(text) + ' ' + prodKey(text) + ' ' + _arN(text).replace(/ /g, '') + ' '; }
@@ -557,16 +557,38 @@
       return [p.name, p.short, p.barcode, p.group_name, p.category, p.brand, p.alt_names, p.search_terms, p.short_name]
           .filter(Boolean).join(' ');
   }
+  /* (TASK-0185 · المالك seq 118 «أكتب هود عدسة 50 STM 1.8 فهو لحاله يعطيني اسم الغطاء أو الهود … مسجّل في دليل التوافقيات، نفس الشيء البطاريات
+     وكل شيء — ابحث في كل المنتجات») — البحث بالتوافق: كلمةٌ واحدة على الأقلّ من المنتج نفسه (هود · غطا · بطارية · الماركة…) والباقي في «متوافق مع»
+     (compat). فـ«هود عدسة 50 STM 1.8» تجد ES-68 (متوافق مع Canon EF 50mm f/1.8 STM)، و«50mm» وحدها تبقى للعدسات لا لكل غطاءٍ يذكرها.
+     كلمات الوصل («عدسة» · «لـ» · for…) لا تُشترط. */
+  const COMPAT_FILLER = new Set(['عدسه', 'لعدسه', 'للعدسه', 'العدسه', 'عدسات', 'لعدسات', 'lens', 'for', 'ل', 'لل', 'على', 'علي', 'مع', 'تبع', 'حق', 'تبعها', 'الخاص', 'الخاصه', 'ب', 'من', 'الى', 'الي', 'يركب', 'متوافق', 'يناسب', 'كاميرا', 'كميرا', 'كمرا', 'camera']);
+  function _wordIn(hay, w) {
+      if (_wordHit(hay, w)) return true;
+      const kt = prodKey(w).split(' ').filter(Boolean);
+      return kt.length > 0 && kt.every(t => _wordHit(hay, t));
+  }
+  function _compatHit(q, hay, chay) {
+      const words = _arN(q).split(' ').filter(Boolean);
+      if (words.length < 2) return false;
+      let own = 0, inC = 0;
+      for (const w of words) {
+          if (_wordIn(hay, w)) own++;
+          else if (_wordIn(chay, w)) inC++;
+          else if (!COMPAT_FILLER.has(w)) return false;
+      }
+      return own > 0 && inC > 0;
+  }
   function hitsProduct(query, p) {
       const q = String(query == null ? '' : query).trim();
       if (!q) return true;
       if (!p || typeof p !== 'object') return hits(q, p);
-      const txt = productText(p);
-      let hay;
+      const txt = productText(p), ctx = p.compat ? (Array.isArray(p.compat) ? p.compat.join(' ') : String(p.compat)) : '';
+      let hay, chay;
       const c = _HAY && _HAY.get(p);
-      if (c && c.t === txt) hay = c.h; else { hay = hayOf(txt); if (_HAY) _HAY.set(p, { t: txt, h: hay }); }
+      if (c && c.t === txt && c.ct === ctx) { hay = c.h; chay = c.ch; } else { hay = hayOf(txt); chay = ctx ? hayOf(ctx) : ''; if (_HAY) _HAY.set(p, { t: txt, h: hay, ct: ctx, ch: chay }); }
       if (_queryHit(q, hay)) return true;
       if (hasLetterNames(q)) { const rs = letterReadings(q); for (let i = 1; i < rs.length; i++) if (_queryHit(rs[i], hay)) return true; }
+      if (chay && _compatHit(q, hay, chay)) return true;
       return false;
   }
 
