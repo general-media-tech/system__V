@@ -264,6 +264,29 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     return results;
   }
 
+  /* (TASK-0177 · المالك seq 97/99 «أخفِ الكلمات المكشوفة» + لقطة «قاعدةٌ لا تردّ: SITE … (معرّف المشروع) … Supabase») — الشريط والنافذة
+     بكلامٍ واضح بلا معرّفات مشاريع ولا أسماء جداول ولا رموز ألوان؛ التفاصيل التقنيّة في سجلّ المتصفّح (console) وحده كما كانت */
+  var DB_AR = { MAIN: 'القاعدة الرئيسية', SITE: 'قاعدة الموقع الإلكتروني (الأخبار · الوكلاء · بطاقات العروض)', STORE: 'قاعدة المتجر', WARRANTY: 'قاعدة الكفالة' };
+  function dbAr(t) { var k = String(t || '').trim().split(/[.:\s]/)[0]; return DB_AR[k] || 'إحدى القواعد'; }
+  function plain(r) {
+    var t = String(r.title || ''), d = String(r.detail || ''), m;
+    if ((m = t.match(/^قاعدةٌ لا تردّ: (.+)$/))) {
+      var ks = m[1].split(/\s*·\s*/), off = /تعذّر الاتصال \(لا إنترنت؟\)/.test(d);
+      return off ? { t: 'لا اتصال بالقواعد الآن', d: 'تأكّد من الإنترنت ثمّ أعد فتح الصفحة.' }
+        : { t: ks.map(dbAr).join(' · ') + ' متوقّفة', d: 'لا تردّ إطلاقاً (محذوفة أو موقوفة في حساب القواعد). ' + (ks.indexOf('SITE') !== -1 ? 'الموقع الإلكتروني يعمل بالنسخة الاحتياطية. ' : '') + 'القرار عندك: استرجاعها أو نقل بياناتها إلى القاعدة الرئيسية.' };
+    }
+    if ((m = t.match(/^جداول مفقودة أو غير متاحة: (\d+)/))) {
+      var dbs = []; d.split(' · ').forEach(function (x) { var a = dbAr(x); if (dbs.indexOf(a) === -1) dbs.push(a); });
+      return { t: 'جزءٌ من البيانات غير متاح (' + m[1] + ')', d: 'في: ' + dbs.join(' · ') + ' — يحتاج تحديثاً في القاعدة؛ أرسل لي صورة هذه الرسالة.' };
+    }
+    if ((m = t.match(/^أصول ناقصة: (\d+)/))) return { t: 'ملفّات ناقصة في الصفحة (' + m[1] + ')', d: 'صورٌ أو ملفّات لم تُحمَّل — حدّث الصفحة، وإن تكرّر أرسل لي صورة هذه الرسالة.' };
+    if (/add_branch_stock/.test(t)) return { t: 'دالّة المخزون غير مفعّلة في القاعدة', d: 'الجرد والمشتريات لن يعملا بدونها — أرسل لي صورة هذه الرسالة.' };
+    if (/^اعتماد على CDN/.test(t)) return { t: 'الصفحة تعتمد على ملفٍّ من الإنترنت', d: 'لن تعمل بلا إنترنت — أرسل لي صورة هذه الرسالة.' };
+    if (/^رابط وسيطٍ لا يصلح/.test(t)) return { t: 'رابط عقل النظام غير صالح', d: 'صحّحه من «تفعيل عقل النظام».' };
+    if (/^ألوان خارج الهوية/.test(t)) return { t: 'ألوانٌ خارج هويّة الشركة في الصفحة', d: '' };
+    if (/حدّ الصفوف/.test(t)) return { t: t, d: 'بعض الفواتير لا تظهر في القوائم والتقارير — أرسل لي صورة هذه الرسالة.' };
+    return { t: t.replace(/\b[a-z]{20}\b/g, '').replace(/\s{2,}/g, ' ').trim(), d: '' };
+  }
   /* تنبيه مرئي — فقط عند مشكلة حقيقية (لا إزعاج بلا سبب) */
   function banner(bads, warns) {
     if (!gmtInternalUI('selfcheck')) return;            // «الفحص الذاتي وجد N مشكلة» لغة داخلية
@@ -278,7 +301,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     b.style.cssText = 'position:relative;z-index:5;background:#7f1d1d;color:#fff;' +
       'padding:10px 14px;font-family:Cairo,Tahoma,sans-serif;font-size:12px;font-weight:700;direction:rtl;' +
       'display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap';
-    var first = (bads[0] && bads[0].title) || '';
+    var first = (bads[0] && plain(bads[0]).t) || '';
     b.innerHTML = '<span>⚠️ الفحص الذاتي وجد ' + bads.length + ' مشكلة' +
       (warns.length ? ' و' + warns.length + ' تنبيه' : '') + (first ? ' — أوّلها: ' + String(first).replace(/[<>&]/g, '') : '') + '</span>' +
       '<button id="gmt-sc-more" style="background:#fff;border:0;color:#7f1d1d;border-radius:8px;' +
@@ -288,8 +311,8 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     document.body.insertBefore(b, document.body.firstChild);
     try {
       document.getElementById('gmt-sc-more').onclick = function () {
-        var txt = bads.map(function (r) { return '🔴 ' + r.title + (r.detail ? '\n   ' + r.detail : ''); })
-          .concat(warns.map(function (r) { return '🟠 ' + r.title + (r.detail ? '\n   ' + r.detail : ''); })).join('\n\n');
+        var txt = bads.map(function (r) { var x = plain(r); return '🔴 ' + x.t + (x.d ? '\n   ' + x.d : ''); })
+          .concat(warns.map(function (r) { var x = plain(r); return '🟠 ' + x.t + (x.d ? '\n   ' + x.d : ''); })).join('\n\n');
         if (global.GMTAsk && GMTAsk.alert) GMTAsk.alert(txt, { title: 'نتيجة الفحص الذاتي' }); else alert(txt);
       };
     } catch (_) {}
@@ -306,5 +329,5 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   if (document.readyState === 'complete') auto();
   else addEventListener('load', auto);
 
-  global.GMTSelfCheck = { run: run, checkAssets: checkAssets, checkBrand: checkBrand, checkDatabase: checkDatabase };
+  global.GMTSelfCheck = { _plain: plain, run: run, checkAssets: checkAssets, checkBrand: checkBrand, checkDatabase: checkDatabase };
 })(window);
