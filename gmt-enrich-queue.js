@@ -172,8 +172,24 @@
         '<span>' + t[0] + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.p.name) + '</span><span style="color:' + t[2] + ';font-weight:800;white-space:nowrap">' + t[1] + '</span></button>'; }).join('');
     renderCard();
   }
+  /* (TASK-0184 · المالك seq 117 «أوّلاً المواصفات اللي حدّدناها نحن بالجرد والجديدة … ثمّ المكتوبة في المتجر — ممكن أحذفها كلها») */
+  function asObj(sp) { if (!sp) return {}; if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (_) { return {}; } } return (sp && typeof sp === 'object' && !Array.isArray(sp)) ? sp : {}; }
+  function sval(v) {
+    if (v == null) return '';
+    if (Array.isArray(v)) return v.map(function (x) { return (x && typeof x === 'object') ? [x.brand, x.mount, x.model, x.version].filter(Boolean).join(' ') : String(x); }).filter(Boolean).join(' · ');
+    if (typeof v === 'object') return Object.keys(v).map(function (k) { return v[k]; }).filter(function (x) { return x != null && x !== ''; }).join(' · ');
+    return String(v).trim();
+  }
+  function kNorm(k) { return String(k || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/^ال/, '').replace(/[\s·:()\/\-]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase(); }
+  /* مواصفات الجرد الموجودة أوّلاً (بمفاتيحها) ثمّ ما جاء به العقل ولم يكن موجوداً */
+  function specRows(p, r) {
+    var base = asObj(p.specs), have = {}, out = [];
+    Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) return; var v = sval(base[k]); if (!v) return; have[kNorm(k)] = 1; out.push({ k: k, v: v, orig: k }); });
+    ((r && r.specs) || []).forEach(function (x) { if (!x || !x.k || !x.v) return; var n = kNorm(x.k); if (have[n]) return; have[n] = 1; out.push({ k: x.k, v: x.v }); });
+    return out;
+  }
   function rowHTML(s, i) {
-    return '<div data-spec-row style="display:flex;gap:6px;margin-bottom:6px"><input data-k value="' + esc(s.k) + '" placeholder="الخاصيّة" style="flex:0 0 38%;min-width:0;border:1px solid #e2e8f0;border-radius:8px;padding:7px;font:inherit;font-size:13px">' +
+    return '<div data-spec-row' + (s.orig ? ' data-orig="' + esc(s.orig) + '"' : '') + ' style="display:flex;gap:6px;margin-bottom:6px"><input data-k value="' + esc(s.k) + '" placeholder="الخاصيّة" style="flex:0 0 38%;min-width:0;border:1px solid ' + (s.orig ? '#bfdbfe' : '#e2e8f0') + ';border-radius:8px;padding:7px;font:inherit;font-size:13px">' +
       '<input data-v value="' + esc(s.v) + '" placeholder="القيمة" style="flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:8px;padding:7px;font:inherit;font-size:13px">' +
       '<button type="button" data-row-del style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:0 9px;cursor:pointer">✕</button></div>';
   }
@@ -216,9 +232,10 @@
     box.innerHTML = top + banner + mismatch + warn +
       field('الاسم بالإنجليزية', 'name_en', r.name_en) + field('الماركة', 'brand', r.brand || p.brand || '') + field('الموديل', 'model', r.model) +
       field('الأسماء البديلة — عربي وإنجليزي (يبحث بها الجرد ونقطة البيع)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || []))) +
-      field('الوصف (يظهر في المتجر)', 'desc', r.desc, true) +
-      '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات</span><div data-rows>' + (r.specs || []).map(rowHTML).join('') + '</div>' +
+      field('الوصف (يظهر في المتجر)', 'desc', sval(asObj(p.specs).__desc) || r.desc, true) +
+      '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات — المحدَّد في الجرد أوّلاً (بإطارٍ أزرق) ثمّ الجديد من العقل</span><div data-rows>' + specRows(p, r).map(rowHTML).join('') + '</div>' +
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +
+      '<div data-store-box style="margin-top:10px"></div>' +
       field('متوافق مع' + (r.compat_ai ? ' — ⚠️ من الذكاء الاصطناعي بقواعد دليل التوافقيات: تأكّد من كل عدسة/جهاز قبل الحفظ (يُبحث به لاحقاً)' : ''), 'compat', r.compat, true) +
       '<div style="margin-top:12px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🖼️ الصور</span>' +
         (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
@@ -235,6 +252,26 @@
       '<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:#f8fafc;padding-top:8px;flex-wrap:wrap"><button type="button" data-act="save" style="' + btn('#D5001C', '#fff') + ';flex:1">' + (it.st === 'ready' ? '💾 حفظ والتالي' : '💾 حفظ') + '</button>' +
       deepBtn + (it.st === 'ready' ? '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button>' : '') + '</div>' +
       '<div data-save-msg style="font-size:12px;font-weight:800;margin-top:6px;min-height:1em"></div>';
+    storeBox(it);
+  }
+  /* (TASK-0184) «🛒 المكتوب في المتجر الآن» تحت ما سبق — كل سطرٍ يُحذف بـ✕، وما يبقى يُحفظ تحت وصفك في المتجر */
+  function storeBox(it) {
+    var box = S.ov.querySelector('[data-q-card] [data-store-box]'); if (!box || !S.storeInfo) return;
+    var paint = function () {
+      if (!S || curItem() !== it) return;
+      var b = S.ov.querySelector('[data-q-card] [data-store-box]'); if (!b) return;
+      var st = it.store;
+      if (!st || !st.loaded) { b.innerHTML = '<div style="font-size:12px;color:#526077">🛒 جارٍ قراءة المكتوب في المتجر…</div>'; return; }
+      if (!st.info) { b.innerHTML = '<div style="font-size:12px;color:#526077">🛒 غير مربوط بمنتجٍ في المتجر — يُحفظ في الجرد وحده (اربطه من «الجسر»).</div>'; return; }
+      var mine = (sval(asObj(it.p.specs).__desc) || (it.res && it.res.desc) || '').split('\n').map(function (x) { return x.trim(); });
+      var lines = String(st.info.description || '').split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
+      b.innerHTML = '<span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🛒 المكتوب في المتجر الآن — يُحفظ تحت وصفك؛ احذف ما لا تريده' + ((st.info.specs || []).length ? ' · (جدول المتجر الحالي ' + st.info.specs.length + ' صفّاً يُستبدل بجدولك)' : '') + '</span>' +
+        (lines.length ? lines.map(function (l) { return '<div data-store-line style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start"><span data-t style="flex:1;min-width:0;background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px;overflow-wrap:anywhere">' + esc(l) + '</span><button type="button" data-store-del style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:5px 9px;cursor:pointer">✕</button></div>'; }).join('')
+          : '<div style="font-size:12px;color:#526077">لا وصف مكتوب في المتجر.</div>');
+    };
+    if (it.store) return paint();
+    it.store = { loaded: false }; paint();
+    Promise.resolve().then(function () { return S.storeInfo(it.p); }).then(function (info) { it.store = { loaded: true, info: info || null }; paint(); }, function () { it.store = { loaded: true, info: null }; paint(); });
   }
   function againHTML() {
     return '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;font-weight:800;color:#0f1219">🔁 أعد البحث برابطٍ أو ملاحظة</summary>' +
@@ -258,33 +295,35 @@
   }
   function readCard() {
     var box = S.ov.querySelector('[data-q-card]'), v = function (k) { var el = box.querySelector('[data-f="' + k + '"]'); return el ? el.value.trim() : ''; };
-    var rows = [].map.call(box.querySelectorAll('[data-spec-row]'), function (row) { return { k: row.querySelector('[data-k]').value.trim(), v: row.querySelector('[data-v]').value.trim() }; })
+    var rows = [].map.call(box.querySelectorAll('[data-spec-row]'), function (row) { return { k: row.querySelector('[data-k]').value.trim(), v: row.querySelector('[data-v]').value.trim(), orig: row.getAttribute('data-orig') || '' }; })
       .filter(function (s) { return s.k && s.v; });
-    return { name_en: v('name_en'), brand: v('brand'), model: v('model'), alt: v('alt'), desc: v('desc'), compat: v('compat'), rows: rows };
+    var it = curItem(), sl = box.querySelector('[data-store-box] [data-store-line]') || (it && it.store && it.store.loaded && it.store.info) ? [].map.call(box.querySelectorAll('[data-store-box] [data-store-line] [data-t]'), function (x) { return x.textContent.trim(); }).join('\n') : null;
+    return { name_en: v('name_en'), brand: v('brand'), model: v('model'), alt: v('alt'), desc: v('desc'), compat: v('compat'), rows: rows, storeDesc: sl };
   }
   /* (TASK-0183) ما في البطاقة لمنتجٍ جاهز لم تفتحه: نتيجة العقل كما هي (كما كانت ستظهر لك) */
   function cardFromRes(it) {
     var r = it.res || {};
     return { name_en: String(r.name_en || '').trim(), brand: String(r.brand || it.p.brand || '').trim(), model: String(r.model || '').trim(),
-             alt: mergeAlt(it.p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || [])), desc: String(r.desc || '').trim(),
-             compat: String(r.compat || '').trim(), rows: (r.specs || []).filter(function (x) { return x && x.k && x.v; }) };
+             alt: mergeAlt(it.p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || [])), desc: (sval(asObj(it.p.specs).__desc) || String(r.desc || '')).trim(),
+             compat: String(r.compat || '').trim(), rows: specRows(it.p, r), storeDesc: null };
   }
   /* (TASK-0183 · المالك seq 115 «بعد ما أعمل حفظ للجميع ما في زرّ حفظ … أغلقت الأداة وما حفظ شيء») — حفظ كل الجاهز دفعةً واحدة:
      المفتوح أمامك بما عدّلتَه فيه، والبقيّة بما جهّزه العقل. ما لا يطابق اسم منتجك (⚠️) لا يُحفظ معها — يبقى لمراجعتك */
   async function saveAll() {
-    if (!S || S.savingAll) return { ok: 0, left: 0, fail: [] };
+    if (!S || S.savingAll) return { ok: 0, left: 0, fail: [], warns: [] };
     var s = S, cur = curItem(), list = s.items.filter(function (x) { return x.st === 'ready'; });
     var mism = list.filter(function (x) { return missingTokens(x.p, x.res).length; }), go = list.filter(function (x) { return mism.indexOf(x) === -1; });
-    var sa = s.ov && s.ov.querySelector('[data-q-saveall]'), ok = 0, fail = [];
+    var sa = s.ov && s.ov.querySelector('[data-q-saveall]'), ok = 0, fail = [], warns = [];
     s.savingAll = true;
     var curF = cur && cur.st === 'ready' ? readCard() : null;
     for (var i = 0; i < go.length; i++) {
       var it = go[i];
       if (sa) { sa.disabled = true; sa.textContent = '💾 جارٍ الحفظ ' + (i + 1) + '/' + go.length + '…'; }
       try {
-        var patch = buildPatch(it, it === cur && curF ? curF : cardFromRes(it));
-        var r = await s.save(it.p, patch);
+        var ff = it === cur && curF ? curF : cardFromRes(it), patch = buildPatch(it, ff);
+        var r = await s.save(it.p, patch, { storeDesc: ff.storeDesc });
         if (r && r.error) throw new Error(r.error);
+        if (r && r.warn) warns.push(it.p.name + ': ' + r.warn);
         Object.assign(it.p, patch); if (s.onSaved) s.onSaved(it.p, patch);
         it.st = 'saved'; ok++;
       } catch (e) { fail.push(it.p.name + ': ' + ((e && e.message) || e)); }
@@ -292,15 +331,21 @@
     }
     s.savingAll = false;
     if (S === s) { if (cur && cur.st === 'saved') nextReady(); render(); }
-    return { ok: ok, left: mism.length, fail: fail };
+    return { ok: ok, left: mism.length, fail: fail, warns: warns };
   }
   function saveAllMsg(r) {
-    return '✅ حُفظ ' + r.ok + (r.left ? ' · ⚠️ ' + r.left + ' لا تطابق اسم المنتج تُركت لمراجعتك' : '') + (r.fail.length ? ' · ❌ تعذّر ' + r.fail.length + ': ' + r.fail.slice(0, 2).join(' / ') : '');
+    return '✅ حُفظ ' + r.ok + (r.left ? ' · ⚠️ ' + r.left + ' لا تطابق اسم المنتج تُركت لمراجعتك' : '') + (r.fail.length ? ' · ❌ تعذّر ' + r.fail.length + ': ' + r.fail.slice(0, 2).join(' / ') : '') +
+      ((r.warns || []).length ? ' · ⚠️ المتجر لم يُحدَّث لـ' + r.warns.length + ': ' + r.warns[0] : '');
   }
   /* الحفظ: أعمدة SQL ٢١/٢٧ نفسها التي تكتبها «مواصفات من علي بابا» — المواصفات (+__desc/__brand/__model) · التوافق · كلمات البحث ·
      الماركة · الأسماء البديلة · المصدر ومن راجع ومتى */
   function buildPatch(it, f) {
-    var specs = {}; f.rows.forEach(function (s) { specs[s.k.slice(0, 60)] = s.v.slice(0, 300); });
+    var base = asObj(it.p.specs), specs = {};
+    Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) specs[k] = base[k]; });      // الوصف/الماركة/الموديل المحفوظة تبقى ما لم تُستبدل
+    f.rows.forEach(function (s) {
+      if (s.orig && Object.prototype.hasOwnProperty.call(base, s.orig) && s.k === s.orig && sval(base[s.orig]) === s.v) specs[s.orig] = base[s.orig];   // كما هي (ولو مصفوفة)
+      else specs[s.k.slice(0, 60)] = s.v.slice(0, 300);
+    });
     if (f.desc) specs.__desc = f.desc.slice(0, 2000);
     if (f.brand) specs.__brand = f.brand;
     if (f.model) specs.__model = f.model;
@@ -336,6 +381,7 @@
     var box = S.ov.querySelector('[data-q-card]');
     if (t.hasAttribute('data-row-add')) { box.querySelector('[data-rows]').insertAdjacentHTML('beforeend', rowHTML({ k: '', v: '' })); return; }
     if (t.hasAttribute('data-row-del')) { t.closest('[data-spec-row]').remove(); return; }
+    if (t.hasAttribute('data-store-del')) { t.closest('[data-store-line]').remove(); return; }
     if (t.hasAttribute('data-img-main')) return imageTo(it, t.getAttribute('data-img-main'), null, 'inv');
     if (t.hasAttribute('data-img-store')) return imageTo(it, t.getAttribute('data-img-store'), null, 'store');
     if (t.hasAttribute('data-img-store-picked')) {
@@ -364,10 +410,11 @@
       var f = readCard(), patch = buildPatch(it, f), msg = box.querySelector('[data-save-msg]');
       t.disabled = true; t.textContent = 'لحظة…';
       try {
-        var r = await S.save(it.p, patch);
+        var r = await S.save(it.p, patch, { storeDesc: f.storeDesc });
         if (r && r.error) throw new Error(r.error);
         Object.assign(it.p, patch); if (S.onSaved) S.onSaved(it.p, patch);
-        it.st = 'saved'; persist(); nextReady(); render();
+        it.st = 'saved'; it.store = null; persist(); nextReady(); render();
+        if (global.showToast) showToast(r && r.warn ? '⚠️ ' + r.warn : '✅ حُفظ' + (r && r.store ? ' في الجرد والمتجر (' + r.store.specs + ' مواصفة)' : ' في الجرد'), r && r.warn ? 'error' : 'success');
       } catch (er) { t.disabled = false; t.textContent = '💾 حفظ والتالي'; if (msg) { msg.style.color = '#b91c1c'; msg.textContent = '❌ لم يُحفظ: ' + ((er && er.message) || er); } }
     }
   }
@@ -384,7 +431,7 @@
     close(true);
     var saved = load(), byId = {};
     if (saved && saved.key === o.key) (saved.items || []).forEach(function (x) { byId[String(x.id)] = x; });
-    S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
+    S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
           items: o.products.map(function (p) { var s0 = byId[String(p.id)] || {}; return { id: p.id, p: p, st: s0.st || 'wait', res: s0.res || null, err: s0.err || '' }; }),
           cur: null, busy: false, paused: false, closed: false };
     var ready = S.items.filter(function (x) { return x.st === 'ready'; })[0]; S.cur = ready ? ready.id : (S.items[0] || {}).id;

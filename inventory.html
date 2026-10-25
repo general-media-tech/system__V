@@ -2292,7 +2292,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
 <script src="gmt-specs.js?v=20261025i"></script>
-<script src="gmt-enrich-queue.js?v=20261026d"></script>
+<script src="gmt-enrich-queue.js?v=20261026f"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -4920,25 +4920,32 @@ async function gmtEnrichPick() {
   if (currentGroup && currentGroup !== '__none__') { const l = allProducts.filter(p => inG(p, currentGroup)); cur.push({ k: 'g:' + currentGroup, t: '📂 ' + currentGroup, n: l.length, left: l.filter(p => !done(p)).length }); }
   if (currentCategory) { const l = allProducts.filter(p => inC(p, currentCategory)); cur.push({ k: 'c:' + currentCategory, t: '🏷️ ' + currentCategory, n: l.length, left: l.filter(p => !done(p)).length }); }
   if (cur.length) secs.push({ title: 'المعروض الآن', items: cur });
+  /* (TASK-0184 · المالك seq 116 «بدّي إيّاه مشان المنتجات الموجودة في الجرد وما هي موجودة في المتجر») */
+  const notInStore = allProducts.filter(p => !/#product=/.test(String(p.store_url || '')));
+  if (notInStore.length) secs.push({ title: 'المتجر', items: [{ k: 's:none', t: '🛒 في الجرد وليست في المتجر', n: notInStore.length, left: notInStore.filter(p => !done(p)).length }] });
   secs.push({ title: 'المجموعات', items: groups.map(g => { const l = allProducts.filter(p => inG(p, g)); return { k: 'g:' + g, t: '📂 ' + g, n: l.length, left: l.filter(p => !done(p)).length }; }) });
   if (cats.length) secs.push({ title: 'التصنيفات', items: cats.map(c => { const l = allProducts.filter(p => inC(p, c)); return { k: 'c:' + c, t: '🏷️ ' + c, n: l.length, left: l.filter(p => !done(p)).length }; }) });
   if (!groups.length && !cats.length) { showToast('لا مجموعات ولا تصنيفات بعد — أنشئ مجموعة أوّلاً', 'warning'); return; }
   const sel = await GMTEnrichQueue.pick({ message: 'اختر مجموعةً أو تصنيفاً — العقل يجهّز منتجاته واحداً تلو الآخر في الخلفية، وأنت تراجع ما جهز: تعدّل · تحفظ · تتخطّى · تضيف صوراً.', sections: secs });
   if (!sel) return;
-  const k = sel.k, isG = k.indexOf('g:') === 0, name = k.slice(2);
-  let list = allProducts.filter(p => isG ? inG(p, name) : inC(p, name));
+  const k = sel.k, isG = k.indexOf('g:') === 0, isS = k === 's:none', name = isS ? 'في الجرد وليست في المتجر' : k.slice(2);
+  let list = isS ? notInStore.slice() : allProducts.filter(p => isG ? inG(p, name) : inC(p, name));
   if (sel.onlyLeft) list = list.filter(p => !done(p));
   if (!list.length) { showToast('لا منتجات في «' + name + '»', 'warning'); return; }
   GMTEnrichQueue.open({
     key: k, title: name, products: list, operator: posWho(),
     /* الحفظ متحقَّق: صفٌّ عاد من الخادم وإلّا فلم يُحفظ (الرفض الصامت لا يُقال «حُفظ») */
-    save: async (p, patch) => {
+    save: async (p, patch, extra) => {
       const { data, error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}&select=id`, patch, { Prefer: 'return=representation' });
       if (error && /specs|compat|search_terms|alt_names|brand|column/i.test(error)) return { error: 'أعمدة المواصفات/الماركة غير موجودة في القاعدة (SQL ٢١ و٢٧) — ' + error };
       if (error) return { error };
       if (!Array.isArray(data) || !data.length) return { error: 'الكتابة مرفوضة أو المنتج لم يعد موجوداً' };
-      return {};
+      /* (TASK-0184 · المالك seq 117 «المواصفات المكتوبة في المنتج ما عم تطلع في المتجر») — حُفظ في الجرد ⇒ ويُكتب لمنتج المتجر المربوط فوراً
+         (كان لا يصل إلّا بتشغيل الجسر يدوياً: كتالوج المتجر الحيّ كان بلا مواصفاتٍ إطلاقاً). تعذّر المتجر ⇒ الجرد محفوظ ويُقال ذلك */
+      try { const st = await gmtStorePushSpecs(Object.assign({}, p, patch), patch, extra && extra.storeDesc); return st ? { store: st } : {}; }
+      catch (e) { return { warn: 'حُفظ في الجرد — والمتجر لم يُحدَّث: ' + ((e && e.message) || e) }; }
     },
+    storeInfo: async (p) => { const sp = await gmtStoreProductOf(p); return sp ? { description: String(sp.description || ''), specs: Array.isArray(sp.specs) ? sp.specs : [], name: sp.name || '' } : null; },
     upload: async (blob, kind) => {
       const ext = /png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : 'jpg';
       const f = new File([blob], 'img.' + ext, { type: blob.type || 'image/jpeg' });
@@ -4951,6 +4958,51 @@ async function gmtEnrichPick() {
   });
 }
 window.gmtEnrichPick = gmtEnrichPick;
+/* (TASK-0184) منتج المتجر المربوط بهذا المنتج: «#product=<id>» في store_url أو inv_id في المتجر — الكتالوج يُقرأ مرّةً كل دقيقة */
+let _gmtStoreCat = null;
+async function gmtStoreCatalog(fresh) {
+  if (!fresh && _gmtStoreCat && Date.now() - _gmtStoreCat.at < 60000) return _gmtStoreCat.rec;
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  const r = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
+  if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
+  const rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
+  _gmtStoreCat = { at: Date.now(), rec };
+  return rec;
+}
+function gmtStoreFind(prods, p) {
+  const m = /#product=([^&]+)/.exec(String(p.store_url || '')), sid = m ? decodeURIComponent(m[1]) : '';
+  return (sid && prods.find(x => String(x.id) === sid)) || prods.find(x => x && x.inv_id != null && String(x.inv_id) === String(p.id)) || null;
+}
+async function gmtStoreProductOf(p) {
+  try { const rec = await gmtStoreCatalog(); return gmtStoreFind(Array.isArray(rec.products) ? rec.products : [], p); } catch (_) { return null; }
+}
+/* يكتب المواصفات (كما يعرضها المتجر) والتوافق والوصف لمنتج المتجر المربوط — كتابةٌ مشروطة متحقَّقة كالجسر.
+   الوصف: وصفك أوّلاً ثمّ ما بقي من المكتوب في المتجر (storeDesc — ما لم تحذفه في المراجعة؛ null ⇒ يبقى كلّه). لا مربوط ⇒ null */
+async function gmtStorePushSpecs(p, patch, storeDesc) {
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  const sp0 = patch.specs || p.specs, rowsOut = window.GMTSpecs ? GMTSpecs.forStore(sp0) : [];
+  const myDesc = window.GMTSpecs ? GMTSpecs.meta(sp0).desc : '';
+  for (let i = 0; i < 3; i++) {
+    const rec = await gmtStoreCatalog(true);
+    const prods = Array.isArray(rec.products) ? rec.products : [], sp = gmtStoreFind(prods, p);
+    if (!sp) return null;
+    const mine = String(myDesc || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const keep = (storeDesc == null ? String(sp.description || '') : String(storeDesc)).split('\n').map(x => x.trim()).filter(x => x && mine.indexOf(x) === -1);
+    const upd = { specs: rowsOut, compat: patch.compat || p.compat || '' };
+    const desc = mine.concat(keep).join('\n');
+    if (desc || storeDesc != null) upd.description = desc;
+    const next = prods.map(x => x === sp ? Object.assign({}, x, upd) : x);
+    let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+    if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+    const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+    if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+    const rows = await w.json().catch(() => null);
+    if (Array.isArray(rows) && rows.length) { _gmtStoreCat = null; try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, specs: rowsOut.length }; }
+    _gmtStoreCat = null;
+  }
+  throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
+}
+window.gmtStorePushSpecs = gmtStorePushSpecs;
 /* صورٌ إضافية لمنتج المتجر المربوط (store_url «#product=<id>») — على كتالوج المتجر الطازج وكتابةٌ مشروطة متحقَّقة (كالجسر · TASK-0161) */
 async function gmtStoreAddImages(p, urls) {
   const m = /#product=([^&]+)/.exec(String(p.store_url || ''));
@@ -15111,7 +15163,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261026d"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026e"></script>
+<script src="gmt-whatsnew.js?v=20261026f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
