@@ -47,19 +47,22 @@ const row = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
   const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();
-  // ٥) (TASK-0181 · seq 109 «لا داعي في قوائم الباركود والجرد السريع — بس البحث داخل النظام، الطباعة والكتابة بالاسم الأساسي»)
-  //    نقطة البيع: قائمة طباعة الباركود والجرد السريع بالاسم الأساسي والباركود فقط
+  // ٥) (TASK-0186 · seq 119 «البحث عن الباركود … كل الأسماء تنفع، ولكن الطباعة فقط بالاسم الأساسي — إنت عم تفهمني غلط»)
+  //    نقطة البيع: قائمة طباعة الباركود والجرد السريع تبحثان بكل الأسماء · والملصق يُطبع بالاسم الأساسي
   const o2 = await H.open('pos.html', { w: 1366, h: 900, wait: 5000, init: H.ADMIN_INIT });
   const bc = await o2.pg.evaluate(() => { if (typeof renderBcProductList !== 'function') return 'nofn'; try { if (!branch) branch = { key: 'haleb', name: 'حلب' }; openBarcodeModal(); } catch (e) { return 'open: ' + e.message; }
     const i = document.getElementById('bc-search'); if (!i) return 'noinput';
     allProducts.push({ id: 999001, name: 'ضوء تجربة', alt_names: 'Godox SL-60W، جودوكس 60 واط', barcode: '' }); i.value = 'جودوكس 60'; renderBcProductList();
     const byAlt = (document.getElementById('bc-product-list') || {}).innerText || '';
     i.value = 'ضوء تجربة'; renderBcProductList();
-    return { byAlt, byName: (document.getElementById('bc-product-list') || {}).innerText || '',
+    const byName = (document.getElementById('bc-product-list') || {}).innerText || '';
+    toggleBcProduct(999001, true);
+    return { byAlt, byName, label: (_bcSelectedProducts[999001] || {}).name || '',
              sc: typeof scRenderList === 'function' ? scRenderList.toString() : '' }; });
-  ok(bc && !/ضوء تجربة/.test(bc.byAlt), 'نقطة البيع (قائمة الباركود): الاسم البديل لا يُبحث به هنا: ' + String(bc && bc.byAlt).replace(/\s+/g, ' ').slice(0, 60));
-  ok(bc && /ضوء تجربة/.test(bc.byName), 'قائمة الباركود: الاسم الأساسي يجده');
-  ok(bc && bc.sc && !/hitsProduct|alt_names/.test(bc.sc), 'الجرد السريع: البحث بالاسم الأساسي والباركود فقط');
+  ok(bc && /ضوء تجربة/.test(bc.byAlt), 'نقطة البيع (قائمة الباركود): البحث بالاسم البديل «جودوكس 60» يجده: ' + String(bc && bc.byAlt).replace(/\s+/g, ' ').slice(0, 60));
+  ok(bc && /ضوء تجربة/.test(bc.byName), 'قائمة الباركود: والاسم الأساسي يجده');
+  ok(bc && bc.label === 'ضوء تجربة', 'الملصق يُطبع بالاسم الأساسي وحده: «' + (bc && bc.label) + '»');
+  ok(bc && bc.sc && /hitsProduct/.test(bc.sc), 'الجرد السريع: البحث بكل الأسماء');
   await o2.browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

@@ -4846,9 +4846,10 @@ function renderBcProductList() {
   const list = allProducts.filter(p => {
     if (p._is_offer) return false;
     if (!q) return true;
-    /* (TASK-0181 · المالك seq 109 «لا لا ما في داعي قوائم تبعت الباركود والجرد السريع … بس البحث داخل النظام، أمّا الطباعة والكتابة
-       فالاسم اللي بنكتبه أساسي») — هنا الاسم الأساسي والباركود فقط (عادت كما قبل TASK-0175) */
-    return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q);
+    /* (TASK-0186 · المالك seq 119 «البحث عن الباركود … كل الأسماء تنفع، ولكن الطباعة فقط بالاسم الأساسي — إنت عم تفهمني غلط»)
+       البحث هنا بكل الأسماء (الأساسي · البديلة · الماركة) كبحث البيع؛ والملصق يُطبع بالاسم الأساسي وحده (_bcSelectedProducts ⇐ p.name) */
+    if (window.GMTSuggest && GMTSuggest.hitsProduct) return GMTSuggest.hitsProduct(q, p);
+    return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.alt_names||'').toLowerCase().includes(q);
   }).slice(0, 60);
   const el = document.getElementById('bc-product-list');
   if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">لا نتائج</div>'; return; }
@@ -5050,7 +5051,8 @@ function scRenderList() {
   let list = scProducts();
 
   // فلترة بالبحث
-  if (q) list = list.filter(p => (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q));   // (TASK-0181 · seq 109) الاسم الأساسي والباركود فقط
+  if (q) list = list.filter(p => (window.GMTSuggest && GMTSuggest.hitsProduct) ? GMTSuggest.hitsProduct(q, p)   // (TASK-0186 · seq 119) البحث بكل الأسماء — العرض بالأساسي
+    : ((p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.alt_names||'').toLowerCase().includes(q)));
 
   // فلترة بالحالة
   if (_scFilter === 'counted')   list = list.filter(p => _scCounts[p.id] !== undefined);
@@ -10536,7 +10538,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026b"></script>
+<script src="gmt-whatsnew.js?v=20261026c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
