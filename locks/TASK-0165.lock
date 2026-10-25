@@ -1,7 +1,0 @@
-task: TASK-0165
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: orders.html gmt-receipt.js gmt-docscan.js gmt-whatsnew.js tests/harness/t_receipt_other.js tests/harness/other_gen.js tests/harness/t_receipt_mismatch.js
-claimed_at: 2026-10-25T11:08:00Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0165
