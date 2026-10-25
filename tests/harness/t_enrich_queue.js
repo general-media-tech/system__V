@@ -12,10 +12,10 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     window.__calls.push(o.hint || ''); await new Promise(r => setTimeout(r, 700));
     const n = (o.hint || '').split(' — ')[0], q = GMTEnrichQueue.state(), first = !!(q && q.items[0].p.name === n);   // صورٌ مرشّحة للأوّل فقط (كأنّ البحث وجدها)
     const efm = /EF-M/.test(n);   // (TASK-0172) العقل أعطى موديلاً يخالف الاسم (EF-EOS R لمنتجٍ اسمه EF-M) — إلّا في «البحث الأعمق»
-    const res = efm && !/بحث أعمق/.test(o.hint) ? { name: n, name_en: 'Auto Focus Adapter EF-EOS R', brand: 'غير مصرح', model: 'EF-EOS R', description_ar: 'محول', specs: [{ k: 'الحربة', v: 'RF' }], compat: [], images: [], confidence: 'low', notes: '' } :
-      efm ? { name: n, name_en: 'Canon EF-EOS M Mount Adapter', brand: 'Canon', model: 'EF-EOS M', description_ar: 'محوّل عدسات EF إلى EOS M', specs: [{ k: 'الحربة', v: 'EF-M' }], compat: [], images: [], confidence: 'low', notes: '' } :
+    const res = efm && !/بحث أعمق/.test(o.hint) ? { name: n, name_en: 'Auto Focus Adapter EF-EOS R', brand: 'غير مصرح', model: 'EF-EOS R', description_ar: 'محول' + (/ملاحظة أدق/.test(o.hint) ? ' (بعد الملاحظة)' : ''), specs: [{ k: 'الحربة', v: 'RF' }], compat: [], images: [], confidence: 'low', notes: '' } :
+      efm ? { name: n, name_en: 'Canon EF-EOS M Mount Adapter', brand: 'Canon', model: 'EF-EOS M', description_ar: 'محوّل عدسات EF إلى EOS M' + (/ملاحظة أدق/.test(o.hint) ? ' (بعد الملاحظة)' : ''), specs: [{ k: 'الحربة', v: 'EF-M' }], compat: [], images: [], confidence: 'low', notes: '' } :
       { name: n, name_en: 'EN ' + n, brand: 'Godox', model: 'M-' + n.slice(-1), description_ar: 'وصف ' + n + (/ملاحظة أدق/.test(o.hint) ? ' (بعد الملاحظة)' : ''),
-      specs: [{ k: 'الأبعاد', v: '15×17 سم' }, { k: 'اللون', v: 'أسود' }], compat: ['Canon 600EX'], images: first ? ['https://img.example/a.png'] : [], confidence: 'low', notes: '' };
+      specs: [{ k: 'الأبعاد', v: '15×17 سم' }, { k: 'اللون', v: 'أسود' }], compat: ['Canon 600EX'], aliases_ar: ['فلاش غودوكس ' + n.slice(-1)], aliases_en: ['Godox M' + n.slice(-1)], images: first ? ['https://img.example/a.png'] : [], confidence: 'low', notes: '' };
     Object.defineProperty(res, '_meta', { value: { from_memory: !first }, enumerable: false });
     return res;
   };
@@ -42,7 +42,8 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     // ٠) (TASK-0173 · seq 89) كل طلبٍ للعقل يحمل طلب المواصفات (الواط · الجهد · البطارية · الألوان …) داخل حدّ الوسيط (٣٠٠ حرف) · ومفتاحٌ مشوّه «k>» لا يُسقط صفّه
     const ch = await pg.evaluate(() => ({ a: GMTBrain._composeHint('اداپتر Adapter rings EF-M — الاسم هو المرجع: الموديل يطابق «EF-M»'), b: GMTBrain._composeHint('x'.repeat(500)),
       n: GMTBrain._normSpecs([{ 'k>': 'ما في العلبة', v: 'محوّل' }, { k: 'الوزن', v: '130 غ' }]) }));
-    ok(ch.a.length <= 300 && /EF-M/.test(ch.a) && /القدرة \(واط\)/.test(ch.a) && /الألوان/.test(ch.a) && /تقريبي/.test(ch.a) && ch.b.length <= 300 && /القدرة/.test(ch.b),
+    /* (TASK-0175 · seq 93) الأبواب كلّها: الواط · مصدر الطاقة · التغطية · المنشأ · البرمجيات … */
+    ok(ch.a.length <= 300 && /EF-M/.test(ch.a) && /واط/.test(ch.a) && /مصدر الطاقة/.test(ch.a) && /التغطية/.test(ch.a) && /البرمجيات/.test(ch.a) && /الألوان/.test(ch.a) && /تقريبي/.test(ch.a) && ch.b.length <= 300 && /مصدر الطاقة/.test(ch.b),
       W + ': طلب المواصفات مع الاسم داخل ٣٠٠ حرف (' + ch.a.length + ')');
     ok(ch.n.length === 2 && ch.n[0].k === 'ما في العلبة', W + ': مفتاح المواصفة المشوّه يُقرأ ولا يضيع صفّه');
 
@@ -101,6 +102,8 @@ const BRAIN = `window.__calls = []; window.__brainStub = function () {
     ok(r0.brand === 'Godox' && /فلاش قديم/.test(r0.alt_names || '') && /Godox SB-1517 Mini Softbox/.test(r0.alt_names || '') && /Canon 600EX/.test(r0.compat || '') && r0.specs_checked_at && r0.specs_checked_by === 'فاحص النظام' && r0.specs_source === 'alibaba',
       W + ': الماركة والأسماء البديلة (القديمة باقية) والتوافق ومن راجع ومتى: ' + JSON.stringify({ b: r0.brand, a: r0.alt_names, c: r0.compat, at: r0.specs_checked_at, by: r0.specs_checked_by, src: r0.specs_source || null }));
     ok(/Godox SB-1517/.test(r0.search_terms || ''), W + ': كلمات البحث تحمل الاسم الإنجليزي (يجده بحث الجرد)');
+    /* (TASK-0175 · seq 94–95) أسماء البحث الأخرى من العقل (عربي وإنجليزي) تُحفظ في الأسماء البديلة */
+    ok(/فلاش غودوكس/.test(r0.alt_names || '') && /Godox M\d/.test(r0.alt_names || ''), W + ': أسماء البحث العربية والإنجليزية من العقل محفوظة: ' + (r0.alt_names || ''));
     ok(s.cur === String(light[1].id), W + ': بعد الحفظ انتقلت للجاهز التالي');
     const inMem = await pg.evaluate(id => { const p = allProducts.find(x => String(x.id) === String(id)); return p && p.specs && p.specs.__desc; }, p0.id);
     ok(inMem === 'دفيوزر صغير لفلاش الكاميرا.', W + ': الجرد المعروض تحدّث بلا إعادة تحميل');

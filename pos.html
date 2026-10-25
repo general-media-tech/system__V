@@ -4846,7 +4846,9 @@ function renderBcProductList() {
   const list = allProducts.filter(p => {
     if (p._is_offer) return false;
     if (!q) return true;
-    return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q);
+    /* (TASK-0175 · seq 95 «المنتج له أكثر من اسم للبحث») كبحث البيع: الأسماء البديلة والماركة أيضاً */
+    if (window.GMTSuggest && GMTSuggest.hitsProduct) return GMTSuggest.hitsProduct(q, p);
+    return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.alt_names||'').toLowerCase().includes(q);
   }).slice(0, 60);
   const el = document.getElementById('bc-product-list');
   if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">لا نتائج</div>'; return; }
@@ -5048,7 +5050,8 @@ function scRenderList() {
   let list = scProducts();
 
   // فلترة بالبحث
-  if (q) list = list.filter(p => (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q));
+  if (q) list = list.filter(p => (window.GMTSuggest && GMTSuggest.hitsProduct) ? GMTSuggest.hitsProduct(q, p)   // (TASK-0175) والأسماء البديلة
+    : ((p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.alt_names||'').toLowerCase().includes(q)));
 
   // فلترة بالحالة
   if (_scFilter === 'counted')   list = list.filter(p => _scCounts[p.id] !== undefined);
@@ -10530,11 +10533,11 @@ async function openWarrantyForInvoice(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261023h"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261025q"></script>
+<script src="gmt-brain.js?v=20261025w"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025v"></script>
+<script src="gmt-whatsnew.js?v=20261025w"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -2292,7 +2292,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
 <script src="gmt-specs.js?v=20261025i"></script>
-<script src="gmt-enrich-queue.js?v=20261025q"></script>
+<script src="gmt-enrich-queue.js?v=20261025w"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -4888,12 +4888,15 @@ async function gmtSpecsFromAlibaba(id) {
     if (pr.brand) specs.__brand = pr.brand;
     if (pr.model) specs.__model = pr.model;
     const terms = [p.search_terms, pr.name_en, pr.model, pr.brand].filter(Boolean).join(' ').slice(0, 500);
-    const payload = { specs, compat: (pr.compat || []).join(' · ').slice(0, 1000) || null, search_terms: terms || null,
+    /* (TASK-0175 · seq 94–95) أسماء البحث الأخرى (عربي وإنجليزي) تُضاف لأسماء المنتج البديلة — الجرد ونقطة البيع والأوردرات يبحثون بها */
+    const altL = String(p.alt_names || '').split(/[،,|·\n]+/).map(x => x.trim()).filter(Boolean);
+    [].concat(pr.aliases_ar || [], pr.aliases_en || []).forEach(a => { a = String(a || '').trim(); if (a && !altL.some(x => x.toLowerCase() === a.toLowerCase())) altL.push(a); });
+    const payload = { specs, compat: (pr.compat || []).join(' · ').slice(0, 1000) || null, search_terms: terms || null, alt_names: altL.join('، ').slice(0, 500) || null,
                       specs_source: pr.source_url || 'alibaba', specs_checked_at: new Date().toISOString(),
                       specs_checked_by: (typeof getOperatorName === 'function' && getOperatorName()) || 'عقل النظام' };
     const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(id)}`, payload);
     if (error) {
-      if (/specs|compat|search_terms|column/i.test(error)) throw new Error('شغّل SQL ٢١ (مواصفات وتوافقيات) أوّلاً — أعمدة المواصفات غير موجودة');
+      if (/specs|compat|search_terms|alt_names|column/i.test(error)) throw new Error('شغّل SQL ٢١ و٢٧ (مواصفات وتوافقيات وأسماء بديلة) أوّلاً — أعمدة المواصفات غير موجودة');
       throw new Error(error);
     }
     Object.assign(p, payload);
@@ -15105,10 +15108,10 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261023h"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261025q"></script>
+<script src="gmt-brain.js?v=20261025w"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025v"></script>
+<script src="gmt-whatsnew.js?v=20261025w"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

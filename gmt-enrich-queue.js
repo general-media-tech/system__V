@@ -92,7 +92,8 @@
       name_en: pr.name_en || '', name_ar: pr.name || '', brand: pr.brand || '', model: pr.model || '',
       desc: pr.description_ar || '', compat: Array.isArray(pr.compat) ? pr.compat.join(' · ') : (pr.compat || ''),
       specs: (pr.specs || []).filter(function (s) { return s && s.k; }).map(function (s) { return { k: String(s.k), v: String(s.v == null ? '' : s.v) }; }),
-      images: imgs.slice(0, 12), source: pr.source_url || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || ''
+      images: imgs.slice(0, 12), source: pr.source_url || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || '',
+      aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : []   // (TASK-0175) أسماء البحث الأخرى
     };
   }
 
@@ -176,7 +177,7 @@
         (S.storeAddImages ? '<button type="button" data-img-store="' + esc(u) + '" style="' + btn('#ecfdf5', '#047857') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">+ صور المتجر</button>' : '') + '</div>'; }).join('');
     box.innerHTML = top + banner + mismatch + warn +
       field('الاسم بالإنجليزية', 'name_en', r.name_en) + field('الماركة', 'brand', r.brand || p.brand || '') + field('الموديل', 'model', r.model) +
-      field('الأسماء البديلة (يبحث بها الجرد)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model])) +
+      field('الأسماء البديلة — عربي وإنجليزي (يبحث بها الجرد ونقطة البيع)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || []))) +
       field('الوصف (يظهر في المتجر)', 'desc', r.desc, true) +
       '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات</span><div data-rows>' + (r.specs || []).map(rowHTML).join('') + '</div>' +
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +

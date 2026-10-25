@@ -296,7 +296,9 @@
   /* (25 ت1 · TASK-0173 · المالك seq 89: «ما بيعطيني قوّة واطيّة أو كهرباء أو جهد أو ألوان») الوسيط بلا بحث ويب يكتفي بمواصفاتٍ عامّة قليلة
      (لإضاءة Godox SL60W: النوع ودرجة اللون والحربة فقط). طلبُ هذه المواصفات صراحةً مع الاسم أعاد من الوسيط الحيّ: ٦٠ واط · AC 100-240V ·
      البطارية · اللون · الأبعاد والوزن «(تقريبي)» · ما في العلبة. الوسيط يقصّ الملاحظة عند ٣٠٠ حرف ⇒ الطلب داخلها دائماً. */
-  var SPEC_ASK = 'اذكر في specs: القدرة (واط) · الجهد/الكهرباء · البطارية · الألوان المتوفّرة · الأبعاد · الوزن · ما في العلبة؛ وما لا تعرفه يقيناً اكتب قيمته النموذجية وبعدها «(تقريبي)»';
+  /* (TASK-0175 · المالك seq 93 «ولا يذكر كل المواصفات: القوّة الواطيّة والألوان والتغطية والجهد، بطارية أو كهرباء، والتصنيع، والسوفتات»)
+     الأبواب كلّها هنا باختصار (الملاحظة ≤ ٣٠٠ حرف في الوسيط) — والإكمال المفصّل في completeProduct أدناه */
+  var SPEC_ASK = 'specs: واط · مصدر الطاقة بطارية/كهرباء · الجهد · البطارية · الألوان · التغطية · الأبعاد والوزن · المادّة والمنشأ · المنافذ · البرمجيات · ما في العلبة؛ وغير المؤكَّد قيمته النموذجية «(تقريبي)»';
   function composeHint(h) {
     h = String(h || '').replace(/\s+/g, ' ').trim();
     var room = 300 - SPEC_ASK.length - 3;
@@ -311,6 +313,43 @@
       return kk && vk ? { k: String(s[kk] == null ? '' : s[kk]).trim(), v: String(s[vk] == null ? '' : s[vk]).trim() } : null;
     }).filter(function (s) { return s && s.k && s.v; });
   }
+  /* (TASK-0175 · المالك seq 93 «أعطه أنت برومبت» · seq 94 «تسميات أخرى بالعربي والإنجليزي لسهولة البحث» · seq 95 «المنتج له أكثر من اسم
+     للبحث») — طلبٌ ثانٍ للعقل بعد المواصفات: برومبتٌ كامل (نمط السؤال يقبل تعليمات النظام حتى ٨٠٠٠ حرف، والمنتج ≤ ٣٠٠) يكمل الأبواب
+     الناقصة ويعطي أسماء البحث الأخرى. جُرّب على الوسيط الحيّ: Godox SL60W ⇐ ٥ مواصفات صارت ١٣ + ٨ أسماء عربية و٧ إنجليزية. */
+  var COMPLETE_SYS = 'أنت خبير منتجات تصوير (كاميرات وعدسات وإضاءة وصوت وحوامل وبطاريات وإكسسوارات) لمتجر في سوريا. مهمّتك: إكمال مواصفات منتجٍ وأسماء البحث عنه. أعد JSON فقط بلا أي نصّ وبلا ```:\n' +
+    '{"specs":[{"k":"","v":""}],"aliases_ar":[""],"aliases_en":[""]}\n' +
+    '• specs: المواصفات الناقصة فقط (لا تكرّر الموجودة) ممّا ينطبق على نوع المنتج: القدرة بالواط · مصدر الطاقة (بطارية/كهرباء/الاثنان) · الجهد · البطارية (النوع · mAh · مدّة التشغيل · زمن الشحن) · ' +
+    'درجة اللون/الألوان المتوفّرة · CRI · السطوع · الدقّة والمستشعر للكاميرات · الاستجابة والنمط للميكروفونات · التغطية (زاوية الإضاءة أو الرؤية · مدى البثّ) · الأبعاد · الوزن · الحمولة · ' +
+    'المادّة · بلد المنشأ · التبريد/الضجيج · المنافذ والتوصيل · الحربة/التثبيت · البرمجيات (تطبيق الهاتف · تحديث البرنامج الثابت · التحكّم اللاسلكي) · ما في العلبة · الكفالة. ' +
+    'مفتاحٌ عربيّ قصير وقيمةٌ بأرقامها ووحداتها. ما لا تعرفه يقيناً لهذا الموديل اكتب قيمته النموذجية وبعدها «(تقريبي)». لا تخترع موديلاً ولا ماركة. حتى ١٤ بنداً.\n' +
+    '• aliases_ar: ٣–٨ أسماء بحث أخرى بالعربي يكتبها زبونٌ أو موظّف (الاسم الشائع في السوق · تعريب الماركة والموديل صوتياً · اسم النوع العامّ · أخطاء إملائية شائعة).\n' +
+    '• aliases_en: ٣–٨ أسماء بحث أخرى بالإنجليزي (الاسم التجاري · صيغ الموديل المختلفة · اسم النوع العامّ · اختصارات). لا تكرّر الاسم الأساسي حرفياً.';
+  function skey(k) { return String(k || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/^ال/, '').replace(/[\s·:()\/\-]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase(); }
+  function looseJSON(t) { t = String(t || ''); var a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { return JSON.parse(t.slice(a, b + 1)); } catch (_) { return null; } }
+  function cleanList(v) { var seen = {}; return (Array.isArray(v) ? v : []).map(function (x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 60); })
+    .filter(function (x) { var z = x.toLowerCase(); if (!x || seen[z]) return false; seen[z] = 1; return true; }).slice(0, 10); }
+  async function completeProduct(p, hint) {
+    var url = endpoint(); if (!url || !p) return null;
+    var head = [p.name_en || p.name_ar, p.brand, p.model, p.category].filter(Boolean).join(' · ');
+    var have = (p.specs || []).map(function (s) { return s.k + '=' + s.v; }).join('؛ ');
+    var q = 'المنتج: ' + (head || '') + (hint ? ' (اسمه عندنا: ' + String(hint).split(' — ')[0].slice(0, 120) + ')' : '') + '. المواصفات الموجودة: ' + (have || 'لا شيء');
+    q = q.slice(0, 1900) + '. أكمل الناقص وأعد JSON فقط.';
+    var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, system: COMPLETE_SYS, context: {} }) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    if (!r.ok || j.error) return null;
+    var c = looseJSON(j.answer); if (!c) return null;
+    return { specs: normSpecs(c.specs), aliases_ar: cleanList(c.aliases_ar), aliases_en: cleanList(c.aliases_en) };
+  }
+  /* يضيف ما ليس موجوداً فقط: مواصفةٌ بمفتاحٍ موجود (بعد تطبيع الهمزات والتعريف) تبقى كما جاءت من المصدر */
+  function mergeComplete(p, c) {
+    if (!p || !c) return 0;
+    var keys = {}, added = 0; (p.specs || []).forEach(function (s) { keys[skey(s.k)] = 1; });
+    p.specs = (p.specs || []).slice();
+    (c.specs || []).forEach(function (s) { var k = skey(s.k); if (k && !keys[k] && p.specs.length < 30) { keys[k] = 1; p.specs.push(s); added++; } });
+    p.aliases_ar = cleanList((p.aliases_ar || []).concat(c.aliases_ar || []));
+    p.aliases_en = cleanList((p.aliases_en || []).concat(c.aliases_en || []));
+    return added;
+  }
   async function importProduct(o) {
     var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
     var body = { mode: 'product', url: (o && o.url) || '', hint: composeHint(o && o.hint) };
@@ -322,8 +361,11 @@
     if (j.empty || !j.product) throw new Error('لم يجد العقل مواصفاتٍ لهذا المنتج — الصق رابط صفحته على علي بابا، أو اكتب اسمه وموديله بدقّة ثمّ أعد البحث.');
     var p = j.product;
     p.specs = normSpecs(p.specs);
+    p.aliases_ar = cleanList(p.aliases_ar); p.aliases_en = cleanList(p.aliases_en);
+    var added = 0;
+    if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint)); } catch (_) { added = 0; } }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
-    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [] }, enumerable: false }); } catch (_) {}
+    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -375,6 +417,8 @@
           '<div style="font-size:11.5px;margin-top:4px">الثقة: <b>' + h(pr.confidence || '—') + '</b>' + (pr.price_hint ? ' · سعر المصدر: ' + h(pr.price_hint) : '') + (srcLine ? ' · <span data-pi-src>' + srcLine + '</span>' : '') + '</div></div></div>' +
           (specs.length ? '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px">' + specs.map(function (s) { return '<tr><td style="padding:5px 8px;border:1px solid #eef2f7;background:#f8fafc;font-weight:800;width:38%">' + h(s.k) + '</td><td style="padding:5px 8px;border:1px solid #eef2f7">' + h(s.v) + '</td></tr>'; }).join('') + '</table>' : '<div style="color:#94a3b8;font-size:12.5px;margin-top:8px">لم تُجمع مواصفات.</div>') +
           ((pr.compat && pr.compat.length) ? '<div style="margin-top:8px;font-size:12.5px"><b>متوافق مع:</b> ' + pr.compat.map(h).join(' · ') + '</div>' : '') +
+          (((pr.aliases_ar || []).length || (pr.aliases_en || []).length) ? '<div data-pi-alias style="margin-top:8px;font-size:12.5px;line-height:1.8"><b>أسماء البحث الأخرى (تُضاف للمنتج):</b> ' +
+            (pr.aliases_ar || []).concat(pr.aliases_en || []).map(h).join(' · ') + '</div>' : '') +
           (pr.description_ar ? '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;background:#fafbfc;border-radius:10px;padding:8px 10px">' + h(pr.description_ar) + '</div>' : '') +
           (pr.notes ? '<div style="margin-top:6px;font-size:11.5px;color:#b45309">' + h(pr.notes) + '</div>' : '') +
           (pr.source_url ? '<div style="margin-top:6px;font-size:11px"><a href="' + h(pr.source_url) + '" target="_blank" rel="noopener" dir="ltr">' + h(pr.source_url).slice(0, 70) + '</a></div>' : '') + '</div>' +
@@ -807,7 +851,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
     ask: ask,
     configure: configure,
