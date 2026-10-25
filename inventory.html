@@ -2283,7 +2283,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261025b" defer></script>
+  <script src="gmt-stock.js?v=20261025e" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -3793,6 +3793,10 @@ window.pm2Sync=pm2Sync;
       <button class="btn btn-sm" id="drain-pos-btn" onclick="openDrainPosModal()"
               data-hint="ينقل كل مخزون فرع مختار إلى حلب الرئيسي في فاتورة نقل واحدة — بكلمة السر السيادية."
               style="background:#FFFBEB;border:1.5px solid #FDE68A;color:#92400E;font-weight:900;">🧹 تفريغ نقطة بيع</button>
+      <!-- (TASK-0158 = TASK-0013) فاتورة إعادة إنشاء: تُفتح «جرد المخزون» لنقطة البيع المختارة (الأدمن داخلها) — العدّ = كمّياتها الجديدة -->
+      <button class="btn btn-sm" id="rebuild-pos-btn" onclick="openRebuildPos()"
+              data-hint="تحدّد كمّيات نقطة بيع كاملةً (وتُنشئ غير المعرَّف) ثمّ تعتمدها بالكلمة السيادية كفاتورة إعادة إنشاء — من «جرد المخزون» في النقطة."
+              style="background:#0f172a;border:1.5px solid #0f172a;color:#fff;font-weight:900;">🧾 فاتورة إعادة إنشاء</button>
     </div>
   </div>
   <div style="display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;">
@@ -11346,6 +11350,10 @@ async function stDuplicateTransfer(transferId){
   if(!transferId) return;
   const src = allStockTransfers.find(x=>String(x.id) === String(transferId)) || stCurrentDetail;
   if(!src){ showToast('لم تُعثر على الفاتورة','error'); return; }
+  if(window.GMTStock && GMTStock.isRebuild && GMTStock.isRebuild(src)){   /* (TASK-0158) نسخها كفاتورة نقل تُحرّك المخزون خطأً */
+    await GMTAsk.alert('«'+(src.transfer_number||'')+'» فاتورة إعادة إنشاء — لا تُكرَّر. لتصحيح كمّيات النقطة: «🧾 فاتورة إعادة إنشاء» جديدة.', { title:'فاتورة إعادة إنشاء' });
+    return;
+  }
   showLoading('جارٍ تجهيز نسخة…');
   let items=[];
   try{
@@ -12806,6 +12814,19 @@ const DRAIN_TARGET = 'haleb';           // الوجهة دائماً: حلب ا�
 function drainBranches() {
   return (columns || []).filter(c => c.isBranch && c.key !== DRAIN_TARGET);
 }
+
+/* (TASK-0158 = TASK-0013 · المالك seq 60 «من الأدمن نقطة البيع أو الأدمن لما يكون داخل أو من الجرد») — الأداة نفسها في نقطة البيع
+   («جرد المخزون» + أدوات الأدمن)، فلا تُبنى مرّتين: نختار النقطة هنا ويدخلها الأدمن مباشرةً. */
+window.openRebuildPos = async function () {
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('فاتورة إعادة إنشاء'))) return;
+  const list = (columns || []).filter(c => c.isBranch);
+  if (!list.length) { showToast('لا توجد نقاط بيع', 'error'); return; }
+  const k = await GMTAsk.choose('فاتورة إعادة إنشاء — أيّ نقطة بيع؟\n\nتُفتح «جرد المخزون» فيها: اكتب العدد الفعلي لكل منتج (أو «⓪ تصفير ما لم يُعَدّ» / «= المسجّل»)، وأنشئ غير المعرَّف، ثمّ «🧾 اعتماد كفاتورة إعادة إنشاء».',
+    { title: '🧾 فاتورة إعادة إنشاء', cancelText: 'إلغاء', choices: list.map(c => ({ k: c.key, t: (c.icon ? c.icon + ' ' : '') + (c.displayName || c.key) })) });
+  if (!k) return;
+  const c = list.find(x => x.key === k);
+  location.href = 'pos.html?enter=' + encodeURIComponent(k) + '&name=' + encodeURIComponent((c && c.displayName) || k) + '&rebuild=1';
+};
 
 window.openDrainPosModal = function () {
   const old = document.getElementById('drainModal'); if (old) old.remove();
@@ -14994,7 +15015,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261024i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025d"></script>
+<script src="gmt-whatsnew.js?v=20261025e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

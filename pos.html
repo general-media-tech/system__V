@@ -1223,7 +1223,7 @@ window.GMT_FEATURES = [
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261024g" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
-  <script src="gmt-stock.js?v=20261025b" defer></script>
+  <script src="gmt-stock.js?v=20261025e" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
@@ -2308,13 +2308,20 @@ window.GMT_FEATURES = [
           <button onclick="scSetFilter('uncounted')" id="scf-uncounted" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">غير مجرود</button>
           <button onclick="scSetFilter('diff')" id="scf-diff" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">فروقات</button>
         </div>
+        <!-- (TASK-0158 = TASK-0013) أدوات الأدمن: «فاتورة إعادة إنشاء» — تُظهر لمن في وضع الإدارة فقط -->
+        <div id="sc-admin" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <button onclick="scNewProduct()" style="flex:1 1 30%;padding:7px 6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid #0f766e;background:#f0fdfa;color:#0f766e;cursor:pointer;font-family:'Cairo',sans-serif;">➕ منتج غير معرَّف</button>
+          <button onclick="scBulk('zero')" style="flex:1 1 30%;padding:7px 6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">⓪ تصفير ما لم يُعَدّ</button>
+          <button onclick="scBulk('sys')" style="flex:1 1 30%;padding:7px 6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">= المسجّل لما لم يُعَدّ</button>
+        </div>
       </div>
 
       <!-- قائمة المنتجات -->
       <div id="sc-list" style="flex:1;overflow-y:auto;padding:8px 16px;"></div>
 
       <!-- الأزرار السفلية -->
-      <div style="padding:12px 16px;border-top:1px solid #eee;background:#fff;position:sticky;bottom:0;display:flex;gap:8px;">
+      <div style="padding:12px 16px;border-top:1px solid #eee;background:#fff;position:sticky;bottom:0;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="sc-rebuild-btn" onclick="scRebuild()" style="display:none;flex:1 1 100%;background:#0f172a;border:none;border-radius:11px;padding:12px;color:#fff;font-family:'Cairo',sans-serif;font-size:13px;font-weight:900;cursor:pointer;">🧾 اعتماد كفاتورة إعادة إنشاء (سيادي)</button>
         <button onclick="scSaveDraft()" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;padding:12px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">💾 حفظ ومتابعة لاحقاً</button>
         <button onclick="scFinishAndReport()" style="flex:1.4;background:linear-gradient(135deg,#0f766e,#14b8a6);border:none;border-radius:11px;padding:12px;color:white;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✅ إنهاء وإرسال التقرير</button>
       </div>
@@ -2888,7 +2895,7 @@ function showAdminPicker() {
   try { loadBranches(); } catch (_) {}
 }
 window.showAdminPicker = showAdminPicker;
-async function adminEnterBranch(key, name) {
+async function adminEnterBranch(key, name, extraQs) {
   if (!(window.GMTRole && GMTRole.isAdmin())) return;
   let nm = '';
   try { nm = ((GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || '').trim(); } catch (_) {}
@@ -2905,9 +2912,16 @@ async function adminEnterBranch(key, name) {
       reason: prev ? ('الأدمن ' + nm + ' انتقل من نقطة «' + (prev.name || prev.key) + '» إلى «' + (name || key) + '»') : ('دخول الأدمن ' + nm + ' إلى نقطة البيع') });
     if (_l && _l.then) await Promise.race([_l, new Promise(r => setTimeout(r, 1500))]);
   } catch (_) {}
-  location.replace('pos.html?acting=1');
+  location.replace('pos.html?acting=1' + (extraQs || ''));
 }
 window.adminEnterBranch = adminEnterBranch;
+/* (TASK-0158) من الجرد: pos.html?enter=<مفتاح>&name=<اسم>&rebuild=1 ⇐ الأدمن يدخل تلك النقطة وتُفتح «جرد المخزون» لفاتورة إعادة إنشاء */
+(function () {
+  let q = null; try { q = new URLSearchParams(location.search); } catch (_) {}
+  const k = q && q.get('enter'); if (!k || !/^[a-z_][a-z0-9_]*$/.test(k)) return;
+  const go = () => { if (window.GMTRole && GMTRole.isAdmin()) adminEnterBranch(k, q.get('name') || k, q.get('rebuild') === '1' ? '&rebuild=1' : ''); };
+  if (document.readyState === 'complete') setTimeout(go, 0); else window.addEventListener('load', go);
+})();
 async function actingSwitchBranch() {
   if (!(currentUser && currentUser.acting_admin)) return;
   if (Object.keys(cart || {}).length && !isSaved) {
@@ -3100,7 +3114,7 @@ async function _rcvProgress(on, o) {
     document.body.appendChild(ov);
     try { if (navigator.wakeLock && navigator.wakeLock.request) __rcvWake = await navigator.wakeLock.request('screen'); } catch (_) {}
   }
-  ov.querySelector('[data-rcv-title]').textContent = '📦 جارٍ استلام ' + (o.num || 'الفاتورة');
+  ov.querySelector('[data-rcv-title]').textContent = o.title || ('📦 جارٍ استلام ' + (o.num || 'الفاتورة'));
   ov.querySelector('[data-rcv-step]').textContent = o.n ? ('البند ' + o.i + ' من ' + o.n) : (o.text || '');
   ov.querySelector('[data-rcv-name]').textContent = o.n ? (o.text || '') : '';
   ov.querySelector('[data-rcv-bar]').style.width = (o.n ? Math.round(100 * o.i / o.n) : (o.text && /حفظ/.test(o.text) ? 100 : 4)) + '%';
@@ -3451,6 +3465,9 @@ function _finalizeProductsUI() {
   });
   buildCategoryPills(allGroups);
   renderProds();
+  if (!window.__rbAuto && /[?&]rebuild=1/.test(location.search) && window.GMTRole && GMTRole.isAdmin() && typeof branch !== 'undefined' && branch && branch.key) {
+    window.__rbAuto = true; setTimeout(() => { try { openStockCount(); } catch (_) {} }, 300);   // (TASK-0158) قادمٌ من الجرد
+  }
 }
 
 async function _backgroundSync() {
@@ -4995,6 +5012,9 @@ function openStockCount() {
   try { _scCounts = JSON.parse(localStorage.getItem(_scKey()) || '{}') || {}; } catch(e) { _scCounts = {}; }
   document.getElementById('sc-branch-label').textContent = `فرع ${branch.name} · ${Object.keys(_scCounts).length ? 'مسودة محفوظة — تابع من حيث توقفت' : 'جرد جديد'}`;
   document.getElementById('stockcount-modal').style.display = 'block';
+  { const _adm = !!(window.GMTRole && GMTRole.isAdmin());   // (TASK-0158) أدوات «فاتورة إعادة إنشاء» للأدمن وحده
+    const a = document.getElementById('sc-admin'); if (a) a.style.display = _adm ? 'flex' : 'none';
+    const b = document.getElementById('sc-rebuild-btn'); if (b) b.style.display = _adm ? '' : 'none'; }
   _scFilter = 'all';
   scSetFilter('all');
   const s = document.getElementById('sc-search'); if (s) { s.value=''; setTimeout(()=>s.focus(), 300); }
@@ -5178,6 +5198,111 @@ async function scFinishAndReport() {
   showToast('✅ تم إرسال تقرير الجرد للإدارة بنجاح', 'ok');
   closeStockCount();
 }
+
+/* ══ (TASK-0158 = TASK-0013 · المالك seq 60 + seq 68) فاتورة إعادة إنشاء — من «جرد المخزون» نفسه، للأدمن ══════════════════
+   «حدّد كل نقطة بيع شو عندها بضائع — ممكن بضائع ما هي معرّفة أنشئها جديدة … أعدّل كميات كل منتج أو كل المنتجات … تعديل سيادي كامل
+    فقط في بداية الإنشاء … وترجع تعمل فاتورة مثل فاتورة النقل: فاتورة إعادة إنشاء». العدّ هنا = الكمّية الجديدة المطلقة للنقطة.
+   الاعتماد: الخيار (في النقطة وحدها · أو نقلٌ من/إلى فرع) ⇐ اسم المستلم ⇐ الكلمة السيادية ⇐ GMTStock.rebuild. بعد الاعتماد تُقفل
+   الفاتورة كفاتورة نقل مستلَمة؛ أيّ تصحيحٍ لاحق = فاتورة إعادة إنشاء جديدة. */
+function scBulk(kind) {
+  if (!(window.GMTRole && GMTRole.isAdmin())) return;
+  let n = 0;
+  scProducts().forEach(p => {
+    if (_scCounts[p.id] !== undefined) return;
+    const sys = Number(p[branch.key]) || 0;
+    if (kind === 'zero') { if (sys !== 0) { _scCounts[p.id] = 0; n++; } }
+    else { _scCounts[p.id] = sys; n++; }
+  });
+  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (e) {}
+  showToast(kind === 'zero' ? ('⓪ ' + n + ' منتج لم يُعَدّ صار ٠') : ('= ' + n + ' منتج لم يُعَدّ أخذ كمّيته المسجّلة'), 'ok');
+  scRenderList();
+}
+async function scNewProduct() {
+  if (!(window.GMTRole && GMTRole.isAdmin())) return;
+  const v = await GMTAsk.form('منتجٌ ليس معرَّفاً في النظام — يُنشأ الآن ويُضاف إلى «' + branch.name + '» بالكمّية التي تكتبها (تُطبَّق مع الفاتورة).', {
+    title: '➕ منتج غير معرَّف', okText: 'إنشاء',
+    fields: [{ k: 'name', label: 'اسم المنتج *', placeholder: 'مثال: حامل كاميرا YM-20' },
+             { k: 'barcode', label: 'الباركود (اختياري)', dir: 'ltr' },
+             { k: 'price', label: 'سعر البيع $ (اختياري)', dir: 'ltr' },
+             { k: 'qty', label: 'الكمّية في هذه النقطة *', dir: 'ltr', value: '1' }],
+    submit: async (x) => {
+      const name = String(x.name || '').trim(), bc = String(x.barcode || '').trim();
+      if (!name) return { error: 'اكتب اسم المنتج', field: 'name' };
+      const q = parseInt(String(x.qty || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)), 10);
+      if (!(q >= 0)) return { error: 'الكمّية رقمٌ ٠ أو أكثر', field: 'qty' };
+      const dup = scProducts().find(p => (bc && String(p.barcode || '') === bc) || String(p.name || '').trim() === name);
+      if (dup) return { error: 'موجودٌ أصلاً: «' + dup.name + '» — ابحث عنه واكتب عدّه', field: bc && String(dup.barcode || '') === bc ? 'barcode' : 'name' };
+      return { result: { name, bc, q, price: Number(String(x.price || '').replace(',', '.')) || 0 } };
+    }
+  });
+  const r = v && (v.result || v);
+  if (!r || !r.name) return;
+  const row = { name: r.name, price: r.price || 0 }; if (r.bc) row.barcode = r.bc;
+  const ins = await sbPost('/rest/v1/products', [row]);
+  if (ins.error || !ins.data || !ins.data[0]) { await GMTAsk.alert('تعذّر إنشاء المنتج: ' + (ins.error || 'لا ردّ'), { title: 'لم يُنشأ' }); return; }
+  const np = ins.data[0];
+  allProducts.push(np);
+  _scCounts[np.id] = r.q;
+  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (e) {}
+  try { window.GMTAudit && GMTAudit.log({ action: 'product_create', entity: 'products', entityId: np.id, entityName: np.name, reason: 'فاتورة إعادة إنشاء — ' + branch.name }); } catch (_) {}
+  const s = document.getElementById('sc-search'); if (s) s.value = np.name;
+  showToast('➕ أُنشئ «' + np.name + '» — كمّيته في ' + branch.name + ': ' + r.q + ' (تُطبَّق مع الفاتورة)', 'ok');
+  scRenderList();
+}
+async function scRebuild() {
+  if (!(window.GMTRole && GMTRole.isAdmin())) { showToast('فاتورة إعادة الإنشاء للأدمن فقط', 'err'); return; }
+  if (!window.GMTStock || !GMTStock.rebuild) { showToast('وحدة المخزون لم تُحمَّل — حدّث الصفحة', 'err'); return; }
+  const lines = scProducts().filter(p => _scCounts[p.id] !== undefined).map(p => ({
+    product_id: p.id, name: p.name || '', barcode: p.barcode || '', image_url: (p.image_url && !/^data:/.test(p.image_url)) ? p.image_url : '',
+    before: Number(p[branch.key]) || 0, after: Math.max(0, parseInt(_scCounts[p.id], 10) || 0),
+    unit_cost: Number(p.wholesale_price) || 0, sale_price: Number(p.price) || 0 }));
+  const ch = lines.filter(l => l.after !== l.before);
+  if (!ch.length) { await GMTAsk.alert('لا فرق بين ما حدّدته والمسجّل في «' + branch.name + '» — لا شيء يتغيّر.', { title: 'فاتورة إعادة إنشاء' }); return; }
+  const up = ch.filter(l => l.after > l.before).reduce((t, l) => t + l.after - l.before, 0);
+  const dn = ch.filter(l => l.after < l.before).reduce((t, l) => t + l.before - l.after, 0);
+  const how = await GMTAsk.choose('فاتورة إعادة إنشاء «' + branch.name + '»: ' + ch.length + ' منتج تتغيّر كمّيته (زيادة ' + up + ' · نقص ' + dn + ' قطعة).\n\nكيف يُطبَّق الفرق؟',
+    { title: '🧾 فاتورة إعادة إنشاء', cancelText: 'رجوع',
+      choices: [{ k: 'local', t: 'في هذه النقطة وحدها (تصحيح سيادي)' }, { k: 'move', t: 'نقلٌ من/إلى فرعٍ أختاره…' }] });
+  if (!how) return;
+  let other = null;
+  if (how === 'move') {
+    if (!(branches || []).length) {                      // الموظّف لم يمرّ بشاشة اختيار الفرع ⇒ القائمة لم تُحمَّل
+      try { const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/inv_columns?select=key_name,display_name,icon&is_branch=eq.true&order=sort_order.asc`, { headers: sbHeaders() });
+            if (r.ok) branches = (await r.json()).map(d => ({ key: d.key_name, name: d.display_name, icon: d.icon || '🏪' })); } catch (_) {}
+    }
+    const opts = (branches || []).filter(b => b && b.key && b.key !== branch.key);
+    if (!opts.length) { showToast('لا فروع أخرى', 'err'); return; }
+    const bk = await GMTAsk.choose('الزيادة (' + up + ') تُخصم من هذا الفرع، والنقص (' + dn + ') يُعاد إليه:', { title: 'الفرع الآخر', cancelText: 'رجوع',
+      choices: opts.map(b => ({ k: b.key, t: (b.icon ? b.icon + ' ' : '') + (b.name || b.key) })) });
+    if (!bk) return;
+    other = opts.find(b => b.key === bk);
+  }
+  const rcv = await GMTAsk.prompt('اسم المستلم في «' + branch.name + '» — يُكتب على الفاتورة:', { title: 'الاستلام', value: (currentUser && (currentUser.display_name || currentUser.username)) || '' });
+  if (rcv === null) return;
+  const okPw = window.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 فاتورة إعادة إنشاء «' + branch.name + '» — تعديلٌ سياديّ للكمّيات')
+                                             : await GMTRole.requireAdmin('فاتورة إعادة إنشاء');
+  if (!okPw) return;
+  const by = (GMTRole.name && GMTRole.name()) || (currentUser && currentUser.display_name) || 'الأدمن';
+  let R;
+  try {
+    await _rcvProgress(true, { title: '🧾 جارٍ تطبيق فاتورة إعادة الإنشاء', text: 'قراءة الكمّيات الحاليّة…' });
+    R = await GMTStock.rebuild({ branch: { key: branch.key, name: branch.name }, lines: ch, mode: how, other: other && { key: other.key, name: other.name },
+      by, receivedBy: String(rcv).trim(), onProgress: (i, n, name) => _rcvProgress(true, { title: '🧾 جارٍ تطبيق فاتورة إعادة الإنشاء', i, n, text: name }) });
+  } finally { _rcvProgress(false); }
+  if (!R || (!R.numbers.length && R.error)) { await GMTAsk.alert('⚠️ لم تُنشأ الفاتورة: ' + ((R && R.error) || 'خطأ') + '\n\nالعدّ محفوظ — أعد المحاولة.', { title: 'فاتورة إعادة إنشاء' }); return; }
+  try { localStorage.removeItem(_scKey()); } catch (e) {}
+  _scCounts = {};
+  closeStockCount();
+  const msg = '🧾 فاتورة إعادة إنشاء «' + branch.name + '»: ' + (R.numbers.join(' + ') || '—') + '\n' +
+    '• طُبّق ' + R.applied + ' منتج' + (R.skipped ? ' · ' + R.skipped + ' صار مطابقاً قبل الاعتماد' : '') + '\n' +
+    '• ' + (how === 'move' ? 'الفرق نُقل من/إلى «' + (other.name || other.key) + '»' : 'الفرق في النقطة وحدها') + ' · المستلم: ' + String(rcv).trim() + ' · بواسطة ' + by +
+    (R.failed.length ? '\n\n⚠️ لم يُطبَّق ' + R.failed.length + ':\n' + R.failed.slice(0, 12).map(f => '• ' + f.name + ' — ' + f.why).join('\n') + '\n(مذكورة في الفاتورة — أعد عدّها واعتمد فاتورةً جديدة)' : '');
+  try { sendTelegram('<b>🧾 فاتورة إعادة إنشاء</b>\nالفرع: ' + branch.name + '\nالفواتير: ' + R.numbers.join(' + ') + '\nطُبّق: ' + R.applied + (R.failed.length ? ' · لم يُطبَّق: ' + R.failed.length : '') + '\nبواسطة: ' + by).catch(() => {}); } catch (_) {}
+  try { window.GMTAudit && GMTAudit.log({ action: 'pos_rebuild', entity: 'branch_stock_transfers', entityName: R.numbers.join(' + '), reason: 'فاتورة إعادة إنشاء — ' + branch.name + ' · ' + (how === 'move' ? 'نقل من/إلى ' + other.name : 'في النقطة وحدها') }); } catch (_) {}
+  await GMTAsk.alert(msg, { title: R.failed.length ? 'اكتملت مع بنودٍ لم تُطبَّق' : '✅ اكتملت فاتورة إعادة الإنشاء' });
+  try { _loadProductsFromServer(false); } catch (_) {}
+}
+window.scRebuild = scRebuild; window.scBulk = scBulk; window.scNewProduct = scNewProduct;
 
 // ── مسح بالكاميرا (ZXing) ──
 let _scScanControls = null;
@@ -10409,7 +10534,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025d"></script>
+<script src="gmt-whatsnew.js?v=20261025e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
