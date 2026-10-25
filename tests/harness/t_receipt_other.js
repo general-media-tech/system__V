@@ -91,7 +91,8 @@ async function makeImg(pg, kind, o, ph) {
       const [row] = await H.call('/rest/v1/gmt_orders?id=eq.' + o.id + '&select=status,shipping_company,tracking_number,ship_from_office', undefined, 'GET');
       ok(row && row.status === 'shipped' && row.shipping_company === co && row.tracking_number === num && row.ship_from_office === key, W + ': حُفظ على الأوردر: ' + JSON.stringify(row && { s: row.status, co: row.shipping_company, t: row.tracking_number, from: row.ship_from_office }));
       const card = await pg.evaluate(id => { const el = document.getElementById('card-' + id); return el ? (el.querySelector('[data-sender-info]') || {}).innerText || '' : '(no card)'; }, o.id);
-      ok(/المصدر/.test(card) && card.includes(key.split('|')[1]), W + ': البطاقة تعرض الفرع المصدر: ' + card.replace(/\s+/g, ' ').slice(0, 60));
+      // (TASK-0163) مثل المفتي: «المُرسِل» وحالة الحوالة
+      ok(/المُرسِل/.test(card) && card.includes(key.split('|')[1]) && /لم تُراسَل/.test(card), W + ': البطاقة تعرض الفرع المُرسِل وحالة الحوالة: ' + card.replace(/\s+/g, ' ').slice(0, 60));
       await H.call('/rest/v1/gmt_orders?id=eq.' + o.id, { status: 'pending', shipping_company: null, tracking_number: null, ship_from_office: null, receipt_img: null, receipt_at: null, receipt_meta: null }, 'PATCH');
       await pg.evaluate(() => typeof loadOrders === 'function' && loadOrders()); await pg.waitForTimeout(1200);
     }
