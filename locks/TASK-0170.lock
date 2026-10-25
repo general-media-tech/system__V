@@ -1,7 +1,0 @@
-task: TASK-0170
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-whatsnew.js tests/harness/t_wn_dots.js
-claimed_at: 2026-10-25T10:57:46Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0170
