@@ -79,24 +79,27 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     const [oQ, oN] = await H.call('/rest/v1/gmt_orders', [
       { name: 'محفوظ القدموس ' + w, phone: '0933000612', product: 'عدسة', qty: 1, price: 50, status: 'pending', branch: 'حلب', address: 'طرطوس', shipping_company: 'القدموس' },
       { name: 'بلا شركة ٢ ' + w, phone: '0933000613', product: 'حامل', qty: 1, price: 20, status: 'pending', branch: 'حلب', address: 'حماة' }]);
-    const rcpt = (id, res, pickCo) => pg.evaluate(async ({ id, res, pickCo }) => {
+    const rcpt = (id, res, pickCo, answer) => pg.evaluate(async ({ id, res, pickCo, answer }) => {
       await loadOrders(); openShipModal(id);
       if (pickCo) { const s = document.getElementById('ship-company'); s.value = pickCo; s.dispatchEvent(new Event('change', { bubbles: true })); }
       const d = GMTOffices.data['المفتي']; const city = Object.keys(d).find(c => (d[c] || []).length); const key = city + '|' + d[city][0].name;
       window.__calls = 0; GMTReceipt.readMufti = async () => { __calls++; const r = JSON.parse(JSON.stringify(res)); if (r.branch && r.branch.key === 'K') r.branch.key = key; return r; };
       const cv = document.createElement('canvas'); cv.width = 300; cv.height = 200; const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.8));
       const f = new File([b], 'r.jpg', { type: 'image/jpeg' }); _shipScan = { original: f, scanned: f, mode: 'color' }; _shipRcptFile = f; _shipOrig = f;
-      await shipReadTracking();
+      /* (TASK-0165 · seq 78) شركةٌ محفوظة عند الإنشاء والإيصال لغيرها ⇒ سؤال — يُجاب كما يجيب الموظّف */
+      const p = shipReadTracking(); let asked = '';
+      for (let i = 0; i < 600 && answer; i++) { const o = document.querySelector('.gmtask-ov'); if (o) { asked = o.innerText.replace(/\s+/g, ' '); [...o.querySelectorAll('button')].find(b => new RegExp(answer).test(b.textContent)).click(); break; } await new Promise(r => setTimeout(r, 100)); }
+      await p;
       const s = document.getElementById('ship-company'), st = document.getElementById('ship-track-auto'), fr = document.getElementById('ship-from');
-      return { calls: __calls, co: s.value, auto: s.dataset.auto, track: document.getElementById('ship-tracking').value, key,
+      return { asked, calls: __calls, co: s.value, auto: s.dataset.auto, track: document.getElementById('ship-tracking').value, key,
         from: fr.value, src: fr.getAttribute('data-src'), fromShown: !document.getElementById('ship-from-wrap').classList.contains('hidden'),
         stHidden: st.classList.contains('hidden'), st: st.innerText.replace(/\s+/g, ' ') };
-    }, { id, res, pickCo });
+    }, { id, res, pickCo, answer });
     const MUF = { tracking: { status: 'barcode', number: '778899' }, barcode: { number: '778899' }, type: { kind: 'mufti', why: 'اسم الشركة' }, branch: { key: 'K', confident: true, candidates: [], text: 'المصدر' }, company: 'المفتي' };
     const QAD = { tracking: { status: 'barcode', number: '5555' }, barcode: { number: '5555' }, type: { kind: 'unsure', why: 'بلا علامة' }, branch: { key: null, confident: false, candidates: [] }, company: 'القدموس', foreign: true };
-    let R = await rcpt(oQ.id, MUF);
-    ok(R.calls === 1 && R.co === 'المفتي' && R.track === '778899' && R.fromShown && R.from === R.key && R.src === 'receipt' && /غيّرتُ شركة الشحن من «القدموس» إلى «المفتي»/.test(R.st),
-      'أوردر محفوظ «القدموس» + إيصال المفتي ⇒ يُقرأ (كان لا يُقرأ) فتصير المفتي ويُملأ الرقم والفرع: ' + JSON.stringify({ co: R.co, t: R.track, src: R.src, st: R.st.slice(0, 90) }));
+    let R = await rcpt(oQ.id, MUF, null, 'اعتمد');
+    ok(/محدَّد لشركة «القدموس»/.test(R.asked) && /«المفتي»/.test(R.asked) && R.calls === 1 && R.co === 'المفتي' && R.track === '778899' && R.fromShown && R.from === R.key && R.src === 'receipt',
+      'أوردر محفوظ «القدموس» + إيصال المفتي ⇒ سؤال (seq 78) ثمّ «اعتمد المفتي» ⇒ يُملأ الرقم والفرع: ' + JSON.stringify({ co: R.co, t: R.track, src: R.src, asked: R.asked.slice(0, 60) }));
     R = await rcpt(oN.id, QAD);
     // (TASK-0159) صار يُقرأ بقارئ القدموس بعدها — هنا الصورة فارغة فلا يجد رقمه ⇒ رقم قارئ المفتي يُعرض للضغط فقط · وخانة «الفرع المصدر» تظهر للقدموس
     // بافتراضيّها من الإعدادات «حلب|الفرقان» (seq 73: «الافتراضي في حالة تعذّر القراءة»)

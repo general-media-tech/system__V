@@ -108,7 +108,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-receipt.js?v=20261025f" defer></script>
+<script src="gmt-receipt.js?v=20261025p" defer></script>
 <script src="gmt-docscan.js?v=20261023m" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -3837,6 +3837,13 @@ async function shipReadTracking(force) {
         /* (TASK-0159) قارئ المفتي أكمل وقرأ اسم القدموس/مسارات في الإيصال (بلا دليلٍ أقوى أثناء القراءة) ⇒ قارئهما (ما لم تختر الشركة بيدك) */
         if (r && r.reader !== 'other' && !r.cancelled && OTHER_READ_CO.indexOf(r.company) !== -1 && !(r.type && r.type.kind === 'mufti') && !shipCoByUser() && isMine())
             r = shipMergeOther(r, await shipReadOther(myFile, r.company, H, () => !isMine(), { scanned, handoff: true }));
+        /* (TASK-0165 · المالك seq 77–78) قارئ المفتي لم يجد إيصال المفتي (لا علاماته ولا فرعه) ⇒ فحصٌ واحد بقارئ القدموس/مسارات (يعرف
+           شكل إيصاليهما): إيصالٌ لشركةٍ أخرى ⇒ يُقرأ بقارئها ويُسأل عنه — كان إيصال مسارات المصوَّر بالعرض يُقرأ «0031831» من هاتفه */
+        if (r && r.reader !== 'other' && !r.cancelled && !(r.type && r.type.kind === 'mufti') && !(r.branch && r.branch.confident) && isMine()) {
+            st.className = 'text-[11px] font-bold text-gray-500 mb-3'; st.textContent = 'لم يتّضح أنّه إيصال المفتي — أتحقّق من شكله (القدموس/مسارات)…';
+            const chk = await GMTReceipt.readOther(myFile, { scanned, cancel: () => !isMine() }).catch(() => null);
+            if (chk && !chk.cancelled && chk.type && ['qadmous', 'masarat'].indexOf(chk.type.kind) !== -1 && isMine()) r = Object.assign(chk, { reader: 'other', handoff: true });
+        }
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
         shipReadFinish(r, H, typed, force, isMine);
     } catch (e) {
@@ -3847,8 +3854,12 @@ async function shipReadTracking(force) {
     } finally { if (own()) _shipReading = false; }
 }
 /* نتيجة القراءة النهائية ⇒ الشركة (ما لم تخترها بيدك) · الرقم · الفرع المصدر (من بنك فروع شركة الإيصال) */
-function shipReadFinish(r, H, typed, force, isMine) {
+function shipReadFinish(r, H, typed, force, isMine, noAsk) {
     if (!r || !isMine()) return;
+    /* (TASK-0165 · المالك seq 78 «الفرع الوجهة وشركة الشحن محدّدة من إنشاء الأوردر … أرسلت إيصال لغير شركة ⇒ فوراً يسألني: أنت كنت محدّدها
+       المفتي وهاي الوجهة والإيصال للقدموس أو مسارات، فتأكّد من الإيصال») — شركةٌ حُدّدت عند إنشاء الأوردر والإيصال لغيرها ⇒ سؤال */
+    const _sel = document.getElementById('ship-company'), _cur = (_sel && _sel.value) || '', _want = shipReceiptCo(r);
+    if (!noAsk && _want && _want !== _cur && _sel && _sel.dataset.auto === 'saved') return shipAskCompany(r, H, typed, force, isMine, _cur, _want);   // اخترتَها بيدك الآن ⇒ تبقى مع تنبيه (كما كان)
     _shipRead = r;
     const _coNote = shipCompanyFromReceipt(r);                          // (TASK-0157) الإيصال يحسم الشركة ما لم تخترها بيدك
     shipReadPaint(r, typed && !force, _coNote);
@@ -3866,10 +3877,47 @@ function shipIsMufti() { return ((document.getElementById('ship-company') || {})
 let _shipCoGen = 0;
 function shipCoByUser() { const s = document.getElementById('ship-company'); return !!s && s.dataset.auto !== '1' && s.dataset.auto !== 'saved'; }
 function shipCanRead() { return shipIsMufti() || !!shipOtherCo() || !shipCoByUser(); }   // (TASK-0159) والقدموس/مسارات
+/* الشركة التي يثبتها الإيصال: إيصال المفتي · أو قارئ القدموس/مسارات تعرّف عليه · أو اسمها مقروءٌ فيه */
+function shipReceiptCo(r) {
+    if (!r || r.cancelled) return '';
+    if (r.type && r.type.kind === 'mufti') return MUFTI_CO;
+    return (r.company && r.company !== MUFTI_CO) ? r.company : '';
+}
+async function shipAskCompany(r, H, typed, force, isMine, cur, want) {
+    const st = document.getElementById('ship-track-auto'), sel = document.getElementById('ship-company');
+    const o = orders.find(x => x.id == shipOrderId) || {}, dest = String(o.address || '').replace(/\s+/g, ' ').trim().slice(0, 70);
+    const why = (r.type && r.type.why) || '', T = r.tracking || {}, num = T.number || T.printed || T.barcode || '';
+    if (st) { st.className = 'text-[11px] font-black text-amber-700 mb-3'; st.textContent = '⚠️ الإيصال يبدو لـ«' + want + '» والأوردر على «' + cur + '» — بانتظار اختيارك…'; }
+    const k = await GMTAsk.choose('الأوردر محدَّد لشركة «' + cur + '»' + (dest ? ' والوجهة: ' + dest : '') + '،\nوالإيصال يبدو لشركة «' + want + '»' + (why ? ' (' + why + ')' : '') +
+        (num ? ' — رقمه ' + num : '') + '.\nتأكّد من الإيصال (المعاينة في النافذة) ثمّ اختر:',
+        { title: '⚠️ شركة الإيصال غير شركة الأوردر', choices: [{ k: 'switch', t: 'اعتمد «' + want + '»', pri: 1 }, { k: 'keep', t: 'أبقِ «' + cur + '»' }], cancelText: 'لاحقاً' });
+    if (!isMine()) return;
+    if (k === 'switch') {
+        if (![...sel.options].some(x => x.value === want)) sel.add(new Option(want, want));
+        sel.value = want; sel.dataset.auto = '';                     // قرارك ⇒ لا يُغيَّر بعدها
+        if (_shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }
+        try { window.syncShipFromBox(null, true); } catch (_) {}
+        const w = document.getElementById('ship-company-warn'); if (w) w.classList.add('hidden');
+        return shipReadFinish(r, H, typed, force, isMine, true);
+    }
+    if (sel) sel.dataset.auto = '';                                   // أبقيتَها ⇒ قرارك
+    if (k !== 'keep') { if (st) st.textContent = 'لم يُملأ شيءٌ من الإيصال — تأكّد منه ثمّ أدخل الرقم واختر الفرع، أو «أعد المحاولة».'; return; }
+    /* أبقيتَ شركة الأوردر ⇒ يُقرأ الإيصال كإيصالها هي (قارئها وحده) */
+    if (st) { st.className = 'text-[11px] font-bold text-gray-500 mb-3'; st.textContent = 'جارٍ قراءة الإيصال كإيصال «' + cur + '»…'; }
+    const file = _shipRcptFile, orig = (_shipScan && file === _shipScan.scanned) ? _shipScan.original : file;
+    let r2 = null;
+    try {
+        if (OTHER_READ_CO.indexOf(cur) !== -1) r2 = await shipReadOther(file, cur, H, () => !isMine(), { scanned: file !== orig });
+        else if (cur === MUFTI_CO) r2 = await GMTReceipt.readMufti(file, { original: file !== orig ? orig : null, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
+    } catch (_) { r2 = null; }
+    if (!isMine()) return;
+    if (r2) return shipReadFinish(r2, H, typed, force, isMine, true);
+    if (st) st.textContent = 'إيصال «' + cur + '» لا يُقرأ تلقائياً — أدخل الرقم واختر الفرع.';
+}
 function shipCompanyFromReceipt(r) {
     const sel = document.getElementById('ship-company'); if (!sel || !r || r.cancelled) return '';
     const cur = sel.value || '', mufti = r.type && r.type.kind === 'mufti';
-    const want = mufti ? MUFTI_CO : (r.company && r.company !== MUFTI_CO ? r.company : '');
+    const want = shipReceiptCo(r);
     if (!want || want === cur) return '';
     if (shipCoByUser()) return '🚚 الإيصال يبدو لشركة «' + want + '» — أُبقيت «' + cur + '» كما اخترتها.';
     if (![...sel.options].some(x => x.value === want)) sel.add(new Option(want, want));
@@ -9333,7 +9381,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261025o"></script>
+<script src="gmt-whatsnew.js?v=20261025p"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

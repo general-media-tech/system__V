@@ -1389,52 +1389,75 @@
     var t0 = Date.now(), co = OTHER_CO[opts.company] ? opts.company : null;
     var out = { company: co, type: { kind: 'unknown', why: '' }, barcode: null, printed: null, tracking: { status: 'none' }, branch: { key: null, confident: false, candidates: [], text: '' }, text: '', rot: 0 };
     var cancelled = function () { return !!(opts.cancel && opts.cancel()); };
+    var tm = function (k) { if (opts.debug) (out._t = out._t || []).push(k + ':' + (Date.now() - t0)); };
     var L = await loadImage(file);
     try {
-      /* ① الرموز: باركود القدموس يحمل الرقم كاملاً · QR مسارات يحمله */
-      /* opts.codes: رموزٌ قرأها قارئ المفتي قبل أن يتوقّف (TASK-0159) ⇒ لا تُقرأ مرّةً ثانية */
-      var bc = opts.codes || null;
-      if (!bc) try { bc = await readTracking(file, { ocr: false, budgetMs: opts.budgetMs || 8000, stop: cancelled }); } catch (_) {}
-      var raws = []; if (bc) { if (bc.raw) raws.push(bc.raw); (bc.all || []).forEach(function (r) { if (typeof r === 'string') raws.push(r); }); }
-      var qB = null, mB = null;
-      raws.forEach(function (r) { if (!qB) qB = qadNumber(r) && /^[0-9A-Za-z]{11}$/.test(latin(r).trim()) ? qadNumber(r) : qB; if (!mB) mB = masFromQR(r); });
-      if (!mB && bc && bc.number && /^\d{7}$/.test(bc.number)) mB = bc.number;
-      var codeCo = qB ? 'القدموس' : (mB && raws.some(function (r) { return /masarat/i.test(r); })) ? 'مسارات' : null;
-      var early = (co || codeCo) === 'القدموس' ? qB : (co || codeCo) === 'مسارات' ? mB : null;
-      if (early) { out.barcode = { number: early, raw: raws[0] || '' }; if (opts.onTracking) { try { opts.onTracking({ status: 'barcode', number: early }); } catch (_) {} } }
-      if (cancelled()) { out.cancelled = true; return out; }
+      /* ① الرموز: باركود القدموس يحمل الرقم كاملاً · QR مسارات يحمله — (TASK-0165 · المالك seq 78 «الهدف تقليل عدد الثواني») في عاملها
+         **بالتوازي** مع قراءة النصّ: كانت تُنتظر أوّلاً (حتى ١٠ث حين لا رمز مقروء — أغلب إيصالات القدموس) ثمّ يبدأ النصّ. وُجد الرقم المطبوع
+         ⇒ تُمهَل حتى تنتهي محاولاته السريعة (لتطابقٍ يُثبته) ثمّ تتوقّف. opts.codes: رموزٌ قرأها قارئ المفتي قبل أن يتوقّف (TASK-0159) ⇒ لا تُقرأ ثانيةً */
+      var bcStop = false, bcVal = opts.codes || null, bcDone = !!opts.codes, bcSlow = false;
+      var bcP = opts.codes ? Promise.resolve(opts.codes)
+        : readTracking(file, { ocr: false, budgetMs: opts.budgetMs || 8000, stop: function () { return bcStop || cancelled(); },
+            onStage: function (k) { if (k === 'enhanced' || k === 'ocr') bcSlow = true; } }).catch(function () { return null; });
+      var raws = [], qB = null, mB = null, codeCo = null, bcSaid = false;
+      var onCodes = function () {
+        var bc = bcVal; raws = []; qB = null; mB = null;
+        if (bc) { if (bc.raw) raws.push(bc.raw); (bc.all || []).forEach(function (r) { if (typeof r === 'string') raws.push(r); }); }
+        raws.forEach(function (r) { if (!qB) qB = qadNumber(r) && /^[0-9A-Za-z]{11}$/.test(latin(r).trim()) ? qadNumber(r) : qB; if (!mB) mB = masFromQR(r); });
+        if (!mB && bc && bc.number && /^\d{7}$/.test(bc.number)) mB = bc.number;
+        codeCo = qB ? 'القدموس' : (mB && raws.some(function (r) { return /masarat/i.test(r); })) ? 'مسارات' : null;
+        var early = (co || codeCo) === 'القدموس' ? qB : (co || codeCo) === 'مسارات' ? mB : null;
+        if (early && !out.barcode) out.barcode = { number: early, raw: raws[0] || '' };
+        if (early && opts.onTracking && !bcSaid) { bcSaid = true; try { opts.onTracking({ status: 'barcode', number: early }); } catch (_) {} }
+      };
+      bcP.then(function (x) { bcVal = x; bcDone = true; tm('codes'); onCodes(); });
+      var finish = function () { bcStop = true; };
+      if (cancelled()) { out.cancelled = true; finish(); return out; }
       /* ② الصفحة مقوَّمة (الماسح) إن أمكن ⇐ الاتّجاه: QR إن عُرف وإلّا الكلمات المعروفة */
       var DS = global.GMTDocScan, page = L.im;
       if (!opts.scanned && DS && DS.detectNorm && DS.process) { try { var d = DS.detectNorm(L.im, 0); if (d && d.ok) page = DS.process(L.im, d.corners, 0, 'color'); } catch (_) {} }
-      var ara = await getARA(), best = null;
-      /* opts.rot: الاتّجاه الذي قرأ فيه قارئ المفتي كلماتها ⇒ يُجرَّب أوّلاً */
-      var order = [opts.rot, bc && bc.upright, 0, 90, 270, 180].filter(function (v, i, a) { return v != null && a.indexOf(v) === i; });
-      var orient = async function (src) {
-        var b = null;
-        for (var oi = 0; oi < order.length && !cancelled(); oi++) {
-          var cvR = canvasOf(src, order[oi], 1500);
-          var rr = await ara.recognize(toPGM(cvR), {}, { blocks: true });
+      tm('page'); var ara = await getARA(), best = null; tm('ara');
+      /* opts.rot: الاتّجاه الذي قرأ فيه قارئ المفتي كلماتها ⇒ يُجرَّب أوّلاً · ثمّ اتّجاه الـQR إن وصل · ثمّ (TASK-0165) شكل الورقة: إيصال مسارات
+         عرضيّ (صورته طوليّة ⇐ مُدار ٩٠/٢٧٠) والقدموس طوليّ — الاتّجاهان الأرجح أوّلاً بدل تجربة ٠ و٩٠ ثمّ ٢٧٠ (إيصالك المصوَّر بالعرض: ٨ قراءات) */
+      var pw = page.naturalWidth || page.width, ph = page.naturalHeight || page.height, tall = ph > pw * 1.15, wide = pw > ph * 1.15;
+      var axis = ((co === 'مسارات' && tall) || (co === 'القدموس' && wide)) ? [90, 270, 0, 180] : (co && (tall || wide)) ? [0, 180, 90, 270] : [0, 90, 270, 180];
+      var order = [opts.rot, bcVal && bcVal.upright].concat(axis).filter(function (v, i, a) { return v != null && a.indexOf(v) === i; });
+      var done2 = {}, scs = [];
+      var orient = async function (src, rots) {
+        for (var oi = 0; oi < rots.length && !cancelled(); oi++) {
+          var key = (src === L.im ? 'raw' : 'page') + rots[oi]; if (done2[key]) continue; done2[key] = 1;
+          var cvR = canvasOf(src, rots[oi], 1500);
+          var rr = await ara.recognize(toPGM(cvR), {}, { blocks: true }); var _tk = 'rot' + rots[oi] + (src === L.im && page !== L.im ? 'raw' : '');
           var txt = (rr.data && rr.data.text) || '';
           var q1 = marksOf(txt, 'القدموس'), m1 = marksOf(txt, 'مسارات'), sh = sharedOf(txt), sc = Math.max(q1, m1) + sh;
-          if (!b || sc > b.sc) b = { rot: order[oi], sc: sc, q: q1, m: m1, txt: txt, res: rr, cv: cvR };
-          if (sc >= 4) break;
+          tm(_tk + '=' + sc);
+          if (!best || sc > best.sc) best = { rot: rots[oi], sc: sc, q: q1, m: m1, txt: txt, res: rr, cv: cvR, src: src };
+          if (sc >= 4) return true;
+          /* (TASK-0165) اتّجاهٌ متقدّمٌ بوضوح: الاتّجاه الخاطئ يُقرأ ٠ تقريباً، والصحيح ٢–٤ في صور إيصالاتك ⇒ لا تُجرَّب البقيّة */
+          scs.push(sc);
+          if (best.sc >= 2 && scs.length >= 2 && scs.slice().sort(function (x, y) { return y - x; })[1] <= best.sc - 2) return true;
         }
-        return b;
+        return false;
       };
-      best = await orient(page);
-      if (best && best.sc <= 1 && page !== L.im && !cancelled()) { var b2 = await orient(L.im); if (b2 && b2.sc > best.sc) best = b2; }   // قصّ الماسح أخطأ الورقة ⇒ الصورة كما هي
-      if (!best || cancelled()) { out.cancelled = cancelled(); return out; }
+      /* الاتّجاهان الأرجح على الصفحة المقصوصة ⇒ قصٌّ خاطئ (لا شيء مقروء) ⇒ الصورة كما هي بهما ⇒ ثمّ البقيّة */
+      var first = order.slice(0, 2), rest = order.slice(2);
+      if (!(await orient(page, first)) && !cancelled()) {
+        var rawToo = page !== L.im;
+        if (rawToo && best && best.sc <= 1 && await orient(L.im, first)) { /* وُجد */ }
+        else if (!(await orient(best && best.src === L.im ? L.im : page, rest)) && rawToo && best && best.sc <= 1) await orient(L.im, order);
+      }
+      if (!best || cancelled()) { out.cancelled = cancelled(); finish(); return out; }
       out.rot = best.rot; out.text = best.txt;
       /* ③ النوع: كلماتها · أو رمزها · أو إيصال المفتي */
       var mt = receiptType(best.txt);
       var det = codeCo || (best.q >= 2 && best.q > best.m ? 'القدموس' : best.m >= 2 && best.m > best.q ? 'مسارات' : null);
-      if (!det && mt.kind === 'mufti') { out.type = { kind: 'mufti', why: mt.why }; out.company = 'المفتي'; return out; }
+      if (!det && mt.kind === 'mufti') { out.type = { kind: 'mufti', why: mt.why }; out.company = 'المفتي'; finish(); return out; }
       if (det) { out.company = det; out.type = { kind: OTHER_CO[det].kind, why: codeCo ? 'رمز الإيصال' : 'اسم الشركة وكلماتها في الإيصال' }; }
       else if (co) out.type = { kind: 'unsure', why: 'لم تُقرأ علامات «' + co + '» بوضوح' };
       var C = out.company || co;
       /* ④ الرقم المطبوع (قارئ اللاتيني على الصفحة في اتّجاهها) */
       var eng = await getOCR(), er = await eng.recognize(toPGM(best.cv), {}, { blocks: true }), elines = linesOf(er), etext = (er.data && er.data.text) || '';
-      var printed = null, pBox = null;
+      tm('eng'); var printed = null, pBox = null;
       if (C === 'القدموس') {
         elines.some(function (ln) { return ln.words.some(function (wd) { var n = qadNumber(wd.text); if (n) { printed = n; pBox = wd.bbox; return true; } return false; }); });
         if (!printed) printed = qadNumber(etext.replace(/\s+(?=\d{6}\b)/g, ''));
@@ -1452,10 +1475,7 @@
         if (cands[0] && cands[0].y < best.cv.height * 0.45) { printed = cands[0].n; pBox = cands[0].b; }
       }
       if (printed) out.printed = { number: printed };
-      var bN = out.barcode && out.barcode.number;
-      out.tracking = bN && printed ? (bN.toLowerCase() === printed.toLowerCase() ? { status: 'match', number: bN } : { status: 'differ', barcode: bN, printed: printed })
-                   : bN ? { status: 'barcode', number: bN } : printed ? { status: 'printed', number: printed, candidates: [printed] } : { status: 'none' };
-      if (cancelled()) { out.cancelled = true; return out; }
+      if (cancelled()) { out.cancelled = true; finish(); return out; }
       /* ⑤ «المصدر»: من الصفحة · وإلّا من خانته مقصوصةً مكبَّرة */
       var W = best.cv.width, Hh = best.cv.height, src = otherSource(linesOf(best.res), W, C);
       if (opts.debug) { out._dbg = out._dbg || {}; out._dbg.lines = linesOf(best.res).map(function (l) { return l.text.trim(); }).filter(Boolean).slice(0, 14); out._dbg.eng = etext.replace(/\s+/g, ' ').slice(0, 240); out._dbg.src1 = src; out._dbg.tries = order; }
@@ -1474,7 +1494,7 @@
           /* (TASK-0159) والخانة بلا خطوط الجدول (unrule): خطوطٌ داكنة حول «المصدر» تُسقط الصفّ كلّه من قراءة النصّ */
           var crop0 = subCanvas(best.cv, bands[bi], 1300), vars = [crop0, araFinish(crop0, 1, true), enhance(crop0, 'contrast'), enhance(crop0, 'bin')];
           for (var vi = 0; vi < vars.length && !cancelled(); vi++) {
-            var r2 = await ara.recognize(vars[vi].pgm || toPGM(vars[vi]), {}, { blocks: true }), l2 = linesOf(r2);
+            var r2 = await ara.recognize(vars[vi].pgm || toPGM(vars[vi]), {}, { blocks: true }), l2 = linesOf(r2); tm('band' + bi + '/' + vi);
             /* على خانةٍ مقصوصة: عتبة الكلمة أوطأ («المعصد») · ومكتبٌ يطابق البنك يكفي ولو لم تُقرأ المدينة */
             var s2 = otherSource(l2, vars[vi].width, C, 0.6) || citySource(l2, C);
             if (opts.debug) { (out._dbg.crop = out._dbg.crop || []).push(bi + '/' + vi + ': ' + l2.map(function (l) { return l.text.trim(); }).filter(Boolean).slice(0, 4).join(' ⏎ ')); }
@@ -1484,6 +1504,17 @@
       }
       out.branch = matchOther(C, src);
       try { if (opts.onBranch && out.branch.confident) opts.onBranch(out.branch); } catch (_) {}
+      /* الرمز (يعمل بالتوازي): قُرئ المطبوع ⇒ يُنتظر حتى تنتهي محاولاته السريعة فقط (المحاولة البطيئة «المحسَّنة» لم تجد في إيصالاتك قطّ ما فات
+         السريعة) وبسقف ٦ث — تطابقهما يملأ الرقم وحده · لم يُقرأ المطبوع ⇒ ينتظر ميزانيّته (هو مصدر الرقم الباقي) */
+      if (!bcDone && !cancelled()) {
+        if (printed) { var w0 = Date.now(); while (!bcDone && !bcSlow && Date.now() - w0 < 6000 && !cancelled()) await new Promise(function (z) { setTimeout(z, 100); }); }
+        else await bcP;
+      }
+      finish(); if (bcDone) onCodes();
+      if (!det && codeCo && !co) { out.company = codeCo; out.type = { kind: OTHER_CO[codeCo].kind, why: 'رمز الإيصال' }; }
+      var bN = out.barcode && out.barcode.number;
+      out.tracking = bN && printed ? (bN.toLowerCase() === printed.toLowerCase() ? { status: 'match', number: bN } : { status: 'differ', barcode: bN, printed: printed })
+                   : bN ? { status: 'barcode', number: bN } : printed ? { status: 'printed', number: printed, candidates: [printed] } : { status: 'none' };
     } finally { try { URL.revokeObjectURL(L.url); } catch (_) {} }
     out.ms = Date.now() - t0;
     return out;

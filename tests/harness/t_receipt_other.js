@@ -27,22 +27,26 @@ async function makeImg(pg, kind, o, ph) {
     await pg.addScriptTag({ url: H.BASE + 'lib/zxing.min.js?v=20261003' });
     await pg.addScriptTag({ content: fs.readFileSync(__dirname + '/other_gen.js', 'utf8') });
     const files = {};
-    for (const [k, kind, o, ph] of [['q', 'q', QAD, {}], ['m', 'm', MAS, { rot: 90 }], ['qn', 'q', Object.assign({}, QAD, { barcode: false, number: '2640C200345' }), {}],
-                                    ['qx', 'q', Object.assign({}, QAD, { number: '2642C300456', office: '' }), {}]]) {
+    /* (TASK-0165) الباركود يُقرأ بالتوازي مع النصّ، ومتى قُرئ الرقم المطبوع لا يُنتظر إلّا محاولاته السريعة: في صور إيصالات المالك الحقيقيّة لم
+       تجد المحاولة البطيئة «المحسَّنة» قطّ رمزاً فات السريعة (q7 · q9 تُقرأ سريعاً بـ٢٫٥ث، والبقيّة لا رمز مقروءاً فيها) ⇒ صورةٌ مستقيمة
+       (ميل ٠٫٥°) تمثّل الإيصال ذا الباركود المقروء، و«qt» بميل ١٫٧° (لا يُقرأ رمزها إلّا بالبطيئة) تثبت أنّ القارئ لا ينتظرها */
+    for (const [k, kind, o, ph] of [['q', 'q', QAD, { tilt: 0.008 }], ['m', 'm', MAS, { rot: 90 }], ['qn', 'q', Object.assign({}, QAD, { barcode: false, number: '2640C200345' }), {}],
+                                    ['qx', 'q', Object.assign({}, QAD, { number: '2642C300456', office: '' }), { tilt: 0.008 }], ['qt', 'q', QAD, { tilt: 0.03 }]]) {
       files[k] = OUT + '/other-' + k + '.jpg'; fs.writeFileSync(files[k], Buffer.from(await makeImg(pg, kind, o, ph), 'base64'));
     }
     if (W === 390) {
       // ١) القارئ وحده — الصورة كما هي
       const rd = await pg.evaluate(async (fl) => {
         const out = {};
-        for (const [k, co] of [['q', 'القدموس'], ['m', 'مسارات'], ['qn', 'القدموس']]) {
+        for (const [k, co] of [['q', 'القدموس'], ['m', 'مسارات'], ['qn', 'القدموس'], ['qt', 'القدموس']]) {
           const b = await (await fetch('data:image/jpeg;base64,' + fl[k])).blob(), f = new File([b], k + '.jpg', { type: 'image/jpeg' });
           const t0 = performance.now(), x = await GMTReceipt.readOther(f, { company: co });
           out[k] = { co: x.company, kind: x.type.kind, t: x.tracking, key: x.branch.key, conf: x.branch.confident, phone: x.branch.phone, ms: Math.round(performance.now() - t0) };
         }
         return out;
       }, Object.fromEntries(Object.entries(files).map(([k, f]) => [k, fs.readFileSync(f).toString('base64')])));
-      ok(rd.q.kind === 'qadmous' && rd.q.t.status === 'match' && rd.q.t.number === '2641B100234', 'القدموس: الرقم من الباركود ويطابق المطبوع (' + JSON.stringify(rd.q.t) + ') · ' + rd.q.ms + 'ms');
+      ok(rd.q.kind === 'qadmous' && ['match', 'printed'].includes(rd.q.t.status) && rd.q.t.number === '2641B100234', 'القدموس: الرقم المطبوع صحيح (ويطابق الباركود إن قُرئ سريعاً) (' + JSON.stringify(rd.q.t) + ') · ' + rd.q.ms + 'ms');
+      ok(rd.qt.t.number === '2641B100234' && ['printed', 'match'].includes(rd.qt.t.status) && rd.qt.ms < 6000, 'القدموس بباركودٍ لا تقرؤه إلّا المحاولة البطيئة ⇒ الرقم المطبوع بلا انتظارها (' + rd.qt.t.status + ' · ' + rd.qt.ms + 'ms)');
       ok(rd.q.conf && rd.q.key === 'حلب|الفرقان' && rd.q.phone === '0944676555', 'القدموس: «المصدر: حلب» + «فرقان» تحتها ⇒ حلب|الفرقان ☎ ' + rd.q.phone + ' (من بنك الأفرع)');
       ok(rd.m.kind === 'masarat' && rd.m.t.status === 'match' && rd.m.t.number === '4100123', 'مسارات (مصوّر بالعرض): رقم «فاتورة» يطابق رمز QR (' + JSON.stringify(rd.m.t) + ') · ' + rd.m.ms + 'ms');
       ok(rd.m.conf && rd.m.key === 'حلب|السليمانية' && rd.m.phone === '0989555807', 'مسارات: «المصدر : حلب - سليمانية» ⇒ حلب|السليمانية ☎ ' + rd.m.phone);
@@ -80,7 +84,9 @@ async function makeImg(pg, kind, o, ph) {
         status: document.getElementById('ship-track-auto').innerText.replace(/\s+/g, ' '), search: (() => { const q = document.querySelector('[data-bank-q="ship-from"]'); return q ? q.style.display : 'none'; })(),
         opts: [...document.getElementById('ship-from').options].map(x => x.value).filter(Boolean).length }));
       ok(c0 === 'المفتي' && r.co === co && new RegExp('هذا إيصال «' + co + '»').test(r.status), W + ': الشركة الافتراضية «المفتي» ⇒ الإيصال حسمها «' + r.co + '» · ' + r.status.slice(0, 90));
-      ok(r.track === num, W + ': رقم التتبّع مُلئ تلقائياً ' + r.track);
+      /* (TASK-0165) رقمٌ مطبوع بلا باركودٍ مقروءٍ سريعاً ⇒ يُعرض للضغط (كإيصالات القدموس الحقيقيّة q1–q8) — الضغطة كما يفعلها الموظّف */
+      if (!r.track) r.track = await pg.evaluate(n => { const b = [...document.querySelectorAll('#ship-track-auto button')].find(x => x.textContent.trim() === n); if (b) b.click(); return document.getElementById('ship-tracking').value; }, num);
+      ok(r.track === num, W + ': رقم التتبّع مُلئ (تلقائياً بتطابق الباركود، أو بضغطةٍ على المطبوع المقروء) ' + r.track);
       ok(r.wrap && /الفرع المصدر/.test(r.lab) && r.from === key && r.src === 'receipt' && r.note.includes(tel), W + ': الفرع المصدر «' + r.from + '» من الإيصال وهاتفه من البنك: ' + r.note.slice(0, 90));
       ok(r.search === 'none' && r.opts > 3, W + ': القائمة فروع «' + co + '» (' + r.opts + ') وبحث بنك المفتي مخفيّ');
       await pg.evaluate(() => document.getElementById('ship-from-wrap').scrollIntoView({ block: 'center' }));
@@ -111,6 +117,7 @@ async function makeImg(pg, kind, o, ph) {
     await pg.setInputFiles('#ship-img-input', files.qx); await pg.waitForSelector('#gds', { timeout: 8000 }); await pg.waitForTimeout(800);
     await pg.evaluate(() => [...document.querySelectorAll('#gds .gds-bar button')].find(b => /إلغاء/.test(b.textContent)).click());
     await pg.waitForFunction(() => !_shipReading && _shipRead, null, { timeout: 90000 }).catch(() => {});
+    await pg.evaluate(n => { if (!document.getElementById('ship-tracking').value) { const b = [...document.querySelectorAll('#ship-track-auto button')].find(x => x.textContent.trim() === n); if (b) b.click(); } }, '2642C300456');
     const ux = await pg.evaluate(() => ({ v: document.getElementById('ship-from').value, src: document.getElementById('ship-from').getAttribute('data-src'), note: document.getElementById('ship-from-src').innerText.replace(/\s+/g, ' '), track: document.getElementById('ship-tracking').value }));
     ok(ux.v === 'حلب|الفرقان' && ux.src === 'default' && /تعذر التأكد/.test(ux.note) && ux.track === '2642C300456', W + ': «المصدر» غير مقروء ⇒ يبقى الافتراضي حلب|الفرقان مع تنبيه (والرقم ' + ux.track + '): ' + ux.note.slice(0, 80));
     await pg.evaluate(() => closeModal('shipModal'));
