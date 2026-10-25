@@ -17,8 +17,9 @@
         يحجب عملاً جارياً.
      ③ النصّ بلغة الموظّف لا بلغة المطوّر: «شو صار» و«ليش» و«شو تعمل».
 
-   عند إضافة ميزة: أضِف بنداً في NEWS **وارفع VERSION**. البند بلا `pages`
-   يُعرَض في كل الصفحات الداخلية.
+   عند إضافة ميزة: أضِف بنداً في NEWS (VERSION يُحسَب وحده). البند بلا `pages`
+   يُعرَض في كل الصفحات الداخلية. ونقطته الحمراء تأتي تلقائياً من `pages` (TASK-0170) —
+   و`go` اختياريّ يشير للزرّ نفسه.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -33,6 +34,13 @@
      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
   var NEWS = [
+    { v: 123, tag: 'إصلاح', at: '2026-10-25T20:00:00Z', t: '🔴 النقاط الحمراء على الجديد رجعت — ولن تختفي بعد اليوم',
+      d: '• **لماذا اختفت:** النقطة كانت تُرسم فقط لتحديثٍ كُتب له مكان زرّه يدوياً، وآخر تحديثٍ كُتب له ذلك كان 18 ت1 — فكل ما بعده (حوالي خمسين تحديثاً) نزل بلا نقاط، واختفت القديمة حين جرّبتها. ' +
+         '• **الآن كل تحديثٍ له نقطته تلقائياً:** نقطةٌ حمراء على رابط كل صفحةٍ فيها ما لم تجرّبه، ونقطةٌ نابضة على زرّ 🆕 داخلها (أو على الزرّ الجديد نفسه حين يكون معروفاً مثل «🧠 جهّز تلقائياً»). ' +
+         '• تبقى حتى تضغط الميزة نفسها أو «✓ جرّبتها» في قائمة 🆕 — فتعرف بالضبط ما الذي لم تجرّبه. ' +
+         '• حارسٌ في الاختبارات يتأكّد أنّ كل تحديثٍ جديد يأخذ نقطته، فلا يتكرّر الاختفاء.',
+      w: 'رسالتك 25 ت1: «زرّ الجديد يعطيني نقطة حمراء على الأشياء الجديدة لحتى أجرّبها — اختفى وما بعرف شو اختفى — صلّح هذا النمط: ليش أشياء عم تختفي».',
+      pages: ['home.html'] },
     { v: 122, tag: 'إصلاح', at: '2026-10-25T19:00:00Z', t: '🧠 «جهّز تلقائياً»: المتخطّى يبقى عندك · «🔎 بحث أعمق» · تنبيهٌ حين تخالف النتيجة اسم منتجك',
       d: '• **المتخطّى لا يصير طريقاً مسدوداً:** اضغطه في القائمة ⇐ بطاقته كاملة كما جهزها العقل، تعدّل وتكتب الوصف وتحفظ — ومثله المحفوظ (تعدّل وتعيد الحفظ). ' +
          '• زرّ **«🔎 بحث أعمق»** على كل منتج: يعيده لأوّل الطابور ويُرسل للعقل الصورة والاسم معاً مع «الاسم هو المرجع». ' +
@@ -40,7 +48,7 @@
          '• «ابحث بنفسك: علي بابا ↗ · صور Google ↗» باسم المنتج — تجد صفحته فتلصق رابطها في «🔁 أعد البحث». ' +
          '⚠️ البحث الحقيقي في صفحات المنتجات ما زال متوقّفاً حتى تقرّر مفتاح البحث — والنتائج الآن من معرفة الذكاء الاصطناعي (ثقة منخفضة).',
       w: 'رسائلك 25 ت1: «هذا الأدابتر EF-M … البحث بالصورة مو دقيق … لازم يكون أدقّ ياخذ الصورة والاسم» + «إذا تخطّيت منتج … لازم يبقى عندي: إعادة مراجعة أو زرّ إعادة بحث أعمق».',
-      pages: ['inventory.html'] },
+      pages: ['inventory.html'], go: [{ p: 'inventory.html', sel: '[data-enrich-q]', l: 'زرّ «🧠 جهّز تلقائياً» في شريط المجموعة' }] },
     { v: 121, tag: 'إصلاح', at: '2026-10-25T18:00:00Z', t: '✏️ تعديل الأوردر يحذف رسالته القديمة في تيليغرام من جديد — بأمان',
       d: '• عند **تعديل أوردر** تُرسل نسخته المعدَّلة لقناة الأوردرات ثمّ **تُحذف الرسالة القديمة** (بدل «تعذّر حذف الرسالة السابقة، اعتمد هذه» في كل تعديل). ' +
          '• كان الحذف موقوفاً منذ اختراق البوت (17 ت1) لأنّ أيّ أحدٍ معه مفتاح القاعدة العامّ كان يستطيع محو رسائل القنوات. الآن الحذف في الخادم فقط وبشروط: ' +
@@ -57,7 +65,7 @@
          '• تغلق الأداة وتعود ⇒ تكمل من حيث توقّفت (ما جُهّز لا يُعاد). ' +
          '⚠️ **البحث الحقيقي في الويب وعلي بابا وصور الإنترنت متوقّف** حتى تقرّر مفتاح البحث (حصّة Gemini مستنفدة) — إلى ذلك الحين يجمع العقل من معرفته ويكتب صراحةً «ثقة منخفضة — ليست من صفحة المنتج»، فراجعها.',
       w: 'رسالتك 25 ت1: «ضع أداة تعمل تلقائياً لكل المنتجات الموجودة — تبلّش فيهن مجموعة مجموعة أو تصنيف تصنيف داخل الجرد … يزبّطهم كلهم واحد تلو الآخر بحيث يشتغل في الخلفية لما أنا عم راجع» + «البحث عن صور للمنتج من داخل النظام … لتغيير الصورة في الجرد أو لإضافة صور أخرى للمتجر».',
-      pages: ['inventory.html'] },
+      pages: ['inventory.html'], go: [{ p: 'inventory.html', sel: '[data-enrich-q]', l: 'زرّ «🧠 جهّز تلقائياً» في شريط المجموعة' }] },
     { v: 119, tag: 'جديد', at: '2026-10-25T16:00:00Z', t: '💸 الحوالات للقدموس ومسارات مثل المفتي · فلتر «فروع الحوالات» لكل شركة · «باب الفرج» في بنك مسارات',
       d: '• **فلتر «🏢 فروع الحوالات»** في الأوردرات صار مجموعاتٍ: المفتي · القدموس · مسارات — ويظهر فيه **فقط الفرع الذي لنا عنده حوالة** (شحنةٌ مشحونة بمبلغ تحصيل؛ المدفوع سلفاً لا يظهر). واختيار شركةٍ في فلتر الشركة يحصره في فروعها. ' +
          '• **القدموس ومسارات مثل المفتي:** على البطاقة الفرع المُرسِل وحالة الحوالة (لم تُراسَل · رُوسِل · وصلت)، وزرّ «💸 الحوالة» يراسل الفرع على هاتفه من بنك أفرع شركته، والفرع والحالة يُعدَّلان من «تعديل». ' +
@@ -762,8 +770,19 @@
     try { localStorage.setItem(LS_TRY, JSON.stringify(o)); } catch (e) {}
     changed();
   }
+  /* (25 ت1 · TASK-0170 · المالك seq 84: «النقطة الحمراء على الأشياء الجديدة اختفت ولا أعرف ما الذي اختفى — صلّح هذا النمط»)
+     الجذر: النقطة كانت تُرسم فقط لبندٍ كُتب له `go` يدوياً، وآخر بندٍ كُتب له هو v72 (18 ت1) ⇒ كل ما بعده (خمسون تحديثاً) بلا نقاط،
+     واختفت القديمة حين جُرّبت. النمط نفسه الذي أُصلح في VERSION (معلومةٌ تُكرَّر يدوياً فتُنسى). الآن: بندٌ بلا `go` ومعه `pages`
+     يأخذ مكانه من صفحاته تلقائياً — نقطةٌ على كل رابطٍ لصفحته، ونقطةٌ نابضة على زرّ 🆕 داخلها، وتبقى حتى «✓ جرّبتها». و`go` المكتوب
+     يبقى للدقّة (يشير للزرّ نفسه). لا يحتاج بندٌ جديد شيئاً ليأخذ نقطته. */
+  function goList(n) {
+    if (!n) return [];
+    if (n.go && n.go.length) return n.go;
+    var ps = (n.pages && n.pages.length) ? n.pages : ['home.html'];      // بندٌ لكل الصفحات ⇒ مكانه الرئيسية (بطاقة «شو الجديد» فيها)
+    return ps.map(function (p) { return { p: p, sel: '', l: '', auto: 1 }; });
+  }
   function untried(n, map) {
-    return !!(n && n.go && n.go.length && n.v >= TRY_FROM && !(map || triedMap())[n.v]);
+    return !!(n && n.v >= TRY_FROM && goList(n).length && !(map || triedMap())[n.v]);
   }
   function fresh(n, s, map) { return n.v > s || untried(n, map); }
   function byV(v) { for (var i = 0; i < NEWS.length; i++) if (NEWS[i].v === +v) return NEWS[i]; return null; }
@@ -947,7 +966,7 @@
     try { var x = global.GMTTools && GMTTools.find(f); if (x && x.t) return x.t; } catch (e) {}
     return String(f || '').replace(/\.html$/i, '').replace(/_/g, ' ');
   }
-  function goOf(n) { return (n && n.go && n.go[0]) || null; }
+  function goOf(n) { return goList(n)[0] || null; }
   function tryHref(n) {
     var g = goOf(n); if (!g) return '';
     return g.p + (g.p.indexOf('?') >= 0 ? '&' : '?') + 'wn=' + n.v;
@@ -1046,7 +1065,7 @@
     var tm = triedMap(), me = page(), pages = {}, here = [];
     NEWS.forEach(function (n) {
       if (!untried(n, tm)) return;
-      n.go.forEach(function (g) {
+      goList(n).forEach(function (g) {
         var p = String(g.p || '').toLowerCase();
         if (p === me || (isHome(me) && isHome(p))) here.push({ n: n, g: g }); else pages[p] = 1;
       });
@@ -1060,19 +1079,21 @@
       var has = a.querySelector(':scope > .gwn-dot:not(.gwn-pulse)');
       if (on && !has) addDot(a, false); else if (!on && has) dropDot(a);
     }
-    /* ② داخل الصفحة: نقطةٌ نابضة على الميزة نفسها، وضغطُها = جرّبتها */
-    var keep = {};
+    /* ② داخل الصفحة: نقطةٌ نابضة على الميزة نفسها، وضغطُها = جرّبتها · بندٌ بلا زرٍّ محدَّد (TASK-0170) ⇒ على زرّ 🆕 (يفتح القائمة
+       وفيها «✓ جرّبتها») — لا يُعلَّم مُجرَّباً بفتح القائمة وحده */
+    var keep = {}, keepEl = [];
     here.forEach(function (x) {
-      var el = findTarget(x.g.sel); if (!el) return;
-      keep[x.n.v] = 1;
+      var auto = !x.g.sel, el = auto ? document.getElementById('gmt-wn-fab') : findTarget(x.g.sel); if (!el) return;
+      keep[x.n.v] = 1; keepEl.push(el);
       if (armed[x.n.v] === el) return;
-      if (armed[x.n.v]) dropDot(armed[x.n.v]);
+      if (armed[x.n.v] && keepEl.indexOf(armed[x.n.v]) === -1) dropDot(armed[x.n.v]);
       armed[x.n.v] = el;
       addDot(el, true);
+      if (auto) return;
       if (!el.title) el.title = '🆕 جديد: ' + (x.g.l || x.n.t);
       el.addEventListener('click', function () { if (armed[x.n.v] === el) markTried(x.n.v); }, { capture: true, once: true });
     });
-    Object.keys(armed).forEach(function (v) { if (!keep[v]) { dropDot(armed[v]); delete armed[v]; } });
+    Object.keys(armed).forEach(function (v) { if (!keep[v]) { if (keepEl.indexOf(armed[v]) === -1) dropDot(armed[v]); delete armed[v]; } });
   }
 
   /* شريطٌ صغير أسفل الشاشة حين تصل بـ«جرّبها»: أين الميزة + «✓ جرّبتها» */
@@ -1090,14 +1111,14 @@
   }
   function arrive() {
     var v; try { v = new URLSearchParams(location.search).get('wn'); } catch (e) { return; }
-    var n = byV(v); if (!n || !n.go) return;
+    var n = byV(v); if (!n || !goList(n).length) return;
     var me = page(), g = null;
-    n.go.forEach(function (x) { if (!g && String(x.p || '').toLowerCase() === me) g = x; });
+    goList(n).forEach(function (x) { if (!g && String(x.p || '').toLowerCase() === me) g = x; });
     if (!g) return;
     var tries = 0;
     var t = setInterval(function () {
-      var el = findTarget(g.sel);
-      if (el || ++tries > 25) {
+      var el = g.sel ? findTarget(g.sel) : null;
+      if (el || !g.sel || ++tries > 25) {
         clearInterval(t);
         if (el) {
           try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
@@ -1115,9 +1136,9 @@
     var ov = document.getElementById('gmt-wn-ov'); if (ov) { markSeen(); ov.remove(); }
     var me = page();
     var mine = null;
-    n.go.forEach(function (x) { if (!mine && String(x.p || '').toLowerCase() === me) mine = x; });
+    goList(n).forEach(function (x) { if (!mine && String(x.p || '').toLowerCase() === me) mine = x; });
     if (mine) {
-      var el = findTarget(mine.sel);
+      var el = mine.sel ? findTarget(mine.sel) : null;
       if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} el.classList.add('gwn-target', 'gwn-flash'); setTimeout(function () { el.classList.remove('gwn-flash'); }, 3200); }
       coach(n, mine, el); paintDots();
       return;
