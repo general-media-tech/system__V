@@ -2859,6 +2859,12 @@ window.smartFillFromPaste = async () => {
     const addrEl = document.getElementById('in-addr');
     if (addrEl) {
         smartPasteAddr(addrEl, LB.addr.length ? LB.addr.join(' ') : raw);
+        /* (TASK-0182 · المالك seq 110 «لا يعيش شيء ما يتعبّى … وجهة») ما بعد «العنوان:» ولم يدخل الحقل — المكتب المعروف يُكتب باسمه هو،
+           فكانت «قرب الجامع» وأمثالها تضيع بصمت ⇒ تذهب لجدول «ما تعرّفنا عليهم» لتحدّدها */
+        if (LB.addr.length) {
+            const av = spKey(addrEl.value);
+            LB.addr.forEach(a => { const c = stripConsumed(a, _spConsumed); if (c.meat >= 2 && av.indexOf(spKey(c.text)) === -1) _spExtra.push(c.text); });
+        }
         const co = (document.getElementById('in-company') || {}).value || '';
         if (addrEl.value.includes('—')) push(true, 'العنوان: ' + addrEl.value + (co ? ' · شركة ' + co : ''));
         else push(false, 'العنوان غير مؤكّد: ' + (addrEl.value || '—') + ' — راجعه');
@@ -2876,7 +2882,22 @@ window.smartFillFromPaste = async () => {
     }
     /* نصّ المنتجات: ما بعد «الطلب/المنتج» + ما لا علامة عليه — **بلا رقم الهاتف**: كان كلّ ما قبل الرقم يُرمى
        فتضيع منتجاتٌ كُتبت قبله؛ الآن يُحذف الهاتف وسطرُ الاسم والعنوانُ المستهلك فقط، وما بقي يُطابَق أو يبقى لك. */
-    const prodText = LB.prod.concat(LB.rest).join('\n').replace(new RegExp(SY_PHONE_RE.source, 'g'), ' ');
+    let prodText = LB.prod.concat(LB.rest).join('\n').replace(new RegExp(SY_PHONE_RE.source, 'g'), ' ');
+    /* (TASK-0182 · seq 110) الحقل يأخذ أوّل سعر — وكان كلّ سعرٍ آخر (التوصيل 2$ · دفعة 20…) يُحذف معه بصمت. الآن سطرُ أيّ سعرٍ آخر
+       يذهب كاملاً لجدول «ما تعرّفنا عليهم» (ويُخرَج من نصّ المنتجات) لتحدّد ما هو */
+    try {
+        if (window.GMTSuggest && GMTSuggest.price) {
+            let seen = false; const keep = [];
+            prodText.split('\n').forEach(ln => {
+                const p1 = GMTSuggest.price(ln);
+                if (p1.amount === null) { keep.push(ln); return; }
+                const more = p1.phrase && GMTSuggest.price(ln.replace(p1.phrase, ' ')).amount !== null;
+                if (!seen) { seen = true; keep.push(ln); if (more) _spExtra.push(ln.trim()); }
+                else if (ln.trim()) _spExtra.push(ln.trim());
+            });
+            prodText = keep.join('\n');
+        }
+    } catch (_) {}
     let _priceInfo = { amount: null, currency: '' };
     try {
         if (window.GMTSuggest && GMTSuggest.price) _priceInfo = GMTSuggest.price(prodText);
@@ -3006,10 +3027,14 @@ async function fillProductsFromText(raw) {
         if (c.meat === 0) { dropped.push(p); return ''; }
         return c.meat >= 2 ? c.text : p;
     }).filter(Boolean);
-    parts = parts.filter(p => prodKey(p).length >= 2).slice(0, 12);
+    /* (TASK-0182 · seq 110 «لا يعيش شيء ما يتعبّى») كان الجزء القصير جداً (حرفٌ أو رقمٌ واحد) يُرمى، وما بعد البند الثاني عشر يُقصّ —
+       بصمت. الآن يذهبان لجدول «ما تعرّفنا عليهم» */
+    const _left = parts.filter(p => prodKey(p).length < 2 && /[\p{L}\p{N}]/u.test(p));
+    parts = parts.filter(p => prodKey(p).length >= 2);
 
     /* الموسوم بـ # منتجٌ قطعاً ويتقدّم في الترتيب — قرار الإنسان أوّلاً */
-    if (forced.prod.length) parts = forced.prod.concat(parts).slice(0, 12);
+    if (forced.prod.length) parts = forced.prod.concat(parts);
+    if (parts.length > 12) { _left.push(...parts.slice(12)); parts = parts.slice(0, 12); }
     const forcedSet = new Set(forced.prod);
     if (forced.addr.length) dropped.push(...forced.addr);
     if (forced.note.length) {
@@ -3024,7 +3049,8 @@ async function fillProductsFromText(raw) {
         `<div class="text-gray-400">🗺️ استُبعد من المنتجات (عنوان): ${escH(dropped.join(' · '))}</div>`);
     if (!parts.length && !forced.prod.length) {
         lines.push('<div class="text-amber-700">⚠️ ما لقينا منتجات في الرسالة</div>');
-        _spUnknownText = '';
+        _spUnknownText = _left.join('\n');
+        if (_spUnknownText) lines.push('<div id="sp-unknown-host"></div>');
         try { addItemRow('add'); } catch (_) {}
         return { lines };
     }
@@ -3158,6 +3184,7 @@ async function fillProductsFromText(raw) {
        ══════════════════════════════════════════════════════════════════════ */
     /* dropped صارت تحوي: سطور العنوان + ما لم يُفهَم. لا نُعيد المطابقة هنا:
        إعادة الحساب مصدرُ تضارب — الصفوف والكتلة يجب أن تتّفقا دائماً. */
+    unmatched.push(..._left);                // (TASK-0182) القصير جداً وما زاد عن ١٢ بنداً
     if (unmatched.length) {
         /* النصّ يُعرَض **قابلاً للتعديل**: المالك يقسّمه أسطراً كما يريد، ثمّ
            يحدّد لكل سطر ما هو. نُخزّنه ونبني اللوحة بعد إدراج التقرير. */
@@ -6657,18 +6684,20 @@ function mountUnknownPanel() {
     if (!_spUnknownText.trim()) { host.innerHTML = ''; return; }
     host.innerHTML =
       '<div class="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200">' +
-        '<div class="text-[11px] font-black text-amber-800 mb-1">❓ ما تعرّفنا عليهم — قسّمهم أسطراً ثمّ حدّد كل سطر:</div>' +
+        '<div class="text-[11px] font-black text-amber-800 mb-1">❓ ما تعرّفنا عليهم — كل سطر لحاله: حدّد شو هو، أو انسخه (عدّل الأسطر هنا ثمّ «قسّم من جديد»):</div>' +
         '<textarea id="sp-unk-text" rows="3" ' +
           'class="w-full p-2 bg-white rounded-lg text-[12.5px] font-bold border border-amber-200 resize-y leading-relaxed">' +
           escH(_spUnknownText) + '</textarea>' +
         '<div class="flex flex-wrap gap-1 mt-1.5">' +
           '<button type="button" onclick="splitUnknown()" ' +
-            'class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-black text-[11px] hover:bg-amber-700">✂️ قسّم وحدّد</button>' +
+            'class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-black text-[11px] hover:bg-amber-700">✂️ قسّم من جديد</button>' +
           '<button type="button" onclick="spUnknownTo(\'copy\')" ' +
             'class="px-2.5 py-1 rounded-lg bg-white border border-amber-200 text-amber-800 font-black text-[11px] hover:bg-amber-100">📋 انسخهم</button>' +
         '</div>' +
         '<div id="sp-unk-rows" class="mt-1.5"></div>' +
       '</div>';
+    /* (TASK-0182 · seq 110 «ضعهم كل واحدة في سطر وبحدّد لك كل شيء شو هو») — الأسطر تظهر مقسّمةً فوراً بلا ضغطة */
+    splitUnknown();
 }
 window.mountUnknownPanel = mountUnknownPanel;
 
@@ -6685,9 +6714,11 @@ function splitUnknown() {
         '<div class="flex flex-wrap gap-1">' +
           '<button type="button" data-k="prod"  class="px-2 py-0.5 rounded-lg bg-gray-900 text-white border border-gray-900 font-black text-[11px]">📦 منتج</button>' +
           '<button type="button" data-k="note"  class="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 font-black text-[11px]">📝 ملاحظة</button>' +
-          '<button type="button" data-k="addr"  class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 font-black text-[11px]">📍 عنوان</button>' +
+          '<button type="button" data-k="price" class="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-black text-[11px]">💵 سعر</button>' +
+          '<button type="button" data-k="addr"  class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 font-black text-[11px]">📍 عنوان/وجهة</button>' +
           '<button type="button" data-k="name"  class="px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-100 font-black text-[11px]">👤 اسم</button>' +
           '<button type="button" data-k="phone" class="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-black text-[11px]">📞 رقم</button>' +
+          '<button type="button" data-k="copy"  class="px-2 py-0.5 rounded-lg bg-white text-gray-700 border border-gray-200 font-black text-[11px]">📋 نسخ</button>' +
           '<button type="button" data-k="skip"  class="px-2 py-0.5 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 font-black text-[11px]">✕ تجاهل</button>' +
           '<span data-k="msg" class="text-[11px] font-black"></span>' +
         '</div>' +
@@ -6700,6 +6731,25 @@ function splitUnknown() {
             b.onclick = async () => {
                 const kind = b.getAttribute('data-k');
                 if (kind === 'skip') { card.style.opacity = .4; msg.textContent = 'تُجوهل'; msg.style.color = '#9CA3AF'; return; }
+                if (kind === 'copy') {
+                    try { await navigator.clipboard.writeText(text); msg.textContent = '📋 نُسخ'; msg.style.color = '#374151'; }
+                    catch (_) { msg.textContent = 'تعذّر النسخ — حدّده بيدك'; msg.style.color = '#B91C1C'; }
+                    return;
+                }
+                if (kind === 'price') {
+                    /* (TASK-0182 · seq 110) سطرٌ هو السعر ⇒ حقل السعر (بالليرة ⇒ يُحوَّل بسعر الصرف كالتعبئة نفسها) */
+                    const pi = (window.GMTSuggest && GMTSuggest.price) ? GMTSuggest.price(text) : { amount: null, currency: '' };
+                    let amt = pi.amount;
+                    if (amt === null) { const m = spDigits(text).match(/\d+(?:[.,]\d+)?/); amt = m ? parseFloat(m[0].replace(',', '.')) : null; }
+                    const pEl = document.getElementById('in-price');
+                    if (amt === null || !pEl) { msg.textContent = '⚠️ لا رقم فيه'; msg.style.color = '#B91C1C'; return; }
+                    const rate = (window.GMT_RATE || (window.GMT_DB && GMT_DB.RATE) || 140);
+                    const usd = pi.currency === 'syp' ? Math.round((amt / rate) * 100) / 100 : amt;
+                    pEl.value = usd; try { syncCollect(); } catch (_) {}
+                    msg.textContent = '✅ صار السعر $' + usd; msg.style.color = '#BE123C';
+                    card.style.background = '#F0FDF4';
+                    return;
+                }
                 if (kind === 'prod') {
                     /* يُضاف كما كتبه الزبون، ومعه خياراته إن وُجدت — القرار يبقى بيده */
                     const q = (window.GMTSuggest && GMTSuggest.qty) ? GMTSuggest.qty(text) : { qty: 1, clean: text };
@@ -9556,7 +9606,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026a"></script>
+<script src="gmt-whatsnew.js?v=20261026b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
