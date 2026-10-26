@@ -435,7 +435,8 @@
   function open(o) {
     if (!global.GMTBrain || !GMTBrain.importProduct) { if (global.showToast) showToast('عقل النظام لم يُحمَّل في هذه الصفحة', 'error'); return; }
     close(true);
-    var saved = load(), byId = {};
+    /* (TASK-0189 · المالك seq 126 «بدّي أرجع أبحث عنها») «أعد التجهيز من جديد»: لا استئناف — كل منتجٍ ينتظر العقل من جديد، والمحفوظ لا يتغيّر إلّا بحفظك */
+    var saved = o.fresh ? null : load(), byId = {};
     if (saved && saved.key === o.key) (saved.items || []).forEach(function (x) { byId[String(x.id)] = x; });
     S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
           items: o.products.map(function (p) { var s0 = byId[String(p.id)] || {}; return { id: p.id, p: p, st: s0.st || 'wait', res: s0.res || null, err: s0.err || '' }; }),
@@ -489,7 +490,8 @@
     var oc = S.onClose; S = null; try { if (oc) oc(); } catch (_) {}
   }
   /* اختيار المجموعة/التصنيف — قائمةٌ قابلة للبحث (المجموعات كثيرة: نافذة الأزرار لا تتّسع لها) ·
-     opts.sections = [{ title, items: [{ k, t, n, left }] }] ⇒ { k, onlyLeft } أو null */
+     opts.sections = [{ title, items: [{ k, t, n, left }] }] ⇒ { k, onlyLeft, fresh, filters } أو null
+     (TASK-0189) opts.filters = [{ k, label, options: [[قيمة, نصّ]…] }] + opts.build(قيم) ⇒ sections: الفلتر نفسه الذي في قائمة الجرد يعيد حساب الأقسام وأعدادها */
   function pick(opts) {
     return new Promise(function (resolve) {
       var ov = document.createElement('div'); ov.id = 'gmt-enrich-pick'; ov.setAttribute('data-keep-fab', '1');
@@ -498,7 +500,13 @@
       ov.innerHTML = '<div style="width:100%;max-width:520px;max-height:' + (wide ? '86vh' : '90vh') + ';display:flex;flex-direction:column;background:#fff;border-radius:' + (wide ? '22px' : '22px 22px 0 0') + ';overflow:hidden">' +
         '<div style="padding:14px 16px 8px"><b style="font-size:16px;display:block">🧠 تجهيز المنتجات تلقائياً</b><span style="font-size:12.5px;color:#526077;line-height:1.7;display:block;margin-top:2px">' + esc(opts.message || '') + '</span>' +
         '<input data-pq type="search" placeholder="🔎 ابحث عن مجموعة أو تصنيف" style="width:100%;box-sizing:border-box;margin-top:8px;border:1px solid #e2e8f0;border-radius:12px;padding:9px 12px;font:inherit;font-size:14px">' +
-        '<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;font-weight:800"><input type="checkbox" data-pleft checked> غير المجهَّزة فقط</label></div>' +
+        (opts.filters && opts.filters.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">' + opts.filters.map(function (f) {
+          return '<label style="display:flex;gap:4px;align-items:center;font-size:12.5px;font-weight:800">' + esc(f.label) + '<select data-pf="' + esc(f.k) + '" style="border:1px solid #e2e8f0;border-radius:10px;padding:5px 6px;font:inherit;font-size:12.5px;background:#fff">' +
+            f.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(f.value || '') === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>'; }).join('') + '</div>' : '') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><label style="display:flex;gap:6px;align-items:center;font-size:13px;font-weight:800"><input type="checkbox" data-pleft checked> غير المجهَّزة فقط</label>' +
+        /* (TASK-0189 · جواب seq 127: زرّ «أعد التجهيز من جديد») */
+        '<button type="button" data-pfresh aria-pressed="false" style="' + btn('#f1f5f9', '#0f1219') + ';padding:6px 10px;font-size:12.5px">🔁 أعد التجهيز من جديد</button></div>' +
+        '<div data-pfresh-note style="display:none;font-size:12px;color:#b45309;font-weight:800;line-height:1.7;margin-top:6px">🔁 العقل يرجع يبحث عن كل منتجات ما تختاره — حتى المجهَّز والمحفوظ. والمنتج لا يتغيّر إلّا حين تحفظه بعد المراجعة.</div></div>' +
         '<div data-plist style="flex:1;overflow:auto;padding:0 16px 10px"></div>' +
         '<div style="padding:10px 16px 14px;border-top:1px solid #e2e8f0"><button type="button" data-pclose style="' + btn('#f1f5f9', '#0f1219') + ';width:100%">إلغاء</button></div></div>';
       document.body.appendChild(ov);
@@ -515,8 +523,17 @@
         }).join('') || '<div style="padding:20px;text-align:center;color:#526077">لا نتائج</div>';
       }
       function done(v) { ov.remove(); resolve(v); }
+      function vals() { var o = {}; [].forEach.call(ov.querySelectorAll('[data-pf]'), function (x) { o[x.getAttribute('data-pf')] = x.value; }); return o; }
+      var fresh = false, fb = ov.querySelector('[data-pfresh]'), pl = ov.querySelector('[data-pleft]');
+      fb.addEventListener('click', function () {
+        fresh = !fresh; fb.setAttribute('aria-pressed', fresh ? 'true' : 'false');
+        fb.style.background = fresh ? '#b45309' : '#f1f5f9'; fb.style.color = fresh ? '#fff' : '#0f1219';
+        pl.disabled = fresh; if (fresh) pl.checked = false;
+        ov.querySelector('[data-pfresh-note]').style.display = fresh ? 'block' : 'none';
+      });
+      [].forEach.call(ov.querySelectorAll('[data-pf]'), function (x) { x.addEventListener('change', function () { if (opts.build) { opts.sections = opts.build(vals()); draw(); } }); });
       q.addEventListener('input', draw);
-      list.addEventListener('click', function (e) { var b = e.target.closest('[data-pk]'); if (b) done({ k: b.getAttribute('data-pk'), onlyLeft: ov.querySelector('[data-pleft]').checked }); });
+      list.addEventListener('click', function (e) { var b = e.target.closest('[data-pk]'); if (b) done({ k: b.getAttribute('data-pk'), onlyLeft: !fresh && pl.checked, fresh: fresh, filters: vals() }); });
       ov.querySelector('[data-pclose]').addEventListener('click', function () { done(null); });
       ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
       draw();

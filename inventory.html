@@ -1248,6 +1248,8 @@ body.inv-list #list-view { display: block; }
 /* ============================================
    FILTER CHIPS
 ============================================ */
+/* (TASK-0189) «في المتجر وليست في الجرد»: لوحتها وحدها — لا «لا توجد منتجات» تحتها */
+body.inv-storeonly #table-wrap, body.inv-storeonly #list-view, body.inv-storeonly #cards-view, body.inv-storeonly #pagination { display: none !important; }
 .filter-bar {
   display: flex;
   gap: 8px;
@@ -2293,7 +2295,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261007z5"></script>
 <script src="gmt-specs.js?v=20261025i"></script>
-<script src="gmt-enrich-queue.js?v=20261026g"></script>
+<script src="gmt-enrich-queue.js?v=20261026i"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -2497,6 +2499,18 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <div class="filter-bar" id="group-chips-row" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:6px 20px;">
   </div>
 
+  <!-- (26 ت1 · TASK-0189 · المالك seq 126–127) فلتر المواصفات والمتجر — الفلتر نفسه في «🧠 جهّز تلقائياً» -->
+  <div class="filter-bar" id="spec-store-row" style="flex-wrap:wrap;align-items:center;">
+    <span class="filter-label" style="white-space:nowrap">📋 المواصفات:</span>
+    <select id="f-specs" onchange="setSpecStoreFilter()" style="border:1.5px solid var(--border);border-radius:10px;padding:5px 8px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);">
+      <option value="">الكل</option><option value="has">لها مواصفات</option><option value="none">بلا مواصفات</option>
+    </select>
+    <span class="filter-label" style="white-space:nowrap">🛒 المتجر:</span>
+    <select id="f-store" onchange="setSpecStoreFilter()" style="border:1.5px solid var(--border);border-radius:10px;padding:5px 8px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);">
+      <option value="">الكل</option><option value="linked">مربوطة بالمتجر</option><option value="inv">في الجرد وليست في المتجر</option><option value="store">في المتجر وليست في الجرد</option>
+    </select>
+  </div>
+
   <!-- Edit Mode Bar -->
   <div id="edit-mode-bar">
     <div class="autosave-dot" id="autosave-dot"></div>
@@ -2593,6 +2607,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 
   <!-- Main Content -->
   <div id="main">
+    <!-- (TASK-0189) «في المتجر وليست في الجرد»: منتجات المتجر بلا منتجٍ في الجرد — لا تُحفظ في الجرد، فلوحتها هنا بدل القائمة -->
+    <div id="store-only-panel" style="display:none;padding:12px 16px;"></div>
 
     <!-- Table View -->
     <div id="table-wrap">
@@ -4044,6 +4060,7 @@ let currentFilter = 'all';
 let currentGroup = ''; // المجموعة المحددة
 let currentCategory = ''; // (2026-10-05 س) التصنيف — أكبر من المجموعة (عمود products.category · SQL ٢٤)
 let currentBranchFilter = ''; // فلتر الفرع/نقطة البيع
+let invSpecF = '', invStoreF = '', _invStoreIdx = null; // (TASK-0189) المواصفات: '' · has · none — المتجر: '' · linked · inv · store
 let searchQuery = '';
 let sortCol = null;
 let sortDir = 'asc';
@@ -4912,29 +4929,56 @@ async function gmtEnrichPick() {
   if (!window.GMTEnrichQueue) { showToast('أداة التجهيز لم تُحمَّل', 'error'); return; }
   const done = p => !!p.specs_checked_at;
   const gx = p => [p.group_name || ''].concat(window.GMTProdGroup ? GMTProdGroup.extras(p) : []);
-  const groups = [...new Set([].concat(...allProducts.map(gx)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
   const inG = (p, g) => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g);
-  const cats = window.GMTCat ? [...new Set(allProducts.map(p => p.category || '').filter(Boolean).map(c => String(c).split('/')[0].trim()))].sort((a, b) => a.localeCompare(b, 'ar')) : [];
   const inC = (p, c) => window.GMTCat ? GMTCat.under(p.category, c) : String(p.category || '').indexOf(c) === 0;
-  const secs = [];
-  const cur = [];
-  if (currentGroup && currentGroup !== '__none__') { const l = allProducts.filter(p => inG(p, currentGroup)); cur.push({ k: 'g:' + currentGroup, t: '📂 ' + currentGroup, n: l.length, left: l.filter(p => !done(p)).length }); }
-  if (currentCategory) { const l = allProducts.filter(p => inC(p, currentCategory)); cur.push({ k: 'c:' + currentCategory, t: '🏷️ ' + currentCategory, n: l.length, left: l.filter(p => !done(p)).length }); }
-  if (cur.length) secs.push({ title: 'المعروض الآن', items: cur });
-  /* (TASK-0184 · المالك seq 116 «بدّي إيّاه مشان المنتجات الموجودة في الجرد وما هي موجودة في المتجر») */
-  const notInStore = allProducts.filter(p => !/#product=/.test(String(p.store_url || '')));
-  if (notInStore.length) secs.push({ title: 'المتجر', items: [{ k: 's:none', t: '🛒 في الجرد وليست في المتجر', n: notInStore.length, left: notInStore.filter(p => !done(p)).length }] });
-  secs.push({ title: 'المجموعات', items: groups.map(g => { const l = allProducts.filter(p => inG(p, g)); return { k: 'g:' + g, t: '📂 ' + g, n: l.length, left: l.filter(p => !done(p)).length }; }) });
-  if (cats.length) secs.push({ title: 'التصنيفات', items: cats.map(c => { const l = allProducts.filter(p => inC(p, c)); return { k: 'c:' + c, t: '🏷️ ' + c, n: l.length, left: l.filter(p => !done(p)).length }; }) });
-  if (!groups.length && !cats.length) { showToast('لا مجموعات ولا تصنيفات بعد — أنشئ مجموعة أوّلاً', 'warning'); return; }
-  const sel = await GMTEnrichQueue.pick({ message: 'اختر مجموعةً أو تصنيفاً — العقل يجهّز منتجاته واحداً تلو الآخر في الخلفية، وأنت تراجع ما جهز: تعدّل · تحفظ · تتخطّى · تضيف صوراً.', sections: secs });
+  /* (TASK-0189 · المالك seq 126–127) الفلتر نفسه الذي في قائمة الجرد: المواصفات · المتجر — يبدأ بما اخترته فيها ويعيد حساب الأقسام */
+  await invStoreIndex();
+  const FILTERS = [
+    { k: 'specs', label: '📋 المواصفات:', value: invSpecF, options: [['', 'الكل'], ['has', 'لها مواصفات'], ['none', 'بلا مواصفات']] },
+    { k: 'store', label: '🛒 المتجر:', value: invStoreF, options: [['', 'الكل'], ['linked', 'مربوطة بالمتجر'], ['inv', 'في الجرد وليست في المتجر'], ['store', 'في المتجر وليست في الجرد']] }];
+  const baseOf = f => allProducts.filter(p => (!f.specs || (f.specs === 'has') === invHasSpecs(p)) &&
+    (!f.store || (f.store === 'linked' ? invLinked(p) : f.store === 'inv' ? !invLinked(p) : false)));
+  const build = f => {
+    const base = baseOf(f), item = (k, t, l) => ({ k, t, n: l.length, left: l.filter(p => !done(p)).length }), secs = [];
+    if (f.store === 'store') {
+      const so = invStoreOnly().filter(sp => !f.specs || (f.specs === 'has') === storeHasSpecs(sp));
+      secs.push({ title: 'المتجر', items: [{ k: 's:storeonly', t: '🛒 في المتجر وليست في الجرد', n: so.length, left: null }] });
+      return secs;
+    }
+    const groups = [...new Set([].concat(...base.map(gx)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
+    const cats = window.GMTCat ? [...new Set(base.map(p => p.category || '').filter(Boolean).map(c => String(c).split('/')[0].trim()))].sort((a, b) => a.localeCompare(b, 'ar')) : [];
+    const cur = [];
+    if (currentGroup && currentGroup !== '__none__') cur.push(item('g:' + currentGroup, '📂 ' + currentGroup, base.filter(p => inG(p, currentGroup))));
+    if (currentCategory) cur.push(item('c:' + currentCategory, '🏷️ ' + currentCategory, base.filter(p => inC(p, currentCategory))));
+    if (cur.length) secs.push({ title: 'المعروض الآن', items: cur });
+    /* (TASK-0189 · المالك seq 124 «يعطيني تصنيف للأشياء اللي ما لها حالياً مواصفات») */
+    const noSpecs = base.filter(p => !invHasSpecs(p));
+    if (f.specs !== 'has' && noSpecs.length) secs.push({ title: 'المواصفات', items: [item('x:nospecs', '📋 كل ما ليس له مواصفات', noSpecs)] });
+    /* (TASK-0184 · المالك seq 116 «بدّي إيّاه مشان المنتجات الموجودة في الجرد وما هي موجودة في المتجر») */
+    const notInStore = base.filter(p => !invLinked(p));
+    if (f.store !== 'linked' && notInStore.length) secs.push({ title: 'المتجر', items: [item('s:none', '🛒 في الجرد وليست في المتجر', notInStore)] });
+    secs.push({ title: 'المجموعات', items: groups.map(g => item('g:' + g, '📂 ' + g, base.filter(p => inG(p, g)))) });
+    if (cats.length) secs.push({ title: 'التصنيفات', items: cats.map(c => item('c:' + c, '🏷️ ' + c, base.filter(p => inC(p, c)))) });
+    return secs;
+  };
+  const f0 = { specs: invSpecF, store: invStoreF };
+  if (!allProducts.length) { showToast('لا منتجات في الجرد بعد', 'warning'); return; }
+  const sel = await GMTEnrichQueue.pick({ message: 'اختر مجموعةً أو تصنيفاً — العقل يجهّز منتجاته واحداً تلو الآخر في الخلفية، وأنت تراجع ما جهز: تعدّل · تحفظ · تتخطّى · تضيف صوراً.',
+    sections: build(f0), filters: FILTERS, build });
   if (!sel) return;
-  const k = sel.k, isG = k.indexOf('g:') === 0, isS = k === 's:none', name = isS ? 'في الجرد وليست في المتجر' : k.slice(2);
-  let list = isS ? notInStore.slice() : allProducts.filter(p => isG ? inG(p, name) : inC(p, name));
+  const f = sel.filters || f0, k = sel.k;
+  /* منتجات المتجر وحده لا تُحفظ في الجرد ⇒ تظهر في قائمة الجرد بالفلتر نفسه لتربطها أو تضيفها من «الجسر» ثمّ تجهّزها */
+  if (k === 's:storeonly') { await setSpecStoreFilter(f.specs || '', 'store'); showToast('🛒 هذه في المتجر وحده — ظاهرة الآن في قائمة الجرد. اربطها أو أضفها للجرد من «الجسر»، ثمّ جهّزها.', 'info'); return; }
+  const isG = k.indexOf('g:') === 0, isS = k === 's:none', isX = k === 'x:nospecs';
+  const name = isS ? 'في الجرد وليست في المتجر' : isX ? 'كل ما ليس له مواصفات' : k.slice(2);
+  const base = baseOf(f);
+  let list = isS ? base.filter(p => !invLinked(p)) : isX ? base.filter(p => !invHasSpecs(p)) : base.filter(p => isG ? inG(p, name) : inC(p, name));
   if (sel.onlyLeft) list = list.filter(p => !done(p));
   if (!list.length) { showToast('لا منتجات في «' + name + '»', 'warning'); return; }
+  /* مع الفلتر مفتاحٌ آخر للطابور: لا يختلط استئناف «إضاءة» كلّها باستئناف «إضاءة بلا مواصفات» */
+  const qk = k + (f.specs || f.store ? '|' + (f.specs || '') + '|' + (f.store || '') : '');
   GMTEnrichQueue.open({
-    key: k, title: name, products: list, operator: posWho(),
+    key: qk, title: name, products: list, operator: posWho(), fresh: !!sel.fresh,
     /* الحفظ متحقَّق: صفٌّ عاد من الخادم وإلّا فلم يُحفظ (الرفض الصامت لا يُقال «حُفظ») */
     save: async (p, patch, extra) => {
       const { data, error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}&select=id`, patch, { Prefer: 'return=representation' });
@@ -5493,6 +5537,12 @@ function applyFilters() {
     items = items.filter(p => window.GMTProdGroup ? GMTProdGroup.inGroup(p, currentGroup) : (p.group_name || '') === currentGroup);   /* (٨ ت) + المجموعات الإضافيّة */
   }
 
+  /* (TASK-0189) المواصفات والمتجر — و«في المتجر وليست في الجرد» ليست منتجات جرد: لوحتها فوق (renderStoreOnly) */
+  if (invSpecF) items = items.filter(p => (invSpecF === 'has') === invHasSpecs(p));
+  if (invStoreF === 'linked') items = items.filter(invLinked);
+  else if (invStoreF === 'inv') items = items.filter(p => !invLinked(p));
+  else if (invStoreF === 'store') items = [];
+
   // Sort
   if (sortCol) {
     items.sort((a, b) => {
@@ -5509,8 +5559,62 @@ function applyFilters() {
   filteredProducts = items;
   document.getElementById('result-count').textContent = `${items.length} منتج`;
   document.getElementById('filter-count-all').textContent = allProducts.length;
+  renderStoreOnly();
   renderGroupChips();
   renderBranchFilterRow();
+}
+
+/* (26 ت1 · TASK-0189 · المالك seq 126 «فلتر بالأشياء اللي لها مواصفات ويا اللي ما لها · المربوطة ومو المربوطة · اللي بالمتجر ومو بالجرد أو بالجرد
+   ومو بالمتجر» · seq 127 «بالاثنين» (هنا وفي «جهّز تلقائياً») · «اللي بالمتجر ومو بالجرد بدّي إيّاها تدخل بنفس الفلتر») */
+function invHasSpecs(p) { return window.GMTSpecs ? GMTSpecs.rows(p.specs).length > 0 : !!(p.specs && typeof p.specs === 'object' && Object.keys(p.specs).some(k => k.indexOf('__') !== 0)); }
+/* مربوط: رابط المتجر في الجرد، أو منتجٌ في المتجر يحمل معرّفه (inv_id) — كما يجده gmtStoreFind */
+function invLinked(p) { return /#product=/.test(String(p.store_url || '')) || !!(_invStoreIdx && _invStoreIdx.inv.has(String(p.id))); }
+async function invStoreIndex(fresh) {
+  try {
+    const rec = await gmtStoreCatalog(fresh), prods = Array.isArray(rec.products) ? rec.products : [];
+    _invStoreIdx = { prods, inv: new Set(prods.filter(x => x && x.inv_id != null && x.inv_id !== '').map(x => String(x.inv_id))) };
+  } catch (_) {}
+  return _invStoreIdx;
+}
+/* منتجات المتجر التي لا منتج لها في الجرد (لا رابط إليها ولا inv_id لمنتجٍ موجود) */
+function invStoreOnly() {
+  if (!_invStoreIdx) return [];
+  const ids = new Set(allProducts.map(p => String(p.id)));
+  const sids = new Set(allProducts.map(p => (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1]).filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (_) { return x; } }));
+  return _invStoreIdx.prods.filter(x => x && x.id != null && !sids.has(String(x.id)) && !(x.inv_id != null && ids.has(String(x.inv_id))));
+}
+function storeHasSpecs(sp) { return Array.isArray(sp.specs) && sp.specs.some(r => r && String(r.value || '').trim()); }
+async function setSpecStoreFilter(specs, store) {
+  const fs = document.getElementById('f-specs'), ft = document.getElementById('f-store');
+  if (specs != null && fs) fs.value = specs;
+  if (store != null && ft) ft.value = store;
+  invSpecF = fs ? fs.value : ''; invStoreF = ft ? ft.value : '';
+  if (invStoreF && !_invStoreIdx) await invStoreIndex();
+  currentPage = 1; renderAll();
+}
+window.setSpecStoreFilter = setSpecStoreFilter;
+function renderStoreOnly() {
+  const box = document.getElementById('store-only-panel'); if (!box) return;
+  const on = invStoreF === 'store';
+  document.body.classList.toggle('inv-storeonly', on);
+  if (!on) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  let l = invStoreOnly();
+  if (invSpecF) l = l.filter(sp => (invSpecF === 'has') === storeHasSpecs(sp));
+  if (searchQuery && window.GMTSuggest) l = l.filter(sp => GMTSuggest.hits(searchQuery, [sp.name, sp.brand].filter(Boolean).join(' ')));
+  document.getElementById('result-count').textContent = `${l.length} منتج في المتجر`;
+  box.style.display = 'block';
+  box.innerHTML = `<div style="font-size:13px;font-weight:800;color:var(--text2);line-height:1.8;margin-bottom:10px;">🛒 في المتجر وليست في الجرد — ${l.length} منتج.
+      اربطها بمنتجٍ في الجرد أو أضفها للجرد من <a href="bridge.html" style="color:var(--red,#D5001C);font-weight:900;">«الجسر»</a>، ثمّ جهّزها من «🧠 جهّز تلقائياً».</div>` +
+    (!_invStoreIdx ? '<div style="color:var(--text3);padding:16px 0;">تعذّر تحميل المتجر الآن — أعد المحاولة.</div>'
+      : l.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">' + l.map(sp => {
+          const im = Array.isArray(sp.images) && sp.images[0] ? String(sp.images[0]) : '';
+          const ns = Array.isArray(sp.specs) ? sp.specs.filter(r => r && String(r.value || '').trim()).length : 0;
+          return `<div data-store-only="${escHtml(String(sp.id))}" style="border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:8px;min-width:0;">
+            ${im ? `<img src="${escHtml(im)}" alt="" loading="lazy" style="width:100%;height:96px;object-fit:contain;border-radius:10px;" onerror="this.remove()">` : ''}
+            <div style="font-weight:800;font-size:13px;line-height:1.5;margin-top:4px;overflow-wrap:anywhere;">${escHtml(sp.name || '—')}</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">${Number(sp.price) > 0 ? '$' + formatNum(sp.price) + ' · ' : ''}${ns ? '📋 ' + ns + ' مواصفة' : 'بلا مواصفات'}</div></div>`;
+        }).join('') + '</div>'
+      : '<div style="color:var(--text3);padding:16px 0;">لا منتجات بهذا الفلتر.</div>');
 }
 
 function getTotal(p) {
@@ -15164,7 +15268,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261026g"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026h"></script>
+<script src="gmt-whatsnew.js?v=20261026i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
