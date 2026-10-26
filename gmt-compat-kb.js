@@ -79,13 +79,27 @@
   function toCache() { try { localStorage.setItem(LS, JSON.stringify({ at: S.at, rows: S.rows })); } catch (_) {} }
   function notify() { try { global.dispatchEvent(new CustomEvent('gmt-compat-kb', { detail: { n: S.rows.length } })); } catch (_) {} }
   try { var c0 = JSON.parse(localStorage.getItem(LS) || 'null'); if (c0 && Array.isArray(c0.rows)) { S.rows = c0.rows; S.at = c0.at || 0; index(); } } catch (_) {}
+  /* الجدول يُنشأ بموافقة المالك، ومعه صفّ gmt_settings «compat_kb_ready» في الهجرة نفسها. قبله: لا نداء للجدول إطلاقاً —
+     مراقب الشبكة (gmt-core.js) يسجّل كل 404 خطأً حرجاً، فكانت كل صفحة جردٍ وبيع ستُنذر كذباً. التأكيد يُحفظ على الجهاز ولا يُسأل بعده. */
+  var READY = 'gmt_compat_kb_ready';
+  function ready() {
+    try { if (localStorage.getItem(READY) === '1') return Promise.resolve(true); } catch (_) {}
+    if (S.rdy) return S.rdy;
+    var d = db(); if (!d || typeof fetch !== 'function') return Promise.resolve(false);
+    S.rdy = fetch(d.url + '/rest/v1/gmt_settings?key=eq.compat_kb_ready&select=value', { headers: hdr() })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (j) { var on = Array.isArray(j) && !!j[0] && String(j[0].value) === '1'; if (on) { try { localStorage.setItem(READY, '1'); } catch (_) {} } return on; })
+      .catch(function () { return false; });
+    S.rdy.then(function (on) { if (!on) setTimeout(function () { S.rdy = null; }, TTL); });
+    return S.rdy;
+  }
   function load(force) {
     if (loading) return loading;
     if (!force && Date.now() - Math.max(S.at, S.tried) < TTL && (S.at || S.tried)) return Promise.resolve(S.rows);
     var d = db(); if (!d || typeof fetch !== 'function') return Promise.resolve(S.rows);
     S.tried = Date.now();
-    loading = fetch(d.url + '/rest/v1/gmt_compat_kb?select=' + COLS + '&order=created_at.desc&limit=5000', { headers: hdr() })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    loading = ready().then(function (on) { return on ? fetch(d.url + '/rest/v1/gmt_compat_kb?select=' + COLS + '&order=created_at.desc&limit=5000', { headers: hdr() }) : null; })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
       .then(function (j) { if (Array.isArray(j)) { S.rows = j; S.at = Date.now(); index(); toCache(); notify(); } return S.rows; })
       .catch(function () { return S.rows; })
       .then(function (x) { loading = null; return x; });
@@ -114,7 +128,7 @@
   /* إضافة ما وُجد في الإنترنت — list: نصوص أو {fits, source_url, source_title} · المكرّر يُتجاهل (في الذاكرة وفي القاعدة) */
   async function add(k, list, o) {
     o = o || {};
-    var d = db(); if (!d || !k || !k.key || !Array.isArray(list) || !list.length) return 0;
+    var d = db(); if (!d || !k || !k.key || !Array.isArray(list) || !list.length || !(await ready())) return 0;
     var by = ''; try { by = localStorage.getItem('gmt_operator_name') || ''; } catch (_) {}
     var seen = {}, rows = list.map(function (x) {
       var f = String(typeof x === 'string' ? x : (x && x.fits) || '').replace(/\s+/g, ' ').trim().slice(0, 200);
@@ -148,7 +162,7 @@
     return true;
   }
 
-  global.GMTCompatKB = { load: load, rows: function () { return S.rows; }, keyOf: keyOf, keysOf: keysOf, kindOf: kindOf, codesOf: codesOf, diamOf: diamOf,
+  global.GMTCompatKB = { load: load, ready: ready, rows: function () { return S.rows; }, keyOf: keyOf, keysOf: keysOf, kindOf: kindOf, codesOf: codesOf, diamOf: diamOf,
     fitsFor: fitsFor, rowsFor: rowsFor, add: add, remove: remove };
   if (typeof setTimeout === 'function') setTimeout(function () { load(); }, 1200);
 })(typeof window !== 'undefined' ? window : this);

@@ -376,7 +376,11 @@ window.GMT_INTERNAL = 1;</script>
     render();
   });
   window.addEventListener('gmt-compat-kb', render);
-  if (window.GMTCompatKB) GMTCompatKB.load(true).then(render, render); else st.textContent = 'تعذّر تحميل الدليل.';
+  if (!window.GMTCompatKB) { st.textContent = 'تعذّر تحميل الدليل.'; return; }
+  GMTCompatKB.ready().then(function (on) {
+    if (!on) { st.textContent = 'هذا القسم ينتظر إنشاء جدوله في قاعدة البيانات (موافقتك على طلب أداة القاعدة) — وحتى ذلك الحين لا يُضاف إليه شيء.'; return; }
+    GMTCompatKB.load(true).then(render, render);
+  });
 })();
 </script>
 <script src="gmt-whatsnew.js?v=20261026g"></script>

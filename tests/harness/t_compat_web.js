@@ -6,10 +6,11 @@
 // ④ نتائج محرّك (Brave عبر gmt-search) ⇒ كل سطرٍ بمصدره المرقّم، وسطرٌ بلا رقم لا يدخل الدليل
 // ⑤ المفاتيح: الأجيال لا تتبادل (ES-68 ≠ ES-68 II) · الصنف شرط (الكاميرا لا تأخذ توافق بطاريتها · الفلتر لا يأخذ توافق الغطاء)
 // ⑥ صفحة الدليل: قسم «ما أضافه العقل من الإنترنت» بالحذف (GMTAsk) · ⑦ بطاقة المراجعة «🌐 من الإنترنت» بمصادرها · ⑧ نقطة البيع تقرأ الدليل
+// ⓪ قبل إنشاء الجدول (صفّ gmt_settings «compat_kb_ready» يُكتب في الهجرة نفسها): لا نداء للجدول إطلاقاً — مراقب الشبكة يسجّل كل 404 خطأً حرجاً
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const BRAIN_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-brain';
-const INIT = H.ADMIN_INIT + ` try { localStorage.setItem('gmt_brain_endpoint', '${BRAIN_URL}'); localStorage.removeItem('gmt_enrich_queue_v1'); localStorage.removeItem('gmt_compat_kb_v1'); } catch (_) {}`;
+const INIT = H.ADMIN_INIT + ` try { localStorage.setItem('gmt_brain_endpoint', '${BRAIN_URL}'); localStorage.removeItem('gmt_enrich_queue_v1'); localStorage.removeItem('gmt_compat_kb_v1'); localStorage.removeItem('gmt_compat_kb_ready'); } catch (_) {}`;
 const kb = () => H.call('/rest/v1/gmt_compat_kb?select=*', undefined, 'GET');
 const S = { mode: 'grounded', reqs: [] };
 const CAP = '{"compat":["قطر الفلتر 77مم","Canon EF 24-105mm f/4L IS USM (77مم)","Canon EF 16-35mm f/2.8L II USM (82مم)","Canon EF 70-200mm f/2.8L IS II USM (77مم)"],"note":"الغطاء بالقطر"}';
@@ -45,6 +46,18 @@ async function routes(ctx) {
   const mk = async (name, extra) => (await H.call('/rest/v1/products', Object.assign({ name, barcode: 'KB' + Math.random().toString(36).slice(2, 8), price: 10, haleb: 3, group_name: 'اكسسوارات', category: 'تصوير' }, extra || {})))[0];
   const cap = await mk('77mm lens cap for CANON غطا'), cap2 = await mk('غطاء عدسة JJC 77mm'), filt = await mk('فلتر UV 77mm'), cap82 = await mk('82mm lens cap for CANON غطا');
   const es68 = await mk('ES-68 lens hood هود'), es68ii = await mk('ES-68 II lens hood هود'), bat = await mk('بطارية LP-E6NH'), cam = await mk('Canon EOS 5D Mark IV كاميرا'), cage = await mk('SmallRig cage for Sony A7 IV');
+
+  // ⓪ الجدول لم يُنشأ بعد
+  const z = await H.open('دليل_التوافقيات_والمواصفات.html', { w: 390, h: 844, mobile: true, wait: 3000, init: INIT });
+  const kbReq = []; z.ctx.on('request', q => { if (/gmt_compat_kb/.test(q.url())) kbReq.push(q.method()); });
+  const zr = await z.pg.evaluate(async () => {
+    const add = await GMTCompatKB.add({ key: 'D77:cap', item: 'غطاء عدسة 77مم', kind: 'cap' }, ['Canon EF 24-105mm f/4L IS USM (77مم)']);
+    await GMTCompatKB.load(true);
+    return { add, txt: document.querySelector('#kb-web [data-kb-state]').textContent };
+  });
+  ok(zr.add === 0 && !kbReq.length && /ينتظر إنشاء جدوله/.test(zr.txt), 'قبل إنشاء الجدول: لا نداء له (لا 404 ولا إنذار) · لا إضافة · والقسم ⑪ يقول إنه ينتظر: ' + zr.txt.slice(0, 60));
+  await z.browser.close();
+  await H.call('/rest/v1/gmt_settings', { key: 'compat_kb_ready', value: '1' });   // كما تكتبه الهجرة
 
   const o = await H.open('inventory.html', { w: 1366, h: 900, mobile: false, wait: 4500, init: INIT });
   const { pg, ctx } = o; await routes(ctx);
