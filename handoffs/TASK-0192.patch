@@ -1,0 +1,67 @@
+diff --git a/gmt-brain.js b/gmt-brain.js
+index 0055ed7..33b700c 100644
+--- a/gmt-brain.js
++++ b/gmt-brain.js
+@@ -371,7 +371,7 @@
+      ① و② «من الإنترنت» بمصادرها ⇐ تُضاف لدليل التوافقيات فوراً (جواب seq 121) · ③ يبقى اقتراحاً يُراجَع ولا يدخل الدليل.
+      ما في الدليل لهذا الإكسسوار يُعطى للعقل (لا يعيد البحث عنه) ويُضاف لتوافق المنتج. */
+   var WEB_OFF = 0;                       // آخر رفضٍ لبحث العقل (مفتاح Gemini المجاني ⇐ 429): لا يُكرَّر لكل منتج عشر دقائق
+-  var SRCH = { at: 0, ok: false };       // هل في gmt-search محرّكٌ غير Gemini (Brave/Google) لم يبلغ حدّه اليومي
++  var SRCH = { at: 0, ok: false };       // هل في gmt-search محرّكٌ غير Gemini (Brave/Google/Tavily) لم يبلغ حدّه اليومي
+   async function postJSON(u, body) {
+     var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+     var j = {}; try { j = await r.json(); } catch (_) {}
+@@ -382,7 +382,8 @@
+     if (Date.now() - SRCH.at < 600000) return SRCH.ok;
+     SRCH.at = Date.now(); SRCH.ok = false;
+     try { var st = await postJSON(searchUrl(u), { mode: 'status' }), pv = (st && st.providers) || {};
+-      SRCH.ok = ['brave', 'google'].some(function (k) { return pv[k] && pv[k].key && (pv[k].used || 0) < (pv[k].cap || 0); }); } catch (_) {}
++      /* (TASK-0192 · المالك seq 128 «ما بدّي شي مدفوع») Tavily: مجانيّ ١٠٠٠ بحثٍ شهرياً بلا بطاقة */
++      SRCH.ok = ['brave', 'google', 'tavily'].some(function (k) { return pv[k] && pv[k].key && (pv[k].used || 0) < (pv[k].cap || 0); }); } catch (_) {}
+     return SRCH.ok;
+   }
+   function searchQuery(k, nm, p) {
+diff --git a/gmt-enrich-queue.js b/gmt-enrich-queue.js
+index 675e0da..5f31df3 100644
+--- a/gmt-enrich-queue.js
++++ b/gmt-enrich-queue.js
+@@ -28,7 +28,7 @@
+     try { var v = localStorage.getItem('gmt_brain_endpoint') || ''; return /^https:\/\/ysawzwtmodkqqbqoiojj\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-brain\/?$/i.test(v) ? v : ''; } catch (_) { return ''; }
+   }
+   /* (TASK-0040 · المالك seq 103–104 «الأفضل والمجاني» ⇐ «ابنِه وحطّ وسيط تاني وحطّ غوغل وجمناي») وسيط البحث gmt-search بجانب العقل:
+-     Brave ثمّ Google ثمّ Gemini (كلٌّ بحدّه اليومي المجاني). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
++     Brave ثمّ Google ثمّ Tavily ثمّ Gemini (كلٌّ بحدّه اليومي · TASK-0192: Tavily وبحث Gemini 2.5 مجانيّان). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
+   function searchUrl() { var b = brainUrl(); return b ? b.replace(/\/gmt-brain\/?$/, '/gmt-search') : ''; }
+   async function search(kind, q, count) {
+     var u = searchUrl(); if (!u || !q) return null;
+@@ -222,7 +222,7 @@
+     var host = ''; try { host = r.source ? new URL(r.source).hostname.replace(/^www\./, '') : ''; } catch (_) { host = ''; }
+     var warn = (r.page_ok && host) ? '<div data-src-ok style="margin-top:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:8px 10px;color:#065f46;font-size:12px;line-height:1.7">📄 من صفحة المنتج: <a href="' + esc(r.source) + '" target="_blank" rel="noopener" dir="ltr">' + esc(host) + '</a>' + (r.search ? ' · وجدها البحث (' + esc(r.search) + ')' : '') + '</div>'
+       : r.from_memory ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;color:#92400e;font-size:12px;line-height:1.7">⚠️ ليست من صفحة المنتج — ' +
+-        (r.search_note === 'no_keys' ? 'وسيط البحث بلا مفتاح بعد (أضف مفتاح Brave في أسرار Supabase ليبحث في الويب ويجلب الصور)' : 'لم يجد البحث صفحته الآن') + '، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
++        (r.search_note === 'no_keys' ? 'وسيط البحث بلا مفتاح بعد (أضف مفتاح Tavily المجاني في أسرار Supabase ليبحث في الويب ويجلب الصور — «خطة تفعيل البحث المجاني»)' : 'لم يجد البحث صفحته الآن') + '، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
+     var imgs = (r.images || []).map(function (u) {
+       var th = (r.thumbs && r.thumbs[u]) || u;
+       return '<div data-img-tile style="border:1px solid #e2e8f0;border-radius:12px;padding:6px;background:#fff;width:108px;position:relative">' +
+@@ -247,7 +247,7 @@
+         (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
+           '<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:420px;overflow:auto">' + imgs + '</div>' +
+           (S.storeAddImages ? '<button type="button" data-img-store-picked style="' + btn('#047857', '#fff') + ';margin-top:8px;font-size:12.5px;padding:8px 12px">+ أضف المحدَّد للمتجر (<span data-img-n>0</span>)</button>' : '')
+-          : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.search_note === 'no_keys' ? ' (وسيط البحث بلا مفتاح بعد — أضف مفتاح Brave في أسرار Supabase)' : r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
++          : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.search_note === 'no_keys' ? ' (وسيط البحث بلا مفتاح بعد — أضف مفتاح Tavily المجاني في أسرار Supabase: «خطة تفعيل البحث المجاني»)' : r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
+         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><label style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:7px 10px">📷 من جهازك<input type="file" accept="image/*" data-img-file hidden></label>' +
+         '<input data-img-url dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:10px;padding:7px;font:inherit;font-size:12px">' +
+         '<button type="button" data-img-url-main style="' + btn('#0f1219', '#fff') + ';font-size:12px;padding:7px 10px">رئيسية</button>' +
+diff --git a/tests/harness/t_search_relay.js b/tests/harness/t_search_relay.js
+index 72e7e0c..a340227 100644
+--- a/tests/harness/t_search_relay.js
++++ b/tests/harness/t_search_relay.js
+@@ -64,7 +64,7 @@ const INIT = `try { localStorage.setItem('gmt_brain_endpoint', 'https://ysawzwtm
+     await pg.waitForFunction(() => { const s = GMTEnrichQueue.state(); return s && s.items[0].st === 'ready'; }, null, { timeout: 20000 }).catch(() => {});
+     await pg.waitForTimeout(400);
+     card = await pg.evaluate(() => (document.querySelector('#gmt-enrich-q [data-q-card]') || {}).innerText || '');
+-    ok(/وسيط البحث بلا مفتاح بعد/.test(card) && /Brave/.test(card), W + ': بلا مفتاح ⇒ «وسيط البحث بلا مفتاح بعد — أضف مفتاح Brave»');
++    ok(/وسيط البحث بلا مفتاح بعد/.test(card) && /Tavily المجاني/.test(card), W + ': بلا مفتاح ⇒ «وسيط البحث بلا مفتاح بعد — أضف مفتاح Tavily المجاني» (TASK-0192)');
+     const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
+     ok(!real.length, W + ': لا أخطاء JS ' + real.slice(0, 2).join(' / '));
+     await browser.close();
