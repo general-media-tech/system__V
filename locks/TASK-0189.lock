@@ -1,0 +1,7 @@
+task: TASK-0189
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: inventory.html gmt-enrich-queue.js gmt-whatsnew.js sw.js TASK_REGISTRY.md handoffs/SESSION_LOG.md tests/harness/t_spec_filters.js
+claimed_at: 2026-10-26T07:32:45Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0189
