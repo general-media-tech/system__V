@@ -21,7 +21,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++
     });
     ok(r.card, 'البطاقة ظاهرة أعلى الرئيسية (y=' + r.y + ')');
     ok(r.y >= 0 && r.y < 400, 'البطاقة في أعلى الشاشة الأولى');
-    ok(r.tries >= 2, 'فيها أزرار «جرّبها» (' + r.tries + ')');
+    ok(r.tries === 0 && /لم تجرّبها/.test(r.cardTxt), 'سطرٌ صغير بعدد ما لم تجرّبه بلا قائمة (TASK-0190 · seq 125: «لوحة الجديد عم تاكل نصّ الصفحة») — «جرّبها» في النافذة');
     ok(r.fab, 'زرّ شو الجديد ظاهر بالشريط');
     ok(r.badge === String(r.untried.length), 'العدّاد على الزرّ = ما لم تجرّبه (' + r.badge + ')');
     ok(r.dots.includes('orders.html') || r.dots.some(x => /orders/.test(x)), 'نقطة حمراء على رابط الأوردرات · ' + r.dots.join(','));

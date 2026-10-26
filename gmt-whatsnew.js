@@ -34,6 +34,11 @@
      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
   var NEWS = [
+    { v: 142, tag: 'إصلاح', at: '2026-10-26T07:00:00Z', t: '🆕 «شو الجديد» في الرئيسية صار سطراً صغيراً — لا يأكل نصف الصفحة',
+      d: '• كانت البطاقة أربعة تحديثاتٍ بأزرارها (نحو ثلثي شاشة الهاتف). الآن سطرٌ واحد: العدد وكم ميزة لم تجرّبها وزرّ «افتح». ' +
+         '• «افتح» (أو زرّ 🆕 في الشريط) يفتح القائمة كاملةً و«جرّبها» لكل ميزة كما كانت، والنقاط الحمراء على الروابط باقية.',
+      w: 'رسالتك 25 ت1: «لوحة الجديد في الأعلى عم تاكل نصّ الصفحة وهذا الشيء غلط — خلاص يبقى زرّ صغير، أو حتى موجود زرّ فيه شو الجديد».',
+      pages: ['home.html'] },
     { v: 141, tag: 'جديد', at: '2026-10-26T06:30:00Z', t: '🌐 العقل يبحث عن التوافق في الإنترنت · وما يجده يُضاف لدليل التوافقيات وحده — والبحث يجده فوراً',
       d: '• **ماذا يبحث:** حين يجهّز إكسسواراً: الغطاء والفلتر والهود اللولبي بقطر الفلتر · الهود بكوده · البطارية والشاحن والقبضة بكودها · الفلاش والتريغر والمايك باسمه · وبقيّة الإكسسوارات. ' +
          '• **يُضاف للدليل فوراً** كما اخترت، بمصدر كل سطر · ويقرؤه البحث في الجرد ونقطة البيع ولو لم تحفظ المنتج بعد · ويعطيه العقل لنفسه في المرّة التالية. ' +
@@ -1116,20 +1121,13 @@
         '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">كل الجديد</button></div></section>';
     }
     var nt = fr.filter(function (n) { return untried(n, tm); }).length;
-    var shown = fr.slice(0, 4);
-    return '<section id="wn-home" aria-label="شو الجديد"><div class="gwn-h"><span aria-hidden="true">🆕</span><b>شو الجديد</b>' +
-      '<span class="gwn-n">' + fr.length + '</span><span style="flex:1"></span>' +
-      '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">كل الجديد</button></div>' +
-      '<div class="gwn-sub">' + (nt ? '<span style="color:#D5001C">●</span> ' + nt + ' ميزة لم تجرّبها بعد — اضغط «جرّبها» يأخذك إليها وعليها نقطةٌ حمراء، وتبقى العلامة حتى تجرّبها.'
-                                   : 'تحديثاتٌ لم تقرأها بعد.') + '</div>' +
-      shown.map(function (n) {
-        var ut = untried(n, tm), g = goOf(n);
-        return '<div class="gwn-it">' + (ut ? '<span class="gwn-dot gwn-inl" aria-hidden="true"></span>' : '<span style="width:10px;flex:0 0 auto"></span>') +
-          '<div class="gwn-tx"><b>' + esc(n.t) + '</b><small>' + esc(n.tag || '') + (g ? ' · ' + esc(pageName(g.p)) : '') + '</small></div>' +
-          '<div class="gwn-acts">' + (g ? '<button type="button" class="gwn-btn gwn-go" data-wn-try="' + n.v + '">جرّبها ←</button>'
-                                        : '<button type="button" class="gwn-btn gwn-ok" data-wn-open="1">اقرأ</button>') + '</div></div>';
-      }).join('') +
-      (fr.length > shown.length ? '<div style="text-align:center;padding-top:6px"><button type="button" class="gwn-btn gwn-ok" data-wn-open="1">و' + (fr.length - shown.length) + ' غيرها…</button></div>' : '') +
+    /* (26 ت1 · TASK-0190 · المالك seq 125 «لوحة الجديد في الأعلى عم تاكل نصّ الصفحة وهذا غلط — خلاص يبقى زرّ صغير») كانت أربعة بنودٍ بأزرارها
+       (~٦٠٠ بكسل من شاشة هاتفٍ ٨٤٤). الآن سطرٌ واحد: العدد وما لم تجرّبه وزرّ «افتح» — والقائمة بـ«جرّبها» في نافذة «شو الجديد» نفسها. */
+    return '<section id="wn-home" class="gwn-calm" aria-label="شو الجديد"><div class="gwn-h"><span aria-hidden="true">🆕</span><b>شو الجديد</b>' +
+      '<span class="gwn-n">' + fr.length + '</span>' +
+      '<span style="font-size:12px;color:#5b6472;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' +
+      (nt ? '<span style="color:#D5001C">●</span> ' + nt + ' لم تجرّبها' : 'لم تقرأها بعد') + '</span>' +
+      '<button type="button" class="gwn-btn gwn-go" data-wn-open="1">افتح</button></div>' +
       '</section>';
   }
   function refreshCard() {
