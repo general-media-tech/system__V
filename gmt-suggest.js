@@ -582,7 +582,9 @@
       const q = String(query == null ? '' : query).trim();
       if (!q) return true;
       if (!p || typeof p !== 'object') return hits(q, p);
-      const txt = productText(p), ctx = p.compat ? (Array.isArray(p.compat) ? p.compat.join(' ') : String(p.compat)) : '';
+      /* (TASK-0187 · المالك seq 121 «ينضاف للدليل مباشرة والبحث بيستعمله») وما أضافه العقل لدليل التوافقيات من الإنترنت (gmt-compat-kb.js) */
+      const kb = global.GMTCompatKB && GMTCompatKB.fitsFor ? GMTCompatKB.fitsFor(p) : '';
+      const txt = productText(p), ctx = [p.compat ? (Array.isArray(p.compat) ? p.compat.join(' ') : String(p.compat)) : '', kb].filter(Boolean).join(' ');
       let hay, chay;
       const c = _HAY && _HAY.get(p);
       if (c && c.t === txt && c.ct === ctx) { hay = c.h; chay = c.ch; } else { hay = hayOf(txt); chay = ctx ? hayOf(ctx) : ''; if (_HAY) _HAY.set(p, { t: txt, h: hay, ct: ctx, ch: chay }); }

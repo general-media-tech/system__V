@@ -100,7 +100,8 @@
       if (!hit && web && extra.deep) hit = (web.web || []).filter(function (w) { return w && /^https:\/\//i.test(w.url) && !LISTING.test(w.url); })[0];
       if (hit) page = hit.url;
     }
-    var pr = await global.GMTBrain.importProduct({ url: page, hint: hint, file: file });
+    /* (TASK-0187) اسمنا ومعرّفنا ومجموعتنا: مفتاح الإكسسوار في دليل التوافقيات يُبنى من اسمنا لا ممّا وجده العقل */
+    var pr = await global.GMTBrain.importProduct({ url: page, hint: hint, file: file, pid: p.id, pname: p.name, group: [p.group_name, p.category].filter(Boolean).join(' ') });
     var meta = pr._meta || {}, imgs = [], thumbs = {};
     (pr.images || []).forEach(function (u) { if (/^https?:\/\//i.test(u) && imgs.indexOf(u) === -1) imgs.push(u); });
     /* (TASK-0040 · seq 91 «على الأقل ٢٠ صورة: جميلة · إعلانية · خلفية بيضاء · صور مواصفات — أختار منها ٥–٦») */
@@ -121,7 +122,8 @@
       images: imgs.slice(0, 40), thumbs: thumbs, source: pr.source_url || page || '', confidence: pr.confidence || '', from_memory: !!meta.from_memory, notes: pr.notes || '',
       page_ok: !!meta.page_ok, search: web || pics ? ((web && web.provider) || (pics && pics.provider) || '') : '', search_note: searchNote,
       aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : [],   // (TASK-0175) أسماء البحث الأخرى
-      compat_ai: !!meta.compat_added   // (TASK-0183) توافق الإكسسوار من طلب التوافق — يُراجَع
+      compat_ai: !!meta.compat_added,   // (TASK-0183) توافق الإكسسوار من طلب التوافق — يُراجَع
+      compat_web: !!meta.compat_web, compat_src: (meta.compat_sources || []).slice(0, 5), kb_added: meta.kb_added || 0, compat_known: meta.compat_known || 0   // (TASK-0187) من الإنترنت ⇐ في الدليل
     };
   }
 
@@ -236,7 +238,11 @@
       '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات — المحدَّد في الجرد أوّلاً (بإطارٍ أزرق) ثمّ الجديد من العقل</span><div data-rows>' + specRows(p, r).map(rowHTML).join('') + '</div>' +
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +
       '<div data-store-box style="margin-top:10px"></div>' +
-      field('متوافق مع' + (r.compat_ai ? ' — ⚠️ من الذكاء الاصطناعي بقواعد دليل التوافقيات: تأكّد من كل عدسة/جهاز قبل الحفظ (يُبحث به لاحقاً)' : ''), 'compat', r.compat, true) +
+      field('متوافق مع' + (r.compat_web ? ' — 🌐 من الإنترنت' + (r.kb_added ? ' · أُضيف ' + r.kb_added + ' لدليل التوافقيات' : ' · في دليل التوافقيات') + ' (احذف الغلط من صفحة الدليل)'
+        : r.compat_ai ? ' — ⚠️ من ذاكرة العقل بقواعد دليل التوافقيات — لم يُتحقَّق من الإنترنت: تأكّد من كل عدسة/جهاز قبل الحفظ (يُبحث به لاحقاً)' : ''), 'compat', r.compat, true) +
+      (r.compat_web && r.compat_src && r.compat_src.length ? '<div data-compat-src style="font-size:11px;color:#526077;margin-top:4px;overflow-wrap:anywhere">مصادر التوافق: ' + r.compat_src.map(function (s) {
+        var host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch (_) {}
+        return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || host || s.url) + '</a>'; }).join(' · ') + '</div>' : '') +
       '<div style="margin-top:12px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🖼️ الصور</span>' +
         (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:420px;overflow:auto">' + imgs + '</div>' +

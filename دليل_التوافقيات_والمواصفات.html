@@ -303,6 +303,19 @@ window.GMT_INTERNAL = 1;</script>
   المواصفة الخاطئة أسوأ من غيابها — الموظّف يبيع بناءً عليها والزبون يرجع.</p>
 </div>
 
+<!-- (26 ت1 · TASK-0187 · المالك seq 120–121) الدليل يكبر: ما يجده العقل من الإنترنت يُكتب هنا فوراً، والبحث يقرؤه، والمالك يحذف الغلط -->
+<style>/* جدولٌ بعرض الشاشة: المصدر و✕ ظاهران على الهاتف بلا تمرير (.tw table يفرض 520px لجداول الدليل الأخرى) */
+  #kb-web .tw table{min-width:0} #kb-web td{font-size:12.5px} #kb-web td:nth-child(2){width:34%}</style>
+<div class="box" id="kb-web">
+  <h2>⑪ ما أضافه العقل من الإنترنت — الدليل يكبر وحده</h2>
+  <div class="q">«ما يعتمد فقط على دليل التوافقيات اللي عنده وإنّما يطوّره ويضيف عليه» — وجوابك: ينضاف تلقائياً فوراً، والبحث يستعمله، وأنت تحذف الغلط من هنا.</div>
+  <p>حين يجهّز العقل إكسسواراً (هود · غطاء · فلتر · محوّل · بطارية · شاحن · قبضة · فلاش · تريغر · مايك · …) يبحث عن توافقه في الإنترنت:
+  الغطاء والفلتر بقطر الفلتر، والهود بكوده، والبطارية والشاحن بكودهما. ما يجده <b>بمصدره</b> يُكتب هنا فوراً، ويقرؤه البحث في الجرد ونقطة البيع،
+  ويعطيه العقل لنفسه في المرّة التالية. وما يأتي من ذاكرة العقل وحدها (بلا بحث) <b>لا يُكتب هنا</b> — يبقى اقتراحاً في أداة المراجعة.</p>
+  <div data-kb-state style="font-size:12.5px;color:var(--mut);font-weight:700;margin-top:8px">جارٍ التحميل…</div>
+  <div data-kb-list></div>
+</div>
+
 <div class="box">
   <h2>كيف تستعملها الآن</h2>
   <ol>
@@ -325,7 +338,48 @@ window.GMT_INTERNAL = 1;</script>
 </div>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261026f"></script>
+<script src="gmt-config.js?v=20261017c"></script>
+<script src="gmt-compat-kb.js?v=20261026g"></script>
+<script>
+/* (TASK-0187) قسم ⑪: ما في gmt_compat_kb مجمّعاً بالقطعة · المصدر · ✕ للإدارة (GMTAsk لا confirm) */
+(function () {
+  var KIND = { hood: 'هود', cap: 'غطاء', filter: 'فلتر', adapter: 'محوّل', battery: 'بطارية', charger: 'شاحن', grip: 'قبضة', flash: 'فلاش', trigger: 'تريغر', mic: 'مايك', other: 'إكسسوار' };
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } }
+  function admin() { try { return !!(window.GMTAccount && GMTAccount.isAdmin()); } catch (_) { return false; } }
+  var box = document.getElementById('kb-web'), st = box.querySelector('[data-kb-state]'), list = box.querySelector('[data-kb-list]');
+  function render() {
+    var rows = (window.GMTCompatKB && GMTCompatKB.rows()) || [], g = {}, order = [];
+    rows.forEach(function (r) { if (!g[r.item_key]) { g[r.item_key] = []; order.push(r.item_key); } g[r.item_key].push(r); });
+    st.textContent = rows.length ? rows.length + ' سطر توافق لـ ' + order.length + ' قطعة' + (admin() ? ' — ✕ يحذف السطر من الدليل' : '')
+      : 'لم يُضف العقل شيئاً من الإنترنت بعد. يبدأ حين يعمل بحث الإنترنت للعقل (خطّة العمل الحالية · البند أ) ثمّ تجهّز إكسسواراً من «جهّز تلقائياً» في الجرد.';
+    var adm = admin();
+    list.innerHTML = order.map(function (k) {
+      var a = g[k], r0 = a[0];
+      return '<h3>' + esc(r0.item) + ' <span class="tag">' + esc(KIND[r0.kind] || r0.kind) + '</span><span class="tag">' + a.length + '</span></h3>' +
+        '<div class="tw"><table><tbody>' + a.map(function (r) {
+          var h = /^https?:\/\//i.test(r.source_url || '') ? '<a href="' + esc(r.source_url) + '" target="_blank" rel="noopener">' + esc(r.source_title || host(r.source_url) || 'المصدر') + '</a>' : '—';
+          return '<tr data-kb-row="' + esc(r.id) + '"><td>' + esc(r.fits) + '</td><td style="font-size:11.5px;color:var(--mut)">' + h +
+            (r.product_name ? '<br>من: ' + esc(r.product_name) : '') + (r.created_at ? '<br>' + esc(String(r.created_at).slice(0, 10)) : '') + '</td>' +
+            (adm ? '<td style="width:44px"><button type="button" data-kb-del="' + esc(r.id) + '" title="احذف من الدليل" style="border:0;background:var(--badbg);color:var(--bad);border-radius:9px;padding:4px 10px;font:inherit;font-weight:900;cursor:pointer">✕</button></td>' : '') + '</tr>';
+        }).join('') + '</tbody></table></div>';
+    }).join('');
+  }
+  list.addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-kb-del]'); if (!b) return;
+    var id = b.getAttribute('data-kb-del'), r = (GMTCompatKB.rows() || []).filter(function (x) { return String(x.id) === id; })[0]; if (!r) return;
+    var ok = window.GMTAsk ? await GMTAsk.confirm('احذف من دليل التوافقيات:\n«' + r.fits + '» لـ «' + r.item + '»؟\nلن يجده البحث بعدها.', { title: 'حذف سطر توافق', danger: true, okText: 'احذف', cancelText: 'لا' }) : false;
+    if (!ok) return;
+    b.disabled = true;
+    var done = false; try { done = await GMTCompatKB.remove(id); } catch (_) { done = false; }
+    if (!done) { b.disabled = false; st.textContent = '⚠️ لم يُحذف — تحقّق من الاتصال وأعد المحاولة.'; return; }
+    render();
+  });
+  window.addEventListener('gmt-compat-kb', render);
+  if (window.GMTCompatKB) GMTCompatKB.load(true).then(render, render); else st.textContent = 'تعذّر تحميل الدليل.';
+})();
+</script>
+<script src="gmt-whatsnew.js?v=20261026g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

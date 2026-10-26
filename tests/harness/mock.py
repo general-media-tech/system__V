@@ -186,12 +186,13 @@ class H(BaseHTTPRequestHandler):
                         if v is not None and any(x.get(col) == v for x in tbl(t)):
                             return self.reply(409, {'code': '23505', 'message': 'duplicate key value violates unique constraint "%s"' % idx})
             out = []
-            oc = dict(q).get('on_conflict'); merge = 'merge-duplicates' in (self.headers.get('Prefer') or '')
+            oc = dict(q).get('on_conflict'); merge = 'merge-duplicates' in (self.headers.get('Prefer') or ''); ignore = 'ignore-duplicates' in (self.headers.get('Prefer') or '')
             for r in rows:
                 r = dict(r)
                 if oc and merge:   # كما يفعل PostgREST: upsert حقيقي على عمود التعارض
                     ex = [x for x in tbl(t) if x.get(oc) == r.get(oc)]
                     if ex: ex[0].update(r); out.append(ex[0]); continue
+                if oc and ignore and any(x.get(oc) == r.get(oc) for x in tbl(t)): continue   # (TASK-0187) ON CONFLICT DO NOTHING: لا يُعاد في الردّ
                 if 'id' not in r: r['id'] = str(uuid.uuid4()) if t == 'products' else next(SEQ)
                 r.setdefault('created_at','2026-10-07T00:00:00Z')
                 tbl(t).append(r); out.append(r)

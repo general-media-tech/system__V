@@ -343,8 +343,9 @@
   /* (TASK-0183 · المالك seq 113 «الهودات والأغطية لازم يكون معها التوافق من دليل التوافقيات» · seq 118 «أكتب هود عدسة 50 STM 1.8 فيعطيني
      الهود … نفس الشيء البطاريات») — طلبٌ ثالث للإكسسوارات وحدها: على ماذا يركّب، بأسماء الموديلات الكاملة (هي ما يُبحث به لاحقاً)،
      بقواعد «دليل التوافقيات والمواصفات» نفسه (كود الهود لا يُستنتج من القطر · الغطاء بالقطر · أجيال البطاريات · اتّجاه المحوّل) */
-  var ACC_RE = /هود|hood|غطا|غطاء|أغطي|اغطي|\bcaps?\b|بطاري|battery|شاحن|charger|فلتر|filter|محو[ّ]?ل|adapter|\b(ET|EW|ES|HB|HN|HS|HR|LH|ALC|LP|NP|EN|BP|DMW|LC)-?[A-Z]{0,3}\d|\bE-\d/i;
-  function isAccessory(p, hint) { return ACC_RE.test([p && p.name_en, p && p.name_ar, p && p.name, p && p.model, p && p.category, hint].filter(Boolean).join(' ')); }
+  /* (TASK-0187 · جواب seq 121: «هودات وأغطية وفلاتر ومحوّلات · بطاريات وشواحن وقبضات · فلاشات وتريغرات وميكروفونات · كل الإكسسوارات») */
+  var ACC_RE = /هود|hood|غطا|غطاء|أغطي|اغطي|\bcaps?\b|بطاري|battery|شاحن|charger|قبض[ةه]|\bgrip\b|فلتر|filter|محو[ّ]?ل|adapter|adaptor|فلاش|flash|speedlite|تريغر|تريجر|trigger|مايك|ميكروفون|microphone|\bmic\b|كيج|\bcage\b|ترايبود|tripod|حامل|ستاند|\bstand\b|جيمبال|gimbal|stabili[sz]er|ريموت|remote|سوفت ?بوكس|softbox|bowens|بليت|\bplate\b|\brig\b|اكسسوار|إكسسوار|accessor|\b(ET|EW|ES|HB|HN|HS|HR|LH|ALC|LP|NP|EN|BP|DMW|LC|BG|NB)-?[A-Z]{0,3}\d|\bE-\d/i;
+  function isAccessory(p, hint, group) { return ACC_RE.test([p && p.name_en, p && p.name_ar, p && p.name, p && p.model, p && p.category, hint, group].filter(Boolean).join(' ')); }
   var COMPAT_SYS = 'أنت خبير توافق إكسسوارات التصوير لمتجر في سوريا. المطلوب: على ماذا يركّب هذا الإكسسوار — بأسماء الموديلات الكاملة التي يكتبها الزبون في البحث. أعد JSON فقط بلا أي نصّ وبلا ```:\n' +
     '{"compat":[""],"note":""}\n' +
     '• هود بايونيت (Canon ET-/EW-/ES- · Nikon HB- · Sony ALC-SH): كل عدسة يركّب عليها باسمها الكامل: الماركة والحربة والبعد البؤري والفتحة والجيل (مثل «Canon EF 50mm f/1.8 STM»). ' +
@@ -356,23 +357,100 @@
     'EF 16-35mm f/2.8L الأوّل 77مم لكن II وIII 82مم). عدسةٌ لست متأكّداً من قطرها يقيناً لا تذكرها. الغطاء بالقطر لا بالشركة (E-67 II وLC-67B يتبادلان)، ولا يركب على العدسات ذات العدسة الأمامية المنفوخة.\n' +
     '• غطاء خلفي · غطاء بودي · محوّل: الحربة (EF · EF-S · RF · EF-M · F · Z · E · MFT) والأجسام. المحوّل من حربةٍ بُعدها أكبر إلى أصغر فقط: EF ⇐ RF/E/Z/MFT يعمل، وRF أو Z ⇐ EF/F لا.\n' +
     '• بطارية: كل الكاميرات والأجهزة باسمها الكامل (مثل «Canon EOS 5D Mark IV»)، وفي note الأجيال: LP-E6 ← E6N ← E6NH ← E6P الأحدث يعمل في الأقدم والأقدم في الأحدث بعمرٍ أقصر · EN-EL15 ← a ← b ← c تتبادل · NP-FZ100 وNP-FW50 لا تتبادلان.\n' +
-    '• شاحن: أكواد البطاريات التي يشحنها. • فلتر: القطر ثمّ العدسات.\n' +
+    '• شاحن: أكواد البطاريات التي يشحنها. • فلتر: القطر ثمّ العدسات. • قبضة بطارية: الكاميرات باسمها الكامل والبطاريات التي تأخذها.\n' +
+    '• فلاش · تريغر: الكاميرات باسمها الكامل ونظامها (Canon E-TTL · Nikon i-TTL · Sony · Fujifilm · Olympus/Panasonic) حسب نسخة الكود (‎-C كانون · ‎-N نيكون · ‎-S سوني · ‎-F فوجي)، والفلاشات والتريغرات التي يعمل معها لاسلكياً (مثل نظام Godox X 2.4G).\n' +
+    '• مايك: طريقة التوصيل (3.5mm TRS/TRRS · USB-C · Lightning · XLR · الحذاء) ثمّ الكاميرات والهواتف التي يعمل معها.\n' +
+    '• بقيّة الإكسسوارات (كيج · حامل · جيمبال · ريموت · بليت · سوفت بوكس): الأجهزة أو الحربة/المعيار الذي يركّب عليه (Bowens · Arca-Swiss · 1/4") — أو compat فارغ إن لم يكن له توافق.\n' +
+    'ابحث في الإنترنت إن استطعت (صفحة الشركة المصنّعة أوّلاً · B&H · متاجر موثوقة): الغطاء والفلتر والهود اللولبي ⇐ العدسات التي قطر فلترها NNمم · الهود البايونيت بكوده · البطارية والشاحن والقبضة بكودها · الفلاش والتريغر والمايك باسمه وموديله. ' +
+    'ما في السؤال تحت «من دليلنا» مؤكَّدٌ سابقاً من الإنترنت: لا تكرّره.\n' +
     'كل بندٍ قصير، حتى ٢٥ بنداً. ما لست متأكّداً منه لا تذكره — الغلط هنا يبيع قطعةً لا تركب. note سطرٌ واحد للموظّف أو فارغ.';
-  async function compatProduct(p, hint) {
+  /* (TASK-0187) حين يقرأ العقل نتائج محرّك بحث (Brave/Google عبر gmt-search) بدل بحثه هو */
+  var RESULTS_RULE = '\n\nنتائج بحث الإنترنت لهذا الإكسسوار مرقّمة أدناه. اعتمد عليها وحدها: اكتب في آخر كل بندٍ رقم النتيجة التي تثبته بين معقوفين مثل «Canon EF 24-105mm f/4L IS USM (77مم) [2]». بندٌ لا تثبته النتائج لا تذكره.\n';
+  /* (TASK-0187 · المالك seq 120 «خلّي العقل يبحث عن التوافقيات على الإنترنت … ما يعتمد فقط على دليل التوافقيات اللي عنده وإنّما يطوّره ويضيف عليه»)
+     ثلاث طرق بالترتيب: ① بحث Google من داخل العقل (web:true) ② نتائج محرّك بحث من gmt-search يقرؤها العقل ③ ذاكرة العقل.
+     ① و② «من الإنترنت» بمصادرها ⇐ تُضاف لدليل التوافقيات فوراً (جواب seq 121) · ③ يبقى اقتراحاً يُراجَع ولا يدخل الدليل.
+     ما في الدليل لهذا الإكسسوار يُعطى للعقل (لا يعيد البحث عنه) ويُضاف لتوافق المنتج. */
+  var WEB_OFF = 0;                       // آخر رفضٍ لبحث العقل (مفتاح Gemini المجاني ⇐ 429): لا يُكرَّر لكل منتج عشر دقائق
+  var SRCH = { at: 0, ok: false };       // هل في gmt-search محرّكٌ غير Gemini (Brave/Google) لم يبلغ حدّه اليومي
+  async function postJSON(u, body) {
+    var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    return r.ok && !j.error ? j : null;
+  }
+  function searchUrl(u) { return String(u || '').replace(/\/gmt-brain\/?$/, '/gmt-search'); }
+  async function searchOk(u) {
+    if (Date.now() - SRCH.at < 600000) return SRCH.ok;
+    SRCH.at = Date.now(); SRCH.ok = false;
+    try { var st = await postJSON(searchUrl(u), { mode: 'status' }), pv = (st && st.providers) || {};
+      SRCH.ok = ['brave', 'google'].some(function (k) { return pv[k] && pv[k].key && (pv[k].used || 0) < (pv[k].cap || 0); }); } catch (_) {}
+    return SRCH.ok;
+  }
+  function searchQuery(k, nm, p) {
+    var brand = String((p && p.brand) || (/canon|كانون/i.test(nm) ? 'Canon' : /nikon|نيكون/i.test(nm) ? 'Nikon' : /sony|سوني/i.test(nm) ? 'Sony' : '')).trim();
+    var d = k && /^D(\d+):/.exec(k.key);
+    if (d) return (brand ? brand + ' ' : '') + 'lenses with ' + d[1] + 'mm filter thread list';
+    if (k && k.kind === 'hood') return k.item + ' lens hood compatible lenses';
+    if (k && (k.kind === 'battery' || k.kind === 'charger' || k.kind === 'grip')) return k.item + ' ' + k.kind + ' compatible cameras';
+    return (nm || [p && p.name_en, p && p.model].filter(Boolean).join(' ')).slice(0, 120) + ' compatible with';
+  }
+  function srcOf(s) { return { url: String((s && (s.uri || s.url)) || ''), title: String((s && s.title) || '').slice(0, 160) }; }
+  async function compatProduct(p, hint, o) {
+    o = o || {};
     var url = endpoint(); if (!url || !p) return null;
+    var KB = global.GMTCompatKB, nm = String(o.pname || String(hint || '').split(' — ')[0] || '').trim();
+    var k = KB && nm ? KB.keyOf({ id: o.pid, name: nm }) : null;
+    if (KB && KB.load) { try { await KB.load(); } catch (_) {} }
+    var known = k && KB ? KB.rowsFor(k.key, k.key.slice(0, 2) === 'P:' ? '' : k.kind).map(function (r) { return r.fits; }).slice(0, 40) : [];
     var head = [p.name_en || p.name_ar || p.name, p.brand, p.model, p.category].filter(Boolean).join(' · ');
     var have = Array.isArray(p.compat) ? p.compat.join('، ') : String(p.compat || '');
-    var q = ('الإكسسوار: ' + head + (hint ? ' (اسمه عندنا: ' + String(hint).split(' — ')[0].slice(0, 120) + ')' : '') + (have ? '. التوافق المكتوب: ' + have : '')).slice(0, 1900) + '. أعد JSON فقط.';
-    var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, system: COMPAT_SYS, context: {} }) });
-    var j = {}; try { j = await r.json(); } catch (_) {}
-    if (!r.ok || j.error) return null;
-    var c = looseJSON(j.answer); if (!c) return null;
+    var q = ('الإكسسوار: ' + head + (nm ? ' (اسمه عندنا: ' + nm.slice(0, 120) + ')' : '') + (have ? '. التوافق المكتوب: ' + have : '') +
+      (known.length ? '. من دليلنا: ' + known.join('، ') : '')).slice(0, 1900) + '. أعد JSON فقط.';
+    var c = null, web = false, via = '', sources = [], lines = [];
+    /* ① */
+    if (Date.now() - WEB_OFF > 600000) {
+      var j = await postJSON(url, { question: q, system: COMPAT_SYS, context: {}, web: true });
+      if (j && j.grounded && (j.sources || []).length) {
+        sources = j.sources.map(srcOf).filter(function (s) { return /^https?:\/\//i.test(s.url); });
+        c = looseJSON(j.answer); web = !!(c && sources.length); via = 'google';
+      } else if (j) { if (j.search_failed) WEB_OFF = Date.now(); c = looseJSON(j.answer); }
+    }
+    /* ② */
+    if (!web && await searchOk(url)) {
+      var sr = null; try { sr = await postJSON(searchUrl(url), { kind: 'web', q: searchQuery(k, nm, p), count: 8 }); } catch (_) {}
+      var hits = ((sr && sr.web) || []).filter(function (w) { return w && /^https:\/\//i.test(w.url); }).slice(0, 8);
+      if (hits.length) {
+        var lst = hits.map(function (w, i) { return '[' + (i + 1) + '] ' + String(w.title || '').slice(0, 120) + ' — ' + w.url + (w.snippet ? ' — ' + String(w.snippet).slice(0, 300) : ''); }).join('\n');
+        var j2 = await postJSON(url, { question: q, system: (COMPAT_SYS + RESULTS_RULE + lst).slice(0, 8000), context: {} });
+        var c2 = j2 ? looseJSON(j2.answer) : null;
+        if (c2 && Array.isArray(c2.compat) && c2.compat.length) {
+          c = c2; via = (sr && sr.provider) || 'search';
+          lines = c2.compat.map(function (x) {
+            var t = String(x == null ? '' : x), m = t.match(/\s*\[(\d{1,2})\]\s*$/), h0 = m && hits[+m[1] - 1];
+            return { t: t.replace(/\s*\[\d{1,2}\]\s*$/, ''), src: h0 ? { url: h0.url, title: String(h0.title || '').slice(0, 160) } : null };
+          });
+          web = lines.some(function (l) { return l.src; });
+          c.compat = lines.map(function (l) { return l.t; });
+        }
+      }
+    }
+    /* ③ */
+    if (!c) { var j3 = await postJSON(url, { question: q, system: COMPAT_SYS, context: {} }); c = j3 ? looseJSON(j3.answer) : null; }
+    if (!c) return null;
+    var srcFor = {}; lines.forEach(function (l) { if (l.src) srcFor[l.t.replace(/\s+/g, ' ').trim().slice(0, 90).toLowerCase()] = l.src; });
     var seen = {}, list = (Array.isArray(c.compat) ? c.compat : []).map(function (x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 90); })
       .filter(function (x) { var z = x.toLowerCase(); if (!x || seen[z]) return false; seen[z] = 1; return true; }).slice(0, 25);
     /* قطرٌ في اسم المنتج (77mm) ⇒ عدسةٌ قطرها المكتوب غيره تُحذف (جُرّب على الوسيط الحيّ: كان يضع عدسات 82مم في غطاء 77مم) */
-    var dm = String([p.name, p.name_en, p.name_ar, hint].filter(Boolean).join(' ')).match(/(\d{2,3})\s*(?:mm|مم|ملم)/i), D = dm ? dm[1] : '';
+    var dm = String([nm, p.name, p.name_en, p.name_ar, hint].filter(Boolean).join(' ')).match(/(\d{2,3})\s*(?:mm|مم|ملم)/i), D = dm ? dm[1] : '';
     if (D) list = list.filter(function (x) { var m = x.match(/\((\d{2,3})\s*(?:mm|مم|ملم)\)/i); return !m || m[1] === D; });
-    return { compat: list, note: String(c.note || '').trim().slice(0, 200) };
+    /* ما يدخل الدليل: بنود الإنترنت وحدها، بلا سطر «قطر الفلتر NNمم» (ليس جهازاً) — ونتائج المحرّك ببندٍ له مصدر فقط */
+    var webLines = !web ? [] : list.filter(function (x) { return !/^قطر الفلتر/.test(x) && (via === 'google' || srcFor[x.toLowerCase()]); }).map(function (x) {
+      var s = via === 'google' ? sources[0] : srcFor[x.toLowerCase()];
+      return { fits: x, source_url: (s && s.url) || '', source_title: (s && s.title) || '' };
+    });
+    known.forEach(function (x) { if (!seen[x.toLowerCase()]) { seen[x.toLowerCase()] = 1; list.push(x); } });
+    if (via === 'google') sources = sources.slice(0, 5);
+    else sources = lines.filter(function (l) { return l.src; }).map(function (l) { return l.src; }).filter(function (s, i, a) { return a.findIndex(function (z) { return z.url === s.url; }) === i; }).slice(0, 5);
+    return { compat: list, note: String(c.note || '').trim().slice(0, 200), web: web && webLines.length > 0, via: via, sources: web ? sources : [], key: k, webLines: webLines, known: known.length };
   }
   function compatList(v) { return (Array.isArray(v) ? v : String(v || '').split(/\s*[·•\n]\s*|\s*[،,;]\s+/)).map(function (x) { return String(x || '').trim(); }).filter(Boolean); }
   /* التوافق الجديد يُضاف لما كتبه المصدر (بلا تكرار) — المكتوب يبقى أوّلاً */
@@ -409,10 +487,17 @@
     p.aliases_ar = cleanList(p.aliases_ar); p.aliases_en = cleanList(p.aliases_en);
     var added = 0;
     if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint)); } catch (_) { added = 0; } }
-    var compatAdded = 0;
-    if ((!o || o.complete !== false) && isAccessory(p, o && o.hint)) { try { compatAdded = mergeCompat(p, await compatProduct(p, o && o.hint)); } catch (_) { compatAdded = 0; } }
+    var compatAdded = 0, cw = null, kbAdded = 0;
+    if ((!o || o.complete !== false) && isAccessory(p, o && o.hint, o && o.group)) {
+      try { cw = await compatProduct(p, o && o.hint, o); compatAdded = mergeCompat(p, cw); } catch (_) { compatAdded = 0; }
+      /* (TASK-0187 · جواب seq 121 «تلقائياً فوراً») ما وُجد من الإنترنت يدخل دليل التوافقيات الآن — قبل حفظ المنتج */
+      if (cw && cw.web && cw.key && global.GMTCompatKB) {
+        try { kbAdded = await GMTCompatKB.add(cw.key, cw.webLines, { product_id: o && o.pid, product_name: o && o.pname, note: cw.note }); } catch (_) { kbAdded = 0; }
+      }
+    }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
-    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded }, enumerable: false }); } catch (_) {}
+    try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded,
+      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
