@@ -1,7 +1,0 @@
-task: TASK-0190
-session: session_01MWfC494J8Ayokvio9Ve6C9
-branch: claude/tender-tesla-1x135d
-files: gmt-whatsnew.js sw.js TASK_REGISTRY.md handoffs/SESSION_LOG.md tests/harness/t_wn_home_compact.js
-claimed_at: 2026-10-26T07:28:56Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0190
