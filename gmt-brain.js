@@ -299,11 +299,32 @@
   /* (TASK-0175 · المالك seq 93 «ولا يذكر كل المواصفات: القوّة الواطيّة والألوان والتغطية والجهد، بطارية أو كهرباء، والتصنيع، والسوفتات»)
      الأبواب كلّها هنا باختصار (الملاحظة ≤ ٣٠٠ حرف في الوسيط) — والإكمال المفصّل في completeProduct أدناه */
   var SPEC_ASK = 'specs: واط · مصدر الطاقة بطارية/كهرباء · الجهد · البطارية · الألوان · التغطية · الأبعاد والوزن · المادّة والمنشأ · المنافذ · البرمجيات · ما في العلبة؛ وغير المؤكَّد قيمته النموذجية «(تقريبي)»';
-  function composeHint(h) {
+  /* (TASK-0196 · المالك seq 133 «منتجات ما فيها كهرباء مثل العدسات او الهولدرات عم يحط الجهد الكهربائي … ابدا ابدا») كان الطلب يسأل عن
+     الواط والجهد والبطارية لكلّ منتج ⇒ النموذج يكتب «الجهد» للعدسة. الآن: منتجٌ نوعه بلا كهرباء (عدسة · هولدر/حامل · فلتر · غطاء · هود ·
+     ترايبود · حقيبة · بليت · كيج · سوفت بوكس · مظلّة · عاكس · محوّل حربة …) ولا كلمة كهرباء فيه (بطارية · LED · فلاش · كاميرا · مايك ·
+     جيمبال · ذكي …) ⇒ يُطلب منه ما ينطبق فقط، وأيّ مواصفةٍ كهربائية تعود تُحذف هنا (حتى لو كتبها النموذج). */
+  var NOELEC_RE = /عدس[ةه]|عدسات|\blens(es)?\b|هولدر|holder|حامل|مسك[ةه]|\bclamp|كلامب|فلتر|filter|هود|\bhood|غطا|غطاء|أغطي|اغطي|\bcaps?\b|ترايبود|tripod|مونوبود|monopod|ستاند|\bstand\b|حقيب|شنط|\bbag\b|\bcase\b|كفر|\bstrap|حزام|بليت|\bplate\b|كيج|\bcage\b|\brig\b|سوفت ?بوكس|softbox|مظل[ةه]|umbrella|عاكس|reflector|خلفي[ةه] تصوير|backdrop|bowens|\bmount\b|ماونت|محو[ّ]?ل حرب|lens adapter|mount adapter/i;
+  var ELEC_RE = /كهرب|بطاري|battery|شاحن|charg|power ?bank|باور|\bled\b|ليد|فلاش|\bflash|speedlite|كاميرا|\bcameras?\b|مايك|ميكروفون|microphone|\bmic\b|جيمبال|gimbal|stabili[sz]er|ريموت|remote|تريغر|تريجر|trigger|شاش[ةه]|monitor|motor|موتور|ذكي|smart|bluetooth|بلوتوث|wireless|لاسلك|\busb\b|إضاء[ةه]|اضاء[ةه]|\blights?\b|مضي[ئء]|مضاء|\brgb\b|لمب|\blamp|vacuum|شفط|bat+[ae]r(y|ies)|\bdji\b|درون|\bdrones?\b|osmo|ronin|insta ?360|gopro/i;
+  function noElectric(p, hint, group) {
+    var t = [p && p.name_en, p && p.name_ar, p && p.name, p && p.model, p && p.category, hint, group].filter(Boolean).join(' ')
+      /* «حقيبة كاميرا» · «حامل إضاءة» · «light stand»: الكاميرا والإضاءة هنا ما يُحمل لا المنتج نفسه */
+      .replace(/(حقيب[ةه]|شنط[ةه]|كيج|حزام|كفر|حامل|هولدر|ستاند|ترايبود|غطاء|هود|فلتر)\s*(لل?|ل)?\s*(كاميرا|كاميرات)/g, '$1')
+      .replace(/\bcameras?\s*(bag|cage|strap|case)/gi, '$1')
+      .replace(/(حامل|ستاند|مظل[ةه]|عاكس)\s*(لل?|ل)?\s*(إضاء[ةه]|اضاء[ةه]|ضوء)/g, '$1')
+      .replace(/\blights?\s*(stand|umbrella|reflector)/gi, '$1');
+    return NOELEC_RE.test(t) && !ELEC_RE.test(t);
+  }
+  var ELEC_KEY = /جهد|فولت|volt|واط|watt|قدر[ةه](?! ?(ال)?تحم)|\bpower\b|طاق[ةه]|energy|\bwh\b|بطاري|battery|mah|شحن|charg|تيار|current|أمبير|\bamp|كهرب|electric|استهلاك|consumption|\b(ac|dc)\b|input|مدخل|مدة التشغيل|مدّة التشغيل|run ?time/i;
+  var ELEC_VAL = /\b\d+(\.\d+)?\s?(v|w|mah|wh|a)\b|فولت|واط|ملي ?أمبير|بطاري|battery|\b(ac|dc)\s?\d/i;
+  function dropElectric(specs) {
+    return (specs || []).filter(function (s) { var k = String(s && s.k || ''); if (/تحم|حمول|load|payload/i.test(k)) return true; return !(ELEC_KEY.test(k) || ELEC_VAL.test(String(s && s.v || ''))); });
+  }
+  var SPEC_ASK_NOELEC = 'specs: منتجٌ بلا كهرباء ⇐ لا واط ولا جهد ولا بطارية ولا مصدر طاقة ولا شحن. اذكر: المادّة · الأبعاد والوزن · القطر/المقاس · الحمولة · التوافق والتركيب · المنشأ · ما في العلبة؛ وغير المؤكَّد «(تقريبي)»';
+  function composeHint(h, noElec) {
     h = String(h || '').replace(/\s+/g, ' ').trim();
-    var room = 300 - SPEC_ASK.length - 3;
+    var ask = noElec ? SPEC_ASK_NOELEC : SPEC_ASK, room = 300 - ask.length - 3;
     if (h.length > room) h = h.slice(0, room);
-    return (h ? h + ' — ' : '') + SPEC_ASK;
+    return (h ? h + ' — ' : '') + ask;
   }
   /* مفاتيح المواصفات كما يعيدها النموذج أحياناً مشوّهة («k>») ⇒ أوّل مفتاحٍ يبدأ بـk ثمّ v */
   function normSpecs(list) {
@@ -321,6 +342,7 @@
     '• specs: المواصفات الناقصة فقط (لا تكرّر الموجودة) ممّا ينطبق على نوع المنتج: القدرة بالواط · مصدر الطاقة (بطارية/كهرباء/الاثنان) · الجهد · البطارية (النوع · mAh · مدّة التشغيل · زمن الشحن) · ' +
     'درجة اللون/الألوان المتوفّرة · CRI · السطوع · الدقّة والمستشعر للكاميرات · الاستجابة والنمط للميكروفونات · التغطية (زاوية الإضاءة أو الرؤية · مدى البثّ) · الأبعاد · الوزن · الحمولة · ' +
     'المادّة · بلد المنشأ · التبريد/الضجيج · المنافذ والتوصيل · الحربة/التثبيت · البرمجيات (تطبيق الهاتف · تحديث البرنامج الثابت · التحكّم اللاسلكي) · ما في العلبة · الكفالة. ' +
+    'منتجٌ لا يعمل بالكهرباء (عدسة · هولدر/حامل · فلتر · غطاء · هود · ترايبود · حقيبة · بليت · كيج · سوفت بوكس · مظلّة · عاكس · محوّل حربة) ⇐ لا تكتب له أبداً واطاً ولا جهداً ولا بطارية ولا شحناً ولا مصدر طاقة. ' +
     'مفتاحٌ عربيّ قصير وقيمةٌ بأرقامها ووحداتها. ما لا تعرفه يقيناً لهذا الموديل اكتب قيمته النموذجية وبعدها «(تقريبي)». لا تخترع موديلاً ولا ماركة. حتى ١٤ بنداً.\n' +
     '• aliases_ar: ٣–٨ أسماء بحث أخرى بالعربي يكتبها زبونٌ أو موظّف (الاسم الشائع في السوق · تعريب الماركة والموديل صوتياً · اسم النوع العامّ · أخطاء إملائية شائعة).\n' +
     '• aliases_en: ٣–٨ أسماء بحث أخرى بالإنجليزي (الاسم التجاري · صيغ الموديل المختلفة · اسم النوع العامّ · اختصارات). لا تكرّر الاسم الأساسي حرفياً.';
@@ -328,11 +350,11 @@
   function looseJSON(t) { t = String(t || ''); var a = t.indexOf('{'), b = t.lastIndexOf('}'); if (a < 0 || b <= a) return null; try { return JSON.parse(t.slice(a, b + 1)); } catch (_) { return null; } }
   function cleanList(v) { var seen = {}; return (Array.isArray(v) ? v : []).map(function (x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 60); })
     .filter(function (x) { var z = x.toLowerCase(); if (!x || seen[z]) return false; seen[z] = 1; return true; }).slice(0, 10); }
-  async function completeProduct(p, hint) {
+  async function completeProduct(p, hint, noElec) {
     var url = endpoint(); if (!url || !p) return null;
     var head = [p.name_en || p.name_ar, p.brand, p.model, p.category].filter(Boolean).join(' · ');
     var have = (p.specs || []).map(function (s) { return s.k + '=' + s.v; }).join('؛ ');
-    var q = 'المنتج: ' + (head || '') + (hint ? ' (اسمه عندنا: ' + String(hint).split(' — ')[0].slice(0, 120) + ')' : '') + '. المواصفات الموجودة: ' + (have || 'لا شيء');
+    var q = 'المنتج: ' + (head || '') + (hint ? ' (اسمه عندنا: ' + String(hint).split(' — ')[0].slice(0, 120) + ')' : '') + (noElec ? ' (منتجٌ بلا كهرباء: لا واط ولا جهد ولا بطارية ولا شحن)' : '') + '. المواصفات الموجودة: ' + (have || 'لا شيء');
     q = q.slice(0, 1900) + '. أكمل الناقص وأعد JSON فقط.';
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q, system: COMPLETE_SYS, context: {} }) });
     var j = {}; try { j = await r.json(); } catch (_) {}
@@ -476,7 +498,8 @@
   }
   async function importProduct(o) {
     var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
-    var body = { mode: 'product', url: (o && o.url) || '', hint: composeHint(o && o.hint) };
+    var noElec0 = noElectric(null, [o && o.hint, o && o.pname].filter(Boolean).join(' '), o && o.group);
+    var body = { mode: 'product', url: (o && o.url) || '', hint: composeHint(o && o.hint, noElec0) };
     if (o && o.file) { body.image = await shrinkB64(o.file); body.image_type = 'image/jpeg'; }
     var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
@@ -486,8 +509,10 @@
     var p = j.product;
     p.specs = normSpecs(p.specs);
     p.aliases_ar = cleanList(p.aliases_ar); p.aliases_en = cleanList(p.aliases_en);
+    var noElec = noElec0 || noElectric(p, o && o.hint, o && o.group), dropped = 0;
     var added = 0;
-    if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint)); } catch (_) { added = 0; } }
+    if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint, noElec)); } catch (_) { added = 0; } }
+    if (noElec) { var n0 = p.specs.length; p.specs = dropElectric(p.specs); dropped = n0 - p.specs.length; }
     var compatAdded = 0, cw = null, kbAdded = 0;
     if ((!o || o.complete !== false) && isAccessory(p, o && o.hint, o && o.group)) {
       try { cw = await compatProduct(p, o && o.hint, o); compatAdded = mergeCompat(p, cw); } catch (_) { compatAdded = 0; }
@@ -498,7 +523,7 @@
     }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
     try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded,
-      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded }, enumerable: false }); } catch (_) {}
+      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded, no_electric: noElec, dropped_electric: dropped }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -984,7 +1009,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
     ask: ask,
     configure: configure,

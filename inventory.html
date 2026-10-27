@@ -2293,8 +2293,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-<script src="gmt-enrich.js?v=20261007z5"></script>
-<script src="gmt-specs.js?v=20261025i"></script>
+<script src="gmt-enrich.js?v=20261027c"></script>
+<script src="gmt-specs.js?v=20261027c"></script>
 <script src="gmt-enrich-queue.js?v=20261027a"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -4918,7 +4918,9 @@ async function gmtSpecsFromAlibaba(id) {
       throw new Error(error);
     }
     Object.assign(p, payload);
-    showToast(`✅ حُفظت ${Object.keys(specs).filter(k => !k.startsWith('__')).length} مواصفة لـ«${p.name}»`, 'success');
+    /* (TASK-0200 · المالك seq 133 «جدول المواصفات … لحاله التلقائياً ينتقل الى المتجر») */
+    let _st = null; try { _st = await gmtStorePushSpecs(p, payload, null); } catch (e) { showToast('⚠️ حُفظت في الجرد — وتعذّر المتجر: ' + (e && e.message || e), 'error'); }
+    showToast(`✅ حُفظت ${Object.keys(specs).filter(k => !k.startsWith('__')).length} مواصفة لـ«${p.name}»` + (_st ? ' — في الجرد والمتجر' : ''), 'success');
   }, { url: '', name: p.name || '', imageUrl: p.image_url || '' });
 }
 window.gmtSpecsFromAlibaba = gmtSpecsFromAlibaba;
@@ -5024,6 +5026,8 @@ async function gmtStoreProductOf(p) {
 /* يكتب المواصفات (كما يعرضها المتجر) والتوافق والوصف لمنتج المتجر المربوط — كتابةٌ مشروطة متحقَّقة كالجسر.
    الوصف: وصفك أوّلاً ثمّ ما بقي من المكتوب في المتجر (storeDesc — ما لم تحذفه في المراجعة؛ null ⇒ يبقى كلّه). لا مربوط ⇒ null */
 async function gmtStorePushSpecs(p, patch, storeDesc) {
+  /* (TASK-0200) المصدر الواحد في gmt-specs.js (والمتجر يُعرف أيضاً بالباركود) — وهذا احتياطٌ إن لم يُحمَّل */
+  if (window.GMTSpecs && GMTSpecs.pushToStore && window.GMT_DB && GMT_DB.STORE) { const r = await GMTSpecs.pushToStore(p, { specs: patch.specs, compat: patch.compat, storeDesc }); _gmtStoreCat = null; return r; }
   const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
   const sp0 = patch.specs || p.specs, rowsOut = window.GMTSpecs ? GMTSpecs.forStore(sp0) : [];
   const myDesc = window.GMTSpecs ? GMTSpecs.meta(sp0).desc : '';
@@ -15265,10 +15269,10 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261027a"></script>
+<script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027b"></script>
+<script src="gmt-whatsnew.js?v=20261027c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

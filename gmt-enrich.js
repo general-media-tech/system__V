@@ -235,7 +235,11 @@
     };
     const url = db.url + '/rest/v1/products?id=eq.' + encodeURIComponent(prop.id);
     let r = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(full) });
-    if (r.ok) return { ok: true, partial: false };
+    if (r.ok) {
+      /* (TASK-0200) المواصفات المعتمدة تنتقل لمنتج المتجر المربوط تلقائياً */
+      let store = null; try { if (full.specs && global.GMTSpecs && GMTSpecs.pushToStore) store = await GMTSpecs.pushToStore({ id: prop.id, compat: full.compat }, { specs: full.specs, compat: full.compat }); } catch (_) {}
+      return { ok: true, partial: false, store: store };
+    }
     /* نمط P1: عمود غير موجود يرفض الطلب كلّه. نُجرّب الحدّ الأدنى كي لا يضيع
        عمل المراجعة، ونقول للمالك صراحةً أنّ SQL 37 لم يُشغَّل بعد. */
     const min = { search_terms: full.search_terms, compat: full.compat };

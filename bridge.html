@@ -162,8 +162,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-share.js?v=20261024e" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
-  <script src="gmt-enrich.js?v=20261007z5"></script>
-  <script src="gmt-specs.js?v=20261025i"></script>
+  <script src="gmt-enrich.js?v=20261027c"></script>
+  <script src="gmt-specs.js?v=20261027c"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -328,6 +328,12 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
               <div style="font-size:10px;color:var(--text3);margin-top:4px;">يُطبَّق على الجرد</div>
             </button>
           </div>
+          <!-- (TASK-0199 · المالك seq 133 «لا اختار سعر الجرد ولا سعر المتجر وانما اختار سعر جديد اكتبه») -->
+          <div id="ml-custom" style="display:flex;gap:6px;align-items:center;margin-top:8px;background:#fff;border:2px solid var(--border);border-radius:10px;padding:8px 10px;">
+            <span style="font-size:12px;font-weight:800;color:var(--text2);white-space:nowrap;">✏️ سعر جديد $</span>
+            <input id="ml-custom-price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="اكتبه هنا" oninput="mlCustomPrice()" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:8px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:800;">
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:center;">السعر الجديد يُطبَّق على الجرد والمتجر معاً</div>
           <div id="ml-price-chosen" style="display:none;margin-top:8px;text-align:center;font-size:12px;font-weight:700;color:var(--green);">✅ تم الاختيار</div>
         </div>
       </div>
@@ -389,6 +395,12 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
         <button class="btn btn-red btn-sm" onclick="msSyncPrice('inv')" id="ms-btn-inv">اعتمد سعر الجرد</button>
         <button class="btn btn-blue btn-sm" onclick="msSyncPrice('store')" id="ms-btn-store">اعتمد سعر المتجر</button>
+      </div>
+      <!-- (TASK-0199) أو سعرٌ جديد يُكتب ⇒ للجرد والمتجر معاً -->
+      <div style="display:flex;gap:6px;align-items:center;margin-top:10px;background:var(--bg);border-radius:10px;padding:8px 10px;">
+        <span style="font-size:12px;font-weight:800;color:var(--text2);white-space:nowrap;">✏️ سعر جديد $</span>
+        <input id="ms-custom-price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="اكتبه" style="flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;padding:8px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:800;">
+        <button class="btn btn-green btn-sm" onclick="msSyncPrice('custom')" id="ms-btn-custom">اعتمده للاثنين</button>
       </div>
     </div>
     <div class="modal-foot">
@@ -1209,6 +1221,7 @@ function mlSelect(itemId, itemPrice){
   const priceDiff  = Math.abs(invPrice - storePrice) > 0.01;
 
   const ps = document.getElementById('ml-price-section');
+  { const i = document.getElementById('ml-custom-price'); if (i) i.value = ''; mlCustom = null; const b = document.getElementById('ml-custom'); if (b) { b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; } }
   // دائماً نعرض السعرين حتى لو متساويان — للتأكيد
   document.getElementById('ml-inv-price').textContent   = '$'+invPrice.toFixed(2);
   document.getElementById('ml-store-price').textContent = '$'+storePrice.toFixed(2);
@@ -1239,8 +1252,27 @@ function mlSelect(itemId, itemPrice){
 }
 window.mlSelect=mlSelect;
 
+/* (TASK-0199) سعرٌ ثالث يكتبه الأدمن ⇒ يُطبَّق على الاثنين */
+let mlCustom = null;
+function mlCustomPrice(){
+  const inp = document.getElementById('ml-custom-price'), v = parseFloat(inp.value);
+  const box = document.getElementById('ml-custom');
+  if (!(v >= 0) || inp.value.trim() === '') {
+    mlCustom = null; box.style.borderColor = 'var(--border)'; box.style.background = '#fff';
+    if (mlPriceChoice === 'custom') { mlPriceChoice = null; document.getElementById('ml-price-chosen').style.display = 'none'; document.getElementById('ml-save-btn').disabled = true; }
+    return;
+  }
+  mlCustom = Math.round(v * 100) / 100; mlPriceChoice = 'custom';
+  ['ml-btn-inv','ml-btn-store'].forEach(id => { const b = document.getElementById(id); b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; });
+  box.style.borderColor = 'var(--green)'; box.style.background = '#f0fdf4';
+  const c = document.getElementById('ml-price-chosen'); c.style.display = 'block'; c.style.color = 'var(--green)';
+  c.textContent = '✅ سيُطبَّق السعر الجديد $' + mlCustom.toFixed(2) + ' على الجرد والمتجر';
+  document.getElementById('ml-save-btn').disabled = false;
+}
+window.mlCustomPrice = mlCustomPrice;
 function mlChoosePrice(choice){
   mlPriceChoice = choice;
+  { const i = document.getElementById('ml-custom-price'); if (i) i.value = ''; mlCustom = null; const b = document.getElementById('ml-custom'); if (b) { b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; } }
   // تلوين الزر المختار
   const btnInv   = document.getElementById('ml-btn-inv');
   const btnStore = document.getElementById('ml-btn-store');
@@ -1267,11 +1299,13 @@ async function mlSave(){
   // إذا في فرق بالسعر ولم يختر بعد
   const priceDiff = Math.abs((invP.price||0)-(storeP.price||0))>0.01;
   if(priceDiff && !mlPriceChoice){toast('⚡ اختر السعر الذي تريد تطبيقه أولاً');return;}
+  if(mlPriceChoice==='custom' && !(mlCustom>=0)){toast('⚡ اكتب السعر الجديد');return;}
 
   showLoading('جارٍ حفظ الربط...');
   try{
     // السعر الموحّد
-    const finalPrice = mlPriceChoice==='inv'   ? (invP.price||0)
+    const finalPrice = mlPriceChoice==='custom' ? mlCustom
+                     : mlPriceChoice==='inv'   ? (invP.price||0)
                      : mlPriceChoice==='store' ? (storeP.price||0)
                      : (invP.price||0); // same — لا فرق
 
@@ -1398,6 +1432,7 @@ function openSyncModal(invId, storeId){
   document.getElementById('ms-info').innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:8px;">${esc(invP.name)}</div>`;
   document.getElementById('ms-inv-price').textContent='$'+fmt(invP.price);
   document.getElementById('ms-store-price').textContent='$'+fmt(storeP.price);
+  { const i=document.getElementById('ms-custom-price'); if(i) i.value=''; }
   openModal('modal-sync');
 }
 
@@ -1406,10 +1441,24 @@ async function msSyncPrice(src){
   const storeP=storeProds.find(x=>String(x.id) === String(msStoreId));
   if(!invP||!storeP) return;
 
-  const newPrice=src==='inv'?invP.price:storeP.price;
+  let newPrice=src==='inv'?invP.price:storeP.price;
+  if(src==='custom'){
+    const v=parseFloat((document.getElementById('ms-custom-price')||{}).value);
+    if(!(v>=0)){toast('⚡ اكتب السعر الجديد');return;}
+    newPrice=Math.round(v*100)/100;
+  }
   showLoading('جارٍ مزامنة السعر...');
   try {
-    if(src==='inv'){
+    if(src==='custom'){
+      /* (TASK-0199) الجرد ثمّ المتجر — كلاهما بالسعر الجديد */
+      await saveStoreProducts(fresh => {
+        if (!fresh.some(sp => String(sp.id) === String(msStoreId))) throw new Error('منتج المتجر لم يعد موجوداً — أعد تحميل الجسر');
+        return fresh.map(sp => String(sp.id) === String(msStoreId) ? { ...sp, price: newPrice } : sp);
+      });
+      await patchInv(msInvId, { price: newPrice });
+      const idx=invProds.findIndex(x=>String(x.id) === String(msInvId));
+      if(idx>=0) invProds[idx].price=newPrice;
+    } else if(src==='inv'){
       /* (TASK-0161) المقارنة نصّاً (كانت === بين رقمٍ ونصّ ⇒ «تمّت المزامنة» بلا تغيير) · وعلى الكتالوج الطازج */
       await saveStoreProducts(fresh => {
         if (!fresh.some(sp => String(sp.id) === String(msStoreId))) throw new Error('منتج المتجر لم يعد موجوداً — أعد تحميل الجسر');
@@ -1464,10 +1513,10 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261027a"></script>
+<script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027b"></script>
+<script src="gmt-whatsnew.js?v=20261027c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

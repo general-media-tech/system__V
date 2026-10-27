@@ -10,6 +10,9 @@
      GMTSpecs.meta(specs)      ⇒ { desc, brand, model }
      GMTSpecs.forStore(specs)  ⇒ نسخةٌ للمتجر: الصفوف + الماركة والموديل (بلا مصدرٍ ولا تاريخٍ داخليّ)
      GMTSpecs.tableHTML(specs, { compat }) ⇒ جدولٌ HTML جاهز (أو '' إن لم يوجد شيء)
+     GMTSpecs.pushToStore(p, { specs, compat, storeDesc }) ⇒ Promise<{ id, specs } | null>   (TASK-0200)
+        «جدول المواصفات اللي عم نحطّه للمنتج لحاله تلقائياً ينتقل إلى المتجر» — كلّ حفظٍ للمواصفات في الجرد يكتبها لمنتج المتجر
+        المربوط (store_url «#product=» · inv_id · الباركود). null ⇒ غير مربوط. كتابةٌ مشروطة على الكتالوج الطازج (updated_at) كالجسر.
    ═════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -62,5 +65,47 @@
     if (compat) html += '<div style="margin-top:8px;font-size:12px;line-height:1.7;overflow-wrap:anywhere"><b>متوافق مع:</b> ' + esc(compat) + '</div>';
     return html;
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML };
+  /* ── (TASK-0200) الكتابة للمتجر — مصدرٌ واحد لكلّ طرق الحفظ (الجرد · «جهّز تلقائياً» · 🧠 المنتج · الإثراء · الشراء) ── */
+  function dbs() {
+    var D = global.GMT_DB || {};
+    return { main: D.MAIN || { url: global.SUPABASE_URL || '', key: global.SUPABASE_ANON_KEY || '' }, store: D.STORE || null };
+  }
+  function hdr(db, extra) { var h = { apikey: db.key, Authorization: 'Bearer ' + db.key }; for (var k in (extra || {})) h[k] = extra[k]; return h; }
+  function findStore(prods, p) {
+    var m = /#product=([^&]+)/.exec(String(p.store_url || '')), sid = m ? decodeURIComponent(m[1]) : '', bc = String(p.barcode || '').trim();
+    return (sid && prods.filter(function (x) { return x && String(x.id) === sid; })[0]) ||
+      prods.filter(function (x) { return x && x.inv_id != null && String(x.inv_id) === String(p.id); })[0] ||
+      (bc && prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; }).length === 1 ? prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; })[0] : null) || null;
+  }
+  async function pushToStore(p, o) {
+    o = o || {}; var D = dbs(); if (!p || !D.store || !D.store.url) return null;
+    /* المنتج كما في الجرد إن نقص (رابط المتجر · الباركود · المواصفات) */
+    if ((!p.store_url && !p.barcode) || (o.specs == null && p.specs == null)) {
+      try {
+        var rq = await fetch(D.main.url + '/rest/v1/products?id=eq.' + encodeURIComponent(p.id) + '&select=id,store_url,barcode,specs,compat', { headers: hdr(D.main) });
+        var row = rq.ok ? (await rq.json())[0] : null; if (row) p = Object.assign({}, row, p, { store_url: p.store_url || row.store_url, barcode: p.barcode || row.barcode, specs: p.specs != null ? p.specs : row.specs, compat: p.compat != null ? p.compat : row.compat });
+      } catch (_) {}
+    }
+    var sp0 = o.specs != null ? o.specs : p.specs, out = forStore(sp0), myDesc = meta(sp0).desc;
+    for (var i = 0; i < 3; i++) {
+      var r = await fetch(D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id,products,updated_at', { headers: hdr(D.store) });
+      if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
+      var rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
+      var prods = Array.isArray(rec.products) ? rec.products : [], sp = findStore(prods, p);
+      if (!sp) return null;
+      var mine = String(myDesc || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+      var keep = (o.storeDesc == null ? String(sp.description || '') : String(o.storeDesc)).split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
+      var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mine.concat(keep).join('\n');
+      if (desc || o.storeDesc != null) upd.description = desc;
+      var next = prods.map(function (x) { return x === sp ? Object.assign({}, x, upd) : x; });
+      var url = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', body = { products: next };
+      if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+      var w = await fetch(url, { method: 'PATCH', headers: hdr(D.store, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(body) });
+      if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+      var rows2 = await w.json().catch(function () { return null; });
+      if (Array.isArray(rows2) && rows2.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, specs: out.length }; }
+    }
+    throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
+  }
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, _findStore: findStore };
 })(typeof window !== 'undefined' ? window : this);
