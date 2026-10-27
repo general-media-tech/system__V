@@ -195,7 +195,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-config.js?v=20261017c"></script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261028k"></script>
+  <script src="gmt-core.js?v=20261028l"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -203,7 +203,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-share.js?v=20261024e" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
-<script src="gmt-mufti-live.js?v=20261028k"></script><!-- (TASK-0223) حالة شحنة المفتي الحيّة -->
+<script src="gmt-mufti-live.js?v=20261028l"></script><!-- (TASK-0223) حالة شحنة المفتي الحيّة -->
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -775,11 +775,16 @@ window.GMT_PUBLIC = 1;</script>
             let currentStepIndex = received ? 4
                 : (o.status === 'shipped' && o.notified_arrival_at) ? 3
                 : Math.max(0, ['pending','prepared','shipped'].indexOf(o.status));
-            /* (TASK-0223 · seq 152 ⇐ TASK-0225 · seq 153) «حافظ مراحل اللي عنا في الموقع على حالها ولكن اكتب كتابه بجانبها مثلا اذا في شيء مختلف»:
-               مراحلنا كما هي (من حالة الأوردر عندنا) — وكتابة المفتي الحيّة تُكتب بجانب المرحلة الحاليّة (أدناه).
-               «تمت إعادة التوجيه» = مرتجع لا استلام (ML.cls ⇒ 'ret'). */
+            /* (TASK-0223 · seq 152 · 153 ⇐ TASK-0226 · seq 154) «شحنات المفتي لا تحركها في المؤقت وانما حركها تباعا لتتبع المفتي»
+               + «تم وصول الى الفرع الوجهه هاي يعني انها وصلت في انتظار الاستلام»:
+               مراحلنا الخمس نفسها، والمرحلة الحاليّة تتبع المفتي: في الطريق ⇒ تم الشحن · وصلت فرع الوجهة ⇒ وصلت — بانتظار الاستلام ·
+               تم التسليم للمرسل إليه ⇒ تم الاستلام. لا رجوع عمّا أكّدناه نحن. «تمت إعادة التوجيه» = مرتجع لا استلام ⇒ لا تتحرّك.
+               وكتابة المفتي الحيّة تبقى بجانب المرحلة الحاليّة (seq 153). */
             const ML = window.GMTMuftiLive;
             const mk = (ML && mufti && mufti.ok && mufti.found) ? ML.cls(mufti) : null;
+            if (mk === 'got') currentStepIndex = 4;
+            else if (mk === 'branch') currentStepIndex = Math.max(currentStepIndex, 3);
+            else if (mk === 'road') currentStepIndex = Math.max(currentStepIndex, 2);
             /* «شحنات المفتي خلاص ازل منها المؤقت تماما … تتبع حي» */
             const isMuftiShip = !!(ML && ML.isMufti(o));
 
