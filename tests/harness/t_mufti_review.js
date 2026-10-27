@@ -44,14 +44,20 @@ const FAKE = {
       W + ': فقط شحنات المفتي «في الطريق» برقم تتبّع (لا القدموس · لا بلا رقم · لا بانتظار التحصيل) · دفعات ≤٣ بمفتاح القاعدة: ' + JSON.stringify(calls.map(c => c.nums)));
     const cards = await pg.evaluate(() => [...document.querySelectorAll('#gmt-mr [data-mr-o]')].map(c => ({ id: c.getAttribute('data-mr-o'), k: c.getAttribute('data-mr-k'), t: c.innerText })));
     ok(cards.length === 4 && cards[0].k === 'got' && String(cards[0].id) === String(idOf('214138')), W + ': كلّهم في صفحةٍ واحدة · «استلمها الزبون» أوّلاً: ' + JSON.stringify(cards.map(c => c.k)));
-    const A = cards.find(c => c.k === 'got'), B = cards.find(c => c.k === 'branch'), D = cards.find(c => c.k === 'road'), N = cards.find(c => c.k === 'nf');
+    const A = cards.find(c => c.k === 'got'), B = cards.find(c => c.k === 'branch'), D = cards.find(c => c.k === 'ret'), N = cards.find(c => c.k === 'nf');
+    // (TASK-0225 · seq 153) «كلمه تمت اعاده التوجيه لا يعني انه استلم بل انها انتقلت الى مرتجع»
+    ok(JSON.stringify(cards.map(c => c.k)) === '["got","ret","branch","nf"]' && D && /مرتجع — أُعيد توجيهها/.test(D.t) && /ليست استلاماً/.test(D.t) && !/ليست استلاماً/.test(A.t + B.t),
+      W + ': «تمت إعادة التوجيه» ⇒ ↩️ مرتجع (لا استلام) مع تنبيه · ثانياً بعد «استلمها»: ' + JSON.stringify(cards.map(c => c.k)));
+    await pg.click('#gmt-mr [data-mr-f="ret"]'); await pg.waitForTimeout(150);
+    ok(await pg.evaluate(() => document.querySelectorAll('#gmt-mr [data-mr-o]').length) === 1, W + ': فلتر «↩️ مرتجع» ⇒ واحدة');
+    await pg.click('#gmt-mr [data-mr-f="all"]'); await pg.waitForTimeout(150);
     ok(A && /غالب زيدان/.test(A.t) && /214138/.test(A.t) && /حالة الشحنة/.test(A.t) && /تم استلام الشحنة من قبل المرسل إليه/.test(A.t) && /15:36/.test(A.t),
       W + ': الأوردر وتحته بطاقة «حالة الشحنة» (المكان المحاط بالدائرة) بنصّها وتاريخها');
     ok(B && /تم وصول الشحنة إلى الفرع الوجهة/.test(B.t) && /في فرع الوجهة/.test(B.t), W + ': «وصلت فرع الوجهة» ⇒ 🏢 في فرع الوجهة');
-    const act = await pg.evaluate(id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] .mr-st')].map(x => [x.className.replace('mr-st ', ''), x.dataset.on, !!x.querySelector('svg')]), String(idOf('214244')));
+    const act = await pg.evaluate(id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] .ml-st')].map(x => [x.className.replace('ml-st ', ''), x.dataset.on, !!x.querySelector('svg')]), String(idOf('214244')));
     ok(JSON.stringify(act) === '[["passed","1",true],["passed","0",true],["cur","1",true],["todo","0",true]]', W + ': شريط تتبّعنا: ما مضى أسود · «وصلت فرع الوجهة» الحاليّة · التسليم قادم (بأيقونات): ' + JSON.stringify(act));
     // (seq 149) هويّتنا: ترويسة بتدرّج الأحمر · الخطوة الحاليّة بتدرّج الأحمر · مستطيل الحالة بحدٍّ أحمر · الزرّ بجانب «تعديل»
-    const id1 = await pg.evaluate(() => { const cs = s => getComputedStyle(document.querySelector(s)); return { h: cs('#gmt-mr .mr-h').backgroundImage, cur: cs('#gmt-mr .mr-st.cur i').backgroundImage, card: cs('#gmt-mr .mr-card').borderRightColor,
+    const id1 = await pg.evaluate(() => { const cs = s => getComputedStyle(document.querySelector(s)); return { h: cs('#gmt-mr .mr-h').backgroundImage, cur: cs('#gmt-mr .ml-st.cur i').backgroundImage, card: cs('#gmt-mr .ml-card').borderRightColor,
       nextToEdit: (() => { const b = document.querySelector('[data-mr-launch]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
     ok(/213, 0, 28/.test(id1.h) && /213, 0, 28/.test(id1.cur) && /213, 0, 28/.test(id1.card) && id1.nextToEdit, W + ': بهويتنا البصرية (الأحمر #D5001C) · الزرّ بجانب «تعديل» في الأعلى: ' + JSON.stringify(id1));
     ok(N && /لا يعرف الرقم/.test(N.t) && D && /اسم المستلم عند المفتي لا يشبه/.test(D.t) && !/لا يشبه/.test(A.t + B.t), W + ': رقمٌ غير موجود عندهم ⇒ يُقال · اسم مستلمٍ مختلف ⇒ تنبيه (فقط حيث يختلف)');
@@ -62,6 +68,16 @@ const FAKE = {
       W + ': ثلاثة أزرار فقط: تأكيد الاستلام · تبليغ الوصول · مراسلة فرع الشركة الوجهة (لا طباعة ولا بحث ولا PDF ولا ⋮): ' + JSON.stringify(btns.a));
     ok(JSON.stringify(btns.b) === JSON.stringify(['requestConfirm(' + idOf('210063') + ",'delivered')", 'contactCustomerArrival(' + idOf('210063') + ')', 'contactShipOffice(' + idOf('210063') + ')']),
       W + ': بعد التبليغ: زرّ التبليغ نفسه يصير «مراسلة الزبون» كما في البطاقة: ' + JSON.stringify(btns.b));
+    // (TASK-0222 · seq 152) «في صحين للي تبلغ … زامنها» + «التبليغ الاول غير التبليغ الثاني»
+    const nd0 = await pg.evaluate(ids => [ids.a, ids.b].map(id => ((document.querySelector('#gmt-mr [data-mr-o="' + id + '"] [data-mr-notified]') || {}).textContent || '').trim()), { a: idOf('214244'), b: idOf('210063') });
+    ok(nd0[0] === '' && /بُلِّغ بالوصول/.test(nd0[1]), W + ': شارة «✓✓ بُلِّغ بالوصول» للمبلَّغ فقط: ' + JSON.stringify(nd0));
+    await pg.evaluate(id => markNotified(orders.find(x => x.id == id), 'arrived'), idOf('214244')); await pg.waitForTimeout(1500);
+    const nd1 = await pg.evaluate(id => ({ badge: ((document.querySelector('#gmt-mr [data-mr-o="' + id + '"] [data-mr-notified]') || {}).textContent || '').trim(),
+      btns: [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] button')].map(b => (b.getAttribute('onclick') || '').replace(/\(.*/, '')) }), idOf('214244'));
+    ok(/بُلِّغ بالوصول/.test(nd1.badge) && JSON.stringify(nd1.btns) === '["requestConfirm","contactCustomerArrival","contactShipOffice"]',
+      W + ': بعد التبليغ الأوّل: تظهر الشارة فوراً ويصير الزرّ «التبليغ الثاني» (مراسلة الزبون) كما في البطاقة: ' + JSON.stringify(nd1));
+    await H.call('/rest/v1/gmt_orders?id=eq.' + idOf('214244'), { notified_arrival_at: null }, 'PATCH');
+    await pg.evaluate(id => { const o = orders.find(x => x.id == id); o.notified_arrival_at = null; }, idOf('214244')); await pg.waitForTimeout(1000);
     await pg.evaluate(() => { window.__arr = null; window.shareOrder = (id, k) => { window.__arr = [id, k]; }; window.__off = null; window.contactShipOffice = id => { window.__off = id; }; });
     await pg.click('#gmt-mr [onclick="shareOrder(' + idOf('214244') + ',\'arrived\')"]'); await pg.click('#gmt-mr [onclick="contactShipOffice(' + idOf('214244') + ')"]'); await pg.waitForTimeout(200);
     ok(JSON.stringify(await pg.evaluate(() => [window.__arr, window.__off])) === JSON.stringify([[idOf('214244'), 'arrived'], idOf('214244')]), W + ': «تبليغ الوصول» و«مراسلة فرع الشركة» ينادِيان دوالّ البطاقة نفسها');

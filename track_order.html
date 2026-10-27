@@ -195,7 +195,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-config.js?v=20261017c"></script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261028j"></script>
+  <script src="gmt-core.js?v=20261028k"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -203,6 +203,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-share.js?v=20261024e" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
+<script src="gmt-mufti-live.js?v=20261028k"></script><!-- (TASK-0223) حالة شحنة المفتي الحيّة -->
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -331,7 +332,7 @@ window.GMT_PUBLIC = 1;</script>
                 </button>
             </div>
         </div>
-        <div id="timelineContainer" class="px-2 relative z-10"></div>
+<div id="timelineContainer" class="px-2 relative z-10"></div>
     </div>
 
     <!-- الروابط السريعة -->
@@ -585,6 +586,18 @@ window.GMT_PUBLIC = 1;</script>
             return null;
         }
 
+        /* ══ (TASK-0223 · المالك seq 152) مزامنة حالة المفتي ══
+           الرقم الذي يُدخله الزبون (رقم تتبّع المفتي · رقم الطلب · جواله …) يجد أوردره عندنا أوّلاً؛ فإن كان شحنة مفتي برقم تتبّع
+           نقرأ حالتها من موقع المفتي الآن عبر دالّة الخادم gmt-mufti (قراءة فقط · بلا تخزين) ونزامن الخطوات والكتابة. */
+        const MUFTI_WAIT = 6000;
+        let _trkSeq = 0;
+        function muftiFor(o) {
+            const ML = window.GMTMuftiLive;
+            if (!ML || !o || o.status === 'completed' || !ML.isMufti(o)) return null;
+            const n = ML.digits(o.tracking_number); if (!n) return null;
+            return ML.fetch([n], { db: { url: SUPA_URL, key: SUPA_KEY }, timeoutMs: 20000 }).then(m => m[n] || null, () => null);
+        }
+
         async function searchOrder() {
             const input = document.getElementById('searchInput').value.trim();
             /* (٧ ي-٤) زرّ البحث بحقلٍ فارغ كان لا يفعل شيئاً — الزبون يظنّه معطّلاً. الآن يدلّه على الحقل. */
@@ -636,6 +649,8 @@ window.GMT_PUBLIC = 1;</script>
                 document.getElementById('searchBtn').disabled = false;
 
                 if(order) {
+                    /* (TASK-0223 · seq 152) شحنة المفتي برقم تتبّع ⇒ نسأل المفتي فوراً (بحثٌ جديد كل مرّة — لا تخزين) */
+                    const muftiP = muftiFor(order);
                     const nm = String(order.name || '').trim();
                     document.getElementById('l2-name').innerText = nm ? `أهلاً بك، ${nm}` : 'أهلاً بك';
                     document.getElementById('l2-sub').innerText = 'وجدنا شحنتك';
@@ -649,13 +664,22 @@ window.GMT_PUBLIC = 1;</script>
                     const r = window._trkRoad;
                     const wait = Math.max(0, 900 - (Date.now() - _t0));   // تمشي ولو قليلاً قبل أن تصل — لا قفزة
                     await new Promise(z => setTimeout(z, wait));
+                    /* «ممكن نطول الانترو شوي لحتى يزامن»: الشاحنة تبقى تمشي على مهلها حتى يردّ المفتي (حدٌّ أقصى MUFTI_WAIT)،
+                       وإن تأخّر أكثر تظهر النتيجة ثمّ تتحدّث وحدها حين يصل ردّه */
+                    let mufti = null;
+                    if (muftiP) {
+                        document.getElementById('l2-sub').innerText = 'نزامن حالة شحنتك مع شركة المفتي…';
+                        mufti = await Promise.race([muftiP, new Promise(z => setTimeout(() => z(undefined), MUFTI_WAIT))]);
+                    }
                     if (r) await r.to(1, 1100); else await new Promise(z => setTimeout(z, 1200));
                     await new Promise(z => setTimeout(z, 350));
                     layer2.classList.remove('smooth-appear');
                     layer2.classList.add('smooth-disappear');
                     await new Promise(z => setTimeout(z, 450));
                     hideLayer2();
-                    showTimeline(order);
+                    const seq = ++_trkSeq;
+                    showTimeline(order, mufti || null);
+                    if (muftiP && mufti === undefined) muftiP.then(m => { if (m && seq === _trkSeq) showTimeline(order, m, true); });
 
                 } else {
                     hideLayer2();
@@ -721,12 +745,12 @@ window.GMT_PUBLIC = 1;</script>
             } catch (_) {}
         });
 
-        function showTimeline(o) {
+        function showTimeline(o, mufti, update) {
             const resultCard = document.getElementById('resultCard');
             
-            // إظهار بطاقة النتائج بنعومة
+            // إظهار بطاقة النتائج بنعومة (التحديث بعد وصول ردّ المفتي متأخّراً لا يُعيد الظهور)
             resultCard.classList.remove('hidden');
-            resultCard.classList.add('smooth-appear');
+            if (!update) resultCard.classList.add('smooth-appear');
 
             document.getElementById('res-name').innerText = o.name;
             document.getElementById('res-price').innerText = "$" + (Number(o.price)||0).toLocaleString();
@@ -751,6 +775,13 @@ window.GMT_PUBLIC = 1;</script>
             let currentStepIndex = received ? 4
                 : (o.status === 'shipped' && o.notified_arrival_at) ? 3
                 : Math.max(0, ['pending','prepared','shipped'].indexOf(o.status));
+            /* (TASK-0223 · seq 152 ⇐ TASK-0225 · seq 153) «حافظ مراحل اللي عنا في الموقع على حالها ولكن اكتب كتابه بجانبها مثلا اذا في شيء مختلف»:
+               مراحلنا كما هي (من حالة الأوردر عندنا) — وكتابة المفتي الحيّة تُكتب بجانب المرحلة الحاليّة (أدناه).
+               «تمت إعادة التوجيه» = مرتجع لا استلام (ML.cls ⇒ 'ret'). */
+            const ML = window.GMTMuftiLive;
+            const mk = (ML && mufti && mufti.ok && mufti.found) ? ML.cls(mufti) : null;
+            /* «شحنات المفتي خلاص ازل منها المؤقت تماما … تتبع حي» */
+            const isMuftiShip = !!(ML && ML.isMufti(o));
 
             // ── لوحة الشحن: تظهر من «تم الشحن» فصاعداً ──
             const shipped = ['shipped','delivered','completed'].includes(o.status);
@@ -762,7 +793,7 @@ window.GMT_PUBLIC = 1;</script>
                 setT('res-dest', o.address || '—');
                 // مؤقّت الوصول — نفس نافذة رسالة الواتساب، تُحسَب بـ`GMTEta` (ن٢)
                 const etaBox = document.getElementById('res-eta');
-                const inTransit = o.status === 'shipped' && o.shipped_at;
+                const inTransit = o.status === 'shipped' && o.shipped_at && !isMuftiShip;
                 if (etaBox) etaBox.classList.toggle('hidden', !inTransit);
                 if (inTransit) {
                     /* ══ طلبك ن٢ (2026-10-03): المدّة من `GMTEta` لا أرقاماً ثابتة ══
@@ -802,11 +833,18 @@ window.GMT_PUBLIC = 1;</script>
             const stepsData = [
                 { icon: 'package',      title: 'قيد التجهيز',                  desc: 'استلمنا طلبك ونجهّزه حالياً في مستودعاتنا' },
                 { icon: 'file-check',   title: 'تمت الفوترة — بانتظار الشحن',   desc: 'طلبك جاهز ومفوتَر وبانتظار تسليمه لشركة الشحن' },
-                { icon: 'truck',        title: 'تم الشحن',                      desc: 'شُحن طلبك' + co + trk + ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة') },
+                { icon: 'truck',        title: 'تم الشحن',                      desc: 'شُحن طلبك' + co + trk + (isMuftiShip ? '' : ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة')) },
                 { icon: 'map-pin',      title: 'وصلت — بانتظار الاستلام',       desc: 'وصلت شحنتك إلى [' + _esc(o.address || 'عنوانكم') + ']' + (o.shipping_company ? ' لدى ' + _esc(o.shipping_company) : '') },
                 { icon: 'check-circle', title: 'تم الاستلام',                   desc: 'استلمتَ طلبك' + (received && o.delivered_at ? ' بتاريخ ' + _esc(new Date(o.delivered_at).toLocaleDateString('ar-SY', { year: 'numeric', month: 'long', day: 'numeric' })) : '') + ' — شكراً لثقتك بجنرال ميديا تيك 🤍' }
             ];
 
+            if (mk && stepsData[currentStepIndex]) {
+                const ret = mk === 'ret';
+                stepsData[currentStepIndex].note = '<div data-mufti-note class="mt-2 rounded-xl px-3 py-2 text-[11px] font-black leading-relaxed" style="background:' + (ret ? '#fffbeb' : '#fff1f2') +
+                    ';border-right:3px solid ' + (ret ? '#d97706' : '#D5001C') + ';color:#111">📡 شركة المفتي الآن: ' + _esc(mufti.status) +
+                    (mufti.status_at ? ' <span dir="ltr" style="white-space:nowrap;unicode-bidi:isolate;color:#6b7280">(' + _esc(mufti.status_at) + ')</span>' : '') +
+                    (mufti.receiver && mufti.receiver.info && mk === 'branch' ? '<br><span style="color:#6b7280">📍 فرع الاستلام: ' + _esc(mufti.receiver.info) + '</span>' : '') + '</div>';
+            }
             const timelineContainer = document.getElementById('timelineContainer');
             let timelineHTML = '';
             stepsData.forEach((step, index) => {
@@ -822,7 +860,7 @@ window.GMT_PUBLIC = 1;</script>
                     '</div>' +
                     '<div class="pt-3 flex-1 pb-8">' +
                     '<h4 class="font-black text-gray-400 step-title text-base transition-colors duration-500">' + step.title + '</h4>' +
-                    '<p class="text-[11px] text-gray-500 mt-2 font-bold leading-relaxed">' + step.desc + '</p>' +
+                    '<p class="text-[11px] text-gray-500 mt-2 font-bold leading-relaxed">' + step.desc + '</p>' + (step.note || '') +
                     '</div></div>';
             });
             timelineContainer.innerHTML = timelineHTML;
