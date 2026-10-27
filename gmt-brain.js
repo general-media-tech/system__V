@@ -371,7 +371,7 @@
      ① و② «من الإنترنت» بمصادرها ⇐ تُضاف لدليل التوافقيات فوراً (جواب seq 121) · ③ يبقى اقتراحاً يُراجَع ولا يدخل الدليل.
      ما في الدليل لهذا الإكسسوار يُعطى للعقل (لا يعيد البحث عنه) ويُضاف لتوافق المنتج. */
   var WEB_OFF = 0;                       // آخر رفضٍ لبحث العقل (مفتاح Gemini المجاني ⇐ 429): لا يُكرَّر لكل منتج عشر دقائق
-  var SRCH = { at: 0, ok: false };       // هل في gmt-search محرّكٌ غير Gemini (Brave/Google) لم يبلغ حدّه اليومي
+  var SRCH = { at: 0, ok: false };       // هل في gmt-search محرّكٌ غير Gemini (Brave/Google/Tavily) لم يبلغ حدّه اليومي
   async function postJSON(u, body) {
     var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}; try { j = await r.json(); } catch (_) {}
@@ -382,7 +382,8 @@
     if (Date.now() - SRCH.at < 600000) return SRCH.ok;
     SRCH.at = Date.now(); SRCH.ok = false;
     try { var st = await postJSON(searchUrl(u), { mode: 'status' }), pv = (st && st.providers) || {};
-      SRCH.ok = ['brave', 'google'].some(function (k) { return pv[k] && pv[k].key && (pv[k].used || 0) < (pv[k].cap || 0); }); } catch (_) {}
+      /* (TASK-0192 · المالك seq 128 «ما بدّي شي مدفوع») Tavily: مجانيّ ١٠٠٠ بحثٍ شهرياً بلا بطاقة */
+      SRCH.ok = ['brave', 'google', 'tavily'].some(function (k) { return pv[k] && pv[k].key && (pv[k].used || 0) < (pv[k].cap || 0); }); } catch (_) {}
     return SRCH.ok;
   }
   function searchQuery(k, nm, p) {

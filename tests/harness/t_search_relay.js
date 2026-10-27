@@ -14,6 +14,7 @@ const INIT = `try { localStorage.setItem('gmt_brain_endpoint', 'https://ysawzwtm
     await ctx.route('**/functions/v1/gmt-search', async r => {
       const b = JSON.parse(r.request().postData() || '{}'); seen.push(b);
       if (mode === 'nokey') return r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'لا مفتاح بحث في الوسيط', code: 'no_keys' }) });
+      if (mode === 'geminionly') return r.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'تعذّر البحث الآن', code: 'search_failed', errors: ['gemini gemini-2.5-flash HTTP 404', 'gemini gemini-flash-latest HTTP 429'] }) });
       const body = b.kind === 'images'
         ? { provider: 'brave', images: Array.from({ length: 32 }, (_, i) => ({ url: 'https://img.example/full' + i + (/white/.test(b.q) ? 'w' : '') + '.png', thumb: 'https://img.example/t' + i + '.png', page: 'https://shop.example/p' + i, title: 't' })) }
         : { provider: 'brave', web: [{ title: 'بحث', url: 'https://www.alibaba.com/trade/search?SearchText=x', snippet: '' }, { title: 'صفحة المنتج', url: 'https://www.godox.com/product/sl60w', snippet: '' }, { title: 'صفحة ثانية', url: 'https://store.example/sl60w-specs', snippet: '' }] };
@@ -64,8 +65,16 @@ const INIT = `try { localStorage.setItem('gmt_brain_endpoint', 'https://ysawzwtm
     await pg.waitForFunction(() => { const s = GMTEnrichQueue.state(); return s && s.items[0].st === 'ready'; }, null, { timeout: 20000 }).catch(() => {});
     await pg.waitForTimeout(400);
     card = await pg.evaluate(() => (document.querySelector('#gmt-enrich-q [data-q-card]') || {}).innerText || '');
-    ok(/وسيط البحث بلا مفتاح بعد/.test(card) && /Brave/.test(card), W + ': بلا مفتاح ⇒ «وسيط البحث بلا مفتاح بعد — أضف مفتاح Brave»');
-    const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
+    ok(/وسيط البحث بلا مفتاح بعد/.test(card) && /Tavily المجاني/.test(card), W + ': بلا مفتاح ⇒ «وسيط البحث بلا مفتاح بعد — أضف مفتاح Tavily المجاني» (TASK-0192)');
+    // ٥) (TASK-0192) Gemini وحده في الوسيط وفشل (404/429) ⇒ الرسالة نفسها: «أضف مفتاح Tavily المجاني» لا «لم يجد البحث صفحته»
+    mode = 'geminionly';
+    await pg.evaluate(() => { const b = document.querySelector('#gmt-enrich-q [data-q-card]'); const x = b.querySelector('[data-act="deep"]'); if (x) x.click(); });
+    await pg.waitForFunction(() => __imp.length >= 4, null, { timeout: 20000 }).catch(() => {});
+    await pg.waitForFunction(() => { const s = GMTEnrichQueue.state(); return s && s.items[0].st === 'ready'; }, null, { timeout: 20000 }).catch(() => {});
+    await pg.waitForTimeout(400);
+    card = await pg.evaluate(() => (document.querySelector('#gmt-enrich-q [data-q-card]') || {}).innerText || '');
+    ok(/وسيط البحث بلا مفتاح بعد/.test(card) && /Tavily المجاني/.test(card) && !/لم يجد البحث صفحته/.test(card), W + ': Gemini وحده فشل ⇒ «أضف مفتاح Tavily المجاني»');
+    const real = errs.filter(e => !/status of (400|401|404|406|502|503)|Failed to load resource/.test(e));
     ok(!real.length, W + ': لا أخطاء JS ' + real.slice(0, 2).join(' / '));
     await browser.close();
   }

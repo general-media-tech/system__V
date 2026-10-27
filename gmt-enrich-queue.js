@@ -28,13 +28,17 @@
     try { var v = localStorage.getItem('gmt_brain_endpoint') || ''; return /^https:\/\/ysawzwtmodkqqbqoiojj\.(?:supabase\.co\/functions\/v1|functions\.supabase\.co)\/gmt-brain\/?$/i.test(v) ? v : ''; } catch (_) { return ''; }
   }
   /* (TASK-0040 · المالك seq 103–104 «الأفضل والمجاني» ⇐ «ابنِه وحطّ وسيط تاني وحطّ غوغل وجمناي») وسيط البحث gmt-search بجانب العقل:
-     Brave ثمّ Google ثمّ Gemini (كلٌّ بحدّه اليومي المجاني). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
+     Brave ثمّ Google ثمّ Tavily ثمّ Gemini (كلٌّ بحدّه اليومي · TASK-0192: Tavily مجانيّ، وبحث Gemini المجاني غير متاحٍ لهذا الحساب — 404/429 في اختبار 26 ت1). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
   function searchUrl() { var b = brainUrl(); return b ? b.replace(/\/gmt-brain\/?$/, '/gmt-search') : ''; }
   async function search(kind, q, count) {
     var u = searchUrl(); if (!u || !q) return null;
     var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: kind, q: q, count: count }) });
     var j = {}; try { j = await r.json(); } catch (_) {}
-    if (!r.ok || j.error) { var e = new Error(j.error || ('HTTP ' + r.status)); e.code = j.code || r.status; throw e; }
+    if (!r.ok || j.error) { var e = new Error(j.error || ('HTTP ' + r.status)); e.code = j.code || r.status;
+      /* (TASK-0192) Gemini وحده في الوسيط وفشل (بحثه المجاني غير متاحٍ لهذا الحساب) ⇒ كأنه بلا مفتاح: «أضف مفتاح Tavily المجاني» لا «لم يجد البحث» */
+      var er = Array.isArray(j.errors) ? j.errors : [];
+      if (e.code === 'search_failed' && er.length && er.every(function (x) { return /^gemini\b/i.test(String(x || '')); })) e.code = 'no_keys';
+      throw e; }
     return j;
   }
   /* صفحاتٌ ليست صفحة منتج (نتائج بحث · قوائم · متاجر كاملة) */
@@ -222,7 +226,7 @@
     var host = ''; try { host = r.source ? new URL(r.source).hostname.replace(/^www\./, '') : ''; } catch (_) { host = ''; }
     var warn = (r.page_ok && host) ? '<div data-src-ok style="margin-top:10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:8px 10px;color:#065f46;font-size:12px;line-height:1.7">📄 من صفحة المنتج: <a href="' + esc(r.source) + '" target="_blank" rel="noopener" dir="ltr">' + esc(host) + '</a>' + (r.search ? ' · وجدها البحث (' + esc(r.search) + ')' : '') + '</div>'
       : r.from_memory ? '<div style="margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;color:#92400e;font-size:12px;line-height:1.7">⚠️ ليست من صفحة المنتج — ' +
-        (r.search_note === 'no_keys' ? 'وسيط البحث بلا مفتاح بعد (أضف مفتاح Brave في أسرار Supabase ليبحث في الويب ويجلب الصور)' : 'لم يجد البحث صفحته الآن') + '، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
+        (r.search_note === 'no_keys' ? 'وسيط البحث بلا مفتاح بعد (أضف مفتاح Tavily المجاني في أسرار Supabase ليبحث في الويب ويجلب الصور — «خطة تفعيل البحث المجاني»)' : 'لم يجد البحث صفحته الآن') + '، فهذه من معرفة الذكاء الاصطناعي (ثقة منخفضة). راجعها، أو «🔁 أعد البحث» برابط صفحته على علي بابا.</div>' : '';
     var imgs = (r.images || []).map(function (u) {
       var th = (r.thumbs && r.thumbs[u]) || u;
       return '<div data-img-tile style="border:1px solid #e2e8f0;border-radius:12px;padding:6px;background:#fff;width:108px;position:relative">' +
@@ -247,7 +251,7 @@
         (imgs ? '<div style="font-size:11.5px;color:#526077;margin-bottom:6px">' + (r.images || []).length + ' صورة — علّم ما تريده (٥–٦) ثمّ «أضف المحدَّد للمتجر»، أو «رئيسية للجرد» لواحدة</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;max-height:420px;overflow:auto">' + imgs + '</div>' +
           (S.storeAddImages ? '<button type="button" data-img-store-picked style="' + btn('#047857', '#fff') + ';margin-top:8px;font-size:12.5px;padding:8px 12px">+ أضف المحدَّد للمتجر (<span data-img-n>0</span>)</button>' : '')
-          : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.search_note === 'no_keys' ? ' (وسيط البحث بلا مفتاح بعد — أضف مفتاح Brave في أسرار Supabase)' : r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
+          : '<div style="font-size:12px;color:#526077">لم يجد العقل صوراً مرشّحة' + (r.search_note === 'no_keys' ? ' (وسيط البحث بلا مفتاح بعد — أضف مفتاح Tavily المجاني في أسرار Supabase: «خطة تفعيل البحث المجاني»)' : r.from_memory ? ' (البحث في الويب غير متاح)' : '') + ' — ارفع صورة أو الصق رابطها:</div>') +
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><label style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:7px 10px">📷 من جهازك<input type="file" accept="image/*" data-img-file hidden></label>' +
         '<input data-img-url dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:10px;padding:7px;font:inherit;font-size:12px">' +
         '<button type="button" data-img-url-main style="' + btn('#0f1219', '#fff') + ';font-size:12px;padding:7px 10px">رئيسية</button>' +
