@@ -37,11 +37,15 @@
     if (typeof v === 'object') return Object.keys(v).map(function (k) { return v[k]; }).filter(function (x) { return x != null && x !== ''; }).join(' · ');
     return String(v).trim();
   }
+  /* (TASK-0206 · المالك seq 135 «لا يكتبلي تقريبي — هي الكلمة محظورة وبتفقد الثقة») بندٌ قيمته تقديرٌ أو «لا معلومة» لا يُعرض ولا ينتقل
+     للمتجر — ولو كان محفوظاً من قبل (يبقى في القاعدة حتى يقرّر المالك حذفه) */
+  var UNSURE = /تقريب|approx|typical|نموذجي|غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
+  function sure(r) { return r && !UNSURE.test(String(r.value || '')) && !UNSURE.test(String(r.label || '')); }
   function rows(sp) {
     sp = asObj(sp);
     return Object.keys(sp).filter(function (k) { return k.indexOf('__') !== 0; })
       .map(function (k) { return { label: LABEL[k] || k, value: val(sp[k]) }; })
-      .filter(function (r) { return r.value !== ''; });
+      .filter(function (r) { return r.value !== '' && sure(r); });
   }
   function meta(sp) { sp = asObj(sp); return { desc: val(sp.__desc), brand: val(sp.__brand), model: val(sp.__model) }; }
   function forStore(sp) {
@@ -53,7 +57,7 @@
   /* جدولٌ بسيط بخطوطٍ فاتحة — يرث خطّ الصفحة ولونها ويصلح للهاتف (يلتفّ النصّ ولا يتجاوز العرض) */
   function tableHTML(sp, opts) {
     opts = opts || {};
-    var list = Array.isArray(sp) ? sp : forStore(sp);
+    var list = (Array.isArray(sp) ? sp : forStore(sp)).filter(sure);
     var compat = String(opts.compat || '').trim();
     if (!list.length && !compat) return '';
     var html = '<table class="gmt-specs" style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">' +
@@ -122,5 +126,5 @@
     }
     throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore };
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure };
 })(typeof window !== 'undefined' ? window : this);

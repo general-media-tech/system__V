@@ -298,7 +298,7 @@
      البطارية · اللون · الأبعاد والوزن «(تقريبي)» · ما في العلبة. الوسيط يقصّ الملاحظة عند ٣٠٠ حرف ⇒ الطلب داخلها دائماً. */
   /* (TASK-0175 · المالك seq 93 «ولا يذكر كل المواصفات: القوّة الواطيّة والألوان والتغطية والجهد، بطارية أو كهرباء، والتصنيع، والسوفتات»)
      الأبواب كلّها هنا باختصار (الملاحظة ≤ ٣٠٠ حرف في الوسيط) — والإكمال المفصّل في completeProduct أدناه */
-  var SPEC_ASK = 'specs: واط · مصدر الطاقة بطارية/كهرباء · الجهد · البطارية · الألوان · التغطية · الأبعاد والوزن · المادّة والمنشأ · المنافذ · البرمجيات · ما في العلبة؛ وغير المؤكَّد قيمته النموذجية «(تقريبي)»';
+  var SPEC_ASK = 'specs: واط · مصدر الطاقة بطارية/كهرباء · الجهد · البطارية · الألوان · التغطية · الأبعاد والوزن · المادّة والمنشأ · المنافذ · البرمجيات · ما في العلبة؛ اليقينيّ فقط — لا «تقريبي» ولا «غير متوفر»';
   /* (TASK-0196 · المالك seq 133 «منتجات ما فيها كهرباء مثل العدسات او الهولدرات عم يحط الجهد الكهربائي … ابدا ابدا») كان الطلب يسأل عن
      الواط والجهد والبطارية لكلّ منتج ⇒ النموذج يكتب «الجهد» للعدسة. الآن: منتجٌ نوعه بلا كهرباء (عدسة · هولدر/حامل · فلتر · غطاء · هود ·
      ترايبود · حقيبة · بليت · كيج · سوفت بوكس · مظلّة · عاكس · محوّل حربة …) ولا كلمة كهرباء فيه (بطارية · LED · فلاش · كاميرا · مايك ·
@@ -316,10 +316,14 @@
   }
   var ELEC_KEY = /جهد|فولت|volt|واط|watt|قدر[ةه](?! ?(ال)?تحم)|\bpower\b|طاق[ةه]|energy|\bwh\b|بطاري|battery|mah|شحن|charg|تيار|current|أمبير|\bamp|كهرب|electric|استهلاك|consumption|\b(ac|dc)\b|input|مدخل|مدة التشغيل|مدّة التشغيل|run ?time/i;
   var ELEC_VAL = /\b\d+(\.\d+)?\s?(v|w|mah|wh|a)\b|فولت|واط|ملي ?أمبير|بطاري|battery|\b(ac|dc)\s?\d/i;
+  /* (TASK-0206 · المالك seq 135 «العقل لما يعبي مواصفات لا يكتبلي تقريبي — هي الكلمة محظورة وبتفقد الثقة») بندٌ قيمته تقديرٌ
+     («تقريبي» · «نموذجي» · approx) أو «لا معلومة» («غير متوفر/متاح/محدد/مطبّق» · N/A) لا يصل أبداً — مهما كتب النموذج */
+  var UNSURE_RE = /تقريب|approx|typical|نموذجي|غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
+  function dropUnsure(specs) { return (specs || []).filter(function (s) { return !(UNSURE_RE.test(String(s && s.v || '')) || UNSURE_RE.test(String(s && s.k || ''))); }); }
   function dropElectric(specs) {
     return (specs || []).filter(function (s) { var k = String(s && s.k || ''); if (/تحم|حمول|load|payload/i.test(k)) return true; return !(ELEC_KEY.test(k) || ELEC_VAL.test(String(s && s.v || ''))); });
   }
-  var SPEC_ASK_NOELEC = 'specs: منتجٌ بلا كهرباء ⇐ لا واط ولا جهد ولا بطارية ولا مصدر طاقة ولا شحن. اذكر: المادّة · الأبعاد والوزن · القطر/المقاس · الحمولة · التوافق والتركيب · المنشأ · ما في العلبة؛ وغير المؤكَّد «(تقريبي)»';
+  var SPEC_ASK_NOELEC = 'specs: منتجٌ بلا كهرباء ⇐ لا واط ولا جهد ولا بطارية ولا مصدر طاقة ولا شحن. اذكر: المادّة · الأبعاد والوزن · القطر/المقاس · الحمولة · التوافق والتركيب · المنشأ · ما في العلبة؛ اليقينيّ فقط — لا «تقريبي»';
   function composeHint(h, noElec) {
     h = String(h || '').replace(/\s+/g, ' ').trim();
     var ask = noElec ? SPEC_ASK_NOELEC : SPEC_ASK, room = 300 - ask.length - 3;
@@ -343,7 +347,7 @@
     'درجة اللون/الألوان المتوفّرة · CRI · السطوع · الدقّة والمستشعر للكاميرات · الاستجابة والنمط للميكروفونات · التغطية (زاوية الإضاءة أو الرؤية · مدى البثّ) · الأبعاد · الوزن · الحمولة · ' +
     'المادّة · بلد المنشأ · التبريد/الضجيج · المنافذ والتوصيل · الحربة/التثبيت · البرمجيات (تطبيق الهاتف · تحديث البرنامج الثابت · التحكّم اللاسلكي) · ما في العلبة · الكفالة. ' +
     'منتجٌ لا يعمل بالكهرباء (عدسة · هولدر/حامل · فلتر · غطاء · هود · ترايبود · حقيبة · بليت · كيج · سوفت بوكس · مظلّة · عاكس · محوّل حربة) ⇐ لا تكتب له أبداً واطاً ولا جهداً ولا بطارية ولا شحناً ولا مصدر طاقة. ' +
-    'مفتاحٌ عربيّ قصير وقيمةٌ بأرقامها ووحداتها. ما لا تعرفه يقيناً لهذا الموديل اكتب قيمته النموذجية وبعدها «(تقريبي)». لا تخترع موديلاً ولا ماركة. حتى ١٤ بنداً.\n' +
+    'مفتاحٌ عربيّ قصير وقيمةٌ بأرقامها ووحداتها. ما لا تعرفه يقيناً لهذا الموديل لا تكتبه أبداً — لا قيمة نموذجية ولا تخمين ولا «غير متوفر»، وكلمة «تقريبي» ممنوعة. لا تخترع موديلاً ولا ماركة. حتى ١٤ بنداً.\n' +
     '• aliases_ar: ٣–٨ أسماء بحث أخرى بالعربي يكتبها زبونٌ أو موظّف (الاسم الشائع في السوق · تعريب الماركة والموديل صوتياً · اسم النوع العامّ · أخطاء إملائية شائعة).\n' +
     '• aliases_en: ٣–٨ أسماء بحث أخرى بالإنجليزي (الاسم التجاري · صيغ الموديل المختلفة · اسم النوع العامّ · اختصارات). لا تكرّر الاسم الأساسي حرفياً.';
   function skey(k) { return String(k || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/^ال/, '').replace(/[\s·:()\/\-]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase(); }
@@ -513,6 +517,7 @@
     var added = 0;
     if (!o || o.complete !== false) { try { added = mergeComplete(p, await completeProduct(p, o && o.hint, noElec)); } catch (_) { added = 0; } }
     if (noElec) { var n0 = p.specs.length; p.specs = dropElectric(p.specs); dropped = n0 - p.specs.length; }
+    var nu0 = p.specs.length; p.specs = dropUnsure(p.specs); var droppedUnsure = nu0 - p.specs.length;
     var compatAdded = 0, cw = null, kbAdded = 0;
     if ((!o || o.complete !== false) && isAccessory(p, o && o.hint, o && o.group)) {
       try { cw = await compatProduct(p, o && o.hint, o); compatAdded = mergeCompat(p, cw); } catch (_) { compatAdded = 0; }
@@ -523,7 +528,7 @@
     }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
     try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded,
-      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded, no_electric: noElec, dropped_electric: dropped }, enumerable: false }); } catch (_) {}
+      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded, no_electric: noElec, dropped_electric: dropped, dropped_unsure: droppedUnsure }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -1009,7 +1014,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
     ask: ask,
     configure: configure,

@@ -57,7 +57,9 @@
     ctx = ctx || {};
     if (!p) return null;
     css(); var old = doc.getElementById('gmt-pe'); if (old) old.remove();
-    var sp0 = asObj(p.specs), rows0 = Object.keys(sp0).filter(function (k) { return k.indexOf('__') !== 0; }).map(function (k) { return { k: k, v: typeof sp0[k] === 'string' ? sp0[k] : (global.GMTSpecs ? (GMTSpecs.rows({ x: sp0[k] })[0] || {}).value || '' : String(sp0[k])) }; });
+    var sp0 = asObj(p.specs), rows0 = Object.keys(sp0).filter(function (k) { return k.indexOf('__') !== 0; }).map(function (k) { return { k: k, v: typeof sp0[k] === 'string' ? sp0[k] : (global.GMTSpecs ? (GMTSpecs.rows({ x: sp0[k] })[0] || {}).value || '' : String(sp0[k])) }; })
+      /* (TASK-0206) البنود التقديريّة («تقريبي» · «غير متوفر») لا تُعرض — فالحفظ من هنا يُسقطها */
+      .filter(function (r) { return r.v && (!global.GMTSpecs || !GMTSpecs.sure || GMTSpecs.sure({ label: r.k, value: r.v })); });
     var root = doc.createElement('div'); root.id = 'gmt-pe'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('data-keep-fab', '1');
     var dl = function (id, list) { return '<datalist id="' + id + '">' + (list || []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; };
     root.innerHTML =

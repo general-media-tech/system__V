@@ -188,10 +188,13 @@
   }
   function kNorm(k) { return String(k || '').replace(/[\u064B-\u065F\u0640]/g, '').replace(/^ال/, '').replace(/[\s·:()\/\-]+/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').toLowerCase(); }
   /* مواصفات الجرد الموجودة أوّلاً (بمفاتيحها) ثمّ ما جاء به العقل ولم يكن موجوداً */
+  /* (TASK-0206 · المالك seq 135 «تقريبي … الكلمة محظورة») بندٌ تقديريّ أو «غير متوفر» لا يظهر في المراجعة ولا يُحفظ — ولو كان في الجرد من قبل */
+  var UNSURE = /تقريب|approx|typical|نموذجي|غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
+  function sure(k, v) { return !UNSURE.test(String(v || '')) && !UNSURE.test(String(k || '')); }
   function specRows(p, r) {
     var base = asObj(p.specs), have = {}, out = [];
-    Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) return; var v = sval(base[k]); if (!v) return; have[kNorm(k)] = 1; out.push({ k: k, v: v, orig: k }); });
-    ((r && r.specs) || []).forEach(function (x) { if (!x || !x.k || !x.v) return; var n = kNorm(x.k); if (have[n]) return; have[n] = 1; out.push({ k: x.k, v: x.v }); });
+    Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) return; var v = sval(base[k]); if (!v || !sure(k, v)) return; have[kNorm(k)] = 1; out.push({ k: k, v: v, orig: k }); });
+    ((r && r.specs) || []).forEach(function (x) { if (!x || !x.k || !x.v || !sure(x.k, x.v)) return; var n = kNorm(x.k); if (have[n]) return; have[n] = 1; out.push({ k: x.k, v: x.v }); });
     return out;
   }
   function rowHTML(s, i) {
@@ -306,7 +309,7 @@
   function readCard() {
     var box = S.ov.querySelector('[data-q-card]'), v = function (k) { var el = box.querySelector('[data-f="' + k + '"]'); return el ? el.value.trim() : ''; };
     var rows = [].map.call(box.querySelectorAll('[data-spec-row]'), function (row) { return { k: row.querySelector('[data-k]').value.trim(), v: row.querySelector('[data-v]').value.trim(), orig: row.getAttribute('data-orig') || '' }; })
-      .filter(function (s) { return s.k && s.v; });
+      .filter(function (s) { return s.k && s.v && sure(s.k, s.v); });
     var it = curItem(), sl = box.querySelector('[data-store-box] [data-store-line]') || (it && it.store && it.store.loaded && it.store.info) ? [].map.call(box.querySelectorAll('[data-store-box] [data-store-line] [data-t]'), function (x) { return x.textContent.trim(); }).join('\n') : null;
     return { name_en: v('name_en'), brand: v('brand'), model: v('model'), alt: v('alt'), desc: v('desc'), compat: v('compat'), rows: rows, storeDesc: sl };
   }
