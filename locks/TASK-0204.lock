@@ -1,0 +1,7 @@
+task: TASK-0204
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: admin_pos.html gmt-ledger.js home.html gmt-brain.js sw.js gmt-whatsnew.js
+claimed_at: 2026-10-27T12:24:14Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0204
