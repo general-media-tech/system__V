@@ -2296,6 +2296,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-enrich.js?v=20261027c"></script>
 <script src="gmt-specs.js?v=20261027d"></script>
 <script src="gmt-gallery.js?v=20261027d" defer></script>
+<script src="gmt-product-edit.js?v=20261027f" defer></script>
 <script src="gmt-enrich-queue.js?v=20261027a"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -3534,6 +3535,9 @@ window.pm2Sync=pm2Sync;
     <div class="modal-body" id="detail-modal-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('detail-modal')">إغلاق</button>
+      <button class="btn btn-ghost" id="detail-full-btn" data-admin="تعديل كل بيانات المنتج" title="الجرد · الأسعار · جدول المواصفات · المتجر (الاسم · الأقسام · الصور) في صفحةٍ واحدة">
+        🧩 تعديل كل شيء
+      </button>
       <button class="btn btn-primary" id="detail-edit-btn" data-admin="تعديل منتج">
         ✏️ تعديل
       </button>
@@ -7073,6 +7077,7 @@ function openDetailModal(id) {
     closeModal('detail-modal');
     openProductModal(id);
   };
+  { const fb = document.getElementById('detail-full-btn'); if (fb) fb.onclick = () => { closeModal('detail-modal'); invOpenFullEdit(id); }; }
 
   const total = getTotal(p);
   const branchCols = columns.filter(c => c.includeInTotal);
@@ -8074,6 +8079,29 @@ function previewUrlImage(url) {
 // ============================================
 // LIGHTBOX
 // ============================================
+/* (TASK-0201 · المالك seq 133 «صفحه تعديل بيانات المنتج … بعدل فيه كل شيء … حتى الاسعار» · «هذه الصلاحيات يجب ان تكون فقط في الادمن»)
+   صفحة التعديل الشامل (gmt-product-edit.js) — للأدمن وحده. الجرد يُكتب عبر sbFetch نفسه (حارس «الجرد يتحدّث» · أعمدة SQL الناقصة) */
+async function invOpenFullEdit(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('تعديل كل بيانات المنتج'))) return;
+  if (!window.GMTProductEdit) { showToast('صفحة التعديل لم تُحمَّل بعد — أعد المحاولة', 'error'); return; }
+  const uniq = a => [...new Set(a.filter(Boolean).map(String))].sort((x, y) => x.localeCompare(y, 'ar'));
+  GMTProductEdit.open(p, {
+    groups: uniq(allProducts.map(x => x.group_name)), categories: uniq(allProducts.map(x => x.category)),
+    saveInv: async patch => {
+      let r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, patch);
+      if (r.error && /category|brand|alt_names|search_terms|PGRST204|schema cache/i.test(String(r.error))) {
+        const p2 = Object.assign({}, patch); ['category', 'brand', 'alt_names', 'search_terms'].forEach(k => delete p2[k]);
+        r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, p2);
+        if (!r.error) showToast('ℹ️ حُفظ — التصنيف والماركة والأسماء الأخرى تحتاج SQL ٢٤ و٢٧', 'warning');
+      }
+      if (!r.error) { Object.assign(p, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {}); }
+      return r;
+    },
+    onSaved: () => { try { renderAll(); } catch (_) {} }
+  });
+}
+window.invOpenFullEdit = invOpenFullEdit;
 /* (TASK-0197) عارض صور المنتج: صورة الجرد ثمّ صور منتج المتجر المربوط (gmt-gallery.js) — وإلّا المكبّر القديم بصورةٍ واحدة */
 function invOpenGallery(id) {
   const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
@@ -15290,7 +15318,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027e"></script>
+<script src="gmt-whatsnew.js?v=20261027f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
