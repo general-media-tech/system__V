@@ -163,7 +163,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-enrich.js?v=20261027c"></script>
-  <script src="gmt-specs.js?v=20261027c"></script>
+  <script src="gmt-specs.js?v=20261027d"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -1048,7 +1048,8 @@ function renderTab3(){
   }
 
   if(imgDiffs.length){
-    html += `<div style="font-size:14px;font-weight:800;margin:20px 0 12px;">🖼️ صور الجرد غير موجودة في المتجر (${imgDiffs.length})</div>`;
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:20px 0 12px;"><div style="font-size:14px;font-weight:800;">🖼️ صور الجرد غير موجودة في المتجر (${imgDiffs.length})</div>
+      <button class="btn btn-blue btn-sm" onclick="addAllImgsToStore()" id="img-all-btn">📸 أضفها كلّها للمتجر</button></div>`;
     html += imgDiffs.map(p=>{
       const sp = getStoreMatch(p);
       return `<div class="prod-card">
@@ -1314,7 +1315,9 @@ async function mlSave(){
       if (!fresh.some(sp => String(sp.id) === String(storeId))) throw new Error('منتج المتجر لم يعد موجوداً (حُذف من أدمن المتجر؟) — أعد تحميل الجسر');
       /* (TASK-0162) والربط يحمل جدول المواصفات من الجرد إن وُجد (لا يمحو جدولاً في المتجر بفراغ) */
       const _sp = window.GMTSpecs ? GMTSpecs.forStore(invP.specs) : [];
-      return fresh.map(sp => String(sp.id) === String(storeId) ? Object.assign({ ...sp, barcode: invP.barcode, price: finalPrice }, _sp.length ? { specs: _sp, compat: invP.compat || sp.compat || '' } : {}) : sp);
+      /* (TASK-0197) وصورة الجرد تنضمّ لصور منتج المتجر إن لم تكن فيها */
+      const _imgs = (sp) => { const a = Array.isArray(sp.images) ? sp.images.slice() : []; if (invP.image_url && a.indexOf(invP.image_url) === -1) a.push(invP.image_url); return a; };
+      return fresh.map(sp => String(sp.id) === String(storeId) ? Object.assign({ ...sp, barcode: invP.barcode, price: finalPrice, images: _imgs(sp) }, _sp.length ? { specs: _sp, compat: invP.compat || sp.compat || '' } : {}) : sp);
     });
 
     // 2. تحديث الجرد: السعر الموحّد + store_url (رابط مطلق)
@@ -1500,6 +1503,29 @@ async function addImgToStore(invId, storeId){
   hideLoading();
 }
 
+/* (TASK-0197 · المالك seq 133) كلّ صور الجرد الناقصة في المتجر بكتابةٍ واحدة (تُضاف لمجموعة صور كلّ منتج — لا تستبدل صورته الأولى) */
+async function addAllImgsToStore(){
+  const list = getImgDiffs().map(p => ({ inv: p, sp: getStoreMatch(p) })).filter(x => x.sp && x.inv.image_url);
+  if(!list.length) return;
+  showLoading('جارٍ إضافة ' + list.length + ' صورة للمتجر...');
+  try {
+    let n = 0;
+    await saveStoreProducts(fresh => {
+      n = 0;
+      const next = fresh.map(sp => {
+        const it = list.find(x => String(x.sp.id) === String(sp.id)); if(!it) return sp;
+        const imgs = [...(sp.images || [])]; if(imgs.includes(it.inv.image_url)) return sp;
+        imgs.push(it.inv.image_url); n++; return { ...sp, images: imgs };
+      });
+      return n ? next : null;
+    });
+    updateStats(); renderTab3();
+    toast('✅ أُضيفت ' + n + ' صورة لصور منتجاتها في المتجر');
+  } catch(e){ toast('❌ '+e.message); }
+  hideLoading();
+}
+window.addAllImgsToStore = addAllImgsToStore;
+
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
@@ -1516,7 +1542,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027c"></script>
+<script src="gmt-whatsnew.js?v=20261027d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -77,10 +77,15 @@
       prods.filter(function (x) { return x && x.inv_id != null && String(x.inv_id) === String(p.id); })[0] ||
       (bc && prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; }).length === 1 ? prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; })[0] : null) || null;
   }
+  /* (TASK-0197) صورة الجرد تنضمّ لصور منتج المتجر المربوط (إن لم تكن فيها) — «تصير بين مجموعة الصور» */
+  async function addImageToStore(p, url) {
+    url = String(url || (p && p.image_url) || '').trim(); if (!url) return null;
+    return pushToStore(p, { only: function (sp) { var imgs = Array.isArray(sp.images) ? sp.images.slice() : []; if (imgs.indexOf(url) !== -1 || sp.image === url) return 'same'; imgs.push(url); return { images: imgs }; } });
+  }
   async function pushToStore(p, o) {
     o = o || {}; var D = dbs(); if (!p || !D.store || !D.store.url) return null;
     /* المنتج كما في الجرد إن نقص (رابط المتجر · الباركود · المواصفات) */
-    if ((!p.store_url && !p.barcode) || (o.specs == null && p.specs == null)) {
+    if ((!p.store_url && !p.barcode) || (!o.only && o.specs == null && p.specs == null)) {
       try {
         var rq = await fetch(D.main.url + '/rest/v1/products?id=eq.' + encodeURIComponent(p.id) + '&select=id,store_url,barcode,specs,compat', { headers: hdr(D.main) });
         var row = rq.ok ? (await rq.json())[0] : null; if (row) p = Object.assign({}, row, p, { store_url: p.store_url || row.store_url, barcode: p.barcode || row.barcode, specs: p.specs != null ? p.specs : row.specs, compat: p.compat != null ? p.compat : row.compat });
@@ -93,6 +98,16 @@
       var rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
       var prods = Array.isArray(rec.products) ? rec.products : [], sp = findStore(prods, p);
       if (!sp) return null;
+      if (o.only) {                                   /* تعديلٌ محدَّد (صورة) بدل المواصفات */
+        var part = o.only(sp); if (part === 'same') return { id: sp.id, same: true }; if (!part) return null;
+        var nx = prods.map(function (x) { return x === sp ? Object.assign({}, x, part) : x; }), u2 = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', b2 = { products: nx };
+        if ('updated_at' in rec) { u2 += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; b2.updated_at = new Date().toISOString(); }
+        var w2 = await fetch(u2, { method: 'PATCH', headers: hdr(D.store, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(b2) });
+        if (!w2.ok) throw new Error('حفظ المتجر HTTP ' + w2.status);
+        var rr = await w2.json().catch(function () { return null; });
+        if (Array.isArray(rr) && rr.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, added: true }; }
+        continue;
+      }
       var mine = String(myDesc || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
       var keep = (o.storeDesc == null ? String(sp.description || '') : String(o.storeDesc)).split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
       var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mine.concat(keep).join('\n');
@@ -107,5 +122,5 @@
     }
     throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, _findStore: findStore };
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore };
 })(typeof window !== 'undefined' ? window : this);

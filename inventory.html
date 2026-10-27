@@ -2294,7 +2294,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261027c"></script>
+<script src="gmt-specs.js?v=20261027d"></script>
+<script src="gmt-gallery.js?v=20261027d" defer></script>
 <script src="gmt-enrich-queue.js?v=20261027a"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -4706,6 +4707,7 @@ function openMissingReport() {
     if (error) { showToast('❌ ' + error, 'error'); return; }
     const p = P.find(x => String(x.id) === String(id)); if (p) p.image_url = up.url;
     showToast('✅ رُفعت الصورة', 'success'); paint();
+    if (p) invImageToStore(p, up.url);
   });
 }
 window.openMissingReport = openMissingReport;
@@ -6856,6 +6858,8 @@ async function saveProduct() {
       if (idx >= 0) {
         allProducts[idx] = { ...allProducts[idx], ...product };
         if (window.GMTCache) GMTCache.bulkPut('inv_products', [allProducts[idx]]).catch(()=>{});
+        /* (TASK-0197) صورةٌ تغيّرت ⇒ تنضمّ لصور المتجر المربوط */
+        if (product.image_url && (!existingProduct || product.image_url !== existingProduct.image_url)) invImageToStore(allProducts[idx], product.image_url);
       }
     }
 
@@ -7075,10 +7079,10 @@ function openDetailModal(id) {
 
   let html = '';
 
-  // Big image
+  // Big image — (TASK-0197 · المالك seq 133 «في الجرد ممكن اكبس عليها … تعرض لي باقي الصور») النقر ⇒ كلّ صوره: الجرد + المتجر المربوط
   if (p.image_url) {
-    html += `<div class="detail-img-wrap">
-      <img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${p.image_url}" alt="${escHtml(p.name)}" onclick="openLightbox('${p.image_url}')">
+    html += `<div class="detail-img-wrap" data-gal-wrap>
+      <img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${p.image_url}" alt="${escHtml(p.name)}" onclick="invOpenGallery('${escHtml(String(p.id))}')" style="cursor:zoom-in">
     </div>`;
   }
 
@@ -7210,6 +7214,7 @@ function openDetailModal(id) {
   <button onclick="closeModal('detail-modal');invGuardedDelete('${escHtml(String(p.id))}')" title="${invDimTitle('حذف المنتج')}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;background:#fff5f5;color:#dc2626;border:1.5px solid #fecaca;border-radius:12px;padding:11px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;${invDimStyle()}">🗑 حذف هذا المنتج</button>`;
 
   document.getElementById('detail-modal-body').innerHTML = html;
+  { const gw = document.querySelector('#detail-modal-body [data-gal-wrap]'); if (gw && window.GMTGallery) GMTGallery.badge(gw, p); }   // (TASK-0197) «🖼️ N صور»
   document.getElementById('detail-modal').style.display = 'flex';
 }
 
@@ -8069,6 +8074,19 @@ function previewUrlImage(url) {
 // ============================================
 // LIGHTBOX
 // ============================================
+/* (TASK-0197) عارض صور المنتج: صورة الجرد ثمّ صور منتج المتجر المربوط (gmt-gallery.js) — وإلّا المكبّر القديم بصورةٍ واحدة */
+function invOpenGallery(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  if (window.GMTGallery) GMTGallery.openFor(p, p.name); else openLightbox(p.image_url);
+}
+window.invOpenGallery = invOpenGallery;
+/* (TASK-0197 · «اذا كان صورتها في الجرد غير في المتجر فتنتقل للصورة اللي في الجرد للمتجر … تصير بين مجموعة الصور») صورةٌ جديدة لمنتجٍ مربوط ⇒ تُضاف لصور منتجه في المتجر */
+async function invImageToStore(p, url) {
+  if (!p || !url || !window.GMTSpecs || !GMTSpecs.addImageToStore) return;
+  try { const r = await GMTSpecs.addImageToStore(p, url); if (r && r.added) showToast('🖼️ وأُضيفت الصورة لصور المنتج في المتجر', 'success'); }
+  catch (e) { showToast('⚠️ الصورة في الجرد — وتعذّر إضافتها للمتجر: ' + (e && e.message || e), 'warning'); }
+}
+window.invImageToStore = invImageToStore;
 function openLightbox(url) {
   if (!url) return;
   document.getElementById('lightbox-img').src = url;
@@ -9078,7 +9096,7 @@ async function saveBulkImages() {
 
       // Update local state
       const prod = allProducts.find(p => String(p.id) === String(productId));
-      if (prod) prod.image_url = publicUrl;
+      if (prod) { prod.image_url = publicUrl; invImageToStore(prod, publicUrl); }
 
       statusEl.textContent = '✅';
       saved++;
@@ -15272,7 +15290,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027c"></script>
+<script src="gmt-whatsnew.js?v=20261027d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

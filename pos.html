@@ -1221,6 +1221,7 @@ window.GMT_FEATURES = [
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
+  <script src="gmt-gallery.js?v=20261027d" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
   <script src="gmt-stock.js?v=20261025e" defer></script>
@@ -8523,9 +8524,16 @@ ${escH(offerShortageNote)}
 // ══════════════════════════════════════════════
 // PRODUCT DETAIL OVERLAY
 // ══════════════════════════════════════════════
+/* (TASK-0197 · المالك seq 133 «او في نقطه البيع تعرض لي باقي الصور يعني عرض في المتجر») النقر على صورة المنتج في تفاصيله ⇒ كلّ صوره */
+function posOpenGallery(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p || !window.GMTGallery) return;
+  GMTGallery.openFor(Object.assign({}, p, { image_url: imgSrc(p) || p.image_url }), p.name);
+}
+window.posOpenGallery = posOpenGallery;
 function openProductDetail(id) {
   const p = allProducts.find(x => x.id === id || String(x.id) === String(id));
   if (!p) return;
+  setTimeout(() => { const gw = document.querySelector('#pd-content [data-gal-wrap]'); if (gw && window.GMTGallery) GMTGallery.badge(gw, Object.assign({}, p, { image_url: imgSrc(p) || p.image_url })); }, 0);   // (TASK-0197) «🖼️ N صور»
   const qty       = Number(p[branch.key]) || 0;
   const totalQty  = getTotalStock(p);
   const transitQty= getTransitStock(p);
@@ -8542,9 +8550,9 @@ function openProductDetail(id) {
   const transitCls= transitQty === 0 ? 'empty' : 'low';
 
   document.getElementById('pd-content').innerHTML = `
-    <div class="pd-img-wrap">
+    <div class="pd-img-wrap" data-gal-wrap>
       ${imgSrc(p)
-        ? `<img src="${escH(imgSrc(p))}" onerror="this.outerHTML='<div class=pd-img-ph>📷</div>'">`
+        ? `<img src="${escH(imgSrc(p))}" onclick="posOpenGallery('${escH(String(p.id))}')" style="cursor:zoom-in" alt="${escH(p.name)}" onerror="this.outerHTML='<div class=pd-img-ph>📷</div>'">`
         : '<div class="pd-img-ph"><span class="ph-cam"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><small>مكان الصورة</small></span></div>'}
       <button class="pd-close-btn" onclick="closeProductDetail()">✕</button>
     </div>
@@ -10539,7 +10547,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027c"></script>
+<script src="gmt-whatsnew.js?v=20261027d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
