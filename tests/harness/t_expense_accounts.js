@@ -70,6 +70,28 @@ const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0
     await pg.evaluate(() => { GMTAsk.prompt = async () => 'بيعت'; const id = allAssets.find(x => x.name === 'طابعة ملصقات').id; return voidAsset(id); }); await pg.waitForTimeout(600);
     const db2 = await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET'); const vd = db2.find(x => x.name === 'طابعة ملصقات');
     ok(db2.length === 7 && vd.voided === true && vd.void_reason === 'بيعت' && await pg.evaluate(() => document.querySelector('[data-assets-total]').textContent) === '7,850$', W + ': الإبطال لا يحذف (يبقى بسببه) ويُخفى من السجلّ');
+    // ⑦ (TASK-0210 · seq 139 «الاصول لازم تتسجل من نافذه المصاريف») مصروفٌ رأسماليّ ⇒ أصلٌ في السجلّ · إبطاله ⇒ يُبطَل أصله · فرعٌ بانتظار الموافقة ⇒ عند الاعتماد
+    await pg.evaluate(() => openAddExpenseModal(true));
+    await pg.fill('#exp-title', 'لابتوب للمحاسبة'); await pg.fill('#exp-amount', '700'); await pg.selectOption('#exp-currency', 'usd');
+    await pg.selectOption('#exp-kind', { index: 1 });
+    const hint = await pg.evaluate(() => getComputedStyle(document.getElementById('exp-kind-hint')).display !== 'none');
+    await pg.evaluate(() => document.querySelector('#modal-body button[onclick^="saveExpense"]').click()); await pg.waitForTimeout(1200);
+    let as = (await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET')).filter(x => /لابتوب للمحاسبة/.test(x.name));
+    ok(hint && as.length === 1 && Number(as[0].value) === 700 && as[0].acquired_at === ymd(new Date()) && /\[EXP:/.test(as[0].note), W + ': مصروف «رأسمالي» ⇒ أصلٌ في السجلّ بسببه وقيمته وتاريخه (والتنبيه تحت النوع): ' + JSON.stringify(as.map(x => [x.name, x.value, x.acquired_at])));
+    await pg.evaluate(() => switchTab('assets')); await pg.waitForTimeout(500);
+    const t8 = await pg.evaluate(() => ({ tot: document.querySelector('[data-assets-total]').textContent, txt: document.getElementById('app-content').innerText }));
+    ok(t8.tot === '8,550$' && /لابتوب للمحاسبة/.test(t8.txt) && /من المصاريف/.test(t8.txt) && !/\[EXP:/.test(t8.txt), W + ': تبويب الأصول: الإجمالي 8,550$ والبند «من المصاريف» (بلا الوسم الداخليّ)');
+    const eid = (await H.call('/rest/v1/gmt_expenses?select=*', undefined, 'GET')).find(r => r.title === 'لابتوب للمحاسبة').id;
+    await pg.evaluate(id => { GMTAsk.prompt = async () => 'خطأ إدخال'; return deleteExpense(id); }, eid); await pg.waitForTimeout(900);
+    as = (await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET')).filter(x => /لابتوب للمحاسبة/.test(x.name));
+    ok(as.length === 1 && as[0].voided === true && /أُبطل مصروفه/.test(as[0].void_reason || ''), W + ': إبطال المصروف ⇒ أُبطل أصله (لا حذف): ' + JSON.stringify(as.map(x => [x.voided, x.void_reason])));
+    const [pe] = await H.call('/rest/v1/gmt_expenses', [{ branch_key: 'daraa', title: 'رفوف المعرض', amount: 300, currency: 'usd', approved: false, is_general: false, kind: 'رأسمالي (سيارة · لابتوب · رفوف…)', created_at: new Date().toISOString(), requested_by: 'سامر' }]);
+    await pg.evaluate(async () => { await loadExpenses(); });
+    ok(!(await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET')).some(x => /رفوف المعرض/.test(x.name)), W + ': مصروف فرعٍ رأسماليّ بانتظار الموافقة ⇒ ليس في الأصول بعد');
+    await pg.evaluate(id => { GMTAsk.choose = async () => 'admin'; return approveExpense(id); }, pe.id); await pg.waitForTimeout(1000);
+    ok((await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET')).filter(x => /رفوف المعرض/.test(x.name) && Number(x.value) === 300 && /درعا/.test(x.note || '')).length === 1, W + ': عند اعتماده ⇒ في الأصول (مع اسم الفرع)');
+    await pg.evaluate(id => approveExpense(id), pe.id); await pg.waitForTimeout(500);
+    ok((await H.call('/rest/v1/gmt_assets?select=*', undefined, 'GET')).filter(x => /رفوف المعرض/.test(x.name)).length === 1, W + ': لا يتكرّر الأصل');
     const hs = await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
     ok(!hs, W + ': لا طفح أفقي');
     if (W === 390) await pg.screenshot({ path: '/tmp/gmt-out/assets_390.png' });

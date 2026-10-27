@@ -517,7 +517,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-ledger.js?v=20261028a"></script>
+  <script src="gmt-ledger.js?v=20261028b"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -993,9 +993,40 @@ function switchTab(tab) {
 // (البنود المسجّلة مُلكٌ قائم لا نقدٌ خرج اليوم). الحذف إبطالٌ بسببٍ يبقى للتدقيق.
 // ══════════════════════════════════════════
 let allAssets = null, _assetsErr = '';
+/* (TASK-0210 · المالك seq 139 «الاصول لازم تتسجل من نافذه المصاريف») مصروفٌ رأسماليّ (سيارة · لابتوب · رفوف…) معتمد ⇒ أصلٌ في السجلّ:
+   الاسم = سببه · القيمة بالدولار حسب سعر صرفه · التاريخ = تاريخه · الربط بوسمٍ في الملاحظة [EXP:<id>] (مرّةً واحدة لكل مصروف).
+   إبطال المصروف ⇒ يُبطَل أصله. المصروف وحده يُنقص الصندوق؛ الأصل سجلُّ مُلكٍ لا نقدٌ ثانٍ. */
+const _expTag = id => '[EXP:' + id + ']';
+async function assetFromExpense(e) {
+  if (!e || !e.id || !e.approved || e.voided || !(window.GMTLedger && GMTLedger.isCapital && GMTLedger.isCapital(e)) || GMTLedger.poInfo(e)) return null;
+  const tag = _expTag(e.id);
+  try {
+    const ex = await sb('GET', '/rest/v1/gmt_assets?select=id&note=like.' + encodeURIComponent('*' + tag + '*'));
+    if (Array.isArray(ex) && ex.length) return null;
+    const b = e.branch_key ? branches.find(x => x.key_name === e.branch_key) : null;
+    const day = (window.GMTLedger && GMTLedger.localYMD) ? GMTLedger.localYMD(new Date(e.created_at || Date.now())) : String(e.created_at || '').slice(0, 10);
+    const row = { name: String(e.title || 'أصل').trim(), value: Math.round(Math.abs(GMTLedger.usd(e)) * 100) / 100, currency: 'usd', acquired_at: day || null,
+      note: 'من المصاريف' + (b ? ' · ' + (b.display_name || e.branch_key) : '') + ' ' + tag, created_by: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة' };
+    const r = await sb('POST', '/rest/v1/gmt_assets', row, { Prefer: 'return=representation' });
+    const rec = Array.isArray(r) ? r[0] : r;
+    if (rec && rec.id != null && Array.isArray(allAssets)) allAssets.push(rec);
+    return rec || null;
+  } catch (err) { showToast('⚠️ المصروف حُفظ لكن تعذّر تسجيله في الأصول: ' + (err.message || err), 'err'); return null; }
+}
+async function voidAssetOfExpense(e, why) {
+  if (!e || !e.id) return 0;
+  try {
+    const tag = _expTag(e.id);
+    const r = await sb('PATCH', '/rest/v1/gmt_assets?voided=not.is.true&note=like.' + encodeURIComponent('*' + tag + '*'),
+      { voided: true, voided_at: new Date().toISOString(), void_reason: 'أُبطل مصروفه' + (why ? ': ' + why : '') }, { Prefer: 'return=representation' });
+    const n = Array.isArray(r) ? r.length : 0;
+    if (n && Array.isArray(allAssets)) allAssets = allAssets.filter(a => String(a.note || '').indexOf(tag) < 0);
+    return n;
+  } catch (_) { return 0; }
+}
 async function loadAssets() {
   try {
-    const r = await sb('GET', '/rest/v1/gmt_assets?voided=is.false&order=id.asc&select=*');
+    const r = await sb('GET', '/rest/v1/gmt_assets?voided=not.is.true&order=id.asc&select=*');
     allAssets = Array.isArray(r) ? r : (Array.isArray(r?.data) ? r.data : []); _assetsErr = '';
   } catch (e) { allAssets = []; _assetsErr = String((e && e.message) || e); }
 }
@@ -1021,7 +1052,7 @@ async function renderAssets() {
       ${list.map((a, i) => `<div data-asset-row="${escH(a.id)}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;${i ? 'border-top:1px solid var(--border);' : ''}">
         <span style="width:26px;height:26px;border-radius:8px;background:#eef3fa;color:#1f348f;display:grid;place-items:center;font-size:12px;font-weight:900;flex-shrink:0;">${i + 1}</span>
         <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;overflow-wrap:anywhere;">${escH(a.name)}</div>
-          <div style="font-size:10.5px;font-weight:700;color:var(--text3);">${a.acquired_at ? 'تاريخ الشراء: ' + escH(a.acquired_at) : 'تاريخ الشراء غير مسجَّل'}${a.note ? ' · ' + escH(a.note) : ''}</div></div>
+          <div style="font-size:10.5px;font-weight:700;color:var(--text3);">${a.acquired_at ? 'تاريخ الشراء: ' + escH(a.acquired_at) : 'تاريخ الشراء غير مسجَّل'}${a.note && a.note.replace(/\s*\[EXP:[^\]]+\]/, '').trim() ? ' · ' + escH(a.note.replace(/\s*\[EXP:[^\]]+\]/, '').trim()) : ''}</div></div>
         <div style="font-size:15px;font-weight:900;color:#1f348f;white-space:nowrap;" dir="ltr">${fmt(a.value)}${a.currency === 'syp' ? ' ل.س' : '$'}</div>
         <button onclick="voidAsset('${escH(a.id)}')" title="إبطال" style="background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);border-radius:7px;padding:4px 8px;font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;">🗑</button>
       </div>`).join('')}</div>` : (_assetsErr ? '' : '<div class="empty-state"><div class="ico">📭</div><p>لا أصول مسجّلة</p></div>')}
@@ -4013,6 +4044,7 @@ async function approveAllPendingExpenses() {
       if (!r.length) continue;
       e.approved = true; e.approved_at = body.approved_at; if (body.note) e.note = body.note;
       if (e.branch_key && src === 'box') await deductExpenseFromBranchCashbox(e.branch_key, Number(e.amount), e.currency, e.exchange_rate, e.title);
+      await assetFromExpense(e);                                // (TASK-0210)
       ok++;
     } catch (_) {}
   }
@@ -4139,11 +4171,12 @@ function openAddExpenseModal(isGeneral) {
       <!-- (2026-10-05 س) البندان ٤٦ و٢٠٨: نوع المصروف — للفروع وللعامّ (ديون · شحن · فرز · جمارك · خسائر · عمولات…)
            (TASK-0204) «شخصي» خرج من هنا: المسحوبات الشخصية للمدير حسابٌ مستقلّ أعلاه -->
       <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">نوع المصروف</label>
-      <select id="exp-kind" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
+      <select id="exp-kind" onchange="document.getElementById('exp-kind-hint').style.display=/^رأسمالي/.test(this.value)?'':'none'" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
         <option>تشغيلي</option><option>رأسمالي (سيارة · لابتوب · رفوف…)</option><option>رواتب</option>
         <option>ترويج</option><option>تصوير</option><option>شحن</option><option>جمارك</option><option>فرز</option>
         <option>ديون</option><option>خسائر</option><option>عمولات</option>
       </select>
+      <div id="exp-kind-hint" style="display:none;font-size:10.5px;font-weight:800;color:#1f348f;margin-top:5px;">🏢 يُسجَّل أيضاً في «سجلّ الأصول» باسمه وقيمته وتاريخه (عند اعتماده) — ولا يُطرح من الربح.</div>
       </div>`}
 
 <div style="margin-bottom:16px;">
@@ -4223,13 +4256,14 @@ async function saveExpense(isGeneral) {
     }
     const rec = Array.isArray(res) ? res[0] : res;
     if (rec) allExpenses.unshift(rec);
+    const _asset = rec ? await assetFromExpense(rec) : null;   // (TASK-0210) رأسماليّ معتمد ⇒ سجلّ الأصول
 
     // إذا فرع ومُعتمد فوراً — ينقص من صندوق الفرع
     if (!isGeneral && branchKey && autoApprove) {
       await deductExpenseFromBranchCashbox(branchKey, amount, currency, exchangeRate, title);
     }
 
-    showToast(isDrawing ? '✅ سُجّلت في المسحوبات الشخصية للمدير' : '✅ تم حفظ المصروف', 'ok');
+    showToast(isDrawing ? '✅ سُجّلت في المسحوبات الشخصية للمدير' : _asset ? '✅ حُفظ المصروف وسُجّل في سجلّ الأصول' : '✅ تم حفظ المصروف', 'ok');
     closeModal();
     renderExpenses();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
@@ -4277,6 +4311,8 @@ async function approveExpense(id) {
     if (e.branch_key && _src === 'box') {
       await deductExpenseFromBranchCashbox(e.branch_key, Number(e.amount), e.currency, _rate || e.exchange_rate, e.title);
     }
+    const _asA = await assetFromExpense(e);                     // (TASK-0210)
+    if (_asA) showToast('🏢 سُجّل «' + (e.title || '') + '» في سجلّ الأصول', 'ok');
     showToast(_src === 'admin' ? '✅ تمت الموافقة — دفعتَها أنت، والصندوق لم يُمسّ' : '✅ تمت الموافقة — خُصمت من صندوق الفرع', 'ok');
     renderExpenses();
   } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
@@ -4325,7 +4361,8 @@ async function deleteExpense(id) {
         _reverted = ' · أُعيد ' + usdAmt.toFixed(2) + '$ لصندوق الفرع';
       } catch (e2) { _reverted = ' · ⚠️ تعذّر عكس خصم الصندوق: ' + ((e2 && e2.message) || e2); }
     }
-    showToast('✅ أُبطل المصروف (محفوظ للتدقيق)' + _reverted, _reverted.indexOf('⚠️') >= 0 ? 'err' : 'ok');
+    const _av = _e ? await voidAssetOfExpense(_e, reason.trim()) : 0;   // (TASK-0210) وأصله
+    showToast('✅ أُبطل المصروف (محفوظ للتدقيق)' + _reverted + (_av ? ' · وأُبطل أصله من السجلّ' : ''), _reverted.indexOf('⚠️') >= 0 ? 'err' : 'ok');
     renderExpenses();
   } catch(e) { showToast('خطأ: ' + e.message + ' — شغّل _SQL/1️⃣2️⃣ لتفعيل الإبطال', 'err'); }
 }
@@ -6937,10 +6974,10 @@ renderOffers = function(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028a"></script>
+<script src="gmt-brain.js?v=20261028b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028a"></script>
+<script src="gmt-whatsnew.js?v=20261028b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
