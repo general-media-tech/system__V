@@ -1,0 +1,124 @@
+diff --git a/gmt-docscan.js b/gmt-docscan.js
+index 180c39c..517df8d 100644
+--- a/gmt-docscan.js
++++ b/gmt-docscan.js
+@@ -464,10 +464,14 @@
+     /* ما يزيده big على small أغمق بوضوح (٣٥+) وأكثر لوناً (١٠+) من small نفسه ⇒ خلفيّة (قماش · مقعد) لا ورق */
+     function bgBand(bigQ, smallQ) { var ex = chromaIn(bigQ, smallQ), sm = ex && chromaIn(smallQ, null); return !!(ex && sm && ex.l < sm.l - 35 && ex.c > sm.c + 10); }
+     var inkChecks = 0;
+-    for (i = 1; b0 && i < tops.length && i < 300; i++) {
++    /* (TASK-0178 · إيصال مسارات المالك m1: مطويٌّ ونصفه الأعلى يخرج من أعلى الصورة) الرباعيّ الصحيح (إطار الصورة + الضلعان ممدودان)
++       درجته ٠٫٤٦ فترتيبه بعد المئات (١٥٦٩ مرشّحاً) — كانت الحلقة تقف عند أوّل ٣٠٠ بالترتيب فلا تراه أبداً، فبقي نصف الورقة تحت الطيّة.
++       الآن: الشروط الرخيصة (الحجم · الاحتواء) على المرشّحين كلّهم، والحدّ ٣٠٠ على ما يجتازها، وفحص الحبر الثقيل يبقى ٨ */
++    for (var seen2 = 0, i = 1; b0 && i < tops.length && seen2 < 300; i++) {
+       var t2 = tops[i], big = t2.area >= b0.area * 1.8, mcnb = 1;
+-      t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
+       if (t2.nb > 2 || t2.area < b0.area * 1.25 || t2.area <= best.area || !contains(t2, best)) continue;
++      seen2++;
++      t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
+       var near = t2.nb <= 1 && t2.score >= b0.score - (big ? 0.15 : 0.08) && mcnb >= (big ? 0.45 : 0.6);
+       /* (TASK-0125) أو: ما يزيده الأكبر فيه حبرُ الإيصال نفسه (≥٣٥٪ من كثافته داخل الأفضل) ⇒ الأفضل قطع الورقة عند طيّةٍ أو ظلٍّ
+          حادّ أو حول يد، أو الورقة تتجاوز إطار الصورة والإطار ضلعها الرابع — مهما كانت درجته (بحدٍّ أدنى صالح) */
+@@ -749,7 +753,7 @@
+       }
+       return { poly: poly, ci: ci };
+     }
+-    return { bgBand: bgBand, best: best, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
++    return { bgBand: bgBand, best: best, b0: b0, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+   }
+ 
+   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
+@@ -1061,7 +1065,10 @@
+              (!(old = D0()).ok || old.fill || (lq.paperIn(old.corners, b.q) < 0.5 && lq.paperIn(b.q, old.corners) >= 0.5))) { rf = lq.refine(b.q); how = 'lines'; }
+     /* (TASK-0125) اختير الأكبر لأنّ حبر الإيصال يمتدّ إليه ⇒ يُقدَّم على المنطقة التقريبيّة إن كانت داخله وأصغر منه بوضوح (≤٨٥٪)
+        وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
+-    else if (b && b.inky && b.score >= 0.45 && (!(old = D0()).ok || old.fill ||
++    /* (TASK-0178 · m1) وسّعه الحبرُ من رباعيٍّ قويّ (≥٠٫٧ — حدودٌ حقيقيّة واضحة لنصف الورقة) عبر طيّة، وما زاده ورقٌ في أغلبه (≥٦٠٪)
++       ⇒ نصف الورقة الآخر بعد الطيّة ⇒ لا تُستشار المنطقة. (ما زاده علبةٌ بيضاء عليها كتابة وخلفيّةٌ داكنة: ورقه ٣١٪ ⇒ المنطقة كما كانت.
++       في صور المالك: m1 ٧٠٪ · p06 ٧٩٪ · p08 ٨٨٪ · p13 ٣١٪) */
++    else if (b && b.inky && b.score >= 0.45 && ((lq.b0 && lq.b0 !== b && lq.b0.score >= 0.7 && lq.b0.minc >= 0.7 && lq.paperIn(b.q, lq.b0.q) >= 0.6) || !(old = D0()).ok || old.fill ||
+              (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
+     else if ((old = old || D0()).ok && !old.fill) { rf = lq.refine(old.corners); how = sane(old.corners) ? 'region' : 'odd'; }
+     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه
+diff --git a/gmt-receipt.js b/gmt-receipt.js
+index 74fa3dd..002b436 100644
+--- a/gmt-receipt.js
++++ b/gmt-receipt.js
+@@ -1450,6 +1450,16 @@
+     }).sort(function (a, b) { return b.v - a.v; });
+     out.candidates = sc.filter(function (z) { return z.v >= 0.5; }).slice(0, 3).map(function (z) { return z.x.c + '|' + z.x.o.name; });
+     var top = sc[0];
++    /* (TASK-0178 · إيصال مسارات m1 «المصدر : حلب - باب الفرج» قُرئ «حلب — باب») التطابق يُسقط «ال» فـ«باب» = «الباب» تماماً — والمقروء بلا «ال»
++       ومكتبٌ آخر في المدينة يبدأ بالكلمة نفسها حرفياً («باب الفرج») ⇒ غامض: ذاك أوّلاً في المرشّحين ولا ثقة (تختار) بدل «الباب» خطأً بصمت */
++    var w0 = (ofs.split(/\s+/)[0] || '');
++    if (top && top.v === 1 && !/^ال/.test(w0) && /^ال/.test(top.x.o.name || '')) {
++      var pre = pool.filter(function (x) { var nm = String(x.o.name || '').split(/\s+/); return x !== top.x && nm.length > 1 && skel(nm[0]) === skel(w0) && (!city || x.c === top.x.c); });
++      if (pre.length) {
++        out.candidates = pre.map(function (x) { return x.c + '|' + x.o.name; }).concat([top.x.c + '|' + top.x.o.name]).slice(0, 3);
++        out.city = top.x.c; return out;
++      }
++    }
+     if (top && top.v >= 0.75 && !(sc[1] && sc[1].v >= top.v - 0.02 && sc[1].x.o.name !== top.x.o.name)) {
+       out.key = top.x.c + '|' + top.x.o.name; out.confident = true; out.city = top.x.c; out.office = top.x.o.name; out.phone = top.x.o.phone || '';
+     } else out.city = city;
+@@ -1546,6 +1556,10 @@
+         if (cands[0] && cands[0].y < best.cv.height * 0.45) { printed = cands[0].n; pBox = cands[0].b; }
+       }
+       if (printed) out.printed = { number: printed };
++      /* (TASK-0178 · المالك seq 137 «لبين ما اكبس تمام واعتماد يكون هو قرا كل شيء») الرقم المطبوع يُعلَن لحظة قراءته — كان ينتظر نهاية
++         القراءة كلّها (المصدر · النسخة الممسوحة) فلا يظهر في سطر الماسح: إيصال مسارات m4 قُرئ رقمه عند ١١٫٥ث وظهر عند ٣٨ث */
++      /* co = شركة الإيصال كما عُرفت (القدموس على أوردر مسارات ⇒ لا يُملأ قبل سؤالك) */
++      if (printed && !bcSaid && opts.onTracking) { bcSaid = true; try { opts.onTracking({ status: 'printed', number: printed, co: C }); } catch (_) {} }
+       if (cancelled()) { out.cancelled = true; finish(); return out; }
+       /* ⑤ «المصدر»: من الصفحة · وإلّا من خانته مقصوصةً مكبَّرة */
+       var W = best.cv.width, Hh = best.cv.height, src = otherSource(linesOf(best.res), W, C);
+diff --git a/orders.html b/orders.html
+index 41b6858..05113f4 100644
+--- a/orders.html
++++ b/orders.html
+@@ -108,8 +108,8 @@ window.GMT_INTERNAL = 1;</script>
+   <script src="gmt-auth.js?v=20261024d"></script>
+ <script src="gmt-shipping-offices.js?v=20261025j"></script>
+ <script src="gmt-mufti-bank.js?v=20261019a"></script>
+-<script src="gmt-receipt.js?v=20261025v" defer></script>
+-<script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
++<script src="gmt-receipt.js?v=20261027j" defer></script>
++<script src="gmt-docscan.js?v=20261027j" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+ <script src="gmt-custcache.js?v=20261016a" defer></script>
+ <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
+ <script src="gmt-suggest.js?v=20261026g"></script>
+@@ -3795,7 +3795,7 @@ function shipReadHooks(isMine, typed, force) {
+         }
+         if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
+         st.className = 'text-[11px] font-black text-emerald-700 mb-3';
+-        st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (H.branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
++        st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — ' + (t.status === 'printed' ? 'مطبوعاً على الإيصال.' : 'من الباركود.') + (H.branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
+         shipNote();
+     };
+     H.onBranch = b => {
+@@ -3966,7 +3966,10 @@ async function shipReadTracking(force, pre) {
+             /* الشركة محفوظة/تلقائيّة والإيصال للمفتي — أو لم يثبت أنّه لها (لا علاماتها) ⇒ قارئ المفتي (ما لم تختر الشركة بيدك):
+                إيصال المفتي ⇒ نتيجته (فتصير الشركة المفتي) · غير ذلك ⇒ تبقى قراءة شركة الإيصال */
+             const kOk = r && r.type && ['qadmous', 'masarat'].indexOf(r.type.kind) !== -1;
+-            if (r && !kOk && !r.handoff && !shipCoByUser() && isMine()) {
++            /* (TASK-0178 · seq 137 · أسرع) رقمٌ بصيغة الشركة نفسها قُرئ (مسارات: ٧ أرقام تحت «فاتورة» · القدموس: 26xX123456 — المفتي ٦ أرقام)
++               ⇒ ليس إيصال المفتي ⇒ لا يُعاد بقارئ المفتي (كان ١٣ث إضافيّة على إيصال مسارات m4 بلا نتيجة) */
++            const fmtNum = !!(r && ((r.printed && r.printed.number) || (r.barcode && r.barcode.number)));
++            if (r && !kOk && !fmtNum && !r.handoff && !shipCoByUser() && isMine()) {
+                 const rm = await GMTReceipt.readMufti(myFile, { original: scanned ? orig : null, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
+                 if (rm && rm.type && rm.type.kind === 'mufti') r = rm;
+             }
+@@ -9687,11 +9690,11 @@ try {
+ <script src="gmt-pwa.js?v=20261010b"></script>
+ <script src="gmt-selfcheck.js?v=20261025y"></script>
+ <script src="gmt-guide-updates.js?v=20261003"></script>
+-<script src="gmt-brain.js?v=20261027i"></script>
++<script src="gmt-brain.js?v=20261027j"></script>
+ <script src="gmt-nofab.js?v=20261007z5"></script>
+ <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
+      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
+-<script src="gmt-whatsnew.js?v=20261027i"></script>
++<script src="gmt-whatsnew.js?v=20261027j"></script>
+ <script src="gmt-refresh.js?v=20261011a"></script>
+ <script src="gmt-intro.js?v=20261010b"></script>
+ <script src="gmt-fitrow.js?v=20261007z5"></script>
