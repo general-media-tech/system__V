@@ -93,7 +93,7 @@
     if (_logos) return _logos;
     var canonSrc = ['canonlogo.png'].concat(global.GMTCanonSources || []);
     var canon = canonSrc.reduce(function (p, s, i) { return p.then(function (im) { return im || loadImg(s, i > 0); }); }, Promise.resolve(null));
-    var gmt = loadImg('genrallogo.png').then(function (im) { return im || loadImg('logo.png'); }).then(trim);
+    var gmt = loadImg('genrallogo.png?v=20261027i').then(function (im) { return im || loadImg('logo.png'); }).then(trim);
     return (_logos = Promise.all([canon, gmt]).then(function (a) { return { canon: a[0], gmt: a[1] }; }));
   }
   function fonts() {
