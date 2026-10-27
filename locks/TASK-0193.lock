@@ -1,7 +1,9 @@
 task: TASK-0193
-session: session_01MWfC494J8Ayokvio9Ve6C9
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
 branch: claude/tender-tesla-1x135d
 files: handoffs/private/ docs/التسليم_الشامل.md TASK_REGISTRY.md handoffs/SESSION_LOG.md
-claimed_at: 2026-10-26T08:46:03Z
+claimed_at: 2026-10-27T06:45:21Z
 status: ACTIVE
 release: scripts/gov.sh release TASK-0193
+taken_over_from: session_01MWfC494J8Ayokvio9Ve6C9
+takeover_reason: الجلسة session_01MWfC494J8Ayokvio9Ve6C9 متوقّفة بأمر المالك seq 130 ولم تعد موجودة (get_session: not found) · لا التزام بعد الحجز منذ 26 ت1 08:46 · المالك وافق seq 133 «تمام اشتغل»
