@@ -1539,6 +1539,7 @@ function renderCatalogAdmin(){
             <strong style="color:#111;">${adminData.products.length}</strong> منتج ·
             <strong style="color:#111;">${sortedCats.length}</strong> قسم
         </div>
+        <button type="button" onclick="openMergeProducts()" data-merge-btn style="display:flex;align-items:center;gap:5px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:800;color:#9a3412;cursor:pointer;font-family:'Tajawal',sans-serif;margin-inline-start:auto">🔗 دمج منتجين مكرّرين</button>
         <button onclick="loadAllData()" style="display:flex;align-items:center;gap:5px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#374151;cursor:pointer;font-family:'Tajawal',sans-serif;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
             <i class="ph ph-arrows-clockwise"></i> تحديث
         </button>`;
@@ -3179,6 +3180,111 @@ function confirmDelete(type,id){
 }
 
 // ══════════════════════════════════════════════
+// (TASK-0198 · المالك seq 133) دمج منتجين مكرّرين
+// «اعطيني خيارات ايضا في ادمن متجر ممكن ادمج منتجين يعني منتج مكرر مرتين ولكن فيه اكثر من صوره واكثر منصف فاعمل له دمج»
+// الباقي (أ) يحتفظ برقمه (روابط الجرد والطلبات عليه) · الصور كلّها (أ ثمّ ما ليس فيه من ب، بلا تكرار، وتختار ما يبقى) ·
+// كلّ حقلٍ مختلف تختار قيمته (أ · ب · وللوصف «الاثنان») · الأقسام والمواصفات والتوافق تُجمع · ثمّ يُحذف (ب) ·
+// ومنتجات الجرد المربوطة بـ(ب) تُحوَّل روابطها إلى (أ).
+// ══════════════════════════════════════════════
+function _mgNorm(s){ return String(s||'').toLowerCase().replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[^\p{L}\p{N}]+/gu,''); }
+function _mgEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* أزواجٌ مرشَّحة: الاسم نفسه بعد التطبيع · أو الباركود نفسه */
+function mergeSuggestions(){
+    const P=adminData.products, out=[], seen=new Set();
+    const add=(a,b,why)=>{ const k=[String(a.id),String(b.id)].sort().join('|'); if(seen.has(k))return; seen.add(k); out.push({a,b,why}); };
+    const byName=new Map(), byBc=new Map();
+    P.forEach(p=>{ const n=_mgNorm(p.name); if(n){ if(byName.has(n)) add(byName.get(n),p,'الاسم نفسه'); else byName.set(n,p); }
+        const bc=String(p.barcode||'').trim(); if(bc){ if(byBc.has(bc)) add(byBc.get(bc),p,'الباركود نفسه'); else byBc.set(bc,p); } });
+    return out.slice(0,20);
+}
+const _MG_FIELDS=[['name','الاسم'],['short_name','الاسم المختصر'],['price','السعر'],['stock','المخزون'],['barcode','الباركود'],['inv_id','منتج الجرد'],['video_url','الفيديو'],['description','الوصف']];
+let _mg=null;
+function openMergeProducts(aId,bId){
+    let w=document.getElementById('merge-modal'); if(w) w.remove();
+    w=document.createElement('div'); w.id='merge-modal'; w.setAttribute('role','dialog'); w.setAttribute('aria-modal','true'); w.dir='rtl';
+    w.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:12px;font-family:Tajawal,Cairo,sans-serif';
+    const opts=adminData.products.slice().sort((x,y)=>String(x.name||'').localeCompare(String(y.name||''),'ar')).map(p=>`<option value="${_mgEsc(p.id)}">${_mgEsc(p.name||p.id)}${p.price!=null?' · $'+_mgEsc(p.price):''}</option>`).join('');
+    const sug=mergeSuggestions();
+    w.innerHTML=`<div style="background:#fff;border-radius:16px;width:100%;max-width:720px;max-height:100%;overflow:auto;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><b style="font-size:17px">🔗 دمج منتجين مكرّرين</b><button type="button" data-mg-x style="border:0;background:#f3f4f6;border-radius:10px;padding:6px 12px;font-weight:800;cursor:pointer">✕</button></div>
+      <p style="font-size:12px;color:#4b5563;line-height:1.7;margin:0 0 10px">يبقى المنتج <b>(أ)</b> برقمه (روابط الجرد والطلبات عليه)، وتنتقل إليه صور <b>(ب)</b> ومواصفاته وأقسامه، وتختار من كلّ حقلٍ مختلف القيمة التي تبقى — ثمّ يُحذف (ب).</p>
+      ${sug.length?`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:#9a3412;margin-bottom:6px">يبدو مكرّراً (${sug.length}):</div><div style="display:flex;flex-wrap:wrap;gap:6px">${sug.map(x=>`<button type="button" data-mg-pair="${_mgEsc(x.a.id)}|${_mgEsc(x.b.id)}" style="border:1px solid #fed7aa;background:#fff7ed;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">${_mgEsc(x.a.name)} ⇄ ${_mgEsc(x.b.name)} <span style="color:#9a3412">· ${x.why}</span></button>`).join('')}</div></div>`:''}
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:end;margin-bottom:10px">
+        <label style="font-size:12px;font-weight:800">(أ) يبقى<select data-mg-a style="width:100%;margin-top:4px;border:1px solid #e5e7eb;border-radius:10px;padding:8px;font:inherit;font-size:13px"><option value="">— اختر —</option>${opts}</select></label>
+        <button type="button" data-mg-swap title="بدّل" style="border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:900">⇄</button>
+        <label style="font-size:12px;font-weight:800">(ب) يُدمج ثمّ يُحذف<select data-mg-b style="width:100%;margin-top:4px;border:1px solid #e5e7eb;border-radius:10px;padding:8px;font:inherit;font-size:13px"><option value="">— اختر —</option>${opts}</select></label>
+      </div>
+      <div data-mg-body></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button type="button" data-mg-go disabled style="flex:1;border:0;background:#D5001C;color:#fff;border-radius:12px;padding:12px;font-weight:900;font-size:14px;cursor:pointer;opacity:.5">🔗 ادمج</button></div>
+      <p data-mg-msg role="status" style="font-size:12.5px;font-weight:700;margin:8px 0 0;min-height:18px"></p></div>`;
+    document.body.appendChild(w);
+    const $=q=>w.querySelector(q), A=$('[data-mg-a]'), B=$('[data-mg-b]');
+    const close=()=>{ w.remove(); document.removeEventListener('keydown',onKey,true); _mg=null; };
+    const onKey=e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } };
+    document.addEventListener('keydown',onKey,true);
+    w.addEventListener('click',e=>{ if(e.target===w||e.target.closest('[data-mg-x]')) close();
+        const pr=e.target.closest('[data-mg-pair]'); if(pr){ const [a,b]=pr.getAttribute('data-mg-pair').split('|'); A.value=a; B.value=b; mgPaint(); } });
+    $('[data-mg-swap]').onclick=()=>{ const t=A.value; A.value=B.value; B.value=t; mgPaint(); };
+    A.onchange=B.onchange=mgPaint;
+    $('[data-mg-go]').onclick=mgDo;
+    if(aId) A.value=aId; if(bId) B.value=bId; mgPaint();
+    function mgPaint(){
+        const a=adminData.products.find(p=>String(p.id)===A.value), b=adminData.products.find(p=>String(p.id)===B.value), body=$('[data-mg-body]'), go=$('[data-mg-go]');
+        $('[data-mg-msg]').textContent='';
+        if(!a||!b||a===b){ body.innerHTML=a&&b?'<p style="color:#b91c1c;font-size:12.5px;font-weight:700">اختر منتجين مختلفين.</p>':''; go.disabled=true; go.style.opacity=.5; _mg=null; return; }
+        const imgs=[...new Set([...(a.images||[]),...(b.images||[])].filter(Boolean))];
+        const rows=_MG_FIELDS.filter(([k])=>String(a[k]??'')!==String(b[k]??'')).map(([k,l])=>{
+            const va=a[k], vb=b[k], def=(va==null||va==='')?'b':'a', show=v=>v==null||v===''?'<i style="color:#9ca3af">فارغ</i>':_mgEsc(String(v)).slice(0,140);
+            return `<tr><th style="text-align:right;padding:6px;font-size:12px;white-space:nowrap">${l}</th>
+              <td style="padding:6px"><label style="display:flex;gap:6px;align-items:flex-start;font-size:12.5px"><input type="radio" style="width:16px;height:16px;flex:0 0 auto;margin-top:2px;padding:0" name="mg-${k}" value="a" ${def==='a'?'checked':''}> <span>${show(va)}</span></label></td>
+              <td style="padding:6px"><label style="display:flex;gap:6px;align-items:flex-start;font-size:12.5px"><input type="radio" style="width:16px;height:16px;flex:0 0 auto;margin-top:2px;padding:0" name="mg-${k}" value="b" ${def==='b'?'checked':''}> <span>${show(vb)}</span></label>
+              ${k==='description'?`<label style="display:flex;gap:6px;font-size:12.5px;margin-top:4px"><input type="radio" style="width:16px;height:16px;flex:0 0 auto;margin-top:2px;padding:0" name="mg-${k}" value="ab"> <span>الاثنان معاً</span></label>`:''}</td></tr>`; }).join('');
+        const cats=[...new Set([...(a.category_ids||[a.category_id]),...(b.category_ids||[b.category_id])].filter(Boolean))];
+        const spA=Array.isArray(a.specs)?a.specs:[], spB=Array.isArray(b.specs)?b.specs:[], spL=new Set(spA.map(x=>x&&x.label));
+        const specs=spA.concat(spB.filter(x=>x&&!spL.has(x.label)));
+        _mg={a,b,imgs,cats,specs};
+        body.innerHTML=`<div style="font-size:12px;font-weight:800;margin:6px 0">الصور (${imgs.length}) — أزل علامة ما لا تريده:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${imgs.map((u,i)=>`<label style="position:relative;width:76px;height:76px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#f9fafb;cursor:pointer"><img src="${_mgEsc(u)}" alt="" style="width:100%;height:100%;object-fit:cover"><input type="checkbox" data-mg-img="${i}" checked style="position:absolute;top:4px;right:4px;width:18px;height:18px"></label>`).join('')}</div>
+          ${rows?`<div style="font-size:12px;font-weight:800;margin:6px 0">ما يختلف بينهما — اختر ما يبقى:</div><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th style="text-align:right;font-size:12px;padding:6px">(أ) ${_mgEsc(a.name)}</th><th style="text-align:right;font-size:12px;padding:6px">(ب) ${_mgEsc(b.name)}</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p style="font-size:12.5px;color:#047857;font-weight:700">بقيّة الحقول متطابقة.</p>'}
+          <p style="font-size:12px;color:#4b5563;margin:8px 0 0">الأقسام بعد الدمج: ${cats.length} · المواصفات: ${specs.length} (بلا تكرار)</p>`;
+        go.disabled=false; go.style.opacity=1;
+    }
+    async function mgDo(){
+        if(!_mg) return; const {a,b,imgs,cats,specs}=_mg, go=$('[data-mg-go]'), msg=$('[data-mg-msg]');
+        const keep=imgs.filter((u,i)=>{ const c=w.querySelector('[data-mg-img="'+i+'"]'); return !c||c.checked; });
+        if(!await GMTAsk.confirm('سيُحذف «'+(b.name||b.id)+'» بعد نقل صوره وبياناته إلى «'+(a.name||a.id)+'». متابعة؟',{ title:'🔗 دمج منتجين', okText:'ادمج', cancelText:'تراجع' })) return;
+        const m=Object.assign({},a);
+        _MG_FIELDS.forEach(([k])=>{ const r=w.querySelector('input[name="mg-'+k+'"]:checked'); if(!r) return;
+            if(r.value==='b'){ if(b[k]===undefined) delete m[k]; else m[k]=b[k]; }
+            else if(r.value==='ab'){ m[k]=[a[k],b[k]].filter(x=>x!=null&&String(x).trim()).join('\n\n'); } });
+        m.images=keep; m.category_ids=cats; m.category_id=cats[0]||a.category_id; if(specs.length) m.specs=specs;
+        const ca=String(a.compat||'').trim(), cb=String(b.compat||'').trim(); if(cb&&ca.indexOf(cb)===-1) m.compat=ca?ca+' · '+cb:cb;
+        go.disabled=true; go.textContent='⏳ …'; msg.textContent='';
+        try{
+            adminData.products=adminData.products.filter(p=>p!==b).map(p=>p===a?m:p);
+            await updateField('products',adminData.products);
+            const moved=await _mgRelinkInv(b.id,a.id);
+            renderCatalogAdmin(); close();
+            showToast('✅ دُمج «'+(b.name||b.id)+'» في «'+(m.name||m.id)+'»'+(moved?' · وحُوّل '+moved+' رابط من الجرد':''));
+        }catch(e){ msg.style.color='#b91c1c'; msg.textContent='❌ تعذّر الدمج: '+(e&&e.message||e); go.disabled=false; go.textContent='🔗 ادمج'; }
+    }
+}
+window.openMergeProducts=openMergeProducts;
+/* منتجات الجرد المربوطة بـ(ب) ⇒ رابطها يصير (أ) — وإلّا يبقى رابطٌ مكسور في نقطة البيع والجرد */
+async function _mgRelinkInv(fromId,toId){
+    const D=window.GMT_DB&&GMT_DB.MAIN; if(!D) return 0;
+    const H={apikey:D.key,Authorization:'Bearer '+D.key,'Content-Type':'application/json'};
+    try{
+        const r=await fetch(D.url+'/rest/v1/products?store_url=like.'+encodeURIComponent('*#product='+encodeURIComponent(fromId))+'&select=id,store_url',{headers:H});
+        const rows=r.ok?await r.json():[]; let n=0;
+        for(const x of rows){ const m=/#product=([^&]+)/.exec(String(x.store_url||'')); if(!m||decodeURIComponent(m[1])!==String(fromId)) continue;
+            const nu=String(x.store_url).replace(/#product=[^&]+/,'#product='+encodeURIComponent(toId));
+            const w=await fetch(D.url+'/rest/v1/products?id=eq.'+encodeURIComponent(x.id),{method:'PATCH',headers:Object.assign({Prefer:'return=minimal'},H),body:JSON.stringify({store_url:nu})}); if(w.ok) n++; }
+        return n;
+    }catch(_){ return 0; }
+}
+
+// ══════════════════════════════════════════════
 // QUICK CAT
 // ══════════════════════════════════════════════
 window.openQuickCatModal=function(){ document.getElementById('qcat-name').value=''; document.getElementById('qcat-icon').value=''; openModal('quick-cat-modal'); };
@@ -3549,7 +3655,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261027c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027d"></script>
+<script src="gmt-whatsnew.js?v=20261027e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
