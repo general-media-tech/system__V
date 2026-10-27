@@ -1,0 +1,7 @@
+task: TASK-0197
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: gmt-gallery.js gmt-specs.js inventory.html pos.html bridge.html tests/harness/t_gallery.js
+claimed_at: 2026-10-27T08:00:11Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0197
