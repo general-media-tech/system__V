@@ -30,16 +30,14 @@ const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 209"><rec
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 }, serviceWorkers: 'block' });
     await ctx.addInitScript(H.ADMIN_INIT.replace('window.open=()=>null;', ''));
     const pg = await ctx.newPage(); await pg.goto(H.BASE + 'guarantee.html', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3500);
-    /* (TASK-0195) الملصق صار نافذةً في الصفحة تبني PDF بمقاس الملصق (gmt-sticker.js) — لا نافذة منبثقة تُطبع بـ @page.
-       محتوى الكرت القديم يُقرأ من نصوص الرسم نفسها (fillText) والفاصل المتقطّع من setLineDash */
-    await pg.evaluate(() => { window.__tx = []; window.__dash = 0; const P = CanvasRenderingContext2D.prototype, ft = P.fillText, sd = P.setLineDash;
-      P.fillText = function (t) { __tx.push(String(t)); return ft.apply(this, arguments); }; P.setLineDash = function (a) { if (a && a.length) __dash++; return sd.apply(this, arguments); }; });
+    /* (TASK-0213 · المالك seq 143 «رجعه مثل الشكل القديم تماما حرفيا») الملصق هو صفحة HTML القديمة نفسها تُصوَّر في PDF بمقاسه:
+       نصوص القالب القديم وأصنافه ونمطه (الفاصل المتقطّع · الخطّ الأحمر) حرفياً */
     await pg.evaluate(() => { const b = document.getElementById('printStickerBtn'); b.dataset.link = 'https://example.com/w/ABC123'; b.dataset.name = 'محمد خير'; b.click(); });
     await pg.waitForSelector('#gmt-sticker [data-prev] img', { timeout: 20000 }).catch(() => {});
-    const info = await pg.evaluate(() => ({ tx: __tx.slice(), dash: __dash, size: (document.querySelector('#gmt-sticker [data-size]') || {}).value }));
-    const has = re => info.tx.some(t => re.test(t));
-    console.log('   ', JSON.stringify(info.tx.slice(0, 12)));
-    ok(has(/^Official Warranty$/) && has(/^أهلاً بك: $/) && has(/^محمد خير$/) && has(/شكراً لاختياركم/) && has(/امسح الباركود/) && has(/معلومات كفالتكم/) && has(/هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية/) && info.dash > 0, 'الكرت القديم كاملاً: Official Warranty · أهلاً بك · شكراً · امسح الباركود · الفاصل المتقطّع · نصّ الكفالة');
+    const info = await pg.evaluate(() => ({ html: GMTSticker._html({ name: 'محمد خير' }, {}), css: GMTSticker._css, size: (document.querySelector('#gmt-sticker [data-size]') || {}).value, prev: !!document.querySelector('#gmt-sticker [data-prev] img') }));
+    const has = re => re.test(info.html);
+    ok(info.prev && has(/sticker-header/) && has(/>Official Warranty</) && has(/أهلاً بك: <span class="customer-name">محمد خير<\/span>/) && has(/شكراً لاختياركم Canon General Mediatech/) && has(/امسح الباركود للحصول على<br>معلومات كفالتكم/) && has(/هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية/) && /border-top: 1px dashed #ddd/.test(info.css) && /border-bottom: 2px solid #D5001C/.test(info.css),
+      'الكرت القديم كاملاً (القالب القديم حرفياً): Official Warranty · أهلاً بك · شكراً · امسح الباركود · الفاصل المتقطّع · نصّ الكفالة');
     ok(info.size === 'A5', 'الافتراضي ورقة A5');
     ok(has(/^Canon$/) || true, 'الشعار يمرّ بسلسلة المصادر ثم البديل (لا صورة مكسورة)');
     for (const [z, W, Hh] of [['A5', 210, 148], ['A6', 148, 105]]) {

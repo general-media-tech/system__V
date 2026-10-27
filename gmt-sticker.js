@@ -9,8 +9,8 @@
      · «📤 مشاركة PDF» ⇐ لوحة المشاركة (واتساب · الطابعة · …) أو تنزيلٌ على الكمبيوتر.
      · «🖨️ طباعة» ⇐ على الكمبيوتر: حوار الطباعة بورقةٍ بمقاس الملصق · على الهاتف: الملفّ نفسه للمشاركة (فيها «طباعة»).
      · الـQR يُبنى على الجهاز (ZXing في lib/) — بلا إنترنت.
-   الشكل كما هو (الكرت القديم): «Official Warranty» يساراً وشعار Canon يميناً بخطٍّ أحمر تحتهما · QR يساراً و«أهلاً بك: الاسم»
-   بالأحمر وسطر الشكر و«امسح الباركود للحصول على معلومات كفالتكم» · خطٌّ متقطّع ثمّ شعار الشركة ونصّ «هذه الكفالة ممنوحة…».
+   (TASK-0213 · المالك seq 143 «رجعه مثل الشكل القديم تماما حرفيا») الشكل هو صفحة الملصق القديمة نفسها (HTML/CSS كما كانت)
+   تُصوَّر بـhtml2canvas وتوضع في الصفحة بمقاس الملصق — كان TASK-0195 قد رسمه بتصميمٍ آخر على اللوح، وهذا ما لم يُطلب.
 
    GMTSticker.open({ link, name })      نافذة الملصق (المقاس · معاينة · مشاركة · طباعة · تنزيل)
    GMTSticker.pdf({ link, name, size }) ⇒ Promise<Blob>       (للفحص)
@@ -69,102 +69,100 @@
   function loadImg(src, cors) {
     return new Promise(function (ok) {
       var im = new Image(); if (cors) im.crossOrigin = 'anonymous';
+      try { im.dataset.gimgAllow = '1'; } catch (_) {}   /* (TASK-0213) حارس الصور كان يعطي نائباً ١×١ فيُعدّ «شعاراً» ⇒ مربّعٌ فارغ مكان Canon */
       var t = setTimeout(function () { ok(null); }, 6000);
-      im.onload = function () { clearTimeout(t); ok(im.naturalWidth ? im : null); };
+      im.onload = function () { clearTimeout(t); ok(im.naturalWidth >= 8 ? im : null); };
       im.onerror = function () { clearTimeout(t); ok(null); };
       im.src = src;
     });
   }
-  /* هامش الشعار الأبيض/الشفّاف يُقصّ (logo.png مربّعٌ بهامشٍ واسع ⇒ كان يظهر صغيراً في التذييل) */
-  function trim(im) {
+  /* صورةٌ محمَّلة ⇒ dataURL (كي تُرسم في الملصق بلا قيود مصدرٍ آخر) · تعذّر ⇒ null */
+  function dataOf(im) {
     if (!im) return null;
-    try {
-      var c = document.createElement('canvas'), w = c.width = im.naturalWidth, h = c.height = im.naturalHeight, x = c.getContext('2d');
-      x.drawImage(im, 0, 0); var d = x.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = -1, y1 = -1;
-      for (var y = 0; y < h; y++) for (var i = 0; i < w; i++) { var k = (y * w + i) * 4; if (d[k + 3] > 24 && (d[k] < 235 || d[k + 1] < 235 || d[k + 2] < 235)) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
-      if (x1 < 0) return im;
-      var o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
-      o.naturalWidth = o.width; o.naturalHeight = o.height; return o;
-    } catch (_) { return im; }
+    try { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); return c.toDataURL('image/png'); } catch (_) { return null; }
   }
-  /* شعار Canon: الملفّ المحلّي إن رُفع ثمّ مصادر gmt-core (ويكيميديا) — وإلّا كلمة Canon بلون الهوية */
+  /* شعار Canon: الملفّ المحلّي إن رُفع ثمّ مصادر gmt-core (ويكيميديا) — وإلّا كلمة Canon الحمراء كما في القديم ·
+     شعار الشركة في التذييل: genrallogo.png (وإلّا logo.png) كما في القديم */
   var _logos = null;
   function logos() {
     if (_logos) return _logos;
     var canonSrc = ['canonlogo.png'].concat(global.GMTCanonSources || []);
     var canon = canonSrc.reduce(function (p, s, i) { return p.then(function (im) { return im || loadImg(s, i > 0); }); }, Promise.resolve(null));
-    var gmt = loadImg('genrallogo.png?v=20261027i').then(function (im) { return im || loadImg('logo.png'); }).then(trim);
-    return (_logos = Promise.all([canon, gmt]).then(function (a) { return { canon: a[0], gmt: a[1] }; }));
+    var gmt = loadImg('genrallogo.png?v=20261027i').then(function (im) { return im || loadImg('logo.png'); });
+    return (_logos = Promise.all([canon, gmt]).then(function (a) { return { canon: dataOf(a[0]), gmt: dataOf(a[1]) }; }));
   }
-  function fonts() {
-    try { if (document.fonts && document.fonts.load) return Promise.race([Promise.all([document.fonts.load("800 40px Cairo"), document.fonts.load("600 40px Cairo")]), new Promise(function (ok) { setTimeout(ok, 2500); })]); } catch (_) {}
-    return Promise.resolve();
-  }
+  function h2c() { return lib('lib/html2canvas.min.js', function () { return typeof global.html2canvas === 'function'; }); }
 
-  /* أكبر خطٍّ (حتى max) يسع النصّ في العرض */
-  function fit(x, txt, weight, max, maxW) {
-    var f = max; x.font = weight + ' ' + f + 'px ' + FONT;
-    while (f > 6 && x.measureText(txt).width > maxW) { f -= 1; x.font = weight + ' ' + f + 'px ' + FONT; }
-    return f;
+  /* ══ (TASK-0213 · المالك seq 143 «انا ما طلبت منك تغير شكل ملصق الكفاله ابدا رجعه مثل الشكل القديم تماما حرفيا»)
+     الشكل هو الملصق القديم **حرفياً**: صفحة HTML نفسها التي كانت تُطبع (الصفوف والأنماط والنصوص كما كانت في guarantee.html قبل
+     TASK-0195، بمظهر الطباعة: إطارٌ أسود ١px بلا ظلّ). ما بقي من TASK-0195 هو الإصلاح وحده: يُصوَّر ذلك الملصق كما هو ويوضع في
+     ملفّ PDF صفحته بمقاس الملصق (كانت طباعة الهاتف تضعه صغيراً وسط A4) + مشاركة/طباعة/تنزيل + QR على الجهاز بدل خدمةٍ خارجية. ══ */
+  var OLD_CSS =
+    "body { font-family: 'Cairo', sans-serif; background: white; margin: 0; padding: 0; }" +
+    ".sticker-wrapper { background: white; width: 600px; max-width: 600px; border: 1px solid #000; border-radius: 12px; padding: 20px; box-shadow: none; box-sizing: border-box; }" +
+    ".sticker-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #D5001C; padding-bottom: 10px; margin-bottom: 15px; }" +
+    ".sticker-header img { max-width: 130px; height: auto; }" +
+    ".sticker-body { display: flex; justify-content: space-between; align-items: center; gap: 20px; }" +
+    ".text-section { flex: 1; }" +
+    ".welcome-text { font-size: 18px; color: #333; margin: 0 0 5px 0; }" +
+    ".customer-name { color: #D5001C; font-weight: bold; }" +
+    ".thanks-text { font-size: 14px; color: #666; margin: 0 0 15px 0; }" +
+    ".main-scan-text { font-size: 20px; font-weight: bold; color: #000; margin: 0; line-height: 1.4; }" +
+    ".qr-section { flex-shrink: 0; background: #fff; padding: 5px; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }" +
+    ".qr-section img { width: 120px; height: 120px; display: block; }" +
+    ".sticker-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }" +
+    ".footer-text { font-size: 11px; color: #555; line-height: 1.5; }" +
+    ".footer-logo { max-width: 90px; height: auto; }";
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function oldHTML(o, as) {
+    return '<div class="sticker-wrapper">' +
+      '<div class="sticker-header">' +
+        (as.canon ? '<img src="' + as.canon + '" alt="Canon Logo">' : '<b style="color:#D5001C;font-size:20px">Canon</b>') +
+        '<div style="font-weight: bold; color: #333; font-size: 16px;">Official Warranty</div>' +
+      '</div>' +
+      '<div class="sticker-body">' +
+        '<div class="text-section">' +
+          '<p class="welcome-text">أهلاً بك: <span class="customer-name">' + esc(o.name) + '</span></p>' +
+          '<p class="thanks-text">شكراً لاختياركم Canon General Mediatech</p>' +
+          '<h2 class="main-scan-text">امسح الباركود للحصول على<br>معلومات كفالتكم</h2>' +
+        '</div>' +
+        '<div class="qr-section">' + (as.qr ? '<img src="' + as.qr + '" alt="Warranty QR Code">' : '<div style="width:120px;height:120px"></div>') + '</div>' +
+      '</div>' +
+      '<div class="sticker-footer">' +
+        '<div class="footer-text"><strong>هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية</strong><br>الكفالة الالكترونية تعتبر وثيقة ضمان رسمية محفوظة على سيرفرات الشركة</div>' +
+        (as.gmt ? '<img src="' + as.gmt + '" class="footer-logo" alt="General Media Tech">' : '') +
+      '</div>' +
+    '</div>';
   }
-  function rtlText(x, txt, rightX, y, color) { x.fillStyle = color; x.direction = 'rtl'; x.textAlign = 'right'; x.fillText(txt, rightX, y); }
-
-  /* الرسم: وحدة التصميم «مم» على ملصق ١٠٠×٥٠ (u بكسل) — الأكبر يكبر بنسبته ويوزّع الارتفاع الزائد على الوسط */
-  function draw(o, assets) {
-    var S = sizeOf(o.size), W = Math.round(S.w * PX), H = Math.round(S.h * PX);
-    var c = document.createElement('canvas'); c.width = W; c.height = H;
-    var x = c.getContext('2d'), u = Math.min(S.w / 100, S.h / 50) * PX, pad = 3 * u;
-    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
-    x.textBaseline = 'middle';
-    /* ── الرأس: شعار Canon يميناً · «Official Warranty» يساراً · خطٌّ أحمر ── */
-    var hh = 8 * u, hy = pad + hh / 2, cw = 0;
-    if (assets.canon) {
-      var ch = 5.6 * u; cw = ch * assets.canon.naturalWidth / assets.canon.naturalHeight;
-      if (cw > W * 0.36) { cw = W * 0.36; ch = cw * assets.canon.naturalHeight / assets.canon.naturalWidth; }
-      x.drawImage(assets.canon, W - pad - cw, hy - ch / 2, cw, ch);
-    } else {
-      x.font = '900 ' + Math.round(6 * u) + 'px Arial, sans-serif'; x.direction = 'ltr'; x.textAlign = 'right'; x.fillStyle = RED;
-      x.fillText('Canon', W - pad, hy); cw = x.measureText('Canon').width;
-    }
-    x.direction = 'ltr'; x.textAlign = 'left'; x.fillStyle = '#333';
-    fit(x, 'Official Warranty', '800', Math.round(3.6 * u), W - 2 * pad - cw - 4 * u); x.fillText('Official Warranty', pad, hy);
-    x.fillStyle = RED; x.fillRect(pad, pad + hh + 0.6 * u, W - 2 * pad, Math.max(2, 0.5 * u));
-    /* ── التذييل: خطٌّ متقطّع · النصّ يميناً · شعار الشركة يساراً ── */
-    var fh = 9 * u, fy = H - pad - fh;
-    x.strokeStyle = '#bbb'; x.lineWidth = Math.max(1, 0.25 * u); x.setLineDash([1.2 * u, 0.9 * u]);
-    x.beginPath(); x.moveTo(pad, fy - 1.2 * u); x.lineTo(W - pad, fy - 1.2 * u); x.stroke(); x.setLineDash([]);
-    var lw = 0;
-    if (assets.gmt) { var lh = fh, lw0 = lh * assets.gmt.naturalWidth / assets.gmt.naturalHeight; lw = Math.min(lw0, W * 0.3); x.drawImage(assets.gmt, pad, fy + (fh - lw / lw0 * lh) / 2, lw, lw / lw0 * lh); }
-    var tw = W - 2 * pad - lw - 3 * u, l1 = 'هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية', l2 = 'الكفالة الالكترونية تعتبر وثيقة ضمان رسمية محفوظة على سيرفرات الشركة';
-    fit(x, l1, '800', Math.round(2.4 * u), tw); rtlText(x, l1, W - pad, fy + fh * 0.3, '#333');
-    fit(x, l2, '600', Math.round(2.1 * u), tw); rtlText(x, l2, W - pad, fy + fh * 0.72, '#555');
-    /* ── الوسط: QR يساراً · الترحيب والشكر و«امسح الباركود» يميناً ── */
-    var by0 = pad + hh + 2.6 * u, by1 = fy - 2.6 * u, bh = by1 - by0, q = Math.min(bh, (W - 2 * pad) * 0.34);
-    var qx = pad, qy = by0 + (bh - q) / 2;
-    if (assets.qr) {
-      x.strokeStyle = '#e5e7eb'; x.lineWidth = Math.max(1, 0.25 * u); x.strokeRect(qx, qy, q, q);
-      x.imageSmoothingEnabled = false; x.drawImage(assets.qr, qx + 0.6 * u, qy + 0.6 * u, q - 1.2 * u, q - 1.2 * u); x.imageSmoothingEnabled = true;
-    }
-    var rx = W - pad, tmax = W - 2 * pad - q - 3 * u;
-    var hi = 'أهلاً بك: ', nm = String(o.name || '').trim() || '—';
-    var f1 = Math.round(3.6 * u); x.font = '600 ' + f1 + 'px ' + FONT;
-    var hw = x.measureText(hi).width, fn = fit(x, nm, '800', f1, Math.max(tmax - hw, tmax * 0.4));
-    var s1 = 'امسح الباركود للحصول على', s2 = 'معلومات كفالتكم', th = 'شكراً لاختياركم Canon General Mediatech';
-    var lines = [f1 * 1.5, 2.6 * u * 1.6, 4.2 * u * 1.35, 4.2 * u * 1.35], tot = lines.reduce(function (a, b) { return a + b; }, 0);
-    var k = tot > bh ? bh / tot : 1, y = by0 + (bh - tot * k) / 2;
-    x.font = '600 ' + Math.round(f1 * k) + 'px ' + FONT; hw = x.measureText(hi).width; rtlText(x, hi, rx, y + lines[0] * k / 2, '#333');
-    x.font = '800 ' + Math.round(fn * k) + 'px ' + FONT; rtlText(x, nm, rx - hw, y + lines[0] * k / 2, RED); y += lines[0] * k;
-    fit(x, th, '600', Math.round(2.6 * u * k), tmax); rtlText(x, th, rx, y + lines[1] * k / 2, '#666'); y += lines[1] * k;
-    var f3 = Math.min(fit(x, s1, '800', Math.round(4.2 * u * k), tmax), fit(x, s2, '800', Math.round(4.2 * u * k), tmax));
-    x.font = '800 ' + f3 + 'px ' + FONT; rtlText(x, s1, rx, y + lines[2] * k / 2, '#000'); y += lines[2] * k;
-    rtlText(x, s2, rx, y + lines[3] * k / 2, '#000');
-    return c;
+  /* الملصق القديم في إطارٍ خفيّ ⇒ صورة (html2canvas) ⇒ تُوضع في صفحةٍ بمقاس الملصق: هامش ٢ مم (كـ@page القديم) · الملصقات وسطاً ·
+     A6/A5 أعلى الورقة كما كانت تُطبع */
+  function draw(o, as) {
+    var S = sizeOf(o.size), W = Math.round(S.w * PX), H = Math.round(S.h * PX), m = 2 * PX;
+    var f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;left:-10000px;top:0;width:660px;height:900px;border:0;visibility:hidden';
+    document.body.appendChild(f);
+    var d = f.contentDocument;
+    d.open(); d.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">' +
+      '<style>' + OLD_CSS + '</style></head><body>' + oldHTML(o, as) + '</body></html>'); d.close();
+    var el = d.querySelector('.sticker-wrapper');
+    var ready = Promise.all([].map.call(d.images, function (im) { return im.complete ? 0 : new Promise(function (ok) { im.onload = im.onerror = ok; }); }));
+    var fnt = (d.fonts && d.fonts.ready) ? Promise.race([d.fonts.ready, new Promise(function (ok) { setTimeout(ok, 2500); })]) : Promise.resolve();
+    return Promise.all([ready, fnt, h2c()]).then(function (r) {
+      if (!r[2]) throw new Error('مكتبة الرسم لم تُحمَّل');
+      var bw = el.offsetWidth || 600, bh = el.offsetHeight || 320, k = Math.min((W - 2 * m) / bw, (H - 2 * m) / bh);
+      return global.html2canvas(el, { scale: Math.max(1, k), backgroundColor: '#ffffff', logging: false, useCORS: true }).then(function (shot) {
+        var c = document.createElement('canvas'); c.width = W; c.height = H;
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+        var dw = bw * k, dh = bh * k, dx = (W - dw) / 2, dy = /^A[56]$/.test(S.k) ? m : (H - dh) / 2;
+        x.drawImage(shot, dx, dy, dw, dh);
+        return c;
+      });
+    }).then(function (c) { f.remove(); return c; }, function (e) { f.remove(); throw e; });
   }
 
   function assetsFor(o) {
-    return Promise.all([logos(), qr(o.link), fonts()]).then(function (a) {
-      return (a[1] ? loadImg(a[1]) : Promise.resolve(null)).then(function (qim) { return { canon: a[0].canon, gmt: a[0].gmt, qr: qim }; });
-    });
+    return Promise.all([logos(), qr(o.link)]).then(function (a) { return { canon: a[0].canon, gmt: a[0].gmt, qr: a[1] }; });
   }
   function canvasFor(o) { return assetsFor(o).then(function (as) { return draw(o, as); }); }
   function pdfOf(o, cv) {
@@ -264,5 +262,5 @@
     return bg;
   }
 
-  global.GMTSticker = { open: open, pdf: pdf, qr: qr, sizes: SIZES.slice(), _draw: draw, _canvas: canvasFor };
+  global.GMTSticker = { open: open, pdf: pdf, qr: qr, sizes: SIZES.slice(), _draw: draw, _canvas: canvasFor, _html: oldHTML, _css: OLD_CSS };
 })(typeof window !== 'undefined' ? window : this);
