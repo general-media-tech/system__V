@@ -110,17 +110,32 @@
       (nameDiffers(o, r) ? '<div class="mr-warn">⚠️ اسم المستلم عند المفتي لا يشبه اسم الزبون على الأوردر — تأكّد أنّ رقم التتبّع صحيح.</div>' : '');
   }
   function stLabel(s) { return { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' }[s] || s; }
+  /* (TASK-0220 · المالك seq 150) «اضف الازرار اللي كانت موجوده في لساقه الاوردر تبعنا … تبليغ الوصول والتبليغ الثاني … تاكيد الاستلام»:
+     صفّ أزرار بطاقة الأوردر **نفسه** — يُؤخذ من cardHTML في صفحة الأوردرات كما هو (تأكيد الاستلام · تبليغ وصول / مراسلة الزبون بعده ·
+     فرع الشحن · PDF · طباعة · التتبّع · ⋮ وفيها تبليغ الشحن …) فيبقى مطابقاً لها دائماً بلا نسخةٍ ثانية تختلف. */
+  function pageButtons(o) {
+    try {
+      if (typeof g.cardHTML !== 'function') return '';
+      var t = document.createElement('div'); t.innerHTML = g.cardHTML(o);
+      var card = t.firstElementChild; if (!card) return '';
+      var kids = [].slice.call(card.children), at = -1;
+      kids.forEach(function (x, j) { if (/\bborder-t\b/.test(x.className || '') && /\bmb-4\b/.test(x.className || '')) at = j; });   // سطر التفاصيل ⇒ ما بعده الأزرار
+      if (at < 0) return '';
+      return kids.slice(at + 1).map(function (x) { return x.outerHTML; }).join('');
+    } catch (_) { return ''; }
+  }
   function cardHTML(o) {
     var n = digits(o.tracking_number), r = state.res[n], k = cls(r), C = CLS[k];
     var when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '';
-    var act = '';
-    if (o.status === 'shipped') act = '<button type="button" data-mr-confirm="' + esc(o.id) + '" class="mr-btn' + (k === 'got' ? ' mr-go' : '') + '">✅ تأكيد الاستلام</button>';
-    else if (o.status === 'delivered' || o.status === 'completed') act = '<span class="mr-done">✔ ' + esc(stLabel(o.status)) + '</span>';
+    var pb = pageButtons(o), act = '';
+    if (o.status === 'delivered' || o.status === 'completed') act = '<span class="mr-done">✔ ' + esc(stLabel(o.status)) + '</span>';
+    else if (o.status === 'shipped' && !pb) act = '<button type="button" data-mr-confirm="' + esc(o.id) + '" class="mr-btn' + (k === 'got' ? ' mr-go' : '') + '">✅ تأكيد الاستلام</button>';   // احتياط: صفحةٌ بلا cardHTML
     return '<div class="mr-o" data-mr-o="' + esc(o.id) + '" data-mr-k="' + k + '">' +
       '<div class="mr-top"><div class="mr-ttl">#' + esc(o.id) + ' · ' + esc(o.name || '—') + '</div>' +
       '<span class="mr-chip" style="color:' + C.c + ';background:' + C.bg + '">' + C.t + '</span></div>' +
       '<div class="mr-sub">رقم التتبّع <b dir="ltr">' + esc(n) + '</b>' + (o.region || o.city ? ' · ' + esc(o.region || o.city) : '') + (when ? ' · شُحن ' + esc(when) : '') + ' · عندنا: ' + esc(stLabel(o.status)) + '</div>' +
       '<div class="mr-res">' + resultHTML(o, r || { n: n }) + '</div>' +
+      (pb ? '<div class="mr-pbtns" data-mr-pbtns>' + pb + '</div>' : '') +
       '<div class="mr-act">' + act + '<button type="button" data-mr-site="' + esc(n) + '" class="mr-btn mr-ghost">📋 نسخ الرقم وفتح موقع المفتي</button>' +
       (r && (k === 'err' || k === 'nf') ? '<button type="button" data-mr-retry="' + esc(n) + '" class="mr-btn mr-ghost">↻ أعد</button>' : '') + '</div></div>';
   }
@@ -152,6 +167,7 @@
       ? (rows.length ? rows.map(cardHTML).join('') : '<p class="mr-empty">لا شحنات في هذا الفلتر.</p>')
       : '<p class="mr-empty">لا شحنات للمفتي «في الطريق» برقم تتبّع.</p>';
     var rb = box.querySelector('[data-mr-run]'); if (rb) { rb.disabled = state.busy; rb.textContent = state.busy ? '⏳ يفحص…' : '↻ تحقّق من الكل'; }
+    try { if (g.lucide && lucide.createIcons) lucide.createIcons(); } catch (_) {}     // أيقونات أزرار البطاقة
   }
 
   function scan(onlyNums) {
@@ -189,15 +205,17 @@
   }
   function onKey(e) {
     if (e.key !== 'Escape') return;
-    var cm = document.getElementById('confirmModal');
-    if (cm && !cm.classList.contains('hidden')) return;     // Esc لنافذة التأكيد أوّلاً
+    /* Esc لنافذة الصفحة المفتوحة فوقنا أوّلاً (التأكيد · تعديل · الإيصال …) */
+    var open1 = [].slice.call(document.querySelectorAll('[id$="Modal"]')).some(function (m) { return !m.classList.contains('hidden') && m.getClientRects().length; });
+    if (open1) return;
     close();
   }
 
-  /* يبدأ تحت الأشرطة العلوية (زرّ التحديث …) لا تحتها — المتغيّر من مُرتِّب الأشرطة في gmt-staff.js.
+  /* z-index 90: فوق محتوى الصفحة (الترويسة z-50) وتحت كل نوافذها (100–130) — فما تفتحه أزرار البطاقة يظهر فوقنا.
+     يبدأ تحت الأشرطة العلوية (زرّ التحديث …) لا تحتها — المتغيّر من مُرتِّب الأشرطة في gmt-staff.js.
      الألوان من هويّتنا (track_order.html): --gmt-red #D5001C · تدرّج #D5001C→#8B0012 · --gmt-dark #111 · خلفية #f8fafc */
   var P = '#' + ID;
-  var CSS = P + '{position:fixed;top:var(--gmt-topbars,0px);left:0;right:0;bottom:0;z-index:115;background:#f8fafc;display:flex;flex-direction:column;font-family:inherit;direction:rtl;color:#111}' +
+  var CSS = P + '{position:fixed;top:var(--gmt-topbars,0px);left:0;right:0;bottom:0;z-index:90;background:#f8fafc;display:flex;flex-direction:column;font-family:inherit;direction:rtl;color:#111}' +
     P + ' .mr-h{background:linear-gradient(135deg,#D5001C 0%,#8B0012 100%);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:0 6px 18px rgba(213,0,28,.25)}' +
     P + ' .mr-h h3{font-weight:900;font-size:16px;margin:0;flex:1;min-width:0}' +
     P + ' .mr-h h3 small{display:block;font-size:10.5px;font-weight:700;opacity:.85}' +
@@ -236,7 +254,8 @@
     P + ' .mr-warn{font-size:11.5px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:7px 10px;margin-top:8px}' +
     P + ' .mr-wait{font-size:12px;font-weight:800;color:#6b7280;background:#f8fafc;border:1px dashed #e5e7eb;border-radius:14px;padding:16px;text-align:center}' +
     P + ' .mr-bad{font-size:12px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:11px}' +
-    P + ' .mr-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}' +
+    P + ' .mr-pbtns{margin-top:12px;padding-top:12px;border-top:1px dashed #eef0f3}' +
+    P + ' .mr-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}' +
     P + ' .mr-btn{border:1px solid #e5e7eb;background:#fff;color:#374151;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit}' +
     P + ' .mr-btn.mr-go{background:#D5001C;border-color:#D5001C;color:#fff;flex:1;box-shadow:0 6px 14px rgba(213,0,28,.25)}' + P + ' .mr-ghost{font-weight:800;font-size:11.5px}' +
     P + ' .mr-done{font-size:12px;font-weight:900;color:#111;align-self:center}' +
@@ -286,7 +305,7 @@
     state.timer = setInterval(function () {
       var cur = allOrders();     // إعادة تحميل الأوردرات تستبدل الكائنات ⇒ نتبع الأحدث بالرقم
       state.list = state.list.map(function (o) { return cur.find(function (x) { return x.id === o.id; }) || o; });
-      var s = state.list.map(function (o) { return o.id + ':' + o.status; }).join('|');
+      var s = state.list.map(function (o) { return [o.id, o.status, o.notified_arrival_at || '', o.notified_ship_at || '', o.receipt_at || ''].join(':'); }).join('|');   // + التبليغات: زرّ «تبليغ وصول» يصير «مراسلة الزبون» بعده
       if (s !== sig) { sig = s; render(); }
     }, 700);
     state.filter = 'all';

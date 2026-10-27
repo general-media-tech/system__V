@@ -24,6 +24,8 @@ window.GMT_INTERNAL = 1;</script>
         .bg-red { background-color: var(--red); }
         .bg-dark { background-color: var(--dark); }
         .text-red { color: var(--red); }
+        /* (TASK-0220) الصنف z-[9000] غير موجود في lib/tailwind.css المبنيّ مسبقاً ⇒ قائمة ⋮ ونافذة أخرى كانتا بلا ترتيب طبقات (خلف ما فوقهما) */
+        .z-\[9000\] { z-index: 9000; }
         .card-shadow { box-shadow: 0 4px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.05); }
         input:focus, textarea:focus, select:focus { border-color: var(--red) !important; box-shadow: 0 0 0 3px rgba(213,0,28,0.1); outline: none; }
         .no-scrollbar::-webkit-scrollbar { display:none; }
@@ -93,7 +95,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261028h"></script>
+  <script src="gmt-core.js?v=20261028i"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -108,7 +110,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-review.js?v=20261028h" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-review.js?v=20261028i" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -9697,11 +9699,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028h"></script>
+<script src="gmt-brain.js?v=20261028i"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028h"></script>
+<script src="gmt-whatsnew.js?v=20261028i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -19,7 +19,7 @@ const FAKE = {
     const rows = await H.call('/rest/v1/gmt_orders', [
       Object.assign({ name: 'غالب زيدان', phone: '0933000901', status: 'shipped', tracking_number: '214138', address: 'دمشق', shipped_at: '2026-10-25T10:00:00Z' }, base),
       Object.assign({ name: 'انفال عمر حسين', phone: '0933000902', status: 'shipped', tracking_number: '214244', address: 'درعا', shipped_at: '2026-10-25T11:00:00Z' }, base),
-      Object.assign({ name: 'عبد الهادي حمشو', phone: '0933000903', status: 'shipped', tracking_number: '210063', address: 'دمشق', shipped_at: '2026-10-22T10:00:00Z' }, base),
+      Object.assign({ name: 'عبد الهادي حمشو', phone: '0933000903', status: 'shipped', tracking_number: '210063', address: 'دمشق', shipped_at: '2026-10-22T10:00:00Z', notified_arrival_at: '2026-10-27T09:00:00Z' }, base),
       Object.assign({ name: 'رقم خاطئ', phone: '0933000904', status: 'shipped', tracking_number: '99999999', address: 'حمص', shipped_at: '2026-10-23T10:00:00Z' }, base),
       Object.assign({ name: 'سيدرا سماعيل نصر', phone: '0933000905', status: 'delivered', tracking_number: '214248', address: 'دمشق', shipped_at: '2026-10-25T10:00:00Z' }, base),
       Object.assign({ name: 'بلا رقم', phone: '0933000906', status: 'shipped', address: 'حلب', shipped_at: '2026-10-25T10:00:00Z' }, base),
@@ -55,13 +55,30 @@ const FAKE = {
       nextToEdit: (() => { const b = document.querySelector('[data-mr-launch]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
     ok(/213, 0, 28/.test(id1.h) && /213, 0, 28/.test(id1.cur) && /213, 0, 28/.test(id1.card) && id1.nextToEdit, W + ': بهويتنا البصرية (الأحمر #D5001C) · الزرّ بجانب «تعديل» في الأعلى: ' + JSON.stringify(id1));
     ok(N && /لا يعرف الرقم/.test(N.t) && D && /اسم المستلم عند المفتي لا يشبه/.test(D.t) && !/لا يشبه/.test(A.t + B.t), W + ': رقمٌ غير موجود عندهم ⇒ يُقال · اسم مستلمٍ مختلف ⇒ تنبيه (فقط حيث يختلف)');
+    // (TASK-0220 · seq 150) أزرار بطاقة الأوردر نفسها: تأكيد الاستلام · تبليغ وصول · بعد التبليغ «مراسلة الزبون» · فرع الشحن · ⋮
+    const btns = await pg.evaluate(ids => { const q = (id, sel) => !!document.querySelector('#gmt-mr [data-mr-o="' + id + '"] ' + sel);
+      return { conf: q(ids.a, '[onclick="requestConfirm(' + ids.a + ',\'delivered\')"]'), arr: q(ids.a, '[onclick="shareOrder(' + ids.a + ',\'arrived\')"]'), office: q(ids.a, '[onclick="contactShipOffice(' + ids.a + ')"]'),
+        more: q(ids.a, '[data-card-more]'), pdf: q(ids.a, '[onclick="shareOrderPdf(' + ids.a + ')"]'), icons: !document.querySelector('#gmt-mr [data-mr-pbtns] i[data-lucide]'),
+        after: q(ids.b, '[onclick="contactCustomerArrival(' + ids.b + ')"]') && !q(ids.b, '[onclick="shareOrder(' + ids.b + ',\'arrived\')"]') }; }, { a: idOf('214244'), b: idOf('210063') });
+    ok(Object.values(btns).every(Boolean), W + ': أزرار بطاقة الأوردر نفسها تحت كل شحنة (تأكيد الاستلام · 🔔 تبليغ وصول · وبعد التبليغ مراسلة الزبون · 🏢 · PDF · ⋮): ' + JSON.stringify(btns));
+    await pg.evaluate(() => { window.__arr = null; window.shareOrder = (id, k) => { window.__arr = [id, k]; }; });
+    await pg.click('#gmt-mr [onclick="shareOrder(' + idOf('214244') + ',\'arrived\')"]'); await pg.waitForTimeout(200);
+    ok(JSON.stringify(await pg.evaluate(() => window.__arr)) === JSON.stringify([idOf('214244'), 'arrived']), W + ': «تبليغ وصول» من المراجعة ينادي التبليغ نفسه');
+    await pg.click('#gmt-mr [data-mr-o="' + idOf('214244') + '"] [data-card-more]'); await pg.waitForTimeout(400);
+    const menuTop = await pg.evaluate(() => { const ov = document.getElementById('card-more-ov'); if (!ov) return 'no-menu'; const it = [...ov.querySelectorAll('[data-i]')].find(e => /تبليغ الشحن/.test(e.textContent));
+      if (!it) return 'no-menu'; const r = it.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return top && !top.closest('#gmt-mr') ? 'above' : 'behind'; });
+    ok(menuTop === 'above', W + ': قائمة ⋮ (فيها «تبليغ الشحن») تظهر فوق المراجعة لا خلفها: ' + menuTop);
+    if (await pg.$('#card-more-ov [data-x]')) await pg.click('#card-more-ov [data-x]');
+    await pg.waitForTimeout(200);
+    ok(!!(await pg.$('#gmt-mr')) && !(await pg.$('#card-more-ov')), W + ': إغلاق القائمة يعيدك للمراجعة كما هي');
     // فلتر «استلمها»
     await pg.click('#gmt-mr [data-mr-f="got"]'); await pg.waitForTimeout(150);
     ok(await pg.evaluate(() => document.querySelectorAll('#gmt-mr [data-mr-o]').length) === 1, W + ': فلتر «✅ استلمها» ⇒ واحدة');
     // تأكيد الاستلام بالمسار القائم نفسه
-    await pg.click('#gmt-mr [data-mr-confirm="' + idOf('214138') + '"]'); await pg.waitForTimeout(300);
+    await pg.click('#gmt-mr [onclick="requestConfirm(' + idOf('214138') + ',\'delivered\')"]'); await pg.waitForTimeout(300);
     const cm = await pg.evaluate(() => !document.getElementById('confirmModal').classList.contains('hidden') && document.getElementById('confirmTitle').textContent);
-    ok(cm === 'تأكيد الاستلام', W + ': «✅ تأكيد الاستلام» يفتح نافذة التأكيد القائمة فوق المراجعة: ' + cm);
+    const cmTop = await pg.evaluate(() => { const b = document.querySelector('#confirmModal button[onclick="executeConfirm()"]'); const r = b.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && !t.closest('#gmt-mr'); });
+    ok(cm === 'تأكيد الاستلام' && cmTop, W + ': «✅ تأكيد الاستلام» (زرّ البطاقة) يفتح نافذة التأكيد القائمة فوق المراجعة: ' + cm);
     await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
     ok(!!(await pg.$('#gmt-mr')), W + ': Esc أثناء نافذة التأكيد لا يغلق المراجعة');
     await pg.evaluate(() => { const b = [...document.querySelectorAll('#confirmModal button')].find(x => /executeConfirm/.test(x.getAttribute('onclick') || '')); b && b.click(); });
