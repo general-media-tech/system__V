@@ -1,7 +1,0 @@
-task: TASK-0248
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-mufti-review.js gmt-mufti-live.js guarantee.html gmt-wclaims.js gmt-core.js gmt-nofab.js sw.js gmt-whatsnew.js (+TASK-0214 +TASK-0229/0218)
-claimed_at: 2026-10-27T18:57:18Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0248
