@@ -95,7 +95,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261028l"></script>
+  <script src="gmt-core.js?v=20261028m"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -110,8 +110,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261028l" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261028l" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-live.js?v=20261028m" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261028m" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -5744,6 +5744,13 @@ const TRACK_URL_KEY = 'gmt_track_url';
 function guessTrackUrl() {
     return location.origin + location.pathname.replace(/[^/]*$/, '') + 'track_order.html';
 }
+function pickTrackUrl(saved, live) {
+    const liveOk = /^https:\/\//i.test(live || '') && !/localhost|127\.0\.0\.1/i.test(live);
+    if (!liveOk) return saved || '';
+    if (!saved || (/\.github\.io\//i.test(saved) && saved.split('?')[0] !== live)) return live;
+    return saved;
+}
+window.pickTrackUrl = pickTrackUrl;
 function getTrackUrl() {
     let saved = '';
     try { saved = localStorage.getItem(TRACK_URL_KEY) || ''; } catch (_) {}
@@ -5754,7 +5761,11 @@ function getTrackUrl() {
         if (/^[\w.-]+\.[a-z]{2,}/i.test(saved)) saved = 'https://' + saved;   // نطاق بلا مقدّمة
         else { try { localStorage.removeItem(TRACK_URL_KEY); } catch (_) {} saved = ''; }
     }
-    if (saved) return saved;
+    /* (TASK-0227 · المالك seq 155–156) «شاحن الصندوق ظهرت في الرابط والشاحن الجديده لفان ظهرت في التطبيق»:
+       الرابط المحفوظ مرّةً كان يبقى للأبد على نشرٍ قديم (rebrand_system_v …) فيفتح الزبون صفحة تتبّعٍ قديمة. الآن: ما دام النظام
+       يعمل من نشرٍ حيّ فالرابط **صفحة التتبّع في النشر نفسه** — والمحفوظ على github.io آخر يُستبدَل. (نطاقٌ خاصّ محفوظ يبقى كما هو) */
+    saved = pickTrackUrl(saved, guessTrackUrl());
+    if (saved) { try { localStorage.setItem(TRACK_URL_KEY, saved); } catch (_) {} return saved; }
     /* 🔧 (2026-08-26) الرابط من الإعداد المركزي أولاً — لا prompt إلا إن غاب تماماً.
        (تقرير الصحة كان يبلّغ: «الصفحة طلبت رابطاً أثناء العمل»). */
     try {
@@ -9700,11 +9711,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028l"></script>
+<script src="gmt-brain.js?v=20261028m"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028l"></script>
+<script src="gmt-whatsnew.js?v=20261028m"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
