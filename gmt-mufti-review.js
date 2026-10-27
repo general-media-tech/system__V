@@ -110,18 +110,20 @@
       (nameDiffers(o, r) ? '<div class="mr-warn">⚠️ اسم المستلم عند المفتي لا يشبه اسم الزبون على الأوردر — تأكّد أنّ رقم التتبّع صحيح.</div>' : '');
   }
   function stLabel(s) { return { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' }[s] || s; }
-  /* (TASK-0220 · المالك seq 150) «اضف الازرار اللي كانت موجوده في لساقه الاوردر تبعنا … تبليغ الوصول والتبليغ الثاني … تاكيد الاستلام»:
-     صفّ أزرار بطاقة الأوردر **نفسه** — يُؤخذ من cardHTML في صفحة الأوردرات كما هو (تأكيد الاستلام · تبليغ وصول / مراسلة الزبون بعده ·
-     فرع الشحن · PDF · طباعة · التتبّع · ⋮ وفيها تبليغ الشحن …) فيبقى مطابقاً لها دائماً بلا نسخةٍ ثانية تختلف. */
+  /* (TASK-0220 · seq 150 ⇐ TASK-0221 · seq 151) «ما طلبت منك جميع الازرار … اذا الطباعه شو بده يلزمني هون او زر البحث …
+     فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه»:
+     ثلاثة أزرار فقط، تُؤخذ من بطاقة الأوردر (cardHTML في الأوردرات) كما هي — نفس الشكل والسلوك:
+     ✅ تأكيد الاستلام · 🔔 تبليغ الوصول (وبعد التبليغ يصير في البطاقة نفسها زرَّ مراسلة الزبون — هو هو) · 🏢 مراسلة فرع الشركة الوجهة. */
+  var KEEP = [/^requestConfirm\(\s*'?[^,]+'?\s*,\s*'delivered'\s*\)$/, /^(shareOrder\([^,]+,\s*'arrived'\)|contactCustomerArrival\([^)]*\))$/, /^contactShipOffice\([^)]*\)$/];
   function pageButtons(o) {
     try {
       if (typeof g.cardHTML !== 'function') return '';
       var t = document.createElement('div'); t.innerHTML = g.cardHTML(o);
-      var card = t.firstElementChild; if (!card) return '';
-      var kids = [].slice.call(card.children), at = -1;
-      kids.forEach(function (x, j) { if (/\bborder-t\b/.test(x.className || '') && /\bmb-4\b/.test(x.className || '')) at = j; });   // سطر التفاصيل ⇒ ما بعده الأزرار
-      if (at < 0) return '';
-      return kids.slice(at + 1).map(function (x) { return x.outerHTML; }).join('');
+      var all = [].slice.call(t.querySelectorAll('button[onclick]'));
+      var out = KEEP.map(function (re) { return all.filter(function (b) { return re.test((b.getAttribute('onclick') || '').trim()); })[0]; }).filter(Boolean);
+      if (!out.length) return '';
+      out.forEach(function (b, i) { if (i === 0 && /requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
+      return '<div class="flex gap-2">' + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';
     } catch (_) { return ''; }
   }
   function cardHTML(o) {
@@ -136,8 +138,7 @@
       '<div class="mr-sub">رقم التتبّع <b dir="ltr">' + esc(n) + '</b>' + (o.region || o.city ? ' · ' + esc(o.region || o.city) : '') + (when ? ' · شُحن ' + esc(when) : '') + ' · عندنا: ' + esc(stLabel(o.status)) + '</div>' +
       '<div class="mr-res">' + resultHTML(o, r || { n: n }) + '</div>' +
       (pb ? '<div class="mr-pbtns" data-mr-pbtns>' + pb + '</div>' : '') +
-      '<div class="mr-act">' + act + '<button type="button" data-mr-site="' + esc(n) + '" class="mr-btn mr-ghost">📋 نسخ الرقم وفتح موقع المفتي</button>' +
-      (r && (k === 'err' || k === 'nf') ? '<button type="button" data-mr-retry="' + esc(n) + '" class="mr-btn mr-ghost">↻ أعد</button>' : '') + '</div></div>';
+      (act ? '<div class="mr-act">' + act + '</div>' : '') + '</div>';
   }
 
   function counts() {
@@ -191,10 +192,6 @@
     next();
   }
 
-  function copy(t) {
-    try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).catch(function () {}); } catch (_) {}
-    return Promise.resolve();
-  }
   function toast(m, t) { try { if (typeof showToast === 'function') return showToast(m, t); } catch (_) {} }
 
   function close() {
@@ -285,14 +282,6 @@
       if (t.hasAttribute('data-mr-close')) return close();
       if (t.hasAttribute('data-mr-run')) return fresh();
       if (t.hasAttribute('data-mr-f')) { state.filter = t.getAttribute('data-mr-f'); return render(); }
-      if (t.hasAttribute('data-mr-retry')) return scan([t.getAttribute('data-mr-retry')]);
-      if (t.hasAttribute('data-mr-site')) {
-        var n = t.getAttribute('data-mr-site');
-        copy(n).then(function () { toast('📋 نُسخ الرقم ' + n + ' — الصقه في موقع المفتي', 'ok'); });
-        var url = null; try { url = typeof trackUrlFor === 'function' ? trackUrlFor('المفتي') : (g.GMTOffices && GMTOffices.trackUrlOf('المفتي')); } catch (_) {}
-        if (url) g.open(url, '_blank', 'noopener');
-        return;
-      }
       if (t.hasAttribute('data-mr-confirm')) {
         var id = t.getAttribute('data-mr-confirm');
         if (typeof g.requestConfirm === 'function') g.requestConfirm(isNaN(+id) ? id : +id, 'delivered');

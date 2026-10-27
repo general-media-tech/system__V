@@ -55,22 +55,16 @@ const FAKE = {
       nextToEdit: (() => { const b = document.querySelector('[data-mr-launch]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
     ok(/213, 0, 28/.test(id1.h) && /213, 0, 28/.test(id1.cur) && /213, 0, 28/.test(id1.card) && id1.nextToEdit, W + ': بهويتنا البصرية (الأحمر #D5001C) · الزرّ بجانب «تعديل» في الأعلى: ' + JSON.stringify(id1));
     ok(N && /لا يعرف الرقم/.test(N.t) && D && /اسم المستلم عند المفتي لا يشبه/.test(D.t) && !/لا يشبه/.test(A.t + B.t), W + ': رقمٌ غير موجود عندهم ⇒ يُقال · اسم مستلمٍ مختلف ⇒ تنبيه (فقط حيث يختلف)');
-    // (TASK-0220 · seq 150) أزرار بطاقة الأوردر نفسها: تأكيد الاستلام · تبليغ وصول · بعد التبليغ «مراسلة الزبون» · فرع الشحن · ⋮
-    const btns = await pg.evaluate(ids => { const q = (id, sel) => !!document.querySelector('#gmt-mr [data-mr-o="' + id + '"] ' + sel);
-      return { conf: q(ids.a, '[onclick="requestConfirm(' + ids.a + ',\'delivered\')"]'), arr: q(ids.a, '[onclick="shareOrder(' + ids.a + ',\'arrived\')"]'), office: q(ids.a, '[onclick="contactShipOffice(' + ids.a + ')"]'),
-        more: q(ids.a, '[data-card-more]'), pdf: q(ids.a, '[onclick="shareOrderPdf(' + ids.a + ')"]'), icons: !document.querySelector('#gmt-mr [data-mr-pbtns] i[data-lucide]'),
-        after: q(ids.b, '[onclick="contactCustomerArrival(' + ids.b + ')"]') && !q(ids.b, '[onclick="shareOrder(' + ids.b + ',\'arrived\')"]') }; }, { a: idOf('214244'), b: idOf('210063') });
-    ok(Object.values(btns).every(Boolean), W + ': أزرار بطاقة الأوردر نفسها تحت كل شحنة (تأكيد الاستلام · 🔔 تبليغ وصول · وبعد التبليغ مراسلة الزبون · 🏢 · PDF · ⋮): ' + JSON.stringify(btns));
-    await pg.evaluate(() => { window.__arr = null; window.shareOrder = (id, k) => { window.__arr = [id, k]; }; });
-    await pg.click('#gmt-mr [onclick="shareOrder(' + idOf('214244') + ',\'arrived\')"]'); await pg.waitForTimeout(200);
-    ok(JSON.stringify(await pg.evaluate(() => window.__arr)) === JSON.stringify([idOf('214244'), 'arrived']), W + ': «تبليغ وصول» من المراجعة ينادي التبليغ نفسه');
-    await pg.click('#gmt-mr [data-mr-o="' + idOf('214244') + '"] [data-card-more]'); await pg.waitForTimeout(400);
-    const menuTop = await pg.evaluate(() => { const ov = document.getElementById('card-more-ov'); if (!ov) return 'no-menu'; const it = [...ov.querySelectorAll('[data-i]')].find(e => /تبليغ الشحن/.test(e.textContent));
-      if (!it) return 'no-menu'; const r = it.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return top && !top.closest('#gmt-mr') ? 'above' : 'behind'; });
-    ok(menuTop === 'above', W + ': قائمة ⋮ (فيها «تبليغ الشحن») تظهر فوق المراجعة لا خلفها: ' + menuTop);
-    if (await pg.$('#card-more-ov [data-x]')) await pg.click('#card-more-ov [data-x]');
-    await pg.waitForTimeout(200);
-    ok(!!(await pg.$('#gmt-mr')) && !(await pg.$('#card-more-ov')), W + ': إغلاق القائمة يعيدك للمراجعة كما هي');
+    // (TASK-0221 · seq 151) «فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه» — من بطاقة الأوردر نفسها، لا غيرها
+    const btns = await pg.evaluate(ids => { const row = id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] button')].map(b => b.getAttribute('onclick') || b.textContent.trim());
+      return { a: row(ids.a), b: row(ids.b), icons: !document.querySelector('#gmt-mr [data-mr-pbtns] i[data-lucide]') }; }, { a: idOf('214244'), b: idOf('210063') });
+    ok(JSON.stringify(btns.a) === JSON.stringify(['requestConfirm(' + idOf('214244') + ",'delivered')", 'shareOrder(' + idOf('214244') + ",'arrived')", 'contactShipOffice(' + idOf('214244') + ')']) && btns.icons,
+      W + ': ثلاثة أزرار فقط: تأكيد الاستلام · تبليغ الوصول · مراسلة فرع الشركة الوجهة (لا طباعة ولا بحث ولا PDF ولا ⋮): ' + JSON.stringify(btns.a));
+    ok(JSON.stringify(btns.b) === JSON.stringify(['requestConfirm(' + idOf('210063') + ",'delivered')", 'contactCustomerArrival(' + idOf('210063') + ')', 'contactShipOffice(' + idOf('210063') + ')']),
+      W + ': بعد التبليغ: زرّ التبليغ نفسه يصير «مراسلة الزبون» كما في البطاقة: ' + JSON.stringify(btns.b));
+    await pg.evaluate(() => { window.__arr = null; window.shareOrder = (id, k) => { window.__arr = [id, k]; }; window.__off = null; window.contactShipOffice = id => { window.__off = id; }; });
+    await pg.click('#gmt-mr [onclick="shareOrder(' + idOf('214244') + ',\'arrived\')"]'); await pg.click('#gmt-mr [onclick="contactShipOffice(' + idOf('214244') + ')"]'); await pg.waitForTimeout(200);
+    ok(JSON.stringify(await pg.evaluate(() => [window.__arr, window.__off])) === JSON.stringify([[idOf('214244'), 'arrived'], idOf('214244')]), W + ': «تبليغ الوصول» و«مراسلة فرع الشركة» ينادِيان دوالّ البطاقة نفسها');
     // فلتر «استلمها»
     await pg.click('#gmt-mr [data-mr-f="got"]'); await pg.waitForTimeout(150);
     ok(await pg.evaluate(() => document.querySelectorAll('#gmt-mr [data-mr-o]').length) === 1, W + ': فلتر «✅ استلمها» ⇒ واحدة');
@@ -115,10 +109,10 @@ const FAKE = {
     await pg.click('#gmt-mr [data-mr-run]');
     await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
     const errN = await pg.evaluate(() => [...document.querySelectorAll('#gmt-mr [data-mr-k="err"]')].length);
-    ok(errN >= 1 && !!(await pg.$('#gmt-mr [data-mr-retry]')), W + ': ردّ خطأ من الخادم ⇒ «⚠️ تعذّرت القراءة» مع «↻ أعد»: ' + errN);
-    const rn = await pg.evaluate(() => document.querySelector('#gmt-mr [data-mr-retry]').getAttribute('data-mr-retry'));
-    await pg.click('#gmt-mr [data-mr-retry="' + rn + '"]'); await pg.waitForTimeout(1200);
-    ok(await pg.evaluate(n => { const c = [...document.querySelectorAll('#gmt-mr [data-mr-o]')].find(x => x.innerText.includes(n)); return c && c.getAttribute('data-mr-k') !== 'err'; }, rn), W + ': «↻ أعد» يقرأ الرقم من جديد');
+    ok(errN >= 1 && !(await pg.$('#gmt-mr [data-mr-retry],#gmt-mr [data-mr-site]')), W + ': ردّ خطأ من الخادم ⇒ «⚠️ تعذّرت القراءة» (بلا أزرار إضافية): ' + errN);
+    await pg.click('#gmt-mr [data-mr-run]');
+    await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+    ok(await pg.evaluate(() => !document.querySelector('#gmt-mr [data-mr-k="err"]')), W + ': «↻ تحقّق من الكل» يقرأ من جديد بعد الخطأ');
     const hs = await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('#gmt-mr .mr-o')].some(c => c.scrollWidth > c.clientWidth + 1));
     ok(!hs, W + ': لا طفح أفقي');
     if (W === 390) await pg.screenshot({ path: '/tmp/gmt-out/mufti_review_390.png' });
