@@ -109,7 +109,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-receipt.js?v=20261025v" defer></script>
-<script src="gmt-docscan.js?v=20261025v" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
+<script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
 <script src="gmt-suggest.js?v=20261026g"></script>
@@ -3593,20 +3593,21 @@ function previewShipImage(input) {
 let _shipScan = null;
 let _shipMode = 'ship', _shipReading = false, _shipSaving = false;   // (خامساً) وضع النافذة · قراءةٌ جارية · حفظٌ جارٍ (لا حفظ مزدوج)
 async function shipScanFile(file, label) {
-    _shipScan = null; _shipOrig = file;
+    _shipScan = null; _shipOrig = file; shipPreDrop(); _shipNoteWait = '';
+    if (window.GMTDocScan && GMTDocScan.note) GMTDocScan.note(null);
     if (_shipEarly && _shipEarly.orig !== file) _shipEarly = null;
     /* (TASK-0122) القارئ يُحمَّل وأنت في شاشة الماسح — لا بعدها */
     if (shipCanRead() && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();
     /* (TASK-0130 · المالك seq 28: «القراءة تبلش قبل المسح لأنها بتستغرق وقت طويل») الرقم والفرع يبدآن الآن مع اختيار الصورة، قبل أن
        يظهر الماسح: الباركود في عامله على الصورة الأصلية فوراً، والفرع ينتظر حدود الورقة ونسختها المقوَّمة من الماسح (opts.geom) */
-    shipStartEarlyRead(file);
+    shipStartEarlyRead(file); shipNote();
     /* حدود الورقة لحظة اكتشافها (مع صورة الماسح نفسها: لا فكٌّ ثانٍ) ⇒ خانة «المصدر» تُقوَّم وحدها وتُقرأ فوراً · والنسخة المقوَّمة
        الكاملة (للصفحة كاملةً إن لزمت) حين يجهّزها الماسح لتلك الحدود نفسها — أو null فيصنعها القارئ */
     let fullOk = null, geomQ = null; const fullP = new Promise(ok => { fullOk = ok; });
     const giveFull = cv => { if (fullOk) { fullOk(cv || null); fullOk = null; } };
     const giveGeom = g => { if (g && g.corners) geomQ = g.corners; if (_shipEarly && _shipEarly.orig === file && _shipEarly.giveGeom) _shipEarly.giveGeom(g); };
     const sameQ = (a, b) => Array.isArray(a) && Array.isArray(b) && a.every((p, i) => Math.abs(p[0] - b[i][0]) < 0.002 && Math.abs(p[1] - b[i][1]) < 0.002);
-    let use = file;
+    let use = file, adopt = false;
     if (window.GMTDocScan) {
         try {
             const r = await GMTDocScan.open(file, {
@@ -3614,18 +3615,26 @@ async function shipScanFile(file, label) {
                 onDetected: (det, rot) => { if (!rot && det && det.img) giveGeom({ corners: det.corners, poly: det.poly || null, ok: det.ok, img: det.img, full: fullP }); },
                 /* (TASK-0130) النسخة المقوَّمة تُصنع في عامل القراءة (الصورة مفكوكةٌ فيه أصلاً) — لا تحجز الواجهة ولا قراءة الفرع */
                 processor: (window.GMTReceipt && GMTReceipt.processIn) ? (c, r, m, img, sh) => GMTReceipt.processIn(file, c, r, m, img ? [img.naturalWidth || img.width, img.naturalHeight || img.height] : null, sh) : null,
-                onProcessed: (cv, corners) => { if (geomQ && sameQ(corners, geomQ)) giveFull(cv); },
+                /* (TASK-0194) كلّ نسخةٍ مقوَّمة يجهّزها الماسح وأنت تراجع (بعد الاكتشاف · بعد كل تعديل) ⇒ تُقرأ فوراً (shipPreRead):
+                   «اعتماد» على المحيط نفسه يتبنّى قراءتها (جاهزةٌ أو تكاد) بدل أن تبدأ القراءة بعده */
+                onProcessed: (cv, corners, sh, bp) => { if (geomQ && sameQ(corners, geomQ)) giveFull(cv); shipPreRead(file, corners, sh ? sh.poly : null, bp); },
                 onRetake: () => { const cam = document.getElementById('ship-img-input-camera'); if (cam) { cam.value = ''; cam.click(); } },
                 /* (TASK-0136 · المالك seq 37) القصّ لا يقطع رقم التتبّع: موضعه من القراءة المبكرة على الأصل */
                 keepIn: () => (_shipEarly && _shipEarly.orig === file && _shipEarly.boxes) || []
             });
             giveGeom(null); giveFull(null);                              // أُغلق الماسح ⇒ ما لم يُعطَ يصنعه القارئ بنفسه
+            if (window.GMTDocScan && GMTDocScan.note) GMTDocScan.note(null);
+            /* (TASK-0194) «اعتماد» على المحيط نفسه الذي تُقرأ نسخته (بلا تدوير) ⇒ تُتبنّى قراءته · غير ذلك ⇒ تتوقّف وتبدأ قراءةٌ على المعتمدة */
+            const pre = _shipPre;
+            adopt = !!(r && r.scanned && pre && pre.file && pre.orig === file && pre.gen === _shipCoGen && !r.rotation && shipNear(pre.corners, r.corners || null) && shipNear(pre.poly, r.poly || null));
+            if (adopt) pre.decide(true); else shipPreDrop();
             if (r && r.retake) return;
             if (r && r.scanned) {
                 _shipScan = { original: file, scanned: new File([r.scanned], 'receipt-scan.jpg', { type: 'image/jpeg' }), mode: r.mode, corners: r.corners || null, poly: r.poly || null, rotation: r.rotation || 0 };
                 use = _shipScan.scanned;
             }
         } catch (e) {
+            shipPreDrop(); if (window.GMTDocScan && GMTDocScan.note) GMTDocScan.note(null);
             /* (TASK-0128) ملفٌّ تالف أو ليس صورة (PDF · HEIC لا يفتحه المتصفّح) ⇒ لا «يُستعمل كما هو» فيُحفظ ويُرسل إيصالاً لا يُفتح */
             if (e && e.code === 'bad-image') {
                 giveGeom(null); giveFull(null);
@@ -3646,7 +3655,8 @@ async function shipScanFile(file, label) {
             ? `<span class="text-xs font-bold text-emerald-600 mt-1">📄 مُسح ضوئياً${_shipScan.mode === 'bw' ? ' (أبيض وأسود)' : ''} — هذه النسخة تُحفظ وتُرسل للتلغرام</span>` +
               `<button type="button" onclick="shipRescan()" class="text-[11px] font-black text-gray-500 underline">✂️ إعادة المسح / تعديل الزوايا</button>`
             : `<span class="text-xs font-bold text-emerald-600 mt-1">${escH(label || '✅ تم اختيار الصورة')}</span>`);
-    _shipRcptFile = use; shipReadTracking();
+    _shipRcptFile = use;
+    if (!(adopt && _shipPre && _shipPre.orig === file)) shipReadTracking();     // (TASK-0194) المتبنّاة تكمل (أو انتهت وتُعرض الآن)
 }
 window.shipRescan = () => {
     const f = _shipScan ? _shipScan.original : null;
@@ -3746,11 +3756,12 @@ function shipReadHooks(isMine, typed, force) {
         if (!isMine() || !t || !t.number) return;
         if (shipCurCo() !== (t.co || MUFTI_CO)) {                     // (TASK-0157/0159) الشركة ليست شركة هذا القارئ بعد ⇒ لا يُملأ قبل أن يثبت نوع الإيصال
             st.className = 'text-[11px] font-bold text-gray-500 mb-3';
-            st.textContent = 'قُرئ باركود (' + t.number + ') — جارٍ التعرّف على شركة الإيصال…'; return;
+            st.textContent = 'قُرئ باركود (' + t.number + ') — جارٍ التعرّف على شركة الإيصال…'; _shipNoteWait = String(t.number); shipNote(); return;
         }
         if (!typed || force) { inp.value = t.number; _shipRcptAuto = true; }
         st.className = 'text-[11px] font-black text-emerald-700 mb-3';
         st.innerHTML = '✅ رقم التتبّع <b dir="ltr">' + escH(t.number) + '</b> — من الباركود.' + (H.branchDone ? '' : ' <span data-wait="1" class="text-gray-500 font-bold">جارٍ قراءة الفرع المصدر…</span>');
+        shipNote();
     };
     H.onBranch = b => {
         if (!isMine() || !b) return;
@@ -3758,8 +3769,40 @@ function shipReadHooks(isMine, typed, force) {
         H.branchDone = true; if (window.applyDetectedShipFrom(b) === 'applied') H.earlyKey = b.key;
         const w = st.querySelector('[data-wait]');
         if (w) { w.removeAttribute('data-wait'); w.className = 'text-emerald-700'; w.textContent = ' · الفرع المصدر: ' + shipFromLabel(b.key); }
+        shipNote();
     };
     return H;
+}
+/* (TASK-0194 · المالك: «يقرا كل شيء اثناء المسح بنفس التوقيت … بس انتهى المسح واعطيته تمام فوريا يكون متعرف على المصدر وعلى الرقم»)
+   ① سطر «القراءة» داخل الماسح (GMTDocScan.note): الرقم والمصدر لحظة قراءتهما وأنت تمسح — من الحقول نفسها.
+   ② القراءة الثانية (على النسخة المقوَّمة: باركودها · «المصدر» إن نقص) كانت تبدأ بعد «اعتماد»؛ الآن على كل نسخةٍ يجهّزها الماسح وأنت تراجع
+      (_shipPre). «اعتماد» على المحيط نفسه يتبنّاها ⇒ النتيجة جاهزة أو تكاد · تعديل الحدود ⇒ نسخةٌ جديدة تحلّ محلّها · تدوير أو إلغاء ⇒ تتوقّف.
+      ما يُعرض في النافذة (السؤال عن الشركة · مرشّحو الرقم) ينتظر «اعتماد» — لا نافذة فوق الماسح. */
+let _shipPre = null, _shipNoteWait = '';
+function shipNear(A, B) { return (!A && !B) || (Array.isArray(A) && Array.isArray(B) && A.length === B.length && A.every((p, i) => Math.abs(p[0] - B[i][0]) < 0.01 && Math.abs(p[1] - B[i][1]) < 0.01)); }
+function shipPreDrop() { const p = _shipPre; _shipPre = null; if (p) p.decide(false); }
+function shipPreRead(orig, corners, poly, bp) {
+    if (!bp || !Array.isArray(corners) || !shipCanRead() || _shipOrig !== orig || !window.GMTReceipt || !GMTReceipt.readMufti) return;
+    shipPreDrop();
+    const pre = { orig, corners: corners.map(p => p.slice()), poly: poly ? poly.map(p => p.slice()) : null, file: null, done: false, res: null, adopted: null, gen: _shipCoGen };
+    pre.decided = new Promise(ok => { pre.decide = v => { if (pre.adopted == null) pre.adopted = !!v; ok(pre.adopted); }; });
+    _shipPre = pre;
+    bp.then(b => { if (_shipPre !== pre || !b) return; pre.file = new File([b], 'receipt-scan.jpg', { type: 'image/jpeg' }); shipReadTracking(false, pre); }, () => {});
+}
+function shipNote() {
+    if (!window.GMTDocScan || !GMTDocScan.note || !shipCanRead()) return;
+    const inp = document.getElementById('ship-tracking'), sel = document.getElementById('ship-from');
+    const E = _shipEarly && _shipEarly.orig === _shipOrig ? _shipEarly : null, pre = _shipPre;
+    const busy = !!((E && !E.done) || (pre && !pre.done)), res = (pre && pre.done && pre.res) || (E && E.res) || null, T = (res && res.tracking) || {};
+    const num = inp ? inp.value.trim() : '', items = [];
+    if (E && E.other) items.push({ k: 'الإيصال', v: E.other, st: 'ok' });
+    items.push(num ? { k: 'رقم التتبّع', v: num, st: 'ok' }
+        : busy ? { k: 'رقم التتبّع', v: _shipNoteWait, st: 'wait' }
+        : (T.status === 'printed' || T.status === 'differ') ? { k: 'رقم التتبّع', v: 'اختره من المقروء بعد «اعتماد»', st: 'miss' }
+        : { k: 'رقم التتبّع', v: 'لم يُقرأ — اكتبه بعد «اعتماد»', st: 'miss' });
+    const fromRc = !!(sel && sel.getAttribute('data-src') === 'receipt' && sel.value);
+    items.push(fromRc ? { k: 'المصدر', v: shipFromLabel(sel.value), st: 'ok' } : busy ? { k: 'المصدر', st: 'wait' } : { k: 'المصدر', v: 'لم يُقرأ — اختره بعد «اعتماد»', st: 'miss' });
+    GMTDocScan.note(items);
 }
 /* (TASK-0130) تبدأ القراءة مع اختيار الصورة (قبل الماسح) — وحدتان منفصلتان تعملان معاً: الرقم (الباركود في عامله على الأصل فوراً)
    والفرع (ينتظر من الماسح حدود الورقة ونسختها المقوَّمة: giveGeom({cv, corners}) — أو null فيقوّمها القارئ بنفسه) */
@@ -3792,7 +3835,7 @@ function shipStartEarlyRead(orig) {
                 if (!E.num) { st.className = 'text-[11px] font-bold text-gray-500 mb-3'; st.textContent = '🚚 يبدو إيصال «' + r.other.company + '» — جارٍ قراءة رقم التتبّع والفرع المصدر…'; }
                 return shipReadOther(orig, r.other.company, hooks, cancel, { rot: r.other.rot, codes: r.codes, handoff: true });
             }))
-        .catch(e => ({ error: e })).then(r => { E.done = true; return r; });
+        .catch(e => ({ error: e })).then(r => { E.done = true; E.res = r && !r.error ? r : null; shipNote(); return r; });
     _shipEarly = E;
 }
 /* دمج قراءتين: ما نقص الأخيرة يُؤخذ من الأولى */
@@ -3842,17 +3885,21 @@ function shipMergeOther(a, b) {
     if (['qadmous', 'masarat'].indexOf((b.type || {}).kind) === -1 && ['qadmous', 'masarat'].indexOf((a.type || {}).kind) !== -1) { out.type = a.type; out.company = a.company; }
     return out;
 }
-async function shipReadTracking(force) {
+async function shipReadTracking(force, pre) {
     const st = document.getElementById('ship-track-auto');
     const inp = document.getElementById('ship-tracking');
     const comp = (document.getElementById('ship-company') || {}).value || '';
     if (!st || !inp) return;
-    if (!_shipRcptFile || !shipCanRead()) { st.classList.add('hidden'); st.textContent = ''; _shipReading = false; return; }   // شركةٌ غير المفتي اخترتَها بيدك: مسحٌ فقط (ولا «قراءةٌ جارية» تمنع الحفظ)
-    const myFile = _shipRcptFile, orig = (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : myFile;
+    if (!pre) shipPreDrop();                                            // (TASK-0194) قراءةٌ على المعتمدة/من جديد ⇒ المؤقّتة تتوقّف
+    if ((!pre && !_shipRcptFile) || !shipCanRead()) { st.classList.add('hidden'); st.textContent = ''; _shipReading = false; return; }   // شركةٌ غير المفتي اخترتَها بيدك: مسحٌ فقط (ولا «قراءةٌ جارية» تمنع الحفظ)
+    /* pre: نسخةٌ مقوَّمة والماسح ما زال مفتوحاً (shipPreRead) — «لها» ما دامت هي المؤقّتة الحاليّة ولم تُرفض */
+    const myFile = pre ? pre.file : _shipRcptFile, orig = pre ? pre.orig : (_shipScan && myFile === _shipScan.scanned) ? _shipScan.original : myFile;
     /* (TASK-0128) «لي» = الصورة نفسها ما زالت المختارة ولم تُختر صورةٌ أخرى بعدها (_shipOrig) · وتُعرض النتيجة فقط والشركة ما زالت
        «المفتي» (غيّرتَها أثناء القراءة ⇒ لا يُملأ شيء) */
     const gen = _shipCoGen;
-    const own = () => myFile === _shipRcptFile && (_shipOrig == null || _shipOrig === orig), isMine = () => own() && gen === _shipCoGen;
+    const own = () => (pre ? _shipPre === pre && pre.adopted !== false : myFile === _shipRcptFile) && (_shipOrig == null || _shipOrig === orig), isMine = () => own() && gen === _shipCoGen;
+    /* (TASK-0194) المؤقّتة: النتيجة جاهزة ⇒ تُكتب في سطر الماسح · وما يُعرض في النافذة (السؤال · المرشّحون) ينتظر «اعتماد» على المحيط نفسه */
+    const gate = async r => { if (!pre) return true; pre.done = true; pre.res = r || null; shipNote(); return (await pre.decided) && isMine(); };
     const early = (!force && _shipEarly && _shipEarly.orig === orig && _shipEarly.gen === gen) ? _shipEarly : null;
     const typed = early ? early.typed : (!!inp.value.trim() && !_shipRcptAuto);
     const H = early ? early.hooks : shipReadHooks(isMine, typed, force);
@@ -3888,7 +3935,7 @@ async function shipReadTracking(force) {
                 const rm = await GMTReceipt.readMufti(myFile, { original: scanned ? orig : null, cancel: () => !isMine(), onTracking: H.onTracking, onBranch: H.onBranch });
                 if (rm && rm.type && rm.type.kind === 'mufti') r = rm;
             }
-            if (!own()) return;
+            if (!own() || !(await gate(r))) return;
             return await shipReadFinish(r, H, typed, force, isMine);   // (TASK-0174) السؤال وإعادة القراءة بعده «قراءةٌ جارية» (لا حفظ في أثنائها)
         }
         /* باركود الممسوحة (قُرئ بالتوازي) يُدمج دائماً: يطابق المطبوع ⇒ تحقّقٌ ناجح · يخالفه ⇒ لا يُعتمد أيٌّ منهما · لا شيء غيره ⇒ هو */
@@ -3905,8 +3952,9 @@ async function shipReadTracking(force) {
                لا تُعاد القراءة كلّها (كانت ٢٥–٣٠ث لإيصالٍ بلا باركود أو بلا «المصدر») — باركودٌ سريع، و«المصدر» في اتّجاهه المعروف وحده إن نقص الفرع */
             /* (TASK-0131) والمحيط نفسه: نقاطٌ أُضيفت أو حُرّكت بين الأركان (حافّةٌ منحنية صُحّحت باليد) ⇒ نسخةٌ أخرى ⇒ ليست «نفسها» */
             const near = (A, B) => (!A && !B) || (Array.isArray(A) && Array.isArray(B) && A.length === B.length && A.every((p, i) => Math.abs(p[0] - B[i][0]) < 0.01 && Math.abs(p[1] - B[i][1]) < 0.01));
-            const same = !!(r && !r.cancelled && early && (myFile === early.orig || (early.corners && _shipScan && myFile === _shipScan.scanned && !_shipScan.rotation &&
-                near(_shipScan.corners, early.corners) && near(_shipScan.poly, early.poly || null))));
+            const sc = pre || _shipScan, scFile = pre ? pre.file : (_shipScan && _shipScan.scanned);
+            const same = !!(r && !r.cancelled && early && (myFile === early.orig || (early.corners && sc && myFile === scFile && !sc.rotation &&
+                near(sc.corners, early.corners) && near(sc.poly, early.poly || null))));
             const lite = same ? { text: !(r.branch && r.branch.confident), rot: r.rot != null ? r.rot : null } : null;
             const needText = !(r && r.branch && r.branch.confident), needNum = !(r && r.tracking && r.tracking.status !== 'none');
             if (needText || needNum) {
@@ -3927,8 +3975,10 @@ async function shipReadTracking(force) {
             if (chk && !chk.cancelled && chk.type && ['qadmous', 'masarat'].indexOf(chk.type.kind) !== -1 && isMine()) r = Object.assign(chk, { reader: 'other', handoff: true });
         }
         if (!isMine()) return;                                          // تغيّرت الصورة أثناء القراءة
+        if (!(await gate(r))) return;
         await shipReadFinish(r, H, typed, force, isMine);
     } catch (e) {
+        if (pre && !pre.done) { pre.done = true; shipNote(); if (!(await pre.decided)) return; }
         if (!isMine()) return;
         st.className = 'text-[11px] font-black text-amber-600 mb-3';
         st.textContent = e && e.code === 'bad-image' ? '⚠️ الصورة تالفة أو ليست صورة — صوّر الإيصال من جديد أو أدخل الرقم واختر الفرع يدوياً.'
@@ -9606,7 +9656,7 @@ try {
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027a"></script>
+<script src="gmt-whatsnew.js?v=20261027b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

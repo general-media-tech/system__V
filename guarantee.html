@@ -98,6 +98,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-share.js?v=20261024e" defer></script>
+  <script src="gmt-sticker.js?v=20261027b" defer></script>
+  <script src="gmt-custcache.js?v=20261016a" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
@@ -1919,7 +1921,9 @@ window.GMT_INTERNAL = 1;</script>
                 document.getElementById('previewBtn').href = finalLink;
 
                 const adminQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(finalLink)}`;
-                document.getElementById('adminQrCode').src = adminQrUrl;
+                /* (TASK-0195) الـQR يُبنى على الجهاز (بلا إنترنت) — والخدمة الخارجية احتياطٌ إن تعذّر */
+                const _qrImg = document.getElementById('adminQrCode'); _qrImg.src = '';
+                (window.GMTSticker ? GMTSticker.qr(finalLink) : Promise.resolve(null)).then(d => { _qrImg.src = d || adminQrUrl; }, () => { _qrImg.src = adminQrUrl; });
                 document.getElementById('adminQrContainer').classList.remove('hidden');
 
                 const copyBtn = document.getElementById('copyBtn');
@@ -1972,91 +1976,15 @@ window.GMT_INTERNAL = 1;</script>
         });
 
         // --- Print Sticker ---
+        /* (TASK-0195 · المالك seq 133 «طباعه ملصق الكفاله هذا الشيء غلط … ما في زر مشاركه pdf») كانت نافذةً منبثقة تُطبع بـ window.print:
+           الهاتف يطبعها على A4 فيخرج الملصق صغيراً وسط الورقة، و١٠٠×٥٠ كان يقصّ آخر النصّ، والـQR من خدمةٍ خارجية.
+           الآن gmt-sticker.js: ملفّ PDF بمقاس الملصق نفسه · «📤 مشاركة PDF» · «🖨️ طباعة» · «⬇️ تنزيل» — والشكل نفسه (الكرت القديم). */
         document.getElementById('printStickerBtn').addEventListener('click', function() {
             const link = this.dataset.link;
             const customerName = this.dataset.name;
             if (!link || !customerName) return;
-
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html lang="ar" dir="rtl">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>طباعة ملصق الكفالة</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-                    <style>
-                        body { font-family: 'Cairo', sans-serif; background: #f3f4f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                        .controls { position: absolute; top: 20px; text-align: center; width: 100%; }
-                        .btn-print { background-color: #D5001C; color: white; border: none; padding: 10px 20px; font-size: 16px; font-family: 'Cairo', sans-serif; font-weight: bold; border-radius: 5px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                        .btn-print:hover { background-color: #cc0000; }
-                        .sticker-wrapper { background: white; width: 100%; max-width: 600px; border: 2px solid #ccc; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); box-sizing: border-box; }
-                        .sticker-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #D5001C; padding-bottom: 10px; margin-bottom: 15px; }
-                        .sticker-header img { max-width: 130px; height: auto; }
-                        .sticker-body { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-                        .text-section { flex: 1; }
-                        .welcome-text { font-size: 18px; color: #333; margin: 0 0 5px 0; }
-                        .customer-name { color: #D5001C; font-weight: bold; }
-                        .thanks-text { font-size: 14px; color: #666; margin: 0 0 15px 0; }
-                        .main-scan-text { font-size: 20px; font-weight: bold; color: #000; margin: 0; line-height: 1.4; }
-                        .qr-section { flex-shrink: 0; background: #fff; padding: 5px; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-                        .qr-section img { width: 120px; height: 120px; display: block; }
-                        .sticker-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }
-                        .footer-text { font-size: 11px; color: #555; line-height: 1.5; }
-                        .footer-logo { max-width: 90px; height: auto; }
-                        @media print { html, body { height: auto !important; min-height: 0 !important; } body { background: white; padding: 0; margin: 0; display: block; } .controls { display: none !important; } .sticker-wrapper { box-shadow: none; border: 1px solid #000; margin: 0; page-break-inside: avoid; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
-                        <!-- (2026-10-05 ش) البند ١١٨: «ملصق الكفالة لازم يكون إله مقاسات محدّدة تاخذها فوراً على الطابعة،
-                             أو على الأقلّ ينطبع داخل ورقة A5» — اختر المقاس مرّة ويُحفظ على الجهاز -->
-                        <select id="stk-size" style="padding:10px 12px;border-radius:8px;border:1px solid #ccc;font-family:Cairo,sans-serif;font-weight:700">
-                          <option value="100x50">ملصق ١٠٠×٥٠ مم (طابعة ملصقات)</option>
-                          <option value="80x50">ملصق ٨٠×٥٠ مم</option>
-                          <option value="100x70">ملصق ١٠٠×٧٠ مم</option>
-                          <option value="A6">ورقة A6</option>
-                          <option value="A5">ورقة A5</option>
-                        </select>
-                        <button class="btn-print" onclick="window.print()">طباعة الملصق الآن</button></div>
-                    <style id="stk-page"></style>
-                    <script>
-                      (function(){
-                        var S={ '100x50':['100mm 50mm','96mm','46mm','0.62'], '80x50':['80mm 50mm','76mm','46mm','0.55'], '100x70':['100mm 70mm','96mm','66mm','0.75'], 'A6':['148mm 105mm','140mm','auto','0.95'], 'A5':['210mm 148mm','200mm','auto','1'] };
-                        var sel=document.getElementById('stk-size'), k='gmt_warranty_sticker_size';
-                        try{ var v=localStorage.getItem(k); if(v&&S[v]) sel.value=v; else sel.value='A5'; }catch(e){ sel.value='A5'; }
-                        function apply(){ var z=S[sel.value]||S.A5; try{localStorage.setItem(k,sel.value);}catch(e){}
-                          document.getElementById('stk-page').textContent='@media print{ @page{ size:'+z[0]+'; margin:2mm; } .sticker-wrapper{ width:'+z[1]+'!important; max-width:none!important; height:'+z[2]+'; zoom:'+z[3]+'; padding:3mm!important; border-radius:2mm!important; overflow:hidden; } body{ margin:0; } }'; }
-                        sel.addEventListener('change',apply); apply();
-                      })();
-                    <\/script>
-                    <div class="sticker-wrapper">
-                        <div class="sticker-header">
-                            <img data-gmt-guarded="1" onerror="try{window.opener.gmtCanonFail(this)}catch(e){this.onerror=null;this.outerHTML='<b style=color:#D5001C;font-size:20px>Canon</b>'}" src="canonlogo.png" alt="Canon Logo">
-                            <div style="font-weight: bold; color: #333; font-size: 16px;">Official Warranty</div>
-                        </div>
-                        <div class="sticker-body">
-                            <div class="text-section">
-                                <p class="welcome-text">أهلاً بك: <span class="customer-name">${customerName}</span></p>
-                                <p class="thanks-text">شكراً لاختياركم Canon General Mediatech</p>
-                                <h2 class="main-scan-text">امسح الباركود للحصول على<br>معلومات كفالتكم</h2>
-                            </div>
-                            <div class="qr-section"><img src="${qrUrl}" alt="Warranty QR Code"></div>
-                        </div>
-                        <div class="sticker-footer">
-                            <div class="footer-text">
-                                <strong>هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية</strong><br>
-                                الكفالة الالكترونية تعتبر وثيقة ضمان رسمية محفوظة على سيرفرات الشركة
-                            </div>
-                            <img src="genrallogo.png" class="footer-logo" alt="General Media Tech"
-                 onerror="this.onerror=null;this.src='logo.png'">
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+            if (window.GMTSticker) { GMTSticker.open({ link: link, name: customerName }); return; }
+            if (window.GMTAsk && GMTAsk.toast) GMTAsk.toast('⏳ وحدة الملصق لم تُحمَّل بعد — أعد المحاولة بعد لحظة', 'err');
         });
 
         // --- Download QR ---
@@ -2387,7 +2315,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-brain.js?v=20261027a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027a"></script>
+<script src="gmt-whatsnew.js?v=20261027b"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
@@ -2398,6 +2326,65 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- 🔴 (٧ ي-٣ · فحص_الأزرار_الميتة) كان وسمُ gmt-fitrow يبتلع افتتاح السكربت التالي: سكربتٌ له src
      يُهمَل ما بداخله ⇒ الدالّة لا تُعرَّف والزرّ ميّت أمام الزبون. -->
+<script>
+/* ══ (TASK-0195 · المالك seq 133) «اسم العميل لما بكتب انا يقترحني من قائمه العملاء الموجوده ويعبي تلقائيا» ══
+   حرفان فأكثر في «اسم العميل» (أو أرقامٌ من هاتفه) ⇒ قائمة: سجلّ الزبائن (gmt_customers) ثمّ الأوردرات ثمّ الكفالات السابقة — بلا تكرار
+   (بالهاتف). النقر ⇒ الاسم والهاتف يُعبّآن. بلا إنترنت ⇒ من الذاكرة المحلية (gmt-custcache: ما رآه الجهاز سابقاً). */
+(function () {
+    var inp = document.getElementById('customerName'), ph = document.getElementById('phoneNo');
+    if (!inp || !window.GMT_DB) return;
+    var box = document.createElement('div'); box.id = 'cust-sug'; box.setAttribute('role', 'listbox'); box.hidden = true;
+    box.style.cssText = 'position:absolute;z-index:60;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,.12);max-height:320px;overflow:auto';
+    inp.parentNode.style.position = 'relative'; inp.parentNode.appendChild(box); inp.setAttribute('autocomplete', 'off');
+    var T = 0, seq = 0, list = [];
+    function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function pkey(p) { var d = String(p || '').replace(/[٠-٩]/g, function (c) { return String(c.charCodeAt(0) - 0x660); }).replace(/\D/g, '').replace(/^(00963|963|0)/, ''); return d.length >= 7 ? d : ''; }
+    function hide() { box.hidden = true; box.innerHTML = ''; list = []; }
+    async function get(url, h) { var r = await fetch(url, { headers: h }); if (!r.ok) throw new Error('http ' + r.status); return r.json(); }
+    async function rows(v) {
+        var enc = encodeURIComponent('*' + v.replace(/[(),*]/g, ' ').trim() + '*'), M = GMT_DB.MAIN, W = GMT_DB.WARRANTY, hm = GMT_DB.headers(M), hw = GMT_DB.headers(W);
+        var res = await Promise.allSettled([
+            get(M.url + '/rest/v1/gmt_customers?or=(name.ilike.' + enc + ',phone.ilike.' + enc + ')&select=name,phone,address,is_blocked&order=updated_at.desc.nullslast&limit=10', hm),
+            get(M.url + '/rest/v1/gmt_orders?or=(name.ilike.' + enc + ',phone.ilike.' + enc + ')&select=name,phone,address,created_at&order=created_at.desc&limit=20', hm),
+            get(W.url + '/rest/v1/warranties?or=(customer_name.ilike.' + enc + ',phone_no.ilike.' + enc + ')&select=customer_name,phone_no,created_at&order=created_at.desc&limit=10', hw)
+        ]);
+        if (res.every(function (r) { return r.status === 'rejected'; })) throw new Error('offline');
+        var a = res[0].status === 'fulfilled' ? res[0].value : [], b = res[1].status === 'fulfilled' ? res[1].value : [], c = res[2].status === 'fulfilled' ? res[2].value : [];
+        try { if (window.GMTCustCache) { GMTCustCache.remember(a); GMTCustCache.remember(b); } } catch (_) {}
+        return a.filter(function (x) { return !x.is_blocked; }).map(function (x) { return { name: x.name, phone: x.phone, src: 'زبون' }; })
+            .concat(b.map(function (x) { return { name: x.name, phone: x.phone, src: 'أوردر' }; }))
+            .concat(c.map(function (x) { return { name: x.customer_name, phone: x.phone_no, src: 'كفالة سابقة' }; }));
+    }
+    function show(all, offline) {
+        var seen = {}; list = [];
+        all.forEach(function (o) { var n = String(o.name || '').trim(); if (!n) return; var k = pkey(o.phone) || 'n:' + n; if (seen[k]) return; seen[k] = 1; if (list.length < 8) list.push(o); });
+        if (!list.length) return hide();
+        box.innerHTML = (offline ? '<div style="padding:6px 10px;font-size:11px;font-weight:800;color:#b45309;background:#fffbeb">📴 لا اتصال — من الذاكرة المحلية</div>' : '') +
+            list.map(function (o, i) { return '<button type="button" role="option" data-i="' + i + '" style="display:block;width:100%;text-align:right;padding:9px 12px;border:0;border-bottom:1px solid #f3f4f6;background:#fff;cursor:pointer;font:inherit">' +
+                '<span style="display:block;font-weight:800;font-size:14px;color:#111">' + esc(o.name) + '</span><span style="display:block;font-size:11.5px;color:#6b7280;font-weight:700" dir="auto">' + esc(o.phone || '') + (o.src ? ' · ' + esc(o.src) : '') + '</span></button>'; }).join('');
+        box.hidden = false;
+    }
+    inp.addEventListener('input', function () {
+        var v = inp.value.trim(), my = ++seq; clearTimeout(T);
+        if (v.length < 2) return hide();
+        T = setTimeout(async function () {
+            var all = [], offline = false;
+            try { all = await rows(v); }
+            catch (_) { offline = true; try { all = window.GMTCustCache ? (await GMTCustCache.search(v, 12)).filter(function (x) { return !x.is_blocked; }) : []; } catch (__) { all = []; } }
+            if (my === seq && document.activeElement === inp) show(all, offline);
+        }, 220);
+    });
+    box.addEventListener('mousedown', function (e) { e.preventDefault(); });         // لا يفقد الحقل تركيزه قبل النقر
+    box.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-i]'); if (!b) return; var o = list[+b.getAttribute('data-i')]; if (!o) return;
+        inp.value = o.name; if (ph && o.phone) ph.value = o.phone;
+        [inp, ph].forEach(function (x) { if (x) x.dispatchEvent(new Event('change', { bubbles: true })); });
+        hide(); seq++;
+    });
+    inp.addEventListener('blur', function () { setTimeout(hide, 150); });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+})();
+</script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    📤 طلبك ١٢٠ — مشاركةُ شهادة الكفالة كـPDF

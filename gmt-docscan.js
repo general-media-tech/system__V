@@ -24,6 +24,8 @@
         { original: File, scanned: Blob, mode: 'orig'|'color'|'magic'|'gray'|'bw', corners, poly|null, ci|null, rotation, status: 'ok'|'review'|'fail'|'manual' }>
         init = نتيجةٌ سابقة ⇒ يُفتح بحدودها ونمطها (إعادة تعديل صفحة)
    opts.exclude = [{ poly, rot }] ⇒ أوراقٌ مُسحت من الصورة نفسها يتجاوزها الاكتشاف (TASK-0134)
+   onProcessed(cv, corners, shape|null, blobPromise) ⇒ النسخة المقوَّمة كلّما جُهّزت في الخلفية (TASK-0194) ·
+   GMTDocScan.note([{ k, v, st }]) ⇒ سطر «القراءة» داخل الماسح (ما قرأه المستدعي وأنت تمسح)
    GMTDocScan.detectNorm(img, rot, exclude) ⇒ { corners, poly, ci, ok, how } · process(img, corners, rot, mode, { poly, ci }) — للاختبار
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
@@ -1185,6 +1187,9 @@
       '#gds .gds-g{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(0,0,0,.45);border:2px dashed rgba(255,255,255,.75);color:#fff;font:900 13px/16px sans-serif;text-align:center;touch-action:none;cursor:copy;box-sizing:border-box}' +
       '#gds .gds-loupe{position:absolute;width:120px;height:120px;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.6);pointer-events:none;display:none;overflow:hidden;background:#000}' +
       '#gds .gds-msg{min-height:20px;text-align:center;font-size:12.5px;font-weight:800;color:#fbbf24;padding:0 12px}' +
+      '#gds .gds-read{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 10px 0}#gds .gds-read:empty{display:none}' +
+      '#gds .gds-read span{font-size:12.5px;font-weight:900;border-radius:999px;padding:4px 10px;background:#1a1e24;border:1px solid #2a2f37;color:#cbd5e1}' +
+      '#gds .gds-read span.ok{background:#064e3b;border-color:#059669;color:#d1fae5}#gds .gds-read span.miss{background:#451a03;border-color:#b45309;color:#fde68a}' +
       '#gds .gds-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}' +
       '#gds button{font:inherit;font-weight:900;font-size:13px;border-radius:12px;padding:10px 12px;border:1px solid #2a2f37;background:#1a1e24;color:#fff;cursor:pointer}' +
       '#gds button.p{background:#D5001C;border-color:#D5001C}#gds button.on{background:#fff;color:#111}' +
@@ -1192,6 +1197,11 @@
     (doc.head || doc.documentElement).appendChild(st);
   }
 
+  /* (TASK-0194 · المالك: «يقرا كل شيء اثناء المسح … بس انتهى المسح واعطيته تمام فوريا يكون متعرف على المصدر وعلى الرقم»)
+     سطر «القراءة» داخل الماسح: المستدعي (نافذة الشحن) يكتب فيه ما قرأه وأنت تمسح — [{ k: 'رقم التتبّع', v: '512340', st: 'ok'|'wait'|'miss' }]
+     null ⇒ يُمسح. يُحفظ آخره فيُرسم حين يُفتح الماسح (القراءة تبدأ قبل ظهوره) */
+  var noteItems = null, noteDraw = null;
+  function note(items) { noteItems = items && items.length ? items.slice() : null; if (noteDraw) noteDraw(); }
   function open(file, opts) {
     opts = opts || {};
     css();
@@ -1224,8 +1234,9 @@
             var k = keyOf(); if (pre && pre.key === k) return;
             var cs = corners(), sh = shape(), r0 = rot, m0 = mode;
             var done = function (Pp, cv) {
-              Pp.cv = cv; Pp.cv.toBlob(function (bl) { Pp.blob = bl; }, 'image/jpeg', 0.9);
-              if (opts.onProcessed && r0 === 0 && m0 === 'color') { try { opts.onProcessed(cv, cs); } catch (_) {} }
+              Pp.cv = cv; var bp = Pp.bp = new Promise(function (ok) { cv.toBlob(function (bl) { Pp.blob = bl; ok(bl || null); }, 'image/jpeg', 0.9); });
+              /* (TASK-0194) والمحيط (sh) ووعد الملفّ نفسه الذي يُعتمد ⇒ نافذة الشحن تقرأ هذه النسخة وأنت تراجع (لا تنتظر «اعتماد») */
+              if (opts.onProcessed && r0 === 0 && m0 === 'color') { try { opts.onProcessed(cv, cs, sh, bp); } catch (_) {} }
               return cv;
             };
             /* (TASK-0130) معالجٌ في خيطٍ آخر (opts.processor ⇒ وعدٌ بقماش أو null): المعالجة لا تحجز الواجهة ولا قراءة الفرع */
@@ -1266,15 +1277,25 @@
           '<div class="gds-tools"></div>' +
           '<div class="gds-stage"><div class="gds-wrap"><div class="gds-clip"><canvas class="gds-img"></canvas><svg aria-hidden="true"><polygon fill="rgba(34,197,94,.12)" stroke="#22c55e" stroke-width="2" vector-effect="non-scaling-stroke"/><polyline fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/></svg></div><div class="gds-loupe"><canvas width="120" height="120"></canvas></div></div></div>' +
           '<div class="gds-msg" role="status" aria-live="polite"></div>' +
+          '<div class="gds-read" aria-live="polite"></div>' +
           '<div class="gds-bar"></div>';
         doc.body.appendChild(root);
         var stage = root.querySelector('.gds-stage'), wrap = root.querySelector('.gds-wrap'), cv = root.querySelector('canvas.gds-img'), svg = root.querySelector('.gds-clip>svg');
         var polyEl = svg.querySelector('polygon'), lineEl = svg.querySelector('polyline'), loupe = root.querySelector('.gds-loupe'), lcv = loupe.querySelector('canvas');
         var msg = root.querySelector('.gds-msg'), bar = root.querySelector('.gds-bar'), tools = root.querySelector('.gds-tools'), sub = root.querySelector('#gds-sub');
+        var readEl = root.querySelector('.gds-read');
+        noteDraw = function () {
+          readEl.innerHTML = '';
+          (noteItems || []).forEach(function (it) {
+            var sp = doc.createElement('span'); sp.className = it.st === 'ok' ? 'ok' : it.st === 'miss' ? 'miss' : '';
+            sp.textContent = (it.st === 'ok' ? '✓ ' : it.st === 'miss' ? '⚠ ' : '⏳ ') + it.k + (it.v ? ': ' + it.v : ''); readEl.appendChild(sp);
+          });
+        };
+        noteDraw();
         var handles = [], ghosts = [], st = statusOf(null), shown = null;
         function say(t, col) { msg.textContent = t || ''; msg.style.color = col || ''; }   // الحالة بلونها (أخضر/كهرماني/أحمر) · غيرها كهرماني
         function btn(label, fn, cls, where) { var b = doc.createElement('button'); b.type = 'button'; b.textContent = label; if (cls) b.className = cls; b.addEventListener('click', fn); (where || bar).appendChild(b); return b; }
-        function finish(v) { detTok++; if (keepT) clearInterval(keepT); root.remove();   /* أُغلق الماسح قبل انتهاء الاكتشاف ⇒ نتيجته تُهمل (لا onDetected بعد الإغلاق) */ doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
+        function finish(v) { detTok++; if (keepT) clearInterval(keepT); noteDraw = null; root.remove();   /* أُغلق الماسح قبل انتهاء الاكتشاف ⇒ نتيجته تُهمل (لا onDetected بعد الإغلاق) */ doc.removeEventListener('keydown', onKey, true); global.removeEventListener('resize', onResize); resolve(v); }
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); if (drawing) cancelDraw(); else finish(null); return; }
           if (view !== 'edit') return;
@@ -1551,7 +1572,7 @@
               base = { key: JSON.stringify([P, CI, rot]), cv: warpOnly(img, cs, rot, sh) };
               result = applyMode(base.cv, mode); busy = false;
               /* (TASK-0130) «قصّ» قبل أن تُجهَّز النسخة في الخلفية ⇒ هذه هي، والقراءة تأخذها (لا تعالج الصورة مرّةً ثانية) */
-              if (opts.onProcessed && rot === 0 && mode === 'color') { try { opts.onProcessed(result, cs); } catch (_) {} }
+              if (opts.onProcessed && rot === 0 && mode === 'color') { var rs = result; try { opts.onProcessed(rs, cs, sh, new Promise(function (ok) { rs.toBlob(function (bl) { ok(bl || null); }, 'image/jpeg', 0.9); })); } catch (_) {} }
               showResult();
             }
             catch (e) { busy = false; say('❌ تعذّرت المعالجة: ' + (e && e.message || e) + ' — جرّب «الصفحة كاملة» أو أعد التصوير.'); }
@@ -1587,6 +1608,8 @@
             var out = { original: file, scanned: null, mode: mode, corners: corners(), poly: shape() ? P.map(function (p) { return p.slice(); }) : null, ci: shape() ? CI.slice() : null, rotation: rot, width: result.width, height: result.height, status: st.k };
             if (pre && result === pre.cv && pre.blob) { out.scanned = pre.blob; finish(out); return; }
             busy = true;
+            /* (TASK-0194) ملفّها يُرمَّز الآن في الخلفية ⇒ يُنتظر (كان يُرمَّز مرّةً ثانية: ≈١ث على هاتفٍ بطيء بعد «اعتماد») */
+            if (pre && result === pre.cv && pre.bp) { pre.bp.then(function (b) { busy = false; if (b) { out.scanned = b; finish(out); } else say('❌ تعذّر حفظ الصورة — أعد المحاولة.'); }); return; }
             result.toBlob(function (b) {
               busy = false;
               if (!b) { say('❌ تعذّر حفظ الصورة — أعد المحاولة.'); return; }
@@ -1616,5 +1639,5 @@
       catch (err) { global.postMessage({ id: m.id, error: String(err && err.message || err) }); }
     };
   }
-  global.GMTDocScan = { open: open, _detectOff: detectOff, detect: detect, lineQuad: lineQuad, process: process, _warpPoly: warpPoly, warpOnly: warpOnly, applyMode: applyMode, _poly: { cornersOf: cornersOf, simple: simple, normPoly: normPoly }, statusOf: statusOf, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
+  global.GMTDocScan = { open: open, note: note, _detectOff: detectOff, detect: detect, lineQuad: lineQuad, process: process, _warpPoly: warpPoly, warpOnly: warpOnly, applyMode: applyMode, _poly: { cornersOf: cornersOf, simple: simple, normPoly: normPoly }, statusOf: statusOf, processBox: processBox, rectGeom: rectGeom, detectNorm: detectNorm, _warp: warp, _enhance: enhance, _order: order };
 })(typeof window !== 'undefined' ? window : self);

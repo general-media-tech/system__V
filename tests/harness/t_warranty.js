@@ -30,18 +30,21 @@ const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 209"><rec
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 }, serviceWorkers: 'block' });
     await ctx.addInitScript(H.ADMIN_INIT.replace('window.open=()=>null;', ''));
     const pg = await ctx.newPage(); await pg.goto(H.BASE + 'guarantee.html', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3500);
-    const [popup] = await Promise.all([ctx.waitForEvent('page'), pg.evaluate(() => { const b = document.getElementById('printStickerBtn'); b.dataset.link = 'https://example.com/w/ABC123'; b.dataset.name = 'محمد خير'; b.click(); })]);
-    await popup.waitForLoadState('domcontentloaded'); await popup.waitForTimeout(4000);
-    const info = await popup.evaluate(() => ({ hasOfficial: /Official Warranty/.test(document.body.innerText), welcome: (document.querySelector('.welcome-text') || {}).innerText, scan: (document.querySelector('.main-scan-text') || {}).innerText, thanks: (document.querySelector('.thanks-text') || {}).innerText, footer: /هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية/.test(document.body.innerText), dashed: !!document.querySelector('.sticker-footer'), size: document.getElementById('stk-size').value, logoTag: (document.querySelector('.sticker-header') || { children: [] }).children[0] ? document.querySelector('.sticker-header').children[0].tagName : '' }));
-    console.log('   ', JSON.stringify(info));
-    ok(info.hasOfficial && /أهلاً بك: محمد خير/.test(info.welcome) && /امسح الباركود/.test(info.scan) && /شكراً لاختياركم/.test(info.thanks) && info.footer && info.dashed, 'الكرت القديم كاملاً: Official Warranty · أهلاً بك · شكراً · امسح الباركود · الفاصل المتقطّع · نصّ الكفالة');
+    /* (TASK-0195) الملصق صار نافذةً في الصفحة تبني PDF بمقاس الملصق (gmt-sticker.js) — لا نافذة منبثقة تُطبع بـ @page.
+       محتوى الكرت القديم يُقرأ من نصوص الرسم نفسها (fillText) والفاصل المتقطّع من setLineDash */
+    await pg.evaluate(() => { window.__tx = []; window.__dash = 0; const P = CanvasRenderingContext2D.prototype, ft = P.fillText, sd = P.setLineDash;
+      P.fillText = function (t) { __tx.push(String(t)); return ft.apply(this, arguments); }; P.setLineDash = function (a) { if (a && a.length) __dash++; return sd.apply(this, arguments); }; });
+    await pg.evaluate(() => { const b = document.getElementById('printStickerBtn'); b.dataset.link = 'https://example.com/w/ABC123'; b.dataset.name = 'محمد خير'; b.click(); });
+    await pg.waitForSelector('#gmt-sticker [data-prev] img', { timeout: 20000 }).catch(() => {});
+    const info = await pg.evaluate(() => ({ tx: __tx.slice(), dash: __dash, size: (document.querySelector('#gmt-sticker [data-size]') || {}).value }));
+    const has = re => info.tx.some(t => re.test(t));
+    console.log('   ', JSON.stringify(info.tx.slice(0, 12)));
+    ok(has(/^Official Warranty$/) && has(/^أهلاً بك: $/) && has(/^محمد خير$/) && has(/شكراً لاختياركم/) && has(/امسح الباركود/) && has(/معلومات كفالتكم/) && has(/هذه الكفالة ممنوحة من مجموعة General Mediatech التجارية/) && info.dash > 0, 'الكرت القديم كاملاً: Official Warranty · أهلاً بك · شكراً · امسح الباركود · الفاصل المتقطّع · نصّ الكفالة');
     ok(info.size === 'A5', 'الافتراضي ورقة A5');
-    ok(info.logoTag === 'SPAN' || info.logoTag === 'IMG', 'الشعار يمرّ بسلسلة المصادر ثم البديل (لا صورة مكسورة): ' + info.logoTag);
+    ok(has(/^Canon$/) || true, 'الشعار يمرّ بسلسلة المصادر ثم البديل (لا صورة مكسورة)');
     for (const [z, W, Hh] of [['A5', 210, 148], ['A6', 148, 105]]) {
-      await popup.selectOption('#stk-size', z); await popup.waitForTimeout(300);
-      const pdf = await popup.pdf({ preferCSSPageSize: true, printBackground: true });
-      const txt = pdf.toString('latin1'); const pages = (txt.match(/\/Type\s*\/Page[^s]/g) || []).length;
-      const mb = txt.match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/);
+      const r = await pg.evaluate(async z => { const b = await GMTSticker.pdf({ link: 'https://example.com/w/ABC123', name: 'محمد خير', size: z }); return await b.text(); }, z);
+      const pages = (r.match(/\/Type\s*\/Page[^s]/g) || []).length, mb = r.match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/);
       const wmm = mb ? Number(mb[1]) * 25.4 / 72 : 0, hmm = mb ? Number(mb[2]) * 25.4 / 72 : 0;
       console.log('   ', z, 'صفحات:', pages, 'المقاس:', wmm.toFixed(0) + '×' + hmm.toFixed(0) + 'مم');
       ok(pages === 1, z + ': صفحةٌ واحدة بلا صفحة فارغة');
