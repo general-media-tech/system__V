@@ -1,7 +1,0 @@
-task: TASK-0192
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-brain.js gmt-enrich-queue.js tests/harness/t_search_relay.js sw.js gmt-whatsnew.js *.html
-claimed_at: 2026-10-27T06:46:20Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0192
