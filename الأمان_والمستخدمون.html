@@ -106,6 +106,9 @@ window.GMT_INTERNAL = 1;</script>
   .ucard.off .uname{color:var(--mut)}
   .ucard.hl{outline:2px solid #2563eb;background:#eff6ff}
   .uhead{display:flex;align-items:center;gap:10px;min-width:0}
+  /* (TASK-0176) الاسم والصورة زرٌّ يفتح «الملفّ الشخصي» */
+  .uprof{display:flex;align-items:center;gap:10px;min-width:0;flex:1;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:start;cursor:pointer;border-radius:12px}
+  .uprof:hover .uname,.uprof:focus-visible .uname{text-decoration:underline;text-underline-offset:3px}
   .uav{width:40px;height:40px;border-radius:50%;background:#f1f5f9;color:var(--ink2);display:grid;place-items:center;font-weight:900;font-size:16px;flex:none}
   .uid{min-width:0;flex:1}
   .uname{font-weight:900;font-size:14.5px;line-height:1.45;overflow-wrap:anywhere}
@@ -619,8 +622,8 @@ window.GMT_INTERNAL = 1;</script>
       var dev = u.last_device_id === OPEN_DEVICE ? '<span class="tag set">🔓 عامّ — أيّ جهاز</span>'
               : (u.last_device_id ? '<span class="tag dev">📱 مربوط بجهاز</span>' : '<span class="tag def">⏳ يُربَط بأوّل دخول</span>');
       return '<div class="ucard' + (_off ? ' off' : '') + '" data-uid="' + esc(u.id) + '">' +
-        '<div class="uhead"><span class="uav">' + esc(String(u.display_name || u.username || '؟').charAt(0)) + '</span>' +
-          '<div class="uid"><div class="uname">' + esc(u.display_name || u.username || '') + '</div><span class="uuser">' + esc(u.username || '') + '</span></div>' + st + '</div>' +
+        '<div class="uhead"><button type="button" class="uprof" data-u-prof="' + esc(u.id) + '" title="الملفّ الشخصي"><span class="uav">' + esc(String(u.display_name || u.username || '؟').charAt(0)) + '</span>' +
+          '<span class="uid"><span class="uname" style="display:block">' + esc(u.display_name || u.username || '') + '</span><span class="uuser">' + esc(u.username || '') + '</span></span></button>' + st + '</div>' +
         '<div class="umeta">' + dev + (_g ? '<span class="tag dev">🧩 ' + _g + ' صلاحية إضافيّة</span>' : '') + '</div>' +
         '<div class="uact">' +
           (_pend ? '<button class="btn wide" data-u-appr="' + esc(u.id) + '">✓ موافقة على الحساب</button>' : '') +
@@ -733,14 +736,15 @@ window.GMT_INTERNAL = 1;</script>
   };
 
   document.addEventListener('click', async function (e) {
-    var t = e.target.closest ? e.target.closest('[data-u-ren],[data-u-pw],[data-u-tog],[data-u-del],[data-u-dev],[data-u-perm],[data-u-appr]') : null;
+    var t = e.target.closest ? e.target.closest('[data-u-ren],[data-u-pw],[data-u-tog],[data-u-del],[data-u-dev],[data-u-perm],[data-u-appr],[data-u-prof]') : null;
     if (!t) return;
-    var id = t.getAttribute('data-u-ren') || t.getAttribute('data-u-pw') ||
+    var id = t.getAttribute('data-u-prof') || t.getAttribute('data-u-ren') || t.getAttribute('data-u-pw') ||
              t.getAttribute('data-u-tog') || t.getAttribute('data-u-del') || t.getAttribute('data-u-dev') || t.getAttribute('data-u-perm') || t.getAttribute('data-u-appr');
     var u = USERS.filter(function (x) { return String(x.id) === String(id); })[0];
     if (!u) return;
     try {
       if (t.hasAttribute('data-u-perm')) { openPerms(u); return; }
+      if (t.hasAttribute('data-u-prof')) { openProfile(u); return; }
       if (t.hasAttribute('data-u-appr')) {
         if (!(await GMTAsk.confirm('الموافقة على حساب «' + (u.display_name || u.username) + '»؟ يصير بإمكانه العمل بصلاحيات الموظّف (وما تمنحه له من «الصلاحيات»).', { title: 'موافقة على حساب', okText: 'موافقة' }))) return;
         try { await sb('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(u.id), { approved: true }, { Prefer: 'return=minimal' }); } catch (e1) { if (!/approved/i.test(String(e1 && e1.message))) throw e1; }
@@ -783,6 +787,61 @@ window.GMT_INTERNAL = 1;</script>
       loadUsers();
     } catch (err) { GMTAsk.alert(err.message || 'فشل', { title: 'تعذّر الحفظ' }); }
   });
+
+  /* ══ (TASK-0176 · المالك seq 96) «الملفّ الشخصي»: الأدمن يفتحه بالضغط على اسم المستخدم — اسم المركز المكتوب على الفاتورة ·
+     اسم الشخص على الفاتورة · اسم الدخول · كلمة السرّ. هي نفسها خانات «حسابي» عند المستخدم (gmt_users + user_profile_<id>
+     الذي تقرؤه الفاتورة) ⇐ ما يكتبه أحدهما يراه الآخر. يُحفظ ما تغيّر فقط، ويُتحقَّق من القاعدة بعد الكتابة. ══ */
+  async function openProfile(u) {
+    var center = '';
+    try { var pr = await sb('GET', '/rest/v1/gmt_settings?key=eq.user_profile_' + encodeURIComponent(u.id) + '&select=value'); var v0 = Array.isArray(pr) && pr[0] && pr[0].value; var o0 = typeof v0 === 'string' ? JSON.parse(v0) : v0; center = (o0 && o0.center) || ''; } catch (_) {}
+    var F = 'width:100%;border:1px solid rgba(15,18,25,.16);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;font-weight:700;box-sizing:border-box';
+    var L = 'display:block;font-size:12.5px;font-weight:900;color:#334155;margin:10px 0 4px';
+    var wrap = document.createElement('div');
+    wrap.setAttribute('data-keep-fab', '1'); wrap.id = 'u-prof';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(2,6,23,.45);display:grid;place-items:center;padding:16px;direction:rtl';
+    wrap.innerHTML = '<div role="dialog" aria-modal="true" aria-label="الملفّ الشخصي" style="width:100%;max-width:460px;max-height:90vh;display:flex;flex-direction:column;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(15,18,25,.22);font-family:inherit">' +
+      '<div style="padding:18px 18px 4px"><div style="font-size:17px;font-weight:900">الملفّ الشخصي</div>' +
+      '<div style="font-size:12.5px;color:#5b6472;margin-top:2px">فرع ' + esc(BR_NAMES[u.branch_key] || u.branch_key || '—') + ' — ما تحفظه هنا يراه المستخدم في «حسابي»، والاسمان يُطبعان على فواتيره.</div></div>' +
+      '<div style="overflow:auto;padding:0 18px 6px">' +
+        '<label style="' + L + '" for="pf-center">اسم المركز (يُطبع على الفاتورة)</label><input id="pf-center" maxlength="50" style="' + F + '" value="' + esc(center) + '">' +
+        '<label style="' + L + '" for="pf-name">اسم الشخص (يُطبع على الفاتورة)</label><input id="pf-name" maxlength="40" style="' + F + '" value="' + esc(u.display_name || '') + '">' +
+        '<label style="' + L + '" for="pf-user">اسم الدخول</label><input id="pf-user" maxlength="30" dir="ltr" autocapitalize="none" autocomplete="off" spellcheck="false" style="' + F + '" value="' + esc(u.username || '') + '">' +
+        '<label style="' + L + '" for="pf-pw">كلمة سرّ جديدة <small style="font-weight:700;color:#64748b">(اتركها فارغة لتبقى كما هي)</small></label><input id="pf-pw" type="password" autocomplete="new-password" style="' + F + '">' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;padding:14px 18px;border-top:1px solid rgba(15,18,25,.08)"><span data-pm style="flex:1;font-size:12.5px;color:#5b6472"></span>' +
+      '<button class="btn ghost" data-pc type="button">إلغاء</button><button class="btn" data-ps type="button" style="background:#D5001C;color:#fff;border-color:#D5001C">حفظ</button></div></div>';
+    document.body.appendChild(wrap);
+    var close = function () { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); document.removeEventListener('keydown', esc1); };
+    var esc1 = function (e) { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', esc1);
+    var busy = false;
+    wrap.addEventListener('click', async function (e) {
+      if (e.target === wrap || e.target.closest('[data-pc]')) { if (!busy) close(); return; }
+      if (!e.target.closest('[data-ps]') || busy) return;
+      var msg = wrap.querySelector('[data-pm]'), val = function (k) { return (wrap.querySelector('#pf-' + k).value || '').trim(); };
+      var bad = function (t) { msg.style.color = '#b91c1c'; msg.textContent = t; };
+      var name = val('name'), user = val('user').toLowerCase(), cen = val('center'), pw = wrap.querySelector('#pf-pw').value;
+      if (!name) return bad('اسم الشخص مطلوب');
+      if (!/^[a-z0-9._-]{2,30}$/.test(user)) return bad('اسم الدخول: أحرفٌ لاتينيّة صغيرة وأرقام (٢ فأكثر)');
+      if (USERS.some(function (x) { return String(x.id) !== String(u.id) && String(x.username || '').toLowerCase() === user; })) return bad('اسم الدخول «' + user + '» لمستخدمٍ آخر');
+      if (pw && pw.length < 4) return bad('كلمة السرّ: ٤ أحرف على الأقلّ');
+      if (pw && pw === ((window.GMTAuth && GMTAuth.DEFAULT) || '2003')) return bad('هذه كلمة الأدمن — اختر غيرها');
+      var patch = {}; if (name !== (u.display_name || '')) patch.display_name = name; if (user !== String(u.username || '')) patch.username = user;
+      var cenCh = cen !== center;
+      if (!Object.keys(patch).length && !cenCh && !pw) return bad('لا تغيير لحفظه');
+      busy = true; msg.style.color = '#5b6472'; msg.textContent = '…';
+      try {
+        if (Object.keys(patch).length) await sbChecked('PATCH', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(u.id), patch, 'الملفّ الشخصي');
+        if (cenCh) {
+          if (window.GMTAccount && GMTAccount.saveProfile) await GMTAccount.saveProfile(u.id, { center: cen });
+          else throw new Error('وحدة الحسابات لم تُحمَّل — حدّث الصفحة');
+        }
+        if (pw) await GMTPw.set(u.id, pw);                 /* (TASK-0112) مشفّرةً في الجدول المغلق */
+        close(); say('ok', '✅ حُفظ الملفّ الشخصي لـ «' + name + '»'); loadUsers();
+      } catch (err) { busy = false; bad('تعذّر الحفظ: ' + (err.message || '')); }
+    });
+    setTimeout(function () { try { wrap.querySelector('#pf-center').focus(); } catch (_) {} }, 30);
+  }
 
   /* ══ نافذةُ الصلاحيات — (2026-10-04 ي) طلبك: «ممكن أعطي موظف صلاحيات زائدة،
      مو كل الأدمن — حدّدلي هالخيارات في إدارة الموظفين». القائمةُ من سجلّ الأدوات
@@ -830,7 +889,7 @@ window.GMT_INTERNAL = 1;</script>
 })();
 </script>
 <!-- 🆕 «شو الجديد» — أخبار داخلية، لا تُحمَّل على صفحات الزبون -->
-<script src="gmt-whatsnew.js?v=20261027i"></script>
+<script src="gmt-whatsnew.js?v=20261027j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
