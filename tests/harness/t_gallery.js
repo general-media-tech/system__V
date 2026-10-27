@@ -24,8 +24,8 @@ async function imgRoutes(ctx) { await ctx.route('https://img.example/**', r => r
     let o = await H.open('inventory.html', { w: W, h: W < 500 ? 844 : 900, mobile: W < 500, wait: 5000, init: H.ADMIN_INIT });
     await imgRoutes(o.ctx);
     await o.pg.evaluate(id => openDetailModal(id), A.id); await o.pg.waitForTimeout(1200);
-    const bd = await o.pg.evaluate(() => (document.querySelector('#detail-modal-body .gmt-gal-badge') || {}).textContent || '');
-    ok(/3 صور/.test(bd), W + ': الجرد: شارة «🖼️ 3 صور» على صورة المنتج: ' + bd);
+    const bd = await o.pg.evaluate(() => (document.querySelector('#detail-modal-body .gmt-gal-in .gi-n') || {}).textContent || '');
+    ok(bd === '1 من 3', W + ': الجرد: «1 من 3» داخل صورة المنتج (TASK-0208): ' + bd);
     await o.pg.evaluate(() => document.querySelector('#detail-modal-body [data-gal-wrap] img').click()); await o.pg.waitForTimeout(500);
     let g = await o.pg.evaluate(() => { const r = document.getElementById('gmt-gal'); return r && { n: r.querySelector('.gg-n').textContent, th: r.querySelectorAll('.gg-thumbs button').length, src: r.querySelector('.gg-stage img').getAttribute('data-orig-src') || r.querySelector('.gg-stage img').src }; });
     ok(g && g.th === 3 && g.n === '1 من 3' && /inv-a\.png/.test(g.src), W + ': النقر ⇒ عارضٌ بثلاث صور (الجرد أوّلاً ثمّ المتجر): ' + JSON.stringify(g));
@@ -50,11 +50,11 @@ async function imgRoutes(ctx) { await ctx.route('https://img.example/**', r => r
     await imgRoutes(o.ctx);
     const opened = await o.pg.evaluate(id => { if (typeof openProductDetail !== 'function') return 'no-fn'; openProductDetail(id); return !!document.querySelector('#pd-content [data-gal-wrap] img'); }, A.id);
     await o.pg.waitForTimeout(1200);
-    const pb = await o.pg.evaluate(() => (document.querySelector('#pd-content .gmt-gal-badge') || {}).textContent || '');
+    const pb = await o.pg.evaluate(() => (document.querySelector('#pd-content .gmt-gal-in .gi-n') || {}).textContent || '');
     if (opened === true) await o.pg.evaluate(() => document.querySelector('#pd-content [data-gal-wrap] img').click());
     await o.pg.waitForTimeout(600);
     const pg2 = await o.pg.evaluate(() => { const r = document.getElementById('gmt-gal'); return r ? r.querySelectorAll('.gg-thumbs button').length : 0; });
-    ok(opened === true && /3 صور/.test(pb) && pg2 === 3, W + ': نقطة البيع: تفاصيل المنتج ⇒ «🖼️ 3 صور» والنقر ⇒ العارض بثلاث: ' + JSON.stringify({ opened, pb, pg2 }));
+    ok(opened === true && pb === '1 من 3' && pg2 === 3, W + ': نقطة البيع: تفاصيل المنتج ⇒ «1 من 3» داخل الصورة والنقر ⇒ العارض بثلاث: ' + JSON.stringify({ opened, pb, pg2 }));
     ok(!o.errs.filter(e => !/status of (400|401|404|406)|Failed to load resource/.test(e)).length, W + ': نقطة البيع: لا أخطاء JS ' + o.errs.slice(0, 2).join(' / '));
     await o.browser.close();
     // ── الجسر ──

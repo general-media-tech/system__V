@@ -2294,10 +2294,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261027j"></script>
-<script src="gmt-gallery.js?v=20261027d" defer></script>
-<script src="gmt-product-edit.js?v=20261027j" defer></script>
-<script src="gmt-enrich-queue.js?v=20261027j"></script>
+<script src="gmt-specs.js?v=20261028a"></script>
+<script src="gmt-gallery.js?v=20261028a" defer></script>
+<script src="gmt-product-edit.js?v=20261028a" defer></script>
+<script src="gmt-enrich-queue.js?v=20261028a"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -7219,7 +7219,7 @@ function openDetailModal(id) {
   <button onclick="closeModal('detail-modal');invGuardedDelete('${escHtml(String(p.id))}')" title="${invDimTitle('حذف المنتج')}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;background:#fff5f5;color:#dc2626;border:1.5px solid #fecaca;border-radius:12px;padding:11px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;${invDimStyle()}">🗑 حذف هذا المنتج</button>`;
 
   document.getElementById('detail-modal-body').innerHTML = html;
-  { const gw = document.querySelector('#detail-modal-body [data-gal-wrap]'); if (gw && window.GMTGallery) GMTGallery.badge(gw, p); }   // (TASK-0197) «🖼️ N صور»
+  { const gw = document.querySelector('#detail-modal-body [data-gal-wrap]'); if (gw && window.GMTGallery) (GMTGallery.inline || GMTGallery.badge)(gw, p, p.name); }   // (TASK-0208) التقليب داخل الصورة: ‹ › · سحب · «١ من N»
   document.getElementById('detail-modal').style.display = 'flex';
 }
 
@@ -15315,10 +15315,10 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261027j"></script>
+<script src="gmt-brain.js?v=20261028a"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027j"></script>
+<script src="gmt-whatsnew.js?v=20261028a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
