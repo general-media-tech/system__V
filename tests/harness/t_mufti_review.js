@@ -48,8 +48,12 @@ const FAKE = {
     ok(A && /غالب زيدان/.test(A.t) && /214138/.test(A.t) && /حالة الشحنة/.test(A.t) && /تم استلام الشحنة من قبل المرسل إليه/.test(A.t) && /15:36/.test(A.t),
       W + ': الأوردر وتحته بطاقة «حالة الشحنة» (المكان المحاط بالدائرة) بنصّها وتاريخها');
     ok(B && /تم وصول الشحنة إلى الفرع الوجهة/.test(B.t) && /في فرع الوجهة/.test(B.t), W + ': «وصلت فرع الوجهة» ⇒ 🏢 في فرع الوجهة');
-    const act = await pg.evaluate(id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] .mr-st')].map(x => x.classList.contains('on')), String(idOf('214244')));
-    ok(JSON.stringify(act) === '[true,false,true,false]', W + ': الخطوات الأربع كما في موقعهم (١ و٣ مضاءتان): ' + JSON.stringify(act));
+    const act = await pg.evaluate(id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] .mr-st')].map(x => [x.className.replace('mr-st ', ''), x.dataset.on, !!x.querySelector('svg')]), String(idOf('214244')));
+    ok(JSON.stringify(act) === '[["passed","1",true],["passed","0",true],["cur","1",true],["todo","0",true]]', W + ': شريط تتبّعنا: ما مضى أسود · «وصلت فرع الوجهة» الحاليّة · التسليم قادم (بأيقونات): ' + JSON.stringify(act));
+    // (seq 149) هويّتنا: ترويسة بتدرّج الأحمر · الخطوة الحاليّة بتدرّج الأحمر · مستطيل الحالة بحدٍّ أحمر · الزرّ بجانب «تعديل»
+    const id1 = await pg.evaluate(() => { const cs = s => getComputedStyle(document.querySelector(s)); return { h: cs('#gmt-mr .mr-h').backgroundImage, cur: cs('#gmt-mr .mr-st.cur i').backgroundImage, card: cs('#gmt-mr .mr-card').borderRightColor,
+      nextToEdit: (() => { const b = document.querySelector('[data-mr-launch]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
+    ok(/213, 0, 28/.test(id1.h) && /213, 0, 28/.test(id1.cur) && /213, 0, 28/.test(id1.card) && id1.nextToEdit, W + ': بهويتنا البصرية (الأحمر #D5001C) · الزرّ بجانب «تعديل» في الأعلى: ' + JSON.stringify(id1));
     ok(N && /لا يعرف الرقم/.test(N.t) && D && /اسم المستلم عند المفتي لا يشبه/.test(D.t) && !/لا يشبه/.test(A.t + B.t), W + ': رقمٌ غير موجود عندهم ⇒ يُقال · اسم مستلمٍ مختلف ⇒ تنبيه (فقط حيث يختلف)');
     // فلتر «استلمها»
     await pg.click('#gmt-mr [data-mr-f="got"]'); await pg.waitForTimeout(150);
@@ -66,8 +70,30 @@ const FAKE = {
     const after = await pg.evaluate(id => (document.querySelector('#gmt-mr [data-mr-o="' + id + '"]') || {}).innerText || '', String(idOf('214138')));
     ok(st === 'delivered' && /بانتظار التحصيل/.test(after) && !/تأكيد الاستلام/.test(after), W + ': بعد التأكيد: القاعدة «delivered» والبطاقة «✔ بانتظار التحصيل»: ' + st);
     await pg.evaluate(() => { try { closeModal('afterDeliveryModal'); } catch (_) {} document.querySelectorAll('.fixed:not(.hidden)').forEach(m => { if (m.id && m.id !== 'gmt-mr' && /Modal$/.test(m.id)) m.classList.add('hidden'); }); });
-    // خطأ الخادم ⇒ «تعذّرت القراءة» + «↻ أعد» ينجح
+    // (TASK-0219 · seq 148) «كل مره اضغط يعمل بحث جديد … فقط شحنات التي لم نؤكد الاستلام»
     await pg.click('#gmt-mr [data-mr-f="all"]');
+    const orig = FAKE['214244'];
+    FAKE['214244'] = R('214244', [1, 2, 3, 4], 'تم استلام الشحنة من قبل المرسل إليه', '27-10-2026 17:05', 'انفال عمر حسين', 'درعا - دوار الحمامة');   // تغيّرت عندهم خلال دقائق
+    calls.length = 0;
+    await pg.click('#gmt-mr [data-mr-run]');
+    const cleared = await pg.evaluate(() => [...document.querySelectorAll('#gmt-mr [data-mr-o]')].map(c => c.getAttribute('data-mr-k')));
+    ok(cleared.length && cleared.every(k => k === 'wait'), W + ': «↻ تحقّق من الكل» يمسح النتائج القديمة فوراً (لا يعرض المخزَّن): ' + JSON.stringify(cleared));
+    await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+    const asked2 = calls.flatMap(c => c.nums).sort();
+    const c2 = await pg.evaluate(() => [...document.querySelectorAll('#gmt-mr [data-mr-o]')].map(c => ({ id: c.getAttribute('data-mr-o'), k: c.getAttribute('data-mr-k'), t: c.innerText })));
+    const n44 = c2.find(c => /214244/.test(c.t));
+    ok(JSON.stringify(asked2) === JSON.stringify(['210063', '214244', '99999999']) && c2.length === 3 && !c2.some(c => /214138/.test(c.t)),
+      W + ': بحثٌ جديد عن الكل من موقعهم · المؤكَّد استلامه خرج من القائمة: ' + JSON.stringify(asked2));
+    ok(n44 && n44.k === 'got' && /17:05/.test(n44.t) && /من قبل المرسل إليه/.test(n44.t), W + ': الحالة الجديدة ظهرت («وصلت» ⇒ «تم التسليم») لا القديمة');
+    FAKE['214244'] = orig;
+    // إغلاق وفتح ⇒ بحثٌ جديد أيضاً
+    await pg.click('#gmt-mr [data-mr-close]'); calls.length = 0;
+    await pg.click('[data-mr-launch]');
+    await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+    ok(calls.flatMap(c => c.nums).length === 3 && await pg.evaluate(() => !document.querySelector('#gmt-mr [data-mr-withdel]')), W + ': كل فتحٍ يبحث من جديد · لا خيار «بانتظار التحصيل»');
+    const bub = await pg.evaluate(() => [...document.querySelectorAll('body > *')].filter(e => e.id !== 'gmt-mr' && /يدخل رقم تتبّع كل شحنات المفتي/.test(e.textContent || '') && getComputedStyle(e).opacity !== '0' && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0).length);
+    ok(bub === 0, W + ': لا يبقى تلميح زرّ الفتح فوق النافذة: ' + bub);
+    // خطأ الخادم ⇒ «تعذّرت القراءة» + «↻ أعد» ينجح
     failNext = 1; calls.length = 0;
     await pg.click('#gmt-mr [data-mr-run]');
     await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
@@ -76,11 +102,6 @@ const FAKE = {
     const rn = await pg.evaluate(() => document.querySelector('#gmt-mr [data-mr-retry]').getAttribute('data-mr-retry'));
     await pg.click('#gmt-mr [data-mr-retry="' + rn + '"]'); await pg.waitForTimeout(1200);
     ok(await pg.evaluate(n => { const c = [...document.querySelectorAll('#gmt-mr [data-mr-o]')].find(x => x.innerText.includes(n)); return c && c.getAttribute('data-mr-k') !== 'err'; }, rn), W + ': «↻ أعد» يقرأ الرقم من جديد');
-    // «وأيضاً بانتظار التحصيل»
-    calls.length = 0;
-    await pg.check('#gmt-mr [data-mr-withdel]'); await pg.waitForTimeout(1500);
-    ok(calls.flatMap(c => c.nums).includes('214248') && await pg.evaluate(() => document.querySelectorAll('#gmt-mr [data-mr-o]').length) === 5,
-      W + ': «وأيضاً بانتظار التحصيل» يضيفها ويفحص الجديدة فقط: ' + JSON.stringify(calls.map(c => c.nums)));
     const hs = await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('#gmt-mr .mr-o')].some(c => c.scrollWidth > c.clientWidth + 1));
     ok(!hs, W + ': لا طفح أفقي');
     if (W === 390) await pg.screenshot({ path: '/tmp/gmt-out/mufti_review_390.png' });

@@ -13,7 +13,9 @@
   'use strict';
   var FN = 'gmt-mufti', BATCH = 3, ID = 'gmt-mr';
   var STEP_LABELS = ['تم استلام الشحنة', 'على الطريق وقيد النقل', 'وصلت فرع الوجهة', 'تم التسليم للمرسل إليه'];
-  var state = { list: [], res: {}, busy: false, run: 0, filter: 'all', withDelivered: false };
+  /* (TASK-0219 · المالك seq 148) «ما لازم يخزنها كل مره اضغط يعمل بحث جديد … فقط شحنات التي لم نؤكد الاستلام»:
+     لا تخزين — النتائج في الذاكرة لهذه النافذة فقط، وكل فتحٍ وكل «تحقّق من الكل» يمسحها ويقرأ الكل من موقع المفتي من جديد. */
+  var state = { list: [], res: {}, busy: false, run: 0, filter: 'all' };
 
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function digits(s) { return String(s == null ? '' : s).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); }).replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); }).replace(/\D/g, ''); }
@@ -24,8 +26,8 @@
     return /مفت/.test(c);
   }
   function pickList() {
-    var sts = state.withDelivered ? ['shipped', 'delivered'] : ['shipped'];
-    return allOrders().filter(function (o) { return isMufti(o) && sts.indexOf(o.status) !== -1 && digits(o.tracking_number); })
+    /* فقط ما لم نؤكّد استلامه («في الطريق») */
+    return allOrders().filter(function (o) { return isMufti(o) && o.status === 'shipped' && digits(o.tracking_number); })
       .sort(function (a, b) { return new Date(a.shipped_at || a.created_at || 0) - new Date(b.shipped_at || b.created_at || 0); });
   }
 
@@ -36,7 +38,7 @@
     var ac = typeof AbortController === 'function' ? new AbortController() : null;
     var tm = ac ? setTimeout(function () { try { ac.abort(); } catch (_) {} }, 60000) : null;
     return fetch(db.url + '/functions/v1/' + FN, {
-      method: 'POST', signal: ac ? ac.signal : undefined,
+      method: 'POST', cache: 'no-store', signal: ac ? ac.signal : undefined,
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + db.key, apikey: db.key },
       body: JSON.stringify({ nums: nums })
     }).then(function (r) {
@@ -58,12 +60,13 @@
     if (r.level === 3) return 'branch';
     return 'road';
   }
+  /* (TASK-0219 · seq 149) «بهويتنا البصرية»: الأحمر #D5001C والأسود #111 كما في صفحة تتبّعنا */
   var CLS = {
-    got: { t: '✅ استلمها الزبون', c: '#15803d', bg: '#dcfce7' },
-    branch: { t: '🏢 في فرع الوجهة', c: '#a16207', bg: '#fef9c3' },
-    road: { t: '🚚 في الطريق', c: '#1d4ed8', bg: '#dbeafe' },
-    nf: { t: '❓ الرقم غير موجود عندهم', c: '#b91c1c', bg: '#fee2e2' },
-    err: { t: '⚠️ تعذّرت القراءة', c: '#b91c1c', bg: '#fee2e2' },
+    got: { t: '✅ استلمها الزبون', c: '#ffffff', bg: '#111111' },
+    branch: { t: '📍 في فرع الوجهة', c: '#D5001C', bg: '#fff1f2' },
+    road: { t: '🚚 في الطريق', c: '#334155', bg: '#f1f5f9' },
+    nf: { t: '❓ الرقم غير موجود عندهم', c: '#b45309', bg: '#fffbeb' },
+    err: { t: '⚠️ تعذّرت القراءة', c: '#b45309', bg: '#fffbeb' },
     wait: { t: '⏳ جارٍ البحث…', c: '#64748b', bg: '#f1f5f9' }
   };
 
@@ -76,10 +79,22 @@
     return !a.some(function (w) { return b.indexOf(w) !== -1; });
   }
 
+  /* (TASK-0219 · المالك seq 149) «نفس شريطنا في تتبعنا … نفس الشريط ونفس المستطيل ولكن بهويتنا البصرية»:
+     خطوات المفتي الأربع بنصّها، بشكل شريط track_order.html — مربّعات مدوّرة بأيقونة: ما مضى أسود · الحاليّة بتدرّج الأحمر
+     ونبض · القادمة رمادية · وخطّ وصلٍ بينها. (الأيقونات SVG من مكتبة lucide نفسها — بلا تحميل) */
+  var ICONS = [
+    '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+    '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'
+  ];
+  function icon(i) { return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[i] || ICONS[0]) + '</svg>'; }
   function stepsHTML(r) {
     var st = (r.steps && r.steps.length) ? r.steps : STEP_LABELS.map(function (l) { return { label: l, active: false }; });
+    var lv = r.level || 0;
     return '<div class="mr-steps">' + st.map(function (s, i) {
-      return '<div class="mr-st' + (s.active ? ' on' : '') + '"><b>' + (i + 1) + '</b><span>' + esc(s.label) + '</span></div>';
+      var k = (i + 1 < lv) ? 'passed' : (i + 1 === lv ? 'cur' : 'todo');
+      return '<div class="mr-st ' + k + '" data-on="' + (s.active ? 1 : 0) + '"><i>' + icon(i) + '</i><span>' + esc(s.label) + '</span></div>';
     }).join('') + '</div>';
   }
   function resultHTML(o, r) {
@@ -88,9 +103,9 @@
     if (k === 'err') return '<div class="mr-bad">⚠️ تعذّرت القراءة: ' + esc(r.error || '') + '</div>';
     if (k === 'nf') return '<div class="mr-bad">❓ موقع المفتي لا يعرف الرقم <b dir="ltr">' + esc(r.n) + '</b> — تأكّد من رقم التتبّع على الأوردر.</div>';
     return stepsHTML(r) +
-      /* بطاقة «حالة الشحنة» — المكان المحاط بالدائرة في صفحة المفتي */
-      '<div class="mr-card"><div class="mr-card-h">حالة الشحنة</div><div class="mr-card-b"><div class="mr-desc">' + esc(r.status || '—') + '</div>' +
-      '<div class="mr-at" dir="ltr">' + esc(r.status_at || r.date || '') + '</div></div></div>' +
+      /* بطاقة «حالة الشحنة» — المكان المحاط بالدائرة في صفحة المفتي، بمستطيل بطاقاتنا (حدٌّ أحمر يمين · ظلّ خفيف) */
+      '<div class="mr-card"><div class="mr-card-h"><span>حالة الشحنة</span><span class="mr-at" dir="ltr">' + esc(r.status_at || r.date || '') + '</span></div>' +
+      '<div class="mr-desc">' + esc(r.status || '—') + '</div></div>' +
       (r.receiver ? '<div class="mr-rcv">المستلم عندهم: <b>' + esc(r.receiver.desc) + '</b>' + (r.receiver.info ? ' · ' + esc(r.receiver.info) : '') + '</div>' : '') +
       (nameDiffers(o, r) ? '<div class="mr-warn">⚠️ اسم المستلم عند المفتي لا يشبه اسم الزبون على الأوردر — تأكّد أنّ رقم التتبّع صحيح.</div>' : '');
   }
@@ -136,7 +151,7 @@
     box.querySelector('[data-mr-list]').innerHTML = state.list.length
       ? (rows.length ? rows.map(cardHTML).join('') : '<p class="mr-empty">لا شحنات في هذا الفلتر.</p>')
       : '<p class="mr-empty">لا شحنات للمفتي «في الطريق» برقم تتبّع.</p>';
-    var rb = box.querySelector('[data-mr-run]'); if (rb) { rb.disabled = state.busy; rb.textContent = state.busy ? '⏳ يفحص…' : '↻ أعد الفحص'; }
+    var rb = box.querySelector('[data-mr-run]'); if (rb) { rb.disabled = state.busy; rb.textContent = state.busy ? '⏳ يفحص…' : '↻ تحقّق من الكل'; }
   }
 
   function scan(onlyNums) {
@@ -179,55 +194,77 @@
     close();
   }
 
-  /* يبدأ تحت الأشرطة العلوية (زرّ التحديث …) لا تحتها — المتغيّر من مُرتِّب الأشرطة في gmt-staff.js */
-  var CSS = '#' + ID + '{position:fixed;top:var(--gmt-topbars,0px);left:0;right:0;bottom:0;z-index:115;background:#f1f5f9;display:flex;flex-direction:column;font-family:inherit;direction:rtl}' +
-    '#' + ID + ' .mr-h{background:#14532d;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
-    '#' + ID + ' .mr-h h3{font-weight:900;font-size:16px;margin:0;flex:1;min-width:0}' +
-    '#' + ID + ' .mr-h button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-weight:900;font-size:12px;cursor:pointer}' +
-    '#' + ID + ' .mr-h button:disabled{opacity:.6}' +
-    '#' + ID + ' .mr-tools{padding:10px 14px 4px;background:#fff;border-bottom:1px solid #e2e8f0}' +
-    '#' + ID + ' .mr-prog{font-size:12px;font-weight:800;color:#334155}' +
-    '#' + ID + ' .mr-bar{height:5px;background:#e2e8f0;border-radius:9px;margin:6px 0 8px;overflow:hidden}#' + ID + ' .mr-bar i{display:block;height:100%;background:#16a34a;transition:width .3s}' +
-    '#' + ID + ' [data-mr-filters]{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px}' +
-    '#' + ID + ' .mr-f{flex-shrink:0;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 11px;font-size:12px;font-weight:800;color:#475569;cursor:pointer}#' + ID + ' .mr-f.on{background:#14532d;color:#fff;border-color:#14532d}' +
-    '#' + ID + ' .mr-opt{font-size:11.5px;font-weight:700;color:#475569;display:flex;align-items:center;gap:6px;padding-bottom:8px}' +
-    '#' + ID + ' [data-mr-list]{flex:1;overflow-y:auto;padding:12px 14px 40px;display:flex;flex-direction:column;gap:12px;max-width:760px;width:100%;margin:0 auto;box-sizing:border-box}' +
-    '#' + ID + ' .mr-o{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}' +
-    '#' + ID + ' .mr-top{display:flex;justify-content:space-between;align-items:center;gap:8px}' +
-    '#' + ID + ' .mr-ttl{font-weight:900;font-size:14px;color:#0f172a;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '#' + ID + ' .mr-chip{flex-shrink:0;font-size:11px;font-weight:900;border-radius:999px;padding:4px 9px}' +
-    '#' + ID + ' .mr-sub{font-size:11.5px;color:#64748b;font-weight:700;margin:4px 0 8px}' +
-    '#' + ID + ' .mr-steps{display:flex;gap:4px;margin-bottom:8px}' +
-    '#' + ID + ' .mr-st{flex:1;text-align:center;font-size:10px;font-weight:800;color:#94a3b8;line-height:1.35}' +
-    '#' + ID + ' .mr-st b{display:flex;align-items:center;justify-content:center;width:24px;height:24px;margin:0 auto 3px;border-radius:50%;border:2px solid #cbd5e1;font-size:11px;background:#fff}' +
-    '#' + ID + ' .mr-st.on{color:#15803d}#' + ID + ' .mr-st.on b{background:#4caf50;border-color:#2e7d32;color:#fff}' +
-    '#' + ID + ' .mr-card{border:2px solid #2e7d32;border-radius:10px;overflow:hidden}' +
-    '#' + ID + ' .mr-card-h{background:#2e7d32;color:#fff;font-weight:900;font-size:13px;padding:7px 12px}' +
-    '#' + ID + ' .mr-card-b{padding:9px 12px}#' + ID + ' .mr-desc{font-weight:900;font-size:14px;color:#111827;line-height:1.5}' +
-    '#' + ID + ' .mr-at{font-size:11.5px;color:#6b7280;font-weight:700;text-align:left;margin-top:3px}' +
-    '#' + ID + ' .mr-rcv{font-size:11.5px;color:#475569;margin-top:6px}' +
-    '#' + ID + ' .mr-warn{font-size:11.5px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:6px 9px;margin-top:6px}' +
-    '#' + ID + ' .mr-wait{font-size:12px;font-weight:800;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:14px;text-align:center}' +
-    '#' + ID + ' .mr-bad{font-size:12px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px}' +
-    '#' + ID + ' .mr-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}' +
-    '#' + ID + ' .mr-btn{border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:900;cursor:pointer}' +
-    '#' + ID + ' .mr-btn.mr-go{background:#15803d;border-color:#15803d;color:#fff;flex:1}#' + ID + ' .mr-ghost{font-weight:800;font-size:11.5px}' +
-    '#' + ID + ' .mr-done{font-size:12px;font-weight:900;color:#15803d;align-self:center}' +
-    '#' + ID + ' .mr-empty{text-align:center;color:#94a3b8;font-weight:800;font-size:13px;padding:30px 0}';
+  /* يبدأ تحت الأشرطة العلوية (زرّ التحديث …) لا تحتها — المتغيّر من مُرتِّب الأشرطة في gmt-staff.js.
+     الألوان من هويّتنا (track_order.html): --gmt-red #D5001C · تدرّج #D5001C→#8B0012 · --gmt-dark #111 · خلفية #f8fafc */
+  var P = '#' + ID;
+  var CSS = P + '{position:fixed;top:var(--gmt-topbars,0px);left:0;right:0;bottom:0;z-index:115;background:#f8fafc;display:flex;flex-direction:column;font-family:inherit;direction:rtl;color:#111}' +
+    P + ' .mr-h{background:linear-gradient(135deg,#D5001C 0%,#8B0012 100%);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:0 6px 18px rgba(213,0,28,.25)}' +
+    P + ' .mr-h h3{font-weight:900;font-size:16px;margin:0;flex:1;min-width:0}' +
+    P + ' .mr-h h3 small{display:block;font-size:10.5px;font-weight:700;opacity:.85}' +
+    P + ' .mr-h button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 12px;font-weight:900;font-size:12px;cursor:pointer;font-family:inherit}' +
+    P + ' .mr-h button[data-mr-run]{background:#fff;color:#D5001C;border-color:#fff}' +
+    P + ' .mr-h button:disabled{opacity:.7}' +
+    P + ' .mr-tools{padding:10px 14px 2px;background:#fff;border-bottom:1px solid #eef0f3}' +
+    P + ' .mr-prog{font-size:12px;font-weight:800;color:#334155}' +
+    P + ' .mr-bar{height:5px;background:#f1f5f9;border-radius:9px;margin:6px 0 8px;overflow:hidden}' + P + ' .mr-bar i{display:block;height:100%;background:linear-gradient(90deg,#8B0012,#D5001C);transition:width .3s}' +
+    P + ' [data-mr-filters]{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px}' +
+    P + ' .mr-f{flex-shrink:0;border:1px solid #e5e7eb;background:#fff;border-radius:12px;padding:7px 12px;font-size:12px;font-weight:800;color:#6b7280;cursor:pointer;font-family:inherit}' +
+    P + ' .mr-f b{display:inline-block;margin-right:4px;background:#fff1f2;color:#D5001C;border-radius:999px;padding:0 7px;font-size:11px}' +
+    P + ' .mr-f.on{background:#111;color:#fff;border-color:#111}' + P + ' .mr-f.on b{background:#D5001C;color:#fff}' +
+    P + ' [data-mr-list]{flex:1;overflow-y:auto;padding:14px 14px 40px;display:flex;flex-direction:column;gap:14px;max-width:760px;width:100%;margin:0 auto;box-sizing:border-box}' +
+    P + ' .mr-o{background:#fff;border:1px solid #f1f5f9;border-radius:20px;padding:14px;box-shadow:0 4px 14px rgba(17,17,17,.06)}' +
+    P + ' .mr-top{display:flex;justify-content:space-between;align-items:center;gap:8px}' +
+    P + ' .mr-ttl{font-weight:900;font-size:14.5px;color:#111;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    P + ' .mr-chip{flex-shrink:0;font-size:11px;font-weight:900;border-radius:999px;padding:4px 10px}' +
+    P + ' .mr-sub{font-size:11.5px;color:#6b7280;font-weight:700;margin:4px 0 12px}' + P + ' .mr-sub b{color:#111}' +
+    /* الشريط — مربّعات مدوّرة متّصلة بخطّ (كشريط تتبّعنا، أفقيّاً ليتّسع لكل أوردر) */
+    P + ' .mr-steps{display:flex;margin-bottom:12px}' +
+    P + ' .mr-st{flex:1;position:relative;text-align:center;font-size:10px;font-weight:800;color:#9ca3af;line-height:1.4;padding:0 2px}' +
+    P + ' .mr-st:not(:last-child)::after{content:"";position:absolute;top:20px;right:50%;width:100%;height:3px;border-radius:50px;background:#f1f5f9;z-index:0}' +
+    P + ' .mr-st.passed:not(:last-child)::after{background:#111}' +
+    P + ' .mr-st i{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin:0 auto 6px;border-radius:14px;border:2px solid #f3f4f6;background:#fff;color:#d1d5db;font-style:normal;transition:all .5s}' +
+    P + ' .mr-st.passed{color:#111}' + P + ' .mr-st.passed i{background:#111;border-color:#111;color:#fff}' +
+    P + ' .mr-st.cur{color:#D5001C;font-weight:900}' +
+    P + ' .mr-st.cur i{background:linear-gradient(135deg,#D5001C 0%,#8B0012 100%);border-color:transparent;color:#fff;box-shadow:0 8px 16px rgba(213,0,28,.3);transform:scale(1.08);animation:mr-pulse 2s infinite}' +
+    '@keyframes mr-pulse{0%{box-shadow:0 0 0 0 rgba(213,0,28,.4)}70%{box-shadow:0 0 0 10px rgba(213,0,28,0)}100%{box-shadow:0 0 0 0 rgba(213,0,28,0)}}' +
+    /* المستطيل — «حالة الشحنة» بمستطيل بطاقاتنا */
+    P + ' .mr-card{background:#fff;border:1px solid #f1f5f9;border-right:4px solid #D5001C;border-radius:16px;padding:10px 12px;box-shadow:0 4px 14px rgba(17,17,17,.06)}' +
+    P + ' .mr-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10.5px;font-weight:800;color:#9ca3af;margin-bottom:4px}' +
+    P + ' .mr-desc{font-weight:900;font-size:14.5px;color:#111;line-height:1.55}' +
+    P + ' .mr-at{font-size:11px;color:#6b7280;font-weight:800}' +
+    P + ' .mr-rcv{font-size:11.5px;color:#6b7280;margin-top:8px}' + P + ' .mr-rcv b{color:#111}' +
+    P + ' .mr-warn{font-size:11.5px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:7px 10px;margin-top:8px}' +
+    P + ' .mr-wait{font-size:12px;font-weight:800;color:#6b7280;background:#f8fafc;border:1px dashed #e5e7eb;border-radius:14px;padding:16px;text-align:center}' +
+    P + ' .mr-bad{font-size:12px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:11px}' +
+    P + ' .mr-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}' +
+    P + ' .mr-btn{border:1px solid #e5e7eb;background:#fff;color:#374151;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit}' +
+    P + ' .mr-btn.mr-go{background:#D5001C;border-color:#D5001C;color:#fff;flex:1;box-shadow:0 6px 14px rgba(213,0,28,.25)}' + P + ' .mr-ghost{font-weight:800;font-size:11.5px}' +
+    P + ' .mr-done{font-size:12px;font-weight:900;color:#111;align-self:center}' +
+    P + ' .mr-empty{text-align:center;color:#9ca3af;font-weight:800;font-size:13px;padding:30px 0}';
 
   function open() {
     close();
     if (!document.getElementById(ID + '-css')) { var st = document.createElement('style'); st.id = ID + '-css'; st.textContent = CSS; document.head.appendChild(st); }
     var box = document.createElement('div'); box.id = ID; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'مراجعة شحنات المفتي');
-    box.innerHTML = '<div class="mr-h"><h3>🔎 مراجعة شحنات المفتي</h3><button type="button" data-mr-run>↻ أعد الفحص</button><button type="button" data-mr-close aria-label="إغلاق">✕ إغلاق</button></div>' +
+    box.innerHTML = '<div class="mr-h"><h3>مراجعة شحنات المفتي<small>بحثٌ جديد من موقع المفتي في كل مرّة · فقط ما لم نؤكّد استلامه</small></h3><button type="button" data-mr-run>↻ تحقّق من الكل</button><button type="button" data-mr-close aria-label="إغلاق">✕ إغلاق</button></div>' +
       '<div class="mr-tools"><div class="mr-prog" data-mr-prog role="status" aria-live="polite"></div><div data-mr-filters></div>' +
-      '<label class="mr-opt"><input type="checkbox" data-mr-withdel' + (state.withDelivered ? ' checked' : '') + '> وأيضاً «بانتظار التحصيل» (للمطابقة)</label></div>' +
+      '</div>' +
       '<div data-mr-list></div>';
     document.body.appendChild(box);
+    /* تلميح زرّ الفتح (gmt-hints يظهر بالتمرير/اللمس ويختفي بالخروج أو التمرير) كان يبقى فوق النافذة ⇒ نُغلقه */
+    /* (يُظهَر بعد إطار رسمٍ — فنُغلقه بعده لا قبله) */
+    var unhint = function () {
+      try {
+        var lb = document.querySelector('[data-mr-launch]');
+        if (lb) lb.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: box }));
+        g.dispatchEvent(new Event('scroll'));
+      } catch (_) {}
+    };
+    setTimeout(unhint, 80); setTimeout(unhint, 400);
     box.addEventListener('click', function (e) {
-      var t = e.target.closest('button,[data-mr-withdel]'); if (!t) return;
+      var t = e.target.closest('button'); if (!t) return;
       if (t.hasAttribute('data-mr-close')) return close();
-      if (t.hasAttribute('data-mr-run')) return scan();
+      if (t.hasAttribute('data-mr-run')) return fresh();
       if (t.hasAttribute('data-mr-f')) { state.filter = t.getAttribute('data-mr-f'); return render(); }
       if (t.hasAttribute('data-mr-retry')) return scan([t.getAttribute('data-mr-retry')]);
       if (t.hasAttribute('data-mr-site')) {
@@ -243,15 +280,6 @@
         return;
       }
     });
-    box.addEventListener('change', function (e) {
-      if (e.target && e.target.hasAttribute('data-mr-withdel')) {
-        state.withDelivered = !!e.target.checked;
-        var before = state.list.map(function (o) { return digits(o.tracking_number); });
-        state.list = pickList();
-        var fresh = state.list.map(function (o) { return digits(o.tracking_number); }).filter(function (n) { return before.indexOf(n) === -1 && !state.res[n]; });
-        if (fresh.length && !state.busy) scan(fresh); else render();
-      }
-    });
     document.addEventListener('keydown', onKey, true);
     /* بعد «تأكيد الاستلام» من نافذة الأوردرات: الحالة تتغيّر في `orders` ⇒ يتحدّث الزرّ هنا إلى «✔ بانتظار التحصيل» */
     var sig = '';
@@ -261,10 +289,15 @@
       var s = state.list.map(function (o) { return o.id + ':' + o.status; }).join('|');
       if (s !== sig) { sig = s; render(); }
     }, 700);
-    state.list = pickList(); state.res = {}; state.filter = 'all';
+    state.filter = 'all';
+    fresh();
+  }
+  /* بحثٌ جديد عن الكل: القائمة تُعاد من الأوردرات الآن (ما أكّدتَ استلامه يخرج) والنتائج القديمة تُمسح قبل القراءة */
+  function fresh() {
+    state.list = pickList(); state.res = {}; state.at = '';
     render();
-    if (state.list.length) scan();
+    if (state.list.length) scan(); else { state.run++; state.busy = false; render(); }
   }
 
-  g.GMTMuftiReview = { open: open, close: close, _state: state, _cls: cls };
+  g.GMTMuftiReview = { open: open, close: close, refresh: fresh, _state: state, _cls: cls };
 })(window);

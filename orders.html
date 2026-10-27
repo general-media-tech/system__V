@@ -93,7 +93,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261028g"></script>
+  <script src="gmt-core.js?v=20261028h"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -108,7 +108,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-review.js?v=20261028g" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-review.js?v=20261028h" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -189,6 +189,12 @@ window.GMT_INTERNAL = 1;</script>
             </button>
             <button onclick="openSelectEditModal()" class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="edit" class="w-4 h-4 text-orange-500"></i> تعديل
+            </button>
+            <!-- (TASK-0217 · المالك seq 147) «أداة جديدة مثل مراجعة الشحنات … تتحقق من جميع شحنات المفتي مرّة واحدة»
+                 (TASK-0219 · seq 149) «ضع هذا الزر بجانب زر التعديل في الاعلى» -->
+            <button type="button" onclick="GMTMuftiReview.open()" data-mr-launch data-hint="يدخل رقم تتبّع كل شحنات المفتي التي لم نؤكّد استلامها في موقع المفتي واحدةً تلو الأخرى — بحثٌ جديد في كل مرّة — ويعرض لكل أوردر حالة شحنته، ومنها «تأكيد الاستلام»."
+                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                <i data-lucide="list-checks" class="w-4 h-4 text-red"></i> مراجعة شحنات <span class="text-[9px] font-black text-red">المفتي</span>
             </button>
             <button onclick="document.getElementById('addModal').classList.remove('hidden'); initAddModal();" class="bg-red text-white px-4 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center justify-center gap-2 col-span-2 lg:col-span-1">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i> إضافة طلب
@@ -300,9 +306,6 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="received">وصلت الحوالة</option>
             </select>
             <button onclick="clearFilters()" id="clear-filters-btn" class="hidden px-3 py-2.5 bg-red text-white rounded-xl text-xs font-black">✕ إزالة الفلتر</button>
-            <!-- (TASK-0217 · المالك seq 147) «أداة جديدة مثل مراجعة الشحنات … تتحقق من جميع شحنات المفتي مرّة واحدة» -->
-            <button type="button" onclick="GMTMuftiReview.open()" data-mr-launch data-hint="يدخل رقم تتبّع كل شحنات المفتي «في الطريق» في موقع المفتي واحدةً تلو الأخرى، ويعرض لكل أوردر «حالة الشحنة» كما في موقعهم — ومنها «تأكيد الاستلام»."
-                    style="background:#14532d" class="px-3 py-2.5 text-white rounded-xl text-xs font-black">🔎 مراجعة شحنات المفتي</button>
         </div>
 
 
@@ -9694,11 +9697,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028g"></script>
+<script src="gmt-brain.js?v=20261028h"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028g"></script>
+<script src="gmt-whatsnew.js?v=20261028h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
