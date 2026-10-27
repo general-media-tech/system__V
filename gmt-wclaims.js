@@ -24,10 +24,11 @@
   var ymd = function (d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   var dmy = function (s) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? (+m[3]) + '/' + (+m[2]) + '/' + m[1] : '—'; };
 
-  function req(method, path, body) {
-    return fetch(DB.url + '/rest/v1/' + path, {
+  function req(method, path, body, db) {
+    db = db || DB;
+    return fetch(db.url + '/rest/v1/' + path, {
       method: method, body: body ? JSON.stringify(body) : undefined,
-      headers: { apikey: DB.key, Authorization: 'Bearer ' + DB.key, 'Content-Type': 'application/json', Prefer: 'return=representation' }
+      headers: { apikey: db.key, Authorization: 'Bearer ' + db.key, 'Content-Type': 'application/json', Prefer: 'return=representation' }
     }).then(function (r) { return r.text().then(function (t) { var j = null; try { j = t ? JSON.parse(t) : null; } catch (_) {} if (!r.ok) { var e = new Error((j && (j.message || j.hint)) || ('HTTP ' + r.status)); e.status = r.status; throw e; } return j; }); });
   }
   function index(rows) { BY = {}; (rows || []).forEach(function (c) { if (!c || c.voided) return; (BY[c.warranty_short_id] = BY[c.warranty_short_id] || []).push(c); }); Object.keys(BY).forEach(function (k) { BY[k].sort(function (a, b) { return String(a.received_at).localeCompare(String(b.received_at)) || (a.id - b.id); }); }); }
@@ -140,5 +141,56 @@
     return root;
   }
 
-  global.GMTWClaims = { load: load, badge: badge, open: open, used: used, ready: function () { return READY; }, _labels: RES };
+  /* ══ (TASK-0214 · المالك seq 144) صفحة الكفالة للزبون: «يجب ان تتزامن ان الحاله ساريه مفعول ولكن تم استخدامها بسبب حط الاسباب
+     مثلا تمت صيانه تم الاستبدال وتاريخ الاستبدال» ══
+     قراءةٌ لكفالةٍ واحدة بحقول الزبون فقط (لا «سجّله») · نصوصٌ بصيغة الزبون. */
+  var CUST = { pending: 'قيد الفحص لدينا', repair: 'تمت الصيانة (إصلاح)', replace: 'تم الاستبدال', refund: 'تم استرجاع المبلغ', rejected: 'رُفض — خارج الضمان' };
+  var CUST_COLS = 'id,warranty_short_id,received_at,complaint,inspection_report,resolution,resolution_details,replacement_serial,delivered_at,consumed';
+  function fetchFor(db, sid) {
+    if (!db || !sid) return Promise.resolve([]);
+    return req('GET', 'warranty_claims?select=' + CUST_COLS + '&warranty_short_id=eq.' + encodeURIComponent(sid) + '&voided=not.is.true&order=received_at.asc,id.asc', null, db).then(function (r) { return Array.isArray(r) ? r : []; });
+  }
+  /* «… — تم استخدام الضمان (تم الاستبدال · 12/10/2026)» أو «… — قيد الفحص لدينا» أو '' */
+  function summary(list) {
+    list = list || [];
+    var u = list.filter(function (c) { return c.consumed; })[0];
+    if (u) return 'تم استخدام الضمان (' + (CUST[u.resolution] || u.resolution) + ' · ' + dmy(u.delivered_at || u.received_at) + ')';
+    var open1 = list.filter(function (c) { return c.resolution === 'pending'; })[0];
+    return open1 ? 'الجهاز ' + CUST.pending + ' منذ ' + dmy(open1.received_at) : '';
+  }
+  function customerHTML(list) {
+    list = list || []; if (!list.length) return '';
+    var u = list.filter(function (c) { return c.consumed; })[0];
+    var item = function (c) {
+      var rows = [];
+      rows.push(['استلمنا الجهاز منك', dmy(c.received_at)]);
+      if (c.complaint) rows.push(['الشكوى', esc(c.complaint)]);
+      if (c.inspection_report) rows.push(['تقرير الفحص', esc(c.inspection_report)]);
+      if (c.resolution_details) rows.push(['تفاصيل الحلّ', esc(c.resolution_details)]);
+      if (c.resolution === 'replace' && c.replacement_serial) rows.push(['الرقم التسلسلي للجهاز البديل', '<span dir="ltr">' + esc(c.replacement_serial) + '</span>']);
+      rows.push([c.resolution === 'replace' ? 'تاريخ الاستبدال (التسليم لك)' : 'سُلِّم لك', c.delivered_at ? dmy(c.delivered_at) : 'لم يُسلَّم بعد']);
+      return '<div class="wcc-item' + (c.consumed ? ' used' : '') + '" data-wcc-item><div class="wcc-res">' + esc(CUST[c.resolution] || c.resolution) + '</div>' +
+        rows.map(function (r) { return '<div class="wcc-row"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>'; }).join('') + '</div>';
+    };
+    return '<div class="wcc" data-wcc>' +
+      '<div class="wcc-h">🛠 سجلّ استخدام الضمان</div>' +
+      (u ? '<div class="wcc-note">الكفالة سارية المفعول حتى تاريخ انتهائها، لكنّ <b>الضمان استُخدم</b> — الكفالة والضمان يُستخدمان مرّةً واحدة.</div>' : '') +
+      list.map(item).join('') + '</div>';
+  }
+  function customerCss() {
+    if (doc.getElementById('gmt-wcc-css')) return;
+    var s = doc.createElement('style'); s.id = 'gmt-wcc-css';
+    s.textContent = '.wcc{border:1.5px solid #c4b5fd;background:#faf5ff;border-radius:12px;padding:14px 16px;direction:rtl;text-align:right}' +
+      '.wcc-h{font-weight:900;font-size:15px;color:#4c1d95;margin-bottom:6px}' +
+      '.wcc-note{font-size:12.5px;font-weight:700;color:#5b21b6;margin-bottom:8px;line-height:1.7}' +
+      '.wcc-item{background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 12px;margin-top:8px}' +
+      '.wcc-item.used{border-color:#a78bfa}' +
+      '.wcc-res{font-weight:900;font-size:14px;color:#111;margin-bottom:4px}' +
+      '.wcc-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0;border-top:1px dashed #f3e8ff}' +
+      '.wcc-row span{color:#6b7280;font-weight:700;flex-shrink:0}.wcc-row b{color:#111;font-weight:800;text-align:left}';
+    (doc.head || doc.documentElement).appendChild(s);
+  }
+
+  global.GMTWClaims = { load: load, badge: badge, open: open, used: used, ready: function () { return READY; }, _labels: RES,
+    fetchFor: fetchFor, summary: summary, customerHTML: function (l) { customerCss(); return customerHTML(l); }, _cust: CUST };
 })(typeof window !== 'undefined' ? window : this);

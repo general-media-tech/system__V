@@ -46,7 +46,7 @@ const FAKE = {
     ok(cards.length === 4 && cards[0].k === 'got' && String(cards[0].id) === String(idOf('214138')), W + ': كلّهم في صفحةٍ واحدة · «استلمها الزبون» أوّلاً: ' + JSON.stringify(cards.map(c => c.k)));
     const A = cards.find(c => c.k === 'got'), B = cards.find(c => c.k === 'branch'), D = cards.find(c => c.k === 'ret'), N = cards.find(c => c.k === 'nf');
     // (TASK-0225 · seq 153) «كلمه تمت اعاده التوجيه لا يعني انه استلم بل انها انتقلت الى مرتجع»
-    ok(JSON.stringify(cards.map(c => c.k)) === '["got","ret","branch","nf"]' && D && /مرتجع — أُعيد توجيهها/.test(D.t) && /ليست استلاماً/.test(D.t) && !/ليست استلاماً/.test(A.t + B.t),
+    ok(JSON.stringify(cards.map(c => c.k)) === '["got","ret","branch","nf"]' && D && /مرتجع — أُعيد توجيهها/.test(D.t) && /ليست «تم التسليم»/.test(D.t) && !/ليست «تم التسليم»/.test(A.t + B.t),
       W + ': «تمت إعادة التوجيه» ⇒ ↩️ مرتجع (لا استلام) مع تنبيه · ثانياً بعد «استلمها»: ' + JSON.stringify(cards.map(c => c.k)));
     await pg.click('#gmt-mr [data-mr-f="ret"]'); await pg.waitForTimeout(150);
     ok(await pg.evaluate(() => document.querySelectorAll('#gmt-mr [data-mr-o]').length) === 1, W + ': فلتر «↩️ مرتجع» ⇒ واحدة');
@@ -66,8 +66,10 @@ const FAKE = {
       return { a: row(ids.a), b: row(ids.b), icons: !document.querySelector('#gmt-mr [data-mr-pbtns] i[data-lucide]') }; }, { a: idOf('214244'), b: idOf('210063') });
     ok(JSON.stringify(btns.a) === JSON.stringify(['requestConfirm(' + idOf('214244') + ",'delivered')", 'shareOrder(' + idOf('214244') + ",'arrived')", 'contactShipOffice(' + idOf('214244') + ')']) && btns.icons,
       W + ': ثلاثة أزرار فقط: تأكيد الاستلام · تبليغ الوصول · مراسلة فرع الشركة الوجهة (لا طباعة ولا بحث ولا PDF ولا ⋮): ' + JSON.stringify(btns.a));
-    ok(JSON.stringify(btns.b) === JSON.stringify(['requestConfirm(' + idOf('210063') + ",'delivered')", 'contactCustomerArrival(' + idOf('210063') + ')', 'contactShipOffice(' + idOf('210063') + ')']),
-      W + ': بعد التبليغ: زرّ التبليغ نفسه يصير «مراسلة الزبون» كما في البطاقة: ' + JSON.stringify(btns.b));
+    // (TASK-0248 · seq 166) المرتجعة «ليست تم التسليم»: لا شريط تقدّم ولا «تأكيد الاستلام» ولا «تبليغ الوصول» — يبقى «مراسلة فرع الشركة» فقط
+    const retSteps = await pg.evaluate(id => !!document.querySelector('#gmt-mr [data-mr-o="' + id + '"] .ml-steps'), idOf('210063'));
+    ok(JSON.stringify(btns.b) === JSON.stringify(['contactShipOffice(' + idOf('210063') + ')']) && !retSteps,
+      W + ': المرتجعة: لا شريط تقدّم · لا «تأكيد الاستلام» ولا «تبليغ الوصول» · يبقى «مراسلة فرع الشركة»: ' + JSON.stringify(btns.b));
     // (TASK-0222 · seq 152) «في صحين للي تبلغ … زامنها» + «التبليغ الاول غير التبليغ الثاني»
     const nd0 = await pg.evaluate(ids => [ids.a, ids.b].map(id => ((document.querySelector('#gmt-mr [data-mr-o="' + id + '"] [data-mr-notified]') || {}).textContent || '').trim()), { a: idOf('214244'), b: idOf('210063') });
     ok(nd0[0] === '' && /بُلِّغ بالوصول/.test(nd0[1]), W + ': شارة «✓✓ بُلِّغ بالوصول» للمبلَّغ فقط: ' + JSON.stringify(nd0));

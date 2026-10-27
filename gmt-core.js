@@ -3558,8 +3558,23 @@
 
   /* ═══════════ الواجهة (تظهر للأدمن فقط) ═══════════ */
   let btn = null, panel = null;
+  /* صفحة يراها الزبون: الكفالة برقمها (?w=) · التتبّع · المتجر · بحث الكفالة · الموقع */
+  function customerView() {
+    try {
+      const f = decodeURIComponent((location.pathname.split('/').pop() || '').toLowerCase());
+      if (/^(track_order|store|search|site)\.html$/.test(f)) return true;
+      if (/^guarantee\.html$/.test(f) && new URLSearchParams(location.search).get('w')) return true;
+    } catch (_) {}
+    return false;
+  }
+  window.GMT_isCustomerView = customerView;
 
+  /* (TASK-0218/0229 · المالك seq 146 · 160) «زر الحارس والازرار العائمه ما لازم تطلع في اي مكان خلاص في لها مكان وندخل عليه ونسحب
+     كل شيء تقارير» + «انتبه جيدا هذه صفحه كفاله للزبون عم يعرض لها التقارير»: لا زرّ عائم للحارس أبداً. التقارير مكانها
+     «التقرير الأسبوعي وتقارير الحارس» (weekly_report.html) — تقرير هذا الجهاز وكل الأجهزة. وصفحات الزبون لا تفتح اللوحة إطلاقاً. */
+  const NO_FAB = true;
   function paint() {
+    if (NO_FAB) { if (btn) { btn.remove(); btn = null; } return; }
     if (silent) { if (btn) btn.style.display = 'none'; return; }
     if (!document.body) { document.addEventListener('DOMContentLoaded', paint, { once: true }); return; }
     if (!btn) {
@@ -3597,6 +3612,7 @@
   }
 
   function openPanel() {
+    if (customerView()) return;                // زبونٌ لا يرى تقارير داخلية أبداً
     if (panel) panel.remove();
     panel = document.createElement('div');
     panel.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Cairo,Arial,sans-serif;direction:rtl;';
@@ -3624,13 +3640,7 @@
 
   /* فتح سرّي للأدمن/الدعم حتى بالوضع الصامت */
   document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) openPanel(); });
-  let holdT = null;
-  document.addEventListener('pointerdown', (e) => {
-    const el = e.target && e.target.closest && e.target.closest('img[src*="logo"], .logo, #logo');
-    if (!el) return;
-    holdT = setTimeout(openPanel, 1800);
-  });
-  document.addEventListener('pointerup', () => { if (holdT) clearTimeout(holdT); });
+  /* (TASK-0229) أُزيل فتحُ اللوحة بالضغط المطوَّل على الشعار — كان يفتح التقارير لأيّ أحد (ومنهم الزبون في صفحة الكفالة/التتبّع). */
 
   /* ─────────── الواجهة البرمجية ─────────── */
   /* ═══════════ ⑥ التعريف التلقائي (بلا تعديل أي صفحة) ═══════════
@@ -3708,7 +3718,8 @@
      أصلاً في `ident.user` — كان الناقص هو المَنفَذ لا المعلومة.
      ═══════════════════════════════════════════════════════════════════════ */
   window.GMTBug = {
-    version: 3.1,
+    version: 3.2,
+    customerView: customerView,
     role: () => ident.role,
     who: () => ident.user || '',
     branch: () => ident.branch || '',

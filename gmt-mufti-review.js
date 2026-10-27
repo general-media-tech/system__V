@@ -52,9 +52,11 @@
     if (k === 'wait') return '<div class="mr-wait">⏳ جارٍ إدخال الرقم في موقع المفتي…</div>';
     if (k === 'err') return '<div class="mr-bad">⚠️ تعذّرت القراءة: ' + esc(r.error || '') + '</div>';
     if (k === 'nf') return '<div class="mr-bad">❓ موقع المفتي لا يعرف الرقم <b dir="ltr">' + esc(r.n) + '</b> — تأكّد من رقم التتبّع على الأوردر.</div>';
-    return stepsHTML(r) +
-      /* (TASK-0225 · seq 153) «تمت إعادة التوجيه» ليست استلاماً بل مرتجع */
-      (k === 'ret' ? '<div class="mr-warn" data-mr-ret>↩️ «إعادة التوجيه» عند المفتي تعني أنّ الشحنة انتقلت إلى <b>مرتجع</b> — ليست استلاماً. لا تؤكّد الاستلام.</div>' : '') +
+    /* (TASK-0225 · seq 153 ⇐ TASK-0248 · seq 166) «تمت اعاده التوجيه يعني انه الشحن اصبحت مرتجعة وليست تم التسليم»:
+       المرتجعة بلا شريط تقدّم (كان يُبرز «تم استلام الشحنة» كأنّها ماضية) — سطرٌ واحد واضح بدلاً منه */
+    return (k === 'ret'
+        ? '<div class="mr-ret" data-mr-ret>↩️ الشحنة <b>مرتجعة</b> — ليست «تم التسليم». «إعادة التوجيه» عند المفتي تعني أنّها انتقلت إلى مرتجع.</div>'
+        : stepsHTML(r)) +
       ML.cardHTML(r) +      /* «حالة الشحنة» — المكان المحاط بالدائرة في صفحة المفتي، بمستطيل بطاقاتنا */
       (r.receiver ? '<div class="mr-rcv">المستلم عندهم: <b>' + esc(r.receiver.desc) + '</b>' + (r.receiver.info ? ' · ' + esc(r.receiver.info) : '') + '</div>' : '') +
       (nameDiffers(o, r) ? '<div class="mr-warn">⚠️ اسم المستلم عند المفتي لا يشبه اسم الزبون على الأوردر — تأكّد أنّ رقم التتبّع صحيح.</div>' : '');
@@ -65,12 +67,14 @@
      ثلاثة أزرار فقط، تُؤخذ من بطاقة الأوردر (cardHTML في الأوردرات) كما هي — نفس الشكل والسلوك:
      ✅ تأكيد الاستلام · 🔔 تبليغ الوصول (وبعد التبليغ يصير في البطاقة نفسها زرَّ مراسلة الزبون — هو هو) · 🏢 مراسلة فرع الشركة الوجهة. */
   var KEEP = [/^requestConfirm\(\s*'?[^,]+'?\s*,\s*'delivered'\s*\)$/, /^(shareOrder\([^,]+,\s*'arrived'\)|contactCustomerArrival\([^)]*\))$/, /^contactShipOffice\([^)]*\)$/];
-  function pageButtons(o) {
+  function pageButtons(o, opt) {
     try {
       if (typeof g.cardHTML !== 'function') return '';
       var t = document.createElement('div'); t.innerHTML = g.cardHTML(o);
       var all = [].slice.call(t.querySelectorAll('button[onclick]'));
       var out = KEEP.map(function (re) { return all.filter(function (b) { return re.test((b.getAttribute('onclick') || '').trim()); })[0]; }).filter(Boolean);
+      /* المرتجعة: لا «تأكيد الاستلام» ولا «تبليغ الوصول» — لا استلام ولا وصول؛ يبقى «مراسلة فرع الشركة» لمتابعة المرتجع */
+      if (opt && opt.ret) out = out.filter(function (b) { return /^contactShipOffice\(/.test(b.getAttribute('onclick') || ''); });
       if (!out.length) return '';
       out.forEach(function (b, i) { if (i === 0 && /requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
       return '<div class="flex gap-2">' + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';
@@ -82,9 +86,9 @@
   function cardHTML(o) {
     var n = digits(o.tracking_number), r = state.res[n], k = cls(r), C = CLS[k];
     var when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '';
-    var pb = pageButtons(o), act = '';
+    var pb = pageButtons(o, { ret: k === 'ret' }), act = '';
     if (o.status === 'delivered' || o.status === 'completed') act = '<span class="mr-done">✔ ' + esc(stLabel(o.status)) + '</span>';
-    else if (o.status === 'shipped' && !pb) act = '<button type="button" data-mr-confirm="' + esc(o.id) + '" class="mr-btn' + (k === 'got' ? ' mr-go' : '') + '">✅ تأكيد الاستلام</button>';   // احتياط: صفحةٌ بلا cardHTML
+    else if (o.status === 'shipped' && !pb && k !== 'ret') act = '<button type="button" data-mr-confirm="' + esc(o.id) + '" class="mr-btn' + (k === 'got' ? ' mr-go' : '') + '">✅ تأكيد الاستلام</button>';   // احتياط: صفحةٌ بلا cardHTML
     return '<div class="mr-o" data-mr-o="' + esc(o.id) + '" data-mr-k="' + k + '">' +
       '<div class="mr-top"><div class="mr-ttl">#' + esc(o.id) + ' · ' + esc(o.name || '—') + '</div>' + notify(o) +
       '<span class="mr-chip" style="color:' + C.c + ';background:' + C.bg + '">' + C.t + '</span></div>' +
@@ -188,6 +192,7 @@
     P + ' .mr-sub{font-size:11.5px;color:#6b7280;font-weight:700;margin:4px 0 12px}' + P + ' .mr-sub b{color:#111}' +
     P + ' .mr-rcv{font-size:11.5px;color:#6b7280;margin-top:8px}' + P + ' .mr-rcv b{color:#111}' +
     P + ' .mr-warn{font-size:11.5px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:7px 10px;margin-top:8px}' +
+    P + ' .mr-ret{font-size:13px;font-weight:800;color:#92400e;background:#fffbeb;border:1.5px solid #fcd34d;border-right:4px solid #d97706;border-radius:14px;padding:11px 12px;margin-bottom:10px;line-height:1.7}' +
     P + ' .mr-wait{font-size:12px;font-weight:800;color:#6b7280;background:#f8fafc;border:1px dashed #e5e7eb;border-radius:14px;padding:16px;text-align:center}' +
     P + ' .mr-bad{font-size:12px;font-weight:800;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:11px}' +
     P + ' .mr-pbtns{margin-top:12px;padding-top:12px;border-top:1px dashed #eef0f3}' +

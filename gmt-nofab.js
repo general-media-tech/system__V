@@ -61,7 +61,8 @@
       if (!kids) return;
       for (var i = 0; i < kids.length; i++) {
         var el = kids[i];
-        if (el.getAttribute('data-gmt-fab-killed')) continue;
+        /* (TASK-0218 · seq 146) ما أُخفي يبقى مخفيّاً: بعض الأزرار (الحارس) كانت تُعيد رسم نفسها بـdisplay:flex فتعود للظهور */
+        if (el.getAttribute('data-gmt-fab-killed')) { if (el.style.display !== 'none') el.style.setProperty('display', 'none', 'important'); continue; }
         if (isFloatingFab(el)) {
           el.style.setProperty('display', 'none', 'important');
           el.setAttribute('data-gmt-fab-killed', '1');
@@ -96,6 +97,7 @@
     sweep();
     try { new global.MutationObserver(onMut).observe(doc.body, { childList: true }); } catch (_) {}
     [200, 700, 1500, 3000, 6000, 10000].forEach(function (ms) { global.setTimeout(function () { sweep(); mountTools(); }, ms); });
+    global.setInterval(sweep, 5000);
   }
 
   /* ═══ (٧ ط · «معظم الأدوات مو شغّالة») ما يُخفيه الحارس لا يضيع: صندوق «🧰 الأدوات» في الشريط العلويّ ═══
@@ -138,6 +140,7 @@
   }
   function mountTools() {
     var bar = doc.getElementById('gmt-refresh-bar'); if (!bar) return;
+    try { if (global.GMT_isCustomerView && global.GMT_isCustomerView()) { var x = doc.getElementById('gmt-tools-btn'); if (x) x.remove(); return; } } catch (_) {}   // (TASK-0229) لا أدوات داخلية في صفحة الزبون
     var has = tools().length > 0, b = doc.getElementById('gmt-tools-btn');
     if (!has) { if (b) b.remove(); return; }
     if (b) return;
