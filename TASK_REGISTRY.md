@@ -772,8 +772,12 @@
 - **الطلب:** «ما في عندي انزلهم كملفات جهات الاتصال لحتى يتسيفوا على اي جهاز» · «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي هذا الشيء غلط».
 
 ### TASK-0212 — زرّ «عرض في المتجر» يفتح 404 (المالك seq 140)
-- **المالك:** `session_01XEjHNW9dqo1zWS8cEcUN7i` · **الحالة:** `IN_PROGRESS` (28 ت1).
+- **المالك:** `session_01XEjHNW9dqo1zWS8cEcUN7i` · **الحالة:** `COMPLETED` (28 ت1 · `gmt-v20261028e` · شو الجديد v162).
 - **الطلب:** «زر العرض في المتجر عاطل» + لقطة: صفحة 404 من GitHub Pages على general-media-tech.github.io.
+- **السبب:** `products.store_url` بخمسة أشكال: `index__12_.html#product=…` ٢٢ (ملفٌّ قديم ⇒ 404 — حفظه جهازٌ في `br_storefront_file`) · `#product=…` بلا صفحة ٨ · `store.html#…` ٢ (نسبيّ) · مطلقٌ صحيح ٤ · `amredeveloper.github.io/general_home` ١٤ (موقعٌ قديم يعمل 200 — تُرك وسؤالٌ للمالك).
+- **المنفَّذ:** `gmt-core.js` `GMTUtil.storeLink` (النسبيّ ⇒ `store.html#product=<id>` في الموقع · المطلق كما هو) · `inventory.html` (`invStoreLink` في الأزرار الأربعة) · `pos.html` · `bridge.html`: اسم ملفّ متجرٍ محفوظ غير موجود (HEAD 404) ⇒ `store.html` · الرابط يُكتب مطلقاً في المسارين (`storefrontAbs`).
+- **في القاعدة (شُغّل وتُحقّق منه):** ٣٢ رابطاً نسبيّاً ⇒ `https://general-media-tech.github.io/system__V/store.html#product=<id>` · الآن ٣٦ على المتجر و١٤ على الموقع القديم.
+- **الاختبار:** `t_store_link` 8 ✔ (جديد) · المسح (inventory · pos · bridge).
 
 ### TASK-0010 — منع تكرار/مضاعفة فواتير النقد (نقرتان · إعادة إرسال · طابور أوفلاين)
 - **الأولوية:** عالية (صحّة الفواتير) · **المالك:** `session_01MWfC494J8Ayokvio9Ve6C9` · **الحالة:** `COMPLETED` (24 ت1 · منشور `gmt-v20261024b · شو الجديد v101`) — بدأتُها من جديد بإذن المالك seq 42 (لا عمل جزئياً محفوظاً).

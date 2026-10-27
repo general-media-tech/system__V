@@ -2276,7 +2276,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261017c"></script>
+  <script src="gmt-core.js?v=20261028e"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-compat-kb.js?v=20261026g"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
@@ -2294,10 +2294,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261028d"></script>
-<script src="gmt-gallery.js?v=20261028d" defer></script>
-<script src="gmt-product-edit.js?v=20261028d" defer></script>
-<script src="gmt-enrich-queue.js?v=20261028d"></script>
+<script src="gmt-specs.js?v=20261028e"></script>
+<script src="gmt-gallery.js?v=20261028e" defer></script>
+<script src="gmt-product-edit.js?v=20261028e" defer></script>
+<script src="gmt-enrich-queue.js?v=20261028e"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -5094,7 +5094,7 @@ function gmtManageProduct(id) {
   const wide = innerWidth > 700;
   ov.style.cssText = 'position:fixed;inset:0;z-index:2147482000;background:rgba(15,18,25,.5);display:flex;align-items:' + (wide ? 'center' : 'flex-end') + ';justify-content:center;direction:rtl;font-family:inherit';
   const tile = (k, t, d, adm) => `<button type="button" data-k="${k}"${adm ? ' data-admin="' + t + '"' : ''} style="display:block;width:100%;text-align:right;border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:11px 13px;font:inherit;cursor:pointer"><b style="display:block;font-size:14px;color:#0f1219">${t}</b><span style="display:block;font-size:12px;color:#526077;margin-top:2px;line-height:1.6">${d}</span></button>`;
-  const storeOpen = p.store_url && /^https?:\/\//i.test(String(p.store_url));
+  const storeOpen = !!invStoreLink(p.store_url);   // (TASK-0212) النسبيّ/القديم ⇒ صفحة المتجر
   ov.innerHTML = `<div style="width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#f8fafc;border-radius:${wide ? 22 : '22px 22px 0 0'};padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(15,18,25,.25)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       ${p.image_url ? `<img src="${escHtml(p.image_url)}" alt="" style="width:46px;height:46px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">` : ''}
@@ -5118,7 +5118,7 @@ function gmtManageProduct(id) {
     try {
       if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} openProductModal(p.id); }
       else if (k === 'store') window.open('admin_store.html?edit=inv:' + encodeURIComponent(p.id) + '&bc=' + encodeURIComponent(p.barcode || '') + '&n=' + encodeURIComponent(p.name || ''), '_blank', 'noopener');
-      else if (k === 'view') window.open(p.store_url, '_blank', 'noopener');
+      else if (k === 'view') window.open(invStoreLink(p.store_url), '_blank', 'noopener');
       else if (k === 'ali') gmtSpecsFromAlibaba(p.id);
       else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
       else if (k === 'tr') { try { closeModal('detail-modal'); } catch (_) {} stFromSelection([p.id]); }
@@ -5934,7 +5934,7 @@ function renderColCell(p, col) {
     const hasStore = !!p.store_url;
     // زر المتجر — دائماً ظاهر: أخضر إذا مرتبط، رمادي إذا لا
     const storeBtn = hasStore
-      ? `<a href="${escHtml(p.store_url)}" target="_blank" title="عرض في المتجر" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;color:#15803d;padding:0;flex-shrink:0;text-decoration:none;">
+      ? `<a href="${escHtml(invStoreLink(p.store_url))}" target="_blank" title="عرض في المتجر" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;color:#15803d;padding:0;flex-shrink:0;text-decoration:none;">
            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
          </a>`
       : `<button data-admin="ربط بالمتجر" onclick="event.stopPropagation();openBridgeTool()" title="ربط بالمتجر (عبر أداة Bridge)" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;border:1px solid #e5e7eb;background:#f9fafb;cursor:pointer;color:#5b6472;padding:0;flex-shrink:0;">
@@ -7149,7 +7149,7 @@ function openDetailModal(id) {
   // Store link button
   if (p.store_url) {
     html += `<div style="margin-bottom:16px;">
-      <a href="${escHtml(p.store_url)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 16px;color:#15803d;font-size:13px;font-weight:700;text-decoration:none;font-family:'Cairo',sans-serif;">
+      <a href="${escHtml(invStoreLink(p.store_url))}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 16px;color:#15803d;font-size:13px;font-weight:700;text-decoration:none;font-family:'Cairo',sans-serif;">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         عرض المنتج في المتجر
       </a>
@@ -9982,6 +9982,11 @@ async function openBridgeTool(){
   window.open(u, '_blank', 'noopener');
 }
 window.openBridgeTool = openBridgeTool;
+
+/* (TASK-0212 · المالك seq 140 «زر العرض في المتجر عاطل» — 404) رابط المتجر المحفوظ قد يكون نسبيّاً قديماً («index__12_.html#product=…»
+   أو «#product=…» وحده) ⇒ صفحة المتجر في هذا الموقع على المنتج نفسه (GMTUtil.storeLink). المطلق يبقى كما هو. */
+function invStoreLink(u) { return (window.GMTUtil && GMTUtil.storeLink) ? GMTUtil.storeLink(u) : String(u || ''); }
+window.invStoreLink = invStoreLink;
 
 // اسم/مسار صفحة المتجر التي تُفتح عند الضغط على "عرض في المتجر" — قابل للتهيئة من المستخدم
 // (هذا كان سبب عطل زر "عرض" سابقاً: كان الاسم مكتوباً يدوياً ثابتاً في الكود ولا يطابق اسم الملف الفعلي)
@@ -15315,10 +15320,10 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028d"></script>
+<script src="gmt-brain.js?v=20261028e"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028d"></script>
+<script src="gmt-whatsnew.js?v=20261028e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

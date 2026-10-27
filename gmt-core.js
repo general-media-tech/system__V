@@ -88,7 +88,16 @@
       return false;
     } finally { if (t) clearTimeout(t); }
   }
-  g.GMTUtil = { esc: esc, tg: tg };
+  /* (TASK-0212 · المالك seq 140 «زر العرض في المتجر عاطل» + لقطة 404) روابط المتجر المحفوظة في الجرد خمسة أشكال: «index__12_.html#product=…»
+     (٢٢ — ملفٌّ قديم غير موجود ⇒ 404) · «#product=…» بلا صفحة (٨ — يفتح الصفحة الحاليّة) · «store.html#…» · مطلقٌ صحيح · موقعٌ خارجيّ قديم يعمل.
+     الرابط المطلق (http/https) يبقى كما هو؛ وكلّ رابطٍ نسبيّ ⇒ صفحة المتجر في هذا الموقع على المنتج نفسه. */
+  function storeLink(u) {
+    u = String(u || '').trim(); if (!u) return '';
+    if (/^https?:\/\//i.test(u)) return u;
+    var m = /#product=([^&\s]+)/.exec(u);
+    try { return m ? new URL('store.html#product=' + m[1], g.location.href).href : (/\.html?(?:[?#]|$)/i.test(u) ? new URL('store.html', g.location.href).href : ''); } catch (_) { return ''; }
+  }
+  g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink };
 })(typeof window !== 'undefined' ? window : this);
 
 /* ── gmt-brand.js ── */
