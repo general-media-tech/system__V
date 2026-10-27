@@ -7182,14 +7182,16 @@ async function upsertCustomerFromOrder(o) {
     if (!o || !o.phone) return;
     const phone = String(o.phone).replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
     if (!phone) return;
-    const body = {
+    /* (TASK-0211 · المالك seq 139 «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي») كان الطلب يحمل
+       last_order و last_address — عمودان غير موجودين في gmt_customers ⇒ الطلب كلّه يُرفض فيُحفظ الاسم والهاتف وحدهما (الاحتياط أدناه)
+       فلا وجهة لأيّ زبون (٤٢ من ٤٢ بلا عنوان في 27 ت1). الآن العمود القائم address = وجهة آخر شحنة (تتحدّث مع كل أوردر). */
+    const addr = String(o.address || '').trim();
+    const body = Object.assign({
         phone: phone.startsWith('0') ? phone : '0' + phone,
         name:  String(o.name || '').trim() || null,
         branch_key:  o.branch || null,
-        branch_name: o.branch || null,
-        last_order:  o.serial_code || String(o.id || '') || null,
-        last_address: String(o.address || '').trim() || null
-    };
+        branch_name: o.branch || null
+    }, addr ? { address: addr } : {});
     try {
         const r = await fetch(SUPA_URL + '/rest/v1/gmt_customers?on_conflict=phone', {
             method: 'POST',
@@ -7202,7 +7204,7 @@ async function upsertCustomerFromOrder(o) {
         if (r.ok) return;
         /* عمود غير موجود يرفض الطلب كلّه (نمط P1) ⇒ نُجرّب الحدّ الأدنى
            كي لا يضيع السجلّ بسبب عمود اختياري. */
-        const min = { phone: body.phone, name: body.name };
+        const min = Object.assign({ phone: body.phone, name: body.name }, body.address ? { address: body.address } : {});
         await fetch(SUPA_URL + '/rest/v1/gmt_customers?on_conflict=phone', {
             method: 'POST',
             headers: Object.assign({}, SB_HEADERS, {
@@ -9687,11 +9689,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028b"></script>
+<script src="gmt-brain.js?v=20261028c"></script>
 <script src="gmt-nofab.js?v=20261007z5"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028b"></script>
+<script src="gmt-whatsnew.js?v=20261028c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
