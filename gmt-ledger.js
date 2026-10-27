@@ -38,6 +38,11 @@
   function isCapital(e) {
     return /^رأسمالي/.test(String((e && e.kind) || '')) || /النوع:\s*رأسمالي/.test(String((e && e.note) || ''));
   }
+  /* (TASK-0204 · المالك seq 135) «المسحوبات الشخصية للمدير … لا تُسجَّل كمصروفٍ تشغيلي للشركة» ⇐ حسابٌ مستقلّ:
+     لا تدخل مصاريف التشغيل ولا تُطرح من الربح، لكنّها نقدٌ خرج فعلاً فتنقص الصندوق في سطرٍ وحدها */
+  function isDrawing(e) {
+    return /^مسحوبات/.test(String((e && e.kind) || '')) || /النوع:\s*مسحوبات/.test(String((e && e.note) || ''));
+  }
   function paidByAdmin(e) { return /دفعتها الإدارة/.test(String((e && e.note) || '')); }
   /* من أين خرج النقد؟ central = جيب الإدارة/صندوقها · branch = درج فرع (نقص منه بحركة type='expense') */
   function cashSource(e) {
@@ -46,8 +51,8 @@
     if (e.is_general || !e.branch_key) return 'central';
     return paidByAdmin(e) ? 'central' : 'branch';
   }
-  /* نوع المصروف للحساب: po (مشتريات/استيراد — خروج نقد لا مصروف ربح) · capital · op */
-  function expClass(e) { return poInfo(e) ? 'po' : (isCapital(e) ? 'capital' : 'op'); }
+  /* نوع المصروف للحساب: po (مشتريات/استيراد — خروج نقد لا مصروف ربح) · capital · drawing (مسحوبات المدير) · op */
+  function expClass(e) { return poInfo(e) ? 'po' : (isCapital(e) ? 'capital' : (isDrawing(e) ? 'drawing' : 'op')); }
 
   /* مفتاح التكرار: الوسم + المبلغ + الفرع — فالتكرار الحقيقيّ (سباق مزامنتين بنفس القيمة) يُسقَط، أمّا صفّان بنفس الوسم
      ومبلغين مختلفين فكلاهما حقيقيّ ويُحسبان (ثم تتقارب المزامنة التالية إلى المجموع الصحيح) — لا يُسقَط أحدهما بحسب ترتيب المصفوفة. */
@@ -153,7 +158,7 @@
   function centralCash(ctx, range) {
     var isMgmt = ctx.isMgmt || function () { return false; };
     var L = { opening: 0, salesCash: 0, collections: 0, branchIn: 0, drawerExp: 0, commPaid: 0,
-              expCentral: 0, capitalCentral: 0, purchasesPaid: 0, importPaid: 0 };
+              expCentral: 0, capitalCentral: 0, drawingsCentral: 0, purchasesPaid: 0, importPaid: 0 };
     var full = !range || (!range.ym && !range.from && !range.to);
     if (full) L.opening = r2(num(ctx.opening));
 
@@ -181,11 +186,12 @@
       var a = usd(e), t = poInfo(e);
       if (t) { if (t.part === 'c') L.importPaid += a; else L.purchasesPaid += a; }
       else if (isCapital(e)) L.capitalCentral += a;
+      else if (isDrawing(e)) L.drawingsCentral += a;
       else L.expCentral += a;
     });
     Object.keys(L).forEach(function (k) { L[k] = r2(L[k]); });
     var total = r2(L.opening + L.salesCash + L.collections + L.branchIn - L.drawerExp - L.commPaid
-                   - L.expCentral - L.capitalCentral - L.purchasesPaid - L.importPaid);
+                   - L.expCentral - L.capitalCentral - L.drawingsCentral - L.purchasesPaid - L.importPaid);
     return { lines: L, total: total, full: full };
   }
   /* كل المصاريف مع إسقاط التكرار في صفوف الدفتر (سباق مزامنتين) */
@@ -204,7 +210,7 @@
      الربح = (مبيعات − كلفة − عمولة) للفواتير **معروفة الكلفة** − المصاريف التشغيلية.
      ctx = { invoices, comm, expenses, isExcluded(key) } · costFn(invId) → {cost, known} */
   function profit(ctx, range, costFn) {
-    var out = { salesAll: 0, salesKnown: 0, cogs: 0, comm: 0, expenses: 0, capital: 0, poOut: 0,
+    var out = { salesAll: 0, salesKnown: 0, cogs: 0, comm: 0, expenses: 0, capital: 0, drawings: 0, poOut: 0,
                 invCount: 0, unknownCount: 0, unknownSales: 0, profit: 0 };
     var commBy = {};
     (ctx.comm || []).forEach(function (c) {
@@ -223,7 +229,7 @@
     ledgerAll(ctx.expenses).forEach(function (e) {
       if (!e.approved || e.voided || !inRange(e.created_at, range)) return;
       var c = expClass(e), a = usd(e);
-      if (c === 'po') out.poOut += a; else if (c === 'capital') out.capital += a; else out.expenses += a;
+      if (c === 'po') out.poOut += a; else if (c === 'capital') out.capital += a; else if (c === 'drawing') out.drawings += a; else out.expenses += a;
     });
     Object.keys(out).forEach(function (k) { if (typeof out[k] === 'number' && k !== 'invCount' && k !== 'unknownCount') out[k] = r2(out[k]); });
     out.profit = r2(out.salesKnown - out.cogs - out.comm - out.expenses);
@@ -373,6 +379,6 @@
     centralCash: centralCash, profit: profit, supplierPayable: supplierPayable,
     syncPurchase: syncPurchase, reversePurchase: reversePurchase, drift: drift,
     desired: desired, paidGoods: paidGoods, isArchival: isArchival, costsTotal: costsTotal, ledgerRows: ledgerRows, poInfo: poInfo,
-    expClass: expClass, cashSource: cashSource, usd: usd, inRange: inRange, localYMD: localYMD
+    expClass: expClass, isDrawing: isDrawing, isCapital: isCapital, cashSource: cashSource, usd: usd, inRange: inRange, localYMD: localYMD
   };
 })();

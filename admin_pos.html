@@ -517,7 +517,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-ledger.js?v=20261012a"></script>
+  <script src="gmt-ledger.js?v=20261027h"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -569,6 +569,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <button class="main-tab" onclick="switchTab('debts')">💳 الديون</button>
   <button class="main-tab" onclick="switchTab('expenses')">🧾 المصاريف</button>
   <button class="main-tab" onclick="switchTab('accounting')">📊 المحاسبة</button>
+  <button class="main-tab" onclick="switchTab('assets')">🏢 الأصول</button>
   <button class="main-tab" onclick="switchTab('customers')">👥 العملاء</button>
   <button class="main-tab" onclick="switchTab('users')">👤 الموظفون</button>
   <button class="main-tab" onclick="switchTab('adminInvoice')">🧾 فاتورة جديدة</button>
@@ -796,6 +797,8 @@ async function bootApp() {
     /* (٨ ت) رابطٌ مباشر لتبويب: admin_pos.html?tab=customers (أداة «العملاء» من الرئيسيّة) */
     { let _t0 = 'overview'; try { const q = new URLSearchParams(location.search).get('tab'); if (q && /^[a-zA-Z]+$/.test(q) && document.querySelector(`.main-tab[onclick="switchTab('${q}')"]`)) _t0 = q; } catch (_) {}
       switchTab(_t0);
+      /* (TASK-0204 · المالك seq 135) «مصروف» من الرئيسيّة للأدمن ⇒ هنا (لا نقطة البيع): ?tab=expenses&add=general|drawing|branch */
+      try { const _ad = new URLSearchParams(location.search).get('add'); if (_t0 === 'expenses' && /^(general|drawing|branch)$/.test(_ad || '')) openAddExpenseModal(_ad === 'drawing' ? 'drawing' : _ad === 'general'); } catch (_) {}
       loadCostData().then(() => { try { if (activeTab === 'invoices' || activeTab === 'overview' || activeTab === 'accounting') switchTab(activeTab); } catch (_) {} });
       if (_t0 !== 'overview') try { document.querySelectorAll('.main-tab').forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + _t0 + "'") >= 0)); } catch (_) {} }
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
@@ -975,6 +978,7 @@ function switchTab(tab) {
   else if (tab === 'debts')       renderDebts();
   else if (tab === 'expenses')    renderExpenses();
   else if (tab === 'accounting')  renderAccounting();
+  else if (tab === 'assets')      renderAssets();
   else if (tab === 'customers')   renderCustomers();
   else if (tab === 'users')       renderUsers();
   else if (tab === 'adminInvoice') renderAdminInvoice();
@@ -982,6 +986,90 @@ function switchTab(tab) {
   else if (tab === 'coupons')     renderCoupons();
   else if (tab === 'closings')    renderClosings();
 }
+
+// ══════════════════════════════════════════
+// (TASK-0205 · المالك seq 135) سجلّ أصول الشركة — جدول gmt_assets
+// الأصل ما تملكه الشركة ولا تبيعه (سيارة · لابتوبات · رفوف…): يُسجَّل بقيمته، لا يُطرح من الربح ولا من الصندوق
+// (البنود المسجّلة مُلكٌ قائم لا نقدٌ خرج اليوم). الحذف إبطالٌ بسببٍ يبقى للتدقيق.
+// ══════════════════════════════════════════
+let allAssets = null, _assetsErr = '';
+async function loadAssets() {
+  try {
+    const r = await sb('GET', '/rest/v1/gmt_assets?voided=is.false&order=id.asc&select=*');
+    allAssets = Array.isArray(r) ? r : (Array.isArray(r?.data) ? r.data : []); _assetsErr = '';
+  } catch (e) { allAssets = []; _assetsErr = String((e && e.message) || e); }
+}
+function _assetUSD(a) { return a.currency === 'syp' ? 0 : (Number(a.value) || 0); }
+async function renderAssets() {
+  const c = document.getElementById('app-content');
+  if (allAssets === null) { c.innerHTML = '<div class="empty-state"><div style="font-size:32px;">⏳</div><p>جارٍ قراءة سجلّ الأصول…</p></div>'; await loadAssets(); if (activeTab !== 'assets') return; }
+  const list = allAssets || [];
+  const tot = list.reduce((s, a) => s + _assetUSD(a), 0);
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  c.innerHTML = `
+    <div class="sec-head">
+      <div class="sec-title">🏢 سجلّ أصول الشركة</div>
+      <button onclick="openAddAssetModal()" data-asset-add style="background:linear-gradient(135deg,#1f348f,#1e3a8a);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">➕ أصل جديد</button>
+    </div>
+    <div style="background:#eef3fa;border:1.5px solid #c9d3ea;border-radius:14px;padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div><div style="font-size:11px;font-weight:800;color:#1f348f;">إجمالي قيمة الأصول المسجّلة</div>
+        <div style="font-size:10.5px;font-weight:700;color:#475569;">${list.length} بند · ملكٌ للشركة — ليس مصروفاً ولا يُطرح من الربح أو الصندوق</div></div>
+      <div data-assets-total style="font-size:24px;font-weight:900;color:#1f348f;" dir="ltr">${fmt(tot)}$</div>
+    </div>
+    ${_assetsErr ? `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:800;color:#991b1b;">تعذّرت قراءة سجلّ الأصول: ${escH(_assetsErr).slice(0, 160)}</div>` : ''}
+    ${list.length ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      ${list.map((a, i) => `<div data-asset-row="${escH(a.id)}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;${i ? 'border-top:1px solid var(--border);' : ''}">
+        <span style="width:26px;height:26px;border-radius:8px;background:#eef3fa;color:#1f348f;display:grid;place-items:center;font-size:12px;font-weight:900;flex-shrink:0;">${i + 1}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;overflow-wrap:anywhere;">${escH(a.name)}</div>
+          <div style="font-size:10.5px;font-weight:700;color:var(--text3);">${a.acquired_at ? 'تاريخ الشراء: ' + escH(a.acquired_at) : 'تاريخ الشراء غير مسجَّل'}${a.note ? ' · ' + escH(a.note) : ''}</div></div>
+        <div style="font-size:15px;font-weight:900;color:#1f348f;white-space:nowrap;" dir="ltr">${fmt(a.value)}${a.currency === 'syp' ? ' ل.س' : '$'}</div>
+        <button onclick="voidAsset('${escH(a.id)}')" title="إبطال" style="background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);border-radius:7px;padding:4px 8px;font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;">🗑</button>
+      </div>`).join('')}</div>` : (_assetsErr ? '' : '<div class="empty-state"><div class="ico">📭</div><p>لا أصول مسجّلة</p></div>')}
+  `;
+}
+function openAddAssetModal() {
+  document.getElementById('modal-title').textContent = '🏢 أصل جديد';
+  const _f = 'width:100%;border:2px solid var(--border);border-radius:10px;padding:11px 14px;font-family:\'Cairo\',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;';
+  const _l = 'font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="margin-bottom:12px;"><label style="${_l}">اسم الأصل *</label><input type="text" id="as-name" placeholder="مثال: فان، لابتوب، رفوف…" style="${_f}"></div>
+    <div style="margin-bottom:12px;"><label style="${_l}">القيمة بالدولار *</label><input type="number" id="as-value" min="0" step="0.01" placeholder="0.00" style="${_f}font-size:16px;font-weight:900;"></div>
+    <div style="margin-bottom:12px;"><label style="${_l}">تاريخ الشراء (اختياري)</label><input type="date" id="as-date" style="${_f}"></div>
+    <div style="margin-bottom:16px;"><label style="${_l}">ملاحظة (اختياري)</label><input type="text" id="as-note" style="${_f}"></div>
+    <button onclick="saveAsset()" data-asset-save style="width:100%;background:linear-gradient(135deg,#1f348f,#1e3a8a);color:#fff;border:none;border-radius:12px;padding:13px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:900;cursor:pointer;">💾 حفظ الأصل</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+let _assetBusy = false;
+async function saveAsset() {
+  if (_assetBusy) return;
+  const name = (document.getElementById('as-name')?.value || '').trim();
+  const value = parseFloat(document.getElementById('as-value')?.value);
+  const d = document.getElementById('as-date')?.value || '';
+  const note = (document.getElementById('as-note')?.value || '').trim();
+  if (!name) { showToast('أدخل اسم الأصل', 'err'); return; }
+  if (!isFinite(value) || value <= 0) { showToast('أدخل قيمةً صحيحة', 'err'); return; }
+  _assetBusy = true;
+  try {
+    const r = await sb('POST', '/rest/v1/gmt_assets', { name, value, currency: 'usd', acquired_at: d || null, note: note || null,
+      created_by: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة' }, { Prefer: 'return=representation' });
+    const rec = Array.isArray(r) ? r[0] : (Array.isArray(r?.data) ? r.data[0] : r);
+    if (rec && rec.id != null) (allAssets = allAssets || []).push(rec); else await loadAssets();
+    showToast('✅ سُجّل الأصل', 'ok'); closeModal(); renderAssets();
+  } catch (e) { showToast('خطأ: ' + e.message, 'err'); }
+  finally { _assetBusy = false; }
+}
+async function voidAsset(id) {
+  const a = (allAssets || []).find(x => String(x.id) === String(id)); if (!a) return;
+  const reason = await GMTAsk.prompt(`إبطال الأصل «${a.name}» (${a.value}$)\n\nلا يُحذف — يبقى بالقاعدة للتدقيق ويُخفى من السجلّ.\nاكتب سبب الإبطال (إجباري):`);
+  if (reason === null) return;
+  if (!String(reason).trim()) { showToast('سبب الإبطال إجباري', 'err'); return; }
+  try {
+    await sb('PATCH', `/rest/v1/gmt_assets?id=eq.${encodeURIComponent(id)}`, { voided: true, voided_at: new Date().toISOString(), void_reason: String(reason).trim() }, { Prefer: 'return=minimal' });
+    allAssets = allAssets.filter(x => String(x.id) !== String(id));
+    showToast('✅ أُبطل الأصل', 'ok'); renderAssets();
+  } catch (e) { showToast('خطأ: ' + e.message, 'err'); }
+}
+window.renderAssets = renderAssets; window.openAddAssetModal = openAddAssetModal; window.saveAsset = saveAsset; window.voidAsset = voidAsset;
 
 // ══════════════════════════════════════════
 // USERS TAB — إدارة الموظفين
@@ -3838,7 +3926,10 @@ function renderExpenses() {
   const pending  = list.filter(e => !e.approved);
   const approved = list.filter(e => e.approved);
   const _isPO = (e) => !!(window.GMTLedger && GMTLedger.poInfo(e));
-  const totalApprovedUSD = approved.filter(e => !_isPO(e)).reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
+  /* (TASK-0204 · المالك seq 135) المسحوبات الشخصية للمدير حسابٌ مستقلّ — لا تدخل «إجمالي المصاريف» */
+  const _isDr = (e) => !!(window.GMTLedger && GMTLedger.isDrawing && GMTLedger.isDrawing(e));
+  const totalDrawUSD = approved.filter(e => !_isPO(e) && _isDr(e)).reduce((s, e) => s + _expUSD(e), 0);
+  const totalApprovedUSD = approved.filter(e => !_isPO(e) && !_isDr(e)).reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
   const totalPOUSD = approved.filter(_isPO).reduce((s,e) => s + (e.currency === 'usd' ? Number(e.amount)||0 : (Number(e.amount)||0) / (Number(e.exchange_rate)|| (window.GMT_DEFAULT_RATE||140))), 0);
 
   c.innerHTML = `
@@ -3846,15 +3937,20 @@ function renderExpenses() {
     <div class="sec-head">
       <div class="sec-title">🧾 المصاريف</div>
       <div style="display:flex;gap:6px;">
-        <button onclick="openAddExpenseModal(false)"
+        <button onclick="openAddExpenseModal(false)" data-exp-add="branch"
           style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 12px;
                  font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">
           🏪 مصروف فرع
         </button>
-        <button onclick="openAddExpenseModal(true)"
+        <button onclick="openAddExpenseModal('drawing')" data-exp-add="drawing"
+          style="background:#f5f3ff;color:#5b21b6;border:1.5px solid #c4b5fd;border-radius:8px;padding:7px 12px;
+                 font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">
+          👤 مسحوبات شخصية للمدير
+        </button>
+        <button onclick="openAddExpenseModal(true)" data-exp-add="general"
           style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:8px;padding:7px 12px;
                  font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">
-          ➕ مصروف عام
+          ➕ مصروف عام للشركة
         </button>
       </div>
     </div>
@@ -3870,6 +3966,9 @@ function renderExpenses() {
         ${Math.abs(totalPOUSD) > 0.004 ? `<div style="font-size:10px;font-weight:800;color:#0f766e;margin-top:4px;">+ ${totalPOUSD.toFixed(2)}$ مشتريات وجمارك من فواتير الشراء (خروج نقد، ليست مصروف ربح)</div>` : ''}
       </div>
     </div>
+    ${Math.abs(totalDrawUSD) > 0.004 ? `<div data-exp-drawings style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:12px;padding:10px 12px;margin:-8px 0 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div><div style="font-size:11px;font-weight:900;color:#5b21b6;">👤 المسحوبات الشخصية للمدير</div><div style="font-size:10px;font-weight:700;color:#6d28d9;">حسابٌ مستقلّ — ليست من مصروفات الشركة ولا تُطرح من الربح</div></div>
+      <div style="font-size:17px;font-weight:900;color:#5b21b6;" dir="ltr">${totalDrawUSD.toFixed(2)}$</div></div>` : ''}
 
     ${pending.length ? `
     <div class="sec-head"><div class="sec-title">⏳ بانتظار موافقة الإدارة</div>
@@ -3938,7 +4037,7 @@ function expenseCardHtml(e) {
         ${e.requested_by ? `<div style="font-size:11px;color:var(--text3);font-weight:700;">${_poT ? 'دفعها' : 'سجّله'}: ${escH(e.requested_by)}</div>` : ''}
         ${_poT ? `<div style="font-size:10.5px;font-weight:800;color:#0f766e;margin-top:2px;">🔗 مرتبط بفاتورة شراء #${escH((allPurchases.find(x => String(x.id) === String(_poT.pid)) || {}).inv_number || _poT.pid)} — يتبدّل تلقائياً مع تعديلها (عدّلها من فاتورة الشراء)</div>` : ''}
         <div style="font-size:11px;color:var(--text3);font-weight:700;margin-top:2px;">
-          ${e.branch_key ? `${b?.icon||'🏪'} ${escH(b?.display_name||e.branch_key)} · ` : '🏢 عام (إدارة) · '}${dateStr}
+          ${e.branch_key ? `${b?.icon||'🏪'} ${escH(b?.display_name||e.branch_key)} · ` : (window.GMTLedger && GMTLedger.isDrawing && GMTLedger.isDrawing(e) ? '👤 المسحوبات الشخصية للمدير · ' : '🏢 المصروفات العامة للشركة · ')}${dateStr}
         </div>
         ${e.note ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">${escH(e.note)}</div>` : ''}
       </div>
@@ -3968,11 +4067,27 @@ function expenseCardHtml(e) {
   </div>`;
 }
 
-// إضافة مصروف — isGeneral=true يعني مصروف عام بدون فرع (يُختصر من الإدارة)
+// إضافة مصروف — isGeneral=true يعني مصروف عام بدون فرع (يُختصر من الإدارة) · 'drawing' = المسحوبات الشخصية للمدير
+/* (TASK-0204 · المالك seq 135) «تسجيل كل عملية مالية في الحساب المناسب لها، مع توضيح سبب العملية وقيمتها وتاريخها»:
+   الحساب أوّل النافذة (المصروفات العامة للشركة · المسحوبات الشخصية للمدير · مصروف فرع) + السبب + المبلغ + التاريخ */
 function openAddExpenseModal(isGeneral) {
-  document.getElementById('modal-title').textContent = isGeneral ? '➕ مصروف عام (إدارة)' : '🏪 تسجيل مصروف فرع';
+  const acct = isGeneral === 'drawing' ? 'drawing' : (isGeneral ? 'general' : 'branch');
+  const _today = (window.GMTLedger && GMTLedger.localYMD) ? GMTLedger.localYMD(new Date()) : new Date().toISOString().slice(0, 10);
+  document.getElementById('modal-title').textContent = acct === 'drawing' ? '👤 المسحوبات الشخصية للمدير' : (acct === 'general' ? '➕ مصروف عام للشركة' : '🏪 تسجيل مصروف فرع');
   document.getElementById('modal-body').innerHTML = `
-    ${!isGeneral ? `
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">الحساب *</label>
+      <select id="exp-acct" onchange="_expSwitchAcct(this.value)"
+        style="width:100%;border:2px solid var(--border);border-radius:10px;padding:11px 14px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;outline:none;">
+        <option value="general" ${acct === 'general' ? 'selected' : ''}>🏢 المصروفات العامة للشركة</option>
+        <option value="drawing" ${acct === 'drawing' ? 'selected' : ''}>👤 المسحوبات الشخصية للمدير</option>
+        <option value="branch" ${acct === 'branch' ? 'selected' : ''}>🏪 مصروف فرع</option>
+      </select>
+      <div style="font-size:10.5px;font-weight:700;color:var(--text3);margin-top:4px;line-height:1.7;">${acct === 'drawing'
+        ? 'مبلغٌ سُحب من أموال الشركة لأغراضٍ شخصية للمدير — يُسجَّل وحده ولا يُعدّ مصروفاً تشغيلياً للشركة ولا يُطرح من الربح.'
+        : acct === 'general' ? 'مصاريف تخصّ الشركة ككلّ ولا تندرج تحت فرعٍ محدَّد.' : 'مصروفٌ يخصّ فرعاً بعينه.'}</div>
+    </div>
+    ${acct === 'branch' ? `
     <div style="margin-bottom:12px;">
       <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">الفرع *</label>
       <select id="exp-branch" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:11px 14px;
@@ -3982,9 +4097,16 @@ function openAddExpenseModal(isGeneral) {
     </div>` : `<input type="hidden" id="exp-branch" value="">`}
 
     <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">عنوان المصروف *</label>
-      <input type="text" id="exp-title" placeholder="مثال: إيجار، كهرباء، صيانة..."
+      <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">السبب *</label>
+      <input type="text" id="exp-title" placeholder="${acct === 'drawing' ? 'مثال: مصروف شخصي، سفر شخصي…' : 'مثال: إيجار، كهرباء، صيانة...'}"
         style="width:100%;border:2px solid var(--border);border-radius:10px;padding:11px 14px;
+               font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">التاريخ *</label>
+      <input type="date" id="exp-date" value="${_today}" max="${_today}"
+        style="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 14px;
                font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
     </div>
 
@@ -4013,15 +4135,16 @@ function openAddExpenseModal(isGeneral) {
                font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
     </div>
 
-          <div style="margin-bottom:12px;">
-      <!-- (2026-10-05 س) البندان ٤٦ و٢٠٨: نوع المصروف — للفروع وللعامّ (ديون · شحن · فرز · جمارك · خسائر · عمولات…) -->
+          ${acct === 'drawing' ? '<input type="hidden" id="exp-kind" value="مسحوبات شخصية للمدير">' : `<div style="margin-bottom:12px;">
+      <!-- (2026-10-05 س) البندان ٤٦ و٢٠٨: نوع المصروف — للفروع وللعامّ (ديون · شحن · فرز · جمارك · خسائر · عمولات…)
+           (TASK-0204) «شخصي» خرج من هنا: المسحوبات الشخصية للمدير حسابٌ مستقلّ أعلاه -->
       <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">نوع المصروف</label>
       <select id="exp-kind" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
-        <option>تشغيلي</option><option>رأسمالي (سيارة · لابتوب · رفوف…)</option><option>شخصي</option><option>رواتب</option>
+        <option>تشغيلي</option><option>رأسمالي (سيارة · لابتوب · رفوف…)</option><option>رواتب</option>
         <option>ترويج</option><option>تصوير</option><option>شحن</option><option>جمارك</option><option>فرز</option>
         <option>ديون</option><option>خسائر</option><option>عمولات</option>
       </select>
-      </div>
+      </div>`}
 
 <div style="margin-bottom:16px;">
       <label style="font-size:11px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">ملاحظة (اختياري)</label>
@@ -4031,19 +4154,29 @@ function openAddExpenseModal(isGeneral) {
     </div>
 
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;">
-      <input type="checkbox" id="exp-auto-approve" ${isGeneral ? 'checked' : ''} style="width:18px;height:18px;">
+      <input type="checkbox" id="exp-auto-approve" ${acct !== 'branch' ? 'checked' : ''} style="width:18px;height:18px;">
       <span style="font-size:12px;font-weight:700;color:var(--text2);">
-        ${isGeneral ? 'اعتماد فوري (مصروف إدارة) — ينقص من الصندوق مباشرة' : 'اعتماد فوري بدلاً من الانتظار'}
+        ${acct === 'drawing' ? 'اعتماد فوري — ينقص من صندوق الإدارة في سطر «مسحوبات المدير» وحده' : acct === 'general' ? 'اعتماد فوري (مصروف إدارة) — ينقص من الصندوق مباشرة' : 'اعتماد فوري بدلاً من الانتظار'}
       </span>
     </label>
 
-    <button onclick="saveExpense(${isGeneral})"
+    <button onclick="saveExpense(${acct === 'drawing' ? "'drawing'" : acct === 'general'})"
       style="width:100%;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:12px;
              padding:13px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:900;cursor:pointer;">
-      💾 حفظ المصروف
+      💾 ${acct === 'drawing' ? 'حفظ المسحوبات' : 'حفظ المصروف'}
     </button>`;
   document.getElementById('modal').style.display = 'flex';
 }
+
+/* تبديل الحساب لا يمسح ما كُتب */
+function _expSwitchAcct(v) {
+  const ids = ['exp-title', 'exp-date', 'exp-amount', 'exp-currency', 'exp-exchange-rate', 'exp-note'], keep = {};
+  ids.forEach(id => { const el = document.getElementById(id); if (el) keep[id] = el.value; });
+  openAddExpenseModal(v === 'drawing' ? 'drawing' : v === 'general');
+  ids.forEach(id => { const el = document.getElementById(id); if (el && keep[id] != null) el.value = keep[id]; });
+  try { toggleExpenseExchangeRate(); } catch (_) {}
+}
+window._expSwitchAcct = _expSwitchAcct;
 
 function toggleExpenseExchangeRate() {
   const cur = document.getElementById('exp-currency')?.value;
@@ -4052,7 +4185,9 @@ function toggleExpenseExchangeRate() {
 }
 
 async function saveExpense(isGeneral) {
+  const isDrawing = isGeneral === 'drawing'; if (isDrawing) isGeneral = true;
   const branchKey = isGeneral ? null : document.getElementById('exp-branch')?.value;
+  const dateStr   = document.getElementById('exp-date')?.value || '';
   const title      = document.getElementById('exp-title')?.value.trim();
   const amount     = parseFloat(document.getElementById('exp-amount')?.value);
   const currency   = document.getElementById('exp-currency')?.value || 'usd';
@@ -4061,7 +4196,12 @@ async function saveExpense(isGeneral) {
   const kind       = document.getElementById('exp-kind')?.value || 'تشغيلي';
   const autoApprove = document.getElementById('exp-auto-approve')?.checked || false;
 
-  if (!title) { showToast('أدخل عنوان المصروف', 'err'); return; }
+  if (!title) { showToast('أدخل السبب', 'err'); return; }
+  /* التاريخ: اليوم ⇒ الآن · يومٌ سابق ⇒ ظهرُ ذلك اليوم بالتوقيت المحلّي (فلا ينزاح لشهرٍ آخر) */
+  const _today = (window.GMTLedger && GMTLedger.localYMD) ? GMTLedger.localYMD(new Date()) : new Date().toISOString().slice(0, 10);
+  if (dateStr && !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { showToast('أدخل تاريخاً صحيحاً', 'err'); return; }
+  if (dateStr && dateStr > _today) { showToast('التاريخ في المستقبل', 'err'); return; }
+  const createdAt = (!dateStr || dateStr === _today) ? new Date().toISOString() : new Date(dateStr + 'T12:00:00').toISOString();
   if (isNaN(amount) || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'err'); return; }
   if (currency === 'syp' && (isNaN(exchangeRate) || exchangeRate <= 0)) { showToast('أدخل سعر الصرف', 'err'); return; }
 
@@ -4070,7 +4210,7 @@ async function saveExpense(isGeneral) {
       branch_key: branchKey, title, amount, currency,
       exchange_rate: exchangeRate, note: note || null,
       approved: autoApprove, approved_at: autoApprove ? new Date().toISOString() : null,
-      is_general: isGeneral, created_at: new Date().toISOString(), kind, requested_by: 'الإدارة',
+      is_general: isGeneral, created_at: createdAt, kind: isDrawing ? 'مسحوبات شخصية للمدير' : kind, requested_by: 'الإدارة',
     };
     let res;
     try { res = await sb('POST', '/rest/v1/gmt_expenses', _row); }
@@ -4089,7 +4229,7 @@ async function saveExpense(isGeneral) {
       await deductExpenseFromBranchCashbox(branchKey, amount, currency, exchangeRate, title);
     }
 
-    showToast('✅ تم حفظ المصروف', 'ok');
+    showToast(isDrawing ? '✅ سُجّلت في المسحوبات الشخصية للمدير' : '✅ تم حفظ المصروف', 'ok');
     closeModal();
     renderExpenses();
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }
@@ -5997,8 +6137,9 @@ async function buildStatement(ym, bk, seller, cust, preWin) {
   const exps = expsAll.filter(e => !_isPO(e));
   const poRows = expsAll.filter(_isPO);
   const trs = bk ? (allTransfers || []).filter(t => inM(t.created_at) && t.branch_key === bk && t.type !== 'expense') : [];
-  const T = { sales: 0, ret: 0, comm: 0, exp: 0, cap: 0, tr: 0, col: 0, pcs: 0, due: 0, expBox: 0, po: 0 };
+  const T = { sales: 0, ret: 0, comm: 0, exp: 0, cap: 0, dr: 0, tr: 0, col: 0, pcs: 0, due: 0, expBox: 0, po: 0 };
   const _cap = e => /^رأسمالي/.test(String(e.kind || '')) || /النوع:\s*رأسمالي/.test(String(e.note || ''));
+  const _dr = e => !!(window.GMTLedger && GMTLedger.isDrawing && GMTLedger.isDrawing(e));   /* (TASK-0204) مسحوبات المدير خارج المصروفات */
   const f2 = n => (Number(n) || 0).toFixed(2);
   let rowsHtml = '';
   invs.forEach(inv => {
@@ -6019,12 +6160,12 @@ async function buildStatement(ym, bk, seller, cust, preWin) {
     rowsHtml += `<tr class="${r ? 'ret' : 'inv'}"><td>${new Date(inv.created_at).toLocaleDateString('en-GB')}</td><td>${escH(inv.inv_number || inv.id)}${r ? ' <b>مرتجع</b>' : ''}</td>` +
       `<td>${escH(inv.customer_name || '—')}</td><td>${escH(inv.cashier_name || '—')}</td><td></td><td></td><td class="n">${f2(inv.total)}</td><td class="n">${c ? f2(c) + (its.length && Math.abs(rest) > 0.004 && Math.abs(rest - c) > 0.004 ? '<br><small>منها على الفاتورة ' + f2(rest) + '</small>' : '') : '—'}</td></tr>` + itHtml;
   });
-  exps.forEach(e => { if (_cap(e)) T.cap += usd(e); else T.exp += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
+  exps.forEach(e => { if (_cap(e)) T.cap += usd(e); else if (_dr(e)) T.dr += usd(e); else T.exp += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
   poRows.forEach(e => { T.po += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
   /* المصاريف مفصّلةً — كان سطراً واحداً بالمجموع */
   const expHtml = exps.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">المصاريف المعتمدة (${exps.length})</h3>
 <table><thead><tr><th style="width:11%">التاريخ</th><th>البند</th><th style="width:14%">الفرع</th><th style="width:13%">المبلغ</th><th style="width:9%">الصرف</th><th style="width:10%">بالدولار</th><th style="width:15%">من</th></tr></thead><tbody>${
-    exps.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}${_cap(e) ? ' <b>رأسمالي</b>' : ''}</td>` +
+    exps.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}${_cap(e) ? ' <b>رأسمالي</b>' : ''}${_dr(e) ? ' <b>مسحوبات شخصية للمدير</b>' : ''}</td>` +
       `<td>${escH((branches.find(b => b.key_name === e.branch_key) || {}).display_name || e.branch_key || 'عام')}</td><td class="n">${f2(e.amount)} ${e.currency === 'usd' ? '$' : 'ل.س'}</td>` +
       `<td class="n">${e.currency === 'usd' ? '—' : escH(e.exchange_rate || (window.GMT_DEFAULT_RATE || 140))}</td><td class="n">${f2(usd(e))}</td><td>${_fromBox(e) ? 'صندوق الفرع' : 'دفعتها الإدارة'}</td></tr>`).join('')}</tbody></table>` : '';
   const poHtml = poRows.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">مشتريات وجمارك مدفوعة — خروج نقد لا مصروف ربح (${poRows.length})</h3>
@@ -6049,7 +6190,7 @@ td.n{text-align:left;direction:ltr}tr.inv td{background:#f7f9fd;font-weight:700}
 <div class="s"><table><tbody>
 <tr><td>المبيعات</td><td class="n">$${f2(T.sales)}</td></tr><tr><td>− المرتجعات</td><td class="n">$${f2(T.ret)}</td></tr>
 <tr><td>− العمولات</td><td class="n">$${f2(T.comm)}</td></tr><tr><td>− المصاريف المعتمدة</td><td class="n">$${f2(T.exp)}</td></tr>
-<tr class="net"><td>الصافي</td><td class="n">$${f2(net)}</td></tr>${T.cap ? `<tr><td>مشتريات رأسماليّة (أصول — خارج الصافي)</td><td class="n">$${f2(T.cap)}</td></tr>` : ''}</tbody></table>
+<tr class="net"><td>الصافي</td><td class="n">$${f2(net)}</td></tr>${T.cap ? `<tr><td>مشتريات رأسماليّة (أصول — خارج الصافي)</td><td class="n">$${f2(T.cap)}</td></tr>` : ''}${T.dr ? `<tr><td>المسحوبات الشخصية للمدير (حسابٌ مستقلّ — خارج الصافي)</td><td class="n">$${f2(T.dr)}</td></tr>` : ''}</tbody></table>
 <table><tbody>${bk ? `<tr><td>المُرحَّل للإدارة</td><td class="n">$${f2(T.tr)}</td></tr><tr><td>تحصيلات الشحن</td><td class="n">$${f2(T.col)}</td></tr>` : '<tr><td colspan="2">الترحيلات تظهر عند اختيار فرعٍ واحد</td></tr>'}
 <tr><td>عدد الفواتير</td><td class="n">${invs.filter(i => !isRet(i)).length}</td></tr><tr><td>عدد المرتجعات</td><td class="n">${invs.filter(isRet).length}</td></tr></tbody></table></div>
 ${expHtml}${poHtml}
@@ -6207,6 +6348,7 @@ function renderAccounting() {
         ${_row('عمولات مدفوعة', LC.lines.commPaid, '−')}
         ${_row('مصاريف الإدارة (عامّة / دفعتَها أنت)', LC.lines.expCentral, '−')}
         ${_row('مشتريات رأسماليّة', LC.lines.capitalCentral, '−')}
+        ${_row('المسحوبات الشخصية للمدير', LC.lines.drawingsCentral, '−')}
         ${_row('دفعات فواتير الشراء', LC.lines.purchasesPaid, '−')}
         ${_row('جمارك وشحن مدفوعة', LC.lines.importPaid, '−')}
       </div>
@@ -6228,6 +6370,7 @@ function renderAccounting() {
         <br>${LP.invCount} فاتورة في الفترة · مبيعاتها كلّها ${_m(LP.salesAll)}
         ${!_costReady ? '<br>⏳ جارٍ تحميل كلفة القطع…' : (LP.unknownCount ? `<br>⚠️ ${LP.unknownCount} فاتورة (${_m(LP.unknownSales)}) <b>بلا كلفة معروفة</b> لبعض قطعها — لا تدخل الربح. أدخل كلفة القطع من «إدارة المنتجات» فتدخل.` : '')}
         ${LP.capital > 0.004 ? `<br>خارج الربح: مشتريات رأسماليّة ${_m(LP.capital)}` : ''}
+        ${LP.drawings > 0.004 ? `<br>خارج الربح: المسحوبات الشخصية للمدير (حسابٌ مستقلّ) ${_m(LP.drawings)}` : ''}
         ${LP.poOut > 0.004 ? `<br>خارج الربح: مشتريات وجمارك دُفعت (خروج نقد، كلفتها داخل net_cost) ${_m(LP.poOut)}` : ''}
       </div>`}
     </div>
@@ -6794,10 +6937,10 @@ renderOffers = function(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261027g"></script>
+<script src="gmt-brain.js?v=20261027h"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261027g"></script>
+<script src="gmt-whatsnew.js?v=20261027h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

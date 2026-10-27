@@ -380,13 +380,16 @@ a.btn{text-decoration:none}
     { f: 'pos.html', t: 'فاتورة', ic: 'plus', hot: 1 },
     { f: 'orders.html', q: '?new=1', t: 'أوردر', ic: 'box' },
     { f: 'guarantee.html', t: 'كفالة', ic: 'shield' },
-    { f: 'pos.html', q: '?expense=1', t: 'مصروف', ic: 'wallet' },
+    { f: 'pos.html', q: '?expense=1', t: 'مصروف', ic: 'wallet', exp: 1 },
     { f: 'ردود_سريعة.html', t: 'ردّ سريع', ic: 'copy' },
     { f: 'labels.html', t: 'ملصق', ic: 'tag' },
     { f: 'track_order.html', t: 'تتبّع', ic: 'truck' }
   ];
   function qaRow() {
     return '<div class="qa-h"><h3>إجراءات سريعة</h3></div><div class="qa">' + QA.map(function (a) {
+      /* (TASK-0204 · المالك seq 135) «لما بدخل كأدمن على نافذة تدخل المصروف يدخلني على نقطة بيع وهذا غلط — ممكن يكون مصروف خاص الشركة ككل»
+         ⇐ للأدمن: نافذة المصروف في الإدارة (الحساب: المصروفات العامة للشركة · المسحوبات الشخصية للمدير · مصروف فرع) */
+      if (a.exp && isAdmin()) a = { f: 'admin_pos.html', q: '?tab=expenses&add=general', t: a.t, ic: a.ic };
       var lk = !canOpen(a.f);
       return '<a class="qai' + (a.hot ? ' hot' : '') + (lk ? ' locked' : '') + '" href="' + esc(a.f + (a.q || '')) + '" data-tool="' + esc(a.f) + '"' + (lk ? ' data-locked="1"' : '') + '><i>' + ic(a.ic, 22) + '</i><span>' + esc(a.t) + '</span></a>';
     }).join('') + '</div>';
@@ -1216,8 +1219,8 @@ a.btn{text-decoration:none}
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261027g"></script>
-<script src="gmt-whatsnew.js?v=20261027g"></script>
+<script src="gmt-brain.js?v=20261027h"></script>
+<script src="gmt-whatsnew.js?v=20261027h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- (١٨ ت1) روابط «تتبّع» من الرئيسيّة تنتقل بانطلاق الشاحنة (gmt-launch.js) كما في الموقع -->
