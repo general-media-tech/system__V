@@ -1,7 +1,0 @@
-task: TASK-0178
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-docscan.js gmt-receipt.js orders.html
-claimed_at: 2026-10-28T17:21:21Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0178
