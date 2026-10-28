@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029s"></script>
+<script src="gmt-tools.js?v=20261029t"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,35 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029s"></script>
-  <script src="gmt-config.js?v=20261029s"></script>
-  <script src="gmt-brand.js?v=20261029s"></script>
+  <script src="gmt-image-guard.js?v=20261029t"></script>
+  <script src="gmt-config.js?v=20261029t"></script>
+  <script src="gmt-brand.js?v=20261029t"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029s"></script>
+  <script src="gmt-core.js?v=20261029t"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
-  <script src="gmt-compat-kb.js?v=20261029s"></script>
+  <script src="gmt-match.js?v=20261029t"></script>
+  <script src="gmt-compat-kb.js?v=20261029t"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029s" defer></script>
+  <script src="gmt-ask.js?v=20261029t" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029s" defer></script>
-  <script src="gmt-share.js?v=20261029s" defer></script>
+  <script src="gmt-stock.js?v=20261029t" defer></script>
+  <script src="gmt-share.js?v=20261029t" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029s"></script>
-<script src="gmt-gallery.js?v=20261029s" defer></script>
-<script src="gmt-product-edit.js?v=20261029s" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029s"></script>
+<script src="gmt-specs.js?v=20261029t"></script>
+<script src="gmt-gallery.js?v=20261029t" defer></script>
+<script src="gmt-product-edit.js?v=20261029t" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029t"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029s"></script>
+  <script src="gmt-staff.js?v=20261029t"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -2674,6 +2675,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button id="bulk-group-toggle-btn" data-admin="تبديل المجموعة" onclick="bulkToggleGroupMode()" style="height:40px;padding:0 13px;background:#F5F6FA;border:2px solid #E4E6EE;border-radius:11px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:800;color:#4B5563;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.15s;white-space:nowrap;">
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>مجموعات
     </button>
+    <button data-admin="التسعير" onclick="bulkPriceFiltered()" style="height:40px;padding:0 13px;background:#FFF0F2;border:2px solid var(--red);border-radius:11px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:900;color:var(--red);cursor:pointer;white-space:nowrap" title="أداة التسعير: سعرٌ دائم أو تخفيضٌ مؤقّت (نسبة أو مبلغ) للمحدَّد — أو لكل الظاهر بالفلتر إن لم تحدّد شيئاً">💲 التسعير</button>
     <button onclick="bulkToggleSort()" style="height:40px;padding:0 13px;background:#F5F6FA;border:2px solid #E4E6EE;border-radius:11px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:800;color:#4B5563;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.15s;white-space:nowrap;">
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M11 18h2"/></svg>الاسم
     </button>
@@ -2691,6 +2693,13 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="bchip" data-bf="has_link" onclick="bulkSetFilter(this)">فيها رابط متجر</button>
     <div style="width:1px;height:20px;background:#E4E6EE;align-self:center;flex-shrink:0;"></div>
     <button class="bchip" data-bf="no_price" onclick="bulkSetFilter(this)">بدون سعر</button>
+    <!-- (المالك seq 210) «أداة جديدة شغلتها تفلتر»: صورة واحدة · بلا مجموعة/تصنيف/مواصفات/ربط · متشابهات المتجر والجرد -->
+    <div style="width:1px;height:20px;background:#E4E6EE;align-self:center;flex-shrink:0;"></div>
+    <button class="bchip" data-bf="one_img" onclick="bulkSetFilter(this)">🖼️ صورة واحدة فقط</button>
+    <button class="bchip" data-bf="no_group" onclick="bulkSetFilter(this)">بلا مجموعة</button>
+    <button class="bchip" data-bf="no_cat" onclick="bulkSetFilter(this)">بلا تصنيف</button>
+    <button class="bchip" data-bf="no_specs" onclick="bulkSetFilter(this)">بلا مواصفات</button>
+    <button class="bchip" data-bf="similar" onclick="bulkSetFilter(this)">🔗 متشابهات المتجر والجرد</button>
   </div>
   </div><!-- /bulk-head -->
 
@@ -5359,12 +5368,15 @@ window.gmtSyncRename = gmtSyncRename;
   }
   /* (١١ ت١) روابط مباشرة من «أداة التسويات»: inventory.html?settle=1 تسوية فواتير النقل · ?audit=1 تدقيق الفواتير والجرد */
   try {
-    var _qs = new URLSearchParams(location.search), _go = _qs.get('settle') ? 'settle' : (_qs.get('audit') ? 'audit' : '');
+    var _qs = new URLSearchParams(location.search), _go = _qs.get('settle') ? 'settle' : (_qs.get('audit') ? 'audit' : (_qs.get('check') ? 'check' : ''));
     if (_go) { var _n = 0, _t = setInterval(function () {
       _n++;
       try {
         if (_go === 'settle' && typeof stOpenSettlements === 'function' && typeof switchAppMode === 'function' && document.getElementById('st-settle-ov')) { clearInterval(_t); switchAppMode('transfer'); stOpenSettlements(); }
         else if (_go === 'audit' && window.GMTIntegrity && GMTIntegrity.open) { clearInterval(_t); GMTIntegrity.open(); }
+        /* (المالك seq 210) «🧹 فحص المنتجات» من الرئيسية ⇒ inventory.html?check=<الفلتر> — العمليات الجماعية بالفلتر المطلوب */
+        else if (_go === 'check' && typeof switchAppMode === 'function' && typeof allProducts !== 'undefined' && allProducts.length) { clearInterval(_t); switchAppMode('bulk');
+          setTimeout(function () { var c = document.querySelector('#bulk-filter-row [data-bf="' + (_qs.get('check') || 'one_img') + '"]'); if (c) c.click(); }, 300); }
       } catch (_) {}
       if (_n > 60) clearInterval(_t);
     }, 500); }
@@ -5448,6 +5460,9 @@ function normalizeProduct(p) {
     net_cost: p.net_cost || 0,
     barcode: p.barcode || '',
     image_url: p.image_url || '',
+    /* (المالك seq 210) صور المنتج كلّها — كان المُطبِّع يُسقطها فلا يرى «صورة واحدة فقط» ولا «الصورة الموحّدة» إلّا الرئيسية */
+    images: Array.isArray(p.images) ? p.images : null,
+    images_hidden: Array.isArray(p.images_hidden) ? p.images_hidden : null,
     group_name: p.group_name || '',
     extra_groups: p.extra_groups || '',   /* (٨ ت) ازدواجيّة المجموعة — SQL ٣٢ */
     store_url: p.store_url || '',
@@ -10393,10 +10408,47 @@ function bulkUpdateStats() {
 function bulkOnSearch() { bulkRenderList(); }
 window.bulkOnSearch = bulkOnSearch;
 
-function bulkSetFilter(btn) {
+/* ══ (المالك seq 210) أداة الفحص ══ */
+function _bulkStoreOf(p) {
+  if (!_invStoreIdx) return null;
+  const sid = (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1];
+  return _invStoreIdx.prods.find(x => x && (String(x.inv_id) === String(p.id) || (sid && String(x.id) === decodeURIComponent(sid)))) || null;
+}
+/* عدد صور المنتج في الجرد (الرئيسية + القائمة) وفي المتجر إن كان مربوطاً (null = غير مربوط) */
+function bulkImgCount(p) {
+  const inv = new Set([p.image_url].concat(Array.isArray(p.images) ? p.images : []).filter(u => u && /^https?:/.test(u))).size;
+  const sp = _bulkStoreOf(p);
+  return { inv, store: sp ? (Array.isArray(sp.images) ? sp.images.filter(Boolean).length : 0) : null };
+}
+/* «التسعير»: للمحدَّد — أو لكل الظاهر بالفلتر إن لم يُحدَّد شيء */
+function bulkPriceFiltered() {
+  if (!bulkSelectedIds.size) { if (!bulkFiltered.length) { showToast('لا منتجات ظاهرة', 'warning'); return; } bulkFiltered.forEach(p => bulkSelectedIds.add(p.id)); bulkUpdateBulkBar(); bulkRenderList(); }
+  bulkOpenModal('price');
+}
+window.bulkPriceFiltered = bulkPriceFiltered;
+/* «متشابهات المتجر والجرد»: كل منتج متجرٍ غير مربوط ⇐ أقرب منتج جردٍ غير مربوط (الموديل · الأسماء · الجيل) ⇐ «🔗 اربطهما» في الجسر */
+function bulkRenderSimilar(cont) {
+  if (!window.GMTMatch) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
+  const store = invStoreOnly(), inv = allProducts.filter(p => !invLinked(p));
+  const q = (document.getElementById('bulk-search-input')?.value || '').toLowerCase();
+  const rows = store.map(sp => { const r = GMTMatch.rank({ name: sp.name || sp.short_name, barcode: sp.barcode, alt_names: sp.alt_names }, inv)[0]; return { sp, r }; })
+    .filter(x => x.r && x.r.score >= 0.35 && (!q || (String(x.sp.name || '') + ' ' + String(x.r.item.name || '')).toLowerCase().indexOf(q) !== -1))
+    .sort((a, b) => b.r.score - a.r.score);
+  const img = (u, e) => u ? `<img src="${escHtml(u)}" alt="" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #eef0f4" onerror="this.outerHTML='${e}'">` : `<span style="font-size:22px">${e}</span>`;
+  cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700">🔗 ${rows.length} منتج متجر يشبه منتجاً في الجرد (من ${store.length} غير مربوط) — الأقرب أوّلاً. «اربطهما» يفتح الجسر على الاثنين، وفيه «🧠 اسأل العقل» والصورة.</div>` +
+    (rows.length ? rows.map(({ sp, r }) => { const pc = Math.round(r.score * 100), col = pc >= 75 ? '#047857' : pc >= 50 ? '#b45309' : '#64748b';
+      return `<div data-sim="${escHtml(String(sp.id))}" style="display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #eef0f4;border-radius:12px;padding:8px;margin:6px 0">
+        ${img((sp.images || [])[0], '🛒')}<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🛒 ${escHtml(sp.name || sp.short_name || '—')}</div>
+        <div style="font-size:12.5px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📦 ${escHtml(r.item.name || '')}</div></div>
+        ${img(r.item.image_url, '📦')}<span style="font-size:11px;font-weight:900;color:${col};white-space:nowrap">${pc}%</span>
+        <a href="bridge.html?link=${encodeURIComponent(sp.id)}&inv=${encodeURIComponent(r.item.id)}" style="background:#0f1219;color:#fff;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">🔗 اربطهما</a></div>`; }).join('')
+      : '<div style="text-align:center;padding:50px 20px;color:#5b6472">لا متشابهات — كل منتجات المتجر مربوطة أو لا يشبهها شيء في الجرد</div>');
+}
+async function bulkSetFilter(btn) {
   document.querySelectorAll('.bchip').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
   bulkActiveFilter = btn.dataset.bf;
+  if ((bulkActiveFilter === 'one_img' || bulkActiveFilter === 'similar') && !_invStoreIdx) { const c = document.getElementById('bulk-content'); if (c) c.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">🛒 أقرأ منتجات المتجر…</div>'; await invStoreIndex(); }
   bulkRenderList();
 }
 window.bulkSetFilter = bulkSetFilter;
@@ -10421,15 +10473,20 @@ function bulkGetFiltered() {
   else if (bulkActiveFilter==='no_link')     list=list.filter(p=>!p.store_link&&!p.store_url);
   else if (bulkActiveFilter==='has_link')    list=list.filter(p=>p.store_link||p.store_url);
   else if (bulkActiveFilter==='no_price')    list=list.filter(p=>!p.price&&p.price!==0);
+  else if (bulkActiveFilter==='one_img')     list=list.filter(p=>bulkImgCount(p).inv<=1 || (bulkImgCount(p).store!=null && bulkImgCount(p).store<=1));
+  else if (bulkActiveFilter==='no_group')    list=list.filter(p=>!String(p.group_name||'').trim());
+  else if (bulkActiveFilter==='no_cat')      list=list.filter(p=>!String(p.category||'').trim());
+  else if (bulkActiveFilter==='no_specs')    list=list.filter(p=>!invHasSpecs(p));
   if (q) list=list.filter(p=>(window.GMTSuggest&&GMTSuggest.hitsProduct)?GMTSuggest.hitsProduct(q,p):((p.name||'').toLowerCase().includes(q)||(p.barcode||'').includes(q)));   /* (٨ ت) البحث المشترك */
   list.sort((a,b)=>{ const na=(a.name||'').toLowerCase(),nb=(b.name||'').toLowerCase(); return bulkSortAsc?na.localeCompare(nb):nb.localeCompare(na); });
   return list;
 }
 
 function bulkRenderList() {
-  bulkFiltered = bulkGetFiltered();
+  bulkFiltered = bulkActiveFilter === 'similar' ? [] : bulkGetFiltered();
   const cont = document.getElementById('bulk-content');
   if (!cont) return;
+  if (bulkActiveFilter === 'similar') { bulkRenderSimilar(cont); return; }
   const selBar = document.getElementById('bulk-select-all-bar');
   if (selBar) selBar.style.display = bulkSelectedIds.size>0?'flex':'none';
   const sc=document.getElementById('bulk-sel-count-span'); if(sc) sc.textContent=bulkFiltered.filter(p=>bulkSelectedIds.has(p.id)).length;
@@ -15535,19 +15592,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029s"></script>
+<script src="gmt-pwa.js?v=20261029t"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029s"></script>
+<script src="gmt-brain.js?v=20261029t"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029s"></script>
+<script src="gmt-whatsnew.js?v=20261029t"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029s"></script>
+<script src="gmt-nofab.js?v=20261029t"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

@@ -389,7 +389,7 @@
     if (f.model) specs.__model = f.model;
     var terms = [it.p.search_terms, f.name_en, f.model, f.brand].filter(Boolean).join(' ');
     var seen = {}; terms = terms.split(/\s+/).filter(function (w) { var k = w.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; }).join(' ').slice(0, 500);
-    return { specs: specs, compat: f.compat.slice(0, 6000) || null,      // (seq 206) كل العدسات المتوافقة — كانت تُقصّ عند ١٠٠٠ حرف (≈٢٥ عدسة) search_terms: terms || null, brand: f.brand || it.p.brand || null,
+    return { specs: specs, compat: f.compat.slice(0, 6000) || null, /* (seq 206) كل العدسات المتوافقة — كانت تُقصّ عند ١٠٠٠ حرف */ search_terms: terms || null, brand: f.brand || it.p.brand || null,
              alt_names: mergeAlt(f.alt, [f.name_en, f.model]).slice(0, 500) || null,      // الاسم الإنجليزي كما عدّلتَه يُبحث به أيضاً
              specs_source: (it.res && it.res.source) || (it.res && it.res.from_memory ? 'ai-memory' : 'alibaba'),
              specs_checked_at: new Date().toISOString(), specs_checked_by: S.operator || 'عقل النظام' };

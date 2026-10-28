@@ -26,7 +26,7 @@
 
   /* ── الصنف والمفتاح ── الترتيب مقصود: «شاحن بطارية» شاحن · «قبضة بطارية» قبضة · «تريغر فلاش» تريغر */
   function kindOf(t) {
-    t = lat(t);
+    t = fixCodes(t);
     if (/تريغر|تريجر|ترغر|trigger|transmitter/i.test(t)) return 'trigger';
     if (/قبض[ةه]|\bgrip\b|\bBG-?[A-Z]?\d/i.test(t)) return 'grip';
     if (/شاحن|charger|\bLC-E\d|\bBC-[A-Z]/i.test(t)) return 'charger';
@@ -41,7 +41,14 @@
   }
   var SUF = /^(II|III|IV|V|VI|PRO|MKII|MKIII|MKIV|C|N|NH)$/;
   var UNIT = /^\d+(MM|CM|W|V|MAH|WH|K|G|KG|M|FPS|P|X|IN)$/;
+  /* «Ew 73c» · «EW－73B» · «Lc e17» · «ET-87lens» ⇒ EW-73C · EW-73B · LC-E17 · ET-87 (كتابات المحلّ الفعلية — seq 210) */
+  function fixCodes(t) {
+    return lat(t).replace(/[－–—‑]/g, '-').replace(/\b(ET|EW|ES|HB|LH|LP|LC|BG|NB|BP)\s*-?\s*(E?\d{1,3}[A-Z]{0,2})(?=lens|\b)/gi, function (m, a, c) { return a.toUpperCase() + '-' + c.toUpperCase() + ' '; })
+      .replace(/\b(LP|LC)-(\d)/gi, '$1-E$2')
+      .replace(/(^|\s)E(\d{1,2}(?:NH|N)?)(?=\s|$)/gi, function (m, sp, c) { return /بطاري|battery|شاحن|charger/i.test(t) ? sp + 'LP-E' + c.toUpperCase() : m; });
+  }
   function codesOf(t) {
+    t = fixCodes(t);
     var tk = lat(t).toUpperCase().replace(/[‐-―]/g, '-').split(/[^A-Z0-9\-]+/).filter(Boolean), out = [];
     for (var i = 0; i < tk.length; i++) {
       var w = tk[i].replace(/^-+|-+$/g, ''), c = w.replace(/-/g, '');
