@@ -464,10 +464,14 @@
     /* ما يزيده big على small أغمق بوضوح (٣٥+) وأكثر لوناً (١٠+) من small نفسه ⇒ خلفيّة (قماش · مقعد) لا ورق */
     function bgBand(bigQ, smallQ) { var ex = chromaIn(bigQ, smallQ), sm = ex && chromaIn(smallQ, null); return !!(ex && sm && ex.l < sm.l - 35 && ex.c > sm.c + 10); }
     var inkChecks = 0;
-    for (i = 1; b0 && i < tops.length && i < 300; i++) {
+    /* (TASK-0178 · إيصال مسارات المالك m1: مطويٌّ ونصفه الأعلى يخرج من أعلى الصورة) الرباعيّ الصحيح (إطار الصورة + الضلعان ممدودان)
+       درجته ٠٫٤٦ فترتيبه بعد المئات (١٥٦٩ مرشّحاً) — كانت الحلقة تقف عند أوّل ٣٠٠ بالترتيب فلا تراه أبداً، فبقي نصف الورقة تحت الطيّة.
+       الآن: الشروط الرخيصة (الحجم · الاحتواء) على المرشّحين كلّهم، والحدّ ٣٠٠ على ما يجتازها، وفحص الحبر الثقيل يبقى ٨ */
+    for (var seen2 = 0, i = 1; b0 && i < tops.length && seen2 < 300; i++) {
       var t2 = tops[i], big = t2.area >= b0.area * 1.8, mcnb = 1;
-      t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
       if (t2.nb > 2 || t2.area < b0.area * 1.25 || t2.area <= best.area || !contains(t2, best)) continue;
+      seen2++;
+      t2.sc.forEach(function (q) { if (!q.border && q.con < mcnb) mcnb = q.con; });
       var near = t2.nb <= 1 && t2.score >= b0.score - (big ? 0.15 : 0.08) && mcnb >= (big ? 0.45 : 0.6);
       /* (TASK-0125) أو: ما يزيده الأكبر فيه حبرُ الإيصال نفسه (≥٣٥٪ من كثافته داخل الأفضل) ⇒ الأفضل قطع الورقة عند طيّةٍ أو ظلٍّ
          حادّ أو حول يد، أو الورقة تتجاوز إطار الصورة والإطار ضلعها الرابع — مهما كانت درجته (بحدٍّ أدنى صالح) */
@@ -749,7 +753,7 @@
       }
       return { poly: poly, ci: ci };
     }
-    return { bgBand: bgBand, best: best, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
+    return { bgBand: bgBand, best: best, b0: b0, partial: findPartial, trace: trace, gap: gap, guard: best ? guard(best.q) : false, extraInk: extraInk, refine: refine, inkIn: inkIn, expand: expand, paperSep: paperSep, paperIn: paperIn, contains: function (big, small) { return contains({ q: big }, { q: small }); } };
   }
 
   /* توسيع الزوايا للخارج قليلاً كي لا يُقصّ طرف الورقة أبداً */
@@ -1061,7 +1065,10 @@
              (!(old = D0()).ok || old.fill || (lq.paperIn(old.corners, b.q) < 0.5 && lq.paperIn(b.q, old.corners) >= 0.5))) { rf = lq.refine(b.q); how = 'lines'; }
     /* (TASK-0125) اختير الأكبر لأنّ حبر الإيصال يمتدّ إليه ⇒ يُقدَّم على المنطقة التقريبيّة إن كانت داخله وأصغر منه بوضوح (≤٨٥٪)
        وفي الفرق حبرٌ بكثافة حبرها تقريباً (≥٧٠٪ · خطوط البلاط أقلّ) ⇒ المنطقة قصّت الإيصال. منطقةٌ تخرج عنه ⇒ الخطوط خاطئة (يدٌ فوق الورقة) ⇒ المنطقة. */
-    else if (b && b.inky && b.score >= 0.45 && (!(old = D0()).ok || old.fill ||
+    /* (TASK-0178 · m1) وسّعه الحبرُ من رباعيٍّ قويّ (≥٠٫٧ — حدودٌ حقيقيّة واضحة لنصف الورقة) عبر طيّة، وما زاده ورقٌ في أغلبه (≥٦٠٪)
+       ⇒ نصف الورقة الآخر بعد الطيّة ⇒ لا تُستشار المنطقة. (ما زاده علبةٌ بيضاء عليها كتابة وخلفيّةٌ داكنة: ورقه ٣١٪ ⇒ المنطقة كما كانت.
+       في صور المالك: m1 ٧٠٪ · p06 ٧٩٪ · p08 ٨٨٪ · p13 ٣١٪) */
+    else if (b && b.inky && b.score >= 0.45 && ((lq.b0 && lq.b0 !== b && lq.b0.score >= 0.7 && lq.b0.minc >= 0.7 && lq.paperIn(b.q, lq.b0.q) >= 0.6) || !(old = D0()).ok || old.fill ||
              (lq.contains(b.q, old.corners) && polyArea(old.corners) <= polyArea(b.q) * 0.85 && lq.inkIn(b.q, old.corners) >= lq.inkIn(old.corners, null) * 0.7))) { rf = lq.refine(b.q); how = 'lines'; }
     else if ((old = old || D0()).ok && !old.fill) { rf = lq.refine(old.corners); how = sane(old.corners) ? 'region' : 'odd'; }
     else if (b && (b.score >= 0.6 || (b.inky && b.score >= 0.45)) && lq.guard) { rf = lq.refine(b.q); how = 'lines'; }   // inky: اختير لأنّ حبر الإيصال يمتدّ إليه

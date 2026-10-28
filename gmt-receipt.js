@@ -1450,6 +1450,16 @@
     }).sort(function (a, b) { return b.v - a.v; });
     out.candidates = sc.filter(function (z) { return z.v >= 0.5; }).slice(0, 3).map(function (z) { return z.x.c + '|' + z.x.o.name; });
     var top = sc[0];
+    /* (TASK-0178 · إيصال مسارات m1 «المصدر : حلب - باب الفرج» قُرئ «حلب — باب») التطابق يُسقط «ال» فـ«باب» = «الباب» تماماً — والمقروء بلا «ال»
+       ومكتبٌ آخر في المدينة يبدأ بالكلمة نفسها حرفياً («باب الفرج») ⇒ غامض: ذاك أوّلاً في المرشّحين ولا ثقة (تختار) بدل «الباب» خطأً بصمت */
+    var w0 = (ofs.split(/\s+/)[0] || '');
+    if (top && top.v === 1 && !/^ال/.test(w0) && /^ال/.test(top.x.o.name || '')) {
+      var pre = pool.filter(function (x) { var nm = String(x.o.name || '').split(/\s+/); return x !== top.x && nm.length > 1 && skel(nm[0]) === skel(w0) && (!city || x.c === top.x.c); });
+      if (pre.length) {
+        out.candidates = pre.map(function (x) { return x.c + '|' + x.o.name; }).concat([top.x.c + '|' + top.x.o.name]).slice(0, 3);
+        out.city = top.x.c; return out;
+      }
+    }
     if (top && top.v >= 0.75 && !(sc[1] && sc[1].v >= top.v - 0.02 && sc[1].x.o.name !== top.x.o.name)) {
       out.key = top.x.c + '|' + top.x.o.name; out.confident = true; out.city = top.x.c; out.office = top.x.o.name; out.phone = top.x.o.phone || '';
     } else out.city = city;
@@ -1546,6 +1556,10 @@
         if (cands[0] && cands[0].y < best.cv.height * 0.45) { printed = cands[0].n; pBox = cands[0].b; }
       }
       if (printed) out.printed = { number: printed };
+      /* (TASK-0178 · المالك seq 137 «لبين ما اكبس تمام واعتماد يكون هو قرا كل شيء») الرقم المطبوع يُعلَن لحظة قراءته — كان ينتظر نهاية
+         القراءة كلّها (المصدر · النسخة الممسوحة) فلا يظهر في سطر الماسح: إيصال مسارات m4 قُرئ رقمه عند ١١٫٥ث وظهر عند ٣٨ث */
+      /* co = شركة الإيصال كما عُرفت (القدموس على أوردر مسارات ⇒ لا يُملأ قبل سؤالك) */
+      if (printed && !bcSaid && opts.onTracking) { bcSaid = true; try { opts.onTracking({ status: 'printed', number: printed, co: C }); } catch (_) {} }
       if (cancelled()) { out.cancelled = true; finish(); return out; }
       /* ⑤ «المصدر»: من الصفحة · وإلّا من خانته مقصوصةً مكبَّرة */
       var W = best.cv.width, Hh = best.cv.height, src = otherSource(linesOf(best.res), W, C);
