@@ -1,7 +1,0 @@
-task: TASK-0240
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: orders.html gmt-mufti-review.js tests/harness/t_orders_shipret.js
-claimed_at: 2026-10-28T08:40:40Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0240
