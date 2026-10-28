@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029l"></script>
+<script src="gmt-tools.js?v=20261029m"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,12 +2271,12 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029l"></script>
+  <script src="gmt-image-guard.js?v=20261029m"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029l"></script>
+  <script src="gmt-brand.js?v=20261029m"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029l"></script>
+  <script src="gmt-core.js?v=20261029m"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-compat-kb.js?v=20261026g"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
@@ -2284,20 +2284,20 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029l" defer></script>
+  <script src="gmt-ask.js?v=20261029m" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029l" defer></script>
-  <script src="gmt-share.js?v=20261029l" defer></script>
+  <script src="gmt-stock.js?v=20261029m" defer></script>
+  <script src="gmt-share.js?v=20261029m" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029l"></script>
-<script src="gmt-gallery.js?v=20261029l" defer></script>
-<script src="gmt-product-edit.js?v=20261029l" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029l"></script>
+<script src="gmt-specs.js?v=20261029m"></script>
+<script src="gmt-gallery.js?v=20261029m" defer></script>
+<script src="gmt-product-edit.js?v=20261029m" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029m"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -2597,6 +2597,10 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
       style="background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;font-weight:800;" title="">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       <span id="mode-link-txt">كميّاته في الجرد</span>
+    </button>
+    <!-- (TASK-0151 · المالك seq 54) «منتجات بحاجة مراجعة» — في «إدارة المنتجات» -->
+    <button class="btn btn-sm" id="review-btn" onclick="openReviewList()" style="display:none;background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;font-weight:800;" title="منتجاتٌ ناقصة البيانات (والجديدة من فواتير الشراء أوّلاً) — راجِعها واحداً تلو الآخر">
+      🧐 بحاجة مراجعة <b id="review-n"></b>
     </button>
 
     <div class="sep"></div>
@@ -5491,6 +5495,7 @@ function loadDemoData() {
 function renderAll() {
   applyFilters();
   updateStats();
+  try { if (typeof paintReviewBtn === 'function') paintReviewBtn(); } catch (_) {}   // (TASK-0151) عدد «بحاجة مراجعة»
   /* ⚡ (١٨ ت١ · وثيقة الطلبات §7) كانت الطرائق الثلاث (جدول + بطاقات + قائمة) تُرسم كلّها لكل ٢٠٠٠ منتج وإن كان واحدٌ منها
      فقط ظاهراً — مقيس: ~١٫٦ ثانية من الخيط الرئيسي قبل أوّل صفّ. الآن تُرسم الطريقة الظاهرة وحدها؛ وتبديلُ الطريقة
      (setView) أو تدويرُ الشاشة أو وضعُ التعديل يعيد renderAll فتُرسم الطريقة الجديدة عند ظهورها. */
@@ -8085,6 +8090,97 @@ function previewUrlImage(url) {
 // ============================================
 /* (TASK-0201 · المالك seq 133 «صفحه تعديل بيانات المنتج … بعدل فيه كل شيء … حتى الاسعار» · «هذه الصلاحيات يجب ان تكون فقط في الادمن»)
    صفحة التعديل الشامل (gmt-product-edit.js) — للأدمن وحده. الجرد يُكتب عبر sbFetch نفسه (حارس «الجرد يتحدّث» · أعمدة SQL الناقصة) */
+/* ══ (TASK-0151 · المالك seq 54) «لما بدخل فاتوره شراء جديده … بيطلعوا عندي في اداره المنتجات لازم اعمل لهم مراجعه واحده تلو الاخر لحتى اجدد
+   الصوره واجدد المواصفات والربط في المتجر … التصنيفات والجروبات … ايضا على المنتجات القديمه كل شيء مو مكتمل فيه … لازم يضل انه بحاجه مراجعه انه
+   مو مربوط في المتجر ما محطوط مواصفاته ما محطوط وصف له ما له تصنيف … ما اله اسماء بديله»:
+   «🧐 بحاجة مراجعة (N)» في «إدارة المنتجات» — كلّ منتجٍ ناقص بأسبابه (يبقى فيها حتى يكتمل) · منتجات فواتير الشراء الأخيرة أوّلاً «🆕» ·
+   «▶ راجِعها واحداً تلو الآخر» يفتح صفحة المنتج الكاملة لكلٍّ منها، والحفظ ينقلك للتالي. ══ */
+const REVIEW_WHY = [
+  ['store', '🛒 غير مربوط بالمتجر', p => !p.store_url],
+  ['specs', '📋 بلا مواصفات', p => !Object.keys(_rvSpecs(p)).some(k => k.indexOf('__') !== 0)],
+  ['desc', '📝 بلا وصف', p => !String(_rvSpecs(p).__desc || '').trim()],
+  ['img', '🖼️ بلا صورة', p => !p.image_url],
+  ['cat', '🏷️ بلا تصنيف', p => !String(p.category || '').trim()],
+  ['group', '🗂️ بلا مجموعة', p => !String(p.group_name || '').trim()],
+  ['brand', '™️ بلا ماركة', p => !String(p.brand || '').trim()],
+  ['alt', '🔤 بلا أسماء بديلة', p => !String(p.alt_names || '').trim()],
+];
+function _rvSpecs(p) { const s = p && p.specs; if (!s) return {}; if (typeof s === 'string') { try { return JSON.parse(s) || {}; } catch (_) { return {}; } } return s; }
+function reviewReasons(p) { return REVIEW_WHY.filter(w => { try { return w[2](p); } catch (_) { return false; } }).map(w => w[0]); }
+let _rvBuy = null, _rvBuyAt = 0;   // منتجات فواتير الشراء الأخيرة: id/باركود/اسم ⇒ رقم الفاتورة
+async function reviewBuyMap() {
+  if (_rvBuy && Date.now() - _rvBuyAt < 5 * 60000) return _rvBuy;
+  const m = { id: {}, bc: {}, nm: {} };
+  try {
+    const since = new Date(Date.now() - 60 * 864e5).toISOString();
+    const r = await sbFetch('GET', '/rest/v1/import_log?select=inv_number,created_at,items_snapshot&created_at=gte.' + encodeURIComponent(since) + '&order=created_at.desc&limit=30');
+    (Array.isArray(r.data) ? r.data : []).forEach(inv => (Array.isArray(inv.items_snapshot) ? inv.items_snapshot : []).forEach(it => {
+      const tag = inv.inv_number || '';
+      if (it.id) m.id[String(it.id)] = m.id[String(it.id)] || tag;
+      if (it.barcode) m.bc[String(it.barcode).trim()] = m.bc[String(it.barcode).trim()] || tag;
+      if (it.name) m.nm[String(it.name).trim().toLowerCase()] = m.nm[String(it.name).trim().toLowerCase()] || tag;
+    }));
+  } catch (_) {}
+  _rvBuy = m; _rvBuyAt = Date.now(); return m;
+}
+function reviewBuyOf(p, m) { if (!m) return ''; return m.id[String(p.id)] || (p.barcode && m.bc[String(p.barcode).trim()]) || m.nm[String(p.name || '').trim().toLowerCase()] || ''; }
+function reviewList(m) {
+  return (allProducts || []).filter(p => p && !p._is_offer).map(p => ({ p, why: reviewReasons(p), buy: reviewBuyOf(p, m) }))
+    .filter(x => x.why.length).sort((a, b) => (!!b.buy - !!a.buy) || (b.why.length - a.why.length) || String(a.p.name || '').localeCompare(String(b.p.name || ''), 'ar'));
+}
+function paintReviewBtn() {
+  const b = document.getElementById('review-btn'); if (!b) return;
+  const on = typeof currentAppMode !== 'undefined' && currentAppMode === 'products';
+  b.style.display = on ? '' : 'none'; if (!on) return;
+  const n = reviewList(_rvBuy).length, el = document.getElementById('review-n'); if (el) el.textContent = n ? '(' + n + ')' : '✓';
+  if (!_rvBuy) reviewBuyMap().then(() => { const k = reviewList(_rvBuy).length; if (el) el.textContent = k ? '(' + k + ')' : '✓'; });
+}
+window.paintReviewBtn = paintReviewBtn;
+let _rvFilter = '';
+async function openReviewList() {
+  const m = await reviewBuyMap();
+  const old = document.getElementById('gmt-review'); if (old) old.remove();
+  const ov = document.createElement('div'); ov.id = 'gmt-review'; ov.setAttribute('data-keep-fab', '1');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(15,18,25,.5);display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl;font-family:Cairo,Tajawal,system-ui,sans-serif';
+  document.body.appendChild(ov);
+  const paint = () => {
+    const all = reviewList(m), list = _rvFilter === 'buy' ? all.filter(x => x.buy) : _rvFilter ? all.filter(x => x.why.indexOf(_rvFilter) !== -1) : all;
+    const cnt = k => k === 'buy' ? all.filter(x => x.buy).length : all.filter(x => x.why.indexOf(k) !== -1).length;
+    const chip = (k, t) => '<button type="button" data-rvf="' + k + '" style="border:1.5px solid ' + (_rvFilter === k ? '#c2410c' : '#e5e7eb') + ';background:' + (_rvFilter === k ? '#fff7ed' : '#fff') + ';border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">' + t + ' <b>' + (k ? cnt(k) : all.length) + '</b></button>';
+    const lbl = k => (REVIEW_WHY.find(w => w[0] === k) || [k, k])[1];
+    ov.innerHTML = '<div style="width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.3)">' +
+      '<div style="padding:14px 16px;border-bottom:1px solid #f1f5f9"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:16px">🧐 منتجات بحاجة مراجعة</b>' +
+        (list.length ? '<button type="button" data-rv-go style="background:#D5001C;color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:900;cursor:pointer">▶ راجِعها واحداً تلو الآخر</button>' : '') +
+        '<button type="button" data-rv-x aria-label="إغلاق" style="border:0;background:#f1f5f9;border-radius:10px;padding:8px 12px;font:inherit;font-weight:900;cursor:pointer">✕</button></div>' +
+        '<div style="font-size:12px;color:#64748b;margin:6px 0">يبقى المنتج هنا حتى تكتمل بياناته · 🆕 = من فاتورة شراء في آخر ٦٠ يوماً (تظهر أوّلاً)</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + chip('', 'الكل') + chip('buy', '🆕 فواتير الشراء') + REVIEW_WHY.map(w => chip(w[0], w[1])).join('') + '</div></div>' +
+      '<div style="overflow:auto;padding:8px 12px">' + (list.length ? list.slice(0, 300).map(x => '<div data-rv-id="' + escH(String(x.p.id)) + '" style="display:flex;gap:10px;align-items:center;padding:8px;border-bottom:1px solid #f8fafc">' +
+          (x.p.image_url ? '<img src="' + escH(x.p.image_url) + '" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0">' : '<div style="width:44px;height:44px;border-radius:8px;background:#f1f5f9;flex-shrink:0"></div>') +
+          '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:13.5px">' + (x.buy ? '<span style="color:#c2410c">🆕 ' + escH(x.buy) + '</span> · ' : '') + escH(x.p.name || '') + '</div>' +
+          '<div style="font-size:11px;color:#64748b;line-height:1.8">' + x.why.map(lbl).join(' · ') + '</div></div>' +
+          '<button type="button" data-rv-edit style="border:1.5px solid #e5e7eb;background:#fff;border-radius:10px;padding:6px 10px;font:inherit;font-weight:800;cursor:pointer;flex-shrink:0">✏️ راجِعه</button></div>').join('') +
+          (list.length > 300 ? '<p style="text-align:center;color:#64748b;font-size:12px">… و' + (list.length - 300) + ' أخرى</p>' : '')
+        : '<p style="text-align:center;padding:30px;color:#047857;font-weight:800">✅ لا منتجات بحاجة مراجعة هنا</p>') + '</div></div>';
+    ov.querySelector('[data-rv-x]').onclick = () => ov.remove();
+    ov.querySelectorAll('[data-rvf]').forEach(b => b.onclick = () => { _rvFilter = b.getAttribute('data-rvf'); paint(); });
+    ov.querySelectorAll('[data-rv-edit]').forEach(b => b.onclick = () => { const id = b.closest('[data-rv-id]').getAttribute('data-rv-id'); reviewOne(id, null); });
+    const go = ov.querySelector('[data-rv-go]'); if (go) go.onclick = () => { const ids = list.map(x => String(x.p.id)); reviewOne(ids[0], ids.slice(1)); };
+  };
+  ov._paint = paint; paint();
+}
+/* واحدٌ تلو الآخر: «💾 احفظ» ⇒ تُغلق صفحته وتُفتح صفحة التالي · الإغلاق بلا حفظ ⇒ تعود القائمة */
+function reviewOne(id, rest) {
+  invOpenFullEdit(id, { onSaved: () => {
+    const nx = Array.isArray(rest) ? rest.filter(x => { const q = allProducts.find(y => String(y.id) === x); return q && reviewReasons(q).length; }) : [];
+    setTimeout(() => {
+      if (rest && nx.length) { const x = document.querySelector('#gmt-pe [data-pe-x]'); if (x) x.click(); showToast('✅ حُفظ — التالي (' + nx.length + ' باقٍ)', 'success'); reviewOne(nx[0], nx.slice(1)); }
+      const ov = document.getElementById('gmt-review'); if (ov && ov._paint) ov._paint();
+      paintReviewBtn();
+    }, 700);
+  } });
+}
+window.openReviewList = openReviewList;
+
 async function invOpenFullEdit(id, opt) {
   opt = opt || {};
   const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
@@ -9952,6 +10048,7 @@ function switchAppMode(mode) {
   if (mode === 'inventory' || mode === 'products') {
     try { paintModeLink(); renderTableHead(); renderTable(); } catch (_) {}
   }
+  try { paintReviewBtn(); } catch (_) {}   // (TASK-0151)
   ['inventory','bulk'].forEach(m => {
     const btn = document.getElementById('bnav-' + m);
     if (btn) btn.classList.toggle('active', m === mode);
@@ -15338,19 +15435,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029l"></script>
+<script src="gmt-pwa.js?v=20261029m"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029l"></script>
+<script src="gmt-brain.js?v=20261029m"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029l"></script>
+<script src="gmt-whatsnew.js?v=20261029m"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029l"></script>
+<script src="gmt-nofab.js?v=20261029m"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->
