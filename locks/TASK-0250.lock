@@ -1,7 +1,0 @@
-task: TASK-0250
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-mufti-review.js tests/harness/t_mufti_review.js
-claimed_at: 2026-10-28T06:44:28Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0250
