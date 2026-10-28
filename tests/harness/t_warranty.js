@@ -13,6 +13,8 @@ const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 209"><rec
     await ctx.route(/^https:\/\/(?!127)/, r => { const u = r.request().url(); seen.push(u); if (/upload\.wikimedia\.org/.test(u)) return r.fulfill({ status: 404, body: '' });
       if (/commons\.wikimedia\.org.*Special:FilePath/.test(u)) return r.fulfill({ status: 200, contentType: 'image/svg+xml', headers: { 'Access-Control-Allow-Origin': '*' }, body: SVG });
       r.fulfill({ status: 404, body: '' }); });
+    /* (TASK-0216 · seq 172) canonlogo.png صار مرفوعاً — هذا الفرع يختبر سلسلة الاحتياط حين يغيب الملفّ المحلّي */
+    await ctx.route(/canonlogo\.png/, r => r.fulfill({ status: 404, body: '' }));
     await ctx.addInitScript(H.ADMIN_INIT);
     const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(String(e).slice(0, 160)));
     await pg.goto(H.BASE + 'guarantee.html', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3500);

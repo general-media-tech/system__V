@@ -66,7 +66,9 @@
      فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه»:
      ثلاثة أزرار فقط، تُؤخذ من بطاقة الأوردر (cardHTML في الأوردرات) كما هي — نفس الشكل والسلوك:
      ✅ تأكيد الاستلام · 🔔 تبليغ الوصول (وبعد التبليغ يصير في البطاقة نفسها زرَّ مراسلة الزبون — هو هو) · 🏢 مراسلة فرع الشركة الوجهة. */
-  var KEEP = [/^requestConfirm\(\s*'?[^,]+'?\s*,\s*'delivered'\s*\)$/, /^(shareOrder\([^,]+,\s*'arrived'\)|contactCustomerArrival\([^)]*\))$/, /^contactShipOffice\([^)]*\)$/];
+  /* (TASK-0250 · المالك seq 170 · 171) «التبليغ بالوصول عندنا اول الشي تبليغ بعدين مراسلة … نفس الي برا» — جوابه: «الترتيب: تبليغ ثم مراسلة»:
+     🔔 تبليغ الوصول (⇐ 💬 مراسلة الزبون بعده) أوّلاً · ثمّ 🏢 مراسلة فرع الشركة · ثمّ ✅ تأكيد الاستلام (عريضاً كما كان). */
+  var KEEP = [/^(shareOrder\([^,]+,\s*'arrived'\)|contactCustomerArrival\([^)]*\))$/, /^contactShipOffice\([^)]*\)$/, /^requestConfirm\(\s*'?[^,]+'?\s*,\s*'delivered'\s*\)$/];
   function pageButtons(o, opt) {
     try {
       if (typeof g.cardHTML !== 'function') return '';
@@ -76,7 +78,7 @@
       /* المرتجعة: لا «تأكيد الاستلام» ولا «تبليغ الوصول» — لا استلام ولا وصول؛ يبقى «مراسلة فرع الشركة» لمتابعة المرتجع */
       if (opt && opt.ret) out = out.filter(function (b) { return /^contactShipOffice\(/.test(b.getAttribute('onclick') || ''); });
       if (!out.length) return '';
-      out.forEach(function (b, i) { if (i === 0 && /requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
+      out.forEach(function (b) { if (/requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
       return '<div class="flex gap-2">' + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';
     } catch (_) { return ''; }
   }

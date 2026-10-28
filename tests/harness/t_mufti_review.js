@@ -64,8 +64,10 @@ const FAKE = {
     // (TASK-0221 · seq 151) «فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه» — من بطاقة الأوردر نفسها، لا غيرها
     const btns = await pg.evaluate(ids => { const row = id => [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] button')].map(b => b.getAttribute('onclick') || b.textContent.trim());
       return { a: row(ids.a), b: row(ids.b), icons: !document.querySelector('#gmt-mr [data-mr-pbtns] i[data-lucide]') }; }, { a: idOf('214244'), b: idOf('210063') });
-    ok(JSON.stringify(btns.a) === JSON.stringify(['requestConfirm(' + idOf('214244') + ",'delivered')", 'shareOrder(' + idOf('214244') + ",'arrived')", 'contactShipOffice(' + idOf('214244') + ')']) && btns.icons,
-      W + ': ثلاثة أزرار فقط: تأكيد الاستلام · تبليغ الوصول · مراسلة فرع الشركة الوجهة (لا طباعة ولا بحث ولا PDF ولا ⋮): ' + JSON.stringify(btns.a));
+    // (TASK-0250 · seq 170 · 171) «الترتيب: تبليغ ثم مراسلة» — تبليغ الوصول أوّلاً ثمّ مراسلة فرع الشركة ثمّ تأكيد الاستلام (عريضاً)
+    const wide = await pg.evaluate(id => { const b = document.querySelector('#gmt-mr [onclick="requestConfirm(' + id + ',\'delivered\')"]'); return !!b && b.classList.contains('flex-1'); }, idOf('214244'));
+    ok(JSON.stringify(btns.a) === JSON.stringify(['shareOrder(' + idOf('214244') + ",'arrived')", 'contactShipOffice(' + idOf('214244') + ')', 'requestConfirm(' + idOf('214244') + ",'delivered')"]) && btns.icons && wide,
+      W + ': ثلاثة أزرار فقط بالترتيب: تبليغ الوصول ⇐ مراسلة فرع الشركة ⇐ تأكيد الاستلام (عريض) · لا طباعة ولا بحث ولا PDF ولا ⋮: ' + JSON.stringify(btns.a));
     // (TASK-0248 · seq 166) المرتجعة «ليست تم التسليم»: لا شريط تقدّم ولا «تأكيد الاستلام» ولا «تبليغ الوصول» — يبقى «مراسلة فرع الشركة» فقط
     const retSteps = await pg.evaluate(id => !!document.querySelector('#gmt-mr [data-mr-o="' + id + '"] .ml-steps'), idOf('210063'));
     ok(JSON.stringify(btns.b) === JSON.stringify(['contactShipOffice(' + idOf('210063') + ')']) && !retSteps,
@@ -76,7 +78,7 @@ const FAKE = {
     await pg.evaluate(id => markNotified(orders.find(x => x.id == id), 'arrived'), idOf('214244')); await pg.waitForTimeout(1500);
     const nd1 = await pg.evaluate(id => ({ badge: ((document.querySelector('#gmt-mr [data-mr-o="' + id + '"] [data-mr-notified]') || {}).textContent || '').trim(),
       btns: [...document.querySelectorAll('#gmt-mr [data-mr-o="' + id + '"] button')].map(b => (b.getAttribute('onclick') || '').replace(/\(.*/, '')) }), idOf('214244'));
-    ok(/بُلِّغ بالوصول/.test(nd1.badge) && JSON.stringify(nd1.btns) === '["requestConfirm","contactCustomerArrival","contactShipOffice"]',
+    ok(/بُلِّغ بالوصول/.test(nd1.badge) && JSON.stringify(nd1.btns) === '["contactCustomerArrival","contactShipOffice","requestConfirm"]',
       W + ': بعد التبليغ الأوّل: تظهر الشارة فوراً ويصير الزرّ «التبليغ الثاني» (مراسلة الزبون) كما في البطاقة: ' + JSON.stringify(nd1));
     await H.call('/rest/v1/gmt_orders?id=eq.' + idOf('214244'), { notified_arrival_at: null }, 'PATCH');
     await pg.evaluate(id => { const o = orders.find(x => x.id == id); o.notified_arrival_at = null; }, idOf('214244')); await pg.waitForTimeout(1000);
