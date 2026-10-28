@@ -573,7 +573,7 @@
       let own = 0, inC = 0;
       for (const w of words) {
           if (_wordIn(hay, w)) own++;
-          else if (_wordIn(chay, w)) inC++;
+          else if (/^\d+$/.test(w) ? new RegExp('(^|\\D)' + w + '(\\D|$)').test(chay) : _wordIn(chay, w)) inC++;   // (seq 212) «50» لا يطابق «150» في التوافق
           else if (!COMPAT_FILLER.has(w)) return false;
       }
       return own > 0 && inC > 0;

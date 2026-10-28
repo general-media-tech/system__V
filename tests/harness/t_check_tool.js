@@ -23,7 +23,18 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.evaluate(() => document.querySelector('#bulk-filter-row [data-bf="similar"]').click()); await pg.waitForTimeout(800);
   const sim = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim]')].map(x => ({ t: x.innerText.replace(/\s+/g, ' '), href: (x.querySelector('a') || {}).href || '' })));
   ok(sim.length === 1 && /EW-73D original/.test(sim[0].t) && /هود EW-73D/.test(sim[0].t) && /bridge\.html\?link=s1&inv=/.test(sim[0].href), 'متشابهات: «Canon Lens Hood EW-73D» (متجر) ⇐ «هود EW-73D» (جرد) و«اربطهما» إلى الجسر: ' + JSON.stringify(sim).slice(0, 200));
-  await pg.screenshot({ path: '/tmp/gmt-out/check_tool_similar.png' });
+  // (seq 212) المراجعة الكاملة والأزرار
+  const btns = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim] button, #bulk-content [data-sim] a')].map(x => x.textContent.trim()));
+  ok(['راجِع', 'اربطهما', 'اسأل العقل', 'عدّل منتج الجرد', 'افتحه في المتجر', 'ليسا نفس المنتج'].every(t => btns.some(x => x.indexOf(t) !== -1)), 'أزرار المراجعة كاملة: ' + btns.join(' · '));
+  await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="review"]').click()); await pg.waitForTimeout(300);
+  const det = await pg.evaluate(() => (document.querySelector('#bulk-content [data-sim]') || {}).innerText || '');
+  ok(/في المتجر/.test(det) && /في الجرد/.test(det) && /الكمية/.test(det) && /\$15/.test(det) && /المجموعة|السعر/.test(det), '«🔍 راجِع» يعرض الاثنين كاملين (السعر · الصور · المواصفات)');
+  await pg.screenshot({ path: '/tmp/gmt-out/check_tool_similar.png', fullPage: false });
+  await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="skip"]').click()); await pg.waitForTimeout(300);
+  const after = await pg.evaluate(() => ({ n: document.querySelectorAll('#bulk-content [data-sim]').length, un: !!document.querySelector('#bulk-content [data-sa="unskip"]') }));
+  ok(after.n === 0 && after.un, '«✕ ليسا نفس المنتج» يُخفي الاقتراح و«أظهر المخفيّة» يرجعه: ' + JSON.stringify(after));
+  await pg.evaluate(() => document.querySelector('#bulk-content [data-sa="unskip"]').click()); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => document.querySelectorAll('#bulk-content [data-sim]').length === 1), '«أظهر المخفيّة» أعاده');
   // ② التسعير لكل الظاهر
   await f('no_group');
   await pg.evaluate(() => bulkPriceFiltered()); await pg.waitForTimeout(400);

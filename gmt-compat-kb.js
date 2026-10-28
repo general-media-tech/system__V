@@ -107,7 +107,7 @@
     ['EF 200mm f/2.8L II USM', 72, 'ET-83B II'],
     ['EF 24-70mm f/2.8L USM', 77, 'EW-83F'], ['EF 24-70mm f/2.8L II USM', 82, 'EW-88C'], ['EF 24-70mm f/4L IS USM', 77, 'EW-83L'],
     ['EF 24-105mm f/4L IS USM', 77, 'EW-83H'], ['EF 24-105mm f/4L IS II USM', 77, 'EW-83M'], ['EF 24-105mm f/3.5-5.6 IS STM', 77, 'EW-83M'],
-    ['EF 28-300mm f/3.5-5.6L IS USM', 77, 'EW-83G'], ['EF 70-200mm f/2.8L USM', 77, 'ET-86'], ['EF 70-200mm f/2.8L IS USM', 77, 'ET-86'],
+    ['EF 28-300mm f/3.5-5.6L IS USM', 77, 'EW-83G'], ['EF 70-200mm f/2.8L USM', 77, 'ET-83II'], ['EF 70-200mm f/2.8L IS USM', 77, 'ET-86'],
     ['EF 70-200mm f/2.8L IS II USM', 77, 'ET-87'], ['EF 70-200mm f/2.8L IS III USM', 77, 'ET-87'], ['EF 70-200mm f/4L USM', 67, 'ET-74'],
     ['EF 70-200mm f/4L IS USM', 67, 'ET-74'], ['EF 70-200mm f/4L IS II USM', 72, 'ET-78B'], ['EF 70-300mm f/4-5.6 IS II USM', 67, 'ET-74B'],
     ['EF 70-300mm f/4-5.6L IS USM', 67, 'ET-73B'], ['EF 75-300mm f/4-5.6 III', 58, 'ET-60'], ['EF 100-400mm f/4.5-5.6L IS USM', 77, 'ET-83C'],
@@ -135,7 +135,15 @@
   var CHARGER = { LCE6: 'LPE6', LCE6E: 'LPE6', LCE17: 'LPE17', LCE17E: 'LPE17', LCE10: 'LPE10', LCE10E: 'LPE10', LCE12: 'LPE12', LCE12E: 'LPE12', LCE8: 'LPE8', LCE8E: 'LPE8' };
   var GRIP = { BGE14: ['EOS 70D', 'EOS 80D', 'EOS 90D'], BGE13: ['EOS 6D'], BGE21: ['EOS 6D Mark II'], BGE16: ['EOS 7D Mark II'], BGE11: ['EOS 5D Mark III', 'EOS 5DS', 'EOS 5DS R'],
     BGE20: ['EOS 5D Mark IV'], BGE22: ['EOS R'], BGR10: ['EOS R5', 'EOS R6', 'EOS R6 Mark II'] };
-  function hk(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function hk(c) { var k = String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); return HOOD_ALIAS[k] || k; }
+  /* (seq 212) أكواد السوق البديلة ⇐ كود كانون: «ET-60II» يُباع بديلاً لـET-60 (EF-S 55-250 IS II · EF 75-300 III) */
+  var HOOD_ALIAS = { ET60II: 'ET60' };
+  /* بطاريةٌ اسمها كاميرا لا كود («بطارية كوبي m50») ⇐ بطارية تلك الكاميرا */
+  function batOfCam(key) {
+    var k = hk(key); if (!k) return '';
+    for (var b in BAT) if (BAT[b].some(function (c) { return hk(c.replace(/^EOS\s*/, '')) === k; })) return b;
+    return '';
+  }
   function lensTxt(l) { return 'Canon ' + l[0] + ' (' + l[1] + 'مم)'; }
   /* عدسات الجرد نفسه بقطر فلترها في مواصفاتها (أو في اسمها «Ø77») — قائمة المنتجات المحمّلة في الصفحة */
   function catalogLenses(D) {
@@ -160,7 +168,7 @@
       catalogLenses(D).forEach(function (x) { out.push(x); });
     } else if (k.kind === 'hood') {
       LENSES.forEach(function (l) { if (l[2] && hk(l[2]) === hk(k.key)) out.push(lensTxt(l)); });
-    } else if (k.kind === 'battery' && BAT[hk(k.key)]) { out = BAT[hk(k.key)].map(function (c) { return 'Canon ' + c; }); }
+    } else if (k.kind === 'battery' && (BAT[hk(k.key)] || batOfCam(k.key))) { var bk = BAT[hk(k.key)] ? hk(k.key) : batOfCam(k.key); out = (bk !== hk(k.key) ? ['بطارية ' + bk.replace(/^LPE/, 'LP-E').replace(/^NB/, 'NB-')] : []).concat(BAT[bk].map(function (c) { return 'Canon ' + c; })); }
     else if (k.kind === 'charger' && CHARGER[hk(k.key)]) { var b = CHARGER[hk(k.key)]; out = ['بطارية ' + b.replace(/^LPE/, 'LP-E')].concat(BAT[b].map(function (c) { return 'Canon ' + c; })); }
     else if (k.kind === 'grip' && GRIP[hk(k.key)]) { out = GRIP[hk(k.key)].map(function (c) { return 'Canon ' + c; }); }
     var seen = {}; return out.filter(function (x) { var z = x.toLowerCase(); if (seen[z]) return false; seen[z] = 1; return true; });
