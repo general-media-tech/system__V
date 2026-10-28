@@ -156,6 +156,8 @@
   }
 
   /* الجهاز بلا مشاركة ملفّات: تنزيلٌ مباشر (+ نسخ الصورة). **لا حوار طباعة.** */
+  /* (TASK-0243 · seq 164) نوع الملفّ يُسمّى باسمه — كانت كل الملفّات تُسمّى «PDF» (ومنها ملفّ جهات الاتصال) */
+  function kindOf(fileName, isImg) { return isImg ? 'صورة' : /\.pdf$/i.test(fileName) ? 'PDF' : /\.vcf$/i.test(fileName) ? 'ملفّ جهات اتصال' : 'ملفّ'; }
   async function saveDirect(blob, fileName, isImg) {
     download(blob, fileName);
     if (isImg) {
@@ -163,7 +165,7 @@
       say(copied ? '✅ نُزِّلت الصورة ونُسخت — الصقها (Ctrl+V) في المحادثة'
                  : '⬇️ نُزِّلت الصورة على جهازك — أرفقها من التنزيلات');
     } else {
-      say('⬇️ نُزِّل ملفّ PDF على جهازك — أرفقه من التنزيلات');
+      say('⬇️ نُزِّل ' + kindOf(fileName, false) + ' على جهازك — أرفقه من التنزيلات');
     }
     return 'downloaded';
   }
@@ -174,7 +176,7 @@
     for (;;) {
       var choices = [{ k: 'share', t: '📤 شارك', pri: 1 }, { k: 'save', t: '⬇️ نزّل' }];
       if (isImg) choices.push({ k: 'copy', t: '📋 انسخ الصورة' });
-      var k = await global.GMTAsk.choose('الملفّ جاهز (' + (isImg ? 'صورة' : 'PDF') + '). اختر ما تريد فعله به:', { title: 'جاهز للمشاركة', icon: 'info', choices: choices, cancelText: 'إغلاق' });
+      var k = await global.GMTAsk.choose('الملفّ جاهز (' + kindOf(fileName, isImg) + '). اختر ما تريد فعله به:', { title: 'جاهز للمشاركة', icon: 'info', choices: choices, cancelText: 'إغلاق' });
       if (!k) return 'cancelled';
       if (k === 'save') { download(blob, fileName); say('⬇️ نُزِّل الملفّ على جهازك'); return 'downloaded'; }
       if (k === 'copy') {

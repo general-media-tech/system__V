@@ -86,7 +86,7 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261028n"></script>
+<script src="gmt-tools.js?v=20261028o"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-28">
@@ -95,14 +95,14 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261003"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261028n"></script>
+  <script src="gmt-core.js?v=20261028o"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-stock.js?v=20261025e" defer></script>
-  <script src="gmt-share.js?v=20261024e" defer></script>
+  <script src="gmt-share.js?v=20261028o" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
@@ -110,8 +110,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261028n" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261028n" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-live.js?v=20261028o" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261028o" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -143,7 +143,7 @@ window.GMT_INTERNAL = 1;</script>
             </div>
         </div>
         <div class="w-full lg:flex-1 lg:max-w-sm">
-            <input type="text" id="searchInput" oninput="render()" placeholder="بحث سريع..." class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold border border-gray-200 transition-all text-center">
+            <input type="text" id="searchInput" oninput="renderSoon()" placeholder="بحث سريع..." class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold border border-gray-200 transition-all text-center">
         </div>
         <div class="grid grid-cols-2 lg:flex lg:flex-wrap lg:basis-full gap-2 w-full">
             <!-- (2026-09-26 · طلب المالك) أُزيل «تحقق من الشحنة» من هنا ونُقل التتبّع إلى بطاقة الأوردر.
@@ -1680,19 +1680,49 @@ function render() {
     });
 
     // قوائم الطلبات
+    /* (TASK-0231 · المالك seq 160) «النظام بلش يعلق … خاصه نظام الاوردرات … كثير تعليق ودروبات»: كان كل رسمٍ يبني **كل** البطاقات دفعةً واحدة
+       (٣٠٠ أوردر ≈ ١٠٦ آلاف عنصر) فتتجمّد الصفحة حتى ثانية مع كل حرفٍ في البحث. الآن أوّل CARD_CHUNK بطاقة فوراً والباقي يُضاف
+       وحده كلّما اقتربتَ منه بالتمرير — نفس البطاقات ونفس الترتيب والفلاتر، لا شيء يُحذف. */
+    const seq = ++_renderSeq;
     ['pending','prepared','shipped','delivered','completed'].forEach(st => {
         const sec = document.getElementById('section-' + st);
         if (!sec) return;
         const show = currentTab === 'all' || currentTab === st;
         sec.classList.toggle('hidden', !show);
-        if (show) {
-            document.getElementById('list-' + st).innerHTML = groups[st].map(o => cardHTML(o)).join('') || emptyHTML();
-        }
+        if (show) renderCardsChunked(document.getElementById('list-' + st), groups[st], seq, currentTab === 'all' ? 12 : CARD_CHUNK);   // «الكل» يجمع خمسة أقسام ⇒ دفعةٌ أصغر لكلٍّ منها
     });
 
     lucide.createIcons();
     updateFollowUpBadge();
 }
+const CARD_CHUNK = 40;
+let _renderSeq = 0, _renderSoonT = null;
+function renderCardsChunked(list, arr, seq, chunk) {
+    if (!list) return;
+    chunk = chunk || CARD_CHUNK;
+    if (!arr.length) { list.innerHTML = emptyHTML(); return; }
+    list.innerHTML = arr.slice(0, chunk).map(o => cardHTML(o)).join('');
+    let at = chunk;
+    if (at >= arr.length) return;
+    const more = document.createElement('div');
+    more.setAttribute('data-cards-more', '');
+    more.className = 'col-span-full text-center text-[11px] font-bold text-gray-400 py-3';
+    more.textContent = '… ' + (arr.length - at) + ' أوردر آخر';
+    list.appendChild(more);
+    const next = () => {
+        if (seq !== _renderSeq || !more.isConnected) { io && io.disconnect(); return; }
+        more.insertAdjacentHTML('beforebegin', arr.slice(at, at + chunk).map(o => cardHTML(o)).join(''));
+        at += chunk;
+        try { lucide.createIcons(); } catch (_) {}
+        if (at >= arr.length) { io && io.disconnect(); more.remove(); }
+        else more.textContent = '… ' + (arr.length - at) + ' أوردر آخر';
+    };
+    const io = ('IntersectionObserver' in window) ? new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) next(); }, { rootMargin: '1200px 0px' }) : null;
+    if (io) io.observe(more); else while (at < arr.length) next();
+}
+/* البحث: رسمٌ واحد بعد توقّف الكتابة لحظة — لا رسمٌ كامل مع كل حرف */
+function renderSoon() { clearTimeout(_renderSoonT); _renderSoonT = setTimeout(render, 250); }
+window.renderSoon = renderSoon;
 
 function emptyHTML() {
     return `<div class="col-span-2 text-center py-10 text-gray-400 font-bold text-sm">لا توجد طلبات</div>`;
@@ -2145,9 +2175,13 @@ function deliveredButtonsHTML(o, c) {
     const isM = hasSenderInfo(o);   // (TASK-0163) «💸 الحوالة» للمفتي والقدموس ومسارات
     const big = 'flex-1 min-w-0 py-3.5 rounded-xl text-[13px] font-black whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors';
     const sm = 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors';
+    /* (TASK-0249) محصَّلٌ مسبقاً (لا شيء للتحصيل) — لا «تم التحصيل» ولا «الحوالة»: إنهاءٌ فقط (للقديم الذي بقي في «بانتظار التحصيل») */
+    const prepaidAll = collectOf(o) === 0;
     return `<div class="flex gap-2">
-            <button onclick="requestConfirm(${o.id},'completed')" class="${big} ${c.btn} text-white">💰 تم التحصيل</button>
-            ${isM ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
+            ${prepaidAll
+              ? `<button onclick="requestConfirm(${o.id},'completed')" data-prepaid-done class="${big} bg-emerald-600 hover:bg-emerald-700 text-white" title="لا شيء للتحصيل — مدفوع مسبقاً">✅ إنهاء — محصَّل مسبقاً</button>`
+              : `<button onclick="requestConfirm(${o.id},'completed')" class="${big} ${c.btn} text-white">💰 تم التحصيل</button>`}
+            ${isM && !prepaidAll ? `<button onclick="contactSendingBranch(${o.id})" data-hint="مراسلة الفرع المُرسِل (لا المستلِم) للتأكد من حوالة هذه الشحنة — كليشة جاهزة على واتساب بزنس: تاريخ الشحن والوجهة واسم المستلم والحوالة."
                 class="${big} bg-emerald-600 hover:bg-emerald-700 text-white" title="مراسلة الفرع المُرسِل للتأكد من الحوالة">💸 الحوالة</button>` : ''}
         </div>
         <div class="flex gap-2 mt-2 justify-end">
@@ -2193,7 +2227,7 @@ async function custSuggest(val){
   _custSugT = setTimeout(async () => {
     try{
       const enc = encodeURIComponent('*'+val+'*');
-      const url = `${SUPA_URL}/rest/v1/${TABLE}?or=(name.ilike.${enc},phone.ilike.${enc})&select=name,phone,address,created_at&order=created_at.desc&limit=40`;
+      const url = `${SUPA_URL}/rest/v1/${TABLE}?or=(name.ilike.${enc},phone.ilike.${enc})&select=name,phone,address,shipping_company,created_at&order=created_at.desc&limit=40`;
       /* (٨ ت — تدقيق المطابقة · «الصهر») سجلُّ الزبائن واحد: كان الاقتراح يقرأ الأوردرات وحدها، فزبونٌ سجّلته
          نقطة البيع أو المتجر لا يظهر هنا. الآن سجلُّ الزبائن (gmt_customers) أوّلاً ثمّ الأوردرات — بلا تكرار. */
       /* 🔴 (ملاحظات ١٢ ت١ ١٠:٢١م) «اقتراح أسامي العملاء يجب أن يكون مخزّناً محلياً مو بس عند الاتصال بالإنترنت».
@@ -2222,6 +2256,9 @@ async function custSuggest(val){
         seen.add(key); uniq.push(o);
         if(uniq.length >= 8) break;
       }
+      /* (TASK-0246) سجلّ الزبائن بلا شركة شحن ⇒ نأخذها من آخر أوردرٍ له */
+      const pk = o => ((window.GMTPhone && o.phone) ? GMTPhone.norm(o.phone) : (o.phone || '')).trim();
+      uniq.forEach(u => { if (!u.shipping_company) { const last = rows.find(r => r.shipping_company && pk(r) && pk(r) === pk(u)); if (last) u.shipping_company = last.shipping_company; } });
       _custSugCache = uniq;
       if(!uniq.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
       box.innerHTML = (offline ? '<div class="px-3 py-1.5 text-[10px] font-black text-amber-700 bg-amber-50 border-b border-amber-100">📴 لا اتصال — اقتراحات من الذاكرة المحلية</div>' : '') + uniq.map((o,i) =>
@@ -2275,11 +2312,32 @@ function pickCust(i){
   if(n && o.name)    n.value = o.name;
   if(p && o.phone)   p.value = o.phone;
   if(a && o.address) {
+      /* (TASK-0246 · المالك seq 164) «لما عبي بيانات تلقائيا لزبون قديم … عم يحط عنوان مكتب شحن … لكن ما عم يختار الشركه …
+         ما زال حدد مكتب شحن يحدد كمان شو شركه الشحن»: الشركة = شركة آخر أوردرٍ له ⇒ وإلا المذكورة في العنوان ⇒ وإلا شركة المكتب
+         الذي حُسم منه العنوان. تُملأ كما يملؤها اللصق الذكي (موسومة «تلقائي» — اختيارك بيدك يبقى أقوى). */
+      if (!gmtFormCo('in')) {
+          const co0 = String(o.shipping_company || '').trim() || (window.GMTOffices && GMTOffices.companyInText ? GMTOffices.companyInText(o.address) : '');
+          if (co0) gmtSetCompany('in', (GMTOffices.canonCompany ? GMTOffices.canonCompany(co0) : co0) || co0);
+      }
       const full = expandOfficeAddress(o.address);
       a.value = full;
+      if (!gmtFormCo('in') && !(document.getElementById('in-company') || {}).value) { const coH = officeCompanyOf(full); if (coH) gmtSetCompany('in', coH); }
       if (full !== o.address) showToast('📍 العنوان اكتمل تلقائياً: ' + full.slice(0, 48), 'ok');
   }
+  _custPicked = o;
   hideCustSuggest();
+}
+let _custPicked = null;
+/* شركة المكتب المكتوب في العنوان (برقمه ☎ أو باسمه) — من بيانات المكاتب نفسها */
+function officeCompanyOf(text) {
+    try {
+        if (!window.GMTOffices || !GMTOffices.all) return '';
+        const t = String(text || ''), digits = t.replace(/[^0-9]/g, '');
+        const list = GMTOffices.all() || [];
+        const byPhone = list.filter(x => { const ph = String(x.phone || '').replace(/[^0-9]/g, ''); return ph.length >= 6 && digits.indexOf(ph) !== -1; });
+        const cos = [...new Set(byPhone.map(x => x.company).filter(Boolean))];
+        return cos.length === 1 ? cos[0] : '';
+    } catch (_) { return ''; }
 }
 function hideCustSuggest(){ const b = document.getElementById('in-name-sug'); if(b) b.classList.add('hidden'); }
 
@@ -3304,6 +3362,8 @@ document.getElementById('formAdd').onsubmit = async (e) => {
     const _coll0 = (!_cEl0 || _cEl0.value === '') ? grandTotal : (parseFloat(_cEl0.value) || 0);
     const _zg = await zeroValueGuard(grandTotal, _coll0, null);
     if (!_zg.ok) return;
+    const _addrChoice = await askOldOrNewAddress();
+    if (_addrChoice === 'cancel') return;
     btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
     const totalQty = items.reduce((s,i) => s + i.qty, 0);
     try {
@@ -3340,7 +3400,7 @@ document.getElementById('formAdd').onsubmit = async (e) => {
                    لكن الرقم لا يضيع — يبقى مكتوباً في الملاحظات للمراجعة والمحاسبة. */
                 const fee = (grandTotal > 0) ? shipFeeValue() : 0;
                 const feeNote = fee > 0 ? (window.__gmtFeeFolded ? `أجور شحن ضمن الإجمالي: $${fee} (المبلغ الأصلي $${_feeBase})` : `أجور شحن مضافة على التحصيل: $${fee}`) : '';
-                return [manualNote, feeNote, _zg.note, autoNote].filter(Boolean).join('\n');
+                return [manualNote, feeNote, _zg.note, window.__addrOnce ? ADDR_ONCE_TAG : '', autoNote].filter(Boolean).join('\n');   // (TASK-0238)
             })(),
             status:           'pending',
             serial_code:      serialCode,
@@ -4467,7 +4527,9 @@ window.executeConfirm = async () => {
     const o = orders[idx];
     // (2026-08-26) طلب صفري: ما في مبلغ للتحصيل — بعد تأكيد الاستلام يكمل مباشرة
     //   بلا خطوة «تم التحصيل» وبلا إضافة صفر لصندوق الفرع.
-    const isZero = o && (Number(o.price) || 0) === 0;
+    /* (TASK-0249 · المالك seq 167) «هذه محصله مسبقا لماذا يكتب لي تم التحصيل او الحواله؟»: ما لا شيء فيه للتحصيل — صفريّاً كان أو
+       مدفوعاً مسبقاً كلّه (المراد تحصيله = 0) — يكتمل مباشرةً عند تأكيد الاستلام: لا «بانتظار التحصيل» ولا حوالة. */
+    const isZero = o && ((Number(o.price) || 0) === 0 || collectOf(o) === 0);
     const newStatus = (type === 'delivered' && isZero) ? 'completed' : type;
     // (2026-08-26) صورة الإيصال مؤقّتة: تُمسح فور اكتمال الطلب — تخفيفاً على القاعدة.
     //   النسخة الدائمة تبقى في تيليجرام.
@@ -4505,7 +4567,7 @@ window.executeConfirm = async () => {
             if (o) addCollectionToBranchCashbox(o).catch(() => {});
         }
 
-        showToast((isZero && type === 'delivered') ? '✅ طلب صفري — اكتمل مباشرة' : '✅ تم تحديث الحالة', 'ok');
+        showToast((isZero && type === 'delivered') ? ((Number(o.price) || 0) === 0 ? '✅ طلب صفري — اكتمل مباشرة' : '✅ محصَّل مسبقاً — اكتمل مباشرة (لا تحصيل ولا حوالة)') : '✅ تم تحديث الحالة', 'ok');
         render();
     } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
     pendingAction = { id:null, type:null };
@@ -7200,6 +7262,35 @@ window.refreshShipFee = refreshShipFee; window.onShipFeeInput = onShipFeeInput; 
         بمجرّد شحنةٍ جديدة — فكّ حظرٍ بالصدفة.
    يفشل بهدوء إن غاب الجدول: تأكيد الاستلام لا يُعطَّل بسبب سجلّ.
    ══════════════════════════════════════════════════════════════════════════ */
+/* (TASK-0238 · المالك seq 164) «اذا … تعرف على الزبون واذا في غير عنوان مره عن مره سواء في تعبئه تلقائيه وفي الكتابه يسالني
+   نستخدم العنوان القديم ام الجديد وهل هذه المره فقط ولا نسيف العنوان الجديد ونحذف القديم»:
+   عند حفظ أوردرٍ جديد لزبونٍ معروف (برقمه) عنوانُه المحفوظ غير المكتوب الآن ⇒ سؤالٌ واحد بثلاثة أجوبة. «لهذه المرّة فقط» يُوسم في
+   ملاحظات الأوردر (ADDR_ONCE_TAG) فلا يغيّر سجلّ الزبون لا الآن ولا عند تأكيد الاستلام. */
+const ADDR_ONCE_TAG = '📍 عنوانٌ لهذه المرّة فقط';
+function _addrKey(s) { return String(s || '').replace(/☎.*$/, '').replace(/[\s،,.\-—·]+/g, ' ').trim().toLowerCase(); }
+async function askOldOrNewAddress() {
+    const a = document.getElementById('in-addr'), ph = document.getElementById('in-phone');
+    const cur = String((a && a.value) || '').trim(), phone = String((ph && ph.value) || '').replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
+    window.__addrOnce = false;
+    if (!cur || phone.length < 9 || !window.GMTAsk || !GMTAsk.choose) return 'same';
+    let old = '';
+    try {
+        const p0 = phone.startsWith('0') ? phone : '0' + phone;
+        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_customers?phone=eq.${encodeURIComponent(p0)}&select=address&limit=1`, { headers: SB_HEADERS });
+        old = r.ok ? String(((await r.json())[0] || {}).address || '').trim() : '';
+    } catch (_) {}
+    if (!old && _custPicked && String(_custPicked.phone || '').replace(/[^0-9]/g, '').endsWith(phone.slice(-9))) old = String(_custPicked.address || '').trim();
+    if (!old || _addrKey(old) === _addrKey(cur) || _addrKey(expandOfficeAddress(old)) === _addrKey(cur)) return 'same';
+    const k = await GMTAsk.choose('هذا الزبون معروف وعنوانه المحفوظ مختلف عن المكتوب الآن.\n\nالقديم: ' + old + '\nالجديد: ' + cur, {
+        title: '📍 العنوان القديم أم الجديد؟', cancelText: 'رجوع',
+        choices: [{ k: 'new_once', t: 'الجديد — لهذه المرّة فقط', pri: 1 }, { k: 'new_save', t: 'الجديد — واحفظه بدل القديم' }, { k: 'old', t: 'القديم' }]
+    });
+    if (!k) return 'cancel';
+    if (k === 'old') { a.value = old; showToast('📍 استُعمل العنوان القديم', 'ok'); }
+    if (k === 'new_once') window.__addrOnce = true;
+    return k;
+}
+window.askOldOrNewAddress = askOldOrNewAddress;
 async function upsertCustomerFromOrder(o) {
     if (!o || !o.phone) return;
     const phone = String(o.phone).replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
@@ -7207,7 +7298,7 @@ async function upsertCustomerFromOrder(o) {
     /* (TASK-0211 · المالك seq 139 «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي») كان الطلب يحمل
        last_order و last_address — عمودان غير موجودين في gmt_customers ⇒ الطلب كلّه يُرفض فيُحفظ الاسم والهاتف وحدهما (الاحتياط أدناه)
        فلا وجهة لأيّ زبون (٤٢ من ٤٢ بلا عنوان في 27 ت1). الآن العمود القائم address = وجهة آخر شحنة (تتحدّث مع كل أوردر). */
-    const addr = String(o.address || '').trim();
+    const addr = String(o.notes || '').indexOf(ADDR_ONCE_TAG) !== -1 ? '' : String(o.address || '').trim();   // (TASK-0238) «لهذه المرّة فقط» لا يغيّر العنوان المحفوظ
     const body = Object.assign({
         phone: phone.startsWith('0') ? phone : '0' + phone,
         name:  String(o.name || '').trim() || null,
@@ -9711,11 +9802,11 @@ try {
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028n"></script>
-<script src="gmt-nofab.js?v=20261028n"></script>
+<script src="gmt-brain.js?v=20261028o"></script>
+<script src="gmt-nofab.js?v=20261028o"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028n"></script>
+<script src="gmt-whatsnew.js?v=20261028o"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -37,34 +37,55 @@
     if (typeof v === 'object') return Object.keys(v).map(function (k) { return v[k]; }).filter(function (x) { return x != null && x !== ''; }).join(' · ');
     return String(v).trim();
   }
-  /* (TASK-0206 · المالك seq 135 «لا يكتبلي تقريبي — هي الكلمة محظورة وبتفقد الثقة») بندٌ قيمته تقديرٌ أو «لا معلومة» لا يُعرض ولا ينتقل
-     للمتجر — ولو كان محفوظاً من قبل (يبقى في القاعدة حتى يقرّر المالك حذفه) */
-  var UNSURE = /تقريب|approx|typical|نموذجي|غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
-  function sure(r) { return r && !UNSURE.test(String(r.value || '')) && !UNSURE.test(String(r.label || '')); }
+  /* (TASK-0206 · seq 135) «لا يكتبلي تقريبي — هي الكلمة محظورة» ⇐ (TASK-0241 · المالك seq 164) «انا ما طلبت تحذف كل شيء تقريبا …
+     اذا ما لقى يعطيني اشاره عليها انه تقريبي لكن ما تنكتب كلمه تقريب يعني ما اضطر احذفها خلاص انا بتاكد»:
+     كان البند التقديريّ يُسقَط (٢٩١ من ٣١٤ منتجاً فيها تقديرات ⇒ جداولٌ فارغة في المتجر ونقطة البيع، والحفظ من «تعديل المنتج» يحذفها).
+     الآن: الكلمة تُنزَع من القيمة دائماً، والبند يبقى ويحمل علامة approx ⇒ «≈» في الجرد ونقطة البيع للتحقّق، ولا شيء في المتجر.
+     العلامة تُحفظ منفصلةً عن القيمة: specs.__approx = [مفاتيح البنود التقديريّة]. وما لا معلومة فيه («غير متوفر» · N/A) وحده يُسقَط. */
+  var APPROX_RE = /\s*[\(（\[]?\s*(?:تقريبي[ةه]?|تقريباً|تقريبا|approx(?:\.|imately)?|typical(?:ly)?|نموذجي[ةه]?)\s*[\)）\]]?/gi;
+  var NOINFO = /غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
+  function clean(v) {
+    var s = String(v == null ? '' : v), ap = new RegExp(APPROX_RE.source, 'i').test(s);
+    s = s.replace(APPROX_RE, ' ').replace(/\s{2,}/g, ' ').replace(/\s+([،,.\)])/g, '$1').replace(/\(\s*\)/g, '').trim();
+    return { value: s, approx: ap };
+  }
+  function sure(r) { return !!r && String(r.value || '').trim() !== '' && !NOINFO.test(String(r.value || '')) && !NOINFO.test(String(r.label || '')); }
+  function approxKeys(sp) { var a = sp && sp.__approx; return Array.isArray(a) ? a.map(String) : []; }
   function rows(sp) {
-    sp = asObj(sp);
+    sp = asObj(sp); var ax = approxKeys(sp);
     return Object.keys(sp).filter(function (k) { return k.indexOf('__') !== 0; })
-      .map(function (k) { return { label: LABEL[k] || k, value: val(sp[k]) }; })
-      .filter(function (r) { return r.value !== '' && sure(r); });
+      .map(function (k) { var c = clean(val(sp[k])); return { key: k, label: LABEL[k] || k, value: c.value, approx: c.approx || ax.indexOf(k) !== -1 }; })
+      .filter(sure);
   }
   function meta(sp) { sp = asObj(sp); return { desc: val(sp.__desc), brand: val(sp.__brand), model: val(sp.__model) }; }
+  /* نسخة المتجر: {label, value} نظيفة — بلا علامة التقدير (الزبون يرى القيمة فقط) */
   function forStore(sp) {
     var r = rows(sp), m = meta(sp), out = [];
     if (m.brand) out.push({ label: 'الماركة', value: m.brand });
     if (m.model) out.push({ label: 'الموديل', value: m.model });
-    return out.concat(r);
+    return out.concat(r.map(function (x) { return { label: x.label, value: x.value }; }));
+  }
+  /* للعرض الداخليّ: كنسخة المتجر + علامة approx */
+  function forView(sp) {
+    if (Array.isArray(sp)) return sp.map(function (r) { var c = clean(r && r.value); return { label: r && r.label, value: c.value, approx: !!(r && r.approx) || c.approx }; }).filter(sure);
+    var m = meta(sp), out = [];
+    if (m.brand) out.push({ label: 'الماركة', value: m.brand });
+    if (m.model) out.push({ label: 'الموديل', value: m.model });
+    return out.concat(rows(sp));
   }
   /* جدولٌ بسيط بخطوطٍ فاتحة — يرث خطّ الصفحة ولونها ويصلح للهاتف (يلتفّ النصّ ولا يتجاوز العرض) */
+  /* opts.marks === false ⇒ بلا «≈» (المتجر) */
   function tableHTML(sp, opts) {
     opts = opts || {};
-    var list = (Array.isArray(sp) ? sp : forStore(sp)).filter(sure);
+    var list = forView(sp), marks = opts.marks !== false;
     var compat = String(opts.compat || '').trim();
     if (!list.length && !compat) return '';
     var html = '<table class="gmt-specs" style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">' +
       list.map(function (r, i) {
         return '<tr style="background:' + (i % 2 ? 'transparent' : 'rgba(15,18,25,.035)') + '">' +
           '<th scope="row" style="width:38%;text-align:right;font-weight:800;padding:6px 8px;border-bottom:1px solid rgba(15,18,25,.08);vertical-align:top;overflow-wrap:anywhere">' + esc(r.label) + '</th>' +
-          '<td style="padding:6px 8px;border-bottom:1px solid rgba(15,18,25,.08);overflow-wrap:anywhere">' + esc(r.value) + '</td></tr>';
+          '<td style="padding:6px 8px;border-bottom:1px solid rgba(15,18,25,.08);overflow-wrap:anywhere">' + esc(r.value) +
+          (marks && r.approx ? ' <span data-spec-approx title="قيمة تقديرية — تحقّق منها" style="color:#b45309;font-weight:900;cursor:help">≈</span>' : '') + '</td></tr>';
       }).join('') + '</table>';
     if (compat) html += '<div style="margin-top:8px;font-size:12px;line-height:1.7;overflow-wrap:anywhere"><b>متوافق مع:</b> ' + esc(compat) + '</div>';
     return html;
@@ -126,5 +147,5 @@
     }
     throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure };
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, forView: forView, clean: clean, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure };
 })(typeof window !== 'undefined' ? window : this);

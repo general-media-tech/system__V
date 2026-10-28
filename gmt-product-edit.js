@@ -45,7 +45,8 @@
       '#gmt-pe input,#gmt-pe textarea,#gmt-pe select{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid #d1d5db;border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;background:#fff;color:inherit}' +
       '#gmt-pe input[type=checkbox]{display:inline-block;width:auto;margin:0 0 0 6px}' +
       '#gmt-pe .pe-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}' +
-      '#gmt-pe .pe-row{display:grid;grid-template-columns:1fr 1.4fr auto;gap:6px;margin-bottom:6px;align-items:center}#gmt-pe .pe-row input{margin:0}' +
+      '#gmt-pe .pe-row{display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:6px;margin-bottom:6px;align-items:center}#gmt-pe .pe-row input{margin:0}' +
+      '#gmt-pe .pe-row [data-rax]{font-weight:900;color:#9ca3af}#gmt-pe .pe-row [data-rax][aria-pressed="true"]{color:#b45309;background:#fffbeb;border-color:#fcd34d}' +
       '#gmt-pe .pe-imgs{display:flex;flex-wrap:wrap;gap:8px}#gmt-pe .pe-img{width:92px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#f9fafb}' +
       '#gmt-pe .pe-img img{width:92px;height:92px;object-fit:cover;display:block}#gmt-pe .pe-img div{display:flex;justify-content:space-between}#gmt-pe .pe-img button{border:0;border-radius:0;padding:4px 8px;background:transparent}' +
       '#gmt-pe .pe-cats{display:flex;flex-wrap:wrap;gap:6px}#gmt-pe .pe-cats label{display:inline-flex;align-items:center;border:1px solid #e5e7eb;border-radius:999px;padding:5px 10px;margin:0;font-weight:700}' +
@@ -57,9 +58,12 @@
     ctx = ctx || {};
     if (!p) return null;
     css(); var old = doc.getElementById('gmt-pe'); if (old) old.remove();
-    var sp0 = asObj(p.specs), rows0 = Object.keys(sp0).filter(function (k) { return k.indexOf('__') !== 0; }).map(function (k) { return { k: k, v: typeof sp0[k] === 'string' ? sp0[k] : (global.GMTSpecs ? (GMTSpecs.rows({ x: sp0[k] })[0] || {}).value || '' : String(sp0[k])) }; })
-      /* (TASK-0206) البنود التقديريّة («تقريبي» · «غير متوفر») لا تُعرض — فالحفظ من هنا يُسقطها */
-      .filter(function (r) { return r.v && (!global.GMTSpecs || !GMTSpecs.sure || GMTSpecs.sure({ label: r.k, value: r.v })); });
+    /* (TASK-0241 · المالك seq 164) «ما طلبت تحذف كل شيء تقريبا … يعطيني اشاره عليها انه تقريبي لكن ما تنكتب كلمه تقريب»:
+       كانت البنود التقديريّة تُخفى هنا **فيحذفها الحفظ**. الآن تظهر كلّها بقيمتها نظيفةً (بلا الكلمة) ومعها زرّ «≈» مُفعَّل —
+       أطفئه بعد التأكّد. الحفظ يُبقي القيمة ويكتب العلامة في specs.__approx لا في النصّ. */
+    var sp0 = asObj(p.specs);
+    var rows0 = global.GMTSpecs && GMTSpecs.rows ? GMTSpecs.rows(sp0).map(function (r) { return { k: r.key, v: r.value, ax: r.approx }; })
+      : Object.keys(sp0).filter(function (k) { return k.indexOf('__') !== 0; }).map(function (k) { return { k: k, v: String(sp0[k]), ax: false }; });
     var root = doc.createElement('div'); root.id = 'gmt-pe'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('data-keep-fab', '1');
     var dl = function (id, list) { return '<datalist id="' + id + '">' + (list || []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; };
     root.innerHTML =
@@ -93,13 +97,15 @@
     function say(t, bad) { msg.textContent = t || ''; msg.style.color = bad ? '#b91c1c' : '#047857'; }
     /* صفوف الجدول */
     var rowsEl = $('[data-pe-rows]');
-    function addRow(k, v) {
+    function addRow(k, v, ax) {
       var d = doc.createElement('div'); d.className = 'pe-row';
-      d.innerHTML = '<input data-rk placeholder="البند (مثل: الوزن)" value="' + esc(k) + '"><input data-rv placeholder="القيمة" value="' + esc(v) + '"><button type="button" aria-label="احذف البند">✕</button>';
-      d.querySelector('button').onclick = function () { d.remove(); };
+      d.innerHTML = '<input data-rk placeholder="البند (مثل: الوزن)" value="' + esc(k) + '"><input data-rv placeholder="القيمة" value="' + esc(v) + '">' +
+        '<button type="button" data-rax aria-pressed="' + (ax ? 'true' : 'false') + '" title="≈ قيمة تقديرية — أطفئها بعد التأكّد">≈</button><button type="button" data-rdel aria-label="احذف البند">✕</button>';
+      d.querySelector('[data-rdel]').onclick = function () { d.remove(); };
+      d.querySelector('[data-rax]').onclick = function () { this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); };
       rowsEl.appendChild(d); return d;
     }
-    rows0.forEach(function (r) { addRow(r.k, r.v); });
+    rows0.forEach(function (r) { addRow(r.k, r.v, r.ax); });
     if (!rows0.length) addRow('', '');
     $('[data-pe-addrow]').onclick = function () { addRow('', '').querySelector('input').focus(); };
     /* المتجر */
@@ -148,7 +154,14 @@
     function collect() {
       var f = function (k) { var e = $('[data-f="' + k + '"]'); return e ? e.value.trim() : ''; };
       var specs = {};
-      rowsEl.querySelectorAll('.pe-row').forEach(function (r) { var k = r.querySelector('[data-rk]').value.trim().slice(0, 60), v = r.querySelector('[data-rv]').value.trim().slice(0, 300); if (k && v) specs[k] = v; });
+      var approx = [];
+      rowsEl.querySelectorAll('.pe-row').forEach(function (r) {
+        var k = r.querySelector('[data-rk]').value.trim().slice(0, 60), v = r.querySelector('[data-rv]').value.trim().slice(0, 300);
+        var c = global.GMTSpecs && GMTSpecs.clean ? GMTSpecs.clean(v) : { value: v, approx: false };     // كتب أحدٌ «تقريبي» بيده ⇒ علامةٌ لا كلمة
+        var axBtn = r.querySelector('[data-rax]'), axOn = !!axBtn && axBtn.getAttribute('aria-pressed') === 'true';
+        if (k && c.value) { specs[k] = c.value; if (c.approx || axOn) approx.push(k); }
+      });
+      if (approx.length) specs.__approx = approx;
       if (f('__desc')) specs.__desc = f('__desc').slice(0, 2000);
       if (f('brand')) specs.__brand = f('brand');
       if (f('__model')) specs.__model = f('__model');

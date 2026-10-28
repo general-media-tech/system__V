@@ -24,18 +24,20 @@ const custs = () => H.call('/__dump', undefined, 'GET').then(d => d.gmt_customer
     await pg.evaluate(async () => { await loadCustomers(); switchTab('customers'); }); await pg.waitForTimeout(500);
     const txt = await pg.evaluate(() => document.getElementById('cust-list').innerText);
     ok(/الوجهة: دمشق - المزة/.test(txt) && /الوجهة: حلب - الفرقان/.test(txt), W + ': بطاقة العميل تعرض «🚚 الوجهة»: ' + (txt.match(/[^\n]*الوجهة[^\n]*/g) || []).join(' | '));
-    await pg.evaluate(() => { window.__vcf = null; GMTShare.deliver = async (b, n, o) => { window.__vcf = { name: n, text: await b.text(), type: b.type, title: o && o.title }; return 'downloaded'; }; });
-    await pg.click('[data-cust-vcf]'); await pg.waitForTimeout(500);
-    let v = await pg.evaluate(() => window.__vcf);
+    // (TASK-0243 · seq 164) تنزيلٌ مباشر لملفّ جهات اتصال (لا مشاركة/«PDF») — نقرأ الملفّ المُنزَّل فعلاً
+    const grab = async () => { const [d] = await Promise.all([pg.waitForEvent('download', { timeout: 8000 }), pg.click('[data-cust-vcf]')]); const fs = require('fs'); const p = await d.path(); return { name: d.suggestedFilename(), text: fs.readFileSync(p, 'utf8'), type: 'text/vcard' }; };
+    await pg.evaluate(() => { window.__delivered = 0; if (window.GMTShare) GMTShare.deliver = async () => { window.__delivered++; return 'shared'; }; });
+    let v = await grab();
+    ok(await pg.evaluate(() => window.__delivered) === 0, W + ': لا يمرّ بنافذة المشاركة/«PDF» — تنزيلٌ مباشر');
     const cards = v ? (v.text.match(/BEGIN:VCARD/g) || []).length : 0;
     ok(v && /\.vcf$/.test(v.name) && v.type === 'text/vcard' && cards === 3 && /\r\n/.test(v.text) && !/بلا جوال/.test(v.text), W + ': «📇 جهات الاتصال» ⇒ ملفّ vCard بكلّ من له جوال (٣ — «بلا جوال» لا): ' + JSON.stringify(v && { n: v.name, cards }));
-    ok(v && /TEL;TYPE=CELL:\+963933111222/.test(v.text) && /TEL;TYPE=CELL:\+963944000111/.test(v.text) && /FN:أحمد\\, الحلبي\\; ورفاقه/.test(v.text) && /ADR;TYPE=HOME:;;حلب - الفرقان;;;;/.test(v.text) && /NOTE:.*جملة/.test(v.text),
+    ok(v && /FN:أ\. زبون الشحن المحترم/.test(v.text) && /N:;زبون الشحن;;أ\.;المحترم/.test(v.text), W + ': الاسم «أ. [اسم العميل] المحترم»');
+    ok(v && /TEL;TYPE=CELL:\+963933111222/.test(v.text) && /TEL;TYPE=CELL:\+963944000111/.test(v.text) && /FN:أ\. أحمد\\, الحلبي\\; ورفاقه المحترم/.test(v.text) && /ADR;TYPE=HOME:;;حلب - الفرقان;;;;/.test(v.text) && /NOTE:.*جملة/.test(v.text),
       W + ': الأرقام دوليّة (+963) · الفاصلة والفاصلة المنقوطة مهرَّبتان · الوجهة عنوان · النوع في الملاحظة');
     // البحث بالوجهة ثمّ التنزيل ⇒ الظاهرون فقط
     await pg.fill('#app-content input[type="search"]', 'المزة'); await pg.waitForTimeout(300);
     const cnt = await pg.evaluate(() => document.getElementById('cust-count-lbl').textContent);
-    await pg.click('[data-cust-vcf]'); await pg.waitForTimeout(400);
-    v = await pg.evaluate(() => window.__vcf);
+    v = await grab();
     ok(/^1 /.test(cnt) && (v.text.match(/BEGIN:VCARD/g) || []).length === 1 && /933111222/.test(v.text), W + ': البحث بالوجهة يعمل · والملفّ للظاهرين فقط: ' + cnt);
     const hs = await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
     ok(!hs, W + ': لا طفح أفقي');
