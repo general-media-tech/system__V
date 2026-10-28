@@ -1203,9 +1203,9 @@ window.GMT_FEATURES = [
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
-  <script src="gmt-brand.js?v=20261028x"></script>
+  <script src="gmt-brand.js?v=20261028y"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261028x"></script>
+<script src="gmt-tools.js?v=20261028y"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
@@ -1213,20 +1213,21 @@ window.GMT_FEATURES = [
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261028x"></script>
+  <script src="gmt-image-guard.js?v=20261028y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261028x"></script>
+  <script src="gmt-core.js?v=20261028y"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-gallery.js?v=20261028x" defer></script>
-  <script src="gmt-specs.js?v=20261028x" defer></script><!-- (TASK-0236) جدول المواصفات في تفاصيل المنتج -->
+  <script src="gmt-gallery.js?v=20261028y" defer></script>
+  <script src="gmt-specs.js?v=20261028y" defer></script><!-- (TASK-0236) جدول المواصفات في تفاصيل المنتج -->
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
-  <script src="gmt-stock.js?v=20261025e" defer></script>
-  <script src="gmt-share.js?v=20261028x" defer></script>
+  <script src="gmt-stock.js?v=20261028y" defer></script>
+<script src="gmt-signpad.js?v=20261028y" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
+  <script src="gmt-share.js?v=20261028y" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -5137,6 +5138,17 @@ function scSaveDraft() {
   closeStockCount();
 }
 
+/* (TASK-0237 · المالك seq 164) «اي فاتوره نقل او تسويه او جرد فيها تاكيد من المستخدم وتوقيع»: قبل إصدار فاتورة إعادة الإنشاء (تسوية/نقل)
+   وقبل إرسال تقرير الجرد ⇐ نافذة تأكيد وتوقيع (الاسم + توقيعٌ مرسوم + «أؤكّد»)؛ صورة التوقيع تُرفع لمخزن التواقيع وتُحفظ على الفاتورة/التقرير.
+   تعذّر رفع التوقيع ⇒ لا يُصدَر شيء (العدّ محفوظ). */
+async function _posSign(title, summary) {
+  if (!window.GMTSignPad) { await GMTAsk.alert('وحدة التوقيع لم تُحمَّل — حدّث الصفحة.', { title: 'التوقيع' }); return null; }
+  const sig = await GMTSignPad.ask({ title, summary, name: (currentUser && (currentUser.display_name || currentUser.username)) || '' });
+  if (!sig) return null;
+  const url = await GMTSignPad.upload(sig, { url: CONFIG.SUPABASE_URL, headers: sbHeaders, prefix: 'inv_' + (branch && branch.key || 'pos') });
+  if (!url) { await GMTAsk.alert('تعذّر رفع صورة التوقيع — تحقّق من الاتصال وأعد المحاولة.\nلم يُصدَر شيء، والعدّ محفوظ.', { title: 'التوقيع' }); return null; }
+  return { name: sig.name, url, at: sig.at };
+}
 async function scFinishAndReport() {
   const all = scProducts();
   const countedItems = all.filter(p => _scCounts[p.id] !== undefined);
@@ -5155,7 +5167,8 @@ async function scFinishAndReport() {
   confirmMsg += `• فروقات: ${diffs.length} (${shortages.length} نقص، ${surplus.length} زيادة)\n`;
   if (uncounted > 0) confirmMsg += `• غير مجرودة: ${uncounted}\n`;
   confirmMsg += `\nملاحظة: لن يتم تعديل المخزون — الإدارة ستراجع وتتصرف.`;
-  if (!(await GMTUI.confirm(confirmMsg))) return;
+  const _sig = await _posSign('تقرير جرد «' + branch.name + '»', confirmMsg);   // (TASK-0237) تأكيدٌ وتوقيع بدل «موافق» وحدها
+  if (!_sig) return;
 
   showLoad('جارٍ إرسال التقرير للإدارة...');
 
@@ -5164,6 +5177,7 @@ async function scFinishAndReport() {
   let tg = `<b>📋 تقرير جرد مخزون — GMT</b>\n━━━━━━━━━━━━━━━\n`;
   tg += `<b>الفرع:</b> ${branch.name}\n`;
   tg += `<b>القائم بالجرد:</b> ${currentUser?.display_name || '—'}\n`;
+  tg += `<b>وقّعه:</b> ${_sig.name} — <a href="${_sig.url}">صورة التوقيع</a>\n`;
   tg += `<b>التاريخ:</b> ${now.toLocaleDateString('ar-SY')} — ${now.toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit'})}\n`;
   tg += `<b>مجرود:</b> ${countedItems.length} · <b>فروقات:</b> ${diffs.length}${uncounted?` · <b>غير مجرود:</b> ${uncounted}`:''}\n`;
   tg += `━━━━━━━━━━━━━━━\n`;
@@ -5193,7 +5207,8 @@ async function scFinishAndReport() {
       total_uncounted: uncounted,
       shortages_count: shortages.length,
       surplus_count: surplus.length,
-      details: JSON.stringify(diffs.map(x => ({ id: x.p.id, name: x.p.name, barcode: x.p.barcode||'', system: x.sys, actual: x.actual, diff: x.diff }))),
+      /* (TASK-0237) التفاصيل + التوقيع (كان نصّاً لمصفوفة البنود — لا قارئ له غير النسخ الاحتياطي) */
+      details: { items: diffs.map(x => ({ id: x.p.id, name: x.p.name, barcode: x.p.barcode||'', system: x.sys, actual: x.actual, diff: x.diff })), signed_by: _sig.name, signature_url: _sig.url, signed_at: _sig.at },
       created_at: now.toISOString(),
     }]);
   } catch(e) { /* الجدول قد لا يكون موجوداً — التقرير وصل عبر تيليجرام بأي حال */ }
@@ -5253,24 +5268,31 @@ async function scNewProduct() {
   try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (e) {}
   try { window.GMTAudit && GMTAudit.log({ action: 'product_create', entity: 'products', entityId: np.id, entityName: np.name, reason: 'فاتورة إعادة إنشاء — ' + branch.name }); } catch (_) {}
   const s = document.getElementById('sc-search'); if (s) s.value = np.name;
-  showToast('➕ أُنشئ «' + np.name + '» — كمّيته في ' + branch.name + ': ' + r.q + ' (تُطبَّق مع الفاتورة)', 'ok');
   scRenderList();
+  /* (TASK-0237 · المالك seq 164) «يمكن ايضا اضافه منتجات مي موجوده … بتتصدر عندك فاتوره كفاتوره تسويه او فاتوره نقل وبتتعامل نفس المعامله»:
+     المنتج الجديد تُصدَر فاتورته فوراً (تسوية في النقطة · أو نقلٌ من فرع) بالتأكيد والتوقيع والكلمة السيادية — أو «لاحقاً» مع فاتورة الجرد كلّه. */
+  if (!(r.q > 0)) { showToast('➕ أُنشئ «' + np.name + '» — كمّيته ٠', 'ok'); return; }
+  const res = window.GMTStock && GMTStock.rebuild ? await _scIssue([_scLine(np, r.q)], { title: '🧾 فاتورة المنتج الجديد', tgTitle: 'فاتورة منتجٍ جديد في الجرد', allowLater: true,
+    question: '«' + np.name + '» أُنشئ في النظام — كمّيته في «' + branch.name + '»: ' + r.q + '.\n\nتصدر فاتورته الآن:' }) : 'later';
+  if (res && res !== 'later') {
+    await GMTAsk.alert('🧾 ' + (res.how === 'move' ? 'فاتورة نقل' : 'فاتورة تسوية') + ' «' + np.name + '»: ' + (res.R.numbers.join(' + ') || '—') + '\n• ' + res.lbl + ' · وقّعها ' + res.rcv +
+      (res.R.failed.length ? '\n\n⚠️ لم تُطبَّق: ' + res.R.failed.map(f => f.why).join('، ') : ''), { title: res.R.failed.length ? 'لم تكتمل' : '✅ صدرت الفاتورة' });
+    try { _loadProductsFromServer(false); } catch (_) {}
+  } else showToast('➕ أُنشئ «' + np.name + '» — كمّيته ' + r.q + ' تُطبَّق مع «اعتماد كفاتورة إعادة إنشاء»', 'ok');
 }
-async function scRebuild() {
-  if (!(window.GMTRole && GMTRole.isAdmin())) { showToast('فاتورة إعادة الإنشاء للأدمن فقط', 'err'); return; }
-  if (!window.GMTStock || !GMTStock.rebuild) { showToast('وحدة المخزون لم تُحمَّل — حدّث الصفحة', 'err'); return; }
-  const lines = scProducts().filter(p => _scCounts[p.id] !== undefined).map(p => ({
-    product_id: p.id, name: p.name || '', barcode: p.barcode || '', image_url: (p.image_url && !/^data:/.test(p.image_url)) ? p.image_url : '',
-    before: Number(p[branch.key]) || 0, after: Math.max(0, parseInt(_scCounts[p.id], 10) || 0),
-    unit_cost: Number(p.wholesale_price) || 0, sale_price: Number(p.price) || 0 }));
-  const ch = lines.filter(l => l.after !== l.before);
-  if (!ch.length) { await GMTAsk.alert('لا فرق بين ما حدّدته والمسجّل في «' + branch.name + '» — لا شيء يتغيّر.', { title: 'فاتورة إعادة إنشاء' }); return; }
+/* (TASK-0237) إصدار فاتورة إعادة إنشاء لبنودٍ محدّدة — مشتركٌ بين «اعتماد كفاتورة إعادة إنشاء» و«➕ منتج غير معرّف»:
+   الخيار (تسوية في النقطة · نقلٌ من/إلى فرع · [لاحقاً]) ⇐ التأكيد والتوقيع ⇐ الكلمة السيادية ⇐ GMTStock.rebuild.
+   يعيد { R, how, other, rcv, by } · أو 'later' · أو null (رجوع/فشل — رسالته ظهرت). */
+async function _scIssue(ch, o) {
+  o = o || {};
   const up = ch.filter(l => l.after > l.before).reduce((t, l) => t + l.after - l.before, 0);
   const dn = ch.filter(l => l.after < l.before).reduce((t, l) => t + l.before - l.after, 0);
-  const how = await GMTAsk.choose('فاتورة إعادة إنشاء «' + branch.name + '»: ' + ch.length + ' منتج تتغيّر كمّيته (زيادة ' + up + ' · نقص ' + dn + ' قطعة).\n\nكيف يُطبَّق الفرق؟',
-    { title: '🧾 فاتورة إعادة إنشاء', cancelText: 'رجوع',
-      choices: [{ k: 'local', t: 'في هذه النقطة وحدها (تصحيح سيادي)' }, { k: 'move', t: 'نقلٌ من/إلى فرعٍ أختاره…' }] });
-  if (!how) return;
+  const choices = [{ k: 'local', t: 'فاتورة تسوية — في هذه النقطة وحدها' }, { k: 'move', t: 'فاتورة نقل — من/إلى فرعٍ أختاره…' }];
+  if (o.allowLater) choices.push({ k: 'later', t: 'لاحقاً — مع «اعتماد كفاتورة إعادة إنشاء» للجرد كلّه' });
+  const how = await GMTAsk.choose(o.question || ('فاتورة إعادة إنشاء «' + branch.name + '»: ' + ch.length + ' منتج تتغيّر كمّيته (زيادة ' + up + ' · نقص ' + dn + ' قطعة).\n\nكيف يُطبَّق الفرق؟'),
+    { title: o.title || '🧾 فاتورة إعادة إنشاء', cancelText: 'رجوع', choices });
+  if (!how) return null;
+  if (how === 'later') return 'later';
   let other = null;
   if (how === 'move') {
     if (!(branches || []).length) {                      // الموظّف لم يمرّ بشاشة اختيار الفرع ⇒ القائمة لم تُحمَّل
@@ -5278,36 +5300,56 @@ async function scRebuild() {
             if (r.ok) branches = (await r.json()).map(d => ({ key: d.key_name, name: d.display_name, icon: d.icon || '🏪' })); } catch (_) {}
     }
     const opts = (branches || []).filter(b => b && b.key && b.key !== branch.key);
-    if (!opts.length) { showToast('لا فروع أخرى', 'err'); return; }
+    if (!opts.length) { showToast('لا فروع أخرى', 'err'); return null; }
     const bk = await GMTAsk.choose('الزيادة (' + up + ') تُخصم من هذا الفرع، والنقص (' + dn + ') يُعاد إليه:', { title: 'الفرع الآخر', cancelText: 'رجوع',
       choices: opts.map(b => ({ k: b.key, t: (b.icon ? b.icon + ' ' : '') + (b.name || b.key) })) });
-    if (!bk) return;
+    if (!bk) return null;
     other = opts.find(b => b.key === bk);
   }
-  const rcv = await GMTAsk.prompt('اسم المستلم في «' + branch.name + '» — يُكتب على الفاتورة:', { title: 'الاستلام', value: (currentUser && (currentUser.display_name || currentUser.username)) || '' });
-  if (rcv === null) return;
-  const okPw = window.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 فاتورة إعادة إنشاء «' + branch.name + '» — تعديلٌ سياديّ للكمّيات')
+  /* (TASK-0237) كان سؤالاً عن اسم المستلم ⇐ صار تأكيداً وتوقيعاً: الاسم = المستلم الموقِّع، والتوقيع على الفاتورة */
+  const _sg = await _posSign('فاتورة ' + (how === 'move' ? 'نقل' : 'تسوية') + ' «' + branch.name + '»',
+    ch.length + ' منتج تتغيّر كمّيته — زيادة ' + up + ' · نقص ' + dn + ' قطعة\n' + (how === 'move' ? 'نقلٌ من/إلى «' + (other.name || other.key) + '»' : 'في هذه النقطة وحدها (تسوية)') +
+    '\n\n' + ch.slice(0, 8).map(l => '• ' + l.name + ': ' + l.before + ' ⇐ ' + l.after).join('\n') + (ch.length > 8 ? '\n… و' + (ch.length - 8) + ' أخرى' : ''));
+  if (!_sg) return null;
+  const rcv = _sg.name;
+  const okPw = window.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 فاتورة ' + (how === 'move' ? 'نقل' : 'تسوية') + ' «' + branch.name + '» — تعديلٌ سياديّ للكمّيات')
                                              : await GMTRole.requireAdmin('فاتورة إعادة إنشاء');
-  if (!okPw) return;
+  if (!okPw) return null;
   const by = (GMTRole.name && GMTRole.name()) || (currentUser && currentUser.display_name) || 'الأدمن';
   let R;
   try {
-    await _rcvProgress(true, { title: '🧾 جارٍ تطبيق فاتورة إعادة الإنشاء', text: 'قراءة الكمّيات الحاليّة…' });
+    await _rcvProgress(true, { title: '🧾 جارٍ تطبيق الفاتورة', text: 'قراءة الكمّيات الحاليّة…' });
     R = await GMTStock.rebuild({ branch: { key: branch.key, name: branch.name }, lines: ch, mode: how, other: other && { key: other.key, name: other.name },
-      by, receivedBy: String(rcv).trim(), onProgress: (i, n, name) => _rcvProgress(true, { title: '🧾 جارٍ تطبيق فاتورة إعادة الإنشاء', i, n, text: name }) });
+      by, receivedBy: String(rcv).trim(), signatureUrl: _sg.url, kind: how === 'move' ? 'فاتورة نقل' : 'فاتورة تسوية', onProgress: (i, n, name) => _rcvProgress(true, { title: '🧾 جارٍ تطبيق الفاتورة', i, n, text: name }) });
   } finally { _rcvProgress(false); }
-  if (!R || (!R.numbers.length && R.error)) { await GMTAsk.alert('⚠️ لم تُنشأ الفاتورة: ' + ((R && R.error) || 'خطأ') + '\n\nالعدّ محفوظ — أعد المحاولة.', { title: 'فاتورة إعادة إنشاء' }); return; }
+  if (!R || (!R.numbers.length && R.error)) { await GMTAsk.alert('⚠️ لم تُنشأ الفاتورة: ' + ((R && R.error) || 'خطأ') + '\n\nالعدّ محفوظ — أعد المحاولة.', { title: o.title || 'فاتورة إعادة إنشاء' }); return null; }
+  const lbl = how === 'move' ? 'نقل من/إلى ' + (other.name || other.key) : 'تسوية في النقطة وحدها';
+  try { sendTelegram('<b>🧾 ' + (o.tgTitle || 'فاتورة إعادة إنشاء') + '</b>\nالفرع: ' + branch.name + '\nالفواتير: ' + R.numbers.join(' + ') + '\nالنوع: ' + lbl + '\nطُبّق: ' + R.applied + (R.failed.length ? ' · لم يُطبَّق: ' + R.failed.length : '') + '\nبواسطة: ' + by + '\nوقّعها: ' + rcv).catch(() => {}); } catch (_) {}
+  try { window.GMTAudit && GMTAudit.log({ action: 'pos_rebuild', entity: 'branch_stock_transfers', entityName: R.numbers.join(' + '), reason: (o.tgTitle || 'فاتورة إعادة إنشاء') + ' — ' + branch.name + ' · ' + lbl + ' · وقّعها ' + rcv }); } catch (_) {}
+  return { R, how, other, rcv, by, lbl };
+}
+async function scRebuild() {
+  if (!(window.GMTRole && GMTRole.isAdmin())) { showToast('فاتورة إعادة الإنشاء للأدمن فقط', 'err'); return; }
+  if (!window.GMTStock || !GMTStock.rebuild) { showToast('وحدة المخزون لم تُحمَّل — حدّث الصفحة', 'err'); return; }
+  const lines = scProducts().filter(p => _scCounts[p.id] !== undefined).map(p => _scLine(p, _scCounts[p.id]));
+  const ch = lines.filter(l => l.after !== l.before);
+  if (!ch.length) { await GMTAsk.alert('لا فرق بين ما حدّدته والمسجّل في «' + branch.name + '» — لا شيء يتغيّر.', { title: 'فاتورة إعادة إنشاء' }); return; }
+  const res = await _scIssue(ch, {});
+  if (!res || res === 'later') return;
+  const { R, how, other, rcv, by } = res;
   try { localStorage.removeItem(_scKey()); } catch (e) {}
   _scCounts = {};
   closeStockCount();
   const msg = '🧾 فاتورة إعادة إنشاء «' + branch.name + '»: ' + (R.numbers.join(' + ') || '—') + '\n' +
     '• طُبّق ' + R.applied + ' منتج' + (R.skipped ? ' · ' + R.skipped + ' صار مطابقاً قبل الاعتماد' : '') + '\n' +
-    '• ' + (how === 'move' ? 'الفرق نُقل من/إلى «' + (other.name || other.key) + '»' : 'الفرق في النقطة وحدها') + ' · المستلم: ' + String(rcv).trim() + ' · بواسطة ' + by +
+    '• ' + (how === 'move' ? 'الفرق نُقل من/إلى «' + (other.name || other.key) + '»' : 'الفرق في النقطة وحدها') + ' · المستلم: ' + String(rcv).trim() + ' (موقَّعة) · بواسطة ' + by +
     (R.failed.length ? '\n\n⚠️ لم يُطبَّق ' + R.failed.length + ':\n' + R.failed.slice(0, 12).map(f => '• ' + f.name + ' — ' + f.why).join('\n') + '\n(مذكورة في الفاتورة — أعد عدّها واعتمد فاتورةً جديدة)' : '');
-  try { sendTelegram('<b>🧾 فاتورة إعادة إنشاء</b>\nالفرع: ' + branch.name + '\nالفواتير: ' + R.numbers.join(' + ') + '\nطُبّق: ' + R.applied + (R.failed.length ? ' · لم يُطبَّق: ' + R.failed.length : '') + '\nبواسطة: ' + by).catch(() => {}); } catch (_) {}
-  try { window.GMTAudit && GMTAudit.log({ action: 'pos_rebuild', entity: 'branch_stock_transfers', entityName: R.numbers.join(' + '), reason: 'فاتورة إعادة إنشاء — ' + branch.name + ' · ' + (how === 'move' ? 'نقل من/إلى ' + other.name : 'في النقطة وحدها') }); } catch (_) {}
   await GMTAsk.alert(msg, { title: R.failed.length ? 'اكتملت مع بنودٍ لم تُطبَّق' : '✅ اكتملت فاتورة إعادة الإنشاء' });
   try { _loadProductsFromServer(false); } catch (_) {}
+}
+function _scLine(p, cnt) {
+  return { product_id: p.id, name: p.name || '', barcode: p.barcode || '', image_url: (p.image_url && !/^data:/.test(p.image_url)) ? p.image_url : '',
+    before: Number(p[branch.key]) || 0, after: Math.max(0, parseInt(cnt, 10) || 0), unit_cost: Number(p.wholesale_price) || 0, sale_price: Number(p.price) || 0 };
 }
 window.scRebuild = scRebuild; window.scBulk = scBulk; window.scNewProduct = scNewProduct;
 
@@ -10562,11 +10604,11 @@ async function openWarrantyForInvoice(){
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028x"></script>
-<script src="gmt-nofab.js?v=20261028x"></script>
+<script src="gmt-brain.js?v=20261028y"></script>
+<script src="gmt-nofab.js?v=20261028y"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028x"></script>
+<script src="gmt-whatsnew.js?v=20261028y"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -402,7 +402,8 @@
         to_branch: g.to.key, to_branch_name: g.to.name || g.to.key, status: 'rebuilding', is_locked: true,
         title: REBUILD_TITLE + ' — ' + (br.name || br.key) + (groups.length > 1 ? (g.dir === 'up' ? ' · الزيادات' : ' · النقص') : ''),
         created_by: by || null, received_by: rcv || null,
-        note: 'إعادة إنشاء «' + (br.name || br.key) + '» — ' + how + (by ? ' · اعتمدها ' + by : '') + (rcv ? ' · المستلم ' + rcv : '')
+        signature_url: opts.signatureUrl || null,        // (TASK-0237 · seq 164) «اي فاتوره نقل او تسويه او جرد فيها تاكيد من المستخدم وتوقيع»
+        note: (opts.kind ? opts.kind + ' — ' : '') + 'إعادة إنشاء «' + (br.name || br.key) + '» — ' + how + (by ? ' · اعتمدها ' + by : '') + (rcv ? ' · المستلم ' + rcv : '') + (opts.signatureUrl ? ' · موقَّعة' : '')
       }, 'return=representation');
       if (!hd.ok || !Array.isArray(hd.data) || !hd.data[0]) {
         for (var gj = 0; gj < gi; gj++) await rest('DELETE', 'branch_stock_transfers?id=eq.' + encodeURIComponent(groups[gj].id), null, 'return=minimal');
@@ -454,7 +455,7 @@
       var mate = groups.length > 1 ? groups[1 - gm].num : '';
       await rest('PATCH', 'branch_stock_transfers?id=eq.' + encodeURIComponent(G.id), {
         status: 'received', received_at: new Date().toISOString(),
-        note: 'إعادة إنشاء «' + (br.name || br.key) + '» — ' + how + (by ? ' · اعتمدها ' + by : '') + (rcv ? ' · المستلم ' + rcv : '') +
+        note: (opts.kind ? opts.kind + ' — ' : '') + 'إعادة إنشاء «' + (br.name || br.key) + '» — ' + how + (by ? ' · اعتمدها ' + by : '') + (rcv ? ' · المستلم ' + rcv : '') + (opts.signatureUrl ? ' · موقَّعة' : '') +
               (mate ? ' · مع ' + mate : '') + (bad.length ? ' | لم يُطبَّق ' + bad.length + ': ' + bad.map(function (x) { return x.l.name || x.pid; }).join('، ').slice(0, 300) : '')
       }, 'return=minimal');
       out.numbers.push(G.num);

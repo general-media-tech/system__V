@@ -32,6 +32,7 @@ const prod = (d, id) => d.products.find(p => p.id === id);
     const np = await pg.evaluate(async () => {
       const errsF = [];
       GMTAsk.form = async (m, o) => { const e1 = await o.submit({ name: 'Canon 50mm', barcode: '', price: '', qty: '1' }); errsF.push(e1.error || ''); const r = await o.submit({ name: 'حامل جديد تجريبي', barcode: 'NEW-RB', price: '25', qty: '٤' }); return r.result; };
+      GMTAsk.choose = async (m, o) => { window.__npChoices = (o.choices || []).map(x => x.k); return 'later'; };   // (TASK-0237) فاتورته «لاحقاً» مع الجرد كلّه
       await scNewProduct();
       const p = allProducts.find(x => x.name === 'حامل جديد تجريبي');
       return { dupErr: errsF[0], id: p && p.id, count: p ? _scCounts[p.id] : null };
@@ -45,6 +46,8 @@ const prod = (d, id) => d.products.find(p => p.id === id);
       const q = answers.slice(), alerts = [], choices = [];
       GMTAsk.choose = async (m, o) => { choices.push({ m: String(m).slice(0, 120), c: (o.choices || []).map(x => x.t) }); return q.shift(); };
       GMTAsk.prompt = async () => 'سامر';
+      GMTSignPad.ask = async (o) => { window.__signTitle = o.title; return { name: 'سامر', blob: new Blob(['x']), at: new Date().toISOString() }; };   // (TASK-0237) التوقيع
+      GMTSignPad.upload = async () => 'https://sig.example/s.png';
       GMTAuth.ask = async (k) => { window.__askKind = k; return true; };
       GMTAsk.alert = async (m, o) => { alerts.push(String(m)); };
       await scRebuild();
@@ -59,7 +62,7 @@ const prod = (d, id) => d.products.find(p => p.id === id);
     ok(prod(d, P1.id).haleb === 10 && prod(d, P3.id).haleb === 4, '«في النقطة وحدها» لا يمسّ فرعاً آخر (حلب كما هي)');
     let rb = d.branch_stock_transfers.filter(t => /^فاتورة إعادة إنشاء/.test(t.title || ''));
     const upT = rb.find(t => t.to_branch === 'daraa'), dnT = rb.find(t => t.from_branch === 'daraa');
-    ok(rb.length === 2 && upT && dnT && upT.from_branch === 'rebuild' && dnT.to_branch === 'rebuild' && rb.every(t => t.status === 'received' && t.is_locked !== false && t.received_by === 'سامر'),
+    ok(rb.length === 2 && upT && dnT && upT.from_branch === 'rebuild' && dnT.to_branch === 'rebuild' && rb.every(t => t.status === 'received' && t.is_locked !== false && t.received_by === 'سامر' && t.signature_url === 'https://sig.example/s.png'),
       'فاتورتا إعادة إنشاء مستلَمتان مقفلتان: الزيادات إلى درعا · النقص منها (الطرف الآخر «تعديل سيادي»): ' + JSON.stringify(rb.map(t => ({ n: t.transfer_number, f: t.from_branch, t: t.to_branch, s: t.status, title: t.title }))));
     const itUp = d.stock_transfer_items.filter(i => i.transfer_id === (upT || {}).id), itDn = d.stock_transfer_items.filter(i => i.transfer_id === (dnT || {}).id);
     ok(itUp.length === 2 && itUp.some(i => i.product_id === P1.id && i.qty === 3 && /قبل 5 ⇐ بعد 8 \(\+3\)/.test(i.notes || '')) && itUp.some(i => i.product_id === np.id && i.qty === 4) &&
