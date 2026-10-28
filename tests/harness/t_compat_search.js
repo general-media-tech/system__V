@@ -15,12 +15,12 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     const lens = { name: 'عدسة كانون 50mm f/1.8 STM', group_name: 'عدسات' };
     const T = (q, p) => GMTSuggest.hitsProduct(q, p);
     return { a: [T('هود عدسة 50 STM 1.8', es68), T('هود عدسة 50 STM 1.8', es62), T('هود عدسة 50 STM 1.8', cap), T('هود عدسة 50 STM 1.8', lens)],
-             b: [T('غطاء عدسة 24-105', cap), T('غطا 24-105', es68)], c: [T('بطارية 5D Mark IV', bat), T('بطارية R5', bat), T('بطارية 90D', bat)],
+             b: [T('غطاء عدسة 24-105', cap), T('غطا 24-105', es68)], c: [T('بطارية 5D Mark IV', bat), T('بطارية R5', bat), T('بطارية 2000D', bat)],
              d: [T('50mm', es68), T('50mm', lens), T('ES-68', es68)] };
   });
   ok(JSON.stringify(r.a) === '[true,false,false,false]', '«هود عدسة 50 STM 1.8» ⇒ ES-68 وحده (لا ES-62 ولا الغطاء ولا العدسة نفسها): ' + JSON.stringify(r.a));
   ok(JSON.stringify(r.b) === '[true,false]', '«غطاء عدسة 24-105» ⇒ غطاء 77مم («غطاء» = «غطا») لا الهود: ' + JSON.stringify(r.b));
-  ok(JSON.stringify(r.c) === '[true,true,false]', 'البطاريات: «بطارية 5D Mark IV» و«بطارية R5» تجد LP-E6NH · «بطارية 90D» لا (ليست في توافقها): ' + JSON.stringify(r.c));
+  ok(JSON.stringify(r.c) === '[true,true,false]', 'البطاريات: «بطارية 5D Mark IV» و«بطارية R5» تجد LP-E6NH · «بطارية 2000D» لا (تستعمل LP-E10 — و90D صارت تجدها من المرجع الثابت: seq 206): ' + JSON.stringify(r.c));
   ok(JSON.stringify(r.d) === '[false,true,true]', '«50mm» وحدها للعدسة لا للهود · واسم الهود نفسه يجده كما كان: ' + JSON.stringify(r.d));
   await inv.browser.close();
 

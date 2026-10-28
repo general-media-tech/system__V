@@ -172,30 +172,30 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029q"></script>
+<script src="gmt-tools.js?v=20261029r"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-24">
-  <script src="gmt-image-guard.js?v=20261029q"></script>
-  <script src="gmt-config.js?v=20261029q"></script>
-  <script src="gmt-specs.js?v=20261029q"></script>
-  <script src="gmt-brand.js?v=20261029q"></script>
+  <script src="gmt-image-guard.js?v=20261029r"></script>
+  <script src="gmt-config.js?v=20261029r"></script>
+  <script src="gmt-specs.js?v=20261029r"></script>
+  <script src="gmt-brand.js?v=20261029r"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029q"></script>
-  <script src="gmt-ledger.js?v=20261029q"></script>
+  <script src="gmt-core.js?v=20261029r"></script>
+  <script src="gmt-ledger.js?v=20261029r"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261029q" defer></script>
-  <script src="gmt-stock.js?v=20261029q" defer></script>
-  <script src="gmt-share.js?v=20261029q" defer></script>
+  <script src="gmt-ask.js?v=20261029r" defer></script>
+  <script src="gmt-stock.js?v=20261029r" defer></script>
+  <script src="gmt-share.js?v=20261029r" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029q"></script>
+  <script src="gmt-staff.js?v=20261029r"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -2692,7 +2692,15 @@ async function buildRowImageMap(arrayBuffer){
     }catch(_){}
     // احتياطي: كل ملفات الرسم الموجودة
     Object.keys(zipFiles).forEach(k=>{ if(/^xl\/drawings\/drawing\d+\.xml$/.test(k) && !drawingPaths.includes(k)) drawingPaths.push(k); });
-    if(!drawingPaths.length) return rowToImage;
+    /* (المالك seq 205 «ادخال ملفات الاكسل بدون ما تضيع صورها») الصورة **داخل الخلية** لا في طبقة الرسم:
+       ▸ WPS: الخلية فيها =DISPIMG("ID_…",1) والصورة في xl/cellimages.xml
+       ▸ Excel 365 «وضع في الخلية»: الخلية تحمل vm="n" ⇒ metadata ⇒ richData ⇒ الصورة
+       كانت تضيع كلّها (لا رسم ⇒ صفر صور). تُقرأ هنا برقم صفّها الحقيقي كالمراسي. */
+    const inCell = cellImagesMap(zipFiles, dec);
+    if(!drawingPaths.length){
+      if(Object.keys(inCell).length){ try{ window.__gmtImgOrderMode='anchored'; }catch(_){} }
+      return inCell;
+    }
 
     for(const dPath of drawingPaths){
       const drawingXml = dec(zipFiles[dPath]||'');
@@ -2763,10 +2771,66 @@ async function buildRowImageMap(arrayBuffer){
       }
       if(Object.keys(rowToImage).length) break;   // وُجدت صور في هذا الرسم — يكفي
     }
+    /* صورٌ في الخلايا مع صورٍ مرساة في الملف نفسه: ما لا صورة رسمٍ له يأخذ صورة خليته */
+    if(Object.keys(inCell).length && window.__gmtImgOrderMode!=='sequential')    // (العائمة بالترتيب لا تُخلط بأرقام الصفوف)
+      Object.keys(inCell).forEach(k=>{ if(rowToImage[k]===undefined) rowToImage[k]=inCell[k]; });
     /* تُعاد **أرقام صفوف Excel الحقيقية** (0-based كما في sheet_to_json)
        والقارئ يوائمها مع صف الرؤوس المكتشَف. لا إزاحة ثابتة هنا. */
     return rowToImage;
   }catch(e){ console.warn('buildRowImageMap:',e); return rowToImage; }
+}
+/* صور الخلايا (WPS DISPIMG · Excel 365 richData) ⇒ { رقم الصف 0-based: data URL } للورقة الأولى */
+function cellImagesMap(zipFiles, dec){
+  const out={};
+  try{
+    const mediaURL=(path)=>{
+      const data=zipFiles[path]; if(!data||typeof data==='string') return '';
+      const ext=(path.split('.').pop()||'').toLowerCase();
+      const mime=(ext==='jpg'||ext==='jpeg')?'image/jpeg':ext==='gif'?'image/gif':ext==='webp'?'image/webp':ext==='bmp'?'image/bmp':'image/png';
+      let b='';for(let j=0;j<data.length;j+=8192)b+=String.fromCharCode(...data.slice(j,Math.min(j+8192,data.length)));
+      return 'data:'+mime+';base64,'+btoa(b);
+    };
+    const relsOf=(xml)=>{const m={};[...dec(xml||'').matchAll(/<Relationship\b[^>]*>/g)].forEach(t=>{const id=t[0].match(/Id="([^"]+)"/),tg=t[0].match(/Target="([^"]+)"/);if(id&&tg)m[id[1]]=tg[1];});return m;};
+    const sheetPath=(()=>{const wb=relsOf(zipFiles['xl/_rels/workbook.xml.rels']);const w=dec(zipFiles['xl/workbook.xml']||'');const s1=w.match(/<(?:\w+:)?sheet\b[^>]*r:id="([^"]+)"/);
+      const t=s1&&wb[s1[1]]; return t?('xl/'+t.replace(/^\/?xl\//,'').replace(/^\//,'')):'xl/worksheets/sheet1.xml';})();
+    const sheet=dec(zipFiles[sheetPath]||zipFiles['xl/worksheets/sheet1.xml']||'');
+    if(!sheet) return out;
+    const rowOf=(ref)=>{const m=String(ref||'').match(/\d+/);return m?parseInt(m[0],10)-1:-1;};
+    // ① WPS: =DISPIMG("ID_…",1)
+    const ci=dec(zipFiles['xl/cellimages.xml']||'');
+    if(ci){
+      const rel=relsOf(zipFiles['xl/_rels/cellimages.xml.rels']);
+      const byName={};
+      [...ci.matchAll(/<(?:\w+:)?cellImage\b[\s\S]*?<\/(?:\w+:)?cellImage>/g)].forEach(m=>{
+        const nm=(m[0].match(/<(?:\w+:)?cNvPr\b[^>]*\bname="([^"]+)"/)||[])[1], rid=(m[0].match(/r:embed="([^"]+)"/)||[])[1];
+        if(nm&&rid&&rel[rid]) byName[nm]=rel[rid];
+      });
+      [...sheet.matchAll(/<(?:\w+:)?c\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?c>/g)].forEach(m=>{
+        const id=(m[2].match(/DISPIMG\((?:&quot;|")([^"&]+)(?:&quot;|")/)||[])[1]; if(!id||!byName[id]) return;
+        const r=rowOf((m[1].match(/\br="([^"]+)"/)||[])[1]); if(r<0||out[r]!==undefined) return;
+        const u=mediaURL('xl/'+byName[id].replace(/^\.\.\//,'').replace(/^\/?xl\//,'')); if(u) out[r]=u;
+      });
+    }
+    // ② Excel 365: vm="n" ⇒ valueMetadata ⇒ futureMetadata(rvb i) ⇒ rdrichvalue ⇒ richValueRel ⇒ الصورة
+    const rv=dec(zipFiles['xl/richData/rdrichvalue.xml']||'');
+    if(rv && /\bvm="\d+"/.test(sheet)){
+      const md=dec(zipFiles['xl/metadata.xml']||'');
+      const fut=[...md.matchAll(/<(?:\w+:)?rvb\b[^>]*\bi="(\d+)"/g)].map(m=>parseInt(m[1],10));
+      const vmeta=[];const vmBlock=(md.match(/<(?:\w+:)?valueMetadata\b[\s\S]*?<\/(?:\w+:)?valueMetadata>/)||[''])[0];
+      [...vmBlock.matchAll(/<(?:\w+:)?bk>[\s\S]*?<(?:\w+:)?rc\b[^>]*\bv="(\d+)"[\s\S]*?<\/(?:\w+:)?bk>/g)].forEach(m=>vmeta.push(parseInt(m[1],10)));
+      const rvs=[...rv.matchAll(/<(?:\w+:)?rv\b[^>]*>([\s\S]*?)<\/(?:\w+:)?rv>/g)].map(m=>{const v=m[1].match(/<(?:\w+:)?v\b[^>]*>(\d+)<\/(?:\w+:)?v>/);return v?parseInt(v[1],10):-1;});
+      const relXml=dec(zipFiles['xl/richData/richValueRel.xml']||'');
+      const relIds=[...relXml.matchAll(/<(?:\w+:)?rel\b[^>]*r:id="([^"]+)"/g)].map(m=>m[1]);
+      const rel=relsOf(zipFiles['xl/richData/_rels/richValueRel.xml.rels']);
+      [...sheet.matchAll(/<(?:\w+:)?c\b([^>]*\bvm="(\d+)"[^>]*)>/g)].forEach(m=>{
+        const r=rowOf((m[1].match(/\br="([^"]+)"/)||[])[1]); if(r<0||out[r]!==undefined) return;
+        const vm=parseInt(m[2],10); const fi=vmeta.length?vmeta[vm-1]:vm-1; const rvi=fut.length&&fi!=null&&fut[fi]!=null?fut[fi]:vm-1;
+        const relIdx=rvs[rvi]; const rid=relIds[relIdx]; const tg=rid&&rel[rid]; if(!tg) return;
+        const u=mediaURL('xl/'+tg.replace(/^\.\.\//,'').replace(/^\/?xl\//,'')); if(u) out[r]=u;
+      });
+    }
+  }catch(e){ console.warn('cellImagesMap:',e); }
+  return out;
 }
 async function extractZipFiles(buffer){
   const files={};const bytes=new Uint8Array(buffer);const PK=0x504B0304;let i=0;
@@ -2822,9 +2886,30 @@ function buildSimpleZip(files){
   for(const f of files){const fn=enc(f.name);const crc=crc32(f.data);const local=concat(new Uint8Array([0x50,0x4B,0x03,0x04]),u16le(20),u16le(0),u16le(0),u16le(0),u16le(0),u32le(crc),u32le(f.data.length),u32le(f.data.length),u16le(fn.length),u16le(0),fn,f.data);const cd=concat(new Uint8Array([0x50,0x4B,0x01,0x02]),u16le(20),u16le(20),u16le(0),u16le(0),u16le(0),u16le(0),u32le(crc),u32le(f.data.length),u32le(f.data.length),u16le(fn.length),u16le(0),u16le(0),u16le(0),u16le(0),u32le(0),u32le(offset),fn);locals.push(local);cdirs.push(cd);offset+=local.length;}
   const cdOffset=offset;const cdData=concat(...cdirs);const eocd=concat(new Uint8Array([0x50,0x4B,0x05,0x06]),u16le(0),u16le(0),u16le(files.length),u16le(files.length),u32le(cdData.length),u32le(cdOffset),u16le(0));return concat(...locals,cdData,eocd);
 }
+/* (المالك seq 205 «ادخال ملفات الاكسل بدون ما تضيع صورها») صورة الملف تُرفع لمخزن صور المنتجات لحظة الإضافة للفاتورة —
+   كانت تُحفظ نصّاً (data:…base64) داخل صفّ المنتج: ثقيلة على القاعدة، وتُفرَّغ من لقطة الفاتورة. الصورة نفسها المكرّرة تُرفع مرّة.
+   تعذّر الرفع ⇒ تبقى كما كانت (لا تضيع). */
+async function excelImgToStorage(rows){
+  const cache={};let up=0,fail=0;
+  for(const row of rows){
+    const u=row.image_url||''; if(!u.startsWith('data:'))continue;
+    if(cache[u]){row.image_url=cache[u];continue;}
+    try{
+      const mime=(u.match(/^data:([^;]+);/)||[])[1]||'image/png', ext=mime.split('/')[1].replace('jpeg','jpg');
+      const bin=atob(u.split(',')[1]||''), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+      const url=await upload('imports/xl-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext,new Blob([u8],{type:mime}));
+      cache[u]=url; row.image_url=url; up++;
+    }catch(e){fail++;console.warn('excelImgToStorage:',e);}
+  }
+  return {up,fail};
+}
 async function importExcel(){
   if(!exRows.length)return;
   btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[];
+  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase()));
+  const _toUp=exRows.filter(r=>r.name&&String(r.image_url||'').startsWith('data:')&&_isNew(r));
+  let _imgRes={up:0,fail:0};
+  if(_toUp.length){btnLoad('جارٍ رفع '+_toUp.length+' صورة…');_imgRes=await excelImgToStorage(_toUp);}
   for(const row of exRows){
     if(!row.name)continue;const nl=row.name.toLowerCase();
     /* (١١ ت١) المطابقة بالباركود أوّلاً (ملف عرض السعر) — ثم بالاسم كما كان */
@@ -2835,7 +2920,7 @@ async function importExcel(){
   }
   btnReset();renderCart();updateSum();clearExcel();
   const newCount=pendingNew.length;
-  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':''),'ok');
+  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':'')+(_imgRes.up?' · 🖼️ رُفعت '+_imgRes.up+' صورة':'')+(_imgRes.fail?' · ⚠️ '+_imgRes.fail+' صورة لم تُرفع (بقيت في الملف المحلّي)':''),_imgRes.fail?'err':'ok');
 }
 /* ════════════════════════════════════════════════════════════════════════
    📨 استيراد «ملف طلب عرض سعر» بعد أن يملأه المورّد   (١١ ت١ · Notes ١٠ ت١ ١٠:٠١ ص)
@@ -5836,19 +5921,19 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029q"></script>
+<script src="gmt-pwa.js?v=20261029r"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029q"></script>
+<script src="gmt-brain.js?v=20261029r"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029q"></script>
+<script src="gmt-whatsnew.js?v=20261029r"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029q"></script>
+<script src="gmt-nofab.js?v=20261029r"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

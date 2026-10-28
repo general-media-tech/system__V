@@ -60,7 +60,7 @@
   function load() { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (_) { return null; } }
   function persist() {
     if (!S) return;
-    try { localStorage.setItem(LS, JSON.stringify({ key: S.key, title: S.title, at: Date.now(),
+    try { localStorage.setItem(LS, JSON.stringify({ key: S.key, title: S.title, at: Date.now(), fresh: !!S.fresh,
       items: S.items.map(function (it) { return { id: it.id, st: it.st === 'run' ? 'wait' : it.st, res: it.res || null, err: it.err || '' }; }) })); } catch (_) {}
   }
 
@@ -127,7 +127,7 @@
       page_ok: !!meta.page_ok, search: web || pics ? ((web && web.provider) || (pics && pics.provider) || '') : '', search_note: searchNote,
       aliases_ar: Array.isArray(pr.aliases_ar) ? pr.aliases_ar.slice(0, 10) : [], aliases_en: Array.isArray(pr.aliases_en) ? pr.aliases_en.slice(0, 10) : [],   // (TASK-0175) أسماء البحث الأخرى
       compat_ai: !!meta.compat_added,   // (TASK-0183) توافق الإكسسوار من طلب التوافق — يُراجَع
-      compat_web: !!meta.compat_web, compat_src: (meta.compat_sources || []).slice(0, 5), kb_added: meta.kb_added || 0, compat_known: meta.compat_known || 0   // (TASK-0187) من الإنترنت ⇐ في الدليل
+      compat_web: !!meta.compat_web, compat_src: (meta.compat_sources || []).slice(0, 5), kb_added: meta.kb_added || 0, compat_known: meta.compat_known || 0, compat_ref: meta.compat_ref || 0   // (TASK-0187) من الإنترنت ⇐ في الدليل
     };
   }
 
@@ -191,8 +191,20 @@
   /* (TASK-0206 · المالك seq 135 «تقريبي … الكلمة محظورة») بندٌ تقديريّ أو «غير متوفر» لا يظهر في المراجعة ولا يُحفظ — ولو كان في الجرد من قبل */
   var UNSURE = /تقريب|approx|typical|نموذجي|غير\s*(متوفر|متوفّر|متاح|محدد|محدّد|معروف|مطبق|مطبّق)|\bN\/?A\b|unknown/i;
   function sure(k, v) { return !UNSURE.test(String(v || '')) && !UNSURE.test(String(k || '')); }
+  /* (المالك seq 205 «منتجات معبّأة تلقائياً … ارجع اعيد مره اخرى عليها لانه التعبئة الموجودة كلها سيئة»)
+     «🔁 أعد التجهيز من جديد» (S.fresh): الجديد من العقل **يحلّ محلّ** القديم — لا يُعرض القديم أوّلاً ولا يحجب صفوف الجديد بالاسم نفسه
+     (كان القديم يغلب فيبقى السيّئ كما هو). القديم يبقى ظاهراً للاطّلاع مع «↩️ أرجعه» (oldRows). */
+  function isFresh() { return !!(S && S.fresh); }
+  function oldRows(p) {
+    var base = asObj(p.specs), out = [];
+    Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) return; var v = sval(base[k]); if (v && sure(k, v)) out.push({ k: k, v: v }); });
+    return out;
+  }
+  /* لم يأتِ العقل بمواصفات (فشل/فارغ) ⇒ لا يُمسح القديم بالحفظ: يبقى كما هو */
+  function replacing(r) { return isFresh() && !!(r && r.specs && r.specs.some(function (x) { return x && x.k && x.v && sure(x.k, x.v); })); }
+  function oldDesc(p) { return isFresh() ? '' : sval(asObj(p.specs).__desc); }
   function specRows(p, r) {
-    var base = asObj(p.specs), have = {}, out = [];
+    var base = replacing(r) ? {} : asObj(p.specs), have = {}, out = [];
     Object.keys(base).forEach(function (k) { if (k.indexOf('__') === 0) return; var v = sval(base[k]); if (!v || !sure(k, v)) return; have[kNorm(k)] = 1; out.push({ k: k, v: v, orig: k }); });
     ((r && r.specs) || []).forEach(function (x) { if (!x || !x.k || !x.v || !sure(x.k, x.v)) return; var n = kNorm(x.k); if (have[n]) return; have[n] = 1; out.push({ k: x.k, v: x.v }); });
     return out;
@@ -243,11 +255,14 @@
     box.innerHTML = top + editBtn + banner + mismatch + warn +
       field('الاسم بالإنجليزية', 'name_en', r.name_en) + field('الماركة', 'brand', r.brand || p.brand || '') + field('الموديل', 'model', r.model) +
       field('الأسماء البديلة — عربي وإنجليزي (يبحث بها الجرد ونقطة البيع)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || []))) +
-      field('الوصف (يظهر في المتجر)', 'desc', sval(asObj(p.specs).__desc) || r.desc, true) +
-      '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات — المحدَّد في الجرد أوّلاً (بإطارٍ أزرق) ثمّ الجديد من العقل</span><div data-rows>' + specRows(p, r).map(rowHTML).join('') + '</div>' +
+      field('الوصف (يظهر في المتجر)', 'desc', oldDesc(p) || r.desc || (isFresh() ? sval(asObj(p.specs).__desc) : ''), true) +
+      '<div style="margin-top:10px"><span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">📋 جدول المواصفات — ' + (isFresh() ? '🔁 الجديد من العقل يحلّ محلّ القديم' : 'المحدَّد في الجرد أوّلاً (بإطارٍ أزرق) ثمّ الجديد من العقل') + '</span><div data-rows>' + specRows(p, r).map(rowHTML).join('') + '</div>' +
+      (replacing(r) && oldRows(p).length ? '<details data-old-specs style="margin-top:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:6px 10px"><summary style="cursor:pointer;font-size:12px;font-weight:800;color:#92400e">🗂️ المواصفات القديمة (' + oldRows(p).length + ') — لا تُحفظ إلّا إن أرجعتها</summary>' +
+        '<div style="font-size:12px;color:#57534e;line-height:1.8;margin-top:4px">' + oldRows(p).map(function (o) { return esc(o.k) + ': ' + esc(o.v); }).join('<br>') + '</div>' +
+        '<button type="button" data-old-back style="' + btn('#fef3c7', '#92400e') + ';font-size:12px;padding:6px 10px;margin-top:6px">↩️ أرجع القديم تحت الجديد</button></details>' : '') +
       '<button type="button" data-row-add style="' + btn('#f1f5f9', '#0f1219') + ';font-size:12px;padding:6px 10px">+ صفّ</button></div>' +
       '<div data-store-box style="margin-top:10px"></div>' +
-      field('متوافق مع' + (r.compat_web ? ' — 🌐 من الإنترنت' + (r.kb_added ? ' · أُضيف ' + r.kb_added + ' لدليل التوافقيات' : ' · في دليل التوافقيات') + ' (احذف الغلط من صفحة الدليل)'
+      field('متوافق مع' + (r.compat_ref ? ' — 📚 ' + r.compat_ref + ' من مرجع العدسات والكاميرات الثابت (كلّها بالقطر/الكود)' + (r.compat_web ? ' + 🌐 من الإنترنت' : r.compat_ai ? ' + ما زاده العقل (راجعه)' : '') : '') + (r.compat_ref ? '' : r.compat_web ? ' — 🌐 من الإنترنت' + (r.kb_added ? ' · أُضيف ' + r.kb_added + ' لدليل التوافقيات' : ' · في دليل التوافقيات') + ' (احذف الغلط من صفحة الدليل)'
         : r.compat_ai ? ' — ⚠️ من ذاكرة العقل بقواعد دليل التوافقيات — لم يُتحقَّق من الإنترنت: تأكّد من كل عدسة/جهاز قبل الحفظ (يُبحث به لاحقاً)' : ''), 'compat', r.compat, true) +
       (r.compat_web && r.compat_src && r.compat_src.length ? '<div data-compat-src style="font-size:11px;color:#526077;margin-top:4px;overflow-wrap:anywhere">مصادر التوافق: ' + r.compat_src.map(function (s) {
         var host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch (_) {}
@@ -280,7 +295,7 @@
       var st = it.store;
       if (!st || !st.loaded) { b.innerHTML = '<div style="font-size:12px;color:#526077">🛒 جارٍ قراءة المكتوب في المتجر…</div>'; return; }
       if (!st.info) { b.innerHTML = '<div style="font-size:12px;color:#526077">🛒 غير مربوط بمنتجٍ في المتجر — يُحفظ في الجرد وحده (اربطه من «الجسر»).</div>'; return; }
-      var mine = (sval(asObj(it.p.specs).__desc) || (it.res && it.res.desc) || '').split('\n').map(function (x) { return x.trim(); });
+      var mine = (oldDesc(it.p) || (it.res && it.res.desc) || '').split('\n').map(function (x) { return x.trim(); });
       var lines = String(st.info.description || '').split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
       b.innerHTML = '<span style="display:block;font-size:11.5px;font-weight:800;color:#526077;margin-bottom:4px">🛒 المكتوب في المتجر الآن — يُحفظ تحت وصفك؛ احذف ما لا تريده' + ((st.info.specs || []).length ? ' · (جدول المتجر الحالي ' + st.info.specs.length + ' صفّاً يُستبدل بجدولك)' : '') + '</span>' +
         (lines.length ? lines.map(function (l) { return '<div data-store-line style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start"><span data-t style="flex:1;min-width:0;background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px;overflow-wrap:anywhere">' + esc(l) + '</span><button type="button" data-store-del style="border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;padding:5px 9px;cursor:pointer">✕</button></div>'; }).join('')
@@ -327,7 +342,7 @@
   function cardFromRes(it) {
     var r = it.res || {};
     return { name_en: String(r.name_en || '').trim(), brand: String(r.brand || it.p.brand || '').trim(), model: String(r.model || '').trim(),
-             alt: mergeAlt(it.p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || [])), desc: (sval(asObj(it.p.specs).__desc) || String(r.desc || '')).trim(),
+             alt: mergeAlt(it.p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || [])), desc: (oldDesc(it.p) || String(r.desc || '') || (isFresh() ? sval(asObj(it.p.specs).__desc) : '')).trim(),
              compat: String(r.compat || '').trim(), rows: specRows(it.p, r), storeDesc: null };
   }
   /* (TASK-0183 · المالك seq 115 «بعد ما أعمل حفظ للجميع ما في زرّ حفظ … أغلقت الأداة وما حفظ شيء») — حفظ كل الجاهز دفعةً واحدة:
@@ -374,7 +389,7 @@
     if (f.model) specs.__model = f.model;
     var terms = [it.p.search_terms, f.name_en, f.model, f.brand].filter(Boolean).join(' ');
     var seen = {}; terms = terms.split(/\s+/).filter(function (w) { var k = w.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; }).join(' ').slice(0, 500);
-    return { specs: specs, compat: f.compat.slice(0, 1000) || null, search_terms: terms || null, brand: f.brand || it.p.brand || null,
+    return { specs: specs, compat: f.compat.slice(0, 6000) || null,      // (seq 206) كل العدسات المتوافقة — كانت تُقصّ عند ١٠٠٠ حرف (≈٢٥ عدسة) search_terms: terms || null, brand: f.brand || it.p.brand || null,
              alt_names: mergeAlt(f.alt, [f.name_en, f.model]).slice(0, 500) || null,      // الاسم الإنجليزي كما عدّلتَه يُبحث به أيضاً
              specs_source: (it.res && it.res.source) || (it.res && it.res.from_memory ? 'ai-memory' : 'alibaba'),
              specs_checked_at: new Date().toISOString(), specs_checked_by: S.operator || 'عقل النظام' };
@@ -402,6 +417,12 @@
     var it = curItem(); if (!it) return;
     var t = e.target.closest('button, [data-img-file]'); if (!t) return;
     var box = S.ov.querySelector('[data-q-card]');
+    if (t.hasAttribute('data-old-back')) {
+      var rowsEl = box.querySelector('[data-rows]'), haveK = {};
+      [].forEach.call(rowsEl.querySelectorAll('[data-k]'), function (x) { haveK[kNorm(x.value)] = 1; });
+      rowsEl.insertAdjacentHTML('beforeend', oldRows(it.p).filter(function (o) { return !haveK[kNorm(o.k)]; }).map(function (o) { return rowHTML({ k: o.k, v: o.v, orig: o.k }); }).join(''));
+      var dd = t.closest('[data-old-specs]'); if (dd) dd.remove(); return;
+    }
     if (t.hasAttribute('data-row-add')) { box.querySelector('[data-rows]').insertAdjacentHTML('beforeend', rowHTML({ k: '', v: '' })); return; }
     if (t.hasAttribute('data-row-del')) { t.closest('[data-spec-row]').remove(); return; }
     if (t.hasAttribute('data-store-del')) { t.closest('[data-store-line]').remove(); return; }
@@ -460,9 +481,10 @@
     if (!global.GMTBrain || !GMTBrain.importProduct) { if (global.showToast) showToast('عقل النظام لم يُحمَّل في هذه الصفحة', 'error'); return; }
     close(true);
     /* (TASK-0189 · المالك seq 126 «بدّي أرجع أبحث عنها») «أعد التجهيز من جديد»: لا استئناف — كل منتجٍ ينتظر العقل من جديد، والمحفوظ لا يتغيّر إلّا بحفظك */
-    var saved = o.fresh ? null : load(), byId = {};
+    /* o.resumeFresh (المالك seq 205): طابور «المعبّأة سابقاً» يكمل من حيث توقّف (ما حُفظ فيه لا يُعاد) — والزرّ «أعد التجهيز من جديد» يبدؤه من أوّله */
+    var saved0 = load(), saved = (o.fresh && !(o.resumeFresh && saved0 && saved0.key === o.key && saved0.fresh)) ? null : saved0, byId = {};
     if (saved && saved.key === o.key) (saved.items || []).forEach(function (x) { byId[String(x.id)] = x; });
-    S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, openEdit: o.openEdit || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
+    S = { key: o.key, title: o.title, fresh: !!(o.fresh || (saved && saved.key === o.key && saved.fresh)), operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, openEdit: o.openEdit || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
           items: o.products.map(function (p) { var s0 = byId[String(p.id)] || {}; return { id: p.id, p: p, st: s0.st || 'wait', res: s0.res || null, err: s0.err || '' }; }),
           cur: null, busy: false, paused: false, closed: false };
     var ready = S.items.filter(function (x) { return x.st === 'ready'; })[0]; S.cur = ready ? ready.id : (S.items[0] || {}).id;

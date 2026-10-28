@@ -81,7 +81,9 @@ async function routes(ctx) {
     !k1.some(x => /قطر الفلتر|82مم/.test(x.fits)), 'الدليل: سطران بمصدرهما والمنتج الذي وجدهما — بلا «قطر الفلتر» ولا عدسة 82مم: ' + k1.map(x => x.fits).join(' | '));
   ok(S.reqs.filter(x => x.mode === 'compat').length === 1 && S.reqs.some(x => x.mode === 'compat' && x.web), 'طلب توافقٍ واحد ببحث الإنترنت (web:true) — لا طلب ذاكرةٍ بعده');
   ok(await find('غطاء 70-200', cap) && await find('غطاء عدسة 24-105', cap), 'البحث يجد الغطاء بما في الدليل ولو لم يُحفظ في المنتج («غطاء 70-200» · «غطاء عدسة 24-105»)');
-  ok(!(await find('فلتر 70-200', filt)) && !(await find('غطاء 70-200', cap82)), 'الصنف والقطر شرط: فلتر 77مم وغطاء 82مم لا يأخذان توافق غطاء 77مم');
+  /* (seq 206) فلتر 77مم صار يجد «70-200» من المرجع الثابت (عدسات 70-200 f/2.8 قطرها 77 فعلاً) ⇒ عزل الصنف يُفحص على صفوف الدليل نفسها */
+  const isoK = await pg.evaluate(() => ({ f: GMTCompatKB.rowsFor('D77:cap', 'filter').length, c: GMTCompatKB.rowsFor('D77:cap', 'cap').length }));
+  ok(isoK.f === 0 && isoK.c === 2 && !(await find('غطاء 70-200', cap82)), 'الصنف والقطر شرط: صفوف غطاء 77مم لا تُعطى للفلتر · وغطاء 82مم لا يأخذ توافق 77مم: ' + JSON.stringify(isoK));
   const r1b = await imp(es68);
   ok(r1b.meta.kb_added === 1 && await find('هود عدسة 50 STM 1.8', es68) && !(await find('هود عدسة 50 STM 1.8', es68ii)), 'الهود بكوده: ES-68 ⇐ «هود عدسة 50 STM 1.8» · وES-68 II لا (جيلٌ آخر)');
 

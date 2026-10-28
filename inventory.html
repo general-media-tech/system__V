@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029q"></script>
+<script src="gmt-tools.js?v=20261029r"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,35 +2271,35 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029q"></script>
-  <script src="gmt-config.js?v=20261029q"></script>
-  <script src="gmt-brand.js?v=20261029q"></script>
+  <script src="gmt-image-guard.js?v=20261029r"></script>
+  <script src="gmt-config.js?v=20261029r"></script>
+  <script src="gmt-brand.js?v=20261029r"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029q"></script>
+  <script src="gmt-core.js?v=20261029r"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
-  <script src="gmt-compat-kb.js?v=20261026g"></script>
+  <script src="gmt-compat-kb.js?v=20261029r"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029q" defer></script>
+  <script src="gmt-ask.js?v=20261029r" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029q" defer></script>
-  <script src="gmt-share.js?v=20261029q" defer></script>
+  <script src="gmt-stock.js?v=20261029r" defer></script>
+  <script src="gmt-share.js?v=20261029r" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029q"></script>
-<script src="gmt-gallery.js?v=20261029q" defer></script>
-<script src="gmt-product-edit.js?v=20261029q" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029q"></script>
+<script src="gmt-specs.js?v=20261029r"></script>
+<script src="gmt-gallery.js?v=20261029r" defer></script>
+<script src="gmt-product-edit.js?v=20261029r" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029r"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029q"></script>
+  <script src="gmt-staff.js?v=20261029r"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -4963,6 +4963,10 @@ async function gmtEnrichPick() {
     if (currentGroup && currentGroup !== '__none__') cur.push(item('g:' + currentGroup, '📂 ' + currentGroup, base.filter(p => inG(p, currentGroup))));
     if (currentCategory) cur.push(item('c:' + currentCategory, '🏷️ ' + currentCategory, base.filter(p => inC(p, currentCategory))));
     if (cur.length) secs.push({ title: 'المعروض الآن', items: cur });
+    /* (المالك seq 205 «منتجات معبّأة تلقائياً … ارجع اعيد مره اخرى عليها لانه التعبئة الموجودة كلها سيئة») — المجهَّز سابقاً قسمٌ بذاته:
+       اختياره = «أعد التجهيز من جديد» تلقائياً، والجديد يحلّ محلّ القديم في البطاقة (والقديم ظاهرٌ للاطّلاع) */
+    const redo = base.filter(done);
+    if (redo.length) secs.push({ title: 'إعادة التعبئة', items: [{ k: 'x:redo', t: '🔁 المعبّأة سابقاً — أعد تعبئتها من جديد', n: redo.length, left: null }] });
     /* (TASK-0189 · المالك seq 124 «يعطيني تصنيف للأشياء اللي ما لها حالياً مواصفات») */
     const noSpecs = base.filter(p => !invHasSpecs(p));
     if (f.specs !== 'has' && noSpecs.length) secs.push({ title: 'المواصفات', items: [item('x:nospecs', '📋 كل ما ليس له مواصفات', noSpecs)] });
@@ -4981,16 +4985,16 @@ async function gmtEnrichPick() {
   const f = sel.filters || f0, k = sel.k;
   /* منتجات المتجر وحده لا تُحفظ في الجرد ⇒ تظهر في قائمة الجرد بالفلتر نفسه لتربطها أو تضيفها من «الجسر» ثمّ تجهّزها */
   if (k === 's:storeonly') { await setSpecStoreFilter(f.specs || '', 'store'); showToast('🛒 هذه في المتجر وحده — ظاهرة الآن في قائمة الجرد. اربطها أو أضفها للجرد من «الجسر»، ثمّ جهّزها.', 'info'); return; }
-  const isG = k.indexOf('g:') === 0, isS = k === 's:none', isX = k === 'x:nospecs';
-  const name = isS ? 'في الجرد وليست في المتجر' : isX ? 'كل ما ليس له مواصفات' : k.slice(2);
+  const isG = k.indexOf('g:') === 0, isS = k === 's:none', isX = k === 'x:nospecs', isR = k === 'x:redo';
+  const name = isS ? 'في الجرد وليست في المتجر' : isX ? 'كل ما ليس له مواصفات' : isR ? 'المعبّأة سابقاً — من جديد' : k.slice(2);
   const base = baseOf(f);
-  let list = isS ? base.filter(p => !invLinked(p)) : isX ? base.filter(p => !invHasSpecs(p)) : base.filter(p => isG ? inG(p, name) : inC(p, name));
-  if (sel.onlyLeft) list = list.filter(p => !done(p));
+  let list = isS ? base.filter(p => !invLinked(p)) : isX ? base.filter(p => !invHasSpecs(p)) : isR ? base.filter(done) : base.filter(p => isG ? inG(p, name) : inC(p, name));
+  if (sel.onlyLeft && !isR) list = list.filter(p => !done(p));
   if (!list.length) { showToast('لا منتجات في «' + name + '»', 'warning'); return; }
   /* مع الفلتر مفتاحٌ آخر للطابور: لا يختلط استئناف «إضاءة» كلّها باستئناف «إضاءة بلا مواصفات» */
   const qk = k + (f.specs || f.store ? '|' + (f.specs || '') + '|' + (f.store || '') : '');
   GMTEnrichQueue.open({
-    key: qk, title: name, products: list, operator: posWho(), fresh: !!sel.fresh,
+    key: qk, title: name, products: list, operator: posWho(), fresh: !!sel.fresh || isR, resumeFresh: isR && !sel.fresh,
     /* (TASK-0256 · المالك seq 177 «شاشة مراجعة واحدة») «✏️ راجِعه في صفحة المنتج» ⇐ صفحة التعديل نفسها مُعبّأة بما جهّزه العقل */
     openEdit: (p, prefill, done) => invOpenFullEdit(p.id, { prefill, onSaved: (p2) => done && done(p2) }),
     /* الحفظ متحقَّق: صفٌّ عاد من الخادم وإلّا فلم يُحفظ (الرفض الصامت لا يُقال «حُفظ») */
@@ -15435,19 +15439,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029q"></script>
+<script src="gmt-pwa.js?v=20261029r"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029q"></script>
+<script src="gmt-brain.js?v=20261029r"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029q"></script>
+<script src="gmt-whatsnew.js?v=20261029r"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029q"></script>
+<script src="gmt-nofab.js?v=20261029r"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

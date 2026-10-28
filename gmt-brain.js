@@ -423,9 +423,13 @@
   function srcOf(s) { return { url: String((s && (s.uri || s.url)) || ''), title: String((s && s.title) || '').slice(0, 160) }; }
   async function compatProduct(p, hint, o) {
     o = o || {};
-    var url = endpoint(); if (!url || !p) return null;
+    if (!p) return null;
+    var url = endpoint();
     var KB = global.GMTCompatKB, nm = String(o.pname || String(hint || '').split(' — ')[0] || '').trim();
     var k = KB && nm ? KB.keyOf({ id: o.pid, name: nm }) : null;
+    /* (المالك seq 206 «الغطاء قطر 77 ما بيعطيني كل العدسات المتوافقة») المرجع الثابت + عدسات الجرد أوّلاً — الكلّ لا عيّنة */
+    var ref = KB && KB.refFor && k ? KB.refFor(k) : [];
+    if (!url) return ref.length ? { compat: ref, note: '', web: false, via: 'ref', sources: [], key: k, webLines: [], known: 0, ref: ref.length } : null;
     if (KB && KB.load) { try { await KB.load(); } catch (_) {} }
     var known = k && KB ? KB.rowsFor(k.key, k.key.slice(0, 2) === 'P:' ? '' : k.kind).map(function (r) { return r.fits; }).slice(0, 40) : [];
     var head = [p.name_en || p.name_ar || p.name, p.brand, p.model, p.category].filter(Boolean).join(' · ');
@@ -462,22 +466,33 @@
     }
     /* ③ */
     if (!c) { var j3 = await postJSON(url, { question: q, system: COMPAT_SYS, context: {} }); c = j3 ? looseJSON(j3.answer) : null; }
-    if (!c) return null;
+    if (!c && !ref.length) return null;
+    c = c || { compat: [] };
     var srcFor = {}; lines.forEach(function (l) { if (l.src) srcFor[l.t.replace(/\s+/g, ' ').trim().slice(0, 90).toLowerCase()] = l.src; });
     var seen = {}, list = (Array.isArray(c.compat) ? c.compat : []).map(function (x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 90); })
       .filter(function (x) { var z = x.toLowerCase(); if (!x || seen[z]) return false; seen[z] = 1; return true; }).slice(0, 25);
+    var aiList = list.slice();      // ما جاء به العقل/الإنترنت نفسه — منه وحده ما يُكتب في دليل الإنترنت (بمصدره)
+    /* المرجع أوّلاً ثمّ ما زاده العقل (بلا تكرار: «Canon EF 24-105mm f/4L IS USM» بأيّ صيغة) */
+    if (ref.length) {
+      var lk = function (x) { return String(x).toLowerCase().replace(/^canon\s+/, '').replace(/\([^)]*\)/g, '').replace(/[^a-z0-9.\/-]/g, ''); }, have = {};
+      ref.forEach(function (x) { have[lk(x)] = 1; });
+      var dLine = list.filter(function (x) { return /^قطر الفلتر/.test(x); });
+      list = dLine.concat(ref, list.filter(function (x) { return !have[lk(x)] && !/^قطر الفلتر/.test(x); }));
+      list.forEach(function (x) { seen[x.toLowerCase()] = 1; });
+    }
     /* قطرٌ في اسم المنتج (77mm) ⇒ عدسةٌ قطرها المكتوب غيره تُحذف (جُرّب على الوسيط الحيّ: كان يضع عدسات 82مم في غطاء 77مم) */
     var dm = String([nm, p.name, p.name_en, p.name_ar, hint].filter(Boolean).join(' ')).match(/(\d{2,3})\s*(?:mm|مم|ملم)/i), D = dm ? dm[1] : '';
-    if (D) list = list.filter(function (x) { var m = x.match(/\((\d{2,3})\s*(?:mm|مم|ملم)\)/i); return !m || m[1] === D; });
+    var dOk = function (x) { var m = x.match(/\((\d{2,3})\s*(?:mm|مم|ملم)\)/i); return !m || m[1] === D; };
+    if (D) { list = list.filter(dOk); aiList = aiList.filter(dOk); }
     /* ما يدخل الدليل: بنود الإنترنت وحدها، بلا سطر «قطر الفلتر NNمم» (ليس جهازاً) — ونتائج المحرّك ببندٍ له مصدر فقط */
-    var webLines = !web ? [] : list.filter(function (x) { return !/^قطر الفلتر/.test(x) && (via === 'google' || srcFor[x.toLowerCase()]); }).map(function (x) {
+    var webLines = !web ? [] : aiList.filter(function (x) { return !/^قطر الفلتر/.test(x) && (via === 'google' || srcFor[x.toLowerCase()]); }).map(function (x) {
       var s = via === 'google' ? sources[0] : srcFor[x.toLowerCase()];
       return { fits: x, source_url: (s && s.url) || '', source_title: (s && s.title) || '' };
     });
     known.forEach(function (x) { if (!seen[x.toLowerCase()]) { seen[x.toLowerCase()] = 1; list.push(x); } });
     if (via === 'google') sources = sources.slice(0, 5);
     else sources = lines.filter(function (l) { return l.src; }).map(function (l) { return l.src; }).filter(function (s, i, a) { return a.findIndex(function (z) { return z.url === s.url; }) === i; }).slice(0, 5);
-    return { compat: list, note: String(c.note || '').trim().slice(0, 200), web: web && webLines.length > 0, via: via, sources: web ? sources : [], key: k, webLines: webLines, known: known.length };
+    return { compat: list, note: String(c.note || '').trim().slice(0, 200), web: web && webLines.length > 0, via: via, sources: web ? sources : [], key: k, webLines: webLines, known: known.length, ref: ref.length };
   }
   function compatList(v) { return (Array.isArray(v) ? v : String(v || '').split(/\s*[·•\n]\s*|\s*[،,;]\s+/)).map(function (x) { return String(x || '').trim(); }).filter(Boolean); }
   /* التوافق الجديد يُضاف لما كتبه المصدر (بلا تكرار) — المكتوب يبقى أوّلاً */
@@ -528,7 +543,7 @@
     }
     /* مصدر النتيجة (google · duckduckgo · memory) — غير قابل للتعداد فلا يدخل فيما يُحفظ على المنتج */
     try { Object.defineProperty(p, '_meta', { value: { engine: j.engine || '', from_memory: !!j.from_memory, searched: !!j.searched, page_ok: !!j.page_ok, sources: Array.isArray(j.sources) ? j.sources : [], completed: added, compat_added: compatAdded,
-      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, kb_added: kbAdded, no_electric: noElec, dropped_electric: dropped, dropped_unsure: droppedUnsure }, enumerable: false }); } catch (_) {}
+      compat_web: !!(cw && cw.web), compat_via: (cw && cw.via) || '', compat_sources: (cw && cw.sources) || [], compat_known: (cw && cw.known) || 0, compat_ref: (cw && cw.ref) || 0, kb_added: kbAdded, no_electric: noElec, dropped_electric: dropped, dropped_unsure: droppedUnsure }, enumerable: false }); } catch (_) {}
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -750,7 +765,7 @@
 
   function openScreen(text) {
     if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
-    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261029q';
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261029r';
     sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
     sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
     (document.head || document.documentElement).appendChild(sc);

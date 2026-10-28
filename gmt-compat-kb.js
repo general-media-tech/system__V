@@ -74,6 +74,91 @@
     return { kind: kind, keys: out };
   }
 
+  /* ══ المرجع الثابت (المالك seq 206: «البحث التلقائي في الأغطية والهودات والبطاريات ما عم يعطيني العدسات المتوافقة —
+     الغطاء قطر 77 ما بيعطيني كل العدسات المتوافقة») ══
+     بحث الإنترنت متعثّر وذاكرة العقل تعطي بضع عدسات فقط ⇒ جدولٌ ثابت لعدسات كانون (قطر الفلتر · كود الهود) وللبطاريات
+     والشواحن والقبضات وكاميراتها — يُقرأ أوّلاً ويعطي **الكل**، ثمّ يُكمَّل بعدسات الجرد نفسها (قطرها في مواصفاتها) وبما يجده العقل.
+     القيم من جداول كانون الرسمية؛ ما لم نتيقّن منه تُرك فارغاً (لا يُخمَّن). الصيغة: [الاسم · قطر الفلتر · كود الهود] */
+  var LENSES = [
+    ['RF 14-35mm f/4L IS USM', 77, 'EW-83P'], ['RF 15-35mm f/2.8L IS USM', 82, 'EW-88F'], ['RF 15-30mm f/4.5-6.3 IS STM', 67, ''],
+    ['RF 16mm f/2.8 STM', 43, 'EW-65C'], ['RF 24mm f/1.8 Macro IS STM', 52, 'EW-65C'], ['RF 28mm f/2.8 STM', 43, ''],
+    ['RF 35mm f/1.8 Macro IS STM', 52, 'EW-52'], ['RF 50mm f/1.8 STM', 43, 'ES-65B'], ['RF 50mm f/1.2L USM', 77, 'ES-83'],
+    ['RF 85mm f/2 Macro IS STM', 67, 'ET-77'], ['RF 85mm f/1.2L USM', 82, 'ET-89'], ['RF 100mm f/2.8L Macro IS USM', 67, 'ET-73C'],
+    ['RF 135mm f/1.8L IS USM', 82, 'ET-88B'], ['RF 24-50mm f/4.5-6.3 IS STM', 58, ''], ['RF 24-70mm f/2.8L IS USM', 82, 'EW-88E'],
+    ['RF 24-105mm f/4L IS USM', 77, 'EW-83N'], ['RF 24-105mm f/4-7.1 IS STM', 67, 'EW-73D'], ['RF 24-240mm f/4-6.3 IS USM', 72, 'EW-78F'],
+    ['RF 28-70mm f/2L USM', 95, 'EW-103B'], ['RF 70-200mm f/2.8L IS USM', 77, 'ET-83F'], ['RF 70-200mm f/4L IS USM', 77, ''],
+    ['RF 100-400mm f/5.6-8 IS USM', 67, 'ET-74B'], ['RF 100-500mm f/4.5-7.1L IS USM', 77, ''], ['RF 200-800mm f/6.3-9 IS USM', 95, ''],
+    ['RF 600mm f/11 IS STM', 82, ''], ['RF 800mm f/11 IS STM', 95, ''],
+    ['RF-S 18-45mm f/4.5-6.3 IS STM', 49, ''], ['RF-S 18-150mm f/3.5-6.3 IS STM', 55, 'EW-60F'], ['RF-S 55-210mm f/5-7.1 IS STM', 55, 'ET-60B'],
+    ['EF 16-35mm f/2.8L USM', 77, 'EW-83E'], ['EF 16-35mm f/2.8L II USM', 82, 'EW-88'], ['EF 16-35mm f/2.8L III USM', 82, 'EW-88D'],
+    ['EF 16-35mm f/4L IS USM', 77, 'EW-82'], ['EF 17-40mm f/4L USM', 77, 'EW-83E'], ['EF 24mm f/1.4L II USM', 77, 'EW-83K'],
+    ['EF 24mm f/2.8 IS USM', 58, 'EW-65 II'], ['EF 28mm f/2.8 IS USM', 58, 'EW-65 II'], ['EF 28mm f/1.8 USM', 58, 'EW-63 II'],
+    ['EF 35mm f/1.4L II USM', 72, 'EW-77'], ['EF 35mm f/2 IS USM', 67, 'EW-72'], ['EF 40mm f/2.8 STM', 52, 'ES-52'],
+    ['EF 50mm f/1.2L USM', 72, 'ES-78'], ['EF 50mm f/1.4 USM', 58, 'ES-71 II'], ['EF 50mm f/1.8 STM', 49, 'ES-68'], ['EF 50mm f/1.8 II', 52, 'ES-62'],
+    ['EF 85mm f/1.2L II USM', 72, 'ES-79 II'], ['EF 85mm f/1.4L IS USM', 77, 'ET-83E'], ['EF 85mm f/1.8 USM', 58, 'ET-65 III'],
+    ['EF 100mm f/2.8L Macro IS USM', 67, 'ET-73'], ['EF 100mm f/2.8 Macro USM', 58, 'ET-67'], ['EF 135mm f/2L USM', 72, 'ET-78 II'],
+    ['EF 200mm f/2.8L II USM', 72, 'ET-83B II'],
+    ['EF 24-70mm f/2.8L USM', 77, 'EW-83F'], ['EF 24-70mm f/2.8L II USM', 82, 'EW-88C'], ['EF 24-70mm f/4L IS USM', 77, 'EW-83L'],
+    ['EF 24-105mm f/4L IS USM', 77, 'EW-83H'], ['EF 24-105mm f/4L IS II USM', 77, 'EW-83M'], ['EF 24-105mm f/3.5-5.6 IS STM', 77, 'EW-83M'],
+    ['EF 28-300mm f/3.5-5.6L IS USM', 77, 'EW-83G'], ['EF 70-200mm f/2.8L USM', 77, 'ET-86'], ['EF 70-200mm f/2.8L IS USM', 77, 'ET-86'],
+    ['EF 70-200mm f/2.8L IS II USM', 77, 'ET-87'], ['EF 70-200mm f/2.8L IS III USM', 77, 'ET-87'], ['EF 70-200mm f/4L USM', 67, 'ET-74'],
+    ['EF 70-200mm f/4L IS USM', 67, 'ET-74'], ['EF 70-200mm f/4L IS II USM', 72, 'ET-78B'], ['EF 70-300mm f/4-5.6 IS II USM', 67, 'ET-74B'],
+    ['EF 70-300mm f/4-5.6L IS USM', 67, 'ET-73B'], ['EF 75-300mm f/4-5.6 III', 58, 'ET-60'], ['EF 100-400mm f/4.5-5.6L IS USM', 77, 'ET-83C'],
+    ['EF 100-400mm f/4.5-5.6L IS II USM', 77, 'ET-83D'],
+    ['EF-S 10-18mm f/4.5-5.6 IS STM', 67, 'EW-73C'], ['EF-S 10-22mm f/3.5-4.5 USM', 77, 'EW-83E'], ['EF-S 15-85mm f/3.5-5.6 IS USM', 72, 'EW-78E'],
+    ['EF-S 17-55mm f/2.8 IS USM', 77, 'EW-83J'], ['EF-S 17-85mm f/4-5.6 IS USM', 67, 'EW-73B'], ['EF-S 18-55mm f/3.5-5.6 III', 58, 'EW-60C'],
+    ['EF-S 18-55mm f/3.5-5.6 IS II', 58, 'EW-60C'], ['EF-S 18-55mm f/3.5-5.6 IS STM', 58, 'EW-63C'], ['EF-S 18-55mm f/4-5.6 IS STM', 58, 'EW-63C'],
+    ['EF-S 18-135mm f/3.5-5.6 IS', 67, 'EW-73B'], ['EF-S 18-135mm f/3.5-5.6 IS STM', 67, 'EW-73B'], ['EF-S 18-135mm f/3.5-5.6 IS USM', 67, 'EW-73D'],
+    ['EF-S 18-200mm f/3.5-5.6 IS', 72, 'EW-78D'], ['EF-S 24mm f/2.8 STM', 52, 'ES-52'], ['EF-S 55-250mm f/4-5.6 IS II', 58, 'ET-60'],
+    ['EF-S 55-250mm f/4-5.6 IS STM', 58, 'ET-63'], ['EF-S 60mm f/2.8 Macro USM', 52, 'ET-67B'],
+    ['EF-M 11-22mm f/4-5.6 IS STM', 55, 'EW-60E'], ['EF-M 15-45mm f/3.5-6.3 IS STM', 49, 'EW-53'], ['EF-M 18-55mm f/3.5-5.6 IS STM', 52, 'EW-54'],
+    ['EF-M 18-150mm f/3.5-6.3 IS STM', 55, 'EW-60F'], ['EF-M 22mm f/2 STM', 43, 'EW-43'], ['EF-M 32mm f/1.4 STM', 43, ''], ['EF-M 55-200mm f/4.5-6.3 IS STM', 52, 'ET-54B']
+  ];
+  var CAM_E6 = ['EOS 5D Mark II', 'EOS 5D Mark III', 'EOS 5D Mark IV', 'EOS 5DS', 'EOS 5DS R', 'EOS 6D', 'EOS 6D Mark II', 'EOS 7D', 'EOS 7D Mark II',
+    'EOS 60D', 'EOS 70D', 'EOS 80D', 'EOS 90D', 'EOS R', 'EOS Ra', 'EOS R5', 'EOS R6', 'EOS R6 Mark II', 'EOS R7'];
+  var CAM_E17 = ['EOS 750D', 'EOS 760D', 'EOS 77D', 'EOS 800D', 'EOS 200D', 'EOS 250D', 'EOS 850D', 'EOS M3', 'EOS M5', 'EOS M6', 'EOS M6 Mark II', 'EOS RP', 'EOS R8', 'EOS R10', 'EOS R50', 'EOS R100'];
+  var BAT = {
+    LPE6: CAM_E6, LPE6N: CAM_E6, LPE6NH: CAM_E6, LPE17: CAM_E17,
+    LPE10: ['EOS 1100D', 'EOS 1200D', 'EOS 1300D', 'EOS 2000D', 'EOS 4000D'],
+    LPE12: ['EOS M', 'EOS M2', 'EOS M10', 'EOS M50', 'EOS M50 Mark II', 'EOS M100', 'EOS M200', 'EOS 100D'],
+    LPE8: ['EOS 550D', 'EOS 600D', 'EOS 650D', 'EOS 700D'], LPE5: ['EOS 450D', 'EOS 500D', 'EOS 1000D'],
+    NB13L: ['PowerShot G7 X', 'PowerShot G7 X Mark II', 'PowerShot G7 X Mark III', 'PowerShot G5 X', 'PowerShot G5 X Mark II', 'PowerShot G9 X', 'PowerShot G9 X Mark II',
+      'PowerShot SX620 HS', 'PowerShot SX720 HS', 'PowerShot SX730 HS', 'PowerShot SX740 HS']
+  };
+  var CHARGER = { LCE6: 'LPE6', LCE6E: 'LPE6', LCE17: 'LPE17', LCE17E: 'LPE17', LCE10: 'LPE10', LCE10E: 'LPE10', LCE12: 'LPE12', LCE12E: 'LPE12', LCE8: 'LPE8', LCE8E: 'LPE8' };
+  var GRIP = { BGE14: ['EOS 70D', 'EOS 80D', 'EOS 90D'], BGE13: ['EOS 6D'], BGE21: ['EOS 6D Mark II'], BGE16: ['EOS 7D Mark II'], BGE11: ['EOS 5D Mark III', 'EOS 5DS', 'EOS 5DS R'],
+    BGE20: ['EOS 5D Mark IV'], BGE22: ['EOS R'], BGR10: ['EOS R5', 'EOS R6', 'EOS R6 Mark II'] };
+  function hk(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function lensTxt(l) { return 'Canon ' + l[0] + ' (' + l[1] + 'مم)'; }
+  /* عدسات الجرد نفسه بقطر فلترها في مواصفاتها (أو في اسمها «Ø77») — قائمة المنتجات المحمّلة في الصفحة */
+  function catalogLenses(D) {
+    var all = (global.allProducts || global.products || global.prods || []), out = [];
+    if (!Array.isArray(all)) return out;
+    all.forEach(function (q) {
+      if (!q || !q.name || kindOf(textOf(q)) !== 'other' || !/عدس|lens|\b(RF|EF|EF-S|EF-M|RF-S)\b/i.test(textOf(q) + ' ' + (q.category || ''))) return;
+      var sp = q.specs && typeof q.specs === 'object' ? q.specs : {}, hit = false;
+      Object.keys(sp).forEach(function (k) { if (!hit && /قطر|filter|فلتر/i.test(k) && new RegExp('(^|\\D)' + D + '(\\D|$)').test(lat(String(sp[k])))) hit = true; });
+      if (!hit && new RegExp('[Øø⌀]\\s*' + D + '(\\D|$)').test(lat(q.name))) hit = true;
+      if (hit) out.push(String(q.name).replace(/\s+/g, ' ').trim().slice(0, 80) + ' (' + D + 'مم)');
+    });
+    return out;
+  }
+  /* «متوافق مع» من المرجع الثابت + الجرد لمفتاح الدليل (keyOf) */
+  function refFor(k) {
+    if (!k || !k.key) return [];
+    var out = [], m = k.key.match(/^D(\d{2,3}):(cap|filter|hood)$/);
+    if (m) {
+      var D = +m[1];
+      LENSES.forEach(function (l) { if (l[1] === D) out.push(lensTxt(l)); });
+      catalogLenses(D).forEach(function (x) { out.push(x); });
+    } else if (k.kind === 'hood') {
+      LENSES.forEach(function (l) { if (l[2] && hk(l[2]) === hk(k.key)) out.push(lensTxt(l)); });
+    } else if (k.kind === 'battery' && BAT[hk(k.key)]) { out = BAT[hk(k.key)].map(function (c) { return 'Canon ' + c; }); }
+    else if (k.kind === 'charger' && CHARGER[hk(k.key)]) { var b = CHARGER[hk(k.key)]; out = ['بطارية ' + b.replace(/^LPE/, 'LP-E')].concat(BAT[b].map(function (c) { return 'Canon ' + c; })); }
+    else if (k.kind === 'grip' && GRIP[hk(k.key)]) { out = GRIP[hk(k.key)].map(function (c) { return 'Canon ' + c; }); }
+    var seen = {}; return out.filter(function (x) { var z = x.toLowerCase(); if (seen[z]) return false; seen[z] = 1; return true; });
+  }
+
   /* ── التحميل والذاكرة المحلية ── */
   function index() { S.idx = {}; S.rows.forEach(function (r) { (S.idx[r.item_key] = S.idx[r.item_key] || []).push(r); }); S.ver++; }
   function toCache() { try { localStorage.setItem(LS, JSON.stringify({ at: S.at, rows: S.rows })); } catch (_) {} }
@@ -111,10 +196,11 @@
   function fitsFor(p) {
     if (!p || typeof p !== 'object') return '';
     if (!loading && Date.now() - Math.max(S.at, S.tried) > TTL) load();
-    if (!S.rows.length) return '';
     var sig = textOf(p) + '|' + p.id + '|' + S.ver, c = _PK && _PK.get(p);
     if (c && c.sig === sig) return c.v;
     var kp = keysOf(p), seen = {}, list = [];
+    /* (seq 206) المرجع الثابت أيضاً: «غطاء لعدسة 24-105» يجد غطاء 77 ولو لم يُكتب توافقه */
+    var k0 = keyOf(p); (k0 && k0.key.slice(0, 2) !== 'P:' ? refFor(k0) : []).forEach(function (x) { if (!seen[x]) { seen[x] = 1; list.push(x); } });
     kp.keys.forEach(function (k) {
       (S.idx[k] || []).forEach(function (r) { if ((k.slice(0, 2) === 'P:' || r.kind === kp.kind) && !seen[r.fits]) { seen[r.fits] = 1; list.push(r.fits); } });
     });
@@ -163,6 +249,6 @@
   }
 
   global.GMTCompatKB = { load: load, ready: ready, rows: function () { return S.rows; }, keyOf: keyOf, keysOf: keysOf, kindOf: kindOf, codesOf: codesOf, diamOf: diamOf,
-    fitsFor: fitsFor, rowsFor: rowsFor, add: add, remove: remove };
+    fitsFor: fitsFor, rowsFor: rowsFor, refFor: refFor, _lenses: LENSES, add: add, remove: remove };
   if (typeof setTimeout === 'function') setTimeout(function () { load(); }, 1200);
 })(typeof window !== 'undefined' ? window : this);
