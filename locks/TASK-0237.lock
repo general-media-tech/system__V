@@ -1,7 +1,0 @@
-task: TASK-0237
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-signpad.js gmt-stock.js pos.html sw.js tests/harness/t_pos_signed_invoice.js
-claimed_at: 2026-10-28T07:46:21Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0237
