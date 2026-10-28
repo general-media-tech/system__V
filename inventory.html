@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261028v"></script>
+<script src="gmt-tools.js?v=20261028w"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,12 +2271,12 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261028v"></script>
+  <script src="gmt-image-guard.js?v=20261028w"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261028v"></script>
+  <script src="gmt-brand.js?v=20261028w"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261028v"></script>
+  <script src="gmt-core.js?v=20261028w"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-compat-kb.js?v=20261026g"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
@@ -2287,17 +2287,17 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-ask.js?v=20261025r" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
   <script src="gmt-stock.js?v=20261025e" defer></script>
-  <script src="gmt-share.js?v=20261028v" defer></script>
+  <script src="gmt-share.js?v=20261028w" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261028v"></script>
-<script src="gmt-gallery.js?v=20261028v" defer></script>
-<script src="gmt-product-edit.js?v=20261028v" defer></script>
-<script src="gmt-enrich-queue.js?v=20261028v"></script>
+<script src="gmt-specs.js?v=20261028w"></script>
+<script src="gmt-gallery.js?v=20261028w" defer></script>
+<script src="gmt-product-edit.js?v=20261028w" defer></script>
+<script src="gmt-enrich-queue.js?v=20261028w"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -3091,7 +3091,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
             <h3 class="pm2-h"><span>١</span> الأساس</h3>
             <div class="form-group">
               <label class="form-label"><span class="required">*</span> اسم المنتج</label>
-              <input type="text" id="f-name" class="form-input" placeholder="مثال: Canon EOS 80D" oninput="pm2Sync()">
+              <input type="text" id="f-name" class="form-input" placeholder="مثال: Canon EOS 80D" oninput="pm2Sync()" onchange="pm2AutoBrand()">
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -3112,7 +3112,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
               </div>
               <div class="form-group">
                 <label class="form-label">الماركة</label>
-                <input type="text" id="f-brand" class="form-input" placeholder="Canon · Sony · Godox…" list="pm2-brand-list">
+                <input type="text" id="f-brand" class="form-input" placeholder="Canon · Sony · Godox…" list="pm2-brand-list" oninput="this.dataset.auto=''">
                 <datalist id="pm2-brand-list"></datalist>
               </div>
             </div>
@@ -4765,7 +4765,7 @@ window.openMissingReport = openMissingReport;
         else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
         else if (k === 'tr') stFromSelection([p.id]);
         else if (k === 'bc') { navigator.clipboard.writeText(p.barcode); showToast('نُسخ الباركود', 'success'); }
-        else if (k === 'ali') gmtSpecsFromAlibaba(p.id);
+        else if (k === 'ali') { try { closeModal('detail-modal'); } catch (_) {} invOpenFullEdit(p.id, { autoSpecs: true }); }   // (TASK-0233) في صفحة التعديل نفسها
       } catch (er) { showToast('تعذّر: ' + er.message, 'error'); }
     };
   });
@@ -5102,10 +5102,10 @@ function gmtManageProduct(id) {
       <button type="button" data-k="x" style="border:0;background:#e2e8f0;border-radius:10px;padding:7px 13px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button>
     </div>
     <div style="display:grid;gap:8px">
-      ${tile('edit', 'تعديل بيانات المنتج', 'الاسم · المجموعة والتصنيف · الماركة · الأسماء البديلة · الأسعار · الصور · الكميّات', 1)}
+      ${tile('edit', 'تعديل المنتج', 'كل شيء في مكانٍ واحد: الاسم · المجموعة والتصنيف · الماركة (تلقائياً) · الأسماء البديلة · الصورة · الأسعار · جدول المواصفات · المتجر', 1)}
       ${tile('store', 'المتجر الإلكتروني', 'وصف المنتج وصوره وسعره ورابطه في المتجر — تُفتح صفحة المنتج في إدارة المتجر', 1)}
       ${storeOpen ? tile('view', 'عرض المنتج في المتجر', 'كما يراه الزبون الآن') : ''}
-      ${tile('ali', 'المواصفات التلقائية', 'يبحث العقل بصورة المنتج واسمه الموجودَين عندك (علي بابا وغيره) — تراجعها قبل الحفظ', 1)}
+      ${tile('ali', 'المواصفات التلقائية', 'تُفتح صفحة تعديل المنتج ويبحث العقل بصورته واسمه (علي بابا وغيره) ويعبّئها — تراجعها ثمّ تحفظ', 1)}
       ${tile('mov', 'حركة المنتج', 'بيع · إرجاع · نقل · شراء')}
       ${tile('tr', 'فاتورة نقل لهذا المنتج', 'بين الفروع — بكمية تحدّدها', 1)}
     </div></div>`;
@@ -5116,10 +5116,10 @@ function gmtManageProduct(id) {
     if (k === 'x') { ov.remove(); return; }
     ov.remove();
     try {
-      if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} openProductModal(p.id); }
+      if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} invOpenFullEdit(p.id); }
       else if (k === 'store') window.open('admin_store.html?edit=inv:' + encodeURIComponent(p.id) + '&bc=' + encodeURIComponent(p.barcode || '') + '&n=' + encodeURIComponent(p.name || ''), '_blank', 'noopener');
       else if (k === 'view') window.open(invStoreLink(p.store_url), '_blank', 'noopener');
-      else if (k === 'ali') gmtSpecsFromAlibaba(p.id);
+      else if (k === 'ali') { try { closeModal('detail-modal'); } catch (_) {} invOpenFullEdit(p.id, { autoSpecs: true }); }   // (TASK-0233) في صفحة التعديل نفسها
       else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
       else if (k === 'tr') { try { closeModal('detail-modal'); } catch (_) {} stFromSelection([p.id]); }
     } catch (er) { showToast('تعذّر: ' + (er && er.message || er), 'error'); }
@@ -7073,11 +7073,13 @@ function openDetailModal(id) {
   if (!p) return;
 
   document.getElementById('detail-modal-title').textContent = p.name;
+  /* (TASK-0233 · المالك seq 161) «ادمج هذه في صفحه تعديل المنتج … كل مواصفات المنتج في مكان واحد»: «✏️ تعديل» يفتح صفحة التعديل الواحدة
+     (الجرد · الماركة تلقائياً · الصورة · الأسعار · جدول المواصفات والمواصفات التلقائية · المتجر). الكميّات: زرّ «📦 الكميّات» فيها. */
   document.getElementById('detail-edit-btn').onclick = () => {
     closeModal('detail-modal');
-    openProductModal(id);
+    invOpenFullEdit(id);
   };
-  { const fb = document.getElementById('detail-full-btn'); if (fb) fb.onclick = () => { closeModal('detail-modal'); invOpenFullEdit(id); }; }
+  { const fb = document.getElementById('detail-full-btn'); if (fb) { fb.style.display = 'none'; fb.onclick = () => { closeModal('detail-modal'); invOpenFullEdit(id); }; } }
 
   const total = getTotal(p);
   const branchCols = columns.filter(c => c.includeInTotal);
@@ -8081,13 +8083,16 @@ function previewUrlImage(url) {
 // ============================================
 /* (TASK-0201 · المالك seq 133 «صفحه تعديل بيانات المنتج … بعدل فيه كل شيء … حتى الاسعار» · «هذه الصلاحيات يجب ان تكون فقط في الادمن»)
    صفحة التعديل الشامل (gmt-product-edit.js) — للأدمن وحده. الجرد يُكتب عبر sbFetch نفسه (حارس «الجرد يتحدّث» · أعمدة SQL الناقصة) */
-async function invOpenFullEdit(id) {
+async function invOpenFullEdit(id, opt) {
+  opt = opt || {};
   const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
   if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('تعديل كل بيانات المنتج'))) return;
   if (!window.GMTProductEdit) { showToast('صفحة التعديل لم تُحمَّل بعد — أعد المحاولة', 'error'); return; }
   const uniq = a => [...new Set(a.filter(Boolean).map(String))].sort((x, y) => x.localeCompare(y, 'ar'));
   GMTProductEdit.open(p, {
     groups: uniq(allProducts.map(x => x.group_name)), categories: uniq(allProducts.map(x => x.category)),
+    brands: uniq(allProducts.map(x => x.brand)), autoSpecs: !!opt.autoSpecs,     // (TASK-0233) الماركة التلقائية من ماركات منتجاتك · المواصفات التلقائية في الصفحة نفسها
+    onQuick: p2 => openProductModal(p2.id),                                        // «📦 الكميّات» ⇐ النافذة السريعة
     saveInv: async patch => {
       let r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, patch);
       if (r.error && /category|brand|alt_names|search_terms|PGRST204|schema cache/i.test(String(r.error))) {
@@ -8102,6 +8107,14 @@ async function invOpenFullEdit(id) {
   });
 }
 window.invOpenFullEdit = invOpenFullEdit;
+/* (TASK-0233 · seq 161) «تتعبى هي الماركه تلقائيا» — في نافذة إضافة منتج أيضاً: الماركة الفارغة تُستنتج من الاسم (ماركات منتجاتك + الشائعة) */
+function pm2AutoBrand() {
+  const b = document.getElementById('f-brand'), n = document.getElementById('f-name');
+  if (!b || !n || !window.GMTProductEdit || !GMTProductEdit.guessBrand || (b.value.trim() && b.dataset.auto !== '1')) return;
+  const g = GMTProductEdit.guessBrand({ name: n.value }, [...new Set(allProducts.map(x => x.brand).filter(Boolean))]);
+  if (g && g !== b.value) { b.value = g; b.dataset.auto = '1'; }
+}
+window.pm2AutoBrand = pm2AutoBrand;
 /* (TASK-0197) عارض صور المنتج: صورة الجرد ثمّ صور منتج المتجر المربوط (gmt-gallery.js) — وإلّا المكبّر القديم بصورةٍ واحدة */
 function invOpenGallery(id) {
   const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
@@ -15320,16 +15333,16 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028v"></script>
+<script src="gmt-brain.js?v=20261028w"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028v"></script>
+<script src="gmt-whatsnew.js?v=20261028w"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261028v"></script>
+<script src="gmt-nofab.js?v=20261028w"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

@@ -28,6 +28,30 @@
     if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
     return (await r.json())[0] || null;
   }
+  /* (TASK-0233 · المالك seq 161) «… وايضا تتعبى هي الماركه تلقائيا»: الماركة الفارغة تُستنتج من الاسم والأسماء الأخرى وجدول المواصفات —
+     من ماركات منتجاتك الموجودة (ctx.brands) + قائمة الماركات الشائعة · وبالعربية (كانون · سوني …). تُكتب في الحقل «تلقائياً» قابلةً للتعديل. */
+  var BRANDS = ['Canon', 'Sony', 'Nikon', 'Fujifilm', 'Panasonic', 'Olympus', 'Leica', 'Godox', 'SanDisk', 'Lexar', 'Kingston', 'Samsung', 'Sigma', 'Tamron', 'Tokina', 'Viltrox',
+    'Yongnuo', 'Meike', '7artisans', 'DJI', 'Zhiyun', 'GoPro', 'Insta360', 'Rode', 'Boya', 'Saramonic', 'Hollyland', 'Manfrotto', 'Benro', 'Ulanzi', 'SmallRig', 'Neewer',
+    'Aputure', 'Profoto', 'Elinchrom', 'Westcott', 'Nanlite', 'Jinbei', 'Hoya', 'K&F Concept', 'Epson', 'HP', 'Peak Design', 'Lowepro', 'Vanguard', 'Feiyu', 'Moza', 'Sirui'];
+  var AR = { 'كانون': 'Canon', 'كانن': 'Canon', 'سوني': 'Sony', 'نيكون': 'Nikon', 'فوجي': 'Fujifilm', 'فوجي فيلم': 'Fujifilm', 'باناسونيك': 'Panasonic', 'غودوكس': 'Godox', 'جودوكس': 'Godox',
+    'قودوكس': 'Godox', 'سانديسك': 'SanDisk', 'سان ديسك': 'SanDisk', 'ليكسار': 'Lexar', 'كينغستون': 'Kingston', 'سامسونغ': 'Samsung', 'سيغما': 'Sigma', 'سيجما': 'Sigma', 'تامرون': 'Tamron',
+    'يونغنو': 'Yongnuo', 'دي جي آي': 'DJI', 'ژيون': 'Zhiyun', 'زيون': 'Zhiyun', 'غوبرو': 'GoPro', 'رود': 'Rode', 'بويا': 'Boya', 'مانفروتو': 'Manfrotto', 'أولانزي': 'Ulanzi', 'سمول ريغ': 'SmallRig', 'نيوير': 'Neewer' };
+  function guessBrand(p, known) {
+    p = p || {}; var sp = asObj(p.specs);
+    var direct = String(p.brand || sp.__brand || sp['الماركة'] || sp['العلامة التجارية'] || sp.Brand || sp.brand || '').trim();
+    if (direct) return direct;
+    var list = [], seen = {};
+    [].concat(known || [], BRANDS).forEach(function (b) { b = String(b || '').trim(); var k = b.toLowerCase(); if (b && b.length > 1 && !seen[k]) { seen[k] = 1; list.push(b); } });
+    list.sort(function (a, b) { return b.length - a.length; });      // الأطول أوّلاً («K&F Concept» قبل «K»)
+    var hay = [p.name, p.short, p.alt_names, p.search_terms].filter(Boolean).join(' · ');
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i], re = new RegExp('(^|[^A-Za-z0-9])' + b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9])', 'i');
+      if (re.test(hay)) return b;
+    }
+    var ar = Object.keys(AR).sort(function (a, b) { return b.length - a.length; });
+    for (var j = 0; j < ar.length; j++) if (hay.indexOf(ar[j]) !== -1) return AR[ar[j]];
+    return '';
+  }
   function css() {
     if (doc.getElementById('gmt-pe-css')) return;
     var s = doc.createElement('style'); s.id = 'gmt-pe-css';
@@ -50,7 +74,10 @@
       '#gmt-pe .pe-imgs{display:flex;flex-wrap:wrap;gap:8px}#gmt-pe .pe-img{width:92px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#f9fafb}' +
       '#gmt-pe .pe-img img{width:92px;height:92px;object-fit:cover;display:block}#gmt-pe .pe-img div{display:flex;justify-content:space-between}#gmt-pe .pe-img button{border:0;border-radius:0;padding:4px 8px;background:transparent}' +
       '#gmt-pe .pe-cats{display:flex;flex-wrap:wrap;gap:6px}#gmt-pe .pe-cats label{display:inline-flex;align-items:center;border:1px solid #e5e7eb;border-radius:999px;padding:5px 10px;margin:0;font-weight:700}' +
-      '#gmt-pe .pe-note{font-size:12px;color:#6b7280;line-height:1.7;margin:4px 0 0}#gmt-pe .pe-msg{font-size:12.5px;font-weight:800;padding:0 12px 8px;min-height:18px}';
+      '#gmt-pe .pe-note{font-size:12px;color:#6b7280;line-height:1.7;margin:4px 0 0}#gmt-pe .pe-msg{font-size:12.5px;font-weight:800;padding:0 12px 8px;min-height:18px}' +
+      '#gmt-pe h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#gmt-pe h3 button{margin-inline-start:auto;font-size:12px;padding:6px 10px}' +
+      '#gmt-pe [data-auto="1"]{border-color:#93c5fd;background:#eff6ff}#gmt-pe .pe-auto{font-size:11px;font-weight:800;color:#1d4ed8;margin-inline-start:6px}' +
+      '#gmt-pe .pe-invimg{display:flex;gap:8px;align-items:center}#gmt-pe .pe-invimg img{width:56px;height:56px;object-fit:contain;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;flex-shrink:0}';
     (doc.head || doc.documentElement).appendChild(s);
   }
 
@@ -67,7 +94,9 @@
     var root = doc.createElement('div'); root.id = 'gmt-pe'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('data-keep-fab', '1');
     var dl = function (id, list) { return '<datalist id="' + id + '">' + (list || []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; };
     root.innerHTML =
-      '<div class="pe-top"><button type="button" data-pe-x aria-label="إغلاق">✕</button><b>✏️ تعديل كلّ بيانات المنتج — ' + esc(p.name) + '</b><button type="button" class="p" data-pe-save>💾 احفظ</button></div>' +
+      '<div class="pe-top"><button type="button" data-pe-x aria-label="إغلاق">✕</button><b>✏️ تعديل المنتج — ' + esc(p.name) + '</b>' +
+        (ctx.onQuick ? '<button type="button" data-pe-quick title="الكميّات في الفروع — النافذة السريعة">📦 الكميّات</button>' : '') +
+        '<button type="button" class="p" data-pe-save>💾 احفظ</button></div>' +
       '<div class="pe-msg" role="status" data-pe-msg></div>' +
       '<div class="pe-body">' +
         '<section><h3>📦 الجرد</h3>' +
@@ -75,16 +104,18 @@
           '<div class="pe-2"><label>الاسم المختصر<input data-f="short" value="' + esc(p.short) + '"></label><label>الباركود<input data-f="barcode" dir="ltr" value="' + esc(p.barcode) + '"></label></div>' +
           '<div class="pe-2"><label>المجموعة<input data-f="group_name" list="pe-groups" value="' + esc(p.group_name) + '"></label><label>التصنيف<input data-f="category" list="pe-cats" value="' + esc(p.category) + '"></label></div>' +
           dl('pe-groups', ctx.groups) + dl('pe-cats', ctx.categories) +
-          '<label>الماركة<input data-f="brand" value="' + esc(p.brand || sp0.__brand) + '"></label>' +
+          '<label>الماركة<span class="pe-auto" data-pe-brandnote hidden>🔎 تلقائياً — تأكّد</span><input data-f="brand" list="pe-brands" value="' + esc(p.brand || sp0.__brand) + '"></label>' + dl('pe-brands', ctx.brands) +
           '<label>الأسماء الأخرى (عربي وإنجليزي — بينها فاصلة)<textarea data-f="alt_names" rows="2">' + esc(p.alt_names) + '</textarea></label>' +
           '<p class="pe-note">الأسماء الأخرى تُضاف لكلمات البحث: الجرد ونقطة البيع والأوردرات يجدون المنتج بها.</p>' +
+          /* (TASK-0233) صورة الجرد هنا أيضاً — كانت في نافذة «تعديل المنتج» وحدها */
+          '<label>صورة الجرد (رابط)<div class="pe-invimg"><img data-pe-invprev alt="" src="' + esc(p.image_url) + '"' + (p.image_url ? '' : ' hidden') + '><input data-f="image_url" dir="ltr" placeholder="https://…" value="' + esc(p.image_url) + '"></div></label>' +
         '</section>' +
         '<section><h3>💲 الأسعار</h3>' +
           '<div class="pe-2"><label>سعر البيع $<input data-f="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.price) + '"></label><label>سعر الجملة $<input data-f="wholesale_price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.wholesale_price) + '"></label></div>' +
           '<div class="pe-2"><label>الحدّ الأدنى للمخزون<input data-f="min_stock" type="number" step="1" min="0" value="' + esc(p.min_stock) + '"></label><label>التكلفة $ (للقراءة)<input value="' + esc(p.cost_price) + '" disabled></label></div>' +
           '<div data-pe-sprice></div>' +
         '</section>' +
-        '<section class="pe-wide"><h3>📋 جدول المواصفات</h3><div data-pe-rows></div>' +
+        '<section class="pe-wide"><h3>📋 جدول المواصفات' + (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') + '</h3><div data-pe-rows></div>' +
           '<button type="button" data-pe-addrow>+ بند</button>' +
           '<div class="pe-2" style="margin-top:10px"><label>الموديل<input data-f="__model" value="' + esc(sp0.__model) + '"></label><label>التوافق (متوافق مع)<input data-f="compat" value="' + esc(p.compat) + '"></label></div>' +
           '<label>الوصف<textarea data-f="__desc" rows="3">' + esc(sp0.__desc) + '</textarea></label>' +
@@ -108,6 +139,45 @@
     rows0.forEach(function (r) { addRow(r.k, r.v, r.ax); });
     if (!rows0.length) addRow('', '');
     $('[data-pe-addrow]').onclick = function () { addRow('', '').querySelector('input').focus(); };
+    /* (TASK-0233) الماركة الفارغة ⇒ تُستنتج تلقائياً (قابلة للتعديل) */
+    var brandEl = $('[data-f="brand"]'), brandNote = $('[data-pe-brandnote]');
+    function autoBrand(src) {
+      if (brandEl.value.trim() && brandEl.dataset.auto !== '1') return;
+      var g = guessBrand(src || p, ctx.brands);
+      if (g && g !== brandEl.value) { brandEl.value = g; brandEl.dataset.auto = '1'; brandNote.hidden = false; }
+    }
+    brandEl.addEventListener('input', function () { brandEl.dataset.auto = ''; brandNote.hidden = true; });
+    autoBrand();
+    $('[data-f="name"]').addEventListener('change', function () { autoBrand({ name: this.value, alt_names: $('[data-f="alt_names"]').value, specs: p.specs }); });
+    var imgIn = $('[data-f="image_url"]'), imgPrev = $('[data-pe-invprev]');
+    imgIn.addEventListener('change', function () { var u = imgIn.value.trim(); imgPrev.hidden = !u; if (u) imgPrev.src = u; });
+    /* (TASK-0233 · seq 161) «ادمج … مع تعديل بيانات تلقائيه … كل مواصفات المنتج في مكان واحد»: المواصفات التلقائية تعبّئ هذه الصفحة نفسها
+       (الجدول · الوصف · الموديل · الماركة · التوافق · الأسماء الأخرى) — لا تحفظ وحدها: تراجعها هنا ثمّ «💾 احفظ». */
+    function fillFromAuto(pr) {
+      pr = pr || {}; var n = 0;
+      (pr.specs || []).forEach(function (x) {
+        var k = x && String(x.k || '').trim().slice(0, 60), v = x && String(x.v == null ? '' : x.v).trim().slice(0, 300); if (!k || !v) return;
+        var row = [].filter.call(rowsEl.querySelectorAll('.pe-row'), function (r) { return r.querySelector('[data-rk]').value.trim() === k; })[0]
+          || [].filter.call(rowsEl.querySelectorAll('.pe-row'), function (r) { return !r.querySelector('[data-rk]').value.trim() && !r.querySelector('[data-rv]').value.trim(); })[0];
+        if (!row) row = addRow('', '');
+        row.querySelector('[data-rk]').value = k; row.querySelector('[data-rv]').value = v; n++;
+      });
+      var set = function (f, v, always) { var e = $('[data-f="' + f + '"]'); v = String(v || '').trim(); if (e && v && (always || !e.value.trim() || e.dataset.auto === '1')) { e.value = v; e.dataset.auto = '1'; } };
+      set('__desc', pr.description_ar, true); set('__model', pr.model); set('compat', Array.isArray(pr.compat) ? pr.compat.join(' · ') : pr.compat);
+      if (pr.brand) { set('brand', pr.brand); brandNote.hidden = false; }
+      var alt = $('[data-f="alt_names"]'), have = alt.value.split(/[،,|·\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      [].concat(pr.aliases_ar || [], pr.aliases_en || [], pr.name_en ? [pr.name_en] : []).forEach(function (a) { a = String(a || '').trim(); if (a && !have.some(function (x) { return x.toLowerCase() === a.toLowerCase(); })) have.push(a); });
+      alt.value = have.join('، ');
+      if (pr.source_url) S.source = pr.source_url;
+      say('🤖 عُبّئت ' + n + ' مواصفة' + (pr.description_ar ? ' والوصف' : '') + ' — راجعها ثمّ «💾 احفظ»');
+      try { rowsEl.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_) {}
+    }
+    var autoB = $('[data-pe-auto]');
+    if (autoB) autoB.onclick = function () {
+      GMTBrain.productImportDialog(async function (pr) { fillFromAuto(pr); }, { url: '', name: $('[data-f="name"]').value.trim() || p.name || '', imageUrl: imgIn.value.trim() || p.image_url || '' });
+    };
+    var quickB = $('[data-pe-quick]');
+    if (quickB) quickB.onclick = function () { close(); ctx.onQuick(p); };
     /* المتجر */
     var S = { rec: null, sp: null, imgs: [], cats: [] };
     function paintImgs() {
@@ -166,7 +236,8 @@
       if (f('brand')) specs.__brand = f('brand');
       if (f('__model')) specs.__model = f('__model');
       var inv = { name: f('name'), short: f('short'), barcode: f('barcode'), group_name: f('group_name'), category: f('category') || null, brand: f('brand') || null,
-        alt_names: f('alt_names') || null, price: num(f('price')), wholesale_price: num(f('wholesale_price')), min_stock: parseInt(f('min_stock'), 10) || 0, specs: specs, compat: f('compat') || null };
+        alt_names: f('alt_names') || null, price: num(f('price')), wholesale_price: num(f('wholesale_price')), min_stock: parseInt(f('min_stock'), 10) || 0, specs: specs, compat: f('compat') || null,
+        image_url: f('image_url') || null };
       return inv;
     }
     function changed(inv) {
@@ -190,6 +261,7 @@
       if (!inv.name) { say('❌ الاسم مطلوب', true); return; }
       if (!(inv.price >= 0)) { say('❌ السعر غير صحيح', true); return; }
       var patch = changed(inv), sp = S.sp, sUpd = null;
+      if (S.source && patch.specs) { patch.specs_source = S.source; patch.specs_checked_at = new Date().toISOString(); }
       if (sp) {
         var g = function (k) { var e = $('[data-s="' + k + '"]'); return e ? e.value.trim() : ''; };
         var cats = [].map.call(root.querySelectorAll('[data-scat]:checked'), function (x) { return x.getAttribute('data-scat'); });
@@ -220,7 +292,8 @@
       } catch (e) { say('❌ ' + (e && e.message || e), true); }
       b.disabled = false; b.textContent = '💾 احفظ';
     };
+    if (ctx.autoSpecs && autoB) setTimeout(function () { autoB.click(); }, 50);   // من «المواصفات التلقائية» في قائمة المنتج
     return root;
   }
-  global.GMTProductEdit = { open: open };
+  global.GMTProductEdit = { open: open, guessBrand: guessBrand };
 })(typeof window !== 'undefined' ? window : this);
