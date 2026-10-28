@@ -492,22 +492,22 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
-  <script src="gmt-brand.js?v=20261029b"></script>
+  <script src="gmt-brand.js?v=20261029c"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029b"></script>
+<script src="gmt-tools.js?v=20261029c"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029b"></script>
+  <script src="gmt-image-guard.js?v=20261029c"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029b"></script>
+  <script src="gmt-core.js?v=20261029c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-stock.js?v=20261029b" defer></script>
-  <script src="gmt-share.js?v=20261029b" defer></script>
+  <script src="gmt-stock.js?v=20261029c" defer></script>
+  <script src="gmt-share.js?v=20261029c" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -517,7 +517,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-ledger.js?v=20261029b"></script>
+  <script src="gmt-ledger.js?v=20261029c"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -4648,7 +4648,7 @@ async function openCustomerProfile(phone, name) {
   let orders = [];
   try {
     const raw = String(phone || '').trim();
-    orders = await sb('GET', `/rest/v1/gmt_orders?phone=ilike.*${encodeURIComponent(key.slice(-8))}*&select=id,serial_code,status,price,product,shipping_company,created_at&order=created_at.desc&limit=30`) || [];
+    orders = await sb('GET', `/rest/v1/gmt_orders?phone=ilike.*${encodeURIComponent(key.slice(-8))}*&select=id,serial_code,status,price,product,qty,shipping_company,tracking_number,created_at,entered_by,created_by,branch,invoice_id,invoice_number,receipt_img&order=created_at.desc&limit=30`) || [];
   } catch (_) {}
   // ④ الكفالات (قاعدة WARRANTY مستقلّة)
   let warr = [];
@@ -4687,7 +4687,14 @@ async function openCustomerProfile(phone, name) {
     '<div style="font-size:16px;font-weight:900;color:' + col + '">' + val + '</div></div>';
   const sec = (t) => '<div style="font-size:12px;font-weight:900;color:#0f172a;margin:16px 0 8px">' + t + '</div>';
   const d = s => s ? new Date(s).toLocaleDateString('ar-SY') : '—';
-  const stAr = { pending:'⏳ بالانتظار', prepared:'📦 جاهز', shipped:'🚚 بالطريق', delivered:'📍 للتحصيل', completed:'✅ مكتمل' };
+  const stAr = { pending:'⏳ بالانتظار', prepared:'📦 جاهز', shipped:'🚚 بالطريق', delivered:'📍 للتحصيل', completed:'✅ مكتمل', returned:'↩️ مرتجع' };
+  /* (TASK-0242 · المالك seq 164) «ملف العميل لازم يطلع عندي اوردرات وكل اوردر اكبس عليه يعطيني الفاتوره تبعيت الاوردر او الملصق ·
+     اذا مرتبط بفاتوره فيعطيني الفاتوره · ايصال شحن · شو اشترى من عندنا ومين ادخله انا مستخدم او اي نقطه تبيع»:
+     الصفوف قابلة للضغط · «أدخله: …» لكل فاتورة وأوردر · «🧾 كل ما اشتراه» بنداً بنداً بتاريخه ومن أدخله. */
+  window.__cpOrders = orders; window.__cpInvs = invs;
+  const row = (attr, left, right, sub) => '<button type="button" ' + attr + ' style="display:block;width:100%;text-align:right;padding:8px 10px;background:#fff;border:1px solid #f1f5f9;border-radius:9px;margin-bottom:4px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">' +
+    '<span style="display:flex;justify-content:space-between;gap:8px"><span>' + left + '</span><b>' + right + '</b></span>' + (sub ? '<span style="display:block;font-size:10.5px;color:#526077;font-weight:700;margin-top:2px">' + sub + '</span>' : '') + '</button>';
+  const invById = {}; invs.forEach(i => { invById[i.id] = i; });
 
   let html =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
@@ -4708,15 +4715,30 @@ async function openCustomerProfile(phone, name) {
   }
   if (sales.length) {
     html += sec('🧾 فواتير نقطة البيع (' + invs.length + ')');
-    html += invs.slice(0, 15).map(i => '<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#fff;border:1px solid #f1f5f9;border-radius:9px;margin-bottom:4px;font-size:12px;font-weight:700">' +
-      '<span>' + d(i.created_at) + ' · ' + escH(i.branch_name || i.branch_key || '') + ' · ' + escH(i.sale_type || '') + '</span>' +
-      '<b style="color:' + (Number(i.total) < 0 ? '#dc2626' : '#0f172a') + '">' + f(i.total) + ' $</b></div>').join('');
+    html += invs.slice(0, 15).map(i => row('data-cp-inv="' + escH(i.id) + '"',
+      d(i.created_at) + ' · #' + escH(i.inv_number || '') + ' · ' + escH(i.sale_type || ''),
+      '<span style="color:' + (Number(i.total) < 0 ? '#dc2626' : '#0f172a') + '">' + f(i.total) + ' $</span>',
+      'أدخلها: ' + escH(i.cashier_name || '—') + ' · نقطة البيع: ' + escH(i.branch_name || i.branch_key || '—') + ' · اضغط لفتحها')).join('');
   }
   if (orders.length) {
     html += sec('🚚 أوردرات الشحن (' + orders.length + ')');
-    html += orders.slice(0, 15).map(o => '<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#fff;border:1px solid #f1f5f9;border-radius:9px;margin-bottom:4px;font-size:12px;font-weight:700">' +
-      '<span>' + d(o.created_at) + ' · ' + escH(o.serial_code || '#' + o.id) + ' · ' + (stAr[o.status] || escH(o.status || '')) + '</span>' +
-      '<b>' + f(o.price) + ' $</b></div>').join('');
+    html += orders.slice(0, 15).map(o => row('data-cp-ord="' + escH(o.id) + '"',
+      d(o.created_at) + ' · ' + escH(o.serial_code || '#' + o.id) + ' · ' + (stAr[o.status] || escH(o.status || '')),
+      f(o.price) + ' $',
+      escH(o.product || '') + (o.shipping_company ? ' · ' + escH(o.shipping_company) : '') + ' · أدخله: ' + escH(o.entered_by || o.created_by || '—') +
+      (o.invoice_number || o.invoice_id ? ' · 🧾 فاتورة #' + escH(o.invoice_number || '') : '') + ' · اضغط: الفاتورة · الملصق · الإيصال')).join('');
+  }
+  /* «شو اشترى من عندنا ومين ادخله» — كل بندٍ بتاريخه وفاتورته ومن أدخله (نقطة البيع) + أوردرات الشحن غير المفوترة */
+  const bought = items.map(it => { const i = invById[it.invoice_id] || {}; return { at: i.created_at, what: it.product_name || '—', qty: Number(it.qty) || 0, total: Number(it.total) || 0,
+      who: (i.cashier_name || '—') + ' · ' + (i.branch_name || i.branch_key || ''), ref: '#' + (i.inv_number || ''), refund: Number(i.total) < 0 }; })
+    .concat(orders.filter(o => !o.invoice_id && !o.invoice_number && o.status !== 'returned').map(o => ({ at: o.created_at, what: o.product || '—', qty: Number(o.qty) || 1, total: Number(o.price) || 0,
+      who: (o.entered_by || o.created_by || '—') + ' · أوردر شحن', ref: o.serial_code || '#' + o.id, refund: false })))
+    .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  if (bought.length) {
+    html += sec('🧾 كل ما اشتراه (' + bought.length + ')');
+    html += bought.slice(0, 40).map(x => '<div data-cp-bought style="padding:7px 10px;background:#fff;border:1px solid #f1f5f9;border-radius:9px;margin-bottom:4px;font-size:12px;font-weight:700">' +
+      '<span style="display:flex;justify-content:space-between;gap:8px"><span>' + escH(x.what) + ' <span style="color:#526077">×' + x.qty + '</span>' + (x.refund ? ' <span style="color:#dc2626">(مرتجع)</span>' : '') + '</span><b>' + f(x.total) + ' $</b></span>' +
+      '<span style="display:block;font-size:10.5px;color:#526077;margin-top:2px">' + d(x.at) + ' · ' + escH(x.ref) + ' · أدخله: ' + escH(x.who) + '</span></div>').join('');
   }
   if (warr.length) {
     html += sec('🛡️ الكفالات (' + warr.length + ')');
@@ -4732,8 +4754,28 @@ async function openCustomerProfile(phone, name) {
     html += '<div style="text-align:center;padding:24px;color:#5b6472;font-weight:700">لا توجد مشتريات أو أوردرات أو كفالات مسجّلة لهذا الرقم</div>';
   }
   w.innerHTML = shell(html);
+  w.addEventListener('click', e => {
+    const bi = e.target.closest('[data-cp-inv]');
+    if (bi) { const i = invById[bi.getAttribute('data-cp-inv')]; if (i) window.open('pos.html?' + new URLSearchParams({ view: String(i.id), inv: String(i.inv_number || '') }).toString(), '_blank'); return; }
+    const bo = e.target.closest('[data-cp-ord]'); if (bo) custProfileOrder(bo.getAttribute('data-cp-ord'));
+  }, true);   // التقاط: محتوى الملف يوقف الانتشار (كي لا يُغلقه الضغط داخله)
 }
 window.openCustomerProfile = openCustomerProfile;
+/* (TASK-0242) الضغط على أوردر في ملف العميل: فاتورته (إن كان مرتبطاً) · الملصق/ورقة الأوردر للطباعة · إيصال الشحن · فتح الأوردر */
+async function custProfileOrder(id) {
+  const o = (window.__cpOrders || []).find(x => String(x.id) === String(id)); if (!o) return;
+  const ch = [];
+  if (o.invoice_id || o.invoice_number) ch.push({ k: 'inv', t: '🧾 فاتورته #' + (o.invoice_number || ''), pri: 1 });
+  ch.push({ k: 'print', t: '🏷️ الملصق / ورقة الأوردر — طباعة' });
+  if (o.receipt_img) ch.push({ k: 'receipt', t: '📦 إيصال الشحن' });
+  ch.push({ k: 'open', t: '📂 افتح الأوردر في الأوردرات' });
+  const k = await GMTAsk.choose((o.serial_code || '#' + o.id) + ' · ' + (o.product || '') + '\n' + (o.shipping_company || '') + (o.tracking_number ? ' · ' + o.tracking_number : '') + ' · أدخله: ' + (o.entered_by || o.created_by || '—'),
+    { title: '🚚 أوردر الشحن', choices: ch, cancelText: 'إغلاق' });
+  if (!k) return;
+  if (k === 'inv') { window.open('pos.html?' + new URLSearchParams({ view: String(o.invoice_id || ''), inv: String(o.invoice_number || ''), order: String(o.id) }).toString(), '_blank'); return; }
+  window.open('orders.html?' + new URLSearchParams({ order: String(o.id), do: k }).toString(), '_blank');
+}
+window.custProfileOrder = custProfileOrder;
 
 async function toggleBlockCustomer(custId, block, name) {
   const msg = block ? `حظر العميل "${name}"؟` : `رفع الحظر عن "${name}"؟`;
@@ -7020,19 +7062,19 @@ renderOffers = function(){
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029b"></script>
+<script src="gmt-pwa.js?v=20261029c"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029b"></script>
+<script src="gmt-brain.js?v=20261029c"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029b"></script>
+<script src="gmt-whatsnew.js?v=20261029c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029b"></script>
+<script src="gmt-nofab.js?v=20261029c"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>
