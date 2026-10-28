@@ -1622,5 +1622,34 @@
     try { getARA().catch(function () {}); } catch (_) {}
   }
 
-  global.GMTReceipt = { _bankOther: bankOther, _receiverOf: receiverOf, readReceiver: readReceiver, warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _otherOf: otherOf, readOther: readOther, _qadNumber: qadNumber, _masFromQR: masFromQR, _matchOther: matchOther, _otherSource: otherSource, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
+  /* ═══ (TASK-0230 · المالك seq 160) «شوفير»: «بنعطيك صوره السياره او السرفيس بدل صوره ايصال تستخرج منها رقم النمره او رقم الفانوس» ═══
+     تعرّفٌ محلّي (lib/ocr — بلا خدمة خارجيّة) بالنموذجين معاً: الإنجليزي للأرقام اللاتينيّة، والعربي للأرقام العربيّة واسم المحافظة.
+     يُعيد المرشّحين (سلاسل ٣–٨ أرقام) مرتّبين بالثقة والطول — لا يُملأ شيءٌ وحده: الموظّف يضغط الصحيح أو يكتبه. */
+  var PLATE_CITY = /دمشق|ريف\s*دمشق|حلب|حمص|حماة|حماه|اللاذقية|طرطوس|درعا|السويداء|القنيطرة|إدلب|ادلب|دير\s*الزور|الرقة|الحسكة|سوريا|سورية/;
+  async function readPlate(file, opts) {
+    opts = opts || {};
+    var L = await loadImage(file), out = {}, city = '';
+    try {
+      var cv = enhance(crop(L.im, [0, 0, 1, 1], 0, 1800), 'contrast');
+      var eng = await getOCR(), ara = await getARA().catch(function () { return null; });
+      var runs = [eng.recognize(toPGM(cv), {}, { blocks: true })];
+      if (ara) runs.push(ara.recognize(toPGM(cv), {}, { blocks: true }));
+      var res = await Promise.all(runs.map(function (p) { return p.catch(function () { return null; }); }));
+      res.forEach(function (r, k) {
+        ((r && r.data && r.data.blocks) || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (ln) {
+          var lt = String(ln.text || ''); if (!city) { var m = lt.match(PLATE_CITY); if (m) city = m[0].replace(/\s+/g, ' '); }
+          (ln.words || []).forEach(function (wd) {
+            var t = latin(wd.text || '').replace(/[^0-9]/g, '');
+            if (t.length < 3 || t.length > 8) return;
+            var c = Math.round(wd.confidence || 0), prev = out[t];
+            if (!prev || c > prev.conf) out[t] = { number: t, conf: c, src: k ? 'ara' : 'eng' };
+          });
+        }); }); });
+      });
+    } finally { if (L.url) try { URL.revokeObjectURL(L.url); } catch (_) {} }
+    var cands = Object.keys(out).map(function (k) { return out[k]; })
+      .sort(function (a, b) { return (b.conf + Math.min(b.number.length, 6) * 4) - (a.conf + Math.min(a.number.length, 6) * 4); }).slice(0, 6);
+    return { candidates: cands, city: city };
+  }
+  global.GMTReceipt = { readPlate: readPlate, _bankOther: bankOther, _receiverOf: receiverOf, readReceiver: readReceiver, warm: warm, processIn: processIn, _araBox: araBox, _araCanvas: araCanvas, _CELL: CELL, _foreignFooter: foreignFooter, _companyOf: companyOf, _otherOf: otherOf, readOther: readOther, _qadNumber: qadNumber, _masFromQR: masFromQR, _matchOther: matchOther, _otherSource: otherSource, _core: CORE_FILE, readTracking: readTracking, readMufti: readMufti, _skel: skel, _sourceSegment: sourceSegment, _matchBranch: matchBranch, _receiptType: receiptType, extractNumber: extractNumber, _latin: latin, _rank: rankCandidates, _digitsOfWord: digitsOfWord, _crop: crop, _enhance: enhance };
 })(typeof window !== 'undefined' ? window : self);

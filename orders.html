@@ -86,23 +86,23 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029j"></script>
+<script src="gmt-tools.js?v=20261029k"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-28">
-  <script src="gmt-image-guard.js?v=20261029j"></script>
+  <script src="gmt-image-guard.js?v=20261029k"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029j"></script>
+  <script src="gmt-brand.js?v=20261029k"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029j"></script>
+  <script src="gmt-core.js?v=20261029k"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261029j" defer></script>
-  <script src="gmt-stock.js?v=20261029j" defer></script>
-  <script src="gmt-share.js?v=20261029j" defer></script>
+  <script src="gmt-ask.js?v=20261029k" defer></script>
+  <script src="gmt-stock.js?v=20261029k" defer></script>
+  <script src="gmt-share.js?v=20261029k" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
@@ -110,11 +110,11 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261029j" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261029j" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
-<script src="gmt-refund.js?v=20261029j" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
+<script src="gmt-mufti-live.js?v=20261029k" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261029k" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-refund.js?v=20261029k" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
 
-<script src="gmt-receipt.js?v=20261025v" defer></script>
+<script src="gmt-receipt.js?v=20261029k" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
@@ -290,6 +290,7 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="الرافدين">الرافدين</option>
                 <option value="هافال">هافال</option>
                 <option value="الأهلية">الأهلية</option>
+                <option value="شوفير">🚐 شوفير</option>
             </select>
             <select id="filter-branch" onchange="render()" class="flex-1 min-w-[120px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
                 <option value="">🏭 كل الفروع</option>
@@ -698,7 +699,16 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="الرافدين">الرافدين</option>
                 <option value="هافال">هافال</option>
                 <option value="الأهلية">الأهلية</option>
+                <option value="شوفير">🚐 شوفير (سيارة · سرفيس)</option>
             </select>
+        </div>
+
+        <!-- (TASK-0230 · المالك seq 160) «شوفير»: رقم اتصاله بدل رقم التتبّع · صورة السيارة/السرفيس بدل الإيصال ⇒ رقم النمرة/الفانوس في الملاحظات -->
+        <div id="ship-driver" class="hidden mb-4 text-right">
+            <label for="ship-plate" class="block text-[11px] font-black text-gray-600 mb-1.5">🚐 رقم النمرة أو الفانوس (من صورة السيارة/السرفيس — يُكتب في ملاحظات الأوردر)</label>
+            <input id="ship-plate" dir="ltr" placeholder="مثال: 123456" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-center">
+            <p id="ship-plate-st" class="text-[10px] font-bold text-gray-500 mt-1 min-h-[14px]" role="status" aria-live="polite"></p>
+            <div id="ship-plate-cands" class="flex flex-wrap gap-1.5 justify-center"></div>
         </div>
 
         <!-- (ملاحظات ١٦ ت١) الفرع المُرسِل: يظهر لشركة المفتي، والافتراضي «حلب – السريان» إن لم يُغيَّر
@@ -2006,7 +2016,7 @@ function cardHTML(o) {
             ${o.branch ? `<p>🏭 شُحن من: <span style="font-weight:900">${escH(o.branch)}</span>${o.shipping_company ? ` — <span class="text-orange-500">${escH(o.shipping_company)}</span>` : ''}</p>` : ''}
             ${senderInfoHTML(o)}
             ${transferInvoiceOf(o) ? `<p data-transfer-link>🔗 فاتورة نقل: <span class="font-black text-gray-700" dir="ltr">#${escH(transferInvoiceOf(o))}</span></p>` : ''}
-            ${o.tracking_number ? `<p class="${c.text} font-black">🔖 ${escH(o.tracking_number)}</p>` : ''}
+            ${o.tracking_number ? `<p class="${c.text} font-black">${isDriverCo(o.shipping_company) ? '📞 الشوفير ' : '🔖 '}${escH(o.tracking_number)}</p>` : ''}
             ${o.shipped_at ? `<p class="text-[9px] text-gray-400">🕒 شُحن: <span dir="ltr">${new Date(o.shipped_at).toLocaleString('en-GB',{hour12:true})}</span></p>` : ''}
             ${o.notes ? `<p class="text-gray-600" title="ملاحظاتٌ داخلية — لا تُطبع على الفاتورة">📝 ${escH(o.notes)}</p>` : ''}
             ${returnInfoHTML(o)}
@@ -3709,6 +3719,7 @@ window.openShipModal = (id, mode) => {
     // إظهار/إخفاء التحذير
     const warn = document.getElementById('ship-company-warn');
     if (warn) warn.classList.toggle('hidden', !!(compSel && compSel.value));
+    shipDriverUI();
     try { window.syncShipFromBox(shipFromExplicit(o), true); } catch (_) {}
     /* الإعداد قد تغيّر من جهازٍ آخر: نقرؤه الآن، وإن لم يلمس أحدٌ القائمة بعدُ نُعيد ملأها به */
     loadShipFromSetting().then(() => { const sel = document.getElementById('ship-from'); if (sel && sel.getAttribute('data-src') === 'default' || (sel && sel.getAttribute('data-src') === 'none')) window.syncShipFromBox(null, true); });
@@ -3722,8 +3733,8 @@ function resetShipPreview() {
     if (!preview) return;
     preview.innerHTML = `
         <i data-lucide="image-plus" class="w-6 h-6"></i>
-        <span class="text-xs font-bold">إرفاق صورة كليشيه الشحن (اختياري)</span>
-        <span class="text-[10px] text-gray-300">${_shipMode === 'attach' ? 'صوّره أو اختره — يُقصّ ويُحسَّن ويُقرأ تلقائياً' : 'إذا لم ترفع صورة سيتم توليدها تلقائياً'}</span>`;
+        <span class="text-xs font-bold">${shipIsDriver() ? '🚐 صورة السيارة أو السرفيس (اختياري)' : 'إرفاق صورة كليشيه الشحن (اختياري)'}</span>
+        <span id="ship-hint" class="text-[10px] text-gray-300">${shipIsDriver() ? 'يُقرأ منها رقم النمرة/الفانوس' : _shipMode === 'attach' ? 'صوّره أو اختره — يُقصّ ويُحسَّن ويُقرأ تلقائياً' : 'إذا لم ترفع صورة سيتم توليدها تلقائياً'}</span>`;
     const cam = document.getElementById('ship-img-input-camera');
     if (cam) cam.value = '';
     lucide.createIcons();
@@ -3735,6 +3746,7 @@ function previewShipImage(input) {
     // clear camera input
     const cam = document.getElementById('ship-img-input-camera');
     if (cam) cam.value = '';
+    if (shipIsDriver()) { shipDriverPhoto(file, '✅ تم اختيار الصورة'); return; }   // (TASK-0230) سيارة/سرفيس لا ورقة
     shipScanFile(file, '✅ تم اختيار الصورة');
 }
 
@@ -4163,7 +4175,43 @@ function shipIsMufti() { return ((document.getElementById('ship-company') || {})
    ما لم تكن اخترتها بيدك. تغييرك للشركة يُلغي القراءة الجارية (_shipCoGen) كما كان. */
 let _shipCoGen = 0;
 function shipCoByUser() { const s = document.getElementById('ship-company'); return !!s && s.dataset.auto !== '1' && s.dataset.auto !== 'saved'; }
-function shipCanRead() { return shipIsMufti() || !!shipOtherCo() || !shipCoByUser(); }   // (TASK-0159) والقدموس/مسارات
+function shipCanRead() { return !shipIsDriver() && (shipIsMufti() || !!shipOtherCo() || !shipCoByUser()); }   // (TASK-0159) والقدموس/مسارات · (TASK-0230) لا إيصال للشوفير
+/* ══ (TASK-0230 · المالك seq 160) «ما بين شركه شحن اترك لي خيار اسمه شوفير … بدل كلمه رقم تتبع اذا اخترنا الشركه شوفير ينكتب رقم اتصال الشوفير
+   ونحن بنعطيك صوره السياره او السرفيس بدل صوره ايصال تستخرج منها رقم النمره او رقم الفانوس … تكتبهم ايضا في الملاحظات»:
+   رقم الاتصال يُحفظ في خانة رقم التتبّع (tracking_number) ويُعرض «📞 الشوفير» · الصورة بلا ماسح الورق وبلا قارئ الإيصال ⇒
+   GMTReceipt.readPlate (تعرّفٌ محلّي) يعرض مرشّحي النمرة/الفانوس للضغط · الرقم يُكتب في الملاحظات عند الاعتماد. ══ */
+const DRIVER_CO = 'شوفير';
+function isDriverCo(c) { return String(c || '').trim() === DRIVER_CO; }
+function shipIsDriver() { return isDriverCo(shipCurCo()); }
+function trkLine(o) { return isDriverCo(o && o.shipping_company) ? '📞 رقم الشوفير' : '🔖 رقم التتبع'; }
+function shipDriverUI() {
+    const on = shipIsDriver(), ti = document.getElementById('ship-tracking'), box = document.getElementById('ship-driver'), pv = document.getElementById('ship-img-preview');
+    if (box) box.classList.toggle('hidden', !on);
+    if (ti) { ti.placeholder = on ? '📞 رقم اتصال الشوفير *' : 'رقم تتبع الشحنة (اختياري)'; ti.inputMode = on ? 'tel' : ''; ti.dir = on ? 'ltr' : ''; }
+    if (pv && !pv.querySelector('img')) resetShipPreview();   // نصّ خانة الصورة: «صورة السيارة/السرفيس» أو «كليشيه الشحن»
+    if (!on) { const pl = document.getElementById('ship-plate'); if (pl) pl.value = ''; const st = document.getElementById('ship-plate-st'); if (st) st.textContent = ''; const cd = document.getElementById('ship-plate-cands'); if (cd) cd.innerHTML = ''; }
+}
+let _plateGen = 0;
+async function shipDriverPhoto(file, label) {
+    _shipScan = null; _shipOrig = file; _shipRcptFile = file;
+    const preview = document.getElementById('ship-img-preview'), url = URL.createObjectURL(file);
+    preview.innerHTML = `<img src="${url}" class="w-full object-contain rounded-lg bg-white" style="max-height:12rem" />` +
+        `<span class="text-xs font-bold text-emerald-600 mt-1">${escH(label || '✅ تم اختيار الصورة')} — صورة السيارة/السرفيس تُحفظ وتُرسل للتلغرام</span>`;
+    const st = document.getElementById('ship-plate-st'), cd = document.getElementById('ship-plate-cands'), my = ++_plateGen;
+    if (cd) cd.innerHTML = '';
+    if (!window.GMTReceipt || !GMTReceipt.readPlate) { if (st) st.textContent = 'اكتب رقم النمرة/الفانوس يدوياً'; return; }
+    if (st) st.textContent = '⏳ قراءة رقم النمرة/الفانوس من الصورة… (أوّل مرّة تُحمَّل المكتبة)';
+    let r = null; try { r = await GMTReceipt.readPlate(file); } catch (_) {}
+    if (my !== _plateGen || !shipIsDriver()) return;
+    const c = (r && r.candidates) || [];
+    if (!c.length) { if (st) st.textContent = '⚠️ لم أقرأ رقماً واضحاً — اكتبه يدوياً'; return; }
+    if (st) st.textContent = 'اضغط الرقم الصحيح' + (r.city ? ' (المحافظة المقروءة: ' + r.city + ')' : '') + ' — أو اكتبه';
+    if (cd) cd.innerHTML = c.map(x => `<button type="button" data-plate="${escH(x.number)}" data-city="${escH(r.city || '')}" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-black text-gray-700 hover:border-red" dir="ltr">${escH(x.number)}</button>`).join('');
+}
+document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('#ship-plate-cands [data-plate]'); if (!b) return;
+    const pl = document.getElementById('ship-plate'); if (pl) pl.value = b.getAttribute('data-plate') + (b.getAttribute('data-city') ? ' ' + b.getAttribute('data-city') : '');
+});
 /* الشركة التي يثبتها الإيصال: إيصال المفتي · أو قارئ القدموس/مسارات تعرّف عليه · أو اسمها مقروءٌ فيه */
 function shipReceiptCo(r) {
     if (!r || r.cancelled) return '';
@@ -4334,7 +4382,7 @@ async function sendReceiptArchive(o, file) {
         fd.append('photo', file, 'receipt_' + o.id + '.jpg');
         /* نصٌّ عاديّ بلا Markdown: اسمٌ فيه _ أو * كان سيجعل تيليغرام يرفض الصورة فيضيع الإيصال */
         fd.append('caption', '🧾 إيصال شحن مُرفق بأوردر\n' + (o.serial_code ? '🔢 ' + o.serial_code + '\n' : '') + '👤 ' + (o.name || '—') + '\n🚚 ' + (o.shipping_company || '—') +
-            (o.tracking_number ? '\n🔖 رقم التتبّع: ' + o.tracking_number : '') + '\n🆔 #' + o.id);
+            (o.tracking_number ? '\n' + trkLine(o) + ': ' + o.tracking_number : '') + '\n🆔 #' + o.id);
         const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
         const d = await res.json().catch(() => ({}));
         return (res.ok && d && d.result && d.result.message_id) || null;
@@ -4399,6 +4447,8 @@ async function confirmReceiptAttach() {
 document.addEventListener('change', (e) => {
     if (!e.target || e.target.id !== 'ship-company') return;
     e.target.dataset.auto = ''; _shipCoGen++;   // (TASK-0157) اخترتَها بيدك (الكود لا يطلق change) ⇒ تُحترم وتُلغى القراءة الجارية
+    shipDriverUI();
+    if (shipIsDriver()) { const f = _shipOrig || shipPickedFiles(); if (f) shipDriverPhoto(f); return; }   // (TASK-0230) الصورة المختارة تُقرأ نمرتها
     if ((e.target.value === 'المفتي' || OTHER_READ_CO.indexOf(e.target.value) !== -1) && window.GMTReceipt && GMTReceipt.warm) GMTReceipt.warm();   // (TASK-0122/0159)
     /* (TASK-0128) شركةٌ أخرى ⇒ رقمٌ مُلئ تلقائياً من قراءة المفتي يُسحب (لم تكتبه أنت) */
     if (_shipRcptAuto) { const ti = document.getElementById('ship-tracking'); if (ti) ti.value = ''; _shipRcptAuto = false; }   // (TASK-0159) رقم شركةٍ أخرى لا يبقى
@@ -4449,6 +4499,8 @@ async function confirmShippingRun() {
         return;
     }
     if (warn) warn.classList.add('hidden');
+    const _driver = isDriverCo(company), _plate = _driver ? ((document.getElementById('ship-plate') || {}).value || '').trim() : '';
+    if (_driver && String(tracking).replace(/\D/g, '').length < 7) { showToast('📞 اكتب رقم اتصال الشوفير', 'err'); const ti = document.getElementById('ship-tracking'); if (ti) ti.focus(); return; }
     if (company === MUFTI_CO && !((document.getElementById('ship-from') || {}).value)) {
         paintShipFromSrc();
         showToast('⚠️ اختر الفرع المُرسِل — ' + (shipFromDefault().why || 'لم يُحدَّد'), 'err');
@@ -4459,7 +4511,7 @@ async function confirmShippingRun() {
     if (idx < 0) return;
     const _file = shipReceiptFile(), _hadOrig = !!shipPickedFiles();
     /* (TASK-0179) فحص القفل وفحص تكرار الرقم وضغط الصورة **معاً** لا واحداً بعد الآخر (كانت ثوانٍ متتالية على شبكة الهاتف) */
-    const _newNum = !!tracking && tracking !== String(orders[idx].tracking_number || '').trim();
+    const _newNum = !_driver && !!tracking && tracking !== String(orders[idx].tracking_number || '').trim();   // رقم الشوفير يتكرّر بين الأوردرات طبيعياً
     const _hitsP = _newNum ? trackingTakenBy(tracking, shipOrderId) : null, _durlP = _file ? compressReceipt(_file) : null;
     const _lockMsg = await ordersLockBlock(orders[idx], 'shipped');
     if (_lockMsg) { ordersLockShow(_lockMsg, orders[idx]); return; }
@@ -4473,6 +4525,11 @@ async function confirmShippingRun() {
         shipped_at:       new Date().toISOString(),
         shipping_company: company,
     };
+    if (_driver) {   // (TASK-0230) «تكتبهم ايضا في الملاحظات»: رقم الشوفير والنمرة/الفانوس
+        const line = '🚐 شوفير: ' + tracking + (_plate ? ' · النمرة/الفانوس: ' + _plate : '');
+        const prevN = String(orders[idx].notes || '').split('\n').filter(l => !/^🚐 شوفير:/.test(l)).join('\n').trim();
+        data.notes = (prevN ? prevN + '\n' : '') + line;
+    }
     // احفظ نسخة مضغوطة من صورة الإيصال داخل الأوردر (مؤقّتة — تُمسح عند التحصيل) + بياناتها (التحقّق · الفرع · من أضافها)
     if (_file) {
         const durl = await _durlP;
@@ -4971,6 +5028,7 @@ function previewShipImageCamera(input) {
     // clear gallery input
     const gal = document.getElementById('ship-img-input');
     if (gal) gal.value = '';
+    if (shipIsDriver()) { shipDriverPhoto(file, '✅ تم التقاط الصورة'); return; }   // (TASK-0230)
     shipScanFile(file, '✅ تم التقاط الصورة');
 }
 
@@ -5013,7 +5071,7 @@ function renderFollowUpList() {
                         <p class="font-black text-sm text-gray-800">${escH(o.name)}</p>
                         <p class="text-[11px] font-bold text-gray-500 mt-0.5">${escH(o.phone||'')}</p>
                         <p class="text-[10px] text-gray-400 mt-0.5 truncate">📦 ${escH(prodSummary)}</p>
-                        ${o.tracking_number ? `<p class="text-[10px] font-black text-amber-600 mt-0.5">🔖 ${escH(o.tracking_number)}</p>` : ''}
+                        ${o.tracking_number ? `<p class="text-[10px] font-black text-amber-600 mt-0.5">${isDriverCo(o.shipping_company) ? '📞 ' : '🔖 '}${escH(o.tracking_number)}</p>` : ''}
                     </div>
                     <div class="text-left shrink-0 flex flex-col items-end gap-1">
                         <p class="font-black text-red text-base">$${orderValue(o).toLocaleString()}</p>${dueLineHTML(o)}
@@ -5196,7 +5254,7 @@ async function sendFullOrderNotification(o, eventLabel, withPhoto, opts) {
             `📍 *العنوان:* ${o.address || '—'}\n` +
             (o.branch            ? `🏭 *الفرع:* ${o.branch}\n` : '') +
             (o.shipping_company  ? `🚚 *شركة الشحن:* ${o.shipping_company}\n` : '') +
-            (o.tracking_number   ? `🔖 *رقم التتبع:* ${o.tracking_number}\n` : '') +
+            (o.tracking_number   ? `${trkLine(o).replace(/^(\S+) /, '$1 *')}:* ${o.tracking_number}\n` : '') +
             (o.invoice_number    ? `🧾 *الفاتورة:* #${o.invoice_number}\n` : '') +
             `━━━━━━━━━━━━━━━━━━\n` +
             `📦 *المنتجات:*\n${prodList}\n` +
@@ -6037,7 +6095,7 @@ function showManualNotice(o, txt) {
    ⇒ تظهر المكاتب مع أرقامها. الاختيار يملأ العنوان بالمكتب ورقمه فيظهر تلقائياً في
    الملصق ورسالة التبليغ وصفحة التتبّع. **الكتابة اليدوية تبقى متاحة دائماً.**
    ملاحظة: اختيار مكتب **لا يحدّد الشركة** — من يعتمد الشحن هو من يحدّدها (قرار المالك). */
-const SHIP_COMPANIES = ['المفتي','القدموس','مسارات','بابل','الرافدين','هافال','الأهلية'];
+const SHIP_COMPANIES = ['المفتي','القدموس','مسارات','بابل','الرافدين','هافال','الأهلية','شوفير'];   // (TASK-0230) «شوفير»
 
 function fillCompanySelects() {
     const sel = document.getElementById('in-company');
@@ -7504,7 +7562,7 @@ window.setCouponUrl = (u) => {
 /* رابط التتبّع الخاصّ بهذا الأوردر — يفتح حالة الشحنة مباشرة بلا إدخال يدوي */
 function trackLinkFor(o) {
     const base = getTrackUrl();
-    const ref  = o.tracking_number || o.serial_code || o.order_number || o.id;
+    const ref  = (isDriverCo(o.shipping_company) ? '' : o.tracking_number) || o.serial_code || o.order_number || o.id;   // (TASK-0230) رقم الشوفير ليس مرجع تتبّع
     return base + (ref ? (base.indexOf('?') === -1 ? '?o=' : '&o=') + encodeURIComponent(ref) : '');
 }
 
@@ -7517,10 +7575,10 @@ function buildNoticeText(o, mode) {
     let midBlock;
     if (mode === 'arrived') {
         midBlock = (dest ? '📍 مكان الاستلام: ' + dest + '\n' : '') +
-                   (o.shipping_company ? '🚚 لدى شركة: ' + o.shipping_company + '\n' : '') +
-                   (o.tracking_number ? '🔖 رقم التتبع: *' + o.tracking_number + '*\n' : '') +
+                   (o.shipping_company && !isDriverCo(o.shipping_company) ? '🚚 لدى شركة: ' + o.shipping_company + '\n' : '') +
+                   (o.tracking_number ? trkLine(o) + ': *' + o.tracking_number + '*\n' : '') +
                    '\n🙏 يُرجى استلام الشحنة في أقرب وقت' +
-                   (o.shipping_company ? ' من مكتب ' + o.shipping_company : '') + '.\n' +
+                   (o.shipping_company && !isDriverCo(o.shipping_company) ? ' من مكتب ' + o.shipping_company : '') + '.\n' +
                    (collectOf(o) > 0 ? '💵 المبلغ المطلوب عند الاستلام: *$' + collectOf(o).toLocaleString() + '*\n' : '');
     } else if (mode === 'new') {
         /* كليشة استلام الطلب — نصّ المالك حرفياً بصياغة مرتّبة */
@@ -7538,8 +7596,8 @@ function buildNoticeText(o, mode) {
                    (cUrl ? '🔗 كيف تحصل على الكوبون: ' + cUrl + '\n' : '');
     } else {
         midBlock = (dest ? '📍 وجهة الشحنة: ' + dest + '\n' : '') +
-                   (o.shipping_company ? '🚚 شركة الشحن: ' + o.shipping_company + '\n' : '') +
-                   (o.tracking_number ? '🔖 رقم التتبع: *' + o.tracking_number + '*\n' : '') +
+                   (o.shipping_company ? (isDriverCo(o.shipping_company) ? '🚐 الشحن: مع شوفير (سيارة/سرفيس)\n' : '🚚 شركة الشحن: ' + o.shipping_company + '\n') : '') +
+                   (o.tracking_number ? trkLine(o) + ': *' + o.tracking_number + '*\n' : '') +
                    /* ══ طلبك ن٢: المدّةُ تُحسَب لا تُكتب ثابتةً ══
                       كانت «24 إلى 32» محفورةً في نصّ الرسالة. فزبونٌ في
                       اللاذقية عبر المفتي، أو أيُّ زبونٍ عبر القدموس/الفاتح/
@@ -10108,14 +10166,14 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029j"></script>
+<script src="gmt-pwa.js?v=20261029k"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029j"></script>
-<script src="gmt-nofab.js?v=20261029j"></script>
+<script src="gmt-brain.js?v=20261029k"></script>
+<script src="gmt-nofab.js?v=20261029k"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029j"></script>
+<script src="gmt-whatsnew.js?v=20261029k"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
