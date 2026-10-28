@@ -150,46 +150,45 @@
     if (!db || !sid) return Promise.resolve([]);
     return req('GET', 'warranty_claims?select=' + CUST_COLS + '&warranty_short_id=eq.' + encodeURIComponent(sid) + '&voided=not.is.true&order=received_at.asc,id.asc', null, db).then(function (r) { return Array.isArray(r) ? r : []; });
   }
-  /* «… — تم استخدام الضمان (تم الاستبدال · 12/10/2026)» أو «… — قيد الفحص لدينا» أو '' */
+  /* (TASK-0251 · المالك seq 173) «سيء التنفيذ وخارج الهويه البصريه … طويل … الوانه سيء طريقه الكتابة سيئه … راجع الصفحه وشوف كيف مكتوبه
+     وكيف تنسيقها … ورسميه كثير وثم اضع لها مكان ولكن في الاسفل»: لا صندوق بنفسجيّ ولا تحذير — نفس عناصر الوثيقة حرفياً
+     (صندوق «ماذا يشمل هذا الضمان» + جدول البيانات بعمود العناوين الرماديّ وأيقونات fa) · صياغة رسمية قصيرة · تقرير الفحص سطران وزرّ «عرض كامل التقرير».
+     مكانه أسفل الوثيقة (بعد التوقيع) — يضعه guarantee.html. */
+  var SERVICE = { pending: 'قيد الفحص', repair: 'صيانة (إصلاح)', replace: 'استبدال الجهاز', refund: 'استرجاع المبلغ', rejected: 'خارج الضمان' };
+  /* سطرٌ واحد تحت الحالة: «استُخدمت خدمة الضمان: استبدال الجهاز · 12/10/2026» أو «الجهاز قيد الفحص لدينا منذ …» أو '' */
   function summary(list) {
     list = list || [];
     var u = list.filter(function (c) { return c.consumed; })[0];
-    if (u) return 'تم استخدام الضمان (' + (CUST[u.resolution] || u.resolution) + ' · ' + dmy(u.delivered_at || u.received_at) + ')';
+    if (u) return 'استُخدمت خدمة الضمان: ' + (SERVICE[u.resolution] || CUST[u.resolution] || u.resolution) + ' · ' + dmy(u.delivered_at || u.received_at);
     var open1 = list.filter(function (c) { return c.resolution === 'pending'; })[0];
-    return open1 ? 'الجهاز ' + CUST.pending + ' منذ ' + dmy(open1.received_at) : '';
+    return open1 ? 'الجهاز قيد الفحص لدينا منذ ' + dmy(open1.received_at) : '';
   }
   function customerHTML(list) {
     list = list || []; if (!list.length) return '';
     var u = list.filter(function (c) { return c.consumed; })[0];
+    var L = 'p-4 bg-gray-50 w-1/3 font-bold text-gray-600', V = 'p-4 font-bold text-black', E = 'p-4 font-english text-gray-800';
+    var row = function (ic, lbl, val, cls) { return '<tr class="data-row group"><td class="' + L + '"><i class="fas ' + ic + ' ml-2 text-gray-400"></i> ' + lbl + '</td><td class="' + (cls || V) + '">' + val + '</td></tr>'; };
     var item = function (c) {
-      var rows = [];
-      rows.push(['استلمنا الجهاز منك', dmy(c.received_at)]);
-      if (c.complaint) rows.push(['الشكوى', esc(c.complaint)]);
-      if (c.inspection_report) rows.push(['تقرير الفحص', esc(c.inspection_report)]);
-      if (c.resolution_details) rows.push(['تفاصيل الحلّ', esc(c.resolution_details)]);
-      if (c.resolution === 'replace' && c.replacement_serial) rows.push(['الرقم التسلسلي للجهاز البديل', '<span dir="ltr">' + esc(c.replacement_serial) + '</span>']);
-      rows.push([c.resolution === 'replace' ? 'تاريخ الاستبدال (التسليم لك)' : 'سُلِّم لك', c.delivered_at ? dmy(c.delivered_at) : 'لم يُسلَّم بعد']);
-      return '<div class="wcc-item' + (c.consumed ? ' used' : '') + '" data-wcc-item><div class="wcc-res">' + esc(CUST[c.resolution] || c.resolution) + '</div>' +
-        rows.map(function (r) { return '<div class="wcc-row"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>'; }).join('') + '</div>';
+      var rows = [row('fa-tools', 'نوع الخدمة', esc(SERVICE[c.resolution] || CUST[c.resolution] || c.resolution))];
+      rows.push(row('fa-calendar-check', 'تاريخ الاستلام', dmy(c.received_at), E));
+      if (c.complaint) rows.push(row('fa-comment-alt', 'الشكوى', esc(c.complaint), 'p-4 text-gray-800'));
+      if (c.inspection_report) rows.push(row('fa-clipboard-check', 'نتيجة الفحص',
+        '<span class="line-clamp-2" data-wcc-rep>' + esc(c.inspection_report) + '</span>' +
+        (String(c.inspection_report).length > 70 ? '<button type="button" class="text-canon-red text-[11px] font-bold mt-1 no-print" onclick="var s=this.previousElementSibling;s.classList.toggle(\'line-clamp-2\');this.textContent=s.classList.contains(\'line-clamp-2\')?\'عرض كامل التقرير\':\'إخفاء\'">عرض كامل التقرير</button>' : ''),
+        'p-4 text-gray-800'));
+      if (c.resolution_details && c.resolution !== 'replace') rows.push(row('fa-info-circle', 'ملاحظات', esc(c.resolution_details), 'p-4 text-gray-800'));
+      if (c.resolution === 'replace' && c.replacement_serial) rows.push(row('fa-barcode', 'الجهاز البديل', '<span dir="ltr">' + esc(c.replacement_serial) + '</span>', 'p-4 font-mono text-gray-800 tracking-wider'));
+      if (c.resolution !== 'pending') rows.push(row('fa-calendar-alt', c.resolution === 'replace' ? 'تاريخ الاستبدال' : 'تاريخ التسليم', c.delivered_at ? dmy(c.delivered_at) : 'لم يُسلَّم بعد', E));
+      return '<div class="data-table-container mt-3" data-wcc-item><table class="w-full text-sm text-right"><tbody class="divide-y divide-gray-100">' + rows.join('') + '</tbody></table></div>';
     };
-    return '<div class="wcc" data-wcc>' +
-      '<div class="wcc-h">🛠 سجلّ استخدام الضمان</div>' +
-      (u ? '<div class="wcc-note">الكفالة سارية المفعول حتى تاريخ انتهائها، لكنّ <b>الضمان استُخدم</b> — الكفالة والضمان يُستخدمان مرّةً واحدة.</div>' : '') +
+    return '<div data-wcc>' +
+      '<h4 class="font-bold text-gray-800 mb-1 border-b border-gray-200 pb-2 flex items-center justify-between gap-2">' +
+        '<span class="flex items-center gap-2"><i class="fas fa-tools text-canon-red"></i> سجلّ خدمة الضمان</span>' +
+        '<span class="font-english text-gray-400 uppercase tracking-wider whitespace-nowrap" style="font-size:9px">Service Record</span></h4>' +
+      (u ? '<p class="text-xs text-gray-500 mt-2">تبقى الكفالة سارية حتى تاريخ انتهائها، وتُقدَّم خدمة الضمان مرّةً واحدة.</p>' : '') +
       list.map(item).join('') + '</div>';
   }
-  function customerCss() {
-    if (doc.getElementById('gmt-wcc-css')) return;
-    var s = doc.createElement('style'); s.id = 'gmt-wcc-css';
-    s.textContent = '.wcc{border:1.5px solid #c4b5fd;background:#faf5ff;border-radius:12px;padding:14px 16px;direction:rtl;text-align:right}' +
-      '.wcc-h{font-weight:900;font-size:15px;color:#4c1d95;margin-bottom:6px}' +
-      '.wcc-note{font-size:12.5px;font-weight:700;color:#5b21b6;margin-bottom:8px;line-height:1.7}' +
-      '.wcc-item{background:#fff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 12px;margin-top:8px}' +
-      '.wcc-item.used{border-color:#a78bfa}' +
-      '.wcc-res{font-weight:900;font-size:14px;color:#111;margin-bottom:4px}' +
-      '.wcc-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0;border-top:1px dashed #f3e8ff}' +
-      '.wcc-row span{color:#6b7280;font-weight:700;flex-shrink:0}.wcc-row b{color:#111;font-weight:800;text-align:left}';
-    (doc.head || doc.documentElement).appendChild(s);
-  }
+  function customerCss() {}   // (TASK-0251) لا أنماط خاصّة — عناصر الوثيقة نفسها
 
   global.GMTWClaims = { load: load, badge: badge, open: open, used: used, ready: function () { return READY; }, _labels: RES,
     fetchFor: fetchFor, summary: summary, customerHTML: function (l) { customerCss(); return customerHTML(l); }, _cust: CUST };

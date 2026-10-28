@@ -35,6 +35,7 @@ window.GMT_INTERNAL = 1;</script>
         }
 
         @media print {
+            [data-wcc-rep] { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }   /* (TASK-0251) تقرير الفحص كاملاً في الطباعة */
             .no-print { display: none !important; }
             body { background-color: white; -webkit-print-color-adjust: exact; }
             .certificate-container { box-shadow: none; border: 1px solid #ddd; width: 100%; max-width: 100%; margin: 0; }
@@ -84,22 +85,22 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261028q"></script>
+<script src="gmt-tools.js?v=20261028r"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="min-h-screen bg-animated">
-  <script src="gmt-image-guard.js?v=20261028q"></script>
+  <script src="gmt-image-guard.js?v=20261028r"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261028q"></script>
+  <script src="gmt-brand.js?v=20261028r"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261028q"></script>
+  <script src="gmt-core.js?v=20261028r"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-share.js?v=20261028q" defer></script>
-  <script src="gmt-sticker.js?v=20261028q" defer></script>
-  <script src="gmt-wclaims.js?v=20261028q" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
+  <script src="gmt-share.js?v=20261028r" defer></script>
+  <script src="gmt-sticker.js?v=20261028r" defer></script>
+  <script src="gmt-wclaims.js?v=20261028r" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
   <script src="gmt-custcache.js?v=20261016a" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -376,13 +377,10 @@ window.GMT_INTERNAL = 1;</script>
                     <div>
                         <h3 id="statusTitle" class="font-bold text-base"></h3>
                         <p class="text-xs text-gray-500">الضمان ساري حتى تاريخ الانتهاء المحدد في هذه الوثيقة</p>
-                        <!-- (TASK-0214 · seq 144) «ساريه مفعول ولكن تم استخدامها بسبب …» -->
-                        <p id="statusUsed" class="hidden text-sm font-black mt-1" style="color:#5b21b6"></p>
+                        <!-- (TASK-0214 · seq 144) «ساريه مفعول ولكن تم استخدامها بسبب …» ⇐ (TASK-0251 · seq 173) سطرٌ رسميّ قصير بألوان الوثيقة؛ التفاصيل أسفلها -->
+                        <p id="statusUsed" class="hidden text-xs font-bold text-gray-700 mt-1"></p>
                     </div>
                 </div>
-
-                <!-- (TASK-0214 · المالك seq 144) سجلّ استخدام الضمان (صيانة · استبدال وتاريخه · …) — مُزامَن مع «🛠 الضمان» في إدارة الكفالات -->
-                <div id="claimsDisplay" class="hidden"></div>
 
                 <div class="data-table-container">
                     <table class="w-full text-sm text-right">
@@ -495,6 +493,9 @@ window.GMT_INTERNAL = 1;</script>
                     <p class="text-[11px] text-gray-500">تاريخ التفعيل: <span id="signatureDisplayDate" class="font-bold text-gray-700"></span></p>
                     <p id="signatureDisplayBiometric" class="text-[11px] font-bold text-green-700 mt-1 hidden"><i class="fas fa-fingerprint"></i> تم التحقق أيضاً ببصمة/وجه الجهاز</p>
                 </div>
+
+                <!-- (TASK-0214 · seq 144) سجلّ خدمة الضمان — مُزامَن مع «🛠 الضمان» في إدارة الكفالات ⇐ (TASK-0251 · seq 173) «مكان … في الاسفل» بهوية الوثيقة -->
+                <div id="claimsDisplay" class="hidden"></div>
                 
                 <div class="flex flex-col items-center mt-8 space-y-4">
                     <div class="flex flex-col items-center group cursor-pointer">
@@ -512,7 +513,7 @@ window.GMT_INTERNAL = 1;</script>
                              <p class="text-[10px] text-gray-500">General Media Tech - Canon Syria</p>
                          </div>
                          <div class="h-10 w-32 border border-dashed border-gray-300 rounded bg-gray-50 flex items-center justify-center text-gray-400 text-xs hover:border-canon-red hover:text-canon-red transition-colors">
-                             <img src="genrallogo.png?v=20261028q" alt="شعار الموقع"
+                             <img src="genrallogo.png?v=20261028r" alt="شعار الموقع"
                  onerror="this.onerror=null;this.src='logo.png'">
                          </div>
                     </div>
@@ -2024,11 +2025,8 @@ window.GMT_INTERNAL = 1;</script>
             if (!box || !data || !data.sid || !window.GMTWClaims || !GMTWClaims.fetchFor) return;
             GMTWClaims.fetchFor({ url: SUPABASE_URL, key: SUPABASE_ANON_KEY }, data.sid).then(list => {
                 const sum = GMTWClaims.summary(list);
-                if (used) { used.textContent = sum && !isCancelled ? '⚠️ ' + sum : ''; used.classList.toggle('hidden', !sum || isCancelled); }
-                if (sum && !isCancelled) {
-                    const t = document.getElementById('statusTitle');
-                    if (t && /سارية المفعول/.test(t.textContent) && /تم استخدام/.test(sum)) t.textContent = 'حالة الكفالة: سارية المفعول — تم استخدام الضمان';
-                }
+                /* (TASK-0251) العنوان يبقى «سارية المفعول (Active)» كما هو — سطرٌ رسميّ قصير تحته فقط، والتفاصيل في «سجلّ خدمة الضمان» أسفل الوثيقة */
+                if (used) { used.textContent = sum && !isCancelled ? sum : ''; used.classList.toggle('hidden', !sum || isCancelled); }
                 box.innerHTML = GMTWClaims.customerHTML(list);
                 box.classList.toggle('hidden', !list.length);
             }).catch(e => { console.warn('[warranty] تعذّرت قراءة سجلّ الاستخدام:', e && e.message); });
@@ -2338,17 +2336,17 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261028q"></script>
+<script src="gmt-brain.js?v=20261028r"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261028q"></script>
+<script src="gmt-whatsnew.js?v=20261028r"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261028q"></script>
+<script src="gmt-nofab.js?v=20261028r"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- 🔴 (٧ ي-٣ · فحص_الأزرار_الميتة) كان وسمُ gmt-fitrow يبتلع افتتاح السكربت التالي: سكربتٌ له src
      يُهمَل ما بداخله ⇒ الدالّة لا تُعرَّف والزرّ ميّت أمام الزبون. -->
