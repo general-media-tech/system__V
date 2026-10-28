@@ -1,7 +1,0 @@
-task: TASK-0245
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: gmt-product-edit.js inventory.html tests/harness/t_product_edit_store.js
-claimed_at: 2026-10-28T08:02:20Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0245
