@@ -79,7 +79,7 @@
       if (opt && opt.ret) out = out.filter(function (b) { return /^contactShipOffice\(/.test(b.getAttribute('onclick') || ''); });
       /* (TASK-0240 · seq 164 · 183) المرتجعة عند المفتي ⇒ «↩️ سجّله مرتجعاً» (السبب · التكاليف · من دفعها · مرتجع الفاتورة) */
       var extra = (opt && opt.ret && typeof g.orderMarkReturned === 'function' && (o.status === 'shipped' || o.status === 'delivered'))
-        ? '<button type="button" onclick="orderMarkReturned(' + JSON.stringify(o.id).replace(/"/g, '&quot;') + ')" data-mr-markret class="mr-btn mr-go" style="background:#c2410c;border-color:#c2410c">↩️ سجّله مرتجعاً</button>' : '';
+        ? '<button type="button" onclick="orderMarkReturned(' + JSON.stringify(o.id).replace(/"/g, '&quot;') + ')" data-mr-markret class="mr-btn mr-go" style="background:#c2410c;border-color:#c2410c">↩️ أنشئ مرتجعاً</button>' : '';
       if (!out.length && !extra) return '';
       out.forEach(function (b) { if (/requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
       return '<div class="flex gap-2">' + extra + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';

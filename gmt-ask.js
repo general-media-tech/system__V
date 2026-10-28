@@ -142,8 +142,12 @@
         fields = [];
         (opts.fields || []).forEach(function (f) {
           var lb = document.createElement('div'); lb.className = 'gmtask-lb'; lb.textContent = f.label || '';
-          var el = document.createElement('input'); el.className = 'gmtask-in'; el.type = f.type || 'text';
-          el.value = f.value == null ? '' : String(f.value);
+          var el;
+          if (Array.isArray(f.options)) {   /* (TASK-0260) قائمة اختيار: options:[{v,t}] */
+            el = document.createElement('select'); el.className = 'gmtask-in';
+            f.options.forEach(function (o) { var op = document.createElement('option'); op.value = String(o.v); op.textContent = o.t == null ? String(o.v) : o.t; el.appendChild(op); });
+            if (f.value != null) el.value = String(f.value);
+          } else { el = document.createElement('input'); el.className = 'gmtask-in'; el.type = f.type || 'text'; el.value = f.value == null ? '' : String(f.value); }
           if (f.placeholder) el.placeholder = f.placeholder;
           if (f.dir) el.style.direction = f.dir;
           if (f.autocomplete) el.setAttribute('autocomplete', f.autocomplete);
@@ -266,7 +270,7 @@
         title: opts.title || 'اختيار', icon: opts.icon || 'ask',
         choices: opts.choices || [], cancelText: opts.cancelText, image: opts.image });
     },
-    /* GMTAsk.form('رسالة', { title, icon, okText, fields:[{k,label,type,placeholder,value,dir}], submit(vals) }) ⇒ القيم/result أو null */
+    /* GMTAsk.form('رسالة', { title, icon, okText, fields:[{k,label,type,placeholder,value,dir,options:[{v,t}]}], submit(vals) }) ⇒ القيم/result أو null */
     form: function (message, opts) {
       opts = opts || {};
       return dialog({ kind: 'form', message: message,

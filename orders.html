@@ -86,23 +86,23 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029e"></script>
+<script src="gmt-tools.js?v=20261029f"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-28">
-  <script src="gmt-image-guard.js?v=20261029e"></script>
+  <script src="gmt-image-guard.js?v=20261029f"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029e"></script>
+  <script src="gmt-brand.js?v=20261029f"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029e"></script>
+  <script src="gmt-core.js?v=20261029f"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-stock.js?v=20261029e" defer></script>
-  <script src="gmt-share.js?v=20261029e" defer></script>
+  <script src="gmt-ask.js?v=20261029f" defer></script>
+  <script src="gmt-stock.js?v=20261029f" defer></script>
+  <script src="gmt-share.js?v=20261029f" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
@@ -110,8 +110,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261029e" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261029e" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-live.js?v=20261029f" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261029f" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -228,7 +228,7 @@ window.GMT_INTERNAL = 1;</script>
         </button>
         <!-- (2026-08-26) بطاقة الشهر الكبيرة أُزيلت — صار لها زر «الملخّص الشهري» ضمن الأزرار العلوية -->
         <div id="stats-detail" class="hidden space-y-3">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="bg-white p-4 rounded-2xl card-shadow border-r-4 border-gray-300 flex justify-between items-center">
                     <div><p class="text-[10px] font-bold text-gray-400">قيد التجهيز</p></div>
                     <p id="sumPending" class="text-xl font-black text-gray-600">$0</p>
@@ -244,6 +244,10 @@ window.GMT_INTERNAL = 1;</script>
                 <div class="bg-white p-4 rounded-2xl card-shadow border-r-4 border-emerald-500 flex justify-between items-center">
                     <div><p class="text-[10px] font-bold text-gray-400">تم التحصيل</p></div>
                     <p id="sumCompleted" class="text-xl font-black text-emerald-600">$0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl card-shadow border-r-4 border-orange-400 flex justify-between items-center"><!-- (TASK-0260) -->
+                    <div><p class="text-[10px] font-bold text-gray-400">مرتجع لم يُستلم</p></div>
+                    <p id="sumReturning" class="text-xl font-black text-orange-700">$0</p>
                 </div>
             </div>
             <div id="branch-totals" class="grid grid-cols-2 md:grid-cols-5 gap-2"></div>
@@ -270,7 +274,7 @@ window.GMT_INTERNAL = 1;</script>
             <button onclick="switchTab('prepared')"  id="tab-prepared"  class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">محضّرة <span data-status="prepared" id="badge-prepared"  class="inline-block bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('shipped')"   id="tab-shipped"   class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">في الطريق <span data-status="shipped" id="badge-shipped"   class="inline-block bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('delivered')" id="tab-delivered" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">بانتظار التحصيل <span data-status="delivered" id="badge-delivered" class="inline-block bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
-            <button onclick="switchTab('returned')" id="tab-returned" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">↩️ المرتجعة <span id="badge-returned" class="inline-block bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button><!-- (TASK-0240) -->
+            <button onclick="switchTab('returned')" id="tab-returned" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">↩️ المرتجعات <span id="badge-returned" class="inline-block bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button><!-- (TASK-0240) -->
             <button onclick="switchTab('completed')" id="tab-completed" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">تم التحصيل <span id="badge-completed" class="inline-block bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
         </div>
 
@@ -349,14 +353,20 @@ window.GMT_INTERNAL = 1;</script>
             <div id="list-delivered" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
-        <!-- (TASK-0240 · المالك seq 164 · 183) الأوردرات المرتجعة: شُحنت وعادت — بتكاليفها ومن دفعها · إعادة الشحن · مرتجع الفاتورة · التقرير -->
+        <!-- (TASK-0240 → TASK-0260 · المالك seq 186–187) المرتجعات كأوردر: بالطريق ⇐ وصل لمكتب الشحن ⇐ استلمناه (تأكيد استلامنا) -->
         <section id="section-returned">
-            <div class="flex items-center gap-2 mb-4 px-1 border-b border-orange-100 pb-2">
+            <div class="flex items-center gap-2 mb-2 px-1 border-b border-orange-100 pb-2">
                 <i data-lucide="undo-2" class="w-5 h-5 text-orange-600"></i>
-                <h2 class="text-xs font-black text-orange-700 uppercase tracking-wider flex-1">أوردرات مرتجعة — شُحنت وعادت</h2>
+                <h2 class="text-xs font-black text-orange-700 uppercase tracking-wider flex-1">المرتجعات — بالطريق ⇐ وصل للمكتب ⇐ استلمناه</h2>
                 <button type="button" onclick="returnsReport()" data-returns-report class="text-[11px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">📊 تقرير المرتجعات</button>
             </div>
-            <div id="list-returned" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <p id="ret-sum" class="text-[11px] font-bold text-gray-500 px-1 mb-3"></p>
+            <h3 class="text-[11px] font-black text-orange-700 px-1 mb-2">↩️ بالطريق إلينا <span id="badge-ret-transit" class="text-gray-400">0</span></h3>
+            <div id="list-ret-transit" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5"></div>
+            <h3 class="text-[11px] font-black text-orange-700 px-1 mb-2">📍 وصل لمكتب الشحن — بانتظار استلامنا <span id="badge-ret-arrived" class="text-gray-400">0</span></h3>
+            <div id="list-ret-arrived" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5"></div>
+            <h3 class="text-[11px] font-black text-emerald-700 px-1 mb-2">✅ استلمناه <span id="badge-ret-received" class="text-gray-400">0</span></h3>
+            <div id="list-ret-received" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
         <!-- قسم مكتمل -->
@@ -1548,7 +1558,7 @@ function render() {
     const branchTot  = {};
     const companyTot = {};
     const companyFrom = {};   // (TASK-0203) الشركة ⇒ فرع الحوالة (senderFilterKey) ⇒ { v, n }
-    let sumP=0, sumS=0, sumD=0, sumC=0;
+    let sumP=0, sumS=0, sumD=0, sumC=0, sumR=0;
     const now = Date.now();
     const LATE_SHIPPED   = 5 * 86400000; // 5 أيام في الطريق
     const LATE_DELIVERED = 3 * 86400000; // 3 أيام بانتظار التحصيل
@@ -1568,6 +1578,8 @@ function render() {
         if (o.status==='shipped')   sumS += p;
         if (o.status==='delivered') sumD += p;
         if (o.status==='completed') sumC += orderValue(o);
+        /* (TASK-0260 · seq 187 «عندما يتم … تاكيد استلامه حصرا … يؤثر على … المجموع الكلي»): المرتجع قبل تأكيد استلامنا يبقى في المجموع الكلي */
+        if (o.status==='returned' && returnStageOf(o) !== 'received') sumR += p;
         if (o.status==='shipped' || o.status==='delivered')
             branchTot[o.branch] = (branchTot[o.branch]||0) + p;
         if ((o.status==='shipped' || o.status==='delivered') && o.shipping_company) {
@@ -1585,10 +1597,11 @@ function render() {
             pending:   'لم يُجهَّز بعد',
             prepared:  'جاهز ولم يُشحن',
             shipped:   'بالطريق ولم يصل',
-            delivered: 'سُلّم ولم يُحصَّل'
+            delivered: 'سُلّم ولم يُحصَّل',
+            returned:  'مرتجع لم يُؤكَّد استلامه'
         };
-        if (o.status !== 'completed') {
-            const ref = o.shipped_at || o.created_at;
+        if (o.status !== 'completed' && !(o.status === 'returned' && returnStageOf(o) === 'received')) {
+            const ref = (o.status === 'returned' && o.returned_at) || o.shipped_at || o.created_at;
             const age = ref ? now - new Date(ref).getTime() : 0;
             const limit = (o.status === 'delivered') ? LATE_DELIVERED : LATE_ANY;
             if (age > limit) {
@@ -1607,12 +1620,13 @@ function render() {
     if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch && !fSend && !fTransfer);
 
     // إجمالي غير محصّل
-    const grand = sumP + sumS + sumD;
+    const grand = sumP + sumS + sumD + sumR;
     setText('grandTotal',  '$' + grand.toLocaleString());
     setText('sumPending',  '$' + sumP.toLocaleString());
     setText('sumShipped',  '$' + sumS.toLocaleString());
     setText('sumDelivered','$' + sumD.toLocaleString());
     setText('sumCompleted','$' + sumC.toLocaleString());
+    setText('sumReturning','$' + sumR.toLocaleString());
 
     document.getElementById('branch-totals').innerHTML = Object.entries(branchTot).map(([b,v]) => `
         <div class="bg-white p-3 rounded-xl border border-gray-100 card-shadow text-center">
@@ -1656,8 +1670,8 @@ function render() {
     const lateList  = document.getElementById('late-list');
     if (lateOrders.length > 0 && lateList) {
         /* ORD-6: يعرض كل الحالات غير المكتملة + سبب الدخول للمتابعة */
-        const ICON = { pending:'⏳', prepared:'📦', shipped:'🚚', delivered:'💵' };
-        const COL  = { pending:'text-gray-600', prepared:'text-blue-600', shipped:'text-yellow-700', delivered:'text-red' };
+        const ICON = { pending:'⏳', prepared:'📦', shipped:'🚚', delivered:'💵', returned:'↩️' };
+        const COL  = { pending:'text-gray-600', prepared:'text-blue-600', shipped:'text-yellow-700', delivered:'text-red', returned:'text-orange-700' };
         lateOrders.sort((a,b)=>b.days-a.days);
         lateList.innerHTML = lateOrders.map(({o, days, type, reason}) => `
             <div class="flex justify-between items-center bg-white rounded-xl px-3 py-2 border border-amber-100 cursor-pointer hover:border-amber-300 transition-colors" onclick="closeModal('followUpModal'); openEditModal(${o.id})">
@@ -1701,7 +1715,10 @@ function render() {
         if (!sec) return;
         const show = currentTab === 'all' || currentTab === st;
         sec.classList.toggle('hidden', !show);
-        if (show) renderCardsChunked(document.getElementById('list-' + st), groups[st], seq, currentTab === 'all' ? 12 : CARD_CHUNK);   // «الكل» يجمع خمسة أقسام ⇒ دفعةٌ أصغر لكلٍّ منها
+        if (show && st === 'returned') {   /* (TASK-0260) ثلاث مراحل */
+            ['transit', 'arrived', 'received'].forEach(k => { const a = groups.returned.filter(o => returnStageOf(o) === k); setText('badge-ret-' + k, a.length); renderCardsChunked(document.getElementById('list-ret-' + k), a, seq, currentTab === 'all' ? 12 : CARD_CHUNK); });
+            setText('ret-sum', sumR ? 'قيمة المرتجعات قبل تأكيد استلامنا: $' + sumR.toLocaleString() + ' — تبقى ضمن «المجموع الكلي» حتى «✅ تأكيد استلامنا»' : '');
+        } else if (show) renderCardsChunked(document.getElementById('list-' + st), groups[st], seq, currentTab === 'all' ? 12 : CARD_CHUNK);   // «الكل» يجمع خمسة أقسام ⇒ دفعةٌ أصغر لكلٍّ منها
     });
 
     lucide.createIcons();
@@ -1947,7 +1964,7 @@ function cardHTML(o) {
         shipped:   `<button onclick="requestConfirm(${o.id},'delivered')" class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">✅ تأكيد الاستلام</button>`,
         delivered: `<button onclick="requestConfirm(${o.id},'completed')" class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">💰 تم التحصيل</button>`,
         completed: `<button onclick="requestConfirm(${o.id},'delete')"    class="flex-1 ${c.btn} py-3 rounded-xl text-xs font-black transition-colors">🗂 أرشفة نهائية</button>`,
-        returned:  `<button onclick="orderReship(${o.id})" data-reship class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">🔁 إعادة الشحن</button>`,   // (TASK-0240)
+        returned:  returnActionBtn(o, c),   // (TASK-0260) بالطريق ⇐ وصل ⇐ استلمناه ⇐ إعادة الشحن
     }[o.status] || '';
 
     const isLinked = !!(o.invoice_number || o.invoice_id);
@@ -2079,8 +2096,14 @@ function cardMoreItems(o) {
     if (o.status === 'shipped') items.push({ ic: '📲', t: o.notified_ship_at ? 'تبليغ الشحن — أُرسل ✓ (أعد الإرسال)' : 'تبليغ الشحن للزبون', off: 'رسالة «تم شحن طلبك» برقم التتبّع على واتساب بزنس', on: 'shipNoticeManual(' + o.id + ')' });
     if (o.status === 'shipped' || o.status === 'delivered' || o.status === 'returned') items.push({ ic: '🏢', t: 'مراسلة فرع الوجهة (شركة الشحن)', on: 'contactShipOffice(' + o.id + ')' });
     /* (TASK-0240 · seq 164 · 183) شُحن وعاد ⇐ مرتجع: السبب · أجور الشحن ذهاباً وإياباً · من دفعها · مرتجع الفاتورة */
-    if (o.status === 'shipped' || o.status === 'delivered') items.push({ ic: '↩️', t: 'سجّله مرتجعاً (الشحنة عادت)', off: 'السبب · أجور الشحن والإرجاع · من دفعها (الشركة أو نقطة بيع) · ومرتجع الفاتورة إن كان مرتبطاً', on: 'orderMarkReturned(' + o.id + ')' });
-    if (o.status === 'returned') items.push({ ic: '🔁', t: 'إعادة الشحن', off: 'يعود إلى «قيد التجهيز» ليُشحن من جديد — ويبقى سجلّ المرتجع', on: 'orderReship(' + o.id + ')' });
+    if (o.status === 'shipped' || o.status === 'delivered') items.push({ ic: '↩️', t: 'أنشئ مرتجعاً (الشحنة عائدة)', off: 'يصير في «المرتجعات ⇐ بالطريق إلينا» · ثمّ «وصل للمكتب» · ثمّ «تأكيد استلامنا» (الأجور ومن دفعها · مرتجع الفاتورة)', on: 'orderMarkReturned(' + o.id + ')' });
+    if (o.status === 'returned') {   /* (TASK-0260) مراحل المرتجع */
+        const rs = returnStageOf(o);
+        if (rs === 'transit') items.push({ ic: '📍', t: 'وصل لمكتب الشحن', on: 'returnArrived(' + o.id + ')' });
+        if (rs === 'arrived') items.push({ ic: '📣', t: 'تبليغ بوصول المرتجع (واتساب)', on: 'returnNotify(' + o.id + ')' });
+        if (rs !== 'received') items.push({ ic: '✅', t: 'تأكيد استلامنا للمرتجع', off: 'مين استلم · نقطة البيع · حالة البضاعة · الأجور بالليرة أو الدولار ومن دفعها', on: 'returnReceive(' + o.id + ')' });
+        if (rs === 'received') items.push({ ic: '🔁', t: 'إعادة الشحن', off: 'يعود إلى «قيد التجهيز» ليُشحن من جديد — ويبقى سجلّ المرتجع', on: 'orderReship(' + o.id + ')' });
+    }
     /* (وثيقة الطلبات §٢) الفرع المُرسِل وحالة الحوالة + البحث برقم التتبّع/قراءة الإيصال (نافذة «التحقق» القديمة بقيت قابلةً للوصول
        بعد أن صار زرّ الأعلى يفتح موقع المفتي مباشرةً) — لشحنات المفتي */
     if (hasSenderInfo(o)) {
@@ -8878,84 +8901,179 @@ window.openLinkedActions = (id) => {
 
 
 
-/* ══ (TASK-0240 · المالك seq 164 «المرتجعات والمرتجعات في الاوردرات · مصاريف الاوردرات المرتجعه» ⇐ seq 183: «كلهن سوا في كل
-   الاجراءات سواء الاوردر وتكاليفه سواء الفاتوره وسواء الادخاله على المخزون» · «هو في الاساس مصروف عام للشركه لكن ممكن يدفعوا احد
-   نقاط للبيع نحن عم نحدد»):
-   • «↩️ سجّله مرتجعاً» (⋮ للمشحون/بانتظار التحصيل · ومراجعة المفتي للمرتجعة): السبب · أجور الشحن ذهاباً · أجور الإرجاع · من دفعها.
-   • الأوردر ⇐ «↩️ المرتجعة» (status=returned · returned_at · return_info) — لا مكتمل ولا محذوف.
-   • التكاليف ⇐ مصروف (gmt_expenses «مصاريف الأوردرات المرتجعة»): على الشركة (عامّ · معتمد) أو على نقطة بيع (بانتظار موافقتك —
-     ومنها تختار: من صندوقها أو دفعتَه أنت، كبقيّة المصاريف).
-   • مرتبطٌ بفاتورة ⇐ «مرتجع الفاتورة» في نقطة البيع (يعود المخزون وتنعكس العمولة) — المسار القائم نفسه.
-   • «🔁 إعادة الشحن» ⇐ «قيد التجهيز» ويبقى سجلّ المرتجع · «📊 تقرير المرتجعات». ══ */
+/* ══ (TASK-0240 → TASK-0260 · المالك seq 186–187) المرتجع «مثل اوردر العادي وصول وتاكيد استلامنا له» — لا «طريقة عشوائية»:
+   تبويب «↩️ المرتجعات» بثلاث مراحل كالأوردر العادي:
+   ① «↩️ بالطريق» — يُنشأ من ⋮ الأوردر المشحون (أو من الفاتورة في نقطة البيع ⇐ orders.html?return=…): السبب · شركة الشحن ورقم تتبّع
+      المرتجع · ربط الفاتورة. لا شيء يتغيّر بعد في الفاتورة ولا المخزون ولا الصناديق — والأوردر يبقى في «المجموع الكلي».
+   ② «📍 وصل لمكتب الشحن» — متى ووصل · مع تبليغٍ (واتساب) لمن يستلمه.
+   ③ «✅ استلمناه» — تأكيد استلامنا حصراً: مين استلم ومتى · نقطة البيع المستلمة · حالة البضاعة · أجور المرتجع المدفوعة بالليرة أو
+      بالدولار ومن دفعها (تلقائياً «مصروف على الشركة»، أو نقطة البيع المستلمة — نسأل كل مرّة) ⇒ عندها فقط: مرتجع الفاتورة في نقطة
+      البيع (المخزون والصناديق والعمولة — المسار القائم نفسه) ويخرج الأوردر من «المجموع الكلي».
+   • «🔁 إعادة الشحن» بعد الاستلام ⇒ «قيد التجهيز» ويبقى سجلّ المرتجع · «📊 تقرير المرتجعات». ══ */
+const RET_STAGES = { transit: '↩️ بالطريق إلينا', arrived: '📍 وصل لمكتب الشحن', received: '✅ استلمناه' };
 function returnInfoOf(o) { const r = o && o.return_info; if (!r) return null; if (typeof r === 'string') { try { return JSON.parse(r); } catch (_) { return null; } } return r; }
+function returnStageOf(o) { const r = returnInfoOf(o); return (r && RET_STAGES[r.stage]) ? r.stage : 'transit'; }
+/* أجور المرتجع للعرض والتقرير: الجديد (المبلغ بعملته) · والقديم (TASK-0240: ذهاب + إرجاع بالدولار) */
+function retCostUSD(x) { if (!x) return 0; if (x.cost != null) return Number(x.cost_usd) || 0; return Number(x.total) || 0; }
+function retCostText(x) {
+    if (!x) return '';
+    if (x.cost != null && Number(x.cost)) return (x.currency === 'syp' ? Number(x.cost).toLocaleString('en-US') + ' ل.س' : '$' + Number(x.cost).toFixed(2)) + ' (' + (x.payer_name || 'الشركة') + ')';
+    if (Number(x.total)) return '$' + Number(x.total).toFixed(2) + ' (' + (x.payer_name || 'الشركة') + ')';
+    return '';
+}
 function returnInfoHTML(o) {
     const r = returnInfoOf(o); if (!r) return '';
     const hist = Array.isArray(r.history) ? r.history : [];
-    const cur = o.status === 'returned' ? r : null;
-    const line = x => '↩️ مرتجع' + (x.at ? ' ' + escH(String(x.at).slice(0, 10)) : '') + (x.reason ? ' — ' + escH(x.reason) : '') +
-        (Number(x.total) ? ' · التكاليف $' + (Number(x.total) || 0).toFixed(2) + ' (' + escH(x.payer_name || 'الشركة') + ')' : '');
-    return (cur ? `<p data-return-info class="text-orange-700 font-bold">${line(cur)}</p>` : '') +
-        hist.map(x => `<p data-return-hist class="text-gray-500 text-[11px]">${line(x)} · أُعيد شحنه${x.reshipped_at ? ' ' + escH(String(x.reshipped_at).slice(0, 10)) : ''}</p>`).join('');
+    const d = v => v ? ' ' + escH(String(v).slice(0, 10)) : '';
+    let cur = '';
+    if (o.status === 'returned') {
+        const st = returnStageOf(o), c = retCostText(r);
+        cur = `<div data-return-info class="mt-1 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] leading-6">
+            <p class="font-black text-orange-700">${RET_STAGES[st]}${r.reason ? ' — ' + escH(r.reason) : ''}</p>
+            <p class="text-gray-600 font-bold">أُنشئ${d(r.at)}${r.by ? ' · ' + escH(r.by) : ''}${r.ret_company ? ' · ' + escH(r.ret_company) : ''}${r.ret_tracking ? ' · تتبّع المرتجع ' + escH(r.ret_tracking) : ''}${(r.invoice_no || o.invoice_number) ? ' · الفاتورة #' + escH(r.invoice_no || o.invoice_number) : ''}</p>
+            ${r.arrived_at ? `<p class="text-gray-600 font-bold">📍 وصل للمكتب${d(r.arrived_at)}${r.notified_at ? ' · بُلِّغ ✓' : ''}</p>` : ''}
+            ${r.received_at ? `<p class="text-emerald-700 font-black">✅ استلمه ${escH(r.received_by || '')}${r.received_branch_name ? ' (' + escH(r.received_branch_name) + ')' : ''}${d(r.received_at)} · البضاعة ${escH(r.condition || '')}${r.condition_note ? ' — ' + escH(r.condition_note) : ''}</p>` : ''}
+            ${c ? `<p class="text-gray-700 font-bold">أجور المرتجع: ${escH(c)}</p>` : ''}
+            ${r.refund_done ? '<p class="text-emerald-700 font-bold">🧾 مرتجع الفاتورة نُفّذ</p>' : ''}
+        </div>`;
+    }
+    return cur + hist.map(x => `<p data-return-hist class="text-gray-500 text-[11px]">↩️ مرتجع${d(x.at)}${x.reason ? ' — ' + escH(x.reason) : ''}${retCostText(x) ? ' · ' + escH(retCostText(x)) : ''} · أُعيد شحنه${d(x.reshipped_at)}</p>`).join('');
 }
-window.orderMarkReturned = async (id) => {
+function returnActionBtn(o, c) {
+    const st = returnStageOf(o), cls = `flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors`;
+    if (st === 'transit') return `<button onclick="returnArrived(${o.id})" data-ret-arrived class="${cls}">📍 وصل لمكتب الشحن</button>`;
+    if (st === 'arrived') return `<button onclick="returnReceive(${o.id})" data-ret-receive class="${cls}">✅ تأكيد استلامنا</button>`;
+    return `<button onclick="orderReship(${o.id})" data-reship class="${cls}">🔁 إعادة الشحن</button>`;
+}
+async function retPatch(o, info, extra) {
+    const patch = Object.assign({ return_info: info }, extra || {});
+    await sbUpdateOrThrow(o.id, patch);
+    Object.assign(o, patch);
+}
+/* ① إنشاء المرتجع (من ⋮ الأوردر · أو من الفاتورة: opts.invoiceNo) */
+window.orderMarkReturned = async (id, opts) => {
+    opts = opts || {};
     const o = orders.find(x => x.id == id); if (!o) return;
     if (['shipped', 'delivered'].indexOf(o.status) === -1) { showToast('المرتجع للأوردر المشحون فقط', 'err'); return; }
-    const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(',', '.')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN; };
-    const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.shipping_company || '') + (o.tracking_number ? ' · ' + o.tracking_number : '') + '\nالشحنة عادت — تُنقل إلى «↩️ المرتجعة» وتُسجَّل تكاليفها مصروفاً.', {
-        title: '↩️ تسجيل مرتجع', okText: 'التالي',
+    const invNo = opts.invoiceNo || o.invoice_number || '';
+    const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.shipping_company || '') + (o.tracking_number ? ' · ' + o.tracking_number : '') +
+        '\nيصير في «↩️ المرتجعات ⇐ بالطريق إلينا». الفاتورة والمخزون والصناديق لا تتغيّر إلا عند «✅ تأكيد استلامنا».', {
+        title: '↩️ مرتجع جديد', okText: 'أنشئ المرتجع',
         fields: [{ k: 'reason', label: 'سبب الإرجاع *', value: 'رفض الزبون الاستلام', placeholder: 'رفض الاستلام · لم يُرَد على الهاتف · عنوان خاطئ…' },
-                 { k: 'ship_out', label: 'أجور الشحن ذهاباً $ (إن دفعناها)', dir: 'ltr', value: '0' },
-                 { k: 'ship_back', label: 'أجور الإرجاع $', dir: 'ltr', value: '0' },
+                 { k: 'ret_company', label: 'شركة شحن المرتجع', value: o.shipping_company || '' },
+                 { k: 'ret_tracking', label: 'رقم تتبّع المرتجع (إن وُجد)', dir: 'ltr', value: '' },
+                 { k: 'invoice_no', label: 'الفاتورة المرتبطة (رقمها — للربط)', dir: 'ltr', value: invNo },
                  { k: 'note', label: 'ملاحظة (اختياري)' }],
         submit: async (x) => {
             const reason = String(x.reason || '').trim(); if (!reason) return { error: 'اكتب سبب الإرجاع', field: 'reason' };
-            const a = num(x.ship_out), b = num(x.ship_back);
-            if (isNaN(a)) return { error: 'رقمٌ ٠ أو أكثر', field: 'ship_out' }; if (isNaN(b)) return { error: 'رقمٌ ٠ أو أكثر', field: 'ship_back' };
-            return { result: { reason, ship_out: a, ship_back: b, note: String(x.note || '').trim() } };
+            return { result: { reason, ret_company: String(x.ret_company || '').trim(), ret_tracking: String(x.ret_tracking || '').trim(), invoice_no: String(x.invoice_no || '').trim().replace(/^#/, ''), note: String(x.note || '').trim() } };
         } });
     const f = v && (v.result || v); if (!f || !f.reason) return;
-    const total = Math.round((f.ship_out + f.ship_back) * 100) / 100;
-    let payer = { kind: 'company', key: null, name: 'الشركة' };
-    if (total > 0) {
-        if (!dbBranches.length) { try { await loadBranchesFromDB(); } catch (_) {} }
-        const k = await GMTAsk.choose('تكاليف المرتجع $' + total.toFixed(2) + ' — من يدفعها؟', { title: 'المصروف', cancelText: 'رجوع',
-            choices: [{ k: '__co', t: '🏢 الشركة — مصروفٌ عامّ', pri: 1 }].concat(dbBranches.map(b => ({ k: b.key_name, t: '🏪 ' + (b.display_name || b.key_name) + ' — نقطة البيع (بانتظار موافقتك)' }))) });
-        if (!k) return;
-        if (k !== '__co') { const b = dbBranches.find(x => x.key_name === k); payer = { kind: 'branch', key: k, name: (b && b.display_name) || k }; }
-    }
-    const by = getOperatorName() || null, at = new Date().toISOString();
-    const prev = returnInfoOf(o) || {};
-    const info = { reason: f.reason, ship_out: f.ship_out, ship_back: f.ship_back, total, payer_kind: payer.kind, payer_key: payer.key, payer_name: payer.name,
-                   note: f.note || null, by, at, prev_status: o.status, expense_id: null, history: Array.isArray(prev.history) ? prev.history : [] };
-    /* المصروف أوّلاً (لا أوردرٌ «مرتجع» بلا تكاليفه المسجَّلة) */
-    if (total > 0) {
-        const ref = (o.serial_code || ('#' + o.id));
-        const row = { title: 'مصاريف أوردر مرتجع ' + ref + ' — ' + (o.name || ''), amount: total, currency: 'usd', exchange_rate: null,
-            note: [f.reason, o.shipping_company, o.tracking_number ? 'تتبّع ' + o.tracking_number : '', 'ذهاب $' + f.ship_out + ' · إرجاع $' + f.ship_back, f.note].filter(Boolean).join(' · '),
-            is_general: payer.kind === 'company', branch_key: payer.key, approved: payer.kind === 'company', approved_at: payer.kind === 'company' ? at : null,
-            kind: 'مصاريف الأوردرات المرتجعة', category: 'مرتجع شحن', requested_by: by || 'الأوردرات', created_by: by };
-        try {
-            const r = await fetch(`${SUPA_URL}/rest/v1/gmt_expenses`, { method: 'POST', headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(row) });
-            const j = r.ok ? await r.json() : null; if (!r.ok || !Array.isArray(j) || !j[0]) throw new Error('HTTP ' + r.status);
-            info.expense_id = j[0].id;
-        } catch (e) { await GMTAsk.alert('تعذّر تسجيل المصروف (' + ((e && e.message) || e) + ') — لم يتغيّر الأوردر. أعد المحاولة.', { title: 'المرتجع' }); return; }
-    }
-    try { await sbUpdateOrThrow(o.id, { status: 'returned', returned_at: at, return_info: info }); }
-    catch (e) { await GMTAsk.alert('تعذّر نقل الأوردر إلى المرتجعة: ' + ((e && e.message) || e) + (info.expense_id ? '\n(المصروف سُجّل — رقمه ' + info.expense_id + ')' : ''), { title: 'المرتجع' }); return; }
-    Object.assign(o, { status: 'returned', returned_at: at, return_info: info });
-    try { window.GMTAudit && GMTAudit.log({ action: 'order_returned', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: f.reason + (total ? ' · $' + total + ' على ' + payer.name : '') }); } catch (_) {}
+    const by = getOperatorName() || null, at = new Date().toISOString(), prev = returnInfoOf(o) || {};
+    const info = { stage: 'transit', reason: f.reason, ret_company: f.ret_company || null, ret_tracking: f.ret_tracking || null,
+                   invoice_no: f.invoice_no || null, invoice_id: (f.invoice_no && f.invoice_no === String(o.invoice_number || '')) ? (o.invoice_id || null) : (opts.invoiceId || null),
+                   note: f.note || null, by, at, prev_status: o.status, history: Array.isArray(prev.history) ? prev.history : [] };
+    try { await retPatch(o, info, { status: 'returned', returned_at: at }); }
+    catch (e) { await GMTAsk.alert('تعذّر إنشاء المرتجع: ' + ((e && e.message) || e), { title: 'المرتجع' }); return; }
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_returned', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: f.reason }); } catch (_) {}
+    currentTab = 'returned'; render();
+    showToast('↩️ «' + (o.name || '') + '» صار في «المرتجعات ⇐ بالطريق إلينا»', 'ok');
+};
+/* ② وصل لمكتب الشحن (+ تبليغ) */
+window.returnArrived = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned') return;
+    const r = returnInfoOf(o) || {};
+    const ok = await GMTAsk.confirm('مرتجع «' + (o.name || '') + '» وصل لمكتب ' + (r.ret_company || o.shipping_company || 'الشحن') + '؟', { title: '📍 وصل لمكتب الشحن', okText: 'نعم وصل' });
+    if (!ok) return;
+    const info = Object.assign({}, r, { stage: 'arrived', arrived_at: new Date().toISOString(), arrived_by: getOperatorName() || null });
+    try { await retPatch(o, info); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
     render();
-    const linked = !!(o.invoice_id || o.invoice_number);
-    const msg = '↩️ «' + (o.name || '') + '» صار في «المرتجعة»' + (total ? ' · مصروف $' + total.toFixed(2) + ' على ' + payer.name + (payer.kind === 'branch' ? ' (بانتظار موافقتك في المصاريف)' : '') : '');
-    if (linked) {
-        const k = await GMTAsk.choose(msg + '\n\nالأوردر مرتبط بالفاتورة #' + (o.invoice_number || o.invoice_id) + ' — مرتجعها في نقطة البيع يُعيد البضاعة للمخزون ويعكس العمولة.', {
-            title: '↩️ مرتجع الفاتورة', choices: [{ k: 'pos', t: '↩︎ افتح مرتجع الفاتورة الآن', pri: 1 }, { k: 'later', t: 'لاحقاً (من ⋮ ⇐ مرتجع الفاتورة)' }] });
-        if (k === 'pos') location.href = 'pos.html?' + new URLSearchParams({ refund: o.invoice_id || '', inv: o.invoice_number || '', order: String(o.id), then: 'none' }).toString();
-    } else showToast(msg, 'ok');
+    const k = await GMTAsk.choose('📍 صار «وصل لمكتب الشحن». تبلّغ من سيستلمه؟', { title: '📣 تبليغ', cancelText: 'لاحقاً',
+        choices: [{ k: 'wa', t: '📲 أرسل تبليغاً على واتساب', pri: 1 }, { k: 'no', t: 'لا حاجة' }] });
+    if (k === 'wa') returnNotify(o.id);
+};
+window.returnNotify = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    const r = returnInfoOf(o) || {};
+    const t = '↩️ مرتجع وصل لمكتب ' + (r.ret_company || o.shipping_company || 'الشحن') + '\nالزبون: ' + (o.name || '') + (o.phone ? ' · ' + o.phone : '') +
+        '\nالأوردر: ' + (o.serial_code || ('#' + o.id)) + (r.ret_tracking || o.tracking_number ? '\nرقم التتبّع: ' + (r.ret_tracking || o.tracking_number) : '') +
+        (o.product ? '\nالبضاعة: ' + o.product : '') + '\nالسبب: ' + (r.reason || '') + '\nيرجى استلامه وتأكيد الاستلام في صفحة الأوردرات.';
+    try { window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); } catch (_) {}
+    const info = Object.assign({}, r, { notified_at: new Date().toISOString() });
+    try { await retPatch(o, info); render(); } catch (_) {}
+};
+/* ③ تأكيد استلامنا — حصراً هنا: المصروف · مرتجع الفاتورة (المخزون والصناديق) · الخروج من المجموع الكلي */
+window.returnReceive = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned') return;
+    const r = returnInfoOf(o) || {};
+    if (r.stage === 'received') { showToast('استُلم من قبل', 'err'); return; }
+    if (!dbBranches.length) { try { await loadBranchesFromDB(); } catch (_) {} }
+    const rate0 = Number(window.GMT_RATE || (window.GMT_DB && GMT_DB.RATE) || 140);
+    const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/,/g, '')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN; };
+    const old = retCostText(r);
+    const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.product || '') + (old ? '\n(أجورٌ سُجّلت سابقاً لهذا المرتجع: ' + old + ')' : ''), {
+        title: '✅ تأكيد استلام المرتجع', okText: 'التالي',
+        fields: [{ k: 'by', label: 'مين استلمه *', value: getOperatorName() || '' },
+                 { k: 'condition', label: 'حالة البضاعة', value: 'سليمة', options: [{ v: 'سليمة', t: 'سليمة' }, { v: 'تالفة', t: 'تالفة' }, { v: 'ناقصة', t: 'ناقصة' }] },
+                 { k: 'condition_note', label: 'ملاحظة على البضاعة (اختياري)' },
+                 { k: 'cost', label: 'أجور المرتجع المدفوعة (0 إن لم ندفع)', dir: 'ltr', value: '0' },
+                 { k: 'currency', label: 'العملة', value: 'syp', options: [{ v: 'syp', t: 'ليرة سورية' }, { v: 'usd', t: 'دولار $' }] },
+                 { k: 'rate', label: 'سعر الصرف (للّيرة)', dir: 'ltr', value: String(rate0) }],
+        submit: async (x) => {
+            const by = String(x.by || '').trim(); if (by.length < 2) return { error: 'اكتب اسم من استلمه', field: 'by' };
+            const cost = num(x.cost); if (isNaN(cost)) return { error: 'رقمٌ ٠ أو أكثر', field: 'cost' };
+            const cur = x.currency === 'usd' ? 'usd' : 'syp', rate = num(x.rate);
+            if (cost > 0 && cur === 'syp' && !(rate > 0)) return { error: 'اكتب سعر الصرف', field: 'rate' };
+            return { result: { by, condition: x.condition || 'سليمة', condition_note: String(x.condition_note || '').trim(), cost, currency: cur, rate: cur === 'syp' ? rate : null } };
+        } });
+    const f = v && (v.result || v); if (!f || !f.by) return;
+    const bk = await GMTAsk.choose('نقطة البيع المستلمة — وين صار المرتجع؟', { title: '🏪 الاستلام', cancelText: 'رجوع',
+        choices: dbBranches.map(b => ({ k: b.key_name, t: '🏪 ' + (b.display_name || b.key_name) })).concat([{ k: '__co', t: '🏢 الإدارة / المستودع' }]) });
+    if (!bk) return;
+    const bRow = dbBranches.find(x => x.key_name === bk), bName = bk === '__co' ? 'الإدارة' : ((bRow && bRow.display_name) || bk);
+    const costTxt = f.currency === 'syp' ? f.cost.toLocaleString('en-US') + ' ل.س' : '$' + f.cost.toFixed(2);
+    let payer = { kind: 'company', key: null, name: 'الشركة' };
+    if (f.cost > 0) {
+        const ch = [{ k: '__co', t: '🏢 مصروف على الشركة (تلقائي)', pri: 1 }];
+        if (bk !== '__co') ch.push({ k: bk, t: '🏪 ' + bName + ' — نقطة البيع المستلمة (من صندوقها · بانتظار موافقتك)' });
+        const pk = await GMTAsk.choose('أجور المرتجع ' + costTxt + ' — مين دفعها؟', { title: '💸 الدفع', cancelText: 'رجوع', choices: ch });
+        if (!pk) return;
+        if (pk !== '__co') payer = { kind: 'branch', key: pk, name: bName };
+    }
+    const at = new Date().toISOString(), op = getOperatorName() || f.by;
+    const info = Object.assign({}, r, { stage: 'received', received_at: at, received_by: f.by, received_branch: bk === '__co' ? null : bk, received_branch_name: bName,
+        condition: f.condition, condition_note: f.condition_note || null });
+    if (f.cost > 0) Object.assign(info, { cost: f.cost, currency: f.currency, rate: f.rate, cost_usd: f.currency === 'syp' ? Math.round(f.cost / f.rate * 100) / 100 : f.cost,
+        payer_kind: payer.kind, payer_key: payer.key, payer_name: payer.name, expense_id: null });
+    /* المصروف أوّلاً (لا استلامٌ مؤكَّد بلا أجوره المسجَّلة) */
+    if (f.cost > 0) {
+        const ref = (o.serial_code || ('#' + o.id));
+        const row = { title: 'أجور أوردر مرتجع ' + ref + ' — ' + (o.name || ''), amount: f.cost, currency: f.currency, exchange_rate: f.currency === 'syp' ? f.rate : null,
+            note: [r.reason, r.ret_company || o.shipping_company, (r.ret_tracking || o.tracking_number) ? 'تتبّع ' + (r.ret_tracking || o.tracking_number) : '', 'استلمه ' + f.by + ' (' + bName + ')'].filter(Boolean).join(' · '),
+            is_general: payer.kind === 'company', branch_key: payer.key, approved: payer.kind === 'company', approved_at: payer.kind === 'company' ? at : null,
+            kind: 'مصاريف الأوردرات المرتجعة', category: 'مرتجع شحن', requested_by: op || 'الأوردرات', created_by: op };
+        try {
+            const rs = await fetch(`${SUPA_URL}/rest/v1/gmt_expenses`, { method: 'POST', headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(row) });
+            const j = rs.ok ? await rs.json() : null; if (!rs.ok || !Array.isArray(j) || !j[0]) throw new Error('HTTP ' + rs.status);
+            info.expense_id = j[0].id;
+        } catch (e) { await GMTAsk.alert('تعذّر تسجيل أجور المرتجع (' + ((e && e.message) || e) + ') — لم يُؤكَّد الاستلام. أعد المحاولة.', { title: 'المرتجع' }); return; }
+    }
+    try { await retPatch(o, info); }
+    catch (e) { await GMTAsk.alert('تعذّر تأكيد الاستلام: ' + ((e && e.message) || e) + (info.expense_id ? '\n(الأجور سُجّلت مصروفاً — رقمه ' + info.expense_id + ')' : ''), { title: 'المرتجع' }); return; }
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_return_received', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'استلمه ' + f.by + ' · ' + bName + ' · ' + f.condition + (f.cost ? ' · ' + costTxt + ' على ' + payer.name : '') }); } catch (_) {}
+    render();
+    const invNo = r.invoice_no || o.invoice_number || '', invId = (r.invoice_id || o.invoice_id || '');
+    const msg = '✅ استُلم المرتجع (' + bName + ')' + (f.cost ? ' · أجوره ' + costTxt + ' على ' + payer.name + (payer.kind === 'branch' ? ' (بانتظار موافقتك في المصاريف)' : '') : '');
+    if (invNo || invId) {
+        const k = await GMTAsk.choose(msg + '\n\nالفاتورة #' + (invNo || invId) + ' — مرتجعها في نقطة البيع' + (bk !== '__co' ? ' (' + bName + ')' : '') + ' يُعيد البضاعة للمخزون ويُرجع المبلغ من الصندوق ويعكس العمولة.', {
+            title: '🧾 مرتجع الفاتورة', choices: [{ k: 'pos', t: '↩︎ افتح مرتجع الفاتورة الآن', pri: 1 }, { k: 'later', t: 'لاحقاً (من ⋮ ⇐ مرتجع الفاتورة)' }] });
+        if (k === 'pos') location.href = 'pos.html?' + new URLSearchParams({ refund: invId, inv: invNo, order: String(o.id), then: 'none' }).toString();
+    } else showToast(msg + ' — بلا فاتورة مرتبطة', 'ok');
 };
 window.orderReship = async (id) => {
     const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned') return;
     const r = returnInfoOf(o) || {};
+    if (r.stage !== 'received' && !(await GMTAsk.confirm('المرتجع لم يُؤكَّد استلامه بعد. تعيده للتجهيز على كل حال؟', { title: '🔁 إعادة الشحن', okText: 'نعم' }))) return;
     const ok = await GMTAsk.confirm('«' + (o.name || '') + '» يعود إلى «قيد التجهيز» ليُشحن من جديد (رقم تتبّعٍ وإيصالٌ جديدان).\nسجلّ المرتجع وتكاليفه يبقى على الأوردر.', { title: '🔁 إعادة الشحن', okText: 'أعِده للتجهيز' });
     if (!ok) return;
     const hist = (Array.isArray(r.history) ? r.history : []).concat([Object.assign({}, r, { history: undefined, reshipped_at: new Date().toISOString(), reshipped_by: getOperatorName() || null })]);
@@ -8969,15 +9087,38 @@ window.orderReship = async (id) => {
 window.returnsReport = async () => {
     const all = orders.filter(o => returnInfoOf(o));
     const recs = [];
-    all.forEach(o => { const r = returnInfoOf(o); if (o.status === 'returned') recs.push(Object.assign({ o }, r)); (r.history || []).forEach(h => recs.push(Object.assign({ o, again: true }, h))); });
+    all.forEach(o => { const r = returnInfoOf(o); if (o.status === 'returned') recs.push(Object.assign({ o, st: returnStageOf(o) }, r)); (r.history || []).forEach(h => recs.push(Object.assign({ o, again: true, st: 'received' }, h))); });
     if (!recs.length) { await GMTAsk.alert('لا مرتجعات مسجّلة بعد.', { title: '📊 تقرير المرتجعات' }); return; }
-    const sum = (a, k) => a.reduce((t, x) => t + (Number(x[k]) || 0), 0), f2 = n => '$' + (Number(n) || 0).toFixed(2);
-    const by = (key) => { const m = {}; recs.forEach(x => { const k = key(x) || '—'; (m[k] = m[k] || []).push(x); }); return Object.keys(m).sort((a, b) => m[b].length - m[a].length).map(k => '• ' + k + ': ' + m[k].length + ' · ' + f2(sum(m[k], 'total'))).join('\n'); };
-    await GMTAsk.alert('المرتجعات: ' + recs.length + ' (أُعيد شحن ' + recs.filter(x => x.again).length + ') · التكاليف ' + f2(sum(recs, 'total')) +
-        ' (ذهاب ' + f2(sum(recs, 'ship_out')) + ' · إرجاع ' + f2(sum(recs, 'ship_back')) + ')' +
-        '\n\nحسب السبب:\n' + by(x => x.reason) + '\n\nحسب شركة الشحن:\n' + by(x => x.o.shipping_company) + '\n\nمن دفع:\n' + by(x => x.payer_name || 'الشركة') +
+    const f2 = n => '$' + (Number(n) || 0).toFixed(2), sum = a => a.reduce((t, x) => t + retCostUSD(x), 0);
+    const by = (key) => { const m = {}; recs.forEach(x => { const k = key(x) || '—'; (m[k] = m[k] || []).push(x); }); return Object.keys(m).sort((a, b) => m[b].length - m[a].length).map(k => '• ' + k + ': ' + m[k].length + ' · ' + f2(sum(m[k]))).join('\n'); };
+    await GMTAsk.alert('المرتجعات: ' + recs.length + ' (أُعيد شحن ' + recs.filter(x => x.again).length + ') · الأجور ≈ ' + f2(sum(recs)) +
+        '\n\nحسب المرحلة:\n' + by(x => RET_STAGES[x.st] || x.st) +
+        '\n\nحسب السبب:\n' + by(x => x.reason) + '\n\nحسب شركة الشحن:\n' + by(x => x.ret_company || x.o.shipping_company) + '\n\nمن دفع:\n' + by(x => retCostUSD(x) ? (x.payer_name || 'الشركة') : 'بلا أجور') +
         '\n\nحسب الشهر:\n' + by(x => String(x.at || '').slice(0, 7)), { title: '📊 تقرير المرتجعات' });
 };
+/* (seq 187) «يمكن انشائهم من الفاتوره وربطه مع الاوردرات»: نقطة البيع ⇐ orders.html?return=<أوردر>&inv=<رقم>&inv_id=<id>
+   أو ?return_inv=<رقم>&inv_id=<id> (بلا أوردر مرتبط ⇒ تختار الأوردر المشحون من القائمة فيُربط به المرتجع) */
+(function () {
+    let q; try { q = new URLSearchParams(location.search); } catch (_) { return; }
+    const oid = q.get('return'), invNo = q.get('return_inv') || q.get('inv') || '', invId = q.get('inv_id') || '';
+    if (!q.has('return') && !q.get('return_inv')) return;
+    let tries = 0;
+    const t = setInterval(async () => {
+        if (!(Array.isArray(orders) && orders.length) && ++tries < 60) return;
+        clearInterval(t);
+        let o = oid ? orders.find(x => String(x.id) === String(oid)) : null;
+        if (!o && (invNo || invId)) o = orders.find(x => (invId && String(x.invoice_id || '') === invId) || (invNo && String(x.invoice_number || '') === invNo));
+        if (!o) {
+            const cands = orders.filter(x => x.status === 'shipped' || x.status === 'delivered').slice(0, 40);
+            if (!cands.length) { await GMTAsk.alert('لا أوردر مشحون لربط مرتجع الفاتورة #' + invNo + ' به.', { title: '↩️ مرتجع من الفاتورة' }); return; }
+            const k = await GMTAsk.choose('الفاتورة #' + invNo + ' غير مرتبطة بأوردر — اختر أوردر الشحن الذي عاد:', { title: '↩️ مرتجع من الفاتورة', cancelText: 'إلغاء',
+                choices: cands.map(x => ({ k: String(x.id), t: (x.name || '') + ' · ' + (x.phone || '') + ' · ' + (x.shipping_company || '') + (x.tracking_number ? ' ' + x.tracking_number : '') })) });
+            if (!k) return; o = orders.find(x => String(x.id) === k);
+        }
+        if (o && o.status === 'returned') { currentTab = 'returned'; render(); showToast('↩️ مرتجع «' + (o.name || '') + '» موجود — ' + RET_STAGES[returnStageOf(o)], 'ok'); return; }
+        if (o) orderMarkReturned(o.id, { invoiceNo: invNo, invoiceId: invId || null });
+    }, 500);
+})();
 
 /* ══ (2026-10-06) البند ١٩: «أوردر المتجر: لا رقمَ على نظامنا + زرّ عرض فاتورته + فوترة تلقائية».
    • رقمُه رقمُ المتجر (store_order_id/store_ref) — لا رقمٌ تسلسليّ من نظامنا يُخلط به.
@@ -9947,14 +10088,14 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029e"></script>
+<script src="gmt-pwa.js?v=20261029f"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029e"></script>
-<script src="gmt-nofab.js?v=20261029e"></script>
+<script src="gmt-brain.js?v=20261029f"></script>
+<script src="gmt-nofab.js?v=20261029f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029e"></script>
+<script src="gmt-whatsnew.js?v=20261029f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
