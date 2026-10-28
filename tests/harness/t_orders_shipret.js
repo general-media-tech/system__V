@@ -86,18 +86,18 @@ const RI = o => typeof o.return_info === 'string' ? JSON.parse(o.return_info) : 
   q = await pg.evaluate(() => window.__asked); d = await dump();
   ok(q.length === 1 && q[0].f.includes('invoice_no=INV-77') && !(d.invoices || []).some(x => /^R-INV-77/.test(x.inv_number || '')) && d.gmt_orders.find(o => o.id === idOf('زبون فاتورة')).status === 'shipped',
     'الإنشاء: الفاتورة المرتبطة معبّأة (INV-77) · لا مرتجع فاتورة · الأوردر بحالته');
-  const st0 = Number(d.products.find(p => p.id === P0.id).haleb);
-  await ans({ by: 'سامر', condition: 'سليمة', condition_note: '', cost: '0', currency: 'syp', rate: '125' }, ['haleb']);
+  const st0 = Number(d.products.find(p => p.id === P0.id).haleb), sd0 = Number(d.products.find(p => p.id === P0.id).daraa);
+  await ans({ by: 'سامر', condition: 'سليمة', condition_note: '', cost: '0', currency: 'syp', rate: '125' }, ['daraa']);   // استلمته درعا · الفاتورة من حلب
   await pg.evaluate(id => returnReceive(id), idOf('زبون فاتورة')); await sleep(1500);
   q = await pg.evaluate(() => window.__asked); d = await dump();
   const R = (d.invoices || []).filter(x => /^R-INV-77/.test(x.inv_number || '')), RI3 = R[0] && (d.invoice_items || []).filter(x => x.invoice_id === R[0].id);
   const orig = d.invoices.find(x => x.id === inv.id), o3 = d.gmt_orders.find(o => o.id === idOf('زبون فاتورة')), r3 = RI(o3);
   ok(R.length === 1 && Number(R[0].total) === -100 && Number(R[0].paid_amount) === 0 && String(R[0].original_invoice_id) === String(inv.id) && RI3.length === 1 && Number(RI3[0].qty) === 2,
     'تأكيد الاستلام ⇒ فاتورة مرتجع كاملة تلقائياً (R-INV-77 · -$100 · قطعتان) بلا فتح نقطة البيع: ' + JSON.stringify(R[0] && { t: R[0].total, p: R[0].paid_amount }));
-  ok(Number(d.products.find(p => p.id === P0.id).haleb) === st0 + 2 && Number(orig.remaining_amount) === 0 && orig.payment_status === 'paid',
-    'البضاعة عادت للمخزون (+2 حلب) · والمبلغ خُصم من دين الفاتورة (غير مقبوضة ⇒ لا شيء من الصندوق): ' + JSON.stringify({ st: [st0, d.products.find(p => p.id === P0.id).haleb], rem: orig.remaining_amount }));
+  ok(Number(d.products.find(p => p.id === P0.id).haleb) === st0 + 2 && Number(d.products.find(p => p.id === P0.id).daraa) === sd0 && Number(orig.remaining_amount) === 0 && orig.payment_status === 'paid' && RI3[0].branch_key === 'haleb',
+    '(seq 195) البضاعة عادت لفرع الفاتورة نفسها حصراً (+2 حلب · درعا المستلمة لم تتغيّر) · والمبلغ خُصم من دين الفاتورة (غير مقبوضة ⇒ لا شيء من الصندوق): ' + JSON.stringify({ st: [st0, d.products.find(p => p.id === P0.id).haleb], rem: orig.remaining_amount }));
   ok(o3.status === 'returned' && r3.refund_done && Number(r3.refund_total) === 100 && Number(r3.refund_debt) === 100 && !(d.gmt_expenses || []).some(e => /ORD-3/.test(e.title || '')) &&
-     q.some(x => typeof x === 'string' && /نُفّذ تلقائياً/.test(x)), 'الأوردر «مرتجع» ومسجَّلٌ عليه مرتجع الفاتورة · بلا أجور ⇒ بلا مصروف');
+     q.some(x => typeof x === 'string' && /نُفّذ تلقائياً/.test(x) && /عادت لمخزون فرع الفاتورة \(حلب\)/.test(x)), 'الأوردر «مرتجع» ومسجَّلٌ عليه مرتجع الفاتورة · بلا أجور ⇒ بلا مصروف');
   const again = await pg.evaluate(id => GMTRefund.full({ url: SUPA_URL, headers: () => SB_HEADERS, invoiceId: id, orderLinked: true }).then(x => ({ a: x.already })), inv.id);
   d = await dump();
   ok(again.a === true && (d.invoices || []).filter(x => /^R-INV-77/.test(x.inv_number || '')).length === 1 && Number(d.products.find(p => p.id === P0.id).haleb) === st0 + 2, 'إعادة المرتجع لا تُرجع شيئاً مرّتين');

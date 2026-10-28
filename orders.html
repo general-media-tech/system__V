@@ -86,23 +86,23 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029h"></script>
+<script src="gmt-tools.js?v=20261029i"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-28">
-  <script src="gmt-image-guard.js?v=20261029h"></script>
+  <script src="gmt-image-guard.js?v=20261029i"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029h"></script>
+  <script src="gmt-brand.js?v=20261029i"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029h"></script>
+  <script src="gmt-core.js?v=20261029i"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261029h" defer></script>
-  <script src="gmt-stock.js?v=20261029h" defer></script>
-  <script src="gmt-share.js?v=20261029h" defer></script>
+  <script src="gmt-ask.js?v=20261029i" defer></script>
+  <script src="gmt-stock.js?v=20261029i" defer></script>
+  <script src="gmt-share.js?v=20261029i" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
@@ -110,9 +110,9 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261029h" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261029h" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
-<script src="gmt-refund.js?v=20261029h" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
+<script src="gmt-mufti-live.js?v=20261029i" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261029i" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-refund.js?v=20261029i" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -9073,11 +9073,11 @@ window.returnReceive = async (id) => {
         let rf;
         try {
             rf = await GMTRefund.full({ url: SUPA_URL, headers: () => SB_HEADERS, invoiceId: invId || null, invNo: invNo || null, reason: 'مرتجع شحن — ' + (r.reason || ''),
-                stockBranch: bk === '__co' ? null : bk, cashier: op || null, orderLinked: true,
+                stockBranch: null, cashier: op || null, orderLinked: true,   // (TASK-0263 · seq 195) «اذا في فاتورة مرتبطة بترجع لنفسها حصرا» ⇒ فرع الفاتورة
                 warranty: (window.GMT_DB && GMT_DB.WARRANTY) ? { url: GMT_DB.WARRANTY.url, key: GMT_DB.WARRANTY.key } : null });
         } catch (e) { await GMTAsk.alert('تعذّر مرتجع الفاتورة: ' + ((e && e.message) || e) + '\nلم يُؤكَّد الاستلام ولم يتغيّر شيء — أعد المحاولة.', { title: 'المرتجع' }); return; }
         Object.assign(info, { refund_done: true, refund_inv: rf.refundInv ? rf.refundInv.inv_number : (r.refund_inv || null), refund_total: rf.totalRefund || r.refund_total || 0,
-            refund_cash: rf.cashBack || 0, refund_debt: rf.debtCancelled || 0, refund_issues: rf.issues || [], refund_already: !!rf.already });
+            refund_cash: rf.cashBack || 0, refund_debt: rf.debtCancelled || 0, refund_branch: (rf.invoice && (rf.invoice.branch_name || rf.invoice.branch_key)) || r.refund_branch || null, refund_issues: rf.issues || [], refund_already: !!rf.already });
     }
     /* ② الأجور مصروفاً (لا استلامٌ مؤكَّد بلا أجوره المسجَّلة) — «المشتري دفعها» ⇒ لا مصروف */
     if (f.cost > 0 && payer.kind !== 'buyer') {
@@ -9100,7 +9100,7 @@ window.returnReceive = async (id) => {
     if (info.refund_done) {
         const lines = [msg, '', info.refund_already ? '🧾 الفاتورة #' + (invNo || invId) + ' كانت مُرجَعة من قبل — لم يُرجَع شيءٌ مرّتين.'
             : '🧾 مرتجع الفاتورة #' + (invNo || invId) + ' نُفّذ تلقائياً (' + (info.refund_inv || '') + '): $' + Number(info.refund_total || 0).toFixed(2) +
-              (info.refund_debt ? ' · أُلغي من دينها $' + Number(info.refund_debt).toFixed(2) : '') + (info.refund_cash ? ' · خُصم من الصندوق $' + Number(info.refund_cash).toFixed(2) : '') + ' · البضاعة عادت للمخزون (' + bName + ').'];
+              (info.refund_debt ? ' · أُلغي من دينها $' + Number(info.refund_debt).toFixed(2) : '') + (info.refund_cash ? ' · خُصم من الصندوق $' + Number(info.refund_cash).toFixed(2) : '') + ' · البضاعة عادت لمخزون فرع الفاتورة (' + (info.refund_branch || '') + ').'];
         if ((info.refund_issues || []).length) lines.push('', '⚠️ يحتاج مراجعة:\n• ' + info.refund_issues.join('\n• '));
         await GMTAsk.alert(lines.join('\n'), { title: '✅ تأكيد الاستلام' });
     } else showToast(msg + ' — بلا فاتورة مرتبطة', 'ok');
@@ -10108,14 +10108,14 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029h"></script>
+<script src="gmt-pwa.js?v=20261029i"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029h"></script>
-<script src="gmt-nofab.js?v=20261029h"></script>
+<script src="gmt-brain.js?v=20261029i"></script>
+<script src="gmt-nofab.js?v=20261029i"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029h"></script>
+<script src="gmt-whatsnew.js?v=20261029i"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
