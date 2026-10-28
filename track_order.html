@@ -191,19 +191,19 @@ window.GMT_PUBLIC = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 </head>
 <body class="min-h-screen flex flex-col items-center p-4 pb-12">
-  <script src="gmt-image-guard.js?v=20261029a"></script>
+  <script src="gmt-image-guard.js?v=20261029b"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029a"></script>
+  <script src="gmt-brand.js?v=20261029b"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029a"></script>
+  <script src="gmt-core.js?v=20261029b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-share.js?v=20261029a" defer></script>
+  <script src="gmt-share.js?v=20261029b" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
-<script src="gmt-mufti-live.js?v=20261029a"></script><!-- (TASK-0223) حالة شحنة المفتي الحيّة -->
+<script src="gmt-mufti-live.js?v=20261029b"></script><!-- (TASK-0223) حالة شحنة المفتي الحيّة -->
   <script src="gmt-staff.js?v=20261012a"></script>
 
 
@@ -774,6 +774,7 @@ window.GMT_PUBLIC = 1;</script>
             const received = o.status === 'delivered' || o.status === 'completed';
             let currentStepIndex = received ? 4
                 : (o.status === 'shipped' && o.notified_arrival_at) ? 3
+                : o.status === 'returned' ? 2      /* (TASK-0240) شُحنت وعادت ⇒ تبقى عند «تم الشحن» (لا «قيد التجهيز») بلا مؤقّت */
                 : Math.max(0, ['pending','prepared','shipped'].indexOf(o.status));
             /* (TASK-0223 · seq 152 · 153 ⇐ TASK-0226 · seq 154) «شحنات المفتي لا تحركها في المؤقت وانما حركها تباعا لتتبع المفتي»
                + «تم وصول الى الفرع الوجهه هاي يعني انها وصلت في انتظار الاستلام»:
@@ -789,7 +790,7 @@ window.GMT_PUBLIC = 1;</script>
             const isMuftiShip = !!(ML && ML.isMufti(o));
 
             // ── لوحة الشحن: تظهر من «تم الشحن» فصاعداً ──
-            const shipped = ['shipped','delivered','completed'].includes(o.status);
+            const shipped = ['shipped','delivered','completed','returned'].includes(o.status);
             const shipBox = document.getElementById('res-ship');
             if (shipBox) shipBox.classList.toggle('hidden', !shipped);
             if (shipped) {
@@ -872,7 +873,7 @@ window.GMT_PUBLIC = 1;</script>
             setTimeout(() => lucide.createIcons(), 50);
         }
     </script>
-<script src="gmt-pwa.js?v=20261029a"></script>
+<script src="gmt-pwa.js?v=20261029b"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

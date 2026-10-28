@@ -70,7 +70,8 @@ const FAKE = {
       W + ': ثلاثة أزرار فقط بالترتيب: تبليغ الوصول ⇐ مراسلة فرع الشركة ⇐ تأكيد الاستلام (عريض) · لا طباعة ولا بحث ولا PDF ولا ⋮: ' + JSON.stringify(btns.a));
     // (TASK-0248 · seq 166) المرتجعة «ليست تم التسليم»: لا شريط تقدّم ولا «تأكيد الاستلام» ولا «تبليغ الوصول» — يبقى «مراسلة فرع الشركة» فقط
     const retSteps = await pg.evaluate(id => !!document.querySelector('#gmt-mr [data-mr-o="' + id + '"] .ml-steps'), idOf('210063'));
-    ok(JSON.stringify(btns.b) === JSON.stringify(['contactShipOffice(' + idOf('210063') + ')']) && !retSteps,
+    // (TASK-0240 · seq 183) والمرتجعة عندها أيضاً «↩️ سجّله مرتجعاً» (السبب · التكاليف · مرتجع الفاتورة)
+    ok(JSON.stringify(btns.b) === JSON.stringify(['orderMarkReturned(' + idOf('210063') + ')', 'contactShipOffice(' + idOf('210063') + ')']) && !retSteps,
       W + ': المرتجعة: لا شريط تقدّم · لا «تأكيد الاستلام» ولا «تبليغ الوصول» · يبقى «مراسلة فرع الشركة»: ' + JSON.stringify(btns.b));
     // (TASK-0222 · seq 152) «في صحين للي تبلغ … زامنها» + «التبليغ الاول غير التبليغ الثاني»
     const nd0 = await pg.evaluate(ids => [ids.a, ids.b].map(id => ((document.querySelector('#gmt-mr [data-mr-o="' + id + '"] [data-mr-notified]') || {}).textContent || '').trim()), { a: idOf('214244'), b: idOf('210063') });

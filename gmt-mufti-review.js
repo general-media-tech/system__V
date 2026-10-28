@@ -61,7 +61,7 @@
       (r.receiver ? '<div class="mr-rcv">المستلم عندهم: <b>' + esc(r.receiver.desc) + '</b>' + (r.receiver.info ? ' · ' + esc(r.receiver.info) : '') + '</div>' : '') +
       (nameDiffers(o, r) ? '<div class="mr-warn">⚠️ اسم المستلم عند المفتي لا يشبه اسم الزبون على الأوردر — تأكّد أنّ رقم التتبّع صحيح.</div>' : '');
   }
-  function stLabel(s) { return { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' }[s] || s; }
+  function stLabel(s) { return { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل', returned: '↩️ مرتجع' }[s] || s; }
   /* (TASK-0220 · seq 150 ⇐ TASK-0221 · seq 151) «ما طلبت منك جميع الازرار … اذا الطباعه شو بده يلزمني هون او زر البحث …
      فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه»:
      ثلاثة أزرار فقط، تُؤخذ من بطاقة الأوردر (cardHTML في الأوردرات) كما هي — نفس الشكل والسلوك:
@@ -77,9 +77,12 @@
       var out = KEEP.map(function (re) { return all.filter(function (b) { return re.test((b.getAttribute('onclick') || '').trim()); })[0]; }).filter(Boolean);
       /* المرتجعة: لا «تأكيد الاستلام» ولا «تبليغ الوصول» — لا استلام ولا وصول؛ يبقى «مراسلة فرع الشركة» لمتابعة المرتجع */
       if (opt && opt.ret) out = out.filter(function (b) { return /^contactShipOffice\(/.test(b.getAttribute('onclick') || ''); });
-      if (!out.length) return '';
+      /* (TASK-0240 · seq 164 · 183) المرتجعة عند المفتي ⇒ «↩️ سجّله مرتجعاً» (السبب · التكاليف · من دفعها · مرتجع الفاتورة) */
+      var extra = (opt && opt.ret && typeof g.orderMarkReturned === 'function' && (o.status === 'shipped' || o.status === 'delivered'))
+        ? '<button type="button" onclick="orderMarkReturned(' + JSON.stringify(o.id).replace(/"/g, '&quot;') + ')" data-mr-markret class="mr-btn mr-go" style="background:#c2410c;border-color:#c2410c">↩️ سجّله مرتجعاً</button>' : '';
+      if (!out.length && !extra) return '';
       out.forEach(function (b) { if (/requestConfirm/.test(b.getAttribute('onclick'))) b.classList.add('flex-1'); });
-      return '<div class="flex gap-2">' + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';
+      return '<div class="flex gap-2">' + extra + out.map(function (b) { return b.outerHTML; }).join('') + '</div>';
     } catch (_) { return ''; }
   }
   /* (TASK-0222 · المالك seq 152) «ايضا في صحين للي تبلغ كانت موجوده زامنها ايضا»: شارة «✓✓ بُلِّغ بالوصول» نفسها من بطاقة الأوردر
@@ -89,7 +92,7 @@
     var n = digits(o.tracking_number), r = state.res[n], k = cls(r), C = CLS[k];
     var when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '';
     var pb = pageButtons(o, { ret: k === 'ret' }), act = '';
-    if (o.status === 'delivered' || o.status === 'completed') act = '<span class="mr-done">✔ ' + esc(stLabel(o.status)) + '</span>';
+    if (o.status === 'delivered' || o.status === 'completed' || o.status === 'returned') act = '<span class="mr-done">' + (o.status === 'returned' ? '' : '✔ ') + esc(stLabel(o.status)) + '</span>';
     else if (o.status === 'shipped' && !pb && k !== 'ret') act = '<button type="button" data-mr-confirm="' + esc(o.id) + '" class="mr-btn' + (k === 'got' ? ' mr-go' : '') + '">✅ تأكيد الاستلام</button>';   // احتياط: صفحةٌ بلا cardHTML
     return '<div class="mr-o" data-mr-o="' + esc(o.id) + '" data-mr-k="' + k + '">' +
       '<div class="mr-top"><div class="mr-ttl">#' + esc(o.id) + ' · ' + esc(o.name || '—') + '</div>' + notify(o) +

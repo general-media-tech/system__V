@@ -86,23 +86,23 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029a"></script>
+<script src="gmt-tools.js?v=20261029b"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-28">
-  <script src="gmt-image-guard.js?v=20261029a"></script>
+  <script src="gmt-image-guard.js?v=20261029b"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029a"></script>
+  <script src="gmt-brand.js?v=20261029b"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029a"></script>
+  <script src="gmt-core.js?v=20261029b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-stock.js?v=20261029a" defer></script>
-  <script src="gmt-share.js?v=20261029a" defer></script>
+  <script src="gmt-stock.js?v=20261029b" defer></script>
+  <script src="gmt-share.js?v=20261029b" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261019f" defer></script>
@@ -110,8 +110,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
-<script src="gmt-mufti-live.js?v=20261029a" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
-<script src="gmt-mufti-review.js?v=20261029a" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-mufti-live.js?v=20261029b" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
+<script src="gmt-mufti-review.js?v=20261029b" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 
 <script src="gmt-receipt.js?v=20261025v" defer></script>
 <script src="gmt-docscan.js?v=20261027b" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
@@ -270,6 +270,7 @@ window.GMT_INTERNAL = 1;</script>
             <button onclick="switchTab('prepared')"  id="tab-prepared"  class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">محضّرة <span data-status="prepared" id="badge-prepared"  class="inline-block bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('shipped')"   id="tab-shipped"   class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">في الطريق <span data-status="shipped" id="badge-shipped"   class="inline-block bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('delivered')" id="tab-delivered" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">بانتظار التحصيل <span data-status="delivered" id="badge-delivered" class="inline-block bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
+            <button onclick="switchTab('returned')" id="tab-returned" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">↩️ المرتجعة <span id="badge-returned" class="inline-block bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button><!-- (TASK-0240) -->
             <button onclick="switchTab('completed')" id="tab-completed" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">تم التحصيل <span id="badge-completed" class="inline-block bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
         </div>
 
@@ -346,6 +347,16 @@ window.GMT_INTERNAL = 1;</script>
                 <h2 class="text-xs font-black text-red uppercase tracking-wider">بضائع تم استلامها — بانتظار التحصيل</h2>
             </div>
             <div id="list-delivered" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- (TASK-0240 · المالك seq 164 · 183) الأوردرات المرتجعة: شُحنت وعادت — بتكاليفها ومن دفعها · إعادة الشحن · مرتجع الفاتورة · التقرير -->
+        <section id="section-returned">
+            <div class="flex items-center gap-2 mb-4 px-1 border-b border-orange-100 pb-2">
+                <i data-lucide="undo-2" class="w-5 h-5 text-orange-600"></i>
+                <h2 class="text-xs font-black text-orange-700 uppercase tracking-wider flex-1">أوردرات مرتجعة — شُحنت وعادت</h2>
+                <button type="button" onclick="returnsReport()" data-returns-report class="text-[11px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">📊 تقرير المرتجعات</button>
+            </div>
+            <div id="list-returned" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
         <!-- قسم مكتمل -->
@@ -1533,7 +1544,7 @@ function render() {
     try { syncSenderFilter(); } catch (_) {}
     const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
     const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
-    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[] };
+    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[], returned:[] };
     const branchTot  = {};
     const companyTot = {};
     const companyFrom = {};   // (TASK-0203) الشركة ⇒ فرع الحوالة (senderFilterKey) ⇒ { v, n }
@@ -1669,9 +1680,10 @@ function render() {
     setText('badge-shipped',   groups.shipped.length);
     setText('badge-delivered', groups.delivered.length);
     setText('badge-completed', groups.completed.length);
+    setText('badge-returned',  groups.returned.length);
 
     // تبويبات
-    ['all','pending','prepared','shipped','delivered','completed'].forEach(t => {
+    ['all','pending','prepared','shipped','delivered','returned','completed'].forEach(t => {
         const btn = document.getElementById('tab-' + t);
         if (!btn) return;
         btn.className = currentTab === t
@@ -1684,7 +1696,7 @@ function render() {
        (٣٠٠ أوردر ≈ ١٠٦ آلاف عنصر) فتتجمّد الصفحة حتى ثانية مع كل حرفٍ في البحث. الآن أوّل CARD_CHUNK بطاقة فوراً والباقي يُضاف
        وحده كلّما اقتربتَ منه بالتمرير — نفس البطاقات ونفس الترتيب والفلاتر، لا شيء يُحذف. */
     const seq = ++_renderSeq;
-    ['pending','prepared','shipped','delivered','completed'].forEach(st => {
+    ['pending','prepared','shipped','delivered','returned','completed'].forEach(st => {
         const sec = document.getElementById('section-' + st);
         if (!sec) return;
         const show = currentTab === 'all' || currentTab === st;
@@ -1739,7 +1751,7 @@ function emptyHTML() {
    ③ ثلاث علامات تبليغ منفصلة بجانب الاسم كي لا يُبلَّغ الزبون مرّتين
       (أعمدة ملف SQL الأساس (SQL/أرشيف_SQL.html) — النظام يعمل بلا الأعمدة أيضاً: العلامة تغيب فقط).
    ══════════════════════════════════════════════════════════════════════════ */
-const SHIPPED_OR_LATER = ['shipped', 'delivered', 'completed'];
+const SHIPPED_OR_LATER = ['shipped', 'delivered', 'completed', 'returned'];
 
 function trackUrlFor(company) {
     try { if (window.GMTOffices && GMTOffices.trackUrlOf) return GMTOffices.trackUrlOf(company); } catch (_) {}
@@ -1926,6 +1938,7 @@ function cardHTML(o) {
         shipped:   { text:'text-yellow-700',  btn:'bg-yellow-400 hover:bg-yellow-500 !text-gray-900', badge:'badge-shipped'  },   /* (٧ ي-٥) أبيض على أصفر ١٫٩:١ ⇐ نصٌّ داكن */
         delivered: { text:'text-red',         btn:'bg-red hover:bg-red-800',          badge:'badge-delivered' },
         completed: { text:'text-emerald-600', btn:'bg-gray-200 hover:bg-gray-300 !text-gray-700', badge:'badge-completed'},
+        returned:  { text:'text-orange-700',  btn:'bg-orange-600 hover:bg-orange-700', badge:'badge-returned' },   // (TASK-0240)
     };
     const c = statusColors[o.status] || statusColors.pending;
     const actionBtn = {
@@ -1934,6 +1947,7 @@ function cardHTML(o) {
         shipped:   `<button onclick="requestConfirm(${o.id},'delivered')" class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">✅ تأكيد الاستلام</button>`,
         delivered: `<button onclick="requestConfirm(${o.id},'completed')" class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">💰 تم التحصيل</button>`,
         completed: `<button onclick="requestConfirm(${o.id},'delete')"    class="flex-1 ${c.btn} py-3 rounded-xl text-xs font-black transition-colors">🗂 أرشفة نهائية</button>`,
+        returned:  `<button onclick="orderReship(${o.id})" data-reship class="flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors">🔁 إعادة الشحن</button>`,   // (TASK-0240)
     }[o.status] || '';
 
     const isLinked = !!(o.invoice_number || o.invoice_id);
@@ -1974,6 +1988,7 @@ function cardHTML(o) {
             ${o.tracking_number ? `<p class="${c.text} font-black">🔖 ${escH(o.tracking_number)}</p>` : ''}
             ${o.shipped_at ? `<p class="text-[9px] text-gray-400">🕒 شُحن: <span dir="ltr">${new Date(o.shipped_at).toLocaleString('en-GB',{hour12:true})}</span></p>` : ''}
             ${o.notes ? `<p class="text-gray-600" title="ملاحظاتٌ داخلية — لا تُطبع على الفاتورة">📝 ${escH(o.notes)}</p>` : ''}
+            ${returnInfoHTML(o)}
         </div>
         ${_btnRow !== null ? _btnRow : otherButtonsHTML(o, c, actionBtn)}
     </div>`;
@@ -2062,7 +2077,10 @@ function cardMoreItems(o) {
     }
     /* (TASK-0179 · seq 106) تبليغ الشحن يدوياً — حين لم يُفتح واتساب تلقائياً بعد «اعتماد الشحن» أو للإعادة */
     if (o.status === 'shipped') items.push({ ic: '📲', t: o.notified_ship_at ? 'تبليغ الشحن — أُرسل ✓ (أعد الإرسال)' : 'تبليغ الشحن للزبون', off: 'رسالة «تم شحن طلبك» برقم التتبّع على واتساب بزنس', on: 'shipNoticeManual(' + o.id + ')' });
-    if (o.status === 'shipped' || o.status === 'delivered') items.push({ ic: '🏢', t: 'مراسلة فرع الوجهة (شركة الشحن)', on: 'contactShipOffice(' + o.id + ')' });
+    if (o.status === 'shipped' || o.status === 'delivered' || o.status === 'returned') items.push({ ic: '🏢', t: 'مراسلة فرع الوجهة (شركة الشحن)', on: 'contactShipOffice(' + o.id + ')' });
+    /* (TASK-0240 · seq 164 · 183) شُحن وعاد ⇐ مرتجع: السبب · أجور الشحن ذهاباً وإياباً · من دفعها · مرتجع الفاتورة */
+    if (o.status === 'shipped' || o.status === 'delivered') items.push({ ic: '↩️', t: 'سجّله مرتجعاً (الشحنة عادت)', off: 'السبب · أجور الشحن والإرجاع · من دفعها (الشركة أو نقطة بيع) · ومرتجع الفاتورة إن كان مرتبطاً', on: 'orderMarkReturned(' + o.id + ')' });
+    if (o.status === 'returned') items.push({ ic: '🔁', t: 'إعادة الشحن', off: 'يعود إلى «قيد التجهيز» ليُشحن من جديد — ويبقى سجلّ المرتجع', on: 'orderReship(' + o.id + ')' });
     /* (وثيقة الطلبات §٢) الفرع المُرسِل وحالة الحوالة + البحث برقم التتبّع/قراءة الإيصال (نافذة «التحقق» القديمة بقيت قابلةً للوصول
        بعد أن صار زرّ الأعلى يفتح موقع المفتي مباشرةً) — لشحنات المفتي */
     if (hasSenderInfo(o)) {
@@ -4472,7 +4490,7 @@ async function confirmShippingRun() {
    فالمفتاح جاهزٌ **ومُعطَّل افتراضياً**: يُفعَّل من «الأمان والمستخدمون ← سياسات التشغيل» (المفتاح orders_lock في gmt_settings).
    وحين يُفعَّل: لا يتقدّم أوردرٌ إلى (محضّرة · في الطريق · بانتظار التحصيل · تم التحصيل) ما لم يكن مرتبطاً بفاتورة.
    تُقرأ القيمة طازجةً عند كل انتقال (لا من الكاش) لأنّها تحكم عمليةً مالية. وإن تعذّرت قراءتها لا نوقف العمل. */
-const ORDER_STATUS_AR = { prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' };
+const ORDER_STATUS_AR = { prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل', returned: 'مرتجع' };
 async function ordersLockBlock(order, newStatus) {
     try {
         if (!ORDER_STATUS_AR[newStatus]) return null;                      // قيد التجهيز وما قبله لا يحتاج فاتورة
@@ -4760,7 +4778,7 @@ function exportCSV(monthKey) {
 
 // ══ Helpers ══
 function statusAr(s) {
-    return {pending:'قيد التجهيز',shipped:'في الطريق',delivered:'بانتظار التحصيل',completed:'تم التحصيل'}[s] || s;
+    return {pending:'قيد التجهيز',shipped:'في الطريق',delivered:'بانتظار التحصيل',completed:'تم التحصيل',returned:'مرتجع'}[s] || s;
 }
 
 function escH(s) { /* (٨ ث) نسخةٌ واحدة: GMTUtil.esc في gmt-core.js */ return GMTUtil.esc(s); }
@@ -6649,7 +6667,7 @@ function vsCardHTML(o) {
     const isM = o.shipping_company === MUFTI_CO;
     const key = shipFromOf(o), of = muftiOfficeByKey(key);
     const when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '—';
-    const st = { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل' }[o.status] || o.status;
+    const st = { pending: 'جديد', prepared: 'محضّرة', shipped: 'في الطريق', delivered: 'بانتظار التحصيل', completed: 'تم التحصيل', returned: 'مرتجع' }[o.status] || o.status;
     return '<div class="border border-gray-200 rounded-2xl p-3 bg-white">' +
         '<div class="flex justify-between items-start gap-2"><p class="font-black text-sm text-gray-800">' + escH(o.name || '') + '</p>' +
         '<span class="text-[10px] font-black bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 shrink-0">' + escH(st) + '</span></div>' +
@@ -8860,6 +8878,107 @@ window.openLinkedActions = (id) => {
 
 
 
+/* ══ (TASK-0240 · المالك seq 164 «المرتجعات والمرتجعات في الاوردرات · مصاريف الاوردرات المرتجعه» ⇐ seq 183: «كلهن سوا في كل
+   الاجراءات سواء الاوردر وتكاليفه سواء الفاتوره وسواء الادخاله على المخزون» · «هو في الاساس مصروف عام للشركه لكن ممكن يدفعوا احد
+   نقاط للبيع نحن عم نحدد»):
+   • «↩️ سجّله مرتجعاً» (⋮ للمشحون/بانتظار التحصيل · ومراجعة المفتي للمرتجعة): السبب · أجور الشحن ذهاباً · أجور الإرجاع · من دفعها.
+   • الأوردر ⇐ «↩️ المرتجعة» (status=returned · returned_at · return_info) — لا مكتمل ولا محذوف.
+   • التكاليف ⇐ مصروف (gmt_expenses «مصاريف الأوردرات المرتجعة»): على الشركة (عامّ · معتمد) أو على نقطة بيع (بانتظار موافقتك —
+     ومنها تختار: من صندوقها أو دفعتَه أنت، كبقيّة المصاريف).
+   • مرتبطٌ بفاتورة ⇐ «مرتجع الفاتورة» في نقطة البيع (يعود المخزون وتنعكس العمولة) — المسار القائم نفسه.
+   • «🔁 إعادة الشحن» ⇐ «قيد التجهيز» ويبقى سجلّ المرتجع · «📊 تقرير المرتجعات». ══ */
+function returnInfoOf(o) { const r = o && o.return_info; if (!r) return null; if (typeof r === 'string') { try { return JSON.parse(r); } catch (_) { return null; } } return r; }
+function returnInfoHTML(o) {
+    const r = returnInfoOf(o); if (!r) return '';
+    const hist = Array.isArray(r.history) ? r.history : [];
+    const cur = o.status === 'returned' ? r : null;
+    const line = x => '↩️ مرتجع' + (x.at ? ' ' + escH(String(x.at).slice(0, 10)) : '') + (x.reason ? ' — ' + escH(x.reason) : '') +
+        (Number(x.total) ? ' · التكاليف $' + (Number(x.total) || 0).toFixed(2) + ' (' + escH(x.payer_name || 'الشركة') + ')' : '');
+    return (cur ? `<p data-return-info class="text-orange-700 font-bold">${line(cur)}</p>` : '') +
+        hist.map(x => `<p data-return-hist class="text-gray-500 text-[11px]">${line(x)} · أُعيد شحنه${x.reshipped_at ? ' ' + escH(String(x.reshipped_at).slice(0, 10)) : ''}</p>`).join('');
+}
+window.orderMarkReturned = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (['shipped', 'delivered'].indexOf(o.status) === -1) { showToast('المرتجع للأوردر المشحون فقط', 'err'); return; }
+    const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(',', '.')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN; };
+    const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.shipping_company || '') + (o.tracking_number ? ' · ' + o.tracking_number : '') + '\nالشحنة عادت — تُنقل إلى «↩️ المرتجعة» وتُسجَّل تكاليفها مصروفاً.', {
+        title: '↩️ تسجيل مرتجع', okText: 'التالي',
+        fields: [{ k: 'reason', label: 'سبب الإرجاع *', value: 'رفض الزبون الاستلام', placeholder: 'رفض الاستلام · لم يُرَد على الهاتف · عنوان خاطئ…' },
+                 { k: 'ship_out', label: 'أجور الشحن ذهاباً $ (إن دفعناها)', dir: 'ltr', value: '0' },
+                 { k: 'ship_back', label: 'أجور الإرجاع $', dir: 'ltr', value: '0' },
+                 { k: 'note', label: 'ملاحظة (اختياري)' }],
+        submit: async (x) => {
+            const reason = String(x.reason || '').trim(); if (!reason) return { error: 'اكتب سبب الإرجاع', field: 'reason' };
+            const a = num(x.ship_out), b = num(x.ship_back);
+            if (isNaN(a)) return { error: 'رقمٌ ٠ أو أكثر', field: 'ship_out' }; if (isNaN(b)) return { error: 'رقمٌ ٠ أو أكثر', field: 'ship_back' };
+            return { result: { reason, ship_out: a, ship_back: b, note: String(x.note || '').trim() } };
+        } });
+    const f = v && (v.result || v); if (!f || !f.reason) return;
+    const total = Math.round((f.ship_out + f.ship_back) * 100) / 100;
+    let payer = { kind: 'company', key: null, name: 'الشركة' };
+    if (total > 0) {
+        if (!dbBranches.length) { try { await loadBranchesFromDB(); } catch (_) {} }
+        const k = await GMTAsk.choose('تكاليف المرتجع $' + total.toFixed(2) + ' — من يدفعها؟', { title: 'المصروف', cancelText: 'رجوع',
+            choices: [{ k: '__co', t: '🏢 الشركة — مصروفٌ عامّ', pri: 1 }].concat(dbBranches.map(b => ({ k: b.key_name, t: '🏪 ' + (b.display_name || b.key_name) + ' — نقطة البيع (بانتظار موافقتك)' }))) });
+        if (!k) return;
+        if (k !== '__co') { const b = dbBranches.find(x => x.key_name === k); payer = { kind: 'branch', key: k, name: (b && b.display_name) || k }; }
+    }
+    const by = getOperatorName() || null, at = new Date().toISOString();
+    const prev = returnInfoOf(o) || {};
+    const info = { reason: f.reason, ship_out: f.ship_out, ship_back: f.ship_back, total, payer_kind: payer.kind, payer_key: payer.key, payer_name: payer.name,
+                   note: f.note || null, by, at, prev_status: o.status, expense_id: null, history: Array.isArray(prev.history) ? prev.history : [] };
+    /* المصروف أوّلاً (لا أوردرٌ «مرتجع» بلا تكاليفه المسجَّلة) */
+    if (total > 0) {
+        const ref = (o.serial_code || ('#' + o.id));
+        const row = { title: 'مصاريف أوردر مرتجع ' + ref + ' — ' + (o.name || ''), amount: total, currency: 'usd', exchange_rate: null,
+            note: [f.reason, o.shipping_company, o.tracking_number ? 'تتبّع ' + o.tracking_number : '', 'ذهاب $' + f.ship_out + ' · إرجاع $' + f.ship_back, f.note].filter(Boolean).join(' · '),
+            is_general: payer.kind === 'company', branch_key: payer.key, approved: payer.kind === 'company', approved_at: payer.kind === 'company' ? at : null,
+            kind: 'مصاريف الأوردرات المرتجعة', category: 'مرتجع شحن', requested_by: by || 'الأوردرات', created_by: by };
+        try {
+            const r = await fetch(`${SUPA_URL}/rest/v1/gmt_expenses`, { method: 'POST', headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(row) });
+            const j = r.ok ? await r.json() : null; if (!r.ok || !Array.isArray(j) || !j[0]) throw new Error('HTTP ' + r.status);
+            info.expense_id = j[0].id;
+        } catch (e) { await GMTAsk.alert('تعذّر تسجيل المصروف (' + ((e && e.message) || e) + ') — لم يتغيّر الأوردر. أعد المحاولة.', { title: 'المرتجع' }); return; }
+    }
+    try { await sbUpdateOrThrow(o.id, { status: 'returned', returned_at: at, return_info: info }); }
+    catch (e) { await GMTAsk.alert('تعذّر نقل الأوردر إلى المرتجعة: ' + ((e && e.message) || e) + (info.expense_id ? '\n(المصروف سُجّل — رقمه ' + info.expense_id + ')' : ''), { title: 'المرتجع' }); return; }
+    Object.assign(o, { status: 'returned', returned_at: at, return_info: info });
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_returned', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: f.reason + (total ? ' · $' + total + ' على ' + payer.name : '') }); } catch (_) {}
+    render();
+    const linked = !!(o.invoice_id || o.invoice_number);
+    const msg = '↩️ «' + (o.name || '') + '» صار في «المرتجعة»' + (total ? ' · مصروف $' + total.toFixed(2) + ' على ' + payer.name + (payer.kind === 'branch' ? ' (بانتظار موافقتك في المصاريف)' : '') : '');
+    if (linked) {
+        const k = await GMTAsk.choose(msg + '\n\nالأوردر مرتبط بالفاتورة #' + (o.invoice_number || o.invoice_id) + ' — مرتجعها في نقطة البيع يُعيد البضاعة للمخزون ويعكس العمولة.', {
+            title: '↩️ مرتجع الفاتورة', choices: [{ k: 'pos', t: '↩︎ افتح مرتجع الفاتورة الآن', pri: 1 }, { k: 'later', t: 'لاحقاً (من ⋮ ⇐ مرتجع الفاتورة)' }] });
+        if (k === 'pos') location.href = 'pos.html?' + new URLSearchParams({ refund: o.invoice_id || '', inv: o.invoice_number || '', order: String(o.id), then: 'none' }).toString();
+    } else showToast(msg, 'ok');
+};
+window.orderReship = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned') return;
+    const r = returnInfoOf(o) || {};
+    const ok = await GMTAsk.confirm('«' + (o.name || '') + '» يعود إلى «قيد التجهيز» ليُشحن من جديد (رقم تتبّعٍ وإيصالٌ جديدان).\nسجلّ المرتجع وتكاليفه يبقى على الأوردر.', { title: '🔁 إعادة الشحن', okText: 'أعِده للتجهيز' });
+    if (!ok) return;
+    const hist = (Array.isArray(r.history) ? r.history : []).concat([Object.assign({}, r, { history: undefined, reshipped_at: new Date().toISOString(), reshipped_by: getOperatorName() || null })]);
+    const info = { history: hist };
+    const patch = { status: 'pending', return_info: info, tracking_number: null, shipped_at: null, delivered_at: null, notified_ship_at: null, notified_arrival_at: null };
+    try { await sbUpdateOrThrow(o.id, patch); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
+    Object.assign(o, patch);
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_reship', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'إعادة شحن بعد مرتجع' }); } catch (_) {}
+    render(); showToast('🔁 «' + (o.name || '') + '» عاد إلى «قيد التجهيز»', 'ok');
+};
+window.returnsReport = async () => {
+    const all = orders.filter(o => returnInfoOf(o));
+    const recs = [];
+    all.forEach(o => { const r = returnInfoOf(o); if (o.status === 'returned') recs.push(Object.assign({ o }, r)); (r.history || []).forEach(h => recs.push(Object.assign({ o, again: true }, h))); });
+    if (!recs.length) { await GMTAsk.alert('لا مرتجعات مسجّلة بعد.', { title: '📊 تقرير المرتجعات' }); return; }
+    const sum = (a, k) => a.reduce((t, x) => t + (Number(x[k]) || 0), 0), f2 = n => '$' + (Number(n) || 0).toFixed(2);
+    const by = (key) => { const m = {}; recs.forEach(x => { const k = key(x) || '—'; (m[k] = m[k] || []).push(x); }); return Object.keys(m).sort((a, b) => m[b].length - m[a].length).map(k => '• ' + k + ': ' + m[k].length + ' · ' + f2(sum(m[k], 'total'))).join('\n'); };
+    await GMTAsk.alert('المرتجعات: ' + recs.length + ' (أُعيد شحن ' + recs.filter(x => x.again).length + ') · التكاليف ' + f2(sum(recs, 'total')) +
+        ' (ذهاب ' + f2(sum(recs, 'ship_out')) + ' · إرجاع ' + f2(sum(recs, 'ship_back')) + ')' +
+        '\n\nحسب السبب:\n' + by(x => x.reason) + '\n\nحسب شركة الشحن:\n' + by(x => x.o.shipping_company) + '\n\nمن دفع:\n' + by(x => x.payer_name || 'الشركة') +
+        '\n\nحسب الشهر:\n' + by(x => String(x.at || '').slice(0, 7)), { title: '📊 تقرير المرتجعات' });
+};
+
 /* ══ (2026-10-06) البند ١٩: «أوردر المتجر: لا رقمَ على نظامنا + زرّ عرض فاتورته + فوترة تلقائية».
    • رقمُه رقمُ المتجر (store_order_id/store_ref) — لا رقمٌ تسلسليّ من نظامنا يُخلط به.
    • «🧾 فاتورته»: فاتورة طلب المتجر تُبنى **تلقائياً** من بياناته (البنود والأسعار كما طلبها الزبون)
@@ -9799,14 +9918,14 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029a"></script>
+<script src="gmt-pwa.js?v=20261029b"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029a"></script>
-<script src="gmt-nofab.js?v=20261029a"></script>
+<script src="gmt-brain.js?v=20261029b"></script>
+<script src="gmt-nofab.js?v=20261029b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029a"></script>
+<script src="gmt-whatsnew.js?v=20261029b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
