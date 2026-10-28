@@ -1,7 +1,0 @@
-task: TASK-0263
-session: session_01XEjHNW9dqo1zWS8cEcUN7i
-branch: claude/tender-tesla-1x135d
-files: orders.html tests/harness/t_orders_shipret.js
-claimed_at: 2026-10-28T12:45:27Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0263
