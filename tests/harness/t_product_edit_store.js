@@ -45,8 +45,11 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   const sg = await pg.evaluate(() => ({ shown: !document.querySelector('#gmt-pe [data-pe-suggbox]').hidden, n: document.querySelectorAll('#gmt-pe [data-pe-sugg] figure').length }));
   ok(sg.shown && sg.n === 2, 'المواصفات التلقائية ⇒ «🖼️ صور وجدها البحث» (روابط https فقط): ' + JSON.stringify(sg));
   ok(/إعادة البحث التلقائي/.test(await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-auto]').textContent)), 'بعد البحث الأوّل يصير الزرّ «🔄 إعادة البحث التلقائي»');
-  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-sugg] figure [data-a="inv"]').click());
-  ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-f="image_url"]').value) === 'https://img.example/f1.png', '«صورة الجرد» ⇒ تصير صورة الجرد في الحقل');
+  // (TASK-0259 · seq 184) «+ الجرد» ⇒ تُضاف (لا تستبدل) · تُنزَّل لمخزننا
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-sugg] figure [data-a="inv"]').click()); await sleep(900);
+  let iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')) }));
+  ok(iv.main === 'https://img.example/inv-a.png' && iv.all[0] === iv.main && /products-images\/lens_/.test(iv.all[iv.all.length - 1]) && !iv.all.includes('https://img.example/f1.png'),
+    '«+ الجرد» ⇒ تُضاف لصور الجرد (الرئيسية تبقى) وتُنزَّل لمخزننا لا رابط المصدر: ' + JSON.stringify(iv).slice(0, 600));
   // ③ الربط بمنتجٍ موجود
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-link]').click()); await sleep(200);
   const c = await pg.evaluate(() => [...document.querySelectorAll('#gmt-pe [data-linkto]')].map(b => b.getAttribute('data-linkto')));
@@ -61,11 +64,26 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   // (TASK-0256 · seq 181) روابط الصور · رابط الفيديو في المتجر · زرّ العدسة تحت الصورة
   await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://www.google.com/imgres?imgurl=https%3A%2F%2Fimg.example%2Fst2.png&q=x'; document.querySelector('#gmt-pe [data-pe-linkst]').click();
     const v = document.querySelector('#gmt-pe [data-s="video_url"]'); v.value = 'https://youtu.be/abc123'; });
+  await sleep(900);
   await pg.click('#gmt-pe [data-pe-save]'); await pg.waitForFunction(() => /حُفظ|❌/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
   st = await store(); sp = st.products.find(x => x.id === 's_bd');
-  ok(sp.images.includes('https://img.example/st2.png') && sp.video_url === 'https://youtu.be/abc123', '«🔗 رابط صورة» (+ للمتجر · رابط نتيجة غوغل يُفكّ) · «رابط فيديو المنتج» ⇒ في المتجر: ' + JSON.stringify({ i: sp.images, v: sp.video_url }));
-  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://img.example/inv-new.png'; document.querySelector('#gmt-pe [data-pe-linkinv]').click(); });
-  ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-f="image_url"]').value) === 'https://img.example/inv-new.png', '«🔗 رابط صورة» (للجرد) ⇒ صورة الجرد');
+  ok(!sp.images.some(x => /imgres|st2\.png/.test(x)) && /products-images\/lens_/.test(sp.images[sp.images.length - 1]) && sp.video_url === 'https://youtu.be/abc123', '«🔗 رابط صورة» (+ للمتجر · رابط نتيجة غوغل يُفكّ) · «رابط فيديو المنتج» ⇒ في المتجر: ' + JSON.stringify({ i: sp.images, v: sp.video_url }));
+  const n0 = await pg.evaluate(() => document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]').length);
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://img.example/inv-new.png'; document.querySelector('#gmt-pe [data-pe-linkinv]').click(); }); await sleep(900);
+  iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')), msg: document.querySelector('#gmt-pe [data-pe-msg]').textContent }));
+  ok(iv.all.length === n0 + 1 && iv.main === 'https://img.example/inv-a.png' && /products-images\/lens_/.test(iv.all[n0]) && /نُزّلت لمخزننا/.test(iv.msg), '«🔗 رابط صورة» (+ للجرد) ⇒ تُنزَّل لمخزننا وتُضاف بعد صور الجرد: ' + JSON.stringify(iv).slice(0, 700));
+  // ترتيب الجرد مستقلّ: «›» يقدّم الأخيرة فتصير الثانية ثمّ الأولى (⭐ الرئيسية) · ✕ يحذف · «💾 احفظ» ⇒ images + image_url
+  const last = iv.all[n0];
+  for (let k = n0; k > 0; k--) await pg.evaluate(k => document.querySelector('#gmt-pe [data-pe-invimg-i="' + k + '"] [data-a="r"]').click(), k);
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-invimg-i="1"] [data-a="x"]').click());
+  iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')), star: !!document.querySelector('#gmt-pe [data-pe-invimg-i="0"] span[title="الرئيسية"]') }));
+  ok(iv.main === last && iv.all[0] === last && !iv.all.includes('https://img.example/inv-a.png') && iv.star, 'الترتيب: المنقولة للأوّل صارت ⭐ الرئيسية · الحذف يعمل: ' + JSON.stringify({ n: iv.all.length }));
+  const stBefore = JSON.stringify((await store()).products.find(x => x.id === 's_bd').images);
+  await pg.click('#gmt-pe [data-pe-save]'); await sleep(300);
+  await pg.waitForFunction(() => /حُفظ|❌|لا تغيير/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  ia = await inv(A.id);
+  ok(Array.isArray(ia.images) && JSON.stringify(ia.images) === JSON.stringify(iv.all) && ia.image_url === last, '«💾 احفظ» ⇒ الجرد: images بترتيب الجرد · image_url = الأولى: ' + JSON.stringify({ n: (ia.images || []).length, main: ia.image_url === last }));
+  ok(JSON.stringify((await store()).products.find(x => x.id === 's_bd').images) === stBefore, 'ترتيب صور المتجر لم يتغيّر بترتيب الجرد (مستقلّ)');
   await pg.evaluate(() => { window.__opened = []; const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; i.dispatchEvent(new Event('change')); document.querySelector('#gmt-pe [data-pe-lens]').click(); });
   await sleep(1500);
   const lo = await pg.evaluate(() => window.__opened);

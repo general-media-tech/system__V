@@ -39,8 +39,9 @@ const BRAIN = `window.__brainStub = function () {
     // «📷 من جهازك»
     const fh = await pg.$('#gmt-pe [data-pe-file]');
     await fh.setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG }); await sleep(800);
-    const up = await pg.evaluate(() => document.querySelector('#gmt-pe [data-f="image_url"]').value);
-    ok(/products-images\/lens_/.test(up), W + ': «📷 من جهازك» ⇒ تُرفع وتصير صورة الجرد: ' + up.slice(-40));
+    // (TASK-0259) إضافة لا استبدال: تُضاف لصور الجرد والرئيسية تبقى
+    const up = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')) }));
+    ok(up.main === 'https://img.example/real.png' && up.all.length >= 2 && /products-images\/lens_/.test(up.all[up.all.length - 1]), W + ': «📷 من جهازك» ⇒ تُرفع وتُضاف لصور الجرد (الرئيسية تبقى): ' + JSON.stringify(up).slice(0,400));
     // الحفظ في الصفحة ⇒ «حُفظ» في الأداة والتالي
     const first = await pg.evaluate(() => String(GMTEnrichQueue.state().cur));
     await pg.click('#gmt-pe [data-pe-save]'); await pg.waitForFunction(() => /حُفظ|❌/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});

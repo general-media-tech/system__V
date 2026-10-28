@@ -563,5 +563,5 @@
       draw();
     });
   }
-  global.GMTEnrichQueue = { open: open, close: close, closeAsk: closeAsk, saveAll: saveAll, pick: pick, _search: search, _prefillOf: prefillOf, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
+  global.GMTEnrichQueue = { open: open, close: close, closeAsk: closeAsk, saveAll: saveAll, pick: pick, _search: search, _prefillOf: prefillOf, _imgBlob: imgBlob, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
 })(typeof window !== 'undefined' ? window : this);

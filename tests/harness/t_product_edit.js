@@ -18,8 +18,8 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
     const hasBtn = await pg.evaluate(() => !!document.getElementById('detail-full-btn'));
     await pg.evaluate(() => document.getElementById('detail-full-btn').click());
     await pg.waitForSelector('#gmt-pe [data-s="name"]', { timeout: 10000 }).catch(() => {});
-    const v = await pg.evaluate(() => ({ open: !!document.getElementById('gmt-pe'), rows: document.querySelectorAll('#gmt-pe .pe-row').length, store: !!document.querySelector('#gmt-pe [data-s="name"]'), cats: document.querySelectorAll('#gmt-pe [data-scat]').length, imgs: document.querySelectorAll('#gmt-pe .pe-img').length, desc: (document.querySelector('#gmt-pe [data-f="__desc"]') || {}).value }));
-    ok(hasBtn && v.open && v.rows === 1 && v.store && v.cats === 2 && v.imgs === 1 && v.desc === 'وصفٌ قديم', W + ': «🧩 تعديل كل شيء» ⇒ الصفحة بأقسامها (الجرد · الأسعار · الجدول · المتجر): ' + JSON.stringify(v));
+    const v = await pg.evaluate(() => ({ open: !!document.getElementById('gmt-pe'), rows: document.querySelectorAll('#gmt-pe .pe-row').length, store: !!document.querySelector('#gmt-pe [data-s="name"]'), cats: document.querySelectorAll('#gmt-pe [data-scat]').length, imgs: document.querySelectorAll('#gmt-pe [data-pe-imgs] .pe-img').length, inv: document.querySelectorAll('#gmt-pe [data-pe-invimgs] .pe-img').length, desc: (document.querySelector('#gmt-pe [data-f="__desc"]') || {}).value }));
+    ok(hasBtn && v.open && v.rows === 1 && v.store && v.cats === 2 && v.imgs === 1 && v.inv === 1 && v.desc === 'وصفٌ قديم', W + ': «🧩 تعديل كل شيء» ⇒ الصفحة بأقسامها (الجرد · الأسعار · الجدول · المتجر): ' + JSON.stringify(v));
     // التعديلات
     await pg.evaluate(() => {
       const s = (q, val) => { const e = document.querySelector('#gmt-pe ' + q); e.value = val; e.dispatchEvent(new Event('input', { bubbles: true })); };

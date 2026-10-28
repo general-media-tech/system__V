@@ -42,7 +42,8 @@
   }
   function uniq(a) { var seen = {}; return a.filter(function (u) { u = String(u || '').trim(); if (!u || seen[u]) return false; seen[u] = 1; return true; }); }
   function imagesFor(p) {
-    var own = p && p.image_url ? [p.image_url] : [];
+    /* (TASK-0259) صور الجرد كلّها بترتيب الجرد (images) — ثمّ صور المتجر */
+    var own = p && Array.isArray(p.images) && p.images.length ? p.images.concat(p.image_url || []) : (p && p.image_url ? [p.image_url] : []);
     if (!p) return Promise.resolve([]);
     return catalog().then(function (prods) {
       var sp = findStore(prods, p), si = sp ? [].concat(sp.image || [], sp.image_url || [], sp.images || []) : [];

@@ -6,7 +6,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 (async () => {
   const { prods } = await H.seed();
   const A = prods[0], B = prods[1], C = prods[2];
-  await H.call('/rest/v1/products?id=eq.' + A.id, { store_url: 'https://x/store.html#product=s_a', image_url: 'https://img.example/inv-a.png' }, 'PATCH');
+  await H.call('/rest/v1/products?id=eq.' + A.id, { store_url: 'https://x/store.html#product=s_a', image_url: 'https://img.example/inv-a.png', images: ['https://img.example/inv-a.png', 'https://img.example/inv-a2.png'] }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + B.id, { store_url: null, image_url: 'https://img.example/inv-b.png' }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + C.id, { store_url: 'https://x/store.html#product=s_c', image_url: 'https://img.example/same.png' }, 'PATCH');
   await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-28T10:00:00Z', categories: [{ id: 'c1', name: 'عدسات', order: 1 }],
@@ -20,7 +20,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   const imgsOf = async id => { await pg.evaluate(id => openProductModal(id), id); await sleep(1500);
     return pg.evaluate(() => ({ imgs: _pmImgs.filter(x => typeof x === 'string').map(u => u.split('/').pop()), slides: document.querySelectorAll('#product-modal-slides img').length, dots: document.getElementById('product-modal-dots').children.length })); };
   let r = await imgsOf('s_a');
-  ok(JSON.stringify(r.imgs) === '["s1.png","s2.png","inv-a.png"]' && r.slides === 3 && r.dots === 3, 'المتجر (مربوط برابط المتجر): صور المتجر ثمّ صورة الجرد: ' + JSON.stringify(r));
+  ok(JSON.stringify(r.imgs) === '["s1.png","s2.png","inv-a.png","inv-a2.png"]' && r.slides === 4 && r.dots === 4, 'المتجر (مربوط برابط المتجر): صور المتجر ثمّ كل صور الجرد بترتيب الجرد (TASK-0259): ' + JSON.stringify(r));
   r = await imgsOf('s_b');
   ok(JSON.stringify(r.imgs) === '["sb.png","inv-b.png"]', 'المتجر (مربوط بـ inv_id): صورة المتجر ثمّ صورة الجرد: ' + JSON.stringify(r.imgs));
   r = await imgsOf('s_c');
@@ -34,6 +34,9 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   ({ browser, ctx, pg, errs } = await H.open('inventory.html', { w: 390, h: 844, mobile: true, wait: 5000, init: H.ADMIN_INIT }));
   const inv = await pg.evaluate(async p => (await GMTGallery.imagesFor(p)).map(u => u.split('/').pop()), { id: A.id, image_url: 'https://img.example/inv-a.png', store_url: 'https://x/store.html#product=s_a' });
   ok(JSON.stringify(inv) === '["inv-a.png","s1.png","s2.png"]', 'الجرد: صورة الجرد ثمّ صور المتجر: ' + JSON.stringify(inv));
+  // (TASK-0259) عدّة صور جرد بترتيب الجرد (مستقلّ عن المتجر) ثمّ صور المتجر
+  const inv2 = await pg.evaluate(async p => (await GMTGallery.imagesFor(p)).map(u => u.split('/').pop()), { id: A.id, image_url: 'https://img.example/inv-a2.png', images: ['https://img.example/inv-a2.png', 'https://img.example/inv-a.png'], store_url: 'https://x/store.html#product=s_a' });
+  ok(JSON.stringify(inv2) === '["inv-a2.png","inv-a.png","s1.png","s2.png"]', 'الجرد: كل صور الجرد بترتيبها ثمّ صور المتجر: ' + JSON.stringify(inv2));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

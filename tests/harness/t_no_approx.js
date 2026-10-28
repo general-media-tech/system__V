@@ -27,10 +27,10 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(!/قيمته النموذجية|«\(تقريبي\)»/.test(e2e.hint) && /اليقينيّ فقط/.test(e2e.hint), 'طلب المنتج: «اليقينيّ فقط» بلا «قيمة نموذجية (تقريبي)»: …' + e2e.hint.slice(-70));
   ok(/لا تكتبه أبداً/.test(e2e.sys) && /ممنوعة/.test(e2e.sys) && !/وبعدها «\(تقريبي\)»/.test(e2e.sys), 'طلب الإكمال: «ما لا تعرفه يقيناً لا تكتبه أبداً … كلمة تقريبي ممنوعة»');
   ok(JSON.stringify(e2e.specs) === JSON.stringify(['القدرة=60 واط', 'CRI=95+']) && e2e.dropped === 3, 'ما كتبه النموذج بـ«تقريبي» أو «غير متوفر» لا يصل: ' + JSON.stringify(e2e));
-  // ③ المحفوظ سابقاً: لا يُعرض ولا ينتقل للمتجر
+  // ③ المحفوظ سابقاً: «تقريبي» لا تظهر كلمةً (المالك seq 164 «حطه علامه وليس كلمه … ولا تحذف» ⇒ البند يبقى بلا الكلمة) · «غير متوفر» يسقط
   const sh = await pg.evaluate(() => { const sp = { 'الحربة': 'EF', 'الوزن': '160 غ (تقريبي)', 'الجهد': 'غير متوفر (تقريبي)', __brand: 'Canon' };
-    return { rows: GMTSpecs.rows(sp).map(r => r.label), store: GMTSpecs.forStore(sp).map(r => r.label), html: GMTSpecs.tableHTML([{ label: 'الوزن', value: '160 غ (تقريبي)' }, { label: 'اللون', value: 'أسود' }]) }; });
-  ok(JSON.stringify(sh.rows) === JSON.stringify(['الحربة']) && JSON.stringify(sh.store) === JSON.stringify(['الماركة', 'الحربة']) && !/تقريبي/.test(sh.html) && /أسود/.test(sh.html), 'الجرد والمتجر لا يعرضان التقديريّ ولا ينقلانه: ' + JSON.stringify({ r: sh.rows, s: sh.store }));
+    return { rows: GMTSpecs.rows(sp).map(r => r.label), store: GMTSpecs.forStore(sp).map(r => r.label), vals: JSON.stringify(GMTSpecs.rows(sp).concat(GMTSpecs.forStore(sp)).map(r => r.value)), html: GMTSpecs.tableHTML([{ label: 'الوزن', value: '160 غ (تقريبي)' }, { label: 'اللون', value: 'أسود' }]) }; });
+  ok(JSON.stringify(sh.rows) === JSON.stringify(['الحربة', 'الوزن']) && JSON.stringify(sh.store) === JSON.stringify(['الماركة', 'الحربة', 'الوزن']) && !/تقريبي|غير متوفر/.test(sh.vals) && !/تقريبي/.test(sh.html) && /أسود/.test(sh.html), 'الجرد والمتجر لا يعرضان كلمة «تقريبي» ولا «غير متوفر»: ' + JSON.stringify({ r: sh.rows, s: sh.store }));
   // ④ مراجعة «جهّز تلقائياً»: بندٌ محفوظ بـ«تقريبي» لا يظهر
   const q = await pg.evaluate(async () => {
     const p = allProducts[0]; p.specs = { 'الحربة': 'EF', 'الوزن': '160 غ (تقريبي)' };
