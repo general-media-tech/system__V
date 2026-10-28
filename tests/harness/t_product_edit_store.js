@@ -24,7 +24,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   ok(/google\.com\/search\?tbm=isch&q=/.test(l.g) && decodeURIComponent(l.g).includes('رأس إضاءة BD400 شمسي Jinbei') && /lens\.google\.com\/uploadbyurl\?url=https%3A%2F%2Fimg\.example%2Finv-a\.png/.test(l.lens),
     '«🔍 صور من غوغل» باسم المنتج وماركته · «🔎 عدسة غوغل» بصورة المنتج: ' + JSON.stringify(l).slice(0, 160));
   await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,xx'; i.dispatchEvent(new Event('change')); });
-  ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-lens]').getAttribute('aria-disabled') === 'true'), 'صورةٌ بلا رابط https ⇒ العدسة معطّلة (لا رابط مكسور)');
+  ok(await pg.evaluate(() => { const L = document.querySelector('#gmt-pe [data-pe-lens]'); return L.getAttribute('aria-disabled') !== 'true' && L.getAttribute('href') === '#'; }), '(seq 181) صورةٌ مضمَّنة ⇒ العدسة تبقى فعّالة (تُرفع الصورة عند الضغط) لا معطّلة');
   await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'https://img.example/inv-a.png'; i.dispatchEvent(new Event('change')); });
   // (TASK-0245 · seq 175 · 176) شريط البحث فوق جدول المواصفات: المواصفات التلقائية · عدسة غوغل · صور غوغل
   const bar = await pg.evaluate(() => { const b = document.querySelector('#gmt-pe [data-pe-searchbar]'); const rows = document.querySelector('#gmt-pe [data-pe-rows]');
@@ -58,6 +58,18 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   ok(sp.compat === 'Bowens' && /^رأس إضاءة استوديو\.\nشحن مجاني\.$/.test(sp.description || '') && Array.isArray(sp.specs) && sp.specs.some(r => r.label === 'القدرة'),
     'والجدول والتوافق والوصف انتقلت (وصف المتجر محفوظ): ' + JSON.stringify(sp.description));
   ok(await pg.evaluate(() => !!document.querySelector('#gmt-pe [data-s="name"]') && !document.querySelector('#gmt-pe [data-pe-link]')), 'بعد الربط: قسم المتجر يصير قابلاً للتعديل في الصفحة نفسها');
+  // (TASK-0256 · seq 181) روابط الصور · رابط الفيديو في المتجر · زرّ العدسة تحت الصورة
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://www.google.com/imgres?imgurl=https%3A%2F%2Fimg.example%2Fst2.png&q=x'; document.querySelector('#gmt-pe [data-pe-linkst]').click();
+    const v = document.querySelector('#gmt-pe [data-s="video_url"]'); v.value = 'https://youtu.be/abc123'; });
+  await pg.click('#gmt-pe [data-pe-save]'); await pg.waitForFunction(() => /حُفظ|❌/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  st = await store(); sp = st.products.find(x => x.id === 's_bd');
+  ok(sp.images.includes('https://img.example/st2.png') && sp.video_url === 'https://youtu.be/abc123', '«🔗 رابط صورة» (+ للمتجر · رابط نتيجة غوغل يُفكّ) · «رابط فيديو المنتج» ⇒ في المتجر: ' + JSON.stringify({ i: sp.images, v: sp.video_url }));
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://img.example/inv-new.png'; document.querySelector('#gmt-pe [data-pe-linkinv]').click(); });
+  ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-f="image_url"]').value) === 'https://img.example/inv-new.png', '«🔗 رابط صورة» (للجرد) ⇒ صورة الجرد');
+  await pg.evaluate(() => { window.__opened = []; const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; i.dispatchEvent(new Event('change')); document.querySelector('#gmt-pe [data-pe-lens]').click(); });
+  await sleep(1500);
+  const lo = await pg.evaluate(() => window.__opened);
+  ok(lo[0] === 'about:blank' && /lens\.google\.com\/uploadbyurl\?url=.*products-images/.test(lo[1] || ''), '«🔎 عدسة غوغل» تحت صورة الجرد تعمل لصورةٍ مضمَّنة أيضاً (ترفعها ثمّ تفتح): ' + JSON.stringify(lo).slice(0, 120));
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-x]').click());
   // ④ الإنشاء في المتجر
   await pg.evaluate(id => invOpenFullEdit(id), B.id);

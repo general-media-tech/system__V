@@ -107,7 +107,24 @@
     } catch (_) {}
     return out;
   }
-  g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink };
+  /* (TASK-0258 · المالك seq 179 «تعذّر تنزيل الصورة … لا اعرف السبب»): المنسوخ من صور غوغل غالباً رابط صفحة النتيجة
+     (google.com/imgres?…&imgurl=…) لا الصورة ⇒ نستخرج رابط الصورة الحقيقيّ منه (وكذلك google/url · Bing mediaurl · DuckDuckGo · Yandex). */
+  function imgUrl(u) {
+    u = String(u || '').trim().replace(/^["'<\s]+|["'>\s]+$/g, '');
+    for (var i = 0; i < 3; i++) {
+      var x; try { x = new URL(u); } catch (_) { return u; }
+      var h = x.hostname.replace(/^www\./, ''), q = x.searchParams, n = '';
+      if (/(^|\.)google\./.test(h) && /^\/imgres/.test(x.pathname)) n = q.get('imgurl');
+      else if (/(^|\.)google\./.test(h) && /^\/url/.test(x.pathname)) n = q.get('url') || q.get('q');
+      else if (/(^|\.)bing\.com$/.test(h)) n = q.get('mediaurl') || q.get('imgurl');
+      else if (/(^|\.)duckduckgo\.com$/.test(h) && /^\/iu/.test(x.pathname)) n = q.get('u');
+      else if (/(^|\.)yandex\./.test(h)) n = q.get('img_url');
+      if (!n || !/^https?:\/\//i.test(n)) return u;
+      u = n;
+    }
+    return u;
+  }
+  g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink, imgUrl: imgUrl };
 })(typeof window !== 'undefined' ? window : this);
 
 /* ── gmt-brand.js ── */

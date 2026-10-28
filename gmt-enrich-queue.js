@@ -238,7 +238,9 @@
         '<img src="' + esc(th) + '" data-gimg-allow="1" data-gimg-done="1" alt="" loading="lazy" style="width:100%;height:84px;object-fit:contain" onerror="if(this.parentNode)this.parentNode.remove()">' +
         '<button type="button" data-img-main="' + esc(u) + '" style="' + btn('#0f1219', '#fff') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">رئيسية للجرد</button>' +
         (S.storeAddImages ? '<button type="button" data-img-store="' + esc(u) + '" style="' + btn('#ecfdf5', '#047857') + ';width:100%;margin-top:4px;padding:5px;font-size:11px">+ صور المتجر</button>' : '') + '</div>'; }).join('');
-    box.innerHTML = top + banner + mismatch + warn +
+    /* (TASK-0256) «شاشة مراجعة واحدة»: أعلى البطاقة — صفحة المنتج نفسها مُعبّأة بما جهّزه العقل (لا في الشريط السفليّ: كان يغطّي أزرار الصور) */
+    var editBtn = S.openEdit ? '<button type="button" data-act="edit" title="صفحة المنتج نفسها: الجدول والوصف والماركة والصور (من جهازك · رابط · من الويب · عدسة غوغل) والأسعار والمتجر وفيديوه — مُعبّأة بما جهّزه العقل" style="' + btn('#0f1219', '#fff') + ';width:100%;margin-top:10px">✏️ راجِعه في صفحة المنتج (كل الأدوات)</button>' : '';
+    box.innerHTML = top + editBtn + banner + mismatch + warn +
       field('الاسم بالإنجليزية', 'name_en', r.name_en) + field('الماركة', 'brand', r.brand || p.brand || '') + field('الموديل', 'model', r.model) +
       field('الأسماء البديلة — عربي وإنجليزي (يبحث بها الجرد ونقطة البيع)', 'alt', mergeAlt(p.alt_names, [r.name_en, r.model].concat(r.aliases_ar || [], r.aliases_en || []))) +
       field('الوصف (يظهر في المتجر)', 'desc', sval(asObj(p.specs).__desc) || r.desc, true) +
@@ -262,7 +264,9 @@
         '<div data-img-msg style="font-size:12px;font-weight:800;margin-top:6px;min-height:1em"></div></div>' +
       (r.source ? '<div style="font-size:11px;color:#526077;margin-top:8px;overflow-wrap:anywhere">المصدر: ' + esc(r.source) + '</div>' : '') +
       againHTML() + selfSearch(p) +
-      '<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:#f8fafc;padding-top:8px;flex-wrap:wrap"><button type="button" data-act="save" style="' + btn('#D5001C', '#fff') + ';flex:1">' + (it.st === 'ready' ? '💾 حفظ والتالي' : '💾 حفظ') + '</button>' +
+      '<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:#f8fafc;padding-top:8px;flex-wrap:wrap">' +
+
+        '<button type="button" data-act="save" style="' + btn('#D5001C', '#fff') + ';flex:1">' + (it.st === 'ready' ? '💾 حفظ والتالي' : '💾 حفظ') + '</button>' +
       deepBtn + (it.st === 'ready' ? '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button>' : '') + '</div>' +
       '<div data-save-msg style="font-size:12px;font-weight:800;margin-top:6px;min-height:1em"></div>';
     storeBox(it);
@@ -299,6 +303,12 @@
     return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:11.5px;color:#526077">ابحث بنفسك: ' +
       '<a target="_blank" rel="noopener" href="https://www.alibaba.com/trade/search?SearchText=' + q + '" style="' + a + '">علي بابا ↗</a>' +
       '<a target="_blank" rel="noopener" href="https://www.google.com/search?tbm=isch&q=' + q + '" style="' + a + '">صور Google ↗</a></div>';
+  }
+  /* (TASK-0256 · المالك seq 175 · 177 «شاشة مراجعة واحدة») نتيجة العقل لمنتجٍ جاهز بصيغة صفحة تعديل المنتج (GMTProductEdit · fillFromAuto) */
+  function prefillOf(it) {
+    var r = (it && it.res) || {};
+    return { specs: specRows(it.p, r).filter(function (x) { return !x.orig; }).map(function (x) { return { k: x.k, v: x.v }; }), description_ar: r.desc || '', brand: r.brand || '', model: r.model || '',
+      compat: r.compat || '', aliases_ar: r.aliases_ar || [], aliases_en: r.aliases_en || [], name_en: r.name_en || '', images: r.images || [], source_url: r.source || '' };
   }
   function btn(bg, fg) { return 'border:0;background:' + bg + ';color:' + fg + ';border-radius:10px;padding:10px 14px;font:inherit;font-weight:900;cursor:pointer'; }
   function mergeAlt(cur, add) {
@@ -407,6 +417,7 @@
     }
     if (t.hasAttribute('data-img-url-main') || t.hasAttribute('data-img-url-store')) {
       var u = (box.querySelector('[data-img-url]') || {}).value || ''; u = u.trim();
+      if (global.GMTUtil && GMTUtil.imgUrl) { var u2 = GMTUtil.imgUrl(u); if (u2 !== u) { u = u2; var fi = box.querySelector('[data-img-url]'); if (fi) fi.value = u2; } }   // (TASK-0258) رابط صفحة نتيجة غوغل ⇒ الصورة نفسها
       if (!/^https:\/\//i.test(u)) { var m0 = box.querySelector('[data-img-msg]'); if (m0) { m0.style.color = '#b91c1c'; m0.textContent = 'الصق رابط صورةٍ يبدأ بـ https://'; } return; }
       return imageTo(it, u, null, t.hasAttribute('data-img-url-store') ? 'store' : 'inv');
     }
@@ -418,6 +429,12 @@
       S.items.splice(S.items.indexOf(it), 1); var firstWait = S.items.findIndex(function (x) { return x.st === 'wait'; });
       S.items.splice(firstWait < 0 ? S.items.length : firstWait, 0, it);               // أوّل الانتظار: لا ينتظر الطابور كلّه
       persist(); render(); pump(); return;
+    }
+    /* (TASK-0256) «✏️ راجِعه في صفحة المنتج»: صفحة التعديل الواحدة مُعبّأة بنتيجة العقل؛ الحفظ هناك = «حُفظ» هنا ثمّ التالي */
+    if (act === 'edit' && S.openEdit) {
+      var s0 = S;
+      S.openEdit(it.p, prefillOf(it), function (p2) { if (S !== s0) return; Object.assign(it.p, p2 || {}); it.st = 'saved'; it.store = null; persist(); nextReady(); render(); });
+      return;
     }
     if (act === 'save') {
       var f = readCard(), patch = buildPatch(it, f), msg = box.querySelector('[data-save-msg]');
@@ -445,7 +462,7 @@
     /* (TASK-0189 · المالك seq 126 «بدّي أرجع أبحث عنها») «أعد التجهيز من جديد»: لا استئناف — كل منتجٍ ينتظر العقل من جديد، والمحفوظ لا يتغيّر إلّا بحفظك */
     var saved = o.fresh ? null : load(), byId = {};
     if (saved && saved.key === o.key) (saved.items || []).forEach(function (x) { byId[String(x.id)] = x; });
-    S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
+    S = { key: o.key, title: o.title, operator: o.operator || '', save: o.save, upload: o.upload, storeAddImages: o.storeAddImages || null, storeInfo: o.storeInfo || null, openEdit: o.openEdit || null, onSaved: o.onSaved || null, onClose: o.onClose || null,
           items: o.products.map(function (p) { var s0 = byId[String(p.id)] || {}; return { id: p.id, p: p, st: s0.st || 'wait', res: s0.res || null, err: s0.err || '' }; }),
           cur: null, busy: false, paused: false, closed: false };
     var ready = S.items.filter(function (x) { return x.st === 'ready'; })[0]; S.cur = ready ? ready.id : (S.items[0] || {}).id;
@@ -546,5 +563,5 @@
       draw();
     });
   }
-  global.GMTEnrichQueue = { open: open, close: close, closeAsk: closeAsk, saveAll: saveAll, pick: pick, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
+  global.GMTEnrichQueue = { open: open, close: close, closeAsk: closeAsk, saveAll: saveAll, pick: pick, _search: search, _prefillOf: prefillOf, _nameTokens: nameTokens, _missingTokens: missingTokens, state: function () { return S; }, _enrichOne: enrichOne, _mergeAlt: mergeAlt };
 })(typeof window !== 'undefined' ? window : this);

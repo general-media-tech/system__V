@@ -72,6 +72,7 @@
   }
   function storePageUrl(id) { try { return new URL('store.html', global.location.href).href + '#product=' + encodeURIComponent(id); } catch (_) { return 'store.html#product=' + encodeURIComponent(id); } }
   function isHttp(u) { return /^https?:\/\//i.test(String(u || '')); }
+  function realImg(u) { return global.GMTUtil && GMTUtil.imgUrl ? GMTUtil.imgUrl(u) : String(u || '').trim(); }   // (TASK-0258) رابط نتيجة غوغل ⇒ الصورة
   function css() {
     if (doc.getElementById('gmt-pe-css')) return;
     var s = doc.createElement('style'); s.id = 'gmt-pe-css';
@@ -100,6 +101,8 @@
       '#gmt-pe .pe-invimg{display:flex;gap:8px;align-items:center}#gmt-pe .pe-invimg img{width:56px;height:56px;object-fit:contain;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;flex-shrink:0}' +
       '#gmt-pe .pe-btns{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}#gmt-pe .pe-btns a,#gmt-pe .pe-btns button{font-size:12px;font-weight:800;padding:6px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#0f1219;text-decoration:none}' +
       '#gmt-pe .pe-btns a[aria-disabled="true"]{opacity:.45;pointer-events:none}' +
+      '#gmt-pe .pe-up{display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;padding:6px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;cursor:pointer;margin:0;flex:1 1 auto}' +
+      '#gmt-pe .pe-imglink{display:flex;gap:6px;flex:1 1 100%;align-items:center}#gmt-pe .pe-imglink input{flex:1;min-width:0;margin:0;font-size:12.5px}#gmt-pe .pe-imglink button{flex:0 0 auto}' +
       '#gmt-pe .pe-search{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px}#gmt-pe .pe-search button,#gmt-pe .pe-search a{flex:1 1 auto;text-align:center}#gmt-pe .pe-search [data-pe-auto]{background:#0f172a;border-color:#0f172a;color:#fff}' +
       '#gmt-pe .pe-sugg{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}#gmt-pe .pe-sugg figure{margin:0;width:96px;flex-shrink:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}' +
       '#gmt-pe .pe-sugg img{width:96px;height:96px;object-fit:contain;display:block;background:#f9fafb}#gmt-pe .pe-sugg figure button{display:block;width:100%;border:0;border-top:1px solid #f1f5f9;border-radius:0;padding:5px 4px;font-size:11px}' +
@@ -153,6 +156,12 @@
             (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') +
             '<button type="button" data-pe-lensgo title="يفتح عدسة غوغل بصورة هذا المنتج — صورٌ مشابهة ومصادرها">🔎 عدسة غوغل (بحث بالصورة)</button>' +
             '<a data-pe-gimg2 target="_blank" rel="noopener" title="صور غوغل باسم المنتج وماركته">🔍 صور غوغل</a>' +
+            /* (TASK-0256 · seq 178) «ابحث بنفسك … من جهازك … موجوده فقط في تجهيز كل ما ليس لهم مواصفات … وليست موجوده لكل منتج على حده» */
+            (global.GMTEnrichQueue && GMTEnrichQueue._search ? '<button type="button" data-pe-webimg title="يبحث في الويب عن صور هذا المنتج ويعرضها لتختار">🖼️ صور من الويب</button>' : '') +
+            '<a data-pe-ali target="_blank" rel="noopener" title="نتائج علي بابا باسم المنتج — تجد صفحته فتلصق رابطها في «🔄 إعادة البحث التلقائي»">علي بابا ↗</a>' +
+            (ctx.uploadImage ? '<label class="pe-up" title="صورة من جهازك: للجرد أو لصور المتجر">📷 من جهازك<input type="file" accept="image/*" data-pe-file hidden></label>' : '') +
+            /* (TASK-0256 · seq 181) «في هذه الشاشه لا يوجد اضافه صور او روابط صور» */
+            '<div class="pe-imglink"><input data-pe-linkimg dir="ltr" placeholder="🔗 الصق رابط صورة (من غوغل أو أيّ موقع)"><button type="button" data-pe-linkinv>للجرد</button><button type="button" data-pe-linkst>+ للمتجر</button></div>' +
           '</div><div data-pe-rows></div>' +
           '<button type="button" data-pe-addrow>+ بند</button>' +
           '<div class="pe-2" style="margin-top:10px"><label>الموديل<input data-f="__model" value="' + esc(sp0.__model) + '"></label><label>التوافق (متوافق مع)<input data-f="compat" value="' + esc(p.compat) + '"></label></div>' +
@@ -188,12 +197,14 @@
     autoBrand();
     $('[data-f="name"]').addEventListener('change', function () { autoBrand({ name: this.value, alt_names: $('[data-f="alt_names"]').value, specs: p.specs }); });
     var imgIn = $('[data-f="image_url"]'), imgPrev = $('[data-pe-invprev]');
-    imgIn.addEventListener('change', function () { var u = imgIn.value.trim(); imgPrev.hidden = !u; if (u) imgPrev.src = u; links(); });
+    imgIn.addEventListener('change', function () { var u = realImg(imgIn.value); if (u !== imgIn.value) imgIn.value = u; imgPrev.hidden = !u; if (u) imgPrev.src = u; links(); });
     function links() {
       var q = ($('[data-f="name"]').value.trim() || p.name || '') + (brandEl.value.trim() && ($('[data-f="name"]').value || '').toLowerCase().indexOf(brandEl.value.trim().toLowerCase()) === -1 ? ' ' + brandEl.value.trim() : '');
       $('[data-pe-gimg]').href = $('[data-pe-gimg2]').href = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q.trim());
+      $('[data-pe-ali]').href = 'https://www.alibaba.com/trade/search?SearchText=' + encodeURIComponent(q.trim());
       var u = imgIn.value.trim(), L = $('[data-pe-lens]');
-      if (isHttp(u)) { L.href = 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(u); L.removeAttribute('aria-disabled'); } else { L.removeAttribute('href'); L.setAttribute('aria-disabled', 'true'); }
+      L.href = isHttp(u) ? 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(u) : '#';   // يُفتح عبر «🔎 عدسة غوغل» نفسها (ترفع المضمَّنة أوّلاً)
+      L.setAttribute('role', 'button'); L.removeAttribute('aria-disabled');
     }
     $('[data-f="name"]').addEventListener('input', links); brandEl.addEventListener('input', links); links();
     /* صور البحث التلقائي (صفحة المنتج) — اختر: صورة الجرد · أو أضفها لصور المتجر */
@@ -234,6 +245,39 @@
     }
     /* عدسة غوغل بصورة المنتج: رابط https ⇐ تُفتح فوراً · صورةٌ مضمَّنة (data:) ⇐ تُرفع أوّلاً لمخزن الصور (ctx.uploadImage) فتصير رابطاً
        (ويصير هو صورة الجرد عند «💾 احفظ») · بلا صورة ⇐ يقول ذلك. النافذة تُفتح مع الضغطة نفسها كي لا يحجبها المتصفّح. */
+    var linkIn = $('[data-pe-linkimg]');
+    function linkTo(where) {
+      var u = realImg(linkIn.value); if (!isHttp(u)) { say('الصق رابط صورة يبدأ بـ https', true); return; }
+      linkIn.value = '';
+      if (where === 'st') { if (!S.sp) { say('اربط المنتج بالمتجر أو أنشئه فيه أوّلاً (قسم «🛒 المتجر»)', true); return; } if (S.imgs.indexOf(u) === -1) { S.imgs.push(u); paintImgs(); } say('🖼️ أُضيفت لصور المتجر — «💾 احفظ»'); }
+      else { imgIn.value = u; imgIn.dispatchEvent(new Event('change')); say('🖼️ صارت صورة الجرد — «💾 احفظ»'); }
+    }
+    $('[data-pe-linkinv]').onclick = function () { linkTo('inv'); };
+    $('[data-pe-linkst]').onclick = function () { linkTo('st'); };
+    /* (seq 181 «عدسة غوغل مو شغالة»: الزرّ تحت صورة الجرد كان معطّلاً لصورةٍ مضمَّنة) ⇒ الزرّان ينفّذان الشيء نفسه */
+    $('[data-pe-lens]').addEventListener('click', function (e) { e.preventDefault(); $('[data-pe-lensgo]').click(); });
+    var webB = $('[data-pe-webimg]');
+    if (webB) webB.onclick = async function () {
+      var q = ($('[data-f="name"]').value.trim() || p.name || '') + (brandEl.value.trim() ? ' ' + brandEl.value.trim() : '');
+      webB.disabled = true; say('⏳ يبحث عن صور «' + q.trim() + '»…');
+      try {
+        var r = await GMTEnrichQueue._search('images', q.trim(), 24), list = ((r && r.images) || []).map(function (x) { return x && x.url; }).filter(isHttp);
+        showSugg(list); say(list.length ? '🖼️ ' + list.length + ' صورة — اختر «صورة الجرد» أو «+ المتجر»' : 'لم يجد صوراً — جرّب «🔍 صور غوغل» أو «🔎 عدسة غوغل»', !list.length);
+      } catch (e) {
+        say(e && e.code === 'no_keys' ? 'بحث الصور في الويب يحتاج مفتاحاً مجانياً (Tavily) في أسرار Supabase — إلى ذلك: «🔍 صور غوغل» أو «🔎 عدسة غوغل»' : '❌ تعذّر البحث: ' + ((e && e.message) || e), true);
+      }
+      webB.disabled = false;
+    };
+    var fileIn = $('[data-pe-file]');
+    if (fileIn) fileIn.onchange = async function () {
+      var f = fileIn.files && fileIn.files[0]; fileIn.value = ''; if (!f) return;
+      var where = S.sp ? await (global.GMTAsk ? GMTAsk.choose('أين تضع الصورة؟', { title: '📷 صورة من جهازك', choices: [{ k: 'inv', t: 'صورة الجرد' }, { k: 'st', t: 'صور المتجر' }] }) : 'inv') : 'inv';
+      if (!where) return;
+      say('⏳ رفع الصورة…'); var u = null; try { u = await ctx.uploadImage(f); } catch (_) {}
+      if (!u) { say('❌ تعذّر رفع الصورة', true); return; }
+      if (where === 'st') { if (S.imgs.indexOf(u) === -1) { S.imgs.push(u); paintImgs(); } say('🖼️ أُضيفت لصور المتجر — «💾 احفظ»'); }
+      else { imgIn.value = u; imgIn.dispatchEvent(new Event('change')); say('🖼️ صارت صورة الجرد — «💾 احفظ»'); }
+    };
     $('[data-pe-lensgo]').onclick = async function () {
       var u = imgIn.value.trim() || p.image_url || '';
       if (!u) { say('لا صورة لهذا المنتج — أضف صورة الجرد أوّلاً (أو استعمل «🔍 صور غوغل»)', true); return; }
@@ -282,10 +326,12 @@
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">أقسامه في المتجر</div><div class="pe-cats">' +
           cats.map(function (c) { return '<label><input type="checkbox" data-scat="' + esc(c.id) + '"' + (S.cats.indexOf(String(c.id)) !== -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<label style="margin-top:10px">الوصف في المتجر<textarea data-s="description" rows="3">' + esc(sp.description) + '</textarea></label>' +
+        /* (TASK-0256 · seq 181) «… روابط الفيديوهات التي تكون في المتجر» */
+        '<label>رابط فيديو المنتج في المتجر (يوتيوب · إنستغرام)<input data-s="video_url" dir="ltr" placeholder="https://…" value="' + esc(sp.video_url) + '"></label>' +
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">صوره في المتجر (الأولى هي الرئيسية)</div><div class="pe-imgs" data-pe-imgs></div>' +
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input data-pe-newimg dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:180px;margin:0"><button type="button" data-pe-addimg>+ أضف</button><button type="button" data-pe-invimg>+ صورة الجرد</button></div>';
       paintImgs();
-      $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = i.value.trim(); if (/^https?:\/\//.test(u) && S.imgs.indexOf(u) === -1) { S.imgs.push(u); i.value = ''; paintImgs(); } };
+      $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (/^https?:\/\//.test(u) && S.imgs.indexOf(u) === -1) { S.imgs.push(u); i.value = ''; paintImgs(); } };
       $('[data-pe-invimg]').onclick = function () { if (p.image_url && S.imgs.indexOf(p.image_url) === -1) { S.imgs.push(p.image_url); paintImgs(); } };
       var same = $('[data-s-same]'), spr = $('[data-s="price"]');
       same.checked = num(sp.price) === num(p.price);
@@ -409,10 +455,10 @@
         var g = function (k) { var e = $('[data-s="' + k + '"]'); return e ? e.value.trim() : ''; };
         var cats = [].map.call(root.querySelectorAll('[data-scat]:checked'), function (x) { return x.getAttribute('data-scat'); });
         var sPrice = $('[data-s-same]') && $('[data-s-same]').checked ? inv.price : num(g('price'));
-        var want = { name: g('name') || sp.name, price: sPrice, description: g('description'), images: S.imgs.slice() };
+        var want = { name: g('name') || sp.name, price: sPrice, description: g('description'), images: S.imgs.slice(), video_url: g('video_url') };
         if (cats.length) { want.category_ids = cats; want.category_id = cats[0]; }
         sUpd = {};
-        Object.keys(want).forEach(function (k) { if (JSON.stringify(want[k]) !== JSON.stringify(k === 'price' ? num(sp[k]) : (sp[k] == null ? (k === 'description' ? '' : sp[k]) : sp[k]))) sUpd[k] = want[k]; });
+        Object.keys(want).forEach(function (k) { if (JSON.stringify(want[k]) !== JSON.stringify(k === 'price' ? num(sp[k]) : (sp[k] == null ? (k === 'description' || k === 'video_url' ? '' : sp[k]) : sp[k]))) sUpd[k] = want[k]; });
         if (patch.specs || 'compat' in patch) { var fs = global.GMTSpecs ? GMTSpecs.forStore(inv.specs) : []; sUpd.specs = fs; sUpd.compat = inv.compat || ''; }
         if (!Object.keys(sUpd).length) sUpd = null;
       }
@@ -436,6 +482,7 @@
       b.disabled = false; b.textContent = '💾 احفظ';
     };
     if (ctx.autoSpecs && autoB) setTimeout(function () { autoB.click(); }, 50);   // من «المواصفات التلقائية» في قائمة المنتج
+    if (ctx.prefill) { fillFromAuto(ctx.prefill); if (autoB) autoB.textContent = '🔄 إعادة البحث التلقائي'; }   // (TASK-0256) من أداة التجهيز: ما جهّزه العقل
     return root;
   }
   global.GMTProductEdit = { open: open, guessBrand: guessBrand };

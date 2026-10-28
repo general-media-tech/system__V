@@ -70,6 +70,10 @@
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) reg.update().catch(function () {});
     });
+    /* (TASK-0257 · المالك seq 175 · 181 «نسخة اللابتوب»): صفحةٌ تبقى مفتوحةً ظاهرةً على اللابتوب لا يمرّ بها visibilitychange
+       فلا تعرف بالنشر الجديد أبداً (كانت على نسخةٍ أقدم من الهاتف). الآن: فحصٌ كل ١٠ دقائق وعند العودة إلى النافذة ⇒ شريط «تحديث الآن». */
+    setInterval(function () { if (!document.hidden) reg.update().catch(function () {}); }, 10 * 60 * 1000);
+    window.addEventListener('focus', function () { reg.update().catch(function () {}); });
   }).catch(function (e) {
     console.warn('[GMT] تعذّر تسجيل عامل الخدمة:', e && e.message);
   });
