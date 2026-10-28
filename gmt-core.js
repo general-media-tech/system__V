@@ -93,9 +93,19 @@
      الرابط المطلق (http/https) يبقى كما هو؛ وكلّ رابطٍ نسبيّ ⇒ صفحة المتجر في هذا الموقع على المنتج نفسه. */
   function storeLink(u) {
     u = String(u || '').trim(); if (!u) return '';
-    if (/^https?:\/\//i.test(u)) return u;
-    var m = /#product=([^&\s]+)/.exec(u);
-    try { return m ? new URL('store.html#product=' + m[1], g.location.href).href : (/\.html?(?:[?#]|$)/i.test(u) ? new URL('store.html', g.location.href).href : ''); } catch (_) { return ''; }
+    var out;
+    if (/^https?:\/\//i.test(u)) out = u;
+    else {
+      var m = /#product=([^&\s]+)/.exec(u);
+      try { out = m ? new URL('store.html#product=' + m[1], g.location.href).href : (/\.html?(?:[?#]|$)/i.test(u) ? new URL('store.html', g.location.href).href : ''); } catch (_) { return ''; }
+    }
+    /* (TASK-0255 · المالك seq 174) «من داخل التطبيق سواء من نقطه او جرد ما في داعي تاخذني على متجر وتفتح لي … دخلني مباشره الى المنتج»:
+       storeLink لأزرار التطبيق وحدها ⇒ رابط منتجٍ في متجرنا (نفس الموقع) يحمل ?direct=1: بلا انترو، والمنتج يُفتح فوراً. رابط الزبون المُشارَك لا يتغيّر. */
+    try {
+      var x = new URL(out, g.location.href);
+      if (x.origin === g.location.origin && /\/store\.html$/i.test(x.pathname) && /^#product=/.test(x.hash)) { x.searchParams.set('direct', '1'); out = x.href; }
+    } catch (_) {}
+    return out;
   }
   g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink };
 })(typeof window !== 'undefined' ? window : this);
