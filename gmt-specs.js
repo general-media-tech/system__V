@@ -107,6 +107,22 @@
     url = String(url || (p && p.image_url) || '').trim(); if (!url) return null;
     return pushToStore(p, { only: function (sp) { var imgs = Array.isArray(sp.images) ? sp.images.slice() : []; if (imgs.indexOf(url) !== -1 || sp.image === url) return 'same'; imgs.push(url); return { images: imgs }; } });
   }
+  /* (TASK-0254 · المالك seq 174) «في المزامنه … انت اخذ فقط الجدول … التوافقيات والوصف ما عم تاخذه للمتجر»: وصف المتجر = وصف الجرد أوّلاً
+     ثمّ أسطر المتجر التي ليست فيه (لا يُمحى ما كُتب في المتجر وحده). مشتركٌ بين الحفظ والجسر والمزامنة. */
+  function mergeDesc(invDesc, storeDesc) {
+    var mine = String(invDesc || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    var keep = String(storeDesc || '').split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
+    return mine.concat(keep).join('\n');
+  }
+  /* ما ينتقل من منتج الجرد إلى منتج المتجر المربوط: الجدول · التوافقيات · الوصف (لا يمحو شيئاً في المتجر بفراغ) */
+  function storeFields(inv, sp) {
+    inv = inv || {}; sp = sp || {};
+    var out = {}, t = forStore(inv.specs), d = meta(inv.specs).desc, c = String(inv.compat || '').trim();
+    if (t.length) out.specs = t;
+    if (c) out.compat = c;
+    if (d) { var m = mergeDesc(d, sp.description); if (m !== String(sp.description || '')) out.description = m; }
+    return out;
+  }
   async function pushToStore(p, o) {
     o = o || {}; var D = dbs(); if (!p || !D.store || !D.store.url) return null;
     /* المنتج كما في الجرد إن نقص (رابط المتجر · الباركود · المواصفات) */
@@ -133,9 +149,7 @@
         if (Array.isArray(rr) && rr.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, added: true }; }
         continue;
       }
-      var mine = String(myDesc || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
-      var keep = (o.storeDesc == null ? String(sp.description || '') : String(o.storeDesc)).split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x && mine.indexOf(x) === -1; });
-      var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mine.concat(keep).join('\n');
+      var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mergeDesc(myDesc, o.storeDesc == null ? sp.description : o.storeDesc);
       if (desc || o.storeDesc != null) upd.description = desc;
       var next = prods.map(function (x) { return x === sp ? Object.assign({}, x, upd) : x; });
       var url = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', body = { products: next };
@@ -147,5 +161,5 @@
     }
     throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, forView: forView, clean: clean, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure };
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, forView: forView, clean: clean, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure, mergeDesc: mergeDesc, storeFields: storeFields };
 })(typeof window !== 'undefined' ? window : this);
