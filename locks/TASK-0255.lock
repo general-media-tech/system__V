@@ -1,0 +1,7 @@
+task: TASK-0255
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: store.html pos.html inventory.html
+claimed_at: 2026-10-28T07:17:10Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0255
