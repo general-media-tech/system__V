@@ -1,0 +1,7 @@
+task: TASK-0251
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: guarantee.html gmt-wclaims.js tests/harness/t_warranty_usage_view.js
+claimed_at: 2026-10-28T06:52:38Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0251
