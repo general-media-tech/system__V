@@ -47,7 +47,8 @@
     if (!p) return Promise.resolve([]);
     return catalog().then(function (prods) {
       var sp = findStore(prods, p), si = sp ? [].concat(sp.image || [], sp.image_url || [], sp.images || []) : [];
-      return uniq(own.concat(si.map(function (x) { return typeof x === 'string' ? x : (x && (x.url || x.src)) || ''; })));
+      var hid = Array.isArray(p.images_hidden) ? p.images_hidden.map(String) : [];   // (TASK-0262) المخفيّة من الجرد ونقطة البيع
+      return uniq(own.concat(si.map(function (x) { return typeof x === 'string' ? x : (x && (x.url || x.src)) || ''; }).filter(function (u) { return hid.indexOf(String(u)) === -1; })));
     }, function () { return own; });
   }
 

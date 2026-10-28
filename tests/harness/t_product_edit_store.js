@@ -45,11 +45,11 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   const sg = await pg.evaluate(() => ({ shown: !document.querySelector('#gmt-pe [data-pe-suggbox]').hidden, n: document.querySelectorAll('#gmt-pe [data-pe-sugg] figure').length }));
   ok(sg.shown && sg.n === 2, 'المواصفات التلقائية ⇒ «🖼️ صور وجدها البحث» (روابط https فقط): ' + JSON.stringify(sg));
   ok(/إعادة البحث التلقائي/.test(await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-auto]').textContent)), 'بعد البحث الأوّل يصير الزرّ «🔄 إعادة البحث التلقائي»');
-  // (TASK-0259 · seq 184) «+ الجرد» ⇒ تُضاف (لا تستبدل) · تُنزَّل لمخزننا
-  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-sugg] figure [data-a="inv"]').click()); await sleep(900);
+  // (TASK-0259 · seq 184) «+ أضف» ⇒ تُضاف (لا تستبدل) · تُنزَّل لمخزننا · (TASK-0262) زرٌّ واحد: للجرد ونقطة البيع والمتجر
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-sugg] figure [data-a="add"]').click()); await sleep(900);
   let iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')) }));
   ok(iv.main === 'https://img.example/inv-a.png' && iv.all[0] === iv.main && /products-images\/lens_/.test(iv.all[iv.all.length - 1]) && !iv.all.includes('https://img.example/f1.png'),
-    '«+ الجرد» ⇒ تُضاف لصور الجرد (الرئيسية تبقى) وتُنزَّل لمخزننا لا رابط المصدر: ' + JSON.stringify(iv).slice(0, 600));
+    '«+ أضف» ⇒ تُضاف للصور (الرئيسية تبقى) وتُنزَّل لمخزننا لا رابط المصدر: ' + JSON.stringify(iv).slice(0, 600));
   // ③ الربط بمنتجٍ موجود
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-link]').click()); await sleep(200);
   const c = await pg.evaluate(() => [...document.querySelectorAll('#gmt-pe [data-linkto]')].map(b => b.getAttribute('data-linkto')));
@@ -61,29 +61,50 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   ok(sp.compat === 'Bowens' && /^رأس إضاءة استوديو\.\nشحن مجاني\.$/.test(sp.description || '') && Array.isArray(sp.specs) && sp.specs.some(r => r.label === 'القدرة'),
     'والجدول والتوافق والوصف انتقلت (وصف المتجر محفوظ): ' + JSON.stringify(sp.description));
   ok(await pg.evaluate(() => !!document.querySelector('#gmt-pe [data-s="name"]') && !document.querySelector('#gmt-pe [data-pe-link]')), 'بعد الربط: قسم المتجر يصير قابلاً للتعديل في الصفحة نفسها');
+  // (TASK-0262 · seq 194) «بتتزامن الصور مع الجرد والنقطة والمتجر»: بعد الربط القائمتان فيهما الصور نفسها (كلٌّ بترتيبه)
+  const sy = await pg.evaluate(() => ({ inv: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')).sort(), st: [...document.querySelectorAll('#gmt-pe [data-pe-imgs] img')].length }));
+  ok(sy.inv.includes('https://img.example/s1.png') && sy.inv.length === sy.st, 'متزامنة: صورة المتجر صارت في الجرد وصور الجرد في المتجر: ' + JSON.stringify({ inv: sy.inv.length, st: sy.st }));
   // (TASK-0256 · seq 181) روابط الصور · رابط الفيديو في المتجر · زرّ العدسة تحت الصورة
-  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://www.google.com/imgres?imgurl=https%3A%2F%2Fimg.example%2Fst2.png&q=x'; document.querySelector('#gmt-pe [data-pe-linkst]').click();
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://www.google.com/imgres?imgurl=https%3A%2F%2Fimg.example%2Fst2.png&q=x'; document.querySelector('#gmt-pe [data-pe-linkadd]').click();
     const v = document.querySelector('#gmt-pe [data-s="video_url"]'); v.value = 'https://youtu.be/abc123'; });
   await sleep(900);
   await pg.click('#gmt-pe [data-pe-save]'); await pg.waitForFunction(() => /حُفظ|❌/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
   st = await store(); sp = st.products.find(x => x.id === 's_bd');
-  ok(!sp.images.some(x => /imgres|st2\.png/.test(x)) && /products-images\/lens_/.test(sp.images[sp.images.length - 1]) && sp.video_url === 'https://youtu.be/abc123', '«🔗 رابط صورة» (+ للمتجر · رابط نتيجة غوغل يُفكّ) · «رابط فيديو المنتج» ⇒ في المتجر: ' + JSON.stringify({ i: sp.images, v: sp.video_url }));
+  ok(!sp.images.some(x => /imgres|st2\.png/.test(x)) && /products-images\/lens_/.test(sp.images[sp.images.length - 1]) && sp.video_url === 'https://youtu.be/abc123', '«🔗 رابط صورة» (+ أضف ⇒ والمتجر · رابط نتيجة غوغل يُفكّ) · «رابط فيديو المنتج» ⇒ في المتجر: ' + JSON.stringify({ i: sp.images, v: sp.video_url }));
   const n0 = await pg.evaluate(() => document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]').length);
-  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://img.example/inv-new.png'; document.querySelector('#gmt-pe [data-pe-linkinv]').click(); }); await sleep(900);
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-pe-linkimg]'); i.value = 'https://img.example/inv-new.png'; document.querySelector('#gmt-pe [data-pe-linkadd]').click(); }); await sleep(900);
   iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')), msg: document.querySelector('#gmt-pe [data-pe-msg]').textContent }));
-  ok(iv.all.length === n0 + 1 && iv.main === 'https://img.example/inv-a.png' && /products-images\/lens_/.test(iv.all[n0]) && /نُزّلت لمخزننا/.test(iv.msg), '«🔗 رابط صورة» (+ للجرد) ⇒ تُنزَّل لمخزننا وتُضاف بعد صور الجرد: ' + JSON.stringify(iv).slice(0, 700));
-  // ترتيب الجرد مستقلّ: «›» يقدّم الأخيرة فتصير الثانية ثمّ الأولى (⭐ الرئيسية) · ✕ يحذف · «💾 احفظ» ⇒ images + image_url
+  ok(iv.all.length === n0 + 1 && iv.main === 'https://img.example/inv-a.png' && /products-images\/lens_/.test(iv.all[n0]) && /نُزّلت لمخزننا/.test(iv.msg), '«🔗 رابط صورة» (+ أضف) ⇒ تُنزَّل لمخزننا وتُضاف بعد صور الجرد: ' + JSON.stringify(iv).slice(0, 700));
+  // ترتيب الجرد مستقلّ: «›» يقدّم الأخيرة فتصير الثانية ثمّ الأولى (⭐ الرئيسية) · ✕ ⇒ «أخفِها من الجرد فقط» · «💾 احفظ» ⇒ images + image_url + images_hidden
   const last = iv.all[n0];
   for (let k = n0; k > 0; k--) await pg.evaluate(k => document.querySelector('#gmt-pe [data-pe-invimg-i="' + k + '"] [data-a="r"]').click(), k);
-  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-invimg-i="1"] [data-a="x"]').click());
+  await pg.evaluate(() => { window.__ch = []; GMTAsk.choose = async (m, o) => { window.__ch.push((o.choices || []).map(x => x.k)); return 'hide'; }; document.querySelector('#gmt-pe [data-pe-invimg-i="1"] [data-a="x"]').click(); }); await sleep(300);
+  ok(JSON.stringify(await pg.evaluate(() => window.__ch)) === '[["hide","all"]]' && await pg.evaluate(() => !!document.querySelector('#gmt-pe [data-pe-invhid] [data-hid-u="https://img.example/inv-a.png"]')),
+    '✕ على صورةٍ موجودة في المتجر أيضاً ⇒ «أخفِها من الجرد فقط» أو «احذفها من الكل» · المخفيّة تظهر تحت القائمة بـ«↺ أظهرها»');
   iv = await pg.evaluate(() => ({ main: document.querySelector('#gmt-pe [data-f="image_url"]').value, all: [...document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]')].map(i => i.getAttribute('data-u')), star: !!document.querySelector('#gmt-pe [data-pe-invimg-i="0"] span[title="الرئيسية"]') }));
   ok(iv.main === last && iv.all[0] === last && !iv.all.includes('https://img.example/inv-a.png') && iv.star, 'الترتيب: المنقولة للأوّل صارت ⭐ الرئيسية · الحذف يعمل: ' + JSON.stringify({ n: iv.all.length }));
   const stBefore = JSON.stringify((await store()).products.find(x => x.id === 's_bd').images);
   await pg.click('#gmt-pe [data-pe-save]'); await sleep(300);
   await pg.waitForFunction(() => /حُفظ|❌|لا تغيير/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
   ia = await inv(A.id);
-  ok(Array.isArray(ia.images) && JSON.stringify(ia.images) === JSON.stringify(iv.all) && ia.image_url === last, '«💾 احفظ» ⇒ الجرد: images بترتيب الجرد · image_url = الأولى: ' + JSON.stringify({ n: (ia.images || []).length, main: ia.image_url === last }));
-  ok(JSON.stringify((await store()).products.find(x => x.id === 's_bd').images) === stBefore, 'ترتيب صور المتجر لم يتغيّر بترتيب الجرد (مستقلّ)');
+  ok(Array.isArray(ia.images) && JSON.stringify(ia.images) === JSON.stringify(iv.all) && ia.image_url === last && JSON.stringify(ia.images_hidden) === '["https://img.example/inv-a.png"]',
+    '«💾 احفظ» ⇒ الجرد: images بترتيب الجرد · image_url = الأولى · images_hidden (المخفيّة من الجرد): ' + JSON.stringify({ n: (ia.images || []).length, main: ia.image_url === last, h: ia.images_hidden }));
+  const stAfter = (await store()).products.find(x => x.id === 's_bd').images;
+  ok(JSON.stringify(stAfter) === JSON.stringify(JSON.parse(stBefore).concat([last])) && stAfter.includes('https://img.example/inv-a.png'),
+    'المتجر: ترتيبه لم يتغيّر بترتيب الجرد · الجديدة أُضيفت في آخره · المخفيّة من الجرد باقية فيه');
+  // (TASK-0262 · seq 193) «تحديد اكثر من صورة معا»
+  const nI = await pg.evaluate(() => document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]').length), nS = await pg.evaluate(() => document.querySelectorAll('#gmt-pe [data-pe-imgs] img').length);
+  await (await pg.$('#gmt-pe [data-pe-file]')).setInputFiles([{ name: 'a.png', mimeType: 'image/png', buffer: PNG }, { name: 'b.png', mimeType: 'image/png', buffer: PNG }, { name: 'c.png', mimeType: 'image/png', buffer: PNG }]); await sleep(1500);
+  const mf = await pg.evaluate(() => ({ i: document.querySelectorAll('#gmt-pe [data-pe-invimgs] [data-u]').length, s: document.querySelectorAll('#gmt-pe [data-pe-imgs] img').length, m: document.querySelector('#gmt-pe [data-pe-msg]').textContent, multi: document.querySelector('#gmt-pe [data-pe-file]').multiple }));
+  ok(mf.multi && mf.i === nI + 3 && mf.s === nS + 3 && /أُضيفت 3 صورة/.test(mf.m), '📷 من جهازك: ثلاث صور معاً ⇒ للجرد والمتجر معاً: ' + JSON.stringify(mf));
+  // ✕ في المتجر ⇒ «أخفِها من المتجر فقط» ⇒ تبقى في الجرد وتُحفظ في images_hidden لمنتج المتجر
+  const sx = await pg.evaluate(() => { GMTAsk.choose = async () => 'hide'; const u = document.querySelector('#gmt-pe [data-pe-imgs] .pe-img img').getAttribute('src'); return u; });
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-imgs] .pe-img [data-a="x"]').click()); await sleep(300);
+  await pg.click('#gmt-pe [data-pe-save]'); await sleep(300);
+  await pg.waitForFunction(() => /حُفظ|❌|لا تغيير/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  const sp2 = (await store()).products.find(x => x.id === 's_bd'), ia2 = await inv(A.id);
+  ok(Array.isArray(sp2.images_hidden) && sp2.images_hidden.length === 1 && !sp2.images.includes(sp2.images_hidden[0]) && ia2.images.includes(sp2.images_hidden[0]),
+    '✕ في المتجر ⇒ أُخفيت من المتجر وحده وبقيت في الجرد: ' + JSON.stringify({ h: sp2.images_hidden }));
   await pg.evaluate(() => { window.__opened = []; const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; i.dispatchEvent(new Event('change')); document.querySelector('#gmt-pe [data-pe-lens]').click(); });
   await sleep(1500);
   const lo = await pg.evaluate(() => window.__opened);

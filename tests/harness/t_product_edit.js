@@ -19,7 +19,7 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
     await pg.evaluate(() => document.getElementById('detail-full-btn').click());
     await pg.waitForSelector('#gmt-pe [data-s="name"]', { timeout: 10000 }).catch(() => {});
     const v = await pg.evaluate(() => ({ open: !!document.getElementById('gmt-pe'), rows: document.querySelectorAll('#gmt-pe .pe-row').length, store: !!document.querySelector('#gmt-pe [data-s="name"]'), cats: document.querySelectorAll('#gmt-pe [data-scat]').length, imgs: document.querySelectorAll('#gmt-pe [data-pe-imgs] .pe-img').length, inv: document.querySelectorAll('#gmt-pe [data-pe-invimgs] .pe-img').length, desc: (document.querySelector('#gmt-pe [data-f="__desc"]') || {}).value }));
-    ok(hasBtn && v.open && v.rows === 1 && v.store && v.cats === 2 && v.imgs === 1 && v.inv === 1 && v.desc === 'وصفٌ قديم', W + ': «🧩 تعديل كل شيء» ⇒ الصفحة بأقسامها (الجرد · الأسعار · الجدول · المتجر): ' + JSON.stringify(v));
+    ok(hasBtn && v.open && v.rows === 1 && v.store && v.cats === 2 && v.imgs === 2 && v.inv === 2 && v.desc === 'وصفٌ قديم', W + ': «🧩 تعديل كل شيء» ⇒ الصفحة بأقسامها (الجرد · الأسعار · الجدول · المتجر): ' + JSON.stringify(v));
     // التعديلات
     await pg.evaluate(() => {
       const s = (q, val) => { const e = document.querySelector('#gmt-pe ' + q); e.value = val; e.dispatchEvent(new Event('input', { bubbles: true })); };
@@ -29,7 +29,6 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
       s('[data-f="compat"]', 'EOS R'); s('[data-s="name"]', 'Canon EF 50mm f/1.8 STM');
       document.querySelector('#gmt-pe [data-scat="c2"]').checked = true;
       const same = document.querySelector('#gmt-pe [data-s-same]'); same.checked = true; same.dispatchEvent(new Event('change'));
-      document.querySelector('#gmt-pe [data-pe-invimg]').click();
     });
     await pg.click('#gmt-pe [data-pe-save]'); await pg.waitForFunction(() => /حُفظ|❌/.test((document.querySelector('#gmt-pe [data-pe-msg]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
     const msg = await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-msg]').textContent);

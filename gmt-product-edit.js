@@ -140,8 +140,10 @@
           /* (TASK-0233) صورة الجرد هنا أيضاً — كانت في نافذة «تعديل المنتج» وحدها */
           /* (TASK-0259 · المالك seq 184 «عم يستبدل الصوره القديمه … لازم اتعامل مع الصور مثل ما تعاملي مع المتجر … في المتجر ترتيبها غير
              ترتيب الجرد ممكن يكون والجرد ممكن ارتب فيه ايضا»): صور الجرد قائمةٌ كصور المتجر — إضافة لا استبدال · ترتيبٌ مستقلّ · الأولى رئيسية */
-          '<div style="font-size:12px;font-weight:800;color:#374151;margin:6px 0">🖼️ صور الجرد <span style="font-weight:700;color:#6b7280">(⭐ الأولى هي الرئيسية — ترتيبها مستقلّ عن المتجر)</span></div>' +
-          '<div class="pe-imgs" data-pe-invimgs></div><input type="hidden" data-f="image_url" value="' + esc(p.image_url) + '">' +
+          /* (TASK-0262 · seq 194) «بتتزامن الصور مع الجرد والنقطة والمتجر الفرق ممكن نعدل فقط في الترتيب او من المتجر ممكن صور ما نعرضها بس تكون
+             بالجرد او العكس»: صورةٌ تُضاف ⇒ للجرد ونقطة البيع والمتجر معاً · لكلّ مكانٍ ترتيبه · ✕ ⇒ إخفاءٌ من هذا المكان وحده أو حذفٌ من الكل */
+          '<div style="font-size:12px;font-weight:800;color:#374151;margin:6px 0">🖼️ صور المنتج — الجرد ونقطة البيع <span style="font-weight:700;color:#6b7280">(متزامنة مع المتجر · ⭐ الأولى هي الرئيسية · الترتيب هنا للجرد وحده · ✕ يخفيها من هنا أو يحذفها من الكل)</span></div>' +
+          '<div class="pe-imgs" data-pe-invimgs></div><div data-pe-invhid></div><input type="hidden" data-f="image_url" value="' + esc(p.image_url) + '">' +
           /* (TASK-0247 · المالك seq 165) «في هذه الصفحة فيني ابحث عن صور من غوغل» · (TASK-0245 · seq 164) «البحث على جوجل باستخدام الصوره … في العدسه» */
           '<div class="pe-btns"><a data-pe-gimg target="_blank" rel="noopener">🔍 صور من غوغل</a><a data-pe-lens target="_blank" rel="noopener" title="بحث بالصورة (عدسة غوغل) — يحتاج صورةً برابط https">🔎 عدسة غوغل</a></div>' +
           '<p class="pe-note">من غوغل: افتح الصورة ⇐ «نسخ عنوان الصورة» ⇐ الصقه في «🔗 الصق رابط صورة» — النظام ينزّلها ويرفعها لمخزننا (لا حاجة لتحميلها على جهازك).</p>' +
@@ -162,9 +164,9 @@
             /* (TASK-0256 · seq 178) «ابحث بنفسك … من جهازك … موجوده فقط في تجهيز كل ما ليس لهم مواصفات … وليست موجوده لكل منتج على حده» */
             (global.GMTEnrichQueue && GMTEnrichQueue._search ? '<button type="button" data-pe-webimg title="يبحث في الويب عن صور هذا المنتج ويعرضها لتختار">🖼️ صور من الويب</button>' : '') +
             '<a data-pe-ali target="_blank" rel="noopener" title="نتائج علي بابا باسم المنتج — تجد صفحته فتلصق رابطها في «🔄 إعادة البحث التلقائي»">علي بابا ↗</a>' +
-            (ctx.uploadImage ? '<label class="pe-up" title="صورة من جهازك: للجرد أو لصور المتجر">📷 من جهازك<input type="file" accept="image/*" data-pe-file hidden></label>' : '') +
+            (ctx.uploadImage ? '<label class="pe-up" title="صورة أو أكثر من جهازك (حدّد عدّة صور معاً) — تُضاف للجرد ونقطة البيع والمتجر">📷 من جهازك<input type="file" accept="image/*" multiple data-pe-file hidden></label>' : '') +
             /* (TASK-0256 · seq 181) «في هذه الشاشه لا يوجد اضافه صور او روابط صور» */
-            '<div class="pe-imglink"><input data-pe-linkimg dir="ltr" placeholder="🔗 الصق رابط صورة — يُنزّلها النظام لمخزننا"><button type="button" data-pe-linkinv>+ للجرد</button><button type="button" data-pe-linkst>+ للمتجر</button></div>' +
+            '<div class="pe-imglink"><input data-pe-linkimg dir="ltr" placeholder="🔗 الصق رابط صورة — يُنزّلها النظام لمخزننا"><button type="button" data-pe-linkadd>+ أضف</button></div>' +
           '</div><div data-pe-rows></div>' +
           '<button type="button" data-pe-addrow>+ بند</button>' +
           '<div class="pe-2" style="margin-top:10px"><label>الموديل<input data-f="__model" value="' + esc(sp0.__model) + '"></label><label>التوافق (متوافق مع)<input data-f="compat" value="' + esc(p.compat) + '"></label></div>' +
@@ -200,24 +202,56 @@
     autoBrand();
     $('[data-f="name"]').addEventListener('change', function () { autoBrand({ name: this.value, alt_names: $('[data-f="alt_names"]').value, specs: p.specs }); });
     var imgIn = $('[data-f="image_url"]');
-    var INV = { imgs: (Array.isArray(p.images) ? p.images : []).map(String).filter(Boolean) };
-    if (p.image_url && INV.imgs.indexOf(p.image_url) === -1) INV.imgs.unshift(p.image_url);
+    var INV = { imgs: (Array.isArray(p.images) ? p.images : []).map(String).filter(Boolean), hidden: (Array.isArray(p.images_hidden) ? p.images_hidden : []).map(String).filter(Boolean) };
+    if (p.image_url && INV.imgs.indexOf(p.image_url) === -1 && INV.hidden.indexOf(p.image_url) === -1) INV.imgs.unshift(p.image_url);
+    function drop(a, u) { var i = a.indexOf(u); if (i !== -1) a.splice(i, 1); }
+    /* المخفيّة من مكانٍ: تظهر صغيرةً تحته بزرّ «↺ أظهرها» */
+    function paintHidden(sel, arr, where) {
+      var box = $(sel); if (!box) return;
+      box.innerHTML = arr.length ? '<div class="pe-note" style="margin-top:6px">🙈 مخفيّة من ' + (where === 'inv' ? 'الجرد ونقطة البيع' : 'المتجر') + ' (موجودة في ' + (where === 'inv' ? 'المتجر' : 'الجرد') + '):</div><div class="pe-imgs" style="opacity:.75">' +
+        arr.map(function (u) { return '<div class="pe-img" data-hid-u="' + esc(u) + '"><img alt="" src="' + esc(u) + '"><div><button type="button" data-unhide style="width:100%">↺ أظهرها</button></div></div>'; }).join('') + '</div>' : '';
+      [].forEach.call(box.querySelectorAll('[data-hid-u]'), function (d) {
+        d.querySelector('[data-unhide]').onclick = function () { var u = d.getAttribute('data-hid-u'); if (where === 'inv') { drop(INV.hidden, u); INV.imgs.push(u); paintInv(); } else { drop(S.hidden, u); S.imgs.push(u); paintImgs(); } };
+      });
+    }
+    /* ✕: الصورة في المكان الآخر أيضاً ⇒ «أخفِها من هنا فقط» أو «احذفها من الكل» · وإلّا تُحذف */
+    async function removeImg(where, u) {
+      var mine = where === 'inv' ? INV : S, other = where === 'inv' ? (S.sp ? S : null) : INV;
+      var k = 'del';
+      if (other && other.imgs.indexOf(u) !== -1) {
+        k = global.GMTAsk ? await GMTAsk.choose('هذه الصورة ظاهرة في ' + (where === 'inv' ? 'المتجر' : 'الجرد ونقطة البيع') + ' أيضاً.', { title: '🖼️ الصورة', cancelText: 'رجوع',
+          choices: [{ k: 'hide', t: where === 'inv' ? '🙈 أخفِها من الجرد ونقطة البيع فقط (تبقى في المتجر)' : '🙈 أخفِها من المتجر فقط (تبقى في الجرد)', pri: 1 }, { k: 'all', t: '🗑 احذفها من الكل' }] }) : 'hide';
+        if (!k) return;
+      }
+      drop(mine.imgs, u);
+      if (k === 'hide') { if (mine.hidden.indexOf(u) === -1) mine.hidden.push(u); }
+      else if (k === 'all') { drop(other.imgs, u); drop(other.hidden, u); drop(mine.hidden, u); }
+      paintInv(); if (S.sp) paintImgs();
+      say(k === 'hide' ? '🙈 أُخفيت من ' + (where === 'inv' ? 'الجرد ونقطة البيع' : 'المتجر') + ' — «💾 احفظ»' : '🗑 حُذفت — «💾 احفظ»');
+    }
     function paintInv() {
       var box = $('[data-pe-invimgs]'); box.innerHTML = '';
       INV.imgs.forEach(function (u, i) {
         var d = doc.createElement('div'); d.className = 'pe-img'; d.setAttribute('data-pe-invimg-i', i); d.setAttribute('data-u', u); d.style.position = 'relative';
         d.innerHTML = '<img alt="" src="' + esc(u) + '">' + (i === 0 ? '<span style="position:absolute;top:4px;right:4px;background:#fff;border-radius:6px;padding:0 4px;font-size:11px" title="الرئيسية">⭐</span>' : '') +
           '<div><button type="button" data-a="r" aria-label="قدّم">›</button><button type="button" data-a="x" aria-label="احذف">✕</button><button type="button" data-a="l" aria-label="أخّر">‹</button></div>';
-        d.querySelector('[data-a=x]').onclick = function () { INV.imgs.splice(i, 1); paintInv(); };
+        d.querySelector('[data-a=x]').onclick = function () { removeImg('inv', u); };
         d.querySelector('[data-a=r]').onclick = function () { if (i > 0) { var t = INV.imgs[i - 1]; INV.imgs[i - 1] = INV.imgs[i]; INV.imgs[i] = t; paintInv(); } };
         d.querySelector('[data-a=l]').onclick = function () { if (i < INV.imgs.length - 1) { var t = INV.imgs[i + 1]; INV.imgs[i + 1] = INV.imgs[i]; INV.imgs[i] = t; paintInv(); } };
         box.appendChild(d);
       });
       if (!INV.imgs.length) box.innerHTML = '<p class="pe-note">لا صور — أضف من «📷 من جهازك» أو «🔗 الصق رابط صورة» أو صور البحث.</p>';
       imgIn.value = INV.imgs[0] || '';
+      paintHidden('[data-pe-invhid]', INV.hidden, 'inv');
       if (typeof links === 'function') links();
     }
-    function addInv(u, main) { u = realImg(u); if (!u) return; var i = INV.imgs.indexOf(u); if (i !== -1) INV.imgs.splice(i, 1); if (main) INV.imgs.unshift(u); else INV.imgs.push(u); paintInv(); }
+    /* إضافة صورة ⇒ للجرد ونقطة البيع والمتجر (المربوط) معاً — تُظهر ما كان مخفيّاً منها */
+    function addInv(u, main) {
+      u = realImg(u); if (!u) return;
+      drop(INV.imgs, u); drop(INV.hidden, u); if (main) INV.imgs.unshift(u); else INV.imgs.push(u);
+      if (S.sp) { drop(S.hidden, u); if (S.imgs.indexOf(u) === -1) S.imgs.push(u); paintImgs(); }
+      paintInv();
+    }
     /* تعيين الحقل المخفيّ (برمجياً) = «اجعلها الرئيسية» — والقديمة تبقى بعدها (لا استبدال) */
     imgIn.addEventListener('change', function () { var u = realImg(imgIn.value); if (u && u !== INV.imgs[0]) addInv(u, true); else paintInv(); });
     /* (seq 184 «اسحب رابطها واعطيه الرابط وهو يحملها الى السوبر بيس»): رابط صورةٍ من أيّ موقع ⇒ تُنزَّل (المتصفّح أو وسيط العقل) وتُرفع لمخزننا
@@ -231,12 +265,11 @@
       var up = null; try { up = await ctx.uploadImage(blob); } catch (_) {}
       return up ? { url: up, copied: true } : { url: u, copied: false };
     }
-    async function addFromLink(u, where) {
-      if (where === 'st' && !S.sp) { say('اربط المنتج بالمتجر أو أنشئه فيه أوّلاً (قسم «🛒 المتجر»)', true); return; }
+    function whereTxt() { return 'الجرد ونقطة البيع' + (S.sp ? ' والمتجر' : ''); }
+    async function addFromLink(u) {
       say('⏳ تنزيل الصورة إلى مخزننا…'); var r = await stored(u);
-      if (where === 'st') { if (S.imgs.indexOf(r.url) === -1) { S.imgs.push(r.url); paintImgs(); } }
-      else addInv(r.url, false);
-      say((r.copied ? '🖼️ نُزّلت لمخزننا و' : '🖼️ (تعذّر تنزيلها — حُفظ رابطها كما هو) ') + 'أُضيفت ' + (where === 'st' ? 'لصور المتجر' : 'لصور الجرد') + ' — «💾 احفظ»', !r.copied);
+      addInv(r.url, false);
+      say((r.copied ? '🖼️ نُزّلت لمخزننا و' : '🖼️ (تعذّر تنزيلها — حُفظ رابطها كما هو) ') + 'أُضيفت لصور ' + whereTxt() + ' — «💾 احفظ»', !r.copied);
     }
     paintInv();
     function links() {
@@ -254,10 +287,9 @@
       var box = $('[data-pe-suggbox]'), row = $('[data-pe-sugg]'); row.innerHTML = '';
       list.forEach(function (u) {
         var f = doc.createElement('figure');
-        f.innerHTML = '<img alt="" loading="lazy" src="' + esc(u) + '"><button type="button" data-a="inv">+ الجرد</button><button type="button" data-a="st">+ المتجر</button>';
+        f.innerHTML = '<img alt="" loading="lazy" src="' + esc(u) + '"><button type="button" data-a="add">+ أضف</button>';
         f.querySelector('img').onerror = function () { f.remove(); };
-        f.querySelector('[data-a=inv]').onclick = function () { addFromLink(u, 'inv'); };
-        f.querySelector('[data-a=st]').onclick = function () { addFromLink(u, 'st'); };
+        f.querySelector('[data-a=add]').onclick = function () { addFromLink(u); };
         row.appendChild(f);
       });
       box.hidden = !list.length;
@@ -287,12 +319,10 @@
     /* عدسة غوغل بصورة المنتج: رابط https ⇐ تُفتح فوراً · صورةٌ مضمَّنة (data:) ⇐ تُرفع أوّلاً لمخزن الصور (ctx.uploadImage) فتصير رابطاً
        (ويصير هو صورة الجرد عند «💾 احفظ») · بلا صورة ⇐ يقول ذلك. النافذة تُفتح مع الضغطة نفسها كي لا يحجبها المتصفّح. */
     var linkIn = $('[data-pe-linkimg]');
-    function linkTo(where) {
+    $('[data-pe-linkadd]').onclick = function () {
       var u = realImg(linkIn.value); if (!isHttp(u)) { say('الصق رابط صورة يبدأ بـ https', true); return; }
-      linkIn.value = ''; addFromLink(u, where);
-    }
-    $('[data-pe-linkinv]').onclick = function () { linkTo('inv'); };
-    $('[data-pe-linkst]').onclick = function () { linkTo('st'); };
+      linkIn.value = ''; addFromLink(u);
+    };
     /* (seq 181 «عدسة غوغل مو شغالة»: الزرّ تحت صورة الجرد كان معطّلاً لصورةٍ مضمَّنة) ⇒ الزرّان ينفّذان الشيء نفسه */
     $('[data-pe-lens]').addEventListener('click', function (e) { e.preventDefault(); $('[data-pe-lensgo]').click(); });
     var webB = $('[data-pe-webimg]');
@@ -301,21 +331,22 @@
       webB.disabled = true; say('⏳ يبحث عن صور «' + q.trim() + '»…');
       try {
         var r = await GMTEnrichQueue._search('images', q.trim(), 24), list = ((r && r.images) || []).map(function (x) { return x && x.url; }).filter(isHttp);
-        showSugg(list); say(list.length ? '🖼️ ' + list.length + ' صورة — اختر «+ الجرد» أو «+ المتجر»' : 'لم يجد صوراً — جرّب «🔍 صور غوغل» أو «🔎 عدسة غوغل»', !list.length);
+        showSugg(list); say(list.length ? '🖼️ ' + list.length + ' صورة — «+ أضف» على ما تريد' : 'لم يجد صوراً — جرّب «🔍 صور غوغل» أو «🔎 عدسة غوغل»', !list.length);
       } catch (e) {
         say(e && e.code === 'no_keys' ? 'بحث الصور في الويب يحتاج مفتاحاً مجانياً (Tavily) في أسرار Supabase — إلى ذلك: «🔍 صور غوغل» أو «🔎 عدسة غوغل»' : '❌ تعذّر البحث: ' + ((e && e.message) || e), true);
       }
       webB.disabled = false;
     };
     var fileIn = $('[data-pe-file]');
+    /* (TASK-0262 · seq 193) «يمكنني تحديد اكثر من صورة معا» */
     if (fileIn) fileIn.onchange = async function () {
-      var f = fileIn.files && fileIn.files[0]; fileIn.value = ''; if (!f) return;
-      var where = S.sp ? await (global.GMTAsk ? GMTAsk.choose('أين تضع الصورة؟', { title: '📷 صورة من جهازك', choices: [{ k: 'inv', t: '+ صور الجرد' }, { k: 'st', t: '+ صور المتجر' }] }) : 'inv') : 'inv';
-      if (!where) return;
-      say('⏳ رفع الصورة…'); var u = null; try { u = await ctx.uploadImage(f); } catch (_) {}
-      if (!u) { say('❌ تعذّر رفع الصورة', true); return; }
-      if (where === 'st') { if (S.imgs.indexOf(u) === -1) { S.imgs.push(u); paintImgs(); } say('🖼️ أُضيفت لصور المتجر — «💾 احفظ»'); }
-      else { addInv(u, false); say('🖼️ أُضيفت لصور الجرد — «💾 احفظ»'); }
+      var files = [].slice.call(fileIn.files || []); fileIn.value = ''; if (!files.length) return;
+      var ok = 0, bad = 0;
+      for (var i = 0; i < files.length; i++) {
+        say('⏳ رفع الصور… ' + (i + 1) + '/' + files.length); var u = null; try { u = await ctx.uploadImage(files[i]); } catch (_) {}
+        if (u) { addInv(u, false); ok++; } else bad++;
+      }
+      say(ok ? '🖼️ أُضيفت ' + ok + ' صورة لصور ' + whereTxt() + (bad ? ' · تعذّر رفع ' + bad : '') + ' — «💾 احفظ»' : '❌ تعذّر رفع الصور', !ok);
     };
     $('[data-pe-lensgo]').onclick = async function () {
       var u = imgIn.value.trim() || p.image_url || '';
@@ -326,7 +357,8 @@
         say('⏳ رفع صورة المنتج للعدسة…');
         var up = null; try { up = await ctx.uploadImage(u); } catch (_) {}
         if (!up) { if (w) w.close(); say('❌ تعذّر رفع الصورة', true); return; }
-        var at = INV.imgs.indexOf(u); if (at !== -1) INV.imgs[at] = up; else INV.imgs.unshift(up); paintInv();
+        var at = INV.imgs.indexOf(u); if (at !== -1) INV.imgs[at] = up; else INV.imgs.unshift(up);
+        var as = S.imgs.indexOf(u); if (as !== -1) { S.imgs[as] = up; paintImgs(); } paintInv();
         u = up; say('🖼️ صارت صورة المنتج رابطاً — «💾 احفظ» لتثبيتها');
       }
       var lens = 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(u);
@@ -340,25 +372,31 @@
     var quickB = $('[data-pe-quick]');
     if (quickB) quickB.onclick = function () { close(); ctx.onQuick(p); };
     /* المتجر */
-    var S = { rec: null, sp: null, imgs: [], cats: [] };
+    var S = { rec: null, sp: null, imgs: [], hidden: [], cats: [] };
     function paintImgs() {
       var box = $('[data-pe-imgs]'); if (!box) return; box.innerHTML = '';
       S.imgs.forEach(function (u, i) {
         var d = doc.createElement('div'); d.className = 'pe-img';
         d.innerHTML = '<img alt="" src="' + esc(u) + '"><div><button type="button" data-a="r" aria-label="قدّم">›</button><button type="button" data-a="x" aria-label="احذف">✕</button><button type="button" data-a="l" aria-label="أخّر">‹</button></div>';
-        d.querySelector('[data-a=x]').onclick = function () { S.imgs.splice(i, 1); paintImgs(); };
+        d.querySelector('[data-a=x]').onclick = function () { removeImg('st', u); };
         d.querySelector('[data-a=r]').onclick = function () { if (i > 0) { var t = S.imgs[i - 1]; S.imgs[i - 1] = S.imgs[i]; S.imgs[i] = t; paintImgs(); } };
         d.querySelector('[data-a=l]').onclick = function () { if (i < S.imgs.length - 1) { var t = S.imgs[i + 1]; S.imgs[i + 1] = S.imgs[i]; S.imgs[i] = t; paintImgs(); } };
         box.appendChild(d);
       });
-      var inv = $('[data-pe-invimg]'); if (inv) inv.style.display = INV.imgs.some(function (x) { return S.imgs.indexOf(x) === -1; }) ? '' : 'none';
+      paintHidden('[data-pe-sthid]', S.hidden, 'st');
     }
     function loadStore() { return storeRec().then(function (rec) {
       var sec = $('[data-pe-store]'); S.rec = rec;
       var prods = rec && Array.isArray(rec.products) ? rec.products : [], sp = prods.length && global.GMTSpecs && GMTSpecs._findStore ? GMTSpecs._findStore(prods, p) : null;
       S.sp = sp;
       if (!sp) { unlinked(sec, rec); return; }
-      S.imgs = (Array.isArray(sp.images) ? sp.images : []).slice(); S.cats = (Array.isArray(sp.category_ids) && sp.category_ids.length ? sp.category_ids : (sp.category_id ? [sp.category_id] : [])).map(String);
+      S.imgs = (Array.isArray(sp.images) ? sp.images : []).slice(); S.hidden = (Array.isArray(sp.images_hidden) ? sp.images_hidden : []).map(String);
+      /* (TASK-0262) المزامنة: ما في المكان الآخر وغير مخفيٍّ هنا يُلحَق بآخر القائمة (فيُرتَّب ويُحفظ) */
+      var inv0 = INV.imgs.slice();
+      S.imgs.forEach(function (x) { if (INV.imgs.indexOf(x) === -1 && INV.hidden.indexOf(x) === -1) INV.imgs.push(x); });
+      inv0.forEach(function (x) { if (S.imgs.indexOf(x) === -1 && S.hidden.indexOf(x) === -1) S.imgs.push(x); });
+      paintInv();
+      S.cats = (Array.isArray(sp.category_ids) && sp.category_ids.length ? sp.category_ids : (sp.category_id ? [sp.category_id] : [])).map(String);
       var cats = (rec.categories || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       sec.innerHTML = '<h3>🛒 المتجر</h3>' +
         '<div class="pe-2"><label>الاسم في المتجر<input data-s="name" value="' + esc(sp.name) + '"></label><label>السعر في المتجر $<input data-s="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(sp.price) + '"></label></div>' +
@@ -368,11 +406,10 @@
         '<label style="margin-top:10px">الوصف في المتجر<textarea data-s="description" rows="3">' + esc(sp.description) + '</textarea></label>' +
         /* (TASK-0256 · seq 181) «… روابط الفيديوهات التي تكون في المتجر» */
         '<label>رابط فيديو المنتج في المتجر (يوتيوب · إنستغرام)<input data-s="video_url" dir="ltr" placeholder="https://…" value="' + esc(sp.video_url) + '"></label>' +
-        '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">صوره في المتجر (الأولى هي الرئيسية)</div><div class="pe-imgs" data-pe-imgs></div>' +
-        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input data-pe-newimg dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:180px;margin:0"><button type="button" data-pe-addimg>+ أضف</button><button type="button" data-pe-invimg>+ صور الجرد</button></div>';
+        '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">صوره في المتجر <span style="font-weight:700;color:#6b7280">(متزامنة مع الجرد · الأولى هي الرئيسية · الترتيب هنا للمتجر وحده · ✕ يخفيها من المتجر أو يحذفها من الكل)</span></div><div class="pe-imgs" data-pe-imgs></div><div data-pe-sthid></div>' +
+        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input data-pe-newimg dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:180px;margin:0"><button type="button" data-pe-addimg>+ أضف</button></div>';
       paintImgs();
-      $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (isHttp(u) && S.imgs.indexOf(u) === -1) { i.value = ''; addFromLink(u, 'st'); } };
-      $('[data-pe-invimg]').onclick = function () { INV.imgs.forEach(function (x) { if (S.imgs.indexOf(x) === -1) S.imgs.push(x); }); paintImgs(); };
+      $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (isHttp(u) && S.imgs.indexOf(u) === -1) { i.value = ''; addFromLink(u); } };
       var same = $('[data-s-same]'), spr = $('[data-s="price"]');
       same.checked = num(sp.price) === num(p.price);
       var sync = function () { if (same.checked) { spr.value = $('[data-f="price"]').value; spr.disabled = true; } else spr.disabled = false; };
@@ -466,7 +503,7 @@
       if (f('__model')) specs.__model = f('__model');
       var inv = { name: f('name'), short: f('short'), barcode: f('barcode'), group_name: f('group_name'), category: f('category') || null, brand: f('brand') || null,
         alt_names: f('alt_names') || null, price: num(f('price')), wholesale_price: num(f('wholesale_price')), min_stock: parseInt(f('min_stock'), 10) || 0, specs: specs, compat: f('compat') || null,
-        image_url: INV.imgs[0] || null, images: INV.imgs.length ? INV.imgs.slice() : null };
+        image_url: INV.imgs[0] || null, images: INV.imgs.length ? INV.imgs.slice() : null, images_hidden: INV.hidden.length ? INV.hidden.slice() : null };
       return inv;
     }
     function changed(inv) {
@@ -474,6 +511,7 @@
       Object.keys(inv).forEach(function (k) {
         var a = inv[k], b = p[k];
         if (k === 'specs') { if (JSON.stringify(a) !== JSON.stringify(asObj(b))) patch.specs = a; return; }
+        if (k === 'images_hidden') { if (JSON.stringify(a || []) !== JSON.stringify(Array.isArray(b) ? b : [])) patch.images_hidden = a; return; }
         if (k === 'images') { var bb = Array.isArray(b) ? b : (p.image_url ? [p.image_url] : []); if (JSON.stringify(a || []) !== JSON.stringify(bb)) patch.images = a; return; }
         if (typeof a === 'number') { if (num(b) !== a) patch[k] = a; return; }
         if (String(a == null ? '' : a) !== String(b == null ? '' : b)) patch[k] = a;
@@ -498,6 +536,7 @@
         var sPrice = $('[data-s-same]') && $('[data-s-same]').checked ? inv.price : num(g('price'));
         var want = { name: g('name') || sp.name, price: sPrice, description: g('description'), images: S.imgs.slice(), video_url: g('video_url') };
         if (cats.length) { want.category_ids = cats; want.category_id = cats[0]; }
+        if (S.hidden.length || (Array.isArray(sp.images_hidden) && sp.images_hidden.length)) want.images_hidden = S.hidden.slice();   // (TASK-0262) المخفيّة من المتجر
         sUpd = {};
         Object.keys(want).forEach(function (k) { if (JSON.stringify(want[k]) !== JSON.stringify(k === 'price' ? num(sp[k]) : (sp[k] == null ? (k === 'description' || k === 'video_url' ? '' : sp[k]) : sp[k]))) sUpd[k] = want[k]; });
         if (patch.specs || 'compat' in patch) { var fs = global.GMTSpecs ? GMTSpecs.forStore(inv.specs) : []; sUpd.specs = fs; sUpd.compat = inv.compat || ''; }

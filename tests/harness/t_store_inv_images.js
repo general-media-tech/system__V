@@ -5,7 +5,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 (async () => {
   const { prods } = await H.seed();
-  const A = prods[0], B = prods[1], C = prods[2];
+  const A = prods[0], B = prods[1], C = prods[2], D = prods[3];
+  await H.call('/rest/v1/products?id=eq.' + D.id, { store_url: 'https://x/store.html#product=s_d', image_url: 'https://img.example/inv-d1.png', images: ['https://img.example/inv-d1.png', 'https://img.example/inv-d2.png'] }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + A.id, { store_url: 'https://x/store.html#product=s_a', image_url: 'https://img.example/inv-a.png', images: ['https://img.example/inv-a.png', 'https://img.example/inv-a2.png'] }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + B.id, { store_url: null, image_url: 'https://img.example/inv-b.png' }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + C.id, { store_url: 'https://x/store.html#product=s_c', image_url: 'https://img.example/same.png' }, 'PATCH');
@@ -13,6 +14,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
     products: [{ id: 's_a', name: 'منتج أ', price: 50, images: ['https://img.example/s1.png', 'https://img.example/s2.png'], category_id: 'c1' },
       { id: 's_b', name: 'منتج ب', price: 40, inv_id: B.id, images: ['https://img.example/sb.png'], category_id: 'c1' },
       { id: 's_c', name: 'منتج ج', price: 30, images: ['https://img.example/same.png'], category_id: 'c1' },
+      { id: 's_d', name: 'منتج د', price: 25, images: ['https://img.example/sd.png'], images_hidden: ['https://img.example/inv-d2.png'], category_id: 'c1' },
       { id: 's_x', name: 'غير مربوط', price: 20, images: ['https://img.example/sx.png'], category_id: 'c1' }] }]);
   // ① المتجر
   let { browser, ctx, pg, errs } = await H.open('store.html', { w: 390, h: 844, mobile: true, wait: 5000 });
@@ -25,6 +27,8 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   ok(JSON.stringify(r.imgs) === '["sb.png","inv-b.png"]', 'المتجر (مربوط بـ inv_id): صورة المتجر ثمّ صورة الجرد: ' + JSON.stringify(r.imgs));
   r = await imgsOf('s_c');
   ok(JSON.stringify(r.imgs) === '["same.png"]', 'نفس الصورة في الاثنين ⇒ لا تكرار: ' + JSON.stringify(r.imgs));
+  r = await imgsOf('s_d');
+  ok(JSON.stringify(r.imgs) === '["sd.png","inv-d1.png"]', '(TASK-0262) صورة جردٍ مخفيّة من المتجر لا تظهر فيه: ' + JSON.stringify(r.imgs));
   r = await imgsOf('s_x');
   ok(JSON.stringify(r.imgs) === '["sx.png"]', 'غير مربوط ⇒ صور المتجر وحدها: ' + JSON.stringify(r.imgs));
   let real = errs.filter(e => !/status of (400|401|404|406)|Failed to load resource/.test(e));
@@ -37,6 +41,8 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   // (TASK-0259) عدّة صور جرد بترتيب الجرد (مستقلّ عن المتجر) ثمّ صور المتجر
   const inv2 = await pg.evaluate(async p => (await GMTGallery.imagesFor(p)).map(u => u.split('/').pop()), { id: A.id, image_url: 'https://img.example/inv-a2.png', images: ['https://img.example/inv-a2.png', 'https://img.example/inv-a.png'], store_url: 'https://x/store.html#product=s_a' });
   ok(JSON.stringify(inv2) === '["inv-a2.png","inv-a.png","s1.png","s2.png"]', 'الجرد: كل صور الجرد بترتيبها ثمّ صور المتجر: ' + JSON.stringify(inv2));
+  const inv3 = await pg.evaluate(async p => (await GMTGallery.imagesFor(p)).map(u => u.split('/').pop()), { id: A.id, image_url: 'https://img.example/inv-a.png', images: ['https://img.example/inv-a.png'], images_hidden: ['https://img.example/s2.png'], store_url: 'https://x/store.html#product=s_a' });
+  ok(JSON.stringify(inv3) === '["inv-a.png","s1.png"]', '(TASK-0262) صورة متجرٍ مخفيّة من الجرد لا تظهر في معرض الجرد ونقطة البيع: ' + JSON.stringify(inv3));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
