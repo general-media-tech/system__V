@@ -1203,9 +1203,9 @@ window.GMT_FEATURES = [
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
-  <script src="gmt-brand.js?v=20261029k"></script>
+  <script src="gmt-brand.js?v=20261029l"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029k"></script>
+<script src="gmt-tools.js?v=20261029l"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
@@ -1213,21 +1213,21 @@ window.GMT_FEATURES = [
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029k"></script>
+  <script src="gmt-image-guard.js?v=20261029l"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029k"></script>
+  <script src="gmt-core.js?v=20261029l"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-gallery.js?v=20261029k" defer></script>
-  <script src="gmt-specs.js?v=20261029k" defer></script><!-- (TASK-0236) جدول المواصفات في تفاصيل المنتج -->
-  <script src="gmt-ask.js?v=20261029k" defer></script>
+  <script src="gmt-gallery.js?v=20261029l" defer></script>
+  <script src="gmt-specs.js?v=20261029l" defer></script><!-- (TASK-0236) جدول المواصفات في تفاصيل المنتج -->
+  <script src="gmt-ask.js?v=20261029l" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
-  <script src="gmt-stock.js?v=20261029k" defer></script>
-<script src="gmt-signpad.js?v=20261029k" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
-  <script src="gmt-share.js?v=20261029k" defer></script>
+  <script src="gmt-stock.js?v=20261029l" defer></script>
+<script src="gmt-signpad.js?v=20261029l" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
+  <script src="gmt-share.js?v=20261029l" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -2306,7 +2306,8 @@ window.GMT_FEATURES = [
             style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
           <button onclick="scStartScan()" title="مسح بالكاميرا" style="flex-shrink:0;background:#0f766e;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">📷</button>
         </div>
-        <div style="display:flex;gap:6px;">
+        <!-- (TASK-0202 · المالك seq 133–134 «هذه الصلاحيات يجب ان تكون فقط في الادمن») الفلاتر للأدمن وحده كأدواته -->
+        <div id="sc-filters" style="display:none;gap:6px;">
           <button onclick="scSetFilter('all')" id="scf-all" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid #0f766e;background:#0f766e;color:#fff;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
           <button onclick="scSetFilter('counted')" id="scf-counted" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">مجرود</button>
           <button onclick="scSetFilter('uncounted')" id="scf-uncounted" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">غير مجرود</button>
@@ -5032,6 +5033,7 @@ function openStockCount() {
   document.getElementById('stockcount-modal').style.display = 'block';
   { const _adm = !!(window.GMTRole && GMTRole.isAdmin());   // (TASK-0158) أدوات «فاتورة إعادة إنشاء» للأدمن وحده
     const a = document.getElementById('sc-admin'); if (a) a.style.display = _adm ? 'flex' : 'none';
+    const fl = document.getElementById('sc-filters'); if (fl) fl.style.display = _adm ? 'flex' : 'none';   // (TASK-0202)
     const b = document.getElementById('sc-rebuild-btn'); if (b) b.style.display = _adm ? '' : 'none'; }
   _scFilter = 'all';
   scSetFilter('all');
@@ -8121,6 +8123,9 @@ async function _saveAndFinishInner() {
 
     /* صفوف البنود والعمولة تُحسب مرّةً واحدة هنا (قبل أيّ كتابة) فتُستعمل في الحفظ المباشر وفي الطابور المحلي بلا اختلاف. */
     const _isTrainingInvoice = (document.getElementById('custName')?.value || '').startsWith('[تدريب]');
+    /* (TASK-0142 · REQ-0011 «كل فاتورة مرتبطة بأوردر عمولتها صفر») عمولة البند صفرٌ حيث لا صفوف عمولة أصلاً: أوردر · تدريب · الإدارة · الأدمن —
+       كانت تُحسب للبند فتعرضها «مراجعة العمولات» وتُعبّأ منها. «مع عمولة» التي يحدّدها الأدمن (أدناه) تبقى كما هي. */
+    const _noCommItems = _isTrainingInvoice || isHeadquarters() || !!(_orderMode === 'existing' && _selectedOrder) || _orderMode === 'new';
     const _unknownOffers = [];
     const _itemRows = items.flatMap(i => {
       const comps = offerComponents(i);
@@ -8137,7 +8142,7 @@ async function _saveAndFinishInner() {
       const ws   = Number(i.prod.wholesale_price) || 0;
       const nc   = Number(i.prod.net_cost)         || 0;
       /* (TASK-0011) الأدمن داخل النقطة: «أكيد العمولة صفر» — والبند أيضاً (منه تُعبّأ شاشة العمولات في الإدارة) */
-      const commUnit = (ws > 0 && !(currentUser && currentUser.acting_admin)) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
+      const commUnit = (ws > 0 && !_noCommItems && !(currentUser && currentUser.acting_admin)) ? commissionLine(_effPrice(i), ws, i.qty) / (Number(i.qty) || 1) : 0;
       return {
         product_id      : i.prod.id,
         product_name    : i.prod.name,
@@ -10612,14 +10617,14 @@ async function openWarrantyForInvoice(){
 <!-- (٧ ط) الدروس خطوة بخطوة — البند ١٧١ ووثيقة التصميم ٢٤ -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029k"></script>
+<script src="gmt-pwa.js?v=20261029l"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029k"></script>
-<script src="gmt-nofab.js?v=20261029k"></script>
+<script src="gmt-brain.js?v=20261029l"></script>
+<script src="gmt-nofab.js?v=20261029l"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029k"></script>
+<script src="gmt-whatsnew.js?v=20261029l"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

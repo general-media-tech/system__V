@@ -20,13 +20,13 @@ const prod = (d, id) => d.products.find(p => p.id === id);
     const { browser, pg, errs } = await H.open('pos.html', { init: H.STAFF_INIT, w, mobile: mob, wait: 6000 });
 
     // ١) الموظّف: لا أدوات أدمن
-    const staff = await pg.evaluate(() => { openStockCount(); const r = { tools: document.getElementById('sc-admin').style.display, btn: document.getElementById('sc-rebuild-btn').style.display }; closeStockCount(); return r; });
-    ok(staff.tools === 'none' && staff.btn === 'none', 'الموظّف: «جرد المخزون» بلا أدوات إعادة الإنشاء: ' + JSON.stringify(staff));
+    const staff = await pg.evaluate(() => { openStockCount(); const r = { tools: document.getElementById('sc-admin').style.display, btn: document.getElementById('sc-rebuild-btn').style.display, filt: document.getElementById('sc-filters').style.display }; closeStockCount(); return r; });
+    ok(staff.tools === 'none' && staff.btn === 'none' && staff.filt === 'none', 'الموظّف: «جرد المخزون» بلا أدوات إعادة الإنشاء ولا الفلاتر (TASK-0202): ' + JSON.stringify(staff));
 
     // ٢) الأدمن داخل النقطة
     await pg.evaluate(() => { GMTRole.grant('المالك'); openStockCount(); });
-    const adm = await pg.evaluate(() => ({ tools: document.getElementById('sc-admin').style.display, btn: getComputedStyle(document.getElementById('sc-rebuild-btn')).display }));
-    ok(adm.tools === 'flex' && adm.btn !== 'none', 'الأدمن: «➕ منتج غير معرَّف · ⓪ · =» و«🧾 اعتماد كفاتورة إعادة إنشاء» ظاهرة');
+    const adm = await pg.evaluate(() => ({ tools: document.getElementById('sc-admin').style.display, btn: getComputedStyle(document.getElementById('sc-rebuild-btn')).display, filt: document.getElementById('sc-filters').style.display }));
+    ok(adm.tools === 'flex' && adm.btn !== 'none' && adm.filt === 'flex', 'الأدمن: «➕ منتج غير معرَّف · ⓪ · =» و«🧾 اعتماد كفاتورة إعادة إنشاء» ظاهرة');
 
     // ٣) منتجٌ غير معرَّف يُنشأ (اسم مكرّر يُرفض)
     const np = await pg.evaluate(async () => {
