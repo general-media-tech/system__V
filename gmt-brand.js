@@ -90,6 +90,10 @@
       (root || document).querySelectorAll('img[src*="logo.jpg"],img[src*="logo.png"],img[alt="GMT"],img[alt="' + BRAND.nameEn + '"]')
         .forEach(function (im) {
           if (im.dataset.gmtBrand) return;
+          /* (TASK-0216 · المالك seq 145) «في انترو الكفالة طلبنا شعار كانون الأصلي ما بدنا شعار الشركة»: المحدِّد src*="logo.png" يطابق
+             canonlogo.png أيضاً ⇒ كان شعار Canon يُبدَّل بشعار الشركة قبل أن تصل سلسلة gmtCanonFail لشعار Canon الرسمي. شعار كانون ليس لنا. */
+          var nm = ((im.getAttribute('src') || '').split('?')[0].split('/').pop() || '').toLowerCase();
+          if (/canon/.test(nm) || /gmtCanonFail/.test(im.getAttribute('onerror') || '') || /^canon logo$/i.test(im.alt || '')) return;
           im.dataset.gmtBrand = '1';
           im.addEventListener('error', function () { if (im.src !== LOGO) im.src = LOGO; });
           if (im.complete && im.naturalWidth === 0) im.src = LOGO;

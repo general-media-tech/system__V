@@ -166,7 +166,7 @@
     try {
       (root || document).querySelectorAll('img[src^="http"]').forEach((img) => {
         const cur = img.getAttribute('src');
-        if (!isRemote(cur) || img.dataset.gimgDone) return;
+        if (!isRemote(cur) || img.dataset.gimgDone || img.dataset.gimgAllow) return;   // (TASK-0216) المسموح (شعار Canon) لا يُعترَض — كان يعلق نائباً فارغاً في الانترو
         img.setAttribute('data-orig-src', cur);
         nativeSet.call(img, PLACEHOLDER);
         resolve(img);

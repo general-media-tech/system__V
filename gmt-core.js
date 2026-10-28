@@ -325,6 +325,8 @@
      ③ مسار Special:FilePath ④ وأخيراً النصّ كما كان. الصور المعلَّمة data-gmt-guarded لا يلمسها حارس الصور (كان سيبدّلها بشعار الشركة). */
   var CANON_SRC = [
     'https://upload.wikimedia.org/wikipedia/commons/0/0a/Canon_wordmark.svg',
+    /* (TASK-0216) الأصل SVG يُرفض أحياناً من ويكيميديا (429 كثرة طلبات) ⇒ مصغّرة PNG بمقاسٍ توصي به ويكيميديا */
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Canon_wordmark.svg/500px-Canon_wordmark.svg.png',
     'https://commons.wikimedia.org/wiki/Special:FilePath/Canon_wordmark.svg?width=640'
   ];
   window.GMTCanonSources = CANON_SRC.slice();
