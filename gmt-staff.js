@@ -3945,11 +3945,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       table: 'gmt_store',
       bucket: 'gmt-images',
     },
-    site: {
-      url: 'https://znpakcaizvkwqzhosxvm.supabase.co',
-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpucGFrY2FpenZrd3F6aG9zeHZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzM0NTMsImV4cCI6MjA5NTkwOTQ1M30.YW3YuT-RRTpKw5WeFHkPeTUcXBBtaQFGCaCrBQWykks',
-      table: 'news_cards',
-    },
+    /* (seq 201) من المصدر الوحيد GMT_DB.SITE (gmt-config.js) — لا نسخة رابط هنا */
+    site: Object.assign({ table: 'news_cards' }, (global.GMT_DB && global.GMT_DB.SITE) || { url: 'https://ysawzwtmodkqqbqoiojj.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ' }),
   };
 
   /* ══════════ REST helper (بلا مكتبات) ══════════ */

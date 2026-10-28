@@ -424,10 +424,11 @@
       key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGxkd3lsenJranpxdGFpc2N2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0OTEzNTQsImV4cCI6MjA5MTA2NzM1NH0.RKsdAg4v7TcuMhBepztJtRdTtsR-f8cMcoDXKmnZXO0',
     },
 
-    /* قاعدة الموقع الرئيسي — الأخبار · الوكلاء · بطاقات العروض */
-    SITE: {
-      url: 'https://znpakcaizvkwqzhosxvm.supabase.co',
-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpucGFrY2FpenZrd3F6aG9zeHZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzM0NTMsImV4cCI6MjA5NTkwOTQ1M30.YW3YuT-RRTpKw5WeFHkPeTUcXBBtaQFGCaCrBQWykks',
+    /* قاعدة الموقع — المصدر الوحيد GMT_DB.SITE في gmt-config.js (المالك seq 201)؛ هذه النسخة لا تُستعمل
+       إلا إن لم يُحمَّل gmt-config.js قبلها، ومؤقّتاً = الرئيسية حتى تُنشأ القاعدة المستقلّة. */
+    SITE: (global.GMT_DB && global.GMT_DB.SITE) || {
+      url: 'https://ysawzwtmodkqqbqoiojj.supabase.co',
+      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ'
     },
 
   };

@@ -9,12 +9,13 @@ window.GMT_INTERNAL = 1;</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>لوحة التحكم — General Media Tech</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="gmt-config.js?v=20261029o"></script>
 <script>
 const IMG_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23eef1f5'/%3E%3C/svg%3E";
 
-  /* (TASK-0154 · المالك seq 199) قاعدة الموقع القديمة حُذفت ⇒ جداول الموقع في القاعدة الرئيسية */
-  window.SUPABASE_URL      = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
-  window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
+  /* (TASK-0154 · المالك seq 201 «افصل قاعدة الموقع … راح اشغلها لحالها · الهدف تخفيف عن القاعدة الرئيسية»): رابط قاعدة الموقع ومفتاحها من
+     مكانٍ واحد — GMT_DB.SITE في gmt-config.js (لا نسخة هنا) ⇒ نقلها لقاعدتها المستقلّة = تعديل ذلك السطر وحده. */
+  window.SUPABASE_URL = window.SUPABASE_ANON_KEY = '';
 </script>
 <style>
 /* ═══════════════════════════════════════════════
@@ -333,22 +334,22 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute}
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <link rel="manifest" href="manifest.json">
-  <script src="gmt-brand.js?v=20261029n"></script>
+  <script src="gmt-brand.js?v=20261029o"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029n"></script>
+<script src="gmt-tools.js?v=20261029o"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029n"></script>
+  <script src="gmt-image-guard.js?v=20261029o"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029n"></script>
+  <script src="gmt-core.js?v=20261029o"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029n" defer></script>
-  <script src="gmt-share.js?v=20261029n" defer></script>
+  <script src="gmt-ask.js?v=20261029o" defer></script>
+  <script src="gmt-share.js?v=20261029o" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
-  <script src="gmt-staff.js?v=20261012a"></script>
+  <script src="gmt-staff.js?v=20261029o"></script>
 
 
 <!-- ══ SIDEBAR ══ -->
@@ -649,8 +650,8 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute}
 // ════════════════════════════════════════════════════════
 //  CONFIG
 // ════════════════════════════════════════════════════════
-const URL  = window.SUPABASE_URL      || 'https://YOUR_PROJECT.supabase.co';
-const KEY  = window.SUPABASE_ANON_KEY || 'YOUR_ANON_KEY';
+const URL  = (window.GMT_DB && GMT_DB.SITE && GMT_DB.SITE.url) || 'https://YOUR_PROJECT.supabase.co';   // (TASK-0154) من gmt-config.js
+const KEY  = (window.GMT_DB && GMT_DB.SITE && GMT_DB.SITE.key) || 'YOUR_ANON_KEY';
 
 // ════════════════════════════════════════════════════════
 //  AUTH STATE — access token من Supabase Auth
@@ -1655,20 +1656,20 @@ function initAdmin() {
   }
 }
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
-<script src="gmt-pwa.js?v=20261029n"></script>
+<script src="gmt-pwa.js?v=20261029o"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029n"></script>
+<script src="gmt-brain.js?v=20261029o"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029n"></script>
+<script src="gmt-whatsnew.js?v=20261029o"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029n"></script>
+<script src="gmt-nofab.js?v=20261029o"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

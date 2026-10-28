@@ -6,7 +6,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
 (async () => {
   await H.seed();
   for (const W of [390, 1366]) {
-    const { browser, ctx, pg, errs } = await H.open('orders.html', { w: W, h: W < 500 ? 844 : 900, wait: 4500, mobile: W < 500, init: H.ADMIN_INIT });
+    const { browser, ctx, pg, errs } = await H.open('orders.html', { w: W, h: W < 500 ? 844 : 900, wait: 4500, mobile: W < 500, init: H.ADMIN_INIT, siteUrl: 'https://znpakcaizvkwqzhosxvm.supabase.co' });
     await ctx.route('https://znpakcaizvkwqzhosxvm.supabase.co/**', r => r.abort('namenotresolved'));
     // ١) الترجمة نفسها
     const p = await pg.evaluate(async () => { const db = await GMTSelfCheck.checkDatabase(); return { raw: db, x: GMTSelfCheck._plain(db),

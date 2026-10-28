@@ -30,12 +30,15 @@ const STAFF_INIT = `try{ localStorage.setItem('gmt_whatsnew_seen','999'); localS
  sessionStorage.removeItem('gmt_admin_mode'); sessionStorage.setItem('gmt_tab_seen','1'); }catch(e){}
  window.print=()=>{}; window.open=()=>null;`;
 
-async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true } = {}) {
+async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true, siteUrl = null } = {}) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile && w < 700, hasTouch: mobile && w < 700, serviceWorkers: 'block' });
   const pg = await ctx.newPage(); const errs = []; const reqs = [];
   pg.on('pageerror', e => errs.push(String(e).slice(0, 200)));
   pg.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
+  /* (seq 201) قاعدة الموقع مستقلّة: siteUrl يجعل GMT_DB.SITE يشير لمشروعٍ آخر (لمحاكاة توقّفه وحده) */
+  if (siteUrl) await ctx.route(/\/gmt-config\.js/, async r => { const res = await r.fetch(); const t = await res.text();
+    r.fulfill({ response: res, body: t.replace(/(SITE: \{\s*url: ')[^']+'/, '$1' + siteUrl + "'") }); });
   await ctx.route('**/*.supabase.co/**', async route => {
     const u = route.request().url(); const i = u.indexOf('/rest/v1/');
     if (/\/functions\/v1\/gmt-tg\//.test(u)) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false,"relay":"not_configured"}' });   // كالواقع: المرحّل غير مضبوط بعد
