@@ -145,26 +145,27 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
-  <script src="gmt-brand.js?v=20261029r"></script>
+  <script src="gmt-brand.js?v=20261029s"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029r"></script>
+<script src="gmt-tools.js?v=20261029s"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029r"></script>
+  <script src="gmt-image-guard.js?v=20261029s"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029r"></script>
+  <script src="gmt-core.js?v=20261029s"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029r" defer></script>
-  <script src="gmt-stock.js?v=20261029r" defer></script>
-  <script src="gmt-share.js?v=20261029r" defer></script>
+  <script src="gmt-ask.js?v=20261029s" defer></script>
+  <script src="gmt-stock.js?v=20261029s" defer></script>
+  <script src="gmt-share.js?v=20261029s" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
+  <script src="gmt-match.js?v=20261029s"></script>
   <script src="gmt-enrich.js?v=20261027c"></script>
-  <script src="gmt-specs.js?v=20261029r"></script>
-  <script src="gmt-staff.js?v=20261029r"></script>
+  <script src="gmt-specs.js?v=20261029s"></script>
+  <script src="gmt-staff.js?v=20261029s"></script>
 
 
 <!-- ══ LOADING ══ -->
@@ -308,6 +309,13 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
         <svg width="14" height="14" fill="none" stroke="#aaa" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input type="text" id="ml-search" placeholder="ابحث بالاسم أو الباركود..." oninput="mlRender()">
       </div>
+
+      <!-- (المالك seq 209) بحثٌ عميق: الأقرب بالموديل والأسماء والصورة · والعقل يختار -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <button type="button" id="ml-ai-btn" onclick="mlAskBrain()" style="background:#0f1219;color:#fff;border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;">🧠 اسأل العقل: أيّها نفس المنتج؟</button>
+        <span id="ml-smart-note" style="font-size:11px;color:var(--text3);font-weight:700;">مرتّبة بالأقرب: الموديل · الأسماء · الصورة</span>
+      </div>
+      <div id="ml-ai-res" style="display:none;font-size:12px;font-weight:700;border-radius:10px;padding:8px 10px;margin-bottom:8px;"></div>
 
       <!-- قائمة الاختيار -->
       <div id="ml-list" style="max-height:260px;overflow-y:auto;"></div>
@@ -1105,6 +1113,7 @@ function openLinkModal(invId){
   document.getElementById('ml-search').value='';
   document.getElementById('ml-price-section').classList.add('hidden');
   document.getElementById('ml-save-btn').disabled=true;
+  mlSmartStart();
   mlRender();
   openModal('modal-link');
 }
@@ -1119,6 +1128,7 @@ function openLinkFromStore(storeId){
   document.getElementById('ml-search').value='';
   document.getElementById('ml-price-section').classList.add('hidden');
   document.getElementById('ml-save-btn').disabled=true;
+  mlSmartStart();
   mlRender();
   openModal('modal-link');
 }
@@ -1162,6 +1172,47 @@ function mlSetGroup(g, el){
 }
 window.mlSetGroup=mlSetGroup;
 
+/* ══ (المالك seq 209) «ليس فقط على الاسم الحرفي … تبحث عميق: العقل يراجع الصور أو النصوص» — gmt-match.js ══ */
+let _mlRank = null, _mlRankFor = '', _mlScore = {};
+function _mlSrc(){ return mlDir==='inv_to_store' ? invProds.find(x=>String(x.id)===String(mlSrcId)) : storeProds.find(x=>String(x.id)===String(mlSrcId)); }
+function _mlPool(){ return mlDir==='inv_to_store' ? storeProds : invProds; }
+function _mlImg(item, isSrc){ const inv = (mlDir==='inv_to_store') === !!isSrc; return inv ? item.image_url : (item.images && item.images[0]); }
+function mlSmartStart(){
+  _mlRank = null; _mlScore = {}; _mlRankFor = mlDir + ':' + mlSrcId;
+  const ar = document.getElementById('ml-ai-res'); if (ar) { ar.style.display='none'; ar.innerHTML=''; }
+  const src = _mlSrc(); if (!src || !window.GMTMatch) return;
+  const key = _mlRankFor;
+  _mlRank = GMTMatch.rank(src, _mlPool()); _mlRank.forEach(r => { _mlScore[String(r.item.id)] = r; });
+  const note = document.getElementById('ml-smart-note'); if (note) note.textContent = '🖼️ أقارن الصور أيضاً…';
+  GMTMatch.refine(src, _mlRank, _mlImg, 30).then(rk => {
+    if (_mlRankFor !== key) return;
+    _mlRank = rk; _mlScore = {}; rk.forEach(r => { _mlScore[String(r.item.id)] = r; });
+    if (note) note.textContent = 'مرتّبة بالأقرب: الموديل · الأسماء · الصورة';
+    mlRender();
+  }).catch(() => { if (note) note.textContent = 'مرتّبة بالأقرب: الموديل والأسماء'; });
+}
+async function mlAskBrain(){
+  const btn = document.getElementById('ml-ai-btn'), box = document.getElementById('ml-ai-res'), src = _mlSrc();
+  if (!src || !_mlRank || !window.GMTMatch) return;
+  btn.disabled = true; btn.textContent = '🧠 العقل يقارن…';
+  box.style.display = 'block'; box.style.background = '#f8fafc'; box.style.color = 'var(--text2)'; box.textContent = 'يقارن أقرب ' + Math.min(12, _mlRank.length) + ' مرشّحاً بالاسم والماركة والموديل والسعر…';
+  try {
+    const r = await GMTMatch.ai(src, _mlRank, 12);
+    if (r.item) {
+      box.style.background = '#ecfdf5'; box.style.color = '#047857';
+      box.innerHTML = '🧠 العقل: <b>' + esc(r.item.name || r.item.short_name || '') + '</b> (' + r.confidence + '%)' + (r.why ? ' — ' + esc(r.why) : '') + ' · اختيرَ لك — راجع ثمّ احفظ';
+      mlSelect(String(r.item.id), parseFloat(r.item.price || 0));
+      const el = document.querySelector('#ml-list .match-item.selected'); if (el) el.scrollIntoView({ block: 'nearest' });
+    } else {
+      box.style.background = '#fffbeb'; box.style.color = '#92400e';
+      box.innerHTML = '🧠 العقل: لا أحد من المرشّحين هو المنتج نفسه' + (r.why ? ' — ' + esc(r.why) : '') + '. ابحث بكلمةٍ أخرى أو أنشئه.';
+    }
+  } catch (e) {
+    box.style.background = '#fef2f2'; box.style.color = '#b91c1c'; box.textContent = '⚠️ ' + ((e && e.message) || e) + ' — الترتيب بالأقرب ما زال أمامك.';
+  } finally { btn.disabled = false; btn.textContent = '🧠 اسأل العقل: أيّها نفس المنتج؟'; }
+}
+window.mlAskBrain = mlAskBrain;
+
 // رسم قائمة الاختيار
 function mlRender(){
   const q=(document.getElementById('ml-search')?.value||'').toLowerCase().trim();
@@ -1170,7 +1221,7 @@ function mlRender(){
   if(mlDir==='inv_to_store'){
     // نبحث في المتجر
     list=storeProds.filter(sp=>{
-      if(q && !(sp.name||'').toLowerCase().includes(q) && !(sp.barcode||'').includes(q)) return false;
+      if(q && !(sp.name||'').toLowerCase().includes(q) && !(sp.barcode||'').includes(q) && !_mlDeep(q, sp)) return false;
       if(mlGroupFilter){
         const cat=storeCats.find(c=>c.id===(sp.category_ids?.[0]||sp.category_id));
         if((cat?.name||'')!==mlGroupFilter) return false;
@@ -1180,12 +1231,14 @@ function mlRender(){
   } else {
     // نبحث في الجرد
     list=invProds.filter(p=>{
-      if(q && !(p.name||'').toLowerCase().includes(q) && !(p.barcode||'').includes(q)) return false;
+      if(q && !(p.name||'').toLowerCase().includes(q) && !(p.barcode||'').includes(q) && !_mlDeep(q, p)) return false;
       if(mlGroupFilter && (p.group_name||'')!==mlGroupFilter) return false;
       return true;
     });
   }
 
+  /* الأقرب أوّلاً (ولو كُتب في البحث: الكلمة تُضيّق، والترتيب بالعمق) */
+  if (_mlRank) list.sort((a, b) => ((_mlScore[String(b.id)] || {}).score || 0) - ((_mlScore[String(a.id)] || {}).score || 0));
   const c=document.getElementById('ml-list');
   if(!list.length){ c.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">لا توجد نتائج</div>`; return; }
 
@@ -1212,11 +1265,18 @@ function mlRender(){
           ${cat?`<span style="background:#f3f4f6;border-radius:4px;padding:0 5px;">${esc(cat)}</span>`:''}
         </div>
       </div>
-      ${sel?'<span class="badge-green">✅</span>':''}
+      ${_mlBadge(item)}${sel?'<span class="badge-green">✅</span>':''}
     </div>`;
   }).join('');
 }
 window.mlRender=mlRender;
+/* البحث بكلمةٍ بالعمق: «r6 مارك 2» يجد «Canon EOS R6 Mark II» ولو لم تتطابق الحروف */
+function _mlDeep(q, item){ if (!window.GMTMatch) return false; return GMTMatch.textScore({ name: q }, item) >= 0.45 || (window.GMTSuggest && GMTSuggest.hitsProduct && GMTSuggest.hitsProduct(q, item)); }
+function _mlBadge(item){
+  const r = _mlScore[String(item.id)]; if (!r || r.score < 0.2) return '';
+  const pc = Math.round(r.score * 100), col = pc >= 75 ? '#047857' : pc >= 45 ? '#b45309' : '#64748b';
+  return `<span title="نصّ ${Math.round(r.text * 100)}%${r.img != null ? ' · صورة ' + Math.round(r.img * 100) + '%' : ''}" style="font-size:10px;font-weight:900;color:${col};background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px;white-space:nowrap;">🧠 ${pc}%${r.img != null && r.img >= 0.9 ? ' 🖼️' : ''}</span>`;
+}
 
 function mlSelect(itemId, itemPrice){
   mlMatchId = String(itemId);
@@ -1544,21 +1604,21 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
   <script src="gmt-guide-bridge.js?v=20261003"></script>
-<script src="gmt-pwa.js?v=20261029r"></script>
+<script src="gmt-pwa.js?v=20261029s"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029r"></script>
+<script src="gmt-brain.js?v=20261029s"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029r"></script>
+<script src="gmt-whatsnew.js?v=20261029s"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029r"></script>
+<script src="gmt-nofab.js?v=20261029s"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

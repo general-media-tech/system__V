@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029r"></script>
+<script src="gmt-tools.js?v=20261029s"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,35 +2271,35 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029r"></script>
-  <script src="gmt-config.js?v=20261029r"></script>
-  <script src="gmt-brand.js?v=20261029r"></script>
+  <script src="gmt-image-guard.js?v=20261029s"></script>
+  <script src="gmt-config.js?v=20261029s"></script>
+  <script src="gmt-brand.js?v=20261029s"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029r"></script>
+  <script src="gmt-core.js?v=20261029s"></script>
   <script src="gmt-suggest.js?v=20261026g"></script>
-  <script src="gmt-compat-kb.js?v=20261029r"></script>
+  <script src="gmt-compat-kb.js?v=20261029s"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029r" defer></script>
+  <script src="gmt-ask.js?v=20261029s" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029r" defer></script>
-  <script src="gmt-share.js?v=20261029r" defer></script>
+  <script src="gmt-stock.js?v=20261029s" defer></script>
+  <script src="gmt-share.js?v=20261029s" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029r"></script>
-<script src="gmt-gallery.js?v=20261029r" defer></script>
-<script src="gmt-product-edit.js?v=20261029r" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029r"></script>
+<script src="gmt-specs.js?v=20261029s"></script>
+<script src="gmt-gallery.js?v=20261029s" defer></script>
+<script src="gmt-product-edit.js?v=20261029s" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029s"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029r"></script>
+  <script src="gmt-staff.js?v=20261029s"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -6330,8 +6330,10 @@ function renderGroupChips() {
   container.innerHTML = '<span class="filter-label" style="white-space:nowrap">المجموعة:</span>'
     + '<div class="filter-chip" data-admin="إنشاء مجموعة" onclick="openGroupCreateModal()" title="إنشاء مجموعة جديدة" style="border-style:dashed;white-space:nowrap">＋ مجموعة</div>'
     + '<div class="filter-chip" data-admin="تجهيز المنتجات تلقائياً" data-enrich-q onclick="gmtEnrichPick()" title="العقل يجهّز منتجات مجموعة أو تصنيف واحداً تلو الآخر وأنت تراجع" style="white-space:nowrap;border-color:#0f1219">🧠 جهّز تلقائياً</div>'
+    + ((currentGroup && currentGroup !== '__none__' && _isAdmG() && _grpProducts(currentGroup).length > 1) ? '<div class="filter-chip" data-grpimg onclick="openGroupImages()" title="صورة أساسية واحدة (وصور مشتركة) لكل منتجات «' + escHtml(currentGroup) + '» — بلا رفعٍ لكل منتج" style="white-space:nowrap;border-color:#15803d;color:#15803d;font-weight:800">🖼️ صورة موحّدة</div>' : '')
     + allBtn + noGroupBtn + chips;
 }
+function _isAdmG() { try { return !!(window.GMTRole && GMTRole.isAdmin()); } catch (_) { return false; } }
 
 // ============================================
 // BRANCH FILTER ROW — فلاتر نقاط البيع
@@ -6882,6 +6884,8 @@ async function saveProduct() {
     // ── إضافة منتج جديد ──
     // الخطوة 1: احفظ المنتج أولاً بدون صورة لتحصل على الـ ID الحقيقي من Supabase
     product.created_at = new Date().toISOString();
+    /* (المالك seq 207) منتجٌ جديد بلا صورة في مجموعةٍ لها صورة موحّدة (الكفرات · الأغطية) ⇒ يأخذها بلا رفع */
+    if (!imgFile && !product.image_url && product.group_name) { const sh = groupSharedImages(product.group_name); if (sh) { product.image_url = sh.main; if (sh.images.length > 1) product.images = sh.images; } }
     // لا نُرسل image_url بعد إذا كان هناك ملف — سنضيفها في الخطوة 2
     const productPayloadNoImg = imgFile ? { ...product, image_url: '' } : product;
 
@@ -8140,6 +8144,98 @@ function paintReviewBtn() {
   if (!_rvBuy) reviewBuyMap().then(() => { const k = reviewList(_rvBuy).length; if (el) el.textContent = k ? '(' + k + ')' : '✓'; });
 }
 window.paintReviewBtn = paintReviewBtn;
+/* ══ (المالك seq 207 · 208) «منتجات كثيرة تحمل نفس الصورة ونفس التصنيف (الأغطية · الكفرات) — ما في داعي نرفع لكل واحدة صور جديدة،
+   كلهم يكونوا نفس الصورة أو نفس الصور لتخفيف استهلاك القاعدة والرفع اليدوي» · «الأساسية الأحمر والصور الأخرى تُعرض — لكلٍّ أكثر من صورة».
+   الصور المتطابقة المحتوى (المرفوعة مرّةً لكل منتج) تُجمع ببصمتها ⇒ تختار الأساسية (والمشتركة معها) ⇒ تصير **رابطاً واحداً** لكل المنتجات،
+   والمكرَّر يُستغنى عنه، وصورةُ منتجٍ خاصّةٌ به (لا يشاركه فيها أحد) تبقى له صورةً إضافيّة بعد المشتركة.
+   والمنتج الجديد في المجموعة بلا صورة يأخذ الأساسية تلقائياً (groupSharedImages · الحفظ). ══ */
+function _grpNow() { return (typeof currentGroup !== 'undefined' && currentGroup && currentGroup !== '__none__') ? currentGroup : ''; }
+function _grpProducts(g) { const inG = (p) => (window.GMTProdGroup ? GMTProdGroup.inGroup(p, g) : p.group_name === g); return allProducts.filter(inG); }
+function _imgsOf(p) { const a = []; [p.image_url].concat(Array.isArray(p.images) ? p.images : []).forEach(u => { if (u && /^https?:/i.test(u) && a.indexOf(u) === -1) a.push(u); }); return a; }
+function groupSharedImages(g) {
+  if (!g) return null;
+  const list = _grpProducts(g), cnt = {};
+  list.forEach(p => { if (p.image_url && /^https?:/i.test(p.image_url)) cnt[p.image_url] = (cnt[p.image_url] || 0) + 1; });
+  const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+  if (!top || cnt[top] < 2) return null;
+  const src = list.find(p => p.image_url === top && Array.isArray(p.images) && p.images[0] === top);
+  return { main: top, images: src ? src.images.slice() : [top] };
+}
+window.groupSharedImages = groupSharedImages;
+async function _imgSig(u) {
+  try { const r = await fetch(u, { cache: 'force-cache' }); if (!r.ok) return 'u:' + u; const buf = await r.arrayBuffer();
+    const h = await crypto.subtle.digest('SHA-1', buf); return [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join('') + ':' + buf.byteLength; }
+  catch (_) { return 'u:' + u; }
+}
+async function openGroupImages() {
+  const g = _grpNow(); if (!g) { showToast('اختر مجموعةً أوّلاً', 'warning'); return; }
+  const list = _grpProducts(g); if (list.length < 2) { showToast('المجموعة فيها منتجٌ واحد', 'warning'); return; }
+  const old = document.getElementById('gmt-grpimg'); if (old) old.remove();
+  const ov = document.createElement('div'); ov.id = 'gmt-grpimg'; ov.setAttribute('data-keep-fab', '1');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(15,18,25,.5);display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl;font-family:Cairo,Tajawal,system-ui,sans-serif';
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;padding:22px;font-weight:800">🖼️ أقارن صور ' + list.length + ' منتج في «' + escHtml(g) + '»…</div>';
+  document.body.appendChild(ov);
+  /* بصمة المحتوى لكل رابطٍ مختلف ⇒ مجموعات «الصورة نفسها» ولو رُفعت ملفّاً لكل منتج */
+  const urls = [...new Set([].concat(...list.map(_imgsOf)))], sig = {};
+  await Promise.all(urls.map(async u => { sig[u] = await _imgSig(u); }));
+  const tiles = {};      // بصمة ⇒ { url (الأوّل), urls, pids }
+  list.forEach(p => _imgsOf(p).forEach(u => { const k = sig[u]; const t = tiles[k] = tiles[k] || { k, url: u, urls: [], pids: [] }; if (t.urls.indexOf(u) === -1) t.urls.push(u); if (t.pids.indexOf(String(p.id)) === -1) t.pids.push(String(p.id)); }));
+  /* الرابط الذي يبقى لكل صورة: الأكثر استعمالاً بين المنتجات (ثمّ الأقدم اسماً) — ثابتٌ لا يتبع ترتيب التحميل */
+  const useN = {}; list.forEach(p => _imgsOf(p).forEach(u => { useN[u] = (useN[u] || 0) + 1; }));
+  Object.values(tiles).forEach(t => { t.url = t.urls.slice().sort((a, b) => (useN[b] - useN[a]) || (a < b ? -1 : a > b ? 1 : 0))[0]; });
+  const T = Object.values(tiles).sort((a, b) => b.pids.length - a.pids.length);
+  if (!T.length) { ov.remove(); showToast('لا صور في هذه المجموعة بعد', 'warning'); return; }
+  let main = T[0].k; const shared = new Set([main]);
+  const paint = () => {
+    ov.innerHTML = '<div style="width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.3)">' +
+      '<div style="padding:14px 16px;border-bottom:1px solid #f1f5f9"><b style="font-size:16px">🖼️ صورة موحّدة — «' + escHtml(g) + '» (' + list.length + ' منتج)</b>' +
+      '<div style="font-size:12.5px;color:#64748b;line-height:1.8;margin-top:4px">⭐ <b>الأساسية</b> لكل المنتجات · ☑️ <b>مشتركة</b> تُعرض بعدها لكلّهم · والصورة الخاصّة بمنتجٍ واحد تبقى له بعد المشتركة. ' +
+      'المكرَّر (الصورة نفسها مرفوعةً لكل منتج) يصير رابطاً واحداً.</div></div>' +
+      '<div style="flex:1;overflow:auto;padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">' + T.map(t => {
+        const isM = t.k === main, isS = shared.has(t.k);
+        return '<div data-gt="' + t.k + '" style="border:2px solid ' + (isM ? '#D5001C' : isS ? '#15803d' : '#e5e7eb') + ';border-radius:14px;padding:8px;text-align:center">' +
+          '<img src="' + escHtml(t.url) + '" data-gimg-allow="1" alt="" style="width:100%;height:110px;object-fit:contain;background:#f8fafc;border-radius:10px">' +
+          '<div style="font-size:12px;font-weight:800;margin:4px 0">في ' + t.pids.length + ' منتج' + (t.urls.length > 1 ? ' · مرفوعة ' + t.urls.length + ' مرّة' : '') + '</div>' +
+          '<label style="display:flex;gap:4px;align-items:center;justify-content:center;font-size:12.5px;font-weight:800"><input type="radio" name="gm" data-gm="' + t.k + '"' + (isM ? ' checked' : '') + '> ⭐ الأساسية</label>' +
+          '<label style="display:flex;gap:4px;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;margin-top:2px"><input type="checkbox" data-gs="' + t.k + '"' + (isS ? ' checked' : '') + (isM ? ' disabled' : '') + '> ☑️ مشتركة للكل</label></div>';
+      }).join('') + '</div>' +
+      '<div style="padding:12px 16px;border-top:1px solid #f1f5f9;display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-ga style="flex:1;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:11px;font:inherit;font-weight:900;cursor:pointer">طبّق على ' + list.length + ' منتج</button>' +
+      '<button type="button" data-gx style="background:#f1f5f9;border:0;border-radius:12px;padding:11px 16px;font:inherit;font-weight:800;cursor:pointer">إلغاء</button></div><div data-gmsg style="padding:0 16px 12px;font-size:12.5px;font-weight:800"></div></div>';
+  };
+  paint();
+  ov.addEventListener('change', e => {
+    const m = e.target.getAttribute('data-gm'), sh = e.target.getAttribute('data-gs');
+    if (m) { main = m; shared.add(m); paint(); }
+    else if (sh) { e.target.checked ? shared.add(sh) : shared.delete(sh); paint(); }
+  });
+  ov.addEventListener('click', async e => {
+    if (e.target === ov || e.target.closest('[data-gx]')) { ov.remove(); return; }
+    const go = e.target.closest('[data-ga]'); if (!go) return;
+    const byK = k => T.find(t => t.k === k);
+    const sharedUrls = [byK(main).url].concat([...shared].filter(k => k !== main).map(k => byK(k).url));
+    const dupK = new Set(T.filter(t => t.pids.length > 1).map(t => t.k));      // صورةٌ في أكثر من منتج (مكرّرة) ⇒ لا تبقى «خاصّة»
+    const ok = await GMTAsk.confirm('الأساسية لكل ' + list.length + ' منتج + ' + (sharedUrls.length - 1) + ' مشتركة.\nالصور الخاصّة بمنتجٍ واحد تبقى له بعدها، والمكرّرة تصير رابطاً واحداً.', { title: '🖼️ صورة موحّدة', okText: 'طبّق' });
+    if (!ok) return;
+    go.disabled = true; go.textContent = 'لحظة…';
+    let done = 0, fail = 0;
+    for (const p of list) {
+      const own = _imgsOf(p).filter(u => !shared.has(sig[u]) && !dupK.has(sig[u]));
+      const imgs = sharedUrls.concat(own.filter(u => sharedUrls.indexOf(u) === -1)).slice(0, 12);
+      if (p.image_url === imgs[0] && JSON.stringify(p.images || []) === JSON.stringify(imgs)) { done++; continue; }
+      const patch = { image_url: imgs[0], images: imgs };
+      const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, patch);
+      if (error) { fail++; continue; }
+      Object.assign(p, patch); done++;
+      if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {});
+    }
+    const msg = ov.querySelector('[data-gmsg]');
+    if (msg) { msg.style.color = fail ? '#b91c1c' : '#15803d'; msg.textContent = (fail ? '⚠️ ' : '✅ ') + 'صار ' + done + ' منتج بالصورة الموحّدة' + (fail ? ' · تعذّر ' + fail : ''); }
+    showToast('🖼️ «' + g + '»: ' + done + ' منتج بالصورة الموحّدة' + (fail ? ' · تعذّر ' + fail : ''), fail ? 'error' : 'success');
+    try { renderAll(); } catch (_) {}
+    setTimeout(() => { if (!fail) ov.remove(); }, 900);
+  });
+}
+window.openGroupImages = openGroupImages;
 let _rvFilter = '';
 async function openReviewList() {
   const m = await reviewBuyMap();
@@ -15439,19 +15535,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029r"></script>
+<script src="gmt-pwa.js?v=20261029s"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029r"></script>
+<script src="gmt-brain.js?v=20261029s"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029r"></script>
+<script src="gmt-whatsnew.js?v=20261029s"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029r"></script>
+<script src="gmt-nofab.js?v=20261029s"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

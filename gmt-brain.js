@@ -725,6 +725,12 @@
     });
   }
 
+  /* (المالك seq 209) سؤالٌ مباشر بنظامه ⇒ JSON (مطابقة المتجر بالجرد في الجسر · gmt-match.js) — لا سياق ولا سجلّ */
+  async function askJSON(question, system) {
+    var url = endpoint(); if (!url) throw new Error('رابط عقل النظام غير مضبوط');
+    var j = await postJSON(url, { question: String(question || '').slice(0, 6000), system: String(system || '').slice(0, 4000), context: {} });
+    return j ? looseJSON(j.answer || j.reply || j.text || '') : null;
+  }
   async function ask(question) {
     try { var loc = await localAnswer(question); if (loc) { HIST.push({ q: question, a: loc.replace(/<[^>]+>/g, ' ') }); return loc; } } catch (_) {}
     try { var kb = kbFind(question); if (kb) return kb.a + '<br><span style="font-size:11px;color:#526077">📚 من سجلّ المعرفة — بلا استهلاك رصيد</span>'; } catch (_) {}
@@ -765,7 +771,7 @@
 
   function openScreen(text) {
     if (global.GMTScreen) { GMTScreen.open({ text: text || '' }); return; }
-    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261029r';
+    var sc = document.createElement('script'); sc.src = 'gmt-screen.js?v=20261029s';
     sc.onload = function () { if (global.GMTScreen) GMTScreen.open({ text: text || '' }); };
     sc.onerror = function () { try { GMTAsk.alert('تعذّر تحميل وحدة تحليل الشاشة — أعد المحاولة.', { title: 'تحليل الشاشة' }); } catch (_) {} };
     (document.head || document.documentElement).appendChild(sc);
@@ -1031,7 +1037,7 @@
 
   global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
     open: openPanel,
-    ask: ask,
+    askJSON: askJSON, ask: ask,
     configure: configure,
     context: collectContext,
     explainErrors: function () { openPanel('في أخطاء مرصودة بالنظام هلق؟ فسّرلي كل واحد: شو يعني، هل هو خطير، شو تأثيره، وشو الحل.'); },
