@@ -1,0 +1,7 @@
+task: TASK-0254
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: gmt-specs.js bridge.html gmt-product-edit.js
+claimed_at: 2026-10-28T07:11:35Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0254
