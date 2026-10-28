@@ -22,6 +22,7 @@ def match(row, k, expr):
         inner = expr[1:-1]
         return any(match(row, *c.split('.',1)) for c in inner.split(','))
     op, _, val = expr.partition('.')
+    if len(val) >= 2 and val[0] == '"' and val[-1] == '"': val = val[1:-1]   # كـPostgREST: قيمةٌ بين علامتي تنصيص (داخل or=…)
     v = row.get(k)
     if op == 'eq':
         if isinstance(v, bool): return str(v).lower() == val

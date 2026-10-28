@@ -134,7 +134,7 @@ window.GMT_PUBLIC = 1;</script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <link rel="manifest" href="manifest.json">
-  <script src="gmt-brand.js?v=20261028s"></script>
+  <script src="gmt-brand.js?v=20261028t"></script>
 <script>
 /* (2026-10-06 ش) البند ٨٨ وطلبك في وثيقة التصميم: «في المعاينة ما في داعي يفتح لنا انترو المتجر — فوراً يدخلنا
    على المتجر، كمستخدمٍ عادي، مع أزرار تعديل». ?preview=1 ⇒ لا انترو، وشريطٌ صغير للعودة إلى أدمن المتجر. */
@@ -159,16 +159,16 @@ window.GMT_PUBLIC = 1;</script>
 </script>
 </head>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
-  <script src="gmt-image-guard.js?v=20261028s"></script>
+  <script src="gmt-image-guard.js?v=20261028t"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261028s"></script>
+  <script src="gmt-core.js?v=20261028t"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-share.js?v=20261028s" defer></script>
+  <script src="gmt-share.js?v=20261028t" defer></script>
   <!-- ══════════════════════════════════════════════════════════════════════
        💬 مساعد المتجر — (2026-09-26 · طلب المالك)
        ─────────────────────────────────────────────────────────────────────
@@ -1927,46 +1927,16 @@ function openProductModal(productId){
     document.getElementById('product-qty-display').textContent='1';
 
     // ── Build slides (images + optional video) ──
-    const sc=document.getElementById('product-modal-slides');
-    const dc=document.getElementById('product-modal-dots');
-    const prevB=document.getElementById('product-modal-prev');
-    const nextB=document.getElementById('product-modal-next');
-    sc.innerHTML=''; dc.innerHTML='';
-
-    const allSlides=[..._pmImgs];
-    if(prod.video_url?.trim()) allSlides.push({_type:'video',url:prod.video_url.trim()});
-
-    if(!allSlides.length){
-        sc.innerHTML=`<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="font-size:48px;color:#5b6472;"></i></div>`;
-        prevB.classList.add('hidden'); nextB.classList.add('hidden');
-    } else {
-        allSlides.forEach((item,i)=>{
-            const sl=document.createElement('div');
-            sl.style.cssText='min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;overflow:hidden;';
-            if(item._type==='video'){
-                let embedUrl=item.url.replace(/\?.*$/,'');
-                if(!embedUrl.endsWith('/'))embedUrl+='/';
-                embedUrl+='embed/';
-                const iframe=document.createElement('iframe');
-                iframe.src=embedUrl; iframe.style.cssText='width:100%;height:100%;border:none;';
-                iframe.setAttribute('allowfullscreen',''); iframe.setAttribute('scrolling','no');
-                sl.appendChild(iframe);
-            } else {
-                sl.style.padding='16px';
-                const img=document.createElement('img'); img.src=item;
-                img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;';
-                sl.appendChild(img);
-            }
-            sc.appendChild(sl);
-            const dot=document.createElement('div');
-            dot.style.cssText=`height:6px;border-radius:9999px;background:${i===0?'#D5001C':'#d1d5db'};transition:all 0.3s;cursor:pointer;width:${i===0?'18px':'6px'};`;
-            dot.onclick=()=>_goToPMSlide(i);
-            dc.appendChild(dot);
-        });
-        _pmImgs=allSlides;
-        const showNav=allSlides.length>1;
-        prevB.classList.toggle('hidden',!showNav); nextB.classList.toggle('hidden',!showNav);
-    }
+    _pmBuildSlides(prod);
+    /* (TASK-0253 · المالك seq 174) «في المتجر صور المتجر ثم صور الجرد»: صورة المنتج في الجرد تُلحَق بعد صور المتجر (إن لم تكن بينها) */
+    _pmInvImages(prod).then(extra=>{
+        if(String(_pmId)!==String(productId)||!extra.length)return;
+        const have=new Set((_pmImgs||[]).filter(x=>typeof x==='string'));
+        const add=extra.filter(u=>!have.has(u)); if(!add.length)return;
+        const base=(Array.isArray(prod.images)?prod.images:[]).concat(add);
+        const at=_pmIdx; _pmBuildSlides(prod, base); _pmIdx=Math.min(at,_pmImgs.length-1);
+        _updatePMSlider();
+    });
     _updatePMSlider();
     _renderVariants(prod);
 
@@ -2062,6 +2032,71 @@ function _renderVariants(prod){
 
 function _collectVariants(){ const vc=document.getElementById('product-modal-variants'); if(!vc)return[]; const sel=[]; vc.querySelectorAll('button.border-primary').forEach(b=>{ const bc=b.dataset.variantBarcode||undefined; if(b.dataset.selectedPrice!==undefined)sel.push({name:b.textContent.split('—')[0].trim(),price:parseFloat(b.dataset.selectedPrice),barcode:bc}); else if(b.dataset.variantValue!==undefined)sel.push({value:b.dataset.variantValue,barcode:bc}); }); return sel; }
 
+/* (TASK-0253) بناء شرائح نافذة المنتج من قائمة صور (+ الفيديو إن وُجد) — يُستدعى عند الفتح وبعد وصول صورة الجرد */
+function _pmBuildSlides(prod, imgs){
+    _pmImgs=Array.isArray(imgs)?imgs.slice():(Array.isArray(prod.images)&&prod.images.length?prod.images.slice():[]);
+    const sc=document.getElementById('product-modal-slides');
+    const dc=document.getElementById('product-modal-dots');
+    const prevB=document.getElementById('product-modal-prev');
+    const nextB=document.getElementById('product-modal-next');
+    sc.innerHTML=''; dc.innerHTML='';
+
+    const allSlides=[..._pmImgs];
+    if(prod.video_url?.trim()) allSlides.push({_type:'video',url:prod.video_url.trim()});
+
+    if(!allSlides.length){
+        sc.innerHTML=`<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="font-size:48px;color:#5b6472;"></i></div>`;
+        prevB.classList.add('hidden'); nextB.classList.add('hidden');
+    } else {
+        allSlides.forEach((item,i)=>{
+            const sl=document.createElement('div');
+            sl.style.cssText='min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;overflow:hidden;';
+            if(item._type==='video'){
+                let embedUrl=item.url.replace(/\?.*$/,'');
+                if(!embedUrl.endsWith('/'))embedUrl+='/';
+                embedUrl+='embed/';
+                const iframe=document.createElement('iframe');
+                iframe.src=embedUrl; iframe.style.cssText='width:100%;height:100%;border:none;';
+                iframe.setAttribute('allowfullscreen',''); iframe.setAttribute('scrolling','no');
+                sl.appendChild(iframe);
+            } else {
+                sl.style.padding='16px';
+                const img=document.createElement('img'); img.src=item;
+                img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;';
+                sl.appendChild(img);
+            }
+            sc.appendChild(sl);
+            const dot=document.createElement('div');
+            dot.style.cssText=`height:6px;border-radius:9999px;background:${i===0?'#D5001C':'#d1d5db'};transition:all 0.3s;cursor:pointer;width:${i===0?'18px':'6px'};`;
+            dot.onclick=()=>_goToPMSlide(i);
+            dc.appendChild(dot);
+        });
+        _pmImgs=allSlides;
+        const showNav=allSlides.length>1;
+        prevB.classList.toggle('hidden',!showNav); nextB.classList.toggle('hidden',!showNav);
+    }
+}
+/* (TASK-0253) صورة المنتج نفسه في الجرد (القاعدة الرئيسيّة) — بالربط: inv_id ⇐ رابط المتجر «#product=» ⇐ الباركود. تُحفظ لكل منتج مرّة. */
+const _pmInvCache={};
+function _pmInvImages(prod){
+    const key=String(prod.id);
+    if(_pmInvCache[key])return _pmInvCache[key];
+    const M=window.GMT_DB&&GMT_DB.MAIN;
+    if(!M||!M.url){return Promise.resolve([]);}
+    const q=v=>'"'+String(v).replace(/"/g,'')+'"';
+    const ors=[];
+    if(prod.inv_id!=null&&prod.inv_id!=='')ors.push('id.eq.'+q(prod.inv_id));
+    ors.push('store_url.like.'+q('*#product='+prod.id));
+    const bc=String(prod.barcode||'').trim(); if(bc)ors.push('barcode.eq.'+q(bc));
+    const url=M.url+'/rest/v1/products?select=id,image_url,store_url,barcode&or=('+encodeURIComponent(ors.join(','))+')&limit=5';
+    return (_pmInvCache[key]=fetch(url,{headers:GMT_DB.headers(M)}).then(r=>r.ok?r.json():[]).then(rows=>{
+        rows=Array.isArray(rows)?rows:[];
+        const pick=rows.find(r=>prod.inv_id!=null&&String(r.id)===String(prod.inv_id))||
+                   rows.find(r=>new RegExp('#product='+String(prod.id).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(&|$)').test(String(r.store_url||'')))||
+                   (rows.filter(r=>bc&&String(r.barcode||'').trim()===bc).length===1?rows.find(r=>String(r.barcode||'').trim()===bc):null);
+        return pick&&pick.image_url?[String(pick.image_url)]:[];
+    }).catch(()=>[]));
+}
 function _updatePMSlider(){ const sc=document.getElementById('product-modal-slides'),dc=document.getElementById('product-modal-dots'); if(!sc)return; sc.style.transform=`translateX(${_pmIdx*100}%)`; const dots=dc?.children; if(dots)Array.from(dots).forEach((d,i)=>{d.style.background=i===_pmIdx?'#D5001C':'#d1d5db';d.style.width=i===_pmIdx?'18px':'6px';}); }
 function _goToPMSlide(i){ _pmIdx=i; _updatePMSlider(); }
 
@@ -2481,7 +2516,7 @@ document.addEventListener('DOMContentLoaded', initStore);
 /* م12: القدوم من نقطة البيع بـ ?skip_intro=1 يفتح المتجر فوراً بلا انترو */
 try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document.getElementById('intro-screen')?.remove(); } catch(_) {}
 </script>
-<script src="gmt-specs.js?v=20261028s"></script>
+<script src="gmt-specs.js?v=20261028t"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-pwa.js?v=20261010b"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
