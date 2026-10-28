@@ -85,22 +85,22 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029c"></script>
+<script src="gmt-tools.js?v=20261029d"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="min-h-screen bg-animated">
-  <script src="gmt-image-guard.js?v=20261029c"></script>
+  <script src="gmt-image-guard.js?v=20261029d"></script>
   <script src="gmt-config.js?v=20261017c"></script>
-  <script src="gmt-brand.js?v=20261029c"></script>
+  <script src="gmt-brand.js?v=20261029d"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029c"></script>
+  <script src="gmt-core.js?v=20261029d"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-share.js?v=20261029c" defer></script>
-  <script src="gmt-sticker.js?v=20261029c" defer></script>
-  <script src="gmt-wclaims.js?v=20261029c" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
+  <script src="gmt-share.js?v=20261029d" defer></script>
+  <script src="gmt-sticker.js?v=20261029d" defer></script>
+  <script src="gmt-wclaims.js?v=20261029d" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
   <script src="gmt-custcache.js?v=20261016a" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -513,7 +513,7 @@ window.GMT_INTERNAL = 1;</script>
                              <p class="text-[10px] text-gray-500">General Media Tech - Canon Syria</p>
                          </div>
                          <div class="h-10 w-32 border border-dashed border-gray-300 rounded bg-gray-50 flex items-center justify-center text-gray-400 text-xs hover:border-canon-red hover:text-canon-red transition-colors">
-                             <img src="genrallogo.png?v=20261029c" alt="شعار الموقع"
+                             <img src="genrallogo.png?v=20261029d" alt="شعار الموقع"
                  onerror="this.onerror=null;this.src='logo.png'">
                          </div>
                     </div>
@@ -1911,6 +1911,7 @@ window.GMT_INTERNAL = 1;</script>
 
             try {
                 await supabaseInsert(row);
+                saveWarrantyCustomer(row.customer_name, row.phone_no);   // (TASK-0215 · TASK-0244) الزبون الجديد يُحفظ في القاعدة
 
                 const baseUrl = window.location.origin + window.location.pathname;
                 const finalLink = `${baseUrl}?w=${shortID}`;
@@ -2015,6 +2016,19 @@ window.GMT_INTERNAL = 1;</script>
                 })
                 .catch(() => window.open(url, '_blank'));
         });
+
+        /* (TASK-0215 · المالك seq 144 «اذا ادخلنا شيء جديد ينحفظ في القاعده» · TASK-0244 seq 164 «لازم نحتفظ في العملاء يكون عندنا قاعده»):
+           زبون الكفالة يُضاف لسجلّ العملاء (القاعدة الرئيسيّة) إن لم يكن فيه — بلا كتابةٍ فوق عميلٍ موجود. لا ينتظره حفظ الكفالة. */
+        function saveWarrantyCustomer(name, phone) {
+            try {
+                const n = String(phone || '').replace(/[٠-٩]/g, c => String(c.charCodeAt(0) - 0x660)).replace(/\D/g, '').replace(/^(00963|963|0)/, '');
+                name = String(name || '').trim();
+                if (!name || !/^9\d{8}$/.test(n) || !window.GMT_DB || !GMT_DB.MAIN) return;
+                fetch(GMT_DB.MAIN.url + '/rest/v1/gmt_customers?on_conflict=phone', { method: 'POST',
+                    headers: Object.assign({}, GMT_DB.headers(GMT_DB.MAIN), { 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' }),
+                    body: JSON.stringify({ name, phone: '0' + n, branch_name: 'الكفالات', note: 'أُضيف من بوّابة الكفالة' }) }).catch(() => {});
+            } catch (_) {}
+        }
 
         // --- Warranty View Render ---
         /* (TASK-0214 · المالك seq 144) «انت اضفت الى الكفاله انه تم الاستبدال وتم كذا ولكن هي لا تعرض في الكفاله في صفحه الزبون …
@@ -2332,21 +2346,21 @@ window.GMT_INTERNAL = 1;</script>
 })();
 </script>
 <script src="gmt-hints.js?v=20261011h"></script>
-<script src="gmt-pwa.js?v=20261029c"></script>
+<script src="gmt-pwa.js?v=20261029d"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029c"></script>
+<script src="gmt-brain.js?v=20261029d"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029c"></script>
+<script src="gmt-whatsnew.js?v=20261029d"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029c"></script>
+<script src="gmt-nofab.js?v=20261029d"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- 🔴 (٧ ي-٣ · فحص_الأزرار_الميتة) كان وسمُ gmt-fitrow يبتلع افتتاح السكربت التالي: سكربتٌ له src
      يُهمَل ما بداخله ⇒ الدالّة لا تُعرَّف والزرّ ميّت أمام الزبون. -->

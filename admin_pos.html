@@ -492,22 +492,22 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
-  <script src="gmt-brand.js?v=20261029c"></script>
+  <script src="gmt-brand.js?v=20261029d"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029c"></script>
+<script src="gmt-tools.js?v=20261029d"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029c"></script>
+  <script src="gmt-image-guard.js?v=20261029d"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029c"></script>
+  <script src="gmt-core.js?v=20261029d"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261025r" defer></script>
-  <script src="gmt-stock.js?v=20261029c" defer></script>
-  <script src="gmt-share.js?v=20261029c" defer></script>
+  <script src="gmt-stock.js?v=20261029d" defer></script>
+  <script src="gmt-share.js?v=20261029d" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -517,7 +517,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261026g"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-ledger.js?v=20261029c"></script>
+  <script src="gmt-ledger.js?v=20261029d"></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -4482,6 +4482,7 @@ function renderCustomers() {
       <div class="sec-title" id="cust-count-lbl">جارٍ التحميل...</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm" data-cust-vcf style="background:#0f172a;color:#fff;border:0;" onclick="exportCustomersVcf()">📇 جهات الاتصال</button>
+        <button class="btn btn-sm" data-cust-sync style="background:#fff;color:#0f172a;border:1.5px solid #0f172a;" onclick="syncCustomersEverywhere()" title="يضيف لسجلّ العملاء كل زبونٍ في الأوردرات والفواتير والكفالات ليس فيه — لا يحذف ولا يغيّر عميلاً موجوداً">🔄 مزامنة العملاء من كل مكان</button>
         <button class="btn btn-ghost btn-sm" onclick="loadCustomers().then(()=>renderCustomers())">🔄 تحديث</button>
       </div>
     </div>
@@ -4761,6 +4762,57 @@ async function openCustomerProfile(phone, name) {
   }, true);   // التقاط: محتوى الملف يوقف الانتشار (كي لا يُغلقه الضغط داخله)
 }
 window.openCustomerProfile = openCustomerProfile;
+/* (TASK-0244 · المالك seq 164) «زامن جهات الاتصال من كل مكان … الاوردرات القديمه او في الفواتير القديمه … كل شيء ناقص رجع ضيفه … لازم
+   نحتفظ في العملاء يكون عندنا قاعده»: يجمع الزبائن من أوردرات الشحن (كلّها) وفواتير نقطة البيع (كلّها) والكفالات (قاعدة الكفالات)،
+   ويضيف لسجلّ العملاء من ليس فيه برقمه — بالاسم الأحدث وآخر عنوان شحن ونقطة البيع. لا يحذف ولا يكتب فوق عميلٍ موجود (ignore-duplicates).
+   الأرقام: سوريّة جوّال (09xxxxxxxx) — غيرها يُعدّ ولا يُضاف. */
+async function syncCustomersEverywhere() {
+  const btn = document.querySelector('[data-cust-sync]'); if (btn) { btn.disabled = true; btn.textContent = '⏳ يجمع…'; }
+  const done = () => { if (btn) { btn.disabled = false; btn.textContent = '🔄 مزامنة العملاء من كل مكان'; } };
+  try {
+    const loc = p => { const n = _normPhone(p); return /^9\d{8}$/.test(n) ? '0' + n : ''; };
+    const have = new Set((allCustomers || []).map(c => loc(c.phone)).filter(Boolean));
+    const found = new Map(), bySrc = { orders: 0, invoices: 0, warranties: 0 }; let bad = 0;
+    const add = (src, name, phone, at, extra) => {
+      const ph = loc(phone); name = String(name || '').trim();
+      if (!ph) { if (String(phone || '').replace(/\D/g, '').length >= 6) bad++; return; }
+      if (!name || have.has(ph)) return;
+      const cur = found.get(ph);
+      if (!cur) { found.set(ph, Object.assign({ name, phone: ph, at: at || '', src }, extra || {})); bySrc[src]++; return; }
+      if ((at || '') > (cur.at || '')) { cur.name = name; cur.at = at; }
+      if (extra && extra.address && (!cur.address || (at || '') >= (cur.addrAt || ''))) { cur.address = extra.address; cur.addrAt = at; }
+      if (extra && extra.branch_name && !cur.branch_name) { cur.branch_name = extra.branch_name; cur.branch_key = extra.branch_key || null; }
+    };
+    // ① أوردرات الشحن — كلّها (صفحةً صفحة)
+    let ords = [];
+    try { ords = await _sbAll('/rest/v1/gmt_orders?select=name,phone,address,branch,created_at,is_deleted&order=created_at.asc'); } catch (_) {}
+    ords.filter(o => !o.is_deleted).forEach(o => add('orders', o.name, o.phone, o.created_at, { address: o.address || null, addrAt: o.created_at, branch_name: o.branch || null }));
+    // ② فواتير نقطة البيع — كلّها
+    (allInvoices || []).forEach(i => add('invoices', i.customer_name, i.customer_phone, i.created_at, { branch_name: i.branch_name || null, branch_key: i.branch_key || null }));
+    // ③ الكفالات (قاعدة الكفالات المستقلّة)
+    try {
+      const W = window.GMT_DB && GMT_DB.WARRANTY;
+      if (W) { const r = await fetch(W.url + '/rest/v1/warranties?select=customer_name,customer_typed_name,phone_no,created_at&limit=5000', { headers: { apikey: W.key, Authorization: 'Bearer ' + W.key } });
+               if (r.ok) (await r.json()).forEach(w => add('warranties', w.customer_typed_name || w.customer_name, w.phone_no, w.created_at, { branch_name: 'الكفالات' })); }
+    } catch (_) {}
+    const list = [...found.values()];
+    if (!list.length) { done(); await GMTAsk.alert('كل زبائن الأوردرات والفواتير والكفالات موجودون في سجلّ العملاء ✓' + (bad ? '\n(' + bad + ' رقمٌ غير سوريّ/غير صالح لم يُضَف)' : ''), { title: '🔄 مزامنة العملاء' }); return; }
+    const ok = await GMTAsk.confirm('وُجد ' + list.length + ' زبوناً ليسوا في سجلّ العملاء:\n• من الأوردرات: ' + bySrc.orders + '\n• من الفواتير: ' + bySrc.invoices + '\n• من الكفالات: ' + bySrc.warranties +
+      (bad ? '\n(' + bad + ' رقمٌ غير سوريّ/غير صالح — لا يُضاف)' : '') + '\n\nيُضافون بالاسم الأحدث وآخر عنوان شحن. لا يُحذف ولا يتغيّر أيّ عميلٍ موجود.', { title: '🔄 مزامنة العملاء', okText: 'أضِفهم' });
+    if (!ok) { done(); return; }
+    const rows = list.map(x => ({ name: x.name, phone: x.phone, address: x.address || null, branch_name: x.branch_name || null, branch_key: x.branch_key || null,
+                                  note: 'أُضيف بالمزامنة من ' + ({ orders: 'الأوردرات', invoices: 'فواتير نقطة البيع', warranties: 'الكفالات' }[x.src] || x.src) }));
+    let added = 0;
+    for (let k = 0; k < rows.length; k += 100) {
+      const part = rows.slice(k, k + 100);
+      await sb('POST', '/rest/v1/gmt_customers?on_conflict=phone', part, { Prefer: 'resolution=ignore-duplicates,return=minimal' });
+      added += part.length;
+    }
+    await loadCustomers(); try { renderCustomers(); } catch (_) {}
+    done(); showToast('✅ أُضيف ' + added + ' زبوناً لسجلّ العملاء', 'ok');
+  } catch (e) { done(); showToast('تعذّرت المزامنة: ' + ((e && e.message) || e), 'err'); }
+}
+window.syncCustomersEverywhere = syncCustomersEverywhere;
 /* (TASK-0242) الضغط على أوردر في ملف العميل: فاتورته (إن كان مرتبطاً) · الملصق/ورقة الأوردر للطباعة · إيصال الشحن · فتح الأوردر */
 async function custProfileOrder(id) {
   const o = (window.__cpOrders || []).find(x => String(x.id) === String(id)); if (!o) return;
@@ -7062,19 +7114,19 @@ renderOffers = function(){
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029c"></script>
+<script src="gmt-pwa.js?v=20261029d"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029c"></script>
+<script src="gmt-brain.js?v=20261029d"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029c"></script>
+<script src="gmt-whatsnew.js?v=20261029d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029c"></script>
+<script src="gmt-nofab.js?v=20261029d"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>
