@@ -100,6 +100,7 @@
       '#gmt-pe .pe-invimg{display:flex;gap:8px;align-items:center}#gmt-pe .pe-invimg img{width:56px;height:56px;object-fit:contain;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;flex-shrink:0}' +
       '#gmt-pe .pe-btns{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}#gmt-pe .pe-btns a,#gmt-pe .pe-btns button{font-size:12px;font-weight:800;padding:6px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#0f1219;text-decoration:none}' +
       '#gmt-pe .pe-btns a[aria-disabled="true"]{opacity:.45;pointer-events:none}' +
+      '#gmt-pe .pe-search{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px}#gmt-pe .pe-search button,#gmt-pe .pe-search a{flex:1 1 auto;text-align:center}#gmt-pe .pe-search [data-pe-auto]{background:#0f172a;border-color:#0f172a;color:#fff}' +
       '#gmt-pe .pe-sugg{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}#gmt-pe .pe-sugg figure{margin:0;width:96px;flex-shrink:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}' +
       '#gmt-pe .pe-sugg img{width:96px;height:96px;object-fit:contain;display:block;background:#f9fafb}#gmt-pe .pe-sugg figure button{display:block;width:100%;border:0;border-top:1px solid #f1f5f9;border-radius:0;padding:5px 4px;font-size:11px}' +
       '#gmt-pe .pe-cand{display:flex;gap:8px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:6px;margin-top:6px;background:#fff}#gmt-pe .pe-cand img{width:44px;height:44px;object-fit:contain;border-radius:8px;background:#f9fafb;flex-shrink:0}' +
@@ -145,7 +146,14 @@
           '<div class="pe-2"><label>الحدّ الأدنى للمخزون<input data-f="min_stock" type="number" step="1" min="0" value="' + esc(p.min_stock) + '"></label><label>التكلفة $ (للقراءة)<input value="' + esc(p.cost_price) + '" disabled></label></div>' +
           '<div data-pe-sprice></div>' +
         '</section>' +
-        '<section class="pe-wide"><h3>📋 جدول المواصفات' + (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') + '</h3><div data-pe-rows></div>' +
+        '<section class="pe-wide"><h3>📋 جدول المواصفات</h3>' +
+          /* (TASK-0245 · المالك seq 175 · 176) «من هذه الشاشه … زر اعاده البحث التلقائي والبحث على الصور ايضا عدسه جوجل» · «البحث عن صور المنتج بعدسة غوغل ما لقيته»:
+             شريط بحثٍ واحد ظاهر هنا فوق الجدول — لا تحت حقل الصورة وحده */
+          '<div class="pe-btns pe-search" data-pe-searchbar>' +
+            (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') +
+            '<button type="button" data-pe-lensgo title="يفتح عدسة غوغل بصورة هذا المنتج — صورٌ مشابهة ومصادرها">🔎 عدسة غوغل (بحث بالصورة)</button>' +
+            '<a data-pe-gimg2 target="_blank" rel="noopener" title="صور غوغل باسم المنتج وماركته">🔍 صور غوغل</a>' +
+          '</div><div data-pe-rows></div>' +
           '<button type="button" data-pe-addrow>+ بند</button>' +
           '<div class="pe-2" style="margin-top:10px"><label>الموديل<input data-f="__model" value="' + esc(sp0.__model) + '"></label><label>التوافق (متوافق مع)<input data-f="compat" value="' + esc(p.compat) + '"></label></div>' +
           '<label>الوصف<textarea data-f="__desc" rows="3">' + esc(sp0.__desc) + '</textarea></label>' +
@@ -183,7 +191,7 @@
     imgIn.addEventListener('change', function () { var u = imgIn.value.trim(); imgPrev.hidden = !u; if (u) imgPrev.src = u; links(); });
     function links() {
       var q = ($('[data-f="name"]').value.trim() || p.name || '') + (brandEl.value.trim() && ($('[data-f="name"]').value || '').toLowerCase().indexOf(brandEl.value.trim().toLowerCase()) === -1 ? ' ' + brandEl.value.trim() : '');
-      $('[data-pe-gimg]').href = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q.trim());
+      $('[data-pe-gimg]').href = $('[data-pe-gimg2]').href = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q.trim());
       var u = imgIn.value.trim(), L = $('[data-pe-lens]');
       if (isHttp(u)) { L.href = 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(u); L.removeAttribute('aria-disabled'); } else { L.removeAttribute('href'); L.setAttribute('aria-disabled', 'true'); }
     }
@@ -224,8 +232,25 @@
       say('🤖 عُبّئت ' + n + ' مواصفة' + (pr.description_ar ? ' والوصف' : '') + ' — راجعها ثمّ «💾 احفظ»');
       try { rowsEl.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_) {}
     }
+    /* عدسة غوغل بصورة المنتج: رابط https ⇐ تُفتح فوراً · صورةٌ مضمَّنة (data:) ⇐ تُرفع أوّلاً لمخزن الصور (ctx.uploadImage) فتصير رابطاً
+       (ويصير هو صورة الجرد عند «💾 احفظ») · بلا صورة ⇐ يقول ذلك. النافذة تُفتح مع الضغطة نفسها كي لا يحجبها المتصفّح. */
+    $('[data-pe-lensgo]').onclick = async function () {
+      var u = imgIn.value.trim() || p.image_url || '';
+      if (!u) { say('لا صورة لهذا المنتج — أضف صورة الجرد أوّلاً (أو استعمل «🔍 صور غوغل»)', true); return; }
+      var w = null; try { w = global.open('about:blank', '_blank'); } catch (_) {}
+      if (!isHttp(u)) {
+        if (!/^data:image\//.test(u) || typeof ctx.uploadImage !== 'function') { if (w) w.close(); say('صورة المنتج ليست رابطاً — لا تقبلها العدسة', true); return; }
+        say('⏳ رفع صورة المنتج للعدسة…');
+        var up = null; try { up = await ctx.uploadImage(u); } catch (_) {}
+        if (!up) { if (w) w.close(); say('❌ تعذّر رفع الصورة', true); return; }
+        u = up; imgIn.value = up; imgIn.dispatchEvent(new Event('change')); say('🖼️ صارت صورة المنتج رابطاً — «💾 احفظ» لتثبيتها');
+      }
+      var lens = 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(u);
+      if (w) w.location.href = lens; else global.open(lens, '_blank');
+    };
     var autoB = $('[data-pe-auto]');
     if (autoB) autoB.onclick = function () {
+      autoB.textContent = '🔄 إعادة البحث التلقائي';
       GMTBrain.productImportDialog(async function (pr) { fillFromAuto(pr); }, { url: '', name: $('[data-f="name"]').value.trim() || p.name || '', imageUrl: imgIn.value.trim() || p.image_url || '' });
     };
     var quickB = $('[data-pe-quick]');

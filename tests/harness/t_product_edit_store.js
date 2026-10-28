@@ -26,10 +26,25 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
   await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,xx'; i.dispatchEvent(new Event('change')); });
   ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-lens]').getAttribute('aria-disabled') === 'true'), 'صورةٌ بلا رابط https ⇒ العدسة معطّلة (لا رابط مكسور)');
   await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'https://img.example/inv-a.png'; i.dispatchEvent(new Event('change')); });
+  // (TASK-0245 · seq 175 · 176) شريط البحث فوق جدول المواصفات: المواصفات التلقائية · عدسة غوغل · صور غوغل
+  const bar = await pg.evaluate(() => { const b = document.querySelector('#gmt-pe [data-pe-searchbar]'); const rows = document.querySelector('#gmt-pe [data-pe-rows]');
+    return b && { auto: !!b.querySelector('[data-pe-auto]'), lens: !!b.querySelector('[data-pe-lensgo]'), g: /tbm=isch/.test((b.querySelector('[data-pe-gimg2]') || {}).href || ''), above: !!(b.compareDocumentPosition(rows) & 4) }; });
+  ok(bar && bar.auto && bar.lens && bar.g && bar.above, 'شريط البحث ظاهر فوق جدول المواصفات: 🤖 · 🔎 عدسة غوغل · 🔍 صور غوغل: ' + JSON.stringify(bar));
+  await pg.evaluate(() => { window.__opened = []; window.open = (u) => { const w = { location: { set href(v) { window.__opened.push(v); } }, close() { window.__opened.push('closed'); } }; window.__opened.push(u); return w; }; });
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-lensgo]').click()); await sleep(300);
+  let op = await pg.evaluate(() => window.__opened);
+  ok(op[0] === 'about:blank' && /^https:\/\/lens\.google\.com\/uploadbyurl\?url=https%3A%2F%2Fimg\.example%2Finv-a\.png$/.test(op[1] || ''), '«🔎 عدسة غوغل» ⇒ تُفتح بصورة المنتج: ' + JSON.stringify(op));
+  await ctx.route(/\/storage\/v1\/object\/products-images\//, r => r.fulfill({ status: 200, body: '{}', headers: { 'Content-Type': 'application/json' } }));
+  await pg.evaluate(() => { window.__opened = []; const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; i.dispatchEvent(new Event('change')); document.querySelector('#gmt-pe [data-pe-lensgo]').click(); });
+  await sleep(1500);
+  op = await pg.evaluate(() => ({ o: window.__opened, img: document.querySelector('#gmt-pe [data-f="image_url"]').value }));
+  ok(/products-images\/lens_/.test(op.img) && /lens\.google\.com\/uploadbyurl\?url=.*products-images/.test(op.o[1] || ''), 'صورةٌ مضمَّنة ⇒ تُرفع وتصير رابطاً ثمّ تُفتح العدسة: ' + JSON.stringify(op).slice(0, 200));
+  await pg.evaluate(() => { const i = document.querySelector('#gmt-pe [data-f="image_url"]'); i.value = 'https://img.example/inv-a.png'; i.dispatchEvent(new Event('change')); });
   // ② صور البحث التلقائي
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-auto]').click()); await sleep(800);
   const sg = await pg.evaluate(() => ({ shown: !document.querySelector('#gmt-pe [data-pe-suggbox]').hidden, n: document.querySelectorAll('#gmt-pe [data-pe-sugg] figure').length }));
   ok(sg.shown && sg.n === 2, 'المواصفات التلقائية ⇒ «🖼️ صور وجدها البحث» (روابط https فقط): ' + JSON.stringify(sg));
+  ok(/إعادة البحث التلقائي/.test(await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-auto]').textContent)), 'بعد البحث الأوّل يصير الزرّ «🔄 إعادة البحث التلقائي»');
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-sugg] figure [data-a="inv"]').click());
   ok(await pg.evaluate(() => document.querySelector('#gmt-pe [data-f="image_url"]').value) === 'https://img.example/f1.png', '«صورة الجرد» ⇒ تصير صورة الجرد في الحقل');
   // ③ الربط بمنتجٍ موجود
