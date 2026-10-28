@@ -12,8 +12,9 @@ window.GMT_INTERNAL = 1;</script>
 <script>
 const IMG_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23eef1f5'/%3E%3C/svg%3E";
 
-  window.SUPABASE_URL      = 'https://znpakcaizvkwqzhosxvm.supabase.co';
-  window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpucGFrY2FpenZrd3F6aG9zeHZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzM0NTMsImV4cCI6MjA5NTkwOTQ1M30.YW3YuT-RRTpKw5WeFHkPeTUcXBBtaQFGCaCrBQWykks';
+  /* (TASK-0154 · المالك seq 199) قاعدة الموقع القديمة حُذفت ⇒ جداول الموقع في القاعدة الرئيسية */
+  window.SUPABASE_URL      = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
+  window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
 </script>
 <style>
 /* ═══════════════════════════════════════════════
@@ -332,20 +333,20 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute}
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <link rel="manifest" href="manifest.json">
-  <script src="gmt-brand.js?v=20261029m"></script>
+  <script src="gmt-brand.js?v=20261029n"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029m"></script>
+<script src="gmt-tools.js?v=20261029n"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029m"></script>
+  <script src="gmt-image-guard.js?v=20261029n"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029m"></script>
+  <script src="gmt-core.js?v=20261029n"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029m" defer></script>
-  <script src="gmt-share.js?v=20261029m" defer></script>
+  <script src="gmt-ask.js?v=20261029n" defer></script>
+  <script src="gmt-share.js?v=20261029n" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-staff.js?v=20261012a"></script>
 
@@ -800,7 +801,7 @@ async function sbUpsert(table, data) {
 async function uploadFile(bucket, file) {
   const ext  = file.name.split('.').pop();
   const name = `${Date.now()}.${ext}`;
-  const token = _accessToken || KEY;   // ✅ access_token وليس anon key
+  const token = KEY;   // (TASK-0154) مخزن صور المنتجات في القاعدة الرئيسية (مجلّدات site-*)
   const r = await fetch(`${URL}/storage/v1/object/${bucket}/${name}`, {
     method: 'POST',
     headers: {
@@ -1299,7 +1300,7 @@ const MODAL_CONFIGS = {
       image_url: document.getElementById('f_image_url').value,
       is_active: document.getElementById('f_is_active').checked,
     }),
-    fileFields: [{ fileId:'hero-file', urlId:'f_image_url', bucket:'hero-slides' }]
+    fileFields: [{ fileId:'hero-file', urlId:'f_image_url', bucket:'products-images/site-hero' }]
   },
 
   service: {
@@ -1368,7 +1369,7 @@ const MODAL_CONFIGS = {
       sort_order: +document.getElementById('f_sort_order').value,
       is_active: document.getElementById('f_is_active').checked,
     }),
-    fileFields: [{ fileId:'bnr-file', urlId:'f_image_url', bucket:'banners' }]
+    fileFields: [{ fileId:'bnr-file', urlId:'f_image_url', bucket:'products-images/site-banners' }]
   },
 
   quicklink: {
@@ -1481,7 +1482,7 @@ const MODAL_CONFIGS = {
       sort_order: +document.getElementById('f_sort_order').value,
       is_active: document.getElementById('f_is_active').checked,
     }),
-    fileFields: [{ fileId:'news-file', urlId:'f_image_url', bucket:'news-images' }]
+    fileFields: [{ fileId:'news-file', urlId:'f_image_url', bucket:'products-images/site-news' }]
   },
 
   footer: {
@@ -1630,9 +1631,15 @@ async function loadDashboardStats() {
 // ════════════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  if (!restoreSession()) {
-    showLoginScreen();
+/* (TASK-0154 · المالك seq 199) القاعدة الرئيسية لا تستعمل حسابات Supabase Auth لهذه اللوحة (كانت في قاعدة الموقع المحذوفة) ⇒
+   الدخول بصلاحية الإدارة في النظام نفسه (GMTRole) كبقيّة صفحات الإدارة. */
+document.addEventListener('DOMContentLoaded', async () => {
+  let ok = false;
+  try { ok = !!(window.GMTRole && GMTRole.requireAdmin && await GMTRole.requireAdmin('إدارة محتوى الموقع')); } catch (_) {}
+  if (!ok) {
+    document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Cairo,system-ui,sans-serif;direction:rtl;padding:16px;background:#f2f3f5">' +
+      '<div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;text-align:center;box-shadow:0 20px 60px rgba(16,24,40,.12)"><div style="font-size:22px;font-weight:900;color:#D5001C">🛡️ إدارة الموقع</div>' +
+      '<p style="color:#5b6472;font-size:14px;line-height:1.8">هذه الصفحة للإدارة فقط — ادخل بصلاحية الإدارة ثمّ أعد فتحها.</p><a href="home.html" style="color:#D5001C;font-weight:800">الرئيسية</a></div></div>';
     return;
   }
   initAdmin();
@@ -1643,26 +1650,25 @@ function initAdmin() {
   const authDiv = document.getElementById('auth-status');
   if (authDiv) {
     authDiv.innerHTML = `
-      <span class='badge on'>● متصل</span>
-      <button class='btn-sm btn-ghost' onclick='signOut()' style='margin-right:4px'>خروج 🚪</button>
+      <span class='badge on'>● متصل — الإدارة</span>
     `;
   }
 }
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
-<script src="gmt-pwa.js?v=20261029m"></script>
+<script src="gmt-pwa.js?v=20261029n"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029m"></script>
+<script src="gmt-brain.js?v=20261029n"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029m"></script>
+<script src="gmt-whatsnew.js?v=20261029n"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029m"></script>
+<script src="gmt-nofab.js?v=20261029n"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

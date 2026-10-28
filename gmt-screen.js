@@ -124,7 +124,7 @@
   }
   async function readCodes(file) {
     try {
-      if (!global.GMTReceipt) await new Promise(function (ok) { var s = document.createElement('script'); s.src = 'gmt-receipt.js?v=20261029m'; s.onload = ok; s.onerror = ok; document.head.appendChild(s); });
+      if (!global.GMTReceipt) await new Promise(function (ok) { var s = document.createElement('script'); s.src = 'gmt-receipt.js?v=20261029n'; s.onload = ok; s.onerror = ok; document.head.appendChild(s); });
       if (!global.GMTReceipt) return [];
       var r = await GMTReceipt.readTracking(file, { maxSide: 1400 });
       return (r && r.all) || [];
