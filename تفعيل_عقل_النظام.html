@@ -49,15 +49,15 @@ window.GMT_INTERNAL = 1;</script>
   footer{text-align:center;font-size:11.5px;color:var(--mut);font-weight:700;margin-top:24px}
   @media(max-width:520px){ body{padding:16px 16px 50px} h1{font-size:19px} table{font-size:11.5px} }
 </style>
-  <script src="gmt-ask.js?v=20261029i" defer></script>
-  <script src="gmt-share.js?v=20261029i" defer></script>
+  <script src="gmt-ask.js?v=20261029j" defer></script>
+  <script src="gmt-share.js?v=20261029j" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029i"></script>
+<script src="gmt-tools.js?v=20261029j"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
@@ -259,14 +259,61 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-endpoint.js?v=20261017c"></script>
-<script src="gmt-whatsnew.js?v=20261029i"></script>
+<script src="gmt-whatsnew.js?v=20261029j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029i"></script>
+<script src="gmt-nofab.js?v=20261029j"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
+
+<!-- ══ (TASK-0241 · المالك seq 164) «مشغل نماذج ذكاء اصطناعي تبحث عن جوجل وتبحث اقوى وتبحث عن علي بابا وتبحث على صفحه المنتج
+     واذا في شيء بده تفعيل او اي بي اي او انشاء مفتاح او ربط بطاقه طبعا فقط المجانيه اعطيني خطه لاشغلها».
+     الوسيط gmt-search جاهز ومنشور (Brave ⇐ Google ⇐ Tavily ⇐ Gemini) — ينقصه مفتاحٌ مجاني لبحث الصور. هنا: حالته الحيّة + الخطّة. ══ -->
+<section id="gmt-search-plan" style="max-width:860px;margin:24px auto;padding:18px;background:#fff;border:1px solid rgba(15,18,25,.08);border-radius:22px;box-shadow:0 10px 30px rgba(15,18,25,.06);font-family:'Segoe UI',Tahoma,system-ui,sans-serif;direction:rtl;line-height:1.9;font-size:14px">
+  <h2 style="margin:0 0 4px;font-size:18px">🔎 البحث في الويب (صفحات المنتج وصوره) — خطّة التشغيل المجانية</h2>
+  <p style="margin:0 0 10px;color:#5b6472;font-size:13px">هذا ما تستعمله «🖼️ صور من الويب» و«🤖 المواصفات التلقائية» وأداة «تجهيز كل ما ليس له مواصفات». الوسيط منشور ويجرّب المزوّدين بالترتيب، ولكلٍّ حدٌّ يوميّ يمنع تجاوز المجاني.</p>
+  <button type="button" id="s-status" style="background:#0f1219;color:#fff;border:0;border-radius:12px;padding:9px 14px;font:inherit;font-weight:800;cursor:pointer">حالة البحث الآن</button>
+  <div id="s-out" style="margin-top:10px;font-size:13px"></div>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px">
+    <thead><tr style="background:#f8fafc"><th style="text-align:right;padding:6px">المزوّد</th><th style="text-align:right;padding:6px">مجاناً</th><th style="text-align:right;padding:6px">يعطي</th><th style="text-align:right;padding:6px">رأيي</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:6px"><b>Tavily</b></td><td style="padding:6px">1000 بحث/شهر · <b>بلا بطاقة</b></td><td style="padding:6px">صفحات + <b>صور</b></td><td style="padding:6px">✅ <b>فعّله أوّلاً</b> — هو الناقص لبحث الصور</td></tr>
+      <tr><td style="padding:6px"><b>Gemini</b> (جوجل)</td><td style="padding:6px">بلا بطاقة</td><td style="padding:6px">صفحات (بحث جوجل) + العقل نفسه</td><td style="padding:6px">✅ <b>مفعّل الآن</b> (مفتاح واحد)</td></tr>
+      <tr><td style="padding:6px">Brave</td><td style="padding:6px">رصيد $5/شهر (~1000 بحث) · <b>يطلب بطاقة</b> عند التسجيل</td><td style="padding:6px">صفحات + صور</td><td style="padding:6px">اختياري — فقط إن قبلت إدخال بطاقة (لا يُخصم ضمن الرصيد)</td></tr>
+      <tr><td style="padding:6px">Google Programmable Search</td><td style="padding:6px">—</td><td style="padding:6px">—</td><td style="padding:6px">❌ جوجل أغلقته أمام المشتركين الجدد ويتوقّف 1 ك2 2027</td></tr>
+    </tbody>
+  </table>
+  <h3 style="font-size:15px;margin:16px 0 4px">الخطوات — بلا طرفيّة (من لوحة Supabase)</h3>
+  <ol style="margin:0;padding-right:20px">
+    <li>افتح <code>tavily.com</code> ← <b>Sign up</b> (حساب جوجل يكفي) ← من لوحته انسخ المفتاح (يبدأ بـ <code>tvly-</code>).</li>
+    <li>افتح <code>supabase.com/dashboard</code> ← مشروعك الرئيسي ← <b>Edge Functions</b> ← <b>Secrets</b> ← <b>Add new secret</b>.</li>
+    <li>الاسم: <code dir="ltr">TAVILY_API_KEY</code> · القيمة: المفتاح ← <b>Save</b>. لا حاجة لإعادة نشر شيء.</li>
+    <li>ارجع هنا واضغط «حالة البحث الآن» ⇐ يجب أن يظهر Tavily ✅. ثمّ جرّب «🖼️ صور من الويب» في صفحة أيّ منتج.</li>
+  </ol>
+  <p style="margin-top:8px;color:#b45309;font-weight:700">🔒 المفتاح يُلصق في لوحة Supabase فقط — لا تلصقه في المحادثة ولا في أيّ صفحة من النظام. الوسيط وحده يقرؤه ولا يصل المتصفّح.</p>
+  <p style="margin-top:4px;color:#5b6472;font-size:12.5px">الحدّ اليومي المضبوط لـ Tavily ‏30 بحثاً (≈ 900/شهر تحت الـ1000 المجانية). لتغييره أضف سرّاً <code dir="ltr">TAVILY_DAILY_CAP</code> بالرقم الذي تريد.</p>
+</section>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var NAMES = { brave: 'Brave', google: 'Google', tavily: 'Tavily', gemini: 'Gemini' };
+  $('s-status').onclick = async function () {
+    var o = $('s-out'); o.textContent = '⏳ …'; o.style.color = '#5b6472';
+    try {
+      var r = await fetch('https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'status' }) });
+      var j = await r.json(); if (!r.ok || !j.providers) throw new Error((j && j.error) || ('HTTP ' + r.status));
+      var img = false, rows = Object.keys(j.providers).map(function (k) {
+        var p = j.providers[k]; if (p.key && p.kinds.indexOf('images') !== -1) img = true;
+        return '<div>' + (p.key ? '✅' : '⬜') + ' <b>' + (NAMES[k] || k) + '</b> — ' + (p.key ? 'مفعّل · اليوم ' + p.used + ' من ' + p.cap : 'غير مفعّل') + ' · ' + (p.kinds.indexOf('images') !== -1 ? 'صفحات وصور' : 'صفحات فقط') + '</div>';
+      });
+      o.innerHTML = rows.join('') + '<div style="margin-top:6px;font-weight:800;color:' + (img ? '#047857' : '#b45309') + '">' + (img ? 'بحث الصور يعمل ✅' : 'بحث الصور لا يعمل بعد — فعّل Tavily (الخطوات أدناه)') + '</div>';
+      o.style.color = '';
+    } catch (e) { o.textContent = 'تعذّر سؤال الوسيط: ' + ((e && e.message) || e); o.style.color = '#b91c1c'; }
+  };
+})();
+</script>
 
 <!-- ══ (2026-10-05 ق) «خلّي يصير عنّا ٢٠ مفتاح API للعقل ونحن بنعبّيهم، وبيشتغلوا سوا واحد ورا واحد —
      إذا خلص الحدّ اليومي للمجاني ياخذ غيره». المفاتيح **لا تُحفظ هنا ولا في القاعدة** (مفاتيح دفع تُسرق

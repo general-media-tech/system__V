@@ -333,7 +333,7 @@
         var r = await GMTEnrichQueue._search('images', q.trim(), 24), list = ((r && r.images) || []).map(function (x) { return x && x.url; }).filter(isHttp);
         showSugg(list); say(list.length ? '🖼️ ' + list.length + ' صورة — «+ أضف» على ما تريد' : 'لم يجد صوراً — جرّب «🔍 صور غوغل» أو «🔎 عدسة غوغل»', !list.length);
       } catch (e) {
-        say(e && e.code === 'no_keys' ? 'بحث الصور في الويب يحتاج مفتاحاً مجانياً (Tavily) في أسرار Supabase — إلى ذلك: «🔍 صور غوغل» أو «🔎 عدسة غوغل»' : '❌ تعذّر البحث: ' + ((e && e.message) || e), true);
+        say(e && e.code === 'no_keys' ? 'بحث الصور في الويب يحتاج مفتاح Tavily المجاني — الخطوات في صفحة «تفعيل عقل النظام» ⇐ «🔎 البحث في الويب». إلى ذلك: «🔍 صور غوغل» أو «🔎 عدسة غوغل»' : '❌ تعذّر البحث: ' + ((e && e.message) || e), true);
       }
       webB.disabled = false;
     };
