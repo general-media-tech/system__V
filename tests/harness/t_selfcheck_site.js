@@ -7,7 +7,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
 (async () => {
   await H.seed();
   await H.call('/rest/v1/gmt_orders', [1, 2, 3, 4].map(i => ({ name: 'زبون ' + i, phone: '093300050' + i, product: 'كاميرا', qty: 1, price: 100, status: 'pending', branch: 'حلب', address: 'حمص', entered_by: 'سامر' })));
-  const { browser, ctx, pg, errs } = await H.open('orders.html', { w: 1366, h: 900, wait: 4500, mobile: false, siteUrl: 'https://znpakcaizvkwqzhosxvm.supabase.co' });
+  const { browser, ctx, pg, errs } = await H.open('orders.html', { w: 1366, h: 900, wait: 4500, mobile: false });
   /* ① الهوية: بعد عرض الأوردرات (الشارة مكرّرة) */
   const brand = await pg.evaluate(() => window.GMTSelfCheck ? GMTSelfCheck.checkBrand() : null);
   const html = await pg.evaluate(() => (document.documentElement.innerHTML.match(/#1e40af/gi) || []).length);
@@ -22,7 +22,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
   ok(db2.level === 'ok', 'كل القواعد تردّ ⇒ سليم: ' + db2.title);
   await browser.close();
   /* site.html بلا قاعدته ⇒ احتياطيٌّ بلا أخطاء */
-  const s = await H.open('site.html', { w: 390, h: 800, wait: 1, siteUrl: 'https://znpakcaizvkwqzhosxvm.supabase.co' });
+  const s = await H.open('site.html', { w: 390, h: 800, wait: 1 });
   await s.ctx.route('https://znpakcaizvkwqzhosxvm.supabase.co/**', r => r.abort('namenotresolved'));
   await s.pg.reload({ waitUntil: 'domcontentloaded' }); await s.pg.waitForTimeout(3500);
   const site = await s.pg.evaluate(() => ({ len: document.body.innerText.length, links: document.querySelectorAll('a[href]').length }));
