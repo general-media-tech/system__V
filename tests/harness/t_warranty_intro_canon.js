@@ -14,7 +14,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await pg.waitForFunction(() => { const s = document.getElementById('intro-stage-2'); return s && !s.classList.contains('hidden'); }, null, { timeout: 15000 }).catch(() => {});
   await sleep(1500);
   const r = await pg.evaluate(() => [...document.querySelectorAll('#intro-overlay img')].map(i => ({ src: (i.currentSrc || i.src).split('/').pop().split('?')[0], w: i.naturalWidth, h: i.naturalHeight, brand: i.dataset.gmtBrand || '' })));
-  ok(r.length === 2 && r.every(x => x.src === 'canonlogo.png' && x.w === 192 && x.h === 50 && !x.brand), 'الانترو: شعار Canon الأصلي المحلّي (ويكيميديا معطّلة) — لا شعار الشركة: ' + JSON.stringify(r));
+  ok(r.length === 2 && r.every(x => x.src === 'canonlogo.png' && x.w === 1280 && x.h === 268 && !x.brand), 'الانترو: شعار Canon الأصلي المحلّي (ويكيميديا معطّلة) — لا شعار الشركة: ' + JSON.stringify(r));
   // ② لو غاب الملفّ المحلّي وفشلت ويكيميديا ⇒ كلمة «Canon» بالأحمر لا شعار الشركة
   await ctx.route(/canonlogo\.png/, rt => rt.fulfill({ status: 404, body: '' }));
   await pg.reload({ waitUntil: 'domcontentloaded' });
