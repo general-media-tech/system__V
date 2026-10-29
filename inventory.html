@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029u"></script>
+<script src="gmt-tools.js?v=20261029v"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029u"></script>
-  <script src="gmt-config.js?v=20261029u"></script>
-  <script src="gmt-brand.js?v=20261029u"></script>
+  <script src="gmt-image-guard.js?v=20261029v"></script>
+  <script src="gmt-config.js?v=20261029v"></script>
+  <script src="gmt-brand.js?v=20261029v"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029u"></script>
-  <script src="gmt-suggest.js?v=20261029u"></script>
-  <script src="gmt-match.js?v=20261029u"></script>
-  <script src="gmt-compat-kb.js?v=20261029u"></script>
+  <script src="gmt-core.js?v=20261029v"></script>
+  <script src="gmt-suggest.js?v=20261029v"></script>
+  <script src="gmt-match.js?v=20261029v"></script>
+  <script src="gmt-compat-kb.js?v=20261029v"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029u" defer></script>
+  <script src="gmt-ask.js?v=20261029v" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029u" defer></script>
-  <script src="gmt-share.js?v=20261029u" defer></script>
+  <script src="gmt-stock.js?v=20261029v" defer></script>
+  <script src="gmt-share.js?v=20261029v" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029u"></script>
-<script src="gmt-gallery.js?v=20261029u" defer></script>
-<script src="gmt-product-edit.js?v=20261029u" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029u"></script>
+<script src="gmt-specs.js?v=20261029v"></script>
+<script src="gmt-gallery.js?v=20261029v" defer></script>
+<script src="gmt-product-edit.js?v=20261029v" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029v"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029u"></script>
+  <script src="gmt-staff.js?v=20261029v"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -10463,6 +10463,48 @@ function _simDetail(sp, inv) {
       (ivSpec.__desc ? `<div style="font-size:11.5px;color:#334155;white-space:pre-line;max-height:90px;overflow:auto;margin:4px 0">${escHtml(String(ivSpec.__desc).slice(0, 600))}</div>` : '') + kv('متوافق مع', String(inv.compat || '').slice(0, 300))) +
     `</div>`;
 }
+/* (المالك seq 213 «إن وجدتَ المطابق أعطني الربط — ولكن افتح لي صفحة تعديل بيانات المنتج») ربطٌ مباشر من هنا كما يفعل الجسر (mlSave):
+   المتجر ⇐ باركود الجرد والسعر الموحّد وصورة الجرد ومواصفاته · الجرد ⇐ السعر ورابط المنتج في المتجر — ثمّ صفحة تعديل المنتج */
+async function simLinkDirect(invP, sid) {
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  const rec0 = await gmtStoreCatalog(true), sp0 = (rec0.products || []).find(x => String(x.id) === String(sid));
+  if (!sp0) throw new Error('منتج المتجر لم يعد موجوداً');
+  let price = Number(invP.price) || 0;
+  const sPrice = Number(sp0.price) || 0;
+  if (Math.abs(price - sPrice) > 0.01) {
+    const k = await GMTAsk.choose('السعر مختلف — أيّ سعرٍ يُعتمد في الجهتين؟', { title: '💲 السعر الموحّد', cancelText: 'إلغاء',
+      choices: [{ k: 'inv', t: 'سعر الجرد $' + price, pri: 1 }, { k: 'store', t: 'سعر المتجر $' + sPrice }] });
+    if (!k) return false;
+    if (k === 'store') price = sPrice;
+  }
+  const barcode = String(invP.barcode || sp0.barcode || '').trim();
+  for (let i = 0; i < 3; i++) {
+    const rec = i ? await gmtStoreCatalog(true) : rec0, prods = Array.isArray(rec.products) ? rec.products : [];
+    if (!prods.some(x => String(x.id) === String(sid))) throw new Error('منتج المتجر لم يعد موجوداً');
+    const next = prods.map(x => {
+      if (String(x.id) !== String(sid)) return x;
+      const imgs = Array.isArray(x.images) ? x.images.slice() : []; if (invP.image_url && imgs.indexOf(invP.image_url) === -1) imgs.push(invP.image_url);
+      return Object.assign({}, x, { barcode, price, images: imgs }, (window.GMTSpecs && GMTSpecs.storeFields) ? GMTSpecs.storeFields(invP, x) : {});
+    });
+    let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+    if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+    const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+    if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+    const rows = await w.json().catch(() => null);
+    _gmtStoreCat = null; try { localStorage.removeItem('sbc_store'); } catch (_) {}
+    if (Array.isArray(rows) && rows.length) break;
+    if (i === 2) throw new Error('الكتالوج يتغيّر من جهةٍ أخرى — أعد المحاولة');
+  }
+  const store_url = invStoreLink('#product=' + encodeURIComponent(sid));
+  const patch = { price, store_url }; if (!invP.barcode && barcode) patch.barcode = barcode;
+  const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(invP.id)}`, patch);
+  if (error) throw new Error('الجرد: ' + error);
+  Object.assign(invP, patch);
+  const ai = allProducts.findIndex(x => String(x.id) === String(invP.id)); if (ai >= 0) Object.assign(allProducts[ai], patch);
+  await invStoreIndex(true);
+  return true;
+}
+window.simLinkDirect = simLinkDirect;
 function bulkRenderSimilar(cont, fresh) {
   if (!window.GMTMatch) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
   if (fresh || !_simRows) _simRows = _simCompute();
@@ -10481,10 +10523,13 @@ function bulkRenderSimilar(cont, fresh) {
         ${img((sp.images || [])[0], '🛒')}<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🛒 ${escHtml(sp.name || sp.short_name || '—')} <span style="color:#64748b;font-weight:700">$${escHtml(String(sp.price ?? ''))}</span></div>
         <div style="font-size:12.5px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📦 ${escHtml(r.item.name || '')} <span style="color:#64748b">$${escHtml(String(r.item.price || 0))}</span></div></div>
         ${img(r.item.image_url, '📦')}<span style="font-size:11px;font-weight:900;color:${col};white-space:nowrap">${pc}%</span></div>
+        ${cands.length > 1 ? `<div style="margin-top:6px;font-size:11.5px;color:#64748b;font-weight:800">المرشّحون من الجرد — اختر المطابق:</div>` + cands.map(c => { const on = String(c.item.id) === String(r.item.id), cp = Math.round(c.score * 100);
+            return `<button type="button" data-sa="pick" data-pid="${escHtml(String(c.item.id))}" style="display:flex;gap:8px;align-items:center;width:100%;text-align:right;margin-top:4px;background:${on ? '#ecfdf5' : '#fff'};border:1.5px solid ${on ? '#047857' : '#e5e7eb'};border-radius:10px;padding:5px 8px;font:inherit;cursor:pointer">
+              ${img(c.item.image_url, '📦').replace('width:48px;height:48px', 'width:34px;height:34px')}<span style="flex:1;min-width:0;font-size:12px;font-weight:${on ? 900 : 700};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${on ? '✅ ' : ''}${escHtml(c.item.name || '')} · $${escHtml(String(c.item.price || 0))}</span><span style="font-size:11px;font-weight:900;color:#64748b">${cp}%</span></button>`; }).join('') : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          ${btn('link', '🔗 اربطهما الآن ثمّ عدّل المنتج', '#047857', '#fff')}
           ${btn('review', open ? '▲ إخفاء المراجعة' : '🔍 راجِع', '#f1f5f9', '#0f1219')}
-          <a href="bridge.html?link=${encodeURIComponent(sp.id)}&inv=${encodeURIComponent(r.item.id)}" style="background:#0f1219;color:#fff;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">🔗 اربطهما (السعر والمزامنة)</a>
-          ${cands.length > 1 ? btn('next', '🔄 مرشّحٌ آخر (' + cands.length + ')', '#f1f5f9', '#0f1219') : ''}
+          <a href="bridge.html?link=${encodeURIComponent(sp.id)}&inv=${encodeURIComponent(r.item.id)}" style="background:#f1f5f9;color:#0f1219;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">في الجسر</a>
           ${btn('ai', '🧠 اسأل العقل', '#eef2ff', '#3730a3')}
           ${btn('edit', '✏️ عدّل منتج الجرد', '#f1f5f9', '#0f1219')}
           ${btn('store', '🛒 افتحه في المتجر', '#f1f5f9', '#0f1219')}
@@ -10503,7 +10548,20 @@ function bulkRenderSimilar(cont, fresh) {
       const card = b.closest('[data-sim]'); if (!card) return;
       const sid = card.getAttribute('data-sim'), iid = card.getAttribute('data-inv'), row = _simRows.find(x => String(x.sp.id) === sid); if (!row) return;
       if (act === 'review') { _simOpen = _simOpen === sid ? '' : sid; bulkRenderSimilar(cont); return; }
-      if (act === 'next') { const i = row.cands.findIndex(c => String(c.item.id) === iid); _simPick[sid] = row.cands[(i + 1) % row.cands.length].item.id; bulkRenderSimilar(cont); return; }
+      if (act === 'pick') { _simPick[sid] = b.getAttribute('data-pid'); bulkRenderSimilar(cont); return; }
+      if (act === 'link') {
+        const invP = allProducts.find(p => String(p.id) === iid); if (!invP) return;
+        b.disabled = true; const t0 = b.textContent; b.textContent = 'لحظة…';
+        try {
+          const ok = await simLinkDirect(invP, sid);
+          if (!ok) { b.disabled = false; b.textContent = t0; return; }
+          _simRows = _simRows.filter(x => String(x.sp.id) !== sid); delete _simPick[sid]; if (_simOpen === sid) _simOpen = '';
+          bulkRenderSimilar(cont);
+          showToast('✅ رُبطا — الباركود والسعر محدَّثان في الجهتين · الآن راجع بيانات المنتج', 'success');
+          if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid);
+        } catch (er) { b.disabled = false; b.textContent = t0; showToast('❌ لم يُربط: ' + ((er && er.message) || er), 'error'); }
+        return;
+      }
       if (act === 'skip') { _simSkipSet(sid + '|' + iid, true); delete _simPick[sid]; bulkRenderSimilar(cont, true); showToast('أُخفي هذا الاقتراح', 'info'); return; }
       if (act === 'edit') { if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid); return; }
       if (act === 'store') { window.open(invStoreLink('#product=' + encodeURIComponent(sid)), '_blank'); return; }
@@ -15669,19 +15727,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029u"></script>
+<script src="gmt-pwa.js?v=20261029v"></script>
 <script src="gmt-selfcheck.js?v=20261025y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029u"></script>
+<script src="gmt-brain.js?v=20261029v"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029u"></script>
+<script src="gmt-whatsnew.js?v=20261029v"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029u"></script>
+<script src="gmt-nofab.js?v=20261029v"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

@@ -35,6 +35,19 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(after.n === 0 && after.un, '«✕ ليسا نفس المنتج» يُخفي الاقتراح و«أظهر المخفيّة» يرجعه: ' + JSON.stringify(after));
   await pg.evaluate(() => document.querySelector('#bulk-content [data-sa="unskip"]').click()); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => document.querySelectorAll('#bulk-content [data-sim]').length === 1), '«أظهر المخفيّة» أعاده');
+  // (seq 213) المرشّحون للاختيار · «🔗 اربطهما الآن» ⇐ ربطٌ في الجهتين ثمّ صفحة تعديل المنتج
+  const btn2 = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim] [data-sa="link"]')].length);
+  ok(btn2 === 1, 'زرّ «🔗 اربطهما الآن ثمّ عدّل المنتج» في البطاقة');
+  await pg.evaluate(() => { window.__opened = null; window.invOpenFullEdit = id => { window.__opened = String(id); }; });
+  await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="link"]').click());
+  await pg.waitForSelector('.gmtask-ov', { timeout: 5000 }).catch(() => {});
+  await pg.evaluate(() => { const o = document.querySelector('.gmtask-ov'); if (o) [...o.querySelectorAll('button')].find(b => /سعر المتجر/.test(b.textContent)).click(); });
+  await pg.waitForFunction(() => window.__opened, null, { timeout: 10000 }).catch(() => {});
+  const st = (await H.call('/rest/v1/gmt_store?id=eq.1&select=*', undefined, 'GET'))[0].products.find(x => x.id === 's1');
+  const ib = (await H.call('/rest/v1/products?id=eq.' + B + '&select=*', undefined, 'GET'))[0];
+  const op = await pg.evaluate(() => window.__opened);
+  ok(op === B && /#product=s1/.test(ib.store_url || '') && Number(ib.price) === 15 && st.barcode === ib.barcode && Number(st.price) === 15, 'رُبطا مباشرةً (رابط المتجر · السعر الموحّد $15 · الباركود) ثمّ فُتحت صفحة تعديل منتج الجرد: ' + JSON.stringify({ op: op === B, url: ib.store_url, p: ib.price, sb: st.barcode }));
+  ok(await pg.evaluate(() => !document.querySelector('#bulk-content [data-sim]')), 'اختفى من المتشابهات بعد الربط');
   // ② التسعير لكل الظاهر
   await f('no_group');
   await pg.evaluate(() => bulkPriceFiltered()); await pg.waitForTimeout(400);
