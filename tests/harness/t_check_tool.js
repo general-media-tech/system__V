@@ -30,6 +30,11 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const det = await pg.evaluate(() => (document.querySelector('#bulk-content [data-sim]') || {}).innerText || '');
   ok(/في المتجر/.test(det) && /في الجرد/.test(det) && /الكمية/.test(det) && /\$15/.test(det) && /المجموعة|السعر/.test(det), '«🔍 راجِع» يعرض الاثنين كاملين (السعر · الصور · المواصفات)');
   await pg.screenshot({ path: '/tmp/gmt-out/check_tool_similar.png', fullPage: false });
+  // (seq 214) «ما فيها زرّ حفظ؟» ⇒ بيانات الجرد قابلةٌ للتعديل في المراجعة مع «💾 احفظ»
+  await pg.evaluate(() => { const c = document.querySelector('#bulk-content [data-sim]'); c.querySelector('[data-sf="price"]').value = '19'; c.querySelector('[data-sf="brand"]').value = 'Canon'; c.querySelector('[data-sa="save"]').click(); });
+  await pg.waitForTimeout(800);
+  const sv = (await H.call('/rest/v1/products?id=eq.' + B + '&select=*', undefined, 'GET'))[0];
+  ok(Number(sv.price) === 19 && sv.brand === 'Canon', '«💾 احفظ بيانات الجرد» في المراجعة يحفظ السعر والماركة: ' + JSON.stringify({ p: sv.price, b: sv.brand }));
   await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="skip"]').click()); await pg.waitForTimeout(300);
   const after = await pg.evaluate(() => ({ n: document.querySelectorAll('#bulk-content [data-sim]').length, un: !!document.querySelector('#bulk-content [data-sa="unskip"]') }));
   ok(after.n === 0 && after.un, '«✕ ليسا نفس المنتج» يُخفي الاقتراح و«أظهر المخفيّة» يرجعه: ' + JSON.stringify(after));
