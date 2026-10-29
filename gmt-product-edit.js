@@ -399,6 +399,9 @@
       S.cats = (Array.isArray(sp.category_ids) && sp.category_ids.length ? sp.category_ids : (sp.category_id ? [sp.category_id] : [])).map(String);
       var cats = (rec.categories || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       sec.innerHTML = '<h3>🛒 المتجر</h3>' +
+        /* (المالك seq 221 «بدي ميزة كثير ضرورية في فكّ ارتباط — ربطت منتج بس بدي أفكّ ارتباطه») */
+        '<div class="pe-linked" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:#166534">' +
+          '<span style="flex:1;min-width:160px">🔗 مربوط بـ «' + esc(sp.name) + '» في المتجر</span><button type="button" data-pe-unlink style="background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:6px 12px;font:inherit;font-weight:900;cursor:pointer">🔓 فكّ الارتباط</button></div>' +
         '<div class="pe-2"><label>الاسم في المتجر<input data-s="name" value="' + esc(sp.name) + '"></label><label>السعر في المتجر $<input data-s="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(sp.price) + '"></label></div>' +
         '<label style="display:flex;align-items:center;font-weight:700"><input type="checkbox" data-s-same> السعر في المتجر = سعر البيع في الجرد</label>' +
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">أقسامه في المتجر</div><div class="pe-cats">' +
@@ -409,6 +412,13 @@
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">صوره في المتجر <span style="font-weight:700;color:#6b7280">(متزامنة مع الجرد · الأولى هي الرئيسية · الترتيب هنا للمتجر وحده · ✕ يخفيها من المتجر أو يحذفها من الكل)</span></div><div class="pe-imgs" data-pe-imgs></div><div data-pe-sthid></div>' +
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input data-pe-newimg dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:180px;margin:0"><button type="button" data-pe-addimg>+ أضف</button></div>';
       paintImgs();
+      $('[data-pe-unlink]').onclick = async function () {
+        var ask = global.GMTAsk && GMTAsk.confirm ? GMTAsk.confirm('يُفكّ ربط «' + (p.name || '') + '» بمنتج المتجر «' + (sp.name || '') + '».\nيبقى المنتجان كما هما (الاسم والسعر والصور والمواصفات) — فقط لا يعودان مربوطين، ويعود كلٌّ منهما «غير مربوط» في الجسر والمتشابهات.', { title: '🔓 فكّ الارتباط', okText: 'فكّ الارتباط', cancelText: 'تراجع' }) : Promise.resolve(true);
+        if (!(await ask)) return;
+        var b = this, bc = String(p.barcode || '').trim(); b.disabled = true;
+        try { await unlinkStore(sp.id, bc); say('✅ فُكّ الارتباط — المنتجان مستقلّان الآن'); loadStore(); if (ctx.onSaved) try { ctx.onSaved(p, { inv: { store_url: null }, unlink: sp.id }); } catch (_) {} }
+        catch (er) { b.disabled = false; say('❌ لم يُفكّ: ' + (er && er.message || er), true); }
+      };
       $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (isHttp(u) && S.imgs.indexOf(u) === -1) { i.value = ''; addFromLink(u); } };
       var same = $('[data-s-same]'), spr = $('[data-s="price"]');
       same.checked = num(sp.price) === num(p.price);
@@ -416,6 +426,22 @@
       same.onchange = sync; $('[data-f="price"]').addEventListener('input', sync); sync();
     }, function (e) { $('[data-pe-store]').innerHTML = '<h3>🛒 المتجر</h3><p class="pe-note" style="color:#b91c1c">تعذّرت قراءة المتجر: ' + esc(e && e.message || e) + '</p>'; }); }
     loadStore();
+    /* فكّ الارتباط في الجهتين: منتج المتجر يفقد inv_id (والباركود المنقول إليه عند الربط وحده، كي لا يُعاد ربطه بالباركود) ·
+       ومنتج الجرد يفقد store_url — لا شيء آخر يُمسّ */
+    async function unlinkStore(sid, bc) {
+      await storeWrite(function (arr) {
+        return arr.map(function (x) {
+          if (!x) return x;
+          var mine = String(x.id) === String(sid) || (x.inv_id != null && String(x.inv_id) === String(p.id));
+          if (!mine) return x;
+          var o = Object.assign({}, x); if (o.inv_id != null && String(o.inv_id) === String(p.id)) o.inv_id = null;
+          if (bc && String(o.barcode || '').trim() === bc) o.barcode = '';
+          return o;
+        });
+      });
+      var r = await ctx.saveInv({ store_url: null }); if (r && r.error) throw new Error('الجرد: ' + r.error);
+      p.store_url = '';
+    }
     /* (TASK-0247 · المالك seq 165) «الربط بالمتجر او الانشاء» — من هذه الصفحة نفسها (كان: «اربطه من الجسر») */
     function unlinked(sec, rec) {
       var prods = rec && Array.isArray(rec.products) ? rec.products : [], cats = (rec && rec.categories || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });

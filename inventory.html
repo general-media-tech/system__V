@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029z3"></script>
+<script src="gmt-tools.js?v=20261029z4"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029z3"></script>
-  <script src="gmt-config.js?v=20261029z3"></script>
-  <script src="gmt-brand.js?v=20261029z3"></script>
+  <script src="gmt-image-guard.js?v=20261029z4"></script>
+  <script src="gmt-config.js?v=20261029z4"></script>
+  <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029z3"></script>
-  <script src="gmt-suggest.js?v=20261029z3"></script>
-  <script src="gmt-match.js?v=20261029z3"></script>
-  <script src="gmt-compat-kb.js?v=20261029z3"></script>
+  <script src="gmt-core.js?v=20261029z4"></script>
+  <script src="gmt-suggest.js?v=20261029z4"></script>
+  <script src="gmt-match.js?v=20261029z4"></script>
+  <script src="gmt-compat-kb.js?v=20261029z4"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029z3" defer></script>
+  <script src="gmt-ask.js?v=20261029z4" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029z3" defer></script>
-  <script src="gmt-share.js?v=20261029z3" defer></script>
+  <script src="gmt-stock.js?v=20261029z4" defer></script>
+  <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029z3"></script>
-<script src="gmt-gallery.js?v=20261029z3" defer></script>
-<script src="gmt-product-edit.js?v=20261029z3" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029z3"></script>
+<script src="gmt-specs.js?v=20261029z4"></script>
+<script src="gmt-gallery.js?v=20261029z4" defer></script>
+<script src="gmt-product-edit.js?v=20261029z4" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029z4"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029z3"></script>
+  <script src="gmt-staff.js?v=20261029z4"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -2562,6 +2562,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <!-- (المالك seq 217 «هي الأداة ما في إلها زرّ داخل أزرار الجرد») متشابهات المتجر والجرد وفحص المنتجات — زرّان هنا وفي «المزيد» -->
     <button class="btn btn-ghost btn-sm" data-admin="متشابهات المتجر والجرد" onclick="invOpenCheck('similar')" title="تحليلٌ كامل: منتجات المتجر غير المربوطة ⇐ أقرب منتجات الجرد (النوع · الموديل · المجموعة · الصور) ثمّ اربطهما">🔗 متشابهات المتجر والجرد</button>
     <button class="btn btn-ghost btn-sm" data-admin="فحص المنتجات" onclick="invOpenCheck('one_img')" title="فحص المنتجات: صورة واحدة · بلا مجموعة/تصنيف/مواصفات/سعر/ربط">🧪 فحص المنتجات</button>
+    <button class="btn btn-ghost btn-sm" data-admin="منتجات بخيارات" onclick="invOpenCheck('variants')" title="منتجات الجرد التي هي خيارات لمنتجٍ واحد (سنجل/كومبو · لون · مقاس · قطر) ⇒ منتجٌ واحد في المتجر بخيارات (seq 221)">🧩 منتجات بخيارات</button>
 
     <button class="btn btn-ghost btn-sm" onclick="gmtInvUndoPanel()" title="تراجع (Ctrl+Z) وسجلّ الحذف والتعديل والنقل">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
@@ -2704,6 +2705,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="bchip" data-bf="no_cat" onclick="bulkSetFilter(this)">بلا تصنيف</button>
     <button class="bchip" data-bf="no_specs" onclick="bulkSetFilter(this)">بلا مواصفات</button>
     <button class="bchip" data-bf="similar" onclick="bulkSetFilter(this)">🔗 متشابهات المتجر والجرد</button>
+    <button class="bchip" data-bf="variants" onclick="bulkSetFilter(this)">🧩 منتجات بخيارات</button>
   </div>
   </div><!-- /bulk-head -->
 
@@ -3040,6 +3042,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     </button>
     <button class="more-action-btn" data-admin="فحص المنتجات" onclick="closeMoreSheet(); invOpenCheck('one_img');">
       <div class="more-action-icon">🧪</div><span class="more-action-label">فحص المنتجات</span>
+    </button>
+    <button class="more-action-btn" data-admin="منتجات بخيارات" onclick="closeMoreSheet(); invOpenCheck('variants');">
+      <div class="more-action-icon">🧩</div><span class="more-action-label">منتجات بخيارات</span>
     </button>
 
     <button class="more-action-btn" onclick="closeMoreSheet(); gmtInvUndoPanel();">
@@ -8344,7 +8349,11 @@ async function invOpenFullEdit(id, opt) {
       if (!r.error) { Object.assign(p, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {}); }
       return r;
     },
-    onSaved: (p2, ch) => { try { renderAll(); } catch (_) {} if (opt.onSaved) try { opt.onSaved(p2, ch); } catch (_) {} }
+    onSaved: (p2, ch) => {
+      /* (seq 221) فكّ الارتباط ⇒ فهرس المتجر والمتشابهات يُقرآن من جديد */
+      if (ch && ch.unlink) { _gmtStoreCat = null; invStoreIndex(true).then(() => { try { renderAll(); } catch (_) {} }); if (typeof _simRows !== 'undefined') _simRows = null; }
+      try { renderAll(); } catch (_) {} if (opt.onSaved) try { opt.onSaved(p2, ch); } catch (_) {}
+    }
   });
 }
 window.invOpenFullEdit = invOpenFullEdit;
@@ -10577,9 +10586,9 @@ function _simVisible() {
     .sort((a, b) => b.cands[0].score - a.cands[0].score);
 }
 function _simProgress(cont, pc, msg, extra) {
-  if (bulkActiveFilter !== 'similar') return;
+  if (bulkActiveFilter !== 'similar' && bulkActiveFilter !== 'variants') return;
   cont.innerHTML = `<div data-sim-prog style="max-width:520px;margin:34px auto;padding:18px;background:#fff;border:1px solid #eef0f4;border-radius:14px;text-align:center">
-    <div style="font-size:15px;font-weight:900;color:#0f1219">🔎 تحليلٌ كامل لكل منتجات المتجر والجرد</div>
+    <div style="font-size:15px;font-weight:900;color:#0f1219">${bulkActiveFilter === 'variants' ? '🧩 العقل يجمع المنتجات التي لها أكثر من خيار' : '🔎 تحليلٌ كامل لكل منتجات المتجر والجرد'}</div>
     <div style="font-size:12px;color:#5b6472;font-weight:700;margin:6px 0 12px;line-height:1.7">النوع (هود · عدسة · بانيل ليد · رأس إضاءة · مايك …) · القسم ⇐ المجموعة · رمز الموديل · الماركة · السعر · الصور — يستغرق قليلاً ثمّ تُفتح النتائج</div>
     <div style="height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pc}%;background:#D5001C;border-radius:99px;transition:width .25s"></div></div>
     <div data-sim-msg style="font-size:12.5px;font-weight:800;color:#334155;margin-top:8px">${escHtml(msg)} · ${pc}%</div>${extra || ''}</div>`;
@@ -10912,12 +10921,214 @@ function bulkRenderSimilar(cont, fresh) {
     });
   }
 }
+/* ══ (المالك seq 221) «المنتجات التي لها أكثر من خيار — سعر أو لون أو حجم: في المتجر مثلاً غطاء العدسة متعدّد الأقطار هو بيحدّد القطر
+   وبيعطيه المواصفات المعيّنة لعدسته · أشياء مثل درون نيو ونيو سنجل — تأخذ منتجين أو ثلاثة إلى كل خيار: السنجل غير الكومبو —
+   هذا لازم يشتغل عليه العقل يرجع يعمل بحث» ══
+   «🧩 منتجات بخيارات»: ① قواعد سريعة تجمع منتجات الجرد التي لا يفرقها إلا الحزمة (سنجل/كومبو/ستاندرد) أو اللون أو المقاس أو القطر
+   ② العقل يراجع كل نوعٍ مرّةً واحدة ويجمع العائلات بدقّة (Neo ≠ Neo 2 · RS4 ≠ RS4 mini) — أحكامه في gmt_settings (variant_families_v1)
+   ③ كل عائلة ⇐ منتجٌ واحد في المتجر بخيار («النسخة» · «القطر» · «اللون» · «المقاس») — كل خيارٍ يحمل سعره وباركوده وصورته ومواصفاته
+      وتوافقه من منتج الجرد الذي يمثّله، ومنتجات الجرد كلّها تُربط به */
+const VAR_KEY = 'variant_families_v1', VAR_SKIP = 'gmt_var_skip';
+let _varFams = null, _varBusy = null, _varAI = null, _varDone = {};
+function _varTn(s) { return String(s || '').toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[_\-–－.,()]/g, ' '); }
+const _VPKG = /\b(single|singl|sngl|combo|compo|standard|standart|fly ?more|kit|full ?package|package|body ?only|budy ?only)\b|سنجل|كومبو|ستاندرد|فلاي مور/g;
+const _VCOL = /\b(black|white|red|blue|gr[ae]y|silver|gold|green|pink|purple|orange|yellow)\b|اسود|ابيض|احمر|ازرق|رمادي|فضي|ذهبي|اخضر|وردي|برتقالي|اصفر/g;
+const _VSIZE = /\b(xs|xl|xxl|small|medium|large)\b|سمول|ميديوم|لارج|قياس صغير|قياس وسط|قياس كبير/g;
+const _VDIAM = /\b\d{2,3} ?(mm|مم|ملم)\b|\b\d{2,3}mm/g;
+function _varSkip() { try { return JSON.parse(localStorage.getItem(VAR_SKIP) || '{}'); } catch (_) { return {}; } }
+/* ① القواعد: نفس النوع ونفس الاسم بعد حذف كلمات الخيار ⇒ عائلة (والمكرّر بنفس الخيار لا يُعدّ خياراً) */
+function _varRuleFams(list) {
+  const G = {};
+  list.forEach(p => {
+    const t = GMTMatch.typeOf(p.name, p.group_name); let s = _varTn(p.name), v = [], opt = '';
+    s = s.replace(_VPKG, m => { v.push(m); opt = opt || 'النسخة'; return ' '; }).replace(_VCOL, m => { v.push(m); opt = opt || 'اللون'; return ' '; }).replace(_VSIZE, m => { v.push(m); opt = opt || 'المقاس'; return ' '; });
+    if (/^(cap|filter)$/.test(t)) s = s.replace(_VDIAM, m => { v.push(m.replace(/\s+/g, '')); opt = 'القطر'; return ' '; });
+    s = s.replace(/\s+/g, ' ').trim(); if (!s) return;
+    const k = t + '|' + s; (G[k] = G[k] || { t, base: s, opt: '', m: [] }).m.push({ p, value: v.join(' ').trim() || 'الأساسي' });
+    if (opt && !G[k].opt) G[k].opt = opt;
+  });
+  return Object.values(G).filter(g => g.m.length > 1 && new Set(g.m.map(x => x.value)).size > 1)
+    .map(g => ({ src: 'rules', type: g.t, base: g.m[0].p.name.replace(_VPKG, '').replace(_VDIAM, '').replace(/\s+/g, ' ').trim() || g.base, option: g.opt || 'النسخة', members: g.m.map(x => ({ id: String(x.p.id), value: x.value })) }));
+}
+/* ② العقل: نوعاً نوعاً (≤ ٦٠ اسماً في السؤال) — مرّةً واحدة، ويُحفظ */
+const _VSYS = 'أنت خبير منتجات تصوير (كاميرات · درونات · مانع اهتزاز · إضاءة · مايكات · إكسسوارات). تُعطى قائمة منتجات من جرد محلّ. ' +
+  'جمّع فقط المنتجات التي هي **خيارات/نسخ للمنتج نفسه**: الحزمة (Single/سنجل · Combo/كومبو · Standard · Fly More) · اللون · المقاس · قطر الغطاء أو الفلتر · الكاميرا التي يناسبها الكفر أو اللزقة. ' +
+  'لا تجمع موديلين مختلفين أبداً (DJI Neo ≠ DJI Neo 2 · RS4 ≠ RS4 Mini · Osmo Pocket 3 ≠ Pocket 4 · Mini 3 ≠ Mini 4 Pro · LP-E17 ≠ LP-E6) ولا منتجين من ماركتين. ' +
+  'المنتج المكرّر بالاسم نفسه ليس خياراً. أعد JSON فقط: {"families":[{"base":"اسم المنتج الموحّد للمتجر","option":"اسم الخيار بالعربية (النسخة · اللون · المقاس · القطر · الكاميرا)","members":[{"i":رقم,"value":"قيمة الخيار القصيرة"}]}]} — وإن لم توجد عائلات: {"families":[]}';
+async function _varLoadAI() {
+  try { const { data } = await sbFetch('GET', `/rest/v1/gmt_settings?key=eq.${VAR_KEY}&select=value`); const v = Array.isArray(data) && data[0] ? JSON.parse(data[0].value || '{}') : null; return v && typeof v === 'object' ? v : null; } catch (_) { return null; }
+}
+async function _varSaveAI(v) { await sbFetch('POST', '/rest/v1/gmt_settings?on_conflict=key', [{ key: VAR_KEY, value: JSON.stringify(v) }], { Prefer: 'resolution=merge-duplicates,return=minimal' }); }
+async function _varRunAI(prog, force) {
+  if (!window.GMTBrain || !GMTBrain.askJSON) throw new Error('عقل النظام لم يُحمَّل');
+  const old = force ? null : await _varLoadAI(), out = old || { at: Date.now(), types: {}, fams: [] };
+  const byType = {}; allProducts.forEach(p => { const t = GMTMatch.typeOf(p.name, p.group_name) || 'other'; (byType[t] = byType[t] || []).push(p); });
+  const types = Object.keys(byType).filter(t => byType[t].length > 1 && !out.types[t]);
+  let i = 0;
+  for (const t of types) {
+    const L = byType[t];
+    for (let k = 0; k < L.length; k += 60) {
+      const part = L.slice(k, k + 60);
+      prog(Math.round(100 * (i + k / L.length) / Math.max(1, types.length)), `🧠 العقل يجمع الخيارات: ${GMTMatch.typeLabel(t) || 'أخرى'} (${i + 1} / ${types.length})`);
+      const q = 'النوع: ' + (GMTMatch.typeLabel(t) || 'أخرى') + '\n' + part.map((p, j) => `${j + 1}. ${String(p.name || '').slice(0, 90)} · $${p.price || 0}${p.group_name ? ' · ' + p.group_name : ''}`).join('\n');
+      let j = null; try { j = await GMTBrain.askJSON(q.slice(0, 5800), _VSYS); } catch (er) { if (/429|كثيرة|نفد|quota/i.test(String(er && er.message || er))) { out.err = String(er.message || er); break; } }
+      (j && Array.isArray(j.families) ? j.families : []).forEach(f => {
+        const mem = (Array.isArray(f.members) ? f.members : []).map(m => ({ p: part[(parseInt(m.i, 10) || 0) - 1], value: String(m.value || '').slice(0, 40) })).filter(m => m.p && m.value);
+        if (mem.length > 1 && new Set(mem.map(m => m.value)).size > 1) out.fams.push({ src: 'ai', type: t, base: String(f.base || mem[0].p.name).slice(0, 120), option: String(f.option || 'النسخة').slice(0, 30), members: mem.map(m => ({ id: String(m.p.id), value: m.value })) });
+      });
+      await new Promise(r => setTimeout(r, 3500));                   // حدّ الوسيط (٢٠ طلباً بالدقيقة) وحدّ Gemini المجاني
+    }
+    if (out.err) break;
+    out.types[t] = 1; i++;
+  }
+  out.at = Date.now(); await _varSaveAI(out).catch(() => {});
+  return out;
+}
+/* العائلات المعروضة: ما جمعه العقل للنوع أوّلاً، والقواعد للأنواع التي لم يرها العقل */
+async function _varCompute(prog) {
+  prog(2, 'أقرأ المتجر…'); await invStoreIndex(true);
+  _varAI = await _varLoadAI();
+  if (!_varAI || Object.keys(_varAI.types || {}).length === 0) { try { _varAI = await _varRunAI(prog, false); } catch (er) { _varAI = { types: {}, fams: [], err: (er && er.message) || String(er) }; } }
+  const byId = new Map(allProducts.map(p => [String(p.id), p])), ai = (_varAI.fams || []).filter(f => f.members.every(m => byId.has(m.id)));
+  const aiTypes = _varAI.types || {}, rules = _varRuleFams(allProducts).filter(f => !aiTypes[f.type]);
+  const seen = new Set(), skip = _varSkip();
+  return ai.concat(rules).filter(f => { const k = f.members.map(m => m.id).sort().join('|'); if (seen.has(k) || skip[k]) return false; seen.add(k); f.key = k; return true; })
+    .map(f => Object.assign(f, { members: f.members.map(m => Object.assign({ on: true }, m, { p: byId.get(m.id) })).filter(m => m.p) }))
+    .filter(f => f.members.length > 1);
+}
+/* ③ الإنشاء في المتجر: منتجٌ مربوطٌ بأحد الأعضاء يصير الأساس (رقمه وروابطه) وإلّا منتجٌ جديد · الخيار يُضاف · منتجات المتجر المنفصلة للأعضاء الآخرين تُحذف (بتأكيد) */
+async function _varCreate(f, root) {
+  const mem = f.members.filter(m => m.on && String(m.value || '').trim());
+  if (mem.length < 2) throw new Error('اختر خيارين على الأقلّ');
+  const base = root.querySelector('[data-vf="base"]').value.trim() || f.base, optName = root.querySelector('[data-vf="opt"]').value.trim() || f.option;
+  const cat = root.querySelector('[data-vf="cat"]').value, drop = root.querySelector('[data-vf="drop"]').checked;
+  const rec0 = await gmtStoreCatalog(true), prods0 = Array.isArray(rec0.products) ? rec0.products : [];
+  const linkedOf = m => gmtStoreFind(prods0, m.p);
+  const linked = mem.map(linkedOf).filter(Boolean), baseSp = linked[0] || null, others = [...new Set(linked.slice(1).map(x => String(x.id)))].filter(id => !baseSp || id !== String(baseSp.id));
+  if (drop && others.length && !(await GMTAsk.confirm('تُحذف من المتجر ' + others.length + ' منتجاتٌ منفصلة صارت خياراتٍ في «' + base + '»:\n' + others.map(id => '• ' + ((prods0.find(x => String(x.id) === id) || {}).name || id)).join('\n') + '\n(الطلبات القديمة تحفظ أسماءها كما هي)', { title: '🧩 منتجٌ واحد بخيارات', okText: 'متابعة', cancelText: 'تراجع' }))) return null;
+  const prices = mem.map(m => Number(m.p.price) || 0), aff = new Set(prices).size > 1;
+  const values = mem.map(m => {
+    const sf = window.GMTSpecs && GMTSpecs.storeFields ? GMTSpecs.storeFields(m.p, {}) : {};
+    const v = { name: String(m.value).trim(), inv_id: m.p.id };
+    if (aff) v.price = Number(m.p.price) || 0;
+    if (m.p.barcode) v.barcode = String(m.p.barcode);
+    if (m.p.image_url && /^https?:/.test(m.p.image_url)) v.image = m.p.image_url;
+    if (sf.specs && sf.specs.length) v.specs = sf.specs; if (sf.compat) v.compat = sf.compat;
+    return v;
+  });
+  const newId = baseSp ? String(baseSp.id) : 'p_' + Date.now();
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  for (let i = 0; i < 3; i++) {
+    const rec = i ? await gmtStoreCatalog(true) : rec0, prods = Array.isArray(rec.products) ? rec.products : [];
+    const cur = prods.find(x => String(x.id) === newId) || null;
+    const imgs = [...new Set((cur && Array.isArray(cur.images) ? cur.images : []).concat(values.map(v => v.image)).filter(Boolean))];
+    const opt = { type: optName, affectsPrice: aff, values };
+    const b = Object.assign({}, cur || { id: newId, order: prods.length + 1, stock: 0, description: '' }, {
+      name: base, short_name: (cur && cur.short_name) || base, price: Math.min.apply(null, prices), images: imgs,
+      options: ((cur && Array.isArray(cur.options)) ? cur.options.filter(o => o && o.type !== optName) : []).concat([opt]),
+      specs: (cur && Array.isArray(cur.specs) && cur.specs.length) ? cur.specs : (values[0].specs || []), compat: (cur && cur.compat) || values[0].compat || ''
+    });
+    if (cat) { b.category_id = cat; b.category_ids = [...new Set([cat].concat((cur && cur.category_ids) || []))]; }
+    else if (!b.category_id) throw new Error('اختر قسماً في المتجر');
+    let next = cur ? prods.map(x => String(x.id) === newId ? b : x) : prods.concat([b]);
+    if (drop && others.length) next = next.filter(x => !others.includes(String(x.id)));
+    let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+    if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+    const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+    if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+    const rows = await w.json().catch(() => null);
+    _gmtStoreCat = null; try { localStorage.removeItem('sbc_store'); } catch (_) {}
+    if (Array.isArray(rows) && rows.length) break;
+    if (i === 2) throw new Error('الكتالوج يتغيّر من جهةٍ أخرى — أعد المحاولة');
+  }
+  const store_url = invStoreLink('#product=' + encodeURIComponent(newId));
+  for (const m of mem) {
+    const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(m.p.id)}`, { store_url });
+    if (error) throw new Error('الجرد (' + m.p.name + '): ' + error);
+    m.p.store_url = store_url;
+  }
+  await invStoreIndex(true);
+  return { id: newId, n: values.length, dropped: drop ? others.length : 0 };
+}
+function bulkRenderVariants(cont, fresh) {
+  if (!window.GMTMatch) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
+  if (fresh && !_varBusy) _varFams = null;
+  if (!_varFams) {
+    if (!_varBusy) {
+      const prog = (pc, msg) => { if (bulkActiveFilter === 'variants') _simProgress(cont, pc, msg); };
+      prog(0, 'أبدأ…');
+      _varBusy = _varCompute(prog).then(r => { _varFams = r; }).catch(er => { _varFams = []; _varAI = { err: (er && er.message) || String(er) }; })
+        .finally(() => { _varBusy = null; if (bulkActiveFilter === 'variants') bulkRenderVariants(cont); });
+    }
+    return;
+  }
+  const cats = ((_gmtStoreCat && _gmtStoreCat.rec && _gmtStoreCat.rec.categories) || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const prods = _invStoreIdx ? _invStoreIdx.prods : [];
+  const guessCat = f => { for (const m of f.members) { const sp = gmtStoreFind(prods, m.p); if (sp) return String((sp.category_ids && sp.category_ids[0]) || sp.category_id || ''); } return ''; };
+  const img = u => u ? `<img src="${escHtml(u)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #eef0f4;flex:0 0 auto" onerror="this.remove()">` : '<span style="width:40px;text-align:center">📦</span>';
+  const inp = (k, v, ph) => `<input data-vf="${k}" value="${escHtml(v || '')}" placeholder="${ph}" style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font:inherit;font-size:12.5px">`;
+  const nAI = _varAI && _varAI.types ? Object.keys(_varAI.types).length : 0;
+  cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">🧩 <b>${_varFams.length}</b> منتجاً في الجرد له أكثر من خيار (الحزمة · اللون · المقاس · القطر) — كلّ عائلة تصير <b>منتجاً واحداً في المتجر بخيارات</b>، وكل خيارٍ بسعره وصورته ومواصفاته وتوافقه.` +
+      (nAI ? `<br>🧠 العقل جمعها من ${nAI} نوعاً (محفوظ — لا يُعاد إلا بطلبك) <button type="button" data-va="reai" style="background:none;border:0;color:#3730a3;font:inherit;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline">أعد بحث العقل</button>` : '') +
+      (_varAI && _varAI.err ? `<div style="color:#b91c1c">⚠️ العقل: ${escHtml(_varAI.err)} — المعروض من القواعد السريعة</div>` : '') + `</div>` +
+    (_varFams.length ? _varFams.map((f, fi) => {
+      if (_varDone[f.key]) return `<div data-vfam="${fi}" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px;margin:6px 0;font-size:13px;font-weight:800;color:#166534">✅ «${escHtml(_varDone[f.key].name)}» صار منتجاً واحداً في المتجر بـ${_varDone[f.key].n} خيارات <button type="button" data-va="open" data-sid="${escHtml(_varDone[f.key].id)}" style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🛒 افتحه في المتجر</button></div>`;
+      const gc = guessCat(f);
+      return `<div data-vfam="${fi}" style="background:#fff;border:1px solid #eef0f4;border-radius:12px;padding:10px;margin:6px 0">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:900;color:${f.src === 'ai' ? '#3730a3' : '#64748b'}">${f.src === 'ai' ? '🧠 العقل' : '⚙️ قاعدة'} · ${escHtml(GMTMatch.typeLabel(f.type) || '')}</span>
+          ${inp('base', f.base, 'اسم المنتج في المتجر')}${inp('opt', f.option, 'اسم الخيار').replace('flex:1;min-width:140px', 'width:110px')}
+          <select data-vf="cat" style="border:1px solid #e2e8f0;border-radius:8px;padding:6px;font:inherit;font-size:12.5px;max-width:200px"><option value="">— قسم المتجر —</option>${cats.map(c => `<option value="${escHtml(c.id)}"${String(c.id) === gc ? ' selected' : ''}>${escHtml(c.name)}</option>`).join('')}</select></div>
+        ${f.members.map((m, mi) => { const sp = gmtStoreFind(prods, m.p);
+          return `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;border-top:1px solid #f1f5f9;font-size:12.5px">
+            <input type="checkbox" data-vm="${mi}" ${m.on ? 'checked' : ''} style="width:18px;height:18px">${img(m.p.image_url)}
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700">${escHtml(m.p.name)} <span style="color:#64748b">$${escHtml(String(m.p.price || 0))}</span>${sp ? ` <span style="color:#047857;font-size:11px">🔗 ${escHtml(String(sp.name || '').slice(0, 30))}</span>` : ''}</span>
+            <input data-vv="${mi}" value="${escHtml(m.value)}" placeholder="قيمة الخيار" style="width:110px;border:1px solid #e2e8f0;border-radius:8px;padding:5px 7px;font:inherit;font-size:12.5px"></label>`; }).join('')}
+        <label style="display:flex;gap:6px;align-items:center;font-size:12px;font-weight:700;color:#475569;margin-top:6px"><input type="checkbox" data-vf="drop" checked style="width:16px;height:16px"> احذف من المتجر المنتجات المنفصلة لهذه الخيارات (بعد تأكيد)</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <button type="button" data-va="make" style="background:#047857;color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:900;cursor:pointer">🧩 أنشئه في المتجر منتجاً واحداً بخيارات</button>
+          <button type="button" data-va="skip" style="background:#fef2f2;color:#b91c1c;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer">✕ ليست خيارات لمنتجٍ واحد</button></div>
+        <div data-vmsg style="font-size:12px;font-weight:800;margin-top:4px"></div></div>`; }).join('')
+      : '<div style="text-align:center;padding:50px 20px;color:#5b6472">لا منتجات بخيارات — كلّ منتجٍ في الجرد مستقلّ</div>');
+  if (!cont._varBound) {
+    cont._varBound = true;
+    cont.addEventListener('change', e => {
+      if (bulkActiveFilter !== 'variants') return;
+      const c = e.target.closest('[data-vfam]'); if (!c) return; const f = _varFams[+c.getAttribute('data-vfam')]; if (!f) return;
+      const mi = e.target.getAttribute('data-vm'), vi = e.target.getAttribute('data-vv');
+      if (mi != null) f.members[+mi].on = e.target.checked;
+      if (vi != null) f.members[+vi].value = e.target.value;
+    });
+    cont.addEventListener('input', e => { const vi = e.target.getAttribute && e.target.getAttribute('data-vv'); if (vi == null || bulkActiveFilter !== 'variants') return; const c = e.target.closest('[data-vfam]'); const f = c && _varFams[+c.getAttribute('data-vfam')]; if (f) f.members[+vi].value = e.target.value; });
+    cont.addEventListener('click', async e => {
+      if (bulkActiveFilter !== 'variants') return;
+      const b = e.target.closest('[data-va]'); if (!b) return; const a = b.getAttribute('data-va');
+      if (a === 'reai') { if (!(await GMTAsk.confirm('يعيد العقل جمع الخيارات لكل الأنواع (يستهلك الذكاء الاصطناعي مرّةً أخرى) — متأكّد؟', { title: '🧠 إعادة بحث العقل', okText: 'نعم' }))) return;
+        await _varSaveAI({ at: Date.now(), types: {}, fams: [] }).catch(() => {}); bulkRenderVariants(cont, true); return; }
+      if (a === 'open') { window.open(invStoreLink('#product=' + encodeURIComponent(b.getAttribute('data-sid'))), '_blank'); return; }
+      const c = b.closest('[data-vfam]'), f = c && _varFams[+c.getAttribute('data-vfam')]; if (!f) return;
+      const msg = t => { const m = c.querySelector('[data-vmsg]'); if (m) m.innerHTML = t; };
+      if (a === 'skip') { const s = _varSkip(); s[f.key] = 1; try { localStorage.setItem(VAR_SKIP, JSON.stringify(s)); } catch (_) {} _varFams = _varFams.filter(x => x !== f); bulkRenderVariants(cont); showToast('أُخفيت هذه العائلة', 'info'); return; }
+      if (a === 'make') {
+        b.disabled = true; const t0 = b.textContent; b.textContent = 'لحظة…'; msg('');
+        try {
+          const r = await _varCreate(f, c);
+          if (!r) { b.disabled = false; b.textContent = t0; return; }
+          _varDone[f.key] = { id: r.id, n: r.n, name: c.querySelector('[data-vf="base"]').value.trim() || f.base };
+          if (typeof _simRows !== 'undefined') _simRows = null;
+          bulkRenderVariants(cont);
+          showToast(`✅ منتجٌ واحد في المتجر بـ${r.n} خيارات` + (r.dropped ? ` · حُذف ${r.dropped} منفصل` : '') + ' · منتجات الجرد مربوطة به', 'success');
+        } catch (er) { b.disabled = false; b.textContent = t0; msg('<span style="color:#b91c1c">❌ ' + escHtml((er && er.message) || String(er)) + '</span>'); }
+      }
+    });
+  }
+}
+
 async function bulkSetFilter(btn) {
   document.querySelectorAll('.bchip').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
   bulkActiveFilter = btn.dataset.bf;
   if (bulkActiveFilter === 'similar' && _simStat && Date.now() - (_simStat.at || 0) > 10 * 60000) _simRows = null;   /* التحليل الكامل يبقى ١٠ دقائق — و«🔄 أعد التحليل الكامل» متى شئت */
-  if ((bulkActiveFilter === 'one_img' || bulkActiveFilter === 'similar') && !_invStoreIdx) { const c = document.getElementById('bulk-content'); if (c) c.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">🛒 أقرأ منتجات المتجر…</div>'; await invStoreIndex(); }
+  if ((bulkActiveFilter === 'one_img' || bulkActiveFilter === 'similar' || bulkActiveFilter === 'variants') && !_invStoreIdx) { const c = document.getElementById('bulk-content'); if (c) c.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">🛒 أقرأ منتجات المتجر…</div>'; await invStoreIndex(); }
   bulkRenderList();
 }
 window.bulkSetFilter = bulkSetFilter;
@@ -10958,10 +11169,11 @@ function bulkGetFiltered() {
 }
 
 function bulkRenderList() {
-  bulkFiltered = bulkActiveFilter === 'similar' ? [] : bulkGetFiltered();
+  bulkFiltered = (bulkActiveFilter === 'similar' || bulkActiveFilter === 'variants') ? [] : bulkGetFiltered();
   const cont = document.getElementById('bulk-content');
   if (!cont) return;
   if (bulkActiveFilter === 'similar') { bulkRenderSimilar(cont, !_simRows); return; }
+  if (bulkActiveFilter === 'variants') { bulkRenderVariants(cont, !_varFams); return; }
   const selBar = document.getElementById('bulk-select-all-bar');
   if (selBar) selBar.style.display = bulkSelectedIds.size>0?'flex':'none';
   const sc=document.getElementById('bulk-sel-count-span'); if(sc) sc.textContent=bulkFiltered.filter(p=>bulkSelectedIds.has(p.id)).length;
@@ -16067,19 +16279,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029z3"></script>
-<script src="gmt-selfcheck.js?v=20261029z3"></script>
+<script src="gmt-pwa.js?v=20261029z4"></script>
+<script src="gmt-selfcheck.js?v=20261029z4"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029z3"></script>
+<script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029z3"></script>
+<script src="gmt-whatsnew.js?v=20261029z4"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029z3"></script>
+<script src="gmt-nofab.js?v=20261029z4"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

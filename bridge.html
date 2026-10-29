@@ -145,27 +145,27 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
-  <script src="gmt-brand.js?v=20261029z3"></script>
+  <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029z3"></script>
+<script src="gmt-tools.js?v=20261029z4"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029z3"></script>
+  <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029z3"></script>
+  <script src="gmt-core.js?v=20261029z4"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029z3" defer></script>
-  <script src="gmt-stock.js?v=20261029z3" defer></script>
-  <script src="gmt-share.js?v=20261029z3" defer></script>
+  <script src="gmt-ask.js?v=20261029z4" defer></script>
+  <script src="gmt-stock.js?v=20261029z4" defer></script>
+  <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
-  <script src="gmt-suggest.js?v=20261029z3"></script>
-  <script src="gmt-match.js?v=20261029z3"></script>
+  <script src="gmt-suggest.js?v=20261029z4"></script>
+  <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-enrich.js?v=20261027c"></script>
-  <script src="gmt-specs.js?v=20261029z3"></script>
-  <script src="gmt-staff.js?v=20261029z3"></script>
+  <script src="gmt-specs.js?v=20261029z4"></script>
+  <script src="gmt-staff.js?v=20261029z4"></script>
 
 
 <!-- ══ LOADING ══ -->
@@ -959,6 +959,7 @@ function renderTab1(q){
           <a href="${esc(match?.images?.[0]||'#')}" target="_blank" class="btn btn-ghost btn-sm" style="display:${match?.images?.[0]?'inline-flex':'none'}">🖼️</a>
           ${match?.price!=p.price?`<button class="btn btn-warn btn-sm" onclick="openSyncModal('${p.id}','${match?.id||''}')">⚡ سعر</button>`:''}
           <button class="btn btn-ghost btn-sm" onclick="openLinkModal('${p.id}')">🔗 تعديل</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="unlinkPair('${p.id}')">🔓 فكّ</button>
         `:`
           ${p.barcode?`
             <button class="btn btn-green btn-sm" onclick="openLinkModal('${p.id}')">🔗 ربط</button>
@@ -1010,7 +1011,7 @@ function renderTab2(q){
         ${!sp.barcode?`<div style="margin-top:4px;font-size:10px;color:var(--text3);">أضف كود الجرد (barcode) لهذا المنتج لإتمام الربط</div>`:''}
       </div>
       <div class="actions">
-        ${linked?`<span class="badge-green">✅ مرتبط</span>`:
+        ${linked?`<span class="badge-green">✅ مرتبط</span>${match?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="unlinkPair('${esc(String(match.id))}')">🔓 فكّ</button>`:''}`:
           `<button class="btn btn-red btn-sm" onclick="openLinkFromStore('${esc(sp.id)}')">🔗 ربط بالجرد</button>`}
         ${sp.images?.[0]?`<a href="${esc(sp.images[0])}" target="_blank" class="btn btn-ghost btn-sm">🖼️</a>`:''}
       </div>
@@ -1412,6 +1413,28 @@ async function mlSave(){
   hideLoading();
 }
 window.mlSave=mlSave;
+/* (المالك seq 221 «بدي ميزة كثير ضرورية في فكّ ارتباط — ربطت منتج بس بدي أفكّ ارتباطه») الجسر يربط بالباركود نفسه في الجهتين:
+   الفكّ = منتج المتجر يفقد الباركود المنقول من الجرد و inv_id · منتج الجرد يفقد store_url — ولا شيء آخر (الاسم والسعر والصور كما هي) */
+async function unlinkPair(invId){
+  const invP=invProds.find(x=>String(x.id)===String(invId)); if(!invP)return;
+  const sp=getStoreMatch(invP)||storeProds.find(x=>x&&x.inv_id!=null&&String(x.inv_id)===String(invId));
+  if(!sp){toast('ℹ️ هذا المنتج غير مربوط');return;}
+  if(!(await GMTAsk.confirm('يُفكّ ربط «'+(invP.name||'')+'» (الجرد) بـ«'+(sp.name||sp.short_name||'')+'» (المتجر).\nيبقى المنتجان كما هما — فقط لا يعودان مربوطين.',{title:'🔓 فكّ الارتباط',okText:'فكّ الارتباط',cancelText:'تراجع'})))return;
+  showLoading('أفكّ الارتباط…');
+  try{
+    const bc=String(invP.barcode||'').trim();
+    await saveStoreProducts(fresh=>fresh.map(x=>{
+      if(!x||!(String(x.id)===String(sp.id)||(x.inv_id!=null&&String(x.inv_id)===String(invId))))return x;
+      const o={...x}; if(o.inv_id!=null&&String(o.inv_id)===String(invId))o.inv_id=null; if(bc&&String(o.barcode||'').trim()===bc)o.barcode=''; return o;
+    }));
+    await patchInv(invId,{store_url:null});
+    invP.store_url=null;
+    updateStats(); buildGroupBars(); renderTab1(); renderTab2(); renderTab3();
+    toast('✅ فُكّ الارتباط — المنتجان مستقلّان الآن');
+  }catch(e){toast('❌ '+e.message);}
+  hideLoading();
+}
+window.unlinkPair=unlinkPair;
 
 // ══════════════════════════════════════════════
 // MODAL: إنشاء في المتجر
@@ -1614,21 +1637,21 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
   <script src="gmt-guide-bridge.js?v=20261003"></script>
-<script src="gmt-pwa.js?v=20261029z3"></script>
+<script src="gmt-pwa.js?v=20261029z4"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261029z3"></script>
+<script src="gmt-selfcheck.js?v=20261029z4"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029z3"></script>
+<script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029z3"></script>
+<script src="gmt-whatsnew.js?v=20261029z4"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029z3"></script>
+<script src="gmt-nofab.js?v=20261029z4"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

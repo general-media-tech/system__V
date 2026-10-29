@@ -134,7 +134,7 @@ window.GMT_PUBLIC = 1;</script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <link rel="manifest" href="manifest.json">
-  <script src="gmt-brand.js?v=20261029z3"></script>
+  <script src="gmt-brand.js?v=20261029z4"></script>
 <script>
 /* (TASK-0255 · المالك seq 174) «من داخل التطبيق … ما في داعي تاخذني على متجر وتفتح لي … دخلني مباشره الى المنتج»:
    ?direct=1 (أزرار «عرض في المتجر» في الجرد ونقطة البيع — GMTUtil.storeLink) مع #product= ⇒ لا انترو، والمنتج يُفتح فور وصول الكتالوج. */
@@ -169,16 +169,16 @@ window.GMT_PUBLIC = 1;</script>
 </script>
 </head>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
-  <script src="gmt-image-guard.js?v=20261029z3"></script>
+  <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029z3"></script>
+  <script src="gmt-core.js?v=20261029z4"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261029z3" defer></script>
-  <script src="gmt-share.js?v=20261029z3" defer></script>
+  <script src="gmt-ask.js?v=20261029z4" defer></script>
+  <script src="gmt-share.js?v=20261029z4" defer></script>
   <!-- ══════════════════════════════════════════════════════════════════════
        💬 مساعد المتجر — (2026-09-26 · طلب المالك)
        ─────────────────────────────────────────────────────────────────────
@@ -188,7 +188,9 @@ window.GMT_PUBLIC = 1;</script>
        المساعد لا يُظهر زرّه إطلاقاً إن لم يُضبط الوسيط — زرّ محادثة لا يردّ
        أسوأ من لا زرّ.
        ══════════════════════════════════════════════════════════════════════ -->
-  <script src="gmt-suggest.js?v=20261029z3"></script>
+  <script src="gmt-suggest.js?v=20261029z4"></script>
+  <script>window.GMT_COMPAT_NOLOAD = true;</script>
+  <script src="gmt-compat-kb.js?v=20261029z4"></script>   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
   <script>
     /* رابط الوسيط العامّ — انشر gmt-shop أوّلاً ثمّ ضع رابطه هنا.
@@ -1839,23 +1841,55 @@ function openSearchBar(){ searchOpen=true; document.getElementById('search-bar')
 function closeSearch(){ searchOpen=false; document.getElementById('search-bar').style.transform='translateY(-100%)'; document.getElementById('search-input').value=''; showAllProducts(); }
 window.closeSearch=closeSearch;
 
+/* (المالك seq 221 «البحث باستخدام التوافق مثلاً هود 18 55 — حتى في المتجر») بحث المتجر = بحث النظام نفسه (gmt-suggest):
+   كل كلمة بأيّ ترتيب في الاسم والمختصر والقسم والوصف والباركود · و«نوع + ما يركب عليه» من المرجع (بطارية 700d ⇐ LP-E8 ·
+   هود 18-55 ⇐ EW-63C أو هود لولبي 58مم · غطاء عدسة 85 ⇐ أقطار عدسات 85) — ويُطابَق كل **خيار** في المنتجات متعدّدة الخيارات
+   («غطاء متعدّد الأقطار» ⇐ خيار 58مم) فيُفتح المنتج والخيار مختار */
+function _srCats(p){ const ids=p.category_ids||(p.category_id?[p.category_id]:[]); return ids.map(id=>(store.categories.find(c=>String(c.id)===String(id))||{}).name||'').join(' '); }
+function _srSpecs(sp){ return Array.isArray(sp)?sp.map(r=>r&&(r.value||r.v||'')).join(' '):''; }
+function _srHit(q,prod){
+    const S=window.GMTSuggest, base={ name:prod.name||'', short:prod.short_name||'', barcode:prod.barcode||'', group_name:_srCats(prod), alt_names:prod.alt_names||'', brand:prod.brand||'', compat:prod.compat||'' };
+    const lc=q.toLowerCase();
+    if(String(prod.name||'').toLowerCase().includes(lc)) return { hit:true };
+    if(S&&S.hitsProduct&&S.hitsProduct(q,base)) {
+        /* منتجٌ بخيارات: الخيار الذي يطابق أدقّ يُختار عند الفتح */
+        const v=_srVariant(q,prod,base); return { hit:true, variant:v };
+    }
+    const v=_srVariant(q,prod,base); if(v) return { hit:true, variant:v };
+    return { hit:false };
+}
+function _srVariant(q,prod,base){
+    const S=window.GMTSuggest; if(!S||!S.hitsProduct||!Array.isArray(prod.options))return null;
+    const KB=window.GMTCompatKB, it=KB&&KB.resolve?KB.resolve(q):null;
+    for(const opt of prod.options){ for(const v of (opt.values||[])){
+        const nm=typeof v==='string'?v:(v&&v.name)||''; if(!nm)continue; const o=typeof v==='object'?v:{};
+        const pv=Object.assign({},base,{ name:(prod.name||'')+' '+nm, compat:o.compat||'', barcode:o.barcode||base.barcode });
+        if(it&&KB.intentHit&&KB.intentHit(pv,it)) return nm;
+        if(!it&&S.hitsProduct(q,pv)&&!S.hitsProduct(q,base)) return nm;
+    } }
+    return null;
+}
 window.performSearch=function(query){
-    const q=query.trim().toLowerCase();
+    const q=query.trim();
     const area=document.querySelector('[data-container="products-area"]');
     if(!q){showAllProducts();return;}
     area.querySelectorAll('section[data-category-section]').forEach(s=>s.style.display='none');
-    const matched=store.products.filter(p=>p.name?.toLowerCase().includes(q));
+    const hits=new Map(); store.products.forEach(p=>{ const h=_srHit(q,p); if(h.hit) hits.set(p.id,h); });
+    const matched=store.products.filter(p=>hits.has(p.id));
+    const say=window.GMTSuggest&&GMTSuggest.compatSay?GMTSuggest.compatSay(q):'';
+    const sayHtml=say?`<p style="margin:0 16px 10px;padding:8px 12px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.7;background:${matched.length?'#f0fdf4':'#fff7ed'};color:${matched.length?'#166534':'#9a3412'}">🔎 ${escHtml(say)}${matched.length?'':' — غير متوفّر حالياً، راسلنا ونؤمّنه لك'}</p>`:'';
     let temp=document.getElementById('search-results-section'); if(temp)temp.remove();
     temp=document.createElement('section'); temp.id='search-results-section'; temp.className='mt-6';
-    if(!matched.length){temp.innerHTML=`<div class="text-center py-10 text-gray-400 px-4"><i class="ph ph-magnifying-glass text-4xl block mb-2 opacity-40"></i><p class="text-sm">لا توجد نتائج لـ "${escHtml(query)}"</p></div>`;area.appendChild(temp);return;}
-    temp.innerHTML=`<h3 class="font-medium text-[18px] px-4 mb-4">نتائج البحث (${matched.length})</h3><div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6 sr-row"></div>`;
+    if(!matched.length){temp.innerHTML=sayHtml+`<div class="text-center py-10 text-gray-400 px-4"><i class="ph ph-magnifying-glass text-4xl block mb-2 opacity-40"></i><p class="text-sm">لا توجد نتائج لـ "${escHtml(query)}"</p></div>`;area.appendChild(temp);return;}
+    temp.innerHTML=`<h3 class="font-medium text-[18px] px-4 mb-4">نتائج البحث (${matched.length})</h3>`+sayHtml+`<div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6 sr-row"></div>`;
     const row=temp.querySelector('.sr-row');
     matched.forEach(prod=>{
-        const imgUrl=prod.images?.[0]||'';
+        const imgUrl=prod.images?.[0]||'', h=hits.get(prod.id), open=()=>openProductModal(prod.id,h&&h.variant?{variant:h.variant}:null);
         const card=document.createElement('div'); card.className='min-w-[160px] w-[160px] bg-white rounded-[12px] shadow-soft p-3 flex flex-col flex-shrink-0'; card.style.cursor='pointer';
-        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img src="${imgUrl}" class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4><div class="flex justify-between items-center"><span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span><button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
-        card.addEventListener('click',e=>{if(e.target.closest('.sr-open'))return;openProductModal(prod.id);});
-        card.querySelector('.sr-open').addEventListener('click',e=>{e.stopPropagation();openProductModal(prod.id);});
+        card.dataset.srId=prod.id; if(h&&h.variant)card.dataset.srVariant=h.variant;
+        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img src="${imgUrl}" class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4>${h&&h.variant?`<div style="font-size:11px;font-weight:800;color:#047857;margin:-8px 0 6px">🎯 ${escHtml(h.variant)}</div>`:''}<div class="flex justify-between items-center"><span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span><button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
+        card.addEventListener('click',e=>{if(e.target.closest('.sr-open'))return;open();});
+        card.querySelector('.sr-open').addEventListener('click',e=>{e.stopPropagation();open();});
         row.appendChild(card);
     });
     area.appendChild(temp);
@@ -1904,8 +1938,9 @@ function _fallbackCopy(text){
     try{ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }catch(e){}
 }
 
-function openProductModal(productId){
+function openProductModal(productId, opt){
     const prod=store.products.find(p=>String(p.id) === String(productId)); if(!prod)return;
+    _pmWantVariant=(opt&&opt.variant)||null;   /* (seq 221) الخيار الذي طابق البحث */
     _pmId=productId; _pmImgs=Array.isArray(prod.images)&&prod.images.length?prod.images:[]; _pmIdx=0; _pmQty=1;
     // Set URL hash for sharing
     _setProductHash(productId);
@@ -2006,6 +2041,21 @@ function _renderSimilarProducts(prod){
     });
 }
 
+/* (المالك seq 221 «غطاء العدسة متعدّد الأقطار — هو بيحدّد القطر وبيعطيه المواصفات المعيّنة لعدسته») كل خيارٍ قد يحمل مواصفاته
+   وتوافقه (specs · compat · barcode من منتج الجرد الذي يمثّله) ⇒ عند اختياره يتبدّل جدول المواصفات و«متوافق مع» وكود المنتج.
+   _pmWantVariant: الخيار الذي طابق البحث («غطاء عدسة 85» ⇐ 58مم) يُختار تلقائياً عند الفتح */
+let _pmWantVariant=null;
+function _pmVarMatch(v,want){ const n=typeof v==='string'?v:(v&&v.name)||''; return String(n).trim()===String(want).trim(); }
+function _pmVariantInfo(prod, v){
+    const specsEl=document.getElementById('product-modal-specs'); if(!specsEl||!window.GMTSpecs)return;
+    const o=(v&&typeof v==='object')?v:{};
+    const specs=Array.isArray(o.specs)&&o.specs.length?o.specs:prod.specs, compat=o.compat||prod.compat||'';
+    const sh=(Array.isArray(specs)&&specs.length)||compat?GMTSpecs.tableHTML(Array.isArray(specs)?specs:[],{compat:compat,marks:false}):'';
+    const tag=(o.specs||o.compat)?`<div style="font-size:12px;font-weight:800;color:#047857;margin-bottom:6px">🎯 مواصفات الخيار: ${escHtml(o.name||'')}</div>`:'';
+    specsEl.querySelector('[data-specs-body]').innerHTML=tag+sh; specsEl.classList.toggle('hidden',!sh);
+    const codeEl=document.getElementById('product-modal-code'), codeWrap=document.getElementById('product-modal-code-wrap');
+    if(o.barcode&&codeEl&&codeWrap){ codeEl.textContent=o.barcode; codeWrap.classList.remove('hidden'); codeWrap.style.display='flex'; }
+}
 function _renderVariants(prod){
     const vc=document.getElementById('product-modal-variants'); if(!vc)return; vc.innerHTML='';
     if(!prod.options?.length)return;
@@ -2026,15 +2076,17 @@ function _renderVariants(prod){
             (opt.values||[]).forEach((v,vi)=>{
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors';
                 b.textContent=`${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}`; if(v.barcode)b.dataset.variantBarcode=v.barcode;
-                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent=`${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}`; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); };
-                if(vi===0)setTimeout(()=>b.click(),0);
+                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent=`${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}`; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); _pmVariantInfo(prod, v); };
+                if(_pmWantVariant ? _pmVarMatch(v,_pmWantVariant) : vi===0)setTimeout(()=>b.click(),0);
+                else if(vi===0&&_pmWantVariant&&!(opt.values||[]).some(x=>_pmVarMatch(x,_pmWantVariant)))setTimeout(()=>b.click(),0);
                 bd.appendChild(b);
             });
         } else {
             (opt.values||[]).forEach(v=>{
                 const vName=typeof v==='string'?v:(v?.name||v); const vImg=typeof v==='object'?v?.image:null; const vBc=typeof v==='object'?(v?.barcode||''):'';
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors'; b.textContent=vName; b.dataset.variantValue=vName; if(vBc)b.dataset.variantBarcode=vBc;
-                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); if(vImg)_applyVariantImage(vImg); };
+                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); if(vImg)_applyVariantImage(vImg); _pmVariantInfo(prod, v); };
+                if(_pmWantVariant&&_pmVarMatch(v,_pmWantVariant))setTimeout(()=>b.click(),0);
                 bd.appendChild(b);
             });
         }
@@ -2531,11 +2583,11 @@ document.addEventListener('DOMContentLoaded', initStore);
 /* م12: القدوم من نقطة البيع بـ ?skip_intro=1 يفتح المتجر فوراً بلا انترو */
 try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document.getElementById('intro-screen')?.remove(); } catch(_) {}
 </script>
-<script src="gmt-specs.js?v=20261029z3"></script>
+<script src="gmt-specs.js?v=20261029z4"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
-<script src="gmt-pwa.js?v=20261029z3"></script>
+<script src="gmt-pwa.js?v=20261029z4"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261029z3"></script>
+<script src="gmt-selfcheck.js?v=20261029z4"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
