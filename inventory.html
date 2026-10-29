@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029z"></script>
+<script src="gmt-tools.js?v=20261029z2"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029z"></script>
-  <script src="gmt-config.js?v=20261029z"></script>
-  <script src="gmt-brand.js?v=20261029z"></script>
+  <script src="gmt-image-guard.js?v=20261029z2"></script>
+  <script src="gmt-config.js?v=20261029z2"></script>
+  <script src="gmt-brand.js?v=20261029z2"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029z"></script>
-  <script src="gmt-suggest.js?v=20261029z"></script>
-  <script src="gmt-match.js?v=20261029z"></script>
-  <script src="gmt-compat-kb.js?v=20261029z"></script>
+  <script src="gmt-core.js?v=20261029z2"></script>
+  <script src="gmt-suggest.js?v=20261029z2"></script>
+  <script src="gmt-match.js?v=20261029z2"></script>
+  <script src="gmt-compat-kb.js?v=20261029z2"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029z" defer></script>
+  <script src="gmt-ask.js?v=20261029z2" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029z" defer></script>
-  <script src="gmt-share.js?v=20261029z" defer></script>
+  <script src="gmt-stock.js?v=20261029z2" defer></script>
+  <script src="gmt-share.js?v=20261029z2" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029z"></script>
-<script src="gmt-gallery.js?v=20261029z" defer></script>
-<script src="gmt-product-edit.js?v=20261029z" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029z"></script>
+<script src="gmt-specs.js?v=20261029z2"></script>
+<script src="gmt-gallery.js?v=20261029z2" defer></script>
+<script src="gmt-product-edit.js?v=20261029z2" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029z2"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029z"></script>
+  <script src="gmt-staff.js?v=20261029z2"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -10455,7 +10455,7 @@ window.bulkPriceFiltered = bulkPriceFiltered;
 const SIM_SKIP = 'gmt_sim_skip';
 function _simSkip() { try { return JSON.parse(localStorage.getItem(SIM_SKIP) || '{}'); } catch (_) { return {}; } }
 function _simSkipSet(k, on) { const m = _simSkip(); if (on) m[k] = 1; else delete m[k]; try { localStorage.setItem(SIM_SKIP, JSON.stringify(m)); } catch (_) {} }
-let _simRows = null, _simOpen = '', _simPick = {}, _simBusy = null, _simStat = null;
+let _simRows = null, _simPick = {}, _simBusy = null, _simStat = null;
 const SIM_MIN = 0.42;
 /* (المالك seq 216 «الأداة غبية — تربط هوداً بعدسة · لا تعرف أقسام الإكسسوار والبانيل ليد · اجعلها أداةً قويّة تحلّل كل منتجات النظام
    تستغرق وقتاً ثمّ تفتح · المجموعات والأقسام متشابهة تقريباً») تحليلٌ كاملٌ قبل العرض:
@@ -10504,39 +10504,25 @@ async function _simAnalyze(prog) {
       const ti = iT.get(iv), hi = H.get(imgOf(iv));
       const r = GMTMatch.pairScore(src, iv, { ts, ti, grp: !iv.group_name || !known ? null : !!gs[iv.group_name], img: hs && hi ? GMTMatch.imgSim(hs, hi) : null });
       if (!r) { cut++; return; }
-      if (r.score >= 0.3) all.push({ item: iv, score: r.score, why: r.why, ti });
+      if (r.score >= 0.05) all.push({ item: iv, score: r.score, why: r.why, ti });   // الضعيف يبقى مرشّحاً للعقل بالصور (seq 218) — والعرض من SIM_MIN
     });
     all.sort((a, b) => b.score - a.score);
-    if (all.length && all[0].score >= SIM_MIN) rows.push({ sp, cat, ts, all: all.slice(0, 12) });
+    if (all.length) { const row = { sp, cat, ts, all: all.slice(0, 12) }; _simApplyAI(row); rows.push(row); }
     if (i % 10 === 9) { prog(70 + Math.round(28 * (i + 1) / store.length), `أحلّل منتجات المتجر: ${i + 1} / ${store.length}`); await tick(); }
   }
   rows.sort((a, b) => b.all[0].score - a.all[0].score);
   _simStat = { store: store.length, inv: inv.length, pairs, cut, imgs: urls.length, got, learn: nLearn, sec: Object.keys(cats).length, ms: Date.now() - t0, at: Date.now() };
   return rows;
 }
-function _simSpecs(rows) { return rows.length ? '<table style="width:100%;font-size:11.5px;border-collapse:collapse">' + rows.slice(0, 14).map(r => `<tr><td style="color:#64748b;padding:2px 4px;white-space:nowrap;vertical-align:top">${escHtml(r[0])}</td><td style="padding:2px 4px">${escHtml(r[1])}</td></tr>`).join('') + '</table>' : '<div style="font-size:11.5px;color:#94a3b8">بلا مواصفات</div>'; }
-function _simSide(t, imgs, rows, extra) {
-  return `<div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid #eef0f4;border-radius:12px;padding:8px">
-    <div style="font-size:12px;font-weight:900;margin-bottom:6px">${t}</div>
-    <div style="display:flex;gap:4px;overflow-x:auto;margin-bottom:6px">${imgs.length ? imgs.slice(0, 8).map(u => `<img src="${escHtml(u)}" alt="" style="width:84px;height:84px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid #eef0f4;flex:0 0 auto" onerror="this.remove()">`).join('') : '<span style="font-size:11.5px;color:#94a3b8">بلا صور</span>'}</div>
-    ${extra}${_simSpecs(rows)}</div>`;
+/* مواصفات المنتجين صفوفاً [المفتاح، القيمة] — المتجر مصفوفة {label,value} والجرد كائن (المفاتيح المخفيّة __ لا تُعرض) */
+function _simSpecRows(p, isStore) {
+  if (isStore) return (Array.isArray(p.specs) ? p.specs : []).map(r => [r.label || r.k || '', r.value || r.v || '']).filter(r => r[0] && r[1]);
+  const o = p.specs && typeof p.specs === 'object' ? p.specs : {};
+  return Object.keys(o).filter(k => k.indexOf('__') !== 0).map(k => [k, typeof o[k] === 'object' ? JSON.stringify(o[k]) : String(o[k])]);
 }
-function _simDetail(sp, inv) {
-  const kv = (k, v) => v ? `<div style="font-size:12px;margin:2px 0"><span style="color:#64748b">${k}:</span> <b>${escHtml(String(v))}</b></div>` : '';
-  const spRows = (Array.isArray(sp.specs) ? sp.specs : []).map(r => [r.label || r.k || '', r.value || r.v || '']).filter(r => r[0] && r[1]);
-  const ivSpec = inv.specs && typeof inv.specs === 'object' ? inv.specs : {};
-  const ivRows = Object.keys(ivSpec).filter(k => k.indexOf('__') !== 0).map(k => [k, typeof ivSpec[k] === 'object' ? JSON.stringify(ivSpec[k]) : String(ivSpec[k])]);
-  const ivImgs = [...new Set([inv.image_url].concat(Array.isArray(inv.images) ? inv.images : []).filter(Boolean))];
-  const total = (typeof bulkGetTotal === 'function') ? bulkGetTotal(inv) : '';
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">` +
-    _simSide('🛒 في المتجر', (sp.images || []).filter(Boolean), spRows, kv('الاسم', sp.name || sp.short_name) + kv('السعر', sp.price != null ? '$' + sp.price : '') + kv('الباركود', sp.barcode) + kv('الماركة', sp.brand) +
-      (sp.description ? `<div style="font-size:11.5px;color:#334155;white-space:pre-line;max-height:90px;overflow:auto;margin:4px 0">${escHtml(String(sp.description).slice(0, 600))}</div>` : '') + kv('متوافق مع', sp.compat)) +
-    /* (المالك seq 214 «بس ما فيها زرّ حفظ؟») بيانات الجرد قابلةٌ للتعديل هنا مع «💾 احفظ» — والصفحة الكاملة بـ«✏️ عدّل منتج الجرد» */
-    _simSide('📦 في الجرد', ivImgs, ivRows, simField('name', 'الاسم', inv.name) + simField('price', 'السعر $', inv.price, 'number') + simField('barcode', 'الباركود', inv.barcode) +
-      simField('group_name', 'المجموعة', inv.group_name) + simField('category', 'التصنيف', inv.category) + simField('brand', 'الماركة', inv.brand || ivSpec.__brand) + kv('الكمية', total) +
-      `<button type="button" data-sa="save" style="width:100%;margin:6px 0;background:#D5001C;color:#fff;border:0;border-radius:10px;padding:8px;font:inherit;font-size:12.5px;font-weight:900;cursor:pointer">💾 احفظ بيانات الجرد</button>` +
-      (ivSpec.__desc ? `<div style="font-size:11.5px;color:#334155;white-space:pre-line;max-height:90px;overflow:auto;margin:4px 0">${escHtml(String(ivSpec.__desc).slice(0, 600))}</div>` : '') + kv('متوافق مع', String(inv.compat || '').slice(0, 300))) +
-    `</div>`;
+function _simSpecs(rows) { return rows.length ? '<table style="width:100%;font-size:12px;border-collapse:collapse">' + rows.slice(0, 24).map(r => `<tr><td style="color:#64748b;padding:3px 4px;white-space:nowrap;vertical-align:top;border-bottom:1px solid #f1f5f9">${escHtml(r[0])}</td><td style="padding:3px 4px;border-bottom:1px solid #f1f5f9">${escHtml(r[1])}</td></tr>`).join('') + '</table>' : '<div style="font-size:12px;color:#94a3b8">بلا مواصفات</div>'; }
+function _simImgs(p, isStore) {
+  return [...new Set((isStore ? [] : [p.image_url]).concat(Array.isArray(p.images) ? p.images : []).filter(u => u && /^(https?:|data:)/.test(u)))];
 }
 /* (المالك seq 213 «إن وجدتَ المطابق أعطني الربط — ولكن افتح لي صفحة تعديل بيانات المنتج») ربطٌ مباشر من هنا كما يفعل الجسر (mlSave):
    المتجر ⇐ باركود الجرد والسعر الموحّد وصورة الجرد ومواصفاته · الجرد ⇐ السعر ورابط المنتج في المتجر — ثمّ صفحة تعديل المنتج */
@@ -10587,7 +10573,8 @@ function simField(k, label, v, type) {
 function _simVisible() {
   const skip = _simSkip();
   return (_simRows || []).map(x => Object.assign(x, { cands: x.all.filter(c => !skip[x.sp.id + '|' + c.item.id]).slice(0, 3) }))
-    .filter(x => x.cands.length && x.cands[0].score >= SIM_MIN);
+    .filter(x => x.cands.length && x.cands[0].score >= SIM_MIN)
+    .sort((a, b) => b.cands[0].score - a.cands[0].score);
 }
 function _simProgress(cont, pc, msg) {
   if (bulkActiveFilter !== 'similar') return;
@@ -10597,6 +10584,195 @@ function _simProgress(cont, pc, msg) {
     <div style="height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pc}%;background:#D5001C;border-radius:99px;transition:width .25s"></div></div>
     <div data-sim-msg style="font-size:12.5px;font-weight:800;color:#334155;margin-top:8px">${escHtml(msg)} · ${pc}%</div></div>`;
 }
+
+/* ══ (المالك seq 218 «ممكن ما تكون الصورة متطابقة ١٠٠٪ ولكن المنتج اللي في الصورة نفسه — أو الاسم أحياناً») العقل بالعين ══
+   أحكام العقل تُحفظ على الجهاز (منتج المتجر ⇐ منتج الجرد أو «لا أحد» · الثقة · السبب) فلا يُسأل مرّتين، وتُطبَّق على كل تحليلٍ لاحق */
+const SIM_AI = 'gmt_sim_ai';
+function _simAIGet() { try { return JSON.parse(localStorage.getItem(SIM_AI) || '{}') || {}; } catch (_) { return {}; } }
+function _simAISet(sid, v) { const m = _simAIGet(); m[sid] = v; try { localStorage.setItem(SIM_AI, JSON.stringify(m)); } catch (_) {} }
+function _simApplyAI(row, v) {
+  v = v || _simAIGet()[row.sp.id]; if (!v) return;
+  row.ai = v;
+  row.all.forEach(c => { if (c._s0 == null) c._s0 = c.score; c.score = c._s0; c.why = (c.why || []).filter(w => !/^🧠/.test(w)); });
+  if (v.iid != null) {
+    const c = row.all.find(x => String(x.item.id) === String(v.iid));
+    if (c && v.conf >= 60) { c.score = Math.max(c._s0, Math.min(0.97, 0.55 + v.conf * 0.004)); c.why.unshift('🧠 العقل بالصور ' + v.conf + '%'); }
+    else if (c) c.why.unshift('🧠 العقل متردّد ' + v.conf + '%');
+  } else if (row.all[0]) row.all[0].why.unshift('🧠 العقل: ليس بينهم');
+  row.all.sort((a, b) => b.score - a.score);
+}
+function _simPool(row) { return row.all.filter(c => c.item.image_url || (Array.isArray(c.item.images) && c.item.images.some(Boolean))).slice(0, 6); }
+/* سؤال العقل لصفّ واحد: بالصور إن وُجدت (gmt-vision) وإلّا بالأسماء (gmt-brain) */
+async function _simAsk(row) {
+  const sp = row.sp, src = { name: sp.name || sp.short_name, price: sp.price, brand: sp.brand, images: sp.images };
+  const pool = _simPool(row), hasImg = (sp.images || []).some(Boolean) && pool.length;
+  let r, how = 'بالصور';
+  if (hasImg) { try { r = await GMTMatch.vision(src, pool); } catch (er) { if (!GMTMatch.ai) throw er; r = null; how = 'بالأسماء (' + ((er && er.message) || er) + ')'; } }
+  if (!r) { r = await GMTMatch.ai(src, row.all, 12); if (how === 'بالصور') how = 'بالأسماء'; }
+  const v = { iid: r.item ? r.item.id : null, conf: r.confidence, why: r.why, how, at: Date.now() };
+  _simAISet(sp.id, v); _simApplyAI(row, v);
+  if (v.iid != null && v.conf >= 60) _simPick[sp.id] = v.iid;
+  return Object.assign({ item: r.item }, v);
+}
+let _simAIRun = null;
+async function _simAIAll(cont) {
+  if (_simAIRun) return;
+  const done = _simAIGet(), todo = (_simRows || []).filter(x => !done[x.sp.id] && (x.sp.images || []).some(Boolean) && _simPool(x).length);
+  if (!todo.length) { showToast('العقل راجع كل المنتجات من قبل — «🔄 أعد التحليل الكامل» يعيد عرضها', 'info'); return; }
+  _simAIRun = { n: todo.length, i: 0, hit: 0, stop: false, err: '' };
+  const upd = () => { const el = cont.querySelector('[data-sim-aiprog]'); if (el) el.textContent = `🧠 العقل يراجع بالصور: ${_simAIRun.i} / ${_simAIRun.n} · وجد ${_simAIRun.hit}` + (_simAIRun.err ? ' · ⚠️ ' + _simAIRun.err : ''); };
+  bulkRenderSimilar(cont);
+  for (const row of todo) {
+    if (_simAIRun.stop) break;
+    try { const v = await _simAsk(row); if (v.iid != null && v.conf >= 60) _simAIRun.hit++; _simAIRun.err = ''; }
+    catch (er) { _simAIRun.err = (er && er.message) || String(er); if (/كثيرة|429|نفد/.test(_simAIRun.err)) await new Promise(r => setTimeout(r, 20000)); }
+    _simAIRun.i++; upd();
+    if (_simAIRun.i % 8 === 0 && !document.getElementById('sim-split')) bulkRenderSimilar(cont);
+    await new Promise(r => setTimeout(r, 3500));                     // حدّ Gemini المجاني (~١٥ طلباً بالدقيقة)
+  }
+  const s = _simAIRun; _simAIRun = null;
+  bulkRenderSimilar(cont);
+  showToast(`🧠 انتهت مراجعة العقل بالصور: ${s.i} منتج · وجد المطابق في ${s.hit}`, 'success');
+}
+
+/* ── الإجراءات (من البطاقة ومن الشاشة المقسومة) ── */
+async function simDoSave(iid, root) {
+  const invP = allProducts.find(p => String(p.id) === String(iid)); if (!invP) return false;
+  const patch = {}; root.querySelectorAll('[data-sf]').forEach(el => { const k = el.getAttribute('data-sf'); let v = el.value.trim(); if (k === 'price') v = Number(v) || 0; if (String(invP[k] == null ? '' : invP[k]) !== String(v)) patch[k] = v; });
+  if (!Object.keys(patch).length) return 'same';
+  if ('brand' in patch) patch.specs = Object.assign({}, invP.specs || {}, { __brand: patch.brand });
+  const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(iid)}`, patch);
+  if (error) throw new Error(error);
+  Object.assign(invP, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [invP]).catch(() => {});
+  delete invP._mb; delete invP._mk;   /* بصمة النصّ والموديل تُحسب من جديد */
+  return true;
+}
+function _simDropLinked(sid, iid) {
+  _simRows = (_simRows || []).filter(x => String(x.sp.id) !== String(sid));
+  _simRows.forEach(x => { x.all = x.all.filter(c => String(c.item.id) !== String(iid)); });
+  delete _simPick[sid];
+}
+function _simSel(row) { return (_simPick[row.sp.id] != null && row.cands.find(c => String(c.item.id) === String(_simPick[row.sp.id]))) || row.cands[0]; }
+
+/* ══ (المالك seq 218 «اعرضه لي في الجرد وفي المتجر سوا — الاسم والصور وكذا — يقسم الشاشة لنصفين») الشاشة المقسومة ══
+   نصفٌ للمتجر ونصفٌ للجرد (جنباً إلى جنب على الشاشة العريضة · فوق وتحت على الهاتف، كلٌّ يمرَّر وحده): الصور كبيرة · الاسم · السعر ·
+   الباركود · القسم/المجموعة · الماركة · المواصفات · الوصف · التوافق — والمرشّحون أزرارٌ فوق نصف الجرد.
+   (seq 218 «بعد حفظه خلاص يطالعني منه — لا يكتب إشارة وأنا أستنّى») بعد الحفظ أو الربط أو «ليسا نفس المنتج» ⇐ المنتج التالي مباشرةً */
+let _spl = null;
+function _splKey(e) {
+  if (!_spl || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '') || document.getElementById('gmt-pe')) return;
+  if (e.key === 'Escape') simSplitClose(); else if (e.key === 'ArrowLeft') _splGo(1); else if (e.key === 'ArrowRight') _splGo(-1);
+}
+function simSplit(sid) { _spl = { sid: String(sid), img: { s: 0, i: 0 } }; document.removeEventListener('keydown', _splKey); document.addEventListener('keydown', _splKey); simSplitRender(); }
+window.simSplit = simSplit;
+function simSplitClose() { const o = document.getElementById('sim-split'); if (o) o.remove(); _spl = null; document.removeEventListener('keydown', _splKey); document.body.style.overflow = ''; const c = document.getElementById('bulk-content'); if (c && bulkActiveFilter === 'similar') bulkRenderSimilar(c); }
+function _splList() { return _simVisible(); }
+function _splGo(d) {
+  const L = _splList(); if (!L.length) { simSplitClose(); showToast('✅ انتهت المتشابهات', 'success'); return; }
+  let i = L.findIndex(x => String(x.sp.id) === _spl.sid);
+  i = i < 0 ? 0 : (i + d + L.length) % L.length;
+  _spl.sid = String(L[i].sp.id); _spl.img = { s: 0, i: 0 }; simSplitRender();
+}
+function simSplitRender() {
+  if (!_spl) return;
+  const L = _splList(); let idx = L.findIndex(x => String(x.sp.id) === _spl.sid);
+  if (idx < 0) { if (!L.length) { simSplitClose(); showToast('✅ انتهت المتشابهات', 'success'); return; } idx = Math.min(_spl.idx || 0, L.length - 1); _spl.sid = String(L[idx].sp.id); }
+  _spl.idx = idx;
+  const row = L[idx], sp = row.sp, r = _simSel(row), iv = r.item;
+  let o = document.getElementById('sim-split');
+  if (!o) {
+    o = document.createElement('div'); o.id = 'sim-split'; document.body.appendChild(o); document.body.style.overflow = 'hidden';
+    o.addEventListener('click', _splClick);
+  }
+  const wide = window.innerWidth >= 760;
+  const kv = (k, v) => v || v === 0 ? `<div style="font-size:13px;margin:3px 0"><span style="color:#64748b">${k}:</span> <b>${escHtml(String(v))}</b></div>` : '';
+  const chip = (t, bg, fg) => `<span style="display:inline-block;background:${bg};color:${fg};border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:800;margin:2px 2px 0 0">${escHtml(t)}</span>`;
+  const gal = (imgs, k) => {
+    const cur = Math.min(_spl.img[k] || 0, Math.max(0, imgs.length - 1));
+    return imgs.length ? `<div style="background:#fff;border:1px solid #eef0f4;border-radius:12px;padding:6px;text-align:center"><img src="${escHtml(imgs[cur])}" alt="" data-zoom="${escHtml(imgs[cur])}" style="max-width:100%;height:${wide ? '42vh' : '26vh'};object-fit:contain;cursor:zoom-in" onerror="this.style.opacity=.2"></div>
+      <div style="display:flex;gap:5px;overflow-x:auto;margin-top:5px">${imgs.map((u, j) => `<img src="${escHtml(u)}" alt="" data-gi="${k}:${j}" style="width:52px;height:52px;object-fit:contain;background:#fff;border-radius:8px;border:2px solid ${j === cur ? '#D5001C' : '#eef0f4'};flex:0 0 auto;cursor:pointer" onerror="this.remove()">`).join('')}</div>`
+      : '<div style="height:120px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#94a3b8;font-size:13px">بلا صور</div>';
+  };
+  const pane = (t, body) => `<div style="flex:1;min-width:0;min-height:0;overflow:auto;padding:10px;background:#f8fafc;${wide ? '' : 'border-bottom:3px solid #0f1219;'}">
+    <div style="font-size:13px;font-weight:900;color:#fff;background:#0f1219;border-radius:10px;padding:6px 10px;margin-bottom:8px;position:sticky;top:0;z-index:1">${t}</div>${body}</div>`;
+  const ivSpec = iv.specs && typeof iv.specs === 'object' ? iv.specs : {};
+  const pc = Math.round(r.score * 100);
+  const cands = row.cands.length > 1 ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">` + row.cands.map((c, j) => { const on = c === r;
+      return `<button type="button" data-spl="pick" data-pid="${escHtml(String(c.item.id))}" style="flex:1;min-width:120px;text-align:right;background:${on ? '#ecfdf5' : '#fff'};border:2px solid ${on ? '#047857' : '#e5e7eb'};border-radius:10px;padding:5px 8px;font:inherit;font-size:12px;font-weight:${on ? 900 : 700};cursor:pointer">${j + 1}. ${escHtml(String(c.item.name || '').slice(0, 40))} <span style="color:#64748b">${Math.round(c.score * 100)}%</span></button>`; }).join('') + `</div>` : '';
+  const why = (r.why || []).map(w => /مختلف|بعيد|ليس بينهم|متردّد/.test(w) ? chip(w, '#fef2f2', '#b91c1c') : chip(w, '#ecfdf5', '#047857')).join('');
+  const aiTxt = row.ai ? `<div style="font-size:12px;font-weight:800;margin:4px 0;color:${row.ai.iid != null && row.ai.conf >= 60 ? '#047857' : '#92400e'}">🧠 العقل (${escHtml(row.ai.how || '')}): ${row.ai.iid != null ? '«' + escHtml(String((allProducts.find(p => String(p.id) === String(row.ai.iid)) || {}).name || '')) + '» ' + row.ai.conf + '%' : 'لا أحد في الجرد هو المنتج نفسه'}${row.ai.why ? ' — ' + escHtml(row.ai.why) : ''}</div>` : '';
+  const btn = (a, t, bg, fg) => `<button type="button" data-spl="${a}" style="background:${bg};color:${fg};border:0;border-radius:10px;padding:${wide ? '9px 12px' : '8px 6px'};font:inherit;font-size:${wide ? 13 : 12}px;font-weight:900;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t}</button>`;
+  o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:#fff;display:flex;flex-direction:column;direction:rtl;font-family:inherit;color:#0f1219';
+  o.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #e5e7eb;flex:0 0 auto">
+      <button type="button" data-spl="close" aria-label="إغلاق" style="background:#f1f5f9;border:0;border-radius:10px;padding:7px 11px;font:inherit;font-weight:900;cursor:pointer">✖</button>
+      <div style="flex:1;min-width:0;font-size:13.5px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🔍 مقارنة ${idx + 1} / ${L.length} · <span style="color:${pc >= 75 ? '#047857' : pc >= 50 ? '#b45309' : '#64748b'}">${pc}%</span></div>
+      ${btn('prev', '▶ السابق', '#f1f5f9', '#0f1219')}${btn('next', 'التالي ◀', '#f1f5f9', '#0f1219')}</div>
+    <div style="flex:0 0 auto;padding:4px 10px;border-bottom:1px solid #f1f5f9">${why}${aiTxt}<div data-spl-msg style="font-size:12px;font-weight:800"></div></div>
+    <div data-spl-body style="flex:1;min-height:0;display:flex;flex-direction:${wide ? 'row' : 'column'}">` +
+      pane('🛒 في المتجر', `<div style="font-size:15px;font-weight:900;margin-bottom:6px">${escHtml(sp.name || sp.short_name || '—')}</div>` + gal(_simImgs(sp, true), 's') +
+        `<div style="margin-top:6px">${chip(GMTMatch.typeLabel(row.ts) || 'نوع غير معروف', '#f1f5f9', '#334155')}${row.cat ? chip(row.cat, '#f1f5f9', '#334155') : ''}</div>` +
+        kv('السعر', sp.price != null ? '$' + sp.price : '') + kv('الباركود', sp.barcode) + kv('الماركة', sp.brand) + kv('متوافق مع', sp.compat) +
+        (sp.description ? `<div style="font-size:12.5px;color:#334155;white-space:pre-line;margin:6px 0;line-height:1.7">${escHtml(String(sp.description).slice(0, 1500))}</div>` : '') + _simSpecs(_simSpecRows(sp, true))) +
+      pane('📦 في الجرد', cands + `<div style="font-size:15px;font-weight:900;margin-bottom:6px">${escHtml(iv.name || '—')}</div>` + gal(_simImgs(iv, false), 'i') +
+        `<div style="margin-top:6px">${chip(GMTMatch.typeLabel(r.ti) || 'نوع غير معروف', '#f1f5f9', '#334155')}${iv.group_name && iv.group_name !== GMTMatch.typeLabel(r.ti) ? chip(iv.group_name, '#f1f5f9', '#334155') : ''}</div>` +
+        `<div data-spl-form style="margin-top:4px">` + simField('name', 'الاسم', iv.name) + simField('price', 'السعر $', iv.price, 'number') + simField('barcode', 'الباركود', iv.barcode) +
+        simField('group_name', 'المجموعة', iv.group_name) + simField('category', 'التصنيف', iv.category) + simField('brand', 'الماركة', iv.brand || ivSpec.__brand) + `</div>` +
+        kv('الكمية', typeof bulkGetTotal === 'function' ? bulkGetTotal(iv) : '') + kv('متوافق مع', String(iv.compat || '').slice(0, 400)) +
+        (ivSpec.__desc ? `<div style="font-size:12.5px;color:#334155;white-space:pre-line;margin:6px 0;line-height:1.7">${escHtml(String(ivSpec.__desc).slice(0, 1500))}</div>` : '') + _simSpecs(_simSpecRows(iv, false))) +
+    `</div>
+    <div style="flex:0 0 auto;display:${wide ? 'flex' : 'grid'};${wide ? 'flex-wrap:wrap' : 'grid-template-columns:repeat(3,minmax(0,1fr))'};gap:6px;padding:8px 10px;border-top:1px solid #e5e7eb;background:#fff">
+      ${btn('link', wide ? '🔗 نفس المنتج — اربطهما' : '🔗 اربطهما', '#047857', '#fff')}${btn('save', '💾 احفظ ⇐ التالي', '#D5001C', '#fff')}${btn('skip', wide ? '✕ ليسا نفس المنتج' : '✕ ليسا نفسه', '#fef2f2', '#b91c1c')}
+      ${btn('ai', wide ? '🧠 اسأل العقل بالصور' : '🧠 العقل', '#eef2ff', '#3730a3')}${btn('edit', wide ? '✏️ صفحة التعديل' : '✏️ تعديل', '#f1f5f9', '#0f1219')}${btn('store', '🛒 في المتجر', '#f1f5f9', '#0f1219')}</div>`;
+}
+async function _splClick(e) {
+  const g = e.target.closest('[data-gi]');
+  if (g) { const [k, j] = g.getAttribute('data-gi').split(':'); _spl.img[k] = +j; simSplitRender(); return; }
+  const z = e.target.closest('[data-zoom]');
+  if (z) { window.open(z.getAttribute('data-zoom'), '_blank'); return; }
+  const b = e.target.closest('[data-spl]'); if (!b || !_spl) return;
+  const a = b.getAttribute('data-spl'), L = _splList(), row = L.find(x => String(x.sp.id) === _spl.sid); if (!row && a !== 'close') return;
+  const msg = t => { const m = document.querySelector('#sim-split [data-spl-msg]'); if (m) m.innerHTML = t; };
+  if (a === 'close') return simSplitClose();
+  if (a === 'prev') return _splGo(-1);
+  if (a === 'next') return _splGo(1);
+  const r = _simSel(row), sid = String(row.sp.id), iid = String(r.item.id);
+  if (a === 'pick') { _simPick[sid] = b.getAttribute('data-pid'); _spl.img.i = 0; simSplitRender(); return; }
+  if (a === 'edit') { if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid); return; }
+  if (a === 'store') { window.open(invStoreLink('#product=' + encodeURIComponent(sid)), '_blank'); return; }
+  if (a === 'save') {
+    b.disabled = true; b.textContent = 'لحظة…';
+    try {
+      const ok = await simDoSave(iid, document.querySelector('#sim-split [data-spl-form]'));
+      showToast(ok === 'same' ? 'لا تغيير — إلى التالي' : '✅ حُفظ في الجرد — إلى التالي', 'success');
+      _splGo(1);
+    } catch (er) { b.disabled = false; b.textContent = '💾 احفظ ⇐ التالي'; showToast('❌ لم يُحفظ: ' + ((er && er.message) || er), 'error'); }
+    return;
+  }
+  if (a === 'skip') {
+    _simSkipSet(sid + '|' + iid, true); delete _simPick[sid];
+    showToast('أُخفي — ' + (row.all.some(c => c !== r && !_simSkip()[sid + '|' + c.item.id] && c.score >= SIM_MIN) ? 'المرشّح التالي' : 'المنتج التالي'), 'info');
+    simSplitRender(); return;
+  }
+  if (a === 'link') {
+    const invP = allProducts.find(p => String(p.id) === iid); if (!invP) return;
+    b.disabled = true; b.textContent = 'لحظة…';
+    try {
+      const ok = await simLinkDirect(invP, sid);
+      if (!ok) { simSplitRender(); return; }
+      _simDropLinked(sid, iid);
+      showToast('✅ رُبطا — الباركود والسعر محدَّثان في الجهتين · صفحة التعديل مفتوحة، وبعدها المنتج التالي هنا', 'success');
+      simSplitRender();
+      if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid);
+    } catch (er) { b.disabled = false; b.textContent = '🔗 نفس المنتج — اربطهما'; showToast('❌ لم يُربط: ' + ((er && er.message) || er), 'error'); }
+    return;
+  }
+  if (a === 'ai') {
+    b.disabled = true; msg('🧠 العقل ينظر إلى الصور…');
+    try { await _simAsk(row); simSplitRender(); }
+    catch (er) { b.disabled = false; msg('<span style="color:#b91c1c">⚠️ ' + escHtml((er && er.message) || String(er)) + '</span>'); }
+  }
+}
+
 function bulkRenderSimilar(cont, fresh) {
   if (!window.GMTMatch || !GMTMatch.pairScore) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
   if (fresh && !_simBusy) _simRows = null;
@@ -10612,41 +10788,45 @@ function bulkRenderSimilar(cont, fresh) {
   const q = (document.getElementById('bulk-search-input')?.value || '').toLowerCase();
   const rows = _simVisible().filter(x => !q || (String(x.sp.name || '') + ' ' + x.cat + ' ' + x.cands.map(c => c.item.name + ' ' + (c.item.group_name || '')).join(' ')).toLowerCase().indexOf(q) !== -1);
   const st = _simStat || {}, strong = rows.filter(x => x.cands[0].score >= 0.75).length;
+  const aiDone = _simAIGet(), aiLeft = (_simRows || []).filter(x => !aiDone[x.sp.id] && (x.sp.images || []).some(Boolean) && _simPool(x).length).length;
   const chip = (t, bg, fg) => `<span style="display:inline-block;background:${bg};color:${fg};border-radius:99px;padding:1px 8px;font-size:11px;font-weight:800;margin:2px 2px 0 0;white-space:nowrap">${escHtml(t)}</span>`;
-  const whyChip = w => /مختلف|بعيد/.test(w) ? chip(w, '#fef2f2', '#b91c1c') : chip(w, '#ecfdf5', '#047857');
+  const whyChip = w => /مختلف|بعيد|ليس بينهم|متردّد/.test(w) ? chip(w, '#fef2f2', '#b91c1c') : chip(w, '#ecfdf5', '#047857');
   const img = (u, e) => u ? `<img src="${escHtml(u)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #eef0f4;flex:0 0 auto" onerror="this.outerHTML='${e}'">` : `<span style="font-size:22px">${e}</span>`;
   const btn = (act, t, bg, fg) => `<button type="button" data-sa="${act}" style="background:${bg};color:${fg};border:0;border-radius:10px;padding:7px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">${t}</button>`;
   const nSkip = Object.keys(_simSkip()).length;
   cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">` +
       (st.err ? `<div style="color:#b91c1c">⚠️ تعذّر التحليل: ${escHtml(st.err)}</div>` :
         `🔎 حُلِّل <b>${st.store || 0}</b> منتج متجر غير مربوط × <b>${st.inv || 0}</b> منتج جرد غير مربوط (${(st.pairs || 0).toLocaleString('en')} مقارنة · استُبعد ${(st.cut || 0).toLocaleString('en')} زوجاً لاختلاف النوع · الصور ${st.got || 0}/${st.imgs || 0} · ${st.learn || 0} قسماً متعلَّماً من المربوط · ${Math.round((st.ms || 0) / 1000)} ث)<br>`) +
-      `🔗 <b>${rows.length}</b> منتج متجر يشبه منتجاً في الجرد — منها <b>${strong}</b> قويّ (≥٧٥٪). اضغط «🔍 راجِع» لترى الاثنين كاملين ثمّ اربطهما أو أخفِ الاقتراح.` +
+      `🔗 <b>${rows.length}</b> منتج متجر يشبه منتجاً في الجرد — منها <b>${strong}</b> قويّ (≥٧٥٪). «🔍 قارن» يفتح الاثنين على نصفي الشاشة.` +
       ` <button type="button" data-sa="reanalyze" style="background:#f1f5f9;border:0;border-radius:8px;padding:4px 10px;color:#0f1219;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🔄 أعد التحليل الكامل</button>` +
-      (nSkip ? ` <button type="button" data-sa="unskip" style="background:none;border:0;color:#475569;font:inherit;font-weight:800;cursor:pointer;text-decoration:underline">أظهر المخفيّة (${nSkip})</button>` : '') + `</div>` +
-    (rows.length ? rows.map(({ sp, cands, cat, ts }) => {
-      const sel = _simPick[sp.id] != null ? cands.find(c => String(c.item.id) === String(_simPick[sp.id])) || cands[0] : cands[0], r = sel;
-      const pc = Math.round(r.score * 100), col = pc >= 75 ? '#047857' : pc >= 50 ? '#b45309' : '#64748b', open = _simOpen === String(sp.id);
-      return `<div data-sim="${escHtml(String(sp.id))}" data-inv="${escHtml(String(r.item.id))}" style="background:#fff;border:1px solid ${open ? '#0f1219' : '#eef0f4'};border-radius:12px;padding:8px;margin:6px 0">
+      (_simAIRun ? ` <button type="button" data-sa="aistop" style="background:#fef2f2;border:0;border-radius:8px;padding:4px 10px;color:#b91c1c;font:inherit;font-size:12px;font-weight:800;cursor:pointer">⏹ أوقف العقل</button>`
+        : aiLeft ? ` <button type="button" data-sa="aiall" style="background:#eef2ff;border:0;border-radius:8px;padding:4px 10px;color:#3730a3;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🧠 دقّق بالصور بالعقل (${aiLeft})</button>` : '') +
+      (rows.length ? ` <button type="button" data-sa="splitall" style="background:#0f1219;border:0;border-radius:8px;padding:4px 10px;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer">◧ قارنها واحداً واحداً</button>` : '') +
+      (nSkip ? ` <button type="button" data-sa="unskip" style="background:none;border:0;color:#475569;font:inherit;font-weight:800;cursor:pointer;text-decoration:underline">أظهر المخفيّة (${nSkip})</button>` : '') +
+      `<div data-sim-aiprog style="color:#3730a3;font-weight:800">${_simAIRun ? `🧠 العقل يراجع بالصور: ${_simAIRun.i} / ${_simAIRun.n} · وجد ${_simAIRun.hit}` : ''}</div></div>` +
+    (rows.length ? rows.map(row => {
+      const { sp, cands, cat, ts } = row, r = _simSel(row);
+      const pc = Math.round(r.score * 100), col = pc >= 75 ? '#047857' : pc >= 50 ? '#b45309' : '#64748b';
+      return `<div data-sim="${escHtml(String(sp.id))}" data-inv="${escHtml(String(r.item.id))}" style="background:#fff;border:1px solid #eef0f4;border-radius:12px;padding:8px;margin:6px 0">
         <div style="display:flex;gap:8px;align-items:center">
         ${img((sp.images || [])[0], '🛒')}<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🛒 ${escHtml(sp.name || sp.short_name || '—')} <span style="color:#64748b;font-weight:700">$${escHtml(String(sp.price ?? ''))}</span></div>
         <div style="font-size:12.5px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📦 ${escHtml(r.item.name || '')} <span style="color:#64748b">$${escHtml(String(r.item.price || 0))}</span></div></div>
         ${img(r.item.image_url, '📦')}<span style="font-size:11px;font-weight:900;color:${col};white-space:nowrap">${pc}%</span></div>
         <div style="margin-top:4px;line-height:1.5">${chip('🛒 ' + [GMTMatch.typeLabel(ts) || 'نوع غير معروف', cat].filter((v, i, a) => v && a.indexOf(v) === i).join(' · '), '#f1f5f9', '#334155')}${chip('📦 ' + [GMTMatch.typeLabel(r.ti) || 'نوع غير معروف', r.item.group_name].filter((v, i, a) => v && a.indexOf(v) === i).join(' · '), '#f1f5f9', '#334155')}${(r.why || []).map(whyChip).join('')}</div>
-        ${cands.length > 1 ? `<div style="margin-top:6px;font-size:11.5px;color:#64748b;font-weight:800">المرشّحون من الجرد — اختر المطابق:</div>` + cands.map(c => { const on = String(c.item.id) === String(r.item.id), cp = Math.round(c.score * 100);
+        ${cands.length > 1 ? `<div style="margin-top:6px;font-size:11.5px;color:#64748b;font-weight:800">المرشّحون من الجرد — اختر المطابق:</div>` + cands.map(c => { const on = c === r, cp = Math.round(c.score * 100);
             return `<button type="button" data-sa="pick" data-pid="${escHtml(String(c.item.id))}" style="display:flex;gap:8px;align-items:center;width:100%;text-align:right;margin-top:4px;background:${on ? '#ecfdf5' : '#fff'};border:1.5px solid ${on ? '#047857' : '#e5e7eb'};border-radius:10px;padding:5px 8px;font:inherit;cursor:pointer">
               ${img(c.item.image_url, '📦').replace('width:48px;height:48px', 'width:34px;height:34px')}<span style="flex:1;min-width:0;font-size:12px;font-weight:${on ? 900 : 700};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${on ? '✅ ' : ''}${escHtml(c.item.name || '')} · $${escHtml(String(c.item.price || 0))}</span><span style="font-size:11px;font-weight:900;color:#64748b">${cp}%</span></button>`; }).join('') : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          ${btn('review', '🔍 قارن على نصفي الشاشة', '#0f1219', '#fff')}
           ${btn('link', '🔗 اربطهما الآن ثمّ عدّل المنتج', '#047857', '#fff')}
-          ${btn('review', open ? '▲ إخفاء المراجعة' : '🔍 راجِع', '#f1f5f9', '#0f1219')}
           <a href="bridge.html?link=${encodeURIComponent(sp.id)}&inv=${encodeURIComponent(r.item.id)}" style="background:#f1f5f9;color:#0f1219;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">في الجسر</a>
-          ${btn('ai', '🧠 اسأل العقل', '#eef2ff', '#3730a3')}
+          ${btn('ai', '🧠 اسأل العقل بالصور', '#eef2ff', '#3730a3')}
           ${btn('edit', '✏️ عدّل منتج الجرد', '#f1f5f9', '#0f1219')}
           ${btn('store', '🛒 افتحه في المتجر', '#f1f5f9', '#0f1219')}
           ${btn('skip', '✕ ليسا نفس المنتج', '#fef2f2', '#b91c1c')}
         </div>
-        <div data-sim-ai style="font-size:12px;font-weight:700;margin-top:4px"></div>
-        ${open ? _simDetail(sp, r.item) : ''}</div>`; }).join('')
-      : '<div style="text-align:center;padding:50px 20px;color:#5b6472">لا متشابهات — كل منتجات المتجر مربوطة أو لا يشبهها شيء في الجرد</div>');
+        <div data-sim-ai style="font-size:12px;font-weight:700;margin-top:4px">${row.ai ? `<span style="color:${row.ai.iid != null && row.ai.conf >= 60 ? '#047857' : '#92400e'}">🧠 العقل (${escHtml(row.ai.how || '')}): ${row.ai.iid != null ? '«' + escHtml(String((allProducts.find(p => String(p.id) === String(row.ai.iid)) || {}).name || '')) + '» ' + row.ai.conf + '%' : 'لا أحد في الجرد هو المنتج نفسه'}${row.ai.why ? ' — ' + escHtml(row.ai.why) : ''}</span>` : ''}</div></div>`; }).join('')
+      : '<div style="text-align:center;padding:50px 20px;color:#5b6472">لا متشابهات — كل منتجات المتجر مربوطة أو لا يشبهها شيء في الجرد' + (aiLeft ? ' · جرّب «🧠 دقّق بالصور بالعقل»: يجد المنتج نفسه ولو اختلف الاسم كلّياً' : '') + '</div>');
   if (!cont._simBound) {
     cont._simBound = true;
     cont.addEventListener('click', async e => {
@@ -10654,22 +10834,13 @@ function bulkRenderSimilar(cont, fresh) {
       const b = e.target.closest('[data-sa]'); if (!b) return;
       const act = b.getAttribute('data-sa');
       if (act === 'unskip') { try { localStorage.removeItem(SIM_SKIP); } catch (_) {} bulkRenderSimilar(cont); return; }
-      if (act === 'reanalyze') { _simOpen = ''; _simPick = {}; bulkRenderSimilar(cont, true); return; }
+      if (act === 'reanalyze') { _simPick = {}; bulkRenderSimilar(cont, true); return; }
+      if (act === 'aiall') { _simAIAll(cont); return; }
+      if (act === 'aistop') { if (_simAIRun) _simAIRun.stop = true; b.disabled = true; b.textContent = 'يتوقّف بعد الحالي…'; return; }
+      if (act === 'splitall') { const L = _simVisible(); if (L.length) simSplit(L[0].sp.id); return; }
       const card = b.closest('[data-sim]'); if (!card) return;
       const sid = card.getAttribute('data-sim'), iid = card.getAttribute('data-inv'), row = (_simRows || []).find(x => String(x.sp.id) === sid); if (!row) return;
-      if (act === 'review') { _simOpen = _simOpen === sid ? '' : sid; bulkRenderSimilar(cont); return; }
-      if (act === 'save') {
-        const invP = allProducts.find(p => String(p.id) === iid); if (!invP) return;
-        const patch = {}; card.querySelectorAll('[data-sf]').forEach(el => { const k = el.getAttribute('data-sf'); let v = el.value.trim(); if (k === 'price') v = Number(v) || 0; if (String(invP[k] == null ? '' : invP[k]) !== String(v)) patch[k] = v; });
-        if (!Object.keys(patch).length) { showToast('لا تغيير لحفظه', 'info'); return; }
-        if ('brand' in patch) patch.specs = Object.assign({}, invP.specs || {}, { __brand: patch.brand });
-        b.disabled = true; b.textContent = 'لحظة…';
-        const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(iid)}`, patch);
-        if (error) { b.disabled = false; b.textContent = '💾 احفظ بيانات الجرد'; showToast('❌ لم يُحفظ: ' + error, 'error'); return; }
-        Object.assign(invP, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [invP]).catch(() => {});
-        delete invP._mb; delete invP._mk;   /* بصمة النصّ والموديل تُحسب من جديد */
-        bulkRenderSimilar(cont); showToast('✅ حُفظ في الجرد', 'success'); return;
-      }
+      if (act === 'review') { simSplit(sid); return; }
       if (act === 'pick') { _simPick[sid] = b.getAttribute('data-pid'); bulkRenderSimilar(cont); return; }
       if (act === 'link') {
         const invP = allProducts.find(p => String(p.id) === iid); if (!invP) return;
@@ -10677,7 +10848,7 @@ function bulkRenderSimilar(cont, fresh) {
         try {
           const ok = await simLinkDirect(invP, sid);
           if (!ok) { b.disabled = false; b.textContent = t0; return; }
-          _simRows = _simRows.filter(x => String(x.sp.id) !== sid); _simRows.forEach(x => { x.all = x.all.filter(c => String(c.item.id) !== iid); }); delete _simPick[sid]; if (_simOpen === sid) _simOpen = '';
+          _simDropLinked(sid, iid);
           bulkRenderSimilar(cont);
           showToast('✅ رُبطا — الباركود والسعر محدَّثان في الجهتين · الآن راجع بيانات المنتج', 'success');
           if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid);
@@ -10688,14 +10859,9 @@ function bulkRenderSimilar(cont, fresh) {
       if (act === 'edit') { if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid); return; }
       if (act === 'store') { window.open(invStoreLink('#product=' + encodeURIComponent(sid)), '_blank'); return; }
       if (act === 'ai') {
-        const out = card.querySelector('[data-sim-ai]'); out.style.color = '#334155'; out.textContent = '🧠 العقل يقارن…';
-        try {
-          /* العقل يُعطى أقرب ١٢ من التحليل الكامل (من النوع نفسه فقط — لا هود مع عدسة) */
-          const r = await GMTMatch.ai({ name: row.sp.name || row.sp.short_name, price: row.sp.price, brand: row.sp.brand }, row.all, 12);
-          if (r.item) { _simPick[sid] = r.item.id; const c0 = row.all.find(c => String(c.item.id) === String(r.item.id)); if (c0) { row.all = [c0].concat(row.all.filter(c => c !== c0)); c0.why = ['🧠 العقل ' + r.confidence + '%'].concat((c0.why || []).filter(w => !/العقل/.test(w))); } bulkRenderSimilar(cont);
-            const o2 = cont.querySelector(`[data-sim="${CSS.escape(sid)}"] [data-sim-ai]`); if (o2) { o2.style.color = '#047857'; o2.textContent = '🧠 العقل: «' + (r.item.name || '') + '» (' + r.confidence + '%)' + (r.why ? ' — ' + r.why : ''); } }
-          else { out.style.color = '#92400e'; out.textContent = '🧠 العقل: لا أحد في الجرد هو المنتج نفسه' + (r.why ? ' — ' + r.why : ''); }
-        } catch (er) { out.style.color = '#b91c1c'; out.textContent = '⚠️ ' + ((er && er.message) || er); }
+        const out = card.querySelector('[data-sim-ai]'); out.style.color = '#334155'; out.textContent = '🧠 العقل ينظر إلى الصور…'; b.disabled = true;
+        try { await _simAsk(row); bulkRenderSimilar(cont); }
+        catch (er) { b.disabled = false; out.style.color = '#b91c1c'; out.textContent = '⚠️ ' + ((er && er.message) || er); }
       }
     });
   }
@@ -15855,19 +16021,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029z"></script>
-<script src="gmt-selfcheck.js?v=20261029z"></script>
+<script src="gmt-pwa.js?v=20261029z2"></script>
+<script src="gmt-selfcheck.js?v=20261029z2"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029z"></script>
+<script src="gmt-brain.js?v=20261029z2"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029z"></script>
+<script src="gmt-whatsnew.js?v=20261029z2"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029z"></script>
+<script src="gmt-nofab.js?v=20261029z2"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

@@ -90,6 +90,7 @@
     return HC[url];
   }
   function imgSim(h1, h2) { if (!h1 || !h2) return null; var d = 0; for (var i = 0; i < 64; i++) if (h1[i] !== h2[i]) d++; return 1 - d / 64; }
+
   /* أقرب n بالنصّ (+ كل من يشارك المصدر رمزاً) ⇒ تُقارن صورها ⇒ الدرجة = نصّ ٦٥٪ + صورة ٣٥٪ (أو النصّ وحده بلا صورة) */
   async function refine(src, ranked, imgOf, n) {
     var hs = await imgHash(imgOf(src, true)); if (!hs) return ranked;
@@ -100,6 +101,62 @@
       r.score = r.img == null ? r.text : (r.img >= 0.97 ? Math.max(0.7, 0.4 * r.text + 0.6 * r.img) : 0.65 * r.text + 0.35 * r.img * (r.text > 0.15 ? 1 : 0.4));
     });
     return ranked.sort(function (a, b) { return b.score - a.score; });
+  }
+
+  /* ── ③ب العقل بالعين (المالك seq 218 «ممكن ما تكون الصورة متطابقة ١٠٠٪ ولكن المنتج اللي في الصورة نفسه — أو الاسم أحياناً») ──
+     قِيس على ٥٧ زوجاً مربوطاً فعلاً: صورة المتجر إعلانية وصورة الجرد علبةٌ بالهاتف ⇒ لا بصمةٌ ولا شكلٌ ولا لونٌ يفرّقها حسابياً.
+     فتُرسَم لوحةٌ واحدة: صورة المتجر يميناً ومرشّحو الجرد مرقّمين يساراً (حتى ٦) ⇒ دالّة gmt-vision (المفاتيح نفسها) تختار المنتج نفسه أو لا شيء */
+  function loadImg(u) {
+    return new Promise(function (res) {
+      if (!u || !/^(https?:|data:|blob:)/i.test(u)) return res(null);
+      var im = new Image(); im.crossOrigin = 'anonymous'; try { im.dataset.gimgAllow = '1'; } catch (_) {}
+      var t = setTimeout(function () { res(null); }, 12000);
+      im.onload = function () { clearTimeout(t); res(im); }; im.onerror = function () { clearTimeout(t); res(null); }; im.src = u;
+    });
+  }
+  function fit(x, im, X, Y, W, H) { var s = Math.min(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s; x.drawImage(im, X + (W - w) / 2, Y + (H - h) / 2, w, h); }
+  async function board(srcUrl, candUrls) {
+    var n = candUrls.length, cols = n > 4 ? 3 : 2, rows = Math.ceil(n / cols), cell = 300, W = cols * cell + 360, H = Math.max(rows * cell, 600);
+    var c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+    var si = await loadImg(srcUrl); if (!si) throw new Error('صورة منتج المتجر غير متاحة');
+    x.fillStyle = '#D5001C'; x.fillRect(cols * cell, 0, 360, 34); x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif'; x.fillText('STORE', cols * cell + 140, 25);
+    fit(x, si, cols * cell + 10, 44, 340, H - 54);
+    var ims = await Promise.all(candUrls.map(loadImg)), ok = 0;
+    ims.forEach(function (im, i) {
+      var X = (i % cols) * cell, Y = Math.floor(i / cols) * cell;
+      x.strokeStyle = '#cbd5e1'; x.strokeRect(X + 2, Y + 2, cell - 4, cell - 4);
+      if (im) { fit(x, im, X + 8, Y + 8, cell - 16, cell - 16); ok++; } else { x.fillStyle = '#94a3b8'; x.font = '18px sans-serif'; x.fillText('no image', X + 100, Y + 150); }
+      x.fillStyle = '#0f1219'; x.fillRect(X + 4, Y + 4, 44, 36); x.fillStyle = '#fff'; x.font = 'bold 26px sans-serif'; x.fillText(String(i + 1), X + (i + 1 > 9 ? 8 : 17), Y + 32);
+    });
+    var data = c.toDataURL('image/jpeg', 0.8);
+    return { b64: data.split(',')[1], url: data, ok: ok };
+  }
+  var VSYS = 'أنت خبيرٌ في منتجات التصوير (كاميرات · عدسات · إضاءة · مايكات · ترايبودات · إكسسوارات). تطابق منتجاً من متجرٍ إلكتروني بمنتجٍ في جرد المحلّ. ' +
+    'صورة المتجر غالباً إعلانية وصورة الجرد غالباً صورة العلبة أو المنتج بالهاتف — احكم على **المنتج نفسه**: الشكل · التفاصيل · الموديل المكتوب على العلبة أو المنتج · الماركة. ' +
+    'نفس الشكل من ماركة أخرى أو جيلٍ آخر ليس المنتج نفسه. إن لم يكن بين المرشّحين المنتج نفسه فالجواب null.';
+  function visionURL() {
+    try { var u = global.GMT_DB && GMT_DB.MAIN && GMT_DB.MAIN.url; if (u) return String(u).replace(/\/+$/, '') + '/functions/v1/gmt-vision'; } catch (_) {}
+    return 'https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-vision';
+  }
+  function imgOfP(p) { return p ? (p.image_url || (Array.isArray(p.images) && p.images.find(Boolean)) || '') : ''; }
+  /* src: منتج المتجر · cands: [{item}] (≤ ٦) ⇒ { item | null, confidence, why, board } */
+  async function vision(src, cands) {
+    var top = (cands || []).slice(0, 6); if (!top.length) throw new Error('لا مرشّحين');
+    var bd = await board(imgOfP(src), top.map(function (r) { return imgOfP(r.item); }));
+    if (!bd.ok) throw new Error('لا صور لمرشّحي الجرد');
+    var q = 'اللوحة: يمين (STORE) = منتج المتجر: «' + line(src) + '». يسار = منتجات الجرد مرقّمة:\n' +
+      top.map(function (r, i) { return line(r.item, i + 1); }).join('\n') +
+      '\nالأسماء قد تختلف كلّياً بين المتجر والجرد — اعتمد على ما تراه في الصور أوّلاً ثمّ الأسماء. أيّ رقمٍ هو المنتج نفسه؟ ' +
+      'أعد JSON فقط: {"pick": رقم أو null, "confidence": 0-100, "why": "سبب قصير بالعربية"}';
+    var r = await fetch(visionURL(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q.slice(0, 5800), system: VSYS, image: bd.b64, image_type: 'image/jpeg' }) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    var t = String(j.answer || ''), a = t.indexOf('{'), b = t.lastIndexOf('}'), o = null;
+    try { o = a >= 0 ? JSON.parse(t.slice(a, b + 1)) : null; } catch (_) { o = null; }
+    if (!o) throw new Error('جوابٌ غير مفهوم من العقل');
+    var k = o.pick == null ? null : parseInt(o.pick, 10);
+    return { item: k && top[k - 1] ? top[k - 1].item : null, confidence: Math.max(0, Math.min(100, parseInt(o.confidence, 10) || 0)), why: String(o.why || '').slice(0, 220), board: bd.url };
   }
 
   /* ── ③ العقل ── */
@@ -155,7 +212,7 @@
   ];
   function tnorm(s) { return String(s == null ? '' : s).toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[_]/g, ' '); }
   /* أوصافٌ لا تحدّد النوع: «رأس إضاءة مع بطارية مدمجة» رأسٌ لا بطارية */
-  var DESC = /(مع|و|يعمل|تعمل) ?(ال)?(ب)?(ال)?بطاري\S*( مدمجه)?|بالبطاري\S*|مع ريمونت|بالكهرباء|battery ?powered|\(batterypowered\)/g;
+  var DESC = /(مع|و|يعمل|تعمل) ?(ال)?(ب)?(ال)?بطاري\S*( مدمجه)?|بالبطاري\S*|مع ريمونت|بالكهرباء|لل?استوديو|للستوديو|للتصوير|battery ?powered|\(batterypowered\)/g;
   function typeIn(t) { t = tnorm(t).replace(DESC, ' '); for (var i = 0; i < TYPES.length; i++) if (TYPES[i][2].test(t)) return TYPES[i][0]; return ''; }
   /* النوع: من الاسم · وإلّا من المجموعة (الجرد) أو القسم (المتجر) — «M777» وحده في «بانيل ليد» ⇐ بانيل */
   function typeOf(name, group) { return typeIn(name) || typeIn(group) || ''; }
@@ -237,5 +294,5 @@
     return { score: Math.min(1, s), text: t, code: c, why: why };
   }
   global.GMTMatch = { typeOf: typeOf, typeIn: typeIn, typeLabel: typeLabel, typeRel: typeRel, modelKeys: modelKeys, brandOf: brandOf, codeScore: codeScore, pairScore: pairScore,
-    textScore: textScore, rank: rank, refine: refine, ai: ai, imgHash: imgHash, imgSim: imgSim, _bag: bag };
+    textScore: textScore, rank: rank, refine: refine, ai: ai, imgHash: imgHash, imgSim: imgSim, vision: vision, _bag: bag };
 })(typeof window !== 'undefined' ? window : this);

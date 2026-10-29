@@ -43,16 +43,17 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.evaluate(() => { _simRows = _simRows.filter(x => x.sp.id === 's1'); bulkRenderSimilar(document.getElementById('bulk-content')); });   // بقية الخطوات على بطاقة الهود وحدها
   // (seq 212) المراجعة الكاملة والأزرار
   const btns = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim] button, #bulk-content [data-sim] a')].map(x => x.textContent.trim()));
-  ok(['راجِع', 'اربطهما', 'اسأل العقل', 'عدّل منتج الجرد', 'افتحه في المتجر', 'ليسا نفس المنتج'].every(t => btns.some(x => x.indexOf(t) !== -1)), 'أزرار المراجعة كاملة: ' + btns.join(' · '));
+  ok(['قارن', 'اربطهما', 'اسأل العقل', 'عدّل منتج الجرد', 'افتحه في المتجر', 'ليسا نفس المنتج'].every(t => btns.some(x => x.indexOf(t) !== -1)), 'أزرار المراجعة كاملة: ' + btns.join(' · '));
   await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="review"]').click()); await pg.waitForTimeout(300);
-  const det = await pg.evaluate(() => (document.querySelector('#bulk-content [data-sim]') || {}).innerText || '');
-  ok(/في المتجر/.test(det) && /في الجرد/.test(det) && /الكمية/.test(det) && /\$15/.test(det) && /المجموعة|السعر/.test(det), '«🔍 راجِع» يعرض الاثنين كاملين (السعر · الصور · المواصفات)');
+  const det = await pg.evaluate(() => (document.getElementById('sim-split') || {}).innerText || '');
+  ok(/في المتجر/.test(det) && /في الجرد/.test(det) && /الكمية/.test(det) && /\$15/.test(det), '(seq 218) «🔍 قارن» يفتح الاثنين على نصفي الشاشة (السعر · الصور · المواصفات)');
   await pg.screenshot({ path: '/tmp/gmt-out/check_tool_similar.png', fullPage: false });
-  // (seq 214) «ما فيها زرّ حفظ؟» ⇒ بيانات الجرد قابلةٌ للتعديل في المراجعة مع «💾 احفظ»
-  await pg.evaluate(() => { const c = document.querySelector('#bulk-content [data-sim]'); c.querySelector('[data-sf="price"]').value = '19'; c.querySelector('[data-sf="brand"]').value = 'Canon'; c.querySelector('[data-sa="save"]').click(); });
+  // (seq 214) زرّ الحفظ — صار في الشاشة المقسومة (seq 218: يحفظ ثمّ إلى التالي)
+  await pg.evaluate(() => { const c = document.getElementById('sim-split'); c.querySelector('[data-sf="price"]').value = '19'; c.querySelector('[data-sf="brand"]').value = 'Canon'; c.querySelector('[data-spl="save"]').click(); });
   await pg.waitForTimeout(800);
   const sv = (await H.call('/rest/v1/products?id=eq.' + B + '&select=*', undefined, 'GET'))[0];
-  ok(Number(sv.price) === 19 && sv.brand === 'Canon', '«💾 احفظ بيانات الجرد» في المراجعة يحفظ السعر والماركة: ' + JSON.stringify({ p: sv.price, b: sv.brand }));
+  ok(Number(sv.price) === 19 && sv.brand === 'Canon', '«💾 احفظ» في الشاشة المقسومة يحفظ السعر والماركة: ' + JSON.stringify({ p: sv.price, b: sv.brand }));
+  await pg.evaluate(() => simSplitClose()); await pg.waitForTimeout(200);
   await pg.evaluate(() => document.querySelector('#bulk-content [data-sim] [data-sa="skip"]').click()); await pg.waitForTimeout(300);
   const after = await pg.evaluate(() => ({ n: document.querySelectorAll('#bulk-content [data-sim]').length, un: !!document.querySelector('#bulk-content [data-sa="unskip"]') }));
   ok(after.n === 0 && after.un, '«✕ ليسا نفس المنتج» يُخفي الاقتراح و«أظهر المخفيّة» يرجعه: ' + JSON.stringify(after));
