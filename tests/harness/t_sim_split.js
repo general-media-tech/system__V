@@ -21,49 +21,59 @@ const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
       { id: 's3', name: 'Q12 ترايبود ذكي مع ريمونت', price: 30, images: [], category_ids: ['c2'] },
       { id: 's4', name: 'رأس إضاءة مستمرة احترافي للاستوديو', price: 120, images: [PNG], category_ids: ['c3'] }] }]);
     const mob = W < 500;
-    const { browser, pg, errs } = await H.open('inventory.html?check=similar', { w: W, h: mob ? 844 : 900, mobile: mob, wait: 5000,
+    await H.call('/rest/v1/gmt_settings?key=eq.sim_ai_verdicts', undefined, 'DELETE');
+    const { browser, pg, errs } = await H.open('inventory.html', { w: W, h: mob ? 844 : 900, mobile: mob, wait: 5000,
       init: H.ADMIN_INIT + ` try{ localStorage.removeItem('gmt_sim_ai'); localStorage.removeItem('gmt_sim_skip'); }catch(e){}` });
     const vis = []; await pg.route('**/functions/v1/gmt-vision', async route => { const b = JSON.parse(route.request().postData() || '{}'); vis.push({ q: b.question, img: (b.image || '').length });
       await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ answer: '{"pick":1,"confidence":88,"why":"نفس رأس الإضاءة وشكله"}', provider: 'gemini' }) }); });
-    await pg.waitForFunction(() => typeof _simRows !== 'undefined' && _simRows && !_simBusy && document.querySelector('#bulk-content [data-sa="reanalyze"]'), null, { timeout: 30000 }).catch(() => {});
+    const prog = []; await pg.evaluate(() => { window.__p = []; const o = window._simProgress; window._simProgress = function (c, pc, m, x) { o(c, pc, m, x); window.__p.push(m); }; });
+    await pg.evaluate(() => invOpenCheck('similar'));
+    const idle = () => pg.waitForFunction(() => typeof _simRows !== 'undefined' && _simRows && !_simBusy && !_simAIRun && document.querySelector('#bulk-content [data-sa="reanalyze"]'), null, { timeout: 40000 }).catch(() => {});
+    await idle();
+    const ps = await pg.evaluate(() => window.__p);
+    ok(ps.some(m => /العقل ينظر إلى صور/.test(m)), W + ': (seq 219) العقل يراجع بالصور تلقائياً ضمن التحليل الكامل قبل أن تُفتح النتائج (بلا زرّ): ' + ps.filter(m => /العقل/.test(m)).slice(-1)[0]);
     const ids = await pg.evaluate(() => _simVisible().map(x => x.sp.id));
-    ok(ids.length === 3 && !ids.includes('s4'), W + ': ثلاثة متشابهات بالاسم والموديل (رأس الإضاءة باسمٍ مختلفٍ كلّياً لا يظهر بعد): ' + ids.join(','));
+    const s4 = await pg.evaluate(() => { const c = document.querySelector('#bulk-content [data-sim="s4"]'); return c ? c.innerText.replace(/\s+/g, ' ') : ''; });
+    ok(ids.length === 4 && /Bedirot T40/.test(s4) && /العقل بالصور 88%/.test(s4), W + ': ٣ بالاسم والموديل + «رأس إضاءة احترافي» ⇐ «Bedirot T40 هيد» بحكم العقل بالصور (الاسم مختلف كلّياً): ' + ids.join(',') + ' · ' + s4.slice(0, 120));
+    ok(vis.length === 1 && vis[0].img > 500 && /STORE/.test(vis[0].q) && /Bedirot T40/.test(vis[0].q), W + ': لوحةٌ واحدة (صورة + أسماء المرشّحين مرقّمة) إلى gmt-vision: ' + JSON.stringify(vis.map(v => ({ img: v.img, q: v.q.slice(0, 50) }))));
+    await pg.waitForTimeout(500);
+    const db = (await H.call('/rest/v1/gmt_settings?key=eq.sim_ai_verdicts&select=value', undefined, 'GET'))[0];
+    const dv = db ? JSON.parse(db.value) : {};
+    ok(dv.s4 && dv.s4.conf === 88 && String(dv.s4.iid) === D, W + ': حكم العقل محفوظ في القاعدة (gmt_settings) لا على جهازٍ واحد: ' + JSON.stringify(dv.s4 || null).slice(0, 100));
+    // مرّة واحدة: إعادة التحليل الكامل — ومن «جهازٍ» آخر بلا ذاكرة محلّية — لا تسأل العقل ثانيةً
+    await pg.evaluate(() => { localStorage.removeItem('gmt_sim_ai'); _simAIMem = null; document.querySelector('#bulk-content [data-sa="reanalyze"]').click(); });
+    await pg.waitForTimeout(300); await idle();
+    const again = await pg.evaluate(() => ({ s4: _simVisible().some(x => x.sp.id === 's4'), hdr: (document.querySelector('#bulk-content > div') || {}).innerText.replace(/\s+/g, ' ') }));
+    ok(vis.length === 1 && again.s4 && /فحص بالصور 1 منتجاً/.test(again.hdr) && /لا يُعاد إلا بطلبك/.test(again.hdr), W + ': (seq 219) إعادة التحليل ومن جهازٍ آخر ⇒ لا يُستهلك العقل ثانيةً (طلبات العقل ما زالت ١) والحكم معروض: ' + again.hdr.slice(-260));
+    // إعادة فحص العقل — يدوياً فقط
+    await pg.evaluate(() => { GMTAsk.confirm = async () => true; const b = document.querySelector('#bulk-content [data-sa="aireset"]'); if (b) b.click(); });
+    await pg.waitForTimeout(500); await idle();
+    ok(vis.length >= 2, W + ': «أعد فحص العقل للكل» (يدوي بتأكيد) يسأل العقل من جديد: ' + vis.length);
     // ① الشاشة المقسومة
     await pg.evaluate(() => document.querySelector('#bulk-content [data-sa="splitall"]').click()); await pg.waitForTimeout(300);
     const L = await pg.evaluate(() => { const o = document.getElementById('sim-split'), body = o && o.querySelector('[data-spl-body]'), panes = body ? [...body.children] : [];
       return { open: !!o, dir: body ? getComputedStyle(body).flexDirection : '', n: panes.length, h: panes.map(p => Math.round(p.getBoundingClientRect().height)), w: panes.map(p => Math.round(p.getBoundingClientRect().width)),
         t: o ? o.innerText.replace(/\s+/g, ' ') : '', hscroll: document.documentElement.scrollWidth > innerWidth + 1 }; });
-    ok(L.open && L.n === 2 && L.dir === (mob ? 'column' : 'row') && /في المتجر/.test(L.t) && /في الجرد/.test(L.t) && /1 \/ 3/.test(L.t) && !L.hscroll,
+    ok(L.open && L.n === 2 && L.dir === (mob ? 'column' : 'row') && /في المتجر/.test(L.t) && /في الجرد/.test(L.t) && /1 \/ 4/.test(L.t) && !L.hscroll,
       W + ': شاشةٌ مقسومة نصفين (' + (mob ? 'فوق وتحت' : 'جنباً إلى جنب') + '): ' + JSON.stringify({ dir: L.dir, h: L.h, w: L.w }));
     await pg.screenshot({ path: '/tmp/gmt-out/sim_split_' + W + '.png' });
     // ② بعد الحفظ ⇐ التالي
-    const head = () => pg.evaluate(() => { const o = document.getElementById('sim-split'); return o ? o.innerText.replace(/\s+/g, ' ').slice(0, 220) : 'مغلقة'; });
-    const first = await pg.evaluate(() => _spl.sid);
+    const st = () => pg.evaluate(() => ({ sid: _spl && _spl.sid, idx: _spl && _spl.idx, n: _simVisible().length, cands: _spl ? (_simVisible().find(x => x.sp.id === _spl.sid) || { cands: [] }).cands.length : 0 }));
+    const s0 = await st();
     await pg.evaluate(() => { const o = document.getElementById('sim-split'); o.querySelector('[data-sf="brand"]').value = 'Godox'; o.querySelector('[data-spl="save"]').click(); }); await pg.waitForTimeout(800);
-    const h2 = await head(), second = await pg.evaluate(() => _spl && _spl.sid);
-    ok(/2 \/ 3/.test(h2) && second && second !== first, W + ': «💾 احفظ» ⇐ المنتج التالي مباشرةً (لا انتظار على إشارة): ' + first + ' ⇒ ' + second);
-    // «ليسا نفس المنتج» ⇐ التالي
+    const s1 = await st();
+    ok(s1.sid && s1.sid !== s0.sid && s1.idx === s0.idx + 1, W + ': «💾 احفظ» ⇐ المنتج التالي مباشرةً (لا انتظار على إشارة): ' + JSON.stringify([s0, s1]));
+    // «ليسا نفس المنتج» ⇐ التالي (أو المرشّح التالي)
     await pg.evaluate(() => document.querySelector('#sim-split [data-spl="skip"]').click()); await pg.waitForTimeout(400);
-    const h3 = await head(), third = await pg.evaluate(() => _spl && _spl.sid);
-    ok(/\/ 2/.test(h3) && third !== second, W + ': «✕ ليسا نفس المنتج» ⇐ التالي: ' + second + ' ⇒ ' + third + ' · ' + h3.slice(0, 40));
+    const s2 = await st();
+    ok(s2.sid !== s1.sid || s2.cands < s1.cands, W + ': «✕ ليسا نفس المنتج» ⇐ التالي: ' + JSON.stringify([s1, s2]));
     // «اربطهما» ⇐ صفحة التعديل والتالي خلفها
     await pg.evaluate(() => { window.__opened = null; window.invOpenFullEdit = id => { window.__opened = String(id); }; });
-    const linkSid = third;
     await pg.evaluate(() => document.querySelector('#sim-split [data-spl="link"]').click());
     await pg.waitForFunction(() => window.__opened, null, { timeout: 8000 }).catch(() => {});
-    const after = await pg.evaluate(() => ({ op: window.__opened, sid: _spl && _spl.sid, n: _simVisible().length }));
-    ok(after.op && after.sid && after.sid !== linkSid && after.n === 1, W + ': «🔗 اربطهما» ⇐ صفحة التعديل وخلفها المنتج التالي: ' + JSON.stringify(after));
+    const s3 = await st(), op = await pg.evaluate(() => window.__opened);
+    ok(op && s3.sid && s3.sid !== s2.sid && s3.n === s2.n - 1, W + ': «🔗 اربطهما» ⇐ صفحة التعديل وخلفها المنتج التالي: ' + JSON.stringify([s2, s3]));
     await pg.evaluate(() => simSplitClose());
-    // ③ العقل بالصور
-    const aiBtn = await pg.evaluate(() => { const b = document.querySelector('#bulk-content [data-sa="aiall"]'); return b ? b.textContent : ''; });
-    ok(/دقّق بالصور بالعقل \(1\)/.test(aiBtn), W + ': زرّ «🧠 دقّق بالصور بالعقل» بعدد ما له صور: ' + aiBtn);
-    await pg.evaluate(() => document.querySelector('#bulk-content [data-sa="aiall"]').click());
-    await pg.waitForFunction(() => !_simAIRun && _simVisible().some(x => x.sp.id === 's4'), null, { timeout: 20000 }).catch(() => {});
-    const s4 = await pg.evaluate(() => { const c = document.querySelector('#bulk-content [data-sim="s4"]'); return c ? c.innerText.replace(/\s+/g, ' ') : ''; });
-    ok(/Bedirot T40/.test(s4) && /العقل بالصور 88%/.test(s4), W + ': بحكم العقل بالصور ظهر «رأس إضاءة مستمرة احترافي» ⇐ «Bedirot T40 هيد» (الاسم مختلف كلّياً): ' + s4.slice(0, 160));
-    ok(vis.length === 1 && vis[0].img > 500 && /STORE/.test(vis[0].q) && /Bedirot T40/.test(vis[0].q), W + ': أُرسلت لوحةٌ واحدة (صورة + أسماء المرشّحين مرقّمة) إلى gmt-vision: ' + JSON.stringify(vis.map(v => ({ img: v.img, q: v.q.slice(0, 60) }))));
-    const cache = await pg.evaluate(() => JSON.parse(localStorage.getItem('gmt_sim_ai') || '{}'));
-    ok(cache.s4 && cache.s4.conf === 88 && String(cache.s4.iid) === D, W + ': حكم العقل محفوظ على الجهاز (لا يُسأل مرّتين): ' + JSON.stringify(cache.s4 || null).slice(0, 120));
     const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
     ok(!real.length, W + ': لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
     await browser.close();

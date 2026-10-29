@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029z2"></script>
+<script src="gmt-tools.js?v=20261029z3"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029z2"></script>
-  <script src="gmt-config.js?v=20261029z2"></script>
-  <script src="gmt-brand.js?v=20261029z2"></script>
+  <script src="gmt-image-guard.js?v=20261029z3"></script>
+  <script src="gmt-config.js?v=20261029z3"></script>
+  <script src="gmt-brand.js?v=20261029z3"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029z2"></script>
-  <script src="gmt-suggest.js?v=20261029z2"></script>
-  <script src="gmt-match.js?v=20261029z2"></script>
-  <script src="gmt-compat-kb.js?v=20261029z2"></script>
+  <script src="gmt-core.js?v=20261029z3"></script>
+  <script src="gmt-suggest.js?v=20261029z3"></script>
+  <script src="gmt-match.js?v=20261029z3"></script>
+  <script src="gmt-compat-kb.js?v=20261029z3"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029z2" defer></script>
+  <script src="gmt-ask.js?v=20261029z3" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029z2" defer></script>
-  <script src="gmt-share.js?v=20261029z2" defer></script>
+  <script src="gmt-stock.js?v=20261029z3" defer></script>
+  <script src="gmt-share.js?v=20261029z3" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029z2"></script>
-<script src="gmt-gallery.js?v=20261029z2" defer></script>
-<script src="gmt-product-edit.js?v=20261029z2" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029z2"></script>
+<script src="gmt-specs.js?v=20261029z3"></script>
+<script src="gmt-gallery.js?v=20261029z3" defer></script>
+<script src="gmt-product-edit.js?v=20261029z3" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029z3"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029z2"></script>
+  <script src="gmt-staff.js?v=20261029z3"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -10465,8 +10465,8 @@ const SIM_MIN = 0.42;
    ④ بصمة الصورة لكل منتجات الطرفين (الصورة نفسها ترفع ولو اختلف الاسم كلّياً) — ثمّ تُفتح النتائج بأسبابها */
 async function _simAnalyze(prog) {
   const t0 = Date.now(), tick = () => new Promise(r => setTimeout(r, 0));
-  prog(1, 'أقرأ المتجر وأقسامه…');
-  await invStoreIndex(true);
+  prog(1, 'أقرأ المتجر وأقسامه وأحكام العقل المحفوظة…');
+  await invStoreIndex(true); await _simAILoad();
   const rec = await gmtStoreCatalog().catch(() => ({})), cats = {};
   (Array.isArray(rec.categories) ? rec.categories : []).forEach(c => { if (c && c.id != null) cats[String(c.id)] = c.name || ''; });
   const catOf = sp => cats[String((Array.isArray(sp.category_ids) && sp.category_ids[0]) || sp.category_id || '')] || sp.category || '';
@@ -10576,20 +10576,44 @@ function _simVisible() {
     .filter(x => x.cands.length && x.cands[0].score >= SIM_MIN)
     .sort((a, b) => b.cands[0].score - a.cands[0].score);
 }
-function _simProgress(cont, pc, msg) {
+function _simProgress(cont, pc, msg, extra) {
   if (bulkActiveFilter !== 'similar') return;
   cont.innerHTML = `<div data-sim-prog style="max-width:520px;margin:34px auto;padding:18px;background:#fff;border:1px solid #eef0f4;border-radius:14px;text-align:center">
     <div style="font-size:15px;font-weight:900;color:#0f1219">🔎 تحليلٌ كامل لكل منتجات المتجر والجرد</div>
     <div style="font-size:12px;color:#5b6472;font-weight:700;margin:6px 0 12px;line-height:1.7">النوع (هود · عدسة · بانيل ليد · رأس إضاءة · مايك …) · القسم ⇐ المجموعة · رمز الموديل · الماركة · السعر · الصور — يستغرق قليلاً ثمّ تُفتح النتائج</div>
     <div style="height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pc}%;background:#D5001C;border-radius:99px;transition:width .25s"></div></div>
-    <div data-sim-msg style="font-size:12.5px;font-weight:800;color:#334155;margin-top:8px">${escHtml(msg)} · ${pc}%</div></div>`;
+    <div data-sim-msg style="font-size:12.5px;font-weight:800;color:#334155;margin-top:8px">${escHtml(msg)} · ${pc}%</div>${extra || ''}</div>`;
 }
 
 /* ══ (المالك seq 218 «ممكن ما تكون الصورة متطابقة ١٠٠٪ ولكن المنتج اللي في الصورة نفسه — أو الاسم أحياناً») العقل بالعين ══
    أحكام العقل تُحفظ على الجهاز (منتج المتجر ⇐ منتج الجرد أو «لا أحد» · الثقة · السبب) فلا يُسأل مرّتين، وتُطبَّق على كل تحليلٍ لاحق */
-const SIM_AI = 'gmt_sim_ai';
-function _simAIGet() { try { return JSON.parse(localStorage.getItem(SIM_AI) || '{}') || {}; } catch (_) { return {}; } }
-function _simAISet(sid, v) { const m = _simAIGet(); m[sid] = v; try { localStorage.setItem(SIM_AI, JSON.stringify(m)); } catch (_) {} }
+const SIM_AI = 'gmt_sim_ai', SIM_AI_KEY = 'sim_ai_verdicts';
+/* (المالك seq 219 «يستهلك الذكاء الاصطناعي مرّة واحدة في البحث ثمّ يعرض — ما في داعي يرجع إلا إذا طلبت يدوياً») أحكام العقل محفوظة
+   في القاعدة (gmt_settings · مفتاح sim_ai_verdicts) لا على جهازٍ واحد — فلا يُسأل عن منتجٍ مرّتين من أيّ جهاز، ونسخةٌ على الجهاز احتياطاً */
+let _simAIMem = null, _simAISaveT = 0;
+function _simAIGet() {
+  if (!_simAIMem) { try { _simAIMem = JSON.parse(localStorage.getItem(SIM_AI) || '{}') || {}; } catch (_) { _simAIMem = {}; } }
+  return _simAIMem;
+}
+async function _simAIFetch() {
+  try {
+    const { data } = await sbFetch('GET', `/rest/v1/gmt_settings?key=eq.${SIM_AI_KEY}&select=value`);
+    const v = Array.isArray(data) && data[0] ? JSON.parse(data[0].value || '{}') : {};
+    return v && typeof v === 'object' ? v : {};
+  } catch (_) { return {}; }
+}
+/* الأحدث يغلب لكل منتج (جهازان راجعا في وقتين) */
+function _simAIMerge(a, b) { const o = Object.assign({}, a); Object.keys(b || {}).forEach(k => { if (!o[k] || (b[k] && (b[k].at || 0) > (o[k].at || 0))) o[k] = b[k]; }); return o; }
+async function _simAILoad() { _simAIMem = _simAIMerge(_simAIGet(), await _simAIFetch()); try { localStorage.setItem(SIM_AI, JSON.stringify(_simAIMem)); } catch (_) {} return _simAIMem; }
+async function _simAIPush(reset) {
+  const cur = reset ? {} : await _simAIFetch(), all = reset ? {} : _simAIMerge(cur, _simAIGet());
+  if (!reset) _simAIMem = all;
+  await sbFetch('POST', '/rest/v1/gmt_settings?on_conflict=key', [{ key: SIM_AI_KEY, value: JSON.stringify(all) }], { Prefer: 'resolution=merge-duplicates,return=minimal' });
+}
+function _simAISet(sid, v) {
+  _simAIGet()[sid] = v; try { localStorage.setItem(SIM_AI, JSON.stringify(_simAIMem)); } catch (_) {}
+  clearTimeout(_simAISaveT); _simAISaveT = setTimeout(() => { _simAIPush().catch(() => {}); }, 1500);
+}
 function _simApplyAI(row, v) {
   v = v || _simAIGet()[row.sp.id]; if (!v) return;
   row.ai = v;
@@ -10615,24 +10639,38 @@ async function _simAsk(row) {
   return Object.assign({ item: r.item }, v);
 }
 let _simAIRun = null;
-async function _simAIAll(cont) {
+/* المنتجات التي لم يحكم فيها العقل بعد (لها صورة متجر ومرشّحون بصور) */
+function _simAITodo() { const done = _simAIGet(); return (_simRows || []).filter(x => !done[x.sp.id] && (x.sp.images || []).some(Boolean) && _simPool(x).length); }
+/* (seq 219) جزءٌ من التحليل الكامل لا زرٌّ منفصل: أوّل مرّة يراجع العقل بالصور كلّ ما لم يحكم فيه ثمّ تُعرض النتائج —
+   وفي المرّات التالية لا يُسأل إلا عن الجديد · «اعرض الآن» يفتح النتائج والعقل يكمل خلفها · نفاد الحدّ ⇒ يتوقّف ويكمل الباقي في المرّة القادمة */
+async function _simAIAll(cont, todo) {
   if (_simAIRun) return;
-  const done = _simAIGet(), todo = (_simRows || []).filter(x => !done[x.sp.id] && (x.sp.images || []).some(Boolean) && _simPool(x).length);
-  if (!todo.length) { showToast('العقل راجع كل المنتجات من قبل — «🔄 أعد التحليل الكامل» يعيد عرضها', 'info'); return; }
-  _simAIRun = { n: todo.length, i: 0, hit: 0, stop: false, err: '' };
-  const upd = () => { const el = cont.querySelector('[data-sim-aiprog]'); if (el) el.textContent = `🧠 العقل يراجع بالصور: ${_simAIRun.i} / ${_simAIRun.n} · وجد ${_simAIRun.hit}` + (_simAIRun.err ? ' · ⚠️ ' + _simAIRun.err : ''); };
-  bulkRenderSimilar(cont);
+  todo = todo || _simAITodo(); if (!todo.length) return;
+  _simAIRun = { n: todo.length, i: 0, hit: 0, stop: false, err: '', fails: 0, bg: false };
+  const R = _simAIRun;
+  const show = () => {
+    const msg = `🧠 العقل ينظر إلى صور المتجر والجرد: ${R.i} / ${R.n} · وجد ${R.hit}` + (R.err ? ' · ⚠️ ' + R.err : '');
+    if (!R.bg) _simProgress(cont, 60 + Math.round(40 * R.i / R.n), msg, `<div style="font-size:12px;color:#5b6472;font-weight:700;margin-top:8px;line-height:1.7">مرّةً واحدة لكل منتج — الأحكام تُحفظ في القاعدة ولا يُعاد السؤال إلا بطلبك</div>
+      <button type="button" data-sa="aibg" style="margin-top:10px;background:#0f1219;color:#fff;border:0;border-radius:10px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:900;cursor:pointer">اعرض ما وُجد الآن — والعقل يكمل خلفها</button>`);
+    else { const el = cont.querySelector('[data-sim-aiprog]'); if (el) el.textContent = msg; }
+  };
+  show();
   for (const row of todo) {
-    if (_simAIRun.stop) break;
-    try { const v = await _simAsk(row); if (v.iid != null && v.conf >= 60) _simAIRun.hit++; _simAIRun.err = ''; }
-    catch (er) { _simAIRun.err = (er && er.message) || String(er); if (/كثيرة|429|نفد/.test(_simAIRun.err)) await new Promise(r => setTimeout(r, 20000)); }
-    _simAIRun.i++; upd();
-    if (_simAIRun.i % 8 === 0 && !document.getElementById('sim-split')) bulkRenderSimilar(cont);
+    if (R.stop) break;
+    try { const v = await _simAsk(row); if (v.iid != null && v.conf >= 60) R.hit++; R.err = ''; R.fails = 0; }
+    catch (er) {
+      R.err = (er && er.message) || String(er); R.fails++;
+      if (R.fails >= 2 && /كثيرة|429|نفد|quota|حدّ|502|500/i.test(R.err)) { R.err += ' — توقّف العقل، ويكمل الباقي تلقائياً في المرّة القادمة'; R.i++; show(); break; }
+      if (/كثيرة|429|نفد/.test(R.err)) await new Promise(r => setTimeout(r, 20000));
+    }
+    R.i++; show();
+    if (R.bg && R.i % 8 === 0 && !document.getElementById('sim-split')) bulkRenderSimilar(cont);
     await new Promise(r => setTimeout(r, 3500));                     // حدّ Gemini المجاني (~١٥ طلباً بالدقيقة)
   }
-  const s = _simAIRun; _simAIRun = null;
-  bulkRenderSimilar(cont);
-  showToast(`🧠 انتهت مراجعة العقل بالصور: ${s.i} منتج · وجد المطابق في ${s.hit}`, 'success');
+  clearTimeout(_simAISaveT); await _simAIPush().catch(() => {});
+  _simAIRun = null;
+  if (bulkActiveFilter === 'similar' && !document.getElementById('sim-split')) bulkRenderSimilar(cont);
+  showToast(`🧠 العقل راجع ${R.i} منتجاً بالصور · وجد المطابق في ${R.hit}` + (R.err ? ' · ' + R.err : ''), R.err ? 'warning' : 'success');
 }
 
 /* ── الإجراءات (من البطاقة ومن الشاشة المقسومة) ── */
@@ -10779,16 +10817,17 @@ function bulkRenderSimilar(cont, fresh) {
   if (!_simRows) {
     if (!_simBusy) {
       _simProgress(cont, 0, 'أبدأ…');
-      _simBusy = _simAnalyze((pc, msg) => _simProgress(cont, pc, msg))
+      _simBusy = _simAnalyze((pc, msg) => _simProgress(cont, Math.round(pc * 0.6), msg))
         .then(rows => { _simRows = rows; }).catch(er => { _simRows = []; _simStat = { err: (er && er.message) || String(er) }; })
-        .finally(() => { _simBusy = null; if (bulkActiveFilter === 'similar') bulkRenderSimilar(cont); });
+        .finally(() => { _simBusy = null; const t = _simAITodo(); if (t.length) _simAIAll(cont, t); else if (bulkActiveFilter === 'similar') bulkRenderSimilar(cont); });
     }
     return;
   }
+  if (_simAIRun && !_simAIRun.bg) return;                            // العقل يراجع بالصور قبل العرض (شاشة التقدّم)
   const q = (document.getElementById('bulk-search-input')?.value || '').toLowerCase();
   const rows = _simVisible().filter(x => !q || (String(x.sp.name || '') + ' ' + x.cat + ' ' + x.cands.map(c => c.item.name + ' ' + (c.item.group_name || '')).join(' ')).toLowerCase().indexOf(q) !== -1);
   const st = _simStat || {}, strong = rows.filter(x => x.cands[0].score >= 0.75).length;
-  const aiDone = _simAIGet(), aiLeft = (_simRows || []).filter(x => !aiDone[x.sp.id] && (x.sp.images || []).some(Boolean) && _simPool(x).length).length;
+  const aiDone = _simAIGet(), aiLeft = _simAITodo().length, aiN = (_simRows || []).filter(x => aiDone[x.sp.id]).length;
   const chip = (t, bg, fg) => `<span style="display:inline-block;background:${bg};color:${fg};border-radius:99px;padding:1px 8px;font-size:11px;font-weight:800;margin:2px 2px 0 0;white-space:nowrap">${escHtml(t)}</span>`;
   const whyChip = w => /مختلف|بعيد|ليس بينهم|متردّد/.test(w) ? chip(w, '#fef2f2', '#b91c1c') : chip(w, '#ecfdf5', '#047857');
   const img = (u, e) => u ? `<img src="${escHtml(u)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #eef0f4;flex:0 0 auto" onerror="this.outerHTML='${e}'">` : `<span style="font-size:22px">${e}</span>`;
@@ -10800,7 +10839,8 @@ function bulkRenderSimilar(cont, fresh) {
       `🔗 <b>${rows.length}</b> منتج متجر يشبه منتجاً في الجرد — منها <b>${strong}</b> قويّ (≥٧٥٪). «🔍 قارن» يفتح الاثنين على نصفي الشاشة.` +
       ` <button type="button" data-sa="reanalyze" style="background:#f1f5f9;border:0;border-radius:8px;padding:4px 10px;color:#0f1219;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🔄 أعد التحليل الكامل</button>` +
       (_simAIRun ? ` <button type="button" data-sa="aistop" style="background:#fef2f2;border:0;border-radius:8px;padding:4px 10px;color:#b91c1c;font:inherit;font-size:12px;font-weight:800;cursor:pointer">⏹ أوقف العقل</button>`
-        : aiLeft ? ` <button type="button" data-sa="aiall" style="background:#eef2ff;border:0;border-radius:8px;padding:4px 10px;color:#3730a3;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🧠 دقّق بالصور بالعقل (${aiLeft})</button>` : '') +
+        : (aiN ? `<br>🧠 العقل فحص بالصور <b>${aiN}</b> منتجاً — محفوظ ولا يُعاد إلا بطلبك` + (aiLeft ? ` · بقي ${aiLeft} (يكملها في المرّة القادمة)` : '') +
+          ` <button type="button" data-sa="aireset" style="background:none;border:0;color:#3730a3;font:inherit;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline">أعد فحص العقل للكل</button>` : '')) +
       (rows.length ? ` <button type="button" data-sa="splitall" style="background:#0f1219;border:0;border-radius:8px;padding:4px 10px;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer">◧ قارنها واحداً واحداً</button>` : '') +
       (nSkip ? ` <button type="button" data-sa="unskip" style="background:none;border:0;color:#475569;font:inherit;font-weight:800;cursor:pointer;text-decoration:underline">أظهر المخفيّة (${nSkip})</button>` : '') +
       `<div data-sim-aiprog style="color:#3730a3;font-weight:800">${_simAIRun ? `🧠 العقل يراجع بالصور: ${_simAIRun.i} / ${_simAIRun.n} · وجد ${_simAIRun.hit}` : ''}</div></div>` +
@@ -10835,7 +10875,13 @@ function bulkRenderSimilar(cont, fresh) {
       const act = b.getAttribute('data-sa');
       if (act === 'unskip') { try { localStorage.removeItem(SIM_SKIP); } catch (_) {} bulkRenderSimilar(cont); return; }
       if (act === 'reanalyze') { _simPick = {}; bulkRenderSimilar(cont, true); return; }
-      if (act === 'aiall') { _simAIAll(cont); return; }
+      if (act === 'aibg') { if (_simAIRun) { _simAIRun.bg = true; bulkRenderSimilar(cont); } return; }
+      if (act === 'aireset') {
+        if (!(await GMTAsk.confirm('يعيد العقل فحص كل المنتجات بالصور من جديد (يستهلك الذكاء الاصطناعي مرّةً أخرى) — متأكّد؟', { title: '🧠 إعادة فحص العقل', okText: 'نعم، أعد الفحص' }))) return;
+        _simAIMem = {}; try { localStorage.removeItem(SIM_AI); } catch (_) {} await _simAIPush(true).catch(() => {});
+        (_simRows || []).forEach(x => { delete x.ai; x.all.forEach(c => { if (c._s0 != null) c.score = c._s0; c.why = (c.why || []).filter(w => !/^🧠/.test(w)); }); x.all.sort((p, q) => q.score - p.score); });
+        _simAIAll(cont); return;
+      }
       if (act === 'aistop') { if (_simAIRun) _simAIRun.stop = true; b.disabled = true; b.textContent = 'يتوقّف بعد الحالي…'; return; }
       if (act === 'splitall') { const L = _simVisible(); if (L.length) simSplit(L[0].sp.id); return; }
       const card = b.closest('[data-sim]'); if (!card) return;
@@ -16021,19 +16067,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029z2"></script>
-<script src="gmt-selfcheck.js?v=20261029z2"></script>
+<script src="gmt-pwa.js?v=20261029z3"></script>
+<script src="gmt-selfcheck.js?v=20261029z3"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029z2"></script>
+<script src="gmt-brain.js?v=20261029z3"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029z2"></script>
+<script src="gmt-whatsnew.js?v=20261029z3"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029z2"></script>
+<script src="gmt-nofab.js?v=20261029z3"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->
