@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029x"></script>
+<script src="gmt-tools.js?v=20261029y"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029x"></script>
-  <script src="gmt-config.js?v=20261029x"></script>
-  <script src="gmt-brand.js?v=20261029x"></script>
+  <script src="gmt-image-guard.js?v=20261029y"></script>
+  <script src="gmt-config.js?v=20261029y"></script>
+  <script src="gmt-brand.js?v=20261029y"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029x"></script>
-  <script src="gmt-suggest.js?v=20261029x"></script>
-  <script src="gmt-match.js?v=20261029x"></script>
-  <script src="gmt-compat-kb.js?v=20261029x"></script>
+  <script src="gmt-core.js?v=20261029y"></script>
+  <script src="gmt-suggest.js?v=20261029y"></script>
+  <script src="gmt-match.js?v=20261029y"></script>
+  <script src="gmt-compat-kb.js?v=20261029y"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029x" defer></script>
+  <script src="gmt-ask.js?v=20261029y" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029x" defer></script>
-  <script src="gmt-share.js?v=20261029x" defer></script>
+  <script src="gmt-stock.js?v=20261029y" defer></script>
+  <script src="gmt-share.js?v=20261029y" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029x"></script>
-<script src="gmt-gallery.js?v=20261029x" defer></script>
-<script src="gmt-product-edit.js?v=20261029x" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029x"></script>
+<script src="gmt-specs.js?v=20261029y"></script>
+<script src="gmt-gallery.js?v=20261029y" defer></script>
+<script src="gmt-product-edit.js?v=20261029y" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029y"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029x"></script>
+  <script src="gmt-staff.js?v=20261029y"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -5036,7 +5036,7 @@ let _gmtStoreCat = null;
 async function gmtStoreCatalog(fresh) {
   if (!fresh && _gmtStoreCat && Date.now() - _gmtStoreCat.at < 60000) return _gmtStoreCat.rec;
   const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
-  const r = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
+  const r = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,categories,updated_at`, { headers: H });   /* الأقسام لأداة المتشابهات (seq 216) */
   if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
   const rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
   _gmtStoreCat = { at: Date.now(), rec };
@@ -10434,14 +10434,64 @@ window.bulkPriceFiltered = bulkPriceFiltered;
 const SIM_SKIP = 'gmt_sim_skip';
 function _simSkip() { try { return JSON.parse(localStorage.getItem(SIM_SKIP) || '{}'); } catch (_) { return {}; } }
 function _simSkipSet(k, on) { const m = _simSkip(); if (on) m[k] = 1; else delete m[k]; try { localStorage.setItem(SIM_SKIP, JSON.stringify(m)); } catch (_) {} }
-let _simRows = null, _simOpen = '', _simPick = {};
-function _simCompute() {
-  const store = invStoreOnly(), inv = allProducts.filter(p => !invLinked(p)), skip = _simSkip();
-  return store.map(sp => {
-    const ranked = GMTMatch.rank({ name: sp.name || sp.short_name, barcode: sp.barcode, alt_names: sp.alt_names, brand: sp.brand }, inv)
-      .filter(r => r.score >= 0.25 && !skip[sp.id + '|' + r.item.id]).slice(0, 3);
-    return { sp, cands: ranked };
-  }).filter(x => x.cands.length && x.cands[0].score >= 0.35).sort((a, b) => b.cands[0].score - a.cands[0].score);
+let _simRows = null, _simOpen = '', _simPick = {}, _simBusy = null, _simStat = null;
+const SIM_MIN = 0.42;
+/* (المالك seq 216 «الأداة غبية — تربط هوداً بعدسة · لا تعرف أقسام الإكسسوار والبانيل ليد · اجعلها أداةً قويّة تحلّل كل منتجات النظام
+   تستغرق وقتاً ثمّ تفتح · المجموعات والأقسام متشابهة تقريباً») تحليلٌ كاملٌ قبل العرض:
+   ① النوع لكلّ منتج (هود · عدسة · بانيل ليد · رأس إضاءة · مايك …) من الاسم ثمّ القسم/المجموعة — نوعان مختلفان لا يجتمعان أبداً
+   ② قسم المتجر ⇐ مجموعات الجرد: يُتعلَّم من المنتجات المربوطة ومن أنواع الجرد (نفس المجموعة ترفع · غيرها يخفض)
+   ③ رمز الموديل الملتصق (L12ترايبود = L 12 · MM4028-RGBW ≈ MM4028 RGB) · الماركة (ماركتان ⇒ أبعد) · السعر (×٣ ⇒ أبعد)
+   ④ بصمة الصورة لكل منتجات الطرفين (الصورة نفسها ترفع ولو اختلف الاسم كلّياً) — ثمّ تُفتح النتائج بأسبابها */
+async function _simAnalyze(prog) {
+  const t0 = Date.now(), tick = () => new Promise(r => setTimeout(r, 0));
+  prog(1, 'أقرأ المتجر وأقسامه…');
+  await invStoreIndex(true);
+  const rec = await gmtStoreCatalog().catch(() => ({})), cats = {};
+  (Array.isArray(rec.categories) ? rec.categories : []).forEach(c => { if (c && c.id != null) cats[String(c.id)] = c.name || ''; });
+  const catOf = sp => cats[String((Array.isArray(sp.category_ids) && sp.category_ids[0]) || sp.category_id || '')] || sp.category || '';
+  const store = invStoreOnly(), inv = allProducts.filter(p => !invLinked(p));
+  prog(6, `أصنّف ${store.length + allProducts.length} منتجاً حسب النوع…`); await tick();
+  const sT = new Map(store.map(sp => [sp, GMTMatch.typeOf(sp.name || sp.short_name, catOf(sp))]));
+  const iT = new Map(allProducts.map(p => [p, GMTMatch.typeOf(p.name, p.group_name || p.category)]));
+  /* ② القسم ⇐ المجموعات: من المربوط (المتجر ↔ الجرد) ومن نوع كل منتج جرد */
+  prog(10, 'أتعلّم أقسام المتجر ⇐ مجموعات الجرد من المنتجات المربوطة…'); await tick();
+  const secG = {}, typG = {}, addTo = (m, k, g) => { if (k && g) (m[k] = m[k] || {})[g] = 1; };
+  const byId = new Map(allProducts.map(p => [String(p.id), p]));
+  (_invStoreIdx ? _invStoreIdx.prods : []).forEach(sp => {
+    let iv = sp.inv_id != null ? byId.get(String(sp.inv_id)) : null;
+    if (!iv) iv = allProducts.find(p => { const m = /#product=([^&]+)/.exec(String(p.store_url || '')); return m && decodeURIComponent(m[1]) === String(sp.id); });
+    if (iv) addTo(secG, catOf(sp), iv.group_name);
+  });
+  allProducts.forEach(p => addTo(typG, iT.get(p), p.group_name));
+  const nLearn = Object.keys(secG).length;
+  /* ④ بصمات الصور — كل الطرفين (المحفوظ في المتصفّح لا يُعاد) */
+  const imgOf = p => p.image_url || (Array.isArray(p.images) && p.images.find(Boolean)) || '';
+  const urls = [...new Set(store.map(imgOf).concat(inv.map(imgOf)).filter(u => /^https?:/i.test(u)))];
+  const H = new Map(); let done = 0, got = 0;
+  for (let i = 0; i < urls.length; i += 8) {
+    await Promise.all(urls.slice(i, i + 8).map(async u => { const h = await GMTMatch.imgHash(u).catch(() => null); if (h) { H.set(u, h); got++; } done++; }));
+    prog(14 + Math.round(56 * done / Math.max(1, urls.length)), `أقارن الصور: ${done} / ${urls.length}`);
+  }
+  /* ③ كل زوج (متجر × جرد): نصّ · موديل · نوع · مجموعة · ماركة · سعر · صورة */
+  const rows = []; let pairs = 0, cut = 0;
+  for (let i = 0; i < store.length; i++) {
+    const sp = store[i], ts = sT.get(sp), cat = catOf(sp), gs = Object.assign({}, secG[cat] || {}, ts && typG[ts] || {}), known = Object.keys(gs).length > 0;
+    const src = { name: sp.name || sp.short_name, barcode: sp.barcode, alt_names: sp.alt_names, brand: sp.brand, price: sp.price }, hs = H.get(imgOf(sp));
+    const all = [];
+    inv.forEach(iv => {
+      pairs++;
+      const ti = iT.get(iv), hi = H.get(imgOf(iv));
+      const r = GMTMatch.pairScore(src, iv, { ts, ti, grp: !iv.group_name || !known ? null : !!gs[iv.group_name], img: hs && hi ? GMTMatch.imgSim(hs, hi) : null });
+      if (!r) { cut++; return; }
+      if (r.score >= 0.3) all.push({ item: iv, score: r.score, why: r.why, ti });
+    });
+    all.sort((a, b) => b.score - a.score);
+    if (all.length && all[0].score >= SIM_MIN) rows.push({ sp, cat, ts, all: all.slice(0, 12) });
+    if (i % 10 === 9) { prog(70 + Math.round(28 * (i + 1) / store.length), `أحلّل منتجات المتجر: ${i + 1} / ${store.length}`); await tick(); }
+  }
+  rows.sort((a, b) => b.all[0].score - a.all[0].score);
+  _simStat = { store: store.length, inv: inv.length, pairs, cut, imgs: urls.length, got, learn: nLearn, sec: Object.keys(cats).length, ms: Date.now() - t0, at: Date.now() };
+  return rows;
 }
 function _simSpecs(rows) { return rows.length ? '<table style="width:100%;font-size:11.5px;border-collapse:collapse">' + rows.slice(0, 14).map(r => `<tr><td style="color:#64748b;padding:2px 4px;white-space:nowrap;vertical-align:top">${escHtml(r[0])}</td><td style="padding:2px 4px">${escHtml(r[1])}</td></tr>`).join('') + '</table>' : '<div style="font-size:11.5px;color:#94a3b8">بلا مواصفات</div>'; }
 function _simSide(t, imgs, rows, extra) {
@@ -10512,17 +10562,47 @@ window.simLinkDirect = simLinkDirect;
 function simField(k, label, v, type) {
   return `<label style="display:block;font-size:11px;color:#64748b;font-weight:800;margin:3px 0">${label}<input data-sf="${k}" type="${type || 'text'}" value="${escHtml(v == null ? '' : String(v))}" style="display:block;width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font:inherit;font-size:12.5px;color:#0f1219;background:#fff"></label>`;
 }
+/* أسطر النتائج بعد إخفاء «ليسا نفس المنتج» — المرشّحون ٣ والأقوى فوق الحدّ */
+function _simVisible() {
+  const skip = _simSkip();
+  return (_simRows || []).map(x => Object.assign(x, { cands: x.all.filter(c => !skip[x.sp.id + '|' + c.item.id]).slice(0, 3) }))
+    .filter(x => x.cands.length && x.cands[0].score >= SIM_MIN);
+}
+function _simProgress(cont, pc, msg) {
+  if (bulkActiveFilter !== 'similar') return;
+  cont.innerHTML = `<div data-sim-prog style="max-width:520px;margin:34px auto;padding:18px;background:#fff;border:1px solid #eef0f4;border-radius:14px;text-align:center">
+    <div style="font-size:15px;font-weight:900;color:#0f1219">🔎 تحليلٌ كامل لكل منتجات المتجر والجرد</div>
+    <div style="font-size:12px;color:#5b6472;font-weight:700;margin:6px 0 12px;line-height:1.7">النوع (هود · عدسة · بانيل ليد · رأس إضاءة · مايك …) · القسم ⇐ المجموعة · رمز الموديل · الماركة · السعر · الصور — يستغرق قليلاً ثمّ تُفتح النتائج</div>
+    <div style="height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pc}%;background:#D5001C;border-radius:99px;transition:width .25s"></div></div>
+    <div data-sim-msg style="font-size:12.5px;font-weight:800;color:#334155;margin-top:8px">${escHtml(msg)} · ${pc}%</div></div>`;
+}
 function bulkRenderSimilar(cont, fresh) {
-  if (!window.GMTMatch) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
-  if (fresh || !_simRows) _simRows = _simCompute();
+  if (!window.GMTMatch || !GMTMatch.pairScore) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
+  if (fresh && !_simBusy) _simRows = null;
+  if (!_simRows) {
+    if (!_simBusy) {
+      _simProgress(cont, 0, 'أبدأ…');
+      _simBusy = _simAnalyze((pc, msg) => _simProgress(cont, pc, msg))
+        .then(rows => { _simRows = rows; }).catch(er => { _simRows = []; _simStat = { err: (er && er.message) || String(er) }; })
+        .finally(() => { _simBusy = null; if (bulkActiveFilter === 'similar') bulkRenderSimilar(cont); });
+    }
+    return;
+  }
   const q = (document.getElementById('bulk-search-input')?.value || '').toLowerCase();
-  const rows = _simRows.filter(x => !q || (String(x.sp.name || '') + ' ' + x.cands.map(c => c.item.name).join(' ')).toLowerCase().indexOf(q) !== -1);
+  const rows = _simVisible().filter(x => !q || (String(x.sp.name || '') + ' ' + x.cat + ' ' + x.cands.map(c => c.item.name + ' ' + (c.item.group_name || '')).join(' ')).toLowerCase().indexOf(q) !== -1);
+  const st = _simStat || {}, strong = rows.filter(x => x.cands[0].score >= 0.75).length;
+  const chip = (t, bg, fg) => `<span style="display:inline-block;background:${bg};color:${fg};border-radius:99px;padding:1px 8px;font-size:11px;font-weight:800;margin:2px 2px 0 0;white-space:nowrap">${escHtml(t)}</span>`;
+  const whyChip = w => /مختلف|بعيد/.test(w) ? chip(w, '#fef2f2', '#b91c1c') : chip(w, '#ecfdf5', '#047857');
   const img = (u, e) => u ? `<img src="${escHtml(u)}" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #eef0f4;flex:0 0 auto" onerror="this.outerHTML='${e}'">` : `<span style="font-size:22px">${e}</span>`;
   const btn = (act, t, bg, fg) => `<button type="button" data-sa="${act}" style="background:${bg};color:${fg};border:0;border-radius:10px;padding:7px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">${t}</button>`;
   const nSkip = Object.keys(_simSkip()).length;
-  cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">🔗 <b>${rows.length}</b> منتج متجر غير مربوط يشبه منتجاً في الجرد — الأقرب أوّلاً. اضغط «🔍 راجِع» لترى الاثنين كاملين (الصور · السعر · المواصفات · الوصف) ثمّ اربطهما أو اختر مرشّحاً آخر أو أخفِ الاقتراح.` +
-      (nSkip ? ` <button type="button" data-sa="unskip" style="background:none;border:0;color:#2563eb;font:inherit;font-weight:800;cursor:pointer;text-decoration:underline">أظهر المخفيّة (${nSkip})</button>` : '') + `</div>` +
-    (rows.length ? rows.map(({ sp, cands }) => {
+  cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">` +
+      (st.err ? `<div style="color:#b91c1c">⚠️ تعذّر التحليل: ${escHtml(st.err)}</div>` :
+        `🔎 حُلِّل <b>${st.store || 0}</b> منتج متجر غير مربوط × <b>${st.inv || 0}</b> منتج جرد غير مربوط (${(st.pairs || 0).toLocaleString('en')} مقارنة · استُبعد ${(st.cut || 0).toLocaleString('en')} زوجاً لاختلاف النوع · الصور ${st.got || 0}/${st.imgs || 0} · ${st.learn || 0} قسماً متعلَّماً من المربوط · ${Math.round((st.ms || 0) / 1000)} ث)<br>`) +
+      `🔗 <b>${rows.length}</b> منتج متجر يشبه منتجاً في الجرد — منها <b>${strong}</b> قويّ (≥٧٥٪). اضغط «🔍 راجِع» لترى الاثنين كاملين ثمّ اربطهما أو أخفِ الاقتراح.` +
+      ` <button type="button" data-sa="reanalyze" style="background:#f1f5f9;border:0;border-radius:8px;padding:4px 10px;color:#0f1219;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🔄 أعد التحليل الكامل</button>` +
+      (nSkip ? ` <button type="button" data-sa="unskip" style="background:none;border:0;color:#475569;font:inherit;font-weight:800;cursor:pointer;text-decoration:underline">أظهر المخفيّة (${nSkip})</button>` : '') + `</div>` +
+    (rows.length ? rows.map(({ sp, cands, cat, ts }) => {
       const sel = _simPick[sp.id] != null ? cands.find(c => String(c.item.id) === String(_simPick[sp.id])) || cands[0] : cands[0], r = sel;
       const pc = Math.round(r.score * 100), col = pc >= 75 ? '#047857' : pc >= 50 ? '#b45309' : '#64748b', open = _simOpen === String(sp.id);
       return `<div data-sim="${escHtml(String(sp.id))}" data-inv="${escHtml(String(r.item.id))}" style="background:#fff;border:1px solid ${open ? '#0f1219' : '#eef0f4'};border-radius:12px;padding:8px;margin:6px 0">
@@ -10530,6 +10610,7 @@ function bulkRenderSimilar(cont, fresh) {
         ${img((sp.images || [])[0], '🛒')}<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🛒 ${escHtml(sp.name || sp.short_name || '—')} <span style="color:#64748b;font-weight:700">$${escHtml(String(sp.price ?? ''))}</span></div>
         <div style="font-size:12.5px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📦 ${escHtml(r.item.name || '')} <span style="color:#64748b">$${escHtml(String(r.item.price || 0))}</span></div></div>
         ${img(r.item.image_url, '📦')}<span style="font-size:11px;font-weight:900;color:${col};white-space:nowrap">${pc}%</span></div>
+        <div style="margin-top:4px;line-height:1.5">${chip('🛒 ' + [GMTMatch.typeLabel(ts) || 'نوع غير معروف', cat].filter((v, i, a) => v && a.indexOf(v) === i).join(' · '), '#f1f5f9', '#334155')}${chip('📦 ' + [GMTMatch.typeLabel(r.ti) || 'نوع غير معروف', r.item.group_name].filter((v, i, a) => v && a.indexOf(v) === i).join(' · '), '#f1f5f9', '#334155')}${(r.why || []).map(whyChip).join('')}</div>
         ${cands.length > 1 ? `<div style="margin-top:6px;font-size:11.5px;color:#64748b;font-weight:800">المرشّحون من الجرد — اختر المطابق:</div>` + cands.map(c => { const on = String(c.item.id) === String(r.item.id), cp = Math.round(c.score * 100);
             return `<button type="button" data-sa="pick" data-pid="${escHtml(String(c.item.id))}" style="display:flex;gap:8px;align-items:center;width:100%;text-align:right;margin-top:4px;background:${on ? '#ecfdf5' : '#fff'};border:1.5px solid ${on ? '#047857' : '#e5e7eb'};border-radius:10px;padding:5px 8px;font:inherit;cursor:pointer">
               ${img(c.item.image_url, '📦').replace('width:48px;height:48px', 'width:34px;height:34px')}<span style="flex:1;min-width:0;font-size:12px;font-weight:${on ? 900 : 700};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${on ? '✅ ' : ''}${escHtml(c.item.name || '')} · $${escHtml(String(c.item.price || 0))}</span><span style="font-size:11px;font-weight:900;color:#64748b">${cp}%</span></button>`; }).join('') : ''}
@@ -10551,9 +10632,10 @@ function bulkRenderSimilar(cont, fresh) {
       if (bulkActiveFilter !== 'similar') return;
       const b = e.target.closest('[data-sa]'); if (!b) return;
       const act = b.getAttribute('data-sa');
-      if (act === 'unskip') { try { localStorage.removeItem(SIM_SKIP); } catch (_) {} bulkRenderSimilar(cont, true); return; }
+      if (act === 'unskip') { try { localStorage.removeItem(SIM_SKIP); } catch (_) {} bulkRenderSimilar(cont); return; }
+      if (act === 'reanalyze') { _simOpen = ''; _simPick = {}; bulkRenderSimilar(cont, true); return; }
       const card = b.closest('[data-sim]'); if (!card) return;
-      const sid = card.getAttribute('data-sim'), iid = card.getAttribute('data-inv'), row = _simRows.find(x => String(x.sp.id) === sid); if (!row) return;
+      const sid = card.getAttribute('data-sim'), iid = card.getAttribute('data-inv'), row = (_simRows || []).find(x => String(x.sp.id) === sid); if (!row) return;
       if (act === 'review') { _simOpen = _simOpen === sid ? '' : sid; bulkRenderSimilar(cont); return; }
       if (act === 'save') {
         const invP = allProducts.find(p => String(p.id) === iid); if (!invP) return;
@@ -10564,7 +10646,7 @@ function bulkRenderSimilar(cont, fresh) {
         const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(iid)}`, patch);
         if (error) { b.disabled = false; b.textContent = '💾 احفظ بيانات الجرد'; showToast('❌ لم يُحفظ: ' + error, 'error'); return; }
         Object.assign(invP, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [invP]).catch(() => {});
-        row.cands.forEach(c => { if (String(c.item.id) === iid) Object.assign(c.item, patch); });
+        delete invP._mb; delete invP._mk;   /* بصمة النصّ والموديل تُحسب من جديد */
         bulkRenderSimilar(cont); showToast('✅ حُفظ في الجرد', 'success'); return;
       }
       if (act === 'pick') { _simPick[sid] = b.getAttribute('data-pid'); bulkRenderSimilar(cont); return; }
@@ -10574,22 +10656,22 @@ function bulkRenderSimilar(cont, fresh) {
         try {
           const ok = await simLinkDirect(invP, sid);
           if (!ok) { b.disabled = false; b.textContent = t0; return; }
-          _simRows = _simRows.filter(x => String(x.sp.id) !== sid); delete _simPick[sid]; if (_simOpen === sid) _simOpen = '';
+          _simRows = _simRows.filter(x => String(x.sp.id) !== sid); _simRows.forEach(x => { x.all = x.all.filter(c => String(c.item.id) !== iid); }); delete _simPick[sid]; if (_simOpen === sid) _simOpen = '';
           bulkRenderSimilar(cont);
           showToast('✅ رُبطا — الباركود والسعر محدَّثان في الجهتين · الآن راجع بيانات المنتج', 'success');
           if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid);
         } catch (er) { b.disabled = false; b.textContent = t0; showToast('❌ لم يُربط: ' + ((er && er.message) || er), 'error'); }
         return;
       }
-      if (act === 'skip') { _simSkipSet(sid + '|' + iid, true); delete _simPick[sid]; bulkRenderSimilar(cont, true); showToast('أُخفي هذا الاقتراح', 'info'); return; }
+      if (act === 'skip') { _simSkipSet(sid + '|' + iid, true); delete _simPick[sid]; bulkRenderSimilar(cont); showToast('أُخفي هذا الاقتراح', 'info'); return; }
       if (act === 'edit') { if (typeof invOpenFullEdit === 'function') invOpenFullEdit(iid); return; }
       if (act === 'store') { window.open(invStoreLink('#product=' + encodeURIComponent(sid)), '_blank'); return; }
       if (act === 'ai') {
         const out = card.querySelector('[data-sim-ai]'); out.style.color = '#334155'; out.textContent = '🧠 العقل يقارن…';
         try {
-          const inv = allProducts.filter(p => !invLinked(p)), ranked = GMTMatch.rank({ name: row.sp.name || row.sp.short_name, barcode: row.sp.barcode, alt_names: row.sp.alt_names }, inv);
-          const r = await GMTMatch.ai({ name: row.sp.name || row.sp.short_name, price: row.sp.price, brand: row.sp.brand }, ranked, 12);
-          if (r.item) { _simPick[sid] = r.item.id; if (!row.cands.some(c => String(c.item.id) === String(r.item.id))) row.cands.unshift({ item: r.item, score: Math.max(0.5, r.confidence / 100), text: 0 }); bulkRenderSimilar(cont);
+          /* العقل يُعطى أقرب ١٢ من التحليل الكامل (من النوع نفسه فقط — لا هود مع عدسة) */
+          const r = await GMTMatch.ai({ name: row.sp.name || row.sp.short_name, price: row.sp.price, brand: row.sp.brand }, row.all, 12);
+          if (r.item) { _simPick[sid] = r.item.id; const c0 = row.all.find(c => String(c.item.id) === String(r.item.id)); if (c0) { row.all = [c0].concat(row.all.filter(c => c !== c0)); c0.why = ['🧠 العقل ' + r.confidence + '%'].concat((c0.why || []).filter(w => !/العقل/.test(w))); } bulkRenderSimilar(cont);
             const o2 = cont.querySelector(`[data-sim="${CSS.escape(sid)}"] [data-sim-ai]`); if (o2) { o2.style.color = '#047857'; o2.textContent = '🧠 العقل: «' + (r.item.name || '') + '» (' + r.confidence + '%)' + (r.why ? ' — ' + r.why : ''); } }
           else { out.style.color = '#92400e'; out.textContent = '🧠 العقل: لا أحد في الجرد هو المنتج نفسه' + (r.why ? ' — ' + r.why : ''); }
         } catch (er) { out.style.color = '#b91c1c'; out.textContent = '⚠️ ' + ((er && er.message) || er); }
@@ -10601,7 +10683,7 @@ async function bulkSetFilter(btn) {
   document.querySelectorAll('.bchip').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
   bulkActiveFilter = btn.dataset.bf;
-  if (bulkActiveFilter === 'similar') _simRows = null;
+  if (bulkActiveFilter === 'similar' && _simStat && Date.now() - (_simStat.at || 0) > 10 * 60000) _simRows = null;   /* التحليل الكامل يبقى ١٠ دقائق — و«🔄 أعد التحليل الكامل» متى شئت */
   if ((bulkActiveFilter === 'one_img' || bulkActiveFilter === 'similar') && !_invStoreIdx) { const c = document.getElementById('bulk-content'); if (c) c.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">🛒 أقرأ منتجات المتجر…</div>'; await invStoreIndex(); }
   bulkRenderList();
 }
@@ -15746,19 +15828,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029x"></script>
-<script src="gmt-selfcheck.js?v=20261029x"></script>
+<script src="gmt-pwa.js?v=20261029y"></script>
+<script src="gmt-selfcheck.js?v=20261029y"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029x"></script>
+<script src="gmt-brain.js?v=20261029y"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029x"></script>
+<script src="gmt-whatsnew.js?v=20261029y"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029x"></script>
+<script src="gmt-nofab.js?v=20261029y"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->

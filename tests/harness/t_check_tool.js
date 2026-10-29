@@ -8,8 +8,14 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const U = 'https://x.supabase.co/storage/v1/object/public/products-images/t/';
   await H.call('/rest/v1/products?id=eq.' + A, { name: 'Canon EOS R6 Mark II كاميرا', image_url: U + 'a1.png', images: [U + 'a1.png', U + 'a2.png'], group_name: 'كاميرات', category: 'كاميرات', specs: { 'الدقة': '24MP' }, price: 2100 }, 'PATCH');
   await H.call('/rest/v1/products?id=eq.' + B, { name: 'هود EW-73D', image_url: U + 'b1.png', images: null, group_name: '', category: '', specs: {}, price: 0 }, 'PATCH');
-  await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-17T21:08:21.137229+00:00', categories: [], products: [
-    { id: 's1', name: 'Canon Lens Hood EW-73D original', price: 15, images: ['x'] }, { id: 's2', name: 'Godox SL60W light', price: 120, images: [] }] }]);
+  /* (seq 216) «تربط هوداً بعدسة · لا تعرف البانيل ليد»: عدسة 18-135 في الجرد لا تُقترح لهود 18-135 · «لوح اضائة 660 pro» ⇐ «Led 660 pro» */
+  await H.call('/rest/v1/products?id=eq.' + C, { name: 'Canon EF-S 18-135mm USM lens عدسة', group_name: 'عدسات', image_url: null, images: null, price: 300 }, 'PATCH');
+  await H.call('/rest/v1/products?id=eq.' + D, { name: 'Led 660 pro', group_name: 'بانيل ليد', image_url: null, images: null, price: 70 }, 'PATCH');
+  await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-17T21:08:21.137229+00:00',
+    categories: [{ id: 'c1', name: 'قسم هودات و فلاتر العدسات' }, { id: 'c2', name: 'قسم الإضاءة اللوحية /ليد بانيل/' }], products: [
+    { id: 's1', name: 'Canon Lens Hood EW-73D original', price: 15, images: ['x'], category_ids: ['c1'] }, { id: 's2', name: 'Godox SL60W light', price: 120, images: [] },
+    { id: 's3', name: 'هود EW-73B لعدسة 18-135', price: 6, images: [], category_ids: ['c1'] },
+    { id: 's4', name: 'لوح اضائة 660 pro مع ريمونت', price: 65, images: [], category_ids: ['c2'] }] }]);
   const { browser, pg, errs } = await H.open('inventory.html?check=one_img', { w: 1366, h: 900, mobile: false, wait: 6000 });
   await pg.waitForFunction(() => typeof currentAppMode !== 'undefined' && currentAppMode === 'bulk' && document.querySelector('#bulk-filter-row .bchip.active[data-bf="one_img"]'), null, { timeout: 15000 }).catch(() => {});
   const names = () => pg.evaluate(() => bulkFiltered.map(p => p.name));
@@ -20,9 +26,21 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const ng = await f('no_group'), nc = await f('no_cat'), ns = await f('no_specs');
   ok(ng.includes('هود EW-73D') && !ng.includes('Canon EOS R6 Mark II كاميرا') && nc.includes('هود EW-73D') && !nc.includes('Canon EOS R6 Mark II كاميرا') && ns.includes('هود EW-73D') && !ns.includes('Canon EOS R6 Mark II كاميرا'),
     'بلا مجموعة · بلا تصنيف · بلا مواصفات — كلٌّ يصفّي ما ينقصه');
-  await pg.evaluate(() => document.querySelector('#bulk-filter-row [data-bf="similar"]').click()); await pg.waitForTimeout(800);
-  const sim = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim]')].map(x => ({ t: x.innerText.replace(/\s+/g, ' '), href: (x.querySelector('a') || {}).href || '' })));
-  ok(sim.length === 1 && /EW-73D original/.test(sim[0].t) && /هود EW-73D/.test(sim[0].t) && /bridge\.html\?link=s1&inv=/.test(sim[0].href), 'متشابهات: «Canon Lens Hood EW-73D» (متجر) ⇐ «هود EW-73D» (جرد) و«اربطهما» إلى الجسر: ' + JSON.stringify(sim).slice(0, 200));
+  await pg.evaluate(() => { window.__prog = []; const o = window._simProgress; window._simProgress = function (c, pc, m) { o(c, pc, m); const x = document.querySelector('#bulk-content [data-sim-prog]'); if (x) window.__prog.push(x.innerText.replace(/\s+/g, ' ')); }; });
+  await pg.evaluate(() => document.querySelector('#bulk-filter-row [data-bf="similar"]').click()); await pg.waitForTimeout(150);
+  await pg.waitForFunction(() => !_simBusy && _simRows, null, { timeout: 30000 }).catch(() => {});
+  const progs = await pg.evaluate(() => window.__prog), prog = progs.join(' ⟶ ');
+  ok(progs.length >= 4 && /تحليلٌ كامل/.test(prog) && /أصنّف/.test(prog) && /أتعلّم أقسام المتجر/.test(prog), '(seq 216) تحليلٌ كامل بشريط تقدّم (النوع · الأقسام · الصور · المقارنة) قبل أن تُفتح النتائج: ' + progs.map(x => x.replace(/.*الصور — يستغرق قليلاً ثمّ تُفتح النتائج/, '')).join(' | ').slice(0, 260));
+  await pg.waitForFunction(() => !_simBusy && _simRows && document.querySelector('#bulk-content [data-sa="reanalyze"]'), null, { timeout: 30000 }).catch(() => {});
+  const simAll = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim]')].map(x => ({ id: x.getAttribute('data-sim'), t: x.innerText.replace(/\s+/g, ' '), href: (x.querySelector('a') || {}).href || '' })));
+  const sim = simAll.filter(x => x.id === 's1');
+  ok(sim.length === 1 && /EW-73D original/.test(sim[0].t) && /هود EW-73D/.test(sim[0].t) && /bridge\.html\?link=s1&inv=/.test(sim[0].href) && /نفس النوع/.test(sim[0].t), 'متشابهات: «Canon Lens Hood EW-73D» (متجر) ⇐ «هود EW-73D» (جرد) بأسبابه و«في الجسر»: ' + JSON.stringify(sim).slice(0, 200));
+  const s3 = simAll.find(x => x.id === 's3'), s4 = simAll.find(x => x.id === 's4');
+  ok(!simAll.some(x => /18-135mm USM lens/.test(x.t)), '(seq 216) لا هود مع عدسة أبداً — عدسة 18-135 لم تُقترح لأيّ هود: ' + JSON.stringify(simAll.map(x => x.id + ':' + x.t.slice(0, 60))));
+  ok(s4 && /Led 660 pro/.test(s4.t) && /الموديل نفسه/.test(s4.t) && /بانيل ليد/.test(s4.t), '(seq 216) البانيل ليد: «لوح اضائة 660 pro» ⇐ «Led 660 pro» (الموديل نفسه · بانيل ليد): ' + (s4 ? s4.t.slice(0, 160) : '—'));
+  const hdr = await pg.evaluate(() => document.querySelector('#bulk-content').innerText.split('Canon Lens Hood')[0].replace(/\s+/g, ' '));
+  ok(/حُلِّل/.test(hdr) && /لاختلاف النوع/.test(hdr) && /أعد التحليل الكامل/.test(hdr), 'ملخّص التحليل (المقارنات · المستبعد لاختلاف النوع) و«🔄 أعد التحليل الكامل»: ' + hdr.slice(0, 200));
+  await pg.evaluate(() => { _simRows = _simRows.filter(x => x.sp.id === 's1'); bulkRenderSimilar(document.getElementById('bulk-content')); });   // بقية الخطوات على بطاقة الهود وحدها
   // (seq 212) المراجعة الكاملة والأزرار
   const btns = await pg.evaluate(() => [...document.querySelectorAll('#bulk-content [data-sim] button, #bulk-content [data-sim] a')].map(x => x.textContent.trim()));
   ok(['راجِع', 'اربطهما', 'اسأل العقل', 'عدّل منتج الجرد', 'افتحه في المتجر', 'ليسا نفس المنتج'].every(t => btns.some(x => x.indexOf(t) !== -1)), 'أزرار المراجعة كاملة: ' + btns.join(' · '));
