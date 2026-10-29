@@ -263,7 +263,95 @@
     return true;
   }
 
+  /* ══ (المالك seq 217 «البحث عن الغطاء أو الهود أو البطارية من اسم التوافق لا يعمل: بجارية 700d · هود عدسة 18-55 · غطا عدسة 85») ══
+     يُفهم البحث «نوعٌ + ما يركب عليه» من المرجع الثابت: بطارية 700D ⇐ LP-E8 · هود 18-55 ⇐ EW-63C / EW-60C أو هود لولبي 58مم ·
+     غطاء 85 ⇐ قطر عدسات 85 (58 · 67 · 72 · 77 · 82). الأخطاء الإملائية الشائعة في اسم النوع مقبولة («بجارية» · «بطاريه» · «غطا» · «هوود»). */
+  var INTENT = [['charger', /^(شاحن|شواحن|charger|charge)$/], ['battery', /^(ب[طتجظ]ا?ر[يى][هةا]?|بطاري\S*|batter\S*|battr\S*|باتري)$/], ['hood', /^(هود|هوود|هودات|hood|hoods|حاجب)$/],
+    ['cap', /^(غطا|غطاء|غطاي|غطايه|اغطيه|اغطية|cap|caps|كاب)$/], ['filter', /^(فلتر|فلاتر|filter|filters)$/], ['grip', /^(قبضه|قبضة|grip)$/]];
+  var INTENT_FILL = /^(عدسه|عدسة|لعدسه|لعدسة|للعدسه|العدسه|عدسات|lens|for|ل|لل|على|مع|تبع|حق|كاميرا|كمرا|كميرا|camera|canon|كانون|eos|ايوس|متوافق|يركب|يناسب|اصلي|كوبي|original|copy)$/;
+  function intentKind(w) { for (var i = 0; i < INTENT.length; i++) if (INTENT[i][1].test(w)) return INTENT[i][0]; return ''; }
+  function camsOf(key) { var k = hk(key), out = []; for (var b in BAT) BAT[b].forEach(function (c) { if (hk(c.replace(/^EOS\s*/, '')) === k && out.indexOf(c) < 0) out.push(c); }); return out; }
+  /* العدسات المطابقة لكلمات البحث: البُعد البؤري (18-55 · 85) شرط · فتحة العدسة (1.8) والتركيب (RF · EF-S · M) إن كُتبت */
+  function lensesOf(words) {
+    var foc = '', ap = '', mount = '', vars = [];
+    words.forEach(function (w, i) {
+      if (/^(stm|usm|is|ii|iii|l|macro|nano)$/.test(w)) { vars.push(w.toUpperCase()); return; }   // «50 STM 1.8» ≠ «50 1.8 II»
+      var r = /^(\d{1,3})[-_](\d{2,3})(mm)?$/.exec(w);
+      if (r) { foc = r[1] + '-' + r[2]; return; }
+      if (/^\d{2,3}(mm)?$/.test(w) && !foc) { var n = w.replace(/mm$/, ''), nx = words[i + 1] || ''; if (/^\d{2,3}(mm)?$/.test(nx) && +nx.replace(/mm$/, '') > +n) foc = n + '-' + nx.replace(/mm$/, ''); else foc = n; return; }
+      var a = /^f?\/?(\d\.\d|\d)$/.exec(w); if (a && foc) { ap = a[1]; return; }
+      if (/^(rf|ef|efs|ef-s|rfs|rf-s|m|efm|ef-m)$/.test(w)) mount = w.replace(/-/g, '');
+    });
+    if (!foc) return [];
+    return LENSES.filter(function (l) {
+      var nm = l[0], m = /^(RF-S|RF|EF-S|EF-M|EF)\s+([\d-]+)mm\s+f\/([\d.]+)/.exec(nm); if (!m) return false;
+      if (m[2] !== foc) return false;
+      if (ap && m[3].split('-')[0] !== ap) return false;
+      if (vars.length) { var tk = nm.toUpperCase().replace(/(\d)L\b/g, '$1 L').split(/[\s\/]+/); if (!vars.every(function (v) { return v === 'NANO' ? tk.indexOf('USM') >= 0 : tk.indexOf(v) >= 0; })) return false; }
+      if (mount) { var mm = m[1].toLowerCase().replace(/-/g, ''); if (mount === 'm' || mount === 'efm' ? mm !== 'efm' : mount === 'ef' ? mm !== 'ef' : mm !== mount) return false; }
+      return true;
+    });
+  }
+  /* يُرجع { kind, codes:[أكواد المنتج المطلوب] , diams:[أقطار], cams, lenses, say:«الجملة للعرض» } أو null إن لم يكن البحث «نوع + هدف» */
+  var _RC = {};
+  function resolve(q) {
+    q = String(q == null ? '' : q); if (_RC[q] !== undefined) return _RC[q];
+    var words = lat(q).toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ء/g, '').replace(/[^\p{L}\p{N}.\-_\/]+/gu, ' ').trim().split(' ').filter(Boolean);
+    var kind = '', rest = [];
+    words.forEach(function (w) { var k = intentKind(w); if (k && !kind) kind = k; else if (!INTENT_FILL.test(w)) rest.push(w); });
+    var out = null;
+    if (kind && rest.length) {
+      if (kind === 'battery' || kind === 'charger' || kind === 'grip') {
+        var cams = [], tried = rest.concat(rest.slice(1).map(function (w, i) { return rest[i] + w; }), rest.slice(2).map(function (w, i) { return rest[i] + rest[i + 1] + w; }));   // «5D Mark IV» ثلاث كلمات
+        tried.forEach(function (w) { camsOf(w).forEach(function (c) { if (cams.indexOf(c) < 0) cams.push(c); }); });
+        cams.sort(function (a, b) { return b.length - a.length; });   // «R6 Mark II» قبل «R6»
+        if (cams.length) {
+          var bats = Object.keys(BAT).filter(function (b) { return cams.some(function (c) { return BAT[b].indexOf(c) >= 0; }); });
+          if (kind === 'grip') { var gs = Object.keys(GRIP).filter(function (g) { return cams.some(function (c) { return GRIP[g].indexOf(c) >= 0; }); });
+            out = { kind: kind, codes: gs, diams: [], cams: cams, lenses: [], say: 'قبضة Canon ' + cams[0] + (gs.length ? ' ⇐ ' + gs.map(function (g) { return g.replace(/^BG/, 'BG-'); }).join(' / ') : '') }; }
+          else {
+            var chg = Object.keys(CHARGER).filter(function (c) { return bats.indexOf(CHARGER[c]) >= 0; });
+            var nice = function (b) { return b.replace(/^LPE/, 'LP-E').replace(/^LCE/, 'LC-E').replace(/^NB/, 'NB-'); };
+            out = { kind: kind, codes: kind === 'battery' ? bats : chg.concat(bats), diams: [], cams: cams, lenses: [],
+              say: (kind === 'battery' ? 'بطارية' : 'شاحن') + ' Canon ' + cams[0] + ' ⇐ ' + (kind === 'battery' ? bats.map(nice).join(' / ') : chg.filter(function (c) { return !/E$/.test(c); }).map(nice).join(' / ') + ' (لبطارية ' + bats.map(nice).join(' / ') + ')') };
+          }
+        }
+      } else {
+        var ls = lensesOf(rest), STD = [37, 39, 43, 46, 49, 52, 55, 58, 62, 67, 72, 77, 82, 86, 95, 105];
+        var dd = rest.map(function (w) { var m = /^(\d{2,3})(mm|مم|ملم)?$/.exec(w); return m ? +m[1] : 0; }).filter(function (n) { return STD.indexOf(n) >= 0; });
+        if (!ls.length && dd.length && kind !== 'hood') out = { kind: kind, codes: [], diams: dd, cams: [], lenses: [], say: (kind === 'cap' ? 'غطاء' : 'فلتر') + ' قطر ' + dd.join(' / ') + 'مم' };
+        else if (ls.length) {
+          var diams = [], hoods = [];
+          ls.forEach(function (l) { if (l[1] && diams.indexOf(l[1]) < 0) diams.push(l[1]); if (l[2] && hoods.indexOf(hk(l[2])) < 0) hoods.push(hk(l[2])); });
+          if (kind !== 'hood') ls = ls.slice().sort(function (a, b) { return a[1] - b[1]; });   // الأقطار من الأصغر (58 قبل 82)
+          var by = ls.map(function (l) { return l[0] + ' ⇐ ' + (kind === 'hood' ? (l[2] || 'هود لولبي ' + l[1] + 'مم') : l[1] + 'مم'); });
+          out = { kind: kind, codes: kind === 'hood' ? hoods : [], diams: diams, cams: [], lenses: ls.map(function (l) { return l[0]; }),
+            say: (kind === 'hood' ? 'هود' : kind === 'cap' ? 'غطاء' : 'فلتر') + ' لعدسة ' + rest.join(' ') + ': ' + by.slice(0, 6).join(' · ') + (by.length > 6 ? ' …' : '') };
+        }
+      }
+    }
+    _RC[q] = out; return out;
+  }
+  /* هل يحقّق منتجُ الجرد/المتجر هذا البحثَ المفهوم؟ — النوع نفسه ثمّ الكود (LP-E8 · EW-63C) أو القطر (غطاء/فلتر/هود لولبي) أو الكاميرا في «متوافق مع» */
+  function intentHit(p, it) {
+    if (!p || !it) return false;
+    var nm = [p.name, p.short_name, p.short].filter(Boolean).join(' '), k = kindOf(nm + ' ' + (p.group_name || ''));
+    if (kindOf(nm) !== 'other') k = kindOf(nm);
+    if (k !== it.kind) return false;
+    /* الكود كاملاً بجيله (ES-68 ≠ ES-68 II) — والبديل المعروف في السوق يُقبل (ET-60II = ET-60) */
+    var pc = codesOf([nm, p.alt_names, p.model].filter(Boolean).join(' ')).map(function (c) { return hk(c.k); });
+    if (it.codes.some(function (c) { return pc.indexOf(c) >= 0; })) return true;
+    if (it.diams.length && (it.kind === 'cap' || it.kind === 'filter' || it.kind === 'hood' && !bayonet(codesOf(nm)))) {
+      var d = diamOf(nm) || diamOf(String(p.alt_names || '').split(/[،,]/)[0]);
+      if (d && it.diams.indexOf(d) >= 0) return true;
+    }
+    if (it.cams.length) {
+      var c = String(Array.isArray(p.compat) ? p.compat.join(' ') : p.compat || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+      if (it.cams.some(function (x) { return new RegExp(x.toUpperCase().replace(/[^A-Z0-9]+/g, '') + '(?![0-9A-Z])').test(c); })) return true;
+    }
+    return false;
+  }
   global.GMTCompatKB = { load: load, ready: ready, rows: function () { return S.rows; }, keyOf: keyOf, keysOf: keysOf, kindOf: kindOf, codesOf: codesOf, diamOf: diamOf,
-    fitsFor: fitsFor, rowsFor: rowsFor, refFor: refFor, _lenses: LENSES, add: add, remove: remove };
+    fitsFor: fitsFor, rowsFor: rowsFor, refFor: refFor, resolve: resolve, intentHit: intentHit, intentKind: intentKind, _lenses: LENSES, add: add, remove: remove };
   if (typeof setTimeout === 'function') setTimeout(function () { load(); }, 1200);
 })(typeof window !== 'undefined' ? window : this);

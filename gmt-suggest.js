@@ -588,15 +588,39 @@
       let hay, chay;
       const c = _HAY && _HAY.get(p);
       if (c && c.t === txt && c.ct === ctx) { hay = c.h; chay = c.ch; } else { hay = hayOf(txt); chay = ctx ? hayOf(ctx) : ''; if (_HAY) _HAY.set(p, { t: txt, h: hay, ct: ctx, ch: chay }); }
+      /* (المالك seq 217 «بجارية 700d · هود عدسة 18-55 · غطا عدسة 85 — البحث بالتوافق لا يعمل») البحث بنوعٍ صريح (بطارية · شاحن · هود · غطاء · فلتر · قبضة)
+         يُظهر ذلك النوع وحده (لا هود في بحث «غطاء» ولو ذكر اسمُه البديل «غطاء عدسة») — وإن فُهم الهدف من المرجع (700D ⇐ LP-E8 · 18-55 ⇐ EW-63C أو 58مم)
+         ظهر كل ما يركب عليه ولو لم يُكتب ذلك في التوافق */
+      const KB = global.GMTCompatKB, qk = KB && KB.resolve ? _qKind(q) : '';
+      if (qk) {
+        const nm = [p.name, p.short_name, p.short].filter(Boolean).join(' ');
+        let pk = KB.kindOf(nm); if (pk === 'other') pk = KB.kindOf(p.group_name || '');
+        if (pk !== 'other' && pk !== qk) return false;
+        const it = KB.resolve(q);
+        if (it) return KB.intentHit(p, it) || _queryHit(q, hay);   // الهدف مفهوم ⇒ ما يركب عليه فعلاً (أو اسمه هو) — لا تقريب نصّيّ في «متوافق مع»
+      }
       if (_queryHit(q, hay)) return true;
       if (hasLetterNames(q)) { const rs = letterReadings(q); for (let i = 1; i < rs.length; i++) if (_queryHit(rs[i], hay)) return true; }
       if (chay && _compatHit(q, hay, chay)) return true;
       return false;
   }
+  const _QK = {};
+  function _qKind(q) {
+      if (_QK[q] !== undefined) return _QK[q];
+      const KB = global.GMTCompatKB; let k = '';
+      if (KB && KB.intentKind) for (const w of _arN(q).split(' ')) { k = KB.intentKind(w); if (k) break; }
+      return (_QK[q] = k);
+  }
+  /* جملة العرض لبحث التوافق المفهوم («بطارية Canon EOS 700D ⇐ LP-E8») — أو '' */
+  function compatSay(q) {
+      const KB = global.GMTCompatKB; if (!KB || !KB.resolve) return '';
+      const it = KB.resolve(String(q == null ? '' : q).trim()); return it ? it.say : '';
+  }
 
   global.GMTSuggest = {
     hits     : hits,
     hitsProduct: hitsProduct,
+    compatSay: compatSay,
     qty      : qtyOf,
     price    : priceOf,
     readings : letterReadings,

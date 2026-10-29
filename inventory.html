@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029y"></script>
+<script src="gmt-tools.js?v=20261029z"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2271,36 +2271,36 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 </style>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029y"></script>
-  <script src="gmt-config.js?v=20261029y"></script>
-  <script src="gmt-brand.js?v=20261029y"></script>
+  <script src="gmt-image-guard.js?v=20261029z"></script>
+  <script src="gmt-config.js?v=20261029z"></script>
+  <script src="gmt-brand.js?v=20261029z"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029y"></script>
-  <script src="gmt-suggest.js?v=20261029y"></script>
-  <script src="gmt-match.js?v=20261029y"></script>
-  <script src="gmt-compat-kb.js?v=20261029y"></script>
+  <script src="gmt-core.js?v=20261029z"></script>
+  <script src="gmt-suggest.js?v=20261029z"></script>
+  <script src="gmt-match.js?v=20261029z"></script>
+  <script src="gmt-compat-kb.js?v=20261029z"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261010b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029y" defer></script>
+  <script src="gmt-ask.js?v=20261029z" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029y" defer></script>
-  <script src="gmt-share.js?v=20261029y" defer></script>
+  <script src="gmt-stock.js?v=20261029z" defer></script>
+  <script src="gmt-share.js?v=20261029z" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029y"></script>
-<script src="gmt-gallery.js?v=20261029y" defer></script>
-<script src="gmt-product-edit.js?v=20261029y" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029y"></script>
+<script src="gmt-specs.js?v=20261029z"></script>
+<script src="gmt-gallery.js?v=20261029z" defer></script>
+<script src="gmt-product-edit.js?v=20261029z" defer></script>
+<script src="gmt-enrich-queue.js?v=20261029z"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261029y"></script>
+  <script src="gmt-staff.js?v=20261029z"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -2559,6 +2559,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     </button>
 
     <button class="btn btn-ghost btn-sm" onclick="openMissingReport()" title="تقرير النقص: بلا صورة · بلا باركود · بلا سعر · بلا مجموعة">🔎 النقص</button>
+    <!-- (المالك seq 217 «هي الأداة ما في إلها زرّ داخل أزرار الجرد») متشابهات المتجر والجرد وفحص المنتجات — زرّان هنا وفي «المزيد» -->
+    <button class="btn btn-ghost btn-sm" data-admin="متشابهات المتجر والجرد" onclick="invOpenCheck('similar')" title="تحليلٌ كامل: منتجات المتجر غير المربوطة ⇐ أقرب منتجات الجرد (النوع · الموديل · المجموعة · الصور) ثمّ اربطهما">🔗 متشابهات المتجر والجرد</button>
+    <button class="btn btn-ghost btn-sm" data-admin="فحص المنتجات" onclick="invOpenCheck('one_img')" title="فحص المنتجات: صورة واحدة · بلا مجموعة/تصنيف/مواصفات/سعر/ربط">🧪 فحص المنتجات</button>
 
     <button class="btn btn-ghost btn-sm" onclick="gmtInvUndoPanel()" title="تراجع (Ctrl+Z) وسجلّ الحذف والتعديل والنقل">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
@@ -3031,6 +3034,12 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 
     <button class="more-action-btn" onclick="closeMoreSheet(); openMissingReport();">
       <div class="more-action-icon">🔎</div><span class="more-action-label">تقرير النقص</span>
+    </button>
+    <button class="more-action-btn" data-admin="متشابهات المتجر والجرد" onclick="closeMoreSheet(); invOpenCheck('similar');">
+      <div class="more-action-icon">🔗</div><span class="more-action-label">متشابهات المتجر والجرد</span>
+    </button>
+    <button class="more-action-btn" data-admin="فحص المنتجات" onclick="closeMoreSheet(); invOpenCheck('one_img');">
+      <div class="more-action-icon">🧪</div><span class="more-action-label">فحص المنتجات</span>
     </button>
 
     <button class="more-action-btn" onclick="closeMoreSheet(); gmtInvUndoPanel();">
@@ -5533,6 +5542,17 @@ function invActiveView() {
   return currentView === 'cards' ? 'cards' : 'table';
 }
 
+/* (المالك seq 217 «بجارية 700d · هود عدسة 18-55 · غطا عدسة 85») البحث بالتوافق يقول ما فهمه: «بطارية Canon EOS 700D ⇐ LP-E8» —
+   وإن لم يوجد في الجرد ما يركب، يقوله صراحةً بدل «لا توجد منتجات» الصامتة */
+function invCompatSay(q, n) {
+  let el = document.getElementById('inv-compat-say');
+  const say = q && window.GMTSuggest && GMTSuggest.compatSay ? GMTSuggest.compatSay(q) : '';
+  if (!say) { if (el) el.style.display = 'none'; return; }
+  if (!el) { el = document.createElement('div'); el.id = 'inv-compat-say'; const m = document.getElementById('main'); if (!m) return; m.insertBefore(el, m.firstChild); }
+  el.style.cssText = 'display:block;margin:8px 16px 0;padding:9px 12px;border-radius:12px;font-size:12.5px;font-weight:800;line-height:1.7;' +
+    (n ? 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534' : 'background:#fff7ed;border:1px solid #fed7aa;color:#9a3412');
+  el.textContent = '🔎 ' + say + (n ? ' — ' + n + ' منتج في الجرد يركب' : ' — لا يوجد منه في الجرد حالياً');
+}
 function applyFilters() {
   let items = [...allProducts];
 
@@ -5596,6 +5616,7 @@ function applyFilters() {
   filteredProducts = items;
   document.getElementById('result-count').textContent = `${items.length} منتج`;
   document.getElementById('filter-count-all').textContent = allProducts.length;
+  invCompatSay(searchQuery, items.length);
   renderStoreOnly();
   renderGroupChips();
   renderBranchFilterRow();
@@ -10688,6 +10709,12 @@ async function bulkSetFilter(btn) {
   bulkRenderList();
 }
 window.bulkSetFilter = bulkSetFilter;
+/* (seq 217) زرّ الأداة داخل أزرار الجرد: العمليات الجماعية ثمّ الفلتر (كرابط ?check=) */
+function invOpenCheck(f) {
+  if (typeof switchAppMode === 'function') switchAppMode('bulk');
+  let n = 0; const t = setInterval(() => { const c = document.querySelector('#bulk-filter-row [data-bf="' + f + '"]'); if (c || ++n > 40) { clearInterval(t); if (c) { c.click(); c.scrollIntoView({ block: 'nearest', inline: 'center' }); } } }, 100);
+}
+window.invOpenCheck = invOpenCheck;
 
 function bulkToggleGroupMode() {
   bulkGroupMode = !bulkGroupMode;
@@ -15828,19 +15855,19 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029y"></script>
-<script src="gmt-selfcheck.js?v=20261029y"></script>
+<script src="gmt-pwa.js?v=20261029z"></script>
+<script src="gmt-selfcheck.js?v=20261029z"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029y"></script>
+<script src="gmt-brain.js?v=20261029z"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029y"></script>
+<script src="gmt-whatsnew.js?v=20261029z"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029y"></script>
+<script src="gmt-nofab.js?v=20261029z"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١١ ت١) لوحة تسوية النقل على مستوى الصفحة: كانت داخل #st-products-section (display:none حتى تبدأ فاتورة)
      فيعمل زرّ «تسوية معلّقة» ويجلب البيانات ولا يظهر شيء — لا شيء يُرى لأنّ الأب مخفيّ. -->
