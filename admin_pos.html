@@ -18,7 +18,7 @@ window.GMT_INTERNAL = 1;</script>
   --success:#15803d;--success-bg:#dcfce7;
   --warning:#b45309;--warning-bg:#fef3c7;
   --danger:#b91c1c;--danger-bg:#fee2e2;/* (٨ ث) كان #dc2626 — على خلفيّته الورديّة 3.95:1 لا يُقرأ؛ الأعمق يحقّق 4.5 على الاثنتين */
-  --blue:#1D4ED8;--blue-bg:#EFF6FF;
+  --blue:#334155;--blue-bg:#EFF6FF;
   --purple:#D5001C;--purple-bg:#fff1f2;  /* (٧ ي) خلفيّة العمولة صارت من عائلة الأحمر الواحد — كانت بنفسجيّةً باهتة */
   --shadow:0 2px 16px rgba(0,0,0,0.08);
   --radius:14px;
@@ -492,33 +492,33 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
-  <script src="gmt-brand.js?v=20261029w"></script>
+  <script src="gmt-brand.js?v=20261029x"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029w"></script>
+<script src="gmt-tools.js?v=20261029x"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029w"></script>
+  <script src="gmt-image-guard.js?v=20261029x"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029w"></script>
+  <script src="gmt-core.js?v=20261029x"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
-  <script src="gmt-ask.js?v=20261029w" defer></script>
-  <script src="gmt-stock.js?v=20261029w" defer></script>
-  <script src="gmt-share.js?v=20261029w" defer></script>
+  <script src="gmt-ask.js?v=20261029x" defer></script>
+  <script src="gmt-stock.js?v=20261029x" defer></script>
+  <script src="gmt-share.js?v=20261029x" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
   <script src="gmt-transfer-print.js?v=20261010b"></script>
-  <script src="gmt-suggest.js?v=20261029w"></script>
+  <script src="gmt-suggest.js?v=20261029x"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-ledger.js?v=20261029w"></script>
-  <script src="gmt-staff.js?v=20261029w"></script>
+  <script src="gmt-ledger.js?v=20261029x"></script>
+  <script src="gmt-staff.js?v=20261029x"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -914,7 +914,7 @@ async function renderClosings() {
   const body = rows.map(r => {
     const v = Number(r.variance) || 0;
     const vTxt = Math.abs(v) < 0.01 ? '<span style="color:#15803d;font-weight:800;">مطابق ✓</span>'
-      : (v > 0 ? `<span style="color:#2563eb;font-weight:800;">زيادة ${f(v)}$</span>`
+      : (v > 0 ? `<span style="color:#334155;font-weight:800;">زيادة ${f(v)}$</span>`
                : `<span style="color:#dc2626;font-weight:900;">عجز ${f(Math.abs(v))}$</span>`);
     return `<tr>
       <td style="font-weight:800;white-space:nowrap;">${r.close_date || '—'}</td>
@@ -931,16 +931,16 @@ async function renderClosings() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
       <div class="acc-card"><div class="acc-card-lbl">عدد التقفيلات</div><div class="acc-card-val">${rows.length}</div></div>
       <div class="acc-card"><div class="acc-card-lbl">أيام فيها عجز</div><div class="acc-card-val" style="color:#dc2626;">${short.length}</div></div>
-      <div class="acc-card"><div class="acc-card-lbl">أيام فيها زيادة</div><div class="acc-card-val" style="color:#2563eb;">${overs.length}</div></div>
+      <div class="acc-card"><div class="acc-card-lbl">أيام فيها زيادة</div><div class="acc-card-val" style="color:#334155;">${overs.length}</div></div>
       <div class="acc-card"><div class="acc-card-lbl">صافي الفرق التراكمي</div>
-        <div class="acc-card-val" style="color:${netVar < -0.01 ? '#dc2626' : (netVar > 0.01 ? '#2563eb' : '#15803d')};">${f(netVar)}$</div></div>
+        <div class="acc-card-val" style="color:${netVar < -0.01 ? '#dc2626' : (netVar > 0.01 ? '#334155' : '#15803d')};">${f(netVar)}$</div></div>
     </div>
     <!-- (٨ ث — تدقيق المطابقة) على الموبايل كان جدولاً من ٨ أعمدة يُسحب أفقياً — صار بطاقةً لكل تقفيل.
          والكمبيوتر يبقى جدولاً. -->
     <style>.cl-cards{display:none}@media(max-width:700px){.cl-tbl{display:none}.cl-cards{display:block}}</style>
     <div class="cl-cards">${rows.map(r => {
       const v = Number(r.variance) || 0;
-      const col = Math.abs(v) < 0.01 ? '#15803d' : (v > 0 ? '#2563eb' : '#dc2626');
+      const col = Math.abs(v) < 0.01 ? '#15803d' : (v > 0 ? '#334155' : '#dc2626');
       return `<div style="background:var(--surface);border:1px solid var(--border);border-inline-start:4px solid ${col};border-radius:12px;padding:10px 12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;gap:8px;font-weight:900;font-size:13px;"><span>${escH(r.close_date || '—')} · ${escH(r.branch_name || r.branch_key || '—')}</span>
           <span style="color:${col}">${Math.abs(v) < 0.01 ? 'مطابق' : (v > 0 ? 'زيادة ' + f(v) + '$' : 'عجز ' + f(Math.abs(v)) + '$')}</span></div>
@@ -1046,20 +1046,20 @@ async function renderAssets() {
   c.innerHTML = `
     <div class="sec-head">
       <div class="sec-title">🏢 سجلّ أصول الشركة</div>
-      <button onclick="openAddAssetModal()" data-asset-add style="background:linear-gradient(135deg,#1f348f,#1e3a8a);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">➕ أصل جديد</button>
+      <button onclick="openAddAssetModal()" data-asset-add style="background:linear-gradient(135deg,#D5001C,#a30016);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">➕ أصل جديد</button>
     </div>
     <div style="background:#eef3fa;border:1.5px solid #c9d3ea;border-radius:14px;padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <div><div style="font-size:11px;font-weight:800;color:#1f348f;">إجمالي قيمة الأصول المسجّلة</div>
+      <div><div style="font-size:11px;font-weight:800;color:#0f1219;">إجمالي قيمة الأصول المسجّلة</div>
         <div style="font-size:10.5px;font-weight:700;color:#475569;">${list.length} بند · ملكٌ للشركة — ليس مصروفاً ولا يُطرح من الربح أو الصندوق</div></div>
-      <div data-assets-total style="font-size:24px;font-weight:900;color:#1f348f;" dir="ltr">${fmt(tot)}$</div>
+      <div data-assets-total style="font-size:24px;font-weight:900;color:#0f1219;" dir="ltr">${fmt(tot)}$</div>
     </div>
     ${_assetsErr ? `<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;font-weight:800;color:#991b1b;">تعذّرت قراءة سجلّ الأصول: ${escH(_assetsErr).slice(0, 160)}</div>` : ''}
     ${list.length ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
       ${list.map((a, i) => `<div data-asset-row="${escH(a.id)}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;${i ? 'border-top:1px solid var(--border);' : ''}">
-        <span style="width:26px;height:26px;border-radius:8px;background:#eef3fa;color:#1f348f;display:grid;place-items:center;font-size:12px;font-weight:900;flex-shrink:0;">${i + 1}</span>
+        <span style="width:26px;height:26px;border-radius:8px;background:#eef3fa;color:#0f1219;display:grid;place-items:center;font-size:12px;font-weight:900;flex-shrink:0;">${i + 1}</span>
         <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:900;overflow-wrap:anywhere;">${escH(a.name)}</div>
           <div style="font-size:10.5px;font-weight:700;color:var(--text3);">${a.acquired_at ? 'تاريخ الشراء: ' + escH(a.acquired_at) : 'تاريخ الشراء غير مسجَّل'}${a.note && a.note.replace(/\s*\[EXP:[^\]]+\]/, '').trim() ? ' · ' + escH(a.note.replace(/\s*\[EXP:[^\]]+\]/, '').trim()) : ''}</div></div>
-        <div style="font-size:15px;font-weight:900;color:#1f348f;white-space:nowrap;" dir="ltr">${fmt(a.value)}${a.currency === 'syp' ? ' ل.س' : '$'}</div>
+        <div style="font-size:15px;font-weight:900;color:#0f1219;white-space:nowrap;" dir="ltr">${fmt(a.value)}${a.currency === 'syp' ? ' ل.س' : '$'}</div>
         <button onclick="voidAsset('${escH(a.id)}')" title="إبطال" style="background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);border-radius:7px;padding:4px 8px;font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;">🗑</button>
       </div>`).join('')}</div>` : (_assetsErr ? '' : '<div class="empty-state"><div class="ico">📭</div><p>لا أصول مسجّلة</p></div>')}
   `;
@@ -1073,7 +1073,7 @@ function openAddAssetModal() {
     <div style="margin-bottom:12px;"><label style="${_l}">القيمة بالدولار *</label><input type="number" id="as-value" min="0" step="0.01" placeholder="0.00" style="${_f}font-size:16px;font-weight:900;"></div>
     <div style="margin-bottom:12px;"><label style="${_l}">تاريخ الشراء (اختياري)</label><input type="date" id="as-date" style="${_f}"></div>
     <div style="margin-bottom:16px;"><label style="${_l}">ملاحظة (اختياري)</label><input type="text" id="as-note" style="${_f}"></div>
-    <button onclick="saveAsset()" data-asset-save style="width:100%;background:linear-gradient(135deg,#1f348f,#1e3a8a);color:#fff;border:none;border-radius:12px;padding:13px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:900;cursor:pointer;">💾 حفظ الأصل</button>`;
+    <button onclick="saveAsset()" data-asset-save style="width:100%;background:linear-gradient(135deg,#D5001C,#a30016);color:#fff;border:none;border-radius:12px;padding:13px;font-family:'Cairo',sans-serif;font-size:14px;font-weight:900;cursor:pointer;">💾 حفظ الأصل</button>`;
   document.getElementById('modal').style.display = 'flex';
 }
 let _assetBusy = false;
@@ -1603,7 +1603,7 @@ function renderInvList() {
 
   const sb = document.getElementById('inv-summary-bar');
   if (sb) sb.innerHTML = [
-    ['📦', list.length + ' فاتورة', 'عدد الفواتير', '#3b82f6'],
+    ['📦', list.length + ' فاتورة', 'عدد الفواتير', '#64748b'],
     ['💵', totSales.toFixed(2) + '$', 'إجمالي المبيعات', '#D5001C'],
     ['💰', totComm.toFixed(2) + '$', 'إجمالي العمولات', '#D5001C'],
     ['⏳', pendCount, 'عمولات معلقة', '#b45309'],
@@ -1810,7 +1810,7 @@ async function openInvoiceDetail(invId) {
         <div style="font-size:13px;font-weight:700;">${escH(inv.customer_name)}${inv.customer_phone?` · <span dir="ltr">${escH(inv.customer_phone)}</span>`:''}</div>
       </div>`:''}
       ${inv.order_id?`<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:10px;grid-column:span 2;">
-        <div style="font-size:10px;font-weight:700;color:#1d4ed8;">📦 مرتبطة بأوردر شحن</div>
+        <div style="font-size:10px;font-weight:700;color:#334155;">📦 مرتبطة بأوردر شحن</div>
         <div style="font-size:13px;font-weight:800;color:#0f172a;">#${escH(inv.order_serial||inv.order_id)}</div>
       </div>`:''}
     </div>
@@ -2360,7 +2360,7 @@ function _cv3_renderTable() {
           <div style="font-weight:800;color:${ic};margin-bottom:3px;">${_cv3_esc(nm)} × ${qty}</div>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;text-align:center;">
             <div><div style="color:#5b6472;font-size:9px;">بيع</div><div style="font-weight:800;">${_cv3_f2(sale)}</div></div>
-            <div><div style="color:#5b6472;font-size:9px;">جملة</div><div style="font-weight:800;color:#1d4ed8;">${_cv3_f2(ws)}</div></div>
+            <div><div style="color:#5b6472;font-size:9px;">جملة</div><div style="font-weight:800;color:#334155;">${_cv3_f2(ws)}</div></div>
             <div><div style="color:#5b6472;font-size:9px;">شراء</div><div style="font-weight:800;color:#D5001C;">${_cv3_f2(pur)}</div></div>
             <div><div style="color:#5b6472;font-size:9px;">عمولة</div><div style="font-weight:800;color:#b45309;">${_cv3_f2(cm)}</div></div>
           </div>
@@ -2800,7 +2800,7 @@ async function renderCommissions() {
     <div class="top-row" style="margin-bottom:10px;">
       <div class="scard">
         <div class="scard-icon si-blue">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
         </div>
         <div><div class="scard-lbl">إجمالي المبيعات</div><div class="scard-val" id="cv3-s-sales">$ 0.00</div></div>
       </div>
@@ -3561,7 +3561,7 @@ function renderDebts() {
       </div>
       <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px;text-align:center;">
         <div style="font-size:10px;font-weight:800;color:#1e40af;">أنا مدين (علي للناس)</div>
-        <div style="font-size:20px;font-weight:900;color:#2563eb;">${totalIOwe.toFixed(2)}$</div>
+        <div style="font-size:20px;font-weight:900;color:#334155;">${totalIOwe.toFixed(2)}$</div>
         <div style="font-size:9px;color:var(--text3);">${manualIOwe.length} سجل</div>
       </div>
     </div>
@@ -3588,7 +3588,7 @@ function renderDebts() {
 
 function manualDebtCardHtml(d) {
   const isOwedToMe = d.direction === 'owed_to_me';
-  const clr = isOwedToMe ? '#dc2626' : '#2563eb';
+  const clr = isOwedToMe ? '#dc2626' : '#334155';
   const bg  = isOwedToMe ? '#fef2f2' : '#eff6ff';
   const dateStr = new Date(d.created_at).toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
   return `
@@ -3681,7 +3681,7 @@ function setManualDebtDirection(dir) {
     owedBtn.style.background = '#fef2f2'; owedBtn.style.borderColor = '#dc2626'; owedBtn.style.color = '#dc2626';
     ioweBtn.style.background = 'var(--surface2)'; ioweBtn.style.borderColor = 'var(--border)'; ioweBtn.style.color = 'var(--text2)';
   } else {
-    ioweBtn.style.background = '#eff6ff'; ioweBtn.style.borderColor = '#2563eb'; ioweBtn.style.color = '#2563eb';
+    ioweBtn.style.background = '#eff6ff'; ioweBtn.style.borderColor = '#334155'; ioweBtn.style.color = '#334155';
     owedBtn.style.background = 'var(--surface2)'; owedBtn.style.borderColor = 'var(--border)'; owedBtn.style.color = 'var(--text2)';
   }
 }
@@ -4092,7 +4092,7 @@ function expenseCardHtml(e) {
       <div style="display:flex;gap:6px;">
         ${!e.approved ? `
         <button onclick="editExpenseAmount('${e.id}')"
-          style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:7px;padding:5px 10px;
+          style="background:#eff6ff;color:#334155;border:1.5px solid #bfdbfe;border-radius:7px;padding:5px 10px;
                  font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;">✏️ تعديل</button>
         <button onclick="approveExpense('${e.id}')"
           style="background:#dcfce7;color:#15803d;border:1.5px solid #86efac;border-radius:7px;padding:5px 10px;
@@ -4182,7 +4182,7 @@ function openAddExpenseModal(isGeneral) {
         <option>ترويج</option><option>تصوير</option><option>شحن</option><option>جمارك</option><option>فرز</option>
         <option>ديون</option><option>خسائر</option><option>عمولات</option>
       </select>
-      <div id="exp-kind-hint" style="display:none;font-size:10.5px;font-weight:800;color:#1f348f;margin-top:5px;">🏢 يُسجَّل أيضاً في «سجلّ الأصول» باسمه وقيمته وتاريخه (عند اعتماده) — ولا يُطرح من الربح.</div>
+      <div id="exp-kind-hint" style="display:none;font-size:10.5px;font-weight:800;color:#0f1219;margin-top:5px;">🏢 يُسجَّل أيضاً في «سجلّ الأصول» باسمه وقيمته وتاريخه (عند اعتماده) — ولا يُطرح من الربح.</div>
       </div>`}
 
 <div style="margin-bottom:16px;">
@@ -4597,7 +4597,7 @@ function renderCustomerList(searchId) {
           <div style="font-size:12px;font-weight:700;color:var(--text3);direction:ltr;">${escH(cust.phone||'—')}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px;">📍 ${escH(branchInfo)}
             <button onclick="setCustomerType('${escH(String(cust.id))}')" style="margin-inline-start:6px;border:1px solid ${cust.customer_type ? '#0f172a' : 'var(--border)'};background:${cust.customer_type === 'wholesale' ? '#0f172a' : '#fff'};color:${cust.customer_type === 'wholesale' ? '#fff' : 'var(--text2)'};border-radius:999px;padding:1px 9px;font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer;">${_CUST_T[cust.customer_type] || 'صنّف: جملة/مفرق'}</button></div>
-          ${cust.address ? `<div style="font-size:11px;color:#1f348f;font-weight:700;margin-top:3px;">🚚 الوجهة: ${escH(cust.address)}</div>` : ''}
+          ${cust.address ? `<div style="font-size:11px;color:#0f1219;font-weight:700;margin-top:3px;">🚚 الوجهة: ${escH(cust.address)}</div>` : ''}
           ${cust.notes ? `<div style="font-size:11px;color:#78350f;background:#fffbeb;border-radius:8px;padding:4px 8px;margin-top:5px;">📝 ${escH(cust.notes)}</div>` : ''}
         </div>
         <div style="text-align:left;">
@@ -4706,7 +4706,7 @@ async function openCustomerProfile(phone, name) {
   let html =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
       stat('إجمالي مشترياته (نقطة البيع)', f(spent) + ' $', '#047857') +
-      stat('أوردرات الشحن', orders.length + ' · ' + f(ordTotal) + ' $', '#1d4ed8') +
+      stat('أوردرات الشحن', orders.length + ' · ' + f(ordTotal) + ' $', '#334155') +
       stat('عدد الفواتير', sales.length + (refunds.length ? ' · ' + refunds.length + ' مرتجع' : ''), '#0f172a') +
       stat('عليه (آجل غير مدفوع)', f(unpaid) + ' $', unpaid > 0 ? '#dc2626' : '#94a3b8') +
       stat('الكفالات', warr.length + (activeW ? ' · ' + activeW + ' سارية' : ''), '#D5001C') +
@@ -5497,7 +5497,7 @@ function renderProductSelector(containerId, checkClass, prods) {
       return `<div style="margin-bottom:6px;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:11px;font-weight:900;color:var(--text2);" onclick="toggleGroupProds('${containerId}','${checkClass}','${escH(g)}')">
           <span>📁 ${escH(g)} (${gProds.length})</span>
-          <button onclick="event.stopPropagation();selectGroupProds('${checkClass}','${escH(g)}',true)" style="padding:2px 8px;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
+          <button onclick="event.stopPropagation();selectGroupProds('${checkClass}','${escH(g)}',true)" style="padding:2px 8px;background:#dbeafe;color:#334155;border:1.5px solid #93c5fd;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
         </div>
         <div class="group-prods-${escH(g).replace(/\s/g,'_')}" style="display:none;padding:4px 0 0 8px;">
           ${gProds.map(p => `
@@ -6260,7 +6260,7 @@ window.accLinkLegacyExpenses = accLinkLegacyExpenses;
    «كشف حساب شهري لنقطة البيع أو للبائع أو للزبون، فيه كل قطعة وعمولتها».
    كان ينتظر المرتجع (صار يعكس المخزون والعمولة) والمصاريف المعتمدة (صارت بموافقة) — فاكتمل أساسه.
    القراءة من البيانات المحمّلة نفسها (allInvoices · allComm · allExpenses · allTransfers) + بنود الفواتير.
-   ألوانُه مسارُ المستندات المحاسبيّة: كحليّ #1f348f وأزرقُ باهت — كالفاتورة. ══ */
+   ألوانُه مسارُ المستندات المحاسبيّة: كحليّ #0f1219 وأزرقُ باهت — كالفاتورة. ══ */
 function openStatement(ym) {
   const old = document.getElementById('gmt-stmt'); if (old) old.remove();
   const months = [...new Set(allInvoices.map(i => __ymLocal(i.created_at || '')).filter(Boolean))].sort().reverse();
@@ -6271,14 +6271,14 @@ function openStatement(ym) {
   const sel = 'width:100%;border:1px solid #d6dfee;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;background:#fff;box-sizing:border-box';
   const lab = 'display:block;font-size:12px;font-weight:800;color:#475569;margin:10px 0 4px';
   w.innerHTML = '<div style="width:100%;max-width:440px;background:#fff;border-radius:22px;padding:18px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
-    '<div style="font-size:17px;font-weight:900;color:#1f348f">كشف حساب شهري</div>' +
+    '<div style="font-size:17px;font-weight:900;color:#0f1219">كشف حساب شهري</div>' +
     '<label style="' + lab + '">الشهر</label><select id="st-ym" style="' + sel + '">' + months.map(m => '<option' + (m === ym ? ' selected' : '') + '>' + m + '</option>').join('') + '</select>' +
     '<label style="' + lab + '">نقطة البيع</label><select id="st-br" style="' + sel + '"><option value="">كل الفروع</option>' +
       branches.filter(b => !isExcludedBranch(b.key_name)).map(b => '<option value="' + escH(b.key_name) + '">' + escH(b.display_name || b.key_name) + '</option>').join('') + '</select>' +   /* (٨ ت) لا ألمانيا/الصين */
     '<label style="' + lab + '">البائع (اختياري)</label><select id="st-sl" style="' + sel + '"><option value="">الكل</option>' + sellers.map(s => '<option>' + escH(s) + '</option>').join('') + '</select>' +
     '<label style="' + lab + '">الزبون — اسم أو رقم (اختياري)</label><input id="st-cu" style="' + sel + '" placeholder="مثال: 0988… أو سهير">' +
     '<div id="st-err" style="min-height:1.2em;margin-top:8px;color:#b91c1c;font-size:13px;font-weight:800"></div>' +
-    '<div style="display:flex;gap:8px"><button id="st-go" style="flex:1;background:#1f348f;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">عرض الكشف وطباعته</button>' +
+    '<div style="display:flex;gap:8px"><button id="st-go" style="flex:1;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">عرض الكشف وطباعته</button>' +
     '<button id="st-x" style="background:#f1f5f9;color:#334155;border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button></div></div>';
   document.body.appendChild(w);
   const $ = id => w.querySelector('#' + id);
@@ -6349,24 +6349,24 @@ async function buildStatement(ym, bk, seller, cust, preWin) {
   exps.forEach(e => { if (_cap(e)) T.cap += usd(e); else if (_dr(e)) T.dr += usd(e); else T.exp += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
   poRows.forEach(e => { T.po += usd(e); if (_fromBox(e)) T.expBox += usd(e); });
   /* المصاريف مفصّلةً — كان سطراً واحداً بالمجموع */
-  const expHtml = exps.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">المصاريف المعتمدة (${exps.length})</h3>
+  const expHtml = exps.length ? `<h3 style="font-size:13px;color:#0f1219;margin:14px 0 6px">المصاريف المعتمدة (${exps.length})</h3>
 <table><thead><tr><th style="width:11%">التاريخ</th><th>البند</th><th style="width:14%">الفرع</th><th style="width:13%">المبلغ</th><th style="width:9%">الصرف</th><th style="width:10%">بالدولار</th><th style="width:15%">من</th></tr></thead><tbody>${
     exps.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}${_cap(e) ? ' <b>رأسمالي</b>' : ''}${_dr(e) ? ' <b>مسحوبات شخصية للمدير</b>' : ''}</td>` +
       `<td>${escH((branches.find(b => b.key_name === e.branch_key) || {}).display_name || e.branch_key || 'عام')}</td><td class="n">${f2(e.amount)} ${e.currency === 'usd' ? '$' : 'ل.س'}</td>` +
       `<td class="n">${e.currency === 'usd' ? '—' : escH(e.exchange_rate || (window.GMT_DEFAULT_RATE || 140))}</td><td class="n">${f2(usd(e))}</td><td>${_fromBox(e) ? 'صندوق الفرع' : 'دفعتها الإدارة'}</td></tr>`).join('')}</tbody></table>` : '';
-  const poHtml = poRows.length ? `<h3 style="font-size:13px;color:#1f348f;margin:14px 0 6px">مشتريات وجمارك مدفوعة — خروج نقد لا مصروف ربح (${poRows.length})</h3>
+  const poHtml = poRows.length ? `<h3 style="font-size:13px;color:#0f1219;margin:14px 0 6px">مشتريات وجمارك مدفوعة — خروج نقد لا مصروف ربح (${poRows.length})</h3>
 <table><thead><tr><th style="width:11%">التاريخ</th><th>البند</th><th style="width:13%">بالدولار</th><th style="width:26%">من دفع</th></tr></thead><tbody>${poRows.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(e => `<tr><td>${new Date(e.created_at).toLocaleDateString('en-GB')}</td><td>${escH(e.title || '—')}</td><td class="n">${f2(usd(e))}</td><td>${escH(((/دفعها:\s*([^·\]]+)/.exec(String(e.note || '')) || [])[1] || e.requested_by || '—').trim())}</td></tr>`).join('')}</tbody></table>` : '';
   trs.forEach(t => { if (t.type === 'collection') T.col += Math.abs(Number(t.amount) || 0); else T.tr += Number(t.amount) || 0; });
   const bName = bk ? ((branches.find(b => b.key_name === bk) || {}).display_name || bk) : 'كل الفروع';
   const net = T.sales - T.ret - T.comm - T.exp;
   const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب ${escH(bName)} ${ym}</title>
 <style>@page{size:A4;margin:10mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Cairo,Tahoma,Arial,sans-serif;color:#1e293b;margin:0}
-.h{display:flex;justify-content:space-between;align-items:center;background:#eef3fa;border-bottom:2px solid #1f348f;border-radius:6px;padding:10px 14px}
-.h b{color:#1f348f;font-size:18px}.h small{display:block;color:#475569;font-weight:700}
-.k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.k div{border:1px solid #d6dfee;border-radius:6px;padding:8px 10px}.k span{display:block;font-size:11px;color:#475569;font-weight:700}.k b{font-size:16px;color:#1f348f}
-table{width:100%;border-collapse:collapse;font-size:11.5px}th{background:#dfe8f6;color:#1f348f;padding:6px 4px;border:1px solid #c9d3ea}td{padding:4px;border:1px solid #e3e9f3}
+.h{display:flex;justify-content:space-between;align-items:center;background:#eef3fa;border-bottom:2px solid #0f1219;border-radius:6px;padding:10px 14px}
+.h b{color:#0f1219;font-size:18px}.h small{display:block;color:#475569;font-weight:700}
+.k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.k div{border:1px solid #d6dfee;border-radius:6px;padding:8px 10px}.k span{display:block;font-size:11px;color:#475569;font-weight:700}.k b{font-size:16px;color:#0f1219}
+table{width:100%;border-collapse:collapse;font-size:11.5px}th{background:#dfe8f6;color:#0f1219;padding:6px 4px;border:1px solid #c9d3ea}td{padding:4px;border:1px solid #e3e9f3}
 td.n{text-align:left;direction:ltr}tr.inv td{background:#f7f9fd;font-weight:700}tr.ret td{background:#fff1f2;font-weight:700;color:#b91c1c}tr.it td{color:#475569}
-.s{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.s table td{font-size:12.5px}.net td{background:#e6edf8;color:#1f348f;font-weight:900;font-size:14px}
+.s{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.s table td{font-size:12.5px}.net td{background:#e6edf8;color:#0f1219;font-weight:900;font-size:14px}
 .f{margin-top:10px;font-size:10.5px;color:#526077;text-align:center}</style></head><body>
 <div class="h"><div><b>كشف حساب شهري</b><small>مجموعة ميديا تيك التجارية</small></div>
 <div style="text-align:left"><b style="font-size:15px">${escH(bName)}</b><small>${ym}${seller ? ' · البائع: ' + escH(seller) : ''}${cust ? ' · الزبون: ' + escH(cust) : ''}</small></div></div>
@@ -6510,11 +6510,11 @@ function renderAccounting() {
 
     <!-- (2026-10-05 ن-٣) البند ٤٧: كشف الحساب الشهري -->
     <button onclick="openStatement('${ym === 'all' ? __ymLocal(new Date().toISOString()) : ym}')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:start;background:#fff;border:1.5px solid #c9d3ea;border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-family:inherit;">
-      <span style="width:34px;height:34px;border-radius:11px;background:#eef3fa;color:#1f348f;display:grid;place-items:center;">
+      <span style="width:34px;height:34px;border-radius:11px;background:#eef3fa;color:#0f1219;display:grid;place-items:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
       <span style="flex:1;"><b style="display:block;font-size:14px;color:#0f1219;">كشف حساب شهري</b>
         <small style="color:#5b6472;font-weight:700;">لنقطة بيع أو بائع أو زبون — كل قطعة وعمولتها، والمرتجعات والمصاريف والترحيلات</small></span>
-      <span style="font-size:12px;font-weight:800;color:#1f348f;">فتح ←</span></button>
+      <span style="font-size:12px;font-weight:800;color:#0f1219;">فتح ←</span></button>
 
     <!-- صندوق الإدارة المركزي — رصيدٌ متراكم (لا حركة شهر) -->
     <div style="background:linear-gradient(135deg,#7c2d12,#991b1b);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;">
@@ -6590,14 +6590,14 @@ function renderAccounting() {
         <div class="acc-card-val" style="color:#D5001C;">${totalShippingPending.toFixed(2)}$</div>
       </div>
 
-      <div class="acc-card" style="border-right:4px solid #2563eb;">
+      <div class="acc-card" style="border-right:4px solid #334155;">
         <div class="acc-card-lbl">📦 عرابين حجوزات (مستلمة)</div>
-        <div class="acc-card-val" style="color:#2563eb;">${totalDeposits.toFixed(2)}$</div>
+        <div class="acc-card-val" style="color:#334155;">${totalDeposits.toFixed(2)}$</div>
       </div>
 
-      <div class="acc-card" style="border-right:4px solid #2563eb;">
+      <div class="acc-card" style="border-right:4px solid #334155;">
         <div class="acc-card-lbl">📦 متبقي حجوزات (لم يُحصَّل)</div>
-        <div class="acc-card-val" style="color:#2563eb;">${totalRemaining.toFixed(2)}$</div>
+        <div class="acc-card-val" style="color:#334155;">${totalRemaining.toFixed(2)}$</div>
       </div>
 
       <div class="acc-card" style="border-right:4px solid #c2410c;">
@@ -6630,9 +6630,9 @@ function renderAccounting() {
         <div class="acc-card-val" style="color:#dc2626;">${manualOwedToMe.toFixed(2)}$</div>
       </div>
 
-      <div class="acc-card" style="border-right:4px solid #2563eb;">
+      <div class="acc-card" style="border-right:4px solid #334155;">
         <div class="acc-card-lbl">💸 أنا مدين</div>
-        <div class="acc-card-val" style="color:#2563eb;">${manualIOwe.toFixed(2)}$</div>
+        <div class="acc-card-val" style="color:#334155;">${manualIOwe.toFixed(2)}$</div>
       </div>
 
     </div>
@@ -7120,19 +7120,19 @@ renderOffers = function(){
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261029w"></script>
-<script src="gmt-selfcheck.js?v=20261025y"></script>
+<script src="gmt-pwa.js?v=20261029x"></script>
+<script src="gmt-selfcheck.js?v=20261029x"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029w"></script>
+<script src="gmt-brain.js?v=20261029x"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029w"></script>
+<script src="gmt-whatsnew.js?v=20261029x"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029w"></script>
+<script src="gmt-nofab.js?v=20261029x"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

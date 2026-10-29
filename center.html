@@ -30,7 +30,7 @@ window.GMT_INTERNAL = 1;</script>
   .card h3{margin:0 0 8px;font-size:15px;font-weight:900;color:var(--tx)}
   .card h3 .sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;margin-inline-start:6px}
   .sev-critical{background:#fee2e2;color:#b91c1c} .sev-high{background:#ffedd5;color:#c2410c}
-  .sev-medium{background:#fef3c7;color:#b45309} .sev-low{background:#dbeafe;color:#1d4ed8}
+  .sev-medium{background:#fef3c7;color:#b45309} .sev-low{background:#dbeafe;color:#334155}
   .st{font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px}
   .st-done{background:#dcfce7;color:#15803d} .st-partial{background:#fef3c7;color:#b45309}
   .st-conflict{background:#fee2e2;color:#b91c1c} .st-pending{background:#f1f5f9;color:#526077}
@@ -43,29 +43,29 @@ window.GMT_INTERNAL = 1;</script>
   .btn{background:var(--gmt-red);color:#fff;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:900;font-size:13px;cursor:pointer;margin:4px 4px 4px 0}
   .btn.g{background:#15803d} .btn.ghost{background:#f8f9fb;border:1px solid var(--line);color:#1f2937}/* (٧ ي-٥) كان يرث الأبيض من .btn ⇒ أزرار «اقرأ الملفات» بلا كتابة مرئيّة */
   pre{margin:0;font-size:12px;line-height:1.8;white-space:pre-wrap;color:#374151;font-family:ui-monospace,monospace;max-height:55vh;overflow:auto;background:#f8f9fb;padding:12px;border-radius:9px}
-  a{color:#2563eb} details{margin:6px 0} summary{cursor:pointer;font-weight:800;font-size:13px;color:#2563eb}
+  a{color:#D5001C} details{margin:6px 0} summary{cursor:pointer;font-weight:800;font-size:13px;color:#334155}
   .link-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
 </style>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029w"></script>
+<script src="gmt-tools.js?v=20261029x"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
-  <script src="gmt-image-guard.js?v=20261029w"></script>
-  <script src="gmt-config.js?v=20261029w"></script>
-  <script src="gmt-brand.js?v=20261029w"></script>
+  <script src="gmt-image-guard.js?v=20261029x"></script>
+  <script src="gmt-config.js?v=20261029x"></script>
+  <script src="gmt-brand.js?v=20261029x"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029w"></script>
+  <script src="gmt-core.js?v=20261029x"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
-  <script src="gmt-ask.js?v=20261029w" defer></script>
-  <script src="gmt-share.js?v=20261029w" defer></script>
+  <script src="gmt-ask.js?v=20261029x" defer></script>
+  <script src="gmt-share.js?v=20261029x" defer></script>
   <script src="gmt-notify.js?v=20261019f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
-  <script src="gmt-staff.js?v=20261029w"></script>
+  <script src="gmt-staff.js?v=20261029x"></script>
 
 <header>
   <h1>📚 مركز معرفة GMT</h1>
@@ -433,7 +433,7 @@ window.GMT_INTERNAL = 1;</script>
   // ── قارئ ملفات markdown (يجلب الملف الفعلي ويعرضه) ──
   function miniMd(t){
     return t.replace(/</g,'&lt;')
-      .replace(/^### (.+)$/gm,'<h4 style="color:#2563eb;margin:10px 0 4px">$1</h4>')
+      .replace(/^### (.+)$/gm,'<h4 style="color:#334155;margin:10px 0 4px">$1</h4>')
       .replace(/^## (.+)$/gm,'<h3 style="color:#111827;margin:12px 0 5px">$1</h3>')
       .replace(/^# (.+)$/gm,'<h2 style="color:var(--gmt-red);margin:14px 0 6px">$1</h2>')
       .replace(/\*\*(.+?)\*\*/g,'<b style="color:#1a1d23">$1</b>')
@@ -471,23 +471,23 @@ window.GMT_INTERNAL = 1;</script>
   var chDone=F.filter(f=>/2026-07-17/.test(f.built||''));
   document.getElementById('changelog-out').innerHTML='<h3>📝 آخر التعديلات (2026-07-17)</h3>'+
     chDone.map(f=>'<div class="row">✅ <b>'+f.id+'</b> — '+esc(f.title)+'</div>').join('')+
-    '<div class="row" style="margin-top:10px;color:#2563eb">للسجل الكامل: ملف سجل_التعديلات.md بالتوثيق.</div>';
+    '<div class="row" style="margin-top:10px;color:#334155">للسجل الكامل: ملف سجل_التعديلات.md بالتوثيق.</div>';
 })();
 </script>
-<script src="gmt-pwa.js?v=20261029w"></script>
+<script src="gmt-pwa.js?v=20261029x"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
-<script src="gmt-selfcheck.js?v=20261025y"></script>
+<script src="gmt-selfcheck.js?v=20261029x"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
-<script src="gmt-brain.js?v=20261029w"></script>
+<script src="gmt-brain.js?v=20261029x"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261029w"></script>
+<script src="gmt-whatsnew.js?v=20261029x"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
-<script src="gmt-nofab.js?v=20261029w"></script>
+<script src="gmt-nofab.js?v=20261029x"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>
 </html>

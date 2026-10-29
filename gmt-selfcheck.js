@@ -133,6 +133,8 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
             : /^(guarantee|search)/.test(page)  ? BRAND.warranty
             : BRAND.staff;
     var allowed = set.concat(BRAND.staff).map(function (c) { return c.toLowerCase(); });
+    /* (المالك seq 215 · نصّ التقرير: «باستثناء فاتورة الشراء الزرقاء المسموحة كحالة خاصة») كحليّ فاتورة الشراء مسموحٌ في صفحتها وحدها */
+    if (/^purchase/.test(page)) allowed.push('#1f348f');
     /* ══ أُلغي هذا الاستثناء في 2026-10-04 ══
        كان: «فاتورة الشراء زرقاء لتمييزها عن البيع» — بقرارك 2026-08-26 («عيّفها»).
        والسبب الوظيفيّ صحيحٌ ويجب أن يبقى: يجب أن تُميَّز فاتورةُ الشراء عن
