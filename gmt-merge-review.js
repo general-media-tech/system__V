@@ -105,12 +105,24 @@
       ${s.description ? `<div class="mr-line mr-dim">${esc(String(s.description).slice(0, 260))}</div>` : ''}
       ${btn || ''}</div>`;
   }
+  /* (المالك seq 249) «تعرض لي … التقدم مراحله» ⇒ شريط المراحل: لكلّ مرحلة ما تبقّى من مجموعها + شريط تقدّم عامّ؛ الضغط على مرحلة يقفز إليها */
+  const stageOf = r => r.stage || (r.kind === 'bulk' ? 'توحيد' : r.kind === 'pick' ? 'تصحيح الاسم والتوافق' : r.kind === 'link' ? 'ربط المتجر بالجرد' : 'دمج المكرّر');
+  function stagesHTML() {
+    const order = [], st = {};
+    rows.forEach((r, i) => { const k = stageOf(r); if (!st[k]) { st[k] = { n: 0, d: 0, first: -1 }; order.push(k); } st[k].n++; if (r._done) st[k].d++; else if (st[k].first < 0) st[k].first = i; });
+    const tot = rows.length, done = rows.filter(r => r._done).length, cur = rows[idx] ? stageOf(rows[idx]) : '';
+    return `<div class="mr-ov-stages"><div class="mr-ov-top">التقدّم: <b>${done} / ${tot}</b><div class="mr-bar"><div class="mr-bar-i" style="width:${tot ? Math.max(2, Math.round(100 * done / tot)) : 0}%"></div></div></div>
+      <div class="mr-chips">${order.map((k, j) => `<button type="button" class="mr-chip${k === cur ? ' on' : ''}${st[k].d === st[k].n ? ' ok' : ''}" data-mr="stage" data-i="${st[k].first < 0 ? '' : st[k].first}">${j + 1}. ${esc(k)} <b>${st[k].d}/${st[k].n}</b></button>`).join('')}</div></div>`;
+  }
   function render() {
     if (!el) return;
     const box = el.querySelector('.mr-body'), head = el.querySelector('.mr-count');
+    while (idx < rows.length && rows[idx]._done) idx++;
     if (idx >= rows.length) {
+      const left = rows.findIndex(r => !r._done);
+      if (left >= 0) { idx = left; return render(); }
       head.textContent = '';
-      box.innerHTML = `<div class="mr-done">✅ لا شيء ينتظر قرارك الآن.</div>`;
+      box.innerHTML = (rows.length ? stagesHTML() : '') + `<div class="mr-done">✅ لا شيء ينتظر قرارك الآن.</div>`;
       return;
     }
     const r = rows[idx], subj = prods.get(String(r.subject_id));
@@ -129,7 +141,7 @@
     } else if (r.kind === 'bulk') {
       /* (المالك seq 245) «باقي المنتجات … احدد شيء يندمج وحدد شيء ما يندمج · نفّذ المحدد» ⇒ مربّع لكلّ منتج (محدَّدٌ افتراضياً) ولكلّ مجموعة */
       const g = (r.cands || []).map((c, gi) => { const t = prods.get(String(c.into)), L = (c.ids || []).map(x => prods.get(String(x))).filter(Boolean);
-        return `<div class="mr-bk"><label class="mr-bk-h"><input type="checkbox" data-bkg="${gi}" checked> ⇐ ${esc(t ? t.name : 'غير موجود')}${c.label ? ' <span class="mr-dim">· ' + esc(c.label) + '</span>' : ''}</label>${L.length ? `<ul>${L.map(p => `<li><label><input type="checkbox" data-bk="${gi}" value="${esc(p.id)}" checked> ${esc(p.name)}${qtyOf(p) ? ' <b class="mr-warn">(كمية ' + qtyOf(p) + ')</b>' : ''}</label></li>`).join('')}</ul>` : '<div class="mr-dim">✓ تمّ</div>'}</div>`; }).join('');
+        return `<div class="mr-bk"><label class="mr-bk-h"><input type="checkbox" data-bkg="${gi}" checked> ⇐ ${esc(t ? t.name : 'غير موجود')}${c.label ? ' <span class="mr-dim">· ' + esc(c.label) + '</span>' : ''}</label>${L.length ? `<ul>${L.map(p => `<li><label><input type="checkbox" data-bk="${gi}" value="${esc(p.id)}" checked> ${esc(p.name)}${qtyOf(p) ? ' <b class="mr-warn">(كمية ' + qtyOf(p) + ')</b>' : ''}</label> <button type="button" class="mr-peek-b" data-mr="peek" data-g="${gi}" data-p="${esc(p.id)}">👁 راجع</button><div class="mr-peek" data-peek="${esc(p.id)}"></div></li>`).join('')}</ul>` : '<div class="mr-dim">✓ تمّ</div>'}</div>`; }).join('');
       const im = (r.cands || []).map(c => prods.get(String(c.into))).filter(Boolean).map(imgsOf)[0] || [];
       cols = `<div class="mr-col"><div class="mr-role">📦 توحيد</div>${im.length ? `<div class="mr-gal">${im.map(u => `<img src="${esc(u)}" loading="lazy" alt="" onclick="window.open(this.src,'_blank')">`).join('')}</div>` : ''}${g}
         <button class="mr-yes" data-mr="bulk">✅ نفّذ المحدَّد</button></div>`;
@@ -137,8 +149,8 @@
       cols = prodCard(subj, '📦 المنتج', `<div class="mr-picks">${(r.cands || []).map((c, i) =>
         `<button class="mr-yes" data-mr="pick" data-i="${i}">✅ ${esc(c.label || c.name)}</button>`).join('')}</div>`);
     }
-    const stage = r.stage || (r.kind === 'bulk' ? 'توحيد' : r.kind === 'pick' ? 'تصحيح الاسم والتوافق' : r.kind === 'link' ? 'ربط المتجر بالجرد' : 'دمج المكرّر');
-    box.innerHTML = `<div class="mr-q"><div class="mr-stage">المرحلة: ${esc(stage)}</div><div class="mr-title">${esc(r.title || 'هل هما المنتج نفسه؟')}</div>
+    const stage = stageOf(r);
+    box.innerHTML = stagesHTML() + `<div class="mr-q"><div class="mr-stage">المرحلة: ${esc(stage)}</div><div class="mr-title">${esc(r.title || 'هل هما المنتج نفسه؟')}</div>
         ${r.note ? `<div class="mr-note">🔎 ${esc(r.note)}</div>` : ''}${r.conf ? `<div class="mr-conf">ثقتي: ${Number(r.conf)}٪</div>` : ''}</div>
       <div class="mr-cols">${cols}</div>
       <div class="mr-acts"><button class="mr-no" data-mr="no">❌ ${r.kind === 'pick' ? 'لا، اتركه كما هو' : (r.kind === 'link' && !r.subject_id) ? 'ولا واحد منها — عرّفه جديداً في الجرد' : 'لا، مختلف'}</button><button class="mr-later" data-mr="later">⏭ لاحقاً</button></div>
@@ -210,6 +222,9 @@
     if (!a.compat && b.compat) patch.compat = b.compat;
     if (!imgsOf(a).length && imgsOf(b).length) { patch.image_url = b.image_url || imgsOf(b)[0]; patch.images = imgsOf(b); }
     if (!a.store_url && b.store_url) patch.store_url = b.store_url;
+    else if (a.store_url && b.store_url && a.store_url !== b.store_url) {     // (seq 249) «ممنوع منتجٌ في المتجر غير موجود في الجرد» ⇒ قائمة المحذوف في المتجر تُربط بالباقي قبل الحذف
+      const m = /#product=([^&#]+)/.exec(b.store_url); if (m) await storeSetInvId(decodeURIComponent(m[1]), a.id);
+    }
     if (!a.group_name && b.group_name) patch.group_name = b.group_name;
     if (!a.category && b.category) patch.category = b.category;
     const up = await rest('PATCH', 'products?id=eq.' + a.id, patch, { Prefer: 'return=representation' });
@@ -295,6 +310,12 @@
     const b = e.target.closest('[data-mr]'); if (!b || busy) return;
     const r = rows[idx]; if (!r) return;
     const k = b.getAttribute('data-mr'), c = (r.cands || [])[+b.getAttribute('data-i')];
+    if (k === 'stage') { const j = b.getAttribute('data-i'); if (j !== '') { idx = +j; render(); } return; }
+    if (k === 'peek') {                                            // «في شيء ممكن اراجعه ويعرض لي المنتجين عرض كامل»
+      const pid = b.getAttribute('data-p'), g = (r.cands || [])[+b.getAttribute('data-g')] || {}, box = el.querySelector('[data-peek="' + pid + '"]');
+      if (!box) return; if (box.innerHTML) { box.innerHTML = ''; b.textContent = '👁 راجع'; return; }
+      box.innerHTML = `<div class="mr-cols">${prodCard(prods.get(String(pid)), '🆕 هذا المنتج', '')}${prodCard(prods.get(String(g.into)), '📦 يُدمج في', '')}</div>`; b.textContent = '▲ إخفاء'; return;
+    }
     if (k === 'later') { idx++; render(); return; }
     if (!isAdm()) { const ok = global.GMTRole && GMTRole.requireAdmin ? await GMTRole.requireAdmin('قرار المشابهات') : false; if (!ok) return; }
     busy = true; el.classList.add('mr-busy'); setErr(''); if (k !== 'bulk') setProg(k === 'no' ? '⏳ يحفظ قرارك…' : '⏳ يدمج ويحفظ…', null);
@@ -306,7 +327,7 @@
       else if (k === 'bulk') await doBulk(r);
       else if (k === 'link') await doLink(r, c);
       else if (k === 'pick') await doPick(r, c);
-      idx++; render();
+      r._done = true; idx++; render();
     } catch (er) { setErr('⚠️ ' + ((er && er.message) || er)); }
     finally { busy = false; if (el) { el.classList.remove('mr-busy'); if (k !== 'bulk') setProg(''); } }
   }
@@ -345,6 +366,9 @@
   .mr-bar-ind{animation:mrind 1.1s ease-in-out infinite alternate}@keyframes mrind{from{margin-inline-start:0}to{margin-inline-start:65%}}
   .mr-stage{font-size:12px;font-weight:800;color:#7a4b00;background:#fff7e0;border-radius:8px;display:inline-block;padding:2px 8px;margin-bottom:6px}
   .mr-bk input{width:18px;height:18px;vertical-align:middle;accent-color:#12a150}.mr-bk li{list-style:none;margin:3px 0}.mr-bk ul{padding-inline-start:6px}
+  .mr-ov-stages{background:#fff;border:1px solid #e3e6ee;border-radius:12px;padding:8px 10px;margin-bottom:10px}.mr-ov-top{font-size:13px;color:#3b4250;margin-bottom:6px}.mr-ov-top .mr-bar{margin-top:4px}
+  .mr-chips{display:flex;flex-wrap:wrap;gap:6px}.mr-chip{border:1px solid #d6dae3;background:#f6f7fb;border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer;color:#0f1219}.mr-chip.on{background:#0f1219;color:#fff;border-color:#0f1219}.mr-chip.ok{background:#e7f6ee;border-color:#9fd8b8;color:#0b6b37}
+  .mr-peek-b{border:1px solid #d6dae3;background:#fff;border-radius:8px;padding:2px 8px;font-size:12px;cursor:pointer;margin-inline-start:6px}.mr-peek:not(:empty){margin:6px 0 10px}
   .mr-bk{border-top:1px solid #eef0f4;padding:6px 0}.mr-bk-h{font-weight:900;font-size:13.5px;color:#0f1219}.mr-bk ul{margin:4px 0 0;padding-inline-start:18px;font-size:12.5px;color:#3b4250}.mr-warn{color:#b42318}`;
   function close() { if (el) { el.remove(); el = null; } }
   async function open(opts) {

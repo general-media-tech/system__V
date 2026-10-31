@@ -49,8 +49,8 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     await pg.click('.mr-ov [data-mr="no"]'); await pg.waitForTimeout(1000);
     d = await H.call('/__dump', undefined, 'GET');
     ok((d.gmt_merge_review || []).find(r => r.subject_id === KEEP2.id).status === 'rejected' && d.products.some(p => p.id === KEEP2.id), W + ': «لا، مختلف» يُحفظ ولا يُحذف شيء');
-    const done = await pg.evaluate(() => (document.querySelector('.mr-done') || {}).textContent || '');
-    ok(/لا شيء ينتظر/.test(done), W + ': بعد آخر بطاقة: «لا شيء ينتظر قرارك»');
+    const back = await pg.evaluate(() => (document.querySelector('.mr-ov') || {}).innerText || '');
+    ok(/منتج عليه كمية/.test(back) && /التقدّم: 3 \/ 4/.test(back), W + ': بعد آخر بطاقة تعود البطاقة المؤجَّلة «لاحقاً» والتقدّم 3 / 4');
     ok(!real(errs).length, W + ': لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }
@@ -68,6 +68,10 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     const t = await pg.evaluate(() => (document.querySelector('.mr-ov') || {}).innerText || '');
     ok(/زهري/.test(t) && /soldiers/.test(t) && /Eos R كفر سيليكون/.test(t) && /كمية 2/.test(t), 'دفعة التوحيد تعرض كل منتج وهدفه وتنبّه لما عليه كمية');
     ok(/المرحلة: توحيد/.test(t) && (await pg.evaluate(() => document.querySelectorAll('.mr-ov [data-bk]:checked').length)) === 3, 'المرحلة ظاهرة وكلّ منتجٍ بمربّعٍ محدَّد افتراضياً');
+    ok(/التقدّم: 0 \/ 1/.test(t) && (await pg.evaluate(() => document.querySelectorAll('.mr-ov .mr-chip').length)) === 1, 'شريط المراحل: التقدّم العامّ وشريحة لكلّ مرحلة بعدّادها');
+    await pg.evaluate((id) => document.querySelector('.mr-ov [data-mr="peek"][data-p="' + id + '"]').click(), C1.id); await pg.waitForTimeout(300);
+    const pk = await pg.evaluate((id) => { const b = document.querySelector('[data-peek="' + id + '"]'); return b ? { cols: b.querySelectorAll('.mr-col').length, t: b.innerText } : null; }, C1.id);
+    ok(pk && pk.cols === 2 && /زهري/.test(pk.t) && /Eos R كفر سيليكون/.test(pk.t) && /الكمية/.test(pk.t), '«👁 راجع» يعرض المنتجين عرضاً كاملاً جنباً إلى جنب');
     await pg.evaluate((id) => { document.querySelector('.mr-ov [data-bk][value="' + id + '"]').checked = false; }, C2.id);   // «احدد شيء ما يندمج»
     const seen = []; const iv = setInterval(async () => { try { const x = await pg.evaluate(() => { const e = document.querySelector('.mr-prog'); return e && e.style.display !== 'none' && e.querySelector('.mr-bar') ? e.textContent : ''; }); if (x) seen.push(x); } catch (_) {} }, 60);
     await pg.click('.mr-ov [data-mr="bulk"]'); await pg.waitForTimeout(2500); clearInterval(iv);
@@ -86,10 +90,13 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     { name: 'Adapter rings EF-EOS R', barcode: 'SL2', price: 25, haleb: 25, group_name: 'ادابترات' }]);
   await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-31T10:00:00Z', categories: [{ id: 'c1', name: 'م', order: 1 }], products: [
     { id: 's_mic', name: 'DJI Mic Mini (1 Sender + 1 Empfänger)', price: 75, images: ['img/logo.png'], category_id: 'c1', description: 'مايك لاسلكي', specs: [{ label: 'المدى', value: '400م' }] },
-    { id: 's_ad', name: 'ادابتر Canon ef _r', price: 130, images: [], category_id: 'c1' }] }]);
+    { id: 's_ad', name: 'ادابتر Canon ef _r', price: 130, images: [], category_id: 'c1' },
+    { id: 's_dup', name: 'Dji mic mini (قائمة مكرّرة)', price: 75, images: [], category_id: 'c1' }] }]);
+  const [CP] = await H.call('/rest/v1/products', [{ name: 'نسخة من المتجر', barcode: 'SL3', price: 75, haleb: 0, group_name: 'مايك وتوابعه', store_url: 'https://general-media-tech.github.io/system__V/store.html#product=s_dup' }]);
   await H.call('/rest/v1/gmt_merge_review', [
     { kind: 'link', prio: 1, status: 'pending', subject_id: null, cands: [{ store_id: 's_mic', group: 'مايك وتوابعه' }, { id: LA.id }], title: 'منتج المتجر هذا هو منتج الجرد؟' },
-    { kind: 'link', prio: 2, status: 'pending', subject_id: null, cands: [{ store_id: 's_ad', group: 'ادابترات' }, { id: LB.id }], title: 'ادابتر' }]);
+    { kind: 'link', prio: 2, status: 'pending', subject_id: null, cands: [{ store_id: 's_ad', group: 'ادابترات' }, { id: LB.id }], title: 'ادابتر' },
+    { kind: 'merge', prio: 3, status: 'pending', subject_id: CP.id, cands: [{ id: LA.id }], title: 'نسخة المتجر = منتجك؟' }]);
   {
     const { browser, pg, errs } = await H.open('home.html', { w: 390, h: 844, wait: 4500 });
     await pg.waitForSelector('.mr-ov [data-mr="slink"]', { timeout: 10000 }).catch(() => {});
@@ -104,6 +111,10 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     const nw = d.products.find(p => (p.store_url || '').endsWith('#product=s_ad'));
     ok(nw && nw.name === 'ادابتر Canon ef _r' && Number(nw.price) === 130 && nw.group_name === 'ادابترات' && !(nw.haleb > 0) && /^62\d{11}$/.test(nw.barcode || ''), '«ولا واحد منها» ⇒ منتجٌ جديد في الجرد بكمية صفر وباركود وسعر المتجر ومربوط: ' + (nw && nw.barcode));
     ok(d.products.some(p => p.id === LB.id) && !d.products.find(p => p.id === LB.id).store_url, 'ومرشّح الجرد بقي كما هو');
+    await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(1800);
+    d = await H.call('/__dump', undefined, 'GET');
+    const sdup = (d.gmt_store[0].products || []).find(x => x.id === 's_dup');
+    ok(!d.products.some(p => p.id === CP.id) && sdup && sdup.inv_id === String(LA.id), 'دمج نسخة المتجر في منتجٍ مربوطٍ بغيره ⇒ قائمة المتجر رُبطت بالباقي قبل الحذف (لا منتج متجر بلا جرد)');
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }
