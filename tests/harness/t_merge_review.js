@@ -115,6 +115,8 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     d = await H.call('/__dump', undefined, 'GET');
     const nw = d.products.find(p => (p.store_url || '').endsWith('#product=s_ad'));
     ok(nw && nw.name === 'ادابتر Canon ef _r' && Number(nw.price) === 130 && nw.group_name === 'ادابترات' && !(nw.haleb > 0) && /^62\d{11}$/.test(nw.barcode || ''), '«ولا واحد منها» ⇒ منتجٌ جديد في الجرد بكمية صفر وباركود وسعر المتجر ومربوط: ' + (nw && nw.barcode));
+    const sad = (d.gmt_store[0].products || []).find(x => x.id === 's_ad');
+    ok(sad && nw && sad.barcode === nw.barcode && sad.inv_id === String(nw.id), '(المالك seq 291 «ليش مالهن كود») قائمة المتجر أخذت كود منتج الجرد الجديد نفسه: ' + (sad && sad.barcode));
     ok(d.products.some(p => p.id === LB.id) && !d.products.find(p => p.id === LB.id).store_url, 'ومرشّح الجرد بقي كما هو');
     await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(1800);
     d = await H.call('/__dump', undefined, 'GET');

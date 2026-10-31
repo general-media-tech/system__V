@@ -5,7 +5,7 @@
 
    GMTStoreSync.removeFor(invId, storeUrl)   ⇐ يحذف من المتجر كلّ قائمة مربوطة بمنتج الجرد المحذوف
                                                (inv_id أو رابطه)، ويخرجه من خيارات المنتجات الأخرى.
-   GMTStoreSync.mergeInto(fromInv, fromUrl, toInv, toUrl)
+   GMTStoreSync.mergeInto(fromInv, fromUrl, toInv, toUrl, toBarcode)
                                              ⇐ بعد دمج منتجين في الجرد: قائمة المحذوف تُدمج في قائمة الباقي
                                                (الصور تُجمع) ثمّ تُحذف؛ وإن لم يكن للباقي قائمة تنتقل قائمة المحذوف إليه.
    كلّ كتابة بشرط updated_at (حماية التزامن)، وما يُحذف يُسجَّل كاملاً في gmt_audit (قابل للاسترجاع). */
@@ -74,7 +74,9 @@
     return { removed: removed.length, changed: !!(res && res.changed) };
   }
 
-  async function mergeInto(fromInv, fromUrl, toInv, toUrl) {
+  /* (المالك seq 291 «ليش مالهن كود») القائمة الباقية تحمل باركود منتج الجرد الباقي (toBarcode) — لا باركود المحذوف ولا فراغ */
+  async function mergeInto(fromInv, fromUrl, toInv, toUrl, toBarcode) {
+    const bcOf = () => (toBarcode ? { barcode: String(toBarcode) } : {});
     const fsid = sidOf(fromUrl), tsid = sidOf(toUrl); let removed = [], moved = false;
     const res = await edit(prods => {
       const src = prods.filter(p => linked(p, fromInv, fsid));
@@ -83,17 +85,17 @@
       if (src.length && !tgt) {          /* للباقي لا قائمة ⇒ تنتقل الأولى إليه، والزائد يُدمج فيها */
         const keep = src[0]; removed = src.slice(1); moved = true; changed = true;
         const imgs = [...new Set([].concat(...src.map(p => p.images || [])))];
-        next = prods.filter(p => !removed.includes(p)).map(p => p === keep ? Object.assign({}, p, { inv_id: String(toInv), images: imgs }) : p);
+        next = prods.filter(p => !removed.includes(p)).map(p => p === keep ? Object.assign({}, p, { inv_id: String(toInv), images: imgs }, bcOf(p)) : p);
       } else if (src.length && tgt) {   /* للاثنين قائمة ⇒ صور المحذوف تُجمع في قائمة الباقي، وقائمته تُحذف */
         removed = src; changed = true;
         const imgs = [...new Set([].concat(tgt.images || [], ...src.map(p => p.images || [])))];
         const price = Number(tgt.price) > 0 ? tgt.price : (Math.max(0, ...src.map(p => Number(p.price) || 0)) || tgt.price);
-        next = prods.filter(p => !src.includes(p)).map(p => p === tgt ? Object.assign({}, p, { images: imgs, price, inv_id: String(toInv) }) : p);
+        next = prods.filter(p => !src.includes(p)).map(p => p === tgt ? Object.assign({}, p, { images: imgs, price, inv_id: String(toInv) }, p.barcode ? {} : bcOf(p)) : p);
       }
       /* الخيارات المربوطة بالمحذوف تنتقل إلى الباقي */
       next = next.map(p => {
         if (!Array.isArray(p.options)) return p; let touched = false;
-        const opts = p.options.map(o => Object.assign({}, o, { values: (o.values || []).map(v => { if (v && String(v.inv_id || '') === String(fromInv)) { touched = true; return Object.assign({}, v, { inv_id: String(toInv) }); } return v; }) }));
+        const opts = p.options.map(o => Object.assign({}, o, { values: (o.values || []).map(v => { if (v && String(v.inv_id || '') === String(fromInv)) { touched = true; return Object.assign({}, v, { inv_id: String(toInv) }, bcOf(v)); } return v; }) }));
         if (touched) { changed = true; return Object.assign({}, p, { options: opts }); } return p;
       });
       return { changed, products: next, keepSid: moved && src[0] ? src[0].id : (tgt && tgt.id) };

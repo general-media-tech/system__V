@@ -261,11 +261,11 @@
     /* (المالك seq 276) «منتجات دمجناها لساتهم يطلعوا في المتجر كمنتج مختلف» ⇒ قائمةٌ واحدة في المتجر:
        صور المحذوف تُجمع في قائمة الباقي وقائمته تُحذف؛ وإن لم يكن للباقي قائمة تنتقل قائمة المحذوف إليه (gmt-store-sync.js) */
     if (global.GMTStoreSync) {
-      const r = await GMTStoreSync.mergeInto(b.id, b.store_url, a.id, a.store_url);
+      const r = await GMTStoreSync.mergeInto(b.id, b.store_url, a.id, a.store_url, a.barcode);
       if (r && r.moved && r.keepSid) patch.store_url = STORE_PAGE() + '#product=' + encodeURIComponent(r.keepSid);
     } else if (!a.store_url && b.store_url) patch.store_url = b.store_url;
     else if (a.store_url && b.store_url && a.store_url !== b.store_url) {     // (seq 249) احتياط: بلا وحدة المزامنة ⇒ قائمة المحذوف تُربط بالباقي
-      const m = /#product=([^&#]+)/.exec(b.store_url); if (m) await storeSetInvId(decodeURIComponent(m[1]), a.id);
+      const m = /#product=([^&#]+)/.exec(b.store_url); if (m) await storeSetInvId(decodeURIComponent(m[1]), a.id, a.barcode);
     }
     if (!a.group_name && b.group_name) patch.group_name = b.group_name;
     if (!a.category && b.category) patch.category = b.category;
@@ -287,13 +287,14 @@
   }
   /* ── متجر ⇐ جرد ── */
   const STORE_PAGE = () => (global.GMT_LINKS && GMT_LINKS.store ? GMT_LINKS.store : 'https://general-media-tech.github.io/system__V/store.html').replace(/[#?].*$/, '');
-  async function storeSetInvId(sid, invId) {
+  /* (المالك seq 291 «اللي انشأتهم من المتجر للجرد ليش مالهن كود؟») الربط يكتب باركود منتج الجرد في القائمة إن لم يكن لها كود */
+  async function storeSetInvId(sid, invId, barcode) {
     const S = global.GMT_DB && GMT_DB.STORE; const SH = { apikey: S.key, Authorization: 'Bearer ' + S.key };
     for (let i = 0; i < 3; i++) {
       const g = await fetch(S.url + '/rest/v1/gmt_store?id=eq.1&select=id,updated_at,products', { headers: SH }); const rec = ((await g.json()) || [])[0];
       if (!rec) throw new Error('تعذّرت قراءة المتجر');
       const prods0 = Array.isArray(rec.products) ? rec.products : []; if (!prods0.some(x => String(x.id) === String(sid))) throw new Error('منتج المتجر لم يعد موجوداً');
-      const next = prods0.map(x => String(x.id) === String(sid) ? Object.assign({}, x, { inv_id: String(invId) }) : x);
+      const next = prods0.map(x => String(x.id) === String(sid) ? Object.assign({}, x, { inv_id: String(invId) }, (barcode && !x.barcode) ? { barcode: String(barcode) } : {}) : x);
       let url = S.url + '/rest/v1/gmt_store?id=eq.1&select=id'; const body = { products: next };
       if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
       const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, SH), body: JSON.stringify(body) });
@@ -304,13 +305,14 @@
   }
   async function doSLink(r, c) {
     const sc = (r.cands || []).find(x => x && x.store_id) || {};
-    const [p] = await rest('GET', 'products?id=eq.' + c.id + '&select=id,name,store_url') || [];
+    const [p] = await rest('GET', 'products?id=eq.' + c.id + '&select=id,name,store_url,barcode') || [];
     if (!p) throw new Error('منتج الجرد لم يعد موجوداً');
     const link = STORE_PAGE() + '#product=' + encodeURIComponent(sc.store_id);
     if (!p.store_url) {
       const up = await rest('PATCH', 'products?id=eq.' + p.id, { store_url: link }, { Prefer: 'return=representation' });
       if (!Array.isArray(up) || !up.length) throw new Error('لم يُحفظ الربط');
-    } else if (p.store_url !== link) await storeSetInvId(sc.store_id, p.id);      // مربوطٌ بقائمةٍ أخرى ⇒ هذه قائمةٌ مكرّرة في المتجر: تُربط من جهة المتجر
+    }
+    if (p.store_url !== link || p.barcode) await storeSetInvId(sc.store_id, p.id, p.barcode);   // مربوطٌ بقائمةٍ أخرى ⇒ قائمةٌ مكرّرة تُربط من جهة المتجر · والكود ينتقل للقائمة (seq 291)
     await audit({ action: 'store_link', entity_id: String(p.id), entity_name: p.name, field: p.store_url ? 'store.inv_id' : 'store_url', new_value: sc.store_id, reason: 'قرار المالك في «مشابهات تنتظر قرارك»', meta: { review_id: r.id } });
     await decide(r, 'done', { action: 'linked', store_id: sc.store_id, inv_id: p.id, via: p.store_url ? 'store.inv_id' : 'store_url' });
   }
@@ -325,11 +327,14 @@
     const specs = {}; (Array.isArray(sp.specs) ? sp.specs : []).forEach(x => { if (x && x.label) specs[x.label] = x.value; });
     if (sp.description) specs.__desc = sp.description; specs.__source = 'المتجر (مشابهات تنتظر قرارك)';
     const imgs = (Array.isArray(sp.images) ? sp.images : []).filter(Boolean);
-    let bc = ean13(); for (let i = 0; i < 5; i++) { const d = await rest('GET', 'products?barcode=eq.' + bc + '&select=id') || []; if (!d.length) break; bc = ean13(); }
+    /* (seq 291) كود القائمة إن وُجد ولم يُستعمل في الجرد يبقى هو نفسه، وإلا كودٌ جديد — ثمّ يُكتب في القائمة */
+    let bc = /^\d{8,14}$/.test(String(sp.barcode || '')) && !((await rest('GET', 'products?barcode=eq.' + sp.barcode + '&select=id')) || []).length ? String(sp.barcode) : ean13();
+    for (let i = 0; i < 5 && bc !== String(sp.barcode || ''); i++) { const d = await rest('GET', 'products?barcode=eq.' + bc + '&select=id') || []; if (!d.length) break; bc = ean13(); }
     const row = { name: String(sp.name || '').replace(/\s+/g, ' ').trim(), price: Number(sp.price) || 0, barcode: bc, image_url: imgs[0] || null, images: imgs, specs, specs_source: 'المتجر — منتجٌ كان في المتجر وحده',
       group_name: sc.group || null, category: sc.category || null, store_url: link, haleb: 0, daraa: 0, cost_price: 0, invoice_names: [] };
     const ins = await rest('POST', 'products', [row], { Prefer: 'return=representation' });
     if (!Array.isArray(ins) || !ins.length) throw new Error('لم يُنشأ المنتج');
+    try { await storeSetInvId(sc.store_id, ins[0].id, bc); } catch (_) {}
     await audit({ action: 'define_from_store', entity_id: String(ins[0].id), entity_name: row.name, field: 'store_url', new_value: link, reason: 'قرار المالك: ليس أيّاً من منتجات الجرد ⇐ عُرِّف جديداً بكمية صفر', meta: { review_id: r.id } });
     await decide(r, 'done', { action: 'defined', inv_id: ins[0].id, store_id: sc.store_id });
   }

@@ -23,12 +23,13 @@ const row = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
     const n = GMTBrain._mergeComplete(p, { specs: [{ k: 'قدرة', v: '60W' }, { k: 'الوزن', v: '1.6 كغ' }], aliases_ar: ['أ', 'ب'], aliases_en: ['X', 'x'] }); return { n, p }; });
   ok(m.n === 1 && m.p.specs.length === 2 && m.p.aliases_ar.join() === 'أ,ب' && m.p.aliases_en.length === 1, 'الإكمال يضيف الناقص وحده (القدرة = قدرة) والأسماء بلا تكرار: ' + JSON.stringify(m.p));
   // ٢) استيراد المواصفات ⇒ طلبان: المواصفات (الأبواب في الملاحظة ≤٣٠٠) ثمّ الإكمال (برومبت النظام الكامل) ⇒ مواصفاتٌ أكثر + أسماء
-  const pr = await pg.evaluate(async () => { const p = await GMTBrain.importProduct({ hint: 'اضاءة غودوكس SL60W' }); return { specs: p.specs, ar: p.aliases_ar, en: p.aliases_en, done: p._meta.completed }; });
+  const pr = await pg.evaluate(async () => { const p = await GMTBrain.importProduct({ hint: 'اضاءة غودوكس SL60W' }); return { specs: p.specs, ar: p.aliases_ar, en: p.aliases_en, done: p._meta.completed, unsure: p._meta.dropped_unsure }; });
   const q1 = seen.find(b => b.mode === 'product'), q2 = seen.find(b => b.question);
   ok(q1 && q1.hint.length <= 300 && /مصدر الطاقة/.test(q1.hint) && /البرمجيات/.test(q1.hint) && /المنشأ/.test(q1.hint), 'طلب المواصفات يحمل الأبواب كلّها (' + (q1 && q1.hint.length) + ' حرفاً)');
   ok(q2 && /aliases_ar/.test(q2.system) && /مصدر الطاقة/.test(q2.system) && /التغطية/.test(q2.system) && /البرمجيات/.test(q2.system) && /بلد المنشأ/.test(q2.system) && /القدرة=60 واط/.test(q2.question) && q2.question.length <= 2000,
     'طلب الإكمال: برومبت النظام الكامل (' + (q2 && q2.system.length) + ' حرفاً) والموجود من المواصفات في السؤال');
-  ok(pr.specs.length === 6 && pr.done === 4 && pr.specs.some(s => s.k === 'البرمجيات') && pr.ar.length === 3 && pr.en.includes('Godox SL-60W'), 'النتيجة: ٢ + ٤ مواصفات جديدة · أسماء عربية وإنجليزية: ' + JSON.stringify({ n: pr.specs.length, ar: pr.ar, en: pr.en }));
+  // (المالك seq 135 · TASK-0206 — بعد كتابة هذا الاختبار) القيمة «(تقريبي)» لا تصل أبداً ⇒ «التغطية» و«البرمجيات» تسقطان: ٢ + ٢ جديدة
+  ok(pr.specs.length === 4 && pr.done === 4 && pr.unsure === 2 && pr.specs.some(s => s.k === 'مصدر الطاقة') && pr.specs.some(s => s.k === 'بلد المنشأ') && !pr.specs.some(s => /تقريبي/.test(s.v)) && pr.ar.length === 3 && pr.en.includes('Godox SL-60W'), 'النتيجة: ٢ + ٤ مكمَّلة يسقط منها التقديريّان «تقريبي» (seq 135) ⇒ ٤ · أسماء عربية وإنجليزية: ' + JSON.stringify({ n: pr.specs.length, ar: pr.ar, en: pr.en }));
   // ٣) «مواصفات من علي بابا» ⇒ «تطبيق» يحفظ الأسماء في الأسماء البديلة (بلا تكرار «ضوء قديم»)
   await pg.evaluate(id => gmtSpecsFromAlibaba(id), P.id);
   await pg.waitForSelector('#pi-go, [id="pi-url"]');
@@ -39,8 +40,8 @@ const row = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
   await pg.evaluate(() => document.querySelector('[data-apply]').click());
   let r = null; for (let i = 0; i < 40; i++) { r = await row(P.id); if (r && r.specs_checked_at) break; await pg.waitForTimeout(250); }
   const alt = String((r && r.alt_names) || '');
-  ok(/ضوء قديم/.test(alt) && /جودوكس 60 واط/.test(alt) && /Godox SL-60W/.test(alt) && alt.split('ضوء قديم').length === 2 && r.specs && Object.keys(r.specs).filter(k => !k.startsWith('__')).length === 6,
-    'حُفظ: ٦ مواصفات والأسماء البديلة القديمة + الجديدة بلا تكرار: ' + alt);
+  ok(/ضوء قديم/.test(alt) && /جودوكس 60 واط/.test(alt) && /Godox SL-60W/.test(alt) && alt.split('ضوء قديم').length === 2 && r.specs && Object.keys(r.specs).filter(k => !k.startsWith('__')).length === 4 && !Object.values(r.specs).some(v => /تقريبي/.test(String(v))),
+    'حُفظ: ٤ مواصفات (بلا «تقريبي») والأسماء البديلة القديمة + الجديدة بلا تكرار: ' + alt);
   // ٤) البحث بالاسم البديل: الجرد يجده
   const inv = await pg.evaluate(async () => { await loadProducts(); const q = 'SL-60W'; return allProducts.filter(p => (window.GMTSuggest ? GMTSuggest.hitsProduct(q, p) : false)).map(p => p.name); });
   ok(inv.includes('اضاءة غودوكس SL60W'), 'البحث بـ«SL-60W» (اسمٌ بديل) يجد المنتج: ' + inv.join(' · '));

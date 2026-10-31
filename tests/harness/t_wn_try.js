@@ -28,7 +28,9 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++
     await pg.screenshot({ path: `wnt_home_${w}${staff ? '_s' : ''}.png`, fullPage: false });
     if (w === 390 && !staff) {
       // «جرّبها» للتحقق من الشحنة ⇒ الأوردرات + الهدف مؤطّر + شريط الإرشاد
-      await pg.click('#wn-home [data-wn-try="58"]');
+      /* (TASK-0103) منذ TASK-0190 (seq 125) البطاقة سطرٌ صغير بلا قائمة ⇒ «جرّبها» داخل نافذة «شو الجديد» */
+      await pg.evaluate(() => GMTWhatsNew.open()); await pg.waitForSelector('#gmt-wn-ov [data-wn-try="58"]', { timeout: 8000 });
+      await pg.click('#gmt-wn-ov [data-wn-try="58"]');
       await pg.waitForURL(/orders\.html\?wn=58/, { timeout: 8000 }).catch(() => {});
       await pg.waitForTimeout(6000);
       const o = await pg.evaluate(() => {

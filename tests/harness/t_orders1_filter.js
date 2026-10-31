@@ -17,12 +17,12 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
     const { browser, pg, errs } = await H.open('orders.html', { w, mobile: w < 700, h: 900, wait: 4500 });
     const names = () => pg.evaluate(() => [...document.querySelectorAll('.order-card h4')].map(h => h.childNodes[0].textContent.trim()));
     const opts = await pg.evaluate(() => [...document.querySelectorAll('#filter-sendbranch option')].map(o => o.value + '=' + o.textContent.trim()));
-    ok(opts.length === 3 && opts.includes('حلب|الفرقان=حلب – الفرقان') && opts.includes('حلب|السريان=حلب – السريان'), 'خيارات الفرع المُرسِل من الأوردرات: ' + opts.join(' | '));
+    ok(opts.length === 3 && opts.includes('المفتي::حلب|الفرقان=المفتي · حلب – الفرقان') && opts.includes('المفتي::حلب|السريان=المفتي · حلب – السريان'), 'خيارات «فروع الحوالات» من الأوردرات (القيمة بالشركة — TASK-0163 بعد هذا الاختبار): ' + opts.join(' | '));
     ok(!opts.some(o => /مسارات|دمشق|حمص/.test(o)), 'لا فرع مُرسِل لغير المفتي ولا لما لم يُشحن بعد');
     // الفلتر بالفرع المُرسِل
-    await pg.selectOption('#filter-sendbranch', 'حلب|الفرقان');
+    await pg.selectOption('#filter-sendbranch', 'المفتي::حلب|الفرقان');
     let n = await names(); ok(n.length === 1 && /أ فرقان/.test(n[0]), 'فلتر «الفرقان» يُظهر أوردره فقط: ' + n.join(','));
-    await pg.selectOption('#filter-sendbranch', 'حلب|السريان');
+    await pg.selectOption('#filter-sendbranch', 'المفتي::حلب|السريان');
     n = await names(); ok(n.length === 2 && n.some(x => /ب سريان/.test(x)) && n.some(x => /ج سريان/.test(x)), 'فلتر «السريان» يشمل المحدَّد والافتراضي: ' + n.join(','));
     // إجمالي «بانتظار التحصيل» يتبع الفلتر (وين أموال التحصيل)
     const sumD = await pg.evaluate(() => document.getElementById('sumDelivered').textContent);
@@ -36,7 +36,7 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
     await pg.selectOption('#filter-transfer', 'none');
     n = await names(); ok(n.length === 1 && /ب سريان/.test(n[0]), 'فلتر «لم تُراسَل» لا يلتقط غير المفتي ولا غير المشحون: ' + n.join(','));
     // جمع الفلترين
-    await pg.selectOption('#filter-sendbranch', 'حلب|السريان'); await pg.selectOption('#filter-transfer', 'received');
+    await pg.selectOption('#filter-sendbranch', 'المفتي::حلب|السريان'); await pg.selectOption('#filter-transfer', 'received');
     n = await names(); ok(n.length === 1 && /ج سريان/.test(n[0]), 'الفلترين معاً');
     const clr = await pg.evaluate(() => !document.getElementById('clear-filters-btn').classList.contains('hidden'));
     ok(clr, 'زرّ إزالة الفلتر ظاهر مع الفلاتر الجديدة');

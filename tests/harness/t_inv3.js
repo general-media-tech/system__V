@@ -38,12 +38,11 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); return !!c; };
   await pg.evaluate(() => { const x = document.querySelector('#gmt-pe [data-pe-x]'); if (x) x.click(); });
   // 3) alibaba dialog uses own image + name
   await pg.evaluate(() => { closeModal('product-modal'); });
-  await pg.evaluate(() => localStorage.setItem('gmt_brain_url', 'https://brain.example.test/fn')).catch(() => {});
+  /* (TASK-0153 حارس الرابط — بعد كتابة هذا الاختبار) لا يُقبل رابط وسيطٍ غريب ⇒ نعترض رابط دالّة النظام نفسه */
   let sent = null;
-  await ctx.route('https://brain.example.test/**', async r => { try { sent = JSON.parse(r.request().postData() || '{}'); } catch (_) { sent = { bad: 1 }; }
+  await ctx.route('**/functions/v1/gmt-brain**', async r => { try { const b = JSON.parse(r.request().postData() || '{}'); if (b.mode === 'product' || !sent) sent = b; } catch (_) { sent = { bad: 1 }; }   /* طلب المواصفات (لا طلب الإكمال الذي يليه) */
     await r.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ product: { name_ar: 'منتج', specs: [{ k: 'اللون', v: 'أسود' }], confidence: 'high' } }) }); });
   await ctx.route('http://127.0.0.1:8765/logo.png', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') }));
-  await pg.evaluate(() => { try { GMTEndpoint.set('brain', 'https://brain.example.test/fn'); } catch (e) { window.__e = String(e); } });
   const cfg = await pg.evaluate(() => ({ ep: (GMTEndpoint.get && GMTEndpoint.get('brain')) || null, e: window.__e || null }));
   console.log('endpoint', JSON.stringify(cfg));
   await pg.evaluate((id) => { window.__sp = gmtSpecsFromAlibaba(id); }, id); await pg.waitForTimeout(500);
@@ -53,7 +52,7 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); return !!c; };
   await pg.screenshot({ path: '/tmp/gmt-out/inv3_ali_1366.png' });
   await pg.click('#pi-go'); await pg.waitForTimeout(2500);
   console.log('sent keys', sent && Object.keys(sent).join(','), 'imglen', sent && sent.image && sent.image.length, 'hint', sent && sent.hint);
-  ok(sent && sent.mode === 'product' && sent.image && sent.image.length > 50 && sent.hint === 'منتج بصورة', 'request carries the stored image (base64) and the product name without any upload');
+  ok(sent && sent.mode === 'product' && sent.image && sent.image.length > 50 && /^منتج بصورة( —|$)/.test(sent.hint), 'request carries the stored image (base64) and the product name without any upload (the hint adds the specs ask — TASK-0175)');
   console.log('errs', errs.filter(e => !/404|400|Failed|qrserver|ERR_/.test(e)).slice(0, 5));
   await browser.close();
 })();
