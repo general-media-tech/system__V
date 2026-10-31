@@ -11,7 +11,7 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
       { name: 'Godox V860III-C فلاش', barcode: 'MR0002', price: 0, cost_price: 137.91, haleb: 0, daraa: 0, group_name: 'فلاشات', compat: 'Canon EOS', specs: { 'الدليل': 'GN60', '__import': 'x' }, invoice_names: [{ n: 'Godox V860III-C', src: 'Shixin', usd: 137.91 }] },
       { name: 'منتج عليه كمية', barcode: 'MR0003', price: 5, haleb: 3, daraa: 0, group_name: 'فلاشات', invoice_names: [{ n: 'stocked line', src: 'Shixin' }] },
       { name: 'كفر سيليكون r8 r7', barcode: 'MR0004', price: 12, haleb: 0, daraa: 0, group_name: 'كفرات', compat: 'Canon EOS R8, Canon EOS R7' },
-      { name: 'Led 660 pro', barcode: 'MR0005', price: 70, haleb: 11, daraa: 0, group_name: 'بانيل ليد' }]);
+      { name: 'Led 660 panel', barcode: 'MR0005', price: 70, haleb: 11, daraa: 0, group_name: 'بانيل ليد' }]);
     await H.call('/rest/v1/gmt_merge_review', [
       { kind: 'merge', prio: 1, status: 'pending', subject_id: NEW.id, cands: [{ id: OLD.id, label: 'عندك في الجرد' }], title: 'هل «Godox V860III-C» هو «Godox v860» نفسه؟', note: 'صورة القديم مكتوب عليها V860III', conf: 90 },
       { kind: 'merge', prio: 2, status: 'pending', subject_id: STOCKED.id, cands: [{ id: KEEP2.id }], title: 'منتج عليه كمية', conf: 50 },
@@ -25,7 +25,12 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     ok(v1.imgs >= 1 && /1 \/ 4/.test(v1.txt), W + ': بالصور وعدّاد «1 / 4»');
     ok(v1.sw <= v1.cw + 1, W + ': بلا طفحٍ أفقي ' + v1.sw + '/' + v1.cw);
     // ① نعم هو نفسه ⇒ دمج
-    await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(1500);
+    await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(700);
+    // (المالك seq 260) «V860III-C» و«v860»: فرق إصدار (Mark III) ⇒ يسأل قبل الدمج
+    const ask1 = await pg.evaluate(() => (document.querySelector('.gmtask-ov') || {}).innerText || '');
+    ok(/فرق إصدار/.test(ask1), W + ': فرق الإصدار (V860III / v860) يسأل قبل الدمج');
+    for (const b of await pg.$$('.gmtask-ov button')) { if ((await b.textContent()).trim() === 'نعم، نفسه') { await b.click(); break; } }
+    await pg.waitForTimeout(1500);
     let d = await H.call('/__dump', undefined, 'GET');
     const o = d.products.find(p => p.id === OLD.id), n = d.products.find(p => p.id === NEW.id);
     ok(!n, W + ': المنتج المكرّر حُذف بعد الدمج');
@@ -115,6 +120,34 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     d = await H.call('/__dump', undefined, 'GET');
     const sdup = (d.gmt_store[0].products || []).find(x => x.id === 's_dup');
     ok(!d.products.some(p => p.id === CP.id) && sdup && sdup.inv_id === String(LA.id), 'دمج نسخة المتجر في منتجٍ مربوطٍ بغيره ⇒ قائمة المتجر رُبطت بالباقي قبل الحذف (لا منتج متجر بلا جرد)');
+    ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
+    await browser.close();
+  }
+  // (المالك seq 260) «دمجت منتجين واحد منهم برو والثاني مو برو» ⇒ فرق الإصدار: غير محدَّد في الدفعة ومرفوض في البطاقة إلا بتأكيد
+  await H.seed();
+  {
+    const [PRO, NP, Y1c, P2, N2] = await H.call('/rest/v1/products', [
+      { name: 'Led 660 pro', barcode: 'VP1', haleb: 16 }, { name: 'LED-660', barcode: 'VP2', haleb: 0 },
+      { name: 'Led 660 pro · أسود', barcode: 'VP3', haleb: 0 },
+      { name: 'Dji avata compo', barcode: 'VP4', haleb: 0 }, { name: 'Dji avata', barcode: 'VP5', haleb: 0 }]);
+    await H.call('/rest/v1/gmt_merge_review', [
+      { kind: 'bulk', prio: 0, status: 'pending', title: 'دفعة', cands: [{ into: PRO.id, ids: [NP.id, Y1c.id], label: '660' }] },
+      { kind: 'merge', prio: 1, status: 'pending', title: 'افاتا', subject_id: N2.id, cands: [{ id: P2.id, label: 'كومبو؟' }] }]);
+    const { browser, pg, errs } = await H.open('home.html', { w: 390, h: 844, wait: 4500 });
+    await pg.waitForSelector('.mr-ov [data-mr="bulk"]', { timeout: 10000 }).catch(() => {});
+    const st = await pg.evaluate(() => [...document.querySelectorAll('.mr-ov [data-bk]')].map(x => ({ c: x.checked, t: x.closest('li').textContent })));
+    const np = st.find(x => /LED-660/.test(x.t)), col = st.find(x => /أسود/.test(x.t));
+    ok(np && !np.c && /فرق إصدار: برو/.test(np.t) && col && col.c, 'الدفعة: «LED-660» ⇐ «Led 660 pro» غير محدَّد وعليه «⚠️ فرق إصدار: برو»، واللون محدَّد: ' + JSON.stringify(st.map(x => x.c)));
+    await pg.click('.mr-ov [data-mr="bulk"]'); await pg.waitForTimeout(2500);
+    let d = await H.call('/__dump', undefined, 'GET');
+    ok(d.products.some(p => p.id === NP.id) && !d.products.some(p => p.id === Y1c.id), '«نفّذ المحدَّد»: دُمج اللون وبقي «LED-660» منتجاً مستقلاً');
+    await pg.waitForSelector('.mr-ov [data-mr="merge"]', { timeout: 8000 }).catch(() => {});
+    await pg.click('.mr-ov [data-mr="merge"]').catch(() => {}); await pg.waitForTimeout(700);
+    const askTxt = await pg.evaluate(() => document.body.innerText);
+    const cancel = await pg.$$('button'); for (const b of cancel) { if ((await b.textContent()).trim() === 'لا') { await b.click(); break; } }
+    await pg.waitForTimeout(1200);
+    d = await H.call('/__dump', undefined, 'GET');
+    ok(/فرق إصدار بين المنتجين \(كومبو\)/.test(askTxt) && d.products.some(p => p.id === N2.id), 'بطاقة الدمج: «Dji avata» ⇐ «Dji avata compo» تسأل «فرق إصدار (كومبو)» و«لا» يُبقيهما منفصلين');
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }

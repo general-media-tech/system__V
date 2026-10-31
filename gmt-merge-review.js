@@ -141,7 +141,7 @@
     } else if (r.kind === 'bulk') {
       /* (المالك seq 245) «باقي المنتجات … احدد شيء يندمج وحدد شيء ما يندمج · نفّذ المحدد» ⇒ مربّع لكلّ منتج (محدَّدٌ افتراضياً) ولكلّ مجموعة */
       const g = (r.cands || []).map((c, gi) => { const t = prods.get(String(c.into)), L = (c.ids || []).map(x => prods.get(String(x))).filter(Boolean);
-        return `<div class="mr-bk"><label class="mr-bk-h"><input type="checkbox" data-bkg="${gi}" checked> ⇐ ${esc(t ? t.name : 'غير موجود')}${c.label ? ' <span class="mr-dim">· ' + esc(c.label) + '</span>' : ''}</label>${L.length ? `<ul>${L.map(p => `<li><label><input type="checkbox" data-bk="${gi}" value="${esc(p.id)}" checked> ${esc(p.name)}${qtyOf(p) ? ' <b class="mr-warn">(كمية ' + qtyOf(p) + ')</b>' : ''}</label> <button type="button" class="mr-peek-b" data-mr="peek" data-g="${gi}" data-p="${esc(p.id)}">👁 راجع</button><div class="mr-peek" data-peek="${esc(p.id)}"></div></li>`).join('')}</ul>` : '<div class="mr-dim">✓ تمّ</div>'}</div>`; }).join('');
+        return `<div class="mr-bk"><label class="mr-bk-h"><input type="checkbox" data-bkg="${gi}" checked> ⇐ ${esc(t ? t.name : 'غير موجود')}${c.label ? ' <span class="mr-dim">· ' + esc(c.label) + '</span>' : ''}</label>${L.length ? `<ul>${L.map(p => { const vd = t ? variantDiff(t.name, p.name) : []; return `<li><label><input type="checkbox" data-bk="${gi}" value="${esc(p.id)}"${vd.length ? '' : ' checked'}> ${esc(p.name)}${vd.length ? ' <b class="mr-warn">⚠️ فرق إصدار: ' + esc(vd.join('، ')) + ' — غير محدَّد</b>' : ''}${qtyOf(p) ? ' <b class="mr-warn">(كمية ' + qtyOf(p) + ')</b>' : ''}</label> <button type="button" class="mr-peek-b" data-mr="peek" data-g="${gi}" data-p="${esc(p.id)}">👁 راجع</button><div class="mr-peek" data-peek="${esc(p.id)}"></div></li>`; }).join('')}</ul>` : '<div class="mr-dim">✓ تمّ</div>'}</div>`; }).join('');
       const im = (r.cands || []).map(c => prods.get(String(c.into))).filter(Boolean).map(imgsOf)[0] || [];
       cols = `<div class="mr-col"><div class="mr-role">📦 توحيد</div>${im.length ? `<div class="mr-gal">${im.map(u => `<img src="${esc(u)}" loading="lazy" alt="" onclick="window.open(this.src,'_blank')">`).join('')}</div>` : ''}${g}
         <button class="mr-yes" data-mr="bulk">✅ نفّذ المحدَّد</button></div>`;
@@ -177,7 +177,34 @@
     const r = await Promise.all(T4.map(t => rest('GET', t + '?product_id=eq.' + id + '&select=product_id&limit=1').then(j => Array.isArray(j) && j.length ? t : null).catch(() => null)));
     return r.filter(Boolean);
   }
+  /* (المالك seq 260) «دمجت منتجين واحد منهم برو والثاني مو برو — اصطد هذا النمط» ⇒ فرق الإصدار يمنع الدمج إلا بتأكيدٍ صريح */
+  function variantsOf(s) {
+    s = ' ' + String(s || '').toLowerCase().replace(/[_\-\/·.,()]/g, ' ') + ' ';
+    const t = new Set();
+    if (/(\bpro\b|برو|\d\s?p\b)/.test(s)) t.add('برو');
+    if (/(combo|compo|كومبو|كمبو)/.test(s)) t.add('كومبو');
+    if (/(mark\s?iii|mk\s?iii|\biii\b|\d\s?iii\b|مارك\s?3)/.test(s)) t.add('Mark III');
+    else if (/(mark\s?ii|mk\s?ii|\bii\b|\d\s?ii\b|مارك\s?2)/.test(s)) t.add('Mark II');
+    ['max', 'plus', 'ultra', 'lite', 'mini', 'se'].forEach(w => { if (new RegExp('\\b' + w + '\\b').test(s)) t.add(w); });
+    return t;
+  }
+  const VW = /^(pro|combo|compo|mark|mk|ii|iii|max|plus|ultra|lite|mini|se|p|c|n|s|f|o|single|standart|standard|standrt|كفر|سيليكون|فلاش|برو|كومبو)$/;
+  function baseWords(s) {
+    return new Set(String(s || '').toLowerCase().replace(/(\d)(iii|ii|p)\b/g, '$1').split(/[^a-z0-9؀-ۿ]+/).filter(w => w.length > 1 && !VW.test(w)));
+  }
+  function variantDiff(a, b) {
+    const WA = baseWords(a), WB = baseWords(b); let common = false; WA.forEach(w => { if (WB.has(w)) common = true; });
+    if (!common) return [];   /* لا كلمة موديل مشتركة ⇒ لا يُحكم بفرق إصدار */
+    const A = variantsOf(a), B = variantsOf(b), d = [];
+    A.forEach(x => { if (!B.has(x)) d.push(x); }); B.forEach(x => { if (!A.has(x)) d.push(x); });
+    return d;
+  }
   async function doMerge(r, c) {
+    const pa = prods.get(String(c.id)), pb = prods.get(String(r.subject_id)), vd = pa && pb ? variantDiff(pa.name, pb.name) : [];
+    if (vd.length) {
+      const ok = window.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm('⚠️ فرق إصدار بين المنتجين (' + vd.join('، ') + '):\n«' + pb.name + '»\n«' + pa.name + '»\n\nهل هما فعلاً المنتج نفسه؟', { title: 'تأكيد قبل الدمج', icon: 'danger', okText: 'نعم، نفسه', cancelText: 'لا' }) : false;
+      if (!ok) throw new Error('لم يُدمج: فرق إصدار (' + vd.join('، ') + ')');
+    }
     const b = await mergeOne(r.subject_id, c.id, r.id, c);
     await decide(r, 'done', { action: 'merged', into: c.id, snapshot: b });
   }
