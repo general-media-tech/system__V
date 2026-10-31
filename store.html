@@ -148,6 +148,9 @@ window.GMT_PUBLIC = 1;</script>
 <script>
 /* (2026-10-06 ش) البند ٨٨ وطلبك في وثيقة التصميم: «في المعاينة ما في داعي يفتح لنا انترو المتجر — فوراً يدخلنا
    على المتجر، كمستخدمٍ عادي، مع أزرار تعديل». ?preview=1 ⇒ لا انترو، وشريطٌ صغير للعودة إلى أدمن المتجر. */
+/* (المالك seq 277) «الأدمن لما يدخل على المتجر دوماً يكون عنده زرّ تعديل … على كل منتج … بدون ما تصغر أو تطلع داخل شاشة» ⇒
+   بوضع الأدمن (gmt_admin_mode) القلم على كل منتج دائماً، حتى بلا ?preview=1 — والزبون لا يراه أبداً */
+(function () { try { if (sessionStorage.getItem('gmt_admin_mode') === '1') window.__gmtPreviewEdit = true; } catch (_) {} })();
 (function () {
   if (!/[?&]preview=1/.test(location.search)) return;
   var css = document.createElement('style');
@@ -914,13 +917,13 @@ function _buildProductCard(prod) {
     /* (٨ ث — تدقيق المطابقة) «المعاينة كزبون، وعند كل شيء قلم تعديل»: بوضع المعاينة لموظّفٍ مسجّل،
        قلمٌ على كل منتج يفتح محرّره في أدمن المتجر مباشرةً. الزبون لا يراه أبداً. */
     if (window.__gmtPreviewEdit) {
-        const pen = document.createElement('a');
-        pen.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id);
-        pen.title = 'تعديل هذا المنتج'; pen.setAttribute('aria-label', 'تعديل هذا المنتج');
+        /* (المالك seq 277) القلم ⇒ خياران فوراً: «تعديل سريع هنا» (الاسم والسعر داخل المتجر نفسه) أو «فتح في أدمن المتجر» */
+        const pen = document.createElement('button'); pen.type = 'button';
+        pen.title = 'تعديل هذا المنتج'; pen.setAttribute('aria-label', 'تعديل هذا المنتج'); pen.dataset.adminPen = prod.id;
         pen.className = 'absolute top-2 right-2 w-9 h-9 rounded-[12px] flex items-center justify-center';
-        pen.style.cssText = 'background:#0f1219;color:#fff;text-decoration:none;font-size:16px;';
+        pen.style.cssText = 'background:#0f1219;color:#fff;border:0;font-size:16px;cursor:pointer;';
         pen.innerHTML = '<i class="ph ph-pencil-simple"></i>';
-        pen.addEventListener('click', e => e.stopPropagation());
+        pen.addEventListener('click', e => { e.stopPropagation(); _adminPenMenu(imgWrap, prod); });
         imgWrap.appendChild(pen);
     }
     card.appendChild(imgWrap);
@@ -936,6 +939,43 @@ function _buildProductCard(prod) {
 
     card.addEventListener('click', () => openProductModal(prod.id));
     return card;
+}
+
+/* (المالك seq 277) قائمة القلم داخل البطاقة نفسها (بلا نافذة ولا تصغير) */
+function _adminPenMenu(wrap, prod) {
+    const old = wrap.querySelector('[data-pen-menu]'); if (old) { old.remove(); return; }
+    const m = document.createElement('div'); m.dataset.penMenu = '1';
+    m.style.cssText = 'position:absolute;top:46px;right:8px;left:8px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:6px;display:flex;flex-direction:column;gap:4px;direction:rtl;';
+    const b = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; x.style.cssText = 'border:0;background:#f5f6fa;border-radius:9px;padding:8px;font:800 12px Cairo,sans-serif;cursor:pointer;text-align:right;'; x.addEventListener('click', e => { e.stopPropagation(); fn(); }); return x; };
+    m.appendChild(b('✏️ تعديل سريع هنا', () => { m.remove(); _adminQuickEdit(prod); }));
+    m.appendChild(b('🛠 فتح في أدمن المتجر', () => { location.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id); }));
+    m.addEventListener('click', e => e.stopPropagation());
+    wrap.appendChild(m);
+}
+async function _adminQuickEdit(prod) {
+    if (!window.GMTAsk || !GMTAsk.prompt) { location.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id); return; }
+    const name = await GMTAsk.prompt('اسم المنتج في المتجر:', { value: prod.name || '', title: 'تعديل سريع' }); if (name == null) return;
+    const priceS = await GMTAsk.prompt('سعر المبيع في المتجر ($) — اتركه 0 لـ«السعر عند الطلب»:', { value: String(prod.price || 0), title: 'تعديل سريع' }); if (priceS == null) return;
+    const price = Math.max(0, parseFloat(priceS) || 0), nm = String(name).trim() || prod.name;
+    const H = { apikey: CONFIG.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + CONFIG.SUPABASE_ANON_KEY };
+    try {
+        for (let i = 0; i < 3; i++) {
+            const g = await fetch(CONFIG.SUPABASE_URL + '/rest/v1/gmt_store?id=eq.1&select=id,updated_at,products', { headers: H });
+            const rec = ((await g.json()) || [])[0]; if (!rec) throw new Error('تعذّرت قراءة المتجر');
+            const next = (rec.products || []).map(x => String(x.id) === String(prod.id) ? Object.assign({}, x, { name: nm, short_name: nm, price }) : x);
+            let url = CONFIG.SUPABASE_URL + '/rest/v1/gmt_store?id=eq.1&select=id'; const body = { products: next };
+            if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+            const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+            if (!w.ok) throw new Error('HTTP ' + w.status);
+            const rows = await w.json().catch(() => null);
+            if (Array.isArray(rows) && rows.length) {
+                Object.assign(prod, { name: nm, short_name: nm, price });
+                try { renderProducts(); } catch (_) {}
+                showToast('✅ حُفظ: ' + nm + (price > 0 ? ' — $' + price : ' — السعر عند الطلب'), 'success'); return;
+            }
+        }
+        throw new Error('المتجر يتغيّر من جهةٍ أخرى — أعد المحاولة');
+    } catch (e) { showToast('❌ لم يُحفظ: ' + (e.message || e), 'error'); }
 }
 
 function _setCardCartBtn(btn, inCart) {
