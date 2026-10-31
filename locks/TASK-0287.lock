@@ -1,0 +1,7 @@
+task: TASK-0287
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: purchase.html inventory.html sw.js gmt-whatsnew.js TASK_REGISTRY.md handoffs/SESSION_LOG.md docs/التسليم_الشامل.md docs/تدقيق_المنتجات/ tests/harness/t_invoice_names.js
+claimed_at: 2026-10-31T10:51:59Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0287
