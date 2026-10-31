@@ -2491,6 +2491,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <div class="filter-chip" data-filter="zero" onclick="setFilter('zero', this)">
       نفذ
     </div>
+    <!-- (TASK-0292 · المالك seq 261) فلتر الشجرة الموحّدة: رئيسي ⇐ فرعي (cat_main · cat_sub) -->
+    <select id="tree-main" onchange="invTreeSet('main', this.value)" aria-label="التصنيف الرئيسي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw"><option value="">🌳 كل التصنيفات</option></select>
+    <select id="tree-sub" onchange="invTreeSet('sub', this.value)" aria-label="التصنيف الفرعي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw;display:none"><option value="">كل الفرعي</option></select>
   </div>
 
   <!-- Branch Filter Row — فلاتر نقاط البيع -->
@@ -5498,6 +5501,9 @@ function normalizeProduct(p) {
     specs_checked_at: p.specs_checked_at || null,
     specs_checked_by: p.specs_checked_by || '',
     invoice_names: Array.isArray(p.invoice_names) ? p.invoice_names : [],   /* (TASK-0287) الاسم كما في فاتورة المورّد — ثابت */
+    /* (TASK-0292) الشجرة الموحّدة — كان المُطبِّع يُسقطها فلا يعمل فلتر الشجرة */
+    cat_main: p.cat_main || '', cat_sub: p.cat_sub || '', cat_group: p.cat_group || '',
+    extra_cats: Array.isArray(p.extra_cats) ? p.extra_cats : [],
     created_at: p.created_at || p.addedAt || '',
     in_transit: (p.in_transit && typeof p.in_transit === 'object') ? p.in_transit : {},
   };
@@ -5563,7 +5569,21 @@ function invCompatSay(q, n) {
     (n ? 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534' : 'background:#fff7ed;border:1px solid #fed7aa;color:#9a3412');
   el.textContent = '🔎 ' + say + (n ? ' — ' + n + ' منتج في الجرد يركب' : ' — لا يوجد منه في الجرد حالياً');
 }
+/* (TASK-0292) فلتر الشجرة: يملأ القائمتين من المنتجات نفسها (لا قائمة ثابتة تتقادم) */
+window._invTree = { main: '', sub: '' };
+function invTreePaint() {
+  const m = document.getElementById('tree-main'), sb = document.getElementById('tree-sub'); if (!m || !sb || !Array.isArray(allProducts)) return;
+  const mains = [...new Set(allProducts.map(p => p.cat_main).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
+  m.innerHTML = '<option value="">🌳 كل التصنيفات</option>' + mains.map(x => `<option ${x === _invTree.main ? 'selected' : ''}>${escHtml(x)}</option>`).join('');
+  const subs = _invTree.main ? [...new Set(allProducts.filter(p => p.cat_main === _invTree.main).map(p => p.cat_sub).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar')) : [];
+  sb.innerHTML = '<option value="">كل الفرعي</option>' + subs.map(x => `<option ${x === _invTree.sub ? 'selected' : ''}>${escHtml(x)}</option>`).join('');
+  sb.style.display = subs.length ? '' : 'none';
+}
+function invTreeSet(k, v) { _invTree[k] = v || ''; if (k === 'main') _invTree.sub = ''; invTreePaint(); applyFilters(); }
+window.invTreeSet = invTreeSet;
+
 function applyFilters() {
+  try { const m = document.getElementById('tree-main'); if (m && m.options.length <= 1) invTreePaint(); } catch (_) {}
   let items = [...allProducts];
 
   // Search
@@ -5595,6 +5615,9 @@ function applyFilters() {
     items = items.filter(p => (Number(p[currentBranchFilter]) || 0) > 0);
   }
 
+  // (TASK-0292) الشجرة الموحّدة — الرئيسي ثمّ الفرعي (والتصنيفات الإضافية extra_cats)
+  if (window._invTree && _invTree.main) items = items.filter(p => p.cat_main === _invTree.main || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.main === _invTree.main && (!_invTree.sub || x.sub === _invTree.sub))));
+  if (window._invTree && _invTree.sub) items = items.filter(p => p.cat_sub === _invTree.sub || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.sub === _invTree.sub)));
   // (س) التصنيف أوّلاً ثمّ المجموعة
   if (currentCategory) items = items.filter(p => GMTCat.under(p.category, currentCategory));   /* (19 ت1) والتصنيفات الفرعية تحته */
   // Group filter
@@ -16354,7 +16377,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101k"></script>
+<script src="gmt-whatsnew.js?v=20261101l"></script>
 <script src="gmt-store-sync.js?v=20261101g" defer></script>
 <script src="gmt-merge-review.js?v=20261101f" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
