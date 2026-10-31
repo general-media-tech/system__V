@@ -118,6 +118,26 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }
+  // (المالك seq 253) سلسلة دمج: ألوان «700D-800D» ⇐ «700D-800D» ⇐ «600D/650D/700D» — كانت تفشل بالتوازي
+  await H.seed();
+  const [FX, MID, Y1, Y2, Y3] = await H.call('/rest/v1/products', [
+    { name: '600D/650D/700D cover كفر سيليكون', barcode: 'CH1', haleb: 13, group_name: 'كفرات' },
+    { name: 'كفر سيليكون 700D-800D', barcode: 'CH2', haleb: 0, group_name: 'كفرات' },
+    { name: 'كفر سيليكون 700D-800D · زهري (Pink)', barcode: 'CH3', haleb: 0, group_name: 'كفرات' },
+    { name: 'كفر سيليكون 700D-800D · soldiers', barcode: 'CH4', haleb: 0, group_name: 'كفرات' },
+    { name: 'كفر سيليكون 700D-800D · أصفر (yellow)', barcode: 'CH5', haleb: 0, group_name: 'كفرات' }]);
+  await H.call('/rest/v1/gmt_merge_review', [{ kind: 'bulk', prio: 0, status: 'pending', title: 'سلسلة', cands: [
+    { into: MID.id, ids: [Y1.id, Y2.id, Y3.id], noAlt: true, label: '700D-800D' }, { into: FX.id, ids: [MID.id], label: '700d-800d ⇐ 700D' }] }]);
+  {
+    const { browser, pg, errs } = await H.open('home.html', { w: 390, h: 844, wait: 4500 });
+    await pg.waitForSelector('.mr-ov [data-mr="bulk"]', { timeout: 10000 }).catch(() => {});
+    await pg.click('.mr-ov [data-mr="bulk"]'); await pg.waitForTimeout(3000);
+    const d = await H.call('/__dump', undefined, 'GET');
+    const err = await pg.evaluate(() => (document.querySelector('.mr-err') || {}).textContent || '');
+    ok(!err && ![MID, Y1, Y2, Y3].some(x => d.products.some(p => p.id === x.id)) && d.products.some(p => p.id === FX.id && p.haleb === 13), 'سلسلة الدمج: الألوان والوسيط كلّها وصلت للهدف النهائي بلا خطأ وكميته كما هي: ' + (err || 'بلا خطأ'));
+    ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
+    await browser.close();
+  }
   // الموظّف لا يرى النافذة
   await H.seed();
   const [x] = await H.call('/rest/v1/products', [{ name: 'س', barcode: 'MR9', haleb: 0 }]);

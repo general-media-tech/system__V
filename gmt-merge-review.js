@@ -183,22 +183,32 @@
   }
   /* (المالك seq 244: «جمدت الشاشة») ⇐ عدّادٌ حيّ «دُمج N من M» + المجموعات (أهدافٌ مختلفة) بالتوازي ٤ معاً — داخل المجموعة الواحدة بالتتابع (الهدف نفسه) */
   async function doBulk(r) {
-    const byInto = new Map();                                     // مجموعتان على الهدف نفسه ⇒ بالتتابع لا بالتوازي
+    /* (المالك seq 253 «شوف الخطأ هون») سلاسل الدمج: ألوان «700D-800D» ⇐ «700D-800D» ⇐ «600D/650D/700D».
+       بالتوازي حُذف الوسيط قبل أن تصله ألوانه ⇒ «لم يُحفظ التعديل». الآن: كلّ منتجٍ يُدمج في **هدفه النهائي**
+       (يُتبع السلسلة داخل البطاقة)، وكلّ ما له الهدف النهائي نفسه بالتتابع؛ الأهداف المختلفة بالتوازي. */
+    const moved = new Map();
+    (r.cands || []).forEach(c => (c && Array.isArray(c.ids) ? c.ids : []).forEach(x => moved.set(String(x), String(c.into))));
+    const finalOf = t => { let k = String(t), n = 0; while (moved.has(k) && n++ < 20) k = moved.get(k); return k; };
     const chosen = new Set(el ? [...el.querySelectorAll('[data-bk]:checked')].map(x => x.value) : []), skipped = [];
+    const byFinal = new Map();
     (r.cands || []).filter(c => c && c.into && Array.isArray(c.ids)).forEach(c => {
-      const ids = c.ids.filter(x => { const ok = !el || chosen.has(String(x)); if (!ok) skipped.push({ id: x, into: c.into }); return ok; });
-      const g = byInto.get(String(c.into)); if (g) g.ids = g.ids.concat(ids); else byInto.set(String(c.into), Object.assign({}, c, { ids })); });
-    if (![...byInto.values()].some(g => g.ids.length)) throw new Error('لم تحدّد شيئاً للدمج');
-    const done = [], fail = [], groups = [...byInto.values()];
-    const total = groups.reduce((s, c) => s + c.ids.length, 0); let n = 0;
+      c.ids.forEach(x => {
+        if (el && !chosen.has(String(x))) { skipped.push({ id: x, into: c.into }); return; }
+        const f = finalOf(c.into); if (!byFinal.has(f)) byFinal.set(f, []);
+        byFinal.get(f).push({ id: String(x), c });
+      });
+    });
+    if (![...byFinal.values()].some(g => g.length)) throw new Error('لم تحدّد شيئاً للدمج');
+    const done = [], fail = [], groups = [...byFinal.entries()];
+    const total = groups.reduce((s, g) => s + g[1].length, 0); let n = 0;
     const tick = () => setProg('⏳ يدمج… ' + n + ' / ' + total + ' — لا تغلق الصفحة', total ? n / total : 0);
     tick();
-    const runGroup = async (c) => {
-      for (const id of c.ids) {
+    const runGroup = async ([into, items]) => {
+      for (const it of items) {
         try {
-          const [x] = await rest('GET', 'products?id=eq.' + id + '&select=id') || [];
-          if (x) { const b = await mergeOne(id, c.into, r.id, c); done.push({ id, name: b.name, into: c.into }); prods.delete(String(id)); }
-        } catch (er) { fail.push({ id, err: (er && er.message) || String(er) }); }
+          const [x] = await rest('GET', 'products?id=eq.' + it.id + '&select=id') || [];
+          if (x) { const b = await mergeOne(it.id, into, r.id, it.c); done.push({ id: it.id, name: b.name, into }); prods.delete(String(it.id)); }
+        } catch (er) { fail.push({ id: it.id, err: (er && er.message) || String(er) }); }
         n++; tick();
       }
     };
