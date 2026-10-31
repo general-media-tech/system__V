@@ -67,9 +67,13 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     await pg.waitForSelector('.mr-ov [data-mr="bulk"]', { timeout: 10000 }).catch(() => {});
     const t = await pg.evaluate(() => (document.querySelector('.mr-ov') || {}).innerText || '');
     ok(/زهري/.test(t) && /soldiers/.test(t) && /Eos R كفر سيليكون/.test(t) && /كمية 2/.test(t), 'دفعة التوحيد تعرض كل منتج وهدفه وتنبّه لما عليه كمية');
-    await pg.click('.mr-ov [data-mr="bulk"]'); await pg.waitForTimeout(2500);
+    ok(/المرحلة: توحيد/.test(t) && (await pg.evaluate(() => document.querySelectorAll('.mr-ov [data-bk]:checked').length)) === 3, 'المرحلة ظاهرة وكلّ منتجٍ بمربّعٍ محدَّد افتراضياً');
+    await pg.evaluate((id) => { document.querySelector('.mr-ov [data-bk][value="' + id + '"]').checked = false; }, C2.id);   // «احدد شيء ما يندمج»
+    const seen = []; const iv = setInterval(async () => { try { const x = await pg.evaluate(() => { const e = document.querySelector('.mr-prog'); return e && e.style.display !== 'none' && e.querySelector('.mr-bar') ? e.textContent : ''; }); if (x) seen.push(x); } catch (_) {} }, 60);
+    await pg.click('.mr-ov [data-mr="bulk"]'); await pg.waitForTimeout(2500); clearInterval(iv);
+    ok(seen.some(x => /يدمج… \d+ \/ 2/.test(x)), 'شريط التقدّم ظاهر أثناء الدمج: ' + (seen[0] || '—'));
     const d = await H.call('/__dump', undefined, 'GET'), tg = d.products.find(p => p.id === TG.id);
-    ok(!d.products.some(p => p.id === C1.id || p.id === C2.id), 'ضغطة واحدة ⇒ منتجات الألوان دُمجت وحُذفت');
+    ok(!d.products.some(p => p.id === C1.id) && d.products.some(p => p.id === C2.id), '«نفّذ المحدَّد»: المحدَّد دُمج، وغير المحدَّد بقي');
     ok(d.products.some(p => p.id === CQ.id) && /تعذّر 1/.test(await pg.evaluate(() => (document.querySelector('.mr-err') || {}).textContent || '')), 'ما عليه كمية بقي ونُبّه عليه');
     ok(tg && !/زهري|soldiers/.test(tg.alt_names || '') && tg.invoice_names.length === 1 && tg.haleb === 19, 'الهدف بلا أسماء ألوان · اسم الفاتورة مرّة واحدة · كميته كما هي');
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
