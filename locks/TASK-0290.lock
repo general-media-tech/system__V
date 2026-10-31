@@ -1,0 +1,7 @@
+task: TASK-0290
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: DB products/gmt_store · img/products/ · docs/تدقيق_المنتجات/ · TASK_REGISTRY.md · handoffs/SESSION_LOG.md · docs/التسليم_الشامل.md
+claimed_at: 2026-10-31T11:11:15Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0290
