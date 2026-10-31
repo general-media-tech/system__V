@@ -4789,7 +4789,7 @@ window.openMissingReport = openMissingReport;
       const b = ev.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k; close();
       try {
         if (k === 'det') openDetailModal(p.id);
-        else if (k === 'edit') openProductModal(p.id);
+        else if (k === 'edit') invGuardedEdit(p.id);   /* (seq 268) الصفحة الكاملة لا النافذة القديمة */
         else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
         else if (k === 'tr') stFromSelection([p.id]);
         else if (k === 'bc') { navigator.clipboard.writeText(p.barcode); showToast('نُسخ الباركود', 'success'); }
@@ -6124,7 +6124,7 @@ function renderCards() {
           </div>
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" onclick="openDetailModal('${p.id}')">تفاصيل</button>
-            <button class="btn btn-primary btn-sm" onclick="openProductModal('${p.id}')">تعديل</button>
+            <button class="btn btn-primary btn-sm" onclick="invGuardedEdit('${p.id}')">تعديل</button>
             <button class="btn btn-ghost btn-sm" onclick="invGuardedDelete('${p.id}')" title="${invDimTitle('حذف المنتج')}" style="color:var(--danger);border-color:#fecaca;${invDimStyle()}">حذف</button>
           </div>
         </div>
@@ -7052,6 +7052,8 @@ function invDimTitle(t) { return (window.GMTRole ? window.GMTRole.dimTitle(t) : 
 
 async function invGuardedEdit(id) {
   if (window.GMTRole && !(await window.GMTRole.requireAdmin('تعديل منتج'))) return;
+  /* (المالك seq 268) «زرّ التعديل لا يعرض كل التعديلات … أداة تتطوّر في مكان أكثر من مكان» ⇒ كلّ «تعديل» لمنتجٍ موجود = صفحة التعديل الكاملة */
+  if (typeof invOpenFullEdit === 'function' && window.GMTProductEdit) return invOpenFullEdit(id);
   openProductModal(id);
 }
 async function invGuardedDelete(id) {
@@ -7149,9 +7151,20 @@ function openDetailModal(id) {
   let html = '';
 
   // Big image — (TASK-0197 · المالك seq 133 «في الجرد ممكن اكبس عليها … تعرض لي باقي الصور») النقر ⇒ كلّ صوره: الجرد + المتجر المربوط
-  if (p.image_url) {
+  /* (المالك seq 269) «عرض المنتج صوره ما عم تتقلّب» ⇒ كلّ صور المنتج شريطٌ يُسحب (لمس أو فأرة) بعدّاد؛ النقر يفتح المعرض */
+  const _dImgs = [...new Set([...(Array.isArray(p.images) ? p.images : []), p.image_url].filter(u => u && typeof u === 'string'))];
+  if (_dImgs.length === 1) {
     html += `<div class="detail-img-wrap" data-gal-wrap>
-      <img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${p.image_url}" alt="${escHtml(p.name)}" onclick="invOpenGallery('${escHtml(String(p.id))}')" style="cursor:zoom-in">
+      <img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${_dImgs[0]}" alt="${escHtml(p.name)}" onclick="invOpenGallery('${escHtml(String(p.id))}')" style="cursor:zoom-in">
+    </div>`;
+  } else if (_dImgs.length > 1) {
+    html += `<div class="detail-img-wrap" data-gal-wrap data-swipe style="position:relative">
+      <div data-swipe-row style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;direction:ltr" onscroll="var c=this.nextElementSibling;if(c){var i=Math.round(this.scrollLeft/Math.max(1,this.clientWidth));c.textContent=(Math.abs(i)+1)+' / ${_dImgs.length}';}">
+        ${_dImgs.map(u => `<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${escHtml(u)}" alt="${escHtml(p.name)}" onclick="invOpenGallery('${escHtml(String(p.id))}')" style="flex:0 0 100%;width:100%;scroll-snap-align:center;cursor:zoom-in;object-fit:contain">`).join('')}
+      </div>
+      <span data-swipe-count style="position:absolute;bottom:8px;left:8px;background:rgba(15,18,25,.7);color:#fff;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800">1 / ${_dImgs.length}</span>
+      <button type="button" aria-label="السابقة" onclick="event.stopPropagation();var r=this.parentNode.querySelector('[data-swipe-row]');r.scrollBy({left:-r.clientWidth,behavior:'smooth'})" style="position:absolute;top:50%;right:6px;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:16px">›</button>
+      <button type="button" aria-label="التالية" onclick="event.stopPropagation();var r=this.parentNode.querySelector('[data-swipe-row]');r.scrollBy({left:r.clientWidth,behavior:'smooth'})" style="position:absolute;top:50%;left:6px;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer;font-size:16px">‹</button>
     </div>`;
   }
 
@@ -7185,7 +7198,7 @@ function openDetailModal(id) {
 
   html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px;">💰 تفاصيل الأسعار
-      <button onclick="closeModal('detail-modal');openProductModal('${p.id}')" style="float:left;background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">✏️ تعديل</button>
+      <button onclick="closeModal('detail-modal');invGuardedEdit('${p.id}')" style="float:left;background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">✏️ تعديل</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
       <div onclick="goToPurchaseInvoice('${String(p.barcode||'').replace(/['\\]/g,'')}','${String(p.name||'').replace(/['\\]/g,'')}')" title="سعر الشراء يُعدَّل من فاتورة المشتريات — اضغط للانتقال" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;cursor:pointer;">
@@ -16341,7 +16354,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101h"></script>
+<script src="gmt-whatsnew.js?v=20261101i"></script>
 <script src="gmt-store-sync.js?v=20261101g" defer></script>
 <script src="gmt-merge-review.js?v=20261101f" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
