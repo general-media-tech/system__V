@@ -75,6 +75,34 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }
+  // منتج متجر ⇐ مرشّحو الجرد: «هو نفسه» (مربوطٌ بغيره ⇒ inv_id في المتجر) · «ولا واحد منها» ⇒ يُعرَّف جديداً بكمية صفر مربوطاً
+  await H.seed();
+  const [LA, LB] = await H.call('/rest/v1/products', [
+    { name: 'Dji mic mini', barcode: 'SL1', price: 70, haleb: 2, group_name: 'مايك وتوابعه', store_url: 'https://general-media-tech.github.io/system__V/store.html#product=s_other' },
+    { name: 'Adapter rings EF-EOS R', barcode: 'SL2', price: 25, haleb: 25, group_name: 'ادابترات' }]);
+  await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-31T10:00:00Z', categories: [{ id: 'c1', name: 'م', order: 1 }], products: [
+    { id: 's_mic', name: 'DJI Mic Mini (1 Sender + 1 Empfänger)', price: 75, images: ['img/logo.png'], category_id: 'c1', description: 'مايك لاسلكي', specs: [{ label: 'المدى', value: '400م' }] },
+    { id: 's_ad', name: 'ادابتر Canon ef _r', price: 130, images: [], category_id: 'c1' }] }]);
+  await H.call('/rest/v1/gmt_merge_review', [
+    { kind: 'link', prio: 1, status: 'pending', subject_id: null, cands: [{ store_id: 's_mic', group: 'مايك وتوابعه' }, { id: LA.id }], title: 'منتج المتجر هذا هو منتج الجرد؟' },
+    { kind: 'link', prio: 2, status: 'pending', subject_id: null, cands: [{ store_id: 's_ad', group: 'ادابترات' }, { id: LB.id }], title: 'ادابتر' }]);
+  {
+    const { browser, pg, errs } = await H.open('home.html', { w: 390, h: 844, wait: 4500 });
+    await pg.waitForSelector('.mr-ov [data-mr="slink"]', { timeout: 10000 }).catch(() => {});
+    const t = await pg.evaluate(() => (document.querySelector('.mr-ov') || {}).innerText || '');
+    ok(/DJI Mic Mini \(1 Sender/.test(t) && /Dji mic mini/.test(t) && /ولا واحد منها/.test(t), 'بطاقة متجر ⇐ جرد: منتج المتجر ومرشّح الجرد و«ولا واحد منها — عرّفه جديداً»');
+    await pg.click('.mr-ov [data-mr="slink"]'); await pg.waitForTimeout(1500);
+    let d = await H.call('/__dump', undefined, 'GET');
+    const sm = (d.gmt_store[0].products || []).find(x => x.id === 's_mic');
+    ok(sm && sm.inv_id === String(LA.id) && d.products.find(p => p.id === LA.id).store_url.endsWith('s_other'), 'منتج الجرد مربوطٌ بغيره ⇒ رُبط من جهة المتجر (inv_id) ولم يُمسّ رابطه');
+    await pg.click('.mr-ov [data-mr="no"]'); await pg.waitForTimeout(1800);
+    d = await H.call('/__dump', undefined, 'GET');
+    const nw = d.products.find(p => (p.store_url || '').endsWith('#product=s_ad'));
+    ok(nw && nw.name === 'ادابتر Canon ef _r' && Number(nw.price) === 130 && nw.group_name === 'ادابترات' && !(nw.haleb > 0) && /^62\d{11}$/.test(nw.barcode || ''), '«ولا واحد منها» ⇒ منتجٌ جديد في الجرد بكمية صفر وباركود وسعر المتجر ومربوط: ' + (nw && nw.barcode));
+    ok(d.products.some(p => p.id === LB.id) && !d.products.find(p => p.id === LB.id).store_url, 'ومرشّح الجرد بقي كما هو');
+    ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
+    await browser.close();
+  }
   // الموظّف لا يرى النافذة
   await H.seed();
   const [x] = await H.call('/rest/v1/products', [{ name: 'س', barcode: 'MR9', haleb: 0 }]);

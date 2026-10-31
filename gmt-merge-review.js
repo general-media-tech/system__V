@@ -10,6 +10,9 @@
                       في السجلّ (قابلٌ للاسترجاع). لا يُدمج آلياً منتجٌ له كمية أو فواتير.
      kind = 'pick'  ⇐ منتجٌ له اسمان/توافقان وهو واحد في الحقيقة: اختر الصحيح ⇒ يُعدَّل الاسم والتوافق
      kind = 'link'  ⇐ منتج الجرد ومنتج المتجر cands[].store_id: «اربطهما» ⇒ رابط المتجر في الجرد
+     kind = 'link' بلا subject_id ⇐ منتج متجر cands[0].store_id أمام مرشّحي الجرد cands[].id (المالك seq 242: «جمع كل منتجات المتجر وربطها بالجرد»)
+                      «✅ هو نفسه» ⇒ يُربط (رابط المتجر في الجرد، أو inv_id في المتجر إن كان منتج الجرد مربوطاً بغيره)
+                      «❌ ولا واحد منها» ⇒ يُعرَّف منتجاً جديداً في الجرد بكمية صفر مربوطاً به
      kind = 'bulk'  ⇐ دفعة توحيدٍ مؤكَّدة بالأدلّة (مثل ألوان الكفر ⇐ كفر الموديل): cands[] = {into, ids[], label, noAlt}
                       «✅ نفّذ» مرّةً واحدة ⇒ كلّ منتجٍ يُدمج في هدفه بالشروط نفسها (بلا كمية · بلا فواتير · لقطة كاملة)
    «❌ لا، مختلف» يحفظ القرار فلا يُسأل مرّةً ثانية · «⏭ لاحقاً» يتركه للمرّة القادمة.
@@ -116,6 +119,10 @@
     if (r.kind === 'merge') {
       cols = prodCard(subj, '🆕 هذا المنتج', '') + (r.cands || []).map((c, i) => prodCard(prods.get(String(c.id)), '📦 ' + (c.label || 'عندك في الجرد'),
         `<button class="mr-yes" data-mr="merge" data-i="${i}">✅ نعم هو نفسه — ادمجهما</button>`)).join('');
+    } else if (r.kind === 'link' && !r.subject_id) {
+      const sc = (r.cands || []).find(c => c && c.store_id) || {};
+      cols = storeCard(store && store.get(String(sc.store_id)), '') + (r.cands || []).map((c, i) => c && c.id ? prodCard(prods.get(String(c.id)), '📦 ' + (c.label || 'عندك في الجرد'),
+        `<button class="mr-yes" data-mr="slink" data-i="${i}">✅ نعم هو نفسه — اربطهما</button>`) : '').join('');
     } else if (r.kind === 'link') {
       cols = prodCard(subj, '📦 في الجرد', '') + (r.cands || []).map((c, i) => storeCard(store && store.get(String(c.store_id)),
         `<button class="mr-yes" data-mr="link" data-i="${i}">✅ نعم هو نفسه — اربطهما</button>`)).join('');
@@ -132,7 +139,7 @@
     box.innerHTML = `<div class="mr-q"><div class="mr-title">${esc(r.title || 'هل هما المنتج نفسه؟')}</div>
         ${r.note ? `<div class="mr-note">🔎 ${esc(r.note)}</div>` : ''}${r.conf ? `<div class="mr-conf">ثقتي: ${Number(r.conf)}٪</div>` : ''}</div>
       <div class="mr-cols">${cols}</div>
-      <div class="mr-acts"><button class="mr-no" data-mr="no">❌ لا، ${r.kind === 'pick' ? 'اتركه كما هو' : 'مختلف'}</button><button class="mr-later" data-mr="later">⏭ لاحقاً</button></div>
+      <div class="mr-acts"><button class="mr-no" data-mr="no">❌ ${r.kind === 'pick' ? 'لا، اتركه كما هو' : (r.kind === 'link' && !r.subject_id) ? 'ولا واحد منها — عرّفه جديداً في الجرد' : 'لا، مختلف'}</button><button class="mr-later" data-mr="later">⏭ لاحقاً</button></div>
       <div class="mr-err"></div>`;
   }
   function setErr(m) { const e = el && el.querySelector('.mr-err'); if (e) e.textContent = m || ''; }
@@ -209,6 +216,54 @@
     await audit({ action: 'store_link', entity_id: String(a.id), entity_name: a.name, field: 'store_url', old_value: a.store_url || null, new_value: link, reason: 'قرار المالك في «مشابهات تنتظر قرارك»', meta: { review_id: r.id } });
     await decide(r, 'done', { action: 'linked', store_id: c.store_id, old: a.store_url || null });
   }
+  /* ── متجر ⇐ جرد ── */
+  const STORE_PAGE = () => (global.GMT_LINKS && GMT_LINKS.store ? GMT_LINKS.store : 'https://general-media-tech.github.io/system__V/store.html').replace(/[#?].*$/, '');
+  async function storeSetInvId(sid, invId) {
+    const S = global.GMT_DB && GMT_DB.STORE; const SH = { apikey: S.key, Authorization: 'Bearer ' + S.key };
+    for (let i = 0; i < 3; i++) {
+      const g = await fetch(S.url + '/rest/v1/gmt_store?id=eq.1&select=id,updated_at,products', { headers: SH }); const rec = ((await g.json()) || [])[0];
+      if (!rec) throw new Error('تعذّرت قراءة المتجر');
+      const prods0 = Array.isArray(rec.products) ? rec.products : []; if (!prods0.some(x => String(x.id) === String(sid))) throw new Error('منتج المتجر لم يعد موجوداً');
+      const next = prods0.map(x => String(x.id) === String(sid) ? Object.assign({}, x, { inv_id: String(invId) }) : x);
+      let url = S.url + '/rest/v1/gmt_store?id=eq.1&select=id'; const body = { products: next };
+      if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+      const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, SH), body: JSON.stringify(body) });
+      if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+      const rows = await w.json().catch(() => null); if (Array.isArray(rows) && rows.length) { store = null; return; }
+    }
+    throw new Error('المتجر يتغيّر من جهةٍ أخرى — أعد المحاولة');
+  }
+  async function doSLink(r, c) {
+    const sc = (r.cands || []).find(x => x && x.store_id) || {};
+    const [p] = await rest('GET', 'products?id=eq.' + c.id + '&select=id,name,store_url') || [];
+    if (!p) throw new Error('منتج الجرد لم يعد موجوداً');
+    const link = STORE_PAGE() + '#product=' + encodeURIComponent(sc.store_id);
+    if (!p.store_url) {
+      const up = await rest('PATCH', 'products?id=eq.' + p.id, { store_url: link }, { Prefer: 'return=representation' });
+      if (!Array.isArray(up) || !up.length) throw new Error('لم يُحفظ الربط');
+    } else if (p.store_url !== link) await storeSetInvId(sc.store_id, p.id);      // مربوطٌ بقائمةٍ أخرى ⇒ هذه قائمةٌ مكرّرة في المتجر: تُربط من جهة المتجر
+    await audit({ action: 'store_link', entity_id: String(p.id), entity_name: p.name, field: p.store_url ? 'store.inv_id' : 'store_url', new_value: sc.store_id, reason: 'قرار المالك في «مشابهات تنتظر قرارك»', meta: { review_id: r.id } });
+    await decide(r, 'done', { action: 'linked', store_id: sc.store_id, inv_id: p.id, via: p.store_url ? 'store.inv_id' : 'store_url' });
+  }
+  function ean13() { let s = '62' + String(Math.floor(Math.random() * 1e10)).padStart(10, '0'), c = 0; for (let i = 0; i < 12; i++) c += (+s[i]) * (i % 2 ? 3 : 1); return s + ((10 - c % 10) % 10); }
+  async function doSNew(r) {
+    const sc = (r.cands || []).find(x => x && x.store_id) || {};
+    store = null; await loadStore(); const sp = store && store.get(String(sc.store_id));
+    if (!sp) throw new Error('منتج المتجر لم يعد موجوداً');
+    const link = STORE_PAGE() + '#product=' + encodeURIComponent(sc.store_id);
+    const ex = await rest('GET', 'products?store_url=eq.' + encodeURIComponent(link) + '&select=id') || [];
+    if (ex.length) { await decide(r, 'done', { action: 'already_defined', inv_id: ex[0].id }); return; }
+    const specs = {}; (Array.isArray(sp.specs) ? sp.specs : []).forEach(x => { if (x && x.label) specs[x.label] = x.value; });
+    if (sp.description) specs.__desc = sp.description; specs.__source = 'المتجر (مشابهات تنتظر قرارك)';
+    const imgs = (Array.isArray(sp.images) ? sp.images : []).filter(Boolean);
+    let bc = ean13(); for (let i = 0; i < 5; i++) { const d = await rest('GET', 'products?barcode=eq.' + bc + '&select=id') || []; if (!d.length) break; bc = ean13(); }
+    const row = { name: String(sp.name || '').replace(/\s+/g, ' ').trim(), price: Number(sp.price) || 0, barcode: bc, image_url: imgs[0] || null, images: imgs, specs, specs_source: 'المتجر — منتجٌ كان في المتجر وحده',
+      group_name: sc.group || null, category: sc.category || null, store_url: link, haleb: 0, daraa: 0, cost_price: 0, invoice_names: [] };
+    const ins = await rest('POST', 'products', [row], { Prefer: 'return=representation' });
+    if (!Array.isArray(ins) || !ins.length) throw new Error('لم يُنشأ المنتج');
+    await audit({ action: 'define_from_store', entity_id: String(ins[0].id), entity_name: row.name, field: 'store_url', new_value: link, reason: 'قرار المالك: ليس أيّاً من منتجات الجرد ⇐ عُرِّف جديداً بكمية صفر', meta: { review_id: r.id } });
+    await decide(r, 'done', { action: 'defined', inv_id: ins[0].id, store_id: sc.store_id });
+  }
   async function doPick(r, c) {
     const [p] = await rest('GET', 'products?id=eq.' + r.subject_id + '&select=*') || [];
     if (!p) throw new Error('المنتج لم يعد موجوداً');
@@ -232,7 +287,9 @@
     if (!isAdm()) { const ok = global.GMTRole && GMTRole.requireAdmin ? await GMTRole.requireAdmin('قرار المشابهات') : false; if (!ok) return; }
     busy = true; el.classList.add('mr-busy'); setErr('');
     try {
-      if (k === 'no') await decide(r, 'rejected', { action: 'different' });
+      if (k === 'no' && r.kind === 'link' && !r.subject_id) await doSNew(r);
+      else if (k === 'no') await decide(r, 'rejected', { action: 'different' });
+      else if (k === 'slink') await doSLink(r, c);
       else if (k === 'merge') await doMerge(r, c);
       else if (k === 'bulk') await doBulk(r);
       else if (k === 'link') await doLink(r, c);
