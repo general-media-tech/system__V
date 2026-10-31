@@ -172,7 +172,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261029z4"></script>
+<script src="gmt-tools.js?v=20261031c"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body class="pb-24">
@@ -2903,10 +2903,18 @@ async function excelImgToStorage(rows){
   }
   return {up,fail};
 }
+/* (TASK-0287 · المالك seq 229) «يحتفظ في الاسم كما كان مكتوب في الفاتوره وثابتاً بحيث لما ادخله مره ثانيه اذا انا غيرت الاسم … يكون معروف»:
+   products.invoice_names = الأسماء كما وردت في فواتير المورّدين، لا يغيّرها تعديل اسم المنتج. بعد الباركود والاسم ⇒ اسم الفاتورة.
+   سطرٌ يطابق أكثر من منتج (كفرٌ واحد بخمسة ألوان) ⇒ يُربط بالأوّل ويُنبَّه عليه، لا يُنشأ منتجٌ مكرّر. */
+function _invNameKey(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').trim();}
+function prodsByInvoiceName(name){
+  const k=_invNameKey(name); if(!k) return [];
+  return prods.filter(p=>Array.isArray(p.invoice_names)&&p.invoice_names.some(x=>x&&_invNameKey(x.n)===k));
+}
 async function importExcel(){
   if(!exRows.length)return;
-  btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[];
-  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase()));
+  btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[],byInvName=0,ambiguous=[];
+  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase())||prodsByInvoiceName(row.name).length);
   const _toUp=exRows.filter(r=>r.name&&String(r.image_url||'').startsWith('data:')&&_isNew(r));
   let _imgRes={up:0,fail:0};
   if(_toUp.length){btnLoad('جارٍ رفع '+_toUp.length+' صورة…');_imgRes=await excelImgToStorage(_toUp);}
@@ -2914,13 +2922,15 @@ async function importExcel(){
     if(!row.name)continue;const nl=row.name.toLowerCase();
     /* (١١ ت١) المطابقة بالباركود أوّلاً (ملف عرض السعر) — ثم بالاسم كما كان */
     let prod=(row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===nl);
+    if(!prod){const hits=prodsByInvoiceName(row.name);if(hits.length){prod=hits[0];byInvName++;if(hits.length>1)ambiguous.push(row.name+' ⇐ '+hits.length+' منتجات');}}
     if(!prod){prod={id:-(Date.now()+Math.random()),name:row.name,barcode:row.barcode||genBar(),price:row.price||0,wholesale_price:row.wholePrice||0,net_cost:row.netCost||0,image_url:row.image_url||null,_pending:true,_excelRow:row};prods.push(prod);pendingNew.push(prod);}
     const ex=cart.find(c=>c.product.id===prod.id);
     if(ex){ex.qty+=row.qty;}else{cart.unshift({product:prod,qty:row.qty,isNew:true,unitPrice:Number(row.netCost)||Number(prod.net_cost)||0,minPrice:Number(row.minPrice)||Number(prod.net_cost)||0,wholePrice:Number(row.wholePrice)||Number(prod.wholesale_price)||0,salePrice:Number(row.price)||Number(prod.price)||0,notes:row.notes||''});added++;}
   }
   btnReset();renderCart();updateSum();clearExcel();
+  if(ambiguous.length)setTimeout(()=>toast('⚠️ '+ambiguous.length+' بنداً اسمه في الفاتورة يطابق أكثر من منتج (مثل ألوان الكفر الواحد) — رُبط بأوّلها، راجعه في السلّة: '+ambiguous.slice(0,3).join(' · '),'warn'),2600);
   const newCount=pendingNew.length;
-  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':'')+(_imgRes.up?' · 🖼️ رُفعت '+_imgRes.up+' صورة':'')+(_imgRes.fail?' · ⚠️ '+_imgRes.fail+' صورة لم تُرفع (بقيت في الملف المحلّي)':''),_imgRes.fail?'err':'ok');
+  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':'')+(byInvName?' · 🏷️ '+byInvName+' عُرف باسمه في فاتورة سابقة':'')+(_imgRes.up?' · 🖼️ رُفعت '+_imgRes.up+' صورة':'')+(_imgRes.fail?' · ⚠️ '+_imgRes.fail+' صورة لم تُرفع (بقيت في الملف المحلّي)':''),_imgRes.fail?'err':'ok');
 }
 /* ════════════════════════════════════════════════════════════════════════
    📨 استيراد «ملف طلب عرض سعر» بعد أن يملأه المورّد   (١١ ت١ · Notes ١٠ ت١ ١٠:٠١ ص)
@@ -3563,7 +3573,7 @@ async function saveShipment(){
     // ── أولاً: احفظ المنتجات الجديدة (pending) ──
     for(const item of cart){
       if(!item.product._pending)continue;
-      try{const np={name:item.product.name,barcode:item.product.barcode,price:item.product.price||0,wholesale_price:0,net_cost:item.product.net_cost||0,image_url:item.product.image_url||null};getAllBranchKeys().forEach(k=>{if(np[k]===undefined)np[k]=0;});const res=await sb('POST','/rest/v1/products',np);const saved=Array.isArray(res)?res[0]:res;if(saved?.id){const oldId=item.product.id;item.product.id=saved.id;item.product._pending=false;const pi=prods.findIndex(p=>String(p.id) === String(oldId));if(pi>=0)prods[pi]=item.product;}}catch(e){console.warn('خطأ حفظ منتج جديد:',e);}
+      try{const np={name:item.product.name,barcode:item.product.barcode,price:item.product.price||0,wholesale_price:0,net_cost:item.product.net_cost||0,image_url:item.product.image_url||null};if(item.product._excelRow&&item.product._excelRow.name)np.invoice_names=[{n:String(item.product._excelRow.name),src:'فاتورة شراء (Excel)',usd:Number(item.product._excelRow.netCost)||null,at:new Date().toISOString().slice(0,10)}];/* (TASK-0287) اسم الفاتورة ثابت */getAllBranchKeys().forEach(k=>{if(np[k]===undefined)np[k]=0;});const res=await sb('POST','/rest/v1/products',np);const saved=Array.isArray(res)?res[0]:res;if(saved?.id){const oldId=item.product.id;item.product.id=saved.id;item.product._pending=false;const pi=prods.findIndex(p=>String(p.id) === String(oldId));if(pi>=0)prods[pi]=item.product;}}catch(e){console.warn('خطأ حفظ منتج جديد:',e);}
     }
 
     if(editId){
@@ -5927,7 +5937,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261031b"></script>
+<script src="gmt-whatsnew.js?v=20261031c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

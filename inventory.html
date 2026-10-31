@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261029z4"></script>
+<script src="gmt-tools.js?v=20261031c"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -2697,7 +2697,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="bchip" data-bf="no_link" onclick="bulkSetFilter(this)">بدون رابط متجر</button>
     <button class="bchip" data-bf="has_link" onclick="bulkSetFilter(this)">فيها رابط متجر</button>
     <div style="width:1px;height:20px;background:#E4E6EE;align-self:center;flex-shrink:0;"></div>
-    <button class="bchip" data-bf="no_price" onclick="bulkSetFilter(this)">بدون سعر</button>
+    <button class="bchip" data-bf="no_price" onclick="bulkSetFilter(this)" title="أداة التسعير: كل منتجٍ بلا سعر وأمامه خانة سعره">💲 بدون سعر — تسعير</button>
     <!-- (المالك seq 210) «أداة جديدة شغلتها تفلتر»: صورة واحدة · بلا مجموعة/تصنيف/مواصفات/ربط · متشابهات المتجر والجرد -->
     <div style="width:1px;height:20px;background:#E4E6EE;align-self:center;flex-shrink:0;"></div>
     <button class="bchip" data-bf="one_img" onclick="bulkSetFilter(this)">🖼️ صورة واحدة فقط</button>
@@ -5495,6 +5495,7 @@ function normalizeProduct(p) {
     specs_source: p.specs_source || '',
     specs_checked_at: p.specs_checked_at || null,
     specs_checked_by: p.specs_checked_by || '',
+    invoice_names: Array.isArray(p.invoice_names) ? p.invoice_names : [],   /* (TASK-0287) الاسم كما في فاتورة المورّد — ثابت */
     created_at: p.created_at || p.addedAt || '',
     in_transit: (p.in_transit && typeof p.in_transit === 'object') ? p.in_transit : {},
   };
@@ -11166,7 +11167,7 @@ function bulkGetFiltered() {
   else if (bulkActiveFilter==='low_stock')   list=list.filter(p=>bulkGetTotal(p) <= (Number(p.min_stock) || 5));
   else if (bulkActiveFilter==='no_link')     list=list.filter(p=>!p.store_link&&!p.store_url);
   else if (bulkActiveFilter==='has_link')    list=list.filter(p=>p.store_link||p.store_url);
-  else if (bulkActiveFilter==='no_price')    list=list.filter(p=>!p.price&&p.price!==0);
+  else if (bulkActiveFilter==='no_price')    list=list.filter(p=>!(Number(p.price)>0));   /* (TASK-0288) كان يستثني السعر 0 — وهو سعر كل منتجٍ جديد بلا تسعير */
   else if (bulkActiveFilter==='one_img')     list=list.filter(p=>bulkImgCount(p).inv<=1 || (bulkImgCount(p).store!=null && bulkImgCount(p).store<=1));
   else if (bulkActiveFilter==='no_group')    list=list.filter(p=>!String(p.group_name||'').trim());
   else if (bulkActiveFilter==='no_cat')      list=list.filter(p=>!String(p.category||'').trim());
@@ -11194,13 +11195,57 @@ function bulkRenderList() {
       `<div style="background:#F5F6FA;border:1.5px solid #E4E6EE;border-radius:12px 12px 0 0;padding:9px 12px;font-size:11px;font-weight:800;color:#4B5563;display:flex;align-items:center;gap:8px;">
         <span style="background:var(--red-mid);color:var(--red);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:800;">${prods.length}</span>${escH(g)}
         <button onclick="bulkSelectGroup('${escH(g)}')" style="margin-right:auto;padding:3px 10px;background:#fff;border:1.5px solid #E4E6EE;border-radius:8px;font-size:10px;font-weight:800;color:#4B5563;cursor:pointer;font-family:'Cairo',sans-serif;">تحديد الكل</button>
-      </div>${prods.map(p=>bulkRowHTML(p)).join('')}<div style="margin-bottom:12px;"></div>`
+      </div>${prods.map(p=>_bulkRowFn()(p)).join('')}<div style="margin-bottom:12px;"></div>`
     ).join('');
   } else {
-    cont.innerHTML = bulkFiltered.map(p=>bulkRowHTML(p)).join('');
+    cont.innerHTML = (bulkActiveFilter === 'no_price' ? _bulkPriceHead() : '') + bulkFiltered.map(p=>_bulkRowFn()(p)).join('');
   }
 }
 
+/* (TASK-0288 · المالك seq 229) «حط لي في نظام اداه تسعير تفرزني كل شيء بلا اسعار تعرض لي اياه لحتى اسعره»:
+   فلتر «💲 بدون سعر» ⇒ كل منتجٍ بلا سعر سطرُ تسعير: الصورة · الاسم · اسمه في الفاتورة · سعر الشراء (للإدارة) · خانة سعر المبيع والجملة · حفظ.
+   يُحفظ في products ويُسجَّل في gmt_audit (GMTAudit)، ويخرج المنتج من القائمة. تحت الكلفة ⇒ يسأل أوّلاً. */
+function _bulkRowFn() { return bulkActiveFilter === 'no_price' ? bulkPriceRowHTML : bulkRowHTML; }
+function _bulkPriceHead() {
+  return `<div style="background:#FFF0F2;border:1.5px solid var(--red-mid);border-radius:12px 12px 0 0;padding:9px 12px;font-size:12px;font-weight:800;color:#7f1d1d;line-height:1.7">💲 أداة التسعير — ${bulkFiltered.length} منتجاً بلا سعر. اكتب سعر المبيع (والجملة إن أردت) واضغط «حفظ» أو Enter — يخرج المنتج من القائمة.</div>`;
+}
+function bulkPriceRowHTML(p) {
+  const adm = !!(window.GMTRole && GMTRole.isAdmin());
+  const cost = Number(p.net_cost) || Number(p.cost_price) || 0;
+  const inv = (Array.isArray(p.invoice_names) && p.invoice_names[0] && p.invoice_names[0].n) ? String(p.invoice_names[0].n) : '';
+  const id = escH(String(p.id));
+  const inp = 'height:36px;width:128px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 9px;font-family:inherit;font-size:13px;font-weight:700';
+  return `<div data-price-row="${id}" style="background:#fff;border:1.5px solid #E4E6EE;border-top:none;padding:10px 12px;display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:start">
+    <div style="width:44px;height:44px;border-radius:9px;background:#F5F6FA;border:1px solid #E4E6EE;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#94a3b8">${p.image_url ? `<img src="${escH(p.image_url)}" loading="lazy" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">` : '📦'}</div>
+    <div style="min-width:0">
+      <b style="display:block;font-size:13px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name || '')}</b>
+      <div style="font-size:11px;color:#526077;line-height:1.7">${escH(p.group_name || 'بلا مجموعة')}${inv && inv !== p.name ? ` · في الفاتورة: <span dir="ltr">${escH(inv)}</span>` : ''}${adm && cost ? ` · الشراء <b dir="ltr">$${cost}</b>` : ''}</div>
+      ${adm ? `<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center">
+        <input data-pr-sale type="number" min="0" step="0.01" inputmode="decimal" placeholder="سعر المبيع $" aria-label="سعر المبيع" style="${inp}" onkeydown="if(event.key==='Enter')invPriceSave('${id}')">
+        <input data-pr-whole type="number" min="0" step="0.01" inputmode="decimal" placeholder="الجملة $ (اختياري)" aria-label="سعر الجملة" style="${inp}" onkeydown="if(event.key==='Enter')invPriceSave('${id}')">
+        <button type="button" data-pr-save onclick="invPriceSave('${id}')" style="height:36px;padding:0 16px;border:0;border-radius:9px;background:var(--red);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">حفظ</button>
+      </div>` : `<div style="font-size:11px;color:#7c2d12;margin-top:4px">التسعير لحساب الإدارة</div>`}
+    </div></div>`;
+}
+async function invPriceSave(id) {
+  const row = document.querySelector('[data-price-row="' + CSS.escape(String(id)) + '"]'); if (!row) return;
+  const p = allProducts.find(x => String(x.id) === String(id)) || bulkAllProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  const saleEl = row.querySelector('[data-pr-sale]'), sale = Number(saleEl.value), whole = Number(row.querySelector('[data-pr-whole]').value) || 0;
+  if (!(sale > 0)) { showToast('اكتب سعر المبيع أوّلاً', 'warning'); saleEl.focus(); return; }
+  const cost = Number(p.net_cost) || Number(p.cost_price) || 0;
+  if (cost && sale < cost && !(await GMTAsk.confirm('سعر المبيع ($' + sale + ') أقلّ من سعر الشراء ($' + cost + ') — أحفظه؟', { title: 'تحت سعر الشراء', okText: 'احفظ' }))) return;
+  const btn = row.querySelector('[data-pr-save]'); btn.disabled = true; btn.textContent = '…';
+  const body = { price: sale }; if (whole > 0) body.wholesale_price = whole;
+  const res = await sbFetch('PATCH', '/rest/v1/products?id=eq.' + encodeURIComponent(id), body);
+  if (res && res.error) { btn.disabled = false; btn.textContent = 'حفظ'; showToast('❌ لم يُحفظ السعر: ' + (res.error.message || res.error), 'error'); return; }
+  const old = p.price;
+  [allProducts, bulkAllProducts].forEach(a => { const x = a.find(y => String(y.id) === String(id)); if (x) Object.assign(x, body); });
+  try { if (window.GMTAudit) GMTAudit.log({ action: 'price_set', entity: 'products', entityId: id, entityName: p.name, field: 'price', oldValue: old, newValue: sale, reason: 'أداة التسعير — منتجٌ بلا سعر (TASK-0288)', sovereign: false, meta: { wholesale: whole || null } }); } catch (_) {}
+  showToast('✅ سُعِّر «' + p.name + '» بـ $' + sale, 'success');
+  row.style.transition = 'opacity .25s'; row.style.opacity = '0';
+  setTimeout(() => { bulkRenderList(); const nx = document.querySelector('#bulk-content [data-pr-sale]'); if (nx) nx.focus(); }, 260);
+}
+window.invPriceSave = invPriceSave;
 function bulkRowHTML(p) {
   const sel = bulkSelectedIds.has(p.id);
   const total = bulkGetTotal(p);
@@ -16293,7 +16338,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261031b"></script>
+<script src="gmt-whatsnew.js?v=20261031c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
