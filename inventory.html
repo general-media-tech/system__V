@@ -2276,7 +2276,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261029z4"></script>
+  <script src="gmt-core.js?v=20261031b"></script>
   <script src="gmt-suggest.js?v=20261029z4"></script>
   <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-compat-kb.js?v=20261029z4"></script>
@@ -5139,6 +5139,7 @@ function gmtManageProduct(id) {
       ${tile('edit', 'تعديل المنتج', 'كل شيء في مكانٍ واحد: الاسم · المجموعة والتصنيف · الماركة (تلقائياً) · الأسماء البديلة · الصورة · الأسعار · جدول المواصفات · المتجر', 1)}
       ${tile('store', 'المتجر الإلكتروني', 'وصف المنتج وصوره وسعره ورابطه في المتجر — تُفتح صفحة المنتج في إدارة المتجر', 1)}
       ${storeOpen ? tile('view', 'عرض المنتج في المتجر', 'كما يراه الزبون الآن') : ''}
+      ${storeOpen ? tile('share', 'مشاركة رابطه على المتجر', 'رابط المنتج للزبون مباشرةً (واتساب وغيره) — بلا فتح المتجر ونسخ الرابط') : ''}
       ${tile('ali', 'المواصفات التلقائية', 'تُفتح صفحة تعديل المنتج ويبحث العقل بصورته واسمه (علي بابا وغيره) ويعبّئها — تراجعها ثمّ تحفظ', 1)}
       ${tile('mov', 'حركة المنتج', 'بيع · إرجاع · نقل · شراء')}
       ${tile('tr', 'فاتورة نقل لهذا المنتج', 'بين الفروع — بكمية تحدّدها', 1)}
@@ -5153,6 +5154,7 @@ function gmtManageProduct(id) {
       if (k === 'edit') { try { closeModal('detail-modal'); } catch (_) {} invOpenFullEdit(p.id); }
       else if (k === 'store') window.open('admin_store.html?edit=inv:' + encodeURIComponent(p.id) + '&bc=' + encodeURIComponent(p.barcode || '') + '&n=' + encodeURIComponent(p.name || ''), '_blank', 'noopener');
       else if (k === 'view') window.open(invStoreLink(p.store_url), '_blank', 'noopener');
+      else if (k === 'share') invShareStore(p.id);   // (TASK-0286) ضمن الضغطة نفسها
       else if (k === 'ali') { try { closeModal('detail-modal'); } catch (_) {} invOpenFullEdit(p.id, { autoSpecs: true }); }   // (TASK-0233) في صفحة التعديل نفسها
       else if (k === 'mov') openProductMovement(String(p.id), p.barcode || '', p.name || '');
       else if (k === 'tr') { try { closeModal('detail-modal'); } catch (_) {} stFromSelection([p.id]); }
@@ -7212,6 +7214,10 @@ function openDetailModal(id) {
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         عرض المنتج في المتجر
       </a>
+      <button type="button" data-store-share onclick="invShareStore('${escHtml(String(p.id))}')" style="margin-top:8px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#0f1219;border:0;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Cairo',sans-serif;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+        مشاركة رابطه على المتجر
+      </button>
     </div>`;
   } else {
     html += `<div style="margin-bottom:16px;">
@@ -10250,6 +10256,8 @@ window.openBridgeTool = openBridgeTool;
 /* (TASK-0212 · المالك seq 140 «زر العرض في المتجر عاطل» — 404) رابط المتجر المحفوظ قد يكون نسبيّاً قديماً («index__12_.html#product=…»
    أو «#product=…» وحده) ⇒ صفحة المتجر في هذا الموقع على المنتج نفسه (GMTUtil.storeLink). المطلق يبقى كما هو. */
 function invStoreLink(u) { return (window.GMTUtil && GMTUtil.storeLink) ? GMTUtil.storeLink(u) : String(u || ''); }
+/* (TASK-0286 · المالك seq 227) «مشاركة رابطه على المتجر» من الجرد مباشرةً — رابط الزبون نفسه (بلا ?direct=1) */
+function invShareStore(id) { const p = allProducts.find(x => String(x.id) === String(id)); if (p && window.GMTUtil && GMTUtil.shareStore) GMTUtil.shareStore(p.store_url, p.name); }
 window.invStoreLink = invStoreLink;
 
 // اسم/مسار صفحة المتجر التي تُفتح عند الضغط على "عرض في المتجر" — قابل للتهيئة من المستخدم
@@ -16285,7 +16293,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261031a"></script>
+<script src="gmt-whatsnew.js?v=20261031b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -91,7 +91,7 @@
   /* (TASK-0212 · المالك seq 140 «زر العرض في المتجر عاطل» + لقطة 404) روابط المتجر المحفوظة في الجرد خمسة أشكال: «index__12_.html#product=…»
      (٢٢ — ملفٌّ قديم غير موجود ⇒ 404) · «#product=…» بلا صفحة (٨ — يفتح الصفحة الحاليّة) · «store.html#…» · مطلقٌ صحيح · موقعٌ خارجيّ قديم يعمل.
      الرابط المطلق (http/https) يبقى كما هو؛ وكلّ رابطٍ نسبيّ ⇒ صفحة المتجر في هذا الموقع على المنتج نفسه. */
-  function storeLink(u) {
+  function storeLink(u, customer) {
     u = String(u || '').trim(); if (!u) return '';
     var out;
     if (/^https?:\/\//i.test(u)) out = u;
@@ -103,9 +103,34 @@
        storeLink لأزرار التطبيق وحدها ⇒ رابط منتجٍ في متجرنا (نفس الموقع) يحمل ?direct=1: بلا انترو، والمنتج يُفتح فوراً. رابط الزبون المُشارَك لا يتغيّر. */
     try {
       var x = new URL(out, g.location.href);
-      if (x.origin === g.location.origin && /\/store\.html$/i.test(x.pathname) && /^#product=/.test(x.hash)) { x.searchParams.set('direct', '1'); out = x.href; }
+      if (customer) { if (x.searchParams.has('direct')) { x.searchParams.delete('direct'); out = x.href; } }   // رابط الزبون: بانترو المتجر كالمعتاد
+      else if (x.origin === g.location.origin && /\/store\.html$/i.test(x.pathname) && /^#product=/.test(x.hash)) { x.searchParams.set('direct', '1'); out = x.href; }
     } catch (_) {}
     return out;
+  }
+  /* (TASK-0286 · المالك seq 227 «من داخل نقطه البيع او الجرد يصير في عندي مشاركه رابطه على المتجر بدلا من العرض في المتجر ثم ندخل عليه
+     ثم ننسخ الرابط») رابط الزبون (بلا ?direct=1) ⇒ قائمة المشاركة في الهاتف فوراً (ضمن ضغطة الزرّ نفسها — سفاري يرفضها بعد انتظار)،
+     وإن لم تتوفّر أو فشلت ⇒ يُنسخ الرابط للحافظة ويُقال ذلك. */
+  function shareStore(u, name) {
+    var url = storeLink(u, true);
+    var say = function (m, t) { try { if (g.showToast) g.showToast(m, t); } catch (_) {} };
+    if (!url) { say('لا يوجد رابط متجر لهذا المنتج حالياً', 'inf'); return Promise.resolve(false); }
+    var copy = function () {
+      var done = function () { say('🔗 نُسخ رابط المنتج في المتجر — الصقه للزبون', 'ok'); return true; };
+      try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(url).then(done, function () { return fallback(); }); } catch (_) {}
+      return Promise.resolve(fallback());
+      function fallback() {
+        try { var t = document.createElement('textarea'); t.value = url; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:-1000px;opacity:0'; document.body.appendChild(t); t.select(); var r = document.execCommand('copy'); t.remove(); if (r) return done(); } catch (_) {}
+        say('الرابط: ' + url, 'inf'); return false;
+      }
+    };
+    if (navigator.share) {
+      var title = String(name || '').trim();
+      return navigator.share({ title: title || 'General Media Tech', text: title, url: url }).then(function () { return true; }, function (e) {
+        return /abort|cancel/i.test(String((e && (e.name + ' ' + e.message)) || e)) ? false : copy();
+      });
+    }
+    return copy();
   }
   /* (TASK-0258 · المالك seq 179 «تعذّر تنزيل الصورة … لا اعرف السبب»): المنسوخ من صور غوغل غالباً رابط صفحة النتيجة
      (google.com/imgres?…&imgurl=…) لا الصورة ⇒ نستخرج رابط الصورة الحقيقيّ منه (وكذلك google/url · Bing mediaurl · DuckDuckGo · Yandex). */
@@ -124,7 +149,7 @@
     }
     return u;
   }
-  g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink, imgUrl: imgUrl };
+  g.GMTUtil = { esc: esc, tg: tg, storeLink: storeLink, shareStore: shareStore, imgUrl: imgUrl };
 })(typeof window !== 'undefined' ? window : this);
 
 /* ── gmt-brand.js ── */

@@ -1215,7 +1215,7 @@ window.GMT_FEATURES = [
 <body>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261029z4"></script>
+  <script src="gmt-core.js?v=20261031b"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261019f" defer></script>
@@ -8592,6 +8592,12 @@ function posOpenGallery(id) {
   GMTGallery.openFor(Object.assign({}, p, { image_url: imgSrc(p) || p.image_url }), p.name);
 }
 window.posOpenGallery = posOpenGallery;
+/* (TASK-0286 · المالك seq 227) «مشاركة رابطه على المتجر» من نقطة البيع مباشرةً — رابط الزبون نفسه، بلا فتح المتجر ونسخه */
+function posShareStore(id) {
+  const p = allProducts.find(x => String(x.id) === String(id));
+  if (!p) return;
+  if (window.GMTUtil && GMTUtil.shareStore) GMTUtil.shareStore(p.store_url, p.name);
+}
 function openProductDetail(id) {
   const p = allProducts.find(x => x.id === id || String(x.id) === String(id));
   if (!p) return;
@@ -8652,12 +8658,19 @@ function openProductDetail(id) {
       </div>
 
       ${storeUrl
-        ? `<a href="${escH(storeUrl)}" target="_blank"
-          style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#f1f5f9;border-radius:10px;text-decoration:none;color:#0f172a;font-size:13px;font-weight:800;margin-bottom:10px;box-shadow:0 3px 10px rgba(31,52,143,0.3);">
+        ? `<div style="display:flex;gap:8px;margin-bottom:10px">
+        <a href="${escH(storeUrl)}" target="_blank"
+          style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#f1f5f9;border-radius:10px;text-decoration:none;color:#0f172a;font-size:13px;font-weight:800;box-shadow:0 3px 10px rgba(31,52,143,0.3);">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           عرض في المتجر
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>`
+        </a>
+        <button type="button" data-store-share onclick="posShareStore('${escH(String(p.id))}')" title="مشاركة رابط المنتج في المتجر مع الزبون"
+          style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#0f172a;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+          مشاركة رابطه
+        </button>
+        </div>`
         : `<button onclick="showToast('لا يوجد رابط متجر لهذا المنتج حالياً','inf')"
           style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;background:#e5e7eb;border-radius:10px;border:none;color:#5b6472;font-size:13px;font-weight:800;margin-bottom:10px;width:100%;cursor:pointer;font-family:'Cairo',sans-serif;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -10627,7 +10640,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261031a"></script>
+<script src="gmt-whatsnew.js?v=20261031b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
