@@ -30,6 +30,19 @@ window.GMT_PUBLIC = 1;</script>
         }
         .modal-overlay.active { transform: translateX(0); pointer-events: auto; }
         .modal-sheet { width: 100%; max-width: 480px; height: 100%; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+        /* (المالك seq 282) «شاشة المتجر من الكمبيوتر … عم تعطي نفس واجهة الهاتف» ⇒ على الشاشة العريضة صفحة المنتج عمودان:
+           الصور كبيرة في جهة، والاسم والوصف والمواصفات والخيارات والسعر وزرّ السلّة في الجهة الأخرى (الهاتف كما هو) */
+        @media (min-width: 1024px) {
+            #product-modal { background: rgba(15,18,25,.45); align-items: center; }
+            #product-modal .modal-sheet { max-width: 1180px; width: 92vw; height: 88vh; border-radius: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+            #pm-body { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); overflow: hidden !important; }
+            #pm-media { height: 100% !important; border-left: 1px solid #f0f0f0; }
+            #pm-media #product-modal-slides img { object-fit: contain !important; }
+            #pm-info { overflow-y: auto; padding: 26px 30px 18px !important; }
+            #pm-foot { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); padding: 14px 30px 18px !important; }
+            #pm-foot > * { grid-column: 2; }
+            #product-modal-name { font-size: 22px; -webkit-line-clamp: 2; }
+        }
 
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1707,14 +1720,14 @@ function createModals(){
                 <button onclick="closeModal('product-modal')" class="w-8 h-8 rounded-full bg-light flex items-center justify-center text-gray-500 flex-shrink-0"><i class="ph ph-x text-base"></i></button>
             </div>
         </div>
-        <div class="flex-1 overflow-y-auto hide-scrollbar">
-            <div class="relative bg-light overflow-hidden" style="height:260px;">
+        <div id="pm-body" class="flex-1 overflow-y-auto hide-scrollbar">
+            <div id="pm-media" class="relative bg-light overflow-hidden" style="height:260px;">
                 <div id="product-modal-slides" class="flex h-full transition-transform duration-300" style="will-change:transform;"></div>
                 <button id="product-modal-prev" onclick="productModalSlide(-1)" class="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600 hover:text-primary hidden z-10"><i class="ph ph-caret-right text-lg"></i></button>
                 <button id="product-modal-next" onclick="productModalSlide(1)" class="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600 hover:text-primary hidden z-10"><i class="ph ph-caret-left text-lg"></i></button>
                 <div id="product-modal-dots" class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10"></div>
             </div>
-            <div class="px-5 pt-4 pb-2">
+            <div id="pm-info" class="px-5 pt-4 pb-2">
                 <div id="product-modal-description" class="text-sm text-gray-600 leading-relaxed mb-4 hidden whitespace-pre-line"></div>
                 <!-- (TASK-0162) جدول المواصفات — من الجرد عبر الجسر -->
                 <div id="product-modal-specs" class="mb-4 hidden"><div class="font-bold text-sm mb-2">المواصفات</div><div data-specs-body></div></div>
@@ -1747,7 +1760,7 @@ function createModals(){
                 </div>
             </div>
         </div>
-        <div class="flex-shrink-0 px-5 pb-8 pt-3 border-t border-gray-100 bg-white">
+        <div id="pm-foot" class="flex-shrink-0 px-5 pb-8 pt-3 border-t border-gray-100 bg-white">
             <button id="product-modal-add-btn" onclick="productModalAddToCart()"
                 class="w-full bg-primary text-white rounded-[10px] py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-red-800 transition-colors active:scale-[0.98]">
                 <i class="ph ph-shopping-cart text-lg"></i><span>إضافة للسلة</span>
@@ -1998,7 +2011,7 @@ function openProductModal(productId, opt){
     /* (25 ت1 · TASK-0162 · المالك seq 54) جدول المواصفات في المتجر — يحمله الجسر من الجرد في prod.specs ([{label,value}]) */
     const specsEl=document.getElementById('product-modal-specs');
     if(specsEl){
-      const sh=(window.GMTSpecs&&Array.isArray(prod.specs)&&prod.specs.length)?GMTSpecs.tableHTML(prod.specs,{compat:prod.compat||'',marks:false}):'';   /* (TASK-0234) بلا «≈» للزبون */
+      const sh=(window.GMTSpecs&&((Array.isArray(prod.specs)&&prod.specs.length)||prod.compat))?GMTSpecs.tableHTML(Array.isArray(prod.specs)?prod.specs:[],{compat:prod.compat||'',marks:false}):'';   /* (seq 281) التوافق وحده يكفي ليظهر — «في البداية كل التوافق» */   /* (TASK-0234) بلا «≈» للزبون */
       specsEl.querySelector('[data-specs-body]').innerHTML=sh; specsEl.classList.toggle('hidden',!sh);
     }
 
@@ -2089,7 +2102,15 @@ let _pmWantVariant=null;
 function _pmVarMatch(v,want){ const n=typeof v==='string'?v:(v&&v.name)||''; return String(n).trim()===String(want).trim(); }
 function _pmVariantInfo(prod, v){
     const specsEl=document.getElementById('product-modal-specs'); if(!specsEl||!window.GMTSpecs)return;
-    const o=(v&&typeof v==='object')?v:{};
+    /* (المالك seq 281) «عند التحديد بتتغيّر التوافقيات» — ومع خيارين (الكاميرا ثمّ اللون) يبقى توافق الخيار المحدَّد الذي له توافق:
+       إن لم يكن للخيار الحالي توافق/مواصفات ⇒ يُؤخذ من أيّ خيارٍ محدَّد في المجموعات الأخرى؛ وإلا توافق المنتج كلّه (مجموع الخيارات) */
+    let o=(v&&typeof v==='object')?v:{};
+    if(!(o.specs&&o.specs.length)&&!o.compat){
+        const vc=document.getElementById('product-modal-variants');
+        const sel=(prod.options||[]).map((opt,oi)=>{ const b=vc&&vc.querySelector('[data-opt-idx="'+oi+'"] button.border-primary'); if(!b)return null; const t=b.textContent.trim();
+            return (opt.values||[]).find(x=>x&&typeof x==='object'&&x.name&&(t===x.name||t.startsWith(x.name))); }).find(x=>x&&((x.specs&&x.specs.length)||x.compat));
+        if(sel) o=sel;
+    }
     const specs=Array.isArray(o.specs)&&o.specs.length?o.specs:prod.specs, compat=o.compat||prod.compat||'';
     const sh=(Array.isArray(specs)&&specs.length)||compat?GMTSpecs.tableHTML(Array.isArray(specs)?specs:[],{compat:compat,marks:false}):'';
     const tag=(o.specs||o.compat)?`<div style="font-size:12px;font-weight:800;color:#047857;margin-bottom:6px">🎯 مواصفات الخيار: ${escHtml(o.name||'')}</div>`:'';
@@ -2116,10 +2137,12 @@ function _renderVariants(prod){
         if(opt.affectsPrice){
             (opt.values||[]).forEach((v,vi)=>{
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors';
-                b.textContent=`${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}`; if(v.barcode)b.dataset.variantBarcode=v.barcode;
+                b.textContent= parseFloat(v.price||0)>0 ? `${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}` : v.name;   /* (seq 262) بلا «$0.00» */ if(v.barcode)b.dataset.variantBarcode=v.barcode;
                 b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent= up>0 ? `${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}` : 'السعر عند الطلب'; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); _pmVariantInfo(prod, v); };
-                if(_pmWantVariant ? _pmVarMatch(v,_pmWantVariant) : vi===0)setTimeout(()=>b.click(),0);
-                else if(vi===0&&_pmWantVariant&&!(opt.values||[]).some(x=>_pmVarMatch(x,_pmWantVariant)))setTimeout(()=>b.click(),0);
+                /* (المالك seq 281) «أوّل ما تُفتح صفحة المنتج بيكون عارض كل شيء متوافق … عند التحديد بتتغيّر» ⇒ الخيار المطلوب (required) لا يُختار تلقائياً
+                   (يبقى التوافق كلّه ظاهراً حتى يختار الزبون، ولا يدخل السلّة قبل الاختيار)؛ إلا إن طُلب خيارٌ بعينه في الرابط/البحث */
+                if(_pmWantVariant ? _pmVarMatch(v,_pmWantVariant) : (vi===0&&!opt.required))setTimeout(()=>b.click(),0);
+                else if(vi===0&&!opt.required&&_pmWantVariant&&!(opt.values||[]).some(x=>_pmVarMatch(x,_pmWantVariant)))setTimeout(()=>b.click(),0);
                 bd.appendChild(b);
             });
         } else {
