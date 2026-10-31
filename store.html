@@ -2388,9 +2388,12 @@ function showToast(msg,type='success'){
 // ══════════════════════════════════════════════
 // INTRO
 // ══════════════════════════════════════════════
-const _INTRO_MIN_MS=3200;
+/* (TASK-0284 · المالك seq 224 «انترو المتجر عم يطول كتير كتير») كان: ٣٫٢ث حدّاً أدنى ثمّ انتظار **كل** صور الصفحة حتى ٥ث أخرى
+   (≈٨ث فوق جلب الكتالوج). الآن: ١٫٢ث تكفي لظهور الشعار والترحيب · ننتظر صور الشاشة الظاهرة فقط ≤ ٠٫٨ث · وسقفٌ ٤ث للانترو مهما بطؤ الاتصال. */
+const _INTRO_MIN_MS=1200, _INTRO_IMG_WAIT_MS=800, _INTRO_MAX_MS=4000;
 let _introStart=0, _contentReady=false;
 
+function _closeIntro(){ const scr=document.getElementById('intro-screen'); if(scr){scr.classList.add('hide');setTimeout(()=>{if(scr.parentNode)scr.remove();},850);} }
 function _tryCloseIntro(){
     if(!_contentReady)return;
     const elapsed=Date.now()-_introStart;
@@ -2398,13 +2401,13 @@ function _tryCloseIntro(){
     setTimeout(_doCloseIntro,wait);
 }
 function _doCloseIntro(){
-    const imgs=Array.from(document.querySelectorAll('img:not(#intro-screen img)'));
+    const vh=window.innerHeight||800;
+    const imgs=Array.from(document.querySelectorAll('img:not(#intro-screen img)')).filter(img=>{ const r=img.getBoundingClientRect(); return r.width>0 && r.top<vh; });
     const pending=imgs.filter(img=>!img.complete||img.naturalWidth===0);
-    function _closeAll(){ const scr=document.getElementById('intro-screen'); if(scr){scr.classList.add('hide');setTimeout(()=>{if(scr.parentNode)scr.remove();},850);} }
-    if(!pending.length){_closeAll();return;}
+    if(!pending.length){_closeIntro();return;}
     let resolved=0;
-    const timeout=setTimeout(_closeAll,5000);
-    pending.forEach(img=>{const finish=()=>{resolved++;if(resolved>=pending.length){clearTimeout(timeout);_closeAll();}};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});});
+    const timeout=setTimeout(_closeIntro,_INTRO_IMG_WAIT_MS);
+    pending.forEach(img=>{const finish=()=>{resolved++;if(resolved>=pending.length){clearTimeout(timeout);_closeIntro();}};img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});});
 }
 
 
@@ -2456,6 +2459,7 @@ function sendLocalNotification(title, body){
 // ══════════════════════════════════════════════
 async function initStore(){
     _introStart=Date.now();
+    setTimeout(_closeIntro,_INTRO_MAX_MS);
     createModals(); updateCartBadge(); setupEventHandlers(); initNotifications();
 
     const cached=_cache.get('store');
