@@ -136,6 +136,7 @@
       <div class="mr-err"></div>`;
   }
   function setErr(m) { const e = el && el.querySelector('.mr-err'); if (e) e.textContent = m || ''; }
+  function setProg(m) { const e = el && el.querySelector('.mr-prog'); if (e) { e.textContent = m || ''; e.style.display = m ? '' : 'none'; } }
 
   /* ── الأفعال ── */
   async function audit(o) {
@@ -145,32 +146,38 @@
     await rest('PATCH', T + '?id=eq.' + r.id, { status, decided_by: who(), decided_at: new Date().toISOString(), result: result || null }, { Prefer: 'return=minimal' });
   }
   async function refsOf(id) {
-    const n = [];
-    for (const t of ['invoice_items', 'product_offers', 'import_invoice_items', 'import_inventory']) {
-      try { const j = await rest('GET', t + '?product_id=eq.' + id + '&select=product_id&limit=1'); if (Array.isArray(j) && j.length) n.push(t); } catch (_) {}
-    }
-    return n;
+    const T4 = ['invoice_items', 'product_offers', 'import_invoice_items', 'import_inventory'];
+    const r = await Promise.all(T4.map(t => rest('GET', t + '?product_id=eq.' + id + '&select=product_id&limit=1').then(j => Array.isArray(j) && j.length ? t : null).catch(() => null)));
+    return r.filter(Boolean);
   }
   async function doMerge(r, c) {
     const b = await mergeOne(r.subject_id, c.id, r.id, c);
     await decide(r, 'done', { action: 'merged', into: c.id, snapshot: b });
   }
+  /* (المالك seq 244: «جمدت الشاشة») ⇐ عدّادٌ حيّ «دُمج N من M» + المجموعات (أهدافٌ مختلفة) بالتوازي ٤ معاً — داخل المجموعة الواحدة بالتتابع (الهدف نفسه) */
   async function doBulk(r) {
-    const done = [], fail = [];
-    for (const c of (r.cands || [])) {
-      for (const id of (c.ids || [])) {
-        const [x] = await rest('GET', 'products?id=eq.' + id + '&select=id') || [];
-        if (!x) continue;                                        // دُمج سابقاً
-        try { const b = await mergeOne(id, c.into, r.id, c); done.push({ id, name: b.name, into: c.into }); prods.delete(String(id)); }
-        catch (er) { fail.push({ id, err: (er && er.message) || String(er) }); }
+    const byInto = new Map();                                     // مجموعتان على الهدف نفسه ⇒ بالتتابع لا بالتوازي
+    (r.cands || []).filter(c => c && c.into && Array.isArray(c.ids)).forEach(c => { const g = byInto.get(String(c.into)); if (g) g.ids = g.ids.concat(c.ids); else byInto.set(String(c.into), Object.assign({}, c, { ids: c.ids.slice() })); });
+    const done = [], fail = [], groups = [...byInto.values()];
+    const total = groups.reduce((s, c) => s + c.ids.length, 0); let n = 0;
+    const tick = () => setProg('⏳ يدمج… ' + n + ' / ' + total + ' — لا تغلق الصفحة');
+    tick();
+    const runGroup = async (c) => {
+      for (const id of c.ids) {
+        try {
+          const [x] = await rest('GET', 'products?id=eq.' + id + '&select=id') || [];
+          if (x) { const b = await mergeOne(id, c.into, r.id, c); done.push({ id, name: b.name, into: c.into }); prods.delete(String(id)); }
+        } catch (er) { fail.push({ id, err: (er && er.message) || String(er) }); }
+        n++; tick();
       }
-    }
+    };
+    const q = groups.slice(); await Promise.all([0, 1, 2, 3].map(async () => { while (q.length) await runGroup(q.shift()); }));
+    setProg('');
     if (fail.length) { await rest('PATCH', T + '?id=eq.' + r.id, { result: { done, fail } }, { Prefer: 'return=minimal' }).catch(() => {}); throw new Error('تعذّر ' + fail.length + ': ' + fail[0].err); }
     await decide(r, 'done', { action: 'bulk_merged', done });
   }
   async function mergeOne(bId, aId, reviewId, c) {
-    const [b] = await rest('GET', 'products?id=eq.' + bId + '&select=*') || [];
-    const [a] = await rest('GET', 'products?id=eq.' + aId + '&select=*') || [];
+    const [[b], [a]] = await Promise.all([rest('GET', 'products?id=eq.' + bId + '&select=*').then(x => x || []), rest('GET', 'products?id=eq.' + aId + '&select=*').then(x => x || [])]);
     if (!a || !b) throw new Error('أحد المنتجين لم يعد موجوداً');
     if (qtyOf(b) > 0 || (b.in_transit && Object.keys(b.in_transit).length)) throw new Error('«' + b.name + '» له كمية في المخزون — لا يُدمج آلياً. انقل كميته أوّلاً أو ادمجه من الجرد.');
     const refs = await refsOf(b.id);
@@ -264,13 +271,14 @@
   .mr-err{color:#b42318;text-align:center;font-weight:800;margin-top:8px;font-size:13px}
   .mr-done{text-align:center;padding:40px 10px;font-size:16px;font-weight:800;color:#12a150}
   .mr-busy .mr-body{opacity:.55;pointer-events:none}
+  .mr-prog{background:#fff7e0;color:#7a4b00;font-weight:900;text-align:center;padding:10px;font-size:15px;border-bottom:1px solid #f1d58a}
   .mr-bk{border-top:1px solid #eef0f4;padding:6px 0}.mr-bk-h{font-weight:900;font-size:13.5px;color:#0f1219}.mr-bk ul{margin:4px 0 0;padding-inline-start:18px;font-size:12.5px;color:#3b4250}.mr-warn{color:#b42318}`;
   function close() { if (el) { el.remove(); el = null; } }
   async function open(opts) {
     if (el) return;
     if (!document.getElementById('mr-css')) { const s = document.createElement('style'); s.id = 'mr-css'; s.textContent = CSS; document.head.appendChild(s); }
     el = document.createElement('div'); el.className = 'mr-ov';
-    el.innerHTML = `<div class="mr-win" role="dialog" aria-label="مشابهات تنتظر قرارك"><div class="mr-top"><h3>🔎 مشابهات تنتظر قرارك</h3><span class="mr-count"></span><button class="mr-x" type="button">✕ إغلاق</button></div><div class="mr-body"><div class="mr-done" style="color:#5b6472">أحمّل…</div></div></div>`;
+    el.innerHTML = `<div class="mr-win" role="dialog" aria-label="مشابهات تنتظر قرارك"><div class="mr-top"><h3>🔎 مشابهات تنتظر قرارك</h3><span class="mr-count"></span><button class="mr-x" type="button">✕ إغلاق</button></div><div class="mr-prog" style="display:none"></div><div class="mr-body"><div class="mr-done" style="color:#5b6472">أحمّل…</div></div></div>`;
     document.body.appendChild(el);
     el.querySelector('.mr-x').onclick = close;
     el.addEventListener('click', onClick);

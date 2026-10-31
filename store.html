@@ -2060,8 +2060,8 @@ function _renderVariants(prod){
     const vc=document.getElementById('product-modal-variants'); if(!vc)return; vc.innerHTML='';
     if(!prod.options?.length)return;
     prod.options.forEach((opt,oi)=>{
-        const gd=document.createElement('div'); gd.className='mt-3';
-        const lb=document.createElement('p'); lb.className='text-xs text-gray-500 mb-2'; lb.textContent=opt.type||`خيار ${oi+1}`; gd.appendChild(lb);
+        const gd=document.createElement('div'); gd.className='mt-3'; gd.dataset.optIdx=oi;
+        const lb=document.createElement('p'); lb.className='text-xs text-gray-500 mb-2'; lb.textContent=(opt.type||`خيار ${oi+1}`)+(opt.required?' *':'')+(opt.default&&!opt.required?` (افتراضياً: ${opt.default})`:''); gd.appendChild(lb);
         const bd=document.createElement('div'); bd.className='flex flex-wrap gap-2';
         function _applyVariantImage(imgUrl){
             if(!imgUrl)return;
@@ -2086,7 +2086,9 @@ function _renderVariants(prod){
                 const vName=typeof v==='string'?v:(v?.name||v); const vImg=typeof v==='object'?v?.image:null; const vBc=typeof v==='object'?(v?.barcode||''):'';
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors'; b.textContent=vName; b.dataset.variantValue=vName; if(vBc)b.dataset.variantBarcode=vBc;
                 b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); if(vImg)_applyVariantImage(vImg); _pmVariantInfo(prod, v); };
-                if(_pmWantVariant&&_pmVarMatch(v,_pmWantVariant))setTimeout(()=>b.click(),0);
+                /* (TASK-0290 · المالك seq 242) «اذا ما اختار هو لون معين … تلقائياً بيكون احمر» ⇒ opt.default يُختار وحده ما لم يطابق البحث خياراً آخر */
+                const _wantHere=_pmWantVariant&&(opt.values||[]).some(x=>_pmVarMatch(x,_pmWantVariant));
+                if(_wantHere?_pmVarMatch(v,_pmWantVariant):(opt.default&&vName===opt.default))setTimeout(()=>b.click(),0);
                 bd.appendChild(b);
             });
         }
@@ -2177,6 +2179,10 @@ function productModalAddToCart(){
     const stock=(rawStock2&&rawStock2>0)?rawStock2:9999;
     const pe=document.getElementById('product-modal-price');
     const up=pe?.dataset.selectedPrice?parseFloat(pe.dataset.selectedPrice):parseFloat(prod.price||0);
+    /* (TASK-0290 · المالك seq 242) «في المتجر يجب ان يكون هنالك توافق ويختار الشخص كاميرته» ⇒ الخيار المطلوب (opt.required) قبل السلّة */
+    const _vc=document.getElementById('product-modal-variants');
+    const _miss=(prod.options||[]).map((o,oi)=>({o,oi})).find(x=>x.o&&x.o.required&&!(_vc&&_vc.querySelector('[data-opt-idx="'+x.oi+'"] button.border-primary')));
+    if(_miss){ showToast('اختر '+(_miss.o.type||'الخيار')+' أوّلاً','error'); const g=_vc&&_vc.querySelector('[data-opt-idx="'+_miss.oi+'"]'); if(g){ g.scrollIntoView({behavior:'smooth',block:'center'}); g.style.outline='2px solid #e11d48'; g.style.borderRadius='10px'; setTimeout(()=>{g.style.outline='';},2200);} return; }
     const sv=_collectVariants();
     const vk=sv.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).join('|');
     const cid=_pmId+(vk?'__'+vk:'');

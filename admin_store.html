@@ -2011,7 +2011,7 @@ let _vc=0;
 window.addVariantGroup=function(ex=null){
     _vc++; const gid='vg_'+_vc, c=document.getElementById('prod-variants-container'), aff=ex?.affectsPrice||false;
     const g=document.createElement('div'); g.className='bg-light rounded-[10px] p-3 flex flex-col gap-2'; g.id=gid;
-    g.innerHTML=`<div class="flex items-center justify-between gap-2"><input type="text" placeholder="اسم الخيار" value="${ex?.type||''}" data-variant-type class="flex-1 text-xs py-2 px-3 rounded-[8px]"><button type="button" onclick="document.getElementById('${gid}').remove()" class="w-7 h-7 bg-red-50 text-red-400 rounded-[8px] flex items-center justify-center flex-shrink-0 hover:bg-red-100"><i class="ph ph-trash text-xs"></i></button></div><div class="flex items-center gap-2"><label class="text-xs text-gray-500 flex items-center gap-1.5 cursor-pointer"><input type="checkbox" ${aff?'checked':''} data-variant-affects-price onchange="toggleVPM('${gid}',this.checked)" class="w-4 h-4 accent-primary cursor-pointer">يؤثر على السعر</label></div><div data-vvc class="flex flex-col gap-1.5"></div><button type="button" onclick="addVV('${gid}')" class="text-xs text-gray-500 border border-dashed border-gray-300 rounded-[8px] py-1.5 hover:border-primary hover:text-primary transition-colors">+ إضافة قيمة</button>`;
+    g.innerHTML=`<div class="flex items-center justify-between gap-2"><input type="text" placeholder="اسم الخيار" value="${ex?.type||''}" data-variant-type class="flex-1 text-xs py-2 px-3 rounded-[8px]"><button type="button" onclick="document.getElementById('${gid}').remove()" class="w-7 h-7 bg-red-50 text-red-400 rounded-[8px] flex items-center justify-center flex-shrink-0 hover:bg-red-100"><i class="ph ph-trash text-xs"></i></button></div><div class="flex items-center gap-2"><label class="text-xs text-gray-500 flex items-center gap-1.5 cursor-pointer"><input type="checkbox" ${aff?'checked':''} data-variant-affects-price onchange="toggleVPM('${gid}',this.checked)" class="w-4 h-4 accent-primary cursor-pointer">يؤثر على السعر</label><label class="text-xs text-gray-500 flex items-center gap-1.5 cursor-pointer" title="الزبون لا يضيف للسلّة قبل أن يختاره (مثل: الكاميرا)"><input type="checkbox" ${ex?.required?'checked':''} data-variant-required class="w-4 h-4 accent-primary cursor-pointer">مطلوب قبل السلّة</label><input type="text" placeholder="الافتراضي (مثل: أحمر)" value="${ex?.default||''}" data-variant-default title="يُختار وحده إن لم يختر الزبون" class="text-xs py-1 px-2 rounded-[8px]" style="max-width:150px"></div><div data-vvc class="flex flex-col gap-1.5"></div><button type="button" onclick="addVV('${gid}')" class="text-xs text-gray-500 border border-dashed border-gray-300 rounded-[8px] py-1.5 hover:border-primary hover:text-primary transition-colors">+ إضافة قيمة</button>`;
     c.appendChild(g);
     if(ex?.values?.length)ex.values.forEach(v=>addVV(gid,aff,v));else addVV(gid,aff);
 };
@@ -2061,7 +2061,9 @@ function collectVariants(){
     c.querySelectorAll('[id^="vg_"]').forEach(g=>{const t=g.querySelector('[data-variant-type]')?.value?.trim()||'';const aff=g.querySelector('[data-variant-affects-price]')?.checked||false;let vals=[];
     if(aff){g.querySelectorAll('[data-vvn]').forEach((n,i)=>{const pEl=g.querySelectorAll('[data-vvp]')[i];const iEl=g.querySelectorAll('[data-vvi]')[i];const bEl=g.querySelectorAll('[data-vvb]')[i];const name=n.value.trim();const price=parseFloat(pEl?.value||0);const image=iEl?.dataset?.val||'';const barcode=bEl?.value?.trim()||'';if(name){const obj={name,price};if(image)obj.image=image;if(barcode)obj.barcode=barcode;_vxMerge(obj,n);vals.push(obj);}});}
     else{g.querySelectorAll('[data-vvt]').forEach((el,i)=>{const iEl=g.querySelectorAll('[data-vvi]')[i];const bEl=g.querySelectorAll('[data-vvb]')[i];const v=el.value.trim();const image=iEl?.dataset?.val||'';const barcode=bEl?.value?.trim()||'';if(v){const o={name:v};if(image)o.image=image;if(barcode)o.barcode=barcode;_vxMerge(o,el);if(Object.keys(o).length>1)vals.push(o);else vals.push(v);}});}
-    if(t&&vals.length)opts.push({type:t,affectsPrice:aff,values:vals});});
+    /* (TASK-0290 · المالك seq 242) «يختار الشخص كاميرته» (مطلوب) · «اذا ما اختار لون … تلقائياً احمر» (الافتراضي) */
+    const req=g.querySelector('[data-variant-required]')?.checked||false, def=g.querySelector('[data-variant-default]')?.value?.trim()||'';
+    if(t&&vals.length){const o={type:t,affectsPrice:aff,values:vals}; if(req)o.required=true; if(def)o.default=def; opts.push(o);}});
     return opts;
 }
 
@@ -3658,7 +3660,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261031d"></script>
+<script src="gmt-whatsnew.js?v=20261031e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
