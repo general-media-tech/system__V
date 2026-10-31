@@ -2233,7 +2233,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261031d"></script>
+<script src="gmt-tools.js?v=20261101e"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -11207,7 +11207,8 @@ function bulkRenderList() {
    يُحفظ في products ويُسجَّل في gmt_audit (GMTAudit)، ويخرج المنتج من القائمة. تحت الكلفة ⇒ يسأل أوّلاً. */
 function _bulkRowFn() { return bulkActiveFilter === 'no_price' ? bulkPriceRowHTML : bulkRowHTML; }
 function _bulkPriceHead() {
-  return `<div style="background:#FFF0F2;border:1.5px solid var(--red-mid);border-radius:12px 12px 0 0;padding:9px 12px;font-size:12px;font-weight:800;color:#7f1d1d;line-height:1.7">💲 أداة التسعير — ${bulkFiltered.length} منتجاً بلا سعر. اكتب سعر المبيع (والجملة إن أردت) واضغط «حفظ» أو Enter — يخرج المنتج من القائمة.</div>`;
+  return `<div style="background:#FFF0F2;border:1.5px solid var(--red-mid);border-radius:12px 12px 0 0;padding:9px 12px;font-size:12px;font-weight:800;color:#7f1d1d;line-height:1.7">💲 أداة التسعير — ${bulkFiltered.length} منتجاً بلا سعر. اكتب سعر المبيع (والجملة إن أردت) واضغط «حفظ» أو Enter — يخرج المنتج من القائمة.
+    <a href="bridge.html?tab=diff" style="display:inline-block;margin-top:6px;background:#fff;border:1.5px solid var(--red-mid);color:var(--red);border-radius:9px;padding:4px 12px;font-weight:800;text-decoration:none">⚡ اختلاف الأسعار بين الجرد والمتجر ←</a></div>`;
 }
 function bulkPriceRowHTML(p) {
   const adm = !!(window.GMTRole && GMTRole.isAdmin());
@@ -16338,7 +16339,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101d"></script>
+<script src="gmt-whatsnew.js?v=20261101e"></script>
 <script src="gmt-merge-review.js?v=20261101d" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>

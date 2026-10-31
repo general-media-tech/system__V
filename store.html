@@ -931,7 +931,7 @@ function _buildProductCard(prod) {
     const barcodeHtml = prod.barcode
         ? `<span style="font-family:monospace;font-size:9px;color:#5b6472;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="كود: ${prod.barcode}"># ${prod.barcode}</span>`
         : '';
-    info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}<span class="text-primary font-bold text-[15px] mt-1" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`;
+    info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}${parseFloat(prod.price||0)>0?`<span class="text-primary font-bold text-[15px] mt-1" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`:`<span class="font-bold text-[13px] mt-1" style="color:#5b6472">السعر عند الطلب</span>`}`;   /* (المالك seq 262) «ضعها الآن بدون سعر» ⇒ لا «0.00» */
     card.appendChild(info);
 
     card.addEventListener('click', () => openProductModal(prod.id));
@@ -956,6 +956,7 @@ function _isInCart(prodId) {
 }
 
 function _quickAddToCart(prod, btnEl) {
+    if (!(parseFloat(prod.price||0) > 0) && !(prod.options||[]).some(o=>o&&o.affectsPrice)) { openProductModal(prod.id); showToast('سعر هذا المنتج عند الطلب — تواصل معنا وسنعطيك السعر','error'); return; }   /* (المالك seq 262) */
     const rawStock = prod.stock !== undefined ? parseInt(prod.stock) : 0;
     const stock = (rawStock && rawStock > 0) ? rawStock : 9999;
     const cid = prod.id;
@@ -1948,7 +1949,7 @@ function openProductModal(productId, opt){
     document.getElementById('product-modal-name').textContent=prod.name||'';
     const priceEl=document.getElementById('product-modal-price');
     const base=parseFloat(prod.price||0);
-    priceEl.textContent=`${CONFIG.CURRENCY}${base.toFixed(2)}`;
+    priceEl.textContent= base>0 ? `${CONFIG.CURRENCY}${base.toFixed(2)}` : 'السعر عند الطلب';   /* (المالك seq 262) */
     priceEl.dataset.basePrice=base; delete priceEl.dataset.selectedPrice;
 
     const descEl=document.getElementById('product-modal-description');
@@ -2179,6 +2180,8 @@ function productModalAddToCart(){
     const stock=(rawStock2&&rawStock2>0)?rawStock2:9999;
     const pe=document.getElementById('product-modal-price');
     const up=pe?.dataset.selectedPrice?parseFloat(pe.dataset.selectedPrice):parseFloat(prod.price||0);
+    /* (المالك seq 262) منتجٌ بلا سعر بعد ⇒ لا يدخل السلّة بصفر */
+    if(!(up>0)){ showToast('سعر هذا المنتج عند الطلب — تواصل معنا وسنعطيك السعر','error'); return; }
     /* (TASK-0290 · المالك seq 242) «في المتجر يجب ان يكون هنالك توافق ويختار الشخص كاميرته» ⇒ الخيار المطلوب (opt.required) قبل السلّة */
     const _vc=document.getElementById('product-modal-variants');
     const _miss=(prod.options||[]).map((o,oi)=>({o,oi})).find(x=>x.o&&x.o.required&&!(_vc&&_vc.querySelector('[data-opt-idx="'+x.oi+'"] button.border-primary')));

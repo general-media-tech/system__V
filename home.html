@@ -235,7 +235,7 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261031b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261024d"></script>
-<script src="gmt-tools.js?v=20261031d"></script>
+<script src="gmt-tools.js?v=20261101e"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
@@ -299,6 +299,11 @@ a.btn{text-decoration:none}
   function quick() {
     var r = A() ? 'admin' : 'staff', saved = null;
     try { saved = JSON.parse(lsGet(LS_Q + r, 'null')); } catch (_) {}
+    /* (المالك seq 262) «أداة التسعير على الواجهة الرئيسية» ⇒ تُضاف مرّةً واحدة لقائمة الأدمن المحفوظة (ويبقى حذفها بيده) */
+    if (r === 'admin' && Array.isArray(saved) && lsGet('gmt_q_add_pricing', '') !== '1') {
+      if (saved.indexOf('inventory.html?check=no_price') < 0) { saved.push('inventory.html?check=no_price'); lsSet(LS_Q + r, JSON.stringify(saved)); }
+      lsSet('gmt_q_add_pricing', '1');
+    }
     return (Array.isArray(saved) ? saved : T.quickDefault[r].slice()).filter(function (f) { return T.find(f) && canOpen(f); });
   }
   function setQuick(l) { lsSet(LS_Q + (A() ? 'admin' : 'staff'), JSON.stringify(l)); }
@@ -1239,7 +1244,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261029z4"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
-<script src="gmt-whatsnew.js?v=20261101d"></script>
+<script src="gmt-whatsnew.js?v=20261101e"></script>
 <script src="gmt-merge-review.js?v=20261101d" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>

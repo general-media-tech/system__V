@@ -147,7 +147,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261031d"></script>
+<script src="gmt-tools.js?v=20261101e"></script>
 <script src="gmt-account.js?v=20261024d"></script>
 </head>
 <body>
@@ -276,6 +276,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
      TAB 3 — اختلاف الأسعار
 ══════════════════════════════════════ -->
 <div id="tab-diff" class="tab-panel">
+  <!-- (المالك seq 263) أداة التسعير واختلاف الأسعار معاً: من هنا إلى «بلا سعر»، ومن هناك إلى هنا -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px"><a href="inventory.html?check=no_price" style="background:#D5001C;color:#fff;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;text-decoration:none;font-family:'Cairo',sans-serif">💲 المنتجات بلا سعر — سعّرها ←</a></div>
   <div class="stats-bar">
     <div class="stat-card"><div><div class="num" id="s3-diff" style="color:var(--warn)">—</div><div class="lbl">اختلاف في السعر</div></div></div>
     <div class="stat-card"><div><div class="num" id="s3-img" style="color:var(--blue)">—</div><div class="lbl">صورة جرد بدون متجر</div></div></div>
@@ -1627,6 +1629,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   /* (المالك seq 210) «متشابهات المتجر والجرد» في الجرد ⇒ bridge.html?link=<منتج المتجر>&inv=<منتج الجرد>: نافذة الربط مفتوحة والاثنان مختاران */
   try {
     const q = new URLSearchParams(location.search), sid = q.get('link'), iid = q.get('inv');
+    /* (المالك seq 263) «اختلاف الأسعار» مع أداة التسعير في نافذة وصولٍ واحدة ⇒ bridge.html?tab=diff */
+    if (q.get('tab') === 'diff') switchTab('diff');
     if (sid && storeProds.some(x => String(x.id) === sid)) {
       openLinkFromStore(sid);
       const ip = iid && invProds.find(x => String(x.id) === iid);
@@ -1645,7 +1649,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101d"></script>
+<script src="gmt-whatsnew.js?v=20261101e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
