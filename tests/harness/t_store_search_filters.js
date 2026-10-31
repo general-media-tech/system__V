@@ -1,4 +1,4 @@
-// (المالك seq 261) فلاتر البحث في المتجر: القسم · الماركة · المتوفّر فقط · بسعر فقط · الترتيب
+// (المالك seq 261/286) فلاتر البحث في المتجر: القسم · الماركة (بلا المتوفّر ولا السعر)
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -16,10 +16,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(/السعر عند الطلب/.test(await pg.evaluate(() => document.getElementById('search-results-section').innerText)), W + ': بلا سعر ⇒ «السعر عند الطلب» لا 0.00');
     const setF = async (k, v) => { await pg.evaluate(({ k, v }) => { const el = document.querySelector('#sr-filters [data-srf="' + k + '"]'); if (el.type === 'checkbox') el.checked = v; else el.value = v; el.dispatchEvent(new Event('change')); }, { k, v }); await sleep(250); };
     await setF('cat', 'c1'); ok((await cnt()) === 'a,b', W + ': القسم «الإضاءة» ⇒ a,b');
-    await setF('stock', true); ok((await cnt()) === 'a', W + ': + المتوفّر فقط ⇒ a');
-    await setF('cat', ''); await setF('stock', false); await setF('brand', 'Godox'); ok((await cnt()) === 'a,c', W + ': الماركة Godox ⇒ a,c');
-    await setF('sort', 'asc'); ok((await cnt()) === 'c,a', W + ': السعر ↑ ⇒ c ثمّ a');
-    await setF('brand', ''); await setF('sort', ''); await setF('priced', true); ok((await cnt()) === 'a,c', W + ': بسعر فقط ⇒ a,c');
+    await setF('cat', ''); await setF('brand', 'Godox'); ok((await cnt()) === 'a,c', W + ': الماركة Godox ⇒ a,c');
+    /* (المالك seq 286) «ما بدي فلتر متوفّر والسعر» */
+    ok(await pg.evaluate(() => !document.querySelector('#sr-filters [data-srf="stock"],#sr-filters [data-srf="priced"],#sr-filters [data-srf="sort"]') && !/المتوفّر فقط|بسعر فقط|السعر ↑/.test(document.getElementById('sr-filters').innerText)), W + ': لا فلتر «المتوفّر» ولا فلاتر السعر');
     const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
     ok(!real.length, W + ': لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
     await browser.close();

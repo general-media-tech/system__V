@@ -1930,22 +1930,18 @@ window.performSearch=function(query){
     area.querySelectorAll('section[data-category-section]').forEach(s=>s.style.display='none');
     const hits=new Map(); store.products.forEach(p=>{ const h=_srHit(q,p); if(h.hit) hits.set(p.id,h); });
     const all=store.products.filter(p=>hits.has(p.id));
-    /* (المالك seq 261) «نضيف فلاتر للبحث في المتجر» ⇒ فوق النتائج: القسم · الماركة · المتوفّر فقط · المسعّر فقط · الترتيب بالسعر */
-    const F=window._srF||(window._srF={cat:'',brand:'',stock:false,priced:false,sort:''});
+    /* (المالك seq 261) «نضيف فلاتر للبحث في المتجر» ⇒ فوق النتائج: القسم · الماركة
+       (seq 286: «ما بدي فلتر متوفّر والسعر» ⇒ أُزيلت «المتوفّر فقط» و«بسعر فقط» والترتيب بالسعر) */
+    const F=window._srF||(window._srF={cat:'',brand:''});
     const brandOf=p=>{ const r=(Array.isArray(p.specs)?p.specs:[]).find(x=>x&&/الماركة|brand/i.test(x.label||'')); return (r&&String(r.value||'').trim())||String(p.brand||'').trim(); };
     const catIds=p=>p.category_ids||(p.category_id?[p.category_id]:[]);
-    let matched=all.filter(p=>(!F.cat||catIds(p).map(String).includes(String(F.cat)))&&(!F.brand||brandOf(p)===F.brand)&&(!F.stock||parseInt(p.stock||0)>0)&&(!F.priced||parseFloat(p.price||0)>0));
-    if(F.sort==='asc') matched=matched.slice().sort((a,b)=>(parseFloat(a.price)||1e9)-(parseFloat(b.price)||1e9));
-    if(F.sort==='desc') matched=matched.slice().sort((a,b)=>(parseFloat(b.price)||0)-(parseFloat(a.price)||0));
+    const matched=all.filter(p=>(!F.cat||catIds(p).map(String).includes(String(F.cat)))&&(!F.brand||brandOf(p)===F.brand));
     const cats=[...new Set(all.flatMap(catIds).map(String))].map(id=>store.categories.find(c=>String(c.id)===id)).filter(Boolean);
     const brands=[...new Set(all.map(brandOf).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
     const sel='height:34px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 8px;font:700 12px Cairo,sans-serif;background:#fff;max-width:46vw';
-    const chip=(k,t)=>`<label style="display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 10px;border:1.5px solid ${F[k]?'#D5001C':'#e5e7eb'};border-radius:10px;font:800 12px Cairo,sans-serif;color:${F[k]?'#D5001C':'#374151'};cursor:pointer;white-space:nowrap"><input type="checkbox" data-srf="${k}" ${F[k]?'checked':''} style="accent-color:#D5001C">${t}</label>`;
     const filtHtml=`<div id="sr-filters" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 16px 12px">
       <select data-srf="cat" style="${sel}"><option value="">كل الأقسام</option>${cats.map(c=>`<option value="${escHtml(String(c.id))}" ${String(F.cat)===String(c.id)?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select>
       ${brands.length>1?`<select data-srf="brand" style="${sel}"><option value="">كل الماركات</option>${brands.map(b=>`<option ${F.brand===b?'selected':''}>${escHtml(b)}</option>`).join('')}</select>`:''}
-      ${chip('stock','المتوفّر فقط')}${chip('priced','بسعر فقط')}
-      <select data-srf="sort" style="${sel}"><option value="">الترتيب</option><option value="asc" ${F.sort==='asc'?'selected':''}>السعر ↑</option><option value="desc" ${F.sort==='desc'?'selected':''}>السعر ↓</option></select>
     </div>`;
     const say=window.GMTSuggest&&GMTSuggest.compatSay?GMTSuggest.compatSay(q):'';
     const sayHtml=say?`<p style="margin:0 16px 10px;padding:8px 12px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.7;background:${matched.length?'#f0fdf4':'#fff7ed'};color:${matched.length?'#166534':'#9a3412'}">🔎 ${escHtml(say)}${matched.length?'':' — غير متوفّر حالياً، راسلنا ونؤمّنه لك'}</p>`:'';
