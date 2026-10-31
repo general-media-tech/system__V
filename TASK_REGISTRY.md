@@ -645,6 +645,7 @@
 ### TASK-0193 — ارفع على التسليم أيضاً الوثائق التي أعطيتك إياها في المحادثة (المالك seq 131)  ⇐ `COMPLETED`
 - **المالك:** `session_01XEjHNW9dqo1zWS8cEcUN7i` (استلامٌ لقفلٍ متروك: الجلسة السابقة توقّفت بأمر المالك seq 130 بعد حجزه بثانية ولم تلتزم بعده شيئاً) · **الحالة:** `COMPLETED` (27 ت1).
 - **التحقّق:** الحزمة المشفّرة في `handoffs/private/` (التزام TASK-0191) تُفكّ وتطابق SHA-256 المكتوب، وفيها `owner_originals/` (prompt 6.4MB · devreq 3.3MB · audit 32MB · archive 19MB · notes_261016 · wa_doc_out · txt · hand) و`session/chat_imgs/` (١٧٢ صورة ومستنداً). لا حاجة لرفعٍ جديد.
+- **إضافة (31 ت1 · session_01MWfC494J8Ayokvio9Ve6C9):** الملفّات التي رفعها المالك **كما هي** (٥٣ ملفاً من مجلّد الرفع، وبعضها لم يكن في الحزمة الأولى إلا مفكوكاً أو لم يكن فيها أصلاً: `SOUNDS-GUIDE.md` · `gmt-prompt-full-1.txt` · `dev-requirements.html` · الزيبان الأصليّان · فيديو الشاحنة · ٤٤ صورة) ⇐ `handoffs/private/gmt_owner_uploads_2026-10-26.tar.xz.gpg.part00` (SHA-256 `60fc010f1f90f61d95a430563649f876298d468198d9ef32c63a2d69c937331b`) · نفس كلمة الفكّ في `gmt_handoff_files` · فيها `owner_uploads/INDEX.md` بوقت كلّ ملف ورسالته.
 
 ### TASK-0194 — الرقم والفرع يُقرآن أثناء المسح ⇐ جاهزان فور «تمام» (+ تحقّق TASK-0178 على صورة المالك)
 - **المالك:** `session_01XEjHNW9dqo1zWS8cEcUN7i`
