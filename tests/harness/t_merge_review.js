@@ -119,7 +119,9 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(1800);
     d = await H.call('/__dump', undefined, 'GET');
     const sdup = (d.gmt_store[0].products || []).find(x => x.id === 's_dup');
-    ok(!d.products.some(p => p.id === CP.id) && sdup && sdup.inv_id === String(LA.id), 'دمج نسخة المتجر في منتجٍ مربوطٍ بغيره ⇒ قائمة المتجر رُبطت بالباقي قبل الحذف (لا منتج متجر بلا جرد)');
+    const smic = (d.gmt_store[0].products || []).find(x => x.id === 's_mic');
+    /* (المالك seq 276) قبلها كانت قائمة s_dup تُربط بالباقي فيصير له قائمتان — الآن قائمةٌ واحدة: s_dup تنضمّ إلى s_mic */
+    ok(!d.products.some(p => p.id === CP.id) && !sdup && smic && smic.inv_id === String(LA.id), 'دمج نسخة المتجر في منتجٍ له قائمة ⇒ قائمة المتجر المكرّرة انضمّت لقائمته (قائمةٌ واحدة، ولا منتج متجر بلا جرد)');
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }
@@ -148,6 +150,29 @@ const real = (errs) => errs.filter(e => !/status of (400|401|404|406)|Failed to 
     await pg.waitForTimeout(1200);
     d = await H.call('/__dump', undefined, 'GET');
     ok(/فرق إصدار بين المنتجين \(كومبو\)/.test(askTxt) && d.products.some(p => p.id === N2.id), 'بطاقة الدمج: «Dji avata» ⇐ «Dji avata compo» تسأل «فرق إصدار (كومبو)» و«لا» يُبقيهما منفصلين');
+    ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
+    await browser.close();
+  }
+  // (المالك seq 276) «منتجات دمجناها لساتهم يطلعوا في المتجر كمنتج مختلف» ⇒ بعد الدمج قائمةٌ واحدة في المتجر بصور الاثنين
+  await H.seed();
+  {
+    const SP = 'https://general-media-tech.github.io/system__V/store.html#product=';
+    const [KA, KB] = await H.call('/rest/v1/products', [
+      { name: 'هود عدسة ES-68', barcode: 'SS1', haleb: 4, store_url: SP + 's_keep' },
+      { name: 'ES-68 lens hood هود', barcode: 'SS2', haleb: 0, store_url: SP + 's_gone' }]);
+    await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-10-31T10:00:00Z', categories: [{ id: 'c1', name: 'م', order: 1 }], products: [
+      { id: 's_keep', name: 'هود عدسة ES-68', price: 7, images: ['img/a.jpg'], category_id: 'c1', inv_id: String(KA.id) },
+      { id: 's_gone', name: 'ES-68 lens hood هود', price: 6, images: ['img/b.jpg'], category_id: 'c1', inv_id: String(KB.id) }] }]);
+    await H.call('/rest/v1/gmt_merge_review', [{ kind: 'merge', prio: 0, status: 'pending', title: 'هود', subject_id: KB.id, cands: [{ id: KA.id }] }]);
+    const { browser, pg, errs } = await H.open('home.html', { w: 390, h: 844, wait: 4500 });
+    await pg.waitForSelector('.mr-ov [data-mr="merge"]', { timeout: 10000 }).catch(() => {});
+    await pg.click('.mr-ov [data-mr="merge"]'); await pg.waitForTimeout(2000);
+    const d = await H.call('/__dump', undefined, 'GET');
+    const sp = d.gmt_store[0].products || [];
+    const k = sp.find(x => x.id === 's_keep');
+    ok(!sp.some(x => x.id === 's_gone') && k && k.images.includes('img/a.jpg') && k.images.includes('img/b.jpg') && Number(k.price) === 7 && !d.products.some(p => p.id === KB.id),
+      'بعد الدمج: قائمة المتجر المكرّرة حُذفت وصورها انضمّت لقائمة الباقي بسعرها: ' + JSON.stringify(sp.map(x => x.id)));
+    ok((d.gmt_audit || []).some(r => r.action === 'store_merge' && r.entity_id === 's_gone'), 'القائمة المحذوفة من المتجر محفوظة كاملة في سجلّ العمليات');
     ok(!real(errs).length, 'لا أخطاء JS ' + real(errs).slice(0, 2).join(' / '));
     await browser.close();
   }

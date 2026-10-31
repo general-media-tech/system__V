@@ -258,8 +258,13 @@
     if (!realSpecs(a.specs).length && realSpecs(b.specs).length) patch.specs = b.specs;
     if (!a.compat && b.compat) patch.compat = b.compat;
     if (!imgsOf(a).length && imgsOf(b).length) { patch.image_url = b.image_url || imgsOf(b)[0]; patch.images = imgsOf(b); }
-    if (!a.store_url && b.store_url) patch.store_url = b.store_url;
-    else if (a.store_url && b.store_url && a.store_url !== b.store_url) {     // (seq 249) «ممنوع منتجٌ في المتجر غير موجود في الجرد» ⇒ قائمة المحذوف في المتجر تُربط بالباقي قبل الحذف
+    /* (المالك seq 276) «منتجات دمجناها لساتهم يطلعوا في المتجر كمنتج مختلف» ⇒ قائمةٌ واحدة في المتجر:
+       صور المحذوف تُجمع في قائمة الباقي وقائمته تُحذف؛ وإن لم يكن للباقي قائمة تنتقل قائمة المحذوف إليه (gmt-store-sync.js) */
+    if (global.GMTStoreSync) {
+      const r = await GMTStoreSync.mergeInto(b.id, b.store_url, a.id, a.store_url);
+      if (r && r.moved && r.keepSid) patch.store_url = STORE_PAGE() + '#product=' + encodeURIComponent(r.keepSid);
+    } else if (!a.store_url && b.store_url) patch.store_url = b.store_url;
+    else if (a.store_url && b.store_url && a.store_url !== b.store_url) {     // (seq 249) احتياط: بلا وحدة المزامنة ⇒ قائمة المحذوف تُربط بالباقي
       const m = /#product=([^&#]+)/.exec(b.store_url); if (m) await storeSetInvId(decodeURIComponent(m[1]), a.id);
     }
     if (!a.group_name && b.group_name) patch.group_name = b.group_name;

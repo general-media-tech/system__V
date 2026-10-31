@@ -5294,8 +5294,10 @@ window.gmtSyncRename = gmtSyncRename;
       if (window.GMTOpLog) {
         if (act.kind === 'edit') GMTOpLog.log({ action: 'product_edit', entity: 'products', entityId: act.id, entityName: act.pname,
           field: Object.keys(act.before || {}).map(colLabel).join('، '), oldValue: act.before, newValue: act.after });
-        else if (act.kind === 'delete') GMTOpLog.log({ action: 'product_delete', entity: 'products', entityId: act.id, entityName: act.pname,
+        else if (act.kind === 'delete') { GMTOpLog.log({ action: 'product_delete', entity: 'products', entityId: act.id, entityName: act.pname,
           oldValue: { name: act.pname, barcode: act.row && act.row.barcode, price: act.row && act.row.price } });
+          /* (المالك seq 276) «المنتجات اللي بحذفها من الجرد تنحذف لحالها من المتجر» */
+          if (window.GMTStoreSync) GMTStoreSync.removeFor(act.id, act.row && act.row.store_url).then(function (r) { if (r && r.removed && window.showToast) showToast('🛒 حُذف من المتجر أيضاً', 'success'); }).catch(function (e) { if (window.showToast) showToast('⚠️ حُذف من الجرد لكن لم يُحذف من المتجر: ' + (e.message || e), 'error'); }); }
         else if (act.kind === 'stock') GMTOpLog.log({ action: act.op === 'add_branch_stock' ? 'stock_add' : 'stock_deduct', entity: 'products', entityId: act.id, entityName: act.pname,
           field: colLabel(act.branch), newValue: { qty: act.qty } });
       }
@@ -16339,8 +16341,9 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101e"></script>
-<script src="gmt-merge-review.js?v=20261101d" defer></script>
+<script src="gmt-whatsnew.js?v=20261101f"></script>
+<script src="gmt-store-sync.js?v=20261101f" defer></script>
+<script src="gmt-merge-review.js?v=20261101f" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
