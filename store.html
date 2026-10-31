@@ -2077,7 +2077,7 @@ function _renderVariants(prod){
             (opt.values||[]).forEach((v,vi)=>{
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors';
                 b.textContent=`${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}`; if(v.barcode)b.dataset.variantBarcode=v.barcode;
-                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent=`${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}`; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); _pmVariantInfo(prod, v); };
+                b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent= up>0 ? `${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}` : 'السعر عند الطلب'; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); _pmVariantInfo(prod, v); };
                 if(_pmWantVariant ? _pmVarMatch(v,_pmWantVariant) : vi===0)setTimeout(()=>b.click(),0);
                 else if(vi===0&&_pmWantVariant&&!(opt.values||[]).some(x=>_pmVarMatch(x,_pmWantVariant)))setTimeout(()=>b.click(),0);
                 bd.appendChild(b);
@@ -2171,7 +2171,7 @@ function _updatePMSlider(){ const sc=document.getElementById('product-modal-slid
 function _goToPMSlide(i){ _pmIdx=i; _updatePMSlider(); }
 
 window.productModalSlide=function(dir){ const t=_pmImgs.length; if(!t)return; _pmIdx=(_pmIdx+dir+t)%t; _updatePMSlider(); };
-window.productModalChangeQty=function(dir){ if(!_pmId)return; const prod=store.products.find(p=>String(p.id) === String(_pmId)); const rawStock=prod?.stock!==undefined?parseInt(prod.stock):0; const stock=(rawStock&&rawStock>0)?rawStock:9999; _pmQty=Math.min(Math.max(1,_pmQty+dir),stock); document.getElementById('product-qty-display').textContent=_pmQty; const pe=document.getElementById('product-modal-price'); if(pe){const bp=pe.dataset.selectedPrice?parseFloat(pe.dataset.selectedPrice):parseFloat(pe.dataset.basePrice||0); pe.textContent=`${CONFIG.CURRENCY}${(bp*_pmQty).toFixed(2)}`;} };
+window.productModalChangeQty=function(dir){ if(!_pmId)return; const prod=store.products.find(p=>String(p.id) === String(_pmId)); const rawStock=prod?.stock!==undefined?parseInt(prod.stock):0; const stock=(rawStock&&rawStock>0)?rawStock:9999; _pmQty=Math.min(Math.max(1,_pmQty+dir),stock); document.getElementById('product-qty-display').textContent=_pmQty; const pe=document.getElementById('product-modal-price'); if(pe){const bp=pe.dataset.selectedPrice?parseFloat(pe.dataset.selectedPrice):parseFloat(pe.dataset.basePrice||0); pe.textContent= bp>0 ? `${CONFIG.CURRENCY}${(bp*_pmQty).toFixed(2)}` : 'السعر عند الطلب';} };
 
 function productModalAddToCart(){
     if(!_pmId)return;
