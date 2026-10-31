@@ -1,0 +1,7 @@
+task: TASK-0285
+session: session_01MWfC494J8Ayokvio9Ve6C9
+branch: claude/tender-tesla-1x135d
+files: docs/دستور_المنتجات.md docs/تدقيق_المنتجات/ PROJECT_CONSTITUTION.md TASK_REGISTRY.md handoffs/SESSION_LOG.md docs/التسليم_الشامل.md
+claimed_at: 2026-10-31T10:15:58Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0285
