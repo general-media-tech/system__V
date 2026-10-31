@@ -43,9 +43,22 @@
   }
   const linked = (p, inv, sid) => (inv && String(p.inv_id || '') === String(inv)) || (sid && String(p.id) === String(sid));
 
+  /* منتج جرد آخر ما زال رابطه على القائمة؟ (أُعيد إنشاؤه بعد الحذف) ⇒ تُنقل القائمة إليه بدل حذفها */
+  async function otherOwner(sid, invId) {
+    try {
+      const d = M(); if (!d || !sid) return null;
+      const r = await fetch(d.url + '/rest/v1/products?select=id&id=neq.' + encodeURIComponent(invId) + '&store_url=like.' + encodeURIComponent('*#product=' + sid), { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
+      const j = r.ok ? await r.json() : []; return (Array.isArray(j) && j[0]) ? String(j[0].id) : null;
+    } catch (_) { return null; }
+  }
   async function removeFor(invId, storeUrl) {
     const sid = sidOf(storeUrl); let removed = [];
+    const owner = await otherOwner(sid, invId);
     const res = await edit(prods => {
+      if (owner) {   /* لا حذف: القائمة لمنتجٍ آخر الآن */
+        const next = prods.map(p => linked(p, invId, sid) ? Object.assign({}, p, { inv_id: owner }) : p);
+        return { changed: true, products: next };
+      }
       removed = prods.filter(p => linked(p, invId, sid));
       let changed = removed.length > 0;
       const next = prods.filter(p => !linked(p, invId, sid)).map(p => {
