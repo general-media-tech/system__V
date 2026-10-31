@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261031c';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261031d';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -59,7 +59,7 @@ const CORE = [
   /* (2026-10-04 ي) الواجهةُ الرئيسيّة الجديدة تحتاجها لتفتح بلا إنترنت */
   './gmt-ui.css', './gmt-tools.js', './gmt-account.js', './gmt-icons.js', './gmt-home.js', './gmt-ask.js',
   './gmt-intro.js', './gmt-sound.js', './gmt-refresh.js', './gmt-autobackup.js', './gmt-notify.js', './gmt-whatsnew.js',
-  './gmt-learn.js', './gmt-receipt.js', './gmt-oplog.js', './gmt-screen.js', './gmt-lessons.js', './gmt-nofab.js', './gmt-fitrow.js', './gmt-stock.js', './gmt-bidi.js', './gmt-ledger.js', './gmt-share.js', './gmt-sticker.js', './gmt-gallery.js', './gmt-wclaims.js', './gmt-product-edit.js', './gmt-custcache.js', './gmt-invoice-tpl.js', './gmt-signpad.js', './gmt-refund.js',
+  './gmt-learn.js', './gmt-receipt.js', './gmt-oplog.js', './gmt-screen.js', './gmt-lessons.js', './gmt-nofab.js', './gmt-fitrow.js', './gmt-stock.js', './gmt-bidi.js', './gmt-ledger.js', './gmt-share.js', './gmt-sticker.js', './gmt-gallery.js', './gmt-wclaims.js', './gmt-product-edit.js', './gmt-custcache.js', './gmt-invoice-tpl.js', './gmt-signpad.js', './gmt-refund.js', './gmt-merge-review.js',
   /* (TASK-0105) صورة/PDF الأوردر بلا إنترنت: المُصيِّر الداخلي وخطّ Cairo المستضاف + شارة قفل الأوردرات */
   './gmt-render.js', './gmt-orders-lock.js', './lib/fonts/Cairo-var-arabic.woff2', './lib/fonts/Cairo-var-latin.woff2',
   './logo.jpg', './favicon.ico', './canonlogo.png',   /* (TASK-0216 · المالك seq 172) شعار Canon الأصلي من المالك */
