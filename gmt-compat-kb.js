@@ -103,6 +103,9 @@
     ['EF 35mm f/1.4L II USM', 72, 'EW-77'], ['EF 35mm f/2 IS USM', 67, 'EW-72'], ['EF 40mm f/2.8 STM', 52, 'ES-52'],
     ['EF 50mm f/1.2L USM', 72, 'ES-78'], ['EF 50mm f/1.4 USM', 58, 'ES-71 II'], ['EF 50mm f/1.8 STM', 49, 'ES-68'], ['EF 50mm f/1.8 II', 52, 'ES-62'],
     ['EF 85mm f/1.2L II USM', 72, 'ES-79 II'], ['EF 85mm f/1.4L IS USM', 77, 'ET-83E'], ['EF 85mm f/1.8 USM', 58, 'ET-65 III'],
+    /* (TASK-0285 · المرحلة ٢) عدساتٌ إضافية لـET-65 III وET-60 — مصادر ثانوية موثوقة متطابقة (B&H · Adorama · Castle Cameras) */
+    ['EF 100mm f/2 USM', 58, 'ET-65 III'], ['EF 135mm f/2.8 Soft Focus', 52, 'ET-65 III'], ['EF 100-300mm f/4.5-5.6 USM', 58, 'ET-65 III'],
+    ['EF 75-300mm f/4-5.6 III USM', 58, 'ET-60'], ['EF 75-300mm f/4-5.6 II', 58, 'ET-60'], ['EF-S 55-250mm f/4-5.6 IS', 58, 'ET-60'],
     ['EF 100mm f/2.8L Macro IS USM', 67, 'ET-73'], ['EF 100mm f/2.8 Macro USM', 58, 'ET-67'], ['EF 135mm f/2L USM', 72, 'ET-78 II'],
     ['EF 200mm f/2.8L II USM', 72, 'ET-83B II'],
     ['EF 24-70mm f/2.8L USM', 77, 'EW-83F'], ['EF 24-70mm f/2.8L II USM', 82, 'EW-88C'], ['EF 24-70mm f/4L IS USM', 77, 'EW-83L'],
