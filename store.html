@@ -1929,19 +1929,38 @@ window.performSearch=function(query){
     if(!q){showAllProducts();return;}
     area.querySelectorAll('section[data-category-section]').forEach(s=>s.style.display='none');
     const hits=new Map(); store.products.forEach(p=>{ const h=_srHit(q,p); if(h.hit) hits.set(p.id,h); });
-    const matched=store.products.filter(p=>hits.has(p.id));
+    const all=store.products.filter(p=>hits.has(p.id));
+    /* (المالك seq 261) «نضيف فلاتر للبحث في المتجر» ⇒ فوق النتائج: القسم · الماركة · المتوفّر فقط · المسعّر فقط · الترتيب بالسعر */
+    const F=window._srF||(window._srF={cat:'',brand:'',stock:false,priced:false,sort:''});
+    const brandOf=p=>{ const r=(Array.isArray(p.specs)?p.specs:[]).find(x=>x&&/الماركة|brand/i.test(x.label||'')); return (r&&String(r.value||'').trim())||String(p.brand||'').trim(); };
+    const catIds=p=>p.category_ids||(p.category_id?[p.category_id]:[]);
+    let matched=all.filter(p=>(!F.cat||catIds(p).map(String).includes(String(F.cat)))&&(!F.brand||brandOf(p)===F.brand)&&(!F.stock||parseInt(p.stock||0)>0)&&(!F.priced||parseFloat(p.price||0)>0));
+    if(F.sort==='asc') matched=matched.slice().sort((a,b)=>(parseFloat(a.price)||1e9)-(parseFloat(b.price)||1e9));
+    if(F.sort==='desc') matched=matched.slice().sort((a,b)=>(parseFloat(b.price)||0)-(parseFloat(a.price)||0));
+    const cats=[...new Set(all.flatMap(catIds).map(String))].map(id=>store.categories.find(c=>String(c.id)===id)).filter(Boolean);
+    const brands=[...new Set(all.map(brandOf).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    const sel='height:34px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 8px;font:700 12px Cairo,sans-serif;background:#fff;max-width:46vw';
+    const chip=(k,t)=>`<label style="display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 10px;border:1.5px solid ${F[k]?'#D5001C':'#e5e7eb'};border-radius:10px;font:800 12px Cairo,sans-serif;color:${F[k]?'#D5001C':'#374151'};cursor:pointer;white-space:nowrap"><input type="checkbox" data-srf="${k}" ${F[k]?'checked':''} style="accent-color:#D5001C">${t}</label>`;
+    const filtHtml=`<div id="sr-filters" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 16px 12px">
+      <select data-srf="cat" style="${sel}"><option value="">كل الأقسام</option>${cats.map(c=>`<option value="${escHtml(String(c.id))}" ${String(F.cat)===String(c.id)?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select>
+      ${brands.length>1?`<select data-srf="brand" style="${sel}"><option value="">كل الماركات</option>${brands.map(b=>`<option ${F.brand===b?'selected':''}>${escHtml(b)}</option>`).join('')}</select>`:''}
+      ${chip('stock','المتوفّر فقط')}${chip('priced','بسعر فقط')}
+      <select data-srf="sort" style="${sel}"><option value="">الترتيب</option><option value="asc" ${F.sort==='asc'?'selected':''}>السعر ↑</option><option value="desc" ${F.sort==='desc'?'selected':''}>السعر ↓</option></select>
+    </div>`;
     const say=window.GMTSuggest&&GMTSuggest.compatSay?GMTSuggest.compatSay(q):'';
     const sayHtml=say?`<p style="margin:0 16px 10px;padding:8px 12px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.7;background:${matched.length?'#f0fdf4':'#fff7ed'};color:${matched.length?'#166534':'#9a3412'}">🔎 ${escHtml(say)}${matched.length?'':' — غير متوفّر حالياً، راسلنا ونؤمّنه لك'}</p>`:'';
     let temp=document.getElementById('search-results-section'); if(temp)temp.remove();
     temp=document.createElement('section'); temp.id='search-results-section'; temp.className='mt-6';
-    if(!matched.length){temp.innerHTML=sayHtml+`<div class="text-center py-10 text-gray-400 px-4"><i class="ph ph-magnifying-glass text-4xl block mb-2 opacity-40"></i><p class="text-sm">لا توجد نتائج لـ "${escHtml(query)}"</p></div>`;area.appendChild(temp);return;}
-    temp.innerHTML=`<h3 class="font-medium text-[18px] px-4 mb-4">نتائج البحث (${matched.length})</h3>`+sayHtml+`<div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6 sr-row"></div>`;
+    const bindF=()=>{ temp.querySelectorAll('[data-srf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.srf; F[k]=el.type==='checkbox'?el.checked:el.value; window.performSearch(query); })); };
+    if(!matched.length){temp.innerHTML=(all.length?filtHtml:'')+sayHtml+`<div class="text-center py-10 text-gray-400 px-4"><i class="ph ph-magnifying-glass text-4xl block mb-2 opacity-40"></i><p class="text-sm">${all.length?'لا نتائج بهذه الفلاتر — غيّرها':'لا توجد نتائج لـ "'+escHtml(query)+'"'}</p></div>`;area.appendChild(temp);bindF();return;}
+    temp.innerHTML=`<h3 class="font-medium text-[18px] px-4 mb-4">نتائج البحث (${matched.length}${matched.length!==all.length?' من '+all.length:''})</h3>`+filtHtml+sayHtml+`<div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6 sr-row"></div>`;
+    bindF();
     const row=temp.querySelector('.sr-row');
     matched.forEach(prod=>{
         const imgUrl=prod.images?.[0]||'', h=hits.get(prod.id), open=()=>openProductModal(prod.id,h&&h.variant?{variant:h.variant}:null);
         const card=document.createElement('div'); card.className='min-w-[160px] w-[160px] bg-white rounded-[12px] shadow-soft p-3 flex flex-col flex-shrink-0'; card.style.cursor='pointer';
         card.dataset.srId=prod.id; if(h&&h.variant)card.dataset.srVariant=h.variant;
-        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img src="${imgUrl}" class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4>${h&&h.variant?`<div style="font-size:11px;font-weight:800;color:#047857;margin:-8px 0 6px">🎯 ${escHtml(h.variant)}</div>`:''}<div class="flex justify-between items-center"><span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span><button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
+        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img src="${imgUrl}" class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4>${h&&h.variant?`<div style="font-size:11px;font-weight:800;color:#047857;margin:-8px 0 6px">🎯 ${escHtml(h.variant)}</div>`:''}<div class="flex justify-between items-center">${parseFloat(prod.price||0)>0?`<span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`:`<span style="font-size:12px;font-weight:800;color:#5b6472">السعر عند الطلب</span>`}<button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
         card.addEventListener('click',e=>{if(e.target.closest('.sr-open'))return;open();});
         card.querySelector('.sr-open').addEventListener('click',e=>{e.stopPropagation();open();});
         row.appendChild(card);
