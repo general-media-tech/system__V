@@ -5,6 +5,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const H = require('./h.js');
+const W = +(process.env.W || 390), HH = W < 700 ? 800 : 768;
 const ROOT = path.resolve(__dirname, '../..'); let VER = 'A';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ico': 'image/x-icon', '.mp3': 'audio/mpeg' };
 const srv = http.createServer((q, r) => {
@@ -22,7 +23,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log((c ? '✔ ' : '✘ ')
   const br = await chromium.launch();
   for (const [page, init] of [['home.html', H.ADMIN_INIT], ['store.html', H.ADMIN_INIT], ['pos.html', H.STAFF_INIT], ['inventory.html', H.ADMIN_INIT]]) {
     VER = 'A';
-    const ctx = await br.newContext({ viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
+    const ctx = await br.newContext({ viewport: { width: W, height: HH }, isMobile: W < 700, hasTouch: W < 700 });
     await ctx.route('**/*.supabase.co/**', async route => { const u = route.request().url(); const i = u.indexOf('/rest/v1/');
       if (i < 0) return route.fulfill({ status: 200, body: '{}' });
       try { const rr = await route.fetch({ url: H.M + u.slice(i) }); await route.fulfill({ response: rr }); } catch (e) { try { await route.abort(); } catch (_) {} } });

@@ -961,37 +961,57 @@ function _adminPenMenu(wrap, prod) {
     const m = document.createElement('div'); m.dataset.penMenu = '1';
     m.style.cssText = 'position:absolute;top:46px;right:8px;left:8px;z-index:5;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:6px;display:flex;flex-direction:column;gap:4px;direction:rtl;';
     const b = (t, fn) => { const x = document.createElement('button'); x.type = 'button'; x.textContent = t; x.style.cssText = 'border:0;background:#f5f6fa;border-radius:9px;padding:8px;font:800 12px Cairo,sans-serif;cursor:pointer;text-align:right;'; x.addEventListener('click', e => { e.stopPropagation(); fn(); }); return x; };
-    m.appendChild(b('✏️ تعديل سريع هنا', () => { m.remove(); _adminQuickEdit(prod); }));
+    /* (المالك seq 336) «أزرار التعديل اللي انت حاططها في المتجر مضحك يغيّر فقط الاسم — لازم يغيّر كل شيء · اعطيه صلاحيات مثل العادة»
+       ⇒ صفحة التعديل الكاملة نفسها التي في الجرد (الجرد · الأسعار · المواصفات · الصور · المتجر) فوق المتجر، بصلاحية الأدمن المعتادة */
+    m.appendChild(b('✏️ تعديل كامل هنا', () => { m.remove(); _adminFullEdit(prod); }));
     m.appendChild(b('🛠 فتح في أدمن المتجر', () => { location.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id); }));
     m.addEventListener('click', e => e.stopPropagation());
     wrap.appendChild(m);
 }
-async function _adminQuickEdit(prod) {
-    if (!window.GMTAsk || !GMTAsk.prompt) { location.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id); return; }
-    const name = await GMTAsk.prompt('اسم المنتج في المتجر:', { value: prod.name || '', title: 'تعديل سريع' }); if (name == null) return;
-    const priceS = await GMTAsk.prompt('سعر المبيع في المتجر ($) — اتركه 0 لـ«السعر عند الطلب»:', { value: String(prod.price || 0), title: 'تعديل سريع' }); if (priceS == null) return;
-    const price = Math.max(0, parseFloat(priceS) || 0), nm = String(name).trim() || prod.name;
-    const H = { apikey: CONFIG.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + CONFIG.SUPABASE_ANON_KEY };
-    try {
-        for (let i = 0; i < 3; i++) {
-            const g = await fetch(CONFIG.SUPABASE_URL + '/rest/v1/gmt_store?id=eq.1&select=id,updated_at,products', { headers: H });
-            const rec = ((await g.json()) || [])[0]; if (!rec) throw new Error('تعذّرت قراءة المتجر');
-            const next = (rec.products || []).map(x => String(x.id) === String(prod.id) ? Object.assign({}, x, { name: nm, short_name: nm, price }) : x);
-            let url = CONFIG.SUPABASE_URL + '/rest/v1/gmt_store?id=eq.1&select=id'; const body = { products: next };
-            if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
-            const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
-            if (!w.ok) throw new Error('HTTP ' + w.status);
-            const rows = await w.json().catch(() => null);
-            if (Array.isArray(rows) && rows.length) {
-                Object.assign(prod, { name: nm, short_name: nm, price });
-                try { renderProducts(); } catch (_) {}
-                showToast('✅ حُفظ: ' + nm + (price > 0 ? ' — $' + price : ' — السعر عند الطلب'), 'success'); return;
-            }
-        }
-        throw new Error('المتجر يتغيّر من جهةٍ أخرى — أعد المحاولة');
-    } catch (e) { showToast('❌ لم يُحفظ: ' + (e.message || e), 'error'); }
+/* (المالك seq 336) التعديل الكامل من داخل المتجر: منتج الجرد المربوط بهذه القائمة (inv_id) يُفتح في GMTProductEdit — المحرّر نفسه
+   في الجرد، يكتب الجرد ثمّ قائمة المتجر المربوطة. الصلاحية: GMTRole.requireAdmin كما في الجرد. قائمةٌ بلا منتج جرد ⇒ محرّر أدمن المتجر. */
+function _loadScript(src) {
+    return new Promise((res, rej) => { if (document.querySelector('script[data-lazy="' + src + '"]')) return res(); const s = document.createElement('script'); s.src = src; s.dataset.lazy = src; s.onload = res; s.onerror = () => rej(new Error('تعذّر تحميل ' + src)); document.head.appendChild(s); });
 }
-
+async function _adminFullEdit(prod) {
+    const toAdmin = () => { location.href = 'admin_store.html?edit=' + encodeURIComponent('prod:' + prod.id); };
+    if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('تعديل المنتج من المتجر'))) return;
+    const D = window.GMT_DB && GMT_DB.MAIN; const invId = prod && prod.inv_id;
+    if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
+    const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
+    try {
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261101x');
+        const [rows, lists] = await Promise.all([
+            fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
+            fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
+        ]);
+        const p = Array.isArray(rows) && rows[0]; if (!p) { showToast('منتج الجرد المربوط لم يعد موجوداً — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
+        const uniq = k => [...new Set((lists || []).map(x => x && x[k]).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, 'ar'));
+        const qty = x => Object.keys(x || {}).reduce((s, k) => s + (/^(id|price|wholesale_price|cost_price|net_cost|min_stock|count|barcode)$/.test(k) ? 0 : (Number.isInteger(x[k]) ? x[k] : 0)), 0);
+        GMTProductEdit.open(p, {
+            groups: uniq('group_name'), categories: uniq('category'), brands: uniq('brand'),
+            stockOf: qty,
+            uploadImage: async src => {
+                const blob = (src instanceof Blob) ? src : await (await fetch(src)).blob();
+                const path = 'lens_' + p.id + '_' + Date.now() + '.' + ((blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg'));
+                const r = await fetch(D.url + '/storage/v1/object/products-images/' + path, { method: 'POST', headers: Object.assign({ 'Content-Type': blob.type || 'image/jpeg', 'x-upsert': 'true' }, H), body: blob });
+                return r.ok ? D.url + '/storage/v1/object/public/products-images/' + path : null;
+            },
+            saveInv: async patch => {
+                const r = await fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(p.id), { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(patch) });
+                if (!r.ok) return { error: 'HTTP ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 160) };
+                const out = await r.json().catch(() => null);
+                if (!Array.isArray(out) || !out.length) return { error: 'لم يُحفظ (لا صلاحية أو المنتج لم يعد موجوداً)' };
+                Object.assign(p, patch); return { data: out };
+            },
+            onSaved: async () => {
+                try { const rec = await fetchStoreRecord(); if (rec) { _applyRecord(rec); renderAll(); } } catch (_) {}
+                try { if (window.GMTStoreSync && GMTStoreSync.homePublish) GMTStoreSync.homePublish(); } catch (_) {}
+                showToast('✅ حُفظ في الجرد والمتجر', 'success');
+            }
+        });
+    } catch (e) { showToast('❌ تعذّر فتح التعديل: ' + (e.message || e), 'error'); }
+}
 function _setCardCartBtn(btn, inCart) {
     if (inCart) {
         btn.innerHTML = '<i class="ph ph-shopping-bag text-[16px]" style="color:#fff"></i>';
