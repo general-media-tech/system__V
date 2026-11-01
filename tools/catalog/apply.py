@@ -2,7 +2,7 @@
 # job: {"id": pid, "imgs": [paths…], "specs": {k: v} (يُضاف الناقص فقط · __desc يُستبدل إن كان أقصر), "alt": [names], "compat": "…",
 #       "source": "…", "seq": "340/343", "set_main": bool}
 # يرفع الصور إلى products-images/catalog/<pid>/<n>.<ext> ثمّ يكتب المنتج (الصور تُلحق بعد الموجودة · لا حذف) + سطر تدقيق.
-import sys, os, json, urllib.request, time, hashlib
+import sys, os, json, urllib.request, time, hashlib, re
 U, K = os.environ['U'], os.environ['K']
 H = {'apikey': K, 'Authorization': 'Bearer ' + K}
 def req(method, path, body=None, headers=None, raw=None):
@@ -41,6 +41,15 @@ for k, v in (job.get('specs') or {}).items():
     if k == '__desc':
         if len(str(sp.get('__desc') or '')) < len(v): sp['__desc'] = v; added.append(k)
     elif k not in sp or not str(sp.get(k) or '').strip(): sp[k] = v; added.append(k)
+# (المالك seq 248/226) تصحيح خطأ مثبت بمصدر: fix={k: v} يستبدل القيمة · drop=[k] يحذف تخميناً «(تقريبي)» — القديم يُحفظ في التدقيق
+# (seq 347) لا يُستعمل أبداً لتغيير الواط/القدرة المكتوبة
+fixed, dropped = {}, {}
+for k, v in (job.get('fix') or {}).items():
+    if re.search(r'واط|القدرة|الاستطاعة|watt', k, re.I): continue
+    if sp.get(k) != v: fixed[k] = sp.get(k); sp[k] = v
+for k in (job.get('drop') or []):
+    if k in sp and not re.search(r'واط|القدرة|الاستطاعة|watt', k, re.I): dropped[k] = sp.pop(k)
+if fixed or dropped: added += ['fix:' + k for k in fixed] + ['drop:' + k for k in dropped]
 if added:
     patch['specs'] = sp
     if job.get('source'): patch['specs_source'] = job['source'] if not p.get('specs_source') else (p['specs_source'] + ' + ' + job['source'])[:500]
@@ -54,5 +63,5 @@ assert isinstance(out, list) and out, 'لم يُحفظ'
 req('POST', '/rest/v1/gmt_audit', [{'actor': 'Claude (جلسة المالك)', 'page': 'inventory', 'action': 'catalog_enrich', 'entity': 'products', 'entity_id': pid,
      'entity_name': p['name'], 'new_value': json.dumps({'images_added': len(new), 'specs_added': added, 'alt_added': addalt}, ensure_ascii=False),
      'reason': 'المالك seq %s: مراجعة المنتجات منتجاً منتجاً — صور وبوسترات وشرح ومواصفات وأسماء بديلة وتوافقيات من أمازون/علي بابا/الإنترنت · المصدر: %s' % (job.get('seq', '340/343'), job.get('source', '')),
-     'meta': {'images': new}}], headers={'Prefer': 'return=minimal'})
+     'meta': {'images': new, 'old_values': fixed, 'dropped': dropped}}], headers={'Prefer': 'return=minimal'})
 print(json.dumps({'name': p['name'], 'images_before': len(cur), 'images_added': len(new), 'specs_added': added, 'alt_added': len(addalt)}, ensure_ascii=False))
