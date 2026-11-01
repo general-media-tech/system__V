@@ -40,7 +40,7 @@ const light = { categories: cats, banners: [], offers: [], branches: [], __light
   const ups = [];
   await o.ctx.route(/\/storage\/v1\/object\/products-images\/store\/home\.json/, r => { ups.push(r.request().postData() || ''); r.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"x"}' }); });
   const built = await o.pg.evaluate(() => {
-    const b = GMTStoreSync.homeBuild({ updated_at: 'U1', categories: [{ id: 'c1' }], products: [{ id: 'a', name: 'A', price: 5, images: ['1', '2', '3', '4', '5'], specs: [{ label: 'x', value: 'y' }], description: 'طويل', alt_names: 'ب', options: [{ type: 'القطر', values: [{ name: '49', price: 3, specs: [1], inv_id: 'i1' }] }] }] });
+    const b = GMTStoreSync.homeBuild({ updated_at: 'U1', categories: [{ id: 'c1' }], products: [{ id: 'a', name: 'A', price: 5, images: ['data:image/png;base64,AAAA', '1', '2', '3', '4', '5'], specs: [{ label: 'x', value: 'y' }], description: 'طويل', alt_names: 'ب', options: [{ type: 'القطر', values: [{ name: '49', price: 3, specs: [1], inv_id: 'i1' }] }] }] });
     const p = b.products[0];
     return { light: b.__light, src: b.__src_updated_at, cats: b.categories.length, imgs: p.images.length, specs: 'specs' in p, desc: 'description' in p, alt: 'alt_names' in p, vSpecs: 'specs' in p.options[0].values[0], vPrice: p.options[0].values[0].price, name: p.name };
   });

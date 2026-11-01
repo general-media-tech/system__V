@@ -172,7 +172,7 @@
     const strip = (o, keys) => { const x = Object.assign({}, o); keys.forEach(k => delete x[k]); return x; };
     const products = (Array.isArray(rec && rec.products) ? rec.products : []).map(p => {
       const x = strip(p, ['specs', 'description', 'compat', 'alt_names', 'video_url', 'search_terms', 'images_hidden']);
-      if (Array.isArray(p.images)) x.images = p.images.slice(0, 3);
+      if (Array.isArray(p.images)) x.images = p.images.filter(u => !/^data:/i.test(String(u || ''))).slice(0, 3);   // صورةٌ مضمّنة (base64) لا تُضغط ⇒ تنتظر الكتالوج الكامل
       if (Array.isArray(p.options)) x.options = p.options.map(o => Array.isArray(o && o.values) ? Object.assign({}, o, { values: o.values.map(v => v && typeof v === 'object' ? strip(v, ['specs', 'compat']) : v) }) : o);
       return x;
     });
