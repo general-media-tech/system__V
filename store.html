@@ -2009,8 +2009,8 @@ function _fallbackCopy(text){
 }
 
 function openProductModal(productId, opt){
-    /* (TASK-0300) الواجهة من النسخة الخفيفة ⇒ تفاصيل المنتج (المواصفات · الوصف · كل الصور) تنتظر الكتالوج الكامل الجاري تحميله في الخلفية */
-    if(store.__light && window.__gmtFullP){ window.__gmtFullP.then(()=>openProductModal(productId, opt)); return; }
+    /* (TASK-0293/0300 · seq 242 «لما بعت رابط منتج فيكون محمّل أقلّ شيء المنتجات اللي في وجهه») يُفتح فوراً من النسخة الخفيفة
+       (الاسم · السعر · الصور) وتكتمل المواصفات والوصف تلقائياً حين يصل الكتالوج الكامل (_refreshOpenModal) */
     const prod=store.products.find(p=>String(p.id) === String(productId)); if(!prod)return;
     _pmWantVariant=(opt&&opt.variant)||null;   /* (seq 221) الخيار الذي طابق البحث */
     _pmId=productId; _pmImgs=Array.isArray(prod.images)&&prod.images.length?prod.images:[]; _pmIdx=0; _pmQty=1;
@@ -2559,6 +2559,21 @@ async function initStore(){
        الزائر الجديد (من إنستغرام مثلاً — لا نسخة على جهازه) كان ينتظر الكتالوج كاملاً (~١٫١ م.ب) فيُغلق الانترو على مربّعات فارغة.
        الآن يبدأ أثناء الانترو طلبان معاً: نسخة الواجهة الخفيفة (gmt_store_home — بلا مواصفات/وصف · ~عُشر الحجم) والكتالوج الكامل.
        أيّهما وصل أوّلاً تُرسم به الواجهة خلف الانترو وتُفتح · الكامل يحلّ محلّ الخفيف بصمت · وفتح منتجٍ ينتظر تفاصيله الكاملة. */
+    /* (TASK-0293 · المالك seq 242 «… ينزل كله عنده بحيث لما يدخل مرّة ثانية ما يكون ثقيل وليس ضرر على السوبر بيس»)
+       زيارةٌ ثانية: آخر كتالوج كامل محفوظ على الجهاز (≤ ١٤ يوماً) يُرسم فوراً خلف الانترو · ثمّ سؤالٌ صغير عن «آخر تعديل» —
+       لم يتغيّر ⇒ لا يُنزَّل الكتالوج أبداً · تغيّر ⇒ يُنزَّل بالخلفية ويحلّ محلّه بصمت */
+    let _last = null; try { _last = JSON.parse(localStorage.getItem(STORE_LAST_GOOD) || 'null'); } catch (_) {}
+    if (_last && _last.rec && Array.isArray(_last.rec.products) && _last.rec.products.length && Date.now() - _last.at < 14 * 864e5) {
+        _applyRecord(Object.assign({}, _last.rec, { __fromCache: true }));
+        renderAll(); _contentReady = true; _tryCloseIntro();
+        let ua = null;
+        try { const r = await _sb.from(CONFIG.TABLE_STORE).select('updated_at').eq('id', 1).single(); ua = r && r.data && r.data.updated_at; } catch (_) {}
+        if (ua && ua === _last.rec.updated_at) { _cache.set('store', _last.rec); setTimeout(_applyDeepLink, 500); return; }
+        const fresh = await fetchStoreRecord().catch(() => null);
+        if (fresh) { const y0 = window.scrollY; _applyRecord(fresh); renderAll(); window.scrollTo(0, y0); _refreshOpenModal(); _homeSelfHeal(fresh); }
+        setTimeout(_applyDeepLink, 500);
+        return;
+    }
     const fullP = fetchStoreRecord().catch(() => null);
     window.__gmtFullP = fullP.then(() => {});
     let lightShown = false, fullDone = false;
@@ -2577,11 +2592,21 @@ async function initStore(){
     if (rec) { _applyRecord(rec); _homeSelfHeal(rec); }
     else if (!lightShown) _applyMock();
     store.__light = false;                     // الكامل وصل ⇒ هو المرجع · أو فشل ⇒ الخفيفة هي ما لدينا (لا انتظار بلا نهاية عند فتح منتج)
-    if (rec || !lightShown) { renderAll(); if (lightShown) window.scrollTo(0, y); }
+    if (rec || !lightShown) { renderAll(); if (lightShown) { window.scrollTo(0, y); _refreshOpenModal(); } }
 
     _contentReady=true; _tryCloseIntro();
     // Apply deep link after render
     setTimeout(_applyDeepLink, 500);
+}
+/* (TASK-0293) نافذة منتجٍ مفتوحة من نسخةٍ خفيفة/محفوظة ⇒ تُعاد بالبيانات الكاملة (المواصفات · الوصف · كل الصور) بلا إغلاق */
+function _refreshOpenModal() {
+    try {
+        const m = document.getElementById('product-modal');
+        if (!m || m.classList.contains('hidden') || !_pmId) return;
+        const q = _pmQty;
+        openProductModal(_pmId, _pmWantVariant ? { variant: _pmWantVariant } : undefined);
+        if (q > 1) { _pmQty = q; }
+    } catch (_) {}
 }
 /* (TASK-0300) نسخة الواجهة الخفيفة: ملفٌّ عامّ في تخزين القاعدة الرئيسية (store/home.json · مضغوط) تعيد صفحاتُ الموظّفين كتابته بعد كلّ حفظٍ للمتجر —
    أيّ فشل ⇒ null فيبقى المسار القديم كما هو */
@@ -2663,7 +2688,7 @@ function renderAll(){
        store.html#product=… لكن `_applyDeepLink` (التي تقرأ الرابط عند الفتح) لم تُنادَ أبداً
        ⇒ الزبون يفتح الرابط فيصل الصفحة الرئيسية لا المنتج. تُنادى مرّة واحدة بعد أول رسم
        (renderAll يتكرّر مع التحديث بالخلفية — لا نعيد فتح المنتج في كل مرّة). */
-    if (!window._deepLinkApplied && store.products && store.products.length && !store.__light) {
+    if (!window._deepLinkApplied && store.products && store.products.length) {
         window._deepLinkApplied = true;
         try { _applyDeepLink(); } catch (e) { console.warn('[GMT] تعذّر فتح رابط المنتج:', e); }
     }
