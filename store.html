@@ -2008,6 +2008,8 @@ function _fallbackCopy(text){
 }
 
 function openProductModal(productId, opt){
+    /* (TASK-0300) الواجهة من النسخة الخفيفة ⇒ تفاصيل المنتج (المواصفات · الوصف · كل الصور) تنتظر الكتالوج الكامل الجاري تحميله في الخلفية */
+    if(store.__light && window.__gmtFullP){ window.__gmtFullP.then(()=>openProductModal(productId, opt)); return; }
     const prod=store.products.find(p=>String(p.id) === String(productId)); if(!prod)return;
     _pmWantVariant=(opt&&opt.variant)||null;   /* (seq 221) الخيار الذي طابق البحث */
     _pmId=productId; _pmImgs=Array.isArray(prod.images)&&prod.images.length?prod.images:[]; _pmIdx=0; _pmQty=1;
@@ -2552,16 +2554,45 @@ async function initStore(){
     const cached=_cache.get('store');
     if(cached){ _applyRecord(cached); renderAll(); _contentReady=true; _tryCloseIntro(); if(!window._deepLinkApplied) setTimeout(_applyDeepLink, window.__gmtDirect?0:500); _refreshBackground(); return; }
 
-    try {
-        const rec=await fetchStoreRecord();
-        if(rec) _applyRecord(rec);
-        else _applyMock();
-    } catch { _applyMock(); }
+    /* (TASK-0300 · المالك seq 322) «لازم يحمل له أثناء الانترو، يفتح له الواجهة فوراً … وفي الخلفية تنزل»:
+       الزائر الجديد (من إنستغرام مثلاً — لا نسخة على جهازه) كان ينتظر الكتالوج كاملاً (~١٫١ م.ب) فيُغلق الانترو على مربّعات فارغة.
+       الآن يبدأ أثناء الانترو طلبان معاً: نسخة الواجهة الخفيفة (gmt_store_home — بلا مواصفات/وصف · ~عُشر الحجم) والكتالوج الكامل.
+       أيّهما وصل أوّلاً تُرسم به الواجهة خلف الانترو وتُفتح · الكامل يحلّ محلّ الخفيف بصمت · وفتح منتجٍ ينتظر تفاصيله الكاملة. */
+    const fullP = fetchStoreRecord().catch(() => null);
+    window.__gmtFullP = fullP.then(() => {});
+    let lightShown = false, fullDone = false;
+    _fetchStoreHome().then(lr => {
+        if (!lr || fullDone || lightShown) return;
+        lightShown = true;
+        _applyRecord(Object.assign({}, lr, { __fromCache: true }));   // لا تُحفظ «آخر نسخة جيّدة» من الخفيفة
+        store.__light = true;
+        renderAll();
+        _contentReady = true; _tryCloseIntro();
+    });
+    let rec = null;
+    try { rec = await fullP; } catch (_) {}
+    fullDone = true;
+    const y = window.scrollY;
+    if (rec) _applyRecord(rec);
+    else if (!lightShown) _applyMock();
+    store.__light = false;                     // الكامل وصل ⇒ هو المرجع · أو فشل ⇒ الخفيفة هي ما لدينا (لا انتظار بلا نهاية عند فتح منتج)
+    if (rec || !lightShown) { renderAll(); if (lightShown) window.scrollTo(0, y); }
 
-    renderAll();
     _contentReady=true; _tryCloseIntro();
     // Apply deep link after render
     setTimeout(_applyDeepLink, 500);
+}
+/* (TASK-0300) نسخة الواجهة الخفيفة من القاعدة الرئيسية (تُحدَّث من المتجر تلقائياً) — أيّ فشل ⇒ null فيبقى المسار القديم كما هو */
+async function _fetchStoreHome() {
+    try {
+        const M = window.GMT_DB && GMT_DB.MAIN; if (!M) return null;
+        const ac = ('AbortController' in window) ? new AbortController() : null; const t = ac ? setTimeout(() => ac.abort(), 8000) : 0;
+        const r = await fetch(M.url + '/rest/v1/gmt_store_home?id=eq.1&select=data', { headers: { apikey: M.key, Authorization: 'Bearer ' + M.key }, signal: ac ? ac.signal : undefined });
+        if (t) clearTimeout(t);
+        if (!r.ok) return null;
+        const rows = await r.json(); const d = rows && rows[0] && rows[0].data;
+        return d && Array.isArray(d.products) && d.products.length ? d : null;
+    } catch (_) { return null; }
 }
 
 function _applyRecord(rec){
@@ -2622,7 +2653,7 @@ function renderAll(){
        store.html#product=… لكن `_applyDeepLink` (التي تقرأ الرابط عند الفتح) لم تُنادَ أبداً
        ⇒ الزبون يفتح الرابط فيصل الصفحة الرئيسية لا المنتج. تُنادى مرّة واحدة بعد أول رسم
        (renderAll يتكرّر مع التحديث بالخلفية — لا نعيد فتح المنتج في كل مرّة). */
-    if (!window._deepLinkApplied && store.products && store.products.length) {
+    if (!window._deepLinkApplied && store.products && store.products.length && !store.__light) {
         window._deepLinkApplied = true;
         try { _applyDeepLink(); } catch (e) { console.warn('[GMT] تعذّر فتح رابط المنتج:', e); }
     }
