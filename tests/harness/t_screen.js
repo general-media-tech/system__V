@@ -41,12 +41,13 @@ const audit = async () => ((await H.call('/__dump', undefined, 'GET')).gmt_audit
   await fillAnd('بدي بطاريات للكاميرا');
   out = await pg.evaluate(() => document.querySelector('.sc-ov [data-out]').innerText);
   ok(/بطارية كانون/.test(out), 'مجموعة «بطاريات» تقترح الموجود: ' + out.split('\n').filter(l => /بطارية/.test(l)).slice(0, 2).join(' | '));
-  // ٥) صورة بلا وسيط ⇒ تنبيه صريح
+  // ٥) صورة والوسيط لا يردّ ⇒ تنبيه صريح (منذ TASK-0153/0218 رابط الوسيط مثبَّت دائماً على دالّة النظام — «بلا وسيط» = لا يردّ)
+  await ctx.route('**/functions/v1/gmt-brain**', r => r.abort());
   const png = await pg.evaluate(() => { const c = document.createElement('canvas'); c.width = 200; c.height = 120; const x = c.getContext('2d'); x.fillStyle = '#ccc'; x.fillRect(0, 0, 200, 120); return c.toDataURL('image/png').split(',')[1]; });
   await pg.setInputFiles('.sc-ov [data-fi]', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }); await pg.waitForSelector('.sc-ov [data-rm]');
-  await pg.fill('.sc-ov [data-t]', ''); await pg.click('.sc-ov [data-go]'); await pg.waitForTimeout(2500);
+  await pg.fill('.sc-ov [data-t]', ''); await pg.click('.sc-ov [data-go]'); await pg.waitForFunction(() => document.querySelector('.sc-ov [data-out]').innerText.trim().length > 10, null, { timeout: 30000 }).catch(() => {});
   out = await pg.evaluate(() => document.querySelector('.sc-ov [data-out]').innerText);
-  ok(/قراءة الصور تحتاج وسيط/.test(out), 'صورة بلا وسيط ⇒ تقول ذلك صراحةً (لا تتظاهر)');
+  ok(/قراءة الصور تحتاج وسيط|تعذّر الاتصال بالوسيط/.test(out), 'صورة والوسيط لا يردّ ⇒ تقول ذلك صراحةً (لا تتظاهر): ' + (out.match(/(قراءة الصور تحتاج وسيط|تعذّر الاتصال بالوسيط)[^.]*/) || [''])[0]);
   // ٦) باركود في الصورة ⇒ مطابقة بيقين بلا ذكاء
   await pg.evaluate(() => document.querySelector('.sc-ov [data-rm]').click());
   const bc = await pg.evaluate(async () => { await new Promise(r => { const s = document.createElement('script'); s.src = 'lib/JsBarcode.all.min.js'; s.onload = r; document.head.appendChild(s); }); const c = document.createElement('canvas'); JsBarcode(c, '7777000004', { format: 'CODE128', width: 3, height: 90, displayValue: true, margin: 20 }); return c.toDataURL('image/png').split(',')[1]; });
@@ -58,16 +59,16 @@ const audit = async () => ((await H.call('/__dump', undefined, 'GET')).gmt_audit
   await browser.close();
 
   // ═ بوسيط ذكاء وهميّ ═
-  ({ browser, ctx, pg, errs } = await H.open('home.html', { init: init + " localStorage.setItem('gmt_brain_endpoint','https://mock-brain.test/fn');", w: 430, h: 900, wait: 5000 }));
+  ({ browser, ctx, pg, errs } = await H.open('home.html', { init, w: 430, h: 900, wait: 5000 }));   // الوسيط الوهميّ على رابط دالّة النظام نفسه (حارس الرابط يرفض غيره)
   let sent = null;
-  await ctx.route('https://mock-brain.test/**', async r => {
+  await ctx.route('**/functions/v1/gmt-brain**', async r => {
     sent = JSON.parse(r.request().postData() || '{}');
     await r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ image_used: true, provider: 'gemini', analysis: {
       summary: 'يريد بطارية LP-E6NH وحامل ثلاثي', wanted: [
         { what: 'بطارية LP-E6NH', kind: 'accessory', matched_barcode: '7777000001', availability: 'in_stock' },
         { what: 'حامل ثلاثي كاربون', kind: 'accessory', matched_barcode: null, availability: 'none', specs: 'خفيف' }], reply: 'أهلاً فيك، البطارية متوفرة بـ 60$. والحامل حالياً غير متوفر.', notes: '' } }) });
   });
-  await pg.route('https://mock-brain.test/**', async r => { if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST' } }); return r.fallback(); });
+  await pg.route('**/functions/v1/gmt-brain**', async r => { if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST' } }); return r.fallback(); });
   await pg.evaluate(() => GMTBrain.analyzeScreen()); await pg.waitForSelector('.sc-ov [data-t]');
   await pg.setInputFiles('.sc-ov [data-fi]', { name: 'p.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }); await pg.waitForSelector('.sc-ov [data-rm]');
   await pg.fill('.sc-ov [data-t]', 'بدي بطارية ولا حامل'); await pg.click('.sc-ov [data-go]');
