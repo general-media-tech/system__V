@@ -611,6 +611,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-notify.js?v=20261101o" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
+  <script src="gmt-store-sync.js?v=20261101q" defer></script>
 
 
 <!-- LOGIN -->
@@ -1254,7 +1255,18 @@ async function _mergeProducts(local){
 async function updateField(field,value){
     if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
     const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
-    if (field === 'products') _snapProds(value);
+    if (field === 'products') { _familyImagesToInv(value); _snapProds(value); }
+}
+/* (TASK-0298 · المالك seq 315) «الفلاتر والأغطية والكفرات: إذا غيّرت فيهم ترتيب أو أضفت عليهم صورة تنضاف للكل حتى في الجرد ليس فقط في المتجر»
+   قائمةٌ بخيارات مربوطة بمنتجات الجرد (العائلة) تغيّرت صورها هنا ⇒ كلّ منتجات الجرد فيها تأخذ التغيير (gmt-store-sync.js) */
+function _familyImagesToInv(list){
+    if (!window.GMTStoreSync || !GMTStoreSync.listingImagesToInv) return;
+    (list || []).forEach(p => {
+        const b = _prodBase.get(String(p.id)); if (!b || !GMTStoreSync.famIds(p).length) return;
+        let old; try { old = JSON.parse(b); } catch (_) { return; }
+        if (JSON.stringify(old.images || []) === JSON.stringify(p.images || [])) return;
+        GMTStoreSync.listingImagesToInv(old, p).then(n => { if (n) showToast('🖼️ وطُبّقت صور «' + (p.name || '') + '» على ' + n + ' منتج في الجرد'); }).catch(e => showToast('⚠️ الصور حُفظت في المتجر — وتعذّر تطبيقها في الجرد: ' + (e && e.message || e), 'error'));
+    });
 }
 
 async function loadAllData(){
@@ -3660,7 +3672,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101p"></script>
+<script src="gmt-whatsnew.js?v=20261101q"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

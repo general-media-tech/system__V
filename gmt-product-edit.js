@@ -555,6 +555,8 @@
       if (!inv.name) { say('❌ الاسم مطلوب', true); return; }
       if (!(inv.price >= 0)) { say('❌ السعر غير صحيح', true); return; }
       var patch = changed(inv), sp = S.sp, sUpd = null;
+      /* (TASK-0298 · المالك seq 315) منتجٌ من عائلة (قيمة في خيارات قائمة: فلتر 58mm من «فلتر UV») ⇒ سعره ومواصفاته لقيمته لا للعائلة كلّها */
+      var fam = !!(sp && global.GMTStoreSync && GMTStoreSync.famIds && String(sp.inv_id || '') !== String(p.id) && GMTStoreSync.famIds(sp).indexOf(String(p.id)) !== -1);
       if (S.source && patch.specs) { patch.specs_source = S.source; patch.specs_checked_at = new Date().toISOString(); }
       if (sp) {
         var g = function (k) { var e = $('[data-s="' + k + '"]'); return e ? e.value.trim() : ''; };
@@ -566,6 +568,7 @@
         sUpd = {};
         Object.keys(want).forEach(function (k) { if (JSON.stringify(want[k]) !== JSON.stringify(k === 'price' ? num(sp[k]) : (sp[k] == null ? (k === 'description' || k === 'video_url' ? '' : sp[k]) : sp[k]))) sUpd[k] = want[k]; });
         if (patch.specs || 'compat' in patch) { var fs = global.GMTSpecs ? GMTSpecs.forStore(inv.specs) : []; sUpd.specs = fs; sUpd.compat = inv.compat || ''; }
+        if (fam) { delete sUpd.price; delete sUpd.specs; delete sUpd.compat; }
         if (!Object.keys(sUpd).length) sUpd = null;
       }
       if (!Object.keys(patch).length && !sUpd) { say('لا تغيير لحفظه'); return; }
@@ -580,6 +583,14 @@
         if (sUpd) {
           st = await GMTSpecs.pushToStore(p, { only: function (cur) { var o = {}; for (var k in sUpd) o[k] = sUpd[k]; if (!('description' in o) && sUpd.specs && inv.specs.__desc) { var d = String(cur.description || ''); if (d.indexOf(inv.specs.__desc) === -1) o.description = inv.specs.__desc + (d ? '\n' + d : ''); } return o; } });
           if (!st) throw new Error('لم يُعثر على منتج المتجر المربوط');
+        }
+        if (fam) {
+          var vf = {};
+          if ('price' in patch) vf.price = inv.price;
+          if (patch.specs && global.GMTSpecs) vf.specs = GMTSpecs.forStore(inv.specs);
+          if ('compat' in patch) vf.compat = inv.compat || '';
+          if (Object.keys(vf).length) { var vr = await GMTStoreSync.setValueFields(p.id, vf); if (vr && vr.changed) st = st || { id: vr.sid }; }
+          if (sUpd && sUpd.images) await GMTStoreSync.listingImagesToInv(sp, Object.assign({}, sp, { images: sUpd.images }), { skip: p.id });
         }
         say('✅ حُفظ' + (Object.keys(patch).length ? ' في الجرد' : '') + (st ? (Object.keys(patch).length ? ' والمتجر' : ' في المتجر') : ''));
         if (ctx.onSaved) try { ctx.onSaved(p, { inv: patch, store: sUpd }); } catch (_) {}

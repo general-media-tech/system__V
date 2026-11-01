@@ -104,5 +104,63 @@
     return { removed: removed.length, moved, keepSid: res && res.keepSid };
   }
 
-  global.GMTStoreSync = { removeFor, mergeInto, sidOf };
+  /* ══ (TASK-0298 · المالك seq 315) «الفلاتر أو المجموعات مثل الفلاتر والأغطية والكفرات: إذا غيّرت فيهم ترتيب أو أضفت عليهم صورة
+        تنضاف للكل حتى في الجرد ليس فقط في المتجر · الأغطية والفلاتر حسب الأقطار يختلف السعر — عوامل التصفية بتغيّر السعر لما يحدّد الشخص»
+     العائلة = قائمة متجر بخيارات، كلّ قيمة منها مربوطة بمنتج جرد (inv_id): فلتر UV ⇐ 43 · 49 · 58mm … ══ */
+  const famIds = sp => { const s = new Set(); (Array.isArray(sp && sp.options) ? sp.options : []).forEach(o => (Array.isArray(o && o.values) ? o.values : []).forEach(v => { if (v && v.inv_id) s.add(String(v.inv_id)); })); return [...s]; };
+  const familyOf = (prods, invId) => (prods || []).find(sp => sp && String(sp.inv_id || '') !== String(invId) && famIds(sp).indexOf(String(invId)) !== -1) || null;
+  /* صور منتجٍ من العائلة بعد تغيّر صور القائمة: المحذوف يُحذف · الجديد يُضاف · والترتيب ترتيب القائمة · وصوره الخاصّة (ليست في القائمة) تبقى بعدها */
+  function imgsAfter(member, oldL, newL) {
+    const oldS = new Set(oldL), newS = new Set(newL), own = (member || []).filter(u => !oldS.has(u) && !newS.has(u));
+    return newL.filter(u => u).concat(own.filter(u => newL.indexOf(u) === -1));
+  }
+  const imgsOf = p => { const a = []; [p && p.image_url].concat(Array.isArray(p && p.images) ? p.images : []).forEach(u => { if (u && typeof u === 'string' && a.indexOf(u) === -1) a.push(u); }); return a; };
+  /* صور قائمة العائلة تغيّرت (أدمن المتجر · عمود المتجر في صفحة التعديل) ⇒ منتجات الجرد في العائلة تأخذ التغيير — يُرجع عددها */
+  async function listingImagesToInv(oldSp, newSp, opt) {
+    opt = opt || {};
+    const d = M(); if (!d || !newSp) return 0;
+    const oldL = (Array.isArray(oldSp && oldSp.images) ? oldSp.images : []).filter(Boolean), newL = (Array.isArray(newSp.images) ? newSp.images : []).filter(Boolean);
+    if (!newL.length || JSON.stringify(oldL) === JSON.stringify(newL)) return 0;
+    const ids = famIds(newSp).filter(id => !opt.skip || String(id) !== String(opt.skip)); if (!ids.length) return 0;
+    const H = { apikey: d.key, Authorization: 'Bearer ' + d.key };
+    const r = await fetch(d.url + '/rest/v1/products?select=id,name,image_url,images&id=in.(' + ids.map(encodeURIComponent).join(',') + ')', { headers: H });
+    const rows = r.ok ? await r.json() : []; let n = 0;
+    for (const p of (Array.isArray(rows) ? rows : [])) {
+      const cur = imgsOf(p), nx = imgsAfter(cur, oldL, newL);
+      if (!nx.length || JSON.stringify(cur) === JSON.stringify(nx)) continue;
+      const w = await fetch(d.url + '/rest/v1/products?id=eq.' + encodeURIComponent(p.id), { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify({ image_url: nx[0], images: nx }) });
+      const ok = w.ok && ((await w.json().catch(() => [])) || []).length;
+      if (ok) { n++; if (typeof opt.onRow === 'function') try { opt.onRow(p.id, { image_url: nx[0], images: nx }); } catch (_) {} }
+    }
+    if (n) audit({ action: 'family_images', field: 'images', entity: 'products', entity_id: String(newSp.id), entity_name: newSp.name || '', new_value: String(n), reason: 'المالك seq 315: صور العائلة (ترتيب/إضافة/حذف) تصل لكل منتجاتها في الجرد' });
+    return n;
+  }
+  /* سعر منتجٍ من العائلة ⇒ سعر قيمته في القائمة · الخيار يغيّر السعر عند الاختيار (affectsPrice) · سعر القائمة الظاهر = أقلّ سعرٍ موجب («يبدأ من») ·
+     ومواصفاته (إن أُعطيت) تصير مواصفات قيمته لا مواصفات العائلة كلّها */
+  async function setValueFields(invId, f) {
+    f = f || {};
+    return edit(prods => {
+      const sp = familyOf(prods, invId); if (!sp) return { changed: false };
+      let changed = false;
+      const options = (sp.options || []).map(o => {
+        const hit = (o.values || []).some(v => v && String(v.inv_id || '') === String(invId)); if (!hit) return o;
+        const values = (o.values || []).map(v => {
+          if (!v || String(v.inv_id || '') !== String(invId)) return v;
+          const nv = Object.assign({}, v);
+          if (f.price != null && Number(v.price || 0) !== Number(f.price)) { nv.price = Number(f.price) || 0; changed = true; }
+          if (Array.isArray(f.specs) && f.specs.length && JSON.stringify(v.specs || []) !== JSON.stringify(f.specs)) { nv.specs = f.specs; changed = true; }
+          if (f.compat && v.compat !== f.compat) { nv.compat = f.compat; changed = true; }
+          return nv;
+        });
+        if (f.price != null && !o.affectsPrice) { changed = true; return Object.assign({}, o, { values, affectsPrice: true }); }
+        return Object.assign({}, o, { values });
+      });
+      if (!changed) return { changed: false };
+      const ps = []; options.forEach(o => { if (o.affectsPrice) (o.values || []).forEach(v => { const x = Number(v && v.price || 0); if (x > 0) ps.push(x); }); });
+      const next = Object.assign({}, sp, { options }); if (f.price != null) next.price = ps.length ? Math.min.apply(null, ps) : 0;
+      return { changed: true, sid: sp.id, products: prods.map(x => x === sp ? next : x) };
+    });
+  }
+
+  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields };
 })(window);

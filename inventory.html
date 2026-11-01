@@ -2297,7 +2297,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-enrich.js?v=20261027c"></script>
 <script src="gmt-specs.js?v=20261029z4"></script>
 <script src="gmt-gallery.js?v=20261029z4" defer></script>
-<script src="gmt-product-edit.js?v=20261029z4" defer></script>
+<script src="gmt-product-edit.js?v=20261101q" defer></script>
 <script src="gmt-enrich-queue.js?v=20261029z4"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
@@ -6947,6 +6947,9 @@ async function saveProduct() {
         if (window.GMTCache) GMTCache.bulkPut('inv_products', [allProducts[idx]]).catch(()=>{});
         /* (TASK-0197) صورةٌ تغيّرت ⇒ تنضمّ لصور المتجر المربوط */
         if (product.image_url && (!existingProduct || product.image_url !== existingProduct.image_url)) invImageToStore(allProducts[idx], product.image_url);
+        /* (TASK-0298 · seq 315) منتجٌ من عائلة في المتجر (قطر فلتر/غطاء) ⇒ سعره الجديد سعرُ قيمته — الخيار يغيّر السعر عند الاختيار */
+        if (window.GMTStoreSync && GMTStoreSync.setValueFields && existingProduct && Number(product.price) !== Number(existingProduct.price))
+          GMTStoreSync.setValueFields(editingProductId, { price: Number(product.price) || 0 }).then(r => { if (r && r.changed) { _gmtStoreCat = null; showToast('🛒 وتحدّث سعر هذا الخيار في المتجر', 'success'); } }).catch(() => {});
       }
     }
 
@@ -8412,33 +8415,45 @@ window.invOpenFullEdit = invOpenFullEdit;
    المنتجات التي تشارك هذا المنتج **مجموعة الصور نفسها** (صورتان فأكثر · بأيّ ترتيب) تأخذ ما حفظتَه: الحذف والإضافة والترتيب.
    وقائمة كلٍّ منها في المتجر: صور الجرد الجديدة أوّلاً بالترتيب نفسه، وما زاد عليها في المتجر وحده يبقى بعدها. ══ */
 async function invShareImages(p, oldImgs, newImgs) {
-  if (!p || !Array.isArray(oldImgs) || oldImgs.length < 2 || !Array.isArray(newImgs) || !newImgs.length) return 0;
+  if (!p || !Array.isArray(oldImgs) || !Array.isArray(newImgs) || !newImgs.length) return 0;
   if (JSON.stringify(oldImgs) === JSON.stringify(newImgs)) return 0;
-  const key = a => a.slice().sort().join('\n'), k0 = key(oldImgs);
-  const sibs = allProducts.filter(x => x && String(x.id) !== String(p.id) && _imgsOf(x).length === oldImgs.length && key(_imgsOf(x)) === k0);
-  if (!sibs.length) return 0;
-  const patch = { image_url: newImgs[0], images: newImgs.slice() };
+  const key = a => a.slice().sort().join('\n'), k0 = key(oldImgs), oldSet = new Set(oldImgs);
+  const SS = window.GMTStoreSync, after = (cur) => SS && SS.imgsAfter ? SS.imgsAfter(cur, oldImgs, newImgs) : newImgs.slice();
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  /* (TASK-0298 · seq 315) عائلة المتجر: القائمة التي هذا المنتج قيمةٌ في خياراتها (فلتر UV ⇐ أقطاره) */
+  let rec0 = null, famSp = null;
+  try { const g0 = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H }); rec0 = g0.ok ? (await g0.json())[0] : null; } catch (_) {}
+  if (rec0 && SS && SS.familyOf) famSp = SS.familyOf(Array.isArray(rec0.products) ? rec0.products : [], p.id);
+  const famIds = famSp ? SS.famIds(famSp) : [];
+  const shares = x => { const a = _imgsOf(x); if (!a.length) return true; const hit = a.filter(u => oldSet.has(u)).length; return hit * 2 >= Math.min(a.length, oldImgs.length); };
+  const sibs = allProducts.filter(x => x && String(x.id) !== String(p.id) && (
+    (oldImgs.length >= 2 && _imgsOf(x).length === oldImgs.length && key(_imgsOf(x)) === k0) ||
+    (famIds.indexOf(String(x.id)) !== -1 && shares(x))));
   let done = 0;
   for (const x of sibs) {
+    const nx = after(_imgsOf(x)); if (!nx.length || JSON.stringify(nx) === JSON.stringify(_imgsOf(x))) continue;
+    const patch = { image_url: nx[0], images: nx };
     const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(x.id)}`, patch);
     if (error) continue;
     Object.assign(x, patch); done++;
     if (window.GMTCache) GMTCache.bulkPut('inv_products', [x]).catch(() => {});
   }
-  /* المتجر: قوائم الشبيهات (قائمة هذا المنتج نفسه تحفظها صفحة التعديل) */
+  /* المتجر: قوائم الشبيهات + قائمة العائلة (قائمة هذا المنتج المنفردة تحفظها صفحة التعديل) */
   const own = (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1];
-  const sids = [...new Set(sibs.map(x => (/#product=([^&]+)/.exec(String(x.store_url || '')) || [])[1]).filter(s => s && s !== own).map(decodeURIComponent))];
+  const sids = [...new Set(sibs.map(x => (/#product=([^&]+)/.exec(String(x.store_url || '')) || [])[1]).filter(s => s && s !== own).map(decodeURIComponent).concat(famSp ? [String(famSp.id)] : []))];
   if (sids.length) {
-    const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY }, oldSet = new Set(oldImgs);
     for (let i = 0; i < 3; i++) {
       const g = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
       if (!g.ok) throw new Error('المتجر HTTP ' + g.status);
       const rec = (await g.json())[0]; if (!rec) break;
+      let ch = false;
       const next = (Array.isArray(rec.products) ? rec.products : []).map(sp => {
         if (sids.indexOf(String(sp.id)) === -1) return sp;
-        const extra = (Array.isArray(sp.images) ? sp.images : []).filter(u => u && !oldSet.has(u) && newImgs.indexOf(u) === -1);
-        return Object.assign({}, sp, { images: newImgs.concat(extra) });
+        const cur = Array.isArray(sp.images) ? sp.images : [], nx = after(cur);
+        if (JSON.stringify(nx) === JSON.stringify(cur)) return sp;
+        ch = true; return Object.assign({}, sp, { images: nx });
       });
+      if (!ch) break;
       let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
       if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
       const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
@@ -8447,7 +8462,7 @@ async function invShareImages(p, oldImgs, newImgs) {
       if (Array.isArray(rows) && rows.length) { _gmtStoreCat = null; try { localStorage.removeItem('sbc_store'); } catch (_) {} break; }
     }
   }
-  if (done) showToast('🖼️ وطُبّقت الصور وترتيبها على ' + done + ' منتج يشاركه الصور نفسها' + (sids.length ? ' (وقوائمها في المتجر)' : ''), 'success');
+  if (done) showToast('🖼️ وطُبّقت الصور وترتيبها على ' + done + ' منتج ' + (famSp ? 'من عائلة «' + (famSp.name || '') + '»' : 'يشاركه الصور نفسها') + (sids.length ? ' (وفي المتجر)' : ''), 'success');
   try { renderAll(); } catch (_) {}
   return done;
 }
@@ -16427,8 +16442,8 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101p"></script>
-<script src="gmt-store-sync.js?v=20261101n" defer></script>
+<script src="gmt-whatsnew.js?v=20261101q"></script>
+<script src="gmt-store-sync.js?v=20261101q" defer></script>
 <script src="gmt-merge-review.js?v=20261101n" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
