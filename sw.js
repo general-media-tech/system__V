@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261101v';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261101w';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -98,6 +98,19 @@ self.addEventListener('message', (e) => {
 
 function isLib(url) { return LIB_HOSTS.includes(url.hostname); }
 
+/* (١ ت2 · المالك seq 329 «لما بتبعث تحديثات ما عم تنزل») «الشبكة أوّلاً» كانت تمرّ بكاش المتصفّح العاديّ، وGitHub Pages
+   يسمح له بإعادة الملفّ نفسه ١٠ دقائق (max-age=600) ⇒ بعد النشر تُفتح الصفحة القديمة بنصّها القديم وأرقام ?v= القديمة.
+   الآن: الصفحات وكلّ ملفٍّ بلا ?v= تُسأل عنها الخادمَ كلّ مرّة (no-cache: إن لم تتغيّر يردّ «لم يتغيّر» بلا تنزيل).
+   الملفّات ذات ?v= يتغيّر رابطها مع كلّ نشر فتبقى كما هي. */
+async function fresh(req, url) {
+  const page = req.mode === 'navigate' || /\.html$/.test(url.pathname) || /\/$/.test(url.pathname);
+  if (!page && url.search) return fetch(req);
+  if (req.mode !== 'navigate') return fetch(req, { cache: 'no-cache' });
+  /* طلب التنقّل لا يُنسخ بخيارات ⇒ نطلب رابطه؛ وإن أعاد الخادم توجيهاً نترك المتصفّح يتبعه بطلبه الأصليّ */
+  const res = await fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' });
+  return res.redirected ? fetch(req) : res;
+}
+
 /* سلسلة السقوط عند الانقطاع — من الأدقّ إلى الأعمّ، وصفحة الخطأ آخرها */
 async function offlineFallback(c, req) {
   let hit = await c.match(req);
@@ -144,7 +157,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       const c = await caches.open(PAGES);
       try {
-        const res = await fetch(req);
+        const res = await fresh(req, url);
         if (res && res.ok) c.put(req, res.clone());
         return res;
       } catch (err) {

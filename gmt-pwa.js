@@ -20,7 +20,10 @@
     b.id = 'gmt-pwa-bar';
     /* (٨ ث — تدقيق المطابقة) كان شريطاً عائماً أسفل الشاشة يغطّي أزرار الصفحة (زرّ الدفع في نقطة البيع مثلاً).
        قاعدتك: لا شيء عائم — صار سطراً ثابتاً أعلى الصفحة، في مكانه، كشريط الفحص الذاتي. */
-    b.style.cssText = 'position:relative;z-index:5;background:#0f172a;' +
+    /* (١ ت2 · المالك seq 329 «ما عم يجيني انه لازم احدث السيستم») السطر كان في مكانه أعلى الصفحة فقط ⇒ لم يُرَ:
+       الرئيسية تكون منزلقةً فيبقى فوق الشاشة، وشريط بحث المتجر (والانترو) يغطّيه. الآن: يلتصق بأعلى الشاشة فوق كلّ شيء
+       (sticky لا fixed: يبقى سطراً في مكانه، ولا يغطّي شيئاً حين تكون الصفحة في أعلاها) حتى «تحديث الآن» أو «لاحقاً». */
+    b.style.cssText = 'position:sticky;position:-webkit-sticky;top:0;z-index:2147483000;background:#0f172a;' +
       'color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;' +
       'font-family:Cairo,Tahoma,sans-serif;font-size:13px;font-weight:700;direction:rtl';
     b.innerHTML =
