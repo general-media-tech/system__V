@@ -19,8 +19,9 @@ cur = []
 for u in [p.get('image_url')] + list(p.get('images') or []):
     if u and u not in cur: cur.append(u)
 new = []
-# (المالك seq 347) لا تكثير: 4 صور فأكثر ⇒ لا إضافة · الناقص يُكمَّل حتى 6 فقط
-room = 0 if len(cur) >= 4 else max(0, 6 - len(cur))
+# (المالك seq 347/351) لا تكثير: 4 صور فأكثر ⇒ لا إضافة إلا بطلب صريح في المهمّة ("more": true) · السقف 7 صور (المدموج متعدّد الخيارات مستثنى: "multi": true)
+cap = 99 if job.get('multi') else 7
+room = max(0, cap - len(cur)) if (len(cur) < 4 or job.get('more') or job.get('multi')) else 0
 for f in job.get('imgs', [])[:room]:
     b = open(f, 'rb').read(); ext = 'png' if f.endswith('.png') else 'jpg'
     path = 'catalog/%s/%s.%s' % (pid, hashlib.md5(b).hexdigest()[:12], ext)

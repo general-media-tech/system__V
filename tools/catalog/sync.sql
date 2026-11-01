@@ -1,4 +1,4 @@
--- (المالك seq 347) الصور: الموجودة في القائمة أوّلاً ثمّ الجديدة حتى 6 فقط — لا تكثير، ولا يُحذف شيء موجود
+-- (المالك seq 347) الصور: الموجودة في القائمة أوّلاً ثمّ الجديدة حتى 7 فقط (seq 351) — لا تكثير، ولا يُحذف شيء موجود
 -- مزامنة منتجات الجرد المُثراة إلى قوائمها في المتجر (المالك seq 344) — تُستبدل __IDS__ بقائمة المعرّفات
 with k as (select '<STORE_ANON_KEY من gmt-config.js: GMT_DB.STORE.key>'::text k),
 ids(id) as (select unnest(array[__IDS__]::text[])),
@@ -11,7 +11,7 @@ fx as (select el.o, case when i.id is null then el.x else
   || jsonb_build_object('images', (select jsonb_agg(u order by mo) from (select u, min(oo) mo from (
         select u, n oo from jsonb_array_elements_text(coalesce(el.x->'images','[]')) with ordinality q(u,n)
         union all select i.image_url, 1000 where coalesce(i.image_url,'') <> ''
-        union all select u, 1000+n from jsonb_array_elements_text(coalesce(i.images,'[]'::jsonb)) with ordinality q(u,n)) z where coalesce(u,'') <> '' and u !~ '^data:' group by u order by mo limit greatest(6, jsonb_array_length(coalesce(el.x->'images','[]')))) zz))
+        union all select u, 1000+n from jsonb_array_elements_text(coalesce(i.images,'[]'::jsonb)) with ordinality q(u,n)) z where coalesce(u,'') <> '' and u !~ '^data:' group by u order by mo limit greatest(7, jsonb_array_length(coalesce(el.x->'images','[]')))) zz))
   || case when length(coalesce(i.specs->>'__desc','')) > length(coalesce(el.x->>'description','')) then jsonb_build_object('description', i.specs->>'__desc') else '{}'::jsonb end
   || jsonb_build_object('specs', coalesce((select jsonb_agg(case when i.specs ? (e->>'label') and coalesce(i.specs->>(e->>'label'),'') <> '' then jsonb_set(e, '{value}', to_jsonb(i.specs->>(e->>'label'))) else e end order by n)
         from jsonb_array_elements(coalesce(el.x->'specs','[]'::jsonb)) with ordinality q(e,n)
