@@ -6,7 +6,10 @@ const NGINX = '<html>\r\n<head><title>405 Not Allowed</title></head>\r\n<body bg
   await H.seed();
   const init = H.ADMIN_INIT + `try{localStorage.setItem('gmt_brain_endpoint','https://static-host.example/system__V/')}catch(e){}`;
   const { browser, ctx, pg, errs } = await H.open('home.html', { init, w: 430, h: 900, wait: 5000 });
-  await pg.route('https://static-host.example/**', r => r.fulfill({ status: 405, contentType: 'text/html', body: NGINX }));
+  /* (TASK-0294 · ١ ت٢) منذ «أمان الوسيط v2» الرابط المحفوظ على الجهاز لا يُقبل إلا إن كان دالّة مشروعنا — غيره يُتجاهل ويُستعمل الرابط الرسمي.
+     فالـ405 يُحاكى على الرابط الرسمي نفسه (كأنّ بوّابةً أمامه ردّت بصفحة nginx). */
+  const OFFICIAL = '**/functions/v1/gmt-brain**';
+  await pg.route(OFFICIAL, r => r.fulfill({ status: 405, contentType: 'text/html', body: NGINX }));
   // ١) الخطأ الخام صار شرحاً
   const r1 = await pg.evaluate(async () => { try { await GMTBrain.ask('ما رأيك بجو اليوم وهل يصلح للتصوير الخارجي؟'); return { ok: true }; } catch (e) { return { msg: e.message, fix: !!e.fixEndpoint }; } });
   console.log(JSON.stringify(r1).slice(0, 400));
@@ -25,16 +28,15 @@ const NGINX = '<html>\r\n<head><title>405 Not Allowed</title></head>\r\n<body bg
   // ٣) set() يرفض ولا يحفظ
   const s1 = await pg.evaluate(async () => { try { await GMTEndpoint.set('brain', 'https://general-media-tech.github.io/system__V/'); return 'saved'; } catch (e) { return 'rejected: ' + e.message; } });
   ok(/^rejected/.test(s1) && /GitHub Pages/.test(s1), 'GMTEndpoint.set يرفض رابط GitHub Pages: ' + s1.slice(0, 60));
-  ok(await pg.evaluate(() => localStorage.getItem('gmt_brain_endpoint') === 'https://static-host.example/system__V/'), 'ولم يلمس القيمة المحفوظة');
+  ok(await pg.evaluate(() => !/github\.io/.test(localStorage.getItem('gmt_brain_endpoint') || '')), 'ولم يحفظ الرابط المرفوض');
   // ٤) شرح بقية الرموز
   const ex = await pg.evaluate(() => [404, 401, 403, 429, 500, 0].map(c => GMTEndpoint.explain(c, '', 'https://x.supabase.co/functions/v1/gmt-brain')));
   ok(/404/.test(ex[0]) && /no-verify-jwt/.test(ex[1]) && /no-verify-jwt/.test(ex[2]) && /429/.test(ex[3]) && /سجلّات/.test(ex[4]) && /CORS/.test(ex[5]), 'شرح 404/401/403/429/500/0 كلٌّ بسببه وحلّه');
   // ٥) رابط الوسيط المضبوط نفسه رابط موقع ⇒ يُرفض قبل أيّ طلب
   await pg.evaluate(() => localStorage.setItem('gmt_brain_endpoint', 'https://general-media-tech.github.io/system__V/'));
-  const r2 = await pg.evaluate(async () => { try { await GMTBrain.ask('سؤال آخر عن شيءٍ لا يعرفه النظام محلياً أبداً؟'); return { ok: true }; } catch (e) { return { msg: e.message, fix: !!e.fixEndpoint }; } });
-  ok(!r2.ok && /GitHub Pages/.test(r2.msg) && r2.fix, 'رابط GitHub Pages المحفوظ مسبقاً يُكشف قبل الإرسال: ' + (r2.msg || '').slice(0, 70));
+  const r2 = await pg.evaluate(() => GMTEndpoint.get('brain'));
+  ok(/\/functions\/v1\/gmt-brain/.test(r2) && !/github\.io/.test(r2), 'رابط GitHub Pages محفوظ مسبقاً ⇒ يُتجاهل ويُستعمل رابط الدالّة الرسمي: ' + r2);
   // ٦) الواجهة: شرحٌ + زرّ التصحيح
-  await pg.evaluate(() => localStorage.setItem('gmt_brain_endpoint', 'https://static-host.example/system__V/'));
   await pg.evaluate(() => GMTBrain.open());
   await pg.waitForSelector('#gb-send', { timeout: 5000 });
   await pg.fill('#gb-in, #gb-input, textarea, input[type=text]', 'ما رأيك بجو اليوم وهل يصلح للتصوير الخارجي؟').catch(() => {});
