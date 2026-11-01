@@ -19,7 +19,9 @@ cur = []
 for u in [p.get('image_url')] + list(p.get('images') or []):
     if u and u not in cur: cur.append(u)
 new = []
-for f in job.get('imgs', []):
+# (المالك seq 347) لا تكثير: 4 صور فأكثر ⇒ لا إضافة · الناقص يُكمَّل حتى 6 فقط
+room = 0 if len(cur) >= 4 else max(0, 6 - len(cur))
+for f in job.get('imgs', [])[:room]:
     b = open(f, 'rb').read(); ext = 'png' if f.endswith('.png') else 'jpg'
     path = 'catalog/%s/%s.%s' % (pid, hashlib.md5(b).hexdigest()[:12], ext)
     req('POST', '/storage/v1/object/products-images/' + path, raw=b, headers={'Content-Type': 'image/png' if ext == 'png' else 'image/jpeg', 'x-upsert': 'true'})
