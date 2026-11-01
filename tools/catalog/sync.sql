@@ -13,7 +13,10 @@ fx as (select el.o, case when i.id is null then el.x else
         union all select i.image_url, 1000 where coalesce(i.image_url,'') <> ''
         union all select u, 1000+n from jsonb_array_elements_text(coalesce(i.images,'[]'::jsonb)) with ordinality q(u,n)) z where coalesce(u,'') <> '' and u !~ '^data:' group by u order by mo limit greatest(6, jsonb_array_length(coalesce(el.x->'images','[]')))) zz))
   || case when length(coalesce(i.specs->>'__desc','')) > length(coalesce(el.x->>'description','')) then jsonb_build_object('description', i.specs->>'__desc') else '{}'::jsonb end
-  || jsonb_build_object('specs', coalesce(el.x->'specs','[]'::jsonb) || coalesce((select jsonb_agg(jsonb_build_object('label',kv.key,'value',kv.value #>> '{}')) from jsonb_each(coalesce(i.specs,'{}'::jsonb)) kv
+  || jsonb_build_object('specs', coalesce((select jsonb_agg(case when i.specs ? (e->>'label') and coalesce(i.specs->>(e->>'label'),'') <> '' then jsonb_set(e, '{value}', to_jsonb(i.specs->>(e->>'label'))) else e end order by n)
+        from jsonb_array_elements(coalesce(el.x->'specs','[]'::jsonb)) with ordinality q(e,n)
+        -- (seq 248) الحقل الذي حذفته المراجعة من الجرد (مسجَّل في gmt_audit.meta.dropped) يُحذف من القائمة أيضاً · القيمة المصحَّحة في الجرد تحلّ محلّ القديمة
+        where not (not (i.specs ? (e->>'label')) and (e->>'label') in (select jsonb_object_keys(a.meta->'dropped') from gmt_audit a where a.action = 'catalog_enrich' and a.entity_id::text = i.id and jsonb_typeof(a.meta->'dropped') = 'object'))), '[]'::jsonb) || coalesce((select jsonb_agg(jsonb_build_object('label',kv.key,'value',kv.value #>> '{}')) from jsonb_each(coalesce(i.specs,'{}'::jsonb)) kv
         where kv.key !~ '^__' and coalesce(kv.value #>> '{}','') <> ''
           and not exists (select 1 from jsonb_array_elements(coalesce(el.x->'specs','[]'::jsonb)) e where e->>'label' = kv.key)), '[]'::jsonb))
   || case when coalesce(el.x->>'compat','') = '' and coalesce(i.compat,'') <> '' then jsonb_build_object('compat', i.compat) else '{}'::jsonb end
