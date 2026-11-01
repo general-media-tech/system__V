@@ -8385,7 +8385,12 @@ async function invOpenFullEdit(id, opt) {
       return r && !r.error ? r.url : null;
     },
     saveInv: async patch => {
+      const oldImgs = _imgsOf(p);                                                    // (TASK-0297) قبل الحفظ — لمعرفة من يشاركه الصور نفسها
       let r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, patch);
+      if (!r.error && ('images' in patch || 'image_url' in patch)) {
+        const after = Object.assign({}, p, patch);
+        invShareImages(p, oldImgs, _imgsOf(after)).catch(e => showToast('⚠️ الصور حُفظت لهذا المنتج — وتعذّر تطبيقها على شبيهاته: ' + (e && e.message || e), 'warning'));
+      }
       if (r.error && /category|brand|alt_names|search_terms|PGRST204|schema cache/i.test(String(r.error))) {
         const p2 = Object.assign({}, patch); ['category', 'brand', 'alt_names', 'search_terms'].forEach(k => delete p2[k]);
         r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, p2);
@@ -8402,6 +8407,51 @@ async function invOpenFullEdit(id, opt) {
   });
 }
 window.invOpenFullEdit = invOpenFullEdit;
+/* ══ (TASK-0297 · المالك seq 313، رسالة ٣١ ت١ ١٠:٤٤م) «حتى شكل ترتيب الصور خلاص بعد له في احد الفلاتر — اللي مكرره نفسها —
+   بيتعدل على الكل سواء طريقه العرض في المتجر او في الجرد … وبينطبق على الكل سواء الفلاتر او الكفرات او الأغطية»
+   المنتجات التي تشارك هذا المنتج **مجموعة الصور نفسها** (صورتان فأكثر · بأيّ ترتيب) تأخذ ما حفظتَه: الحذف والإضافة والترتيب.
+   وقائمة كلٍّ منها في المتجر: صور الجرد الجديدة أوّلاً بالترتيب نفسه، وما زاد عليها في المتجر وحده يبقى بعدها. ══ */
+async function invShareImages(p, oldImgs, newImgs) {
+  if (!p || !Array.isArray(oldImgs) || oldImgs.length < 2 || !Array.isArray(newImgs) || !newImgs.length) return 0;
+  if (JSON.stringify(oldImgs) === JSON.stringify(newImgs)) return 0;
+  const key = a => a.slice().sort().join('\n'), k0 = key(oldImgs);
+  const sibs = allProducts.filter(x => x && String(x.id) !== String(p.id) && _imgsOf(x).length === oldImgs.length && key(_imgsOf(x)) === k0);
+  if (!sibs.length) return 0;
+  const patch = { image_url: newImgs[0], images: newImgs.slice() };
+  let done = 0;
+  for (const x of sibs) {
+    const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(x.id)}`, patch);
+    if (error) continue;
+    Object.assign(x, patch); done++;
+    if (window.GMTCache) GMTCache.bulkPut('inv_products', [x]).catch(() => {});
+  }
+  /* المتجر: قوائم الشبيهات (قائمة هذا المنتج نفسه تحفظها صفحة التعديل) */
+  const own = (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1];
+  const sids = [...new Set(sibs.map(x => (/#product=([^&]+)/.exec(String(x.store_url || '')) || [])[1]).filter(s => s && s !== own).map(decodeURIComponent))];
+  if (sids.length) {
+    const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY }, oldSet = new Set(oldImgs);
+    for (let i = 0; i < 3; i++) {
+      const g = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
+      if (!g.ok) throw new Error('المتجر HTTP ' + g.status);
+      const rec = (await g.json())[0]; if (!rec) break;
+      const next = (Array.isArray(rec.products) ? rec.products : []).map(sp => {
+        if (sids.indexOf(String(sp.id)) === -1) return sp;
+        const extra = (Array.isArray(sp.images) ? sp.images : []).filter(u => u && !oldSet.has(u) && newImgs.indexOf(u) === -1);
+        return Object.assign({}, sp, { images: newImgs.concat(extra) });
+      });
+      let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+      if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+      const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+      if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+      const rows = await w.json().catch(() => null);
+      if (Array.isArray(rows) && rows.length) { _gmtStoreCat = null; try { localStorage.removeItem('sbc_store'); } catch (_) {} break; }
+    }
+  }
+  if (done) showToast('🖼️ وطُبّقت الصور وترتيبها على ' + done + ' منتج يشاركه الصور نفسها' + (sids.length ? ' (وقوائمها في المتجر)' : ''), 'success');
+  try { renderAll(); } catch (_) {}
+  return done;
+}
+window.invShareImages = invShareImages;
 /* (TASK-0233 · seq 161) «تتعبى هي الماركه تلقائيا» — في نافذة إضافة منتج أيضاً: الماركة الفارغة تُستنتج من الاسم (ماركات منتجاتك + الشائعة) */
 function pm2AutoBrand() {
   const b = document.getElementById('f-brand'), n = document.getElementById('f-name');
@@ -16377,7 +16427,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101o"></script>
+<script src="gmt-whatsnew.js?v=20261101p"></script>
 <script src="gmt-store-sync.js?v=20261101n" defer></script>
 <script src="gmt-merge-review.js?v=20261101n" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

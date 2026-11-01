@@ -4866,8 +4866,37 @@ function renderBcManualTab() {
   body.innerHTML = `
     <input type="text" id="bc-search" placeholder="🔍 ابحث بالاسم أو الباركود..." oninput="renderBcProductList()"
       style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:10px;box-sizing:border-box;">
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="bc-all-stock" onclick="bcSelectAllStock()" style="flex:1;min-width:180px;background:#fff;border:1.5px solid var(--red);color:var(--red);border-radius:9px;padding:8px 10px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">☑️ كل منتجات فرعي بكمياتها</button>
+      <button onclick="bcClearSel()" style="background:#fff;border:1.5px solid var(--border);color:var(--text2);border-radius:9px;padding:8px 10px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">مسح التحديد</button>
+    </div>
+    <div id="bc-sel-sum" style="font-size:11px;color:var(--text3);margin:-4px 0 8px;"></div>
     <div id="bc-product-list"></div>`;
   renderBcProductList();
+}
+/* (TASK-0297 · المالك seq 313 «داخل نقطة البيع في لازم خيار طباعة باركود لكل المنتجات مع كمياتها»)
+   ضغطةٌ واحدة: كلّ منتج في مخزون هذا الفرع (كميته > 0) ⇐ ملصقاتٌ بعدد كميته — يُعدَّل العدد لكلّ منتج قبل الطباعة كالمعتاد */
+function bcSelectAllStock() {
+  _bcSelectedProducts = {};
+  allProducts.forEach(p => {
+    if (!p || p._is_offer || String(p.id).startsWith('OFFER_')) return;
+    const q = Number(p[branch.key]) || 0;
+    if (q > 0) _bcSelectedProducts[p.id] = { name: p.name, barcode: p.barcode || '', price: p.price, qty: q };
+  });
+  const n = Object.keys(_bcSelectedProducts).length;
+  document.getElementById('bc-generate-btn').disabled = !n;
+  if (!n) showToast('لا منتجات بكمية في مخزون فرعك', 'err');
+  renderBcProductList();
+}
+function bcClearSel() {
+  _bcSelectedProducts = {};
+  document.getElementById('bc-generate-btn').disabled = true;
+  renderBcProductList();
+}
+function bcSelSummary() {
+  const el = document.getElementById('bc-sel-sum'); if (!el) return;
+  const v = Object.values(_bcSelectedProducts), labels = v.reduce((s, x) => s + (Number(x.qty) || 0), 0), noBc = v.filter(x => !x.barcode).length;
+  el.textContent = v.length ? `محدَّد: ${v.length} منتج · ${labels} ملصق` + (noBc ? ` · ${noBc} بلا باركود (يُطبع اسمه وسعره)` : '') : '';
 }
 
 function renderBcProductList() {
@@ -4880,6 +4909,7 @@ function renderBcProductList() {
     if (window.GMTSuggest && GMTSuggest.hitsProduct) return GMTSuggest.hitsProduct(q, p);
     return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.alt_names||'').toLowerCase().includes(q);
   }).slice(0, 60);
+  bcSelSummary();
   const el = document.getElementById('bc-product-list');
   if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">لا نتائج</div>'; return; }
   el.innerHTML = list.map(p => {
@@ -4910,6 +4940,7 @@ function toggleBcProduct(id, checked) {
 }
 function updateBcQty(id, val) {
   if (_bcSelectedProducts[id]) _bcSelectedProducts[id].qty = Math.max(1, parseInt(val)||1);
+  bcSelSummary();
 }
 
 // ── تبويب: فاتورة نقل / فاتورة مشتريات واردة لفرعي ──
@@ -10653,7 +10684,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101o"></script>
+<script src="gmt-whatsnew.js?v=20261101p"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
