@@ -284,7 +284,45 @@
     click: function () {           /* نقرةٌ خافتة جداً لأزرار الواجهة */
       tone({ f: 1250, type: 'sine', dur: .028, gain: .06, attack: .002, lp: 2600 });
     },
+
+    /* ── (TASK-0032 · المالك seq 307 «منظومة الأصوات … اشتغل عليها» · الخطة البند ٣)
+       «أصواتٌ لما لا صوت له اليوم — تحديث النظام · مزامنة/حفظ · وصول إشعار · اكتمال تنزيل · خطأ شبكة» — من السلّم نفسه ── */
+    update: function () {          /* نسخةٌ جديدة من النظام: ثلاث نغماتٍ صاعدة سريعة ولمعة */
+      tone({ f: Cs5, type: 'sine', dur: .16, gain: .22, at: 0 });
+      tone({ f: E5,  type: 'sine', dur: .16, gain: .22, at: .09 });
+      tone({ f: A5,  type: 'sine', dur: .45, gain: .24, at: .18, lp: 6000 });
+      noise({ from: 4000, to: 9000, dur: .35, gain: .03, at: .2, band: true, q: .9 });
+    },
+    sync: function () {            /* أُرسل ما كان محفوظاً في الجهاز (مزامنة): نفَسٌ صاعد ثمّ نغمةٌ مستقرّة */
+      noise({ from: 600, to: 2600, dur: .22, gain: .06, band: true, q: .8 });
+      tone({ f: A5, type: 'sine', dur: .30, gain: .18, at: .16, lp: 5200 });
+    },
+    download: function () {        /* اكتمل تنزيل ملف: هبوطٌ قصير ثمّ «استقرار» في المكان */
+      tone({ f: E6, f2: A5, type: 'sine', dur: .16, gain: .18, attack: .004, lp: 6500 });
+      tone({ f: 140, f2: 90, type: 'sine', dur: .12, gain: .22, at: .14, attack: .003 });
+      tone({ f: E5, type: 'triangle', dur: .30, gain: .14, at: .17, lp: 4200 });
+    },
+    offline: function () {         /* انقطع الإنترنت: نغمتان منخفضتان مكتومتان (لا ذعر — النظام يعمل بلا إنترنت) */
+      tone({ f: 294, type: 'triangle', dur: .22, gain: .20, lp: 900 });
+      tone({ f: 220, type: 'triangle', dur: .38, gain: .18, at: .16, lp: 800 });
+    },
+    online: function () {          /* عاد الإنترنت: عكسُ الانقطاع */
+      tone({ f: 220, type: 'sine', dur: .16, gain: .18, lp: 1600 });
+      tone({ f: 330, type: 'sine', dur: .30, gain: .18, at: .12, lp: 2200 });
+    },
   };
+
+  /* (TASK-0032) أسماءٌ عربية لمعرض التجربة — بالترتيب الذي تُعرض به */
+  var LABELS = [
+    ['brand', 'العلامة الصوتية — فتح النظام'], ['pop', 'فقاعة — انبثاق الشعار والنوافذ'], ['nav', 'انتقال بين الشاشات'],
+    ['click', 'نقرة زرّ'], ['back', 'رجوع'], ['open', 'فتح لوحة'], ['close', 'إغلاق لوحة'],
+    ['login', 'تسجيل الدخول'], ['logout', 'تسجيل الخروج'], ['success', 'نجاح / حفظ'], ['warn', 'تنبيه'], ['error', 'خطأ'],
+    ['cash', 'فاتورة / تحصيل'], ['moneyOut', 'مصروف / سحب'], ['order', 'أوردر جديد'], ['customer', 'عميل جديد'],
+    ['del', 'حذف'], ['copy', 'نسخ'], ['scan', 'قراءة باركود'], ['tick', 'عدّاد الأرقام'],
+    ['notify', 'وصول إشعار'], ['update', 'نسخة جديدة من النظام'], ['sync', 'مزامنة ما حُفظ بلا إنترنت'],
+    ['download', 'اكتمال تنزيل'], ['offline', 'انقطاع الإنترنت'], ['online', 'عودة الإنترنت'],
+    ['store', 'فتح المتجر'], ['warranty', 'فتح الكفالة'], ['truck', 'الشاحنة — التتبّع'], ['horn', 'زمّور الشاحنة']
+  ];
 
   /* ── التشغيل ───────────────────────────────────────────────────────── */
   function play(name, opt) {
@@ -331,7 +369,7 @@
     /* (2026-10-04 ي) أيقونةٌ خطّيّة من الطقم الموحّد بدل الرمز التعبيريّ — والرمزُ احتياطٌ فقط */
     var ico = (global.GMTIcon && GMTIcon.has('volume')) ? GMTIcon.svg(on ? 'volume' : 'mute', 16) : null;
     if (ico) b.innerHTML = ico; else b.textContent = on ? '🔊' : '🔇';
-    b.title = on ? 'الأصوات تعمل — اضغط للكتم' : 'الأصوات مكتومة — اضغط للتشغيل';
+    b.title = (on ? 'الأصوات تعمل — اضغط للكتم' : 'الأصوات مكتومة — اضغط للتشغيل') + ' · اضغط مطوّلاً لمعرض الأصوات';
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   function mountToggle() {
@@ -343,7 +381,12 @@
     b.type = 'button';
     b.className = 'u-btn u-btn--ghost u-btn--sm';
     b.style.cssText = 'min-width:34px;padding:0 8px;';
-    b.onclick = function () { setOn(!isOn()); };
+    b.onclick = function () { if (b.__lp) { b.__lp = 0; return; } setOn(!isOn()); };
+    /* (TASK-0032) ضغطةٌ مطوّلة (أو زرّ الفأرة الأيمن) ⇒ معرض الأصوات */
+    var lpT = null;
+    b.addEventListener('pointerdown', function () { lpT = setTimeout(function () { b.__lp = 1; gallery(); }, 600); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, function () { clearTimeout(lpT); }); });
+    b.addEventListener('contextmenu', function (e) { e.preventDefault(); gallery(); });
     bar.appendChild(b);
     paintToggle();
   }
@@ -379,6 +422,8 @@
     if (/(عميل|زبون).*(أُضيف|إضافة|جديد|حُفظ|سُجّل)|(أُضيف|إضافة|سُجّل).*(عميل|زبون)/.test(t)) return 'customer';
     if (/(أوردر|طلب).*(أُنشئ|إنشاء|أُضيف|اعتماد)/.test(t)) return 'order';
     if (/حُذف|تم الحذف|محذوف|أُلغي|تم الإلغاء/.test(t)) return 'del';
+    if (/نُزّل|تم التنزيل|تمّ التنزيل|اكتمل التنزيل|حُمّل الملف/.test(t)) return 'download';     /* (TASK-0032) */
+    if (/مزامنة|تمّت المزامنة|تمت المزامنة|أُرسل ما حُفظ/.test(t)) return 'sync';
     if (/^\s*✅|حُفظ|تم الحفظ|تمّ|تم |نجح|نُسخ/.test(t)) return 'success';
     return null;
   }
@@ -417,12 +462,74 @@
     } catch (_) {}
   }, true);
 
+  /* ═══ (TASK-0032 · المالك seq 307) أحداثُ النظام التي كانت صامتة — تُسمع من مكانٍ واحد بلا لمس الصفحات ═══
+     • نسخة جديدة: gmt-pwa.js يبثّ «gmt-update-available» حين يظهر شريط «تتوفّر نسخة جديدة».
+     • مزامنة: gmt-sync.js يبثّ «gmt-sync-done» حين يُرسَل ما حُفظ في الجهاز بلا إنترنت.
+     • إشعار: gmt-notify.js يبثّ «gmt-notify-count» بالعدد ⇒ صوتٌ فقط حين يزيد عمّا رآه هذا الجهاز آخر مرّة.
+     • تنزيل: الضغط على رابط تنزيل (a[download]) أو رسالةٌ تقول «نُزّل».
+     • الشبكة: انقطاع الإنترنت وعودته (المتصفّح نفسه يخبر). */
+  var NOTIFY_LS = 'gmt_notify_last_n';
+  try {
+    global.addEventListener('gmt-update-available', function () { cue('update'); });
+    global.addEventListener('gmt-sync-done', function () { cue('sync'); });
+    global.addEventListener('offline', function () { cue('offline'); });
+    global.addEventListener('online', function () { cue('online'); });
+    global.addEventListener('gmt-notify-count', function (e) {
+      var n = Number(e && e.detail && e.detail.n) || 0, last = null;
+      try { last = localStorage.getItem(NOTIFY_LS); localStorage.setItem(NOTIFY_LS, String(n)); } catch (_) {}
+      if (last !== null && n > Number(last)) cue('notify');       /* أوّل مرّة على الجهاز: نحفظ فقط بلا صوت */
+    });
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest && e.target.closest('a[download]');
+      if (a) setTimeout(function () { cue('download'); }, 350);
+    }, true);
+  } catch (_) {}
+
+  /* ═══ (TASK-0032) معرضُ الأصوات — «ومعرضٌ تجرّبها منه» ═══
+     يُفتح من أداة «🔊 معرض الأصوات» (home.html?sounds=1) أو بضغطةٍ مطوّلة على زرّ الصوت في الشريط.
+     نافذةٌ وسط الشاشة (لا زرّ عائم): كلّ صوتٍ باسمه العربي وزرّ تشغيل، ومفتاح التشغيل/الكتم في أعلاها. */
+  function gallery() {
+    try {
+      if (document.getElementById('gmt-snd-gal')) return;
+      var ov = document.createElement('div');
+      ov.id = 'gmt-snd-gal';
+      ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'معرض الأصوات');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl;font-family:Cairo,Tahoma,sans-serif';
+      var rows = LABELS.filter(function (x) { return SOUNDS[x[0]]; }).map(function (x) {
+        return '<button type="button" data-snd="' + x[0] + '" data-nosound style="display:flex;align-items:center;gap:10px;width:100%;text-align:start;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:700;color:#0f172a;cursor:pointer">' +
+          '<span aria-hidden="true" style="flex:none;width:30px;height:30px;border-radius:50%;background:#D5001C;color:#fff;display:grid;place-items:center;font-size:12px">▶</span>' +
+          '<span style="flex:1">' + x[1] + '</span></button>';
+      }).join('');
+      ov.innerHTML = '<div style="background:#f8fafc;border-radius:18px;width:min(460px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e2e8f0">' +
+          '<b style="flex:1;font-size:16px;color:#0f172a">🔊 معرض الأصوات</b>' +
+          '<button type="button" data-snd-toggle data-nosound style="border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:6px 12px;font:inherit;font-weight:800;font-size:12.5px;cursor:pointer"></button>' +
+          '<button type="button" data-snd-x data-nosound aria-label="إغلاق" style="border:0;background:transparent;font-size:20px;cursor:pointer;color:#475569">✕</button></div>' +
+        '<div style="padding:8px 16px;font-size:12px;color:#64748b">اضغط أيّ صوت لتسمعه. الأصوات كلّها مصنوعة داخل النظام (بلا ملفّات · تعمل بلا إنترنت).</div>' +
+        '<div style="overflow:auto;padding:4px 16px 16px;display:grid;gap:8px">' + rows + '</div></div>';
+      function paint() {
+        var t = ov.querySelector('[data-snd-toggle]'); if (!t) return;
+        var on = isOn(); t.textContent = on ? 'الأصوات تعمل — كتم' : 'الأصوات مكتومة — تشغيل';
+        t.style.color = on ? '#0f172a' : '#D5001C';
+      }
+      ov.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-snd]');
+        if (b) { unlock(); if (!isOn()) { paint(); return; } play(b.getAttribute('data-snd')); return; }
+        if (e.target.closest('[data-snd-toggle]')) { unlock(); setOn(!isOn()); paint(); return; }
+        if (e.target === ov || e.target.closest('[data-snd-x]')) ov.remove();
+      });
+      document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', esc); } });
+      document.body.appendChild(ov); paint();
+    } catch (_) {}
+  }
+
   global.GMTSound = {
     play: play, unlock: unlock, cue: cue, classify: classifyToast,
     on: function () { setOn(true); }, off: function () { setOn(false); },
     toggle: function () { setOn(!isOn()); },
-    isOn: isOn, list: Object.keys(SOUNDS),
-    mount: mountToggle,
+    isOn: isOn, list: Object.keys(SOUNDS), labels: LABELS,
+    mount: mountToggle, gallery: gallery,
+    last: function () { return lastCueName; },   /* (TASK-0032) آخر حدثٍ صوتيّ — للاختبار */
   };
 
   function boot() {
@@ -432,6 +539,7 @@
     setTimeout(mountToggle, 3000);
     /* لفّ دوالّ الرسائل بعد أن تعرّفها الصفحة (بعضها يُعرَّف متأخّراً) */
     hookAll(); setTimeout(hookAll, 800); setTimeout(hookAll, 2500); setTimeout(hookAll, 6000);
+    try { if (/[?&]sounds=1\b/.test(location.search)) setTimeout(gallery, 400); } catch (_) {}   /* (TASK-0032) أداة «معرض الأصوات» */
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

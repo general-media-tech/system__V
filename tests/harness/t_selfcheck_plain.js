@@ -8,6 +8,8 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
   for (const W of [390, 1366]) {
     const { browser, ctx, pg, errs } = await H.open('orders.html', { w: W, h: W < 500 ? 844 : 900, wait: 4500, mobile: W < 500, init: H.ADMIN_INIT });
     await ctx.route('https://znpakcaizvkwqzhosxvm.supabase.co/**', r => r.abort('namenotresolved'));
+    /* (TASK-0033 · seq 307) «متوقّفة» تُثبَت في فحصين منفصلين ⇒ نحاكي غياباً سابقاً لنفس القاعدة (الغياب الأوّل تنبيهٌ فقط — يختبره t_selfcheck_site) */
+    await pg.evaluate(() => localStorage.setItem('gmt_selfcheck_gone', JSON.stringify({ at: Date.now() - 3600000, dbs: ['SITE'] })));
     // ١) الترجمة نفسها
     const p = await pg.evaluate(async () => { const db = await GMTSelfCheck.checkDatabase(); return { raw: db, x: GMTSelfCheck._plain(db),
       t: GMTSelfCheck._plain({ title: 'جداول مفقودة أو غير متاحة: 2', detail: 'STORE.products مفقود · MAIN.gmt_x (500)' }), a: GMTSelfCheck._plain({ title: 'أصول ناقصة: 3', detail: 'img/a.png · lib/x.js' }) }; });

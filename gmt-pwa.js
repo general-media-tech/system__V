@@ -15,6 +15,7 @@
 
   function banner(onUpdate) {
     if (document.getElementById('gmt-pwa-bar')) return;
+    try { window.dispatchEvent(new CustomEvent('gmt-update-available')); } catch (_) {}   /* (TASK-0032) صوت «نسخة جديدة» في gmt-sound.js */
     var b = document.createElement('div');
     b.id = 'gmt-pwa-bar';
     /* (٨ ث — تدقيق المطابقة) كان شريطاً عائماً أسفل الشاشة يغطّي أزرار الصفحة (زرّ الدفع في نقطة البيع مثلاً).

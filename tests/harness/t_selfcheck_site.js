@@ -14,12 +14,36 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
   const badges = await pg.evaluate(() => [...document.querySelectorAll('span')].filter(s => /سامر/.test(s.textContent)).length);
   ok(brand && brand.level === 'ok' && html === 0 && badges >= 3, `orders.html: الهوية سليمة (#1e40af ×${html} · شارات «من أدخله» ${badges}) — ${brand && brand.title}`);
   /* ② قاعدة الموقع لا تردّ (كالواقع: لا DNS) والبقيّة تردّ */
+  /* (TASK-0033 · seq 307) غيابٌ أوّل = تنبيهٌ يُعاد خلال ساعة (لا شريط أحمر) · تكرّره في فحصٍ منفصل = مشكلةٌ مؤكّدة */
+  await pg.evaluate(() => localStorage.removeItem('gmt_selfcheck_gone'));
   await ctx.route('https://znpakcaizvkwqzhosxvm.supabase.co/**', r => r.abort('namenotresolved'));
+  const db0 = await pg.evaluate(() => GMTSelfCheck.checkDatabase());
+  const due = await pg.evaluate(() => Date.now() - Number(localStorage.getItem('gmt_selfcheck_last')) > 86400000 - 3700000);
+  ok(db0.level === 'warn' && /لم تردّ الآن: SITE/.test(db0.title) && due, 'غيابٌ أوّل ⇒ تنبيه لا مشكلة + إعادة الفحص خلال ساعة: ' + db0.title);
   const db = await pg.evaluate(() => GMTSelfCheck.checkDatabase());
-  ok(db.level === 'bad' && /قاعدةٌ لا تردّ: SITE/.test(db.title) && /محذوف أو موقوف/.test(db.detail) && !/جداول مفقودة/.test(db.title), 'SITE لا تردّ ⇒ «قاعدةٌ لا تردّ» بسببٍ وحلّ: ' + db.title);
+  ok(db.level === 'bad' && /قاعدةٌ لا تردّ: SITE/.test(db.title) && /محذوف أو موقوف/.test(db.detail) && !/جداول مفقودة/.test(db.title), 'تكرّر في فحصٍ ثانٍ ⇒ «قاعدةٌ لا تردّ» بسببٍ وحلّ: ' + db.title);
   await ctx.unroute('https://znpakcaizvkwqzhosxvm.supabase.co/**');
   const db2 = await pg.evaluate(() => GMTSelfCheck.checkDatabase());
   ok(db2.level === 'ok', 'كل القواعد تردّ ⇒ سليم: ' + db2.title);
+  /* تعثّرٌ لحظيّ: أوّل طلبٍ يفشل ثمّ تردّ ⇒ سليم (كان «متوقّفة — محذوفة أو موقوفة») */
+  let n = 0;
+  await ctx.route('https://znpakcaizvkwqzhosxvm.supabase.co/**', r => (n++ === 0 ? r.abort('connectionreset') : r.fallback()));
+  const db3 = await pg.evaluate(() => GMTSelfCheck.checkDatabase());
+  ok(db3.level === 'ok' && n >= 2, `تعثّر لحظيّ ثمّ ردّ ⇒ سليم بعد إعادة المحاولة (${n} طلبات): ` + db3.title);
+  await ctx.unroute('https://znpakcaizvkwqzhosxvm.supabase.co/**');
+  const fresh = await pg.evaluate(() => localStorage.getItem('gmt_selfcheck_gone'));
+  ok(fresh === null, 'بعد ردّها يُنسى الغياب السابق (لا يُؤكَّد لاحقاً على غيابٍ قديم)');
+  /* كل القواعد لا تردّ (لا إنترنت) ⇒ تنبيه لا مشكلة */
+  await ctx.route('**/*.supabase.co/**', r => r.abort('internetdisconnected'));
+  const db4 = await pg.evaluate(() => GMTSelfCheck.checkDatabase());
+  ok(db4.level === 'warn' && /لا اتصال/.test(db4.title), 'لا إنترنت ⇒ تنبيه «لا اتصال» لا «متوقّفة»: ' + db4.title);
+  /* ملفٌّ لم يردّ (الشبكة) ⇒ ليس «ناقصاً» · ملفٌّ 404 ⇒ ناقص */
+  await ctx.route('**/logo.jpg*', r => r.abort('connectionreset'));
+  const as1 = await pg.evaluate(() => { const i = new Image(); i.src = 'logo.jpg'; i.style.display = 'none'; document.body.appendChild(i); return GMTSelfCheck.checkAssets(); });
+  ok(as1.level !== 'bad', 'ملفٌّ لم يردّ بسبب الشبكة ⇒ ليس «أصول ناقصة»: ' + as1.title);
+  await ctx.unroute('**/logo.jpg*');
+  const as2 = await pg.evaluate(() => { const i = new Image(); i.src = 'no_such_file_xyz.png'; i.style.display = 'none'; document.body.appendChild(i); return GMTSelfCheck.checkAssets(); });
+  ok(as2.level === 'bad' && /no_such_file_xyz/.test(as2.detail), 'ملفٌّ غير موجود فعلاً (404) ⇒ «أصول ناقصة»: ' + as2.title);
   await browser.close();
   /* site.html بلا قاعدته ⇒ احتياطيٌّ بلا أخطاء */
   const s = await H.open('site.html', { w: 390, h: 800, wait: 1 });

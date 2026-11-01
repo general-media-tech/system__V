@@ -372,6 +372,7 @@
       var rows = await collect();
       var n = rows.reduce(function (s, r) { return s + ((!r.err && r.n > 0) ? 1 : 0); }, 0);
       paintBadge(n);
+      try { global.dispatchEvent(new CustomEvent('gmt-notify-count', { detail: { n: n } })); } catch (_) {}   /* (TASK-0032) صوت «وصول إشعار» حين يزيد العدد */
     } catch (e) {}
   }
 

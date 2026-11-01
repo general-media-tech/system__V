@@ -56,18 +56,40 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       if (!u || /^(data:|blob:|https?:|#|mailto:|tel:|javascript:|about:)/.test(u)) return;
       urls.add(u.split('?')[0]);
     });
-    var missing = [];
+    /* (TASK-0033 · المالك seq 307 «الفحص الذاتي اللي عم يعطي خطأ كاذب») كان فشلُ الشبكة لحظةً (لا رمز HTTP) يُحسب «ملفّاً ناقصاً»
+       فيظهر شريطٌ أحمر والملفّ موجود. الناقص فعلاً = ردٌّ برمز خطأ (404…). الشبكة المتعثّرة: محاولةٌ ثانية، ثمّ تنبيهٌ لا مشكلة. */
+    var missing = [], unsure = [];
     await Promise.all([...urls].map(async function (u) {
-      try {
-        var r = await fetch(u, { method: 'HEAD', cache: 'no-store' });
-        if (r.status === 405 || r.status === 501) r = await fetch(u, { cache: 'no-store' });   /* (ر) الاستضافة ترفض HEAD — الملفّ موجود */
-        if (!r.ok) missing.push(u + ' (' + r.status + ')');
-      } catch (e) { missing.push(u + ' (تعذّر)'); }
+      for (var a = 0; a < 2; a++) {
+        try {
+          var r = await fetch(u, { method: 'HEAD', cache: 'no-store' });
+          if (r.status === 405 || r.status === 501) r = await fetch(u, { cache: 'no-store' });   /* (ر) الاستضافة ترفض HEAD — الملفّ موجود */
+          if (!r.ok) missing.push(u + ' (' + r.status + ')');
+          return;
+        } catch (e) { if (a === 0) await wait(1500); }
+      }
+      unsure.push(u);
     }));
-    return missing.length
-      ? bad('أصول ناقصة: ' + missing.length, missing.slice(0, 8).join(' · '))
-      : ok('كل أصول الصفحة موجودة (' + urls.size + ')');
+    if (missing.length) return bad('أصول ناقصة: ' + missing.length, missing.slice(0, 8).join(' · '));
+    if (unsure.length) return warn('تعذّر التحقّق من ' + unsure.length + ' ملفّ (الشبكة)', unsure.slice(0, 8).join(' · '));
+    return ok('كل أصول الصفحة موجودة (' + urls.size + ')');
   }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* طلبٌ واحد بمحاولات: فشلُ الشبكة (لا رمز HTTP) يُعاد بعد ١٫٥ ثمّ ٤ ثوانٍ قبل الحكم — الهاتف على شبكةٍ ضعيفة يتعثّر لحظةً
+     فكان الفحص يقول «قاعدة الموقع متوقّفة — محذوفة أو موقوفة» وهي تعمل (لقطة المالك seq 199 · seq 307). */
+  async function probe(url, key) {
+    var delays = [0, 1500, 4000];
+    for (var a = 0; a < delays.length; a++) {
+      if (delays[a]) await wait(delays[a]);
+      try { return await fetch(url, { headers: { apikey: key, Authorization: 'Bearer ' + key }, cache: 'no-store' }); } catch (e) {}
+    }
+    return null;
+  }
+  /* «لا تردّ» تُثبَت في فحصين منفصلين: أوّل مرّة تنبيهٌ ويُعاد الفحص خلال ساعة، والثانية (خلال ٣ أيام) مشكلةٌ مؤكّدة */
+  var GONE_KEY = 'gmt_selfcheck_gone';
+  function goneBefore() { try { var g = JSON.parse(localStorage.getItem(GONE_KEY) || 'null'); return g && Date.now() - g.at < 3 * 86400000 ? g.dbs || [] : []; } catch (_) { return []; } }
+  function rememberGone(list) { try { if (list.length) localStorage.setItem(GONE_KEY, JSON.stringify({ at: Date.now(), dbs: list })); else localStorage.removeItem(GONE_KEY); } catch (_) {} }
 
   /* ② + ③ القواعد والجداول والدوال الحرجة — قراءة فقط */
   async function checkDatabase() {
@@ -75,6 +97,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     var C = global.GMT_CONFIG || {};
     var dbs = global.GMT_DB || C.DATABASES || null;
     if (!dbs) return warn('تعذّر قراءة إعداد القواعد', 'gmt-config.js غير محمّل في هذه الصفحة');
+    if (navigator.onLine === false) return warn('لا اتصال بالإنترنت الآن', 'أُجّل فحص القواعد');
     var out = [], gone = [], probes = {
       MAIN:     ['gmt_orders', 'invoices', 'products', 'branch_transfers', 'gmt_daily_closes'],
       SITE:     ['site_settings', 'agents'],
@@ -85,17 +108,26 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       var d = dbs[k]; if (!d || !d.url || !d.key) continue;
       var tables = probes[k] || [];
       for (var i = 0; i < tables.length; i++) {
-        try {
-          var r = await fetch(d.url + '/rest/v1/' + tables[i] + '?select=*&limit=1',
-            { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
-          if (r.status === 404 || r.status === 400) out.push(k + '.' + tables[i] + ' مفقود');
-          else if (!r.ok) out.push(k + '.' + tables[i] + ' (' + r.status + ')');
-        } catch (e) { gone.push(k); break; }
+        var r = await probe(d.url + '/rest/v1/' + tables[i] + '?select=*&limit=1', d.key);
+        if (!r) { gone.push(k); break; }
+        if (r.status === 404 || r.status === 400) out.push(k + '.' + tables[i] + ' مفقود');
+        else if (!r.ok) out.push(k + '.' + tables[i] + ' (' + r.status + ')');
       }
     }
     /* (TASK-0132) لا ردّ إطلاقاً (خطأ شبكة — لا رمز HTTP) وغيرها يردّ ⇒ المشروع نفسه غير موجود (حُذف أو أُوقف: عنوانه لم يعد له DNS)،
        لا «جداول مفقودة». كانت الرسالة «SITE تعذّر الاتصال» تتكرّر في كل تقرير بلا سبب ولا حلّ. */
     var anyUp = Object.keys(probes).some(function (k) { return gone.indexOf(k) < 0 && probes[k].length && dbs[k] && dbs[k].url && dbs[k].key; });
+    /* (TASK-0033) غيابٌ أوّل ⇒ تنبيه + إعادة الفحص خلال ساعة؛ لا يصير «متوقّفة» إلا إن تكرّر في فحصٍ منفصل */
+    if (gone.length && !anyUp) return warn('لا اتصال بالقواعد الآن', gone.join(' · ') + ' تعذّر الاتصال (لا إنترنت؟) — يُعاد الفحص لاحقاً');
+    var prev = goneBefore();
+    rememberGone(anyUp ? gone : []);
+    var fresh = anyUp ? gone.filter(function (k) { return prev.indexOf(k) < 0; }) : [];
+    if (fresh.length) {
+      try { localStorage.setItem(KEY, String(Date.now() - 86400000 + 3600000)); global.__gmtScRecheck = true; } catch (_) {}
+      if (fresh.length === gone.length && !out.length)
+        return warn('قاعدةٌ لم تردّ الآن: ' + gone.join(' · '), 'لم تردّ بعد ٣ محاولات — قد تكون الشبكة؛ يُعاد الفحص تلقائياً خلال ساعة، وإن تكرّر صار مشكلةً مؤكّدة');
+      gone = gone.filter(function (k) { return fresh.indexOf(k) < 0; });
+    }
     if (gone.length && !out.length) return bad('قاعدةٌ لا تردّ: ' + gone.join(' · '), gone.map(function (k) {
       return anyUp ? k + ': المشروع لا يردّ إطلاقاً (' + (dbs[k].url || '').replace(/^https:\/\//, '').split('.')[0] + ' — محذوف أو موقوف في Supabase) — يُستعاد من لوحة الحساب المالك أو تُنقل جداوله؛ القرار عند المالك. صفحات الموقع تعمل بالاحتياطي.'
                    : k + ' تعذّر الاتصال (لا إنترنت؟)';
@@ -241,7 +273,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
     var bads  = results.filter(function (r) { return r.level === 'bad'; });
     var warns = results.filter(function (r) { return r.level === 'warn'; });
-    try { localStorage.setItem(KEY, String(Date.now())); } catch (_) {}
+    try { if (!global.__gmtScRecheck) localStorage.setItem(KEY, String(Date.now())); global.__gmtScRecheck = false; } catch (_) {}
 
     var tag = '[GMT الفحص الذاتي]';
     if (bads.length) {
@@ -277,6 +309,9 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       return off ? { t: 'لا اتصال بالقواعد الآن', d: 'تأكّد من الإنترنت ثمّ أعد فتح الصفحة.' }
         : { t: ks.map(dbAr).join(' · ') + ' متوقّفة', d: 'لا تردّ إطلاقاً (محذوفة أو موقوفة في حساب القواعد). ' + (ks.indexOf('SITE') !== -1 ? 'الموقع الإلكتروني يعمل بالنسخة الاحتياطية. ' : '') + 'القرار عندك: استرجاعها أو نقل بياناتها إلى القاعدة الرئيسية.' };
     }
+    if ((m = t.match(/^قاعدةٌ لم تردّ الآن: (.+)$/))) return { t: m[1].split(/\s*·\s*/).map(dbAr).join(' · ') + ' لم تردّ الآن', d: 'قد تكون الشبكة — يُعاد الفحص تلقائياً خلال ساعة، ولا تُعدّ مشكلةً إلا إن تكرّرت.' };
+    if (/^لا اتصال بالقواعد الآن/.test(t) || /^لا اتصال بالإنترنت الآن/.test(t)) return { t: 'لا اتصال بالقواعد الآن', d: 'تأكّد من الإنترنت — يُعاد الفحص لاحقاً.' };
+    if ((m = t.match(/^تعذّر التحقّق من (\d+) ملفّ/))) return { t: 'تعذّر التحقّق من ' + m[1] + ' ملفّ', d: 'الشبكة لم تردّ — ليست ملفّاتٍ ناقصة.' };
     if ((m = t.match(/^جداول مفقودة أو غير متاحة: (\d+)/))) {
       var dbs = []; d.split(' · ').forEach(function (x) { var a = dbAr(x); if (dbs.indexOf(a) === -1) dbs.push(a); });
       return { t: 'جزءٌ من البيانات غير متاح (' + m[1] + ')', d: 'في: ' + dbs.join(' · ') + ' — يحتاج تحديثاً في القاعدة؛ أرسل لي صورة هذه الرسالة.' };
