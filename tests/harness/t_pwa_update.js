@@ -55,7 +55,17 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log((c ? '✔ ' : '✘ ')
   ok((await mk()) === 'B', 'بعد النشر بثوانٍ: الرئيسية تُفتح بالنسخة الجديدة B لا القديمة من كاش المتصفّح (max-age=600)');
   VER = 'C'; await pg.goto(B + 'home.html'); await pg.waitForTimeout(1500);
   ok((await mk()) === 'C', 'نشرٌ ثانٍ: النسخة C فوراً');
-  await ctx.close(); await br.close(); srv.close();
+  await ctx.close();
+  // ③ (seq 336/340 «ما عم يوصل على تطبيق الكمبيوتر») حتى لو لم يُطلق المتصفّح أحداث عامل الخدمة إطلاقاً: فحص رقم الإصدار وحده يُظهر الشريط
+  VER = 'D';
+  const c3 = await br.newContext({ viewport: { width: 1366, height: 768 }, serviceWorkers: 'block' }); await c3.addInitScript(H.ADMIN_INIT);
+  const p3 = await c3.newPage(); await p3.goto(B + 'inventory.html'); await p3.waitForTimeout(3500);
+  ok(await p3.evaluate(() => !document.getElementById('gmt-pwa-bar')), 'بلا نشر: لا شريط');
+  VER = 'E'; await p3.evaluate(() => window.dispatchEvent(new Event('focus'))); await p3.waitForTimeout(1500);
+  const s3 = await p3.evaluate(() => { const b = document.getElementById('gmt-pwa-bar'); if (!b) return null; const r = b.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { top: Math.round(r.top), seen: r.top >= 0 && r.bottom <= innerHeight && !!(t && b.contains(t)) }; });
+  ok(s3 && s3.seen, 'عامل الخدمة معطّل تماماً + نشرٌ جديد + العودة للنافذة ⇒ شريط «تتوفّر نسخة جديدة» من فحص رقم الإصدار: ' + JSON.stringify(s3));
+  await c3.close();
+  await br.close(); srv.close();
   console.log(fail ? 'FAIL=' + fail + ' PASS=' + pass : 'ALL PASS (' + pass + ')');
   process.exit(fail ? 1 : 0);
 })();

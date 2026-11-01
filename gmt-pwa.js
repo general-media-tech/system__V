@@ -82,6 +82,35 @@
     console.warn('[GMT] تعذّر تسجيل عامل الخدمة:', e && e.message);
   });
 
+  /* (١ ت2 · المالك seq 336/340 «التحديث ما عم يوصل على تطبيق الكمبيوتر وليس تطبيق الهاتف»)
+     فحصٌ ثانٍ مستقلّ عن أحداث عامل الخدمة: الصفحة تقرأ رقم الإصدار من sw.js مباشرةً من الخادم (بلا كاش) عند فتحها،
+     ثمّ كلّ ٥ دقائق وعند العودة إلى النافذة. تغيّر الرقم ⇐ نُشرت نسخةٌ جديدة بعد فتح هذه الصفحة ⇐ شريط «تحديث الآن»
+     (يطلب تحديث العامل ثمّ يعيد التحميل) — حتى لو لم يُطلق المتصفّح «updatefound» (نافذة تطبيقٍ مفتوحة أيّاماً على الكمبيوتر). */
+  var baseVer = null;
+  function readVer() {
+    return fetch('sw.js?vc=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (t) { var m = /const VERSION\s*=\s*'([^']+)'/.exec(t || ''); return m ? m[1] : null; }).catch(function () { return null; });
+  }
+  function hardUpdate() {
+    userAsked = true;
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      return reg && reg.update().then(function () { if (reg.waiting) reg.waiting.postMessage('skipWaiting'); });
+    }).catch(function () {}).then(function () { setTimeout(function () { if (!reloaded) { reloaded = true; location.reload(); } }, 800); });
+  }
+  function checkVer() {
+    if (document.hidden) return;
+    readVer().then(function (v) {
+      if (!v) return;
+      if (!baseVer) { baseVer = v; return; }
+      if (v !== baseVer) banner(hardUpdate);
+    });
+  }
+  global_onload(function () { checkVer(); setInterval(checkVer, 5 * 60 * 1000); });
+  window.addEventListener('focus', checkVer);
+  document.addEventListener('visibilitychange', checkVer);
+  window.__gmtCheckVer = checkVer;
+  function global_onload(fn) { if (document.readyState === 'complete') fn(); else window.addEventListener('load', fn); }
+
   // بعد تفعيل العامل الجديد: أعد التحميل مرّة واحدة — **بطلبك فقط**
   var reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () {
