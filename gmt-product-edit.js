@@ -125,7 +125,9 @@
     var dl = function (id, list) { return '<datalist id="' + id + '">' + (list || []).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; };
     root.innerHTML =
       '<div class="pe-top"><button type="button" data-pe-x aria-label="إغلاق">✕</button><b>✏️ تعديل المنتج — ' + esc(p.name) + '</b>' +
-        (ctx.onQuick ? '<button type="button" data-pe-quick title="الكميّات في الفروع — النافذة السريعة">📦 الكميّات</button>' : '') +
+        /* (TASK-0299 · المالك seq 320) «زر التعديل … لازم يحتوي على زر اسمه تعديل الكميات» — كمّيات الفروع بفاتورة تسوية في كلّ نقطة بيع تغيّرت */
+        (ctx.onQty ? '<button type="button" data-pe-qty title="كمّيات الفروع ونقاط البيع — بفاتورة تسوية تظهر في سجلّ نقطة البيع">📦 تعديل الكميات</button>'
+          : ctx.onQuick ? '<button type="button" data-pe-quick title="الكميّات في الفروع — النافذة السريعة">📦 الكميّات</button>' : '') +
         '<button type="button" class="p" data-pe-save>💾 احفظ</button></div>' +
       '<div class="pe-msg" role="status" data-pe-msg></div>' +
       '<div class="pe-body">' +
@@ -371,6 +373,7 @@
     };
     var quickB = $('[data-pe-quick]');
     if (quickB) quickB.onclick = function () { close(); ctx.onQuick(p); };
+    var qtyB = $('[data-pe-qty]'); if (qtyB) qtyB.onclick = function () { ctx.onQty(p); };
     /* المتجر */
     var S = { rec: null, sp: null, imgs: [], hidden: [], cats: [] };
     function paintImgs() {

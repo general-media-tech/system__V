@@ -2287,7 +2287,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261029z4" defer></script>
   <script src="gmt-oplog.js?v=20261024g" defer></script>
-  <script src="gmt-stock.js?v=20261029z4" defer></script>
+  <script src="gmt-stock.js?v=20261101r" defer></script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261101o" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -2297,7 +2297,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-enrich.js?v=20261027c"></script>
 <script src="gmt-specs.js?v=20261029z4"></script>
 <script src="gmt-gallery.js?v=20261029z4" defer></script>
-<script src="gmt-product-edit.js?v=20261101q" defer></script>
+<script src="gmt-product-edit.js?v=20261101r" defer></script>
 <script src="gmt-enrich-queue.js?v=20261029z4"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
@@ -8381,6 +8381,7 @@ async function invOpenFullEdit(id, opt) {
     groups: uniq(allProducts.map(x => x.group_name)), categories: uniq(allProducts.map(x => x.category)),
     brands: uniq(allProducts.map(x => x.brand)), autoSpecs: !!opt.autoSpecs, prefill: opt.prefill || null,     // (TASK-0233) الماركة التلقائية من ماركات منتجاتك · المواصفات التلقائية في الصفحة نفسها
     onQuick: p2 => openProductModal(p2.id),                                        // «📦 الكميّات» ⇐ النافذة السريعة
+    onQty: p2 => invQtyAdjust(p2.id),                                              // (TASK-0299) «📦 تعديل الكميات» ⇐ فاتورة تسوية في كلّ نقطة تغيّرت
     stockOf: p2 => { try { return getTotal(p2); } catch (_) { return 0; } },          // (TASK-0247) مخزون المنتج عند إنشائه في المتجر
     uploadImage: async src => {                                                      // (TASK-0245) صورةٌ مضمَّنة ⇒ رابط في products-images (للعدسة) · (TASK-0256) أو ملفٌّ من الجهاز
       const blob = (src instanceof Blob) ? src : await (await fetch(src)).blob();
@@ -8410,6 +8411,59 @@ async function invOpenFullEdit(id, opt) {
   });
 }
 window.invOpenFullEdit = invOpenFullEdit;
+/* ══ (TASK-0299 · المالك seq 320) «زر التعديل في نظام الجرد لازم يحتوي على زر اسمه تعديل الكميات — وفيه تعديل سريع لكمّيات الأفرع
+   أو نقاط البيع، طبعاً مع إنشاء فاتورة تسوية عند نقطة البيع: تمّت إضافة أو خصم، وبتظهر في سجلّ نقطة البيع»
+   الكمّية المكتوبة **مطلقة** (ما في الفرع الآن) · الفرق يُحسب من قراءةٍ حديثة لحظة الاعتماد · كلّ فرعٍ تغيّر ⇐ فاتورة تسوية مستلَمة مقفلة
+   (GMTStock.rebuild — المسار نفسه لفاتورة التسوية في «جرد المخزون» بنقطة البيع) تظهر في سجلّ الفرع · بالكلمة السيادية. ══ */
+async function invQtyAdjust(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('تعديل الكميات'))) return;
+  if (!window.GMTStock || !GMTStock.rebuild) { showToast('وحدة المخزون لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'error'); return; }
+  const brs = columns.filter(c => c.isBranch && c.key && /^[a-z_][a-z0-9_]*$/.test(c.key));
+  if (!brs.length) { showToast('لا فروع معرّفة', 'error'); return; }
+  const g = await sbFetch('GET', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}&select=id,${brs.map(b => b.key).join(',')}`);
+  const fresh = (g && Array.isArray(g.data) && g.data[0]) || p;
+  const toN = v => parseInt(String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim(), 10);
+  const v = await GMTAsk.form('اكتب الكمّية **الموجودة الآن** في كلّ فرع/نقطة بيع. كلّ فرعٍ تتغيّر كمّيته تُصدَر له «فاتورة تسوية» (إضافة أو خصم) تظهر في سجلّ نقطة البيع.', {
+    title: '📦 تعديل الكميات — ' + (p.name || ''), okText: 'متابعة',
+    fields: brs.map(b => ({ k: b.key, label: (b.icon ? b.icon + ' ' : '') + (b.displayName || b.key) + ' (الآن ' + (Number(fresh[b.key]) || 0) + ')', dir: 'ltr', value: String(Number(fresh[b.key]) || 0) }))
+      .concat([{ k: '__why', label: 'السبب (يُكتب على الفاتورة · اختياري)', placeholder: 'مثال: جرد يدوي · قطعة تالفة' }]),
+    submit: x => {
+      for (const b of brs) { const q = toN(x[b.key]); if (!(q >= 0)) return { error: 'الكمّية رقمٌ ٠ أو أكثر', field: b.key }; }
+      return { result: x };
+    }
+  });
+  const x = v && (v.result || v); if (!x) return;
+  const ch = brs.map(b => ({ b, before: Number(fresh[b.key]) || 0, after: toN(x[b.key]) })).filter(r => r.after !== r.before);
+  if (!ch.length) { showToast('لا تغيير في أيّ فرع', 'info'); return; }
+  const why = String(x.__why || '').trim();
+  const ok = await GMTAsk.confirm('«' + p.name + '»\n\n' + ch.map(r => '• ' + (r.b.displayName || r.b.key) + ': ' + r.before + ' ⇐ ' + r.after + ' (' + (r.after > r.before ? '+' : '−') + Math.abs(r.after - r.before) + ')').join('\n') +
+    '\n\nتُصدَر ' + ch.length + ' فاتورة تسوية — وتظهر في سجلّ نقطة البيع.', { title: '🧾 فاتورة تسوية', okText: 'اعتماد' });
+  if (!ok) return;
+  const okPw = window.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 تعديل كمّيات «' + p.name + '» — فاتورة تسوية') : true;
+  if (!okPw) return;
+  const by = (window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || 'الأدمن';
+  const line = r => ({ product_id: p.id, name: p.name || '', barcode: p.barcode || '', image_url: (p.image_url && !/^data:/.test(p.image_url)) ? p.image_url : '',
+    before: r.before, after: r.after, unit_cost: Number(p.wholesale_price) || 0, sale_price: Number(p.price) || 0 });
+  showLoading('🧾 جارٍ إصدار فواتير التسوية…');
+  const done = [], bad = [];
+  try {
+    for (const r of ch) {
+      const R = await GMTStock.rebuild({ branch: { key: r.b.key, name: r.b.displayName || r.b.key }, lines: [line(r)], mode: 'local', by, receivedBy: by, titleTag: 'تسوية من الجرد',
+        kind: 'فاتورة تسوية من الجرد' + (why ? ' — ' + why : '') });
+      if (R && R.numbers && R.numbers.length && !R.failed.length) { done.push({ r, nums: R.numbers }); p[r.b.key] = r.after; }
+      else bad.push({ r, why: (R && (R.error || (R.failed[0] && R.failed[0].why))) || 'تعذّر' });
+    }
+  } finally { hideLoading(); }
+  if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {});
+  try { window.GMTAudit && GMTAudit.log({ action: 'qty_settlement', entity: 'products', entityId: p.id, entityName: p.name,
+    reason: 'تعديل الكميات (فاتورة تسوية) — ' + done.map(d => (d.r.b.displayName || d.r.b.key) + ' ' + d.r.before + '⇐' + d.r.after + ' [' + d.nums.join('+') + ']').join(' · ') + (why ? ' · ' + why : '') }); } catch (_) {}
+  try { renderAll(); } catch (_) {}
+  await GMTAsk.alert((done.length ? '✅ صدرت فاتورة تسوية:\n' + done.map(d => '• ' + (d.r.b.displayName || d.r.b.key) + ': ' + d.r.before + ' ⇐ ' + d.r.after + ' — ' + d.nums.join(' + ')).join('\n') : '') +
+    (bad.length ? '\n\n⚠️ لم تُطبَّق:\n' + bad.map(b => '• ' + (b.r.b.displayName || b.r.b.key) + ': ' + b.why).join('\n') : ''), { title: bad.length ? 'لم تكتمل كلّها' : '🧾 فواتير التسوية' });
+  return { done: done.length, bad: bad.length };
+}
+window.invQtyAdjust = invQtyAdjust;
 /* ══ (TASK-0297 · المالك seq 313، رسالة ٣١ ت١ ١٠:٤٤م) «حتى شكل ترتيب الصور خلاص بعد له في احد الفلاتر — اللي مكرره نفسها —
    بيتعدل على الكل سواء طريقه العرض في المتجر او في الجرد … وبينطبق على الكل سواء الفلاتر او الكفرات او الأغطية»
    المنتجات التي تشارك هذا المنتج **مجموعة الصور نفسها** (صورتان فأكثر · بأيّ ترتيب) تأخذ ما حفظتَه: الحذف والإضافة والترتيب.
@@ -16442,7 +16496,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101q"></script>
+<script src="gmt-whatsnew.js?v=20261101r"></script>
 <script src="gmt-store-sync.js?v=20261101q" defer></script>
 <script src="gmt-merge-review.js?v=20261101n" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

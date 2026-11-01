@@ -400,7 +400,7 @@
       var hd = await rest('POST', 'branch_stock_transfers?select=*', {
         transfer_number: g.num, from_branch: g.from.key, from_branch_name: g.from.name || g.from.key,
         to_branch: g.to.key, to_branch_name: g.to.name || g.to.key, status: 'rebuilding', is_locked: true,
-        title: REBUILD_TITLE + ' — ' + (br.name || br.key) + (groups.length > 1 ? (g.dir === 'up' ? ' · الزيادات' : ' · النقص') : ''),
+        title: REBUILD_TITLE + ' — ' + (br.name || br.key) + (groups.length > 1 ? (g.dir === 'up' ? ' · الزيادات' : ' · النقص') : '') + (opts.titleTag ? ' · ' + String(opts.titleTag).slice(0, 60) : ''),   /* (TASK-0299) «تسوية من الجرد» — البادئة كما هي (isRebuild) */
         created_by: by || null, received_by: rcv || null,
         signature_url: opts.signatureUrl || null,        // (TASK-0237 · seq 164) «اي فاتوره نقل او تسويه او جرد فيها تاكيد من المستخدم وتوقيع»
         note: (opts.kind ? opts.kind + ' — ' : '') + 'إعادة إنشاء «' + (br.name || br.key) + '» — ' + how + (by ? ' · اعتمدها ' + by : '') + (rcv ? ' · المستلم ' + rcv : '') + (opts.signatureUrl ? ' · موقَّعة' : '')
