@@ -718,10 +718,18 @@ function _goToBanner(idx) {
 // ══════════════════════════════════════════════
 // [2] CATEGORIES
 // ══════════════════════════════════════════════
+/* (TASK-0305 · المالك seq 3/242/348/349) شجرة الأقسام: قسمٌ رئيسيّ ⇐ أقسام فرعية (parent_id).
+   الشريط العلوي «تصفح الأقسام» = الرئيسية فقط · المنتجات تُرسم تحت كل رئيسي صفّاً لكل فرعي.
+   قسمٌ بلا parent_id يبقى كما كان تماماً (المتجر الحالي لا يتغيّر حتى تُضاف الشجرة). */
+function _catOrd(a,b){ return (a.order||0)-(b.order||0); }
+function _catHasParent(c){ return !!(c && c.parent_id && store.categories.some(x=>String(x.id)===String(c.parent_id))); }
+function _catTop(){ return store.categories.filter(c=>!_catHasParent(c)).sort(_catOrd); }
+function _catKids(id){ return store.categories.filter(c=>String(c.parent_id||'')===String(id)).sort(_catOrd); }
+function _catOrdered(){ const out=[]; _catTop().forEach(c=>{ out.push(c); _catKids(c.id).forEach(k=>out.push(k)); }); return out; }
 function renderCategories() {
     const container = document.querySelector('[data-container="categories"]');
     const frag = document.createDocumentFragment();
-    [...store.categories].sort((a,b)=>(a.order||0)-(b.order||0)).forEach(cat => {
+    _catTop().forEach(cat => {
         const el = document.createElement('div');
         el.className = 'min-w-[95px] h-[100px] bg-white rounded-[18px] flex flex-col items-center justify-center gap-2 flex-shrink-0 cursor-pointer hover:border-primary/30 transition-all fade-in-up';
         el.style.cssText = 'box-shadow:0 4px 16px rgba(0,0,0,0.08),0 1px 4px rgba(0,0,0,0.04);';
@@ -764,7 +772,7 @@ function renderProducts() {
     const frag = document.createDocumentFragment();
     const _shown = new Set();            // ما رُسم فعلاً — لالتقاط ما لا قسم له
 
-    [...store.categories].sort((a,b)=>(a.order||0)-(b.order||0)).forEach(cat => {
+    _catOrdered().forEach(cat => {
         // collect products for this category
         const prods = store.products
             .filter(p => _getProductCategories(p).includes(cat.id))
@@ -774,11 +782,21 @@ function renderProducts() {
                 const ob = (b.category_orders && b.category_orders[cat.id]) ?? (b.order||0);
                 return oa - ob;
             });
+        /* (TASK-0305) قسمٌ رئيسيّ له فروع: عنوانه فوق صفوف فروعه (والشريط العلوي يقفز إليه) */
+        const kids = _catKids(cat.id);
+        if (kids.length && kids.some(k => store.products.some(p => _getProductCategories(p).includes(k.id))) ) {
+            const ph = document.createElement('h2');
+            ph.className = 'font-bold text-[20px] px-4 mt-8 mb-1';
+            ph.textContent = cat.name;
+            if (!prods.length) { ph.dataset.categorySection = cat.id; frag.appendChild(ph); return; }
+            frag.appendChild(ph);
+        }
         if (!prods.length) return;
 
         const section = document.createElement('section');
-        section.className = 'mt-6';
+        section.className = _catHasParent(cat) ? 'mt-3' : 'mt-6';
         section.dataset.categorySection = cat.id;
+        if (_catHasParent(cat)) section.dataset.categoryParent = cat.parent_id;
 
         // ── Section header ──
         const header = document.createElement('h3');
