@@ -188,6 +188,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261031b"></script>
+  <script src="gmt-store-sync.js?v=20261101t" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -2573,7 +2574,7 @@ async function initStore(){
     try { rec = await fullP; } catch (_) {}
     fullDone = true;
     const y = window.scrollY;
-    if (rec) _applyRecord(rec);
+    if (rec) { _applyRecord(rec); _homeSelfHeal(rec); }
     else if (!lightShown) _applyMock();
     store.__light = false;                     // الكامل وصل ⇒ هو المرجع · أو فشل ⇒ الخفيفة هي ما لدينا (لا انتظار بلا نهاية عند فتح منتج)
     if (rec || !lightShown) { renderAll(); if (lightShown) window.scrollTo(0, y); }
@@ -2582,17 +2583,26 @@ async function initStore(){
     // Apply deep link after render
     setTimeout(_applyDeepLink, 500);
 }
-/* (TASK-0300) نسخة الواجهة الخفيفة من القاعدة الرئيسية (تُحدَّث من المتجر تلقائياً) — أيّ فشل ⇒ null فيبقى المسار القديم كما هو */
+/* (TASK-0300) نسخة الواجهة الخفيفة: ملفٌّ عامّ في تخزين القاعدة الرئيسية (store/home.json · مضغوط) تعيد صفحاتُ الموظّفين كتابته بعد كلّ حفظٍ للمتجر —
+   أيّ فشل ⇒ null فيبقى المسار القديم كما هو */
 async function _fetchStoreHome() {
     try {
         const M = window.GMT_DB && GMT_DB.MAIN; if (!M) return null;
         const ac = ('AbortController' in window) ? new AbortController() : null; const t = ac ? setTimeout(() => ac.abort(), 8000) : 0;
-        const r = await fetch(M.url + '/rest/v1/gmt_store_home?id=eq.1&select=data', { headers: { apikey: M.key, Authorization: 'Bearer ' + M.key }, signal: ac ? ac.signal : undefined });
+        const r = await fetch(M.url + '/storage/v1/object/public/products-images/store/home.json', { signal: ac ? ac.signal : undefined });
         if (t) clearTimeout(t);
         if (!r.ok) return null;
-        const rows = await r.json(); const d = rows && rows[0] && rows[0].data;
+        const d = await r.json();
         return d && Array.isArray(d.products) && d.products.length ? d : null;
     } catch (_) { return null; }
+}
+/* موظّفٌ يفتح المتجر والنسخة الخفيفة أقدم من الكتالوج ⇒ تُحدَّث (الزبون لا يكتب شيئاً) */
+function _homeSelfHeal(rec) {
+    try {
+        const staff = !!localStorage.getItem('gmt_session') || sessionStorage.getItem('gmt_admin_mode') === '1';
+        if (!staff || !rec || rec.__fromCache || !window.GMTStoreSync || !GMTStoreSync.homeRefreshIfStale) return;
+        setTimeout(() => GMTStoreSync.homeRefreshIfStale(rec).catch(() => {}), 2500);
+    } catch (_) {}
 }
 
 function _applyRecord(rec){

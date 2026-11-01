@@ -10,10 +10,10 @@ const light = { categories: cats, banners: [], offers: [], branches: [], __light
   await H.seed();
   await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-11-01T10:00:00Z', categories: cats, banners: [], offers: [], branches: [], products: full }]);
   /* ① الخفيفة موجودة + الكامل يتأخّر ٦ ث */
-  await H.call('/rest/v1/gmt_store_home', [{ id: 1, data: light, src_updated_at: '2026-11-01T10:00:00Z' }]);
-  let o = await H.open('store.html', { w: 390, h: 844, mobile: true, wait: 0 });
+  let o = await H.open('logo.jpg', { w: 390, h: 844, mobile: true, wait: 0 });      // صفحة محايدة أوّلاً: لا كتالوج محفوظ (زائرٌ جديد فعلاً)
+  await o.ctx.route(/\/storage\/v1\/object\/public\/products-images\/store\/home\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(light) }));
   await o.ctx.route(/\/rest\/v1\/gmt_store\?/, async r => { await new Promise(z => setTimeout(z, 6000)); return r.fallback(); });
-  await o.pg.reload({ waitUntil: 'domcontentloaded' });
+  await o.pg.goto(H.BASE + 'store.html', { waitUntil: 'domcontentloaded' });
   const t0 = Date.now();
   await o.pg.waitForFunction(() => !document.getElementById('intro-screen') || getComputedStyle(document.getElementById('intro-screen')).visibility === 'hidden', null, { timeout: 15000 });
   const tIntro = Date.now() - t0;
@@ -28,13 +28,28 @@ const light = { categories: cats, banners: [], offers: [], branches: [], __light
   ok(!real.length, 'لا أخطاء JS: ' + real.slice(0, 2).join(' / '));
   await o.browser.close();
   /* ② بلا نسخة خفيفة (الجدول غير موجود/فارغ) ⇒ كما كان تماماً */
-  await H.call('/__reset_table', { table: 'gmt_store_home' }).catch(() => {});
-  o = await H.open('store.html', { w: 390, h: 844, mobile: true, wait: 0 });
-  await o.ctx.route(/\/rest\/v1\/gmt_store_home\?/, r => r.fulfill({ status: 404, contentType: 'application/json', body: '{"message":"relation does not exist"}' }));
-  await o.pg.reload({ waitUntil: 'domcontentloaded' });
+  o = await H.open('logo.jpg', { w: 390, h: 844, mobile: true, wait: 0 });
+  await o.ctx.route(/\/storage\/v1\/object\/public\/products-images\/store\/home\.json/, r => r.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' }));
+  await o.pg.goto(H.BASE + 'store.html', { waitUntil: 'domcontentloaded' });
   await o.pg.waitForFunction(() => !document.getElementById('intro-screen') || getComputedStyle(document.getElementById('intro-screen')).visibility === 'hidden', null, { timeout: 15000 });
   const c = await o.pg.evaluate(() => ({ light: !!store.__light, cards: [...document.querySelectorAll('h4')].filter(h => /^منتج \d/.test(h.textContent.trim())).length }));
   ok(!c.light && c.cards >= 8, 'بلا نسخة خفيفة ⇒ المسار القديم (الكتالوج الكامل) يعمل كما كان: ' + JSON.stringify(c));
+  await o.browser.close();
+  /* ③ المنتِج: صفحة موظّف (الجرد) — البناء يحذف الثقيل · كلّ حفظٍ للمتجر ⇒ رفع store/home.json بعد ٣ ث */
+  o = await H.open('inventory.html', { w: 1366, h: 900, mobile: false, wait: 4000 });
+  const ups = [];
+  await o.ctx.route(/\/storage\/v1\/object\/products-images\/store\/home\.json/, r => { ups.push(r.request().postData() || ''); r.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"x"}' }); });
+  const built = await o.pg.evaluate(() => {
+    const b = GMTStoreSync.homeBuild({ updated_at: 'U1', categories: [{ id: 'c1' }], products: [{ id: 'a', name: 'A', price: 5, images: ['1', '2', '3', '4', '5'], specs: [{ label: 'x', value: 'y' }], description: 'طويل', alt_names: 'ب', options: [{ type: 'القطر', values: [{ name: '49', price: 3, specs: [1], inv_id: 'i1' }] }] }] });
+    const p = b.products[0];
+    return { light: b.__light, src: b.__src_updated_at, cats: b.categories.length, imgs: p.images.length, specs: 'specs' in p, desc: 'description' in p, alt: 'alt_names' in p, vSpecs: 'specs' in p.options[0].values[0], vPrice: p.options[0].values[0].price, name: p.name };
+  });
+  ok(built.light && built.src === 'U1' && built.cats === 1 && built.imgs === 3 && !built.specs && !built.desc && !built.alt && !built.vSpecs && built.vPrice === 3 && built.name === 'A',
+    'البناء: بلا مواصفات/وصف/أسماء بديلة · ٣ صور · الخيارات بأسعارها بلا مواصفاتها · الأقسام كما هي');
+  await o.pg.evaluate(async () => { const s = GMT_DB.STORE; await fetch(s.url + '/rest/v1/gmt_store?id=eq.1', { method: 'PATCH', headers: { apikey: s.key, Authorization: 'Bearer ' + s.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ updated_at: '2026-11-01T11:00:00Z' }) }); });
+  await o.pg.waitForTimeout(5000);
+  let up = null; try { up = JSON.parse(ups[ups.length - 1] || 'null'); } catch (_) {}
+  ok(ups.length === 1 && up && up.__light && up.__src_updated_at === '2026-11-01T11:00:00Z' && up.products.length === 8 && !('specs' in up.products[0]), 'حفظٌ للمتجر من صفحة موظّف ⇒ رُفعت النسخة الخفيفة الجديدة مرّة واحدة (' + ups.length + ')');
   await o.browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

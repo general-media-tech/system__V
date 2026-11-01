@@ -611,7 +611,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-notify.js?v=20261101o" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
-  <script src="gmt-store-sync.js?v=20261101q" defer></script>
+  <script src="gmt-store-sync.js?v=20261101t" defer></script>
 
 
 <!-- LOGIN -->
@@ -1256,6 +1256,8 @@ async function updateField(field,value){
     if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
     const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
     if (field === 'products') { _familyImagesToInv(value); _snapProds(value); }
+    /* (TASK-0300) أيّ حفظٍ هنا ⇒ نسخة واجهة المتجر الخفيفة تُعاد (عميل supabase هنا لا يمرّ باعتراض fetch) */
+    try { if (window.GMTStoreSync && GMTStoreSync.homePublish) GMTStoreSync.homePublish(); } catch (_) {}
 }
 /* (TASK-0298 · المالك seq 315) «الفلاتر والأغطية والكفرات: إذا غيّرت فيهم ترتيب أو أضفت عليهم صورة تنضاف للكل حتى في الجرد ليس فقط في المتجر»
    قائمةٌ بخيارات مربوطة بمنتجات الجرد (العائلة) تغيّرت صورها هنا ⇒ كلّ منتجات الجرد فيها تأخذ التغيير (gmt-store-sync.js) */
@@ -3672,7 +3674,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101s"></script>
+<script src="gmt-whatsnew.js?v=20261101t"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

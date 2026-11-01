@@ -162,5 +162,70 @@
     });
   }
 
-  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields };
+  /* ══ (TASK-0300 · المالك seq 322) «لازم يحمل له أثناء الانترو، يفتح له الواجهة فوراً … وفي الخلفية تنزل»
+     نسخةٌ خفيفة من واجهة المتجر — ملفّ JSON في التخزين العامّ للقاعدة الرئيسية (products-images/store/home.json · يُضغط brotli ⇒ ~عُشر الكتالوج):
+     بلا مواصفات/وصف/توافق/أسماء بديلة · أوّل ٣ صور · قيم الخيارات بلا مواصفات. تُعاد كتابتها بعد كلّ حفظٍ للمتجر من صفحات الموظّفين
+     (اعتراض fetch هنا + نداءٌ صريح من أدمن المتجر) ومن المتجر نفسه لموظّفٍ يفتحه والنسخة قديمة. لا تغيير على أيّ قاعدة. ══ */
+  const HOME_PATH = 'store/home.json';
+  function homeUrl() { const d = M(); return d ? d.url + '/storage/v1/object/public/products-images/' + HOME_PATH : ''; }
+  function homeBuild(rec) {
+    const strip = (o, keys) => { const x = Object.assign({}, o); keys.forEach(k => delete x[k]); return x; };
+    const products = (Array.isArray(rec && rec.products) ? rec.products : []).map(p => {
+      const x = strip(p, ['specs', 'description', 'compat', 'alt_names', 'video_url', 'search_terms', 'images_hidden']);
+      if (Array.isArray(p.images)) x.images = p.images.slice(0, 3);
+      if (Array.isArray(p.options)) x.options = p.options.map(o => Array.isArray(o && o.values) ? Object.assign({}, o, { values: o.values.map(v => v && typeof v === 'object' ? strip(v, ['specs', 'compat']) : v) }) : o);
+      return x;
+    });
+    return Object.assign(strip(rec || {}, ['products']), { products, __light: true, __src_updated_at: (rec && rec.updated_at) || null, __built_at: new Date().toISOString() });
+  }
+  async function homeUpload(rec) {
+    const d = M(); if (!d || !rec || !Array.isArray(rec.products) || !rec.products.length) return false;
+    const body = JSON.stringify(homeBuild(rec));
+    const w = await fetch(d.url + '/storage/v1/object/products-images/' + HOME_PATH, { method: 'POST',
+      headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', 'x-upsert': 'true', 'cache-control': 'max-age=60' }, body });
+    return w.ok;
+  }
+  let _homeT = null, _homeBusy = false;
+  /* بعد حفظٍ للمتجر: يُقرأ السجلّ الطازج (بعد ٣ ث — حفظاتٌ متتالية تُجمع) وتُرفع النسخة الخفيفة */
+  function homePublish(rec) {
+    clearTimeout(_homeT);
+    return new Promise(res => {
+      _homeT = setTimeout(async () => {
+        if (_homeBusy) { res(false); return; } _homeBusy = true;
+        try {
+          let r = rec;
+          if (!r) { const s = S(); const g = await fetch(s.url + '/rest/v1/gmt_store?id=eq.1&select=*', { headers: { apikey: s.key, Authorization: 'Bearer ' + s.key } }); r = g.ok ? ((await g.json()) || [])[0] : null; }
+          res(await homeUpload(r));
+        } catch (_) { res(false); } finally { _homeBusy = false; }
+      }, rec ? 0 : 3000);
+    });
+  }
+  /* النسخة المنشورة أقدم من هذا السجلّ؟ ⇒ تُرفع (يستدعيه المتجر لموظّفٍ يفتحه) */
+  async function homeRefreshIfStale(rec) {
+    try {
+      const g = await fetch(homeUrl(), { cache: 'no-store' });
+      const cur = g.ok ? await g.json() : null;
+      if (cur && cur.__src_updated_at && rec && cur.__src_updated_at === rec.updated_at) return false;
+      return await homeUpload(rec);
+    } catch (_) { return false; }
+  }
+  /* كلّ كتابةٍ ناجحة على سجلّ المتجر من هذه الصفحة (الجرد · المزامنة · صفحة التعديل · المواصفات) ⇒ نشرٌ مؤجَّل */
+  try {
+    if (global.fetch && !global.__gmtHomeHook) {
+      global.__gmtHomeHook = true;
+      const _f = global.fetch.bind(global);
+      global.fetch = function (input, init) {
+        const p = _f(input, init);
+        try {
+          const url = typeof input === 'string' ? input : (input && input.url) || '', m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+          const s = S();
+          if (s && (m === 'PATCH' || m === 'POST') && url.indexOf(s.url + '/rest/v1/gmt_store') === 0)
+            p.then(r => { if (r && r.ok) homePublish(); }).catch(() => {});
+        } catch (_) {}
+        return p;
+      };
+    }
+  } catch (_) {}
+
+  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale };
 })(window);
