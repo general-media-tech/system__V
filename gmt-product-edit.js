@@ -391,7 +391,8 @@
     function loadStore() { return storeRec().then(function (rec) {
       var sec = $('[data-pe-store]'); S.rec = rec;
       var prods = rec && Array.isArray(rec.products) ? rec.products : [], sp = prods.length && global.GMTSpecs && GMTSpecs._findStore ? GMTSpecs._findStore(prods, p) : null;
-      S.sp = sp;
+      var op = sp && GMTSpecs._optOf ? GMTSpecs._optOf(sp, p) : null;
+      S.sp = sp; S.op = op;
       if (!sp) { unlinked(sec, rec); return; }
       S.imgs = (Array.isArray(sp.images) ? sp.images : []).slice(); S.hidden = (Array.isArray(sp.images_hidden) ? sp.images_hidden : []).map(String);
       /* (TASK-0262) المزامنة: ما في المكان الآخر وغير مخفيٍّ هنا يُلحَق بآخر القائمة (فيُرتَّب ويُحفظ) */
@@ -403,8 +404,10 @@
       var cats = (rec.categories || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       sec.innerHTML = '<h3>🛒 المتجر</h3>' +
         /* (المالك seq 221 «بدي ميزة كثير ضرورية في فكّ ارتباط — ربطت منتج بس بدي أفكّ ارتباطه») */
+        (op ? optBar(sp, op) :
         '<div class="pe-linked" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:#166534">' +
-          '<span style="flex:1;min-width:160px">🔗 مربوط بـ «' + esc(sp.name) + '» في المتجر</span><button type="button" data-pe-unlink style="background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:6px 12px;font:inherit;font-weight:900;cursor:pointer">🔓 فكّ الارتباط</button></div>' +
+          '<span style="flex:1;min-width:160px">🔗 مربوط بـ «' + esc(sp.name) + '» في المتجر</span><button type="button" data-pe-unlink style="background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:6px 12px;font:inherit;font-weight:900;cursor:pointer">🔓 فكّ الارتباط</button></div>') +
+        optsHTML(sp) +
         '<div class="pe-2"><label>الاسم في المتجر<input data-s="name" value="' + esc(sp.name) + '"></label><label>السعر في المتجر $<input data-s="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(sp.price) + '"></label></div>' +
         '<label style="display:flex;align-items:center;font-weight:700"><input type="checkbox" data-s-same> السعر في المتجر = سعر البيع في الجرد</label>' +
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">أقسامه في المتجر</div><div class="pe-cats">' +
@@ -415,7 +418,8 @@
         '<div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">صوره في المتجر <span style="font-weight:700;color:#6b7280">(متزامنة مع الجرد · الأولى هي الرئيسية · الترتيب هنا للمتجر وحده · ✕ يخفيها من المتجر أو يحذفها من الكل)</span></div><div class="pe-imgs" data-pe-imgs></div><div data-pe-sthid></div>' +
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><input data-pe-newimg dir="ltr" placeholder="https://… رابط صورة" style="flex:1;min-width:180px;margin:0"><button type="button" data-pe-addimg>+ أضف</button></div>';
       paintImgs();
-      $('[data-pe-unlink]').onclick = async function () {
+      if (op) wireUnopt(sp, op);
+      if ($('[data-pe-unlink]')) $('[data-pe-unlink]').onclick = async function () {
         var ask = global.GMTAsk && GMTAsk.confirm ? GMTAsk.confirm('يُفكّ ربط «' + (p.name || '') + '» بمنتج المتجر «' + (sp.name || '') + '».\nيبقى المنتجان كما هما (الاسم والسعر والصور والمواصفات) — فقط لا يعودان مربوطين، ويعود كلٌّ منهما «غير مربوط» في الجسر والمتشابهات.', { title: '🔓 فكّ الارتباط', okText: 'فكّ الارتباط', cancelText: 'تراجع' }) : Promise.resolve(true);
         if (!(await ask)) return;
         var b = this, bc = String(p.barcode || '').trim(); b.disabled = true;
@@ -423,12 +427,148 @@
         catch (er) { b.disabled = false; say('❌ لم يُفكّ: ' + (er && er.message || er), true); }
       };
       $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (isHttp(u) && S.imgs.indexOf(u) === -1) { i.value = ''; addFromLink(u); } };
+      wireOptAdd(sp, prods);
       var same = $('[data-s-same]'), spr = $('[data-s="price"]');
       same.checked = num(sp.price) === num(p.price);
       var sync = function () { if (same.checked) { spr.value = $('[data-f="price"]').value; spr.disabled = true; } else spr.disabled = false; };
       same.onchange = sync; $('[data-f="price"]').addEventListener('input', sync); sync();
     }, function (e) { $('[data-pe-store]').innerHTML = '<h3>🛒 المتجر</h3><p class="pe-note" style="color:#b91c1c">تعذّرت قراءة المتجر: ' + esc(e && e.message || e) + '</p>'; }); }
     loadStore();
+    /* ══ (المالك seq 223) «ممكن أنا من داخل المتجر أو من داخل إدارة المنتجات أو من داخل الجرد أعطي أكثر من خيار — بس لازم يكونوا فقط في المتجر
+       عرض الخيارات … كلّهم مربوطين على نفس المنتج في المتجر بس في الفاتورة … في الجرد كلّ واحد منتج لحاله»:
+       منتج الجرد قد يكون خياراً (قيمةً) داخل منتج متجر ⇐ هنا يُعدَّل الخيار وحده (اسمه · سعره · صورته · مواصفاته · توافقه) ولا يُمسّ المنتج الأساسيّ ══ */
+    var BOX = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:#166534';
+    var RBTN = 'background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:6px 12px;font:inherit;font-weight:900;cursor:pointer';
+    function vName(v) { return typeof v === 'string' ? v : (v && v.name) || ''; }
+    function invName(id) { var l = typeof ctx.invList === 'function' ? (ctx.invList() || []) : []; var q = l.filter(function (x) { return x && String(x.id) === String(id); })[0]; return q ? q.name : ''; }
+    /* خيارات منتج المتجر وما يقابل كلّ قيمة في الجرد */
+    function optsHTML(sp) {
+      var os = Array.isArray(sp.options) ? sp.options.filter(function (o) { return o && (o.values || []).length; }) : [];
+      return '<div style="border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:12.5px">' +
+        '<div style="font-weight:900;color:#374151;margin-bottom:4px">🧩 خيارات هذا المنتج في المتجر</div>' +
+        (os.length ? os.map(function (o) { return '<div style="margin:4px 0"><b>' + esc(o.type || 'خيار') + ':</b> ' + o.values.map(function (v) {
+            var id = v && typeof v === 'object' && v.inv_id != null && v.inv_id !== '' ? v.inv_id : null, me = id != null && String(id) === String(p.id);
+            var lab = me ? 'هذا المنتج' : id != null ? (invName(id) || 'منتج جرد') : (v && v.barcode ? 'باركود ' + v.barcode : '');
+            return '<span style="display:inline-block;background:' + (lab ? '#f0fdf4' : '#f9fafb') + ';border:1px solid #e5e7eb;border-radius:8px;padding:2px 8px;margin:2px">' + esc(vName(v)) +
+              (o.affectsPrice && v && v.price != null ? ' · $' + esc(v.price) : '') + '<small style="color:#6b7280;font-weight:700"> — ' + (lab ? '🔗 ' + esc(lab) : 'غير مربوط بالجرد') + '</small></span>'; }).join('') + '</div>'; }).join('')
+          : '<p class="pe-note" style="margin:0">لا خيارات بعد.</p>') +
+        (typeof ctx.invList === 'function' ? '<div class="pe-btns" style="margin-top:6px"><button type="button" data-pe-optadd>➕ أضف منتجاً من الجرد خياراً هنا</button></div><div data-pe-optbox hidden></div>' : '') +
+        '<p class="pe-note" style="margin:2px 0 0">في المتجر منتجٌ واحد يختار الزبون خياره · في الجرد والفاتورة كلّ خيارٍ منتجٌ مستقلّ.</p></div>';
+    }
+    function wireOptAdd(sp, prods) {
+      var b = $('[data-pe-optadd]'), box = $('[data-pe-optbox]'); if (!b || !box) return;
+      b.onclick = function () {
+        box.hidden = !box.hidden; if (box.hidden) return;
+        box.innerHTML = '<input data-po-q placeholder="ابحث في الجرد باسم المنتج أو باركوده"><div data-po-list></div><div data-po-form></div>';
+        var q = box.querySelector('[data-po-q]'), list = box.querySelector('[data-po-list]');
+        var pool = (ctx.invList() || []).filter(function (x) { return x && String(x.id) !== String(p.id) && !(GMTSpecs._findStore && GMTSpecs._findStore(prods, x)); });
+        function paint() {
+          var t = q.value.trim().toLowerCase(), ws = t ? t.split(/\s+/) : String(sp.name || '').toLowerCase().split(/[\s\-_/·،,()]+/).filter(function (w) { return w.length > 1; });
+          var sc = pool.map(function (x) { var n = String(x.name || '').toLowerCase(), k = t && String(x.barcode || '') === t ? 10 : ws.filter(function (w) { return n.indexOf(w) !== -1; }).length; return { x: x, k: t ? (k === ws.length || k === 10 ? k : 0) : k }; })
+            .filter(function (o) { return o.k > 0; }).sort(function (a, c) { return c.k - a.k; }).slice(0, 8);
+          list.innerHTML = sc.length ? sc.map(function (o) { var x = o.x; return '<div class="pe-cand">' + (x.image_url ? '<img alt="" src="' + esc(x.image_url) + '">' : '') + '<span>' + esc(x.name) + '<small>$' + esc(x.price) + (x.barcode ? ' · ' + esc(x.barcode) : '') + '</small></span><button type="button" data-po-pick="' + esc(x.id) + '">اختر</button></div>'; }).join('')
+            : '<p class="pe-note">لا منتج جردٍ غير مربوط بهذا الاسم — اكتب جزءاً من اسمه أو باركوده.</p>';
+        }
+        q.addEventListener('input', paint); paint(); q.focus();
+        list.onclick = function (e) { var k = e.target.closest('[data-po-pick]'); if (!k) return; var x = pool.filter(function (y) { return String(y.id) === k.getAttribute('data-po-pick'); })[0]; if (x) optForm(box.querySelector('[data-po-form]'), sp, x, false); };
+      };
+    }
+    /* استمارة الإضافة: المجموعة (موجودة/جديدة) · القيمة (جديدة/قيمةٌ قائمة غير مربوطة) · الاسم الظاهر للزبون · السعر */
+    function optForm(el, sp, q, self) {
+      var os = Array.isArray(sp.options) ? sp.options : [], diff = function () { var w = String(sp.name || '').toLowerCase().split(/\s+/); return String(q.name || '').split(/\s+/).filter(function (x) { return x && w.indexOf(x.toLowerCase()) === -1; }).join(' ') || q.name || ''; };
+      el.innerHTML = '<div style="border:1.5px dashed #a7f3d0;border-radius:12px;padding:8px 10px;margin-top:8px">' +
+        '<div style="font-weight:900;font-size:12.5px;margin-bottom:6px">🧩 «' + esc(q.name) + '» خياراً في «' + esc(sp.name) + '»</div>' +
+        '<div class="pe-2"><label>مجموعة الخيار<select data-po-g>' + os.map(function (o, i) { return '<option value="' + i + '">' + esc(o.type || ('خيار ' + (i + 1))) + '</option>'; }).join('') + '<option value="-1">➕ مجموعة جديدة</option></select></label>' +
+          '<label data-po-tw>اسم المجموعة الجديدة<input data-po-type value="النسخة"></label></div>' +
+        '<div class="pe-2"><label>القيمة<select data-po-v></select></label><label>اسمه كما يراه الزبون<input data-po-name value="' + esc(diff()) + '"></label></div>' +
+        '<div class="pe-2"><label data-po-mw>اسم خيار المنتج الأساسيّ «' + esc(sp.name) + '»<input data-po-main placeholder="مثلاً: عادي"></label><label data-po-pw>سعر هذا الخيار $<input data-po-price type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(q.price) + '"></label></div>' +
+        '<label data-po-aw style="display:flex;align-items:center;font-weight:700"><input type="checkbox" data-po-aff checked> الخيارات تختلف في السعر</label>' +
+        '<button type="button" class="p" data-po-go style="margin-top:6px">🧩 أضفه خياراً</button></div>';
+      var G = el.querySelector('[data-po-g]'), V = el.querySelector('[data-po-v]'), A = el.querySelector('[data-po-aff]');
+      function sync() {
+        var gi = +G.value, g = os[gi], nw = gi < 0;
+        el.querySelector('[data-po-tw]').hidden = !nw; el.querySelector('[data-po-aw]').hidden = !nw;
+        el.querySelector('[data-po-mw]').hidden = !nw;      // المنتج الأساسيّ يصير القيمة الأولى في المجموعة الجديدة
+        el.querySelector('[data-po-pw]').hidden = nw ? !A.checked : !(g && g.affectsPrice);
+        V.innerHTML = '<option value="-1">➕ قيمةٌ جديدة</option>' + (g ? (g.values || []).map(function (v, vi) { return (v && typeof v === 'object' && (v.inv_id != null && v.inv_id !== '' || v.barcode)) ? '' : '<option value="' + vi + '">' + esc(vName(v)) + ' (غير مربوطة)</option>'; }).join('') : '');
+      }
+      G.onchange = sync; A.onchange = sync; sync();
+      V.onchange = function () { var g = os[+G.value], v = g && g.values[+V.value]; if (v) { el.querySelector('[data-po-name]').value = vName(v); if (g.affectsPrice && v.price != null) el.querySelector('[data-po-price]').value = v.price; } };
+      el.querySelector('[data-po-go]').onclick = async function () {
+        var b = this, f = { gi: +G.value, vi: +V.value, type: el.querySelector('[data-po-type]').value.trim(), aff: A.checked, name: el.querySelector('[data-po-name]').value.trim(),
+          price: num(el.querySelector('[data-po-price]').value), main: el.querySelector('[data-po-main]').value.trim() };
+        if (!f.name) { say('❌ اكتب اسم الخيار كما يراه الزبون', true); return; }
+        if (f.gi < 0 && !f.type) { say('❌ اكتب اسم المجموعة', true); return; }
+        if (f.gi < 0 && !f.main) { say('❌ اكتب اسم خيار المنتج الأساسيّ (يبقى خياراً يختاره الزبون)', true); return; }
+        b.disabled = true;
+        try {
+          await addOpt(sp.id, q, f, self ? sp.inv_id : p.id);
+          var url = storePageUrl(sp.id), r = self ? await ctx.saveInv({ store_url: url }) : await ctx.saveInvOf(q.id, { store_url: url });
+          if (r && r.error) throw new Error('الجرد: ' + r.error);
+          q.store_url = url; if (self) p.store_url = url;
+          say('✅ «' + f.name + '» صار خياراً في «' + sp.name + '» — في الجرد يبقى منتجاً مستقلّاً'); loadStore();
+          if (ctx.onSaved) try { ctx.onSaved(p, { inv: self ? { store_url: url } : {}, option: { sid: sp.id, inv: q.id } }); } catch (_) {}
+        } catch (er) { b.disabled = false; say('❌ ' + (er && er.message || er), true); }
+      };
+    }
+    /* الكتابة: قيمةٌ { name · price · inv_id · barcode · image · specs · compat } في المجموعة — مجموعةٌ جديدة تبدأ بالمنتج الأساسيّ (mainId: منتج جرده إن وُجد) */
+    function addOpt(sid, q, f, mainId) {
+      var bc = String(q.barcode || '').trim(), sf = global.GMTSpecs && GMTSpecs.storeFields ? GMTSpecs.storeFields({ specs: q.specs, compat: q.compat }, {}) : {};
+      var val = { name: f.name, inv_id: q.id }; if (bc) val.barcode = bc;
+      var im = q.image_url || (Array.isArray(q.images) && q.images[0]); if (isHttp(im)) val.image = im;
+      if (sf.specs && sf.specs.length) val.specs = sf.specs; if (sf.compat) val.compat = sf.compat;
+      return storeWrite(function (arr) {
+        var t = arr.filter(function (x) { return x && String(x.id) === String(sid); })[0]; if (!t) throw new Error('منتج المتجر لم يعد موجوداً');
+        var other = arr.filter(function (x) { return x && x !== t && x.inv_id != null && String(x.inv_id) === String(q.id); })[0];
+        if (other) throw new Error('«' + (q.name || '') + '» مربوطٌ بمنتج المتجر «' + (other.name || '') + '» — فكّ ارتباطه أوّلاً');
+        var mine = function (v) { return v && typeof v === 'object' && ((v.inv_id != null && String(v.inv_id) === String(q.id)) || (bc && String(v.barcode || '').trim() === bc)); };
+        var opts = (Array.isArray(t.options) ? t.options : []).map(function (o) { return Object.assign({}, o, { values: ((o && o.values) || []).map(function (v) {     // لا يُربط بقيمتين
+          if (!mine(v)) return v; var c = Object.assign({}, v); delete c.inv_id; if (bc && String(c.barcode || '').trim() === bc) delete c.barcode; return c; }) }); });
+        var upd = {}, g = f.gi >= 0 ? opts[f.gi] : null;
+        if (!g) {
+          g = { type: f.type, affectsPrice: !!f.aff, values: [] };
+          if (f.main) {
+            var mv = { name: f.main }; if (g.affectsPrice) mv.price = num(t.price); if (t.barcode) mv.barcode = String(t.barcode);
+            if (mainId != null && mainId !== '') { mv.inv_id = mainId; if (t.inv_id == null || t.inv_id === '') upd.inv_id = mainId; }   // المنتج الأساسيّ يبقى «مربوطاً» لا خياراً
+            var mi = Array.isArray(t.images) && t.images[0]; if (isHttp(mi)) mv.image = mi;
+            g.values.push(mv);
+          }
+          opts.push(g);
+        }
+        if (g.affectsPrice) val.price = f.price;
+        var vi = f.vi >= 0 && g.values[f.vi] ? f.vi : -1;
+        if (vi < 0) g.values.forEach(function (v, i) { if (vi < 0 && v && typeof v === 'object' && v.inv_id != null && String(v.inv_id) === String(q.id)) vi = i; });
+        if (vi >= 0) { var o0 = g.values[vi]; g.values[vi] = Object.assign({}, typeof o0 === 'object' ? o0 : {}, val, (typeof o0 === 'object' && o0.image) ? { image: o0.image } : {}); }
+        else g.values.push(val);
+        upd.options = opts;
+        return arr.map(function (x) { return x === t ? Object.assign({}, x, upd) : x; });
+      });
+    }
+    /* (seq 223 · مع TASK-0298 seq 315) منتجٌ هو خيارٌ في منتج متجر: الاسم والوصف والأقسام والصور تحته مشتركةٌ للعائلة كلّها ·
+       سعره ومواصفاته وتوافقه لقيمته وحدها عند «💾 احفظ» · واسم الخيار كما يراه الزبون هنا */
+    function optBar(sp, op) {
+      return '<div class="pe-linked" style="' + BOX + '"><span style="flex:1;min-width:160px">🧩 خيار «' + esc(op.v.name) + '»' + (op.type ? ' (' + esc(op.type) + ')' : '') + ' في منتج المتجر «' + esc(sp.name) + '»</span>' +
+          '<button type="button" data-pe-unopt style="' + RBTN + '">🔓 أخرجه من الخيار</button></div>' +
+        '<label>اسم هذا الخيار كما يراه الزبون<input data-o="name" value="' + esc(op.v.name) + '"></label>' +
+        '<p class="pe-note" style="margin:0 0 8px">السعر والمواصفات والتوافق من هذه الصفحة تُحفظ لهذا الخيار وحده · ما تحت (الاسم العامّ · الوصف · الأقسام · الصور) مشتركٌ لكلّ خيارات «' + esc(sp.name) + '».</p>';
+    }
+    function wireUnopt(sp, op) {
+      $('[data-pe-unopt]').onclick = async function () {
+        var ask = global.GMTAsk && GMTAsk.confirm ? GMTAsk.confirm('يُفكّ ربط «' + (p.name || '') + '» بالخيار «' + (op.v.name || '') + '» في «' + (sp.name || '') + '».\nيبقى الخيار ظاهراً في المتجر (بلا ربط) ويبقى منتج الجرد كما هو.', { title: '🔓 أخرجه من الخيار', okText: 'فكّ الربط', cancelText: 'تراجع' }) : Promise.resolve(true);
+        if (!(await ask)) return;
+        var b = this; b.disabled = true;
+        try {
+          await storeWrite(function (arr) {
+            var t = arr.filter(function (x) { return x && String(x.id) === String(sp.id); })[0], o2 = t && GMTSpecs._optOf(t, p); if (!o2) return null;
+            var c = Object.assign({}, o2.v); delete c.inv_id; if (p.barcode && String(c.barcode || '').trim() === String(p.barcode).trim()) delete c.barcode;
+            return arr.map(function (x) { return x !== t ? x : Object.assign({}, x, { options: x.options.map(function (o, oi) { return oi !== o2.oi ? o : Object.assign({}, o, { values: o.values.map(function (w, wi) { return wi === o2.vi ? c : w; }) }); }) }); });
+          });
+          var r = await ctx.saveInv({ store_url: null }); if (r && r.error) throw new Error('الجرد: ' + r.error);
+          p.store_url = ''; say('✅ فُكّ الربط — الخيار باقٍ في المتجر بلا ربط'); loadStore();
+          if (ctx.onSaved) try { ctx.onSaved(p, { inv: { store_url: null }, unlink: sp.id }); } catch (_) {}
+        } catch (er) { b.disabled = false; say('❌ لم يُفكّ: ' + (er && er.message || er), true); }
+      };
+    }
     /* فكّ الارتباط في الجهتين: منتج المتجر يفقد inv_id (والباركود المنقول إليه عند الربط وحده، كي لا يُعاد ربطه بالباركود) ·
        ومنتج الجرد يفقد store_url — لا شيء آخر يُمسّ */
     async function unlinkStore(sid, bc) {
@@ -449,7 +589,8 @@
     function unlinked(sec, rec) {
       var prods = rec && Array.isArray(rec.products) ? rec.products : [], cats = (rec && rec.categories || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       sec.innerHTML = '<h3>🛒 المتجر</h3><p class="pe-note">هذا المنتج غير مربوط بمنتجٍ في المتجر.</p>' +
-        '<div class="pe-btns"><button type="button" data-pe-link>🔗 ربط بمنتجٍ موجود في المتجر</button><button type="button" data-pe-create>➕ إنشاء في المتجر</button></div>' +
+        '<div class="pe-btns"><button type="button" data-pe-link>🔗 ربط بمنتجٍ موجود في المتجر</button><button type="button" data-pe-create>➕ إنشاء في المتجر</button><button type="button" data-pe-asopt>🧩 أضفه خياراً لمنتجٍ في المتجر</button></div>' +
+        '<div data-pe-asoptbox hidden><input data-pe-asq placeholder="ابحث باسم منتج المتجر الذي سيصير هذا أحد خياراته"><div data-pe-aslist></div><div data-pe-asform></div></div>' +
         '<div data-pe-linkbox hidden><input data-pe-linkq placeholder="ابحث باسم منتج المتجر أو باركوده"><div data-pe-linklist></div></div>' +
         '<div data-pe-createbox hidden><div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">أقسامه في المتجر (قسمٌ واحد على الأقلّ)</div><div class="pe-cats">' +
           cats.map(function (c) { return '<label><input type="checkbox" data-ccat="' + esc(c.id) + '">' + esc(c.name) + '</label>'; }).join('') + '</div>' +
@@ -469,7 +610,7 @@
           return '<div class="pe-cand">' + (im ? '<img alt="" src="' + esc(im) + '">' : '') + '<span>' + esc(x.name) + '<small>$' + esc(x.price) + (x.barcode ? ' · ' + esc(x.barcode) : '') + '</small></span><button type="button" data-linkto="' + esc(x.id) + '">اربط</button></div>'; }).join('')
           : '<p class="pe-note">لا منتج مطابق — اكتب جزءاً من الاسم، أو «➕ إنشاء في المتجر».</p>';
       }
-      $('[data-pe-link]').onclick = function () { linkbox.hidden = !linkbox.hidden; $('[data-pe-createbox]').hidden = true; if (!linkbox.hidden) { paint(); q.focus(); } };
+      $('[data-pe-link]').onclick = function () { linkbox.hidden = !linkbox.hidden; $('[data-pe-createbox]').hidden = true; $('[data-pe-asoptbox]').hidden = true; if (!linkbox.hidden) { paint(); q.focus(); } };
       q.addEventListener('input', paint);
       list.addEventListener('click', async function (e) {
         var b = e.target.closest('[data-linkto]'); if (!b) return; var sid = b.getAttribute('data-linkto'); b.disabled = true;
@@ -488,7 +629,21 @@
           if (ctx.onSaved) try { ctx.onSaved(p, { inv: { store_url: url } }); } catch (_) {}
         } catch (er) { say('❌ ' + (er && er.message || er), true); b.disabled = false; }
       });
-      $('[data-pe-create]').onclick = function () { var c = $('[data-pe-createbox]'); c.hidden = !c.hidden; linkbox.hidden = true; };
+      $('[data-pe-create]').onclick = function () { var c = $('[data-pe-createbox]'); c.hidden = !c.hidden; linkbox.hidden = true; $('[data-pe-asoptbox]').hidden = true; };
+      /* (seq 223) خياراً في منتج متجرٍ قائم (مربوطٍ أو لا) — يبقى في الجرد منتجاً مستقلّاً */
+      var asq = $('[data-pe-asq]'), aslist = $('[data-pe-aslist]');
+      function paintAs() {
+        var t = asq.value.trim().toLowerCase(), ws = words(t || $('[data-f="name"]').value);
+        var sc = prods.filter(Boolean).map(function (x) { var n = String(x.name || '').toLowerCase(); return { x: x, k: t && n.indexOf(t) !== -1 ? 10 : ws.filter(function (w) { return n.indexOf(w) !== -1; }).length }; })
+          .filter(function (o) { return o.k > 0; }).sort(function (a, c) { return c.k - a.k; }).slice(0, 8);
+        aslist.innerHTML = sc.length ? sc.map(function (o) { var x = o.x, im = Array.isArray(x.images) && x.images[0], no = (x.options || []).reduce(function (a, g) { return a + ((g && g.values) || []).length; }, 0);
+          return '<div class="pe-cand">' + (im ? '<img alt="" src="' + esc(im) + '">' : '') + '<span>' + esc(x.name) + '<small>$' + esc(x.price) + (no ? ' · ' + no + ' خيارات' : '') + '</small></span><button type="button" data-as-pick="' + esc(x.id) + '">اختر</button></div>'; }).join('')
+          : '<p class="pe-note">لا منتج مطابق — اكتب جزءاً من الاسم.</p>';
+      }
+      $('[data-pe-asopt]').onclick = function () { var c = $('[data-pe-asoptbox]'); c.hidden = !c.hidden; linkbox.hidden = true; $('[data-pe-createbox]').hidden = true; if (!c.hidden) { paintAs(); asq.focus(); } };
+      asq.addEventListener('input', paintAs);
+      aslist.onclick = function (e) { var k = e.target.closest('[data-as-pick]'); if (!k) return; var x = prods.filter(function (y) { return y && String(y.id) === k.getAttribute('data-as-pick'); })[0];
+        if (x) { var me = collect(); optForm($('[data-pe-asform]'), x, Object.assign({}, p, { name: me.name, price: me.price, barcode: me.barcode, specs: me.specs, compat: me.compat, image_url: INV.imgs[0] || p.image_url }), true); } };
       $('[data-pe-docreate]').onclick = async function () {
         var b = this, ids = [].map.call(root.querySelectorAll('[data-ccat]:checked'), function (x) { return x.getAttribute('data-ccat'); });
         if (!ids.length) { say('❌ اختر قسماً واحداً على الأقلّ', true); return; }
@@ -560,6 +715,15 @@
       var patch = changed(inv), sp = S.sp, sUpd = null;
       /* (TASK-0298 · المالك seq 315) منتجٌ من عائلة (قيمة في خيارات قائمة: فلتر 58mm من «فلتر UV») ⇒ سعره ومواصفاته لقيمته لا للعائلة كلّها */
       var fam = !!(sp && global.GMTStoreSync && GMTStoreSync.famIds && String(sp.inv_id || '') !== String(p.id) && GMTStoreSync.famIds(sp).indexOf(String(p.id)) !== -1);
+      /* (seq 223) والخيار المربوط بالباركود وحده (لا inv_id) ⇐ قيمته عبر GMTSpecs · واسم الخيار كما يراه الزبون */
+      var oUpd = null;
+      if (S.op) {
+        fam = true; oUpd = {};
+        var on = ($('[data-o="name"]') || {}).value, byInv = S.op.v.inv_id != null && String(S.op.v.inv_id) === String(p.id);
+        if (on != null && on.trim() && on.trim() !== S.op.v.name) oUpd.name = on.trim();
+        if (!byInv) { if ('price' in patch && S.op.affectsPrice) oUpd.price = inv.price; if (patch.specs && global.GMTSpecs) oUpd.specs = GMTSpecs.forStore(inv.specs); if ('compat' in patch) oUpd.compat = inv.compat || ''; }
+        if (!Object.keys(oUpd).length) oUpd = null;
+      }
       if (S.source && patch.specs) { patch.specs_source = S.source; patch.specs_checked_at = new Date().toISOString(); }
       if (sp) {
         var g = function (k) { var e = $('[data-s="' + k + '"]'); return e ? e.value.trim() : ''; };
@@ -574,7 +738,7 @@
         if (fam) { delete sUpd.price; delete sUpd.specs; delete sUpd.compat; }
         if (!Object.keys(sUpd).length) sUpd = null;
       }
-      if (!Object.keys(patch).length && !sUpd) { say('لا تغيير لحفظه'); return; }
+      if (!Object.keys(patch).length && !sUpd && !oUpd) { say('لا تغيير لحفظه'); return; }
       b.disabled = true; b.textContent = '⏳ …'; say('');
       try {
         if (Object.keys(patch).length) {
@@ -587,6 +751,7 @@
           st = await GMTSpecs.pushToStore(p, { only: function (cur) { var o = {}; for (var k in sUpd) o[k] = sUpd[k]; if (!('description' in o) && sUpd.specs && inv.specs.__desc) { var d = String(cur.description || ''); if (d.indexOf(inv.specs.__desc) === -1) o.description = inv.specs.__desc + (d ? '\n' + d : ''); } return o; } });
           if (!st) throw new Error('لم يُعثر على منتج المتجر المربوط');
         }
+        if (oUpd) { var so = await GMTSpecs.pushToStore(p, { only: function (cur, op) { return op ? { __opt: oUpd } : null; } }); st = st || so; }
         if (fam) {
           var vf = {};
           if ('price' in patch) vf.price = inv.price;
@@ -598,6 +763,7 @@
         say('✅ حُفظ' + (Object.keys(patch).length ? ' في الجرد' : '') + (st ? (Object.keys(patch).length ? ' والمتجر' : ' في المتجر') : ''));
         if (ctx.onSaved) try { ctx.onSaved(p, { inv: patch, store: sUpd }); } catch (_) {}
         if (sp && sUpd) Object.assign(sp, sUpd);
+        if (S.op && oUpd) Object.assign(S.op.v, oUpd);
       } catch (e) { say('❌ ' + (e && e.message || e), true); }
       b.disabled = false; b.textContent = '💾 احفظ';
     };

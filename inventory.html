@@ -2295,9 +2295,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-scan.js?v=20261011a"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261027c"></script>
-<script src="gmt-specs.js?v=20261029z4"></script>
+<script src="gmt-specs.js?v=20261103a"></script>
 <script src="gmt-gallery.js?v=20261029z4" defer></script>
-<script src="gmt-product-edit.js?v=20261101x" defer></script>
+<script src="gmt-product-edit.js?v=20261103a" defer></script>
 <script src="gmt-enrich-queue.js?v=20261029z4"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
@@ -5060,6 +5060,7 @@ async function gmtStoreCatalog(fresh) {
   return rec;
 }
 function gmtStoreFind(prods, p) {
+  if (window.GMTSpecs && GMTSpecs._findStore) return GMTSpecs._findStore(prods, p);   /* (seq 223) والمنتج الذي هو خيارٌ في منتج متجر */
   const m = /#product=([^&]+)/.exec(String(p.store_url || '')), sid = m ? decodeURIComponent(m[1]) : '';
   return (sid && prods.find(x => String(x.id) === sid)) || prods.find(x => x && x.inv_id != null && String(x.inv_id) === String(p.id)) || null;
 }
@@ -5100,6 +5101,10 @@ async function gmtStoreAddImages(p, urls) {
   const m = /#product=([^&]+)/.exec(String(p.store_url || ''));
   if (!m) throw new Error('هذا المنتج غير مربوط بالمتجر بعد — اربطه من «الجسر» أوّلاً');
   const sid = decodeURIComponent(m[1]), H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  /* (seq 223) منتجٌ هو خيارٌ في منتج متجر ⇐ الصورة لقيمة الخيار (إن لم تكن لها صورة) لا لمعرض المنتج كلّه */
+  if (window.GMTSpecs && GMTSpecs.linkOf && GMTSpecs.addImageToStore) {
+    try { const rc = await gmtStoreCatalog(true), lk = GMTSpecs.linkOf(Array.isArray(rc.products) ? rc.products : [], p); if (lk && lk.opt) { const u0 = (urls || []).filter(Boolean)[0]; if (u0) await GMTSpecs.addImageToStore(p, u0); return; } } catch (_) {}
+  }
   for (let i = 0; i < 3; i++) {
     const r = await fetch(`${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id,products,updated_at`, { headers: H });
     if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
@@ -5659,11 +5664,14 @@ function applyFilters() {
    ومو بالمتجر» · seq 127 «بالاثنين» (هنا وفي «جهّز تلقائياً») · «اللي بالمتجر ومو بالجرد بدّي إيّاها تدخل بنفس الفلتر») */
 function invHasSpecs(p) { return window.GMTSpecs ? GMTSpecs.rows(p.specs).length > 0 : !!(p.specs && typeof p.specs === 'object' && Object.keys(p.specs).some(k => k.indexOf('__') !== 0)); }
 /* مربوط: رابط المتجر في الجرد، أو منتجٌ في المتجر يحمل معرّفه (inv_id) — كما يجده gmtStoreFind */
-function invLinked(p) { return /#product=/.test(String(p.store_url || '')) || !!(_invStoreIdx && _invStoreIdx.inv.has(String(p.id))); }
+function invLinked(p) { return /#product=/.test(String(p.store_url || '')) || !!(_invStoreIdx && (_invStoreIdx.inv.has(String(p.id)) || (p.barcode && _invStoreIdx.bc.has(String(p.barcode).trim())))); }
 async function invStoreIndex(fresh) {
   try {
     const rec = await gmtStoreCatalog(fresh), prods = Array.isArray(rec.products) ? rec.products : [];
-    _invStoreIdx = { prods, inv: new Set(prods.filter(x => x && x.inv_id != null && x.inv_id !== '').map(x => String(x.inv_id))) };
+    /* (seq 223) منتجات الجرد التي هي خيارات داخل منتج متجر (inv_id أو باركود في قيمة الخيار) مربوطةٌ أيضاً */
+    const inv = new Set(prods.filter(x => x && x.inv_id != null && x.inv_id !== '').map(x => String(x.inv_id))), bc = new Set();
+    prods.forEach(x => (Array.isArray(x && x.options) ? x.options : []).forEach(o => ((o && o.values) || []).forEach(v => { if (v && typeof v === 'object') { if (v.inv_id != null && v.inv_id !== '') inv.add(String(v.inv_id)); if (v.barcode) bc.add(String(v.barcode).trim()); } })));
+    _invStoreIdx = { prods, inv, bc };
   } catch (_) {}
   return _invStoreIdx;
 }
@@ -5672,7 +5680,9 @@ function invStoreOnly() {
   if (!_invStoreIdx) return [];
   const ids = new Set(allProducts.map(p => String(p.id)));
   const sids = new Set(allProducts.map(p => (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1]).filter(Boolean).map(x => { try { return decodeURIComponent(x); } catch (_) { return x; } }));
-  return _invStoreIdx.prods.filter(x => x && x.id != null && !sids.has(String(x.id)) && !(x.inv_id != null && ids.has(String(x.inv_id))));
+  const bcs = new Set(allProducts.map(p => String(p.barcode || '').trim()).filter(Boolean));
+  const optLinked = x => (Array.isArray(x.options) ? x.options : []).some(o => ((o && o.values) || []).some(v => v && typeof v === 'object' && ((v.inv_id != null && ids.has(String(v.inv_id))) || (v.barcode && bcs.has(String(v.barcode).trim())))));
+  return _invStoreIdx.prods.filter(x => x && x.id != null && !sids.has(String(x.id)) && !(x.inv_id != null && ids.has(String(x.inv_id))) && !optLinked(x));
 }
 function storeHasSpecs(sp) { return Array.isArray(sp.specs) && sp.specs.some(r => r && String(r.value || '').trim()); }
 async function setSpecStoreFilter(specs, store) {
@@ -8403,9 +8413,17 @@ async function invOpenFullEdit(id, opt) {
       if (!r.error) { Object.assign(p, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {}); }
       return r;
     },
+    /* (seq 223) «أضف منتجاً من الجرد خياراً هنا»: قائمة الجرد · ورابط المتجر لمنتج الجرد الآخر */
+    invList: () => allProducts,
+    saveInvOf: async (oid, patch) => {
+      const r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(oid)}`, patch);
+      const q = allProducts.find(x => String(x.id) === String(oid));
+      if (!r.error && q) { Object.assign(q, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [q]).catch(() => {}); }
+      return r;
+    },
     onSaved: (p2, ch) => {
-      /* (seq 221) فكّ الارتباط ⇒ فهرس المتجر والمتشابهات يُقرآن من جديد */
-      if (ch && ch.unlink) { _gmtStoreCat = null; invStoreIndex(true).then(() => { try { renderAll(); } catch (_) {} }); if (typeof _simRows !== 'undefined') _simRows = null; }
+      /* (seq 221) فكّ الارتباط ⇒ فهرس المتجر والمتشابهات يُقرآن من جديد · (seq 223) وكذلك إضافة خيار */
+      if (ch && (ch.unlink || ch.option)) { _gmtStoreCat = null; invStoreIndex(true).then(() => { try { renderAll(); } catch (_) {} }); if (typeof _simRows !== 'undefined') _simRows = null; }
       try { renderAll(); } catch (_) {} if (opt.onSaved) try { opt.onSaved(p2, ch); } catch (_) {}
     }
   });
@@ -10608,6 +10626,7 @@ window.bulkOnSearch = bulkOnSearch;
 /* ══ (المالك seq 210) أداة الفحص ══ */
 function _bulkStoreOf(p) {
   if (!_invStoreIdx) return null;
+  if (window.GMTSpecs && GMTSpecs._findStore) return GMTSpecs._findStore(_invStoreIdx.prods, p);
   const sid = (/#product=([^&]+)/.exec(String(p.store_url || '')) || [])[1];
   return _invStoreIdx.prods.find(x => x && (String(x.inv_id) === String(p.id) || (sid && String(x.id) === decodeURIComponent(sid)))) || null;
 }
@@ -11160,7 +11179,9 @@ async function _varCompute(prog) {
   const seen = new Set(), skip = _varSkip();
   return ai.concat(rules).filter(f => { const k = f.members.map(m => m.id).sort().join('|'); if (seen.has(k) || skip[k]) return false; seen.add(k); f.key = k; return true; })
     .map(f => Object.assign(f, { members: f.members.map(m => Object.assign({ on: true }, m, { p: byId.get(m.id) })).filter(m => m.p) }))
-    .filter(f => f.members.length > 1);
+    .filter(f => f.members.length > 1)
+    /* (seq 223) كلّ أعضائها مربوطون بمنتج المتجر نفسه (خياراتٍ فيه) ⇐ أُنجزت — لا تُعرض ثانيةً */
+    .filter(f => { const ps = _invStoreIdx ? _invStoreIdx.prods : [], ids = f.members.map(m => { const sp = gmtStoreFind(ps, m.p); return sp ? String(sp.id) : ''; }); return !(ids[0] && ids.every(x => x === ids[0])); });
 }
 /* ③ الإنشاء في المتجر: منتجٌ مربوطٌ بأحد الأعضاء يصير الأساس (رقمه وروابطه) وإلّا منتجٌ جديد · الخيار يُضاف · منتجات المتجر المنفصلة للأعضاء الآخرين تُحذف (بتأكيد) */
 async function _varCreate(f, root) {
@@ -11188,7 +11209,11 @@ async function _varCreate(f, root) {
     const rec = i ? await gmtStoreCatalog(true) : rec0, prods = Array.isArray(rec.products) ? rec.products : [];
     const cur = prods.find(x => String(x.id) === newId) || null;
     const imgs = [...new Set((cur && Array.isArray(cur.images) ? cur.images : []).concat(values.map(v => v.image)).filter(Boolean))];
-    const opt = { type: optName, affectsPrice: aff, values };
+    /* (seq 223) مجموعةٌ بالاسم نفسه موجودة ⇒ قيمها التي ليست لهؤلاء الأعضاء (ولا بأسمائهم) تبقى — لا يُمحى خيارٌ قائم */
+    const old = cur && Array.isArray(cur.options) ? cur.options.find(o => o && o.type === optName) : null;
+    const mIds = new Set(mem.map(m => String(m.p.id))), mBc = new Set(mem.map(m => String(m.p.barcode || '').trim()).filter(Boolean)), mNm = new Set(values.map(v => v.name));
+    const keep = old ? (old.values || []).filter(v => { const o = v && typeof v === 'object' ? v : { name: v }; return !mNm.has(o.name) && !(o.inv_id != null && mIds.has(String(o.inv_id))) && !(o.barcode && mBc.has(String(o.barcode).trim())); }) : [];
+    const opt = { type: optName, affectsPrice: aff || !!(old && old.affectsPrice), values: values.concat(keep) };
     const b = Object.assign({}, cur || { id: newId, order: prods.length + 1, stock: 0, description: '' }, {
       name: base, short_name: (cur && cur.short_name) || base, price: Math.min.apply(null, prices), images: imgs,
       options: ((cur && Array.isArray(cur.options)) ? cur.options.filter(o => o && o.type !== optName) : []).concat([opt]),
@@ -11216,6 +11241,66 @@ async function _varCreate(f, root) {
   await invStoreIndex(true);
   return { id: newId, n: values.length, dropped: drop ? others.length : 0 };
 }
+/* (المالك seq 222 «في منتجات في الأساس في المتجر لها خيارات» · seq 223 «الأداة تشملها … كلّهم مربوطين على نفس المنتج في المتجر
+   بس في الفاتورة … في الجرد كلّ واحد منتج لحاله»): منتجات المتجر التي لها خيارات أصلاً — كلّ قيمةٍ تُربط بمنتج جردها */
+function _varOptSection(prods) {
+  const withOpts = prods.filter(sp => sp && Array.isArray(sp.options) && sp.options.some(o => o && (o.values || []).length));
+  if (!withOpts.length) return '';
+  const words = t => String(t || '').toLowerCase().split(/[\s\-_/·،,()]+/).filter(w => w.length > 1);
+  const free = allProducts.filter(p => !invLinked(p));
+  const byId = id => allProducts.find(x => String(x.id) === String(id));
+  const byBc = bc => allProducts.find(x => x.barcode && String(x.barcode).trim() === String(bc).trim());
+  return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin:6px 0 12px">
+    <div style="font-size:13px;font-weight:900;margin-bottom:4px">🛒 منتجات في المتجر لها خيارات أصلاً (${withOpts.length})</div>
+    <div style="font-size:11.5px;color:#5b6472;font-weight:700;margin-bottom:6px">اربط كلّ خيارٍ بمنتجه في الجرد — في المتجر يبقى منتجاً واحداً يختار الزبون خياره · في الجرد والفاتورة كلّ خيارٍ منتجٌ مستقلّ.</div>` +
+    withOpts.map(sp => {
+      const main = sp.inv_id != null && sp.inv_id !== '' ? byId(sp.inv_id) : allProducts.find(p => gmtStoreFind([sp], p) === sp && !(window.GMTSpecs && GMTSpecs._optOf && GMTSpecs._optOf(sp, p)));
+      return `<div style="background:#fff;border:1px solid #eef0f4;border-radius:10px;padding:8px;margin:6px 0">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;font-weight:900"><span style="flex:1;min-width:0">${escHtml(sp.name || '')} <span style="color:#64748b;font-weight:700">$${escHtml(String(sp.price || 0))}</span></span>
+          ${main ? `<button type="button" data-va="oedit" data-id="${escHtml(String(main.id))}" title="صفحة منتجه الأساسيّ — ومنها «➕ أضف منتجاً من الجرد خياراً هنا»" style="background:#eef2ff;color:#3730a3;border:0;border-radius:8px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">✏️ ${escHtml(String(main.name || '').slice(0, 28))}</button>` : ''}
+          <button type="button" data-va="open" data-sid="${escHtml(String(sp.id))}" style="background:#f1f5f9;border:0;border-radius:8px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">🛒</button></div>` +
+        sp.options.map((o, oi) => ((o && o.values) || []).map((v, vi) => {
+          const nm = typeof v === 'string' ? v : (v && v.name) || '';
+          const ip = v && typeof v === 'object' ? ((v.inv_id != null && v.inv_id !== '' && byId(v.inv_id)) || (v.barcode && byBc(v.barcode)) || null) : null;
+          const head = `<span style="min-width:90px;font-weight:800">${escHtml(o.type || 'خيار')}: «${escHtml(nm)}»${o.affectsPrice && v && v.price != null ? ` <span style="color:#64748b">$${escHtml(String(v.price))}</span>` : ''}</span>`;
+          if (ip) return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:4px 0;border-top:1px solid #f1f5f9;font-size:12px">${head}<span style="color:#047857;font-weight:800;flex:1;min-width:0">🔗 ${escHtml(ip.name)}</span><button type="button" data-va="oedit" data-id="${escHtml(String(ip.id))}" style="background:#f1f5f9;border:0;border-radius:8px;padding:3px 8px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">✏️</button></div>`;
+          const want = words(sp.name + ' ' + nm);
+          const cands = free.map(p => { const n = String(p.name || '').toLowerCase(); return { p, k: want.filter(w => n.indexOf(w) !== -1).length }; }).filter(x => x.k > 0).sort((a, b) => b.k - a.k).slice(0, 8);
+          return `<div data-vopt style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:4px 0;border-top:1px solid #f1f5f9;font-size:12px">${head}
+            <select data-vsel style="flex:1;min-width:160px;border:1px solid #e2e8f0;border-radius:8px;padding:5px;font:inherit;font-size:12px"><option value="">— غير مربوط · اختر منتج الجرد —</option>${cands.map(x => `<option value="${escHtml(String(x.p.id))}">${escHtml(x.p.name)} · $${escHtml(String(x.p.price || 0))}</option>`).join('')}</select>
+            <button type="button" data-va="omap" data-sid="${escHtml(String(sp.id))}" data-oi="${oi}" data-vi="${vi}" style="background:#047857;color:#fff;border:0;border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer">🔗 اربط</button></div>`;
+        }).join('')).join('') + `</div>`;
+    }).join('') + `</div>`;
+}
+/* ربط قيمة خيارٍ قائمة بمنتج جرد: القيمة ⇐ inv_id والباركود (والمواصفات والتوافق والصورة إن نقصت) · الجرد ⇐ store_url للمنتج الأساسيّ */
+async function _varMapOpt(sid, oi, vi, q) {
+  const H = { apikey: STORE_SB_KEY, Authorization: 'Bearer ' + STORE_SB_KEY };
+  for (let i = 0; i < 3; i++) {
+    const rec = await gmtStoreCatalog(true), prods = Array.isArray(rec.products) ? rec.products : [];
+    const t = prods.find(x => x && String(x.id) === String(sid)); if (!t) throw new Error('منتج المتجر لم يعد موجوداً');
+    const other = gmtStoreFind(prods, q); if (other) throw new Error('«' + q.name + '» مربوطٌ سلفاً بـ«' + (other.name || '') + '»');
+    const o = t.options && t.options[oi], v = o && o.values && o.values[vi]; if (v == null) throw new Error('الخيار تغيّر — أعد فتح الأداة');
+    const sf = window.GMTSpecs && GMTSpecs.storeFields ? GMTSpecs.storeFields(q, {}) : {}, cur = typeof v === 'object' ? v : { name: v };
+    const nv = Object.assign({}, cur, { inv_id: q.id });
+    if (q.barcode) nv.barcode = String(q.barcode).trim();
+    if (!cur.image && q.image_url && /^https?:/.test(q.image_url)) nv.image = q.image_url;
+    if (!(cur.specs && cur.specs.length) && sf.specs && sf.specs.length) nv.specs = sf.specs;
+    if (!cur.compat && sf.compat) nv.compat = sf.compat;
+    const next = prods.map(x => x !== t ? x : Object.assign({}, x, { options: x.options.map((g, gi) => gi !== oi ? g : Object.assign({}, g, { values: g.values.map((w, wi) => wi === vi ? nv : w) })) }));
+    let url = `${STORE_SB_URL}/rest/v1/${STORE_SB_TABLE}?id=eq.1&select=id`; const body = { products: next };
+    if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
+    const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+    if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
+    const rows = await w.json().catch(() => null); _gmtStoreCat = null;
+    if (Array.isArray(rows) && rows.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} break; }
+    if (i === 2) throw new Error('الكتالوج يتغيّر من جهةٍ أخرى — أعد المحاولة');
+  }
+  const store_url = invStoreLink('#product=' + encodeURIComponent(sid));
+  const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(q.id)}`, { store_url });
+  if (error) throw new Error('الجرد: ' + error);
+  q.store_url = store_url;
+  await invStoreIndex(true);
+}
 function bulkRenderVariants(cont, fresh) {
   if (!window.GMTMatch) { cont.innerHTML = '<div style="padding:30px;text-align:center;color:#5b6472">أداة المطابقة لم تُحمَّل</div>'; return; }
   if (fresh && !_varBusy) _varFams = null;
@@ -11237,6 +11322,7 @@ function bulkRenderVariants(cont, fresh) {
   cont.innerHTML = `<div style="padding:10px 4px;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">🧩 <b>${_varFams.length}</b> منتجاً في الجرد له أكثر من خيار (الحزمة · اللون · المقاس · القطر) — كلّ عائلة تصير <b>منتجاً واحداً في المتجر بخيارات</b>، وكل خيارٍ بسعره وصورته ومواصفاته وتوافقه.` +
       (nAI ? `<br>🧠 العقل جمعها من ${nAI} نوعاً (محفوظ — لا يُعاد إلا بطلبك) <button type="button" data-va="reai" style="background:none;border:0;color:#3730a3;font:inherit;font-size:12px;font-weight:800;cursor:pointer;text-decoration:underline">أعد بحث العقل</button>` : '') +
       (_varAI && _varAI.err ? `<div style="color:#b91c1c">⚠️ العقل: ${escHtml(_varAI.err)} — المعروض من القواعد السريعة</div>` : '') + `</div>` +
+    _varOptSection(prods) +
     (_varFams.length ? _varFams.map((f, fi) => {
       if (_varDone[f.key]) return `<div data-vfam="${fi}" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px;margin:6px 0;font-size:13px;font-weight:800;color:#166534">✅ «${escHtml(_varDone[f.key].name)}» صار منتجاً واحداً في المتجر بـ${_varDone[f.key].n} خيارات <button type="button" data-va="open" data-sid="${escHtml(_varDone[f.key].id)}" style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer">🛒 افتحه في المتجر</button></div>`;
       const gc = guessCat(f);
@@ -11271,6 +11357,15 @@ function bulkRenderVariants(cont, fresh) {
       if (a === 'reai') { if (!(await GMTAsk.confirm('يعيد العقل جمع الخيارات لكل الأنواع (يستهلك الذكاء الاصطناعي مرّةً أخرى) — متأكّد؟', { title: '🧠 إعادة بحث العقل', okText: 'نعم' }))) return;
         await _varSaveAI({ at: Date.now(), types: {}, fams: [] }).catch(() => {}); bulkRenderVariants(cont, true); return; }
       if (a === 'open') { window.open(invStoreLink('#product=' + encodeURIComponent(b.getAttribute('data-sid'))), '_blank'); return; }
+      if (a === 'oedit') { invOpenFullEdit(b.getAttribute('data-id'), { onSaved: () => { _gmtStoreCat = null; invStoreIndex(true).then(() => { if (bulkActiveFilter === 'variants') bulkRenderVariants(cont); }); } }); return; }
+      if (a === 'omap') {
+        const row = b.closest('[data-vopt]'), id = row && row.querySelector('[data-vsel]').value, q = id && allProducts.find(x => String(x.id) === id);
+        if (!q) { showToast('اختر منتج الجرد أوّلاً', 'warning'); return; }
+        b.disabled = true; b.textContent = 'لحظة…';
+        try { await _varMapOpt(b.getAttribute('data-sid'), +b.getAttribute('data-oi'), +b.getAttribute('data-vi'), q); if (typeof _simRows !== 'undefined') _simRows = null; bulkRenderVariants(cont); showToast('✅ رُبط الخيار بـ«' + q.name + '» — يبقى في الجرد منتجاً مستقلّاً', 'success'); }
+        catch (er) { b.disabled = false; b.textContent = '🔗 اربط'; showToast('❌ ' + ((er && er.message) || er), 'error'); }
+        return;
+      }
       const c = b.closest('[data-vfam]'), f = c && _varFams[+c.getAttribute('data-vfam')]; if (!f) return;
       const msg = t => { const m = c.querySelector('[data-vmsg]'); if (m) m.innerHTML = t; };
       if (a === 'skip') { const s = _varSkip(); s[f.key] = 1; try { localStorage.setItem(VAR_SKIP, JSON.stringify(s)); } catch (_) {} _varFams = _varFams.filter(x => x !== f); bulkRenderVariants(cont); showToast('أُخفيت هذه العائلة', 'info'); return; }
@@ -16496,7 +16591,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101y"></script>
+<script src="gmt-whatsnew.js?v=20261103a"></script>
 <script src="gmt-store-sync.js?v=20261101u" defer></script>
 <script src="gmt-merge-review.js?v=20261101n" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

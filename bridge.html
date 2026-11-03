@@ -164,7 +164,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261029z4"></script>
   <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-enrich.js?v=20261027c"></script>
-  <script src="gmt-specs.js?v=20261029z4"></script>
+  <script src="gmt-specs.js?v=20261103a"></script>
   <script src="gmt-staff.js?v=20261029z4"></script>
 
 
@@ -553,14 +553,38 @@ function invTotal(p){
 
 // هل منتج الجرد مرتبط بالمتجر؟ (عبر barcode)
 function isInvLinked(invP){
-  if (!invP.barcode) return false;
-  return storeProds.some(sp => sp.barcode && sp.barcode === invP.barcode);
+  if (invP.barcode && storeProds.some(sp => sp.barcode && sp.barcode === invP.barcode)) return true;
+  return !!optMatch(invP);
+}
+/* (المالك seq 223) منتج جردٍ قد يكون خياراً (قيمةً) داخل منتج متجر — بالباركود أو inv_id في القيمة: في المتجر منتجٌ واحد بخيارات ·
+   في الجرد والفاتورة كلّ خيارٍ منتجٌ مستقلّ. فهرسٌ يُبنى مرّةً لكل نسخةٍ من الكتالوج */
+let _optIdx = null;
+function optIndex(){
+  if (_optIdx && _optIdx.src === storeProds) return _optIdx;
+  const byInv = new Map(), byBc = new Map(), bySp = new Map();
+  storeProds.forEach(sp => (sp && Array.isArray(sp.options) ? sp.options : []).forEach(o => ((o && o.values) || []).forEach(v => {
+    if (!v || typeof v !== 'object') return;
+    const it = { sp, v, type: o.type };
+    if (v.inv_id != null && v.inv_id !== '') byInv.set(String(v.inv_id), it);
+    if (v.barcode) byBc.set(String(v.barcode).trim(), it);
+    if ((v.inv_id != null && v.inv_id !== '') || v.barcode) { if (!bySp.has(sp)) bySp.set(sp, []); bySp.get(sp).push(v); }
+  })));
+  return (_optIdx = { src: storeProds, byInv, byBc, bySp });
+}
+function optMatch(invP){
+  const ix = optIndex(), bc = String(invP.barcode || '').trim();
+  const it = ix.byInv.get(String(invP.id)) || (bc ? ix.byBc.get(bc) : null);
+  return it && !(it.sp.inv_id != null && String(it.sp.inv_id) === String(invP.id)) ? it : null;   // المنتج الأساسيّ ليس خياراً
+}
+/* قيم خيارات منتج المتجر المربوطة بمنتجات جرد موجودة: [{ v, ip }] */
+function storeOptLinks(sp){
+  return (optIndex().bySp.get(sp) || []).map(v => ({ v, ip: invProds.find(ip => (v.inv_id != null && String(ip.id) === String(v.inv_id)) || (v.barcode && ip.barcode && String(ip.barcode).trim() === String(v.barcode).trim())) })).filter(x => x.ip);
 }
 
 // هل منتج المتجر مرتبط بالجرد؟
 function isStoreLinked(sp){
-  if (!sp.barcode) return false;
-  return invProds.some(ip => ip.barcode && ip.barcode === sp.barcode);
+  if (sp.barcode && invProds.some(ip => ip.barcode && ip.barcode === sp.barcode)) return true;
+  return storeOptLinks(sp).length > 0;
 }
 
 // جلب منتج المتجر المرتبط بمنتج الجرد
@@ -950,6 +974,7 @@ function renderTab1(q){
           <span class="qty" style="color:${qtyColor};">📦 ${total}</span>
           ${p.group_name?`<span>${esc(p.group_name)}</span>`:''}
         </div>
+        ${linked && !match && optMatch(p)?(o=>`<div style="margin-top:4px;font-size:11px;color:var(--green);">🧩 خيار «<strong>${esc(o.v.name||'')}</strong>»${o.type?' ('+esc(o.type)+')':''} في منتج المتجر «<strong>${esc(o.sp.name||'')}</strong>»</div>`)(optMatch(p)):''}
         ${linked && match?`<div style="margin-top:4px;font-size:11px;color:var(--green);display:flex;align-items:center;gap:4px;">
           ✅ مرتبط: <strong>${esc(match.name||match.short_name||'—')}</strong>
           ${match.price!=p.price?`<span style="color:var(--warn);font-size:10px;">(سعر المتجر: $${fmt(match.price)})</span>`:''}
@@ -1010,6 +1035,7 @@ function renderTab2(q){
           ${cat?`<span>${esc(cat.name)}</span>`:''}
         </div>
         ${linked&&match?`<div style="margin-top:4px;font-size:11px;color:var(--green);">✅ مرتبط بجرد: <strong>${esc(match.name)}</strong></div>`:''}
+        ${storeOptLinks(sp).length?`<div style="margin-top:4px;font-size:11px;color:var(--green);">🧩 خياراته في الجرد: ${storeOptLinks(sp).map(x=>'«'+esc(x.v.name||'')+'» ⇐ <strong>'+esc(x.ip.name||'')+'</strong>').join(' · ')}</div>`:''}
         ${!sp.barcode?`<div style="margin-top:4px;font-size:10px;color:var(--text3);">أضف كود الجرد (barcode) لهذا المنتج لإتمام الربط</div>`:''}
       </div>
       <div class="actions">
@@ -1420,7 +1446,7 @@ window.mlSave=mlSave;
 async function unlinkPair(invId){
   const invP=invProds.find(x=>String(x.id)===String(invId)); if(!invP)return;
   const sp=getStoreMatch(invP)||storeProds.find(x=>x&&x.inv_id!=null&&String(x.inv_id)===String(invId));
-  if(!sp){toast('ℹ️ هذا المنتج غير مربوط');return;}
+  if(!sp){ const om=optMatch(invP); if(om) return unlinkOpt(invP,om); toast('ℹ️ هذا المنتج غير مربوط');return;}
   if(!(await GMTAsk.confirm('يُفكّ ربط «'+(invP.name||'')+'» (الجرد) بـ«'+(sp.name||sp.short_name||'')+'» (المتجر).\nيبقى المنتجان كما هما — فقط لا يعودان مربوطين.',{title:'🔓 فكّ الارتباط',okText:'فكّ الارتباط',cancelText:'تراجع'})))return;
   showLoading('أفكّ الارتباط…');
   try{
@@ -1437,6 +1463,25 @@ async function unlinkPair(invId){
   hideLoading();
 }
 window.unlinkPair=unlinkPair;
+/* (seq 223) فكّ منتج جردٍ هو خيارٌ في منتج متجر: القيمة تفقد inv_id وباركوده وتبقى ظاهرةً في المتجر · الجرد يفقد store_url */
+async function unlinkOpt(invP, om){
+  if(!(await GMTAsk.confirm('يُفكّ ربط «'+(invP.name||'')+'» بالخيار «'+(om.v.name||'')+'» في «'+(om.sp.name||'')+'».\nيبقى الخيار ظاهراً في المتجر (بلا ربط) ويبقى منتج الجرد كما هو.',{title:'🔓 فكّ الارتباط',okText:'فكّ الارتباط',cancelText:'تراجع'})))return;
+  showLoading('أفكّ الارتباط…');
+  try{
+    const bc=String(invP.barcode||'').trim(), id=String(invP.id);
+    await saveStoreProducts(fresh=>fresh.map(x=>{
+      if(!x||String(x.id)!==String(om.sp.id)||!Array.isArray(x.options))return x;
+      return {...x,options:x.options.map(o=>({...o,values:((o&&o.values)||[]).map(v=>{
+        if(!v||typeof v!=='object'||!((v.inv_id!=null&&String(v.inv_id)===id)||(bc&&String(v.barcode||'').trim()===bc)))return v;
+        const c={...v}; delete c.inv_id; if(bc&&String(c.barcode||'').trim()===bc)delete c.barcode; return c; })}))};
+    }));
+    await patchInv(invP.id,{store_url:null});
+    invP.store_url=null;
+    updateStats(); buildGroupBars(); renderTab1(); renderTab2(); renderTab3();
+    toast('✅ فُكّ الارتباط — الخيار باقٍ في المتجر بلا ربط');
+  }catch(e){toast('❌ '+e.message);}
+  hideLoading();
+}
 
 // ══════════════════════════════════════════════
 // MODAL: إنشاء في المتجر
@@ -1649,7 +1694,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261101y"></script>
+<script src="gmt-whatsnew.js?v=20261103a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

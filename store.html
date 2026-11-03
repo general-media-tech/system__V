@@ -998,7 +998,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261101x');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261103a');
         const [rows, lists] = await Promise.all([
             fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
             fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
@@ -2778,7 +2778,7 @@ document.addEventListener('DOMContentLoaded', initStore);
 /* م12: القدوم من نقطة البيع بـ ?skip_intro=1 يفتح المتجر فوراً بلا انترو */
 try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document.getElementById('intro-screen')?.remove(); } catch(_) {}
 </script>
-<script src="gmt-specs.js?v=20261029z4"></script>
+<script src="gmt-specs.js?v=20261103a"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-pwa.js?v=20261101y"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>

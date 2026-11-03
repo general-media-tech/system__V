@@ -96,16 +96,41 @@
     return { main: D.MAIN || { url: global.SUPABASE_URL || '', key: global.SUPABASE_ANON_KEY || '' }, store: D.STORE || null };
   }
   function hdr(db, extra) { var h = { apikey: db.key, Authorization: 'Bearer ' + db.key }; for (var k in (extra || {})) h[k] = extra[k]; return h; }
+  /* (المالك seq 221–223) «الخيارات عرضٌ في المتجر فقط — في الجرد والفاتورة كلٌّ منتج لحاله، وكلّهم مربوطون على نفس المنتج في المتجر»:
+     منتج الجرد قد يكون **خياراً** داخل منتج متجر (قيمة خيار تحمل inv_id أو باركوده) — optOf يجده: { oi, vi } أو null.
+     المنتج الأساسيّ (inv_id المنتج نفسه) ليس خياراً ولو ظهر بين القيم. */
+  function optOf(sp, p) {
+    if (!sp || !p || !Array.isArray(sp.options)) return null;
+    if (sp.inv_id != null && String(sp.inv_id) === String(p.id)) return null;
+    var bc = String(p.barcode || '').trim();
+    for (var oi = 0; oi < sp.options.length; oi++) {
+      var vals = (sp.options[oi] && sp.options[oi].values) || [];
+      for (var vi = 0; vi < vals.length; vi++) { var v = vals[vi]; if (!v || typeof v !== 'object') continue;
+        if ((v.inv_id != null && String(v.inv_id) === String(p.id)) || (bc && String(v.barcode || '').trim() === bc)) return { oi: oi, vi: vi, v: v, type: sp.options[oi].type, affectsPrice: !!sp.options[oi].affectsPrice }; }
+    }
+    return null;
+  }
   function findStore(prods, p) {
     var m = /#product=([^&]+)/.exec(String(p.store_url || '')), sid = m ? decodeURIComponent(m[1]) : '', bc = String(p.barcode || '').trim();
     return (sid && prods.filter(function (x) { return x && String(x.id) === sid; })[0]) ||
       prods.filter(function (x) { return x && x.inv_id != null && String(x.inv_id) === String(p.id); })[0] ||
+      prods.filter(function (x) { return x && optOf(x, p); })[0] ||
       (bc && prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; }).length === 1 ? prods.filter(function (x) { return x && String(x.barcode || '').trim() === bc; })[0] : null) || null;
+  }
+  /* الربط كاملاً: { sp, opt } — opt ⇐ هذا المنتج خيارٌ في sp (تُكتب مواصفاته وتوافقه وصورته في الخيار لا في المنتج كلّه) */
+  function linkOf(prods, p) { var sp = findStore(prods, p); return sp ? { sp: sp, opt: optOf(sp, p) } : null; }
+  /* يبدّل قيمة خيارٍ واحد في منتج متجر (نسخةٌ جديدة لا تعديلٌ في المكان) */
+  function withOpt(sp, op, part) {
+    var opts = sp.options.map(function (o, oi) { if (oi !== op.oi) return o;
+      return Object.assign({}, o, { values: o.values.map(function (v, vi) { return vi === op.vi ? Object.assign({}, typeof v === 'object' ? v : { name: v }, part) : v; }) }); });
+    return Object.assign({}, sp, { options: opts });
   }
   /* (TASK-0197) صورة الجرد تنضمّ لصور منتج المتجر المربوط (إن لم تكن فيها) — «تصير بين مجموعة الصور» */
   async function addImageToStore(p, url) {
     url = String(url || (p && p.image_url) || '').trim(); if (!url) return null;
-    return pushToStore(p, { only: function (sp) { var imgs = Array.isArray(sp.images) ? sp.images.slice() : []; if (imgs.indexOf(url) !== -1 || sp.image === url) return 'same'; imgs.push(url); return { images: imgs }; } });
+    return pushToStore(p, { only: function (sp, op) {
+      if (op) return op.v.image ? 'same' : { __opt: { image: url } };          // خيار: صورته إن لم تكن له صورة
+      var imgs = Array.isArray(sp.images) ? sp.images.slice() : []; if (imgs.indexOf(url) !== -1 || sp.image === url) return 'same'; imgs.push(url); return { images: imgs }; } });
   }
   /* (TASK-0254 · المالك seq 174) «في المزامنه … انت اخذ فقط الجدول … التوافقيات والوصف ما عم تاخذه للمتجر»: وصف المتجر = وصف الجرد أوّلاً
      ثمّ أسطر المتجر التي ليست فيه (لا يُمحى ما كُتب في المتجر وحده). مشتركٌ بين الحفظ والجسر والمزامنة. */
@@ -137,11 +162,12 @@
       var r = await fetch(D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id,products,updated_at', { headers: hdr(D.store) });
       if (!r.ok) throw new Error('المتجر HTTP ' + r.status);
       var rec = (await r.json())[0]; if (!rec) throw new Error('سجلّ المتجر غير موجود');
-      var prods = Array.isArray(rec.products) ? rec.products : [], sp = findStore(prods, p);
+      var prods = Array.isArray(rec.products) ? rec.products : [], sp = findStore(prods, p), op = optOf(sp, p);
       if (!sp) return null;
       if (o.only) {                                   /* تعديلٌ محدَّد (صورة) بدل المواصفات */
-        var part = o.only(sp); if (part === 'same') return { id: sp.id, same: true }; if (!part) return null;
-        var nx = prods.map(function (x) { return x === sp ? Object.assign({}, x, part) : x; }), u2 = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', b2 = { products: nx };
+        var part = o.only(sp, op); if (part === 'same') return { id: sp.id, same: true }; if (!part) return null;
+        /* part.__opt ⇐ قيمة الخيار وحده · باقي المفاتيح ⇐ منتج المتجر (للخيار: القائمة المشتركة للعائلة — TASK-0298) */
+        var nx = prods.map(function (x) { if (x !== sp) return x; var main = {}, k; for (k in part) if (k !== '__opt') main[k] = part[k]; var y = Object.assign({}, x, main); return part.__opt && op ? withOpt(y, op, part.__opt) : y; }), u2 = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', b2 = { products: nx };
         if ('updated_at' in rec) { u2 += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; b2.updated_at = new Date().toISOString(); }
         var w2 = await fetch(u2, { method: 'PATCH', headers: hdr(D.store, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(b2) });
         if (!w2.ok) throw new Error('حفظ المتجر HTTP ' + w2.status);
@@ -149,17 +175,23 @@
         if (Array.isArray(rr) && rr.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, added: true }; }
         continue;
       }
-      var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mergeDesc(myDesc, o.storeDesc == null ? sp.description : o.storeDesc);
-      if (desc || o.storeDesc != null) upd.description = desc;
-      var next = prods.map(function (x) { return x === sp ? Object.assign({}, x, upd) : x; });
+      var next;
+      if (op) {                                       /* (seq 223) خيارٌ في منتجٍ أكبر ⇒ مواصفاته وتوافقه في الخيار وحده — لا يمسّ المنتج الأساسيّ */
+        var oc = o.compat || p.compat || op.v.compat || '';
+        next = prods.map(function (x) { return x === sp ? withOpt(x, op, oc ? { specs: out, compat: oc } : { specs: out }) : x; });
+      } else {
+        var upd = { specs: out, compat: o.compat || p.compat || sp.compat || '' }, desc = mergeDesc(myDesc, o.storeDesc == null ? sp.description : o.storeDesc);
+        if (desc || o.storeDesc != null) upd.description = desc;
+        next = prods.map(function (x) { return x === sp ? Object.assign({}, x, upd) : x; });
+      }
       var url = D.store.url + '/rest/v1/gmt_store?id=eq.1&select=id', body = { products: next };
       if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
       var w = await fetch(url, { method: 'PATCH', headers: hdr(D.store, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify(body) });
       if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
       var rows2 = await w.json().catch(function () { return null; });
-      if (Array.isArray(rows2) && rows2.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, specs: out.length }; }
+      if (Array.isArray(rows2) && rows2.length) { try { localStorage.removeItem('sbc_store'); } catch (_) {} return { id: sp.id, specs: out.length, option: op ? op.v.name : undefined }; }
     }
     throw new Error('الكتالوج يتغيّر من جهةٍ أخرى أو الكتابة مرفوضة');
   }
-  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, forView: forView, clean: clean, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, sure: sure, mergeDesc: mergeDesc, storeFields: storeFields };
+  global.GMTSpecs = { rows: rows, meta: meta, forStore: forStore, forView: forView, clean: clean, tableHTML: tableHTML, pushToStore: pushToStore, addImageToStore: addImageToStore, _findStore: findStore, _optOf: optOf, linkOf: linkOf, withOpt: withOpt, sure: sure, mergeDesc: mergeDesc, storeFields: storeFields };
 })(typeof window !== 'undefined' ? window : this);
