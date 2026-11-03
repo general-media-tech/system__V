@@ -3727,9 +3727,17 @@ async function syncTransitToInv(newItems, oldItems, branchKey) {
       const p = Array.isArray(fresh) ? fresh[0] : fresh;
       if (!p) { failed.push({id:productId, reason:'المنتج غير موجود في القاعدة'}); continue; }
       const beforeQty = Number(p[branchKey])||0;
-      await sb('POST', '/rest/v1/rpc/add_branch_stock', {
-        p_product_id: productId, p_branch_key: branchKey, p_qty: delta
-      });
+      /* (TASK-0315 · المالك seq 416 «تشتغل بدل البوتات») اكتُشف بإدخال فاتورة صينية كما يُدخلها الإنسان:
+         add_branch_stock ترجع اليوم HTTP 300 (نسخٌ متضاربة — TASK-0149) ⇒ كان كل بندٍ يفشل ولا يُضاف شيء لمخزون العبور.
+         GMTStock.move يجرّب الدالّة الذرّية ثمّ المسار الاحتياطي المتحقَّق (نفس ما تستعمله بقية الصفحات). */
+      if (window.GMTStock && GMTStock.move) {
+        const mv = await GMTStock.move(delta > 0 ? 'add' : 'deduct', productId, branchKey, Math.abs(delta));
+        if (!mv.ok) throw new Error(mv.error || 'تعذّرت حركة المخزون');
+      } else {
+        await sb('POST', '/rest/v1/rpc/add_branch_stock', {
+          p_product_id: productId, p_branch_key: branchKey, p_qty: delta
+        });
+      }
       // تحقق فعلي: أعد القراءة وتأكد أن الفرق طُبِّق فعلاً (يكشف صمت RLS / فشل صامت)
       const verify = await sb('GET', `/rest/v1/products?id=eq.${productId}&select=id,${branchKey}`);
       const vp = Array.isArray(verify) ? verify[0] : verify;
@@ -5948,7 +5956,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261103e"></script>
+<script src="gmt-whatsnew.js?v=20261103f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
