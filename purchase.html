@@ -1375,9 +1375,10 @@ function render(){
           <i data-lucide="package" class="w-3.5 h-3.5 text-gray-400"></i>
           ${items.length} صنف · ${items.reduce((a,i)=>a+Number(i.qty||0),0)} وحدة
         </div>
+        ${(()=>{const u=items.filter(i=>i&&(i.unlinked||!i.id)).length;return u?`<div data-unlinked-count="${u}" style="color:#b91c1c;font-weight:900;margin-top:4px;">🔴 ${u} بند غير مربوط بمنتج — للمراجعة</div>`:'';})()}
       </div>
       ${poPayLine(s)}
-      ${items.length?`<div class="flex flex-wrap gap-1">${items.slice(0,4).map(i=>`<span class="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-[10px] font-bold">${eh(i.name||'')} ×${i.qty}</span>`).join('')}${items.length>4?`<span class="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold">+${items.length-4}</span>`:''}</div>`:''}
+      ${items.length?`<div class="flex flex-wrap gap-1">${items.slice(0,4).map(i=>`<span class="${(i&&(i.unlinked||!i.id))?'bg-red-100 text-red-700':'bg-yellow-50 text-yellow-700'} px-2 py-0.5 rounded-full text-[10px] font-bold">${eh(i.name||'')} ×${i.qty}</span>`).join('')}${items.length>4?`<span class="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold">+${items.length-4}</span>`:''}</div>`:''}
     </div>`;
   };
 
@@ -1769,7 +1770,8 @@ function openInstantInvData(s,invNum,branchName){
     name:i.name||'',image_url:i.image_url||'',barcode:i.barcode||'',
     qty:i.qty||0,isNew:i.is_new||false,
     unitPrice:i.unit_price||0,origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:null),_origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:undefined),minPrice:i.min_price||0,
-    wholePrice:i.whole_price||0,salePrice:i.sale_price||0,notes:i.notes||''
+    wholePrice:i.whole_price||0,salePrice:i.sale_price||0,notes:i.notes||'',
+    unlinked:!!(i.unlinked||!i.id)   /* (المالك seq 386) بندٌ لم يُربط بمنتج ⇐ خطّ أحمر للمراجعة والربط اليدوي */
   }));
   const origTotal=items.reduce((a,i)=>a+(i.qty*i.unitPrice),0);
   const cashRaw=s.cash_payment!=null?Number(s.cash_payment):null;
@@ -1825,10 +1827,10 @@ function buildInstantInv(d){
         <div data-uid="${uid}_t" style="color:#D5001C;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #ffd6da;min-height:13px;">${tot}</div>
       </td>`;
     };
-    return `<tr>
+    return `<tr${item.unlinked?' data-unlinked="1" style="background:#fee2e2;color:#b91c1c;"':''}>
       <td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td>
       <td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td>
-      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${eh(item.name||'')}</td>
+      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${eh(item.name||'')}${item.unlinked?'<div style="font-size:10px;font-weight:900;color:#b91c1c;">🔴 غير مربوط بمنتج — للمراجعة</div>':''}</td>
       <td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;">
         <div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div>
       </td>
@@ -5377,7 +5379,7 @@ function renderLog(){
         <td style="padding:8px 12px;color:#374151;">${branchName}</td>
         <td style="padding:8px 12px;color:#5b6472;">${s.supplier||'—'}</td>
         <td style="padding:8px 12px;color:#5b6472;">${s.inv_date||'—'}</td>
-        <td style="padding:8px 12px;text-align:center;color:#374151;">${(s.items_snapshot||[]).length}</td>
+        <td style="padding:8px 12px;text-align:center;color:#374151;">${(s.items_snapshot||[]).length}${(()=>{const u=(s.items_snapshot||[]).filter(it=>it&&(it.unlinked||!it.id)).length;return u?`<div style="font-size:10px;font-weight:900;color:#b91c1c;">🔴 ${u} غير مربوط</div>`:'';})()}</td>
         <td style="padding:8px 12px;color:#047857;font-weight:900;">$${Number(s.total_amount||0).toFixed(2)}</td>
         <td style="padding:8px 12px;text-align:center;">
           <button onclick="openInvFromList('${s.id}')" style="background:#fef3c7;color:#92400e;border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;">عرض</button>
@@ -5937,7 +5939,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261103a"></script>
+<script src="gmt-whatsnew.js?v=20261103b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
