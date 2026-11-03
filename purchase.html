@@ -1057,6 +1057,13 @@ async function sb(method,path,body=null,xtra={}){
    لا يُحذف قيدٌ ولا يُعدَّل — فالأثر كاملٌ للتدقيق. فشل الربط لا يُفشل حفظ الفاتورة (تُربط لاحقاً من لوحة المحاسبة). */
 /* الدفعة النقدية: الخانة الفارغة = null (البضاعة مدفوعة كاملةً) · الصفر الصريح = 0 (آجل: لم يُدفع شيء) · رقم = رقم.
    كان الحفظ بـ parseFloat(v)||null يدمج الحالتين فيستحيل تسجيل فاتورة غير مدفوعة (مراجعة ACCT-3). */
+/* (المالك seq 388) الرقم التالي = أكبر رقمٍ موجود بالبادئة نفسها + 1 — لا «آخر فاتورة أُدخلت» (فاتورةٌ قديمة بتاريخها كانت تُعيد رقماً موجوداً: IMP-2026-0001 مكرّر) */
+async function nextInvNum(prefix){
+  const y=new Date().getFullYear(), pre=prefix+'-'+y+'-';
+  const rows=await sb('GET','/rest/v1/import_log?select=inv_number&inv_number=like.'+encodeURIComponent(pre+'*')+'&limit=5000').catch(()=>[]);
+  let max=0; (Array.isArray(rows)?rows:[]).forEach(r=>{const m=String(r&&r.inv_number||'').match(/(\d+)$/); if(m) max=Math.max(max,parseInt(m[1],10)||0);});
+  return pre+String(max+1).padStart(4,'0');
+}
 function cashOrNull(v){if(v==null)return null;const t=String(v).replace(/[^\d.\-]/g,'');if(t===''||t==='-'||t==='.')return null;const n=parseFloat(t);return isNaN(n)?null:n;}
 let poRows=[];
 const _ledgerApi={sb:(m,p,b,x)=>sb(m,p,b,x)};
@@ -1386,6 +1393,7 @@ function render(){
   document.getElementById('empty-transit').classList.toggle('hidden',groups.transit.length>0);
   document.getElementById('list-arrived').innerHTML=groups.arrived.map(s=>makeImportCard(s,true)).join('');
   document.getElementById('empty-arrived').classList.toggle('hidden',groups.arrived.length>0);
+  groups.instant.sort((a,b)=>new Date(b.inv_date||b.created_at||0)-new Date(a.inv_date||a.created_at||0)||new Date(b.created_at||0)-new Date(a.created_at||0));   /* (المالك seq 388) الأحدث بتاريخ الفاتورة أوّلاً */
   document.getElementById('list-instant').innerHTML=groups.instant.map(s=>makeInstantCard(s)).join('');
   document.getElementById('empty-instant').classList.toggle('hidden',groups.instant.length>0);
   lucide.createIcons();
@@ -1683,9 +1691,7 @@ async function saveInstantPurchase(){
       await doInstantInventory([]);
     }
     // Get next invoice number
-    const last=await sb('GET','/rest/v1/import_log?select=inv_number&order=created_at.desc&limit=1').catch(()=>[]);
-    const m=(Array.isArray(last)&&last[0]?.inv_number||'').match(/(\d{4})$/);
-    const num=`PO-${new Date().getFullYear()}-${String(m?parseInt(m[1])+1:1).padStart(4,'0')}`;
+    const num=await nextInvNum('PO');
     const branchName=allBranches.find(b=>b.key_name===branch)?.display_name||branch;
     const entry={
       inv_number:num,
@@ -3616,7 +3622,7 @@ async function saveShipment(){
     }
 
     let num=editId?ships.find(x=>String(x.id)===String(editId))?.inv_number:null;
-    if(!num){const last=await sb('GET','/rest/v1/import_log?select=inv_number&order=created_at.desc&limit=1').catch(()=>[]);const m=(Array.isArray(last)&&last[0]?.inv_number||'').match(/(\d{4})$/);num=`IMP-${new Date().getFullYear()}-${String(m?parseInt(m[1])+1:1).padStart(4,'0')}`;}
+    if(!num){num=await nextInvNum('IMP');}
     const now=new Date().toISOString();
     const _landedSnap=computeLandedCosts(cart);   // PUR-7: تُؤرشَف بالفاتورة للتدقيق
     const coreEntry={inv_number:num,inv_type:invType,supplier:document.getElementById('in-supplier').value.trim()||null,supplier_inv:document.getElementById('in-sup-inv').value.trim()||null,inv_date:_cleanDate(document.getElementById('in-date').value)||null,eta_date:_cleanDate(document.getElementById('in-eta').value)||null,shipping_company:document.getElementById('in-ship').value.trim()||null,tracking_number:document.getElementById('in-track').value.trim()||null,shipping_notes:document.getElementById('in-notes').value.trim()||null,invoice_file_url:fileUrl||null,source_branch:src,dest_branch:BR_DEST,status:editId?(ships.find(x=>String(x.id)===String(editId))?.status||'transit'):'transit',total_amount:cart.reduce((s,c)=>s+(c.qty*c.unitPrice),0),items_count:cart.length,total_qty:cart.reduce((s,c)=>s+c.qty,0),items_snapshot:cart.map(c=>({id:c.product.id,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice||0,whole_price:c.wholePrice||0,sale_price:c.salePrice||0,notes:c.notes||'',total:c.qty*c.unitPrice,landed_cost:_landedSnap[c.product.id]||c.unitPrice,is_new:c.isNew||false}))};
@@ -5363,7 +5369,7 @@ function renderLog(){
 
   // ═══ قسم المشتريات الفورية — منفصل تماماً عن الاستيراد ═══
   let insRows=ships.filter(s=>s.inv_type==='instant');
-  insRows.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  insRows.sort((a,b)=>new Date(b.inv_date||b.created_at||0)-new Date(a.inv_date||a.created_at||0)||new Date(b.created_at||0)-new Date(a.created_at||0));   /* (seq 388) بتاريخ الفاتورة */
   const insTbody=document.getElementById('log-ins-tbody');
   const insEmpty=document.getElementById('log-ins-empty');
   if(!insRows.length){ if(insTbody)insTbody.innerHTML=''; insEmpty?.classList.remove('hidden'); }
@@ -5939,7 +5945,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261103b"></script>
+<script src="gmt-whatsnew.js?v=20261103c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
