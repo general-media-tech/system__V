@@ -155,6 +155,7 @@
           '<div class="pe-2"><label>سعر البيع $<input data-f="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.price) + '"></label><label>سعر الجملة $<input data-f="wholesale_price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.wholesale_price) + '"></label></div>' +
           '<div class="pe-2"><label>الحدّ الأدنى للمخزون<input data-f="min_stock" type="number" step="1" min="0" value="' + esc(p.min_stock) + '"></label><label>التكلفة $ (للقراءة)<input value="' + esc(p.cost_price) + '" disabled></label></div>' +
           '<div data-pe-sprice></div>' +
+          '<div data-pe-phist></div>' +
         '</section>' +
         '<section class="pe-wide"><h3>📋 جدول المواصفات</h3>' +
           /* (TASK-0245 · المالك seq 175 · 176) «من هذه الشاشه … زر اعاده البحث التلقائي والبحث على الصور ايضا عدسه جوجل» · «البحث عن صور المنتج بعدسة غوغل ما لقيته»:
@@ -180,6 +181,29 @@
     doc.body.appendChild(root);
     var $ = function (q) { return root.querySelector(q); }, msg = $('[data-pe-msg]');
     function say(t, bad) { msg.textContent = t || ''; msg.style.color = bad ? '#b91c1c' : '#047857'; }
+    /* (TASK-0312 · المالك seq 399) «الاشياء التي يختلف راس مالها … من الصين او … عالم اكسسوار او من اي مورد او مشتريات فوريه لازم تحط للمنتج سجل اسعار وربط بالفواتير»
+       سجلّ أسعار الشراء: كل فاتورة شراء فيها هذا المنتج (التاريخ · المورّد · الكمية · السعر · رأس المال بالمصاريف) — من v_product_purchase_history — والفاتورة تُفتح بضغطة */
+    (async function phist() {
+      var box = $('[data-pe-phist]'), D = (global.GMT_DB && GMT_DB.MAIN) || ((global.GMT_CONFIG || {}).DATABASES || {}).MAIN;
+      if (!box || !D || !D.url || !p.id) return;
+      box.innerHTML = '<p class="pe-note">⏳ سجلّ أسعار الشراء…</p>';
+      try {
+        var r = await fetch(D.url + '/rest/v1/v_product_purchase_history?product_id=eq.' + encodeURIComponent(p.id) + '&select=invoice_id,inv_number,inv_type,supplier,supplier_inv,inv_date,qty,unit_price,landed_cost&order=inv_date.desc,invoice_id.desc',
+          { headers: { apikey: D.key, Authorization: 'Bearer ' + D.key } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var rows = await r.json();
+        if (!rows.length) { box.innerHTML = '<p class="pe-note" data-pe-phist-none>📜 سجلّ أسعار الشراء: لا فاتورة شراء مربوطة بهذا المنتج بعد.</p>'; return; }
+        var T = { instant: 'فوري', china: 'الصين', germany: 'أوروبا' }, prices = rows.map(function (x) { return +x.unit_price || 0; }).filter(Boolean);
+        var diff = prices.length > 1 && Math.max.apply(null, prices) !== Math.min.apply(null, prices);
+        box.innerHTML = '<details class="pe-phist"' + (diff ? ' open' : '') + '><summary style="cursor:pointer;font-weight:800;font-size:12.5px;margin-top:8px">📜 سجلّ أسعار الشراء (' + rows.length + ' فاتورة)' + (diff ? ' — <span style="color:#b45309">⚠️ اشتُري بأسعار مختلفة</span>' : '') + '</summary>' +
+          '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px"><thead><tr style="background:#f3f4f6"><th style="padding:4px">التاريخ</th><th>المورّد</th><th>الفاتورة</th><th>الكمية</th><th>السعر $</th><th>رأس المال $</th></tr></thead><tbody>' +
+          rows.map(function (x) {
+            return '<tr style="border-top:1px solid #e5e7eb"><td style="padding:4px;white-space:nowrap">' + esc(x.inv_date || '') + '</td><td>' + esc(x.supplier || '—') + ' <small style="color:#6b7280">' + esc(T[x.inv_type] || x.inv_type || '') + '</small></td>' +
+              '<td><a href="purchase.html?inv=' + encodeURIComponent(x.invoice_id) + '" target="_blank" rel="noopener" data-pe-phist-inv>' + esc(x.inv_number || '') + '</a>' + (x.supplier_inv ? ' <small style="color:#6b7280">' + esc(x.supplier_inv) + '</small>' : '') + '</td>' +
+              '<td style="text-align:center">' + esc(x.qty) + '</td><td style="text-align:center">' + num(x.unit_price) + '</td><td style="text-align:center">' + (x.landed_cost != null ? num(x.landed_cost) : num(x.unit_price)) + '</td></tr>';
+          }).join('') + '</tbody></table></div></details>';
+      } catch (e) { box.innerHTML = '<p class="pe-note">تعذّر قراءة سجلّ أسعار الشراء (' + esc(e.message) + ')</p>'; }
+    })();
     /* صفوف الجدول */
     var rowsEl = $('[data-pe-rows]');
     function addRow(k, v, ax) {

@@ -998,7 +998,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261103a');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261103e');
         const [rows, lists] = await Promise.all([
             fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
             fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])

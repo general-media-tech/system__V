@@ -1263,6 +1263,9 @@ async function _waitForGMTCache(maxMs){
 function _openFromInventoryParam(){
   try{
     const p = new URLSearchParams(location.search);
+    /* (TASK-0312 · seq 399) «سجلّ أسعار الشراء» في صفحة المنتج ⇐ ?inv=<id> يفتح تلك الفاتورة نفسها */
+    const iv = p.get('inv');
+    if(iv && (ships||[]).some(s => String(s.id)===String(iv))){ openInvFromList(String(iv)); return; }
     const bc = p.get('product'); const pn = p.get('pname');
     if(!bc && !pn) return;
     const match = (ships||[]).filter(s => {
@@ -5945,7 +5948,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261103d"></script>
+<script src="gmt-whatsnew.js?v=20261103e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
