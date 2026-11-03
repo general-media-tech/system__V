@@ -393,7 +393,7 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
 </nav>
 
 <script src="gmt-config.js?v=20261029z4"></script>
-<script src="gmt-core.js?v=20261031b"></script>
+<script src="gmt-core.js?v=20261103d"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-sound.js?v=20261101o"></script>
 <script>
@@ -602,8 +602,13 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
   async function loadBranches() {
     var d = (window.GMT_DB && GMT_DB.STORE) || null;
     if (!d || !d.url) return [];
+    /* (TASK-0311 · seq 397) جدول المتجر ليس فيه عمود branches بعد ⇒ كل زيارة كانت تسجّل HTTP 400 (42703) في سجلّ الأخطاء.
+       نتذكّر غيابه يوماً كاملاً لكلّ زائر · ويعود الطلب تلقائياً بعد إضافة العمود. */
+    var NOCOL = 'gmt_store_no_branches';
+    try { var nc = Number(localStorage.getItem(NOCOL) || 0); if (nc && Date.now() - nc < 864e5) return []; } catch (_) {}
     try {
       var r = await fetch(d.url + '/rest/v1/gmt_store?select=branches&id=eq.1&limit=1', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
+      if (r.status === 400) { try { localStorage.setItem(NOCOL, String(Date.now())); } catch (_) {} return []; }
       if (!r.ok) return [];
       var rows = await r.json(), b = rows && rows[0] && rows[0].branches;
       if (typeof b === 'string') { try { b = JSON.parse(b); } catch (_) { b = []; } }
@@ -709,7 +714,7 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
 <script src="gmt-selfcheck.js?v=20261101o"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 <!-- (١٨ ت1 · برومبت «انطلاق السيارة والانتقال بين الصفحات») روابط «تتبّع» تنتقل بانطلاق الشاحنة: دخانٌ يغطّي ⇐ صفحة التتبّع ⇐ يتبدّد -->
-<script src="gmt-road.js?v=20261019a" defer></script><script src="gmt-launch.js?v=20261019a" defer></script>
+<script src="gmt-road.js?v=20261019a" defer></script><script src="gmt-launch.js?v=20261103d" defer></script>
 <script>document.addEventListener('DOMContentLoaded',function(){try{if(window.GMTLaunch)GMTLaunch.bind(document,function(a){return /(^|\/)track_order\.html([?#]|$)/.test(a.getAttribute('href')||'')})}catch(e){}});</script>
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).

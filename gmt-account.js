@@ -643,6 +643,8 @@
   }
   async function checkApproval() {
     var s = session(); if (!s || s.id == null) return null;
+    /* (TASK-0311 · seq 397) جلساتٌ قديمة/محلّية بمعرّفٍ ليس uuid (مثل «1») ⇒ كان كل فتح للرئيسية يطلب gmt_users?id=eq.1 ⇒ HTTP 400 في سجلّ الأخطاء */
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s.id))) return isPending();
     var pending = null;
     try {
       var r = await rest('GET', '/rest/v1/gmt_users?id=eq.' + encodeURIComponent(s.id) + '&select=*');

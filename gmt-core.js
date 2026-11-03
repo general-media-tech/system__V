@@ -3554,6 +3554,9 @@
 
   /* ═══════════ ③ زر بلا أثر ═══════════ */
   let domDirty = false;
+  let __gmtAway = 0;   /* يزيد مع كل window.open أو خروج الصفحة للخلفية */
+  try { const _wo = window.open; window.open = function () { __gmtAway++; return _wo.apply(window, arguments); }; if (_wo && _wo.__gmtWrapped) window.open.__gmtWrapped = true; } catch (_) {}
+  document.addEventListener('visibilitychange', () => { if (document.hidden) __gmtAway++; });
   try { new MutationObserver(() => { domDirty = true; }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true }); } catch (_) {}
 
   document.addEventListener('click', (e) => {
@@ -3564,10 +3567,13 @@
        نسخ للحافظة · تحديث/إعادة رسم · طباعة (تفتح نافذة النظام) · إغلاق نوافذ.
        تسجيلها كـ«بلا أثر» كان ضجيجاً — تعمل فعلياً لكنها لا تغيّر DOM ولا تطلب الشبكة. */
     if (/🐞|🔍|🎓|🎯|📋|🔄|🖨|تقرير|إغلاق|نسخ|مسح|تحديث|إعادة|طباعة|طباعه|A4|حرارية|التالي|تخطّ|رجوع|السابق/.test(label)) return;
-    const before = net.last;
+    /* (TASK-0311 · seq 397) رابطٌ يفتح تبويباً/تطبيقاً، أو زرٌّ يفتح نافذة (عدسة غوغل) ⇒ أثرٌ خارج الصفحة لا «زر بلا أثر» */
+    const _a = e.target.closest('a[href]');
+    if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;
+    const before = net.last, hid0 = __gmtAway;
     domDirty = false;
     setTimeout(() => {
-      if (net.last === before && !domDirty) {
+      if (net.last === before && !domDirty && __gmtAway === hid0) {
         add('warn', 'زر بلا أثر', `ضغطت «${label}» ولم يحدث شيء (لا طلب شبكة ولا تغيّر بالواجهة)`, 'قد يكون الزر معطّلاً أو دالته مفقودة.');
       }
     }, 2000);

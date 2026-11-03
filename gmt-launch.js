@@ -81,11 +81,13 @@
     if (!soundOn()) return { fade: function () {}, stop: function () {} };
     var a = null, gest = null;
     try { a = new Audio((global.GMTRoad && GMTRoad.dir || 'img/delivery/') + 'van-sound.mp3'); a.loop = true; a.volume = .9; } catch (_) { a = null; }
-    function un() { if (gest) ['pointerdown', 'touchstart', 'keydown'].forEach(function (t) { doc.removeEventListener(t, gest, true); }); gest = null; }
+    function un() { if (gest) ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(function (t) { doc.removeEventListener(t, gest, true); }); gest = null; }
     if (a) {
       var p; try { p = a.play(); } catch (_) {}
       /* المتصفّح يمنع الصوت قبل أوّل لمسة ⇒ يبدأ مع أوّل لمسة ما دام المشهد قائماً */
-      if (p && p.catch) p.catch(function () { gest = function () { try { a.play(); } catch (_) {} un(); }; ['pointerdown', 'touchstart', 'keydown'].forEach(function (t) { doc.addEventListener(t, gest, true); }); });
+      /* (TASK-0311 · seq 397) touchstart ليس «تفاعلاً» عند المتصفّح ⇒ play() يُرفض بلا معالجة («play() failed…» في سجلّ الأخطاء).
+         نلتقط الرفض ونبقى ننتظر لمسةً تُحتسب (touchend · click) ولا نزيل المستمع إلا بعد نجاح التشغيل. */
+      if (p && p.catch) p.catch(function () { gest = function () { var q; try { q = a.play(); } catch (_) {} if (q && q.then) q.then(un, function () {}); else un(); }; ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(function (t) { doc.addEventListener(t, gest, true); }); });
     }
     return {
       fade: function () { un(); if (!a) return; var k = 0, it = setInterval(function () { k++; try { a.volume = Math.max(0, .9 - k * .1); } catch (_) {} if (k >= 9) { clearInterval(it); try { a.pause(); } catch (_) {} } }, 60); },

@@ -249,10 +249,30 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
      ⇒ الزر لم يفعل شيئاً.
      ═══════════════════════════════════════════════════════════════════ */
   var netCount = 0;
+  /* (TASK-0311 · seq 397) فتح نافذة/تبويب (عدسة غوغل · صور غوغل · واتساب) أثرٌ حقيقي لا تراه البصمة ⇒ كان «زر بلا أثر» كاذباً.
+     نعدّ window.open وروابط target=_blank وخروج الصفحة للخلفية · والنافذة التي يمنعها المتصفّح (null) تُسجَّل خطأً صادقاً. */
+  var openCount = 0;
+  try {
+    var _wopen = window.open;
+    if (_wopen && !_wopen.__gmtWrapped) {
+      window.open = function () {
+        openCount++;
+        var w = _wopen.apply(window, arguments);
+        if (!w && window.GMTBug && GMTBug.log) GMTBug.log('silent', 'المتصفّح منع فتح نافذة جديدة (منع النوافذ المنبثقة): ' + String(arguments[0] || '').slice(0, 80), { type: 'popup_blocked' });
+        return w;
+      };
+      window.open.__gmtWrapped = true;
+    }
+  } catch (_) {}
+  document.addEventListener('visibilitychange', function () { if (document.hidden) openCount++; });
+  /* إظهار صندوقٍ بخاصّيّة hidden أو تبديل صنف لا يغيّر طول الـHTML إلا قليلاً (< 12) ⇒ «إنشاء في المتجر» و«‹ ›» كانت تُسجَّل ميتة. نعدّ تغيّرات DOM المرئية. */
+  var mutCount = 0;
+  try { new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var t = ms[i].target; if (!(t && t.closest && t.closest('#gmt-bug-panel,#gmt-inspect-panel'))) { mutCount++; return; } } })
+        .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style', 'open', 'src'], characterData: true }); } catch (_) {}
   function fingerprint() {
     return {
-      dom: document.body ? document.body.innerHTML.length : 0,
-      net: netCount,
+      dom: (document.body ? document.body.innerHTML.length : 0) + mutCount * 1000,
+      net: netCount + openCount * 100000,
       url: location.href,
       modals: document.querySelectorAll('[class*=modal]:not(.hidden),[class*=overlay]:not(.hidden),dialog[open]').length,
       focus: document.activeElement ? document.activeElement.tagName : ''
@@ -264,6 +284,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     if (!b) return;
     if (b.closest('.gg4,.gg4-idx,#gmt-bug-panel,#gmt-inspect-panel')) return;
     if (b.disabled) return;
+    var _a = e.target.closest('a[href]');
+    if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;   /* رابطٌ يفتح خارج الصفحة ⇒ ليس زرّاً ميّتاً */
 
     var label = (b.textContent || b.title || b.id || '').trim().replace(/\s+/g, ' ').slice(0, 44) || '(زر بلا نص)';
     step('👆', 'ضغط: ' + label);
@@ -366,13 +388,18 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
           var payload = null;
           try { payload = JSON.parse(bodyStr); } catch (e) { return; }
           if (!payload || Array.isArray(payload)) return;
-          var keys = Object.keys(payload).filter(function (k) { return typeof payload[k] !== 'object'; });
+          /* (TASK-0311 · seq 397) إنذاران كاذبان من سجلّ البوتات:
+             ① updated_at/created_at تكتبها مُشغِّلات القاعدة (products · gmt_orders …) بوقت الخادم ⇒ تختلف عن ختم الجهاز دائماً
+             ② كان يُعيد قراءة أوّل ٦ حقول فقط ثمّ يقارن الكلّ ⇒ الحقل السابع فما بعد «لم يتغيّر» (تعديل الأوردر: 6 حقول حمراء) */
+          var keys = Object.keys(payload).filter(function (k) { return typeof payload[k] !== 'object' && !/^(updated_at|created_at)$/.test(k); }).slice(0, 12);
           if (!keys.length) return;
 
           // نتحقّق فقط من PATCH بمرشّح واضح (?id=eq.X)
           if (method !== 'PATCH' || !/[?&]id=eq\./.test(url)) { rec.verified = 'skip'; save(); return; }
 
-          var vurl = url.split('&select=')[0] + '&select=' + keys.slice(0, 6).join(',');
+          /* إعادة القراءة بمرشّح id وحده: الكتابة المشروطة (…&updated_at=eq.القديم) تغيّر الحقل نفسه ⇒ المرشّح القديم لا يجد الصف */
+          var idm = url.match(/[?&](id=eq\.[^&]+)/);
+          var vurl = url.split('?')[0] + '?' + idm[1] + '&select=' + keys.join(',');
           var vr = await RF(vurl, { headers: (init && init.headers) || {} });
           if (!vr.ok) { rec.verified = 'skip'; save(); return; }
           var arr = await vr.json();
