@@ -1,0 +1,7 @@
+task: TASK-0316
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: orders.html gmt-notify.js sw.js DB gmt_orders (أعمدة التجميد) TASK_REGISTRY.md
+claimed_at: 2026-11-04T14:30:57Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0316
