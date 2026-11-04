@@ -2277,6 +2277,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261104j"></script>
+  <script src="gmt-packages.js?v=20261104l" defer></script>
+  <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-suggest.js?v=20261029z4"></script>
   <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-compat-kb.js?v=20261101a"></script>
@@ -2297,8 +2299,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-enrich.js?v=20261027c"></script>
 <script src="gmt-specs.js?v=20261103a"></script>
 <script src="gmt-gallery.js?v=20261029z4" defer></script>
-<script src="gmt-product-edit.js?v=20261103e" defer></script>
-<script src="gmt-enrich-queue.js?v=20261029z4"></script>
+<script src="gmt-product-edit.js?v=20261104l" defer></script>
+<script src="gmt-enrich-queue.js?v=20261104l"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261104j"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -2610,6 +2612,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <!-- (TASK-0151 · المالك seq 54) «منتجات بحاجة مراجعة» — في «إدارة المنتجات» -->
     <button class="btn btn-sm" id="review-btn" onclick="openReviewList()" style="display:none;background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;font-weight:800;" title="منتجاتٌ ناقصة البيانات (والجديدة من فواتير الشراء أوّلاً) — راجِعها واحداً تلو الآخر">
       🧐 بحاجة مراجعة <b id="review-n"></b>
+    </button>
+    <button class="btn btn-sm" id="browser-btn" onclick="openProductBrowser()" style="display:none;background:#eff6ff;color:#1d4ed8;border:1.5px solid #93c5fd;font-weight:800;" title="كلّ منتجٍ وحده: صفحته في المتجر وبطاقته في الجرد — راجِعه واختمه «رُوجع» وانتقل للتالي">
+      🔎 متصفّح المنتجات
     </button>
 
     <div class="sep"></div>
@@ -4847,6 +4852,12 @@ function bulkMakeOffer() {
   const t = bulkGetSelectedProducts();
   if (t.length < 1) { showToast('حدّد منتجاً واحداً على الأقلّ', 'warning'); return; }
   if (!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin())) { showToast('إنشاء العروض للإدارة', 'error'); return; }
+  /* (TASK-0321 · seq 514) منشئ الباقات الموحَّد: كمّيات · سعر خاص أو خصم % / $ · نقاط البيع و/أو المتجر */
+  if (window.GMTPackages) {
+    GMTPackages.open({ preselect: t.map(p => ({ id: p.id, name: p.name, qty: 1, price: Number(p.price) || 0, image_url: p.image_url || '', net_cost: p.net_cost })),
+      onSaved: row => showToast(`📦 حُفظت «${row.name}» — ${GMTPackages.targetsOf(row).store ? 'في نقاط البيع والمتجر' : 'في نقاط البيع'}`, 'success') });
+    return;
+  }
   const sum = t.reduce((a, p) => a + (Number(p.price) || 0), 0);
   const imgs = t.filter(p => p.image_url).slice(0, 12);
   const old = document.getElementById('gmt-mk-offer'); if (old) old.remove();
@@ -8239,7 +8250,9 @@ function reviewList(m) {
 function paintReviewBtn() {
   const b = document.getElementById('review-btn'); if (!b) return;
   const on = typeof currentAppMode !== 'undefined' && currentAppMode === 'products';
-  b.style.display = on ? '' : 'none'; if (!on) return;
+  b.style.display = on ? '' : 'none';
+  const bb = document.getElementById('browser-btn'); if (bb) bb.style.display = on && window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? '' : 'none';
+  if (!on) return;
   const n = reviewList(_rvBuy).length, el = document.getElementById('review-n'); if (el) el.textContent = n ? '(' + n + ')' : '✓';
   if (!_rvBuy) reviewBuyMap().then(() => { const k = reviewList(_rvBuy).length; if (el) el.textContent = k ? '(' + k + ')' : '✓'; });
 }
@@ -8380,6 +8393,25 @@ function reviewOne(id, rest) {
   } });
 }
 window.openReviewList = openReviewList;
+/* (TASK-0322 · المالك seq 514) «متصفح يعرض كل المنتج على حدا ويشوف صفحته ومراجعته» — gmt-browser.js */
+async function openProductBrowser() {
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('مراجعة المنتجات'))) return;
+  if (!window.GMTBrowser) { showToast('المتصفّح لم يُحمَّل بعد — أعد المحاولة بعد ثانية', 'error'); return; }
+  GMTBrowser.open({
+    products: () => allProducts, reasons: reviewReasons, why: REVIEW_WHY,
+    branches: columns.filter(c => c.isBranch && c.key).map(c => ({ key: c.key, name: c.displayName || c.key })),
+    storeLink: u => (window.GMTUtil && GMTUtil.storeLink) ? GMTUtil.storeLink(u) : u,
+    operator: (window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || 'الأدمن',
+    edit: (id, o) => invOpenFullEdit(id, o),
+    patch: async (id, patch) => {
+      const r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(id)}`, patch);
+      if (!r.error) { const q = allProducts.find(x => String(x.id) === String(id)); if (q) { Object.assign(q, patch); if (window.GMTCache) GMTCache.bulkPut('inv_products', [q]).catch(() => {}); } }
+      return r;
+    },
+    onClose: () => { try { paintReviewBtn(); } catch (_) {} }
+  });
+}
+window.openProductBrowser = openProductBrowser;
 
 async function invOpenFullEdit(id, opt) {
   opt = opt || {};

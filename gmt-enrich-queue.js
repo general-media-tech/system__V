@@ -30,9 +30,10 @@
   /* (TASK-0040 · المالك seq 103–104 «الأفضل والمجاني» ⇐ «ابنِه وحطّ وسيط تاني وحطّ غوغل وجمناي») وسيط البحث gmt-search بجانب العقل:
      Brave ثمّ Google ثمّ Tavily ثمّ Gemini (كلٌّ بحدّه اليومي · TASK-0192: Tavily مجانيّ، وبحث Gemini المجاني غير متاحٍ لهذا الحساب — 404/429 في اختبار 26 ت1). صفحة المنتج الحقيقية ⇐ يقرأ العقل مواصفاتها منها · وصورٌ كثيرة تختار منها */
   function searchUrl() { var b = brainUrl(); return b ? b.replace(/\/gmt-brain\/?$/, '/gmt-search') : ''; }
-  async function search(kind, q, count) {
-    var u = searchUrl(); if (!u || !q) return null;
-    var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: kind, q: q, count: count }) });
+  async function search(kind, q, count, extra) {
+    var u = searchUrl(); if (!u || (!q && kind !== 'lens')) return null;
+    var body = { kind: kind, q: q, count: count }; if (extra) for (var k in extra) body[k] = extra[k];   // (TASK-0323) lens ⇐ url الصورة
+    var r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}; try { j = await r.json(); } catch (_) {}
     if (!r.ok || j.error) { var e = new Error(j.error || ('HTTP ' + r.status)); e.code = j.code || r.status;
       /* (TASK-0192) Gemini وحده في الوسيط وفشل (بحثه المجاني غير متاحٍ لهذا الحساب) ⇒ كأنه بلا مفتاح: «أضف مفتاح Tavily المجاني» لا «لم يجد البحث» */

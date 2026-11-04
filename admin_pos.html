@@ -501,6 +501,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261104j"></script>
+  <script src="gmt-packages.js?v=20261104l" defer></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -5396,7 +5397,10 @@ async function renderOffers() {
   c.innerHTML = `
     <div class="sec-head">
       <div class="sec-title">🎁 العروض والباقات</div>
-      <button class="btn btn-red btn-sm" onclick="openCreateOfferModal()">＋ إنشاء عرض</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-red btn-sm" onclick="openPackageEditor()">📦 باقة جديدة</button>
+        <button class="btn btn-ghost btn-sm" onclick="openCreateOfferModal()">🏷️ عرض على منتج</button>
+      </div>
     </div>
     ${offers.length === 0
       ? `<div class="empty-state">
@@ -5408,26 +5412,30 @@ async function renderOffers() {
           const d = new Date(offer.created_at);
           const ds = d.toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
           const isBundle = offer.offer_type === 'bundle';
-          const prods = offer.products ? JSON.parse(offer.products || '[]') : [];
+          const prods = (window.GMTPackages ? GMTPackages.parseItems(offer) : (() => { try { const a = typeof offer.products === 'string' ? JSON.parse(offer.products) : offer.products; return Array.isArray(a) ? a : []; } catch (_) { return []; } })());
+          const tg = window.GMTPackages ? GMTPackages.targetsOf(offer) : { pos: true, store: false };
+          const _exp = offer.ends_at && new Date(offer.ends_at) < new Date();
           return `
           <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow);">
             <div style="display:flex;gap:12px;margin-bottom:10px;">
               ${offer.image_url ? `<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${escH(offer.image_url)}" style="width:70px;height:70px;object-fit:cover;border-radius:10px;flex-shrink:0;" onerror="this.style.display='none'">` : `<div style="width:70px;height:70px;background:var(--surface2);border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;">🎁</div>`}
               <div style="flex:1;min-width:0;">
                 <div style="font-size:15px;font-weight:900;margin-bottom:3px;">${escH(offer.name || '—')}</div>
-                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${ds} · ${isBundle ? '📦 باقة' : '🏷️ خصم فردي'}</div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${ds} · ${isBundle ? '📦 باقة' : '🏷️ خصم فردي'}${isBundle ? ' · ' + [tg.pos ? '🏪 نقاط البيع' : '', tg.store ? '🛒 المتجر' : ''].filter(Boolean).join(' + ') : ''}${offer.is_active === false ? ' · <b style="color:var(--danger)">متوقّفة</b>' : ''}${_exp ? ' · <b style="color:var(--danger)">انتهت</b>' : ''}</div>
                 <div style="font-size:12px;color:var(--text2);line-height:1.5;">${escH(offer.description || '')}</div>
               </div>
               <div style="text-align:left;flex-shrink:0;">
+                ${Number(offer.original_price) > Number(offer.offer_price) ? `<div style="font-size:11px;color:var(--text3);text-decoration:line-through;">${Number(offer.original_price).toFixed(2)}$</div>` : ''}
                 <div style="font-size:20px;font-weight:900;color:var(--success);">${Number(offer.offer_price||0).toFixed(2)}$</div>
                 <div style="font-size:10px;color:var(--text3);">سعر العرض</div>
               </div>
             </div>
             ${prods.length ? `<div style="background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--text2);margin-bottom:10px;">
-              <b>المنتجات:</b> ${prods.map(p=>escH(p.name||p)).join(' · ')}
+              <b>المنتجات:</b> ${prods.map(p=>escH(p.name||p) + (Number(p.qty) > 1 ? ' ×' + p.qty : '')).join(' · ')}
             </div>` : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               ${offer.reel_url ? `<a href="${escH(offer.reel_url)}" target="_blank" class="btn btn-ghost btn-sm">🎬 ريل</a>` : ''}
+              ${isBundle ? `<button class="btn btn-sm btn-ghost" onclick="openPackageEditor('${offer.id}')">✏️ تعديل</button>` : ''}
               <button class="btn btn-sm" style="background:var(--warning-bg);color:#92400e;border:1.5px solid #fbbf24;" onclick="copyOfferText('${offer.id}')">📋 نسخ للنشر</button>
               <button class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border:1.5px solid var(--danger);" onclick="deleteOffer('${offer.id}')">🗑 حذف</button>
             </div>
@@ -5693,6 +5701,15 @@ ${desc ? `<b>الوصف:</b> ${desc}` : ''}
   } catch(e) { showToast('خطأ: ' + e.message + ' — تأكد من وجود جدول gmt_offers في Supabase', 'err'); }
 }
 
+/* (TASK-0321 · seq 514) الباقة: منتجات بكمّيات · «سعر خاص» أو «خصم % / $» · تظهر في نقاط البيع و/أو المتجر (gmt-packages.js) */
+async function openPackageEditor(id) {
+  if (!window.GMTPackages) { showToast('ملفّ الباقات لم يُحمَّل بعد — لحظة وأعد المحاولة', 'err'); return; }
+  let offer = null;
+  if (id) { try { const rows = await sb('GET', `/rest/v1/gmt_offers?id=eq.${id}&select=*`); offer = rows && rows[0]; } catch (e) { showToast('تعذّر تحميل الباقة: ' + e.message, 'err'); return; } }
+  GMTPackages.open({ offer, onSaved: (row) => { showToast(`📦 حُفظت «${row.name}» — ${GMTPackages.targetsOf(row).store ? 'في نقاط البيع والمتجر' : 'في نقاط البيع'}`, 'ok'); renderOffers(); } });
+}
+window.openPackageEditor = openPackageEditor;
+
 async function deleteOffer(id) {
   if (!await GMTAsk.confirm('حذف هذا العرض؟')) return;
   try {
@@ -5707,7 +5724,7 @@ async function copyOfferText(id) {
     const rows = await sb('GET', `/rest/v1/gmt_offers?id=eq.${id}&select=*`);
     const offer = rows?.[0];
     if (!offer) return;
-    const prods = offer.products ? JSON.parse(offer.products) : [];
+    const prods = window.GMTPackages ? GMTPackages.parseItems(offer) : (offer.products ? JSON.parse(offer.products) : []);
     const text = `🎁 ${offer.name}\n\n${offer.description || ''}\n\n💰 سعر العرض: ${Number(offer.offer_price).toFixed(2)} $${prods.length ? '\n\n📦 يشمل: ' + prods.map(p=>p.name).join(' + ') : ''}\n\n📞 للاستفسار والطلب: +963 939773715`;
     navigator.clipboard.writeText(text).then(() => showToast('✅ تم نسخ النص للنشر', 'ok'));
   } catch(e) { showToast('خطأ: ' + e.message, 'err'); }

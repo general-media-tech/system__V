@@ -105,6 +105,9 @@
       '#gmt-pe .pe-imglink{display:flex;gap:6px;flex:1 1 100%;align-items:center}#gmt-pe .pe-imglink input{flex:1;min-width:0;margin:0;font-size:12.5px}#gmt-pe .pe-imglink button{flex:0 0 auto}' +
       '#gmt-pe .pe-search{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px}#gmt-pe .pe-search button,#gmt-pe .pe-search a{flex:1 1 auto;text-align:center}#gmt-pe .pe-search [data-pe-auto]{background:#0f172a;border-color:#0f172a;color:#fff}' +
       '#gmt-pe .pe-sugg{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}#gmt-pe .pe-sugg figure{margin:0;width:96px;flex-shrink:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}' +
+      '#gmt-pe .pe-lens{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:420px;overflow:auto}#gmt-pe .pe-lens figure{margin:0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column}' +
+      '#gmt-pe .pe-lens img{width:100%;height:120px;object-fit:contain;background:#f9fafb;display:block}#gmt-pe .pe-lens figcaption{padding:6px 7px;font-size:11.5px;line-height:1.5;flex:1}#gmt-pe .pe-lens figcaption b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700}' +
+      '#gmt-pe .pe-lens figcaption small{color:#6b7280;font-weight:700}#gmt-pe .pe-lens .pe-la{display:flex;border-top:1px solid #f1f5f9}#gmt-pe .pe-lens .pe-la>*{flex:1;text-align:center;border:0;border-radius:0;padding:6px 2px;font-size:11px;font-weight:800;background:#fff;color:#111;text-decoration:none;cursor:pointer}' +
       '#gmt-pe .pe-sugg img{width:96px;height:96px;object-fit:contain;display:block;background:#f9fafb}#gmt-pe .pe-sugg figure button{display:block;width:100%;border:0;border-top:1px solid #f1f5f9;border-radius:0;padding:5px 4px;font-size:11px}' +
       '#gmt-pe .pe-cand{display:flex;gap:8px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:6px;margin-top:6px;background:#fff}#gmt-pe .pe-cand img{width:44px;height:44px;object-fit:contain;border-radius:8px;background:#f9fafb;flex-shrink:0}' +
       '#gmt-pe .pe-cand span{flex:1;min-width:0;font-size:12.5px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gmt-pe .pe-cand small{display:block;font-weight:700;color:#6b7280}';
@@ -150,6 +153,8 @@
           '<div class="pe-btns"><a data-pe-gimg target="_blank" rel="noopener">🔍 صور من غوغل</a><a data-pe-lens target="_blank" rel="noopener" title="بحث بالصورة (عدسة غوغل) — يحتاج صورةً برابط https">🔎 عدسة غوغل</a></div>' +
           '<p class="pe-note">من غوغل: افتح الصورة ⇐ «نسخ عنوان الصورة» ⇐ الصقه في «🔗 الصق رابط صورة» — النظام ينزّلها ويرفعها لمخزننا (لا حاجة لتحميلها على جهازك).</p>' +
           '<div data-pe-suggbox hidden><div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">🖼️ صور وجدها البحث التلقائي</div><div class="pe-sugg" data-pe-sugg></div></div>' +
+          /* (TASK-0323 · المالك seq 514) نتائج عدسة غوغل وصور غوغل **داخل النظام**: صورة · عنوان · مصدر · سعر — «+ أضف» تنزّلها لمخزننا */
+          '<div data-pe-lensbox hidden><div style="display:flex;align-items:center;gap:6px;margin:10px 0 6px"><b data-pe-lenstitle style="font-size:12.5px;color:#374151;flex:1"></b><button type="button" data-pe-lensclose style="border:0;background:#f1f5f9;border-radius:8px;padding:3px 9px;cursor:pointer">✕</button></div><div class="pe-lens" data-pe-lens-res></div></div>' +
         '</section>' +
         '<section><h3>💲 الأسعار</h3>' +
           '<div class="pe-2"><label>سعر البيع $<input data-f="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.price) + '"></label><label>سعر الجملة $<input data-f="wholesale_price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.wholesale_price) + '"></label></div>' +
@@ -162,6 +167,8 @@
              شريط بحثٍ واحد ظاهر هنا فوق الجدول — لا تحت حقل الصورة وحده */
           '<div class="pe-btns pe-search" data-pe-searchbar>' +
             (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') +
+            (global.GMTEnrichQueue && GMTEnrichQueue._search ? '<button type="button" data-pe-lensin title="عدسة غوغل داخل النظام: منتجاتٌ مطابقة لصورة هذا المنتج بصورها وعناوينها ومصادرها — أضف ما يناسب">🔎 عدسة غوغل هنا</button>' +
+              '<button type="button" data-pe-gimgin title="صور غوغل باسم المنتج وماركته — داخل النظام، أضف ما يناسب">🔍 صور غوغل هنا</button>' : '') +
             '<button type="button" data-pe-lensgo title="يفتح عدسة غوغل بصورة هذا المنتج — صورٌ مشابهة ومصادرها">🔎 عدسة غوغل (بحث بالصورة)</button>' +
             '<a data-pe-gimg2 target="_blank" rel="noopener" title="صور غوغل باسم المنتج وماركته">🔍 صور غوغل</a>' +
             /* (TASK-0256 · seq 178) «ابحث بنفسك … من جهازك … موجوده فقط في تجهيز كل ما ليس لهم مواصفات … وليست موجوده لكل منتج على حده» */
@@ -373,6 +380,59 @@
         if (u) { addInv(u, false); ok++; } else bad++;
       }
       say(ok ? '🖼️ أُضيفت ' + ok + ' صورة لصور ' + whereTxt() + (bad ? ' · تعذّر رفع ' + bad : '') + ' — «💾 احفظ»' : '❌ تعذّر رفع الصور', !ok);
+    };
+    /* (TASK-0323) صورة المنتج رابطاً عامّاً (العدسة لا تقبل المضمَّنة) — الترفع إن لزم */
+    async function publicImg() {
+      var u = imgIn.value.trim() || p.image_url || '';
+      if (!u) return null;
+      if (isHttp(u)) return u;
+      if (!/^data:image\//.test(u) || typeof ctx.uploadImage !== 'function') return null;
+      say('⏳ رفع صورة المنتج للعدسة…'); var up = null; try { up = await ctx.uploadImage(u); } catch (_) {}
+      if (!up) return null;
+      var at = INV.imgs.indexOf(u); if (at !== -1) INV.imgs[at] = up; else INV.imgs.unshift(up); paintInv();
+      return up;
+    }
+    function showFound(title, items) {
+      var box = $('[data-pe-lensbox]'), res = $('[data-pe-lens-res]'); if (!box) return;
+      $('[data-pe-lenstitle]').textContent = title; res.innerHTML = '';
+      items.forEach(function (m) {
+        var f = doc.createElement('figure'), img = m.image || m.thumb;
+        f.innerHTML = '<img alt="" loading="lazy" src="' + esc(m.thumb || m.image) + '"><figcaption><b>' + esc(m.title || '') + '</b><small>' + esc([m.source, m.price].filter(Boolean).join(' · ')) + '</small></figcaption>' +
+          '<div class="pe-la">' + (isHttp(img) ? '<button type="button" data-a="add">+ أضف</button>' : '') + (isHttp(m.page) ? '<a href="' + esc(m.page) + '" target="_blank" rel="noopener">↗ الصفحة</a>' : '') + '</div>';
+        f.querySelector('img').onerror = function () { if (m.thumb && this.src !== m.thumb) this.src = m.thumb; else f.remove(); };
+        var a = f.querySelector('[data-a=add]'); if (a) a.onclick = function () { addFromLink(img); a.textContent = '✓'; a.disabled = true; };
+        res.appendChild(f);
+      });
+      box.hidden = !items.length;
+    }
+    var lcl = $('[data-pe-lensclose]'); if (lcl) lcl.onclick = function () { $('[data-pe-lensbox]').hidden = true; };
+    function searchErr(e, what) {
+      say(e && e.code === 'no_keys' ? what + ' داخل النظام يحتاج مفتاح SerpApi المجاني (٢٥٠ بحثاً شهرياً) — الخطوات في «تفعيل عقل النظام». إلى ذلك استعمل الزرّ الذي يفتح غوغل.'
+        : '❌ تعذّر ' + what + ': ' + ((e && e.message) || e), true);
+    }
+    var lensIn = $('[data-pe-lensin]');
+    if (lensIn) lensIn.onclick = async function () {
+      lensIn.disabled = true;
+      try {
+        var u = await publicImg();
+        if (!u) { say('لا صورة لهذا المنتج برابطٍ عامّ — أضف صورته أوّلاً', true); return; }
+        say('⏳ عدسة غوغل تبحث بصورة المنتج…');
+        var r = await GMTEnrichQueue._search('lens', '', 40, { url: u }), list = (r && r.matches) || [];
+        showFound('🔎 عدسة غوغل: ' + list.length + ' نتيجة' + (r && r.guess ? ' · غوغل يظنّه «' + r.guess + '»' : ''), list);
+        say(list.length ? '🔎 ' + list.length + ' منتجاً مطابقاً — «+ أضف» للصورة · «↗» لصفحته (مواصفاته وشرحه)' : 'لم تجد العدسة مطابقاً', !list.length);
+      } catch (e) { searchErr(e, 'البحث بعدسة غوغل'); }
+      finally { lensIn.disabled = false; }
+    };
+    var gIn = $('[data-pe-gimgin]');
+    if (gIn) gIn.onclick = async function () {
+      var q = (($('[data-f="name"]').value.trim() || p.name || '') + (brandEl.value.trim() && ($('[data-f="name"]').value || '').toLowerCase().indexOf(brandEl.value.trim().toLowerCase()) === -1 ? ' ' + brandEl.value.trim() : '')).trim();
+      gIn.disabled = true; say('⏳ صور غوغل لـ«' + q + '»…');
+      try {
+        var r = await GMTEnrichQueue._search('images', q, 40), list = ((r && r.images) || []).map(function (x) { return { title: x.title, source: x.source || '', image: x.url, thumb: x.thumb, page: x.page }; });
+        showFound('🔍 صور «' + q + '»: ' + list.length + (r && r.provider ? ' · ' + r.provider : ''), list);
+        say(list.length ? '🖼️ ' + list.length + ' صورة — «+ أضف» على ما تريد' : 'لم يجد صوراً', !list.length);
+      } catch (e) { searchErr(e, 'بحث صور غوغل'); }
+      finally { gIn.disabled = false; }
     };
     $('[data-pe-lensgo]').onclick = async function () {
       var u = imgIn.value.trim() || p.image_url || '';

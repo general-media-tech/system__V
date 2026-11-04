@@ -188,6 +188,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261104j"></script>
+  <script src="gmt-packages.js?v=20261104l"></script>
   <script src="gmt-store-sync.js?v=20261101u" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -299,6 +300,8 @@ window.GMT_PUBLIC = 1;</script>
     <!-- (٧ ي-٤) دعوة الإشعارات — بطاقةٌ في مكانها من الصفحة (طلبك ١٢ تموز: «أي شخص يدخل يُدعى») لا نافذةٌ عائمة تظهر وحدها -->
     <section class="px-4" id="notif-slot"></section>
 
+    <!-- (TASK-0321) الباقات — تُملأ من جدول العروض (منتجات بسعرٍ خاص) -->
+    <div data-container="packages-area"></div>
     <!-- [3] Products Area (by category — each with optional section banner) -->
     <div data-container="products-area">
         <section class="mt-6 px-4">
@@ -609,7 +612,7 @@ async function insertOrderToSupabase(orderData) {
     const SUPA_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
     const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
     try {
-        const items = orderData.items || [];
+        const items = _orderLines(orderData.items || []);   // (TASK-0321) الباقة ⇒ مكوّناتها
         const totalQty = items.reduce((s,i)=>s+(i.qty||1),0) || 1;
         // Build items_json matching the orders system format
         /* (٨ ت — تدقيق المطابقة) كانت البنود اسماً وكميّة فقط ⇒ «فاتورته» في الأوردرات بلا صور وأسعارها «—».
@@ -998,7 +1001,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261103e');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261104l');
         const [rows, lists] = await Promise.all([
             fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
             fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
@@ -1111,6 +1114,7 @@ function renderCartItems() {
             <div class="flex flex-col min-w-0">
                 <span class="text-sm font-medium line-clamp-1">${escHtml(item.name)}</span>
                 ${vt?`<span class="text-[11px] text-gray-400">${vt}</span>`:''}
+                ${Array.isArray(item.package_items)&&item.package_items.length?`<span class="text-[11px] text-gray-500">${escHtml(item.package_items.map(x=>x.name+(x.qty>1?' ×'+x.qty:'')).join(' + '))}</span>`:''}
                 <div class="flex items-center gap-2 mt-1">
                     <span class="text-xs text-primary font-bold">${parseFloat(item.price||0).toFixed(2)} ${CONFIG.CURRENCY}</span>
                     <span class="text-xs text-gray-400">× ${item.qty}</span>
@@ -1175,6 +1179,19 @@ async function submitOrder(name, phone, address, notes, payment) {
     if (_btn) _btn.disabled = true;
     if (_btnLabel) _btnLabel.textContent = 'جارٍ الإرسال…';
     try {
+    /* (TASK-0321) باقة في السلّة من زيارةٍ سابقة: تُطابَق مع الحالية — انتهت ⇒ تُزال · تغيّر سعرها ⇒ يُحدَّث ويراجعه الزبون قبل الإرسال */
+    if (store.cart.some(i => Array.isArray(i.package_items))) {
+        await loadPackages(true);
+        let changed = '';
+        store.cart = store.cart.filter(i => {
+            if (!Array.isArray(i.package_items)) return true;
+            const p = (store.packages || []).find(x => x.id === String(i.offer_id));
+            if (!p) { changed = 'انتهت باقة «' + String(i.name).replace(/^📦\s*/, '') + '» وأُزيلت من سلّتك'; return false; }
+            if (Math.abs(p.price - Number(i.price)) > 0.004) { i.price = p.price; i.package_items = p.items; changed = 'تغيّر سعر باقة «' + p.name + '» إلى ' + p.price.toFixed(2) + ' ' + CONFIG.CURRENCY; }
+            return true;
+        });
+        if (changed) { updateCartBadge(); renderCartItems(); showToast(changed + ' — راجع السلّة ثمّ أكّد الطلب', 'error'); return; }
+    }
     const subtotal = store.cart.reduce((s,i)=>s+(parseFloat(i.price)||0)*(i.qty||1),0);
     const couponDisc = storeCouponDiscount(subtotal);   // خصم الكوبون (إن وُجد)
     const total = Math.max(0, subtotal - couponDisc) + DELIVERY_FEE;
@@ -1182,7 +1199,7 @@ async function submitOrder(name, phone, address, notes, payment) {
     // بيانات الكوبون تُحفظ بالأوردر لتنتقل لفاتورة الكاشير عند التحويل (ثمّ يُختم هناك)
     const couponInfo = _storeCoupon ? { code: _storeCoupon.code, discount: couponDisc.toFixed(2), type: _storeCoupon.discount_type, value: _storeCoupon.discount_value } : null;
     const productLines = store.cart.map(item => {
-        let line = `${item.name}${item.qty>1?` x${item.qty}`:''}`;
+        let line = `${item.name}${item.qty>1?` x${item.qty}`:''}${_pkgText(item)}`;
         if (item.selectedVariants?.length) { const vs=item.selectedVariants.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', '); if(vs) line+=` (${vs})`; }
         return line;
     }).join(' + ');
@@ -1190,7 +1207,7 @@ async function submitOrder(name, phone, address, notes, payment) {
     /* (17 ت1) ما يكتبه الزبون يُهرَّب قبل وضعه في رسالة HTML — كان يستطيع حقن رابطٍ في قناة الطلبات */
     const _e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : (x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let msg = `🛍️ <b>طلب جديد! ${_e(orderId)}</b>\n👤 ${_e(name)}\n📱 ${_e(phone)}\n📍 ${_e(address)}\n━━━━━━━━\n`;
-    store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';msg+=`• ${_e(i.name)}${vs?` [${_e(vs)}]`:''} x${i.qty} — ${parseFloat(i.price).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
+    store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';msg+=`• ${_e(i.name + _pkgText(i))}${vs?` [${_e(vs)}]`:''} x${i.qty} — ${parseFloat(i.price).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
     if(couponInfo) msg+=`━━━━━━━━\n🎟️ كوبون: ${_e(couponInfo.code)} — خصم ${couponInfo.discount} ${CONFIG.CURRENCY}\n`;
     msg += `━━━━━━━━\n🚚 التوصيل: ${DELIVERY_FEE.toFixed(2)} ${CONFIG.CURRENCY}\n💰 <b>الإجمالي: ${total.toFixed(2)} ${CONFIG.CURRENCY}</b>\n💳 ${payment==='cod'?'عند الاستلام':payment==='whatsapp'?'واتساب':'شام كاش'}`;
     if(notes) msg+=`\n📝 ${_e(notes)}`;
@@ -1216,7 +1233,7 @@ async function submitOrder(name, phone, address, notes, payment) {
         const supaRes = await insertOrderToSupabase(orderData);
         if (supaRes==='fail') console.warn('[GMT] لم يُحفظ الطلب في القاعدة؛ يعتمد على رسالة واتساب:', orderId);
         let waText=`مرحباً، ${payment==='shamcash'?'أود إكمال الدفع عبر شام كاش':'اكمال الطلب عبر واتساب'} للطلب التالي:\n\nرقم الطلب: ${orderId}\nالاسم: ${name}\nالهاتف: ${phone}\nالعنوان: ${address}\n\nالمنتجات:\n`;
-        store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';waText+=`- ${i.name}${vs?` (${vs})`:''} (الكمية: ${i.qty}) — ${(parseFloat(i.price)*i.qty).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
+        store.cart.forEach(i=>{const vs=i.selectedVariants?.map(v=>(v.name||v.value||'')+(v.barcode?' ‹'+v.barcode+'›':'')).filter(Boolean).join(', ')||'';waText+=`- ${i.name}${_pkgText(i)}${vs?` (${vs})`:''} (الكمية: ${i.qty}) — ${(parseFloat(i.price)*i.qty).toFixed(2)} ${CONFIG.CURRENCY}\n`;});
         waText+=`\n🚚 التوصيل: ${DELIVERY_FEE.toFixed(2)} ${CONFIG.CURRENCY}\n💰 الإجمالي: ${total.toFixed(2)} ${CONFIG.CURRENCY}\n\nملاحظات: ${notes||'لا يوجد'}`;
         store.cart=[]; updateCartBadge(); closeModal('cart-modal');
         showToast('جاري تحويلك إلى واتساب...','success');
@@ -2732,10 +2749,89 @@ function _storeNotice(msg, retry){
     } catch (_) {}
 }
 
+/* ══ (TASK-0321 · المالك seq 514) الباقات: أكثر من منتج بسعرٍ خاص أو خصم — تُضاف للسلّة سطراً واحداً، والطلب يُكتب بمكوّناتها ══ */
+let _pkgLoaded = false;
+async function loadPackages(force){
+    if (_pkgLoaded && !force) { renderPackages(); return; }
+    _pkgLoaded = true;
+    try { store.packages = window.GMTPackages ? await GMTPackages.forStore() : []; } catch (e) { store.packages = []; console.warn('[باقات] تعذّر التحميل:', e && e.message); }
+    renderPackages();
+}
+function _pkgCard(p){
+    const pct = p.original > p.price ? Math.round((1 - p.price / p.original) * 100) : 0;
+    const img = p.images[0] || '';
+    return `<div class="pkg-card" style="min-width:260px;max-width:300px;flex:0 0 auto;background:#fff;border:1px solid #f0f0f0;border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.04)" data-pkg="${escHtml(p.id)}">
+        <div style="position:relative;height:150px;background:#f7f8fa;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            ${img ? `<img src="${escHtml(img)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:48px;color:#cbd5e1"></i>'}
+            ${pct ? `<span style="position:absolute;top:10px;right:10px;background:#D5001C;color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px">وفّر ${pct}%</span>` : ''}
+            <span style="position:absolute;top:10px;left:10px;background:#111;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px">📦 ${p.items.reduce((s,x)=>s+x.qty,0)} قطع</span>
+        </div>
+        <div style="padding:12px 14px 14px">
+            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.4">${escHtml(p.name)}</div>
+            <div style="font-size:12px;color:#555;line-height:1.7;margin-bottom:8px">${p.items.slice(0,4).map(x=>'• '+escHtml(x.name)+(x.qty>1?' ×'+x.qty:'')).join('<br>')}${p.items.length>4?'<br>و'+(p.items.length-4)+' غيرها…':''}</div>
+            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+                <div>${p.original > p.price ? `<div style="font-size:12px;color:#9ca3af;text-decoration:line-through">${p.original.toFixed(2)} ${CONFIG.CURRENCY}</div>` : ''}<div style="font-size:18px;font-weight:900;color:#D5001C">${p.price.toFixed(2)} ${CONFIG.CURRENCY}</div></div>
+                <button type="button" data-pkg-add="${escHtml(p.id)}" style="background:#D5001C;color:#fff;border:0;border-radius:12px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"><i class="ph ph-shopping-cart-simple"></i> أضف للسلة</button>
+            </div>
+        </div></div>`;
+}
+function renderPackages(){
+    const host = document.querySelector('[data-container="packages-area"]'); if (!host) return;
+    const list = store.packages || [];
+    if (!list.length) { host.innerHTML = ''; return; }
+    host.innerHTML = `<section class="mt-6"><div class="flex items-center justify-between px-4 mb-3"><h2 class="font-bold text-[20px]">📦 الباقات</h2><span class="text-xs text-primary font-bold bg-red-50 px-3 py-1 rounded-full">${list.length} باقة</span></div>
+        <div class="hide-scrollbar" style="display:flex;gap:12px;overflow-x:auto;padding:0 16px 6px">${list.map(_pkgCard).join('')}</div></section>`;
+    host.onclick = (e) => {
+        const add = e.target.closest('[data-pkg-add]'); if (add) { e.stopPropagation(); addPackageToCart(add.getAttribute('data-pkg-add')); return; }
+        const c = e.target.closest('[data-pkg]'); if (c) openPackageDetail(c.getAttribute('data-pkg'));
+    };
+}
+function addPackageToCart(id){
+    const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
+    const cid = 'pkg_' + p.id, ex = store.cart.find(i => i._cartId === cid);
+    if (ex) ex.qty = (ex.qty || 1) + 1;
+    else store.cart.push({ _cartId: cid, id: cid, name: '📦 ' + p.name, price: p.price, original_price: p.original, qty: 1, images: p.images.slice(0, 1),
+        offer_id: p.id, offer_type: 'bundle', _fromOffer: true, package_items: p.items.map(x => ({ id: x.id, name: x.name, qty: x.qty, price: x.price, image_url: x.image_url })) });
+    updateCartBadge();
+    showToast('أُضيفت الباقة للسلة ✓', 'success');
+}
+function openPackageDetail(id){
+    const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
+    const content = document.getElementById('offer-detail-content'); if (!content) return;
+    const pct = p.original > p.price ? Math.round((1 - p.price / p.original) * 100) : 0;
+    content.innerHTML = `
+    <div style="height:240px;background:#f7f8fa;display:flex;align-items:center;justify-content:center;overflow:hidden">${p.images[0] ? `<img src="${escHtml(p.images[0])}" alt="" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#cbd5e1"></i>'}</div>
+    <div style="padding:16px">
+        <h2 style="font-size:19px;font-weight:800;color:#111;margin:0 0 6px">📦 ${escHtml(p.name)}</h2>
+        ${p.ends_at ? `<div style="font-size:12px;color:#5b6472;margin-bottom:8px"><i class="ph ph-calendar-blank"></i> العرض حتى ${new Date(p.ends_at).toLocaleDateString('ar-EG')}</div>` : ''}
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">${p.original > p.price ? `<span style="font-size:14px;color:#9ca3af;text-decoration:line-through">${p.original.toFixed(2)} ${CONFIG.CURRENCY}</span>` : ''}<span style="font-size:24px;font-weight:900;color:#D5001C">${p.price.toFixed(2)} ${CONFIG.CURRENCY}</span>${pct ? `<span style="background:#fee2e2;color:#D5001C;font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px">وفّر ${pct}%</span>` : ''}</div>
+        ${p.description ? `<div style="font-size:13.5px;color:#555;line-height:1.8;white-space:pre-line;margin-bottom:10px">${escHtml(p.description)}</div>` : ''}
+        <div style="font-size:12px;font-weight:800;color:#5b6472;margin-bottom:6px">تشمل الباقة:</div>
+        ${p.items.map(x => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f3f4f6">
+            <div style="width:44px;height:44px;background:#f7f8fa;border-radius:10px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">${x.image_url ? `<img src="${escHtml(x.image_url)}" alt="" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-image text-gray-300"></i>'}</div>
+            <div style="flex:1;min-width:0;font-size:13px;font-weight:700">${escHtml(x.name)}</div>
+            <div style="font-size:12px;color:#5b6472;font-weight:700">×${x.qty}</div></div>`).join('')}
+        <button type="button" onclick="addPackageToCart('${escHtml(p.id)}');closeModal('offer-detail-modal')" style="width:100%;margin-top:14px;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit"><i class="ph ph-shopping-cart-simple"></i> أضف الباقة للسلة</button>
+    </div>`;
+    openModal('offer-detail-modal');
+}
+/* سطر الباقة في الطلب ⇒ مكوّناتها بأسعارٍ موزَّعة (مجموعها سعر الباقة) — فيتحوّل الطلب لفاتورة بخصم مخزون كلّ قطعة */
+function _orderLines(items){
+    const out = [];
+    (items || []).forEach(i => {
+        if (Array.isArray(i.package_items) && i.package_items.length && window.GMTPackages) {
+            GMTPackages.expand(i.package_items, i.price, i.qty || 1).forEach(c => out.push({ name: c.name + ' (ضمن «' + String(i.name || '').replace(/^📦\s*/, '') + '»)', qty: c.qty, price: c.unit, image_url: c.image_url || '', barcode: '', inv_id: c.id, _pkg: i.offer_id }));
+        } else out.push(i);
+    });
+    return out;
+}
+function _pkgText(i){ return Array.isArray(i.package_items) && i.package_items.length ? ' [' + i.package_items.map(x => x.name + (x.qty > 1 ? ' ×' + x.qty : '')).join(' + ') + ']' : ''; }
+
 function renderAll(){
     renderMainBanner(store.banners);
     renderCategories();
     renderProducts();
+    loadPackages();
     // Offers are NOT shown on homepage — only via the Offers button
     /* 🔧 (2026-08-26) روابط المنتج المباشرة كانت **ميتة**: زر «مشاركة المنتج» يولّد
        store.html#product=… لكن `_applyDeepLink` (التي تقرأ الرابط عند الفتح) لم تُنادَ أبداً

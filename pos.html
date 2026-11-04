@@ -3300,6 +3300,8 @@ function _buildOfferProducts(offers, freshProds) {
   freshProds.forEach(p => { prodById[p.id] = p; });
   return offers
     .filter(o => !(o.ends_at && o.ends_at < nowISO)) // استبعاد العروض المنتهية تلقائياً
+    /* (TASK-0321) باقةٌ «للمتجر وحده» لا تظهر هنا — غياب targets (العروض القديمة) = نقاط البيع كما كانت */
+    .filter(o => { let t = o.targets; if (typeof t === 'string') { try { t = JSON.parse(t); } catch (_) { t = null; } } return !(t && t.pos === false); })
     .map(o => {
       // بنية موحّدة: العرض المفرد يرتبط بمنتج عبر product_id، والباقة عبر products JSON
       let offerItems = [];
