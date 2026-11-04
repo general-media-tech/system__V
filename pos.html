@@ -1769,7 +1769,7 @@ window.GMT_FEATURES = [
           <div class="field" style="position:relative;">
             <label>اسم العميل <span class="field-req">*</span> <span id="custReqHint" style="display:none;font-size:10px;color:var(--warning);font-weight:700;">(مطلوب للبيع الآجل)</span></label>
             <input type="text" id="custName" placeholder="ابدأ بكتابة الاسم..." autocomplete="off"
-              oninput="this.classList.toggle('has-ok', this.value.trim().length > 0); this.classList.toggle('has-error', this.value.trim().length === 0); custSearchLive(this.value)"
+              oninput="this.dataset.autoFilled=''; this.classList.toggle('has-ok', this.value.trim().length > 0); this.classList.toggle('has-error', this.value.trim().length === 0); custSearchLive(this.value)"
               onblur="setTimeout(()=>hideCustDropdown(),200)">
             <div id="cust-dropdown" style="display:none;position:absolute;top:100%;right:0;left:0;z-index:500;background:white;border:2px solid #d9dee7;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);max-height:220px;overflow-y:auto;margin-top:3px;"></div>
           </div>
@@ -3830,6 +3830,12 @@ function gmtSnapshotLastInvoice() {
     }));
     window.__lastInvBranch  = branch ? branch.name : '';
     window.__lastInvCashier = currentUser ? currentUser.display_name : '';
+    /* (TASK-0320 · seq 513) رقم الفاتورة المحفوظة الآن وزبونها — كان رقمها لا يُحفظ أبداً بعد البيع ⇒ «🛡 كفالة» تفتح بلا رقم
+       فترفض صفحة الكفالة الإصدار، أو تحمل رقم فاتورةٍ قديمة فُتحت كفالتها من «الفواتير» قبلها (كفالةٌ على فاتورةٍ خاطئة). */
+    window.__lastInvNo    = invNum;
+    window.__lastInvName  = document.getElementById('custName')?.value.trim() || '';
+    window.__lastInvPhone = document.getElementById('custPhone')?.value.trim() || '';
+    window.__lastInvDate  = null;
   } catch (_) {}
 }
 
@@ -4568,7 +4574,7 @@ async function warrantyFromHistory(invId) {
       const r = await sbFetchTimeout(CONFIG.SUPABASE_URL + '/rest/v1/invoice_items?invoice_id=eq.' + invId + '&select=*', { headers: sbHeaders() }, 8000);
       if (r.ok) items = await r.json();
     } catch (_) {}
-    window.__lastInvItems = (items || []).map(x => ({ name: x.product_name || x.name || '', barcode: x.barcode || x.serial || '', price: x.unit_price || x.price }));
+    window.__lastInvItems = (items || []).map(x => ({ name: x.product_name || x.name || '', barcode: x.barcode || '', serial: x.serial || x.serial_no || '', price: x.unit_price || x.price }));
     window.__lastInvName = inv.customer_name || '';
     window.__lastInvPhone = inv.customer_phone || inv.phone || '';
     window.__lastInvNo = inv.inv_number || inv.id;
@@ -6205,7 +6211,13 @@ async function confirmRefund() {
             return s2 + Number(i.unit_price || i.price || 0) * q;
           }, 0);
           const share = remainingRaw > 0 ? Math.min(1, _refundRaw / remainingRaw) : 1;
-          const reversal = round2(netCur * share);
+          /* (TASK-0320 · seq 513) عمولة كلّ بندٍ مسجَّلة في invoice_items (للقطعة، على السعر الفعلي بعد الخصم) ⇒ يُعكس ما سُجّل
+             للقطع المرتجعة نفسها. كان يُعكس بنسبة القيمة: كاميرا عمولتها 50 مع عدسةٍ عمولتها 10 ⇒ يُعكس 48.73 بدل 50.
+             بلا عمولة بنود (فواتير قديمة) ⇒ النسبة كما كانت. ولا يتجاوز العكس صافي ما بقي من العمولة. */
+          const _hasItemComm = refundedItems.every(i => i.commission != null && isFinite(Number(i.commission)));
+          const _itemRev = _hasItemComm ? refundedItems.reduce((s2, i) => s2 + Number(i.commission) * i.refundQty, 0) : null;
+          const reversal = round2(_itemRev != null && !(rows || []).some(r => r.created_by === 'admin')
+            ? Math.max(0, Math.min(netCur, _itemRev)) : netCur * share);
           if (reversal > 0.004) {
             const orig = (rows || []).find(r => r.cashier_name) || {};
             const allApproved = (rows || []).length > 0 && (rows || []).every(r => r.approved === true);
@@ -6803,7 +6815,8 @@ function computeOrderLinkedTotal() {
     }
     if (couponRejected) couponCode = null;
   } else {
-    couponCode = (orderDiscount || manualDiscount > 0) ? null : (couponCode || null);
+    /* (TASK-0320) كوبونٌ لم يُتحقَّق منه/رُفض (مستعمل · غير موجود) لا يُكتب على الفاتورة — كان يُحفظ رمزه بلا خصم فيُعدّ «كوبوناً» في التقفيل */
+    couponCode = (orderDiscount || manualDiscount > 0 || !_activeCoupon) ? null : (couponCode || null);
   }
 
   const discount   = round2(manualDiscount > 0 ? manualDiscount : (orderDiscount || couponDiscount));
@@ -9986,16 +9999,22 @@ function validatePhoneField(el) {
 }
 
 async function autocompleteCust(val) {
-  if (!val || val.length < 2) return;
+  /* (TASK-0320 · seq 513) كان يبحث من أوّل رقمين («09») بـ«يحتوي» ويأخذ أوّل نتيجة ⇒ يملأ اسم زبونٍ آخر، ويبقى الاسم الخاطئ
+     بعد إكمال الرقم الصحيح (لا يُكتب فوق اسمٍ موجود). الآن: الرقم كاملاً فقط (آخر ٩ أرقام متطابقة)، والاسم الذي ملأه
+     الإكمال نفسه يُستبدل إن تغيّر الرقم — أمّا ما كتبه الكاشير بيده فلا يُمسّ. */
+  const _d9 = x => String(x || '').replace(/[^0-9٠-٩]/g, '').replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c)).slice(-9);
+  const nameEl0 = document.getElementById('custName');
+  const key = _d9(val);
+  if (key.length < 9) { if (nameEl0 && nameEl0.dataset.autoFilled === '1') { nameEl0.value = ''; nameEl0.dataset.autoFilled = ''; } return; }
   clearTimeout(_customerSearchTimeout);
   _customerSearchTimeout = setTimeout(async () => {
     try {
       const r = await sbFetchTimeout(
-        `${CONFIG.SUPABASE_URL}/rest/v1/gmt_customers?or=(name.ilike.*${encodeURIComponent(val)}*,phone.ilike.*${encodeURIComponent(val)}*)&select=name,phone,is_blocked&limit=5`,
+        `${CONFIG.SUPABASE_URL}/rest/v1/gmt_customers?phone=ilike.*${encodeURIComponent(key)}*&select=name,phone,is_blocked&limit=5`,
         { headers: sbHeaders() }, 4000
       );
       if (!r.ok) return;
-      const data = await r.json();
+      const data = (await r.json() || []).filter(c => _d9(c.phone) === key);
       if (!data?.length) return;
       try { if (window.GMTCustCache) GMTCustCache.remember(data); } catch (_) {}
       const match = data[0];
@@ -10008,7 +10027,7 @@ async function autocompleteCust(val) {
       // إكمال تلقائي
       const nameEl  = document.getElementById('custName');
       const phoneEl = document.getElementById('custPhone');
-      if (nameEl && !nameEl.value.trim())  nameEl.value  = match.name  || val;
+      if (nameEl && (!nameEl.value.trim() || nameEl.dataset.autoFilled === '1') && match.name) { nameEl.value = match.name; nameEl.dataset.autoFilled = '1'; }
       if (phoneEl && !phoneEl.value.trim()) phoneEl.value = match.phone || '';
       if (match.name || match.phone) showToast(`✅ عميل موجود: ${match.name}`, 'ok');
     } catch(e) { /* يتجاهل */ }
@@ -10675,7 +10694,8 @@ async function openWarrantyForInvoice(){
     inv:    window.__lastInvNo != null ? String(window.__lastInvNo) : '',
     date:   window.__lastInvDate || new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),
     product: first.name || '',
-    serial:  first.barcode || '',
+    /* (TASK-0320) الرقم التسلسلي رقم القطعة نفسها — لا باركود الصنف (واحدٌ لكل قطع الموديل) ⇒ يُكتب في صفحة الكفالة */
+    serial:  first.serial || '',
     price:   first.price != null ? String(first.price) : '',
     branch:  window.__lastInvBranch || '',
     cashier: window.__lastInvCashier || '',

@@ -1683,7 +1683,7 @@ window.GMT_INTERNAL = 1;</script>
                                 const x = named[+bt.getAttribute('data-pi')];
                                 const pn = document.getElementById('productName'), sn = document.getElementById('serialNo');
                                 if (pn) { pn.value = x.name || ''; pn.dispatchEvent(new Event('input', { bubbles: true })); }
-                                if (sn && x.barcode) { sn.value = x.barcode; sn.dispatchEvent(new Event('input', { bubbles: true })); }
+                                if (sn && x.serial) { sn.value = x.serial; sn.dispatchEvent(new Event('input', { bubbles: true })); }   /* (TASK-0320) باركود الصنف ليس رقم القطعة */
                                 [...box.querySelectorAll('[data-pi]')].forEach(o => { o.style.borderColor = o === bt ? '#D5001C' : '#e5e7eb'; o.style.color = o === bt ? '#D5001C' : ''; });
                             });
                             host.parentNode.appendChild(box);
