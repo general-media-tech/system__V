@@ -44,7 +44,7 @@ const SHOT = '/tmp/claude-0/-home-user-system--V/dfe65fb9-bcc1-5e5a-be94-906828e
     // ⋮ لقيد التجهيز: لا تتبّع ولا مراسلة فرع، لكن ربط فاتورة نقل موجود
     await pg.evaluate((id) => openCardMore(id), P);
     m = await pg.evaluate(() => [...document.querySelectorAll('#card-more-ov [data-i]')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-    ok(m.length === 1 && /ربط فاتورة نقل/.test(m[0]), '⋮ (قيد التجهيز): لا تتبّع ولا مراسلة، فقط ربط فاتورة نقل: ' + m.join(' | '));
+    ok(m.length === 2 && /تجميد الأوردر/.test(m[0]) && /ربط فاتورة نقل/.test(m[1]), '⋮ (قيد التجهيز): لا تتبّع ولا مراسلة، فقط تجميد (TASK-0316) + ربط فاتورة نقل: ' + m.join(' | '));
     await pg.evaluate(() => document.querySelector('#card-more-ov [data-x]').click());
     // ⋮ للمكتمل المرتبط بفاتورة: مرتجع + بطاقة الفاتورة
     await pg.evaluate((id) => openCardMore(id), C);

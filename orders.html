@@ -105,7 +105,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
-  <script src="gmt-notify.js?v=20261101o" defer></script>
+  <script src="gmt-notify.js?v=20261104b" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
@@ -273,6 +273,7 @@ window.GMT_INTERNAL = 1;</script>
             <button onclick="switchTab('all')"       id="tab-all"       class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-black bg-dark text-white shadow-md">الكل</button>
             <button onclick="switchTab('pending')"   id="tab-pending"   class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">قيد التجهيز <span data-status="pending" id="badge-pending"   class="inline-block bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('prepared')"  id="tab-prepared"  class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">محضّرة <span data-status="prepared" id="badge-prepared"  class="inline-block bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
+            <button onclick="switchTab('frozen')" id="tab-frozen" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200" data-hint="❄️ أوردرات مجمَّدة: بانتظار دفعة أو مراجعة بيانات — لا تُجهَّز ولا تُشحن حتى يُفَكّ تجميدها (TASK-0316).">❄️ مجمّدة <span id="badge-frozen" class="inline-block bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('shipped')"   id="tab-shipped"   class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">في الطريق <span data-status="shipped" id="badge-shipped"   class="inline-block bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('delivered')" id="tab-delivered" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">بانتظار التحصيل <span data-status="delivered" id="badge-delivered" class="inline-block bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('returned')" id="tab-returned" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">↩️ المرتجعات <span id="badge-returned" class="inline-block bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button><!-- (TASK-0240) -->
@@ -326,6 +327,16 @@ window.GMT_INTERNAL = 1;</script>
                 <h2 class="text-xs font-black text-blue-700 uppercase tracking-wider">طلبات قيد التجهيز</h2>
             </div>
             <div id="list-pending" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- ❄️ قسم المجمّدة (TASK-0316): أوردرٌ أُنشئ/جُمِّد بانتظار الدفعة — لا يُجهَّز ولا يُشحن حتى فكّ التجميد -->
+        <section id="section-frozen">
+            <div class="flex items-center gap-2 mb-4 px-1">
+                <span class="text-lg leading-none">❄️</span>
+                <h2 class="text-xs font-black text-sky-700 uppercase tracking-wider">أوردرات مجمَّدة — بانتظار الدفعة / مراجعة البيانات</h2>
+                <span id="frozen-sum" class="text-[10px] font-black text-sky-700 bg-sky-50 border border-sky-100 rounded-full px-2 py-0.5 hidden"></span>
+            </div>
+            <div id="list-frozen" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </section>
 
         <!-- قسم محضّرة (مرتبطة بفاتورة بيع من نقطة البيع) -->
@@ -522,6 +533,13 @@ window.GMT_INTERNAL = 1;</script>
                  ⇒ المعاينة **داخل** النموذج لا في نافذة جديدة، وزرّ الحفظ يبقى
                    في مكانه لمن لا يريد معاينة.
                  ══════════════════════════════════════════════════════════════ -->
+            <!-- ❄️ (TASK-0316) إنشاء الأوردر مجمَّداً: زبونٌ سيحوّل المبلغ لاحقاً ⇒ يُنشأ الآن ولا يُجهَّز/يُشحن حتى الدفعة -->
+            <label class="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 cursor-pointer">
+                <input type="checkbox" id="in-freeze" class="mt-1 w-5 h-5 accent-sky-600" onchange="document.getElementById('in-freeze-reason').classList.toggle('hidden', !this.checked)">
+                <span class="flex-1"><span class="block text-[13px] font-black text-sky-900">❄️ أنشئه مجمَّداً (بانتظار الدفعة)</span>
+                <span class="block text-[10.5px] font-bold text-sky-700 mt-0.5">لا يظهر في «قيد التجهيز» ولا يُشحن حتى تفكّ التجميد — ويصل الزبون رسالة: راجع بياناتك أو دفعاتك.</span>
+                <input id="in-freeze-reason" value="بانتظار الحوالة" class="hidden w-full mt-2 p-2.5 bg-white rounded-lg text-[12px] font-bold border border-sky-200" placeholder="سبب التجميد (يُرسَل للزبون)"></span>
+            </label>
             <div id="prevHost" class="hidden rounded-2xl border-2 border-gray-200 overflow-hidden bg-gray-50">
                 <div class="px-3 py-2 bg-white border-b border-gray-100 flex items-center justify-between gap-2">
                     <span class="text-[11.5px] font-black text-gray-500">🖨️ هكذا ستُطبع — راجِعها ثمّ أنشئ</span>
@@ -644,6 +662,14 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="delivered">بانتظار التحصيل</option>
                 <option value="completed">تم التحصيل</option>
             </select>
+            <!-- ❄️ (TASK-0316) تجميد/فكّ تجميد أوردرٍ قبل الشحن -->
+            <div id="edit-freeze-wrap" class="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="edit-freeze" class="w-5 h-5 accent-sky-600" onchange="document.getElementById('edit-freeze-reason').classList.toggle('hidden', !this.checked)">
+                    <span class="text-[13px] font-black text-sky-900">❄️ مجمَّد (لا يُجهَّز ولا يُشحن)</span>
+                </label>
+                <input id="edit-freeze-reason" class="hidden w-full mt-2 p-2.5 bg-white rounded-lg text-[12px] font-bold border border-sky-200" placeholder="سبب التجميد (يُرسَل للزبون)">
+            </div>
             <input id="edit-tracking" placeholder="رقم التتبع" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold border border-transparent transition-all">
             <textarea id="edit-notes" placeholder="ملاحظات..." rows="2" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold resize-none border border-transparent"></textarea>
             <button type="submit" id="saveEditBtn" class="w-full bg-orange-500 text-white py-4 rounded-xl font-black text-base shadow-md active:scale-95 transition-transform">حفظ التعديلات</button>
@@ -1565,7 +1591,8 @@ function render() {
     try { syncSenderFilter(); } catch (_) {}
     const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
     const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
-    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[], returned:[] };
+    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[], returned:[], frozen:[] };
+    let sumF = 0;   // (TASK-0316) قيمة المجمَّد
     const branchTot  = {};
     const companyTot = {};
     const companyFrom = {};   // (TASK-0203) الشركة ⇒ فرع الحوالة (senderFilterKey) ⇒ { v, n }
@@ -1582,6 +1609,14 @@ function render() {
         const matchS  = !fSend    || senderFilterKey(o) === fSend;
         const matchT  = !fTransfer || transferFilterOf(o) === fTransfer;
         if (!matchQ || !matchC || !matchB || !matchS || !matchT) return;
+        /* ❄️ (TASK-0316) المجمَّد يخرج من «قيد التجهيز/محضّرة» ويُعرَض في تبويبه وحده: لا يُحسب بين المطلوب تجهيزه ولا في الجاري.
+           يبقى مع ذلك في المتابعة (مجمَّدٌ منذ أيام ⇒ يحتاج اتصالاً) بسببٍ صريح. */
+        if (isFrozen(o)) {
+            groups.frozen.push(o); sumF += orderDue(o);
+            const _fAge = (o.frozen_at ? now - new Date(o.frozen_at).getTime() : 0);
+            if (_fAge > 5 * 86400000) lateOrders.push({ o, days: Math.floor(_fAge / 86400000), type: 'frozen', reason: 'مجمَّد بانتظار الدفعة/البيانات' });
+            return;
+        }
         if (groups[o.status]) groups[o.status].push(o);
         if (o.status !== 'returned' && returnActive(o)) groups.returned.push(o);   // (TASK-0261) يظهر في تبويبه وفي المرتجعات معاً
         /* (TASK-0166) الجاري ⇒ ما بقي للتحصيل (المحصَّل مسبقاً خارجه) · المكتمل ⇒ قيمة الأوردر كاملة (87 إن زادت الأجور) */
@@ -1683,8 +1718,8 @@ function render() {
     const lateList  = document.getElementById('late-list');
     if (lateOrders.length > 0 && lateList) {
         /* ORD-6: يعرض كل الحالات غير المكتملة + سبب الدخول للمتابعة */
-        const ICON = { pending:'⏳', prepared:'📦', shipped:'🚚', delivered:'💵', returned:'↩️' };
-        const COL  = { pending:'text-gray-600', prepared:'text-blue-600', shipped:'text-yellow-700', delivered:'text-red', returned:'text-orange-700' };
+        const ICON = { pending:'⏳', prepared:'📦', shipped:'🚚', delivered:'💵', returned:'↩️', frozen:'❄️' };
+        const COL  = { pending:'text-gray-600', prepared:'text-blue-600', shipped:'text-yellow-700', delivered:'text-red', returned:'text-orange-700', frozen:'text-sky-700' };
         lateOrders.sort((a,b)=>b.days-a.days);
         lateList.innerHTML = lateOrders.map(({o, days, type, reason}) => `
             <div class="flex justify-between items-center bg-white rounded-xl px-3 py-2 border border-amber-100 cursor-pointer hover:border-amber-300 transition-colors" onclick="closeModal('followUpModal'); openEditModal(${o.id})">
@@ -1703,6 +1738,8 @@ function render() {
     }
 
     setText('badge-pending',   groups.pending.length);
+    setText('badge-frozen',    groups.frozen.length);
+    { const fs = document.getElementById('frozen-sum'); if (fs) { fs.textContent = groups.frozen.length ? '$' + sumF.toLocaleString() + ' مجمَّد' : ''; fs.classList.toggle('hidden', !groups.frozen.length); } }
     setText('badge-prepared',  groups.prepared.length);
     setText('badge-shipped',   groups.shipped.length);
     setText('badge-delivered', groups.delivered.length);
@@ -1710,7 +1747,7 @@ function render() {
     setText('badge-returned',  groups.returned.length);
 
     // تبويبات
-    ['all','pending','prepared','shipped','delivered','returned','completed'].forEach(t => {
+    ['all','pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(t => {
         const btn = document.getElementById('tab-' + t);
         if (!btn) return;
         btn.className = currentTab === t
@@ -1723,7 +1760,7 @@ function render() {
        (٣٠٠ أوردر ≈ ١٠٦ آلاف عنصر) فتتجمّد الصفحة حتى ثانية مع كل حرفٍ في البحث. الآن أوّل CARD_CHUNK بطاقة فوراً والباقي يُضاف
        وحده كلّما اقتربتَ منه بالتمرير — نفس البطاقات ونفس الترتيب والفلاتر، لا شيء يُحذف. */
     const seq = ++_renderSeq;
-    ['pending','prepared','shipped','delivered','returned','completed'].forEach(st => {
+    ['pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(st => {
         const sec = document.getElementById('section-' + st);
         if (!sec) return;
         const show = currentTab === 'all' || currentTab === st;
@@ -1979,7 +2016,10 @@ function cardHTML(o) {
         completed: `<button onclick="requestConfirm(${o.id},'delete')"    class="flex-1 ${c.btn} py-3 rounded-xl text-xs font-black transition-colors">🗂 أرشفة نهائية</button>`,
         returned:  returnActionBtn(o, c),   // (TASK-0260) بالطريق ⇐ وصل ⇐ استلمناه ⇐ إعادة الشحن
     }[o.status] || '';
-    const _actBtn = (o.status !== 'returned' && returnActive(o)) ? returnActionBtn(o, c) : actionBtn;   // (TASK-0261) مرتجعٌ قائم ⇒ زرّ مرحلته لا التحصيل
+    const _frz = isFrozen(o);
+    const _actBtn = _frz
+        ? `<button onclick="thawOrder(${o.id})" data-hint="الأوردر مجمَّد: لا يُجهَّز ولا يُشحن. فكّ التجميد بعد تأكّدك من الدفعة/البيانات." class="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl text-xs font-black transition-colors">☀️ فكّ التجميد</button>`
+        : ((o.status !== 'returned' && returnActive(o)) ? returnActionBtn(o, c) : actionBtn);   // (TASK-0261) مرتجعٌ قائم ⇒ زرّ مرحلته لا التحصيل
 
     const isLinked = !!(o.invoice_number || o.invoice_id);
     const _btnRow = (o.status === 'delivered' && !returnActive(o)) ? deliveredButtonsHTML(o, c) : null;
@@ -1990,6 +2030,7 @@ function cardHTML(o) {
             : `<button onclick="openEditModal(${o.id})" class="absolute top-4 left-4 text-gray-200 hover:text-orange-400 transition-colors z-10">
             <i data-lucide="edit" class="w-4 h-4"></i>
         </button>`}
+        ${_frz ? frozenBannerHTML(o) : ''}
         ${getOrderSerial(o) ? `<div class="mb-2" dir="ltr"><span class="inline-block bg-gray-100 text-gray-600 font-black font-mono text-xs px-3 py-1 rounded-lg tracking-wider">${escH(getOrderSerial(o))}</span></div>` : ''}
         ${isLinked ? `<div class="mb-2 flex items-center gap-2 flex-wrap">
             <span class="order-linked-badge">🔗 مرتبط — جاهز للشحن</span>
@@ -2041,6 +2082,7 @@ function otherButtonsHTML(o, c, actionBtn) {
        الاستلام). ما بقي: واتساب **المكاتب** (التواصل مع مكتب الشحن). */
     /* (TASK-0152 · seq 57 · 23 ت1 «الأوردر قيد التجهيز ما فيه زرّ مراسلة واتساب — هذا الشيء غلط») — رسالتك الأحدث تغلب قرار ٣ ت١:
        زرّ واتساب الزبون يعود لبطاقة «قيد التجهيز» وحدها (بقية المراحل كما هي). */
+    add((isFrozen(o) && o.phone) ? `<button onclick="notifyOrderFrozen(${o.id})" data-hint="تبليغ الزبون على واتساب بزنس: تم تجميد أوردرك — راجع بياناتك أو دفعاتك" class="h-10 px-3 bg-sky-50 border border-sky-200 rounded-xl flex items-center justify-center gap-1 text-sky-800 text-[11px] font-black shrink-0" title="تبليغ التجميد">📲 ${freezeInfoOf(o).notified_at ? 'أعد التبليغ' : 'بلّغ الزبون'}</button>` : '');
     add((o.status === 'pending' && o.phone) ? `<button onclick="contactCustomerPending(${o.id})" data-hint="مراسلة الزبون على واتساب بزنس بخصوص طلبه قيد التجهيز"
                     class="w-10 h-10 bg-emerald-600 border border-emerald-700 rounded-xl flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shrink-0" title="مراسلة الزبون على واتساب" data-wa-pending>
                 <i data-lucide="message-circle" class="w-4 h-4"></i>
@@ -2102,6 +2144,16 @@ function _onclickOf(html) {
 function cardMoreItems(o) {
     const items = [];
     const later = SHIPPED_OR_LATER.indexOf(o.status) !== -1;     // شُحن فما بعد
+    /* ❄️ (TASK-0316) تجميد/فكّ + تبليغ التجميد + تبليغ وصول المنتجات (أوردرٌ مرتبطٌ بفاتورة نقل) */
+    if (o.status === 'pending' || o.status === 'prepared') {
+        if (isFrozen(o)) {
+            items.push({ ic: '☀️', t: 'فكّ التجميد', off: 'يعود الأوردر قابلاً للتجهيز والشحن', on: 'thawOrder(' + o.id + ')' });
+            if (o.phone) items.push({ ic: '📲', t: freezeInfoOf(o).notified_at ? 'تبليغ التجميد — أُرسل ✓ (أعد الإرسال)' : 'تبليغ الزبون بالتجميد', off: 'تم تجميد أوردرك — راجع بياناتك أو دفعاتك', on: 'notifyOrderFrozen(' + o.id + ')' });
+        } else {
+            items.push({ ic: '❄️', t: 'تجميد الأوردر (بانتظار دفعة/بيانات)', off: 'لا يُجهَّز ولا يُشحن حتى فكّ التجميد', on: 'freezeOrder(' + o.id + ')' });
+        }
+        if (o.phone && transferInvoiceOf(o) && !isFrozen(o)) items.push({ ic: '📦', t: o.notified_goods_at ? 'تبليغ وصول المنتجات — أُرسل ✓ (أعد الإرسال)' : 'تبليغ وصول المنتجات للزبون', off: 'وصلت وراح تكون قيد الشحن خلال 24 ساعة', on: 'notifyGoodsArrived(' + o.id + ')' });
+    }
     if (later) {
         const tr = trackBtnHTML(o), trOn = _onclickOf(tr);
         items.push({ ic: '🔎', t: 'التحقق من الشحنة / تتبّعها', on: trOn, off: trOn ? '' : 'لا رابط تتبّعٍ لهذه الشركة' });
@@ -3463,13 +3515,21 @@ document.getElementById('formAdd').onsubmit = async (e) => {
             serial_code:      serialCode,
             entered_by:       getOperatorName() || null,
         };
+        /* ❄️ (TASK-0316) مجمَّداً من الإنشاء */
+        const _frzNow = !!(document.getElementById('in-freeze') || {}).checked;
+        if (_frzNow) {
+            const _t0 = new Date().toISOString();
+            data.frozen_at = _t0;
+            data.freeze_info = { reason: String((document.getElementById('in-freeze-reason') || {}).value || '').trim() || 'بانتظار الدفعة', by: getOperatorName() || null, at: _t0 };
+        }
         const result = await sbInsert(data);
         orders.unshift(Array.isArray(result) ? result[0] : result);
         render();
         closeModal('addModal');
         e.target.reset();
+        try { const _r = document.getElementById('in-freeze-reason'); if (_r) _r.classList.add('hidden'); } catch (_) {}
         initAddModal();
-        showToast('✅ تم حفظ الطلب', 'ok');
+        showToast(_frzNow ? '✅ تم حفظ الطلب — مجمَّد ❄️ بانتظار الدفعة' : '✅ تم حفظ الطلب', 'ok');
         const savedOrder = Array.isArray(result) ? result[0] : result;
         /* (٨ ث — تدقيق المطابقة) «التبليغ بطيء»: كان تبليغ الزبون ينتظر بناء صورة التيليغرام ورفعها كاملاً
            (ثوانٍ على شبكةٍ ضعيفة) — وبعدها تكون «ضغطة» الموظّف قد انتهت فيرفض الهاتف فتح المشاركة.
@@ -3482,7 +3542,10 @@ document.getElementById('formAdd').onsubmit = async (e) => {
         /* 📲 (2026-09-26 · طلب المالك) تبليغ **استلام الطلب** للزبون — تلقائي،
            ومعه صورة ورقة الطلب نفسها التي تُطبع. (٨ ث) لم يعد ينتظر إشعار التلغرام —
            ذاك يجري بالتوازي ولا تحجبه نافذة المشاركة. */
-        notifyOrderReceived(savedOrder).catch(err => {
+        /* ❄️ المجمَّد من الإنشاء: رسالته «تم تجميد أوردرك — راجع بياناتك أو دفعاتك» بدل «استلمنا طلبك» (لا رسالتان متعارضتان) */
+        if (_frzNow && savedOrder && savedOrder.phone) {
+            try { window.notifyOrderFrozen(savedOrder.id); } catch (err) { console.warn('[GMT] تبليغ التجميد:', err && err.message); }
+        } else notifyOrderReceived(savedOrder).catch(err => {
             console.warn('[GMT] تبليغ استلام الطلب:', err && err.message);
         });
     } catch(err) {
@@ -3537,6 +3600,13 @@ window.openEditModal = async (id) => {
     document.getElementById('edit-status').value  = o.status || 'pending';
     document.getElementById('edit-tracking').value= o.tracking_number || '';
     document.getElementById('edit-notes').value   = o.notes || '';
+    try {   /* ❄️ (TASK-0316) حالة التجميد — للأوردر قبل الشحن فقط */
+        const _w = document.getElementById('edit-freeze-wrap'), _c = document.getElementById('edit-freeze'), _r = document.getElementById('edit-freeze-reason');
+        const _pre = (o.status === 'pending' || o.status === 'prepared');
+        if (_w) _w.classList.toggle('hidden', !_pre);
+        if (_c) _c.checked = isFrozen(o);
+        if (_r) { _r.value = isFrozen(o) ? (freezeInfoOf(o).reason || '') : 'بانتظار الدفعة'; _r.classList.toggle('hidden', !isFrozen(o)); }
+    } catch (_) {}
     try {   /* خيارات الشركة نفسها التي في نموذج الإنشاء — مصدرٌ واحد */
         const src = document.getElementById('in-company'), dst = document.getElementById('edit-company');
         if (src && dst) {
@@ -3580,6 +3650,19 @@ document.getElementById('formEdit').onsubmit = async (e) => {
         tracking_number: document.getElementById('edit-tracking').value.trim(),
         notes:           [document.getElementById('edit-notes').value.trim(), _zg.note].filter(Boolean).join('\n'),
     };
+    /* ❄️ (TASK-0316) التجميد/فكّه من نافذة التعديل — لا يُسمح بتجميد ما شُحن، ولا بنقل المجمَّد إلى «شُحن» */
+    let _frzJustOn = false;
+    {
+        const _p0 = orders.find(o => o.id == id) || {}, _fc = document.getElementById('edit-freeze');
+        const _wasF = isFrozen(_p0), _nowF = !!(_fc && _fc.checked && (data.status === 'pending' || data.status === 'prepared'));
+        if (_fc && (data.status === 'shipped' || data.status === 'delivered' || data.status === 'completed') && _fc.checked) {
+            btn.disabled = false; btn.textContent = 'حفظ التعديلات'; showToast('❄️ المجمَّد لا يُشحن — فكّ التجميد أوّلاً أو أبقِ الحالة «قيد التجهيز»', 'err'); return;
+        }
+        const _t1 = new Date().toISOString(), _fi = freezeInfoOf(_p0), _rs = String((document.getElementById('edit-freeze-reason') || {}).value || '').trim() || 'بانتظار الدفعة';
+        if (_nowF && !_wasF) { data.frozen_at = _t1; data.freeze_info = { reason: _rs, by: (typeof getOperatorName === 'function' && getOperatorName()) || null, at: _t1 }; _frzJustOn = true; }
+        else if (_nowF && _wasF && _rs !== (_fi.reason || '')) { data.freeze_info = Object.assign({}, _fi, { reason: _rs, notified_at: null }); }
+        else if (!_nowF && _wasF) { data.frozen_at = null; data.freeze_info = Object.assign({}, _fi, { thawed_at: _t1, thawed_by: (typeof getOperatorName === 'function' && getOperatorName()) || null }); }
+    }
     /* ══════════════════════════════════════════════════════════════════════
        📞 طلبك ٣١ (2026-10-03): «تغيير رقم الزبون ⇒ إعادة التبليغ».
 
@@ -3645,6 +3728,9 @@ document.getElementById('formEdit').onsubmit = async (e) => {
 
         render();
         closeModal('editModal');
+        if (_frzJustOn && data.phone) {
+            GMTAsk.choose('نبلّغ الزبون الآن أنّ أوردره مجمَّد (يراجع بياناته أو دفعاته)؟', { title: '📲 تبليغ التجميد', choices: [{ k: 'go', t: 'بلّغه الآن', pri: 1 }, { k: 'later', t: 'لاحقاً' }] }).then(k => { if (k === 'go') window.notifyOrderFrozen(id); });
+        }
         if (!(_phoneChanged && _wasNotified)) showToast(_secWarn.length ? '✅ تم تعديل الطلب — لكن:\n' + _secWarn.join('\n') : '✅ تم تعديل الطلب', _secWarn.length ? 'err' : 'ok');
         /* (٨ ث — تدقيق المطابقة) «إعادة التبليغ لما يتغيّر الرقم»: كان يُطلب من الموظّف أن يتذكّر. الآن يُعرض
            عليه فوراً آخرُ تبليغٍ وصل الرقمَ القديم، ليرسله للجديد بضغطة (واتساب يحتاج ضغطةً منه — لا يُرسَل خفيةً).
@@ -3696,6 +3782,7 @@ window.triggerDelete = () => {
 /* mode: 'ship' (تأكيد الشحن — كما كان) · 'attach' (برومبت «الماسح الضوئي الذكي» خامساً: إرفاق/مسح إيصال لأوردرٍ موجود بلا تغيير حالته) */
 window.openReceiptAttach = (id) => window.openShipModal(id, 'attach');
 window.openShipModal = (id, mode) => {
+    { const _fo = orders.find(x => x.id == id); if (_fo && isFrozen(_fo) && mode !== 'attach') { showToast('❄️ الأوردر مجمَّد — فكّ التجميد أوّلاً (بانتظار: ' + freezeReasonText(_fo) + ')', 'err'); return; } }
     shipOrderId = id;
     _shipMode = mode === 'attach' ? 'attach' : 'ship';
     _shipScan = null; _shipRead = null; _shipReading = false; _shipEarly = null; _shipOrig = null;
@@ -8593,9 +8680,19 @@ function resCardHTML(r) {
             <div><p class="text-[9px] font-bold text-gray-400 mb-0.5">المتبقي</p><p class="text-sm font-black text-red">$${parseFloat(r.remaining||0).toLocaleString()}</p></div>
         </div>
         ${r.notes ? `<p class="text-[10px] bg-yellow-50 p-2 rounded-lg text-gray-600 font-bold border border-yellow-100 mb-3">📝 ${escH(r.notes)}</p>` : ''}
-        <div class="flex gap-2"><button onclick="printReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors" title="طباعة فاتورة الحجز المبدئية"><i data-lucide="printer" class="w-4 h-4"></i></button><button onclick="shareReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-emerald-600 shrink-0 transition-colors" title="مشاركة صورة الفاتورة المبدئية"><i data-lucide="share-2" class="w-4 h-4"></i></button>${actionBtn}</div>
+        <div class="flex gap-2"><button onclick="printReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors" title="طباعة فاتورة الحجز المبدئية"><i data-lucide="printer" class="w-4 h-4"></i></button><button onclick="shareReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-emerald-600 shrink-0 transition-colors" title="مشاركة صورة الفاتورة المبدئية"><i data-lucide="share-2" class="w-4 h-4"></i></button>${(r.status === 'arrived' && r.phone) ? `<button onclick="notifyResArrived(${r.id})" data-hint="تبليغ الزبون على واتساب: وصلت قطعتك وستكون قيد الشحن خلال 24 ساعة" class="h-10 px-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center gap-1 text-emerald-800 text-[11px] font-black shrink-0" title="تبليغ الوصول">📲 ${r.notified_arrival_at ? 'أعد التبليغ' : 'بلّغ الزبون'}</button>` : ''}${actionBtn}</div>
     </div>`;
 }
+window.notifyResArrived = async (id) => {
+    const r = reservations.find(x => x.id == id); if (!r) return;
+    if (!r.phone) { showToast('لا رقم لهذا الزبون', 'err'); return; }
+    let items = [];
+    if (r.items_json) { try { items = JSON.parse(r.items_json); } catch (e) {} }
+    if (!items.length) items = [{ name: r.item || '', qty: parseInt(r.qty) || 1 }];
+    openWhatsAppChat(r.phone, goodsArrivedMessage(r.name, items.map(i => i.qty > 1 ? i.name + ' × ' + i.qty : i.name).join('، ').slice(0, 140)));
+    const now = new Date().toISOString();
+    try { await sbUpdateReservation(id, { notified_arrival_at: now }); r.notified_arrival_at = now; renderReservations(); } catch (e) { console.warn('[res] وسم التبليغ:', e && e.message); }
+};
 
 // ── إضافة صف منتج في نموذج الحجوزات ──
 window.addResItemRow = (mode = 'add') => {
@@ -8756,6 +8853,9 @@ window.confirmResArrived = async (id) => {
         const r = reservations[idx];
         renderReservations();
         showToast('📦 تم تسجيل وصول القطعة — جارٍ الإشعار...', 'ok');
+        /* 📲 (TASK-0316 · seq 493) «المنتجات المحجوزة … لما نحط وصلت … بتبلغ الشخص إنها وصلت وراح تكون قيد الشحن خلال 24 ساعة»
+           الفتح يحتاج ضغطةً من الموظّف (واتساب لا يُفتح خفيةً) ⇒ سؤالٌ يعطي الضغطة؛ والزرّ يبقى على بطاقة الحجز. */
+        if (r && r.phone) GMTAsk.choose('وصلت قطعة «' + (r.name || '') + '» — نبلّغه الآن أنّها وصلت وستكون قيد الشحن خلال 24 ساعة؟', { title: '📲 تبليغ الوصول', choices: [{ k: 'go', t: 'بلّغه الآن', pri: 1 }, { k: 'later', t: 'لاحقاً' }] }).then(k => { if (k === 'go') window.notifyResArrived(id); });
 
         // إشعار تيليجرام كامل مع صورة
         if (r) {
@@ -8985,6 +9085,95 @@ const RET_STAGES = { transit: '↩️ بالطريق إلينا', arrived: '📍
 function returnInfoOf(o) { const r = o && o.return_info; if (!r) return null; if (typeof r === 'string') { try { return JSON.parse(r); } catch (_) { return null; } } return r; }
 function returnStageOf(o) { const r = returnInfoOf(o); return (r && RET_STAGES[r.stage]) ? r.stage : 'transit'; }
 /* مرتجعٌ قائم لم يُؤكَّد استلامه (والأوردر بحالته) — أو مرتجعٌ قديم سُجّل بالطريقة السابقة (حالته «مرتجع» بلا مرحلة) */
+/* ═════════════════════════════════════════════════════════════════
+   ❄️ تجميد الأوردر — TASK-0316 (المالك seq 493)
+   «في أشخاص بيقولوا راح نحوّل لك حوالة … ما عليه دفع ولكن بيكون الأوردر مجمَّد … ممكن أوردر عادي أعمل له تجميد بحيث ما
+    يطلع جاهز للشحن أو ما يكون مجهَّز · ويوصل رسالة: تم تجميد أوردرك، راجع بياناتك أو دفعاتك».
+   التصميم: لا حالةٌ جديدة (pending/prepared تبقى) بل علامةٌ على الأوردر — gmt_orders.frozen_at (وقت التجميد · NULL = غير مجمَّد)
+   و freeze_info {reason, by, at, notified_at, thawed_at, thawed_by}. المجمَّد: يظهر في تبويب «❄️ مجمّدة» وحده، ولا يُجهَّز ولا يُشحن
+   ولا يدخل الطباعة الجماعية «غير المشحون» حتى «☀️ فكّ التجميد». التبليغ واتساب بزنس بضغطة (لا يُرسَل خفيةً) ويُوسَم بعد الفتح.
+   ═════════════════════════════════════════════════════════════════ */
+function isFrozen(o) { return !!(o && o.frozen_at && (o.status === 'pending' || o.status === 'prepared')); }
+function freezeInfoOf(o) {
+    let f = o && o.freeze_info;
+    if (typeof f === 'string') { try { f = JSON.parse(f); } catch (_) { f = null; } }
+    return (f && typeof f === 'object') ? f : {};
+}
+function freezeReasonText(o) { return String(freezeInfoOf(o).reason || '').trim() || 'بانتظار الدفعة'; }
+function frozenBannerHTML(o) {
+    const f = freezeInfoOf(o);
+    const when = (() => { try { return o.frozen_at ? new Date(o.frozen_at).toLocaleDateString('ar-SY', { day: 'numeric', month: 'short' }) : ''; } catch (_) { return ''; } })();
+    const nt = f.notified_at ? ('<span class="font-black text-emerald-700">✓ بُلِّغ الزبون</span>') : ('<span class="font-black text-amber-700">لم يُبلَّغ الزبون بعد</span>');
+    return '<div data-frozen-banner class="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-[11px] font-bold text-sky-900 flex items-center gap-2 flex-wrap">' +
+        '<span class="text-base leading-none">❄️</span><span class="font-black">مجمَّد</span>' +
+        '<span>— ' + escH(freezeReasonText(o)) + (when ? ' · منذ ' + escH(when) : '') + (f.by ? ' · ' + escH(f.by) : '') + '</span>' +
+        '<span class="mr-auto">' + nt + '</span></div>';
+}
+function frozenMessage(o) {
+    const sc = (typeof getOrderSerial === 'function' && getOrderSerial(o)) || '';
+    return 'مرحباً' + (o.name ? ' أ. ' + o.name : '') + '،\n' +
+        'تم تجميد أوردرك' + (sc ? ' رقم ' + sc : '') + ' مؤقّتاً لدى مجموعة ميديا تيك التجارية (جنرال ميديا تيك) — السبب: ' + freezeReasonText(o) + '.\n' +
+        'يرجى مراجعة بياناتك أو مراجعة دفعاتك، وما أن نتأكّد منها يُفَكّ التجميد ويُجهَّز طلبك للشحن مباشرةً.\n' +
+        'شكراً لثقتك بنا.';
+}
+async function _patchFreeze(id, patch) {
+    const o = orders.find(x => x.id == id);
+    await sbUpdateOrThrow(id, patch);
+    if (o) Object.assign(o, patch);
+    return o;
+}
+/* تجميد: يسأل عن السبب (الافتراضي «بانتظار الحوالة») ثم يعرض تبليغ الزبون فوراً */
+window.freezeOrder = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (o.status !== 'pending' && o.status !== 'prepared') { showToast('التجميد لأوردرٍ قبل الشحن فقط', 'err'); return; }
+    if (isFrozen(o)) { showToast('الأوردر مجمَّد أصلاً', 'inf'); return; }
+    const why = await GMTAsk.prompt('سبب تجميد أوردر «' + (o.name || '') + '» (يظهر للزبون في الرسالة):', { title: '❄️ تجميد الأوردر', value: 'بانتظار الحوالة', okText: 'جمِّد' });
+    if (why === null || why === undefined) return;
+    const now = new Date().toISOString();
+    try {
+        await _patchFreeze(id, { frozen_at: now, freeze_info: { reason: String(why).trim() || 'بانتظار الدفعة', by: (typeof getOperatorName === 'function' && getOperatorName()) || null, at: now } });
+    } catch (e) { showToast('تعذّر التجميد: ' + (e && e.message || 'خطأ'), 'err'); return; }
+    render();
+    showToast('❄️ تم تجميد الأوردر — لن يُجهَّز ولا يُشحن حتى فكّ التجميد', 'ok');
+    if (o.phone) {
+        const k = await GMTAsk.choose('نبلّغ الزبون الآن أنّ أوردره مجمَّد (يراجع بياناته أو دفعاته)؟', { title: '📲 تبليغ التجميد', choices: [{ k: 'go', t: 'بلّغه الآن', pri: 1 }, { k: 'later', t: 'لاحقاً' }] });
+        if (k === 'go') window.notifyOrderFrozen(id);
+    }
+};
+window.thawOrder = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || !isFrozen(o)) return;
+    const ok = await GMTAsk.confirm('فكّ تجميد أوردر «' + (o.name || '') + '»؟\nسيعود إلى «' + (o.status === 'prepared' ? 'محضّرة' : 'قيد التجهيز') + '» ويصبح قابلاً للتجهيز والشحن.', { title: '☀️ فكّ التجميد', okText: 'فكّ التجميد' });
+    if (!ok) return;
+    const f = freezeInfoOf(o), now = new Date().toISOString();
+    try {
+        await _patchFreeze(id, { frozen_at: null, freeze_info: Object.assign({}, f, { thawed_at: now, thawed_by: (typeof getOperatorName === 'function' && getOperatorName()) || null }) });
+    } catch (e) { showToast('تعذّر فكّ التجميد: ' + (e && e.message || 'خطأ'), 'err'); return; }
+    render();
+    showToast('☀️ فُكّ التجميد — الأوردر جاهزٌ للتجهيز', 'ok');
+};
+window.notifyOrderFrozen = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (!o.phone) { showToast('لا رقم لهذا الزبون', 'err'); return; }
+    openWhatsAppChat(o.phone, frozenMessage(o));
+    const f = Object.assign({}, freezeInfoOf(o), { notified_at: new Date().toISOString() });
+    try { await _patchFreeze(id, { freeze_info: f }); render(); } catch (e) { console.warn('[freeze] وسم التبليغ:', e && e.message); }
+};
+/* تبليغ وصول منتجات الزبون (أوردرٌ مرتبطٌ بفاتورة نقل · أو حجزٌ وصلت قطعته): «وصلت وراح تكون قيد الشحن خلال 24 ساعة» */
+function goodsArrivedMessage(name, what) {
+    return 'مرحباً' + (name ? ' أ. ' + name : '') + '،\n' +
+        'وصلت منتجاتك المحجوزة إلى جنرال ميديا تيك' + (what ? ' (' + what + ')' : '') + '.\n' +
+        'سيكون طلبك قيد الشحن خلال 24 ساعة بإذن الله، وسنوافيك برقم التتبّع فور الشحن.\n' +
+        'شكراً لثقتك بنا.';
+}
+window.notifyGoodsArrived = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (!o.phone) { showToast('لا رقم لهذا الزبون', 'err'); return; }
+    if (isFrozen(o)) { showToast('الأوردر مجمَّد — فكّ التجميد قبل تبليغ وصول المنتجات', 'err'); return; }
+    openWhatsAppChat(o.phone, goodsArrivedMessage(o.name, String(o.product || '').slice(0, 120)));
+    const now = new Date().toISOString();
+    try { await _patchFreeze(id, { notified_goods_at: now }); render(); } catch (e) { console.warn('[goods] وسم التبليغ:', e && e.message); }
+};
+
 function returnActive(o) {
     const r = returnInfoOf(o); if (!r) return false;
     if (o.status === 'returned') return returnStageOf(o) !== 'received';
@@ -9792,7 +9981,7 @@ function buildOrderSheetHTML(o, withPrint) {
     ومع إمكانية إلغاء تحديد بعضهم».
    التنفيذ: كل أوردر بنصف صفحة (A5) · ورقة A4 = أوردران · فاصل صفحات نظيف. */
 function unshippedOrders() {
-    return orders.filter(function (o) { return o.status === 'pending' || o.status === 'prepared'; });
+    return orders.filter(function (o) { return (o.status === 'pending' || o.status === 'prepared') && !isFrozen(o); });   /* (TASK-0316) المجمَّد لا يُطبع للتجهيز */
 }
 
 window.openBulkPrint = () => {

@@ -8,7 +8,7 @@ SCHEMA = {'gmt_orders': ('id,name,phone,address,product,qty,price,branch,status,
                          'shipping_company,serial_code,linked_invoice_id,is_locked,prepared_by,prepared_at,prepared_branch,entered_by,invoice_id,'
                          'invoice_number,tg_msg_id,tg_chat_id,created_by,updated_by,deleted_by,deleted_at,is_deleted,coupon,items,order_number,'
                          'receipt_img,receipt_at,collect_amount,notified_new_at,notified_ship_at,notified_arrival_at,ship_from_office,transfer_state,'
-                         'transfer_at,transfer_invoice_no,delivered_at,receipt_meta').split(',')}
+                         'transfer_at,transfer_invoice_no,delivered_at,receipt_meta,frozen_at,freeze_info,notified_goods_at').split(',')}   # (TASK-0316) أعمدة التجميد
 OPTS = {'unique_invoices': True, 'drop_reply': [], 'fail_post': [], 'block_delete': [], 'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False}
 def tbl(t): return DB.setdefault(t, [])
 def cmp_val(v, raw):

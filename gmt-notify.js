@@ -90,7 +90,15 @@
       title: 'طلباتٌ بانتظار التجهيز',
       why: 'أوردراتٌ لم تُجهَّز بعد.',
       go: { label: 'الأوردرات', href: 'orders.html' },
-      run: function () { return countOf('gmt_orders', 'status=eq.pending'); },
+      run: function () { return countOf('gmt_orders', 'status=eq.pending&frozen_at=is.null'); },   /* (TASK-0316) المجمَّد لا يُحسب «بانتظار التجهيز» */
+      tone: 'info'
+    },
+    {
+      id: 'orders_frozen',
+      title: '❄️ أوردراتٌ مجمَّدة بانتظار الدفعة',
+      why: 'أوردراتٌ جُمِّدت (دفعة لم تصل أو بياناتٌ تحتاج مراجعة) — لا تُجهَّز ولا تُشحن حتى فكّ التجميد.',
+      go: { label: 'الأوردرات', href: 'orders.html' },
+      run: function () { return countOf('gmt_orders', 'frozen_at=not.is.null&status=in.(pending,prepared)'); },
       tone: 'info'
     },
     {
