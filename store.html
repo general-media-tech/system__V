@@ -2193,7 +2193,7 @@ function _renderVariants(prod){
         if(opt.affectsPrice){
             (opt.values||[]).forEach((v,vi)=>{
                 const b=document.createElement('button'); b.className='px-3 py-1.5 text-xs rounded-[8px] border border-gray-200 bg-light text-dark transition-colors';
-                b.textContent= parseFloat(v.price||0)>0 ? `${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}` : v.name;   /* (seq 262) بلا «$0.00» */ if(v.barcode)b.dataset.variantBarcode=v.barcode;
+                b.textContent= parseFloat(v.price||0)>0 ? `${v.name} — ${CONFIG.CURRENCY}${parseFloat(v.price||0).toFixed(2)}` : v.name;   /* (seq 262) بلا «$0.00» */ if(v.barcode)b.dataset.variantBarcode=v.barcode;   /* (TASK-0318 · المالك seq 497) اسمٌ للسلّة/الطلب غير المعروض: الخيار الأساسي «Canon 700D» يظهر بلا ذكر «بودي» لكنّه يُسجَّل في الطلب «بودي أونلي» */ if(v.cart_name)b.dataset.cartName=v.cart_name;   /* و«selectedPrice» ليُسجَّل الخيار (الاسم/السعر/الباركود) في السلّة والطلب — بدونه كان خيارٌ يؤثّر على السعر يُحتسب ولا يُكتب في الطلب */ b.dataset.selectedPrice=String(v.price||0);
                 b.onclick=function(){ bd.querySelectorAll('button').forEach(x=>{x.classList.remove('border-primary','bg-red-50','text-primary');x.classList.add('border-gray-200','bg-light','text-dark');}); this.classList.remove('border-gray-200','bg-light','text-dark'); this.classList.add('border-primary','bg-red-50','text-primary'); const pe=document.getElementById('product-modal-price'); const up=parseFloat(v.price||0); pe.textContent= up>0 ? `${CONFIG.CURRENCY}${(up*(_pmQty||1)).toFixed(2)}` : 'السعر عند الطلب'; pe.dataset.selectedPrice=v.price; if(v.image)_applyVariantImage(v.image); _pmVariantInfo(prod, v); };
                 /* (المالك seq 281) «أوّل ما تُفتح صفحة المنتج بيكون عارض كل شيء متوافق … عند التحديد بتتغيّر» ⇒ الخيار المطلوب (required) لا يُختار تلقائياً
                    (يبقى التوافق كلّه ظاهراً حتى يختار الزبون، ولا يدخل السلّة قبل الاختيار)؛ إلا إن طُلب خيارٌ بعينه في الرابط/البحث */
@@ -2216,7 +2216,7 @@ function _renderVariants(prod){
     });
 }
 
-function _collectVariants(){ const vc=document.getElementById('product-modal-variants'); if(!vc)return[]; const sel=[]; vc.querySelectorAll('button.border-primary').forEach(b=>{ const bc=b.dataset.variantBarcode||undefined; if(b.dataset.selectedPrice!==undefined)sel.push({name:b.textContent.split('—')[0].trim(),price:parseFloat(b.dataset.selectedPrice),barcode:bc}); else if(b.dataset.variantValue!==undefined)sel.push({value:b.dataset.variantValue,barcode:bc}); }); return sel; }
+function _collectVariants(){ const vc=document.getElementById('product-modal-variants'); if(!vc)return[]; const sel=[]; vc.querySelectorAll('button.border-primary').forEach(b=>{ const bc=b.dataset.variantBarcode||undefined; if(b.dataset.selectedPrice!==undefined)sel.push({name:b.dataset.cartName||b.textContent.split('—')[0].trim(),price:parseFloat(b.dataset.selectedPrice),barcode:bc}); else if(b.dataset.variantValue!==undefined)sel.push({value:b.dataset.variantValue,barcode:bc}); }); return sel; }
 
 /* (TASK-0253) بناء شرائح نافذة المنتج من قائمة صور (+ الفيديو إن وُجد) — يُستدعى عند الفتح وبعد وصول صورة الجرد */
 function _pmBuildSlides(prod, imgs){
