@@ -1,0 +1,7 @@
+task: TASK-0319
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: store.html sw.js gmt_store (C100 · الأوكتابوكس) TASK_REGISTRY.md
+claimed_at: 2026-11-04T15:21:39Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0319
