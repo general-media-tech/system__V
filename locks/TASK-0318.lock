@@ -1,0 +1,7 @@
+task: TASK-0318
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: store.html sw.js gmt_store (خيارات 250D/700D + إخفاء) TASK_REGISTRY.md
+claimed_at: 2026-11-04T15:09:54Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0318
