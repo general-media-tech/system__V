@@ -2680,7 +2680,22 @@ async function adjustBranchStockAtomic(productId, branchKey, qty, direction, cur
         body: JSON.stringify({ p_product_id: String(productId), p_branch_key: branchKey, p_qty: need }) }, 8000);
     const txt = await r.text().catch(() => '');
     if (r.ok) {
-      if (String(txt).trim() === 'false') return { ok: false, newQty: before, viaRpc: true, error: 'الرصيد غير كافٍ (رفضته القاعدة)', insufficient: true };
+      if (String(txt).trim() === 'false') {
+        /* (TASK-0149) الدالّة الموحَّدة ترفض الخصم فوق الرصيد ولا تغيّر شيئاً. البيع تمّ فعلاً ⇒ نخصم المتاح كلّه
+           (يتوقّف عند الصفر كما كان) ويُسجَّل «بِيع فوق المتاح» — لا نترك القطعة المبيعة في المخزون. */
+        if (!isDec) return { ok: false, newQty: before, viaRpc: true, error: 'رفضته القاعدة' };
+        try {
+          const avail = await readNow();
+          if (avail <= 0) return { ok: true, newQty: 0, viaRpc: true, insufficient: true };
+          const r3 = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/rpc/deduct_branch_stock`,
+            { method: 'POST', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ p_product_id: String(productId), p_branch_key: branchKey, p_qty: avail }) }, 8000);
+          const t3 = await r3.text().catch(() => '');
+          let n3 = NaN; try { n3 = Number(JSON.parse(t3)); } catch (_) {}
+          if (r3.ok && String(t3).trim() !== 'false') return { ok: true, newQty: isFinite(n3) ? n3 : 0, viaRpc: true, insufficient: true };
+        } catch (_) {}
+        return { ok: false, newQty: before, viaRpc: true, error: 'الرصيد غير كافٍ (رفضته القاعدة)', insufficient: true };
+      }
       let nq = NaN; try { nq = Number(JSON.parse(txt)); } catch (_) {}
       if (!isFinite(nq)) { try { nq = await readNow(); } catch (_) { nq = isDec ? Math.max(0, before - need) : before + need; } }
       return { ok: true, newQty: nq, viaRpc: true, insufficient: short };
@@ -10678,7 +10693,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261101y"></script>
-<script src="gmt-selfcheck.js?v=20261101o"></script>
+<script src="gmt-selfcheck.js?v=20261104c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <script src="gmt-nofab.js?v=20261029z4"></script>

@@ -20,7 +20,7 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
     const res2 = await pg.evaluate(async (ids) => syncTransitToInv([{ id: ids[0], qty: 4 }, { id: ids[1], qty: 5 }], [{ id: ids[0], qty: 10 }, { id: ids[1], qty: 5 }], 'china'), [A.id, B.id]);
     const a2 = await inv(A.id);
     ok(res2.ok && Number(a2.china) === 6, mode + ': تعديل الكمية 10⇐4 يُنقص مخزون العبور: ' + a2.china);
-    const real = errs.filter(e => !/status of (300|400|401|404|406|503)|Failed to load resource/.test(e));
+    const real = errs.filter(e => !/status of (300|400|401|404|406|503)|Failed to load resource|نسخٌ متضاربة/.test(e));  // (TASK-0149) الفحص الذاتي يبلّغ عن 300 المحاكى — مقصود
     ok(!real.length, mode + ': لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
     await browser.close();
   }

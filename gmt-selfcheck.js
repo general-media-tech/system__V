@@ -154,6 +154,8 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
         body: JSON.stringify({ p_product_id: '00000000-0000-0000-0000-000000000000', p_branch_key: '__probe__', p_qty: 0 })
       });
       if (r.status === 404) return bad('الدالة add_branch_stock مفقودة', 'شغّل _SQL_2️⃣7️⃣ — الجرد والمشتريات لن يعملا بدونها');
+      /* (TASK-0149) HTTP 300 = نسخٌ متضاربة من الدالّة ⇒ كلّ حركة مخزون تسقط للمسار الاحتياطي غير الذرّي — كان يُقال «موجودة» */
+      if (r.status === 300) return bad('دالّة المخزون لها نسخٌ متضاربة', 'add_branch_stock ترجع HTTP 300 — الحركات تمرّ بالمسار الاحتياطي غير الذرّي');
       return ok('الدوال الذرّية للمخزون موجودة');
     } catch (e) { return warn('تعذّر فحص الدوال الذرّية', e.message); }
   }

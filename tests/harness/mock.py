@@ -146,7 +146,8 @@ class H(BaseHTTPRequestHandler):
                 if not rows: return self.reply(400, {'code':'P0001','message':'المنتج %s غير موجود' % pid})
                 r = rows[0]; cur = float(r.get(br) or 0)
                 delta = qty if fn=='add_branch_stock' else -abs(qty)
-                if OPTS['old_rpc_false'] and fn=='deduct_branch_stock' and cur + delta < 0: return self.reply(200, False)
+                # (TASK-0149) كالقاعدة الآن: الخصم فوق الرصيد يُرفض (false) ولا يتغيّر شيء · الإضافة بفرقٍ سالب تتوقّف عند الصفر
+                if fn=='deduct_branch_stock' and cur + delta < 0: return self.reply(200, False)
                 r[br] = max(0, cur + delta)
                 return self.reply(200, r[br])
             if fn == 'next_stock_transfer_number':      # كالقاعدة: TRF-00011 (أكبر رقمٍ بخمس خانات + 1)
