@@ -2671,7 +2671,8 @@ function _homeSelfHeal(rec) {
 }
 
 /* (المالك seq 486) قسم «اوبن بوكس والمستعمل»: «عيفه مختفي — يبين فقط في الجرد». علامة `hidden:true` على القسم تُخفيه هو ومنتجاته عن الزبون؛ القوائم تبقى في سجلّ المتجر (فالمُصالِح والجرد والمزامنة بلا تغيير) */
-/* (TASK-0319 · المالك seq 498) «البوسترات العريضة تطلع مشوّهة ومقصوصة في الكرت»: كرت المنتج يملأ مربّعاً بـobject-fit:cover فيُقصّ البوستر
+/* (TASK-0319 · seq 498 ثم تصحيح المالك seq 499 «لا غلط… عيفه يقص غير البوسترات») الصور العادية (مربّعة · 4:3 · 3:4) تبقى cover وتُقصّ كما كانت؛ و**البوستر وحده** — نسبةٌ ≥1.4 أو ≤0.72 (16:9 · 3:2 · بانر · طويل) — يُعرض كاملاً.
+   (الشرح الأصلي:) «البوسترات العريضة تطلع مشوّهة ومقصوصة في الكرت»: كرت المنتج يملأ مربّعاً بـobject-fit:cover فيُقصّ البوستر
    العريض/الطويل (16:9 · 3:2 · 1464×600 …). الآن: الصورة القريبة من المربّع (0.83–1.2) تبقى cover كما كانت؛ وأيّ نسبةٍ أبعد
    (بوستر) تُعرَض كاملةً contain على أبيض بهامش — لا قصّ ولا تشويه. */
 function _gmtFitCardImg(img){
@@ -2679,7 +2680,7 @@ function _gmtFitCardImg(img){
     const f=function(){
         const w=img.naturalWidth,h=img.naturalHeight; if(!w||!h||(w<4&&h<4)) return;   /* لا نحكم على صورةٍ مؤقّتة 1×1 */
         const r=w/h, par=img.parentElement;
-        if(r>1.2||r<0.83){ img.style.objectFit='contain'; img.style.padding='6px'; img.style.boxSizing='border-box'; if(par) par.style.background='#fff'; }
+        if(r>=1.4||r<=0.72){ img.style.objectFit='contain'; img.style.padding='6px'; img.style.boxSizing='border-box'; if(par) par.style.background='#fff'; }
         else { img.style.objectFit='cover'; img.style.padding='0'; if(par) par.style.background='#f5f5f5'; }
     };
     img.addEventListener('load',f);   /* دائم: الصورة قد تُستبدل لاحقاً (وصول صور الجرد/الكتالوج الكامل) */
