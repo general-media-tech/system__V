@@ -3570,6 +3570,8 @@
     /* (TASK-0311 · seq 397) رابطٌ يفتح تبويباً/تطبيقاً، أو زرٌّ يفتح نافذة (عدسة غوغل) ⇒ أثرٌ خارج الصفحة لا «زر بلا أثر» */
     const _a = e.target.closest('a[href]');
     if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;
+    /* (TASK-0311 هـ) تبويبٌ مفتوحٌ أصلاً ⇒ لا أثر بطبيعته */
+    if (/(^|[\s-])(active|selected|on)([\s-]|$)|active-tab|tab-active/.test(String(el.className || '')) || el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true') return;
     const before = net.last, hid0 = __gmtAway;
     domDirty = false;
     setTimeout(() => {

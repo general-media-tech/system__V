@@ -289,6 +289,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
 
     var label = (b.textContent || b.title || b.id || '').trim().replace(/\s+/g, ' ').slice(0, 44) || '(زر بلا نص)';
     step('👆', 'ضغط: ' + label);
+    /* (TASK-0311 هـ) ضغطُ تبويبٍ مفتوحٍ أصلاً (المشتريات «فورية» …) لا يغيّر شيئاً بطبيعته — ليس زرّاً ميّتاً */
+    var wasActive = /(^|[\s-])(active|selected|on)([\s-]|$)|active-tab|tab-active/.test(String(b.className || '')) || b.getAttribute('aria-selected') === 'true' || b.getAttribute('aria-pressed') === 'true';
 
     // تغطية الميزات
     S.feats.forEach(function (f) {
@@ -305,7 +307,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         after.modals !== before.modals ||
         after.focus !== before.focus;
 
-      if (!changed) {
+      if (!changed && !wasActive) {
         // استثناء: أزرار النسخ للحافظة والتحديث لا تُغيّر الشاشة لكنها تعمل فعلاً
         var lbl = (label || '').trim();
         var isClipboardOrRefresh = /نسخ|copy|📋|تحديث|refresh|🔄|إعادة|طباعة|طباعه|print|🖨|A4|حرارية|إغلاق|close|✕|رجوع|السابق/i.test(lbl);
