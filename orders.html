@@ -7815,69 +7815,102 @@ const RES_TERMS = [
     'يحتفظ المتجر بحقه في رفض أي مطالبة أو طلب يخالف الشروط والأحكام المذكورة أعلاه.',
 ];
 
-function buildResSheetHTML(r, withPrint) {
-    const date = new Date(r.created_at || Date.now());
-    const dateStr = date.toLocaleDateString('ar-SY', { day: '2-digit', month: 'long', year: 'numeric' });
+/* ═════════════════════════════════════════════════════════════════
+   🧾 ورقة الحجز — بالهوية البصرية لإيصال الأوردر نفسها (TASK-0317 · المالك seq 494)
+   «ينعملها هويّة بصريّة مثل إيصال الأوردر ولكن إيصال الشروط وطبعات الحجز».
+   لا نسخة ثانية من القالب: نبني أوردراً افتراضياً من الحجز ونمرّره على buildOrderSheetHTML نفسها (الترويسة · البطاقة · الجدول ·
+   البطاقة الحمراء · التذييل · ضغط A4) ثم نبدّل ما يخصّ الحجز: العنوان الفرعي · تسميات البطاقة · «المتبقي عند الاستلام» · صندوق
+   الإجمالي/العربون/المتبقي · وبدل تنبيه الاستلام والكسر: شروط وأحكام الحجز (نص المالك) وخانتا التوقيع. أيّ تعديل مستقبلي على
+   قالب الأوردر ينعكس هنا تلقائياً.
+   ═════════════════════════════════════════════════════════════════ */
+function resMoney(n) { return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+function resItemsOf(r) {
     let items = [];
     try { items = JSON.parse(r.items_json || '[]'); } catch (_) {}
     if (!items.length && r.item) items = [{ name: r.item, qty: r.qty || 1 }];
-    const rowsHTML = items.map(it => '<tr><td>' + escH(it.name) + '</td><td style="text-align:center">' + (it.qty || 1) + '</td></tr>').join('');
-    const full = parseFloat(r.full_price) || 0, dep = parseFloat(r.deposit) || 0, rem = Math.max(0, full - dep);
-    const termsHTML = RES_TERMS.map(t => '<li>' + escH(t) + '</li>').join('');
-    return '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة حجز مبدئية #' + r.id + '</title><style>'
-        + '@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap");'
-        + '*{margin:0;padding:0;box-sizing:border-box;}'
-        + '@page{size:A4 portrait;margin:10mm 8mm;}'
-        + '*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
-        + 'body{font-family:"Cairo",sans-serif;background:white;color:#111;padding:0;width:194mm;max-width:194mm;margin:0 auto;}'
-        + '@media print{body{width:auto;max-width:none;padding:0;} .no-print{display:none!important;} table{page-break-inside:auto;} tr{page-break-inside:avoid;} thead{display:table-header-group;} img{max-width:100%;}}'
-        + '.inv-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid #c2410c;padding-bottom:12px;margin-bottom:14px;}'
-        + '.inv-logo{width:50px;height:50px;background:#D5001C;border-radius:13px;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:13px;flex-shrink:0;overflow:hidden;}'
-        + '.inv-logo img{width:100%;height:100%;object-fit:contain;}'
-        + '.inv-company{flex:1;} .inv-company h1{font-size:15px;font-weight:900;} .inv-company p{font-size:10px;color:#5b6472;font-weight:700;margin-top:2px;}'
-        + '.inv-num{font-size:12px;font-weight:900;color:#c2410c;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:4px 12px;white-space:nowrap;}'
-        + '.res-badge{text-align:center;background:#FFF7ED;border:1.5px dashed #c2410c;color:#9A3412;border-radius:10px;padding:7px;font-size:14px;font-weight:900;margin-bottom:14px;}'
-        + '.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#F8F9FC;border-radius:12px;padding:13px;margin-bottom:14px;}'
-        + '.info-item .lbl{font-size:9px;font-weight:700;color:#5b6472;margin-bottom:2px;} .info-item .val{font-size:13px;font-weight:800;} .info-item.full{grid-column:1/-1;}'
-        + 'table{width:100%;border-collapse:collapse;margin-bottom:12px;} thead th{background:#111;color:white;padding:8px 12px;font-size:11px;font-weight:800;text-align:right;}'
-        + 'tbody tr{border-bottom:1px solid #F1F3F7;} tbody td{padding:8px 12px;font-size:12px;font-weight:700;}'
-        + '.amounts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}'
-        + '.abox{border-radius:12px;padding:10px 12px;text-align:center;border:1.5px solid #eee;} .abox .l{font-size:10px;font-weight:800;color:#5b6472;} .abox .v{font-size:17px;font-weight:900;margin-top:2px;}'
-        + '.a-full{background:#F8F9FC;} .a-dep{background:#ECFDF5;border-color:#A7F3D0;} .a-dep .v{color:#047857;} .a-rem{background:#FFF0F2;border-color:#FFD6DA;} .a-rem .v{color:#D5001C;}'
-        + '.terms{background:#FAFAFA;border:1px solid #eee;border-radius:12px;padding:12px 14px;margin-bottom:12px;}'
-        + '.terms h3{font-size:12px;font-weight:900;color:#9A3412;margin-bottom:6px;}'
-        + '.terms ol{padding-right:16px;} .terms li{font-size:9.5px;font-weight:600;color:#374151;line-height:1.85;margin-bottom:2px;text-align:justify;}'
-        + '.whatis{background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:11px 14px;margin-bottom:14px;font-size:10px;font-weight:700;color:#78350F;line-height:1.95;text-align:justify;}'
-        + '.whatis b{color:#9A3412;}'
-        + '.sign{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}'
-        + '.sbox{border:1.5px solid #D1D5DB;border-radius:10px;padding:8px 12px 34px;font-size:10.5px;font-weight:800;color:#374151;}'
-        + '.footer{text-align:center;font-size:10px;color:#5b6472;border-top:1px solid #F1F3F7;padding-top:10px;} .footer strong{color:#D5001C;}'
-        + '</style></head><body>'
-        + '<div class="inv-header"><div class="inv-logo">' + brandLogoTag('width:100%;height:100%;object-fit:contain;display:block') + '</div>'
-        + '<div class="inv-company"><h1>General Media Tech</h1><p>نظام إدارة أوردرات الشحن — الحجوزات</p></div>'
-        + '<div class="inv-num">حجز #' + r.id + '</div></div>'
-        + '<div class="res-badge">🧾 فاتورة حجز مبدئية — ليست فاتورة بيع نهائية</div>'
-        + '<div class="info-grid">'
-        + '<div class="info-item"><div class="lbl">اسم الزبون</div><div class="val">' + escH(r.name) + '</div></div>'
-        + '<div class="info-item"><div class="lbl">رقم الهاتف</div><div class="val" dir="ltr">' + escH(r.phone || '—') + '</div></div>'
-        + (r.address ? '<div class="info-item full"><div class="lbl">العنوان</div><div class="val">' + escH(r.address) + '</div></div>' : '')
-        + '<div class="info-item"><div class="lbl">تاريخ الحجز</div><div class="val">' + dateStr + '</div></div>'
-        + '<div class="info-item"><div class="lbl">الحالة</div><div class="val">' + (r.status === 'reserved' ? '📌 محجوز' : escH(r.status || '')) + '</div></div>'
-        + (r.notes ? '<div class="info-item full"><div class="lbl">ملاحظات</div><div class="val" style="font-size:11px;color:#4B5563">' + escH(r.notes) + '</div></div>' : '')
-        + '</div>'
-        + '<table><thead><tr><th>القطعة المحجوزة</th><th style="text-align:center">الكمية</th></tr></thead><tbody>' + rowsHTML + '</tbody></table>'
-        + '<div class="amounts">'
-        + '<div class="abox a-full"><div class="l">الإجمالي التقديري</div><div class="v">$' + full.toLocaleString() + '</div></div>'
-        + '<div class="abox a-dep"><div class="l">العربون المدفوع</div><div class="v">$' + dep.toLocaleString() + '</div></div>'
-        + '<div class="abox a-rem"><div class="l">المتبقي عند الاستلام</div><div class="v">$' + rem.toLocaleString() + '</div></div>'
-        + '</div>'
-        + '<div class="terms"><h3>شروط وأحكام الحجز</h3><ol>' + termsHTML + '</ol></div>'
-        + '<div class="whatis"><b>ما هي فاتورة الحجز المبدئية؟</b> هي إثباتٌ لحجز القطعة ودفع العربون، وأسعارها <b>تقديرية بتاريخ تحريرها</b>. عند وصول القطعة تُحرَّر <b>الفاتورة الأساسية</b> وهي وحدها المعتمدة في الاستلام والكفالة. وإذا طرأ أثناء الطريق ارتفاعٌ في الرسوم الجمركية أو الضرائب أو تكاليف الاستيراد لأسبابٍ خارجة عن إرادة المتجر، <b>يُعدَّل سعر القطعة في الفاتورة الأساسية بمقدار ذلك الارتفاع الفعلي الموثَّق</b> ويلتزم العميل بسداده عند الاستلام — مع بقاء البند (9) أعلاه نافذاً: مصادرة الشحنة أو احتجازها الكامل مسؤولية المتجر وحده.</div>'
-        + '<div class="sign"><div class="sbox">توقيع العميل (دفع العربون/التوقيع = موافقة على كل الشروط):</div><div class="sbox">توقيع الموظف والختم:</div></div>'
-        + '<div class="footer"><strong>General Media Tech</strong><br>Canon Authorized Dealer · Camera Solutions<br>فاتورة حجز مبدئية صادرة إلكترونياً · تُستبدل بالفاتورة الأساسية عند الاستلام</div>'
-        + (withPrint ? '<script>window.onload=function(){window.print();}<\/script>' : '')
-        + '</body></html>';
+    return items;
 }
+function buildResSheetHTML(r, withPrint) {
+    const full = parseFloat(r.full_price) || 0, dep = parseFloat(r.deposit) || 0, rem = Math.max(0, full - dep);
+    const o = {
+        id: r.id, serial_code: 'حجز #' + r.id, name: r.name, phone: r.phone, address: r.address || '', branch: r.branch || '',
+        created_at: r.created_at, items_json: JSON.stringify(resItemsOf(r)), price: rem, collect_amount: rem, notes: r.notes || '',
+        shipping_company: '', tracking_number: '', status: 'pending'
+    };
+    let html = buildOrderSheetHTML(o, withPrint);
+    const rep = (a, b) => { if (html.indexOf(a) !== -1) html = html.replace(a, b); };
+    rep('نظام إدارة أوردرات الشحن', 'فاتورة حجز مبدئية — ليست فاتورة بيع نهائية');
+    rep('>تاريخ الطلب<', '>تاريخ الحجز<');
+    rep('>عنوان التسليم<', '>العنوان<');
+    rep('>فرع الإرسال<', '>فرع الحجز<');
+    rep('>شركة الشحن<', '>الحالة<');
+    html = html.replace(/(<span class="ic-l">الحالة<\/span><\/div><div class="ic-v">)—(<\/div>)/, '$1📌 ' + (r.status === 'arrived' ? 'وصلت القطعة' : 'محجوز') + '$2');
+    rep('<span class="l">قيمة الطلب</span>', '<span class="l">المتبقي عند الاستلام</span>');
+    rep('<span class="sub">يُحصَّل عند التسليم</span>', '<span class="sub">من إجمالي ' + resMoney(full) + ' · عربون ' + resMoney(dep) + '</span>');
+    const termsHTML = RES_TERMS.map(t => '<li>' + escH(t) + '</li>').join('');
+    const amounts = '<div class="rm"><div class="rb"><span class="l">الإجمالي</span><b>' + resMoney(full) + '</b></div>' +
+        '<div class="rb rd"><span class="l">العربون المدفوع</span><b>' + resMoney(dep) + '</b></div>' +
+        '<div class="rb rr"><span class="l">المتبقي عند الاستلام</span><b>' + resMoney(rem) + '</b></div></div>';
+    const termsBlock = '<div class="rt"><h4>📜 شروط وأحكام الحجز</h4><ol>' + termsHTML + '</ol></div>' +
+        '<div class="sg"><div>توقيع العميل (دفع العربون / التوقيع = موافقة على كل الشروط)</div><div>توقيع الموظف والختم</div></div>';
+    const w0 = html.indexOf('<div class="warn">'), w1 = html.indexOf('<div class="pgft">');
+    if (w0 !== -1 && w1 > w0) html = html.slice(0, w0) + termsBlock + html.slice(w1);
+    const p0 = html.indexOf('<div class="pay">');
+    if (p0 !== -1) html = html.slice(0, p0) + amounts + html.slice(p0);
+    const css = '.rm{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}' +
+        '.rb{border:1px solid #E9ECF1;border-radius:12px;padding:9px 12px;text-align:center;background:#FAFBFC}' +
+        '.rb .l{display:block;font-size:10px;font-weight:800;color:#5b6472}.rb b{display:block;font-size:17px;font-weight:900;color:#111827;margin-top:2px}' +
+        '.rb.rd{border-color:#A7F3D0;background:#ECFDF5}.rb.rd b{color:#047857}.rb.rr{border-color:#F3B8BF;background:#FFF5F6}.rb.rr b{color:#D5001C}' +
+        '.rt{border:1px solid #E9ECF1;border-radius:12px;padding:10px 14px;margin-top:14px}.rt h4{font-size:12px;font-weight:900;color:#8B0010;margin-bottom:5px}' +
+        '.rt ol{padding-right:18px}.rt li{font-size:9.5px;font-weight:600;color:#374151;line-height:1.75;text-align:justify;margin-bottom:1px}' +
+        '.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.sg>div{border:1.5px solid #D1D5DB;border-radius:10px;padding:7px 11px 30px;font-size:10px;font-weight:800;color:#374151}';
+    html = html.replace('</style></head>', css + '</style></head>');
+    return html.replace('<title>فاتورة #', '<title>فاتورة حجز مبدئية #');
+}
+
+/* 📲 رسالة إنشاء الحجز + حفظ الصورة (TASK-0317 · seq 494): «عند إنشاء حجز ينعمل مثل الأوردر — ينرسل رسالة: حجزت ودفعت كذا وكذا،
+   وتنحفظ صورة الحجز». الرسالة بنفس مسار تبليغ الأوردر (notifyWithSheet: صورة الحجز مع النصّ الجاهز في محادثة الزبون) ويُوسَم notified_new_at. */
+function resNewText(r) {
+    const full = parseFloat(r.full_price) || 0, dep = parseFloat(r.deposit) || 0, rem = Math.max(0, full - dep);
+    const items = resItemsOf(r).map(i => (Number(i.qty) > 1 ? i.name + ' × ' + i.qty : i.name)).join('، ');
+    return 'مرحباً' + (r.name ? ' أ. ' + r.name : '') + '،\n' +
+        'تم تسجيل حجزك رقم ' + r.id + ' لدى مجموعة ميديا تيك التجارية (جنرال ميديا تيك) ✅\n' +
+        '📦 ' + items + '\n' +
+        '💰 الإجمالي: ' + resMoney(full) + '\n' +
+        '✅ دفعتَ عربوناً: ' + resMoney(dep) + '\n' +
+        '💵 المتبقي عند الاستلام: ' + resMoney(rem) + '\n' +
+        '🖼️ صورة الحجز مع الشروط والأحكام مرفقة — ودفع العربون يُعدّ موافقةً عليها.\n' +
+        'شكراً لثقتك بنا.';
+}
+/* يرسم الورقة ⇒ يرفعها إلى التخزين ⇒ يحفظ رابطها على الحجز (receipt_url). لا يُعطّل شيئاً إن فشل. */
+async function saveResReceipt(r) {
+    try {
+        const blob = await sheetToBlob(buildResSheetHTML(r, false));
+        const path = 'reservations/res-' + r.id + '.jpg';
+        const up = await fetch(SUPA_URL + '/storage/v1/object/products-images/' + path, {
+            method: 'POST', headers: { apikey: SB_HEADERS.apikey, Authorization: SB_HEADERS.Authorization, 'x-upsert': 'true', 'Content-Type': blob.type || 'image/jpeg' }, body: blob });
+        if (!up.ok) throw new Error('HTTP ' + up.status);
+        const url = SUPA_URL + '/storage/v1/object/public/products-images/' + path + '?v=' + Date.now();
+        const now = new Date().toISOString();
+        await sbUpdateReservation(r.id, { receipt_url: url, receipt_at: now });
+        const x = reservations.find(y => y.id == r.id); if (x) { x.receipt_url = url; x.receipt_at = now; }
+        renderReservations();
+        return url;
+    } catch (e) { console.warn('[res] تعذّر حفظ صورة الحجز:', e && e.message); return null; }
+}
+async function notifyResCreated(r) {
+    if (!r || !r.phone) return false;
+    const ok = await notifyWithSheet(r, buildResSheetHTML(r, false), 'res-' + r.id + '.jpg', resNewText(r));
+    if (ok) {
+        const now = new Date().toISOString();
+        try { await sbUpdateReservation(r.id, { notified_new_at: now }); const x = reservations.find(y => y.id == r.id); if (x) x.notified_new_at = now; } catch (e) { console.warn('[res] وسم التبليغ:', e && e.message); }
+    }
+    return ok;
+}
+window.viewResReceipt = (id) => {
+    const r = reservations.find(x => x.id == id); if (!r) return;
+    if (r.receipt_url) window.open(r.receipt_url, '_blank'); else saveResReceipt(r).then(u => u ? window.open(u, '_blank') : showToast('تعذّر تجهيز صورة الحجز', 'err'));
+};
 
 window.printReservation = (id) => {
     const r = reservations.find(x => x.id == id);
@@ -8680,7 +8713,7 @@ function resCardHTML(r) {
             <div><p class="text-[9px] font-bold text-gray-400 mb-0.5">المتبقي</p><p class="text-sm font-black text-red">$${parseFloat(r.remaining||0).toLocaleString()}</p></div>
         </div>
         ${r.notes ? `<p class="text-[10px] bg-yellow-50 p-2 rounded-lg text-gray-600 font-bold border border-yellow-100 mb-3">📝 ${escH(r.notes)}</p>` : ''}
-        <div class="flex gap-2"><button onclick="printReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors" title="طباعة فاتورة الحجز المبدئية"><i data-lucide="printer" class="w-4 h-4"></i></button><button onclick="shareReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-emerald-600 shrink-0 transition-colors" title="مشاركة صورة الفاتورة المبدئية"><i data-lucide="share-2" class="w-4 h-4"></i></button>${(r.status === 'arrived' && r.phone) ? `<button onclick="notifyResArrived(${r.id})" data-hint="تبليغ الزبون على واتساب: وصلت قطعتك وستكون قيد الشحن خلال 24 ساعة" class="h-10 px-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center gap-1 text-emerald-800 text-[11px] font-black shrink-0" title="تبليغ الوصول">📲 ${r.notified_arrival_at ? 'أعد التبليغ' : 'بلّغ الزبون'}</button>` : ''}${actionBtn}</div>
+        <div class="flex gap-2"><button onclick="printReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 shrink-0 transition-colors" title="طباعة فاتورة الحجز المبدئية"><i data-lucide="printer" class="w-4 h-4"></i></button><button onclick="shareReservation(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:text-emerald-600 shrink-0 transition-colors" title="مشاركة صورة الفاتورة المبدئية"><i data-lucide="share-2" class="w-4 h-4"></i></button><button onclick="viewResReceipt(${r.id})" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-gray-500 hover:text-red-600 shrink-0 transition-colors" title="${r.receipt_url ? 'صورة الحجز المحفوظة' : 'تجهيز صورة الحجز وحفظها'}">🖼️</button>${(r.status === 'arrived' && r.phone) ? `<button onclick="notifyResArrived(${r.id})" data-hint="تبليغ الزبون على واتساب: وصلت قطعتك وستكون قيد الشحن خلال 24 ساعة" class="h-10 px-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center gap-1 text-emerald-800 text-[11px] font-black shrink-0" title="تبليغ الوصول">📲 ${r.notified_arrival_at ? 'أعد التبليغ' : 'بلّغ الزبون'}</button>` : ''}${actionBtn}</div>
     </div>`;
 }
 window.notifyResArrived = async (id) => {
@@ -8782,6 +8815,9 @@ document.getElementById('formAddReservation').onsubmit = async (e) => {
         closeModal('addReservationModal');
         renderReservations();
         showToast('✅ تم حفظ الحجز', 'ok');
+        /* (TASK-0317) تبليغ الزبون بالحجز والعربون ثم حفظ الصورة — بالخلفية، ولا يُعطّلان الحفظ */
+        { const _sv = Array.isArray(result) ? result[0] : result;
+          if (_sv) (async () => { try { await notifyResCreated(_sv); } catch (err) { console.warn('[res] تبليغ الحجز:', err && err.message); } await saveResReceipt(_sv); })(); }
     } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
     finally { btn.disabled = false; btn.textContent = 'حفظ الحجز'; }
 };
@@ -8826,6 +8862,7 @@ document.getElementById('formEditReservation').onsubmit = async (e) => {
         await sbUpdateReservation(id, data);
         const idx = reservations.findIndex(x => x.id == id);
         if (idx >= 0) reservations[idx] = { ...reservations[idx], ...data };
+        if (idx >= 0) saveResReceipt(reservations[idx]);   // (TASK-0317) صورة الحجز تتبع آخر تعديل
         closeModal('editReservationModal');
         renderReservations();
         showToast('✅ تم تعديل الحجز', 'ok');

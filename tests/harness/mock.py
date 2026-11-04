@@ -2,7 +2,7 @@ import json, re, uuid, sys, itertools
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qsl, unquote
 DB = {}; SEQ = itertools.count(1)
-MISSING = {'gmt_reservations', 'nonexistent_tbl'}
+MISSING = {'nonexistent_tbl'}   # (TASK-0317) gmt_reservations صارت موجودة في القاعدة الوهمية
 # (TASK-0179) كالقاعدة الحقيقية: لكلّ صفٍّ أعمدة الجدول كلّها (الغائب null) — الأوردرات تكتشف أعمدتها من صفٍّ واحد (بلا receipt_img)
 SCHEMA = {'gmt_orders': ('id,name,phone,address,product,qty,price,branch,status,tracking_number,shipped_at,notes,created_at,updated_at,items_json,'
                          'shipping_company,serial_code,linked_invoice_id,is_locked,prepared_by,prepared_at,prepared_branch,entered_by,invoice_id,'
