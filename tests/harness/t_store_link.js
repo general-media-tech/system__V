@@ -10,7 +10,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await H.call('/rest/v1/products?id=eq.' + C.id, { store_url: 'https://amredeveloper.github.io/general_home/#product=s_c' }, 'PATCH');
   const { browser, pg, errs } = await H.open('inventory.html', { w: 390, h: 844, wait: 5000, init: H.ADMIN_INIT });
   const base = await pg.evaluate(() => new URL('store.html', location.href).href);
-  const u = await pg.evaluate(() => ['index__12_.html#product=s_a', '#product=p%20x', 'store.html#product=s9', 'https://x.example/shop/#product=1', '', 'index (12).html'].map(GMTUtil.storeLink));
+  const u = await pg.evaluate(() => ['index__12_.html#product=s_a', '#product=p%20x', 'store.html#product=s9', 'https://x.example/shop/#product=1', '', 'index (12).html'].map(x => GMTUtil.storeLink(x)));
   ok(u[0] === base + '?direct=1#product=s_a' && u[1] === base + '?direct=1#product=p%20x' && u[2] === base + '?direct=1#product=s9' && u[3] === 'https://x.example/shop/#product=1' && u[4] === '' && u[5] === base,
     'storeLink: القديم والنسبيّ ⇒ store.html على المنتج · المطلق كما هو: ' + JSON.stringify(u.map(x => x.replace(base, '<store>'))));
   const hrefOf = async id => { await pg.evaluate(i => openDetailModal(i), id); await pg.waitForTimeout(700); const h = await pg.evaluate(() => { const a = [...document.querySelectorAll('#detail-modal-body a[target="_blank"]')].find(x => /المتجر/.test(x.textContent)); return a && a.getAttribute('href'); }); await pg.evaluate(() => { try { closeDetailModal(); } catch (_) {} }); return h; };
