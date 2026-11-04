@@ -1,0 +1,7 @@
+task: TASK-0317
+session: session_01XEjHNW9dqo1zWS8cEcUN7i
+branch: claude/tender-tesla-1x135d
+files: orders.html (الحجوزات: رسالة+صورة+هوية+شروط) DB gmt_reservations sw.js TASK_REGISTRY.md
+claimed_at: 2026-11-04T14:46:54Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0317
