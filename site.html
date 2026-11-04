@@ -600,6 +600,14 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
   var BR = { branches: null, agents: null, tab: 'b' };
   function waDigits(p) { var d = String(p || '').replace(/[^0-9+]/g, ''); if (d[0] === '+') d = d.slice(1); else if (d.indexOf('00') === 0) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1); return d; }
   async function loadBranches() {
+    /* (TASK-0311 ب) الفروع تُحفظ من «إدارة المتجر» في القاعدة الرئيسية (gmt_settings · store_branches) — تُقرأ من هناك أوّلاً */
+    var m = (window.GMT_DB && GMT_DB.MAIN) || null;
+    if (m && m.url) {
+      try {
+        var rm = await fetch(m.url + '/rest/v1/gmt_settings?key=eq.store_branches&select=value', { headers: { apikey: m.key, Authorization: 'Bearer ' + m.key } });
+        if (rm.ok) { var rr = await rm.json(); if (rr && rr.length) { var bb = JSON.parse(rr[0].value || '[]'); return (Array.isArray(bb) ? bb : []).filter(function (x) { return x && x.name; }); } }
+      } catch (_) {}
+    }
     var d = (window.GMT_DB && GMT_DB.STORE) || null;
     if (!d || !d.url) return [];
     /* (TASK-0311 · seq 397) جدول المتجر ليس فيه عمود branches بعد ⇒ كل زيارة كانت تسجّل HTTP 400 (42703) في سجلّ الأخطاء.

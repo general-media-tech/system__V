@@ -1252,7 +1252,24 @@ async function _mergeProducts(local){
     fresh.forEach(f => { const id = String(f.id); if (!localIds.has(id) && !_prodBase.has(id)) out.push(f); });
     return out;
 }
+/* (TASK-0311 ب) جدول المتجر بلا عمود branches (ولا يُعدَّل من هنا) ⇒ كان حفظ «الفروع» يفشل دائماً (42703).
+   الفروع تُحفظ في القاعدة الرئيسية: gmt_settings · key=store_branches (نصّ JSON) — وصفحة الموقع تقرؤها من هناك. */
+const _BR_KEY = 'store_branches';
+function _brDB(){ const D=window.GMT_DB&&GMT_DB.MAIN; return D&&D.url ? {url:D.url, H:{apikey:D.key,Authorization:'Bearer '+D.key,'Content-Type':'application/json'}} : null; }
+async function _branchesLoad(){
+    const D=_brDB(); if(!D) return null;
+    try{ const r=await fetch(D.url+'/rest/v1/gmt_settings?key=eq.'+_BR_KEY+'&select=value',{headers:D.H}); if(!r.ok) return null;
+         const rows=await r.json(); if(!rows.length) return null; const v=JSON.parse(rows[0].value||'[]'); return Array.isArray(v)?v:null; }catch(_){ return null; }
+}
+async function _branchesSave(list){
+    const D=_brDB(); if(!D) throw new Error('إعداد القاعدة الرئيسية غير متاح');
+    const r=await fetch(D.url+'/rest/v1/gmt_settings?on_conflict=key',{method:'POST',headers:{...D.H,Prefer:'resolution=merge-duplicates,return=representation'},
+        body:JSON.stringify({key:_BR_KEY,value:JSON.stringify(list||[]),updated_at:new Date().toISOString()})});
+    if(!r.ok) throw new Error('HTTP '+r.status+' '+(await r.text().catch(()=>'')).slice(0,120));
+    const back=await r.json().catch(()=>[]); if(!Array.isArray(back)||!back.length) throw new Error('لم يُحفظ (لا صفّ بعد الكتابة)');
+}
 async function updateField(field,value){
+    if (field === 'branches') return _branchesSave(value);
     if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
     const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
     if (field === 'products') { _familyImagesToInv(value); _snapProds(value); }
@@ -1279,7 +1296,7 @@ async function loadAllData(){
         _snapProds(adminData.products);   // (TASK-0162) أساس الدمج عند الحفظ
         adminData.banners       = Array.isArray(rec.banners)        ? rec.banners       : [];
         adminData.offers        = Array.isArray(rec.offers)         ? rec.offers        : [];
-        adminData.branches      = Array.isArray(rec.branches)       ? rec.branches      : [];
+        adminData.branches      = (await _branchesLoad()) || (Array.isArray(rec.branches) ? rec.branches : []);
         showToast(`${adminData.categories.length} قسم · ${adminData.products.length} منتج · ${adminData.branches.length} فرع`);
         renderAllTabs();
         /* (٨ ث — تدقيق المطابقة) القادم من قلم المعاينة: ?edit=prod:<id> | offer:<id> | branch:<id> ⇒ يُفتح محرّره مباشرةً */
