@@ -2668,9 +2668,21 @@ function _homeSelfHeal(rec) {
     } catch (_) {}
 }
 
+/* (المالك seq 486) قسم «اوبن بوكس والمستعمل»: «عيفه مختفي — يبين فقط في الجرد». علامة `hidden:true` على القسم تُخفيه هو ومنتجاته عن الزبون؛ القوائم تبقى في سجلّ المتجر (فالمُصالِح والجرد والمزامنة بلا تغيير) */
+function _gmtVisible(rec){
+    const cats = Array.isArray(rec.categories) ? rec.categories : [];
+    const prods = Array.isArray(rec.products) ? rec.products : [];
+    const hid = new Set(cats.filter(c => c && c.hidden === true).map(c => String(c.id)));
+    if (!hid.size) return { cats, prods };
+    return {
+        cats: cats.filter(c => !hid.has(String(c.id)) && !hid.has(String(c.parent_id || ''))),
+        prods: prods.filter(p => { const ids = (p.category_ids && p.category_ids.length) ? p.category_ids : (p.category_id ? [p.category_id] : []); return !ids.length || !ids.every(id => hid.has(String(id))); })
+    };
+}
 function _applyRecord(rec){
-    store.categories   = Array.isArray(rec.categories)   ? rec.categories   : [];
-    store.products     = Array.isArray(rec.products)      ? rec.products     : [];
+    const _v = _gmtVisible(rec);
+    store.categories   = _v.cats;
+    store.products     = _v.prods;
     store.banners      = Array.isArray(rec.banners)       ? rec.banners      : [];
     try { if (!rec.__fromCache && store.products.length) localStorage.setItem(STORE_LAST_GOOD, JSON.stringify({ at: Date.now(), rec: rec })); } catch (_) {}
     store.offers       = Array.isArray(rec.offers)        ? rec.offers       : [];
@@ -2738,8 +2750,9 @@ async function _refreshBackground(){
     try {
         _cache.del('store');
         const rec=await fetchStoreRecord(); if(!rec)return;
-        const newCats=Array.isArray(rec.categories)?rec.categories:store.categories;
-        const newProds=Array.isArray(rec.products)?rec.products:store.products;
+        const _v=_gmtVisible(rec);
+        const newCats=Array.isArray(rec.categories)?_v.cats:store.categories;
+        const newProds=Array.isArray(rec.products)?_v.prods:store.products;
         if(JSON.stringify(newProds)!==JSON.stringify(store.products)||JSON.stringify(newCats)!==JSON.stringify(store.categories)){
             _applyRecord(rec); renderAll();
         }
