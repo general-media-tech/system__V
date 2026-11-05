@@ -102,11 +102,18 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   const pm = await pg.evaluate(() => ({ open: document.getElementById('product-modal').classList.contains('active'), name: document.getElementById('product-modal-name').textContent }));
   ok(pm.open && /R50 في المتجر/.test(pm.name), 'الضغط على منتجٍ في الباقة يفتح صفحته في المتجر: ' + pm.name);
   // زرّا جوجل للزائر في صفحة المنتج
-  await pg.evaluate(() => { window.__op = []; gmtAskGoogle(); gmtGoogleLens(); });
+  /* (seq 519) العدسة: بطاقة صورةٍ فيها صور المنتج ومواصفاتنا تُرفع ثمّ تُفتح العدسة عليها */
+  const up = []; const cx = pg.context();
+  await cx.route(/x\.example\/.*\.jpg/, r => r.fulfill({ status: 200, contentType: 'image/jpeg', headers: { 'Access-Control-Allow-Origin': '*' }, body: require('fs').readFileSync(__dirname + '/../../img/products/owner/lensgo_smoke_go.jpg') }));
+  await cx.route('**/storage/v1/object/**', r => { const q = r.request(); if (q.method() === 'HEAD') return r.fulfill({ status: 404, body: '' }); up.push({ url: q.url(), n: (q.postDataBuffer() || Buffer.alloc(0)).length, type: q.headers()['content-type'] }); return r.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' }); });
+  await pg.evaluate(async () => { window.__op = []; gmtAskGoogle(); await gmtGoogleLens(); });
   const op = await pg.evaluate(() => window.__op);
+  const lcard = await pg.evaluate(async () => { const b = await _gmtLensCard(_gmtProdData()); return await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); }); });
+  require('fs').writeFileSync('/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/shots/lens_card.jpg', Buffer.from(lcard.split(',')[1], 'base64'));
+  ok(up.length === 1 && /products-images\/lens\/s_cam-[a-z0-9]+\.jpg$/.test(up[0].url) && up[0].type === 'image/jpeg' && up[0].n > 20000, '«عدسة جوجل» ترفع بطاقة المنتج (صوره + مواصفاتنا) صورةً واحدة: ' + (up[0] && up[0].url.replace(/^.*object\//, '') + ' · ' + Math.round(up[0].n / 1024) + 'KB'));
   const q = op[0] ? decodeURIComponent(new URL(op[0]).searchParams.get('q') || '') : '';
   ok(/^https:\/\/www\.google\.com\/search\?udm=50/.test(op[0] || '') && /R50 في المتجر من متجر General Media Tech/.test(q) && /مواصفاته: الدقة: 24MP، الحربة: RF/.test(q) && /كاميرا خفيفة للمبتدئين/.test(q) && /ما مزايا هذا المنتج/.test(q) && !/https?:|لا تضف|اعتماداً فقط/.test(q) && op[0].length < 3000, '«اسأل جوجل» يفتح جوجل في متصفّح الزائر بسؤالٍ طبيعيّ قصير من بياناتنا — بلا أوامر ولا روابط (ما يُظهر تحذير جوجل): ' + q);
-  ok(/^https:\/\/lens\.google\.com\/uploadbyurl\?.*r50-poster\.jpg/.test(decodeURIComponent(op[1] || '')), '«عدسة جوجل» تفتح العدسة بصورة منتجنا');
+  ok(/^https:\/\/lens\.google\.com\/uploadbyurl\?.*products-images\/lens\/s_cam-/.test(decodeURIComponent(op.find(u => /lens\.google/.test(u)) || '')), '… وتفتح عدسة جوجل على تلك البطاقة في متصفّح الزائر');
   await pg.evaluate(() => closeModal('product-modal'));
   // الباقة القديمة: أسعار وصور من الجرد
   const old = await pg.evaluate(() => { const p = store.packages.find(x => x.name === 'باقة قديمة'); return p && { orig: p.original, prices: p.items.map(x => x.price), imgs: p.items.map(x => !!x.image_url) }; });
