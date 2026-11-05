@@ -23,12 +23,14 @@
     return (Array.isArray(a) ? a : []).filter(function (x) { return x && x.id != null; })
       .map(function (x) { return { id: String(x.id), name: String(x.name || ''), qty: Math.max(1, parseInt(x.qty, 10) || 1), price: Number(x.price) || 0, image_url: x.image_url || '' }; });
   }
+  /* (seq 518) قسم المتجر «باقات وعروض» — الباقة تُصنَّف فيه وفي أيّ قسمٍ آخر كالمنتج */
+  var PKG_CAT = 'c_bundles';
   function targetsOf(o) {
     var t = o && o.targets; if (typeof t === 'string') { try { t = JSON.parse(t); } catch (_) { t = null; } }
     t = (t && typeof t === 'object') ? t : {};
     return { pos: t.pos !== false, store: t.store === true, mode: t.mode || 'price', value: t.value,
       /* (seq 515) «البكج يكون في مكان معين وله تصنيف»: أقسام المتجر التي تظهر فيها (كاميرات · عروض حصرية …) + قسم «📦 الباقات» نفسه */
-      cats: Array.isArray(t.cats) ? t.cats.map(String) : [], own: t.own !== false };
+      cats: (function () { var c = Array.isArray(t.cats) ? t.cats.map(String) : []; if (t.own !== false && c.indexOf(PKG_CAT) === -1) c.unshift(PKG_CAT); return c; })(), own: false };
   }
 
   /* السعر: مجموع أسعار المكوّنات × كمّياتها ⇐ «سعر خاص» أو «خصم %» أو «خصم $» */
@@ -158,7 +160,7 @@
       '<input type="number" data-v step="0.01" min="0" style="margin-top:6px;font-size:18px;font-weight:900;text-align:center">' +
       '<div class="sum"><div>مجموع أسعارها<b data-s1>0</b></div><div class="p">سعر الباقة<b data-s2>0</b></div><div>توفير الزبون<b data-s3>0</b></div></div><div class="warn" data-warn></div>' +
       '<label class="l">تظهر في</label><div class="chk"><label><input type="checkbox" data-pos> نقاط البيع</label><label><input type="checkbox" data-store> المتجر الإلكتروني</label></div>' +
-      '<div data-catsbox><label class="l">مكانها في المتجر <small style="color:#64748b">(قسمٌ أو أكثر — مثلاً «الكاميرات» أو «العروض الحصرية»)</small></label><div class="cats" data-cats><span style="font-size:12px;color:#94a3b8">جارٍ تحميل أقسام المتجر…</span></div></div>' +
+      '<div data-catsbox><label class="l">أقسامها في المتجر <small style="color:#64748b">(كالمنتج: «باقات وعروض» وأيّ قسمٍ آخر — مثلاً «الكاميرات»)</small></label><div class="cats" data-cats><span style="font-size:12px;color:#94a3b8">جارٍ تحميل أقسام المتجر…</span></div></div>' +
       '<label class="l">صورة الباقة <small style="color:#64748b">(اختر من صور منتجاتها أو ضع رابطاً)</small></label><div class="imgs" data-imgs></div><input type="url" data-cover placeholder="https://… (اختياري)" style="margin-top:6px">' +
       '<label class="l">الوصف (اختياري)</label><textarea data-desc rows="2">' + esc(o ? (o.description || '') : '') + '</textarea>' +
       '<label class="l">تنتهي في (اختياري)</label><input type="datetime-local" data-ends value="' + endsVal + '">' +
@@ -180,8 +182,8 @@
     })();
     function paintCats() {
       var box = $('[data-cats]'); if (!box || !S.CATS) return;
-      box.innerHTML = '<button type="button" data-cat="__own" class="' + (S.own ? 'on' : '') + '">📦 قسم الباقات</button>' +
-        S.CATS.map(function (c) { return '<button type="button" data-cat="' + esc(c.id) + '" class="' + (S.cats.indexOf(String(c.id)) !== -1 ? 'on' : '') + '">' + (c.parent_id ? '↳ ' : '') + esc(c.name) + '</button>'; }).join('');
+      if (!S.CATS.some(function (c) { return String(c.id) === PKG_CAT; })) S.CATS.unshift({ id: PKG_CAT, name: 'باقات وعروض' });
+      box.innerHTML = S.CATS.map(function (c) { return '<button type="button" data-cat="' + esc(c.id) + '" class="' + (S.cats.indexOf(String(c.id)) !== -1 ? 'on' : '') + '">' + (c.parent_id ? '↳ ' : '') + esc(c.name) + '</button>'; }).join('');
       $('[data-catsbox]').style.display = $('[data-store]').checked ? '' : 'none';
     }
     $('[data-store]').addEventListener('change', paintCats);
@@ -228,7 +230,7 @@
       if ((el = e.target.closest('[data-dec]'))) { var it = S.items[+el.getAttribute('data-dec')]; if (it.qty > 1) it.qty--; paint(); return; }
       if ((el = e.target.closest('[data-del]'))) { S.items.splice(+el.getAttribute('data-del'), 1); paint(); return; }
       if ((el = e.target.closest('[data-m]'))) { var nm = el.getAttribute('data-m'); if (nm !== S.mode) { var cc = compute(S.items, S.mode, S.value); S.mode = nm; S.value = nm === 'price' ? cc.price : nm === 'percent' ? cc.pct : cc.save; } paint(); return; }
-      if ((el = e.target.closest('[data-cat]'))) { var ck = el.getAttribute('data-cat'); if (ck === '__own') S.own = !S.own; else { var ix = S.cats.indexOf(ck); if (ix === -1) S.cats.push(ck); else S.cats.splice(ix, 1); } paintCats(); return; }
+      if ((el = e.target.closest('[data-cat]'))) { var ck = el.getAttribute('data-cat'), ix = S.cats.indexOf(ck); if (ix === -1) S.cats.push(ck); else S.cats.splice(ix, 1); paintCats(); return; }
       if ((el = e.target.closest('[data-img]'))) { S.cover = el.getAttribute('data-img'); $('[data-cover]').value = S.cover; paint(); return; }
       if (e.target.closest('[data-save]')) doSave();
     });
@@ -240,14 +242,14 @@
       if (!(c.price > 0)) { err.textContent = 'سعر الباقة يجب أن يكون أكبر من صفر'; return; }
       var pos = $('[data-pos]').checked, sto = $('[data-store]').checked;
       if (!pos && !sto) { err.textContent = 'اختر أين تظهر: نقاط البيع أو المتجر'; return; }
-      if (sto && !S.own && !S.cats.length) { err.textContent = 'اختر مكانها في المتجر: «📦 قسم الباقات» أو قسماً آخر'; return; }
+      if (sto && !S.cats.length) { err.textContent = 'اختر قسماً واحداً على الأقلّ في المتجر («باقات وعروض» أو غيره)'; return; }
       var endsRaw = $('[data-ends]').value, act = $('[data-active]');
       var images = []; if (S.cover) images.push(S.cover); S.items.forEach(function (x) { if (x.image_url && images.indexOf(x.image_url) === -1) images.push(x.image_url); });
       var rec = {
         name: name, description: $('[data-desc]').value.trim() || null, image_url: S.cover || null, images: images.slice(0, 8),
         offer_type: 'bundle', offer_price: c.price, original_price: c.sum, product_id: null,
         products: JSON.stringify(S.items.map(function (x) { return { id: x.id, name: x.name, qty: x.qty, price: r2(x.price), image_url: x.image_url || '' }; })),
-        targets: { pos: pos, store: sto, mode: S.mode, value: S.value == null ? null : Number(S.value), cats: S.cats.slice(), own: !!S.own },
+        targets: { pos: pos, store: sto, mode: S.mode, value: S.value == null ? null : Number(S.value), cats: S.cats.slice(), own: false },
         ends_at: endsRaw ? new Date(endsRaw).toISOString() : null, is_active: act ? act.checked : true
       };
       btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
@@ -263,5 +265,5 @@
     return w;
   }
 
-  g.GMTPackages = { open: open, compute: compute, expand: expand, parseItems: parseItems, targetsOf: targetsOf, fetchAll: fetchAll, forStore: forStore, save: save, _resetCache: function () { _prods = null; } };
+  g.GMTPackages = { PKG_CAT: PKG_CAT, open: open, compute: compute, expand: expand, parseItems: parseItems, targetsOf: targetsOf, fetchAll: fetchAll, forStore: forStore, save: save, _resetCache: function () { _prods = null; } };
 })(window);

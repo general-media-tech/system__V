@@ -10,9 +10,9 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
     { name: 'كاميرا Canon EOS R50 باقة', barcode: 'PK-R50', price: 700, wholesale_price: 600, net_cost: 550, daraa: 4, image_url: 'https://x.example/r50.jpg' },
     { name: 'عدسة RF 50mm باقة', barcode: 'PK-RF50', price: 200, wholesale_price: 160, net_cost: 140, daraa: 5, image_url: 'https://x.example/rf50.jpg' },
     { name: 'بطارية LP-E17 باقة', barcode: 'PK-E17', price: 30, net_cost: 15, daraa: 10 }]);
-  await H.call('/rest/v1/gmt_store', [{ id: 1, categories: [{ id: 'c1', name: 'كاميرات' }, { id: 'c_ex', name: 'العروض الحصرية' }], products: [
+  await H.call('/rest/v1/gmt_store', [{ id: 1, categories: [{ id: 'c_bundles', name: 'باقات وعروض', icon: 'ph-package' }, { id: 'c1', name: 'كاميرات' }, { id: 'c_ex', name: 'العروض الحصرية' }], products: [
     { id: 's1', name: 'منتج متجر', price: 10, category_ids: ['c1'], images: [] },
-    { id: 's_cam', name: 'كاميرا R50 في المتجر', price: 700, category_ids: ['c1'], images: ['https://x.example/r50-poster.jpg'], inv_id: CAM.id },
+    { id: 's_cam', name: 'كاميرا R50 في المتجر', price: 700, category_ids: ['c1'], images: ['https://x.example/r50-poster.jpg'], inv_id: CAM.id, specs: [{ label: 'الدقة', value: '24MP' }, { label: 'الحربة', value: 'RF' }], description: 'كاميرا خفيفة للمبتدئين — https://evil.example/x' },
     { id: 's_lens', name: 'عدسة RF 50 في المتجر', price: 200, category_ids: ['c1'], images: [] }], banners: [] }]);
   await H.call('/rest/v1/products?id=eq.' + LENS.id, { store_url: '#product=s_lens' }, 'PATCH');
 
@@ -40,7 +40,7 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   ok(off && off.offer_type === 'bundle' && near(off.offer_price, 864) && near(off.original_price, 960) && off.is_active, 'حُفظت في جدول العروض: باقة · 864 بدل 960');
   ok(items.length === 3 && items.find(x => x.id === BAT.id).qty === 2, 'المكوّنات بكمّياتها: ' + items.map(x => x.name + '×' + x.qty).join(' · '));
   ok(off && off.targets && off.targets.pos === true && off.targets.store === true && off.targets.mode === 'percent' && Number(off.targets.value) === 10, 'تظهر في نقاط البيع والمتجر · طريقة السعر محفوظة (خصم 10%)');
-  ok(off && JSON.stringify(off.targets.cats) === '["c1"]' && off.targets.own === true, 'مكانها في المتجر: «قسم الباقات» + قسم «كاميرات»');
+  ok(off && JSON.stringify(off.targets.cats) === '["c_bundles","c1"]', 'أقسامها في المتجر كالمنتج: «باقات وعروض» (افتراضياً) + «كاميرات»: ' + JSON.stringify(off && off.targets.cats));
   ok(!(await pg.$('#gmt-pkg')) && /باقة صانع المحتوى/.test(await pg.textContent('#app-content')), 'أُغلقت النافذة والقائمة تعرض الباقة');
   // التعديل: إيقافها مؤقّتاً ثمّ إعادتها
   await pg.evaluate(id => openPackageEditor(id), off.id); await pg.waitForSelector('#gmt-pkg [data-active]'); await pg.waitForTimeout(800);
@@ -83,14 +83,16 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   await H.call('/rest/v1/gmt_offers', { name: 'باقة قديمة', offer_type: 'bundle', offer_price: 800, original_price: 1000, is_active: true, targets: { site: true, store: true },
     products: JSON.stringify([{ id: CAM.id, name: 'كاميرا Canon EOS R50 باقة', qty: 1 }, { id: LENS.id, name: 'عدسة RF 50mm باقة', qty: 1 }]) });
   ({ browser, pg, errs } = await H.open('store.html', { init: H.STAFF_INIT + ';window.open=function(u){(window.__op=window.__op||[]).push(String(u));return null;};', w: 390, mobile: true, wait: 7000 }));
-  const sec = await pg.evaluate(() => { const h = document.querySelector('[data-container="packages-area"]'); return { txt: h.innerText.replace(/\s+/g, ' '), cards: h.querySelectorAll('[data-pkg]').length, w: (h.querySelector('[data-pkg]') || {}).offsetWidth || 0, emoji: /[\u{1F300}-\u{1FAFF}]/u.test(h.innerText) }; });
-  ok(sec.cards === 3 && /الباقات/.test(sec.txt) && !sec.emoji, 'قسم «الباقات» بثلاث باقات · عنوانٌ بأيقونة لا إيموجي: ' + sec.cards);
-  ok(sec.w === 160, 'كرت الباقة بحجم كرت المنتج (160px): ' + sec.w);
-  const card = await pg.evaluate(() => [...document.querySelectorAll('[data-container="packages-area"] [data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')).find(t => /صانع/.test(t)) || '');
+  const sec = await pg.evaluate(() => { const a = document.querySelector('[data-container="products-area"]'), h = a.querySelector('section[data-category-section="c_bundles"]'), secs = [...a.querySelectorAll('section[data-category-section]')].map(x => x.dataset.categorySection);
+    return h ? { txt: h.innerText.replace(/\s+/g, ' '), cards: h.querySelectorAll('[data-pkg]').length, w: (h.querySelector('[data-pkg]') || {}).offsetWidth || 0, emoji: /[\u{1F300}-\u{1FAFF}]/u.test(h.innerText), order: secs, blk: document.querySelector('[data-container="packages-area"]').innerHTML.trim() } : null; });
+  ok(sec && sec.cards === 3 && /^باقات وعروض/.test(sec.txt) && !sec.emoji, 'قسم المتجر «باقات وعروض» فيه الباقات الثلاث (كقسمٍ عادي · بلا إيموجي): ' + (sec && sec.cards));
+  ok(sec && sec.order.indexOf('c_bundles') < sec.order.indexOf('c1') && sec.blk === '', 'في موضعه بين الأقسام (قبل «كاميرات») — ولا كتلة منفصلة فوق المتجر: ' + (sec && sec.order.join(',')));
+  ok(sec && sec.w === 160, 'كرت الباقة بحجم كرت المنتج (160px): ' + (sec && sec.w));
+  const card = await pg.evaluate(() => [...document.querySelectorAll('[data-category-section="c_bundles"] [data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')).find(t => /صانع/.test(t)) || '');
   ok(/\$864\.00/.test(card) && /\$960\.00/.test(card) && /-10%/.test(card) && /4 منتجات/.test(card), 'الكرت: السعر · قبل الخصم · -10% · عدد المنتجات: ' + card);
-  const inCat = await pg.evaluate(() => { const s = document.querySelector('[data-container="products-area"] [data-category-section="c1"]'); return s ? [...s.querySelectorAll('[data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')) : null; });
-  ok(inCat && inCat.length === 1 && /صانع/.test(inCat[0]), 'وتظهر أيضاً داخل قسم «كاميرات» (أوّل الصفّ)');
-  await pg.click('[data-container="packages-area"] [data-pkg]:has-text("صانع")'); await pg.waitForTimeout(600);
+  const inCat = await pg.evaluate(() => { const s = document.querySelector('[data-container="products-area"] section[data-category-section="c1"]'); return s ? [...s.querySelectorAll('[data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')) : null; });
+  ok(inCat && inCat.length === 1 && /صانع/.test(inCat[0]), 'والباقة نفسها في قسم «كاميرات» أيضاً (أوّل الصفّ)');
+  await pg.click('[data-category-section="c_bundles"] [data-pkg]:has-text("صانع")'); await pg.waitForTimeout(600);
   const det = await pg.evaluate(() => { const c = document.getElementById('package-content'); return { txt: c.innerText.replace(/\s+/g, ' '), rows: c.querySelectorAll('[role="button"]').length, imgs: [...c.querySelectorAll('.border-b img')].map(i => i.getAttribute('src')), open: document.getElementById('package-modal').classList.contains('active') }; });
   ok(det.open && /قبل الخصم \$960\.00/.test(det.txt) && /الخصم \$96\.00/.test(det.txt) && /\(10%\)/.test(det.txt) && /سعر الباقة \$864\.00/.test(det.txt), 'التفاصيل: قبل الخصم 960 · الخصم 96 (10%) · سعر الباقة 864');
   ok(/منتجات الباقة \(3\)/.test(det.txt) && /\$30\.00 × 2 = \$60\.00/.test(det.txt) && /مجموع أسعار المنتجات \$960\.00/.test(det.txt), 'كلّ المنتجات (3) بأسعارها والكمّية والمجموع: ' + det.txt.slice(det.txt.indexOf('منتجات الباقة'), det.txt.indexOf('منتجات الباقة') + 220));
@@ -103,14 +105,14 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   await pg.evaluate(() => { window.__op = []; gmtAskGoogle(); gmtGoogleLens(); });
   const op = await pg.evaluate(() => window.__op);
   const q = op[0] ? decodeURIComponent(new URL(op[0]).searchParams.get('q') || '') : '';
-  ok(/^https:\/\/www\.google\.com\/search\?udm=50/.test(op[0] || '') && /اعتماداً فقط على بيانات المتجر/.test(q) && /R50 في المتجر/.test(q) && /r50-poster\.jpg/.test(q) && /#product=s_cam/.test(q), '«اسأل جوجل» يفتح جوجل في متصفّح الزائر ببياناتنا (الاسم · الصورة · الصفحة) ويطلب الوصف منها وحدها');
+  ok(/^https:\/\/www\.google\.com\/search\?udm=50/.test(op[0] || '') && /R50 في المتجر من متجر General Media Tech/.test(q) && /مواصفاته: الدقة: 24MP، الحربة: RF/.test(q) && /كاميرا خفيفة للمبتدئين/.test(q) && /ما مزايا هذا المنتج/.test(q) && !/https?:|لا تضف|اعتماداً فقط/.test(q) && op[0].length < 3000, '«اسأل جوجل» يفتح جوجل في متصفّح الزائر بسؤالٍ طبيعيّ قصير من بياناتنا — بلا أوامر ولا روابط (ما يُظهر تحذير جوجل): ' + q);
   ok(/^https:\/\/lens\.google\.com\/uploadbyurl\?.*r50-poster\.jpg/.test(decodeURIComponent(op[1] || '')), '«عدسة جوجل» تفتح العدسة بصورة منتجنا');
   await pg.evaluate(() => closeModal('product-modal'));
   // الباقة القديمة: أسعار وصور من الجرد
   const old = await pg.evaluate(() => { const p = store.packages.find(x => x.name === 'باقة قديمة'); return p && { orig: p.original, prices: p.items.map(x => x.price), imgs: p.items.map(x => !!x.image_url) }; });
   ok(old && old.orig === 900 && old.prices.join() === '700,200' && old.imgs.every(Boolean), 'باقة قديمة بلا أسعار ولا صور ⇒ تُكمَل من الجرد (قبل الخصم = 700+200): ' + JSON.stringify(old));
   const pid = await pg.evaluate(() => store.packages.find(p => /صانع/.test(p.name)).id);
-  await pg.click(`[data-container="packages-area"] [data-pkg-add="${pid}"]`); await pg.waitForTimeout(300);
+  await pg.click(`[data-category-section="c_bundles"] [data-pkg-add="${pid}"]`); await pg.waitForTimeout(300);
   const cart = await pg.evaluate(() => store.cart.map(i => ({ n: i.name, p: i.price, q: i.qty, k: (i.package_items || []).length })));
   ok(cart.length === 1 && near(cart[0].p, 864) && cart[0].k === 3 && !/📦/.test(cart[0].n), 'في السلّة سطرٌ واحد: الباقة بـ864 ومعها مكوّناتها (بلا إيموجي)');
   await pg.evaluate(() => submitOrder('زبون باقة المتجر', '0933123123', 'حلب', '', 'cod')); await pg.waitForTimeout(2500);

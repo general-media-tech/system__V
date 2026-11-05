@@ -188,7 +188,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261104j"></script>
-  <script src="gmt-packages.js?v=20261105a"></script>
+  <script src="gmt-packages.js?v=20261105c"></script>
   <script src="gmt-store-sync.js?v=20261101u" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -2367,19 +2367,19 @@ function _gmtProdData(){
 window.gmtAskGoogle = function(){
     if (!_pmId) return;
     const d = _gmtProdData();
+    /* (seq 517) لقطة المالك: جوجل يعرض «هل تريد المتابعة باستخدام طلب البحث هذا؟ قد تؤدي الطلبات الضارة…» — حمايته من الأسئلة
+       المعبّأة مسبقاً التي تبدو أوامر («اعتمد فقط… لا تضف…») وتحمل روابط. ⇒ سؤالٌ قصير طبيعيّ كما يكتبه زبون: اسم المنتج
+       ومواصفاته **كما في متجرنا** ثمّ «ما مزاياه؟» — بلا أوامر ولا روابط (الصورة تذهب عبر «عدسة جوجل»). */
+    const clean = x => String(x || '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().replace(/[\s—–\-:،,.]+$/, '');
     const build = (specN, descN) => [
-        'صِف هذا المنتج لزبون متجر General Media Tech بالعربية، اعتماداً فقط على بيانات المتجر التالية — لا تضف مواصفات أو أسعاراً أو معلومات من الإنترنت أو من عندك، وإن لم تُذكر معلومة فلا تخمّنها:',
-        'المنتج: ' + d.name,
-        d.price > 0 ? 'السعر في المتجر: ' + d.price.toFixed(2) + ' ' + CONFIG.CURRENCY : '',
-        d.desc ? 'الوصف: ' + d.desc.slice(0, descN) : '',
-        d.specs.length ? 'المواصفات: ' + d.specs.slice(0, specN).join(' · ') : '',
-        d.compat ? 'التوافق: ' + String(d.compat).slice(0, 200) : '',
-        d.img ? 'صورة المنتج: ' + d.img : '',
-        'صفحة المنتج: ' + d.page
-    ].filter(Boolean).join('\n');
-    /* رابطٌ طويل جداً يرفضه المتصفّح ⇒ نقصّ المواصفات والوصف حتى يصلح */
-    let specN = 30, descN = 700, q = build(specN, descN), url = '';
-    for (let i = 0; i < 12; i++) { url = 'https://www.google.com/search?udm=50&hl=ar&q=' + encodeURIComponent(q); if (url.length < 7000) break; specN = Math.max(3, specN - 5); descN = Math.max(120, descN - 120); q = build(specN, descN); }
+        clean(d.name) + ' من متجر General Media Tech' + (d.price > 0 ? ' بسعر ' + d.price.toFixed(0) + '$' : '') + '.',
+        d.specs.length ? 'مواصفاته: ' + d.specs.slice(0, specN).map(clean).join('، ') + '.' : '',
+        d.desc && descN ? clean(d.desc).slice(0, descN) + '.' : '',
+        d.compat ? 'يتوافق مع: ' + clean(d.compat).slice(0, 120) + '.' : '',
+        'ما مزايا هذا المنتج بهذه المواصفات ولمن يناسب؟'
+    ].filter(Boolean).join(' ');
+    let specN = 10, descN = 220, q = build(specN, descN), url = '';
+    for (let i = 0; i < 12; i++) { url = 'https://www.google.com/search?udm=50&hl=ar&q=' + encodeURIComponent(q); if (url.length < 3000) break; specN = Math.max(3, specN - 2); descN = Math.max(0, descN - 60); q = build(specN, descN); }
     window.open(url, '_blank', 'noopener');
 };
 window.gmtGoogleLens = function(){
@@ -2855,11 +2855,16 @@ function _injectPackages(){
         let sec = area.querySelector('[data-category-section="' + (window.CSS && CSS.escape ? CSS.escape(cid) : cid) + '"]');
         let row = sec && sec.tagName === 'SECTION' ? sec.querySelector('.flex.overflow-x-auto') : null;
         if (!row) {
+            /* قسمٌ ليس فيه إلّا باقات (مثل «باقات وعروض») ⇒ يُنشأ صفّه في موضعه بين الأقسام بترتيبها */
             const cat = (store.categories || []).find(c => String(c.id) === String(cid)); if (!cat) return;
             sec = document.createElement('section'); sec.className = 'mt-6'; sec.dataset.categorySection = cid; sec.setAttribute('data-pkg-inj', '1');
             sec.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">' + escHtml(cat.name) + '</h3>';
             row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6'; sec.appendChild(row);
-            area.insertBefore(sec, area.firstChild);
+            const order = (typeof _catOrdered === 'function' ? _catOrdered() : (store.categories || [])).map(c => String(c.id));
+            const after = order.slice(order.indexOf(String(cid)) + 1);
+            const next = [...area.querySelectorAll('section[data-category-section]')].find(x => after.indexOf(x.dataset.categorySection) !== -1)
+                || area.querySelector('[data-category-section="__orphans"]');
+            area.insertBefore(sec, next || null);
         }
         const w = document.createElement('div'); w.setAttribute('data-pkg-inj', '1'); w.style.cssText = 'flex:0 0 auto;display:flex';
         w.innerHTML = _pkgCard(p); row.insertBefore(w, row.firstChild);
@@ -2867,9 +2872,10 @@ function _injectPackages(){
     if (!area._pkgClick) { area._pkgClick = true; area.addEventListener('click', _pkgClick, true); }
 }
 function renderPackages(){
+    /* (seq 518) «الباقات تُعامَل معاملة المنتج»: تظهر داخل أقسامها فقط (قسم «باقات وعروض» وأيّ قسمٍ آخر) — لا كتلة منفصلة */
     _injectPackages();
     const host = document.querySelector('[data-container="packages-area"]'); if (!host) return;
-    const list = (store.packages || []).filter(p => p.own !== false);
+    const list = (store.packages || []).filter(p => p.own === true);
     if (!list.length) { host.innerHTML = ''; return; }
     host.innerHTML = `<section class="mt-6"><div class="flex items-center justify-between px-4 mb-4"><h3 class="font-medium text-[18px] flex items-center gap-1.5"><i class="ph ph-package text-primary"></i>الباقات</h3><span class="text-[11px] text-gray-400">${list.length} باقة</span></div>
         <div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6">${list.map(_pkgCard).join('')}</div></section>`;
