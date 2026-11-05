@@ -2382,9 +2382,9 @@ window.gmtAskGoogle = function(){
     for (let i = 0; i < 12; i++) { url = 'https://www.google.com/search?udm=50&hl=ar&q=' + encodeURIComponent(q); if (url.length < 3000) break; specN = Math.max(3, specN - 2); descN = Math.max(0, descN - 60); q = build(specN, descN); }
     window.open(url, '_blank', 'noopener');
 };
-/* (المالك seq 519) «عدسة غوغل خلّيها تحلّل الشاشة يلي فيها المواصفات وتكون معها صور المنتج»:
-   نرسم صورةً واحدة (بطاقة المنتج): صوره + الاسم + السعر + مواصفاتنا + وصفنا + التوافق — تُرفع مرّةً لكلّ نسخةٍ من بيانات المنتج
-   (products-images/lens/<المنتج>-<بصمة>.jpg) ثمّ تُفتح عدسة جوجل عليها في متصفّح الزائر، فتقرأ بياناتنا مع الصورة. */
+/* (المالك seq 519 · 521) «عدسة غوغل تحلّل الشاشة يلي فيها المواصفات وتكون معها صورة المنتج»: لقطةٌ لصفحة المنتج نفسها
+   (الصورة + الاسم + الشرح + جدول المواصفات) تُرفع مرّةً لكلّ نسخةٍ من بيانات المنتج (products-images/lens/<المنتج>-<بصمة>.jpg)
+   ثمّ تُفتح عدسة جوجل عليها في متصفّح الزائر، فتقرأ مواصفاتنا مع الصورة. */
 function _gmtHash(str){ let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
 /* الصورة عبر fetch ⇐ createImageBitmap — لا عبر new Image(): حارس الصور في المتجر يستبدل مصدر الصورة الجديدة بعنصرٍ نائب (1×1) */
 async function _gmtLoadImg(u){
@@ -2396,36 +2396,30 @@ async function _gmtLoadImg(u){
         const bm = await createImageBitmap(b); return bm.width > 4 && bm.height > 4 ? bm : null;
     } catch (_) { return null; }
 }
-function _gmtWrap(ctx, text, maxW){ const out = []; String(text || '').split(/\n/).forEach(par => { let line = ''; par.split(/\s+/).forEach(w => { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; }); if (line) out.push(line); }); return out; }
+/* (المالك seq 521) «ما في داعي ترسم بطاقة … عدسة جوجل كأنها سكرين للشاشة كاملة فيها جدول المواصفات وفيها صورة المنتج»:
+   لقطةٌ لصفحة المنتج نفسها كما يراها الزائر — صورته الحاليّة · اسمه · شرحه · جدول المواصفات تحته — لا تصميمٌ مرسوم. */
+function _gmtLoadScript(src){ return new Promise((res, rej) => { if (window.html2canvas) return res(); const sc = document.createElement('script'); sc.src = src; sc.onload = () => res(); sc.onerror = rej; document.head.appendChild(sc); }); }
 async function _gmtLensCard(d){
-    const W = 1080, P = 48, prod = d.prod || {};
-    const urls = [...(prod.images || [])].filter(u => typeof u === 'string' && u).slice(0, 4);
-    const imgs = (await Promise.all(urls.map(_gmtLoadImg))).filter(Boolean);
-    try { await document.fonts.load('700 40px Tajawal'); await document.fonts.load('400 30px Tajawal'); } catch (_) {}
-    const F = (w, sz) => w + ' ' + sz + 'px Tajawal, Arial, sans-serif';
-    const meas = document.createElement('canvas').getContext('2d'); meas.font = F(400, 30);
-    const specLines = []; d.specs.slice(0, 24).forEach(x => _gmtWrap(meas, '• ' + String(x).replace(/https?:\/\/\S+/g, ''), W - 2 * P).forEach(l => specLines.push(l)));
-    const nolink = x => String(x || '').replace(/https?:\/\/\S+/g, '').replace(/[ \t]+/g, ' ').trim().replace(/[\s—–\-:،,.]+$/, '');
-    const descLines = d.desc ? _gmtWrap(meas, nolink(d.desc), W - 2 * P).slice(0, 8) : [];
-    const compLines = d.compat ? _gmtWrap(meas, 'يتوافق مع: ' + nolink(d.compat), W - 2 * P).slice(0, 4) : [];
-    meas.font = F(700, 44); const nameLines = _gmtWrap(meas, d.name, W - 2 * P).slice(0, 3);
-    const mainH = imgs.length ? 640 : 0, thumbH = imgs.length > 1 ? 220 : 0;
-    const H = 110 + mainH + thumbH + 40 + nameLines.length * 58 + 70 + (specLines.length ? 60 + specLines.length * 44 : 0) + (descLines.length ? 60 + descLines.length * 44 : 0) + (compLines.length ? 20 + compLines.length * 44 : 0) + 110;
-    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.direction = 'rtl'; g.textAlign = 'right'; g.textBaseline = 'top';
-    g.fillStyle = '#D5001C'; g.fillRect(0, 0, W, 90); g.fillStyle = '#fff'; g.font = F(700, 38); g.fillText('General Media Tech — بيانات المنتج', W - P, 24);
-    let y = 110;
-    const fit = (im, x, yy, w, h) => { const r = Math.min(w / im.width, h / im.height), iw = im.width * r, ih = im.height * r; g.drawImage(im, x + (w - iw) / 2, yy + (h - ih) / 2, iw, ih); };
-    if (imgs.length) { g.fillStyle = '#f5f5f5'; g.fillRect(P, y, W - 2 * P, 620); fit(imgs[0], P, y, W - 2 * P, 620); y += mainH; }
-    if (imgs.length > 1) { const n = imgs.length - 1, tw = (W - 2 * P - (n - 1) * 16) / n; imgs.slice(1).forEach((im, i) => { const x = W - P - (i + 1) * tw - i * 16; g.fillStyle = '#f5f5f5'; g.fillRect(x, y, tw, 200); fit(im, x, y, tw, 200); }); y += thumbH; }
-    y += 20; g.fillStyle = '#111'; g.font = F(700, 44); nameLines.forEach(l => { g.fillText(l, W - P, y); y += 58; });
-    if (d.price > 0) { g.fillStyle = '#D5001C'; g.font = F(700, 40); g.fillText('السعر: $' + d.price.toFixed(2), W - P, y + 8); }
-    y += 70;
-    const sec = (title, lines) => { if (!lines.length) return; g.fillStyle = '#0f172a'; g.font = F(700, 34); g.fillText(title, W - P, y + 10); y += 60; g.fillStyle = '#334155'; g.font = F(400, 30); lines.forEach(l => { g.fillText(l, W - P, y); y += 44; }); };
-    sec('المواصفات', specLines); sec('الوصف', descLines);
-    if (compLines.length) { y += 20; g.fillStyle = '#334155'; g.font = F(400, 30); compLines.forEach(l => { g.fillText(l, W - P, y); y += 44; }); }
-    g.fillStyle = '#64748b'; g.font = F(400, 26); g.fillText('المصدر: متجر General Media Tech', W - P, H - 70);
-    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.88));
+    await _gmtLoadScript('lib/html2canvas.min.js?v=20261003');
+    const W = 540, box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + W + 'px;background:#fff;direction:rtl;font-family:Tajawal,sans-serif;padding:0 0 16px';
+    const cur = (document.querySelector('#product-modal-slides > div:nth-child(' + ((typeof _pmIdx === 'number' ? _pmIdx : 0) + 1) + ') img') || document.querySelector('#product-modal-slides img'));
+    const src = (cur && cur.getAttribute('src')) || d.img || '';
+    const bm = src ? await _gmtLoadImg(src) : null;
+    if (bm) {   /* الصورة داخل إطارٍ ثابت (كما في صفحة المنتج) فيبقى جدول المواصفات في اللقطة نفسها */
+        const c = document.createElement('canvas'), cw = W * 2, ch = 760; c.width = cw; c.height = ch; const g = c.getContext('2d');
+        g.fillStyle = '#f5f5f5'; g.fillRect(0, 0, cw, ch); const r = Math.min(cw / bm.width, ch / bm.height), iw = bm.width * r, ih = bm.height * r;
+        g.drawImage(bm, (cw - iw) / 2, (ch - ih) / 2, iw, ih); c.style.cssText = 'display:block;width:' + W + 'px;height:' + (ch / 2) + 'px'; box.appendChild(c);
+    }
+    const pad = document.createElement('div'); pad.style.cssText = 'padding:14px 18px 0'; box.appendChild(pad);
+    const nm = document.getElementById('product-modal-name'); if (nm) { const h = nm.cloneNode(true); h.removeAttribute('id'); h.className = 'font-bold text-lg'; h.style.cssText = 'margin:0 0 6px;font-size:20px;font-weight:700;-webkit-line-clamp:unset;display:block'; pad.appendChild(h); }
+    if (d.price > 0) { const pr = document.createElement('div'); pr.style.cssText = 'color:#D5001C;font-weight:700;font-size:18px;margin-bottom:8px'; pr.textContent = '$' + d.price.toFixed(2); pad.appendChild(pr); }
+    ['product-modal-description', 'product-modal-specs'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) { const k = el.cloneNode(true); k.removeAttribute('id'); k.classList.remove('hidden'); pad.appendChild(k); } });
+    document.body.appendChild(box);
+    try {
+        const cv = await html2canvas(box, { scale: 2, useCORS: true, backgroundColor: '#fff', logging: false, width: W, windowWidth: W });
+        return await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.88));
+    } finally { box.remove(); }
 }
 async function _gmtLensUrl(d){
     const M = (window.GMT_DB && GMT_DB.MAIN) || { url: 'https://ysawzwtmodkqqbqoiojj.supabase.co' };
