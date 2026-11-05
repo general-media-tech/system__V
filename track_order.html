@@ -772,9 +772,15 @@ window.GMT_PUBLIC = 1;</script>
                الاستلام» فيظنّ الزبون أنّ شحنته لم تُسلَّم. أمّا «وصلت — بانتظار الاستلام» فهي الشحنة المشحونة التي أُرسل
                عنها إشعار الوصول (notified_arrival_at) ولم يُؤكَّد استلامها بعد. */
             const received = o.status === 'delivered' || o.status === 'completed';
-            let currentStepIndex = received ? 4
-                : (o.status === 'shipped' && o.notified_arrival_at) ? 3
+            /* (TASK-0324 · المالك seq 520 «المفروض هناك مرحلة اللي هي في الشحن — أثناء الشحن») ست مراحل:
+               ٠ قيد التجهيز · ١ تمت الفوترة · ٢ تم الشحن (سُلّمت لشركة الشحن / استلمها فرعها المرسل) · ٣ في الطريق — قيد النقل ·
+               ٤ وصلت — بانتظار الاستلام · ٥ تم الاستلام */
+            const ML0 = window.GMTMuftiLive, muftiOrder = !!(ML0 && ML0.isMufti && ML0.isMufti(o));
+            let currentStepIndex = received ? 5
+                : (o.status === 'shipped' && o.notified_arrival_at) ? 4
                 : o.status === 'returned' ? 2      /* (TASK-0240) شُحنت وعادت ⇒ تبقى عند «تم الشحن» (لا «قيد التجهيز») بلا مؤقّت */
+                /* شركةٌ بلا تتبّعٍ حيّ: بعد ساعتين من التسليم تُعدّ في الطريق (المفتي يتبع تتبّعه الحيّ أدناه) */
+                : (o.status === 'shipped' && !muftiOrder && o.shipped_at && hoursSinceShipped >= 2) ? 3
                 : Math.max(0, ['pending','prepared','shipped'].indexOf(o.status));
             /* (TASK-0223 · seq 152 · 153 ⇐ TASK-0226 · seq 154) «شحنات المفتي لا تحركها في المؤقت وانما حركها تباعا لتتبع المفتي»
                + «تم وصول الى الفرع الوجهه هاي يعني انها وصلت في انتظار الاستلام»:
@@ -783,9 +789,10 @@ window.GMT_PUBLIC = 1;</script>
                وكتابة المفتي الحيّة تبقى بجانب المرحلة الحاليّة (seq 153). */
             const ML = window.GMTMuftiLive;
             const mk = (ML && mufti && mufti.ok && mufti.found) ? ML.cls(mufti) : null;
-            if (mk === 'got') currentStepIndex = 4;
-            else if (mk === 'branch') currentStepIndex = Math.max(currentStepIndex, 3);
-            else if (mk === 'road') currentStepIndex = Math.max(currentStepIndex, 2);
+            /* المفتي: ١ استلمها الفرع المرسل ⇒ تم الشحن · ٢ على الطريق وقيد النقل ⇒ في الطريق · ٣ وصلت فرع الوجهة ⇒ وصلت · ٤ سُلّمت ⇒ تم الاستلام */
+            if (mk === 'got') currentStepIndex = 5;
+            else if (mk === 'branch') currentStepIndex = Math.max(currentStepIndex, 4);
+            else if (mk === 'road') currentStepIndex = Math.max(currentStepIndex, (Number(mufti.level) || 0) >= 2 ? 3 : 2);
             /* «شحنات المفتي خلاص ازل منها المؤقت تماما … تتبع حي» */
             const isMuftiShip = !!(ML && ML.isMufti(o));
 
@@ -839,7 +846,8 @@ window.GMT_PUBLIC = 1;</script>
             const stepsData = [
                 { icon: 'package',      title: 'قيد التجهيز',                  desc: 'استلمنا طلبك ونجهّزه حالياً في مستودعاتنا' },
                 { icon: 'file-check',   title: 'تمت الفوترة — بانتظار الشحن',   desc: 'طلبك جاهز ومفوتَر وبانتظار تسليمه لشركة الشحن' },
-                { icon: 'truck',        title: 'تم الشحن',                      desc: 'شُحن طلبك' + co + trk + (isMuftiShip ? '' : ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة')) },
+                { icon: 'package-check', title: 'تم الشحن',                     desc: 'سُلّم طلبك لشركة الشحن' + co + trk },
+                { icon: 'truck',        title: 'في الطريق — قيد النقل',          desc: 'شحنتك في الطريق إلى [' + _esc(o.address || 'عنوانكم') + ']' + (isMuftiShip ? '' : ' — الوصول المتوقّع خلال ' + (window.GMTEta ? GMTEta.text(o) : '24–32 ساعة')) },
                 { icon: 'map-pin',      title: 'وصلت — بانتظار الاستلام',       desc: 'وصلت شحنتك إلى [' + _esc(o.address || 'عنوانكم') + ']' + (o.shipping_company ? ' لدى ' + _esc(o.shipping_company) : '') },
                 { icon: 'check-circle', title: 'تم الاستلام',                   desc: 'استلمتَ طلبك' + (received && o.delivered_at ? ' بتاريخ ' + _esc(new Date(o.delivered_at).toLocaleDateString('ar-SY', { year: 'numeric', month: 'long', day: 'numeric' })) : '') + ' — شكراً لثقتك بجنرال ميديا تيك 🤍' }
             ];

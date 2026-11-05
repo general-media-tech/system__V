@@ -10,7 +10,10 @@ const FAKE = {
   '214244': R('214244', [1, 3], 'تم وصول الشحنة إلى الفرع الوجهة,بإمكانك زيارة الفرع لاستلامها', '27-10-2026 12:38', 'درعا - دوار الحمامة'),
   '214138': R('214138', [1, 2, 3, 4], 'تم استلام الشحنة من قبل المرسل إليه', '27-10-2026 15:36', 'دمشق - البرامكة'),
   '210063': R('210063', [1], 'تم إعادة توجيه الشحنة إلى الفرع', '27-10-2026 10:29', 'دمشق - فكتوريا'),
-  '99999999': { n: '99999999', ok: true, found: false, steps: [], level: 0 }
+  '99999999': { n: '99999999', ok: true, found: false, steps: [], level: 0 },
+  /* (TASK-0324 · seq 520) لقطة المالك: «تم استلام الشحنة من الفرع المرسل ويتم تجهيزها للإرسال» ⇒ «تم الشحن» · «على الطريق» ⇒ «في الطريق — قيد النقل» */
+  '226436': R('226436', [1], 'تم استلام الشحنة من الفرع المرسل ويتم تجهيزها للإرسال', '04-11-2026 22:02', 'طرطوس'),
+  '226500': R('226500', [1, 2], 'الشحنة على الطريق وقيد النقل', '05-11-2026 08:10', 'طرطوس')
 };
 (async () => {
   for (const [w, h] of [[390, 844], [1366, 820]]) {
@@ -21,7 +24,9 @@ const FAKE = {
       Object.assign({ name: 'غالب زيدان', phone: '0933500002', status: 'shipped', tracking_number: '214138', address: 'دمشق' }, base),
       Object.assign({ name: 'بطيء الردّ', phone: '0933500003', status: 'shipped', tracking_number: '210063', address: 'دمشق' }, base),
       Object.assign({ name: 'رقم غريب', phone: '0933500004', status: 'shipped', tracking_number: '99999999', address: 'حمص' }, base),
-      Object.assign({ name: 'زبون القدموس', phone: '0933500005', status: 'shipped', tracking_number: '555111', address: 'حلب' }, base, { shipping_company: 'القدموس' })]);
+      Object.assign({ name: 'زبون القدموس', phone: '0933500005', status: 'shipped', tracking_number: '555111', address: 'حلب' }, base, { shipping_company: 'القدموس' }),
+      Object.assign({ name: 'زبون طرطوس', phone: '0933500006', status: 'shipped', tracking_number: '226436', address: 'طرطوس — مول الحمرات' }, base),
+      Object.assign({ name: 'زبون على الطريق', phone: '0933500007', status: 'shipped', tracking_number: '226500', address: 'طرطوس' }, base)]);
     const { browser, pg, errs } = await H.open('track_order.html', { w, h, mobile: w < 700, wait: 400 });
     const calls = [];
     await pg.route('**/functions/v1/gmt-mufti', async route => {
@@ -49,13 +54,13 @@ const FAKE = {
     // ① برقم تتبّع المفتي — (seq 153) «حافظ مراحل اللي عنا في الموقع على حالها ولكن اكتب كتابه بجانبها» · «ازل منها المؤقت تماما»
     let r = await search('214244');
     ok(r.syncing && calls.includes('214244'), w + ': أثناء الانترو «نزامن حالة شحنتك مع شركة المفتي…» · سُئل المفتي عن الرقم');
-    ok(r.v.active === 3 && r.v.mufti && r.v.noteAt === 3 && /شركة المفتي الآن: تم وصول الشحنة إلى الفرع الوجهة/.test(r.v.mtxt) && /12:38/.test(r.v.mtxt) && /درعا - دوار الحمامة/.test(r.v.mtxt) && !r.v.box,
+    ok(r.v.active === 4 && r.v.mufti && r.v.noteAt === 4 && /شركة المفتي الآن: تم وصول الشحنة إلى الفرع الوجهة/.test(r.v.mtxt) && /12:38/.test(r.v.mtxt) && /درعا - دوار الحمامة/.test(r.v.mtxt) && !r.v.box,
       w + ': (seq 154) «وصلت الفرع الوجهة» ⇒ مرحلتنا «وصلت — بانتظار الاستلام» · كتابة المفتي بجانبها (النصّ والتاريخ وفرع الاستلام): ' + JSON.stringify([r.v.active, r.v.noteAt]));
     ok(!r.v.eta && !/الوصول المتوقّع/.test(r.v.tl), w + ': شحنة المفتي ⇒ لا مؤقّت ولا «الوصول المتوقّع» إطلاقاً');
     // ② برقم الطلب عندنا (لا رقم المفتي)
     calls.length = 0;
     r = await search(String(rows[1].id));
-    ok(calls.includes('214138') && r.v.active === 4 && r.v.noteAt === 4 && /تم استلام الشحنة من قبل المرسل إليه/.test(r.v.mtxt), w + ': برقم الطلب أيضاً ⇒ يسأل المفتي برقم تتبّعه · «تم التسليم للمرسل إليه» ⇒ «تم الاستلام»: ' + r.v.active);
+    ok(calls.includes('214138') && r.v.active === 5 && r.v.noteAt === 5 && /تم استلام الشحنة من قبل المرسل إليه/.test(r.v.mtxt), w + ': برقم الطلب أيضاً ⇒ يسأل المفتي برقم تتبّعه · «تم التسليم للمرسل إليه» ⇒ «تم الاستلام»: ' + r.v.active);
     // ③ بالجوال · ردّ المفتي أبطأ من المهلة ⇒ النتيجة تظهر ثمّ تُكتب الكتابة وحدها · «إعادة التوجيه» = مرتجع (تنبيهٌ بلونٍ مختلف · لا استلام)
     calls.length = 0;
     r = await search('0933500003', 20000);
@@ -76,6 +81,13 @@ const FAKE = {
     // بحثٌ جديد كل مرّة (لا تخزين): نفس الرقم مرّتين ⇒ نداءان
     calls.length = 0; await search('214244'); await search('214244');
     ok(calls.filter(c => c === '214244').length === 2, w + ': نفس الرقم مرّتين ⇒ سؤالان للمفتي (لا تخزين)');
+    // (TASK-0324 · seq 520) المرحلة الجديدة «في الطريق — قيد النقل» بين «تم الشحن» و«وصلت»
+    r = await search('226436');
+    const titles = await pg.evaluate(() => [...document.querySelectorAll('#timelineContainer .step-title')].map(x => x.textContent.trim()));
+    ok(titles.length === 6 && titles[2] === 'تم الشحن' && titles[3] === 'في الطريق — قيد النقل' && /^وصلت/.test(titles[4]), w + ': ست مراحل — «في الطريق — قيد النقل» بين «تم الشحن» و«وصلت»: ' + titles.join(' ⇐ '));
+    ok(r.v.active === 2 && r.v.noteAt === 2 && /من الفرع المرسل/.test(r.v.mtxt), w + ': لقطة المالك «تم استلام الشحنة من الفرع المرسل ويتم تجهيزها للإرسال» ⇒ «تم الشحن» (لم تتحرّك بعد): ' + r.v.active);
+    r = await search('226500');
+    ok(r.v.active === 3 && r.v.noteAt === 3 && /على الطريق/.test(r.v.mtxt), w + ': المفتي «على الطريق وقيد النقل» ⇒ «في الطريق — قيد النقل»: ' + r.v.active);
     const hs = await pg.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
     ok(!hs, w + ': لا طفح أفقي');
     if (w === 390) { await search('214244'); await pg.evaluate(() => document.getElementById('resultCard').scrollIntoView()); await sleep(300); await pg.screenshot({ path: '/tmp/gmt-out/track_mufti_390.png', fullPage: true }); }
