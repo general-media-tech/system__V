@@ -279,7 +279,6 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
   <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px">
     <thead><tr style="background:#f8fafc"><th style="text-align:right;padding:6px">المزوّد</th><th style="text-align:right;padding:6px">مجاناً</th><th style="text-align:right;padding:6px">يعطي</th><th style="text-align:right;padding:6px">رأيي</th></tr></thead>
     <tbody>
-      <tr style="background:#fef2f2"><td style="padding:6px"><b>SerpApi</b> (غوغل نفسه)</td><td style="padding:6px">250 بحث/شهر لكل حساب</td><td style="padding:6px"><b>عدسة غوغل</b> (بحث بالصورة) + صور غوغل + صفحاته</td><td style="padding:6px">✅ <b>الأهمّ</b> — هو وحده يعطي نتائج «🔎 عدسة غوغل هنا» داخل صفحة المنتج</td></tr>
       <tr><td style="padding:6px"><b>Tavily</b></td><td style="padding:6px">1000 بحث/شهر · <b>بلا بطاقة</b></td><td style="padding:6px">صفحات + <b>صور</b></td><td style="padding:6px">✅ <b>فعّله أوّلاً</b> — هو الناقص لبحث الصور</td></tr>
       <tr><td style="padding:6px"><b>Gemini</b> (جوجل)</td><td style="padding:6px">بلا بطاقة</td><td style="padding:6px">صفحات (بحث جوجل) + العقل نفسه</td><td style="padding:6px">✅ <b>مفعّل الآن</b> (مفتاح واحد)</td></tr>
       <tr><td style="padding:6px">Brave</td><td style="padding:6px">رصيد $5/شهر (~1000 بحث) · <b>يطلب بطاقة</b> عند التسجيل</td><td style="padding:6px">صفحات + صور</td><td style="padding:6px">اختياري — فقط إن قبلت إدخال بطاقة (لا يُخصم ضمن الرصيد)</td></tr>
@@ -293,14 +292,7 @@ supabase functions deploy gmt-brain --no-verify-jwt</code></pre>
     <li>الاسم: <code dir="ltr">TAVILY_API_KEY</code> · القيمة: المفتاح ← <b>Save</b>. لا حاجة لإعادة نشر شيء.</li>
     <li>ارجع هنا واضغط «حالة البحث الآن» ⇐ يجب أن يظهر Tavily ✅. ثمّ جرّب «🖼️ صور من الويب» في صفحة أيّ منتج.</li>
   </ol>
-  <h3 style="font-size:15px;margin:16px 0 4px">🔎 عدسة غوغل وصور غوغل داخل النظام (SerpApi) — المالك seq 514</h3>
-  <ol style="margin:0;padding-right:20px">
-    <li>افتح <code>serpapi.com</code> ← <b>Register</b> (بالبريد أو حساب جوجل) ← الخطّة المجانية (Free).</li>
-    <li>من <b>Your Account ← Api Key</b> انسخ المفتاح.</li>
-    <li>في لوحة Supabase ← <b>Edge Functions ← Secrets ← Add new secret</b>: الاسم <code dir="ltr">SERPAPI_KEY</code> · القيمة: المفتاح ← <b>Save</b>.</li>
-    <li>يكفي ذلك: في صفحة تعديل أيّ منتج ⇐ «🔎 عدسة غوغل هنا» (منتجاتٌ مطابقة لصورته بعناوينها ومصادرها وأسعارها) و«🔍 صور غوغل هنا» — و«+ أضف» تنزّل الصورة لمخزننا.</li>
-  </ol>
-  <p style="margin-top:4px;color:#5b6472;font-size:12.5px">الحدّ اليومي 12 بحثاً لكل مفتاح (≈ 250/شهر). لأكثر: حسابٌ ثانٍ وسرّ <code dir="ltr">SERPAPI_KEY_2</code> (حتى 20 مفتاحاً — ينتقل للتالي حين ينفد الأوّل)، أو غيّر <code dir="ltr">SERPAPI_DAILY_CAP</code>.</p>
+
   <p style="margin-top:8px;color:#b45309;font-weight:700">🔒 المفتاح يُلصق في لوحة Supabase فقط — لا تلصقه في المحادثة ولا في أيّ صفحة من النظام. الوسيط وحده يقرؤه ولا يصل المتصفّح.</p>
   <p style="margin-top:4px;color:#5b6472;font-size:12.5px">الحدّ اليومي المضبوط لـ Tavily ‏30 بحثاً (≈ 900/شهر تحت الـ1000 المجانية). لتغييره أضف سرّاً <code dir="ltr">TAVILY_DAILY_CAP</code> بالرقم الذي تريد.</p>
 </section>

@@ -188,7 +188,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261104j"></script>
-  <script src="gmt-packages.js?v=20261104l"></script>
+  <script src="gmt-packages.js?v=20261105a"></script>
   <script src="gmt-store-sync.js?v=20261101u" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -1001,7 +1001,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261104l');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261105a');
         const [rows, lists] = await Promise.all([
             fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
             fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
@@ -1798,6 +1798,11 @@ function createModals(){
                         <i class="ph ph-copy" style="font-size:16px;"></i>
                     </button>
                 </div>
+                <!-- (seq 515/516) عدسة جوجل للزائر: تُفتح في متصفّحه (كروم/سفاري) — و«اسأل جوجل» تحمل بياناتنا نحن ليصف المنتج كما كتبناه -->
+                <div id="product-google-row" class="flex gap-2 mb-4">
+                    <button type="button" onclick="gmtAskGoogle()" class="flex-1 flex items-center justify-center gap-1.5 bg-light rounded-[10px] py-2.5 text-[13px] font-medium text-dark" style="border:0;cursor:pointer"><i class="ph ph-google-logo text-base text-primary"></i>اسأل جوجل عن المنتج</button>
+                    <button type="button" onclick="gmtGoogleLens()" class="flex-1 flex items-center justify-center gap-1.5 bg-light rounded-[10px] py-2.5 text-[13px] font-medium text-dark" style="border:0;cursor:pointer"><i class="ph ph-scan text-base text-primary"></i>عدسة جوجل</button>
+                </div>
                 <!-- Similar products -->
                 <div id="similar-products-wrap" class="similar-section" style="display:none;margin-top:4px;">
                     <h4 style="font-size:13px;font-weight:700;color:#333;margin:0 0 10px;">منتجات من نفس القسم</h4>
@@ -2344,6 +2349,46 @@ window.productModalAddToCart=productModalAddToCart;
 window.openProductModal=openProductModal;
 
 // ── Share product link ─────────────────────────
+/* ══ (المالك seq 515 · 516) «عدسة جوجل للمستخدم اللي راح يتصفح موقعنا … تُفتح من جهازه … لتقرا بياناتنا وتعطي نفسها،
+   ما تعطي بيانات من عندها أو من النت» ══
+   • «اسأل جوجل عن المنتج» ⇒ وضع الذكاء في بحث جوجل (udm=50) بسؤالٍ يحمل بيانات متجرنا (الاسم · السعر · الوصف · المواصفات
+     · التوافق · صورة المنتج · صفحته) ويطلب أن يصف المنتج **منها وحدها** دون إضافة شيءٍ من الإنترنت.
+   • «عدسة جوجل» ⇒ عدسة جوجل بصورة منتجنا (رابط العدسة لا يقبل نصّاً — فبياناتنا تذهب عبر الزرّ الأوّل). */
+function _gmtProdData(){
+    const prod = (store.products || []).find(p => String(p.id) === String(_pmId)) || {};
+    const t = el => ((el && el.innerText) || '').replace(/\s+\n/g, '\n').trim();
+    const specs = Array.isArray(prod.specs) && prod.specs.length
+        ? prod.specs.map(x => x && [(x.label || x.k || ''), (x.value == null ? (x.v == null ? '' : x.v) : x.value)].map(v => String(v).trim()).filter(Boolean).join(': ')).filter(Boolean)
+        : [...document.querySelectorAll('#product-modal-specs [data-specs-body] tr')].map(r => [...r.children].map(c => c.innerText.trim()).filter(Boolean).join(': ')).filter(Boolean);
+    const page = window.location.origin + window.location.pathname + '#product=' + encodeURIComponent(_pmId || '');
+    return { prod, name: prod.name || t(document.getElementById('product-modal-name')), price: Number(prod.price) || 0,
+        desc: t(document.getElementById('product-modal-description')), specs, compat: prod.compat || '', img: (prod.images || [])[0] || '', page };
+}
+window.gmtAskGoogle = function(){
+    if (!_pmId) return;
+    const d = _gmtProdData();
+    const build = (specN, descN) => [
+        'صِف هذا المنتج لزبون متجر General Media Tech بالعربية، اعتماداً فقط على بيانات المتجر التالية — لا تضف مواصفات أو أسعاراً أو معلومات من الإنترنت أو من عندك، وإن لم تُذكر معلومة فلا تخمّنها:',
+        'المنتج: ' + d.name,
+        d.price > 0 ? 'السعر في المتجر: ' + d.price.toFixed(2) + ' ' + CONFIG.CURRENCY : '',
+        d.desc ? 'الوصف: ' + d.desc.slice(0, descN) : '',
+        d.specs.length ? 'المواصفات: ' + d.specs.slice(0, specN).join(' · ') : '',
+        d.compat ? 'التوافق: ' + String(d.compat).slice(0, 200) : '',
+        d.img ? 'صورة المنتج: ' + d.img : '',
+        'صفحة المنتج: ' + d.page
+    ].filter(Boolean).join('\n');
+    /* رابطٌ طويل جداً يرفضه المتصفّح ⇒ نقصّ المواصفات والوصف حتى يصلح */
+    let specN = 30, descN = 700, q = build(specN, descN), url = '';
+    for (let i = 0; i < 12; i++) { url = 'https://www.google.com/search?udm=50&hl=ar&q=' + encodeURIComponent(q); if (url.length < 7000) break; specN = Math.max(3, specN - 5); descN = Math.max(120, descN - 120); q = build(specN, descN); }
+    window.open(url, '_blank', 'noopener');
+};
+window.gmtGoogleLens = function(){
+    if (!_pmId) return;
+    const d = _gmtProdData();
+    if (!/^https:\/\//.test(d.img)) { window.gmtAskGoogle(); return; }
+    window.open('https://lens.google.com/uploadbyurl?hl=ar&url=' + encodeURIComponent(d.img), '_blank', 'noopener');
+};
+
 window.shareProduct = function() {
     if (!_pmId) return;
     const url = window.location.origin + window.location.pathname + '#product=' + encodeURIComponent(_pmId);
@@ -2757,63 +2802,142 @@ async function loadPackages(force){
     try { store.packages = window.GMTPackages ? await GMTPackages.forStore() : []; } catch (e) { store.packages = []; console.warn('[باقات] تعذّر التحميل:', e && e.message); }
     renderPackages();
 }
+/* (seq 516) «قسم الباقات كثير سيء وكبير … إيموجي بدل الإشارة … لا يعرض كل المنتجات ولا السعر قبل الخصم ولا الخصم ولا المجموع
+   ولا صفحات المنتجات ولا صورها» ⇒ كرت الباقة بحجم كرت المنتج وأسلوبه (أيقونات Phosphor لا إيموجي)، وصفحة تفاصيلٍ كاملة. */
+function _pkgMoney(n){ return '$' + (Number(n) || 0).toFixed(2); }   /* بصيغة أسعار المتجر نفسها ($55.00) */
+function _pkgCount(n){ return n === 1 ? 'منتج واحد' : n === 2 ? 'منتجان' : n <= 10 ? n + ' منتجات' : n + ' منتجاً'; }
+/* منتج المتجر لمكوّن الباقة: رابطه المحفوظ (#product=) ⇐ أو القائمة المربوطة بمنتج الجرد (inv_id أو خياراتها) */
+function _pkgItemSid(x){
+    const P = store.products || [];
+    if (x.sid && P.some(p => String(p.id) === String(x.sid))) return String(x.sid);
+    const hit = P.find(p => String(p.inv_id) === String(x.id) || (p.options || []).some(o => (o.values || []).some(v => String(v && v.inv_id) === String(x.id))));
+    return hit ? String(hit.id) : '';
+}
+/* صورة المكوّن: صورة المتجر أوّلاً (البوستر) ثمّ صورة الجرد */
+function _pkgItemImg(x){
+    const sid = _pkgItemSid(x), sp = sid && (store.products || []).find(p => String(p.id) === sid);
+    return (sp && Array.isArray(sp.images) && sp.images[0]) || x.image_url || '';
+}
+function _pkgCover(p){
+    if (p.images && p.images[0]) return `<img src="${escHtml(p.images[0])}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">`;
+    const imgs = p.items.map(_pkgItemImg).filter(Boolean).slice(0, 4);
+    if (!imgs.length) return '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><i class="ph ph-package" style="font-size:2.5rem;color:#d1d5db"></i></div>';
+    return `<div style="display:grid;grid-template-columns:${imgs.length > 1 ? '1fr 1fr' : '1fr'};gap:2px;width:100%;height:100%;background:#fff">${imgs.map(u => `<img src="${escHtml(u)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;background:#f5f5f5;min-height:0">`).join('')}</div>`;
+}
 function _pkgCard(p){
     const pct = p.original > p.price ? Math.round((1 - p.price / p.original) * 100) : 0;
-    const img = p.images[0] || '';
-    return `<div class="pkg-card" style="min-width:260px;max-width:300px;flex:0 0 auto;background:#fff;border:1px solid #f0f0f0;border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.04)" data-pkg="${escHtml(p.id)}">
-        <div style="position:relative;height:150px;background:#f7f8fa;display:flex;align-items:center;justify-content:center;overflow:hidden">
-            ${img ? `<img src="${escHtml(img)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:48px;color:#cbd5e1"></i>'}
-            ${pct ? `<span style="position:absolute;top:10px;right:10px;background:#D5001C;color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px">وفّر ${pct}%</span>` : ''}
-            <span style="position:absolute;top:10px;left:10px;background:#111;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px">📦 ${p.items.reduce((s,x)=>s+x.qty,0)} قطع</span>
+    const n = p.items.reduce((s, x) => s + x.qty, 0);
+    return `<div class="pkg-card min-w-[160px] w-[160px] rounded-[20px] overflow-hidden flex flex-col flex-shrink-0 bg-white" data-pkg="${escHtml(p.id)}" style="cursor:pointer;box-shadow:0 8px 28px rgba(0,0,0,0.12),0 2px 6px rgba(0,0,0,0.07)">
+        <div class="relative w-full overflow-hidden flex-shrink-0" style="height:160px;background:#f5f5f5">
+            ${_pkgCover(p)}
+            <button type="button" data-pkg-add="${escHtml(p.id)}" aria-label="أضف الباقة للسلة" class="absolute top-2 left-2 w-9 h-9 rounded-[12px] flex items-center justify-center" style="background:rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.15);border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg text-primary"></i></button>
+            ${pct ? `<span class="absolute top-2 right-2" style="background:#D5001C;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px">-${pct}%</span>` : ''}
+            <span class="absolute bottom-2 right-2" style="background:rgba(17,17,17,.78);color:#fff;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;display:inline-flex;align-items:center;gap:3px"><i class="ph ph-package"></i>${_pkgCount(n)}</span>
         </div>
-        <div style="padding:12px 14px 14px">
-            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px;line-height:1.4">${escHtml(p.name)}</div>
-            <div style="font-size:12px;color:#555;line-height:1.7;margin-bottom:8px">${p.items.slice(0,4).map(x=>'• '+escHtml(x.name)+(x.qty>1?' ×'+x.qty:'')).join('<br>')}${p.items.length>4?'<br>و'+(p.items.length-4)+' غيرها…':''}</div>
-            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
-                <div>${p.original > p.price ? `<div style="font-size:12px;color:#9ca3af;text-decoration:line-through">${p.original.toFixed(2)} ${CONFIG.CURRENCY}</div>` : ''}<div style="font-size:18px;font-weight:900;color:#D5001C">${p.price.toFixed(2)} ${CONFIG.CURRENCY}</div></div>
-                <button type="button" data-pkg-add="${escHtml(p.id)}" style="background:#D5001C;color:#fff;border:0;border-radius:12px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"><i class="ph ph-shopping-cart-simple"></i> أضف للسلة</button>
+        <div class="p-3 flex flex-col gap-1">
+            <span class="text-[13px] font-medium line-clamp-2" style="line-height:1.45">${escHtml(p.name)}</span>
+            <div class="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+                <span class="text-primary font-bold text-[14px]">${_pkgMoney(p.price)}</span>
+                ${p.original > p.price ? `<span class="text-[11px] text-gray-400 line-through">${_pkgMoney(p.original)}</span>` : ''}
             </div>
         </div></div>`;
 }
+function _pkgClick(e){
+    const add = e.target.closest('[data-pkg-add]'); if (add) { e.stopPropagation(); e.preventDefault(); addPackageToCart(add.getAttribute('data-pkg-add')); return; }
+    const c = e.target.closest('[data-pkg]'); if (c) { e.stopPropagation(); openPackageDetail(c.getAttribute('data-pkg')); }
+}
+/* (seq 515) «البكج يكون في مكان معين وله تصنيف … قسم خاص للبكجات أو داخل قسم الكاميرات أو العروض الحصرية»:
+   الباقة تظهر في كلّ قسمٍ اختاره المنشئ (أوّل الصفّ) — والقسم الفارغ يُنشأ له صفٌّ ليظهر */
+function _injectPackages(){
+    const area = document.querySelector('[data-container="products-area"]'); if (!area) return;
+    area.querySelectorAll('[data-pkg-inj]').forEach(x => x.remove());
+    (store.packages || []).forEach(p => (p.cats || []).forEach(cid => {
+        let sec = area.querySelector('[data-category-section="' + (window.CSS && CSS.escape ? CSS.escape(cid) : cid) + '"]');
+        let row = sec && sec.tagName === 'SECTION' ? sec.querySelector('.flex.overflow-x-auto') : null;
+        if (!row) {
+            const cat = (store.categories || []).find(c => String(c.id) === String(cid)); if (!cat) return;
+            sec = document.createElement('section'); sec.className = 'mt-6'; sec.dataset.categorySection = cid; sec.setAttribute('data-pkg-inj', '1');
+            sec.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">' + escHtml(cat.name) + '</h3>';
+            row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6'; sec.appendChild(row);
+            area.insertBefore(sec, area.firstChild);
+        }
+        const w = document.createElement('div'); w.setAttribute('data-pkg-inj', '1'); w.style.cssText = 'flex:0 0 auto;display:flex';
+        w.innerHTML = _pkgCard(p); row.insertBefore(w, row.firstChild);
+    }));
+    if (!area._pkgClick) { area._pkgClick = true; area.addEventListener('click', _pkgClick, true); }
+}
 function renderPackages(){
+    _injectPackages();
     const host = document.querySelector('[data-container="packages-area"]'); if (!host) return;
-    const list = store.packages || [];
+    const list = (store.packages || []).filter(p => p.own !== false);
     if (!list.length) { host.innerHTML = ''; return; }
-    host.innerHTML = `<section class="mt-6"><div class="flex items-center justify-between px-4 mb-3"><h2 class="font-bold text-[20px]">📦 الباقات</h2><span class="text-xs text-primary font-bold bg-red-50 px-3 py-1 rounded-full">${list.length} باقة</span></div>
-        <div class="hide-scrollbar" style="display:flex;gap:12px;overflow-x:auto;padding:0 16px 6px">${list.map(_pkgCard).join('')}</div></section>`;
-    host.onclick = (e) => {
-        const add = e.target.closest('[data-pkg-add]'); if (add) { e.stopPropagation(); addPackageToCart(add.getAttribute('data-pkg-add')); return; }
-        const c = e.target.closest('[data-pkg]'); if (c) openPackageDetail(c.getAttribute('data-pkg'));
-    };
+    host.innerHTML = `<section class="mt-6"><div class="flex items-center justify-between px-4 mb-4"><h3 class="font-medium text-[18px] flex items-center gap-1.5"><i class="ph ph-package text-primary"></i>الباقات</h3><span class="text-[11px] text-gray-400">${list.length} باقة</span></div>
+        <div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6">${list.map(_pkgCard).join('')}</div></section>`;
+    host.onclick = _pkgClick;
 }
 function addPackageToCart(id){
     const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
     const cid = 'pkg_' + p.id, ex = store.cart.find(i => i._cartId === cid);
     if (ex) ex.qty = (ex.qty || 1) + 1;
-    else store.cart.push({ _cartId: cid, id: cid, name: '📦 ' + p.name, price: p.price, original_price: p.original, qty: 1, images: p.images.slice(0, 1),
-        offer_id: p.id, offer_type: 'bundle', _fromOffer: true, package_items: p.items.map(x => ({ id: x.id, name: x.name, qty: x.qty, price: x.price, image_url: x.image_url })) });
+    else store.cart.push({ _cartId: cid, id: cid, name: p.name, is_package: true, price: p.price, original_price: p.original, qty: 1,
+        images: [p.images[0] || p.items.map(_pkgItemImg).find(Boolean) || ''].filter(Boolean),
+        offer_id: p.id, offer_type: 'bundle', _fromOffer: true, package_items: p.items.map(x => ({ id: x.id, name: x.name, qty: x.qty, price: x.price, image_url: _pkgItemImg(x) })) });
     updateCartBadge();
     showToast('أُضيفت الباقة للسلة ✓', 'success');
 }
+function _openPkgItem(sid){ if (!sid) return; closeModal('package-modal'); setTimeout(() => { try { openProductModal(sid); } catch (_) {} }, 250); }
+function _pkgSlide(d){
+    const sc = document.getElementById('pkg-slides'); if (!sc) return;
+    const n = sc.children.length; window._pkgIdx = Math.max(0, Math.min(n - 1, (window._pkgIdx || 0) + d));
+    sc.style.transform = 'translateX(' + (window._pkgIdx * 100) + '%)';
+    document.querySelectorAll('#pkg-dots span').forEach((x, i) => { x.style.background = i === window._pkgIdx ? '#D5001C' : '#d1d5db'; x.style.width = i === window._pkgIdx ? '18px' : '6px'; });
+}
 function openPackageDetail(id){
     const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
-    const content = document.getElementById('offer-detail-content'); if (!content) return;
-    const pct = p.original > p.price ? Math.round((1 - p.price / p.original) * 100) : 0;
-    content.innerHTML = `
-    <div style="height:240px;background:#f7f8fa;display:flex;align-items:center;justify-content:center;overflow:hidden">${p.images[0] ? `<img src="${escHtml(p.images[0])}" alt="" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#cbd5e1"></i>'}</div>
-    <div style="padding:16px">
-        <h2 style="font-size:19px;font-weight:800;color:#111;margin:0 0 6px">📦 ${escHtml(p.name)}</h2>
-        ${p.ends_at ? `<div style="font-size:12px;color:#5b6472;margin-bottom:8px"><i class="ph ph-calendar-blank"></i> العرض حتى ${new Date(p.ends_at).toLocaleDateString('ar-EG')}</div>` : ''}
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">${p.original > p.price ? `<span style="font-size:14px;color:#9ca3af;text-decoration:line-through">${p.original.toFixed(2)} ${CONFIG.CURRENCY}</span>` : ''}<span style="font-size:24px;font-weight:900;color:#D5001C">${p.price.toFixed(2)} ${CONFIG.CURRENCY}</span>${pct ? `<span style="background:#fee2e2;color:#D5001C;font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px">وفّر ${pct}%</span>` : ''}</div>
-        ${p.description ? `<div style="font-size:13.5px;color:#555;line-height:1.8;white-space:pre-line;margin-bottom:10px">${escHtml(p.description)}</div>` : ''}
-        <div style="font-size:12px;font-weight:800;color:#5b6472;margin-bottom:6px">تشمل الباقة:</div>
-        ${p.items.map(x => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f3f4f6">
-            <div style="width:44px;height:44px;background:#f7f8fa;border-radius:10px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">${x.image_url ? `<img src="${escHtml(x.image_url)}" alt="" style="width:100%;height:100%;object-fit:contain">` : '<i class="ph ph-image text-gray-300"></i>'}</div>
-            <div style="flex:1;min-width:0;font-size:13px;font-weight:700">${escHtml(x.name)}</div>
-            <div style="font-size:12px;color:#5b6472;font-weight:700">×${x.qty}</div></div>`).join('')}
-        <button type="button" onclick="addPackageToCart('${escHtml(p.id)}');closeModal('offer-detail-modal')" style="width:100%;margin-top:14px;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:13px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit"><i class="ph ph-shopping-cart-simple"></i> أضف الباقة للسلة</button>
-    </div>`;
-    openModal('offer-detail-modal');
+    let modal = document.getElementById('package-modal');
+    if (!modal) {
+        modal = document.createElement('div'); modal.id = 'package-modal'; modal.className = 'modal-overlay';
+        modal.innerHTML = `<div class="modal-sheet"><div class="flex-shrink-0 px-5 pt-4 pb-3 flex justify-between items-center border-b border-gray-100">
+            <h3 class="font-bold text-lg">تفاصيل الباقة</h3><button onclick="closeModal('package-modal')" class="w-8 h-8 rounded-full bg-light flex items-center justify-center text-gray-500"><i class="ph ph-x text-base"></i></button></div>
+            <div id="package-content" class="flex-1 overflow-y-auto hide-scrollbar"></div>
+            <div id="package-foot" class="flex-shrink-0 px-5 py-3 border-t border-gray-100"></div></div>`;
+        document.body.appendChild(modal);
+    }
+    const imgs = [...(p.images || []), ...p.items.map(_pkgItemImg)].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 10);
+    const save = Math.max(0, Math.round((p.original - p.price) * 100) / 100), pct = p.original > 0 ? Math.round(save / p.original * 100) : 0;
+    window._pkgIdx = 0;
+    const rows = p.items.map(x => {
+        const sid = _pkgItemSid(x), img = _pkgItemImg(x), line = (Number(x.price) || 0) * x.qty;
+        return `<div ${sid ? `onclick="_openPkgItem('${escHtml(sid)}')" role="button"` : ''} class="flex items-center gap-3 py-2.5 border-b border-gray-100" style="${sid ? 'cursor:pointer' : ''}">
+            <div class="w-14 h-14 rounded-[12px] bg-light overflow-hidden flex-shrink-0 flex items-center justify-center">${img ? `<img src="${escHtml(img)}" alt="" loading="lazy" class="w-full h-full object-contain">` : '<i class="ph ph-image text-gray-300 text-xl"></i>'}</div>
+            <div class="flex-1 min-w-0"><div class="text-[13px] font-medium line-clamp-2" style="line-height:1.45">${escHtml(x.name)}</div>
+                <div class="text-[11.5px] text-gray-500 mt-0.5">${x.price > 0 ? _pkgMoney(x.price) + (x.qty > 1 ? ' × ' + x.qty + ' = ' + _pkgMoney(line) : '') : 'الكمية ' + x.qty}</div></div>
+            ${sid ? '<span class="text-[11px] text-primary font-medium flex items-center gap-0.5 flex-shrink-0">صفحته<i class="ph ph-caret-left"></i></span>' : ''}</div>`;
+    }).join('');
+    document.getElementById('package-content').innerHTML = `
+        <div class="relative overflow-hidden bg-light" style="height:260px">
+            <div id="pkg-slides" class="flex h-full transition-transform duration-300">${(imgs.length ? imgs : ['']).map(u => `<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center">${u ? `<img src="${escHtml(u)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#d1d5db"></i>'}</div>`).join('')}</div>
+            ${imgs.length > 1 ? `<button type="button" onclick="_pkgSlide(-1)" class="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-right"></i></button>
+            <button type="button" onclick="_pkgSlide(1)" class="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-left"></i></button>
+            <div id="pkg-dots" class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">${imgs.map((_, i) => `<span style="height:6px;border-radius:9999px;width:${i ? 6 : 18}px;background:${i ? '#d1d5db' : '#D5001C'};transition:all .3s"></span>`).join('')}</div>` : ''}
+        </div>
+        <div class="px-5 pt-4 pb-4">
+            <h2 class="font-bold text-[18px] leading-snug">${escHtml(p.name)}</h2>
+            ${p.ends_at ? `<div class="text-[12px] text-gray-500 mt-1 flex items-center gap-1"><i class="ph ph-clock"></i>العرض حتى ${new Date(p.ends_at).toLocaleDateString('ar-EG')}</div>` : ''}
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <div class="bg-light rounded-[12px] p-2.5 text-center"><div class="text-[10.5px] text-gray-500">قبل الخصم</div><div class="text-[14px] font-bold text-gray-400 line-through mt-0.5">${_pkgMoney(p.original)}</div></div>
+                <div class="rounded-[12px] p-2.5 text-center" style="background:#fef2f2"><div class="text-[10.5px] text-gray-500">الخصم</div><div class="text-[14px] font-bold text-primary mt-0.5">${_pkgMoney(save)}${pct ? `<span class="text-[11px] font-medium"> (${pct}%)</span>` : ''}</div></div>
+                <div class="rounded-[12px] p-2.5 text-center" style="background:#D5001C"><div class="text-[10.5px]" style="color:#fecaca">سعر الباقة</div><div class="text-[15px] font-bold text-white mt-0.5">${_pkgMoney(p.price)}</div></div>
+            </div>
+            ${p.description ? `<p class="text-[13.5px] text-gray-600 leading-relaxed mt-3 whitespace-pre-line">${escHtml(p.description)}</p>` : ''}
+            <div class="flex items-center justify-between mt-4 mb-1"><span class="font-bold text-[14px]">منتجات الباقة (${p.items.length})</span><span class="text-[11px] text-gray-400">اضغط على المنتج لصفحته</span></div>
+            ${rows}
+            <div class="flex justify-between text-[13px] pt-3"><span class="text-gray-500">مجموع أسعار المنتجات</span><span class="font-medium">${_pkgMoney(p.original)}</span></div>
+            <div class="flex justify-between text-[13px] pt-1"><span class="text-gray-500">توفّر مع الباقة</span><span class="font-medium text-primary">− ${_pkgMoney(save)}</span></div>
+            <div class="flex justify-between text-[15px] pt-1"><span class="font-bold">سعر الباقة</span><span class="font-bold text-primary">${_pkgMoney(p.price)}</span></div>
+        </div>`;
+    document.getElementById('package-foot').innerHTML = `<button type="button" onclick="addPackageToCart('${escHtml(p.id)}');closeModal('package-modal')" class="w-full bg-primary text-white rounded-[12px] py-3 font-bold text-[15px] flex items-center justify-center gap-2" style="border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg"></i>أضف الباقة للسلة — ${_pkgMoney(p.price)}</button>`;
+    openModal('package-modal');
 }
 /* سطر الباقة في الطلب ⇒ مكوّناتها بأسعارٍ موزَّعة (مجموعها سعر الباقة) — فيتحوّل الطلب لفاتورة بخصم مخزون كلّ قطعة */
 function _orderLines(items){

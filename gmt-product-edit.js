@@ -153,8 +153,6 @@
           '<div class="pe-btns"><a data-pe-gimg target="_blank" rel="noopener">🔍 صور من غوغل</a><a data-pe-lens target="_blank" rel="noopener" title="بحث بالصورة (عدسة غوغل) — يحتاج صورةً برابط https">🔎 عدسة غوغل</a></div>' +
           '<p class="pe-note">من غوغل: افتح الصورة ⇐ «نسخ عنوان الصورة» ⇐ الصقه في «🔗 الصق رابط صورة» — النظام ينزّلها ويرفعها لمخزننا (لا حاجة لتحميلها على جهازك).</p>' +
           '<div data-pe-suggbox hidden><div style="font-size:12px;font-weight:800;color:#374151;margin:8px 0 6px">🖼️ صور وجدها البحث التلقائي</div><div class="pe-sugg" data-pe-sugg></div></div>' +
-          /* (TASK-0323 · المالك seq 514) نتائج عدسة غوغل وصور غوغل **داخل النظام**: صورة · عنوان · مصدر · سعر — «+ أضف» تنزّلها لمخزننا */
-          '<div data-pe-lensbox hidden><div style="display:flex;align-items:center;gap:6px;margin:10px 0 6px"><b data-pe-lenstitle style="font-size:12.5px;color:#374151;flex:1"></b><button type="button" data-pe-lensclose style="border:0;background:#f1f5f9;border-radius:8px;padding:3px 9px;cursor:pointer">✕</button></div><div class="pe-lens" data-pe-lens-res></div></div>' +
         '</section>' +
         '<section><h3>💲 الأسعار</h3>' +
           '<div class="pe-2"><label>سعر البيع $<input data-f="price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.price) + '"></label><label>سعر الجملة $<input data-f="wholesale_price" type="number" step="0.01" min="0" inputmode="decimal" value="' + esc(p.wholesale_price) + '"></label></div>' +
@@ -167,8 +165,7 @@
              شريط بحثٍ واحد ظاهر هنا فوق الجدول — لا تحت حقل الصورة وحده */
           '<div class="pe-btns pe-search" data-pe-searchbar>' +
             (global.GMTBrain && GMTBrain.productImportDialog ? '<button type="button" data-pe-auto title="يبحث العقل بصورة المنتج واسمه (علي بابا وغيره) ويعبّئ هذه الصفحة — تراجعها ثمّ تحفظ">🤖 المواصفات التلقائية</button>' : '') +
-            (global.GMTEnrichQueue && GMTEnrichQueue._search ? '<button type="button" data-pe-lensin title="عدسة غوغل داخل النظام: منتجاتٌ مطابقة لصورة هذا المنتج بصورها وعناوينها ومصادرها — أضف ما يناسب">🔎 عدسة غوغل هنا</button>' +
-              '<button type="button" data-pe-gimgin title="صور غوغل باسم المنتج وماركته — داخل النظام، أضف ما يناسب">🔍 صور غوغل هنا</button>' : '') +
+            /* (seq 515 «ما في داعي تضيف وسيط») أُزيل زرّا «عدسة/صور غوغل هنا» عبر SerpApi — العدسة تُفتح في متصفّح الجهاز */
             '<button type="button" data-pe-lensgo title="يفتح عدسة غوغل بصورة هذا المنتج — صورٌ مشابهة ومصادرها">🔎 عدسة غوغل (بحث بالصورة)</button>' +
             '<a data-pe-gimg2 target="_blank" rel="noopener" title="صور غوغل باسم المنتج وماركته">🔍 صور غوغل</a>' +
             /* (TASK-0256 · seq 178) «ابحث بنفسك … من جهازك … موجوده فقط في تجهيز كل ما ليس لهم مواصفات … وليست موجوده لكل منتج على حده» */

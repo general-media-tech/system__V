@@ -10,7 +10,11 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
     { name: 'كاميرا Canon EOS R50 باقة', barcode: 'PK-R50', price: 700, wholesale_price: 600, net_cost: 550, daraa: 4, image_url: 'https://x.example/r50.jpg' },
     { name: 'عدسة RF 50mm باقة', barcode: 'PK-RF50', price: 200, wholesale_price: 160, net_cost: 140, daraa: 5, image_url: 'https://x.example/rf50.jpg' },
     { name: 'بطارية LP-E17 باقة', barcode: 'PK-E17', price: 30, net_cost: 15, daraa: 10 }]);
-  await H.call('/rest/v1/gmt_store', [{ id: 1, categories: [{ id: 'c1', name: 'كاميرات' }], products: [{ id: 's1', name: 'منتج متجر', price: 10, category_ids: ['c1'], images: [] }], banners: [] }]);
+  await H.call('/rest/v1/gmt_store', [{ id: 1, categories: [{ id: 'c1', name: 'كاميرات' }, { id: 'c_ex', name: 'العروض الحصرية' }], products: [
+    { id: 's1', name: 'منتج متجر', price: 10, category_ids: ['c1'], images: [] },
+    { id: 's_cam', name: 'كاميرا R50 في المتجر', price: 700, category_ids: ['c1'], images: ['https://x.example/r50-poster.jpg'], inv_id: CAM.id },
+    { id: 's_lens', name: 'عدسة RF 50 في المتجر', price: 200, category_ids: ['c1'], images: [] }], banners: [] }]);
+  await H.call('/rest/v1/products?id=eq.' + LENS.id, { store_url: '#product=s_lens' }, 'PATCH');
 
   /* ① الأدمن ينشئ باقة: كاميرا + عدسة + بطاريتان · خصم 10% · نقاط البيع والمتجر */
   console.log('① الإنشاء');
@@ -29,12 +33,14 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   await pg.click('#gmt-pkg [data-m="price"]'); await pg.fill('#gmt-pkg [data-v]', '500');
   ok(/أقلّ من كلفة/.test(await pg.textContent('#gmt-pkg [data-warn]')), 'سعر تحت كلفة المكوّنات (500 < 720) ⇒ تنبيه');
   await pg.click('#gmt-pkg [data-m="percent"]'); await pg.fill('#gmt-pkg [data-v]', '10');
+  await pg.waitForSelector('#gmt-pkg [data-cat="c1"]', { timeout: 5000 }); await pg.click('#gmt-pkg [data-cat="c1"]');
   await pg.click('#gmt-pkg [data-save]'); await pg.waitForTimeout(1500);
   let D = await dump(); let off = (D.gmt_offers || []).find(o => o.name === 'باقة صانع المحتوى');
   const items = off ? JSON.parse(off.products) : [];
   ok(off && off.offer_type === 'bundle' && near(off.offer_price, 864) && near(off.original_price, 960) && off.is_active, 'حُفظت في جدول العروض: باقة · 864 بدل 960');
   ok(items.length === 3 && items.find(x => x.id === BAT.id).qty === 2, 'المكوّنات بكمّياتها: ' + items.map(x => x.name + '×' + x.qty).join(' · '));
   ok(off && off.targets && off.targets.pos === true && off.targets.store === true && off.targets.mode === 'percent' && Number(off.targets.value) === 10, 'تظهر في نقاط البيع والمتجر · طريقة السعر محفوظة (خصم 10%)');
+  ok(off && JSON.stringify(off.targets.cats) === '["c1"]' && off.targets.own === true, 'مكانها في المتجر: «قسم الباقات» + قسم «كاميرات»');
   ok(!(await pg.$('#gmt-pkg')) && /باقة صانع المحتوى/.test(await pg.textContent('#app-content')), 'أُغلقت النافذة والقائمة تعرض الباقة');
   // التعديل: إيقافها مؤقّتاً ثمّ إعادتها
   await pg.evaluate(id => openPackageEditor(id), off.id); await pg.waitForSelector('#gmt-pkg [data-active]'); await pg.waitForTimeout(800);
@@ -71,20 +77,42 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   ok(st(CAM.id) === 3 && st(LENS.id) === 4 && st(BAT.id) === 8, 'المخزون خُصم لكلّ مكوّن: كاميرا 4⇐3 · عدسة 5⇐4 · بطارية 10⇐8');
   await browser.close();
 
-  /* ③ المتجر: قسم «الباقات» ⇒ السلّة ⇒ الطلب بمكوّناتها */
+  /* ③ المتجر: قسم «الباقات» + داخل قسم «كاميرات» ⇒ صفحة التفاصيل ⇒ السلّة ⇒ الطلب بمكوّناتها */
   console.log('③ المتجر');
-  ({ browser, pg, errs } = await H.open('store.html', { init: H.STAFF_INIT, w: 390, mobile: true, wait: 7000 }));
-  const cards = await pg.evaluate(() => [...document.querySelectorAll('[data-container="packages-area"] [data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')));
-  ok(cards.length === 2 && cards.some(t => /صانع المحتوى/.test(t) && /864/.test(t) && /960/.test(t) && /وفّر 10%/.test(t)), 'قسم «📦 الباقات» يعرض الباقتين (السعر · قبل الخصم · وفّر 10%)');
-  await pg.click('[data-container="packages-area"] [data-pkg] >> nth=0');
-  await pg.waitForTimeout(500);
-  const det = await pg.evaluate(() => (document.getElementById('offer-detail-content') || {}).innerText || '');
-  ok(/تشمل الباقة/.test(det) && /×2/.test(det), 'تفاصيل الباقة تعرض مكوّناتها بكمّياتها');
-  await pg.evaluate(() => closeModal('offer-detail-modal'));
+  // باقة قديمة: مكوّناتها بلا أسعار ولا صور (كما في القاعدة الحقيقية) ⇒ تُكمَل من الجرد
+  await H.call('/rest/v1/gmt_offers', { name: 'باقة قديمة', offer_type: 'bundle', offer_price: 800, original_price: 1000, is_active: true, targets: { site: true, store: true },
+    products: JSON.stringify([{ id: CAM.id, name: 'كاميرا Canon EOS R50 باقة', qty: 1 }, { id: LENS.id, name: 'عدسة RF 50mm باقة', qty: 1 }]) });
+  ({ browser, pg, errs } = await H.open('store.html', { init: H.STAFF_INIT + ';window.open=function(u){(window.__op=window.__op||[]).push(String(u));return null;};', w: 390, mobile: true, wait: 7000 }));
+  const sec = await pg.evaluate(() => { const h = document.querySelector('[data-container="packages-area"]'); return { txt: h.innerText.replace(/\s+/g, ' '), cards: h.querySelectorAll('[data-pkg]').length, w: (h.querySelector('[data-pkg]') || {}).offsetWidth || 0, emoji: /[\u{1F300}-\u{1FAFF}]/u.test(h.innerText) }; });
+  ok(sec.cards === 3 && /الباقات/.test(sec.txt) && !sec.emoji, 'قسم «الباقات» بثلاث باقات · عنوانٌ بأيقونة لا إيموجي: ' + sec.cards);
+  ok(sec.w === 160, 'كرت الباقة بحجم كرت المنتج (160px): ' + sec.w);
+  const card = await pg.evaluate(() => [...document.querySelectorAll('[data-container="packages-area"] [data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')).find(t => /صانع/.test(t)) || '');
+  ok(/\$864\.00/.test(card) && /\$960\.00/.test(card) && /-10%/.test(card) && /4 منتجات/.test(card), 'الكرت: السعر · قبل الخصم · -10% · عدد المنتجات: ' + card);
+  const inCat = await pg.evaluate(() => { const s = document.querySelector('[data-container="products-area"] [data-category-section="c1"]'); return s ? [...s.querySelectorAll('[data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')) : null; });
+  ok(inCat && inCat.length === 1 && /صانع/.test(inCat[0]), 'وتظهر أيضاً داخل قسم «كاميرات» (أوّل الصفّ)');
+  await pg.click('[data-container="packages-area"] [data-pkg]:has-text("صانع")'); await pg.waitForTimeout(600);
+  const det = await pg.evaluate(() => { const c = document.getElementById('package-content'); return { txt: c.innerText.replace(/\s+/g, ' '), rows: c.querySelectorAll('[role="button"]').length, imgs: [...c.querySelectorAll('.border-b img')].map(i => i.getAttribute('src')), open: document.getElementById('package-modal').classList.contains('active') }; });
+  ok(det.open && /قبل الخصم \$960\.00/.test(det.txt) && /الخصم \$96\.00/.test(det.txt) && /\(10%\)/.test(det.txt) && /سعر الباقة \$864\.00/.test(det.txt), 'التفاصيل: قبل الخصم 960 · الخصم 96 (10%) · سعر الباقة 864');
+  ok(/منتجات الباقة \(3\)/.test(det.txt) && /\$30\.00 × 2 = \$60\.00/.test(det.txt) && /مجموع أسعار المنتجات \$960\.00/.test(det.txt), 'كلّ المنتجات (3) بأسعارها والكمّية والمجموع: ' + det.txt.slice(det.txt.indexOf('منتجات الباقة'), det.txt.indexOf('منتجات الباقة') + 220));
+  ok(det.imgs.includes('https://x.example/r50-poster.jpg') && det.imgs.includes('https://x.example/rf50.jpg'), 'صور المنتجات (صورة المتجر أوّلاً ثمّ صورة الجرد): ' + det.imgs.join(' · '));
+  ok(det.rows === 2, 'المنتجان الموجودان في المتجر قابلان للضغط إلى صفحتيهما (2)');
+  await pg.click('#package-content [role="button"] >> nth=0'); await pg.waitForTimeout(900);
+  const pm = await pg.evaluate(() => ({ open: document.getElementById('product-modal').classList.contains('active'), name: document.getElementById('product-modal-name').textContent }));
+  ok(pm.open && /R50 في المتجر/.test(pm.name), 'الضغط على منتجٍ في الباقة يفتح صفحته في المتجر: ' + pm.name);
+  // زرّا جوجل للزائر في صفحة المنتج
+  await pg.evaluate(() => { window.__op = []; gmtAskGoogle(); gmtGoogleLens(); });
+  const op = await pg.evaluate(() => window.__op);
+  const q = op[0] ? decodeURIComponent(new URL(op[0]).searchParams.get('q') || '') : '';
+  ok(/^https:\/\/www\.google\.com\/search\?udm=50/.test(op[0] || '') && /اعتماداً فقط على بيانات المتجر/.test(q) && /R50 في المتجر/.test(q) && /r50-poster\.jpg/.test(q) && /#product=s_cam/.test(q), '«اسأل جوجل» يفتح جوجل في متصفّح الزائر ببياناتنا (الاسم · الصورة · الصفحة) ويطلب الوصف منها وحدها');
+  ok(/^https:\/\/lens\.google\.com\/uploadbyurl\?.*r50-poster\.jpg/.test(decodeURIComponent(op[1] || '')), '«عدسة جوجل» تفتح العدسة بصورة منتجنا');
+  await pg.evaluate(() => closeModal('product-modal'));
+  // الباقة القديمة: أسعار وصور من الجرد
+  const old = await pg.evaluate(() => { const p = store.packages.find(x => x.name === 'باقة قديمة'); return p && { orig: p.original, prices: p.items.map(x => x.price), imgs: p.items.map(x => !!x.image_url) }; });
+  ok(old && old.orig === 900 && old.prices.join() === '700,200' && old.imgs.every(Boolean), 'باقة قديمة بلا أسعار ولا صور ⇒ تُكمَل من الجرد (قبل الخصم = 700+200): ' + JSON.stringify(old));
   const pid = await pg.evaluate(() => store.packages.find(p => /صانع/.test(p.name)).id);
-  await pg.click(`[data-pkg-add="${pid}"]`); await pg.waitForTimeout(300);
+  await pg.click(`[data-container="packages-area"] [data-pkg-add="${pid}"]`); await pg.waitForTimeout(300);
   const cart = await pg.evaluate(() => store.cart.map(i => ({ n: i.name, p: i.price, q: i.qty, k: (i.package_items || []).length })));
-  ok(cart.length === 1 && near(cart[0].p, 864) && cart[0].k === 3, 'في السلّة سطرٌ واحد: الباقة بـ864 ومعها مكوّناتها');
+  ok(cart.length === 1 && near(cart[0].p, 864) && cart[0].k === 3 && !/📦/.test(cart[0].n), 'في السلّة سطرٌ واحد: الباقة بـ864 ومعها مكوّناتها (بلا إيموجي)');
   await pg.evaluate(() => submitOrder('زبون باقة المتجر', '0933123123', 'حلب', '', 'cod')); await pg.waitForTimeout(2500);
   D = await dump();
   const ord = (D.gmt_orders || []).find(o => o.name === 'زبون باقة المتجر');
@@ -94,7 +122,7 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   ok(ord && near(ord.price, 864 + await pg.evaluate(() => DELIVERY_FEE)), 'إجمالي الطلب = 864 + التوصيل');
   // باقة انتهت وهي في سلّة قديمة ⇒ تُزال قبل الإرسال
   await H.call('/rest/v1/gmt_offers?id=eq.' + off2.id, { is_active: false }, 'PATCH');
-  await pg.evaluate(() => { store.cart = [{ _cartId: 'pkg_x', id: 'pkg_x', name: '📦 باقة المتجر فقط', price: 350, qty: 1, offer_id: window.__o2, package_items: [{ id: 'a', name: 'a', qty: 2, price: 200 }] }]; }).catch(() => {});
+  await pg.evaluate(() => { store.cart = [{ _cartId: 'pkg_x', id: 'pkg_x', name: 'باقة المتجر فقط', price: 350, qty: 1, package_items: [{ id: 'a', name: 'a', qty: 2, price: 200 }] }]; });
   await pg.evaluate(id => { store.cart[0].offer_id = id; }, off2.id);
   await pg.evaluate(() => submitOrder('زبون باقة منتهية', '0933123124', 'حلب', '', 'cod')); await pg.waitForTimeout(2000);
   D = await dump();
