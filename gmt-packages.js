@@ -238,7 +238,8 @@
       var err = $('[data-err]'), btn = $('[data-save]'); err.textContent = '';
       var name = $('[data-name]').value.trim(), c = compute(S.items, S.mode, S.value);
       if (!name) { err.textContent = 'اكتب اسم الباقة'; return; }
-      if (S.items.length < 1 || S.items.reduce(function (s, x) { return s + x.qty; }, 0) < 2) { err.textContent = 'الباقة منتجان على الأقلّ (أو منتجٌ بكميّة ٢ فأكثر)'; return; }
+      /* (المالك seq 565 «العرض يُعدّ كمنتج أو يُعدّ كمجموعة منتجات») عرضٌ على منتجٍ واحد مسموح — والباقة منتجان فأكثر */
+      if (S.items.length < 1 || S.items.reduce(function (s, x) { return s + x.qty; }, 0) < 1) { err.textContent = 'اختر منتجاً واحداً على الأقلّ (عرض على منتج) أو أكثر (باقة)'; return; }
       if (!(c.price > 0)) { err.textContent = 'سعر الباقة يجب أن يكون أكبر من صفر'; return; }
       var pos = $('[data-pos]').checked, sto = $('[data-store]').checked;
       if (!pos && !sto) { err.textContent = 'اختر أين تظهر: نقاط البيع أو المتجر'; return; }

@@ -3347,7 +3347,7 @@ function _buildOfferProducts(offers, freshProds) {
         name: '🎁 ' + o.name + (offerItems.length ? '' : ' ⚠️ (مكوّناته غير محدّدة)'),
         short:o.name,
         price:Number(o.offer_price)||0, wholesale_price:0, net_cost:0, cost_price:0,
-        image_url:o.image_url||null, group_name:'🔥 العروض الخاصة',
+        image_url:o.image_url||null, group_name:'باقات وعروض',   /* (المالك seq 565) نفس اسم قسم المتجر · أوّل الأقسام */
         _is_offer:true, _offer_id:o.id, _offer_type:o.offer_type,
         _offer_desc:o.description||'', _offer_items:offerItems,
         _offer_items_unknown: _unknownItems,
@@ -3482,8 +3482,8 @@ function _finalizeProductsUI() {
   const groupSet = new Set();
   allProducts.forEach(p => { if (p.group_name) groupSet.add(p.group_name); try { (window.GMTProdGroup ? GMTProdGroup.extras(p) : []).forEach(g => groupSet.add(g)); } catch (_) {} });
   const allGroups = [...groupSet].sort((a,b) => {
-    if (a==='🔥 العروض الخاصة') return -1;
-    if (b==='🔥 العروض الخاصة') return 1;
+    if (a==='باقات وعروض') return -1;
+    if (b==='باقات وعروض') return 1;
     return a.localeCompare(b,'ar');
   });
   buildCategoryPills(allGroups);
@@ -6612,6 +6612,13 @@ function offerAddSplit(p, items) {
   updateFab(); renderProds();
 }
 window.offerAddChoice = offerAddChoice;
+window.offerSplitById = function (id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p || !p._is_offer) return;
+  const items = (p._offer_items || []).map(oi => ({ oi, prod: allProducts.find(x => String(x.id) === String(oi.id) && !x._is_offer) })).filter(x => x.prod);
+  if (!items.length) { showToast('مكوّنات هذا العرض غير معروفة — لا يمكن تفكيكه', 'err'); return; }
+  if (cart[id]) { delete cart[id]; }
+  offerAddSplit(p, items);
+};
 
 function toggleProd(id) {
   const p = allProducts.find(x => String(x.id) === String(id));
@@ -6634,7 +6641,8 @@ function toggleProd(id) {
       if (offerQty <= 0) { showToast('هذا العرض غير متاح حالياً — أحد منتجاته نفذ من مخزون فرعك', 'err'); return; }
       /* (2026-10-05 ت) البندان ١٠٤ و٢٠٣: «العرض ينزل في الفاتورة كمنتجاتٍ بخصمٍ قابلة للتعديل · الباقة
          تُضاف كمنتجٍ كامل أو تُفكَّك منتجاتٍ منفصلة — وأنا أحدّد». إن عُرفت مكوّناته نسأل مرّة: */
-      if (p._offer_items && p._offer_items.length && !p._offer_items_unknown) { offerAddChoice(p); return; }
+      /* (المالك seq 565 «يُعامَل في نقطة البيع كمنتج … كباقة كاملة جاهزة فوراً لضغطة تُباع وتُنشأ فاتورة») ضغطةٌ واحدة ⇒ الباقة سطراً
+         واحداً بسعرها مباشرةً بلا سؤال · بيعها مفكّكةً صار زرّاً في نافذة تفاصيلها («🧩 منتجات منفصلة») */
       cart[id] = { prod: p, qty: 1, price: Number(p.price) || 0, _is_offer: true, _seq: ++_cartSeq };
       showToast(`🎁 ${p.name} تمت الإضافة`, 'ok');
     }
@@ -6728,6 +6736,7 @@ window.decProd = decProd;
 function addToCartFromDetail(id) {
   const p = allProducts.find(x => String(x.id) === String(id));
   if (!p) return;
+  if (p._is_offer && !cart[id]) { toggleProd(id); return; }   /* العرض/الباقة: سطرٌ واحد موسوم كعرض (كالضغطة على الكرت) */
   const qty = Number(p[branch.key]) || 0;
   if (qty === 0) { showToast('المخزون فارغ', 'err'); return; }
   if (cart[id]) {
@@ -8718,6 +8727,7 @@ function openProductDetail(id) {
           عرض في المتجر
         </button>`}
 
+      ${p._is_offer && p._offer_items && p._offer_items.length > 1 && !isEmpty ? `<button type="button" data-offer-split onclick="closeProductDetail(); offerSplitById('${escH(String(p.id))}')" style="width:100%;margin-bottom:8px;padding:11px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit;font-weight:800;cursor:pointer">🧩 بيعها منتجات منفصلة بخصم العرض</button>` : ''}
       <button class="pd-add-btn" ${isEmpty ? 'disabled style="background:#ccc;cursor:not-allowed;"' : ''} onclick="closeProductDetail(); addToCartFromDetail('${p.id}')">
         ${isEmpty
           ? '❌ غير متوفر في فرعك — معاينة فقط'
@@ -10688,7 +10698,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107g"></script>
+<script src="gmt-whatsnew.js?v=20261107h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

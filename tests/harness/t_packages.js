@@ -65,7 +65,10 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   const po = offs.find(x => /صانع المحتوى/.test(x.name));
   ok(po && near(po.price, 864) && po.q === 4, 'الباقة في نقطة البيع بسعر 864 · متاح 4 (أقلّ المكوّنات: الكاميرا 4 · البطارية 10÷2 = 5): ' + JSON.stringify(po));
   ok(!offs.some(x => /المتجر فقط/.test(x.name)), 'باقة «للمتجر وحده» لا تظهر في نقطة البيع');
-  await pg.evaluate(id => { newInvoice(); toggleProd(id); }, po.id); await pg.waitForSelector('#gmt-offer-choice [data-k="one"]'); await pg.click('#gmt-offer-choice [data-k="one"]');
+  /* (المالك seq 565) ضغطةٌ واحدة ⇒ الباقة سطراً واحداً فوراً — بلا سؤال */
+  await pg.evaluate(id => { newInvoice(); toggleProd(id); }, po.id); await pg.waitForTimeout(400);
+  const oneTap = await pg.evaluate(id => ({ dlg: !!document.getElementById('gmt-offer-choice'), line: !!(cart[id] && cart[id]._is_offer && cart[id].qty === 1) }), po.id);
+  ok(!oneTap.dlg && oneTap.line, 'ضغطةٌ واحدة على الباقة ⇒ سطرٌ واحد في السلّة فوراً بلا سؤال ' + JSON.stringify(oneTap));
   await pg.evaluate(() => { document.getElementById('custName').value = 'زبون الباقة'; saleType = 'نقدي'; });
   await pg.evaluate(() => saveAndFinish()); await pg.waitForTimeout(2500);
   D = await dump();
@@ -109,7 +112,7 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   await pg.evaluate(async () => { window.__op = []; gmtAskGoogle(); await gmtGoogleLens(); });
   const op = await pg.evaluate(() => window.__op);
   const lcard = await pg.evaluate(async () => { const b = await _gmtLensCard(_gmtProdData()); return await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); }); });
-  require('fs').writeFileSync('/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/shots/lens_card.jpg', Buffer.from(lcard.split(',')[1], 'base64'));
+  require('fs').writeFileSync(require('path').join(require('os').tmpdir(), 'lens_card.jpg'), Buffer.from(lcard.split(',')[1], 'base64'));   // (كان مسار جلسةٍ أخرى ثابتاً فيفشل في غيرها)
   ok(up.length === 1 && /products-images\/lens\/s_cam-[a-z0-9]+\.jpg$/.test(up[0].url) && up[0].type === 'image/jpeg' && up[0].n > 20000, '«عدسة جوجل» ترفع بطاقة المنتج (صوره + مواصفاتنا) صورةً واحدة: ' + (up[0] && up[0].url.replace(/^.*object\//, '') + ' · ' + Math.round(up[0].n / 1024) + 'KB'));
   const q = op[0] ? decodeURIComponent(new URL(op[0]).searchParams.get('q') || '') : '';
   ok(/^https:\/\/www\.google\.com\/search\?udm=50/.test(op[0] || '') && /R50 في المتجر من متجر General Media Tech/.test(q) && /مواصفاته: الدقة: 24MP، الحربة: RF/.test(q) && /كاميرا خفيفة للمبتدئين/.test(q) && /ما مزايا هذا المنتج/.test(q) && !/https?:|لا تضف|اعتماداً فقط/.test(q) && op[0].length < 3000, '«اسأل جوجل» يفتح جوجل في متصفّح الزائر بسؤالٍ طبيعيّ قصير من بياناتنا — بلا أوامر ولا روابط (ما يُظهر تحذير جوجل): ' + q);
