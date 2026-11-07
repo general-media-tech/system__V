@@ -195,7 +195,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261104j"></script>
+  <script src="gmt-labels.js?v=20261107a"></script>
+<script src="gmt-staff.js?v=20261104j"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -4154,71 +4155,11 @@ function toast(msg,type='ok'){const c=document.getElementById('toast-box');const
 // ── PRINT BARCODES ────────────────────────────────────────
 function printBarcodes(){
   if(!d_items_ref.length){toast('لا توجد منتجات','err');return;}
-  // بناء قائمة الباركودات مع التكرار حسب الكمية
-  const allBarcodes=[];
-  d_items_ref.forEach(item=>{
-    const bc=item.product?.barcode||item.barcode||'';
-    const name=item.name||item.product?.name||'';
-    const qty=Number(item.qty)||1;
-    for(let i=0;i<qty;i++){
-      allBarcodes.push({barcode:bc,name,qty_label:`${i+1}/${qty}`});
-    }
-  });
-  if(!allBarcodes.length){toast('لا توجد باركودات','err');return;}
-
-  // بناء HTML الطباعة — 4 في كل صف
-  const cards=allBarcodes.map(b=>`
-    <div class="bc-card">
-      <div class="bc-name">${b.name.substring(0,22)}</div>
-      <svg class="bc-svg" data-barcode="${b.barcode}"></svg>
-      <div class="bc-num">${b.barcode}</div>
-    </div>`).join('');
-
-  const html=`<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<title>باركودات — GMT</title>
-<script src="lib/JsBarcode.all.min.js?v=20261003"><\/script>
-<style>
-@page{margin:6mm;size:A4 portrait;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:Arial,sans-serif;background:#fff;direction:rtl;}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;padding:4mm;}
-.bc-card{border:1px solid #ccc;border-radius:4px;padding:3mm 2mm;text-align:center;page-break-inside:avoid;}
-.bc-name{font-size:8px;font-weight:700;margin-bottom:2mm;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bc-svg{width:100%;height:auto;display:block;margin:0 auto 1mm;}
-.bc-num{font-size:7px;color:#555;letter-spacing:1px;}
-.no-print{text-align:center;padding:8px;background:#1f348f;}
-.no-print button{background:#fff;color:#1f348f;border:none;padding:8px 24px;border-radius:8px;font-weight:900;font-size:14px;cursor:pointer;}
-@media print{.no-print{display:none;}}
-</style>
-</head>
-<body>
-<div class="no-print">
-  <button onclick="window.print()">🖨️ طباعة الباركودات (${allBarcodes.length} قطعة)</button>
-</div>
-<div class="grid">${cards}</div>
-<script>
-document.querySelectorAll('[data-barcode]').forEach(svg=>{
-  const val=svg.getAttribute('data-barcode');
-  if(!val||val.length<4)return;
-  try{
-    JsBarcode(svg,val,{
-      format:'CODE128',width:1.2,height:32,
-      displayValue:false,margin:0,background:'#fff'
-    });
-  }catch(e){
-    svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" font-size="8">'+val+'<\/text>';
-  }
-});
-<\/script>
-</body>
-</html>`;
-
-  const w=window.open('','_blank','width=900,height=700');
-  if(w){w.document.write(html);w.document.close();}
-  else toast('السماح بالنوافذ المنبثقة مطلوب','err');
+  /* (TASK-0326 · المالك seq 524) ورقة A4 كاملة بلا هوامش: ملصق رفيع طويل — الاسم والشريط فقط — gmt-labels.js */
+  const items=d_items_ref.map(item=>({barcode:item.product?.barcode||item.barcode||'',name:item.name||item.product?.name||'',qty:Number(item.qty)||1}));
+  const ok=window.GMTLabels&&GMTLabels.openSheet(items,{title:'باركودات — GMT'});
+  if(ok===null) toast('السماح بالنوافذ المنبثقة مطلوب','err');
+  else if(!ok) toast('لا توجد باركودات','err');
 }
 
 // ── EXPORT HTML BACKUP (نسخة احتياطية HTML كاملة بالصور) ──
@@ -5956,7 +5897,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261105f"></script>
+<script src="gmt-whatsnew.js?v=20261107a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

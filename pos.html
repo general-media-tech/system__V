@@ -1238,7 +1238,8 @@ window.GMT_FEATURES = [
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261104j"></script>
+  <script src="gmt-labels.js?v=20261107a"></script>
+<script src="gmt-staff.js?v=20261104j"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -4919,7 +4920,7 @@ function bcClearSel() {
 function bcSelSummary() {
   const el = document.getElementById('bc-sel-sum'); if (!el) return;
   const v = Object.values(_bcSelectedProducts), labels = v.reduce((s, x) => s + (Number(x.qty) || 0), 0), noBc = v.filter(x => !x.barcode).length;
-  el.textContent = v.length ? `محدَّد: ${v.length} منتج · ${labels} ملصق` + (noBc ? ` · ${noBc} بلا باركود (يُطبع اسمه وسعره)` : '') : '';
+  el.textContent = v.length ? `محدَّد: ${v.length} منتج · ${labels} ملصق` + (noBc ? ` · ${noBc} بلا باركود (يُطبع اسمه فقط)` : '') : '';
 }
 
 function renderBcProductList() {
@@ -5044,44 +5045,10 @@ function selectBcPurchase(id) {
 function generateBarcodeSheet() {
   const printItems = _bcMode === 'manual' ? Object.values(_bcSelectedProducts) : (_bcTransferItems || []);
   if (!printItems.length) { showToast('حدد منتجات أولاً', 'err'); return; }
-
-  const cards = printItems.flatMap(p => {
-    const copies = Math.max(1, Number(p.qty)||1);
-    const card = `
-      <div class="bc-card">
-        <div class="bc-name">${escH(p.name || '')}</div>
-        ${p.barcode
-          ? `<svg class="bc-svg" data-barcode="${escH(p.barcode)}"></svg><div class="bc-num">${escH(p.barcode)}</div>`
-          : `<div class="bc-nocode">لا يوجد باركود</div>`}
-        <div class="bc-price">${p.price ? '$ ' + Number(p.price).toLocaleString('en-US') : ''}</div>
-      </div>`;
-    return Array(copies).fill(card);
-  }).join('');
-
-  const win = window.open('', '_blank');
-  if (!win) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'err'); return; }
-  win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-<title>طباعة باركود</title>
-<style>
-  body{margin:0;font-family:'Cairo',Tahoma,sans-serif;}
-  .bc-wrap{display:flex;flex-wrap:wrap;gap:12px;padding:14px;background:#fff;}
-  .bc-card{width:180px;border:1px solid #ddd;border-radius:6px;padding:10px 8px;text-align:center;background:#fff;page-break-inside:avoid;}
-  .bc-name{font-size:12px;font-weight:700;color:#111;margin-bottom:6px;line-height:1.3;min-height:30px;display:flex;align-items:center;justify-content:center;}
-  .bc-svg{display:block;margin:0 auto;max-width:160px;height:50px;}
-  .bc-num{font-size:10px;color:#555;margin-top:3px;letter-spacing:1px;}
-  .bc-price{font-size:13px;font-weight:700;color:#1a5f2a;margin-top:6px;}
-  .bc-nocode{font-size:11px;color:#5b6472;padding:14px 0;}
-  @media print{ body{margin:0} .bc-wrap{gap:8px;padding:4px} }
-</style></head>
-<body><div class="bc-wrap">${cards}</div>
-<script src="lib/JsBarcode.all.min.js?v=20261003" onload="
-  document.querySelectorAll('.bc-svg[data-barcode]').forEach(function(svg){
-    try { JsBarcode(svg, svg.dataset.barcode, {format:'CODE128', width:1.5, height:50, displayValue:false, margin:2}); }
-    catch(e){ svg.style.display='none'; }
-  });
-  setTimeout(function(){ window.focus(); window.print(); }, 500);
-"><\/script></body></html>`);
-  win.document.close();
+  /* (TASK-0326 · المالك seq 524) ورقة A4 كاملة بلا هوامش: ملصق رفيع طويل — الاسم والشريط فقط (بلا سعر) — gmt-labels.js */
+  const ok = window.GMTLabels && GMTLabels.openSheet(printItems.map(p => ({ name: p.name, barcode: p.barcode, qty: p.qty })), { title: 'طباعة باركود' });
+  if (ok === null) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'err'); return; }
+  if (!ok) { showToast('تعذّر فتح ورقة الملصقات', 'err'); return; }
   closeBarcodeModal();
 }
 
@@ -10721,7 +10688,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261105f"></script>
+<script src="gmt-whatsnew.js?v=20261107a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

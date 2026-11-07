@@ -2302,7 +2302,8 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
 <script src="gmt-product-edit.js?v=20261105a" defer></script>
 <script src="gmt-enrich-queue.js?v=20261104l"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-staff.js?v=20261104j"></script>
+  <script src="gmt-labels.js?v=20261107a"></script>
+<script src="gmt-staff.js?v=20261104j"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -9636,50 +9637,11 @@ function openBarcodeSheet(mode) {
   closeModal('export-modal');
   const data = mode === 'filtered' ? filteredProducts : allProducts;
   if (!data.length) { showToast('لا توجد منتجات', 'warning'); return; }
-
-  const cards = data.flatMap(p => {
-    const barcode  = p.barcode || '';
-    const totalQty = getTotal(p);
-    const copies   = Math.max(1, totalQty); // على الأقل نسخة واحدة
-    const card = `
-      <div class="bc-card">
-        <div class="bc-name">${escHtml(p.name || '')}</div>
-        ${barcode
-          ? `<svg class="bc-svg" data-barcode="${escHtml(barcode)}"></svg>
-             <div class="bc-num">${escHtml(barcode)}</div>`
-          : `<div class="bc-nocode">لا يوجد باركود</div>`}
-        <div class="bc-price">${p.price ? '$ ' + Number(p.price).toLocaleString('en-US') : ''}</div>
-      </div>`;
-    return Array(copies).fill(card);
-  }).join('');
-
-  document.getElementById('barcode-sheet-content').innerHTML = `
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
-      .bc-wrap { display:flex;flex-wrap:wrap;gap:12px;padding:8px;background:#fff;font-family:'Tajawal',sans-serif; }
-      .bc-card { width:180px;border:1px solid #ddd;border-radius:6px;padding:10px 8px;text-align:center;background:#fff;page-break-inside:avoid; }
-      .bc-name { font-size:12px;font-weight:700;color:#111;margin-bottom:6px;line-height:1.3;min-height:30px;display:flex;align-items:center;justify-content:center; }
-      .bc-svg { display:block;margin:0 auto;max-width:160px;height:50px; }
-      .bc-num { font-size:10px;color:#555;margin-top:3px;letter-spacing:1px; }
-      .bc-price { font-size:13px;font-weight:700;color:#1a5f2a;margin-top:6px; }
-      .bc-nocode { font-size:11px;color:#5b6472;padding:14px 0; }
-      @media print { body{margin:0} .bc-wrap{gap:8px;padding:4px} }
-    </style>
-    <div class="bc-wrap">${cards}</div>`;
-
-  // Generate barcodes using JsBarcode (loaded dynamically)
-  loadJsBarcode(() => {
-    document.querySelectorAll('#barcode-sheet-content .bc-svg[data-barcode]').forEach(svg => {
-      try {
-        JsBarcode(svg, svg.dataset.barcode, {
-          format: 'CODE128', width: 1.5, height: 50,
-          displayValue: false, margin: 2
-        });
-      } catch(e) { svg.style.display = 'none'; }
-    });
-  });
-
-  document.getElementById('barcode-sheet-modal').style.display = 'flex';
+  /* (TASK-0326 · المالك seq 524) «صفحة طباعة باركودات جماعية — الاسم والشريط فقط · ملصق رفيع طويل · ورقة A4 بلا فراغات» ⇒ gmt-labels.js
+     عدد النسخ = إجمالي كمية المنتج (نسخة واحدة على الأقل) كما كان */
+  const ok = window.GMTLabels && GMTLabels.openSheet(data.map(p => ({ name: p.name || '', barcode: p.barcode || '', qty: Math.max(1, getTotal(p)) })), { title: 'ملصقات الباركود — الجرد' });
+  if (ok === null) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'warning'); return; }
+  if (!ok) showToast('تعذّر فتح ورقة الملصقات', 'warning');
 }
 
 // ============================================
@@ -16623,7 +16585,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261105f"></script>
+<script src="gmt-whatsnew.js?v=20261107a"></script>
 <script src="gmt-store-sync.js?v=20261101u" defer></script>
 <script src="gmt-merge-review.js?v=20261101n" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

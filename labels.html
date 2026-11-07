@@ -11,6 +11,7 @@ window.GMT_INTERNAL = 1;</script>
 <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <script src="lib/JsBarcode.all.min.js?v=20261003"></script>
+<script src="gmt-labels.js?v=20261107a"></script>
 <style>
   :root{ --gmt-red:#D5001C; --gmt-ink:#111; --gmt-muted:#5b6472; --gmt-line:#e5e7eb; }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -98,16 +99,17 @@ window.GMT_INTERNAL = 1;</script>
     <div class="row">
       <label class="muted">المقاس:</label>
       <select id="size" onchange="render()">
+        <option value="thin" selected>رفيع بلا هوامش — 4 بالصف · 64 بالورقة (الاسم والشريط)</option>
         <option value="3">3 بالصف — 63×34mm (A4 قياسي)</option>
         <option value="4">4 بالصف — 48×30mm</option>
         <option value="2">2 بالصف — 95×45mm (كبير)</option>
         <option value="5">5 بالصف — 38×25mm (صغير)</option>
       </select>
-      <label class="muted"><input type="checkbox" id="showPrice" checked onchange="render()"> السعر</label>
+      <label class="muted"><input type="checkbox" id="showPrice" onchange="render()"> السعر</label>
       <label class="muted"><input type="checkbox" id="showName" checked onchange="render()"> الاسم</label>
       <label class="muted"><input type="checkbox" id="showBc" checked onchange="render()"> الباركود</label>
       <button class="btn-s" onclick="render()">🔄 تحديث المعاينة</button>
-      <button class="btn-p" onclick="window.print()">🖨️ طباعة</button>
+      <button class="btn-p" onclick="printNow()">🖨️ طباعة</button>
     </div>
     <div class="muted" style="margin-top:8px;">💡 المنتج بلا باركود يُطبع باسمه وسعره فقط، ويُعلَّم لك بقائمة تحت المعاينة.</div>
   </div>
@@ -172,14 +174,29 @@ function setQty(id, v){ sel[id] = Math.max(1, Number(v)||1); render(); }
 function selectAllShown(){ shown().forEach(p => sel[p.id] = sel[p.id]||1); renderTable(); render(); }
 function clearSel(){ sel = {}; renderTable(); render(); }
 
+/* (TASK-0326 · المالك seq 524) الافتراضي: ورقة A4 كاملة بلا هوامش — ملصق رفيع طويل بالاسم والشريط فقط (gmt-labels.js) */
+function _thinItems(){ return Object.keys(sel).map(id => { const p = products.find(x => String(x.id) === String(id)); return p ? { name: p.name, barcode: p.barcode || '', qty: sel[id] || 1 } : null; }).filter(Boolean); }
+function printNow(){
+  if (document.getElementById('size').value === 'thin') {
+    const items = _thinItems(); if (!items.length) { alertBox('اختر منتجات أولاً'); return; }
+    const ok = window.GMTLabels && GMTLabels.openSheet(items, { title: 'طابعة الملصقات' });
+    if (ok === null) alertBox('السماح بالنوافذ المنبثقة مطلوب');
+    return;
+  }
+  window.print();
+}
+function alertBox(m){ const s = document.getElementById('stat'); if (s) { s.textContent = '⚠️ ' + m; s.style.color = '#D5001C'; } }
 function render(){
-  const [w,h,gapPx] = SIZES[document.getElementById('size').value] || SIZES[3];
-  const cols = Math.max(1, Math.floor(194 / (w + 2)));   // 194mm = عرض A4 مطروحاً منه الهوامش
+  const _sz = document.getElementById('size').value;
+  const [w,h,gapPx] = _sz === 'thin' ? [52.5,18.5,0] : (SIZES[_sz] || SIZES[3]);
+  const thin = _sz === 'thin';
+  const cols = thin ? 4 : Math.max(1, Math.floor(194 / (w + 2)));   // 194mm = عرض A4 مطروحاً منه الهوامش
   const box = document.getElementById('labels');
   box.style.gridTemplateColumns = `repeat(${cols}, ${w}mm)`;
+  box.style.gap = thin ? '0' : '';
 
   const sName  = document.getElementById('showName').checked;
-  const sPrice = document.getElementById('showPrice').checked;
+  const sPrice = !thin && document.getElementById('showPrice').checked;   /* الرفيع: الاسم والشريط فقط */
   const sBc    = document.getElementById('showBc').checked;
 
   const noBc = [];
@@ -193,7 +210,7 @@ function render(){
         ${sName  ? `<div class="l-name">${esc(p.name)}</div>` : ''}
         ${sBc && p.barcode ? `<div class="l-bc"><svg class="bc" data-code="${esc(p.barcode)}"></svg></div>` : ''}
         ${sPrice ? `<div class="l-price">${p.price ? '$'+Number(p.price).toFixed(2) : ''}</div>` : ''}
-        <div class="l-sku">${esc(p.barcode || p.short || '')}</div>
+        ${thin ? '' : `<div class="l-sku">${esc(p.barcode || p.short || '')}</div>`}
       </div>`;
     }
   });
@@ -230,7 +247,7 @@ load();
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261105f"></script>
+<script src="gmt-whatsnew.js?v=20261107a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
