@@ -48,6 +48,14 @@ def match(row, k, expr):
         return v is not None and re.match(pat, str(v), re.I) is not None
     if op == 'not':
         return not match(row, k, val)
+    if op == 'cs':                              # (TASK-0330) احتواء JSON كـPostgREST: items_snapshot=cs.[{"id":"…"}]
+        try: want = json.loads(val)
+        except Exception: return True
+        def sub(a, b):
+            if isinstance(a, dict): return isinstance(b, dict) and all(kk in b and sub(vv, b[kk]) for kk, vv in a.items())
+            if isinstance(a, list): return isinstance(b, list) and all(any(sub(x, y) for y in b) for x in a)
+            return str(a) == str(b)
+        return sub(want, v)
     return True
 class H(BaseHTTPRequestHandler):
     def log_message(self,*a): pass
