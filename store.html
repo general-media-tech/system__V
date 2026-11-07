@@ -2692,7 +2692,7 @@ window.dismissNotifPrompt = function(){
 };
 
 function sendLocalNotification(title, body){
-    if(Notification.permission!=='granted') return;
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
     try { new Notification(title,{body,icon:'logo.jpg',badge:'logo.jpg'}); }
     catch(e){ console.warn('Notif error',e); }
 }
@@ -2750,8 +2750,8 @@ async function initStore(){
         _applyRecord(Object.assign({}, lr, { __fromCache: true }));   // لا تُحفظ «آخر نسخة جيّدة» من الخفيفة
         store.__light = true;
         renderAll();
-        _contentReady = true; _tryCloseIntro();
-    });
+        _contentReady = true; _storeStallClear(); _tryCloseIntro();
+    }).catch(() => {});
     let rec = null;
     try { rec = await fullP; } catch (_) {}
     fullDone = true;
@@ -2820,11 +2820,14 @@ function _applyRecord(rec){
     store.offers       = Array.isArray(rec.offers)        ? rec.offers       : [];
     store.branches     = Array.isArray(rec.branches)      ? rec.branches     : [];
     // Check for new offer notification
-    _checkNewOfferNotification(store.offers);
+    /* (TASK-0332 · المالك seq 559 «هكذا يظهر المتجر لأي زائر من الانستقرام … ما عم يفتح المتجر أبداً») متصفّح إنستغرام/فيسبوك على أندرويد
+       (WebView) لا يعرف «Notification» أصلاً ⇒ كان هذا السطر يرمي خطأً فيتوقّف رسم المتجر كلّه على الهياكل الرمادية.
+       الإشعار ميزة إضافية: أيّ خطأ فيها لا يمنع عرض المنتجات أبداً. */
+    try { _checkNewOfferNotification(store.offers); } catch (_) {}
 }
 
 function _checkNewOfferNotification(offers){
-    if(!offers.length) return;
+    if(!offers.length || !('Notification' in window)) return;
     const lastSeen = parseInt(localStorage.getItem('gmt_offers_last_seen')||'0');
     const newOffers = offers.filter(o => {
         const ts = o.created_at ? new Date(o.created_at).getTime() : 0;
