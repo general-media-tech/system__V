@@ -201,7 +201,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-labels.js?v=20261107a"></script>
-<script src="gmt-staff.js?v=20261107j"></script>
+<script src="gmt-staff.js?v=20261108b"></script>
+<script src="gmt-store-sync.js?v=20261108a"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -637,6 +638,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
           class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">داخل سوريا $</label>
         <input type="number" id="cost-local" min="0" step="0.01" placeholder="0.00" oninput="updateTotalCosts()"
+          class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
+      <div><label class="block text-[10px] font-bold text-gray-500 mb-1">أجور تحويل وأخرى $</label>
+        <input type="number" id="cost-transfer" min="0" step="0.01" placeholder="0.00" oninput="updateTotalCosts()"
           class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
     </div>
     <div class="flex items-center justify-between pt-2 border-t border-blue-200">
@@ -1448,6 +1452,7 @@ function openEdit(id){
   document.getElementById('cost-shipping').value=s.cost_shipping||'';
   document.getElementById('cost-customs').value=s.cost_customs||'';
   document.getElementById('cost-local').value=s.cost_local||'';
+  document.getElementById('cost-transfer').value=s.cost_transfer||'';
   document.getElementById('in-cash-payment').value=(s.cash_payment!=null?s.cash_payment:'');
   document.getElementById('file-hint').classList.toggle('hidden',!fileUrl);
   document.getElementById('file-prev').classList.add('hidden');
@@ -1463,7 +1468,7 @@ function openEdit(id){
 function closeAddModal(){document.getElementById('addModal').classList.add('hidden');cart=[];exRows=[];fileUrl='';imgUrl='';}
 function resetForm(){
   ['in-date','in-sup-inv','in-supplier','in-sup-phone','in-sup-address','in-sup-contact','in-sector','in-eta','in-ship','in-track','in-notes',
-   'cost-transport','cost-shipping','cost-customs','cost-local','in-cash-payment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+   'cost-transport','cost-shipping','cost-customs','cost-local','cost-transfer','in-cash-payment'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('in-date').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   document.getElementById('in-currency').value='USD';
   document.getElementById('in-invoice').value='';
@@ -1792,14 +1797,19 @@ function openInstantInvFromList(id){
 
 function openInstantInvData(s,invNum,branchName){
   currentInvModal='instant';
-  const items=(s.items_snapshot||[]).map(i=>({
+  /* (TASK-0339 · المالك seq 573 «كثير منتجات في فواتير الفورية لا يوجد لها صور») 63 بنداً كانت بلا صورة في نسخة الفاتورة
+     بينما للمنتج صورة ⇒ الاسم والصورة يُقرآن من المنتج الحيّ (كما فاتورة الاستيراد) · ومنتجٌ حُذف من الجرد يُوسَم بذلك لا «غير مربوط» */
+  const _live=i=>{const pid=i.id||(i.product&&i.product.id);return pid?(prods||[]).find(x=>String(x.id)===String(pid)):null;};
+  const _loaded=Array.isArray(prods)&&prods.length>0;
+  const items=(s.items_snapshot||[]).map(i=>{const lp=_live(i);return({
     id:(i.id||(i.product&&i.product.id)||null),_raw:(i.product?null:i),
-    name:i.name||'',image_url:i.image_url||'',barcode:i.barcode||'',
+    deleted:!!((i.id||(i.product&&i.product.id))&&_loaded&&!lp),
+    name:(lp&&lp.name)||i.name||'',image_url:(lp&&lp.image_url)||i.image_url||'',barcode:i.barcode||(lp&&lp.barcode)||'',
     qty:i.qty||0,isNew:i.is_new||false,
     unitPrice:i.unit_price||0,origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:null),_origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:undefined),minPrice:i.min_price||0,
     wholePrice:i.whole_price||0,salePrice:i.sale_price||0,notes:i.notes||'',
     unlinked:!!(i.unlinked||!i.id)   /* (المالك seq 386) بندٌ لم يُربط بمنتج ⇐ خطّ أحمر للمراجعة والربط اليدوي */
-  }));
+  });});
   const origTotal=items.reduce((a,i)=>a+(i.qty*i.unitPrice),0);
   const cashRaw=s.cash_payment!=null?Number(s.cash_payment):null;
   const cash=(cashRaw!=null&&!isNaN(cashRaw))?cashRaw:origTotal;
@@ -1857,7 +1867,7 @@ function buildInstantInv(d){
     return `<tr${item.unlinked?' data-unlinked="1" style="background:#fee2e2;color:#b91c1c;"':''}>
       <td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td>
       <td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td>
-      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${eh(item.name||'')}${item.unlinked?'<div style="font-size:10px;font-weight:900;color:#b91c1c;">🔴 غير مربوط بمنتج — للمراجعة</div>':''}</td>
+      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${eh(item.name||'')}${item.unlinked?'<div style="font-size:10px;font-weight:900;color:#b91c1c;">🔴 غير مربوط بمنتج — للمراجعة</div>':(item.deleted?'<div style="font-size:10px;font-weight:800;color:#6b7280;">🗑️ حُذف من الجرد</div>':'')}</td>
       <td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;">
         <div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div>
       </td>
@@ -2088,12 +2098,12 @@ function autoEta(){
   if(el&&!el.value){const d=new Date();d.setMonth(d.getMonth()+3);el.value=d.toISOString().slice(0,10);}
 }
 function updateTotalCosts(){
-  const t=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local');
+  const t=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local')+gv('cost-transfer');
   document.getElementById('total-costs-display').textContent='$ '+t.toFixed(2);
   updateRemaining();
 }
 function calcCosts(){
-  const tc=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local');
+  const tc=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local')+gv('cost-transfer');
   if(tc<=0){toast('أدخل قيمة للتكاليف أولاً','err');return;}
   if(!cart.length){toast('أضف منتجات أولاً','err');return;}
   /* 🔧 (2026-08-26) كان يكتب فوق unitPrice ⇒ ① ضغطة ثانية تضيف التكاليف **مرّتين**
@@ -2108,7 +2118,7 @@ function calcCosts(){
 }
 function updateRemaining(){
   const origTotal=cart.reduce((s,c)=>s+(c.qty*c.unitPrice),0);
-  const costs=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local');
+  const costs=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local')+gv('cost-transfer');
   const cashEl=document.getElementById('in-cash-payment');
   const cash=(cashEl&&cashEl.value!=='')?parseFloat(cashEl.value)||0:origTotal;
   document.getElementById('remaining-display').textContent='$ '+(origTotal+costs-cash).toFixed(2);
@@ -2289,12 +2299,12 @@ function saveNewProd(){
       d_items_ref.push(newItem);
       // إعادة بناء الفاتورة مع المنتج الجديد
       const invNum=(document.querySelector('#invPage .inv-field[data-field="invNum"]')||document.querySelector('#invPage .inv-field[data-field="invNum2"]'))?.textContent?.trim()||'—';
-      const fromList=ships.find(s=>s.inv_number===invNum);
+      const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
       // 🔧 (2026-08-18) نفس جذر بَق الحذف [P3]: كان Object.assign(invData, fromList) يأتي بعد
       //    بناء items_snapshot الجديد فيدهسه بالنسخة الأصلية من القاعدة ⇒ المنتج المُضاف لا يظهر.
       //    الحل: الأصل أولاً ثم القائمة المحدّثة فوقه.
       const _snapAdd=d_items_ref.map(i=>({
-        id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
+        ...(i._raw||{}),id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
         barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),
         min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes,is_new:i.isNew||false
       }));
@@ -3074,8 +3084,8 @@ function getInvData(shipData){
        معرّف منتجه ⇒ «حفظ التعديلات» لا يصل للمنتجات أبداً، ويكتب الفاتورة بـ id:null فتنقطع كلّ روابطها. الآن يحمل id وكلّ حقوله الأصلية (_raw). */
     return{id:isCart?undefined:(i.id||null),_raw:isCart?null:i,origUnitPrice:isCart?undefined:(i.orig_unit_price!=null?i.orig_unit_price:undefined),name:isCart?i.product.name:(i.name||''),image_url:isCart?i.product.image_url:(i.image_url||''),barcode:isCart?i.product.barcode:(i.barcode||''),qty:i.qty||0,isNew:isCart?(i.isNew||false):(i.is_new||false),unitPrice:isCart?i.unitPrice:(i.unit_price||0),minPrice:isCart?i.minPrice:(i.min_price||0),wholePrice:isCart?i.wholePrice:(i.whole_price||0),salePrice:isCart?i.salePrice:(i.sale_price||0),notes:i.notes||''};
   });
-  const ct=Number(fromForm('cost_transport','cost-transport'))||0;const cs=Number(fromForm('cost_shipping','cost-shipping'))||0;const cc=Number(fromForm('cost_customs','cost-customs'))||0;const cl=Number(fromForm('cost_local','cost-local'))||0;
-  const totalCosts=ct+cs+cc+cl;const origTotal=items.reduce((s,i)=>s+(i.qty*i.unitPrice),0);
+  const ct=Number(fromForm('cost_transport','cost-transport'))||0;const cs=Number(fromForm('cost_shipping','cost-shipping'))||0;const cc=Number(fromForm('cost_customs','cost-customs'))||0;const cl=Number(fromForm('cost_local','cost-local'))||0;const cx=Number(fromForm('cost_transfer','cost-transfer'))||0;
+  const totalCosts=ct+cs+cc+cl+cx;const origTotal=items.reduce((s,i)=>s+(i.qty*i.unitPrice),0);
   const _rawCash=s.cash_payment!=null?Number(s.cash_payment):parseFloat(document.getElementById('in-cash-payment')?.value??'');
   const cash=(!isNaN(_rawCash))?_rawCash:origTotal;
   const printDate=s.updated_at?fd(s.updated_at):fd(new Date().toISOString());
@@ -3083,7 +3093,7 @@ function getInvData(shipData){
   const totalSaleRev=items.reduce((a,i)=>a+(Number(i.qty||0)*Number(i.salePrice||0)),0);const totalMinRev=items.reduce((a,i)=>a+(Number(i.qty||0)*Number(i.minPrice||0)),0);
   const avgRevenue=(totalSaleRev>0&&totalMinRev>0)?(totalSaleRev+totalMinRev)/2:Math.max(totalSaleRev,totalMinRev);
   const expectedProfit=avgRevenue-netCostTotal;const profitPct=netCostTotal>0?(expectedProfit/netCostTotal*100):0;
-  return{invNum:s.inv_number||'—',invDate:fromForm('inv_date','in-date'),invType:s.inv_type||invType,supplier:fromForm('supplier','in-supplier'),supplierPhone:fromForm('supplier_phone','in-sup-phone'),supplierAddress:fromForm('supplier_address','in-sup-address'),supplierContact:fromForm('supplier_contact','in-sup-contact'),currency,sector:fromForm('sector','in-sector'),eta:fromForm('eta_date','in-eta'),notes:fromForm('shipping_notes','in-notes'),ct,cs,cc,cl,totalCosts,origTotal,grandTotal,expenses15,netCostTotal,avgRevenue,expectedProfit,profitPct,cash,remaining:grandTotal-cash,items,printDate,userName:window._lastUserName||'ادمن'};
+  return{invNum:s.inv_number||'—',invDate:fromForm('inv_date','in-date'),invType:s.inv_type||invType,supplier:fromForm('supplier','in-supplier'),supplierPhone:fromForm('supplier_phone','in-sup-phone'),supplierAddress:fromForm('supplier_address','in-sup-address'),supplierContact:fromForm('supplier_contact','in-sup-contact'),currency,sector:fromForm('sector','in-sector'),eta:fromForm('eta_date','in-eta'),notes:fromForm('shipping_notes','in-notes'),ct,cs,cc,cl,cx,totalCosts,origTotal,grandTotal,expenses15,netCostTotal,avgRevenue,expectedProfit,profitPct,cash,remaining:grandTotal-cash,items,printDate,userName:window._lastUserName||'ادمن'};
 }
 
 function buildInv(data){
@@ -3121,7 +3131,7 @@ function buildInv(data){
   <table id="inv-items-tbl" style="width:100%;table-layout:fixed;margin-bottom:7px;"><thead><tr><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:3%;">#</th><th class="col-img" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:9%;">الصورة</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 5px;font-size:12px;text-align:center;width:24%;">اسم المنتج</th><th class="col-qty" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:6%;">الكمية</th><th class="col-purchase" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">سعر الشراء<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحد الأدنى<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-whole" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الجملة<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-sale" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">المبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-notes" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:22%;">ملاحظات</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:10px;text-align:center;width:4%;" class="no-print">حذف</th></tr></thead><tbody>${rows}</tbody></table>
   <table id="inv-totals-tbl" style="width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed;"><tr><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:3%;">∑</td><td class="col-img" style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:9%;"></td><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 6px;font-size:12px;text-align:right;width:24%;font-weight:900;">الإجماليات</td><td class="col-qty" style="border:2px solid #1f348f;background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 2px;font-size:12px;font-weight:900;width:6%;">${d.items.reduce((s,i)=>s+Number(i.qty||0),0)}</td><td class="col-purchase" id="inv-sum-purchase" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.unitPrice||0)),0).toFixed(2)}</td><td class="col-min" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.minPrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.minPrice||0)),0).toFixed(2):''}</td><td class="col-whole" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.wholePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.wholePrice||0)),0).toFixed(2):''}</td><td class="col-sale" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.salePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.salePrice||0)),0).toFixed(2):''}</td><td class="col-notes" style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 2px;font-size:11px;width:22%;"></td></tr></table>
   <table style="width:100%;margin-bottom:7px;"><tr>
-    <td style="width:50%;vertical-align:top;padding-left:8px;"><table style="width:100%;"><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">تكاليف نقل</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="ct" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.ct?d.ct.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">شحن إلى سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cs" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cs?d.cs.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">جمارك</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cc" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cc?d.cc.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">داخل سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cl" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cl?d.cl.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">إجمالي التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-total-costs">${d.totalCosts.toFixed(2)}</td></tr></table></td>
+    <td style="width:50%;vertical-align:top;padding-left:8px;"><table style="width:100%;"><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">تكاليف نقل</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="ct" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.ct?d.ct.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">شحن إلى سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cs" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cs?d.cs.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">جمارك</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cc" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cc?d.cc.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">داخل سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cl" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cl?d.cl.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">أجور تحويل وأخرى</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cx" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cx?d.cx.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">إجمالي التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-total-costs">${d.totalCosts.toFixed(2)}</td></tr></table></td>
     <td style="width:50%;vertical-align:top;padding-right:8px;"><table style="width:100%;"><tr id="inv-orig-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">سعر الشراء الأصلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-orig-total">${d.origTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-costs-sum">${d.totalCosts.toFixed(2)}</td></tr><tr id="inv-grand-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">المجموع الكلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-grand-total">${d.grandTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">دفعة نقدية</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field" data-field="cash" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cash&&d.cash!==d.origTotal?d.cash.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">الباقي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-remaining">${d.remaining.toFixed(2)}</td></tr></table></td>
   </tr></table>
   <table class="col-profit" style="width:100%;border-collapse:collapse;margin-bottom:7px;"><tr><td colspan="2" style="background:#1f348f;color:#fff;padding:5px 10px;font-size:13px;font-weight:900;text-align:center;">📊 تحليل التكاليف والأرباح المتوقعة</td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;width:50%;">إجمالي الفاتورة + التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${d.grandTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 8px;font-size:12px;">طرح 15% مصاريف تشغيل</td><td style="background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">− $ ${d.expenses15.toFixed(2)}</td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;font-weight:900;">صافي التكلفة الكاملة</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${d.netCostTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 8px;font-size:12px;">متوسط الإيراد المتوقع</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${d.avgRevenue.toFixed(2)}</td></tr><tr><td style="background:#dbe4f7;color:${d.expectedProfit>=0?'#047857':'#dc2626'};padding:4px 8px;font-size:13px;font-weight:900;">الربح المتوقع (${d.profitPct>=0?'+':''}${d.profitPct.toFixed(1)}%)</td><td style="background:#dbe4f7;color:${d.expectedProfit>=0?'#047857':'#dc2626'};text-align:center;padding:4px 8px;font-size:13px;font-weight:900;">${d.expectedProfit>=0?'+':''}$ ${d.expectedProfit.toFixed(2)}</td></tr></table>
@@ -3199,10 +3209,62 @@ function toggleInvEdit(){
   try{_applyPriceView();}catch(_){}   /* (TASK-0338) في التعديل يظهر ويُعدَّل السعر الأصلي — خارج التعديل مع التكاليف */
   lucide.createIcons();
 }
+/* (TASK-0339 · المالك seq 567/573) «أثناء تعديل فاتورة الشراء اجعل من اللابتوب الأزرار الأسهم الأسفل والجوانب تعمل كما أنها في إكسل
+   — لما بدّي أدخل السعر خلاص أكبس الزر وأنزل وأتحرّك»:
+   Enter / ↓ = نفس العمود في الصفّ التالي · Shift+Enter / ↑ = الصفّ السابق · ← → = الخانة المجاورة (الجدول من اليمين لليسار:
+   ← تذهب للخانة التي على اليسار) — في خانتي الاسم والملاحظات تتحرّك الأسهم الجانبية داخل النصّ ولا تخرج إلا من طرفه.
+   الدخول إلى خانة يحدّد محتواها كلّه ⇒ الكتابة تستبدل الرقم مباشرة كما في إكسل. */
+function _invGridCells(tr){ return [...tr.children].filter(td=>td.offsetParent!==null && td.querySelector('[contenteditable="true"]')); }
+function _invFocusCell(td){
+  if(!td) return false;
+  const ed=td.querySelector('[contenteditable="true"]'); if(!ed) return false;
+  ed.focus();
+  try{ const r=document.createRange(); r.selectNodeContents(ed); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); }catch(_){}
+  ed.scrollIntoView({block:'nearest',inline:'nearest'});
+  return true;
+}
+function _caretAtEdge(ed, toStart){
+  const sel=getSelection(); if(!sel.rangeCount) return true;
+  const r=sel.getRangeAt(0);
+  if(!r.collapsed) return true;                       // النصّ محدّد كلّه (دخلنا الخانة للتوّ) ⇒ انتقل
+  const pre=document.createRange(); pre.selectNodeContents(ed); pre.setEnd(r.startContainer,r.startOffset);
+  const pos=pre.toString().length, len=ed.textContent.length;
+  return toStart ? pos===0 : pos===len;
+}
+document.addEventListener('keydown',function(e){
+  if(!invEditMode || e.altKey || e.ctrlKey || e.metaKey) return;
+  const ed=e.target && e.target.closest && e.target.closest('#inv-items-tbl tbody [contenteditable="true"]'); if(!ed) return;
+  const td=ed.closest('td'), tr=td.closest('tr'), rows=[...tr.parentElement.children];
+  const k=e.key;
+  if(k==='Enter'||k==='ArrowDown'||k==='ArrowUp'){
+    const up=(k==='ArrowUp')||(k==='Enter'&&e.shiftKey);
+    let i=rows.indexOf(tr)+(up?-1:1);
+    while(rows[i]){ const t=rows[i].children[td.cellIndex]; if(t&&t.querySelector('[contenteditable="true"]')){ e.preventDefault(); _invFocusCell(t); return; } i+=up?-1:1; }
+    if(k==='Enter') e.preventDefault();               // لا سطر جديد داخل خانة رقم
+    return;
+  }
+  if(k==='ArrowLeft'||k==='ArrowRight'){
+    const textCell=td.cellIndex===2||/col-notes/.test(td.className);
+    const rtl=getComputedStyle(tr).direction==='rtl';
+    const forward=(k==='ArrowLeft')===rtl;            // «للأمام» = الخانة التالية في ترتيب الأعمدة
+    if(textCell && !_caretAtEdge(ed, rtl ? (k==='ArrowRight') : (k==='ArrowLeft'))) return;
+    const cells=_invGridCells(tr), ci=cells.indexOf(td);
+    let target=cells[ci+(forward?1:-1)];
+    if(!target){ const nr=rows[rows.indexOf(tr)+(forward?1:-1)]; if(nr){ const nc=_invGridCells(nr); target=forward?nc[0]:nc[nc.length-1]; } }
+    if(target){ e.preventDefault(); _invFocusCell(target); }
+  }
+});
+document.addEventListener('focusin',function(e){
+  if(!invEditMode) return;
+  const ed=e.target && e.target.closest && e.target.closest('#inv-items-tbl tbody [contenteditable="true"]'); if(!ed||ed._gmtSel) return;
+  ed._gmtSel=true; setTimeout(()=>{ ed._gmtSel=false; },0);
+  const _td=e.target.closest('td'); if(_td.cellIndex===2||/col-notes/.test(_td.className)) return;    // الاسم والملاحظات: النقر يضع المؤشّر حيث نقرت
+  try{ const r=document.createRange(); r.selectNodeContents(ed); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); }catch(_){}
+});
 function recalcInv(){
   const getF=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||el?.value||'0').replace(/[^\d.-]/g,''))||0;};
-  const ct=getF('ct'),cs=getF('cs'),cc=getF('cc'),cl=getF('cl');
-  const totalCosts=ct+cs+cc+cl;
+  const ct=getF('ct'),cs=getF('cs'),cc=getF('cc'),cl=getF('cl'),cx=getF('cx');
+  const totalCosts=ct+cs+cc+cl+cx;
   const origTotal=parseFloat((document.getElementById('inv-orig-total')?.textContent||'0').replace(/[^\d.-]/g,''))||0;
   const grandTotal=origTotal+totalCosts;
   const _cashEl=document.querySelector('#invPage [data-field="cash"]');const _cashV=cashOrNull(_cashEl?.textContent||_cashEl?.value||'');const cash=_cashV!=null?_cashV:origTotal;const remaining=grandTotal-cash;
@@ -3238,6 +3300,7 @@ async function saveInvEdits(){
   const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
   const productUpdates=[];
   const pendingCreates=[]; // منتجات جديدة لم تُحفظ بقاعدة البيانات بعد (id مؤقت سالب)
+  const _noLink=[];
   rows.forEach((tr,idx)=>{
     if(!d_items_ref[idx])return;
     const cells=tr.querySelectorAll('td');
@@ -3299,8 +3362,11 @@ async function saveInvEdits(){
       if(d_items_ref[idx].unitPrice>0)upd.cost_price=d_items_ref[idx].unitPrice;
       if(newName&&newName!==oldName)upd.name=newName;
       if(Object.keys(upd).length)productUpdates.push({id:prodId,upd,idx});
+    }else if((d_items_ref[idx].salePrice||d_items_ref[idx].wholePrice||d_items_ref[idx].minPrice)>0){
+      _noLink.push(d_items_ref[idx].name||('بند '+(idx+1)));   /* (TASK-0339) كان يُتخطّى بصمت ⇒ ضاعت أسعار IMP-2026-0007 */
     }
   });
+  if(_noLink.length) setTimeout(()=>toast('⚠️ '+_noLink.length+' بنداً غير مربوط بمنتج — أسعاره حُفظت في الفاتورة ولم تصل للجرد: '+_noLink.slice(0,3).join('، ')+(_noLink.length>3?' …':''),'err'),1200);
   /* (TASK-0338) التكلفة الواصلة للمنتج = السعر الأصلي + حصّته من تكاليف الفاتورة (كما في حفظ الشحنة PUR-7) */
   if(currentInvModal!=='instant'){
     const _f=_invCostFactor();
@@ -3336,8 +3402,8 @@ async function saveInvEdits(){
   }
 
   // ── 3. اقرأ التكاليف من الفاتورة ──
-  const ct=getN('ct'),cs=getN('cs'),cc=getN('cc'),cl=getN('cl');
-  const totalCosts=ct+cs+cc+cl;
+  const ct=getN('ct'),cs=getN('cs'),cc=getN('cc'),cl=getN('cl'),cx=getN('cx');
+  const totalCosts=ct+cs+cc+cl+cx;
   const origTotal=d_items_ref.reduce((s,i)=>s+(i.qty*(i.unitPrice||0)),0);
   const grandTotal=origTotal+totalCosts;
   const cashVal=cashOrNull(getF('cash'));
@@ -3355,6 +3421,7 @@ async function saveInvEdits(){
   if(cs)si('cost-shipping',cs);
   if(cc)si('cost-customs',cc);
   if(cl)si('cost-local',cl);
+  if(cx)si('cost-transfer',cx);
   if(cashVal!=null)si('in-cash-payment',cashVal);
 
   // ── 5. فحص التعارضات في الأسعار قبل الحفظ ──
@@ -3414,6 +3481,7 @@ async function saveInvEdits(){
     cost_shipping:cs||null,
     cost_customs:cc||null,
     cost_local:cl||null,
+    cost_transfer:cx||null,
     cash_payment:cashVal,
     costs_paid:false,
     // items من d_items_ref مباشرة
@@ -3473,7 +3541,7 @@ async function saveInvEdits(){
     toast('⛔ لم يُحفظ في السحابة: '+_lostLinks+' بنداً سيفقد ربطه بمنتجه — أعد فتح الفاتورة وحاول ثانية','err');
   }else if(fromListForSave?.id){
     const costPayload={
-      cost_transport:ct||null,cost_shipping:cs||null,cost_customs:cc||null,cost_local:cl||null,
+      cost_transport:ct||null,cost_shipping:cs||null,cost_customs:cc||null,cost_local:cl||null,cost_transfer:cx||null,
       cash_payment:cashVal,
       total_amount:d_items_ref.reduce((s,i)=>s+(i.qty*(i.unitPrice||0)),0),
       items_count:d_items_ref.length,
@@ -3515,7 +3583,7 @@ function _origOf(it){
 }
 function _invCostsTotal(){
   const g=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||el?.value||'0').replace(/[^\d.-]/g,''))||0;};
-  return g('ct')+g('cs')+g('cc')+g('cl');
+  return g('ct')+g('cs')+g('cc')+g('cl')+g('cx');
 }
 function _invCostFactor(){
   const costs=_invCostsTotal();
@@ -3596,7 +3664,8 @@ function _expensesTotal(){
   return (Number(gv('cost-transport'))||0)
        + (Number(gv('cost-shipping'))||0)
        + (Number(gv('cost-customs'))||0)
-       + (Number(gv('cost-local'))||0);
+       + (Number(gv('cost-local'))||0)
+       + (Number(gv('cost-transfer'))||0);
 }
 function computeLandedCosts(cartArr){
   const exp=_expensesTotal();
@@ -3666,7 +3735,7 @@ async function saveShipment(){
     const now=new Date().toISOString();
     const _landedSnap=computeLandedCosts(cart);   // PUR-7: تُؤرشَف بالفاتورة للتدقيق
     const coreEntry={inv_number:num,inv_type:invType,supplier:document.getElementById('in-supplier').value.trim()||null,supplier_inv:document.getElementById('in-sup-inv').value.trim()||null,inv_date:_cleanDate(document.getElementById('in-date').value)||null,eta_date:_cleanDate(document.getElementById('in-eta').value)||null,shipping_company:document.getElementById('in-ship').value.trim()||null,tracking_number:document.getElementById('in-track').value.trim()||null,shipping_notes:document.getElementById('in-notes').value.trim()||null,invoice_file_url:fileUrl||null,source_branch:src,dest_branch:BR_DEST,status:editId?(ships.find(x=>String(x.id)===String(editId))?.status||'transit'):'transit',total_amount:cart.reduce((s,c)=>s+(c.qty*c.unitPrice),0),items_count:cart.length,total_qty:cart.reduce((s,c)=>s+c.qty,0),items_snapshot:cart.map(c=>({id:c.product.id,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice||0,whole_price:c.wholePrice||0,sale_price:c.salePrice||0,notes:c.notes||'',total:c.qty*c.unitPrice,landed_cost:_landedSnap[c.product.id]||c.unitPrice,is_new:c.isNew||false}))};
-    const extEntry={supplier_phone:document.getElementById('in-sup-phone').value.trim()||null,supplier_address:document.getElementById('in-sup-address').value.trim()||null,supplier_contact:document.getElementById('in-sup-contact').value.trim()||null,currency:document.getElementById('in-currency').value||'USD',sector:document.getElementById('in-sector').value.trim()||null,cost_transport:gv('cost-transport')||null,cost_shipping:gv('cost-shipping')||null,cost_customs:gv('cost-customs')||null,cost_local:gv('cost-local')||null,cash_payment:cashOrNull(document.getElementById('in-cash-payment')?.value),updated_at:now};
+    const extEntry={supplier_phone:document.getElementById('in-sup-phone').value.trim()||null,supplier_address:document.getElementById('in-sup-address').value.trim()||null,supplier_contact:document.getElementById('in-sup-contact').value.trim()||null,currency:document.getElementById('in-currency').value||'USD',sector:document.getElementById('in-sector').value.trim()||null,cost_transport:gv('cost-transport')||null,cost_shipping:gv('cost-shipping')||null,cost_customs:gv('cost-customs')||null,cost_local:gv('cost-local')||null,cost_transfer:gv('cost-transfer')||null,cash_payment:cashOrNull(document.getElementById('in-cash-payment')?.value),updated_at:now};
     let entry={...coreEntry,...extEntry};
     // 🔁 حارس التكرار (2026-07-11): لا تُدخَل فاتورة برقم موجود مسبقاً دون تحذير
     if (!editId && window.GMTIntegrity) {
@@ -4205,7 +4274,7 @@ async function exportInvHTML(){
 
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
   const invNum=getF('invNum')||getF('invNum2')||'—';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
 
   const items=(d_items_ref&&d_items_ref.length)
     ?d_items_ref.map(i=>({
@@ -4248,6 +4317,7 @@ async function exportInvHTML(){
   const cs=parseFloat(getF('cs'))||fromList?.cost_shipping||0;
   const cc=parseFloat(getF('cc'))||fromList?.cost_customs||0;
   const cl=parseFloat(getF('cl'))||fromList?.cost_local||0;
+  const cx=parseFloat(getF('cx'))||fromList?.cost_transfer||0;
 
   // بيانات الفاتورة كـ JSON مدمج في الملف
   const backupData={
@@ -4268,7 +4338,7 @@ async function exportInvHTML(){
     tracking_number:fromList?.tracking_number||'',
     shipping_notes:getF('notes')||fromList?.shipping_notes||'',
     invoice_file_url:fromList?.invoice_file_url||'',
-    cost_transport:ct,cost_shipping:cs,cost_customs:cc,cost_local:cl,
+    cost_transport:ct,cost_shipping:cs,cost_customs:cc,cost_local:cl,cost_transfer:cx,
     cash_payment:fromList?.cash_payment||0,
     status:fromList?.status||'transit',
     source_branch:fromList?.source_branch||'germany',
@@ -4311,7 +4381,7 @@ async function exportInvHTML(){
     </tr>`).join('');
 
   const totPurchase=items.reduce((s,i)=>s+(i.qty*i.unit_price),0);
-  const totalCosts=ct+cs+cc+cl;
+  const totalCosts=ct+cs+cc+cl+cx;
   const grandTotal=totPurchase+totalCosts;
 
   const htmlContent=`<!DOCTYPE html>
@@ -4397,6 +4467,7 @@ tr:nth-child(even){background:#fafafa;}
     <div class="cost-row"><span>شحن إلى سوريا</span><span>$ <span class="editable-cell" data-field="cost_shipping">${cs||0}</span></span></div>
     <div class="cost-row"><span>جمارك</span><span>$ <span class="editable-cell" data-field="cost_customs">${cc||0}</span></span></div>
     <div class="cost-row"><span>داخل سوريا</span><span>$ <span class="editable-cell" data-field="cost_local">${cl||0}</span></span></div>
+    <div class="cost-row"><span>أجور تحويل وأخرى</span><span>$ <span class="editable-cell" data-field="cost_transfer">${cx||0}</span></span></div>
     <div class="cost-row total-row"><span>المجموع الكلي</span><span id="c-total">$ ${grandTotal.toFixed(2)}</span></div>
   </div>
   ${backupData.shipping_notes?`<div style="background:#f9f9f9;padding:10px;border-radius:6px;font-size:12px;margin-bottom:12px;"><b>ملاحظات:</b> <span class="editable-cell" data-field="notes">${backupData.shipping_notes}</span></div>`:''}
@@ -4436,7 +4507,7 @@ function readEdits(){
   });
   document.querySelectorAll('.editable-cell[data-field]').forEach(el=>{
     const f=el.getAttribute('data-field');const v=el.textContent.trim();
-    if(['cost_transport','cost_shipping','cost_customs','cost_local'].includes(f))BD[f]=parseFloat(v)||0;
+    if(['cost_transport','cost_shipping','cost_customs','cost_local','cost_transfer'].includes(f))BD[f]=parseFloat(v)||0;
     else if(f==='notes')BD.shipping_notes=v;
   });
   document.querySelectorAll('.editable-cell[data-idx]').forEach(el=>{
@@ -4514,7 +4585,7 @@ async function importToSystem(){
       supplier_phone:BD.supplier_phone||null,supplier_address:BD.supplier_address||null,supplier_contact:BD.supplier_contact||null,
       inv_date:BD.inv_date||null,eta_date:BD.eta_date||null,currency:BD.currency||'USD',sector:BD.sector||null,
       shipping_company:BD.shipping_company||null,tracking_number:BD.tracking_number||null,shipping_notes:BD.shipping_notes||null,
-      cost_transport:BD.cost_transport||null,cost_shipping:BD.cost_shipping||null,cost_customs:BD.cost_customs||null,cost_local:BD.cost_local||null,
+      cost_transport:BD.cost_transport||null,cost_shipping:BD.cost_shipping||null,cost_customs:BD.cost_customs||null,cost_local:BD.cost_local||null,cost_transfer:BD.cost_transfer||null,
       cash_payment:cashOrNull(BD.cash_payment),status:BD.status||'transit',
       source_branch:BD.source_branch||'germany',dest_branch:BD.dest_branch||'haleb',
       total_amount:BD.total_amount||0,items_count:finalSnapshot.length,
@@ -4685,7 +4756,7 @@ async function saveInvCloud(){
       min_price:i.minPrice||0,whole_price:i.wholePrice||0,sale_price:i.salePrice||0,
       notes:i.notes||'',is_new:i.isNew||false
     }));
-    const ct=getCost('ct'),cs=getCost('cs'),cc=getCost('cc'),cl=getCost('cl');
+    const ct=getCost('ct'),cs=getCost('cs'),cc=getCost('cc'),cl=getCost('cl'),cx=getCost('cx');
     const cashEl=document.querySelector('#invPage .inv-field[data-field="cash"]');
     const cash=cashOrNull(cashEl?.textContent);
     const payload={
@@ -4702,6 +4773,7 @@ async function saveInvCloud(){
       cost_shipping:cs||fromList?.cost_shipping||null,
       cost_customs:cc||fromList?.cost_customs||null,
       cost_local:cl||fromList?.cost_local||null,
+      cost_transfer:cx||fromList?.cost_transfer||null,
       cash_payment:(cash!=null?cash:cashOrNull(fromList?.cash_payment)),
       total_amount:snapshot.reduce((s,i)=>s+(i.qty*(i.unit_price||0)),0),
       items_count:snapshot.length,
@@ -4777,9 +4849,9 @@ function calcInstantCosts(){
 function _invRebuild(){
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
   const invNum=getF('invNum')||getF('invNum2')||'—';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
   const snap=d_items_ref.map(i=>({
-    id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
+    ...(i._raw||{}),id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
     barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),
     min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes,is_new:i.isNew||false
   }));
@@ -4892,13 +4964,13 @@ async function changeInvCurrency(cur){
   // إعادة بناء الفاتورة بالعملة الجديدة والأسعار المحوّلة
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
   const invNum=getF('invNum')||getF('invNum2')||'—';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
   /* 🔧 (2026-08-23) نفس جذر بَق الحذف/الإضافة [P3] في مسار **ثالث**: تغيير العملة.
      كان Object.assign(invData, fromList, …) يأتي بعد بناء items_snapshot من
      d_items_ref فيدهسه بالنسخة الأصلية من القاعدة ⇒ لو غيّرت العملة بعد حذف بند
      أو إضافته، تعود البنود القديمة. العلاج نفسه: الأصل أولاً ثم المحدَّث فوقه. */
   const _snapCur = d_items_ref.map(i=>({
-      id:i.product?.id||i.id||null,name:i.name,
+      ...(i._raw||{}),id:i.product?.id||i.id||null,name:i.name,
       image_url:i.product?.image_url||i.image_url||'',
       barcode:i.product?.barcode||i.barcode||'',
       qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),
@@ -4930,17 +5002,22 @@ async function deleteInvItem(idx){
   if(idx<cart.length)cart.splice(idx,1);
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
   const invNum=getF('invNum')||getF('invNum2')||'—';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
   // 🔧 (2026-08-18) إصلاح الحذف: ابنِ invData بدمج الفاتورة الأصلية (fromList) أولاً،
   //    ثم ضع items_snapshot المُحدَّث (المنقوص) فوقه — سابقاً كان Object.assign(invData, fromList)
   //    يأتي بعد بناء items_snapshot فيدهسه بالنسخة الكاملة من القاعدة ⇒ يظهر «تم الحذف» بلا حذف فعلي.
   const snap = d_items_ref.map(i=>({
-    id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
+    ...(i._raw||{}),id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',
     barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),
     min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes,is_new:i.isNew||false
   }));
-  const invData = Object.assign({}, (fromList||{}), { inv_number:invNum, items_snapshot:snap });
+  const invData = Object.assign({}, (fromList||{}), { inv_number:(fromList&&fromList.inv_number)||invNum, items_snapshot:snap });
+  if(currentInvModal==='instant'){   /* (TASK-0339) كانت الفورية تُعاد بقالب فاتورة الاستيراد بعد حذف بند */
+    const _keep=window._invOpen, _bn=allBranches.find(b=>b.key_name===(fromList&&fromList.dest_branch))?.display_name||(fromList&&fromList.dest_branch)||'—';
+    const _wasEdit=invEditMode; openInstantInvData(invData,invData.inv_number,_bn); window._invOpen=_keep; if(_wasEdit){try{toggleInvEdit();}catch(_){}}
+  }else{
   document.getElementById('invPage').innerHTML=buildInv(getInvData(invData));
+  }
   hiddenCols.forEach(cls=>{document.querySelectorAll('#invPage .'+cls).forEach(el=>{el.style.display='none';});});
   lucide.createIcons();
   renderCart();updateSum();
@@ -4952,7 +5029,7 @@ async function exportInvExcel(){
   const invNum=getF('invNum')||getF('invNum2')||'—';
   const invDate=getF('invDate')||'';
   const supplier=getF('supplier')||'';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
   let rawItems=[];
   if(d_items_ref&&d_items_ref.length){
     rawItems=d_items_ref.map(i=>({name:i.name||i.product?.name||'',image_url:i.product?.image_url||i.image_url||'',qty:Number(i.qty)||0,unit_price:Number(i.unitPrice)||0,min_price:Number(i.minPrice)||0,whole_price:Number(i.wholePrice)||0,sale_price:Number(i.salePrice)||0,notes:i.notes||''}));
@@ -4971,7 +5048,8 @@ async function exportInvExcel(){
   const cs=parseFloat(getF('cs'))||fromList?.cost_shipping||0;
   const cc=parseFloat(getF('cc'))||fromList?.cost_customs||0;
   const cl=parseFloat(getF('cl'))||fromList?.cost_local||0;
-  const totalCosts=ct+cs+cc+cl;
+  const cx=parseFloat(getF('cx'))||fromList?.cost_transfer||0;
+  const totalCosts=ct+cs+cc+cl+cx;
   const totQty=rawItems.reduce((s,i)=>s+i.qty,0);
   const totPurchase=rawItems.reduce((s,i)=>s+(i.qty*i.unit_price),0);
   const grandTotal=totPurchase+totalCosts;
@@ -5027,7 +5105,7 @@ async function exportInvExcel(){
 function exportInvJSON(){
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
   const invNum=getF('invNum')||getF('invNum2')||'—';
-  const fromList=ships.find(s=>s.inv_number===invNum);
+  const fromList=_invOpenRow()/* (TASK-0339) الصفّ المفتوح بمعرّفه — الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) */;
 
   // items_snapshot: من d_items_ref (الأحدث) أو من قاعدة البيانات
   const snapshotItems=(d_items_ref&&d_items_ref.length)
@@ -5052,6 +5130,7 @@ function exportInvJSON(){
   const cs=parseFloat(getF('cs'))||fromList?.cost_shipping||0;
   const cc=parseFloat(getF('cc'))||fromList?.cost_customs||0;
   const cl=parseFloat(getF('cl'))||fromList?.cost_local||0;
+  const cx=parseFloat(getF('cx'))||fromList?.cost_transfer||0;
 
   const backup={
     _system:'GMT-PURCHASES-BACKUP',
@@ -5077,6 +5156,7 @@ function exportInvJSON(){
     cost_shipping:cs,
     cost_customs:cc,
     cost_local:cl,
+    cost_transfer:cx,
     cash_payment:fromList?.cash_payment||0,
     // الحالة
     status:fromList?.status||'transit',
@@ -5116,14 +5196,18 @@ async function importInvJSON(inp){
     const items=data.items_snapshot||[];
     if(!items.length){toast('الملف لا يحتوي على منتجات','err');return;}
 
-    // تحقق إذا الفاتورة موجودة
-    const exists=ships.find(s=>s.inv_number===data.inv_number);
+    /* (TASK-0339) كانت تبحث بالرقم ثم **تحذف** الفاتورة الأولى بهذا الرقم وتُنشئ جديدة وتضيف كمياتها للمخزون مرّة ثانية:
+       الرقم قد يتكرّر (IMP-2026-0001 صينية وأوروبية) ⇒ قد تُحذف الفاتورة الخطأ · والكميات تتضاعف · وإن فشل الإنشاء تضيع الفاتورة.
+       الآن: المطابقة بالمعرّف أو بالرقم+النوع، وإن تعدّد التطابق يُرفض · الاستبدال في مكانه (بلا حذف) وبلا إضافة كميات. */
+    const _cand=data.id!=null&&ships.some(s=>String(s.id)===String(data.id))
+      ? ships.filter(s=>String(s.id)===String(data.id))
+      : ships.filter(s=>s.inv_number===data.inv_number&&(s.inv_type||'germany')===(data.inv_type||'germany'));
+    if(_cand.length>1){ toast('⛔ يوجد أكثر من فاتورة بالرقم '+data.inv_number+' — لا يمكن تحديد أيّها تُستبدل. لم يتغيّر شيء','err'); return; }
+    const exists=_cand[0]||null;
+    let _replaceId=null;
     if(exists){
-      if(!await GMTAsk.confirm(`الفاتورة "${data.inv_number}" موجودة بالفعل!\nهل تريد استبدالها بالنسخة الاحتياطية؟`))return;
-      try{
-        await sb('DELETE',`/rest/v1/import_log?id=eq.${exists.id}`,null,{Prefer:'return=minimal'});
-        ships=ships.filter(s=>s.id!==exists.id);
-      }catch(e){console.warn('delete old:',e);}
+      if(!await GMTAsk.confirm(`الفاتورة "${data.inv_number}" موجودة بالفعل!\nهل تريد استبدالها بالنسخة الاحتياطية؟\n(تُستبدل في مكانها — الكميات في المخزون لا تُضاف مرّة ثانية)`))return;
+      _replaceId=exists.id;
     } else {
       if(!await GMTAsk.confirm(
         `استعادة الفاتورة:\n`+
@@ -5157,6 +5241,7 @@ async function importInvJSON(inp){
       cost_shipping:data.cost_shipping||null,
       cost_customs:data.cost_customs||null,
       cost_local:data.cost_local||null,
+      cost_transfer:data.cost_transfer||null,
       cash_payment:cashOrNull(data.cash_payment),
       status:data.status||'transit',
       source_branch:data.source_branch||'germany',
@@ -5171,9 +5256,13 @@ async function importInvJSON(inp){
     // حفظ الفاتورة في قاعدة البيانات
     let saved=null;
     try{
-      const res=await sb('POST','/rest/v1/import_log',entry);
+      const res=_replaceId!=null
+        ? await sb('PATCH',`/rest/v1/import_log?id=eq.${_replaceId}`,entry,{Prefer:'return=representation'})
+        : await sb('POST','/rest/v1/import_log',entry);
       saved=Array.isArray(res)?res[0]:res;
+      if(_replaceId!=null&&!saved){ toast('⛔ لم يُستبدل شيء (لم تُعثر الفاتورة في القاعدة)','err'); return; }
     }catch(e){
+      if(_replaceId!=null){ toast('⛔ فشل الاستبدال — الفاتورة الحالية لم تُمسّ: '+e.message,'err'); return; }
       // fallback بدون حقول موسعة
       const core={
         inv_number:entry.inv_number,inv_type:entry.inv_type,
@@ -5212,12 +5301,12 @@ async function importInvJSON(inp){
         if(existingProd){
           // ── موجود: حدّث الكمية والأسعار ──
           const newQty=(Number(existingProd[src])||0)+Number(item.qty||0);
-          const upd={[src]:newQty};
+          const upd=_replaceId!=null?{}:{[src]:newQty};   /* استبدال فاتورة موجودة ⇒ كمياتها محسوبة أصلاً */
           if(item.sale_price>0)upd.price=item.sale_price;
           if(item.whole_price>0)upd.wholesale_price=item.whole_price;
           if(item.min_price>0)upd.net_cost=item.min_price;
           if(item.unit_price>0)upd.cost_price=item.unit_price;
-          await sb('PATCH',`/rest/v1/products?id=eq.${productId}`,upd,{Prefer:'return=minimal'});
+          if(Object.keys(upd).length) await sb('PATCH',`/rest/v1/products?id=eq.${productId}`,upd,{Prefer:'return=minimal'});
           const pi=prods.findIndex(x=>String(x.id) === String(productId));
           if(pi>=0)Object.assign(prods[pi],upd);
           invOk++;
@@ -5236,7 +5325,7 @@ async function importInvJSON(inp){
           // تصفير كل الفروع
           getAllBranchKeys().forEach(k=>{if(newProd[k]===undefined)newProd[k]=0;});
           // ضع الكمية في الفرع الصحيح
-          newProd[src]=Number(item.qty||0);
+          newProd[src]=_replaceId!=null?0:Number(item.qty||0);
 
           const res=await sb('POST','/rest/v1/products',newProd);
           const savedProd=Array.isArray(res)?res[0]:res;
@@ -5259,7 +5348,7 @@ async function importInvJSON(inp){
       if(saved)saved.items_snapshot=updatedSnapshot;
     }
 
-    if(saved)ships.unshift(saved);
+    if(saved){ const _ix=ships.findIndex(s=>String(s.id)===String(saved.id)); if(_ix>=0) ships[_ix]=saved; else ships.unshift(saved); }
     render();
     const msg=created>0
       ?`✅ تمت الاستعادة — ${invOk} منتج (${created} جديد تم إنشاؤه)`
@@ -5564,7 +5653,7 @@ async function importAllInvoicesJSON(inp){
           items_snapshot:inv.items_snapshot||[], eta_date:inv.eta_date||null,
           currency:inv.currency||'USD', cost_transport:inv.cost_transport||0,
           cost_shipping:inv.cost_shipping||0, cost_customs:inv.cost_customs||0,
-          cost_local:inv.cost_local||0
+          cost_local:inv.cost_local||0, cost_transfer:inv.cost_transfer||0
         });
         done++;
       }catch(e){skipped++;}
@@ -5938,12 +6027,12 @@ try {
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
-<script src="gmt-selfcheck.js?v=20261107j"></script>
+<script src="gmt-selfcheck.js?v=20261108b"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107j"></script>
+<script src="gmt-whatsnew.js?v=20261108b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

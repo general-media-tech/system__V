@@ -227,5 +227,79 @@
     }
   } catch (_) {}
 
-  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale };
+  /* ══ (TASK-0339 · المالك seq 567/573) «أسعار البيع تتسعّر فوراً في الجرد والمتجر وتتزامن»
+     الجذر: سعر المنتج يُكتب في الجرد من أماكن كثيرة (فاتورة الشراء · الشحنة · الشراء الفوري · الجرد · الأدوات)، والمتجر
+     سجلٌّ منفصل لا يعرف بذلك — فقط شاشة «تعديل المنتج» كانت تنقل السعر. فكان المتجر يبقى على سعرٍ قديم أو صفر.
+     الحلّ في مكانٍ واحد: كلّ كتابةٍ ناجحة لسعر منتج (PATCH على products?id=eq.X فيها price) ⇒ تُجمع خلال ثانيتين
+     وتُطبَّق على قائمة المتجر المربوطة (inv_id أو رابط المتجر) وعلى قيمته داخل عائلة (خيار بسعر) — بلا نسخة منطقٍ في كل صفحة. ══ */
+  const _pq = new Map(); let _pt = null;
+  function queuePrice(id, price) {
+    if (id == null || !(Number(price) >= 0)) return;
+    _pq.set(String(id), Number(price)); clearTimeout(_pt); _pt = setTimeout(flushPrices, 2000);
+  }
+  async function flushPrices() {
+    if (!_pq.size) return { changed: false };
+    const batch = new Map(_pq); _pq.clear();
+    const d = M(); let urls = {};
+    try {
+      const ids = [...batch.keys()].filter(x => /^[0-9a-f-]{8,}$/i.test(x));
+      if (d && ids.length) {
+        const g = await fetch(d.url + '/rest/v1/products?select=id,store_url&id=in.(' + ids.join(',') + ')', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
+        if (g.ok) (await g.json()).forEach(r => { urls[String(r.id)] = sidOf(r.store_url); });
+      }
+    } catch (_) {}
+    try {
+      const res = await edit(prods => {
+        let changed = false; const touched = [];
+        const out = prods.map(sp => {
+          if (!sp) return sp;
+          let next = sp;
+          const own = [...batch.keys()].find(id => String(sp.inv_id || '') === id || (urls[id] && String(sp.id) === urls[id]));
+          if (own != null && Number(sp.price || 0) !== batch.get(own) && !famIds(sp).length) {
+            next = Object.assign({}, next, { price: batch.get(own) }); changed = true; touched.push(sp.name || sp.id);
+          }
+          if (famIds(sp).some(id => batch.has(id))) {
+            let fc = false;
+            const options = (next.options || []).map(o => {
+              const values = (o.values || []).map(v => {
+                if (!v || !batch.has(String(v.inv_id || ''))) return v;
+                const np = batch.get(String(v.inv_id)); if (Number(v.price || 0) === np) return v;
+                fc = true; return Object.assign({}, v, { price: np });
+              });
+              return fc && !o.affectsPrice ? Object.assign({}, o, { values, affectsPrice: true }) : Object.assign({}, o, { values });
+            });
+            if (fc) {
+              const ps = []; options.forEach(o => { if (o.affectsPrice) (o.values || []).forEach(v => { const x = Number(v && v.price || 0); if (x > 0) ps.push(x); }); });
+              next = Object.assign({}, next, { options, price: ps.length ? Math.min.apply(null, ps) : Number(next.price || 0) });
+              changed = true; touched.push(sp.name || sp.id);
+            }
+          }
+          return next;
+        });
+        return changed ? { changed: true, products: out, touched } : { changed: false };
+      });
+      if (res && res.changed) audit({ action: 'price_sync', field: 'price', entity_name: (res.touched || []).slice(0, 20).join(' · '), new_value: JSON.stringify([...batch.entries()].slice(0, 50)), reason: 'المالك seq 573: سعر الجرد ⇐ المتجر فوراً' });
+      return res;
+    } catch (e) { batch.forEach((v, k) => { if (!_pq.has(k)) _pq.set(k, v); }); clearTimeout(_pt); _pt = setTimeout(flushPrices, 15000); return { changed: false, error: String(e && e.message || e) }; }
+  }
+  try {
+    if (global.fetch && !global.__gmtPriceHook) {
+      global.__gmtPriceHook = true;
+      const _f2 = global.fetch.bind(global);
+      global.fetch = function (input, init) {
+        const p = _f2(input, init);
+        try {
+          const url = typeof input === 'string' ? input : (input && input.url) || '', m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+          const d = M(), mm = /\/rest\/v1\/products\?(?:[^#]*&)?id=eq\.([^&]+)/.exec(url);
+          if (d && m === 'PATCH' && mm && url.indexOf(d.url) === 0 && init && typeof init.body === 'string' && init.body.indexOf('"price"') !== -1) {
+            let b = null; try { b = JSON.parse(init.body); } catch (_) {}
+            if (b && !Array.isArray(b) && b.price != null) p.then(r => { if (r && r.ok) queuePrice(decodeURIComponent(mm[1]), b.price); }).catch(() => {});
+          }
+        } catch (_) {}
+        return p;
+      };
+    }
+  } catch (_) {}
+
+  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale, queuePrice, flushPrices };
 })(window);
