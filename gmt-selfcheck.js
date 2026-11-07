@@ -59,7 +59,12 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     /* (TASK-0033 · المالك seq 307 «الفحص الذاتي اللي عم يعطي خطأ كاذب») كان فشلُ الشبكة لحظةً (لا رمز HTTP) يُحسب «ملفّاً ناقصاً»
        فيظهر شريطٌ أحمر والملفّ موجود. الناقص فعلاً = ردٌّ برمز خطأ (404…). الشبكة المتعثّرة: محاولةٌ ثانية، ثمّ تنبيهٌ لا مشكلة. */
     var missing = [], unsure = [];
-    await Promise.all([...urls].map(async function (u) {
+    /* (المالك seq 566) أربعةٌ في المرّة لا ~٤٠ دفعةً واحدة: على شبكة المحلّ الضعيفة كانت الدفعة تُبطئ الصفحة نفسها (١٦ ث لكلّ ملفّ) */
+    var _q = [...urls], _jobs = [];
+    async function _worker() { while (_q.length) { var u = _q.shift(); await _one(u); } }
+    for (var _w = 0; _w < 4; _w++) _jobs.push(_worker());
+    await Promise.all(_jobs);
+    async function _one(u) {
       for (var a = 0; a < 2; a++) {
         try {
           var r = await fetch(u, { method: 'HEAD', cache: 'no-store' });
@@ -69,7 +74,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
         } catch (e) { if (a === 0) await wait(1500); }
       }
       unsure.push(u);
-    }));
+    }
     if (missing.length) return bad('أصول ناقصة: ' + missing.length, missing.slice(0, 8).join(' · '));
     if (unsure.length) return warn('تعذّر التحقّق من ' + unsure.length + ' ملفّ (الشبكة)', unsure.slice(0, 8).join(' · '));
     return ok('كل أصول الصفحة موجودة (' + urls.size + ')');
@@ -363,6 +368,11 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
   /* تشغيل تلقائي: مرّة كل 24 ساعة، بصمت، بعد استقرار الصفحة */
   function auto() {
+    /* (المالك seq 566) صفحة زبون (المتجر · الكفالة · التتبّع …): لا فحص ذاتيّ على جهاز الزائر — كان كلّ زائرٍ جديد يفحص قواعد الإدارة
+       وملفّات الصفحة بعد ٦ ثوانٍ فيزاحم تحميل صور المتجر على شبكته (ويُسجِّل «مفتاح فرع غير صالح: __probe__»). يبقى للموظّف المسجّل. */
+    var _pub = window.GMT_PUBLIC === true || window.GMT_PUBLIC === 1 || /(^|\/)(guarantee|track_order|store|site|search)\.html$/i.test(location.pathname || '');
+    var _staff = false; try { _staff = !!localStorage.getItem('gmt_session') || sessionStorage.getItem('gmt_admin_mode') === '1'; } catch (_) {}
+    if (_pub && !_staff) return;
     var last = 0;
     try { last = Number(localStorage.getItem(KEY)) || 0; } catch (_) {}
     if (Date.now() - last < 86400000) return;

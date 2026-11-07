@@ -352,7 +352,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     if (ms > 4000) {
       S.slow.push({ t: Date.now(), ms: ms, method: method, url: url.slice(0, 160) });
       save();
-      if (ms > 9000 && window.GMTBug && GMTBug.log) {
+      /* (المالك seq 566 · الفحوصات) طلبات HEAD هي فحص الفاحص الذاتي لوجود الملفّات — لا عمل المستخدم: كانت تُسجَّل
+         ~٣٥ «طلب بطيء جداً» دفعةً واحدة كلّ يوم على شبكةٍ ضعيفة (صفحة الأوردرات ٧ ت2) */
+      if (ms > 9000 && method !== 'HEAD' && window.GMTBug && GMTBug.log) {
         GMTBug.log('slow', 'طلب بطيء جداً (' + ms + 'ms) — سبب محتمل للتجميد: ' + method + ' ' + url.slice(0, 90));
       }
     }
