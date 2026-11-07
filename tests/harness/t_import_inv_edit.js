@@ -38,13 +38,13 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.waitForTimeout(1500);
   const d = await H.call('/__dump', undefined, 'GET');
   const pA = d.products.find(p => p.id === A.id);
-  ok(pA && pA.name === 'ستاند 8819 بالاسم الجديد' && +pA.price === 5.99 && +pA.wholesale_price === 5 && +pA.net_cost === 4.5,
+  ok(pA && pA.name === 'ستاند 8819 بالاسم الجديد' && +pA.price === 6 && +pA.wholesale_price === 5 && +pA.net_cost === 4.5,
     'المنتج تحدّث من الفاتورة: الاسم + المبيع 6 + الجملة 5 + الحد الأدنى 4.5 ' + JSON.stringify(pA && { n: pA.name, p: pA.price, w: pA.wholesale_price, m: pA.net_cost }));
   const cn = d.import_log.find(r => r.id === CN.id), eu = d.import_log.find(r => r.id === EU.id);
   const it = cn.items_snapshot;
   ok(it.length === 2 && it[0].id === A.id && it[1].id === B.id, 'بنود الفاتورة بقيت مربوطة بمنتجاتها ' + JSON.stringify(it.map(x => x.id && x.id.slice(0, 8))));
   ok(it[0].linked_by === 'المالك seq 450' && it[1].merged_from === 'old-1' && +it[0].orig_unit_price === 2, 'حقول البند الأصلية لم تضِع (linked_by · merged_from · السعر الأصلي)');
-  ok(it[0].name === 'ستاند 8819 بالاسم الجديد' && +it[0].sale_price === 5.99, 'البند في الفاتورة يحمل الاسم والسعر الجديدين');
+  ok(it[0].name === 'ستاند 8819 بالاسم الجديد' && +it[0].sale_price === 6, 'البند في الفاتورة يحمل الاسم والسعر الجديدين');
   ok(eu.items_snapshot.length === 1 && eu.items_snapshot[0].id === C.id && eu.items_snapshot[0].name === 'منتج الفاتورة الأوروبية', 'الفاتورة الأوروبية بنفس الرقم IMP-2026-0001 لم تُمسّ');
   const real = errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));

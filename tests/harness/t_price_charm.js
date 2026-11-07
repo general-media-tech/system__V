@@ -29,7 +29,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(!hint, '② الاقتراحات مؤجّلة (seq 576) ⇒ لا نافذة اقتراح «' + hint + '»');
   await pg.evaluate(() => { const i = document.getElementById('tst-price'); i.value = ''; i.focus(); });
   await pg.type('#tst-price', '45'); await pg.evaluate(() => document.getElementById('tst-price').blur()); await sleep(100);
-  ok(await pg.evaluate(() => document.getElementById('tst-price').value) === '44.99', '② الخروج من الخانة برقم صحيح ⇐ ناقص سنت 44.99');
+  ok(await pg.evaluate(() => document.getElementById('tst-price').value) === '45', '② خانة سعر الجرد/المشتريات تبقى كما كُتبت 45 (السنت للمتجر وحده · seq 577)');
   // ⑤ الجرد ⇐ المتجر: اسم جديد للمنتج A (PATCH مثل كل الصفحات)
   await pg.evaluate(async id => { await fetch(GMT_DB.MAIN.url + '/rest/v1/products?id=eq.' + id, { method: 'PATCH', headers: { apikey: GMT_DB.MAIN.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'كاميرا بالاسم الجديد' }) }); }, A.id);
   await pg.evaluate(async id => { await fetch(GMT_DB.MAIN.url + '/rest/v1/products?id=eq.' + id, { method: 'PATCH', headers: { apikey: GMT_DB.MAIN.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'فلتر UV 58mm جديد' }) }); }, B.id);

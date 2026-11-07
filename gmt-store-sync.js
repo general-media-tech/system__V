@@ -312,7 +312,7 @@
             const pid = decodeURIComponent(mm[1]);
             if (b && !Array.isArray(b)) p.then(r => {
               if (!r || !r.ok) return;
-              if (b.price != null) queuePrice(pid, global.GMTPrice ? GMTPrice.charm(b.price, { min: b.net_cost, whole: b.wholesale_price }) : b.price);   /* (seq 575) سعر العرض كما القاعدة */
+              if (b.price != null) queuePrice(pid, b.price);   /* السعر كما في الجرد — المتجر يعرضه ناقص سنت (seq 577) */
               if (b.name != null) queueName(pid, b.name);
             }).catch(() => {});
           }

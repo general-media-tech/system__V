@@ -187,7 +187,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261108c"></script>
+  <script src="gmt-core.js?v=20261108d"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -201,8 +201,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-labels.js?v=20261107a"></script>
-<script src="gmt-staff.js?v=20261108c"></script>
-<script src="gmt-store-sync.js?v=20261108c"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
+<script src="gmt-staff.js?v=20261108d"></script>
+<script src="gmt-store-sync.js?v=20261108d"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -1646,7 +1646,7 @@ async function saveInstantPurchase(){
         const fresh=await sb('GET',`/rest/v1/products?id=eq.${item.product.id}&select=id,${branch},price,net_cost,wholesale_price,cost_price`);
         const p=Array.isArray(fresh)?fresh[0]:fresh;
         const payload={[branch]:(Number(p?.[branch])||0)+item.qty};
-        if(item.salePrice>0)payload.price=(window.GMTPrice?GMTPrice.charm(item.salePrice,{min:item.minPrice,whole:item.wholePrice}):item.salePrice);   /* (TASK-0339 · seq 574) −1 سنت كما القاعدة */
+        if(item.salePrice>0)payload.price=item.salePrice;
         if(item.wholePrice>0)payload.wholesale_price=item.wholePrice;
         if(item.minPrice>0)payload.net_cost=item.minPrice;
         if(item.unitPrice>0)payload.cost_price=item.unitPrice;
@@ -3211,8 +3211,8 @@ function toggleInvEdit(){
 }
 /* (TASK-0339 · المالك seq 567/573) «أثناء تعديل فاتورة الشراء اجعل من اللابتوب الأزرار الأسهم الأسفل والجوانب تعمل كما أنها في إكسل
    — لما بدّي أدخل السعر خلاص أكبس الزر وأنزل وأتحرّك»:
-   Enter / ↓ = نفس العمود في الصفّ التالي · Shift+Enter / ↑ = الصفّ السابق · ← → = الخانة المجاورة (الجدول من اليمين لليسار:
-   ← تذهب للخانة التي على اليسار) — في خانتي الاسم والملاحظات تتحرّك الأسهم الجانبية داخل النصّ ولا تخرج إلا من طرفه.
+   Enter / ↓ = نفس العمود في الصفّ التالي · Shift+Enter / ↑ = الصفّ السابق · → = الخانة التالية (الشراء ⇐ الحد الأدنى ⇐ الجملة ⇐ المبيع)
+   · ← = السابقة — في خانتي الاسم والملاحظات تتحرّك الأسهم الجانبية داخل النصّ ولا تخرج إلا من طرفه.
    الدخول إلى خانة يحدّد محتواها كلّه ⇒ الكتابة تستبدل الرقم مباشرة كما في إكسل. */
 function _invGridCells(tr){ return [...tr.children].filter(td=>td.offsetParent!==null && td.querySelector('[contenteditable="true"]')); }
 function _invFocusCell(td){
@@ -3245,9 +3245,9 @@ document.addEventListener('keydown',function(e){
   }
   if(k==='ArrowLeft'||k==='ArrowRight'){
     const textCell=td.cellIndex===2||/col-notes/.test(td.className);
-    const rtl=getComputedStyle(tr).direction==='rtl';
-    const forward=(k==='ArrowLeft')===rtl;            // «للأمام» = الخانة التالية في ترتيب الأعمدة
-    if(textCell && !_caretAtEdge(ed, rtl ? (k==='ArrowRight') : (k==='ArrowLeft'))) return;
+    /* (المالك seq 577) «سهم اليمين … من سعر الشراء إلى الحد الأدنى إلى الجملة» ⇒ → للأمام في ترتيب الأعمدة · ← للخلف */
+    const forward=(k==='ArrowRight');
+    if(textCell && !_caretAtEdge(ed, !forward)) return;
     const cells=_invGridCells(tr), ci=cells.indexOf(td);
     let target=cells[ci+(forward?1:-1)];
     if(!target){ const nr=rows[rows.indexOf(tr)+(forward?1:-1)]; if(nr){ const nc=_invGridCells(nr); target=forward?nc[0]:nc[nc.length-1]; } }
@@ -3356,7 +3356,7 @@ async function saveInvEdits(){
       pendingCreates.push({idx, tempId:prodId, name:newName||d_items_ref[idx].name});
     } else if(prodId){
       const upd={};
-      if(d_items_ref[idx].salePrice>0){ d_items_ref[idx].salePrice=(window.GMTPrice?GMTPrice.charm(d_items_ref[idx].salePrice,{min:d_items_ref[idx].minPrice,whole:d_items_ref[idx].wholePrice}):d_items_ref[idx].salePrice); upd.price=d_items_ref[idx].salePrice; }   /* (TASK-0339 · seq 574) −1 سنت — الفاتورة والمنتج بنفس الرقم ⇒ لا «تعارض» وهمي */
+      if(d_items_ref[idx].salePrice>0)upd.price=d_items_ref[idx].salePrice;
       if(d_items_ref[idx].wholePrice>0)upd.wholesale_price=d_items_ref[idx].wholePrice;
       if(d_items_ref[idx].minPrice>0)upd.net_cost=d_items_ref[idx].minPrice;
       if(d_items_ref[idx].unitPrice>0)upd.cost_price=d_items_ref[idx].unitPrice;
@@ -3704,7 +3704,7 @@ async function saveShipment(){
       for(const item of cart){
         try{
           const upd={};
-          if(item.salePrice>0)upd.price=(window.GMTPrice?GMTPrice.charm(item.salePrice,{min:item.minPrice,whole:item.wholePrice}):item.salePrice);
+          if(item.salePrice>0)upd.price=item.salePrice;
           if(item.wholePrice>0)upd.wholesale_price=item.wholePrice;
           if(item.minPrice>0)upd.net_cost=item.minPrice;
           // PUR-7: cost_price = سعر الوحدة + حصتها من المصاريف
@@ -3720,7 +3720,7 @@ async function saveShipment(){
       for(const item of cart){
         try{
           const upd={};
-          if(item.salePrice>0)upd.price=(window.GMTPrice?GMTPrice.charm(item.salePrice,{min:item.minPrice,whole:item.wholePrice}):item.salePrice);
+          if(item.salePrice>0)upd.price=item.salePrice;
           if(item.wholePrice>0)upd.wholesale_price=item.wholePrice;
           if(item.minPrice>0)upd.net_cost=item.minPrice;
           const lc=_landed[item.product.id];          // PUR-7
@@ -4565,7 +4565,7 @@ async function importToSystem(){
       if(imgUrl&&imgUrl.startsWith('data:')){try{const ext=imgUrl.includes('png')?'png':'jpg';imgUrl=await uploadImg('restored/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext,imgUrl);}catch(e){imgUrl='';}}
       if(exists){
         const upd={[src]:(Number(exists[src])||0)+Number(item.qty||0)};
-        if(item.sale_price>0)upd.price=(window.GMTPrice?GMTPrice.charm(item.sale_price,{min:item.min_price,whole:item.whole_price}):item.sale_price);if(item.whole_price>0)upd.wholesale_price=item.whole_price;
+        if(item.sale_price>0)upd.price=item.sale_price;if(item.whole_price>0)upd.wholesale_price=item.whole_price;
         if(item.min_price>0)upd.net_cost=item.min_price;if(item.unit_price>0)upd.cost_price=item.unit_price;
         if(imgUrl&&!imgUrl.startsWith('data:'))upd.image_url=imgUrl;
         await sbCall('PATCH','/rest/v1/products?id=eq.'+pid,upd);
@@ -5302,7 +5302,7 @@ async function importInvJSON(inp){
           // ── موجود: حدّث الكمية والأسعار ──
           const newQty=(Number(existingProd[src])||0)+Number(item.qty||0);
           const upd=_replaceId!=null?{}:{[src]:newQty};   /* استبدال فاتورة موجودة ⇒ كمياتها محسوبة أصلاً */
-          if(item.sale_price>0)upd.price=(window.GMTPrice?GMTPrice.charm(item.sale_price,{min:item.min_price,whole:item.whole_price}):item.sale_price);
+          if(item.sale_price>0)upd.price=item.sale_price;
           if(item.whole_price>0)upd.wholesale_price=item.whole_price;
           if(item.min_price>0)upd.net_cost=item.min_price;
           if(item.unit_price>0)upd.cost_price=item.unit_price;
@@ -6027,12 +6027,12 @@ try {
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
-<script src="gmt-selfcheck.js?v=20261108c"></script>
+<script src="gmt-selfcheck.js?v=20261108d"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261108c"></script>
+<script src="gmt-whatsnew.js?v=20261108d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

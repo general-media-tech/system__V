@@ -540,8 +540,8 @@
     return v >= mn && !(wh > 0 && v < wh);
   }
   global.GMTPrice = global.GMTPrice || {
-    /* (المالك seq 576) «مبدئياً … فقط نقّص سنت واحد من كل واحد — أجّل هذا الشيء (3/7 سنت · فوق 500) لبعدين»
-       ⇒ الآن سنتٌ واحد لكل سعر. الاستراتيجية الكاملة جاهزة أدناه (STRATEGY) وتُفعَّل بقرار المالك لاحقاً. */
+    /* (المالك seq 577) «فقط في المتجر حطّ قاعدة إنه كل سعر ينقص سنت واحد» ⇒ تُستعمل في عرض المتجر وحده
+       (store.html) · الجرد ونقطة البيع وفواتير الشراء بالسعر كما كُتب. الاستراتيجية الموسّعة (STRATEGY) جاهزة ومؤجّلة. */
     STRATEGY: false,
     drop: function (P) {
       if (!this.STRATEGY) return 0.01;
@@ -629,6 +629,7 @@
       _showHint(el);
     }, true);
     document.addEventListener('focusout', function (e) {
+      if (!global.GMTPrice.STRATEGY) return;   /* (المالك seq 577) «فقط في المتجر … كل سعر ينقص سنت» ⇒ لا تغيير على خانات الجرد/المشتريات */
       var el = e.target && e.target.closest && e.target.closest(SALE_SEL); if (!el) return;
       setTimeout(function () {
         if (_hintFor === el) _hideHint();
