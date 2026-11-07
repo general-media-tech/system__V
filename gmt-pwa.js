@@ -13,7 +13,20 @@
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol === 'file:') return;            // لا يعمل محلياً بلا خادم
 
+  /* (TASK-0336 · المالك seq 564 «الأشخاص اللي عم تفتح صفحة الزبون ما في داعي يكون عنده تحديث النظام … سواء المتجر الإلكتروني
+     أو الكفالة أو التراكينج») صفحة زبون ⇒ لا شريط «تتوفّر نسخة جديدة» ولا صوت ولا إعادة تحميل: النسخة الجديدة تُفعَّل بصمت
+     فيأخذها الزائر في فتحته التالية تلقائياً. */
+  var PUBLIC = !!window.GMT_PUBLIC || /(^|\/)(store|site|search|track_order|guarantee|%D8%A3%D9%85%D8%A7%D9%83%D9%86_%D8%A7%D9%84%D9%88%D8%B5%D9%88%D9%84|أماكن_الوصول)\.html$/i.test(location.pathname || '');
+  function silentActivate() {
+    try {
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (!reg) return;
+        return reg.update().catch(function () {}).then(function () { if (reg.waiting) reg.waiting.postMessage('skipWaiting'); });
+      }).catch(function () {});
+    } catch (_) {}
+  }
   function banner(onUpdate) {
+    if (PUBLIC) { silentActivate(); return; }
     if (document.getElementById('gmt-pwa-bar')) return;
     try { window.dispatchEvent(new CustomEvent('gmt-update-available')); } catch (_) {}   /* (TASK-0032) صوت «نسخة جديدة» في gmt-sound.js */
     var b = document.createElement('div');
@@ -117,6 +130,7 @@
     if (reloaded) return;
     if (userAsked) { reloaded = true; location.reload(); return; }
     if (!hadCtl) { hadCtl = true; return; }                       // أوّل تثبيت: الصفحة نفسها، لا جديد فيها
+    if (PUBLIC) return;                                            // صفحة زبون: النسخة الجديدة للفتحة التالية — بلا شريط ولا إعادة تحميل
     banner(function () { reloaded = true; location.reload(); });   // نسخةٌ جديدة صارت نشطة — أنت تقرّر متى
   });
 })();

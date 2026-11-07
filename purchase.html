@@ -3058,7 +3058,9 @@ function getInvData(shipData){
   const currency=fromForm('currency','in-currency')||'USD';
   const items=(s.items_snapshot||cart).map(i=>{
     const isCart=!!i.product;
-    return{name:isCart?i.product.name:(i.name||''),image_url:isCart?i.product.image_url:(i.image_url||''),barcode:isCart?i.product.barcode:(i.barcode||''),qty:i.qty||0,isNew:isCart?(i.isNew||false):(i.is_new||false),unitPrice:isCart?i.unitPrice:(i.unit_price||0),minPrice:isCart?i.minPrice:(i.min_price||0),wholePrice:isCart?i.wholePrice:(i.whole_price||0),salePrice:isCart?i.salePrice:(i.sale_price||0),notes:i.notes||''};
+    /* (TASK-0335 · المالك seq 564 «فاتورة الشراء الصينية … لا يمكنني تعديل الأسعار … ولا المنتجات») كان البند المفتوح من القائمة يفقد
+       معرّف منتجه ⇒ «حفظ التعديلات» لا يصل للمنتجات أبداً، ويكتب الفاتورة بـ id:null فتنقطع كلّ روابطها. الآن يحمل id وكلّ حقوله الأصلية (_raw). */
+    return{id:isCart?undefined:(i.id||null),_raw:isCart?null:i,origUnitPrice:isCart?undefined:(i.orig_unit_price!=null?i.orig_unit_price:undefined),name:isCart?i.product.name:(i.name||''),image_url:isCart?i.product.image_url:(i.image_url||''),barcode:isCart?i.product.barcode:(i.barcode||''),qty:i.qty||0,isNew:isCart?(i.isNew||false):(i.is_new||false),unitPrice:isCart?i.unitPrice:(i.unit_price||0),minPrice:isCart?i.minPrice:(i.min_price||0),wholePrice:isCart?i.wholePrice:(i.whole_price||0),salePrice:isCart?i.salePrice:(i.sale_price||0),notes:i.notes||''};
   });
   const ct=Number(fromForm('cost_transport','cost-transport'))||0;const cs=Number(fromForm('cost_shipping','cost-shipping'))||0;const cc=Number(fromForm('cost_customs','cost-customs'))||0;const cl=Number(fromForm('cost_local','cost-local'))||0;
   const totalCosts=ct+cs+cc+cl;const origTotal=items.reduce((s,i)=>s+(i.qty*i.unitPrice),0);
@@ -3079,12 +3081,12 @@ function buildInv(data){
   const edt=(val,w)=>`<span contenteditable="true" class="editable" style="min-width:${w||50}px;display:inline-block;">${val||''}</span>`;
   const rows=d.items.map((item,idx)=>{
     const fs=(item.name||'').length>38?'10px':'12px';const imgId=`inv-img-${idx}`;let imgEl;
-    if(item.image_url){imgEl=`<div style="position:relative;width:44px;height:44px;display:inline-block;"><img src="${eh(item.image_url)}" data-orig-src="${eh(item.image_url)}" style="width:44px;height:44px;object-fit:contain;display:block;" onerror="this.style.display='none'" title="${eh(item.name)}">${item.isNew?`<div onclick="invImgClick(${idx},this.parentElement)" title="تغيير الصورة" style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,.5);border-radius:3px;padding:1px 2px;cursor:pointer;font-size:9px;color:#fff;">✏️</div>`:''}</div>`;}
+    if(item.image_url){imgEl=`<div style="position:relative;width:44px;height:44px;display:inline-block;"><img src="${eh(item.image_url)}" data-orig-src="${eh(item.image_url)}" style="width:44px;height:44px;object-fit:contain;display:block;" onerror="this.style.display='none'" title="${eh(item.name)}"><div onclick="invImgClick(${idx},this.parentElement)" title="تغيير الصورة" style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,.5);border-radius:3px;padding:1px 2px;cursor:pointer;font-size:9px;color:#fff;">✏️</div></div>`;}
     else if(item.isNew){imgEl=`<div id="${imgId}" onclick="invImgClick(${idx},this)" title="اضغط لإضافة صورة" style="width:44px;height:44px;background:#fffbea;border:1.5px dashed #f59e0b;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#b45309;font-weight:700;"><span style="font-size:18px;">📷</span><span>إضافة</span></div>`;}
     else{imgEl=`<div style="width:44px;height:44px;background:#f3f4f6;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;" title="${eh(item.name)}">📦</div>`;}
     const fmt=v=>v&&Number(v)>0?Number(v).toFixed(2):'';let _cellN=0;
     const dualCell=(cls,unitVal,qty)=>{const uid='dc_'+idx+'_'+(_cellN++);const tot=unitVal&&qty?(Number(unitVal)*qty).toFixed(2):'';return `<td class="${cls}" style="border:2px solid #222;text-align:center;padding:2px 2px;vertical-align:middle;"><div contenteditable="true" class="editable" data-uid="${uid}_u" oninput="var t=document.querySelector('[data-uid=${uid}_t]');if(t){var v=parseFloat(this.textContent)||0;t.textContent=v&&${qty}?(v*${qty}).toFixed(2):''}" style="display:block;color:#111;font-size:11px;font-weight:700;min-width:44px;">${unitVal||''}</div><div data-uid="${uid}_t" style="color:#D5001C;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #ffd6da;min-height:13px;">${tot}</div></td>`;};
-    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${item.isNew?`<div contenteditable="true" class="editable" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div>`:eh(item.name||'')}</td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
+    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
   }).join('');
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};setTimeout(reHide,30);
   return `
@@ -3118,6 +3120,7 @@ function buildInv(data){
 function openInvModal(){
   if(!cart.length){toast('أضف منتجات أولاً','err');return;}
   currentInvModal='import';
+  window._invOpenShipId=null; window._invFromList=false;
   ['tog-img','tog-purchase','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   hiddenCols.clear();
   const data=getInvData(null);
@@ -3135,6 +3138,7 @@ function openInvFromList(id){
   const s=ships.find(x=>String(x.id)===String(id));if(!s)return;
   if(s.inv_type==='instant'){openInstantInvFromList(id);return;}
   currentInvModal='import';
+  window._invOpenShipId=s.id; window._invFromList=true;
   // دمج بيانات المنتجات الحية من cache (اسم، صورة، أسعار) مع snapshot الفاتورة
   const enriched={...s,items_snapshot:(s.items_snapshot||[]).map(i=>{
     const p=prods.find(x=>String(x.id) === String(i.id))||{};
@@ -3271,7 +3275,7 @@ async function saveInvEdits(){
     const newSalePrice=dualUnit(cells[7]);
     const newNotes=firstEd(cells[8]);
     let newName=d_items_ref[idx].name;
-    if(d_items_ref[idx].isNew){const nm=cells[2]?.querySelector('[contenteditable="true"]')?.textContent.trim()||cells[2]?.querySelector('.editable')?.textContent.trim();if(nm)newName=nm;}
+    {const nm=cells[2]?.querySelector('[contenteditable="true"]')?.textContent.trim()||cells[2]?.querySelector('.editable')?.textContent.trim();if(nm)newName=nm;}
 
     // تحديث d_items_ref
     d_items_ref[idx].qty=q;
@@ -3286,14 +3290,14 @@ async function saveInvEdits(){
     if(newName)d_items_ref[idx].name=newName;
 
     // تحديث cart إذا موجود
-    if(idx<cart.length){
+    if(!window._invFromList && idx<cart.length){
       cart[idx].qty=q;
       cart[idx].unitPrice=d_items_ref[idx].unitPrice;
       cart[idx].minPrice=d_items_ref[idx].minPrice;
       cart[idx].wholePrice=d_items_ref[idx].wholePrice;
       cart[idx].salePrice=d_items_ref[idx].salePrice;
       cart[idx].notes=newNotes;
-      if(d_items_ref[idx].isNew)cart[idx].product.name=newName;
+      if(cart[idx].product)cart[idx].product.name=newName;
     }
 
     // تجميع تحديثات DB للمنتجات
@@ -3308,7 +3312,7 @@ async function saveInvEdits(){
       if(d_items_ref[idx].wholePrice>0)upd.wholesale_price=d_items_ref[idx].wholePrice;
       if(d_items_ref[idx].minPrice>0)upd.net_cost=d_items_ref[idx].minPrice;
       if(d_items_ref[idx].unitPrice>0)upd.cost_price=d_items_ref[idx].unitPrice;
-      if(d_items_ref[idx].isNew&&newName!==oldName)upd.name=newName;
+      if(newName&&newName!==oldName)upd.name=newName;
       if(Object.keys(upd).length)productUpdates.push({id:prodId,upd});
     }
   });
@@ -3424,7 +3428,8 @@ async function saveInvEdits(){
     costs_paid:false,
     // items من d_items_ref مباشرة
     items_snapshot:d_items_ref.map(i=>({
-      id:i.product?.id||i.id||null,
+      ...(i._raw||{}),
+      id:i.product?.id||i.id||(i._raw&&i._raw.id)||null,
       name:i.name,
       image_url:i.product?.image_url||i.image_url||'',
       barcode:i.product?.barcode||i.barcode||'',
@@ -3462,15 +3467,18 @@ async function saveInvEdits(){
 
   // ── حفظ تلقائي للتكاليف في قاعدة البيانات ──
   const invNumForSave=getF('invNum')||getF('invNum2')||'—';
-  const fromListForSave=ships.find(s=>s.inv_number===invNumForSave);
-  if(fromListForSave?.id){
+  const fromListForSave=(window._invFromList&&window._invOpenShipId!=null)?ships.find(s=>String(s.id)===String(window._invOpenShipId)):ships.find(s=>s.inv_number===invNumForSave);
+  const _lostLinks=fromListForSave?((fromListForSave.items_snapshot||[]).filter(x=>x&&x.id).length-d_items_ref.filter(i=>i.product?.id||i.id||(i._raw&&i._raw.id)).length):0;
+  if(fromListForSave?.id && _lostLinks>0 && d_items_ref.length>=(fromListForSave.items_snapshot||[]).length){
+    toast('⛔ لم يُحفظ في السحابة: '+_lostLinks+' بنداً سيفقد ربطه بمنتجه — أعد فتح الفاتورة وحاول ثانية','err');
+  }else if(fromListForSave?.id){
     const costPayload={
       cost_transport:ct||null,cost_shipping:cs||null,cost_customs:cc||null,cost_local:cl||null,
       cash_payment:cashVal,
       total_amount:d_items_ref.reduce((s,i)=>s+(i.qty*(i.unitPrice||0)),0),
       items_count:d_items_ref.length,
       total_qty:d_items_ref.reduce((s,i)=>s+i.qty,0),
-      items_snapshot:d_items_ref.map(i=>({id:i.product?.id||i.id||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes||'',is_new:i.isNew||false})),
+      items_snapshot:d_items_ref.map(i=>({...(i._raw||{}),id:i.product?.id||i.id||(i._raw&&i._raw.id)||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes||'',is_new:i.isNew||false})),
       updated_at:new Date().toISOString()
     };
     sb('PATCH',`/rest/v1/import_log?id=eq.${fromListForSave.id}`,costPayload,{Prefer:'return=minimal'})
@@ -5896,13 +5904,13 @@ try {
 <!-- (٧ ط) الدروس خطوة بخطوة -->
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
-<script src="gmt-pwa.js?v=20261101y"></script>
+<script src="gmt-pwa.js?v=20261107g"></script>
 <script src="gmt-selfcheck.js?v=20261104c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107f"></script>
+<script src="gmt-whatsnew.js?v=20261107g"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
