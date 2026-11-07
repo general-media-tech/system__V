@@ -3523,7 +3523,10 @@
       const took = Date.now() - started;
       if (took > 8000) add('warn', 'بطء', `الطلب استغرق ${(took / 1000).toFixed(1)} ثانية`, method + ' ' + redact(url));
 
-      if (!res.ok && res.status !== 406) {
+      /* (TASK-0331 · المالك seq 536 «الفحوصات») طلب الفحص الذاتي المقصود (فرع «__probe__») يُرفض عمداً ليُثبت أنّ الدالّة موجودة —
+         كان يُسجَّل خطأً حقيقياً «مفتاح فرع غير صالح: __probe__» في سجلّ الأخطاء كلّ يوم. */
+      const _probe = /__probe__/.test(String((init && init.body) || ''));
+      if (!res.ok && res.status !== 406 && !_probe) {
         let body = '';
         try { body = (await res.clone().text()).slice(0, 300); } catch (_) {}
         add('crit', 'HTTP ' + res.status, explainDb(body), method + ' ' + redact(url) + '\n' + body);

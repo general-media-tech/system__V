@@ -95,7 +95,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261104j"></script>
+  <script src="gmt-core.js?v=20261107c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -1966,6 +1966,9 @@ window.openTracking = async (id) => {
     const url = trackUrlFor(o.shipping_company);
     if (!url) { showToast('التتبع غير متوفر لهاي الشركة بعد', 'err'); return; }
     const num = String(o.tracking_number).trim();
+    /* (TASK-0331) التبويب يُفتح **قبل** أيّ انتظار: بعد await يفقد المتصفّح «نقرة المستخدم» فيمنع النافذة (سجلّ الأخطاء: «منع النوافذ
+       المنبثقة» ×6 لموقع المفتي) · و'noopener' يجعل window.open يرجع null دائماً حتى لو فُتحت ⇒ نُلغي opener بأنفسنا. */
+    const _tw = window.open(url, '_blank'); try { if (_tw) _tw.opener = null; } catch (_) {}
     let copied = false;
     try { await navigator.clipboard.writeText(num); copied = true; } catch (_) {
         /* احتياطي للمتصفّحات بلا Clipboard API (http أو قديمة) */
@@ -1976,7 +1979,6 @@ window.openTracking = async (id) => {
             copied = document.execCommand('copy'); ta.remove();
         } catch (_) {}
     }
-    window.open(url, '_blank', 'noopener');
     showToast(copied
         ? `✅ تم نسخ رقم التتبع ${num} — الصقه بموقع ${o.shipping_company}`
         : `🔖 رقم التتبع: ${num} — انسخه يدوياً والصقه بموقع ${o.shipping_company}`,
@@ -6811,7 +6813,7 @@ function digitsOnly(s) {
 window.openMuftiSite = () => {
     const url = trackUrlFor(MUFTI_CO);
     if (!url) { showToast('لا رابط تتبّعٍ مسجَّل للمفتي', 'err'); return; }
-    window.open(url, '_blank', 'noopener');
+    const _w = window.open(url, '_blank'); try { if (_w) _w.opener = null; } catch (_) {}   /* (TASK-0331) بلا 'noopener' ⇒ لا تبليغ «منع» كاذب */
 };
 window.openVerifyShipment = () => {
     const i = document.getElementById('vs-num'); if (i) i.value = '';
@@ -6864,8 +6866,8 @@ window.verifyShipmentOpenSite = async () => {
     if (!num) { showToast('اكتب رقم التتبّع أولاً', 'err'); return; }
     const url = trackUrlFor(MUFTI_CO);
     if (!url) { showToast('لا رابط تتبّعٍ مسجَّل للمفتي', 'err'); return; }
+    const _w = window.open(url, '_blank'); try { if (_w) _w.opener = null; } catch (_) {}   /* (TASK-0331) قبل الانتظار — وإلا يمنعه المتصفّح */
     const copied = await copyToClipboard(num);
-    window.open(url, '_blank', 'noopener');
     showToast(copied ? '✅ نُسخ الرقم ' + num + ' — الصقه بموقع المفتي' : '🔖 الرقم: ' + num + ' — انسخه يدوياً والصقه بموقع المفتي', copied ? 'ok' : 'err');
 };
 window.verifyShipmentFromImage = async (input) => {
@@ -10402,7 +10404,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107b"></script>
+<script src="gmt-whatsnew.js?v=20261107c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
