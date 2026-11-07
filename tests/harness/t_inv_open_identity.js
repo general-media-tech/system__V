@@ -47,9 +47,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(JSON.stringify(cn) === cn0, '«حفظ التعديلات»: الفاتورة الصينية IMP-2026-0008 لم تُمسّ');
   ok(po.inv_type === 'instant' && po.status === 'arrived' && po.inv_number === 'PO-2026-0002' && po.supplier === 'سمارت ستور', 'الفورية بقيت فورية/واصلة وبرقمها ومورّدها ' + JSON.stringify({ t: po.inv_type, s: po.status, n: po.inv_number }));
   ok(po.items_snapshot.length === 2 && po.items_snapshot[0].id === C.id && po.items_snapshot[1].id === D.id, 'بنود الفورية بقيت مربوطة بمنتجاتها');
-  ok(+po.items_snapshot[0].sale_price === 32 && +po.items_snapshot[0].whole_price === 28 && +po.items_snapshot[0].orig_unit_price === 20, 'التعديل محفوظ في الفورية (مبيع 32 · جملة 28 · الأصلي 20)');
+  ok(+po.items_snapshot[0].sale_price === 31.99 && +po.items_snapshot[0].whole_price === 28 && +po.items_snapshot[0].orig_unit_price === 20, 'التعديل محفوظ في الفورية (مبيع 32 ⇐ ناقص سنت 31.99 · جملة 28 · الأصلي 20) ' + po.items_snapshot[0].sale_price);
   const pC = d.products.find(p => p.id === C.id);
-  ok(+pC.price === 32 && +pC.wholesale_price === 28, 'المنتج تحدّث (مبيع 32 · جملة 28)');
+  ok(+pC.price === 31.99 && +pC.wholesale_price === 28, 'المنتج تحدّث (مبيع 31.99 · جملة 28) ' + pC.price);
   // ③ «حفظ سحابي» على نفس الفاتورة المفتوحة
   const st2 = await pg.evaluate(() => window._invOpen);
   ok(st2 && String(st2.id) === '802', 'بعد «حفظ التعديلات» ما زالت الفاتورة المفتوحة هي 802 ' + JSON.stringify(st2));

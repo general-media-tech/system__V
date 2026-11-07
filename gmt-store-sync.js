@@ -35,7 +35,7 @@
       if (!res || !res.changed) return res || { changed: false };
       let url = s.url + '/rest/v1/gmt_store?id=eq.1&select=id'; const body = { products: res.products };
       if ('updated_at' in rec) { url += rec.updated_at ? '&updated_at=eq.' + encodeURIComponent(rec.updated_at) : '&updated_at=is.null'; body.updated_at = new Date().toISOString(); }
-      const w = await fetch(url, { method: 'PATCH', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
+      const w = await fetch(url, { method: 'PATCH', __gmtSyncWrite: true, headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=representation' }, H), body: JSON.stringify(body) });
       if (!w.ok) throw new Error('حفظ المتجر HTTP ' + w.status);
       const rows = await w.json().catch(() => null); if (Array.isArray(rows) && rows.length) return res;
     }
@@ -219,8 +219,12 @@
         try {
           const url = typeof input === 'string' ? input : (input && input.url) || '', m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
           const s = S();
-          if (s && (m === 'PATCH' || m === 'POST') && url.indexOf(s.url + '/rest/v1/gmt_store') === 0)
+          if (s && (m === 'PATCH' || m === 'POST') && url.indexOf(s.url + '/rest/v1/gmt_store') === 0) {
+            /* (TASK-0340) الصفحة نفسها كتبت المتجر صراحةً (شاشة تعديل المنتج: «الاسم/السعر في المتجر») ⇒ قيمها هي الحكم،
+               لا نكتب فوقها اسم/سعر الجرد المنتظرَين في الطابور (كتابة المزامنة الداخلية لا تمرّ هنا: edit() يُعلَّم) */
+            if (!(init && init.__gmtSyncWrite)) { _pq.clear(); _nq.clear(); }
             p.then(r => { if (r && r.ok) homePublish(); }).catch(() => {});
+          }
         } catch (_) {}
         return p;
       };
@@ -232,17 +236,23 @@
      سجلٌّ منفصل لا يعرف بذلك — فقط شاشة «تعديل المنتج» كانت تنقل السعر. فكان المتجر يبقى على سعرٍ قديم أو صفر.
      الحلّ في مكانٍ واحد: كلّ كتابةٍ ناجحة لسعر منتج (PATCH على products?id=eq.X فيها price) ⇒ تُجمع خلال ثانيتين
      وتُطبَّق على قائمة المتجر المربوطة (inv_id أو رابط المتجر) وعلى قيمته داخل عائلة (خيار بسعر) — بلا نسخة منطقٍ في كل صفحة. ══ */
-  const _pq = new Map(); let _pt = null;
+  const _pq = new Map(), _nq = new Map(); let _pt = null;
   function queuePrice(id, price) {
     if (id == null || !(Number(price) >= 0)) return;
     _pq.set(String(id), Number(price)); clearTimeout(_pt); _pt = setTimeout(flushPrices, 2000);
   }
+  /* (TASK-0340 · المالك seq 575 «أيّ تغيير في أيّ مكان يؤدّي إلى الكلّ … الاسم أو الصورة أو ترتيب الصور أو السعر») */
+  function queueName(id, name) {
+    if (id == null || !String(name || '').trim()) return;
+    _nq.set(String(id), String(name).trim()); clearTimeout(_pt); _pt = setTimeout(flushPrices, 2000);
+  }
   async function flushPrices() {
-    if (!_pq.size) return { changed: false };
+    if (!_pq.size && !_nq.size) return { changed: false };
     const batch = new Map(_pq); _pq.clear();
+    const names = new Map(_nq); _nq.clear();
     const d = M(); let urls = {};
     try {
-      const ids = [...batch.keys()].filter(x => /^[0-9a-f-]{8,}$/i.test(x));
+      const ids = [...new Set([...batch.keys(), ...names.keys()])].filter(x => /^[0-9a-f-]{8,}$/i.test(x));
       if (d && ids.length) {
         const g = await fetch(d.url + '/rest/v1/products?select=id,store_url&id=in.(' + ids.join(',') + ')', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } });
         if (g.ok) (await g.json()).forEach(r => { urls[String(r.id)] = sidOf(r.store_url); });
@@ -257,6 +267,11 @@
           const own = [...batch.keys()].find(id => String(sp.inv_id || '') === id || (urls[id] && String(sp.id) === urls[id]));
           if (own != null && Number(sp.price || 0) !== batch.get(own) && !famIds(sp).length) {
             next = Object.assign({}, next, { price: batch.get(own) }); changed = true; touched.push(sp.name || sp.id);
+          }
+          /* الاسم: قائمةٌ لمنتجٍ واحد فقط (العائلة اسمها اسم المجموعة «فلتر UV» — لا يُستبدل باسم أحد أقطارها) */
+          const ownN = [...names.keys()].find(id => String(sp.inv_id || '') === id || (urls[id] && String(sp.id) === urls[id]));
+          if (ownN != null && !famIds(sp).length && String(sp.name || '') !== names.get(ownN)) {
+            next = Object.assign({}, next, { name: names.get(ownN) }); changed = true; touched.push(names.get(ownN));
           }
           if (famIds(sp).some(id => batch.has(id))) {
             let fc = false;
@@ -278,9 +293,9 @@
         });
         return changed ? { changed: true, products: out, touched } : { changed: false };
       });
-      if (res && res.changed) audit({ action: 'price_sync', field: 'price', entity_name: (res.touched || []).slice(0, 20).join(' · '), new_value: JSON.stringify([...batch.entries()].slice(0, 50)), reason: 'المالك seq 573: سعر الجرد ⇐ المتجر فوراً' });
+      if (res && res.changed) audit({ action: 'price_sync', field: names.size ? 'price,name' : 'price', entity_name: (res.touched || []).slice(0, 20).join(' · '), new_value: JSON.stringify([...batch.entries()].slice(0, 50)), reason: 'المالك seq 573: سعر الجرد ⇐ المتجر فوراً' });
       return res;
-    } catch (e) { batch.forEach((v, k) => { if (!_pq.has(k)) _pq.set(k, v); }); clearTimeout(_pt); _pt = setTimeout(flushPrices, 15000); return { changed: false, error: String(e && e.message || e) }; }
+    } catch (e) { batch.forEach((v, k) => { if (!_pq.has(k)) _pq.set(k, v); }); names.forEach((v, k) => { if (!_nq.has(k)) _nq.set(k, v); }); clearTimeout(_pt); _pt = setTimeout(flushPrices, 15000); return { changed: false, error: String(e && e.message || e) }; }
   }
   try {
     if (global.fetch && !global.__gmtPriceHook) {
@@ -291,9 +306,15 @@
         try {
           const url = typeof input === 'string' ? input : (input && input.url) || '', m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
           const d = M(), mm = /\/rest\/v1\/products\?(?:[^#]*&)?id=eq\.([^&]+)/.exec(url);
-          if (d && m === 'PATCH' && mm && url.indexOf(d.url) === 0 && init && typeof init.body === 'string' && init.body.indexOf('"price"') !== -1) {
+          const fromStore = !!(init && init.__gmtFromStore);   /* كتابةٌ قادمة من المتجر ⇒ لا ترجع إليه */
+          if (d && m === 'PATCH' && mm && !fromStore && url.indexOf(d.url) === 0 && init && typeof init.body === 'string' && /"(price|name)"/.test(init.body)) {
             let b = null; try { b = JSON.parse(init.body); } catch (_) {}
-            if (b && !Array.isArray(b) && b.price != null) p.then(r => { if (r && r.ok) queuePrice(decodeURIComponent(mm[1]), b.price); }).catch(() => {});
+            const pid = decodeURIComponent(mm[1]);
+            if (b && !Array.isArray(b)) p.then(r => {
+              if (!r || !r.ok) return;
+              if (b.price != null) queuePrice(pid, global.GMTPrice ? GMTPrice.charm(b.price, { min: b.net_cost, whole: b.wholesale_price }) : b.price);   /* (seq 575) سعر العرض كما القاعدة */
+              if (b.name != null) queueName(pid, b.name);
+            }).catch(() => {});
           }
         } catch (_) {}
         return p;
@@ -301,5 +322,41 @@
     }
   } catch (_) {}
 
-  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale, queuePrice, flushPrices };
+  /* ══ (TASK-0340 · المالك seq 575) الاتجاه المعاكس: ما يتغيّر في «إدارة المتجر» يصل للجرد ونقطة البيع وفواتير الشراء
+     قائمة لمنتجٍ واحد (inv_id): الاسم · السعر · الصور وترتيبها (الصورة الأولى = صورة المنتج) · عائلة: سعر كلّ قيمة ⇒ سعر منتجها.
+     oldList/newList = قوائم المتجر قبل الحفظ وبعده. الكتابة موسومة كي لا تعود فتكتب المتجر مرّة ثانية. ══ */
+  async function listingToInv(oldList, newList) {
+    const d = M(); if (!d) return 0;
+    const oldBy = new Map((oldList || []).filter(Boolean).map(x => [String(x.id), x]));
+    const ups = new Map();
+    const add = (id, k, v) => { if (id == null || id === '') return; const o = ups.get(String(id)) || {}; o[k] = v; ups.set(String(id), o); };
+    (newList || []).forEach(sp => {
+      if (!sp) return; const o = oldBy.get(String(sp.id)); if (!o) return;
+      if (famIds(sp).length) {
+        (sp.options || []).forEach(op => (op && op.values || []).forEach(v => {
+          if (!v || !v.inv_id || v.price == null) return;
+          const ov = ((o.options || []).find(x => x && x.name === op.name) || {}).values || [];
+          const old = ov.find(x => x && String(x.inv_id || '') === String(v.inv_id));
+          if (old && Number(old.price || 0) !== Number(v.price || 0) && Number(v.price) > 0) add(v.inv_id, 'price', Number(v.price));
+        }));
+        return;
+      }
+      if (!sp.inv_id) return;
+      if (String(o.name || '') !== String(sp.name || '') && String(sp.name || '').trim()) add(sp.inv_id, 'name', String(sp.name).trim());
+      if (Number(o.price || 0) !== Number(sp.price || 0) && Number(sp.price) > 0) add(sp.inv_id, 'price', Number(sp.price));
+      const oi = Array.isArray(o.images) ? o.images : [], ni = (Array.isArray(sp.images) ? sp.images : []).filter(u => u && !/^data:/i.test(String(u)));
+      if (ni.length && JSON.stringify(oi) !== JSON.stringify(sp.images || [])) { add(sp.inv_id, 'images', ni); add(sp.inv_id, 'image_url', ni[0]); }
+    });
+    let n = 0;
+    for (const [id, upd] of ups) {
+      try {
+        const r = await fetch(d.url + '/rest/v1/products?id=eq.' + encodeURIComponent(id), { method: 'PATCH', __gmtFromStore: true,
+          headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(upd) });
+        if (r.ok) { n++; audit({ action: 'store_to_inv', entity: 'products', entity_id: id, field: Object.keys(upd).join(','), new_value: JSON.stringify(upd).slice(0, 500), reason: 'المالك seq 575: تعديل من إدارة المتجر ⇐ الجرد' }); }
+      } catch (_) {}
+    }
+    return n;
+  }
+
+  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale, queuePrice, queueName, flushPrices, listingToInv };
 })(window);

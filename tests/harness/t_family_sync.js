@@ -50,7 +50,7 @@ const U = n => 'https://example.com/c' + n + '.jpg';
   const shown = await s2.pg.evaluate(async () => { try { openProductModal('p_caps'); } catch (e) { return 'ERR ' + e.message; } await new Promise(r => setTimeout(r, 800));
     const btn = [...document.querySelectorAll('button')].find(b => /^77mm/.test(b.textContent.trim())); if (!btn) return 'no btn'; btn.click(); await new Promise(r => setTimeout(r, 200));
     return { label: btn.textContent.trim(), price: (document.getElementById('product-modal-price') || {}).textContent }; });
-  ok(shown && /9\.00/.test(shown.label || '') && /9\.00/.test(shown.price || ''), 'في المتجر: اختيار 77mm يعرض سعره: ' + JSON.stringify(shown));
+  ok(shown && /8\.99/.test(shown.label || '') && /8\.99/.test(shown.price || ''), 'في المتجر: اختيار 77mm يعرض سعره (9 ⇐ سعر العرض 8.99 · المالك seq 575): ' + JSON.stringify(shown));
   await s2.browser.close();
   ok(!errs.filter(e => !/favicon|example\.com|Failed to load resource/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.slice(0, 3)));
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

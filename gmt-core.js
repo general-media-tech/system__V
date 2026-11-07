@@ -525,6 +525,120 @@
      (العملة الجديدة حذفت صفرين: 14,000 ÷ 100). كان مبعثراً في 13 موضعاً ⇒ تغييره
      مرّة كان يحتاج 13 تعديلاً وكاد يفوت موضع. غيّره **هنا فقط**. */
   global.GMT_DEFAULT_RATE = global.GMT_DEFAULT_RATE || 140;
+  /* ══ (TASK-0340 · المالك seq 567/573/574/575) استراتيجية «سعر العرض» — سعر المبيع فقط · لكل المنتجات · مكانٌ واحد للحساب
+     (الجرد · نقطة البيع · فواتير الشراء · المتجر · والقاعدة نفسها trigger products_price_charm بنفس الأرقام):
+       • سعرٌ صحيح ينتهي بـ 0  ⇒ −1 سنت   380 ⇐ 379.99 · 70 ⇐ 69.99   (أثر «الرقم الأيسر»: 380 تُقرأ 300 وشيء)
+       • ينتهي بـ 5            ⇒ −3 سنت   45 ⇐ 44.97 · 125 ⇐ 124.97
+       • أيّ نهاية أخرى         ⇒ −7 سنت   33 ⇐ 32.93 · 17 ⇐ 16.93   (سعر «محسوب» لا مدوَّر) · وتحت 10$: سنتٌ واحد (2 ⇐ 1.99)
+       • 500$ فما فوق          ⇒ −2.16$   550 ⇐ 547.84 · 500 ⇐ 497.84 · 1000 ⇐ 997.84 (مثال المالك)
+     سعرٌ فيه كسور أصلاً (12.50 · 379.99 · 547.84) = قرارٌ يدويّ ⇒ لا يُمسّ · ولا يُنزَل تحت الحدّ الأدنى ولا تحت الجملة
+     (وإلا يُجرَّب سنتٌ واحد، وإلا يبقى كما هو) — كي لا تمنع نقطة البيع البيع «تحت التكلفة». ══ */
+  function _r2(x) { return Math.round(x * 100) / 100; }
+  function _isWhole(n) { return n >= 1 && Math.abs(n - Math.round(n)) < 1e-9; }
+  function _floorOk(v, opt) {
+    var mn = Number(opt && opt.min) || 0, wh = Number(opt && opt.whole) || 0;
+    return v >= mn && !(wh > 0 && v < wh);
+  }
+  global.GMTPrice = global.GMTPrice || {
+    /* (المالك seq 576) «مبدئياً … فقط نقّص سنت واحد من كل واحد — أجّل هذا الشيء (3/7 سنت · فوق 500) لبعدين»
+       ⇒ الآن سنتٌ واحد لكل سعر. الاستراتيجية الكاملة جاهزة أدناه (STRATEGY) وتُفعَّل بقرار المالك لاحقاً. */
+    STRATEGY: false,
+    drop: function (P) {
+      if (!this.STRATEGY) return 0.01;
+      if (P >= 500) return 2.16;
+      var d = Math.round(P) % 10;
+      if (P < 10) return d === 5 ? 0.03 : 0.01;
+      return d === 0 ? 0.01 : d === 5 ? 0.03 : 0.07;
+    },
+    charm: function (v, opt) {
+      var n = Number(v); if (isNaN(n)) return v; if (!_isWhole(n)) return n;
+      n = Math.round(n);
+      var c = _r2(n - this.drop(n));
+      if (_floorOk(c, opt)) return c;
+      var c1 = _r2(n - 0.01);
+      return _floorOk(c1, opt) ? c1 : n;
+    },
+    /* اقتراحات عند التسعير: القاعدة · ↓ يكسر الرقم الأيسر (402 ⇐ 399.99) · ↑ أقرب نقطة أعلى (402 ⇐ 404.97) */
+    options: function (v, opt) {
+      var n = Number(v); if (!(n >= 1)) return null;
+      var base = _isWhole(n) ? Math.round(n) : Math.ceil(n);
+      var auto = this.charm(base, opt), out = [{ k: 'auto', v: auto, t: 'القاعدة' }];
+      var step = base >= 500 ? 50 : 10;
+      var dn = _r2(Math.floor((base - 0.0001) / step) * step - (base >= 500 ? 2.16 : 0.01));
+      if (dn > 0 && dn < auto - 0.001 && _floorOk(dn, opt)) out.push({ k: 'down', v: dn, t: '↓ أرخص' });
+      var upBase = Math.floor(base / 5) * 5 + 5, up = _r2(upBase - (upBase >= 500 ? 2.16 : 0.03));
+      if (up > auto + 0.001) out.push({ k: 'up', v: up, t: '↑ ربح أعلى' });
+      return out;
+    },
+    centOff: function (v, opt) { return this.charm(v, opt); }   /* اسم قديم */
+  };
+
+  /* ══ اقتراح «سعر العرض» فوراً عند كتابة سعر المبيع (المالك seq 575 «لما بسعّره اقترح لي فوراً سعر العرض … ينقص أو يزيد»)
+     خانات سعر المبيع في: الجرد (#f-price) · تعديل المنتج ([data-f=price] · [data-s=price]) · إدارة المتجر (#prod-price)
+     · منتج جديد في المشتريات (#np-price) · عمود «المبيع» في فاتورة الشراء. عند ترك الخانة برقمٍ صحيح يُطبَّق سعر القاعدة. ══ */
+  var SALE_SEL = '#f-price, #prod-price, #np-price, [data-f="price"], [data-s="price"], #inv-items-tbl td.col-sale [contenteditable="true"]';
+  function _val(el) { return el.isContentEditable ? el.textContent.trim() : el.value; }
+  function _set(el, v) {
+    var s = Number(v).toFixed(2);
+    if (el.isContentEditable) el.textContent = s; else el.value = s;
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+  }
+  function _optOf(el) {
+    try {
+      var tr = el.closest && el.closest('tr');
+      if (tr && tr.closest('#inv-items-tbl')) {
+        var g = function (cls) { var d = tr.querySelector('td.' + cls + ' [contenteditable], td.' + cls + ' .editable'); return d ? parseFloat(d.textContent) || 0 : 0; };
+        return { min: g('col-min'), whole: g('col-whole') };
+      }
+      var f = el.form || document;
+      var q = function (sel) { var x = (el.closest && el.closest('.pe-2, form, .modal, .modal-content, [data-pe]')) || f; var e = x.querySelector ? x.querySelector(sel) : null; return e ? parseFloat(e.value) || 0 : 0; };
+      return { min: q('#f-net-cost, [data-f="net_cost"], #np-net, #prod-net'), whole: q('#f-wholesale, [data-f="wholesale_price"], #np-whole, #prod-wholesale') };
+    } catch (_) { return {}; }
+  }
+  var _hint = null, _hintFor = null;
+  function _hideHint() { if (_hint) _hint.style.display = 'none'; _hintFor = null; }
+  function _showHint(el) {
+    var n = parseFloat(String(_val(el)).replace(/[^\d.]/g, ''));
+    var opts = global.GMTPrice.options(n, _optOf(el));
+    if (!opts || !(n >= 1)) { _hideHint(); return; }
+    if (!_hint) {
+      _hint = document.createElement('div'); _hint.id = 'gmt-price-hint';
+      _hint.style.cssText = 'position:fixed;z-index:100000;background:#111827;color:#fff;border-radius:10px;padding:6px 8px;font:800 12px/1.5 Cairo,Tahoma,Arial;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none;direction:rtl;max-width:92vw';
+      _hint.addEventListener('mousedown', function (e) { e.preventDefault(); });   /* لا يُفقد التركيز قبل النقر */
+      _hint.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-pv]'); if (!b || !_hintFor) return;
+        var t = _hintFor; t._gmtCharmDone = true; _set(t, b.getAttribute('data-pv')); _hideHint();
+      });
+      document.body.appendChild(_hint);
+    }
+    _hintFor = el;
+    _hint.innerHTML = '💡 سعر العرض: ' + opts.map(function (o) {
+      return '<button type="button" data-pv="' + o.v + '" style="margin:0 3px;padding:2px 8px;border-radius:8px;border:0;cursor:pointer;font:inherit;background:' + (o.k === 'auto' ? '#16a34a' : '#374151') + ';color:#fff">' + o.v.toFixed(2) + ' <small style="opacity:.8">' + o.t + '</small></button>';
+    }).join('');
+    var r = el.getBoundingClientRect();
+    _hint.style.display = 'block';
+    var top = r.bottom + 4; if (top + 40 > innerHeight) top = r.top - 40;
+    _hint.style.top = Math.max(4, top) + 'px';
+    _hint.style.left = Math.max(4, Math.min(innerWidth - _hint.offsetWidth - 4, r.left + r.width / 2 - _hint.offsetWidth / 2)) + 'px';
+  }
+  try {
+    document.addEventListener('input', function (e) {
+      if (!global.GMTPrice.STRATEGY) return;   /* الاقتراحات مؤجّلة (المالك seq 576) — يبقى خصم السنت عند ترك الخانة */
+      var el = e.target && e.target.closest && e.target.closest(SALE_SEL); if (!el || el.disabled) return;
+      if (el._gmtCharmDone) { el._gmtCharmDone = false; return; }
+      _showHint(el);
+    }, true);
+    document.addEventListener('focusout', function (e) {
+      var el = e.target && e.target.closest && e.target.closest(SALE_SEL); if (!el) return;
+      setTimeout(function () {
+        if (_hintFor === el) _hideHint();
+        var raw = String(_val(el)).trim(); if (!raw) return;
+        var n = Number(raw); if (!_isWhole(n)) return;
+        var c = global.GMTPrice.charm(n, _optOf(el));
+        if (c !== n) { el._gmtCharmDone = true; _set(el, c); }
+      }, 0);
+    }, true);
+  } catch (_) {}
 
   global.GMTPhone = global.GMTPhone || {
     norm: function (p) { return String(p || '').replace(/\D/g, '').replace(/^(00963|963|0)/, ''); }

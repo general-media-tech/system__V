@@ -602,7 +602,7 @@ window.GMT_INTERNAL = 1;</script>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261107c"></script>
+  <script src="gmt-core.js?v=20261108c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -610,8 +610,8 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261104b" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
-  <script src="gmt-staff.js?v=20261108b"></script>
-  <script src="gmt-store-sync.js?v=20261108a" defer></script>
+  <script src="gmt-staff.js?v=20261108c"></script>
+  <script src="gmt-store-sync.js?v=20261108c" defer></script>
 
 
 <!-- LOGIN -->
@@ -1272,12 +1272,19 @@ async function updateField(field,value){
     if (field === 'branches') return _branchesSave(value);
     if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
     const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
-    if (field === 'products') { _familyImagesToInv(value); _snapProds(value); }
+    if (field === 'products') { _familyImagesToInv(value); _listingFieldsToInv(value); _snapProds(value); }
     /* (TASK-0300) أيّ حفظٍ هنا ⇒ نسخة واجهة المتجر الخفيفة تُعاد (عميل supabase هنا لا يمرّ باعتراض fetch) */
     try { if (window.GMTStoreSync && GMTStoreSync.homePublish) GMTStoreSync.homePublish(); } catch (_) {}
 }
 /* (TASK-0298 · المالك seq 315) «الفلاتر والأغطية والكفرات: إذا غيّرت فيهم ترتيب أو أضفت عليهم صورة تنضاف للكل حتى في الجرد ليس فقط في المتجر»
    قائمةٌ بخيارات مربوطة بمنتجات الجرد (العائلة) تغيّرت صورها هنا ⇒ كلّ منتجات الجرد فيها تأخذ التغيير (gmt-store-sync.js) */
+/* (TASK-0340 · المالك seq 575) «أخفّض السعر أو أعلّيه من … إدارة المتجر فخلص يتغيّر في كل مكان»: الاسم · السعر · الصور وترتيبها ⇒ الجرد */
+function _listingFieldsToInv(list){
+    if (!window.GMTStoreSync || !GMTStoreSync.listingToInv) return;
+    const olds = [];
+    (list || []).forEach(p => { const b = _prodBase.get(String(p && p.id)); if (b) { try { olds.push(JSON.parse(b)); } catch (_) {} } });
+    GMTStoreSync.listingToInv(olds, list).then(n => { if (n) showToast('🔁 وصل التعديل إلى الجرد ونقطة البيع (' + n + ' منتج)'); }).catch(() => {});
+}
 function _familyImagesToInv(list){
     if (!window.GMTStoreSync || !GMTStoreSync.listingImagesToInv) return;
     (list || []).forEach(p => {
@@ -3686,12 +3693,12 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-pwa.js?v=20261107g"></script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261108b"></script>
+<script src="gmt-selfcheck.js?v=20261108c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261108b"></script>
+<script src="gmt-whatsnew.js?v=20261108c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

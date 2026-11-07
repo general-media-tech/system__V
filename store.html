@@ -187,9 +187,9 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261107c"></script>
+  <script src="gmt-core.js?v=20261108c"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
-  <script src="gmt-store-sync.js?v=20261108a" defer></script>
+  <script src="gmt-store-sync.js?v=20261108c" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -2801,9 +2801,21 @@ function _homeSelfHeal(rec) {
 /* (TASK-0319 · المالك seq 498 → 499 → 500) عرض الكرت عاد إلى cover الأصلي (بلا contain ولا حواف). المطلوب (seq 500): «البوستر نفسه يتلاءم مع
    عرض الكرت الخارجي — مربّع نظامي يملأ الكرت تماماً بلا أطراف أو مستطيل»؛ فالمعالجة في **الصورة الأولى** نفسها: كل منتجٍ صورته الأولى غير مربّعة
    وُلِّدت لها نسخةٌ مربّعة (store-card/<id>.jpg) تتصدّر صور المتجر، ويبقى البوستر الأصلي ثانياً لنافذة المنتج. */
+/* (TASK-0339 · المالك seq 574) «−1 سنت من سعر المبيع … ينطبق على المتجر … لكل المنتجات»: 380 ⇐ 379.99 —
+   في نقطةٍ واحدة يمرّ منها كلّ ما يُعرض (العرض والسلّة والطلب) · سعر القائمة وأسعار قيم الخيارات · ما فيه كسور يبقى كما هو */
+function _gmtCentOff(v){ return window.GMTPrice ? GMTPrice.charm(v) : v; }
+function _gmtCentProd(p){
+    if(!p||typeof p!=='object') return p;
+    let x=p;
+    if(p.price!=null&&p.price!==''){ const np=_gmtCentOff(p.price); if(np!==p.price&&Number(np)!==Number(p.price)) x=Object.assign({},x,{price:np}); }
+    if(Array.isArray(p.options)&&p.options.some(o=>o&&Array.isArray(o.values)&&o.values.some(v=>v&&typeof v==='object'&&v.price!=null))){
+        x=Object.assign({},x,{options:p.options.map(o=>(o&&Array.isArray(o.values))?Object.assign({},o,{values:o.values.map(v=>(v&&typeof v==='object'&&v.price!=null&&v.price!=='')?Object.assign({},v,{price:_gmtCentOff(v.price)}):v)}):o)});
+    }
+    return x;
+}
 function _gmtVisible(rec){
     const cats = Array.isArray(rec.categories) ? rec.categories : [];
-    const prods = Array.isArray(rec.products) ? rec.products : [];
+    const prods = (Array.isArray(rec.products) ? rec.products : []).map(_gmtCentProd);
     const hid = new Set(cats.filter(c => c && c.hidden === true).map(c => String(c.id)));
     if (!hid.size) return { cats, prods };
     return {
@@ -3094,7 +3106,7 @@ try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261108b"></script>
+<script src="gmt-selfcheck.js?v=20261108c"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).
