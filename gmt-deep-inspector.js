@@ -273,8 +273,9 @@
       document.querySelectorAll('[onclick],[onchange],[oninput],[onsubmit]').forEach(el => {
         ['onclick','onchange','oninput','onsubmit'].forEach(a => {
           const v = el.getAttribute(a); if (!v) return;
-          (v.match(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g) || []).forEach(m => {
-            const fn = m.replace(/\s*\($/, '');
+          /* (TASK-0332) بلا «نظرٍ للخلف» — iOS < 16.4 يرفض الملفّ كلّه · الحرف السابق يُلتقط ثمّ يُزال */
+          (v.match(/(?:^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g) || []).forEach(m => {
+            const fn = m.replace(/^[^A-Za-z_$]/, '').replace(/\s*\($/, '');
             if (!BUILTIN.has(fn)) found.set(fn, (found.get(fn) || 0) + 1);
           });
         });

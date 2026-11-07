@@ -118,7 +118,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-docscan.js?v=20261029z4" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-invoice-tpl.js?v=20261017a" defer></script>
-<script src="gmt-suggest.js?v=20261029z4"></script>
+<script src="gmt-suggest.js?v=20261107d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-staff.js?v=20261104j"></script>
 
@@ -2520,7 +2520,8 @@ function detectRegion(text) {
     const L = '\\p{L}';
     for (const [k, disp] of syRegions()) {
         /* سوابق مسموحة قبل الاسم، وحرفٌ ممنوع بعده */
-        const re = new RegExp('(?:^|[^' + L + ']|(?<=^|[^' + L + '])[لبوفك]?(?:ال)?)' +
+        /* (TASK-0332) بلا نظرٍ للخلف — iOS < 16.4 · مكافئ لـ test: (بداية | حرفٌ ليس حرفاً) ثمّ سابقة اختيارية */
+        const re = new RegExp('(?:^|[^' + L + '])(?:[لبوفك]?(?:ال)?)' +
                               k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
                               '(?![' + L + '])', 'u');
         if (re.test(hay)) return disp;
@@ -10404,7 +10405,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107c"></script>
+<script src="gmt-whatsnew.js?v=20261107d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

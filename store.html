@@ -206,7 +206,7 @@ window.GMT_PUBLIC = 1;</script>
        المساعد لا يُظهر زرّه إطلاقاً إن لم يُضبط الوسيط — زرّ محادثة لا يردّ
        أسوأ من لا زرّ.
        ══════════════════════════════════════════════════════════════════════ -->
-  <script src="gmt-suggest.js?v=20261029z4"></script>
+  <script src="gmt-suggest.js?v=20261107d"></script>
   <script>window.GMT_COMPAT_NOLOAD = true;</script>
   <script src="gmt-compat-kb.js?v=20261101a"></script>   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
@@ -2700,13 +2700,27 @@ function sendLocalNotification(title, body){
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
+/* (TASK-0332 · المالك seq 539 «المتجر عندما يفتحه شخص من انستقرام لا يحمل يبقى يحمل فقط») شبكة أمان: إن لم يجهز المحتوى
+   خلال ١٢ ثانية (شبكة ضعيفة · متصفّح داخل تطبيق) لا يبقى الزبون أمام تحميلٍ بلا نهاية — زرّ «إعادة المحاولة» وتلميح لفتحه بالمتصفّح. */
+function _storeStallGuard(){
+    if(_contentReady||document.getElementById('gmt-stall'))return;
+    const ig=/Instagram|FBAN|FBAV|FB_IAB/i.test(navigator.userAgent||'');
+    const d=document.createElement('div'); d.id='gmt-stall';
+    d.style.cssText='position:fixed;left:12px;right:12px;bottom:84px;z-index:99999;background:#111;color:#fff;border-radius:14px;padding:12px 14px;font:700 13px Cairo,Tahoma,sans-serif;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 8px 24px rgba(0,0,0,.25);direction:rtl';
+    d.innerHTML='<span>'+(ig?'المتجر يتأخّر في متصفّح إنستغرام — جرّب «إعادة المحاولة» أو افتحه بالمتصفّح من القائمة ⋯':'المتجر يتأخّر في التحميل — تأكّد من الإنترنت')+'</span>';
+    const b=document.createElement('button'); b.textContent='إعادة المحاولة'; b.style.cssText='flex:0 0 auto;background:#D5001C;color:#fff;border:0;border-radius:10px;padding:8px 12px;font:900 13px Cairo,Tahoma,sans-serif';
+    b.onclick=()=>{ try{ const u=new URL(location.href); u.searchParams.set('r',Date.now().toString(36)); location.replace(u.href); }catch(_){ location.reload(); } };
+    d.appendChild(b); document.body.appendChild(d);
+}
+function _storeStallClear(){ const d=document.getElementById('gmt-stall'); if(d)d.remove(); }
 async function initStore(){
     _introStart=Date.now();
     setTimeout(_closeIntro,_INTRO_MAX_MS);
+    setTimeout(_storeStallGuard,12000);
     createModals(); updateCartBadge(); setupEventHandlers(); initNotifications();
 
     const cached=_cache.get('store');
-    if(cached){ _applyRecord(cached); renderAll(); _contentReady=true; _tryCloseIntro(); if(!window._deepLinkApplied) setTimeout(_applyDeepLink, window.__gmtDirect?0:500); _refreshBackground(); return; }
+    if(cached){ _applyRecord(cached); renderAll(); _contentReady=true;_storeStallClear(); _tryCloseIntro(); if(!window._deepLinkApplied) setTimeout(_applyDeepLink, window.__gmtDirect?0:500); _refreshBackground(); return; }
 
     /* (TASK-0300 · المالك seq 322) «لازم يحمل له أثناء الانترو، يفتح له الواجهة فوراً … وفي الخلفية تنزل»:
        الزائر الجديد (من إنستغرام مثلاً — لا نسخة على جهازه) كان ينتظر الكتالوج كاملاً (~١٫١ م.ب) فيُغلق الانترو على مربّعات فارغة.
@@ -2747,7 +2761,7 @@ async function initStore(){
     store.__light = false;                     // الكامل وصل ⇒ هو المرجع · أو فشل ⇒ الخفيفة هي ما لدينا (لا انتظار بلا نهاية عند فتح منتج)
     if (rec || !lightShown) { renderAll(); if (lightShown) { window.scrollTo(0, y); _refreshOpenModal(); } }
 
-    _contentReady=true; _tryCloseIntro();
+    _contentReady=true;_storeStallClear(); _tryCloseIntro();
     // Apply deep link after render
     setTimeout(_applyDeepLink, 500);
 }

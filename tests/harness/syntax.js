@@ -11,4 +11,15 @@ for (const f of fs.readdirSync(ROOT)) {
     try { new vm.Script(m[2], { filename: f }); } catch (e) { bad++; console.log('BLOCK', f, e.message.slice(0, 120)); }
   }
 }
-console.log('blocks checked:', blocks, '| syntax errors:', bad);
+/* (TASK-0332 · المالك seq 539 «المتجر من إنستغرام لا يحمّل») النظر للخلف في التعابير المنتظمة `(?<=` `(?<!` لا يدعمه سفاري/iOS
+   قبل 16.4 (متصفّح إنستغرام على الآيفون = سفاري الجهاز) ⇒ الملفّ كلّه يسقط. ممنوع خارج التعليقات. */
+let lb = 0;
+for (const f of fs.readdirSync(ROOT)) {
+  if (!/\.(js|html)$/.test(f)) continue;
+  fs.readFileSync(path.join(ROOT, f), 'utf8').split('\n').forEach((l, i) => {
+    const code = l.replace(/\/\*.*?\*\//g, '').replace(/^\s*(\/\/|\*|<!--).*$/, '');
+    if (/\(\?<[=!]/.test(code)) { lb++; console.log('LOOKBEHIND (iOS<16.4)', f + ':' + (i + 1), l.trim().slice(0, 90)); }
+  });
+}
+bad += lb;
+console.log('blocks checked:', blocks, '| syntax errors:', bad, lb ? '| lookbehind: ' + lb : '');
