@@ -201,7 +201,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-labels.js?v=20261107a"></script>
-<script src="gmt-staff.js?v=20261107i"></script>
+<script src="gmt-staff.js?v=20261107j"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -1046,6 +1046,12 @@ let fileUrl='', imgUrl=''; var editId=null;   /* editId على window لبوت �
 let insCart=[], insEditId=null;
 let allBranches=[]; // loaded from inv_columns
 let currentInvModal='import'; // 'import' or 'instant'
+/* (TASK-0338 · المالك seq 568 «عدّلت فاتورة سمارت ستور الفورية فدخلت وكأنها في الطريق … وكأنها آتية من ألمانيا وتكرّرت باسم فاتورة صينية اختفت»)
+   الفاتورة المفتوحة الآن تُعرَف بصفّها نفسه لا برقمها ولا بآخر فاتورة فُتحت:
+   {id, kind:'import'|'instant'} من القائمة · {draft:true, kind} مسودة لم تُحفظ بعد. كلّ حفظٍ يقرأ منها وحدها. */
+window._invOpen = null;
+window._shipById=function(id){ return (ships||[]).find(x=>String(x.id)===String(id))||null; };
+function _invOpenRow(){ const O=window._invOpen; if(!O||O.id==null) return null; return (ships||[]).find(x=>String(x.id)===String(O.id))||null; }
 
 // ── API ──────────────────────────────────────────────────
 async function sb(method,path,body=null,xtra={}){
@@ -1206,7 +1212,7 @@ async function _waitForGMTCache(maxMs){
       sb('GET','/rest/v1/import_log?order=created_at.desc&limit=300').catch(e=>{console.warn('ships load:',e);return[];}),
       sb('GET','/rest/v1/inv_columns?is_branch=eq.true&order=sort_order.asc').catch(()=>[])
     ]);
-    ships=Array.isArray(s)?s:[];
+    ships=Array.isArray(s)?s:[]; window._shipsLoaded=true;   /* (TASK-0338) لبوت المسودة: يتحقّق أن فاتورة المسودة ما زالت موجودة */
     allBranches=Array.isArray(cols)?cols:[];
     try{initPayerUI();}catch(_){} loadPoRows().then(()=>{try{render();}catch(_){}});
 
@@ -1416,6 +1422,7 @@ function openAddModal(){
   document.getElementById('addModal').classList.remove('hidden');
   try{resetPayer('in-payer');}catch(_){}
   lucide.createIcons();
+  try{window.GMTDraft&&GMTDraft.baseline();}catch(_){}
 }
 function openEdit(id){
   const s=ships.find(x=>String(x.id)===String(id)); if(!s)return;
@@ -1451,6 +1458,7 @@ function openEdit(id){
   document.getElementById('addModal').classList.remove('hidden');
   try{resetPayer('in-payer',id);}catch(_){}
   lucide.createIcons();
+  try{window.GMTDraft&&GMTDraft.baseline();}catch(_){}   /* (TASK-0338) فتح فاتورة للتعديل ليس مسودة — المسودة فقط إن تغيّر شيء */
 }
 function closeAddModal(){document.getElementById('addModal').classList.add('hidden');cart=[];exRows=[];fileUrl='';imgUrl='';}
 function resetForm(){
@@ -1745,6 +1753,7 @@ async function saveInstantPurchase(){
     switchTab('instant');
     // Show invoice
     openInstantInvData(_currentInstantInvData,num,branchName);
+    window._invOpen=saved&&saved.id!=null?{id:saved.id,kind:'instant'}:{draft:true,kind:'instant'};
   }catch(e){toast('خطأ: '+e.message,'err');}
   _saveLock=false;
   btnInstReset();
@@ -1771,17 +1780,20 @@ function openInstantInvModal(){
     items_snapshot:insCart.map(c=>({name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice,whole_price:c.wholePrice,sale_price:c.salePrice,total:c.qty*c.unitPrice,notes:c.notes||'',is_new:c.isNew}))
   };
   openInstantInvData(fakeData,'مسودة',branchName);
+  window._invOpen={draft:true,kind:'instant'};
 }
 
 function openInstantInvFromList(id){
   const s=ships.find(x=>String(x.id)===String(id));if(!s)return;
   const branchName=allBranches.find(b=>b.key_name===s.dest_branch)?.display_name||s.dest_branch||'—';
   openInstantInvData(s,s.inv_number,branchName);
+  window._invOpen={id:s.id,kind:'instant'};
 }
 
 function openInstantInvData(s,invNum,branchName){
   currentInvModal='instant';
   const items=(s.items_snapshot||[]).map(i=>({
+    id:(i.id||(i.product&&i.product.id)||null),_raw:(i.product?null:i),
     name:i.name||'',image_url:i.image_url||'',barcode:i.barcode||'',
     qty:i.qty||0,isNew:i.is_new||false,
     unitPrice:i.unit_price||0,origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:null),_origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:undefined),minPrice:i.min_price||0,
@@ -3089,6 +3101,7 @@ function buildInv(data){
     return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
   }).join('');
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};setTimeout(reHide,30);
+  setTimeout(()=>{try{_applyPriceView();}catch(_){}},0);   /* (TASK-0338) سعر الشراء مع التكاليف افتراضياً */
   return `
   <table style="width:100%;border-collapse:collapse;margin-bottom:8px;"><tr>
     <td style="width:36%;vertical-align:top;border:2px solid #dbe4f7;"><table style="width:100%;border-collapse:collapse;"><tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 10px;font-size:13px;font-weight:700;border-bottom:2px solid #fff;">مجموعة ميديا تيك التجارية</td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 10px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">فرع حلب رئيسي</td></tr><tr><td style="padding:5px 10px;font-size:12px;font-weight:700;"><span contenteditable="false" class="editable inv-field" data-field="branchNote" style="display:block;min-width:60px;" data-ph="ملاحظة..."></span></td></tr></table></td>
@@ -3106,7 +3119,7 @@ function buildInv(data){
   </tbody></table>
   <div class="no-print" style="display:flex;justify-content:flex-end;margin:0 0 6px;"><button type="button" id="orig-price-btn" onclick="toggleOrigPrice()" title="يعرض سعر الشراء الأصلي في بلد المنشأ قبل توزيع تكاليف الشحن والرسوم — للعرض فقط، لا يغيّر شيئاً" style="background:#fff;border:1.5px solid #1f348f;color:#1f348f;border-radius:9px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">🔍 عرض السعر الأصلي (بدون التكاليف)</button></div>
   <table id="inv-items-tbl" style="width:100%;table-layout:fixed;margin-bottom:7px;"><thead><tr><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:3%;">#</th><th class="col-img" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:9%;">الصورة</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 5px;font-size:12px;text-align:center;width:24%;">اسم المنتج</th><th class="col-qty" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:6%;">الكمية</th><th class="col-purchase" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">سعر الشراء<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحد الأدنى<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-whole" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الجملة<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-sale" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">المبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-notes" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:22%;">ملاحظات</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:10px;text-align:center;width:4%;" class="no-print">حذف</th></tr></thead><tbody>${rows}</tbody></table>
-  <table id="inv-totals-tbl" style="width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed;"><tr><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:3%;">∑</td><td class="col-img" style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:9%;"></td><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 6px;font-size:12px;text-align:right;width:24%;font-weight:900;">الإجماليات</td><td class="col-qty" style="border:2px solid #1f348f;background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 2px;font-size:12px;font-weight:900;width:6%;">${d.items.reduce((s,i)=>s+Number(i.qty||0),0)}</td><td class="col-purchase" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.unitPrice||0)),0).toFixed(2)}</td><td class="col-min" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.minPrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.minPrice||0)),0).toFixed(2):''}</td><td class="col-whole" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.wholePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.wholePrice||0)),0).toFixed(2):''}</td><td class="col-sale" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.salePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.salePrice||0)),0).toFixed(2):''}</td><td class="col-notes" style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 2px;font-size:11px;width:22%;"></td></tr></table>
+  <table id="inv-totals-tbl" style="width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed;"><tr><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:3%;">∑</td><td class="col-img" style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:9%;"></td><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 6px;font-size:12px;text-align:right;width:24%;font-weight:900;">الإجماليات</td><td class="col-qty" style="border:2px solid #1f348f;background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 2px;font-size:12px;font-weight:900;width:6%;">${d.items.reduce((s,i)=>s+Number(i.qty||0),0)}</td><td class="col-purchase" id="inv-sum-purchase" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.unitPrice||0)),0).toFixed(2)}</td><td class="col-min" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.minPrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.minPrice||0)),0).toFixed(2):''}</td><td class="col-whole" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.wholePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.wholePrice||0)),0).toFixed(2):''}</td><td class="col-sale" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.salePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.salePrice||0)),0).toFixed(2):''}</td><td class="col-notes" style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 2px;font-size:11px;width:22%;"></td></tr></table>
   <table style="width:100%;margin-bottom:7px;"><tr>
     <td style="width:50%;vertical-align:top;padding-left:8px;"><table style="width:100%;"><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">تكاليف نقل</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="ct" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.ct?d.ct.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">شحن إلى سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cs" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cs?d.cs.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">جمارك</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cc" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cc?d.cc.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">داخل سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cl" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cl?d.cl.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">إجمالي التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-total-costs">${d.totalCosts.toFixed(2)}</td></tr></table></td>
     <td style="width:50%;vertical-align:top;padding-right:8px;"><table style="width:100%;"><tr id="inv-orig-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">سعر الشراء الأصلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-orig-total">${d.origTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-costs-sum">${d.totalCosts.toFixed(2)}</td></tr><tr id="inv-grand-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">المجموع الكلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-grand-total">${d.grandTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">دفعة نقدية</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field" data-field="cash" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cash&&d.cash!==d.origTotal?d.cash.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">الباقي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-remaining">${d.remaining.toFixed(2)}</td></tr></table></td>
@@ -3120,7 +3133,7 @@ function buildInv(data){
 function openInvModal(){
   if(!cart.length){toast('أضف منتجات أولاً','err');return;}
   currentInvModal='import';
-  window._invOpenShipId=null; window._invFromList=false;
+  window._invOpen={draft:true,kind:'import'}; _showOrigPrice=false;
   ['tog-img','tog-purchase','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   hiddenCols.clear();
   const data=getInvData(null);
@@ -3137,8 +3150,8 @@ function openInvModal(){
 function openInvFromList(id){
   const s=ships.find(x=>String(x.id)===String(id));if(!s)return;
   if(s.inv_type==='instant'){openInstantInvFromList(id);return;}
-  currentInvModal='import';
-  window._invOpenShipId=s.id; window._invFromList=true;
+  currentInvModal='import'; _showOrigPrice=false;
+  window._invOpen={id:s.id,kind:'import'};
   // دمج بيانات المنتجات الحية من cache (اسم، صورة، أسعار) مع snapshot الفاتورة
   const enriched={...s,items_snapshot:(s.items_snapshot||[]).map(i=>{
     const p=prods.find(x=>String(x.id) === String(i.id))||{};
@@ -3183,6 +3196,7 @@ function toggleInvEdit(){
     btn.innerHTML='<i data-lucide="edit-3" style="width:14px;height:14px"></i> تفعيل التعديل';saveBtn.style.display='none';label.textContent='معاينة الفاتورة';
     page.querySelectorAll('.editable').forEach(el=>{el.contentEditable='false';el.style.background='transparent';el.style.border='none';el.style.padding='';});
   }
+  try{_applyPriceView();}catch(_){}   /* (TASK-0338) في التعديل يظهر ويُعدَّل السعر الأصلي — خارج التعديل مع التكاليف */
   lucide.createIcons();
 }
 function recalcInv(){
@@ -3195,51 +3209,18 @@ function recalcInv(){
   const s=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v.toFixed(2);};
   s('inv-total-costs',totalCosts);s('inv-costs-sum',totalCosts);s('inv-grand-total',grandTotal);s('inv-remaining',remaining);
 
-  // توزيع التكاليف على سعر الشراء لكل منتج بنسبة قيمته
-  if(totalCosts>0 && origTotal>0 && d_items_ref.length){
-    const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
-    rows.forEach((tr,idx)=>{
-      if(!d_items_ref[idx])return;
-      const item=d_items_ref[idx];
-      // استخدم السعر الأصلي (قبل أي توزيع سابق) لضمان الدقة
-      const basePrice=item._origUnitPrice||item.unitPrice;
-      if(!item._origUnitPrice)d_items_ref[idx]._origUnitPrice=item.unitPrice;
-      const itemTotal=item.qty*basePrice;
-      if(!itemTotal)return;
-      const ratio=itemTotal/origTotal;
-      const addedPerUnit=(totalCosts*ratio)/item.qty;
-      const newUnitPrice=parseFloat((basePrice+addedPerUnit).toFixed(4));
-      // تحديث d_items_ref بالسعر الجديد مع التكاليف
-      d_items_ref[idx].unitPriceWithCosts=newUnitPrice;
-      // تحديث العرض في الجدول
-      const cells=tr.querySelectorAll('td');
-      const purchaseCell=cells[4];
-      if(purchaseCell){
-        const divs=purchaseCell.querySelectorAll('div');
-        if(divs[0]){divs[0].textContent=newUnitPrice.toFixed(2);}
-        if(divs[1]){divs[1].textContent=(newUnitPrice*item.qty).toFixed(2);}
-      }
-    });
-    if(!document.getElementById('inv-cost-applied-hint')){
+  // توزيع التكاليف على سعر الشراء لكل منتج بنسبة قيمته — (TASK-0338) حساب واحد في _applyPriceView من السعر الأصلي دائماً
+  if(currentInvModal!=='instant' && d_items_ref.length){
+    d_items_ref.forEach(it=>{ it.unitPriceWithCosts=null; });
+    _applyPriceView();
+    const oldHint=document.getElementById('inv-cost-applied-hint');
+    if(totalCosts>0 && !oldHint){
       const hint=document.createElement('div');
       hint.id='inv-cost-applied-hint';
       hint.style.cssText='background:#fef3c7;border:1.5px solid #fbbf24;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#92400e;margin:6px 16px;text-align:center;';
-      hint.textContent='⚡ التكاليف وُزِّعت على سعر الشراء — اضغط "حفظ التعديلات" لتطبيقها على النظام';
+      hint.textContent='⚡ التكاليف تُوزَّع على سعر الشراء بنسبة قيمة كل بند — اضغط «حفظ التعديلات» لتصل التكلفة الواصلة إلى المنتجات';
       document.getElementById('invPage').parentElement.insertBefore(hint,document.getElementById('invPage'));
-    }
-  }else if(totalCosts===0 && d_items_ref.length){
-    // إذا أُزيلت التكاليف — أعد السعر الأصلي
-    d_items_ref.forEach(item=>{if(item._origUnitPrice){item.unitPriceWithCosts=null;}});
-    const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
-    rows.forEach((tr,idx)=>{
-      if(!d_items_ref[idx]?._origUnitPrice)return;
-      const orig=d_items_ref[idx]._origUnitPrice;
-      const qty=d_items_ref[idx].qty;
-      const cells=tr.querySelectorAll('td');
-      const purchaseCell=cells[4];
-      if(purchaseCell){const divs=purchaseCell.querySelectorAll('div');if(divs[0])divs[0].textContent=orig.toFixed(2);if(divs[1])divs[1].textContent=(orig*qty).toFixed(2);}
-    });
-    const hint=document.getElementById('inv-cost-applied-hint');if(hint)hint.remove();
+    }else if(!(totalCosts>0) && oldHint){ oldHint.remove(); }
   }
 }
 async function saveInvEdits(){
@@ -3280,8 +3261,12 @@ async function saveInvEdits(){
     // تحديث d_items_ref
     d_items_ref[idx].qty=q;
     // إذا وُزِّعت التكاليف، استخدم السعر مع التكاليف
-    const effectiveUnitPrice=(d_items_ref[idx].unitPriceWithCosts)||newUnitPrice||d_items_ref[idx].unitPrice;
+    /* (TASK-0338) فاتورة الاستيراد: البند يحفظ السعر **الأصلي** (ما يُعدَّل في وضع التعديل)، والتكاليف في خاناتها ⇒
+       كان يحفظ السعر مع التكاليف في البند ثم يجمع التكاليف فوقه مرّة ثانية في «المجموع الكلي». */
+    const _imp=currentInvModal!=='instant';
+    const effectiveUnitPrice=_imp?(newUnitPrice||d_items_ref[idx].unitPrice):((d_items_ref[idx].unitPriceWithCosts)||newUnitPrice||d_items_ref[idx].unitPrice);
     d_items_ref[idx].unitPrice=effectiveUnitPrice||d_items_ref[idx].unitPrice;
+    if(_imp){ d_items_ref[idx].origUnitPrice=d_items_ref[idx].unitPrice; }
     d_items_ref[idx]._origUnitPrice=null;d_items_ref[idx].unitPriceWithCosts=null;
     d_items_ref[idx].minPrice=newMinPrice||d_items_ref[idx].minPrice;
     d_items_ref[idx].wholePrice=newWholePrice||d_items_ref[idx].wholePrice;
@@ -3290,7 +3275,7 @@ async function saveInvEdits(){
     if(newName)d_items_ref[idx].name=newName;
 
     // تحديث cart إذا موجود
-    if(!window._invFromList && idx<cart.length){
+    if(!(window._invOpen&&window._invOpen.id!=null) && currentInvModal==='import' && idx<cart.length){
       cart[idx].qty=q;
       cart[idx].unitPrice=d_items_ref[idx].unitPrice;
       cart[idx].minPrice=d_items_ref[idx].minPrice;
@@ -3313,9 +3298,14 @@ async function saveInvEdits(){
       if(d_items_ref[idx].minPrice>0)upd.net_cost=d_items_ref[idx].minPrice;
       if(d_items_ref[idx].unitPrice>0)upd.cost_price=d_items_ref[idx].unitPrice;
       if(newName&&newName!==oldName)upd.name=newName;
-      if(Object.keys(upd).length)productUpdates.push({id:prodId,upd});
+      if(Object.keys(upd).length)productUpdates.push({id:prodId,upd,idx});
     }
   });
+  /* (TASK-0338) التكلفة الواصلة للمنتج = السعر الأصلي + حصّته من تكاليف الفاتورة (كما في حفظ الشحنة PUR-7) */
+  if(currentInvModal!=='instant'){
+    const _f=_invCostFactor();
+    productUpdates.forEach(pu=>{ const it=d_items_ref[pu.idx]; if(it&&it.unitPrice>0) pu.upd.cost_price=+(it.unitPrice*_f).toFixed(4); });
+  }
 
   // ── 2ب. أنشئ أولاً أي منتجات معلّقة بقاعدة البيانات فعلياً (لأول مرة) ──
   if(pendingCreates.length){
@@ -3443,7 +3433,15 @@ async function saveInvEdits(){
     }))
   };
   const invDataForBuild=getInvData(invData);
-  document.getElementById('invPage').innerHTML=buildInv(invDataForBuild);
+  if(currentInvModal==='instant'){
+    const _r=_invOpenRow()||{};
+    const _bn=allBranches.find(b=>b.key_name===_r.dest_branch)?.display_name||_r.dest_branch||'—';
+    const _keep=window._invOpen;
+    openInstantInvData({..._r,supplier:invData.supplier||_r.supplier,shipping_notes:invData.shipping_notes||_r.shipping_notes,cash_payment:invData.cash_payment!=null?invData.cash_payment:_r.cash_payment,items_snapshot:invData.items_snapshot},_r.inv_number||invData.inv_number,_bn);
+    window._invOpen=_keep;
+  }else{
+    document.getElementById('invPage').innerHTML=buildInv(invDataForBuild);
+  }
 
   // إزالة hint التكاليف
   const oldHint=document.getElementById('inv-cost-applied-hint');if(oldHint)oldHint.remove();
@@ -3467,7 +3465,9 @@ async function saveInvEdits(){
 
   // ── حفظ تلقائي للتكاليف في قاعدة البيانات ──
   const invNumForSave=getF('invNum')||getF('invNum2')||'—';
-  const fromListForSave=(window._invFromList&&window._invOpenShipId!=null)?ships.find(s=>String(s.id)===String(window._invOpenShipId)):ships.find(s=>s.inv_number===invNumForSave);
+  const _O=window._invOpen||{};
+  const fromListForSave=_O.id!=null?_invOpenRow():null;   /* لا بحث بالرقم أبداً: الرقم قد يتكرّر والمسودة لا صفّ لها */
+  if(_O.id!=null && !fromListForSave){ toast('⛔ لم يُحفظ في السحابة: تعذّر تحديد الفاتورة المفتوحة — أعد فتحها من القائمة','err'); return; }
   const _lostLinks=fromListForSave?((fromListForSave.items_snapshot||[]).filter(x=>x&&x.id).length-d_items_ref.filter(i=>i.product?.id||i.id||(i._raw&&i._raw.id)).length):0;
   if(fromListForSave?.id && _lostLinks>0 && d_items_ref.length>=(fromListForSave.items_snapshot||[]).length){
     toast('⛔ لم يُحفظ في السحابة: '+_lostLinks+' بنداً سيفقد ربطه بمنتجه — أعد فتح الفاتورة وحاول ثانية','err');
@@ -3503,39 +3503,62 @@ let d_items_ref=[];
    هذا الفلتر يعرض السعر **الأصلي في بلد المنشأ قبل التوزيع** — للعرض فقط:
    لا يغيّر أي رقم محفوظ، ولا يمسّ الحسابات. ضغطة ثانية تعيد العرض الطبيعي. */
 let _showOrigPrice = false;
+/* (TASK-0338 · المالك seq 568/571 «توزيع التكاليف على الفاتورة لا يعمل» · «عرض السعر مع التكاليف ما عم يتغيّر سعر الشراء»)
+   كان «مع التكاليف» يقرأ قيمةً لا تُحسب إلا إذا كتب المالك في خانة تكلفةٍ وهو في وضع التعديل ⇒ في أيّ فاتورةٍ مفتوحة
+   من القائمة يبقى الرقمان متطابقين (21.71 = 21.71). الآن يُحسب دائماً من تكاليف الفاتورة نفسها:
+   سعر الوحدة الواصل = السعر الأصلي × (1 + مجموع التكاليف ÷ قيمة الفاتورة الأصلية) — توزيعٌ بنسبة قيمة كل بند.
+   سعر الشراء المحفوظ في البند يبقى **الأصلي** دائماً (التكاليف محفوظة في خاناتها) ⇒ لا تُحسب التكاليف مرّتين في المجموع. */
 function _origOf(it){
   if (it.origUnitPrice != null) return Number(it.origUnitPrice);
   if (it._origUnitPrice != null) return Number(it._origUnitPrice);
   return Number(it.unitPrice) || 0;            // فاتورة قديمة بلا تكاليف موزّعة ⇒ الأصلي هو نفسه
 }
-function _costedOf(it){
-  if (it.unitPriceWithCosts != null) return Number(it.unitPriceWithCosts);
-  return Number(it.unitPrice) || 0;
+function _invCostsTotal(){
+  const g=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||el?.value||'0').replace(/[^\d.-]/g,''))||0;};
+  return g('ct')+g('cs')+g('cc')+g('cl');
 }
+function _invCostFactor(){
+  const costs=_invCostsTotal();
+  const base=(d_items_ref||[]).reduce((s,it)=>s+(Number(it.qty)||0)*_origOf(it),0);
+  return (costs>0&&base>0)?(1+costs/base):1;
+}
+function _costedOf(it){ return +(_origOf(it)*_invCostFactor()).toFixed(4); }
+/* يكتب خانة سعر الشراء لكل بند حسب العرض المختار — في وضع التعديل دائماً الأصلي (هو ما يُعدَّل ويُحفظ) */
+function _applyPriceView(){
+  if(currentInvModal==='instant') return;
+  const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
+  const showOrig=_showOrigPrice||invEditMode;
+  let sum=0;
+  rows.forEach((tr,idx)=>{
+    const it=d_items_ref[idx]; if(!it) return;
+    const v=showOrig?_origOf(it):_costedOf(it);
+    sum+=v*(Number(it.qty)||0);
+    const cell=tr.querySelectorAll('td')[4]; if(!cell) return;
+    const divs=cell.querySelectorAll('div');
+    if(divs[0]) divs[0].textContent=v?v.toFixed(2):'';
+    if(divs[1]) divs[1].textContent=v?(v*(Number(it.qty)||0)).toFixed(2):'';
+    cell.style.background=(_showOrigPrice&&!invEditMode)?'#fff7ed':'';
+    cell.title=showOrig?'سعر الشراء الأصلي':'سعر الشراء مع حصّته من التكاليف (الواصل)';
+  });
+  const st=document.getElementById('inv-sum-purchase'); if(st) st.textContent=sum.toFixed(2);
+  const b=document.getElementById('orig-price-btn');
+  if(b){
+    const has=_invCostFactor()!==1;
+    b.style.display=invEditMode?'none':'';
+    b.textContent=!has?'ℹ️ لا تكاليف على هذه الفاتورة':(_showOrigPrice?'↩️ عرض السعر مع التكاليف':'🔍 عرض السعر الأصلي (بدون التكاليف)');
+    b.style.background=_showOrigPrice?'#1f348f':'#fff';
+    b.style.color=_showOrigPrice?'#fff':'#1f348f';
+  }
+}
+window._applyPriceView=_applyPriceView;
 window.toggleOrigPrice = function(){
   _showOrigPrice = !_showOrigPrice;
-  const rows = document.querySelectorAll('#inv-items-tbl tbody tr');
-  let changed = 0;
-  rows.forEach((tr, idx) => {
-    const it = d_items_ref[idx]; if (!it) return;
-    const v = _showOrigPrice ? _origOf(it) : _costedOf(it);
-    const cell = tr.querySelectorAll('td')[4]; if (!cell) return;
-    const divs = cell.querySelectorAll('div');
-    if (divs[0]) divs[0].textContent = v.toFixed(2);
-    if (divs[1]) divs[1].textContent = (v * (Number(it.qty) || 0)).toFixed(2);
-    cell.style.background = _showOrigPrice ? '#fff7ed' : '';
-    if (_origOf(it) !== _costedOf(it)) changed++;
-  });
-  const b = document.getElementById('orig-price-btn');
-  if (b) {
-    b.textContent = _showOrigPrice ? '↩️ عرض السعر مع التكاليف' : '🔍 عرض السعر الأصلي (بدون التكاليف)';
-    b.style.background = _showOrigPrice ? '#1f348f' : '#fff';
-    b.style.color = _showOrigPrice ? '#fff' : '#1f348f';
-  }
+  _applyPriceView();
+  const changed=(d_items_ref||[]).filter(it=>Math.abs(_costedOf(it)-_origOf(it))>0.0001).length;
   if (_showOrigPrice) {
     toast(changed
       ? '🔍 يُعرض السعر الأصلي قبل توزيع التكاليف (' + changed + ' بند) — للعرض فقط'
-      : 'ℹ️ لا توجد تكاليف موزّعة على هذه الفاتورة — السعر الأصلي هو نفسه', 'ok');
+      : 'ℹ️ لا توجد تكاليف على هذه الفاتورة — السعر الأصلي هو نفسه', 'ok');
   }
 };
 
@@ -4602,7 +4625,7 @@ async function saveInvCloud(){
      لا يُحفظ الحذف أبداً وتعود البنود عند إعادة الفتح. الآن: نسمح بحفظ فاتورة مُفرَّغة
      بعد تأكيد صريح (الحذف قرار مقصود ويجب أن يصل القاعدة). */
   if(!d_items_ref.length){
-    const _fl=ships.find(x=>x.inv_number===(document.querySelector('#invPage .inv-field[data-field="invNum"]')?.textContent||'').trim());
+    const _fl=_invOpenRow();
     if(!_fl?.id){ toast('لا توجد بيانات للحفظ','err'); return; }
     if(!await GMTAsk.confirm('⚠️ حذفتَ كل بنود هذه الفاتورة.\n\nالحفظ الآن سيجعلها فارغة في القاعدة.\nهل تريد المتابعة؟')) return;
   }
@@ -4641,16 +4664,24 @@ async function saveInvCloud(){
       return null;
     };
     const invNum=getF('invNum')||getF('invNum2')||'—';
-    const fromList=ships.find(s=>s.inv_number===invNum);
+    /* (TASK-0338) الصفّ المفتوح وحده — كان يبحث بالرقم: الفورية لا تحمل حقل رقمٍ مقروء ⇒ «—» ⇒ لا تطابق ⇒ تُنشأ فاتورة جديدة
+       بنوع «germany» الافتراضي وحالة «في الطريق» (ما حدث لسمارت ستور 7 ت2). */
+    const _O=window._invOpen||{};
+    const fromList=_O.id!=null?_invOpenRow():null;
+    if(_O.id!=null && !fromList){ toast('⛔ لم يُحفظ: تعذّر تحديد الفاتورة المفتوحة — أعد فتحها من القائمة','err'); throw new Error('__handled__'); }
+    if(_O.id==null && _O.kind==='instant'){ toast('هذه مسودة فاتورة فورية — احفظها من نافذة «الشراء الفوري» (زرّ الحفظ والإنزال) لا من هنا','err'); throw new Error('__handled__'); }
+    if(_O.id==null && !(_O.draft && _O.kind==='import')){ toast('⛔ لم يُحفظ: لا فاتورة مفتوحة معروفة','err'); throw new Error('__handled__'); }
     // التواريخ من fromList أولاً (موثوقة دائماً)
     const invDate=cleanDate(fromList?.inv_date)||null;
     const etaDate=cleanDate(fromList?.eta_date)||null;
     const snapshot=d_items_ref.map(i=>({
-      id:i.product?.id||i.id||null,
+      ...(i._raw||{}),
+      id:i.product?.id||i.id||(i._raw&&i._raw.id)||null,
       name:i.name||i.product?.name||'',
       barcode:i.product?.barcode||i.barcode||'',
       image_url:i.product?.image_url||i.image_url||'',
       qty:i.qty,unit_price:i.unitPrice||0,
+      ...(currentInvModal!=='instant'?{orig_unit_price:i.unitPrice||0}:{}),
       min_price:i.minPrice||0,whole_price:i.wholePrice||0,sale_price:i.salePrice||0,
       notes:i.notes||'',is_new:i.isNew||false
     }));
@@ -4679,6 +4710,8 @@ async function saveInvCloud(){
       updated_at:new Date().toISOString()
     };
     if(fromList?.id){
+      const _lost=(fromList.items_snapshot||[]).filter(x=>x&&x.id).length-snapshot.filter(x=>x.id).length;
+      if(_lost>0 && snapshot.length>=(fromList.items_snapshot||[]).length){ toast('⛔ لم يُحفظ: '+_lost+' بنداً سيفقد ربطه بمنتجه — أعد فتح الفاتورة وحاول ثانية','err'); throw new Error('__handled__'); }
       await sb('PATCH',`/rest/v1/import_log?id=eq.${fromList.id}`,payload,{Prefer:'return=minimal'});
       /* ✅ (2026-08-18) تحقّق فعلي بإعادة القراءة — لا نثق بنجاح الطلب وحده.
          سبب الإضافة: المالك يريد يقيناً أن الحذف/التعديل **حُفظ في القاعدة** لا في الواجهة
@@ -4715,7 +4748,7 @@ async function saveInvCloud(){
       render();
       toast('✅ تم حفظ الفاتورة سحابياً','ok');
     }
-  }catch(e){toast('خطأ: '+e.message,'err');console.error('saveInvCloud:',e);}
+  }catch(e){ if(e&&e.message==='__handled__'){} else {toast('خطأ: '+e.message,'err');console.error('saveInvCloud:',e);} }
   if(btn){btn.disabled=false;btn.innerHTML='<i data-lucide="cloud-upload" style="width:14px;height:14px"></i> حفظ سحابي';lucide.createIcons();}
 }
 
@@ -5905,12 +5938,12 @@ try {
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
-<script src="gmt-selfcheck.js?v=20261107i"></script>
+<script src="gmt-selfcheck.js?v=20261107j"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107i"></script>
+<script src="gmt-whatsnew.js?v=20261107j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

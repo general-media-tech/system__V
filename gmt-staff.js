@@ -4628,28 +4628,46 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
                 'in-currency', 'in-sector', 'cost-transport', 'cost-shipping',
                 'cost-customs', 'cost-local', 'in-cash-payment'];
 
+  /* (TASK-0338 · المالك seq 570) المسودة تُحفظ فقط والنافذة «تسجيل/تعديل شحنة» مفتوحة —
+     كانت تُحفظ كلّما امتلأت السلة ولو بمجرّد فتح فاتورةٍ للتعديل بلا أيّ تغيير، فتظهر للمالك
+     «وُجدت مسودة غير محفوظة» لفاتورةٍ محفوظة أصلاً (أو لفاتورةٍ حُذفت). */
+  function modalOpen() {
+    var m = document.getElementById('addModal');
+    return !!(m && !m.classList.contains('hidden'));
+  }
   function snapshot() {
     if (typeof window.cart === 'undefined' || !Array.isArray(window.cart)) return null;
     if (!window.cart.length) return null;
+    if (!modalOpen()) return null;
     var form = {};
     FIELDS.forEach(function (id) {
       var el = document.getElementById(id);
       if (el) form[id] = el.value;
     });
+    var row = (window.editId && typeof window._shipById === 'function') ? window._shipById(window.editId) : null;
     return {
       at: new Date().toISOString(),
       invType: window.invType || 'germany',
       editId: window.editId || null,
+      invNum: row ? (row.inv_number || '') : '',
       cart: window.cart,
       form: form
     };
   }
 
+  var baseJSON = '';
+  /* خطّ الأساس: حالة الفاتورة لحظة فتحها ⇒ لا مسودة ما لم يتغيّر شيءٌ فعلاً */
+  function baseline() {
+    var s = snapshot();
+    baseJSON = s ? (JSON.stringify(s.cart) + JSON.stringify(s.form)) : '';
+    lastJSON = baseJSON;
+  }
   function save() {
     var s = snapshot();
     if (!s) return;
     var j = JSON.stringify(s.cart) + JSON.stringify(s.form);
     if (j === lastJSON) return;              // لا تغيير ⇒ لا كتابة
+    if (j === baseJSON) { lastJSON = j; del(); return; }   // عاد كما فُتح ⇒ لا مسودة
     lastJSON = j;
     put(s);
     badge('💾 مسودة محفوظة بجهازك · ' + new Date().toLocaleTimeString('ar-SY'));
@@ -4672,28 +4690,55 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   }
 
   /* ── الاستعادة عند فتح الصفحة ── */
+  function waitShips(ms) {
+    return new Promise(function (res) {
+      var t0 = Date.now();
+      (function tick() {
+        if (window._shipsLoaded || Date.now() - t0 > ms) return res(!!window._shipsLoaded);
+        setTimeout(tick, 250);
+      })();
+    });
+  }
   function offerRestore() {
     get().then(async function (d) {
       if (!d || !d.cart || !d.cart.length) return;
+      var ask = window.GMTAsk ? GMTAsk.confirm : function (m) { return Promise.resolve(window.confirm(m)); };
+      var loaded = await waitShips(15000);
+      var row = (d.editId && typeof window._shipById === 'function') ? window._shipById(d.editId) : null;
+      /* (TASK-0338) مسودة تعديلٍ لفاتورةٍ لم تعد موجودة أو فاتورةٍ فورية ⇒ استعادتها تكتب في المكان الخطأ
+         (كانت ستحفظ «في الطريق» وتضيف الكميات للمخزون المؤقت) ⇒ لا استعادة. */
+      if (d.editId && loaded && (!row || row.inv_type === 'instant')) {
+        del();
+        badge(!row ? '🗑️ حُذفت مسودة قديمة لفاتورةٍ لم تعد موجودة' : '🗑️ حُذفت مسودة قديمة لفاتورةٍ فورية (تُعدَّل من معاينتها)');
+        return;
+      }
+      if (d.editId && !loaded) return;       // لم تُحمَّل الفواتير ⇒ لا قرار الآن، تبقى المسودة
       var when = new Date(d.at).toLocaleString('ar-SY');
-      var ok = await (window.GMTAsk ? GMTAsk.confirm : function (m) { return Promise.resolve(window.confirm(m)); })(
+      var sup = (d.form && d.form['in-supplier']) || '';
+      var what = row ? ('تعديل الفاتورة ' + (row.inv_number || '') + (row.supplier ? ' · ' + row.supplier : ''))
+                     : ('فاتورة استيراد جديدة' + (d.invType === 'china' ? ' (الصين)' : ' (أوروبا)') + (sup ? ' · ' + sup : ''));
+      var ok = await ask(
         '💾 وُجدت مسودة فاتورة غير محفوظة سحابياً\n\n' +
+        'ما هي: ' + what + '\n' +
         'التاريخ: ' + when + '\n' +
         'عدد الأصناف: ' + d.cart.length + '\n\n' +
         'هل تستعيدها؟\n(«إلغاء» = حذفها نهائياً)'
       );
       if (!ok) { del(); return; }
       try {
+        /* كان يستدعي openAddModal بعد وضع السلة ⇒ يمسحها ويمسح editId فتظهر النافذة فارغة */
+        if (row && typeof window.openEdit === 'function') window.openEdit(row.id);
+        else if (typeof window.openAddModal === 'function') window.openAddModal();
         window.cart = d.cart;
-        window.invType = d.invType;
-        if (d.editId) window.editId = d.editId;
+        if (typeof window.setType === 'function' && (d.invType === 'china' || d.invType === 'germany')) window.setType(d.invType);
         Object.keys(d.form || {}).forEach(function (id) {
           var el = document.getElementById(id);
           if (el) el.value = d.form[id];
         });
-        if (typeof window.openAddModal === 'function') window.openAddModal();
+        if (typeof window.updateTotalCosts === 'function') { try { window.updateTotalCosts(); } catch (_) {} }
         if (typeof window.renderCart === 'function') window.renderCart();
         else if (typeof window.render === 'function') window.render();
+        if (typeof window.updateSum === 'function') { try { window.updateSum(); } catch (_) {} }
         badge('✅ استُعيدت المسودة');
       } catch (e) { console.warn('[gmt-draft] restore:', e); }
     });
@@ -4712,7 +4757,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     return true;
   }
 
-  window.GMTDraft = { save: save, clear: del, restore: offerRestore };
+  window.GMTDraft = { save: save, clear: del, restore: offerRestore, baseline: baseline };
 
   document.addEventListener('DOMContentLoaded', function () {
     if (!/06_PURCHASES|المشتريات|purchases/i.test(location.pathname + document.title)) return;
