@@ -70,6 +70,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 #invModal{
   display:none;
   position:fixed;inset:0;
+  /* (TASK-0333 · المالك seq 562 «هذا الشريط العلوي على اللاب توب يخفي الأدوات») النافذة تبدأ تحت أشرطة النظام العلوية
+     (--gmt-topbars) كبقيّة النوافذ — فيبقى شريط أدوات الفاتورة (حفظ سحابي · بحث · إضافة منتج · طباعة · ✕) ظاهراً كاملاً */
+  top:var(--gmt-topbars,0px);
   background:rgba(0,0,0,.88);
   z-index:800;
   overflow-y:auto;
@@ -112,6 +115,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 #purchase-type-modal{
   display:none;
   position:fixed;inset:0;
+  top:var(--gmt-topbars,0px);
   background:rgba(0,0,0,0.65);
   backdrop-filter:blur(6px);
   z-index:500;
@@ -145,6 +149,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 #instantModal{
   display:none;
   position:fixed;inset:0;
+  top:var(--gmt-topbars,0px);
   background:rgba(0,0,0,0.6);
   backdrop-filter:blur(6px);
   z-index:100;
@@ -5897,7 +5902,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261107e"></script>
+<script src="gmt-whatsnew.js?v=20261107f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
@@ -5905,5 +5910,26 @@ try {
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
+<script>
+/* (TASK-0333 · المالك seq 563 «انظر إلى نشرة الأسعار أو القائمة المنسدلة بشكل عام») القوائم المنسدلة (فلترة الأعمدة · نشرة أسعار · …) كانت
+   تُفتح من حافّة الزرّ فتخرج عن الشاشة على الهاتف ويُقصّ نصفها. الآن كلّ قائمةٍ تُفتح تُزاح لتبقى داخل الشاشة كاملةً، وإن كانت أطول من الشاشة تُمرَّر بداخلها. */
+(function(){
+  function fit(d){
+    var p = d.querySelector(':scope > div'); if (!p) return;
+    p.style.transform = ''; p.style.maxWidth = ''; p.style.maxHeight = ''; p.style.overflowY = '';
+    if (!d.open) return;
+    var vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight, m = 8;
+    p.style.maxWidth = (vw - 2 * m) + 'px';
+    var r = p.getBoundingClientRect(), dx = 0;
+    if (r.right > vw - m) dx = (vw - m) - r.right;
+    if (r.left + dx < m) dx = m - r.left;
+    if (dx) p.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+    var room = vh - Math.max(r.top, 0) - m;
+    if (r.height > room && room > 120) { p.style.maxHeight = room + 'px'; p.style.overflowY = 'auto'; }
+  }
+  document.addEventListener('toggle', function(e){ var d = e.target; if (d && d.tagName === 'DETAILS') fit(d); }, true);
+  addEventListener('resize', function(){ document.querySelectorAll('details[open]').forEach(fit); });
+})();
+</script>
 </body>
 </html>
