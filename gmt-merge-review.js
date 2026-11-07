@@ -272,6 +272,14 @@
     const up = await rest('PATCH', 'products?id=eq.' + a.id, patch, { Prefer: 'return=representation' });
     if (!Array.isArray(up) || !up.length) throw new Error('لم يُحفظ التعديل على «' + a.name + '»');
     await audit({ action: 'merge_review', entity_id: String(b.id), entity_name: b.name, old_value: JSON.stringify(b), new_value: a.name, reason: 'قرار المالك في «مشابهات تنتظر قرارك»: نعم هو نفسه', sovereign: false, meta: { review_id: reviewId, merged_into: a.id, patch_keys: Object.keys(patch) } });
+    /* (المالك seq 530/531 «صلح كل الفواتير … والمنتجات المرتبطة») بنود فواتير الشراء (فوري · صيني · أوروبي) التي على المحذوف
+       كانت تبقى على معرّفٍ لم يعد موجوداً ⇒ الباقي يظهر «بلا فاتورة». الآن تُنقل إلى الباقي قبل الحذف. */
+    const ilRows = await rest('GET', 'import_log?select=id,items_snapshot&items_snapshot=cs.' + encodeURIComponent(JSON.stringify([{ id: String(b.id) }]))) || [];
+    for (const row of ilRows) {
+      const it = (Array.isArray(row.items_snapshot) ? row.items_snapshot : []).map(x => x && String(x.id) === String(b.id) ? Object.assign({}, x, { id: String(a.id), merged_from: String(b.id) }) : x);
+      const ok = await rest('PATCH', 'import_log?id=eq.' + row.id, { items_snapshot: it }, { Prefer: 'return=representation' });
+      if (!Array.isArray(ok) || !ok.length) throw new Error('تعذّر نقل بنود فاتورة الشراء من «' + b.name + '» — لم يُحذف');
+    }
     const del = await rest('DELETE', 'products?id=eq.' + b.id, null, { Prefer: 'return=representation' });
     if (!Array.isArray(del) || !del.length) throw new Error('تعذّر حذف «' + b.name + '» بعد الدمج — أُضيفت أسماؤه للمنتج الأصلي');
     return b;
