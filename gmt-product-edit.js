@@ -510,7 +510,7 @@
       $('[data-pe-addimg]').onclick = function () { var i = $('[data-pe-newimg]'), u = realImg(i.value); if (isHttp(u) && S.imgs.indexOf(u) === -1) { i.value = ''; addFromLink(u); } };
       wireOptAdd(sp, prods);
       var same = $('[data-s-same]'), spr = $('[data-s="price"]');
-      same.checked = num(sp.price) === num(p.price);
+      same.checked = num(sp.price) === num(p.price) || !(num(sp.price) > 0);   /* (المالك seq 580) سعر المتجر 0 ⇒ يتبع سعر الجرد (كان يبقى 0 فيظهر «السعر عند الطلب») */
       var sync = function () { if (same.checked) { spr.value = $('[data-f="price"]').value; spr.disabled = true; } else spr.disabled = false; };
       same.onchange = sync; $('[data-f="price"]').addEventListener('input', sync); sync();
     }, function (e) { $('[data-pe-store]').innerHTML = '<h3>🛒 المتجر</h3><p class="pe-note" style="color:#b91c1c">تعذّرت قراءة المتجر: ' + esc(e && e.message || e) + '</p>'; }); }

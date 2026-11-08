@@ -187,7 +187,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261108d"></script>
+  <script src="gmt-core.js?v=20261108e"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -201,8 +201,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-labels.js?v=20261107a"></script>
-<script src="gmt-staff.js?v=20261108d"></script>
-<script src="gmt-store-sync.js?v=20261108d"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
+<script src="gmt-staff.js?v=20261108e"></script>
+<script src="gmt-store-sync.js?v=20261108e"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -1521,14 +1521,11 @@ function insAddToCart(id){
   const ex=insCart.find(c=>String(c.product.id)===String(id));
   if(ex){ex.qty++;renderInsCart();updateInsSum();return;}
   /* ن٦: الأحدثُ في الأعلى — نفس القاعدة في كل الفواتير (قاعدتك ن٧) */
-  insCart.unshift({
+  insCart.unshift(Object.assign({
     product:p,qty:1,isNew:false,
     unitPrice:0,
-    minPrice:Number(p.net_cost)||0,
-    wholePrice:Number(p.wholesale_price)||0,
-    salePrice:Number(p.price)||0,
     notes:''
-  });
+  },_priceSeed(p)));   /* (seq 570) بلا أسعار ⇐ آخر أسعار من فاتورة سابقة */
   renderInsCart();updateInsSum();
   toast('✅ أُضيف: '+p.name,'ok');
 }
@@ -1806,8 +1803,10 @@ function openInstantInvData(s,invNum,branchName){
     deleted:!!((i.id||(i.product&&i.product.id))&&_loaded&&!lp),
     name:(lp&&lp.name)||i.name||'',image_url:(lp&&lp.image_url)||i.image_url||'',barcode:i.barcode||(lp&&lp.barcode)||'',
     qty:i.qty||0,isNew:i.is_new||false,
-    unitPrice:i.unit_price||0,origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:null),_origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:undefined),minPrice:i.min_price||0,
-    wholePrice:i.whole_price||0,salePrice:i.sale_price||0,notes:i.notes||'',
+    unitPrice:i.unit_price||0,origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:null),_origUnitPrice:(i.orig_unit_price!=null?i.orig_unit_price:undefined),
+    /* (المالك seq 579) «منتجات مسعّرة في المتجر أو الجرد — ليش ما نحطّ سعر المبيع في الفاتورة» ⇒ من المنتج الحيّ أوّلاً (سعر الشراء وحده يخصّ الفاتورة) */
+    minPrice:(lp&&Number(lp.net_cost))||i.min_price||0,
+    wholePrice:(lp&&Number(lp.wholesale_price))||i.whole_price||0,salePrice:(lp&&Number(lp.price))||i.sale_price||0,notes:i.notes||'',
     unlinked:!!(i.unlinked||!i.id)   /* (المالك seq 386) بندٌ لم يُربط بمنتج ⇐ خطّ أحمر للمراجعة والربط اليدوي */
   });});
   const origTotal=items.reduce((a,i)=>a+(i.qty*i.unitPrice),0);
@@ -2170,6 +2169,24 @@ function doAC(q){
 function closeAC(){document.getElementById('ac-list').style.display='none';}
 
 // ── IMPORT CART ───────────────────────────────────────────
+/* (TASK-0338 · المالك seq 570) «منتجات موجودة في فاتورة قديمة وفي الفاتورة الجديدة — ليش ما عم تتعرّف أو ما عم ينحطّ نفس التسعيرات
+   للجملة وللحد الأدنى»: ① المنتج بلا أسعار ⇐ آخر أسعار بيع/جملة/حدّ أدنى وُضعت له في فاتورة سابقة · ② الاسم بنفس الكلمات بترتيب آخر
+   («8819 stand» = «stand 8819») يُعرَف بدل إنشاء منتج مكرّر. */
+function _lastInvPrices(pid){
+  if(pid==null) return {};
+  const rows=(ships||[]).slice().sort((a,b)=>String(b.inv_date||b.created_at||'').localeCompare(String(a.inv_date||a.created_at||'')));
+  const out={};
+  for(const s of rows){ for(const i of (s.items_snapshot||[])){ if(!i||String(i.id)!==String(pid)) continue;
+    if(!out.sale&&Number(i.sale_price)>0) out.sale=Number(i.sale_price);
+    if(!out.whole&&Number(i.whole_price)>0) out.whole=Number(i.whole_price);
+    if(!out.min&&Number(i.min_price)>0) out.min=Number(i.min_price);
+  } if(out.sale&&out.whole&&out.min) break; }
+  return out;
+}
+function _priceSeed(p){ const l=_lastInvPrices(p&&p.id); return {
+  minPrice:Number(p&&p.net_cost)||l.min||0, wholePrice:Number(p&&p.wholesale_price)||l.whole||0, salePrice:Number(p&&p.price)||l.sale||0 }; }
+function _tokKey(s){ return String(s||'').toLowerCase().replace(/[^\p{L}\p{N}.]+/gu,' ').trim().split(/\s+/).filter(Boolean).sort().join(' '); }
+function prodByTokens(name){ const k=_tokKey(name); if(!k||k.length<3) return null; const hits=prods.filter(p=>_tokKey(p.name)===k); return hits.length===1?hits[0]:null; }
 function addToCart(id){
   closeAC();document.getElementById('prod-search').value='';
   const p=prods.find(x=>String(x.id)===String(id));if(!p)return;
@@ -2177,7 +2194,7 @@ function addToCart(id){
   if(ex){ex.qty++;renderCart();updateSum();return;}
   /* ن٦ (2026-10-03): المنتجُ المُضاف يظهر **في الأعلى** لسهولة تعديل كميته —
      كان يُدفَع لآخر القائمة فيضطرّ المالك للتمرير في فاتورةٍ من ٣٠ صنفاً. */
-  cart.unshift({product:p,qty:1,isNew:false,unitPrice:0,minPrice:Number(p.net_cost)||0,wholePrice:Number(p.wholesale_price)||0,salePrice:Number(p.price)||0,notes:''});
+  cart.unshift(Object.assign({product:p,qty:1,isNew:false,unitPrice:0,notes:''},_priceSeed(p)));
   renderCart();updateSum();
   toast('✅ أُضيف: '+p.name,'ok');
 }
@@ -2953,7 +2970,7 @@ function prodsByInvoiceName(name){
 async function importExcel(){
   if(!exRows.length)return;
   btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[],byInvName=0,ambiguous=[];
-  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase())||prodsByInvoiceName(row.name).length);
+  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase())||prodsByInvoiceName(row.name).length||prodByTokens(row.name));
   const _toUp=exRows.filter(r=>r.name&&String(r.image_url||'').startsWith('data:')&&_isNew(r));
   let _imgRes={up:0,fail:0};
   if(_toUp.length){btnLoad('جارٍ رفع '+_toUp.length+' صورة…');_imgRes=await excelImgToStorage(_toUp);}
@@ -2962,9 +2979,10 @@ async function importExcel(){
     /* (١١ ت١) المطابقة بالباركود أوّلاً (ملف عرض السعر) — ثم بالاسم كما كان */
     let prod=(row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===nl);
     if(!prod){const hits=prodsByInvoiceName(row.name);if(hits.length){prod=hits[0];byInvName++;if(hits.length>1)ambiguous.push(row.name+' ⇐ '+hits.length+' منتجات');}}
+    if(!prod){prod=prodByTokens(row.name);if(prod)byInvName++;}
     if(!prod){prod={id:-(Date.now()+Math.random()),name:row.name,barcode:row.barcode||genBar(),price:row.price||0,wholesale_price:row.wholePrice||0,net_cost:row.netCost||0,image_url:row.image_url||null,_pending:true,_excelRow:row};prods.push(prod);pendingNew.push(prod);}
     const ex=cart.find(c=>c.product.id===prod.id);
-    if(ex){ex.qty+=row.qty;}else{cart.unshift({product:prod,qty:row.qty,isNew:true,unitPrice:Number(row.netCost)||Number(prod.net_cost)||0,minPrice:Number(row.minPrice)||Number(prod.net_cost)||0,wholePrice:Number(row.wholePrice)||Number(prod.wholesale_price)||0,salePrice:Number(row.price)||Number(prod.price)||0,notes:row.notes||''});added++;}
+    if(ex){ex.qty+=row.qty;}else{cart.unshift({product:prod,qty:row.qty,isNew:true,unitPrice:Number(row.netCost)||Number(prod.net_cost)||0,minPrice:Number(row.minPrice)||_priceSeed(prod).minPrice,wholePrice:Number(row.wholePrice)||_priceSeed(prod).wholePrice,salePrice:Number(row.price)||_priceSeed(prod).salePrice,notes:row.notes||''});added++;}
   }
   btnReset();renderCart();updateSum();clearExcel();
   if(ambiguous.length)setTimeout(()=>toast('⚠️ '+ambiguous.length+' بنداً اسمه في الفاتورة يطابق أكثر من منتج (مثل ألوان الكفر الواحد) — رُبط بأوّلها، راجعه في السلّة: '+ambiguous.slice(0,3).join(' · '),'warn'),2600);
@@ -3170,10 +3188,11 @@ function openInvFromList(id){
       // الاسم والصورة: من قاعدة البيانات (أحدث)
       name:p.name||i.name,
       image_url:p.image_url||i.image_url,
-      // الأسعار الأخرى: من قاعدة البيانات
-      min_price:i.min_price||p.net_cost||0,
-      whole_price:i.whole_price||p.wholesale_price||0,
-      sale_price:i.sale_price||p.price||0,
+      // (TASK-0338 · المالك seq 579) «المنتج واحد في كل الفواتير — لما يتغيّر في فاتورة يتزامن فوراً على كل المنتج»:
+      // المبيع والجملة والحدّ الأدنى من المنتج نفسه أوّلاً (هو المرجع الوحيد) ثم من الفاتورة إن كان المنتج بلا سعر
+      min_price:Number(p.net_cost)||i.min_price||0,
+      whole_price:Number(p.wholesale_price)||i.whole_price||0,
+      sale_price:Number(p.price)||i.sale_price||0,
       // سعر الشراء: من snapshot الفاتورة فقط (لا يُعدَّل من الخارج)
       unit_price:i.unit_price||0
     };
@@ -3463,6 +3482,9 @@ async function saveInvEdits(){
     doApplyUpdates([]);
   }
 
+  /* (المالك seq 579) الفاتورة تعرض أسعار المنتج الحيّة ⇒ ما عدّلتَه الآن يُطبَّق على نسخة المنتج المحلية فوراً،
+     وإلا تُعاد الفاتورة الفورية بالسعر القديم قبل أن يصل الحفظ (وتُحفظ به). */
+  productUpdates.forEach(({id,upd})=>{ const lp=prods.find(x=>String(x.id)===String(id)); if(lp) Object.assign(lp,upd); });
   // ── 6. أعد بناء الفاتورة من d_items_ref مباشرة (لا من النموذج) ──
   const nowDate=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   const invData={
@@ -6027,12 +6049,12 @@ try {
 <script src="gmt-learn.js?v=20261007z5"></script>
 <script src="gmt-lessons.js?v=20261010b"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
-<script src="gmt-selfcheck.js?v=20261108d"></script>
+<script src="gmt-selfcheck.js?v=20261108e"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261108d"></script>
+<script src="gmt-whatsnew.js?v=20261108e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -187,9 +187,9 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261108d"></script>
+  <script src="gmt-core.js?v=20261108e"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
-  <script src="gmt-store-sync.js?v=20261108d" defer></script>
+  <script src="gmt-store-sync.js?v=20261108e" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -1001,10 +1001,22 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261105a');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261108e');
+        /* (المالك seq 580) «أحياناً يكتب تعذّر التعديل لما أفتح تعديل منتج» — طلبٌ واحد بلا إعادة على شبكة ضعيفة ⇒ يفشل.
+           الآن: مهلة 12ث ومحاولتان إضافيتان، وقائمة المجموعات/الأصناف (للاقتراحات فقط) لا تُوقف فتح التعديل أبداً. */
+        const _get = async (url, tries) => {
+            let last;
+            for (let i = 0; i <= tries; i++) {
+                const ac = new AbortController(), t = setTimeout(() => ac.abort(), 12000);
+                try { const r = await fetch(url, { headers: H, signal: ac.signal }); clearTimeout(t); if (r.ok) return r.json(); last = new Error('HTTP ' + r.status); if (r.status < 500 && r.status !== 429) break; }
+                catch (e) { clearTimeout(t); last = e; }
+                await new Promise(z => setTimeout(z, 800 * (i + 1)));
+            }
+            throw last;
+        };
         const [rows, lists] = await Promise.all([
-            fetch(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', { headers: H }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))),
-            fetch(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
+            _get(D.url + '/rest/v1/products?id=eq.' + encodeURIComponent(invId) + '&select=*', 2),
+            _get(D.url + '/rest/v1/products?select=group_name,category,brand&limit=5000', 1).catch(() => [])
         ]);
         const p = Array.isArray(rows) && rows[0]; if (!p) { showToast('منتج الجرد المربوط لم يعد موجوداً — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
         const uniq = k => [...new Set((lists || []).map(x => x && x[k]).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, 'ar'));
@@ -1031,7 +1043,12 @@ async function _adminFullEdit(prod) {
                 showToast('✅ حُفظ في الجرد والمتجر', 'success');
             }
         });
-    } catch (e) { showToast('❌ تعذّر فتح التعديل: ' + (e.message || e), 'error'); }
+    } catch (e) {
+        const m = String(e && e.message || e);
+        showToast(/abort|Failed to fetch|NetworkError|Load failed|HTTP 5\d\d|HTTP 0/i.test(m)
+            ? '📶 تعذّر فتح التعديل: الاتصال بقاعدة البيانات ضعيف أو متقطّع الآن (حاولنا 3 مرّات) — أعد المحاولة بعد لحظات'
+            : '❌ تعذّر فتح التعديل: ' + m, 'error');
+    }
 }
 function _setCardCartBtn(btn, inCart) {
     if (inCart) {
@@ -3106,7 +3123,7 @@ try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-pwa.js?v=20261107g"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
-<script src="gmt-selfcheck.js?v=20261108d"></script>
+<script src="gmt-selfcheck.js?v=20261108e"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 
 <script>/* GMT_SOUND_ENTRY — صوتُ الدخول لهذه الصفحة (طلبك 2026-10-04).

@@ -23,7 +23,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(pe && pe.name === P.name && pe.bc === P.barcode, 'تُفتح صفحة التعديل الكاملة لمنتج الجرد المربوط فوق المتجر: ' + JSON.stringify(pe));
   ok(pe && pe.store && pe.sname === 'منتج أ', 'وفيها قسم المتجر (اسم القائمة في المتجر)');
   await pg.evaluate(() => { const g = document.getElementById('gmt-pe'); const set = (sel, v) => { const i = g.querySelector(sel); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); };
-    set('[data-f="name"]', 'اسم الجرد الجديد'); set('[data-f="price"]', '310'); set('[data-f="wholesale_price"]', '290'); set('[data-s="name"]', 'منتج أ المعدَّل'); set('[data-s="price"]', '35');
+    set('[data-f="name"]', 'اسم الجرد الجديد'); set('[data-f="price"]', '310'); set('[data-f="wholesale_price"]', '290'); set('[data-s="name"]', 'منتج أ المعدَّل'); const sm = g.querySelector('[data-s-same]'); if (sm.checked) { sm.checked = false; sm.dispatchEvent(new Event('change', { bubbles: true })); } set('[data-s="price"]', '35');
     g.querySelector('[data-pe-save]').click(); });
   await sleep(3500);
   const row = (await H.call('/rest/v1/products?id=eq.' + P.id + '&select=name,price,wholesale_price', undefined, 'GET'))[0];
