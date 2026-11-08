@@ -5,6 +5,9 @@
      – بوستر المتجر (الصورة الأولى لكل قائمة) ⇐ يبقى في Supabase كما هو
      – صورة الجرد الأساسية (products.image_url) ⇐ تبقى في Supabase وتُضغط في مكانها (--shrink-main)
      – كلّ ما سواهما (صور المعرض) ⇐ GitHub **بلا ضغط** (نسخة طبق الأصل)
+⚑ seq 590 «اعتمد الحلّ الأفضل أنت»: البوستر هو أكثر صورة تُحمَّل (كلّ بطاقة في المتجر) ⇒ المتجر يعرضه من نسخته على GitHub
+   (بلا ضغط) وأصله يبقى في Supabase أرشيفاً لا يُحذف — فلا يمسّ المتجر حصّة القاعدة إطلاقاً.
+   صورة الجرد الأساسية وحدها تبقى معروضة من Supabase (للموظّفين · محفوظة على أجهزتهم) ومضغوطة في مكانها.
 
 نقل صور المنتجات من تخزين Supabase إلى استضافة GitHub Pages (مجلّد img/p في المستودع) مع ضغطها،
 ثمّ إعادة كتابة روابطها في الجرد (products.image_url/images) والمتجر (gmt_store: صور القوائم وقيم الخيارات).
@@ -73,12 +76,12 @@ def main():
         for o in sp.get('options') or []:
             for v in (o.get('values') or []) if isinstance(o, dict) else []:
                 if isinstance(v, dict): add(v.get('image')); add(v.get('image_url'))
-    keep = set()   # تبقى في Supabase: البوستر + صورة الجرد الأساسية
+    store_urls = set()
     for sp in store.get('products') or []:
-        ims = sp.get('images') or []
-        if ims and isinstance(ims[0], str): keep.add(ims[0])
+        for u in (sp.get('images') or []):
+            if isinstance(u, str): store_urls.add(u)
     mains = {p.get('image_url') for p in prods if isinstance(p.get('image_url'), str)}
-    keep |= mains
+    keep = mains - store_urls   # تبقى معروضة من Supabase: صورة الجرد الأساسية التي لا يعرضها المتجر
     mp, before, after, fail = {}, 0, 0, []
     for u in sorted(urls - keep):
         rel = urllib.parse.unquote(PAT.match(u).group(1).split('?')[0])
@@ -113,7 +116,8 @@ def main():
     n = 0
     for p in prods:
         im = p.get('image_url'); ims = p.get('images') or []
-        nim = mp.get(im, im); nims = [mp.get(u, u) for u in ims]
+        nim = im   # صورة الجرد الأساسية: رابطها لا يتغيّر (تبقى في Supabase)
+        nims = [mp.get(u, u) for u in ims]
         if nim != im or nims != ims:
             rq(MU, MK, 'POST', '/rest/v1/gmt_audit', {'actor': 'Claude (جلسة المالك)', 'page': 'tools', 'action': 'img_migrate', 'entity': 'products', 'entity_id': str(p['id']), 'entity_name': p.get('name'),
                 'field': 'image_url,images', 'old_value': json.dumps({'image_url': im, 'images': ims}, ensure_ascii=False), 'reason': 'المالك seq 584/587: الصور إلى استضافة GitHub مضغوطة'}, 'return=minimal')
