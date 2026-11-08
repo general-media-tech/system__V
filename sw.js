@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261108e';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261108f';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -47,6 +47,31 @@ function isOcr(url) { return url.origin === location.origin && /\/lib\/ocr\//.te
      • `c.add` صار يُبلّغ عن فشله بدل ابتلاعه، كي لا يبقى التثبيت ناقصاً بصمت.
    ══════════════════════════════════════════════════════════════════════════ */
 const PAGES = 'gmt-pages';             // ⚠️ بلا رقم إصدار — عمداً
+/* (TASK-0342 · المالك seq 580–584) توقّفت القاعدة الرئيسية لتجاوز «حصّة التحميل» (402 · exceed_cached_egress_quota):
+   ٢٩٥٧ صورة من ٢٩٨٦ مخزَّنة بـ «no-cache» ⇒ كلّ جهاز يعيد تنزيل كلّ صورة في كلّ فتحة. الآن صور المنتجات (وليست بيانات القاعدة —
+   القاعدة الصارمة أعلاه للبيانات المالية تبقى كما هي) تُحفظ على الجهاز بعد أوّل تنزيل: تُعرض فوراً من الجهاز، وتُجدَّد في
+   الخلفية مرّة كلّ ٧ أيام فقط · وتظهر حتى لو توقّفت القاعدة. الاسم ثابت (لا يُمسح مع النشر) · سقف ١٥٠٠ صورة. */
+const IMGS = 'gmt-imgs';
+const IMG_MAX = 1500, IMG_TTL = 7 * 864e5;
+function isProdImg(url) {
+  return /supabase\.co$/.test(url.hostname) &&
+    /\/storage\/v1\/(object|render\/image)\/public\/products-images\//.test(url.pathname) &&
+    !/\.json$/i.test(url.pathname);
+}
+async function imgTrim(c) {
+  try { const ks = await c.keys(); if (ks.length > IMG_MAX) for (const k of ks.slice(0, ks.length - IMG_MAX)) await c.delete(k); } catch (_) {}
+}
+async function imgFetchPut(c, href) {
+  /* mode:'cors' (الخادم يسمح) ⇒ استجابة حقيقية بحجمها الفعلي — الاستجابة «المعتمة» لوسم <img> تُحسب في المتصفّح ~٧ م.ب لكلّ صورة */
+  const res = await fetch(href, { mode: 'cors', credentials: 'omit' });
+  if (res && res.ok) {
+    const body = await res.clone().blob();
+    const h = new Headers(res.headers); h.set('x-gmt-at', String(Date.now()));
+    await c.put(href, new Response(body, { status: 200, headers: h }));
+    if (Math.random() < 0.05) imgTrim(c);
+  }
+  return res;
+}
 
 /* قشرة التطبيق: تُخزَّن عند التثبيت. الصفحات الكبيرة تُخزَّن عند أوّل زيارة. */
 const CORE = [
@@ -85,7 +110,7 @@ self.addEventListener('activate', (e) => {
     /* نحذف كاشات المكتبات القديمة فقط — وكاش الصفحات يبقى.
        (كان الحذف يشمل الصفحات، فيفقد المستخدم كل ما خزّنه مع كل نشرة.) */
     await Promise.all(keys
-      .filter(k => k !== PAGES && k !== OCR && !k.startsWith(VERSION))
+      .filter(k => k !== PAGES && k !== OCR && k !== IMGS && !k.startsWith(VERSION))
       .map(k => caches.delete(k)));
     await self.clients.claim();
   })());
@@ -131,6 +156,22 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;                       // الكتابة لا تُعترض أبداً
   if (req.headers.has('range')) return;                   // (١٨ ت1) طلبات الفيديو/الصوت الجزئية (206) للمتصفّح نفسه — الكاش لا يقبل 206 وسفاري يحتاجها كما هي
   const url = new URL(req.url);
+
+  /* صور المنتجات: من الجهاز أوّلاً (انظر IMGS أعلاه) */
+  if (isProdImg(url)) {
+    e.respondWith((async () => {
+      const c = await caches.open(IMGS), href = url.href;
+      const hit = await c.match(href);
+      if (hit) {
+        const at = Number(hit.headers.get('x-gmt-at') || 0);
+        if (Date.now() - at > IMG_TTL) e.waitUntil(imgFetchPut(c, href).catch(() => {}));
+        return hit;
+      }
+      try { return await imgFetchPut(c, href); }
+      catch (err) { return fetch(req); }
+    })());
+    return;
+  }
 
   /* 🔒 بيانات القاعدة والتخزين والإشعارات: شبكة فقط — لا كاش إطلاقاً */
   if (/supabase\.co$/.test(url.hostname) || /api\.telegram\.org$/.test(url.hostname) || /jsonbin/.test(url.hostname)) return;

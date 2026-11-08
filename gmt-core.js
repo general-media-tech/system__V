@@ -641,6 +641,62 @@
     }, true);
   } catch (_) {}
 
+  /* ══ (TASK-0342 · المالك seq 580–584 «طبّق على الكل») توقّف القاعدة لتجاوز حصّة التحميل — الصور هي السبب (٦٥٠ م.ب · ١٤٦ صورة فوق ١ م.ب)
+     بوّابةٌ واحدة لكلّ رفع صورة إلى products-images (المتجر · الجرد · المشتريات · الأوردرات · أدمن المتجر — fetch أو مكتبة supabase):
+       • تصغير أطول ضلع إلى ١٦٠٠ نقطة (أكبر من أيّ شاشة هاتف · يكفي للتكبير) بجودة ٠٫٨٥ — بلا تغيير الامتداد ولا الرابط
+       • تخزين مؤقّت ٣٠ يوماً بدل «no-cache» ⇒ لا يعيد كلّ جهاز تنزيل الصورة في كلّ فتحة
+     صورةٌ صغيرة أصلاً (< ٢٥٠ ك.ب و≤ ١٦٠٠ نقطة) أو GIF/SVG ⇒ تمرّ كما هي. أيّ فشلٍ في التصغير ⇒ يُرفع الأصل كما كان. ══ */
+  var IMG_MAX_SIDE = 1600, IMG_Q = 0.85, IMG_CACHE = 'max-age=2592000';
+  async function _shrinkImage(blob) {
+    try {
+      if (!blob || !/^image\/(jpe?g|png|webp)$/i.test(blob.type || '')) return blob;
+      var bmp = await createImageBitmap(blob);
+      var w = bmp.width, h = bmp.height, big = Math.max(w, h);
+      if (big <= IMG_MAX_SIDE && blob.size < 250 * 1024) { try { bmp.close(); } catch (_) {} return blob; }
+      var k = big > IMG_MAX_SIDE ? IMG_MAX_SIDE / big : 1, cw = Math.round(w * k), ch = Math.round(h * k);
+      var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+      var cx = cv.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(bmp, 0, 0, cw, ch); try { bmp.close(); } catch (_) {}
+      var type = /png/i.test(blob.type) ? 'image/png' : /webp/i.test(blob.type) ? 'image/webp' : 'image/jpeg';
+      var out = await new Promise(function (r) { cv.toBlob(r, type, type === 'image/png' ? undefined : IMG_Q); });
+      return (out && out.size && out.size < blob.size) ? out : blob;
+    } catch (_) { return blob; }
+  }
+  global.GMTShrinkImage = _shrinkImage;
+  try {
+    if (global.fetch && !global.__gmtImgUpHook) {
+      global.__gmtImgUpHook = true;
+      var _f0 = global.fetch.bind(global);
+      global.fetch = function (input, init) {
+        try {
+          var url = typeof input === 'string' ? input : (input && input.url) || '';
+          var m = String((init && init.method) || 'GET').toUpperCase();
+          if ((m === 'POST' || m === 'PUT') && /\/storage\/v1\/object\/products-images\//.test(url) && !/\.json(\?|$)/i.test(url) && init && init.body) {
+            var body = init.body;
+            if (typeof Blob !== 'undefined' && body instanceof Blob && /^image\//i.test(body.type || '')) {
+              return _shrinkImage(body).then(function (nb) {
+                var hd = new Headers(init.headers || {}); hd.set('cache-control', IMG_CACHE); if (nb.type) hd.set('Content-Type', nb.type);
+                return _f0(input, Object.assign({}, init, { body: nb, headers: hd }));
+              });
+            }
+            if (typeof FormData !== 'undefined' && body instanceof FormData) {   /* مكتبة supabase ترسل الصورة داخل FormData */
+              var ents = []; body.forEach(function (v, k2) { ents.push([k2, v]); });
+              if (ents.some(function (e) { return e[1] instanceof Blob && /^image\//i.test(e[1].type || ''); })) {
+                return Promise.all(ents.map(function (e) { return (e[1] instanceof Blob && /^image\//i.test(e[1].type || '')) ? _shrinkImage(e[1]).then(function (nb) { return [e[0], nb, e[1].name]; }) : Promise.resolve([e[0], e[1]]); }))
+                  .then(function (list) {
+                    var fd = new FormData();
+                    list.forEach(function (e) { if (e[0] === 'cacheControl') fd.append('cacheControl', '2592000'); else if (e[1] instanceof Blob) fd.append(e[0], e[1], e[2] || 'image'); else fd.append(e[0], e[1]); });
+                    if (!list.some(function (e) { return e[0] === 'cacheControl'; })) fd.append('cacheControl', '2592000');
+                    return _f0(input, Object.assign({}, init, { body: fd }));
+                  });
+              }
+            }
+          }
+        } catch (_) {}
+        return _f0(input, init);
+      };
+    }
+  } catch (_) {}
+
   global.GMTPhone = global.GMTPhone || {
     norm: function (p) { return String(p || '').replace(/\D/g, '').replace(/^(00963|963|0)/, ''); }
   };
