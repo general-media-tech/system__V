@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""TASK-0342 (المالك seq 584/587 «طبّق على الكل» · «استضافة GitHub»)
+"""TASK-0342 (المالك seq 584/587/589)
+⚑ قرار المالك seq 589 «بلا ما نضغط شيء … ننقلها لغيت هوب وبس · في القاعدة للمتجر فقط البوستر (صورة أساسية لكل منتج)
+   · وللجرد الصورة الأساسية الحالية — ومضغوطة ما في مشكلة»:
+     – بوستر المتجر (الصورة الأولى لكل قائمة) ⇐ يبقى في Supabase كما هو
+     – صورة الجرد الأساسية (products.image_url) ⇐ تبقى في Supabase وتُضغط في مكانها (--shrink-main)
+     – كلّ ما سواهما (صور المعرض) ⇐ GitHub **بلا ضغط** (نسخة طبق الأصل)
+
 نقل صور المنتجات من تخزين Supabase إلى استضافة GitHub Pages (مجلّد img/p في المستودع) مع ضغطها،
 ثمّ إعادة كتابة روابطها في الجرد (products.image_url/images) والمتجر (gmt_store: صور القوائم وقيم الخيارات).
 
@@ -9,6 +15,7 @@
 
   python3 -I tools/img_migrate.py            # تجربة: يحصي ويضغط في img/p بلا أيّ كتابة على القواعد
   python3 -I tools/img_migrate.py --apply    # بعد دفع img/ ونشره: يعيد كتابة الروابط
+  python3 -I tools/img_migrate.py --apply --shrink-main   # + ضغط صورة الجرد الأساسية في مكانها
 يُعاد تشغيله دورياً: ما نُقل سابقاً يُتخطّى، وما رُفع حديثاً يُنقل.
 """
 import io, json, os, re, sys, urllib.request, urllib.parse
@@ -48,6 +55,7 @@ def shrink(data, ext):
 
 def main():
     apply = '--apply' in sys.argv
+    shrink_main = '--shrink-main' in sys.argv
     MU, MK, SU, SK = env('MAIN_URL'), env('MAIN_KEY'), env('STORE_URL'), env('STORE_KEY')
     prods, off = [], 0
     while True:
@@ -65,19 +73,40 @@ def main():
         for o in sp.get('options') or []:
             for v in (o.get('values') or []) if isinstance(o, dict) else []:
                 if isinstance(v, dict): add(v.get('image')); add(v.get('image_url'))
+    keep = set()   # تبقى في Supabase: البوستر + صورة الجرد الأساسية
+    for sp in store.get('products') or []:
+        ims = sp.get('images') or []
+        if ims and isinstance(ims[0], str): keep.add(ims[0])
+    mains = {p.get('image_url') for p in prods if isinstance(p.get('image_url'), str)}
+    keep |= mains
     mp, before, after, fail = {}, 0, 0, []
-    for u in sorted(urls):
+    for u in sorted(urls - keep):
         rel = urllib.parse.unquote(PAT.match(u).group(1).split('?')[0])
         dst = os.path.join(ROOT, rel); ext = rel.rsplit('.', 1)[-1].lower() if '.' in rel else 'jpg'
         if not os.path.exists(dst):
             try:
                 with urllib.request.urlopen(u, timeout=120) as x: data = x.read()
-                b = shrink(data, ext); before += len(data); after += len(b)
+                b = data; before += len(data); after += len(b)   # seq 589: بلا ضغط
                 os.makedirs(os.path.dirname(dst), exist_ok=True); open(dst, 'wb').write(b)
             except Exception as e:
                 fail.append((u, str(e)[:80])); continue
         mp[u] = PAGES + urllib.parse.quote(rel)
-    print(json.dumps({'images': len(urls), 'ready': len(mp), 'failed': len(fail), 'MB_before': round(before / 1048576, 1), 'MB_after': round(after / 1048576, 1)}, ensure_ascii=False))
+    if shrink_main and apply:   # صورة الجرد الأساسية: تُضغط في مكانها (نفس الرابط) + تخزين 30 يوماً
+        done = 0
+        for u in sorted(mains & urls):
+            try:
+                with urllib.request.urlopen(u, timeout=120) as x: data = x.read()
+                rel = PAT.match(u).group(1).split('?')[0]; ext = rel.rsplit('.', 1)[-1].lower()
+                b = shrink(data, ext)
+                if len(b) < len(data) * 0.9:
+                    ct = 'image/png' if ext == 'png' else 'image/webp' if ext == 'webp' else 'image/jpeg'
+                    r = urllib.request.Request(MU + '/storage/v1/object/products-images/' + rel, data=b, method='PUT',
+                        headers={'apikey': MK, 'Authorization': 'Bearer ' + MK, 'Content-Type': ct, 'cache-control': 'max-age=2592000', 'x-upsert': 'true'})
+                    urllib.request.urlopen(r, timeout=120).read(); done += 1
+            except Exception as e:
+                fail.append((u, 'main: ' + str(e)[:60]))
+        print(json.dumps({'main_images_shrunk_in_place': done}, ensure_ascii=False))
+    print(json.dumps({'images': len(urls), 'kept_in_supabase': len(urls & keep), 'to_github': len(mp), 'failed': len(fail), 'MB_before': round(before / 1048576, 1), 'MB_after': round(after / 1048576, 1)}, ensure_ascii=False))
     for f in fail[:10]: print('fail', f)
     if not apply: return
     # الجرد
