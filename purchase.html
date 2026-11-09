@@ -3443,44 +3443,27 @@ async function saveInvEdits(){
   if(cx)si('cost-transfer',cx);
   if(cashVal!=null)si('in-cash-payment',cashVal);
 
-  // ── 5. فحص التعارضات في الأسعار قبل الحفظ ──
-  const conflicts=[];
-  productUpdates.forEach(({id,upd})=>{
-    const dbProd=prods.find(x=>String(x.id) === String(id));
-    if(!dbProd)return;
-    const hasConflict=['price','net_cost','wholesale_price','cost_price'].some(f=>
-      upd[f]!==undefined && Math.abs((upd[f]||0)-(dbProd[f]||0))>0.001
-    );
-    if(hasConflict){
-      const invItem=d_items_ref.find(i=>(i.product?.id||i.id)===id);
-      conflicts.push({
-        db:dbProd,
-        inv:{...upd,name:invItem?.name||dbProd.name,barcode:dbProd.barcode,image_url:dbProd.image_url}
-      });
-    }
+  // ── 5. الأسعار ⇐ الجرد فوراً (المالك seq 604 «كل تعديل في كل مكان … يتعدّى فوراً في كل مكان … كل شيء مفتوح على بعضه») ──
+  /* كانت نافذة «تعارض الأسعار» تُفتح لكلّ فرق — حتى منتجٌ سعره في الجرد 0 — ولا يصل أيّ سعر للجرد قبل الاختيار فيها؛
+     فإن أُغلقت ضاعت الأسعار (IMP-2026-0008: 42 منتجاً بقيت بلا سعر · «السعر عند الطلب» في المتجر).
+     الفاتورة تعرض أسعار المنتج الحيّة (seq 579) ⇒ ما يختلف عن نسخة المنتج = ما عدّلتَه أنت ⇒ يُرسل وحده فوراً، والباقي لا يُلمس.
+     ومن هنا تكمل gmt-store-sync.js إلى قائمة المتجر وقيمة العائلة. فشل الحفظ لا يمرّ بصمت. */
+  const _fails=[];
+  const _sends=productUpdates.map(({id,upd,idx})=>{
+    const lp=prods.find(x=>String(x.id) === String(id));
+    const send={...upd};
+    if(lp)['price','wholesale_price','net_cost','cost_price'].forEach(f=>{
+      if(send[f]!==undefined && Math.abs((+send[f]||0)-(+lp[f]||0))<0.001) delete send[f];
+    });
+    return {id,send,name:(d_items_ref[idx]||{}).name||''};
+  }).filter(s=>Object.keys(s.send).length);
+  Promise.all(_sends.map(({id,send,name})=>
+    sb('PATCH',`/rest/v1/products?id=eq.${id}`,send,{Prefer:'return=minimal'})
+      .then(()=>{const p=prods.find(x=>String(x.id) === String(id));if(p)Object.assign(p,send);})
+      .catch(e=>{console.warn('product sync:',e);_fails.push(name);})
+  )).then(()=>{
+    if(_fails.length) toast('⚠️ لم تصل أسعار '+_fails.length+' منتجاً إلى الجرد (انقطاع؟) — احفظ مرّة ثانية: '+_fails.slice(0,3).join('، ')+(_fails.length>3?' …':''),'err');
   });
-
-  const doApplyUpdates=(resolvedConflicts)=>{
-    productUpdates.forEach(({id,upd})=>{
-      // تحقق من القرار المُختار لهذا المنتج
-      const resolved=resolvedConflicts?.find(c=>{
-        const dbId=c.db?.id;
-        return dbId===id;
-      });
-      const finalUpd=resolved?{...upd,...Object.fromEntries(Object.entries(resolved.resolved).filter(([k])=>['price','net_cost','wholesale_price','cost_price'].includes(k)))}:upd;
-      sb('PATCH',`/rest/v1/products?id=eq.${id}`,finalUpd,{Prefer:'return=minimal'})
-        .then(()=>{const p=prods.find(x=>String(x.id) === String(id));if(p)Object.assign(p,finalUpd);})
-        .catch(e=>console.warn('product sync:',e));
-    });
-  };
-
-  if(conflicts.length>0){
-    showPriceConflict(conflicts,(resolvedConflicts)=>{
-      doApplyUpdates(resolvedConflicts);
-    });
-  }else{
-    doApplyUpdates([]);
-  }
 
   /* (المالك seq 579) الفاتورة تعرض أسعار المنتج الحيّة ⇒ ما عدّلتَه الآن يُطبَّق على نسخة المنتج المحلية فوراً،
      وإلا تُعاد الفاتورة الفورية بالسعر القديم قبل أن يصل الحفظ (وتُحفظ به). */
@@ -6054,7 +6037,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261109a"></script>
+<script src="gmt-whatsnew.js?v=20261109b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
