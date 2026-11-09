@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261108f';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261109a';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -53,7 +53,12 @@ const PAGES = 'gmt-pages';             // ⚠️ بلا رقم إصدار — ع
    الخلفية مرّة كلّ ٧ أيام فقط · وتظهر حتى لو توقّفت القاعدة. الاسم ثابت (لا يُمسح مع النشر) · سقف ١٥٠٠ صورة. */
 const IMGS = 'gmt-imgs';
 const IMG_MAX = 1500, IMG_TTL = 7 * 864e5;
+/* (9 ت2 · المالك seq 598 «معظم الصور اختفت أو صارت رمادية … خاصّة البوسترات») بعد نقل الصور إلى GitHub (img/p) صارت من نفس الموقع
+   فوقعت في فرع «ملفّات الموقع»: تُسأل الشبكةَ في كلّ فتحة (مئات الطلبات · رمادي حتى تردّ على اتّصال ضعيف) وتُخزَّن بلا سقف في كاش
+   الصفحات (مئات م.ب) فيمتلئ تخزين الجهاز ويحذف المتصفّح ما خزّنه. الآن: صور img/p صور منتجات — من الجهاز أوّلاً في gmt-imgs. */
+function isRepoImg(url) { return url.origin === location.origin && /\/img\/p\//.test(url.pathname); }
 function isProdImg(url) {
+  if (isRepoImg(url)) return true;
   return /supabase\.co$/.test(url.hostname) &&
     /\/storage\/v1\/(object|render\/image)\/public\/products-images\//.test(url.pathname) &&
     !/\.json$/i.test(url.pathname);
@@ -112,6 +117,8 @@ self.addEventListener('activate', (e) => {
     await Promise.all(keys
       .filter(k => k !== PAGES && k !== OCR && k !== IMGS && !k.startsWith(VERSION))
       .map(k => caches.delete(k)));
+    /* (seq 598) صور img/p التي دخلت كاش الصفحات خطأً ⇒ تُحذف منه (تحرير تخزين الجهاز) */
+    try { const pc = await caches.open(PAGES); for (const r of await pc.keys()) if (/\/img\/p\//.test(r.url)) await pc.delete(r); } catch (_) {}
     await self.clients.claim();
   })());
 });
