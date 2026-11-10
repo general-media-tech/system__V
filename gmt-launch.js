@@ -35,7 +35,7 @@
   var doc = global.document;
   if (!doc || global.GMTLaunch) return;
 
-  var VER = '20261110c';
+  var VER = '20261110d';
   var KEY = 'gmt_launch_arrive';
   var FRESH_MS = 15000;
   var ENTER_MS = 900;          // تدخل الشارع وتبطئ
@@ -75,12 +75,19 @@
       '#gmt-launch .gl-t2{font-size:clamp(14px,2.8vw,18px);font-weight:700;margin-top:6px}' +
       '#gmt-launch .gl-t.on{opacity:1}' +
       '#gmt-launch.clear{background-color:transparent}#gmt-launch.clear>:not(.gr-fog){visibility:hidden}' +
-      /* (seq 559) «المس الشاشة» جزءٌ من المشهد نفسه — سطرٌ هادئ تحت الشارع، لا شاشةٌ تشبه الإعلان */
-      '#gmt-launch .gl-tap{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:22px;color:#374151;font-weight:800;font-size:clamp(13px,3.2vw,15px);opacity:0;transition:opacity .35s ease;font-family:inherit}' +
-      '#gmt-launch .gl-tap.on{opacity:1;animation:glBreath 2.2s ease-in-out .4s infinite}#gmt-launch .gl-tap svg{width:18px;height:18px;flex:none}' +
-      '#gmt-launch .gl-tap.go{animation:none;opacity:0}@keyframes glBreath{50%{opacity:.6}}' +
+      /* (seq 560–561) «السائق يلوّح»: فقاعة كلامٍ صغيرة فوق مقصورة الشاحنة «جاهز؟ 👋» بيدٍ تلوّح — لا كلمة عن اللمس */
       '#gmt-launch.wait{cursor:pointer}' +
-      '@media (prefers-reduced-motion:reduce){#gmt-launch .gl-tap.on{animation:none}}';
+      '#gmt-launch .gl-bub{position:absolute;right:6%;bottom:calc(100% + 10px);direction:rtl;white-space:nowrap;display:flex;align-items:center;gap:6px;' +
+        'background:#fff;color:#111;font-weight:900;font-size:clamp(15px,3.8vw,18px);line-height:1;font-family:inherit;padding:9px 13px;border-radius:16px;border:2px solid #111;box-shadow:0 6px 16px rgba(0,0,0,.12);' +
+        'transform-origin:85% 120%;transform:scale(.4);opacity:0;transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .2s ease;pointer-events:none}' +
+      '#gmt-launch .gl-bub::after{content:"";position:absolute;right:22px;top:100%;border:8px solid transparent;border-top-color:#111;border-bottom:0}' +
+      '#gmt-launch .gl-bub::before{content:"";position:absolute;right:24px;top:calc(100% - 3px);border:6px solid transparent;border-top-color:#fff;border-bottom:0;z-index:1}' +
+      '#gmt-launch .gl-bub.on{transform:scale(1);opacity:1;animation:glBob 2.4s ease-in-out .5s infinite}' +
+      '#gmt-launch .gl-bub.go{animation:none;transform:scale(.3);opacity:0;transition:transform .2s ease,opacity .2s ease}' +
+      '#gmt-launch .gl-wave{display:inline-block;transform-origin:70% 85%;animation:glWave 1.6s ease-in-out infinite}' +
+      '@keyframes glWave{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(16deg)}20%,40%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}' +
+      '@keyframes glBob{50%{transform:translateY(-3px)}}' +
+      '@media (prefers-reduced-motion:reduce){#gmt-launch .gl-bub.on,#gmt-launch .gl-wave{animation:none}}';
     (doc.head || doc.documentElement).appendChild(st);
   }
 
@@ -164,6 +171,8 @@
           snd = engine();                       // داخل اللمسة نفسها ⇒ يُسمح بالصوت
           try { if (global.GMTSound && GMTSound.unlock) GMTSound.unlock(); } catch (_) {}
           ov.classList.remove('wait'); if (hint) hint.classList.add('go');
+          /* السائق يزمّر «بيب بيب» وهو ينطلق */
+          setTimeout(function () { try { if (global.GMTSound && GMTSound.play) GMTSound.play('horn'); } catch (_) {} }, 120);
           if (rd.quiet) rd.quiet(false);
           unTap(); emit('gmt:launch-tap', {}); go();
         }
@@ -187,13 +196,14 @@
       }).then(function () { clearTimeout(cap); fireCover(); });
     }
     if (tapMode) {
-      ov.classList.add('wait'); ov.removeAttribute('aria-hidden'); ov.setAttribute('role', 'button'); ov.setAttribute('aria-label', 'المس الشاشة لتشغيل الشاحنة');
+      ov.classList.add('wait'); ov.removeAttribute('aria-hidden'); ov.setAttribute('role', 'button'); ov.setAttribute('aria-label', 'جاهز؟ المس الشاشة لتنطلق الشاحنة');
       if (rd.quiet) rd.quiet(true);
       rd.to(.45, 1);                                       // واقفةٌ في مكانها (لا دخول)
-      hint = doc.createElement('div'); hint.className = 'gl-tap';
-      hint.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg><span>المس الشاشة لتشغيل الشاحنة</span>';
-      ov.appendChild(hint);
-      setTimeout(function () { hint.classList.add('on'); }, 700);
+      /* (seq 561) «السائق يلوّح»: فقاعةٌ فوق المقصورة تتحرّك مع الشاحنة */
+      hint = doc.createElement('div'); hint.className = 'gl-bub';
+      hint.innerHTML = '<span>جاهز؟</span><span class="gl-wave" aria-hidden="true">👋</span>';
+      (host.querySelector('.gr-van') || ov).appendChild(hint);
+      setTimeout(function () { hint.classList.add('on'); }, 600);
       waitTap().then(function () { run(true); });
     } else setTimeout(function () { run(false); }, 100);
     return ctl;
