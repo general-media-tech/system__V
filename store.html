@@ -259,6 +259,10 @@ window.GMT_PUBLIC = 1;</script>
         <i data-action="menu" class="ph ph-list cursor-pointer hover:text-primary transition-colors"></i>
         <i data-action="comments" class="ph ph-star cursor-pointer hover:text-primary transition-colors"></i>
         <i data-action="whatsapp" class="ph ph-whatsapp-logo cursor-pointer hover:text-green-500 transition-colors"></i>
+        <!-- (TASK-0346 · المالك seq 522) «من اللابتوب داخل التطبيق مو موجود زر للرفريش بالمتجر ولا زر عودة للرئيسية» — داخل التطبيق
+             (لا شريط متصفّح) وللموظّف المسجّل؛ الزبون في المتصفّح لا يراهما -->
+        <i id="store-app-refresh" data-app-only hidden title="تحديث المتجر" aria-label="تحديث المتجر" class="ph ph-arrow-clockwise cursor-pointer hover:text-primary transition-colors"></i>
+        <i id="store-app-home" data-app-only hidden title="العودة للرئيسية" aria-label="العودة للرئيسية" class="ph ph-house cursor-pointer hover:text-primary transition-colors"></i>
     </div>
     <div class="flex items-center gap-3">
         <div class="flex flex-col items-end justify-center">
@@ -279,6 +283,30 @@ window.GMT_PUBLIC = 1;</script>
     </div>
 </header>
 
+<script>
+/* (TASK-0346) زرّا «تحديث» و«الرئيسية» داخل التطبيق: التطبيق المثبَّت (لابتوب/هاتف) بلا شريط متصفّح ولا زرّ تحديث أو رجوع */
+(function () {
+  function inApp() { try { return !!(matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone); } catch (_) { return false; } }
+  function staff() { try { return !!JSON.parse(localStorage.getItem('gmt_session') || 'null'); } catch (_) { return false; } }
+  var show = inApp() || staff();
+  document.querySelectorAll('[data-app-only]').forEach(function (el) { el.hidden = !show; });
+  if (!show) return;
+  var rf = document.getElementById('store-app-refresh'), hm = document.getElementById('store-app-home');
+  rf.addEventListener('click', function () {
+    rf.classList.add('animate-spin');
+    try { if (typeof _cache !== 'undefined' && _cache.del) _cache.del('store'); } catch (_) {}
+    var u = new URL(location.href); u.searchParams.set('r', Date.now().toString(36));   /* نسخة جديدة لا من ذاكرة المتصفّح */
+    location.replace(u.toString());
+  });
+  hm.addEventListener('click', function () {
+    /* الموظّف ⇐ رئيسية النظام · الزبون داخل تطبيق المتجر ⇐ أعلى المتجر */
+    if (staff()) { location.href = 'home.html'; return; }
+    if (location.hash) history.replaceState(null, '', location.pathname);
+    try { document.querySelectorAll('.modal-overlay.active').forEach(function (m) { m.classList.remove('active'); }); } catch (_) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
 <!-- ══ MAIN ═══════════════════════════════════ -->
 <main id="main-content">
     <!-- [1] Main Banner Only — no promo banner -->
