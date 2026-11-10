@@ -2279,6 +2279,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   <script src="gmt-core.js?v=20261108f"></script>
   <script src="gmt-packages.js?v=20261107h" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
+  <script src="gmt-reconcile.js?v=20261110c" defer></script>
   <script src="gmt-suggest.js?v=20261107d"></script>
   <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-compat-kb.js?v=20261101a"></script>
@@ -2617,6 +2618,7 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
     <button class="btn btn-sm" id="browser-btn" onclick="openProductBrowser()" style="display:none;background:#eff6ff;color:#1d4ed8;border:1.5px solid #93c5fd;font-weight:800;" title="كلّ منتجٍ وحده: صفحته في المتجر وبطاقته في الجرد — راجِعه واختمه «رُوجع» وانتقل للتالي">
       🔎 متصفّح المنتجات
     </button>
+    <button class="btn btn-sm" id="reconcile-btn" onclick="openReconcile()" style="display:none;background:#ecfdf5;color:#047857;border:1.5px solid #6ee7b7;font-weight:800;" title="مطابقة الجرد: مسودة الجرد مقابل مخزون النظام — مراجعة الفرق والنقص ثمّ فاتورة تسوية">🧾 مطابقة الجرد</button>
 
     <div class="sep"></div>
 
@@ -8253,6 +8255,7 @@ function paintReviewBtn() {
   const on = typeof currentAppMode !== 'undefined' && currentAppMode === 'products';
   b.style.display = on ? '' : 'none';
   const bb = document.getElementById('browser-btn'); if (bb) bb.style.display = on && window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? '' : 'none';
+  const rcb = document.getElementById('reconcile-btn'); if (rcb) rcb.style.display = on && window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? '' : 'none';
   if (!on) return;
   const n = reviewList(_rvBuy).length, el = document.getElementById('review-n'); if (el) el.textContent = n ? '(' + n + ')' : '✓';
   if (!_rvBuy) reviewBuyMap().then(() => { const k = reviewList(_rvBuy).length; if (el) el.textContent = k ? '(' + k + ')' : '✓'; });
@@ -8413,6 +8416,17 @@ async function openProductBrowser() {
   });
 }
 window.openProductBrowser = openProductBrowser;
+/* (TASK-0355 · المالك seq 534–538) «اعمل فاتورة تسوية ولكن لا تحذف القديم قبل ما نراجع الفرق والنقص» — gmt-reconcile.js */
+async function openReconcile() {
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('مطابقة الجرد'))) return;
+  if (!window.GMTReconcile) { showToast('مطابقة الجرد لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'error'); return; }
+  GMTReconcile.open({
+    sb: sbFetch, products: () => allProducts,
+    operator: (window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || 'الأدمن',
+    onApplied: () => { try { loadProducts(); } catch (_) {} }
+  });
+}
+window.openReconcile = openReconcile;
 
 async function invOpenFullEdit(id, opt) {
   opt = opt || {};
@@ -16591,7 +16605,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261110b"></script>
+<script src="gmt-whatsnew.js?v=20261110c"></script>
 <script src="gmt-store-sync.js?v=20261108f" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

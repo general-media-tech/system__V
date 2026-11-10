@@ -1,0 +1,175 @@
+/* (TASK-0355 · المالك seq 534–538) «اعمل فاتورة تسوية ولكن لا تحذف القديم قبل ما نراجع الفرق والنقص» — «اشتغل على فاتورة المطابقة»
+   مطابقة الجرد: مسودة جردٍ محفوظة في stock_counts (details.status = draft) ⇐ مراجعة سطراً سطراً (صورة الجرد · المنتج · المحلّ · المستودع ·
+   الفعلي · النظام الحيّ · الفرق) ⇐ تعديل العدد/الربط/الاستثناء وحفظ المسودة ⇐ «اعتماد» وحده يكتب المخزون: فاتورة تسوية من الجرد عبر
+   GMTStock.rebuild (الكمّية المطلقة · الفرق من قراءةٍ حيّة لحظة الاعتماد) بالكلمة السيادية، ثمّ تُختم المسودة «طُبّقت» بأرقام الفواتير.
+   لا شيء يُكتب على المخزون قبل الاعتماد. */
+(function (global) {
+  'use strict';
+  var doc = global.document;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function num(v) { if (v === '' || v == null) return null; var n = parseInt(String(v).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), 10); return isFinite(n) && n >= 0 ? n : null; }
+  function css() {
+    if (doc.getElementById('gmt-rc-css')) return;
+    var s = doc.createElement('style'); s.id = 'gmt-rc-css';
+    s.textContent =
+      '#gmt-rc{position:fixed;inset:0;z-index:2147483000;background:#f3f4f6;display:flex;flex-direction:column;direction:rtl;font-family:Cairo,Tajawal,system-ui,sans-serif;color:#0f1219}' +
+      '#gmt-rc .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;background:#fff;border-bottom:1px solid #e5e7eb}' +
+      '#gmt-rc .top b{font-size:15px}#gmt-rc button{font-family:inherit;font-weight:800;border-radius:9px;border:1.5px solid #d1d5db;background:#fff;padding:6px 10px;cursor:pointer;font-size:12.5px}' +
+      '#gmt-rc button.p{background:#1d4ed8;border-color:#1d4ed8;color:#fff}#gmt-rc button.g{background:#047857;border-color:#047857;color:#fff}' +
+      '#gmt-rc select,#gmt-rc input{font-family:inherit;font-size:12.5px;border:1.5px solid #d1d5db;border-radius:8px;padding:5px 7px;background:#fff;min-width:0}' +
+      '#gmt-rc .sum{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;font-size:12px}' +
+      '#gmt-rc .chip{padding:3px 9px;border-radius:999px;background:#f3f4f6;font-weight:800}#gmt-rc .chip.r{background:#fee2e2;color:#b91c1c}#gmt-rc .chip.b{background:#dbeafe;color:#1d4ed8}#gmt-rc .chip.k{background:#dcfce7;color:#047857}' +
+      '#gmt-rc .body{flex:1;overflow:auto;padding:8px 10px 90px}' +
+      '#gmt-rc .row{display:grid;grid-template-columns:26px 96px minmax(0,1.4fr) minmax(0,1.6fr) 54px 54px 66px 54px 58px;gap:8px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px;margin-bottom:6px}' +
+      '#gmt-rc .row.off{opacity:.55}#gmt-rc .row.hd{background:transparent;border:0;font-size:11px;font-weight:800;color:#6b7280;padding:2px 8px;margin:0}' +
+      '#gmt-rc .ph{display:flex;gap:3px;flex-wrap:wrap}#gmt-rc .ph img{width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid #e5e7eb;cursor:zoom-in;background:#f9fafb}' +
+      '#gmt-rc .ph .pg{font-size:10px;font-weight:800;color:#1d4ed8;background:#eff6ff;border-radius:6px;padding:2px 5px;cursor:zoom-in}' +
+      '#gmt-rc .lbl{font-size:12.5px;font-weight:800;line-height:1.35}#gmt-rc .note{font-size:11px;color:#92400e;margin-top:2px;line-height:1.35}' +
+      '#gmt-rc .pr{font-size:12px}#gmt-rc .pr .nm{font-weight:800}#gmt-rc .pr .nm.none{color:#b91c1c}#gmt-rc .pr input{width:100%;margin-top:3px}' +
+      '#gmt-rc .n{text-align:center;font-weight:800;font-size:13px}#gmt-rc .n small{display:block;font-size:10px;color:#6b7280;font-weight:700}' +
+      '#gmt-rc .act input{width:100%;text-align:center;font-weight:900}#gmt-rc .d{text-align:center;font-weight:900;font-size:14px;border-radius:8px;padding:4px 0}' +
+      '#gmt-rc .d.m{background:#fee2e2;color:#b91c1c}#gmt-rc .d.p{background:#dbeafe;color:#1d4ed8}#gmt-rc .d.z{background:#dcfce7;color:#047857}' +
+      '#gmt-rc .foot{position:fixed;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border-top:1px solid #e5e7eb;z-index:2}' +
+      '#gmt-rc .msg{font-size:12px;font-weight:800;color:#374151}' +
+      '#gmt-rc-lb{position:fixed;inset:0;z-index:2147483100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out}#gmt-rc-lb img{max-width:96vw;max-height:94vh;border-radius:8px;background:#fff}' +
+      '@media (max-width:820px){#gmt-rc .row{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:auto;row-gap:6px}#gmt-rc .row.hd{display:none}' +
+      '#gmt-rc .row>input[data-inc]{grid-column:1/2;justify-self:start}#gmt-rc .ph{grid-column:2/6}#gmt-rc .cnt{grid-column:1/6}#gmt-rc .pr{grid-column:1/6}#gmt-rc .top input[data-q]{flex:1 1 100%;width:auto!important}}';
+    doc.head.appendChild(s);
+  }
+  function close() { var o = doc.getElementById('gmt-rc'); if (o) o.remove(); }
+
+  async function open(ctx) {
+    ctx = ctx || {};
+    css(); close();
+    var sb = ctx.sb, bk = ctx.branchKey || 'haleb', bn = ctx.branchName || 'حلب';
+    var root = doc.createElement('div'); root.id = 'gmt-rc'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('data-keep-fab', '1');
+    root.innerHTML = '<div class="top"><button type="button" data-x aria-label="إغلاق">✕</button><b>🧾 مطابقة الجرد — فاتورة تسوية</b>' +
+      '<select data-draft aria-label="المسودة"></select><span style="flex:1"></span>' +
+      '<select data-f aria-label="الفلتر"><option value="all">الكلّ</option><option value="minus">نقص</option><option value="plus">زيادة</option><option value="eq">مطابق</option><option value="nocount">بلا عدد</option><option value="unlinked">غير مربوط بالجرد</option><option value="off">مستثنى</option></select>' +
+      '<input data-q type="search" placeholder="بحث…" style="width:150px"></div>' +
+      '<div class="sum" data-sum></div><div class="body" data-body><div class="msg" style="padding:20px">⏳ جارٍ التحميل…</div></div>' +
+      '<div class="foot"><span class="msg" data-msg></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-save>💾 حفظ المسودة</button><button type="button" class="g" data-apply>✅ اعتماد التسوية…</button></span></div>' +
+      '<datalist id="gmt-rc-dl"></datalist>';
+    doc.body.appendChild(root);
+    var $ = function (s) { return root.querySelector(s); };
+    var S = { rec: null, items: [], live: {}, f: 'all', q: '', dirty: false };
+    var prods = (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || [];
+    var byName = {}; prods.forEach(function (p) { if (p && p.name) byName[String(p.name).trim()] = p; });
+    $('#gmt-rc-dl').innerHTML = prods.slice(0, 4000).map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('');
+    function say(t) { $('[data-msg]').textContent = t || ''; }
+    $('[data-x]').onclick = function () { if (S.dirty && !global.confirm('تعديلاتٌ لم تُحفظ على المسودة — إغلاق دون حفظ؟')) return; close(); if (ctx.onClose) ctx.onClose(); };
+
+    var lr = await sb('GET', '/rest/v1/stock_counts?select=id,branch_key,branch_name,counted_by,created_at,details&order=id.desc&limit=30');
+    var recs = (lr && Array.isArray(lr.data) ? lr.data : []).filter(function (r) { return r && r.details && Array.isArray(r.details.items); });
+    if (!recs.length) { $('[data-body]').innerHTML = '<div class="msg" style="padding:20px">لا مسودات جرد بعد.</div>'; return; }
+    $('[data-draft]').innerHTML = recs.map(function (r) { var st = r.details.status === 'applied' ? '✅ طُبّقت' : '📝 مسودة'; return '<option value="' + r.id + '">' + st + ' · #' + r.id + ' · ' + esc(r.branch_name || r.branch_key) + ' · ' + esc(String(r.created_at || '').slice(0, 10)) + '</option>'; }).join('');
+    $('[data-draft]').onchange = function () { load(recs.find(function (r) { return String(r.id) === this.value; }, this)); };
+
+    async function liveQty(ids) {
+      for (var k = 0; k < ids.length; k += 60) {
+        var part = ids.slice(k, k + 60);
+        var r = await sb('GET', '/rest/v1/products?id=in.(' + part.map(encodeURIComponent).join(',') + ')&select=id,name,barcode,image_url,price,wholesale_price,' + bk);
+        (r && Array.isArray(r.data) ? r.data : []).forEach(function (p) { S.live[String(p.id)] = p; });
+      }
+    }
+    async function load(rec) {
+      S.rec = rec; S.items = JSON.parse(JSON.stringify(rec.details.items)); S.dirty = false;
+      bk = rec.branch_key || bk; bn = rec.branch_name || bn;
+      say('⏳ قراءة مخزون «' + bn + '» الحيّ…');
+      await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
+      S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
+      say(rec.details.status === 'applied' ? '✅ طُبّقت هذه التسوية ' + (rec.details.applied_at || '').slice(0, 16).replace('T', ' ') + ' — ' + (rec.details.numbers || []).join(' + ') : '📝 مسودة — لا شيء يُكتب على المخزون قبل «اعتماد التسوية»');
+      paint();
+    }
+    function diffOf(i) { return (i.actual != null && i.system != null && i.id) ? i.actual - i.system : null; }
+    function cls(i) { var d = diffOf(i); return d == null ? '' : d < 0 ? 'm' : d > 0 ? 'p' : 'z'; }
+    function pass(i) {
+      var d = diffOf(i), f = S.f;
+      if (f === 'minus' && !(d < 0)) return false; if (f === 'plus' && !(d > 0)) return false; if (f === 'eq' && d !== 0) return false;
+      if (f === 'nocount' && i.actual != null) return false; if (f === 'unlinked' && i.id) return false; if (f === 'off' && i.include) return false;
+      if (S.q) { var t = (i.counted_as + ' ' + (i.name || '') + ' ' + (i.note || '')).toLowerCase(); if (t.indexOf(S.q.toLowerCase()) < 0) return false; }
+      return true;
+    }
+    function summary() {
+      var on = S.items.filter(function (i) { return i.include && i.id && i.actual != null; });
+      var mi = on.filter(function (i) { return diffOf(i) < 0; }), pl = on.filter(function (i) { return diffOf(i) > 0; });
+      var sm = function (a) { return a.reduce(function (s, i) { return s + Math.abs(diffOf(i)); }, 0); };
+      $('[data-sum]').innerHTML = '<span class="chip">' + S.items.length + ' سطراً</span><span class="chip k">داخل التسوية ' + on.length + '</span>' +
+        '<span class="chip r">نقص ' + mi.length + ' بنداً (−' + sm(mi) + ' قطعة)</span><span class="chip b">زيادة ' + pl.length + ' بنداً (+' + sm(pl) + ' قطعة)</span>' +
+        '<span class="chip">غير مربوط ' + S.items.filter(function (i) { return !i.id; }).length + '</span><span class="chip">مستثنى ' + S.items.filter(function (i) { return !i.include; }).length + '</span>' +
+        (S.rec.details.sources ? '<span class="chip">' + S.rec.details.sources.map(function (s) { return esc(s.label); }).join(' · ') + '</span>' : '');
+    }
+    function rowHtml(i, ix) {
+      var d = diffOf(i), photos = (i.photos || []).slice(0, 3).map(function (u) { return '<img src="' + esc(u) + '" loading="lazy" data-lb="' + esc(u) + '" alt="">'; }).join('') +
+        (i.pages || []).map(function (u) { var m = /page-(\d+)/.exec(u); return '<span class="pg" data-lb="' + esc(u) + '">مستودع ص' + (m ? +m[1] : '') + '</span>'; }).join('');
+      return '<div class="row' + (i.include ? '' : ' off') + '" data-ix="' + ix + '">' +
+        '<input type="checkbox" data-inc ' + (i.include ? 'checked' : '') + ' ' + (i.id ? '' : 'disabled') + ' title="داخل التسوية">' +
+        '<div class="ph">' + (photos || '<span style="font-size:11px;color:#9ca3af">—</span>') + '</div>' +
+        '<div class="cnt"><div class="lbl">' + esc(i.counted_as) + '</div>' + (i.note ? '<div class="note">' + esc(i.note) + '</div>' : '') + '</div>' +
+        '<div class="pr"><div class="nm' + (i.id ? '' : ' none') + '">' + (i.id ? esc(i.name) : '— غير مربوط بالجرد —') + '</div><input list="gmt-rc-dl" data-link placeholder="' + (i.id ? 'تغيير المنتج…' : 'اربطه بمنتج…') + '"></div>' +
+        '<div class="n">' + (i.shop == null ? '—' : i.shop) + '<small>المحلّ</small></div>' +
+        '<div class="n">' + (i.store == null ? '—' : i.store) + '<small>المستودع</small></div>' +
+        '<div class="act"><input data-act inputmode="numeric" value="' + (i.actual == null ? '' : i.actual) + '" aria-label="الفعلي"><small style="display:block;text-align:center;font-size:10px;color:#6b7280;font-weight:700">الفعلي</small></div>' +
+        '<div class="n">' + (i.system == null ? '—' : i.system) + '<small>النظام</small></div>' +
+        '<div class="d ' + cls(i) + '">' + (d == null ? '—' : (d > 0 ? '+' : '') + d) + '</div></div>';
+    }
+    function paint() {
+      summary();
+      var idx = S.items.map(function (i, ix) { return ix; }).filter(function (ix) { return pass(S.items[ix]); });
+      idx.sort(function (a, b) { var A = S.items[a], B = S.items[b]; if (!!A.id !== !!B.id) return A.id ? -1 : 1; var da = diffOf(A), db = diffOf(B); return (db == null ? -1 : Math.abs(db)) - (da == null ? -1 : Math.abs(da)); });
+      $('[data-body]').innerHTML = '<div class="row hd"><span></span><span>صورة الجرد</span><span>المعدود</span><span>المنتج في الجرد</span><span>المحلّ</span><span>المستودع</span><span>الفعلي</span><span>النظام</span><span>الفرق</span></div>' +
+        (idx.map(function (ix) { return rowHtml(S.items[ix], ix); }).join('') || '<div class="msg" style="padding:20px">لا أسطر بهذا الفلتر.</div>');
+      var locked = S.rec.details.status === 'applied';
+      $('[data-apply]').disabled = locked; $('[data-save]').disabled = locked;
+    }
+    function lightbox(u) { var lb = doc.createElement('div'); lb.id = 'gmt-rc-lb'; lb.innerHTML = '<img src="' + esc(u) + '" alt="">'; lb.onclick = function () { lb.remove(); }; doc.body.appendChild(lb); }
+    $('[data-body]').addEventListener('click', function (e) { var t = e.target.closest('[data-lb]'); if (t) lightbox(t.getAttribute('data-lb')); });
+    $('[data-body]').addEventListener('change', async function (e) {
+      var row = e.target.closest('[data-ix]'); if (!row) return; var i = S.items[+row.getAttribute('data-ix')]; S.dirty = true;
+      if (e.target.matches('[data-inc]')) { i.include = e.target.checked; paint(); return; }
+      if (e.target.matches('[data-act]')) { var v = num(e.target.value); i.actual = v; if (v == null) i.include = false; paint(); return; }
+      if (e.target.matches('[data-link]')) {
+        var p = byName[String(e.target.value || '').trim()]; if (!p) { say('⚠️ اختر اسم منتجٍ من القائمة كما هو'); return; }
+        i.id = String(p.id); i.name = p.name; await liveQty([i.id]); i.system = Number((S.live[i.id] || {})[bk]) || 0; if (i.actual != null) i.include = true;
+        i.note = (i.note ? i.note + ' · ' : '') + 'رُبط يدوياً'; paint(); say('🔗 رُبط «' + i.counted_as + '» بـ«' + p.name + '» — احفظ المسودة');
+      }
+    });
+    $('[data-f]').onchange = function () { S.f = this.value; paint(); };
+    $('[data-q]').oninput = function () { S.q = this.value.trim(); paint(); };
+    async function save(extra) {
+      var det = Object.assign({}, S.rec.details, { items: S.items, edited_at: new Date().toISOString(), edited_by: ctx.operator || null }, extra || {});
+      var r = await sb('PATCH', '/rest/v1/stock_counts?id=eq.' + encodeURIComponent(S.rec.id), { details: det }, { Prefer: 'return=representation' });
+      if (r && !r.error && Array.isArray(r.data) && r.data[0]) { S.rec.details = r.data[0].details; S.dirty = false; return true; }
+      say('❌ لم تُحفظ المسودة: ' + ((r && r.error && (r.error.message || r.error)) || 'تعذّر')); return false;
+    }
+    $('[data-save]').onclick = async function () { say('⏳ حفظ…'); if (await save()) say('💾 حُفظت المسودة — المخزون لم يتغيّر'); };
+    $('[data-apply]').onclick = async function () {
+      var on = S.items.filter(function (i) { return i.include && i.id && i.actual != null && diffOf(i) !== 0; });
+      if (!on.length) { say('لا فروقات داخل التسوية'); return; }
+      var mi = on.filter(function (i) { return diffOf(i) < 0; }), pl = on.filter(function (i) { return diffOf(i) > 0; });
+      var txt = 'فاتورة تسوية «' + bn + '» من الجرد:\n• نقص ' + mi.length + ' بنداً (−' + mi.reduce(function (s, i) { return s - diffOf(i); }, 0) + ')\n• زيادة ' + pl.length + ' بنداً (+' + pl.reduce(function (s, i) { return s + diffOf(i); }, 0) + ')\n\n' +
+        'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\nالأسطر المستثناة وغير المربوطة لا تُلمس.';
+      var ok = global.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm(txt, { title: '✅ اعتماد التسوية', okText: 'اعتماد' }) : global.confirm(txt);
+      if (!ok) return;
+      var pw = global.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 اعتماد فاتورة تسوية «' + bn + '» من الجرد') : true;
+      if (!pw) return;
+      if (!(await save())) return;
+      if (!global.GMTStock || !GMTStock.rebuild) { say('❌ وحدة المخزون لم تُحمَّل'); return; }
+      var by = ctx.operator || 'الأدمن';
+      var R = await GMTStock.rebuild({ branch: { key: bk, name: bn }, mode: 'local', by: by, receivedBy: by, titleTag: 'تسوية من الجرد',
+        kind: 'فاتورة تسوية من الجرد — مطابقة #' + S.rec.id,
+        lines: on.map(function (i) { var L = S.live[i.id] || {}; return { product_id: i.id, name: i.name || L.name || '', barcode: L.barcode || '', image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : '', after: i.actual, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0 }; }),
+        onProgress: function (k, n, name) { say('🧾 ' + k + ' / ' + n + ' — ' + name); } });
+      var nums = (R && R.numbers) || [];
+      await save({ status: nums.length ? 'applied' : S.rec.details.status, applied_at: nums.length ? new Date().toISOString() : null, applied_by: by, numbers: nums, failed: (R && R.failed) || [] });
+      await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
+      S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
+      paint();
+      say(nums.length ? '✅ صدرت فاتورة التسوية: ' + nums.join(' + ') + ' · طُبّق ' + R.applied + (R.failed.length ? ' · تعذّر ' + R.failed.length : '') : '❌ ' + ((R && R.error) || 'لم تُطبَّق'));
+      if (ctx.onApplied) try { ctx.onApplied(R); } catch (_) {}
+    };
+    await load(recs.find(function (r) { return r.details.status === 'draft'; }) || recs[0]);
+    $('[data-draft]').value = String(S.rec.id);
+  }
+  global.GMTReconcile = { open: open, close: close };
+})(window);
