@@ -51,6 +51,7 @@
   .gh { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #000;
         font-size: 11pt; font-weight: 900; border-top: 0.8mm solid #000; border-bottom: 0.8mm solid #000; }
   .gap { border: 0.1mm dotted #eee; }
+  .gsp { grid-column: 1 / -1; }
   @media print {
     html, body { background: #fff; }
     .bar { display: none !important; }
@@ -60,7 +61,7 @@
 <div class="bar">
   <span id="cnt"></span>
   <select id="lay"></select>
-  <select id="grp" hidden><option value="flow">المجموعات متتالية بفاصل</option><option value="page">كلّ مجموعة بورقة جديدة</option></select>
+  <select id="grp" hidden><option value="flow">الكراتين متتالية بفاصل</option><option value="page">كلّ كرتونة بورقة جديدة</option></select>
   <button onclick="window.print()">🖨️ طباعة</button>
 </div>
 <div id="pages"></div>
@@ -89,13 +90,16 @@
       /* صفوف: رأس كلّ مجموعة صفٌّ كامل ثمّ ملصقاتها — المجموعة تبدأ صفّاً جديداً (أو ورقةً جديدة) */
       var rows = [], groups = [], cur = null;
       L.forEach(function (x) { if (!cur || cur.g !== x.group) { cur = { g: x.group, l: [] }; groups.push(cur); } cur.l.push(x); });
-      groups.forEach(function (g) {
+      groups.forEach(function (g, gi) {
+        /* (seq 550) «سطر فارغ بينهم ثمّ مكتوب كرتونة N» — صفٌّ فارغ قبل كلّ رأسٍ عدا الأوّل (يُحذف إن وقع أوّل الورقة) */
+        if (gi > 0 && grp.value !== 'page') rows.push({ blank: true });
         rows.push({ h: g.g, n: g.l.length, brk: grp.value === 'page' });
         for (var i = 0; i < g.l.length; i += lay.cols) rows.push({ c: g.l.slice(i, i + lay.cols) });
       });
       var pg = [], cu = [];
       rows.forEach(function (r) {
         if (r.h != null && r.brk && cu.length) { pg.push(cu); cu = []; }
+        if (r.blank && (!cu.length || cu.length >= lay.rows - 2)) { if (cu.length) { pg.push(cu); cu = []; } return; }   // لا فراغ أوّل الورقة ولا آخرها
         if (r.h != null && cu.length === lay.rows - 1) { pg.push(cu); cu = []; }   // لا رأس يتيم آخر الورقة
         cu.push(r); if (cu.length === lay.rows) { pg.push(cu); cu = []; }
       });
@@ -103,7 +107,8 @@
       pg.forEach(function (rs) {
         html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
         rs.forEach(function (r) {
-          if (r.h != null) html += '<div class="gh">📦 ' + esc(r.h || 'بلا مجموعة') + ' — ' + r.n + ' ملصق</div>';
+          if (r.blank) html += '<div class="gsp"></div>';
+          else if (r.h != null) html += '<div class="gh">📦 ' + esc(r.h || 'بلا مجموعة') + ' — ' + r.n + ' ملصق</div>';
           else { r.c.forEach(function (x) { html += cell(x); }); for (var k = r.c.length; k < lay.cols; k++) html += '<div class="gap"></div>'; }
         });
         html += '</div>';
