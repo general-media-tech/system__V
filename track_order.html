@@ -4,7 +4,7 @@
 <script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
    بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
 window.GMT_PUBLIC = 1;</script>
-<script src="gmt-road.js?v=20261110a"></script><script src="gmt-launch.js?v=20261110a"></script>
+<script src="gmt-road.js?v=20261110a"></script><script src="gmt-launch.js?v=20261110b"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -434,9 +434,11 @@ window.GMT_PUBLIC = 1;</script>
             if (L && L.arriving()) { layer1.style.display = 'none'; return; }
             document.body.style.overflow = 'hidden';
             if (L) {
-                L.cover(() => { layer1.style.display = 'none'; document.body.style.overflow = 'auto'; },
+                /* (المالك seq 558) «الزبون مجبر يلمس الشاشة لحتى يفتح الانترو ويشتغل الصوت» — إلّا إن سمح المتصفّح بالصوت وحده */
+                const intro = () => L.cover(() => { layer1.style.display = 'none'; document.body.style.overflow = 'auto'; },
                         { texts: ['أهلاً بكم', 'شكراً لثقتكم – شركة General Media Tech'] })
                  .catch(welcomeHtml);
+                (L.gate ? L.gate({ title: 'تتبّع شحنتك', hint: 'المس الشاشة للمتابعة' }) : Promise.resolve()).then(intro, intro);
                 return;
             }
             welcomeHtml();

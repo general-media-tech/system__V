@@ -27,13 +27,15 @@
      GMTLaunch.bind(root, test)   يربط روابط (a[href]) بالانتقال
      GMTLaunch.arriving()         هل وصلنا هذه الصفحة عبر انتقال؟
      GMTLaunch.hold(promise)      الصفحة الجديدة تؤخّر الكشف حتى تجهز بياناتها
+     GMTLaunch.gate(opts)         (seq 558) قبل الانترو: الصوت يعمل وحده إن سمح المتصفّح، وإلّا شاشة «المس الشاشة»
+                                  واللمسة نفسها تُشغّل صوت الشاحنة ثمّ يبدأ الانترو — يَعِد حين يجوز البدء
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
   var doc = global.document;
   if (!doc || global.GMTLaunch) return;
 
-  var VER = '20261110a';
+  var VER = '20261110b';
   var KEY = 'gmt_launch_arrive';
   var FRESH_MS = 15000;
   var ENTER_MS = 900;          // تدخل الشارع وتبطئ
@@ -72,7 +74,18 @@
       '#gmt-launch .gl-t1{font-size:clamp(22px,4.6vw,34px)}' +
       '#gmt-launch .gl-t2{font-size:clamp(14px,2.8vw,18px);font-weight:700;margin-top:6px}' +
       '#gmt-launch .gl-t.on{opacity:1}' +
-      '#gmt-launch.clear{background-color:transparent}#gmt-launch.clear>:not(.gr-fog){visibility:hidden}';
+      '#gmt-launch.clear{background-color:transparent}#gmt-launch.clear>:not(.gr-fog){visibility:hidden}' +
+      /* (seq 558) شاشة «المس الشاشة» قبل الانترو */
+      '#gmt-launch-gate{position:fixed;inset:0;z-index:2147483002;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer;opacity:0;transition:opacity .25s ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:inherit;padding:16px;text-align:center}' +
+      '#gmt-launch-gate.on{opacity:1}#gmt-launch-gate.out{opacity:0;pointer-events:none}' +
+      '#gmt-launch-gate .gg-t1{font-size:clamp(24px,5.4vw,36px);font-weight:900;color:#111}' +
+      '#gmt-launch-gate .gg-btn{position:relative;width:104px;height:104px;border-radius:50%;background:#D5001C;display:grid;place-items:center;box-shadow:0 12px 30px rgba(213,0,28,.35)}' +
+      '#gmt-launch-gate .gg-btn svg{width:46px;height:46px;position:relative}' +
+      '#gmt-launch-gate .gg-ring{position:absolute;inset:0;border-radius:50%;border:3px solid #D5001C;animation:ggPulse 1.4s ease-out infinite}' +
+      '@keyframes ggPulse{from{transform:scale(1);opacity:.8}to{transform:scale(1.7);opacity:0}}' +
+      '#gmt-launch-gate .gg-t2{font-size:clamp(16px,3.6vw,20px);font-weight:800;color:#111}' +
+      '#gmt-launch-gate .gg-t3{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#6b7280}#gmt-launch-gate .gg-t3 svg{width:16px;height:16px}' +
+      '@media (prefers-reduced-motion:reduce){#gmt-launch-gate .gg-ring{animation:none}}';
     (doc.head || doc.documentElement).appendChild(st);
   }
 
@@ -85,13 +98,16 @@
   }
 
   /* ── الصوت: صوت شاحنتك الحقيقي، يخفت عند الانتقال ─────────────────────── */
+  function vanAudio() { var a = new Audio((global.GMTRoad && GMTRoad.dir || 'img/delivery/') + 'van-sound.mp3'); a.loop = true; a.volume = .9; return a; }
+  var primed = null;           // صوتٌ بدأ بلمسة الزبون على شاشة «المس الشاشة» — يتسلّمه المشهد
   function engine() {
     if (!soundOn()) return { fade: function () {}, stop: function () {} };
-    var a = null, gest = null;
-    try { a = new Audio((global.GMTRoad && GMTRoad.dir || 'img/delivery/') + 'van-sound.mp3'); a.loop = true; a.volume = .9; } catch (_) { a = null; }
+    var a = null, gest = null, p;
+    if (primed) { a = primed; primed = null; }
+    else { try { a = vanAudio(); } catch (_) { a = null; } }
     function un() { if (gest) ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(function (t) { doc.removeEventListener(t, gest, true); }); gest = null; }
     if (a) {
-      var p; try { p = a.play(); } catch (_) {}
+      try { p = a.paused ? a.play() : null; } catch (_) {}
       /* المتصفّح يمنع الصوت قبل أوّل لمسة ⇒ يبدأ مع أوّل لمسة ما دام المشهد قائماً */
       /* (TASK-0311 · seq 397) touchstart ليس «تفاعلاً» عند المتصفّح ⇒ play() يُرفض بلا معالجة («play() failed…» في سجلّ الأخطاء).
          نلتقط الرفض ونبقى ننتظر لمسةً تُحتسب (touchend · click) ولا نزيل المستمع إلا بعد نجاح التشغيل. */
@@ -170,6 +186,52 @@
       ctl.fadeAudio();
       try { sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), to: to, v: 2 })); } catch (_) {}
       global.location.assign(url);
+    });
+  }
+
+  /* ── ⓪ (المالك seq 558) «إمّا الصوت يشتغل بدون لمسة، أو الزبون مجبر يلمس الشاشة لحتى يفتح الانترو ويشتغل الصوت» ──
+     المتصفّحات تمنع أيّ صوتٍ قبل أوّل لمسة (قيدٌ في المتصفّح لا نملك تجاوزه). لذلك:
+     ① نجرّب تشغيل صوت الشاحنة فوراً — إن سمح المتصفّح يبدأ الانترو مباشرةً بصوته (لا شاشة).
+     ② وإن منعه: شاشة بيضاء «المس الشاشة لتتبّع شحنتك» — اللمسة نفسها تُشغّل الصوت ثمّ يبدأ الانترو.
+     الأصوات مكتومة (مفتاح الأصوات) أو «تقليل الحركة» ⇒ لا شاشة ولا انتظار. */
+  function gate(opts) {
+    opts = opts || {};
+    if (!doc.body || reduced() || !soundOn()) return Promise.resolve('skip');
+    var a; try { a = vanAudio(); } catch (_) { return Promise.resolve('noaudio'); }
+    return new Promise(function (resolve) {
+      var ov = null, done = false;
+      function finish(how) {
+        if (done) return; done = true; primed = a;
+        if (ov) { ov.classList.add('out'); var o = ov; setTimeout(function () { o.remove(); }, 260); ['pointerup', 'click', 'keydown'].forEach(function (t) { o.removeEventListener(t, tap, true); }); }
+        emit('gmt:launch-gate', { how: how });
+        resolve(how);
+      }
+      function tap(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        try { var q = a.play(); if (q && q.catch) q.catch(function () {}); } catch (_) {}   // داخل اللمسة نفسها ⇒ يُسمح بالصوت
+        try { if (global.GMTSound && GMTSound.unlock) GMTSound.unlock(); } catch (_) {}
+        finish('tap');
+      }
+      function show() {
+        if (done || ov) return;
+        css();
+        ov = doc.createElement('div'); ov.id = 'gmt-launch-gate'; ov.setAttribute('role', 'button'); ov.setAttribute('tabindex', '0');
+        ov.setAttribute('aria-label', opts.label || 'المس الشاشة لتتبّع شحنتك');
+        ov.innerHTML = '<div class="gg-t1">' + (opts.title || 'تتبّع شحنتك') + '</div>' +
+          '<div class="gg-btn"><i class="gg-ring"></i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/>' +
+          '<path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></div>' +
+          '<div class="gg-t2">' + (opts.hint || 'المس الشاشة للمتابعة') + '</div>' +
+          '<div class="gg-t3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> مع الصوت</div>';
+        ['pointerup', 'click', 'keydown'].forEach(function (t) { ov.addEventListener(t, tap, true); });
+        doc.body.appendChild(ov);
+        requestAnimationFrame(function () { ov.classList.add('on'); });
+      }
+      var p; try { p = a.play(); } catch (_) { p = null; }
+      if (p && p.then) {
+        p.then(function () { finish('auto'); }, show);
+        setTimeout(function () { if (!done) show(); }, 700);   // الصوت ما زال يتحمّل على شبكةٍ بطيئة ⇒ الشاشة تظهر، وتختفي وحدها إن سمح المتصفّح
+      } else show();
     });
   }
 
@@ -254,7 +316,7 @@
   function preload() {}
 
   global.GMTLaunch = {
-    go: go, cover: cover, bind: bind, preload: preload,
+    go: go, cover: cover, bind: bind, preload: preload, gate: gate,
     arriving: function () { return !!arr; },
     hold: function (p) { if (p && p.then) holds.push(Promise.resolve(p).catch(function () {})); },
     version: VER
