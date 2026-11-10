@@ -45,14 +45,15 @@
     var root = doc.createElement('div'); root.id = 'gmt-rc'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('data-keep-fab', '1');
     root.innerHTML = '<div class="top"><button type="button" data-x aria-label="إغلاق">✕</button><b>🧾 مطابقة الجرد — فاتورة تسوية</b>' +
       '<select data-draft aria-label="المسودة"></select><span style="flex:1"></span>' +
-      '<select data-f aria-label="الفلتر"><option value="all">الكلّ</option><option value="minus">نقص</option><option value="plus">زيادة</option><option value="eq">مطابق</option><option value="nocount">بلا عدد</option><option value="unlinked">غير مربوط بالجرد</option><option value="off">مستثنى</option></select>' +
+      '<select data-f aria-label="الفلتر"><option value="all">الكلّ</option><option value="minus">نقص</option><option value="plus">زيادة</option><option value="eq">مطابق</option><option value="nocount">بلا عدد</option><option value="unlinked">غير مربوط بالجرد</option><option value="off">مستثنى</option><option value="rest">في النظام ولم يُعدّ</option></select>' +
       '<input data-q type="search" placeholder="بحث…" style="width:150px"></div>' +
       '<div class="sum" data-sum></div><div class="body" data-body><div class="msg" style="padding:20px">⏳ جارٍ التحميل…</div></div>' +
-      '<div class="foot"><span class="msg" data-msg></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-save>💾 حفظ المسودة</button><button type="button" class="g" data-apply>✅ اعتماد التسوية…</button></span></div>' +
+      '<div class="foot"><span class="msg" data-msg></span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button type="button" data-print>🖨️ فاتورة التسوية</button><button type="button" data-labels>🏷️ باركودات (العدد الكلّي)</button><button type="button" data-save>💾 حفظ المسودة</button>' +
+      '<label style="font-size:12px;font-weight:800;display:flex;gap:4px;align-items:center" title="ما في النظام ولم يُعدّ يصير 0 — مع نسخة احتياط للرجوع"><input type="checkbox" data-zero checked> تصفير الفرع</label><button type="button" class="g" data-apply>✅ اعتماد التسوية…</button><button type="button" data-revert hidden>↩️ استرجاع النسخة الاحتياطية…</button></span></div>' +
       '<datalist id="gmt-rc-dl"></datalist>';
     doc.body.appendChild(root);
     var $ = function (s) { return root.querySelector(s); };
-    var S = { rec: null, items: [], live: {}, f: 'all', q: '', dirty: false };
+    var S = { rec: null, items: [], live: {}, rest: [], f: 'all', q: '', dirty: false };
     var prods = (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || [];
     var byName = {}; prods.forEach(function (p) { if (p && p.name) byName[String(p.name).trim()] = p; });
     $('#gmt-rc-dl').innerHTML = prods.slice(0, 4000).map(function (p) { return '<option value="' + esc(p.name) + '">'; }).join('');
@@ -78,8 +79,15 @@
       say('⏳ قراءة مخزون «' + bn + '» الحيّ…');
       await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
       S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
+      await loadRest();
       say(rec.details.status === 'applied' ? '✅ طُبّقت هذه التسوية ' + (rec.details.applied_at || '').slice(0, 16).replace('T', ' ') + ' — ' + (rec.details.numbers || []).join(' + ') : '📝 مسودة — لا شيء يُكتب على المخزون قبل «اعتماد التسوية»');
       paint();
+    }
+    /* ما في الفرع الآن (كمّية ≠ 0) ولا سطر له في الجرد ⇐ «لم يُعدّ» — يصير 0 عند «تصفير الفرع» */
+    async function loadRest() {
+      var r = await sb('GET', '/rest/v1/products?' + bk + '=neq.0&select=id,name,barcode,image_url,price,wholesale_price,' + bk + '&limit=5000');
+      var inDraft = {}; S.items.forEach(function (i) { if (i.id) inDraft[String(i.id)] = 1; });
+      S.rest = (r && Array.isArray(r.data) ? r.data : []).filter(function (p) { S.live[String(p.id)] = p; return !inDraft[String(p.id)]; });
     }
     function diffOf(i) { return (i.actual != null && i.system != null && i.id) ? i.actual - i.system : null; }
     function cls(i) { var d = diffOf(i); return d == null ? '' : d < 0 ? 'm' : d > 0 ? 'p' : 'z'; }
@@ -96,6 +104,7 @@
       var sm = function (a) { return a.reduce(function (s, i) { return s + Math.abs(diffOf(i)); }, 0); };
       $('[data-sum]').innerHTML = '<span class="chip">' + S.items.length + ' سطراً</span><span class="chip k">داخل التسوية ' + on.length + '</span>' +
         '<span class="chip r">نقص ' + mi.length + ' بنداً (−' + sm(mi) + ' قطعة)</span><span class="chip b">زيادة ' + pl.length + ' بنداً (+' + sm(pl) + ' قطعة)</span>' +
+        '<span class="chip r" title="في النظام ولم يُعدّ — يصير 0 عند «تصفير الفرع»">لم يُعدّ ' + S.rest.length + ' (−' + S.rest.reduce(function (s, p) { return s + Math.max(0, Number(p[bk]) || 0); }, 0) + ' قطعة)</span>' +
         '<span class="chip">غير مربوط ' + S.items.filter(function (i) { return !i.id; }).length + '</span><span class="chip">مستثنى ' + S.items.filter(function (i) { return !i.include; }).length + '</span>' +
         (S.rec.details.sources ? '<span class="chip">' + S.rec.details.sources.map(function (s) { return esc(s.label); }).join(' · ') + '</span>' : '');
     }
@@ -113,8 +122,20 @@
         '<div class="n">' + (i.system == null ? '—' : i.system) + '<small>النظام</small></div>' +
         '<div class="d ' + cls(i) + '">' + (d == null ? '—' : (d > 0 ? '+' : '') + d) + '</div></div>';
     }
+    function restHtml() {
+      var q = S.q.toLowerCase();
+      return S.rest.filter(function (p) { return !q || String(p.name).toLowerCase().indexOf(q) >= 0; }).map(function (p) {
+        var v = Number(p[bk]) || 0;
+        return '<div class="row off"><span></span><div class="ph">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" loading="lazy" data-lb="' + esc(p.image_url) + '" alt="">' : '') + '</div>' +
+          '<div class="cnt"><div class="lbl">لم يُعدّ في الجرد</div><div class="note">يصير 0 عند «تصفير الفرع»</div></div><div class="pr"><div class="nm">' + esc(p.name) + '</div></div>' +
+          '<div class="n">—<small>المحلّ</small></div><div class="n">—<small>المستودع</small></div><div class="n">0<small>الفعلي</small></div><div class="n">' + v + '<small>النظام</small></div><div class="d m">' + (v ? -v : 0) + '</div></div>';
+      }).join('');
+    }
     function paint() {
       summary();
+      var det = S.rec.details || {};
+      $('[data-revert]').hidden = !(det.status === 'applied' && det.backup && !det.reverted_at);
+      if (S.f === 'rest') { $('[data-body]').innerHTML = restHtml() || '<div class="msg" style="padding:20px">كلّ ما في الفرع معدود.</div>'; $('[data-apply]').disabled = det.status === 'applied'; $('[data-save]').disabled = det.status === 'applied'; return; }
       var idx = S.items.map(function (i, ix) { return ix; }).filter(function (ix) { return pass(S.items[ix]); });
       idx.sort(function (a, b) { var A = S.items[a], B = S.items[b]; if (!!A.id !== !!B.id) return A.id ? -1 : 1; var da = diffOf(A), db = diffOf(B); return (db == null ? -1 : Math.abs(db)) - (da == null ? -1 : Math.abs(da)); });
       $('[data-body]').innerHTML = '<div class="row hd"><span></span><span>صورة الجرد</span><span>المعدود</span><span>المنتج في الجرد</span><span>المحلّ</span><span>المستودع</span><span>الفعلي</span><span>النظام</span><span>الفرق</span></div>' +
@@ -144,29 +165,79 @@
     }
     $('[data-save]').onclick = async function () { say('⏳ حفظ…'); if (await save()) say('💾 حُفظت المسودة — المخزون لم يتغيّر'); };
     $('[data-apply]').onclick = async function () {
+      var zero = $('[data-zero]').checked;
+      await loadRest();
       var on = S.items.filter(function (i) { return i.include && i.id && i.actual != null && diffOf(i) !== 0; });
-      if (!on.length) { say('لا فروقات داخل التسوية'); return; }
+      var zr = zero ? S.rest.filter(function (p) { return (Number(p[bk]) || 0) !== 0; }) : [];
+      if (!on.length && !zr.length) { say('لا فروقات داخل التسوية'); return; }
       var mi = on.filter(function (i) { return diffOf(i) < 0; }), pl = on.filter(function (i) { return diffOf(i) > 0; });
       var txt = 'فاتورة تسوية «' + bn + '» من الجرد:\n• نقص ' + mi.length + ' بنداً (−' + mi.reduce(function (s, i) { return s - diffOf(i); }, 0) + ')\n• زيادة ' + pl.length + ' بنداً (+' + pl.reduce(function (s, i) { return s + diffOf(i); }, 0) + ')\n\n' +
-        'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\nالأسطر المستثناة وغير المربوطة لا تُلمس.';
+        'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\n' +
+        (zero ? '• تصفير الفرع: ' + zr.length + ' منتجاً في النظام لم يُعدّ ⇐ 0 (−' + zr.reduce(function (s, p) { return s + (Number(p[bk]) || 0); }, 0) + ' قطعة)\n' : '') +
+        'الأسطر المستثناة وغير المربوطة لا تُلمس.\n\n💾 تُحفظ قبل التطبيق نسخةٌ احتياطية بكمّيات «' + bn + '» الحاليّة كلّها — للرجوع إليها بزرّ «↩️ استرجاع».';
       var ok = global.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm(txt, { title: '✅ اعتماد التسوية', okText: 'اعتماد' }) : global.confirm(txt);
       if (!ok) return;
       var pw = global.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 اعتماد فاتورة تسوية «' + bn + '» من الجرد') : true;
       if (!pw) return;
-      if (!(await save())) return;
+      /* النسخة الاحتياطية: كمّيات الفرع الحاليّة لكلّ منتجٍ ستلمسه التسوية (قراءة حيّة) */
+      await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
+      var backup = {}; on.forEach(function (i) { backup[i.id] = Number((S.live[i.id] || {})[bk]) || 0; }); zr.forEach(function (p) { backup[String(p.id)] = Number(p[bk]) || 0; });
+      if (!(await save({ backup: backup, backup_at: new Date().toISOString(), zero_mode: zero }))) return;
       if (!global.GMTStock || !GMTStock.rebuild) { say('❌ وحدة المخزون لم تُحمَّل'); return; }
       var by = ctx.operator || 'الأدمن';
       var R = await GMTStock.rebuild({ branch: { key: bk, name: bn }, mode: 'local', by: by, receivedBy: by, titleTag: 'تسوية من الجرد',
         kind: 'فاتورة تسوية من الجرد — مطابقة #' + S.rec.id,
-        lines: on.map(function (i) { var L = S.live[i.id] || {}; return { product_id: i.id, name: i.name || L.name || '', barcode: L.barcode || '', image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : '', after: i.actual, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0 }; }),
+        lines: on.map(function (i) { return lineOf(i.id, i.name, i.actual); }).concat(zr.map(function (p) { return lineOf(String(p.id), p.name, 0); })),
         onProgress: function (k, n, name) { say('🧾 ' + k + ' / ' + n + ' — ' + name); } });
       var nums = (R && R.numbers) || [];
       await save({ status: nums.length ? 'applied' : S.rec.details.status, applied_at: nums.length ? new Date().toISOString() : null, applied_by: by, numbers: nums, failed: (R && R.failed) || [] });
       await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
       S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
-      paint();
+      await loadRest(); paint();
       say(nums.length ? '✅ صدرت فاتورة التسوية: ' + nums.join(' + ') + ' · طُبّق ' + R.applied + (R.failed.length ? ' · تعذّر ' + R.failed.length : '') : '❌ ' + ((R && R.error) || 'لم تُطبَّق'));
       if (ctx.onApplied) try { ctx.onApplied(R); } catch (_) {}
+    };
+    function lineOf(pid, name, after) { var L = S.live[pid] || {}; return { product_id: pid, name: name || L.name || '', barcode: L.barcode || '', image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : '', after: after, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0 }; }
+    /* ↩️ الرجوع إلى النسخة الاحتياطية: كلّ منتجٍ لمسته التسوية يعود لكمّيته قبلها — بفاتورة تسويةٍ عكسية */
+    $('[data-revert]').onclick = async function () {
+      var det = S.rec.details || {}, bkp = det.backup || {}, ids = Object.keys(bkp); if (!ids.length) return;
+      var t = 'استرجاع كمّيات «' + bn + '» كما كانت قبل التسوية (' + String(det.backup_at || '').slice(0, 16).replace('T', ' ') + '):\n' + ids.length + ' منتجاً — بفاتورة تسويةٍ عكسية.';
+      var ok = global.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm(t, { title: '↩️ استرجاع النسخة الاحتياطية', okText: 'استرجاع' }) : global.confirm(t);
+      if (!ok) return;
+      var pw = global.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 استرجاع نسخة «' + bn + '» قبل التسوية') : true; if (!pw) return;
+      await liveQty(ids);
+      var by = ctx.operator || 'الأدمن';
+      var R = await GMTStock.rebuild({ branch: { key: bk, name: bn }, mode: 'local', by: by, receivedBy: by, titleTag: 'استرجاع ما قبل التسوية', kind: 'استرجاع النسخة الاحتياطية — مطابقة #' + S.rec.id,
+        lines: ids.map(function (pid) { return lineOf(pid, '', Number(bkp[pid]) || 0); }), onProgress: function (k, n, name) { say('↩️ ' + k + ' / ' + n + ' — ' + name); } });
+      var nums = (R && R.numbers) || [];
+      if (nums.length || (R && R.ok)) await save({ reverted_at: new Date().toISOString(), reverted_by: by, revert_numbers: nums, status: 'draft' });
+      await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
+      S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
+      await loadRest(); paint();
+      say(R && R.ok ? '↩️ عادت الكمّيات كما كانت — ' + (nums.join(' + ') || 'لا فرق') : '❌ ' + ((R && (R.error || (R.failed[0] && R.failed[0].why))) || 'تعذّر'));
+    };
+    /* 🏷️ باركودات الفاتورة: كلّ منتجٍ مربوط بعدده الكلّي (المحلّ + المستودع) */
+    $('[data-labels]').onclick = function () {
+      var it = S.items.filter(function (i) { return i.id && i.actual > 0; }).map(function (i) { var L = S.live[i.id] || {}; return { name: i.name || L.name || '', barcode: L.barcode || '', qty: i.actual }; }).filter(function (x) { return x.barcode; });
+      var miss = S.items.filter(function (i) { return i.actual > 0 && (!i.id || !(S.live[i.id] || {}).barcode); }).length;
+      if (!it.length) { say('لا منتجات مربوطة بباركود'); return; }
+      if (global.GMTLabels && GMTLabels.openSheet && GMTLabels.openSheet(it, { title: 'ملصقات باركود — فاتورة تسوية «' + bn + '» #' + S.rec.id })) say('🏷️ ' + it.length + ' منتجاً · ' + it.reduce(function (s, x) { return s + x.qty; }, 0) + ' ملصقاً' + (miss ? ' · ' + miss + ' سطراً بلا باركود (غير مربوط) لم يُطبع' : ''));
+      else say('⚠️ وحدة الملصقات لم تُحمَّل');
+    };
+    /* 🖨️ فاتورة التسوية للطباعة: العدد الكلّي مقابل الموجود حاليّاً · غير المعرّف بصورته وعدده · ما لم يُعدّ */
+    $('[data-print]').onclick = function () {
+      var w = global.open('', '_blank'); if (!w) { say('⚠️ اسمح بالنوافذ المنبثقة للطباعة'); return; }
+      var row = function (i, n) { var d = diffOf(i), img = (i.photos && i.photos[0]) || (i.pages && i.pages[0]) || ((S.live[i.id] || {}).image_url) || '';
+        return '<tr><td>' + n + '</td><td>' + (img ? '<img src="' + esc(img) + '">' : '') + '</td><td><b>' + esc(i.name || '— غير معرّف —') + '</b><div class="s">' + esc(i.counted_as) + '</div></td><td>' + (i.shop == null ? '—' : i.shop) + '</td><td>' + (i.store == null ? '—' : i.store) + '</td><td class="b">' + (i.actual == null ? '—' : i.actual) + '</td><td>' + (i.system == null ? '—' : i.system) + '</td><td class="' + (d < 0 ? 'm' : d > 0 ? 'p' : '') + '">' + (d == null ? '—' : (d > 0 ? '+' : '') + d) + '</td><td class="s">' + (i.include ? '' : 'مستثنى · ') + esc(i.note || '') + '</td></tr>'; };
+      var linked = S.items.filter(function (i) { return i.id; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'ar'); });
+      var unk = S.items.filter(function (i) { return !i.id; });
+      var head = '<tr><th>#</th><th>صورة</th><th>المنتج</th><th>المحلّ</th><th>المستودع</th><th>العدد الكلّي</th><th>الموجود حاليّاً</th><th>الفرق</th><th>ملاحظة</th></tr>';
+      w.document.write('<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>فاتورة تسوية ' + esc(bn) + ' #' + S.rec.id + '</title><style>body{font-family:Cairo,Tahoma,sans-serif;margin:14px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 6px}.meta{font-size:12px;color:#444}table{width:100%;border-collapse:collapse;font-size:11.5px}th,td{border:1px solid #bbb;padding:3px 5px;text-align:center;vertical-align:middle}th{background:#f1f5f9}td:nth-child(3){text-align:right}img{width:46px;height:46px;object-fit:cover;border-radius:4px}.b{font-weight:800}.m{color:#b91c1c;font-weight:800}.p{color:#1d4ed8;font-weight:800}.s{font-size:10px;color:#555;text-align:right}@media print{button{display:none}tr{page-break-inside:avoid}}</style></head><body>' +
+        '<button onclick="print()">🖨️ طباعة</button><h1>🧾 فاتورة تسوية من الجرد — ' + esc(bn) + ' · مسودة #' + S.rec.id + '</h1><div class="meta">' + esc((S.rec.details.sources || []).map(function (s) { return s.label; }).join(' + ')) + ' · العدد الكلّي = مجموع الملفات · الموجود حاليّاً = مخزون النظام لحظة الطباعة · ' + new Date().toLocaleString('ar-SY') + '</div>' +
+        '<h2>① المنتجات المعرّفة (' + linked.length + ')</h2><table>' + head + linked.map(function (i, k) { return row(i, k + 1); }).join('') + '</table>' +
+        '<h2>② معدودٌ غير معرّف — الاسم أو الربط من المالك (' + unk.length + ')</h2><table>' + head + unk.map(function (i, k) { return row(i, k + 1); }).join('') + '</table>' +
+        '<h2>③ في النظام ولم يُعدّ — يصير 0 عند تصفير الفرع (' + S.rest.length + ')</h2><table><tr><th>#</th><th>صورة</th><th>المنتج</th><th>الموجود حاليّاً</th></tr>' + S.rest.map(function (p, k) { return '<tr><td>' + (k + 1) + '</td><td>' + (p.image_url ? '<img src="' + esc(p.image_url) + '">' : '') + '</td><td>' + esc(p.name) + '</td><td class="m">' + (Number(p[bk]) || 0) + '</td></tr>'; }).join('') + '</table></body></html>');
+      w.document.close();
     };
     await load(recs.find(function (r) { return r.details.status === 'draft'; }) || recs[0]);
     $('[data-draft]').value = String(S.rec.id);

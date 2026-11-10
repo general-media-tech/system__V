@@ -11,7 +11,9 @@ const dump = () => H.call('/__dump', undefined, 'GET');
     { name: 'مطابقة أ — LED 600', barcode: 'RC1', price: 40, wholesale_price: 25, haleb: 5, daraa: 1 },
     { name: 'مطابقة ب — YM-S60', barcode: 'RC2', price: 100, haleb: 2 },
     { name: 'مطابقة ج — بطارية', barcode: 'RC3', price: 7.5, haleb: 224 },
-    { name: 'مطابقة د — فلاش يونغو', barcode: 'RC4', price: 90, haleb: 0 }]);
+    { name: 'مطابقة د — فلاش يونغو', barcode: 'RC4', price: 90, haleb: 0 },
+    { name: 'مطابقة هـ — لم يُعدّ', barcode: 'RC5', price: 20, haleb: 3 }]);
+  const E = (await H.call('/rest/v1/products?barcode=eq.RC5', undefined, 'GET'))[0];
   await H.call('/rest/v1/stock_counts', [{ id: 77, branch_key: 'haleb', branch_name: 'حلب', counted_by: 'اختبار', created_at: '2026-11-10T09:00:00Z',
     details: { status: 'draft', sources: [{ label: 'المحلّ' }, { label: 'المستودع' }], items: [
       { id: A.id, name: A.name, counted_as: 'LED 600', shop: 1, store: 2, actual: 3, system: 5, include: true, photos: [], pages: [] },
@@ -24,6 +26,15 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   const s1 = await pg.evaluate(() => ({ rows: document.querySelectorAll('#gmt-rc [data-ix]').length, sum: document.querySelector('#gmt-rc [data-sum]').innerText, txt: document.querySelector('#gmt-rc [data-body]').innerText }));
   ok(s1.rows === 4 && /داخل التسوية 2/.test(s1.sum) && /نقص 1 بنداً \(−2/.test(s1.sum) && /زيادة 1 بنداً \(\+2/.test(s1.sum), 'المسودة تُعرض: 4 أسطر · داخل التسوية 2 · نقص −2 · زيادة +2: ' + s1.sum.replace(/\s+/g, ' ').slice(0, 120));
   ok(/غير مربوط بالجرد/.test(s1.txt) && /يُعاد عدّه/.test(s1.txt), 'السطر غير المربوط والمستثنى ظاهران بملاحظاتهما');
+  ok(/لم يُعدّ \d+ \(−\d+ قطعة\)/.test(s1.sum), 'ما في حلب ولم يُعدّ ظاهرٌ في الملخّص (يصير 0 عند التصفير): ' + (s1.sum.match(/لم يُعدّ[^غ]*/) || [''])[0]);
+  // 🖨️ فاتورة التسوية + 🏷️ الباركودات
+  await pg.evaluate(() => { window.__w = ''; window.open = () => ({ document: { write: h => { window.__w += h; }, close() {} } }); window.__lb = null; window.GMTLabels = { openSheet: (it, o) => { window.__lb = { it, o }; return true; } }; });
+  await pg.click('#gmt-rc [data-print]'); await sleep(200);
+  const pr = await pg.evaluate(() => window.__w);
+  ok(/فاتورة تسوية من الجرد/.test(pr) && /العدد الكلّي/.test(pr) && /الموجود حاليّاً/.test(pr) && /معدودٌ غير معرّف/.test(pr) && /فلاش \(صورة 35\)/.test(pr) && /في النظام ولم يُعدّ/.test(pr) && /لم يُعدّ/.test(pr), '«🖨️ فاتورة التسوية»: العدد الكلّي مقابل الموجود حاليّاً · غير المعرّف بعدده · ما لم يُعدّ');
+  await pg.click('#gmt-rc [data-labels]'); await sleep(200);
+  const lb = await pg.evaluate(() => window.__lb);
+  ok(lb && lb.it.find(x => x.barcode === 'RC1').qty === 3 && lb.it.find(x => x.barcode === 'RC3').qty === 35 && !lb.it.some(x => !x.barcode), '«🏷️ باركودات»: كلّ منتجٍ مربوط بعدده الكلّي (LED 600 = 1+2 = 3): ' + JSON.stringify(lb && lb.it.map(x => x.barcode + '×' + x.qty)));
   // تعديل الفعلي لـ ب ⇐ 6 · ربط الفلاش بمنتجه وتضمينه · حفظ
   await pg.evaluate(id => { const r = [...document.querySelectorAll('#gmt-rc [data-ix]')].find(x => /YM-S60/.test(x.innerText)); const i = r.querySelector('[data-act]'); i.value = '6'; i.dispatchEvent(new Event('change', { bubbles: true })); }, B.id);
   await sleep(200);
@@ -41,10 +52,17 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   D = await dump(); sc = D.stock_counts.find(r => r.id === 77);
   ok(P(A.id).haleb === 3 && P(B.id).haleb === 6 && P(X.id).haleb === 1, 'بعد «اعتماد»: حلب = الفعلي (أ 5⇐3 · ب 2⇐6 · الفلاش 0⇐1): ' + [P(A.id).haleb, P(B.id).haleb, P(X.id).haleb].join(','));
   ok(P(C.id).haleb === 224 && P(A.id).daraa === 1, 'المستثنى لم يُلمس (224) · ولا الفروع الأخرى (درعا 1)');
+  ok(P(E.id).haleb === 0, 'تصفير الفرع: ما في حلب ولم يُعدّ صار 0 (هـ 3⇐0)');
+  ok(sc.details.backup && sc.details.backup[A.id] === 5 && sc.details.backup[B.id] === 2 && sc.details.backup[E.id] === 3 && sc.details.backup[X.id] === 0, 'نسخة احتياط بالكمّيات قبل التسوية محفوظة في المسودة: ' + JSON.stringify(sc.details.backup));
   const tr = D.branch_stock_transfers || [];
   ok(tr.length === 2 && tr.every(t => /^فاتورة إعادة إنشاء/.test(t.title) && /تسوية من الجرد/.test(t.title) && t.status === 'received'), 'فاتورتا تسوية (الزيادات · النقص) مستلَمة: ' + tr.map(t => t.transfer_number + ' ' + t.title.slice(0, 40)).join(' | '));
   ok(sc.details.status === 'applied' && (sc.details.numbers || []).length === 2, 'المسودة خُتمت «طُبّقت» بأرقام الفواتير: ' + (sc.details.numbers || []).join(' + '));
   ok(await pg.evaluate(() => document.querySelector('#gmt-rc [data-apply]').disabled), 'بعد التطبيق لا اعتماد ثانٍ للمسودة نفسها');
+  ok(await pg.evaluate(() => !document.querySelector('#gmt-rc [data-revert]').hidden), 'زرّ «↩️ استرجاع النسخة الاحتياطية» ظاهر بعد التطبيق');
+  await pg.click('#gmt-rc [data-revert]'); await sleep(4500);
+  D = await dump(); sc = D.stock_counts.find(r => r.id === 77);
+  ok(P(A.id).haleb === 5 && P(B.id).haleb === 2 && P(X.id).haleb === 0 && P(E.id).haleb === 3 && P(C.id).haleb === 224, '↩️ الاسترجاع: كلّ الكمّيات عادت كما قبل التسوية: ' + [P(A.id).haleb, P(B.id).haleb, P(X.id).haleb, P(E.id).haleb].join(','));
+  ok(sc.details.reverted_at && (sc.details.revert_numbers || []).length && sc.details.status === 'draft' && (D.branch_stock_transfers || []).length === 4, 'الاسترجاع بفاتورة تسويةٍ عكسية مسجَّلة · والمسودة عادت قابلة للمراجعة');
   const geo = await pg.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: innerWidth }));
   ok(geo.sw <= geo.vw + 1, 'لا طفح أفقي');
   const real = errs.filter(x => !/Failed to load resource|status of (400|404|406)/.test(x));
