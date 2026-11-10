@@ -12,6 +12,11 @@
      جزءٌ من الصفحة (HTML + Canvas — gmt-road.js) لا فيديو: أخفّ ويتكيّف مع الهاتف والكمبيوتر.
      الصوت: صوت شاحنتك (van-sound.mp3) يخفت عند الانتقال، ويتبع مفتاح الأصوات.
 
+   10 ت2 · TASK-0228 (المالك seq 158 · 557): «الانترو الأوّل ما في له مسار نقطة A وB · في له شارع · وبالطالع دخّان كثير
+     وتنطلق أسرع» ⇐ المشهد صار شارعاً: تدخل الشاحنة من اليسار وتقف لحظةً تعمل (دخانٌ خفيف والنصّ يظهر) ثمّ تنطلق
+     بتسارعٍ قويّ يميناً ويخرج منها دخانٌ كثيف يكبر ويملأ الشاشة، وتحته تُفتح الصفحة. المدّة ≈ ٣ث بدل ≈ ٤ث.
+     المسار A⇐B يبقى لشاحنة البحث داخل صفحة التتبّع وحدها.
+
    الحماية (كما كانت): النقر ولوحة المفاتيح ممنوعان أثناءه · لا يعلق أبداً (سقوفٌ
    زمنية لكل مرحلة، وغطاء الوصول CSS يختفي وحده بعد ٩ث حتى لو تعطّل كلّ JS) ·
    «تقليل الحركة» ⇒ انتقالٌ بسيط · من كل روابط التتبّع ومن الروابط الخارجية.
@@ -28,11 +33,14 @@
   var doc = global.document;
   if (!doc || global.GMTLaunch) return;
 
-  var VER = '20261019a';
+  var VER = '20261110a';
   var KEY = 'gmt_launch_arrive';
   var FRESH_MS = 15000;
-  var DRIVE_MS = 2600;         // من A إلى B
-  var FOG_IN_MS = 1000;        // الضباب يملأ الشاشة
+  var ENTER_MS = 900;          // تدخل الشارع وتبطئ
+  var IDLE_MS = 650;           // تقف لحظةً تعمل
+  var LAUNCH_MS = 750;         // تنطلق بتسارعٍ قويّ
+  var FOG_AT = 600;            // الدخان الكثيف يملأ الشاشة بعد بدء الانطلاق بقليل
+  var FOG_IN_MS = 800;         // الضباب يملأ الشاشة
   var FOG_OUT_MS = 1200;       // ثمّ يرقّ كاشفاً الصفحة
   var ARRIVE_CAP = 8000;
 
@@ -110,10 +118,10 @@
     block(true);
     requestAnimationFrame(function () { ov.classList.add('on'); });
     var rd;
-    try { rd = R.create(host, { big: true }); }
+    try { rd = R.create(host, { big: true, street: true }); }
     catch (e) { ov.remove(); block(false); throw e; }          // تعذّر المشهد ⇒ لا تبقى طبقةٌ تحجب الصفحة أبداً
     var snd = engine(), fg = null;
-    texts.forEach(function (e, i) { setTimeout(function () { e.classList.add('on'); }, 250 + i * 450); });
+    texts.forEach(function (e, i) { setTimeout(function () { e.classList.add('on'); }, 200 + i * 350); });
     var covered = false, coverFns = [];
     var ctl = {
       el: ov,
@@ -133,14 +141,19 @@
       coverFns.splice(0).forEach(function (f) { try { f(); } catch (_) {} });
     }
     /* سقفٌ عامّ: مهما حدث في الرسم (تبويبٌ خلفيّ يجمّد الإطارات) تحدث التغطية */
-    var cap = setTimeout(fireCover, DRIVE_MS + FOG_IN_MS + 1800);
+    var cap = setTimeout(fireCover, ENTER_MS + IDLE_MS + FOG_AT + FOG_IN_MS + 1800);
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     setTimeout(function () {
-      rd.to(1, DRIVE_MS).then(function () {
+      /* ① تدخل الشارع وتبطئ حتى تقف قرب الوسط ⇐ ② تقف لحظةً تعمل ⇐ ③ تنطلق بقوّة ودخانٌ كثيف ⇐ ④ الدخان يملأ الشاشة */
+      rd.to(.45, ENTER_MS, 'out').then(function () { return wait(IDLE_MS); }).then(function () {
+        if (rd.heavy) rd.heavy(true);              // تدوير المحرّك: الدخان يندفع قبل أن تتحرّك بلحظة
+        return wait(160).then(function () { rd.to(1, LAUNCH_MS, 'in'); return wait(FOG_AT); });
+      }).then(function () {
         texts.forEach(function (e) { e.classList.remove('on'); });
         try { fg = R.fog(ov); } catch (_) { fg = null; return; }   // بلا ضباب ⇒ تغطيةٌ فورية (السقف العامّ يضمنها)
         return fg.anim(0, 1, FOG_IN_MS);
       }).then(function () { clearTimeout(cap); fireCover(); });
-    }, 200);
+    }, 100);
     return ctl;
   }
 

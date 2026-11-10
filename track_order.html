@@ -4,7 +4,7 @@
 <script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
    بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
 window.GMT_PUBLIC = 1;</script>
-<script src="gmt-road.js?v=20261019a"></script><script src="gmt-launch.js?v=20261103d"></script>
+<script src="gmt-road.js?v=20261110a"></script><script src="gmt-launch.js?v=20261110a"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -185,6 +185,7 @@ window.GMT_PUBLIC = 1;</script>
         .smooth-disappear {
             animation: smoothDisappear 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
+        .smooth-disappear.quick { animation-duration: .28s; }
     </style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة -->
   <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
@@ -625,7 +626,7 @@ window.GMT_PUBLIC = 1;</script>
             const roadHost = document.getElementById('trk-road');
             if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; }
             let useRoad = false;
-            try { if (window.GMTRoad && roadHost) { window._trkRoad = GMTRoad.create(roadHost, {}); window._trkRoad.creep(.85); useRoad = true; } }
+            try { if (window.GMTRoad && roadHost) { window._trkRoad = GMTRoad.create(roadHost, {}); window._trkRoad.creep(.85, .03); useRoad = true; } }
             catch (_) { window._trkRoad = null; roadHost.innerHTML = ''; }   /* تعذّر المشهد ⇒ مؤشّر التحميل القديم — البحث لا يتوقّف أبداً */
             if (useRoad) {
                 document.getElementById('l2-name').innerText = 'نبحث عن شحنتك…';
@@ -635,7 +636,7 @@ window.GMT_PUBLIC = 1;</script>
                 GMTVan.start(layer2);
             } else loader.classList.remove('hidden');
             const _t0 = Date.now();
-            const hideLayer2 = () => { layer2.classList.add('hidden'); layer2.classList.remove('flex', 'smooth-appear', 'smooth-disappear');
+            const hideLayer2 = () => { layer2.classList.add('hidden'); layer2.classList.remove('flex', 'smooth-appear', 'smooth-disappear', 'quick');
                 GMTVan.stop(layer2); if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; } };
 
             try {
@@ -659,10 +660,12 @@ window.GMT_PUBLIC = 1;</script>
                         layer2.classList.add('flex', 'smooth-appear');
                         GMTVan.start(layer2);
                     }
-                    /* «بيب بيب» مرّة واحدة (يتبع مفتاح الأصوات) — ثمّ تُكمل الشاحنة إلى B فتظهر النتيجة */
+                    /* «بيب بيب» مرّة واحدة (يتبع مفتاح الأصوات) — ثمّ تُكمل الشاحنة إلى B فتظهر النتيجة
+                       (TASK-0228 · المالك seq 158 · 557: «الشاحنة اللي جوّا بتعطي بيب بيب وانتقال أسرع») ⇐ الزمّور فوراً
+                       والوصول إلى B والانتقال للنتيجة أسرع: ≈ ١٫٢ث بدل ≈ ٢٫٨ث */
                     try { if (window.GMTSound && GMTSound.play) GMTSound.play('horn'); } catch (_) {}
                     const r = window._trkRoad;
-                    const wait = Math.max(0, 900 - (Date.now() - _t0));   // تمشي ولو قليلاً قبل أن تصل — لا قفزة
+                    const wait = Math.max(0, 450 - (Date.now() - _t0));   // تمشي ولو قليلاً قبل أن تصل — لا قفزة
                     await new Promise(z => setTimeout(z, wait));
                     /* «ممكن نطول الانترو شوي لحتى يزامن»: الشاحنة تبقى تمشي على مهلها حتى يردّ المفتي (حدٌّ أقصى MUFTI_WAIT)،
                        وإن تأخّر أكثر تظهر النتيجة ثمّ تتحدّث وحدها حين يصل ردّه */
@@ -671,11 +674,11 @@ window.GMT_PUBLIC = 1;</script>
                         document.getElementById('l2-sub').innerText = 'نزامن حالة شحنتك مع شركة المفتي…';
                         mufti = await Promise.race([muftiP, new Promise(z => setTimeout(() => z(undefined), MUFTI_WAIT))]);
                     }
-                    if (r) await r.to(1, 1100); else await new Promise(z => setTimeout(z, 1200));
-                    await new Promise(z => setTimeout(z, 350));
+                    if (r) await r.to(1, 550, 'in'); else await new Promise(z => setTimeout(z, 600));
+                    await new Promise(z => setTimeout(z, 120));
                     layer2.classList.remove('smooth-appear');
-                    layer2.classList.add('smooth-disappear');
-                    await new Promise(z => setTimeout(z, 450));
+                    layer2.classList.add('smooth-disappear', 'quick');
+                    await new Promise(z => setTimeout(z, 280));
                     hideLayer2();
                     const seq = ++_trkSeq;
                     showTimeline(order, mufti || null);
