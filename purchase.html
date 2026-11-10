@@ -200,7 +200,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <script src="gmt-warmup.js?v=20261007z5"></script>
-  <script src="gmt-labels.js?v=20261107a"></script>
+  <script src="gmt-labels.js?v=20261110f"></script>
 <script src="gmt-staff.js?v=20261108f"></script>
 <script src="gmt-store-sync.js?v=20261108f"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -4266,8 +4266,12 @@ function toast(msg,type='ok'){const c=document.getElementById('toast-box');const
 function printBarcodes(){
   if(!d_items_ref.length){toast('لا توجد منتجات','err');return;}
   /* (TASK-0326 · المالك seq 524) ورقة A4 كاملة بلا هوامش: ملصق رفيع طويل — الاسم والشريط فقط — gmt-labels.js */
-  const items=d_items_ref.map(item=>({barcode:item.product?.barcode||item.barcode||'',name:item.name||item.product?.name||'',qty:Number(item.qty)||1}));
-  const ok=window.GMTLabels&&GMTLabels.openSheet(items,{title:'باركودات — GMT'});
+  /* (TASK-0356 · المالك seq 549) «الباركودات تنطبع حسب ترتيب الكراتين — كلّ كرتونة باركوداتها مجموعةٌ لحالها»: بندٌ عليه رقم كرتونة
+     (من الباكينج ليست) ⇒ ملصقاته في مجموعة «كرتونة N/M» بترتيب الفاتورة · بندٌ كمّيته 0 لا يُطبع */
+  const _ctn=it=>{const r=it._raw||{};return r.ctn!=null?('كرتونة '+r.ctn+(r.ctn_of?'/'+r.ctn_of:'')):'';};
+  const _hasCtn=d_items_ref.some(it=>_ctn(it));
+  const items=d_items_ref.filter(item=>!(String(item.qty)==='0')).map(item=>({barcode:item.product?.barcode||item.barcode||'',name:item.name||item.product?.name||'',qty:Number(item.qty)||1,group:_hasCtn?(_ctn(item)||'خارج الباكينج ليست'):''}));
+  const ok=window.GMTLabels&&GMTLabels.openSheet(items,{title:'باركودات — GMT'+(_hasCtn?' · حسب الكراتين':'')});
   if(ok===null) toast('السماح بالنوافذ المنبثقة مطلوب','err');
   else if(!ok) toast('لا توجد باركودات','err');
 }
@@ -6037,7 +6041,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261110e"></script>
+<script src="gmt-whatsnew.js?v=20261110f"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

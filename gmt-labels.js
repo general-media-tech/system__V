@@ -18,7 +18,7 @@
     (items || []).forEach(it => {
       if (!it) return;
       const n = Math.max(1, Math.min(9999, parseInt(it.qty, 10) || 1));
-      for (let i = 0; i < n; i++) out.push({ name: String(it.name || ''), barcode: String(it.barcode || '').trim() });
+      for (let i = 0; i < n; i++) out.push({ name: String(it.name || ''), barcode: String(it.barcode || '').trim(), group: it.group ? String(it.group) : '' });
     });
     return out;
   }
@@ -47,6 +47,10 @@
   .bc { flex: 1; min-height: 0; display: flex; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
+  /* (TASK-0356 · المالك seq 549) «كلّ كرتونة باركوداتها مجموعةٌ لحالها» — رأس المجموعة صفٌّ كامل */
+  .gh { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #000;
+        font-size: 11pt; font-weight: 900; border-top: 0.8mm solid #000; border-bottom: 0.8mm solid #000; }
+  .gap { border: 0.1mm dotted #eee; }
   @media print {
     html, body { background: #fff; }
     .bar { display: none !important; }
@@ -56,6 +60,7 @@
 <div class="bar">
   <span id="cnt"></span>
   <select id="lay"></select>
+  <select id="grp" hidden><option value="flow">المجموعات متتالية بفاصل</option><option value="page">كلّ مجموعة بورقة جديدة</option></select>
   <button onclick="window.print()">🖨️ طباعة</button>
 </div>
 <div id="pages"></div>
@@ -67,26 +72,53 @@
   Object.keys(LAY).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = LAY[k].label; sel.appendChild(o); });
   sel.value = '4';
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var grp = document.getElementById('grp'), hasG = L.some(function (x) { return x.group; });
+  if (hasG) grp.hidden = false;
+  function cell(x) { return '<div class="lb"><div class="nm">' + esc(x.name) + '</div>' +
+    (x.barcode ? '<div class="bc"><svg data-c="' + esc(x.barcode) + '"></svg></div>' : '<div class="nobc">بلا باركود</div>') + '</div>'; }
   function draw() {
-    var lay = LAY[sel.value] || LAY[4], per = lay.cols * lay.rows, box = document.getElementById('pages'), html = '';
-    for (var p = 0; p < Math.max(1, Math.ceil(L.length / per)); p++) {
-      html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
-      for (var i = p * per; i < Math.min(L.length, (p + 1) * per); i++) {
-        var x = L[i];
-        html += '<div class="lb"><div class="nm">' + esc(x.name) + '</div>' +
-          (x.barcode ? '<div class="bc"><svg data-c="' + esc(x.barcode) + '"></svg></div>' : '<div class="nobc">بلا باركود</div>') + '</div>';
+    var lay = LAY[sel.value] || LAY[4], per = lay.cols * lay.rows, box = document.getElementById('pages'), html = '', pages = 0;
+    if (!hasG) {
+      for (var p = 0; p < Math.max(1, Math.ceil(L.length / per)); p++) {
+        html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        for (var i = p * per; i < Math.min(L.length, (p + 1) * per); i++) html += cell(L[i]);
+        html += '</div>';
       }
-      html += '</div>';
+      pages = Math.max(1, Math.ceil(L.length / per));
+    } else {
+      /* صفوف: رأس كلّ مجموعة صفٌّ كامل ثمّ ملصقاتها — المجموعة تبدأ صفّاً جديداً (أو ورقةً جديدة) */
+      var rows = [], groups = [], cur = null;
+      L.forEach(function (x) { if (!cur || cur.g !== x.group) { cur = { g: x.group, l: [] }; groups.push(cur); } cur.l.push(x); });
+      groups.forEach(function (g) {
+        rows.push({ h: g.g, n: g.l.length, brk: grp.value === 'page' });
+        for (var i = 0; i < g.l.length; i += lay.cols) rows.push({ c: g.l.slice(i, i + lay.cols) });
+      });
+      var pg = [], cu = [];
+      rows.forEach(function (r) {
+        if (r.h != null && r.brk && cu.length) { pg.push(cu); cu = []; }
+        if (r.h != null && cu.length === lay.rows - 1) { pg.push(cu); cu = []; }   // لا رأس يتيم آخر الورقة
+        cu.push(r); if (cu.length === lay.rows) { pg.push(cu); cu = []; }
+      });
+      if (cu.length) pg.push(cu);
+      pg.forEach(function (rs) {
+        html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        rs.forEach(function (r) {
+          if (r.h != null) html += '<div class="gh">📦 ' + esc(r.h || 'بلا مجموعة') + ' — ' + r.n + ' ملصق</div>';
+          else { r.c.forEach(function (x) { html += cell(x); }); for (var k = r.c.length; k < lay.cols; k++) html += '<div class="gap"></div>'; }
+        });
+        html += '</div>';
+      });
+      pages = pg.length;
     }
     box.innerHTML = html;
-    document.getElementById('cnt').textContent = L.length + ' ملصق · ' + Math.max(1, Math.ceil(L.length / per)) + ' ورقة A4';
+    document.getElementById('cnt').textContent = L.length + ' ملصق · ' + pages + ' ورقة A4' + (hasG ? ' · ' + (function () { var s = {}; L.forEach(function (x) { s[x.group] = 1; }); return Object.keys(s).length; })() + ' مجموعة' : '');
     if (window.JsBarcode) box.querySelectorAll('svg[data-c]').forEach(function (s) {
       try { JsBarcode(s, s.getAttribute('data-c'), { format: 'CODE128', displayValue: false, margin: 0, height: 40, width: 1.6 });
         s.setAttribute('preserveAspectRatio', 'none'); }
       catch (e) { s.parentNode.innerHTML = '<div class="nobc">باركود غير صالح</div>'; }
     });
   }
-  sel.onchange = draw;
+  sel.onchange = draw; grp.onchange = draw;
   if (window.JsBarcode) draw(); else window.addEventListener('load', draw);
 })();
 <\/script></body></html>`;
