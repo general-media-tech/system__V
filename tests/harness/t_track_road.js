@@ -31,6 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(Date.now() - t0 < 8000, 'لا تعليق: الترحيب انتهى خلال ' + ((Date.now() - t0) / 1000 + 2.25).toFixed(1) + 'ث');
     // ٢) البحث: الشاحنة بدل التحميل ⇒ «أهلاً بك، أحمد الخطيب» + بيب بيب مرّة ⇒ B ⇒ النتيجة
     await pg.evaluate(() => { window.__snd = []; if (window.GMTSound) { const p = GMTSound.play; GMTSound.play = n => { window.__snd.push(n); }; } });
+    await pg.evaluate(() => { window.__eng = 0; const P = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { if (/van-sound/.test(this.src) && !this.muted) window.__eng++; return P.call(this); }; });
     await pg.fill('#searchInput', '196682');
     await pg.evaluate(() => { searchOrder(); });
     await sleep(250);
@@ -46,6 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(v2.res && v2.l2, 'النتيجة ظهرت وشاشة التحقق اختفت');
     ok(Date.now() - tS < 2600, 'انتقالٌ أسرع: من البحث إلى النتيجة خلال ' + ((Date.now() - tS) / 1000).toFixed(1) + 'ث');
     ok(v2.snd.filter(n => n === 'horn').length === 1, '«بيب بيب» مرّة واحدة: ' + JSON.stringify(v2.snd));
+    ok(await pg.evaluate(() => window.__eng === 0), '(seq 563) شاحنة البحث بلا صوت محرّك — «بيب بيب» وحده');
     // ٣) رقمٌ غير موجود
     await pg.fill('#searchInput', '999999'); await pg.evaluate(() => { searchOrder(); }); await sleep(1500);
     const nf = await pg.evaluate(() => ({ e: document.getElementById('errorMsg').innerText, hid: document.getElementById('errorMsg').classList.contains('hidden'), l2: document.getElementById('layer2').classList.contains('hidden') }));

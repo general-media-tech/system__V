@@ -30,7 +30,7 @@ const STAFF_INIT = `try{ localStorage.setItem('gmt_whatsnew_seen','999'); localS
  sessionStorage.removeItem('gmt_admin_mode'); sessionStorage.setItem('gmt_tab_seen','1'); }catch(e){}
  window.print=()=>{}; window.open=()=>null;`;
 
-async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true, autoplay = true } = {}) {
+async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true, autoplay = true, notap = autoplay } = {}) {
   /* (seq 558) المتصفّح يسمح بالصوت بلا لمسة افتراضياً ⇒ انترو التتبّع يبدأ وحده كما كان · autoplay:false ⇒ سياسة المتصفّح العادية (شاشة «المس الشاشة») */
   const browser = await chromium.launch(autoplay ? { args: ['--autoplay-policy=no-user-gesture-required'] } : {});
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile && w < 700, hasTouch: mobile && w < 700, serviceWorkers: 'block' });
@@ -47,6 +47,8 @@ async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mob
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, body: '', headers: { 'Content-Type': 'text/css' } }));
   await ctx.route(/^https:\/\/(?!127)/, r => { const u = r.request().url(); if (/supabase|telegram|fonts\./.test(u)) return r.fallback(); r.fulfill({ status: 404, body: '' }); });
   await ctx.addInitScript(init);
+  /* (seq 563) انترو التتبّع ينتظر لمسة الزبون في كلّ فتح — الاختبارات القديمة تتخطّاها (notap) · t_intro_gate يختبر اللمسة */
+  if (notap) await ctx.addInitScript("try{localStorage.setItem('gmt_intro_notap','1')}catch(_){}");
   await pg.goto(BASE + url, { waitUntil: 'domcontentloaded' });
   await pg.waitForTimeout(wait);
   return { browser, ctx, pg, errs, reqs };

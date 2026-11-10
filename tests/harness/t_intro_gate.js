@@ -21,7 +21,7 @@ const SPY = () => { window.__aud = []; const P = HTMLMediaElement.prototype.play
       return { old: !!document.getElementById('gmt-launch-gate'), scene: !!ov, street: !!(ov && ov.querySelector('.gr-street .gr-van')), hint: t ? t.innerText : '', hintOn: !!(t && t.classList.contains('on')), txt: ov ? ov.innerText : '', btn: ov ? ov.querySelectorAll('button, .gg-btn').length : -1 }; });
     ok(g.scene && g.street && !g.old && !g.btn && /أهلاً بكم/.test(g.txt), 'المتصفّح يمنع الصوت ⇒ الانترو نفسه (الشارع والشاحنة و«أهلاً بكم») — لا شاشة منفصلة ولا زرّ');
     const inVan = await pg.evaluate(() => !!document.querySelector('#gmt-launch .gr-van .gl-bub'));
-    ok(g.hintOn && /جاهز؟/.test(g.hint) && !/المس/.test(g.hint) && inVan, '(seq 561) السائق يلوّح: فقاعة «' + g.hint.trim() + '» فوق الشاحنة — بلا كلمة عن اللمس');
+    ok(g.hintOn && /جاهز؟/.test(g.hint) && /اضغط على الشاشة لننطلق/.test(g.hint) && inVan, '(seq 561 · 563) السائق يلوّح: «' + g.hint.replace(/\\s+/g, ' ').trim() + '» فوق الشاحنة');
     const xa = await vx(); await sleep(1500); const xb = await vx();
     const puffs = await pg.evaluate(() => { const c = document.querySelector('#gmt-launch canvas.gr-puffs'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i] > 20) n++; return n; });
     ok(xa === xb && xa > 0 && !puffs && await pg.evaluate(() => !!document.getElementById('gmt-launch')), 'قبل اللمسة: الشاحنة واقفة مطفأة في مكانها (لا عادم · لا انطلاق) والانترو ينتظر: ' + xa);
@@ -37,11 +37,12 @@ const SPY = () => { window.__aud = []; const P = HTMLMediaElement.prototype.play
     ok(!end.ov && end.l1 === 'none' && end.inp, 'انتهى الانترو وظهرت صفحة التتبّع (' + ((Date.now() - t0) / 1000).toFixed(1) + 'ث بعد اللمسة)');
     const real = errs.filter(e => !/Failed to load resource/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
     await browser.close();
-    // ② المتصفّح يسمح بالصوت
-    ({ browser, pg, errs } = await H.open('track_order.html', { w, h, mobile: w < 700, wait: 50, autoplay: true }));
-    await sleep(1200);
-    const b = await pg.evaluate(() => ({ hint: !!document.querySelector('#gmt-launch .gl-bub'), scene: !!document.getElementById('gmt-launch'), x: (document.querySelector('#gmt-launch .gr-van') || { getBoundingClientRect: () => ({ left: 0 }) }).getBoundingClientRect().left }));
-    ok(!b.hint && b.scene, 'المتصفّح يسمح بالصوت ⇒ لا فقاعة · الانترو يجري وحده بصوته');
+    // ② (seq 563) المتصفّح يسمح بالصوت (زار من قبل) ⇒ الشاحنة تنتظر اللمسة أيضاً — كلّ فتحٍ للرابط
+    ({ browser, pg, errs } = await H.open('track_order.html', { w, h, mobile: w < 700, wait: 50, autoplay: true, notap: false }));
+    await sleep(1600);
+    const b = await pg.evaluate(() => ({ hint: (document.querySelector('#gmt-launch .gl-bub') || {}).innerText || '', scene: !!document.getElementById('gmt-launch') }));
+    const bx1 = await vx(); await sleep(1000); const bx2 = await vx();
+    ok(b.scene && /اضغط على الشاشة/.test(b.hint) && bx1 === bx2, '(seq 563) حتى حين يسمح المتصفّح بالصوت: الشاحنة واقفة تنتظر و«اضغط على الشاشة لننطلق»');
     await browser.close();
     // ③ الأصوات مكتومة من مفتاح الأصوات
     ({ browser, pg, errs } = await H.open('track_order.html', { w, h, mobile: w < 700, wait: 50, autoplay: false, init: H.ADMIN_INIT + ';try{localStorage.setItem("gmt_sound","off")}catch(_){}' }));

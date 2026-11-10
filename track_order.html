@@ -4,7 +4,7 @@
 <script>/* 🌐 صفحة زبون — يُمنع عليها كل واجهة داخلية منعاً صريحاً.
    بلاغ المالك 2026-09-26: «الأزرار العائمة… ما تطلع لصفحات الزبون أبداً». */
 window.GMT_PUBLIC = 1;</script>
-<script src="gmt-road.js?v=20261110c"></script><script src="gmt-launch.js?v=20261110d"></script>
+<script src="gmt-road.js?v=20261110c"></script><script src="gmt-launch.js?v=20261110e"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -636,11 +636,11 @@ window.GMT_PUBLIC = 1;</script>
                 document.getElementById('l2-sub').innerText = 'لحظة — الشاحنة في الطريق';
                 layer2.classList.remove('hidden', 'smooth-disappear');
                 layer2.classList.add('flex', 'smooth-appear');
-                GMTVan.start(layer2);
+                layer2.classList.add('is-moving');   /* (seq 563) شاحنة البحث بلا صوت محرّك — «بيب بيب» وحده */
             } else loader.classList.remove('hidden');
             const _t0 = Date.now();
             const hideLayer2 = () => { layer2.classList.add('hidden'); layer2.classList.remove('flex', 'smooth-appear', 'smooth-disappear', 'quick');
-                GMTVan.stop(layer2); if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; } };
+                layer2.classList.remove('is-moving'); if (window._trkRoad) { try { window._trkRoad.destroy(); } catch (_) {} window._trkRoad = null; } };
 
             try {
                 // البحث في Supabase بـ tracking_number أو phone أو id
@@ -661,7 +661,7 @@ window.GMT_PUBLIC = 1;</script>
                     if (!useRoad) {
                         layer2.classList.remove('hidden', 'smooth-disappear');
                         layer2.classList.add('flex', 'smooth-appear');
-                        GMTVan.start(layer2);
+                        layer2.classList.add('is-moving');   /* (seq 563) شاحنة البحث بلا صوت محرّك — «بيب بيب» وحده */
                     }
                     /* «بيب بيب» مرّة واحدة (يتبع مفتاح الأصوات) — ثمّ تُكمل الشاحنة إلى B فتظهر النتيجة
                        (TASK-0228 · المالك seq 158 · 557: «الشاحنة اللي جوّا بتعطي بيب بيب وانتقال أسرع») ⇐ الزمّور فوراً
