@@ -83,7 +83,7 @@
     host.appendChild(el);
     var van = el.querySelector('.gr-van'), fill = el.querySelector('.gr-fill'), track = el.querySelector('.gr-track');
     var cv = el.querySelector('.gr-puffs'), cx = cv.getContext && cv.getContext('2d');
-    var p = 0, raf = 0, dead = false, puffs = [], lastPuff = 0, moving = false, rm = reduced(), thick = false, lastX = null, lastTs = 0, seed = 11;
+    var p = 0, raf = 0, dead = false, puffs = [], lastPuff = 0, moving = false, rm = reduced(), thick = false, off = false, lastX = null, lastTs = 0, seed = 11;
     function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
 
     function geo() {
@@ -115,7 +115,7 @@
       lastX = pos.x; lastTs = ts;
       /* الدخان: خفيفٌ وهي تمشي أو تقف تعمل · كثيفٌ جداً عند الانطلاق (heavy) يكبر حتى يملأ الشاشة */
       var every = thick ? 22 : (moving ? 90 : 170);
-      if ((moving || thick || street) && ts - lastPuff > every) {
+      if ((moving || thick || (street && !off)) && ts - lastPuff > every) {   // off: واقفةٌ مطفأة (لا عادم)
         lastPuff = ts;
         var n = thick ? 4 : 1;
         for (var i = 0; i < n; i++) {
@@ -174,6 +174,8 @@
       },
       /* دخان الانطلاق الكثيف (يبقى حتى يُطفأ أو يُزال المشهد) */
       heavy: function (on) { thick = !!on; if (on) setMoving(true); },
+      /* (seq 559) واقفةٌ مطفأة بانتظار لمسة الزبون — لا عادم */
+      quiet: function (on) { off = !!on; },
       stop: function () { if (anim) anim.cancel(); setMoving(false); },
       destroy: function () { dead = true; if (anim) anim.cancel(); cancelAnimationFrame(raf); global.removeEventListener('resize', onResize); el.remove(); }
     };

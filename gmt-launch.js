@@ -35,7 +35,7 @@
   var doc = global.document;
   if (!doc || global.GMTLaunch) return;
 
-  var VER = '20261110b';
+  var VER = '20261110c';
   var KEY = 'gmt_launch_arrive';
   var FRESH_MS = 15000;
   var ENTER_MS = 900;          // تدخل الشارع وتبطئ
@@ -75,17 +75,12 @@
       '#gmt-launch .gl-t2{font-size:clamp(14px,2.8vw,18px);font-weight:700;margin-top:6px}' +
       '#gmt-launch .gl-t.on{opacity:1}' +
       '#gmt-launch.clear{background-color:transparent}#gmt-launch.clear>:not(.gr-fog){visibility:hidden}' +
-      /* (seq 558) شاشة «المس الشاشة» قبل الانترو */
-      '#gmt-launch-gate{position:fixed;inset:0;z-index:2147483002;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer;opacity:0;transition:opacity .25s ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:inherit;padding:16px;text-align:center}' +
-      '#gmt-launch-gate.on{opacity:1}#gmt-launch-gate.out{opacity:0;pointer-events:none}' +
-      '#gmt-launch-gate .gg-t1{font-size:clamp(24px,5.4vw,36px);font-weight:900;color:#111}' +
-      '#gmt-launch-gate .gg-btn{position:relative;width:104px;height:104px;border-radius:50%;background:#D5001C;display:grid;place-items:center;box-shadow:0 12px 30px rgba(213,0,28,.35)}' +
-      '#gmt-launch-gate .gg-btn svg{width:46px;height:46px;position:relative}' +
-      '#gmt-launch-gate .gg-ring{position:absolute;inset:0;border-radius:50%;border:3px solid #D5001C;animation:ggPulse 1.4s ease-out infinite}' +
-      '@keyframes ggPulse{from{transform:scale(1);opacity:.8}to{transform:scale(1.7);opacity:0}}' +
-      '#gmt-launch-gate .gg-t2{font-size:clamp(16px,3.6vw,20px);font-weight:800;color:#111}' +
-      '#gmt-launch-gate .gg-t3{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#6b7280}#gmt-launch-gate .gg-t3 svg{width:16px;height:16px}' +
-      '@media (prefers-reduced-motion:reduce){#gmt-launch-gate .gg-ring{animation:none}}';
+      /* (seq 559) «المس الشاشة» جزءٌ من المشهد نفسه — سطرٌ هادئ تحت الشارع، لا شاشةٌ تشبه الإعلان */
+      '#gmt-launch .gl-tap{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:22px;color:#374151;font-weight:800;font-size:clamp(13px,3.2vw,15px);opacity:0;transition:opacity .35s ease;font-family:inherit}' +
+      '#gmt-launch .gl-tap.on{opacity:1;animation:glBreath 2.2s ease-in-out .4s infinite}#gmt-launch .gl-tap svg{width:18px;height:18px;flex:none}' +
+      '#gmt-launch .gl-tap.go{animation:none;opacity:0}@keyframes glBreath{50%{opacity:.6}}' +
+      '#gmt-launch.wait{cursor:pointer}' +
+      '@media (prefers-reduced-motion:reduce){#gmt-launch .gl-tap.on{animation:none}}';
     (doc.head || doc.documentElement).appendChild(st);
   }
 
@@ -136,19 +131,19 @@
     var rd;
     try { rd = R.create(host, { big: true, street: true }); }
     catch (e) { ov.remove(); block(false); throw e; }          // تعذّر المشهد ⇒ لا تبقى طبقةٌ تحجب الصفحة أبداً
-    var snd = engine(), fg = null;
+    var tapMode = !!opts.tap, snd = tapMode ? null : engine(), fg = null, hint = null;
     texts.forEach(function (e, i) { setTimeout(function () { e.classList.add('on'); }, 200 + i * 350); });
     var covered = false, coverFns = [];
     var ctl = {
       el: ov,
       onCover: function (f) { if (covered) f(); else coverFns.push(f); },
-      fadeAudio: function () { snd.fade(); },
+      fadeAudio: function () { if (snd) snd.fade(); },
       /* الصفحة الجديدة جاهزة ⇒ يرقّ الضباب كاشفاً إيّاها، ثمّ يُزال كلّ شيء */
       clear: function () {
         ov.classList.add('clear'); rd.destroy();
         return (fg ? fg.anim(1, 0, FOG_OUT_MS) : Promise.resolve()).then(function () { ctl.remove(); });
       },
-      remove: function () { snd.stop(); try { rd.destroy(); } catch (_) {} if (fg) fg.destroy(); ov.remove(); block(false); if (active === ctl) active = null; }
+      remove: function () { if (snd) snd.stop(); unTap(); try { rd.destroy(); } catch (_) {} if (fg) fg.destroy(); ov.remove(); block(false); if (active === ctl) active = null; }
     };
     active = ctl;
     function fireCover() {
@@ -156,12 +151,33 @@
       emit('gmt:launch-cover', {});
       coverFns.splice(0).forEach(function (f) { try { f(); } catch (_) {} });
     }
-    /* سقفٌ عامّ: مهما حدث في الرسم (تبويبٌ خلفيّ يجمّد الإطارات) تحدث التغطية */
-    var cap = setTimeout(fireCover, ENTER_MS + IDLE_MS + FOG_AT + FOG_IN_MS + 1800);
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-    setTimeout(function () {
+    /* (seq 559) وضع اللمس: الشاحنة واقفةٌ مطفأة في مكانها من أوّل لحظة · السطر الهادئ تحت الشارع · اللمسة ⇒ المحرّك (الصوت) ⇒ تنطلق */
+    var tapFns = [];
+    function unTap() { tapFns.splice(0).forEach(function (f) { f(); }); }
+    function waitTap() {
+      return new Promise(function (go) {
+        var fired = false;
+        function start(e) {
+          if (fired) return; fired = true;
+          if (e && e.preventDefault) e.preventDefault();
+          snd = engine();                       // داخل اللمسة نفسها ⇒ يُسمح بالصوت
+          try { if (global.GMTSound && GMTSound.unlock) GMTSound.unlock(); } catch (_) {}
+          ov.classList.remove('wait'); if (hint) hint.classList.add('go');
+          if (rd.quiet) rd.quiet(false);
+          unTap(); emit('gmt:launch-tap', {}); go();
+        }
+        ['pointerup', 'click'].forEach(function (t) { ov.addEventListener(t, start, true); tapFns.push(function () { ov.removeEventListener(t, start, true); }); });
+        var ok = function () { start(); };            // سمح المتصفّح متأخّراً ⇒ لا انتظار
+        doc.addEventListener('gmt:launch-sound-ok', ok); tapFns.push(function () { doc.removeEventListener('gmt:launch-sound-ok', ok); });
+      });
+    }
+    var cap = 0;
+    function run(from) {
+      /* سقفٌ عامّ: مهما حدث في الرسم (تبويبٌ خلفيّ يجمّد الإطارات) تحدث التغطية */
+      cap = setTimeout(fireCover, ENTER_MS + IDLE_MS + FOG_AT + FOG_IN_MS + 1800);
       /* ① تدخل الشارع وتبطئ حتى تقف قرب الوسط ⇐ ② تقف لحظةً تعمل ⇐ ③ تنطلق بقوّة ودخانٌ كثيف ⇐ ④ الدخان يملأ الشاشة */
-      rd.to(.45, ENTER_MS, 'out').then(function () { return wait(IDLE_MS); }).then(function () {
+      (from ? Promise.resolve() : rd.to(.45, ENTER_MS, 'out')).then(function () { return wait(IDLE_MS); }).then(function () {
         if (rd.heavy) rd.heavy(true);              // تدوير المحرّك: الدخان يندفع قبل أن تتحرّك بلحظة
         return wait(160).then(function () { rd.to(1, LAUNCH_MS, 'in'); return wait(FOG_AT); });
       }).then(function () {
@@ -169,7 +185,17 @@
         try { fg = R.fog(ov); } catch (_) { fg = null; return; }   // بلا ضباب ⇒ تغطيةٌ فورية (السقف العامّ يضمنها)
         return fg.anim(0, 1, FOG_IN_MS);
       }).then(function () { clearTimeout(cap); fireCover(); });
-    }, 100);
+    }
+    if (tapMode) {
+      ov.classList.add('wait'); ov.removeAttribute('aria-hidden'); ov.setAttribute('role', 'button'); ov.setAttribute('aria-label', 'المس الشاشة لتشغيل الشاحنة');
+      if (rd.quiet) rd.quiet(true);
+      rd.to(.45, 1);                                       // واقفةٌ في مكانها (لا دخول)
+      hint = doc.createElement('div'); hint.className = 'gl-tap';
+      hint.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg><span>المس الشاشة لتشغيل الشاحنة</span>';
+      ov.appendChild(hint);
+      setTimeout(function () { hint.classList.add('on'); }, 700);
+      waitTap().then(function () { run(true); });
+    } else setTimeout(function () { run(false); }, 100);
     return ctl;
   }
 
@@ -189,49 +215,25 @@
     });
   }
 
-  /* ── ⓪ (المالك seq 558) «إمّا الصوت يشتغل بدون لمسة، أو الزبون مجبر يلمس الشاشة لحتى يفتح الانترو ويشتغل الصوت» ──
-     المتصفّحات تمنع أيّ صوتٍ قبل أوّل لمسة (قيدٌ في المتصفّح لا نملك تجاوزه). لذلك:
-     ① نجرّب تشغيل صوت الشاحنة فوراً — إن سمح المتصفّح يبدأ الانترو مباشرةً بصوته (لا شاشة).
-     ② وإن منعه: شاشة بيضاء «المس الشاشة لتتبّع شحنتك» — اللمسة نفسها تُشغّل الصوت ثمّ يبدأ الانترو.
-     الأصوات مكتومة (مفتاح الأصوات) أو «تقليل الحركة» ⇒ لا شاشة ولا انتظار. */
-  function gate(opts) {
-    opts = opts || {};
+  /* ── ⓪ (المالك seq 558 · 559) «إمّا الصوت يشتغل بدون لمسة، أو الزبون مجبر يلمس الشاشة لحتى يفتح الانترو ويشتغل الصوت»
+     ثمّ «شاشة اللمس صارت سيئة — مبيّنة إعلان» ⇐ لا شاشةٌ منفصلة: المتصفّحات تمنع أيّ صوتٍ قبل أوّل لمسة (قيدٌ لا نملك
+     تجاوزه)، فنجرّب تشغيل صوت الشاحنة فوراً:
+       'auto' ⇐ سمح المتصفّح: الانترو كما هو بصوته.
+       'tap'  ⇐ منعه: الانترو نفسه يبدأ والشاحنة **واقفة مطفأة** على الشارع مع «أهلاً بكم»، وتحت الشارع سطرٌ هادئ
+                «المس الشاشة لتشغيل الشاحنة» — اللمسة تُدير المحرّك (صوته) فتعمل لحظةً ثمّ تنطلق بدخانها.
+       'skip' ⇐ الأصوات مكتومة أو «تقليل الحركة»: الانترو مباشرة. */
+  var pendingAudio = null;
+  function gate() {
     if (!doc.body || reduced() || !soundOn()) return Promise.resolve('skip');
-    var a; try { a = vanAudio(); } catch (_) { return Promise.resolve('noaudio'); }
+    var a; try { a = vanAudio(); } catch (_) { return Promise.resolve('skip'); }
     return new Promise(function (resolve) {
-      var ov = null, done = false;
-      function finish(how) {
-        if (done) return; done = true; primed = a;
-        if (ov) { ov.classList.add('out'); var o = ov; setTimeout(function () { o.remove(); }, 260); ['pointerup', 'click', 'keydown'].forEach(function (t) { o.removeEventListener(t, tap, true); }); }
-        emit('gmt:launch-gate', { how: how });
-        resolve(how);
-      }
-      function tap(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        try { var q = a.play(); if (q && q.catch) q.catch(function () {}); } catch (_) {}   // داخل اللمسة نفسها ⇒ يُسمح بالصوت
-        try { if (global.GMTSound && GMTSound.unlock) GMTSound.unlock(); } catch (_) {}
-        finish('tap');
-      }
-      function show() {
-        if (done || ov) return;
-        css();
-        ov = doc.createElement('div'); ov.id = 'gmt-launch-gate'; ov.setAttribute('role', 'button'); ov.setAttribute('tabindex', '0');
-        ov.setAttribute('aria-label', opts.label || 'المس الشاشة لتتبّع شحنتك');
-        ov.innerHTML = '<div class="gg-t1">' + (opts.title || 'تتبّع شحنتك') + '</div>' +
-          '<div class="gg-btn"><i class="gg-ring"></i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-          '<path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/>' +
-          '<path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></div>' +
-          '<div class="gg-t2">' + (opts.hint || 'المس الشاشة للمتابعة') + '</div>' +
-          '<div class="gg-t3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> مع الصوت</div>';
-        ['pointerup', 'click', 'keydown'].forEach(function (t) { ov.addEventListener(t, tap, true); });
-        doc.body.appendChild(ov);
-        requestAnimationFrame(function () { ov.classList.add('on'); });
-      }
+      var done = false;
+      function fin(how) { if (done) return; done = true; if (how === 'auto') primed = a; else pendingAudio = a; resolve(how); }
       var p; try { p = a.play(); } catch (_) { p = null; }
       if (p && p.then) {
-        p.then(function () { finish('auto'); }, show);
-        setTimeout(function () { if (!done) show(); }, 700);   // الصوت ما زال يتحمّل على شبكةٍ بطيئة ⇒ الشاشة تظهر، وتختفي وحدها إن سمح المتصفّح
-      } else show();
+        p.then(function () { if (done) { /* سُمح متأخّراً (شبكة بطيئة) ⇒ المشهد المنتظر يبدأ وحده */ emit('gmt:launch-sound-ok', {}); } fin('auto'); }, function () { fin('tap'); });
+        setTimeout(function () { fin('tap'); }, 700);
+      } else fin('tap');
     });
   }
 
