@@ -88,7 +88,7 @@
      القيم من جداول كانون الرسمية؛ ما لم نتيقّن منه تُرك فارغاً (لا يُخمَّن). الصيغة: [الاسم · قطر الفلتر · كود الهود] */
   var LENSES = [
     ['RF 14-35mm f/4L IS USM', 77, 'EW-83P'], ['RF 15-35mm f/2.8L IS USM', 82, 'EW-88F'], ['RF 15-30mm f/4.5-6.3 IS STM', 67, ''],
-    ['RF 16mm f/2.8 STM', 43, 'EW-65C'], ['RF 24mm f/1.8 Macro IS STM', 52, 'EW-65C'], ['RF 28mm f/2.8 STM', 43, ''],
+    ['RF 16mm f/2.8 STM', 43, 'EW-65C'], ['RF 24mm f/1.8 Macro IS STM', 52, 'EW-65B'], ['RF 28mm f/2.8 STM', 43, ''],
     ['RF 35mm f/1.8 Macro IS STM', 52, 'EW-52'], ['RF 50mm f/1.8 STM', 43, 'ES-65B'], ['RF 50mm f/1.2L USM', 77, 'ES-83'],
     ['RF 85mm f/2 Macro IS STM', 67, 'ET-77'], ['RF 85mm f/1.2L USM', 82, 'ET-89'], ['RF 100mm f/2.8L Macro IS USM', 67, 'ET-73C'],
     ['RF 135mm f/1.8L IS USM', 82, 'ET-88B'], ['RF 24-50mm f/4.5-6.3 IS STM', 58, ''], ['RF 24-70mm f/2.8L IS USM', 82, 'EW-88E'],
@@ -96,7 +96,7 @@
     ['RF 28-70mm f/2L USM', 95, 'EW-103B'], ['RF 70-200mm f/2.8L IS USM', 77, 'ET-83F'], ['RF 70-200mm f/4L IS USM', 77, ''],
     ['RF 100-400mm f/5.6-8 IS USM', 67, 'ET-74B'], ['RF 100-500mm f/4.5-7.1L IS USM', 77, ''], ['RF 200-800mm f/6.3-9 IS USM', 95, ''],
     ['RF 600mm f/11 IS STM', 82, ''], ['RF 800mm f/11 IS STM', 95, ''],
-    ['RF-S 18-45mm f/4.5-6.3 IS STM', 49, ''], ['RF-S 18-150mm f/3.5-6.3 IS STM', 55, 'EW-60F'], ['RF-S 55-210mm f/5-7.1 IS STM', 55, 'ET-60B'],
+    ['RF-S 18-45mm f/4.5-6.3 IS STM', 49, 'EW-53'], ['RF-S 18-150mm f/3.5-6.3 IS STM', 55, 'EW-60F'], ['RF-S 55-210mm f/5-7.1 IS STM', 55, 'ET-60B'],
     ['EF 16-35mm f/2.8L USM', 77, 'EW-83E'], ['EF 16-35mm f/2.8L II USM', 82, 'EW-88'], ['EF 16-35mm f/2.8L III USM', 82, 'EW-88D'],
     ['EF 16-35mm f/4L IS USM', 77, 'EW-82'], ['EF 17-40mm f/4L USM', 77, 'EW-83E'], ['EF 24mm f/1.4L II USM', 77, 'EW-83K'],
     ['EF 24mm f/2.8 IS USM', 58, 'EW-65 II'], ['EF 28mm f/2.8 IS USM', 58, 'EW-65 II'], ['EF 28mm f/1.8 USM', 58, 'EW-63 II'],
