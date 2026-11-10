@@ -135,6 +135,7 @@
       summary();
       var det = S.rec.details || {};
       $('[data-revert]').hidden = !(det.status === 'applied' && det.backup && !det.reverted_at);
+      var isAdd = det.mode === 'add'; $('[data-zero]').parentNode.hidden = isAdd; $('[data-apply]').textContent = isAdd ? '➕ إصدار فاتورة إضافية…' : '✅ اعتماد التسوية…';
       if (S.f === 'rest') { $('[data-body]').innerHTML = restHtml() || '<div class="msg" style="padding:20px">كلّ ما في الفرع معدود.</div>'; $('[data-apply]').disabled = det.status === 'applied'; $('[data-save]').disabled = det.status === 'applied'; return; }
       var idx = S.items.map(function (i, ix) { return ix; }).filter(function (ix) { return pass(S.items[ix]); });
       idx.sort(function (a, b) { var A = S.items[a], B = S.items[b]; if (!!A.id !== !!B.id) return A.id ? -1 : 1; var da = diffOf(A), db = diffOf(B); return (db == null ? -1 : Math.abs(db)) - (da == null ? -1 : Math.abs(da)); });
@@ -164,7 +165,29 @@
       say('❌ لم تُحفظ المسودة: ' + ((r && r.error && (r.error.message || r.error)) || 'تعذّر')); return false;
     }
     $('[data-save]').onclick = async function () { say('⏳ حفظ…'); if (await save()) say('💾 حُفظت المسودة — المخزون لم يتغيّر'); };
+    /* (seq 540) «ممكن يطلع عندي أشياء لسه ما مجرودة … فاتورة تسوية أخرى ولكن إضافة فوقها وباركوداتها» — مسودة mode=add:
+       الاعتماد ⇐ فاتورةٌ واردة إلى الفرع (بانتظار «استلام» نقطة البيع) بكمّية كلّ سطرٍ مربوط — تُضاف فوق الموجود · لا تصفير */
+    async function applyAdd() {
+      var on = S.items.filter(function (i) { return i.include && i.id && i.actual > 0; });
+      if (!on.length) { say('لا أسطر مربوطة بعدد — اربط المعدود بمنتجاته أوّلاً'); return; }
+      var t = 'فاتورة تسوية إضافية إلى «' + bn + '»: ' + on.length + ' منتجاً (+' + on.reduce(function (s, i) { return s + i.actual; }, 0) + ' قطعة) — تُضاف فوق الموجود عند «استلامها» في نقطة البيع.';
+      var ok = global.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm(t, { title: '➕ فاتورة تسوية إضافية', okText: 'إصدار' }) : global.confirm(t); if (!ok) return;
+      var pw = global.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 فاتورة تسوية إضافية «' + bn + '»') : true; if (!pw) return;
+      if (!(await save())) return;
+      await liveQty(on.map(function (i) { return String(i.id); }));
+      var nr = await sb('POST', '/rest/v1/rpc/next_stock_transfer_number', {});
+      var num = (nr && typeof nr.data === 'string') ? nr.data : 'TRF-' + Date.now();
+      var by = ctx.operator || 'الأدمن';
+      var h = await sb('POST', '/rest/v1/branch_stock_transfers?select=*', { transfer_number: num, from_branch: 'rebuild', from_branch_name: 'تسوية من الجرد', to_branch: bk, to_branch_name: bn, status: 'pending', is_locked: true,
+        title: 'فاتورة تسوية من الجرد — ' + bn + ' · إضافة', created_by: by, note: 'إضافة فوق الموجود — مطابقة الجرد #' + S.rec.id + ' · تُضاف عند «استلام» الفاتورة في نقطة البيع' }, { Prefer: 'return=representation' });
+      var hd = h && Array.isArray(h.data) && h.data[0]; if (!hd) { say('❌ تعذّر إنشاء الفاتورة'); return; }
+      var r = await sb('POST', '/rest/v1/stock_transfer_items?select=id', on.map(function (i) { var L = S.live[i.id] || {}; return { transfer_id: hd.id, product_id: i.id, product_name: i.name || L.name || '', barcode: L.barcode || null, image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : null, qty: i.actual, requested_qty: i.actual, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0, notes: 'إضافة من الجرد +' + i.actual }; }), { Prefer: 'return=representation' });
+      if (!(r && Array.isArray(r.data) && r.data.length === on.length)) { await sb('DELETE', '/rest/v1/branch_stock_transfers?id=eq.' + encodeURIComponent(hd.id)); say('❌ تعذّر كتابة البنود — أُلغيت'); return; }
+      await save({ status: 'applied', applied_at: new Date().toISOString(), applied_by: by, numbers: [num], settle_status: 'pending_receive' });
+      paint(); say('✅ صدرت ' + num + ' — بانتظار «استلامها» في نقطة بيع «' + bn + '» (ومنها «🏷️ باركودات الفاتورة»)');
+    }
     $('[data-apply]').onclick = async function () {
+      if ((S.rec.details || {}).mode === 'add') return applyAdd();
       var zero = $('[data-zero]').checked;
       await loadRest();
       var on = S.items.filter(function (i) { return i.include && i.id && i.actual != null && diffOf(i) !== 0; });

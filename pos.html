@@ -3070,7 +3070,9 @@ async function viewIncomingItems(id) {
     items = r.ok ? await r.json() : [];
   } catch (e) {}
   body.innerHTML =
-    '<button onclick="openIncomingTransfers()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 12px;font-size:11.5px;cursor:pointer;margin-bottom:9px">→ رجوع</button>' +
+    '<button onclick="openIncomingTransfers()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 12px;font-size:11.5px;cursor:pointer;margin-bottom:9px">→ رجوع</button> ' +
+    /* (TASK-0355 · المالك seq 540) «فاتورة التسوية أول ما أفتح حلب أوافق عليها وأعمل لها طباعة باركودات» — ملصقاتٌ لبنود الفاتورة بكمّياتها */
+    '<button data-inc-labels onclick="printIncomingLabels(\'' + id + '\')" style="background:#ecfdf5;border:1px solid #6ee7b7;color:#047857;font-weight:800;border-radius:8px;padding:5px 12px;font-size:11.5px;cursor:pointer;margin-bottom:9px">🏷️ باركودات الفاتورة</button>' +
     '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
     '<tr style="background:#f8fafc"><th style="padding:5px;width:52px"></th><th style="padding:5px;text-align:right">المنتج</th><th style="padding:5px;width:56px">الكمية</th></tr>' +
     /* (٨ ت — تدقيق المطابقة) القسم ١٠: «فاتورة النقل تظهر بدون صور المنتجات» — صورةُ كل بند (من البند أو من المنتج) */
@@ -3082,6 +3084,17 @@ async function viewIncomingItems(id) {
       '<td style="padding:5px;text-align:center;font-weight:700">' + (i.qty || 0) + '</td></tr>'; }).join('') +
     '</table>';
 }
+
+async function printIncomingLabels(id) {
+  let items = [];
+  try { const r = await sbFetch(`${CONFIG.SUPABASE_URL}/rest/v1/stock_transfer_items?transfer_id=eq.${id}&select=product_id,product_name,barcode,qty`, { headers: sbHeaders() }); items = r.ok ? await r.json() : []; } catch (e) {}
+  const list = items.map(i => { const p = (allProducts || []).find(x => String(x.id) === String(i.product_id)); return { name: i.product_name || (p && p.name) || '', barcode: i.barcode || (p && p.barcode) || '', qty: Math.max(0, Number(i.qty) || 0) }; }).filter(x => x.barcode && x.qty > 0);
+  if (!list.length) { showToast('لا بنود بباركود في هذه الفاتورة', 'err'); return; }
+  const t = (_incomingTransfers || []).find(x => String(x.id) === String(id)) || {};
+  const ok = window.GMTLabels && GMTLabels.openSheet(list, { title: 'ملصقات باركود — ' + (t.transfer_number || '') + (t.title ? ' · ' + t.title : '') });
+  if (!ok) showToast('تعذّر فتح ورقة الملصقات', 'err');
+}
+window.printIncomingLabels = printIncomingLabels;
 
 /* (٨ ث — تدقيق المطابقة) «التصوير والتوقيع» كان في الجرد وحده — الكاشير يؤكّد الاستلام بلا أيّ إثبات.
    الآن يختار: صورة للبضاعة/الإيصال الموقَّع (تُرفع وتُحفظ على الفاتورة كما في الجرد) أو تأكيدٌ بلا صورة. */
@@ -10698,7 +10711,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261110d"></script>
+<script src="gmt-whatsnew.js?v=20261110e"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
