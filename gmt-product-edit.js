@@ -73,6 +73,9 @@
   function storePageUrl(id) { try { return new URL('store.html', global.location.href).href + '#product=' + encodeURIComponent(id); } catch (_) { return 'store.html#product=' + encodeURIComponent(id); } }
   function isHttp(u) { return /^https?:\/\//i.test(String(u || '')); }
   function realImg(u) { return global.GMTUtil && GMTUtil.imgUrl ? GMTUtil.imgUrl(u) : String(u || '').trim(); }   // (TASK-0258) رابط نتيجة غوغل ⇒ الصورة
+  /* (TASK-0348) مفتاح الصورة بلا الاستضافة: …/products-images/X (Supabase) ≡ …/system__V/img/p/X (GitHub) */
+  function imgKey(u) { return String(u || '').trim().replace(/[?#].*$/, '').replace(/^.*\/storage\/v1\/object\/public\/products-images\//, '').replace(/^.*\/system__V\/img\/p\//, ''); }
+  function ownHosted(u) { return /\/\/general-media-tech\.github\.io\/system__V\/img\//.test(String(u || '')); }
   function css() {
     if (doc.getElementById('gmt-pe-css')) return;
     var s = doc.createElement('style'); s.id = 'gmt-pe-css';
@@ -233,8 +236,11 @@
     $('[data-f="name"]').addEventListener('change', function () { autoBrand({ name: this.value, alt_names: $('[data-f="alt_names"]').value, specs: p.specs }); });
     var imgIn = $('[data-f="image_url"]');
     var INV = { imgs: (Array.isArray(p.images) ? p.images : []).map(String).filter(Boolean), hidden: (Array.isArray(p.images_hidden) ? p.images_hidden : []).map(String).filter(Boolean) };
-    if (p.image_url && INV.imgs.indexOf(p.image_url) === -1 && INV.hidden.indexOf(p.image_url) === -1) INV.imgs.unshift(p.image_url);
-    function drop(a, u) { var i = a.indexOf(u); if (i !== -1) a.splice(i, 1); }
+    /* (TASK-0348 · المالك seq 523) «اذا عدلت منتج من داخل المتجر ما ترجع الصور للقاعدة بعد زر الحفظ»: الصور نُقلت لاستضافة GitHub
+       وبقي image_url القديم يشير لمخزن Supabase ⇒ كان يُضاف أوّلاً كصورةٍ «زائدة» فيرجع مع الحفظ. نفس الملف (بأيّ استضافة) لا يُضاف مرّتين. */
+    var _has = function (u) { var k = imgKey(u); return INV.imgs.concat(INV.hidden).some(function (x) { return imgKey(x) === k; }); };
+    if (p.image_url && !_has(p.image_url)) INV.imgs.unshift(p.image_url);
+    function drop(a, u) { var k = imgKey(u); for (var i = a.length - 1; i >= 0; i--) if (a[i] === u || imgKey(a[i]) === k) a.splice(i, 1); }   // (TASK-0348) بالمفتاح: نسختا الاستضافتين صورةٌ واحدة
     /* المخفيّة من مكانٍ: تظهر صغيرةً تحته بزرّ «↺ أظهرها» */
     function paintHidden(sel, arr, where) {
       var box = $(sel); if (!box) return;
@@ -287,7 +293,7 @@
     /* (seq 184 «اسحب رابطها واعطيه الرابط وهو يحملها الى السوبر بيس»): رابط صورةٍ من أيّ موقع ⇒ تُنزَّل (المتصفّح أو وسيط العقل) وتُرفع لمخزننا
        فلا تختفي إن حُذفت من مصدرها. تعذّر التنزيل ⇒ يُستعمل الرابط كما هو ويُقال ذلك. */
     async function stored(u) {
-      u = realImg(u); if (!isHttp(u) || /\/storage\/v1\/object\/public\//.test(u) || typeof ctx.uploadImage !== 'function') return { url: u, copied: false };
+      u = realImg(u); if (!isHttp(u) || /\/storage\/v1\/object\/public\//.test(u) || ownHosted(u) || typeof ctx.uploadImage !== 'function') return { url: u, copied: false };   // (TASK-0348) صورنا على GitHub لا تُنسخ للمخزن
       var blob = null;
       try { blob = global.GMTEnrichQueue && GMTEnrichQueue._imgBlob ? await GMTEnrichQueue._imgBlob(u) : null; } catch (_) {}
       if (!blob) { try { var r = await fetch(u, { mode: 'cors' }); if (r.ok) { var b = await r.blob(); if (/^image\//.test(b.type || '')) blob = b; } } catch (_) {} }

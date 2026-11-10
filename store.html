@@ -1029,7 +1029,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261108f');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261110b');
         /* (المالك seq 580) «أحياناً يكتب تعذّر التعديل لما أفتح تعديل منتج» — طلبٌ واحد بلا إعادة على شبكة ضعيفة ⇒ يفشل.
            الآن: مهلة 12ث ومحاولتان إضافيتان، وقائمة المجموعات/الأصناف (للاقتراحات فقط) لا تُوقف فتح التعديل أبداً. */
         const _get = async (url, tries) => {
@@ -3078,9 +3078,23 @@ function _orderLines(items){
     (items || []).forEach(i => {
         if (Array.isArray(i.package_items) && i.package_items.length && window.GMTPackages) {
             GMTPackages.expand(i.package_items, i.price, i.qty || 1).forEach(c => out.push({ name: c.name + ' (ضمن «' + String(i.name || '').replace(/^📦\s*/, '') + '»)', qty: c.qty, price: c.unit, image_url: c.image_url || '', barcode: '', inv_id: c.id, _pkg: i.offer_id }));
+        } else if (_variantWith(i)) {
+            /* (TASK-0352 · المالك seq 526) خيارٌ يضمّ منتجاً آخر من الجرد («الهيد مع باور غريب») ⇒ سطر المنتج بسعره الأساسي
+               + سطرٌ لكلّ مرافق بسعره ومعرّفه في الجرد — فيُخصم الاثنان من المخزون ويبقى المجموع سعر الخيار. */
+            const w = _variantWith(i), q = i.qty || 1;
+            const extra = w.with.reduce((s, x) => s + (parseFloat(x.price) || 0) * (x.qty || 1), 0);
+            out.push(Object.assign({}, i, { price: Math.max(0, (parseFloat(i.price) || 0) - extra) }));
+            w.with.forEach(x => out.push({ name: (x.name || '') + ' (مع «' + (i.name || '') + '»)', qty: (x.qty || 1) * q, price: parseFloat(x.price) || 0, image_url: x.image || '', barcode: x.barcode || '', inv_id: x.inv_id || null }));
         } else out.push(i);
     });
     return out;
+}
+function _variantWith(i){
+    if (!i || !Array.isArray(i.selectedVariants) || !i.selectedVariants.length) return null;
+    const p = (store.products || []).find(x => String(x.id) === String(i.id)) || i;
+    for (const sv of i.selectedVariants) for (const o of (p.options || [])) for (const v of ((o && o.values) || []))
+        if (v && typeof v === 'object' && sv && v.name === sv.name && Array.isArray(v.with) && v.with.length) return v;
+    return null;
 }
 function _pkgText(i){ return Array.isArray(i.package_items) && i.package_items.length ? ' [' + i.package_items.map(x => x.name + (x.qty > 1 ? ' ×' + x.qty : '')).join(' + ') + ']' : ''; }
 

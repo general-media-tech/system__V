@@ -1868,7 +1868,7 @@ function buildInstantInv(d){
       <td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td>
       <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${eh(item.name||'')}${item.unlinked?'<div style="font-size:10px;font-weight:900;color:#b91c1c;">🔴 غير مربوط بمنتج — للمراجعة</div>':(item.deleted?'<div style="font-size:10px;font-weight:800;color:#6b7280;">🗑️ حُذف من الجرد</div>':'')}</td>
       <td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;">
-        <div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div>
+        <div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty!=null&&item.qty!==''?item.qty:''}</div>
       </td>
       ${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}
       ${dualCell('col-min',fmt(item.minPrice),item.qty)}
@@ -3126,7 +3126,7 @@ function buildInv(data){
     else{imgEl=`<div style="width:44px;height:44px;background:#f3f4f6;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;" title="${eh(item.name)}">📦</div>`;}
     const fmt=v=>v&&Number(v)>0?Number(v).toFixed(2):'';let _cellN=0;
     const dualCell=(cls,unitVal,qty)=>{const uid='dc_'+idx+'_'+(_cellN++);const tot=unitVal&&qty?(Number(unitVal)*qty).toFixed(2):'';return `<td class="${cls}" style="border:2px solid #222;text-align:center;padding:2px 2px;vertical-align:middle;"><div contenteditable="true" class="editable" data-uid="${uid}_u" oninput="var t=document.querySelector('[data-uid=${uid}_t]');if(t){var v=parseFloat(this.textContent)||0;t.textContent=v&&${qty}?(v*${qty}).toFixed(2):''}" style="display:block;color:#111;font-size:11px;font-weight:700;min-width:44px;">${unitVal||''}</div><div data-uid="${uid}_t" style="color:#D5001C;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #ffd6da;min-height:13px;">${tot}</div></td>`;};
-    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty||''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
+    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty!=null&&item.qty!==''?item.qty:''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
   }).join('');
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};setTimeout(reHide,30);
   setTimeout(()=>{try{_applyPriceView();}catch(_){}},0);   /* (TASK-0338) سعر الشراء مع التكاليف افتراضياً */
@@ -3331,7 +3331,7 @@ async function saveInvEdits(){
       return parseFloat(ed?.textContent||'0')||0;
     };
     const oldName=d_items_ref[idx].name;
-    const q=parseInt(firstEd(cells[3]))||d_items_ref[idx].qty;
+    const _qt=firstEd(cells[3]).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)); const q=/^\d+$/.test(_qt)?parseInt(_qt,10):d_items_ref[idx].qty; // (TASK-0351 · seq 525) الصفر كمية صالحة — كان «||» يعيد القديم
     const newUnitPrice=dualUnit(cells[4]);
     const newMinPrice=dualUnit(cells[5]);
     const newWholePrice=dualUnit(cells[6]);
@@ -4713,7 +4713,7 @@ async function saveInvCloud(){
       const cells=tr.querySelectorAll('td');
       const dualUnit=c=>{const divs=c?.querySelectorAll('div');if(divs&&divs[0]){const v=parseFloat(divs[0].textContent)||0;if(v>0)return v;}const ed=c?.querySelector('[contenteditable="true"]')||c?.querySelector('.editable');return parseFloat(ed?.textContent||'0')||0;};
       const firstEd=c=>c?.querySelector('[contenteditable="true"]')?.textContent.trim()||c?.querySelector('.editable')?.textContent.trim()||'';
-      const q=parseInt(firstEd(cells[3]))||d_items_ref[idx].qty;
+      const _qt=firstEd(cells[3]).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)); const q=/^\d+$/.test(_qt)?parseInt(_qt,10):d_items_ref[idx].qty; // (TASK-0351 · seq 525) الصفر كمية صالحة — كان «||» يعيد القديم
       const newUnit=dualUnit(cells[4]),newMin=dualUnit(cells[5]),newWhole=dualUnit(cells[6]),newSale=dualUnit(cells[7]);
       d_items_ref[idx].qty=q;
       if(newUnit)d_items_ref[idx].unitPrice=newUnit;
@@ -6037,7 +6037,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261110a"></script>
+<script src="gmt-whatsnew.js?v=20261110b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
