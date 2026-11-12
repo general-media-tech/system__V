@@ -17,6 +17,27 @@
      أو الكفالة أو التراكينج») صفحة زبون ⇒ لا شريط «تتوفّر نسخة جديدة» ولا صوت ولا إعادة تحميل: النسخة الجديدة تُفعَّل بصمت
      فيأخذها الزائر في فتحته التالية تلقائياً. */
   var PUBLIC = !!window.GMT_PUBLIC || /(^|\/)(store|site|search|track_order|guarantee|%D8%A3%D9%85%D8%A7%D9%83%D9%86_%D8%A7%D9%84%D9%88%D8%B5%D9%88%D9%84|أماكن_الوصول)\.html$/i.test(location.pathname || '');
+  /* (TASK-0358 · المالك seq 626 «صور المتجر صارت خارج قاعدة البيانات ⇒ ما في داعي يتحمّل المتجر عند الزبون وعلى جهازه»)
+     التخزين على الجهاز وُضع لتخفيف سحب القاعدة؛ وصور المتجر اليوم ملفّات موقع لا تمرّ بالقاعدة. فصفحة الزبون على جهازٍ
+     ليس جهاز موظّف: لا يُسجَّل عامل الخدمة (لا قشرة تطبيق ولا صور تُحفظ)، وما خُزّن سابقاً يُحرَّر مرّةً واحدة.
+     جهاز الموظّف (جلسة · تطبيق مثبَّت · تجهيز سابق) لا يُمسّ — عمله بلا إنترنت يبقى كما هو. الشكّ ⇒ يُعامل كموظّف (لا حذف). */
+  function staffDevice() {
+    try {
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if (navigator.standalone) return true;
+      var ks = ['gmt_session', 'gmt_admin_last', 'gmt_data_warm_v1', 'gmt_images_done_v2', 'gmt_warmup_done_v1', 'gmt_app_installed'];
+      for (var i = 0; i < ks.length; i++) if (localStorage.getItem(ks[i])) return true;
+      return false;
+    } catch (_) { return true; }
+  }
+  if (PUBLIC && !staffDevice()) {
+    try {
+      navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister().catch(function () {}); }); }).catch(function () {});
+      if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { if (/^gmt-/.test(k)) caches.delete(k).catch(function () {}); }); }).catch(function () {});
+    } catch (_) {}
+    window.__gmtCheckVer = function () {};      // لا عامل خدمة ⇒ لا فحص نسخة ولا شريط
+    return;
+  }
   function silentActivate() {
     try {
       navigator.serviceWorker.getRegistration().then(function (reg) {

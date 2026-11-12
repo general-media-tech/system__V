@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261112d';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261112e';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -62,6 +62,17 @@ function isProdImg(url) {
   return /supabase\.co$/.test(url.hostname) &&
     /\/storage\/v1\/(object|render\/image)\/public\/products-images\//.test(url.pathname) &&
     !/\.json$/i.test(url.pathname);
+}
+/* (TASK-0358 · المالك seq 626 «ما في داعي يتحمّل المتجر عند الزبون وعلى جهازه») صفحات الزبون (المتجر · الموقع · البحث · التتبّع · الكفالة ·
+   أماكن الوصول): طلباتها تمرّ إلى الشبكة كأيّ موقعٍ عادي — لا صور تُحفظ على الجهاز ولا صفحات. صفحات الموظّفين كما هي. */
+const PUBLIC_RE = /(^|\/)(store|site|search|track_order|guarantee|%D8%A3%D9%85%D8%A7%D9%83%D9%86_%D8%A7%D9%84%D9%88%D8%B5%D9%88%D9%84|أماكن_الوصول)\.html$/i;
+function isPublicReq(req, url) {
+  try {
+    if (req.mode === 'navigate') return url.origin === location.origin && PUBLIC_RE.test(url.pathname);
+    if (!req.referrer) return false;
+    const r = new URL(req.referrer);
+    return r.origin === location.origin && PUBLIC_RE.test(r.pathname);
+  } catch (_) { return false; }
 }
 async function imgTrim(c) {
   try { const ks = await c.keys(); if (ks.length > IMG_MAX) for (const k of ks.slice(0, ks.length - IMG_MAX)) await c.delete(k); } catch (_) {}
@@ -163,6 +174,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;                       // الكتابة لا تُعترض أبداً
   if (req.headers.has('range')) return;                   // (١٨ ت1) طلبات الفيديو/الصوت الجزئية (206) للمتصفّح نفسه — الكاش لا يقبل 206 وسفاري يحتاجها كما هي
   const url = new URL(req.url);
+  if (isPublicReq(req, url)) return;                      // (TASK-0358) صفحة زبون: شبكة عادية — لا تخزين على جهازه
 
   /* صور المنتجات: من الجهاز أوّلاً (انظر IMGS أعلاه) */
   if (isProdImg(url)) {

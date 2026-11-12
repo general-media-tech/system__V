@@ -31,10 +31,10 @@ const STAFF_INIT = `try{ localStorage.setItem('gmt_whatsnew_seen','999'); localS
  sessionStorage.removeItem('gmt_admin_mode'); sessionStorage.setItem('gmt_tab_seen','1'); }catch(e){}
  window.print=()=>{}; window.open=()=>null;`;
 
-async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true, autoplay = true, notap = autoplay } = {}) {
+async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mobile = true, autoplay = true, notap = autoplay, sw = false } = {}) {
   /* (seq 558) المتصفّح يسمح بالصوت بلا لمسة افتراضياً ⇒ انترو التتبّع يبدأ وحده كما كان · autoplay:false ⇒ سياسة المتصفّح العادية (شاشة «المس الشاشة») */
   const browser = await chromium.launch(autoplay ? { args: ['--autoplay-policy=no-user-gesture-required'] } : {});
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile && w < 700, hasTouch: mobile && w < 700, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile && w < 700, hasTouch: mobile && w < 700, serviceWorkers: sw ? 'allow' : 'block' });   // sw:true ⇒ عامل الخدمة يعمل (t_store_no_device_cache)
   const pg = await ctx.newPage(); const errs = []; const reqs = [];
   pg.on('pageerror', e => errs.push(String(e).slice(0, 200)));
   pg.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text().slice(0, 200)); });
