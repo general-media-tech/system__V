@@ -18,10 +18,10 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
   await pg.waitForSelector('#gmt-pe [data-f="name"]', { timeout: 10000 }).catch(() => {});
   const v1 = await pg.evaluate(() => ({ page: !!document.getElementById('gmt-pe'), quick: getComputedStyle(document.getElementById('product-modal')).display !== 'none',
     full: getComputedStyle(document.getElementById('detail-full-btn')).display, brand: document.querySelector('#gmt-pe [data-f="brand"]').value, auto: document.querySelector('#gmt-pe [data-f="brand"]').dataset.auto,
-    note: !document.querySelector('#gmt-pe [data-pe-brandnote]').hidden, img: !!document.querySelector('#gmt-pe [data-f="image_url"]'), autoBtn: !!document.querySelector('#gmt-pe [data-pe-auto]'), qty: !!document.querySelector('#gmt-pe [data-pe-quick]') }));
+    note: !document.querySelector('#gmt-pe [data-pe-brandnote]').hidden, img: !!document.querySelector('#gmt-pe [data-f="image_url"]'), autoBtn: !!document.querySelector('#gmt-pe [data-pe-auto]'), qty: /تعديل الكميات/.test((document.querySelector('#gmt-pe [data-pe-qty]') || {}).textContent || '') }));
   ok(v1.page && !v1.quick && v1.full === 'none', '«✏️ تعديل» ⇒ صفحة التعديل الواحدة (والزرّ المكرّر «تعديل كل شيء» مخفيّ): ' + JSON.stringify({ page: v1.page, quick: v1.quick, full: v1.full }));
   ok(v1.brand === 'Canon' && v1.auto === '1' && v1.note, 'الماركة الفارغة ⇒ «Canon» تلقائياً من «كانون» في الاسم (مع «🔎 تلقائياً — تأكّد»)');
-  ok(v1.img && v1.autoBtn && v1.qty, 'في الصفحة نفسها: صورة الجرد · «🤖 المواصفات التلقائية» · «📦 الكميّات»');
+  ok(v1.img && v1.autoBtn && v1.qty, 'في الصفحة نفسها: صورة الجرد · «🤖 المواصفات التلقائية» · «📦 تعديل الكميات» (TASK-0299)');
   // ② المواصفات التلقائية تعبّئ الصفحة نفسها ولا تحفظ وحدها
   await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-auto]').click()); await sleep(300);
   const v2 = await pg.evaluate(() => ({ rows: [...document.querySelectorAll('#gmt-pe .pe-row')].map(r => r.querySelector('[data-rk]').value + '=' + r.querySelector('[data-rv]').value),
@@ -36,10 +36,12 @@ const inv = id => H.call('/rest/v1/products?id=eq.' + id + '&select=*', undefine
   db = await inv(A.id);
   ok(db.brand === 'Canon' && db.specs['الوزن'] === '160 غ' && db.specs['الحربة'] === 'EF / EF-S' && db.specs.__desc === 'عدسة ثابتة خفيفة.' && db.specs.__model === 'EF 50mm f/1.8 STM' && /EOS R/.test(db.compat || '') && db.specs_source === 'https://www.alibaba.com/x',
     '«💾 احفظ» ⇒ الجرد: الماركة · الجدول · الوصف · الموديل · التوافق · مصدر المواصفات: ' + JSON.stringify({ b: db.brand, s: db.specs, src: db.specs_source }));
-  // ③ «📦 الكميّات» ⇒ النافذة السريعة
-  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-quick]').click()); await sleep(400);
-  ok(await pg.evaluate(() => !document.getElementById('gmt-pe') && getComputedStyle(document.getElementById('product-modal')).display !== 'none'), '«📦 الكميّات» ⇒ النافذة السريعة للكميّات');
-  await pg.evaluate(() => closeModal('product-modal'));
+  // ③ (TASK-0299 · المالك seq 320) «📦 تعديل الكميات» ⇒ نموذج كمّيات الفروع (فاتورة تسوية) — كان «📦 الكميّات» ⇒ النافذة السريعة
+  await pg.evaluate(() => { window.__qtyForm = null; window.GMTAsk = Object.assign(window.GMTAsk || {}, { form: async (msg, o) => { window.__qtyForm = (o && o.title) || ''; return null; } }); });
+  await pg.evaluate(() => document.querySelector('#gmt-pe [data-pe-qty]').click()); await sleep(600);
+  const qf = await pg.evaluate(() => window.__qtyForm);
+  ok(/تعديل الكميات/.test(qf || ''), '«📦 تعديل الكميات» ⇒ نموذج كمّيات الفروع (فاتورة تسوية): ' + JSON.stringify(qf));
+  await pg.evaluate(() => { const x = document.querySelector('#gmt-pe [data-pe-x]'); if (x) x.click(); });
   // ④ قائمة المنتج: «المواصفات التلقائية» ⇒ الصفحة نفسها وتبدأ البحث · ماركةٌ موجودة لا تُمسّ
   await pg.evaluate(id => gmtManageProduct(id), B.id); await sleep(200);
   await pg.evaluate(() => document.querySelector('#gmt-manage-ov [data-k="ali"]').click()); await sleep(700);
