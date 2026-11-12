@@ -19,7 +19,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(/50mm f\/1\.8 STM/.test(t) && /24-105mm/.test(t), 'عند الفتح: التوافق كلّه (مجموع الأقطار)');
   await pg.evaluate(() => [...document.querySelectorAll('#product-modal-variants button')].find(b => b.textContent.trim().startsWith('77mm')).click()); await sleep(300);
   t = await sp(); const pr = await pg.evaluate(() => document.getElementById('product-modal-price').textContent);
-  ok(/24-105mm/.test(t) && !/50mm f\/1\.8 STM/.test(t) && /9\.00/.test(pr), 'اختيار 77mm ⇒ توافقه وحده وسعره 9: ' + pr);
+  ok(/24-105mm/.test(t) && !/50mm f\/1\.8 STM/.test(t) && /8\.99/.test(pr), 'اختيار 77mm ⇒ توافقه وحده وسعره 8.99 (قاعدة ناقص سنت · TASK-0340): ' + pr);
   await pg.evaluate(() => { location.hash = 'product=cv'; openProductModal('cv'); }); await sleep(600);
   t = await sp();
   ok(/R50/.test(t) && /R8/.test(t), 'الكفر عند الفتح: كل الكاميرات (اللون الافتراضي لا يخفيها)');
