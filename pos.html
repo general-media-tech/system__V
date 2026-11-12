@@ -8371,6 +8371,16 @@ async function _saveAndFinishInner() {
       _progress.invoiceId = _prev.id; _invoiceCreated = true;
       const _e = new Error('RESUME_PREV_INVOICE'); _e.resumeInvoice = _prev; throw _e;
     }
+    /* (المالك seq 618/620/624 · التدقيق العدائي) الرقم أخذه جهازٌ آخر في اللحظة نفسها (الحساب نفسه على جهازين) ⇒ رقمٌ جديد ومحاولة
+       ثانية، بدل أن يرى الكاشير خطأ القاعدة الخام «duplicate key … invoices_inv_number_key» ويتوقّف البيع. (المزامنة تفعل ذلك أصلاً.) */
+    for (let _k = 0; _k < 3 && invRes.error && isDupKeyErr(invRes.error, 'inv_number'); _k++) {
+      let _fresh = null; try { _fresh = await fetchNextInvNumber(); } catch (_) {}
+      if (!_fresh || _fresh === _invPayload.inv_number) break;
+      realInvNum = _fresh; invNum = _fresh; _invPayload.inv_number = _fresh;
+      if (_offlinePack && _offlinePack.invoiceData) _offlinePack.invoiceData.inv_number = _fresh;
+      invRes = await sbPostAdaptive('/rest/v1/invoices', _invPayload, { keep: ['inv_number', 'branch_key', 'total'] });
+    }
+    if (invRes.error && isDupKeyErr(invRes.error, 'inv_number')) throw new Error('رقم الفاتورة مستعمل من جهازٍ آخر — اضغط «حفظ» مرّةً أخرى');
     if (invRes.error) throw new Error('فشل حفظ الفاتورة: ' + invRes.error);
     const _droppedInv = invRes.dropped || [];
     if (_droppedInv.some(c => /prepaid_channel|paid_external/.test(c))) _extColsMissing = true;
@@ -10767,7 +10777,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261112c"></script>
+<script src="gmt-whatsnew.js?v=20261112d"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
