@@ -5704,6 +5704,11 @@ async function validateCoupon() {
     if (!cp) { _activeCoupon=null; statusEl.style.color='#dc2626'; statusEl.textContent='❌ الكوبون غير موجود'; return; }
     if (cp.is_used) { _activeCoupon=null; statusEl.style.color='#dc2626'; statusEl.textContent='❌ هذا الكوبون مستخدَم مسبقاً'; return; }
     if (cp.expires_at && new Date(cp.expires_at) < new Date()) { _activeCoupon=null; statusEl.style.color='#dc2626'; statusEl.textContent='❌ انتهت صلاحية الكوبون'; return; }
+    /* (المالك seq 618/620/624 · التدقيق العدائي) تعريف كوبونٍ خاطئ (نسبة فوق 100% · قيمة صفر/سالبة) لا يُفعَّل */
+    { const _dv = Number(cp.discount_value);
+      if (!isFinite(_dv) || _dv <= 0 || (cp.discount_type === 'percent' && _dv > 100)) {
+        _activeCoupon=null; statusEl.style.color='#dc2626'; statusEl.textContent='❌ كوبون غير صالح (قيمة الخصم خاطئة) — راجع الإدارة'; return;
+      } }
     const cartTotal = Object.values(cart).reduce((s,i)=>s+(Number(i.price||i.prod?.price||0)*i.qty),0);
     if (cp.min_purchase && cartTotal < Number(cp.min_purchase)) {
       _activeCoupon=null; statusEl.style.color='#b45309';
@@ -8072,6 +8077,11 @@ async function _saveAndFinishInner() {
       showToast(_pre.couponRejected === 'min'
         ? '⚠️ سلّتك نقصت عن الحدّ الأدنى للكوبون — لا يُطبَّق الخصم. راجع الإجمالي أو أزِل الكوبون ثم احفظ'
         : '⚠️ انتهت صلاحية الكوبون — لا يُطبَّق الخصم. أزِله ثم احفظ', 'err');
+      return;
+    }
+    /* (المالك seq 618/620/624) خصمٌ/كوبون يأكل الفاتورة كلّها ⇒ فاتورة بصفر: لا يحفظها الموظّف (كانت تُحفظ — بيعٌ مجّاني يتجاوز حارس الكلفة) */
+    if (!(_pre.finalTotal > 0) && _pre.rawTotal > 0 && !gmtCanSellBelowCost() && !(saleType === 'آجل (شحن)' && _orderMode === 'existing' && _selectedOrder)) {
+      showToast('⚠️ الخصم يغطّي الفاتورة كلّها (الإجمالي صفر) — فاتورة بصفر لا تُحفظ إلا من الإدارة', 'err');
       return;
     }
     if (saleType === 'آجل (شحن)') {
@@ -10757,7 +10767,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261112b"></script>
+<script src="gmt-whatsnew.js?v=20261112c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
