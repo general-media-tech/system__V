@@ -1,6 +1,7 @@
 // (22 ت1 · TASK-0122) المالك: «ثانياً. عم تطوّل» — ① نواة SIMD تُختار على الأجهزة التي تدعمها ② ملفّات القارئ «الكاش أوّلاً» في كاشٍ
 // ثابت لا يُحذف مع كل نشرة (كانت تُطلب من الشبكة في كل فتحة) ③ القارئ يُحمَّل مسبقاً عند فتح نافذة الشحن للمفتي.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 (async () => {

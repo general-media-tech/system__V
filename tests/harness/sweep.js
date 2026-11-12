@@ -1,6 +1,7 @@
 // مسح شامل: كل صفحة × (موبايل/كمبيوتر) × (أدمن/موظف) — أخطاء · طفح أفقي · إيموجي ظاهر · أزرار عائمة · نوافذ المتصفح
 const fs = require('fs'), path = require('path');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const ROOT = '/home/user/system__V';
 const OUT = '/tmp/gmt-out/sweep_c.json';

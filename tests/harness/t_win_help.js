@@ -1,6 +1,7 @@
 // (TASK-0235 · المالك seq 163) «على الكمبيوتر التطبيق عم ينحضر» — ويندوز يمنع الاختصار القديم ⇒ دليل التثبيت الجديد/إلغاء الحظر في بطاقة الجهاز
 const H = require('./h.js');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 (async () => {
   await H.seed();

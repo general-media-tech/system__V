@@ -1,5 +1,6 @@
 // harness: يفتح صفحات المشروع الحقيقية في Chromium مقابل قاعدة وهمية محلية (لا يلمس قاعدتك)
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const M = 'http://127.0.0.1:' + (process.env.MOCK_PORT || 8197);
 const BASE = 'http://127.0.0.1:' + (process.env.BASE_PORT || 8765) + '/';
 

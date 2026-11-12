@@ -1,4 +1,5 @@
 const { chromium } = require('/opt/node22/lib/node_modules/playwright'); const fs = require('fs');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 (async () => {
   const b = await chromium.launch(); const pg = await b.newPage({ viewport: { width: 900, height: 1250 } });
   await pg.route(/^https:\/\/(?!127)/, r => r.fulfill({ status: 404, body: '' }));

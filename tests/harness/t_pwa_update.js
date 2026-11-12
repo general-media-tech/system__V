@@ -4,6 +4,7 @@
 // ② بعد النشر تُفتح الرئيسية بنسختها الجديدة لا من كاش المتصفّح (كانت القديمة ١٠ دقائق).
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const W = +(process.env.W || 390), HH = W < 700 ? 800 : 768;
 const ROOT = path.resolve(__dirname, '../..'); let VER = 'A';

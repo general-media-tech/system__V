@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const ROOT = '/home/user/system__V';
 const SKIP = /^(index|full_docs|deploy_plan|plan|معاينة_فاتورة|guard_bots_19)\.html$/;

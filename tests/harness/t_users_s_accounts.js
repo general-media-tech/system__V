@@ -1,6 +1,7 @@
 // المستخدمون ونقاط البيع (١٨ ت١ · وثيقة الطلبات ٩): حسابات هذا الجهاز · تذكّر هذا الجهاز · فتح نقطة المستخدم مباشرة
 // يُشغَّل: BASE_PORT=.. MOCK_PORT=.. node tests/harness/t_users_s_accounts.js
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 let fails = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (!c) fails++; };
 const dump = () => H.call('/__dump', undefined, 'GET');

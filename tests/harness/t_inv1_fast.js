@@ -6,6 +6,7 @@
 // والكتابة على المنتجات ممنوعة برسالة واضحة ما دامت البيانات من الجهاز (لا تُكتب قيمةٌ قديمة فوق أحدث).
 // «قبل/بعد»: شغّله مرّة على نسخة الأساس (BASE_PORT=منفذ نسخة 54b3328) ومرّة على النسخة الجديدة — الأرقام تُطبع في آخر سطر.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const OUT = process.env.OUT_DIR || '/tmp';
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; return !!c; };

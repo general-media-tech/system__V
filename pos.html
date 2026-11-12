@@ -6006,8 +6006,20 @@ async function cancelWarrantiesForRefund(inv, type, items) {
 }
 window.cancelWarrantiesForRefund = cancelWarrantiesForRefund;
 
+/* (المالك seq 618/620/624 · التدقيق العدائي) قفل: نداءان معاً كانا يُنشئان مرتجعَين ويعيدان المخزون مرّتين */
+let __confirmRefundBusy = false;
 async function confirmRefund() {
+  if (__confirmRefundBusy) { try { showToast('⏳ الإرجاع جارٍ — لحظة', 'inf'); } catch (_) {} return; }
+  __confirmRefundBusy = true;
+  try { return await _confirmRefundInner.apply(this, arguments); }
+  finally { __confirmRefundBusy = false; }
+}
+async function _confirmRefundInner() {
   if (!refundInvoice) return;
+  /* فاتورة المرتجع نفسها لا تُرجَع (كانت تُنشئ مرتجعاً للمرتجع) */
+  if (refundInvoice.sale_type === 'مرتجع' || refundInvoice.is_refund || refundInvoice.original_invoice_id || Number(refundInvoice.total) < 0) {
+    showToast('❌ هذه فاتورة مرتجع — لا يُرجَع المرتجع', 'err'); return;
+  }
   const reason = document.getElementById('refund-reason')?.value.trim() || 'إرجاع';
 
   // حساب البنود المرتجعة (الكمية المطلوبة بحسب اختيار المستخدم — قبل أي تحقق من إرجاعات سابقة)
@@ -6033,6 +6045,8 @@ async function confirmRefund() {
     // Best-effort: عمود original_invoice_id معرّف في _SQL/1️⃣ (المخطط الأساسي)؛ لو غاب لأي سبب
     // الاستعلام بيفشل بهدوء ونكمل بدون الفحص (نفس السلوك السابق تماماً — بلا تجميد)
     const alreadyRefunded = {}; // product_id -> qty
+    /* (المالك seq 618/620/624) الفحص صار **إلزامياً**: كان إن انقطع يُكمل الإرجاع بلا فحص ⇒ مرتجعٌ ثانٍ فوق المباع. الآن: تعذّر الفحص ⇒ يتوقّف. */
+    let _prevOk = false;
     try {
       const prevR = await sbFetchTimeout(
         `${CONFIG.SUPABASE_URL}/rest/v1/invoices?original_invoice_id=eq.${refundInvoice.id}&select=id`,
@@ -6048,11 +6062,18 @@ async function confirmRefund() {
           );
           if (prevItemsR.ok) {
             const prevItems = await prevItemsR.json();
-            prevItems.forEach(pi => { alreadyRefunded[pi.product_id] = (alreadyRefunded[pi.product_id]||0) + (Number(pi.qty)||0); });
+            prevItems.forEach(pi => { alreadyRefunded[pi.product_id] = (alreadyRefunded[pi.product_id]||0) + Math.abs(Number(pi.qty)||0); });
+            _prevOk = true;
           }
-        }
+        } else if (Array.isArray(prevInvoices)) _prevOk = true;
       }
-    } catch(e) { /* الفحص غير متاح بعد — نتجاهله */ }
+    } catch(e) { _prevOk = false; }
+    if (!_prevOk) {
+      hideLoad();
+      showToast('⚠️ تعذّر التحقّق من المرتجعات السابقة لهذه الفاتورة — تأكّد من الاتصال ثمّ أعد المحاولة', 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'تأكيد الإرجاع'; }
+      return;
+    }
 
     let capped = false;
     refundedItems = refundedItems.map(item => {
@@ -10736,7 +10757,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261112a"></script>
+<script src="gmt-whatsnew.js?v=20261112b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

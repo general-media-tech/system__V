@@ -1,5 +1,6 @@
 // (TASK-0342 · المالك seq 598) صور img/p (GitHub · نفس الموقع) تُحفظ في gmt-imgs لا في كاش الصفحات · وتظهر بلا إنترنت
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const PORT = process.env.BASE_PORT || 8765;
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext(); const pg = await ctx.newPage();

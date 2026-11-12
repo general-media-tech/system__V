@@ -3,6 +3,7 @@
 //   الجديدة: «إعادة العدّ» ← «انقل المتاح/ارفع وأكمل» (قراءة متوازية + تنفيذ على ٤ مسارات + رأس الفاتورة مرّة)
 // ويتحقّق أن النتيجة واحدة بالأرقام (نفس المخزون ونفس البنود) — السرعة لا تأتي على حساب الصحّة.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; return !!c; };
 const N = Number(process.env.N_ITEMS || 24), DELAY = Number(process.env.NET_DELAY || 150);

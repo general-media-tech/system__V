@@ -1,5 +1,6 @@
 // ملصق/كرت الكفالة: سلسلة شعار كانون + طباعة صفحة واحدة أفقية A5/A6
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 let fails = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (!c) fails++; };
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 209"><rect width="1000" height="209" fill="#cc0000"/><text x="20" y="150" font-size="140" fill="#fff" font-family="Arial">Canon</text></svg>';

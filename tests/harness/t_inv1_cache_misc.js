@@ -6,6 +6,7 @@
 //  ٥) الخادم يردّ فوراً (شبكة سريعة): لا وميض ولا تعارض بين رسم النسخة والبيانات الحيّة — عدد صفوف صحيح
 // يعمل على 390 و1366.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; return !!c; };
 const N = 300;

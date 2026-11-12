@@ -1,4 +1,5 @@
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 (async () => {
   const b = await chromium.launch(); const c = await b.newContext({ acceptDownloads: true }); const p = await c.newPage();
   await p.goto('http://127.0.0.1:8765/manifest.json');

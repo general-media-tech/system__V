@@ -1,6 +1,7 @@
 // (TASK-0284 · المالك seq 224) «انترو المتجر عم يطول كتير كتير»
 // كان: ٣٫٢ث حدّاً أدنى + انتظار كل صور الصفحة حتى ٥ث (≈٨ث). المطلوب: يظهر ثمّ يختفي سريعاً، وسقفٌ مهما بطؤ الاتصال.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

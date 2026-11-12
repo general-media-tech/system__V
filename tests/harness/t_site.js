@@ -72,6 +72,7 @@ async function seed() {
   ({ browser, pg, errs } = await H.open('site.html', { init: GUEST, w: 1366, h: 900, wait: 500, mobile: false }));
   await browser.close();
   const b = await (async () => { const { chromium } = require('/opt/node22/lib/node_modules/playwright'); const br = await chromium.launch(); const ctx = await br.newContext({ viewport: { width: 1366, height: 900 } }); const p = await ctx.newPage(); const e = [];
+require(require('path').join(__dirname, '_net_guard.js'));   // لا وصول لأيّ مضيفٍ خارجي (keepalive/beacon لا يعترضها route)
     p.on('pageerror', x => e.push(String(x).slice(0, 120))); await ctx.route('**/*.supabase.co/**', r => r.fulfill({ status: 500, body: '{}' })); await ctx.route(/^https:\/\/(?!127)/, r => { if (/supabase/.test(r.request().url())) return r.fallback(); r.fulfill({ status: 404, body: '' }); });
     await ctx.addInitScript(GUEST); await p.goto(H.BASE + 'site.html'); await p.waitForTimeout(4000);
     const r = await p.evaluate(() => ({ slides: document.querySelectorAll('.slide').length, svc: [...document.querySelectorAll('#svc-grid a')].map(a => a.getAttribute('href') || (a.dataset.gmtContact ? 'wa' : '')), news: document.getElementById('news-scroll').textContent.trim().slice(0, 40), br: document.getElementById('bt-body').textContent.trim().slice(0, 160), dead: [...document.querySelectorAll('#svc-grid a, #ql-grid a')].filter(a => !a.getAttribute('href') && !a.dataset.gmtContact).length, nav: [...document.querySelectorAll('#hdr-nav a')].map(a => a.textContent) }));
