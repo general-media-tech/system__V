@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261112d';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261112e';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -56,7 +56,7 @@ const IMG_MAX = 1500, IMG_TTL = 7 * 864e5;
 /* (9 ت2 · المالك seq 598 «معظم الصور اختفت أو صارت رمادية … خاصّة البوسترات») بعد نقل الصور إلى GitHub (img/p) صارت من نفس الموقع
    فوقعت في فرع «ملفّات الموقع»: تُسأل الشبكةَ في كلّ فتحة (مئات الطلبات · رمادي حتى تردّ على اتّصال ضعيف) وتُخزَّن بلا سقف في كاش
    الصفحات (مئات م.ب) فيمتلئ تخزين الجهاز ويحذف المتصفّح ما خزّنه. الآن: صور img/p صور منتجات — من الجهاز أوّلاً في gmt-imgs. */
-function isRepoImg(url) { return url.origin === location.origin && /\/img\/p\//.test(url.pathname); }
+function isRepoImg(url) { return url.origin === location.origin && /\/img\/[pt]\//.test(url.pathname); }   /* (seq 626) img/t = المصغّرات */
 function isProdImg(url) {
   if (isRepoImg(url)) return true;
   return /supabase\.co$/.test(url.hostname) &&
@@ -66,14 +66,19 @@ function isProdImg(url) {
 async function imgTrim(c) {
   try { const ks = await c.keys(); if (ks.length > IMG_MAX) for (const k of ks.slice(0, ks.length - IMG_MAX)) await c.delete(k); } catch (_) {}
 }
-async function imgFetchPut(c, href) {
+async function imgFetchPut(c, href, waitUntil) {
   /* mode:'cors' (الخادم يسمح) ⇒ استجابة حقيقية بحجمها الفعلي — الاستجابة «المعتمة» لوسم <img> تُحسب في المتصفّح ~٧ م.ب لكلّ صورة */
   const res = await fetch(href, { mode: 'cors', credentials: 'omit' });
   if (res && res.ok) {
-    const body = await res.clone().blob();
-    const h = new Headers(res.headers); h.set('x-gmt-at', String(Date.now()));
-    await c.put(href, new Response(body, { status: 200, headers: h }));
-    if (Math.random() < 0.05) imgTrim(c);
+    /* (المالك seq 626) كانت الصورة تنتظر اكتمال حفظها في الكاش قبل أن تُعرض (وفشلُ الحفظ عند امتلاء التخزين يعيد تنزيلها) ⇒
+       الآن تُعرض فوراً ويُحفظ نسخها في الخلفية؛ فشل الحفظ لا يمسّ العرض */
+    const job = (async () => {
+      const body = await res.clone().blob();
+      const h = new Headers(res.headers); h.set('x-gmt-at', String(Date.now()));
+      await c.put(href, new Response(body, { status: 200, headers: h }));
+      if (Math.random() < 0.05) imgTrim(c);
+    })().catch(() => {});
+    if (waitUntil) waitUntil(job); else await job;
   }
   return res;
 }
@@ -174,7 +179,7 @@ self.addEventListener('fetch', (e) => {
         if (Date.now() - at > IMG_TTL) e.waitUntil(imgFetchPut(c, href).catch(() => {}));
         return hit;
       }
-      try { return await imgFetchPut(c, href); }
+      try { return await imgFetchPut(c, href, p => { try { e.waitUntil(p); } catch (_) {} }); }
       catch (err) { return fetch(req); }
     })());
     return;
