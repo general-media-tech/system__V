@@ -5603,22 +5603,11 @@ function changePreviewQty(id, delta) {
 }
 function changePreviewPrice(id, newPrice) {
   if (!cart[id]) return;
-  if (isNaN(newPrice) || newPrice < 0) return;
-  // ── POS-4 (2026-07-12): الاستثناء صار **بالدور لا بالفرع** (قرار المالك).
-  //     كان: isHeadquarters() ⇒ أي كاشير بحلب يبيع تحت التكلفة. الآن: الأدمن/السيادي فقط.
-  if (gmtCanSellBelowCost()) {
-    cart[id].price = newPrice;
-    updateFab();
-    renderInvItemsRows();
-    return;
-  }
-  const ws = Number(cart[id].prod?.wholesale_price) || 0;
-  const nc = Number(cart[id].prod?.net_cost) || 0;
-  if (nc > 0 && newPrice <= nc) {
-    showToast('🚫 السعر أقل من التكلفة — غير مسموح', 'err'); return;
-  }
-  if (ws > 0 && newPrice <= ws) showToast('⚠️ تبيع بدون عمولة', 'warn');
-  cart[id].price = newPrice;
+  /* (المالك seq 618/620) الحارس الموحّد نفسه — كان هذا المسار يقبل صفراً وسنتاً لمنتجٍ بلا كلفة صافية */
+  const g = gmtPriceGuard(cart[id].prod, newPrice);
+  if (!g.allowed) { showToast(g.reason, 'err'); renderInvItemsRows(); return; }
+  if (g.reason && !gmtCanSellBelowCost()) showToast(g.reason, 'warn');
+  cart[id].price = Number(newPrice);
   updateFab();
   renderInvItemsRows();
 }
@@ -7499,15 +7488,35 @@ function gmtCanSellBelowCost() {
 
 // حارس موحّد: هل هذا السعر مسموح لهذا الصنف؟ (يُستدعى من كل مسارات تغيير السعر)
 // يعيد: { allowed:bool, reason:string, belowCost:bool, belowWholesale:bool }
+/* (المالك seq 618/620 · التدقيق العدائي) أرضية الكلفة: الصافية، وإلا سعر الشراء. نصف المنتجات بلا كلفة صافية — كان الحارس يتركها بلا أيّ حدّ. */
+function gmtCostFloor(prod) {
+  return Number(prod?.net_cost) || Number(prod?.cost_price) || 0;
+}
+window.gmtCostFloor = gmtCostFloor;
 function gmtPriceGuard(prod, newPrice) {
-  const nc = Number(prod?.net_cost) || 0;
+  const np = Number(newPrice);
+  const nc = gmtCostFloor(prod);
   const ws = Number(prod?.wholesale_price) || 0;
+  const list = Number(prod?.price) || 0;
   const isOffer = !!(prod && prod._is_offer);         // العرض مُسعّر مسبقاً من الأدمن
-  const belowCost = nc > 0 && newPrice <= nc;
-  const belowWholesale = ws > 0 && newPrice <= ws;
-  // تحت التكلفة: ممنوع إلا لصاحب الصلاحية (حلب/أدمن) أو عرض مُسعّر مسبقاً
-  if (belowCost && !gmtCanSellBelowCost() && !isOffer) {
-    return { allowed: false, reason: '🚫 السعر أقل من التكلفة — غير مسموح', belowCost, belowWholesale };
+  /* سعرٌ سالب أو غير رقمي: مرفوض على الجميع */
+  if (!isFinite(np) || np < 0) {
+    return { allowed: false, reason: '🚫 السعر غير صالح', belowCost: true, belowWholesale: true };
+  }
+  const belowCost = nc > 0 && np <= nc;
+  const belowWholesale = ws > 0 && np <= ws;
+  const priv = gmtCanSellBelowCost();
+  if (!priv && !isOffer) {
+    if (np <= 0) return { allowed: false, reason: '🚫 السعر يجب أن يكون أكبر من صفر', belowCost: true, belowWholesale: true };
+    // تحت التكلفة: ممنوع إلا لصاحب الصلاحية (حلب/أدمن) أو عرض مُسعّر مسبقاً
+    if (belowCost) return { allowed: false, reason: '🚫 السعر أقل من التكلفة — غير مسموح', belowCost, belowWholesale };
+    /* كلفة غير مسجّلة: لا يُعرف أين التكلفة ⇒ لا ينزل الموظّف تحت الجملة (أو تحت سعر المنتج إن لم تُسجَّل الجملة) */
+    if (!(nc > 0)) {
+      const floor = ws > 0 ? (list > 0 ? Math.min(ws, list) : ws) : list;
+      if (floor > 0 && np < floor) {
+        return { allowed: false, reason: '🚫 كلفة هذا المنتج غير مسجّلة — لا يُخفَّض سعره تحت ' + (ws > 0 ? 'سعر الجملة' : 'سعره') + ' إلا من الأدمن', belowCost: true, belowWholesale };
+      }
+    }
   }
   // تحت الجملة وفوق التكلفة: مسموح مع تنبيه (بلا عمولة)
   if (belowWholesale && !belowCost) {
@@ -8001,9 +8010,25 @@ async function _saveAndFinishInner() {
 
   // ── التحقق من الأسعار قبل الحفظ ──
   for (const item of items) {
-    if (item.price <= 0) {
+    /* (المالك seq 618/620 · التدقيق العدائي) سلّةٌ عُبث بها (F12) أو تلفت: كمّية غير صحيحة/سالبة/فوق المخزون كانت تُحفظ كما هي */
+    const _q = Number(item.qty), _itOffer = !!(item._is_offer || item._from_offer || (item.prod && item.prod._is_offer));
+    if (!Number.isInteger(_q) || _q < 1) {
+      showToast(`⚠ ${item.prod.name}: الكمّية غير صالحة (${item.qty})`, 'err');
+      return;
+    }
+    const _avail = Number(item.prod && branch ? item.prod[branch.key] : NaN);
+    if (!_itOffer && isFinite(_avail) && _q > _avail) {
+      showToast(`⚠ ${item.prod.name}: الكمّية (${_q}) أكبر من المخزون (${_avail})`, 'err');
+      return;
+    }
+    if (!isFinite(Number(item.price)) || item.price <= 0) {
       showToast(`⚠ ${item.prod.name}: السعر يجب أن يكون أكبر من صفر`, 'err');
       return;
+    }
+    /* الحارس الموحّد عند الحفظ أيضاً (لا في الحقول فقط) — للموظّف، خارج الأوردر المربوط والعروض */
+    if (!_itOffer && !(saleType === 'آجل (شحن)' && _orderMode === 'existing' && _selectedOrder) && !gmtCanSellBelowCost()) {
+      const _g = gmtPriceGuard(item.prod, item.price);
+      if (!_g.allowed) { showToast(`${item.prod.name}: ${_g.reason}`, 'err'); return; }
     }
     const _nc = Number(item.prod.net_cost) || 0;
     if (!(saleType === 'آجل (شحن)' && _orderMode === 'existing' && _selectedOrder) && _nc > 0 && item.price <= _nc) {
@@ -10711,7 +10736,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261110m"></script>
+<script src="gmt-whatsnew.js?v=20261112a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
