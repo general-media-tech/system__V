@@ -2238,6 +2238,7 @@ function openProductModal(productId, opt){
     
     openModal('product-modal');
     setTimeout(pmDescFit, 80);   // (TASK-0363) يطوي الشرح الطويل بعد ظهور النافذة
+    gmtLensIndex();              // (TASK-0369) فهرس بطاقات «اسأل جوجل» الجاهزة يُحمَّل مع فتح المنتج ⇒ الضغطة فورية
 }
 
 function _renderSimilarProducts(prod){
@@ -2630,8 +2631,21 @@ async function _gmtLensUrl(d){
     const r = await fetch(M.url + '/storage/v1/object/products-images/' + path, { method: 'POST', headers: { apikey: M.key, Authorization: 'Bearer ' + M.key, 'Content-Type': 'image/jpeg', 'x-upsert': 'true', 'cache-control': 'max-age=31536000' }, body: blob });
     return r.ok ? pub : null;
 }
+/* (TASK-0369 · المالك seq 643 «عم يطول — يا تكون جاهزة من الأساس») بطاقة المنتج (صورته + مواصفاتنا) **جاهزة مسبقاً** ملفّاً ثابتاً على الموقع
+   (img/lens/<المعرّف>.jpg · تولّدها tools/make_lens_cards.js) ⇒ العدسة تُفتح فوراً بلا تجهيز ولا رفع ولا صفحة انتظار.
+   الفهرس يحمل بصمة بيانات كلّ منتج: إن تغيّرت بياناته بعد التوليد (أو لا بطاقة له) يعمل المسار القديم كما كان. */
+let _lensIdx = null, _lensIdxP = null;
+function gmtLensIndex(){ return _lensIdxP || (_lensIdxP = fetch('img/lens/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => (_lensIdx = (j && j.items) || {})).catch(() => (_lensIdx = {}))); }
+function gmtLensKey(p){ return _gmtHash([p.name || '', (Array.isArray(p.specs) ? p.specs : []).map(x => x ? String(x.label || '') + ':' + String(x.value == null ? '' : x.value) : '').join('|'), p.compat || '', (p.images || [])[0] || ''].join('§')); }
+function gmtLensReady(){
+    const p = (store.products || []).find(x => String(x.id) === String(_pmId)); if (!p || !_lensIdx) return '';
+    const h = _lensIdx[String(p.id)]; if (!h) return '';
+    if (h !== gmtLensKey(p) && !(store.__light && p.specs === undefined)) return '';   // النسخة الخفيفة بلا مواصفات ⇒ البطاقة الجاهزة هي المرجع
+    return 'https://lens.google.com/uploadbyurl?hl=ar&url=' + encodeURIComponent(new URL('img/lens/' + String(p.id).replace(/[^A-Za-z0-9_-]/g, '_') + '.jpg?h=' + h, location.href).href);
+}
 window.gmtGoogleLens = async function(){
     if (!_pmId) return;
+    { const fast = gmtLensReady(); if (fast) { window.open(fast, '_blank', 'noopener'); return; } }   // البطاقة الجاهزة ⇒ فوراً
     const d = _gmtProdData();
     let w = null; try { w = window.open('about:blank', '_blank'); } catch (_) {}   // داخل الضغطة نفسها — وإلّا يمنعها المتصفّح
     try { if (w && w.document) w.document.body.innerHTML = '<p style="font-family:Tahoma,sans-serif;text-align:center;margin-top:40vh;direction:rtl">جارٍ تجهيز صورة المنتج ومواصفاته لعدسة جوجل…</p>'; } catch (_) {}
