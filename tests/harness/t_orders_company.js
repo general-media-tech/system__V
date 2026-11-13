@@ -88,7 +88,10 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
       const f = new File([b], 'r.jpg', { type: 'image/jpeg' }); _shipScan = { original: f, scanned: f, mode: 'color' }; _shipRcptFile = f; _shipOrig = f;
       /* (TASK-0165 · seq 78) شركةٌ محفوظة عند الإنشاء والإيصال لغيرها ⇒ سؤال — يُجاب كما يجيب الموظّف */
       const p = shipReadTracking(); let asked = '';
-      for (let i = 0; i < 600 && answer; i++) { const o = document.querySelector('.gmtask-ov'); if (o) { asked = o.innerText.replace(/\s+/g, ' '); [...o.querySelectorAll('button')].find(b => new RegExp(answer).test(b.textContent)).click(); break; } await new Promise(r => setTimeout(r, 100)); }
+      /* (13 ت2 · الفحص الشامل) نافذة السؤال السابقة تبقى لحظةً في الصفحة بعد إغلاقها (تلاشٍ) ⇒ كان الاختبار يضغط عليها بدل الجديدة فيعلّق للأبد.
+         الآن: يُجاب على كلّ نافذةٍ تظهر حتى تنتهي القراءة، كما يفعل الموظّف. */
+      let done = false; p.then(() => { done = true; }, () => { done = true; });
+      for (let i = 0; i < 900 && !done; i++) { const o = answer && document.querySelector('.gmtask-ov'); if (o && !o.__ans) { const bt = [...o.querySelectorAll('button')].find(b => new RegExp(answer).test(b.textContent)); if (bt) { o.__ans = 1; asked = o.innerText.replace(/\s+/g, ' '); bt.click(); } } await new Promise(r => setTimeout(r, 100)); }
       await p;
       const s = document.getElementById('ship-company'), st = document.getElementById('ship-track-auto'), fr = document.getElementById('ship-from');
       return { asked, calls: __calls, co: s.value, auto: s.dataset.auto, track: document.getElementById('ship-tracking').value, key,

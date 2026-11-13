@@ -38,7 +38,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log((c ? '✔ ' : '✘ ')
     const st = await pg.evaluate(() => { const b = document.getElementById('gmt-pwa-bar'); if (!b) return { bar: false };
       const r = b.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return { bar: true, top: Math.round(r.top), seen: r.top >= 0 && r.bottom <= innerHeight && !!(t && b.contains(t)) }; });
-    ok(st.bar && st.seen, page + ': بعد النشر شريط «تتوفّر نسخة جديدة» ظاهرٌ فوق كلّ شيء والصفحة منزلقة — ' + JSON.stringify(st));
+    /* (TASK-0336 · seq 564) صفحة الزبون (المتجر) لا يظهر فيها شريط التحديث حتى لموظّف: النسخة الجديدة تُفعَّل بصمت */
+    if (page === 'store.html') ok(!st.bar, page + ': صفحة زبون — لا شريط تحديث (يُفعَّل بصمت) — ' + JSON.stringify(st));
+    else ok(st.bar && st.seen, page + ': بعد النشر شريط «تتوفّر نسخة جديدة» ظاهرٌ فوق كلّ شيء والصفحة منزلقة — ' + JSON.stringify(st));
     if (page === 'home.html') {
       await pg.click('#gmt-pwa-no'); ok(await pg.evaluate(() => !document.getElementById('gmt-pwa-bar')), '«لاحقاً» يُخفيه');
     }

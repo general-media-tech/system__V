@@ -43,7 +43,9 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await ctx.route('**/*.supabase.co/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, body: '' }));
   const p2 = await ctx.newPage();
-  await p2.goto(H.BASE + 'track_order.html', { waitUntil: 'load' });
+  /* (TASK-0358) صفحات الزبون لم تعد تسجّل عامل الخدمة ⇒ الفحص على صفحة موظّف (وهناك يُستعمل قارئ الإيصال) */
+  await ctx.addInitScript(H.ADMIN_INIT);
+  await p2.goto(H.BASE + 'home.html', { waitUntil: 'load' });
   await p2.evaluate(() => navigator.serviceWorker.ready); await p2.reload({ waitUntil: 'load' }); await p2.waitForTimeout(800);
   const sw = await p2.evaluate(async () => {
     const ctl = !!navigator.serviceWorker.controller;
