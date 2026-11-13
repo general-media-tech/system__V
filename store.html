@@ -54,6 +54,15 @@ window.GMT_PUBLIC = 1;</script>
         #pm-buyrow #product-modal-price { font-size: 26px; line-height: 1.1; }
         #product-modal-description.clamp { max-height: 7.2em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); margin-bottom: 4px; }
         #pm-desc-more { background: none; border: 0; color: #D5001C; font: 700 13px Cairo, sans-serif; padding: 2px 0 12px; cursor: pointer; }
+        #pm-complete { margin: 6px 0 16px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 16px; padding: 12px; }
+        #pm-complete h4 { font-size: 14px; font-weight: 800; margin: 0 0 10px; color: #111; } #pm-complete h4 small { font-weight: 600; color: #6b7280; font-size: 11.5px; }
+        .pmc-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+        .pmc { position: relative; flex: 0 0 118px; width: 118px; background: #fff; border: 2px solid #eceef1; border-radius: 14px; overflow: hidden; cursor: pointer; text-align: right; padding: 0; font-family: inherit; }
+        .pmc.on { border-color: #D5001C; } .pmc .im { height: 96px; background: #f5f5f5; } .pmc .im img { width: 100%; height: 100%; object-fit: cover; }
+        .pmc .tx { padding: 6px 8px 8px; } .pmc .nm { font-size: 11.5px; font-weight: 600; line-height: 1.35; height: 3.1em; overflow: hidden; color: #111; } .pmc .pr { font-size: 12.5px; font-weight: 800; color: #D5001C; direction: ltr; text-align: right; margin-top: 3px; }
+        .pmc .ck { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 2px solid #cfd4da; display: grid; place-items: center; font-size: 13px; color: transparent; }
+        .pmc.on .ck { background: #D5001C; border-color: #D5001C; color: #fff; }
+        #pmc-add { width: 100%; margin-top: 10px; border: 0; border-radius: 12px; background: #111; color: #fff; font: 800 13.5px Cairo, sans-serif; padding: 11px; cursor: pointer; } #pmc-add:disabled { opacity: .45; cursor: default; }
         #pm-ai-fab { position: absolute; left: 14px; bottom: 96px; z-index: 20; display: flex; align-items: center; gap: 8px; background: #fff; color: #111; border: 1px solid #e6e8eb; border-radius: 999px; padding: 10px 16px 10px 14px; font: 800 13.5px Cairo, sans-serif; box-shadow: 0 8px 24px rgba(15,20,30,.18); cursor: pointer; }
         #pm-ai-fab:active { transform: scale(.97); }
         #pm-ai-fab.busy { opacity: .7; pointer-events: none; }
@@ -1934,6 +1943,12 @@ function createModals(){
                         <i class="ph ph-copy" style="font-size:16px;"></i>
                     </button>
                 </div>
+                <!-- (TASK-0372 · المالك seq 653 «لما يطلب منتج تقترح له الآخر ويعمل بكج») كمّل طقمك: ما يُشترى مع هذا المنتج — يُضاف معه للسلّة بضغطة -->
+                <div id="pm-complete" class="hidden">
+                    <h4>كمّل طقمك <small>— اختر ما تريده مع المنتج</small></h4>
+                    <div class="pmc-row hide-scrollbar"></div>
+                    <button type="button" id="pmc-add" onclick="pmCompleteAdd()"></button>
+                </div>
                 <!-- Similar products -->
                 <div id="similar-products-wrap" class="similar-section" style="display:none;margin-top:4px;">
                     <h4 style="font-size:13px;font-weight:700;color:#333;margin:0 0 10px;">منتجات من نفس القسم</h4>
@@ -2260,13 +2275,66 @@ function openProductModal(productId, opt){
     document.getElementById('product-modal-ig-wrap').classList.add('hidden');
     
     // Render similar products
-    _renderSimilarProducts(prod);
+    _renderSimilarProducts(prod); _renderComplements(prod);
     
     openModal('product-modal');
     setTimeout(pmDescFit, 80);   // (TASK-0363) يطوي الشرح الطويل بعد ظهور النافذة
     gmtLensIndex();              // (TASK-0369) فهرس بطاقات «اسأل جوجل» الجاهزة يُحمَّل مع فتح المنتج ⇒ الضغطة فورية
 }
 
+/* ══ (TASK-0372) «كمّل طقمك» — ما يُشترى مع المنتج: أوّلاً ما يذكر توافقُه موديلَ هذا المنتج، ثمّ ما يلزم صنفَه (رأس إضاءة ⇐ سوفت بوكس وستاند · كاميرا ⇐ بطارية وذاكرة وحقيبة…).
+   لا خصم ولا سعر جديد: يُضاف المختار مع المنتج للسلّة بأسعاره. */
+const _KIT_RULES = [
+    [/كاميرات كانون|أوبن بوكس/, /^كاميرات$/, [['إكسسوارات الكاميرا','بطاريات وشواحن'],['إكسسوارات الكاميرا','ذواكر ووصلات'],['إكسسوارات الكاميرا','حقائب'],['ترايبود وجيمبال','ترايبود']]],
+    [/العدسات|كاميرات كانون|أوبن بوكس/, /عدسات|كانون|سيغما|يونغنو/, [['إكسسوارات الكاميرا','هودات وأغطية وكفرات'],['إكسسوارات الكاميرا','حقائب']]],
+    [/إضاءة الاستوديو/, /رؤوس الإضاءة|فلاشات/, [['إضاءة الاستوديو','سوفت بوكس ومعدّلات'],['إضاءة الاستوديو','ستاندات']]],
+    [/إضاءة الاستوديو/, /ألواح LED/, [['إضاءة الاستوديو','ستاندات'],['إضاءة الاستوديو','سوفت بوكس ومعدّلات']]],
+    [/إضاءة صنّاع المحتوى/, /./, [['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
+    [/المايكات والصوت/, /لاسلكية|سلكية/, [['المايكات والصوت','كروت صوت وستاندات'],['ملحقات الهاتف','هولدرات ومساند']]],
+    [/الدرونات وملحقاتها/, /^درونات$/, [['الدرونات وملحقاتها','بطاريات وشواحن'],['الدرونات وملحقاتها','مراوح وحماية'],['الدرونات وملحقاتها','حقائب'],['الدرونات وملحقاتها','فلاتر']]],
+    [/كاميرات الأكشن/, /./, [['إكسسوارات الكاميرا','ذواكر ووصلات'],['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
+    [/ترايبود وجيمبال/, /أوزمو موبايل|رونين/, [['ملحقات الهاتف','هولدرات ومساند'],['إضاءة صنّاع المحتوى','كفّ وجيب']]]
+];
+function _catPath(id){ const c=(store.categories||[]).find(x=>String(x.id)===String(id)); if(!c) return ['','']; const t=c.parent_id?(store.categories||[]).find(x=>String(x.id)===String(c.parent_id)):null; return t?[t.name,c.name]:[c.name,'']; }
+function _mcodes(t){ return (String(t||'').match(/[A-Za-z]{1,6}[- ]?\d{1,4}[A-Za-z]{0,3}|\d{2,4}[A-Za-z]{1,2}/g)||[]).map(x=>x.replace(/[- ]/g,'').toLowerCase()).filter(x=>x.length>=3); }
+function gmtComplements(prod){
+    const P=(store.products||[]).filter(p=>p.id!==prod.id&&parseFloat(p.price||0)>0&&!Array.isArray(p.package_items));
+    const [top,sub]=_catPath(prod.category_id); const codes=_mcodes(prod.name+' '+(prod.short_name||''));
+    const inSub=(p,t,sn)=>(p.category_ids||[p.category_id]).some(id=>{ const [a,b]=_catPath(id); return a===t&&b===sn; });
+    const rank=p=>(parseInt(p.stock)>0?1000:0)+((p.images||[]).length?100:0)-parseFloat(p.price||0)/100;
+    const out=[], seen=new Set(); const push=p=>{ if(!seen.has(p.id)&&out.length<6){ seen.add(p.id); out.push(p); } };
+    const sameType=p=>{ const [a,b]=_catPath(p.category_id); return a===top&&b===sub; };
+    if(codes.length){   // ① ما يذكر توافقُه موديل هذا المنتج
+        P.filter(p=>!sameType(p)&&p.compat&&codes.some(c=>c.length>=3&&/\d/.test(c)&&String(p.compat).replace(/[- ]/g,'').toLowerCase().includes(c))).sort((a,b)=>rank(b)-rank(a)).slice(0,4).forEach(push);
+    }
+    const rule=_KIT_RULES.find(r=>r[0].test(top)&&r[1].test(sub));
+    /* ما يتوقّف على الموديل (بطارية · هود/غطاء/كفر · فلتر · مراوح) لا يُقترح إلا إن ذكر توافقُه موديل هذا المنتج — لا بطارية كاميرا أخرى */
+    const strict=/بطاريات وشواحن|هودات وأغطية وكفرات|فلاتر|مراوح وحماية/;
+    const fits=p=>!!p.compat&&codes.some(c=>String(p.compat).replace(/[- ]/g,'').toLowerCase().includes(c));
+    if(rule) rule[2].forEach(([t,sn])=>{ P.filter(p=>inSub(p,t,sn)&&(strict.test(sn)?fits(p):(!p.compat||fits(p)||!_mcodes(p.compat).length))).sort((a,b)=>rank(b)-rank(a)).slice(0,out.length<3?2:1).forEach(push); });
+    return out;
+}
+let _pmcSel=new Set();
+function _renderComplements(prod){
+    const w=document.getElementById('pm-complete'); if(!w) return;
+    const list=gmtComplements(prod); if(!list.length){ w.classList.add('hidden'); return; }
+    _pmcSel=new Set(); w.classList.remove('hidden'); const row=w.querySelector('.pmc-row'); row.innerHTML='';
+    const e=(window.GMTUtil&&GMTUtil.esc)?GMTUtil.esc:(x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    list.forEach(p=>{ const b=document.createElement('button'); b.type='button'; b.className='pmc'; b.dataset.id=p.id;
+        b.innerHTML=`<span class="ck">✓</span><div class="im">${(p.images||[])[0]?`<img ${gmtThumbAttrs(p.images[0])} alt="">`:''}</div><div class="tx"><div class="nm">${e(p.short_name||p.name)}</div><div class="pr">${CONFIG.CURRENCY}${parseFloat(p.price).toFixed(2)}</div></div>`;
+        b.onclick=()=>{ if(_pmcSel.has(p.id))_pmcSel.delete(p.id); else _pmcSel.add(p.id); b.classList.toggle('on',_pmcSel.has(p.id)); _pmcBtn(); };
+        row.appendChild(b); });
+    _pmcBtn();
+}
+function _pmcBtn(){ const b=document.getElementById('pmc-add'); if(!b) return; const sel=(store.products||[]).filter(p=>_pmcSel.has(p.id)); const sum=sel.reduce((t,p)=>t+parseFloat(p.price||0),0);
+    b.disabled=!sel.length; b.textContent=sel.length?`أضف المنتج مع ${sel.length} ${sel.length===1?'قطعة':'قطع'} للسلّة (+${CONFIG.CURRENCY}${sum.toFixed(2)})`:'اختر قطعةً لتُضاف مع المنتج'; }
+function pmCompleteAdd(){
+    const sel=(store.products||[]).filter(p=>_pmcSel.has(p.id)); if(!sel.length) return;
+    sel.forEach(p=>{ const ex=store.cart.find(i=>i._cartId===p.id); if(ex) ex.qty=(ex.qty||1)+1; else store.cart.push({...p,_cartId:p.id,price:parseFloat(p.price||0),qty:1}); });
+    try{ localStorage.setItem('gmt_cart',JSON.stringify(store.cart)); }catch(_){}
+    updateCartBadge(); _pmcSel=new Set();
+    productModalAddToCart();   // المنتج نفسه بخياراته وكمّيته — ثمّ السلّة
+}
 function _renderSimilarProducts(prod){
     let simWrap = document.getElementById('similar-products-wrap');
     if(!simWrap) return;
