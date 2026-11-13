@@ -45,6 +45,9 @@ window.GMT_PUBLIC = 1;</script>
         }
         /* (TASK-0362 · المالك seq 637 «معاينة صور المنتج صغيرة بالنسبة للهاتف وغير عملية … ومن اللابتوب نفس الشيء») معرض الصور:
            صورة كبيرة بعرض الشاشة · سحب بالإصبع · شريط مصغّرات · عدّاد · ضغطة ⇒ تكبير بملء الشاشة (تقريب وتحريك) */
+        .pc-offer { position: absolute; top: 8px; left: 8px; z-index: 2; background: #D5001C; color: #fff; font: 800 11px/1 Cairo, sans-serif; padding: 5px 9px; border-radius: 999px; box-shadow: 0 4px 10px rgba(213,0,28,.3); }
+        .pc-old { color: #8a9099; font-size: 12px; font-weight: 600; }
+        #pm-oldprice { color: #8a9099; font-size: 15px; font-weight: 600; margin-inline-start: 8px; }
         #product-modal .modal-sheet { position: relative; }
         #pm-title { font-size: 19px; font-weight: 800; line-height: 1.45; color: #111; margin: 0 0 10px; }
         #pm-buyrow { background: #fafafa; border: 1px solid #f0f0f0; border-radius: 14px; padding: 10px 12px; margin-bottom: 14px; flex-direction: row-reverse; }
@@ -980,6 +983,25 @@ function gmtThumb(u){ return (typeof u==='string') ? u.replace(/\/img\/p\/([^?#]
 function gmtImgRetry(img){ const o=img && img.dataset && img.dataset.orig; if(o && !img.dataset.gf && img.src!==o){ img.dataset.gf='1'; img.src=o; return true; } return false; }
 function gmtThumbAttrs(u){ return `src="${gmtThumb(u)}" data-orig="${u}" loading="lazy" decoding="async" onerror="gmtImgRetry(this)"`; }
 
+/* (TASK-0371) عرض السعر المؤقّت: الجرد يسجّل تخفيضاً بمدّة في gmt_price_changes (السعر القديم والجديد وتاريخ الانتهاء) — المتجر يقرؤها مرّةً
+   (تُحفظ ٥ دقائق) فيُظهر على بطاقة المنتج وصفحته «عرض −٪» والسعر القديم مشطوباً. منتجٌ له old_price أعلى من سعره يُعامل كذلك. */
+let _priceOffers = {};
+async function loadPriceOffers(){
+    try {
+        const c = _cache.get('poffers'); if (c) { _priceOffers = c; return Object.keys(c).length; }
+        const M = window.GMT_DB && GMT_DB.MAIN; if (!M || !M.url) return 0;
+        const r = await fetch(M.url + '/rest/v1/gmt_price_changes?reverted_at=is.null&ends_at=gt.' + encodeURIComponent(new Date().toISOString()) + '&select=product_id,old_price,new_price,ends_at', { headers: GMT_DB.headers(M) });
+        const rows = r.ok ? await r.json() : []; const m = {};
+        (Array.isArray(rows) ? rows : []).forEach(x => { if (Number(x.old_price) > Number(x.new_price) && Number(x.new_price) > 0) m[String(x.product_id)] = { old: Number(x.old_price), nw: Number(x.new_price), ends: x.ends_at }; });
+        _priceOffers = m; _cache.set('poffers', m); return Object.keys(m).length;
+    } catch (_) { return 0; }
+}
+function gmtProdOffer(p){
+    const pr = parseFloat(p && p.price || 0); if (!(pr > 0)) return null;
+    let op = parseFloat(p.old_price || 0);
+    if (!(op > pr)) { const o = _priceOffers[String(p.inv_id || '')]; if (o && o.old > pr && Math.abs(o.nw - pr) < 0.03) op = o.old; }
+    return op > pr ? { old: op, pct: Math.max(1, Math.round((1 - pr / op) * 100)) } : null;
+}
 // ── Build one product card ─────────────────────
 function _buildProductCard(prod) {
     const imgUrl = prod.images?.[0] || '';
@@ -1036,6 +1058,9 @@ function _buildProductCard(prod) {
         pen.addEventListener('click', e => { e.stopPropagation(); _adminPenMenu(imgWrap, prod); });
         imgWrap.appendChild(pen);
     }
+    /* (TASK-0371 · المالك seq 653 «الأشياء اللي عليها عرض بيطلع علامة عرض وسعر مشطوب ومغيَّر») */
+    const _off = gmtProdOffer(prod);
+    if (_off) { const ob = document.createElement('div'); ob.className = 'pc-offer'; ob.textContent = 'عرض −' + _off.pct + '%'; imgWrap.appendChild(ob); }
     card.appendChild(imgWrap);
 
     // info
@@ -1044,7 +1069,7 @@ function _buildProductCard(prod) {
     const barcodeHtml = prod.barcode
         ? `<span style="font-family:monospace;font-size:9px;color:#5b6472;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="كود: ${prod.barcode}"># ${prod.barcode}</span>`
         : '';
-    info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}${parseFloat(prod.price||0)>0?`<span class="text-primary font-bold text-[15px] mt-1" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`:`<span class="font-bold text-[13px] mt-1" style="color:#5b6472">السعر عند الطلب</span>`}`;   /* (المالك seq 262) «ضعها الآن بدون سعر» ⇒ لا «0.00» */
+    info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}${parseFloat(prod.price||0)>0?`<span class="mt-1" dir="ltr" style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="text-primary font-bold text-[15px]">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>${_off?`<s class="pc-old">${CONFIG.CURRENCY}${_off.old.toFixed(2)}</s>`:''}</span>`:`<span class="font-bold text-[13px] mt-1" style="color:#5b6472">السعر عند الطلب</span>`}`;   /* (المالك seq 262) «ضعها الآن بدون سعر» ⇒ لا «0.00» */
     card.appendChild(info);
 
     card.addEventListener('click', () => openProductModal(prod.id));
@@ -2180,6 +2205,7 @@ function openProductModal(productId, opt){
     const base=parseFloat(prod.price||0);
     priceEl.textContent= base>0 ? `${CONFIG.CURRENCY}${base.toFixed(2)}` : 'السعر عند الطلب';   /* (المالك seq 262) */
     priceEl.dataset.basePrice=base; delete priceEl.dataset.selectedPrice;
+    { const _o=gmtProdOffer(prod); let oe=document.getElementById('pm-oldprice'); if(!oe){ oe=document.createElement('s'); oe.id='pm-oldprice'; priceEl.insertAdjacentElement('afterend',oe); } oe.textContent=_o?`${CONFIG.CURRENCY}${_o.old.toFixed(2)}`:''; oe.style.display=_o?'':'none'; }
 
     const descEl=document.getElementById('product-modal-description');
     if(prod.description?.trim()){descEl.textContent=prod.description.trim();descEl.classList.remove('hidden');}
@@ -3306,7 +3332,9 @@ function _variantWith(i){
 }
 function _pkgText(i){ return Array.isArray(i.package_items) && i.package_items.length ? ' [' + i.package_items.map(x => x.name + (x.qty > 1 ? ' ×' + x.qty : '')).join(' + ') + ']' : ''; }
 
+let _poTried=false;
 function renderAll(){
+    if(!_poTried){ _poTried=true; loadPriceOffers().then(n=>{ if(n) try{ renderProducts(); }catch(_){} }); }
     renderMainBanner(store.banners);
     renderCategories();
     renderProducts();
