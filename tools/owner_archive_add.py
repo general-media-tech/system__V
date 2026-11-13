@@ -53,11 +53,16 @@ def store_put(data, key):
     """رفع إلى التخزين الخاصّ owner-archive (غير عامّ: إضافة فقط، لا قراءة إلا من لوحة Supabase)."""
     k = os.environ.get('SUPABASE_ANON_KEY')
     if not k: sys.exit('SUPABASE_ANON_KEY غير مضبوط (المفتاح العامّ للقاعدة الرئيسية)')
-    import urllib.request
+    import urllib.request, urllib.error
     req = urllib.request.Request(STORE + key, data=data, method='POST', headers={
         'apikey': k, 'Authorization': 'Bearer ' + k, 'Content-Type': CT.get(os.path.splitext(key)[1].lower(), 'application/octet-stream')})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        if r.status != 200: sys.exit('فشل الرفع %s: %s' % (key, r.status))
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            if r.status != 200: sys.exit('فشل الرفع %s: %s' % (key, r.status))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', 'replace')
+        if 'Duplicate' in body or 'already exists' in body: raise FileExistsError(key)
+        sys.exit('فشل الرفع %s: %s %s' % (key, e.code, body[:200]))
     return key
 
 
@@ -69,23 +74,28 @@ def main():
     o = a.parse_args()
     ts = o.ts or datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
     text = open(o.text_file, encoding='utf-8').read().strip('\n')
-    mid = 'م-%04d' % (last_id() + 1)
-    meta = ['المصدر: نصّ المحادثة (أُضيف مباشرةً)']
-    if o.seq is not None: meta.append('seq %d' % o.seq)
-    meta.append('النوع: ' + o.kind)
-    if o.tasks: meta.append('المهام: ' + ' · '.join(o.tasks))
-    meta.append('**الحالة: %s**' % o.status)
-    s = '### %s · %s UTC · %s\n\n%s\n\n~~~~text\n%s\n~~~~\n' % (mid, ts.replace('T', ' ')[:16], SNAME.get(o.session, o.session), ' · '.join(meta), public(text).replace('~~~~', '~ ~ ~ ~'))
+    num = last_id() + 1
+    while True:  # رقم مأخوذ في المخزن (جلسة أخرى) ⇒ التالي
+        mid = 'م-%04d' % num
+        try: store_put(b'reserved', 'messages/new/m%04d.lock' % num)
+        except FileExistsError: num += 1; continue
+        meta = ['المصدر: نصّ المحادثة (أُضيف مباشرةً)']
+        if o.seq is not None: meta.append('seq %d' % o.seq)
+        meta.append('النوع: ' + o.kind)
+        if o.tasks: meta.append('المهام: ' + ' · '.join(o.tasks))
+        meta.append('**الحالة: %s**' % o.status)
+        head = '### %s · %s UTC · %s\n\n%s\n\n~~~~text\n' % (mid, ts.replace('T', ' ')[:16], SNAME.get(o.session, o.session), ' · '.join(meta))
+        s = head + public(text).replace('~~~~', '~ ~ ~ ~') + '\n~~~~\n'
+        full = head + text + '\n~~~~\n'
+        keys = ['media/new/%s_%s_%02d%s' % (mid.replace('م-', 'm'), ts[:10], i, os.path.splitext(p)[1].lower()) for i, p in enumerate(o.priv, 1)]
+        fmedia = ['![](../../%s)' % k for k in keys] + ['- `%s` (في المستودع العامّ)' % x for x in o.pub]
+        if fmedia: full += '\n**الوسائط:**\n\n' + '\n'.join(fmedia) + '\n'
+        try: store_put(full.encode('utf-8'), 'messages/new/%s.md' % mid.replace('م-', 'm')); break
+        except FileExistsError: num += 1
     media = ['![](../../%s) — `%s`' % (p, p) for p in o.pub]
-    full = '### %s · %s UTC · %s\n\n%s\n\n~~~~text\n%s\n~~~~\n' % (mid, ts.replace('T', ' ')[:16], SNAME.get(o.session, o.session), ' · '.join(meta), text)
-    fmedia = []
-    for i, p in enumerate(o.priv, 1):
-        key = 'media/new/%s_%s_%02d%s' % (mid.replace('م-', 'm'), ts[:10], i, os.path.splitext(p)[1].lower())
+    for p, key in zip(o.priv, keys):
         store_put(open(p, 'rb').read(), key)
-        media.append('🔒 `%s` — في التخزين الخاصّ `owner-archive`' % key); fmedia.append('![](../../%s)' % key)
-    fmedia += ['- `%s` (في المستودع العامّ)' % x for x in o.pub]
-    if fmedia: full += '\n**الوسائط:**\n\n' + '\n'.join(fmedia) + '\n'
-    store_put(full.encode('utf-8'), 'messages/new/%s.md' % mid.replace('م-', 'm'))
+        media.append('🔒 `%s` — في التخزين الخاصّ `owner-archive`' % key)
     if media: s += '\n**الوسائط المرفقة:**\n\n' + '\n'.join('- ' + m for m in media) + '\n'
     fn, title = CATS[o.cat]
     path = os.path.join(ARCH, '%s_%s.md' % (fn, ts[:7]))
