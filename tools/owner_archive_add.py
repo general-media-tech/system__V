@@ -11,14 +11,14 @@
       [--priv /path/receipt.jpg ...]         # فيها بيانات زبائن ⇒ تُشفَّر إلى handoffs/private/owner_media/
 
   --cat: p = برومبتات/طريقة عمل/دستور · f = طلبات تحديث وميزات · b = أخطاء وتصليحات
-  التشفير بكلمة الحزمة gmt_owner_archive_2026-11-13 (من جدول gmt_handoff_files) عبر متغيّر البيئة GMT_ARCHIVE_PW — لا تُكتب في أيّ ملفّ.
+  نسخة الرسالة الكاملة بلا إخفاء + صورها الخاصّة تُرفع إلى التخزين الخاصّ owner-archive (messages/new · media/new) — طلب المالك seq 649.
+  يحتاج متغيّر البيئة SUPABASE_ANON_KEY (المفتاح العامّ للقاعدة الرئيسية).
   النصّ يُنقل كما هو؛ يُخفى فقط: المفاتيح السرّية · أرقام الهواتف · أرقام التتبّع الطويلة.
 """
-import argparse, datetime, glob, os, re, subprocess, sys
+import argparse, datetime, glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCH = os.path.join(ROOT, 'docs', 'أرشيف_المالك')
-PRIVDIR = os.path.join(ROOT, 'handoffs', 'private', 'owner_media')
 CATS = {'p': ('١_برومبتات_وطريقة_العمل_والدستور', 'البرومبتات وطريقة العمل والدستور'),
         'f': ('٢_طلبات_التحديث_والميزات', 'طلبات التحديث والميزات الجديدة'),
         'b': ('٣_الأخطاء_والتصليحات', 'الأخطاء والتصليحات')}
@@ -44,14 +44,21 @@ def last_id():
     return n
 
 
-def encrypt(src, name):
-    pw = os.environ.get('GMT_ARCHIVE_PW')
-    if not pw: sys.exit('GMT_ARCHIVE_PW غير مضبوط — كلمة الحزمة من gmt_handoff_files (gmt_owner_archive_2026-11-13.passphrase)')
-    os.makedirs(PRIVDIR, exist_ok=True)
-    dst = os.path.join(PRIVDIR, name + '.gpg')
-    subprocess.run(['gpg', '--batch', '--yes', '--pinentry-mode', 'loopback', '--symmetric', '--cipher-algo', 'AES256',
-                    '--passphrase-fd', '0', '-o', dst, src], input=pw.encode(), check=True)
-    return os.path.relpath(dst, ROOT)
+STORE = 'https://ysawzwtmodkqqbqoiojj.supabase.co/storage/v1/object/owner-archive/'
+CT = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.mp4': 'video/mp4',
+      '.pdf': 'application/pdf', '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8'}
+
+
+def store_put(data, key):
+    """رفع إلى التخزين الخاصّ owner-archive (غير عامّ: إضافة فقط، لا قراءة إلا من لوحة Supabase)."""
+    k = os.environ.get('SUPABASE_ANON_KEY')
+    if not k: sys.exit('SUPABASE_ANON_KEY غير مضبوط (المفتاح العامّ للقاعدة الرئيسية)')
+    import urllib.request
+    req = urllib.request.Request(STORE + key, data=data, method='POST', headers={
+        'apikey': k, 'Authorization': 'Bearer ' + k, 'Content-Type': CT.get(os.path.splitext(key)[1].lower(), 'application/octet-stream')})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        if r.status != 200: sys.exit('فشل الرفع %s: %s' % (key, r.status))
+    return key
 
 
 def main():
@@ -70,9 +77,15 @@ def main():
     meta.append('**الحالة: %s**' % o.status)
     s = '### %s · %s UTC · %s\n\n%s\n\n~~~~text\n%s\n~~~~\n' % (mid, ts.replace('T', ' ')[:16], SNAME.get(o.session, o.session), ' · '.join(meta), public(text).replace('~~~~', '~ ~ ~ ~'))
     media = ['![](../../%s) — `%s`' % (p, p) for p in o.pub]
+    full = '### %s · %s UTC · %s\n\n%s\n\n~~~~text\n%s\n~~~~\n' % (mid, ts.replace('T', ' ')[:16], SNAME.get(o.session, o.session), ' · '.join(meta), text)
+    fmedia = []
     for i, p in enumerate(o.priv, 1):
-        name = '%s_%s_%02d%s' % (mid.replace('م-', 'm'), ts[:10], i, os.path.splitext(p)[1].lower())
-        media.append('🔒 `%s` — مشفّرة (كلمة حزمة الأرشيف)' % encrypt(p, name))
+        key = 'media/new/%s_%s_%02d%s' % (mid.replace('م-', 'm'), ts[:10], i, os.path.splitext(p)[1].lower())
+        store_put(open(p, 'rb').read(), key)
+        media.append('🔒 `%s` — في التخزين الخاصّ `owner-archive`' % key); fmedia.append('![](../../%s)' % key)
+    fmedia += ['- `%s` (في المستودع العامّ)' % x for x in o.pub]
+    if fmedia: full += '\n**الوسائط:**\n\n' + '\n'.join(fmedia) + '\n'
+    store_put(full.encode('utf-8'), 'messages/new/%s.md' % mid.replace('م-', 'm'))
     if media: s += '\n**الوسائط المرفقة:**\n\n' + '\n'.join('- ' + m for m in media) + '\n'
     fn, title = CATS[o.cat]
     path = os.path.join(ARCH, '%s_%s.md' % (fn, ts[:7]))
