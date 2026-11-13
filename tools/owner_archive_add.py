@@ -3,6 +3,8 @@
 
 الأرشيف مستقلّ عن سجلّ المالك gmt_owner_log: كلّ رسالة تُحفظ في السجلّ **وتُضاف هنا أيضاً** — حرفياً، مع وسائطها.
 
+الترقيم: م-A#### لجلسة 01MWfC · م-B#### لجلسة 01XEjH (طلب المالك seq 654) — لا تصادم بين الجلستين.
+
 الاستعمال:
   python3 tools/owner_archive_add.py --cat f --seq 646 --session session_01MWfC... \
       --tasks TASK-0370 --status "🔧 قيد العمل" --text-file msg.txt \
@@ -22,6 +24,7 @@ ARCH = os.path.join(ROOT, 'docs', 'أرشيف_المالك')
 CATS = {'p': ('١_برومبتات_وطريقة_العمل_والدستور', 'البرومبتات وطريقة العمل والدستور'),
         'f': ('٢_طلبات_التحديث_والميزات', 'طلبات التحديث والميزات الجديدة'),
         'b': ('٣_الأخطاء_والتصليحات', 'الأخطاء والتصليحات')}
+PFX = {'session_01MWfC494J8Ayokvio9Ve6C9': 'A', 'session_01XEjHNW9dqo1zWS8cEcUN7i': 'B'}  # طلب المالك seq 654: حرف لكلّ جلسة قبل الرقم ⇒ لا تصادم أرقام
 SNAME = {'session_01MWfC494J8Ayokvio9Ve6C9': 'الجلسة 01MWfC (هذه المحادثة)', 'session_01XEjHNW9dqo1zWS8cEcUN7i': 'الجلسة 01XEjH (الجلسة الأخرى)'}
 SECRET = [re.compile(p) for p in [r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}', r'\bsk-[A-Za-z0-9_-]{20,}', r'\bAIza[0-9A-Za-z_-]{30,}',
           r'\bgh[pousr]_[A-Za-z0-9]{30,}', r'github_pat_[A-Za-z0-9_]{30,}', r'\b\d{8,10}:[A-Za-z0-9_-]{30,}\b', r'\btvly-[A-Za-z0-9_-]{16,}', r'\bsbp_[a-f0-9]{30,}',
@@ -40,7 +43,7 @@ def public(t):
 def last_id():
     n = 0
     for f in glob.glob(os.path.join(ARCH, '*.md')):
-        for m in re.finditer(r'^### م-(\d{4})', open(f, encoding='utf-8').read(), re.M): n = max(n, int(m.group(1)))
+        for m in re.finditer(r'^### م-[A-Z]?(\d{4})', open(f, encoding='utf-8').read(), re.M): n = max(n, int(m.group(1)))
     return n
 
 
@@ -74,10 +77,11 @@ def main():
     o = a.parse_args()
     ts = o.ts or datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
     text = open(o.text_file, encoding='utf-8').read().strip('\n')
+    px = PFX.get(o.session, 'X')
     num = last_id() + 1
-    while True:  # رقم مأخوذ في المخزن (جلسة أخرى) ⇒ التالي
-        mid = 'م-%04d' % num
-        try: store_put(b'reserved', 'messages/new/m%04d.lock' % num)
+    while True:  # رقم مأخوذ في المخزن ⇒ التالي (الحرف يمنع تصادم الجلستين)
+        mid = 'م-%s%04d' % (px, num)
+        try: store_put(b'reserved', 'messages/new/m%s%04d.lock' % (px, num))
         except FileExistsError: num += 1; continue
         meta = ['المصدر: نصّ المحادثة (أُضيف مباشرةً)']
         if o.seq is not None: meta.append('seq %d' % o.seq)
@@ -101,7 +105,7 @@ def main():
     path = os.path.join(ARCH, '%s_%s.md' % (fn, ts[:7]))
     body = open(path, encoding='utf-8').read() if os.path.exists(path) else '# %s — %s (0 رسالة)\n\n%s' % (title, ts[:7], HEAD)
     body = body.rstrip('\n') + '\n\n' + s + '\n'
-    n = len(re.findall(r'^### م-\d{4}', body, re.M))
+    n = len(re.findall(r'^### م-[A-Z]?\d{4}', body, re.M))
     body = re.sub(r'^(# .*?)\(\d+ رسالة\)', lambda m: '%s(%d رسالة)' % (m.group(1), n), body, count=1, flags=re.M)
     open(path, 'w', encoding='utf-8').write(body)
     print(mid, os.path.relpath(path, ROOT))
