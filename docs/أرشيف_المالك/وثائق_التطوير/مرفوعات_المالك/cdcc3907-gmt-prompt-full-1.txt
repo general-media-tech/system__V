@@ -1,0 +1,475 @@
+# برومبت: تحديث شامل للمنظومة الصوتية والتفاعلية لنظام GMT
+
+> أرفق مع هذا البرومبت ملف `gmt-sounds-v2.html`. (واذا بدك تربطه بالنظام الفعلي، أرفق كمان ملفات النظام.)
+
+---
+
+## 1) الدور والمهمة
+
+أنت مهندس صوت تفاعلي (Interaction & Audio Engineer) وخبير واجهات. الملف `gmt-sounds-v2.html` (مضمّن كاملاً بآخر البرومبت)، وهو مكتبة أصوات احترافية لنظام **GMT (General Meditech)**: نظام إدارة متكامل فيه كاشير POS، طلبات، مخزون، ضمان بالسيريال، عملاء، صندوق ودفع، مزامنة، وصلاحيات.
+
+المطلوب: **تحديث كامل للملف نفسه** (عدّل الملف مباشرة وسلّمه كاملاً، بدون شرح طويل قبله) بحيث يتحول من "معرض أصوات" إلى **منظومة تغذية راجعة متكاملة (صوت + اهتزاز + تأثير بصري)** تغطي **كل نقرة وكل عملية** في النظام، بدون استثناء.
+
+الهدف النهائي: المستخدم يحس إن النظام "حي". كل فعل إله صوت وهوية خاصة، والأخطاء والتحذيرات ما بس تنسمع بل كمان **تنحس وتنشاف** (اهتزاز الجهاز، اهتزاز الشاشة، وميض حواف، إلخ).
+
+---
+
+## 2) الوضع الحالي (لا تكسره)
+
+- الملف RTL عربي، فيه Tone.js مثبت على `tone@14.8.49` من jsDelivr، وفيه محرك أصوات كامل (جرس FM، رنين معدني، ماريمبا، نغمة ناعمة، طنين Saw، صافرة باركود، Membrane، ضجيج، وودبلوك، MetalSynth، انزلاقات Sine/Saw، مسحة ضجيج Sweep).
+- الاختصارات الموجودة: `B, Ch, Mk, So, Bz, Th, Tk, Wd, Sc, Mt, Gl, Sw`. استعملها وطوّر عليها، لا تحذفها.
+- الأصوات الحالية (كلها لازم تبقى بنفس **المفاتيح** بالضبط، ممنوع تغيير اسم أي مفتاح لأنو ممكن النظام يستعملها):
+
+**الواجهة:** `UI_CLICK, UI_MODAL_OPEN, UI_MODAL_CLOSE, UI_COPY`
+**POS:** `POS_SCAN_SUCCESS, POS_SCAN_UNKNOWN, POS_ITEM_ADD, POS_QTY_CHANGE, POS_DISCOUNT, POS_SALE_SUCCESS, POS_PAY_FAIL, POS_PRINT_START, WAR_VERIFIED`
+**الطلبات:** `ORD_NEW_REMOTE, ORD_STATUS_SHIP, ORD_DUPLICATE`
+**المخزون:** `INV_LOW_STOCK, INV_OUT_STOCK`
+**الأمنية:** `WAR_SERIAL_ERR, AUTH_DENIED` (+ `POS_PAY_FAIL, ORD_DUPLICATE` مصنفة critical)
+**الدخول والمزامنة:** `AUTH_LOGIN_OK, SYNC_OFFLINE, SYNC_SUCCESS`
+**الكيبورد:** `KB_SNIPPET_PASTE, KB_SEARCH_EMPTY`
+**الافتتاح:** `APP_INTRO, STORE_OPEN, STORE_CLOSE, APP_LOADING, LOAD_COMPLETE`
+**الصندوق:** `CASH_DRAWER_OPEN, PAY_CARD_OK, PAY_CASH_RECEIVED, REFUND`
+**النظام:** `SUCCESS_GENERIC, ERROR_GENERIC, WARNING_GENERIC, NOTIF_MESSAGE, SAVE_OK, DELETE, UNDO, UPLOAD_DONE, DOWNLOAD_DONE, PRINT_DONE, NEW_CUSTOMER, REMINDER_TIMER, SESSION_EXPIRING, UPDATE_AVAILABLE, LOGOUT, TARGET_REACHED`
+
+- بنية كل صوت: `{c: الفئة, l: الاسم, n: وصف الفكرة, d: المدة ms, f: التنفيذ}`. أضف عليها حقول جديدة (انظر القسم 5) ولا تكسر القديم.
+- حفظ مستوى الصوت في `localStorage` بالمفتاح `gmt_pro_vol` (لف كل استعمال لـ localStorage بـ try/catch).
+
+---
+
+## 3) الأصوات الجديدة المطلوبة (غطّي كل العمليات)
+
+أضف أصوات جديدة بمفاتيح بنفس نمط التسمية (`PREFIX_ACTION`). الأمثلة تحت **حد أدنى**؛ لو لقيت عملية ناقصة ضيفها بنفسك. كل عملية في نظام إدارة متاجر/كاشير لازم يكون إلها صوت:
+
+**أ) الواجهة العامة (UI):**
+hover خفيف (اختياري وخافت جداً)، focus على حقل، تفعيل/تعطيل مفتاح Toggle (صوتين مختلفين on/off)، checkbox محدد/غير محدد، radio، تبديل تبويب، فتح/إغلاق قائمة منسدلة، اختيار عنصر من قائمة، فتح/إغلاق قائمة جانبية، التنقل بين صفحات، رجوع، أكورديون يتمدد/ينطوي، سحب عنصر (drag start) وإفلاته (drop)، سحب للتحديث، وصول لنهاية القائمة، الصفحة التالية/السابقة، تثبيت Pin، مفضلة نجمة، لصق، قص، تحديد الكل، تحديث البيانات Refresh، تصدير، استيراد، مشاركة، تلميح Tooltip.
+
+**ب) الإدخال والنماذج:**
+خطأ تحقق في حقل (invalid)، إرسال نموذج ناجح، نموذج مرفوض، ضغطة حرف خافتة (اختيارية، مطفأة افتراضياً)، Backspace، Enter، مسح حقل، بحث مع نتائج، تطبيق فلتر، ترتيب Sort.
+
+**ج) الكاشير POS:**
+تعليق فاتورة (Hold)، استرجاع فاتورة معلقة، حذف عنصر من الفاتورة، تفريغ السلة، تعديل سعر يدوي، اختيار زبون، اختيار طريقة دفع، دفع مجزأ، حساب الباقي للزبون، إدخال باركود يدوي، إرسال الفاتورة (واتساب/إيميل)، تحذير منتج منتهي أو قريب الانتهاء.
+
+**د) الطلبات:**
+كل حالة بصوت خاص: جديد → قيد التجهيز → جاهز → مع المندوب → مسلّم، إلغاء طلب، مرتجع طلب، إسناد لمندوب، ملاحظة على طلب، طلب مستعجل (أقوى من العادي).
+
+**هـ) المخزون:**
+إضافة منتج، تعديل منتج، حذف منتج، رفع صورة منتج، إضافة كمية، تحويل مخزون بين فروع، جرد (بدء/تطابق/عدم تطابق)، طباعة ملصقات باركود، إنشاء تصنيف.
+
+**و) الضمان:**
+فحص سيريال (جاري)، ضمان منتهٍ، تمديد ضمان، فتح مطالبة ضمان، إغلاق مطالبة (تم الحل).
+
+**ز) العملاء والمالية:**
+تعديل عميل، دمج عملاء مكررين، تسجيل دين، تسديد دفعة دين، نقاط ولاء، إضافة مصروف، فاتورة مدفوعة، فاتورة متأخرة، توليد تقرير، فتح وردية، إغلاق وردية، تطابق الصندوق، **عجز أو زيادة بالصندوق** (تحذير).
+
+**ح) الأمان والدخول:**
+كلمة مرور خاطئة، رمز تحقق 2FA صحيح، رمز خاطئ، حساب مقفل، رفع صلاحية، **تأكيد عملية خطرة** (حذف جماعي/تصفير)، تأكيد مزدوج، نشاط مشبوه.
+
+**ط) المزامنة والشبكة:**
+عودة الاتصال (عكس SYNC_OFFLINE)، عمليات معلّقة بالطابور، تعارض بيانات Conflict، إعادة محاولة Retry، فشل مزامنة.
+
+**ي) النظام:**
+نسخة احتياطية اكتملت، تم تثبيت التحديث، مساحة تخزين ممتلئة، صلاحية انتهت، إشعار نظام مهم، تغيير الثيم، تغيير اللغة.
+
+---
+
+## 4) قواعد تصميم الصوت (مهمة جداً)
+
+1. **عائلات صوتية:** كل فئة ليها "بصمة" تميّزها بالتمبر: الواجهة = نقرات ميكانيكية/وودبلوك، POS = ماريمبا وصافرات ماسح، الطلبات = أجراس باب، المخزون = نغمات ناعمة، الأمنية = طنين + تريتون + ضربة ثقيلة، الصندوق = معدن وعملات، النظام = أجراس زجاجية.
+2. **منطق موحّد:** النجاح = صاعد ومشرق (وتر Major). الخطأ = هابط وخشن (Saw + تنافر). التحذير = تريتون متوسط الطول. المعلومة = نغمة محايدة. الخطر/المالي الحرج = الأقوى والأطول.
+3. **المدة حسب الأهمية:** نقرة صغيرة < 150ms، تأكيد عادي 200 إلى 500ms، عملية مهمة 600 إلى 1200ms، حدث كبير (افتتاح/هدف) حتى 3s. ممنوع صوت طويل لعملية متكررة.
+4. **التمييز:** ممنوع صوتين مختلفين المعنى يتشابهوا. افحص كل صوت جديد مقارنة بالأقرب إله وتأكد إن الفرق واضح بالأذن (نغمة أو إيقاع أو تمبر مختلف).
+5. **الصوت المتكرر:** لأي صوت بيتكرر كثير (نقرة، إضافة عنصر، مسح باركود) أضف تنويع طفيف عشوائي (±10 سنت إلى ±40 سنت أو تغيير velocity بسيط) حتى ما يصير مزعج، من غير ما يفقد هويته.
+6. **هرمية الجهارة:** الأمنية والمالية الحرجة أعلى، التأكيدات متوسطة، النقرات أخفض. استعمل Limiter الموجود لمنع القصّ.
+7. **الأمان الصوتي:** لا ترددات حادة مؤذية، ولا أصوات فجائية عالية جداً.
+
+---
+
+## 5) محرك التغذية الراجعة (Feedback Engine)
+
+أضف داخل الملف طبقة منظمة (كائن عام `window.GMTFX`) تجمع **الصوت + الاهتزاز + التأثير البصري**، وكل صوت في `S` يأخذ حقول جديدة اختيارية:
+
+```
+{ ..., sev:'info|success|warn|error|critical', hap:[مصفوفة vibrate بالـ ms], fx:'اسم التأثير البصري', pri:رقم الأولوية, cd:زمن التهدئة ms }
+```
+
+### 5.1 التأثيرات البصرية (CSS animations خفيفة فقط، بدون مكتبات)
+- `shake`: اهتزاز أفقي للشاشة/العنصر (الخطأ = اهتزاز قصير 3 مرات، الحرج = اهتزاز أقوى وأطول).
+- `flash-red`: وميض أحمر على حواف الشاشة (vignette) للأخطاء الحرجة والرفض.
+- `flash-green` / `ripple-success`: دائرة خضراء تتوسع من مكان النقرة عند النجاح.
+- `flash-amber`: وميض كهرماني ناعم للتحذيرات.
+- `pulse-border`: نبض حدود العنصر المعني (حقل خطأ، منتج منخفض المخزون).
+- `pop`: تكبير بسيط للعنصر عند الإضافة (عنصر فاتورة جديد).
+- `count-tick`: حركة رقم السعر/الكمية عند التغيير.
+- `confetti-lite`: احتفال خفيف عند تحقيق الهدف اليومي (Canvas صغير أو عناصر CSS، بحد أقصى ~40 جزيء).
+- `bell-ring`: اهتزاز أيقونة الجرس عند وصول طلب جديد.
+
+### 5.2 الاهتزاز (Haptics)
+- استعمل `navigator.vibrate()` مع أنماط مرتبطة بالنوع (نجاح: نبضة قصيرة، خطأ: 3 نبضات، حرج: نمط طويل متقطع). اعمل feature detection ولا تطلع أي خطأ إذا غير مدعوم (مثل iOS)، وفي هالحالة اعتمد على التأثير البصري كبديل.
+
+### 5.3 قواعد التشغيل
+- **إلغاء التكرار:** لو العملية إلها صوت محدد، **لا تشغّل `UI_CLICK` العام معها** (الصوت المحدد يتغلب على النقرة العامة بنفس الحدث).
+- **Throttle/Cooldown:** كل مفتاح إله زمن تهدئة (افتراضي 60ms للنقرات، أطول للتنبيهات) لمنع الإغراق.
+- **أولوية:** الأصوات الحرجة تقطع الأقل أهمية وتخفض مؤقتاً (ducking) الباقي. حد أقصى للأصوات المتزامنة (~6).
+- **تنسيق الزمن:** التأثير البصري والاهتزاز يبدأوا بنفس لحظة بدء الصوت بالضبط.
+
+---
+
+## 6) الربط التلقائي بكل النظام (الأهم)
+
+المطلوب إن النظام يصير فيه صوت لكل شيء **بدون ما أضطر أعدل كل زر يدوياً**. نفّذ:
+
+1. **API عام واضح:**
+   - `GMTAudio.play(key)` تشغيل صوت.
+   - `GMTAudio.emit('pos.sale.success', {x,y,el})` تشغيل بالاسم الحدثي عبر جدول ربط.
+   - `GMTAudio.setVolume(v)`, `mute()`, `unmute()`, `setProfile(name)`, `toggleCategory(cat, bool)`.
+2. **جدول ربط مركزي** `GMT_EVENT_MAP` (كائن JSON) يربط أسماء الأحداث بالمفاتيح والتأثيرات، قابل للتعديل بدون لمس المحرك.
+3. **ربط تلقائي عبر Event Delegation على document:**
+   - `click` على: `button, a, [role=button], summary, label, input[type=checkbox|radio], select, [data-tab]`.
+   - **`data-sound="KEY"`** على أي عنصر يتجاوز الافتراضي، و **`data-sound="none"`** لإسكاته، و **`data-fx="shake|flash-red|..."`** للتأثير.
+   - إذا ما في `data-sound`، استنتج تلقائياً من النص/الكلاس/`type` (مثلاً زر فيه "حذف" أو class `danger` = `DELETE`، "حفظ" = `SAVE_OK`، "طباعة" = `POS_PRINT_START`، وهكذا). اعمل جدول كلمات مفتاحية عربي/إنجليزي قابل للتعديل.
+   - `invalid` على الحقول → صوت خطأ تحقق + `pulse-border` على الحقل.
+   - `submit`, `focusin`, `change`, `keydown` (Enter/Escape/Backspace)، `dragstart/drop`، `online/offline`.
+4. **MutationObserver** لاكتشاف: فتح/إغلاق المودالات (`dialog[open]`, `.modal.show`, `[aria-hidden]`)، ظهور Toasts/Alerts (`[role=alert]`, `.toast`)، إضافة صف جديد لجدول الفاتورة (`POS_ITEM_ADD`)، تغير حالة طلب.
+5. **حماية الأخطاء العامة:** `window.onerror` و`unhandledrejection` → `ERROR_GENERIC` بدون إغراق (حد أقصى مرة كل ثانيتين).
+6. **أغلفة (wrappers) اختيارية:** اعطني دالة جاهزة تلف `fetch` أو استدعاءات Supabase لتشغّل نجاح/فشل تلقائياً، وتكون **مطفأة افتراضياً** ويتم تفعيلها بسطر واحد.
+7. **سياسة المتصفح:** الصوت لازم يتفعّل بعد أول تفاعل من المستخدم (`Tone.start()` ضمن حدث)، مع تحميل كسول للمحرك. أضف زر/بانر صغير "فعّل الصوت" إذا المتصفح منع التشغيل.
+
+---
+
+## 7) لوحة الإعدادات (للمستخدم النهائي)
+
+أضف مكوّن إعدادات جاهز للنسخ داخل النظام:
+- مستوى الصوت + كتم.
+- **بروفايلات جاهزة:** كامل / هادئ (نقرات صامتة، بس التنبيهات) / أمنية فقط / صامت تماماً.
+- تشغيل/إطفاء لكل فئة على حدة.
+- تشغيل/إطفاء الاهتزاز، والتأثيرات البصرية، ووضع "تقليل الحركة" (احترم `prefers-reduced-motion` تلقائياً: بدون shake ولا وميض قوي).
+- كل الإعدادات تنحفظ في `localStorage` (try/catch).
+
+---
+
+## 8) تحديث صفحة المعرض نفسها
+
+- ضيف الفئات الجديدة للـ `CATS` (كل المجموعات المذكورة بالقسم 3) مع إيموجي واضح بكل فئة.
+- كل صوت يظهر مع: الاسم، الوصف، المفتاح، **مدة، شارة النوع (info/success/warn/error/critical)**، وزر تشغيل، وزر **"جرّب التأثير الكامل"** (صوت + اهتزاز + بصري).
+- حافظ على: شريط الصوت، الفلاتر (chips)، "تشغيل الكل بالترتيب"، دعم الوضع الداكن/الفاتح، وتصميم الموبايل (safe-area).
+- أضف قسم **"ملعب تجريبي (Playground)"** فيه عناصر وهمية تثبت الربط التلقائي: أزرار عادية وخطرة، نموذج بحقل غلط، مودال يفتح ويسكر، toast، قائمة منسدلة، toggle، وسحب وإفلات. بحيث أجرّب إن كل شيء بيصدّي صوت وتأثير تلقائياً.
+- زر **"تصدير جدول الربط (JSON)"** ينزّل `GMT_EVENT_MAP` الحالي.
+
+---
+
+## 9) قيود تقنية
+
+- ملف HTML واحد مستقل، بدون مكتبات إضافية غير Tone.js الموجودة (ثبّت النسخة، لا تستعمل unpkg/esm.sh).
+- اللغة العربية RTL، وكل النصوص بالعربي.
+- لا تستعمل `alert/confirm` ولا `<form>` غير لازمة.
+- كل `localStorage` داخل try/catch.
+- الأداء: لا تنشئ synths جديدة عند كل تشغيل؛ استعمل الموجودة، وأي synth جديد يتعمل مرة وحدة بالـ boot.
+- حافظ على توافق الأسماء القديمة 100%.
+- أي صوت جديد لازم يتفحص بالأذن/المنطق إنو ما بيشبه صوت ثاني (اذكر في التقرير الأقرب إله وكيف تميّز عنه).
+
+---
+
+## 10) المخرجات المطلوبة
+
+1. **الملف المحدّث كاملاً** (`gmt-sounds-v3.html`) جاهز يشتغل، بدون اختصار أو "كمّل هنا".
+2. بعد الملف، **تقرير مختصر** فيه: عدد الأصوات الجديدة حسب الفئة، جدول الربط الأساسي (حدث → مفتاح → تأثير)، وكيف أستعمل `data-sound` و`data-fx` و`GMTAudio.emit`.
+3. **دليل دمج بخطوات قصيرة** لإضافة المحرك لأي صفحة في نظام GMT (سطرين لثلاث أسطر ما أكثر).
+4. قائمة بالأصوات اللي ممكن تتشابه وأنصح بمراجعتها بالأذن.
+
+---
+
+## 11) الملف الأصلي (مضمّن كاملاً)
+
+اعتبر المحتوى بين الوسمين هو الملف `gmt-sounds-v2.html` الحالي. عدّل عليه مباشرة وسلّم النسخة المحدّثة كاملة.
+
+<gmt-sounds-v2.html>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>أصوات GMT الاحترافية v2</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f5f6f8;--card:#fff;--tx:#111827;--mut:#6b7280;--bd:#e5e7eb;--ac:#ef4444;--btn:#f3f4f6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f17;--card:#111827;--tx:#f3f4f6;--mut:#9ca3af;--bd:#1f2937;--btn:#1f2937}}
+:root[data-theme="dark"]{--bg:#0b0f17;--card:#111827;--tx:#f3f4f6;--mut:#9ca3af;--bd:#1f2937;--btn:#1f2937}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;padding:16px;max-width:640px;margin-inline:auto}
+h1{font-size:18px;margin:0 0 4px}.sub{font-size:12px;color:var(--mut);margin-bottom:12px}
+.top{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+input[type=range]{flex:1;accent-color:var(--ac)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{border:1px solid var(--bd);background:var(--btn);color:var(--tx);border-radius:99px;padding:5px 12px;font-size:12px;cursor:pointer}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.all{width:100%;margin-top:10px;background:var(--ac);color:#fff;border:0;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}
+.item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.item.play{border-color:var(--ac)}
+.lbl{font-weight:600;font-size:14px}.nt{font-size:11.5px;color:var(--mut);margin:2px 0}
+code{font-size:11px;color:var(--mut);direction:ltr;display:inline-block}
+.p{background:var(--ac);color:#fff;border:0;border-radius:8px;min-width:64px;padding:9px 12px;font-size:13px;cursor:pointer;flex-shrink:0}
+.sec{font-size:12px;color:var(--mut);margin:14px 2px 6px;font-weight:700}
+#err{color:var(--ac);font-size:13px;margin-bottom:8px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+</head>
+<body>
+<h1>🔊 أصوات GMT الاحترافية v2</h1>
+<div class="sub">كل صوت له هوية مستقلة: محاكاة لصوت حقيقي (ماسح باركود، ماكينة كاشير، قفل، ختم...) أو إيقاع مميز. تحت كل اسم وصف لفكرة الصوت.</div>
+<div id="err"></div>
+<div class="top">
+  <div class="row"><span>مستوى الصوت</span><input type="range" id="vol" min="0" max="100" value="80"><b id="vt">80%</b></div>
+  <div class="chips" id="chips"></div>
+  <button class="all" id="all">▶ تشغيل الكل بالترتيب</button>
+</div>
+<div id="list"></div>
+
+<script>
+(function(){
+'use strict';
+const CATS={all:'الكل',ui:'الواجهة',pos:'POS',orders:'الطلبات',inventory:'المخزون',auth:'الدخول والمزامنة',keyboard:'الكيبورد',critical:'🛡️ أمنية',intro:'🚀 الافتتاح والتحميل',cash:'💵 الصندوق والدفع',sys:'⚙️ النظام'};
+let I=null,vol=.8,cat='all',booting=null;
+try{const v=localStorage.getItem('gmt_pro_vol');if(v!==null)vol=+v}catch(e){}
+
+async function boot(){
+ if(I)return;
+ if(booting)return booting;
+ booting=(async()=>{
+  await Tone.start();
+  const master=new Tone.Limiter(-1).toDestination();
+  const rev=new Tone.Reverb({decay:1.4,preDelay:.01,wet:.22});await rev.generate();rev.connect(master);
+
+  // جرس زجاجي (FM عالي التوافق)
+  const bell=new Tone.PolySynth(Tone.FMSynth,{harmonicity:5.07,modulationIndex:3,oscillator:{type:'sine'},
+   envelope:{attack:.001,decay:.55,sustain:0,release:.7},modulation:{type:'sine'},
+   modulationEnvelope:{attack:.002,decay:.25,sustain:0,release:.2},volume:-13}).connect(rev);
+  // رنين معدني طويل (جرس كاشير / جرس باب)
+  const chime=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3.01,modulationIndex:5,oscillator:{type:'sine'},
+   envelope:{attack:.001,decay:1.1,sustain:0,release:1.1},modulation:{type:'sine'},
+   modulationEnvelope:{attack:.001,decay:.45,sustain:0,release:.3},volume:-15}).connect(rev);
+  // نقرة خشبية مثل الماريمبا
+  const mallet=new Tone.PolySynth(Tone.FMSynth,{harmonicity:3.99,modulationIndex:12,oscillator:{type:'sine'},
+   envelope:{attack:.001,decay:.2,sustain:0,release:.1},modulation:{type:'sine'},
+   modulationEnvelope:{attack:.001,decay:.08,sustain:0,release:.05},volume:-10}).connect(rev);
+  // نغمة ناعمة
+  const soft=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},
+   envelope:{attack:.004,decay:.14,sustain:0,release:.12},volume:-14}).connect(rev);
+  // طنين (باز) خشن
+  const lp=new Tone.Filter(1300,'lowpass').connect(master);
+  const buzz=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'sawtooth'},
+   envelope:{attack:.004,decay:.1,sustain:.5,release:.06},volume:-13}).connect(lp);
+  // صافرة ماسح الباركود (مربّع ~2.8kHz)
+  const lp2=new Tone.Filter(7000,'lowpass').connect(master);
+  const scan=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:.001,decay:.04,sustain:.7,release:.01},volume:-15}).connect(lp2);
+  // ضربة منخفضة
+  const thump=new Tone.MembraneSynth({pitchDecay:.05,octaves:6,
+   envelope:{attack:.001,decay:.26,sustain:0,release:.1},volume:-8}).connect(master);
+  // نقرة ميكانيكية (ضجيج)
+  const hp=new Tone.Filter(4500,'highpass').connect(master);
+  const nz=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:.001,decay:.014,sustain:0,release:.01},volume:-20}).connect(hp);
+  // وودبلوك
+  const wood=new Tone.MembraneSynth({pitchDecay:.008,octaves:2.5,
+   envelope:{attack:.001,decay:.07,sustain:0,release:.03},volume:-6}).connect(master);
+  // معدن (كاشير / تحذير)
+  const metal=new Tone.MetalSynth({frequency:500,envelope:{attack:.001,decay:.35,release:.2},
+   harmonicity:5.1,modulationIndex:24,resonance:4200,octaves:1.4,volume:-26}).connect(rev);
+  // انزلاق نغمي (sine) وانزلاق خشن (saw)
+  const glideSine=new Tone.Synth({oscillator:{type:'sine'},
+   envelope:{attack:.005,decay:.1,sustain:.7,release:.08},volume:-10}).connect(rev);
+  const lp3=new Tone.Filter(1800,'lowpass').connect(master);
+  const glideSaw=new Tone.Synth({oscillator:{type:'sawtooth'},
+   envelope:{attack:.01,decay:.1,sustain:.8,release:.1},volume:-12}).connect(lp3);
+  // مسحة ضجيج (whoosh / زيب شريط لاصق)
+  const swF=new Tone.Filter({type:'bandpass',frequency:1000,Q:2.5}).connect(master);
+  const sw=new Tone.NoiseSynth({noise:{type:'pink'},
+   envelope:{attack:.03,decay:.05,sustain:.8,release:.08},volume:-8}).connect(swF);
+
+  I={bell,chime,mallet,soft,buzz,scan,thump,nz,wood,metal,glideSine,glideSaw,sw,swF};
+  Tone.Destination.volume.value=Tone.gainToDb(Math.max(.0001,vol));
+ })();
+ return booting;
+}
+let T=0;
+const B=(n,o,d,v)=>I.bell.triggerAttackRelease(n,d||.4,T+o,v||.7);
+const Ch=(n,o,d,v)=>I.chime.triggerAttackRelease(n,d||.6,T+o,v||.7);
+const Mk=(n,o,d,v)=>I.mallet.triggerAttackRelease(n,d||.1,T+o,v||.8);
+const So=(n,o,d,v)=>I.soft.triggerAttackRelease(n,d||.1,T+o,v||.8);
+const Bz=(n,o,d,v)=>I.buzz.triggerAttackRelease(n,d||.12,T+o,v||.8);
+const Th=(n,o,v)=>I.thump.triggerAttackRelease(n,.2,T+o,v||.8);
+const Tk=(o,v)=>I.nz.triggerAttackRelease(.014,T+o,v||.7);
+const Wd=(n,o,v)=>I.wood.triggerAttackRelease(n,.05,T+o,v||.8);
+const Sc=(f,o,d,v)=>I.scan.triggerAttackRelease(f,d,T+o,v||.9);
+const Mt=(o,d,v)=>I.metal.triggerAttackRelease(d||.3,T+o,v||.6);
+// انزلاق نغمة من f1 إلى f2 خلال d ثانية
+const Gl=(f1,f2,o,d,v,kind)=>{
+ const s=kind==='saw'?I.glideSaw:I.glideSine,t=T+o;
+ s.frequency.cancelScheduledValues(t);
+ s.triggerAttack(f1,t,v||.8);
+ s.frequency.exponentialRampToValueAtTime(f2,t+d);
+ s.triggerRelease(t+d+.02)};
+// مسحة ضجيج بتردد يتحرك من f1 إلى f2
+const Sw=(f1,f2,o,d,v)=>{
+ const t=T+o;
+ I.swF.frequency.cancelScheduledValues(t);
+ I.swF.frequency.setValueAtTime(f1,t);
+ I.swF.frequency.exponentialRampToValueAtTime(f2,t+d);
+ I.sw.triggerAttackRelease(d,t,v||.8)};
+
+// c=الفئة, l=الاسم, n=فكرة الصوت, d=المدة(ms), f=التنفيذ
+const S={
+UI_CLICK:{c:'ui',l:'نقر زر تفاعلي',n:'نقرة مفتاح ميكانيكي قصيرة وجافة',d:150,
+ f:()=>{Tk(0,.9);Wd('C6',0,.35)}},
+UI_MODAL_OPEN:{c:'ui',l:'فتح نافذة منبثقة',n:'مسحة هواء صاعدة تنتهي بنغمة ناعمة، كأن النافذة تنفتح',d:450,
+ f:()=>{Sw(500,2800,0,.22,.5);So('B5',.2,.12,.6)}},
+UI_MODAL_CLOSE:{c:'ui',l:'إغلاق نافذة',n:'مسحة هابطة وطرقة منخفضة خفيفة، كأن النافذة تُغلق',d:400,
+ f:()=>{Sw(2800,500,0,.18,.4);Wd('E4',.17,.5)}},
+UI_COPY:{c:'ui',l:'نسخ نص أو بيانات',n:'نقرتان سريعتان صاعدتان (التقاط ثم تأكيد)',d:300,
+ f:()=>{Tk(0,.8);Mk('A6',0,.04,.6);Mk('E7',.07,.05,.6)}},
+POS_SCAN_SUCCESS:{c:'pos',l:'قراءة باركود ناجحة',n:'صافرة ماسح الباركود الحقيقية: 2.8kHz قصيرة وحادة',d:200,
+ f:()=>{Sc(2800,0,.08,.9)}},
+POS_SCAN_UNKNOWN:{c:'pos',l:'باركود غير مسجل',n:'صافرتان منخفضتان هابطتان: بطيء ومختلف تماماً عن النجاح',d:550,
+ f:()=>{Sc(520,0,.12,.9);Sc(380,.17,.24,.9)}},
+POS_ITEM_ADD:{c:'pos',l:'إضافة عنصر للفاتورة',n:'نقرة ماريمبا خشبية صاعدة (خامسة): "بلوب" إضافة',d:450,
+ f:()=>{Mk('G5',0,.12,.9);Mk('D6',.07,.2,.8)}},
+POS_QTY_CHANGE:{c:'pos',l:'تعديل الكمية',n:'نقرة ماريمبا واحدة خفيفة، من نفس عائلة إضافة العنصر',d:200,
+ f:()=>{Mk('C6',0,.05,.55)}},
+POS_DISCOUNT:{c:'pos',l:'تطبيق خصم',n:'انزلاق نغمي هابط (السعر ينزل) ثم "تينغ" لمعة',d:800,
+ f:()=>{Gl(1800,520,0,.28,.5,'sine');Ch('A6',.3,.4,.6)}},
+POS_SALE_SUCCESS:{c:'pos',l:'إتمام البيع بنجاح',n:'ماكينة كاشير: "كا" ميكانيكية ثم "تشينغ" معدني ورنين عملات',d:1700,
+ f:()=>{
+  Th('G2',0,.7);Tk(0,1);Wd('C4',0,.6);
+  Ch('C7',.12,1.2,.8);Ch('G7',.12,1.2,.5);Mt(.12,.5,.6);
+  Ch('E8',.5,.2,.3);Ch('G8',.56,.2,.25);Ch('C8',.62,.3,.25)}},
+POS_PAY_FAIL:{c:'critical',l:'فشل العملية المالية',n:'"بووومب" هابطة بصوت خشن مرتين (مثل خسارة في لعبة) مع ضربة ثقيلة',d:1100,
+ f:()=>{Th('C2',0,.9);Gl(330,110,0,.45,.9,'saw');Gl(260,85,.52,.4,.9,'saw')}},
+POS_PRINT_START:{c:'pos',l:'بدء طباعة الفاتورة',n:'طابعة حرارية: طقطقة متتابعة ثم قطع الورق',d:750,
+ f:()=>{for(let i=0;i<10;i++){Tk(i*.05,.5+.4*(i%2));if(i%2===0)Wd('A4',i*.05,.2)}
+  Sw(3500,7000,.55,.07,.5)}},
+ORD_NEW_REMOTE:{c:'orders',l:'وصول طلب جديد',n:'جرس باب "دينغ-دونغ" مرتين لجذب الانتباه',d:2300,
+ f:()=>{Ch('E6',0,.7,.8);Ch('C6',.32,1,.8);Ch('E6',.95,.7,.8);Ch('C6',1.27,1.1,.8)}},
+ORD_STATUS_SHIP:{c:'orders',l:'تسليم الشحنة',n:'زيب شريط لاصق ثم طرقة صندوق ورنين نهاية',d:1100,
+ f:()=>{Sw(400,3500,0,.25,.55);Th('E2',.26,.7);Wd('E4',.26,.7);Ch('A6',.34,.6,.6)}},
+ORD_DUPLICATE:{c:'critical',l:'اكتشاف طلب مكرر',n:'طنينان متطابقان تماماً (نفس الشيء مرتين)',d:550,
+ f:()=>{Bz('A4',0,.08,.8);Bz('A4',.14,.08,.8);Wd('A3',0,.4);Wd('A3',.14,.4)}},
+INV_LOW_STOCK:{c:'inventory',l:'تنبيه انخفاض المخزون',n:'نغمتان ناعمتان بطيئتان هابطتان: تنبيه هادئ غير مستعجل',d:850,
+ f:()=>{So('A5',0,.2,.9);So('E5',.3,.35,.9)}},
+INV_OUT_STOCK:{c:'inventory',l:'نفاد المخزون تماماً',n:'نغمة تهبط وتتلاشى كأن الجهاز يفرغ، ثم طرقة فارغة',d:1000,
+ f:()=>{Gl(500,60,0,.6,.8,'sine');Th('D2',.55,.7);Wd('D3',.55,.6)}},
+WAR_SERIAL_ERR:{c:'critical',l:'سيريال ضمان باطل أو مكرر',n:'ثلاث دقات طنين سريعة بفاصل نغمي متنافر (تريتون) مع قرع معدني',d:900,
+ f:()=>{[0,.11,.22].forEach(o=>{Bz('C3',o,.07,1);Bz('F#3',o,.07,1)});Th('C2',0,.7);Mt(0,.25,.7)}},
+WAR_VERIFIED:{c:'pos',l:'اعتماد سريان الضمان',n:'ختم رسمي (طرقة) ثم رنتان صافيتان صاعدتان',d:1300,
+ f:()=>{Th('E2',0,.8);Tk(0,.8);Wd('C4',0,.5);Ch('G6',.14,.5,.7);Ch('D7',.26,.9,.7)}},
+AUTH_LOGIN_OK:{c:'auth',l:'تسجيل دخول معتمد',n:'قفل ينفتح (نقرتان) ثم انزلاق صاعد ترحيبي',d:1100,
+ f:()=>{Wd('G4',0,.7);Tk(0,.7);Wd('C5',.09,.8);Gl(523,784,.2,.22,.45,'sine');So('C6',.45,.4,.5)}},
+AUTH_DENIED:{c:'critical',l:'رفض الصلاحية',n:'"أوه-أووه" منخفضة: قصيرة ثم أطول وأخفض (رفض)',d:700,
+ f:()=>{Th('G2',0,.6);Bz('G3',0,.12,.9);Bz('Eb3',.2,.35,.9)}},
+SYNC_OFFLINE:{c:'auth',l:'انقطاع الشبكة',n:'ثلاث نقرات هابطة تخفت تدريجياً (إشارة واي-فاي تضعف)',d:700,
+ f:()=>{So('E6',0,.07,.9);So('C6',.12,.07,.55);So('A5',.24,.07,.3)}},
+SYNC_SUCCESS:{c:'auth',l:'اكتمال مزامنة السجلات',n:'سلّم سريع صاعد (نقل بيانات) ينتهي برنّة',d:900,
+ f:()=>{['C6','D6','E6','G6','A6','C7'].forEach((n,i)=>Mk(n,i*.045,.05,.45+i*.08));Ch('G7',.3,.5,.5)}},
+KB_SNIPPET_PASTE:{c:'keyboard',l:'إدراج رد جاهز',n:'"بوب" فقاعة سريعة صاعدة',d:200,
+ f:()=>{Gl(300,1000,0,.045,.6,'sine');Tk(.04,.4)}},
+KB_SEARCH_EMPTY:{c:'keyboard',l:'لا توجد نتائج بحث',n:'نفخة هواء تهبط ونغمة منخفضة صغيرة: "لا شيء"',d:450,
+ f:()=>{Sw(2000,300,0,.18,.35);So('G4',.1,.14,.5)}},
+
+// ===== الافتتاح والتحميل =====
+APP_INTRO:{c:'intro',l:'افتتاح التطبيق (إنترو GMT)',n:'اندفاعة هواء صاعدة مع دوي منخفض، ثم وميض أجراس يستقر على وتر مشرق: توقيع هوية قصير',d:2800,
+ f:()=>{Th('C2',0,.6);Gl(110,420,0,.85,.4,'sine');Sw(300,7000,0,.85,.4);
+  Ch('C5',.85,1.6,.7);Ch('G5',.85,1.6,.6);Ch('E6',.9,1.6,.6);Ch('C7',1.05,1.4,.5);
+  ['C6','E6','G6','C7','E7','G7'].forEach((n,i)=>Mk(n,.9+i*.06,.1,.45))}},
+STORE_OPEN:{c:'intro',l:'فتح المتجر',n:'ستارة محل معدنية ترتفع بخشخشة، ضربة توقف، جرس باب، ثم وتر ترحيبي',d:3300,
+ f:()=>{Sw(180,900,0,.95,.6);for(let i=0;i<7;i++)Wd(i%2?'D3':'F3',i*.14,.4);
+  Th('G2',1.0,.8);Wd('C3',1.0,.8);
+  Ch('E6',1.25,.9,.8);Ch('C6',1.55,1.2,.8);
+  Ch('G5',2.0,1.2,.5);Ch('C6',2.0,1.2,.5);Ch('E6',2.0,1.2,.5)}},
+STORE_CLOSE:{c:'intro',l:'إغلاق المتجر',n:'ستارة معدنية تنزل بخشخشة، ارتطام بالأرض، ثم قفل ينغلق',d:2200,
+ f:()=>{Sw(900,180,0,.85,.6);for(let i=0;i<6;i++)Wd(i%2?'F3':'D3',i*.14,.4);
+  Th('E2',.88,.9);Wd('A2',.88,.9);Wd('G4',1.25,.7);Tk(1.25,.8);Wd('C4',1.34,.8)}},
+APP_LOADING:{c:'intro',l:'صوت التحميل (قابل للتكرار)',n:'نبضات ماريمبا صاعدة بإيقاع ثابت وهادئ، تصلح كحلقة أثناء الانتظار',d:1700,
+ f:()=>{['C5','E5','G5','B5','C6','B5','G5','E5'].forEach((n,i)=>Mk(n,i*.2,.08,.35+(i%2)*.1))}},
+LOAD_COMPLETE:{c:'intro',l:'اكتمال التحميل',n:'انزلاق سريع صاعد ينتهي بلمعة أجراس: الصفحة جاهزة',d:1000,
+ f:()=>{Gl(400,1500,0,.18,.5,'sine');B('E7',.2,.4,.7);B('B7',.28,.6,.5)}},
+
+// ===== الصندوق والدفع =====
+CASH_DRAWER_OPEN:{c:'cash',l:'فتح درج الكاشير',n:'طقطقة ترس سريعة، ارتطام الدرج، ثم رنة جرس معدنية',d:900,
+ f:()=>{for(let i=0;i<6;i++)Tk(i*.03,.6+.3*(i%2));Th('C2',.2,.8);Wd('E3',.2,.8);Mt(.22,.25,.5);Ch('E7',.24,.6,.5)}},
+PAY_CARD_OK:{c:'cash',l:'دفع بالبطاقة (تمرير ناجح)',n:'نقرتان زجاجيتان عاليتان سريعتان مثل بطاقة NFC',d:700,
+ f:()=>{B('C7',0,.12,.6);B('G7',.1,.3,.6);Tk(0,.5)}},
+PAY_CASH_RECEIVED:{c:'cash',l:'استلام مبلغ نقدي',n:'تساقط عملات معدنية: ضربات معدنية متقاربة بنغمات عشوائية',d:900,
+ f:()=>{[[0,'A6'],[.05,'E7'],[.09,'C7'],[.16,'G7'],[.2,'D7']].forEach(([o,n])=>{Ch(n,o,.25,.5);Mt(o,.12,.4)})}},
+REFUND:{c:'cash',l:'مرتجع / استرجاع مبلغ',n:'انزلاق هابط مع رنين منخفض: عكس صوت البيع',d:900,
+ f:()=>{Gl(1500,450,0,.25,.5,'sine');Mk('A4',.28,.2,.7);Mk('E4',.4,.3,.6)}},
+
+// ===== النظام =====
+SUCCESS_GENERIC:{c:'sys',l:'نجاح عام',n:'رنة جرس واحدة صافية',d:800,
+ f:()=>{Ch('E6',0,.6,.8)}},
+ERROR_GENERIC:{c:'sys',l:'خطأ عام',n:'طنين خشن واحد طويل مع ضربة',d:600,
+ f:()=>{Bz('D3',0,.3,.9);Th('D2',0,.6)}},
+WARNING_GENERIC:{c:'sys',l:'تحذير عام',n:'نغمتان متباعدتان (تريتون) متوسطتان: انتباه وليس خطر',d:700,
+ f:()=>{So('G5',0,.15,1);So('Db5',.2,.25,1)}},
+NOTIF_MESSAGE:{c:'sys',l:'رسالة / إشعار جديد',n:'نقرتا جرس زجاجي هابطتان خفيفتان',d:800,
+ f:()=>{B('D7',0,.15,.6);B('A6',.14,.5,.6)}},
+SAVE_OK:{c:'sys',l:'حفظ ناجح',n:'ضغطة قلم ثم لمعة صغيرة',d:600,
+ f:()=>{Tk(0,.8);Wd('A3',0,.5);Ch('G6',.06,.35,.5)}},
+DELETE:{c:'sys',l:'حذف',n:'تجعيد ورقة بنقرات ضجيج ثم سقوط في السلة',d:600,
+ f:()=>{Sw(4000,500,0,.2,.6);[0,.04,.08,.12,.17].forEach(o=>Tk(o,.7));Wd('F3',.22,.7)}},
+UNDO:{c:'sys',l:'تراجع',n:'ثلاث نقرات هابطة سريعة (إعادة للخلف)',d:350,
+ f:()=>{Mk('B5',0,.05,.6);Mk('G5',.06,.05,.55);Mk('E5',.12,.07,.5)}},
+UPLOAD_DONE:{c:'sys',l:'اكتمال الرفع',n:'انزلاق صاعد ثم رنة: الملف طار للسحابة',d:800,
+ f:()=>{Gl(400,1600,0,.18,.5,'sine');Ch('A6',.2,.4,.6)}},
+DOWNLOAD_DONE:{c:'sys',l:'اكتمال التنزيل',n:'نغمة هابطة قصيرة ثم ارتطام خفيف ورنة: الملف نزل',d:800,
+ f:()=>{Gl(900,300,0,.12,.5,'sine');Wd('C4',.13,.6);Ch('E7',.15,.4,.5)}},
+PRINT_DONE:{c:'sys',l:'انتهاء الطباعة',n:'قطع الورق ثم رنة صغيرة',d:600,
+ f:()=>{Sw(3500,7000,0,.07,.5);Wd('G3',.08,.6);Ch('E6',.12,.3,.4)}},
+NEW_CUSTOMER:{c:'sys',l:'عميل جديد',n:'جليساندو هارب سريع صاعد',d:900,
+ f:()=>{['C5','D5','E5','G5','A5','C6','D6','E6'].forEach((n,i)=>So(n,i*.04,.12,.7));B('G6',.34,.5,.5)}},
+REMINDER_TIMER:{c:'sys',l:'تذكير / منبه',n:'ثلاث رنات سريعة ثم رنة أطول: منبه مكتبي',d:1100,
+ f:()=>{B('C7',0,.1,.7);B('C7',.15,.1,.7);B('C7',.3,.1,.7);B('C7',.5,.4,.8)}},
+SESSION_EXPIRING:{c:'sys',l:'الجلسة على وشك الانتهاء',n:'ثلاث نبضات ناعمة بطيئة متماثلة: ترقب هادئ',d:1500,
+ f:()=>{So('A4',0,.3,.8);So('A4',.5,.3,.8);So('A4',1.0,.3,.8)}},
+UPDATE_AVAILABLE:{c:'sys',l:'تحديث جديد متاح',n:'اندفاعة هواء صاعدة ثم جرسان صاعدان',d:1000,
+ f:()=>{Sw(600,5000,0,.3,.4);B('B6',.3,.5,.6);B('E7',.4,.7,.6)}},
+LOGOUT:{c:'sys',l:'تسجيل الخروج',n:'عكس الدخول: قفل ينغلق مع انزلاق هابط',d:900,
+ f:()=>{Wd('C5',0,.7);Tk(0,.6);Wd('G4',.09,.7);Gl(784,392,.2,.25,.45,'sine')}},
+TARGET_REACHED:{c:'sys',l:'تحقيق الهدف اليومي',n:'احتفال: سلّم أجراس صاعد، قرع معدني، ودوي تصفيق هوائي',d:2800,
+ f:()=>{Th('C2',0,.7);['C6','E6','G6','C7','E7'].forEach((n,i)=>Ch(n,i*.1,1.2,.7));Mt(.4,.5,.7);Sw(800,6000,.4,.7,.35);Ch('G7',.6,1.5,.6)}}
+};
+async function play(k){
+ try{await boot()}catch(e){document.getElementById('err').textContent='تعذر تحميل مكتبة الصوت: '+e.message;return}
+ T=Tone.now()+.02;S[k].f();
+ const el=document.querySelector('[data-k="'+k+'"]');
+ if(el){el.classList.add('play');setTimeout(()=>el.classList.remove('play'),S[k].d)}
+}
+const list=document.getElementById('list');
+function render(){
+ list.innerHTML='';let last='';
+ Object.keys(S).filter(k=>cat==='all'||S[k].c===cat).forEach(k=>{
+  const s=S[k];
+  if(cat==='all'&&s.c!==last){last=s.c;const h=document.createElement('div');h.className='sec';h.textContent=CATS[s.c];list.appendChild(h)}
+  const d=document.createElement('div');d.className='item';d.dataset.k=k;
+  d.innerHTML='<div><div class="lbl">'+s.l+'</div><div class="nt">'+s.n+'</div><code>'+k+'</code></div><button class="p">▶ تشغيل</button>';
+  d.querySelector('button').onclick=()=>play(k);list.appendChild(d)})}
+const chips=document.getElementById('chips');
+Object.keys(CATS).forEach(k=>{const b=document.createElement('button');b.className='chip'+(k===cat?' on':'');b.textContent=CATS[k];
+ b.onclick=()=>{cat=k;chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');render()};chips.appendChild(b)});
+const vs=document.getElementById('vol'),vt=document.getElementById('vt');
+vs.value=Math.round(vol*100);vt.textContent=vs.value+'%';
+vs.oninput=()=>{vol=vs.value/100;vt.textContent=vs.value+'%';
+ if(I)Tone.Destination.volume.value=Tone.gainToDb(Math.max(.0001,vol));
+ try{localStorage.setItem('gmt_pro_vol',vol)}catch(e){}};
+let running=false;
+document.getElementById('all').onclick=async function(){
+ if(running)return;running=true;this.textContent='⏳ جاري التشغيل...';
+ for(const k of Object.keys(S).filter(k=>cat==='all'||S[k].c===cat)){
+  const el=document.querySelector('[data-k="'+k+'"]');
+  if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
+  await play(k);await new Promise(r=>setTimeout(r,S[k].d+400))}
+ running=false;this.textContent='▶ تشغيل الكل بالترتيب'};
+if(typeof Tone==='undefined')document.getElementById('err').textContent='تعذر تحميل مكتبة Tone.js';
+render();
+})();
+</script>
+</body>
+</html>
+</gmt-sounds-v2.html>
