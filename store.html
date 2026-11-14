@@ -211,7 +211,15 @@ window.GMT_PUBLIC = 1;</script>
         
         /* ── similar products ── */
         .similar-section { border-top:1px solid #f0f0f0; padding-top:16px; margin-top:8px; }
-    </style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة -->
+    .sub-strip{display:flex;gap:10px;overflow-x:auto;padding:6px 16px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.sub-strip::-webkit-scrollbar{display:none}
+.sub-chip{flex:0 0 auto;width:74px;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;cursor:pointer;padding:0}
+.sub-chip .sub-img{width:64px;height:64px;border-radius:16px;background:#fff;overflow:hidden;display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);transition:transform .15s}
+.sub-chip:active .sub-img{transform:scale(.94)}
+.sub-chip .sub-img img{width:100%;height:100%;object-fit:cover;display:block}
+.sub-chip .sub-img i{font-size:26px;color:#D5001C}
+.sub-chip .sub-nm{font-size:11px;font-weight:700;line-height:1.25;text-align:center;color:#1f2937;max-width:74px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+</style><!-- 🐞 جامع الأخطاء (2026-07-10) --><!-- 🎨 نوافذ بهويتنا + روابط مضبوطة + إصلاح المشاركة --><!-- 🔍 المفتّش: تقرير التجربة -->
   <!-- 🎨 الهوية البصرية الموحّدة (2026-07-12) — مصدر الحقيقة الوحيد للألوان والخط -->
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
@@ -935,8 +943,14 @@ function renderProducts() {
             const ph = document.createElement('h2');
             ph.className = 'font-bold text-[20px] px-4 mt-8 mb-1';
             ph.textContent = cat.name;
-            if (!prods.length) { ph.dataset.categorySection = cat.id; frag.appendChild(ph); return; }
-            frag.appendChild(ph);
+            /* (TASK-B0397 · المالك seq B653 «الأقسام الجدد لازم الهم صور مصغرة حطها على نمط القدام») شريط الأقسام الفرعية بصورها تحت العنوان — يقفز للقسم */
+            const live = kids.filter(k => store.products.some(p => _getProductCategories(p).includes(k.id)));
+            const strip = document.createElement('div');
+            strip.className = 'sub-strip'; strip.dataset.subStrip = cat.id;
+            strip.innerHTML = live.map(k => `<button type="button" class="sub-chip" data-sub-go="${escHtml(k.id)}">${k.image ? `<span class="sub-img"><img ${gmtThumbAttrs(k.image)} alt=""></span>` : `<span class="sub-img"><i class="ph ${k.icon || 'ph-squares-four'}"></i></span>`}<span class="sub-nm">${escHtml(k.short_name || String(k.name || '').split(/\s[·—]\s/)[0])}</span></button>`).join('');
+            strip.querySelectorAll('[data-sub-go]').forEach(b => b.addEventListener('click', () => { const s = document.querySelector(`section[data-category-section="${b.dataset.subGo}"]`); if (!s) return; const hh = document.querySelector('header')?.offsetHeight || 60; window.scrollTo({ top: s.getBoundingClientRect().top + (window.pageYOffset || 0) - hh - 8, behavior: 'smooth' }); }));
+            if (!prods.length) { ph.dataset.categorySection = cat.id; frag.appendChild(ph); if (live.length > 1) frag.appendChild(strip); return; }
+            frag.appendChild(ph); if (live.length > 1) frag.appendChild(strip);
         }
         if (!prods.length) return;
 
