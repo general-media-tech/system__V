@@ -853,6 +853,7 @@ function renderProducts() {
     const container = document.querySelector('[data-container="products-area"]');
     const frag = document.createDocumentFragment();
     const _shown = new Set();            // ما رُسم فعلاً — لالتقاط ما لا قسم له
+    const _blocks = [];                  // (seq B655) الأقسام المرسومة بترتيبها — تُعاد دورةً بعد دورة عند الوصول للأسفل
 
     _catOrdered().forEach(cat => {
         // collect products for this category
@@ -938,6 +939,7 @@ function renderProducts() {
 
         section.appendChild(row);
         frag.appendChild(section);
+        _blocks.push({ cat: cat, prods: prods });
         prods.forEach(function (x) { _shown.add(x.id); });
     });
 
@@ -975,6 +977,56 @@ function renderProducts() {
     } catch (e) { console.warn('[GMT] تعذّر عرض المنتجات بلا قسم:', e && e.message); }
 
     container.innerHTML = ''; container.appendChild(frag);
+    _endlessSetup(container, _blocks);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   (TASK-B0379 · المالك seq B655) «المتجر ما بيخلص … كل ما نزل بيعيد له الصفوف ديناميكياً. الأقسام بتبلش بتنعاد»
+   عند الاقتراب من آخر الأقسام تُضاف الأقسام نفسها من جديد — ٤ أقسام كلّ مرّة (لا الصفحة كلّها دفعةً) — فلا ينتهي التصفّح.
+   كلّ دورة بترتيبٍ مختلف وتبدأ الصفوف من منتجٍ مختلف (فلا يبدو تكراراً حرفياً)، والتكرار بعيد: القسم لا يعود إلا بعد مرور كلّ الأقسام
+   (طلب seq 653 «التكرار يكون بعيد»). أثناء البحث لا يُضاف شيء والمكرَّر مخفيّ. سقفٌ ٢٤٠ قسماً مكرَّراً حمايةً للجهاز.
+   المكرَّر لا يحمل data-category-section (القفز من شريط الأقسام يذهب للأصل) ولا بانرات (أخفّ).
+   ══════════════════════════════════════════════════════════════════════ */
+let _endless = { obs: null };
+function _endlessHash(str){ let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35); return (h ^ (h >>> 16)) >>> 0; }   /* خلطٌ نهائي: بدونه «c0:1…c9:1» تبقى بترتيبها */
+function _endlessSetup(container, blocks){
+    try { if (_endless.obs) _endless.obs.disconnect(); } catch (_) {}
+    _endless = { obs: null, blocks: blocks || [], cycle: 0, queue: [], added: 0, last: null };
+    if (_endless.blocks.length < 2 || !('IntersectionObserver' in window)) return;
+    const wrap = document.createElement('div'); wrap.id = 'store-endless';
+    const sen = document.createElement('div'); sen.id = 'store-endless-sentinel'; sen.style.cssText = 'height:2px';
+    container.appendChild(wrap); container.appendChild(sen);
+    _endless.wrap = wrap; _endless.sen = sen;
+    _endless.obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) _endlessMore(); }, { rootMargin: '0px 0px 1200px 0px' });
+    _endless.obs.observe(sen);
+}
+function _endlessMore(depth){
+    const E = _endless; if (!E.wrap || !E.wrap.isConnected) return;
+    if (document.getElementById('search-results-section') || E.wrap.style.display === 'none') return;
+    if (E.added >= 240) { try { E.obs.disconnect(); } catch (_) {} return; }
+    if (!E.queue.length) {
+        E.cycle++;
+        const c = E.cycle;
+        const q = E.blocks.slice().sort((a, b) => _endlessHash(a.cat.id + ':' + c) - _endlessHash(b.cat.id + ':' + c));
+        if (E.last && q.length > 1 && q[0].cat.id === E.last) q.push(q.shift());   // لا يتلاصق القسم نفسه بين دورتين
+        E.queue = q;
+        const dv = document.createElement('div'); dv.className = 'endless-div'; dv.dataset.endlessCycle = c;
+        dv.style.cssText = 'display:flex;align-items:center;gap:10px;margin:28px 16px 4px;color:#9ca3af;font:700 12px Cairo,sans-serif';
+        dv.innerHTML = '<span style="flex:1;height:1px;background:#e5e7eb"></span><span>✨ اكتشف المزيد</span><span style="flex:1;height:1px;background:#e5e7eb"></span>';
+        E.wrap.appendChild(dv);
+    }
+    for (let n = 0; n < 4 && E.queue.length; n++) {
+        const b = E.queue.shift(); E.last = b.cat.id; E.added++;
+        const sec = document.createElement('section'); sec.className = 'mt-6'; sec.dataset.catRepeat = b.cat.id; sec.dataset.endlessCycle = E.cycle;
+        const h = document.createElement('h3'); h.className = 'font-medium text-[18px] px-4 mb-4'; h.textContent = b.cat.name; sec.appendChild(h);
+        const row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6';
+        const L = b.prods.length, off = L > 3 ? (E.cycle * 3) % L : 0;
+        for (let i = 0; i < L; i++) row.appendChild(_buildProductCard(b.prods[(i + off) % L]));
+        sec.appendChild(row); E.wrap.appendChild(sec);
+    }
+    /* المراقب لا يُنبَّه ثانيةً إن بقي المؤشّر ظاهراً بعد الإضافة (شاشة طويلة) ⇒ نكمل حتى يبتعد */
+    if ((depth || 0) < 6) requestAnimationFrame(() => { const r = E.sen && E.sen.getBoundingClientRect(); if (r && r.top < innerHeight + 1200) _endlessMore((depth || 0) + 1); });
 }
 
 // ── Cat section banner slider helper ─────────────
@@ -1046,6 +1098,7 @@ function _buildProductCard(prod) {
     const cartBtn = document.createElement('button');
     cartBtn.className = 'quick-cart-btn absolute top-2 left-2 w-9 h-9 rounded-[12px] flex items-center justify-center transition-all';
     cartBtn.style.cssText = 'background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+    cartBtn.dataset.prodId = prod.id;   /* (TASK-B0379 · صيد نمط) _refreshAllCartBtns يبحث بهذا الوسم — لم يكن يُكتب قطّ فلم تتحدّث أزرار البطاقات بعد الحذف من السلّة */
     _setCardCartBtn(cartBtn, inCart);
 
     cartBtn.addEventListener('click', e => {
@@ -2130,6 +2183,7 @@ window.performSearch=function(query){
     const area=document.querySelector('[data-container="products-area"]');
     if(!q){showAllProducts();return;}
     area.querySelectorAll('section[data-category-section]').forEach(s=>s.style.display='none');
+    { const ew=document.getElementById('store-endless'); if(ew) ew.style.display='none'; }
     const hits=new Map(); store.products.forEach(p=>{ const h=_srHit(q,p); if(h.hit) hits.set(p.id,h); });
     const all=store.products.filter(p=>hits.has(p.id));
     /* (المالك seq 261) «نضيف فلاتر للبحث في المتجر» ⇒ فوق النتائج: القسم · الماركة
@@ -2173,6 +2227,7 @@ window.performSearch=function(query){
 function showAllProducts(){
     document.querySelector('[data-container="products-area"]').querySelectorAll('section[data-category-section]').forEach(s=>s.style.display='');
     const t=document.getElementById('search-results-section'); if(t)t.remove();
+    { const ew=document.getElementById('store-endless'); if(ew){ ew.style.display=''; requestAnimationFrame(()=>_endlessMore()); } }
 }
 
 // ══════════════════════════════════════════════
