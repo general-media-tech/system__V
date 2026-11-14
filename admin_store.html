@@ -866,6 +866,8 @@ window.GMT_INTERNAL = 1;</script>
                 <p class="text-[10px] text-gray-400 mt-2">تتبدل تلقائياً كل 4 ثوانٍ · السحب لتغيير الترتيب</p>
             </div>
 
+            <label class="text-xs text-gray-500 mt-2 block">القسم الأب (فارغ = قسم رئيسي)</label>
+            <select id="cat-parent" class="w-full bg-light rounded-[10px] p-3 text-sm mb-2"></select>
             <input type="number" id="cat-order" placeholder="الترتيب (رقم)" min="1">
         </div>
         <div class="flex gap-2 mt-5">
@@ -1562,12 +1564,22 @@ async function saveBanner(){
 // ══════════════════════════════════════════════
 // [2+4] CATALOG ADMIN
 // ══════════════════════════════════════════════
+/* (TASK-B0377 · المالك seq B657 «تعديلك في المتجر لما بيدخل على الأدمن … عم يطلع لي مكانه القديم والأقسام القديمة — الأدمن ما مربوط بالواجهة»)
+   الواجهة تعرض شجرة: قسم رئيسي ⇐ أقسامه الفرعية (parent_id) وترتيب المنتج داخل كلّ قسم (category_orders) — والأدمن كان يعرض الأقسام قائمةً
+   مسطّحة بترتيبٍ مختلط ويرتّب المنتجات بحقلٍ قديم (order)، وحفظُ القسم كان يُسقط «القسم الأب». الآن الأدمن يقرأ ويكتب الشجرة نفسها. */
+function _aHasParent(c){ return !!(c && c.parent_id && adminData.categories.some(x => String(x.id) === String(c.parent_id))); }
+function _aOrd(a,b){ return (a.order||0)-(b.order||0); }
+function _aTops(){ return adminData.categories.filter(c => !_aHasParent(c)).sort(_aOrd); }
+function _aKids(id){ return adminData.categories.filter(c => String(c.parent_id||'') === String(id)).sort(_aOrd); }
+function _aOrdered(){ const out=[]; _aTops().forEach(c=>{ out.push(c); _aKids(c.id).forEach(k=>out.push(k)); }); return out; }
+function _aCatLabel(c){ if(!c) return ''; const t = _aHasParent(c) ? adminData.categories.find(x => String(x.id) === String(c.parent_id)) : null; return t ? t.name + ' › ' + c.name : c.name; }
+function _aProdOrd(p, catId){ const o = p && p.category_orders && p.category_orders[catId]; return (o != null) ? o : (p.order || 0); }
 const _catCollapsed={};
 
 function renderCatalogAdmin(){
     const container=document.getElementById('catalog-list');
     if(!container)return;
-    const sortedCats=[...adminData.categories].sort((a,b)=>(a.order||0)-(b.order||0));
+    const sortedCats=_aOrdered();   /* (TASK-B0377) الرئيسي ثمّ فروعه — كما في الواجهة */
 
     // زر تحديث + إحصائيات
     const statsBar = document.createElement('div');
@@ -1641,10 +1653,12 @@ function renderCatalogAdmin(){
                 if(Array.isArray(p.category_ids)&&p.category_ids.length) return p.category_ids.includes(cat.id);
                 return p.category_id===cat.id;
             })
-            .sort((a,b)=>(a.order||0)-(b.order||0));
+            .sort((a,b)=>_aProdOrd(a,cat.id)-_aProdOrd(b,cat.id));   /* (TASK-B0377) ترتيب هذا القسم كما تعرضه الواجهة */
 
         const block=document.createElement('div');
         block.className='cat-block'; block.dataset.catId=cat.id; block.draggable=true;
+        if(_aHasParent(cat)){ block.dataset.parent=cat.parent_id; block.style.marginInlineStart='22px'; block.style.borderInlineStart='3px solid #fecaca'; }
+        else if(_aKids(cat.id).length){ block.style.marginTop='14px'; }
 
         // ── Category header ──
         const header=document.createElement('div');
@@ -1655,7 +1669,7 @@ function renderCatalogAdmin(){
                 ${cat.image?`<img src="${cat.image}" class="w-full h-full object-contain rounded-[8px]" onerror="this.parentElement.innerHTML='<i class=\\'ph ${cat.icon||'ph-squares-four'}\\'></i>'">`:`<i class="ph ${cat.icon||'ph-squares-four'}"></i>`}
             </div>
             <div class="flex-1 min-w-0">
-                <p class="font-semibold text-sm">${cat.name}</p>
+                <p class="font-semibold text-sm">${_aHasParent(cat)?'<span class="text-gray-400 font-normal">↳ </span>':''}${cat.name}${(!_aHasParent(cat)&&_aKids(cat.id).length)?' <span class="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full">'+_aKids(cat.id).length+' أقسام فرعية</span>':''}</p>
                 <div class="flex items-center gap-2">
                     <p class="text-xs text-gray-400">${catProds.length} منتج</p>
                     ${cat.banner_image?'<span class="text-[10px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-full">بانر ✓</span>':''}
@@ -1825,7 +1839,9 @@ function _initCatDrag(){
     });
 }
 async function _saveCatOrder(){
-    document.querySelectorAll('#catalog-list .cat-block').forEach((b,i)=>{const cat=adminData.categories.find(c=>String(c.id) === String(b.dataset.catId));if(cat)cat.order=i+1;});
+    /* (TASK-B0377) الترتيب بين الإخوة فقط (رئيسيّ بين الرئيسيّة · فرعيّ بين فروع أبيه) — كان يرقّم الكلّ متسلسلاً فيخلط الشجرة */
+    const _n={};
+    document.querySelectorAll('#catalog-list .cat-block').forEach(b=>{const cat=adminData.categories.find(c=>String(c.id) === String(b.dataset.catId)); if(!cat) return; const g=_aHasParent(cat)?String(cat.parent_id):'__top'; _n[g]=(_n[g]||0)+1; cat.order=_n[g];});
     try{await updateField('categories',adminData.categories);showToast('ترتيب الأقسام ✓');}catch(e){showToast('فشل','error');}
 }
 
@@ -1839,7 +1855,8 @@ function _initProdDrag(){
             if (!handle) return;
             const onEnd = async () => {
                 const rows = list.querySelectorAll('.prod-row');
-                rows.forEach((r,i)=>{ const prod=adminData.products.find(p=>String(p.id) === String(r.dataset.prodId)); if(prod)prod.order=i+1; });
+                const _cid = list.dataset.catId;   /* (TASK-B0377) ترتيب هذا القسم وحده — المنتج في أكثر من قسم له ترتيبٌ في كلّ قسم */
+                rows.forEach((r,i)=>{ const prod=adminData.products.find(p=>String(p.id) === String(r.dataset.prodId)); if(prod){ prod.category_orders=Object.assign({}, prod.category_orders||{}, {[_cid]: i}); if(!prod.category_ids||String(prod.category_id)===String(_cid)) prod.order=i+1; } });
                 try{await updateField('products',adminData.products);showToast('ترتيب المنتجات ✓');}catch(e){showToast('فشل','error');}
             };
             _makeDraggable({ handle, item: el, container: list, onEnd, axis:'y' });
@@ -1940,6 +1957,9 @@ function openCatModal(id=null){
             else if(cat.banner_image) _editingCatBanners=[{image:cat.banner_image,link:cat.banner_link||''}];
         }
     }
+    { const sel=document.getElementById('cat-parent'); if(sel){ const cur=id?adminData.categories.find(c=>String(c.id)===String(id)):null;
+        sel.innerHTML='<option value="">— قسم رئيسي —</option>'+_aTops().filter(t=>!cur||String(t.id)!==String(cur.id)).map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+        sel.value=(cur&&_aHasParent(cur))?cur.parent_id:''; sel.disabled=!!(cur&&_aKids(cur.id).length); } }   /* (TASK-B0377) قسمٌ له فروع يبقى رئيسياً */
     _renderCatBannersList();
     openModal('cat-modal');
 }
@@ -1961,7 +1981,9 @@ async function saveCategory(){
         banner_image:validBanners[0]?.image||undefined,
         banner_link:validBanners[0]?.link||undefined,
     };
-    if(id){const i=adminData.categories.findIndex(c=>String(c.id) === String(id));if(i>-1)adminData.categories[i]=d;}else adminData.categories.push(d);
+    /* (TASK-B0377) التعديل يُبقي ما لا تحرّره النافذة (الأب وغيره) — كان القسم الفرعي يصير رئيسياً بعد أيّ حفظ */
+    { const pv=document.getElementById('cat-parent'); if(pv && !pv.disabled){ if(pv.value) d.parent_id=pv.value; else d.parent_id=undefined; } }
+    if(id){const i=adminData.categories.findIndex(c=>String(c.id) === String(id));if(i>-1){ const keep=Object.assign({},adminData.categories[i],d); if(d.parent_id===undefined && document.getElementById('cat-parent') && !document.getElementById('cat-parent').disabled) delete keep.parent_id; adminData.categories[i]=keep; }}else adminData.categories.push(d);
     try{await updateField('categories',adminData.categories);closeModal('cat-modal');renderCatalogAdmin();showToast('تم الحفظ ✓');}catch(e){showToast('خطأ: '+e.message,'error');}
 }
 
@@ -1971,10 +1993,11 @@ async function saveCategory(){
 function _renderCatCheckboxes(selectedIds=[]){
     const container=document.getElementById('prod-categories-list');
     if(!adminData.categories.length){container.innerHTML='<p class="text-xs text-gray-400 p-2">لا توجد أقسام بعد</p>';return;}
-    container.innerHTML=adminData.categories.map(cat=>`
-        <div class="cat-checkbox-item">
-            <input type="checkbox" id="cat-chk-${cat.id}" value="${cat.id}" ${selectedIds.includes(cat.id)?'checked':''}>
-            <label for="cat-chk-${cat.id}">${cat.name}</label>
+    /* (TASK-B0377) الأقسام كشجرة: الرئيسيّ عنوانٌ وتحته فروعه (اسم «حقائب» مثلاً موجود تحت أكثر من قسم) — المنتج يُختار له أكثر من قسم */
+    container.innerHTML=_aOrdered().map(cat=>`
+        <div class="cat-checkbox-item"${_aHasParent(cat)?' style="padding-inline-start:20px"':' style="font-weight:700;margin-top:4px"'}>
+            <input type="checkbox" id="cat-chk-${cat.id}" value="${cat.id}" ${selectedIds.map(String).includes(String(cat.id))?'checked':''}>
+            <label for="cat-chk-${cat.id}" title="${_aCatLabel(cat)}">${_aHasParent(cat)?'↳ ':''}${cat.name}</label>
         </div>
     `).join('');
 }
@@ -2113,8 +2136,12 @@ async function saveProduct(){
     if(isNaN(price)||price<0)return showToast('السعر غير صحيح','error');
 
     // [3] Multi-category
-    const selectedCatIds=_getSelectedCatIds();
+    let selectedCatIds=_getSelectedCatIds();
     if(!selectedCatIds.length)return showToast('يرجى اختيار قسم واحد على الأقل','error');
+    { /* (TASK-B0377) القسم الأوّل هو مكان المنتج الأساسي في الواجهة ⇒ تبقى أقسامه السابقة بترتيبها، والجديدة بعدها (لا ترتيب الشجرة) */
+      const _pid=document.getElementById('prod-id').value, _pv=_pid?adminData.products.find(p=>String(p.id)===String(_pid)):null;
+      const _old=_pv?((Array.isArray(_pv.category_ids)&&_pv.category_ids.length)?_pv.category_ids:(_pv.category_id?[_pv.category_id]:[])).map(String):[];
+      const _sel=selectedCatIds.map(String); selectedCatIds=_old.filter(x=>_sel.includes(x)).concat(_sel.filter(x=>!_old.includes(x))); }
 
     const images=document.getElementById('prod-images').value.split('\n').map(s=>s.trim()).filter(Boolean);
     const short_name=document.getElementById('prod-short-name').value.trim();
@@ -2138,6 +2165,11 @@ async function saveProduct(){
     };
 
     /* (TASK-0162) التعديل يُبقي ما لا تحرّره هذه النافذة (جدول المواصفات · التوافق · ما يضيفه الجسر) — كان المنتج يُستبدل كاملاً فتُمحى */
+    /* (TASK-B0377) قسمٌ أُضيف للمنتج ⇒ يُعرض في آخره (category_orders) · وقسمٌ أُزيل ⇒ يُحذف ترتيبه */
+    { const prev = id ? adminData.products.find(p=>String(p.id) === String(id)) : null; const co = Object.assign({}, (prev && prev.category_orders) || {});
+      Object.keys(co).forEach(k => { if(!selectedCatIds.map(String).includes(String(k))) delete co[k]; });
+      selectedCatIds.forEach(cid => { if(co[cid] == null){ const mx = adminData.products.reduce((m,p)=>{ const v = p.category_orders && p.category_orders[cid]; return v != null && v > m ? v : m; }, -1); co[cid] = mx + 1; } });
+      d.category_orders = co; }
     if(id){const i=adminData.products.findIndex(p=>String(p.id) === String(id));if(i>-1)adminData.products[i]=Object.assign({},adminData.products[i],d);}else adminData.products.push(d);
     try{await updateField('products',adminData.products);closeModal('prod-modal');renderCatalogAdmin();showToast('تم الحفظ ✓');}catch(e){showToast('خطأ: '+e.message,'error');}
 }
@@ -3698,7 +3730,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261113c"></script>
+<script src="gmt-whatsnew.js?v=20261114a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

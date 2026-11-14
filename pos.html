@@ -1374,6 +1374,7 @@ window.GMT_FEATURES = [
         <div class="hdr-stat-val" id="hs-items">0</div>
         <div class="hdr-stat-lbl">صنف</div>
       </div>
+      <button class="hdr-btn" id="moves-btn" onclick="openMovesLog()" title="سجل الحركة: كل ما دخل فرعك وخرج منه — نقل · تسوية · استلام مشتريات · مبيعات · مرتجعات">📒 سجل الحركة</button>
       <button class="hdr-btn" onclick="openInvoiceHistory()">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         الفواتير
@@ -2983,6 +2984,98 @@ function changeBranch() {
    ═══════════════════════════════════════════════════════════════════════ */
 let _incomingTransfers = [];
 
+/* ══ (TASK-B0375 · المالك seq B657 «بنقاط البيع ما في سجل استلام ودخول وخروج مع الفواتير — فواتير التسوية وفواتير النقل ما في سجل لها»)
+   سجل الحركة لفرعك: كلّ مستندٍ أدخل بضاعةً أو أخرجها — نقل وارد/صادر · فاتورة تسوية (من/إلى «إعادة الإنشاء») · استلام فاتورة شراء ·
+   مبيعات · مرتجعات — مع بنوده وكمّياته (+ داخل · − خارج)، وفلترة بالنوع، وبحثٌ باسم المنتج أو باركوده يُظهر حركاته وحدها.
+   قراءة فقط من الجداول الموجودة — لا شيء يُكتب. ══ */
+let _moves = [], _movesF = 'all';
+const _MV_T = { in: ['📥', 'نقل وارد', '#1d4ed8'], out: ['📤', 'نقل صادر', '#7c3aed'], adj_in: ['🧮', 'تسوية (إضافة)', '#0f766e'], adj_out: ['🧮', 'تسوية (خصم)', '#b45309'],
+  buy: ['🚚', 'استلام مشتريات', '#15803d'], sale: ['🧾', 'مبيع', '#D5001C'], ref: ['↩️', 'مرتجع', '#0e7490'] };
+const _ADJ = /^(rebuild|adjust|settle)/i;
+async function _mvGet(path) { try { const r = await sbFetch(CONFIG.SUPABASE_URL + '/rest/v1/' + path, { headers: sbHeaders() }); return r.ok ? await r.json() : []; } catch (_) { return []; } }
+async function _mvIn(table, key, ids, sel) { const out = []; for (let i = 0; i < ids.length; i += 80) out.push(...await _mvGet(table + '?' + key + '=in.(' + ids.slice(i, i + 80).join(',') + ')&select=' + sel)); return out; }
+async function _movesLoad() {
+  const K = encodeURIComponent(branch.key), docs = [];
+  const [trs, rcs, invs] = await Promise.all([
+    _mvGet('branch_stock_transfers?or=(from_branch.eq.' + K + ',to_branch.eq.' + K + ')&select=id,transfer_number,from_branch,from_branch_name,to_branch,to_branch_name,status,created_at,received_at,received_by,created_by,title,note&order=created_at.desc&limit=200'),
+    _mvGet('stock_receipts?branch_key=eq.' + K + '&select=id,import_id,product_id,qty,kind,note,created_by,created_at&order=created_at.desc&limit=300'),
+    _mvGet('invoices?branch_key=eq.' + K + '&select=id,inv_number,created_at,sale_type,is_refund,customer_name,cashier_name,total&order=created_at.desc&limit=200')]);
+  const tIt = trs.length ? await _mvIn('stock_transfer_items', 'transfer_id', trs.map(t => t.id), 'transfer_id,product_id,product_name,barcode,qty,requested_qty,deduction_failed') : [];
+  const iIt = invs.length ? await _mvIn('invoice_items', 'invoice_id', invs.map(i => i.id), 'invoice_id,product_id,product_name,qty') : [];
+  const pName = id => { const p = (allProducts || []).find(x => String(x.id) === String(id)); return p ? p.name : ''; };
+  const pBc = id => { const p = (allProducts || []).find(x => String(x.id) === String(id)); return p ? (p.barcode || '') : ''; };
+  trs.forEach(t => {
+    if (t.status === 'cancelled') return;
+    const inc = t.to_branch === branch.key, other = inc ? t.from_branch : t.to_branch, adj = _ADJ.test(other || '');
+    const pend = inc && !t.received_at && t.status !== 'received';
+    docs.push({ k: adj ? (inc ? 'adj_in' : 'adj_out') : (inc ? 'in' : 'out'), at: (inc && t.received_at) || t.created_at, no: t.transfer_number || '',
+      who: inc ? (t.received_by || '') : (t.created_by || ''), other: adj ? 'إعادة إنشاء الجرد' : (inc ? (t.from_branch_name || t.from_branch) : (t.to_branch_name || t.to_branch)),
+      note: t.title || t.note || '', pend, sign: inc ? 1 : -1,
+      items: tIt.filter(x => x.transfer_id === t.id).map(x => ({ n: x.product_name || pName(x.product_id), b: x.barcode || pBc(x.product_id), q: Number(x.qty) || 0, warn: x.deduction_failed ? 'نُقل أقلّ من المطلوب (' + (x.requested_qty || '') + ')' : '' })) });
+  });
+  const byImp = {};
+  rcs.forEach(r => { const g = byImp[r.import_id || r.id] = byImp[r.import_id || r.id] || { k: 'buy', at: r.created_at, no: r.import_id ? String(r.import_id) : '', who: r.created_by || '', other: 'فاتورة شراء', note: r.note || '', sign: 1, items: [] };
+    if (r.created_at > g.at) g.at = r.created_at; g.items.push({ n: pName(r.product_id) || r.note || '', b: pBc(r.product_id), q: Number(r.qty) || 0 }); });
+  Object.values(byImp).forEach(g => docs.push(g));
+  invs.forEach(v => { const ref = v.is_refund || v.sale_type === 'مرتجع' || Number(v.total) < 0;
+    docs.push({ k: ref ? 'ref' : 'sale', at: v.created_at, no: v.inv_number || '', who: v.cashier_name || '', other: v.customer_name || '', note: v.sale_type || '', sign: ref ? 1 : -1,
+      items: iIt.filter(x => x.invoice_id === v.id).map(x => ({ n: x.product_name || pName(x.product_id), b: pBc(x.product_id), q: Math.abs(Number(x.qty) || 0) })) }); });
+  docs.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  _moves = docs; return docs;
+}
+function _movesRender() {
+  const body = document.getElementById('mv-body'); if (!body) return;
+  const q = (document.getElementById('mv-q').value || '').trim().toLowerCase();
+  const hit = it => !q || String(it.n || '').toLowerCase().includes(q) || String(it.b || '').toLowerCase().includes(q);
+  const F = { all: () => true, in: d => d.sign > 0, out: d => d.sign < 0, adj: d => /^adj/.test(d.k), trf: d => d.k === 'in' || d.k === 'out', buy: d => d.k === 'buy', sale: d => d.k === 'sale' || d.k === 'ref' };
+  let tin = 0, tout = 0;
+  const rows = _moves.filter(F[_movesF] || F.all).map(d => {
+    const its = d.items.filter(hit); if (q && !its.length) return '';
+    const sum = its.reduce((t, x) => t + x.q, 0); if (!d.pend) { if (d.sign > 0) tin += sum; else tout += sum; }
+    const [ic, lb, col] = _MV_T[d.k];
+    const when = d.at ? new Date(d.at).toLocaleString('ar-SY', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    return '<details class="mv-doc"' + (q ? ' open' : '') + '><summary><span class="mv-ic" style="background:' + col + '">' + ic + '</span>' +
+      '<span class="mv-m"><b>' + escH(lb) + (d.no ? ' · ' + escH(d.no) : '') + (d.pend ? ' <em class="mv-pend">بانتظار الاستلام</em>' : '') + '</b>' +
+      '<small>' + escH(when) + (d.other ? ' · ' + escH(d.other) : '') + (d.who ? ' · ' + escH(d.who) : '') + '</small></span>' +
+      '<span class="mv-q ' + (d.sign > 0 ? 'p' : 'n') + '">' + (d.sign > 0 ? '+' : '−') + sum + '</span></summary>' +
+      (d.note ? '<div class="mv-note">' + escH(String(d.note).slice(0, 200)) + '</div>' : '') +
+      '<table class="mv-t">' + its.map(x => '<tr><td>' + escH(x.n) + (x.warn ? ' <em class="mv-pend">' + escH(x.warn) + '</em>' : '') + '</td><td class="mv-b">' + escH(x.b) + '</td><td class="mv-n ' + (d.sign > 0 ? 'p' : 'n') + '">' + (d.sign > 0 ? '+' : '−') + x.q + '</td></tr>').join('') + '</table></details>';
+  }).filter(Boolean);
+  document.getElementById('mv-sum').innerHTML = '<span class="p">داخل +' + tin + '</span><span class="n">خارج −' + tout + '</span><span>' + rows.length + ' مستند</span>';
+  body.innerHTML = rows.length ? rows.join('') : '<div style="padding:26px;text-align:center;color:#526077">لا حركة مطابقة</div>';
+}
+async function openMovesLog() {
+  if (!branch || !branch.key) return;
+  let ov = document.getElementById('mv-ov');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'mv-ov';
+    ov.innerHTML = '<style>#mv-ov{position:fixed;inset:0;z-index:99993;background:rgba(15,23,42,.88);display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl}' +
+      '#mv-ov .mv-box{background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}' +
+      '#mv-ov .mv-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e2e8f0}' +
+      '#mv-ov .mv-tools{padding:10px 12px;border-bottom:1px solid #eef1f5;display:flex;flex-direction:column;gap:8px}' +
+      '#mv-ov .mv-chips{display:flex;gap:6px;overflow-x:auto}#mv-ov .mv-chips button{flex:0 0 auto;border:1px solid #d6dbe2;background:#fff;border-radius:999px;padding:5px 11px;font:700 12px inherit;cursor:pointer}' +
+      '#mv-ov .mv-chips button.on{background:#111;color:#fff;border-color:#111}#mv-ov input{border:1px solid #d6dbe2;border-radius:10px;padding:8px 10px;font:600 13px inherit;width:100%}' +
+      '#mv-ov .mv-sum{display:flex;gap:12px;font:800 12.5px inherit;color:#334155}#mv-ov .p{color:#15803d}#mv-ov .n{color:#b91c1c}' +
+      '#mv-ov #mv-body{overflow-y:auto;padding:8px 10px 14px}#mv-ov .mv-doc{border:1px solid #e5e7eb;border-radius:12px;margin:7px 0;background:#fff}' +
+      '#mv-ov summary{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;list-style:none}#mv-ov summary::-webkit-details-marker{display:none}' +
+      '#mv-ov .mv-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;flex:0 0 auto}#mv-ov .mv-m{flex:1;min-width:0;display:flex;flex-direction:column}' +
+      '#mv-ov .mv-m b{font-size:13.5px}#mv-ov .mv-m small{color:#64748b;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#mv-ov .mv-q{font:900 15px inherit;direction:ltr}' +
+      '#mv-ov .mv-pend{font-style:normal;font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px}#mv-ov .mv-note{font-size:12px;color:#475569;padding:0 12px 6px}' +
+      '#mv-ov .mv-t{width:100%;border-collapse:collapse;font-size:12.5px}#mv-ov .mv-t td{border-top:1px solid #f1f5f9;padding:6px 12px}#mv-ov .mv-b{color:#94a3b8;font-family:monospace;font-size:11px;direction:ltr}#mv-ov .mv-n{font-weight:900;direction:ltr;text-align:left;width:60px}</style>' +
+      '<div class="mv-box"><div class="mv-hd"><b style="font-size:15px">📒 سجل الحركة — <span id="mv-br"></span></b><button onclick="document.getElementById(\'mv-ov\').style.display=\'none\'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#526077">×</button></div>' +
+      '<div class="mv-tools"><div class="mv-chips">' + [['all', 'الكل'], ['in', 'داخل'], ['out', 'خارج'], ['trf', 'نقل'], ['adj', 'تسوية'], ['buy', 'مشتريات'], ['sale', 'مبيعات ومرتجعات']].map(([k, l]) => '<button data-f="' + k + '"' + (k === 'all' ? ' class="on"' : '') + '>' + l + '</button>').join('') + '</div>' +
+      '<input id="mv-q" placeholder="ابحث باسم منتج أو باركود ⇒ حركاته وحدها" autocomplete="off"><div class="mv-sum" id="mv-sum"></div></div><div id="mv-body"></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('.mv-chips').onclick = e => { const b = e.target.closest('button'); if (!b) return; _movesF = b.dataset.f; ov.querySelectorAll('.mv-chips button').forEach(x => x.classList.toggle('on', x === b)); _movesRender(); };
+    ov.querySelector('#mv-q').oninput = () => _movesRender();
+    ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
+  }
+  ov.style.display = 'flex'; document.getElementById('mv-br').textContent = branch.name || branch.key;
+  document.getElementById('mv-body').innerHTML = '<div style="padding:26px;text-align:center;color:#526077">جارٍ التحميل…</div>';
+  await _movesLoad(); _movesRender();
+}
+window.openMovesLog = openMovesLog;
+
 async function loadIncomingTransfers() {
   if (!branch || !branch.key) return [];
   try {
@@ -3400,8 +3493,12 @@ async function loadProducts() {
   const cached      = await loadProductsOffline();
   const hasCached   = cached && cached.length > 0;
 
-  if (!hasCached || isFirstLoad) {
+  /* (TASK-B0374 · المالك seq B657 «في كتير منتجات مختفية من نقاط البيع — درعا وحمص وحلب») ذاكرة الجهاز القديمة كانت تبقى بلا
+     «التصنيف» لـ١٦٨ منتجاً وبكمّيات فروعٍ لا تُحدَّث (انظر _backgroundSync) ⇒ تحميلٌ كامل مرّةً واحدة لكلّ جهاز يُصلح ما علق. */
+  const _POS_CACHE_V = 'B0374';
+  if (!hasCached || isFirstLoad || (await getMeta('pos_cache_v')) !== _POS_CACHE_V) {
     await _loadProductsFromServer(true);
+    await setMeta('pos_cache_v', _POS_CACHE_V);
     return;
   }
   showLoad('⚡ تحميل البيانات المحفوظة...');
@@ -3510,6 +3607,13 @@ async function _backgroundSync() {
   try {
     const lastSync = await getMeta('last_products_sync');
     if (!lastSync) return;
+    /* (TASK-B0374) ثلاث ثغرات كانت تُخفي منتجات وتُبقي كمّيات قديمة على الجهاز:
+       ① عند الفتح من الذاكرة لا تُقرأ أعمدة الفروع ⇒ كمّيات الفروع لا تُحدَّث أبداً ② المنتج المعدَّل يُعاد بلا التصنيف والأسماء البديلة
+       ③ «المعدَّل» يُقاس بساعة الجهاز (جهازٌ ساعته متقدّمة لا يرى أيّ منتجٍ جديد). الآن: الأعمدة تُقرأ · كلّ الأعمدة · ساعة الخادم · وكلّ منتجٍ غائبٍ عن الجهاز يُجلب. */
+    if (!allBranchKeys.length) {
+      try { const cr = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/inv_columns?select=key_name&order=sort_order.asc`, { headers: sbHeaders() });
+        if (cr.ok) allBranchKeys = (await cr.json()).map(c => c.key_name).filter(Boolean); } catch (_) {}
+    }
     const branchCols = allBranchKeys.length>0 ? allBranchKeys.join(',') : branch.key;
     const stockR = await fetch(
       `${CONFIG.SUPABASE_URL}/rest/v1/products?select=id,${branchCols},updated_at`,
@@ -3530,7 +3634,9 @@ async function _backgroundSync() {
         try { renderProds(); } catch (_) {}
       }
     }
-    const changed = stockData.filter(s => s.updated_at && s.updated_at > lastSync);
+    const _have = new Set(allProducts.map(p => String(p.id)));
+    const changed = stockData.filter(s => (s.updated_at && s.updated_at > lastSync) || !_have.has(String(s.id)));
+    const _srvMax = stockData.reduce((m, x) => (x.updated_at && x.updated_at > m ? x.updated_at : m), lastSync);
     stockData.forEach(s => {
       const local = allProducts.find(p => String(p.id) === String(s.id));
       if (!local) return;
@@ -3538,7 +3644,9 @@ async function _backgroundSync() {
     });
     if (changed.length > 0) {
       const ids = changed.map(c=>c.id).join(',');
-      const cols = `id,name,short,price,wholesale_price,cost_price,net_cost,barcode,image_url,images,images_hidden,group_name,store_url,updated_at,${branchCols}`;
+      let _xc2 = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat'];
+      try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols3') || 'null'); if (k && Array.isArray(k.c)) _xc2 = k.c; } catch (_) {}
+      const cols = `id,name,short,price,wholesale_price,cost_price,net_cost,barcode,image_url,images,images_hidden,group_name,store_url,updated_at,${branchCols}${_xc2.length ? ',' + _xc2.join(',') : ''}`;
       const updR = await fetch(
         `${CONFIG.SUPABASE_URL}/rest/v1/products?id=in.(${ids})&select=${cols}`,
         { headers: sbHeaders() }
@@ -3559,11 +3667,11 @@ async function _backgroundSync() {
           else allProducts.push(up);
           updateProductOffline(up);
         }
-        renderProds();
+        try { _finalizeProductsUI(); } catch (_) { renderProds(); }   // التصنيفات والمجموعات الجديدة تظهر في الأزرار أيضاً
         showToast('🔄 تم تحديث البيانات من السيرفر', 'inf');
       }
-    }
-    await setMeta('last_products_sync', new Date().toISOString());
+    } else { try { renderProds(); } catch (_) {} }   // الكمّيات حُدِّثت أعلاه
+    await setMeta('last_products_sync', _srvMax || new Date().toISOString());
   } catch(e) { console.warn('backgroundSync:', e.message); }
 }
 
@@ -6467,7 +6575,9 @@ function renderProds() {
     const qty      = Number(p[branch.key]) || 0;
     const totalQty = getTotalStock(p);
     // فلتر "مخزوني" — يُظهر فقط ما هو متوفر في هذا الفرع
-    if (activeStock === 'mybranch') { if (qty === 0) return false; }
+    /* (TASK-B0374) «مخزوني» يُخفي ما رصيده صفر في فرعك — لكنّ **البحث** لا يُخفي شيئاً: المنتج يظهر للمعاينة (لا يُباع) فيعرف الموظّف
+       أنّه معرَّف وأنّ رصيده في النظام صفر (فرق جرد) بدل أن يظنّه غير موجود */
+    if (activeStock === 'mybranch' && !q) { if (qty === 0) return false; }
     // POS-3 (2026-07-12): «الكل» = كل منتجات الشركة فعلاً — لم نعد نُخفي ما مجموعه صفر،
     // لأن البضاعة «بالطريق» (ألمانيا/الصين) كانت مستثناة من getTotalStock ⇒ منتجات كاملة تختفي.
     if (activeStock === 'all') { /* لا إخفاء — كل شيء يظهر مع تفصيل مصدر المخزون */ }
@@ -6499,6 +6609,7 @@ function renderProds() {
   document.getElementById('prodsLabel').textContent = `المنتجات (${list.length})` + (_say2 ? ' · 🔎 ' + (_say2.length > 90 ? _say2.slice(0, 88) + '…' : _say2) : '');
   /* (٧ ط · «تعليق») ٢٠٠٠ بطاقة كانت تُرسم دفعةً واحدة (~٣٠٠ms متجمّدة مع كل حرفٍ في البحث).
      الآن: أوّل ٩٠ فوراً، والباقي على دفعاتٍ بين الإطارات — والرسمُ الأحدث يُلغي الأقدم. */
+  if (q && activeStock === 'mybranch') list = list.filter(p => (Number(p[branch.key]) || 0) > 0).concat(list.filter(p => !((Number(p[branch.key]) || 0) > 0)));   // (TASK-B0374) المتوفّر عندك أوّلاً
   const _tok = (renderProds._tok = (renderProds._tok || 0) + 1);
   const _cards = list.map(p => {
     const qty      = Number(p[branch.key]) || 0;
@@ -10332,7 +10443,9 @@ async function saveProductsOffline(products) {
     /* (٧ ي) لا يُحفَظ `_blob_src`: رابطُ blob يموت مع الصفحة، فإن حُفظ ظهرت الصورة
        مكسورةً في الفتحة التالية لكل منتجٍ لم تُخزَّن صورته بعد */
     products.forEach(p => { const { _blob_src, ...rest } = p; st.put({ ...rest, _cached_at: Date.now() }); });
-    await setMeta('last_products_sync', new Date().toISOString());
+    /* (TASK-B0374) وقت المزامنة = أحدث تعديل **على الخادم** في ما نزل — لا ساعة الجهاز (قد تكون متقدّمة فيُفوَّت كلّ تعديلٍ بعدها) */
+    const _mx = products.reduce((m, x) => (x && x.updated_at && x.updated_at > m ? x.updated_at : m), '');
+    await setMeta('last_products_sync', _mx || new Date().toISOString());
   } catch(e) {}
 }
 async function updateProductOffline(product) {
@@ -10777,7 +10890,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261113c"></script>
+<script src="gmt-whatsnew.js?v=20261114a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
