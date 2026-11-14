@@ -1,4 +1,5 @@
 // (TASK-B0379 · المالك seq B655) «المتجر ما بيخلص … كل ما نزل بيعيد له الصفوف ديناميكياً. الأقسام بتبلش بتنعاد»
+// (TASK-B0398 · seq B698) «خليه ينعاد فقط مرتين ثم خلص ينتهي ويوصل للنهاية»
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const cats = Array.from({ length: 10 }, (_, i) => ({ id: 'c' + i, name: 'قسم ' + i, order: i }));
@@ -43,16 +44,24 @@ const info = () => ({
   await o.pg.evaluate(() => performSearch(''));
   await bottom(3);
   const s2 = await o.pg.evaluate(() => ({ shown: document.getElementById('store-endless').style.display === '', n: document.querySelectorAll('section[data-cat-repeat]').length }));
-  ok(s2.shown && s2.n > before, '③ بعد مسح البحث يعود ويكمل ' + JSON.stringify(s2));
+  ok(s2.shown && s2.n >= before, '③ بعد مسح البحث يعود المكرَّر ظاهراً ' + JSON.stringify(s2));
   // إعادة الرسم (تحديث البيانات) لا تترك مكرّراً قديماً
   await o.pg.evaluate(() => renderProducts());
   const r = await o.pg.evaluate(() => ({ n: document.querySelectorAll('section[data-cat-repeat]').length, w: document.querySelectorAll('#store-endless').length }));
   ok(r.w === 1, '④ إعادة رسم المتجر تبدأ من جديد بلا تكرار للمراقب ' + JSON.stringify(r));
-  // سقف الحماية
-  await o.pg.evaluate(() => { _endless.added = 239; });
-  await bottom(3);
-  const cap = await o.pg.evaluate(() => _endless.added);
-  ok(cap <= 243 && cap >= 240, '⑤ سقف 240 قسماً مكرّراً ثمّ يتوقّف ' + cap);
+  // ⑤ مرّتان فقط ثمّ النهاية
+  await bottom(10);
+  const e = await o.pg.evaluate(() => { const reps = [...document.querySelectorAll('section[data-cat-repeat]')]; const end = document.getElementById('store-end');
+    return { n: reps.length, maxC: Math.max(...reps.map(x => +x.dataset.endlessCycle)), end: !!end, last: end && !end.nextElementSibling && end.parentElement.lastElementChild === end, txt: end ? end.innerText.replace(/\s+/g, ' ') : '' }; });
+  ok(e.n === 20 && e.maxC === 2, '⑤ الأقسام تُعاد مرّتين فقط (10 × 2 = 20) ' + JSON.stringify([e.n, e.maxC]));
+  ok(e.end && e.last && /وصلت لنهاية المتجر/.test(e.txt), '⑤ ثمّ بطاقة «وصلت لنهاية المتجر» في الآخر ' + e.txt.slice(0, 80));
+  await bottom(4);
+  const e2 = await o.pg.evaluate(() => document.querySelectorAll('section[data-cat-repeat]').length);
+  ok(e2 === 20, '⑤ لا يُضاف شيء بعد النهاية ' + e2);
+  await o.pg.evaluate(() => { window.__wa = []; window.open = u => { window.__wa.push(u); return null; }; document.querySelector('[data-end-wa]').click(); document.querySelector('[data-end-top]').click(); });
+  await o.pg.waitForTimeout(1500);
+  const btn = await o.pg.evaluate(() => ({ wa: (window.__wa[0] || ''), y: Math.round(pageYOffset) }));
+  ok(/^https:\/\/wa\.me\/\d+\?text=/.test(btn.wa) && btn.y < 50, '⑤ زرّا النهاية: واتساب · للأعلى ' + JSON.stringify(btn).slice(0, 90));
   // السلة: زرّ السلّة في النسخة المكرّرة يعمل
   const cart = await o.pg.evaluate(async () => { const b = document.querySelector('section[data-cat-repeat] .quick-cart-btn'); const id = b.dataset.prodId; b.click(); await new Promise(z => setTimeout(z, 600)); return store.cart.some(x => String(x.id) === String(id)); });
   ok(cart, '⑥ الإضافة للسلّة من القسم المكرّر تعمل');

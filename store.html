@@ -1079,11 +1079,28 @@ function _endlessSetup(container, blocks){
     _endless.obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) _endlessMore(); }, { rootMargin: '0px 0px 1200px 0px' });
     _endless.obs.observe(sen);
 }
+const _ENDLESS_CYCLES = 2;
+function _endlessEnd(){
+    const E = _endless; E.done = true; try { E.obs && E.obs.disconnect(); } catch (_) {}
+    if (!E.wrap || document.getElementById('store-end')) return;
+    const end = document.createElement('div'); end.id = 'store-end';
+    end.style.cssText = 'margin:34px 16px 30px;padding:22px 16px;border-radius:20px;background:linear-gradient(160deg,#fff 0%,#fff5f5 100%);border:1px solid #fde2e4;text-align:center;font-family:Cairo,sans-serif';
+    end.innerHTML = '<div style="font-size:30px;line-height:1">🏁</div><div style="font-weight:900;font-size:16px;color:#111;margin-top:8px">وصلت لنهاية المتجر</div>'
+      + '<div style="font-size:12.5px;color:#6b7280;font-weight:600;margin-top:4px">شفت كلّ أقسامنا · ما لقيت اللي بدّك ياه؟ اسألنا وبنأمّنه لك</div>'
+      + '<div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap">'
+      + '<button type="button" data-end-top style="border:0;background:#111;color:#fff;border-radius:12px;padding:10px 16px;font:800 13px Cairo,sans-serif;cursor:pointer">↑ للأعلى</button>'
+      + '<button type="button" data-end-wa style="border:0;background:#16a34a;color:#fff;border-radius:12px;padding:10px 16px;font:800 13px Cairo,sans-serif;cursor:pointer">💬 اسألنا على واتساب</button></div>';
+    E.wrap.appendChild(end);
+    end.querySelector('[data-end-top]').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    end.querySelector('[data-end-wa]').addEventListener('click', () => window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent('مرحباً، أبحث عن منتج لم أجده في المتجر: ')}`, '_blank'));
+}
 function _endlessMore(depth){
     const E = _endless; if (!E.wrap || !E.wrap.isConnected) return;
     if (document.getElementById('search-results-section') || E.wrap.style.display === 'none') return;
-    if (E.added >= 240) { try { E.obs.disconnect(); } catch (_) {} return; }
+    if (E.done) return;
     if (!E.queue.length) {
+        /* (TASK-B0398 · المالك seq B698) «المتجر لا ينتهي فكرة جميلة لكنها تضيّع المشاهد — خليه ينعاد مرتين فقط ثم ينتهي ويوصل للنهاية» */
+        if (E.cycle >= _ENDLESS_CYCLES) { _endlessEnd(); return; }
         E.cycle++;
         const c = E.cycle;
         const q = E.blocks.slice().sort((a, b) => _endlessHash(a.cat.id + ':' + c) - _endlessHash(b.cat.id + ':' + c));
