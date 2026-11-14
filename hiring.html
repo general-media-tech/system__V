@@ -954,7 +954,8 @@ const TELEGRAM_CONFIG = {
    يفتح محادثةً مع رقمٍ لا يملكه أحد. الآن: الرقم من `gmt_cs_phone` إن ضبطتَه،
    وإلّا رقم المتجر الموجود في مشروعك، وإن لم يوجد **يُخفى الزرّ**. */
 const WHATSAPP_NUMBER = (function () {
-  try { var v = (localStorage.getItem('gmt_cs_phone') || '').replace(/[^0-9]/g, ''); if (v) return v.replace(/^(00963|963|0)/, '963') .replace(/^963963/, '963'); } catch (_) {}
+  try { if (window.GMTContact) { var c = GMTContact.whatsapp(); if (c) return c; } } catch (_) {}   /* (VER-3#REQ-0324) المصدر الواحد إن حُمِّل */
+  try { var v = (localStorage.getItem('gmt_cs_phone') || localStorage.getItem('gmt_cs_phone_pub') || '').replace(/[^0-9]/g, ''); if (v) return v.replace(/^(00963|963|0)/, '963') .replace(/^963963/, '963'); } catch (_) {}
   try { if (window.GMT_STORE_WHATSAPP) return window.GMT_STORE_WHATSAPP; } catch (_) {}
   return '';
 })();

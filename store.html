@@ -264,7 +264,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261112g"></script>
+  <script src="gmt-core.js?v=20261115cs"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261108f" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
@@ -515,7 +515,7 @@ const CONFIG = {
     /* (17 ت1) مفتاح JSONBin ورقم الصندوق خرجا من الصفحة العامّة إلى الوسيط gmt-tg (سرّ JSONBIN_MASTER_KEY) — كان أيّ أحدٍ يقرأ طلبات الزبائن بهما */
     TELEGRAM_BOT_TOKEN: 'gmt-relay',   // (17 ت1) علامة الوسيط لا مفتاح — المفتاح الحقيقي سرّ TG_BOT_TOKEN في gmt-tg (المستودع عامّ)
     TELEGRAM_CHAT_ID:   '-1003815557954',
-    WHATSAPP_NUMBER:    '963939773715',
+    get WHATSAPP_NUMBER(){ /* (VER-3#REQ-0324) مصدرٌ واحد: GMTContact (إعداد gmt_cs_phone العامّ ⇐ GMT_STORE_WHATSAPP في gmt-config.js) */ try { return (window.GMTContact && GMTContact.whatsapp()) || window.GMT_STORE_WHATSAPP || '963939773715'; } catch (_) { return '963939773715'; } },
     CURRENCY:           '$',
     LOCATION_URL:       '...'
 };

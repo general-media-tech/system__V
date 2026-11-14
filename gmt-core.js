@@ -1348,13 +1348,34 @@
   var CS_PLACEHOLDERS = ['963900000000', '900000000', '0000000000'];
   window.GMTContact = {
     /* الرقم المضبوط من مالك النظام — أو '' */
+    /* (VER-3#REQ-0324 · TASK-B0409) كان يُحفظ في متصفّح المالك فقط فلا يصل للزبائن ⇒ يُحفظ في gmt_settings (مفتاح gmt_cs_phone) ويقرؤه كلّ زائر.
+       يُرجع وعداً: { system: true } إن ثبت في القاعدة */
     set: function (v) {
-      try { localStorage.setItem('gmt_cs_phone', String(v || '').trim()); } catch (_) {}
+      v = String(v || '').trim();
+      try { localStorage.setItem('gmt_cs_phone', v); localStorage.setItem('gmt_cs_phone_pub', v); } catch (_) {}
+      try { window.GMTContact.apply(); } catch (_) {}
+      if (window.GMTEndpoint && window.GMTEndpoint.setSetting) return window.GMTEndpoint.setSetting('gmt_cs_phone', v);
+      var d = window.GMT_DB && window.GMT_DB.MAIN; if (!d || !d.url) return Promise.resolve({ system: false, why: 'لا اتصال بالقاعدة' });
+      var H = { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' };
+      return fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', { method: 'POST', headers: H, body: JSON.stringify({ key: 'gmt_cs_phone', value: v }) })
+        .then(function (r) { return { system: r.ok, why: r.ok ? '' : 'HTTP ' + r.status }; }).catch(function (e) { return { system: false, why: e && e.message }; });
+    },
+    /* الإعداد العامّ من القاعدة (مرّة كلّ ٣٠ دقيقة) ⇒ يُخزَّن محلّياً ويُعاد تطبيق الروابط */
+    refresh: function () {
+      var d = window.GMT_DB && window.GMT_DB.MAIN; if (!d || !d.url) return Promise.resolve('');
+      try { var at = +localStorage.getItem('gmt_cs_phone_pub_at') || 0; if (Date.now() - at < 30 * 60 * 1000) return Promise.resolve(localStorage.getItem('gmt_cs_phone_pub') || ''); } catch (_) {}
+      return fetch(d.url + '/rest/v1/gmt_settings?key=eq.gmt_cs_phone&select=value', { headers: { apikey: d.key, Authorization: 'Bearer ' + d.key } })
+        .then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+          var v = rows && rows[0] && rows[0].value ? String(rows[0].value).trim() : '';
+          try { localStorage.setItem('gmt_cs_phone_pub', v); localStorage.setItem('gmt_cs_phone_pub_at', String(Date.now())); } catch (_) {}
+          try { window.GMTContact.apply(); } catch (_) {}
+          return v;
+        }).catch(function () { return ''; });
     },
     /* رقم الواتساب الصالح أو '' — لا يُرجع رقماً مختلَقاً أبداً */
     whatsapp: function () {
       var raw = '';
-      try { raw = localStorage.getItem('gmt_cs_phone') || ''; } catch (_) {}
+      try { raw = localStorage.getItem('gmt_cs_phone') || localStorage.getItem('gmt_cs_phone_pub') || ''; } catch (_) {}   /* المضبوط على هذا الجهاز ⇐ الإعداد العامّ */
       if (!raw) {
         /* رقم مشروعك الموجود في إعداد المتجر — ليس اختراعاً منّي */
         try { raw = (window.GMT_STORE_WHATSAPP || ''); } catch (_) { raw = ''; }
@@ -1386,8 +1407,8 @@
   };
   try {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { window.GMTContact.apply(); });
-    } else { window.GMTContact.apply(); }
+      document.addEventListener('DOMContentLoaded', function () { window.GMTContact.apply(); window.GMTContact.refresh(); });
+    } else { window.GMTContact.apply(); window.GMTContact.refresh(); }
   } catch (_) {}
 
   /* ═══════════════════════════════════════════════════════════════════════

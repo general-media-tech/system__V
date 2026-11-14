@@ -602,7 +602,7 @@ window.GMT_INTERNAL = 1;</script>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261112g"></script>
+  <script src="gmt-core.js?v=20261115cs"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -735,6 +735,14 @@ window.GMT_INTERNAL = 1;</script>
                 <i class="ph ph-caret-down absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
             </div>
             <div id="branches-admin-list" class="flex flex-col gap-3"></div>
+            <!-- (VER-3#REQ-0324 · TASK-B0409) رقم خدمة العملاء — يُحفظ في القاعدة فيصل لكلّ الزبائن (المتجر · البحث · الكفالة · التوظيف) -->
+            <div class="bg-white rounded-[14px] p-4 mt-5" style="border:1px solid #eee">
+                <div class="font-bold text-sm mb-1">☎️ رقم خدمة العملاء (واتساب)</div>
+                <p class="text-xs text-gray-400 mb-3">زرّ «تواصل معنا» في المتجر والبحث والكفالة والتوظيف يفتح هذا الرقم. فارغ ⇒ رقم المتجر.</p>
+                <div style="display:flex;gap:8px"><input id="cs-phone-input" dir="ltr" inputmode="tel" placeholder="963…" class="flex-1 bg-white border border-gray-200 rounded-[10px] p-3 text-sm outline-none">
+                <button type="button" onclick="saveCsPhone()" class="bg-primary text-white text-sm px-4 rounded-[10px]">حفظ</button></div>
+                <div id="cs-phone-msg" class="text-xs mt-2" style="color:#5b6472"></div>
+            </div>
         </div>
 
         <!-- ══ VISUAL EDITOR PREVIEW TAB ════════════════ -->
@@ -1431,6 +1439,13 @@ window.loadStorageImages=loadStorageImages; window.deleteImg=deleteImg; window.c
 // ══════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════
+async function saveCsPhone(){
+    const v=(document.getElementById('cs-phone-input').value||'').trim(), msg=document.getElementById('cs-phone-msg');
+    if(!window.GMTContact){ msg.textContent='تعذّر الحفظ'; return; }
+    msg.textContent='⏳ حفظ…'; const r=await GMTContact.set(v);
+    msg.textContent = r && r.system ? '✅ حُفظ في النظام — يصل لكلّ الزبائن: '+(GMTContact.whatsapp()||'—') : '⚠️ حُفظ على هذا الجهاز فقط: '+((r&&r.why)||'');
+}
+(function(){ const fill=()=>{ const i=document.getElementById('cs-phone-input'); if(i && window.GMTContact) i.value=GMTContact.whatsapp(); }; if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(fill,1500)); else setTimeout(fill,1500); })();
 function switchTab(tab){
     if (tab === 'preview') { openVisualEditor(); return; }
     document.querySelectorAll('.tab-content').forEach(el=>el.classList.add('hidden'));
