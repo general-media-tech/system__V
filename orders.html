@@ -4637,6 +4637,7 @@ async function confirmShippingRun() {
     try {
         await sbUpdateOrThrow(shipOrderId, data);        // صفٌّ لم يتغيّر ⇒ خطأ صريح، لا «تم اعتماد الشحن» كاذبة
         orders[idx] = { ...orders[idx], ...data };
+        try { storeStockToast(await deductStoreOrderStock(orders[idx])); } catch (e) { showToast('⚠️ تعذّر خصم المخزون: ' + ((e && e.message) || e), 'err'); }   // (TASK-B0414)
         /* الفرع المُرسِل (المفتي فقط) — حفظٌ منفصل لا يكسر الشحن إن غاب العمود */
         if (company === MUFTI_CO) {
             const _sfKey = (document.getElementById('ship-from') || {}).value;
@@ -6596,6 +6597,69 @@ async function sbUpdateOrThrow(id, data) {
     const r = await orderPatchChecked(id, data);
     if (!r.ok) throw new Error(r.error);
     return r;
+}
+/* ══ (TASK-B0414 · المالك seq 727) «إذا تأكّد الأوردر وتنفّذ ينخصم من المخزون — الأوردر اللي فيه فاتورة من المتجر — فوراً بعد تنفيذه أو شحنه،
+   وممكن نعدّل الفاتورة قبل الشحن». أوردر المتجر غير المربوط بفاتورة نقطة بيع لم يكن يخصم شيئاً (الخصم كان بالفاتورة وحدها).
+   • عند «إرسال للشحن» تُخصم بنود الأوردر (items_json وقتَ الشحن = بعد تعديلك) من فرع التجهيز؛ وإن لم يُحدَّد فمن فرع الإدارة (حلب · ق١٠).
+   • مربوطٌ بفاتورة نقطة بيع ⇒ لا نخصم (الفاتورة خصمت) · مرّةٌ واحدة فقط (حجزٌ شرطيّ على stock_deducted · لا خصم مزدوج من جهازين).
+   • المرتجع المستلَم ⇒ تُعاد الكمّيات للفرع نفسه. ما تعذّر يُذكَر صراحةً ويبقى في السجلّ — لا فشلٌ صامت. ══ */
+function storeStockBranch(o) {
+    const pb = String(o.prepared_branch || '').trim();
+    if (pb && !(window.GMTBranch && GMTBranch.isTransit && GMTBranch.isTransit(pb))) return pb;
+    return 'haleb';
+}
+function storeStockNeeded(o) {
+    if (!o || o.stock_deducted) return false;
+    if (o.invoice_id || o.invoice_number || o.linked_invoice_id) return false;       // خصمته الفاتورة
+    return isStoreOrder(o);
+}
+async function storeStockResolve(line) {
+    if (line.product_id) return String(line.product_id);
+    const q = line.barcode ? 'barcode=eq.' + encodeURIComponent(line.barcode) : (line.name ? 'name=eq.' + encodeURIComponent(line.name) : '');
+    if (!q) return '';
+    try { const r = await fetch(`${SUPA_URL}/rest/v1/products?${q}&select=id&limit=2`, { headers: SB_HEADERS }); const j = r.ok ? await r.json() : []; return (Array.isArray(j) && j.length === 1) ? String(j[0].id) : ''; } catch (_) { return ''; }
+}
+async function deductStoreOrderStock(o) {
+    if (!storeStockNeeded(o) || !window.GMTStock) return { skipped: true };
+    const branch = storeStockBranch(o), by = (typeof getOperatorName === 'function' && getOperatorName()) || '';
+    /* حجزٌ شرطيّ: يفوز جهازٌ واحد */
+    try {
+        const cl = await fetch(`${SUPA_URL}/rest/v1/gmt_orders?id=eq.${encodeURIComponent(o.id)}&stock_deducted=is.null`, { method: 'PATCH',
+            headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify({ stock_deducted: { at: new Date().toISOString(), branch: branch, by: by, lines: [], state: 'claiming' } }) });
+        const cj = await cl.json().catch(() => null);
+        if (!cl.ok) { if (_colMissing(JSON.stringify(cj))) return { skipped: true, noColumn: true }; return { error: 'HTTP ' + cl.status }; }
+        if (!Array.isArray(cj) || !cj.length) return { skipped: true, already: true };
+    } catch (e) { return { error: (e && e.message) || 'تعذّر الحجز' }; }
+    let items = []; try { items = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : (o.items_json || []); } catch (_) {}
+    if (!Array.isArray(items) || !items.length) items = [{ name: o.product, qty: Number(o.qty) || 1 }];
+    const lines = [];
+    for (const it of items) {
+        const qty = Number(it.qty) || 1, nm = it.name || it.product_name || it.product || '';
+        const pid = await storeStockResolve(it);
+        if (!pid) { lines.push({ name: nm, qty: qty, ok: false, err: 'غير مربوط بمنتج في الجرد' }); continue; }
+        const m = await GMTStock.move('deduct', pid, branch, qty);
+        lines.push({ pid: pid, name: nm, qty: qty, ok: !!m.ok, err: m.ok ? '' : (m.error || 'فشل') });
+    }
+    const rec = { at: new Date().toISOString(), branch: branch, by: by, lines: lines, state: lines.every(l => l.ok) ? 'done' : 'partial' };
+    try { await orderPatchChecked(o.id, { stock_deducted: rec }); } catch (_) {}
+    o.stock_deducted = rec;
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_stock_deduct', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'خصم مخزون أوردر المتجر من «' + branch + '» · ' + lines.filter(l => l.ok).length + '/' + lines.length }); } catch (_) {}
+    return { rec: rec };
+}
+async function restoreStoreOrderStock(o) {
+    const d = o && o.stock_deducted; if (!d || d.restored_at || !window.GMTStock || !Array.isArray(d.lines)) return { skipped: true };
+    const lines = d.lines.map(l => Object.assign({}, l));
+    for (const l of lines) if (l.ok && l.pid) { const m = await GMTStock.move('add', l.pid, d.branch, l.qty); l.restored = !!m.ok; if (!m.ok) l.err = m.error || 'فشل الإرجاع'; }
+    const rec = Object.assign({}, d, { lines: lines, restored_at: new Date().toISOString() });
+    try { await orderPatchChecked(o.id, { stock_deducted: rec }); } catch (_) {}
+    o.stock_deducted = rec;
+    return { rec: rec };
+}
+function storeStockToast(r) {
+    if (!r || r.skipped || !r.rec) return;
+    const bad = (r.rec.lines || []).filter(l => !l.ok);
+    if (!bad.length) showToast('📦 خُصم المخزون من «' + r.rec.branch + '» (' + r.rec.lines.length + ' بند)', 'ok');
+    else showToast('⚠️ خُصم المخزون جزئياً — تعذّر: ' + bad.map(l => l.name + ' (' + l.err + ')').join('، '), 'err');
 }
 function _colMissing(msg) { return /column|schema cache|PGRST204|42703/i.test(String(msg || '')); }
 function lsMap(key) { try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) { return {}; } }
@@ -9382,6 +9446,7 @@ window.returnReceive = async (id) => {
             info.expense_id = j[0].id;
         } catch (e) { await GMTAsk.alert('تعذّر تسجيل أجور المرتجع (' + ((e && e.message) || e) + ') — لم يُؤكَّد الاستلام. أعد المحاولة.', { title: 'المرتجع' }); return; }
     }
+    try { if (o.stock_deducted) storeStockToast(await restoreStoreOrderStock(o)); } catch (_) {}   // (TASK-B0414) المرتجع المستلَم ⇒ تُعاد كمّيات الأوردر
     try { await retPatch(o, info, { status: 'returned', returned_at: at }); }
     catch (e) { await GMTAsk.alert('تعذّر تأكيد الاستلام: ' + ((e && e.message) || e) + (info.expense_id ? '\n(الأجور سُجّلت مصروفاً — رقمه ' + info.expense_id + ')' : ''), { title: 'المرتجع' }); return; }
     try { window.GMTAudit && GMTAudit.log({ action: 'order_return_received', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'استلمه ' + f.by + ' · ' + bName + ' · ' + f.condition + (f.cost ? ' · ' + costTxt + ' على ' + payer.name : '') }); } catch (_) {}
