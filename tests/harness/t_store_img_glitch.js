@@ -2,7 +2,7 @@
 // الجذور:
 //  ① شرائح معرض المنتج كانت min-width:100% بلا عرضٍ ثابت ⇒ كلّ شريحة أعرض من الإطار ببكسلات (413–414 من 412) فيتراكم الانزياح
 //     مع كلّ صورة ⇒ يظهر طرف الصورة التالية. الآن flex:0 0 100% ⇒ كلّ شريحة بعرض الإطار تماماً.
-//  ② البطاقات object-fit:cover ⇒ الصورة غير المربّعة (بوستر عريض) تُقصّ. الآن gmtFit ⇒ contain إن اختلفت النسبة.
+//  ② البطاقة تبقى cover (قرار المالك seq 500) — يُتحقَّق أنّها لم تتغيّر.
 //  ③ صفحة المنتج كانت تنتظر الصورة الكاملة من الصفر. الآن المصغّرة فوراً ثمّ الكاملة للشريحة الحالية وجارتيها.
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
@@ -29,8 +29,7 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
   // ② البطاقات
   const cards = await o.pg.evaluate(() => [...document.querySelectorAll('img')].filter(i => /\/img\/t\/lens_/.test(i.src) && i.closest('.min-w-\\[160px\\]'))
     .map(i => ({ wide: /8734105f|46ac85b2/.test(i.src), fit: getComputedStyle(i).objectFit, ok: i.complete && i.naturalWidth > 0 })));
-  ok(cards.some(c => c.wide && c.ok) && cards.filter(c => c.wide && c.ok).every(c => c.fit === 'contain'), '② البوستر العريض في البطاقة يُعرض كاملاً (contain) لا مقصوصاً ' + JSON.stringify(cards));
-  ok(cards.filter(c => !c.wide && c.ok).length > 0 && cards.filter(c => !c.wide && c.ok).every(c => c.fit === 'cover'), '② الصورة المربّعة تبقى ملء الإطار (cover)');
+  ok(cards.filter(c => c.ok).length >= 2 && cards.filter(c => c.ok).every(c => c.fit === 'cover'), '② البطاقة تبقى ملء الإطار cover (قرار المالك seq 500: لا contain ولا أطراف) ' + JSON.stringify(cards));
   // ③ صفحة المنتج: المصغّرة فوراً
   await o.pg.evaluate(() => openProductModal('g1'));
   await o.pg.waitForTimeout(400);
