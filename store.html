@@ -990,6 +990,9 @@ function _goToCatBanner(wrap, idx) {
    وإن غابت المصغّرة تُطلب الأصلية تلقائياً. صفحة المنتج تبقى بالصور الكاملة. */
 function gmtThumb(u){ return (typeof u==='string') ? u.replace(/\/img\/p\/([^?#]+)\.(jpe?g|png|webp|gif)(?=$|[?#])/i,'/img/t/$1.webp') : u; }
 function gmtImgRetry(img){ const o=img && img.dataset && img.dataset.orig; if(o && !img.dataset.gf && img.src!==o){ img.dataset.gf='1'; img.src=o; return true; } return false; }
+/* (seq B656) «صورة يظهر جزء منها خارج الإطار»: object-fit:cover كان يقصّ الصورة غير المربّعة (160 من 587 — البوسترات العريضة والطويلة)
+   ⇒ إن اختلفت نسبة الصورة عن نسبة إطارها بأكثر من 10٪ تُعرض كاملةً (contain) على خلفيّة بيضاء؛ المربّعة تبقى كما هي. */
+function gmtFit(img){ try{ const w=img.naturalWidth,h=img.naturalHeight,bw=img.clientWidth,bh=img.clientHeight; if(!w||!h||!bw||!bh)return; const r=(w/h)/(bw/bh); if(r>1.1||r<0.91){ img.style.objectFit='contain'; img.style.background='#fff'; } }catch(_){} }
 function gmtThumbAttrs(u){ return `src="${gmtThumb(u)}" data-orig="${u}" loading="lazy" decoding="async" onerror="gmtImgRetry(this)"`; }
 
 /* (TASK-0371) عرض السعر المؤقّت: الجرد يسجّل تخفيضاً بمدّة في gmt_price_changes (السعر القديم والجديد وتاريخ الانتهاء) — المتجر يقرؤها مرّةً
@@ -1032,6 +1035,7 @@ function _buildProductCard(prod) {
         img.loading = 'lazy'; img.decoding = 'async'; img.dataset.orig = imgUrl;
         img.src = gmtThumb(imgUrl);
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+        img.onload = function(){ gmtFit(this); };
         img.onerror = function(){ if (gmtImgRetry(this)) return; this.parentElement.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><i class="ph ph-image" style="font-size:2.5rem;color:#d1d5db"></i></div>'; };
         imgWrap.appendChild(img);
     } else {
@@ -1611,7 +1615,7 @@ function openOfferDetail(offer){
     let slidesHTML = '';
     let dotsHTML = '';
     if(images.length) {
-        slidesHTML = images.map((img,i)=>`<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;"><img src="${img}"${i?' loading="lazy"':''} decoding="async" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
+        slidesHTML = images.map((img,i)=>`<div style="flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;"><img src="${img}"${i?' loading="lazy"':''} decoding="async" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
         if(images.length>1) dotsHTML = images.map((_,i)=>`<div onclick="_offerGoTo(${i})" style="width:${i===0?'18':'6'}px;height:6px;border-radius:9999px;background:${i===0?'#D5001C':'#d1d5db'};transition:all 0.3s;cursor:pointer;" class="offer-dot"></div>`).join('');
     }
     
@@ -2356,7 +2360,7 @@ function _renderSimilarProducts(prod){
         const card = document.createElement('div');
         card.style.cssText='min-width:130px;width:130px;border-radius:14px;overflow:hidden;background:white;flex-shrink:0;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.10);';
         card.innerHTML=`<div style="height:110px;background:#f5f5f5;overflow:hidden;">
-            ${imgUrl?`<img ${gmtThumbAttrs(imgUrl)} style="width:100%;height:100%;object-fit:cover;">`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="color:#5b6472;font-size:28px;"></i></div>'}
+            ${imgUrl?`<img ${gmtThumbAttrs(imgUrl)} onload="gmtFit(this)" style="width:100%;height:100%;object-fit:cover;">`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="color:#5b6472;font-size:28px;"></i></div>'}
         </div>
         <div style="padding:8px;">
             <div style="font-size:11.5px;font-weight:600;color:#111;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escHtml(sp.name)}</div>
@@ -2403,7 +2407,7 @@ function _renderVariants(prod){
             if(idx>=0&&idx!==_pmIdx){_pmIdx=idx;_updatePMSlider();}
             else if(idx<0){
                 const sc2=document.getElementById('product-modal-slides');
-                if(sc2){sc2.innerHTML=''; const sl=document.createElement('div'); sl.style.cssText='min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:16px;flex-shrink:0;'; const img2=document.createElement('img'); img2.src=imgUrl; img2.style.cssText='max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;'; sl.appendChild(img2); sc2.appendChild(sl); sc2.style.transform='translateX(0%)';}
+                if(sc2){sc2.innerHTML=''; const sl=document.createElement('div'); sl.style.cssText='flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;padding:16px;flex-shrink:0;'; const img2=document.createElement('img'); img2.src=imgUrl; img2.style.cssText='max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;'; sl.appendChild(img2); sc2.appendChild(sl); sc2.style.transform='translateX(0%)';}
             }
         }
         if(opt.affectsPrice){
@@ -2447,12 +2451,12 @@ function _pmBuildSlides(prod, imgs){
     if(prod.video_url?.trim()) allSlides.push({_type:'video',url:prod.video_url.trim()});
 
     if(!allSlides.length){
-        sc.innerHTML=`<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="font-size:48px;color:#5b6472;"></i></div>`;
+        sc.innerHTML=`<div style="flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;"><i class="ph ph-image" style="font-size:48px;color:#5b6472;"></i></div>`;
         prevB.classList.add('hidden'); nextB.classList.add('hidden');
     } else {
         allSlides.forEach((item,i)=>{
             const sl=document.createElement('div');
-            sl.style.cssText='min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;overflow:hidden;';
+            sl.style.cssText='flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;overflow:hidden;';
             if(item._type==='video'){
                 /* (TASK-0362) الفيديو يُشغَّل داخل المتجر بمشغّلٍ بملء الشاشة — لا يفتح إنستغرام ولا صفحة خارجية */
                 const vb=document.createElement('button'); vb.type='button'; vb.className='pm-vid';
@@ -2461,7 +2465,10 @@ function _pmBuildSlides(prod, imgs){
                 sl.appendChild(vb);
             } else {
                 sl.style.padding='6px';
-                const img=document.createElement('img'); if(i>0) img.loading='lazy'; img.decoding='async'; img.src=item;   /* (seq 626) الأولى فوراً والباقي عند الاقتراب */
+                /* (seq B656) «بطء شديد بعرض الصور»: المصغّرة (≈8 ك.ب ومحمّلة غالباً من البطاقة) تظهر فوراً، والكاملة تُجلب للشريحة الحالية وجارتيها ثمّ تحلّ محلّها */
+                const img=document.createElement('img'); img.decoding='async'; const _th=gmtThumb(item);
+                if(_th!==item){ img.dataset.full=item; img.onerror=function(){ if(this.dataset.full){ const u=this.dataset.full; delete this.dataset.full; this.src=u; } }; }
+                img.src=_th;
                 img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;';
                 img.onclick=()=>pmZoomOpen(i);
                 sl.appendChild(img);
@@ -2474,6 +2481,7 @@ function _pmBuildSlides(prod, imgs){
         });
         _pmImgs=allSlides;
         _pmThumbs(allSlides);
+        _pmUpgrade();
         const showNav=allSlides.length>1;
         prevB.classList.toggle('hidden',!showNav); nextB.classList.toggle('hidden',!showNav);
     }
@@ -2502,7 +2510,8 @@ function _pmInvImages(prod){
         return all.filter((u,i)=>all.indexOf(u)===i);
     }).catch(()=>[]));
 }
-function _updatePMSlider(){ const sc=document.getElementById('product-modal-slides'),dc=document.getElementById('product-modal-dots'); if(!sc)return; sc.style.transform=`translateX(${_pmIdx*100}%)`; const dots=dc?.children; if(dots)Array.from(dots).forEach((d,i)=>{d.style.background=i===_pmIdx?'#D5001C':'#d1d5db';d.style.width=i===_pmIdx?'18px':'6px';}); _pmSync(); }
+function _pmUpgrade(){ const sl=document.querySelectorAll('#product-modal-slides > div'); [0,1,-1].forEach(d=>{ const im=sl[_pmIdx+d]&&sl[_pmIdx+d].querySelector('img[data-full]'); if(!im)return; const u=im.dataset.full; delete im.dataset.full; const pre=new Image(); pre.decoding='async'; pre.onload=()=>{ im.src=u; }; pre.src=u; }); }
+function _updatePMSlider(){ const sc=document.getElementById('product-modal-slides'),dc=document.getElementById('product-modal-dots'); if(!sc)return; sc.style.transform=`translateX(${_pmIdx*100}%)`; _pmUpgrade(); const dots=dc?.children; if(dots)Array.from(dots).forEach((d,i)=>{d.style.background=i===_pmIdx?'#D5001C':'#d1d5db';d.style.width=i===_pmIdx?'18px':'6px';}); _pmSync(); }
 function _goToPMSlide(i){ _pmIdx=i; _updatePMSlider(); }
 /* (TASK-0363 · seq 639) الشرح الطويل يُطوى مع «عرض المزيد» · الزرّ العائم «اسأل جوجل»: لقطةٌ لصفحة المنتج (صورته + مواصفاتنا) ⇒ عدسة جوجل تقرؤها وتجيب */
 function pmDescFit(){ const d=document.getElementById('product-modal-description'), b=document.getElementById('pm-desc-more'); if(!d||!b)return;
@@ -2699,7 +2708,7 @@ async function _gmtLensCard(d){
     const W = 540, box = document.createElement('div');
     box.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + W + 'px;background:#fff;direction:rtl;font-family:Tajawal,sans-serif;padding:0 0 16px';
     const cur = (document.querySelector('#product-modal-slides > div:nth-child(' + ((typeof _pmIdx === 'number' ? _pmIdx : 0) + 1) + ') img') || document.querySelector('#product-modal-slides img'));
-    const src = (cur && cur.getAttribute('src')) || d.img || '';
+    const src = (cur && (cur.dataset.full || cur.getAttribute('src'))) || d.img || '';
     const bm = src ? await _gmtLoadImg(src) : null;
     if (bm) {   /* الصورة داخل إطارٍ ثابت (كما في صفحة المنتج) فيبقى جدول المواصفات في اللقطة نفسها */
         const c = document.createElement('canvas'), cw = W * 2, ch = 760; c.width = cw; c.height = ch; const g = c.getContext('2d');
@@ -3351,7 +3360,7 @@ function openPackageDetail(id){
     }).join('');
     document.getElementById('package-content').innerHTML = `
         <div class="relative overflow-hidden bg-light" style="height:260px">
-            <div id="pkg-slides" class="flex h-full transition-transform duration-300">${(imgs.length ? imgs : ['']).map(u => `<div style="min-width:100%;height:100%;display:flex;align-items:center;justify-content:center">${u ? `<img src="${escHtml(u)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#d1d5db"></i>'}</div>`).join('')}</div>
+            <div id="pkg-slides" class="flex h-full transition-transform duration-300">${(imgs.length ? imgs : ['']).map(u => `<div style="flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center">${u ? `<img src="${escHtml(u)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#d1d5db"></i>'}</div>`).join('')}</div>
             ${imgs.length > 1 ? `<button type="button" onclick="_pkgSlide(-1)" class="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-right"></i></button>
             <button type="button" onclick="_pkgSlide(1)" class="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-left"></i></button>
             <div id="pkg-dots" class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">${imgs.map((_, i) => `<span style="height:6px;border-radius:9999px;width:${i ? 6 : 18}px;background:${i ? '#d1d5db' : '#D5001C'};transition:all .3s"></span>`).join('')}</div>` : ''}
