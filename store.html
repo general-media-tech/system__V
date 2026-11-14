@@ -3540,6 +3540,7 @@ function _pkgCard(p){
             <button type="button" data-pkg-add="${escHtml(p.id)}" aria-label="أضف الباقة للسلة" class="absolute top-2 left-2 w-9 h-9 rounded-[12px] flex items-center justify-center" style="background:rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.15);border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg text-primary"></i></button>
             ${pct ? `<span class="absolute top-2 right-2" style="background:#D5001C;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px">-${pct}%</span>` : ''}
             ${String(p.video_url || '').trim() ? '<div class="pc-vid" title="فيه فيديو"><i class="ph-fill ph-play"></i></div>' : ''}
+            ${window.__gmtPreviewEdit ? `<button type="button" data-pkg-edit="${escHtml(p.id)}" aria-label="تعديل الباقة" title="تعديل الباقة" class="absolute w-9 h-9 rounded-[12px] flex items-center justify-center" style="top:52px;left:8px;background:#0f1219;color:#fff;border:0;font-size:16px;cursor:pointer"><i class="ph ph-pencil-simple"></i></button>` : ''}
             <span class="absolute bottom-2 right-2" style="background:rgba(17,17,17,.78);color:#fff;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;display:inline-flex;align-items:center;gap:3px"><i class="ph ph-package"></i>${_pkgCount(n)}</span>
         </div>
         <div class="p-3 flex flex-col gap-1">
@@ -3550,8 +3551,10 @@ function _pkgCard(p){
             </div>
         </div></div>`;
 }
+document.addEventListener('click', e => { const ed = e.target.closest && e.target.closest('#package-foot [data-pkg-edit]'); if (ed) { e.preventDefault(); _adminPkgEdit(ed.getAttribute('data-pkg-edit')); } });
 function _pkgClick(e){
     const add = e.target.closest('[data-pkg-add]'); if (add) { e.stopPropagation(); e.preventDefault(); addPackageToCart(add.getAttribute('data-pkg-add')); return; }
+    const ed = e.target.closest('[data-pkg-edit]'); if (ed) { e.stopPropagation(); e.preventDefault(); _adminPkgEdit(ed.getAttribute('data-pkg-edit')); return; }
     const c = e.target.closest('[data-pkg]'); if (c) { e.stopPropagation(); openPackageDetail(c.getAttribute('data-pkg')); }
 }
 /* (seq 515) «البكج يكون في مكان معين وله تصنيف … قسم خاص للبكجات أو داخل قسم الكاميرات أو العروض الحصرية»:
@@ -3613,6 +3616,21 @@ function _pkgSlide(d){
     const n = sc.children.length; window._pkgIdx = Math.max(0, Math.min(n - 1, (window._pkgIdx || 0) + d));
     sc.style.transform = 'translateX(' + (window._pkgIdx * 100) + '%)'; try { sc.querySelectorAll('video').forEach(v => v.pause()); } catch (_) {}
     document.querySelectorAll('#pkg-dots span').forEach((x, i) => { x.style.background = i === window._pkgIdx ? '#D5001C' : '#d1d5db'; x.style.width = i === window._pkgIdx ? '18px' : '6px'; });
+}
+/* (TASK-B0405 · المالك seq 716 «التعديل في البكج أو المجموعة في المتجر ما في زرّ تعديل لهم») قلم الباقة ⇒ محرّر الباقات نفسه (الصور · المنتجات · السعر · الفيديو)
+   بصلاحية المدير المعتادة · بعد الحفظ تُعاد الباقات ويُرسم المتجر */
+async function _adminPkgEdit(id) {
+    if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('تعديل الباقة من المتجر'))) return;
+    const D = window.GMT_DB && GMT_DB.MAIN; if (!D || !window.GMTPackages) { showToast('تعذّر فتح محرّر الباقات', 'error'); return; }
+    try {
+        const r = await fetch(D.url + '/rest/v1/gmt_offers?id=eq.' + encodeURIComponent(id) + '&select=*', { headers: { apikey: D.key, Authorization: 'Bearer ' + D.key } });
+        const row = r.ok ? (await r.json())[0] : null; if (!row) { showToast('الباقة غير موجودة', 'error'); return; }
+        try { closeModal('package-modal'); } catch (_) {}
+        GMTPackages.open({ offer: row, onSaved: async () => {
+            try { store.packages = await GMTPackages.forStore(); renderPackages(); } catch (_) {}
+            showToast('✅ حُفظت الباقة', 'success');
+        } });
+    } catch (e) { showToast('تعذّر فتح الباقة: ' + (e && e.message || e), 'error'); }
 }
 function openPackageDetail(id){
     const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
@@ -3679,7 +3697,7 @@ function openPackageDetail(id){
             }
         }
     } catch (_) {}
-    document.getElementById('package-foot').innerHTML = `<button type="button" onclick="addPackageToCart('${escHtml(p.id)}');closeModal('package-modal')" class="w-full bg-primary text-white rounded-[12px] py-3 font-bold text-[15px] flex items-center justify-center gap-2" style="border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg"></i>أضف الباقة للسلة — ${_pkgMoney(p.price)}</button>`;
+    document.getElementById('package-foot').innerHTML = (window.__gmtPreviewEdit ? `<button type="button" data-pkg-edit="${escHtml(p.id)}" class="w-full rounded-[12px] py-2.5 font-bold text-[14px] mb-2 flex items-center justify-center gap-2" style="border:1.5px solid #0f1219;background:#fff;color:#0f1219;cursor:pointer"><i class="ph ph-pencil-simple"></i> تعديل الباقة</button>` : '') + `<button type="button" onclick="addPackageToCart('${escHtml(p.id)}');closeModal('package-modal')" class="w-full bg-primary text-white rounded-[12px] py-3 font-bold text-[15px] flex items-center justify-center gap-2" style="border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg"></i>أضف الباقة للسلة — ${_pkgMoney(p.price)}</button>`;
     openModal('package-modal');
 }
 /* سطر الباقة في الطلب ⇒ مكوّناتها بأسعارٍ موزَّعة (مجموعها سعر الباقة) — فيتحوّل الطلب لفاتورة بخصم مخزون كلّ قطعة */
