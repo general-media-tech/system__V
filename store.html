@@ -3502,7 +3502,7 @@ function openPackageDetail(id){
             <div id="package-foot" class="flex-shrink-0 px-5 py-3 border-t border-gray-100"></div></div>`;
         document.body.appendChild(modal);
     }
-    const imgs = [...(p.images || []), ...p.items.map(_pkgItemImg)].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 10);
+    const imgs = [...(p.images || []), ...p.items.map(_pkgItemImg)].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 20);
     const save = Math.max(0, Math.round((p.original - p.price) * 100) / 100), pct = p.original > 0 ? Math.round(save / p.original * 100) : 0;
     window._pkgIdx = 0; _pkgImgs = imgs;
     const rows = p.items.map(x => {
