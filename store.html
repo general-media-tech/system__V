@@ -3625,7 +3625,11 @@ function openPackageDetail(id){
             <div id="package-foot" class="flex-shrink-0 px-5 py-3 border-t border-gray-100"></div></div>`;
         document.body.appendChild(modal);
     }
-    const imgs = [...(p.images || []), ...p.items.map(_pkgItemImg)].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 20);
+    /* (TASK-B0403 · قاعدة المالك seq 713) ترتيب الصور دائماً: بوستر المالك ⇐ صورة شبكة المنتجات ⇐ الفيديو ⇐ بوسترات المنتجات من الأغلى إلى الأرخص */
+    const _own = (Array.isArray(p.ownImgs) ? p.ownImgs : (p.images || [])).filter(Boolean);
+    const _byPrice = p.items.slice().sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0)).map(_pkgItemImg);
+    const imgs = [..._own, ..._byPrice].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 20);
+    const _ownN = Math.min(_own.length, imgs.length);
     const save = Math.max(0, Math.round((p.original - p.price) * 100) / 100), pct = p.original > 0 ? Math.round(save / p.original * 100) : 0;
     window._pkgIdx = 0; _pkgImgs = imgs;
     const rows = p.items.map(x => {
@@ -3664,9 +3668,9 @@ function openPackageDetail(id){
         if (lv && sc) {
             const sl = document.createElement('div'); sl.style.cssText = 'flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;background:#000';
             const v = document.createElement('video'); v.className = 'pm-video pkg-video'; gmtVideoSources(v, lv); if (lv.poster) v.poster = lv.poster; v.controls = true; v.preload = 'none'; v.playsInline = true; v.style.cssText = 'width:100%;height:100%;object-fit:contain';
-            sl.appendChild(v); sc.insertBefore(sl, sc.children[1] || null);
+            sl.appendChild(v); const _at = Math.max(1, _ownN); sc.insertBefore(sl, sc.children[_at] || null);   // بعد صور الباقة (البوستر والشبكة) وقبل بوسترات المنتجات
             const dots = document.getElementById('pkg-dots');
-            if (dots) { const d = document.createElement('span'); d.style.cssText = 'height:6px;border-radius:9999px;width:6px;background:#d1d5db;transition:all .3s'; dots.insertBefore(d, dots.children[1] || null); }
+            if (dots) { const d = document.createElement('span'); d.style.cssText = 'height:6px;border-radius:9999px;width:6px;background:#d1d5db;transition:all .3s'; dots.insertBefore(d, dots.children[Math.max(1, _ownN)] || null); }
             else {   // صورة واحدة ⇒ لم تُرسم أسهم ولا نقاط — تُضاف الآن لشريحتين
                 const view = document.getElementById('pkg-view');
                 view.insertAdjacentHTML('beforeend', `<button type="button" onclick="_pkgSlide(-1)" class="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-right"></i></button>

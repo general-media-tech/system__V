@@ -85,11 +85,12 @@
         var items = parseItems(o), imgs = [];
         try { imgs = Array.isArray(o.images) ? o.images : (typeof o.images === 'string' ? JSON.parse(o.images) : []); } catch (_) { imgs = []; }
         if (o.image_url && imgs.indexOf(o.image_url) === -1) imgs.unshift(o.image_url);
+        var own = imgs.slice();   /* (seq 713) صور الباقة نفسها بترتيب المدير (بوستر المالك ⇐ صورة الشبكة) — بلا صور القطع */
         items.forEach(function (x) { if (x.image_url && imgs.indexOf(x.image_url) === -1) imgs.push(x.image_url); });
         var sum = r2(items.reduce(function (s, x) { return s + x.price * x.qty; }, 0)), t = targetsOf(o);
         items.forEach(function (x) { var q = inv[x.id]; if (sid[x.id]) x.sid = sid[x.id]; if (q) { if (!(x.price > 0)) x.price = Number(q.price) || 0; if (!x.image_url && q.image_url) x.image_url = q.image_url; if (!x.name) x.name = q.name || ''; } });
         sum = r2(items.reduce(function (s, x) { return s + x.price * x.qty; }, 0));
-        return { id: String(o.id), name: o.name, description: o.description || '', images: imgs.slice(0, 16), items: items, video_url: o.reel_url || '',   /* (seq B703) فيديو الباقة داخل المتجر */
+        return { id: String(o.id), name: o.name, description: o.description || '', images: imgs.slice(0, 16), ownImgs: own.slice(0, 8), items: items, video_url: o.reel_url || '',   /* (seq B703) فيديو الباقة داخل المتجر */
           price: Number(o.offer_price) || 0,
           /* «قبل الخصم» = مجموع أسعار منتجاتها الحالية إن عُرفت كلّها، وإلّا الرقم المحفوظ */
           original: items.every(function (x) { return x.price > 0; }) && sum > 0 ? sum : (Number(o.original_price) || sum),
@@ -232,39 +233,9 @@
     /* (المالك seq B692) «الأداة فقط تعمل هيك صورة نفس هذه الترتيبة — كلّ منتج على خلفية بيضاء في مربّع — أمّا الصورة الأساسية فأنا بصمّمها وبرفعها»
        ⇒ صورة المنتجات تُرسم في المتصفّح (ترويسة + شعار + مربّعات بيضاء بالاسم والكمّية + شريط السعر) وتُرفع وتوضع بعد الواجهة */
     function loadImg(u) { return new Promise(function (res) { if (!u) return res(null); var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = u; }); }
-    async function makeGrid() {
-      try { if (!doc.fonts.check('900 20px GMTCairo')) { var fa = new FontFace('GMTCairo', 'url(lib/fonts/Cairo-var-arabic.woff2)', { unicodeRange: 'U+0600-06FF,U+FB50-FDFF,U+FE70-FEFF' }), fl = new FontFace('GMTCairo', 'url(lib/fonts/Cairo-var-latin.woff2)'); await Promise.all([fa.load(), fl.load()]); doc.fonts.add(fa); doc.fonts.add(fl); } } catch (_) {}
-      var F = '"GMTCairo",Cairo,Tajawal,sans-serif', items = S.items, n = items.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = Math.ceil(n / cols);
-      var W = 1200, M = 60, G = 20, cw = (W - 2 * M - G * (cols - 1)) / cols, ch = cw + 76, H = 250 + rows * (ch + G) + 190;
-      var cv = doc.createElement('canvas'); cv.width = W; cv.height = H; var x = cv.getContext('2d');
-      var bg = x.createRadialGradient(W / 2, H * 0.38, 50, W / 2, H * 0.38, H); bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.6, '#f7f8fa'); bg.addColorStop(1, '#eceef2'); x.fillStyle = bg; x.fillRect(0, 0, W, H);
-      x.fillStyle = '#D5001C'; x.fillRect(0, 0, W, 14);
-      x.direction = 'rtl'; x.textAlign = 'right'; x.textBaseline = 'alphabetic';
-      x.fillStyle = '#D5001C'; x.font = '800 19px ' + F; x.fillText('GENERAL MEDIA TECH · PACKAGE', W - M, 66);
-      var name = $('[data-name]').value.trim() || 'باقة'; x.fillStyle = '#0d0e11'; var fs = 56; do { x.font = '900 ' + fs + 'px ' + F; fs -= 2; } while (x.measureText(name).width > W - 2 * M - 300 && fs > 28); x.fillText(name, W - M, 138);
-      var qty = items.reduce(function (t, it) { return t + it.qty; }, 0); x.fillStyle = '#4b5158'; x.font = '700 26px ' + F; x.fillText(n + ' منتجات' + (qty > n ? ' · ' + qty + ' قطعة' : '') + ' — كلّ ما تحتاجه في باقة واحدة', W - M, 186);
-      var logo = await loadImg('genrallogo.png'); if (logo) { var lh = 84, lw = logo.width * lh / logo.height; x.globalCompositeOperation = 'multiply'; x.drawImage(logo, M, 50, lw, lh); x.globalCompositeOperation = 'source-over'; }
-      var imgs = await Promise.all(items.map(function (it) { return loadImg(it.image_url); }));
-      var rr = function (X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
-      items.forEach(function (it, i) {
-        var c = i % cols, r = Math.floor(i / cols), X = W - M - (c + 1) * cw - c * G, Y = 240 + r * (ch + G);   // من اليمين كالترتيب العربي
-        x.save(); x.shadowColor = 'rgba(15,20,30,.08)'; x.shadowBlur = 24; x.shadowOffsetY = 8; rr(X, Y, cw, ch, 24); x.fillStyle = '#fff'; x.fill(); x.restore();
-        x.strokeStyle = '#e6e8ec'; x.lineWidth = 1.5; rr(X, Y, cw, ch, 24); x.stroke();
-        var im = imgs[i], pad = 16, bw = cw - 2 * pad, bh = cw - 2 * pad;
-        if (im) { var k = Math.min(bw / im.width, bh / im.height), dw = im.width * k, dh = im.height * k; x.drawImage(im, X + pad + (bw - dw) / 2, Y + pad + (bh - dh) / 2, dw, dh); }
-        x.fillStyle = '#0d0e11'; x.textAlign = 'center'; var t = String(it.name || ''), f2 = 23; do { x.font = '900 ' + f2 + 'px ' + F; f2--; } while (x.measureText(t).width > cw - 24 && f2 > 14);
-        if (x.measureText(t).width > cw - 24) { while (t.length > 3 && x.measureText(t + '…').width > cw - 24) t = t.slice(0, -1); t += '…'; }
-        x.fillText(t, X + cw / 2, Y + cw + 44);
-        if (it.qty > 1) { x.font = '900 28px ' + F; var qt = '×' + it.qty, qw = x.measureText(qt).width + 26; rr(X + 12, Y + 12, qw, 42, 14); x.fillStyle = '#D5001C'; x.fill(); x.fillStyle = '#fff'; x.textAlign = 'center'; x.direction = 'ltr'; x.fillText(qt, X + 12 + qw / 2, Y + 44); x.direction = 'rtl'; }
-        x.textAlign = 'right';
-      });
-      var c2 = compute(S.items, S.mode, S.value), Yp = H - 180; rr(M, Yp, W - 2 * M, 140, 30); x.fillStyle = '#0d0e11'; x.fill();
-      x.fillStyle = '#c9ccd2'; x.font = '800 26px ' + F; x.textAlign = 'right'; x.fillText('مجموع أسعار المنتجات', W - M - 44, Yp + 58);
-      x.direction = 'ltr'; x.textAlign = 'left'; x.fillStyle = '#9aa0a8'; x.font = '800 30px ' + F; var sumT = '$' + c2.sum.toFixed(2), sx = W - M - 44 - x.measureText('مجموع أسعار المنتجات ').width - 30 - x.measureText(sumT).width; x.fillText(sumT, sx, Yp + 58); x.fillRect(sx, Yp + 47, x.measureText(sumT).width, 3);
-      x.direction = 'rtl'; x.textAlign = 'right'; x.fillStyle = '#fff'; x.font = '800 26px ' + F; x.fillText('وفّر مع الباقة', W - M - 44, Yp + 102);
-      x.direction = 'ltr'; x.textAlign = 'left'; x.fillStyle = '#ff5a6e'; x.font = '900 28px ' + F; x.fillText('$' + c2.save.toFixed(2), W - M - 44 - x.measureText('وفّر مع الباقة ').width - 40 - x.measureText('$' + c2.save.toFixed(2)).width, Yp + 102);
-      rr(M + 28, Yp + 14, 270, 112, 24); x.fillStyle = '#D5001C'; x.fill(); x.textAlign = 'center'; x.direction = 'rtl'; x.fillStyle = '#fff'; x.font = '800 22px ' + F; x.fillText('سعر الباقة', M + 163, Yp + 46); x.direction = 'ltr'; x.font = '900 60px ' + F; x.fillText('$' + (Math.round(c2.price * 100) / 100), M + 163, Yp + 108);
-      return await new Promise(function (res) { cv.toBlob(res, 'image/jpeg', 0.9); });
+    async function makeGrid() {   // (seq 713) نفس تصميم صورة بكج الـ300 تماماً — الرسم في drawGrid المشتركة
+      var c2 = compute(S.items, S.mode, S.value);
+      return drawGrid(doc, { name: $('[data-name]').value.trim() || 'باقة', items: S.items, sum: c2.sum, save: c2.save, price: c2.price });
     }
     function addImg(u) { u = String(u || '').trim(); if (!u || S.images.indexOf(u) !== -1) return; S.images.push(u); paintImgs(); }
     $('[data-upload]').addEventListener('change', async function (e) {
@@ -347,5 +318,70 @@
     return w;
   }
 
-  g.GMTPackages = { PKG_CAT: PKG_CAT, open: open, compute: compute, expand: expand, parseItems: parseItems, targetsOf: targetsOf, fetchAll: fetchAll, forStore: forStore, save: save, _resetCache: function () { _prods = null; } };
+
+  /* (TASK-B0403 · المالك seq 713 «الصورة الثانية لازم تكون نفس هذه الصورة تماماً · وهذا ينطبق على الكل»)
+     صورة شبكة منتجات الباقة — نسخة canvas مطابقة لقالب بكج صناعة المحتوى (1200 عرضاً):
+     شريط أحمر · GENERAL MEDIA TECH · PACKAGE · الاسم · «N منتجات» بالأحمر · الشعار · بطاقات بيضاء ٣ أعمدة (صورة ٢٣٨ · اسم عربي · سطر لاتيني · شارة ×الكمية) · شريط السعر الداكن.
+     المنتجات من الأغلى إلى الأرخص (قاعدة المالك seq 713). */
+  function gridNames(name) {
+    var t = String(name || '').replace(/([A-Za-z0-9])([؀-ۿ])/g, '$1 $2').replace(/([؀-ۿ])([A-Za-z0-9])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+    var toks = t.split(' '), isAr = function (w) { return /[؀-ۿ]/.test(w); };
+    if (!toks.some(isAr)) return { ar: t, en: '' };
+    var mi = toks.findIndex(function (w) { return !isAr(w) && /\d/.test(w) && !/^\d$/.test(w); }), model = '';
+    if (mi !== -1) { model = toks[mi]; if (/^(cm|mm|m|w|in|inch)$/i.test(toks[mi + 1] || '')) model += ' ' + toks[mi + 1]; }
+    var used = model ? model.split(' ').length : 0;
+    var ar = toks.filter(isAr).join(' ').replace(/[.·\-–—]+$/, '').replace(/[.·]+(\s|$)/g, '$1').trim() + (model ? ' \u2066' + model + '\u2069' : '');
+    var en = toks.filter(function (w, i) { return !isAr(w) && !(mi !== -1 && i >= mi && i < mi + used); }).join(' ').toUpperCase().replace(/\bRGP\b/g, 'RGB').trim();
+    return { ar: ar, en: en };
+  }
+  async function drawGrid(doc, o) {
+    doc = doc || document;
+    try { if (!doc.fonts.check('900 20px GMTCairo')) { var fa = new FontFace('GMTCairo', 'url(lib/fonts/Cairo-var-arabic.woff2)', { unicodeRange: 'U+0600-06FF,U+FB50-FDFF,U+FE70-FEFF' }), fl = new FontFace('GMTCairo', 'url(lib/fonts/Cairo-var-latin.woff2)'); await Promise.all([fa.load(), fl.load()]); doc.fonts.add(fa); doc.fonts.add(fl); } } catch (_) {}
+    var loadImg = function (u) { return new Promise(function (res) { if (!u) return res(null); var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = u; }); };
+    var F = '"GMTCairo",Cairo,Tajawal,sans-serif';
+    var items = (o.items || []).slice().sort(function (a, b) { return (Number(b.price) || 0) - (Number(a.price) || 0); });
+    var n = items.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = Math.ceil(n / cols);
+    var W = 1200, M = 60, G = 20, cw = (W - 2 * M - G * (cols - 1)) / cols, TXT = 14 + 8 + 34 + 26 + 16;
+    var avail = 1500 - 240 - 60 - 180, IH = Math.max(150, Math.min(cw - 28, Math.floor((avail - G * (rows - 1)) / rows) - TXT)), ch = IH + TXT;   // القطع القليلة ⇒ صورٌ أكبر
+    var H = Math.max(1500, 240 + rows * (ch + G) - G + 60 + 180), gridH = rows * (ch + G) - G, Y0 = 240 + Math.max(0, Math.floor((H - 240 - 240 - gridH) / 2));   // الشبكة في منتصف المساحة
+    var cv = doc.createElement('canvas'); cv.width = W; cv.height = H; var x = cv.getContext('2d');
+    var bg = x.createRadialGradient(W / 2, H * 0.38, 0, W / 2, H * 0.38, H * 0.75); bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.55, '#f7f8fa'); bg.addColorStop(1, '#eceef2'); x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#D5001C'; x.fillRect(0, 0, W, 14);
+    x.direction = 'rtl'; x.textAlign = 'right'; x.textBaseline = 'alphabetic';
+    x.direction = 'ltr'; x.fillStyle = '#D5001C'; x.font = '800 19px ' + F; var br = 'GENERAL MEDIA TECH · PACKAGE'; var sp = 5, bx = W - M; for (var ci = br.length - 1; ci >= 0; ci--) { var chh = br[ci], cwid = x.measureText(chh).width; bx -= cwid; x.textAlign = 'left'; x.fillText(chh, bx, 70); bx -= sp; }
+    x.direction = 'rtl'; x.textAlign = 'right';
+    var name = String(o.name || 'باقة'); x.fillStyle = '#0d0e11'; var fs = 54; do { x.font = '900 ' + fs + 'px ' + F; fs -= 2; } while (x.measureText(name).width > W - 2 * M - 300 && fs > 28); x.fillText(name, W - M, 136);
+    var qty = items.reduce(function (t, it) { return t + (Number(it.qty) || 1); }, 0), lead = n + ' منتجات', rest = ' · ' + (o.subtitle || (qty > n ? qty + ' قطعة — كلّ ما تحتاجه في باقة واحدة' : 'كلّ ما تحتاجه في باقة واحدة'));
+    x.font = '900 27px ' + F; x.fillStyle = '#D5001C'; x.fillText(lead, W - M, 184); var lw0 = x.measureText(lead).width;
+    x.font = '700 27px ' + F; x.fillStyle = '#4b5158'; x.fillText(rest, W - M - lw0, 184);
+    var logo = await loadImg('genrallogo.png'); if (logo) { var lh = 84, lwid = logo.width * lh / logo.height; x.globalCompositeOperation = 'multiply'; x.drawImage(logo, M, 52, lwid, lh); x.globalCompositeOperation = 'source-over'; }
+    var imgs = await Promise.all(items.map(function (it) { return loadImg(it.image_url); }));
+    var rr = function (X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
+    var fit = function (t, max, wt, sz, min) { var f = sz; do { x.font = wt + ' ' + f + 'px ' + F; f--; } while (x.measureText(t).width > max && f > min); if (x.measureText(t).width > max) { while (t.length > 3 && x.measureText(t + '…').width > max) t = t.slice(0, -1); t += '…'; } return t; };
+    items.forEach(function (it, i) {
+      var c = i % cols, r = Math.floor(i / cols), X = W - M - (c + 1) * cw - c * G, Y = Y0 + r * (ch + G);   // من اليمين كالترتيب العربي
+      x.save(); x.shadowColor = 'rgba(15,20,30,.07)'; x.shadowBlur = 28; x.shadowOffsetY = 10; rr(X, Y, cw, ch, 26); x.fillStyle = '#fff'; x.fill(); x.restore();
+      x.strokeStyle = '#e6e8ec'; x.lineWidth = 1.5; rr(X, Y, cw, ch, 26); x.stroke();
+      var im = imgs[i], bw = cw - 28, bh = IH;
+      if (im) { var k = Math.min(bw / im.width, bh / im.height), dw = im.width * k, dh = im.height * k; x.globalCompositeOperation = 'multiply'; x.drawImage(im, X + 14 + (bw - dw) / 2, Y + 14 + (bh - dh) / 2, dw, dh); x.globalCompositeOperation = 'source-over'; }
+      var nm = gridNames(it.name); x.textAlign = 'center';
+      x.fillStyle = '#0d0e11'; var t1 = fit(nm.ar, cw - 24, '900', 23, 15); x.fillText(t1, X + cw / 2, Y + 14 + IH + 8 + 28);
+      if (nm.en) { x.direction = 'ltr'; x.fillStyle = '#8a9099'; var t2 = fit(nm.en, cw - 24, '700', 17, 12); x.fillText(t2, X + cw / 2, Y + 14 + IH + 8 + 28 + 26); x.direction = 'rtl'; }
+      var q = Number(it.qty) || 1; if (q > 1) { x.font = '900 28px ' + F; x.direction = 'ltr'; var qt = '×' + q, qw = x.measureText(qt).width + 28; x.save(); x.shadowColor = 'rgba(213,0,28,.3)'; x.shadowBlur = 14; x.shadowOffsetY = 6; rr(X + 12, Y + 12, qw, 44, 14); x.fillStyle = '#D5001C'; x.fill(); x.restore(); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(qt, X + 12 + qw / 2, Y + 45); x.direction = 'rtl'; }
+      x.textAlign = 'right';
+    });
+    var Yp = H - 180; x.save(); x.shadowColor = 'rgba(13,14,17,.25)'; x.shadowBlur = 36; x.shadowOffsetY = 16; rr(M, Yp, W - 2 * M, 140, 30); x.fillStyle = '#0d0e11'; x.fill(); x.restore();
+    var R0 = W - M - 44; x.direction = 'rtl'; x.textAlign = 'right';
+    x.fillStyle = '#c9ccd2'; x.font = '800 26px ' + F; var l1 = 'مجموع أسعار المنتجات '; x.fillText(l1, R0, Yp + 60); var w1 = x.measureText(l1).width;
+    x.direction = 'ltr'; x.textAlign = 'right'; x.fillStyle = '#9aa0a8'; x.font = '800 30px ' + F; var sumT = '$' + Number(o.sum || 0).toFixed(2); x.fillText(sumT, R0 - w1, Yp + 60); var sw = x.measureText(sumT).width;
+    x.strokeStyle = '#9aa0a8'; x.lineWidth = 2.5; x.beginPath(); x.moveTo(R0 - w1 - sw, Yp + 50); x.lineTo(R0 - w1, Yp + 50); x.stroke();
+    x.direction = 'rtl'; x.textAlign = 'right'; x.fillStyle = '#fff'; x.font = '800 26px ' + F; var l2 = 'وفّر مع الباقة '; x.fillText(l2, R0, Yp + 100); var w2 = x.measureText(l2).width;
+    x.direction = 'ltr'; x.textAlign = 'right'; x.fillStyle = '#ff5a6e'; x.font = '900 26px ' + F; x.fillText('$' + Number(o.save || 0).toFixed(2), R0 - w2, Yp + 100);
+    var pt = '$' + (Math.round(Number(o.price || 0) * 100) / 100); x.font = '900 70px ' + F; var pw = Math.max(200, x.measureText(pt).width + 68);
+    x.save(); x.shadowColor = 'rgba(213,0,28,.45)'; x.shadowBlur = 24; x.shadowOffsetY = 10; rr(M + 30, Yp + 14, pw, 112, 24); x.fillStyle = '#D5001C'; x.fill(); x.restore();
+    x.textAlign = 'center'; x.direction = 'rtl'; x.fillStyle = 'rgba(255,255,255,.9)'; x.font = '800 22px ' + F; x.fillText('سعر الباقة', M + 30 + pw / 2, Yp + 46);
+    x.direction = 'ltr'; x.fillStyle = '#fff'; x.font = '900 70px ' + F; x.fillText(pt, M + 30 + pw / 2, Yp + 112);
+    return await new Promise(function (res) { cv.toBlob(res, 'image/jpeg', 0.9); });
+  }
+  g.GMTPackages = { PKG_CAT: PKG_CAT, open: open, compute: compute, expand: expand, parseItems: parseItems, targetsOf: targetsOf, fetchAll: fetchAll, forStore: forStore, save: save, drawGrid: drawGrid, gridNames: gridNames, _resetCache: function () { _prods = null; } };
 })(window);
