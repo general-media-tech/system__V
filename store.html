@@ -3538,9 +3538,9 @@ function _pkgCard(p){
         <div class="relative w-full overflow-hidden flex-shrink-0" style="height:160px;background:#f5f5f5">
             ${_pkgCover(p)}
             <button type="button" data-pkg-add="${escHtml(p.id)}" aria-label="أضف الباقة للسلة" class="absolute top-2 left-2 w-9 h-9 rounded-[12px] flex items-center justify-center" style="background:rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.15);border:0;cursor:pointer"><i class="ph ph-shopping-cart-simple text-lg text-primary"></i></button>
-            ${pct ? `<span class="absolute top-2 right-2" style="background:#D5001C;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px">-${pct}%</span>` : ''}
+            ${pct ? `<span class="absolute right-2" style="top:${window.__gmtPreviewEdit ? '52px' : '8px'};background:#D5001C;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px">-${pct}%</span>` : ''}
             ${String(p.video_url || '').trim() ? '<div class="pc-vid" title="فيه فيديو"><i class="ph-fill ph-play"></i></div>' : ''}
-            ${window.__gmtPreviewEdit ? `<button type="button" data-pkg-edit="${escHtml(p.id)}" aria-label="تعديل الباقة" title="تعديل الباقة" class="absolute w-9 h-9 rounded-[12px] flex items-center justify-center" style="top:52px;left:8px;background:#0f1219;color:#fff;border:0;font-size:16px;cursor:pointer"><i class="ph ph-pencil-simple"></i></button>` : ''}
+            ${window.__gmtPreviewEdit ? `<button type="button" data-pkg-edit="${escHtml(p.id)}" aria-label="تعديل الباقة" title="تعديل الباقة" class="absolute top-2 right-2 w-9 h-9 rounded-[12px] flex items-center justify-center" style="background:#0f1219;color:#fff;border:0;font-size:16px;cursor:pointer;z-index:3"><i class="ph ph-pencil-simple"></i></button>` : ''}
             <span class="absolute bottom-2 right-2" style="background:rgba(17,17,17,.78);color:#fff;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;display:inline-flex;align-items:center;gap:3px"><i class="ph ph-package"></i>${_pkgCount(n)}</span>
         </div>
         <div class="p-3 flex flex-col gap-1">
