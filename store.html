@@ -68,11 +68,11 @@ window.GMT_PUBLIC = 1;</script>
         #pm-kit .pk-price { display: flex; align-items: baseline; gap: 10px; margin: 10px 0; direction: rtl; } #pm-kit .pk-price s { color: #9ca3af; font-size: 13px; direction: ltr; }
         #pm-kit .pk-price b { color: #D5001C; font-size: 18px; font-weight: 800; } #pm-kit button { width: 100%; height: 44px; border: 0; border-radius: 12px; background: #16a34a; color: #fff; font: 800 14px Cairo, sans-serif; cursor: pointer; }
         #pm-kit small { display: block; margin-top: 6px; color: #6b7280; font-size: 11px; text-align: center; }
-        .kit-ad .kc { position: relative; flex: 0 0 170px; width: 170px; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.10); cursor: pointer; }
-        .kit-ad .kc .im { height: 130px; background: #f5f5f5; position: relative; } .kit-ad .kc .im img { width: 100%; height: 100%; object-fit: cover; }
+        .kit-ad .kc { position: relative; flex: 0 0 160px; width: 160px; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.10); cursor: pointer; }
+        .kit-ad .kc .im { height: 160px; background: #f5f5f5; position: relative; } .kit-ad .kc .im img { width: 100%; height: 100%; object-fit: cover; }
         .kit-ad .kc .plus { position: absolute; bottom: 8px; left: 8px; background: rgba(17,17,17,.82); color: #fff; border-radius: 999px; padding: 2px 9px; font: 800 11px Cairo, sans-serif; }
         .kit-ad .kc .sv { position: absolute; top: 8px; right: 8px; background: #D5001C; color: #fff; border-radius: 999px; padding: 2px 9px; font: 800 11px Cairo, sans-serif; }
-        .kit-ad .kc .tx { padding: 8px 10px 10px; } .kit-ad .kc .nm { font-size: 12.5px; font-weight: 700; line-height: 1.35; height: 2.7em; overflow: hidden; color: #111; }
+        .kit-ad .kc .tx { padding: 8px 10px 10px; } .kit-ad .kc .nm { font-size: 12px; font-weight: 700; line-height: 1.35; height: 4.05em; overflow: hidden; color: #111; }
         .kit-ad .kc .pr { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; } .kit-ad .kc .pr s { color: #9ca3af; font-size: 11.5px; direction: ltr; } .kit-ad .kc .pr b { color: #D5001C; font-size: 14px; font-weight: 800; }
         .pmc { position: relative; flex: 0 0 118px; width: 118px; background: #fff; border: 2px solid #eceef1; border-radius: 14px; overflow: hidden; cursor: pointer; text-align: right; padding: 0; font-family: inherit; }
         .pmc.on { border-color: #D5001C; } .pmc .im { height: 96px; background: #f5f5f5; } .pmc .im img { width: 100%; height: 100%; object-fit: cover; }
@@ -2457,25 +2457,51 @@ function pmKitQuote(pid){
         '\n\nالمجموع: ' + _kitMoney(k.sum) + '\nالسعر المقترح في المتجر: حوالي ' + _kitMoney(k.offer) + '\n' + link;
     window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`, '_blank');
 }
-/* الإعلان في الرئيسية: صفّ «أطقم بسعر أفضل» بعد القسم الثاني — أكبر وفرٍ أوّلاً، طقمٌ واحد لكلّ قسم (تنويع) · يُخفى مع البحث كبقيّة الأقسام */
+/* (المالك seq B672) «قسم الأطقم اللي انت عامله لا تعمله — هذا نفسه قسم باقات وعروض ففينا نحطه هناك · لا تظهر صورة منتج واحد في الأطقم»
+   ⇒ الأطقم بطاقاتٌ داخل صفّ «باقات وعروض» (بعد الباقات) · صورة البطاقة مجمّعة من كلّ قطع الطقم · طقمٌ واحد لكلّ مجموعة قطع،
+   ونفس القطع المرافقة مرّتين على الأكثر (تنويع) · يُخفى مع البحث كبقيّة الأقسام. */
+function _kitBundlesCat(){ const cs = store.categories || []; return cs.find(c => String(c.id) === 'c_bundles') || cs.find(c => !c.parent_id && /باقات/.test(c.name || '')) || null; }
+function _kitCollage(items){
+    const u = items.map(p => (p.images || [])[0]).filter(Boolean).slice(0, 4);
+    const im = x => `<img ${gmtThumbAttrs(x)} alt="" style="width:100%;height:100%;object-fit:cover;display:block;background:#fff">`;
+    if (u.length >= 3) return `<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;width:100%;height:100%;background:#fff"><div style="grid-row:span 2">${im(u[0])}</div><div>${im(u[1])}</div><div>${im(u[2])}</div></div>`;
+    if (u.length === 2) return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;height:100%;background:#fff"><div>${im(u[0])}</div><div>${im(u[1])}</div></div>`;
+    return u.length ? im(u[0]) : '';
+}
 function _kitAdInsert(){
     const area = document.querySelector('[data-container="products-area"]'); if (!area) return;
-    area.querySelectorAll('[data-category-section="__kits"]').forEach(x => x.remove());
+    area.querySelectorAll('[data-kit-card]').forEach(x => x.remove());
     if (!_kits) { loadKitOffers().then(() => { if (_kits && Object.keys(_kits).length) _kitAdInsert(); }); return; }
+    const cat = _kitBundlesCat(); if (!cat) return;
     const all = Object.keys(_kits).map(gmtKitFor).filter(Boolean).sort((a, b) => b.save - a.save);
-    const seen = new Set(), pick = [];
-    all.forEach(k => { const c = String(k.items[0].category_id || ''); if (!seen.has(c) && pick.length < 12) { seen.add(c); pick.push(k); } });
-    if (pick.length < 2) return;
-    const e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : (x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
-    const sec = document.createElement('section'); sec.className = 'mt-6 kit-ad'; sec.dataset.categorySection = '__kits';
-    sec.innerHTML = `<h3 class="font-medium text-[18px] px-4 mb-1">🎁 أطقم بسعر أفضل</h3><p class="text-[11.5px] text-gray-500 px-4 mb-3">خذ المنتج مع ما يلزمه — اطلب عرض سعر للطقم</p>
-      <div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6">${pick.map(k => { const p = k.items[0];
-        return `<div class="kc" data-kit="${e(p.id)}"><div class="im">${(p.images || [])[0] ? `<img ${gmtThumbAttrs(p.images[0])} alt="">` : ''}<span class="sv"><bdi dir="ltr">−${Math.round(k.save / k.sum * 100)}%</bdi></span><span class="plus">+${k.items.length - 1} ${k.items.length - 1 === 1 ? 'قطعة' : 'قطع'}</span></div>
-          <div class="tx"><div class="nm">${e(p.short_name || p.name)}</div><div class="pr"><s>${_kitM(k.sum)}</s><b>بحوالي ${_kitM(k.offer)}</b></div></div></div>`; }).join('')}</div>`;
-    sec.querySelectorAll('.kc').forEach(c => c.addEventListener('click', () => { openProductModal(c.dataset.kit); setTimeout(() => { const w = document.getElementById('pm-kit'); if (w && !w.classList.contains('hidden') && w.scrollIntoView) w.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 700); }));
-    const secs = area.querySelectorAll(':scope > section[data-category-section]');
-    const after = secs[1] || secs[0];
-    if (after && after.nextSibling) area.insertBefore(sec, after.nextSibling); else area.insertBefore(sec, area.querySelector('#store-endless') || null);
+    const sets = new Set(), sig = new Map(), pick = [];
+    for (const k of all) {
+        const set = k.items.map(p => p.id).sort().join('|'); if (sets.has(set)) continue;
+        const sg = k.items.slice(1).map(p => p.id).sort().join('|'); if ((sig.get(sg) || 0) >= 2) continue;
+        sets.add(set); sig.set(sg, (sig.get(sg) || 0) + 1); pick.push(k); if (pick.length >= 16) break;
+    }
+    if (!pick.length) return;
+    let sec = area.querySelector('section[data-category-section="' + (window.CSS && CSS.escape ? CSS.escape(cat.id) : cat.id) + '"]');
+    let row = sec ? sec.querySelector('.flex.overflow-x-auto') : null;
+    if (!row) {   /* القسم فارغ (لا باقات بعد) ⇒ يُنشأ صفّه في موضعه بين الأقسام — مثل _injectPackages تماماً */
+        sec = document.createElement('section'); sec.className = 'mt-6'; sec.dataset.categorySection = cat.id; sec.setAttribute('data-pkg-inj', '1');
+        sec.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">' + escHtml(cat.name) + '</h3>';
+        row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6'; sec.appendChild(row);
+        const order = (typeof _catOrdered === 'function' ? _catOrdered() : (store.categories || [])).map(c => String(c.id));
+        const after = order.slice(order.indexOf(String(cat.id)) + 1);
+        const next = [...area.querySelectorAll(':scope > section[data-category-section]')].find(x => after.indexOf(x.dataset.categorySection) !== -1)
+            || area.querySelector('[data-category-section="__orphans"]') || area.querySelector('#store-endless');
+        area.insertBefore(sec, next || null);
+    }
+    const e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : escHtml;
+    pick.forEach(k => {
+        const w = document.createElement('div'); w.setAttribute('data-kit-card', '1'); w.style.cssText = 'flex:0 0 auto;display:flex';
+        const nm = k.items.map(p => p.short_name || p.name).join(' + ');
+        w.innerHTML = `<div class="kit-ad"><div class="kc" data-kit="${e(k.items[0].id)}"><div class="im">${_kitCollage(k.items)}<span class="sv"><bdi dir="ltr">−${Math.round(k.save / k.sum * 100)}%</bdi></span><span class="plus">🎁 طقم ${k.items.length} قطع</span></div>
+          <div class="tx"><div class="nm">${e(nm)}</div><div class="pr"><s>${_kitM(k.sum)}</s><b>بحوالي ${_kitM(k.offer)}</b></div></div></div></div>`;
+        w.querySelector('.kc').addEventListener('click', ev => { ev.stopPropagation(); const id = ev.currentTarget.dataset.kit; openProductModal(id); setTimeout(() => { const x = document.getElementById('pm-kit'); if (x && !x.classList.contains('hidden') && x.scrollIntoView) x.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 700); });
+        row.appendChild(w);
+    });
     if (document.getElementById('search-results-section')) sec.style.display = 'none';
 }
 
@@ -3448,6 +3474,7 @@ function _injectPackages(){
         w.innerHTML = _pkgCard(p); row.insertBefore(w, row.firstChild);
     }));
     if (!area._pkgClick) { area._pkgClick = true; area.addEventListener('click', _pkgClick, true); }
+    try { _kitAdInsert(); } catch (_) {}   /* (seq B672) الأطقم في صفّ «باقات وعروض» بعد الباقات */
 }
 function renderPackages(){
     /* (seq 518) «الباقات تُعامَل معاملة المنتج»: تظهر داخل أقسامها فقط (قسم «باقات وعروض» وأيّ قسمٍ آخر) — لا كتلة منفصلة */

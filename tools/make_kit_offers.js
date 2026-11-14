@@ -4,7 +4,9 @@
    ⚠️ التكلفة لا تُكتب في الملفّ إطلاقاً — تُستعمل هنا فقط لحساب الخصم الآمن.
 
    الطقم = ما تقترحه دالّة المتجر نفسها gmtComplements (تُشغَّل داخل store.html على البيانات الحيّة) ⇒ ما يراه الزبون في «كمّل طقمك» هو الطقم نفسه.
-   الخصم = الأقلّ من: نصف الربح · ١٥٪ من المجموع، ثمّ يُقرَّب للأسفل (٥$ · أو ١٠$ فوق ٣٠٠$). لا عرض إن كان الوفر < ٣٪ أو تكلفة قطعةٍ مجهولة.
+   (المالك seq B672) «لا تحط طقم كبير · حط اكسسوارات اسعارها البيع اضعاف سعر الشراء · وعند البكج بتنزل السعر ب 35 بالمية تقريبا»:
+   كلّ قطعة في الطقم (والمنتج نفسه) سعر بيعها ≥ ضعف تكلفتها · قطعتان أو ثلاث فقط · مجموعها ≤ MAX_SUM$ ·
+   سعر الطقم = المجموع − ٣٥٪ تقريباً (يُقرَّب لأقرب ١$، أو ٥$ فوق ١٠٠$) ويبقى ≥ ١٫٢ × التكلفة.
 
    التشغيل (المفاتيح من البيئة فقط — لا أسرار في المستودع):
      U/K   = القاعدة الرئيسية (رابط + مفتاح يقرأ products.cost_price/net_cost)
@@ -18,13 +20,13 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8765/';
 const OUT = process.env.OUT || 'kits.json';
 const hdr = k => ({ apikey: k, Authorization: 'Bearer ' + k });
 
+const MULT = 2, DISC = 0.35, MAX_ITEMS = 3, MAX_SUM = Number(process.env.MAX_SUM || 250);
 function offerFor(items) {   // items: [{price, cost}]
   const sum = items.reduce((t, x) => t + x.price, 0), cost = items.reduce((t, x) => t + x.cost, 0);
-  const margin = sum - cost; if (!(margin > 0)) return null;
-  const disc = Math.min(margin * 0.5, sum * 0.15);
-  const step = sum > 300 ? 10 : sum > 60 ? 5 : 1;
-  const offer = Math.floor((sum - disc) / step) * step;
-  if (offer <= cost || sum - offer < Math.max(3, sum * 0.03)) return null;
+  if (sum > MAX_SUM) return null;
+  const step = sum > 100 ? 5 : 1;
+  const offer = Math.round(sum * (1 - DISC) / step) * step;
+  if (offer < cost * 1.2 || offer >= sum) return null;
   return { sum: Math.round(sum * 100) / 100, offer };
 }
 
@@ -53,14 +55,16 @@ function offerFor(items) {   // items: [{price, cost}]
   const kits = {}; let skipped = 0;
   for (const [pid, list] of Object.entries(comp)) {
     const main = byId[pid]; const mc = costOf[pid];
-    if (!main || !(mc > 0)) { skipped++; continue; }
-    const picks = list.filter(id => costOf[id] > 0 && parseFloat(byId[id] && byId[id].price || 0) > 0).slice(0, 3);
+    const rich = id => costOf[id] > 0 && byId[id] && parseFloat(byId[id].price || 0) >= MULT * costOf[id];   // إكسسوار ربحه أضعاف
+    if (!main || !rich(pid) || /محول|وصلة|كبل|كابل|adapter|cable/i.test(main.name || '')) { skipped++; continue; }   // الوصلات لا تُبنى عليها أطقم
+    const picks = [];   // قطعةٌ واحدة من كلّ نوع (لا ذاكرتان في طقم واحد)
+    for (const id of list.filter(rich)) { if (picks.length >= MAX_ITEMS - 1) break; if (picks.some(x => String(byId[x].category_id) === String(byId[id].category_id))) continue; picks.push(id); }
     if (!picks.length) { skipped++; continue; }
     const ids = [pid, ...picks];
     const o = offerFor(ids.map(id => ({ price: parseFloat(byId[id].price), cost: costOf[id] })));
     if (o) kits[pid] = { ids, sum: o.sum, offer: o.offer }; else skipped++;
   }
-  const out = { built_at: new Date().toISOString(), rule: 'min(نصف الربح، ١٥٪) مقرّب للأسفل', kits };
+  const out = { built_at: new Date().toISOString(), rule: 'قطع ربحها ≥ ضعف التكلفة · ٢–٣ قطع · −٣٥٪ تقريباً', kits };
   fs.writeFileSync(OUT, JSON.stringify(out));
   const vals = Object.values(kits);
   console.log('أطقم:', vals.length, '· بلا عرض:', skipped, '· متوسّط الوفر:', vals.length ? (vals.reduce((t, k) => t + (k.sum - k.offer) / k.sum, 0) / vals.length * 100).toFixed(1) + '%' : '-');
