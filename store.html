@@ -2682,7 +2682,10 @@ function _pmSync(){
 /* (المالك seq B678) «لازم يظهر الفيديو كأنه في المتجر — لا ياخذني على إنستغرام»: ريلز المنتجات نُزِّلت وضُغطت (540p) واستُضيفت معنا في img/v/<id>.mp4
    مع غلافها img/v/<id>.jpg ⇒ تُشغَّل بمشغّل المتصفح داخل المعرض نفسه. ريلٌ جديد غير مستضاف يبقى على المشغّل المضمَّن كما كان. */
 const GMT_LOCAL_VIDEOS = { DQOtgYZjANt: 1, DfeZXbGsEmc: 1, DXm2IaoDGZn: 1 };
-function gmtLocalVideo(u){ const m=String(u||'').match(/instagram\.com\/(?:[^\/?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i); if(!m||!GMT_LOCAL_VIDEOS[m[1]])return null;
+function gmtLocalVideo(u){
+    /* (seq B687) فيديو مستضاف عندنا مباشرةً (img/v/<اسم>.mp4 — فيديوهات كتالوج المورد) ⇒ غلافه ونسخته الاحتياطية بنفس الاسم */
+    { const h=String(u||'').match(/^(.*\/img\/v\/[A-Za-z0-9_-]+)\.(?:mp4|webm)(?:[?#].*)?$/i); if(h){ const b=new URL(h[1],location.href).href; return {kind:'video',src:b+'.mp4',webm:b+'.webm',poster:b+'.jpg'}; } }
+    const m=String(u||'').match(/instagram\.com\/(?:[^\/?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i); if(!m||!GMT_LOCAL_VIDEOS[m[1]])return null;
     const b=new URL('img/v/'+m[1],location.href).href; return {kind:'video',src:b+'.mp4',webm:b+'.webm',poster:b+'.jpg'}; }
 /* مصدرا الفيديو: mp4 (H.264 — كلّ الهواتف وسفاري) ثمّ webm احتياطاً للمتصفّحات بلا H.264 */
 function gmtVideoSources(v,lv){ v.innerHTML=''; v.removeAttribute('src'); [[lv.src,'video/mp4'],[lv.webm,'video/webm']].forEach(([u,t])=>{ if(!u)return; const s=document.createElement('source'); s.src=u; s.type=t; v.appendChild(s); }); }

@@ -5,6 +5,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
 const B = H.BASE;
 const prods = [{ id: 'v1', name: 'رأس إضاءة بفيديو', price: 50, category_id: 'c0', video_url: 'https://www.instagram.com/reel/DQOtgYZjANt/?igsh=xx',
   images: [B + 'img/p/lens_f7ca8222-9a32-4975-babd-6317bd587ddf_1793191484385.png', B + 'img/p/lens_f38182bf-d776-4639-bad5-cae938b73806_1793191631554.png'] },
+  { id: 'v3', name: 'إضاءة قلب بفيديو الكتالوج', price: 15, category_id: 'c0', video_url: 'https://general-media-tech.github.io/system__V/img/v/cat_heart.mp4', images: [B + 'img/p/lens_f7ca8222-9a32-4975-babd-6317bd587ddf_1793191484385.png'] },
   { id: 'v2', name: 'منتج بفيديو غير مستضاف', price: 20, category_id: 'c0', video_url: 'https://www.instagram.com/reel/ZZZnotLocal/', images: [B + 'img/p/lens_f7ca8222-9a32-4975-babd-6317bd587ddf_1793191484385.png'] }];
 const st = { categories: [{ id: 'c0', name: 'قسم', order: 0 }], banners: [], offers: [], branches: [], products: prods };
 const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen_build','x'); }catch(e){} window.__open=[]; window.open=function(u){ window.__open.push(u); return null; };`;
@@ -15,7 +16,7 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
   await o.ctx.route(/home\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(st) }));
   await o.pg.goto(B + 'store.html', { waitUntil: 'domcontentloaded' }); await o.pg.waitForTimeout(4000);
   const dots = await o.pg.evaluate(() => [...document.querySelectorAll('.pc-vid')].length);
-  ok(dots === 2, '(seq B679) نقطة حمراء على بطاقة كلّ منتج له فيديو: ' + dots);
+  ok(dots === 3, '(seq B679) نقطة حمراء على بطاقة كلّ منتج له فيديو: ' + dots);
   await o.pg.evaluate(() => openProductModal('v1')); await o.pg.waitForTimeout(1200);
   const a = await o.pg.evaluate(() => { const sl = [...document.querySelectorAll('#product-modal-slides > div')]; const v = sl[2] && sl[2].querySelector('video');
     const th = [...document.querySelectorAll('#pm-thumbs .pm-th')]; return { n: sl.length, srcs: v ? v.querySelectorAll('source').length : 0, src: v && (v.querySelector('source') || {}).src, poster: v && v.getAttribute('poster'), pre: v && v.preload, inline: v && v.hasAttribute('playsinline'),
@@ -37,6 +38,10 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
     pmZoomClose(); return out; });
   ok(z.length === 3 && z[0].c === '1 / 3' && z[0].img && z[2].vid && /DQOtgYZjANt\.mp4$/.test(z[2].vid) && !z[2].img, '③ في العارض الكامل يظهر الفيديو عند التقليب بين الصور ' + JSON.stringify(z));
   ok(!ig.length && !(await o.pg.evaluate(() => window.__open.length)), '④ لا طلب لإنستغرام ولا فتح نافذة خارجية: ' + ig.length);
+  // ⑥ (seq B687) فيديو كتالوج المورد المستضاف مباشرةً ⇒ نفس المشغّل الداخلي بغلافه
+  await o.pg.evaluate(() => openProductModal('v3')); await o.pg.waitForTimeout(800);
+  const c3 = await o.pg.evaluate(() => { const v = document.querySelector('#product-modal-slides video'); return v ? { src: (v.querySelector('source') || {}).src, poster: v.getAttribute('poster'), n: v.querySelectorAll('source').length } : null; });
+  ok(c3 && /img\/v\/cat_heart\.mp4$/.test(c3.src) && /cat_heart\.jpg$/.test(c3.poster) && c3.n === 2, '⑥ فيديو الكتالوج المستضاف: مشغّل داخلي بغلافه ونسختين ' + JSON.stringify(c3));
   // ⑤ فيديو غير مستضاف ⇒ يبقى الزرّ القديم (المشغّل المضمَّن)
   await o.pg.evaluate(() => openProductModal('v2')); await o.pg.waitForTimeout(800);
   const b = await o.pg.evaluate(() => ({ btn: !!document.querySelector('#product-modal-slides .pm-vid'), vid: !!document.querySelector('#product-modal-slides video') }));
