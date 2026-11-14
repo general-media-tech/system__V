@@ -513,6 +513,36 @@ const CONFIG = {
 };
 
 // M-2 (2026-07-17): دالة تنظيف ضد XSS — تُطبَّق على كل ما يُعرض من مدخلات (اسم منتج، بحث الزبون)
+/* (TASK-B0396 · seq B694 «كمل كلشي» · اقتراحات المتجر ٣) «قارن مع»: منتجات من نفس القسم لها مواصفات مشتركة ⇒ جدول جنباً إلى جنب، المختلف مُعلَّم */
+const _specMap=p=>{ const m=new Map(); (Array.isArray(p&&p.specs)?p.specs:[]).forEach(r=>{ if(r&&r.label&&String(r.value||'').trim()) m.set(String(r.label).trim(),String(r.value).trim()); }); return m; };
+function gmtCompareCandidates(prod,max){
+  const a=_specMap(prod); if(a.size<2) return [];
+  const cats=new Set((prod.category_ids||[prod.category_id]).filter(Boolean).map(String)), price=parseFloat(prod.price||0)||0;
+  return (store.products||[]).filter(p=>p&&String(p.id)!==String(prod.id)&&!Array.isArray(p.package_items)&&(p.category_ids||[p.category_id]).some(c=>cats.has(String(c))))
+    .map(p=>{ const b=_specMap(p); let n=0; a.forEach((_,k)=>{ if(b.has(k)) n++; }); const pp=parseFloat(p.price||0)||0; return { p, n, d: price&&pp?Math.abs(Math.log(pp/price)):9 }; })
+    .filter(x=>x.n>=2).sort((x,y)=>y.n-x.n||x.d-y.d).slice(0,max||6).map(x=>x.p);
+}
+function _renderCompare(prod,otherId){
+  const el=document.getElementById('pm-compare'); if(!el) return;
+  const c=gmtCompareCandidates(prod,6); if(!c.length){ el.classList.add('hidden'); el.innerHTML=''; return; }
+  const other=otherId?c.find(p=>String(p.id)===String(otherId)):null;
+  const chips=c.map(p=>`<button type="button" data-cmp="${escHtml(p.id)}" style="padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid ${other&&String(other.id)===String(p.id)?'#111;background:#111;color:#fff':'#e5e7eb;background:#fff;color:#111'};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name||'')}</button>`).join('');
+  let tbl='';
+  if(other){
+    const a=_specMap(prod), b=_specMap(other), keys=[...a.keys()].concat([...b.keys()].filter(k=>!a.has(k)));
+    const pr=p=>parseFloat(p.price||0)>0?CONFIG.CURRENCY+parseFloat(p.price).toFixed(2):'السعر عند الطلب';
+    const row=(k,x,y)=>{ const diff=(x||'')!==(y||''); return `<tr${diff?' data-diff="1" style="background:#fff7ed"':''}><td style="padding:6px 8px;color:#6b7280;font-weight:700;white-space:nowrap">${escHtml(k)}</td><td style="padding:6px 8px;font-weight:700">${escHtml(x||'—')}</td><td style="padding:6px 8px;font-weight:700">${escHtml(y||'—')}</td></tr>`; };
+    tbl=`<div style="overflow-x:auto;margin-top:10px;border:1px solid #eee;border-radius:12px"><table data-cmp-table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="background:#f8fafc"><th style="padding:7px 8px"></th><th style="padding:7px 8px;text-align:right">${escHtml(prod.name||'')}</th><th style="padding:7px 8px;text-align:right">${escHtml(other.name||'')}</th></tr></thead><tbody>
+      ${row('السعر',pr(prod),pr(other))}${keys.map(k=>row(k,a.get(k),b.get(k))).join('')}</tbody></table></div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><span style="font-size:11px;color:#9a3412;font-weight:700">المظلَّل = مختلف</span><button type="button" data-cmp-open="${escHtml(other.id)}" style="margin-inline-start:auto;font-size:12px;font-weight:700;color:#D5001C;background:none;border:0;cursor:pointer">فتح ${escHtml(String(other.name||'').slice(0,30))} ←</button></div>`;
+  }
+  el.innerHTML=`<div class="font-bold text-sm mb-2">⚖️ قارن مع</div><div style="display:flex;gap:6px;flex-wrap:wrap">${chips}</div>${tbl}`;
+  el.classList.remove('hidden');
+  el.querySelectorAll('[data-cmp]').forEach(b=>b.addEventListener('click',()=>_renderCompare(prod,String(other&&String(other.id)===b.dataset.cmp?'':b.dataset.cmp))));
+  const op=el.querySelector('[data-cmp-open]'); if(op) op.addEventListener('click',()=>openProductModal(op.dataset.cmpOpen));
+}
+window.gmtCompareCandidates=gmtCompareCandidates;
 function escHtml(s){ /* (٨ ث) نسخةٌ واحدة: GMTUtil.esc في gmt-core.js */ return GMTUtil.esc(s); }
 
 const _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -2019,7 +2049,7 @@ function createModals(){
                 <div id="product-modal-description" class="text-sm text-gray-600 leading-relaxed mb-4 hidden whitespace-pre-line"></div>
                 <button type="button" id="pm-desc-more" class="hidden" onclick="pmDescToggle()">عرض المزيد</button>
                 <!-- (TASK-0162) جدول المواصفات — من الجرد عبر الجسر -->
-                <div id="product-modal-specs" class="mb-4 hidden"><div class="font-bold text-sm mb-2">المواصفات</div><div data-specs-body></div></div>
+                <div id="product-modal-specs" class="mb-4 hidden"><div class="font-bold text-sm mb-2">المواصفات</div><div data-specs-body></div></div><div id="pm-compare" class="mb-4 hidden"></div>
                 <div id="product-modal-video-wrap" class="hidden mt-3"></div>
                 <div id="product-modal-ig-wrap"    class="hidden mt-2 mb-1"></div>
                 <!-- كود المنتج (الباركود) — للبحث عنه في نظام الجرد ولو اختلف الاسم -->
@@ -2338,6 +2368,7 @@ function openProductModal(productId, opt){
       const sh=(window.GMTSpecs&&((Array.isArray(prod.specs)&&prod.specs.length)||prod.compat))?GMTSpecs.tableHTML(Array.isArray(prod.specs)?prod.specs:[],{compat:prod.compat||'',marks:false}):'';   /* (seq 281) التوافق وحده يكفي ليظهر — «في البداية كل التوافق» */   /* (TASK-0234) بلا «≈» للزبون */
       specsEl.querySelector('[data-specs-body]').innerHTML=sh; specsEl.classList.toggle('hidden',!sh);
     }
+    try{ _renderCompare(prod); }catch(_){}
 
     // كود المنتج (الباركود) — يظهر فقط إن وُجد، لنسخه والبحث عنه في الجرد
     const codeWrap=document.getElementById('product-modal-code-wrap');
