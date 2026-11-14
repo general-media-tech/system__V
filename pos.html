@@ -3531,8 +3531,17 @@ async function _refreshOffers() {
 
 /* (TASK-B0392 · صيد نمط) جدولة «الوارد» كانت في آخر مسار الكاش فقط ⇒ أوّل تحميل على الجهاز (وكلّ الأجهزة مرّةً بعد B0374) يخرج قبلها
    فلا يظهر زرّ «📥 وارد» ولا شريطه طوال الجلسة — وهكذا بقيت TRF-00015 بلا تنبيه. الآن تُجدوَل مرّةً واحدة لكلّ صفحة أيّاً كان المسار. */
+/* (TASK-B0417 · المالك seq 727) «تظهر الباقة في كل الفروع وكل نقاط البيع — كل ما نزّلنا عرضاً جديداً أو باقة أو أيّ شيء تظهر».
+   كانت العروض تُجدَّد مرّةً عند فتح الصفحة فقط ⇒ عرضٌ جديد لا يصل لنقطةٍ مفتوحة إلا بإعادة تحميل. الآن تُجدَّد كلّ ٣ دقائق
+   وعند العودة لتبويب/تطبيق نقطة البيع (إظهار الصفحة). الاستعلام نفسه لكلّ الفروع بلا ترشيح فرع: أيّ عرضٍ فعّال (targets.pos != false). */
+function _scheduleOffersRefresh() {
+  if (window.__offSched) return; window.__offSched = true;
+  const go = () => { try { if (document.visibilityState !== 'hidden') _refreshOffers(); } catch (_) {} };
+  try { setInterval(go, 180000); document.addEventListener('visibilitychange', go); window.addEventListener('online', go); } catch (_) {}
+}
 function _scheduleIncoming() {
   if (window.__incSched) return; window.__incSched = true;
+  _scheduleOffersRefresh();
   try { setTimeout(loadIncomingTransfers, 1500); setInterval(loadIncomingTransfers, 120000); } catch (e) {}
 }
 async function loadProducts() {
