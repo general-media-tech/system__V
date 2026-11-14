@@ -2,12 +2,13 @@
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 const dump = () => H.call('/__dump', undefined, 'GET');
+const LOCAL = ['lens_f7ca8222-9a32-4975-babd-6317bd587ddf_1793191484385.png', 'lens_f38182bf-d776-4639-bad5-cae938b73806_1793191631554.png'];
 (async () => {
   await H.seed();
   const D0 = await dump(); const P = (D0.products || []).filter(p => p.price > 0).slice(0, 2);
   const A = 'https://x.example/studio.png', Bp = 'https://x.example/poster.jpg';
   await H.call('/rest/v1/gmt_offers', { name: 'باقة الصور', offer_type: 'bundle', offer_price: 100, original_price: 150, is_active: true, targets: { pos: true, store: true, cats: ['c_bundles'], mode: 'price', value: 100 },
-    image_url: Bp, images: [Bp, A, 'https://x.example/p1.jpg'], products: JSON.stringify(P.map(p => ({ id: p.id, name: p.name, qty: 1, price: p.price, image_url: 'https://x.example/item_' + p.id + '.jpg' }))) });
+    image_url: Bp, images: [Bp, A, 'https://x.example/p1.jpg'], products: JSON.stringify(P.map(p => ({ id: p.id, name: p.name, qty: 1, price: p.price, image_url: H.BASE + 'img/p/' + LOCAL[P.indexOf(p) % LOCAL.length] }))) });
   const off = ((await dump()).gmt_offers || []).find(o => o.name === 'باقة الصور');
   const { browser, pg, errs } = await H.open('admin_pos.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 5000 });
   await pg.waitForFunction(() => !!window.GMTPackages, null, { timeout: 8000 });
@@ -21,14 +22,20 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   ok(o1.join() === 'studio.png,poster.jpg', '③ حذف صورة: ' + o1.join());
   const cand = await pg.evaluate(() => document.querySelectorAll('#gmt-pkg [data-imgs] img[data-img]').length);
   await pg.click('#gmt-pkg [data-imgs] img[data-img]'); o1 = await order();
-  ok(cand === 2 && o1.length === 3 && /^item_/.test(o1[2]), '④ إضافة بوستر منتج من صور منتجاتها (بعد الصورتين): ' + o1.join());
+  ok(cand === 2 && o1.length === 3 && /^lens_/.test(o1[2]), '④ إضافة بوستر منتج من صور منتجاتها (بعد الصورتين): ' + o1.join());
   await pg.fill('#gmt-pkg [data-cover]', 'https://x.example/extra.jpg'); await pg.click('#gmt-pkg [data-addurl]');
   await pg.click('#gmt-pkg [data-imv="3:-1"]'); o1 = await order();
-  ok(o1.length === 4 && o1[2] === 'extra.jpg' && /^item_/.test(o1[3]), '⑤ إضافة برابط ثمّ تقديمها بالسهم: ' + o1.join());
+  ok(o1.length === 4 && o1[2] === 'extra.jpg' && /^lens_/.test(o1[3]), '⑤ إضافة برابط ثمّ تقديمها بالسهم: ' + o1.join());
+  // ⑦ (seq B692) توليد صورة المنتجات تلقائياً ⇒ تُرفع وتوضع بعد الواجهة
+  let up = null; await pg.context().route(/\/storage\/v1\/object\/products-images\/packages\/grid_/, r => { up = r.request().postDataBuffer(); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{}' }); });
+  await pg.click('#gmt-pkg [data-gengrid]'); for (let i = 0; i < 40 && !up; i++) await pg.waitForTimeout(250); await pg.waitForTimeout(300);
+  o1 = await order();
+  if (up) require('fs').writeFileSync('/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/grid_gen.jpg', up);
+  ok(up && up.length > 30000 && up[0] === 0xFF && up[1] === 0xD8 && /^grid_\d+\.jpg$/.test(o1[1]) && o1[0] === 'studio.png', '⑦ «توليد صورة المنتجات» يرسم JPEG ويرفعه ويضعه بعد الواجهة: ' + (up && up.length) + ' بايت · ' + o1.join());
   await pg.click('#gmt-pkg [data-save]'); await pg.waitForTimeout(1500);
   const sv = ((await dump()).gmt_offers || []).find(o => o.name === 'باقة الصور');
   const imgs = (typeof sv.images === 'string' ? JSON.parse(sv.images) : sv.images).map(u => u.split('/').pop());
-  ok(imgs.join() === o1.join() && /studio\.png$/.test(sv.image_url), '⑥ الحفظ يكتب الصور بالترتيب نفسه والواجهة = الأولى: ' + imgs.join() + ' · ' + sv.image_url);
+  ok(imgs.join() === o1.join() && /studio\.png$/.test(sv.image_url) && imgs.length === 5, '⑥ الحفظ يكتب الصور بالترتيب نفسه والواجهة = الأولى: ' + imgs.join() + ' · ' + sv.image_url);
   const real = errs.filter(x => !/status of (400|401|404|406|503)|Failed to load resource|x\.example/.test(x));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
   await browser.close();

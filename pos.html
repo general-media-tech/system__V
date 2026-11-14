@@ -3090,7 +3090,34 @@ async function loadIncomingTransfers() {
   return _incomingTransfers;
 }
 
+/* (TASK-B0392 · المالك seq B691 — اقتراح ٩) زرّ «وارد» صغير فبقيت فاتورة التسوية TRF-00015 معلّقة أيّاماً ⇒ شريطٌ واضح تحت الرأس:
+   عدد الفواتير · أقدمها منذ كم · زرّ «استلم الآن». يُخفى ليومه بـ«لاحقاً» ويعود في اليوم التالي أو عند وصول فاتورة جديدة. */
+function renderIncomingStrip() {
+  let st = document.getElementById('inc-trf-strip');
+  const list = _incomingTransfers || [], n = list.length;
+  const key = 'gmt_inc_strip_hide_' + (branch && branch.key || ''), sig = new Date().toISOString().slice(0, 10) + ':' + list.map(t => t.id).join(',');
+  let hidden = false; try { hidden = localStorage.getItem(key) === sig; } catch (_) {}
+  if (!n || hidden) { if (st) st.style.display = 'none'; return; }
+  if (!st) {
+    st = document.createElement('div'); st.id = 'inc-trf-strip';
+    st.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 10px 0;padding:10px 12px;border-radius:12px;background:#eff6ff;border:1.5px solid #93c5fd;color:#1e3a8a;font-weight:800;font-size:13.5px;direction:rtl';
+    const host = document.querySelector('.hdr-actions'), hdr = host && (host.closest('header') || host.parentElement);
+    if (hdr && hdr.parentNode) hdr.parentNode.insertBefore(st, hdr.nextSibling); else document.body.prepend(st);
+  }
+  const oldest = list.reduce((m, t) => Math.min(m, new Date(t.created_at || Date.now()).getTime()), Date.now());
+  const days = Math.floor((Date.now() - oldest) / 864e5), qty = list.reduce((s2, t) => s2 + (Number(t.total_qty) || 0), 0);
+  st.style.display = 'flex';
+  st.innerHTML = '<span style="font-size:20px">📥</span><span style="flex:1;min-width:180px">' + n + ' ' + (n === 1 ? 'فاتورة نقل/تسوية' : 'فواتير نقل/تسوية') + ' بانتظار استلام فرعك' +
+    (qty ? ' · ' + qty + ' قطعة' : '') + (days >= 1 ? ' · <span style="color:#b91c1c">أقدمها منذ ' + days + ' ' + (days === 1 ? 'يوم' : 'أيام') + '</span>' : '') +
+    '<br><small style="font-weight:700;color:#475569">لا تُضاف كمّياتها لمخزونك قبل الاستلام</small></span>' +
+    '<button type="button" id="inc-strip-go" style="background:#1d4ed8;color:#fff;border:0;border-radius:10px;padding:8px 14px;font:inherit;font-weight:900;cursor:pointer">استلم الآن</button>' +
+    '<button type="button" id="inc-strip-later" style="background:none;border:0;color:#64748b;font:inherit;font-weight:800;cursor:pointer">لاحقاً</button>';
+  st.querySelector('#inc-strip-go').onclick = openIncomingTransfers;
+  st.querySelector('#inc-strip-later').onclick = () => { try { localStorage.setItem(key, sig); } catch (_) {} st.style.display = 'none'; };
+}
+
 function renderIncomingBadge() {
+  try { renderIncomingStrip(); } catch (_) {}
   let b = document.getElementById('inc-trf-btn');
   const n = _incomingTransfers.length;
   if (!n) { if (b) b.style.display = 'none'; return; }
@@ -3488,7 +3515,14 @@ async function _refreshOffers() {
   } catch (e) { console.warn('[عروض] تعذّر التجديد:', e && e.message); }
 }
 
+/* (TASK-B0392 · صيد نمط) جدولة «الوارد» كانت في آخر مسار الكاش فقط ⇒ أوّل تحميل على الجهاز (وكلّ الأجهزة مرّةً بعد B0374) يخرج قبلها
+   فلا يظهر زرّ «📥 وارد» ولا شريطه طوال الجلسة — وهكذا بقيت TRF-00015 بلا تنبيه. الآن تُجدوَل مرّةً واحدة لكلّ صفحة أيّاً كان المسار. */
+function _scheduleIncoming() {
+  if (window.__incSched) return; window.__incSched = true;
+  try { setTimeout(loadIncomingTransfers, 1500); setInterval(loadIncomingTransfers, 120000); } catch (e) {}
+}
 async function loadProducts() {
+  _scheduleIncoming();
   const isFirstLoad = !(await getMeta('last_products_sync'));
   const cached      = await loadProductsOffline();
   const hasCached   = cached && cached.length > 0;
@@ -3508,7 +3542,6 @@ async function loadProducts() {
   showToast('⚡ البيانات من الكاش المحلي', 'inf');
   if (navigator.onLine) setTimeout(() => _backgroundSync().catch(()=>{}), 2000);
   if (navigator.onLine) setTimeout(() => _refreshOffers(), 900);
-  try { setTimeout(loadIncomingTransfers, 1500); setInterval(loadIncomingTransfers, 120000); } catch(e) {}
 }
 
 let _wantAllImages = false;   // يُرفع فقط بطلبٍ صريح (إعادة تحميل كاملة)
@@ -10910,7 +10943,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261114l"></script>
+<script src="gmt-whatsnew.js?v=20261115a"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
