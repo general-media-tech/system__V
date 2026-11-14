@@ -451,6 +451,9 @@ window.GMT_PUBLIC = 1;</script>
         <input id="search-input" type="text" placeholder="ابحث عن منتج..."
             class="flex-1 bg-transparent outline-none text-sm font-sans text-dark placeholder-gray-400"
             oninput="performSearch(this.value)">
+        <button id="search-mic" type="button" onclick="storeVoiceSearch()" class="hidden text-gray-400 hover:text-primary flex-shrink-0" title="بحث بالصوت" aria-label="بحث بالصوت">
+            <i class="ph ph-microphone text-lg"></i>
+        </button>
         <button onclick="closeSearch()" class="text-gray-400 hover:text-gray-600 flex-shrink-0">
             <i class="ph ph-x text-base"></i>
         </button>
@@ -2180,6 +2183,20 @@ let searchOpen=false;
 function openSearchBar(){ searchOpen=true; document.getElementById('search-bar').style.transform='translateY(0)'; setTimeout(()=>document.getElementById('search-input')?.focus(),350); }
 function closeSearch(){ searchOpen=false; document.getElementById('search-bar').style.transform='translateY(-100%)'; document.getElementById('search-input').value=''; showAllProducts(); }
 window.closeSearch=closeSearch;
+// (seq B693 · اقتراحات المتجر ٥) بحث صوتيّ بالعربي — زرّ الميكروفون يظهر فقط حيث يدعمه المتصفّح (مجاني · لا خادم)
+(function(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; const b=document.getElementById('search-mic'); if(!SR||!b) return; b.classList.remove('hidden');
+  let rec=null;
+  window.storeVoiceSearch=function(){
+    if(rec){ try{rec.stop();}catch(_){} return; }
+    try{ rec=new SR(); }catch(_){ showToast('البحث الصوتي غير متاح هنا','error'); return; }
+    rec.lang='ar-SY'; rec.interimResults=true; rec.maxAlternatives=1;
+    const inp=document.getElementById('search-input'); b.classList.add('text-red-500','animate-pulse');
+    rec.onresult=e=>{ const t=[...e.results].map(r=>r[0].transcript).join(' ').trim(); if(t){ inp.value=t; window.performSearch(t); } };
+    rec.onerror=e=>{ if(e&&e.error==='not-allowed') showToast('اسمح باستخدام الميكروفون للبحث بالصوت','error'); else if(e&&e.error!=='no-speech'&&e.error!=='aborted') showToast('تعذّر التعرّف على الصوت — جرّب مرّة أخرى','error'); };
+    rec.onend=()=>{ rec=null; b.classList.remove('text-red-500','animate-pulse'); };
+    try{ rec.start(); }catch(_){ rec=null; b.classList.remove('text-red-500','animate-pulse'); }
+  };
+})();
 
 /* (المالك seq 221 «البحث باستخدام التوافق مثلاً هود 18 55 — حتى في المتجر») بحث المتجر = بحث النظام نفسه (gmt-suggest):
    كل كلمة بأيّ ترتيب في الاسم والمختصر والقسم والوصف والباركود · و«نوع + ما يركب عليه» من المرجع (بطارية 700d ⇐ LP-E8 ·

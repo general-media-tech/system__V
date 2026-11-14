@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>window.GMT_INTERNAL = 1;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GMT — اللوحة الصباحية</title>
+<link rel="icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<!-- (TASK-B0395 · المالك seq B693–B694 «كمل كلشي» · اقتراحات الأدمن هـ١) لوحة صباحية بنظرة واحدة:
+     مبيعات الأمس واليوم لكلّ فرع · آخر بيع لكلّ فرع · التحويلات المعلّقة (من ← إلى وعمرها) · الطلبات المعلّقة · طلبات الزبائن غير المتوفّرة.
+     قراءة فقط — لا تكتب شيئاً. للإدارة (السجلّ في gmt-tools.js a:'admin' ⇒ حارس gmt-account يقفلها لغيرها). -->
+<style>
+  :root{--red:#D5001C;--dark:#0f1219;--muted:#5b6472;--line:#e8eaed;--ok:#15803d;--warn:#b45309;--bad:#b91c1c}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,system-ui,sans-serif;background:#f4f6f9;color:#1f2937;min-height:100vh}
+  header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;overflow:hidden;background:#fff}
+  h1{font-size:16px;font-weight:900;color:var(--dark)} .sub{font-size:11px;color:var(--muted);font-weight:700}
+  .back{margin-inline-start:auto;text-decoration:none;color:var(--muted);font-size:12px;font-weight:800;border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:#fff}
+  .rf{border:0;background:var(--red);color:#fff;border-radius:10px;padding:8px 13px;font:inherit;font-size:12px;font-weight:900;cursor:pointer}
+  .wrap{max-width:980px;margin:0 auto;padding:14px 16px 40px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .st{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center;text-decoration:none;color:inherit;display:block}
+  .st .v{font-size:24px;font-weight:900;direction:ltr} .st .k{font-size:12px;color:var(--muted);font-weight:800;margin-top:2px}
+  .st.warn .v{color:var(--warn)} .st.bad .v{color:var(--bad)} .st.ok .v{color:var(--ok)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:12px}
+  .card h2{font-size:14px;font-weight:900;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .card h2 a{margin-inline-start:auto;font-size:11.5px;color:var(--red);text-decoration:none;font-weight:800}
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:8px 9px;border-bottom:1px solid #f1f3f6;white-space:nowrap}
+  th{color:var(--muted);font-size:11.5px;font-weight:800}
+  td.n{direction:ltr;text-align:left;font-weight:800}
+  .old{color:var(--bad);font-weight:800} .mut{color:var(--muted);font-size:12px}
+  .empty{color:var(--muted);font-weight:700;font-size:13px;padding:10px 2px}
+  .err{background:#fef2f2;color:var(--bad);border-radius:10px;padding:9px 11px;font-size:12.5px;font-weight:700;margin-top:6px}
+</style>
+<script src="gmt-tools.js?v=20261115d"></script>
+<script src="gmt-account.js?v=20261103d"></script>
+</head>
+<body>
+<header>
+  <div class="logo"><img src="logo.jpg" alt="General Media Tech" style="width:100%;height:100%;object-fit:contain"></div>
+  <div><h1>☀️ اللوحة الصباحية</h1><div class="sub" id="m-sub">مبيعات الأمس · المعلّق · ما يطلبه الزبائن</div></div>
+  <button class="rf" id="m-refresh" type="button">↻ تحديث</button>
+  <a class="back" href="home.html">↩ البوابة</a>
+</header>
+<div class="wrap">
+  <div class="stats">
+    <div class="st" id="s-y"><div class="v">…</div><div class="k">مبيعات الأمس</div></div>
+    <div class="st" id="s-t"><div class="v">…</div><div class="k">مبيعات اليوم حتى الآن</div></div>
+    <a class="st" id="s-trf" href="admin_pos.html?tab=stocktransfers"><div class="v">…</div><div class="k">تحويلات لم تُستلم</div></a>
+    <a class="st" id="s-ord" href="orders.html"><div class="v">…</div><div class="k">طلبات معلّقة</div></a>
+    <a class="st" id="s-dem" href="طلبات_غير_متوفرة.html"><div class="v">…</div><div class="k">طلبات غير متوفّرة (٧ أيام)</div></a>
+  </div>
+  <div class="card"><h2>🏪 الفروع <a href="sales_log.html">سجلّ المبيعات ←</a></h2><div class="tw" id="m-br"><div class="empty">⏳ جارٍ الجلب…</div></div></div>
+  <div class="card"><h2>🔁 تحويلات بين الفروع لم تُستلم <a href="admin_pos.html?tab=stocktransfers">فتح ←</a></h2><div class="tw" id="m-trf"><div class="empty">⏳</div></div></div>
+  <div class="card"><h2>📦 طلبات أونلاين معلّقة <a href="orders.html">فتح ←</a></h2><div class="tw" id="m-ord"><div class="empty">⏳</div></div></div>
+</div>
+<script src="gmt-config.js?v=20261029z4"></script>
+<script src="gmt-brand.js?v=20261029z4"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var usd = function (v) { return '$' + (Math.round((Number(v) || 0) * 100) / 100).toLocaleString('en-US'); };
+  var dayStart = function (d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  var ago = function (iso) { var d = Math.floor((Date.now() - new Date(iso).getTime()) / 864e5); return d <= 0 ? 'اليوم' : d === 1 ? 'أمس' : 'منذ ' + d + ' يوم'; };
+  var fmtD = function (iso) { var d = new Date(iso); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); };
+  async function get(path) {
+    var M = window.GMT_DB && GMT_DB.MAIN; if (!M || !M.url) throw new Error('لا إعداد للقاعدة');
+    var h = GMT_DB.headers ? GMT_DB.headers(M) : { apikey: M.key, Authorization: 'Bearer ' + M.key };
+    var r = await fetch(M.url + '/rest/v1/' + path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+  function stat(id, v, cls) { var el = $(id); el.querySelector('.v').textContent = v; el.classList.remove('ok', 'warn', 'bad'); if (cls) el.classList.add(cls); }
+  function fail(box, e) { $(box).innerHTML = '<div class="err">تعذّرت القراءة: ' + esc(e && e.message || e) + '</div>'; }
+
+  async function sales() {
+    var today = dayStart(new Date()), yest = new Date(today.getTime() - 864e5), since = new Date(today.getTime() - 60 * 864e5);
+    // آخر ٦٠ يوماً تكفي للأمس واليوم و«آخر بيع» — وآخر بيعٍ أقدم يُجلب منفصلاً لكلّ فرع
+    var rows = await get('invoices?select=branch_key,branch_name,total,is_refund,created_at&created_at=gte.' + encodeURIComponent(since.toISOString()) + '&order=created_at.desc&limit=5000');
+    var last = await get('invoices?select=branch_key,branch_name,created_at&order=created_at.desc&limit=2000');
+    var B = {}, nm = function (r) { return r.branch_key || r.branch_name || '—'; };
+    var slot = function (r) { var k = nm(r); return B[k] || (B[k] = { name: r.branch_name && !/^[a-z_]+$/.test(r.branch_name) ? r.branch_name : k, y: 0, yn: 0, t: 0, tn: 0, ref: 0, last: null }); };
+    last.forEach(function (r) { var b = slot(r); if (r.branch_name && !/^[a-z_]+$/.test(r.branch_name)) b.name = r.branch_name; if (!b.last || r.created_at > b.last) b.last = r.created_at; });
+    var Y = 0, Yn = 0, T = 0, Tn = 0;
+    rows.forEach(function (r) {
+      var b = slot(r), at = new Date(r.created_at), v = Number(r.total) || 0;
+      if (r.is_refund) { if (at >= yest) b.ref += Math.abs(v); return; }
+      if (at >= today) { b.t += v; b.tn++; T += v; Tn++; } else if (at >= yest) { b.y += v; b.yn++; Y += v; Yn++; }
+    });
+    stat('s-y', usd(Y), Yn ? 'ok' : ''); $('s-y').querySelector('.k').textContent = 'مبيعات الأمس · ' + Yn + ' فاتورة';
+    stat('s-t', usd(T), Tn ? 'ok' : ''); $('s-t').querySelector('.k').textContent = 'اليوم حتى الآن · ' + Tn + ' فاتورة';
+    var list = Object.keys(B).map(function (k) { return B[k]; }).sort(function (a, b) { return (b.y + b.t) - (a.y + a.t) || String(b.last || '').localeCompare(String(a.last || '')); });
+    if (!list.length) { $('m-br').innerHTML = '<div class="empty">لا فواتير مسجّلة بعد.</div>'; return; }
+    $('m-br').innerHTML = '<table><thead><tr><th>الفرع</th><th>الأمس</th><th>اليوم</th><th>مرتجع (يومان)</th><th>آخر بيع</th></tr></thead><tbody>' + list.map(function (b) {
+      var stale = b.last && (Date.now() - new Date(b.last).getTime()) > 3 * 864e5;
+      return '<tr data-br="' + esc(b.name) + '"><td><b>' + esc(b.name) + '</b></td><td class="n">' + (b.yn ? usd(b.y) + ' <span class="mut">(' + b.yn + ')</span>' : '—') + '</td><td class="n">' + (b.tn ? usd(b.t) + ' <span class="mut">(' + b.tn + ')</span>' : '—') + '</td><td class="n">' + (b.ref ? usd(b.ref) : '—') + '</td><td class="' + (stale ? 'old' : '') + '">' + (b.last ? fmtD(b.last) + ' · ' + ago(b.last) : '—') + '</td></tr>';
+    }).join('') + '</tbody></table>' + (list.some(function (b) { return b.last && (Date.now() - new Date(b.last).getTime()) > 3 * 864e5; }) ? '<div class="mut" style="margin-top:6px">بالأحمر: فرعٌ لم يسجّل بيعاً منذ أكثر من ٣ أيام على النظام.</div>' : '');
+  }
+  async function transfers() {
+    var rows = await get('branch_stock_transfers?select=id,transfer_number,from_branch_name,from_branch,to_branch_name,to_branch,created_at,sent_at,title&status=eq.pending&order=created_at.asc&limit=200');
+    stat('s-trf', String(rows.length), rows.length ? 'warn' : 'ok');
+    if (!rows.length) { $('m-trf').innerHTML = '<div class="empty">✅ لا تحويلات معلّقة.</div>'; return; }
+    var cnt = {};
+    try { var ids = rows.map(function (r) { return r.id; }).join(','); var it = await get('stock_transfer_items?select=transfer_id,qty&transfer_id=in.(' + ids + ')'); it.forEach(function (x) { var c = cnt[x.transfer_id] || (cnt[x.transfer_id] = { n: 0, q: 0 }); c.n++; c.q += Number(x.qty) || 0; }); } catch (_) {}
+    $('m-trf').innerHTML = '<table><thead><tr><th>الرقم</th><th>من ← إلى</th><th>البنود</th><th>أُرسل</th></tr></thead><tbody>' + rows.map(function (r) {
+      var at = r.sent_at || r.created_at, c = cnt[r.id], old = (Date.now() - new Date(at).getTime()) > 2 * 864e5;
+      return '<tr data-trf="' + esc(r.transfer_number) + '"><td><b>' + esc(r.transfer_number || '—') + '</b>' + (r.title ? '<div class="mut">' + esc(r.title) + '</div>' : '') + '</td><td>' + esc(r.from_branch_name || r.from_branch || '—') + ' ← ' + esc(r.to_branch_name || r.to_branch || '—') + '</td><td><b>' + (c ? c.n + ' بند · ' + c.q + ' قطعة' : '—') + '</b>' + '</td><td class="' + (old ? 'old' : '') + '">' + fmtD(at) + ' · ' + ago(at) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  async function orders() {
+    var rows = await get('gmt_orders?select=id,order_number,name,product,price,branch,created_at&status=eq.pending&or=(is_deleted.is.null,is_deleted.eq.false)&order=created_at.asc&limit=200');
+    stat('s-ord', String(rows.length), rows.length ? 'warn' : 'ok');
+    if (!rows.length) { $('m-ord').innerHTML = '<div class="empty">✅ لا طلبات معلّقة.</div>'; return; }
+    $('m-ord').innerHTML = '<table><thead><tr><th>الطلب</th><th>الزبون</th><th>المنتج</th><th>المبلغ</th><th>منذ</th></tr></thead><tbody>' + rows.map(function (r) {
+      var old = (Date.now() - new Date(r.created_at).getTime()) > 3 * 864e5;
+      return '<tr data-ord="' + esc(r.id) + '"><td><b>' + esc(r.order_number || ('#' + r.id)) + '</b></td><td>' + esc(r.name || '—') + '</td><td style="white-space:normal;min-width:160px">' + esc(String(r.product || '—').slice(0, 80)) + '</td><td class="n">' + (Number(r.price) ? usd(r.price) : '—') + '</td><td class="' + (old ? 'old' : '') + '">' + ago(r.created_at) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  async function demand() {
+    var since = new Date(Date.now() - 7 * 864e5).toISOString();
+    var rows = await get('gmt_audit?select=entity_name&action=eq.unmet_demand&at=gte.' + encodeURIComponent(since) + '&limit=1000');
+    var u = {}; rows.forEach(function (r) { u[r.entity_name || '—'] = 1; });
+    stat('s-dem', String(Object.keys(u).length), Object.keys(u).length ? 'warn' : '');
+  }
+  function load() {
+    $('m-sub').textContent = 'آخر تحديث ' + new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' }) + ' · مبيعات الأمس · المعلّق · ما يطلبه الزبائن';
+    sales().catch(function (e) { fail('m-br', e); stat('s-y', '—'); stat('s-t', '—'); });
+    transfers().catch(function (e) { fail('m-trf', e); stat('s-trf', '—'); });
+    orders().catch(function (e) { fail('m-ord', e); stat('s-ord', '—'); });
+    demand().catch(function () { stat('s-dem', '—'); });
+  }
+  $('m-refresh').addEventListener('click', load);
+  load();
+})();
+</script>
+<script src="gmt-whatsnew.js?v=20261115d"></script>
+</body>
+</html>
