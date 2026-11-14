@@ -4,3 +4,6 @@ tests/harness/*.png
 __pycache__/
 # ملفات Excel التي تولّدها اختبارات الشراء (t_buy · t_buy2) — ليست من المشروع
 tests/harness/rfq_*.xlsx
+
+# نسخ عمل مؤقّتة للوكلاء — لا تُحفظ
+.claude/worktrees/
