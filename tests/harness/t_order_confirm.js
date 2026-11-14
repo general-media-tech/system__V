@@ -1,0 +1,34 @@
+// (TASK-B0416 · المالك seq 727) «قبل التجهيز في شيء اسمه التأكيد… نراسله ونبعث له صورة الفاتورة… مجرّد ما أكّدنا نعطيه قيد التجهيز ونرسله»
+const H = require('./h.js');
+let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const dump = () => H.call('/__dump', undefined, 'GET');
+(async () => {
+  await H.seed();
+  const items = JSON.stringify([{ name: 'منتج أ', qty: 2, price: 30 }]);
+  const now = new Date().toISOString();
+  const [s1] = await H.call('/rest/v1/gmt_orders', [{ name: 'زبون المتجر', phone: '0933700010', status: 'pending', qty: 2, branch: 'المتجر الإلكتروني', product: 'منتج أ', price: 60, address: 'حمص', items_json: items, created_at: now, order_number: 'ORD-1' }]);
+  const [s2] = await H.call('/rest/v1/gmt_orders', [{ name: 'قديم', phone: '0933700011', status: 'pending', qty: 1, branch: 'المتجر الإلكتروني', product: 'ب', price: 10, address: 'حمص', created_at: '2026-10-01T00:00:00Z' }]);
+  const [m1] = await H.call('/rest/v1/gmt_orders', [{ name: 'يدوي', phone: '0933700012', status: 'pending', qty: 1, branch: 'حلب', product: 'ج', price: 10, address: 'حمص', created_at: now }]);
+  const { browser, pg, errs } = await H.open('orders.html', { w: 390, h: 844, mobile: true, wait: 5000, init: H.ADMIN_INIT });
+  await pg.evaluate(() => { window.__wa = []; window.openWhatsAppChat = (p, t) => { window.__wa.push([p, t]); return {}; }; window.GMTRender && (GMTRender.toBlob = async () => new Blob(['x'], { type: 'image/jpeg' })); window.saveBlobToDevice = () => 'f.jpg'; });
+  const g = await pg.evaluate(([a, b, c]) => ({ n1: needsConfirm(orders.find(o => o.id == a)), n2: needsConfirm(orders.find(o => o.id == b)), n3: needsConfirm(orders.find(o => o.id == c)) }), [s1.id, s2.id, m1.id]);
+  ok(g.n1 === true && g.n2 === false && g.n3 === false, 'أوردر المتجر الجديد وحده «بانتظار التأكيد» (القديم واليدوي لا): ' + JSON.stringify(g));
+  await pg.evaluate(() => switchTab('confirm')); await sleep(400);
+  const ui = await pg.evaluate(id => ({ badge: document.getElementById('badge-confirm').textContent, card: !!document.querySelector('#list-confirm #card-' + id), btns: [...document.querySelectorAll('#list-confirm #card-' + id + ' button')].map(b => b.textContent.trim()).join('|'), inPending: !!document.querySelector('#list-pending #card-' + id) }), s1.id);
+  ok(ui.badge === '1' && ui.card && !ui.inPending && /راسل الزبون للتأكيد/.test(ui.btns) && /أكّد الزبون/.test(ui.btns) && !/إرسال للشحن/.test(ui.btns), 'التبويب: بطاقة بزرّي المراسلة والتأكيد، ولا زرّ شحن: ' + ui.btns);
+  await pg.evaluate(id => confirmContact(id), s1.id); await sleep(2500);
+  const wa = await pg.evaluate(() => window.__wa);
+  ok(wa.length === 1 && /مرحباً أستاذ زبون المتجر/.test(wa[0][1]) && /تأكيد/.test(wa[0][1]) && /منتج أ × 2/.test(wa[0][1]), 'رسالة واتساب: «مرحباً أستاذ …» + البنود + طلب التأكيد');
+  let d = await dump(); let r1 = d.gmt_orders.find(x => x.id === s1.id);
+  ok(r1.confirmation && r1.confirmation.asked_at && !r1.confirmation.confirmed_at && r1.status === 'pending', 'بعد المراسلة: سُجّل «سُئل» ولم يُؤكَّد بعد');
+  await pg.evaluate(id => { GMTAsk.confirm = async () => true; confirmDone(id); }, s1.id); await sleep(800);
+  d = await dump(); r1 = d.gmt_orders.find(x => x.id === s1.id);
+  ok(r1.confirmation.confirmed_at, 'بعد «أكّد الزبون»: confirmed_at محفوظ');
+  const after = await pg.evaluate(id => ({ n: needsConfirm(orders.find(o => o.id == id)), inPending: (switchTab('pending'), !!document.querySelector('#list-pending #card-' + id)), btn: (document.querySelector('#list-pending #card-' + id) || { innerText: '' }).innerText }), s1.id);
+  ok(after.n === false && after.inPending && /إرسال للشحن/.test(after.btn), 'بعد التأكيد ⇒ «قيد التجهيز» مع زرّ الشحن');
+  const realErr = errs.filter(e => !/status of (400|401|404|406|409)|Failed to load resource|Estimating resolution/.test(e));
+  ok(!realErr.length, 'لا أخطاء JS ' + realErr.slice(0, 2).join(' / '));
+  await browser.close();
+  console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

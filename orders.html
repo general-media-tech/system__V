@@ -271,6 +271,7 @@ window.GMT_INTERNAL = 1;</script>
         <!-- تبويبات -->
         <div class="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 no-scrollbar snap-x">
             <button onclick="switchTab('all')"       id="tab-all"       class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-black bg-dark text-white shadow-md">الكل</button>
+            <button onclick="switchTab('confirm')" id="tab-confirm" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200" data-hint="🏪 أوردرات المتجر الجديدة: راسل الزبون واكسب تأكيده أوّلاً — بعد التأكيد تنتقل إلى «قيد التجهيز» ثم تُشحن.">✅ بانتظار التأكيد <span id="badge-confirm" class="inline-block bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('pending')"   id="tab-pending"   class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">قيد التجهيز <span data-status="pending" id="badge-pending"   class="inline-block bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('prepared')"  id="tab-prepared"  class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200">محضّرة <span data-status="prepared" id="badge-prepared"  class="inline-block bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
             <button onclick="switchTab('frozen')" id="tab-frozen" class="snap-start shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold bg-white text-gray-500 border border-gray-200" data-hint="❄️ أوردرات مجمَّدة: بانتظار دفعة أو مراجعة بيانات — لا تُجهَّز ولا تُشحن حتى يُفَكّ تجميدها (TASK-0316).">❄️ مجمّدة <span id="badge-frozen" class="inline-block bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full text-xs mr-1 font-black">0</span></button>
@@ -319,6 +320,15 @@ window.GMT_INTERNAL = 1;</script>
             <button onclick="clearFilters()" id="clear-filters-btn" class="hidden px-3 py-2.5 bg-red text-white rounded-xl text-xs font-black">✕ إزالة الفلتر</button>
         </div>
 
+
+        <!-- ✅ قسم بانتظار التأكيد (TASK-B0416): أوردر المتجر الجديد قبل «قيد التجهيز» — يُراسَل الزبون بفاتورته ويؤكّد -->
+        <section id="section-confirm">
+            <div class="flex items-center gap-2 mb-4 px-1">
+                <span class="text-lg leading-none">✅</span>
+                <h2 class="text-xs font-black text-amber-700 uppercase tracking-wider">أوردرات المتجر — بانتظار تأكيد الزبون</h2>
+            </div>
+            <div id="list-confirm" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
 
         <!-- قسم قيد التجهيز -->
         <section id="section-pending">
@@ -1591,7 +1601,7 @@ function render() {
     try { syncSenderFilter(); } catch (_) {}
     const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
     const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
-    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[], returned:[], frozen:[] };
+    const groups     = { pending:[], prepared:[], shipped:[], delivered:[], completed:[], returned:[], frozen:[], confirm:[] };
     let sumF = 0;   // (TASK-0316) قيمة المجمَّد
     const branchTot  = {};
     const companyTot = {};
@@ -1617,6 +1627,7 @@ function render() {
             if (_fAge > 5 * 86400000) lateOrders.push({ o, days: Math.floor(_fAge / 86400000), type: 'frozen', reason: 'مجمَّد بانتظار الدفعة/البيانات' });
             return;
         }
+        if (needsConfirm(o)) { groups.confirm.push(o); return; }   // (TASK-B0416) بانتظار تأكيد الزبون ⇒ قبل «قيد التجهيز»
         if (groups[o.status]) groups[o.status].push(o);
         if (o.status !== 'returned' && returnActive(o)) groups.returned.push(o);   // (TASK-0261) يظهر في تبويبه وفي المرتجعات معاً
         /* (TASK-0166) الجاري ⇒ ما بقي للتحصيل (المحصَّل مسبقاً خارجه) · المكتمل ⇒ قيمة الأوردر كاملة (87 إن زادت الأجور) */
@@ -1739,6 +1750,7 @@ function render() {
 
     setText('badge-pending',   groups.pending.length);
     setText('badge-frozen',    groups.frozen.length);
+    setText('badge-confirm',   groups.confirm.length);
     { const fs = document.getElementById('frozen-sum'); if (fs) { fs.textContent = groups.frozen.length ? '$' + sumF.toLocaleString() + ' مجمَّد' : ''; fs.classList.toggle('hidden', !groups.frozen.length); } }
     setText('badge-prepared',  groups.prepared.length);
     setText('badge-shipped',   groups.shipped.length);
@@ -1747,7 +1759,7 @@ function render() {
     setText('badge-returned',  groups.returned.length);
 
     // تبويبات
-    ['all','pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(t => {
+    ['all','confirm','pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(t => {
         const btn = document.getElementById('tab-' + t);
         if (!btn) return;
         btn.className = currentTab === t
@@ -1760,7 +1772,7 @@ function render() {
        (٣٠٠ أوردر ≈ ١٠٦ آلاف عنصر) فتتجمّد الصفحة حتى ثانية مع كل حرفٍ في البحث. الآن أوّل CARD_CHUNK بطاقة فوراً والباقي يُضاف
        وحده كلّما اقتربتَ منه بالتمرير — نفس البطاقات ونفس الترتيب والفلاتر، لا شيء يُحذف. */
     const seq = ++_renderSeq;
-    ['pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(st => {
+    ['confirm','pending','frozen','prepared','shipped','delivered','returned','completed'].forEach(st => {
         const sec = document.getElementById('section-' + st);
         if (!sec) return;
         const show = currentTab === 'all' || currentTab === st;
@@ -2018,8 +2030,9 @@ function cardHTML(o) {
         completed: `<button onclick="requestConfirm(${o.id},'delete')"    class="flex-1 ${c.btn} py-3 rounded-xl text-xs font-black transition-colors">🗂 أرشفة نهائية</button>`,
         returned:  returnActionBtn(o, c),   // (TASK-0260) بالطريق ⇐ وصل ⇐ استلمناه ⇐ إعادة الشحن
     }[o.status] || '';
+    const _cnf = needsConfirm(o);
     const _frz = isFrozen(o);
-    const _actBtn = _frz
+    const _actBtn = _cnf ? confirmButtonsHTML(o) : _frz
         ? `<button onclick="thawOrder(${o.id})" data-hint="الأوردر مجمَّد: لا يُجهَّز ولا يُشحن. فكّ التجميد بعد تأكّدك من الدفعة/البيانات." class="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl text-xs font-black transition-colors">☀️ فكّ التجميد</button>`
         : ((o.status !== 'returned' && returnActive(o)) ? returnActionBtn(o, c) : actionBtn);   // (TASK-0261) مرتجعٌ قائم ⇒ زرّ مرحلته لا التحصيل
 
@@ -2033,6 +2046,7 @@ function cardHTML(o) {
             <i data-lucide="edit" class="w-4 h-4"></i>
         </button>`}
         ${_frz ? frozenBannerHTML(o) : ''}
+        ${_cnf ? confirmBannerHTML(o) : ''}
         ${getOrderSerial(o) ? `<div class="mb-2" dir="ltr"><span class="inline-block bg-gray-100 text-gray-600 font-black font-mono text-xs px-3 py-1 rounded-lg tracking-wider">${escH(getOrderSerial(o))}</span></div>` : ''}
         ${isLinked ? `<div class="mb-2 flex items-center gap-2 flex-wrap">
             <span class="order-linked-badge">🔗 مرتبط — جاهز للشحن</span>
@@ -5773,14 +5787,14 @@ function needRender() {
         document.head.appendChild(s);
     });
 }
-async function sheetToBlob(html) {
+async function sheetToBlob(html, opts) {
     await needRender();
     // حارس زمني: لا تتعلّق الواجهة أبداً إن تعذّر الرسم
     let guard;
     const timer = new Promise((_, rej) => { guard = setTimeout(() => rej(new Error('انتهت مهلة تجهيز الصورة — أعد المحاولة')), 30000); });
     try {
         return await Promise.race([
-            GMTRender.toBlob(html, { width: SHEET_BASE_W, scale: SHEET_TARGET_W / SHEET_BASE_W, type: 'image/jpeg', quality: 0.92 }),
+            GMTRender.toBlob(html, { width: (opts && opts.width) || SHEET_BASE_W, scale: (opts && opts.scale) || SHEET_TARGET_W / SHEET_BASE_W, type: 'image/jpeg', quality: 0.92 }),
             timer
         ]);
     } finally { clearTimeout(guard); }
@@ -5932,7 +5946,7 @@ function showAttachBar(o, blob, fileName, text, savedOk) {
 }
 
 /* يرجع true إن وصل التبليغ للزبون (فيُوسَم)، false إن لم يصل */
-async function notifyWithSheet(o, html, fileName, text) {
+async function notifyWithSheet(o, html, fileName, text, sheetOpts) {
     if (_sharing) { showToast('⏳ هناك تبليغ قيد التنفيذ — انتظر قليلاً', 'err'); return false; }
     if (!waDigits(o.phone)) { showToast('لا يوجد رقم هاتف لهذا الزبون — لم يُرسَل التبليغ', 'err'); return false; }
     _sharing = true;
@@ -5944,7 +5958,7 @@ async function notifyWithSheet(o, html, fileName, text) {
         try {
             if (_prior) throw new Error('__text_only__');
             showToast('⏳ جارٍ تجهيز صورة الطلب...', 'ok');
-            blob = await sheetToBlob(html);
+            blob = await sheetToBlob(html, sheetOpts);
         } catch (e) {
             /* [P4] فشل الصورة **لا يُلغي التبليغ** — النصّ وحده أهمّ من لا شيء */
             if (!(e && e.message === '__text_only__')) console.warn('[GMT] تعذّر تجهيز صورة الطلب:', e && e.message);
@@ -9502,8 +9516,7 @@ window.returnsReport = async () => {
      — للطباعة أو المشاركة. أمّا فاتورة البيع في نقطة البيع (الخصم من المخزون والعمولة) فتبقى
      بربط الأوردر كالعادة — كي لا يُخصم مخزونٌ بلا إنسان. ══ */
 function storeRef(o) { return (o && (o.store_order_id || o.store_ref || o.shop_order_id || o.order_number)) || ''; }
-window.storeOrderInvoice = async (id) => {
-    const o = orders.find(x => x.id == id); if (!o) return;
+function storeInvoiceHTML(o, opts) {
     const ref = storeRef(o) || o.serial_code || o.id;
     let items = [];
     try { items = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : (o.items_json || []); } catch (_) { items = []; }
@@ -9511,14 +9524,67 @@ window.storeOrderInvoice = async (id) => {
     const total = Number(o.price) || items.reduce((s, x) => s + (Number(x.price) || 0) * (Number(x.qty) || 1), 0);
     /* 🔴 (ملاحظات ١٣ ت١ ١٢:٤٣م) «فاتورة المتجر حطّلها قالب نفس فاتورة المبيع» — القالب مصدرٌ واحد (gmt-invoice-tpl.js)
        تشاركه نقطة البيع. كان هنا تصميمٌ خاصّ (A5 بسيط). الأسعار كما طلبها الزبون، والإجمالي = قيمة الأوردر المسجَّلة. */
-    if (!window.GMTInvoiceTpl) { showToast('قالب الفاتورة لم يُحمَّل — حدّث الصفحة', 'err'); return; }
-    const w = window.open('', '_blank'); if (!w) { showToast('اسمح بالنوافذ المنبثقة', 'err'); return; }
-    const html = GMTInvoiceTpl.storeHTML({
+    return GMTInvoiceTpl.storeHTML({
         ref: String(ref), name: o.name, phone: o.phone, address: o.address, notes: '',
         items: items.map(x => ({ name: x.name || x.product_name || x.product, qty: x.qty, price: x.price })),
         total: total, created_at: o.created_at
-    }, { autoPrint: true });
-    w.document.write(html); w.document.close();
+    }, opts || { autoPrint: true });
+}
+window.storeOrderInvoice = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (!window.GMTInvoiceTpl) { showToast('قالب الفاتورة لم يُحمَّل — حدّث الصفحة', 'err'); return; }
+    const w = window.open('', '_blank'); if (!w) { showToast('اسمح بالنوافذ المنبثقة', 'err'); return; }
+    w.document.write(storeInvoiceHTML(o, { autoPrint: true })); w.document.close();
+};
+
+/* ══ (TASK-B0416 · المالك seq 727) خطوة «التأكيد» قبل «قيد التجهيز» لأوردر المتجر:
+   «نراسله: مرحباً أستاذ بخصوص أوردرك … ونبعث له صورة الفاتورة محمَّلةً عندنا تلقائياً ونسأله — مجرّد ما أكّدنا نعطيه قيد التجهيز ونرسله».
+   لا حالةٌ جديدة في القاعدة: أوردر المتجر (pending) غير المؤكَّد يظهر في تبويب «بانتظار التأكيد» (كتجميد: علامةٌ لا حالة) ⇐ عمود confirmation.
+   ما قبل CONFIRM_CUTOFF يُعدّ مؤكَّداً (لا نقلب أوردراتٍ قديمة). الصورة = فاتورة المتجر نفسها تُحمَّل وتُرفَق عبر مسار واتساب القائم. ══ */
+const CONFIRM_CUTOFF = '2026-11-14T00:00:00Z';
+function needsConfirm(o) {
+    if (!o || o.status !== 'pending' || isFrozen(o)) return false;
+    if (o.invoice_id || o.invoice_number || o.linked_invoice_id) return false;    // فاتورة نقطة بيع ⇒ مؤكَّد بشرائه
+    if (!isStoreOrder(o) || (o.confirmation && o.confirmation.confirmed_at)) return false;
+    const t = o.created_at ? new Date(o.created_at).getTime() : NaN;
+    return isNaN(t) || t >= new Date(CONFIRM_CUTOFF).getTime();
+}
+function confirmBannerHTML(o) {
+    const c = o.confirmation || {};
+    const when = c.asked_at ? (() => { try { return new Date(c.asked_at).toLocaleString('ar-SY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } })() : '';
+    return '<div data-confirm-banner class="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-bold text-amber-900">✅ ' +
+        (c.asked_at ? 'سُئل الزبون' + (c.asked_by ? ' (' + escH(c.asked_by) + ')' : '') + ' ' + escH(when) + ' — بانتظار ردّه' : 'أوردرٌ جديد من المتجر — راسل الزبون واطلب تأكيده قبل التجهيز') + '</div>';
+}
+function confirmButtonsHTML(o) {
+    return '<button onclick="confirmContact(' + o.id + ')" data-hint="يفتح محادثة الزبون في واتساب بزنس بنصّ التأكيد وصورة الفاتورة محفوظةً للإرفاق." class="flex-1 bg-[#25D366] hover:bg-[#1fb857] text-white py-3 rounded-xl text-xs font-black transition-colors">📲 راسل الزبون للتأكيد</button>' +
+        '<button onclick="confirmDone(' + o.id + ')" data-hint="الزبون أكّد ⇒ ينتقل الأوردر إلى «قيد التجهيز»." class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs font-black transition-colors">✔ أكّد الزبون</button>';
+}
+function confirmText(o) {
+    let items = []; try { items = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : (o.items_json || []); } catch (_) {}
+    const lines = (Array.isArray(items) && items.length ? items : [{ name: o.product, qty: o.qty }]).map(x => '• ' + (x.name || x.product_name || '') + (Number(x.qty) > 1 ? ' × ' + x.qty : '')).join('\n');
+    return 'مرحباً أستاذ ' + (o.name || '') + ' 🌿\nبخصوص أوردرك من متجر General Media Tech' + (storeRef(o) ? ' (' + storeRef(o) + ')' : '') + ':\n' + lines +
+        '\nالإجمالي: $' + (Number(o.price) || 0) + '\n\nأرفقنا لك فاتورة الطلب 🧾 — هل تؤكّد الطلب ليبدأ التجهيز والشحن؟ يرجى الرد بـ «تأكيد» ✅';
+}
+async function _confirmPatch(o, conf) {
+    const r = await orderPatchChecked(o.id, { confirmation: conf });
+    if (!r.ok) { showToast(_colMissing(r.error) ? '⚠️ عمود confirmation غير موجود في القاعدة بعد' : ('تعذّر الحفظ: ' + r.error), 'err'); return false; }
+    o.confirmation = conf; return true;
+}
+window.confirmContact = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    if (!window.GMTInvoiceTpl) { showToast('قالب الفاتورة لم يُحمَّل — حدّث الصفحة', 'err'); return; }
+    const by = (typeof getOperatorName === 'function' && getOperatorName()) || '';
+    const html = storeInvoiceHTML(o, { autoPrint: false });
+    const fresh = Object.assign({}, o, { notified_new_at: null, notified_ship_at: null, notified_arrival_at: null, notified_goods_at: null });   // الصورة تُرفَق دائماً مع رسالة التأكيد
+    const sent = await notifyWithSheet(fresh, html, 'invoice-' + (storeRef(o) || o.id), confirmText(o), { width: 794, scale: 1.6 });
+    if (sent) { await _confirmPatch(o, Object.assign({}, o.confirmation || {}, { asked_at: new Date().toISOString(), asked_by: by })); render(); }
+};
+window.confirmDone = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o) return;
+    const ok = await GMTAsk.confirm('هل أكّد «' + (o.name || 'الزبون') + '» طلبه؟\nسينتقل الأوردر إلى «قيد التجهيز».', { title: '✅ تأكيد الزبون', okText: 'نعم، أكّد' });
+    if (!ok) return;
+    const by = (typeof getOperatorName === 'function' && getOperatorName()) || '';
+    if (await _confirmPatch(o, Object.assign({}, o.confirmation || {}, { confirmed_at: new Date().toISOString(), confirmed_by: by }))) { showToast('✅ أُكّد الطلب — صار «قيد التجهيز»', 'ok'); render(); }
 };
 
 /* ══ (2026-10-06 · فحصٌ مضادّ) ضغطتان سريعتان على «حفظ» كانتا تُنشئان أوردرين (اختبار: POST ×٢).
