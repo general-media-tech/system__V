@@ -3044,6 +3044,19 @@ function _movesRender() {
   document.getElementById('mv-sum').innerHTML = '<span class="p">داخل +' + tin + '</span><span class="n">خارج −' + tout + '</span><span>' + rows.length + ' مستند</span>';
   body.innerHTML = rows.length ? rows.join('') : '<div style="padding:26px;text-align:center;color:#526077">لا حركة مطابقة</div>';
 }
+/* (TASK-B0394 · اقتراح ١٠ · seq B693) تصدير ما يظهر في السجلّ (بالفلتر والبحث نفسيهما) إلى ملفّ يُفتح بإكسل — سطرٌ لكلّ بند */
+function _movesExport() {
+  const q = (document.getElementById('mv-q').value || '').trim().toLowerCase();
+  const hit = it => !q || String(it.n || '').toLowerCase().includes(q) || String(it.b || '').toLowerCase().includes(q);
+  const F = { all: () => true, in: d => d.sign > 0, out: d => d.sign < 0, adj: d => /^adj/.test(d.k), trf: d => d.k === 'in' || d.k === 'out', buy: d => d.k === 'buy', sale: d => d.k === 'sale' || d.k === 'ref' };
+  const esc = v => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const L = [['التاريخ', 'النوع', 'الرقم', 'الطرف الآخر', 'بواسطة', 'الحالة', 'المنتج', 'الباركود', 'الكمية'].join(',')];
+  _moves.filter(F[_movesF] || F.all).forEach(d => d.items.filter(hit).forEach(x => L.push([d.at ? new Date(d.at).toISOString().slice(0, 16).replace('T', ' ') : '', _MV_T[d.k][1], d.no || '', d.other || '', d.who || '', d.pend ? 'بانتظار الاستلام' : '', x.n, x.b, (d.sign > 0 ? '' : '-') + x.q].map(esc).join(','))));
+  const blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'moves_' + String(branch.key || 'branch').replace(/[^\w-]/g, '') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  showToast('⬇️ صُدِّر ' + (L.length - 1) + ' بنداً', 'ok');
+}
 async function openMovesLog() {
   if (!branch || !branch.key) return;
   let ov = document.getElementById('mv-ov');
@@ -3064,10 +3077,11 @@ async function openMovesLog() {
       '#mv-ov .mv-t{width:100%;border-collapse:collapse;font-size:12.5px}#mv-ov .mv-t td{border-top:1px solid #f1f5f9;padding:6px 12px}#mv-ov .mv-b{color:#94a3b8;font-family:monospace;font-size:11px;direction:ltr}#mv-ov .mv-n{font-weight:900;direction:ltr;text-align:left;width:60px}</style>' +
       '<div class="mv-box"><div class="mv-hd"><b style="font-size:15px">📒 سجل الحركة — <span id="mv-br"></span></b><button onclick="document.getElementById(\'mv-ov\').style.display=\'none\'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#526077">×</button></div>' +
       '<div class="mv-tools"><div class="mv-chips">' + [['all', 'الكل'], ['in', 'داخل'], ['out', 'خارج'], ['trf', 'نقل'], ['adj', 'تسوية'], ['buy', 'مشتريات'], ['sale', 'مبيعات ومرتجعات']].map(([k, l]) => '<button data-f="' + k + '"' + (k === 'all' ? ' class="on"' : '') + '>' + l + '</button>').join('') + '</div>' +
-      '<input id="mv-q" placeholder="ابحث باسم منتج أو باركود ⇒ حركاته وحدها" autocomplete="off"><div class="mv-sum" id="mv-sum"></div></div><div id="mv-body"></div></div>';
+      '<input id="mv-q" placeholder="ابحث باسم منتج أو باركود ⇒ حركاته وحدها" autocomplete="off"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="mv-sum" id="mv-sum"></div><button type="button" id="mv-xls" style="border:1px solid #15803d;color:#15803d;background:#fff;border-radius:10px;padding:5px 11px;font:800 12px inherit;cursor:pointer;white-space:nowrap">⬇️ إكسل</button></div></div><div id="mv-body"></div></div>';
     document.body.appendChild(ov);
     ov.querySelector('.mv-chips').onclick = e => { const b = e.target.closest('button'); if (!b) return; _movesF = b.dataset.f; ov.querySelectorAll('.mv-chips button').forEach(x => x.classList.toggle('on', x === b)); _movesRender(); };
     ov.querySelector('#mv-q').oninput = () => _movesRender();
+    ov.querySelector('#mv-xls').onclick = _movesExport;
     ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
   }
   ov.style.display = 'flex'; document.getElementById('mv-br').textContent = branch.name || branch.key;
@@ -6489,6 +6503,7 @@ function goTo(viewId) {
 }
 
 function newInvoice() {
+  try { _lowWarned.clear(); } catch (_) {}   /* (B0394) تنبيه الحدّ الأدنى مرّةً لكلّ فاتورة */
   cart    = {};
   invNum  = mkInvNum();
   isSaved = false;
@@ -6854,12 +6869,14 @@ function toggleProd(id) {
     if (cart[id].qty >= qty) { showToast(`الحد الأقصى ${qty} — مخزون فرعك`, 'err'); return; }
     cart[id].qty++;
     navigator.vibrate?.(10);
+    _lowStockNotice(p, qty - cart[id].qty);
     updateFab(); renderProds();
     _afterAddMaybeReturn();
     return;
   } else {
     cart[id] = { prod: p, qty: 1, price: Number(p.price) || 0, _seq: ++_cartSeq };
     showToast(`✓ ${p.name}`, 'ok');
+    setTimeout(() => _lowStockNotice(p, qty - 1), 900);
     navigator.vibrate?.(20);
     const card = document.querySelector(`[onclick*="openProductDetail('${id}')"]`);
     if (card) {
@@ -6875,6 +6892,17 @@ function toggleProd(id) {
 /* (٧ ي-٣ · فحص الأزرار الميتة) «+ إضافة منتج» من معاينة الفاتورة كانت ترفع علامة
    `addingToExistingInvoice` ولا يقرؤها أحد: تختار المنتج فتبقى في شاشة المنتجات ولا تعود
    للفاتورة. الآن: أوّل إضافةٍ ناجحة تُعيدك إلى المعاينة والبند فيها. */
+/* (TASK-B0394 · اقتراح ٧ · المالك seq B693) «تنبيه تحت الحدّ الأدنى» — بعد هذا البيع يبقى في فرعك أقلّ من حدّ المنتج (min_stock)
+   أو تُباع آخر قطعة ⇒ تنبيهٌ مرّةً واحدة للمنتج في الفاتورة (لا يمنع البيع) ليُطلَب نقلٌ أو شراء */
+const _lowWarned = new Set();
+function _lowStockNotice(p, left) {
+  try {
+    const min = Number(p.min_stock) || 0, k = String(p.id);
+    if (_lowWarned.has(k)) return;
+    if (left <= 0) { _lowWarned.add(k); showToast(`⚠️ آخر قطعة من «${p.name}» في فرعك — اطلب نقلاً أو شراءً`, 'err'); return; }
+    if (min > 0 && left < min) { _lowWarned.add(k); showToast(`⚠️ «${p.name}»: يبقى ${left} بعد البيع — تحت الحدّ الأدنى (${min})`, 'inf'); }
+  } catch (_) {}
+}
 function _afterAddMaybeReturn() {
   if (!addingToExistingInvoice) return;
   addingToExistingInvoice = false;
@@ -10943,7 +10971,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115a"></script>
+<script src="gmt-whatsnew.js?v=20261115b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

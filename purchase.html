@@ -2927,7 +2927,7 @@ async function exportWithoutImages(){
   try{
     const imgs=window._exImagesRaw||[];if(!imgs.length){toast('لا توجد صور','err');exRows.forEach((r,i)=>r.image_url=backup[i]);return;}
     const zipBytes=buildSimpleZip(imgs.map((dataUrl,i)=>{const[header,b64]=dataUrl.split(',');const ext=header.includes('jpeg')||header.includes('jpg')?'jpg':header.includes('png')?'png':'jpg';const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));return{name:`image_${i+1}.${ext}`,data:bytes};}));
-    const blob=new Blob([zipBytes],{type:'application/zip'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='صور_المنتجات.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    const blob=new Blob([zipBytes],{type:'application/zip'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='product_images.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
     toast('📥 تم تنزيل '+imgs.length+' صورة كـ ZIP','ok');
   }catch(e){toast('خطأ في ZIP: '+e.message,'err');}
   exRows.forEach((r,i)=>r.image_url=backup[i]);
@@ -4532,7 +4532,7 @@ function saveEditsToJSON(){
   readEdits();
   const blob=new Blob([JSON.stringify(BD,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
-  a.href=url;a.download='GMT-فاتورة-'+BD.inv_number+'-edited.json';
+  a.href=url;a.download='GMT-invoice-'+String(BD.inv_number).replace(/[^\w-]/g,'')+'-edited.json';
   a.style.display='none';document.body.appendChild(a);a.click();
   setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},2000);
   setStatus('✅ تم حفظ JSON محدث','ok');
@@ -5182,7 +5182,7 @@ function exportInvJSON(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=`GMT-فاتورة-${invNum}-${backup.inv_date||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.json`;
+  a.download=`GMT-invoice-${String(invNum).replace(/[^\w-]/g,'')}-${backup.inv_date||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.json`;
   a.style.display='none';
   document.body.appendChild(a);
   a.click();
@@ -6041,7 +6041,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115a"></script>
+<script src="gmt-whatsnew.js?v=20261115b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

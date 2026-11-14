@@ -5232,7 +5232,7 @@ function gmtBuyList() {
     const k = e.target.closest('[data-k]') && e.target.closest('[data-k]').getAttribute('data-k'); if (!k) return;
     if (k === 'x') w.remove();
     else if (k === 'pdf') { const win = window.open('', '_blank'); if (!win) return showToast('اسمح بالنوافذ المنبثقة', 'error'); win.document.write(docHtml().replace('</body>', '<script>setTimeout(function(){print()},400)<\/script></body>')); win.document.close(); }
-    else if (k === 'html') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([docHtml()], { type: 'text/html' })); a.download = 'قائمة_الشراء_' + new Date().toISOString().slice(0, 10) + '.html'; a.click(); }
+    else if (k === 'html') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([docHtml()], { type: 'text/html' })); a.download = 'purchase_list_' + new Date().toISOString().slice(0, 10) + '.html'; a.click(); }
     else if (k === 'tg') {
       const T = window.GMT_TELEGRAM; if (!T || !T.token) return showToast('بوت تيليغرام غير معرّف في هذه الصفحة', 'error');
       const lines = list.slice(0, 40).map(p => '• ' + p.name + ' — ' + getTotal(p));
@@ -16605,7 +16605,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115a"></script>
+<script src="gmt-whatsnew.js?v=20261115b"></script>
 <script src="gmt-store-sync.js?v=20261108f" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>

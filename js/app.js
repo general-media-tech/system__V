@@ -666,7 +666,7 @@ ${css}
     const blob = new Blob(['\ufeff', doc], { type: 'application/msword' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `عقد_${state.type.id}_${state.contractNo || 'مسودة'}.doc`;
+    a.download = `contract_${String(state.type.id).replace(/[^\w-]/g, '')}_${String(state.contractNo || 'draft').replace(/[^\w-]/g, '') || 'draft'}.doc`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     toast('📄 صُدّر ملف Word (.doc) — يفتح ويتحرر بوورد بالكامل');

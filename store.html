@@ -873,6 +873,18 @@ function renderProducts() {
     const frag = document.createDocumentFragment();
     const _shown = new Set();            // ما رُسم فعلاً — لالتقاط ما لا قسم له
     const _blocks = [];                  // (seq B655) الأقسام المرسومة بترتيبها — تُعاد دورةً بعد دورة عند الوصول للأسفل
+    /* (TASK-B0394 · اقتراح ١ · seq B693) «🆕 وصل حديثاً»: آخر ١٢ منتجاً أُضيفت (وقت الإضافة من معرّف المنتج p_<ملّي ثانية>) خلال ٦٠ يوماً — أعلى المتجر */
+    try {
+        const tOf = p => { const m = String(p.id || '').match(/(1[7-9]\d{11})/); return m ? Number(m[1]) : 0; };
+        const fresh = (store.products || []).filter(p => parseFloat(p.price || 0) > 0 && (p.images || []).length && tOf(p) > Date.now() - 60 * 864e5 && tOf(p) <= Date.now() + 864e5)
+            .sort((a, b) => tOf(b) - tOf(a)).slice(0, 12);
+        if (fresh.length >= 4) {
+            const ns = document.createElement('section'); ns.className = 'mt-6'; ns.dataset.categorySection = '__new';
+            ns.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">🆕 وصل حديثاً</h3>';
+            const nr = document.createElement('div'); nr.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6';
+            fresh.forEach(p => nr.appendChild(_buildProductCard(p))); ns.appendChild(nr); frag.appendChild(ns);
+        }
+    } catch (_) {}
 
     _catOrdered().forEach(cat => {
         // collect products for this category

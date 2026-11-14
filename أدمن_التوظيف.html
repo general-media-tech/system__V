@@ -148,7 +148,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var head = ['الطلب', 'الاسم', 'العمر', 'الجنس', 'المحافظة', 'المدينة', 'الهاتف', 'الإيميل', 'النتيجة', 'الحالة', 'التاريخ'];
     var csv = '\ufeff' + [head].concat(L.map(function (x) { return [x.req_id, x.name, x.age, x.gender, x.governorate, x.city, x.phone, x.email, x.final_score, x.status, x.submitted_at]; }))
       .map(function (r) { return r.map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
-    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'طلبات_التوظيف.csv'; a.click();
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'hiring_requests.csv';   /* (B0394 · صيد نمط) اسمٌ عربي ⇒ المتصفّح يسمّيه «download» بلا امتداد */ a.click();
   };
   load().catch(function () {});
 })();
@@ -159,7 +159,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261104b" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261115a"></script>
+<script src="gmt-whatsnew.js?v=20261115b"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 </body>
 </html>
