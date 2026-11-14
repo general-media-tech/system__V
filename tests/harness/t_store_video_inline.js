@@ -14,6 +14,8 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
   const ig = []; o.pg.on('request', r => { if (/instagram\.com/.test(r.url())) ig.push(r.url()); });
   await o.ctx.route(/home\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(st) }));
   await o.pg.goto(B + 'store.html', { waitUntil: 'domcontentloaded' }); await o.pg.waitForTimeout(4000);
+  const dots = await o.pg.evaluate(() => [...document.querySelectorAll('.pc-vid')].length);
+  ok(dots === 2, '(seq B679) نقطة حمراء على بطاقة كلّ منتج له فيديو: ' + dots);
   await o.pg.evaluate(() => openProductModal('v1')); await o.pg.waitForTimeout(1200);
   const a = await o.pg.evaluate(() => { const sl = [...document.querySelectorAll('#product-modal-slides > div')]; const v = sl[2] && sl[2].querySelector('video');
     const th = [...document.querySelectorAll('#pm-thumbs .pm-th')]; return { n: sl.length, srcs: v ? v.querySelectorAll('source').length : 0, src: v && (v.querySelector('source') || {}).src, poster: v && v.getAttribute('poster'), pre: v && v.preload, inline: v && v.hasAttribute('playsinline'),

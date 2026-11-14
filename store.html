@@ -57,6 +57,7 @@ window.GMT_PUBLIC = 1;</script>
         #pm-complete { margin: 6px 0 16px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 16px; padding: 12px; }
         #pm-complete h4 { font-size: 14px; font-weight: 800; margin: 0 0 10px; color: #111; } #pm-complete h4 small { font-weight: 600; color: #6b7280; font-size: 11.5px; }
         .pmc-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+        .pc-vid { position: absolute; bottom: 8px; left: 8px; width: 26px; height: 26px; border-radius: 50%; background: #D5001C; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 3px 10px rgba(213,0,28,.45); z-index: 2; pointer-events: none; }
         /* (TASK-B0380) عرض الطقم: سعر تقريبي يُطلب عبر واتساب — لا خصم تلقائي */
         #pm-kit { margin: 6px 0 16px; border-radius: 16px; padding: 12px; background: linear-gradient(135deg,#fff7ed,#fff); border: 1.5px solid #fed7aa; }
         #pm-kit .pk-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 800 14px Cairo, sans-serif; color: #111; margin-bottom: 10px; }
@@ -1140,6 +1141,8 @@ function _buildProductCard(prod) {
         imgWrap.appendChild(pen);
     }
     /* (TASK-0371 · المالك seq 653 «الأشياء اللي عليها عرض بيطلع علامة عرض وسعر مشطوب ومغيَّر») */
+    /* (المالك seq B679) «حط لي عليهم نقطة حمراء لحتى أشاهدهم» ⇒ المنتج الذي له فيديو: نقطةٌ حمراء بعلامة تشغيل على بطاقته */
+    if (String(prod.video_url || '').trim()) { const vd = document.createElement('div'); vd.className = 'pc-vid'; vd.title = 'فيه فيديو'; vd.innerHTML = '<i class="ph-fill ph-play"></i>'; imgWrap.appendChild(vd); }
     const _off = gmtProdOffer(prod);
     if (_off) { const ob = document.createElement('div'); ob.className = 'pc-offer'; ob.textContent = 'عرض −' + _off.pct + '%'; imgWrap.appendChild(ob); }
     card.appendChild(imgWrap);
