@@ -1568,7 +1568,8 @@ function showInvoice({orderId,name,phone,address,notes,payment,items,subtotal,to
         if (window.GMTInvoiceTpl) {
             const html = GMTInvoiceTpl.storeHTML({
                 ref: orderId, name: name, phone: phone, address: address, notes: notes, payment: payment,
-                items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+                /* (TASK-B0413 · seq 727 «البكج لما يظهر بالفاتورة يظهر كمجموعة منتجات كلّ منتج على حدة — حتى للزبون داخل المتجر») نفس توسيع الأوردرات */
+                items: _orderLines(items).map(i => ({ name: i.name, qty: i.qty, price: i.price })),
                 subtotal: subtotal, delivery: DELIVERY_FEE, discount: Math.max(0, subtotal + DELIVERY_FEE - total), total: total   // الخصم = كوبون (المجموع + التوصيل − الإجمالي)
             });
             window.__storeInvoiceHTML = html;

@@ -36,7 +36,18 @@
       var key = parts[i].substring(0, close).trim();
       out += (data[key] !== undefined && data[key] !== null ? String(data[key]) : '') + parts[i].substring(close + 2);
     }
-    return out;
+    return fitOnePage(out);
+  }
+
+  /* (TASK-B0413 · المالك seq 727 «ما لازم تنقسم الفاتورة أبداً إلى صفحتين») الفاتورة صفحة A4 واحدة دائماً: إن طال محتواها (باقة بتسع قطع
+     مثلاً) يُصغَّر `.invoice` بنسبةٍ تُناسب ارتفاع الورقة (تُحسب عند التحميل وقبل الطباعة) — وبعدها لا صفحة ثانية مهما كثرت البنود.
+     ملاحظة: zoom يغيّر التخطيط نفسه (لا مجرّد scale) فيبقى ما يظهر على الشاشة هو ما يُطبع. */
+  var FIT_JS = '<style>@media print{html,body{height:297mm!important;overflow:hidden!important}.page{min-height:0!important;height:297mm!important;overflow:hidden!important}}</style>' +
+    '<script>(function(){function fit(){try{var i=document.querySelector(".invoice");if(!i)return;i.style.zoom="";var h=i.offsetHeight,avail=1066;if(h>avail)i.style.zoom=(avail/h).toFixed(4);}catch(e){}}' +
+    'window.addEventListener("load",fit);window.addEventListener("beforeprint",fit);setTimeout(fit,250);})();<\/script>';
+  function fitOnePage(html) {
+    html = String(html);
+    return html.indexOf('</body>') !== -1 && html.indexOf('.invoice') !== -1 ? html.replace('</body>', FIT_JS + '</body>') : html;
   }
 
   /* صفوف الجدول بالدولار — نفس شكل buildRowsB (ستّة صفوف على الأقل) */
