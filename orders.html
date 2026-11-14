@@ -4637,6 +4637,7 @@ async function confirmShippingRun() {
     try {
         await sbUpdateOrThrow(shipOrderId, data);        // صفٌّ لم يتغيّر ⇒ خطأ صريح، لا «تم اعتماد الشحن» كاذبة
         orders[idx] = { ...orders[idx], ...data };
+        try { if (isStoreOrder(orders[idx])) upsertCustomerFromOrder(orders[idx]).catch(() => {}); } catch (_) {}   // (TASK-B0415) زبون المتجر يُحفظ باسمه عند الشحن أيضاً
         try { storeStockToast(await deductStoreOrderStock(orders[idx])); } catch (e) { showToast('⚠️ تعذّر خصم المخزون: ' + ((e && e.message) || e), 'err'); }   // (TASK-B0414)
         /* الفرع المُرسِل (المفتي فقط) — حفظٌ منفصل لا يكسر الشحن إن غاب العمود */
         if (company === MUFTI_CO) {
@@ -7555,7 +7556,7 @@ async function askOldOrNewAddress() {
 window.askOldOrNewAddress = askOldOrNewAddress;
 async function upsertCustomerFromOrder(o) {
     if (!o || !o.phone) return;
-    const phone = String(o.phone).replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
+    const phone = String(o.phone).replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0).replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');   // (TASK-B0415) الأرقام العربية كانت تُحذف فيضيع الزبون
     if (!phone) return;
     /* (TASK-0211 · المالك seq 139 «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي») كان الطلب يحمل
        last_order و last_address — عمودان غير موجودين في gmt_customers ⇒ الطلب كلّه يُرفض فيُحفظ الاسم والهاتف وحدهما (الاحتياط أدناه)

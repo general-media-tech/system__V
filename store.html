@@ -747,6 +747,26 @@ async function insertOrder(orderData) {
     catch { return false; }
 }
 
+/* (TASK-B0415 · المالك seq 727) «زبائن المتجر الإلكتروني ما عم تتسيف عندنا بأسمائهم في الزبائن»
+   سببان: (١) رقمٌ بأرقامٍ عربية أو 00963/+963 كان يُرفض بصمت فلا يُحفظ الزبون · (٢) الدمج كان يكتب فوق اسم/فرع زبونٍ موجود.
+   الآن: يُطبَّع الرقم لصيغة 09xxxxxxxx من كلّ الصيغ، يُدرَج الجديد باسمه، والموجود بلا اسمٍ يُملأ اسمُه (لا يُكتب فوق اسمٍ موجود). */
+function gmtNormSyPhone(raw) {
+    let d = String(raw || '').replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0).replace(/\D/g, '');
+    d = d.replace(/^00963/, '').replace(/^963/, '');
+    if (/^9\d{8}$/.test(d)) d = '0' + d;
+    return /^09\d{8}$/.test(d) ? d : '';
+}
+async function gmtSaveStoreCustomer(url, key, name, phone) {
+    const ph = gmtNormSyPhone(phone), nm = String(name || '').trim();
+    if (!ph) return false;
+    const H = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+    try {
+        await fetch(url + '/rest/v1/gmt_customers?on_conflict=phone', { method: 'POST', headers: Object.assign({ Prefer: 'resolution=ignore-duplicates,return=minimal' }, H),
+            body: JSON.stringify({ name: nm || null, phone: ph, branch_name: 'المتجر الإلكتروني' }) });
+        if (nm) await fetch(url + '/rest/v1/gmt_customers?phone=eq.' + ph + '&or=(name.is.null,name.eq.)', { method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, H), body: JSON.stringify({ name: nm }) });
+        return true;
+    } catch (_) { return false; }
+}
 async function insertOrderToSupabase(orderData) {
     const SUPA_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
     const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
@@ -784,14 +804,7 @@ async function insertOrderToSupabase(orderData) {
         });
         /* (2026-10-06) البند ٨٧: «كل زائرٍ أو طالب يصير ملفّ عميل» — من يطلب من المتجر يُضاف لسجلّ الزبائن
            (أو يُحدَّث إن كان موجوداً برقمه). لا يُوقف الطلب إن فشل. */
-        try {
-            const ph = String(orderData.phone || '').replace(/\D/g, '').replace(/^963/, '0');
-            if (/^09\d{8}$/.test(ph)) fetch(SUPA_URL + '/rest/v1/gmt_customers?on_conflict=phone', {
-                method: 'POST',
-                headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-                body: JSON.stringify({ name: orderData.name || null, phone: ph, branch_name: 'المتجر الإلكتروني' })   /* أعمدةٌ موجودة يقيناً فقط */
-            }).catch(function () {});
-        } catch (_) {}
+        try { gmtSaveStoreCustomer(SUPA_URL, SUPA_KEY, orderData.name, orderData.phone); } catch (_) {}
         // (2026-08-26) تبليغ صادق بدل boolean يُبتلع:
         //   ok  = أُدرج · dup = رقمه موجود أصلاً (ضغطة مكرّرة) فنجاح ذرّي لا ازدواج · fail = إخفاق حقيقي
         if (r.ok || r.status === 201) return 'ok';
@@ -1915,7 +1928,7 @@ async function submitNewComment(){
     /* (٨ ث — تدقيق المطابقة) «المقيّمون من الموقع يصيرون عملاء» — يُضاف لسجلّ العملاء إن لم يكن فيه
        (لا يكتب فوق اسم عميلٍ موجود). الرقم بصيغة نقطة البيع 09… كي لا يتكرّر الزبون. */
     try {
-        const _p09 = phone.replace(/^\+?963/, '0').replace(/^9/, '09');
+        const _p09 = gmtNormSyPhone(phone) || phone.replace(/^\+?963/, '0').replace(/^9/, '09');
         /* سجلّ العملاء في القاعدة الرئيسيّة (لا قاعدة المتجر التي فيها التقييمات) */
         const _M = window.GMT_DB && GMT_DB.MAIN;
         if (_M) fetch(_M.url + '/rest/v1/gmt_customers?on_conflict=phone', { method: 'POST',
