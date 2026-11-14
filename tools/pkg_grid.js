@@ -26,7 +26,7 @@ const parse = o => { let p = o.products; try { if (typeof p === 'string') p = JS
   let offers = await (await fetch(U + '/rest/v1/' + q, { headers: H })).json();
   if (all) offers = offers.filter(o => { const t = o.targets || {}; const im = Array.isArray(o.images) ? o.images : []; return t.store !== false && !im.concat(o.image_url || []).some(isGrid) && parse(o).length; });
   if (!offers.length) { console.log('لا باقات'); return; }
-  /* (المالك seq 713 «للمنتجات بخلفيات بيضاء») صورة كلّ قطعة = أنصع خلفيةٍ بيضاء بين صورها في الجرد والمتجر */
+  /* صورة كلّ قطعة = صورتها الأولى في المتجر (البوستر) — المالك seq 714 */
   let storeById = {};
   if (SU && SK) { try { const st = (await (await fetch(SU + '/rest/v1/gmt_store?id=eq.1&select=products', { headers: { apikey: SK, Authorization: 'Bearer ' + SK } })).json())[0]; (st.products || []).forEach(p => { storeById[p.id] = p; }); } catch (_) {} }
   const b = await chromium.launch(); const pg = await b.newPage();
@@ -38,13 +38,9 @@ const parse = o => { let p = o.products; try { if (typeof p === 'string') p = JS
     const full = [];
     for (const x of items) {
       const r = by[x.id] || {}, sid = (String(r.store_url || '').match(/#product=([^&]+)/) || [])[1], sp = sid ? storeById[decodeURIComponent(sid)] : null;
-      const cands = [r.image_url || x.image_url, ...((sp && sp.images) || [])].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 8);
-      const urls = []; for (const u of cands) { const d = await dataUrl(u); if (d) urls.push(d); }
-      const best = urls.length > 1 ? await pg.evaluate(async list => {   // زوايا وحوافّ بيضاء + المنتج يملأ مساحةً معقولة
-        const sc = async u => { const im = new Image(); im.src = u; try { await im.decode(); } catch (_) { return -1; } const c = document.createElement('canvas'), W = 96, H = Math.max(8, Math.round(96 * im.height / im.width)); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(im, 0, 0, W, H); const d = g.getImageData(0, 0, W, H).data;
-          let edge = 0, en = 0, ink = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, v = (d[i] + d[i + 1] + d[i + 2]) / 3, e = x < 5 || y < 5 || x >= W - 5 || y >= H - 5; if (e) { en++; if (v > 236) edge++; } if (v < 225) ink++; }
-          const ar = im.width / im.height, frac = ink / (W * H); return (edge / en) * 2 + (frac > 0.12 && frac < 0.75 ? 0.5 : 0) + (ar > 0.7 && ar < 1.45 ? 0.3 : 0); };
-        let bi = 0, bs = -9; for (let i = 0; i < list.length; i++) { const v = await sc(list[i]); if (v > bs) { bs = v; bi = i; } } return bi; }, urls) : 0;
+      /* (المالك seq 714) «الستاند حطّ صورة البوستر · دوماً في هذه الأداة وهذا القالب اختار صورة المنتج نفسها وليس صورة المنتج على خلفية بيضاء» ⇒ الصورة الأولى للمنتج في المتجر (بوستره) ثمّ صورة الجرد */
+      const main = ((sp && sp.images) || [])[0] || r.image_url || x.image_url || '';
+      const urls = [await dataUrl(main)].filter(Boolean), best = 0;
       full.push({ name: x.name || r.name, qty: Number(x.qty) || 1, price: Number(r.price) || Number(x.price) || 0, image_url: urls[best] || '' });
     }
     const sum = Math.round(full.reduce((t, x) => t + x.price * x.qty, 0) * 100) / 100, price = Number(o.offer_price) || 0;

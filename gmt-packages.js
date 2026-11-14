@@ -266,25 +266,29 @@
       if ((el = e.target.closest('[data-m]'))) { var nm = el.getAttribute('data-m'); if (nm !== S.mode) { var cc = compute(S.items, S.mode, S.value); S.mode = nm; S.value = nm === 'price' ? cc.price : nm === 'percent' ? cc.pct : cc.save; } paint(); return; }
       if ((el = e.target.closest('[data-cat]'))) { var ck = el.getAttribute('data-cat'), ix = S.cats.indexOf(ck); if (ix === -1) S.cats.push(ck); else S.cats.splice(ix, 1); paintCats(); return; }
       if ((el = e.target.closest('[data-img]'))) { addImg(el.getAttribute('data-img')); return; }
-      if (e.target.closest('[data-gengrid]')) {
-        (async function () { var err = $('[data-err]'), M = g.GMT_DB && g.GMT_DB.MAIN; if (!S.items.length) { err.textContent = 'أضف منتجات الباقة أوّلاً'; return; }
-          if (!M || !M.url) { err.textContent = 'تعذّر الرفع: لا اتصال بالقاعدة'; return; }
-          err.textContent = '⏳ توليد صورة المنتجات…';
-          try { var blob = await makeGrid(); if (!blob) throw new Error('تعذّر رسم الصورة (صورة منتج من موقعٍ يمنع النسخ؟)');
-            var path = 'packages/grid_' + Date.now() + '.jpg';
-            var r = await fetch(M.url + '/storage/v1/object/products-images/' + path, { method: 'POST', headers: { apikey: M.key, Authorization: 'Bearer ' + M.key, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob });
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            var u = M.url + '/storage/v1/object/public/products-images/' + path; if (S.images.indexOf(u) === -1) S.images.splice(Math.min(1, S.images.length), 0, u);   // بعد الواجهة
-            err.textContent = ''; paintImgs();
-          } catch (x2) { err.textContent = 'تعذّر توليد صورة المنتجات: ' + (x2 && x2.message || x2); } })();
-        return;
-      }
+      if (e.target.closest('[data-gengrid]')) { genGrid(); return; }
       if (e.target.closest('[data-addurl]')) { addImg($('[data-cover]').value); $('[data-cover]').value = ''; return; }
       if ((el = e.target.closest('[data-imv]'))) { var pr = el.getAttribute('data-imv').split(':'), a = +pr[0], b = a + (+pr[1]); if (b < 0 || b >= S.images.length) return; var t0 = S.images[a]; S.images[a] = S.images[b]; S.images[b] = t0; paintImgs(); return; }
       if ((el = e.target.closest('[data-imf]'))) { var fi = +el.getAttribute('data-imf'); S.images.unshift(S.images.splice(fi, 1)[0]); paintImgs(); return; }
       if ((el = e.target.closest('[data-imx]'))) { S.images.splice(+el.getAttribute('data-imx'), 1); paintImgs(); return; }
       if (e.target.closest('[data-save]')) doSave();
     });
+    /* (seq 713–714) صورة الشبكة: الزرّ يولّدها · والحفظ يولّدها تلقائياً إن غابت — «هذا النمط لازم يكون لكل العروض ولكل البكجات» · مكانها بعد بوستر المالك */
+    var isGridUrl = function (u) { return /\/grid_|pkg_grid_|pkg_content_creator_2026-11-14\.jpg/.test(String(u || '')); };
+    async function genGrid() {
+      var err = $('[data-err]'), M = g.GMT_DB && g.GMT_DB.MAIN; if (!S.items.length) { err.textContent = 'أضف منتجات الباقة أوّلاً'; return false; }
+      if (!M || !M.url) { err.textContent = 'تعذّر الرفع: لا اتصال بالقاعدة'; return false; }
+      err.textContent = '⏳ توليد صورة المنتجات…';
+      try { var blob = await makeGrid(); if (!blob) throw new Error('تعذّر رسم الصورة (صورة منتج من موقعٍ يمنع النسخ؟)');
+        var path = 'packages/grid_' + Date.now() + '.jpg';
+        var r = await fetch(M.url + '/storage/v1/object/products-images/' + path, { method: 'POST', headers: { apikey: M.key, Authorization: 'Bearer ' + M.key, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: blob });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var u = M.url + '/storage/v1/object/public/products-images/' + path;
+        S.images = S.images.filter(function (x) { return !isGridUrl(x); });   // صورة شبكة واحدة (الأحدث)
+        S.images.splice(Math.min(1, S.images.length), 0, u);   // بعد بوستر المالك
+        err.textContent = ''; paintImgs(); return true;
+      } catch (x2) { err.textContent = 'تعذّر توليد صورة المنتجات: ' + (x2 && x2.message || x2); return false; }
+    }
     async function doSave() {
       var err = $('[data-err]'), btn = $('[data-save]'); err.textContent = '';
       var name = $('[data-name]').value.trim(), c = compute(S.items, S.mode, S.value);
@@ -294,6 +298,7 @@
       if (!(c.price > 0)) { err.textContent = 'سعر الباقة يجب أن يكون أكبر من صفر'; return; }
       var pos = $('[data-pos]').checked, sto = $('[data-store]').checked;
       if (!pos && !sto) { err.textContent = 'اختر أين تظهر: نقاط البيع أو المتجر'; return; }
+      if (sto && S.items.length && !S.images.some(isGridUrl)) { await genGrid(); err.textContent = ''; }   // (seq 714) كلّ باقة في المتجر لها صورة الشبكة
       if (sto && !S.cats.length) { err.textContent = 'اختر قسماً واحداً على الأقلّ في المتجر («باقات وعروض» أو غيره)'; return; }
       var endsRaw = $('[data-ends]').value, act = $('[data-active]');
       /* (seq B690) الصور كما رتّبها المدير — لا تُعاد بناؤها من صور المنتجات عند الحفظ */
