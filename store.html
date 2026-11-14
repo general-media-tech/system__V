@@ -995,7 +995,6 @@ function renderProducts() {
 
     container.innerHTML = ''; container.appendChild(frag);
     _endlessSetup(container, _blocks);
-    try { _kitAdInsert(); } catch (_) {}
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -2359,14 +2358,16 @@ function openProductModal(productId, opt){
 
 /* ══ (TASK-0372) «كمّل طقمك» — ما يُشترى مع المنتج: أوّلاً ما يذكر توافقُه موديلَ هذا المنتج، ثمّ ما يلزم صنفَه (رأس إضاءة ⇐ سوفت بوكس وستاند · كاميرا ⇐ بطارية وذاكرة وحقيبة…).
    لا خصم ولا سعر جديد: يُضاف المختار مع المنتج للسلّة بأسعاره. */
+/* (المالك seq B677) «لما يشتري كاميرا تعطيه الحقيبة · لوح إضاءة بال 26 · كفر الها · حقيبة الكتف · بطاريات إضافية» — «درون: حماية شفرات … الحقيبة»
+   العنصر الثالث (اختياري) في كلّ زوج = نمط الاسم المطلوب داخل ذلك القسم */
 const _KIT_RULES = [
-    [/كاميرات كانون|أوبن بوكس/, /^كاميرات$/, [['إكسسوارات الكاميرا','بطاريات وشواحن'],['إكسسوارات الكاميرا','ذواكر ووصلات'],['إكسسوارات الكاميرا','حقائب'],['ترايبود وجيمبال','ترايبود']]],
+    [/كاميرات كانون|أوبن بوكس/, /^كاميرات$/, [['إكسسوارات الكاميرا','بطاريات وشواحن'],['إكسسوارات الكاميرا','حقائب'],['إضاءة الاستوديو','ألواح LED',/^P[lfm] ?\d{2}\b/i],['إكسسوارات الكاميرا','هودات وأغطية وكفرات',/كفر/],['إكسسوارات الكاميرا','ذواكر ووصلات']]],
     [/العدسات|كاميرات كانون|أوبن بوكس/, /عدسات|كانون|سيغما|يونغنو/, [['إكسسوارات الكاميرا','هودات وأغطية وكفرات'],['إكسسوارات الكاميرا','حقائب']]],
     [/إضاءة الاستوديو/, /رؤوس الإضاءة|فلاشات/, [['إضاءة الاستوديو','سوفت بوكس ومعدّلات'],['إضاءة الاستوديو','ستاندات']]],
     [/إضاءة الاستوديو/, /ألواح LED/, [['إضاءة الاستوديو','ستاندات'],['إضاءة الاستوديو','سوفت بوكس ومعدّلات']]],
     [/إضاءة صنّاع المحتوى/, /./, [['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
     [/المايكات والصوت/, /لاسلكية|سلكية/, [['المايكات والصوت','كروت صوت وستاندات'],['ملحقات الهاتف','هولدرات ومساند']]],
-    [/الدرونات وملحقاتها/, /^درونات$/, [['الدرونات وملحقاتها','بطاريات وشواحن'],['الدرونات وملحقاتها','مراوح وحماية'],['الدرونات وملحقاتها','حقائب'],['الدرونات وملحقاتها','فلاتر']]],
+    [/الدرونات وملحقاتها/, /^درونات$/, [['الدرونات وملحقاتها','مراوح وحماية',/واقي|مصدّ|حماية|guard/i],['الدرونات وملحقاتها','حقائب'],['الدرونات وملحقاتها','بطاريات وشواحن'],['الدرونات وملحقاتها','فلاتر']]],
     [/كاميرات الأكشن/, /./, [['إكسسوارات الكاميرا','ذواكر ووصلات'],['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
     [/ترايبود وجيمبال/, /أوزمو موبايل|رونين/, [['ملحقات الهاتف','هولدرات ومساند'],['إضاءة صنّاع المحتوى','كفّ وجيب']]]
 ];
@@ -2386,7 +2387,7 @@ function gmtComplements(prod){
     /* ما يتوقّف على الموديل (بطارية · هود/غطاء/كفر · فلتر · مراوح) لا يُقترح إلا إن ذكر توافقُه موديل هذا المنتج — لا بطارية كاميرا أخرى */
     const strict=/بطاريات وشواحن|هودات وأغطية وكفرات|فلاتر|مراوح وحماية/;
     const fits=p=>!!p.compat&&codes.some(c=>String(p.compat).replace(/[- ]/g,'').toLowerCase().includes(c));
-    if(rule) rule[2].forEach(([t,sn])=>{ P.filter(p=>inSub(p,t,sn)&&(strict.test(sn)?fits(p):(!p.compat||fits(p)||!_mcodes(p.compat).length))).sort((a,b)=>rank(b)-rank(a)).slice(0,out.length<3?2:1).forEach(push); });
+    if(rule) rule[2].forEach(([t,sn,nx])=>{ P.filter(p=>inSub(p,t,sn)&&(!nx||nx.test(p.name||''))&&(strict.test(sn)?fits(p):(!p.compat||fits(p)||!_mcodes(p.compat).length))).sort((a,b)=>rank(b)-rank(a)).slice(0,out.length<3?2:1).forEach(push); });
     return out;
 }
 let _pmcSel=new Set();
@@ -2442,7 +2443,7 @@ function _renderKitOffer(prod){
         if (String(_pmId) !== String(prod.id)) return;
         const k = gmtKitFor(prod.id); if (!k) return;
         const e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : (x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
-        w.innerHTML = `<div class="pk-h"><span>🎁 عرض الطقم — خذهم معاً</span><span class="pk-save">وفّر حوالي ${_kitM(Math.round(k.save))}</span></div>
+        w.innerHTML = `<div class="pk-h"><span>🎁 عرض الطقم — المنتج مع ملحقاته</span><span class="pk-save">وفّر حوالي ${_kitM(Math.round(k.save))}</span></div>
           <div class="pk-items hide-scrollbar">${k.items.map((p, i) => `${i ? '<span class="pk-plus">+</span>' : ''}<div class="pk-it"><div class="im">${(p.images || [])[0] ? `<img ${gmtThumbAttrs(p.images[0])} alt="">` : ''}</div><div class="nm">${e(p.short_name || p.name)}</div></div>`).join('')}</div>
           <div class="pk-price"><s>${_kitM(k.sum)}</s><b>بحوالي ${_kitM(k.offer)}</b></div>
           <button type="button" onclick="pmKitQuote()">💬 اطلب عرض سعر للطقم على واتساب</button>
@@ -2457,53 +2458,8 @@ function pmKitQuote(pid){
         '\n\nالمجموع: ' + _kitMoney(k.sum) + '\nالسعر المقترح في المتجر: حوالي ' + _kitMoney(k.offer) + '\n' + link;
     window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`, '_blank');
 }
-/* (المالك seq B672) «قسم الأطقم اللي انت عامله لا تعمله — هذا نفسه قسم باقات وعروض ففينا نحطه هناك · لا تظهر صورة منتج واحد في الأطقم»
-   ⇒ الأطقم بطاقاتٌ داخل صفّ «باقات وعروض» (بعد الباقات) · صورة البطاقة مجمّعة من كلّ قطع الطقم · طقمٌ واحد لكلّ مجموعة قطع،
-   ونفس القطع المرافقة مرّتين على الأكثر (تنويع) · يُخفى مع البحث كبقيّة الأقسام. */
-function _kitBundlesCat(){ const cs = store.categories || []; return cs.find(c => String(c.id) === 'c_bundles') || cs.find(c => !c.parent_id && /باقات/.test(c.name || '')) || null; }
-function _kitCollage(items){
-    const u = items.map(p => (p.images || [])[0]).filter(Boolean).slice(0, 4);
-    const im = x => `<img ${gmtThumbAttrs(x)} alt="" style="width:100%;height:100%;object-fit:cover;display:block;background:#fff">`;
-    if (u.length >= 3) return `<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;width:100%;height:100%;background:#fff"><div style="grid-row:span 2">${im(u[0])}</div><div>${im(u[1])}</div><div>${im(u[2])}</div></div>`;
-    if (u.length === 2) return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%;height:100%;background:#fff"><div>${im(u[0])}</div><div>${im(u[1])}</div></div>`;
-    return u.length ? im(u[0]) : '';
-}
-function _kitAdInsert(){
-    const area = document.querySelector('[data-container="products-area"]'); if (!area) return;
-    area.querySelectorAll('[data-kit-card]').forEach(x => x.remove());
-    if (!_kits) { loadKitOffers().then(() => { if (_kits && Object.keys(_kits).length) _kitAdInsert(); }); return; }
-    const cat = _kitBundlesCat(); if (!cat) return;
-    const all = Object.keys(_kits).map(gmtKitFor).filter(Boolean).sort((a, b) => b.save - a.save);
-    const sets = new Set(), sig = new Map(), pick = [];
-    for (const k of all) {
-        const set = k.items.map(p => p.id).sort().join('|'); if (sets.has(set)) continue;
-        const sg = k.items.slice(1).map(p => p.id).sort().join('|'); if ((sig.get(sg) || 0) >= 2) continue;
-        sets.add(set); sig.set(sg, (sig.get(sg) || 0) + 1); pick.push(k); if (pick.length >= 16) break;
-    }
-    if (!pick.length) return;
-    let sec = area.querySelector('section[data-category-section="' + (window.CSS && CSS.escape ? CSS.escape(cat.id) : cat.id) + '"]');
-    let row = sec ? sec.querySelector('.flex.overflow-x-auto') : null;
-    if (!row) {   /* القسم فارغ (لا باقات بعد) ⇒ يُنشأ صفّه في موضعه بين الأقسام — مثل _injectPackages تماماً */
-        sec = document.createElement('section'); sec.className = 'mt-6'; sec.dataset.categorySection = cat.id; sec.setAttribute('data-pkg-inj', '1');
-        sec.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">' + escHtml(cat.name) + '</h3>';
-        row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6'; sec.appendChild(row);
-        const order = (typeof _catOrdered === 'function' ? _catOrdered() : (store.categories || [])).map(c => String(c.id));
-        const after = order.slice(order.indexOf(String(cat.id)) + 1);
-        const next = [...area.querySelectorAll(':scope > section[data-category-section]')].find(x => after.indexOf(x.dataset.categorySection) !== -1)
-            || area.querySelector('[data-category-section="__orphans"]') || area.querySelector('#store-endless');
-        area.insertBefore(sec, next || null);
-    }
-    const e = (window.GMTUtil && GMTUtil.esc) ? GMTUtil.esc : escHtml;
-    pick.forEach(k => {
-        const w = document.createElement('div'); w.setAttribute('data-kit-card', '1'); w.style.cssText = 'flex:0 0 auto;display:flex';
-        const nm = k.items.map(p => p.short_name || p.name).join(' + ');
-        w.innerHTML = `<div class="kit-ad"><div class="kc" data-kit="${e(k.items[0].id)}"><div class="im">${_kitCollage(k.items)}<span class="sv"><bdi dir="ltr">−${Math.round(k.save / k.sum * 100)}%</bdi></span><span class="plus">🎁 طقم ${k.items.length} قطع</span></div>
-          <div class="tx"><div class="nm">${e(nm)}</div><div class="pr"><s>${_kitM(k.sum)}</s><b>بحوالي ${_kitM(k.offer)}</b></div></div></div></div>`;
-        w.querySelector('.kc').addEventListener('click', ev => { ev.stopPropagation(); const id = ev.currentTarget.dataset.kit; openProductModal(id); setTimeout(() => { const x = document.getElementById('pm-kit'); if (x && !x.classList.contains('hidden') && x.scrollIntoView) x.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 700); });
-        row.appendChild(w);
-    });
-    if (document.getElementById('search-results-section')) sec.style.display = 'none';
-}
+/* (المالك seq B677) «ما بدي قسم للأطقم» ⇒ الطقم يظهر فقط في صفحة المنتج («عرض الطقم»): المنتج + ملحقاته الموجودة المتوافقة معه.
+   (أُزيلت بطاقات الأطقم من «باقات وعروض» — كانت seq B672) */
 
 function _renderSimilarProducts(prod){
     let simWrap = document.getElementById('similar-products-wrap');
@@ -3474,7 +3430,6 @@ function _injectPackages(){
         w.innerHTML = _pkgCard(p); row.insertBefore(w, row.firstChild);
     }));
     if (!area._pkgClick) { area._pkgClick = true; area.addEventListener('click', _pkgClick, true); }
-    try { _kitAdInsert(); } catch (_) {}   /* (seq B672) الأطقم في صفّ «باقات وعروض» بعد الباقات */
 }
 function renderPackages(){
     /* (seq 518) «الباقات تُعامَل معاملة المنتج»: تظهر داخل أقسامها فقط (قسم «باقات وعروض» وأيّ قسمٍ آخر) — لا كتلة منفصلة */

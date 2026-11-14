@@ -5,8 +5,9 @@
 
    الطقم = ما تقترحه دالّة المتجر نفسها gmtComplements (تُشغَّل داخل store.html على البيانات الحيّة) ⇒ ما يراه الزبون في «كمّل طقمك» هو الطقم نفسه.
    (المالك seq B672) «لا تحط طقم كبير · حط اكسسوارات اسعارها البيع اضعاف سعر الشراء · وعند البكج بتنزل السعر ب 35 بالمية تقريبا»:
-   كلّ قطعة في الطقم (والمنتج نفسه) سعر بيعها ≥ ضعف تكلفتها · قطعتان أو ثلاث فقط · مجموعها ≤ MAX_SUM$ ·
-   سعر الطقم = المجموع − ٣٥٪ تقريباً (يُقرَّب لأقرب ١$، أو ٥$ فوق ١٠٠$) ويبقى ≥ ١٫٢ × التكلفة.
+   (seq B677) «ما بدي قسم للأطقم — لما يشتري درون تعطيه ملحقاته الموجودة: حماية الشفرات · الحقيبة · بطاريات إضافية؛ كاميرا: الحقيبة · لوح إضاءة · كفر»
+   ⇒ الطقم = المنتج (بسعره كاملاً) + حتى ٣ ملحقات من gmtComplements، كلّ ملحق سعره ≥ ضعف تكلفته، قطعة من كلّ نوع ·
+   الخصم ~٣٥٪ على الملحقات وحدها (يُقرَّب لأقرب ١$) ويبقى ≥ ١٫٢ × تكلفتها. يظهر في صفحة المنتج فقط.
 
    التشغيل (المفاتيح من البيئة فقط — لا أسرار في المستودع):
      U/K   = القاعدة الرئيسية (رابط + مفتاح يقرأ products.cost_price/net_cost)
@@ -20,14 +21,15 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8765/';
 const OUT = process.env.OUT || 'kits.json';
 const hdr = k => ({ apikey: k, Authorization: 'Bearer ' + k });
 
-const MULT = 2, DISC = 0.35, MAX_ITEMS = 3, MAX_SUM = Number(process.env.MAX_SUM || 250);
-function offerFor(items) {   // items: [{price, cost}]
-  const sum = items.reduce((t, x) => t + x.price, 0), cost = items.reduce((t, x) => t + x.cost, 0);
-  if (sum > MAX_SUM) return null;
-  const step = sum > 100 ? 5 : 1;
-  const offer = Math.round(sum * (1 - DISC) / step) * step;
-  if (offer < cost * 1.2 || offer >= sum) return null;
-  return { sum: Math.round(sum * 100) / 100, offer };
+const MULT = 2, DISC = 0.35, MAX_ITEMS = 4;
+// المنتجات الأساسية: كاميرات · عدسات · أوبن بوكس · ألواح ورؤوس وفلاشات · إضاءة المحتوى · مايكات · جيمبال وترايبود ذكي · أكشن · درونات
+const MAINCATS = new Set((process.env.MAINCATS || 'h1_1,h1_2,h2_1,h2_2,h3_1,h3_2,h3_3,h4_1,h4_2,h4_3,h5_1,h5_2,h6_2,h6_3,h6_4,h7_1,h8_1,h11_1,h11_2').split(','));
+function offerFor(main, acc) {   // main: {price} · acc: [{price, cost}]
+  const accSum = acc.reduce((t, x) => t + x.price, 0), accCost = acc.reduce((t, x) => t + x.cost, 0);
+  const accOffer = Math.round(accSum * (1 - DISC));
+  if (accOffer < accCost * 1.2 || accOffer >= accSum) return null;
+  const sum = main.price + accSum;
+  return { sum: Math.round(sum * 100) / 100, offer: Math.round((main.price + accOffer) * 100) / 100 };
 }
 
 (async () => {
@@ -56,15 +58,16 @@ function offerFor(items) {   // items: [{price, cost}]
   for (const [pid, list] of Object.entries(comp)) {
     const main = byId[pid]; const mc = costOf[pid];
     const rich = id => costOf[id] > 0 && byId[id] && parseFloat(byId[id].price || 0) >= MULT * costOf[id];   // إكسسوار ربحه أضعاف
-    if (!main || !rich(pid) || /محول|وصلة|كبل|كابل|adapter|cable/i.test(main.name || '')) { skipped++; continue; }   // الوصلات لا تُبنى عليها أطقم
+    const isMain = (main && (main.category_ids || [main.category_id])).some(c => MAINCATS.has(String(c)));   // الطقم حول المنتج الأساسي لا حول ملحق
+    if (!main || !isMain || !(parseFloat(main.price || 0) > 0) || /محول|وصلة|كبل|كابل|adapter|cable/i.test(main.name || '')) { skipped++; continue; }   // الوصلات لا تُبنى عليها أطقم
     const picks = [];   // قطعةٌ واحدة من كلّ نوع (لا ذاكرتان في طقم واحد)
     for (const id of list.filter(rich)) { if (picks.length >= MAX_ITEMS - 1) break; if (picks.some(x => String(byId[x].category_id) === String(byId[id].category_id))) continue; picks.push(id); }
     if (!picks.length) { skipped++; continue; }
     const ids = [pid, ...picks];
-    const o = offerFor(ids.map(id => ({ price: parseFloat(byId[id].price), cost: costOf[id] })));
+    const o = offerFor({ price: parseFloat(main.price) }, picks.map(id => ({ price: parseFloat(byId[id].price), cost: costOf[id] })));
     if (o) kits[pid] = { ids, sum: o.sum, offer: o.offer }; else skipped++;
   }
-  const out = { built_at: new Date().toISOString(), rule: 'قطع ربحها ≥ ضعف التكلفة · ٢–٣ قطع · −٣٥٪ تقريباً', kits };
+  const out = { built_at: new Date().toISOString(), rule: 'المنتج بسعره + حتى ٣ ملحقات ربحها ≥ ضعف التكلفة بخصم ~٣٥٪', kits };
   fs.writeFileSync(OUT, JSON.stringify(out));
   const vals = Object.values(kits);
   console.log('أطقم:', vals.length, '· بلا عرض:', skipped, '· متوسّط الوفر:', vals.length ? (vals.reduce((t, k) => t + (k.sum - k.offer) / k.sum, 0) / vals.length * 100).toFixed(1) + '%' : '-');
