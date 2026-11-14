@@ -89,7 +89,7 @@
         var sum = r2(items.reduce(function (s, x) { return s + x.price * x.qty; }, 0)), t = targetsOf(o);
         items.forEach(function (x) { var q = inv[x.id]; if (sid[x.id]) x.sid = sid[x.id]; if (q) { if (!(x.price > 0)) x.price = Number(q.price) || 0; if (!x.image_url && q.image_url) x.image_url = q.image_url; if (!x.name) x.name = q.name || ''; } });
         sum = r2(items.reduce(function (s, x) { return s + x.price * x.qty; }, 0));
-        return { id: String(o.id), name: o.name, description: o.description || '', images: imgs.slice(0, 16), items: items,
+        return { id: String(o.id), name: o.name, description: o.description || '', images: imgs.slice(0, 16), items: items, video_url: o.reel_url || '',   /* (seq B703) فيديو الباقة داخل المتجر */
           price: Number(o.offer_price) || 0,
           /* «قبل الخصم» = مجموع أسعار منتجاتها الحالية إن عُرفت كلّها، وإلّا الرقم المحفوظ */
           original: items.every(function (x) { return x.price > 0; }) && sum > 0 ? sum : (Number(o.original_price) || sum),
