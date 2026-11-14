@@ -40,11 +40,12 @@
   }
 
   /* صفوف الجدول بالدولار — نفس شكل buildRowsB (ستّة صفوف على الأقل) */
-  function rows(items) {
+  function rows(items, fmt) {
+    fmt = fmt || function (v) { return v.toFixed(2); };
     var html = (items || []).map(function (it, i) {
       var q = Number(it.qty) || 1, p = Number(it.price) || 0;
       return '<tr><td style="font-size:11px;text-align:center;color:#555;">' + (i + 1) + '</td><td>' + esc(it.name || '—') + '</td><td>' + q +
-             '</td><td>قطعة</td><td>' + p.toFixed(2) + '</td><td>' + (p * q).toFixed(2) + '</td><td></td></tr>';
+             '</td><td>قطعة</td><td>' + fmt(p) + '</td><td>' + fmt(p * q) + '</td><td>' + esc(it.note || '') + '</td></tr>';
     }).join('');
     /* (المالك seq B678) لا صفوف فارغة: عدد الأسطر = عدد المنتجات */
     return html;
@@ -136,5 +137,43 @@
     return html;
   }
 
-  global.GMTInvoiceTpl = { B: B, fill: fill, rows: rows, qr: qr, publicBase: publicBase, storeHTML: storeHTML };
+  /* (TASK-0368 · المالك seq 637 · B693) «إنشاء عرض سعر: يُكتب يدوياً — منتجات من النظام أو مكتوبة — بتفصيلات خاصّة (عملة · صلاحية ·
+     عرض من النظام الإلكتروني ولا يُعدّ فاتورة رسمية)» ⇒ نفس ورقة فاتورة المبيع، بعنوان «عرض سعر» وخانات الصلاحية بدل الأرصدة */
+  function quoteHTML(q, o) {
+    q = q || {}; o = o || {};
+    var syp = q.currency === 'syp', rate = Number(q.rate) || 1, cv = function (v) { return syp ? Math.round(v * rate) : v; };
+    var fmt = syp ? function (v) { return Math.round(v).toLocaleString('en-US'); } : function (v) { return v.toFixed(2); };
+    var money = function (v) { return fmt(Math.abs(v)) + (syp ? ' ل.س' : ' $'); };
+    var items = (q.items || []).map(function (x) { return { name: x.name || '—', qty: Number(x.qty) || 1, price: cv(Number(x.price) || 0), note: x.note || '' }; });
+    var sub = items.reduce(function (t, x) { return t + x.price * x.qty; }, 0), disc = cv(Number(q.discount) || 0), total = Math.max(0, sub - disc);
+    var d = q.created_at ? new Date(q.created_at) : new Date(), pad = function (n) { return n < 10 ? '0' + n : String(n); }, ds = function (x) { return pad(x.getDate()) + '/' + pad(x.getMonth() + 1) + '/' + x.getFullYear(); };
+    var days = Math.max(1, Number(q.valid_days) || 7), until = new Date(d.getTime() + days * 864e5);
+    var dateStr = ds(d), timeStr = pad(d.getHours()) + ':' + pad(d.getMinutes()), base = publicBase();
+    var disclaimer = 'عرض سعر صادر من النظام الإلكتروني ولا يُعدّ فاتورة رسمية · صالح حتى ' + ds(until) + (syp ? ' · سعر الصرف ' + rate.toLocaleString('en-US') : '');
+    var data = {
+      invoice_date: dateStr, invoice_time: timeStr, invoice_number: String(q.ref || '—'),
+      currency: syp ? 'ليرة سورية' : 'دولار أمريكي', branch_name: q.branch || 'الإدارة', center_name: ' ',
+      invoice_type: ds(until) + ' (' + days + ' ' + (days === 1 ? 'يوم' : days <= 10 ? 'أيام' : 'يوماً') + ')',
+      customer_name: q.name || '—', customer_phone: q.phone || '—', customer_address: '',
+      invoice_total: money(sub), cash_payment: money(0), discount: money(disc), net_total: money(total),
+      total_qty: String(items.reduce(function (t, x) { return t + x.qty; }, 0)),
+      balance_before: days + ' ' + (days <= 10 ? 'أيام' : 'يوماً'), balance_after: 'عرض سعر', current_balance: 'ليس فاتورة',
+      notes: disclaimer + (q.notes ? ' · ' + q.notes : ''), username: q.user || '—', username_cashier: '—',
+      website_qr: qr(INSTAGRAM, 58, '1f348f'), coupon_qr: qr(base + 'store.html', 58, 'b91c1c'),
+      management_phone: MGMT_PHONE, print_date: dateStr + ' ' + timeStr,
+      subtotal: money(sub), tax_rate: '0', tax: money(0), grand_total: money(total), salesman_name: q.user || '—', ITEMS_ROWS: ''
+    };
+    var tpl = B.replace('{{ITEMS_ROWS}}', rows(items, fmt))
+      .replace('<title>فاتورة مبيع - خيار B</title>', '<title>عرض سعر ' + esc(q.ref || '') + '</title>')
+      .replace('<div class="t">فاتورة مبيع</div><div class="s">مبيع : ', '<div class="t">عرض سعر</div><div class="s">صالح حتى : ')
+      .replace('رقم الفاتورة', 'رقم العرض').replace('تفاصيل الفاتورة', 'تفاصيل العرض').replace('مجموع الفاتورة', 'مجموع العرض')
+      .replace('صافي الفاتورة', 'صافي العرض').replace('<tr><td>دفعة نقدية</td><td class="v">{{cash_payment}}</td></tr>', '')
+      .replace('معلومات الحساب', 'صلاحية العرض').replace('رصيده قبل الفاتورة', 'مدّة الصلاحية').replace('رصيده بعد الفاتورة', 'نوع المستند').replace('رصيد الحساب الحالي', 'الصفة')
+      .replace('<tr class="note"><td colspan="2">ملاحظة: أرصدة الحساب احتسبت قيمتها عند الطباعة</td></tr>', '<tr class="note"><td colspan="2">الأسعار ثابتة حتى تاريخ الصلاحية · تخضع للتوفّر</td></tr>');
+    var html = fill(tpl, data);
+    if (o.autoPrint) html = html.replace('</body>', '<script>setTimeout(function(){window.print()},500)<\/script></body>');
+    return html;
+  }
+
+  global.GMTInvoiceTpl = { B: B, fill: fill, rows: rows, qr: qr, publicBase: publicBase, storeHTML: storeHTML, quoteHTML: quoteHTML };
 })(window);

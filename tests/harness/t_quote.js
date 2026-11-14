@@ -1,0 +1,37 @@
+// (TASK-0368 · المالك seq 637 · B693) عرض سعر: منتجات من النظام أو مكتوبة · صلاحية · عملة · «لا يُعدّ فاتورة رسمية» · بلا صفوف فارغة
+const H = require('./h.js');
+let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
+(async () => {
+  await H.seed();
+  const o = await H.open('quote.html', { init: H.STAFF_INIT + ';try{if(!sessionStorage.getItem("t_q")){localStorage.removeItem("gmt_quote_draft");sessionStorage.setItem("t_q","1")}}catch(e){};', w: 1280, h: 900, mobile: false, wait: 4000 });
+  const pg = o.pg;
+  await pg.fill('#q-name', 'زبون التجربة'); await pg.fill('#q-phone', '0933123456');
+  await pg.fill('#q-search', 'كاميرا'); await pg.waitForTimeout(300);
+  const nres = await pg.evaluate(() => document.querySelectorAll('#q-res [data-add]').length);
+  ok(nres > 0, '① البحث في منتجات الجرد يعرض نتائج: ' + nres);
+  await pg.click('#q-res [data-add]'); await pg.click('#q-manual');
+  await pg.fill('#q-items .it:nth-child(2) [data-f="name"]', 'تركيب وتدريب في المحلّ'); await pg.fill('#q-items .it:nth-child(2) [data-f="price"]', '25');
+  await pg.fill('#q-items .it:nth-child(1) [data-f="qty"]', '2'); await pg.fill('#q-disc', '10'); await pg.fill('#q-days', '5'); await pg.fill('#q-notes', 'السعر يشمل التوصيل');
+  await pg.waitForTimeout(700);
+  const doc = await pg.evaluate(() => { const d = document.getElementById('pv').contentDocument; const rows = [...d.querySelectorAll('tbody tr')].filter(r => r.closest('table') && /اسم المادة/.test(r.closest('table').innerText));
+    return { txt: d.body.innerText.replace(/\s+/g, ' '), title: d.title, items: rows.length, empty: rows.filter(r => !r.innerText.trim()).length, total: document.getElementById('q-total').textContent }; });
+  ok(/^عرض سعر QT-\d{6}-\d{4}$/.test(doc.title) && /عرض سعر/.test(doc.txt) && /صالح حتى/.test(doc.txt) && /لا يُعدّ فاتورة رسمية/.test(doc.txt), '② ورقة «عرض سعر» برقمٍ وصلاحية ونصّ «لا يُعدّ فاتورة رسمية»');
+  ok(doc.items === 2 && doc.empty === 0 && /تركيب وتدريب في المحلّ/.test(doc.txt) && /زبون التجربة/.test(doc.txt) && /السعر يشمل التوصيل/.test(doc.txt), '③ منتج من النظام + سطر يدوي · بلا صفوف فارغة · العميل والملاحظات ' + JSON.stringify({ items: doc.items, empty: doc.empty }));
+  const sub = await pg.evaluate(() => { const it = document.querySelector('#q-items .it:nth-child(1) [data-f="price"]'); return Number(it.value) * 2 + 25 - 10; });
+  ok(doc.total === sub.toFixed(2) + ' $', '④ الإجمالي = (سعر × 2) + 25 − خصم 10: ' + doc.total);
+  await pg.selectOption('#q-cur', 'syp'); await pg.fill('#q-rate', '11000'); await pg.waitForTimeout(700);
+  const syp = await pg.evaluate(() => ({ t: document.getElementById('q-total').textContent, d: document.getElementById('pv').contentDocument.body.innerText }));
+  ok(/ل\.س$/.test(syp.t) && /ليرة سورية/.test(syp.d) && /سعر الصرف 11,000/.test(syp.d), '⑤ بالليرة السورية مع سعر الصرف: ' + syp.t);
+  await pg.evaluate(() => { window.__wa = []; window.open = function (u) { window.__wa.push(String(u)); return null; }; });
+  await pg.click('#q-wa'); const wa = await pg.evaluate(() => window.__wa.slice(-1)[0] || '');
+  ok(/^https:\/\/wa\.me\/963933123456\?text=/.test(wa) && decodeURIComponent(wa).includes('عرض سعر'), '⑥ واتساب إلى رقم العميل برسالة العرض ' + wa.slice(0, 60));
+  await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(2500);
+  const kept = await pg.evaluate(() => ({ n: document.querySelectorAll('#q-items .it').length, name: document.getElementById('q-name').value }));
+  ok(kept.n === 2 && kept.name === 'زبون التجربة', '⑦ المسودّة تبقى بعد إعادة الفتح على الجهاز نفسه');
+  const tool = await pg.evaluate(() => !!(window.GMTTools && GMTTools.forRole('staff').some(t => t.f === 'quote.html')));
+  ok(tool, '⑧ «عرض سعر» في قائمة أدوات الموظّف');
+  const real = o.errs.filter(x => !/status of (400|401|404|406|503)|Failed to load resource/.test(x));
+  ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
+  await o.browser.close();
+  console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

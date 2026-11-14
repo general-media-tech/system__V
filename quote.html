@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<script>window.GMT_INTERNAL = 1;</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GMT — عرض سعر</title>
+<link rel="icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<!-- (TASK-0368 · المالك seq 637 · B693) «لازم يكون عندنا إنشاء عرض سعر: ينكتب يدوياً، ممكن أحدّد منتجات وممكن أكتب منتجات يدوياً،
+     بتفصيلات خاصّة» ⇒ نفس ورقة فاتورة المبيع (gmt-invoice-tpl.js · quoteHTML) بعنوان «عرض سعر» وصلاحية وعملة ونصّ «لا يُعدّ فاتورة رسمية» -->
+<style>
+  :root{--red:#D5001C;--dark:#0f1219;--muted:#5b6472;--line:#e8eaed}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,system-ui,sans-serif;background:#f4f6f9;color:#1f2937;min-height:100vh}
+  header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;overflow:hidden;background:#fff}
+  h1{font-size:16px;font-weight:900;color:var(--dark)} .sub{font-size:11px;color:var(--muted);font-weight:700}
+  .back{margin-inline-start:auto;text-decoration:none;color:var(--muted);font-size:12px;font-weight:800;border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:#fff}
+  .wrap{max-width:1180px;margin:0 auto;padding:14px;display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:14px}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
+  .card h3{font-size:13.5px;font-weight:900;margin-bottom:10px}
+  label{display:block;font-size:11.5px;font-weight:800;color:var(--muted);margin:8px 0 4px}
+  input,select,textarea{width:100%;font-family:inherit;font-size:13.5px;font-weight:700;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--dark)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  .res{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:6px;display:none}
+  .ri{display:flex;align-items:center;gap:8px;padding:7px 9px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12.5px;font-weight:700}
+  .ri:hover{background:#fef2f2}.ri img{width:34px;height:34px;object-fit:contain;border-radius:7px;background:#f8fafc}.ri b{color:var(--red);direction:ltr}
+  .it{display:grid;grid-template-columns:1fr 62px 86px 26px;gap:6px;align-items:center;padding:7px 0;border-bottom:1px dashed #eef1f5}
+  .it input{padding:7px 8px;font-size:12.5px}.it .x{border:0;background:#fee2e2;color:#b91c1c;border-radius:8px;height:30px;cursor:pointer;font-weight:900}
+  .btn{border:0;border-radius:12px;padding:11px 14px;font:inherit;font-weight:900;cursor:pointer}
+  .btn.red{background:var(--red);color:#fff}.btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--dark)}.btn.green{background:#16a34a;color:#fff}
+  .tot{display:flex;justify-content:space-between;font-weight:900;margin-top:10px;font-size:14px}
+  .pv{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;min-height:600px;display:flex;flex-direction:column}
+  .pv .bar{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #pv{flex:1;width:100%;min-height:900px;border:0;background:#f8fafc}
+  .hint{font-size:11.5px;color:var(--muted);font-weight:700;margin-top:6px}
+</style>
+<script src="gmt-tools.js?v=20261101o"></script>
+<script src="gmt-account.js?v=20261103d"></script>
+</head>
+<body>
+<header>
+  <div class="logo"><img src="logo.jpg" alt="General Media Tech" style="width:100%;height:100%;object-fit:contain"></div>
+  <div><h1>🧾 عرض سعر</h1><div class="sub">منتجات من النظام أو مكتوبة يدوياً — يُطبع بورقة الفاتورة الرسمية ولا يُعدّ فاتورة</div></div>
+  <a class="back" href="home.html">↩ البوابة</a>
+</header>
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h3>👤 العميل</h3>
+      <div class="row"><div><label>الاسم</label><input id="q-name" placeholder="اسم العميل"></div><div><label>الموبايل</label><input id="q-phone" inputmode="tel" placeholder="09…" style="direction:ltr;text-align:right"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>📦 المنتجات</h3>
+      <input id="q-search" placeholder="🔍 ابحث في منتجات الجرد بالاسم أو الباركود…" autocomplete="off">
+      <div class="res" id="q-res"></div>
+      <div id="q-items" style="margin-top:8px"></div>
+      <button type="button" class="btn ghost" id="q-manual" style="margin-top:8px;width:100%">✍️ سطر يدوي (منتج غير موجود في النظام)</button>
+      <div class="row" style="margin-top:6px"><div><label>خصم ($)</label><input id="q-disc" type="number" min="0" step="0.01" value="0"></div>
+        <div><label>العملة</label><select id="q-cur"><option value="usd">دولار أمريكي</option><option value="syp">ليرة سورية</option></select></div>
+        <div id="q-rate-w" style="display:none"><label>سعر الصرف</label><input id="q-rate" type="number" min="1" step="1" placeholder="مثلاً 11000"></div></div>
+      <div class="row"><div><label>صالح لمدّة (أيام)</label><input id="q-days" type="number" min="1" value="7"></div><div><label>رقم العرض</label><input id="q-ref" readonly></div></div>
+      <label>ملاحظات (تظهر على العرض)</label><textarea id="q-notes" rows="2" placeholder="مثلاً: السعر يشمل التوصيل داخل دمشق"></textarea>
+      <div class="tot"><span>الإجمالي</span><span id="q-total" style="direction:ltr">0.00 $</span></div>
+      <div class="hint">المسودّة تُحفظ على هذا الجهاز تلقائياً.</div>
+      <button type="button" class="btn ghost" id="q-new" style="margin-top:8px;width:100%">🆕 عرض جديد (تفريغ)</button>
+    </div>
+  </div>
+  <div class="pv">
+    <div class="bar"><button type="button" class="btn red" id="q-print">🖨️ طباعة / PDF</button><button type="button" class="btn green" id="q-wa">💬 إرسال على واتساب</button></div>
+    <iframe id="pv" title="معاينة عرض السعر"></iframe>
+  </div>
+</div>
+<script src="gmt-config.js?v=20261029z4"></script>
+<script src="gmt-brand.js?v=20261029z4"></script>
+<script src="lib/zxing.min.js?v=20261017a" defer></script>
+<script src="gmt-invoice-tpl.js?v=20261115c"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LS = 'gmt_quote_draft';
+  var Q = { items: [], ref: '', created_at: null };
+  var PR = [];
+  function newRef() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return 'QT-' + String(d.getFullYear()).slice(2) + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
+  function userName() { try { var s = JSON.parse(localStorage.getItem('gmt_session') || 'null'); return (s && (s.name || s.username)) || ''; } catch (_) { return ''; } }
+  function collect() {
+    return { ref: Q.ref, created_at: Q.created_at, name: $('q-name').value.trim(), phone: $('q-phone').value.trim(), items: Q.items,
+      discount: Number($('q-disc').value) || 0, currency: $('q-cur').value, rate: Number($('q-rate').value) || 0,
+      valid_days: Number($('q-days').value) || 7, notes: $('q-notes').value.trim(), user: userName() };
+  }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(collect())); } catch (_) {} }
+  function load() { try { var d = JSON.parse(localStorage.getItem(LS) || 'null'); if (!d) return false;
+    Q.items = d.items || []; Q.ref = d.ref || newRef(); Q.created_at = d.created_at || new Date().toISOString();
+    $('q-name').value = d.name || ''; $('q-phone').value = d.phone || ''; $('q-disc').value = d.discount || 0; $('q-cur').value = d.currency || 'usd';
+    $('q-rate').value = d.rate || ''; $('q-days').value = d.valid_days || 7; $('q-notes').value = d.notes || ''; return true; } catch (_) { return false; } }
+  function reset() { Q = { items: [], ref: newRef(), created_at: new Date().toISOString() }; ['q-name', 'q-phone', 'q-notes', 'q-rate'].forEach(function (k) { $(k).value = ''; }); $('q-disc').value = 0; $('q-days').value = 7; $('q-cur').value = 'usd'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function paintItems() {
+    $('q-items').innerHTML = Q.items.length ? Q.items.map(function (x, i) {
+      return '<div class="it"><input data-f="name" data-i="' + i + '" value="' + esc(x.name) + '" placeholder="اسم المنتج"><input data-f="qty" data-i="' + i + '" type="number" min="1" value="' + x.qty + '" title="الكمية">' +
+        '<input data-f="price" data-i="' + i + '" type="number" min="0" step="0.01" value="' + x.price + '" title="سعر القطعة $" style="direction:ltr"><button type="button" class="x" data-del="' + i + '" title="حذف">✕</button></div>';
+    }).join('') : '<div class="hint" style="padding:6px 0">لم تُضف منتجات بعد — ابحث أو أضف سطراً يدوياً</div>';
+  }
+  function render() {
+    var q = collect(); $('q-rate-w').style.display = q.currency === 'syp' ? '' : 'none';
+    var sub = q.items.reduce(function (t, x) { return t + (Number(x.price) || 0) * (Number(x.qty) || 1); }, 0), tot = Math.max(0, sub - q.discount);
+    $('q-total').textContent = q.currency === 'syp' && q.rate ? Math.round(tot * q.rate).toLocaleString('en-US') + ' ل.س' : tot.toFixed(2) + ' $';
+    $('q-ref').value = q.ref;
+    if (q.currency === 'syp' && !q.rate) q.currency = 'usd';
+    try { $('pv').srcdoc = GMTInvoiceTpl.quoteHTML(q); } catch (e) { $('pv').srcdoc = '<p style="font-family:sans-serif;padding:20px">تعذّر بناء المعاينة: ' + esc(e.message) + '</p>'; }
+    save();
+  }
+  // القالب بعرض A4 ⇒ يُصغَّر داخل الإطار ليظهر كاملاً (لا قصّ من اليسار) — الطباعة لا تتأثّر (zoom للشاشة فقط)
+  function fitPv() { try { var f = $('pv'), d = f.contentDocument; if (!d || !d.documentElement) return; d.documentElement.style.zoom = '';
+    var w = d.documentElement.scrollWidth, avail = f.clientWidth; var z = w > avail ? avail / w : 1;
+    var st = d.getElementById('__fit') || d.head.appendChild(d.createElement('style')); st.id = '__fit';
+    st.textContent = '@media screen{html{zoom:' + z.toFixed(3) + '}}'; f.style.minHeight = Math.max(600, Math.ceil(d.documentElement.scrollHeight * z) + 20) + 'px'; } catch (_) {} }
+  $('pv').addEventListener('load', fitPv); window.addEventListener('resize', fitPv);
+  var t = null; function soon() { clearTimeout(t); t = setTimeout(render, 250); }
+  async function loadProducts() {
+    var M = window.GMT_DB && GMT_DB.MAIN; if (!M || !M.url) return;
+    try { var h = GMT_DB.headers ? GMT_DB.headers(M) : { apikey: M.key, Authorization: 'Bearer ' + M.key };
+      var r = await fetch(M.url + '/rest/v1/products?select=id,name,barcode,price,image_url&order=name&limit=5000', { headers: h });
+      PR = r.ok ? await r.json() : []; } catch (_) { PR = []; }
+  }
+  function search(qs) {
+    qs = String(qs || '').trim().toLowerCase(); var box = $('q-res');
+    if (!qs) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    var hits = PR.filter(function (p) { return String(p.name || '').toLowerCase().indexOf(qs) !== -1 || String(p.barcode || '') === qs; }).slice(0, 30);
+    box.style.display = 'block';
+    box.innerHTML = hits.length ? hits.map(function (p) { return '<div class="ri" data-add="' + esc(p.id) + '"><img src="' + esc(p.image_url || '') + '" alt="" onerror="this.style.visibility=\'hidden\'"><span style="flex:1">' + esc(p.name) + '</span><b>$' + (Number(p.price) || 0).toFixed(2) + '</b></div>'; }).join('')
+      : '<div class="ri" style="cursor:default;color:#94a3b8">لا نتائج — استعمل «سطر يدوي»</div>';
+  }
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (el.id === 'q-search') { search(el.value); return; }
+    if (el.dataset && el.dataset.f) { var it = Q.items[+el.dataset.i]; if (!it) return; it[el.dataset.f] = el.dataset.f === 'name' ? el.value : (Number(el.value) || 0); soon(); return; }
+    if (/^q-/.test(el.id)) soon();
+  });
+  document.addEventListener('change', function (e) { if (/^q-/.test(e.target.id)) render(); });
+  document.addEventListener('click', function (e) {
+    var el;
+    if ((el = e.target.closest('[data-add]'))) { var p = PR.find(function (x) { return String(x.id) === el.dataset.add; }); if (!p) return;
+      var ex = Q.items.find(function (x) { return x.pid === p.id; }); if (ex) ex.qty++; else Q.items.push({ pid: p.id, name: p.name, qty: 1, price: Number(p.price) || 0 });
+      $('q-search').value = ''; search(''); paintItems(); render(); return; }
+    if ((el = e.target.closest('[data-del]'))) { Q.items.splice(+el.dataset.del, 1); paintItems(); render(); return; }
+    if (e.target.id === 'q-manual') { Q.items.push({ name: '', qty: 1, price: 0 }); paintItems(); render(); var ins = document.querySelectorAll('#q-items [data-f="name"]'); if (ins.length) ins[ins.length - 1].focus(); return; }
+    if (e.target.id === 'q-new') { reset(); paintItems(); render(); return; }
+    if (e.target.id === 'q-print') { var f = $('pv'); try { f.contentWindow.focus(); f.contentWindow.print(); } catch (_) { var w = window.open('', '_blank'); if (w) { w.document.write(GMTInvoiceTpl.quoteHTML(collect(), { autoPrint: true })); w.document.close(); } } return; }
+    if (e.target.id === 'q-wa') { var q = collect(), cur = q.currency === 'syp' && q.rate;
+      var m = function (v) { return cur ? Math.round(v * q.rate).toLocaleString('en-US') + ' ل.س' : '$' + v.toFixed(2); };
+      var sub = q.items.reduce(function (t2, x) { return t2 + (Number(x.price) || 0) * (Number(x.qty) || 1); }, 0);
+      var txt = '🧾 عرض سعر ' + q.ref + (q.name ? '\nإلى: ' + q.name : '') + '\n\n' + q.items.map(function (x) { return '• ' + (x.name || '—') + ' × ' + x.qty + ' = ' + m((Number(x.price) || 0) * (Number(x.qty) || 1)); }).join('\n') +
+        (q.discount ? '\nخصم: ' + m(q.discount) : '') + '\nالإجمالي: ' + m(Math.max(0, sub - q.discount)) + '\nصالح ' + q.valid_days + ' أيام · لا يُعدّ فاتورة رسمية' + (q.notes ? '\n' + q.notes : '') + '\n\nGeneral Media Tech';
+      var ph = String(q.phone || '').replace(/\D/g, ''); if (/^09\d{8}$/.test(ph)) ph = '963' + ph.slice(1);
+      window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(txt), '_blank'); return; }
+  });
+  if (!load()) reset();
+  paintItems(); render(); loadProducts();
+})();
+</script>
+<script src="gmt-whatsnew.js?v=20261115c"></script>
+</body>
+</html>
