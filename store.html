@@ -865,7 +865,28 @@ function _goToBanner(idx) {
    قسمٌ بلا parent_id يبقى كما كان تماماً (المتجر الحالي لا يتغيّر حتى تُضاف الشجرة). */
 function _catOrd(a,b){ return (a.order||0)-(b.order||0); }
 function _catHasParent(c){ return !!(c && c.parent_id && store.categories.some(x=>String(x.id)===String(c.parent_id))); }
-function _catTop(){ return store.categories.filter(c=>!_catHasParent(c)).sort(_catOrd); }
+/* (TASK-B0400 · المالك seq B702 «لا تخلي التكرار يعميني عن منتجات اللي تحت — في البداية اعرض كل المنتجات ثم الأقسام اللي فيها تكرارات أو خلط»)
+   قسمٌ رئيسيّ «جامع» = أغلب منتجاته (≥٦٠٪) موجودة في قسمٍ رئيسيّ آخر (الإضاءة حسب الاستخدام · كلّ الحقائب · كلّ الفلاتر…) ⇒ يُرسم بعد كلّ الأقسام الأصلية. يُحسب آلياً فيشمل أيّ قسم جامع جديد. */
+function _catMixedSet(){
+    const key = (store.products||[]).length + ':' + (store.categories||[]).length;
+    if (_catMixedSet._k === key) return _catMixedSet._v;
+    const top = store.categories.filter(c=>!_catHasParent(c)), topOf = {};
+    store.categories.forEach(c => { topOf[String(c.id)] = _catHasParent(c) ? String(c.parent_id) : String(c.id); });
+    /* جشِع: القسم الأكثر تكراراً مع غيره يُعلَّم «جامعاً» أوّلاً ثمّ يُعاد الحساب بدونه — فالقسم الأصليّ الذي تكرّر في الجامع وحده يبقى أصلياً */
+    const tsets = store.products.map(p => new Set(_getProductCategories(p).map(x => topOf[String(x)]).filter(Boolean)));
+    const mixed = new Set();
+    for (let guard = 0; guard < 20; guard++) {
+        let best = null, bestEl = 0;
+        top.forEach(t => {
+            const tid = String(t.id); if (mixed.has(tid)) return; let n = 0, el = 0;
+            tsets.forEach(ts => { if (!ts.has(tid)) return; n++; if ([...ts].some(x => x !== tid && !mixed.has(x))) el++; });
+            if (n >= 3 && el / n >= 0.6 && el > bestEl) { best = tid; bestEl = el; }
+        });
+        if (!best) break; mixed.add(best);
+    }
+    _catMixedSet._k = key; _catMixedSet._v = mixed; return mixed;
+}
+function _catTop(){ const mx=_catMixedSet(); return store.categories.filter(c=>!_catHasParent(c)).sort((a,b)=>((mx.has(String(a.id))?1:0)-(mx.has(String(b.id))?1:0)) || _catOrd(a,b)); }
 function _catKids(id){ return store.categories.filter(c=>String(c.parent_id||'')===String(id)).sort(_catOrd); }
 function _catOrdered(){ const out=[]; _catTop().forEach(c=>{ out.push(c); _catKids(c.id).forEach(k=>out.push(k)); }); return out; }
 function renderCategories() {
@@ -902,70 +923,8 @@ function renderCategories() {
 // [3] PRODUCTS — multi-category support
 //     Each category section: title → section banner → products row
 // ══════════════════════════════════════════════
-function _getProductCategories(prod) {
-    // Support both old category_id and new category_ids array
-    if (Array.isArray(prod.category_ids) && prod.category_ids.length) return prod.category_ids;
-    if (prod.category_id) return [prod.category_id];
-    return [];
-}
-
-function renderProducts() {
-    const container = document.querySelector('[data-container="products-area"]');
-    const frag = document.createDocumentFragment();
-    const _shown = new Set();            // ما رُسم فعلاً — لالتقاط ما لا قسم له
-    const _blocks = [];                  // (seq B655) الأقسام المرسومة بترتيبها — تُعاد دورةً بعد دورة عند الوصول للأسفل
-    /* (TASK-B0394 · اقتراح ١ · seq B693) «🆕 وصل حديثاً»: آخر ١٢ منتجاً أُضيفت (وقت الإضافة من معرّف المنتج p_<ملّي ثانية>) خلال ٦٠ يوماً — أعلى المتجر */
-    try {
-        const tOf = p => { const m = String(p.id || '').match(/(1[7-9]\d{11})/); return m ? Number(m[1]) : 0; };
-        const fresh = (store.products || []).filter(p => parseFloat(p.price || 0) > 0 && (p.images || []).length && tOf(p) > Date.now() - 60 * 864e5 && tOf(p) <= Date.now() + 864e5)
-            .sort((a, b) => tOf(b) - tOf(a)).slice(0, 12);
-        if (fresh.length >= 4) {
-            const ns = document.createElement('section'); ns.className = 'mt-6'; ns.dataset.categorySection = '__new';
-            ns.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">🆕 وصل حديثاً</h3>';
-            const nr = document.createElement('div'); nr.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6';
-            fresh.forEach(p => nr.appendChild(_buildProductCard(p))); ns.appendChild(nr); frag.appendChild(ns);
-        }
-    } catch (_) {}
-
-    _catOrdered().forEach(cat => {
-        // collect products for this category
-        const prods = store.products
-            .filter(p => _getProductCategories(p).includes(cat.id))
-            .sort((a,b) => {
-                // per-category order support
-                const oa = (a.category_orders && a.category_orders[cat.id]) ?? (a.order||0);
-                const ob = (b.category_orders && b.category_orders[cat.id]) ?? (b.order||0);
-                return oa - ob;
-            });
-        /* (TASK-0305) قسمٌ رئيسيّ له فروع: عنوانه فوق صفوف فروعه (والشريط العلوي يقفز إليه) */
-        const kids = _catKids(cat.id);
-        if (kids.length && kids.some(k => store.products.some(p => _getProductCategories(p).includes(k.id))) ) {
-            const ph = document.createElement('h2');
-            ph.className = 'font-bold text-[20px] px-4 mt-8 mb-1';
-            ph.textContent = cat.name;
-            /* (TASK-B0397 · المالك seq B653 «الأقسام الجدد لازم الهم صور مصغرة حطها على نمط القدام») شريط الأقسام الفرعية بصورها تحت العنوان — يقفز للقسم */
-            const live = kids.filter(k => store.products.some(p => _getProductCategories(p).includes(k.id)));
-            const strip = document.createElement('div');
-            strip.className = 'sub-strip'; strip.dataset.subStrip = cat.id;
-            strip.innerHTML = live.map(k => `<button type="button" class="sub-chip" data-sub-go="${escHtml(k.id)}">${k.image ? `<span class="sub-img"><img ${gmtThumbAttrs(k.image)} alt=""></span>` : `<span class="sub-img"><i class="ph ${k.icon || 'ph-squares-four'}"></i></span>`}<span class="sub-nm">${escHtml(k.short_name || String(k.name || '').split(/\s[·—]\s/)[0])}</span></button>`).join('');
-            strip.querySelectorAll('[data-sub-go]').forEach(b => b.addEventListener('click', () => { const s = document.querySelector(`section[data-category-section="${b.dataset.subGo}"]`); if (!s) return; const hh = document.querySelector('header')?.offsetHeight || 60; window.scrollTo({ top: s.getBoundingClientRect().top + (window.pageYOffset || 0) - hh - 8, behavior: 'smooth' }); }));
-            if (!prods.length) { ph.dataset.categorySection = cat.id; frag.appendChild(ph); if (live.length > 1) frag.appendChild(strip); return; }
-            frag.appendChild(ph); if (live.length > 1) frag.appendChild(strip);
-        }
-        if (!prods.length) return;
-
-        const section = document.createElement('section');
-        section.className = _catHasParent(cat) ? 'mt-3' : 'mt-6';
-        section.dataset.categorySection = cat.id;
-        if (_catHasParent(cat)) section.dataset.categoryParent = cat.parent_id;
-
-        // ── Section header ──
-        const header = document.createElement('h3');
-        header.className = 'font-medium text-[18px] px-4 mb-4';
-        header.textContent = cat.name;
-        section.appendChild(header);
-
-        // ── [2] Section banner slider (per-category) ──
+/* (TASK-B0400 · المالك seq B700 «انت لغيت الهيدرات كانوا كثير حلوات — هيدر كانون أو هيدر سيجما») بانر القسم كدالّة: يُستعمل للقسم العاديّ ولعنوان القسم الرئيسيّ ذي الفروع */
+function _catBannerEl(cat){
         const catBanners = Array.isArray(cat.banners) && cat.banners.length
             ? cat.banners
             : (cat.banner_image ? [{ image: cat.banner_image, link: cat.banner_link||'' }] : []);
@@ -1004,8 +963,79 @@ function renderProducts() {
                 }, 4000);
                 bannerWrap._timer = _timer;
             }
-            section.appendChild(bannerWrap);
+            return bannerWrap;
         }
+        return null;
+
+}
+function _getProductCategories(prod) {
+    // Support both old category_id and new category_ids array
+    if (Array.isArray(prod.category_ids) && prod.category_ids.length) return prod.category_ids;
+    if (prod.category_id) return [prod.category_id];
+    return [];
+}
+
+function renderProducts() {
+    const container = document.querySelector('[data-container="products-area"]');
+    const frag = document.createDocumentFragment();
+    const _shown = new Set();            // ما رُسم فعلاً — لالتقاط ما لا قسم له
+    const _blocks = [];                  // (seq B655) الأقسام المرسومة بترتيبها — تُعاد دورةً بعد دورة عند الوصول للأسفل
+    let _newSec = null; const _mx = _catMixedSet();
+    /* (TASK-B0394 · اقتراح ١ · seq B693) «🆕 وصل حديثاً»: آخر ١٢ منتجاً أُضيفت (وقت الإضافة من معرّف المنتج p_<ملّي ثانية>) خلال ٦٠ يوماً — أعلى المتجر */
+    try {
+        const tOf = p => { const m = String(p.id || '').match(/(1[7-9]\d{11})/); return m ? Number(m[1]) : 0; };
+        const fresh = (store.products || []).filter(p => parseFloat(p.price || 0) > 0 && (p.images || []).length && tOf(p) > Date.now() - 60 * 864e5 && tOf(p) <= Date.now() + 864e5)
+            .sort((a, b) => tOf(b) - tOf(a)).slice(0, 12);
+        if (fresh.length >= 4) {
+            const ns = document.createElement('section'); ns.className = 'mt-6'; ns.dataset.categorySection = '__new';
+            ns.innerHTML = '<h3 class="font-medium text-[18px] px-4 mb-4">🆕 وصل حديثاً</h3>';
+            const nr = document.createElement('div'); nr.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6';
+            fresh.forEach(p => nr.appendChild(_buildProductCard(p))); ns.appendChild(nr); _newSec = ns;   /* (seq B702) يُوضع بعد الأقسام الأصلية لا في أوّلها */
+        }
+    } catch (_) {}
+
+    _catOrdered().forEach(cat => {
+        if (_newSec && !_catHasParent(cat) && _mx.has(String(cat.id))) { frag.appendChild(_newSec); _newSec = null; }   // قبل أوّل قسم جامع
+        // collect products for this category
+        const prods = store.products
+            .filter(p => _getProductCategories(p).includes(cat.id))
+            .sort((a,b) => {
+                // per-category order support
+                const oa = (a.category_orders && a.category_orders[cat.id]) ?? (a.order||0);
+                const ob = (b.category_orders && b.category_orders[cat.id]) ?? (b.order||0);
+                return oa - ob;
+            });
+        /* (TASK-0305) قسمٌ رئيسيّ له فروع: عنوانه فوق صفوف فروعه (والشريط العلوي يقفز إليه) */
+        const kids = _catKids(cat.id);
+        if (kids.length && kids.some(k => store.products.some(p => _getProductCategories(p).includes(k.id))) ) {
+            const ph = document.createElement('h2');
+            ph.className = 'font-bold text-[20px] px-4 mt-8 mb-1';
+            ph.textContent = cat.name; ph.dataset.catHead = cat.id;   /* (seq B700) علامة العنوان: إدراج «باقات وعروض» قبله لا بعده */
+            /* (TASK-B0397 · المالك seq B653 «الأقسام الجدد لازم الهم صور مصغرة حطها على نمط القدام») شريط الأقسام الفرعية بصورها تحت العنوان — يقفز للقسم */
+            const live = kids.filter(k => store.products.some(p => _getProductCategories(p).includes(k.id)));
+            const strip = document.createElement('div');
+            strip.className = 'sub-strip'; strip.dataset.subStrip = cat.id;
+            strip.innerHTML = live.map(k => `<button type="button" class="sub-chip" data-sub-go="${escHtml(k.id)}">${k.image ? `<span class="sub-img"><img ${gmtThumbAttrs(k.image)} alt=""></span>` : `<span class="sub-img"><i class="ph ${k.icon || 'ph-squares-four'}"></i></span>`}<span class="sub-nm">${escHtml(k.short_name || String(k.name || '').split(/\s[·—]\s/)[0])}</span></button>`).join('');
+            strip.querySelectorAll('[data-sub-go]').forEach(b => b.addEventListener('click', () => { const s = document.querySelector(`section[data-category-section="${b.dataset.subGo}"]`); if (!s) return; const hh = document.querySelector('header')?.offsetHeight || 60; window.scrollTo({ top: s.getBoundingClientRect().top + (window.pageYOffset || 0) - hh - 8, behavior: 'smooth' }); }));
+            const pb = _catBannerEl(cat); if (pb) pb.style.margin = '6px 16px 2px';
+            if (!prods.length) { ph.dataset.categorySection = cat.id; frag.appendChild(ph); if (pb) frag.appendChild(pb); if (live.length > 1) frag.appendChild(strip); return; }
+            frag.appendChild(ph); if (pb) frag.appendChild(pb); if (live.length > 1) frag.appendChild(strip);
+        }
+        if (!prods.length) return;
+
+        const section = document.createElement('section');
+        section.className = _catHasParent(cat) ? 'mt-3' : 'mt-6';
+        section.dataset.categorySection = cat.id;
+        if (_catHasParent(cat)) section.dataset.categoryParent = cat.parent_id;
+
+        // ── Section header ──
+        const header = document.createElement('h3');
+        header.className = 'font-medium text-[18px] px-4 mb-4';
+        header.textContent = cat.name;
+        section.appendChild(header);
+
+        // ── [2] Section banner slider (per-category) ──
+        { const bw = _catBannerEl(cat); if (bw) section.appendChild(bw); }
 
         // ── Products row ──
         const row = document.createElement('div');
@@ -1020,6 +1050,7 @@ function renderProducts() {
         _blocks.push({ cat: cat, prods: prods });
         prods.forEach(function (x) { _shown.add(x.id); });
     });
+    if (_newSec) frag.appendChild(_newSec);   // لا قسم جامع ⇒ بعد كلّ الأقسام
 
     /* ══════════════════════════════════════════════════════════════════════
        🔴 (2026-10-03 · بلاغ المالك) «منتجات اللي عم نربطها من الجسر ما عم
@@ -3538,7 +3569,7 @@ function _injectPackages(){
             row = document.createElement('div'); row.className = 'flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6'; sec.appendChild(row);
             const order = (typeof _catOrdered === 'function' ? _catOrdered() : (store.categories || [])).map(c => String(c.id));
             const after = order.slice(order.indexOf(String(cid)) + 1);
-            const next = [...area.querySelectorAll('section[data-category-section]')].find(x => after.indexOf(x.dataset.categorySection) !== -1)
+            const next = [...area.querySelectorAll('section[data-category-section], h2[data-cat-head]')].find(x => after.indexOf(x.dataset.catHead || x.dataset.categorySection) !== -1)
                 || area.querySelector('[data-category-section="__orphans"]');
             area.insertBefore(sec, next || null);
         }

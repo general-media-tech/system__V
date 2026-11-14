@@ -2220,6 +2220,9 @@ tr.branch-highlight td { background: rgba(213,0,28,0.04); }
   .product-card .card-branches{max-height:56px;overflow:hidden}
   .card-img-placeholder{background:linear-gradient(135deg,#f1f3f6,#e9edf3)}
 }
+tr.inv-grp-sep td{background:#f8fafc;padding:8px 12px!important;border-top:2px solid #e2e8f0}
+tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;font-weight:900;color:#1f348f;background:#eef3fa;border-radius:999px;padding:3px 12px}
+.inv-grp-sep-card{grid-column:1/-1;padding:6px 2px 0;border-top:2px solid #e2e8f0;margin-top:4px}
 </style>
   <!-- ═══ PWA خفيفة (أُضيفت 2026-07-10 — م14): أيقونة + ملء شاشة + كاش الملفات ═══ -->
   <link rel="manifest" href="manifest.json">
@@ -5665,6 +5668,12 @@ function applyFilters() {
     });
   }
 
+  /* (TASK-B0400 · المالك seq B701 «في المخزون عيفها نفسها ولكن تترتب ورا بعضها وفي بينهم فاصل أو تصنيف») داخل القسم الفرعي:
+     المجموعة الصغيرة (cat_group — مثلاً «كهرباء» ثمّ «تعمل بالبطارية») متتالية بفاصل بينها، والترتيب داخلها كما هو */
+  if (!sortCol && window._invTree && _invTree.sub && items.some(p => p.cat_group)) {
+    const first = {}; items.forEach((p, i) => { const g = p.cat_group || ''; if (!(g in first)) first[g] = i; });
+    items = items.map((p, i) => [p, i]).sort((a, b) => (first[a[0].cat_group || ''] - first[b[0].cat_group || '']) || (a[1] - b[1])).map(x => x[0]);
+  }
   filteredProducts = items;
   document.getElementById('result-count').textContent = `${items.length} منتج`;
   document.getElementById('filter-count-all').textContent = allProducts.length;
@@ -5943,6 +5952,8 @@ function buildMergedColumns(cols) {
 window.buildMergedColumns = buildMergedColumns;
 
 
+/* (TASK-B0400) الفاصل بين المجموعات يظهر عند اختيار قسمٍ فرعيّ بلا فرزٍ يدويّ */
+function invGroupSep() { return !sortCol && !!(window._invTree && _invTree.sub); }
 function renderTableBody() {
   const tbody = document.getElementById('table-body');
   const paged = getPagedProducts();
@@ -5964,8 +5975,9 @@ function renderTableBody() {
 
   document.getElementById('empty-state').style.display = 'none';
 
-  let html = '';
+  let html = '', _g = null; const _sep = invGroupSep();
   paged.forEach(p => {
+    if (_sep && (p.cat_group || '') !== _g) { _g = p.cat_group || ''; if (_g) html += `<tr class="inv-grp-sep"><td colspan="99"><span>${escHtml(_g)}</span></td></tr>`; }
     const total = getTotal(p);
     const rowEditClass = editModeActive ? 'edit-mode-row' : '';
     /* (2026-10-04) طلبُك: «ضغطة طويلة عليه تفتح تفاصيله».
@@ -6138,7 +6150,15 @@ function renderCards() {
 
   document.getElementById('empty-state-cards').style.display = 'none';
 
+  let _g = null; const _sep = invGroupSep();
   grid.innerHTML = paged.map(p => {
+    let sepH = '';
+    if (_sep && (p.cat_group || '') !== _g) { _g = p.cat_group || ''; if (_g) sepH = `<div class="inv-grp-sep-card"><span>${escHtml(_g)}</span></div>`; }
+    return sepH + _invCardHTML(p);
+  }).join('');
+  if (typeof gmtResolveVisibleImages === 'function') gmtResolveVisibleImages();
+  return;
+  function _invCardHTML(p) {
     const total = getTotal(p);
     const branchHtml = branchCols.map(col => {
       const qty = Number(p[col.key]) || 0;
@@ -6177,8 +6197,7 @@ function renderCards() {
         </div>
       </div>
     </div>`;
-  }).join('');
-  if (typeof gmtResolveVisibleImages === 'function') gmtResolveVisibleImages();
+  }
 }
 
 /* (٨ ت) القائمة المبسّطة — متى تُعرض؟ الموبايل دائماً (إلّا وضع التعديل الخلويّ)، والكمبيوتر إن اختيرت.
@@ -16605,7 +16624,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115h"></script>
+<script src="gmt-whatsnew.js?v=20261115i"></script>
 <script src="gmt-store-sync.js?v=20261108f" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
