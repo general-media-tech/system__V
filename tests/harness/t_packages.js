@@ -68,6 +68,10 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   /* (المالك seq 565) ضغطةٌ واحدة ⇒ الباقة سطراً واحداً فوراً — بلا سؤال */
   await pg.evaluate(id => { newInvoice(); toggleProd(id); }, po.id); await pg.waitForTimeout(400);
   const oneTap = await pg.evaluate(id => ({ dlg: !!document.getElementById('gmt-offer-choice'), line: !!(cart[id] && cart[id]._is_offer && cart[id].qty === 1) }), po.id);
+  /* (المالك seq B678) «تنزل بالفاتورة كمجموعة منتجات» ⇒ سطر الباقة ثمّ منتجاتها تحته · لا صفوف فارغة */
+  const invG = await pg.evaluate(id => { const d = document.createElement('table'); d.innerHTML = buildRowsB([cart[id]]); const rows = [...d.querySelectorAll('tr')];
+    return { n: rows.length, head: rows[0] && rows[0].innerText.replace(/\s+/g, ' '), subs: d.querySelectorAll('tr.pkg-sub').length, empty: rows.filter(r => !r.innerText.trim()).length }; }, po.id);
+  ok(invG.subs === 3 && invG.n === 4 && /صانع المحتوى/.test(invG.head) && /864/.test(invG.head) && invG.empty === 0, '(seq B678) الفاتورة: سطر الباقة بسعرها ثمّ منتجاتها الثلاثة تحته · بلا صفوف فارغة ' + JSON.stringify(invG));
   ok(!oneTap.dlg && oneTap.line, 'ضغطةٌ واحدة على الباقة ⇒ سطرٌ واحد في السلّة فوراً بلا سؤال ' + JSON.stringify(oneTap));
   await pg.evaluate(() => { document.getElementById('custName').value = 'زبون الباقة'; saleType = 'نقدي'; });
   await pg.evaluate(() => saveAndFinish()); await pg.waitForTimeout(2500);
@@ -96,7 +100,7 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.011;
   const inCat = await pg.evaluate(() => { const s = document.querySelector('[data-container="products-area"] section[data-category-section="c1"]'); return s ? [...s.querySelectorAll('[data-pkg]')].map(c => c.innerText.replace(/\s+/g, ' ')) : null; });
   ok(inCat && inCat.length === 1 && /صانع/.test(inCat[0]), 'والباقة نفسها في قسم «كاميرات» أيضاً (أوّل الصفّ)');
   await pg.click('[data-category-section="c_bundles"] [data-pkg]:has-text("صانع")'); await pg.waitForTimeout(600);
-  const det = await pg.evaluate(() => { const c = document.getElementById('package-content'); return { txt: c.innerText.replace(/\s+/g, ' '), rows: c.querySelectorAll('[role="button"]').length, imgs: [...c.querySelectorAll('.border-b img')].map(i => i.getAttribute('src')), open: document.getElementById('package-modal').classList.contains('active') }; });
+  const det = await pg.evaluate(() => { const c = document.getElementById('package-content'); return { txt: c.innerText.replace(/\s+/g, ' '), rows: c.querySelectorAll('[role="button"]').length, imgs: [...c.querySelectorAll('.border-b img')].map(i => i.getAttribute('data-orig-src') || i.getAttribute('src'))   /* حارس الصور يؤجّل ما تحت الشاشة (العارض صار أطول — seq B678) */, open: document.getElementById('package-modal').classList.contains('active') }; });
   ok(det.open && /قبل الخصم \$960\.00/.test(det.txt) && /الخصم \$96\.00/.test(det.txt) && /\(10%\)/.test(det.txt) && /سعر الباقة \$864\.00/.test(det.txt), 'التفاصيل: قبل الخصم 960 · الخصم 96 (10%) · سعر الباقة 864');
   ok(/منتجات الباقة \(3\)/.test(det.txt) && /\$30\.00 × 2 = \$60\.00/.test(det.txt) && /مجموع أسعار المنتجات \$960\.00/.test(det.txt), 'كلّ المنتجات (3) بأسعارها والكمّية والمجموع: ' + det.txt.slice(det.txt.indexOf('منتجات الباقة'), det.txt.indexOf('منتجات الباقة') + 220));
   ok(det.imgs.includes('https://x.example/r50-poster.jpg') && det.imgs.includes('https://x.example/rf50.jpg'), 'صور المنتجات (صورة المتجر أوّلاً ثمّ صورة الجرد): ' + det.imgs.join(' · '));

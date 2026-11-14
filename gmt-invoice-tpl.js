@@ -46,7 +46,7 @@
       return '<tr><td style="font-size:11px;text-align:center;color:#555;">' + (i + 1) + '</td><td>' + esc(it.name || '—') + '</td><td>' + q +
              '</td><td>قطعة</td><td>' + p.toFixed(2) + '</td><td>' + (p * q).toFixed(2) + '</td><td></td></tr>';
     }).join('');
-    for (var k = (items || []).length; k < 6; k++) html += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+    /* (المالك seq B678) لا صفوف فارغة: عدد الأسطر = عدد المنتجات */
     return html;
   }
 

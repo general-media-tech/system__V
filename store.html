@@ -99,6 +99,7 @@ window.GMT_PUBLIC = 1;</script>
         #pm-zoom.on, #gmt-media.on { display: flex; }
         #pm-zoom img { max-width: 100vw; max-height: 100vh; object-fit: contain; transform-origin: center center; transition: transform .18s ease; user-select: none; -webkit-user-drag: none; }
         #pm-zoom img.drag { transition: none; }
+        #pm-zoom .pz-video { max-width: 100vw; max-height: 86vh; width: 100vw; background: #000; }
         .pz-btn { position: absolute; z-index: 2; width: 44px; height: 44px; border-radius: 999px; border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 22px; display: grid; place-items: center; cursor: pointer; }
         .pz-x { top: 14px; right: 14px; } .pz-p { top: 50%; right: 12px; transform: translateY(-50%); } .pz-n { top: 50%; left: 12px; transform: translateY(-50%); }
         #pz-count { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); color: #fff; font: 700 14px Cairo, sans-serif; direction: ltr; z-index: 2; }
@@ -2579,8 +2580,15 @@ function _pmBuildSlides(prod, imgs){
         allSlides.forEach((item,i)=>{
             const sl=document.createElement('div');
             sl.style.cssText='flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;overflow:hidden;';
-            if(item._type==='video'){
-                /* (TASK-0362) الفيديو يُشغَّل داخل المتجر بمشغّلٍ بملء الشاشة — لا يفتح إنستغرام ولا صفحة خارجية */
+            const _lv=item._type==='video'?gmtMediaEmbed(item.url):null;
+            if(_lv&&_lv.kind==='video'){
+                /* (seq B678) الفيديو شريحةٌ في المعرض كالصور: غلافه ظاهر ويُشغَّل مكانه (لا يُحمَّل قبل الضغط) */
+                sl.style.background='#000';
+                const v=document.createElement('video'); v.className='pm-video'; gmtVideoSources(v,_lv); if(_lv.poster)v.poster=_lv.poster; v.controls=true; v.preload='none'; v.playsInline=true; v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+                v.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
+                sl.appendChild(v);
+            } else if(item._type==='video'){
+                /* (TASK-0362) فيديو غير مستضاف معنا ⇒ مشغّلٌ مضمَّن بملء الشاشة */
                 const vb=document.createElement('button'); vb.type='button'; vb.className='pm-vid';
                 vb.innerHTML='<i class="ph-fill ph-play-circle"></i><span>تشغيل الفيديو</span>';
                 vb.onclick=()=>openStoreMedia(item.url);
@@ -2633,7 +2641,7 @@ function _pmInvImages(prod){
     }).catch(()=>[]));
 }
 function _pmUpgrade(){ const sl=document.querySelectorAll('#product-modal-slides > div'); [0,1,-1].forEach(d=>{ const im=sl[_pmIdx+d]&&sl[_pmIdx+d].querySelector('img[data-full]'); if(!im)return; const u=im.dataset.full; delete im.dataset.full; const pre=new Image(); pre.decoding='async'; pre.onload=()=>{ im.src=u; }; pre.src=u; }); }
-function _updatePMSlider(){ const sc=document.getElementById('product-modal-slides'),dc=document.getElementById('product-modal-dots'); if(!sc)return; sc.style.transform=`translateX(${_pmIdx*100}%)`; _pmUpgrade(); const dots=dc?.children; if(dots)Array.from(dots).forEach((d,i)=>{d.style.background=i===_pmIdx?'#D5001C':'#d1d5db';d.style.width=i===_pmIdx?'18px':'6px';}); _pmSync(); }
+function _updatePMSlider(){ const sc=document.getElementById('product-modal-slides'),dc=document.getElementById('product-modal-dots'); if(!sc)return; sc.querySelectorAll('video').forEach((v,i)=>{ if(!v.paused&&v.closest('#product-modal-slides > div')!==sc.children[_pmIdx]) v.pause(); }); sc.style.transform=`translateX(${_pmIdx*100}%)`; _pmUpgrade(); const dots=dc?.children; if(dots)Array.from(dots).forEach((d,i)=>{d.style.background=i===_pmIdx?'#D5001C':'#d1d5db';d.style.width=i===_pmIdx?'18px':'6px';}); _pmSync(); }
 function _goToPMSlide(i){ _pmIdx=i; _updatePMSlider(); }
 /* (TASK-0363 · seq 639) الشرح الطويل يُطوى مع «عرض المزيد» · الزرّ العائم «اسأل جوجل»: لقطةٌ لصفحة المنتج (صورته + مواصفاتنا) ⇒ عدسة جوجل تقرؤها وتجيب */
 function pmDescFit(){ const d=document.getElementById('product-modal-description'), b=document.getElementById('pm-desc-more'); if(!d||!b)return;
@@ -2650,7 +2658,7 @@ function _pmThumbs(all){
     if(dc)dc.style.display='none';
     all.forEach((item,i)=>{
         const b=document.createElement('button'); b.type='button'; b.className='pm-th'+(i===_pmIdx?' on':''); b.setAttribute('aria-label','صورة '+(i+1));
-        if(item&&item._type==='video') b.innerHTML='<i class="ph-fill ph-play-circle" style="font-size:28px;color:#D5001C"></i>';
+        if(item&&item._type==='video'){ const lv=gmtMediaEmbed(item.url); b.style.position='relative'; b.innerHTML=(lv&&lv.poster?`<img src="${lv.poster}" alt="" loading="lazy">`:'')+'<i class="ph-fill ph-play-circle" style="font-size:28px;color:#D5001C;position:absolute;inset:0;margin:auto;width:28px;height:28px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))"></i>'; }
         else b.innerHTML=`<img ${gmtThumbAttrs(item)} alt="">`;
         b.onclick=()=>_goToPMSlide(i);
         th.appendChild(b);
@@ -2668,8 +2676,16 @@ function _pmSync(){
         if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4) productModalSlide(dx>0?1:-1); },{passive:true});   // RTL: السحب لليمين ⇒ التالية
 })();
 /* رابط فيديو ⇒ مشغّل مضمَّن (إنستغرام · يوتيوب · تيك توك · فيسبوك · ملفّ فيديو مباشر) — غير ذلك null */
+/* (المالك seq B678) «لازم يظهر الفيديو كأنه في المتجر — لا ياخذني على إنستغرام»: ريلز المنتجات نُزِّلت وضُغطت (540p) واستُضيفت معنا في img/v/<id>.mp4
+   مع غلافها img/v/<id>.jpg ⇒ تُشغَّل بمشغّل المتصفح داخل المعرض نفسه. ريلٌ جديد غير مستضاف يبقى على المشغّل المضمَّن كما كان. */
+const GMT_LOCAL_VIDEOS = { DQOtgYZjANt: 1, DfeZXbGsEmc: 1, DXm2IaoDGZn: 1 };
+function gmtLocalVideo(u){ const m=String(u||'').match(/instagram\.com\/(?:[^\/?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]+)/i); if(!m||!GMT_LOCAL_VIDEOS[m[1]])return null;
+    const b=new URL('img/v/'+m[1],location.href).href; return {kind:'video',src:b+'.mp4',webm:b+'.webm',poster:b+'.jpg'}; }
+/* مصدرا الفيديو: mp4 (H.264 — كلّ الهواتف وسفاري) ثمّ webm احتياطاً للمتصفّحات بلا H.264 */
+function gmtVideoSources(v,lv){ v.innerHTML=''; v.removeAttribute('src'); [[lv.src,'video/mp4'],[lv.webm,'video/webm']].forEach(([u,t])=>{ if(!u)return; const s=document.createElement('source'); s.src=u; s.type=t; v.appendChild(s); }); }
 function gmtMediaEmbed(u){
     u=String(u||'').trim(); if(!u)return null; let m;
+    { const lv=gmtLocalVideo(u); if(lv) return lv; }
     if(/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(u)) return {kind:'video',src:u};
     if((m=u.match(/instagram\.com\/(?:[^\/?#]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i))) return {kind:'iframe',src:'https://www.instagram.com/'+(/^reels?$/i.test(m[1])?'reel':m[1].toLowerCase())+'/'+m[2]+'/embed/'};
     if((m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{6,})/i))) return {kind:'iframe',src:'https://www.youtube.com/embed/'+m[1]+'?autoplay=1&playsinline=1&rel=0',wide:!/shorts\//i.test(u)};
@@ -2683,7 +2699,7 @@ function openStoreMedia(url){
     if(!ov){ ov=document.createElement('div'); ov.id='gmt-media'; ov.innerHTML='<button type="button" class="pz-btn pz-x" aria-label="إغلاق" onclick="closeStoreMedia()"><i class="ph ph-x"></i></button><div class="gm-box"></div>';
         ov.addEventListener('click',ev=>{ if(ev.target===ov) closeStoreMedia(); }); document.body.appendChild(ov); }
     const box=ov.querySelector('.gm-box'); box.className='gm-box'+(e.wide?' wide':'');
-    if(e.kind==='video'){ box.innerHTML=''; const v=document.createElement('video'); v.src=e.src; v.controls=true; v.autoplay=true; v.playsInline=true; v.setAttribute('playsinline',''); box.appendChild(v); }
+    if(e.kind==='video'){ box.innerHTML=''; const v=document.createElement('video'); if(e.webm) gmtVideoSources(v,e); else v.src=e.src; if(e.poster)v.poster=e.poster; v.controls=true; v.autoplay=true; v.playsInline=true; v.setAttribute('playsinline',''); box.appendChild(v); }
     else { box.innerHTML=''; const f=document.createElement('iframe'); f.src=e.src; f.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; fullscreen'); f.setAttribute('allowfullscreen',''); f.setAttribute('scrolling','no'); box.appendChild(f); }
     ov.classList.add('on'); return true;
 }
@@ -2697,17 +2713,20 @@ function gmtOpenLink(u){
 /* تكبير بملء الشاشة: سحب للتنقّل · ضغطتان أو عجلة الفأرة أو إصبعان للتقريب · سحب للتحريك عند التقريب */
 const _pz={i:0,s:1,x:0,y:0,list:[]};
 function _pzApply(drag){ const im=document.querySelector('#pm-zoom img'); if(!im)return; im.classList.toggle('drag',!!drag); im.style.transform=`translate(${_pz.x}px,${_pz.y}px) scale(${_pz.s})`; im.style.cursor=_pz.s>1?'grab':'zoom-in'; }
-function _pzShow(){ const im=document.querySelector('#pm-zoom img'), c=document.getElementById('pz-count'); if(!im)return; _pz.s=1;_pz.x=0;_pz.y=0; im.src=_pz.list[_pz.i]; _pzApply();
+function _pzShow(){ const im=document.querySelector('#pm-zoom img'), vd=document.querySelector('#pm-zoom video'), c=document.getElementById('pz-count'); if(!im)return; _pz.s=1;_pz.x=0;_pz.y=0;
+    const it=_pz.list[_pz.i], lv=(it&&typeof it==='object')?gmtMediaEmbed(it.url):null;
+    if(vd){ vd.pause(); vd.style.display=lv?'':'none'; if(lv){ if(vd.dataset.src!==lv.src){ vd.dataset.src=lv.src; gmtVideoSources(vd,lv); vd.poster=lv.poster||''; vd.load(); } } }
+    im.style.display=lv?'none':''; if(!lv) im.src=it; _pzApply();
     if(c)c.textContent=(_pz.i+1)+' / '+_pz.list.length; document.querySelectorAll('#pm-zoom .pz-p,#pm-zoom .pz-n').forEach(b=>b.style.display=_pz.list.length>1?'':'none'); }
 function pmZoomStep(d){ const n=_pz.list.length; if(n<2)return; _pz.i=(_pz.i+d+n)%n; _pzShow(); }
-function pmZoomClose(){ const z=document.getElementById('pm-zoom'); if(!z||!z.classList.contains('on'))return; z.classList.remove('on');
+function pmZoomClose(){ const z=document.getElementById('pm-zoom'); if(!z||!z.classList.contains('on'))return; z.classList.remove('on'); { const vd=z.querySelector('video'); if(vd) vd.pause(); }
     const cur=_pz.list[_pz.i], at=_pmImgs.indexOf(cur); if(at>=0){ _pmIdx=at; _updatePMSlider(); } }
 function pmZoomOpen(i){
-    const list=_pmImgs.filter(x=>typeof x==='string'); if(!list.length)return;
+    const list=_pmImgs.filter(x=>typeof x==='string'||(x&&x._type==='video'&&(gmtMediaEmbed(x.url)||{}).kind==='video')); if(!list.length)return;
     let z=document.getElementById('pm-zoom');
     if(!z){ z=document.createElement('div'); z.id='pm-zoom';
         z.innerHTML='<button type="button" class="pz-btn pz-x" aria-label="إغلاق" onclick="pmZoomClose()"><i class="ph ph-x"></i></button><div id="pz-count"></div>'+
-            '<button type="button" class="pz-btn pz-p" aria-label="السابقة" onclick="pmZoomStep(-1)"><i class="ph ph-caret-right"></i></button><button type="button" class="pz-btn pz-n" aria-label="التالية" onclick="pmZoomStep(1)"><i class="ph ph-caret-left"></i></button><img alt="" draggable="false">';
+            '<button type="button" class="pz-btn pz-p" aria-label="السابقة" onclick="pmZoomStep(-1)"><i class="ph ph-caret-right"></i></button><button type="button" class="pz-btn pz-n" aria-label="التالية" onclick="pmZoomStep(1)"><i class="ph ph-caret-left"></i></button><img alt="" draggable="false"><video class="pz-video" controls playsinline webkit-playsinline preload="none"></video>';
         document.body.appendChild(z);
         const im=z.querySelector('img'); let t0=null,last=0,pd=0,ps=1,moved=false;
         const dist=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
@@ -2732,7 +2751,7 @@ function pmZoomOpen(i){
         z.addEventListener('click',e=>{ if(e.target===z) pmZoomClose(); });
         document.addEventListener('keydown',e=>{ if(!z.classList.contains('on'))return; if(e.key==='Escape')pmZoomClose(); else if(e.key==='ArrowLeft')pmZoomStep(1); else if(e.key==='ArrowRight')pmZoomStep(-1); });
     }
-    _pz.list=list; const cur=_pmImgs[i]; _pz.i=Math.max(0,list.indexOf(typeof cur==='string'?cur:list[0]));
+    _pz.list=list; const cur=_pmImgs[i]; _pz.i=Math.max(0,list.indexOf(cur));
     z.classList.add('on'); _pzShow();
 }
 
@@ -3452,6 +3471,14 @@ function addPackageToCart(id){
     showToast('أُضيفت الباقة للسلة ✓', 'success');
 }
 function _openPkgItem(sid){ if (!sid) return; closeModal('package-modal'); setTimeout(() => { try { openProductModal(sid); } catch (_) {} }, 250); }
+/* (المالك seq B678) «معاينة الصور بالبكج مو زابطة» ⇒ العارض بطول البوستر · سحبٌ بالإصبع · ضغطة ⇒ العارض الكامل (تكبير وتنقّل) نفسه الذي في صفحة المنتج */
+let _pkgImgs = [];
+function _pkgZoom(i){ if (!_pkgImgs.length) return; _pmImgs = _pkgImgs.slice(); pmZoomOpen(i); }
+(function(){ let x0 = null, y0 = null;
+    document.addEventListener('touchstart', e => { const v = e.target.closest && e.target.closest('#pkg-view'); if (!v || e.touches.length !== 1) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', e => { if (x0 === null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) _pkgSlide(dx > 0 ? 1 : -1); }, { passive: true });   // RTL: السحب لليمين ⇒ التالية
+})();
 function _pkgSlide(d){
     const sc = document.getElementById('pkg-slides'); if (!sc) return;
     const n = sc.children.length; window._pkgIdx = Math.max(0, Math.min(n - 1, (window._pkgIdx || 0) + d));
@@ -3471,7 +3498,7 @@ function openPackageDetail(id){
     }
     const imgs = [...(p.images || []), ...p.items.map(_pkgItemImg)].filter((u, i, a) => u && a.indexOf(u) === i).slice(0, 10);
     const save = Math.max(0, Math.round((p.original - p.price) * 100) / 100), pct = p.original > 0 ? Math.round(save / p.original * 100) : 0;
-    window._pkgIdx = 0;
+    window._pkgIdx = 0; _pkgImgs = imgs;
     const rows = p.items.map(x => {
         const sid = _pkgItemSid(x), img = _pkgItemImg(x), line = (Number(x.price) || 0) * x.qty;
         return `<div ${sid ? `onclick="_openPkgItem('${escHtml(sid)}')" role="button"` : ''} class="flex items-center gap-3 py-2.5 border-b border-gray-100" style="${sid ? 'cursor:pointer' : ''}">
@@ -3481,8 +3508,8 @@ function openPackageDetail(id){
             ${sid ? '<span class="text-[11px] text-primary font-medium flex items-center gap-0.5 flex-shrink-0">صفحته<i class="ph ph-caret-left"></i></span>' : ''}</div>`;
     }).join('');
     document.getElementById('package-content').innerHTML = `
-        <div class="relative overflow-hidden bg-light" style="height:260px">
-            <div id="pkg-slides" class="flex h-full transition-transform duration-300">${(imgs.length ? imgs : ['']).map(u => `<div style="flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center">${u ? `<img src="${escHtml(u)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">` : '<i class="ph ph-package" style="font-size:56px;color:#d1d5db"></i>'}</div>`).join('')}</div>
+        <div id="pkg-view" class="relative overflow-hidden bg-light" style="height:min(112vw,60vh);touch-action:pan-y">
+            <div id="pkg-slides" class="flex h-full transition-transform duration-300">${(imgs.length ? imgs : ['']).map((u, i) => `<div style="flex:0 0 100%;width:100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center">${u ? `<img src="${escHtml(u)}" alt="" ${i ? 'loading="lazy" ' : ''}decoding="async" onclick="_pkgZoom(${i})" style="max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in">` : '<i class="ph ph-package" style="font-size:56px;color:#d1d5db"></i>'}</div>`).join('')}</div>
             ${imgs.length > 1 ? `<button type="button" onclick="_pkgSlide(-1)" class="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-right"></i></button>
             <button type="button" onclick="_pkgSlide(1)" class="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600"><i class="ph ph-caret-left"></i></button>
             <div id="pkg-dots" class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">${imgs.map((_, i) => `<span style="height:6px;border-radius:9999px;width:${i ? 6 : 18}px;background:${i ? '#d1d5db' : '#D5001C'};transition:all .3s"></span>`).join('')}</div>` : ''}

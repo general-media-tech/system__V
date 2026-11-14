@@ -3803,6 +3803,30 @@ function buildRowsB(items) {
   /* الليرة: سعر الوحدة مقرَّب ثم × الكمية = إجمالي السطر، ومجموع الأسطر = إجمالي الفاتورة (Y2) */
   var _line = function(item){ return _isSyp ? (Math.round(item.price*_rate) * item.qty).toLocaleString('en-US') : (item.price * item.qty).toFixed(2); };
   return items.map(function(item, i) {
+    /* (المالك seq B678) «البكج لما يضغطه الكاشير ينزل بالفاتورة كمجموعة منتجات» ⇒ سطر الباقة بسعرها ثمّ منتجاتها تحته بكمّياتها
+       (كما تُحفظ بنود الفاتورة نفسها مكوّناتٍ «ضمن الباقة») — بلا أسعارٍ مكرّرة تحت السطر فيبقى المجموع صحيحاً */
+    var _comps = (typeof offerComponents === 'function') ? offerComponents(item) : null;
+    if (_comps) {
+      return '<tr style="background:#fff7f7">'
+        + '<td style="font-size:11px;text-align:center;color:#555;">' + (i+1) + '</td>'
+        + '<td style="font-weight:800">' + (/🎁/.test(item.prod.name) ? '' : '🎁 ') + escH(item.prod.name) + '</td>'
+        + '<td>' + item.qty + '</td>'
+        + '<td>باقة</td>'
+        + '<td>' + _f(item.price) + '</td>'
+        + '<td>' + _line(item) + '</td>'
+        + '<td></td>'
+        + '</tr>'
+        + _comps.map(function (c) {
+          return '<tr class="pkg-sub">'
+            + '<td></td>'
+            + '<td style="padding-inline-start:18px;font-size:12px;color:#333">↳ ' + escH(c.prod.name) + '</td>'
+            + '<td style="font-size:12px">' + c.qty + '</td>'
+            + '<td style="font-size:12px">قطعة</td>'
+            + '<td></td><td></td>'
+            + '<td style="font-size:10.5px;color:#777">ضمن الباقة</td>'
+            + '</tr>';
+        }).join('');
+    }
     return '<tr>'
       + '<td style="font-size:11px;text-align:center;color:#555;">' + (i+1) + '</td>'
       + '<td>' + escH(item.prod.name) + '</td>'
@@ -3812,12 +3836,8 @@ function buildRowsB(items) {
       + '<td>' + _line(item) + '</td>'
       + '<td></td>'
       + '</tr>';
-  }).join('') + (function () {
-    /* (2026-10-04 م) صفوفٌ فارغة حتى ستّة — شكلُ جدول المرجع حرفياً (الصورة ٢٢) */
-    var pad = '', k = items.length;
-    for (; k < 6; k++) pad += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-    return pad;
-  })();
+  }).join('');
+  /* (المالك seq B678) «عدد الأسطر في الجدول على عدد المنتجات — ما بصير تكون في أسطر فارغة تحتها» ⇒ أُلغيت الصفوف الفارغة حتى ستّة (كانت 2026-10-04) */
 }
 
 function buildRowsCanon(items) {
@@ -10890,7 +10910,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261114g"></script>
+<script src="gmt-whatsnew.js?v=20261114h"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
