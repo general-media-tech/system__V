@@ -6691,7 +6691,7 @@ function buildDynamicFormFields() {
      ⇒ مخزون بلا مصدر ⇒ لوحة التدقيق لا تستطيع مطابقة شيء.
      القاعدة الجديدة: التعريف بلا كميات. الكمية تدخل **من فاتورة الشراء فقط**.
      الاستثناء الوحيد: تعديل يدوي بصلاحية **سيادية + سبب إجباري** (زر 🔓 أدناه). */
-  const _sovereign = (window.GMT_SOVEREIGN === true) || localStorage.getItem('gmt_qty_unlock') === '1';
+  const _sovereign = invQtyUnlocked();
   branchFields.innerHTML = branchCols.map(col => `
     <div class="branch-input-wrap">
       <div class="branch-input-label">${invColIcon(col, 13)} ${col.displayName}</div>
@@ -6789,6 +6789,27 @@ function fillProductForm(p) {
    🔧 (2026-08-18) كان الأثر يُحفظ في localStorage فقط ⇒ يزول بمسح المتصفّح ولا يراه
    أحد. الآن يمرّ عبر GMTAudit (بوّابة واحدة) فيُسجَّل في جدول gmt_audit بالقاعدة:
    من · متى · ماذا · ولماذا. مع إبقاء مفاتيح localStorage للتوافق مع بقية الشيفرة. */
+/* (TASK-A0505 · VER-5#REQ-0508) فكّ قفل الكميات «لهذه الجلسة» فعلاً: العلامة كانت في localStorage بلا نهاية ⇒ بعد فكٍّ واحد يبقى
+   الجهاز مفتوحاً لكلّ من يأتي بعده (موظّف عادي يعدّل الكميات بدبل كليك). الآن الفكّ صالحٌ فقط في التبويب الذي فُكّ فيه وما دام وضع الأدمن مفتوحاً. */
+function invQtyUnlocked() {
+  if (window.GMT_SOVEREIGN === true) return true;
+  try {
+    if (localStorage.getItem('gmt_qty_unlock') !== '1') return false;
+    if (sessionStorage.getItem('gmt_qty_unlock_s') === '1' && (!window.GMTRole || GMTRole.isAdmin())) return true;
+    if (sessionStorage.getItem('gmt_qty_unlock_s') !== '1') {   /* علامة من جلسة سابقة ⇒ تُمحى */
+      localStorage.removeItem('gmt_qty_unlock'); localStorage.removeItem('gmt_qty_unlock_reason'); localStorage.removeItem('gmt_qty_unlock_at');
+    }
+  } catch (e) {}
+  return false;
+}
+function invQtyUnlockSet(reason) {
+  try {
+    localStorage.setItem('gmt_qty_unlock', '1');
+    localStorage.setItem('gmt_qty_unlock_reason', reason || 'تعديل يدوي');
+    localStorage.setItem('gmt_qty_unlock_at', new Date().toISOString());
+    sessionStorage.setItem('gmt_qty_unlock_s', '1');
+  } catch (e) {}
+}
 async function unlockQtyFields() {
   if (window.GMTAudit && typeof GMTAudit.require === 'function') {
     const ok = await GMTAudit.require({
@@ -6804,11 +6825,7 @@ async function unlockQtyFields() {
       const last = await GMTAudit.recent(1);
       reason = (last && last[0] && last[0].reason) || 'تعديل يدوي';
     } catch (_) { reason = 'تعديل يدوي'; }
-    try {
-      localStorage.setItem('gmt_qty_unlock', '1');
-      localStorage.setItem('gmt_qty_unlock_reason', reason);
-      localStorage.setItem('gmt_qty_unlock_at', new Date().toISOString());
-    } catch (e) {}
+    invQtyUnlockSet(reason);
     buildDynamicFormFields();
     alert('🔓 فُتحت حقول الكميات لهذه الجلسة — وسُجِّل ذلك في سجلّ التدقيق بالقاعدة.');
     return;
@@ -6819,11 +6836,7 @@ async function unlockQtyFields() {
   if (!(await GMTAuth.check('sovereign', pw))) { alert('⛔ كلمة سر غير صحيحة.'); return; }
   const reason = await GMTAsk.prompt('سبب التعديل اليدوي (إجباري — يُحفظ بسجل التدقيق):');
   if (!reason || !reason.trim()) { alert('⛔ السبب إجباري.'); return; }
-  try {
-    localStorage.setItem('gmt_qty_unlock', '1');
-    localStorage.setItem('gmt_qty_unlock_reason', reason.trim());
-    localStorage.setItem('gmt_qty_unlock_at', new Date().toISOString());
-  } catch (e) {}
+  invQtyUnlockSet(reason.trim());
   buildDynamicFormFields();
   alert('🔓 فُتحت حقول الكميات لهذه الجلسة — كل حفظ سيُسجَّل مع السبب.');
 }
@@ -6910,7 +6923,7 @@ async function saveProduct() {
   /* أعمدة الفروع — INV-5:
      منتج جديد ⇒ كل الكميات صفر (لا خلق من العدم).
      تعديل    ⇒ لا تُلمَس الكميات إطلاقاً إلا بفكّ القفل السيادي. */
-  const _qtyUnlocked = (window.GMT_SOVEREIGN === true) || localStorage.getItem('gmt_qty_unlock') === '1';
+  const _qtyUnlocked = invQtyUnlocked();
   columns.filter(c => !c.fixed && c.includeInTotal).forEach(col => {
     const el = document.getElementById('bf-' + col.key);
     if (!editingProductId) {
@@ -7748,7 +7761,7 @@ async function confirmDelete() {
 // ============================================
 // INLINE EDIT
 // ============================================
-function startInlineEdit(el, productId, colKey, currentVal) {
+async function startInlineEdit(el, productId, colKey, currentVal) {
   // مخازن مؤقتة — محمية من التعديل المباشر
   const transitCols = ['germany', 'china'];
   if (transitCols.includes(colKey)) {
@@ -7760,12 +7773,15 @@ function startInlineEdit(el, productId, colKey, currentVal) {
   const _colDef = (typeof columns !== 'undefined' ? columns : []).find(c => c.key === colKey);
   const _isBranchQty = !!(_colDef && _colDef.isBranch);
   if (_isBranchQty) {
-    const _unlocked = (window.GMT_SOVEREIGN === true) || localStorage.getItem('gmt_qty_unlock') === '1';
+    const _unlocked = invQtyUnlocked();
     if (!_unlocked) {
       showToast('🔒 الكمية تُقفل هنا — تدخل من فاتورة الشراء. لفكّها: فكّ القفل السيادي من نافذة المنتج.', 'warning');
       return;
     }
   }
+  /* (TASK-A0505 · VER-5#REQ-0508) التعديل السريع كان الطريق الوحيد إلى السعر بلا صلاحية: موظّف عادي يغيّر السعر بدبل كليك
+     (الحارس كان على نافذة التعديل وأزرارها لا على هذه الدالّة). الآن كلّ تعديل سريع يطلب حساب الأدمن. */
+  if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin(colKey === 'price' ? 'تعديل السعر' : 'تعديل سريع في الجرد'))) return;
   const input = document.createElement('input');
   input.type = 'number';
   input.min = '0';
@@ -7790,6 +7806,9 @@ function startInlineEdit(el, productId, colKey, currentVal) {
         showToast('❌ فشل الحفظ: ' + error, 'error');
         // استعادة القيمة القديمة في الذاكرة
         if (p) p[colKey] = currentVal;
+      } else if (colKey === 'price' && newVal !== Number(currentVal)) {
+        /* (TASK-A0505) تعديل السعر السريع كان بلا أيّ أثر في السجلّ */
+        try { if (window.GMTAudit && GMTAudit.log) GMTAudit.log({ action: 'price_set', entity: 'products', entityId: productId, entityName: (p && p.name) || '', field: 'price', oldValue: currentVal, newValue: newVal, reason: 'تعديل سريع من جدول الجرد' }); } catch (e) {}
       } else if (_isBranchQty) {
         // INV-5: تسجيل التعديل اليدوي بالسبب (أثر تدقيق) — نفس منطق المودال
         const _reason = localStorage.getItem('gmt_qty_unlock_reason') || '(بلا سبب مسجَّل)';
@@ -16624,7 +16643,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115x"></script>
+<script src="gmt-whatsnew.js?v=20261115y"></script>
 <script src="gmt-store-sync.js?v=20261108f" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
