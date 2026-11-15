@@ -1089,6 +1089,52 @@
   };
   global.GMTAudio = global.GMTSound;
 
+  /* ═══ (OWN-09#53) مراقِب DOM: فتح/إغلاق المودالات تلقائياً + حاويات data-snd-watch ═══
+     • أيّ عنصرٍ مودال (.modal-overlay · [role=dialog] · <dialog> · [id$=Modal] · [id$=-modal]) يتبدّل ظهوره ⇒ صوت «open»/«close».
+     • حاوية بسمة data-snd-watch="order.created" تُضاف إليها عناصرُ أبناء (فاتورة جديدة · سطر طلب) ⇒ emit(الحدث) مرّةً لكلّ دفعة.
+     • data-nosound على العنصر أو أحد آبائه ⇒ صمت. بلا أيّ صوتٍ عند أوّل رسم للصفحة (يُسجَّل الوضع الأوّل صامتاً). */
+  var MODAL_SEL = '.modal-overlay,[role="dialog"],dialog,[id$="Modal"],[id$="-modal"]';
+  function modalOpen(el) {
+    try {
+      if (el.tagName === 'DIALOG') return !!el.open;
+      if (el.classList.contains('hidden')) return false;
+      if (el.classList.contains('modal-overlay')) return el.classList.contains('active');
+      var cs = getComputedStyle(el);
+      return !(cs.display === 'none' || cs.visibility === 'hidden');
+    } catch (_) { return false; }
+  }
+  function watchDom() {
+    var MO = global.MutationObserver; if (!MO || !document.body || global.__gmtSndMO) return;
+    global.__gmtSndMO = true;
+    var seen = new WeakMap(), batchT = null, batchEv = {};
+    function quiet(el) { try { return !!(el.closest && el.closest('[data-nosound]')); } catch (_) { return false; } }
+    function check(el, first) {
+      if (!el || el.nodeType !== 1 || !el.matches || !el.matches(MODAL_SEL)) return;
+      var now = modalOpen(el), prev = seen.get(el); seen.set(el, now);
+      if (prev === undefined && !first) { if (now && !quiet(el)) emit('open'); return; }
+      if (prev !== undefined && prev !== now && !quiet(el)) emit(now ? 'open' : 'close');
+    }
+    try { document.querySelectorAll(MODAL_SEL).forEach(function (el) { seen.set(el, modalOpen(el)); }); } catch (_) {}
+    new MO(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        var r = recs[i];
+        if (r.type === 'attributes') { check(r.target, false); continue; }
+        var ad = r.addedNodes;
+        for (var j = 0; j < ad.length; j++) {
+          var n = ad[j]; if (!n || n.nodeType !== 1) continue;
+          check(n, false);
+          var w = r.target && r.target.closest && r.target.closest('[data-snd-watch]');
+          if (w && !quiet(w)) batchEv[w.getAttribute('data-snd-watch')] = w;
+        }
+      }
+      if (Object.keys(batchEv).length && !batchT) batchT = setTimeout(function () {
+        var b = batchEv; batchEv = {}; batchT = null;
+        Object.keys(b).forEach(function (ev) { emit(ev, { el: b[ev] }); });
+      }, 60);
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'open', 'hidden', 'style'] });
+  }
+  global.GMTSound.watch = watchDom;
+
   function boot() {
     mountToggle();
     /* إن لم يوجد شريطُ خيارات بعد، نحاول مرّةً أخرى بعد أن تُركّبه الصفحة */
@@ -1097,6 +1143,7 @@
     /* لفّ دوالّ الرسائل بعد أن تعرّفها الصفحة (بعضها يُعرَّف متأخّراً) */
     hookAll(); setTimeout(hookAll, 800); setTimeout(hookAll, 2500); setTimeout(hookAll, 6000);
     try { if (/[?&]sounds=1\b/.test(location.search)) setTimeout(gallery, 400); } catch (_) {}   /* (TASK-0032) أداة «معرض الأصوات» */
+    try { watchDom(); } catch (_) {}   /* (OWN-09#53) */
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
