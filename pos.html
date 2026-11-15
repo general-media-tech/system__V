@@ -1215,7 +1215,7 @@ window.GMT_FEATURES = [
 <body>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261115cs"></script>
+  <script src="gmt-core.js?v=20261115ct"></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -3506,6 +3506,8 @@ function _buildOfferProducts(offers, freshProds) {
         price:Number(o.offer_price)||0, wholesale_price:0, net_cost:0, cost_price:0,
         image_url:o.image_url||null, group_name:'باقات وعروض',   /* (المالك seq 565) نفس اسم قسم المتجر · أوّل الأقسام */
         _is_offer:true, _offer_id:o.id, _offer_type:o.offer_type,
+        /* (TASK-A0506 · المالك seq 747) الباقة الظاهرة في المتجر لها رابط كالمنتج ⇒ «عرض في المتجر» و«مشاركة رابطه» يظهران لها */
+        store_url: (function () { var t = o.targets; if (typeof t === 'string') { try { t = JSON.parse(t); } catch (_) { t = null; } } return (t && t.store === true) ? 'store.html#package=' + o.id : null; })(),
         _offer_desc:o.description||'', _offer_items:offerItems,
         _offer_items_unknown: _unknownItems,
         /* بلا مكوّناتٍ معروفة ⇒ لا نحكم بالنفاد: نُظهره ليراه المالك ويُصلح ربطه */
@@ -11001,7 +11003,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115y"></script>
+<script src="gmt-whatsnew.js?v=20261115z"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

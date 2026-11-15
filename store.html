@@ -297,7 +297,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261115cs"></script>
+  <script src="gmt-core.js?v=20261115ct"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261108f" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
@@ -2265,7 +2265,7 @@ function closeBranchesModal(){ const m = document.getElementById('branches-modal
 window.openBranchesModal = openBranchesModal; window.closeBranchesModal = closeBranchesModal;
 
 function openModal(id)  { const el=document.getElementById(id); if(el){el.classList.add('active');document.body.style.overflow='hidden';} }
-function closeModal(id) { const el=document.getElementById(id); if(el){el.classList.remove('active');document.body.style.overflow=''; try{ el.querySelectorAll('video').forEach(v=>v.pause()); }catch(_){} } if(id==='product-modal')_clearProductHash(); }
+function closeModal(id) { const el=document.getElementById(id); if(el){el.classList.remove('active');document.body.style.overflow=''; try{ el.querySelectorAll('video').forEach(v=>v.pause()); }catch(_){} } if(id==='product-modal')_clearProductHash(); if(id==='package-modal' && /^#package=/.test(window.location.hash)){ _clearProductHash(); window._pkgOpenId=null; } }
 window.openModal=openModal; window.closeModal=closeModal;
 
 // ══════════════════════════════════════════════
@@ -2276,6 +2276,8 @@ function _applyDeepLink() {
     if (!hash) return;
     /* (٧ ي-٤) 🔍 في رأس الموقع يفتح «ابحث عن منتج» هنا مباشرةً */
     if (hash === '#search') { history.replaceState(null, '', location.pathname + location.search); setTimeout(openSearchBar, 300); return; }
+    const pk = hash.match(/^#package=(.+)$/);
+    if (pk) { _openPackageLink(decodeURIComponent(pk[1])); return; }
     const m = hash.match(/^#product=(.+)$/);
     if (!m) return;
     const productId = decodeURIComponent(m[1]);
@@ -2284,6 +2286,15 @@ function _applyDeepLink() {
         if (window.__gmtDirect) { openProductModal(prod.id); return; }   // (TASK-0255) من التطبيق: فوراً
         setTimeout(() => openProductModal(prod.id), 400);
     }
+}
+
+/* (TASK-A0506 · المالك seq 747) «البكج يتعامل معاملة القطع الفردية — بشارك رابطه»: رابط الباقة store.html#package=<id> يفتح صفحتها */
+async function _openPackageLink(id) {
+    try {
+        if (!(store.packages && store.packages.length)) { store.packages = window.GMTPackages ? await GMTPackages.forStore() : []; _pkgLoaded = true; try { renderPackages(); } catch (_) {} }
+    } catch (_) { store.packages = store.packages || []; }
+    if ((store.packages || []).some(x => x.id === String(id))) openPackageDetail(id);
+    else showToast('هذه الباقة لم تعد متوفّرة', 'error');
 }
 
 function _setProductHash(productId) {
@@ -3118,9 +3129,17 @@ window.shareProduct = function() {
     }
 };
 
+window.sharePackage = function () {
+    const id = window._pkgOpenId; if (!id) return;
+    const p = (store.packages || []).find(x => x.id === String(id));
+    const url = window.location.origin + window.location.pathname + '#package=' + encodeURIComponent(id);
+    if (navigator.share) navigator.share({ title: (p && p.name) || 'باقة من General Media Tech', text: (p && p.name) || '', url }).catch(() => _copyProductLink(url));
+    else _copyProductLink(url);
+};
+
 function _copyProductLink(url) {
     navigator.clipboard.writeText(url).then(() => {
-        showToast('تم نسخ رابط المنتج ✓', 'success');
+        showToast('تم نسخ الرابط ✓', 'success');
     }).catch(() => {
         // fallback
         const inp = document.createElement('input');
@@ -3721,11 +3740,12 @@ async function _adminPkgEdit(id) {
 }
 function openPackageDetail(id){
     const p = (store.packages || []).find(x => x.id === String(id)); if (!p) return;
+    window._pkgOpenId = p.id; try { history.replaceState(null, '', '#package=' + encodeURIComponent(p.id)); } catch (_) {}
     let modal = document.getElementById('package-modal');
     if (!modal) {
         modal = document.createElement('div'); modal.id = 'package-modal'; modal.className = 'modal-overlay';
         modal.innerHTML = `<div class="modal-sheet"><div class="flex-shrink-0 px-5 pt-4 pb-3 flex justify-between items-center border-b border-gray-100">
-            <h3 class="font-bold text-lg">تفاصيل الباقة</h3><button onclick="closeModal('package-modal')" class="w-8 h-8 rounded-full bg-light flex items-center justify-center text-gray-500"><i class="ph ph-x text-base"></i></button></div>
+            <h3 class="font-bold text-lg">تفاصيل الباقة</h3><div class="flex items-center gap-2"><button id="package-share-btn" onclick="sharePackage()" title="مشاركة رابط الباقة" class="w-8 h-8 rounded-full bg-light flex items-center justify-center text-gray-500"><i class="ph ph-share-network text-base"></i></button><button onclick="closeModal('package-modal')" class="w-8 h-8 rounded-full bg-light flex items-center justify-center text-gray-500"><i class="ph ph-x text-base"></i></button></div></div>
             <div id="package-content" class="flex-1 overflow-y-auto hide-scrollbar"></div>
             <div id="package-foot" class="flex-shrink-0 px-5 py-3 border-t border-gray-100"></div></div>`;
         document.body.appendChild(modal);

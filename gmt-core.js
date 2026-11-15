@@ -96,8 +96,8 @@
     var out;
     if (/^https?:\/\//i.test(u)) out = u;
     else {
-      var m = /#product=([^&\s]+)/.exec(u);
-      try { out = m ? new URL('store.html#product=' + m[1], g.location.href).href : (/\.html?(?:[?#]|$)/i.test(u) ? new URL('store.html', g.location.href).href : ''); } catch (_) { return ''; }
+      var m = /#(product|package)=([^&\s]+)/.exec(u);
+      try { out = m ? new URL('store.html#' + m[1] + '=' + m[2], g.location.href).href : (/\.html?(?:[?#]|$)/i.test(u) ? new URL('store.html', g.location.href).href : ''); } catch (_) { return ''; }
     }
     /* (TASK-0255 · المالك seq 174) «من داخل التطبيق سواء من نقطه او جرد ما في داعي تاخذني على متجر وتفتح لي … دخلني مباشره الى المنتج»:
        storeLink لأزرار التطبيق وحدها ⇒ رابط منتجٍ في متجرنا (نفس الموقع) يحمل ?direct=1: بلا انترو، والمنتج يُفتح فوراً. رابط الزبون المُشارَك لا يتغيّر. */
