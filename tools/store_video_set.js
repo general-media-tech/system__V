@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-/* (TASK-A0507 · المالك seq 746/748) وضع فيديو يوتيوب رسمي على منتجات المتجر — تضمين لا استضافة (img/v كبُر والموقع حدّه 1 غيغا).
+/* (TASK-A0507 · المالك seq 746 · 749 · 750) وضع المقطع القصير المستضاف على منتجات المتجر.
+   قاعدة المالك: مقاطع ≤ 30 ثانية (45 بالكثير) نجتزئها نحن من إنستغرام الشركة أو علي بابا أو أمازون (برومو المنتج أو أوبن بوكس) —
+   تُقصّ وتُستضاف بـ tools/host_clip.sh أوّلاً ثمّ تُكتب هنا. لا يوتيوب ولا قصّ في المشغّل.
    الاستعمال:  node tools/store_video_set.js <list.json> [--apply]
-   list.json:  [{"store_id":"p_…","video_url":"https://www.youtube.com/watch?v=…"}, …]
+   list.json:  [{"store_id":"p_…","clip":"<الاسم المعطى لـhost_clip.sh>","source":"<رابط المصدر>","kind":"promo|unboxing"}, …]
    بلا --apply = فحص فقط (لا كتابة). القواعد:
-     • كلّ رابط يُفحص عبر YouTube oEmbed (200 = موجود ويقبل التضمين) ويُطبع اسم القناة والعنوان للمراجعة بالعين.
+     • المقطع يجب أن يكون موجوداً في img/v/<clip>.mp4 ومدّته ≤ 45 ثانية (ffprobe) وإلّا يُرفض.
      • لا يُكتب فوق فيديو موجود أبداً · منتج غير موجود = يُتخطّى ويُذكر.
      • الكتابة بشرط التزامن (updated_at) كما في gmt-store-sync.js — إن تغيّر المتجر من جهة أخرى تُعاد المحاولة (٣ مرّات).
      • القيم القديمة تُحفظ في ملفّ <list>.before.json قبل الكتابة.
@@ -15,18 +17,19 @@ if (!cfg) { console.error('لم أجد إعدادات المتجر في gmt-conf
 const U = cfg[1], H = { apikey: cfg[2], Authorization: 'Bearer ' + cfg[2] };
 const file = process.argv[2], APPLY = process.argv.includes('--apply');
 if (!file) { console.error('الاستعمال: node tools/store_video_set.js <list.json> [--apply]'); process.exit(2); }
-const ytId = u => (String(u || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{6,})/i) || [])[1] || '';
+const BASE = 'https://general-media-tech.github.io/system__V/img/v/';
+const dur = f => { try { return parseFloat(require('child_process').execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString()); } catch (_) { return NaN; } };
 
 (async () => {
   const list = JSON.parse(fs.readFileSync(file, 'utf8'));
   const okRows = [];
   for (const it of list) {
-    const id = ytId(it.video_url);
-    if (!id) { console.log('✘ ليس رابط يوتيوب:', it.store_id, it.video_url); continue; }
-    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id));
-    if (!r.ok) { console.log('✘ الفيديو غير موجود أو لا يقبل التضمين (HTTP ' + r.status + '):', it.store_id, it.video_url); continue; }
-    const j = await r.json();
-    okRows.push({ store_id: String(it.store_id), video_url: 'https://www.youtube.com/watch?v=' + id, channel: j.author_name, title: j.title });
+    const name = String(it.clip || '');
+    const f = path.join(ROOT, 'img', 'v', name + '.mp4');
+    if (!/^[A-Za-z0-9_-]+$/.test(name) || !fs.existsSync(f)) { console.log('✘ المقطع غير موجود في img/v:', it.store_id, name); continue; }
+    const d = dur(f);
+    if (!(d > 0 && d <= 45.5)) { console.log('✘ المقطع أطول من 45 ثانية (' + d + ') — اقصصه بـ host_clip.sh:', it.store_id, name); continue; }
+    okRows.push({ store_id: String(it.store_id), video_url: BASE + name + '.mp4', channel: it.source || '—', title: (it.kind || '—') + ' · ' + Math.round(d) + ' ث' });
   }
   for (let attempt = 0; attempt < 3; attempt++) {
     const g = await fetch(U + '/rest/v1/gmt_store?id=eq.1&select=id,updated_at,products', { headers: H });
@@ -37,7 +40,7 @@ const ytId = u => (String(u || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\
       const p = prods.find(x => String(x.id) === row.store_id);
       if (!p) { console.log('✘ منتج غير موجود في المتجر:', row.store_id); continue; }
       if (String(p.video_url || '').trim()) { console.log('• له فيديو أصلاً — لم يُمسّ:', p.name, '⇐', p.video_url); continue; }
-      console.log((APPLY ? '✔ ' : '○ ') + p.name + '\n    ⇐ ' + row.video_url + '\n    القناة: ' + row.channel + ' · العنوان: ' + row.title);
+      console.log((APPLY ? '✔ ' : '○ ') + p.name + '\n    ⇐ ' + row.video_url + '\n    المصدر: ' + row.channel + ' · ' + row.title);
       before.push({ store_id: row.store_id, name: p.name, video_url: p.video_url || '' });
       p.video_url = row.video_url; changed++;
     }
