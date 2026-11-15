@@ -130,8 +130,9 @@
       }
       if (!okD) issues.push('لم يُخفَّض دين الفاتورة الأصلية (' + debtCancelled.toFixed(2) + '$)');
     }
-    /* ⑥ العمولة — كنقطة البيع: لا لفاتورة أوردر */
-    if (!inv.order_id && !o.orderLinked) {
+    /* ⑥ العمولة — كنقطة البيع: يُعكس ما هو مسجَّل فعلاً على الفاتورة (الصافي > 0) حتى لو كانت فاتورة أوردر
+       (TASK-A0501 · VER-1#REQ-0016: عمولة استثنائية من الأدمن أو فاتورة قديمة كانت تبقى بعد المرتجع). بلا عمولة مسجَّلة ⇒ لا شيء. */
+    {
       try {
         var cm = await getJ(o, '/rest/v1/invoice_commissions?invoice_id=eq.' + encodeURIComponent(inv.id) + '&select=amount,approved,cashier_name');
         var net = (cm || []).reduce(function (s, x) { return s + (Number(x.amount) || 0); }, 0);

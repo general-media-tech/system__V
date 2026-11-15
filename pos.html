@@ -6379,8 +6379,11 @@ async function _confirmRefundInner() {
       if (!okDebt) _refundIssues.push('لم يُخفَّض دين الفاتورة الأصلية (' + debtCancelled.toFixed(2) + '$) — عدّله من تحصيل الديون');
     }
 
-    // ─── ٤. عكس العمولة بنسبة المرتجع من العمولة **الفعلية المسجَّلة** — لا لحلب ولا لأوردر مربوط ───
-    if (!isHeadquarters() && !refundInvoice.order_id) {
+    // ─── ٤. عكس العمولة بنسبة المرتجع من العمولة **الفعلية المسجَّلة** ───
+    /* (TASK-A0501 · VER-1#REQ-0016) كان الشرط «ليست حلب وليست فاتورة أوردر» يتخطّى العكس كلّياً، فعمولةٌ مسجَّلة على فاتورة أوردر
+       (استثناء الأدمن ن٤ · فواتير قديمة) أو على فاتورة إدارة كانت تبقى للموظّف بعد إرجاع البيع. القاعدة الآن: يُعكس ما هو **مسجَّل فعلاً**
+       (الصافي > 0) أيّاً كان نوع الفاتورة؛ وفاتورةٌ بلا عمولة مسجَّلة لا يُنشأ لها شيء — فالأصل (لا عمولة تلقائية لحلب ولا للأوردر) لم يتغيّر. */
+    {
       try {
         const cr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoice_commissions?invoice_id=eq.${encodeURIComponent(refundInvoice.id)}&select=amount,approved,paid,cashier_name,created_by`, { headers: sbHeaders() }, 8000);
         if (cr.ok) {
@@ -10980,7 +10983,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115m"></script>
+<script src="gmt-whatsnew.js?v=20261115w"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
