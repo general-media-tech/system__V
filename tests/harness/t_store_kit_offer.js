@@ -9,6 +9,7 @@ const kits = { built_at: '2026-11-14T10:00:00Z', kits: {
   p0_0: { ids: ['p0_0', 'p1_0', 'p2_0'], sum: 300, offer: 255 },      // صالح: 300 ⇒ 255
   p1_1: { ids: ['p1_1', 'p3_0'], sum: 300, offer: 270 },              // صالح من قسم آخر
   p2_1: { ids: ['p2_1', 'p3_1'], sum: 999, offer: 800 },              // قديم: السعر تغيّر ⇒ لا يُعرض
+  p0_3: { ids: ['p0_3', 'p1_0', 'p2_0'], sum: 600, offer: 520 },      // (TASK-A0509) قطعة p2_0 لم يعد الربط يقترحها لهذا المنتج ⇒ لا يُعرض
   p3_2: { ids: ['p3_2', 'غائب'], sum: 400, offer: 350 },              // قطعة غائبة ⇒ لا يُعرض
 } };
 const st = { categories: cats, banners: [], offers: [], branches: [], products: prods };
@@ -16,7 +17,10 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
 (async () => {
   await H.seed();
   await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-11-14T10:00:00Z', ...st }]);
-  const o = await H.open('logo.jpg', { init: VISITOR + `window.__wa=[];window.open=function(u){window.__wa.push(u);return null};`, w: 412, h: 860, mobile: true, wait: 0 });
+  /* (TASK-A0509) الطقم المحفوظ لا يُعرض إلّا إن كانت قطعه ممّا يقترحه «كمّل طقمك» الحالي لهذا المنتج ⇒ منتجات الاختبار العامّة («منتج 0-0»)
+     يُحدَّد لها هنا ما يقترحه الربط؛ و p0_3 طقمه المحفوظ فيه قطعة لم يعد الربط يقترحها ⇒ يجب ألّا يُعرض */
+  const KIT_OK = `window.__kitOK={p0_0:['p1_0','p2_0'],p1_1:['p3_0'],p2_1:['p3_1'],p3_2:[],p0_3:['p1_0']};document.addEventListener('DOMContentLoaded',function(){var real=window.gmtComplements;window.gmtComplements=function(p){var k=window.__kitOK[p&&p.id];return k?k.map(function(id){return store.products.find(function(x){return x.id===id;});}).filter(Boolean):real(p);};});`;
+  const o = await H.open('logo.jpg', { init: VISITOR + KIT_OK + `window.__wa=[];window.open=function(u){window.__wa.push(u);return null};`, w: 412, h: 860, mobile: true, wait: 0 });
   await o.ctx.route(/home\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(st) }));
   let kitReq = 0;
   await o.ctx.route(/store\/kits\.json/, r => { kitReq++; r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(kits) }); });
@@ -41,6 +45,9 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
   await o.pg.evaluate(() => openProductModal('p2_1')); await o.pg.waitForTimeout(900);
   const stale = await o.pg.evaluate(() => document.getElementById('pm-kit').classList.contains('hidden'));
   ok(stale, '④ طقمٌ تغيّر سعر قطعه ⇒ لا يُعرض (لا وعد بسعرٍ قديم)');
+  await o.pg.evaluate(() => openProductModal('p0_3')); await o.pg.waitForTimeout(900);
+  const stale2 = await o.pg.evaluate(() => { const k = document.getElementById('pm-kit'); return !!(k && !k.classList.contains('hidden')); });
+  ok(!stale2, '(TASK-A0509) طقم محفوظ فيه قطعة لم يعد «كمّل طقمك» يقترحها لهذا المنتج ⇒ لا يُعرض');
   await o.pg.evaluate(() => { try { closeProductModal(); } catch (_) {} });
   const real = o.errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon|AudioContext/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));

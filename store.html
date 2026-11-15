@@ -318,7 +318,8 @@ window.GMT_PUBLIC = 1;</script>
        ══════════════════════════════════════════════════════════════════════ -->
   <script src="gmt-suggest.js?v=20261107d"></script>
   <script>window.GMT_COMPAT_NOLOAD = true;</script>
-  <script src="gmt-compat-kb.js?v=20261110a"></script>   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
+  <script src="gmt-compat-kb.js?v=20261110a"></script>
+  <script src="gmt-kit.js?v=20261115a"></script>   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shipping-offices.js?v=20261112h" defer></script>   <!-- (TASK-0361 · seq 637) بنك مكاتب شركات الشحن في اختيار مكان الوصول -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
   <script>
@@ -2572,35 +2573,13 @@ function openProductModal(productId, opt){
    لا خصم ولا سعر جديد: يُضاف المختار مع المنتج للسلّة بأسعاره. */
 /* (المالك seq B677) «لما يشتري كاميرا تعطيه الحقيبة · لوح إضاءة بال 26 · كفر الها · حقيبة الكتف · بطاريات إضافية» — «درون: حماية شفرات … الحقيبة»
    العنصر الثالث (اختياري) في كلّ زوج = نمط الاسم المطلوب داخل ذلك القسم */
-const _KIT_RULES = [
-    [/كاميرات كانون|أوبن بوكس/, /^كاميرات$/, [['إكسسوارات الكاميرا','بطاريات وشواحن'],['إكسسوارات الكاميرا','حقائب'],['إضاءة الاستوديو','ألواح LED',/^P[lfm] ?\d{2}\b/i],['إكسسوارات الكاميرا','هودات وأغطية وكفرات',/كفر/],['إكسسوارات الكاميرا','ذواكر ووصلات']]],
-    [/العدسات|كاميرات كانون|أوبن بوكس/, /عدسات|كانون|سيغما|يونغنو/, [['إكسسوارات الكاميرا','هودات وأغطية وكفرات'],['إكسسوارات الكاميرا','حقائب']]],
-    [/إضاءة الاستوديو/, /رؤوس الإضاءة|فلاشات/, [['إضاءة الاستوديو','سوفت بوكس ومعدّلات'],['إضاءة الاستوديو','ستاندات']]],
-    [/إضاءة الاستوديو/, /ألواح LED/, [['إضاءة الاستوديو','ستاندات'],['إضاءة الاستوديو','سوفت بوكس ومعدّلات']]],
-    [/إضاءة صنّاع المحتوى/, /./, [['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
-    [/المايكات والصوت/, /لاسلكية|سلكية/, [['المايكات والصوت','كروت صوت وستاندات'],['ملحقات الهاتف','هولدرات ومساند']]],
-    [/الدرونات وملحقاتها/, /^درونات$/, [['الدرونات وملحقاتها','مراوح وحماية',/واقي|مصدّ|حماية|guard/i],['الدرونات وملحقاتها','حقائب'],['الدرونات وملحقاتها','بطاريات وشواحن'],['الدرونات وملحقاتها','فلاتر']]],
-    [/كاميرات الأكشن/, /./, [['إكسسوارات الكاميرا','ذواكر ووصلات'],['ترايبود وجيمبال','ترايبود ذكي'],['ملحقات الهاتف','هولدرات ومساند']]],
-    [/ترايبود وجيمبال/, /أوزمو موبايل|رونين/, [['ملحقات الهاتف','هولدرات ومساند'],['إضاءة صنّاع المحتوى','كفّ وجيب']]]
-];
 function _catPath(id){ const c=(store.categories||[]).find(x=>String(x.id)===String(id)); if(!c) return ['','']; const t=c.parent_id?(store.categories||[]).find(x=>String(x.id)===String(c.parent_id)):null; return t?[t.name,c.name]:[c.name,'']; }
-function _mcodes(t){ return (String(t||'').match(/[A-Za-z]{1,6}[- ]?\d{1,4}[A-Za-z]{0,3}|\d{2,4}[A-Za-z]{1,2}/g)||[]).map(x=>x.replace(/[- ]/g,'').toLowerCase()).filter(x=>x.length>=3); }
+/* (TASK-A0509 · المالك seq 753–754 «الطقم يتصرّف بغباء … درون نيو عم تروح غراض لغير شي · ميني 3 عم ياخد RC موشن») المنطق كلّه في gmt-kit.js:
+   المتوفّر فقط · ملحق الدرون باسم موديله بالضبط · بطارية/شاحن الكاميرا وهود/غطاء العدسة من دليل التوافقيات · لا ريموتات · لا مطابقة بالاحتواء.
+   tools/kit_audit.js يفحص اقتراحات **كلّ** منتجات المتجر الحيّ ويفشل عند أيّ مخالفة — يُشغَّل قبل أيّ تعديل على الربط. */
 function gmtComplements(prod){
-    const P=(store.products||[]).filter(p=>p.id!==prod.id&&parseFloat(p.price||0)>0&&!Array.isArray(p.package_items));
-    const [top,sub]=_catPath(prod.category_id); const codes=_mcodes(prod.name+' '+(prod.short_name||''));
-    const inSub=(p,t,sn)=>(p.category_ids||[p.category_id]).some(id=>{ const [a,b]=_catPath(id); return a===t&&b===sn; });
-    const rank=p=>(parseInt(p.stock)>0?1000:0)+((p.images||[]).length?100:0)-parseFloat(p.price||0)/100;
-    const out=[], seen=new Set(); const push=p=>{ if(!seen.has(p.id)&&out.length<6){ seen.add(p.id); out.push(p); } };
-    const sameType=p=>{ const [a,b]=_catPath(p.category_id); return a===top&&b===sub; };
-    if(codes.length){   // ① ما يذكر توافقُه موديل هذا المنتج
-        P.filter(p=>!sameType(p)&&p.compat&&codes.some(c=>c.length>=3&&/\d/.test(c)&&String(p.compat).replace(/[- ]/g,'').toLowerCase().includes(c))).sort((a,b)=>rank(b)-rank(a)).slice(0,4).forEach(push);
-    }
-    const rule=_KIT_RULES.find(r=>r[0].test(top)&&r[1].test(sub));
-    /* ما يتوقّف على الموديل (بطارية · هود/غطاء/كفر · فلتر · مراوح) لا يُقترح إلا إن ذكر توافقُه موديل هذا المنتج — لا بطارية كاميرا أخرى */
-    const strict=/بطاريات وشواحن|هودات وأغطية وكفرات|فلاتر|مراوح وحماية/;
-    const fits=p=>!!p.compat&&codes.some(c=>String(p.compat).replace(/[- ]/g,'').toLowerCase().includes(c));
-    if(rule) rule[2].forEach(([t,sn,nx])=>{ P.filter(p=>inSub(p,t,sn)&&(!nx||nx.test(p.name||''))&&(strict.test(sn)?fits(p):(!p.compat||fits(p)||!_mcodes(p.compat).length))).sort((a,b)=>rank(b)-rank(a)).slice(0,out.length<3?2:1).forEach(push); });
-    return out;
+    if(!window.GMTKit||!prod) return [];
+    try{ return GMTKit.complements(prod,{ products:store.products||[], catPath:_catPath, KB:window.GMTCompatKB }); }catch(e){ console.warn('[كمّل طقمك]',e&&e.message); return []; }
 }
 let _pmcSel=new Set();
 function _renderComplements(prod){
@@ -2640,6 +2619,10 @@ function loadKitOffers(){
 }
 function gmtKitFor(pid){
     const k = _kits && _kits[pid]; if (!k || !Array.isArray(k.ids) || k.ids.length < 2) return null;
+    /* (TASK-A0509 · المالك seq 753 «الطقم لسى عم يتصرف بغباء») الطقم المحفوظ بُني بالربط القديم ⇒ لا يُعرض إلّا إن كانت كلّ قطعه ممّا يقترحه الربط الحالي لهذا المنتج
+       (طقم «Neo + حقيبة Flip» القديم يختفي حتى يُعاد بناء store/kits.json بـtools/make_kit_offers.js) */
+    { const me = (store.products || []).find(p => String(p.id) === String(pid)); const okIds = new Set((me ? gmtComplements(me) : []).map(x => String(x.id)));
+      if (k.ids.some(id => String(id) !== String(pid) && !okIds.has(String(id)))) return null; }
     const items = k.ids.map(id => (store.products || []).find(p => String(p.id) === String(id)));
     if (items.some(p => !p || !(parseFloat(p.price || 0) > 0))) return null;
     const sum = items.reduce((t, p) => t + parseFloat(p.price), 0);
