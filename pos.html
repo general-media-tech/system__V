@@ -415,7 +415,7 @@ input, textarea, select { font-size: 16px; }
 }
 .prod-stock-badge.good  { background: var(--success-light); color: var(--success); }
 .prod-stock-badge.low   { background: #fef3c7; color: var(--warning); }
-.prod-stock-badge.empty { background: #fee2e2; color: var(--danger); }
+.prod-stock-badge.empty { background: #fee2e2; color: var(--danger); padding: 2px 6px; }   /* (TASK-A0508) لا يرث حشوة «.empty» العامّة (60px) */
 .prod-ws-tag {
   font-size: 9px; font-weight: 700; color: var(--text3);
   margin-top: 3px; background: var(--bg); border-radius: 4px; padding: 1px 5px;
@@ -917,7 +917,10 @@ input, textarea, select { font-size: 16px; }
   color: white; font-size: 17px; display: flex; align-items: center; justify-content: center;
   cursor: pointer; backdrop-filter: blur(4px);
 }
-.pd-body { flex: 1; overflow-y: auto; padding: 18px 18px 10px; }
+/* (TASK-A0508 · المالك seq 752 «ما عم احسن انزل في نقطة البيع») #pd-content لم يكن حاوية مرنة محدودة الارتفاع ⇒ «.pd-body» لا ينزلق
+   حين يطول المحتوى (المواصفات أُضيفت لاحقاً) وما تحت حدّ الورقة يُقصّ */
+#pd-content { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.pd-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 18px 18px 10px; }
 .pd-name { font-size: 18px; font-weight: 900; line-height: 1.3; margin-bottom: 6px; }
 .pd-barcode { font-size: 11px; color: var(--text3); font-family: monospace; margin-bottom: 14px; }
 .pd-stock-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
@@ -926,7 +929,7 @@ input, textarea, select { font-size: 16px; }
 .pd-stock-box .sb-val { font-size: 22px; font-weight: 900; line-height: 1; }
 .sb-val.good  { color: var(--success); }
 .sb-val.low   { color: var(--warning); }
-.sb-val.empty { color: var(--danger); }
+.sb-val.empty { color: var(--danger); padding: 0; }   /* (TASK-A0508 · المالك seq 752) كانت ترث حشوة «.empty» العامّة (60px) ⇒ خانة «في الطريق —» بطول 142px تدفع التفاصيل خارج الشاشة */
 .pd-prices-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
 .pd-price-box { background: var(--surface2); border-radius: 12px; padding: 11px 13px; }
 .pd-price-box .pb-label { font-size: 10px; font-weight: 800; color: var(--text3); margin-bottom: 3px; }
@@ -11003,7 +11006,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115z"></script>
+<script src="gmt-whatsnew.js?v=20261115z2"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

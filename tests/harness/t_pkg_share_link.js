@@ -31,6 +31,15 @@ const SHARE = ';window.__sh=null;navigator.share=function(d){window.__sh=d;retur
   const sh = await pg.evaluate(() => window.__sh);
   ok(sh && new RegExp('#package=' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$').test(sh.url) && /باقة رابط المشاركة/.test(sh.title), 'navigator.share يستلم url ينتهي بـ#package=<id>: ' + JSON.stringify(sh));
 
+  /* (TASK-A0508 · المالك seq 752) «اسأل جوجل» في صفحة الباقة كما في صفحة المنتج */
+  const ask = await pg.evaluate(async () => {
+    const f = document.getElementById('pkg-ai-fab'); const got = []; const wo = window.open; window.open = (u) => { got.push(u); return null; };
+    if (f) f.click(); await new Promise(r => setTimeout(r, 300)); window.open = wo;
+    const r = f ? f.getBoundingClientRect() : null;
+    return { has: !!f, vis: !!(r && r.width > 30 && r.height > 20), url: got[0] ? decodeURIComponent(got[0]) : '' };
+  });
+  ok(ask.has && ask.vis, 'زرّ «اسأل جوجل» ظاهر في صفحة الباقة');
+  ok(/google\.com\/search\?udm=50/.test(ask.url) && /General Media Tech/.test(ask.url) && /تتضمّن:/.test(ask.url) && !/https?:\/\/\S+.*https?:\/\//.test(ask.url.replace(/^https:\/\/www\.google\.com/, '')), 'يفتح سؤال جوجل باسم الباقة ومنتجاتها بلا روابط: ' + ask.url.slice(40, 190));
   console.log('③ الإغلاق');
   await pg.evaluate(() => closeModal('package-modal')); await pg.waitForTimeout(300);
   const h3 = await pg.evaluate(() => ({ hash: location.hash, act: document.getElementById('package-modal').classList.contains('active') }));
