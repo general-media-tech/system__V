@@ -2596,6 +2596,16 @@ function netRatio(rawTotal, finalTotal) {
   var f = Number(finalTotal); if (!isFinite(f)) return 1;
   return Math.max(0, Math.min(1, f / r));
 }
+/* (TASK-A0503 · VER-1#REQ-0092 · قرار المالك ق١٦ «الكوبون لا يُجمع مع سعر العرض») — كما في المتجر (storeCouponableBase):
+   الكوبون يُحسب على البنود **غير المعروضة** فقط. كان يُحسب على السلّة كلّها ⇒ خصمٌ مزدوج على العرض، ويخالف نصّ الزرّ والمتجر. */
+function posItemOnOffer(i) { return !!(i && (i._is_offer || i._from_offer || (i.prod && i.prod._is_offer))); }
+function posCouponBase() { return round2(Object.values(cart).reduce(function (s, i) { return posItemOnOffer(i) ? s : s + i.price * i.qty; }, 0)); }
+/* نسبة البند من الخصم: خصم الكوبون يقع على البنود غير المعروضة وحدها؛ الخصم اليدوي على الكلّ؛ خصم ربط الأوردر لا يُوزَّع. */
+function itemNetRatio(ct, i) {
+  if (!ct || ct.orderDiscount > 0) return 1;
+  if (ct.couponDiscount > 0 && !(ct.manualDiscount > 0)) return posItemOnOffer(i) ? 1 : netRatio(ct.couponBase, ct.couponBase - ct.couponDiscount);
+  return netRatio(ct.rawTotal, ct.finalTotal);
+}
 
 /* إدراج صفوف مع **إسقاط دقيق للعمود الناقص وحده** (PGRST204 «Could not find the 'X' column»)، بدل إسقاط الحمولة كلها.
    `keep`: أعمدة لا يجوز إسقاطها (فيُعاد الخطأ). تُرجع {data, error, dropped:[…]}. */
@@ -5899,12 +5909,13 @@ async function validateCoupon() {
       statusEl.textContent=`⚠️ الحد الأدنى للشراء $${Number(cp.min_purchase).toFixed(2)} — إجمالي سلتك $${cartTotal.toFixed(2)}`; return;
     }
     _activeCoupon = cp;
-    let disc = cp.discount_type==='percent'
-      ? cartTotal*(Number(cp.discount_value)/100) : Number(cp.discount_value);
-    if (cp.max_discount && disc>Number(cp.max_discount)) disc=Number(cp.max_discount);
-    disc = Math.min(disc, cartTotal);
-    statusEl.style.color='#15803d';
-    statusEl.textContent=`✅ كوبون نشط — خصم ${cp.discount_type==='percent'?cp.discount_value+'%':'$'+Number(cp.discount_value).toFixed(2)} = خصم $${disc.toFixed(2)}`;
+    /* (TASK-A0503) الرقم المعروض = رقم الحفظ نفسه (computeOrderLinkedTotal): على البنود غير المعروضة فقط، ويُقال السبب */
+    const _cv = computeOrderLinkedTotal();
+    const disc = _cv.couponDiscount;
+    statusEl.style.color = disc > 0 ? '#15803d' : '#b45309';
+    statusEl.textContent = (disc > 0
+      ? `✅ كوبون نشط — خصم ${cp.discount_type==='percent'?cp.discount_value+'%':'$'+Number(cp.discount_value).toFixed(2)} = خصم $${disc.toFixed(2)}`
+      : '⚠️ الكوبون صالح لكن لا خصم الآن') + (_cv.couponNote ? ' · ' + _cv.couponNote : '');
     try { updateRemainingDisplay(); } catch (_) {}
   } catch(e) {
     _activeCoupon=null; statusEl.style.color='#dc2626';
@@ -7010,6 +7021,9 @@ function computeOrderLinkedTotal() {
   let couponDiscount = 0;
   let couponCode = (document.getElementById('couponCode')?.value || '').trim().toUpperCase();
   let couponRejected = '';
+  /* (TASK-A0503) أساس الكوبون = البنود غير المعروضة (الحدّ الأدنى للشراء يبقى على إجمالي السلّة كما في المتجر) */
+  const couponBase = Math.min(posCouponBase(), rawTotal);
+  let couponNote = '';
   if (_activeCoupon && couponCode && !orderDiscount && !(manualDiscount > 0)) {
     const cp = _activeCoupon;
     if (cp.min_purchase && rawTotal < Number(cp.min_purchase)) {
@@ -7018,10 +7032,15 @@ function computeOrderLinkedTotal() {
       couponRejected = 'expired';
     } else {
       couponDiscount = cp.discount_type === 'percent'
-        ? rawTotal * (Number(cp.discount_value) / 100)
+        ? couponBase * (Number(cp.discount_value) / 100)
         : Number(cp.discount_value);
       if (cp.max_discount && couponDiscount > Number(cp.max_discount)) couponDiscount = Number(cp.max_discount);
-      couponDiscount = round2(Math.min(Math.max(0, couponDiscount), rawTotal));
+      couponDiscount = round2(Math.min(Math.max(0, couponDiscount), couponBase));
+      if (rawTotal > 0 && couponBase < rawTotal - 0.004) couponNote = couponBase <= 0.004
+        ? 'الكوبون لا يُجمع مع العروض — وكلّ بنود السلّة بسعر عرض.'
+        : 'الكوبون لا يُجمع مع العروض — طُبِّق على المنتجات غير المعروضة فقط.';
+      /* سلّةٌ كلّها عروض ⇒ لا خصم ⇒ لا يُكتب الكوبون على الفاتورة ولا يُستهلك (كما في TASK-0320) */
+      if (!(couponDiscount > 0)) couponCode = null;
     }
     if (couponRejected) couponCode = null;
   } else {
@@ -7031,7 +7050,7 @@ function computeOrderLinkedTotal() {
 
   const discount   = round2(manualDiscount > 0 ? manualDiscount : (orderDiscount || couponDiscount));
   const finalTotal = round2(Math.max(0, rawTotal - discount));
-  return { rawTotal, orderDiscount, couponDiscount, manualDiscount, discount, finalTotal, couponCode, couponRejected };
+  return { rawTotal, orderDiscount, couponDiscount, manualDiscount, discount, finalTotal, couponCode, couponRejected, couponBase, couponNote };
 }
 
 function updateFab() {
@@ -7256,9 +7275,9 @@ function syncCartTotal() {
   let totalComm = 0;
   if (!(_orderMode === 'existing' && _selectedOrder) && !isOrderLinkedNew()) {
     /* (11 ت١) نفس دالّة الحفظ (commissionLine) وعلى السعر بعد توزيع الخصم — فلا يختلف المعروض عن المحفوظ (C2) */
-    const _er = (_ct && _ct.orderDiscount > 0) ? 1 : netRatio(_ct ? _ct.rawTotal : 0, _ct ? _ct.finalTotal : 0);
     Object.values(cart).forEach(item => {
       const ws = Number(item.prod.wholesale_price) || 0;
+      const _er = itemNetRatio(_ct, item);
       const c  = commissionLine(item.price * _er, ws, item.qty);
       if (c > 0) totalComm += c;
     });
@@ -8331,8 +8350,7 @@ async function _saveAndFinishInner() {
     // فحص ما إذا كان أي بند بسعر أقل من أو يساوي سعر الجملة
     // فحص البيع أقل من سعر الجملة
     /* السعر الفعلي بعد توزيع الخصم (كوبون/يدوي) — لا بعد خصم الأوردر المربوط (عمولته صفر أصلاً) */
-    const _effRatio = _linkedOrderDiscount > 0 ? 1 : netRatio(_rawTotal, grandTotal);
-    const _effPrice = (i) => Number(i.price) * _effRatio;
+    const _effPrice = (i) => Number(i.price) * itemNetRatio(_ctSave, i);   /* (TASK-A0503) خصم الكوبون على البنود غير المعروضة وحدها */
     const hasBelowWholesale = items.some(i => {
       const ws = Number(i.prod.wholesale_price) || 0;
       return ws > 0 && _effPrice(i) <= ws + 1e-9;
@@ -10402,7 +10420,7 @@ async function notifyNewInvoice(invoice, total, itemsCount) {
   const itemsList = Object.values(cart);
   const itemsLines = itemsList.map(i => {
     const ws      = Number(i.prod.wholesale_price) || 0;
-    const _erN    = (_ctNotif && _ctNotif.orderDiscount > 0) ? 1 : netRatio(_ctNotif ? _ctNotif.rawTotal : 0, _ctNotif ? _ctNotif.finalTotal : 0);
+    const _erN    = itemNetRatio(_ctNotif, i);
     const _cl     = (!isOrderLinked && ws > 0) ? commissionLine(i.price * _erN, ws, i.qty) : 0;
     const comm    = _cl > 0 ? _cl.toFixed(2) : null;
     const flag    = (ws > 0 && i.price <= ws) ? ' ⚠️' : '';
@@ -10415,7 +10433,7 @@ async function notifyNewInvoice(invoice, total, itemsCount) {
   if (!isOrderLinked) {
     itemsList.forEach(i => {
       const ws = Number(i.prod.wholesale_price) || 0;
-      const _erT = (_ctNotif && _ctNotif.orderDiscount > 0) ? 1 : netRatio(_ctNotif ? _ctNotif.rawTotal : 0, _ctNotif ? _ctNotif.finalTotal : 0);
+      const _erT = itemNetRatio(_ctNotif, i);
       const c = commissionLine(i.price * _erT, ws, i.qty);
       if (c > 0) totalComm += c;
     });
@@ -10983,7 +11001,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261115w"></script>
+<script src="gmt-whatsnew.js?v=20261115x"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
