@@ -124,6 +124,7 @@
     const item = Object.assign({ key: newKey(), at: Date.now(), tries: 0 }, op);
     await qPut(item);
     emit('gmt-sync-change', { pending: (await qAll()).length });
+    if (!online()) emit('gmt-sync-pending', { key: item.key });   /* (OWN-09#34) حُفظت العملية محلّياً بانتظار الاتصال — صوت SYNC_PENDING */
     if (online()) { try { await flush(); } catch (_) {} }   /* 🔧 انتظره: تركه معلّقاً كان يُبقي وعد flush قائماً فيُهمَل نداء «عاد الاتصال» */
     return item;
   }
@@ -197,7 +198,9 @@
             if (e.permanent || it.tries >= MAX_TRIES) {
               it.dead = true;                   // يبقى محفوظاً وظاهراً — لا يُحذف بصمت
               await qPut(it); failed++; progressed = true;
+              emit('gmt-sync-fail', { key: it.key });      /* (OWN-09#34) فشلٌ نهائيّ — SYNC_FAIL */
             } else {
+              emit('gmt-sync-retry', { key: it.key, tries: it.tries });   /* (OWN-09#34) ستُعاد المحاولة — SYNC_RETRY */
               await qPut(it);
               break;                            // تعثّر شبكي: أوقف الجولة وحافظ على الترتيب
             }
