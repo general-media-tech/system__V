@@ -1157,6 +1157,9 @@ function _endlessSetup(container, blocks){
     _endless.obs.observe(sen);
 }
 const _ENDLESS_CYCLES = 2;
+/* (TASK-B0406 · REQ-0286 «بحث عميق وإعادة منظومة الأصوات: تصفّح ونزول الموقع…») صوتان في المتجر كانا غائبَين: نتيجة البحث (مرّةً بعد توقّف الكتابة لا مع كلّ حرف) ونهاية المتجر */
+let _sndSearchT=null;
+function _sndSearch(n){ clearTimeout(_sndSearchT); _sndSearchT=setTimeout(()=>{ try{ window.GMTAudio&&GMTAudio.emit(n?'search.results':'search.empty'); }catch(_){} },650); }
 function _endlessEnd(){
     const E = _endless; E.done = true; try { E.obs && E.obs.disconnect(); } catch (_) {}
     if (!E.wrap || document.getElementById('store-end')) return;
@@ -1168,6 +1171,7 @@ function _endlessEnd(){
       + '<button type="button" data-end-top style="border:0;background:#111;color:#fff;border-radius:12px;padding:10px 16px;font:800 13px Cairo,sans-serif;cursor:pointer">↑ للأعلى</button>'
       + '<button type="button" data-end-wa style="border:0;background:#16a34a;color:#fff;border-radius:12px;padding:10px 16px;font:800 13px Cairo,sans-serif;cursor:pointer">💬 اسألنا على واتساب</button></div>';
     E.wrap.appendChild(end);
+    try{ window.GMTAudio&&GMTAudio.emit('UI_LIST_END'); }catch(_){}   /* صوت نهاية المتجر */
     end.querySelector('[data-end-top]').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
     end.querySelector('[data-end-wa]').addEventListener('click', () => window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent('مرحباً، أبحث عن منتج لم أجده في المتجر: ')}`, '_blank'));
 }
@@ -2391,6 +2395,7 @@ window.performSearch=function(query){
     let temp=document.getElementById('search-results-section'); if(temp)temp.remove();
     temp=document.createElement('section'); temp.id='search-results-section'; temp.className='mt-6';
     const bindF=()=>{ temp.querySelectorAll('[data-srf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.srf; F[k]=el.type==='checkbox'?el.checked:el.value; window.performSearch(query); })); };
+    _sndSearch(matched.length);   /* (TASK-B0406 · REQ-0286) صوت نتيجة البحث بعد توقّف الكتابة */
     if(!matched.length){temp.innerHTML=(all.length?filtHtml:'')+sayHtml+`<div class="text-center py-10 text-gray-400 px-4"><i class="ph ph-magnifying-glass text-4xl block mb-2 opacity-40"></i><p class="text-sm">${all.length?'لا نتائج بهذه الفلاتر — غيّرها':'لا توجد نتائج لـ "'+escHtml(query)+'"'}</p></div>`;area.appendChild(temp);bindF();return;}
     temp.innerHTML=`<h3 class="font-medium text-[18px] px-4 mb-4">نتائج البحث (${matched.length}${matched.length!==all.length?' من '+all.length:''})</h3>`+filtHtml+sayHtml+`<div class="flex overflow-x-auto hide-scrollbar gap-4 px-4 pb-6 sr-row"></div>`;
     bindF();
