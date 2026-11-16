@@ -323,6 +323,59 @@
     }
   } catch (_) {}
 
+
+  /* ══ (المالك seq 775 · «على الطريق») منتجات فواتير الشراء التي حالتها transit ⇒ p.incoming = {eta, from} على قائمة المتجر
+     (المطابقة كـ flushPrices: inv_id ثمّ رابط المتجر ثمّ الباركود) · الفاتورة التي وصلت ⇒ يُحذف الحقل. لا كتابة إن لم يتغيّر شيء. ══ */
+  async function refreshIncoming() {
+    const d = M(); if (!d) return { changed: false };
+    const H = { apikey: d.key, Authorization: 'Bearer ' + d.key };
+    try {
+      const r = await fetch(d.url + '/rest/v1/import_log?status=eq.transit&select=inv_number,inv_type,eta_date,items_snapshot', { headers: H });
+      if (!r.ok) return { changed: false, error: 'HTTP ' + r.status };
+      const invs = (await r.json()) || [];
+      const byId = new Map(), byBc = new Map();
+      const better = (m, k, v) => { const o = m.get(k); if (!o || (v.eta && (!o.eta || v.eta < o.eta))) m.set(k, v); };
+      invs.forEach(iv => {
+        if (!iv || !iv.eta_date) return;
+        const v = { eta: String(iv.eta_date).slice(0, 10), from: /germ|de/i.test(String(iv.inv_type || '')) ? 'germany' : (/chin|cn/i.test(String(iv.inv_type || '')) ? 'china' : String(iv.inv_type || '')) };
+        let items = iv.items_snapshot; if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
+        (Array.isArray(items) ? items : []).forEach(it => { if (!it) return; if (it.id != null && it.id !== '') better(byId, String(it.id), v); if (it.barcode) better(byBc, String(it.barcode), v); });
+      });
+      /* رابط المتجر لمنتجات الجرد المعنيّة (id ⇒ sid) */
+      const sidToInv = new Map(); const ids = [...byId.keys()].filter(x => /^[0-9a-f-]{8,}$/i.test(x));
+      if (ids.length) { try { const g = await fetch(d.url + '/rest/v1/products?select=id,store_url&id=in.(' + ids.join(',') + ')', { headers: H }); if (g.ok) (await g.json()).forEach(x => { const sid = sidOf(x.store_url); if (sid) sidToInv.set(sid, String(x.id)); }); } catch (_) {} }
+      const pick = (invId, sid, bc) => (invId != null && invId !== '' && byId.get(String(invId))) || (sid != null && sidToInv.has(String(sid)) && byId.get(sidToInv.get(String(sid)))) || (bc && byBc.get(String(bc))) || null;
+      const same = (a, b) => (!a && !b) || (a && b && a.eta === b.eta && a.from === b.from);
+      const res = await edit(prods => {
+        let changed = false;
+        const setInc = (o, inc) => {
+          if (same(o.incoming, inc)) return o;
+          changed = true; const n = Object.assign({}, o); if (inc) n.incoming = { eta: inc.eta, from: inc.from }; else delete n.incoming; return n;
+        };
+        const out = prods.map(sp => {
+          if (!sp) return sp;
+          let next = setInc(sp, pick(sp.inv_id, sp.id, sp.barcode));
+          if (Array.isArray(next.options)) {
+            let oc = false;
+            const options = next.options.map(o => {
+              if (!o || !Array.isArray(o.values)) return o;
+              const values = o.values.map(v => {
+                if (!v || typeof v !== 'object' || (!v.inv_id && !v.barcode)) return v;
+                const nv = setInc(v, pick(v.inv_id, null, v.barcode)); if (nv !== v) oc = true; return nv;
+              });
+              return Object.assign({}, o, { values });
+            });
+            if (oc) next = Object.assign({}, next, { options });
+          }
+          return next;
+        });
+        return changed ? { changed: true, products: out } : { changed: false };
+      });
+      if (res && res.changed) { try { await homePublish(); } catch (_) {} }
+      return res || { changed: false };
+    } catch (e) { return { changed: false, error: String(e && e.message || e) }; }
+  }
+
   /* ══ (TASK-0340 · المالك seq 575) الاتجاه المعاكس: ما يتغيّر في «إدارة المتجر» يصل للجرد ونقطة البيع وفواتير الشراء
      قائمة لمنتجٍ واحد (inv_id): الاسم · السعر · الصور وترتيبها (الصورة الأولى = صورة المنتج) · عائلة: سعر كلّ قيمة ⇒ سعر منتجها.
      oldList/newList = قوائم المتجر قبل الحفظ وبعده. الكتابة موسومة كي لا تعود فتكتب المتجر مرّة ثانية. ══ */
@@ -359,5 +412,5 @@
     return n;
   }
 
-  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale, queuePrice, queueName, flushPrices, listingToInv };
+  global.GMTStoreSync = { removeFor, mergeInto, sidOf, famIds, familyOf, imgsAfter, listingImagesToInv, setValueFields, homeBuild, homeUrl, homePublish, homeRefreshIfStale, queuePrice, queueName, flushPrices, refreshIncoming, listingToInv };
 })(window);
