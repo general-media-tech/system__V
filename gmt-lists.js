@@ -224,5 +224,5 @@
   function openShared(raw) { var s = parseShared(raw); if (!s) return; V.view = 'shared'; V.shared = s; V.msg = ''; openEl(); }
   function close() { var m = document.getElementById('gls'); if (m) m.classList.remove('on'); document.body.style.overflow = ''; }
 
-  g.GMTLists = { open: open, openAdd: openAdd, openShared: openShared, close: close, load: load, linkFor: linkFor, parseShared: parseShared, totals: totals };
+  g.GMTLists = { open: open, openAdd: openAdd, openShared: openShared, close: close, load: load, linkFor: linkFor, parseShared: parseShared, totals: totals, addToCart: addToCart, enc: enc };   /* addToCart · enc: يستعملهما «جهّز استوديوك» (gmt-studio.js) */
 })(typeof window !== 'undefined' ? window : globalThis);

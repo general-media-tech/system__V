@@ -320,8 +320,9 @@ window.GMT_PUBLIC = 1;</script>
   <script>window.GMT_COMPAT_NOLOAD = true;</script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-kit.js?v=20261116g"></script>
-  <script src="gmt-lists.js?v=20261116h"></script>   <!-- «📋 قوائمي»: قوائم تجميع المشتريات + مشاركتها برابط #list= -->
-  <script src="gmt-camfinder.js?v=20261116e"></script>   <!-- (TASK-A0518 · المالك seq 744–745) «🎯 إكسسوارات كاميرتك» -->   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
+  <script src="gmt-lists.js?v=20261116i"></script>   <!-- «📋 قوائمي»: قوائم تجميع المشتريات + مشاركتها برابط #list= -->
+  <script src="gmt-camfinder.js?v=20261116e"></script>
+  <script src="gmt-studio.js?v=20261116i"></script>   <!-- (TASK-A0522 · المالك seq 744) «🎬 جهّز استوديوك» -->   <!-- (TASK-A0518 · المالك seq 744–745) «🎯 إكسسوارات كاميرتك» -->   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shipping-offices.js?v=20261112h" defer></script>   <!-- (TASK-0361 · seq 637) بنك مكاتب شركات الشحن في اختيار مكان الوصول -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
   <script>
@@ -504,6 +505,7 @@ window.GMT_PUBLIC = 1;</script>
     </div>
     <!-- (TASK-A0518 · المالك seq 744) اعثر على إكسسوارات كاميرتك -->
     <button type="button" id="camfinder-btn" onclick="window.GMTCamFinder&&GMTCamFinder.open()" style="margin-top:8px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid #fecaca;background:#fff5f5;color:#b91c1c;border-radius:12px;padding:8px 10px;font:800 13px Cairo,sans-serif;cursor:pointer">🎯 إكسسوارات كاميرتك — اختر كاميرتك وشوف شو بيركب عليها</button>
+    <button type="button" id="studio-btn" onclick="window.GMTStudio&&GMTStudio.open()" style="margin-top:6px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid #e5e7eb;background:#fff;color:#111;border-radius:12px;padding:8px 10px;font:800 13px Cairo,sans-serif;cursor:pointer">🎬 جهّز استوديوك — بودكاست · تصوير منتجات · أشخاص · موبايل</button>
 </div>
 
 <div id="dynamic-modals-container"></div>
@@ -2249,6 +2251,7 @@ function createModals(){
                  هذا النظام. -->
             <a href="track_order.html" target="_blank" onclick="closeSidebar();" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><i class="ph ph-map-pin" style="font-size:20px;color:#3b82f6;"></i><span>تتبع الطلب</span></a>
             <a href="#" onclick="event.preventDefault();closeSidebar();setTimeout(()=>window.GMTCamFinder&&GMTCamFinder.open(),250);" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><i class="ph ph-camera" style="font-size:20px;color:#D5001C;"></i><span>إكسسوارات كاميرتك</span></a>
+            <a href="#" id="sidebar-studio-link" onclick="event.preventDefault();closeSidebar();setTimeout(()=>window.GMTStudio&&GMTStudio.open(),250);" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><i class="ph ph-film-slate" style="font-size:20px;color:#D5001C;"></i><span>جهّز استوديوك</span></a>
             <a href="#" id="sidebar-lists-link" onclick="event.preventDefault();closeSidebar();setTimeout(()=>window.GMTLists&&GMTLists.open(),250);" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><span style="font-size:20px;width:20px;text-align:center;line-height:1">📋</span><span>قوائمي</span></a>
             <!-- (2026-10-05 ش) البند ٩٥: «الفروع والوكلاء والأخبار لا وجود لها في المتجر» — من صفحات الموقع نفسها (مصدرٌ واحد) -->
             <!-- (٨ ث — تدقيق المطابقة) كان رابطاً لقسم الوكلاء في الموقع وحده (ويختفي بلا وكلاء)، بلا قائمةٍ لفروعنا.
@@ -2308,6 +2311,9 @@ function _applyDeepLink() {
     /* (٧ ي-٤) 🔍 في رأس الموقع يفتح «ابحث عن منتج» هنا مباشرةً */
     if (hash === '#search') { history.replaceState(null, '', location.pathname + location.search); setTimeout(openSearchBar, 300); return; }
     /* (TASK-A0518) store.html#cam=r8&k=battery ⇒ «إكسسوارات كاميرتك» على الكاميرا والنوع */
+    /* (TASK-A0522) store.html#studio=podcast&t=mid ⇒ «جهّز استوديوك» على النوع والمستوى */
+    const sm = hash.match(/^#studio=([a-z]+)(?:&t=([a-z]+))?/);
+    if (sm) { setTimeout(() => { try { window.GMTStudio && GMTStudio.open({ type: sm[1], tier: sm[2] || 'mid' }); } catch (_) {} }, 400); return; }
     const cm = hash.match(/^#cam=([^&]+)(?:&k=([a-z]+))?/);
     if (cm) { setTimeout(() => { try { window.GMTCamFinder && GMTCamFinder.open({ cam: decodeURIComponent(cm[1]), kind: cm[2] || 'all' }); } catch (_) {} }, 400); return; }
     /* store.html#list=<اسم>~<id>.<qty>,… ⇒ قائمة مشتريات مشاركة (للقراءة) مع «احفظها عندي» و«أضف الكلّ للسلّة» */
