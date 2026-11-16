@@ -320,6 +320,7 @@ window.GMT_PUBLIC = 1;</script>
   <script>window.GMT_COMPAT_NOLOAD = true;</script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-kit.js?v=20261116g"></script>
+  <script src="gmt-lists.js?v=20261116h"></script>   <!-- «📋 قوائمي»: قوائم تجميع المشتريات + مشاركتها برابط #list= -->
   <script src="gmt-camfinder.js?v=20261116e"></script>   <!-- (TASK-A0518 · المالك seq 744–745) «🎯 إكسسوارات كاميرتك» -->   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shipping-offices.js?v=20261112h" defer></script>   <!-- (TASK-0361 · seq 637) بنك مكاتب شركات الشحن في اختيار مكان الوصول -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
@@ -699,6 +700,7 @@ function storeCouponNote() {
 const MOCK = { categories: [], products: [], banners: [], comments: [] };
 const STORE_LAST_GOOD = 'gmt_store_last_good_v1';
 // ── STORE STATE ────────────────────────────────
+window.__gmtListQty = () => { try { return _pmQty || 1; } catch (_) { return 1; } };   /* gmt-lists.js: كمّية نافذة المنتج عند «أضف لقائمة» */
 window.__gmtStore = () => store;   /* (TASK-A0518) الوحدات الخارجية (gmt-camfinder.js) تقرأ المتجر من هنا — store معرّف بـlet */
 let store = {
     categories: [],
@@ -2223,6 +2225,7 @@ function createModals(){
                 class="w-full bg-primary text-white rounded-[10px] py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-red-800 transition-colors active:scale-[0.98]">
                 <i class="ph ph-shopping-cart text-lg"></i><span>إضافة للسلة</span>
             </button>
+            <button type="button" id="product-modal-list-btn" onclick="window.GMTLists&&GMTLists.openAdd(_pmId)" class="w-full rounded-[10px] py-2.5 mt-2 font-bold flex items-center justify-center gap-2 bg-light text-dark active:scale-[0.98]" style="font-size:14px">📋 أضف لقائمة</button>
         </div>
     </div>`;
     wrap.appendChild(prod);
@@ -2246,6 +2249,7 @@ function createModals(){
                  هذا النظام. -->
             <a href="track_order.html" target="_blank" onclick="closeSidebar();" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><i class="ph ph-map-pin" style="font-size:20px;color:#3b82f6;"></i><span>تتبع الطلب</span></a>
             <a href="#" onclick="event.preventDefault();closeSidebar();setTimeout(()=>window.GMTCamFinder&&GMTCamFinder.open(),250);" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><i class="ph ph-camera" style="font-size:20px;color:#D5001C;"></i><span>إكسسوارات كاميرتك</span></a>
+            <a href="#" id="sidebar-lists-link" onclick="event.preventDefault();closeSidebar();setTimeout(()=>window.GMTLists&&GMTLists.open(),250);" style="display:flex;align-items:center;gap:12px;padding:14px 20px;color:#111;text-decoration:none;font-size:14px;font-weight:500;transition:background 0.2s;" onmouseover="this.style.background='#F5F5F5'" onmouseout="this.style.background=''"><span style="font-size:20px;width:20px;text-align:center;line-height:1">📋</span><span>قوائمي</span></a>
             <!-- (2026-10-05 ش) البند ٩٥: «الفروع والوكلاء والأخبار لا وجود لها في المتجر» — من صفحات الموقع نفسها (مصدرٌ واحد) -->
             <!-- (٨ ث — تدقيق المطابقة) كان رابطاً لقسم الوكلاء في الموقع وحده (ويختفي بلا وكلاء)، بلا قائمةٍ لفروعنا.
                  الآن نافذةٌ هنا: فروعنا (كما تُضاف في أدمن المتجر ⇠ الفروع) مجمّعةً بالمحافظة، ومنها رابط الوكلاء المعتمدين. -->
@@ -2306,6 +2310,9 @@ function _applyDeepLink() {
     /* (TASK-A0518) store.html#cam=r8&k=battery ⇒ «إكسسوارات كاميرتك» على الكاميرا والنوع */
     const cm = hash.match(/^#cam=([^&]+)(?:&k=([a-z]+))?/);
     if (cm) { setTimeout(() => { try { window.GMTCamFinder && GMTCamFinder.open({ cam: decodeURIComponent(cm[1]), kind: cm[2] || 'all' }); } catch (_) {} }, 400); return; }
+    /* store.html#list=<اسم>~<id>.<qty>,… ⇒ قائمة مشتريات مشاركة (للقراءة) مع «احفظها عندي» و«أضف الكلّ للسلّة» */
+    const lm = hash.match(/^#list=(.*)$/);
+    if (lm) { setTimeout(() => { try { window.GMTLists && GMTLists.openShared(lm[1]); } catch (_) {} }, 400); return; }
     const pk = hash.match(/^#package=(.+)$/);
     if (pk) { _openPackageLink(decodeURIComponent(pk[1])); return; }
     const m = hash.match(/^#product=(.+)$/);
