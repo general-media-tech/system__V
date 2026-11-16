@@ -4,7 +4,7 @@
    المالك: «الطقم لسى عم يتصرف بغباء … ادرس كل منتج وكيف تربطه» · «درون نيو عم تروح غراض لغير شي · ميني 3 عم ياخد معها RC موشن او اشياء مو الها».
    سبب الغباء (قِيس على كلّ منتجات المتجر): الربط كان بقواعد أقسام عامّة («أيّ درون ⇐ أيّ حقيبة درون») ومطابقة أكواد بالاحتواء
    («S600» داخل «EOS600D» ⇒ إضاءة تأخذ عدسات) وبلا نظر للمخزون. القواعد هنا:
-     ① لا يُقترح إلّا المتوفّر في المخزون.
+     ① لا علاقة للكمية (المالك seq 762): يُقترح ما له سعر، متوفّراً أو لا.
      ② ما يتوقّف على الموديل يُربط بالموديل المكتوب عليه بالضبط: ملحق الدرون باسم موديله (Avata ≠ Avata 2 · Mini 3 ≠ Mini 3 Pro إلّا إن ذُكرا معاً) ·
         بطارية/شاحن/قبضة الكاميرا من دليل التوافقيات (GMTCompatKB) · هود/غطاء/فلتر العدسة من الدليل نفسه.
      ③ مطابقة الكود بالمساواة لا بالاحتواء.
@@ -69,7 +69,8 @@
     var cats = function (p) { return (p.category_ids && p.category_ids.length ? p.category_ids : [p.category_id]).map(catPath); };
     var inSub = function (p, t, sn) { return cats(p).some(function (c) { return c[0] === t && c[1] === sn; }); };
     var inTop = function (p, t) { return cats(p).some(function (c) { return c[0] === t; }); };
-    var P = (ctx.products || []).filter(function (p) { return p.id !== prod.id && parseFloat(p.price || 0) > 0 && !Array.isArray(p.package_items) && parseInt(p.stock, 10) > 0; });   /* ① المتوفّر فقط */
+    /* (المالك seq 762 «الطقم ماله علاقة بالكمية … المتجر ما بيعرف كمية») لا شرط مخزون: يُقترح ما يلزم المنتج بسعره، متوفّراً أو لا */
+    var P = (ctx.products || []).filter(function (p) { return p.id !== prod.id && parseFloat(p.price || 0) > 0 && !Array.isArray(p.package_items); });
     var cp = catPath(prod.category_id), top = cp[0] || '', sub = cp[1] || '', nm = (prod.name || '') + ' ' + (prod.short_name || '');
     var rank = function (p) { return ((p.images || []).length ? 100 : 0) - parseFloat(p.price || 0) / 100; };
     var out = [], seen = {};

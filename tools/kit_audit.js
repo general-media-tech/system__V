@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* (TASK-A0509 · المالك seq 753–754 «ليش عم تطلع هيك اخطاء وما عم تكتشفها؟») فحص «كمّل طقمك» على **كلّ** منتجات المتجر الحيّ قبل أيّ نشر.
    الاستعمال: node tools/kit_audit.js [--dump out.json] [--show "جزء من اسم القسم"]
-   يخرج بـ1 إن وُجدت مخالفة: مقترح نافد · ملحق درون لموديل آخر · ريموت/نظّارة لدرون · عدسة/كاميرا لغير كاميرا · MicroSD لكاميرا كانون ·
+   يخرج بـ1 إن وُجدت مخالفة: ملحق درون لموديل آخر · ريموت/نظّارة لدرون · عدسة/كاميرا لغير كاميرا · MicroSD لكاميرا كانون ·
    تريغر/ديفيوزر يأخذ ستاند · مقترح مكرّر أو المنتج نفسه. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -24,7 +24,6 @@ const arg = k => { const i = process.argv.indexOf(k); return i > 0 ? process.arg
     for (const k of kit) {
       const [kt, ks] = catPath(k.category_id), v = m => bad.push([m, p.name, k.name]);
       if (k.id === p.id || ids.has(k.id)) v('مكرّر أو المنتج نفسه'); ids.add(k.id);
-      if (!(parseInt(k.stock, 10) > 0)) v('مقترح نافد');
       if (/الدرونات/.test(top) && sub === 'درونات') {
         if (Kit.DRONE_NO.test(k.name.toLowerCase())) v('ريموت/نظّارة لدرون');
         const dm = Kit.droneModels(p.name).first, a = Kit.droneModels(k.name);

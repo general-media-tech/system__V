@@ -24,7 +24,8 @@ const kit = id => Kit.complements(P.find(p => p.id === id), ctx).map(p => p.id);
 
 let k = kit('neo');
 ok(k.includes('propneo') && k.includes('bagall'), 'Neo ⇐ مراوح Neo والحقيبة العامّة: ' + k.join(' · '));
-ok(!k.includes('bagflip') && !k.includes('bagavata') && !k.includes('propneo2') && !k.includes('batneoOOS'), 'Neo لا يأخذ حقيبة Flip ولا حقيبة Avata ولا مراوح Neo 2 ولا بطارية نافدة');
+ok(!k.includes('bagflip') && !k.includes('bagavata') && !k.includes('propneo2'), 'Neo لا يأخذ حقيبة Flip ولا حقيبة Avata ولا مراوح Neo 2');
+ok(k.includes('batneoOOS'), '(seq 762 «الطقم ماله علاقة بالكمية») بطارية Neo تُقترح ولو كانت نافدة');
 k = kit('mini3');
 ok(k.includes('guard3') && !k.includes('rcm') && !k.includes('rcn1') && !k.includes('rcs'), 'Mini 3 ⇐ واقي مراوحه · بلا RC Motion ولا أيّ ريموت: ' + k.join(' · '));
 ok(!k.includes('bat24') && !k.includes('pad'), 'Mini 3 لا يأخذ بطارية Mini 2/4K ولا ملحقاً بلا موديل');
