@@ -1,0 +1,180 @@
+diff --git a/backup.html b/backup.html
+index 272658ac..8f3226f4 100644
+--- a/backup.html
++++ b/backup.html
+@@ -130,8 +130,8 @@ const DBS = {
+   store:{ name:'المتجر', url:'https://tupldwylzrkjzqtaiscv.supabase.co',
+     key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGxkd3lsenJranp0YWlzY3YiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc1MDc4ODcwOCwiZXhwIjoyMDY2MzY0NzA4fQ.eKPRvbcnDGYYnhcMuqmoWuOu-Vjnvo8FWMkjcLqKZQg',
+     tables:['gmt_store'], bucket:'gmt-images' },
+-  war:  { name:'الكفالة', url:'https://abppuwylukzpqckazegk.supabase.co',
+-    key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
++  war:  { name:'الكفالة', url:'https://ysawzwtmodkqqbqoiojj.supabase.co',
++    key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     tables:['warranties','contracts'] },
+   /* (seq 202) من GMT_DB.SITE (gmt-config.js) — قاعدة الموقع الخاصة؛ كان المفتاح المنسوخ هنا قديماً مرفوضاً (401) */
+   site: { name:'الموقع', url:(window.GMT_DB && GMT_DB.SITE && GMT_DB.SITE.url) || 'https://znpakcaizvkwqzhosxvm.supabase.co',
+diff --git a/gmt-config.js b/gmt-config.js
+index cf429e5d..0575c21c 100644
+--- a/gmt-config.js
++++ b/gmt-config.js
+@@ -34,10 +34,11 @@
+       key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+ 
+-    /* قاعدة الكفالات — إنشاء الكفالة · إدارتها · البحث عنها */
++    /* الكفالات — إنشاء الكفالة · إدارتها · البحث عنها. (TASK-A0525 · 16 ت2) نُقلت جداولها إلى القاعدة الرئيسية لأنّ مشروعها
++       المستقلّ كان يتوقّف لقلّة الاستعمال ⇒ نفس رابط ومفتاح MAIN. الاسم WARRANTY باقٍ كي لا تتغيّر الصفحات التي تستعمله. */
+     WARRANTY: {
+-      url: 'https://abppuwylukzpqckazegk.supabase.co',
+-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
++      url: 'https://ysawzwtmodkqqbqoiojj.supabase.co',
++      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+ 
+     /* قاعدة المتجر — المنتجات · الطلبات · العروض */
+diff --git a/gmt-core.js b/gmt-core.js
+index 3ab6365a..cbe46091 100644
+--- a/gmt-core.js
++++ b/gmt-core.js
+@@ -437,10 +437,11 @@
+       key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+ 
+-    /* قاعدة الكفالات — إنشاء الكفالة · إدارتها · البحث عنها */
++    /* الكفالات — إنشاء الكفالة · إدارتها · البحث عنها. (TASK-A0525 · 16 ت2) نُقلت جداولها إلى القاعدة الرئيسية لأنّ مشروعها
++       المستقلّ كان يتوقّف لقلّة الاستعمال ⇒ نفس رابط ومفتاح MAIN. الاسم WARRANTY باقٍ كي لا تتغيّر الصفحات التي تستعمله. */
+     WARRANTY: {
+-      url: 'https://abppuwylukzpqckazegk.supabase.co',
+-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
++      url: 'https://ysawzwtmodkqqbqoiojj.supabase.co',
++      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+ 
+     /* قاعدة المتجر — المنتجات · الطلبات · العروض */
+diff --git a/guarantee.html b/guarantee.html
+index 64bd042a..ae23618a 100644
+--- a/guarantee.html
++++ b/guarantee.html
+@@ -807,8 +807,8 @@ window.GMT_INTERNAL = 1;</script>
+         // =====================================================
+         // ⚙️ SUPABASE CONFIGURATION
+         // =====================================================
+-        const SUPABASE_URL = 'https://abppuwylukzpqckazegk.supabase.co';
+-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo';
++        const SUPABASE_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
++        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
+         const TABLE_NAME = 'warranties';
+         const LOGS_TABLE_NAME = 'activation_logs';
+ 
+@@ -1027,7 +1027,25 @@ window.GMT_INTERNAL = 1;</script>
+         let currentActivationData = null;
+ 
+         // --- Save activation fields to Supabase (generic PATCH helper) ---
++        /* (TASK-A0525) أدلّة التفعيل (التوقيع · IP · بصمة الجهاز) تُحفظ في سجلّ التفعيل وحده (إضافة فقط · لا يقرؤه الزوّار)
++           ولا تُكتب في جدول الكفالات المقروء ⇒ تُنزع من التعديل هنا. التوقيع يُقرأ لصاحب الرابط عبر gmt_warranty_signature. */
++        const EVIDENCE_KEYS = ['signature_base64', 'ip_address', 'user_agent', 'browser_name', 'browser_version', 'operating_system',
++            'device_type', 'language', 'timezone', 'screen_width', 'screen_height', 'referrer', 'biometric_credential_id'];
++        function withoutEvidence(o) { const r = Object.assign({}, o); EVIDENCE_KEYS.forEach(k => { delete r[k]; }); return r; }
++        async function supabaseWarrantySignature(shortId) {
++            try {
++                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/gmt_warranty_signature`, {
++                    method: 'POST', mode: 'cors',
++                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
++                    body: JSON.stringify({ p_short_id: shortId })
++                });
++                if (!res.ok) return null;
++                const v = await res.json();
++                return typeof v === 'string' && v ? v : null;
++            } catch (_) { return null; }
++        }
+         async function supabaseActivateWarranty(shortId, updateData) {
++            updateData = withoutEvidence(updateData);
+             const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?short_id=eq.${encodeURIComponent(shortId)}`, {
+                 method: 'PATCH',
+                 mode: 'cors',
+@@ -1399,6 +1417,13 @@ window.GMT_INTERNAL = 1;</script>
+                     biometric_credential_id: biometricCredentialId
+                 };
+ 
++                /* (TASK-A0525) السجلّ هو مخزن الدليل الوحيد الآن ⇒ يُكتب أوّلاً وينجح قبل تعليم الكفالة «مفعَّلة» */
++                const logged = await supabaseInsertActivationLog({
++                    short_id: currentShortId, customer_name: currentActivationData.c, product_name: currentActivationData.p,
++                    serial_no: currentActivationData.s, invoice_no: currentActivationData.inv, warranty_type: currentActivationData.t,
++                    ...activationPayload
++                });
++                if (!logged) throw new Error('تعذّر حفظ سجلّ التفعيل');
+                 await supabaseActivateWarranty(currentShortId, activationPayload);
+ 
+                 // Merge into the local data object so the certificate view reflects the new status
+@@ -1607,16 +1632,7 @@ window.GMT_INTERNAL = 1;</script>
+         // shouldn't hold up the customer's success screen: the immutable audit log,
+         // the signed PDF contract, and the Telegram alert to the shop.
+         async function logAndNotifyActivation(data, shortId, payload) {
+-            // 1) Permanent audit log row (separate table, insert-only)
+-            supabaseInsertActivationLog({
+-                short_id: shortId,
+-                customer_name: data.c,
+-                product_name: data.p,
+-                serial_no: data.s,
+-                invoice_no: data.inv,
+-                warranty_type: data.t,
+-                ...payload
+-            });
++            // 1) سجلّ التفعيل الدائم كُتب قبل تعليم الكفالة (TASK-A0525) — لا يُكرَّر هنا
+ 
+             // 2) Build the signed contract PDF and send it to Telegram
+             try {
+@@ -1695,6 +1711,8 @@ window.GMT_INTERNAL = 1;</script>
+             if (dataParam) {
+                 try {
+                     const row = await supabaseFetch(dataParam);
++                    /* (TASK-A0525) التوقيع لم يعد في صفّ الكفالة ⇒ يُجلب لهذه الكفالة وحدها */
++                    if (row && row.activation_status === 'activated' && !row.signature_base64) row.signature_base64 = await supabaseWarrantySignature(row.short_id);
+                     if (row) {
+                         const data = {
+                             c: row.customer_name,
+diff --git a/guarantee_admin.html b/guarantee_admin.html
+index 5c2a432f..65f8b747 100644
+--- a/guarantee_admin.html
++++ b/guarantee_admin.html
+@@ -125,8 +125,8 @@ window.GMT_INTERNAL = 1;</script>
+ 
+     <script>
+         // ═══ إعدادات قاعدة الكفالة ═══
+-        const SUPABASE_URL = 'https://abppuwylukzpqckazegk.supabase.co';
+-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo';
++        const SUPABASE_URL = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
++        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
+         const TABLE_NAME = 'warranties';
+ 
+         // كلمة سر الإدارة — غيّرها لكلمتك. (البوّابة السيادية تمرّر ?sovereign=1 لتجاوزها)
+diff --git a/js/app.js b/js/app.js
+index 013a939a..6a7e1ab7 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -17,8 +17,8 @@
+       key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+     warranty: { // جلب الكفالة + جدول سجل العقود contracts
+-      url: 'https://abppuwylukzpqckazegk.supabase.co',
+-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
++      url: 'https://ysawzwtmodkqqbqoiojj.supabase.co',
++      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+     },
+   };
+ 
+diff --git a/search.html b/search.html
+index d670a983..050eeabd 100644
+--- a/search.html
++++ b/search.html
+@@ -225,8 +225,8 @@ window.GMT_PUBLIC = 1;</script>
+         // =====================================================
+         // ⚙️ SUPABASE — نفس إعدادات نظام الكفالة
+         // =====================================================
+-        const SUPABASE_URL     = 'https://abppuwylukzpqckazegk.supabase.co';
+-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo';
++        const SUPABASE_URL     = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
++        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
+         const TABLE_NAME        = 'warranties';
+         // =====================================================
+ 
