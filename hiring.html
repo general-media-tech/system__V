@@ -507,7 +507,7 @@ button{font-family:inherit;cursor:pointer}
   <script src="gmt-brand.js?v=20261029z4"></script>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
-  <script src="gmt-sound.js?v=20261101o" defer></script>
+  <script src="gmt-sound.js?v=20261116k" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
 </head>
 <body>
@@ -1978,7 +1978,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-selfcheck.js?v=20261108f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261116j"></script>
+<script src="gmt-whatsnew.js?v=20261116k"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
@@ -2006,23 +2006,42 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){
   function arabic(n){ return String(n).replace(/[0-9]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'[+d];}); }
   var reduce=false; try{ reduce=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  /* عدّاداتٌ دارت والصوت مقفول (المتصفّح يمنع الصوت قبل أوّل لمسة) ⇒ عند أوّل لمسة يُعاد عدُّ الظاهر منها مرّةً بصوته */
+  var silent=[], replayed=false;
+  function replay(){
+    if(replayed) return; replayed=true;
+    setTimeout(function(){
+      try{ if(!(window.GMTSound && GMTSound.ready && GMTSound.ready())) return; }catch(_){ return; }
+      silent.splice(0).forEach(function(el){
+        var r=el.getBoundingClientRect(); if(r.bottom<=0 || r.top>=innerHeight) return;
+        delete el.dataset.counted; run(el);
+      });
+    },120);
+  }
+  ['pointerdown','keydown','touchstart'].forEach(function(ev){ addEventListener(ev, replay, {once:true, passive:true, capture:true}); });
   function run(el){
     if(el.dataset.counted) return; el.dataset.counted='1';
     var to=parseInt(el.getAttribute('data-count'),10)||0;
     var suf=el.getAttribute('data-suffix')||'';
     if(reduce){ el.textContent=arabic(to)+suf; return; }
-    var dur=2200; el.classList.add('counting'); var t0=performance.now(), beeps=0, lastBeep=0;
+    /* (TASK-A0523 · المالك seq 789 «أيضاً الصوت تبع العدّاد») الصوت كان ١٢ نقرة في أوّل ثانية ثمّ يسكت والرقم ما زال يدور، وكلّ عدّاد ينقر
+       فوق الآخر، وإن منع المتصفّح الصوت تُحفَظ نقرةٌ تُسمَع لاحقاً عند أوّل لمسة. الآن: النقرة تتبع الرقم نفسه — على ١٦ نقرة
+       (سريعة أوّله وتتباطأ مع تباطؤ الرقم حتى آخره) · عدّاد واحد «يملك» الصوت في كلّ مرّة · بلا حفظ ولا تأخير (queue:false). */
+    var dur=2200; el.classList.add('counting'); var t0=performance.now(), step=0, STEPS=16;
+    try{ if(window.GMTSound && GMTSound.isOn() && GMTSound.ready && !GMTSound.ready()) silent.push(el); }catch(_){}
+    var id=(el.__cnt=(el.__cnt||0)+1);   /* إعادة العدّ تُلغي الدورة السابقة على الرقم نفسه */
+    var owner=!window.__gmtCountSnd || window.__gmtCountSnd===el; if(owner) window.__gmtCountSnd=el;
+    function snd(n){ if(!owner) return; try{ window.GMTSound && GMTSound.play(n,{queue:false}); }catch(_){} }
     function tick(now){
+      if(el.__cnt!==id) return;
       var p=Math.min(1,(now-t0)/dur);
       var e=1-Math.pow(1-p,3);
       var v=Math.round(to*e);
       el.textContent=arabic(v)+suf;
-      if(now-lastBeep>95 && beeps<12 && p<0.96){
-        lastBeep=now; beeps++;
-        try{ window.GMTSound && GMTSound.play('tick'); }catch(_){}
-      }
+      var q=1-Math.pow(1-p,1.5);   /* إيقاع النقر: أسرع أوّله ويتباطأ، لكنّه أبطأ تباطؤاً من الرقم كي يبقى مسموعاً حتى آخر حركة */
+      if(p<1 && q*STEPS>=step+1){ step=Math.floor(q*STEPS); snd('tick'); }
       if(p<1) requestAnimationFrame(tick);
-      else { el.classList.remove('counting'); try{ window.GMTSound && GMTSound.play('pop'); }catch(_){} }
+      else { el.classList.remove('counting'); snd('pop'); if(window.__gmtCountSnd===el) window.__gmtCountSnd=null; }
     }
     requestAnimationFrame(tick);
   }

@@ -1079,6 +1079,7 @@
     toggle: function () { setOn(!isOn()); },
     isOn: isOn, list: Object.keys(SOUNDS), labels: LABELS,
     mount: mountToggle, gallery: gallery,
+    ready: function () { return !!unlocked && isOn(); },   /* (TASK-A0523) هل يُسمَع الصوت الآن (بعد أوّل لمسة)؟ — عدّادات التوظيف تعيد العدّ بصوت إن لم يكن */
     last: function () { return lastCueName; },   /* (TASK-0032) آخر حدثٍ صوتيّ — للاختبار */
     /* (OWN-09#50 · OWN-12#33) الواجهة العامّة */
     emit: emit, fire: fire, setVolume: setVolume, getVolume: function () { return vol; },
