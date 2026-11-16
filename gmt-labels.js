@@ -10,7 +10,11 @@
     4: { cols: 4, rows: 16, label: '٤ بالصف · ٦٤ بالورقة (52.5×18.5mm)' },
     5: { cols: 5, rows: 20, label: '٥ بالصف · ١٠٠ بالورقة (42×14.8mm)' },
     3: { cols: 3, rows: 13, label: '٣ بالصف · ٣٩ بالورقة (70×22.8mm)' },
+    /* (TASK-A0512 · المالك seq 757 «طباعة الباركود كتير مخلي الحجم كبير انا طلبت نصغره») مقاسان أصغر — والافتراضي صار ٦ بالصف */
+    6: { cols: 6, rows: 24, label: '٦ بالصف · ١٤٤ بالورقة (35×12.4mm) — صغير' },
+    7: { cols: 7, rows: 27, label: '٧ بالصف · ١٨٩ بالورقة (30×11mm) — الأصغر' },
   };
+  const DEFAULT_LAYOUT = '6', ORDER = ['7', '6', '5', '4', '3'];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function expand(items) {
@@ -44,6 +48,7 @@
   .lb { overflow: hidden; display: flex; flex-direction: column; align-items: stretch; justify-content: center;
         padding: 0.6mm 1.2mm; border: 0.1mm dotted #d6d6d6; }
   .nm { font-size: 6.6pt; font-weight: 800; line-height: 1.15; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+  .sm .lb { padding: 0.5mm 1.1mm; } .sm .nm { font-size: 5.4pt; }
   .bc { flex: 1; min-height: 0; display: flex; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
@@ -68,20 +73,22 @@
 <script src="${base}lib/JsBarcode.all.min.js?v=20261003"><\/script>
 <script>
 (function () {
-  var L = ${data}, LAY = ${lay};
+  var L = ${data}, LAY = ${lay}, DEF = '${DEFAULT_LAYOUT}', ORDER = ${JSON.stringify(ORDER)};
   var sel = document.getElementById('lay');
-  Object.keys(LAY).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = LAY[k].label; sel.appendChild(o); });
-  sel.value = '4';
+  ORDER.filter(function (k) { return LAY[k]; }).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = LAY[k].label; sel.appendChild(o); });
+  /* آخر مقاس اختاره المستخدم يُحفظ على جهازه — وإلّا الصغير (٦ بالصف) */
+  var saved = ''; try { saved = localStorage.getItem('gmt_labels_layout') || ''; } catch (e) {}
+  sel.value = LAY[saved] ? saved : DEF;
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var grp = document.getElementById('grp'), hasG = L.some(function (x) { return x.group; });
   if (hasG) grp.hidden = false;
   function cell(x) { return '<div class="lb"><div class="nm">' + esc(x.name) + '</div>' +
     (x.barcode ? '<div class="bc"><svg data-c="' + esc(x.barcode) + '"></svg></div>' : '<div class="nobc">بلا باركود</div>') + '</div>'; }
   function draw() {
-    var lay = LAY[sel.value] || LAY[4], per = lay.cols * lay.rows, box = document.getElementById('pages'), html = '', pages = 0;
+    var lay = LAY[sel.value] || LAY[DEF], per = lay.cols * lay.rows, box = document.getElementById('pages'), html = '', pages = 0;
     if (!hasG) {
       for (var p = 0; p < Math.max(1, Math.ceil(L.length / per)); p++) {
-        html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
         for (var i = p * per; i < Math.min(L.length, (p + 1) * per); i++) html += cell(L[i]);
         html += '</div>';
       }
@@ -105,7 +112,7 @@
       });
       if (cu.length) pg.push(cu);
       pg.forEach(function (rs) {
-        html += '<div class="page" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
         rs.forEach(function (r) {
           if (r.blank) html += '<div class="gsp"></div>';
           else if (r.h != null) html += '<div class="gh">📦 ' + esc(r.h || 'بلا مجموعة') + ' — ' + r.n + ' ملصق</div>';
@@ -123,7 +130,7 @@
       catch (e) { s.parentNode.innerHTML = '<div class="nobc">باركود غير صالح</div>'; }
     });
   }
-  sel.onchange = draw; grp.onchange = draw;
+  sel.onchange = function () { try { localStorage.setItem('gmt_labels_layout', sel.value); } catch (e) {} draw(); }; grp.onchange = draw;
   if (window.JsBarcode) draw(); else window.addEventListener('load', draw);
 })();
 <\/script></body></html>`;
