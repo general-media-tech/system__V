@@ -142,7 +142,10 @@
     if (codes.length) best(P.filter(function (p) { var c = catPath(p.category_id); return !sameType(p) && p.compat && !/^كاميرات$|عدسات|سيغما/.test(c[1] || '') && (!/الدرونات/.test(c[0]) || /الدرونات/.test(top)) && fitsCode(p.compat, codes); }), 3);
     var rule = null; for (var i = 0; i < RULES.length; i++) if (RULES[i][0].test(top) && RULES[i][1].test(sub)) { rule = RULES[i]; break; }
     var ptxt = AR(nm + ' ' + (prod.compat || ''));
+    /* (المالك seq 783) الطقم ما يحتاجه المنتج لا ما يشبهه: عصا سيلفي/ترايبود بإضاءة (Q05s · Q07 · Q11s) فيها الترايبود وحامل الهاتف أصلاً ⇒ لا ترايبود آخر ولا رأسية هاتف */
+    var hasStand = /عصا|selfie|سيلفي|tripod|ترايبود|^\s*q\d/i.test(prod.name || '');
     if (rule) rule[2].forEach(function (r) {
+      if (hasStand && /ترايبود ذكي|هولدرات ومساند/.test(r[1])) return;
       best(P.filter(function (p) {
         if (!inSub(p, r[0], r[1]) || (r[2] && !r[2].test(p.name || ''))) return false;
         if (/لايتن|lightning|ايفون|iphone/i.test(AR(p.name)) && !/lightning|لايتن|ايفون|iph/.test(ptxt)) return false;   /* وصلة آيفون لمن يذكر آيفون فقط */
