@@ -36,6 +36,14 @@ const store = { categories: cats, banners: [], offers: [], branches: [], product
   const many = await pg.evaluate(() => document.querySelectorAll('#gcf [data-cam]').length);
   ok(many > 1, '«غيّر الكاميرا» يعرض القائمة كاملة: ' + many);
   ok(await pg.evaluate(() => !!document.getElementById('camfinder-btn')), 'زرّ «🎯 إكسسوارات كاميرتك» في شريط البحث');
+  /* (TASK-A0519) الشارة: بعد اختيار R8 ⇒ «✓ يناسب R8» على بطاقة LP-E17 لا على LP-E6 · «انسَ كاميرتي» يزيلها */
+  await pg.evaluate(() => { GMTCamFinder.close(); localStorage.setItem('gmt_my_cam', 'r8'); renderProducts(); }); await pg.waitForTimeout(600);
+  const bdg = await pg.evaluate(() => { const b = (window.GMTCamFinder.badge); return { e17: /R8/.test(b(store.products.find(p => p.id === 'e17'))), e6: !!b(store.products.find(p => p.id === 'e6')), mug: !!b(store.products.find(p => p.id === 'mug')), cards: document.querySelectorAll('[data-camfit]').length }; });
+  ok(bdg.e17 && !bdg.e6 && !bdg.mug && bdg.cards > 0, 'شارة «✓ يناسب R8» على المتوافق فقط وتظهر على البطاقات: ' + JSON.stringify(bdg));
+  await pg.evaluate(() => { GMTCamFinder.open(); }); await pg.waitForTimeout(300);
+  await pg.evaluate(() => document.querySelector('#gcf [data-gcf-forget]').click()); await pg.waitForTimeout(600);
+  const gone = await pg.evaluate(() => ({ ls: localStorage.getItem('gmt_my_cam'), cards: document.querySelectorAll('[data-camfit]').length }));
+  ok(!gone.ls && gone.cards === 0, '«انسَ كاميرتي» يمسح الكاميرا والشارات: ' + JSON.stringify(gone));
   const errs = (o.errs || []).filter(x => !/vibrate|favicon|net::ERR|Failed to load resource/i.test(x));
   ok(!errs.length, 'بلا أخطاء JS: ' + JSON.stringify(errs.slice(0, 2)));
   await o.browser.close();

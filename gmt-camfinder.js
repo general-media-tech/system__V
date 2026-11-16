@@ -141,7 +141,7 @@
     var q = keyOf(S.q), shown = list.filter(function (c) { return !q || c.key.indexOf(q) >= 0; });
     /* كاميرا مختارة ⇒ القائمة الطويلة تُطوى إلى الكاميرا نفسها + «غيّر» — النتائج تظهر فوراً بلا تمرير */
     if (S.cam && !q && !S.pick) shown = [S.cam];
-    h += '<div class="chips" data-gcf-cams>' + (shown.length ? shown.map(function (c) { return '<button type="button" class="chip' + (S.cam && S.cam.key === c.key ? ' on' : '') + '" data-cam="' + esc(c.key) + '">' + esc(c.name) + '</button>'; }).join('') : '<div class="empty">ما في كاميرا بهالاسم عنا ملحقاتها — <b>اسألنا ومنأمّنلك ياها</b></div>') + (S.cam && !q && !S.pick ? '<button type="button" class="chip" data-gcf-change style="border-style:dashed">غيّر الكاميرا</button>' : '') + '</div>';
+    h += '<div class="chips" data-gcf-cams>' + (shown.length ? shown.map(function (c) { return '<button type="button" class="chip' + (S.cam && S.cam.key === c.key ? ' on' : '') + '" data-cam="' + esc(c.key) + '">' + esc(c.name) + '</button>'; }).join('') : '<div class="empty">ما في كاميرا بهالاسم عنا ملحقاتها — <b>اسألنا ومنأمّنلك ياها</b></div>') + (S.cam && !q && !S.pick ? '<button type="button" class="chip" data-gcf-change style="border-style:dashed">غيّر الكاميرا</button><button type="button" class="chip" data-gcf-forget style="border-style:dashed;color:#6b7280">✕ انسَ كاميرتي</button>' : '') + '</div>';
     if (S.cam) {
       h += '<div class="lbl">٣ · شو بدّك؟</div><div class="chips">' + KINDS.map(function (k) { return '<button type="button" class="chip' + (S.kind === k[0] ? ' on' : '') + '" data-kind="' + k[0] + '">' + k[1] + '</button>'; }).join('') + '</div>';
       var res = match(S.cam, S.kind);
@@ -155,8 +155,9 @@
     } else body.innerHTML = h;
     var inp = body.querySelector('[data-gcf-q]');
     inp.oninput = function () { S.q = inp.value; var pos = inp.selectionStart; render(); var n = el().querySelector('[data-gcf-q]'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} };
-    body.querySelectorAll('[data-cam]').forEach(function (b) { b.onclick = function () { S.cam = list.filter(function (c) { return c.key === b.dataset.cam; })[0] || null; S.kind = 'all'; S.pick = false; S.q = ''; save(); render(); }; });
+    body.querySelectorAll('[data-cam]').forEach(function (b) { b.onclick = function () { S.cam = list.filter(function (c) { return c.key === b.dataset.cam; })[0] || null; S.kind = 'all'; S.pick = false; S.q = ''; save(); render(); try { if (g.GMTCamFinder.onCam) g.GMTCamFinder.onCam(); } catch (_) {} }; });
     { var ch = body.querySelector('[data-gcf-change]'); if (ch) ch.onclick = function () { S.pick = true; render(); }; }
+    { var fg = body.querySelector('[data-gcf-forget]'); if (fg) fg.onclick = function () { forget(); S.cam = null; S.pick = true; render(); try { if (g.GMTCamFinder.onCam) g.GMTCamFinder.onCam(); } catch (_) {} }; }
     body.querySelectorAll('[data-kind]').forEach(function (b) { b.onclick = function () { S.kind = b.dataset.kind; render(); }; });
   }
   function open(opt) {
@@ -164,9 +165,25 @@
     var list = cameras(), want = keyOf(opt.cam || saved());
     S.cam = list.filter(function (c) { return c.key === want; })[0] || S.cam || null;
     S.kind = KINDS.some(function (k) { return k[0] === opt.kind; }) ? opt.kind : (S.kind || 'all');
+    S.pick = !S.cam; S.q = '';   /* كلّ فتح يبدأ مطويّاً على الكاميرا المحفوظة */
     render(); el().classList.add('on'); document.body.style.overflow = 'hidden';
   }
   function close(keep) { var m = document.getElementById('gcf'); if (m) m.classList.remove('on'); if (!keep) document.body.style.overflow = ''; }
 
-  g.GMTCamFinder = { open: open, close: close, cameras: cameras, match: match, reset: reset, keyOf: keyOf, mountOf: mountOf };
+  /* (TASK-A0519) شارة «✓ متوافق مع كاميرتك» على بطاقات المتجر: كاميرا الزبون المحفوظة ⇒ مجموعة معرّفات ما يخصّها (تُحسب مرّة وتُعاد عند تغيّر الكاميرا أو الكتالوج) */
+  var _mine = { key: '', n: -1, ids: null, cam: null };
+  function mine() {
+    var k = saved(), P = store().products || [];
+    if (!k || store().__light) return null;
+    if (_mine.key !== k || _mine.n !== P.length) {
+      var c = cameras().filter(function (x) { return x.key === k; })[0] || null;
+      _mine = { key: k, n: P.length, cam: c, ids: c ? match(c, 'all').reduce(function (o, p) { o[p.id] = 1; return o; }, {}) : null };
+    }
+    return _mine.cam ? _mine : null;
+  }
+  function fitsMine(p) { var m = mine(); return !!(m && p && m.ids[p.id]); }
+  function badge(p) { var m = mine(); if (!m || !p || !m.ids[p.id]) return ''; return '<span class="gmt-camfit" data-camfit="1" style="display:inline-block;align-self:flex-start;background:#ecfdf5;color:#047857;border-radius:8px;padding:2px 7px;font-size:10.5px;font-weight:800;line-height:1.6">✓ يناسب ' + esc(m.cam.name.replace(/^EOS\s*/, '')) + '</span>'; }
+  function forget() { try { localStorage.removeItem(LS); } catch (_) {} _mine = { key: '', n: -1, ids: null, cam: null }; }
+
+  g.GMTCamFinder = { open: open, close: close, cameras: cameras, match: match, reset: reset, keyOf: keyOf, mountOf: mountOf, mine: mine, fitsMine: fitsMine, badge: badge, forget: forget };
 })(typeof window !== 'undefined' ? window : globalThis);

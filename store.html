@@ -320,7 +320,7 @@ window.GMT_PUBLIC = 1;</script>
   <script>window.GMT_COMPAT_NOLOAD = true;</script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-kit.js?v=20261116b"></script>
-  <script src="gmt-camfinder.js?v=20261116d"></script>   <!-- (TASK-A0518 · المالك seq 744–745) «🎯 إكسسوارات كاميرتك» -->   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
+  <script src="gmt-camfinder.js?v=20261116e"></script>   <!-- (TASK-A0518 · المالك seq 744–745) «🎯 إكسسوارات كاميرتك» -->   <!-- (TASK-A0509) «كمّل طقمك»: ربط كلّ منتج بما يلزمه فعلاً -->   <!-- (seq 221) البحث بالتوافق في المتجر: «هود 18-55» · «غطاء عدسة 85» -->
   <script src="gmt-shipping-offices.js?v=20261112h" defer></script>   <!-- (TASK-0361 · seq 637) بنك مكاتب شركات الشحن في اختيار مكان الوصول -->
   <script src="gmt-shop-assistant.js?v=20261010b"></script>
   <script>
@@ -1336,6 +1336,7 @@ function _buildProductCard(prod) {
         : '';
     info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}${parseFloat(prod.price||0)>0?`<span class="mt-1" dir="ltr" style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="text-primary font-bold text-[15px]">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>${_off?`<s class="pc-old">${CONFIG.CURRENCY}${_off.old.toFixed(2)}</s>`:''}</span>`:`<span class="font-bold text-[13px] mt-1" style="color:#5b6472">السعر عند الطلب</span>`}`;   /* (المالك seq 262) «ضعها الآن بدون سعر» ⇒ لا «0.00» */
     { const ib = gmtIncomingBadge(prod, true); if (ib) info.insertAdjacentHTML('beforeend', ib); }
+    { const cb = window.GMTCamFinder && GMTCamFinder.badge ? GMTCamFinder.badge(prod) : ''; if (cb) info.insertAdjacentHTML('beforeend', cb); }   /* (TASK-A0519) ✓ يناسب كاميرتك */
     card.appendChild(info);
 
     card.addEventListener('click', () => openProductModal(prod.id));
@@ -3882,6 +3883,8 @@ function _variantWith(i){
 function _pkgText(i){ return Array.isArray(i.package_items) && i.package_items.length ? ' [' + i.package_items.map(x => x.name + (x.qty > 1 ? ' ×' + x.qty : '')).join(' + ') + ']' : ''; }
 
 let _poTried=false;
+/* (TASK-A0519) اختيار كاميرا في «إكسسوارات كاميرتك» ⇒ تُعاد البطاقات لتظهر عليها «✓ يناسب كاميرتك» */
+if (window.GMTCamFinder) GMTCamFinder.onCam = () => { try { renderProducts(); } catch (_) {} };
 function renderAll(){
     if(!_poTried){ _poTried=true; loadPriceOffers().then(n=>{ if(n) try{ renderProducts(); }catch(_){} }); }
     renderMainBanner(store.banners);
