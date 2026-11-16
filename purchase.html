@@ -202,7 +202,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-warmup.js?v=20261007z5"></script>
   <script src="gmt-labels.js?v=20261116a"></script>
 <script src="gmt-staff.js?v=20261108f"></script>
-<script src="gmt-store-sync.js?v=20261108f"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
+<script src="gmt-store-sync.js?v=20261116c"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -529,7 +529,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
     <p class="text-[10px] font-black text-gray-400 uppercase">معلومات الشحن</p>
     <div class="grid grid-cols-2 gap-3">
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">موعد الوصول المتوقع</label>
-        <input type="date" id="in-eta" class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200" onfocus="autoEta()" placeholder="تلقائي: +3 أشهر"></div>
+        <input type="date" id="in-eta" class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200" onfocus="autoEta()" placeholder="تلقائي: 45 يوماً من دخول الشحن">
+        <button type="button" onclick="markShippedToday()" class="mt-1 text-[11px] font-black text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">🚢 دخلت الشحن اليوم</button></div>
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">شركة الشحن</label>
         <input type="text" id="in-ship" placeholder="DHL, FedEx..." class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
     </div>
@@ -2094,8 +2095,9 @@ function toUSD(priceInput){
 function gv(id){return parseFloat(document.getElementById(id)?.value)||0;}
 function autoEta(){
   const el=document.getElementById('in-eta');
-  if(el&&!el.value){const d=new Date();d.setMonth(d.getMonth()+3);el.value=d.toISOString().slice(0,10);}
+  if(el&&!el.value){const d=new Date();d.setDate(d.getDate()+45);el.value=d.toISOString().slice(0,10);}
 }
+function markShippedToday(){ const el=document.getElementById('in-eta'); if(!el)return; const d=new Date(); d.setDate(d.getDate()+45); el.value=d.toISOString().slice(0,10); el.dispatchEvent(new Event('change',{bubbles:true})); }
 function updateTotalCosts(){
   const t=gv('cost-transport')+gv('cost-shipping')+gv('cost-customs')+gv('cost-local')+gv('cost-transfer');
   document.getElementById('total-costs-display').textContent='$ '+t.toFixed(2);
@@ -3799,6 +3801,7 @@ async function saveShipment(){
       }
     }
     closeAddModal();render();switchTab(editId?_activeTab:'transit');
+    try{ if(window.GMTStoreSync&&GMTStoreSync.refreshIncoming) GMTStoreSync.refreshIncoming(); }catch(_){}   /* «على الطريق» في المتجر (seq 775) */
   }catch(e){toast('خطأ: '+e.message,'err');}
   btnReset();
 }
@@ -4184,6 +4187,7 @@ async function executeArrival(s, src, plan){
     console.warn('markArrived patch:',e.message);
   }
   render();
+  try{ if(window.GMTStoreSync&&GMTStoreSync.refreshIncoming) GMTStoreSync.refreshIncoming(); }catch(_){}   /* الفاتورة وصلت ⇒ يزول «على الطريق» (seq 775) */
 
   if (typeof notifyInventorySystem === 'function' && okList.length) {
     // 🔧 (2026-08-18) إصلاح: القطع قد تُوزَّع على فروع مختلفة — أرسِل إشعاراً لكل فرع
@@ -6041,7 +6045,7 @@ try {
 <script src="gmt-brain.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261116b"></script>
+<script src="gmt-whatsnew.js?v=20261116c"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

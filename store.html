@@ -299,7 +299,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261115ct"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
-  <script src="gmt-store-sync.js?v=20261108f" defer></script>
+  <script src="gmt-store-sync.js?v=20261116c" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261017a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261101o" defer></script>
@@ -1217,6 +1217,25 @@ function _goToCatBanner(wrap, idx) {
 /* (المالك seq 626 «صور المتجر ما عم تحمّل إلا القليل») البطاقات كانت تطلب كلّ الصور بحجمها الكامل دفعةً واحدة (~600 صورة · ~80 م.ب)
    فعلى اتّصال ضعيف لا يكتمل إلا القليل. الآن: مصغّرة 400px من img/t (tools/make_thumbs.py) + تحميل عند الاقتراب (lazy)،
    وإن غابت المصغّرة تُطلب الأصلية تلقائياً. صفحة المنتج تبقى بالصور الكاملة. */
+/* (المالك seq 775 «الأشياء اللي لساتها قادمة يكتب أنه تتوفر في تاريخ كذا») منتج بلا مخزون وله incoming ⇒ «على الطريق» + التاريخ التقريبي */
+function gmtIncoming(p){
+    const i=p&&p.incoming; if(!i||!i.eta) return null;
+    if(parseInt(p.stock)>0) return null;   /* متوفّر ⇒ لا شارة */
+    const d=new Date(i.eta+'T00:00:00'); if(isNaN(d.getTime())) return null;
+    const days=Math.ceil((d-new Date())/864e5);
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(i.eta)); if(!m) return null;
+    return { days, eta:i.eta, from:i.from, dmy:(+m[3])+'/'+(+m[2])+'/'+m[1], dm:(+m[3])+'/'+(+m[2]) };
+}
+/* short=true ⇒ البطاقة الصغيرة: يوم/شهر فقط */
+function gmtIncomingText(p,short){
+    const g=gmtIncoming(p); if(!g) return '';
+    if(g.days<=1) return '🚢 على الطريق · يتوفّر قريباً';
+    return short ? '🚢 يتوفّر <bdi dir="ltr">'+g.dm+'</bdi>' : '🚢 على الطريق · يتوفّر بتاريخ <bdi dir="ltr">'+g.dmy+'</bdi> تقريباً';
+}
+function gmtIncomingBadge(p,short){
+    const t=gmtIncomingText(p,short); if(!t) return '';
+    return '<span class="gmt-incoming" data-incoming="1" style="display:inline-block;align-self:flex-start;background:#e8eefb;color:#1e3a8a;border-radius:8px;padding:2px 7px;font-size:'+(short?'10.5px':'13px')+';font-weight:800;line-height:1.6">'+t+'</span>';
+}
 function gmtThumb(u){ return (typeof u==='string') ? u.replace(/\/img\/p\/([^?#]+)\.(jpe?g|png|webp|gif)(?=$|[?#])/i,'/img/t/$1.webp') : u; }
 function gmtImgRetry(img){ const o=img && img.dataset && img.dataset.orig; if(o && !img.dataset.gf && img.src!==o){ img.dataset.gf='1'; img.src=o; return true; } return false; }
 /* (seq B656) ملاحظة: الكرت يبقى object-fit:cover عمداً — المالك رفض contain («بلا أطراف أو مستطيل» seq 500) ورفض المربّعات المولّدة (seq 508). */
@@ -1312,6 +1331,7 @@ function _buildProductCard(prod) {
         ? `<span style="font-family:monospace;font-size:9px;color:#5b6472;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="كود: ${prod.barcode}"># ${prod.barcode}</span>`
         : '';
     info.innerHTML = `<h4 class="text-[13px] font-medium text-dark leading-snug line-clamp-2">${displayName}</h4>${barcodeHtml}${parseFloat(prod.price||0)>0?`<span class="mt-1" dir="ltr" style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="text-primary font-bold text-[15px]">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>${_off?`<s class="pc-old">${CONFIG.CURRENCY}${_off.old.toFixed(2)}</s>`:''}</span>`:`<span class="font-bold text-[13px] mt-1" style="color:#5b6472">السعر عند الطلب</span>`}`;   /* (المالك seq 262) «ضعها الآن بدون سعر» ⇒ لا «0.00» */
+    { const ib = gmtIncomingBadge(prod, true); if (ib) info.insertAdjacentHTML('beforeend', ib); }
     card.appendChild(info);
 
     card.addEventListener('click', () => openProductModal(prod.id));
@@ -2416,7 +2436,7 @@ window.performSearch=function(query){
         const imgUrl=prod.images?.[0]||'', h=hits.get(prod.id), open=()=>openProductModal(prod.id,h&&h.variant?{variant:h.variant}:null);
         const card=document.createElement('div'); card.className='min-w-[160px] w-[160px] bg-white rounded-[12px] shadow-soft p-3 flex flex-col flex-shrink-0'; card.style.cursor='pointer';
         card.dataset.srId=prod.id; if(h&&h.variant)card.dataset.srVariant=h.variant;
-        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img ${gmtThumbAttrs(imgUrl)} class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4>${h&&h.variant?`<div style="font-size:11px;font-weight:800;color:#047857;margin:-8px 0 6px">🎯 ${escHtml(h.variant)}</div>`:''}<div class="flex justify-between items-center">${parseFloat(prod.price||0)>0?`<span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`:`<span style="font-size:12px;font-weight:800;color:#5b6472">السعر عند الطلب</span>`}<button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
+        card.innerHTML=`<div class="h-28 rounded-[8px] mb-3 flex items-center justify-center p-2 overflow-hidden">${imgUrl?`<img ${gmtThumbAttrs(imgUrl)} class="h-full w-auto object-contain img-blend">`:`<i class="ph ph-image text-4xl text-gray-300"></i>`}</div><h4 class="text-[13px] font-medium text-dark leading-tight mb-3 line-clamp-2 flex-1">${escHtml(prod.name)}</h4>${h&&h.variant?`<div style="font-size:11px;font-weight:800;color:#047857;margin:-8px 0 6px">🎯 ${escHtml(h.variant)}</div>`:''}${gmtIncomingBadge(prod,true)?`<div style="margin:-6px 0 6px">${gmtIncomingBadge(prod,true)}</div>`:''}<div class="flex justify-between items-center">${parseFloat(prod.price||0)>0?`<span class="text-primary font-bold text-base" dir="ltr">${CONFIG.CURRENCY}${parseFloat(prod.price||0).toFixed(2)}</span>`:`<span style="font-size:12px;font-weight:800;color:#5b6472">السعر عند الطلب</span>`}<button class="sr-open w-8 h-8 rounded-[8px] bg-light flex items-center justify-center text-gray-700 hover:bg-primary hover:text-white transition-colors"><i class="ph ph-eye text-[18px]"></i></button></div>`;
         card.addEventListener('click',e=>{if(e.target.closest('.sr-open'))return;open();});
         card.querySelector('.sr-open').addEventListener('click',e=>{e.stopPropagation();open();});
         row.appendChild(card);
@@ -2506,6 +2526,10 @@ function openProductModal(productId, opt){
     const base=parseFloat(prod.price||0);
     priceEl.textContent= base>0 ? `${CONFIG.CURRENCY}${base.toFixed(2)}` : 'السعر عند الطلب';   /* (المالك seq 262) */
     priceEl.dataset.basePrice=base; delete priceEl.dataset.selectedPrice;
+    { /* (seq 775) «على الطريق · يتوفّر بتاريخ …» تحت السعر */
+      let ie=document.getElementById('pm-incoming'); const t=gmtIncomingText(prod,false);
+      if(!ie){ ie=document.createElement('div'); ie.id='pm-incoming'; ie.style.cssText='margin:6px 0 10px;padding:8px 12px;border-radius:12px;background:#e8eefb;color:#1e3a8a;font-size:13.5px;font-weight:800;line-height:1.6'; const v=document.getElementById('product-modal-variants'); if(v) v.insertAdjacentElement('beforebegin',ie); }
+      ie.innerHTML=t; ie.style.display=t?'':'none'; }
     { const _o=gmtProdOffer(prod); let oe=document.getElementById('pm-oldprice'); if(!oe){ oe=document.createElement('s'); oe.id='pm-oldprice'; priceEl.insertAdjacentElement('afterend',oe); } oe.textContent=_o?`${CONFIG.CURRENCY}${_o.old.toFixed(2)}`:''; oe.style.display=_o?'':'none'; }
 
     const descEl=document.getElementById('product-modal-description');
