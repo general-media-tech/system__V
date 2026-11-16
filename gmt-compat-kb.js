@@ -355,7 +355,9 @@
     return false;
   }
   global.GMTCompatKB = { load: load, ready: ready, rows: function () { return S.rows; }, keyOf: keyOf, keysOf: keysOf, kindOf: kindOf, codesOf: codesOf, diamOf: diamOf,
-    fitsFor: fitsFor, rowsFor: rowsFor, refFor: refFor, resolve: resolve, intentHit: intentHit, intentKind: intentKind, _lenses: LENSES, add: add, remove: remove };
+    fitsFor: fitsFor, rowsFor: rowsFor, refFor: refFor, resolve: resolve, intentHit: intentHit, intentKind: intentKind, _lenses: LENSES, add: add, remove: remove,
+    /* (TASK-A0518) كاميرات الدليل (البطاريات والقبضات) لـ«إكسسوارات كاميرتك» */
+    _cams: function () { var o = []; [BAT, GRIP].forEach(function (m) { for (var k in m) m[k].forEach(function (c) { if (o.indexOf(c) < 0) o.push(c); }); }); return o; } };
   /* المتجر (صفحة الزبون) يستعمل المرجع الثابت وحده للبحث بالتوافق (seq 221) — لا نداء لقاعدة الدليل منه */
   if (typeof setTimeout === 'function' && !global.GMT_COMPAT_NOLOAD) setTimeout(function () { load(); }, 1200);
 })(typeof window !== 'undefined' ? window : this);
