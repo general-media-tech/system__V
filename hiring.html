@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<script>/* 🔒 صفحة داخلية — تسمح بالواجهات الداخلية (تلميحات · مفتّش · فحص ذاتي).
-   الغياب = صفحة عامّة: المنع افتراضياً كي لا يكون النسيان تسريباً. */
-window.GMT_INTERNAL = 1;</script>
+<script>/* 🌐 صفحة عامّة (المتقدّمون للوظائف) — (TASK-A0523 · المالك seq 740) كانت معلَّمة «داخلية» ⇒ يظهر للزائر زرّ «شو الجديد» والتلميحات
+   وأزرار التحديث والرئيسية وانترو النظام. صفحات الزبائن (المتجر · الموقع · التتبّع) كلّها GMT_PUBLIC. */
+window.GMT_PUBLIC = 1;</script>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -152,7 +152,8 @@ button{font-family:inherit;cursor:pointer}
 .hero-meta div{display:flex;align-items:center;gap:6px}
 .hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:680px;margin:0 auto}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);padding:18px 8px;box-shadow:var(--shadow-1)}
-.stat strong{display:block;font-size:26px;color:var(--primary);font-weight:900}
+.stat strong{display:block;font-size:26px;color:var(--primary);font-weight:900;font-variant-numeric:tabular-nums}
+.stat strong.counting{font-variant-numeric:tabular-nums}
 .stat span{font-size:12px;color:var(--muted)}
 @media(max-width:640px){.hero-stats{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:32px}}
 
@@ -1885,10 +1886,13 @@ function renderFAQ(){
 /* ── stats count-up on scroll ────────────────────────────── */
 function initStatsCountUp(){
   const stats = document.querySelectorAll('.stat strong');
+  if(!('IntersectionObserver' in window)) return;
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if(entry.isIntersecting){
         const el = entry.target;
+        observer.unobserve(el);
+        if(el.dataset.counted || window.__gmtCountEngine) return;   /* محرّك data-count (أدناه) هو من يعدّ — لا عدّ مزدوج على نفس الرقم */
         const target = parseInt(el.dataset.count, 10);
         const suffix = el.dataset.suffix || '';
         animateStatCount(el, target, suffix);
@@ -1900,7 +1904,7 @@ function initStatsCountUp(){
 }
 function animateStatCount(el, target, suffix){
   const start = performance.now();
-  const duration = 1300;
+  const duration = 2200;
   function tick(now){
     const p = Math.min(1, (now-start)/duration);
     const val = Math.round(target * p);
@@ -1917,15 +1921,22 @@ function animateStatCount(el, target, suffix){
 function hideIntro(){
   const intro = $('#intro-screen');
   setTimeout(() => {
-    intro.classList.add('hide');
-    setTimeout(() => intro.remove(), 800);
+    if(intro){ intro.classList.add('hide'); setTimeout(() => intro.remove(), 800); }
+    /* العدّادات تنتظر هذا الحدث كي يراها الزائر وهي تدور لا منتهيةً تحت الانترو */
+    document.dispatchEvent(new Event('gmt:intro-hidden'));
   }, 2800);
 }
 
 /* ── init ─────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   renderFAQ();
-  initStatsCountUp();
+  /* العدّ يبدأ بعد رفع الانترو (+ حارس 6 ث إن تعطّل الانترو) */
+  (function(){
+    var started=false;
+    function go(){ if(started) return; started=true; initStatsCountUp(); }
+    document.addEventListener('gmt:intro-hidden', go);
+    setTimeout(go, 6000);
+  })();
   hideIntro();
   /* بلا رقمٍ صالح لا يُعرض الزرّ — أفضل من زرٍّ يفتح محادثةً مع مجهول */
   var _waFloat = $('#whatsappFloat');
@@ -1967,9 +1978,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="gmt-selfcheck.js?v=20261108f"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261116i"></script>
+<script src="gmt-whatsnew.js?v=20261116j"></script>
 <script src="gmt-refresh.js?v=20261011a"></script>
-<script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
@@ -2001,7 +2011,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     var to=parseInt(el.getAttribute('data-count'),10)||0;
     var suf=el.getAttribute('data-suffix')||'';
     if(reduce){ el.textContent=arabic(to)+suf; return; }
-    var dur=1500, t0=performance.now(), beeps=0, lastBeep=0;
+    var dur=2200; el.classList.add('counting'); var t0=performance.now(), beeps=0, lastBeep=0;
     function tick(now){
       var p=Math.min(1,(now-t0)/dur);
       var e=1-Math.pow(1-p,3);
@@ -2012,21 +2022,29 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         try{ window.GMTSound && GMTSound.play('tick'); }catch(_){}
       }
       if(p<1) requestAnimationFrame(tick);
-      else { try{ window.GMTSound && GMTSound.play('pop'); }catch(_){} }
+      else { el.classList.remove('counting'); try{ window.GMTSound && GMTSound.play('pop'); }catch(_){} }
     }
     requestAnimationFrame(tick);
   }
+  var booted=false; window.__gmtCountEngine=1;
   function boot(){
     var els=[].slice.call(document.querySelectorAll('[data-count]'));
     if(!els.length) return;
     if(!('IntersectionObserver' in window)){ els.forEach(run); return; }
+    if(booted) return; booted=true;
     var io=new IntersectionObserver(function(es){
       es.forEach(function(x){ if(x.isIntersecting){ run(x.target); io.unobserve(x.target); } });
     },{threshold:.35});
     els.forEach(function(el){ io.observe(el); });
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
-  else boot();
+  /* ينتظر رفع الانترو إن كان #intro-screen موجوداً وقت الإقلاع (حارس 6 ث)، وإلا فوراً */
+  function start(){
+    if(reduce || !document.getElementById('intro-screen')){ boot(); return; }   /* تقليل الحركة ⇒ الرقم النهائي فوراً */
+    document.addEventListener('gmt:intro-hidden', boot);
+    setTimeout(boot, 6000);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
+  else start();
 })();</script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 </body>
