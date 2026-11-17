@@ -45,6 +45,15 @@ window.GMT_INTERNAL = 1;</script>
   pre{margin:0;font-size:12px;line-height:1.8;white-space:pre-wrap;color:#374151;font-family:ui-monospace,monospace;max-height:55vh;overflow:auto;background:#f8f9fb;padding:12px;border-radius:9px}
   a{color:#D5001C} details{margin:6px 0} summary{cursor:pointer;font-weight:800;font-size:13px;color:#334155}
   .link-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+  /* (VER-4#REQ-0475) رحلة المشروع الحيّة */
+  .jr-in{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:13px;margin:8px 0}
+  .jr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.jr-tabs button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font:inherit;font-size:12px;font-weight:800;color:var(--tx2);cursor:pointer}
+  .jr-tabs button.on{background:var(--gmt-red);border-color:var(--gmt-red);color:#fff}
+  .jr-day{font-weight:900;font-size:13px;color:var(--gmt-red);margin:12px 0 4px}
+  .jr-it{font-size:12.5px;line-height:1.85;padding:6px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+  .jr-it code{background:#f1f5f9;border-radius:5px;padding:0 4px;font-size:11.5px}
+  .jr-tag{display:inline-block;border-radius:6px;padding:0 6px;font-size:11px;font-weight:900;background:#f1f5f9;color:#334155;margin-inline-end:5px}
+  .jr-tag.ok{background:#dcfce7;color:#166534}.jr-tag.run{background:#fef3c7;color:#92400e}.jr-tag.blk{background:#fee2e2;color:#991b1b}
 </style>
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
@@ -121,6 +130,16 @@ window.GMT_INTERNAL = 1;</script>
   <!-- 🗺️ رحلة المشروع — من أول يوم -->
   <div class="panel" id="p-journey">
     <div class="hint">كل ما جرى منذ بداية المشروع: ما كان مكسوراً · لماذا · وكيف عولج. لا يُحذف منه شيء.</div>
+    <!-- (VER-4#REQ-0475 «رحلة المشروع ناقصة — يجب تسجيل كل ما عُمل في كل جلسة بما فيه الماضي، فهي مقدّسة كالدستور»)
+         تُقرأ حيّةً من ملفّات المشروع نفسها — لا نسخة يدوية تتقادم: سجلّ العمل في docs/التسليم_الشامل.md (§١٤ كل جلسة تضيف سطرها) ·
+         كل مهمّة في TASK_REGISTRY.md منذ TASK-0001 بحالتها · وكل ما نُشر للمستخدمين في «شو الجديد». لا قصّ: كل الأسطر تُعرض. -->
+    <div class="card" id="jr-live">
+      <h3>📜 السجلّ الكامل — كل ما عُمل جلسةً جلسة</h3>
+      <div class="row" id="jr-sum">⏳ يُحمَّل عند فتح هذا التبويب…</div>
+      <input class="jr-in" id="jr-q" type="search" placeholder="ابحث في كل ما عُمل (رقم مهمّة · صفحة · كلمة)…">
+      <div class="jr-tabs" id="jr-tabs"><button data-j="log" class="on">الجلسات (سجلّ العمل)</button><button data-j="tasks">كل المهامّ منذ البداية</button><button data-j="news">ما نُشر للمستخدمين</button></div>
+      <div id="jr-out"></div>
+    </div>
 
     <div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px">
       <div style="font-weight:800;color:var(--gmt-red);margin-bottom:8px">🧬 خريطة الأنماط الجذرية P1–P17</div>
@@ -361,7 +380,75 @@ window.GMT_INTERNAL = 1;</script>
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('p-'+b.dataset.t).classList.add('active');
+    if(b.dataset.t==='journey') journeyLoad();
   });
+
+  /* ═══ (VER-4#REQ-0475) رحلة المشروع الحيّة — من ملفّات المشروع نفسها ═══ */
+  var JR={log:null,tasks:null,news:null,view:'log',q:'',busy:false};
+  function jEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function jMd(s){return jEsc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');}
+  /* حرف الجلسة (CLAUDE.md 6ب): session_01MWfC… ⇐ A · session_01XEjH… ⇐ B */
+  function jSess(t){t=String(t||'');if(/01MWfC/.test(t))return 'الجلسة A';if(/01XEjH/.test(t))return 'الجلسة B';return t.replace(/^Claude\s*·\s*/,'').trim()||'—';}
+  function jCells(line){return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split(/\s\|\s/);}
+  function parseLog(md){
+    var i=md.search(/^## ١٤\)/m); if(i<0) return [];
+    return md.slice(i).split('\n').filter(function(l){return /^\|\s*\d{4}-\d{2}-\d{2}\s*\|/.test(l);}).map(function(l){
+      var c=jCells(l); return {d:c[0].trim(),s:jSess(c[1]),t:c.slice(2).join(' | ').trim()};
+    });
+  }
+  function parseTasks(md){
+    var out=[],seen={},lines=md.split('\n'),secOf={},cur='';
+    lines.forEach(function(l){if(/^#{2,3} /.test(l))cur=l; secOf[l]=secOf[l]||cur;});
+    function sectionOf(l){return secOf[l]||'';}
+    for(var i=0;i<lines.length;i++){
+      var m=/^### (TASK-[A-Z]?\d+[a-z]?)(.*)$/.exec(lines[i]); if(!m) continue;
+      m[2]=m[2].replace(/^[\s—-]+/,'')||m[1];
+      var st='',ow='';
+      for(var j=i+1;j<Math.min(lines.length,i+14)&&!/^#{2,3} /.test(lines[j]);j++){
+        if(!st){var s1=/\*\*الحالة:\*\*\s*(`[^`]+`|[^·\n]+)/.exec(lines[j]); if(s1) st=s1[1].replace(/`/g,'').trim();}
+        if(!ow){var o1=/\*\*المالك:\*\*\s*`?([^`·]+)/.exec(lines[j]); if(o1) ow=jSess(o1[1]);}
+      }
+      seen[m[1]]=1; out.push({id:m[1],t:m[2].trim(),st:st,ow:ow});
+    }
+    /* المهامّ المكتملة المنقولة في جداول (§٢ «تحقّق سابق») — بلا عنوان ### */
+    lines.forEach(function(l){var m=/^\|\s*(~~)?(TASK-[A-Z]?\d+)[^|]*\|\s*([^|]+)\|(?:\s*([^|]*)\|)?/.exec(l); if(m&&!seen[m[2]]){seen[m[2]]=1;
+      /* الجداول في السجلّ: المكتملة (§٢) والمعلّقة والمتوقّفة — الشطب ~~ يعني أُنجزت */
+      var done=!!m[1]||/✅/.test(l)||/المهام المكتملة/.test(sectionOf(l)); out.push({id:m[2],t:m[3].trim(),st:done?'COMPLETED':'',ow:'',ev:(m[4]||'').trim()});}});
+    out.sort(function(a,b){var na=+a.id.replace(/\D/g,''),nb=+b.id.replace(/\D/g,''); return na-nb||a.id.localeCompare(b.id);});
+    return out;
+  }
+  function stCls(st){return /COMPLETED|DONE|✅|VERIFIED/.test(st)?'ok':/BLOCKED|متوقّف/.test(st)?'blk':st?'run':'';}
+  async function jFetch(path){var r=await fetch(encodeURI(path),{cache:'no-store'}); if(!r.ok) throw new Error(path+' ⇐ HTTP '+r.status); return r.text();}
+  async function journeyLoad(){
+    if(JR.log||JR.busy) return; JR.busy=true;
+    var errs=[];
+    try{JR.log=parseLog(await jFetch('docs/التسليم_الشامل.md'));}catch(e){JR.log=[];errs.push(e.message);}
+    try{JR.tasks=parseTasks(await jFetch('TASK_REGISTRY.md'));}catch(e){JR.tasks=[];errs.push(e.message);}
+    try{JR.news=((window.GMTWhatsNew&&GMTWhatsNew.news)||[]).slice().sort(function(a,b){return (b.v||0)-(a.v||0);});}catch(e){JR.news=[];}
+    JR.busy=false;
+    var days={};JR.log.forEach(function(x){days[x.d]=1;});
+    document.getElementById('jr-sum').innerHTML='<b>'+JR.log.length+'</b> سطر عمل في <b>'+Object.keys(days).length+'</b> يوماً · <b>'+JR.tasks.length+'</b> مهمّة منذ البداية · <b>'+JR.news.length+'</b> تحديثاً منشوراً'+
+      (errs.length?'<br><span style="color:#b91c1c">تعذّر: '+jEsc(errs.join(' · '))+'</span>':'');
+    journeyPaint();
+  }
+  function journeyPaint(){
+    var out=document.getElementById('jr-out'), q=JR.q.trim().toLowerCase(), hit=function(s){return !q||String(s).toLowerCase().indexOf(q)>=0;}, h='';
+    if(JR.view==='log'){
+      var rows=(JR.log||[]).filter(function(x){return hit(x.d+' '+x.s+' '+x.t);}).slice().reverse(), last='';
+      rows.forEach(function(x){ if(x.d!==last){h+='<div class="jr-day">'+jEsc(x.d)+'</div>';last=x.d;} h+='<div class="jr-it" data-jr-row><span class="jr-tag">'+jEsc(x.s)+'</span>'+jMd(x.t)+'</div>'; });
+    } else if(JR.view==='tasks'){
+      (JR.tasks||[]).filter(function(x){return hit(x.id+' '+x.t+' '+x.st+' '+(x.ev||''));}).forEach(function(x){
+        h+='<div class="jr-it" data-jr-row><b>'+jEsc(x.id)+'</b> — '+jMd(x.t)+'<br>'+(x.st?'<span class="jr-tag '+stCls(x.st)+'">'+jEsc(x.st.slice(0,60))+'</span>':'')+(x.ow?'<span class="jr-tag">'+jEsc(x.ow)+'</span>':'')+(x.ev?'<span style="color:var(--tx2)">'+jMd(x.ev)+'</span>':'')+'</div>'; });
+    } else {
+      (JR.news||[]).filter(function(x){return hit(x.v+' '+(x.t||'')+' '+(x.d||''));}).forEach(function(x){
+        h+='<div class="jr-it" data-jr-row><span class="jr-tag">v'+jEsc(x.v)+'</span>'+(x.tag?'<span class="jr-tag">'+jEsc(x.tag)+'</span>':'')+(x.at?'<span style="color:var(--tx2);font-size:11.5px">'+jEsc(String(x.at).slice(0,10))+'</span> ':'')+jMd(x.t||'')+'</div>'; });
+    }
+    out.innerHTML=h||'<div class="row" style="color:var(--tx2)">'+(q?'لا نتائج لهذا البحث.':'لا شيء بعد.')+'</div>';
+  }
+  document.getElementById('jr-tabs').addEventListener('click',function(e){var b=e.target.closest('[data-j]');if(!b)return;JR.view=b.dataset.j;
+    [].forEach.call(this.querySelectorAll('[data-j]'),function(x){x.classList.toggle('on',x===b);}); journeyPaint();});
+  document.getElementById('jr-q').addEventListener('input',function(){JR.q=this.value;journeyPaint();});
+  window.__gmtJourney=JR;
 
   // نظرة عامة — إحصاءات
   var done=F.filter(f=>f.status==='done').length;
