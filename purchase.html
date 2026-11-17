@@ -4237,6 +4237,8 @@ async function unsealTransfer(id){
 
 async function delShip(id){
   const s=ships.find(x=>String(x.id)===String(id));if(!s)return;
+  /* (VER-2#REQ-0139) «لا تُحذف فاتورة مُرحَّلة» — الكميات دخلت المخزون؛ الحذف يترك مخزوناً بلا فاتورة. فكّ الختم (بسببٍ مسجَّل) أوّلاً. */
+  if(s.transferred){toast('🔒 الفاتورة مُرحَّلة للمخزون — لا تُحذف. فُكّ الختم أولاً (بسببٍ مسجَّل) ثمّ احذفها.','err');return;}
   if(!await GMTAsk.confirm('حذف هذه الفاتورة نهائياً؟\n\nسيتم تنزيل نسخة احتياطية JSON تلقائياً قبل الحذف.'))return;
   try{
     // نسخة احتياطية تلقائية
