@@ -97,7 +97,27 @@
     } catch (_) {}
     try { if (global.GMTMoneyGuard && GMTMoneyGuard.incidents) ctx.money = JSON.stringify(GMTMoneyGuard.incidents()).slice(0, 1500); } catch (_) {}
     if (errLog.length) ctx.errors = errLog.slice(-15);
+    /* تُضمّ لـ errors لا لحقلٍ جديد: الوسيط يرتّب السياق بقائمةٍ ثابتة (errors ثانيها) ويقصّ ما بعد ٢٤ ألف حرف — حقلٌ جديد يأتي بعد القواعد فيُقصّ */
+    try { var rp = reportsForBrain(); if (rp.length) ctx.errors = (ctx.errors || []).concat(rp); } catch (_) {}
     return ctx;
+  }
+  /* (OWN-05#13 «التقارير تُشارك مع العقل؛ العقل يعرف الأخطاء وطريقة إصلاحها ويصنّفها حسب الخطورة — خطير مقابل كماليات»)
+     آخر نتائج الفاحصين في هذه الجلسة تُرفق مع السؤال: تقرير الصحة (healthReport) · الفاحص الذاتي GMTSelfTest · الفاحص الشامل GMTAutoTest.
+     الفاشل والتحذير فقط، بعنوانه وتفصيله وطريقة إصلاحه إن كُتبت — بحدٍّ أقصى ٣٠ سطراً (حجم الطلب). قراءة فقط: لا يشغّل فحصاً. */
+  var lastHealth = null;
+  function reportsForBrain() {
+    var out = [];
+    function line(src, st, x) {
+      var t = String((x && (x.title || x.area)) || '').trim(); if (!t) return;
+      out.push('[' + src + '] ' + st + ' ' + t + (x.detail ? ' — ' + String(x.detail).slice(0, 160) : '') +
+        ((x.fix || x.todo) ? ' · الإصلاح: ' + String(x.fix || x.todo).slice(0, 160) : ''));
+    }
+    if (lastHealth && lastHealth.issues) lastHealth.issues.forEach(function (i) { out.push('[تقرير الصحة] ' + String(i).slice(0, 260)); });
+    [['الفاحص الذاتي', global.GMTSelfTest], ['الفاحص الشامل', global.GMTAutoTest]].forEach(function (b) {
+      var r = []; try { r = (b[1] && b[1].results && b[1].results()) || []; } catch (_) {}
+      (Array.isArray(r) ? r : []).forEach(function (x) { if (x && (x.status === 'fail' || x.status === 'warn')) line(b[0], x.status === 'fail' ? 'فشل:' : 'تحذير:', x); });
+    });
+    return out.slice(0, 30);
   }
 
   /* ── ② طبقة البيانات الحيّة: يقرأ من قواعدك حسب السؤال (قراءة فقط) ──
@@ -248,7 +268,9 @@
     '• **ممنوع الحشو**: لا مقدّمات («بكل سرور» · «سؤال ممتاز») ولا خواتيم ولا تكرار السؤال.\n' +
     '  ادخل بالجواب مباشرةً. لا مبالغات تسويقية ولا كلام عام.\n' +
     '• لا تعطِ تعليمات تعدّل بيانات مالية أو مخزون مباشرةً بالقاعدة — اشرح الطريقة الصحيحة **من داخل النظام**.\n' +
-    '• رتّب الخطورة: 🔴 حرج (فلوس/مخزون يضيع) · 🟠 مهم (يعطّل عملاً) · ⚪ بسيط.';
+    '• رتّب الخطورة: 🔴 حرج (فلوس/مخزون يضيع) · 🟠 مهم (يعطّل عملاً) · ⚪ بسيط.\n' +
+    '• بنود التقارير في `errors` (المعلَّمة [تقرير الصحة] · [الفاحص الذاتي] · [الفاحص الشامل]): صنّف كل بندٍ 🔴/🟠/⚪، وافصل **الخطير** عن **الكماليات** (شكل · نصّ · تحسين) بقسمين،\n' +
+    '  واذكر لكل بندٍ طريقة إصلاحه — من حقل «الإصلاح» إن وُجد، وإلّا قل «لم يُكتب إصلاحه في التقرير» ولا تخترعه.';
 
   /* 🔧 (2026-10-03) المصدر الواحد أوّلاً — «مرّةً واحدة للنظام كلّه لا لكل جهاز» */
 
@@ -1067,6 +1089,7 @@
     // ③ أخطاء الجلسة
     if (errLog.length) issues.push('🟠 أخطاء جلسة: ' + errLog.length + ' — ' + errLog.slice(-3).join(' | ').slice(0, 300));
 
+    lastHealth = { at: Date.now(), issues: issues.slice(0, 20) };   // (OWN-05#13) يُرفق مع أسئلة العقل التالية
     if (!issues.length) {
       if (force) showLocal('✅ النظام سليم — ما في مشاكل مرصودة');
       return { ok: true, issues: [] };
@@ -1134,7 +1157,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _context: function () { return collectContext(); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
     open: openPanel,
     askJSON: askJSON, ask: ask,
     configure: configure,
