@@ -87,7 +87,7 @@ window.GMT_INTERNAL = 1;</script>
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261101o"></script>
-<script src="gmt-account.js?v=20261103d"></script>
+<script src="gmt-account.js?v=20261117k"></script>
 </head>
 <body class="pb-28">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -107,8 +107,9 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261104b" defer></script>
   <script src="gmt-push.js?v=20261117f" defer></script>
+  <script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
-  <script src="gmt-auth.js?v=20261024d"></script>
+  <script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-mufti-live.js?v=20261029z4" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
@@ -140,6 +141,7 @@ window.GMT_INTERNAL = 1;</script>
                 <p class="text-[10px] font-bold text-red tracking-wide uppercase">نظام إدارة أوردرات الشحن</p>
             </div>
             <button type="button" id="push-btn" onclick="window.GMTPush&&GMTPush.openPanel(['orders'])" title="الإشعارات الفورية: أوردر جديد · تحديثات — حتى والتطبيق مغلق" class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600">🔔 الإشعارات</button>
+            <a href="مركز_الإشعارات.html" data-gmt-bell title="مركز الإشعارات — كل إشعاراتك: مقروء · غير مقروء · أرشيف" class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600">📥 الصندوق</a>
             <div id="conn-badge" class="mr-auto lg:mr-0 flex items-center gap-1.5 bg-gray-100 rounded-full px-3 py-1.5 text-[10px] font-bold text-gray-500">
                 <div id="conn-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
                 <span id="conn-text">يتصل...</span>

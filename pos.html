@@ -1210,7 +1210,7 @@ window.GMT_FEATURES = [
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261101o"></script>
-<script src="gmt-account.js?v=20261103d"></script>
+<script src="gmt-account.js?v=20261117k"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
 #prodsGrid > *{content-visibility:auto;contain-intrinsic-size:auto 240px}
@@ -1234,7 +1234,8 @@ window.GMT_FEATURES = [
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261104b" defer></script>
   <script src="gmt-push.js?v=20261117f" defer></script>
-  <script src="gmt-auth.js?v=20261024d"></script>
+  <script src="gmt-inbox.js?v=20261117k" defer></script>
+  <script src="gmt-auth.js?v=20261117k"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
@@ -1394,6 +1395,7 @@ window.GMT_FEATURES = [
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/></svg>
         </button>
         <div id="hdr-more-menu" class="hdr-more-menu hidden">
+          <a class="hdr-more-item" href="مركز_الإشعارات.html" data-gmt-bell data-hint="مركز الإشعارات: كل إشعاراتك محفوظة — غير المقروء · المؤجّل · الأرشيف">📥 صندوق الإشعارات</a>
           <button class="hdr-more-item" onclick="closeHdrMoreMenu();window.GMTPush&&GMTPush.openPanel(['pos'].concat((window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin())?['admin']:[]))" data-hint="إشعارات فورية: أوردر جديد · عرض · تغيّر سعر · فاتورة نقل — حتى والتطبيق مغلق">
             <span style="width:15px;text-align:center">🔔</span>
             الإشعارات

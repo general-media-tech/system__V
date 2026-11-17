@@ -379,7 +379,7 @@
             ],
             submit: async function (v) {
                 var r = await adminCheck(v.name, v.pw, true);
-                if (r.ok) return { result: r };
+                if (r.ok) { try { if (global.GMTAccount && GMTAccount.inboxReg) GMTAccount.inboxReg({ via: 'admin', name: r.name || v.name, pw: v.pw }); } catch (_) {} return { result: r }; }
                 return { error: r.error || 'رُفض', field: r.field || 'name', clear: r.clear };
             }
         });

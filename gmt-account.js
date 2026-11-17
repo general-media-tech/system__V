@@ -35,6 +35,18 @@
 
   function lsGet(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+  /* (TASK-B0424 · seq 803/808) صندوق الإشعارات: عند الدخول الناجح يُوثَّق الجهاز مرّةً بكلمة السرّ لدى الخادم (notify-inbox)
+     فيأخذ رمزاً عشوائياً يقرأ به صندوق صاحبه وحده. كلمة السرّ لا تُحفظ — تُرسل مرّةً للتحقّق فقط. فشلُه لا يمسّ الدخول. */
+  function inboxReg(body) {
+    try {
+      var d = global.GMT_DB && global.GMT_DB.MAIN; if (!d || !d.url) return Promise.resolve(null);
+      return fetch(d.url + '/functions/v1/notify-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: d.key, Authorization: 'Bearer ' + d.key },
+        body: JSON.stringify(Object.assign({ action: 'register' }, body)) }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.ok && j.token) { lsSet('gmt_inbox_token', j.token); lsSet('gmt_inbox_rcpt', j.recipient || ''); try { document.dispatchEvent(new CustomEvent('gmt:inbox-ready')); } catch (_) {} }
+          return j;
+        }).catch(function () { return null; });
+    } catch (_) { return Promise.resolve(null); }
+  }
 
   function db() {
     try { if (global.GMT_DB && GMT_DB.MAIN && GMT_DB.MAIN.url) return GMT_DB.MAIN; } catch (_) {}
@@ -194,6 +206,7 @@
           try { if (global.GMTRole && GMTRole.grant) GMTRole.grant(ad.name); } catch (_) {}
           try { if (global.GMTAuth && GMTAuth.admin && GMTAuth.admin._audit) GMTAuth.admin._audit('admin_login', ad.name); } catch (_) {}
           noteAdmin(ad.name);
+          inboxReg({ via: 'admin', name: ad.name, pw: pw });
           var ares = { admin: true, name: ad.name };
           /* (١٨ ت١) «تذكّر هذا الجهاز»: فشلُه لا يُفشل الدخول، لكنّه يُعلَن ولا يُقال «تمّ» قبل أن يثبت في القاعدة */
           if (o.remember) { try { await GMTAuth.admin.rememberDevice(ad.name); ares.remembered = true; } catch (re) { ares.rememberError = (re && re.message) || 'تعذّر تذكّر الجهاز'; } }
@@ -232,6 +245,7 @@
        يتمّ من هناك — لا نكرّر خوارزميّتها هنا فتختلفان بصمت. */
     if (u.last_device_id && u.last_device_id !== OPEN_DEVICE) return { needPos: true, user: u };
     var sess = setSession(u, o.branch);
+    inboxReg({ via: 'user', user_id: u.id, pw: pw });
     try { document.dispatchEvent(new CustomEvent('gmt:approval', { detail: { pending: !!sess.pending } })); } catch (_) {}
     try {
       var pr = await getKey('user_profile_' + u.id);
@@ -503,6 +517,7 @@
     var s = session(), adm = isAdmin();
     if (adm) { try { refreshCurrent(); GMTRole.revoke(); } catch (_) {} try { sessionStorage.removeItem('gmt_acting'); } catch (_) {} }
     else { refreshCurrent(); try { localStorage.removeItem('gmt_session'); } catch (_) {} }
+    try { localStorage.removeItem('gmt_inbox_token'); localStorage.removeItem('gmt_inbox_rcpt'); } catch (_) {}
     setActive('');
     return !!(s || adm);
   }
@@ -512,7 +527,7 @@
     saved: { list: savedList, noteStaff: noteStaff, noteAdmin: noteAdmin, loggedOut: loggedOut, forget: forgetAcct,
              switchTo: switchTo, active: activeKey, setActive: setActive, activeAdmin: activeAdmin, refresh: refreshCurrent,
              setRemember: setRemember, leave: leaveCurrent },
-    OPEN_DEVICE: OPEN_DEVICE, branches: branches, signup: signup, login: login,
+    OPEN_DEVICE: OPEN_DEVICE, branches: branches, signup: signup, login: login, inboxReg: inboxReg,
     session: session, setSession: setSession, isAdmin: isAdmin,
     saveProfile: saveProfile, profile: profileCached,
     grants: grants, grantsCached: grantsCached, setGrants: setGrants, b64: b64, updateSelf: updateSelf,
@@ -568,7 +583,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261024d';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261117k';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });

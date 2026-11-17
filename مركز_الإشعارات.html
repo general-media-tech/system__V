@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مركز الإشعارات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<script>window.GMT_INTERNAL = 1; window.GMT_INBOX_PAGE = 1;</script>
+<script src="gmt-config.js?v=20261117h"></script>
+<script src="gmt-core.js?v=20261117h"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261117k"></script>
+<script src="gmt-tools.js?v=20261101o"></script>
+<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-ask.js?v=20261029z4"></script>
+<script src="gmt-sound.js?v=20261117h" defer></script>
+<script src="gmt-push.js?v=20261117f" defer></script>
+<script src="gmt-inbox.js?v=20261117k"></script>
+<script src="gmt-refresh.js?v=20261011a" defer></script>
+<!-- (TASK-B0424 · المالك seq 803 «مركز الإشعارات: سجلٌّ كامل · بحث · تصفية · أرشفة · تحديد الكل كمقروء») — صندوق كل مستخدم وحده. -->
+<style>
+:root{color-scheme:light;--red:#D5001C;--ink:#111;--mu:#5b6472;--line:rgba(17,17,17,.09)}
+*{box-sizing:border-box}
+body{margin:0;background:#f7f7f8;color:var(--ink);font:15px/1.7 Cairo,'Segoe UI',Tahoma,system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:820px;margin:0 auto;padding:16px 16px 90px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.top h1{margin:0;font-size:20px;flex:1}
+.btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--mu)}
+.tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.bar input,.bar select{flex:1;min-width:150px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;font:inherit;font-size:14px}
+.list{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.it{display:flex;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line);align-items:flex-start}
+.it:last-child{border-bottom:0}
+.it.unread{background:#fff7f8}
+.dot{width:9px;height:9px;border-radius:50%;margin-top:9px;flex:none;background:transparent}
+.it.unread .dot{background:var(--red)}
+.bd{flex:1;min-width:0;cursor:pointer}
+.bd b{display:block;font-size:14.5px}
+.bd p{margin:2px 0 0;color:var(--mu);font-size:13px;overflow-wrap:anywhere}
+.meta{display:flex;gap:8px;align-items:center;margin-top:4px;font-size:11.5px;color:var(--mu)}
+.pr{font-weight:800;border-radius:6px;padding:0 6px}
+.pr.p2{background:#fff1f2;color:var(--red)}.pr.p3{background:var(--red);color:#fff}
+.acts{display:flex;flex-direction:column;gap:4px}
+.ib{border:0;background:#f3f4f6;border-radius:9px;width:34px;height:30px;cursor:pointer;font-size:14px}
+.empty{padding:40px 16px;text-align:center;color:var(--mu)}
+.gate{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px}
+.gate input{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px;font:inherit;margin:10px 0}
+.more{display:block;margin:12px auto 0}
+@media (max-width:520px){.top h1{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسية</a><h1>مركز الإشعارات</h1>
+    <button class="btn" id="b-prefs" type="button" title="أنواع الإشعارات التي تصل لهذا الجهاز">⚙️ الإعدادات</button></div>
+  <div id="gate" hidden></div>
+  <div id="main" hidden>
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-box="inbox" type="button">الكل</button>
+      <button class="tab" data-box="unread" type="button">غير المقروء <span id="n-unread"></span></button>
+      <button class="tab" data-box="snoozed" type="button">المؤجّل</button>
+      <button class="tab" data-box="archive" type="button">الأرشيف</button>
+    </div>
+    <div class="bar">
+      <input id="q" type="search" placeholder="بحث في الإشعارات…" autocomplete="off">
+      <select id="kind" aria-label="النوع"><option value="">كل الأنواع</option></select>
+      <button class="btn" id="b-all" type="button">✓ تحديد الكل كمقروء</button>
+    </div>
+    <div id="list" class="list"><div class="empty">جارٍ التحميل…</div></div>
+    <button class="btn more" id="b-more" type="button" hidden>المزيد</button>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var KINDS = { order: 'أوردر من المتجر', order_new: 'أوردر جديد', order_confirmed: 'تأكيد زبون', order_shipped: 'شحن', order_delivered: 'وصول', order_completed: 'تحصيل', order_returned: 'مرتجع أوردر',
+    reservation: 'حجز', chat: 'محادثة', sale: 'مبيعات', refund: 'مرتجع فاتورة', transfer: 'نقل وارد', transfer_received: 'نقل مستلم', transfer_aging: 'نقل متأخّر', stock_in: 'بضاعة واصلة',
+    stock_count: 'جرد', product_new: 'منتج جديد', offer: 'عروض', price: 'أسعار', expense: 'مصروف', expense_approved: 'اعتماد مصروف', cash_transfer: 'تحويل نقدي', daily_close: 'إقفال يومي',
+    settlement: 'تسوية', review: 'تقييم', job: 'توظيف', warranty_on: 'كفالة', version: 'تحديث' };
+  var $ = function (id) { return document.getElementById(id); };
+  var box = 'inbox', items = [], more = null, busy = false, qT = null;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function ago(iso) {
+    var d = new Date(iso), s = (Date.now() - d.getTime()) / 1000;
+    if (s < 60) return 'الآن'; if (s < 3600) return 'منذ ' + Math.round(s / 60) + ' د'; if (s < 86400) return 'منذ ' + Math.round(s / 3600) + ' س';
+    return d.toLocaleDateString('ar-SY-u-nu-latn', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('ar-SY-u-nu-latn', { hour: '2-digit', minute: '2-digit' });
+  }
+  Object.keys(KINDS).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = KINDS[k]; $('kind').appendChild(o); });
+
+  function gate() {
+    $('main').hidden = true; var g = $('gate'); g.hidden = false;
+    var s = null; try { s = JSON.parse(localStorage.getItem('gmt_session') || 'null'); } catch (_) {}
+    var adm = !!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin());
+    if (!s && !adm) { g.innerHTML = '<div class="gate"><b>سجّل الدخول بحسابك أوّلاً</b><p class="meta">صندوق الإشعارات لكلّ حساب وحده.</p><a class="btn p" href="home.html">تسجيل الدخول</a></div>'; return; }
+    g.innerHTML = '<div class="gate"><b>فعّل صندوق إشعاراتك على هذا الجهاز</b><div class="meta">مرّة واحدة فقط — أكّد كلمة سرّ حسابك' + (adm ? ' (' + esc(GMTRole.name && GMTRole.name() || 'الإدارة') + ')' : '') + '. لا تُحفظ على الجهاز.</div>' +
+      '<input id="pw" type="password" autocomplete="current-password" placeholder="كلمة السرّ"><button class="btn p" id="b-gate" type="button">تفعيل</button> <span id="g-err" class="meta" style="color:#D5001C"></span></div>';
+    $('b-gate').onclick = async function () {
+      this.disabled = true; var r = await GMTInbox.viaPassword($('pw').value); this.disabled = false;
+      if (r && r.ok) { g.hidden = true; open(); } else $('g-err').textContent = (r && r.msg) || 'تعذّر التفعيل';
+    };
+    $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('b-gate').click(); });
+  }
+  function row(x) {
+    var pr = x.p >= 3 ? '<span class="pr p3">حرج</span>' : x.p === 2 ? '<span class="pr p2">مهم</span>' : '';
+    var a = box === 'archive' ? '<button class="ib" data-a="unarchive" title="إرجاع من الأرشيف">↩️</button>'
+      : '<button class="ib" data-a="' + (x.read ? 'unread' : 'read') + '" title="' + (x.read ? 'علّمه غير مقروء' : 'علّمه مقروءاً') + '">' + (x.read ? '●' : '✓') + '</button>' +
+        '<button class="ib" data-a="snooze" title="أجّله ساعتين">⏰</button><button class="ib" data-a="archive" title="أرشفة">🗄️</button>';
+    return '<div class="it' + (x.read ? '' : ' unread') + '" data-id="' + x.id + '"><span class="dot"></span><div class="bd" data-go="1"><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p>' +
+      '<div class="meta">' + pr + '<span>' + esc(KINDS[x.k] || x.k) + '</span><span>·</span><span>' + ago(x.at) + '</span>' + (x.br ? '<span>· ' + esc(x.br) + '</span>' : '') + (x.done ? '<span>· تمّ الإجراء</span>' : '') + '</div></div>' +
+      '<div class="acts">' + a + '</div></div>';
+  }
+  function render() {
+    $('list').innerHTML = items.length ? items.map(row).join('') : '<div class="empty">' + (box === 'archive' ? 'الأرشيف فارغ' : box === 'snoozed' ? 'لا إشعارات مؤجّلة' : 'لا إشعارات هنا — كلّ شيء تحت السيطرة ✓') + '</div>';
+    $('b-more').hidden = !more;
+  }
+  async function load(append) {
+    if (busy) return; busy = true;
+    var r = await GMTInbox.list({ box: box, q: $('q').value.trim(), kind: $('kind').value || undefined, before: append ? more : undefined, limit: 50 });
+    busy = false;
+    if (!r || !r.ok) { if (r && r.err === 'token') return gate(); $('list').innerHTML = '<div class="empty">' + esc((r && r.msg) || 'تعذّر التحميل') + '</div>'; return; }
+    items = append ? items.concat(r.items || []) : (r.items || []); more = r.more; render();
+  }
+  async function open() { $('gate').hidden = true; $('main').hidden = false; await load(); GMTInbox.paint(); }
+
+  document.querySelector('.tabs').addEventListener('click', function (e) {
+    var t = e.target.closest('.tab'); if (!t) return;
+    [].forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.toggle('on', x === t); });
+    box = t.getAttribute('data-box'); $('b-all').hidden = box === 'archive'; load();
+  });
+  $('list').addEventListener('click', async function (e) {
+    var it = e.target.closest('.it'); if (!it) return; var id = Number(it.getAttribute('data-id')), x = items.filter(function (y) { return y.id === id; })[0]; if (!x) return;
+    var b = e.target.closest('[data-a]');
+    if (b) { var a = b.getAttribute('data-a'); await GMTInbox.act(a, id, a === 'snooze' ? { minutes: 120 } : null); return load(); }
+    if (e.target.closest('[data-go]')) { await GMTInbox.act(x.pop ? 'act' : 'read', id); if (x.u) location.href = x.u; else load(); }
+  });
+  $('b-all').onclick = async function () { if (window.GMTAsk && !(await GMTAsk.confirm('تحديد كلّ الإشعارات كمقروءة؟'))) return; await GMTInbox.act('read', 'all'); load(); };
+  $('b-more').onclick = function () { load(true); };
+  $('q').addEventListener('input', function () { clearTimeout(qT); qT = setTimeout(load, 300); });
+  $('kind').addEventListener('change', function () { load(); });
+  $('b-prefs').onclick = function () { if (window.GMTPush && GMTPush.openPanel) GMTPush.openPanel(); };
+  document.addEventListener('gmt:inbox', function (e) { var n = e.detail && e.detail.unread; $('n-unread').textContent = n ? '(' + n + ')' : ''; });
+
+  (async function boot() {
+    if (!GMTInbox.ready()) await GMTInbox.viaPush();
+    if (GMTInbox.ready()) open(); else gate();
+  })();
+})();
+</script>
+</body>
+</html>

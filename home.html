@@ -234,15 +234,16 @@ a.btn{text-decoration:none}
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-core.js?v=20261117h"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-<script src="gmt-auth.js?v=20261024d"></script>
+<script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-tools.js?v=20261101o"></script>
-<script src="gmt-account.js?v=20261103d"></script>
+<script src="gmt-account.js?v=20261117k"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-sound.js?v=20261117h" defer></script>
 <script src="gmt-share.js?v=20261029z4" defer></script>
 <script src="gmt-notify.js?v=20261104b" defer></script>
 <script src="gmt-push.js?v=20261117f" defer></script>
+<script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
 <script src="gmt-warmup.js?v=20261117j"></script>
 <script src="gmt-home.js?v=20261007z5"></script>
@@ -362,6 +363,7 @@ a.btn{text-decoration:none}
       '<span class="tb-hi"><img src="' + LOGO + '" alt=""><span><b>' + (A() ? 'أهلاً محمد خير' : 'أهلاً ' + esc(NAME() || '')) + '</b><small>' +
       (A() ? 'الإدارة · كل الفروع' : 'فرع ' + esc(brName()) + (pr0.center ? ' · ' + esc(pr0.center) : '')) + '</small></span></span>' +
       '<h1>الرئيسية</h1><span class="rolechip ' + (A() ? '' : 'st') + '">' + (A() ? 'أدمن' : 'موظف · فرع ' + esc(brName())) + '</span><span class="sp"></span>' +
+      '<a class="mnu" href="مركز_الإشعارات.html" data-gmt-bell aria-label="الإشعارات" title="مركز الإشعارات">' + ic('bell', 20) + '</a>' +
       '<label class="srch dk">' + ic('search', 17) + '<input id="q" placeholder="بحث في النظام" autocomplete="off" aria-label="بحث في النظام"></label>' +
       '<div id="gmt-refresh-bar" class="gmt-refresh-bar" data-keep-fab="1"></div></header>';
   }
