@@ -57,6 +57,7 @@ body{margin:0;background:#f7f7f8;color:var(--ink);font:15px/1.7 Cairo,'Segoe UI'
 <body>
 <div class="wrap">
   <div class="top"><a class="btn" href="home.html">→ الرئيسية</a><h1>مركز الإشعارات</h1>
+    <a class="btn" id="b-admin" href="إدارة_الإشعارات.html" hidden title="قواعد الإرسال · المجموعات · الإحصائيات">🛠️ إدارة الإشعارات</a>
     <button class="btn" id="b-prefs" type="button" title="أنواع الإشعارات التي تصل لهذا الجهاز">⚙️ الإعدادات</button></div>
   <div id="gate" hidden></div>
   <div id="main" hidden>
@@ -146,6 +147,7 @@ body{margin:0;background:#f7f7f8;color:var(--ink);font:15px/1.7 Cairo,'Segoe UI'
   document.addEventListener('gmt:inbox', function (e) { var n = e.detail && e.detail.unread; $('n-unread').textContent = n ? '(' + n + ')' : ''; });
 
   (async function boot() {
+    try { $('b-admin').hidden = !(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()); } catch (_) {}
     if (!GMTInbox.ready()) await GMTInbox.viaPush();
     if (GMTInbox.ready()) open(); else gate();
   })();

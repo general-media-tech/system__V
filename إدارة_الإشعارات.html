@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>إدارة الإشعارات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261117h"></script>
+<script src="gmt-core.js?v=20261117h"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261117k"></script>
+<script src="gmt-tools.js?v=20261101o"></script>
+<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-ask.js?v=20261029z4"></script>
+<script src="gmt-oplog.js?v=20261117h"></script>
+<script src="gmt-sound.js?v=20261117h" defer></script>
+<script src="gmt-inbox.js?v=20261117k" defer></script>
+<script src="gmt-refresh.js?v=20261011a" defer></script>
+<!-- (TASK-B0424 · المرحلة ٤ · المالك seq 803 §١١ و§١٣) لوحة إدارة الإشعارات: الإحصائيات · قواعد الإرسال لكل نوع (بلا كود) · مجموعات المستلمين. للإدارة وحدها. -->
+<style>
+:root{color-scheme:light;--red:#D5001C;--ink:#111;--mu:#5b6472;--line:rgba(17,17,17,.09)}
+*{box-sizing:border-box}
+body{margin:0;background:#f7f7f8;color:var(--ink);font:15px/1.7 Cairo,'Segoe UI',Tahoma,system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:16px 16px 90px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.top h1{margin:0;font-size:20px;flex:1}
+.btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}
+.btn:disabled{opacity:.5}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;color:var(--mu)}
+.tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px}
+.kpi small{display:block;color:var(--mu);font-size:12px}.kpi b{font-size:22px}
+.kpi.r b{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--mu);font-weight:700;font-size:12px}
+.rule{border-bottom:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:1fr;gap:6px}
+.rule:last-child{border-bottom:0}
+.rh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rh b{flex:1;min-width:160px}
+.rh code{font-size:11px;color:var(--mu);direction:ltr}
+.opts{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:#333}
+.opts label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+select{border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:inherit;font-size:13px;background:#fff}
+.sw{appearance:none;width:40px;height:22px;border-radius:11px;background:#d1d5db;position:relative;cursor:pointer;transition:.15s;flex:none}
+.sw:checked{background:var(--red)}.sw::after{content:'';position:absolute;top:2px;inset-inline-start:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
+.sw:checked::after{inset-inline-start:20px}
+.tag{font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#f3f4f6;color:var(--mu)}
+.tag.m{background:#fff1f2;color:var(--red)}
+.mu{color:var(--mu);font-size:12.5px}
+.grp h3{margin:0 0 6px;font-size:15px}
+.mem{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px;font-size:13px;margin:8px 0}
+.lock{text-align:center;padding:40px 16px}
+.saved{color:#15803d;font-size:12px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسية</a><h1>إدارة الإشعارات</h1><a class="btn" href="مركز_الإشعارات.html">📥 صندوقي</a></div>
+  <div id="lock" class="card lock" hidden></div>
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-t="stats" type="button">📊 الإحصائيات</button>
+      <button class="tab" data-t="rules" type="button">⚙️ قواعد الإرسال</button>
+      <button class="tab" data-t="groups" type="button">👥 المجموعات</button>
+    </div>
+    <section id="t-stats">
+      <div class="bar" style="margin-bottom:10px"><select id="days"><option value="1">آخر يوم</option><option value="7" selected>آخر 7 أيام</option><option value="30">آخر 30 يوماً</option><option value="120">آخر 120 يوماً</option></select></div>
+      <div id="kpis" class="kpis"></div>
+      <div class="card"><b>حسب النوع</b><div id="by-kind"></div></div>
+      <div class="card"><b>حسب المستلم</b><div id="by-rcpt"></div></div>
+    </section>
+    <section id="t-rules" hidden>
+      <p class="mu">لكلّ نوع: تشغيل/إيقاف · المستوى (عادي · مهم · حرج) · من يستلمه (الإدارة · موظّفو فرع الحدث · مجموعات) · «نافذة إجراء» تظهر ولا تختفي قبل الفتح أو التأجيل. التغيير يسري على الإشعارات الجديدة فوراً — بلا كود.</p>
+      <div id="rules" class="card"></div>
+    </section>
+    <section id="t-groups" hidden>
+      <p class="mu">اختر أعضاء كلّ مجموعة من الحسابات الموجودة، ثمّ اربط المجموعة بالأنواع من «قواعد الإرسال».</p>
+      <div id="groups"></div>
+    </section>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var D = (window.GMT_DB && GMT_DB.MAIN) || {};
+  var H = { apikey: D.key, Authorization: 'Bearer ' + D.key, 'Content-Type': 'application/json' };
+  function rest(m, path, body) {
+    return fetch(D.url + '/rest/v1/' + path, { method: m, headers: Object.assign({}, H, m === 'GET' ? {} : { Prefer: 'return=representation' }), body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.ok ? r.json().catch(function () { return []; }) : r.text().then(function (t) { throw new Error('HTTP ' + r.status + ' ' + t.slice(0, 120)); }); });
+  }
+  var RULES = [], GROUPS = [], USERS = [], PRI = { 1: 'عادي', 2: 'مهم', 3: 'حرج' };
+  function who() { try { return (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة'; } catch (_) { return 'الإدارة'; } }
+  function userName(r) {
+    if (r === 'admin') return 'الإدارة';
+    var id = String(r).replace(/^user:/, ''), u = USERS.filter(function (x) { return String(x.id) === id; })[0];
+    return u ? (u.display_name || u.username) + (u.branch_key ? ' · ' + u.branch_key : '') : r;
+  }
+  function label(k) { var r = RULES.filter(function (x) { return x.kind === k; })[0]; return r ? r.label : k; }
+
+  async function loadStats() {
+    $('kpis').innerHTML = '<div class="mu">جارٍ الحساب…</div>';
+    try {
+      var s = await rest('POST', 'rpc/gmt_notify_stats', { p_days: Number($('days').value) });
+      var k = function (t, v, red) { return '<div class="kpi' + (red ? ' r' : '') + '"><small>' + t + '</small><b>' + (v == null ? '—' : esc(v)) + '</b></div>'; };
+      $('kpis').innerHTML = k('أحداث', s.events) + k('إشعارات وصلت للأجهزة', s.pushes) + k('بانتظار الإرسال', s.pending) + k('فشل الإرسال', s.failed, s.failed > 0) +
+        k('متوسّط زمن الإرسال', s.avg_delay_s == null ? null : s.avg_delay_s + ' ث') + k('في الصناديق', s.inbox) + k('غير مقروء', s.unread, s.unread > 0) + k('مقروء', s.read) +
+        k('تمّ الإجراء', s.acted) + k('أجهزة الإشعارات', s.devices_push) + k('أجهزة الصندوق', s.devices_inbox) + k('أوقفتها القواعد', s.skipped);
+      var bk = Object.keys(s.by_kind || {}).sort(function (a, b) { return s.by_kind[b] - s.by_kind[a]; });
+      $('by-kind').innerHTML = bk.length ? '<table><tr><th>النوع</th><th>العدد</th></tr>' + bk.map(function (x) { return '<tr><td>' + esc(label(x)) + '</td><td>' + s.by_kind[x] + '</td></tr>'; }).join('') + '</table>' : '<p class="mu">لا أحداث في هذه المدّة.</p>';
+      var br = Object.keys(s.by_recipient || {});
+      $('by-rcpt').innerHTML = br.length ? '<table><tr><th>المستلم</th><th>الكل</th><th>غير مقروء</th></tr>' + br.map(function (x) { var v = s.by_recipient[x]; return '<tr><td>' + esc(userName(x)) + '</td><td>' + v.all + '</td><td>' + v.unread + '</td></tr>'; }).join('') + '</table>' : '<p class="mu">لا شيء بعد.</p>';
+    } catch (e) { $('kpis').innerHTML = '<div class="mu">تعذّر الحساب: ' + esc(e.message) + '</div>'; }
+  }
+  function ruleRow(r) {
+    var g = GROUPS.map(function (x) { return '<label><input type="checkbox" data-g="' + esc(x.key) + '"' + ((r.groups || []).indexOf(x.key) !== -1 ? ' checked' : '') + '>' + esc(x.name) + '</label>'; }).join('');
+    return '<div class="rule" data-k="' + esc(r.kind) + '"><div class="rh"><input class="sw" type="checkbox" data-f="enabled"' + (r.enabled ? ' checked' : '') + ' aria-label="تشغيل"' + (r.mandatory ? ' disabled title="إلزامي — لا يُطفأ"' : '') + '>' +
+      '<b>' + esc(r.label) + ' <code>' + esc(r.kind) + '</code></b>' + (r.mandatory ? '<span class="tag m">إلزامي</span>' : '') +
+      '<select data-f="priority">' + [1, 2, 3].map(function (p) { return '<option value="' + p + '"' + (r.priority === p ? ' selected' : '') + '>' + PRI[p] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn" type="button" data-save>حفظ</button><span class="saved" data-ok></span></div>' +
+      '<div class="opts"><label><input type="checkbox" data-f="to_admin"' + (r.to_admin ? ' checked' : '') + '>الإدارة</label>' +
+      '<label><input type="checkbox" data-f="to_branch"' + (r.to_branch ? ' checked' : '') + '>موظّفو الفرع</label>' +
+      '<label><input type="checkbox" data-f="popup"' + (r.popup ? ' checked' : '') + '>نافذة إجراء</label>' + g + '</div></div>';
+  }
+  function renderRules() { $('rules').innerHTML = RULES.map(ruleRow).join('') || '<p class="mu">لا قواعد.</p>'; }
+  $('rules').addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-save]'); if (!b) return;
+    var row = b.closest('.rule'), k = row.getAttribute('data-k'), r = RULES.filter(function (x) { return x.kind === k; })[0];
+    var f = function (n) { return row.querySelector('[data-f="' + n + '"]'); };
+    var patch = { enabled: r.mandatory ? true : f('enabled').checked, priority: Number(f('priority').value), to_admin: f('to_admin').checked, to_branch: f('to_branch').checked, popup: f('popup').checked,
+      groups: [].map.call(row.querySelectorAll('[data-g]:checked'), function (x) { return x.getAttribute('data-g'); }), updated_at: new Date().toISOString(), updated_by: who() };
+    if (!patch.to_admin && !patch.to_branch && !patch.groups.length && patch.enabled && window.GMTAsk && !(await GMTAsk.confirm('هذا النوع لن يصل لأيّ أحد (لا الإدارة ولا الفرع ولا مجموعة). أحفظ؟'))) return;
+    b.disabled = true;
+    try {
+      var out = await rest('PATCH', 'gmt_notify_rules?kind=eq.' + encodeURIComponent(k), patch);
+      if (!out || !out.length) throw new Error('لم يُحفظ — صلاحية أو النوع غير موجود');
+      Object.assign(r, out[0]); row.querySelector('[data-ok]').textContent = '✓ حُفظ';
+      try { window.GMTOpLog && GMTOpLog.log({ action: 'update:gmt_notify_rules', entity: 'gmt_notify_rules', entityName: r.label }); } catch (_) {}
+    } catch (er) { row.querySelector('[data-ok]').textContent = ''; alertMsg(er.message); }
+    b.disabled = false;
+  });
+  function alertMsg(m) { if (window.showToast) showToast(m, 'err'); else if (window.GMTAsk && GMTAsk.alert) GMTAsk.alert(m); else console.warn(m); }
+  function renderGroups() {
+    var people = [{ id: 'admin', n: 'الإدارة (كل حسابات الأدمن)' }].concat(USERS.filter(function (u) { return u.is_active !== false; }).map(function (u) { return { id: 'user:' + u.id, n: (u.display_name || u.username) + (u.branch_key ? ' · ' + u.branch_key : '') }; }));
+    $('groups').innerHTML = GROUPS.map(function (g) {
+      var used = RULES.filter(function (r) { return (r.groups || []).indexOf(g.key) !== -1; }).map(function (r) { return r.label; });
+      return '<div class="card grp" data-key="' + esc(g.key) + '"><h3>' + esc(g.name) + ' <span class="tag">' + (g.members || []).length + ' عضو</span></h3>' +
+        '<div class="mu">' + (used.length ? 'تستلم: ' + esc(used.join(' · ')) : 'غير مربوطة بأيّ نوع بعد') + '</div>' +
+        '<div class="mem">' + people.map(function (p) { return '<label><input type="checkbox" value="' + esc(p.id) + '"' + ((g.members || []).indexOf(p.id) !== -1 ? ' checked' : '') + '> ' + esc(p.n) + '</label>'; }).join('') + '</div>' +
+        '<button class="btn p" type="button" data-gsave>حفظ الأعضاء</button> <span class="saved" data-ok></span></div>';
+    }).join('');
+  }
+  $('groups').addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-gsave]'); if (!b) return;
+    var c = b.closest('.grp'), key = c.getAttribute('data-key'), g = GROUPS.filter(function (x) { return x.key === key; })[0];
+    var members = [].map.call(c.querySelectorAll('.mem input:checked'), function (x) { return x.value; });
+    b.disabled = true;
+    try {
+      var out = await rest('PATCH', 'gmt_notify_groups?key=eq.' + encodeURIComponent(key), { members: members, updated_at: new Date().toISOString() });
+      if (!out || !out.length) throw new Error('لم يُحفظ');
+      g.members = out[0].members; c.querySelector('[data-ok]').textContent = '✓ حُفظ'; c.querySelector('.tag').textContent = members.length + ' عضو';
+    } catch (er) { alertMsg(er.message); }
+    b.disabled = false;
+  });
+  document.querySelector('.tabs').addEventListener('click', function (e) {
+    var t = e.target.closest('.tab'); if (!t) return;
+    [].forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.toggle('on', x === t); });
+    ['stats', 'rules', 'groups'].forEach(function (n) { $('t-' + n).hidden = n !== t.getAttribute('data-t'); });
+    if (t.getAttribute('data-t') === 'groups') renderGroups();
+  });
+  $('days').addEventListener('change', loadStats);
+
+  (async function boot() {
+    var ok = !!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin());
+    if (!ok && window.GMTRole && GMTRole.requireAdmin) ok = await GMTRole.requireAdmin('إدارة الإشعارات');
+    if (!ok) { $('lock').hidden = false; $('lock').innerHTML = '<b>🔒 للإدارة فقط</b><p class="mu">ادخل بحساب الأدمن لإدارة قواعد الإشعارات ومجموعاتها.</p><a class="btn" href="home.html">الرئيسية</a>'; return; }
+    $('app').hidden = false;
+    try {
+      var r = await Promise.all([rest('GET', 'gmt_notify_rules?select=*&order=label'), rest('GET', 'gmt_notify_groups?select=*&order=name'), rest('GET', 'gmt_users?select=id,username,display_name,branch_key,is_active&order=display_name')]);
+      RULES = r[0] || []; GROUPS = r[1] || []; USERS = r[2] || [];
+    } catch (e) { alertMsg('تعذّر التحميل: ' + e.message); }
+    renderRules(); loadStats();
+  })();
+})();
+</script>
+</body>
+</html>
