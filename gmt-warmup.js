@@ -287,7 +287,8 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     status: () => ({ done: done(), images: lsGet(KEY_IMG), data: lsGet(KEY_DATA), running: _running || !!_imgRun,
                      imagesNow: Object.assign({}, IMG), report: global.__gmtWarmupReport }),
     reset,                                 // لإعادة التجهيز من الصفر
-    isDone: () => !!done() || imagesDone()
+    isDone: () => !!done() || imagesDone(),
+    AUTO_IMAGES: false
   };
 
   /* ═══ الإقلاع التلقائي — عند التثبيت فقط ═══
@@ -295,7 +296,12 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
        التطبيق تكون جاهزة أو قاربت.
      · أوّل فتحٍ للتطبيق المثبَّت بلا صورٍ مكتملة: نُكمل في الخلفية.
      الرئيسيّة تقود هذا بنفسها (خلف الانترو وببطاقة تقدّم)، فلا نتسابق معها. */
+  /* (المالك seq 807 «بما انو الملفات والصور على غيت هوب لسى في داعي ينزلهن المستخدم عنده؟ ما بيصير متل المتجر؟»)
+     الصور صارت تُخدَم من GitHub Pages (لا حصّة تحميل على القاعدة) ⇒ **لا تنزيل جماعي لكل الصور** عند التثبيت بعد اليوم.
+     الصورة تُحفظ فقط لحظة ظهورها (sw.js · gmt-imgs بسقف 1500 وتجديد كل 7 أيام) كأيّ موقع — والتنزيل الكامل يبقى زرّاً يدوياً. */
+  const AUTO_IMAGES = false;
   function startInstallImages(why) {
+    if (!AUTO_IMAGES) return;
     if (!gmtInternalUI('warmup-auto')) return;
     if (!signedIn()) return;               // يدخل أوّلاً — والرئيسيّة تبدأ بعد الدخول
     if (imagesDone() || _imgRun) return;

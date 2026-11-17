@@ -244,7 +244,7 @@ a.btn{text-decoration:none}
 <script src="gmt-notify.js?v=20261104b" defer></script>
 <script src="gmt-push.js?v=20261117f" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
-<script src="gmt-warmup.js?v=20261007z5"></script>
+<script src="gmt-warmup.js?v=20261117j"></script>
 <script src="gmt-home.js?v=20261007z5"></script>
 <script>
 /* ═══ (١٨ ت١ · وثيقة الطلبات ٩) «المستخدم العادي اول ما يفتح التطبيق مباشره … بيفتح له هو لحاله نقطه تبيعه اللي هو اختارها» ═══
@@ -789,7 +789,8 @@ a.btn{text-decoration:none}
   function installedNow() { try { return matchMedia('(display-mode: standalone)').matches || !!navigator.standalone; } catch (_) { return false; } }
   function W() { return window.GMTWarmup || null; }
   /* مثبَّت = يعمل كتطبيق الآن، أو ثُبِّت من هذا المتصفّح قبل الدخول (حدث التثبيت سُجّل والزائر لم يدخل بعد) */
-  function wantImages() { var w = W(); return !!(w && w.images && (installedNow() || lsGet('gmt_app_installed', '')) && !w.imagesDone() && roleNow() !== 'guest' && navigator.onLine !== false); }
+  /* (seq 807) لا تنزيل جماعي للصور تلقائياً — تُحفظ الصورة لحظة ظهورها فقط؛ التنزيل الكامل بزرّ يدوي (img-go) */
+  function wantImages() { var w = W(); return !!(w && w.images && w.AUTO_IMAGES !== false && (installedNow() || lsGet('gmt_app_installed', '')) && !w.imagesDone() && roleNow() !== 'guest' && navigator.onLine !== false); }
   var imgP = null;
   function startImages(rows, force) {
     var w = W(); if (!w || !w.images) return null;
@@ -868,7 +869,7 @@ a.btn{text-decoration:none}
       if (Date.now() - off > 7 * 864e5) {
         var nf = ('Notification' in window) ? Notification.permission : 'denied';
         html = '<div class="card dvc"><div class="ico">' + ic('home') + '</div><div class="sp"><b>ثبّت التطبيق على جهازك</b>' +
-          '<div class="mu">يفتح كتطبيقٍ كامل، وعند التثبيت تنزل صور المنتجات مرّةً واحدة فيعمل بلا إنترنت.</div></div>' +
+          '<div class="mu">يفتح كتطبيقٍ كامل وخفيف — الصور تُعرض من الموقع مباشرةً كالمتجر، وما فتحته منها يبقى ظاهراً بلا إنترنت.</div></div>' +
           '<button class="btn sm p" type="button" data-act="install">' + ic('plus', 15) + 'تثبيت</button>' +
           (isWinPC() ? '<button class="btn sm" type="button" data-act="win-help" title="الأيقونة على سطح المكتب لا تفتح — «إعدادات أمان الإنترنت»">💻 الكمبيوتر</button>' : '') +   // (TASK-0235)
           (nf === 'default' ? '<button class="btn sm" type="button" data-act="notif">' + ic('bell', 15) + 'الإشعارات</button>' : '') +
@@ -888,7 +889,7 @@ a.btn{text-decoration:none}
     else if (!t && S.running && roleNow() !== 'guest') fillDevice();
   });
   /* لحظة التثبيت من المتصفّح: نبدأ الصور فوراً (التبويب ما زال مفتوحاً) */
-  document.addEventListener('gmt:installed', function () { if (roleNow() !== 'guest') startImages(null, true); fillDevice(); });
+  document.addEventListener('gmt:installed', function () { if (roleNow() !== 'guest' && wantImages()) startImages(null, true); fillDevice(); });
 
   /* ═══ البيانات — قراءةٌ متدرّجة، ولا صفرَ مكذوب ═══ */
   async function load() {
