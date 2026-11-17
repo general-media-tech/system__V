@@ -15,7 +15,9 @@
     ['products', ''], ['inv_columns', ''], ['gmt_customers', ''], ['gmt_settings', ''], ['gmt_offers', ''], ['gmt_coupons', ''],
     ['gmt_expenses', '&created_at=gte.' + since(180)], ['invoices', '&created_at=gte.' + since(90)],
     ['gmt_orders', '&created_at=gte.' + since(150)], ['branch_stock_transfers', '&created_at=gte.' + since(150)],
-    ['branch_transfers', '&created_at=gte.' + since(120)]
+    ['branch_transfers', '&created_at=gte.' + since(120)],
+    /* (VER-3#REQ-0326) توحيد القائمة مع backup.html: السجل وسلة المحذوفات والإقفال اليومي */
+    ['gmt_audit', '&at=gte.' + since(90)], ['gmt_trash', '&deleted_at=gte.' + since(90)], ['gmt_daily_closes', '']
   ];
   function isAdmin() { try { return !!(global.GMTRole && GMTRole.isAdmin()); } catch (_) { return false; } }
   function db() { var D = global.GMT_DB && global.GMT_DB.MAIN; return D && D.url && D.key ? D : null; }

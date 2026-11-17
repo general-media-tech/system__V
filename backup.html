@@ -124,15 +124,16 @@ input[type=file]{width:100%;background:#f8fafc;border:1px dashed var(--line);bor
    قراءة فقط من القواعد الأربع + حزم ZIP + استعادة انتقائية.
    ═══════════════════════════════════════════════════════ */
 const DBS = {
-  main: { name:'الرئيسية', url:'https://ysawzwtmodkqqbqoiojj.supabase.co',
-    key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
-    tables:['products','inv_columns','inventory','invoices','invoice_items','invoice_commissions','gmt_settlements','shipments','stock_receipts','stock_moves','stock_counts','branch_transfers','branch_stock_transfers','stock_transfer_items','gmt_orders','gmt_offers','gmt_coupons','gmt_users','gmt_customers','gmt_expenses','gmt_manual_debts','gmt_settings','import_log','period_locks','agents'] },
-  store:{ name:'المتجر', url:'https://tupldwylzrkjzqtaiscv.supabase.co',
-    key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1cGxkd3lsenJranp0YWlzY3YiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc1MDc4ODcwOCwiZXhwIjoyMDY2MzY0NzA4fQ.eKPRvbcnDGYYnhcMuqmoWuOu-Vjnvo8FWMkjcLqKZQg',
+  main: { name:'الرئيسية', url:(window.GMT_DB && GMT_DB.MAIN && GMT_DB.MAIN.url) || 'https://ysawzwtmodkqqbqoiojj.supabase.co',
+    key:(window.GMT_DB && GMT_DB.MAIN && GMT_DB.MAIN.key) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ',
+    tables:['products','inv_columns','inventory','invoices','invoice_items','invoice_commissions','gmt_settlements','shipments','stock_receipts','stock_moves','stock_counts','branch_transfers','branch_stock_transfers','stock_transfer_items','gmt_orders','gmt_offers','gmt_coupons','gmt_users','gmt_customers','gmt_expenses','gmt_manual_debts','gmt_settings','import_log','period_locks','agents','gmt_audit','gmt_trash','gmt_daily_closes'] },
+  store:{ name:'المتجر', url:(window.GMT_DB && GMT_DB.STORE && GMT_DB.STORE.url) || 'https://tupldwylzrkjzqtaiscv.supabase.co',
+    key:(window.GMT_DB && GMT_DB.STORE && GMT_DB.STORE.key) || '',
     tables:['gmt_store'], bucket:'gmt-images' },
-  war:  { name:'الكفالة', url:'https://abppuwylukzpqckazegk.supabase.co',
-    key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
+  war:  { name:'الكفالة', url:(window.GMT_DB && GMT_DB.WARRANTY && GMT_DB.WARRANTY.url) || 'https://abppuwylukzpqckazegk.supabase.co',
+    key:(window.GMT_DB && GMT_DB.WARRANTY && GMT_DB.WARRANTY.key) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicHB1d3lsdWt6cHFja2F6ZWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTQ4NzYsImV4cCI6MjA5ODczMDg3Nn0.Dx6WCUfXD4T8D_tJclB9VuMUS3B0YSwejexrRrYhnqo',
     tables:['warranties','contracts'] },
+  /* (VER-3#REQ-0317) مفاتيح المتجر/الرئيسية/الكفالة من GMT_DB (gmt-config.js) — مفتاح المتجر المنسوخ هنا كان ref فيه حرف خاطئ فيُرفض؛ لا مفتاح جديد يُكتب هنا. */
   /* (seq 202) من GMT_DB.SITE (gmt-config.js) — قاعدة الموقع الخاصة؛ كان المفتاح المنسوخ هنا قديماً مرفوضاً (401) */
   site: { name:'الموقع', url:(window.GMT_DB && GMT_DB.SITE && GMT_DB.SITE.url) || 'https://znpakcaizvkwqzhosxvm.supabase.co',
     key:(window.GMT_DB && GMT_DB.SITE && GMT_DB.SITE.key) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpucGFrY2FpenZrd3F6aG9zeHZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzM0NTMsImV4cCI6MjA5NTkwOTQ1M30.YW3YuT-RRTpKw5WeFHkPeTUcXBBtaQFGCaCrBQWykks',
