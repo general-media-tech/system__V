@@ -315,6 +315,27 @@ function pickConflictKey(table, rows) {
   return null;   // لا مفتاح ⇒ إدراج عادي (قد يُنشئ تكراراً — نُحذّر المستخدم)
 }
 
+/* (VER-4#REQ-0439) يعيد قراءة مفاتيح الصفوف المستعادة من القاعدة على دفعات ⇒ {expected, found, missing, sample} */
+let lastRestoreReport = null;
+async function verifyRestore(db, table, rows, ckey) {
+  const expected = rows.length;
+  if (!ckey) return { checked: false, expected, found: 0, missing: 0, sample: [], reason: 'لا مفتاح مميّز في الجدول — تعذّرت المطابقة صفّاً صفّاً' };
+  const keys = [...new Set(rows.map(r => r && r[ckey]).filter(k => k != null).map(String))];
+  const lit = k => /[,()"\s]/.test(k) ? '"' + k.replace(/"/g, '\\"') + '"' : k;
+  const have = new Set();
+  try {
+    for (let i = 0; i < keys.length; i += 100) {
+      const part = keys.slice(i, i + 100);
+      const r = await fetch(`${db.url}/rest/v1/${table}?select=${encodeURIComponent(ckey)}&${encodeURIComponent(ckey)}=in.(${part.map(k => encodeURIComponent(lit(k))).join(',')})`,
+        { headers: { apikey: db.key, Authorization: 'Bearer ' + db.key } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      (await r.json()).forEach(x => have.add(String(x[ckey])));
+    }
+  } catch (e) { return { checked: false, expected, found: 0, missing: 0, sample: [], reason: 'تعذّرت القراءة للتحقّق (' + e.message + ')' }; }
+  const miss = keys.filter(k => !have.has(k));
+  return { checked: true, expected: keys.length, found: keys.length - miss.length, missing: miss.length, sample: miss.slice(0, 3) };
+}
+
 async function doRestore(dbKey, fname, table) {
   const rows = restoreData[fname][table];
   const db = DBS[dbKey];
@@ -345,15 +366,29 @@ async function doRestore(dbKey, fname, table) {
         console.warn('[GMT] فشل جزء من الاستعادة:', table, r.status, txt);
       }
     }
+    /* (VER-4#REQ-0439) «نجح الإرسال» ليس «اكتملت الاستعادة»: نعيد قراءة القاعدة ونقارن بالنسخة صفّاً صفّاً */
+    const v = await verifyRestore(db, table, rows, ckey);
+    const vLine = v.checked
+      ? `\n\nالتحقّق من القاعدة: المتوقّع ${v.expected} · الموجود فعلاً ${v.found}` + (v.missing ? ` · ❌ ناقص ${v.missing}` + (v.sample.length ? ` (مثل ${ckey}: ${v.sample.join('، ')})` : '') : ' ✓')
+      : (v.reason ? `\n\nالتحقّق من القاعدة: ${v.reason}` : '');
+    lastRestoreReport = { table, expected: v.expected, found: v.found, missing: v.missing, failedRows, checked: v.checked };
     // لا رسالة نجاح مع إخفاق جزئي — نُظهر الفقد بوضوح
-    if (failedRows === 0) {
-      alert(`✅ استُعيد ${ok} من ${rows.length} سجل إلى ${table}`);
+    if (failedRows === 0 && !v.missing) {
+      alert(`✅ استُعيد ${ok} من ${rows.length} سجل إلى ${table}` + vLine);
     } else {
       alert(`⚠️ استعادة غير مكتملة لـ «${table}»\n\n` +
-            `نجح: ${ok} سجل · فشل: ${failedRows} سجل\n\n` +
-            `سبب الفشل:\n• ${errs.join('\n• ')}\n\n` +
+            `نجح الإرسال: ${ok} سجل · فشل: ${failedRows} سجل` +
+            (errs.length ? `\n\nسبب الفشل:\n• ${errs.join('\n• ')}` : '') + vLine + `\n\n` +
             `لم تُستعَد كل البيانات — راجع الرسالة أعلاه قبل إعادة المحاولة.`);
     }
+    /* الفاحص الذاتي: الجداول الحرجة موجودة بعد الاستعادة (قراءة فقط) */
+    try {
+      if (window.GMTSelfCheck && GMTSelfCheck.checkDatabase) {
+        const sc = await GMTSelfCheck.checkDatabase();
+        if (sc && sc.level && sc.level !== 'ok') log('🩺 الفاحص بعد الاستعادة: ' + (sc.title || '') + ' — ' + (sc.detail || ''), 'err');
+        else if (sc) log('🩺 الفاحص بعد الاستعادة: ' + (sc.title || 'كل الجداول الحرجة موجودة'), 'ok');
+      }
+    } catch (_) {}
   } catch (e) { alert('تعذّرت الاستعادة: ' + e.message); }
 }
 </script><!-- 🎓 النظام التعليمي (يستبدل gmt-tour) -->
