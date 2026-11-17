@@ -28,6 +28,7 @@
 
   const CFG_KEY = 'gmt_brain_endpoint';      // نفس مفتاح gmt-brain.js — وسيط واحد
   const BATCH   = 6;                          // منتجات لكل نداء — يوازن الدقّة والتكلفة
+  const MAX_PRODUCTS = 60;                    // (ARC-HTML-2#60) سقف المنتجات في التشغيلة الواحدة — يحمي التكلفة والوقت؛ الباقي بتشغيلة تالية
 
   function endpoint() {
     try { return localStorage.getItem(CFG_KEY) || ''; } catch (_) { return ''; }
@@ -182,7 +183,7 @@
    * @param {Function} onProgress (done, total, message)
    */
   async function propose(products, onProgress) {
-    const list = (products || []).filter(p => p && p.id && p.name);
+    const list = (products || []).filter(p => p && p.id && p.name).slice(0, MAX_PRODUCTS);
     const out = [], errors = [];
     for (let i = 0; i < list.length; i += BATCH) {
       const chunk = list.slice(i, i + BATCH);
@@ -372,8 +373,9 @@
     const body = ov.querySelector('#ge-body');
     const status = ov.querySelector('#ge-status');
     const cnt = ov.querySelector('#ge-count');
-    const list = (products || []).filter(p => p && p.id && p.name);
-    cnt.textContent = list.length + ' منتج محدَّد';
+    const all = (products || []).filter(p => p && p.id && p.name);
+    const list = all.slice(0, MAX_PRODUCTS);
+    cnt.textContent = all.length + ' منتج محدَّد' + (all.length > MAX_PRODUCTS ? ' — سيُعالَج أوّل ' + MAX_PRODUCTS + ' فقط (السقف)' : '');
 
     if (!endpoint()) {
       body.innerHTML = '<div style="padding:18px;text-align:center;font-weight:800;color:#991b1b;font-size:13px;line-height:2">' +
@@ -386,7 +388,7 @@
     }
 
     body.innerHTML = '<div style="color:#526077;font-size:12.5px;font-weight:700;line-height:2">' +
-      'سيُسأل عن <b>' + list.length + '</b> منتج على دفعات من ' + BATCH + '.<br>' +
+      'سيُسأل عن <b>' + list.length + '</b> منتج على دفعات من ' + BATCH + (all.length > list.length ? ' (السقف ' + MAX_PRODUCTS + ' من أصل ' + all.length + ' — شغّلها مرّةً أخرى للباقي)' : '') + '.<br>' +
       'المطلوب: مواصفات واقعية · توافقيات · كلمات بحث عربية · عبارات للعثور على صور بخلفية بيضاء.<br>' +
       'لا نثر ولا تسويق: ما لا يعرفه يتركه فارغاً.</div>';
 
