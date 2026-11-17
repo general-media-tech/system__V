@@ -8859,6 +8859,7 @@ function showExcelPreview(headers, data) {
     { key: 'price', label: 'السعر' },
     { key: 'barcode', label: 'الباركود' },
     { key: 'image_url', label: 'رابط الصورة' },
+    { key: 'brand', label: 'الماركة' },
     ...columns.filter(c => !c.fixed && c.includeInTotal).map(c => ({ key: c.key, label: c.displayName }))
   ];
 
@@ -8908,14 +8909,14 @@ async function importExcelData() {
     return String(row[Number(idx)] || '');
   };
 
-  const getIdCell = () => {
+  const getIdCell = (row) => {
     const idx = getMapVal('id');
     if (idx === '') return '';
     return String(row[Number(idx)] || '').trim();
   };
 
   const products = excelRawData.map(row => {
-    const existingId = getIdCell();
+    const existingId = getIdCell(row);
     const p = {
       id: existingId || generateId(),
       name: getCell(row, 'name') || 'منتج بدون اسم',
@@ -8925,6 +8926,8 @@ async function importExcelData() {
       image_url: getCell(row, 'image_url'),
       created_at: new Date().toISOString(),
     };
+    /* (OWN-05#17) الماركة فقط إن طابَقها المستخدم بعمود — وإلا لا يُرسَل المفتاح فلا يتأثر منتجٌ ولا قاعدة بلا عمود brand */
+    if (getMapVal('brand') !== '') p.brand = getCell(row, 'brand').trim() || null;
     columns.filter(c => !c.fixed && c.includeInTotal).forEach(col => {
       const rawVal = getCell(row, col.key);
       const numVal = parseFloat(rawVal);
@@ -9025,6 +9028,7 @@ async function exportExcel(mode) {   /* async: ينتظر تحميل ExcelJS ع�
     // عمود "id" مخفي في البداية — ضروري لضمان عودة نفس المنتج بدل تكراره عند إعادة الاستيراد
     const headers = ['id (لا تعدّل)', ...visibleCols.map(c => c.displayName)];
     headers.push('الإجمالي');
+    headers.push('الماركة');   /* (OWN-05#17) في آخر الأعمدة: المستورد يقرأ بالرأس عبر شاشة المطابقة ويتجاهل غير المطابَق */
 
     // Header row
     const headerRow = ws.addRow(headers);
@@ -9059,6 +9063,7 @@ async function exportExcel(mode) {   /* async: ينتظر تحميل ExcelJS ع�
         rowValues.push(p[col.key] || '');
       });
       rowValues.push(getTotal(p));
+      rowValues.push(p.brand || '');
 
       const row = ws.addRow(rowValues);
       row.height = 20;
