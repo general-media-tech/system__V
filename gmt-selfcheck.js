@@ -267,12 +267,39 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     } catch (e) { return warn('تعذّر فحص رابط الوسيط', e.message); }
   }
 
+  /* ⑧ (VER-4#REQ-0421) المكتبات المؤجَّلة (Excel · PDF …): لا وسم <script> لها في الصفحة فلا يلتقطها فحص الأصول ①،
+     فإن حُذف ملفٌّ منها انكسر «تصدير/استيراد Excel» فقط عند الضغط. نتحقّق بـHEAD من وجود كلّ ملفٍّ مسجَّل — ولا نحمّل المكتبة (كي لا نُثقل الصفحة). */
+  async function checkLazyLibs() {
+    try {
+      var L = global.GMTLazyLib;
+      if (!L || !L.names || !L.src) return ok('لا مكتبات مؤجَّلة على هذه الصفحة');
+      var missing = [], unsure = [];
+      for (var i = 0; i < L.names.length; i++) {
+        var n = L.names[i], src = L.src(n); if (!src) continue;
+        var st = null;
+        for (var a = 0; a < 2 && st == null; a++) {
+          try {
+            var r = await fetch(src, { method: 'HEAD', cache: 'no-store' });
+            if (r.status === 405 || r.status === 501) r = await fetch(src, { cache: 'no-store' });   /* الاستضافة ترفض HEAD */
+            st = r.ok ? 'ok' : 'bad:' + r.status;
+          } catch (e) { if (a === 0) await wait(1500); }
+        }
+        if (st === 'ok') continue;
+        if (st == null) unsure.push(n); else missing.push(n + ' (' + st.slice(4) + ')');
+      }
+      if (missing.length) return bad('مكتبة ' + missing.join(' · ') + ' مفقودة', 'ملفّات المكتبات المؤجَّلة (' + missing.length + ') غير موجودة على الاستضافة — يتعطّل تصدير/استيراد Excel أو قراءة PDF');
+      if (unsure.length) return warn('تعذّر التحقّق من مكتبة ' + unsure.join(' · '), 'الشبكة لم تردّ');
+      return ok('مكتبة Excel وبقيّة المكتبات المؤجَّلة موجودة (' + L.names.length + ')');
+    } catch (e) { return warn('تعذّر فحص المكتبات المؤجَّلة', e.message); }
+  }
+
   async function run(verbose) {
     var results = [];
     results.push(checkRules());
     results.push(checkBrand());
     results.push(checkEndpoints());
     results.push(await checkAssets());
+    results.push(await checkLazyLibs());
     results.push(await checkDatabase());
     results.push(await checkRpc());
     results.push(await checkRowCap());
@@ -326,6 +353,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     if ((m = t.match(/^أصول ناقصة: (\d+)/))) return { t: 'ملفّات ناقصة في الصفحة (' + m[1] + ')', d: 'صورٌ أو ملفّات لم تُحمَّل — حدّث الصفحة، وإن تكرّر أرسل لي صورة هذه الرسالة.' };
     if (/add_branch_stock/.test(t)) return { t: 'دالّة المخزون غير مفعّلة في القاعدة', d: 'الجرد والمشتريات لن يعملا بدونها — أرسل لي صورة هذه الرسالة.' };
     if (/^اعتماد على CDN/.test(t)) return { t: 'الصفحة تعتمد على ملفٍّ من الإنترنت', d: 'لن تعمل بلا إنترنت — أرسل لي صورة هذه الرسالة.' };
+    if (/^مكتبة .+ مفقودة$/.test(t)) return { t: 'ملفّ مكتبة مفقود (تصدير Excel أو قراءة PDF سيتعطّل)', d: 'حدّث الصفحة؛ وإن بقي أرسل لي صورة هذه الرسالة.' };
     if (/^رابط وسيطٍ لا يصلح/.test(t)) return { t: 'رابط عقل النظام غير صالح', d: 'صحّحه من «تفعيل عقل النظام».' };
     if (/^ألوان خارج الهوية/.test(t)) return { t: 'ألوانٌ خارج هويّة الشركة في الصفحة', d: '' };
     /* (TASK-0311 ز) كان يطابق عنوان النجاح «حدّ الصفوف لا يقطع البيانات» أيضاً ⇒ ok مع نصّ تحذيرٍ متناقض */
@@ -381,5 +409,5 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   if (document.readyState === 'complete') auto();
   else addEventListener('load', auto);
 
-  global.GMTSelfCheck = { _plain: plain, run: run, checkAssets: checkAssets, checkBrand: checkBrand, checkDatabase: checkDatabase };
+  global.GMTSelfCheck = { _plain: plain, run: run, checkAssets: checkAssets, checkLazyLibs: checkLazyLibs, checkBrand: checkBrand, checkDatabase: checkDatabase };
 })(window);

@@ -460,6 +460,22 @@
   reg('SYS_THEME', 'SYS', 'ui', 'تغيير الثيم', 'صعودٌ قصير مع حفيف', function () { tone({ f: 600, f2: 900, dur: .08, gain: .07, attack: .004 }); noise({ from: 1500, to: 3500, dur: .08, gain: .03, band: true, q: 1 }); });
   reg('SYS_LANG', 'SYS', 'ui', 'تغيير اللغة', 'نقرتان قصيرتان', function () { tone({ f: 800, dur: .05, gain: .07, attack: .003 }); tone({ f: 1000, dur: .05, gain: .07, at: .06, attack: .003 }); });
 
+  /* ── (ك) المخزون — OWN-12#13: عائلة خشبيّة منخفضة (مثلّث/جيب بنغمات 200–660Hz) تميّز الجرد عن النقر والمال ──
+     الأسماء بنمط الخطّة (invAdd…) ولها أسماءٌ مستعارة PREFIX_ACTION (INV_ADD…) وأحداثٌ في GMT_EVENT_MAP (inv.add…). */
+  reg('invAdd', 'INV', 'success', 'إضافة منتج', 'ثلاث نغماتٍ خشبيّة صاعدة', function () { arp([247, 330, 494], { step: .07, dur: .18, type: 'triangle', gain: .15, lp: 1800 }); });
+  reg('invEdit', 'INV', 'info', 'تعديل منتج', 'نغمتان خشبيّتان متقاربتان', function () { arp([330, 392], { step: .07, dur: .14, type: 'triangle', gain: .13, lp: 1800 }); });
+  reg('invDel', 'INV', 'warn', 'حذف منتج', 'هبوطٌ خشبيّ منخفض مع ارتطامٍ خفيف', function () { tone({ f: 300, f2: 180, type: 'triangle', dur: .18, gain: .16, lp: 900 }); tone({ f: 110, f2: 70, dur: .12, gain: .14, at: .04 }); });
+  reg('invPhoto', 'INV', 'success', 'رفع صورة منتج', 'نقرتا غالقٍ ثمّ نغمةٌ عالية قصيرة', function () { noise({ from: 3000, to: 6000, dur: .04, gain: .08, band: true, q: 1 }); noise({ from: 3000, to: 6000, dur: .04, gain: .08, at: .06, band: true, q: 1 }); tone({ f: 880, dur: .08, gain: .08, at: .11 }); });
+  reg('invQty', 'INV', 'success', 'إضافة كمّية', 'أربع نقراتٍ خشبيّة صاعدة سريعة', function () { arp([262, 330, 392, 523], { step: .05, dur: .1, type: 'triangle', gain: .13, lp: 2000 }); });
+  reg('invTransfer', 'INV', 'info', 'تحويل بين فروع', 'حفيفُ انتقال ثمّ نغمتان (صعودٌ فاستقرار)', function () { noise({ from: 500, to: 2500, dur: .18, gain: .05, band: true, q: .8 }); tone({ f: 294, f2: 440, type: 'triangle', dur: .2, gain: .13, lp: 2200 }); tone({ f: 440, type: 'triangle', dur: .12, gain: .11, at: .2, lp: 2200 }); });
+  reg('countStart', 'INV', 'info', 'بدء جرد', 'نغمتان خشبيّتان — بدء العدّ', function () { arp([330, 392], { step: .12, dur: .1, type: 'triangle', gain: .12, lp: 1800 }); });
+  reg('countMatch', 'INV', 'success', 'الجرد مطابق', 'ثلاث نغماتٍ صاعدة ثمّ نغمةٌ صافية', function () { arp([330, 415, 494], { step: .07, dur: .14, type: 'triangle', gain: .14, lp: 2000 }); tone({ f: 660, dur: .28, gain: .1, at: .22 }); });
+  reg('countMismatch', 'INV', 'warn', 'الجرد غير مطابق', 'نغمتان خشبيّتان متنافرتان (تريتون)', function () { tone({ f: 262, type: 'triangle', dur: .16, gain: .14, lp: 1400 }); tone({ f: 370, type: 'triangle', dur: .2, gain: .14, at: .13, lp: 1400 }); });
+  reg('labelPrint', 'INV', 'success', 'طباعة ملصقات', 'ثلاث نقراتٍ كطابعةٍ ثمّ نغمة', function () { [0, .05, .1].forEach(function (at) { noise({ from: 2000, to: 5000, dur: .03, gain: .06, at: at, band: true, q: 1 }); }); tone({ f: 660, dur: .12, gain: .09, at: .17 }); });
+  reg('catNew', 'INV', 'success', 'إنشاء تصنيف', 'نغمتان جرسيّتان ولمعة', function () { arp([392, 523], { step: .08, dur: .2, gain: .13 }); tone({ f: 1047, dur: .25, gain: .06, at: .12 }); });
+  ALIAS.INV_ADD = 'invAdd'; ALIAS.INV_EDIT = 'invEdit'; ALIAS.INV_DELETE = 'invDel'; ALIAS.INV_PHOTO = 'invPhoto'; ALIAS.INV_QTY = 'invQty'; ALIAS.INV_TRANSFER = 'invTransfer';
+  ALIAS.INV_COUNT_START = 'countStart'; ALIAS.INV_COUNT_MATCH = 'countMatch'; ALIAS.INV_COUNT_MISMATCH = 'countMismatch'; ALIAS.INV_LABELS_PRINT = 'labelPrint'; ALIAS.INV_CAT_NEW = 'catNew';
+
   /* (OWN-09#40/#23) الأصوات المتكرّرة تُنوَّع نغمتها ±10–40 سنتاً · (OWN-09#47) زمن تهدئةٍ لكل مفتاح · (OWN-09#41) هرمية الجهارة */
   var JITTER = { click: 1, tick: 1, scan: 1, pop: 1, copy: 1, UI_CHECK: 1, UI_RADIO: 1, UI_TAB: 1, UI_HOVER: 1, UI_FOCUS: 1, FORM_KEY: 1, FORM_BACKSPACE: 1, FORM_ENTER: 1, invAdd: 1 };
   var CD = { click: 60, tick: 30, scan: 60, success: 250, warn: 400, error: 400, notify: 1500, update: 5000, offline: 3000, online: 3000 };
@@ -882,6 +898,13 @@
     'sys.backup': { key: 'SYS_BACKUP_DONE' }, 'sys.updateInstalled': { key: 'SYS_UPDATE_INSTALLED' }, 'sys.storageFull': { key: 'SYS_STORAGE_FULL', fx: 'flash-amber' },
     'sys.sessionExpired': { key: 'SYS_SESSION_EXPIRED' }, 'sys.theme': { key: 'SYS_THEME' }, 'sys.lang': { key: 'SYS_LANG' }
   };
+  /* (OWN-12#13) أحداث المخزون */
+  Object.assign(EV_DEFAULT, {
+    'inv.add': { key: 'invAdd', fx: 'flash-green' }, 'inv.edit': { key: 'invEdit' }, 'inv.delete': { key: 'invDel' }, 'inv.photo': { key: 'invPhoto', fx: 'flash-green' },
+    'inv.qty': { key: 'invQty', fx: 'flash-green' }, 'inv.transfer': { key: 'invTransfer' }, 'inv.count.start': { key: 'countStart' },
+    'inv.count.match': { key: 'countMatch', fx: 'flash-green' }, 'inv.count.mismatch': { key: 'countMismatch', fx: 'flash-amber' },
+    'inv.labels.print': { key: 'labelPrint' }, 'inv.category.new': { key: 'catNew', fx: 'flash-green' }
+  });
   try { global.GMT_EVENT_MAP = Object.assign({}, EV_DEFAULT, global.GMT_EVENT_MAP || {}); } catch (_) {}
 
   /* ═══ (OWN-09#50 · OWN-12#33) الواجهة العامّة GMTAudio ═══ */

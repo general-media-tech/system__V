@@ -2501,6 +2501,8 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
     <!-- (TASK-0292 · المالك seq 261) فلتر الشجرة الموحّدة: رئيسي ⇐ فرعي (cat_main · cat_sub) -->
     <select id="tree-main" onchange="invTreeSet('main', this.value)" aria-label="التصنيف الرئيسي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw"><option value="">🌳 كل التصنيفات</option></select>
     <select id="tree-sub" onchange="invTreeSet('sub', this.value)" aria-label="التصنيف الفرعي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw;display:none"><option value="">كل الفرعي</option></select>
+    <!-- (OWN-05#17 · المالك «البحث والفلترة بالماركة») فلتر الماركة — يُملأ من ماركات المنتجات ويتقاطع مع بقيّة الفلاتر والتصدير -->
+    <select id="inv-brand-filter" onchange="invBrandSet(this.value)" aria-label="الماركة" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw;display:none"><option value="">كل الماركات</option></select>
   </div>
 
   <!-- Branch Filter Row — فلاتر نقاط البيع -->
@@ -4105,6 +4107,7 @@ let currentPage = 1;
 let pageSize = 9999; // عرض كامل المنتجات بشكل دائم
 let currentFilter = 'all';
 let currentGroup = ''; // المجموعة المحددة
+let currentBrand = ''; // (OWN-05#17) فلتر الماركة — يتقاطع مع التصنيف والمجموعة والفرع والبحث
 let currentCategory = ''; // (2026-10-05 س) التصنيف — أكبر من المجموعة (عمود products.category · SQL ٢٤)
 let currentBranchFilter = ''; // فلتر الفرع/نقطة البيع
 let invSpecF = '', invStoreF = '', _invStoreIdx = null; // (TASK-0189) المواصفات: '' · has · none — المتجر: '' · linked · inv · store
@@ -4345,6 +4348,26 @@ async function sbFetch(method, path, body = null, extraHeaders = null) {
   }
   return { data, error: null };
 }
+
+/* (OWN-05#123) اسم ملف صورة المنتج موحّد عبر مسارات الرفع (المحرّر · قائمة النقص · الرفع الجماعي): حروفٌ لاتينية صغيرة وأرقام وشرطات فقط
+   ⇒ لا اسمَ عربيّاً ولا حروفاً كبيرة ولا مسافات في مسار التخزين (كانت تُبنى من اسم ملف المستخدم). الصور القديمة لا تُعاد تسميتها.
+   ext يُؤخذ من اسم الملف إن كان له امتدادٌ لاتينيّ، وإلا من نوعه (image/png ⇒ png)، وإلا webp. */
+function imgExt(file) {
+  const nm = String((file && file.name) || ''), dot = nm.lastIndexOf('.');
+  const fromName = dot >= 0 ? nm.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  if (fromName && fromName.length <= 5) return fromName.replace('jpeg', 'jpg');
+  const fromType = String((file && file.type) || '').split('/')[1] || '';
+  return (fromType.toLowerCase().replace(/[^a-z0-9]/g, '').replace('jpeg', 'jpg')) || 'webp';
+}
+function imgName(productId, ext) {
+  const id = String(productId == null ? '' : productId).toLowerCase().replace(/[^a-z0-9-]/g, '') || 'p';
+  const e = String(ext || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'webp';
+  return (id + '-' + Date.now() + '.' + e).toLowerCase();
+}
+window.imgName = imgName; window.imgExt = imgExt;
+/* (OWN-12#13) أصوات المخزون: تُستدعى **قبل** showToast الخاصّة بالعملية — فالنداء الأوّل يتغلّب على صوت «نجاح» العامّ (cue يمنع صوتين خلال ٢٦٠ms) */
+function invSnd(k) { try { if (window.GMTSound && GMTSound.cue) GMTSound.cue(k); } catch (_) {} }
+window.invSnd = invSnd;
 
 async function sbUploadImg(filePath, file) {
   try {
@@ -4746,13 +4769,12 @@ function openMissingReport() {
     const id = inp.dataset.up, file = inp.files[0];
     if (file.size > 4 * 1024 * 1024) { showToast('الصورة أكبر من ٤ ميغا', 'error'); return; }
     const lab = inp.parentNode; lab.firstChild.textContent = '⏳ ';
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-    const up = await sbUploadImg(`products/${id}_${Date.now()}.${ext}`, file);
+    const up = await sbUploadImg(`products/${imgName(id, imgExt(file))}`, file);
     if (up.error) { showToast('❌ ' + up.error, 'error'); lab.firstChild.textContent = '📷 رفع صورة'; return; }
     const { error } = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(id)}`, { image_url: up.url });
     if (error) { showToast('❌ ' + error, 'error'); return; }
     const p = P.find(x => String(x.id) === String(id)); if (p) p.image_url = up.url;
-    showToast('✅ رُفعت الصورة', 'success'); paint();
+    invSnd('invPhoto'); showToast('✅ رُفعت الصورة', 'success'); paint();
     if (p) invImageToStore(p, up.url);
   });
 }
@@ -5604,8 +5626,25 @@ function invTreePaint() {
 function invTreeSet(k, v) { _invTree[k] = v || ''; if (k === 'main') _invTree.sub = ''; invTreePaint(); applyFilters(); }
 window.invTreeSet = invTreeSet;
 
+/* (OWN-05#17) فلتر الماركة: القائمة من ماركات المنتجات (نفس مصدر قائمة اقتراح الماركة)، تُعاد تعبئتها فقط حين تتغيّر الماركات */
+let _invBrandSig = null;
+function invBrandPaint() {
+  const el = document.getElementById('inv-brand-filter'); if (!el || !Array.isArray(allProducts)) return;
+  const _seen = new Map(); allProducts.forEach(p => { const b = String(p.brand || '').trim(); if (b && !_seen.has(b.toLowerCase())) _seen.set(b.toLowerCase(), b); });   /* Godox/godox ماركةٌ واحدة (الفلتر لا يميّز الحالة) */
+  const brands = [..._seen.values()].sort((a, b) => a.localeCompare(b, 'en'));
+  const sig = brands.join('|') + '#' + currentBrand;
+  if (sig === _invBrandSig) return;
+  _invBrandSig = sig;
+  if (currentBrand && !brands.some(b => b.toLowerCase() === currentBrand.toLowerCase())) currentBrand = '';   /* الماركة اختفت (حُذف آخر منتجٍ فيها) */
+  el.innerHTML = '<option value="">كل الماركات</option>' + brands.map(b => `<option value="${escHtml(b)}"${b.toLowerCase() === currentBrand.toLowerCase() ? ' selected' : ''}>${escHtml(b)}</option>`).join('');
+  el.style.display = brands.length ? '' : 'none';
+}
+function invBrandSet(v) { currentBrand = String(v || ''); _invBrandSig = null; applyFilters(); }
+window.invBrandSet = invBrandSet;
+
 function applyFilters() {
   try { const m = document.getElementById('tree-main'); if (m && m.options.length <= 1) invTreePaint(); } catch (_) {}
+  try { invBrandPaint(); } catch (_) {}
   let items = [...allProducts];
 
   // Search
@@ -5640,6 +5679,8 @@ function applyFilters() {
   // (TASK-0292) الشجرة الموحّدة — الرئيسي ثمّ الفرعي (والتصنيفات الإضافية extra_cats)
   if (window._invTree && _invTree.main) items = items.filter(p => p.cat_main === _invTree.main || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.main === _invTree.main && (!_invTree.sub || x.sub === _invTree.sub))));
   if (window._invTree && _invTree.sub) items = items.filter(p => p.cat_sub === _invTree.sub || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.sub === _invTree.sub)));
+  // (OWN-05#17) الماركة (مطابقةٌ تامّة بلا حساسية لحالة الأحرف) — تتقاطع مع التصنيف والمجموعة
+  if (currentBrand) items = items.filter(p => String(p.brand || '').trim().toLowerCase() === currentBrand.toLowerCase());
   // (س) التصنيف أوّلاً ثمّ المجموعة
   if (currentCategory) items = items.filter(p => GMTCat.under(p.category, currentCategory));   /* (19 ت1) والتصنيفات الفرعية تحته */
   // Group filter
@@ -6974,8 +7015,7 @@ async function saveProduct() {
 
     // إذا في ملف صورة جديد — ارفعه أولاً بـ ID المنتج المعروف
     if (imgFile) {
-      const ext  = imgFile.name.split('.').pop().toLowerCase();
-      const path = `products/${editingProductId}/${Date.now()}.${ext}`;
+      const path = `products/${imgName(editingProductId, imgExt(imgFile))}`;
       const { url, error } = await sbUploadImg(path, imgFile);
       if (!error) product.image_url = url;
       else {
@@ -7037,8 +7077,7 @@ async function saveProduct() {
       const realId = savedProduct?.id;
 
       if (realId) {
-        const ext  = imgFile.name.split('.').pop().toLowerCase();
-        const path = `products/${realId}/${Date.now()}.${ext}`;
+        const path = `products/${imgName(realId, imgExt(imgFile))}`;
         const { url, error } = await sbUploadImg(path, imgFile);
 
         if (!error) {
@@ -7061,6 +7100,7 @@ async function saveProduct() {
 
   const wasEditing = !!editingProductId;
   closeModal('product-modal');
+  invSnd(wasEditing ? 'invEdit' : 'invAdd');
   showToast(wasEditing ? '✅ تم تحديث المنتج بنجاح' : '✅ تم إضافة المنتج بنجاح', 'success');
 
   // مزامنة تلقائية مع المتجر إذا كان المنتج مرتبطاً
@@ -7754,6 +7794,7 @@ async function confirmDelete() {
   hideLoading();
   if (error) { showToast('خطأ في الحذف: ' + error, 'error'); return; }
   closeModal('delete-modal');
+  invSnd('invDel');
   showToast('تم حذف المنتج بنجاح', 'success');
   await loadProducts();
 }
@@ -8458,6 +8499,7 @@ window.openProductBrowser = openProductBrowser;
 async function openReconcile() {
   if (window.GMTRole && GMTRole.requireAdmin && !(await GMTRole.requireAdmin('مطابقة الجرد'))) return;
   if (!window.GMTReconcile) { showToast('مطابقة الجرد لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'error'); return; }
+  invSnd('countStart');
   GMTReconcile.open({
     sb: sbFetch, products: () => allProducts,
     operator: (window.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || 'الأدمن',
@@ -8562,6 +8604,7 @@ async function invQtyAdjust(id) {
   try { window.GMTAudit && GMTAudit.log({ action: 'qty_settlement', entity: 'products', entityId: p.id, entityName: p.name,
     reason: 'تعديل الكميات (فاتورة تسوية) — ' + done.map(d => (d.r.b.displayName || d.r.b.key) + ' ' + d.r.before + '⇐' + d.r.after + ' [' + d.nums.join('+') + ']').join(' · ') + (why ? ' · ' + why : '') }); } catch (_) {}
   try { renderAll(); } catch (_) {}
+  if (done.length) invSnd('invQty');
   await GMTAsk.alert((done.length ? '✅ صدرت فاتورة تسوية:\n' + done.map(d => '• ' + (d.r.b.displayName || d.r.b.key) + ': ' + d.r.before + ' ⇐ ' + d.r.after + ' — ' + d.nums.join(' + ')).join('\n') : '') +
     (bad.length ? '\n\n⚠️ لم تُطبَّق:\n' + bad.map(b => '• ' + (b.r.b.displayName || b.r.b.key) + ': ' + b.why).join('\n') : ''), { title: bad.length ? 'لم تكتمل كلّها' : '🧾 فواتير التسوية' });
   return { done: done.length, bad: bad.length };
@@ -8965,7 +9008,9 @@ async function exportExcel(mode) {   /* async: ينتظر تحميل ExcelJS ع�
   showLoading('جارٍ إنشاء ملف Excel...');
 
   const data = mode === 'filtered' ? filteredProducts : allProducts;
-  const visibleCols = columns.filter(c => c.showTable);
+  /* (VER-2#REQ-0189) «المفلتر» = ما تراه على الشاشة: فلتر الفرع يُبقي عمود ذلك الفرع فقط (نفس نقطة الاختناق getSortedVisibleCols)،
+     و«الكل» يُخرج كلّ الأعمدة كما كان ⇒ يبقى ملف الاستيراد كاملاً. عمود «الإجمالي» يبقى في الحالتين. */
+  const visibleCols = (mode === 'filtered' && typeof getSortedVisibleCols === 'function') ? getSortedVisibleCols() : columns.filter(c => c.showTable);
 
   try {
     /* 🔴 بلاغ ١٦٩: مُصدِّر Excel (947ك) عند الحاجة */
@@ -9478,7 +9523,9 @@ window.buildPdfCatalog = buildPdfCatalog;
 function exportHtml(mode) {
   closeModal('export-modal');
   const data = mode === 'filtered' ? filteredProducts : allProducts;
-  const visibleCols = columns.filter(c => c.showTable);
+  /* (VER-2#REQ-0189) «المفلتر» = ما تراه على الشاشة: فلتر الفرع يُبقي عمود ذلك الفرع فقط (نفس نقطة الاختناق getSortedVisibleCols)،
+     و«الكل» يُخرج كلّ الأعمدة كما كان ⇒ يبقى ملف الاستيراد كاملاً. عمود «الإجمالي» يبقى في الحالتين. */
+  const visibleCols = (mode === 'filtered' && typeof getSortedVisibleCols === 'function') ? getSortedVisibleCols() : columns.filter(c => c.showTable);
   const date = new Date().toLocaleDateString('en-GB');
   const filename = `inventory_${new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.html`;
 
@@ -9637,8 +9684,7 @@ async function saveBulkImages() {
     statusEl.textContent = '⏳';
     try {
       const file = bulkImgFiles[i];
-      const ext = file.name.split('.').pop();
-      const path = `${productId}.${ext}`;
+      const path = `products/${imgName(productId, imgExt(file))}`;   /* (OWN-05#123) اسمٌ لاتيني صغير موحّد (كان «<id>.<امتداد الملف كما كُتب>») */
 
       // Upload to Supabase storage
       const { error: upErr } = await sbClient.storage.from(BUCKET).upload(path, file, { upsert: true });
@@ -9665,6 +9711,7 @@ async function saveBulkImages() {
   }
 
   renderAll();
+  if (saved > 0) invSnd('invPhoto');
   showToast(`تم رفع ${saved} صورة${skipped ? ` — تم تخطي ${skipped}` : ''}`, saved > 0 ? 'success' : 'warning');
   if (saved > 0) setTimeout(() => closeModal('bulk-img-modal'), 1200);
 }
@@ -9693,7 +9740,7 @@ function openBarcodeSheet(mode) {
      عدد النسخ = إجمالي كمية المنتج (نسخة واحدة على الأقل) كما كان */
   const ok = window.GMTLabels && GMTLabels.openSheet(data.map(p => ({ name: p.name || '', barcode: p.barcode || '', qty: Math.max(1, getTotal(p)) })), { title: 'ملصقات الباركود — الجرد' });
   if (ok === null) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'warning'); return; }
-  if (!ok) showToast('تعذّر فتح ورقة الملصقات', 'warning');
+  if (!ok) showToast('تعذّر فتح ورقة الملصقات', 'warning'); else invSnd('labelPrint');
 }
 
 // ============================================
@@ -9782,6 +9829,7 @@ function loadQRLib(cb) { cb(); }
 
 function printPriceCards() {
   const content = document.getElementById('price-cards-content').innerHTML;
+  invSnd('labelPrint');
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>بطاقات السعر</title></head><body>${content}</body></html>`);
   w.document.close();
@@ -10349,6 +10397,7 @@ async function generateCombinedLabelPDF() {
     doc.save(filename);
     hideLoading();
     closeModal('combined-label-modal');
+    invSnd('labelPrint');
     showToast(`✅ تم إنشاء ${qty} ملصق في PDF`, 'success');
 
   } catch(err) {
@@ -12474,6 +12523,7 @@ async function gmCatSave(){
     hideLoading();
     try{ if(window.GMTOpLog) GMTOpLog.log({ action:'category_save', entity:'products', entityName:name, field:'التصنيف', newValue:{ category:name, groups:sel.join('، '), removed:removed.join('، ')||undefined, renamed_from:renaming?old:undefined }, meta:{ n:touched+renamedN } }); }catch(_){}
     closeModal('cat-modal');
+    if(!old) invSnd('catNew');
     showToast('✅ '+(old?'حُفظ التصنيف':'أُنشئ التصنيف')+' «'+escHtml(name)+'» — '+sel.length+' مجموعة · '+(touched||renamedN)+' منتج'+(removed.length?(' · أُزيلت '+removed.length+' مجموعة'):'' ));
   }catch(e){
     hideLoading();
@@ -12748,6 +12798,13 @@ const ST_TG_CID = '-1003870992994'; // نفس قناة الأدمن — عدّل
 
 let allStockTransfers   = [];
 let stState             = { fromBranch: '', toBranch: '', items: {} }; // items[productId] = {qty, unit_cost, sale_price, name, barcode, image_url}
+/* (ARC-MD-09#7 · المالك «المنتج المُدخَل يظهر أعلى القائمة في كل الفواتير») عدّاد إدخالٍ تصاعدي: كل منتج يُضاف (أو يُعاد إدخاله) يأخذ _seq أكبر ⇒ يُرسم أوّلاً.
+   يُستأنف من أكبر قيمة محفوظة في المسوّدة كي لا يعود الترتيب بعد إعادة التحميل. البنود بلا _seq (نسخٌ/تعديلٌ/تفريغ) تبقى بترتيبها الأصلي بعد المُدخَلة. */
+let _stSeq = 0;
+function stNextSeq() {
+  try { Object.values((stState && stState.items) || {}).forEach(it => { if (it && Number(it._seq) > _stSeq) _stSeq = Number(it._seq); }); } catch (_) {}
+  return ++_stSeq;
+}
 let stCreatorName       = localStorage.getItem('gmt_st_creator_name') || '';
 let stCurrentDetail     = null;
 let stNotifPollStarted  = false;
@@ -13153,7 +13210,7 @@ function stPickApply(){
     stState.items[p.id]={
       id:p.id, name:p.name, barcode:p.barcode||'', image_url:p.image_url||'',
       qty: Math.min(_stPickSel[id]||1, avail),
-      unit_cost: Number(p.wholesale_price)||0, sale_price: Number(p.price)||0, maxAvail: avail
+      unit_cost: Number(p.wholesale_price)||0, sale_price: Number(p.price)||0, maxAvail: avail, _seq: stNextSeq()
     };
     added++;
   });
@@ -13179,6 +13236,7 @@ function stScanAdd(code){
   if(stState.items[p.id]){
     const it=stState.items[p.id];
     it.qty = Math.min((Number(it.qty)||0)+1, avail);
+    it._seq = stNextSeq();
     showToast('➕ ' + p.name + ' → ' + it.qty, 'ok');
   }else{ stAddProduct(p.id); showToast('✅ ' + p.name, 'ok'); }
   renderStSelectedList(); recalcStSummary(); stSaveDraft();
@@ -14746,6 +14804,7 @@ async function drainRenderBarcodeSheet(rows) {
     setTimeout(() => { const x = document.getElementById('bcSheetFrame'); if (x) x.remove(); }, 120000);
 
     hideLoading();
+    invSnd('labelPrint');
     showToast('🖨️ ' + rows.length + ' ملصقاً' + (failed ? ' · ' + failed + ' باركود غير صالح' : ''),
               failed ? 'warning' : 'success');
 }
@@ -14759,8 +14818,10 @@ function stAddProduct(id) {
     stState.items[id] = {
       id, name: p.name, barcode: p.barcode || '', image_url: p.image_url || '',
       qty: 1, unit_cost: Number(p.wholesale_price) || 0, sale_price: Number(p.price) || 0,
-      maxAvail: avail
+      maxAvail: avail, _seq: stNextSeq()
     };
+  } else {
+    stState.items[id]._seq = stNextSeq();   /* موجودٌ سلفاً ⇒ يصعد إلى الأعلى */
   }
   document.getElementById('st-search').value = '';
   document.getElementById('st-search-results').style.display = 'none';
@@ -14793,7 +14854,7 @@ function stUpdateField(id, field, val) {
 
 function renderStSelectedList() {
   const wrap = document.getElementById('st-selected-list');
-  const ids  = Object.keys(stState.items);
+  const ids  = Object.keys(stState.items).sort((a, b) => (Number(stState.items[b]._seq) || 0) - (Number(stState.items[a]._seq) || 0));   /* الأحدث إدخالاً أوّلاً (ثابتٌ: التعادل يبقى بترتيب الإدراج) */
   document.getElementById('st-summary-section').style.display = ids.length ? '' : 'none';
   if (!ids.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `
@@ -15184,6 +15245,7 @@ async function _saveStockTransferInner() {
         '\n\nالفاتورة موسومة بنقطة حمراء «تحتاج تسوية». اضغط «سوِّ الناقص الآن»: يُعاد عدّ الكميات ويُعرض ما ينقص في المصدر لترفعه وتُكمل الفاتورة بأعدادك بضغطة أو اثنتين.';
       showToast('⚠️ نقل ناقص — ' + failedItems.length + ' صنف لم يُخصم كاملاً · الفاتورة تحتاج تسوية', 'error');
     } else {
+      invSnd('invTransfer');
       showToast('✅ تم حفظ فاتورة النقل بنجاح', 'success');
       stLogMove(transfer.id, transfer.transfer_number, 'created', items.length+' بند · '+(fromCol?.displayName||fromKey)+' ← '+(toCol?.displayName||toKey));
     }

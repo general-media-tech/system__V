@@ -88,6 +88,12 @@
     /* أسماء المكتبات المُدارة — يقرؤها ملفّ الفحص */
     names: Object.keys(REG),
 
+    /* (VER-4#REQ-0421) مسار ملفّ المكتبة (بلا ?v) — يقرؤه الفاحص الذاتي ليتحقّق من وجوده دون تحميله */
+    src: function (name) {
+      var e = REG[name];
+      return e ? e.src : '';
+    },
+
     /* هل هذه المكتبة محمَّلةٌ الآن؟ */
     ready: function (name) {
       var e = REG[name];

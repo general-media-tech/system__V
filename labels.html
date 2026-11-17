@@ -12,6 +12,7 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <script src="lib/JsBarcode.all.min.js?v=20261003"></script>
 <script src="gmt-labels.js?v=20261116a"></script>
+<script src="gmt-sticker.js?v=20261029z4" defer></script>
 <style>
   :root{ --gmt-red:#D5001C; --gmt-ink:#111; --gmt-muted:#5b6472; --gmt-line:#e5e7eb; }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -43,6 +44,12 @@ window.GMT_INTERNAL = 1;</script>
   .l-price{font-size:12pt;font-weight:900;color:var(--gmt-red);}
   .l-bc svg{width:100%;height:auto;}
   .l-sku{font-size:7pt;color:#5b6472;font-weight:700;letter-spacing:.5px;}
+  /* (VER-1#REQ-0066) ملصق 50×30mm: الاسم ثمّ الباركود + QR بجانبه */
+  .l-body{display:flex;align-items:center;gap:1.5mm;flex:1;min-height:0;}
+  .l-body .l-bc{flex:1;min-width:0;}
+  .l-qr{flex:0 0 auto;display:block;object-fit:contain;}
+  /* (VER-3#REQ-0282) صورة المنتج المصغّرة في قائمة الاختيار فقط — لا تُطبع على الملصق */
+  .l-thumb{width:40px;height:40px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-inline-end:8px;background:#f1f3f5;}
   @media print{
     body{background:#fff;}
     header,.card,.no-print{display:none!important;}
@@ -98,16 +105,18 @@ window.GMT_INTERNAL = 1;</script>
     <h2>② شكل الملصق</h2>
     <div class="row">
       <label class="muted">المقاس:</label>
-      <select id="size" onchange="render()">
+      <select id="size" onchange="onSizeChange()">
         <option value="thin" selected>رفيع بلا هوامش — 4 بالصف · 64 بالورقة (الاسم والشريط)</option>
         <option value="3">3 بالصف — 63×34mm (A4 قياسي)</option>
         <option value="4">4 بالصف — 48×30mm</option>
         <option value="2">2 بالصف — 95×45mm (كبير)</option>
         <option value="5">5 بالصف — 38×25mm (صغير)</option>
+        <option value="50x30">50×30mm (5×3 سم) — الاسم + الباركود + QR</option>
       </select>
       <label class="muted"><input type="checkbox" id="showPrice" onchange="render()"> السعر</label>
       <label class="muted"><input type="checkbox" id="showName" checked onchange="render()"> الاسم</label>
       <label class="muted"><input type="checkbox" id="showBc" checked onchange="render()"> الباركود</label>
+      <label class="muted"><input type="checkbox" id="showQr" onchange="render()"> QR (رابط المتجر أو الباركود)</label>
       <button class="btn-s" onclick="render()">🔄 تحديث المعاينة</button>
       <button class="btn-p" onclick="printNow()">🖨️ طباعة</button>
     </div>
@@ -129,15 +138,36 @@ window.GMT_INTERNAL = 1;</script>
 const SB  = 'https://ysawzwtmodkqqbqoiojj.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYXd6d3Rtb2RrcXFicW9pb2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NjI0OTUsImV4cCI6MjA5MjAzODQ5NX0.g-dBDpHzMsP_0IQAKFxzWkKzc_I13bGUMeYNgcUmrKQ';
 
-const SIZES = { 2:[95,45,14], 3:[63,34,11], 4:[48,30,9], 5:[38,25,8] };
+const SIZES = { 2:[95,45,14], 3:[63,34,11], 4:[48,30,9], 5:[38,25,8], '50x30':[50,30,9] };
 let products = [], sel = {};   // sel[id] = عدد الملصقات
 
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* (VER-3#REQ-0282) مصغّرة صورة المنتج بجانب اسمه في قائمة الاختيار (إن وُجدت) — خارج الملصق المطبوع */
+const thumb = p => p.image_url ? `<img class="l-thumb" src="${esc(p.image_url)}" loading="lazy" alt="" onerror="this.style.display='none'">` : '';
+
+/* (VER-1#REQ-0066) رمز QR: رابط المتجر للزبون إن وُجد وإلا الباركود — يُبنى محلّياً (GMTSticker.qr/ZXing) ويُخزَّن لكلّ نصّ */
+const _qrCache = {};
+function qrText(p){
+  const u = (window.GMTUtil && GMTUtil.storeLink) ? GMTUtil.storeLink(p.store_url, true) : '';
+  return u || String(p.barcode || '').trim();
+}
+function qrFor(text){
+  if(!text) return Promise.resolve(null);
+  if(!_qrCache[text]) _qrCache[text] = (window.GMTSticker && GMTSticker.qr ? GMTSticker.qr(text) : Promise.resolve(null)).catch(() => null);
+  return _qrCache[text];
+}
+function onSizeChange(){
+  /* اختيار 50×30 ⇒ تفعيل QR (هو سبب وجود هذا المقاس) — ويبقى للمستخدم إطفاؤه بعدها */
+  if(document.getElementById('size').value === '50x30') document.getElementById('showQr').checked = true;
+  render();
+}
 
 async function load(){
   try{
-    const r = await fetch(`${SB}/rest/v1/products?select=id,name,barcode,price,short&order=name.asc&limit=2000`,
-      { headers:{ apikey:KEY, Authorization:'Bearer '+KEY } });
+    const H = { headers:{ apikey:KEY, Authorization:'Bearer '+KEY } };
+    /* (VER-3#REQ-0282 · VER-1#REQ-0066) image_url للمصغّرات وstore_url لرمز QR — وإن غاب عمودٌ في القاعدة نرجع للاستعلام الأدنى */
+    let r = await fetch(`${SB}/rest/v1/products?select=id,name,barcode,price,short,image_url,store_url&order=name.asc&limit=2000`, H);
+    if(!r.ok) r = await fetch(`${SB}/rest/v1/products?select=id,name,barcode,price,short&order=name.asc&limit=2000`, H);
     if(!r.ok) throw new Error('HTTP '+r.status);
     products = await r.json();
     renderTable(); render();   /* (٧ ي-٤) كانت ورقة المعاينة بيضاء فارغة بلا كلمة حتى تختار */
@@ -161,7 +191,7 @@ function renderTable(){
   document.getElementById('tb').innerHTML = list.slice(0,400).map(p => `
     <tr>
       <td><input type="checkbox" ${sel[p.id]?'checked':''} onchange="toggle('${p.id}',this.checked)"></td>
-      <td style="font-weight:800;">${esc(p.name)}</td>
+      <td style="font-weight:800;">${thumb(p)}${esc(p.name)}</td>
       <td class="muted">${esc(p.barcode||'—')}</td>
       <td style="font-weight:800;">${p.price?('$'+Number(p.price).toFixed(2)):'—'}</td>
       <td><input class="qty" type="number" min="1" value="${sel[p.id]||1}"
@@ -177,13 +207,15 @@ function clearSel(){ sel = {}; renderTable(); render(); }
 /* (TASK-0326 · المالك seq 524) الافتراضي: ورقة A4 كاملة بلا هوامش — ملصق رفيع طويل بالاسم والشريط فقط (gmt-labels.js) */
 function _thinItems(){ return Object.keys(sel).map(id => { const p = products.find(x => String(x.id) === String(id)); return p ? { name: p.name, barcode: p.barcode || '', qty: sel[id] || 1 } : null; }).filter(Boolean); }
 function printNow(){
+  try { if (window.GMTSound && GMTSound.cue) GMTSound.cue('labelPrint'); } catch (_) {}   /* (OWN-12#13) صوت طباعة الملصقات */
   if (document.getElementById('size').value === 'thin') {
     const items = _thinItems(); if (!items.length) { alertBox('اختر منتجات أولاً'); return; }
     const ok = window.GMTLabels && GMTLabels.openSheet(items, { title: 'طابعة الملصقات' });
     if (ok === null) alertBox('السماح بالنوافذ المنبثقة مطلوب');
     return;
   }
-  window.print();
+  /* QR يُرسم بعد الرسم الأوّل (وعدٌ غير متزامن) ⇒ ننتظره قبل الطباعة كي لا يخرج الملصق بلا رمز */
+  Promise.resolve(window._qrReady).then(() => window.print());
 }
 function alertBox(m){ const s = document.getElementById('stat'); if (s) { s.textContent = '⚠️ ' + m; s.style.color = '#D5001C'; } }
 function render(){
@@ -198,6 +230,8 @@ function render(){
   const sName  = document.getElementById('showName').checked;
   const sPrice = !thin && document.getElementById('showPrice').checked;   /* الرفيع: الاسم والشريط فقط */
   const sBc    = document.getElementById('showBc').checked;
+  const sQr    = !thin && document.getElementById('showQr').checked;
+  const qrMm   = Math.max(8, Math.min(16, h - 16));   /* مقاس QR بالمم يتبع ارتفاع الملصق */
 
   const noBc = [];
   let html = '';
@@ -208,7 +242,12 @@ function render(){
     for(let i = 0; i < (sel[id]||1); i++){
       html += `<div class="label" style="width:${w}mm;height:${h}mm;">
         ${sName  ? `<div class="l-name">${esc(p.name)}</div>` : ''}
-        ${sBc && p.barcode ? `<div class="l-bc"><svg class="bc" data-code="${esc(p.barcode)}"></svg></div>` : ''}
+        ${(() => {
+          const bcHtml = sBc && p.barcode ? `<div class="l-bc"><svg class="bc" data-code="${esc(p.barcode)}"></svg></div>` : '';
+          const qt = sQr ? qrText(p) : '';
+          const qrHtml = qt ? `<img class="l-qr" data-qr="${esc(qt)}" alt="QR" style="width:${qrMm}mm;height:${qrMm}mm;visibility:hidden">` : '';
+          return qrHtml ? `<div class="l-body">${bcHtml}${qrHtml}</div>` : bcHtml;
+        })()}
         ${sPrice ? `<div class="l-price">${p.price ? '$'+Number(p.price).toFixed(2) : ''}</div>` : ''}
         ${thin ? '' : `<div class="l-sku">${esc(p.barcode || p.short || '')}</div>`}
       </div>`;
@@ -225,6 +264,12 @@ function render(){
       });
     }catch(e){ svg.parentElement.innerHTML = '<div class="l-sku">باركود غير صالح</div>'; }
   });
+
+  /* QR: يُملأ بعد الرسم (محلّياً) — واعدٌ واحد تنتظره الطباعة */
+  const qrImgs = [...box.querySelectorAll('img.l-qr[data-qr]')];
+  window._qrReady = Promise.all(qrImgs.map(im => qrFor(im.dataset.qr).then(d => {
+    if(d){ im.src = d; im.style.visibility = ''; } else { im.style.display = 'none'; }
+  })));
 
   const warn = document.getElementById('warn');
   if(noBc.length){

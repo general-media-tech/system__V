@@ -37,6 +37,7 @@
     doc.head.appendChild(s);
   }
   function close() { var o = doc.getElementById('gmt-rc'); if (o) o.remove(); }
+  function snd(k) { try { if (global.GMTSound && GMTSound.cue) GMTSound.cue(k); } catch (_) {} }   /* (OWN-12#13) أصوات الجرد */
 
   async function open(ctx) {
     ctx = ctx || {};
@@ -192,7 +193,7 @@
       await loadRest();
       var on = S.items.filter(function (i) { return i.include && i.id && i.actual != null && diffOf(i) !== 0; });
       var zr = zero ? S.rest.filter(function (p) { return (Number(p[bk]) || 0) !== 0; }) : [];
-      if (!on.length && !zr.length) { say('لا فروقات داخل التسوية'); return; }
+      if (!on.length && !zr.length) { snd('countMatch'); say('لا فروقات داخل التسوية'); return; }
       var mi = on.filter(function (i) { return diffOf(i) < 0; }), pl = on.filter(function (i) { return diffOf(i) > 0; });
       var txt = 'فاتورة تسوية «' + bn + '» من الجرد:\n• نقص ' + mi.length + ' بنداً (−' + mi.reduce(function (s, i) { return s - diffOf(i); }, 0) + ')\n• زيادة ' + pl.length + ' بنداً (+' + pl.reduce(function (s, i) { return s + diffOf(i); }, 0) + ')\n\n' +
         'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\n' +
@@ -213,6 +214,7 @@
         lines: on.map(function (i) { return lineOf(i.id, i.name, i.actual); }).concat(zr.map(function (p) { return lineOf(String(p.id), p.name, 0); })),
         onProgress: function (k, n, name) { say('🧾 ' + k + ' / ' + n + ' — ' + name); } });
       var nums = (R && R.numbers) || [];
+      if (nums.length) snd('countMismatch');   /* (OWN-12#13) اعتُمدت تسويةٌ بفروقات ⇒ «الجرد غير مطابق» */
       await save({ status: nums.length ? 'applied' : S.rec.details.status, applied_at: nums.length ? new Date().toISOString() : null, applied_by: by, numbers: nums, failed: (R && R.failed) || [] });
       await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
       S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
