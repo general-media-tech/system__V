@@ -469,7 +469,7 @@ window.GMT_INTERNAL = 1;</script>
                         </div>
                         <div class="text-gray-600 text-xl font-light">:</div>
                         <div class="text-center">
-                            <div class="bg-gray-800 w-12 md:w-16 py-2 rounded border border-gray-700 shadow-[0_0_15px_rgba(230,0,18,0.3)]">
+                            <div class="bg-gray-800 w-12 md:w-16 py-2 rounded border border-gray-700">
                                 <span id="cntSeconds" class="block text-xl md:text-2xl font-bold text-canon-red">0</span>
                             </div>
                             <span class="text-[9px] md:text-[10px] text-gray-500 uppercase mt-1 block">Sec</span>
@@ -2135,7 +2135,7 @@ window.GMT_INTERNAL = 1;</script>
                 statusIcon.className = "fas fa-check";
                 statusTitle.textContent = "حالة الكفالة: سارية المفعول (Active)";
                 statusTitle.className = "font-bold text-base text-green-800";
-                document.getElementById('countdownBox').classList.add('shadow-[0_0_20px_rgba(22,163,74,0.3)]');
+                /* (VER-4#REQ-0387) بلا توهّج ظلّ تجميلي */
             } else {
                 statusContainer.className = "flex items-center gap-4 p-5 rounded-lg border border-red-200 bg-red-50 shadow-sm transition-all duration-300";
                 statusIconWrapper.className = "w-10 h-10 rounded-full flex items-center justify-center text-white text-lg shadow-sm bg-canon-red";
