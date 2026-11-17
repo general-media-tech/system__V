@@ -654,7 +654,10 @@
         rec({ area, step: '③ خُصم المخزون بالبيع', ok: okDed, pattern: okDed ? null : 'P4', detail: `${START} ⇐ ${afterSale} (${path})` });
         ok = ok && okDed;
 
-        const comm = ((PRICE - WS) / 2) * Q;
+        /* (VER-3#REQ-0361) النسبة الفعلية من الإعداد commission_rate (كنقطة البيع) لا «÷٢» مكتوبة نصّاً — فيُنبَّه لفرقٍ عند تغيير النسبة */
+        let rate = 0.5;
+        try { const v = parseFloat((one(await api('GET', 'gmt_settings?key=eq.commission_rate&select=value')) || {}).value); if (!isNaN(v) && v >= 0 && v <= 1) rate = v; } catch (_) {}
+        const comm = Math.round((PRICE - WS) * rate * Q * 100) / 100;
         await api('POST', 'invoice_commissions', { invoice_id: made.inv, branch_key: B, amount: comm, paid: false, created_by: TAG });
 
         /* ④ المرتجع — نفس كتابات confirmRefund في نقطة البيع حرفياً */
