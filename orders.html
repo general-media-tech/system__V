@@ -6606,6 +6606,7 @@ async function orderPatchChecked(id, patch) {
     try {
         const r = await sbUpdate(id, patch);
         if (Array.isArray(r) && r.length === 0) return { ok: false, error: 'لم يتغيّر أيّ صفّ في القاعدة (صلاحية أو الأوردر غير موجود)' };
+        if (patch && patch.status) { try { window.GMTAudio && GMTAudio.emit('order.status.' + patch.status); } catch (_) {} }   /* (OWN-12#12) صوتٌ لكل حالة */
         return { ok: true, queued: !!(Array.isArray(r) && r[0] && r[0]._pendingSync) };
     } catch (e) { return { ok: false, error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
 }

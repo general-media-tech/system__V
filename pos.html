@@ -7106,6 +7106,7 @@ function updateFab() {
 }
 
 function clearCart() {
+  if (Object.keys(cart||{}).length) try{ window.GMTAudio && GMTAudio.emit('pos.cart.clear'); }catch(_){}
   cart = {};
   { const _md = document.getElementById('haleb-manual-discount'); if (_md) _md.value = ''; }
   // إعادة ضبط الأوردر والكوبون
@@ -7337,6 +7338,7 @@ function syncCartTotal() {
 }
 
 function removeProd(id) {
+  try{ window.GMTAudio && GMTAudio.emit('pos.item.remove'); }catch(_){}
   delete cart[id];
   renderCart();
   updateFab();
@@ -9215,6 +9217,7 @@ function manualBarcodeSearch() {
   const code = (inp?.value || '').trim();
   if (!code) return;
   inp.value = '';
+  try{ window.GMTAudio && GMTAudio.emit('pos.barcode.manual'); }catch(_){}
   handleBarcode(code);
 }
 
@@ -10257,6 +10260,7 @@ function pickCust(custId) {
   document.getElementById('custName').classList.add('has-ok');
   document.getElementById('custPhone').classList.add('has-ok');
   hideCustDropdown();
+  try{ window.GMTAudio && GMTAudio.emit('pos.customer'); }catch(_){}
   showToast(`✅ عميل: ${c.name}`, 'ok');
 }
 
