@@ -708,12 +708,23 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       why: 'فاتورة محفوظة ولا منتج فيها — غالباً انقطع الحفظ في المنتصف. تُحتسب بالمبيعات وهي فارغة.',
       sev: 'danger',
       fix: 'افتحها من تبويب الفواتير: إما أكملها أو احذفها.',
-      path: '/rest/v1/invoices?select=id,invoice_number,branch_key,created_at,items_json&limit=500&order=created_at.desc',
-      test: (rows) => rows.filter((r) => {
-        try { const it = typeof r.items_json === 'string' ? JSON.parse(r.items_json) : r.items_json;
-              return !it || !it.length; } catch (_) { return true; }
-      }),
-      label: (r) => `فاتورة #${r.invoice_number || r.id} — ${r.branch_key || '؟'}`,
+      /* (REQ-0363) كان يقرأ invoices.invoice_number وinvoices.items_json — عمودان غير موجودين ⇒ 400 دائماً
+         ويُعرض الفحص «سليماً». الصحيح: رقم الفاتورة inv_number، والبنود في جدول invoice_items. */
+      path: '/rest/v1/invoices?select=id,inv_number,branch_key,created_at&limit=500&order=created_at.desc',
+      needs: async (rows, get) => {
+        const ids = rows.map((r) => r.id).filter((x) => x != null), out = [];
+        for (let i = 0; i < ids.length; i += 100) {
+          const part = ids.slice(i, i + 100).map((x) => encodeURIComponent(String(x))).join(',');
+          (await get('/rest/v1/invoice_items?select=invoice_id&invoice_id=in.(' + part + ')&limit=20000')).forEach((x) => out.push(x));
+        }
+        return out;
+      },
+      test: (rows, aux) => {
+        const has = new Set((aux || []).map((x) => String(x.invoice_id)));
+        const fresh = Date.now() - 5 * 60e3;   /* فاتورة تُحفظ الآن: بنودها تُكتب بعد رأسها بلحظات */
+        return rows.filter((r) => !has.has(String(r.id)) && !(r.created_at && new Date(r.created_at).getTime() > fresh));
+      },
+      label: (r) => `فاتورة #${r.inv_number || r.id} — ${r.branch_key || '؟'}`,
     },
     {
       id: 'athenaeum_bad',
@@ -793,17 +804,17 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       why: 'رقمان متطابقان = فاتورة نزلت مرتين. تُحتسب المبيعات والعمولة مضاعفة.',
       sev: 'danger',
       fix: 'قارن البنود واحذف النسخة المكرّرة.',
-      path: '/rest/v1/invoices?select=id,invoice_number,branch_key,total,created_at&limit=5000',
+      path: '/rest/v1/invoices?select=id,inv_number,branch_key,total,created_at&limit=5000',   /* (REQ-0363) inv_number لا invoice_number */
       test: (rows) => {
         const seen = new Map(), dup = [];
         rows.forEach((r) => {
-          const k = `${r.branch_key}::${r.invoice_number}`;
-          if (!r.invoice_number) return;
+          const k = `${r.branch_key}::${r.inv_number}`;
+          if (!r.inv_number) return;
           if (seen.has(k)) dup.push(r); else seen.set(k, r);
         });
         return dup;
       },
-      label: (r) => `#${r.invoice_number} — ${r.branch_key} — ${Number(r.total || 0).toFixed(2)}$`,
+      label: (r) => `#${r.inv_number} — ${r.branch_key} — ${Number(r.total || 0).toFixed(2)}$`,
     },
     {
       id: 'comm_unapproved_old',
@@ -893,21 +904,28 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     const db = DB();
     if (!db) throw new Error('gmt-config.js غير محمَّل');
     const r = await fetch(db.url + path, { headers: global.GMT_DB.headers(db) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) {
+      let m = ''; try { const j = await r.json(); m = (j && (j.message || j.code)) || ''; } catch (_) {}
+      throw new Error('HTTP ' + r.status + (m ? ' — ' + String(m).slice(0, 160) : ''));
+    }
     return r.json();
   }
 
+  /* (REQ-0363) الفحص الذي تعذّر تشغيله لا يُحسب «سليماً»: يحمل failed + error ويُعرض وحده.
+     الاستثناء: فحصٌ وظيفته كشف الغياب نفسه (stock_no_ledger يقرأ failed كنتيجة) ⇒ expectsFail. */
   async function runAll(onProgress) {
     const out = [];
     for (const c of CHECKS) {
-      let rows = [], aux = null, failed = false;
+      let rows = [], aux = null, failed = false, error = '';
       try {
         rows = await q(c.path);
-        if (c.needs) aux = await q(c.needs);
-      } catch (e) { failed = true; }
+        if (c.needs) aux = typeof c.needs === 'function' ? await c.needs(rows || [], q) : await q(c.needs);
+      } catch (e) { failed = true; error = (e && e.message) || String(e); }
       let hits = [];
-      try { hits = c.test(rows || [], aux, failed) || []; } catch (_) { hits = []; }
-      out.push({ ...c, hits, failed });
+      try { hits = c.test(rows || [], aux, failed) || []; }
+      catch (e) { hits = []; if (!failed) { failed = true; error = 'خطأ في منطق الفحص: ' + ((e && e.message) || e); } }
+      const broken = failed && c.id !== 'stock_no_ledger';
+      out.push({ ...c, hits: broken ? [] : hits, failed: broken, error: broken ? error : '' });
       if (onProgress) onProgress(out.length, CHECKS.length);
     }
     return out;
@@ -951,13 +969,27 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   }
 
   function render(results) {
-    const bad  = results.filter((r) => r.hits.length);
-    const good = results.length - bad.length;
+    const bad  = results.filter((r) => !r.failed && r.hits.length);
+    const broke = results.filter((r) => r.failed);
+    const good = results.length - bad.length - broke.length;
     const SEV  = { danger: ['🔴', 'danger'], warn: ['🟠', 'warn'], info: ['🔵', 'info'] };
 
     const body = document.getElementById('gh-body');
     if (!body) return;
 
+    /* (REQ-0363) كل فحصٍ تعذّر يظهر باسمه وسببه — لا يندمج في «سليم» */
+    const brokeHtml = broke.length ? `<div class="gmt-card" id="gh-broken" style="margin-bottom:11px;border:1.5px solid #F59E0B;">
+        <div class="gmt-strong" style="font-size:13.5px;margin-bottom:6px;">⚠️ ${broke.length} فحصاً تعذّر تشغيله — نتيجته غير معروفة (ليس سليماً)</div>
+        <div style="font-size:11.5px;font-weight:700;line-height:1.9;">
+          ${broke.map((c) => `<div data-check="${esc(c.id)}">• ${esc(c.title)} — <span class="gmt-muted">${esc(c.error || 'تعذّرت القراءة')}</span></div>`).join('')}
+        </div></div>` : '';
+
+    if (!bad.length && broke.length) {
+      body.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <span class="gmt-badge gmt-badge--ok">✅ ${good} فحصاً سليماً</span>
+          <span class="gmt-badge gmt-badge--warn">⚠️ ${broke.length} تعذّر</span></div>${brokeHtml}`;
+      return;
+    }
     if (!bad.length) {
       body.innerHTML = `<div class="gmt-empty"><div class="gmt-empty__icon">✅</div>
         <div class="gmt-empty__title">القاعدة سليمة</div>
@@ -971,7 +1003,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <span class="gmt-badge gmt-badge--ok">✅ ${good} فحصاً سليماً</span>
         <span class="gmt-badge gmt-badge--danger">⚠️ ${bad.length} فيها ملاحظات</span>
+        ${broke.length ? `<span class="gmt-badge gmt-badge--warn">⚠️ ${broke.length} تعذّر</span>` : ''}
       </div>
+      ${brokeHtml}
       ${bad.map((c) => {
         const [icon, cls] = SEV[c.sev] || SEV.info;
         const shown = c.hits.slice(0, 8);
@@ -2747,13 +2781,29 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       key: (window.GMT_CONFIG && GMT_CONFIG.SUPABASE_ANON_KEY) || window.SUPABASE_ANON_KEY || ''
     };
   }
+  var lastErr = '';   /* (REQ-0334) سبب آخر فشل قراءة — يظهر في الرسالة بدل «تعذّر» المبهمة */
   async function q(path) {
-    var c = cfg(); if (!c.url) return null;
+    var c = cfg(); if (!c.url) { lastErr = 'لا إعدادات قاعدة بالصفحة'; return null; }
     try {
       var r = await RF(c.url + '/rest/v1/' + path, { headers: { apikey: c.key, Authorization: 'Bearer ' + c.key } });
-      if (!r.ok) return null;
+      if (!r.ok) { var t = ''; try { t = (await r.text()).slice(0, 140); } catch (_) {} lastErr = 'HTTP ' + r.status + (t ? ' — ' + t : ''); return null; }
       return await r.json();
-    } catch (e) { return null; }
+    } catch (e) { lastErr = String((e && e.message) || e).slice(0, 140); return null; }
+  }
+  /* أعمدة الفروع حيّة من inv_columns — كانت ثابتة (germany,china,damascus,aleppo) وليست أعمدة products ⇒ 400 دائماً */
+  async function branchCols() {
+    var rows = await q('inv_columns?is_branch=eq.true&select=key_name');
+    return (rows || []).map(function (r) { return r.key_name; }).filter(function (k) { return /^[a-z_][a-z0-9_]*$/i.test(String(k || '')); });
+  }
+  async function inChunks(base, col, ids) {
+    var out = [];
+    for (var i = 0; i < ids.length; i += 100) {
+      var part = ids.slice(i, i + 100).map(function (x) { return encodeURIComponent(String(x)); }).join(',');
+      var rows = await q(base + '&' + col + '=in.(' + part + ')');
+      if (rows === null) return null;
+      out = out.concat(rows);
+    }
+    return out;
   }
 
   /* ═══════════ تعريف الترابطات المتوقّعة ═══════════ */
@@ -2763,19 +2813,27 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       title: 'المشتريات ← الجرد',
       desc: 'كل كمية بالجرد يجب أن يقابلها استلام/فاتورة شراء (لا مخزون من عدم).',
       run: async function () {
-        var products = await q('products?select=id,name,germany,china,damascus,aleppo&limit=200');
-        var receipts = await q('stock_receipts?select=product_id,qty&limit=500');
-        if (!products) return { ok: null, msg: 'تعذّر قراءة المنتجات (قد تكون القاعدة غير متصلة)' };
-        // منتجات لها مخزون موجب لكن بلا أي استلام = مشبوهة
+        /* (REQ-0334) كانت تقرأ أعمدة فروعٍ ثابتة غير موجودة ⇒ «تعذّر قراءة المنتجات» دائماً */
+        var cols = await branchCols();
+        var products = await q('products?select=' + ['id', 'name', 'created_at'].concat(cols).join(',') + '&order=created_at.desc&limit=200');
+        if (!products) return { ok: null, msg: 'تعذّر قراءة المنتجات — ' + lastErr };
+        if (!products.length) return { ok: true, msg: 'لا منتجات بالجرد بعد' };
+        var first = await q('stock_receipts?select=created_at&order=created_at.asc&limit=1');
+        if (first === null) return { ok: null, msg: 'تعذّر قراءة سجل الاستلام (stock_receipts) — ' + lastErr };
+        if (!first.length) return { ok: null, msg: 'سجل الاستلام فارغ — لا يمكن مطابقة ' + products.length + ' منتج بعد' };
+        var receipts = await inChunks('stock_receipts?select=product_id,qty&limit=5000', 'product_id', products.map(function (p) { return p.id; }));
+        if (receipts === null) return { ok: null, msg: 'تعذّر قراءة سجل الاستلام — ' + lastErr };
+        var since = new Date(first[0].created_at).getTime();   /* البيانات القديمة: منتجات أُنشئت قبل بدء سجل الاستلام لا تُعدّ يتيمة */
         var receiptByProd = {};
-        (receipts || []).forEach(function (r) { receiptByProd[r.product_id] = (receiptByProd[r.product_id] || 0) + Number(r.qty || 0); });
+        receipts.forEach(function (r) { receiptByProd[r.product_id] = (receiptByProd[r.product_id] || 0) + Number(r.qty || 0); });
         var orphan = [];
         products.forEach(function (p) {
-          var stock = (Number(p.germany) || 0) + (Number(p.china) || 0) + (Number(p.damascus) || 0) + (Number(p.aleppo) || 0);
-          if (stock > 0 && receipts && !receiptByProd[p.id]) orphan.push(p.name || p.id);
+          var stock = cols.reduce(function (a, k) { return a + (Number(p[k]) || 0); }, 0);
+          var made = p.created_at ? new Date(p.created_at).getTime() : 0;
+          if (stock > 0 && made >= since && !receiptByProd[p.id]) orphan.push(p.name || p.id);
         });
         if (orphan.length > 5) return { ok: false, msg: orphan.length + ' منتج له مخزون بلا استلام مسجَّل — راجع المشتريات', detail: orphan.slice(0, 8).join(' · ') };
-        return { ok: true, msg: 'تدفّق المشتريات→الجرد سليم (' + products.length + ' منتج)' };
+        return { ok: true, msg: 'تدفّق المشتريات→الجرد سليم (' + products.length + ' منتج' + (orphan.length ? ' · ' + orphan.length + ' بلا استلام' : '') + ')' };
       }
     },
     {
@@ -2783,10 +2841,32 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       title: 'الجرد ← المتجر',
       desc: 'منتجات المتجر يجب أن تكون موجودة بالجرد (لا يُعرض للزبون ما ليس بالمخزون).',
       run: async function () {
-        var storeProds = await q('gmt_store?select=id,name&limit=200');
-        if (storeProds === null) return { ok: null, msg: 'المتجر بقاعدة منفصلة — يُفحص يدوياً' };
-        if (!storeProds.length) return { ok: true, msg: 'لا منتجات بالمتجر' };
-        return { ok: true, msg: 'المتجr يعرض ' + storeProds.length + ' منتج (تحقّق يدوي أن لها مقابلاً بالجرد)' };
+        /* (REQ-0334) المتجر صفٌّ واحد (gmt_store id=1) ومنتجاته في عمود products — كانت تقرأ select=id,name كجدول منتجات
+           فيُعلَّم «ناجحاً» رغم «لا منتجات بالمتجر». متجرٌ فارغ والجرد فيه منتجات = انقطاعٌ لا نجاح. */
+        var row = await q('gmt_store?id=eq.1&select=products');
+        if (row === null) return { ok: null, msg: 'تعذّر قراءة المتجر — ' + lastErr };
+        var sp = row[0] && row[0].products;
+        if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (_) { sp = null; } }
+        sp = Array.isArray(sp) ? sp : [];
+        var inv = await q('products?select=id,barcode&limit=5000');
+        if (inv === null) return { ok: null, msg: 'تعذّر قراءة الجرد — ' + lastErr };
+        if (!sp.length) return inv.length ? { ok: false, msg: 'لا منتجات بالمتجر بينما الجرد فيه ' + inv.length + ' منتج — المتجر لا يعرض شيئاً' } : { ok: null, msg: 'لا منتجات بالجرد ولا بالمتجر بعد' };
+        var ids = new Set(inv.map(function (p) { return String(p.id); }));
+        var bcs = new Set(inv.map(function (p) { return String(p.barcode || '').trim(); }).filter(Boolean));
+        var linked = function (o) {
+          return (o.inv_id != null && o.inv_id !== '' && ids.has(String(o.inv_id))) || (o.barcode && bcs.has(String(o.barcode).trim()));
+        };
+        var orphan = [], unkeyed = 0;
+        sp.forEach(function (p) {
+          if (!p) return;
+          var vals = [];
+          (p.options || p.variants || []).forEach(function (o) { (o && (o.values || o.items) || []).forEach(function (v) { if (v) vals.push(v); }); });
+          var keyed = (p.inv_id != null && p.inv_id !== '') || p.barcode || vals.some(function (v) { return (v.inv_id != null && v.inv_id !== '') || v.barcode; });
+          if (!keyed) { unkeyed++; return; }
+          if (!linked(p) && !vals.some(linked)) orphan.push(p.name || p.id);
+        });
+        if (orphan.length) return { ok: false, msg: orphan.length + ' منتج بالمتجر لا مقابل له بالجرد (لا باركود ولا ربط مطابق)', detail: orphan.slice(0, 8).join(' · ') };
+        return { ok: true, msg: 'المتجر يعرض ' + sp.length + ' منتج — كلّ المربوط منها له مقابل بالجرد' + (unkeyed ? ' · ' + unkeyed + ' بلا باركود/ربط' : '') };
       }
     },
     {
