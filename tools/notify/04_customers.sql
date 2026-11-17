@@ -1,0 +1,8 @@
+-- مركز الإشعارات — المرحلة ٦ (المالك seq 814): إشعارات العملاء برقم الطلب — مطبَّق على القاعدة الرئيسية.
+--   gmt_customer_push   : أجهزة الزبائن (endpoint · مفاتيح) مربوطة بطلبٍ واحد — بلا وصول للمفتاح العام.
+--   gmt_customer_events : confirmed · shipped · delivered · msg — بلا اسم ولا عنوان ولا مبلغ.
+--   gmt_customer_order_events() : مشغّل على gmt_orders — حدثٌ فقط إن كان للطلب مشترك (لا تراكم ولا إشعار قديم لمشترك جديد).
+--   gmt_customer_kick() : كل 30 ث — إن وُجد حدث منتظر يستدعي الدالّة customer-push بالسرّ الداخلي.
+-- الدالّة tools/notify/customer-push: key · subscribe/feed (إثبات: رقم الطلب + آخر 9 أرقام من جوال الطلب) · unsubscribe ·
+--   staff_msg (جهاز موثَّق في صندوق الإشعارات) · job send.
+-- الواجهة: gmt-cust-push.js في track_order.html · زرّ «إشعار للزبون» في orders.html.

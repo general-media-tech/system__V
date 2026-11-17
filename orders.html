@@ -2065,6 +2065,11 @@ function otherButtonsHTML(o, c, actionBtn) {
                     class="w-10 h-10 bg-emerald-600 border border-emerald-700 rounded-xl flex items-center justify-center text-white hover:bg-emerald-700 transition-colors shrink-0" title="مراسلة الزبون على واتساب" data-wa-pending>
                 <i data-lucide="message-circle" class="w-4 h-4"></i>
             </button>` : '');
+    /* (TASK-B0424 · المرحلة ٦ · seq 814) رسالة مخصّصة تصل للزبون إشعاراً على جهازه (إن فعّل إشعارات طلبه من صفحة التتبّع) وتبقى في سجلّ إشعارات طلبه */
+    add((o.status !== 'completed' && o.status !== 'returned') ? `<button onclick="custNotify(${o.id})" data-hint="إشعار للزبون على جهازه بخصوص طلبه — يصله إن فعّل إشعارات طلبه من صفحة التتبّع، ويبقى في سجلّ طلبه"
+                    class="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors shrink-0" title="إشعار للزبون" data-cust-notify>
+                <i data-lucide="bell-ring" class="w-4 h-4"></i>
+            </button>` : '');
     /* 📤 طلبك ١٢٠: «زرّ مشاركة PDF في كل مكان لا حفظ وطباعة فقط». زرُّ الطباعة بقي كما هو — أُضيف بجانبه لا بدلاً منه. */
     add(isStoreOrder(o) ? `<button onclick="storeOrderInvoice(${o.id})" class="h-10 px-3 bg-white border border-red-200 rounded-xl flex items-center justify-center gap-1 text-red-700 text-[11px] font-black hover:bg-red-50 transition-colors shrink-0" title="فاتورة طلب المتجر — بالأسعار التي طلبها الزبون">🧾 فاتورته</button>` : '', 2);
     add(`<button onclick="shareOrderPdf(${o.id})" class="w-10 h-10 bg-slate-900 border border-slate-900 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-colors shrink-0" title="مشاركة PDF — يذهب مباشرةً لواتساب">
@@ -7301,6 +7306,18 @@ function rcptIcon() { return '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="non
     '<path d="M6 2h9l4 4v16H6z"/><path d="M15 2v4h4"/><path d="M9 9h6"/><path d="M9 15v4M11 15v4M13.5 15v4M16 15v4"/></svg>'; }
 
 /* (TASK-0152 · seq 57) واتساب الزبون لطلبٍ «قيد التجهيز» — واتساب بزنس كبقيّة الرسائل */
+window.custNotify = async (id) => {
+    const tok = (() => { try { return localStorage.getItem('gmt_inbox_token') || ''; } catch (_) { return ''; } })();
+    if (!tok) { showToast('فعّل «صندوق الإشعارات» على هذا الجهاز أوّلاً (مركز الإشعارات)', 'err'); return; }
+    const text = window.GMTAsk && GMTAsk.prompt ? await GMTAsk.prompt('رسالة تصل للزبون إشعاراً بخصوص طلبه (حتى 300 حرف):', { title: '🔔 إشعار للزبون', placeholder: 'مثال: تمّ تجهيز طلبك وسيُشحن اليوم', okText: 'إرسال' }) : null;
+    if (!text || String(text).trim().length < 2) return;
+    try {
+        const D = (window.GMT_DB && GMT_DB.MAIN) || {};
+        const r = await fetch(D.url + '/functions/v1/customer-push', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: D.key, Authorization: 'Bearer ' + D.key }, body: JSON.stringify({ action: 'staff_msg', token: tok, order_id: id, text: String(text).trim().slice(0, 300) }) }).then(x => x.json());
+        if (!r || !r.ok) { showToast('⚠️ ' + ((r && r.msg) || 'تعذّر الإرسال'), 'err'); return; }
+        showToast(r.devices ? '✅ أُرسل الإشعار للزبون (' + r.devices + ' جهاز)' : '✅ حُفظت الرسالة — تصل الزبون فور تفعيله إشعارات طلبه من صفحة التتبّع', 'ok');
+    } catch (e) { showToast('⚠️ تعذّر الاتصال', 'err'); }
+};
 window.contactCustomerPending = (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
     const d = GMTPhone.wa(o.phone);
