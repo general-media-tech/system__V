@@ -793,10 +793,7 @@ async function insertOrder(orderData) {
    سببان: (١) رقمٌ بأرقامٍ عربية أو 00963/+963 كان يُرفض بصمت فلا يُحفظ الزبون · (٢) الدمج كان يكتب فوق اسم/فرع زبونٍ موجود.
    الآن: يُطبَّع الرقم لصيغة 09xxxxxxxx من كلّ الصيغ، يُدرَج الجديد باسمه، والموجود بلا اسمٍ يُملأ اسمُه (لا يُكتب فوق اسمٍ موجود). */
 function gmtNormSyPhone(raw) {
-    let d = String(raw || '').replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0).replace(/\D/g, '');
-    d = d.replace(/^00963/, '').replace(/^963/, '');
-    if (/^9\d{8}$/.test(d)) d = '0' + d;
-    return /^09\d{8}$/.test(d) ? d : '';
+    return window.GMTPhone ? GMTPhone.sy09(raw) : '';   /* (VER-3#REQ-0323) المصدر الوحيد في gmt-core.js */
 }
 async function gmtSaveStoreCustomer(url, key, name, phone) {
     const ph = gmtNormSyPhone(phone), nm = String(name || '').trim();
@@ -2278,7 +2275,7 @@ function openBranchesModal(){
     }
     const list = (store.branches || []).filter(b => b && b.name);
     const byGov = {}; list.forEach(b => { (byGov[b.province || 'أخرى'] = byGov[b.province || 'أخرى'] || []).push(b); });
-    const wa = p => { let d = String(p || '').replace(/[^0-9+]/g, ''); if (d[0] === '+') d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1); return d; };
+    const wa = p => GMTPhone.wa(p);
     const body = list.length ? Object.keys(byGov).sort().map(g => `<div style="margin:12px 0 6px;font-weight:800;font-size:13px;color:#D5001C">${escHtml(g)}</div>` +
         byGov[g].map(b => `<div style="background:#F7F7F7;border-radius:12px;padding:10px 12px;margin-bottom:8px">
             <div style="font-weight:800;font-size:14px">${escHtml(b.name)}</div>

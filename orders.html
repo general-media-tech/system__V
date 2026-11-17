@@ -3079,8 +3079,7 @@ window.smartFillFromPaste = async () => {
     if (phoneEl) {
         const m = LB.phone ? LB.phone.match(SY_PHONE_RE) : raw0.match(SY_PHONE_RE);
         if (m) {
-            let d = m[0].replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
-            if (d[0] !== '0') d = '0' + d;
+            let d = '0' + GMTPhone.norm(m[0]);
             phoneEl.value = d;
             try { validatePhone(phoneEl); } catch (_) {}
             push(true, 'الهاتف: ' + d);
@@ -3138,7 +3137,7 @@ window.smartFillFromPaste = async () => {
             if (pEl) {
                 /* بالليرة نحوّل بسعر الصرف المعتمد — الحقل بالدولار.
                    وبلا عملة مذكورة نعتبره دولاراً: هو عملة أسعارنا. */
-                const rate = (window.GMT_RATE || (window.GMT_DB && GMT_DB.RATE) || 140);
+                const rate = (window.GMT_DEFAULT_RATE || 140);
                 const usd = _priceInfo.currency === 'syp'
                     ? Math.round((_priceInfo.amount / rate) * 100) / 100
                     : _priceInfo.amount;
@@ -4826,11 +4825,8 @@ function extractDigits(str) {
 }
 
 function normalizePhone(raw) {
-    const digits = extractDigits(raw);
-    if (digits.startsWith('9639')) return '0' + digits.slice(3);
-    if (digits.startsWith('9630')) return digits.slice(3);
-    if (digits.startsWith('009639')) return '0' + digits.slice(6);
-    return digits;
+    /* (VER-3#REQ-0323) المصدر الوحيد: GMTPhone.local في gmt-core.js */
+    return GMTPhone.local(raw);
 }
 
 function validatePhone(input) {
@@ -6255,9 +6251,8 @@ function officeSuggest(val, which) {
    (يلغي قرار ت٨ «احذف واتساب الزبون من البطاقات» في هذه الحالة وحدها — الأحدث يغلب.) يفتح واتساب بزنس على رقم الزبون نفسه. */
 window.contactCustomerArrival = (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
-    let d = String(o.phone || '').replace(/[^0-9+]/g, '');
+    const d = GMTPhone.wa(o.phone);
     if (!d) { showToast('لا رقم لهذا الزبون', 'err'); return; }
-    if (d[0] === '+') d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1);
     const dest = String(o.address || '').trim();
     const msg = 'مرحباً' + (o.name ? ' أ. ' + o.name : '') + '،\n' +
         'وصلت شحنتك من مجموعة ميديا تيك التجارية (جنرال ميديا تيك)' + (o.shipping_company ? ' على شركة ' + o.shipping_company : '') + '.\n' +
@@ -6289,7 +6284,7 @@ window.contactShipOffice = (id) => {
         if (office) phone = String(office.phone || '').replace(/\s+/g, '');
     }
     if (!phone) { showToast('لا رقم لمكتب الشحن في عنوان هذا الأوردر — اختر المكتب من الاقتراحات عند الإضافة', 'err'); return; }
-    let d = phone.replace(/[^0-9+]/g, ''); if (d[0] === '+') d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1);
+    const d = GMTPhone.wa(phone);
     const who = (typeof getOperatorName === 'function' && getOperatorName()) || '';
     /* (وثيقة الطلبات §٥ · «في الرسالة التي نرسلها إلى شركة الشحن: رقم التتبّع وتاريخ الشحن وتاريخ استلام الزبون أيضاً») */
     const msg = 'مرحباً، معكم ' + (who ? 'أ. ' + who + ' ' : '') + 'من مجموعة ميديا تيك التجارية.\n' +
@@ -7193,7 +7188,7 @@ function splitUnknown() {
                     if (amt === null) { const m = spDigits(text).match(/\d+(?:[.,]\d+)?/); amt = m ? parseFloat(m[0].replace(',', '.')) : null; }
                     const pEl = document.getElementById('in-price');
                     if (amt === null || !pEl) { msg.textContent = '⚠️ لا رقم فيه'; msg.style.color = '#B91C1C'; return; }
-                    const rate = (window.GMT_RATE || (window.GMT_DB && GMT_DB.RATE) || 140);
+                    const rate = (window.GMT_DEFAULT_RATE || 140);
                     const usd = pi.currency === 'syp' ? Math.round((amt / rate) * 100) / 100 : amt;
                     pEl.value = usd; try { syncCollect(); } catch (_) {}
                     msg.textContent = '✅ صار السعر $' + usd; msg.style.color = '#BE123C';
@@ -7220,7 +7215,7 @@ function splitUnknown() {
                 } else if (kind === 'phone') {
                     const ph = spDigits(text).match(SY_PHONE_RE), pe = document.getElementById('in-phone');
                     if (ph && pe) {
-                        let d = ph[0].replace(/[^0-9]/g, '').replace(/^(00963|963)/, ''); if (d[0] !== '0') d = '0' + d;
+                        let d = '0' + GMTPhone.norm(ph[0]);
                         pe.value = d; try { validatePhone(pe); } catch (_) {}
                         msg.textContent = '✅ صار الرقم'; msg.style.color = '#B45309';
                     } else { msg.textContent = '⚠️ ليس رقم هاتف'; msg.style.color = '#B91C1C'; return; }
@@ -7348,9 +7343,8 @@ function rcptIcon() { return '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="non
 /* (TASK-0152 · seq 57) واتساب الزبون لطلبٍ «قيد التجهيز» — واتساب بزنس كبقيّة الرسائل */
 window.contactCustomerPending = (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
-    let d = String(o.phone || '').replace(/[^0-9+]/g, '');
+    const d = GMTPhone.wa(o.phone);
     if (!d) { showToast('لا رقم لهذا الزبون', 'err'); return; }
-    if (d[0] === '+') d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d[0] === '0') d = '963' + d.slice(1);
     const msg = 'مرحباً' + (o.name ? ' أ. ' + o.name : '') + '،\nبخصوص طلبك' + (o.serial_code ? ' (' + o.serial_code + ')' : '') + ' من جنرال ميديا تيك:\n';
     const web = 'https://wa.me/' + d + '?text=' + encodeURIComponent(msg);
     const url = /Android/i.test(navigator.userAgent || '')
@@ -7551,7 +7545,7 @@ const ADDR_ONCE_TAG = '📍 عنوانٌ لهذه المرّة فقط';
 function _addrKey(s) { return String(s || '').replace(/☎.*$/, '').replace(/[\s،,.\-—·]+/g, ' ').trim().toLowerCase(); }
 async function askOldOrNewAddress() {
     const a = document.getElementById('in-addr'), ph = document.getElementById('in-phone');
-    const cur = String((a && a.value) || '').trim(), phone = String((ph && ph.value) || '').replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');
+    const cur = String((a && a.value) || '').trim(), phone = GMTPhone.norm((ph && ph.value) || '');
     window.__addrOnce = false;
     if (!cur || phone.length < 9 || !window.GMTAsk || !GMTAsk.choose) return 'same';
     let old = '';
@@ -7574,7 +7568,7 @@ async function askOldOrNewAddress() {
 window.askOldOrNewAddress = askOldOrNewAddress;
 async function upsertCustomerFromOrder(o) {
     if (!o || !o.phone) return;
-    const phone = String(o.phone).replace(/[\u0660-\u0669]/g, c => c.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, c => c.charCodeAt(0) - 0x6F0).replace(/[^0-9]/g, '').replace(/^(00963|963)/, '');   // (TASK-B0415) الأرقام العربية كانت تُحذف فيضيع الزبون
+    const phone = GMTPhone.norm(o.phone);   // (TASK-B0415) الأرقام العربية كانت تُحذف فيضيع الزبون
     if (!phone) return;
     /* (TASK-0211 · المالك seq 139 «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي») كان الطلب يحمل
        last_order و last_address — عمودان غير موجودين في gmt_customers ⇒ الطلب كلّه يُرفض فيُحفظ الاسم والهاتف وحدهما (الاحتياط أدناه)
@@ -9400,7 +9394,7 @@ window.returnReceive = async (id) => {
     const o = orders.find(x => x.id == id); if (!o || !returnActive(o)) return;
     const r = returnInfoOf(o) || {};
     if (!dbBranches.length) { try { await loadBranchesFromDB(); } catch (_) {} }
-    const rate0 = Number(window.GMT_RATE || (window.GMT_DB && GMT_DB.RATE) || 140);
+    const rate0 = Number(window.GMT_DEFAULT_RATE || 140);
     const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/,/g, '')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN; };
     const old = retCostText(r);
     const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.product || '') + (old ? '\n(أجورٌ سُجّلت سابقاً لهذا المرتجع: ' + old + ')' : ''), {

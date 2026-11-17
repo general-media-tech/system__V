@@ -697,9 +697,38 @@
     }
   } catch (_) {}
 
-  global.GMTPhone = global.GMTPhone || {
-    norm: function (p) { return String(p || '').replace(/\D/g, '').replace(/^(00963|963|0)/, ''); }
-  };
+  /* (VER-3#REQ-0323) GMTPhone = المصدر الوحيد لصيغ الهاتف السوري — orders/store كانت فيهما 6+ نسخ خاصّة.
+       norm(p)  ⇒ 9xxxxxxxx بلا أيّ بادئة (مفتاح المطابقة) · digits(p) ⇒ أرقام لاتينية فقط (يحوّل العربية-الهندية)
+       local(p) ⇒ تطبيعٌ متسامح للكتابة الحيّة (9639… ⇒ 09…) · sy09(p) ⇒ 09xxxxxxxx صارم أو '' · wa(p) ⇒ رقم wa.me الدولي */
+  global.GMTPhone = global.GMTPhone || {};
+  (function (P) {
+    P.digits = P.digits || function (p) {
+      return String(p == null ? '' : p).replace(/[\u0660-\u0669]/g, function (c) { return c.charCodeAt(0) - 0x660; })
+        .replace(/[\u06F0-\u06F9]/g, function (c) { return c.charCodeAt(0) - 0x6F0; }).replace(/\D/g, '');
+    };
+    P.norm = function (p) { return P.digits(p).replace(/^(00963|963|0)/, ''); };
+    P.local = function (p) {
+      var d = P.digits(p);
+      if (d.indexOf('9639') === 0) return '0' + d.slice(3);
+      if (d.indexOf('9630') === 0) return d.slice(3);
+      if (d.indexOf('009639') === 0) return '0' + d.slice(5);   /* كان slice(6) يأكل الـ9 */
+      return d;
+    };
+    P.sy09 = function (p) {
+      var d = P.digits(p).replace(/^00963/, '').replace(/^963/, '');
+      if (/^9\d{8}$/.test(d)) d = '0' + d;
+      return /^09\d{8}$/.test(d) ? d : '';
+    };
+    P.wa = function (p) {
+      var s = String(p == null ? '' : p).trim(), d = P.digits(s);
+      if (!d) return '';
+      if (s.charAt(0) === '+') return d;
+      if (d.indexOf('00') === 0) return d.slice(2);
+      if (d.charAt(0) === '0') return '963' + d.slice(1);
+      if (/^9\d{8}$/.test(d)) return '963' + d;
+      return d;
+    };
+  })(global.GMTPhone);
 })(window);
 
 
