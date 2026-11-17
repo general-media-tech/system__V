@@ -90,7 +90,120 @@ window.GMT_INTERNAL = 1;</script>
 
   <button class="copy" id="copyall" style="margin-bottom:12px;display:none">📋 نسخ التقرير الكامل</button>
   <div id="results"></div>
+
+  <!-- 🔗 سجل الروابط (OWN-05#21 · «لا زر ميت ولا رابط وهمي») — يُعبّأ تلقائياً بزحفٍ على صفحات الموقع، أو يدوياً -->
+  <section id="lr" style="margin-top:22px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px">
+    <h2 style="font-size:16px;font-weight:900;margin:0 0 6px">🔗 سجل الروابط</h2>
+    <div class="hint" style="margin-bottom:10px">يزحف من الرئيسية على كل صفحة يصلها رابط، ويحصر كل رابط: <b>المصدر · الهدف · الحالة</b>.
+      🔴 مكسور (الملف غير موجود) · 🔴 وهمي (<code>#</code> أو <code>javascript:</code> بلا عمل) · 🟠 مرساة لا عنصر لها · ✅ سليم · ⚪ خارجي (يُفحص يدوياً).
+      أضف الروابط الخارجية بيدك — تبقى على هذا الجهاز.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn" id="lr-run" style="font-size:13px;padding:10px 16px">🔗 احصر كل الروابط</button>
+      <input id="lr-name" placeholder="اسم الرابط اليدوي" style="flex:1;min-width:130px;padding:9px;border:1px solid #e5e7eb;border-radius:9px;font:inherit">
+      <input id="lr-url" placeholder="https://… أو page.html" style="flex:2;min-width:180px;padding:9px;border:1px solid #e5e7eb;border-radius:9px;font:inherit;direction:ltr">
+      <button class="btn ghost" id="lr-add" style="font-size:13px;padding:10px 14px">➕ أضف</button>
+      <button class="btn ghost" id="lr-copy" style="font-size:13px;padding:10px 14px">📋 انسخ</button>
+    </div>
+    <div id="lr-sum" style="font-weight:800;font-size:13px;margin-bottom:6px"></div>
+    <div id="lr-out" style="max-height:60vh;overflow:auto"></div>
+  </section>
 </main>
+<script>
+(function(){
+  'use strict';
+  var MK = 'gmt_links_manual';
+  var rows = [];
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  function manual(){ try { return JSON.parse(localStorage.getItem(MK) || '[]') || []; } catch(_) { return []; } }
+  function saveManual(a){ try { localStorage.setItem(MK, JSON.stringify(a)); } catch(_) {} }
+  var root = location.href.replace(/[^/]*([?#].*)?$/, '');
+  var exists = {};
+  async function fileOk(f){
+    if (f in exists) return exists[f];
+    try { var r = await fetch(root + encodeURI(f), { method:'GET', cache:'no-store' }); exists[f] = r.ok ? await r.text() : null; }
+    catch(_) { exists[f] = null; }
+    return exists[f];
+  }
+  /* روابط صفحة واحدة: <a href> + أهداف التنقّل المكتوبة في JS (تعيين location.href · open() · data-href) */
+  function linksOf(src, html){
+    var out = [], doc = new DOMParser().parseFromString(html, 'text/html');
+    var ids = {}; doc.querySelectorAll('[id]').forEach(function(e){ ids[e.id] = 1; });
+    doc.querySelectorAll('a[href]').forEach(function(a){
+      var h = (a.getAttribute('href') || '').trim(), lab = (a.textContent || a.title || '').trim().slice(0, 50) || '(بلا نص)';
+      var acts = a.getAttribute('onclick') || a.getAttribute('data-act') || a.getAttribute('data-action') || a.id;
+      if (h === '#' || h === '' || /^javascript:\s*(void\s*\(?0\)?)?;?\s*$/i.test(h)) { out.push({ src:src, label:lab, to:h || '(فارغ)', kind: acts ? 'act' : 'fake' }); return; }
+      if (/^javascript:/i.test(h)) { out.push({ src:src, label:lab, to:h.slice(0, 40), kind:'act' }); return; }
+      if (h.charAt(0) === '#') { out.push({ src:src, label:lab, to:h, kind: ids[h.slice(1)] ? 'ok-anchor' : 'anchor' }); return; }
+      if (/^(https?:)?\/\//i.test(h)) { out.push({ src:src, label:lab, to:h, kind:'ext' }); return; }
+      if (/^(mailto|tel|sms|whatsapp|intent):/i.test(h)) { out.push({ src:src, label:lab, to:h, kind:'ext' }); return; }
+      out.push({ src:src, label:lab, to:decodeURIComponent(h.split('#')[0].split('?')[0]), kind:'int' });
+    });
+    var re = /(?:location(?:\.href)?\s*=|location\.(?:assign|replace)\(|open\(|data-href=)\s*['"]([^'"?#\s]+\.html)/g, m;
+    while ((m = re.exec(html))) out.push({ src:src, label:'(تنقّل في الكود)', to:decodeURIComponent(m[1]), kind:'int' });
+    return out;
+  }
+  async function crawl(onStep){
+    var seen = {}, scanned = {}, queue = ['home.html', 'index.html'], all = [];
+    while (queue.length && Object.keys(seen).length < 120) {
+      var p = queue.shift(); if (seen[p]) continue; seen[p] = 1;
+      var html = await fileOk(p); if (html == null) continue;
+      if (onStep) onStep(p, Object.keys(seen).length);
+      /* القوائم التي تبنيها السكربتات (بلاطات الرئيسية · قوائم الأدوات) لا تظهر في HTML — تُقرأ أسماء الصفحات من سكربتات الصفحة المحلّية */
+      var srcs = (html.match(/<script[^>]+src=["']([^"'?#:]+\.js)/g) || []).map(function(s){ return s.replace(/^[\s\S]*src=["']/, ''); });
+      for (var si = 0; si < srcs.length; si++) {
+        if (scanned[srcs[si]]) continue; scanned[srcs[si]] = 1;          /* كل سكربت مرّة واحدة — مصدره اسمه هو */
+        var js = await fileOk(srcs[si]); if (js == null) continue;
+        var rj = /['"`]([A-Za-z0-9_\u0600-\u06FF-]+\.html)(?=[?#'"`])/g, mj, got = {};
+        while ((mj = rj.exec(js))) {
+          if (got[mj[1]]) continue; got[mj[1]] = 1;
+          all.push({ src:srcs[si], label:'(قائمة يبنيها السكربت)', to:mj[1], kind:'int', js:true });
+          if (!seen[mj[1]] && queue.indexOf(mj[1]) < 0) queue.push(mj[1]);
+        }
+      }
+      linksOf(p, html).forEach(function(l){
+        all.push(l);
+        if (l.kind === 'int' && /\.html$/i.test(l.to) && !seen[l.to] && queue.indexOf(l.to) < 0) queue.push(l.to);
+      });
+    }
+    for (var i = 0; i < all.length; i++) if (all[i].kind === 'int') all[i].kind = (await fileOk(all[i].to)) != null ? 'ok' : (all[i].js ? 'smiss' : 'broken');   /* اسمٌ في سكربت قد يكون نصّاً لا رابطاً ⇒ تنبيه */
+    manual().forEach(function(x){ all.push({ src:'يدوي', label:x.name, to:x.url, kind: /^(https?:)?\/\//i.test(x.url) ? 'ext' : 'int-m', manual:true }); });
+    for (var j = 0; j < all.length; j++) if (all[j].kind === 'int-m') all[j].kind = (await fileOk(all[j].to.split('?')[0])) != null ? 'ok' : 'broken';
+    return all;
+  }
+  var ST = { ok:['✅','سليم','#f0fdf4'], 'ok-anchor':['✅','مرساة سليمة','#f0fdf4'], act:['✅','زرّ بعمل','#f0fdf4'], broken:['🔴','مكسور — الملف غير موجود','#fef2f2'],
+             fake:['🔴','وهمي — لا يفعل شيئاً','#fef2f2'], anchor:['🟠','مرساة لا عنصر لها','#fffbeb'], smiss:['🟠','اسم صفحة في سكربت غير موجود (نصّ أم رابط؟)','#fffbeb'], ext:['⚪','خارجي — يُفحص يدوياً','#f8fafc'] };
+  function render(){
+    var bad = rows.filter(function(r){ return r.kind === 'broken' || r.kind === 'fake'; }).length;
+    var warn = rows.filter(function(r){ return r.kind === 'anchor' || r.kind === 'smiss'; }).length;
+    document.getElementById('lr-sum').textContent = rows.length + ' رابط من ' + Object.keys(rows.reduce(function(a, r){ a[r.src] = 1; return a; }, {})).length + ' مصدر · 🔴 ' + bad + ' مكسور/وهمي · 🟠 ' + warn + ' تنبيه';
+    var sorted = rows.slice().sort(function(a, b){ var o = { broken:0, fake:0, anchor:1, smiss:1, ext:2 }; return (o[a.kind] == null ? 3 : o[a.kind]) - (o[b.kind] == null ? 3 : o[b.kind]); });
+    document.getElementById('lr-out').innerHTML = sorted.map(function(r){ var s = ST[r.kind] || ST.ok;
+      return '<div class="lr-row" data-kind="' + r.kind + '" style="display:flex;gap:8px;padding:6px 9px;border-radius:8px;background:' + s[2] + ';margin-bottom:2px;font-size:12px;align-items:flex-start">' +
+        '<span>' + s[0] + '</span><span style="min-width:110px;font-weight:800">' + esc(r.src) + '</span><span style="flex:1">' + esc(r.label) +
+        ' ← <span style="direction:ltr;unicode-bidi:embed">' + esc(r.to) + '</span></span><span style="color:#6b7280;font-size:11px">' + s[1] + '</span></div>'; }).join('');
+  }
+  document.getElementById('lr-run').onclick = async function(){
+    var b = this; b.disabled = true; exists = {};
+    rows = await crawl(function(p, n){ b.textContent = '⏳ ' + n + ' · ' + p; });
+    render(); b.disabled = false; b.textContent = '🔗 أعد الحصر';
+  };
+  document.getElementById('lr-add').onclick = function(){
+    var n = document.getElementById('lr-name').value.trim(), u = document.getElementById('lr-url').value.trim();
+    if (!u) return;
+    var a = manual(); a.push({ name: n || u, url: u }); saveManual(a);
+    rows.push({ src:'يدوي', label:n || u, to:u, kind: /^(https?:)?\/\//i.test(u) ? 'ext' : 'int-m', manual:true });
+    (async function(){ for (var i = 0; i < rows.length; i++) if (rows[i].kind === 'int-m') rows[i].kind = (await fileOk(rows[i].to.split('?')[0])) != null ? 'ok' : 'broken'; render(); })();
+    document.getElementById('lr-name').value = ''; document.getElementById('lr-url').value = '';
+  };
+  document.getElementById('lr-copy').onclick = function(){
+    if (!rows.length) return;
+    var t = 'سجل الروابط — ' + new Date().toLocaleString('ar-SY') + '\n' + document.getElementById('lr-sum').textContent + '\n\n' +
+      rows.map(function(r){ var s = ST[r.kind] || ST.ok; return s[0] + ' ' + r.src + ' — ' + r.label + ' ← ' + r.to + ' (' + s[1] + ')'; }).join('\n');
+    try { navigator.clipboard.writeText(t); this.textContent = '✅ نُسخ'; } catch(_) {}
+  };
+  window.GMTLinkRegistry = { crawl: crawl, rows: function(){ return rows; }, linksOf: linksOf };
+})();
+</script>
 
 <iframe id="frame" title="فحص"></iframe>
 
