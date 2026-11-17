@@ -16556,120 +16556,265 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
   <!-- 🎓 السيناريوهات التعليمية (2026-07-12) — كبسات حقيقية + تحقّق من النتيجة -->
   <!-- 🎓 (2026-10-03 · طلبك ٦٦) أُزيل هنا: document.addEventListener("DOMContentLoaded",()=>window.GMTTraining&&GMTTraining.mount("inventory")) -->
   <script src="gmt-guide-inventory.js?v=20261003"></script>
-<!-- ═══════════ INV-8: أداة فرز المنتجات القديمة (فاتورة أثرية لا تمسّ الكميات) ═══════════ -->
+<!-- ═══════════ INV-8: أداة فرز المنتجات القديمة (فاتورة أثرية لا تمسّ الكميات) ═══════════
+     (OWN-10#17 — المالك: «فاشلة: عرض كالجرد مع بحث وترتيب حسب التصنيف/المجموعة واختيار، ثم اختيار فاتورة شراء نظامية أو
+     إنشاء فاتورة باسم المورد والمكان») — أُعيد بناؤها: ① بحث · فلتر صنف/مجموعة · ترتيب · تحديد حرّ
+     ② وجهةٌ واحدة لكلّ المحدَّد: «فاتورة جديدة» باسم المورّد والمكان (فاتورة واحدة لا فاتورة لكلّ منتج) أو «فاتورة شراء موجودة»
+     ③ الكلفة والأسعار من المنتج تلقائياً · الكميات لا تُمسّ (transfer_moved يغطّيها) · إجمالي الفاتورة الموجودة لا يتغيّر (البنود كانت فيها أصلاً).
+     والجذر الذي جعل «70% مربوطة» تظهر غير مربوطة: الفحص كان يقرأ أوّل 1000 فاتورة فقط ويطابق بالمعرّف وحده — الآن كلّ الفواتير
+     ومطابقة بالمعرّف أو product_id أو الباركود أو الاسم. -->
 <div class="modal-overlay" id="ath-modal" style="display:none;">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:760px;">
     <div class="modal-header">
       <h2 class="modal-title">🗂️ فرز المنتجات القديمة</h2>
       <button class="btn-icon" onclick="gmCloseModal('ath-modal')">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:12px;color:#5b6472;margin:0 0 10px;line-height:1.6">
-        المنتجات الموجودة بلا فاتورة شراء تُنشأ لها <b>فاتورة أثرية</b> (حالة «وصلت») لتظهر في التدقيق سليمة.
-        <b>لا تُغيَّر أي كمية إطلاقاً</b> — الكميات الحالية كما هي. التكلفة تؤخذ من سعر الشراء المسجّل.
+        منتجاتٌ عليها كمية ولا تظهر في أيّ فاتورة شراء. اخترها ثمّ أضِفها إلى <b>فاتورة شراء موجودة</b> أو أنشئ لها <b>فاتورة واحدة</b> باسم المورّد والمكان.
+        <b>لا تُغيَّر أي كمية إطلاقاً</b> — الكلفة والأسعار تؤخذ من المنتج.
       </p>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <label style="font-size:12px;font-weight:700">المصدر:</label>
-        <select id="ath-origin" class="form-input" style="width:auto;padding:6px 10px">
-          <option value="china">صيني 🇨🇳</option>
-          <option value="europe">أوروبي 🇩🇪</option>
-          <option value="instant">فوري ⚡</option>
-        </select>
-        <span id="ath-count" style="font-size:12px;color:#dc2626;font-weight:700;margin-inline-start:auto"></span>
+      <div id="ath-step1">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px">
+          <input id="ath-q" class="form-input" type="search" placeholder="بحث: اسم · باركود" style="padding:7px 10px">
+          <select id="ath-cat" class="form-input" style="padding:7px 10px"><option value="">كل الأصناف</option></select>
+          <select id="ath-grp" class="form-input" style="padding:7px 10px"><option value="">كل المجموعات</option></select>
+          <select id="ath-sort" class="form-input" style="padding:7px 10px">
+            <option value="group">الترتيب: المجموعة</option><option value="cat">الترتيب: الصنف</option><option value="name">الترتيب: الاسم</option><option value="qty">الترتيب: الكمية</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-icon" style="font-size:12px;padding:4px 10px" onclick="athToggleAll(true)">تحديد الظاهر</button>
+          <button class="btn-icon" style="font-size:12px;padding:4px 10px" onclick="athToggleAll(false)">إلغاء الكل</button>
+          <label style="font-size:12px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="ath-zero"> إظهار الكمية صفر</label>
+          <span id="ath-count" style="font-size:12px;color:#dc2626;font-weight:700;margin-inline-start:auto"></span>
+        </div>
+        <div id="ath-list" style="max-height:46vh;overflow:auto;border:1px solid #eee;border-radius:10px"></div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <button class="btn-icon" style="font-size:12px;padding:4px 10px" onclick="athToggleAll(true)">تحديد الكل</button>
-        <button class="btn-icon" style="font-size:12px;padding:4px 10px" onclick="athToggleAll(false)">إلغاء الكل</button>
+      <div id="ath-step2" style="display:none">
+        <div id="ath-sel-sum" style="font-size:13px;font-weight:700;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="flex:1;min-width:200px;border:1.5px solid #e5e7eb;border-radius:12px;padding:10px;cursor:pointer;font-size:13px;font-weight:700"><input type="radio" name="ath-mode" value="new" checked> 🆕 فاتورة جديدة باسم المورّد والمكان</label>
+          <label style="flex:1;min-width:200px;border:1.5px solid #e5e7eb;border-radius:12px;padding:10px;cursor:pointer;font-size:13px;font-weight:700"><input type="radio" name="ath-mode" value="existing"> 📄 إضافة إلى فاتورة شراء موجودة</label>
+        </div>
+        <div id="ath-new">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+            <div><label style="font-size:12px;font-weight:700">اسم المورّد *</label><input id="ath-supplier" class="form-input" placeholder="اسم المورّد"></div>
+            <div><label style="font-size:12px;font-weight:700">المكان</label><input id="ath-place" class="form-input" placeholder="المدينة / السوق / البلد"></div>
+            <div><label style="font-size:12px;font-weight:700">المصدر</label>
+              <select id="ath-origin" class="form-input"><option value="china">صيني 🇨🇳</option><option value="europe">أوروبي 🇩🇪</option><option value="instant">فوري ⚡</option></select></div>
+            <div><label style="font-size:12px;font-weight:700">تاريخ الفاتورة</label><input id="ath-date" class="form-input" type="date"></div>
+          </div>
+        </div>
+        <div id="ath-existing" style="display:none">
+          <input id="ath-inv-q" class="form-input" type="search" placeholder="بحث برقم الفاتورة أو المورّد" style="margin-bottom:6px">
+          <div id="ath-inv-list" style="max-height:34vh;overflow:auto;border:1px solid #eee;border-radius:10px"></div>
+        </div>
       </div>
-      <div id="ath-list" style="max-height:44vh;overflow:auto;border:1px solid #eee;border-radius:10px"></div>
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;padding:12px 16px">
-      <button class="btn btn-secondary" onclick="gmCloseModal('ath-modal')" style="flex:1">إلغاء</button>
-      <button class="btn btn-primary" onclick="createAthenaeumInvoices()" style="flex:1">إنشاء الفواتير الأثرية</button>
+      <button class="btn btn-secondary" id="ath-back" onclick="athBack()" style="flex:1">إلغاء</button>
+      <button class="btn btn-primary" id="ath-next" onclick="athNext()" style="flex:1">التالي ←</button>
     </div>
   </div>
 </div>
 <script>
-/* INV-8 (2026-08-03): أداة فرز المنتجات القديمة — تُنشئ فاتورة import_log أثرية
-   (status=arrived, transferred=true, transfer_moved يغطّي الكمية) دون لمس جدول products. */
+/* INV-8 — أداة فرز المنتجات القديمة: تربط منتجاتٍ قديمة بفاتورة شراء (جديدة أو موجودة) دون لمس جدول products ولا الكميات. */
 (function(){
   function ehL(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
   function stockKeys(){ return (typeof columns!=='undefined'?columns:[]).filter(function(c){return c.type==='number'&&c.includeInTotal&&!c.isTransit;}).map(function(c){return c.key;}); }
   function totalStock(p){ return stockKeys().reduce(function(s,k){return s+(Number(p[k])||0);},0); }
-  var _unc = [], _zeroUnc = 0;
+  function norm(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
+  function cost(p){ return Number(p.net_cost)||Number(p.cost_price)||0; }
+  var A = { all: [], zero: 0, sel: {}, invs: [], invPick: null, step: 1 };
+  window.__ath = A;   // للفحص
+
+  async function fetchImportLog(sel){
+    var get = function(p){ return sbFetch('GET', p).then(function(x){ if(!x||x.error) throw new Error((x&&x.error)||'err'); return x.data||[]; }); };
+    return window.GMTFetchAll ? GMTFetchAll(get, '/rest/v1/import_log?select='+sel) : get('/rest/v1/import_log?select='+sel+'&limit=1000');
+  }
+  function coverage(rows){
+    var C = { id:new Set(), bc:new Set(), nm:new Set() };
+    (rows||[]).forEach(function(row){
+      var it = row.items_snapshot;
+      if(typeof it==='string'){ try{ it=JSON.parse(it); }catch(e){ it=[]; } }
+      (Array.isArray(it)?it:[]).forEach(function(x){
+        if(!x) return;
+        [x.id, x.product_id, x.pid, x.product && x.product.id].forEach(function(v){ if(v!=null&&v!=='') C.id.add(String(v)); });
+        var b = norm(x.barcode || (x.product && x.product.barcode)); if(b) C.bc.add(b);
+        var n = norm(x.name || x.product_name || (x.product && x.product.name)); if(n) C.nm.add(n);
+      });
+    });
+    return C;
+  }
+  function covered(C, p){ return C.id.has(String(p.id)) || (p.barcode && C.bc.has(norm(p.barcode))) || (p.name && C.nm.has(norm(p.name))); }
 
   window.openAthenaeumTool = async function(){
     try{ if(typeof closeMoreSheet==='function') closeMoreSheet(); }catch(e){}
     gmOpenModal('ath-modal');
+    A.sel = {}; A.step = 1; A.invPick = null; showStep();
     var listEl = document.getElementById('ath-list');
     listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#5b6472">جارٍ فحص المنتجات بلا فاتورة شراء...</div>';
-    var invRes = await sbFetch('GET','/rest/v1/import_log?select=items_snapshot&limit=1000');
-    if(invRes.error){ listEl.innerHTML='<div style="padding:24px;text-align:center;color:#dc2626">تعذّر تحميل الفواتير: '+ehL(invRes.error)+'</div>'; return; }
-    var covered = new Set();
-    (invRes.data||[]).forEach(function(row){
-      var it = row.items_snapshot;
-      if(typeof it==='string'){ try{ it=JSON.parse(it); }catch(e){ it=[]; } }
-      (Array.isArray(it)?it:[]).forEach(function(x){ if(x&&x.id!=null) covered.add(String(x.id)); });
-    });
-    /* (المالك seq 530/531 «ليش 226 منتج غير مرتبطة بفاتورة شراء؟» · «كميتها صفر للّي عرّفناها جديداً فلا مشكلة»)
-       كانت الأداة تعدّ كلّ منتج بلا فاتورة حتى بكمية صفر (منتجات معرّفة للمتجر لم تُشترَ بعد) وتحدّدها كلّها
-       ⇒ «إنشاء الفواتير الأثرية» كان سيصنع فواتير فارغة. الآن: فقط ما عليه كمية في المخزون يحتاج فاتورة. */
-    var _all = (typeof allProducts!=='undefined'?allProducts:[]).filter(function(p){ return !covered.has(String(p.id)); });
-    _unc = _all.filter(function(p){ return totalStock(p) > 0; });
-    _zeroUnc = _all.length - _unc.length;
-    renderAth();
+    var rows;
+    try { rows = await fetchImportLog('id,inv_number,supplier,inv_date,created_at,status,items_snapshot'); }
+    catch(e){ listEl.innerHTML='<div style="padding:24px;text-align:center;color:#dc2626">تعذّر تحميل الفواتير: '+ehL(e.message)+'</div>'; return; }
+    A.invs = rows.slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
+    var C = coverage(rows);
+    /* (المالك seq 530/531) ما كميته صفر لا يحتاج فاتورة — يُخفى افتراضياً ويُظهَر بالخيار */
+    A.all = (typeof allProducts!=='undefined'?allProducts:[]).filter(function(p){ return p && p.id!=null && !covered(C, p); });
+    A.zero = A.all.filter(function(p){ return totalStock(p) <= 0; }).length;
+    fillFilters(); renderAth();
   };
 
+  function fillFilters(){
+    var cats={}, grps={};
+    A.all.forEach(function(p){ if(p.category) cats[p.category]=1; if(p.group_name) grps[p.group_name]=1; });
+    var opt=function(o){ return Object.keys(o).sort(function(a,b){return a.localeCompare(b,'ar');}).map(function(k){return '<option>'+ehL(k)+'</option>';}).join(''); };
+    document.getElementById('ath-cat').innerHTML='<option value="">كل الأصناف</option>'+opt(cats);
+    document.getElementById('ath-grp').innerHTML='<option value="">كل المجموعات</option>'+opt(grps);
+  }
+  function visible(){
+    var q=norm(document.getElementById('ath-q').value), cat=document.getElementById('ath-cat').value, grp=document.getElementById('ath-grp').value,
+        so=document.getElementById('ath-sort').value, zero=document.getElementById('ath-zero').checked;
+    var L = A.all.filter(function(p){
+      if(!zero && totalStock(p)<=0) return false;
+      if(cat && p.category!==cat) return false;
+      if(grp && p.group_name!==grp) return false;
+      if(q && norm(p.name).indexOf(q)<0 && norm(p.barcode).indexOf(q)<0) return false;
+      return true;
+    });
+    var key={ group:function(p){return (p.group_name||'\uffff')+'|'+(p.name||'');}, cat:function(p){return (p.category||'\uffff')+'|'+(p.group_name||'')+'|'+(p.name||'');}, name:function(p){return p.name||'';} }[so];
+    L.sort(so==='qty' ? function(a,b){return totalStock(b)-totalStock(a);} : function(a,b){return key(a).localeCompare(key(b),'ar');});
+    return L;
+  }
   function renderAth(){
-    var listEl = document.getElementById('ath-list');
-    var cnt = document.getElementById('ath-count');
-    var zNote = _zeroUnc ? '<div style="padding:8px 10px;font-size:11px;color:#5b6472;background:#f8fafc;border-bottom:1px solid #eee">ℹ️ '+_zeroUnc+' منتجاً بلا فاتورة كميتها صفر (معرّفة للمتجر أو نفدت) — لا تحتاج فاتورة ولا تُعرض هنا.</div>' : '';
-    if(!_unc.length){ listEl.innerHTML=zNote+'<div style="padding:24px;text-align:center;color:#15803d">✅ كل المنتجات التي عليها كمية لها فواتير شراء — لا شيء للفرز.</div>'; cnt.textContent=''; return; }
-    cnt.textContent = _unc.length+' منتج عليه كمية بلا فاتورة';
-    listEl.innerHTML = zNote + _unc.map(function(p,i){
-      var qty = totalStock(p);
+    var listEl = document.getElementById('ath-list'), cnt = document.getElementById('ath-count');
+    var L = visible(), so=document.getElementById('ath-sort').value, nSel=Object.keys(A.sel).length;
+    var zNote = (A.zero && !document.getElementById('ath-zero').checked) ? '<div style="padding:8px 10px;font-size:11px;color:#5b6472;background:#f8fafc;border-bottom:1px solid #eee">ℹ️ '+A.zero+' منتجاً بلا فاتورة كميتها صفر (معرّفة للمتجر أو نفدت) — لا تحتاج فاتورة (إظهارها بالخيار أعلاه).</div>' : '';
+    cnt.textContent = (A.all.length-A.zero)+' منتج عليه كمية بلا فاتورة'+(nSel?' · المحدّد '+nSel:'');
+    if(!L.length){ listEl.innerHTML=zNote+'<div style="padding:24px;text-align:center;color:#15803d">'+(A.all.length-A.zero?'لا نتائج بهذا البحث/الفلتر.':'✅ كل المنتجات التي عليها كمية لها فواتير شراء — لا شيء للفرز.')+'</div>'; return; }
+    var head=null, html=zNote;
+    L.slice(0,800).forEach(function(p){
+      var h = so==='cat' ? (p.category||'بلا صنف') : so==='group' ? (p.group_name||'بلا مجموعة') : null;
+      if(h!==null && h!==head){ head=h; html+='<div style="padding:6px 10px;background:#f8fafc;font-size:12px;font-weight:900;color:#334155;position:sticky;top:0">'+ehL(h)+'</div>'; }
       var img = p.image_url ? '<img src="'+ehL(p.image_url)+'" style="width:34px;height:34px;border-radius:6px;object-fit:cover" onerror="this.style.visibility=\'hidden\'">' : '<div style="width:34px;height:34px;border-radius:6px;background:#f3f4f6"></div>';
-      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer">'
-        + '<input type="checkbox" class="ath-cb" data-i="'+i+'" checked style="width:18px;height:18px">'
+      html += '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer">'
+        + '<input type="checkbox" class="ath-cb" data-id="'+ehL(p.id)+'"'+(A.sel[String(p.id)]?' checked':'')+' style="width:18px;height:18px">'
         + img
         + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ehL(p.name||'—')+'</div>'
-        + '<div style="font-size:11px;color:#5b6472">كمية حالية: '+qty+' · تكلفة: '+(Number(p.cost_price)||0)+'$</div></div>'
+        + '<div style="font-size:11px;color:#5b6472">كمية حالية: '+totalStock(p)+' · تكلفة: '+cost(p)+'$'+(p.group_name?' · '+ehL(p.group_name):'')+(p.category?' · '+ehL(p.category):'')+'</div></div>'
         + '</label>';
-    }).join('');
+    });
+    if(L.length>800) html+='<div style="padding:10px;text-align:center;font-size:12px;color:#5b6472">يُعرض أوّل ٨٠٠ — ضيّق البحث.</div>';
+    listEl.innerHTML = html;
+  }
+  ['ath-q','ath-cat','ath-grp','ath-sort','ath-zero'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener(id==='ath-q'?'input':'change', renderAth); });
+  document.getElementById('ath-list').addEventListener('change', function(e){
+    var cb=e.target.closest('.ath-cb'); if(!cb) return; var id=cb.getAttribute('data-id');
+    if(cb.checked) A.sel[id]=1; else delete A.sel[id]; renderAth();
+  });
+  window.athToggleAll = function(on){ if(on) visible().forEach(function(p){ A.sel[String(p.id)]=1; }); else A.sel={}; renderAth(); };
+  function chosen(){ return A.all.filter(function(p){ return A.sel[String(p.id)]; }); }
+
+  function showStep(){
+    document.getElementById('ath-step1').style.display = A.step===1?'':'none';
+    document.getElementById('ath-step2').style.display = A.step===2?'':'none';
+    document.getElementById('ath-back').textContent = A.step===1?'إلغاء':'→ رجوع';
+    document.getElementById('ath-next').textContent = A.step===1?'التالي ←':'ربط بالفاتورة ✓';
+  }
+  window.athBack = function(){ if(A.step===2){ A.step=1; showStep(); } else gmCloseModal('ath-modal'); };
+  function mode(){ var r=document.querySelector('input[name="ath-mode"]:checked'); return r?r.value:'new'; }
+  function paintMode(){
+    document.getElementById('ath-new').style.display = mode()==='new'?'':'none';
+    document.getElementById('ath-existing').style.display = mode()==='existing'?'':'none';
+    if(mode()==='existing') renderInvs();
+  }
+  document.querySelectorAll('input[name="ath-mode"]').forEach(function(r){ r.addEventListener('change', paintMode); });
+  function renderInvs(){
+    var q=norm(document.getElementById('ath-inv-q').value);
+    var L=A.invs.filter(function(v){ return !q || norm(v.inv_number).indexOf(q)>=0 || norm(v.supplier).indexOf(q)>=0; }).slice(0,300);
+    document.getElementById('ath-inv-list').innerHTML = L.length ? L.map(function(v){
+      var on = A.invPick && String(A.invPick.id)===String(v.id);
+      var n = Array.isArray(v.items_snapshot)?v.items_snapshot.length:0;
+      return '<label style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;'+(on?'background:#fff1f2':'')+'">'
+        + '<input type="radio" name="ath-inv" data-iid="'+ehL(v.id)+'"'+(on?' checked':'')+'>'
+        + '<div style="flex:1;min-width:0"><b style="font-size:13px">'+ehL(v.inv_number||'—')+'</b> · '+ehL(v.supplier||'—')
+        + '<div style="font-size:11px;color:#5b6472">'+ehL(String(v.inv_date||v.created_at||'').slice(0,10))+' · '+n+' بند · '+ehL(v.status||'')+'</div></div></label>';
+    }).join('') : '<div style="padding:16px;text-align:center;color:#5b6472">لا فواتير مطابقة</div>';
+  }
+  document.getElementById('ath-inv-q').addEventListener('input', renderInvs);
+  document.getElementById('ath-inv-list').addEventListener('change', function(e){
+    var r=e.target.closest('[data-iid]'); if(!r) return; var id=r.getAttribute('data-iid');
+    A.invPick = A.invs.find(function(v){ return String(v.id)===id; }) || null; renderInvs();
+  });
+
+  function snapOf(p){
+    var qty=totalStock(p), c=cost(p);
+    return { id:p.id, name:p.name, barcode:p.barcode||null, image_url:p.image_url||null, qty:qty, unit_price:c,
+      sale_price:Number(p.price)||0, wholesale_price:Number(p.wholesale_price)||0, total:c*qty, athenaeum:true };
+  }
+  function sectorOf(items){
+    var cnt={}; items.forEach(function(p){ var g=String(p.group_name||'').trim(); if(g) cnt[g]=(cnt[g]||0)+(totalStock(p)||1); });
+    var ks=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
+    return ks.length?ks.slice(0,4).join(' · ')+(ks.length>4?' +'+(ks.length-4):''):null;
   }
 
-  window.athToggleAll = function(on){ document.querySelectorAll('.ath-cb').forEach(function(cb){ cb.checked=on; }); };
-
-  window.createAthenaeumInvoices = async function(){
-    var originMap = { china:'صيني', europe:'أوروبي', instant:'فوري' };
-    var origin = document.getElementById('ath-origin').value;
-    var checked = Array.prototype.slice.call(document.querySelectorAll('.ath-cb:checked')).map(function(cb){ return _unc[Number(cb.dataset.i)]; }).filter(Boolean);
-    if(!checked.length){ showToast('لم تختر أي منتج','info'); return; }
-    if(!await GMTAsk.confirm('سيتم إنشاء فاتورة شراء أثرية لـ'+checked.length+' منتج (لن تُغيَّر أي كمية). متابعة؟')) return;
-    showLoading('جارٍ إنشاء الفواتير الأثرية...');
-    var lastRes = await sbFetch('GET','/rest/v1/import_log?select=inv_number&order=created_at.desc&limit=1');
-    var n = 1; var lm = ((lastRes.data&&lastRes.data[0]&&lastRes.data[0].inv_number)||'').match(/(\d{4})$/); if(lm) n = parseInt(lm[1])+1;
-    var ok=0, fail=0;
-    for(var idx=0; idx<checked.length; idx++){
-      var p = checked[idx];
-      var qty = totalStock(p);
-      var invNum = 'ARC-'+new Date().getFullYear()+'-'+String(n++).padStart(4,'0');
-      var snap = [{ id:p.id, name:p.name, barcode:p.barcode||null, image_url:p.image_url||null, qty:qty, unit_price:Number(p.cost_price)||0, sale_price:Number(p.price)||0, total:(Number(p.cost_price)||0)*qty, athenaeum:true }];
-      var moved = {}; moved[p.id] = qty;
-      var entry = { inv_number:invNum, inv_type:'athenaeum', supplier:originMap[origin]||'أثري', sector:originMap[origin]||null,
+  window.athNext = async function(){
+    var picked = chosen();
+    if(A.step===1){
+      if(!picked.length){ showToast('لم تختر أي منتج','info'); return; }
+      A.step=2; showStep();
+      var tq=picked.reduce(function(s,p){return s+totalStock(p);},0), tc=picked.reduce(function(s,p){return s+cost(p)*totalStock(p);},0);
+      document.getElementById('ath-sel-sum').textContent = picked.length+' منتجاً · '+tq+' قطعة · كلفة تقديرية $'+tc.toFixed(2);
+      var d=document.getElementById('ath-date'); if(d && !d.value) d.value=new Date().toISOString().slice(0,10);
+      paintMode(); return;
+    }
+    var snaps = picked.map(snapOf), moved = {};
+    snaps.forEach(function(s){ moved[s.id]=s.qty; });
+    if(mode()==='new'){
+      var supplier=document.getElementById('ath-supplier').value.trim(), place=document.getElementById('ath-place').value.trim();
+      if(!supplier){ showToast('اكتب اسم المورّد','error'); document.getElementById('ath-supplier').focus(); return; }
+      var originMap = { china:'صيني', europe:'أوروبي', instant:'فوري' }, origin=document.getElementById('ath-origin').value;
+      if(!await GMTAsk.confirm('فاتورة شراء واحدة باسم «'+supplier+'»'+(place?' — '+place:'')+' لـ'+snaps.length+' منتج (لن تُغيَّر أي كمية). متابعة؟')) return;
+      showLoading('جارٍ إنشاء الفاتورة...');
+      var y=new Date().getFullYear(), max=0;
+      try { (await fetchImportLog('inv_number&inv_number=like.ARC-'+y+'-*')).forEach(function(r){ var m=String(r.inv_number||'').match(/(\d+)$/); if(m) max=Math.max(max,parseInt(m[1],10)||0); }); } catch(_){}
+      var invNum='ARC-'+y+'-'+String(max+1).padStart(4,'0');
+      var total=snaps.reduce(function(s,x){return s+x.total;},0), tq=snaps.reduce(function(s,x){return s+x.qty;},0);
+      var entry = { inv_number:invNum, inv_type:'athenaeum', supplier:supplier, supplier_address:place||null, inv_date:document.getElementById('ath-date').value||null,
+        sector:sectorOf(picked)||originMap[origin]||null, shipping_notes:'فاتورة أثرية من «فرز المنتجات القديمة» — المصدر: '+(originMap[origin]||'')+(place?' · المكان: '+place:''),
         dest_branch:null, status:'arrived', transferred:true, transfer_moved:moved, arrived_at:new Date().toISOString(),
-        total_amount:(Number(p.cost_price)||0)*qty, items_count:1, total_qty:qty, items_snapshot:snap };
+        total_amount:total, items_count:snaps.length, total_qty:tq, items_snapshot:snaps };
       var res = await sbFetch('POST','/rest/v1/import_log', entry);
-      if(res.error){
-        var core = { inv_number:invNum, supplier:entry.supplier, status:'arrived', transferred:true, transfer_moved:moved, items_snapshot:snap };
+      if(res.error){   /* أعمدة قد لا تعرفها القاعدة ⇒ الأساس فقط (المكان يبقى في الملاحظة/المورّد) */
+        var core = { inv_number:invNum, supplier:supplier+(place?' — '+place:''), status:'arrived', transferred:true, transfer_moved:moved, items_snapshot:snaps, total_amount:total, items_count:snaps.length, total_qty:tq };
         res = await sbFetch('POST','/rest/v1/import_log', core);
       }
-      if(res.error) fail++; else ok++;
+      hideLoading();
+      if(res.error){ showToast('تعذّر إنشاء الفاتورة: '+res.error,'error'); return; }
+      showToast('✅ أُنشئت الفاتورة '+invNum+' بـ'+snaps.length+' منتج — الكميات لم تتغيّر','success');
+    } else {
+      var inv=A.invPick; if(!inv){ showToast('اختر فاتورة الشراء','error'); return; }
+      if(!await GMTAsk.confirm('إضافة '+snaps.length+' منتج إلى الفاتورة «'+(inv.inv_number||'')+'» ('+(inv.supplier||'—')+')؟\nالكميات لا تتغيّر، وإجمالي الفاتورة يبقى كما هو (البنود كانت ضمنها أصلاً).')) return;
+      showLoading('جارٍ الإضافة...');
+      var fr = await sbFetch('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(inv.id)+'&select=id,items_snapshot,transfer_moved,items_count,total_qty');
+      var cur = fr && !fr.error && fr.data && fr.data[0];
+      if(!cur){ hideLoading(); showToast('تعذّر قراءة الفاتورة: '+((fr&&fr.error)||'غير موجودة'),'error'); return; }
+      var items=cur.items_snapshot; if(typeof items==='string'){ try{ items=JSON.parse(items); }catch(_){ items=[]; } } items=Array.isArray(items)?items.slice():[];
+      var tm=cur.transfer_moved; if(typeof tm==='string'){ try{ tm=JSON.parse(tm); }catch(_){ tm={}; } } tm=Object.assign({}, tm||{});
+      var have=new Set(items.map(function(x){ return String(x&&x.id); })), add=snaps.filter(function(s){ return !have.has(String(s.id)); });
+      add.forEach(function(s){ items.push(s); tm[s.id]=(Number(tm[s.id])||0)+s.qty; });
+      var patch={ items_snapshot:items, transfer_moved:tm, items_count:items.length, total_qty:items.reduce(function(s,x){return s+(Number(x&&x.qty)||0);},0) };
+      var pr = await sbFetch('PATCH','/rest/v1/import_log?id=eq.'+encodeURIComponent(inv.id), patch);
+      hideLoading();
+      if(pr.error){ showToast('تعذّرت الإضافة: '+pr.error,'error'); return; }
+      showToast('✅ أُضيف '+add.length+' منتج إلى '+(inv.inv_number||'الفاتورة')+(snaps.length-add.length?' · '+(snaps.length-add.length)+' موجود أصلاً':''),'success');
     }
-    hideLoading();
-    showToast('✅ أُنشئت '+ok+' فاتورة أثرية'+(fail?(' · فشل '+fail):''), fail?'error':'success');
+    try { if(typeof loadPurchaseBarcodeIndex==='function') loadPurchaseBarcodeIndex(true); } catch(_){}
     gmCloseModal('ath-modal');
   };
+  /* توافقٌ مع الاسم القديم */
+  window.createAthenaeumInvoices = function(){ return athNext(); };
 })();
 </script>
 <script>
