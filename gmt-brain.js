@@ -910,6 +910,9 @@
       ['🚚 وين وصل أوردر؟', 'وين وصل أوردر الزبون (اكتب اسم الزبون أو رقم التتبع بدل هالجملة)؟'],
       ['🛍️ رشّحلي لزبون', 'زبون بدّو (اكتب المواصفات بدل هالجملة: مثلاً راس إضاءة 100 وات) — شو عندنا؟ أعطيني الخيارات بأسعارها ورسالة جاهزة أبعتلو ياها.'],
       ['🩺 افحص صحة النظام', '__HEALTH__'],
+      /* (ARC-MD-10#42 · البند ١٤٢ «العقل يجرّب العمليات الكاملة») الفاحص الشامل GMTAutoTest (gmt-staff.js) من داخل العقل:
+         يفرض الوضع التدريبي ويتأكّد أنّ الكتابة معترَضة قبل أيّ ضغطة ⇒ لا كتابة في القاعدة الحقيقية · بلا وسيط ولا رصيد · للأدمن فقط */
+      ['🧪 جرّب العمليات الكاملة', '__AUTOTEST__'],
       ['💡 شو فيه يتطوّر؟', 'حسب القواعد والبلاغات المرفقة، شو أهم شي ناقص أو يحتاج تطوير بهالصفحة؟'],
       /* (ص) البند ١٤٥: «يولّد برومبتات للصور لا الصور نفسها» */
       ['🎨 برومبت صورة لمنتج', 'اكتب لي برومبت إنجليزي مفصّل لتوليد صورة إعلانيّة لمنتج (اكتب اسم المنتج بدل هالجملة): خلفية بيضاء نظيفة، إضاءة استوديو ناعمة، زاوية ثلاثة أرباع، ظلّ خفيف، بلا أيّ نص أو شعار. أعطني برومبتاً طويلاً وآخر قصيراً — البرومبت فقط، لا تولّد صورة.'],
@@ -920,6 +923,8 @@
       ['📣 بوست عرض', 'اكتب بوست عرض لإنستغرام وفيسبوك لمنتج (اكتب اسمه وسعره بدل هالجملة). ابدأ دائماً بـ«احصل من مجموعة ميديا تيك التجارية على العرض…» واختم بـ«الحساب الرسمي بوكالة كانون — ميديا تيك». قصير، ٤–٦ أسطر، بلا مبالغة ولا وعود غير صحيحة، مع ٣ هاشتاغات.'],
     ];
     var chipBox = p.querySelector('#gb-chips');
+    var _admChip = false; try { _admChip = !!(global.GMTRole && GMTRole.isAdmin()); } catch (_) {}
+    chips = chips.filter(function (c) { return c[1] !== '__AUTOTEST__' || (_admChip && global.GMTAutoTest && typeof GMTAutoTest.run === 'function'); });
     chips.forEach(function (c) {
       var b = document.createElement('button');
       b.textContent = c[0];
@@ -934,6 +939,23 @@
       if (q === '__ALIBABA__') { productImportDialog(null); return; }
       if (q === '__KB__') { kbPanel(); return; }
       if (q === '__SCREEN__') { openScreen(); return; }
+      if (q === '__AUTOTEST__') {
+        add('me', '🧪 جرّب العمليات الكاملة');
+        var AT = global.GMTAutoTest;
+        if (!AT || typeof AT.run !== 'function') { add('bot', 'الفاحص الشامل غير محمّل في هذه الصفحة.'); return; }
+        var tr = !!(global.GMTSandbox && GMTSandbox.active);
+        var t1 = add('bot', tr ? '<span style="opacity:.6">أجرّب أزرار هذه الصفحة وعمليّاتها في الوضع التدريبي (لا شيء يُحفظ)…</span>'
+                               : 'سأدخل <b>الوضع التدريبي</b> أوّلاً (تُعاد الصفحة تحميلها) ثمّ يبدأ الفحص وحده — لا شيء يُكتب في القاعدة الحقيقية.');
+        try { await AT.run(); } catch (e) { t1.querySelector('div').innerHTML = '⚠️ تعذّر الفحص: ' + esc(e && e.message || e); return; }
+        var rs = []; try { rs = (AT.results && AT.results()) || []; } catch (_) {}
+        if (tr && rs.length) {
+          var nOk = rs.filter(function (x) { return x.status === 'ok'; }).length, bad = rs.filter(function (x) { return x.status === 'fail'; });
+          t1.querySelector('div').innerHTML = (bad.length ? '<b style="color:#b91c1c">⚠️ ' + bad.length + ' فشل</b>' : '<b style="color:#15803d">✅ لا فشل</b>') + ' · ' + nOk + ' نجح من ' + rs.length + ' فحص' +
+            (bad.length ? '<br>' + bad.slice(0, 8).map(function (x) { return '• ' + esc(x.title || '') + (x.detail ? ' — ' + esc(String(x.detail).slice(0, 120)) : ''); }).join('<br>') : '') +
+            '<br><span style="opacity:.6">التقرير الكامل في نافذة الفاحص.</span>';
+        }
+        return;
+      }
       if (q === '__HEALTH__') {
         add('me', '🩺 افحص صحة النظام');
         var t0 = add('bot', '<span style="opacity:.5">جارٍ الفحص…</span>');
