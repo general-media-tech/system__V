@@ -42,9 +42,13 @@
   /* (TASK-B0413 · المالك seq 727 «ما لازم تنقسم الفاتورة أبداً إلى صفحتين») الفاتورة صفحة A4 واحدة دائماً: إن طال محتواها (باقة بتسع قطع
      مثلاً) يُصغَّر `.invoice` بنسبةٍ تُناسب ارتفاع الورقة (تُحسب عند التحميل وقبل الطباعة) — وبعدها لا صفحة ثانية مهما كثرت البنود.
      ملاحظة: zoom يغيّر التخطيط نفسه (لا مجرّد scale) فيبقى ما يظهر على الشاشة هو ما يُطبع. */
-  var FIT_JS = '<style>@media print{html,body{height:297mm!important;overflow:hidden!important}.page{min-height:0!important;height:297mm!important;overflow:hidden!important}}</style>' +
-    '<script>(function(){function fit(){try{var i=document.querySelector(".invoice");if(!i)return;i.style.zoom="";var h=i.offsetHeight,avail=1066;if(h>avail)i.style.zoom=(avail/h).toFixed(4);}catch(e){}}' +
+  var FIT_JS = '<style>@media print{html,body{height:297mm!important;overflow:hidden!important}.page{min-height:0!important;height:297mm!important;overflow:hidden!important}}.dc{font-size:.82em;opacity:.55;font-weight:600}</style>' +
+    /* (ARC-MD-01#42 · تخفيت الكسور) الصحيح عريضٌ والكسر خافت في أرقام الجدول ومجاميع الفاتورة — يُنفَّذ داخل المستند نفسه فلا يتغيّر نصّ القيم */
+    '<script>(function(){function dim(){try{var q=document.querySelectorAll(".box .v,.items tbody td:nth-child(5),.items tbody td:nth-child(6)");for(var k=0;k<q.length;k++){var c=q[k];if(c.querySelector(".dc")||c.children.length)continue;var m=/^(\\s*[^\\d.\\s]*\\s*\\d[\\d,]*)(\\.\\d{1,2})(.*)$/.exec(c.textContent);if(!m)continue;c.textContent="";c.appendChild(document.createTextNode(m[1]));var d=document.createElement("span");d.className="dc";d.textContent=m[2];c.appendChild(d);c.appendChild(document.createTextNode(m[3]));}}catch(e){}}dim();' +
+    'function fit(){try{var i=document.querySelector(".invoice");if(!i)return;i.style.zoom="";var h=i.offsetHeight,avail=1066;if(h>avail)i.style.zoom=(avail/h).toFixed(4);}catch(e){}}' +
     'window.addEventListener("load",fit);window.addEventListener("beforeprint",fit);setTimeout(fit,250);})();<\/script>';
+  /* لورقة A4 فقط (class="invoice") — القوالب الحرارية وغيرها تمرّ كما هي */
+  function finish(html) { html = String(html); return html.indexOf('class="invoice"') !== -1 ? fitOnePage(html) : html; }
   function fitOnePage(html) {
     html = String(html);
     return html.indexOf('</body>') !== -1 && html.indexOf('.invoice') !== -1 ? html.replace('</body>', FIT_JS + '</body>') : html;
@@ -186,5 +190,5 @@
     return html;
   }
 
-  global.GMTInvoiceTpl = { B: B, fill: fill, rows: rows, qr: qr, publicBase: publicBase, storeHTML: storeHTML, quoteHTML: quoteHTML };
+  global.GMTInvoiceTpl = { B: B, finish: finish, fill: fill, rows: rows, qr: qr, publicBase: publicBase, storeHTML: storeHTML, quoteHTML: quoteHTML };
 })(window);

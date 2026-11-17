@@ -4102,6 +4102,8 @@ var QR_COUPON_URL    = gmtPublicBase() + 'store.html#coupon';   // الكوبو�
 var QR_STORE_URL     = gmtPublicBase() + 'store.html';
 var QR_SITE_URL      = gmtPublicBase() + 'site.html';
 
+/* (الفاتورة صفحة A4 واحدة دائماً + تخفيت الكسور) نفس خطوة فاتورة المتجر من المصدر الواحد gmt-invoice-tpl.js — لا تُطبَّق إلا على قالب A4 */
+function _a4Finish(h) { try { return (window.GMTInvoiceTpl && GMTInvoiceTpl.finish) ? GMTInvoiceTpl.finish(h) : h; } catch (_) { return h; } }
 function fillTpl(tpl, data) {
   /* 🖼️ (2026-09-26 · المرحلة الثانية) شعار الشركة **مضمون** في كل فاتورة مطبوعة.
      الجذر: القوالب كانت تكتب <img src="logo.jpg"> والفاتورة تُطبع في **نافذة جديدة**
@@ -4142,7 +4144,7 @@ function openPrintA4() {
     var itemsHtml = buildRowsB(Object.values(cart));
     data.ITEMS_ROWS = itemsHtml;
     var tpl       = _tplB().replace('{{ITEMS_ROWS}}', itemsHtml);
-    var finalHtml = fillTpl(tpl, data);
+    var finalHtml = _a4Finish(fillTpl(tpl, data));
     var win = window.open('', '_blank');
     if (!win) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'err'); return; }
     win.document.write(finalHtml);
@@ -4321,7 +4323,7 @@ async function printHistoricalInvoice(invoiceRow, format) {
       const itemsHtml = buildRowsB(pseudoItems);
       data.ITEMS_ROWS = itemsHtml;
       const tpl = _tplB().replace('{{ITEMS_ROWS}}', itemsHtml);
-      const finalHtml = fillTpl(tpl, data);
+      const finalHtml = _a4Finish(fillTpl(tpl, data));
       const win = _w;
       if (win.closed) return;
       win.document.open(); win.document.write(finalHtml);
