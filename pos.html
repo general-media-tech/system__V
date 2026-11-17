@@ -4054,6 +4054,8 @@ function gmtSnapshotLastInvoice() {
     window.__lastInvItems = Object.values(cart).map(c => ({
       name: c.prod?.name || '', barcode: c.prod?.barcode || '',
       qty: c.qty, price: c.price,
+      /* (VER-1#REQ-0055/0059) منتج الجرد وصنفه ومجموعته ⇒ صفحة الكفالة تحكم على النطاق من الحقيقة لا من النصّ */
+      pid: c.prod?.id != null ? c.prod.id : null, cat: c.prod?.category || '', grp: c.prod?.group_name || '',
     }));
     window.__lastInvBranch  = branch ? branch.name : '';
     window.__lastInvCashier = currentUser ? currentUser.display_name : '';
@@ -4804,7 +4806,10 @@ async function warrantyFromHistory(invId) {
       const r = await sbFetchTimeout(CONFIG.SUPABASE_URL + '/rest/v1/invoice_items?invoice_id=eq.' + invId + '&select=*', { headers: sbHeaders() }, 8000);
       if (r.ok) items = await r.json();
     } catch (_) {}
-    window.__lastInvItems = (items || []).map(x => ({ name: x.product_name || x.name || '', barcode: x.barcode || '', serial: x.serial || x.serial_no || '', price: x.unit_price || x.price }));
+    const _pById = {}; try { (allProducts || []).forEach(p => { if (p && p.id != null) _pById[String(p.id)] = p; }); } catch (_) {}
+    window.__lastInvItems = (items || []).map(x => { const p = x.product_id != null ? _pById[String(x.product_id)] : null;   /* (VER-1#REQ-0059) ربط القطعة بمنتج الجرد */
+      return { name: x.product_name || x.name || '', barcode: x.barcode || (p && p.barcode) || '', serial: x.serial || x.serial_no || '', price: x.unit_price || x.price,
+               pid: x.product_id != null ? x.product_id : null, cat: (p && p.category) || '', grp: (p && p.group_name) || '' }; });
     window.__lastInvName = inv.customer_name || '';
     window.__lastInvPhone = inv.customer_phone || inv.phone || '';
     window.__lastInvNo = inv.inv_number || inv.id;
@@ -11075,6 +11080,9 @@ async function openWarrantyForInvoice(){
     /* (TASK-0320) الرقم التسلسلي رقم القطعة نفسها — لا باركود الصنف (واحدٌ لكل قطع الموديل) ⇒ يُكتب في صفحة الكفالة */
     serial:  first.serial || '',
     price:   first.price != null ? String(first.price) : '',
+    pid:     first.pid != null ? String(first.pid) : '',
+    cat:     first.cat || '',
+    grp:     first.grp || '',
     branch:  window.__lastInvBranch || '',
     cashier: window.__lastInvCashier || '',
     items:   encodeURIComponent(JSON.stringify(it.slice(0, 12))) });

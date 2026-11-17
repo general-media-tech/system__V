@@ -1501,24 +1501,27 @@
       if (!v) return false;
       return WARRANTY_HINTS.some(function (re) { return re.test(v); });
     },
-    /* يرجع { ok, basis, why } — و`basis` يقول **على أي أساسٍ** حكم */
+    /* نوع المنتج (كاميرا/عدسة/بودي) — بلا أسماء الماركات: «حقائب Canon» مجموعةٌ ليست كاميرا */
+    typeMatches: function (txt) {
+      const v = String(txt == null ? '' : txt).trim();
+      if (!v) return false;
+      return WARRANTY_HINTS.slice(0, -1).some(function (re) { return re.test(v); });
+    },
+    /* يرجع { ok, basis, why } — و`basis` يقول **على أي أساسٍ** حكم
+       (VER-1#REQ-0055) «الكفالة لمجموعات الكاميرات والعدسات **والصنف الذي يضمّها**»: يكفي أن تكون المجموعة
+       كاميرا/عدسة، أو أن يكون الصنف صنفَ الكاميرات والعدسات. كان الصنف يُحكَم وحده أوّلاً ⇒ عدسةٌ مجموعتها
+       «عدسات» تحت صنفٍ عامّ (مثل «تصوير») تُرفض. والماركة وحدها في الصنف/المجموعة لا تكفي. */
     check: function (prod) {
       const p = prod || {};
-      /* ① الصنف إن وُجد — هو الحقيقة لا الظنّ */
-      const cat = p.category_name || p.category || p['صنف'] || p.cat_name || '';
-      if (String(cat).trim()) {
-        const ok = this.textMatches(cat);
-        return { ok: ok, basis: 'category',
-                 why: ok ? 'الصنف «' + cat + '» يضمّ الكاميرات والعدسات'
-                         : 'الصنف «' + cat + '» ليس صنف الكاميرات والعدسات' };
-      }
-      /* ② المجموعة */
-      const grp = p.group_name || p.group || '';
-      if (String(grp).trim()) {
-        const ok = this.textMatches(grp);
-        return { ok: ok, basis: 'group',
-                 why: ok ? 'المجموعة «' + grp + '» من الكاميرات/العدسات'
-                         : 'المجموعة «' + grp + '» ليست من الكاميرات/العدسات' };
+      const cat = String(p.category_name || p.category || p['صنف'] || p.cat_name || '').trim();
+      const grp = String(p.group_name || p.group || '').trim();
+      if (cat || grp) {
+        const catOk = !!cat && this.typeMatches(cat), grpOk = !!grp && this.typeMatches(grp);
+        if (grpOk) return { ok: true, basis: 'group', why: 'المجموعة «' + grp + '» من الكاميرات/العدسات' };
+        if (catOk) return { ok: true, basis: 'category', why: 'الصنف «' + cat + '» يضمّ الكاميرات والعدسات' };
+        return cat
+          ? { ok: false, basis: 'category', why: 'الصنف «' + cat + '»' + (grp ? ' والمجموعة «' + grp + '»' : '') + ' ليسا من الكاميرات والعدسات' }
+          : { ok: false, basis: 'group', why: 'المجموعة «' + grp + '» ليست من الكاميرات/العدسات' };
       }
       /* ③ الاسم — أضعفُ أساسٍ، ونقولها */
       const nm = p.name || p.product_name || p;

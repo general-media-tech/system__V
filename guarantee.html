@@ -1667,6 +1667,8 @@ window.GMT_INTERNAL = 1;</script>
                     set('purchaseDate', urlParams.get('date'));
                     set('productName', urlParams.get('product'));
                     set('serialNo', urlParams.get('serial'));
+                    /* (VER-1#REQ-0055/0059) القطعة مربوطة بمنتج الجرد: معرّفه وصنفه ومجموعته ⇒ فحص النطاق قاطع والمعرّف يُحفظ مع الكفالة */
+                    window.__gwPiece = urlParams.get('product') ? { name: String(urlParams.get('product')).trim(), pid: urlParams.get('pid') || null, cat: urlParams.get('cat') || '', grp: urlParams.get('grp') || '' } : null;
                     let items = [];
                     try { items = JSON.parse(decodeURIComponent(urlParams.get('items') || '[]')) || []; } catch (_) { items = []; }
                     const named = items.filter(x => x && x.name);
@@ -1681,6 +1683,7 @@ window.GMT_INTERNAL = 1;</script>
                             box.addEventListener('click', (e) => {
                                 const bt = e.target.closest('[data-pi]'); if (!bt) return;
                                 const x = named[+bt.getAttribute('data-pi')];
+                                window.__gwPiece = { name: String(x.name || '').trim(), pid: x.pid != null ? x.pid : null, cat: x.cat || '', grp: x.grp || '' };
                                 const pn = document.getElementById('productName'), sn = document.getElementById('serialNo');
                                 if (pn) { pn.value = x.name || ''; pn.dispatchEvent(new Event('input', { bubbles: true })); }
                                 if (sn && x.serial) { sn.value = x.serial; sn.dispatchEvent(new Event('input', { bubbles: true })); }   /* (TASK-0320) باركود الصنف ليس رقم القطعة */
@@ -1823,6 +1826,15 @@ window.GMT_INTERNAL = 1;</script>
            فاتورة… وإنشاؤها من أي فاتورة سابقة بتعبئة تلقائية»). فحين يُبنى
            ذلك الربط يصير هذا الفحصُ قاطعاً على **الصنف الحقيقيّ** لا على نصّ.
            ═══════════════════════════════════════════════════════════════════ */
+        /* (VER-1#REQ-0055) بيانات المنتج للفحص: إن كان الاسم المكتوب هو قطعة الفاتورة نفسها ⇒ صنفها ومجموعتها من الجرد؛ وإلّا الاسم وحده */
+        function warrantyScopePiece(name) {
+            var pc = window.__gwPiece;
+            return (pc && name && pc.name === String(name).trim()) ? pc : null;
+        }
+        function warrantyScopeProd(name) {
+            var pc = warrantyScopePiece(name);
+            return (pc && (pc.cat || pc.grp)) ? { name: name, category_name: pc.cat, group_name: pc.grp } : { name: name };
+        }
         (function wireScopeWarning() {
             var inp = document.getElementById('productName');
             var box = document.getElementById('scopeWarn');
@@ -1830,11 +1842,13 @@ window.GMT_INTERNAL = 1;</script>
             function paint() {
                 var v = (inp.value || '').trim();
                 if (!v || !window.GMTWarrantyScope) { box.style.display = 'none'; return; }
-                var r = GMTWarrantyScope.check({ name: v });
+                var r = GMTWarrantyScope.check(warrantyScopeProd(v));
                 if (r.ok) { box.style.display = 'none'; return; }
-                box.textContent = '⚠️ هذا المنتج لا يبدو كاميرا ولا عدسة. '
-                    + 'وقرارُك: الكفالة لمجموعات الكاميرات والعدسات والصنف الذي يضمّها. '
-                    + 'إن كان مُستحقّاً فأكمل — هذا تنبيهٌ لا منع.';
+                box.textContent = r.basis === 'name'
+                    ? '⚠️ هذا المنتج لا يبدو كاميرا ولا عدسة. '
+                      + 'وقرارُك: الكفالة لمجموعات الكاميرات والعدسات والصنف الذي يضمّها. '
+                      + 'إن كان مُستحقّاً فأكمل بإذن الإدارة.'
+                    : '⛔ خارج نطاق الكفالة: ' + r.why + ' (من منتج الجرد في الفاتورة). الإصدار يحتاج إذن الإدارة.';
                 box.style.display = 'block';
             }
             inp.addEventListener('input', paint);
@@ -1874,8 +1888,13 @@ window.GMT_INTERNAL = 1;</script>
                     }
                 } catch (_) {}
                 const _camLens = /كامير|كاميره|عدس|camera|lens|\bEOS\b|PowerShot|\bR\d{1,2}\b|\bRF\s?-?S?\s?\d|\bEF(-S|-M)?\s?\d|\d{2,3}\s?mm|f\/?\d/i;
-                if (!_camLens.test(_prodN)) {
-                    const go = await _ask('الكفالة للكاميرات والعدسات فقط — «' + (_prodN || '—') + '» لا يبدو كاميرا ولا عدسة. متابعة بإذن الإدارة؟', { title: 'منتجٌ خارج الكفالة', okText: 'إذن الإدارة' });
+                /* (VER-1#REQ-0055) قطعةٌ من الفاتورة بصنفها/مجموعتها في الجرد ⇒ الحكم قاطع منها (لا تخمين من الاسم) */
+                const _sc = window.GMTWarrantyScope ? GMTWarrantyScope.check(warrantyScopeProd(_prodN)) : null;
+                const _decisive = _sc && _sc.basis !== 'name';
+                if (_decisive ? !_sc.ok : !_camLens.test(_prodN)) {
+                    const go = await _ask(_decisive
+                        ? 'الكفالة للكاميرات والعدسات فقط — ' + _sc.why + '. متابعة بإذن الإدارة؟'
+                        : 'الكفالة للكاميرات والعدسات فقط — «' + (_prodN || '—') + '» لا يبدو كاميرا ولا عدسة. متابعة بإذن الإدارة؟', { title: 'منتجٌ خارج الكفالة', okText: 'إذن الإدارة' });
                     if (!go) return;
                     if (window.GMTAuth && GMTAuth.ask && !(await GMTAuth.ask('sovereign', 'إصدار كفالة لغير الكاميرات والعدسات'))) return;
                 }
@@ -1908,6 +1927,9 @@ window.GMT_INTERNAL = 1;</script>
                والكتابة المتدرّجة تُسقِطه إن لم تعرفه القاعدة. */
             const _creator = warrantyCreator();
             if (_creator) row.created_by = _creator;
+            /* (VER-1#REQ-0059) ربط الكفالة بمنتج الجرد — يُحفظ إن عرف الجدول العمود (وإلّا تُسقطه الكتابة المتدرّجة بلا كسر) */
+            const _piece = warrantyScopePiece(row.product_name);
+            if (_piece && _piece.pid != null && String(_piece.pid).trim()) row.product_id = String(_piece.pid);
 
             try {
                 await supabaseInsert(row);
