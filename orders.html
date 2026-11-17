@@ -1186,6 +1186,8 @@ function showWelcomeSlidesForce(){
 function getOperatorName() {
     /* (١١ ت١) أدمن بحساب باسمه ⇒ اسمه لا اسم الجهاز المحفوظ */
     try { if (window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() && GMTRole.name && GMTRole.name()) return GMTRole.name(); } catch (e) {}
+    /* (المالك seq 806 · VER-2#REQ-0244) «مافي حدا بيدخل عالتطبيق بدون حساب — نقطة بيع أو أدمن» ⇒ اسم حساب نقطة البيع المسجَّل، لا اسمٌ يُكتب يدوياً */
+    try { const s = window.GMTAccount && GMTAccount.session ? GMTAccount.session() : JSON.parse(localStorage.getItem('gmt_session') || 'null'); const n = s && (s.display_name || s.username); if (n) return String(n); } catch (e) {}
     return localStorage.getItem(GMT_OPERATOR_KEY) || '';
 }
 
@@ -1194,52 +1196,8 @@ function promptOperatorName() {
         // إذا موجود مسبقاً ارجع فوراً
         const existing = getOperatorName();
         if (existing) { resolve(existing); return; }
-
-        // بناء الشاشة
-        const overlay = document.createElement('div');
-        overlay.id = 'gmt-operator-overlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Cairo,sans-serif;direction:rtl;';
-        overlay.innerHTML = `
-            <div style="background:#fff;border-radius:24px;padding:28px 22px;width:100%;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">
-                <div style="text-align:center;margin-bottom:20px;">
-                    <div style="font-size:40px;margin-bottom:8px;">👤</div>
-                    <div style="font-size:18px;font-weight:900;color:#111;margin-bottom:6px;">أدخل اسمك</div>
-                    <div style="font-size:12px;color:#5b6472;font-weight:600;line-height:1.6;">
-                        سيُسجَّل اسمك على كل أوردر تُدخله.<br>
-                        <span style="color:#D5001C;font-weight:800;">أكتب اسمك الصحيح</span> — سيخضع لمراجعة الإدارة.
-                    </div>
-                </div>
-                <input id="gmt-op-input" type="text" placeholder="الاسم الكامل..." autocomplete="name"
-                    style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:14px;font-family:Cairo,sans-serif;font-size:14px;font-weight:700;outline:none;box-sizing:border-box;margin-bottom:12px;text-align:right;"
-                    oninput="this.style.borderColor=this.value.trim().length>=2?'#15803d':'#e5e7eb'">
-                <button id="gmt-op-save"
-                    style="width:100%;background:linear-gradient(135deg,#D5001C,#dc2626);color:#fff;border:none;border-radius:14px;padding:14px;font-family:Cairo,sans-serif;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(213,0,28,0.3);">
-                    ✅ تأكيد الاسم
-                </button>
-                <div style="text-align:center;margin-top:10px;font-size:10px;color:#5b6472;">
-                    💾 يُحفظ في هذا المتصفح فقط — لن يُطلب مجدداً
-                </div>
-            </div>`;
-        document.body.appendChild(overlay);
-
-        const inp = document.getElementById('gmt-op-input');
-        const btn = document.getElementById('gmt-op-save');
-        inp.focus();
-
-        function doSave() {
-            const val = inp.value.trim();
-            if (val.length < 2) {
-                inp.style.borderColor = '#D5001C';
-                inp.style.animation = 'none';
-                inp.focus();
-                return;
-            }
-            localStorage.setItem(GMT_OPERATOR_KEY, val);
-            overlay.remove();
-            resolve(val);
-        }
-        btn.addEventListener('click', doSave);
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSave(); });
+        /* (seq 806) لا نافذة «أدخل اسمك»: الاسم من الحساب. بلا حساب ⇒ حارس الدخول (GMTPerm) هو من يطلب تسجيل الدخول */
+        resolve(''); return;
     });
 }
 
