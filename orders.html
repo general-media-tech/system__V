@@ -9544,7 +9544,7 @@ function confirmText(o) {
 async function _confirmPatch(o, conf) {
     const r = await orderPatchChecked(o.id, { confirmation: conf });
     if (!r.ok) { showToast(_colMissing(r.error) ? '⚠️ عمود confirmation غير موجود في القاعدة بعد' : ('تعذّر الحفظ: ' + r.error), 'err'); return false; }
-    o.confirmation = conf; return true;
+    o.confirmation = conf; return r;   /* r.queued ⇒ محفوظ في طابور الجهاز بانتظار الإنترنت — ليس «تمّ» بعد */
 }
 window.confirmContact = async (id) => {
     const o = orders.find(x => x.id == id); if (!o) return;
@@ -9560,7 +9560,9 @@ window.confirmDone = async (id) => {
     const ok = await GMTAsk.confirm('هل أكّد «' + (o.name || 'الزبون') + '» طلبه؟\nسينتقل الأوردر إلى «قيد التجهيز».', { title: '✅ تأكيد الزبون', okText: 'نعم، أكّد' });
     if (!ok) return;
     const by = (typeof getOperatorName === 'function' && getOperatorName()) || '';
-    if (await _confirmPatch(o, Object.assign({}, o.confirmation || {}, { confirmed_at: new Date().toISOString(), confirmed_by: by }))) { showToast('✅ أُكّد الطلب — صار «قيد التجهيز»', 'ok'); render(); }
+    const r = await _confirmPatch(o, Object.assign({}, o.confirmation || {}, { confirmed_at: new Date().toISOString(), confirmed_by: by }));
+    /* (ARC-CODE-2#14 · فحص مضادّ) كتابةٌ دخلت طابور «بلا إنترنت» كانت تُعلَن «✅ أُكّد» — نفس قاعدة savedMsg: الطابور ليس نجاحاً بعد */
+    if (r) { const m = savedMsg('تأكيد الزبون', r); showToast(r.queued ? m.t : '✅ أُكّد الطلب — صار «قيد التجهيز»', r.queued ? m.type : 'ok'); render(); }
 };
 
 /* ══ (2026-10-06 · فحصٌ مضادّ) ضغطتان سريعتان على «حفظ» كانتا تُنشئان أوردرين (اختبار: POST ×٢).
