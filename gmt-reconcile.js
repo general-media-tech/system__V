@@ -86,7 +86,12 @@
     }
     /* ما في الفرع الآن (كمّية ≠ 0) ولا سطر له في الجرد ⇐ «لم يُعدّ» — يصير 0 عند «تصفير الفرع» */
     async function loadRest() {
-      var r = await sb('GET', '/rest/v1/products?' + bk + '=neq.0&select=id,name,barcode,image_url,price,wholesale_price,' + bk + '&limit=5000');
+      var path = '/rest/v1/products?' + bk + '=neq.0&select=id,name,barcode,image_url,price,wholesale_price,' + bk;
+      /* (ARC-MD-06#19) كلّ ما في الفرع صفحةً صفحة — كان limit=5000 يُقطع عند 1000 فيُستثنى الباقي من «تصفير الفرع» */
+      var r = window.GMTFetchAll
+        ? await GMTFetchAll(function (p) { return sb('GET', p).then(function (x) { if (!x || x.error) throw new Error((x && x.error) || 'err'); return x.data; }); }, path)
+            .then(function (d) { return { data: d }; }, function () { return { data: [] }; })
+        : await sb('GET', path + '&limit=5000');
       var inDraft = {}; S.items.forEach(function (i) { if (i.id) inDraft[String(i.id)] = 1; });
       S.rest = (r && Array.isArray(r.data) ? r.data : []).filter(function (p) { S.live[String(p.id)] = p; return !inDraft[String(p.id)]; });
     }

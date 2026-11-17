@@ -7701,7 +7701,11 @@ async function loadPurchaseBarcodeIndex(force) {
     const ls = _purchIdxFromLS();
     if (ls) { _purchaseBarcodes = ls; return _purchaseBarcodes; }
   }
-  const r = await sbFetch('GET', '/rest/v1/import_log?select=items_snapshot&limit=2000').catch(() => ({ error: 1 }));
+  /* (ARC-MD-06#19) كلّ فواتير الشراء صفحةً صفحة — كان limit=2000 يُقطع عند 1000 فيختفي زرّ «فاتورة الشراء» عن منتجاتٍ لها فاتورة */
+  const r = window.GMTFetchAll
+    ? await GMTFetchAll(p => sbFetch('GET', p).then(x => { if (!x || x.error) throw new Error((x && x.error) || 'err'); return x.data; }), '/rest/v1/import_log?select=items_snapshot')
+        .then(data => ({ data, error: null }), () => ({ error: 1 }))
+    : await sbFetch('GET', '/rest/v1/import_log?select=items_snapshot&limit=2000').catch(() => ({ error: 1 }));
   if (!r || r.error) {
     /* الغيابُ يُفسَّر — لا يُترَك لغزاً (ولا يُعوَّض بزرٍّ كاذب) */
     _purchIdxFailed = true;

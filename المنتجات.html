@@ -65,7 +65,7 @@ body{padding-bottom:64px}
     try {
       brs = await get('inv_columns?select=key_name,display_name&is_branch=eq.true');
       try { if (window.GMTTransit && GMTTransit.filterOut) brs = GMTTransit.filterOut(brs, function (b) { return b.key_name; }); } catch (_) {}
-      all = await get('products?select=*&order=group_name.asc,name.asc&limit=5000');
+      all = window.GMTFetchAll ? await GMTFetchAll(get, 'products?select=*&order=group_name.asc,name.asc') : await get('products?select=*&order=group_name.asc,name.asc&limit=5000');   /* (ARC-MD-06#19) */
       all.forEach(function (p) { delete p.cost_price; delete p.net_cost; delete p.wholesale_price; });   /* لا سعر شراء ولا جملة للعادي */
     } catch (e) { $('grid').innerHTML = '<div class="empty">تعذّر التحميل — تحقّق من الاتصال.</div>'; return; }
     var gs = []; all.forEach(function (p) { if (p.group_name && gs.indexOf(p.group_name) < 0) gs.push(p.group_name); });

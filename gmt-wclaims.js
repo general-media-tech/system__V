@@ -34,7 +34,8 @@
   function index(rows) { BY = {}; (rows || []).forEach(function (c) { if (!c || c.voided) return; (BY[c.warranty_short_id] = BY[c.warranty_short_id] || []).push(c); }); Object.keys(BY).forEach(function (k) { BY[k].sort(function (a, b) { return String(a.received_at).localeCompare(String(b.received_at)) || (a.id - b.id); }); }); }
   function load(o) {
     DB = o || DB; if (!DB) return Promise.resolve();
-    return req('GET', 'warranty_claims?select=*&voided=not.is.true&order=id.asc&limit=10000').then(function (r) { index(r); READY = true; ERR = ''; }, function (e) { READY = false; ERR = e.message || String(e); });
+    var q = 'warranty_claims?select=*&voided=not.is.true&order=id.asc';   /* (ARC-MD-06#19) كلّها صفحةً صفحة — السقف 1000 كان يُخفي الاستعمال السابق للكفالة */
+    return (window.GMTFetchAll ? window.GMTFetchAll(function (p) { return req('GET', p); }, q) : req('GET', q + '&limit=10000')).then(function (r) { index(r); READY = true; ERR = ''; }, function (e) { READY = false; ERR = e.message || String(e); });
   }
   function used(sid) { return (BY[sid] || []).filter(function (c) { return c.consumed; })[0] || null; }
   function badge(sid) {
