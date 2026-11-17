@@ -198,6 +198,34 @@
   } catch (_) {}
 })();
 
+/* ═══ (VER-4#REQ-0432) المفتّش يرصد فشل تيليغرام ═══
+   كل طلبٍ إلى api.telegram.org (إرسال/تعديل/صورة، من tg() أو الأوردرات أو أي صفحة) يمرّ من fetch ⇒ نراقبه هنا مرّةً واحدة
+   بدل ٨ مواضع: ردٌّ غير ناجح أو انقطاع ⇒ GMTBug.log('warn', …, {type:'tg_fail'}). لا نغيّر الردّ ولا نُفشل العملية، وبحدٍّ
+   دقيقتين لكل نوع فشل كي لا يُغرق السجلّ. */
+(function () {
+  try {
+    if (window.__gmtTgWatch || typeof window.fetch !== 'function') return;
+    window.__gmtTgWatch = true;
+    var orig = window.fetch.bind(window), last = {};
+    var report = function (key, msg, extra) {
+      var now = Date.now(); if (last[key] && now - last[key] < 120000) return; last[key] = now;
+      try { if (window.GMTBug && GMTBug.log) { extra.type = 'tg_fail'; GMTBug.log('warn', msg, extra); } } catch (_) {}
+    };
+    window.fetch = function (input) {
+      var u = ''; try { u = typeof input === 'string' ? input : (input && input.url) || ''; } catch (_) {}
+      if (u.indexOf('api.telegram.org') < 0) return orig.apply(window, arguments);
+      var op = (u.split('/').pop() || '').split('?')[0];
+      return orig.apply(window, arguments).then(function (r) {
+        if (r && !r.ok) report('s' + r.status + op, 'تيليغرام ردّ ' + r.status + ' (' + op + ')', { status: r.status, op: op });
+        return r;
+      }, function (e) {
+        report('x' + op, 'تيليغرام لم يصل (' + op + '): ' + (e && e.name === 'AbortError' ? 'انتهت المهلة' : (e && e.message)), { op: op });
+        throw e;
+      });
+    };
+  } catch (_) {}
+})();
+
 (function () {
   'use strict';
   if (window.GMTBrand) return;
