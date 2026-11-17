@@ -532,6 +532,7 @@ input, textarea, select { font-size: 16px; }
 .ptable-row:last-child { border-bottom: none; }
 .ptable-row:hover { background: #fafafa; }
 .pt-product { display: flex; align-items: center; gap: 10px; }
+.pt-noimg{display:block;width:100%;height:100%;background:#e2e8f0;border-radius:inherit}
 .pt-icon {
   width: 36px; height: 34px; background: linear-gradient(145deg, #f8f9fa, #eef0f3);
   border-radius: 7px; display: flex; align-items: center; justify-content: center;
@@ -1658,7 +1659,7 @@ window.GMT_FEATURES = [
                 💵 نقدي
               </button>
               <button type="button" class="sale-type-btn" data-hint="آجل (شحن): يُدفع عند التسليم أو لاحقاً — تُربط بأوردر شحن." data-type="آجل (شحن)" onclick="setSaleType('آجل (شحن)',this)">
-                📦 آجل (شحن)
+                آجل (شحن)
               </button>
             </div>
           </div>
@@ -1692,7 +1693,7 @@ window.GMT_FEATURES = [
 
             <!-- ══ ربط الأوردر ══ -->
             <div style="margin-top:14px;background:#f0f4ff;border-radius:12px;padding:12px;border:1.5px solid #c7d7f5;">
-              <div style="font-size:11px;font-weight:900;color:#0f172a;margin-bottom:8px;">📦 ربط بنظام الأوردرات</div>
+              <div style="font-size:11px;font-weight:900;color:#0f172a;margin-bottom:8px;">ربط بنظام الأوردرات</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
                 <button type="button" id="order-mode-existing" class="sale-type-btn"
                   data-hint="اربط الفاتورة بأوردر موجود (برقمه أو باسم الزبون)." onclick="setOrderMode('existing')"
@@ -7143,7 +7144,7 @@ function renderCart() {
   if (!rows) return;
 
   if (!items.length) {
-    rows.innerHTML = `<div class="empty"><div class="ei">🛒</div><div class="et">السلة فارغة</div><div class="es">ارجع واختر منتجات</div></div>`;
+    rows.innerHTML = `<div class="empty"><div class="et">السلة فارغة</div><div class="es">ارجع واختر منتجات</div></div>`;
     document.getElementById('cartTotal').textContent = '0.00';
     document.getElementById('cartSubTitle').textContent = '0 منتجات';
     const cb = document.getElementById('cartCommBox');
@@ -7167,8 +7168,8 @@ function renderCart() {
       <div class="pt-product">
         <div class="pt-icon">
           ${imgSrc(item.prod)
-            ? `<img src="${escH(imgSrc(item.prod))}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='📦'">`
-            : '📦'}
+            ? `<img src="${escH(imgSrc(item.prod))}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<span class=pt-noimg></span>'">`
+            : '<span class="pt-noimg"></span>'}
         </div>
         <div class="pt-name">${escH(item.prod.name)}</div>
       </div>
@@ -7203,11 +7204,11 @@ function renderCart() {
       <div id="cart-hint-${item.prod.id}" style="grid-column:1/-1;">
       ${blockedByNetCost ? `
         <div class="pt-ws-hint" style="background:#fef2f2;border-color:#fca5a5;color:#991b1b;font-weight:900;">
-          🚫 البيع ممنوع — السعر ($${price.toFixed(2)}) أقل من أو يساوي التكلفة الصافية ($${netCost.toFixed(2)})
+          البيع ممنوع — السعر ($${price.toFixed(2)}) أقل من أو يساوي التكلفة الصافية ($${netCost.toFixed(2)})
         </div>` : ''}
       ${warnNoCommission ? `
         <div class="pt-ws-hint warn" style="background:#fff7ed;border-color:#f97316;color:#9a3412;">
-          ⚠️ أنت تبيع بدون تحقيق عمولة — السعر أقل من سعر الجملة ($${wholesale.toFixed(2)})<br>
+          أنت تبيع بدون تحقيق عمولة — السعر أقل من سعر الجملة ($${wholesale.toFixed(2)})<br>
           <span style="font-size:11px;font-weight:700;line-height:1.5;">
             • لن تحصل على عمولة من هذه الفاتورة<br>
             • الإدارة قد لا تتحمل فرق السعر<br>
