@@ -7102,9 +7102,7 @@ function updateFab() {
   document.getElementById('fabTotal').textContent = count ? `· $${t.toFixed(2)}` : '';
   if (count > 0) fab.classList.add('visible');
   else           fab.classList.remove('visible');
-  // تحديث header stat
-  const hs = document.getElementById('hs-cart');
-  if (hs) hs.textContent = Object.values(cart).reduce((s,i)=>s+i.qty, 0);
+  /* (VER-3#REQ-0352) عدّاد hs-cart في الهيدر لا عنصر له (العدّاد الفعلي fabBadge) — أُزيل الكود الميّت */
 }
 
 function clearCart() {

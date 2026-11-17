@@ -327,7 +327,7 @@
     async posSchema() {
       const area = 'مخطّط نقطة البيع';
       const need = {
-        invoices: ['inv_number','branch_key','total','discount','paid','payment_method','user_name','created_at'],
+        invoices: ['inv_number','branch_key','total','discount_amount','payment_status','cashier_name','created_at']   /* (VER-4#REQ-0465) أسماء الأعمدة الحقيقية — كانت discount/paid/payment_method/user_name غير موجودة فتفشل دورة الفحص */,
         invoice_items: ['invoice_id','product_id','qty','price','name'],
         invoice_commissions: ['invoice_id','branch_key','amount','paid','created_by'],
         gmt_coupons: ['code','amount','is_used','used_at','expires_at','min_purchase'],
@@ -373,8 +373,8 @@
       try {
         // ① فاتورة بيع
         const created = await api('POST', 'invoices', {
-          inv_number: no, branch_key: 'haleb', total: 100, discount: 0,
-          paid: true, payment_method: 'cash', user_name: TAG
+          inv_number: no, branch_key: 'haleb', total: 100, discount_amount: 0,
+          payment_status: 'paid', cashier_name: TAG
         });
         invId = (Array.isArray(created) ? created[0] : created)?.id;
         rec({ area, step: 'إنشاء فاتورة بيع', ok: !!invId, pattern: invId ? null : 'P1',
@@ -644,7 +644,7 @@
         if (!made.pid) return false;
 
         const no = TAG + '-SALE-' + Date.now();
-        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: B, total: PRICE * Q, discount: 0, paid: true, payment_method: 'cash', user_name: TAG })) || {}).id;
+        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: B, total: PRICE * Q, discount_amount: 0, payment_status: 'paid', cashier_name: TAG })) || {}).id;
         await api('POST', 'invoice_items', { invoice_id: made.inv, product_id: made.pid, qty: Q, price: PRICE, name: TAG + ' بند' });
         rec({ area, step: '② فاتورة بيع ' + Q + ' قطعة', ok: !!made.inv, pattern: made.inv ? null : 'P1' });
 
@@ -661,7 +661,7 @@
         await api('POST', 'invoice_commissions', { invoice_id: made.inv, branch_key: B, amount: comm, paid: false, created_by: TAG });
 
         /* ④ المرتجع — نفس كتابات confirmRefund في نقطة البيع حرفياً */
-        made.rinv = (one(await api('POST', 'invoices', { inv_number: 'R-' + no, branch_key: B, total: -PRICE * Q, sale_type: 'مرتجع', original_invoice_id: String(made.inv), user_name: TAG })) || {}).id;
+        made.rinv = (one(await api('POST', 'invoices', { inv_number: 'R-' + no, branch_key: B, total: -PRICE * Q, sale_type: 'مرتجع', original_invoice_id: String(made.inv), cashier_name: TAG })) || {}).id;
         await api('POST', 'invoice_items', { invoice_id: made.rinv, product_id: made.pid, qty: Q, price: PRICE, name: TAG + ' بند مرتجع' });
         await move('add', Q);
         await api('POST', 'invoice_commissions', { invoice_id: made.inv, branch_key: B, amount: -comm, paid: false, created_by: 'auto_refund_reversal' });
@@ -714,7 +714,7 @@
         rec({ area, step: '① أوردر جديد', ok: !!made.o1, pattern: made.o1 ? null : 'P1' });
         if (!made.o1) return false;
         const no = TAG + '-ORD-' + Date.now();
-        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: 'haleb', total: 50, paid: false, payment_method: 'cash', user_name: TAG, sale_type: 'آجل (شحن)' })) || {}).id;
+        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: 'haleb', total: 50, payment_status: 'unpaid', cashier_name: TAG, sale_type: 'آجل (شحن)' })) || {}).id;
         if (!made.inv) throw new Error('تعذّر إنشاء الفاتورة');
 
         /* ② الربط — نفس linkExistingOrderToInvoice في نقطة البيع */
