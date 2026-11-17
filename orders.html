@@ -7801,7 +7801,7 @@ async function markNotified(o, mode) {
         console.warn('[GMT] تعذّر وسم التبليغ (' + col + '):', e && e.message);
         if (!_notifyColWarned) {
             _notifyColWarned = true;
-            showToast('ℹ️ علامات التبليغ تحتاج ملف SQL الأساس (SQL/أرشيف_SQL.html) — التبليغ نفسه يعمل', 'err');
+            showToast('ℹ️ التبليغ نفسه يعمل — لكن علامته لم تُحفظ: أبلغ المسؤول التقني، ينقص عمود ' + col + ' في القاعدة', 'err');
         }
     }
 }

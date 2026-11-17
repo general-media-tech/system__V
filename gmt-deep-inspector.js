@@ -511,7 +511,7 @@
         } catch (e) {
           const miss = /function|does not exist|schema cache/i.test(e.message || '');
           rec({ area, step: 'الدالة الذرّية ' + fn, ok: !miss, pattern: miss ? 'P1' : null,
-                detail: miss ? '🔴 غير معرّفة — شغّل _SQL/🔟 دوال المخزون' : 'موجودة (رفضت بيانات الفحص كما يجب)' });
+                detail: miss ? '🔴 غير معرّفة — أبلغ المسؤول التقني: تنقص دالة المخزون في القاعدة' : 'موجودة (رفضت بيانات الفحص كما يجب)' });
           if (miss) bad++;
         }
       }

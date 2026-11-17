@@ -142,7 +142,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
                      : k + ' تعذّر الاتصال (لا إنترنت؟)');
     });
     return out.length
-      ? bad('جداول مفقودة أو غير متاحة: ' + out.length, out.slice(0, 6).join(' · ') + ' — راجع «SQL/أرشيف_SQL.html» (والقاعدة المتوقّفة تُستعاد من لوحة Supabase)')
+      ? bad('جداول مفقودة أو غير متاحة: ' + out.length, out.slice(0, 6).join(' · ') + ' — أبلغ المسؤول التقني: ينقص جدولٌ في القاعدة (والقاعدة المتوقّفة تُستعاد من لوحة Supabase)')
       : ok('كل الجداول الحرجة موجودة');
   }
 

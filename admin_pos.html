@@ -3748,7 +3748,7 @@ async function deleteManualDebt(id) {
     allManualDebts = allManualDebts.filter(x => x.id !== id);
     showToast('✅ أُبطل السجل (محفوظ للتدقيق)', 'ok');
     renderDebts();
-  } catch(e) { showToast('خطأ: ' + e.message + ' — شغّل _SQL/1️⃣2️⃣ لتفعيل الإبطال', 'err'); }
+  } catch(e) { showToast('خطأ: ' + e.message + ' — إن تكرّر فأبلغ المسؤول التقني: تنقص أعمدة الإبطال (voided · void_reason) في القاعدة', 'err'); }
 }
 
 // ── فتح ديون فرع معيّن — قائمة الفواتير مع خيارات التحصيل ──
@@ -4381,7 +4381,7 @@ async function deleteExpense(id) {
     const _av = _e ? await voidAssetOfExpense(_e, reason.trim()) : 0;   // (TASK-0210) وأصله
     showToast('✅ أُبطل المصروف (محفوظ للتدقيق)' + _reverted + (_av ? ' · وأُبطل أصله من السجلّ' : ''), _reverted.indexOf('⚠️') >= 0 ? 'err' : 'ok');
     renderExpenses();
-  } catch(e) { showToast('خطأ: ' + e.message + ' — شغّل _SQL/1️⃣2️⃣ لتفعيل الإبطال', 'err'); }
+  } catch(e) { showToast('خطأ: ' + e.message + ' — إن تكرّر فأبلغ المسؤول التقني: تنقص أعمدة الإبطال (voided · void_reason) في القاعدة', 'err'); }
 }
 
 // خصم المصروف من صندوق الفرع — يستخدم نفس جدول branch_transfers المستخدم في الترحيلات والتحصيل

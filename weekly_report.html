@@ -175,7 +175,7 @@ async function loadReport(){
     out.innerHTML=h;
   }catch(e){
     out.innerHTML='<div class="card"><div class="msg bad">🔴 تعذّر جلب التقرير: '+esc(e.message)
-      +'<br><span style="font-weight:600;color:#5b6472">تأكّد أنك شغّلت _SQL/8️⃣ (يضيف أعمدة gmt_telemetry + يفتح قراءة anon). بدونه القراءة محجوبة.</span></div></div>';
+      +'<br><span style="font-weight:600;color:#5b6472">إن تكرّر فأبلغ المسؤول التقني: تنقص أعمدة gmt_telemetry في القاعدة أو صلاحية قراءتها.</span></div></div>';
   }
 }
 
