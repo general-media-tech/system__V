@@ -407,7 +407,7 @@
         const r = await fetch(d.url + '/rest/v1/products?id=eq.' + encodeURIComponent(id), { method: 'PATCH', __gmtFromStore: true,
           headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(upd) });
         if (r.ok) { n++; audit({ action: 'store_to_inv', entity: 'products', entity_id: id, field: Object.keys(upd).join(','), new_value: JSON.stringify(upd).slice(0, 500), reason: 'المالك seq 575: تعديل من إدارة المتجر ⇐ الجرد' }); }
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('مزامنة المتجر ⇐ الجرد (PATCH products)', _e); }
     }
     return n;
   }

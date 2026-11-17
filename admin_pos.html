@@ -2026,7 +2026,7 @@ async function confirmApproveCommission(commId, branchKey, originalAmount) {
           { approved: true, approved_at: new Date().toISOString() }, { Prefer: 'return=representation' });
         const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
         if (w2.length) { r.approved = true; r.approved_at = new Date().toISOString(); }
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('اعتماد العمولة (المسار الاحتياطي)', _e); }
     }
 
     const branchName = branches.find(b => b.key_name === branchKey)?.display_name || branchKey;
@@ -2173,7 +2173,7 @@ async function editCommission(commId) {
           const u2 = await sb('PATCH', `/rest/v1/invoice_commissions?id=eq.${r.id}&or=(approved.is.false,approved.is.null)`, { approved: true, approved_at: _nowE }, { Prefer: 'return=representation' });
           const w2 = Array.isArray(u2?.data) ? u2.data : (Array.isArray(u2) ? u2 : []);
           if (w2.length) { r.approved = true; r.approved_at = _nowE; }
-        } catch (_) {}
+        } catch (_e) { window.gmtSwallow && gmtSwallow('اعتماد العمولة (المسار الاحتياطي)', _e); }
       }
     }
     showToast('تم تعديل العمولة ✓', 'ok');
@@ -5307,8 +5307,8 @@ async function _aiCreateInvoiceInner() {
       }
       if (_itErr) {
         let gone = false;
-        try { const dr = await sb('DELETE', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}`); gone = Array.isArray(dr) ? dr.length > 0 : true; } catch (_) {}
-        if (gone && _lo) { try { await sb('PATCH', `/rest/v1/gmt_orders?id=eq.${encodeURIComponent(_lo.id)}&invoice_id=eq.${encodeURIComponent(invId)}`, { invoice_id: null, invoice_number: null, linked_invoice_id: null, is_locked: false }, { Prefer: 'return=minimal' }); } catch (_) {} }
+        try { const dr = await sb('DELETE', `/rest/v1/invoices?id=eq.${encodeURIComponent(invId)}`); gone = Array.isArray(dr) ? dr.length > 0 : true; } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: حذف فاتورة فشل حفظ بنودها', _e, true); }
+        if (gone && _lo) { try { await sb('PATCH', `/rest/v1/gmt_orders?id=eq.${encodeURIComponent(_lo.id)}&invoice_id=eq.${encodeURIComponent(invId)}`, { invoice_id: null, invoice_number: null, linked_invoice_id: null, is_locked: false }, { Prefer: 'return=minimal' }); } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: فكّ ربط الأوردر بفاتورة محذوفة', _e, true); } }
         throw new Error('تعذّر حفظ بنود الفاتورة (' + (_itErr.message || _itErr) + ')' + (gone ? ' — أُلغيت الفاتورة ولم يُخصم شيء' : ' — ⛔ تعذّر إلغاء الفاتورة، أبلغ الإدارة'));
       }
     }
@@ -6959,7 +6959,7 @@ async function cancelStockTransferAdmin(id) {
      المتحقَّقة، وتراجع كامل عند أول فشل بحيث لا تبقى فاتورة نصف مُعادة. */
   const prevStatus = (t.status === 'needs_settlement') ? 'needs_settlement' : 'pending';
   let claimed = false;
-  const undoClaim = async () => { if (claimed) { try { await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, { status: prevStatus }, { Prefer: 'return=minimal' }); } catch (_) {} } };
+  const undoClaim = async () => { if (claimed) { try { await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=eq.reopening`, { status: prevStatus }, { Prefer: 'return=minimal' }); } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: إعادة حالة فاتورة النقل بعد فشل الإعادة', _e, true); } } };
   try {
     const cl = await sb('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${id}&status=in.(pending,needs_settlement)`, { status: 'reopening' }, { Prefer: 'return=representation' });
     const clr = Array.isArray(cl?.data) ? cl.data : (Array.isArray(cl) ? cl : []);

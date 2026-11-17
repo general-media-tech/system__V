@@ -4078,6 +4078,13 @@
      جدول `inspector_sessions` ⇒ كل جلسةٍ مُرسَلة بلا اسم. والبيانات موجودة
      أصلاً في `ident.user` — كان الناقص هو المَنفَذ لا المعلومة.
      ═══════════════════════════════════════════════════════════════════════ */
+  /* (VER-5#REQ-0503) بديل «catch (_) {}» في مسارات كتابة المال والمخزون: الفشل لا يمرّ صامتاً — يُسجَّل للحارس.
+     crit=true للتراجع/الحذف الذي إن فشل ترك بيانات نصف منفّذة (يصل للمالك كتنبيه حرج). الاستعمال:
+       catch (e) { window.gmtSwallow && gmtSwallow('تراجع حجز النقل', e, true); } */
+  window.gmtSwallow = function (where, e, crit) {
+    try { add(crit ? 'crit' : 'warn', crit ? 'تراجع تعذّر' : 'فشل صامت', String(where || '') + ' — ' + String((e && e.message) || e || '').slice(0, 200), (e && e.stack) ? String(e.stack).slice(0, 300) : ''); } catch (_) {}
+  };
+
   window.GMTBug = {
     version: 3.2,
     customerView: customerView,

@@ -3383,7 +3383,7 @@ async function _confirmIncomingTransfer(id) {
         method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: prevStatus, note: (t.note ? t.note + ' | ' : '') + 'أُلغي استلام: ' + reason })
       });
-    } catch (_) {}
+    } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: إلغاء استلام النقل', _e, true); }
   }
 
   /* (٧ ط · البند ١٤٢ والفحص المضاد) المسار الواحد المشترك مع الجرد (gmt-stock.js):
@@ -4672,7 +4672,7 @@ function toggleInvHistDetail(id) {
             body: JSON.stringify({ invoice_id: null, invoice_number: null, is_locked: false, status: 'pending' }) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
     }
-    try { await fetch(CONFIG.SUPABASE_URL + '/rest/v1/invoices?id=eq.' + origInvId, { method: 'PATCH', headers: H, body: JSON.stringify({ order_id: null, order_serial: null }) }); } catch (_) {}
+    try { await fetch(CONFIG.SUPABASE_URL + '/rest/v1/invoices?id=eq.' + origInvId, { method: 'PATCH', headers: H, body: JSON.stringify({ order_id: null, order_serial: null }) }); } catch (_e) { window.gmtSwallow && gmtSwallow('فكّ ربط الفاتورة الأصلية بالأوردر', _e); }
   }
   window.__gmtAfterRefund = async function (inv, type) {
     /* (TASK-0260) مرتجع الفاتورة بعد «تأكيد استلامنا» للمرتجع ⇒ يُعلَّم على المرتجع في الأوردرات «🧾 مرتجع الفاتورة نُفّذ» */
@@ -4683,7 +4683,7 @@ function toggleInvHistDetail(id) {
         const o = rows && rows[0]; let ri = o && o.return_info; if (typeof ri === 'string') { try { ri = JSON.parse(ri); } catch (_) { ri = null; } }
         if (o && o.status === 'returned' && ri) await fetch(u, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({ return_info: Object.assign({}, ri, { refund_done: true, refund_type: type || null, refund_inv_id: inv && inv.id || null, refund_at: new Date().toISOString() }) }) });
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('وسم الأوردر المرتجع «تمّ الاسترداد»', _e); }
     }
     if (P.then === 'none' || P.then === 'view') return;   /* العرض لا يفكّ ارتباطاً أبداً */
     if (type !== 'full') { showToast('ℹ️ المرتجع جزئي — الأوردر يبقى مرتبطاً. الفكّ يحتاج مرتجعاً كاملاً كي لا يُباع الشيء نفسه مرّتين', 'err'); return; }
@@ -8685,7 +8685,7 @@ async function _saveAndFinishInner() {
         const dr = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`,
           { method: 'DELETE', headers: { ...sbHeaders(), Prefer: 'return=representation' } }, 8000);
         if (dr.ok) { const rows = await dr.json().catch(() => []); _gone = Array.isArray(rows) && rows.length > 0; }
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: حذف فاتورة فشل حفظ بنودها', _e, true); }
       try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind: 'financial', severity: 'critical', feature: 'POS-SAVE', rule: 'OWN-ITEMS-WITH-INVOICE',
         title: 'فشل حفظ بنود الفاتورة', what: 'الفاتورة ' + realInvNum + ': ' + itRes.error, how: _gone ? 'أُلغيت الفاتورة ولم يُخصم مخزون.' : 'تعذّر إلغاء الفاتورة — بقيت بلا بنود.', why: 'مراجعة فورية.' }); } catch (_) {}
       if (_gone) { _invoiceCreated = false; _progress.invoiceId = null; _progress.itemsDone = false; throw new Error('تعذّر حفظ بنود الفاتورة (' + itRes.error + ') — أُلغيت الفاتورة ولم يُخصم شيء من المخزون. أعد المحاولة'); }
@@ -8769,7 +8769,7 @@ async function _saveAndFinishInner() {
         await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`,
           { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
             body: JSON.stringify({ review_status: 'pending', notes: [_notesWithOfferFlag, _mark].filter(Boolean).join(' | ').slice(0, 1500) }) }, 8000);
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('وسم الفاتورة «للمراجعة»', _e); }
       try { if (window.GMTWarden && GMTWarden.flag) GMTWarden.flag({ kind: 'financial', severity: 'critical', feature: 'POS-SAVE', rule: 'OWN-SAVE-COMPLETE',
         title: 'فاتورة محفوظة ناقصة', what: 'الفاتورة ' + realInvNum + ': ' + _issues.join(' | '), how: 'وُسمت «قيد المراجعة».', why: 'مراجعة الإدارة.' }); } catch (_) {}
       try { showToast('⚠️ الفاتورة حُفظت لكن: ' + _issues[0] + (_issues.length > 1 ? ' (+' + (_issues.length - 1) + ')' : ''), 'err'); } catch (_) {}
@@ -10985,7 +10985,7 @@ async function _syncPendingInner() {
       }
       if (notes.length && savedInv.id) {
         flagged++;
-        try { await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(savedInv.id)}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ review_status: 'pending' }) }, 8000); } catch (_) {}
+        try { await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(savedInv.id)}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ review_status: 'pending' }) }, 8000); } catch (_e) { window.gmtSwallow && gmtSwallow('وسم الفاتورة «للمراجعة»', _e); }
       }
 
       await deletePendingInvoice(inv._localId);

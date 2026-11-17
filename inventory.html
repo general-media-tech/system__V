@@ -14070,7 +14070,7 @@ async function stEditTransfer(transferId){
      تُلغى على أي حال والمخزون لم يرجع. الآن: كل إعادة تُفحَص (GMTStock مع القراءة التحقّقية)، وعند أول فشل يُتراجَع عمّا أُعيد
      وتعود الفاتورة كما كانت ولا تُلغى. وكميّة المسوّدة = **المطلوب** (تشمل الأصناف الناقصة) لا المنقول فقط. */
   const _prev = tr.status === 'draft' ? 'draft' : (tr.status === 'needs_settlement' ? 'needs_settlement' : 'pending');
-  const _undo = async () => { try{ await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=eq.reopening',{status:_prev}); }catch(_){} };
+  const _undo = async () => { try{ await sbFetch('PATCH','/rest/v1/branch_stock_transfers?id=eq.'+transferId+'&status=eq.reopening',{status:_prev}); }catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: إعادة حالة فاتورة النقل', _e, true); } };
   const done=[]; let failedItem=null;
   for(const it of items){
     const v=stView(it,tr);
@@ -15025,7 +15025,7 @@ async function _saveStockTransferInner() {
     }
     if (_itErr) {
       let _gone = false;
-      try { const dr = await sbFetch('DELETE', `/rest/v1/branch_stock_transfers?id=eq.${transfer.id}`, null, { Prefer: 'return=representation' }); _gone = stRows(dr).length > 0; } catch (_) {}
+      try { const dr = await sbFetch('DELETE', `/rest/v1/branch_stock_transfers?id=eq.${transfer.id}`, null, { Prefer: 'return=representation' }); _gone = stRows(dr).length > 0; } catch (_e) { window.gmtSwallow && gmtSwallow('تراجع: حذف فاتورة نقل فشل حفظ بنودها', _e, true); }
       hideLoading();
       return showToast('تعذّر حفظ بنود الفاتورة (' + _itErr + ')' + (_gone ? ' — أُلغيت الفاتورة ولم يُخصم شيء' : ' — ⛔ تعذّر إلغاء رأس الفاتورة #' + transfer.transfer_number + '، احذفه يدوياً'), 'error');
     }
@@ -15144,7 +15144,7 @@ async function _saveStockTransferInner() {
           note: 'تعذّر خصم ' + failedItems.length + ' صنف: ' + failedItems.map(n => n.replace(/\s*\(\d+ من \d+\)$/, '')).join('، ')
         }, { Prefer: 'return=representation' });
         if (_hr.error || !stRows(_hr).length) showToast('⚠ تعذّر وسم الفاتورة «تحتاج تسوية» — ابحث عنها في قائمة النقل وراجعها', 'error');
-      } catch (_) {}
+      } catch (_e) { window.gmtSwallow && gmtSwallow('وسم فاتورة النقل «تحتاج تسوية»', _e, true); }
       try {
         if (window.GMTWarden && GMTWarden.flag) {
           GMTWarden.flag({
@@ -15519,7 +15519,7 @@ async function stConfirmReceived(transferId, signatureBlob) {
   const release = async (note) => {
     if (!claimed) return;
     try { await sbFetch('PATCH', `/rest/v1/branch_stock_transfers?id=eq.${transferId}&status=eq.receiving`,
-      Object.assign({ status: prevStatus }, note ? { note: (t.note ? t.note + ' | ' : '') + note } : {})); } catch (_) {}
+      Object.assign({ status: prevStatus }, note ? { note: (t.note ? t.note + ' | ' : '') + note } : {})); } catch (_e) { window.gmtSwallow && gmtSwallow('تحرير حجز استلام النقل', _e, true); }
   };
   try {
     const _claim = await sbFetch('PATCH',

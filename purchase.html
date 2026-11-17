@@ -3963,7 +3963,7 @@ async function markArrived(id){
       try{
         await sb('PATCH',`/rest/v1/import_log?id=eq.${s.id}`,{status:'arrived',transferred:true,transferred_at:new Date().toISOString(),transferred_by:'purchases',transfer_moved:moved},{Prefer:'return=minimal'});
         const i=ships.findIndex(x=>String(x.id)===String(s.id)); if(i>=0) ships[i]={...ships[i],status:'arrived',transferred:true,transfer_moved:moved};
-      }catch(e){}
+      }catch (_e) { window.gmtSwallow && gmtSwallow('وسم الشحنة «تمّ الترحيل» بعد نقل الكميات', _e, true); }
     }
     alert(`✅ الفاتورة (${s.inv_number}) مُرحّلة بالكامل مسبقاً (حسب سجل الاستلام).\n\nصحّحتُ حالتها إلى «واصلة». لن يُضاف مخزونها ثانيةً — تفادياً للمضاعفة.`);
     /* 🔴 (2026-10-03) كان هنا `renderShips()` — **ولا وجود لها في المشروع كلّه**.
