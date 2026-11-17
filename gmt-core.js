@@ -3607,7 +3607,52 @@
     queue.push(rec);
     persist();
     paint();
-    if (sev === 'crit') flush();          // الحرج يُرسل فوراً
+    if (sev === 'crit') { flush(); alertOwner(rec); }          // الحرج يُرسل فوراً + تنبيه المالك
+  }
+
+  /* ─────────── (REQ-0314) تنبيه المالك فوراً عند خطأ حرج أثناء عمل الموظفين ───────────
+     كان الحرج يُحفظ في gmt_telemetry ولا يراه المالك إلا إذا فتح التقرير. الآن: رسالة تيليغرام عبر الوسيط
+     (العلامة gmt-relay — لا مفتاح في المتصفّح) إلى قناة الأدمن، بحدود صارمة كي لا تصير ضجيجاً:
+       • الصفحات الداخلية فقط (GMT_INTERNAL) · لا الوضع التدريبي · لا «شبكة» (الجهاز بلا إنترنت أصلاً)
+       • مرّة واحدة لكل نوع خطأ في الساعة على الجهاز · وحدّ أقصى ٥ تنبيهات في الساعة للجهاز
+       • مفتاح إيقاف: gmt_settings.key = 'gmt_crit_alert_off' بقيمة '1' ⇒ لا تنبيهات. */
+  const AL_KEY = 'gmt_crit_alerts_v1';
+  let alertOff = null;            // null = لم يُقرأ بعد
+  async function alertSwitchOff(cfg) {
+    if (alertOff !== null) return alertOff;
+    alertOff = false;
+    try {
+      const r = await (window.__gmtRealFetch || fetch)(cfg.url + '/rest/v1/gmt_settings?key=eq.gmt_crit_alert_off&select=value',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } });
+      if (r.ok) { const j = await r.json(); alertOff = !!(j && j[0] && String(j[0].value) === '1'); }
+    } catch (_) {}
+    return alertOff;
+  }
+  async function alertOwner(rec) {
+    try {
+      if (!window.GMT_INTERNAL || rec.training || rec.type === 'شبكة') return;
+      const cfg = sb(); if (!cfg) return;
+      const H = 3600e3, t = Date.now();
+      let log = {}; try { log = JSON.parse(localStorage.getItem(AL_KEY) || '{}') || {}; } catch (_) { log = {}; }
+      Object.keys(log).forEach((k) => { if (t - log[k] > H) delete log[k]; });
+      if (log[rec._k] || Object.keys(log).length >= 5) return;
+      log[rec._k] = t;                                   /* يُحجز قبل الإرسال: خطآن متزامنان لا يُرسلان مرّتين */
+      try { localStorage.setItem(AL_KEY, JSON.stringify(log)); } catch (_) {}
+      if (await alertSwitchOff(cfg)) return;
+      const G = window.GMT_TELEGRAM || {}, C = window.GMT_CONFIG || {};
+      const chat = window.TELEGRAM_CHAT_ID || C.TELEGRAM_CHAT_ID || G.chat || '-1003870992994';
+      const e = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      const text = '🚨 <b>خطأ حرج أثناء العمل</b>\n' +
+        e(rec.page || document.title) + (rec.user ? ' · ' + e(rec.user) : '') + (rec.branch ? ' · ' + e(rec.branch) : '') + '\n' +
+        '──────────\n' + e(rec.type) + ': ' + e(String(rec.msg).slice(0, 300)) +
+        (rec.detail ? '\n<code>' + e(String(rec.detail).slice(0, 300)) + '</code>' : '') +
+        '\n\nالتفاصيل الكاملة: التقرير الأسبوعي (weekly_report.html) · أو اسأل عقل النظام.';
+      /* __gmtRealFetch = fetch الوسيط بلا مراقبة الحارس ⇒ فشل الوسيط (503) لا يولّد خطأً حرجاً جديداً يدور في حلقة */
+      await (window.__gmtRealFetch || fetch)('https://api.telegram.org/botgmt-relay/sendMessage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true }),
+      });
+    } catch (_) { /* التنبيه إضافة — فشله لا يمسّ التسجيل */ }
   }
 
   /* ─────────── الإرسال للأدمن ─────────── */
