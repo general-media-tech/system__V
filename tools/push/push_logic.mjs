@@ -15,8 +15,18 @@ export function validEndpoint(url) {
 /* الحقول المسموحة فقط في data لكلّ نوع — حماية ثانية بعد الـTrigger (لا اسم زبون ولا رقمه ولا أسعار جملة ولا مبالغ) */
 export const SAFE_FIELDS = {
   order: ['num', 'qty'], offer: ['name', 'price', 'bundle', 'until'], price: ['pid', 'name', 'barcode', 'old', 'new', 'until'],
-  transfer: ['num', 'from'], version: ['v'], transfer_aging: ['n', 'oldest'], expense: ['branch']
+  transfer: ['num', 'from'], version: ['v'], transfer_aging: ['n', 'oldest'], expense: ['branch'],
+  /* (TASK-B0423 · seq 802) كلّ الأنظمة */
+  order_new: ['num', 'by'], order_confirmed: ['num'], order_shipped: ['num', 'company'], order_delivered: ['num'], order_completed: ['num'], order_returned: ['num'],
+  sale: ['branch', 'n'], refund: ['branch', 'inv'], transfer_received: ['num', 'to'], stock_in: ['branch', 'n'], stock_count: ['branch', 'short', 'surplus'],
+  product_new: ['name', 'n'], expense_approved: [], cash_transfer: ['branch'], daily_close: ['branch', 'diff'], settlement: ['branch', 'num'],
+  chat: [], review: ['rating'], reservation: ['item'], job: [], warranty_on: ['num']
 };
+/* مجموعات التفضيلات: مفتاحٌ واحد في لوحة الجهاز يُطفئ كلّ أنواع مجموعته */
+export const GROUP = { order: 'orders', order_new: 'orders', order_confirmed: 'orders', order_shipped: 'orders', order_delivered: 'orders', order_completed: 'orders', order_returned: 'orders',
+  reservation: 'orders', chat: 'orders', sale: 'sales', refund: 'sales', daily_close: 'money', settlement: 'money', cash_transfer: 'money', expense: 'money', expense_approved: 'money',
+  transfer: 'transfer', transfer_received: 'transfer', transfer_aging: 'transfer', stock_in: 'stock', stock_count: 'stock', product_new: 'stock',
+  offer: 'offer', price: 'price', review: 'store', job: 'store', warranty_on: 'store', version: 'version' };
 export function scrub(kind, data) {
   const ok = SAFE_FIELDS[kind] || [], out = {};
   Object.keys(data || {}).forEach((k) => { if (ok.indexOf(k) !== -1) out[k] = data[k]; });
@@ -36,8 +46,8 @@ export function groupEvents(rows) {
 
 const dd = (iso) => { try { const d = new Date(iso); return String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0'); } catch (_) { return ''; } };
 const money = (n) => { const v = Number(n); return isFinite(v) ? (Math.round(v * 100) / 100).toString() : ''; };
-const TTL = { order: 86400, transfer: 172800, offer: 86400, price: 43200, version: 21600, transfer_aging: 43200, expense: 43200 };
-const URG = { order: 'high', transfer: 'high', offer: 'normal', price: 'normal', version: 'low', transfer_aging: 'normal', expense: 'normal' };
+const TTL = { order: 86400, transfer: 172800, offer: 86400, price: 43200, version: 21600, transfer_aging: 43200, expense: 43200, chat: 3600 };
+const URG = { order: 'high', transfer: 'high', chat: 'high', order_new: 'high', offer: 'normal', price: 'normal', version: 'low', transfer_aging: 'normal', expense: 'normal' };
 
 /* topic ≤ 32 حرفاً base64url-آمنة */
 export function topicOf(kind, branch) { return (kind + '-' + (branch || 'all')).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 32); }
@@ -69,7 +79,32 @@ export function buildMessage(kind, items, opts) {
   } else if (kind === 'transfer_aging') {
     t = '⏰ فواتير نقل لم تُستلم'; b = (d.n || n) + ' فاتورة معلّقة منذ أكثر من يوم' + (d.oldest ? ' — أقدمها ' + d.oldest : ''); u = 'pos.html?go=incoming';
   } else if (kind === 'expense') {
-    t = '💸 مصروف بانتظار موافقتك'; b = d.branch ? 'من فرع ' + d.branch : 'بانتظار موافقتك'; u = 'admin_pos.html';
+    t = '💸 مصروف بانتظار موافقتك'; b = d.branch ? 'من فرع ' + d.branch : 'بانتظار موافقتك'; u = 'admin_pos.html';  } else {
+    const num = d.num || '', ord = n === 1 && opts.ref_id ? 'orders.html?order=' + opts.ref_id : 'orders.html', many = n > 1;
+    const M = {
+      order_new: ['📝 أوردر جديد', many ? n + ' أوردرات جديدة أُضيفت' : 'أوردر ' + num + (d.by ? ' — أضافه ' + d.by : ''), ord],
+      order_confirmed: ['✅ أكّد الزبون طلبه', many ? n + ' أوردرات أُكّدت وجاهزة للتجهيز' : 'أوردر ' + num + ' جاهز للتجهيز', ord],
+      order_shipped: ['🚚 شُحن أوردر', many ? 'شُحن ' + n + ' أوردرات' : num + (d.company ? ' مع ' + d.company : ''), ord],
+      order_delivered: ['📬 وصل أوردر للزبون', many ? n + ' أوردرات وصلت — بانتظار التحصيل' : num + ' — بانتظار التحصيل', ord],
+      order_completed: ['💰 حُصّل أوردر', many ? 'حُصّل ' + n + ' أوردرات' : num + ' — مكتمل', ord],
+      order_returned: ['↩️ أوردر مرتجع', many ? n + ' أوردرات مرتجعة' : num, ord],
+      sale: ['🧾 مبيعات جديدة', (d.n || n) + ' فاتورة بيع في ' + (d.branch || 'الفرع'), 'admin_pos.html'],
+      refund: ['↩️ مرتجع فاتورة', 'في ' + (d.branch || 'الفرع') + (d.inv ? ' — ' + d.inv : ''), 'admin_pos.html'],
+      transfer_received: ['✅ استُلمت فاتورة نقل', (d.num || '') + (d.to ? ' — استلمها فرع ' + d.to : ''), 'pos.html?go=incoming'],
+      stock_in: ['📥 وصلت بضاعة', (d.n || n) + ' صنفاً إلى ' + (d.branch || 'الفرع'), 'inventory.html'],
+      stock_count: ['📋 جرد جديد', (d.branch || '') + ': ' + (d.short || 0) + ' نقص · ' + (d.surplus || 0) + ' زيادة', 'inventory.html'],
+      product_new: ['🆕 منتج جديد', (d.n || n) > 1 ? 'أُضيف ' + (d.n || n) + ' منتجات جديدة' : '«' + (d.name || '') + '»', 'inventory.html'],
+      expense_approved: ['✅ اعتُمد مصروف فرعك', 'وافق الأدمن على المصروف', 'pos.html'],
+      cash_transfer: ['💵 تحويل نقديّ', 'من فرع ' + (d.branch || ''), 'admin_pos.html'],
+      daily_close: ['🔒 إقفال يوميّ', (d.branch || '') + (d.diff ? ' — ⚠️ يوجد فرق صندوق' : ' — مطابق'), 'admin_pos.html'],
+      settlement: ['🧮 تسوية عمولات', (d.branch || '') + (d.num ? ' — ' + d.num : ''), 'admin_pos.html'],
+      chat: ['💬 زبون يطلب محادثة', 'من المتجر الإلكتروني — بانتظار ردّك', 'home.html'],
+      review: ['⭐ تقييم جديد في المتجر', (d.rating ? d.rating + '/5 — ' : '') + 'بانتظار الموافقة', 'admin_store.html'],
+      reservation: ['📌 حجز جديد', d.item ? '«' + d.item + '»' : 'حجز منتج', 'orders.html'],
+      job: ['👤 طلب توظيف جديد', 'بانتظار المراجعة', 'home.html'],
+      warranty_on: ['🛡️ تفعيل كفالة', d.num || '', 'home.html']
+    }[kind];
+    if (M) { t = M[0]; b = M[1]; u = M[2]; }
   }
   return { t, b, u, k: kind, tag: kind + (opts.branch ? '-' + opts.branch : ''), urgency: URG[kind] || 'normal', ttl: TTL[kind] || 43200, topic: topicOf(kind, opts.branch) };
 }
@@ -90,5 +125,5 @@ export function nextMorning(date) {
   let mins = (8 * 60 + 30) - (h * 60 + m); if (mins <= 0) mins += 24 * 60;
   return new Date(d.getTime() + mins * 60000);
 }
-export const wants = (sub, kind) => !(sub && sub.prefs && sub.prefs[kind] === false);
-export const isHigh = (kind) => kind === 'order' || kind === 'transfer';
+export const wants = (sub, kind) => !(sub && sub.prefs && (sub.prefs[kind] === false || sub.prefs[GROUP[kind] || kind] === false));
+export const isHigh = (kind) => ['order', 'order_new', 'transfer', 'chat', 'order_confirmed'].indexOf(kind) !== -1;

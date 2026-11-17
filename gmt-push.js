@@ -10,8 +10,13 @@
   if (global.GMTPush) return;
   var doc = global.document, LS = global.localStorage;
   var PUBLIC = !!global.GMT_PUBLIC || /(^|\/)(store|site|search|track_order|guarantee)\.html$/i.test(location.pathname);
-  var KINDS = [['order', '🛒 الأوردرات الجديدة'], ['offer', '🎁 العروض والباقات'], ['price', '💲 تغيير الأسعار'], ['transfer', '📦 فواتير النقل'], ['version', '🔄 تحديثات النظام'], ['expense', '💸 مصاريف بانتظار الموافقة (للأدمن)']];
-  var CUE = { order: 'order', transfer: 'truck', offer: 'notify', price: 'notify', version: 'update', expense: 'notify', transfer_aging: 'notify', test: 'success' };
+  /* (TASK-B0423 · seq 802) مجموعات التفضيلات — مفتاحٌ لكلّ مجموعة يُطفئ كلّ أنواعها (الخادم يقرأ prefs[group]) */
+  var KINDS = [['orders', '🛒 الأوردرات (جديد · تأكيد · شحن · وصول · تحصيل · مرتجع · حجز · محادثة)'], ['transfer', '📦 فواتير النقل (واردة · استُلمت · متأخّرة)'], ['offer', '🎁 العروض والباقات'], ['price', '💲 تغيير الأسعار'],
+    ['stock', '📥 المخزون (بضاعة واصلة · جرد · منتج جديد)'], ['sales', '🧾 المبيعات والمرتجعات (للأدمن)'], ['money', '💵 المالية (مصاريف · تحويل نقدي · إقفال يومي · عمولات)'], ['store', '⭐ المتجر (تقييمات · توظيف · كفالات)'], ['version', '🔄 تحديثات النظام']];
+  var CUE = { order: 'order', order_new: 'order', order_confirmed: 'success', order_shipped: 'truck', order_delivered: 'notify', order_completed: 'cash', order_returned: 'warn',
+    transfer: 'truck', transfer_received: 'success', transfer_aging: 'warn', stock_in: 'truck', stock_count: 'notify', product_new: 'notify',
+    offer: 'notify', price: 'notify', version: 'update', expense: 'notify', expense_approved: 'success', cash_transfer: 'cash', daily_close: 'notify', settlement: 'notify',
+    sale: 'cash', refund: 'warn', chat: 'notify', review: 'notify', reservation: 'order', job: 'notify', warranty_on: 'success', test: 'success' };
   function lsGet(k, d) { try { var v = LS.getItem(k); return v == null ? d : v; } catch (_) { return d; } }
   function lsSet(k, v) { try { LS.setItem(k, v); } catch (_) {} }
   function session() { try { return JSON.parse(lsGet('gmt_session', 'null')) || null; } catch (_) { return null; } }
@@ -60,8 +65,7 @@
     lsSet('gmt_push_vapid', keyRes.key);
     var reg = await getReg(), sub = await reg.pushManager.getSubscription();
     if (!sub) { try { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToU8(keyRes.key) }); } catch (e) { return { ok: false, msg: 'تعذّر الاشتراك: ' + ((e && e.message) || 'خطأ') }; } }
-    var all = topicsStored(); (me.claim === 'admin' ? ['pos', 'orders'] : (topics || ['pos'])).forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
-    if (me.claim === 'admin') all = all.filter(function (t) { return t !== 'admin'; });
+    var all = topicsStored(); (me.claim === 'admin' ? ['pos', 'orders', 'admin'] : (topics || ['pos'])).forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
     var j = sub.toJSON(), body = Object.assign({ action: 'subscribe', sub: { endpoint: j.endpoint, keys: j.keys }, topics: all, prefs: prefsOf(), platform: platform() }, me);
     var r = await call(body);
     if (!r.ok) return { ok: false, msg: r.msg || 'تعذّر تسجيل الجهاز' };
@@ -79,6 +83,8 @@
     var p = prefsOf(); p[kind] = !!on; lsSet('gmt_push_prefs', JSON.stringify(p));
     try { var s = await currentSub(); if (s) await call({ action: 'prefs', endpoint: s.endpoint, auth: s.auth, prefs: p }); } catch (_) {}
   }
+  async function feed() { var s = await currentSub(); if (!s) return { ok: false, items: [] }; return call({ action: 'feed', endpoint: s.endpoint, auth: s.auth }); }
+  function ago(iso) { try { var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? 'الآن' : m < 60 ? 'قبل ' + m + ' د' : m < 1440 ? 'قبل ' + Math.round(m / 60) + ' س' : 'قبل ' + Math.round(m / 1440) + ' يوم'; } catch (_) { return ''; } }
   async function test() { var s = await currentSub(); if (!s) return { ok: false, msg: 'الجهاز غير مشترك' }; return call({ action: 'test', endpoint: s.endpoint, auth: s.auth }); }
   /* مزامنة أسبوعيّة (أو عند تغيّر الحساب/الفرع) — تُبقي last_seen_at وتنقل الاشتراك للمستخدم الجديد */
   async function resync() {
@@ -108,7 +114,7 @@
       else if (st === 'ios-install') h += '<p>على آيفون تعمل الإشعارات فقط للتطبيق المثبَّت:</p><p>١) زرّ المشاركة ⇐ ٢) «أضف إلى الشاشة الرئيسية» ⇐ ٣) افتح GMT من الأيقونة ثمّ اضغط «فعّل الإشعارات». (يتطلّب iOS 16.4 أو أحدث)</p>';
       else if (st === 'denied') h += '<p>الإذن مرفوض من المتصفّح. افتح إعدادات الموقع ⇐ الإشعارات ⇐ «سماح» ثمّ أعد فتح هذه النافذة.</p>';
       else if (st === 'off') h += '<p>فعّل الإشعارات لتصلك الأوردرات والعروض وتغيّر الأسعار وفواتير النقل <b>حتى والتطبيق مغلق</b>.</p><button class="go" data-en>🔔 فعّل الإشعارات</button>';
-      else { var p = prefsOf(); h += '<p>✅ مفعَّلة على هذا الجهاز. اختر ما يصلك:</p>' + KINDS.map(function (k) { return '<label class="tg"><input type="checkbox" data-k="' + k[0] + '"' + (p[k[0]] === false ? '' : ' checked') + '>' + esc(k[1]) + '</label>'; }).join('') + '<button class="go sec" data-test>أرسل إشعار تجربة</button><button class="go sec" data-off>أوقف الإشعارات على هذا الجهاز</button>'; }
+      else { var p = prefsOf(); h += '<p>✅ مفعَّلة على هذا الجهاز. اختر ما يصلك:</p>' + KINDS.map(function (k) { return '<label class="tg"><input type="checkbox" data-k="' + k[0] + '"' + (p[k[0]] === false ? '' : ' checked') + '>' + esc(k[1]) + '</label>'; }).join('') + '<button class="go sec" data-test>أرسل إشعار تجربة</button><button class="go sec" data-off>أوقف الإشعارات على هذا الجهاز</button><h3 style="margin-top:14px">🕘 آخر الإشعارات</h3><div data-feed style="font-size:13px;color:#6b7280">جارٍ التحميل…</div>'; }
       h += '<div class="msg" data-msg></div><button class="go sec" data-close>إغلاق</button></div>'; ov.innerHTML = h;
       var $ = function (q) { return ov.querySelector(q); }, say = function (t, ok) { var m = $('[data-msg]'); if (m) { m.textContent = t; m.className = 'msg' + (ok ? ' ok' : ''); } };
       $('[data-close]').onclick = function () { ov.remove(); };
@@ -116,6 +122,10 @@
       if ($('[data-test]')) $('[data-test]').onclick = async function () { say('جارٍ الإرسال…', true); var r = await test(); say(r.ok ? 'أُرسل إشعار التجربة — انتظر ثوانٍ' : (r.msg || 'تعذّر الإرسال'), r.ok); };
       if ($('[data-off]')) $('[data-off]').onclick = async function () { await disable(); paint(); };
       ov.querySelectorAll('input[data-k]').forEach(function (i) { i.onchange = function () { setPref(i.getAttribute('data-k'), i.checked); }; });
+      var fd = $('[data-feed]'); if (fd) feed().then(function (r) {
+        var it = (r && r.items) || []; if (!it.length) { fd.textContent = 'لا إشعارات خلال الأيّام السبعة الماضية.'; return; }
+        fd.innerHTML = it.map(function (x) { return '<a href="' + esc(x.u || '#') + '" style="display:block;padding:9px 4px;border-bottom:1px solid #f1f5f9;text-decoration:none;color:#111"><div style="font-weight:800;font-size:13px">' + esc(x.t) + '</div><div style="font-size:12px;color:#4b5563">' + esc(x.b) + '</div><div style="font-size:10.5px;color:#9ca3af">' + esc(ago(x.at)) + '</div></a>'; }).join('');
+      });
     }
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
     doc.body.appendChild(ov); await paint();
@@ -157,5 +167,5 @@
     doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'visible') { try { navigator.serviceWorker.ready.then(function (r) { r.active && r.active.postMessage({ type: 'gmt-badge-clear' }); }); } catch (_) {} } });
     if (doc.readyState === 'complete') setTimeout(resync, 3000); else global.addEventListener('load', function () { setTimeout(resync, 3000); });
   }
-  global.GMTPush = { status: status, enable: enable, disable: disable, setPref: setPref, test: test, resync: resync, openPanel: openPanel, mountCTA: mountCTA, KINDS: KINDS };
+  global.GMTPush = { feed: feed, status: status, enable: enable, disable: disable, setPref: setPref, test: test, resync: resync, openPanel: openPanel, mountCTA: mountCTA, KINDS: KINDS };
 })(window);

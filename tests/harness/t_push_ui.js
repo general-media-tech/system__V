@@ -16,14 +16,17 @@ const STUB = (supported) => `
   // ① أندرويد/كمبيوتر مدعوم
   let o = await H.open('pos.html', { init: H.STAFF_INIT + STUB(true), w: 390, mobile: true, wait: 5500 });
   const calls = [];
-  await o.ctx.route('**/functions/v1/push-subscribe**', async r => { const b = JSON.parse(r.request().postData() || '{}'); calls.push(b); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(b.action === 'key' ? { ok: true, key: 'B'.repeat(87) } : { ok: true }) }); });
+  await o.ctx.route('**/functions/v1/push-subscribe**', async r => { const b = JSON.parse(r.request().postData() || '{}'); calls.push(b); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(b.action === 'key' ? { ok: true, key: 'B'.repeat(87) } : b.action === 'feed' ? { ok: true, items: [{ id: 1, t: '🚚 شُحن أوردر', b: 'ORD-5 مع المفتي', u: 'orders.html?order=5', k: 'order_shipped', at: new Date().toISOString() }] } : { ok: true }) }); });
   ok(await o.pg.evaluate(() => typeof GMTPush === 'object') && await o.pg.evaluate(() => GMTPush.status()) === 'off', 'الحالة الأولى «off»');
   await o.pg.evaluate(() => GMTPush.openPanel(['pos'])); await o.pg.waitForTimeout(400);
   ok(await o.pg.evaluate(() => !!document.querySelector('#gmt-push-ov [data-en]')), 'اللوحة تعرض زرّ «فعّل الإشعارات»');
   await o.pg.click('#gmt-push-ov [data-en]'); await o.pg.waitForTimeout(900);
   const sub = calls.find(c => c.action === 'subscribe');
   ok(calls[0] && calls[0].action === 'key' && sub && sub.branch_key === 'daraa' && JSON.stringify(sub.topics) === '["pos"]' && sub.sub.endpoint.indexOf('fcm.googleapis.com') > 0 && sub.user_id === '2' && sub.platform === 'desktop', 'نقرة التفعيل ⇒ طلب key ثمّ subscribe بفرع درعا وموضوع pos: ' + JSON.stringify(sub && { b: sub.branch_key, t: sub.topics, u: sub.user_id }));
-  ok(await o.pg.evaluate(() => GMTPush.status()) === 'on' && await o.pg.evaluate(() => !!document.querySelector('#gmt-push-ov input[data-k="price"]')), 'الحالة «on» والمفاتيح لكلّ نوع ظاهرة');
+  ok(await o.pg.evaluate(() => GMTPush.status()) === 'on' && await o.pg.evaluate(() => !!document.querySelector('#gmt-push-ov input[data-k="price"]') && !!document.querySelector('#gmt-push-ov input[data-k="sales"]') && !!document.querySelector('#gmt-push-ov input[data-k="money"]')), 'الحالة «on» ومفاتيح المجموعات (أسعار · مبيعات · مالية …) ظاهرة');
+  await o.pg.waitForTimeout(600);
+  const fd = await o.pg.evaluate(() => (document.querySelector('#gmt-push-ov [data-feed]') || {}).textContent || '');
+  ok(/شُحن أوردر/.test(fd) && /ORD-5/.test(fd) && calls.some(c => c.action === 'feed' && c.auth === 'A'.repeat(22)), '«آخر الإشعارات» داخل اللوحة من سجلّ الخادم (بإثبات الجهاز): ' + fd.slice(0, 40));
   await o.pg.evaluate(() => { const i = document.querySelector('#gmt-push-ov input[data-k="price"]'); i.checked = false; i.dispatchEvent(new Event('change')); }); await o.pg.waitForTimeout(400);
   const pf = calls.find(c => c.action === 'prefs');
   ok(pf && pf.prefs.price === false && pf.endpoint.indexOf('TEST') > 0 && pf.auth === 'A'.repeat(22), 'إطفاء «الأسعار» ⇒ prefs بإثبات الجهاز');
@@ -44,7 +47,7 @@ const STUB = (supported) => `
   await o.ctx.route('**/functions/v1/push-subscribe**', async r => { const b = JSON.parse(r.request().postData() || '{}'); calls2.push(b); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(b.action === 'key' ? { ok: true, key: 'B'.repeat(87) } : { ok: true }) }); });
   const er = await o.pg.evaluate(async () => GMTPush.enable(['pos']));
   const s2 = calls2.find(c => c.action === 'subscribe');
-  ok(er.ok && s2 && s2.claim === 'admin' && !s2.user_id && JSON.stringify(s2.topics) === '["pos","orders"]' && !!s2.branch_key, 'جهاز الأدمن بلا حساب ⇒ subscribe بادّعاء admin وموضوعَي pos و orders: ' + JSON.stringify(s2 && { c: s2.claim, t: s2.topics, b: s2.branch_key }));
+  ok(er.ok && s2 && s2.claim === 'admin' && !s2.user_id && JSON.stringify(s2.topics) === '["pos","orders","admin"]' && !!s2.branch_key, 'جهاز الأدمن بلا حساب ⇒ subscribe بادّعاء admin ومواضيع pos و orders و admin: ' + JSON.stringify(s2 && { c: s2.claim, t: s2.topics, b: s2.branch_key }));
   await o.browser.close();
   // ② آيفون بلا تثبيت
   o = await H.open('pos.html', { init: H.STAFF_INIT + STUB(false), w: 390, mobile: true, wait: 4500 });

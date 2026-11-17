@@ -1,7 +1,7 @@
 // (TASK-B0420 · المهمّة ٣) push-subscribe — تسجيل أجهزة الإشعارات والتحقّق منها. لا أسرار هنا: المفاتيح في جدول push_config (service_role فقط).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { validEndpoint } from './push_logic.mjs';
+import { validEndpoint, buildMessage, scrub, wants } from './push_logic.mjs';
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
@@ -46,6 +46,18 @@ Deno.serve(async (req) => {
   const act = String(body.action || '');
   if (act === 'key') { const v = await vapid(); return j({ ok: true, key: v.pub }); }
 
+  // (TASK-B0423) سجلّ الإشعارات داخل التطبيق: آخر 40 إشعاراً تخصّ هذا الجهاز (بإثبات الجهاز endpoint+auth · بلا حدّ المعدّل — يُقرأ عند فتح اللوحة)
+  if (act === 'feed') {
+    if (!validEndpoint(body.endpoint) || !body.auth) return fail('proof', 'إثبات الجهاز ناقص', 403);
+    const { data: me } = await sb.from('push_subscriptions').select('*').eq('endpoint', body.endpoint).eq('auth', body.auth).maybeSingle();
+    if (!me) return fail('none', 'الجهاز غير مسجّل', 403);
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { data: rows } = await sb.from('gmt_push_queue').select('id,kind,branch_key,topic,ref_id,data,created_at,status').gte('created_at', since).in('status', ['sent', 'pending', 'sending']).in('topic', me.topics || []).order('id', { ascending: false }).limit(150);
+    const isAdm = (me.topics || []).indexOf('admin') !== -1;
+    const items = (rows || []).filter((r: any) => !r.branch_key || r.branch_key === me.branch_key || isAdm).filter((r: any) => wants(me, r.kind)).slice(0, 40)
+      .map((r: any) => { const m = buildMessage(r.kind, [{ data: scrub(r.kind, r.data) }], { ref_id: r.ref_id, branch: r.branch_key || undefined }); return { id: r.id, t: m.t, b: m.b, u: m.u, k: r.kind, at: r.created_at }; });
+    return j({ ok: true, items });
+  }
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'na';
   const uidRaw = body.user_id ? String(body.user_id) : null;
   if (!(await rateOk(ip, uidRaw))) return fail('rate', 'محاولات كثيرة — حاول بعد قليل', 429);
@@ -66,7 +78,7 @@ Deno.serve(async (req) => {
       const r = await sb.from('gmt_users').select('id,username,branch_key,is_active,role,approved').eq('id', uidRaw || '00000000-0000-0000-0000-000000000000').maybeSingle(); u = r.data;
       if (!u || u.is_active === false || u.approved === false) return fail('user', 'المستخدم غير معروف أو غير مفعّل', 403);
     }
-    const topics = (Array.isArray(body.topics) ? body.topics : ['pos']).filter((t: string) => TOPICS.indexOf(t) !== -1 && !(adminClaim && t === 'admin'));
+    const topics = (Array.isArray(body.topics) ? body.topics : ['pos']).filter((t: string) => TOPICS.indexOf(t) !== -1);
     if (!topics.length) return fail('topics', 'لا موضوع صالح');
     let branch = body.branch_key ? String(body.branch_key) : null;
     if (topics.indexOf('pos') !== -1) {
@@ -74,7 +86,7 @@ Deno.serve(async (req) => {
       if (!b || !b.length) return fail('branch', 'فرع غير معروف', 403);
       if (u.branch_key && u.branch_key !== branch) return fail('branch', 'الفرع لا يطابق حساب المستخدم', 403);
     }
-    if (topics.indexOf('admin') !== -1 && !(await isAdmin(u))) return fail('admin', 'غير مخوّل لإشعارات الإدارة', 403);
+    if (topics.indexOf('admin') !== -1 && !adminClaim && !(await isAdmin(u))) return fail('admin', 'غير مخوّل لإشعارات الإدارة', 403);
     const prefs = typeof body.prefs === 'object' && body.prefs ? body.prefs : {};
     const row = { endpoint: s.endpoint, p256dh: k.p256dh, auth: k.auth, user_id: String(u.id), username: u.username, branch_key: branch, topics, prefs,
       platform: String(body.platform || '').slice(0, 20), ua: String(req.headers.get('user-agent') || '').slice(0, 120), last_seen_at: new Date().toISOString(), disabled_at: null, disabled_reason: null, fail_count: 0 };

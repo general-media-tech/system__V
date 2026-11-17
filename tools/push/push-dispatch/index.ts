@@ -74,25 +74,25 @@ Deno.serve(async (req) => {
     }
     const items = g.rows.map((r: any) => ({ data: r.data, ref_id: r.ref_id }));
     const base = { ref_id: items.length === 1 ? g.rows[0].ref_id : undefined, branch: g.branch_key || undefined };
-    const seen = new Set<string>(); const res: any[] = [];
+    const seen = new Set<string>(); let gs = 0, gf = 0;
     for (let i = 0; i < targets.length; i += 10) {
       await Promise.all(targets.slice(i, i + 10).map(async ({ sub, pos }) => {
         if (seen.has(sub.id)) return; seen.add(sub.id);
         const m = buildMessage(g.kind, items.map((x: any) => ({ data: x.data })), { ...base, pos });
         try {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(m), { TTL: m.ttl, urgency: m.urgency as any, topic: m.topic });
-          sent++; await sb.from('push_subscriptions').update({ last_sent_at: new Date().toISOString(), fail_count: 0 }).eq('id', sub.id);
+          sent++; gs++; await sb.from('push_subscriptions').update({ last_sent_at: new Date().toISOString(), fail_count: 0 }).eq('id', sub.id);
         } catch (e: any) {
           const sc = e?.statusCode;
           if (sc === 404 || sc === 410) { gone++; await sb.from('push_subscriptions').update({ disabled_at: new Date().toISOString(), disabled_reason: 'gone' }).eq('id', sub.id); }
-          else { failed++; const fc = (sub.fail_count || 0) + 1; await sb.from('push_subscriptions').update(fc >= 5 ? { fail_count: fc, disabled_at: new Date().toISOString(), disabled_reason: 'failing' } : { fail_count: fc }).eq('id', sub.id); }
+          else { failed++; gf++; const fc = (sub.fail_count || 0) + 1; await sb.from('push_subscriptions').update(fc >= 5 ? { fail_count: fc, disabled_at: new Date().toISOString(), disabled_reason: 'failing' } : { fail_count: fc }).eq('id', sub.id); }
         }
       }));
     }
-    const totalFail = targets.length > 0 && sent === 0 && failed > 0;
+    const totalFail = targets.length > 0 && gs === 0 && gf > 0;   // (B0423) عدّادات المجموعة لا الإجماليّة
     await sb.from('gmt_push_queue').update(totalFail && g.rows[0].attempts < 3
-      ? { status: 'pending', send_after: new Date(Date.now() + 120000).toISOString(), result: { targets: targets.length, failed } }
-      : { status: targets.length ? 'sent' : 'skipped', sent_at: new Date().toISOString(), result: { targets: targets.length, sent, gone, failed } }).in('id', ids);
+      ? { status: 'pending', send_after: new Date(Date.now() + 120000).toISOString(), result: { targets: targets.length, failed: gf } }
+      : { status: 'sent', sent_at: new Date().toISOString(), result: { targets: targets.length, sent: gs, failed: gf } }).in('id', ids);
   }
   return j({ ok: true, groups, sent, gone, failed });
 });
