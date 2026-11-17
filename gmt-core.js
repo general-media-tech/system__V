@@ -4087,20 +4087,20 @@
 
     /* ① البوتات المحمّلة */
     var bots = [
-      ['gmt-bugcatcher', 'GMTBug', 'الحارس — يلتقط الأخطاء لحظة وقوعها'],
-      ['gmt-inspector', 'GMTInspect', 'المفتّش — الأخطاء الصامتة'],
-      ['gmt-warden', 'GMTWarden', 'المراقب السيادي'],
-      ['gmt-selftest', 'GMTSelfTest', 'الفاحص الذاتي'],
-      ['gmt-guide', 'GMTGuide', 'الدليل التعليمي'],
-      ['gmt-sandbox', 'GMTSandbox', 'الوضع التدريبي'],
-      ['gmt-brand', 'GMTBrand', 'الهوية'],
-      ['gmt-money-guard', 'GMTMoneyGuard', 'الحارس المالي'],
-      ['gmt-code-sentinel', 'GMTCodeSentinel', 'حارس الكود']
+      ['gmt-core.js', 'GMTBug', 'الحارس — يلتقط الأخطاء لحظة وقوعها'],
+      ['gmt-staff.js', 'GMTInspect', 'المفتّش — الأخطاء الصامتة'],
+      ['gmt-staff.js', 'GMTWarden', 'المراقب السيادي'],
+      ['gmt-staff.js', 'GMTSelfTest', 'الفاحص الذاتي'],
+      ['gmt-staff.js', 'GMTGuide', 'الدليل التعليمي'],
+      ['gmt-staff.js', 'GMTSandbox', 'الوضع التدريبي'],
+      ['gmt-core.js', 'GMTBrand', 'الهوية'],
+      ['gmt-staff.js', 'GMTMoneyGuard', 'الحارس المالي'],
+      ['gmt-staff.js', 'GMTCodeSentinel', 'حارس الكود']
     ];
     var loaded = 0, missing = [];
     bots.forEach(function (b) {
       if (window[b[1]]) { loaded++; }
-      else missing.push(b[0]);
+      else missing.push(b[1] + ' (' + b[0] + ')');
     });
     add(run, 'البوتات', 'فحص وجود كائن كل بوت بـwindow',
       missing.length ? 'warn' : 'ok',
