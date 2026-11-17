@@ -19,7 +19,7 @@ let bad = 0; const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (
   ok(/🧠 قراءة العقل/.test(st.rep), 'ملخّص العقل داخل التقرير المنسوخ');
   const row = await H.call('/rest/v1/gmt_settings?key=eq.gmt_last_check_report&select=value', undefined, 'GET');
   ok(row && row[0] && /فواتير بلا بنود/.test(row[0].value), 'التقرير محفوظ في gmt_settings (مشترك بين الأجهزة)');
-  const ctx = await pg.evaluate(() => GMTBrain.context().lastCheckReport || '');
+  const ctx = await pg.evaluate(() => (GMTBrain.context().errors || []).filter(e => String(e).indexOf('[آخر فحص شامل]') === 0).join('\n'));
   ok(/فواتير بلا بنود/.test(ctx), 'سياق العقل في أي صفحة فيه آخر تقرير');
 
   // العقل غير مفعّل ⇒ رسالة واضحة + زرّ
