@@ -5738,11 +5738,11 @@ async function loadProductsReport() {
 
   try {
     // جلب فواتير الفرع بالفترة (لتحديد أي منتج انباع)
-    const rInv = await fetch(
-      `${CONFIG.SUPABASE_URL}/rest/v1/invoices?branch_key=eq.${branch.key}&created_at=gte.${since}&select=id,sale_type,total,customer_name&limit=5000`,
-      { headers: sbHeaders() }
-    );
-    const invs = (rInv.ok ? await rInv.json() : [])
+    /* (ARC-MD-06#19) كلّ الصفوف صفحةً صفحة — Supabase يقطع عند 1000 صفّ بصمت مهما كان limit */
+    const getAll = (path) => window.GMTFetchAll
+      ? GMTFetchAll(GMTFetchAll.rest(CONFIG.SUPABASE_URL, sbHeaders()), path).catch(() => [])
+      : fetch(CONFIG.SUPABASE_URL + path + '&limit=5000', { headers: sbHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []);
+    const invs = (await getAll(`/rest/v1/invoices?branch_key=eq.${branch.key}&created_at=gte.${since}&select=id,sale_type,total,customer_name`))
       .filter(i => !String(i.customer_name||'').startsWith('[تدريب]')); // استثناء التدريب
     const invIds = invs.map(i => i.id);
 
@@ -5752,12 +5752,9 @@ async function loadProductsReport() {
       const chunkSize = 200;
       for (let i=0; i<invIds.length; i+=chunkSize) {
         const chunk = invIds.slice(i, i+chunkSize);
-        const rIt = await fetch(
-          `${CONFIG.SUPABASE_URL}/rest/v1/invoice_items?invoice_id=in.(${chunk.join(',')})&select=product_id,product_name,qty,unit_price,total&limit=20000`,
-          { headers: sbHeaders() }
-        );
-        if (rIt.ok) {
-          (await rIt.json()).forEach(it => {
+        const its = await getAll(`/rest/v1/invoice_items?invoice_id=in.(${chunk.join(',')})&select=product_id,product_name,qty,unit_price,total`);
+        {
+          its.forEach(it => {
             const pid = it.product_id || it.product_name;
             if (!pid) return;
             if (!soldMap[pid]) soldMap[pid] = { id: it.product_id, name: it.product_name || '—', qty: 0, revenue: 0 };

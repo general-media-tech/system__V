@@ -1331,6 +1331,11 @@ async function rcptImgOf(o) {
         return (row && row.receipt_img) || '';
     } catch (_) { return ''; }
 }
+/* (ARC-MD-06#19) قراءةٌ كاملة صفحةً صفحة — Supabase يقطع عند 1000 صفّ بصمت مهما كان limit (يرمي عند الفشل) */
+function ordersFetchAll(path, lim) {
+    if (window.GMTFetchAll) return GMTFetchAll(GMTFetchAll.rest(SUPA_URL, SB_HEADERS), path);
+    return fetch(SUPA_URL + path + '&limit=' + (lim || 5000), { headers: SB_HEADERS }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+}
 async function sbGet() {
     const cols = await ordersCols(), sel = 'select=' + (cols === '*' ? '*' : encodeURIComponent(cols));
     const keepImg = rows => {                                   // صورةٌ جُلبت سابقاً تبقى ما دام الإيصال نفسه (receipt_at لم يتغيّر)
@@ -1339,19 +1344,14 @@ async function sbGet() {
         return rows;
     };
     if (_ordersLoadAll) {
-        const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?${sel}&order=created_at.desc&limit=5000`, { headers: SB_HEADERS });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return keepImg(await r.json());
+        return keepImg(await ordersFetchAll(`/rest/v1/${TABLE}?${sel}&order=created_at.desc`, 5000));
     }
     const since = new Date(Date.now() - ORDERS_WINDOW_DAYS * 86400000).toISOString();
     // ① أوردرات النافذة الزمنية  ② ما لم يكتمل بعد **وأقدم منها** (لا يضيع طلب معلّق — ولا يُجلب المفتوح الحديث مرّتين)
-    const [rRecent, rOpen] = await Promise.all([
-        fetch(`${SUPA_URL}/rest/v1/${TABLE}?${sel}&created_at=gte.${since}&order=created_at.desc&limit=3000`, { headers: SB_HEADERS }),
-        fetch(`${SUPA_URL}/rest/v1/${TABLE}?${sel}&status=neq.completed&created_at=lt.${since}&order=created_at.desc&limit=1000`, { headers: SB_HEADERS }),
+    const [recent, open] = await Promise.all([
+        ordersFetchAll(`/rest/v1/${TABLE}?${sel}&created_at=gte.${since}&order=created_at.desc`, 3000),
+        ordersFetchAll(`/rest/v1/${TABLE}?${sel}&status=neq.completed&created_at=lt.${since}&order=created_at.desc`, 1000).catch(() => []),
     ]);
-    if (!rRecent.ok) throw new Error(`HTTP ${rRecent.status}`);
-    const recent = await rRecent.json();
-    const open   = rOpen.ok ? await rOpen.json() : [];
     // دمج بلا تكرار (الأحدث أولاً)
     const seen = new Set(), out = [];
     for (const o of [...recent, ...open]) {
@@ -2851,14 +2851,13 @@ async function loadProductCatalog(force) {
             'id,name,barcode,price,image_url,group_name',
             'id,name,barcode'
         ];
-        let r = null, url = '';
+        let got = null, lastErr = null;
         for (const cols of _tries) {
-            url = `${SUPA_URL}/rest/v1/products?select=${cols}&limit=5000`;
-            r = await fetch(url, { headers: SB_HEADERS });
-            if (r.ok) break;
+            try { got = await ordersFetchAll(`/rest/v1/products?select=${cols}`, 5000); break; }   /* (ARC-MD-06#19) كلّ المنتجات لا أوّل 1000 */
+            catch (e) { lastErr = e; }
         }
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const rows = (await r.json()).map(p => ({
+        if (!got) throw lastErr || new Error('HTTP');
+        const rows = got.map(p => ({
             id: p.id, name: p.name, barcode: p.barcode, price: p.price,
             image_url: p.image_url, store_url: p.store_url, group_name: p.group_name, short: p.short,
             search_terms: p.search_terms, compat: p.compat, qty: p.haleb }));

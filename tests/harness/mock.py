@@ -142,7 +142,7 @@ class H(BaseHTTPRequestHandler):
                 self.rfile.read(int(self.headers.get('Content-Length') or 0))
                 return self.reply(400, {'code': 'PGRST102', 'details': None, 'hint': None, 'message': 'Content-Type not acceptable: ' + (ct or '(none)')})
         path, q, body = self.parse()
-        if path == '/__reset': DB.clear(); return self.reply(200, {})
+        if path == '/__reset': DB.clear(); OPTS.pop('max_rows', None); return self.reply(200, {})
         if path == '/__opts': OPTS.update(body or {}); return self.reply(200, OPTS)
         if path == '/__dump': return self.reply(200, DB)
         m = re.match(r'^/rest/v1/rpc/(\w+)$', path)
@@ -175,6 +175,7 @@ class H(BaseHTTPRequestHandler):
             rows = self.filt(t, q)
             if t in SCHEMA: rows = [dict({c: None for c in SCHEMA[t]}, **r) for r in rows]
             rows = self.proj(rows, q)
+            if OPTS.get('max_rows'): rows = rows[:int(OPTS['max_rows'])]   # (ARC-MD-06#19) كـSupabase: سقف Max Rows الصامت مهما كان limit
             # كـPostgREST: ‎.single()‎ (Accept: vnd.pgrst.object+json) ⇒ كائنٌ واحد، أو 406 إن لم يكن صفّاً واحداً بالضبط (TASK-0162)
             if 'vnd.pgrst.object' in (self.headers.get('Accept') or ''):
                 if len(rows) != 1: return self.reply(406, {'code': 'PGRST116', 'message': 'JSON object requested, multiple (or no) rows returned'})

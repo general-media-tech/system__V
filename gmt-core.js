@@ -4799,3 +4799,54 @@
   }
   window.GMTCashTx = { fill: fill, post: post, uniq: uniq };
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GMTFetchAll — جلب كل الصفوف صفحةً صفحة [OWN-ROW-CAP · ARC-MD-06#19]
+   ───────────────────────────────────────────────────────────────────────────
+   Supabase يُرجع 1000 صفّ كحدّ أقصى (Max Rows) مهما طلبتَ limit=5000، وبلا خطأ ⇒ الإجماليات
+   تُحسب من أول 1000 فقط. كان الحلّ (_sbAll) محلياً في admin_pos وحده؛ هنا مصدرٌ واحد لكل الصفحات.
+   get(path) ⇐ Promise<array> ويرمي عند الفشل (لا يبتلع الخطأ). يُضاف id كمفتاح كسر تعادل في الترتيب
+   (الترقيم بـoffset بلا ترتيبٍ فريد يكرّر/يُسقط صفوفاً)، فإن رفضه الجدول نرجع للمسار الأصلي.
+   GMTFetchAll.rest(base, headers) ⇐ get جاهز فوق fetch للصفحات التي لا تملك sb().
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.GMTFetchAll) return;
+  function strip(p) {
+    return String(p).replace(/([?&])(limit|offset)=[^&]*/g, '$1').replace(/&{2,}/g, '&').replace(/\?&/, '?').replace(/[?&]$/, '');
+  }
+  function paged(p, lim, off) { return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + lim + '&offset=' + off; }
+  function strictOrder(p) {
+    var m = /([?&])order=([^&]+)/.exec(p);
+    if (!m) return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'order=id.asc';
+    if (/(^|,)id(\.|$)/.test(m[2])) return p;
+    var dir = /\.desc(\.|$)/.test(m[2].split(',').pop()) ? 'desc' : 'asc';
+    return p.replace(m[0], m[1] + 'order=' + m[2] + ',id.' + dir);
+  }
+  async function raw(get, p, page, max) {
+    var out = [];
+    for (var off = 0; off < max; off += page) {
+      var rows = await get(paged(p, page, off));
+      if (!Array.isArray(rows)) break;
+      for (var i = 0; i < rows.length; i++) out.push(rows[i]);
+      if (rows.length < page) break;
+    }
+    return out;
+  }
+  async function fetchAll(get, path, opts) {
+    opts = opts || {};
+    var page = opts.page || 1000, max = opts.max || 60000;
+    var p = strip(path);
+    var s = opts.noIdOrder ? p : strictOrder(p);
+    if (s === p) return raw(get, p, page, max);
+    try { return await raw(get, s, page, max); } catch (e) { return raw(get, p, page, max); }
+  }
+  fetchAll.rest = function (base, headers) {
+    return async function (p) {
+      var r = await fetch(base + p, { headers: headers });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    };
+  };
+  window.GMTFetchAll = fetchAll;
+})();

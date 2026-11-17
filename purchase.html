@@ -1067,6 +1067,8 @@ async function sb(method,path,body=null,xtra={}){
   if(method!=='GET' && path.indexOf('/rest/v1/import_log')===0){ try{ledgerAfterWrite(method,path,d);}catch(_){} }   /* (٨ ج) أيّ تعديلٍ على فاتورة شراء ⇒ يتبدّل المصروف والمحاسبة تلقائياً */
   return d;
 }
+/* (ARC-MD-06#19) قراءةٌ كاملة صفحةً صفحة — Supabase يقطع عند 1000 صفّ بصمت مهما كان limit */
+function sbAll(path){ return window.GMTFetchAll ? GMTFetchAll(p=>sb('GET',p), path) : sb('GET', path+(path.indexOf('?')>=0?'&':'?')+'limit=5000'); }
 
 /* ═══ (٨ ج) ربط فاتورة الشراء بالمصاريف والمحاسبة — gmt-ledger.js ═══
    كلُّ كتابةٍ على import_log (إنشاء · تعديل مبلغ/دفعة/جمارك · وصول · حذف) تُطابق دفتر المحاسبة بالفرق فقط:
@@ -1077,7 +1079,7 @@ async function sb(method,path,body=null,xtra={}){
 /* (المالك seq 388) الرقم التالي = أكبر رقمٍ موجود بالبادئة نفسها + 1 — لا «آخر فاتورة أُدخلت» (فاتورةٌ قديمة بتاريخها كانت تُعيد رقماً موجوداً: IMP-2026-0001 مكرّر) */
 async function nextInvNum(prefix){
   const y=new Date().getFullYear(), pre=prefix+'-'+y+'-';
-  const rows=await sb('GET','/rest/v1/import_log?select=inv_number&inv_number=like.'+encodeURIComponent(pre+'*')+'&limit=5000').catch(()=>[]);
+  const rows=await sbAll('/rest/v1/import_log?select=inv_number&inv_number=like.'+encodeURIComponent(pre+'*')).catch(()=>[]);
   let max=0; (Array.isArray(rows)?rows:[]).forEach(r=>{const m=String(r&&r.inv_number||'').match(/(\d+)$/); if(m) max=Math.max(max,parseInt(m[1],10)||0);});
   return pre+String(max+1).padStart(4,'0');
 }
@@ -1123,7 +1125,7 @@ function initPayerUI(){
   });
 }
 async function loadPoRows(){
-  try{const r=await sb('GET','/rest/v1/gmt_expenses?note=like.'+encodeURIComponent('*[PO:*')+'&select=id,amount,currency,note,created_at,requested_by,branch_key,voided,is_general&order=created_at.desc&limit=2000');poRows=Array.isArray(r)?r:[];}catch(_){poRows=[];}
+  try{const r=await sbAll('/rest/v1/gmt_expenses?note=like.'+encodeURIComponent('*[PO:*')+'&select=id,amount,currency,note,created_at,requested_by,branch_key,voided,is_general&order=created_at.desc');poRows=Array.isArray(r)?r:[];}catch(_){poRows=[];}
 }
 function poPayLine(s){
   if(!window.GMTLedger)return'';
@@ -1236,7 +1238,7 @@ async function _waitForGMTCache(maxMs){
       prods=Array.isArray(rows)?rows:[];
       // (2026-08-15) إن كان الكاش فارغاً (أول تحميل / فشل IndexedDB) اجلب من السيرفر مباشرةً
       //   وإلا لن يتعرّف بحث الفاتورة على المنتجات الموجودة (يعرض «منتج جديد» فقط).
-      if(!prods.length){ prods=await sb('GET','/rest/v1/products?order=name.asc&limit=5000').catch(()=>[]); }
+      if(!prods.length){ prods=await sbAll('/rest/v1/products?order=name.asc').catch(()=>[]); }
       /* 🔴 (2026-10-03 · كشفه `فحص_أخطاء_الصفحات.js`) كان هنا `setStatus(...)`
          و`setStatus` **ليست دالّةً في هذه الصفحة**: هي معرَّفةٌ داخل سكربتٍ
          يُكتَب في **نافذةٍ منفصلة** (نافذة النسخ الاحتياطي) أي في نطاقٍ آخر
@@ -1247,7 +1249,7 @@ async function _waitForGMTCache(maxMs){
       if(offline) toast('🔌 وضع عدم الاتصال — يعمل النظام بالبيانات المحفوظة محلياً','warn');
     } else {
       // احتياطي إن لم تتوفر مكتبة الكاش لأي سبب
-      prods=await sb('GET','/rest/v1/products?order=name.asc&limit=5000').catch(()=>[]);
+      prods=await sbAll('/rest/v1/products?order=name.asc').catch(()=>[]);
     }
     allBranches=Array.isArray(cols)&&cols.length?cols:[
       {key_name:'haleb',display_name:'حلب',icon:'🏪'},

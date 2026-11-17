@@ -917,9 +917,11 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     const out = [];
     for (const c of CHECKS) {
       let rows = [], aux = null, failed = false, error = '';
+      /* (ARC-MD-06#19) الفحوص التي تطلب ≥1000 صفّ تُجلب كاملةً صفحةً صفحة — Supabase يقطع عند 1000 بصمت ⇒ تكرارٌ/يتيمٌ كاذب أو مفقود */
+      const all = (p) => (window.GMTFetchAll && /[?&]limit=\d{4,}/.test(p)) ? GMTFetchAll(q, p) : q(p);
       try {
-        rows = await q(c.path);
-        if (c.needs) aux = typeof c.needs === 'function' ? await c.needs(rows || [], q) : await q(c.needs);
+        rows = await all(c.path);
+        if (c.needs) aux = typeof c.needs === 'function' ? await c.needs(rows || [], q) : await all(c.needs);
       } catch (e) { failed = true; error = (e && e.message) || String(e); }
       let hits = [];
       try { hits = c.test(rows || [], aux, failed) || []; }
@@ -1460,7 +1462,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     var invs, prods;
     try {
       invs  = await q('import_log?select=inv_number,items_snapshot,transferred,transfer_moved,status&limit=500');
-      prods = await q('products?select=id,name,germany,china,haleb&limit=2000');
+      prods = window.GMTFetchAll ? await window.GMTFetchAll(q, 'products?select=id,name,germany,china,haleb') : await q('products?select=id,name,germany,china,haleb&limit=2000');   /* (ARC-MD-06#19) كلّها */
     } catch (e) {
       warn('المخزون', 'تعذّر فحص سلامة المخزون', e.message, 'شغّل GMT_MASTER_SCHEMA أولاً ثم أعد الفحص.');
       return;
@@ -3028,7 +3030,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     const prodSel = ['id','name','barcode','created_at'].concat(brCols).join(',');
     const [invs, prods] = await Promise.all([
       rest('GET', 'import_log?select=*&order=created_at.desc&limit=1000'),
-      rest('GET', 'products?select=' + prodSel + '&limit=5000'),
+      /* (ARC-MD-06#19) كلّ المنتجات صفحةً صفحة — كان limit=5000 يُقطع عند 1000 بصمت ⇒ «بنود بلا قطعة بالجرد» كاذبة */
+      window.GMTFetchAll ? GMTFetchAll((p) => rest('GET', p), 'products?select=' + prodSel) : rest('GET', 'products?select=' + prodSel + '&limit=5000'),
     ]);
     S.invoices = invs || [];
     S.products = prods || [];

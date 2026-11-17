@@ -652,6 +652,8 @@ async function _sbAllRaw(path) {
   return out;
 }
 async function _sbAll(path) {
+  /* (ARC-MD-06#19) المصدر الواحد صار GMTFetchAll في gmt-core.js — هنا احتياطٌ فقط إن حُمّلت نسخةٌ قديمة منه */
+  if (window.GMTFetchAll) return GMTFetchAll(p => sb('GET', p), path);
   let strict = path;
   const m = /([?&])order=([^&]+)/.exec(path);
   if (!m) strict = path + (path.indexOf('?') >= 0 ? '&' : '?') + 'order=id.asc';
@@ -869,7 +871,7 @@ function isOpenDebt(r) {
 async function loadDebts() {
   try {
     // نجرّب مع sale_type أولاً
-    const rows = await sb('GET', '/rest/v1/invoices?sale_type=eq.آجل (شحن)&order=created_at.desc&limit=2000&select=id,inv_number,branch_key,branch_name,total,customer_name,customer_phone,created_at,payment_status,paid_amount,remaining_amount');
+    const rows = await _sbAll('/rest/v1/invoices?sale_type=eq.آجل (شحن)&order=created_at.desc&select=id,inv_number,branch_key,branch_name,total,customer_name,customer_phone,created_at,payment_status,paid_amount,remaining_amount');
     allDebts = (Array.isArray(rows) ? rows : []).filter(isOpenDebt);
   } catch(e) {
     // إذا فشل (العمود غير موجود) نجلب الكل ونصفّي محلياً
@@ -2737,13 +2739,13 @@ async function renderCommissions() {
   // ─── Load items ───
   let rawItems = [];
   try {
-    rawItems = await sb('GET',
-      '/rest/v1/invoice_items?select=id,invoice_id,product_name,qty,purchase_price,wholesale_price,sale_price,actual_price,commission&limit=5000&order=invoice_id.asc'
+    rawItems = await _sbAll(
+      '/rest/v1/invoice_items?select=id,invoice_id,product_name,qty,purchase_price,wholesale_price,sale_price,actual_price,commission&order=invoice_id.asc'
     );
     if (!Array.isArray(rawItems)) rawItems = [];
   } catch(e) {
     try {
-      rawItems = await sb('GET','/rest/v1/invoice_items?select=id,invoice_id,product_name,qty,unit_price,commission&limit=5000');
+      rawItems = await _sbAll('/rest/v1/invoice_items?select=id,invoice_id,product_name,qty,unit_price,commission');
       if(!Array.isArray(rawItems)) rawItems=[];
       rawItems = rawItems.map(it=>({...it, purchase_price:it.unit_price||0, wholesale_price:0, sale_price:it.unit_price||0, actual_price:it.unit_price||0}));
     } catch(_) { rawItems=[]; }
@@ -2752,7 +2754,7 @@ async function renderCommissions() {
   // ─── Load commission records ───
   let rawComms = [];
   try {
-    rawComms = await sb('GET','/rest/v1/invoice_commissions?select=id,invoice_id,approved,paid,amount,note&limit=2000');
+    rawComms = await _sbAll('/rest/v1/invoice_commissions?select=id,invoice_id,approved,paid,amount,note');
     if (!Array.isArray(rawComms)) rawComms = [];
   } catch(_) { rawComms = []; }
 
@@ -3026,7 +3028,7 @@ async function _t9_scan() {
     let linked = null;
     for (const q of ['order_id=not.is.null&select=id,inv_number,order_serial,order_id',
                      'order_id=not.is.null&select=id,inv_number,order_id']) {
-      try { linked = await sb('GET', '/rest/v1/invoices?' + q + '&limit=5000'); break; }
+      try { linked = await _sbAll('/rest/v1/invoices?' + q); break; }
       catch (_) {}
     }
     if (!Array.isArray(linked) || !linked.length) return;
@@ -3035,7 +3037,7 @@ async function _t9_scan() {
     /* العمولات غير المُصفَّرة على تلك الفواتير */
     const comms = Array.isArray(allComm) && allComm.length
       ? allComm
-      : (await sb('GET', '/rest/v1/invoice_commissions?select=*&limit=5000')) || [];
+      : (await _sbAll('/rest/v1/invoice_commissions?select=*')) || [];
     _t9_rows = (comms || []).filter(cm =>
       byId.has(String(cm.invoice_id)) && !cm.zeroed && Math.abs(Number(cm.amount) || 0) > 0.001
     ).map(cm => ({ ...cm, _inv: byId.get(String(cm.invoice_id)) }));
@@ -3510,7 +3512,7 @@ let allManualDebts = [];
 
 async function loadManualDebts() {
   try {
-    const rows = await sb('GET', '/rest/v1/gmt_manual_debts?order=created_at.desc&limit=2000');
+    const rows = await _sbAll('/rest/v1/gmt_manual_debts?order=created_at.desc');
     allManualDebts = (Array.isArray(rows) ? rows : []).filter(r => !r.voided);   // إخفاء المُبطَل (يبقى بالقاعدة للتدقيق)
   } catch(e) { allManualDebts = []; }
 }
@@ -4807,8 +4809,8 @@ async function syncCustomersEverywhere() {
     // ③ الكفالات (قاعدة الكفالات المستقلّة)
     try {
       const W = window.GMT_DB && GMT_DB.WARRANTY;
-      if (W) { const r = await fetch(W.url + '/rest/v1/warranties?select=customer_name,customer_typed_name,phone_no,created_at&limit=5000', { headers: { apikey: W.key, Authorization: 'Bearer ' + W.key } });
-               if (r.ok) (await r.json()).forEach(w => add('warranties', w.customer_typed_name || w.customer_name, w.phone_no, w.created_at, { branch_name: 'الكفالات' })); }
+      if (W) { const wh = { apikey: W.key, Authorization: 'Bearer ' + W.key };
+               (await GMTFetchAll(GMTFetchAll.rest(W.url, wh), '/rest/v1/warranties?select=customer_name,customer_typed_name,phone_no,created_at')).forEach(w => add('warranties', w.customer_typed_name || w.customer_name, w.phone_no, w.created_at, { branch_name: 'الكفالات' })); }
     } catch (_) {}
     const list = [...found.values()];
     if (!list.length) { done(); await GMTAsk.alert('كل زبائن الأوردرات والفواتير والكفالات موجودون في سجلّ العملاء ✓' + (bad ? '\n(' + bad + ' رقمٌ غير سوريّ/غير صالح لم يُضَف)' : ''), { title: '🔄 مزامنة العملاء' }); return; }
@@ -6136,14 +6138,14 @@ let allReservationsAcc = [];   // gmt_reservations — العرابين والم
 
 async function loadOrdersForAccounting() {
   try {
-    allOrdersAcc = await sb('GET', '/rest/v1/gmt_orders?select=id,branch,status,price,shipping_company,created_at&limit=2000');
+    allOrdersAcc = await _sbAll('/rest/v1/gmt_orders?select=id,branch,status,price,shipping_company,created_at');
     if (!Array.isArray(allOrdersAcc)) allOrdersAcc = [];
   } catch(e) { allOrdersAcc = []; }
 }
 
 async function loadReservationsForAccounting() {
   try {
-    allReservationsAcc = await sb('GET', '/rest/v1/gmt_reservations?select=*&limit=2000');
+    allReservationsAcc = await _sbAll('/rest/v1/gmt_reservations?select=*');
     if (!Array.isArray(allReservationsAcc)) allReservationsAcc = [];
   } catch(e) { allReservationsAcc = []; }
 }
