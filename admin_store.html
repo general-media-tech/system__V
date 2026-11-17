@@ -1073,40 +1073,6 @@ window.GMT_INTERNAL = 1;</script>
     </div>
 </div>
 
-<!-- ══ OFFER MODAL ═══════════════════════════ -->
-<div id="offer-modal" class="modal-overlay">
-    <div class="modal-box">
-        <div class="flex justify-between items-center mb-5">
-            <h3 id="offer-modal-title" class="font-bold text-base">إضافة عرض</h3>
-            <button onclick="closeModal('offer-modal')" class="w-8 h-8 bg-light rounded-full flex items-center justify-center"><i class="ph ph-x text-sm text-gray-500"></i></button>
-        </div>
-        <input type="hidden" id="offer-id">
-        <div class="flex flex-col gap-3">
-            <input type="text" id="offer-title" placeholder="عنوان العرض *">
-            <textarea id="offer-description" placeholder="وصف العرض (اختياري)" class="resize-none" style="height:80px;"></textarea>
-            <div>
-                <label class="text-xs text-gray-500 mb-1 block">تاريخ انتهاء العرض (اختياري)</label>
-                <input type="date" id="offer-end-date">
-            </div>
-            <div>
-                <label class="text-xs text-gray-500 mb-1 block">صور العرض</label>
-                <div class="flex gap-2 mb-2">
-                    <button type="button" onclick="inlineUpload('offer-images','offer-imgs-prev','multi')"
-                        class="flex-shrink-0 bg-primary text-white text-xs px-3 py-2 rounded-[10px] flex items-center gap-1 hover:bg-red-800 whitespace-nowrap">
-                        <i class="ph ph-cloud-arrow-up"></i> رفع صور
-                    </button>
-                </div>
-                <div id="offer-imgs-prev" class="flex gap-2 flex-wrap mt-1"></div>
-                <textarea id="offer-images" placeholder="روابط الصور (سطر لكل صورة)" class="resize-none mt-2" style="height:60px;font-size:11px;direction:ltr;"></textarea>
-            </div>
-        </div>
-        <div class="flex gap-2 mt-5">
-            <button onclick="saveOffer()" class="flex-1 bg-primary text-white rounded-[10px] py-3 font-bold hover:bg-red-800">حفظ</button>
-            <button onclick="closeModal('offer-modal')" class="flex-1 bg-light text-gray-600 rounded-[10px] py-3 font-medium">إلغاء</button>
-        </div>
-    </div>
-</div>
-
 <!-- ══ CONFIRM DELETE ════════════════════════ -->
 <div id="confirm-modal" class="modal-overlay">
     <div class="modal-box text-center">
@@ -1330,7 +1296,7 @@ async function loadAllData(){
                 if (_hit) openProdModal(_hit.id);
                 else showToast('هذا المنتج غير مربوط بالمتجر بعد — اربطه من «الربط بالمتجر» أو أضفه هنا', 'info');
             }
-            else if (_t === 'offer') openOfferModal(_id);
+            else if (_t === 'offer') switchTab('offers');
             else if (_t === 'branch') openBranchModal(_id);
         } catch (_) {}
     } catch(e) { showToast('فشل التحميل: '+e.message,'error'); }
@@ -2195,97 +2161,9 @@ async function saveProduct(){
 // ══════════════════════════════════════════════
 // OFFERS ADMIN
 // ══════════════════════════════════════════════
-function renderOffersAdmin(){
-    const list = document.getElementById('offers-admin-list');
-    if(!list) return;
-    if(!adminData.offers.length){
-        list.innerHTML=`<div class="text-center py-10 text-gray-400"><i class="ph ph-tag text-4xl block mb-2 opacity-30"></i><p class="text-sm">لا توجد عروض بعد</p><p class="text-xs mt-1">اضغط "عرض جديد" لإضافة أول عرض</p></div>`;
-        return;
-    }
-    list.innerHTML='';
-    const now=new Date();
-    adminData.offers.forEach(offer=>{
-        const isExpired=offer.end_date&&new Date(offer.end_date)<now;
-        const card=document.createElement('div');
-        card.className='offer-admin-card';
-        const imgUrl=offer.images?.[0]||offer.image||'';
-        card.innerHTML=`
-            <div class="offer-admin-thumb">
-                ${imgUrl?`<img src="${imgUrl}" alt="">`:'<i class="ph ph-tag text-xl text-gray-300"></i>'}
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                    <p class="font-medium text-sm truncate">${offer.title||'عرض'}</p>
-                    ${isExpired?'<span class="text-[10px] bg-red-50 text-red-400 px-1.5 py-0.5 rounded-full flex-shrink-0">منتهي</span>':'<span class="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full flex-shrink-0">نشط</span>'}
-                </div>
-                <p class="text-xs text-gray-400 mt-0.5">${offer.end_date?'ينتهي: '+new Date(offer.end_date).toLocaleDateString('ar-EG'):'بدون تاريخ انتهاء'}</p>
-                ${offer.description?`<p class="text-xs text-gray-500 mt-0.5 line-clamp-1">${offer.description}</p>`:''}
-            </div>
-            <div class="flex gap-1.5 flex-shrink-0">
-                <button onclick="openOfferModal('${offer.id}')" class="w-7 h-7 bg-blue-50 text-blue-500 rounded-[8px] flex items-center justify-center hover:bg-blue-100"><i class="ph ph-pencil-simple text-sm"></i></button>
-                <button onclick="confirmDeleteOffer('${offer.id}')" class="w-7 h-7 bg-red-50 text-red-500 rounded-[8px] flex items-center justify-center hover:bg-red-100"><i class="ph ph-trash text-sm"></i></button>
-            </div>`;
-        list.appendChild(card);
-    });
-}
-
-window.openOfferModal = function(id=null){
-    document.getElementById('offer-id').value = '';
-    document.getElementById('offer-title').value = '';
-    document.getElementById('offer-description').value = '';
-    document.getElementById('offer-end-date').value = '';
-    document.getElementById('offer-images').value = '';
-    document.getElementById('offer-imgs-prev').innerHTML = '';
-    document.getElementById('offer-modal-title').textContent = id ? 'تعديل عرض' : 'إضافة عرض';
-    if(id){
-        const offer = adminData.offers.find(o=>String(o.id) === String(id));
-        if(offer){
-            document.getElementById('offer-id').value = offer.id;
-            document.getElementById('offer-title').value = offer.title||'';
-            document.getElementById('offer-description').value = offer.description||'';
-            document.getElementById('offer-end-date').value = offer.end_date||'';
-            const imgs = offer.images||[];
-            document.getElementById('offer-images').value = imgs.join('\n');
-            imgs.forEach(url=>_addSortableThumb(url,'offer-imgs-prev','offer-images'));
-        }
-    }
-    openModal('offer-modal');
-};
-
-window.saveOffer = async function(){
-    const id = document.getElementById('offer-id').value;
-    const title = document.getElementById('offer-title').value.trim();
-    if(!title) return showToast('عنوان العرض مطلوب','error');
-    const description = document.getElementById('offer-description').value.trim();
-    const end_date = document.getElementById('offer-end-date').value;
-    const images = document.getElementById('offer-images').value.split('\n').map(s=>s.trim()).filter(Boolean);
-    const isNew = !id;
-    const d = { id:id||'off'+Date.now(), title, description:description||undefined, end_date:end_date||undefined, images, image:images[0]||undefined, created_at: id ? (adminData.offers.find(o=>String(o.id) === String(id))?.created_at || new Date().toISOString()) : new Date().toISOString() };
-    if(id){ const i=adminData.offers.findIndex(o=>String(o.id) === String(id)); if(i>-1)adminData.offers[i]=d; }
-    else adminData.offers.push(d);
-    try {
-        await updateField('offers',adminData.offers);
-        closeModal('offer-modal');
-        renderOffersAdmin();
-        showToast(isNew?'تم إنشاء العرض ✓':'تم تحديث العرض ✓');
-    } catch(e){ showToast('خطأ: '+e.message,'error'); }
-};
-
-// (أُزيل _sendOfferNotification: كان بثاً وهمياً يكتب بـlocalStorage المتصفح المحلي فقط
-//  ولا يقرؤه أحد. البث الحقيقي الآن عبر الأداة الموحّدة GMTOffersTool (في gmt-staff.js) — تيليغرام/واتساب.)
-
-window.confirmDeleteOffer = function(id){
-    document.getElementById('confirm-delete-btn').onclick = async()=>{
-        try {
-            adminData.offers = adminData.offers.filter(o=>o.id!==id);
-            await updateField('offers',adminData.offers);
-            renderOffersAdmin();
-            showToast('تم حذف العرض ✓');
-        } catch(e){ showToast('فشل: '+e.message,'error'); }
-        closeModal('confirm-modal');
-    };
-    openModal('confirm-modal');
-};
+/* (VER-3#REQ-0353) كان هنا كودٌ قديم يضيف/يحذف عروضاً في adminData.offers (نسخة المتجر) خارج جدول gmt_offers — أُزيل
+   (renderOffersAdmin/openOfferModal/saveOffer/confirmDeleteOffer ونافذة offer-modal). العروض كلها تُدار من الأداة الموحّدة GMTOffersTool (gmt_offers). */
+function renderOffersAdmin(){ if (window.GMTOffersTool) GMTOffersTool.mount('gmt-offers-mount-store'); }
 
 // ══════════════════════════════════════════════
 // BRANCHES ADMIN
