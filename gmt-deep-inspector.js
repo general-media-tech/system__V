@@ -538,7 +538,7 @@
         // ② فاتورة نقل
         const th = await api('POST', 'branch_stock_transfers', {
           transfer_number: TAG + '-TRF-' + Date.now(),
-          from_branch: FROM, to_branch: TO, status: 'pending', created_by: TAG
+          from_branch: FROM, from_branch_name: FROM, to_branch: TO, to_branch_name: TO, status: 'pending', created_by: TAG
         });
         trId = (Array.isArray(th) ? th[0] : th)?.id;
         rec({ area, step: 'إنشاء فاتورة نقل', ok: !!trId, pattern: trId ? null : 'P1' });
@@ -752,6 +752,10 @@
     async transferReceiveFlow(write) {
       const area = 'عمليّة: نقل ⇐ استلام';
       if (!write) { rec({ area, step: 'العمليّة كاملة', ok: null, detail: 'تخطّي — وضع القراءة فقط' }); return true; }
+      /* (VER-4#REQ-0471) الصفحات التي لا تحمّل gmt-stock.js (checks · system_tools) — نحمّله عند الحاجة بدل الفشل (P6) */
+      if (!global.GMTStock || !GMTStock.receiveTransfer) {
+        await new Promise(function (ok) { var sc = document.createElement('script'); sc.src = 'gmt-stock.js?v=20261101r'; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc); });
+      }
       if (!global.GMTStock || !GMTStock.receiveTransfer) { rec({ area, step: 'GMTStock.receiveTransfer محمّل', ok: false, pattern: 'P6', detail: 'gmt-stock.js غير محمّل في هذه الصفحة' }); return false; }
       const one = x => (Array.isArray(x) ? x[0] : x) || null;
       const FROM = 'haleb', TO = 'daraa', START = 10, Q = 3;
@@ -761,7 +765,7 @@
       try {
         made.pid = (one(await api('POST', 'products', { name: TAG + ' منتج استلام', barcode: testBarcode(), price: 10, [FROM]: START, [TO]: 0, in_transit: {} })) || {}).id;
         if (!made.pid) throw new Error('تعذّر إنشاء منتج الفحص');
-        made.tr = (one(await api('POST', 'branch_stock_transfers', { transfer_number: TAG + '-RCV-' + Date.now(), from_branch: FROM, to_branch: TO, status: 'pending', created_by: TAG })) || {}).id;
+        made.tr = (one(await api('POST', 'branch_stock_transfers', { transfer_number: TAG + '-RCV-' + Date.now(), from_branch: FROM, from_branch_name: FROM, to_branch: TO, to_branch_name: TO, status: 'pending', created_by: TAG })) || {}).id;
         await api('POST', 'stock_transfer_items', { transfer_id: made.tr, product_id: made.pid, product_name: TAG + ' بند سليم', qty: Q, unit_cost: 0, sale_price: 10 });
         /* بندٌ معطوب عمداً (منتجٌ لا وجود له) — يحاكي فشل بندٍ واحد أثناء الاستلام */
         let hasBad = true;

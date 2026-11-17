@@ -331,8 +331,8 @@
     var t = h.data[0];
     var num = await newTransferNumber();
     var ins = await rest('POST', 'branch_stock_transfers?select=*', {
-      transfer_number: num, from_branch: t.from_branch, from_branch_name: t.from_branch_name || null,
-      to_branch: t.to_branch, to_branch_name: t.to_branch_name || null, status: 'pending',
+      transfer_number: num, from_branch: t.from_branch, from_branch_name: t.from_branch_name || t.from_branch,   /* (VER-4#REQ-0468) العمود not-null */
+      to_branch: t.to_branch, to_branch_name: t.to_branch_name || t.to_branch, status: 'pending',
       created_by: opts.by || 'فصلٌ تلقائي عند الاستلام', is_locked: true,
       title: 'متبقٍّ من ' + (t.transfer_number || ''),
       note: 'فُصلت من ' + (t.transfer_number || id) + ' عند الاستلام' + (opts.reason ? ' — ' + String(opts.reason).slice(0, 400) : '')
