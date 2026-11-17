@@ -10772,6 +10772,7 @@ async function savePendingInvoice(payload) {
       tx.onabort      = () => reject(tx.error || new Error('IDB tx aborted'));
     });
     updateOfflineBadge();
+    try { window.GMTSound && GMTSound.cue('POS_HOLD'); } catch (_) {}   /* (OWN-12#11) فاتورةٌ حُفظت معلّقةً بلا اتصال */
     return true;
   } catch (e) {
     const msg = (e && e.message) ? e.message : String(e);
@@ -11002,6 +11003,7 @@ async function _syncPendingInner() {
     _syncFails = 0; _syncNextAt = 0;
   }
   if (synced > 0) {
+    try { window.GMTSound && GMTSound.cue('POS_RESUME'); } catch (_) {}   /* (OWN-12#11) قبل الرسالة كي لا يتكرّر صوتُ المزامنة العام */
     showToast(`✅ تمت مزامنة ${synced} فاتورة بنجاح${flagged ? ` (${flagged} منها وُسمت للمراجعة)` : ''}`, flagged ? 'inf' : 'ok');
     await loadProducts();
   }

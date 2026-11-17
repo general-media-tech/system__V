@@ -32,6 +32,11 @@ const FAKE = `
     ok(r[1] > 0, 'emit(' + e + ') ⇒ يعزف (' + r[0] + ', أوسيلاتورات ' + r[1] + ')');
   }
   ok(await ev(() => GMTSound.meta.ORDER_URGENT.sev === 'critical' && GMTSound.meta.ORDER_READY.sev !== 'critical'), 'المستعجل أقوى فئةً من بقيّة حالات الطلب');
+  ok(await ev(() => { GMTSound.cue('ORDER_NOTE'); GMTSound.cue('success'); return GMTSound.last() === 'ORDER_NOTE'; }), 'cue(ORDER_NOTE) ثمّ رسالة نجاح فورية ⇒ صوتٌ واحد (لا يتكرّر)');
+  const fs = require('fs'), src = f => fs.readFileSync(require('path').join(__dirname, '..', '..', f), 'utf8');
+  const pos = src('pos.html'), ord = src('orders.html');
+  ok(/GMTSound\.cue\('POS_HOLD'\)/.test(pos) && /GMTSound\.cue\('POS_RESUME'\)/.test(pos), 'pos.html: POS_HOLD عند savePendingInvoice وPOS_RESUME عند مزامنتها');
+  ok(/GMTSound\.cue\('ORDER_NOTE'\)/.test(ord) && /GMTSound\.cue\('ORDER_RETURN'\)/.test(ord), 'orders.html: ORDER_NOTE عند حفظ الملاحظة وORDER_RETURN عند إنشاء مرتجع');
   const real = errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon|vibrate/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();

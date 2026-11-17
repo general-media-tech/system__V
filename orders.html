@@ -5299,6 +5299,7 @@ window.gmtEditNote = async function () {
             if (o.notes) notesBlock.classList.remove('hidden');
             else         notesBlock.classList.add('hidden');
         }
+        try { window.GMTSound && GMTSound.cue('ORDER_NOTE'); } catch (_) {}   /* (OWN-12#12) قبل الرسالة كي تُسقط تهدئةُ cue صوتَ «نجاح» العام — صوتٌ واحد */
         showToast('✅ تم تحديث الملاحظة', 'ok');
     } catch(e) {
         showToast('❌ فشل التحديث: ' + e.message, 'err');
@@ -9368,6 +9369,7 @@ window.orderMarkReturned = async (id, opts) => {
     catch (e) { await GMTAsk.alert('تعذّر إنشاء المرتجع: ' + ((e && e.message) || e), { title: 'المرتجع' }); return; }
     try { window.GMTAudit && GMTAudit.log({ action: 'order_returned', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: f.reason }); } catch (_) {}
     currentTab = 'returned'; render();
+    try { window.GMTSound && GMTSound.cue('ORDER_RETURN'); } catch (_) {}   /* (OWN-12#12) */
     showToast('↩️ مرتجع «' + (o.name || '') + '» في «المرتجعات ⇐ بالطريق إلينا» — الأوردر بحالته حتى تأكيد الاستلام', 'ok');
 };
 /* ② وصل لمكتب الشحن (+ تبليغ) */
