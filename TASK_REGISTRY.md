@@ -335,6 +335,13 @@
 - **الاختبار:** `t_store_lens_ready` جديد (7 · الفتح خلال 81ms بلا about:blank) · `t_packages` 37.
 - **للصيانة:** بعد تعديل منتجات المتجر بالجملة: `node tools/make_lens_cards.js <تصدير منتجات المتجر JSON>` (يتخطّى ما لم يتغيّر).
 
+### TASK-B0501 — حملة Sonnet ×7 لإنهاء طابور Sonnet القديم (المالك seq 804) — ✅ منشور gmt-v20261117h
+- **الحالة:** ✅ تم · الجلسة B · سبعة وكلاء Sonnet في worktrees معزولة، دمج ومراجعة واختبار المنسّق.
+- **نُفّذ:** الأصوات (الكاشير/الطلبات/المعلّقة) · أدوات الفحص (syntax ملف:سطر · لوحة الصحة · عمولة الفاحص · تيليغرام · initClients) · الطباعة (رقم الخدمة bdi · الاسم nowrap · تخفيت الكسور · A4 صفحة واحدة من POS · عمولة المعاينة · QR محلي) · نقطة البيع (hs-cart · أعمدة الفاحص · إيموجي) · الأوردرات (GMTPhone موحّد · سعر الصرف GMT_DEFAULT_RATE في gmt-config.js · منع حذف فاتورة شراء مرحّلة) · القاعدة (مفاتيح backup من GMT_DB · جداول النسخ · from_branch_name · gmt-stock في الفاحص · الماركة في Excel) · المتجر والرئيسية (حذف عروض adminData القديمة · og · أزرار رجوع · شرح أزرار POS · سقف الإثراء 60 · تسميات oplog · قاعدة العقل) · sw.js يخزّن سكربتات الرئيسية.
+- **منفّذ سابقاً (مُتحقَّق):** أغلب الأصوات الـ32 · القواعد العامّة 25/27 في الدستور · الكوبون مع العرض · المضاف أعلى القائمة · استثناء ألمانيا والصين · ملصق 5×3 · الفلترة بالفرع.
+- **يحتاج قرار المالك:** صفحة دراسة_الرئيسية.html اليتيمة · تنبيه العقل الاستباقي · الكسور الخافتة في التقارير · QR «الموقع» في الفاتورة (إنستغرام أم المتجر) · اسم الموظف في الأوردرات · منهج لصق الأوردرات في الدستور.
+- **اختبارات جديدة (29):** t_pos_order_sounds · t_backup_cfg · t_transfer_names · t_guarantee_noglow · t_phone_rate_unify · t_purchase_del_sealed · t_inv_brand_excel · t_no_native_dialogs · t_syntax_lines · t_bots_loaded · t_health_msgs · t_deep_comm_rate · t_center_no_session_report · t_dead_fns · t_tg_fail_watch · t_inv_header_phone · t_qr_local_inv · t_pos_a4_onepage_dim · t_pos_preview_commission · t_store_legacy_offers_removed · t_seo_og · t_back_btn_all_internal · t_pos_btn_labels · t_enrich_cap60 · t_oplog_ar_labels · t_brain_rule_logic · t_a4_pos_inspector · t_a4_oplog_labels — كلها ناجحة.
+
 ### TASK-B0410 — دفعة الدستور والقواعد العامّة من طابور Sonnet (وثائق فقط)
 - **المالك:** `session_01XEjHNW9dqo1zWS8cEcUN7i` · **الحالة:** `DONE` (طابور Sonnet — ٧_توزيع_المهام §٤).
 - **أُنجز:** الدستور: ملحق (د) قاعدة ملفات SQL · (هـ) قواعد قراءة الوثائق ١٨١–١٨٦ + سؤال واحد بخيارات + استنتاج الصور · (و) دستور التطوير والتدقيق · (ز) P17 — قالب التسليم (الآثار الجانبية · أصناف الاختبار · حقول التغيير · ما تعذّرت قراءته) — رأس السجل (P0–P4 وشرط COMPLETED) — K_اكتشافات_جديدة.md + روابط الفهرس — إغلاق TASK-0239.

@@ -10,7 +10,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const txt = await o.pg.evaluate(() => Array.from(document.querySelectorAll('.ol-what')).map(e => e.textContent));
   ok(txt.length >= 5, 'ظهرت صفوف السجل: ' + txt.length);
   ok(!txt.some(t => /^(qty_unlock|transfer_cancel|order_returned|branch_stock_set)$/.test(t)), 'لا رمزٌ إنجليزي خام للعمليات المعروفة');
-  ok(txt.includes('فكّ قفل الكميات (تعديل يدوي)'), 'qty_unlock ⇒ عربية');
+  ok(txt.includes('فتح قفل الكمية'), 'qty_unlock ⇒ عربية');
   ok(txt.includes('عملية: some_new_unknown'), 'الرمز المجهول مسبوقٌ بكلمة عربية');
   await o.browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
