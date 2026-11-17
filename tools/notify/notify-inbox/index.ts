@@ -85,6 +85,25 @@ Deno.serve(async (req) => {
     const { data: pop } = await sb.from('gmt_notifications').select('id').eq('recipient', R).eq('popup', true).is('acted_at', null).is('archived_at', null).order('id', { ascending: false }).limit(1);
     return j({ ok: true, unread: count || 0, popup: pop && pop[0] ? pop[0].id : null, name: dev.name, recipient: R });
   }
+  if (act === 'prefs_get') {
+    const { data: p } = await sb.from('gmt_notify_prefs').select('muted,important_only,quiet_from,quiet_to,quiet_days,sounds,volume').eq('recipient', R).maybeSingle();
+    const { data: rules } = await sb.from('gmt_notify_rules').select('kind,label,priority,mandatory,enabled').order('kind');
+    return j({ ok: true, prefs: p || { muted: [], important_only: false, quiet_from: null, quiet_to: null, quiet_days: [], sounds: {}, volume: null }, rules: rules || [] });
+  }
+  if (act === 'prefs_set') {
+    const { data: rules } = await sb.from('gmt_notify_rules').select('kind,mandatory');
+    const known = new Set((rules || []).map((r: any) => r.kind)), must = new Set((rules || []).filter((r: any) => r.mandatory).map((r: any) => r.kind));
+    const h = (v: unknown) => (v === null || v === '' || v === undefined) ? null : (Number.isInteger(Number(v)) && Number(v) >= 0 && Number(v) <= 23 ? Number(v) : null);
+    const sounds: Record<string, string> = {};
+    Object.keys(b.sounds && typeof b.sounds === 'object' ? b.sounds : {}).slice(0, 60).forEach((k) => { const v = String(b.sounds[k] || ''); if (known.has(k) && /^[A-Za-z0-9_.-]{1,40}$/.test(v)) sounds[k] = v; });
+    const row = { recipient: R, updated_at: now,
+      muted: (Array.isArray(b.muted) ? b.muted : []).map(String).filter((k: string) => known.has(k) && !must.has(k)).slice(0, 60),
+      important_only: !!b.important_only, quiet_from: h(b.quiet_from), quiet_to: h(b.quiet_to),
+      quiet_days: (Array.isArray(b.quiet_days) ? b.quiet_days : []).map(Number).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6).slice(0, 7),
+      sounds, volume: Number.isFinite(Number(b.volume)) && b.volume !== null && b.volume !== '' ? Math.max(0, Math.min(100, Math.round(Number(b.volume)))) : null };
+    const { error } = await sb.from('gmt_notify_prefs').upsert(row, { onConflict: 'recipient' });
+    return error ? fail('db', 'تعذّر حفظ الإعدادات', 500) : j({ ok: true, prefs: row });
+  }
   if (act === 'list') {
     const box = String(b.box || 'inbox'), lim = Math.min(Math.max(Number(b.limit) || 50, 1), 100);
     let q = sb.from('gmt_notifications').select('id,event_id,kind,priority,popup,branch_key,ref_id,created_at,read_at,archived_at,snoozed_until,acted_at').eq('recipient', R).order('id', { ascending: false }).limit(lim);

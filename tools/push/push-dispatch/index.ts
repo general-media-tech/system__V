@@ -32,6 +32,25 @@ async function valid(r: any) {   // إعادة التحقّق لحظة الإر�
   return true;
 }
 
+/* (TASK-B0424 · المرحلة ٣ · seq 809) تفضيلات كل مستخدم (gmt_notify_prefs): الإسكات · المهم فقط · ساعات/أيام الهدوء — والإلزامي لا يُسكَت */
+function dmNow() {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Damascus', hour: '2-digit', hour12: false, weekday: 'short' }).formatToParts(new Date());
+  const h = Number((p.find((x) => x.type === 'hour') || { value: '0' }).value) % 24, wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf((p.find((x) => x.type === 'weekday') || { value: 'Sun' }).value);
+  return { h, d: wd < 0 ? 0 : wd };
+}
+function inQuiet(P: any, t: { h: number; d: number }) {
+  if (Array.isArray(P.quiet_days) && P.quiet_days.indexOf(t.d) !== -1) return true;
+  if (P.quiet_from == null || P.quiet_to == null || P.quiet_from === P.quiet_to) return false;
+  return P.quiet_from < P.quiet_to ? (t.h >= P.quiet_from && t.h < P.quiet_to) : (t.h >= P.quiet_from || t.h < P.quiet_to);
+}
+function blocked(PREF: Record<string, any>, RULE: Record<string, any>, sub: any, kind: string, t: { h: number; d: number }) {
+  const R = RULE[kind] || { priority: 1, mandatory: false }; if (R.mandatory) return false;
+  const P = PREF[sub.user_id === 'admin' ? 'admin' : 'user:' + sub.user_id]; if (!P) return false;
+  if ((P.muted || []).indexOf(kind) !== -1) return true;
+  if (P.important_only && R.priority < 2) return true;
+  return R.priority < 3 && inQuiet(P, t);
+}
+
 async function shipBranch(): Promise<string | null> {   // فرع تجهيز أوردرات المتجر (إعداد orders_default_ship_from: «اسم|…»)
   const v = String(await setting('orders_default_ship_from') || '').split('|')[0].trim(); if (!v) return null;
   const { data } = await sb.from('inv_columns').select('key_name,display_name').eq('is_branch', true);
@@ -57,13 +76,17 @@ Deno.serve(async (req) => {
   const { data: subsAll } = await sb.from('push_subscriptions').select('*').is('disabled_at', null);
   const subs: any[] = (subsAll || []).filter((s) => enabled === '*' || s.topics.indexOf('admin') !== -1 || (enabled && enabled.split(',').map((x) => x.trim()).indexOf(s.branch_key) !== -1));
   const ship = await shipBranch();
+  const PREF: Record<string, any> = {}, RULE: Record<string, any> = {}, T = dmNow();
+  try { const { data: pr } = await sb.from('gmt_notify_prefs').select('*'); (pr || []).forEach((x: any) => { PREF[x.recipient] = x; }); } catch (_) { /* بلا تفضيلات */ }
+  try { const { data: ru } = await sb.from('gmt_notify_rules').select('kind,enabled,priority,mandatory'); (ru || []).forEach((x: any) => { RULE[x.kind] = x; }); } catch (_) { /* بلا قواعد */ }
   let sent = 0, gone = 0, failed = 0, groups = 0;
 
   for (const g of groupEvents(good)) {
     groups++;
     const ids = g.rows.map((r: any) => r.id);
     if (!isHigh(g.kind) && isQuiet(new Date())) { await sb.from('gmt_push_queue').update({ status: 'pending', send_after: nextMorning(new Date()).toISOString(), attempts: 0 }).in('id', ids); continue; }
-    const kindSubs = subs.filter((s) => wants(s, g.kind));
+    if (RULE[g.kind] && RULE[g.kind].enabled === false) { await sb.from('gmt_push_queue').update({ status: 'skipped', result: { why: 'rule_off' } }).in('id', ids); continue; }
+    const kindSubs = subs.filter((s) => wants(s, g.kind) && !blocked(PREF, RULE, s, g.kind, T));
     // مستلمو المجموعة: (النوع ⇒ موضوع) + تصفية الفرع
     let targets: { sub: any; pos: boolean }[] = [];
     if (g.kind === 'order') {
