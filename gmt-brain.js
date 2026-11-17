@@ -549,6 +549,20 @@
     return p;
   }
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  /* (OWN-13#15 · صورة ٥ «العقل لا يبحث … إن لم يجد من الصورة/الاسم يعرض نتائج أختار منها، ويأخذ الوصف وأحدّد صوراً»)
+     قائمة مرشّحين حقيقيين من الويب (وضع product_search في الوسيط — علي بابا أوّلاً). لا تُستدعى إلا بضغطة الموظّف (لا استهلاك آليّ للرصيد). */
+  async function searchCandidates(o) {
+    var url = endpoint(); if (!url) throw new Error('عقل النظام غير مفعّل — أدخل رابط الوسيط من «تفعيل عقل النظام»');
+    var body = { mode: 'product_search', url: (o && o.url) || '', hint: String((o && o.hint) || '').slice(0, 300) };
+    if (o && o.file) { body.image = await shrinkB64(o.file); body.image_type = 'image/jpeg'; }
+    if (!body.url && !body.hint && !body.image) throw new Error('اكتب اسم المنتج أو أضف صورته أو رابطه أوّلاً');
+    var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var j = {}, rawTxt = ''; try { rawTxt = await r.text(); j = JSON.parse(rawTxt); } catch (_) {}
+    if (!r.ok || j.error) throw new Error(j.error || (global.GMTEndpoint && GMTEndpoint.explain ? GMTEndpoint.explain(r.status, rawTxt, url) : ('HTTP ' + r.status)));
+    var list = (Array.isArray(j.candidates) ? j.candidates : []).filter(function (c) { return c && /^https?:\/\//i.test(String(c.source_url || '')); }).slice(0, 8);
+    list.forEach(function (c) { c.image_urls = (Array.isArray(c.image_urls) ? c.image_urls : []).filter(function (u) { return /^https?:\/\//i.test(String(u || '')); }).slice(0, 12); c.specs_preview = normSpecs(c.specs_preview).slice(0, 6); });
+    return { candidates: list, identified: j.identified || {}, notes: String(j.notes || '') };
+  }
   function productImportDialog(onApply, preset) {
     var w = document.createElement('div'); w.setAttribute('data-keep-fab', '1');
     /* (١٠ ت١ — ملاحظات) نفس نمط «نافذة الرابط خلف العقل»: هذه النافذة تُفتح من أزرار لوحة العقل (علي بابا · سجل المعرفة)
@@ -568,9 +582,56 @@
       '<input id="pi-hint" style="' + inp + ';flex:1.4" placeholder="ملاحظة (اختياري): اسم أو موديل" value="' + h((preset && preset.name) || '') + '"></div>' +
       '<div id="pi-err" style="min-height:1.2em;margin-top:8px;color:#b91c1c;font-size:13px;font-weight:800"></div>' +
       '<button id="pi-go" style="width:100%;background:#0f1219;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">ابحث واجمع المواصفات</button>' +
-      '<div id="pi-res" style="margin-top:12px"></div></div>';
+      '<div id="pi-res" style="margin-top:12px"></div>' +
+      '<div id="pi-cands" style="margin-top:10px"></div></div>';
     document.body.appendChild(w);
-    var $ = function (id) { return w.querySelector('#' + id); }, file = null, last = null;
+    var $ = function (id) { return w.querySelector('#' + id); }, file = null, last = null, picked = null, imgSel = [];
+    /* زرّ «اعرض نتائج أختار منها» — يظهر حين لم يجد العقل شيئاً أو جاءت النتيجة من معرفته العامّة (لا من صفحة المنتج) */
+    function candBtn(why) {
+      $('pi-cands').innerHTML = '<button type="button" data-pi-cands-go style="width:100%;background:#fff;color:#0f1219;border:1.5px solid #0f1219;border-radius:12px;padding:11px;font:inherit;font-weight:900;cursor:pointer">🔎 اعرض نتائج من الويب أختار منها</button>' +
+        '<div style="font-size:11.5px;color:#526077;margin-top:4px;text-align:center">' + h(why) + '</div>';
+      w.querySelector('[data-pi-cands-go]').addEventListener('click', showCands);
+    }
+    async function presetFile() {
+      if (file) return file;
+      if (preset && preset.imageUrl) { try { return await urlToBlob(preset.imageUrl); } catch (_) { return null; } }
+      return null;
+    }
+    async function showCands() {
+      var box = $('pi-cands'), btn = box.querySelector('[data-pi-cands-go]');
+      if (btn) { btn.disabled = true; btn.textContent = 'العقل يبحث في الويب عن مرشّحين… (قد يأخذ نصف دقيقة)'; }
+      try {
+        var res = await searchCandidates({ url: $('pi-url').value.trim(), hint: $('pi-hint').value.trim() || (preset && preset.name) || '', file: await presetFile() });
+        var c = res.candidates;
+        if (!c.length) { box.innerHTML = '<div data-pi-cands-none style="color:#b45309;font-size:12.5px;font-weight:800;padding:8px 0">لم أجد مرشّحاً حقيقياً — اكتب الاسم والموديل بدقّة أو الصق رابط صفحة المنتج.</div>'; return; }
+        box.innerHTML = '<b style="font-size:14px;display:block;margin-bottom:6px">اختر المنتج المطابق (' + c.length + ')</b>' + c.map(function (x, i) {
+          var host = ''; try { host = new URL(x.source_url).hostname.replace(/^www\./, ''); } catch (_) {}
+          return '<div data-pi-cand="' + i + '" style="border:1px solid #e2e8f0;border-radius:14px;padding:9px;margin-bottom:8px;display:flex;gap:9px;align-items:flex-start">' +
+            (x.image_urls[0] ? '<img src="' + h(x.image_urls[0]) + '" alt="" loading="lazy" style="width:60px;height:60px;object-fit:cover;border-radius:10px;background:#f8fafc;flex:none" onerror="this.style.visibility=\'hidden\'">' : '') +
+            '<div style="flex:1;min-width:0"><b style="font-size:13px;display:block;overflow-wrap:anywhere">' + h(x.title || host) + '</b>' +
+            '<div style="font-size:11.5px;color:#526077;margin-top:2px"><span style="font-weight:800;color:' + (x.match === 'exact' ? '#15803d' : '#b45309') + '">' + (x.match === 'exact' ? '✓ مطابق' : '≈ مشابه') + '</span>' +
+              (host ? ' · <a href="' + h(x.source_url) + '" target="_blank" rel="noopener" dir="ltr">' + h(host) + '</a>' : '') + (x.price_hint ? ' · ' + h(x.price_hint) : '') + (x.image_urls.length ? ' · ' + x.image_urls.length + ' صورة' : '') + '</div>' +
+              (x.match_reason ? '<div style="font-size:11.5px;color:#64748b;margin-top:2px">' + h(x.match_reason) + '</div>' : '') +
+              (x.specs_preview.length ? '<div style="font-size:11.5px;margin-top:3px;line-height:1.7">' + x.specs_preview.map(function (s) { return '<b>' + h(s.k) + ':</b> ' + h(s.v); }).join(' · ') + '</div>' : '') +
+              '<button type="button" data-pi-cand-pick="' + i + '" style="margin-top:6px;background:#0f1219;color:#fff;border:0;border-radius:10px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:900;cursor:pointer">اختر هذا ⇐ اجمع وصفه ومواصفاته</button></div></div>';
+        }).join('') + (res.notes ? '<div style="font-size:11.5px;color:#64748b">' + h(res.notes) + '</div>' : '');
+        box.querySelectorAll('[data-pi-cand-pick]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            picked = c[+b.getAttribute('data-pi-cand-pick')];
+            $('pi-url').value = picked.source_url;
+            box.innerHTML = '<div data-pi-picked style="font-size:12px;color:#15803d;font-weight:800">✓ اخترت: ' + h(picked.title || picked.source_url) + '</div>';
+            $('pi-go').click();
+          });
+        });
+      } catch (e) { box.innerHTML = '<div data-pi-cands-err style="color:#b91c1c;font-size:12.5px;font-weight:800">' + h(e.message || e) + '</div>'; }
+    }
+    /* الصور: المرشّح المختار + صور صفحة المنتج ⇒ تختار ما يُضاف (كلّها محدّدة افتراضياً) ثمّ «تطبيق» يمرّر المحدَّدة فقط */
+    function imgGrid(list) {
+      if (!list.length) return '';
+      return '<div data-pi-imgs style="margin-top:10px"><b style="font-size:12.5px">الصور — حدّد ما يُضاف للمنتج:</b><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:6px">' +
+        list.map(function (u, i) { return '<label style="position:relative;display:block;cursor:pointer"><img src="' + h(u) + '" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#f8fafc;display:block">' +
+          '<input type="checkbox" data-pi-img="' + i + '" checked style="position:absolute;top:4px;right:4px;width:18px;height:18px;margin:0"></label>'; }).join('') + '</div></div>';
+    }
     w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-x]')) w.remove(); });
     $('pi-img').addEventListener('change', function () { file = this.files && this.files[0]; this.parentNode.firstChild.textContent = file ? '📷 ' + file.name.slice(0, 22) : ((preset && preset.imageUrl) ? '📷 صورة أخرى (اختياري)' : '📷 صورة المنتج'); });
     $('pi-go').addEventListener('click', async function () {
@@ -578,13 +639,21 @@
       var hasPreset = !!(preset && (preset.imageUrl || preset.name));
       if (!$('pi-url').value.trim() && !file && !hasPreset && !$('pi-hint').value.trim()) { $('pi-err').textContent = 'الصق رابطاً أو اختر صورة'; return; }
       b.disabled = true; b.textContent = 'العقل يبحث… (قد يأخذ نصف دقيقة)';
+      if (picked && $('pi-url').value.trim() !== picked.source_url) picked = null;   // غيّر الرابط يدوياً ⇒ لم يعد المرشّح المختار
+      if (!picked) $('pi-cands').innerHTML = '';
       try {
         var useFile = file;
         if (!useFile && preset && preset.imageUrl) {
           useFile = await urlToBlob(preset.imageUrl);
           if (!useFile) $('pi-err').textContent = 'تعذّرت قراءة صورة المنتج — سأبحث باسمه وحده.';
         }
-        var pr = await importProduct({ url: $('pi-url').value.trim(), file: useFile, hint: $('pi-hint').value.trim() }); last = pr;
+        var pr;
+        try { pr = await importProduct({ url: $('pi-url').value.trim(), file: useFile, hint: $('pi-hint').value.trim() }); }
+        catch (e0) { $('pi-res').innerHTML = ''; candBtn('لم يجد العقل المنتج من الصورة/الاسم — اعرض نتائج حقيقية من الويب واختر المطابق.'); throw e0; }
+        if (picked) { pr.images = picked.image_urls.concat((pr.images || []).filter(function (u) { return picked.image_urls.indexOf(u) === -1; }));
+          if (!pr.source_url) pr.source_url = picked.source_url; }
+        imgSel = (pr.images || []).filter(function (u) { return /^https?:\/\//i.test(String(u || '')); }).slice(0, 24);
+        last = pr;
         var specs = Array.isArray(pr.specs) ? pr.specs.filter(function (s) { return s && s.k; }) : [];
         var meta = pr._meta || {};
         var srcLine = meta.from_memory ? '' : meta.engine === 'google' ? '🔎 من بحث Google' : meta.engine === 'duckduckgo' ? '🔎 من نتائج DuckDuckGo' : meta.page_ok ? '📄 من صفحة الرابط' : '';
@@ -601,10 +670,16 @@
             (pr.aliases_ar || []).concat(pr.aliases_en || []).map(h).join(' · ') + '</div>' : '') +
           (pr.description_ar ? '<div style="margin-top:8px;font-size:12.5px;line-height:1.8;background:#fafbfc;border-radius:10px;padding:8px 10px">' + h(pr.description_ar) + '</div>' : '') +
           (pr.notes ? '<div style="margin-top:6px;font-size:11.5px;color:#b45309">' + h(pr.notes) + '</div>' : '') +
-          (pr.source_url ? '<div style="margin-top:6px;font-size:11px"><a href="' + h(pr.source_url) + '" target="_blank" rel="noopener" dir="ltr">' + h(pr.source_url).slice(0, 70) + '</a></div>' : '') + '</div>' +
+          (pr.source_url ? '<div style="margin-top:6px;font-size:11px"><a href="' + h(pr.source_url) + '" target="_blank" rel="noopener" dir="ltr">' + h(pr.source_url).slice(0, 70) + '</a></div>' : '') +
+          imgGrid(imgSel) + '</div>' +
           (onApply ? '<button data-apply style="width:100%;margin-top:10px;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;cursor:pointer">تطبيق على المنتج</button>' : '');
         var ap = w.querySelector('[data-apply]');
-        if (ap) ap.addEventListener('click', async function () { ap.disabled = true; ap.textContent = 'لحظة…'; try { await onApply(last); w.remove(); } catch (e) { $('pi-err').textContent = 'تعذّر التطبيق: ' + (e.message || e); ap.disabled = false; ap.textContent = 'تطبيق على المنتج'; } });
+        if (meta.from_memory && !picked) candBtn('هذه ليست من صفحة المنتج — اعرض نتائج حقيقية من الويب واختر المطابق لوصفٍ ومواصفاتٍ وصورٍ دقيقة.');
+        if (ap) ap.addEventListener('click', async function () { ap.disabled = true; ap.textContent = 'لحظة…';
+          if (imgSel.length) { var keep = imgSel.filter(function (u, i) { var cb = w.querySelector('[data-pi-img="' + i + '"]'); return !cb || cb.checked; });
+            var rest = (last.images || []).filter(function (u) { return imgSel.indexOf(u) === -1; });
+            last.images = keep.concat(rest); }
+          try { await onApply(last); w.remove(); } catch (e) { $('pi-err').textContent = 'تعذّر التطبيق: ' + (e.message || e); ap.disabled = false; ap.textContent = 'تطبيق على المنتج'; } });
       } catch (e) { $('pi-err').textContent = e.message || String(e); }
       b.disabled = false; b.textContent = 'ابحث واجمع المواصفات';
     });
@@ -1037,7 +1112,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
     open: openPanel,
     askJSON: askJSON, ask: ask,
     configure: configure,
