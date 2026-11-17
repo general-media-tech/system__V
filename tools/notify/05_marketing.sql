@@ -1,0 +1,7 @@
+-- مركز الإشعارات — المرحلتان ٧–٨ (المالك seq 816): الاشتراكات والحملات وقناة تيليغرام — مطبَّق على القاعدة الرئيسية.
+--   gmt_subscribers : أجهزة زوّار «ابقَ على اطلاع» وأنواعهم (offers · new_products · discounts · canon · company · restock · services) — موافقة صريحة · إلغاء بضغطة.
+--   gmt_campaigns   : عنوان · نصّ · صورة · رابط · جمهور (topics) · قنوات (push · telegram) · موعد · صلاحية · حالة · إحصائيات · ضغطات.
+--   gmt_mk_auto_offer() : عرض/باقة جديدة مفعّلة للمتجر ⇐ حملة مجدولة بعد 10 دقائق (gmt_settings.mk_auto_offers = 1).
+--   gmt_mk_kick()   : كل دقيقة — حملات حان موعدها ⇐ الدالّة marketing (بالسرّ الداخلي).
+-- الدالّة tools/notify/marketing: key · channel · sub_set/sub_get/sub_off · click · (أدمن بجهاز موثَّق) camp_list/camp_save/camp_cancel/settings/tg_test · job send.
+-- تيليغرام: gmt_settings.telegram_public_channel (t.me/… أو @…) + البوت مشرفاً فيها. لا بيانات عملاء في أيّ قناة عامة.

@@ -69,6 +69,7 @@ select{border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:inhe
       <button class="tab on" data-t="stats" type="button">📊 الإحصائيات</button>
       <button class="tab" data-t="rules" type="button">⚙️ قواعد الإرسال</button>
       <button class="tab" data-t="groups" type="button">👥 المجموعات</button>
+      <button class="tab" data-t="camps" type="button">📣 الحملات</button>
     </div>
     <section id="t-stats">
       <div class="bar" style="margin-bottom:10px"><select id="days"><option value="1">آخر يوم</option><option value="7" selected>آخر 7 أيام</option><option value="30">آخر 30 يوماً</option><option value="120">آخر 120 يوماً</option></select></div>
@@ -79,6 +80,28 @@ select{border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:inhe
     <section id="t-rules" hidden>
       <p class="mu">لكلّ نوع: تشغيل/إيقاف · المستوى (عادي · مهم · حرج) · من يستلمه (الإدارة · موظّفو فرع الحدث · مجموعات) · «نافذة إجراء» تظهر ولا تختفي قبل الفتح أو التأجيل. التغيير يسري على الإشعارات الجديدة فوراً — بلا كود.</p>
       <div id="rules" class="card"></div>
+    </section>
+    <section id="t-camps" hidden>
+      <div class="card"><b>📣 حملة جديدة</b>
+        <div class="mu" id="mk-subs" style="margin:4px 0 8px"></div>
+        <div style="display:grid;gap:8px">
+          <input id="mk-title" maxlength="120" placeholder="العنوان (مثال: 🎁 عرض الأسبوع)" style="border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit">
+          <textarea id="mk-body" maxlength="600" rows="3" placeholder="النصّ" style="border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit"></textarea>
+          <input id="mk-img" placeholder="رابط صورة (اختياري · https://…)" dir="ltr" style="border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit">
+          <input id="mk-url" placeholder="الصفحة عند الضغط (افتراضي store.html)" dir="ltr" style="border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit">
+          <div class="opts" id="mk-topics"></div>
+          <div class="opts"><label><input type="checkbox" id="mk-ch-push" checked>إشعار على أجهزة المشتركين</label><label><input type="checkbox" id="mk-ch-tg">قناة تيليغرام العامة</label></div>
+          <div class="opts"><label>الموعد <input type="datetime-local" id="mk-at"></label><label>تنتهي <input type="datetime-local" id="mk-exp"></label></div>
+          <div><button class="btn p" id="mk-send" type="button">إرسال / جدولة</button> <button class="btn" id="mk-draft" type="button">حفظ كمسودّة</button> <span class="saved" id="mk-ok"></span></div>
+        </div>
+      </div>
+      <div class="card"><b>⚙️ القنوات والنشر التلقائي</b>
+        <div class="opts" style="margin-top:8px"><label>قناة تيليغرام <input id="mk-channel" dir="ltr" placeholder="t.me/اسم_القناة" style="border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:inherit;width:200px"></label>
+          <button class="btn" id="mk-ch-save" type="button">حفظ</button><button class="btn" id="mk-ch-test" type="button">فحص البوت</button></div>
+        <div class="opts" style="margin-top:8px"><label><input type="checkbox" id="mk-auto">نشر تلقائي لكل عرض/باقة جديدة للمتجر (بعد 10 دقائق · يُلغى من القائمة قبل موعده)</label></div>
+        <div class="mu" id="mk-ch-msg"></div>
+      </div>
+      <div class="card"><b>سجلّ الحملات</b><div id="mk-list"></div></div>
     </section>
     <section id="t-groups" hidden>
       <p class="mu">اختر أعضاء كلّ مجموعة من الحسابات الموجودة، ثمّ اربط المجموعة بالأنواع من «قواعد الإرسال».</p>
@@ -173,9 +196,43 @@ select{border:1px solid var(--line);border-radius:10px;padding:5px 8px;font:inhe
   document.querySelector('.tabs').addEventListener('click', function (e) {
     var t = e.target.closest('.tab'); if (!t) return;
     [].forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.toggle('on', x === t); });
-    ['stats', 'rules', 'groups'].forEach(function (n) { $('t-' + n).hidden = n !== t.getAttribute('data-t'); });
+    ['stats', 'rules', 'groups', 'camps'].forEach(function (n) { $('t-' + n).hidden = n !== t.getAttribute('data-t'); });
     if (t.getAttribute('data-t') === 'groups') renderGroups();
+    if (t.getAttribute('data-t') === 'camps') loadCamps();
   });
+  /* ── (TASK-B0424 · المرحلة ٨) الحملات ── */
+  var MK_T = { offers: 'العروض', new_products: 'المنتجات الجديدة', discounts: 'التخفيضات', canon: 'أخبار Canon', restock: 'توفّر المنتجات', services: 'الخدمات', company: 'أخبار الشركة' };
+  var ST = { draft: 'مسودّة', scheduled: '⏳ مجدولة', sending: 'تُرسل…', sent: '✅ أُرسلت', cancelled: 'ملغاة', expired: 'انتهت صلاحيتها' };
+  function mk(b) { b.token = localStorage.getItem('gmt_inbox_token') || ''; return fetch(D.url + '/functions/v1/marketing', { method: 'POST', headers: H, body: JSON.stringify(b) }).then(function (r) { return r.json(); }).catch(function () { return { ok: false, msg: 'تعذّر الاتصال' }; }); }
+  $('mk-topics').innerHTML = Object.keys(MK_T).map(function (k) { return '<label><input type="checkbox" value="' + k + '">' + MK_T[k] + '</label>'; }).join('') + '<span class="mu">(بلا اختيار = كل المشتركين)</span>';
+  async function loadCamps() {
+    var r = await mk({ action: 'camp_list' });
+    if (!r.ok) { $('mk-list').innerHTML = '<p class="mu">' + esc(r.msg || 'تعذّر التحميل') + ' — <a href="مركز_الإشعارات.html">مركز الإشعارات</a></p>'; return; }
+    $('mk-subs').textContent = 'المشتركون: ' + r.subscribers + ' · ' + Object.keys(r.byTopic || {}).map(function (k) { return MK_T[k] + ' ' + r.byTopic[k]; }).join(' · ') + (r.bot ? '' : ' · ⚠️ لا بوت تيليغرام');
+    $('mk-channel').value = r.channel || ''; $('mk-auto').checked = !!r.auto;
+    $('mk-list').innerHTML = (r.items || []).length ? '<table><tr><th>الحملة</th><th>الحالة</th><th>وصلت</th><th>ضغطات</th><th></th></tr>' + r.items.map(function (c) {
+      var p = (c.stats && c.stats.push) || {}, tgs = c.stats && c.stats.telegram;
+      return '<tr><td><b>' + esc(c.title) + '</b><div class="mu">' + esc(c.body || '').slice(0, 80) + '</div><div class="mu">' + (c.topics || []).map(function (t) { return MK_T[t] || t; }).join('، ') + ' · ' + (c.channels || []).join(' + ') + ' · ' + new Date(c.scheduled_at).toLocaleString('ar-SY-u-nu-latn') + (c.source === 'auto' ? ' · تلقائية' : '') + '</div></td>' +
+        '<td>' + (ST[c.status] || c.status) + (tgs ? '<div class="mu">تيليغرام: ' + (tgs.ok ? '✓' : '✗ ' + esc(tgs.why || '')) + '</div>' : '') + '</td><td>' + (p.sent != null ? p.sent + '/' + (p.targets || 0) : '—') + (p.failed ? ' <span class="mu">(' + p.failed + ' فشل)</span>' : '') + '</td><td>' + (c.clicks || 0) + '</td>' +
+        '<td>' + (c.status === 'scheduled' || c.status === 'draft' ? '<button class="btn" type="button" data-cancel="' + c.id + '">إلغاء</button>' : '') + '</td></tr>';
+    }).join('') + '</table>' : '<p class="mu">لا حملات بعد.</p>';
+  }
+  async function saveCamp(status) {
+    var chans = []; if ($('mk-ch-push').checked) chans.push('push'); if ($('mk-ch-tg').checked) chans.push('telegram');
+    var at = $('mk-at').value, ex = $('mk-exp').value;
+    var r = await mk({ action: 'camp_save', status: status, title: $('mk-title').value, body: $('mk-body').value, image_url: $('mk-img').value, url: $('mk-url').value,
+      topics: [].map.call(document.querySelectorAll('#mk-topics input:checked'), function (x) { return x.value; }), channels: chans,
+      scheduled_at: at ? new Date(at).toISOString() : null, expires_at: ex ? new Date(ex).toISOString() : null });
+    if (!r.ok) { $('mk-ok').textContent = ''; return alertMsg(r.msg || 'تعذّر الحفظ'); }
+    $('mk-ok').textContent = status === 'draft' ? '✓ حُفظت مسودّة' : (at ? '✓ جُدولت' : '✓ تُرسل خلال دقيقة');
+    ['mk-title', 'mk-body', 'mk-img', 'mk-url', 'mk-at', 'mk-exp'].forEach(function (i) { $(i).value = ''; }); loadCamps();
+  }
+  $('mk-send').onclick = async function () { if (window.GMTAsk && !(await GMTAsk.confirm('إرسال الحملة للمشتركين المختارين؟'))) return; saveCamp('scheduled'); };
+  $('mk-draft').onclick = function () { saveCamp('draft'); };
+  $('mk-list').addEventListener('click', async function (e) { var b = e.target.closest('[data-cancel]'); if (!b) return; var r = await mk({ action: 'camp_cancel', id: Number(b.getAttribute('data-cancel')) }); if (!r.ok) alertMsg(r.msg); loadCamps(); });
+  $('mk-ch-save').onclick = async function () { var r = await mk({ action: 'settings', channel: $('mk-channel').value.trim(), auto: $('mk-auto').checked }); $('mk-ch-msg').textContent = r.ok ? '✓ حُفظ' : (r.msg || 'تعذّر'); };
+  $('mk-auto').onchange = function () { $('mk-ch-save').click(); };
+  $('mk-ch-test').onclick = async function () { $('mk-ch-msg').textContent = 'جارٍ الفحص…'; var r = await mk({ action: 'tg_test' }); $('mk-ch-msg').textContent = r.ok ? '✓ البوت مشرف في «' + r.title + '» وجاهز للنشر' : (r.msg || 'تعذّر'); };
   $('days').addEventListener('change', loadStats);
 
   (async function boot() {

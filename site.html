@@ -384,7 +384,7 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
         <p>الوكيل المعتمد لمنتجات Canon في سوريا — كاميرات وعدسات وطابعات وملحقاتها الأصلية.</p>
         <div class="soc" id="ft-soc"></div>
       </div>
-      <div><h4>تصفّح</h4><a class="l" href="store.html">المتجر الإلكتروني</a><a class="l" href="track_order.html">تتبّع طلبك</a><a class="l" href="search.html">التحقّق من الكفالة</a><a class="l" href="#branches">الفروع والوكلاء</a></div>
+      <div><h4>تصفّح</h4><a class="l" href="store.html">المتجر الإلكتروني</a><a class="l" href="track_order.html">تتبّع طلبك</a><a class="l" href="ابق_على_اطلاع.html">🔔 ابقَ على اطلاع</a><a class="l" href="search.html">التحقّق من الكفالة</a><a class="l" href="#branches">الفروع والوكلاء</a></div>
       <div><h4>الشركة</h4><a class="l" href="#about">من نحن</a><a class="l" href="#news-sec">الأخبار والعروض</a><a class="l" href="hiring.html">بوابة التوظيف</a></div>
     </div>
     <div class="cp"><span id="ft-copy">© General Media Tech. جميع الحقوق محفوظة.</span></div>
@@ -737,5 +737,8 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
    يُشغَّل مرّةً عند أوّل تفاعلٍ من الزائر، لأنّ المتصفّحات تمنع الصوتَ قبله. */
 (function(){var done=false;function go(){if(done)return;done=true;try{window.GMTSound&&GMTSound.play('store');}catch(e){}}
 ['pointerdown','keydown','touchstart'].forEach(function(ev){addEventListener(ev,go,{once:true,passive:true});});})();</script>
+<script>/* (TASK-B0424 · المرحلة ٨) ضغطة على إشعار حملة ⇐ تُحسب في إحصائيات الحملة (رقمها فقط · بلا أيّ بيانات) */
+(function(){try{var c=new URLSearchParams(location.search).get('gmt_c');if(!c||!/^\d+$/.test(c)||sessionStorage.getItem('gmt_c_'+c))return;sessionStorage.setItem('gmt_c_'+c,'1');var D=window.GMT_DB&&GMT_DB.MAIN;if(!D)return;
+fetch(D.url+'/functions/v1/marketing',{method:'POST',headers:{'Content-Type':'application/json',apikey:D.key,Authorization:'Bearer '+D.key},body:JSON.stringify({action:'click',c:c})}).catch(function(){});}catch(_){}})();</script>
 </body>
 </html>

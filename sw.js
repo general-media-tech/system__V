@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261117o';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261117p';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -65,7 +65,7 @@ function isProdImg(url) {
 }
 /* (TASK-0358 · المالك seq 626 «ما في داعي يتحمّل المتجر عند الزبون وعلى جهازه») صفحات الزبون (المتجر · الموقع · البحث · التتبّع · الكفالة ·
    أماكن الوصول): طلباتها تمرّ إلى الشبكة كأيّ موقعٍ عادي — لا صور تُحفظ على الجهاز ولا صفحات. صفحات الموظّفين كما هي. */
-const PUBLIC_RE = /(^|\/)(store|site|search|track_order|guarantee|%D8%A3%D9%85%D8%A7%D9%83%D9%86_%D8%A7%D9%84%D9%88%D8%B5%D9%88%D9%84|أماكن_الوصول)\.html$/i;
+const PUBLIC_RE = /(^|\/)(store|site|search|track_order|guarantee|%D8%A3%D9%85%D8%A7%D9%83%D9%86_%D8%A7%D9%84%D9%88%D8%B5%D9%88%D9%84|أماكن_الوصول|%D8%A7%D8%A8%D9%82_%D8%B9%D9%84%D9%89_%D8%A7%D8%B7%D9%84%D8%A7%D8%B9|ابق_على_اطلاع)\.html$/i;
 function isPublicReq(req, url) {
   try {
     if (req.mode === 'navigate') return url.origin === location.origin && PUBLIC_RE.test(url.pathname);
@@ -165,7 +165,7 @@ self.addEventListener('push', (e) => {
     try { if (!seen && self.navigator.setAppBadge) await self.navigator.setAppBadge(st.n); } catch (_) {}
     await self.registration.showNotification(d.t || 'GMT', {
       body: d.b || '', tag: d.tag || d.k || 'gmt', renotify: d.k === 'order' || d.k === 'transfer',
-      icon: './gmt-icon-192.png', badge: './gmt-icon-192.png', dir: 'rtl', lang: 'ar', silent: seen,
+      icon: './gmt-icon-192.png', badge: './gmt-icon-192.png', dir: 'rtl', lang: 'ar', silent: seen, image: d.img || undefined,   /* (TASK-B0424 · الحملات) صورة الحملة */
       vibrate: (d.k === 'order' || d.k === 'transfer') ? [200, 100, 200] : undefined,
       data: { u: d.u || './home.html', k: d.k }, timestamp: Date.now() });
   })());
