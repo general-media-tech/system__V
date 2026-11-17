@@ -137,6 +137,14 @@ var BOTS = [
     get:function(){ return window.GMTIntegrationTests; }, run:'run' },
   { id:'money', icon:'💰', name:'حارس المال', desc:'يفحص قواعد الربح والحسابات',
     get:function(){ return window.GMTMoneyGuard; }, run:'selfTest' },
+  /* (REQ-0363) فحص صحة القاعدة (GMTHealth) لم يكن ضمن الزرّ الواحد — يُشغَّل هنا، والفحص المتعذّر يظهر «فشل» لا «سليم» */
+  { id:'dbhealth', icon:'🗄️', name:'فحص صحة القاعدة', desc:'فواتير بلا بنود · عمولات يتيمة · مخزون سالب · أرقام مكرّرة · أسعار صفر',
+    get:function(){ return window.GMTHealth ? { run:function(){ return GMTHealth.runAll().then(function(rs){ return (rs||[]).map(function(c){
+        if(c.failed) return { status:'bad', title:c.title+' — تعذّر الفحص', detail:c.error||'', why:'الاستعلام فشل فلا تُعرف النتيجة', fix:'راجع الجدول/الأعمدة أو اتصال القاعدة' };
+        if(!c.hits.length) return { status:'ok', title:c.title, detail:'لا ملاحظات' };
+        return { status: c.sev==='info'?'info':(c.sev==='warn'?'warn':'bad'), title:c.title+' ('+c.hits.length+')',
+                 detail:c.hits.slice(0,5).map(function(h){ try{ return c.label(h); }catch(_){ return ''; } }).join(' · '), why:c.why, fix:c.fix };
+      }); }); } } : null; }, run:'run' },
   { id:'health', icon:'🩺', name:'الصحة', desc:'يجمّع صحة النظام من السجلات',
     get:function(){ return window.GMTHealthPanel; }, run:'report' },
   { id:'sentinel', icon:'🛡️', name:'حارس الكود', desc:'يفحص سلامة الكود',
@@ -405,6 +413,37 @@ async function runAll(){
   el('run').disabled = false;
   el('run').textContent = '🔄 إعادة الفحص';
   el('copyall').style.display = 'inline-block';
+  await handToBrain(totOk, totWarn, totBad);
+}
+
+/* (OWN-05#11) التقرير الموحّد يُسلَّم لعقل النظام: يُحفظ (الجهاز + gmt_settings ليجده العقل من أيّ مكان)
+   ويُطلب من العقل ملخّصٌ بالأسباب يظهر أعلى التقرير. بلا وسيط ذكاء ⇒ زرّ يفتح العقل على التقرير. */
+async function handToBrain(ok, warn, bad){
+  var problems = fullReport.filter(function(l){ return /^(🔴|🟡)/.test(l) || /^\s+(لماذا|كيف نصلح):/.test(l) || /^(═══|[^\s].* — بوت )/.test(l); });
+  var rec = { at: new Date().toISOString(), ok: ok, warn: warn, bad: bad, problems: problems.join('\n').slice(0, 7000) };
+  try { localStorage.setItem('gmt_last_check_report', JSON.stringify(rec)); } catch(_) {}
+  try {
+    var d = (window.GMT_DB && GMT_DB.MAIN) || null;
+    if (d && d.url && d.key) await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', { method:'POST',
+      headers:{ apikey:d.key, Authorization:'Bearer '+d.key, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ key:'gmt_last_check_report', value: JSON.stringify(rec) }) });
+  } catch(_) {}
+  var box = document.createElement('div');
+  box.className = 'bot'; box.id = 'brain-sum';
+  box.innerHTML = '<div class="bot-head">🧠 قراءة عقل النظام</div><div class="bot-body"><div class="d" id="brain-txt">'+
+    (bad||warn ? '⏳ يقرأ العقل التقرير…' : '✅ لا فشل ولا تنبيه — لا شيء يحتاج تحليلاً.')+'</div>'+
+    '<button class="btn ghost" id="brain-open" style="margin-top:8px">🧠 اسأل العقل عن هذا التقرير</button></div>';
+  el('results').insertBefore(box, el('results').firstChild);
+  el('brain-open').onclick = function(){ if (window.GMTBrain && GMTBrain.open) GMTBrain.open('هذا آخر تقرير فحص شامل للنظام (نجح '+ok+' · تنبيه '+warn+' · فشل '+bad+'):\n'+rec.problems.slice(0,3500)+'\n\nرتّب المشاكل حسب الخطورة، ولكل واحدة: السبب المرجّح والحل.'); };
+  if (!(bad||warn)) return;
+  var txt = el('brain-txt');
+  if (!(window.GMTBrain && GMTBrain.isReady && GMTBrain.isReady())) { txt.textContent = 'عقل النظام غير مفعّل بعد (يحتاج الوسيط) — التقرير محفوظ له، واضغط الزرّ لفتحه حين يُفعَّل.'; return; }
+  try {
+    var a = await GMTBrain.ask('تقرير فحص شامل للنظام (نجح '+ok+' · تنبيه '+warn+' · فشل '+bad+'):\n'+rec.problems.slice(0,3500)+
+      '\n\nلخّص بحدود 8 أسطر: أخطر المشاكل أولاً، لكل واحدة سطر فيه السبب المرجّح والحل.');
+    txt.textContent = String(a || '').slice(0, 2000);
+    fullReport.splice(4, 0, '🧠 قراءة العقل:\n' + String(a || '').slice(0, 2000));
+  } catch(e) { txt.textContent = 'تعذّر ملخّص العقل: ' + ((e && e.message) || e) + ' — التقرير محفوظ له.'; }
 }
 
 el('run').onclick = runAll;

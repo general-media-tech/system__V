@@ -99,6 +99,12 @@
     if (errLog.length) ctx.errors = errLog.slice(-15);
     /* تُضمّ لـ errors لا لحقلٍ جديد: الوسيط يرتّب السياق بقائمةٍ ثابتة (errors ثانيها) ويقصّ ما بعد ٢٤ ألف حرف — حقلٌ جديد يأتي بعد القواعد فيُقصّ */
     try { var rp = reportsForBrain(); if (rp.length) ctx.errors = (ctx.errors || []).concat(rp); } catch (_) {}
+    /* (OWN-05#11) آخر تقرير «الفحص الشامل» (checks.html) — يقرؤه العقل من أيّ صفحة على هذا الجهاز (آخر ٧ أيام) */
+    try {
+      var lc = JSON.parse(localStorage.getItem('gmt_last_check_report') || 'null');
+      if (lc && lc.at && Date.now() - new Date(lc.at).getTime() < 7 * 864e5)
+        ctx.errors = (ctx.errors || []).concat(['[آخر فحص شامل] بتاريخ ' + lc.at + ' — نجح ' + lc.ok + ' · تنبيه ' + lc.warn + ' · فشل ' + lc.bad + '\n' + String(lc.problems || '').slice(0, 2500)]);   /* داخل errors كي لا يقصّه الوسيط */
+    } catch (_) {}
     return ctx;
   }
   /* (OWN-05#13 «التقارير تُشارك مع العقل؛ العقل يعرف الأخطاء وطريقة إصلاحها ويصنّفها حسب الخطورة — خطير مقابل كماليات»)
