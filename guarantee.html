@@ -2148,7 +2148,9 @@ window.GMT_INTERNAL = 1;</script>
             startCountdown(expiry);
             showWarrantyClaims(data, isCancelled);
             const currentUrl = window.location.href;
-            document.getElementById('qrCodeImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl)}`;
+            /* (QR محلّي · ARC-MD-04#45) يُبنى على الجهاز بـZXing؛ الخدمة الخارجية احتياطٌ فقط إن تعذّر */
+            const _certQr = document.getElementById('qrCodeImage'), _certQrFb = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl)}`;
+            (window.GMTSticker ? GMTSticker.qr(currentUrl) : Promise.resolve(null)).then(d => { _certQr.src = d || _certQrFb; }, () => { _certQr.src = _certQrFb; });
 
             // Show the client's signature on the certificate (and therefore in the printed/PDF version too)
             const sigBlock = document.getElementById('signatureDisplayBlock');
