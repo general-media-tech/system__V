@@ -1238,35 +1238,52 @@ async function getNextSerialCounter() {
         }
     } catch(e) { console.warn('[GMT] فشل عدّاد الرقم التسلسلي الذرّي (RPC) — سيُستعمل المسار الاحتياطي:', e); }
 
-    // ─── نسخة احتياطية: نفس الطريقة القديمة (قراءة ثم كتابة) لو الدالة غير موجودة بعد ───
-    // ⚠️ غير ذرّية: إنشاء أوردرين في نفس اللحظة قد يمنحهما الرقم نفسه. المسار الذرّي أعلاه
-    //    (RPC increment_settings_counter) هو الصحيح — إن تكرّر اللجوء هنا فالدالة مفقودة بالقاعدة.
+    // ─── نسخة احتياطية حين تغيب الدالة الذرّية من القاعدة ───
+    /* (ARC-MD-04#62) كانت «اقرأ ثم اكتب» بلا شرط ⇒ أوردران في اللحظة نفسها يأخذان الرقم نفسه **بلا أيّ تنبيه**.
+       الآن: كتابةٌ مشروطة (compare-and-swap) — PATCH لا يمرّ إلا إن كانت القيمة ما زالت كما قرأناها؛
+       فإن سبقنا غيرُنا (0 صفوف) نعيد القراءة ونجرّب الرقم التالي. ويُنبَّه الموظّف مرّةً والمراقب يُبلَّغ: الدالة ناقصة. */
+    serialFallbackWarn();
     try {
-        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.order_serial_counter&select=value`, {
-            headers: SB_HEADERS
-        });
-        if (r.ok) {
+        let counter = 0;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            const r = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.order_serial_counter&select=value`, { headers: SB_HEADERS });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
             const rows = await r.json();
-            let counter = rows.length > 0 ? (parseInt(rows[0].value) || 0) : 0;
-            counter++;
+            const old = rows.length > 0 ? rows[0].value : null;
+            counter = (parseInt(old) || 0) + 1;
+            let won;
             if (rows.length > 0) {
-                await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.order_serial_counter`, {
-                    method: 'PATCH', headers: SB_HEADERS,
-                    body: JSON.stringify({ value: String(counter) })
+                const cond = old == null ? 'value=is.null' : 'value=eq.' + encodeURIComponent(String(old));
+                const u = await fetch(`${SUPA_URL}/rest/v1/gmt_settings?key=eq.order_serial_counter&${cond}`, {
+                    method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ value: String(counter) })
                 });
+                const got = u.ok ? await u.json().catch(() => null) : null;
+                won = !u.ok || !Array.isArray(got) || got.length > 0;   // 0 صفوف = سبقنا غيرُنا ⇒ نعيد · غير ذلك كالسابق
             } else {
-                await fetch(`${SUPA_URL}/rest/v1/gmt_settings`, {
+                const u = await fetch(`${SUPA_URL}/rest/v1/gmt_settings`, {
                     method: 'POST', headers: SB_HEADERS,
                     body: JSON.stringify({ key: 'order_serial_counter', value: String(counter) })
                 });
+                won = u.status !== 409;                                   // مفتاحٌ أُنشئ للتوّ من جهازٍ آخر ⇒ نعيد القراءة
             }
-            localStorage.setItem(SERIAL_COUNTER_KEY, String(counter));
-            return counter;
+            if (won) break;
         }
+        localStorage.setItem(SERIAL_COUNTER_KEY, String(counter));
+        return counter;
     } catch(e) { console.warn('[GMT] فشل المسار الاحتياطي لعدّاد الرقم التسلسلي — سيُستعمل العدّاد المحلي:', e); }
     const local = parseInt(localStorage.getItem(SERIAL_COUNTER_KEY) || '0') + 1;
     localStorage.setItem(SERIAL_COUNTER_KEY, String(local));
     return local;
+}
+
+let _serialFallbackWarned = false;
+function serialFallbackWarn() {
+    window.__gmtSerialFallback = (window.__gmtSerialFallback || 0) + 1;
+    console.warn('[GMT] عدّاد الأوردرات يعمل بالمسار الاحتياطي — الدالة increment_settings_counter غير متاحة في القاعدة');
+    if (_serialFallbackWarned) return;
+    _serialFallbackWarned = true;
+    try { showToast('⚠️ عدّاد أرقام الأوردرات يعمل بالمسار الاحتياطي — أبلغ المسؤول التقني: تنقص دالة العدّاد في القاعدة', 'warn'); } catch (_) {}
+    try { if (window.GMTBug && typeof GMTBug.log === 'function') GMTBug.log('warn', 'عدّاد الأوردرات: الدالة increment_settings_counter غير متاحة — مسار احتياطي مشروط (CAS)', { type: 'counter_fallback' }); } catch (_) {}
 }
 
 function generateSerialCode(counter, dateOverride) {
