@@ -188,17 +188,14 @@ function tableCard(title, arr, isSource){
   return h+'</table></div>';
 }
 
-// إرسال ملخّص للمطوّر عبر تيليغرام (يقرأ الإعداد نفسه المخزّن بصفحة العروض)
+// إرسال ملخّص لقناة الأدمن عبر تيليغرام — (ARC-MD-09#63) عبر وسيط النظام gmt-tg (العلامة «gmt-relay»؛ التوكن سرٌّ في الخادم)
+// كان يقرأ توكن بوتٍ محفوظاً على الجهاز من صفحة العروض ويرسل مباشرةً — لا توكن في المتصفّح بعد اليوم.
 async function sendTG(){
-  var bot = localStorage.getItem('gmt_offers_tg_bot') || '';
-  var chat = localStorage.getItem('gmt_offers_tg_chat') || '';
-  if(!bot || !chat){
-    alert('إعداد تيليغرام غير موجود على هذا الجهاز.\nاضبطه أولاً من صفحة العروض/أدمن المتجر (بوت + معرّف محادثة المطوّر)، ثم أعد المحاولة.');
-    return;
-  }
-  var txt = window.__REPORT_TXT || 'تقرير GMT — افتح الصفحة واضغط تحديث أولاً.';
+  var T = window.GMT_TELEGRAM || {}, chat = T.chat || '';
+  if(!chat){ alert('قناة الأدمن غير معرّفة في هذه الصفحة (gmt-config.js).'); return; }
+  var txt = String(window.__REPORT_TXT || 'تقرير GMT — افتح الصفحة واضغط تحديث أولاً.').slice(0, 4000);
   try{
-    var r = await fetch('https://api.telegram.org/bot'+bot+'/sendMessage', {
+    var r = await fetch('https://api.telegram.org/botgmt-relay/sendMessage', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ chat_id:chat, text:txt })
     });

@@ -4008,11 +4008,13 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   }
 
   /* ══════════ إعدادات البث (تُسأل مرة وتُحفظ) ══════════ */
-  const CFG_KEYS = { tgBot: 'gmt_offers_tg_bot', tgChat: 'gmt_offers_tg_chat', storeUrl: 'gmt_offers_store_url' };
+  /* (ARC-MD-09#63 «نقل توكن تيليغرام للخادم وسجلّ بثّ» — كان: البثّ لا يمرّ بالوسيط · التوكن محلّي لكل جهاز · لا سجلّ)
+     البثّ صار حملةً في الخادم (الدالّة marketing ⇐ «سجلّ الحملات» في إدارة الإشعارات): التوكن سرٌّ في الخادم (TG_BOT_TOKEN)
+     والقناة من إعداد واحد للنظام (telegram_public_channel) — لا توكن ولا معرّف قناة على أيّ جهاز. ما كُتب قديماً على هذا الجهاز يُمسح. */
+  const CFG_KEYS = { storeUrl: 'gmt_offers_store_url' };
+  try { localStorage.removeItem('gmt_offers_tg_bot'); localStorage.removeItem('gmt_offers_tg_chat'); } catch (_) {}
   const cfg = {
-    get tgBot() { return localStorage.getItem(CFG_KEYS.tgBot) || ''; },
-    get tgChat() { return localStorage.getItem(CFG_KEYS.tgChat) || ''; },
-    get storeUrl() { return localStorage.getItem(CFG_KEYS.storeUrl) || ''; },
+    get storeUrl() { try { return localStorage.getItem(CFG_KEYS.storeUrl) || ''; } catch (_) { return ''; } },
   };
 
   /* ══════════ الحالة ══════════ */
@@ -4345,7 +4347,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       try { saved = await syncSite(saved, targets.site); report.push(targets.site ? 'الموقع ✓' : 'الموقع —'); }
       catch (e) { report.push('الموقع ✗ (' + e.message.slice(0, 60) + ')'); }
       // ── بث تيليغرام ──
-      if (doTG) { setSt('بث تيليغرام...'); try { await broadcastTG(saved); report.push('تيليغرام ✓'); } catch (e) { report.push('تيليغرام ✗ (' + e.message.slice(0, 60) + ')'); } }
+      if (doTG) { setSt('بث تيليغرام...'); try { const b = await broadcastTG(saved, { isNew: !_editing }); report.push(b && b.auto ? 'تيليغرام: النشر التلقائي ⏳' : 'تيليغرام ⏳ (سجلّ الحملات)'); } catch (e) { report.push('تيليغرام ✗ (' + e.message.slice(0, 60) + ')'); } }
 
       closeForm();
       await refresh();
@@ -4452,17 +4454,27 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     if (cfg.storeUrl) lines.push('🛒 ' + cfg.storeUrl);
     return lines.join('\n');
   }
-  async function broadcastTG(o) {
-    if (!cfg.tgBot || !cfg.tgChat) { openSettings(); throw new Error('أكمل إعدادات تيليغرام أولاً'); }
-    const img = (o.images && o.images[0]) || o.image_url;
-    const text = offerText(o);
-    const base = `https://api.telegram.org/bot${cfg.tgBot}`;
-    const body = img
-      ? { chat_id: cfg.tgChat, photo: img, caption: text }
-      : { chat_id: cfg.tgChat, text };
-    const r = await fetch(base + (img ? '/sendPhoto' : '/sendMessage'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  /* حملة الخادم: نفس نداء «إدارة الإشعارات» (جهاز الأدمن الموثَّق gmt_inbox_token) */
+  async function mkCall(body) {
+    let tok = ''; try { tok = localStorage.getItem('gmt_inbox_token') || ''; } catch (_) {}
+    if (!tok) throw new Error('فعّل «صندوق الإشعارات» بحساب الأدمن على هذا الجهاز (مركز الإشعارات) — البثّ يمرّ بالخادم ويُسجَّل');
+    const d = (global.GMT_DB && global.GMT_DB.MAIN) || DB.main;
+    const r = await fetch(d.url + '/functions/v1/marketing', { method: 'POST',
+      headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: tok }, body)) });
     const j = await r.json().catch(() => ({}));
-    if (!j.ok) throw new Error(j.description || 'فشل الإرسال');
+    if (!r.ok || !j.ok) throw new Error(j.msg || ('HTTP ' + r.status));
+    return j;
+  }
+  /* opts.isNew: عرضٌ جديد للمتجر و«النشر التلقائي للعروض» مفعّل ⇒ الخادم ينشئ حملته وحده بعد ١٠ دقائق — لا نكرّرها */
+  async function broadcastTG(o, opts) {
+    if (opts && opts.isNew && o.is_active !== false && targetsOf(o).store) {
+      try { const ls = await mkCall({ action: 'camp_list' }); if (ls.auto) return { auto: true }; } catch (_) {}
+    }
+    const img = (o.images && o.images[0]) || o.image_url || '';
+    const lines = offerText(o).split('\n').slice(1).filter((l) => !cfg.storeUrl || l.indexOf(cfg.storeUrl) === -1);   // العنوان منفصل · رابط الحملة يضيفه الخادم
+    const j = await mkCall({ action: 'camp_save', title: String(o.name || '').slice(0, 120), body: lines.join('\n').slice(0, 600),
+      image_url: /^https:\/\//.test(img) ? img : '', url: 'store.html', topics: ['offers'], channels: ['telegram'], status: 'scheduled' });
+    return { item: j.item };
   }
   function shareWA(o) {
     /* 🔴 بلاغ ٢٨: عبر `GMTWhatsApp` ⇒ واتساب بزنس على أندرويد، واحتياطيّ تلقائي. */
@@ -4473,18 +4485,11 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   /* 🎨 (2026-10-03 · طلبك ١٦١) كانت ثلاث نوافذ `prompt()` متتالية من المتصفّح.
      صارت نوافذَ النظام، والإلغاء في أي خطوةٍ يُوقف الباقي بلا حفظٍ ناقص. */
   async function openSettings() {
-    const bot = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('توكن بوت تيليغرام (للبثّ على القناة):',
-      { title: 'إعدادات البثّ ١/٣', value: cfg.tgBot || '', dir: 'ltr', placeholder: '123456:AA…' });
-    if (bot === null) return;
-    localStorage.setItem(CFG_KEYS.tgBot, bot.trim());
-    const chat = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('معرّف القناة أو المحادثة:',
-      { title: 'إعدادات البثّ ٢/٣', value: cfg.tgChat || '', dir: 'ltr', placeholder: '@gmt_offers أو -100…' });
-    if (chat === null) { toast('حُفظ التوكن — أُلغي الباقي'); return; }
-    localStorage.setItem(CFG_KEYS.tgChat, chat.trim());
-    const su = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('رابط المتجر المنشور (يُرفق بالبثّ وبطاقة الموقع):',
-      { title: 'إعدادات البثّ ٣/٣', value: cfg.storeUrl || 'https://general-media-tech.github.io/', dir: 'ltr' });
-    if (su !== null) localStorage.setItem(CFG_KEYS.storeUrl, su.trim());
-    toast('حُفظت إعدادات البثّ ✓');
+    /* لا توكن ولا قناة هنا بعد اليوم: القناة وحالة البوت في «إدارة الإشعارات ⇐ الحملات» (للنظام كلّه، لا لكل جهاز) */
+    const su = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('رابط المتجر المنشور (يُرفق بمشاركة واتساب وبطاقة الموقع):',
+      { title: 'إعدادات البثّ', value: cfg.storeUrl || 'https://general-media-tech.github.io/', dir: 'ltr' });
+    if (su !== null) { try { localStorage.setItem(CFG_KEYS.storeUrl, su.trim()); } catch (_) {} }
+    toast('قناة تيليغرام وسجلّ البثّ: إدارة الإشعارات ⇐ الحملات');
   }
 
   /* ══════════ إجراءات القائمة ══════════ */
@@ -4539,7 +4544,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     _edit: (id) => { const o = _offers.find((x) => String(x.id) === String(id)); if (o) openForm(o); },
     _del: del,
     _toggle: toggle,
-    _tg: async (id) => { const o = _offers.find((x) => String(x.id) === String(id)); if (!o) return; try { await broadcastTG(o); toast('📣 بُثّ على تيليغرام ✓'); } catch (e) { toast('تيليغرام: ' + e.message, true); } },
+    _tg: async (id) => { const o = _offers.find((x) => String(x.id) === String(id)); if (!o) return; try { await broadcastTG(o); toast('📣 أُرسل لحملات تيليغرام — يُنشر خلال دقيقة (إدارة الإشعارات ⇐ الحملات)'); } catch (e) { toast('تيليغرام: ' + e.message, true); } },
     _wa: (id) => { const o = _offers.find((x) => String(x.id) === String(id)); if (o) shareWA(o); },
     _save: save,
     _close: closeForm,
