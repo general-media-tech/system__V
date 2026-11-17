@@ -6,7 +6,7 @@ const H = require('./h.js');
 const ROOT = path.join(__dirname, '..', '..');
 /* صفحات مركز الإشعارات لا تُلمس من هذه المهمّة (منشورة حديثاً) — تُستثنى من الفحص الثابت */
 const SKIP = new Set(['إدارة_الإشعارات.html', 'مركز_الإشعارات.html', 'ابق_على_اطلاع.html']);
-const PAGES = ['sales_log.html', 'passwords.html', 'morning.html', 'quote.html', 'المراجعة_المالية_الشاملة.html', 'تفعيل_عقل_النظام.html', 'أماكن_الوصول.html', 'دليل_التوافقيات_والمواصفات.html'];
+const PAGES = ['sales_log.html', 'passwords.html', 'morning.html', 'quote.html', 'المراجعة_المالية_الشاملة.html', 'تفعيل_عقل_النظام.html', 'أماكن_الوصول.html', 'دليل_التوافقيات_والمواصفات.html', 'user_guide.html'];
 let bad = 0; const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (!c) bad++; };
 
 const vers = {};
