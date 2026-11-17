@@ -754,7 +754,7 @@
       if (!write) { rec({ area, step: 'العمليّة كاملة', ok: null, detail: 'تخطّي — وضع القراءة فقط' }); return true; }
       /* (VER-4#REQ-0471) الصفحات التي لا تحمّل gmt-stock.js (checks · system_tools) — نحمّله عند الحاجة بدل الفشل (P6) */
       if (!global.GMTStock || !GMTStock.receiveTransfer) {
-        await new Promise(function (ok) { var sc = document.createElement('script'); sc.src = 'gmt-stock.js?v=20261101r'; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc); });
+        await new Promise(function (ok) { var sc = document.createElement('script'); sc.src = 'gmt-stock.js?v=20261117g'; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc); });
       }
       if (!global.GMTStock || !GMTStock.receiveTransfer) { rec({ area, step: 'GMTStock.receiveTransfer محمّل', ok: false, pattern: 'P6', detail: 'gmt-stock.js غير محمّل في هذه الصفحة' }); return false; }
       const one = x => (Array.isArray(x) ? x[0] : x) || null;
