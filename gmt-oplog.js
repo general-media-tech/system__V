@@ -49,7 +49,14 @@
     user_lock: 'قفل جهاز مستخدم', user_toggle: 'إيقاف/تفعيل مستخدم', user_delete: 'حذف مستخدم', user_approve: 'موافقة على حساب',
     product_edit: 'تعديل منتج', product_delete: 'حذف منتج', stock_add: 'إضافة كمّية', stock_deduct: 'خصم كمّية', qty_manual: 'تعديل كمّية يدوي',
     invoice_admin_create: 'فاتورة من الإدارة', password_change: 'تغيير كلمة سرّ', unmet_demand: 'طلب غير متوفّر', unmet_resolved: 'طلب غير متوفّر — عولج',
-    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف', pos_create: 'إنشاء نقطة بيع', pos_retire: 'إلغاء نقطة بيع', pos_secret_fail: 'محاولة سرّية خاطئة (نقاط البيع)'
+    rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف', pos_create: 'إنشاء نقطة بيع', pos_retire: 'إلغاء نقطة بيع', pos_secret_fail: 'محاولة سرّية خاطئة (نقاط البيع)',
+    /* (OWN-10#12) رموزٌ إنجليزية كانت تظهر خاماً في السجل (مثل qty_unlock) */
+    qty_unlock: 'فكّ قفل الكميات (تعديل يدوي)', qty_settlement: 'تسوية كمّية', product_create: 'إضافة منتج', pos_rebuild: 'إعادة بناء نقطة بيع',
+    price_set: 'تحديد سعر', price_sync: 'مزامنة الأسعار', acc_opening_balance: 'رصيد افتتاحي', admin_enter_pos: 'دخول الأدمن لنقطة بيع', admin_exit_pos: 'خروج الأدمن من نقطة بيع',
+    order_reship: 'إعادة شحن أوردر', order_returned: 'أوردر مرتجع', order_return_received: 'استلام مرتجع أوردر', order_stock_deduct: 'خصم مخزون أوردر',
+    transfer_admin_confirm: 'تأكيد نقل بواسطة الأدمن', transfer_sent_to_branch: 'نقل مُرسَل إلى فرع', transfer_cancel: 'إلغاء نقل', transfer_fill: 'تعبئة نقل',
+    transfer_recount: 'إعادة عدّ نقل', transfer_reopen: 'إعادة فتح نقل', transfer_unstick: 'فكّ نقل عالق', transfer_waive: 'إعفاء نقل',
+    branch_stock_raised: 'رفع مخزون فرع', branch_stock_set: 'ضبط مخزون فرع', invoice_collect: 'تحصيل فاتورة', commission_admin_override: 'تعديل عمولة بواسطة الأدمن'
   };
   var KEY_AR = {
     status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', qty: 'الكمية',
@@ -299,7 +306,7 @@
     if (ACT_AR[a]) return ACT_AR[a];
     var m = a.match(/^(create|update|delete):(.+)$/);
     if (m) return ({ create: 'إنشاء', update: 'تعديل', delete: 'حذف' })[m[1]] + ' ' + (T[m[2]] || m[2]);
-    return a;
+    return a ? 'عملية: ' + a : 'عملية';   /* رمز غير مسمّى: يبقى ظاهراً لكن مسبوقاً بكلمة عربية */
   }
   function fmtVal(k, v, table) {
     if (v == null) return '—';
