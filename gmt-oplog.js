@@ -50,13 +50,14 @@
     product_edit: 'تعديل منتج', product_delete: 'حذف منتج', stock_add: 'إضافة كمّية', stock_deduct: 'خصم كمّية', qty_manual: 'تعديل كمّية يدوي',
     invoice_admin_create: 'فاتورة من الإدارة', password_change: 'تغيير كلمة سرّ', unmet_demand: 'طلب غير متوفّر', unmet_resolved: 'طلب غير متوفّر — عولج',
     rfq_export: 'تصدير طلب عرض سعر', write_noop: 'كتابة لم تُغيّر شيئاً (صلاحية أو سجلّ محذوف)', category_save: 'حفظ تصنيف', category_delete: 'حذف تصنيف', pos_create: 'إنشاء نقطة بيع', pos_retire: 'إلغاء نقطة بيع', pos_secret_fail: 'محاولة سرّية خاطئة (نقاط البيع)',
-    /* (OWN-10#12) رموزٌ إنجليزية كانت تظهر خاماً في السجل (مثل qty_unlock) */
-    qty_unlock: 'فكّ قفل الكميات (تعديل يدوي)', qty_settlement: 'تسوية كمّية', product_create: 'إضافة منتج', pos_rebuild: 'إعادة بناء نقطة بيع',
-    price_set: 'تحديد سعر', price_sync: 'مزامنة الأسعار', acc_opening_balance: 'رصيد افتتاحي', admin_enter_pos: 'دخول الأدمن لنقطة بيع', admin_exit_pos: 'خروج الأدمن من نقطة بيع',
-    order_reship: 'إعادة شحن أوردر', order_returned: 'أوردر مرتجع', order_return_received: 'استلام مرتجع أوردر', order_stock_deduct: 'خصم مخزون أوردر',
-    transfer_admin_confirm: 'تأكيد نقل بواسطة الأدمن', transfer_sent_to_branch: 'نقل مُرسَل إلى فرع', transfer_cancel: 'إلغاء نقل', transfer_fill: 'تعبئة نقل',
-    transfer_recount: 'إعادة عدّ نقل', transfer_reopen: 'إعادة فتح نقل', transfer_unstick: 'فكّ نقل عالق', transfer_waive: 'إعفاء نقل',
-    branch_stock_raised: 'رفع مخزون فرع', branch_stock_set: 'ضبط مخزون فرع', invoice_collect: 'تحصيل فاتورة', commission_admin_override: 'تعديل عمولة بواسطة الأدمن'
+    /* (OWN-10#12) رموزٌ كانت تظهر خاماً بالإنجليزية */
+    qty_unlock: 'فتح قفل الكمية', qty_settlement: 'تسوية كمّية', acc_opening_balance: 'رصيد افتتاحي (محاسبة)', admin_enter_pos: 'دخول الأدمن إلى نقطة بيع', admin_exit_pos: 'خروج الأدمن من نقطة بيع',
+    branch_stock_raised: 'رفع مخزون فرع', branch_stock_set: 'ضبط مخزون فرع', bulk_merged: 'دمج جماعي', commission_admin_override: 'تعديل عمولة من الإدارة', define_from_store: 'تعريف منتج من المتجر',
+    drain_pos_prepared: 'تفريغ مُجهَّز نقطة البيع', family_images: 'صور عائلة منتجات', invoice_collect: 'تحصيل فاتورة', merge_review: 'مراجعة دمج', order_reship: 'إعادة شحن أوردر',
+    order_return_received: 'استلام مرتجع أوردر', order_returned: 'إرجاع أوردر', order_stock_deduct: 'خصم مخزون أوردر', pick_review: 'مراجعة اختيار', pos_rebuild: 'إعادة بناء نقطة بيع',
+    price_set: 'تحديد سعر', price_sync: 'مزامنة أسعار', product_create: 'إنشاء منتج', store_link: 'ربط بالمتجر', store_merge: 'دمج مع المتجر', store_remove: 'إزالة من المتجر', store_to_inv: 'نقل من المتجر إلى الجرد',
+    subscribe: 'اشتراك بالإشعارات', unsubscribe: 'إلغاء اشتراك الإشعارات', transfer_admin_confirm: 'تأكيد نقل من الإدارة', transfer_cancel: 'إلغاء نقل', transfer_sent_to_branch: 'إرسال نقل إلى فرع',
+    transfer_fill: 'تعبئة فاتورة نقل', transfer_recount: 'إعادة عدّ نقل', transfer_reopen: 'إعادة فتح نقل', transfer_unstick: 'فكّ نقل عالق', transfer_waive: 'إسقاط فرق نقل', prefs: 'تعديل التفضيلات'
   };
   var KEY_AR = {
     status: 'الحالة', name: 'الاسم', phone: 'الهاتف', price: 'السعر', wholesale_price: 'سعر الجملة', cost_price: 'الكلفة', qty: 'الكمية',
@@ -351,7 +352,7 @@
     '.ol-t{font-size:11.5px;color:#64748b;margin-inline-start:auto;white-space:nowrap}' +
     '.ol-d{font-size:12.5px;color:#334155;line-height:1.9;margin-top:2px;word-break:break-word}' +
     '.ol-k{color:#64748b;font-weight:700}.ol-o{color:#b91c1c;text-decoration:line-through;text-decoration-color:#fca5a5}.ol-n{color:#15803d;font-weight:800}' +
-    '.ol-p{font-size:11px;color:#94a3b8}.ol-em{text-align:center;color:#64748b;padding:26px 8px;font-size:13.5px}' +
+    '.ol-p{font-size:11px;color:#475569}.ol-em{text-align:center;color:#64748b;padding:26px 8px;font-size:13.5px}' +
     '.ol-w{padding:12px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:13px;line-height:1.8}';   /* (TASK-0143) أُزيلت قاعدة الوضع الداكن — النظام فاتحٌ دائماً */
   function injectCss() {
     if (document.getElementById('gmt-oplog-css')) return;
