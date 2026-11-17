@@ -476,6 +476,32 @@
   ALIAS.INV_ADD = 'invAdd'; ALIAS.INV_EDIT = 'invEdit'; ALIAS.INV_DELETE = 'invDel'; ALIAS.INV_PHOTO = 'invPhoto'; ALIAS.INV_QTY = 'invQty'; ALIAS.INV_TRANSFER = 'invTransfer';
   ALIAS.INV_COUNT_START = 'countStart'; ALIAS.INV_COUNT_MATCH = 'countMatch'; ALIAS.INV_COUNT_MISMATCH = 'countMismatch'; ALIAS.INV_LABELS_PRINT = 'labelPrint'; ALIAS.INV_CAT_NEW = 'catNew';
 
+  /* ── (ل) الكاشير — OWN-12#11: عائلةٌ معدنيّة/صندوقيّة قصيرة تميّز السلّة عن المخزون والنقرات ── */
+  reg('POS_HOLD', 'POS', 'info', 'تعليق فاتورة', 'نغمتان هابطتان ثمّ نقرةٌ ثابتة — «وُضعت جانباً»', function () { arp([523, 392], { step: .08, dur: .12, type: 'triangle', gain: .12, lp: 2600 }); tone({ f: 262, dur: .08, gain: .08, at: .18, attack: .003 }); });
+  reg('POS_RESUME', 'POS', 'info', 'استرجاع فاتورة معلّقة', 'نغمتان صاعدتان ثمّ نغمةٌ مفتوحة', function () { arp([392, 523, 659], { step: .07, dur: .12, type: 'triangle', gain: .12, lp: 2800 }); });
+  reg('POS_ITEM_REMOVE', 'POS', 'ui', 'حذف عنصر من السلّة', 'هبوطٌ سريع خفيف', function () { tone({ f: 520, f2: 300, type: 'triangle', dur: .09, gain: .09, attack: .003, lp: 2000 }); });
+  reg('POS_CART_CLEAR', 'POS', 'warn', 'تفريغ السلّة', 'كنسةٌ هابطة مع ارتطامٍ خفيف', function () { noise({ from: 3000, to: 600, dur: .2, gain: .07, band: true, q: .9 }); tone({ f: 180, f2: 110, dur: .14, gain: .12, at: .08, attack: .004 }); });
+  reg('POS_PRICE_EDIT', 'POS', 'info', 'تعديل سعر', 'نقرتان معدنيّتان متقاربتان', function () { tone({ f: 990, type: 'triangle', dur: .05, gain: .09, attack: .003, lp: 4000 }); tone({ f: 1320, type: 'triangle', dur: .06, gain: .08, at: .05, attack: .003, lp: 4000 }); });
+  reg('POS_CUSTOMER', 'POS', 'ui', 'اختيار زبون', 'نغمتان صاعدتان ناعمتان', function () { arp([587, 784], { step: .06, dur: .09, gain: .09 }); });
+  reg('POS_PAY_METHOD', 'POS', 'ui', 'اختيار طريقة دفع', 'نقرةٌ معدنيّة ثمّ نغمة', function () { noise({ from: 3500, to: 5500, dur: .03, gain: .06, band: true, q: 1.2 }); tone({ f: 880, dur: .06, gain: .08, at: .03, attack: .003 }); });
+  reg('POS_PAY_SPLIT', 'POS', 'info', 'دفع مجزّأ', 'نغمتان متجاورتان ثمّ ثالثة', function () { arp([659, 784, 659], { step: .07, dur: .1, type: 'triangle', gain: .1, lp: 3200 }); });
+  reg('POS_CHANGE', 'POS', 'success', 'الباقي للزبون', 'رنّةُ درجٍ نقديّ صاعدة', function () { arp([1047, 1319, 1568], { step: .05, dur: .16, type: 'triangle', gain: .12, lp: 7000 }); noise({ from: 5000, to: 8000, dur: .08, gain: .03, band: true, q: 2, at: .02 }); });
+  reg('POS_BARCODE_MANUAL', 'POS', 'ui', 'باركود يدويّ', 'نقرةٌ مزدوجة قصيرة', function () { tone({ f: 1500, dur: .03, gain: .07, attack: .002 }); tone({ f: 1900, dur: .04, gain: .07, at: .045, attack: .002 }); });
+  reg('POS_INVOICE_SEND', 'POS', 'success', 'إرسال فاتورة', 'حفيفُ انطلاقٍ ثمّ نغمتان صاعدتان', function () { noise({ from: 800, to: 3200, dur: .14, gain: .05, band: true, q: .9 }); arp([660, 990], { step: .08, dur: .12, gain: .1, at: .08 }); });
+  ALIAS.POS_ITEM_ADD = 'scan';
+
+  /* ── (م) الطلبات — OWN-12#12: صوتٌ لكل حالة (من «جديد» إلى «مسلّم» بصعودٍ تدريجيّ) ثمّ الإلغاء والمرتجع… ── */
+  reg('ORDER_PREPARING', 'ORDER', 'info', 'طلب: قيد التجهيز', 'نغمتان خشبيّتان — بدء التجهيز', function () { arp([392, 440], { step: .09, dur: .11, type: 'triangle', gain: .11, lp: 2200 }); });
+  reg('ORDER_READY', 'ORDER', 'success', 'طلب: جاهز', 'ثلاث نغماتٍ صاعدة', function () { arp([440, 554, 659], { step: .07, dur: .14, type: 'triangle', gain: .13, lp: 3000 }); });
+  reg('ORDER_WITH_COURIER', 'ORDER', 'info', 'طلب: مع المندوب', 'حفيفُ انطلاقٍ ونغمتان', function () { noise({ from: 400, to: 1800, dur: .15, gain: .05, band: true, q: .8 }); arp([523, 698], { step: .09, dur: .13, type: 'triangle', gain: .12, lp: 2800, at: .08 }); });
+  reg('ORDER_DELIVERED', 'ORDER', 'success', 'طلب: مسلّم', 'وترٌ صاعدٌ مستقرّ', function () { arp([523, 659, 784], { step: .08, dur: .3, gain: .13, lp: 6000 }); tone({ f: 262, dur: .4, gain: .08, at: .1 }); });
+  reg('ORDER_CANCEL', 'ORDER', 'warn', 'إلغاء طلب', 'هبوطٌ خشن قصير', function () { tone({ f: 330, f2: 180, type: 'sawtooth', dur: .22, gain: .1, lp: 900 }); });
+  reg('ORDER_RETURN', 'ORDER', 'warn', 'مرتجع', 'نغمتان هابطتان ثمّ ارتدادٌ صاعد', function () { arp([494, 392, 440], { step: .1, dur: .14, type: 'triangle', gain: .12, lp: 2200 }); });
+  reg('ORDER_ASSIGN', 'ORDER', 'info', 'إسناد مندوب', 'نقرتان ثمّ نغمةٌ مرحِّبة', function () { tone({ f: 800, dur: .04, gain: .07, attack: .002 }); tone({ f: 1000, dur: .04, gain: .07, at: .05, attack: .002 }); tone({ f: 659, dur: .12, gain: .09, at: .1 }); });
+  reg('ORDER_NOTE', 'ORDER', 'ui', 'ملاحظة على طلب', 'قلمٌ خفيف: نقرةٌ ونغمة', function () { tone({ f: 1250, dur: .04, gain: .06, attack: .002 }); tone({ f: 940, dur: .06, gain: .05, at: .04, attack: .002 }); });
+  reg('ORDER_URGENT', 'ORDER', 'critical', 'طلبٌ مستعجل', 'ثلاث نبضاتٍ قويّة — أقوى من بقيّة الطلبات', function () { [0, .16, .32].forEach(function (at) { tone({ f: 880, type: 'square', dur: .1, gain: .13, at: at, lp: 2500 }); tone({ f: 1175, type: 'triangle', dur: .1, gain: .1, at: at, lp: 3000 }); }); });
+  ALIAS.ORDER_NEW = 'order';
+
   /* (OWN-09#40/#23) الأصوات المتكرّرة تُنوَّع نغمتها ±10–40 سنتاً · (OWN-09#47) زمن تهدئةٍ لكل مفتاح · (OWN-09#41) هرمية الجهارة */
   var JITTER = { click: 1, tick: 1, scan: 1, pop: 1, copy: 1, UI_CHECK: 1, UI_RADIO: 1, UI_TAB: 1, UI_HOVER: 1, UI_FOCUS: 1, FORM_KEY: 1, FORM_BACKSPACE: 1, FORM_ENTER: 1, invAdd: 1 };
   var CD = { click: 60, tick: 30, scan: 60, success: 250, warn: 400, error: 400, notify: 1500, update: 5000, offline: 3000, online: 3000 };
@@ -906,6 +932,17 @@
     'inv.qty': { key: 'invQty', fx: 'flash-green' }, 'inv.transfer': { key: 'invTransfer' }, 'inv.count.start': { key: 'countStart' },
     'inv.count.match': { key: 'countMatch', fx: 'flash-green' }, 'inv.count.mismatch': { key: 'countMismatch', fx: 'flash-amber' },
     'inv.labels.print': { key: 'labelPrint' }, 'inv.category.new': { key: 'catNew', fx: 'flash-green' }
+  });
+  /* (OWN-12#11 · #12) أحداث الكاشير والطلبات */
+  Object.assign(EV_DEFAULT, {
+    'pos.hold': { key: 'POS_HOLD' }, 'pos.resume': { key: 'POS_RESUME' }, 'pos.item.remove': { key: 'POS_ITEM_REMOVE' }, 'pos.cart.clear': { key: 'POS_CART_CLEAR', fx: 'flash-amber' },
+    'pos.price.edit': { key: 'POS_PRICE_EDIT' }, 'pos.customer': { key: 'POS_CUSTOMER' }, 'pos.pay.method': { key: 'POS_PAY_METHOD' }, 'pos.pay.split': { key: 'POS_PAY_SPLIT' },
+    'pos.change': { key: 'POS_CHANGE', fx: 'flash-green' }, 'pos.barcode.manual': { key: 'POS_BARCODE_MANUAL' }, 'pos.invoice.send': { key: 'POS_INVOICE_SEND', fx: 'flash-green' },
+    'order.status.pending': { key: 'ORDER_PREPARING' }, 'order.status.prepared': { key: 'ORDER_READY', fx: 'flash-green' }, 'order.status.shipped': { key: 'ORDER_WITH_COURIER' },
+    'order.status.delivered': { key: 'ORDER_DELIVERED', fx: 'flash-green' }, 'order.status.completed': { key: 'ORDER_DELIVERED', fx: 'flash-green' },
+    'order.status.cancelled': { key: 'ORDER_CANCEL', fx: 'flash-amber' }, 'order.status.canceled': { key: 'ORDER_CANCEL', fx: 'flash-amber' }, 'order.status.returned': { key: 'ORDER_RETURN', fx: 'flash-amber' },
+    'order.cancel': { key: 'ORDER_CANCEL', fx: 'flash-amber' }, 'order.return': { key: 'ORDER_RETURN', fx: 'flash-amber' }, 'order.assign': { key: 'ORDER_ASSIGN' },
+    'order.note': { key: 'ORDER_NOTE' }, 'order.urgent': { key: 'ORDER_URGENT', fx: 'shake flash-red' }
   });
   try { global.GMT_EVENT_MAP = Object.assign({}, EV_DEFAULT, global.GMT_EVENT_MAP || {}); } catch (_) {}
 
