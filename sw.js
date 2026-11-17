@@ -18,7 +18,7 @@
       ⇒ غيّر VERSION في كل نشر، وسيُعرض إشعار تحديث تلقائياً.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'gmt-v20261117b';       // ⬅️ غيّره في كل نشر
+const VERSION = 'gmt-v20261117c';       // ⬅️ غيّره في كل نشر
 const LIBS    = VERSION + '-libs';
 /* (22 ت1 · TASK-0122) ملفّات قارئ الإيصال (lib/ocr: نواة التعرّف ٣٫٩ م.ب + نموذج العربية ١٫٧ م.ب) — كانت «الشبكة أوّلاً» مثل
    صفحات الموقع، فتُطلب من الشبكة في كل فتحة صفحة (بطيءٌ على اتّصالٍ ضعيف). محتواها ثابتٌ لاسمها (tesseract.js 7.0.0)
@@ -104,7 +104,7 @@ const CORE = [
   './manifest.json',
   /* (2026-10-04 ي) الواجهةُ الرئيسيّة الجديدة تحتاجها لتفتح بلا إنترنت */
   './gmt-ui.css', './gmt-tools.js', './gmt-account.js', './gmt-icons.js', './gmt-home.js', './gmt-ask.js',
-  './gmt-intro.js', './gmt-sound.js', './gmt-refresh.js', './gmt-autobackup.js', './gmt-notify.js', './gmt-whatsnew.js',
+  './gmt-intro.js', './gmt-sound.js', './gmt-refresh.js', './gmt-autobackup.js', './gmt-notify.js', './gmt-push.js', './gmt-whatsnew.js',
   './gmt-learn.js', './gmt-receipt.js', './gmt-oplog.js', './gmt-screen.js', './gmt-lessons.js', './gmt-nofab.js', './gmt-fitrow.js', './gmt-stock.js', './gmt-bidi.js', './gmt-ledger.js', './gmt-share.js', './gmt-sticker.js', './gmt-gallery.js', './gmt-wclaims.js', './gmt-product-edit.js', './gmt-custcache.js', './gmt-invoice-tpl.js', './gmt-signpad.js', './gmt-refund.js', './gmt-store-sync.js', './gmt-merge-review.js',
   /* (TASK-0105) صورة/PDF الأوردر بلا إنترنت: المُصيِّر الداخلي وخطّ Cairo المستضاف + شارة قفل الأوردرات */
   './gmt-render.js', './gmt-orders-lock.js', './lib/fonts/Cairo-var-arabic.woff2', './lib/fonts/Cairo-var-latin.woff2',
@@ -131,7 +131,7 @@ self.addEventListener('activate', (e) => {
     /* نحذف كاشات المكتبات القديمة فقط — وكاش الصفحات يبقى.
        (كان الحذف يشمل الصفحات، فيفقد المستخدم كل ما خزّنه مع كل نشرة.) */
     await Promise.all(keys
-      .filter(k => k !== PAGES && k !== OCR && k !== IMGS && !k.startsWith(VERSION))
+      .filter(k => k !== PAGES && k !== OCR && k !== IMGS && k !== 'gmt-push-state' && !k.startsWith(VERSION))
       .map(k => caches.delete(k)));
     /* (seq 598) صور img/p التي دخلت كاش الصفحات خطأً ⇒ تُحذف منه (تحرير تخزين الجهاز) */
     try { const pc = await caches.open(PAGES); for (const r of await pc.keys()) if (/\/img\/p\//.test(r.url)) await pc.delete(r); } catch (_) {}
@@ -142,6 +142,65 @@ self.addEventListener('activate', (e) => {
 /* رسالة من الصفحة: «حدّث الآن» */
 self.addEventListener('message', (e) => {
   if (e.data === 'skipWaiting' || (e.data && e.data.type === 'skipWaiting')) self.skipWaiting();
+  /* (TASK-B0420) الإشعارات الفوريّة: مسح الشارة · حفظ إعدادات إعادة الاشتراك التلقائي */
+  if (e.data && e.data.type === 'gmt-badge-clear') { e.waitUntil((async () => { await pushState(() => ({ n: 0 })); try { if (self.navigator.clearAppBadge) await self.navigator.clearAppBadge(); } catch (_) {} })()); }
+  if (e.data && e.data.type === 'gmt-push-cfg' && e.data.cfg) e.waitUntil(pushState(() => ({ cfg: e.data.cfg })));
+});
+
+/* ═══ (TASK-B0420 · docs/دراسة_الإشعارات_الفورية.md المهمّة ٧) الإشعارات الفوريّة: الاستقبال · النقر · الشارة · تجديد الاشتراك ═══ */
+const PUSHST = 'gmt-push-state';            // اسمٌ ثابت — مستثنى من حذف الكاشات القديمة في activate
+async function pushState(patch) {
+  const c = await caches.open(PUSHST), r = await c.match('st');
+  const st = r ? await r.json() : { n: 0 };
+  if (patch) { Object.assign(st, patch(st)); await c.put('st', new Response(JSON.stringify(st))); }
+  return st;
+}
+self.addEventListener('push', (e) => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { t: 'GMT', b: e.data ? e.data.text() : '' }; }
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const seen = wins.some(w => w.focused && w.visibilityState === 'visible');
+    wins.forEach(w => { try { w.postMessage({ type: 'gmt-push', d }); } catch (_) {} });   // الصفحة تُحدَّث وتُصدر صوتها
+    const st = await pushState(seen ? null : (x) => ({ n: (x.n || 0) + 1 }));
+    try { if (!seen && self.navigator.setAppBadge) await self.navigator.setAppBadge(st.n); } catch (_) {}
+    await self.registration.showNotification(d.t || 'GMT', {
+      body: d.b || '', tag: d.tag || d.k || 'gmt', renotify: d.k === 'order' || d.k === 'transfer',
+      icon: './gmt-icon-192.png', badge: './gmt-icon-192.png', dir: 'rtl', lang: 'ar', silent: seen,
+      vibrate: (d.k === 'order' || d.k === 'transfer') ? [200, 100, 200] : undefined,
+      data: { u: d.u || './home.html', k: d.k }, timestamp: Date.now() });
+  })());
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  let u; try { u = new URL((e.notification.data && e.notification.data.u) || './home.html', self.registration.scope); } catch (_) {}
+  if (!u || u.origin !== self.location.origin) u = new URL('./home.html', self.registration.scope);   // رابطٌ من أصلٍ آخر ⇒ الرئيسية
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const w = wins.find(x => { try { return new URL(x.url).pathname === u.pathname; } catch (_) { return false; } }) || wins[0];
+    if (w) {
+      await w.focus();
+      let same = false; try { same = new URL(w.url).pathname === u.pathname; } catch (_) {}
+      if (same) { w.postMessage({ type: 'gmt-push-open', u: u.href }); return; }
+      if (w.navigate) return w.navigate(u.href);
+    }
+    return self.clients.openWindow(u.href);
+  })());
+});
+/* تغيّر الاشتراك (المتصفّح جدّد المفتاح) ⇒ نشترك من جديد بالإعدادات التي خزّنتها الصفحة ونبلّغ الخادم */
+self.addEventListener('pushsubscriptionchange', (e) => {
+  e.waitUntil((async () => {
+    try {
+      const st = await pushState(); const cfg = st.cfg; if (!cfg || !cfg.fn || !cfg.vapid || !cfg.sub) return;
+      const pad = '='.repeat((4 - cfg.vapid.length % 4) % 4), raw = atob((cfg.vapid + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      const key = Uint8Array.from(raw, c => c.charCodeAt(0));
+      const ns = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      const j = ns.toJSON();
+      const post = (b) => fetch(cfg.fn, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.anon, Authorization: 'Bearer ' + cfg.anon }, body: JSON.stringify(b) });
+      await post(Object.assign({}, cfg.sub, { action: 'subscribe', sub: { endpoint: j.endpoint, keys: j.keys } }));
+      if (cfg.old) await post({ action: 'unsubscribe', endpoint: cfg.old.endpoint, auth: cfg.old.auth });
+      await pushState(() => ({ cfg: Object.assign({}, cfg, { old: { endpoint: j.endpoint, auth: j.keys.auth } }) }));
+    } catch (_) { /* سيُجدَّد عند فتح التطبيق (resync) */ }
+  })());
 });
 
 function isLib(url) { return LIB_HOSTS.includes(url.hostname); }

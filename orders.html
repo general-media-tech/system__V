@@ -106,6 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261104b" defer></script>
+  <script src="gmt-push.js?v=20261117a" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261024d"></script>
 <script src="gmt-shipping-offices.js?v=20261025j"></script>
@@ -138,6 +139,7 @@ window.GMT_INTERNAL = 1;</script>
                 <h1 class="text-sm font-extrabold text-gray-800 leading-tight">مجموعة General Media Tech</h1>
                 <p class="text-[10px] font-bold text-red tracking-wide uppercase">نظام إدارة أوردرات الشحن</p>
             </div>
+            <button type="button" id="push-btn" onclick="window.GMTPush&&GMTPush.openPanel(['orders'])" title="الإشعارات الفورية: أوردر جديد · تحديثات — حتى والتطبيق مغلق" class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600">🔔 الإشعارات</button>
             <div id="conn-badge" class="mr-auto lg:mr-0 flex items-center gap-1.5 bg-gray-100 rounded-full px-3 py-1.5 text-[10px] font-bold text-gray-500">
                 <div id="conn-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
                 <span id="conn-text">يتصل...</span>
@@ -9645,7 +9647,7 @@ window.addEventListener('load', function () {
     let n = 0;
     const go = (o) => {
         try { history.replaceState(null, '', location.pathname); } catch (_) {}
-        try { switchTab(o.status && document.getElementById('tab-' + o.status) ? o.status : 'all'); } catch (_) {}
+        try { switchTab(typeof needsConfirm === 'function' && needsConfirm(o) ? 'confirm' : (o.status && document.getElementById('tab-' + o.status) ? o.status : 'all')); } catch (_) {}
         setTimeout(() => {
             const c = document.getElementById('card-' + o.id);
             if (c) { c.scrollIntoView({ block: 'center' }); c.style.outline = '3px solid #f59e0b'; c.style.outlineOffset = '2px'; setTimeout(() => { c.style.outline = ''; }, 4000); }
@@ -9664,6 +9666,11 @@ window.addEventListener('load', function () {
         } else if (n > 60) clearInterval(t);
     }, 400);
 })();
+
+/* ═══ (TASK-B0420 · المهمّة ١٠) الإشعارات الفوريّة: أوردر جديد ⇒ تحديث القائمة فوراً · لمسة الإشعار برابط ?order= ⇒ يُفتح الأوردر ═══ */
+window.addEventListener('gmt-push', (e) => { const k = e.detail && e.detail.k; if (k === 'order' || k === 'version') { try { loadOrders(); } catch (_) {} } });
+window.addEventListener('gmt-push-open', (e) => { try { const u = new URL((e.detail && e.detail.u) || '', location.href); if (u.searchParams.get('order')) location.href = u.href; } catch (_) {} });
+setTimeout(() => { try { window.GMTPush && GMTPush.mountCTA(['orders']); } catch (_) {} }, 4000);
 
 // Override printOrder with multi-product version
 // ═ باني ورقة الطلب — مشترك للطباعة وصورة التيليغرام والمشاركة (استُخرج 2026-07-10) ═

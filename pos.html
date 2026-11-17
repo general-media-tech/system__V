@@ -1232,6 +1232,7 @@ window.GMT_FEATURES = [
 <script src="gmt-signpad.js?v=20261029z4" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261104b" defer></script>
+  <script src="gmt-push.js?v=20261117a" defer></script>
   <script src="gmt-auth.js?v=20261024d"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
@@ -1392,6 +1393,10 @@ window.GMT_FEATURES = [
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/></svg>
         </button>
         <div id="hdr-more-menu" class="hdr-more-menu hidden">
+          <button class="hdr-more-item" onclick="closeHdrMoreMenu();window.GMTPush&&GMTPush.openPanel(['pos'].concat((window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin())?['admin']:[]))" data-hint="إشعارات فورية: أوردر جديد · عرض · تغيّر سعر · فاتورة نقل — حتى والتطبيق مغلق">
+            <span style="width:15px;text-align:center">🔔</span>
+            الإشعارات
+          </button>
           <button class="hdr-more-item" onclick="closeHdrMoreMenu();openBranchStats()">
             <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             إحصائيات الفرع
@@ -4813,6 +4818,30 @@ window.warrantyFromHistory = warrantyFromHistory;
   }, 500);
 })();
 
+
+
+/* ═══ (TASK-B0420 · docs/دراسة_الإشعارات_الفورية.md المهمّة ٩) الإشعارات الفوريّة في نقطة البيع ═══
+   روابط الإشعار العميقة ?go=incoming|offers|prices|orders (+ &q=) وتفاعل الصفحة المفتوحة مع حدث 'gmt-push' (يأتي من gmt-push.js). */
+async function _pushGo(go, q) {
+  try {
+    if (go === 'incoming') { await loadIncomingTransfers(); if (typeof openIncomingTransfers === 'function') openIncomingTransfers(); }
+    else if (go === 'offers') { await _refreshOffers(); if (typeof activeCat !== 'undefined') { activeCat = 'باقات وعروض'; renderProds(); } }
+    else if (go === 'prices') { await _backgroundSync(); showToast('✅ حُدّثت الأسعار', 'ok'); if (q) { const si = document.getElementById('searchInput'); if (si) { si.value = q; renderProds(); } } }
+    else if (go === 'orders') { if (typeof setOrderMode === 'function') setOrderMode('existing'); }
+  } catch (e) { console.warn('[push] go:', e && e.message); }
+}
+(function () {
+  const m = location.search.match(/[?&]go=(incoming|offers|prices|orders)/); let go = m && m[1], q = null;
+  try { q = new URLSearchParams(location.search).get('q'); } catch (_) {}
+  if (go) { let n = 0; const t = setInterval(() => { n++;
+    const ready = typeof currentUser !== 'undefined' && currentUser && typeof branch !== 'undefined' && branch && branch.key && typeof allProducts !== 'undefined' && allProducts.length;
+    if (ready) { clearInterval(t); try { history.replaceState(null, '', location.pathname); } catch (_) {} _pushGo(go, q); } else if (n > 120) clearInterval(t); }, 500); }
+  window.addEventListener('gmt-push', (e) => { const k = e.detail && e.detail.k;
+    try { if (k === 'transfer' || k === 'transfer_aging') loadIncomingTransfers(); else if (k === 'offer') _refreshOffers(); else if (k === 'price' || k === 'version') _backgroundSync().catch(() => {}); } catch (_) {} });
+  window.addEventListener('gmt-push-open', (e) => { try { const u = new URL((e.detail && e.detail.u) || '', location.href), g = u.searchParams.get('go'); if (g) _pushGo(g, u.searchParams.get('q')); } catch (_) {} });
+  /* بعد الدخول: السطر التعريفي (مرّة/7 أيّام) */
+  let k = 0; const t2 = setInterval(() => { k++; if (typeof currentUser !== 'undefined' && currentUser && currentUser.id && window.GMTPush) { clearInterval(t2); GMTPush.mountCTA(['pos']); } else if (k > 60) clearInterval(t2); }, 1000);
+})();
 
 /* (٦) ملفّ الطابعة لكل جهاز — يُحفظ على الجهاز نفسه */
 function getPrinterProfile() { try { return localStorage.getItem('gmt_printer_profile') || 'a4'; } catch (_) { return 'a4'; } }
