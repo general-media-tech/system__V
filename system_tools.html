@@ -174,6 +174,91 @@ window.GMT_INTERNAL = 1;</script>
   })();
   </script>
 
+  <!-- ═══ 🧰 حالة الأدوات (ARC-HTML-3#45) — لكلّ أداة: تعمل / ينقصها ملف SQL / قاعدتها متوقّفة ═══ -->
+  <div class="section">
+    <h2>🧰 حالة الأدوات — أيّ أداة تعمل ولماذا لا تعمل الأخرى؟</h2>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px">
+      <p style="font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:12px">
+        يقرأ صفّاً واحداً من كلّ جدول تحتاجه كلّ أداة (قراءة فقط) ويقول لك: <b>✅ تعمل · 🟠 ينقصها ملف SQL (جدول غير موجود) · 🔴 قاعدتها متوقّفة · 🔒 ممنوعة بالصلاحيات</b>.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button id="ts-run" style="background:#0f172a;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">🧰 افحص حالة الأدوات</button>
+        <button id="ts-copy" style="background:#f1f5f9;border:1px solid var(--line);border-radius:10px;padding:10px 18px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">📋 انسخ</button>
+      </div>
+      <div id="ts-out"></div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    /* الأداة · قاعدتها · الجداول التي تقرؤها فعلاً (من كود الصفحة نفسها) */
+    var TOOLS = [
+      { n:'نقطة البيع', p:'pos.html', db:'MAIN', t:['invoices','invoice_items','invoice_commissions','products'] },
+      { n:'أدمن نقاط البيع', p:'admin_pos.html', db:'MAIN', t:['invoice_commissions','gmt_expenses'] },
+      { n:'الأوردرات', p:'orders.html', db:'MAIN', t:['gmt_orders','gmt_customers','gmt_settings'] },
+      { n:'الجرد', p:'inventory.html', db:'MAIN', t:['products','inv_columns','branch_stock_transfers','stock_transfer_items'] },
+      { n:'المشتريات', p:'purchase.html', db:'MAIN', t:['import_log','stock_receipts'] },
+      { n:'المتجر', p:'store.html', db:'MAIN', t:['gmt_store','gmt_offers','gmt_coupons'] },
+      { n:'التوظيف', p:'أدمن_التوظيف.html', db:'MAIN', t:['gmt_job_applications'] },
+      { n:'التقرير الأسبوعي والحارس', p:'weekly_report.html', db:'MAIN', t:['gmt_telemetry'] },
+      { n:'سجل العمليات', p:'سجل_العمليات.html', db:'MAIN', t:['gmt_audit'] },
+      { n:'الكفالات', p:'guarantee.html', db:'WARRANTY', t:['warranties'] },
+      { n:'الموقع وأدمن الموقع', p:'admin_site.html', db:'SITE', t:['site_settings','agents'] }
+    ];
+    var last = [];
+    var esc = function(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
+    async function probe(d, t){
+      var c = window.AbortController ? new AbortController() : null, tm = c ? setTimeout(function(){ c.abort(); }, 12000) : 0;
+      try {
+        var r = await (window.__gmtRealFetch || fetch)(d.url + '/rest/v1/' + t + '?select=*&limit=1', { headers:{ apikey:d.key, Authorization:'Bearer ' + d.key }, signal: c ? c.signal : undefined });
+        clearTimeout(tm);
+        if (r.ok) return { s:'ok' };
+        var b = ''; try { b = await r.text(); } catch(_) {}
+        if (r.status === 404 || /42P01|PGRST205|does not exist|Could not find the table/i.test(b)) return { s:'sql', m:'الجدول ' + t + ' غير موجود' };
+        if (r.status === 401 || r.status === 403 || /42501|permission denied/i.test(b)) return { s:'perm', m:t + ': ممنوع (' + r.status + ')' };
+        if (r.status >= 500) return { s:'down', m:t + ': القاعدة لا تخدم (' + r.status + ')' };
+        return { s:'sql', m:t + ': ' + r.status + ' ' + b.slice(0, 80) };
+      } catch (e) { clearTimeout(tm); return { s:'down', m:'لا ردّ من القاعدة' }; }
+    }
+    var LBL = { ok:['✅','تعمل','#f0fdf4'], sql:['🟠','ينقصها ملف SQL','#fffbeb'], perm:['🔒','ممنوعة بالصلاحيات','#fef3c7'], down:['🔴','قاعدتها متوقّفة','#fef2f2'], cfg:['⚪','لا إعداد لقاعدتها','#f8fafc'] };
+    async function run(){
+      var out = document.getElementById('ts-out'), btn = document.getElementById('ts-run');
+      if (navigator.onLine === false) { out.innerHTML = '<div style="color:#991b1b;font-size:13px">لا إنترنت الآن — الفحص يحتاج الاتصال بالقواعد.</div>'; return; }
+      btn.disabled = true; btn.textContent = '⏳ جارٍ الفحص…'; last = [];
+      var downDb = {};
+      for (var i = 0; i < TOOLS.length; i++) {
+        var T = TOOLS[i], d = window.GMT_DB && GMT_DB[T.db];
+        var row = { n:T.n, p:T.p, db:T.db, s:'ok', m:[] };
+        if (!d || !d.url || !d.key) { row.s = 'cfg'; row.m.push('GMT_DB.' + T.db + ' غير معرَّف'); last.push(row); continue; }
+        if (downDb[T.db]) { row.s = 'down'; row.m.push('القاعدة ' + T.db + ' لا تردّ'); last.push(row); continue; }
+        for (var j = 0; j < T.t.length; j++) {
+          var r = await probe(d, T.t[j]);
+          if (r.s === 'down') { row.s = 'down'; row.m = ['القاعدة ' + T.db + ' — ' + r.m]; downDb[T.db] = 1; break; }
+          if (r.s !== 'ok') { if (row.s === 'ok' || r.s === 'sql') row.s = r.s; row.m.push(r.m); }
+        }
+        last.push(row);
+      }
+      var cnt = function(s){ return last.filter(function(x){ return x.s === s; }).length; };
+      out.innerHTML = '<div style="background:#f8fafc;border-radius:10px;padding:10px;font-weight:800;font-size:13px;margin-bottom:8px">✅ ' + cnt('ok') + ' تعمل · 🟠 ' + cnt('sql') + ' ينقصها SQL · 🔴 ' + cnt('down') + ' متوقّفة' + (cnt('perm') ? ' · 🔒 ' + cnt('perm') : '') + '</div>' +
+        last.map(function(x){ var L = LBL[x.s];
+          return '<div class="ts-row" data-s="' + x.s + '" style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:8px;background:' + L[2] + ';margin-bottom:3px;font-size:12.5px">' +
+            '<span>' + L[0] + '</span><a href="' + esc(x.p) + '" style="font-weight:800;color:inherit;min-width:120px">' + esc(x.n) + '</a>' +
+            '<span style="flex:1"><b>' + L[1] + '</b>' + (x.m.length ? ' — <span style="color:var(--muted)">' + esc(x.m.join(' · ')) + '</span>' : '') + '</span>' +
+            '<span style="color:var(--muted);font-size:11px">' + x.db + '</span></div>'; }).join('') +
+        (cnt('sql') ? '<div style="font-size:12px;color:#92400e;margin-top:8px">«ينقصها SQL»: الجدول لم يُنشأ في القاعدة — شغّل ملف SQL الخاصّ بهذه الأداة من أرشيف SQL (أو اسأل عقل النظام أيّ ملف).</div>' : '') +
+        (cnt('down') ? '<div style="font-size:12px;color:#991b1b;margin-top:4px">«متوقّفة»: المشروع في Supabase موقوف أو محذوف — يُستعاد من لوحة الحساب المالك.</div>' : '');
+      btn.disabled = false; btn.textContent = '🧰 أعد الفحص';
+    }
+    document.getElementById('ts-run').addEventListener('click', run);
+    document.getElementById('ts-copy').addEventListener('click', function(){
+      if (!last.length) return;
+      var t = 'حالة الأدوات — ' + new Date().toLocaleString('ar-SY') + '\n\n' + last.map(function(x){ return LBL[x.s][0] + ' ' + x.n + ' (' + x.db + ') — ' + LBL[x.s][1] + (x.m.length ? ': ' + x.m.join(' · ') : ''); }).join('\n');
+      var self = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ self.textContent = '✓ نُسخ'; setTimeout(function(){ self.textContent = '📋 انسخ'; }, 1800); }, function(){});
+    });
+    window.GMTToolsStatus = { run: run, tools: TOOLS, results: function(){ return last; } };
+  })();
+  </script>
+
   <!-- ═══ 🚦 متحقّق النشر — يفحص الموقع الحيّ ═══ -->
   <div class="section">
     <h2>🚦 متحقّق النشر — أي صفحة تعمل وأي واحدة 404؟</h2>
