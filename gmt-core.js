@@ -1991,7 +1991,8 @@
       try {
         // جلب كامل للبيانات من Supabase
         const path = `/rest/v1/${table}?order=${idField}.asc&limit=10000`;
-        const fresh = await sbRequest(sbConfig, path);
+        /* (ARC-MD-06#19) Supabase يقطع عند 1000 صفّ بصمت ⇒ كان كاش المنتجات يحفظ أوّل 1000 فقط ويختفي الباقي من البيع والبحث */
+        const fresh = window.GMTFetchAll ? await window.GMTFetchAll(p => sbRequest(sbConfig, p), path) : await sbRequest(sbConfig, path);
 
         if (Array.isArray(fresh)) {
           rows = fresh;
@@ -2217,7 +2218,7 @@
           const cacheKey = 'col_' + name;
           try {
             const path = `/rest/v1/${table}?order=id.asc&limit=10000`;
-            const rows = await sbRequest(sbConfig, path);
+            const rows = window.GMTFetchAll ? await window.GMTFetchAll(p => sbRequest(sbConfig, p), path) : await sbRequest(sbConfig, path);   /* (ARC-MD-06#19) */
             if (Array.isArray(rows)) {
               _memCache[cacheKey] = rows;
               return { rows, fromCache: false, offline: false };

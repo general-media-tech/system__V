@@ -6,6 +6,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const N = 2500, now = Date.now();
   await H.call('/rest/v1/gmt_manual_debts', Array.from({ length: N }, (_, i) => ({ person_name: 'دين ' + i, amount: 1, created_at: new Date(now - i * 1000).toISOString() })));
   await H.call('/rest/v1/gmt_orders', Array.from({ length: N }, (_, i) => ({ name: 'زبون ' + i, phone: '09' + String(i).padStart(8, '0'), status: 'new', price: 1, branch: 'حلب', created_at: new Date(now - i * 1000).toISOString() })));
+  await H.call('/rest/v1/products', Array.from({ length: 1500 }, (_, i) => ({ name: 'منتج سقف ' + i, barcode: 'RC' + String(i).padStart(5, '0'), price: 10, haleb: 1 })));
   await H.call('/__opts', { max_rows: 1000 });
 
   /* ① المساعد نفسه: قطعٌ صامت عند 1000 ⇒ الكلّ */
@@ -33,6 +34,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
 
   /* ③ نقطة البيع/المشتريات: المساعد متاح وget يرمي عند الفشل فيُعاد بلا ترتيب id */
   ({ browser, pg, errs } = await H.open('purchase.html', { w: 1366, h: 900, mobile: false, wait: 5000 }));
+  const np = await pg.evaluate(() => prods.length);
+  ok(np >= 1512, 'كاش المنتجات (GMTCache.syncCollection) يحمّل كلّ المنتجات لا أوّل 1000: ' + np);
   const p = await pg.evaluate(async () => {
     const seen = [];
     const got = await GMTFetchAll(async (path) => { seen.push(path); if (/,id\.|order=id/.test(path)) throw new Error('42703'); return [{ k: 1 }]; }, '/rest/v1/gmt_settings?select=key&limit=5000');
