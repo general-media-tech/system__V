@@ -20,15 +20,18 @@ export const SAFE_FIELDS = {
   order_new: ['num', 'by'], order_confirmed: ['num'], order_shipped: ['num', 'company'], order_delivered: ['num'], order_completed: ['num'], order_returned: ['num'],
   sale: ['branch', 'n'], refund: ['branch', 'inv'], transfer_received: ['num', 'to'], stock_in: ['branch', 'n'], stock_count: ['branch', 'short', 'surplus'],
   product_new: ['name', 'n'], expense_approved: [], cash_transfer: ['branch'], daily_close: ['branch', 'diff'], settlement: ['branch', 'num'],
-  chat: [], review: ['rating'], reservation: ['item'], job: [], warranty_on: ['num']
+  chat: [], review: ['rating'], reservation: ['item'], job: [], warranty_on: ['num'],
+  stock_low: ['name', 'qty', 'n'], stock_out: ['name', 'n'], order_late: ['n', 'oldest', 'hours'], sales_low: ['branch', 'today', 'avg'], escalate: ['n']
 };
 /* مجموعات التفضيلات: مفتاحٌ واحد في لوحة الجهاز يُطفئ كلّ أنواع مجموعته */
 export const GROUP = { order: 'orders', order_new: 'orders', order_confirmed: 'orders', order_shipped: 'orders', order_delivered: 'orders', order_completed: 'orders', order_returned: 'orders',
   reservation: 'orders', chat: 'orders', sale: 'sales', refund: 'sales', daily_close: 'money', settlement: 'money', cash_transfer: 'money', expense: 'money', expense_approved: 'money',
   transfer: 'transfer', transfer_received: 'transfer', transfer_aging: 'transfer', stock_in: 'stock', stock_count: 'stock', product_new: 'stock',
-  offer: 'offer', price: 'price', review: 'store', job: 'store', warranty_on: 'store', version: 'version' };
+  offer: 'offer', price: 'price', review: 'store', job: 'store', warranty_on: 'store', version: 'version',
+  stock_low: 'stock', stock_out: 'stock', order_late: 'orders', sales_low: 'sales', escalate: 'orders' };
 export function scrub(kind, data) {
-  const ok = SAFE_FIELDS[kind] || [], out = {};
+  /* (TASK-B0424 · المرحلة ٥) نوعٌ جديد لم يُعرَّف هنا بعد يحمل نصّه بنفسه (t · b · u) — بلا إعادة نشر الدوال */
+  const ok = SAFE_FIELDS[kind] || ['t', 'b', 'u'], out = {};
   Object.keys(data || {}).forEach((k) => { if (ok.indexOf(k) !== -1) out[k] = data[k]; });
   return out;
 }
@@ -102,9 +105,15 @@ export function buildMessage(kind, items, opts) {
       review: ['⭐ تقييم جديد في المتجر', (d.rating ? d.rating + '/5 — ' : '') + 'بانتظار الموافقة', 'admin_store.html'],
       reservation: ['📌 حجز جديد', d.item ? '«' + d.item + '»' : 'حجز منتج', 'orders.html'],
       job: ['👤 طلب توظيف جديد', 'بانتظار المراجعة', 'home.html'],
-      warranty_on: ['🛡️ تفعيل كفالة', d.num || '', 'home.html']
+      warranty_on: ['🛡️ تفعيل كفالة', d.num || '', 'home.html'],
+      stock_low: ['📉 مخزون منخفض', (d.n || n) > 1 ? (d.n || n) + ' منتجات وصلت للحدّ الأدنى' : '«' + (d.name || '') + '» بقي منه ' + (d.qty != null ? d.qty : '') + ' في كل الفروع', 'inventory.html'],
+      stock_out: ['⛔ نفد منتج', (d.n || n) > 1 ? 'نفدت ' + (d.n || n) + ' منتجات من كل الفروع' : '«' + (d.name || '') + '» نفد من كل الفروع', 'inventory.html'],
+      order_late: ['⏳ أوردرات متأخّرة', (d.n || n) + ' أوردر بانتظار التجهيز منذ أكثر من ' + (d.hours || 48) + ' ساعة' + (d.oldest ? ' — أقدمها ' + d.oldest : ''), 'orders.html'],
+      sales_low: ['📉 مبيعات اليوم أقلّ من المعتاد', (d.branch || '') + ': ' + money(d.today) + '$ مقابل معدّل ' + money(d.avg) + '$ لنفس اليوم', 'admin_pos.html'],
+      escalate: ['🔺 تنبيهات مهمّة تنتظر إجراءً', (d.n || n) + ' إشعار مهم لم يُعالَج منذ أكثر من يوم', 'مركز_الإشعارات.html']
     }[kind];
     if (M) { t = M[0]; b = M[1]; u = M[2]; }
+    else if (d.t) { t = String(d.t); b = String(d.b || ''); u = String(d.u || 'home.html'); }
   }
   return { t, b, u, k: kind, tag: kind + (opts.branch ? '-' + opts.branch : ''), urgency: URG[kind] || 'normal', ttl: TTL[kind] || 43200, topic: topicOf(kind, opts.branch) };
 }

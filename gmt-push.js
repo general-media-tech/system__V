@@ -16,7 +16,8 @@
   var CUE = { order: 'order', order_new: 'order', order_confirmed: 'success', order_shipped: 'truck', order_delivered: 'notify', order_completed: 'cash', order_returned: 'warn',
     transfer: 'truck', transfer_received: 'success', transfer_aging: 'warn', stock_in: 'truck', stock_count: 'notify', product_new: 'notify',
     offer: 'notify', price: 'notify', version: 'update', expense: 'notify', expense_approved: 'success', cash_transfer: 'cash', daily_close: 'notify', settlement: 'notify',
-    sale: 'cash', refund: 'warn', chat: 'notify', review: 'notify', reservation: 'order', job: 'notify', warranty_on: 'success', test: 'success' };
+    sale: 'cash', refund: 'warn', chat: 'notify', review: 'notify', reservation: 'order', job: 'notify', warranty_on: 'success', test: 'success',
+    stock_low: 'warn', stock_out: 'warn', order_late: 'warn', sales_low: 'warn', escalate: 'warn' };
   function lsGet(k, d) { try { var v = LS.getItem(k); return v == null ? d : v; } catch (_) { return d; } }
   function lsSet(k, v) { try { LS.setItem(k, v); } catch (_) {} }
   function session() { try { return JSON.parse(lsGet('gmt_session', 'null')) || null; } catch (_) { return null; } }
