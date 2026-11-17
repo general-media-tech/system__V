@@ -3512,7 +3512,11 @@ function _buildOfferProducts(offers, freshProds) {
         name: '🎁 ' + o.name + (offerItems.length ? '' : ' ⚠️ (مكوّناته غير محدّدة)'),
         short:o.name,
         price:Number(o.offer_price)||0, wholesale_price:0, net_cost:0, cost_price:0,
-        image_url:o.image_url||null, group_name:'باقات وعروض',   /* (المالك seq 565) نفس اسم قسم المتجر · أوّل الأقسام */
+        image_url:o.image_url||null,
+        /* (TASK-B0422 · المالك seq 798 «البكج مفروض يكون متل أيّ منتج: كلّ صوره ووصفه ومنتجاته متفرّقة») كلّ صور الباقة (بوستر · شبكة …) وفيديوها */
+        _offer_images:(function(){ var im=o.images; if(typeof im==='string'){ try{ im=JSON.parse(im); }catch(_){ im=null; } } im=Array.isArray(im)?im:[]; if(o.image_url) im=[o.image_url].concat(im); return im.filter(function(u,i,a){ return u&&a.indexOf(u)===i; }); })(),
+        _offer_video:(/\.(mp4|webm)(\?|$)/i.test(o.reel_url||'')?o.reel_url:null),
+        group_name:'باقات وعروض',   /* (المالك seq 565) نفس اسم قسم المتجر · أوّل الأقسام */
         _is_offer:true, _offer_id:o.id, _offer_type:o.offer_type,
         /* (TASK-A0506 · المالك seq 747) الباقة الظاهرة في المتجر لها رابط كالمنتج ⇒ «عرض في المتجر» و«مشاركة رابطه» يظهران لها */
         store_url: (function () { var t = o.targets; if (typeof t === 'string') { try { t = JSON.parse(t); } catch (_) { t = null; } } return (t && t.store === true) ? 'store.html#package=' + o.id : null; })(),
@@ -8984,6 +8988,40 @@ function posShareStore(id) {
   if (!p) return;
   if (window.GMTUtil && GMTUtil.shareStore) GMTUtil.shareStore(p.store_url, p.name);
 }
+/* (TASK-B0422) تفاصيل الباقة في نقطة البيع كأيّ منتج: معرض كلّ صورها · وصفها كاملاً · منتجاتها متفرّقةً (صورة · كمّية · سعر · رصيد الفرع) */
+function posOfferPick(i) {
+  const g = document.getElementById('pd-offer-gal'); if (!g) return; const u = (g._imgs || [])[i]; if (!u) return;
+  const m = g.querySelector('[data-main]'); if (m) { m.innerHTML = '<img src="' + escH(u) + '" alt="" style="width:100%;max-height:300px;object-fit:contain;cursor:zoom-in" onclick="posOfferZoom(' + i + ')">'; }
+  g.querySelectorAll('[data-th]').forEach((t, k) => { t.style.borderColor = k === i ? '#D5001C' : '#e5e7eb'; });
+}
+function posOfferZoom(i) {
+  const g = document.getElementById('pd-offer-gal'); const u = g && (g._imgs || [])[i]; if (!u) return;
+  const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:10px';
+  o.innerHTML = '<img src="' + escH(u) + '" style="max-width:100%;max-height:100%;object-fit:contain">'; o.onclick = () => o.remove(); document.body.appendChild(o);
+}
+function posOfferGalleryHTML(p) {
+  const imgs = (p._offer_images && p._offer_images.length ? p._offer_images : (imgSrc(p) ? [imgSrc(p)] : []));
+  const thumbs = imgs.map((u, i) => '<button type="button" data-th onclick="posOfferPick(' + i + ')" style="flex:0 0 auto;width:58px;height:58px;border:2px solid ' + (i ? '#e5e7eb' : '#D5001C') + ';border-radius:10px;background:#fff;padding:2px;cursor:pointer"><img src="' + escH(u) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:7px"></button>').join('');
+  return '<div id="pd-offer-gal" class="pd-img-wrap" style="background:#f8fafc"><div data-main style="min-height:120px;display:flex;align-items:center;justify-content:center">' + (imgs[0] ? '<img src="' + escH(imgs[0]) + '" alt="" style="width:100%;max-height:300px;object-fit:contain;cursor:zoom-in" onclick="posOfferZoom(0)">' : '<div class="pd-img-ph">📷</div>') + '</div>' +
+    (imgs.length > 1 ? '<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 10px">' + thumbs + '</div>' : '') +
+    (p._offer_video ? '<div style="padding:0 10px 8px"><video controls playsinline preload="none" src="' + escH(p._offer_video) + '" style="width:100%;max-height:260px;border-radius:12px;background:#000"></video></div>' : '') +
+    '<button class="pd-close-btn" onclick="closeProductDetail()">✕</button></div>';
+}
+function posOfferBodyHTML(p) {
+  let h = '';
+  if (p._offer_desc) h += '<div style="margin:6px 0 10px;font-size:13px;line-height:1.9;color:var(--text2,#475569);white-space:pre-line">' + escH(p._offer_desc) + '</div>';
+  const comps = (p._offer_items || []).map(oi => ({ oi, prod: allProducts.find(x => String(x.id) === String(oi.id) && !x._is_offer) }));
+  if (comps.length) {
+    const lack = comps.filter(c => !c.prod || (Number(c.prod[branch.key]) || 0) < (Number(c.oi.qty) || 1));
+    h += '<div style="font-weight:900;font-size:13px;margin:10px 0 6px">📦 منتجات الباقة (' + comps.length + ') — اضغط منتجاً لتفاصيله</div>' +
+      (lack.length ? '<div style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:7px 10px;font-size:11.5px;font-weight:800;margin-bottom:6px">⚠️ غير متوفّر بالكمّية الكافية في فرعك: ' + lack.map(c => escH((c.prod && c.prod.name) || c.oi.name)).join('، ') + '</div>' : '') +
+      comps.map(c => { const q = Number(c.oi.qty) || 1, have = c.prod ? (Number(c.prod[branch.key]) || 0) : 0, im = c.prod && imgSrc(c.prod), pr = c.prod ? (Number(c.prod.price) || 0) : 0, nm = (c.prod && c.prod.name) || c.oi.name;
+        return '<div ' + (c.prod ? 'onclick="closeProductDetail();setTimeout(()=>openProductDetail(\'' + escH(String(c.prod.id)) + '\'),120)" role="button"' : '') + ' style="display:flex;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid #f1f5f9;' + (c.prod ? 'cursor:pointer' : '') + '">' +
+          '<div style="width:46px;height:46px;flex:0 0 46px;border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden">' + (im ? '<img src="' + escH(im) + '" alt="" style="width:100%;height:100%;object-fit:contain">' : '📦') + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:800;line-height:1.4">' + escH(nm) + (q > 1 ? ' × ' + q : '') + '</div><div style="font-size:11px;color:#6b7280">' + (pr > 0 ? pr.toFixed(2) + '$ · ' : '') + 'رصيد فرعك: <b style="color:' + (have >= q ? '#067647' : '#b91c1c') + '">' + have + '</b></div></div></div>'; }).join('');
+  }
+  return h;
+}
 function openProductDetail(id) {
   const p = allProducts.find(x => x.id === id || String(x.id) === String(id));
   if (!p) return;
@@ -9004,15 +9042,16 @@ function openProductDetail(id) {
   const transitCls= transitQty === 0 ? 'empty' : 'low';
 
   document.getElementById('pd-content').innerHTML = `
-    <div class="pd-img-wrap" data-gal-wrap>
+    ${p._is_offer ? posOfferGalleryHTML(p) : `    <div class="pd-img-wrap" data-gal-wrap>
       ${imgSrc(p)
         ? `<img src="${escH(imgSrc(p))}" onclick="posOpenGallery('${escH(String(p.id))}')" style="cursor:zoom-in" alt="${escH(p.name)}" onerror="this.outerHTML='<div class=pd-img-ph>📷</div>'">`
         : '<div class="pd-img-ph"><span class="ph-cam"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><small>مكان الصورة</small></span></div>'}
       <button class="pd-close-btn" onclick="closeProductDetail()">✕</button>
-    </div>
+    </div>`}
     <div class="pd-body">
       <div class="pd-name">${escH(p.name)}</div>
       ${p.barcode ? `<div class="pd-barcode">📊 ${escH(p.barcode)}</div>` : ''}
+      ${p._is_offer ? posOfferBodyHTML(p) : ''}
 
       <!-- مخزون ثلاثي الخانات -->
       <div class="pd-stock-row" style="grid-template-columns:1fr 1fr 1fr;">
@@ -9063,14 +9102,15 @@ function openProductDetail(id) {
           عرض في المتجر
         </button>`}
 
-      ${p._is_offer && p._offer_items && p._offer_items.length > 1 && !isEmpty ? `<button type="button" data-offer-split onclick="closeProductDetail(); offerSplitById('${escH(String(p.id))}')" style="width:100%;margin-bottom:8px;padding:11px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit;font-weight:800;cursor:pointer">🧩 بيعها منتجات منفصلة بخصم العرض</button>` : ''}
-      <button class="pd-add-btn" ${isEmpty ? 'disabled style="background:#ccc;cursor:not-allowed;"' : ''} onclick="closeProductDetail(); addToCartFromDetail('${p.id}')">
-        ${isEmpty
+      ${p._is_offer && p._offer_items && p._offer_items.length > 1 ? `<button type="button" data-offer-split onclick="closeProductDetail(); offerSplitById('${escH(String(p.id))}')" style="width:100%;margin-bottom:8px;padding:11px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit;font-weight:800;cursor:pointer">🧩 بيعها منتجات منفصلة بخصم العرض</button>` : ''}
+      <button class="pd-add-btn" ${(isEmpty && !p._is_offer) ? 'disabled style="background:#ccc;cursor:not-allowed;"' : ''} onclick="closeProductDetail(); addToCartFromDetail('${p.id}')">
+        ${(isEmpty && !p._is_offer)
           ? '❌ غير متوفر في فرعك — معاينة فقط'
           : '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>إضافة للسلة'}
       </button>
     </div>
   `;
+  if (p._is_offer) { const g = document.getElementById('pd-offer-gal'); if (g) g._imgs = (p._offer_images && p._offer_images.length ? p._offer_images : (imgSrc(p) ? [imgSrc(p)] : [])); }
   document.getElementById('product-detail-overlay').classList.add('open');
   posLoadSpecs(p);
 }

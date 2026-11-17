@@ -577,6 +577,8 @@
   function buzz(kind) {
     try {
       if (!hapticOn() || !HAP[kind]) return false;
+      /* المتصفّح يحجب الاهتزاز قبل أوّل لمسة ويكتب «خطأً» في الكونسول — لا نستدعيه إلا بعد تفاعلٍ فعليّ */
+      var ua = global.navigator && global.navigator.userActivation; if (ua && !ua.hasBeenActive) return false;
       if (global.navigator && 'vibrate' in global.navigator) { global.navigator.vibrate(HAP[kind]); return true; }
     } catch (_) {}
     return false;
