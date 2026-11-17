@@ -7540,7 +7540,8 @@ function renderPrint() {
   const hdr = document.getElementById('printInvNumHdr');
   if (hdr) hdr.textContent = `فاتورة #${invNum} — اضغط على أي حقل للتعديل`;
 
-  const gt   = computeOrderLinkedTotal().finalTotal;  // الإجمالي بعد خصم ربط الأوردر/الكوبون — لا الخام
+  const _ctL = computeOrderLinkedTotal(); paintLiveCommission(_ctL);
+  const gt   = _ctL.finalTotal;  // الإجمالي بعد خصم ربط الأوردر/الكوبون — لا الخام
   const tqty = Object.values(cart).reduce((s,i) => s + i.qty, 0);
   const tqtyEl  = document.getElementById('pTotalQty');
   const totalEl = document.getElementById('pTotal');
@@ -7579,6 +7580,18 @@ function scaleA4Invoice() {
   wrap.style.height      = Math.ceil(scaler.scrollHeight * scale) + 'px';
 }
 
+/* (VER-3#REQ-0260) معاينة الفاتورة تُظهر نسبة العمولة والمبلغ المتوقّع — بنفس دالّة الحفظ (commissionLine) وعلى السعر بعد توزيع الخصم */
+function paintLiveCommission(ct) {
+  try {
+    const pc = document.getElementById('pCommission'), pd = document.getElementById('pCommissionDetail');
+    if (!pc) return;
+    const linked = !!(_orderMode === 'existing' && _selectedOrder) || isOrderLinkedNew();
+    let tc = 0;
+    if (!linked) Object.values(cart).forEach(it => { const c = commissionLine(it.price * itemNetRatio(ct, it), Number(it.prod && it.prod.wholesale_price) || 0, it.qty); if (c > 0) tc += c; });
+    pc.textContent = round2(tc).toFixed(2);
+    if (pd) pd.textContent = linked ? 'أوردر شحن — لا عمولة' : 'نسبة العمولة ' + Math.round(commissionRate() * 100) + '٪ من هامش الربح فوق سعر الجملة (بعد الخصم)';
+  } catch (_) {}
+}
 function liveUpdateInvoice() {
   // sync fields back to cart/state
   const nameVal  = document.getElementById('inv-cust-name')?.value.trim();
@@ -7592,7 +7605,8 @@ function liveUpdateInvoice() {
   if (custPhoneEl && phoneVal !== undefined) custPhoneEl.value = phoneVal;
   if (custNotesEl && noteVal  !== undefined) custNotesEl.value = noteVal;
   // re-render totals and live preview
-  const gt   = computeOrderLinkedTotal().finalTotal;  // الإجمالي بعد خصم ربط الأوردر/الكوبون — لا الخام
+  const _ctL = computeOrderLinkedTotal(); paintLiveCommission(_ctL);
+  const gt   = _ctL.finalTotal;  // الإجمالي بعد خصم ربط الأوردر/الكوبون — لا الخام
   const tqty = Object.values(cart).reduce((s,i) => s+i.qty, 0);
   const tqtyEl = document.getElementById('pTotalQty');
   const totalEl= document.getElementById('pTotal');
