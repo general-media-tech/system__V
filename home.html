@@ -242,6 +242,7 @@ a.btn{text-decoration:none}
 <script src="gmt-sound.js?v=20261101o" defer></script>
 <script src="gmt-share.js?v=20261029z4" defer></script>
 <script src="gmt-notify.js?v=20261104b" defer></script>
+<script src="gmt-push.js?v=20261117e" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
 <script src="gmt-warmup.js?v=20261007z5"></script>
 <script src="gmt-home.js?v=20261007z5"></script>
@@ -1255,5 +1256,9 @@ a.btn{text-decoration:none}
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <script>setTimeout(function () { try { GMTShell.repaint(); } catch (_) {} }, 1200);</script>
 <script src="gmt-autobackup.js?v=20261006"></script>
+<script>
+/* (TASK-B0420) الإشعارات الفورية: سطر تعريفيّ في الرئيسية (مرّة/7 أيّام) يفتح لوحة التفعيل — للموظّف والمالك */
+window.addEventListener('load', function () { setTimeout(function () { try { window.GMTPush && GMTPush.mountCTA(['pos', 'orders']); } catch (e) {} }, 3500); });
+</script>
 </body>
 </html>

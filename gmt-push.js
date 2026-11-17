@@ -42,7 +42,13 @@
     return 'off';
   }
 
-  function whoAmI() { var s = session(); return s && s.id ? { user_id: String(s.id), username: s.username || '', branch_key: s.branch_key || null } : null; }
+  /* الموظّف: حسابه في gmt_users. المالك/الأدمن: لا حساب له (وضعٌ في الواجهة) ⇒ ادّعاءٌ مقيَّد يقبله الخادم لموضوعَي pos/orders فقط */
+  function whoAmI() {
+    var s = session(); if (s && s.id) return { user_id: String(s.id), username: s.username || '', branch_key: s.branch_key || null };
+    var adm = false; try { adm = !!((global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()) || sessionStorage.getItem('gmt_admin_mode') === '1'); } catch (_) {}
+    if (adm) return { claim: 'admin', username: 'admin', branch_key: (s && s.branch_key) || lsGet('gmt_branch', '') || 'haleb' };
+    return null;
+  }
 
   async function enable(topics) {
     var me = whoAmI(); if (!me) return { ok: false, msg: 'سجّل الدخول بحسابك أوّلاً ثمّ فعّل الإشعارات' };
@@ -54,12 +60,13 @@
     lsSet('gmt_push_vapid', keyRes.key);
     var reg = await getReg(), sub = await reg.pushManager.getSubscription();
     if (!sub) { try { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToU8(keyRes.key) }); } catch (e) { return { ok: false, msg: 'تعذّر الاشتراك: ' + ((e && e.message) || 'خطأ') }; } }
-    var all = topicsStored(); (topics || ['pos']).forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+    var all = topicsStored(); (me.claim === 'admin' ? ['pos', 'orders'] : (topics || ['pos'])).forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+    if (me.claim === 'admin') all = all.filter(function (t) { return t !== 'admin'; });
     var j = sub.toJSON(), body = Object.assign({ action: 'subscribe', sub: { endpoint: j.endpoint, keys: j.keys }, topics: all, prefs: prefsOf(), platform: platform() }, me);
     var r = await call(body);
     if (!r.ok) return { ok: false, msg: r.msg || 'تعذّر تسجيل الجهاز' };
     lsSet('gmt_push_on', '1'); lsSet('gmt_push_sync', String(Date.now())); lsSet('gmt_push_topics', JSON.stringify(all));
-    try { var ctl = (reg.active || navigator.serviceWorker.controller); if (ctl) ctl.postMessage({ type: 'gmt-push-cfg', cfg: { fn: fnUrl(), anon: anon(), vapid: keyRes.key, sub: { user_id: me.user_id, username: me.username, branch_key: me.branch_key, topics: all, prefs: prefsOf(), platform: platform() }, old: { endpoint: j.endpoint, auth: j.keys.auth } } }); } catch (_) {}
+    try { var ctl = (reg.active || navigator.serviceWorker.controller); if (ctl) ctl.postMessage({ type: 'gmt-push-cfg', cfg: { fn: fnUrl(), anon: anon(), vapid: keyRes.key, sub: { user_id: me.user_id, claim: me.claim, username: me.username, branch_key: me.branch_key, topics: all, prefs: prefsOf(), platform: platform() }, old: { endpoint: j.endpoint, auth: j.keys.auth } } }); } catch (_) {}
     return { ok: true };
   }
   async function disable() {
@@ -77,7 +84,7 @@
   async function resync() {
     if (PUBLIC || !supported() || lsGet('gmt_push_on', '') !== '1') return;
     var me = whoAmI(); if (!me) return;
-    var last = Number(lsGet('gmt_push_sync', '0')), who = me.user_id + '|' + me.branch_key;
+    var last = Number(lsGet('gmt_push_sync', '0')), who = (me.user_id || me.claim) + '|' + me.branch_key;
     if (Date.now() - last < 7 * 86400000 && lsGet('gmt_push_who', who) === who) { lsSet('gmt_push_who', who); return; }
     lsSet('gmt_push_who', who); var r = await enable(topicsStored().length ? topicsStored() : ['pos']); if (!r.ok) lsSet('gmt_push_sync', String(Date.now() - 6 * 86400000));
   }

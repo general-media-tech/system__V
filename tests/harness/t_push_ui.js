@@ -38,6 +38,14 @@ const STUB = (supported) => `
   const real = o.errs.filter(e => !/status of (400|401|404|406|409)|Failed to load resource|navigator.vibrate|Estimating/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await o.browser.close();
+  // ①ب المالك/الأدمن بلا حساب في gmt_users ⇒ ادّعاء admin بموضوعَي pos/orders
+  o = await H.open('pos.html', { init: H.ADMIN_INIT.replace(/localStorage.setItem\('gmt_session'[^;]*;/, "localStorage.removeItem('gmt_session');") + STUB(true), w: 390, mobile: true, wait: 5500 });
+  const calls2 = [];
+  await o.ctx.route('**/functions/v1/push-subscribe**', async r => { const b = JSON.parse(r.request().postData() || '{}'); calls2.push(b); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(b.action === 'key' ? { ok: true, key: 'B'.repeat(87) } : { ok: true }) }); });
+  const er = await o.pg.evaluate(async () => GMTPush.enable(['pos']));
+  const s2 = calls2.find(c => c.action === 'subscribe');
+  ok(er.ok && s2 && s2.claim === 'admin' && !s2.user_id && JSON.stringify(s2.topics) === '["pos","orders"]' && !!s2.branch_key, 'جهاز الأدمن بلا حساب ⇒ subscribe بادّعاء admin وموضوعَي pos و orders: ' + JSON.stringify(s2 && { c: s2.claim, t: s2.topics, b: s2.branch_key }));
+  await o.browser.close();
   // ② آيفون بلا تثبيت
   o = await H.open('pos.html', { init: H.STAFF_INIT + STUB(false), w: 390, mobile: true, wait: 4500 });
   const ios = await o.pg.evaluate(() => { Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15', configurable: true }); return GMTPush.status(); });

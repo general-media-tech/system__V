@@ -55,9 +55,18 @@ Deno.serve(async (req) => {
     const s = body.sub || {}, k = s.keys || {};
     if (!validEndpoint(s.endpoint)) return fail('endpoint', 'عنوان الإشعارات غير مقبول');
     if (typeof k.p256dh !== 'string' || k.p256dh.length !== 87 || !B64U.test(k.p256dh) || typeof k.auth !== 'string' || k.auth.length !== 22 || !B64U.test(k.auth)) return fail('keys', 'مفاتيح الاشتراك غير صالحة');
-    const { data: u } = await sb.from('gmt_users').select('id,username,branch_key,is_active,role,approved').eq('id', uidRaw || '00000000-0000-0000-0000-000000000000').maybeSingle();
-    if (!u || u.is_active === false || u.approved === false) return fail('user', 'المستخدم غير معروف أو غير مفعّل', 403);
-    const topics = (Array.isArray(body.topics) ? body.topics : ['pos']).filter((t: string) => TOPICS.indexOf(t) !== -1);
+    // جهاز المالك/الأدمن: لا حساب له في gmt_users (الأدمن وضعٌ في الواجهة) ⇒ ادّعاءٌ مقيَّد: موضوعا pos/orders فقط (نصوصهما شبه علنيّة) وسقف 10 أجهزة — موضوع admin يبقى لمن في gmt_users/push_admin_users
+    const adminClaim = body.claim === 'admin' && !uidRaw;
+    let u: any = null;
+    if (adminClaim) {
+      const { count } = await sb.from('push_subscriptions').select('*', { count: 'exact', head: true }).eq('user_id', 'admin').is('disabled_at', null).neq('endpoint', s.endpoint);
+      if ((count || 0) >= 10) return fail('limit', 'عدد أجهزة الأدمن بلغ الحدّ', 403);
+      u = { id: 'admin', username: 'admin', branch_key: null };
+    } else {
+      const r = await sb.from('gmt_users').select('id,username,branch_key,is_active,role,approved').eq('id', uidRaw || '00000000-0000-0000-0000-000000000000').maybeSingle(); u = r.data;
+      if (!u || u.is_active === false || u.approved === false) return fail('user', 'المستخدم غير معروف أو غير مفعّل', 403);
+    }
+    const topics = (Array.isArray(body.topics) ? body.topics : ['pos']).filter((t: string) => TOPICS.indexOf(t) !== -1 && !(adminClaim && t === 'admin'));
     if (!topics.length) return fail('topics', 'لا موضوع صالح');
     let branch = body.branch_key ? String(body.branch_key) : null;
     if (topics.indexOf('pos') !== -1) {
@@ -72,7 +81,7 @@ Deno.serve(async (req) => {
     const up = await sb.from('push_subscriptions').upsert(row, { onConflict: 'endpoint' });
     if (up.error) return fail('db', 'تعذّر الحفظ', 500);
     const { data: mine } = await sb.from('push_subscriptions').select('id,last_seen_at').eq('user_id', String(u.id)).is('disabled_at', null).order('last_seen_at', { ascending: false });
-    if (mine && mine.length > 5) await sb.from('push_subscriptions').update({ disabled_at: new Date().toISOString(), disabled_reason: 'limit' }).in('id', mine.slice(5).map((x: any) => x.id));
+    if (mine && mine.length > 10) await sb.from('push_subscriptions').update({ disabled_at: new Date().toISOString(), disabled_reason: 'limit' }).in('id', mine.slice(10).map((x: any) => x.id));
     return j({ ok: true });
   }
   if (['prefs', 'unsubscribe', 'test'].indexOf(act) === -1) return fail('action', 'إجراء غير معروف');
