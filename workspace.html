@@ -489,7 +489,7 @@ kbd{font:600 11px ui-monospace,monospace;border:1px solid var(--ln);border-botto
       { t: 'إعادة تحميل الصفحة الحالية', d: '', k: 'reload', run: function () { reload(S.active); } },
       { t: 'حفظ مساحة العمل الحالية باسم…', d: 'لترجع لها بضغطة', k: 'savews', run: saveWs },
       { t: 'الاختصارات', d: 'عرض وتخصيص', k: 'keys', run: keysDialog },
-      { t: 'سجلّ التراجع في الصفحة الحالية', d: 'ما يمكن التراجع عنه فعلاً', k: 'hist', run: function () { var w = null; try { w = frames[S.active].contentWindow; } catch (_) {} if (w && w.GMTUndo && w.GMTUndo.panel) w.GMTUndo.panel(); else toast('هذه الصفحة لا تدعم التراجع بعد — المدعوم: الجرد'); } }
+      { t: 'سجلّ التراجع في الصفحة الحالية', d: 'ما يمكن التراجع عنه فعلاً', k: 'hist', run: function () { var w = null; try { w = frames[S.active].contentWindow; } catch (_) {} if (w && w.GMTUndo && w.GMTUndo.panel) w.GMTUndo.panel(); else toast('هذه الصفحة لا تدعم التراجع بعد — المدعوم: الجرد والأوردرات'); } }
     ].filter(function (c) { return !c.hide; });
     spaces().forEach(function (w) { C.push({ t: 'مساحة: ' + w.name, d: w.urls.map(titleOf).join(' · '), k: 'ws', run: function () { applyWs(w); } }); });
     return C;

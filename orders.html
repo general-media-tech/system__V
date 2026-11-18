@@ -210,6 +210,8 @@ window.GMT_INTERNAL = 1;</script>
                     class="col-span-2 text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="list-checks" class="w-4 h-4 text-red"></i> مراجعة شحنات <span class="text-[9px] font-black text-red">المفتي</span>
             </button>
+            <button type="button" onclick="window.GMTUndo && GMTUndo.panel()" data-hint="تراجع وإعادة لتعديلات الأوردرات (Ctrl+Z · Ctrl+Y) — يعيد القيم فعلاً في القاعدة"
+                    class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">↶ تراجع</button>
             <button type="button" id="ord-more-btn" aria-expanded="false" aria-controls="ord-tools" onclick="var o=document.getElementById('ord-tools').classList.toggle('ord-open');this.setAttribute('aria-expanded',o);this.firstElementChild.textContent=o?'إخفاء الأدوات':'المزيد من الأدوات';"
                     class="lg:hidden col-span-2 text-center bg-gray-50 border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><span>المزيد من الأدوات</span> ⋯</button>
             <button onclick="document.getElementById('addModal').classList.remove('hidden'); initAddModal();" class="bg-red text-white px-4 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center justify-center gap-2 col-span-2 lg:col-span-1">
@@ -1453,7 +1455,85 @@ function tgReplaceWhy(why) {
     return 'تعذّر حذف الرسالة السابقة (' + String(why).slice(0, 80) + ')';
 }
 
+/* ══ (TASK-B0516 · مرحلة ٤ · المالك seq 830 «نظام Undo / Redo … لا تنفذ تراجعاً وهمياً») تراجعٌ وإعادة حقيقيّان لتعديلات الأوردرات ══
+   نسجّل عند طبقة الكتابة (sbUpdate) القيمَ **قبل** التعديل من نسخة الأوردر المحمّلة، والكتابات المتتالية لنفس الأوردر خلال ثانيتين خطوةٌ واحدة.
+   • التراجع يكتب القيم القديمة فعلاً في القاعدة · الإعادة تكتب الجديدة من جديد.
+   • الحالة والمبلغ والتحصيل (أثرٌ ماليّ/تشغيليّ) تحتاج تأكيداً يبيّن ما سيتغيّر، والتبليغ الذي وصل الزبون لا يُستعاد (يُقال ذلك صراحةً).
+   • إن عدّل أحدٌ الأوردر بعدك يُسأل قبل الكتابة فوق تعديله.
+   • الحذف له «سلّة المحذوفات» وإنشاء أوردرٍ جديد له إلغاؤه — لا يدخلان هنا. */
+const OU_LS = 'gmt_ord_undo_v1', OR_LS = 'gmt_ord_redo_v1', OU_MAX = 15;
+const OU_LBL = { name: 'الاسم', phone: 'الهاتف', address: 'العنوان', product: 'المنتجات', items_json: 'المنتجات', qty: 'الكمية', price: 'قيمة الطلب', collect_amount: 'التحصيل',
+    status: 'الحالة', shipping_company: 'شركة الشحن', tracking_number: 'رقم التتبّع', notes: 'الملاحظات', branch: 'الفرع', frozen_at: 'التجميد', freeze_info: 'التجميد',
+    ship_from_office: 'الفرع المُرسِل', transfer_state: 'مراسلة الفرع', paid_amount: 'المدفوع' };
+const OU_RISKY = ['status', 'price', 'collect_amount', 'paid_amount'];
+let _ouBypass = false, _ouLast = { id: null, at: 0 };
+function _ouRd(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) { return []; } }
+function _ouWr(k, v) { try { localStorage.setItem(k, JSON.stringify(v.slice(-OU_MAX))); } catch (_) {} }
+function _ouSame(a, b) { return JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b); }
+function _ouRecord(id, data) {
+    if (_ouBypass) return;
+    const o = (typeof orders !== 'undefined' ? orders : []).find(x => String(x.id) === String(id)); if (!o) return;
+    const keys = Object.keys(data || {}).filter(k => OU_LBL[k] && !_ouSame(o[k], data[k])); if (!keys.length) return;
+    const before = {}, after = {}; keys.forEach(k => { before[k] = o[k] == null ? null : o[k]; after[k] = data[k]; });
+    const u = _ouRd(OU_LS), now = Date.now(), last = u[u.length - 1];
+    if (last && String(last.id) === String(id) && _ouLast.id === String(id) && now - _ouLast.at < 2000) {
+        keys.forEach(k => { if (!(k in last.before)) last.before[k] = before[k]; last.after[k] = after[k]; }); last.at = now;
+    } else u.push({ id: String(id), serial: o.serial_code || '', who: o.name || '', before, after, at: now });
+    _ouLast = { id: String(id), at: now };
+    _ouWr(OU_LS, u); _ouWr(OR_LS, []);
+}
+function _ouText(st) { return (st.serial ? st.serial + ' · ' : '') + (st.who || '') + ' — ' + [...new Set(Object.keys(st.after).map(k => OU_LBL[k]))].join('، '); }
+function _ouShow(v) { if (v == null || v === '') return '—'; if (typeof v === 'object') return JSON.stringify(v).slice(0, 60); return String(v).slice(0, 60); }
+async function _ouApply(kind) {
+    const fromK = kind === 'undo' ? OU_LS : OR_LS, toK = kind === 'undo' ? OR_LS : OU_LS;
+    const list = _ouRd(fromK); const st = list[list.length - 1];
+    if (!st) return { msg: kind === 'undo' ? 'لا تعديل للتراجع عنه' : 'لا تعديل لإعادته' };
+    const target = kind === 'undo' ? st.before : st.after, expect = kind === 'undo' ? st.after : st.before;
+    const o = orders.find(x => String(x.id) === st.id);
+    if (!o) { list.pop(); _ouWr(fromK, list); return { msg: 'الأوردر لم يعد موجوداً — أُزيلت الخطوة' }; }
+    const keys = Object.keys(target);
+    const changedSince = keys.filter(k => !_ouSame(o[k], expect[k]));
+    const risky = keys.filter(k => OU_RISKY.indexOf(k) >= 0);
+    if (changedSince.length || risky.length) {
+        const lines = keys.map(k => '• ' + OU_LBL[k] + ': ' + _ouShow(o[k]) + ' ⇐ ' + _ouShow(target[k])).join('\n');
+        const warn = (changedSince.length ? '\n\n⚠️ عُدّل هذا الأوردر بعد خطوتك (' + changedSince.map(k => OU_LBL[k]).join('، ') + ') — ستُكتب القيم فوق التعديل الأحدث.' : '') +
+            (keys.indexOf('status') >= 0 ? '\n\nالتبليغ الذي وصل الزبون لا يُستعاد — تُعاد الحالة في النظام فقط.' : '');
+        const ok = await GMTAsk.confirm((kind === 'undo' ? 'تتراجع عن' : 'تعيد') + ' تعديل «' + _ouText(st) + '»؟\n\n' + lines + warn, { title: kind === 'undo' ? '↶ تراجع' : '↷ إعادة', okText: kind === 'undo' ? 'تراجع' : 'إعادة' });
+        if (!ok) return { msg: 'أُلغي' };
+    }
+    _ouBypass = true;
+    try { await _sbUpdateRaw(st.id, target); } catch (e) { _ouBypass = false; throw e; }
+    _ouBypass = false;
+    Object.assign(o, target);
+    list.pop(); _ouWr(fromK, list); _ouLast = { id: null, at: 0 };   /* تعديلٌ جديد بعد التراجع خطوةٌ منفصلة */
+    const back = _ouRd(toK); back.push(st); _ouWr(toK, back);
+    try { render(); } catch (_) {}
+    try { if (window.GMTOpLog) GMTOpLog.log({ action: kind === 'undo' ? 'order_undo' : 'order_redo', entity: 'gmt_orders', entityId: st.id, entityName: st.serial || st.who, details: { fields: keys } }); } catch (_) {}
+    return { msg: (kind === 'undo' ? '↶ تراجعتَ عن: ' : '↷ أُعيد: ') + _ouText(st) };
+}
+function _ouPanel() {
+    const u = _ouRd(OU_LS).slice().reverse(), r = _ouRd(OR_LS).slice().reverse();
+    const row = (st, tag) => '<div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12.5px"><b>' + escH(_ouText(st)) + '</b> <span style="color:#5b6472">' + tag + ' · ' + new Date(st.at).toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' }) + '</span><div style="color:#5b6472">' +
+        Object.keys(st.after).map(k => escH(OU_LBL[k] + ': ' + _ouShow(st.before[k]) + ' ⇐ ' + _ouShow(st.after[k]))).join(' · ') + '</div></div>';
+    GMTAsk.choose('', { title: '↶ سجلّ التراجع — تعديلات الأوردرات (' + u.length + ')',
+        choices: [{ k: 'u', t: '↶ تراجع عن الأخير', pri: 1 }, { k: 'r', t: '↷ إعادة' }] }).then(k => { if (k === 'u') _ouApply('undo').then(x => showToast(x.msg, 'ok')); else if (k === 'r') _ouApply('redo').then(x => showToast(x.msg, 'ok')); });
+    setTimeout(() => { const box = [...document.querySelectorAll('.gmtask-ov .gmtask-bd')].pop(); if (box) box.innerHTML = (u.length ? u.map(st => row(st, 'قابل للتراجع')).join('') : '<div style="padding:10px;color:#5b6472">لا تعديلات بعد على هذا الجهاز</div>') + (r.length ? '<div style="padding:6px 10px;font-weight:800;color:#5b6472">قابل للإعادة</div>' + r.map(st => row(st, 'قابل للإعادة')).join('') : '') + '<div style="padding:8px 10px;color:#5b6472;font-size:11.5px">الحذف يُسترجع من «سلّة المحذوفات» · التبليغات المرسلة لا تُستعاد</div>'; }, 60);
+}
+window.GMTUndo = { undo: () => _ouApply('undo'), redo: () => _ouApply('redo'), panel: _ouPanel };
+document.addEventListener('keydown', e => {
+    if (window.parent !== window && window.parent.GMT_WS_SHELL) return;          /* داخل مساحة العمل: القشرة تمرّرها */
+    const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    if (typing || !(e.ctrlKey || e.metaKey) || document.querySelector('.gmtask-ov')) return;
+    const z = e.code === 'KeyZ', y = e.code === 'KeyY';
+    if (!z && !y) return;
+    e.preventDefault();
+    _ouApply(z && !e.shiftKey ? 'undo' : 'redo').then(r => showToast(r.msg, 'ok'), err => showToast('تعذّر: ' + err.message, 'err'));
+});
 async function sbUpdate(id, data) {
+    _ouRecord(id, data);
+    return _sbUpdateRaw(id, data);
+}
+async function _sbUpdateRaw(id, data) {
     const api = _ordersSync();
     if (api) return api.update(id, data);
     const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
@@ -10553,7 +10633,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118g"></script>
+<script src="gmt-whatsnew.js?v=20261118h"></script>
 <script src="gmt-refresh.js?v=20261118g"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
