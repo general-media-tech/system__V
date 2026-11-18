@@ -931,11 +931,35 @@
     if (dn) cv0 = median3(cv0);
     return araFinish(cv0, Math.min(2, max / Math.max(cv0.width, cv0.height)), !!box);
   }
+  /* فصل أوتسو: الانحراف بين الحبر والورق (بوحدات السطوع) — للمقارنة بين طريقتين للرماديّ */
+  function sepOf(h, n) {
+    var sum = 0, i; for (i = 0; i < 256; i++) sum += i * h[i];
+    var sB = 0, wB = 0, best = 0;
+    for (i = 0; i < 256; i++) { wB += h[i]; if (!wB) continue; var wF = n - wB; if (!wF) break; sB += i * h[i];
+      var mB = sB / wB, mF = (sum - sB) / wF, bv = wB * wF * (mB - mF) * (mB - mF); if (bv > best) best = bv; }
+    return Math.sqrt(best) / n;
+  }
+  /* مدُّ السطوع ١٪–٩٩٪ إلى ٠–٢٥٥ (الأدنى قناةً أغمق عموماً — لا نريد ورقاً رمادياً) */
+  function stretch(g, h, n) {
+    var lo = 0, hi = 255, c = 0; while (lo < 255 && (c += h[lo]) < n * .01) lo++;
+    c = 0; while (hi > 0 && (c += h[hi]) < n * .01) hi--;
+    if (hi - lo < 10) return; var k = 255 / (hi - lo);
+    for (var i = 0; i < g.length; i++) { var x = (g[i] - lo) * k; g[i] = x < 0 ? 0 : x > 255 ? 255 : x; }
+  }
   function araFinish(cv0, k, isBox) {
     var cv = newCanvas(cv0.width * k, cv0.height * k);
     var c = cv.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cv0, 0, 0, cv.width, cv.height);
     var d = c.getImageData(0, 0, cv.width, cv.height).data, o = grayOf(cv.width, cv.height), g = o.g;
-    for (var i = 0, j = 0; j < g.length; i += 4, j++) { var a = d[i], b = d[i + 1], e = d[i + 2]; g[j] = a > b ? (a > e ? a : e) : (b > e ? b : e); }
+    /* (TASK-B0520 · المالك: إيصالات ١٨ ت٢ بضوءٍ أزرق — «طوّل كثير بقراءة الفرع») الرماديّ بأعلى القنوات يزيل الظلال الملوّنة، لكنّه تحت
+       ضوءٍ أزرق يجعل الحبر نفسه فاتحاً (قناة الأزرق عالية في الورق والحبر معاً) ⇒ نصٌّ باهت لا يُقرأ. نحسب أيضاً الرماديّ بأدنى القنوات
+       ونأخذ الأوضح فصلاً بين الحبر والورق (تباين أوتسو) — على الإيصالات العاديّة يبقى الأوّل كما كان */
+    var g2 = new Uint8Array(g.length), h1 = new Float64Array(256), h2 = new Float64Array(256);
+    for (var i = 0, j = 0; j < g.length; i += 4, j++) {
+      var a = d[i], b = d[i + 1], e = d[i + 2];
+      g[j] = a > b ? (a > e ? a : e) : (b > e ? b : e); g2[j] = a < b ? (a < e ? a : e) : (b < e ? b : e);
+      h1[g[j]]++; h2[g2[j]]++;
+    }
+    if (sepOf(h2, g.length) > sepOf(h1, g.length) * 1.25) { stretch(g2, h2, g.length); o.g = g2; o.chan = 'min'; }
     return isBox ? unrule(o) : o;
   }
   /* (TASK-0130) صورةٌ رماديّة خام (PGM) لقارئ النصّ بدل القماش: المكتبة كانت ترمّز القماش PNG على الخيط الرئيسي ثمّ تفكّه في عاملها
