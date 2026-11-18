@@ -145,7 +145,7 @@
          الجذر أعمّ من صفحة الفحص: ٣٣ صفحةً داخلية ليس فيها أي رابطٍ للرئيسية، والشريط العلويّ بلا زرّ رجوع
          (زرّ الأدوات «🧰» فيه أدوات الصفحة نفسها لا التنقّل). فصار زرّ «الرئيسية» جزءاً ثابتاً من الشريط على كل صفحةٍ داخلية. */
       '#gmt-home-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;',
-      'border-radius:9px;padding:6px 10px;font-family:inherit;font-size:12px;font-weight:700;line-height:1;text-decoration:none;order:-2;',
+      'border-radius:9px;padding:6px 10px;min-height:34px;box-sizing:border-box;font-family:inherit;font-size:12px;font-weight:700;line-height:1;text-decoration:none;order:-2;',   /* (TASK-B0513) ≥ 32px للإصبع */
       'white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .14s,border-color .14s}',
       '#gmt-home-btn:hover{background:#f8fafc;border-color:rgba(15,23,42,.18)}#gmt-home-btn:active{transform:scale(.96)}',
       '@media (max-width:359px){#gmt-home-btn .gr-txt{display:none}}',

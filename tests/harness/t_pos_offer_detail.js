@@ -4,7 +4,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
 (async () => {
   await H.seed();
   const [A, B] = await H.call('/rest/v1/products', [{ name: 'كاميرا أ', barcode: 'OD-A', price: 400, net_cost: 200, daraa: 0, homs: 3 }, { name: 'عدسة ب', barcode: 'OD-B', price: 120, net_cost: 60, daraa: 4, homs: 4 }]);
-  await H.call('/rest/v1/gmt_offers', [{ name: 'باقة التفاصيل', offer_type: 'bundle', offer_price: 450, is_active: true, description: 'سطر أول\nسطر ثانٍ من الوصف', image_url: H.BASE + 'logo.jpg', images: [H.BASE + 'logo.jpg', H.BASE + 'favicon.ico', H.BASE + 'gmt-icon-192.png'],
+  /* (TASK-B0513) كانت الصورة الثانية favicon.ico: اسمها فيه «icon» فحارس الصور المكسورة (gmt-core) يبدّلها بالشعار إن تأخّر فكّ ترميز ICO في المتصفّح الآليّ ⇒ ينجح أحياناً ويفشل أحياناً. صورة JPG عاديّة كما في العروض الحقيقيّة. */
+  await H.call('/rest/v1/gmt_offers', [{ name: 'باقة التفاصيل', offer_type: 'bundle', offer_price: 450, is_active: true, description: 'سطر أول\nسطر ثانٍ من الوصف', image_url: H.BASE + 'logo.jpg', images: [H.BASE + 'logo.jpg', H.BASE + 'b_h1.jpg', H.BASE + 'gmt-icon-192.png'],
     products: JSON.stringify([{ id: A.id, name: 'كاميرا أ', qty: 1 }, { id: B.id, name: 'عدسة ب', qty: 2 }]), targets: { pos: true, store: true } }]);
   const o = await H.open('pos.html', { init: H.STAFF_INIT, w: 390, mobile: true, wait: 7000 });
   const id = await o.pg.evaluate(() => (allProducts.find(p => p._is_offer) || {}).id);
@@ -18,7 +19,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(d.warn, 'تنبيه النقص في الفرع ظاهر');
   ok(d.split && !d.addDisabled, 'زرّ «منتجات منفصلة» ظاهر وزرّ الإضافة غير معطَّل رغم نقص الفرع');
   await o.pg.evaluate(() => posOfferPick(1)); const src = await o.pg.evaluate(() => document.querySelector('#pd-offer-gal [data-main] img').getAttribute('src'));
-  ok(/favicon\.ico/.test(src), "الضغط على مصغّرة يبدّل الصورة الكبيرة: " + src);
+  ok(/b_h1\.jpg/.test(src), "الضغط على مصغّرة يبدّل الصورة الكبيرة: " + src);
   await o.pg.evaluate(() => { document.querySelector('#pd-content [onclick*="openProductDetail"]').click(); }); await o.pg.waitForTimeout(700);
   ok(await o.pg.evaluate(() => /عدسة ب|كاميرا أ/.test(document.querySelector('#pd-content .pd-name').textContent) && !document.getElementById('pd-offer-gal')), 'الضغط على منتج داخل الباقة يفتح تفاصيل المنتج نفسه');
   const real = o.errs.filter(e => !/status of (400|401|404|406|409)|Failed to load resource|navigator.vibrate|Estimating/.test(e));

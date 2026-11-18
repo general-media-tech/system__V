@@ -2025,7 +2025,7 @@
       '@keyframes gwnP{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.6);opacity:0}}' +
       '@keyframes gwnF{50%{box-shadow:0 0 0 6px rgba(213,0,28,.35)}}' +
       '@media (prefers-reduced-motion:reduce){.gwn-dot.gwn-pulse:after,.gwn-flash{animation:none}}' +
-      '.gwn-btn{border:0;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:900;font-size:12px;cursor:pointer;line-height:1.3}' +
+      '.gwn-btn{border:0;border-radius:10px;padding:6px 12px;min-height:34px;font-family:inherit;font-weight:900;font-size:12px;cursor:pointer;line-height:1.3}' +
       '.gwn-go{background:#D5001C;color:#fff}.gwn-ok{background:#F3F4F6;color:#374151}' +
       '#wn-home{position:relative;border:1px solid rgba(213,0,28,.25);border-radius:18px;background:#fff;padding:14px 14px 10px;margin:0 0 14px;' +
         'box-shadow:0 1px 2px rgba(15,18,25,.05);font-family:inherit}' +
