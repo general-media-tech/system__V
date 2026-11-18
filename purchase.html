@@ -3413,7 +3413,7 @@ async function saveInvEdits(){
   /* (TASK-0338) التكلفة الواصلة للمنتج = السعر الأصلي + حصّته من تكاليف الفاتورة (كما في حفظ الشحنة PUR-7) */
   if(currentInvModal!=='instant'){
     const _f=_invCostFactor();
-    productUpdates.forEach(pu=>{ const it=d_items_ref[pu.idx]; if(it&&it.unitPrice>0) pu.upd.cost_price=+(it.unitPrice*_f).toFixed(4); });
+    productUpdates.forEach(pu=>{ const it=d_items_ref[pu.idx]; if(!(it&&it.unitPrice>0)) return; const a=_allocOf(it); pu.upd.cost_price=a!=null?+a.toFixed(4):+(it.unitPrice*_f).toFixed(4); });   /* (TASK-B0519) التوزيع الحقيقيّ إن وُجد */
   }
 
   // ── 2ب. أنشئ أولاً أي منتجات معلّقة بقاعدة البيانات فعلياً (لأول مرة) ──
@@ -3620,7 +3620,19 @@ function _invCostFactor(){
   const base=(d_items_ref||[]).reduce((s,it)=>s+(Number(it.qty)||0)*_origOf(it),0);
   return (costs>0&&base>0)?(1+costs/base):1;
 }
-function _costedOf(it){ return +(_origOf(it)*_invCostFactor()).toFixed(4); }
+/* (TASK-B0519 · المالك seq 832/840) توزيعٌ يدويّ حقيقيّ لفاتورةٍ بعينها من الباكينج ليست:
+   الجمارك على كلّ كرتونة حسب بندها الجمركيّ ووزنها · باقي التكاليف حسب الوزن على البضاعة وحدها · الأصل عليه جمارك فقط.
+   يُحفظ في البند: alloc_unit (تكلفة الوحدة الواصلة) + alloc_qty/alloc_orig/alloc_tot (ما حُسب عليه).
+   يسري ما دامت الكمية والسعر الأصليّ ومجموع التكاليف كما هي — أيّ تغييرٍ فيها ⇒ يعود التوزيع العاديّ بنسبة القيمة تلقائياً. */
+function _allocOf(it){
+  const r=(it&&it._raw)||{};
+  if(r.alloc_unit==null) return null;
+  if(Number(r.alloc_qty)!==Number(it.qty)) return null;
+  if(Math.abs(Number(r.alloc_orig)-_origOf(it))>0.0001) return null;
+  if(Math.abs(Number(r.alloc_tot)-_invCostsTotal())>0.01) return null;
+  return Number(r.alloc_unit);
+}
+function _costedOf(it){ const a=_allocOf(it); if(a!=null) return +a.toFixed(4); return +(_origOf(it)*_invCostFactor()).toFixed(4); }
 /* يكتب خانة سعر الشراء لكل بند حسب العرض المختار — في وضع التعديل دائماً الأصلي (هو ما يُعدَّل ويُحفظ) */
 function _applyPriceView(){
   if(currentInvModal==='instant') return;
@@ -3636,7 +3648,9 @@ function _applyPriceView(){
     if(divs[0]) divs[0].textContent=v?v.toFixed(2):'';
     if(divs[1]) divs[1].textContent=v?(v*(Number(it.qty)||0)).toFixed(2):'';
     cell.style.background=(_showOrigPrice&&!invEditMode)?'#fff7ed':'';
-    cell.title=showOrig?'سعر الشراء الأصلي':'سعر الشراء مع حصّته من التكاليف (الواصل)';
+    const _al=!showOrig&&_allocOf(it)!=null?((it._raw||{}).alloc||{}):null, _q=Number(it.qty)||1;
+    cell.title=showOrig?'سعر الشراء الأصلي':(_al?('الكلفة الحقيقية للقطعة: جمارك '+((_al.customs||0)/_q).toFixed(2)+' + شحن '+((_al.ship||0)/_q).toFixed(2)+' + أخرى '+((_al.other||0)/_q).toFixed(2)+((it._raw||{}).asset?' · أصل للمحل: جمارك فقط':'')+(_al.codes?' · بند '+_al.codes.join('، '):'')):'سعر الشراء مع حصّته من التكاليف (الواصل)');
+    if(_al) cell.style.background='#ecfdf5';
   });
   const st=document.getElementById('inv-sum-purchase'); if(st) st.textContent=sum.toFixed(2);
   const b=document.getElementById('orig-price-btn');
@@ -4299,7 +4313,10 @@ function printBarcodes(){
      (من الباكينج ليست) ⇒ ملصقاته في مجموعة «كرتونة N/M» بترتيب الفاتورة · بندٌ كمّيته 0 لا يُطبع */
   const _ctn=it=>{const r=it._raw||{};return r.ctn!=null?('كرتونة '+r.ctn+(r.ctn_of?'/'+r.ctn_of:'')):'';};
   const _hasCtn=d_items_ref.some(it=>_ctn(it));
-  const items=d_items_ref.filter(item=>!(String(item.qty)==='0')).map(item=>({barcode:item.product?.barcode||item.barcode||'',name:item.name||item.product?.name||'',qty:Number(item.qty)||1,group:_hasCtn?(_ctn(item)||'خارج الباكينج ليست'):''}));
+  /* (TASK-B0519 · المالك seq 832) الأصل (أداة للمحل لا للبيع) لا يُطبع له باركود */
+  const _assets=d_items_ref.filter(it=>(it._raw||{}).asset).length;
+  if(_assets) setTimeout(()=>toast('ℹ️ '+_assets+' بنداً أصلاً للمحل — بلا باركود','ok'),400);
+  const items=d_items_ref.filter(item=>!(String(item.qty)==='0')&&!(item._raw||{}).asset).map(item=>({barcode:item.product?.barcode||item.barcode||'',name:item.name||item.product?.name||'',qty:Number(item.qty)||1,group:_hasCtn?(_ctn(item)||'خارج الباكينج ليست'):''}));
   const ok=window.GMTLabels&&GMTLabels.openSheet(items,{title:'باركودات — GMT'+(_hasCtn?' · حسب الكراتين':'')});
   if(ok===null) toast('السماح بالنوافذ المنبثقة مطلوب','err');
   else if(!ok) toast('لا توجد باركودات','err');
