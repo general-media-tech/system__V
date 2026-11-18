@@ -496,7 +496,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -796,6 +796,9 @@ async function bootApp() {
      تبويباتها (data-solo) مخفيّة هنا، وتُفتح من الرئيسيّة أداةً وحدها: admin_pos.html?tab=customers ⇒ بلا شريط تبويبات وبعنوانها */
   const _solo = (() => { try { const q = new URLSearchParams(location.search).get('tab'); const b = q && document.querySelector(`.main-tab[data-solo][onclick="switchTab('${q}')"]`); return b ? b.textContent.trim() : ''; } catch (_) { return ''; } })();
   document.getElementById('main-tabs').style.display = _solo ? 'none' : 'flex';
+  /* (TASK-B0512) صلاحيات أدواتٍ بعينها: التبويبات الممنوحة وحدها ظاهرة (والمنفردة data-solo تظهر لمن مُنحها) */
+  { const _tg = window.GMTPerm && GMTPerm.tabGrants ? GMTPerm.tabGrants('admin_pos.html') : null;
+    if (_tg && _tg.length) document.querySelectorAll('.main-tab').forEach(t => { const m = (t.getAttribute('onclick') || '').match(/switchTab\('([^']+)'\)/); const on = !!m && _tg.indexOf(m[1]) >= 0; t.style.display = on ? '' : 'none'; }); }
   if (_solo) { const tt = document.querySelector('#topbar .tb-title'); if (tt) tt.textContent = _solo; document.title = _solo + ' — GMT';
     /* (TASK-B0509) «الرئيسية» موجودة في الشريط العلويّ الموحَّد — هنا رجوعٌ لصفحة «الإدارة» التي تجمع هذه الأدوات */
     const bk = document.createElement('a'); bk.href = 'الإدارة.html'; bk.textContent = '← الإدارة'; bk.style.cssText = 'color:inherit;font-size:12px;font-weight:800;text-decoration:none;margin-inline-start:8px;opacity:.85';
@@ -807,7 +810,7 @@ async function bootApp() {
     branches = Array.isArray(cols) ? cols : [];
     await Promise.all([loadInvoices(), loadTransfers(), loadCommissions(), loadTgConfig(), loadDebts(), loadManualDebts(), loadExpenses(), loadPurchases(), accLoadOpening(), loadOrdersForAccounting(), loadReservationsForAccounting(), loadCustomers(), loadStockTransfersAdmin()]);
     /* (٨ ت) رابطٌ مباشر لتبويب: admin_pos.html?tab=customers (أداة «العملاء» من الرئيسيّة) */
-    { let _t0 = 'overview'; try { const q = new URLSearchParams(location.search).get('tab'); if (q && /^[a-zA-Z]+$/.test(q) && document.querySelector(`.main-tab[onclick="switchTab('${q}')"]`)) _t0 = q; } catch (_) {}
+    { let _t0 = 'overview'; try { const _tg0 = window.GMTPerm && GMTPerm.tabGrants ? GMTPerm.tabGrants('admin_pos.html') : null; if (_tg0 && _tg0.length) _t0 = _tg0[0]; } catch (_) {} try { const q = new URLSearchParams(location.search).get('tab'); if (q && /^[a-zA-Z]+$/.test(q) && document.querySelector(`.main-tab[onclick="switchTab('${q}')"]`)) _t0 = q; } catch (_) {}
       switchTab(_t0);
       /* (TASK-0204 · المالك seq 135) «مصروف» من الرئيسيّة للأدمن ⇒ هنا (لا نقطة البيع): ?tab=expenses&add=general|drawing|branch */
       try { const _ad = new URLSearchParams(location.search).get('add'); if (_t0 === 'expenses' && /^(general|drawing|branch)$/.test(_ad || '')) openAddExpenseModal(_ad === 'drawing' ? 'drawing' : _ad === 'general'); } catch (_) {}
@@ -969,6 +972,9 @@ async function renderClosings() {
 }
 
 function switchTab(tab) {
+  /* (TASK-B0512) مستخدمٌ عاديّ مُنح أدواتٍ بعينها من هذه الصفحة ⇒ لا يفتح غيرها */
+  const _tg = window.GMTPerm && GMTPerm.tabGrants ? GMTPerm.tabGrants('admin_pos.html') : null;
+  if (_tg && _tg.length && _tg.indexOf(tab) < 0) tab = _tg[0];
   activeTab = tab;
   /* ═══ إصلاح 2026-07-12 (فحص عميق): كان التظليل يعتمد مصفوفة أسماء بالترتيب (index)
      فيها 10 أسماء، بينما أزرار الواجهة 12 زراً وبترتيب مختلف (commissions أُزيل من
@@ -4480,7 +4486,20 @@ async function _saveCustField(c, patch) {
     showToast(/customer_type|notes|column/i.test(String(e.message)) ? 'شغّل ملف SQL رقم 33 (تصنيف العملاء) أوّلاً' : 'تعذّر الحفظ: ' + e.message, 'err');
   }
 }
-window.setCustomerType = setCustomerType; window.editCustomerNote = editCustomerNote;
+/* (TASK-B0511 · المالك seq 828 «كتير زبائن ما الهن عنوان او مكتب … لما عم ارجع حط ما عم ينحفظ») — لم يكن في سجلّ العملاء
+   أيّ مكانٍ لتصحيح الاسم أو إضافة العنوان/المكتب؛ الآن من بطاقة العميل مباشرةً. الفارغ لا يمسح المحفوظ. */
+async function editCustomerInfo(id) {
+  const c = allCustomers.find(x => String(x.id) === String(id)); if (!c) return;
+  const v = await GMTAsk.form('بيانات «' + (c.name || c.phone || '') + '» — تُستعمل في نقطة البيع والأوردرات والكفالات:', { title: 'الاسم والعنوان', okText: 'حفظ',
+    fields: [{ k: 'name', label: 'الاسم', value: c.name || '' }, { k: 'address', label: 'العنوان / مكتب الشحن', value: c.address || '', placeholder: 'المحافظة · المنطقة · أو مكتب الشحن' }] });
+  if (!v) return;
+  const patch = {};
+  if (String(v.name || '').trim() && String(v.name).trim() !== (c.name || '')) patch.name = String(v.name).trim();
+  if (String(v.address || '').trim() && String(v.address).trim() !== (c.address || '')) patch.address = String(v.address).trim();
+  if (!Object.keys(patch).length) { showToast('لا تغيير', 'ok'); return; }
+  await _saveCustField(c, patch);
+}
+window.setCustomerType = setCustomerType; window.editCustomerNote = editCustomerNote; window.editCustomerInfo = editCustomerInfo;
 
 function renderCustomers() {
   const c = document.getElementById('app-content');
@@ -4624,6 +4643,7 @@ function renderCustomerList(searchId) {
           : `<button class="btn btn-sm" style="background:var(--danger-bg);color:#991b1b;border:1.5px solid var(--danger);" onclick="toggleBlockCustomer('${cust.id}',true,'${escH(cust.name)}')">🚫 حظر العميل</button>`}
         <button class="btn btn-ghost btn-sm" style="color:#991b1b;" onclick="deleteCustomerSovereign('${cust.id}','${escH(cust.name)}')">🗑 حذف</button>
         <button class="btn btn-ghost btn-sm" onclick="viewCustomerInvoices('${escH(cust.phone)}','${escH(cust.name)}')">📋 فواتيره</button>
+        <button class="btn btn-ghost btn-sm" onclick="editCustomerInfo('${escH(String(cust.id))}')">✏️ الاسم والعنوان</button>
         <button class="btn btn-ghost btn-sm" onclick="editCustomerNote('${escH(String(cust.id))}')">📝 ملاحظة</button>
         <button class="btn btn-sm" style="background:#0f172a;color:#fff;border:0;" onclick="openCustomerProfile('${escH(cust.phone)}','${escH(cust.name)}')">👤 الملف الكامل</button>
       </div>
@@ -6031,7 +6051,10 @@ function showToast(msg,type=''){
 /* (2026-10-06) دخولٌ واحد: من دخل الإدارة من الرئيسيّة (أو بنافذة الصلاحيات) لا يُسأل كلمة السرّ مرّةً ثانية هنا */
 let __gmtAdminByRole = false; try { __gmtAdminByRole = !!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()); } catch (_) {}
 if (__gmtAdminByRole) { try { localStorage.setItem('gmt_admin_auth', '1'); } catch (_) {} }
-if (localStorage.getItem('gmt_admin_auth') === '1') {
+/* (TASK-B0512 · المالك seq 828) موظّفٌ مُنح هذه الصفحة أو أدواتٍ منها (الأمان والمستخدمون ⇐ الصلاحيات) يدخل بحسابه بلا كلمة سرّ الإدارة —
+   والصلاحيات الجزئيّة تحصر التبويبات (switchTab). لا نكتب gmt_admin_auth له كي لا تبقى للحساب التالي على الجهاز. */
+let __gmtGranted = false; try { __gmtGranted = !__gmtAdminByRole && !!(window.GMTPerm && GMTPerm.adminOnly('admin_pos.html') && GMTPerm.can('admin_pos.html') && localStorage.getItem('gmt_session')); } catch (_) {}
+if (localStorage.getItem('gmt_admin_auth') === '1' || __gmtGranted) {
   bootApp();
 } else {
   document.getElementById('login-screen').style.display = 'flex';
@@ -7156,7 +7179,7 @@ renderOffers = function(){
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

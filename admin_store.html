@@ -597,7 +597,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 </head>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -3427,6 +3427,7 @@ function _cropInit() {
 
 function _cropDraw() {
     const c = _crop.canvas, ctx = _crop.ctx, img = _crop.img;
+    if (!c || !ctx || !img || !img.naturalWidth) return;   /* (TASK-B0513 · فحص الأدوات) أزرار النسبة قبل تحميل الصورة كانت ترمي خطأ */
     const iw = img.naturalWidth * _crop.scale, ih = img.naturalHeight * _crop.scale;
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.fillStyle = '#222'; ctx.fillRect(0, 0, c.width, c.height);
@@ -3501,6 +3502,7 @@ function _cropBindEvents() {
 }
 
 window.cropZoom = function(val) {
+    if(!_crop.img||!_crop.canvas) return;
     const pct=parseInt(val)/100; _crop.scale=_crop.fitScale*pct;
     const c=_crop.canvas,img=_crop.img;
     _crop.panX=(c.width-img.naturalWidth*_crop.scale)/2; _crop.panY=(c.height-img.naturalHeight*_crop.scale)/2;
@@ -3519,10 +3521,11 @@ window.cropSetRatio = function(ratio,btn) {
     if(_crop._forcedRatio!==null && _crop._forcedRatio!==undefined) return; // locked
     _crop.ratio=ratio;
     document.querySelectorAll('.crop-ratio-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
-    if(ratio!=='free'){const s=_crop.sel;s.h=s.w/ratio;} _cropDraw();
+    if(ratio!=='free'&&_crop.sel){const s=_crop.sel;s.h=s.w/ratio;} _cropDraw();
 };
 window.cropApply = function() {
     const s=_crop.sel,img=_crop.img,sc=_crop.scale;
+    if(!s||!img||!img.naturalWidth){ if(typeof showToast==='function') showToast('اختر صورة أوّلاً','err'); return; }
     const ix=Math.max(0,(s.x-_crop.panX)/sc), iy=Math.max(0,(s.y-_crop.panY)/sc);
     const iw=Math.min(img.naturalWidth-ix,s.w/sc), ih=Math.min(img.naturalHeight-iy,s.h/sc);
     if(iw<=0||ih<=0){showToast('يرجى تحديد منطقة الاقتصاص','error');return;}
@@ -3626,7 +3629,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

@@ -12,7 +12,7 @@
 <script src="gmt-core.js?v=20261118c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
@@ -54,7 +54,7 @@ body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.7 Cairo,'Segoe UI
 <div class="w">
   <div class="top"><h1>الإدارة</h1></div><!-- زرّ «الرئيسية» في الشريط العلويّ الموحَّد — لا نكرّره هنا -->
   <p class="lead">كل أدوات أدمن نقاط البيع في مكانٍ واحد، مجمّعةً حسب ما تريد أن تفعل.</p>
-  <a class="main-l" href="admin_pos.html" data-tool="admin_pos.html"><span class="ico" data-ic="shield"></span><span style="min-width:0"><b>أدمن نقاط البيع</b><small>اللوحة الكاملة: الموافقات · الصندوق · العمولات · المحاسبة</small></span><span class="go">افتح ←</span></a>
+  <a class="main-l" id="main-l" href="admin_pos.html" data-tool="admin_pos.html"><span class="ico" data-ic="shield"></span><span style="min-width:0"><b>أدمن نقاط البيع</b><small>اللوحة الكاملة: الموافقات · الصندوق · العمولات · المحاسبة</small></span><span class="go">افتح ←</span></a>
   <div id="secs"></div>
 </div>
 <script>
@@ -73,13 +73,15 @@ body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.7 Cairo,'Segoe UI
   function draw() {
     var host = document.getElementById('secs'); if (!host || !T) return;
     host.innerHTML = SECS.map(function (s) {
-      var items = s.f.map(function (f) { return T.find(f); }).filter(Boolean);
+      /* (TASK-B0512) المستخدم العاديّ يرى ما مُنحه فقط */
+      var items = s.f.map(function (f) { return T.find(f); }).filter(function (x) { return x && (!window.GMTPerm || GMTPerm.can(x.f)); });
       if (!items.length) return '';
       return '<section class="sec"><h2>' + ic(s.ic, 17) + esc(s.t) + ' <span class="c">' + items.length + '</span></h2><div class="grid">' +
         items.map(function (x) {
           return '<a class="t" href="' + esc(x.f) + '" data-tool="' + esc(x.f) + '"><span class="ico">' + ic(x.ic, 18) + '</span><span style="min-width:0"><b>' + esc(x.t) + '</b><small>' + esc(x.d) + '</small></span></a>';
         }).join('') + '</div></section>';
     }).join('');
+    try { if (window.GMTPerm && GMTPerm.tabGrants && GMTPerm.tabGrants('admin_pos.html')) document.getElementById('main-l').hidden = true; } catch (_) {}   /* منحٌ جزئيّ ⇒ لا لوحة كاملة */
     [].forEach.call(document.querySelectorAll('[data-ic]'), function (el) { el.innerHTML = ic(el.getAttribute('data-ic'), 20); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw); else draw();
@@ -90,6 +92,6 @@ body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.7 Cairo,'Segoe UI
 <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 </body>
 </html>

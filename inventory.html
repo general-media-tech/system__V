@@ -2237,7 +2237,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
 #cards-grid > *{content-visibility:auto;contain-intrinsic-size:auto 260px}
@@ -2498,11 +2498,15 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
     <div class="filter-chip" data-filter="zero" onclick="setFilter('zero', this)">
       نفذ
     </div>
+    <!-- (TASK-B0513 · تقرير الواجهة) على الهاتف كانت خمسة صفوف فلاتر قبل أوّل منتج ⇒ الفرع والمواصفات/المتجر خلف هذا الزرّ
+         (ويُفتحان وحدهما إن كان فيهما فلترٌ نشِط). على الكمبيوتر كما كانا. -->
+    <button type="button" id="inv-more-flt" class="filter-chip" onclick="invMoreFilters()" aria-expanded="false">⚙︎ فلاتر أخرى<span id="inv-more-flt-n" class="badge" style="display:none"></span></button>
     <!-- (TASK-0292 · المالك seq 261) فلتر الشجرة الموحّدة: رئيسي ⇐ فرعي (cat_main · cat_sub) -->
     <select id="tree-main" onchange="invTreeSet('main', this.value)" aria-label="التصنيف الرئيسي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw"><option value="">🌳 كل التصنيفات</option></select>
     <select id="tree-sub" onchange="invTreeSet('sub', this.value)" aria-label="التصنيف الفرعي" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw;display:none"><option value="">كل الفرعي</option></select>
     <!-- (OWN-05#17 · المالك «البحث والفلترة بالماركة») فلتر الماركة — يُملأ من ماركات المنتجات ويتقاطع مع بقيّة الفلاتر والتصدير -->
     <select id="inv-brand-filter" onchange="invBrandSet(this.value)" aria-label="الماركة" style="height:32px;border:1.5px solid #E4E6EE;border-radius:9px;padding:0 6px;font:700 12px Cairo,sans-serif;background:#fff;max-width:44vw;display:none"><option value="">كل الماركات</option></select>
+
   </div>
 
   <!-- Branch Filter Row — فلاتر نقاط البيع -->
@@ -2526,6 +2530,29 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
     </select>
   </div>
 
+  <style>
+    #inv-more-flt{display:none}
+    @media (max-width:760px){ #inv-more-flt{display:inline-flex}
+      body:not(.inv-flt-open) #branch-filter-row, body:not(.inv-flt-open) #spec-store-row{display:none!important} }
+  </style>
+  <script>
+  function invMoreFilters(force) {
+    var on = typeof force === 'boolean' ? force : !document.body.classList.contains('inv-flt-open');
+    document.body.classList.toggle('inv-flt-open', on);
+    var b = document.getElementById('inv-more-flt'); if (b) b.setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  /* عدد الفلاتر النشطة المخفيّة — ويُفتح الصفّ وحده إن كان فيه فلترٌ نشِط فلا يحتار الموظّف لماذا القائمة ناقصة */
+  function invMoreFiltersSync() {
+    try {
+      var n = 0, br = document.querySelector('#branch-filter-row .filter-chip.active');
+      if (br && !/^الكل/.test(br.textContent.trim())) n++;
+      ['f-specs', 'f-store'].forEach(function (id) { var e = document.getElementById(id); if (e && e.value) n++; });
+      var c = document.getElementById('inv-more-flt-n'); if (c) { c.textContent = n || ''; c.style.display = n ? '' : 'none'; }
+    } catch (_) {}
+  }
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#branch-filter-row,#spec-store-row')) setTimeout(invMoreFiltersSync, 50); });
+  document.addEventListener('change', function (e) { if (e.target && (e.target.id === 'f-specs' || e.target.id === 'f-store')) setTimeout(invMoreFiltersSync, 50); });
+  </script>
   <!-- Edit Mode Bar -->
   <div id="edit-mode-bar">
     <div class="autosave-dot" id="autosave-dot"></div>
@@ -16864,7 +16891,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-whatsnew.js?v=20261118d"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

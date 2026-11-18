@@ -12,9 +12,13 @@ const custs = () => H.call('/__dump', undefined, 'GET').then(d => d.gmt_customer
   await o1.pg.evaluate(() => upsertCustomerFromOrder({ phone: '+963 933 111 222', name: 'زبون الشحن', address: 'حمص - الوعر، جانب الجامع', branch: 'حلب', id: 7 }));
   let c = (await custs()).find(x => x.phone === '0933111222');
   ok(c && c.name === 'زبون الشحن' && c.address === 'حمص - الوعر، جانب الجامع', 'زبون الأوردر حُفظ بوجهته (والقاعدة ترفض الأعمدة غير الموجودة): ' + JSON.stringify(c && [c.name, c.address]));
+  // (TASK-B0511 · المالك seq 828 «في شي اختلف يسالني فورا») الحفظ الخلفيّ لا يكتب فوق الوجهة المحفوظة بصمت —
+  // الوجهة الجديدة تُحفظ حين تختار «الجديد — واحفظه بدل القديم» في سؤال حفظ الأوردر
   await o1.pg.evaluate(() => upsertCustomerFromOrder({ phone: '0933111222', name: 'زبون الشحن', address: 'دمشق - المزة', branch: 'حلب', id: 8 }));
+  ok((await custs()).find(x => x.phone === '0933111222').address === 'حمص - الوعر، جانب الجامع', 'حفظٌ خلفيّ بوجهةٍ مختلفة لا يكتب فوق المحفوظة بلا سؤال');
+  await o1.pg.evaluate(async () => { GMTAsk.choose = async () => 'new_save'; await GMTCust.reconcile({ phone: '0933111222', name: 'زبون الشحن', address: 'دمشق - المزة' }); });
   c = (await custs()).filter(x => x.phone === '0933111222');
-  ok(c.length === 1 && c[0].address === 'دمشق - المزة', 'أوردرٌ جديد ⇒ الوجهة صارت آخر مكان شحن (بلا تكرار الزبون): ' + JSON.stringify(c.map(x => x.address)));
+  ok(c.length === 1 && c[0].address === 'دمشق - المزة', '«الجديد — واحفظه» ⇒ الوجهة صارت آخر مكان شحن (بلا تكرار الزبون): ' + JSON.stringify(c.map(x => x.address)));
   await o1.pg.evaluate(() => upsertCustomerFromOrder({ phone: '0933111222', name: 'زبون الشحن', address: '', branch: 'حلب', id: 9 }));
   ok((await custs()).find(x => x.phone === '0933111222').address === 'دمشق - المزة', 'أوردرٌ بلا عنوان لا يمحو الوجهة المحفوظة');
   await o1.browser.close();

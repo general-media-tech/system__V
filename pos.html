@@ -1210,7 +1210,7 @@ window.GMT_FEATURES = [
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
 #prodsGrid > *{content-visibility:auto;contain-intrinsic-size:auto 240px}
@@ -1229,6 +1229,7 @@ window.GMT_FEATURES = [
   <script src="gmt-specs.js?v=20261103a" defer></script><!-- (TASK-0236) جدول المواصفات في تفاصيل المنتج -->
   <script src="gmt-ask.js?v=20261029z4" defer></script>
   <script src="gmt-custcache.js?v=20261016a" defer></script>
+<script src="gmt-custsync.js?v=20261118e"></script><!-- (TASK-B0511) سجلّ الزبون الواحد -->
   <script src="gmt-stock.js?v=20261117h" defer></script>
 <script src="gmt-signpad.js?v=20261029z4" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
   <script src="gmt-share.js?v=20261029z4" defer></script>
@@ -8318,6 +8319,18 @@ async function _saveAndFinishInner() {
     }
   } catch (e) { console.warn('[GMT] تعذّر فحص قائمة الحظر — يتابع البيع:', e); }
 
+  /* (TASK-B0511 · المالك seq 828) «لما احط بيانات عميل باي مكان وفي شي اختلف يسالني فورا»: زبونٌ معروف برقمه واسمُه المحفوظ
+     مختلف ⇒ ثلاثة أجوبة قبل الحفظ (الجديد لهذه المرّة · الجديد واحفظه · القديم). كانت الفاتورة تكتب الاسم فوق القديم بصمت. */
+  try {
+    const _cn = document.getElementById('custName'), _cp = document.getElementById('custPhone');
+    if (window.GMTCust && _cn && _cp && _cn.value.trim() && GMTCust.phone09(_cp.value)) {
+      const _cr = await GMTCust.reconcile({ phone: _cp.value, name: _cn.value, branch_key: branch?.key || null, branch_name: branch?.name || null }, { source: 'pos' });
+      if (_cr.cancel) return;
+      if (_cr.use.name && _cn.value.trim() !== _cr.use.name) _cn.value = _cr.use.name;
+      window.__posCustNew = !!_cr.created;
+    }
+  } catch (e) { console.warn('[GMT] تعذّر مطابقة سجلّ الزبون — يتابع البيع:', e); }
+
   // ── التحقق من الأسعار قبل الحفظ ──
   for (const item of items) {
     /* (المالك seq 618/620 · التدقيق العدائي) سلّةٌ عُبث بها (F12) أو تلفت: كمّية غير صحيحة/سالبة/فوق المخزون كانت تُحفظ كما هي */
@@ -10331,6 +10344,15 @@ async function saveCustomerAuto(name, phone, invoiceId) {
     // نحاول upsert — إذا الجدول غير موجود يتجاهل الخطأ
     // on_conflict لازم يكون Query Param بالـ URL وليس Header — PostgREST بيتجاهله
     // تماماً لو كان بالـ headers، فكان الـ upsert مش شغال فعلياً (إما تكرار عميل أو فشل صامت)
+    /* (TASK-B0511) القرار في الاسم أُخذ قبل الحفظ (GMTCust.reconcile) ⇒ هنا لا نكتب فوق المحفوظ: إنشاءٌ أو ملءُ الناقص + آخر فاتورة */
+    if (window.GMTCust) {
+      const _was = !!window.__posCustNew; window.__posCustNew = false;
+      await GMTCust.fill({ phone, name, branch_key: branch?.key || null, branch_name: branch?.name || null });
+      const _p09 = GMTCust.phone09(phone);
+      if (_p09 && invoiceId) await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_customers?phone=eq.${_p09}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify({ last_invoice: invoiceId }) }, 6000).catch(() => {});
+      if (_was) sendTelegram(`<b>👤 عميل جديد — GMT</b>\n━━━━━━━━━━━━━━━\n<b>الاسم:</b> ${name}\n<b>الجوال:</b> ${phone}\n<b>الفرع:</b> ${branch?.name || '—'}`).catch(()=>{});
+      return;
+    }
     const r = await sbFetchTimeout(
       `${CONFIG.SUPABASE_URL}/rest/v1/gmt_customers?on_conflict=phone`,
       {
@@ -11106,7 +11128,7 @@ async function openWarrantyForInvoice(){
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>

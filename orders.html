@@ -87,7 +87,7 @@ window.GMT_INTERNAL = 1;</script>
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <style>/* (TASK-B0509) على الهاتف: الأدوات الأقلّ استعمالاً خلف «المزيد من الأدوات» */@media (max-width:1023px){#ord-tools:not(.ord-open) .ord-x{display:none!important}}</style>
 </head>
 <body class="pb-28">
@@ -120,6 +120,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-receipt.js?v=20261101n" defer></script>
 <script src="gmt-docscan.js?v=20261029z4" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
+<script src="gmt-custsync.js?v=20261118e"></script><!-- (TASK-B0511) سجلّ الزبون الواحد: الناقص يُحفظ والمختلف يُسأل عنه -->
 <script src="gmt-invoice-tpl.js?v=20261118b" defer></script>
 <script src="gmt-suggest.js?v=20261107d"></script>
   <script src="gmt-warmup.js?v=20261117j"></script>
@@ -3641,6 +3642,26 @@ document.getElementById('formEdit').onsubmit = async (e) => {
     const totalQty   = items.reduce((s,i) => s + i.qty, 0);
     const _zg = await zeroValueGuard(grandTotal, _coll, orders.find(o => o.id == id) || null);   // (TASK-0152) لا صفر بلا سبب وكلمة سرّ
     if (!_zg.ok) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; return; }
+    /* (TASK-B0511 · المالك seq 828 «لما عم ارجع حط ما عم ينحفظ») تعديل الأوردر لم يكن يلمس سجلّ الزبون: عنوانٌ أو مكتبٌ أُضيف هنا
+       كان يضيع. الآن: الناقص يُحفظ في سجلّ الزبون، والمختلف ⇒ سؤال القديم/الجديد. */
+    if (window.GMTCust) {
+        const _en = document.getElementById('edit-name'), _ea = document.getElementById('edit-addr');
+        /* نسأل فقط عمّا غيّرتَه الآن في هذا التعديل — حقلٌ لم تلمسه يُستعمل لملء الناقص في سجلّ الزبون بلا سؤال */
+        const _po = orders.find(o => o.id == document.getElementById('edit-id').value) || {};
+        const _k = v => String(v || '').replace(/\s+/g, ' ').trim();
+        const _nCh = _k(_en.value) !== _k(_po.name), _aCh = _k(_ea.value) !== _k(_po.address);
+        const _ph = document.getElementById('edit-phone').value;
+        const _cr = (_nCh || _aCh)
+            ? await GMTCust.reconcile({ phone: _ph, name: _nCh ? _en.value : '', address: _aCh ? _ea.value : '' }, { source: 'orders-edit' })
+            : await GMTCust.fill({ phone: _ph, name: _en.value, address: _ea.value });
+        if (!_nCh) _cr.use.name = _en.value.trim();
+        if (!_aCh) _cr.use.address = _ea.value.trim();
+        if (_nCh || _aCh) { /* وما لم يتغيّر يملأ الناقص فقط */ try { await GMTCust.fill({ phone: _ph, name: _nCh ? '' : _en.value, address: _aCh ? '' : _ea.value }); } catch (_) {} }
+        if (_cr.cancel) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; return; }
+        if (_cr.use.name && _en.value.trim() !== _cr.use.name) _en.value = _cr.use.name;
+        if (_cr.use.address && _ea.value.trim() !== _cr.use.address) _ea.value = _cr.use.address;
+        if (_cr.saved && _cr.saved.length && !_cr.created) showToast('👤 حُفظ في سجلّ الزبون: ' + _cr.saved.map(k => k === 'name' ? 'الاسم' : 'العنوان').join(' و'), 'ok');
+    }
     const data = {
         name:            document.getElementById('edit-name').value.trim(),
         phone:           document.getElementById('edit-phone').value.trim(),
@@ -7544,64 +7565,26 @@ window.refreshShipFee = refreshShipFee; window.onShipFeeInput = onShipFeeInput; 
 const ADDR_ONCE_TAG = '📍 عنوانٌ لهذه المرّة فقط';
 function _addrKey(s) { return String(s || '').replace(/☎.*$/, '').replace(/[\s،,.\-—·]+/g, ' ').trim().toLowerCase(); }
 async function askOldOrNewAddress() {
-    const a = document.getElementById('in-addr'), ph = document.getElementById('in-phone');
-    const cur = String((a && a.value) || '').trim(), phone = GMTPhone.norm((ph && ph.value) || '');
+    /* (TASK-B0511 · المالك seq 828) الاسم والعنوان معاً عبر GMTCust (gmt-custsync.js): الناقص في سجلّ الزبون يُحفظ فوراً،
+       والمختلف ⇒ ثلاثة أجوبة. «لهذه المرّة فقط» للعنوان يبقى موسوماً في الملاحظات (ADDR_ONCE_TAG) كما كان. */
+    const n = document.getElementById('in-name'), a = document.getElementById('in-addr'), ph = document.getElementById('in-phone');
     window.__addrOnce = false;
-    if (!cur || phone.length < 9 || !window.GMTAsk || !GMTAsk.choose) return 'same';
-    let old = '';
-    try {
-        const p0 = phone.startsWith('0') ? phone : '0' + phone;
-        const r = await fetch(`${SUPA_URL}/rest/v1/gmt_customers?phone=eq.${encodeURIComponent(p0)}&select=address&limit=1`, { headers: SB_HEADERS });
-        old = r.ok ? String(((await r.json())[0] || {}).address || '').trim() : '';
-    } catch (_) {}
-    if (!old && _custPicked && String(_custPicked.phone || '').replace(/[^0-9]/g, '').endsWith(phone.slice(-9))) old = String(_custPicked.address || '').trim();
-    if (!old || _addrKey(old) === _addrKey(cur) || _addrKey(expandOfficeAddress(old)) === _addrKey(cur)) return 'same';
-    const k = await GMTAsk.choose('هذا الزبون معروف وعنوانه المحفوظ مختلف عن المكتوب الآن.\n\nالقديم: ' + old + '\nالجديد: ' + cur, {
-        title: '📍 العنوان القديم أم الجديد؟', cancelText: 'رجوع',
-        choices: [{ k: 'new_once', t: 'الجديد — لهذه المرّة فقط', pri: 1 }, { k: 'new_save', t: 'الجديد — واحفظه بدل القديم' }, { k: 'old', t: 'القديم' }]
-    });
-    if (!k) return 'cancel';
-    if (k === 'old') { a.value = old; showToast('📍 استُعمل العنوان القديم', 'ok'); }
-    if (k === 'new_once') window.__addrOnce = true;
-    return k;
+    if (!window.GMTCust || !ph || !ph.value.trim()) return 'same';
+    const r = await GMTCust.reconcile({ phone: ph.value, name: n && n.value, address: a && a.value, branch_name: (document.getElementById('in-branch') || {}).value || null }, { source: 'orders' });
+    if (r.cancel) return 'cancel';
+    if (n && r.use.name && n.value.trim() !== r.use.name) n.value = r.use.name;
+    if (a && r.use.address && a.value.trim() !== r.use.address) a.value = r.use.address;
+    if (r.once.address) window.__addrOnce = true;
+    if (r.saved && r.saved.length && !r.created) showToast('👤 حُفظ في سجلّ الزبون: ' + r.saved.map(k => k === 'name' ? 'الاسم' : 'العنوان').join(' و'), 'ok');
+    return 'ok';
 }
 window.askOldOrNewAddress = askOldOrNewAddress;
 async function upsertCustomerFromOrder(o) {
     if (!o || !o.phone) return;
-    const phone = GMTPhone.norm(o.phone);   // (TASK-B0415) الأرقام العربية كانت تُحذف فيضيع الزبون
-    if (!phone) return;
-    /* (TASK-0211 · المالك seq 139 «العملاء اللي عم تدخل من اوردرات ما عم يتسجل وجهتهم … مكان شحن الماضي») كان الطلب يحمل
-       last_order و last_address — عمودان غير موجودين في gmt_customers ⇒ الطلب كلّه يُرفض فيُحفظ الاسم والهاتف وحدهما (الاحتياط أدناه)
-       فلا وجهة لأيّ زبون (٤٢ من ٤٢ بلا عنوان في 27 ت1). الآن العمود القائم address = وجهة آخر شحنة (تتحدّث مع كل أوردر). */
-    const addr = String(o.notes || '').indexOf(ADDR_ONCE_TAG) !== -1 ? '' : String(o.address || '').trim();   // (TASK-0238) «لهذه المرّة فقط» لا يغيّر العنوان المحفوظ
-    const body = Object.assign({
-        phone: phone.startsWith('0') ? phone : '0' + phone,
-        name:  String(o.name || '').trim() || null,
-        branch_key:  o.branch || null,
-        branch_name: o.branch || null
-    }, addr ? { address: addr } : {});
-    try {
-        const r = await fetch(SUPA_URL + '/rest/v1/gmt_customers?on_conflict=phone', {
-            method: 'POST',
-            headers: Object.assign({}, SB_HEADERS, {
-                'Content-Type': 'application/json',
-                Prefer: 'resolution=merge-duplicates,return=minimal'
-            }),
-            body: JSON.stringify(body)
-        });
-        if (r.ok) return;
-        /* عمود غير موجود يرفض الطلب كلّه (نمط P1) ⇒ نُجرّب الحدّ الأدنى
-           كي لا يضيع السجلّ بسبب عمود اختياري. */
-        const min = Object.assign({ phone: body.phone, name: body.name }, body.address ? { address: body.address } : {});
-        await fetch(SUPA_URL + '/rest/v1/gmt_customers?on_conflict=phone', {
-            method: 'POST',
-            headers: Object.assign({}, SB_HEADERS, {
-                'Content-Type': 'application/json',
-                Prefer: 'resolution=merge-duplicates,return=minimal'
-            }),
-            body: JSON.stringify(min)
-        }).catch(() => {});
-    } catch (_) { /* السجلّ لا يُعطّل تأكيد الاستلام */ }
+    /* (TASK-B0511) حفظٌ خلفيّ (إنشاء · تأكيد الاستلام · طلب المتجر): يُنشئ الزبون الجديد ويملأ الناقص فقط — لا يكتب فوق المحفوظ؛
+       الاستبدال يكون بقرارك في سؤال «القديم أم الجديد» عند الحفظ. «لهذه المرّة فقط» (ADDR_ONCE_TAG) لا يغيّر العنوان المحفوظ. */
+    const addr = String(o.notes || '').indexOf(ADDR_ONCE_TAG) !== -1 ? '' : String(o.address || '').trim();
+    if (window.GMTCust) { try { await GMTCust.fill({ phone: o.phone, name: o.name, address: addr, branch_key: o.branch || null, branch_name: o.branch || null }); } catch (_) {} return; }
 }
 window.upsertCustomerFromOrder = upsertCustomerFromOrder;
 
@@ -10544,7 +10527,7 @@ try {
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>

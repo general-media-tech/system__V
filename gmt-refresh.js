@@ -215,6 +215,20 @@
       var ico = (global.GMTIcon && GMTIcon.has('home')) ? GMTIcon.svg('home', 15) : '';
       a.innerHTML = '<span aria-hidden="true" style="display:inline-grid;place-items:center">' + ico + '</span><span class="gr-txt">الرئيسية</span>';
       bar.appendChild(a);
+      /* (TASK-B0509/B0513 · تقرير الواجهة) كثيرٌ من الصفحات فيها «→ الرئيسية / ↩ البوابة» في ترويستها بجانب زرّ الشريط هذا — زرّان
+         لنفس الشيء. نخفي نسخة الترويسة (أعلى الصفحة فقط، وبنصّ رجوعٍ صريح) ويبقى زرّ الشريط في مكانه الثابت على كل الصفحات. */
+      var hideDup = function () {
+        try {
+          [].forEach.call(doc.querySelectorAll('a[href="home.html"]'), function (x) {
+            if (x === a || x.closest('#' + BAR_ID + ',.gmt-refresh-bar')) return;
+            var t = (x.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!/^(→|↩|←)?\s*(رجوع\s*(لل|إلى\s*)?)?(ال)?(رئيسي[ةّ]+|بوابة)?$/.test(t)) return;
+            var r = x.getBoundingClientRect(); if (r.top > 220 + (global.scrollY || 0)) return;
+            x.style.display = 'none'; x.setAttribute('data-gmt-dup-home', '1');
+          });
+        } catch (_) {}
+      };
+      hideDup(); setTimeout(hideDup, 800);
     } catch (_) {}
   }
 

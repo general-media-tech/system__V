@@ -264,7 +264,7 @@ a.btn{text-decoration:none}
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-sound.js?v=20261117h" defer></script>
@@ -371,6 +371,7 @@ a.btn{text-decoration:none}
     var x = f === 'home' ? { f: 'home', t: 'الرئيسية', n: 'الرئيسية', ic: 'home' } : T.find(f);
     if (!x) return '';
     var on = f === 'home' ? ' on' : '', lk = f !== 'home' && !canOpen(f);
+    if (lk && st.role === 'staff' && !pill) return '';   /* (TASK-B0512) الموظّف لا يرى في القائمة ما لا يفتحه */
     var label = pill ? '<span>' + esc(x.n || x.t.split(' ')[0]) + '</span>' : esc(x.t);
     if (f === 'home') return '<button class="ni' + on + '" type="button" data-go="top">' + ic('home') + label + '</button>';
     return '<a class="ni" href="' + esc(f) + '" data-tool="' + esc(f) + '"' + (lk ? ' data-locked="1"' : '') + '>' + ic(x.ic) + label + (lk && !pill ? '<span class="lk">' + ic('lock', 14) + '</span>' : '') + '</a>';
@@ -475,7 +476,11 @@ a.btn{text-decoration:none}
   function allPages() {
     var tools = st.role === 'guest' ? T.forRole('guest') : T.all.filter(function (x) { return !x.p; });   /* الفرعيّة تُفتح من أداة أبيها (الفحص الشامل) */
     /* (TASK-B0509) تبويبات أدمن النقاط (?tab=…) مجمّعةٌ في صفحة «الإدارة» — سطرٌ واحد هنا بدل ١٢ (وتبقى في البحث) */
-    if (tools.some(function (x) { return x.f === 'الإدارة.html'; })) tools = tools.filter(function (x) { return !/^admin_pos\.html\?tab=/.test(x.f); });
+    if (tools.some(function (x) { return x.f === 'الإدارة.html' && canOpen(x.f); })) tools = tools.filter(function (x) { return !/^admin_pos\.html\?tab=/.test(x.f); });
+    /* (TASK-B0512 · المالك seq 828 «تفرق بين حساب ادمن معه صلاحيات وبين مستخدم عادي») المستخدم العاديّ يرى أدواته وما مُنحه فقط —
+       كانت أدوات الإدارة كلّها تظهر له بقفل (زحمة بلا فائدة). ما يحتاجه منها تمنحه من «الأمان والمستخدمون ⇐ الصلاحيات». */
+    var hiddenN = 0;
+    if (st.role === 'staff') { var all0 = tools.length; tools = tools.filter(function (x) { return canOpen(x.f); }); hiddenN = all0 - tools.length; }
     var G = T.groups.map(function (g) { return { g: g, i: tools.filter(function (x) { return x.g === g.id; }) }; }).filter(function (r) { return r.i.length; });
     var tot = G.reduce(function (a, r) { return a + r.i.length; }, 0);
     return '<details class="card allp" style="margin-top:14px" id="allp"><summary><b style="font-size:16px">كل صفحات النظام</b><span class="chip">' + tot + '</span><span class="sp"></span><span class="mu">' + G.length + ' مجموعات</span></summary>' +
@@ -485,7 +490,7 @@ a.btn{text-decoration:none}
             var lk = !canOpen(x.f);
             return '<a class="lr' + (lk ? ' locked' : '') + '" href="' + esc(x.f) + '" data-tool="' + esc(x.f) + '"' + (lk ? ' data-locked="1"' : '') + '><span class="ico">' + ic(x.ic, 17) + '</span><span style="min-width:0"><b>' + esc(x.t) + '</b><small>' + esc(desc(x)) + '</small></span>' + (lk ? '<span class="lk">' + ic('lock', 14) + '</span>' : '') + '</a>';
           }).join('') + '</div>';
-      }).join('') + '</details>';
+      }).join('') + (hiddenN ? '<div class="mu" style="margin-top:12px">' + ic('lock', 14) + ' ' + hiddenN + ' أداة إدارة غير ممنوحة لحسابك — تطلبها من الإدارة.</div>' : '') + '</details>';
   }
   /* الأدوات المعروضة فعلاً في شبكة «أدواتي» على هذا الجهاز — هي نفسها ما تعرضه نافذة التخصيص */
   function shownTools() {
@@ -1323,7 +1328,7 @@ a.btn{text-decoration:none}
 <script src="gmt-whatsnew.js?v=20261118d"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- (١٨ ت1) روابط «تتبّع» من الرئيسيّة تنتقل بانطلاق الشاحنة (gmt-launch.js) كما في الموقع -->
 <script src="gmt-road.js?v=20261110c" defer></script><script src="gmt-launch.js?v=20261110e" defer></script>

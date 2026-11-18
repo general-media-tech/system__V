@@ -553,7 +553,19 @@
     if (!adminOnly(f)) return true;
     var s = session();
     var g = ids || (s ? grantsCached(s.id) : []);
-    return g.indexOf(f) >= 0;
+    if (g.indexOf(f) >= 0) return true;
+    /* (TASK-B0512 · المالك seq 828 «ممكن نعطي مستخدم عادي صلاحيات وصول لادوات معينة») منحُ أداةٍ داخل صفحة (admin_pos.html?tab=expenses)
+       يفتح الصفحة نفسها — والصفحة تعرض له الأدوات الممنوحة وحدها (tabGrants). وصفحة «الإدارة» تفتح لمن مُنح أيّاً من أدواتها. */
+    if (String(f).indexOf('?') < 0 && g.some(function (x) { return String(x).indexOf(f + '?') === 0; })) return true;
+    if (f === 'الإدارة.html' && g.some(function (x) { return /^admin_pos\.html(\?|$)/.test(String(x)) || x === 'العروض_والتسعير.html'; })) return true;
+    return false;
+  }
+  /* تبويبات صفحةٍ مُنحها مستخدمٌ عاديّ منفردةً: null = كلّ الصفحة (أدمن أو منحٌ كامل) · [] = لا شيء · ['expenses', …] */
+  function tabGrants(f) {
+    if (isAdmin()) return null;
+    var s = session(), g = s ? grantsCached(s.id) : [];
+    if (g.indexOf(f) >= 0) return null;
+    return g.filter(function (x) { return String(x).indexOf(f + '?tab=') === 0; }).map(function (x) { return String(x).slice(f.length + 5).split('&')[0]; });
   }
 
   /* ── الحارس: يُحمَّل في رأس كل صفحةٍ إداريّة ── */
@@ -822,6 +834,6 @@
      (زرّ «الرئيسية» من نقطة البيع مثلاً) لا فتحُ تطبيقٍ جديد — فلا يرتدّ المستخدم إلى نقطته كلّما أراد الرئيسيّة. */
   try { if (!/^(home|index)\.html$/i.test(currentFile())) sessionStorage.setItem('gmt_tab_seen', '1'); } catch (_) {}
 
-  global.GMTPerm = { can: can, adminOnly: adminOnly, guard: guard, unlock: unlock, file: currentFile };
+  global.GMTPerm = { can: can, adminOnly: adminOnly, guard: guard, unlock: unlock, file: currentFile, tabGrants: tabGrants };
   if (!global.GMT_NO_GUARD) guard();
 })(window);

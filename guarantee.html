@@ -86,7 +86,7 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 </head>
 <body class="min-h-screen bg-animated">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -102,6 +102,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-sticker.js?v=20261029z4" defer></script>
   <script src="gmt-wclaims.js?v=20261118c" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
   <script src="gmt-custcache.js?v=20261016a" defer></script>
+  <script src="gmt-custsync.js?v=20261118e"></script><!-- (TASK-B0511) سجلّ الزبون الواحد -->
   <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-staff.js?v=20261118c"></script>
@@ -1899,6 +1900,16 @@ window.GMT_INTERNAL = 1;</script>
                     if (window.GMTAuth && GMTAuth.ask && !(await GMTAuth.ask('sovereign', 'إصدار كفالة لغير الكاميرات والعدسات'))) return;
                 }
             } catch (_) {}
+            /* (TASK-B0511 · المالك seq 828) زبونٌ معروف برقمه واسمُه المحفوظ مختلف ⇒ سؤال القديم/الجديد قبل الإصدار؛ الزبون الجديد يُحفظ.
+               كانت الكفالة «ignore-duplicates» فلا يُحدَّث الزبون الموجود أبداً. */
+            try {
+                const _cn = document.getElementById('customerName'), _cp = document.getElementById('phoneNo');
+                if (window.GMTCust && _cn && _cp && _cn.value.trim() && GMTCust.phone09(_cp.value)) {
+                    const _cr = await GMTCust.reconcile({ phone: _cp.value, name: _cn.value, branch_name: 'الكفالات', note: 'أُضيف من بوّابة الكفالة' }, { source: 'warranty' });
+                    if (_cr.cancel) return;
+                    if (_cr.use.name && _cn.value.trim() !== _cr.use.name) _cn.value = _cr.use.name;
+                }
+            } catch (_) {}
             _warrantySaving = true;
             const _genBtn = document.getElementById('generateBtn');
             const _genTxt = _genBtn ? _genBtn.innerHTML : '';
@@ -2379,7 +2390,7 @@ window.GMT_INTERNAL = 1;</script>
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
 <script src="gmt-whatsnew.js?v=20261118d"></script>
 <script src="gmt-why.js?v=20261003"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

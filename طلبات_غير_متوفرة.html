@@ -12,7 +12,7 @@
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261117k"></script>
+<script src="gmt-account.js?v=20261118e"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-oplog.js?v=20261117h"></script>
 <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -182,13 +182,14 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     try { await GMTOpLog.flush(); } catch (_) {}
   });
   $('add-b').addEventListener('click', async function () {
-    var t = $('add-t').value.trim(); if (t.length < 2) return;
+    var t = $('add-t').value.trim();
+    if (t.length < 2) { var el = $('add-t'); el.focus(); el.placeholder = 'اكتب اسم المنتج الذي طلبه الزبون أوّلاً'; el.style.boxShadow = '0 0 0 2px #D5001C'; setTimeout(function () { el.style.boxShadow = ''; }, 1600); return; }   /* (TASK-B0513 · فحص الأدوات) كان الزرّ بحقلٍ فارغ لا يفعل شيئاً */
     var k = normKey(t).split(' ').filter(Boolean).join(' '); if (!k) return;
     logEv('unmet_demand', t, k, { kind: 'none', src: 'manual', msg: 'سُجّل يدوياً' });
     $('add-t').value = ''; try { await GMTOpLog.flush(); } catch (_) {} load();
   });
   $('cp').addEventListener('click', function () {
-    var list = visible().slice(0, 40); if (!list.length) return;
+    var list = visible().slice(0, 40); if (!list.length) { try { GMTAsk.alert('القائمة فارغة — لا شيء لنسخه بعد.'); } catch (_) {} return; }
     var txt = 'ما يطلبه الزبائن ولا نملكه — ' + new Date().toISOString().slice(0, 10) + '\n' + list.map(function (it, i) { return (i + 1) + '. ' + it.term + ' × ' + it.n + (it.out && !it.none ? ' (نفد)' : ''); }).join('\n');
     try { navigator.clipboard.writeText(txt); GMTAsk.alert('نُسخت ' + list.length + ' سطراً.', { title: 'تمّ' }); } catch (_) {}
   });
@@ -201,6 +202,6 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
 <script src="gmt-whatsnew.js?v=20261118d"></script>
-<script src="gmt-refresh.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118e"></script>
 </body>
 </html>
