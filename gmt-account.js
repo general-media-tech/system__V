@@ -274,6 +274,24 @@
   }
   function profileCached(id) { try { return JSON.parse(lsGet('gmt_profile_' + id, 'null')); } catch (_) { return null; } }
 
+  /* (TASK-B0514 · المالك seq 829 «زر الخروج ما عم يعمل وباكثر من مكان صيد هالنمط») السبب الجذري: أزرار «خروج» في أدمن النقاط
+     وأدمن المتجر كانت تمسح علامة الصفحة وحدها (gmt_admin_auth) ثمّ تعيد التحميل — فيُعيد «وضع الإدارة» المفتوح في الجلسة كتابتَها
+     فيرجع المستخدم إلى اللوحة نفسها كأنّ الزرّ لا يعمل. الخروج الآن واحدٌ في كل الصفحات: يُغلق وضع الإدارة على هذا الجهاز
+     (كخروج الرئيسيّة) ويمسح علامات الصفحات ويعود للرئيسيّة. */
+  async function exitAdmin(opts) {
+    opts = opts || {};
+    var ok = true;
+    try { if (global.GMTAsk && GMTAsk.confirm && opts.confirm !== false) ok = await GMTAsk.confirm('تخرج من وضع الإدارة على هذا الجهاز؟', { title: 'تسجيل الخروج', okText: 'خروج' }); } catch (_) {}
+    if (!ok) return false;
+    try { if (global.GMTSound) GMTSound.play('logout'); } catch (_) {}
+    var an = ''; try { an = global.GMTRole && GMTRole.name ? GMTRole.name() : ''; } catch (_) {}
+    try { if (global.GMTRole && GMTRole.revoke) GMTRole.revoke(); } catch (_) {}
+    try { if (an) await loggedOut('admin', an); } catch (_) {}
+    try { localStorage.removeItem('gmt_admin_auth'); } catch (_) {}
+    try { ['gmt_admin_mode', 'gmt_admin_name', 'gmt_sov_ok', 'gmt_acting'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (_) {}
+    try { location.href = opts.to || 'home.html'; } catch (_) {}
+    return true;
+  }
   function grantsCached(id) {
     if (id == null) return [];
     try { var g = JSON.parse(lsGet('gmt_grants_' + id, '[]')); return Array.isArray(g) ? g : []; } catch (_) { return []; }
@@ -530,6 +548,7 @@
     OPEN_DEVICE: OPEN_DEVICE, branches: branches, signup: signup, login: login, inboxReg: inboxReg,
     session: session, setSession: setSession, isAdmin: isAdmin,
     saveProfile: saveProfile, profile: profileCached,
+    exitAdmin: exitAdmin,
     grants: grants, grantsCached: grantsCached, setGrants: setGrants, b64: b64, updateSelf: updateSelf,
     isPending: function () { return isPending(); }, checkApproval: function () { return checkApproval(); },
     approveUser: function (id) { return approveUser(id); }, pendingUsers: function () { return pendingUsers(); }

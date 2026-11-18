@@ -597,7 +597,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261118e"></script>
+<script src="gmt-account.js?v=20261118f"></script>
 </head>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -1188,7 +1188,12 @@ async function adminLogin(){
         const e=document.getElementById('login-error'); e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),2000);
     }
 }
-function adminLogout(){ document.getElementById('admin-panel').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); }
+async function adminLogout(){
+    /* (TASK-B0514) كان يُخفي اللوحة فقط — وأيّ تحديثٍ يفتحها من جديد (وضع الإدارة باقٍ في الجلسة) */
+    if (window.GMTAccount && GMTAccount.exitAdmin) { await GMTAccount.exitAdmin(); return; }
+    try { sessionStorage.removeItem('gmt_sov_ok'); sessionStorage.removeItem('gmt_admin_mode'); } catch (_) {}
+    document.getElementById('admin-panel').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden');
+}
 document.getElementById('admin-pass').addEventListener('keypress',e=>{if(e.key==='Enter')adminLogin();});
 // دخول سيادي: البوّابة السيادية تفتح هذا الملف فيتجاوز شاشة الدخول (نفس نمط أدوات الكفالة)
 /* (٧ ط · ثغرة) كان «?sovereign=1» وحده يفتح لوحة المتجر لأيّ أحدٍ يعرف الرابط. الآن يلزم أن تكون الجلسة
@@ -3628,7 +3633,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-whatsnew.js?v=20261118f"></script>
 <script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

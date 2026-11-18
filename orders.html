@@ -87,7 +87,7 @@ window.GMT_INTERNAL = 1;</script>
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261118e"></script>
+<script src="gmt-account.js?v=20261118f"></script>
 <style>/* (TASK-B0509) على الهاتف: الأدوات الأقلّ استعمالاً خلف «المزيد من الأدوات» */@media (max-width:1023px){#ord-tools:not(.ord-open) .ord-x{display:none!important}}</style>
 </head>
 <body class="pb-28">
@@ -120,7 +120,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-receipt.js?v=20261101n" defer></script>
 <script src="gmt-docscan.js?v=20261029z4" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
-<script src="gmt-custsync.js?v=20261118e"></script><!-- (TASK-B0511) سجلّ الزبون الواحد: الناقص يُحفظ والمختلف يُسأل عنه -->
+<script src="gmt-custsync.js?v=20261118f"></script><!-- (TASK-B0511) سجلّ الزبون الواحد: الناقص يُحفظ والمختلف يُسأل عنه -->
 <script src="gmt-invoice-tpl.js?v=20261118b" defer></script>
 <script src="gmt-suggest.js?v=20261107d"></script>
   <script src="gmt-warmup.js?v=20261117j"></script>
@@ -2419,7 +2419,15 @@ function autoExpandAddr() {
     const a = document.getElementById('in-addr'); if (!a) return;
     const cur = a.value.trim(); if (!cur) return;
     const full = expandOfficeAddress(cur);
-    if (full !== cur) { a.value = full; showToast('📍 العنوان اكتمل: ' + full.slice(0, 46), 'ok'); }
+    if (full === cur) return;
+    /* (TASK-B0514 · المالك seq 829 «ما بكتب عنوان … عم تختفي … ما فيني ادخله يدويا») كان أيّ عنوانٍ يُكتب باليد فيه اسم مدينة
+       («حمص الوعر») يُستبدل عند الخروج من الحقل بعنوان مكتبٍ آخر في المدينة («حمص — جورة الشياح …») فتختفي كتابتك.
+       الآن يكتمل وحده فقط إن كانت كلّ كلماتك داخل عنوان المكتب (كتبتَ «حمص» أو اسم المكتب)؛ وإلا تبقى كتابتك كما هي. */
+    const norm = w => (typeof spKey === 'function' ? spKey(w) : String(w || '').toLowerCase()).replace(/^ال(?=\S{2,})/, '');
+    const fw = spKey(full).split(/[\s·—،,\-]+/).map(norm);
+    const lost = spKey(cur).split(/[\s·—،,\-]+/).filter(w => w.length >= 2).map(norm).filter(w => !fw.some(x => x === w || x.indexOf(w) !== -1));
+    if (lost.length) { showToast('📍 أبقينا العنوان كما كتبته — لاختيار مكتب شحن اكتب اسم المدينة واختر من الاقتراحات', 'ok'); return; }
+    a.value = full; showToast('📍 العنوان اكتمل: ' + full.slice(0, 46), 'ok');
 }
 window.autoExpandAddr = autoExpandAddr;
 
@@ -3157,6 +3165,25 @@ window.smartFillFromPaste = async () => {
         if (!lines.some(l => /sp-unknown-host/.test(l))) lines.push('<div id="sp-unknown-host"></div>');
     }
 
+    /* (TASK-B0514 · المالك seq 829 «لما احط اوردر من التعبئه تلقائيه ما بكتب عنوان عم تختفي … ما فيني ادخله يدويا»)
+       رسالةٌ بلا عنوان ⇒ كان «كل ما بعد الرقم» يُكتب عنواناً — وهو سطر المنتج نفسه («كاميرا 2000D»)، فيضيع العنوان الحقيقي تحت نصٍّ خاطئ
+       ويظنّ الموظّف أنّ الحقل لا يقبل الكتابة. الآن: عنوانٌ غير معروف يطابق سطراً أُخذ منتجاً ⇒ يُفرَّغ الحقل ويُعلَّم بالأحمر ليكتبه بيده. */
+    try {
+        const _a = document.getElementById('in-addr');
+        if (_a && _a.value.trim() && !/—/.test(_a.value) && !LB.addr.length) {
+            const _ak = spKey(_a.value);
+            const _prods = [...document.querySelectorAll('#add-items-container [data-field="name"]')].map(x => spKey(x.value)).filter(Boolean);
+            const _isProd = _prods.some(p => p && (_ak === p || _ak.indexOf(p) !== -1 || p.indexOf(_ak) !== -1));
+            if (_isProd) {
+                _a.value = '';
+                for (let i = lines.length - 1; i >= 0; i--) if (/العنوان غير مؤكّد/.test(lines[i])) lines.splice(i, 1);
+                lines.push('<div class="text-amber-700">⚠️ ما في عنوان بالرسالة — اكتبه يدوياً في خانة العنوان (معلَّمة بالأحمر)</div>');
+                _a.style.boxShadow = '0 0 0 2px #D5001C'; _a.placeholder = 'اكتب عنوان الزبون أو مكتب الشحن *';
+                const _off = () => { _a.style.boxShadow = ''; _a.removeEventListener('input', _off); };
+                _a.addEventListener('input', _off);
+            }
+        }
+    } catch (_) {}
     if (out) out.innerHTML = lines.join('');
     /* اللوحة تُبنى **بعد** إدراج التقرير: قبله لا يوجد العنصر المُستهدَف */
     try { mountUnknownPanel(); } catch (_) {}
@@ -10526,7 +10553,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-whatsnew.js?v=20261118f"></script>
 <script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

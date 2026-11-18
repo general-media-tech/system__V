@@ -249,6 +249,17 @@ a.btn{text-decoration:none}
 .wait-ok{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px dashed var(--ln);border-radius:var(--r2);color:var(--mu);font-size:13px}
 .notes-slot:empty{display:none}
 .notes-slot{margin-top:14px}
+
+/* (TASK-B0514) «أدوات تستعملها» + قوائم «كل صفحات النظام» المنسدلة */
+.used{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.phone .used{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}.phone .used::-webkit-scrollbar{display:none}
+.uchip{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border:1px solid var(--ln);border-radius:12px;background:var(--sf);text-decoration:none;color:var(--tx);font-size:13px;font-weight:700;white-space:nowrap;flex:0 0 auto}
+.uchip svg{color:var(--red)}.uchip:hover{border-color:var(--red)}
+.allp details.grp{border-top:1px solid var(--ln)}
+.allp details.grp>summary.gt{margin:0;padding:12px 2px;cursor:pointer;font-size:13.5px;color:var(--tx)}
+.allp .chev svg{transform:rotate(-90deg)}.allp details.grp[open]>summary.gt .chev{transform:rotate(180deg)}
+.allp .chev{display:grid;transition:transform .2s}
+.allp details.grp .lr-grid{padding-bottom:10px}
 </style>
 </head>
 <body class="role-guest">
@@ -264,7 +275,7 @@ a.btn{text-decoration:none}
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261118e"></script>
+<script src="gmt-account.js?v=20261118f"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-sound.js?v=20261117h" defer></script>
@@ -285,6 +296,10 @@ a.btn{text-decoration:none}
   try {
     var seen = sessionStorage.getItem('gmt_tab_seen'); sessionStorage.setItem('gmt_tab_seen', '1');
     if (seen || location.search || location.hash) return;
+    /* (TASK-B0514 · المالك seq 831 «APPLICATION RE-ENTRY & FRESH START»: «اجعل الواجهة الرئيسية هي نقطة البداية الافتراضية لكل فتح جديد للتطبيق»)
+       الأحدث يغلب طلب «وثيقة ٩» القديم: فتحُ التطبيق من جديد يبقى على الرئيسيّة للجميع — نقطة البيع على بُعد ضغطة من الشريط السفليّ.
+       (الانتقال لنقطة البيع **بعد تسجيل الدخول** باقٍ كما هو — هذا للفتح الجديد فقط.) */
+    if (!window.GMT_FRESH_TO_POS) return;
     if (sessionStorage.getItem('gmt_admin_mode') === '1') return;
     if (window.GMTAccount && GMTAccount.saved && GMTAccount.saved.activeAdmin()) return;
     var s0 = JSON.parse(localStorage.getItem('gmt_session') || 'null');
@@ -481,16 +496,42 @@ a.btn{text-decoration:none}
        كانت أدوات الإدارة كلّها تظهر له بقفل (زحمة بلا فائدة). ما يحتاجه منها تمنحه من «الأمان والمستخدمون ⇐ الصلاحيات». */
     var hiddenN = 0;
     if (st.role === 'staff') { var all0 = tools.length; tools = tools.filter(function (x) { return canOpen(x.f); }); hiddenN = all0 - tools.length; }
-    var G = T.groups.map(function (g) { return { g: g, i: tools.filter(function (x) { return x.g === g.id; }) }; }).filter(function (r) { return r.i.length; });
+    /* (TASK-B0514 · المالك seq 829 «كل صفحات النظام … ازرار مالها داعي وعم تاخد مكان … ندمجها او نخفيها او ننزل ترتيبها للاخير ·
+       ممكن تعمل قوائم منسدلة») كل مجموعة صارت قائمةً منسدلة (مغلقة، تفتح بضغطة) · الترتيب بما يُستعمل يومياً أوّلاً ·
+       «عقل النظام والفحص» و«المعرفة والخطط» دُمجتا في «للمطوّر والوثائق» آخر القائمة · واجهات الزبون قبلها.
+       لا أداة حُذفت — كلّها في البحث وفي مجموعتها. */
+    var ORDER = ['sell', 'stock', 'money', 'online', 'team', 'public', 'dev'];
+    var LABEL = { dev: { id: 'dev', t: 'للمطوّر والوثائق', ic: 'book' } };
+    var gOf = function (x) { return (x.g === 'brain' || x.g === 'know') ? 'dev' : x.g; };
+    var G = ORDER.map(function (id) { var g = LABEL[id] || T.groups.filter(function (y) { return y.id === id; })[0]; return g ? { g: g, i: tools.filter(function (x) { return gOf(x) === id; }) } : null; })
+      .filter(function (r) { return r && r.i.length; });
     var tot = G.reduce(function (a, r) { return a + r.i.length; }, 0);
-    return '<details class="card allp" style="margin-top:14px" id="allp"><summary><b style="font-size:16px">كل صفحات النظام</b><span class="chip">' + tot + '</span><span class="sp"></span><span class="mu">' + G.length + ' مجموعات</span></summary>' +
+    return '<section class="card allp" style="margin-top:14px" id="allp"><div class="row" style="margin-bottom:4px"><b style="font-size:16px">كل صفحات النظام</b><span class="chip">' + tot + '</span><span class="sp"></span><span class="mu">' + G.length + ' مجموعات · اضغط المجموعة لفتحها</span></div>' +
       G.map(function (r) {
-        return '<div class="gt" id="g-' + r.g.id + '">' + ic(r.g.ic, 16) + esc(r.g.t) + ' <span class="chip">' + r.i.length + '</span></div><div class="lr-grid">' +
+        return '<details class="grp" id="g-' + r.g.id + '"' + (r.g.id === 'sell' && st.role !== 'admin' ? ' open' : '') + '><summary class="gt">' + ic(r.g.ic, 16) + esc(r.g.t) + ' <span class="chip">' + r.i.length + '</span><span class="sp"></span><span class="chev">' + (ic('chevron', 15) || '▾') + '</span></summary><div class="lr-grid">' +
           r.i.map(function (x) {
             var lk = !canOpen(x.f);
             return '<a class="lr' + (lk ? ' locked' : '') + '" href="' + esc(x.f) + '" data-tool="' + esc(x.f) + '"' + (lk ? ' data-locked="1"' : '') + '><span class="ico">' + ic(x.ic, 17) + '</span><span style="min-width:0"><b>' + esc(x.t) + '</b><small>' + esc(desc(x)) + '</small></span>' + (lk ? '<span class="lk">' + ic('lock', 14) + '</span>' : '') + '</a>';
-          }).join('') + '</div>';
-      }).join('') + (hiddenN ? '<div class="mu" style="margin-top:12px">' + ic('lock', 14) + ' ' + hiddenN + ' أداة إدارة غير ممنوحة لحسابك — تطلبها من الإدارة.</div>' : '') + '</details>';
+          }).join('') + '</div></details>';
+      }).join('') + (hiddenN ? '<div class="mu" style="margin-top:12px">' + ic('lock', 14) + ' ' + hiddenN + ' أداة إدارة غير ممنوحة لحسابك — تطلبها من الإدارة.</div>' : '') + '</section>';
+  }
+  /* (TASK-B0514 · seq 829 «وفي ادوات ممكن نستعملها حطها فوق مع القسم السريع او تحته … سهل الوصول») — الأدوات التي تفتحها أكثر
+     (عدّاد الاستعمال على هذا الجهاز) تحت «إجراءات سريعة» مباشرة؛ وقبل أن يتكوّن العدّاد: أدواتٌ مفيدة بحسب الدور. */
+  function usedRow() {
+    if (st.role === 'guest') return '';
+    var u = {}; try { u = JSON.parse(lsGet('gmt_home_use_v1', '{}')) || {}; } catch (_) {}
+    var skip = { 'pos.html': 1, 'orders.html': 1, 'inventory.html': 1, 'guarantee.html': 1, 'track_order.html': 1 };
+    var cand = T.all.filter(function (x) { return !x.p && !skip[x.f] && x.a !== 'public' && canOpen(x.f) && !/^admin_pos\.html\?tab=/.test(x.f); });
+    var top = cand.filter(function (x) { return u[x.f] > 0; }).sort(function (a, b) { return (u[b.f] || 0) - (u[a.f] || 0); }).slice(0, 8);
+    if (top.length < 4) {
+      var DEF = A() ? ['الإدارة.html', 'sales_log.html', 'purchase.html', 'العروض_والتسعير.html', 'morning.html', 'ما_يجب_شراؤه.html', 'ردود_سريعة.html', 'الأمان_والمستخدمون.html']
+                    : ['sales_log.html', 'ردود_سريعة.html', 'labels.html', 'أماكن_الوصول.html', 'دليل_التوافقيات_والمواصفات.html', 'المنتجات.html', 'scanner.html', 'quote.html'];
+      DEF.map(T.find).filter(function (x) { return x && canOpen(x.f) && !top.some(function (y) { return y.f === x.f; }); }).slice(0, 8 - top.length).forEach(function (x) { top.push(x); });
+    }
+    if (!top.length) return '';
+    return '<div class="qa-h used-h"><h3>أدوات تستعملها</h3></div><div class="used">' + top.map(function (x) {
+      return '<a class="uchip" href="' + esc(x.f) + '" data-tool="' + esc(x.f) + '" title="' + esc(desc(x)) + '">' + ic(x.ic, 17) + '<span>' + esc(x.t) + '</span></a>';
+    }).join('') + '</div>';
   }
   /* الأدوات المعروضة فعلاً في شبكة «أدواتي» على هذا الجهاز — هي نفسها ما تعرضه نافذة التخصيص */
   function shownTools() {
@@ -515,7 +556,7 @@ a.btn{text-decoration:none}
     /* (18 ت1) طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم» — بطاقةٌ أعلى الرئيسية */
     var wn = '<div id="wn-home-slot">' + (window.GMTWhatsNew && GMTWhatsNew.homeCard ? GMTWhatsNew.homeCard() : '') + '</div>';
     /* (TASK-B0509) أرقام اليوم أوّلاً ثمّ ما ينتظرك ثمّ الإجراءات — والتنبيهات (كلمة السرّ · التثبيت · شو الجديد) بعدها لا قبلها */
-    return hero() + kpis() + '<div id="pend-slot"></div><section class="wait" id="wait-slot" aria-label="ينتظرك الآن"></section>' + qaRow() +
+    return hero() + kpis() + '<div id="pend-slot"></div><section class="wait" id="wait-slot" aria-label="ينتظرك الآن"></section>' + qaRow() + usedRow() +
       '<div class="notes-slot"><div id="dev-slot"></div>' + wn + '</div>' +
       '<div class="row wr" style="margin-bottom:10px"><h3 style="margin:0">' + (A() ? 'كل أدواتك' : 'أدواتي') + '</h3><span class="sp"></span>' +
       '<button class="btn sm" type="button" data-act="edit">' + (st.editing ? ic('check', 16) + 'تمّ' : ic('edit', 16) + 'تخصيص') + '</button>' +
@@ -1325,7 +1366,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261118c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261118b"></script>
-<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-whatsnew.js?v=20261118f"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261118e"></script>

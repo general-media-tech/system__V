@@ -496,7 +496,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
 <script src="gmt-tools.js?v=20261118d"></script>
-<script src="gmt-account.js?v=20261118e"></script>
+<script src="gmt-account.js?v=20261118f"></script>
 </head>
 <body>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -781,9 +781,12 @@ async function doLogin() {
   btn.textContent = 'دخول'; btn.disabled = false;
 }
 
-function doLogout() {
+async function doLogout() {
+  /* (TASK-B0514) كان يمسح علامة الصفحة ويعيد التحميل فيُعيد وضع الإدارة فتحها — «الزرّ لا يعمل» */
+  if (window.GMTAccount && GMTAccount.exitAdmin) { await GMTAccount.exitAdmin(); return; }
   localStorage.removeItem('gmt_admin_auth');
-  location.reload();
+  try { sessionStorage.removeItem('gmt_admin_mode'); } catch (_) {}
+  location.href = 'home.html';
 }
 
 // ══════════════════════════════════════════
@@ -7178,7 +7181,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-whatsnew.js?v=20261118f"></script>
 <script src="gmt-refresh.js?v=20261118e"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

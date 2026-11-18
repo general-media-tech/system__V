@@ -72,8 +72,10 @@ async function loginForm(pg, user, pw, remember) {
     await pg.close();
 
     // ══ ٢) فتح التطبيق من جديد (تبويبٌ جديد، التخزين الدائم باقٍ) ⇒ نقطته مباشرة ══
+    // (TASK-B0514 · المالك seq 831) فتحُ التطبيق من جديد ⇒ الرئيسيّة دائماً (الأحدث يغلب «نقطة بيعه مباشرة»)، ثمّ نقطة البيع بضغطة
     pg = await newPage('home.html', 3500);
-    ok(/pos\.html/.test(url(pg)), 'فتحُ التطبيق من جديد والموظّف داخل ⇒ نقطة بيعه مباشرة بلا مرور بالرئيسية (' + url(pg) + ')');
+    ok(url(pg) === 'home.html', 'فتحُ التطبيق من جديد والموظّف داخل ⇒ الواجهة الرئيسية (' + url(pg) + ')');
+    await pg.goto(H.BASE + 'pos.html', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3500);
     ok(await pg.evaluate(() => /درعا/.test(document.getElementById('h-branch').textContent)), 'هي نقطة فرعه (درعا)');
     // الرئيسية ما زالت في المتناول من شريط نقطة البيع
     const homeBtn = await pg.evaluate(() => { const a = document.getElementById('gmt-home-btn'); return a ? { href: a.getAttribute('href'), vis: a.getBoundingClientRect().width > 0 } : null; });
