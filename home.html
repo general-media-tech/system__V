@@ -28,7 +28,7 @@
 /* ═══ منسوخٌ حرفياً من النموذج ═══ */
 :root{--red:#D5001C;--rd:#A80016;--rs:#fff1f2;--bg:#f7f8fa;--sf:#fff;--gl:rgba(255,255,255,.78);--ln:rgba(15,18,25,.08);--tx:#0f1219;--mu:#5b6472;--ok:#15803d;--wn:#b45309;--r1:22px;--r2:14px;--r3:10px;--sh:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.06);--ease:cubic-bezier(.2,.7,.2,1);padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);box-sizing:border-box}
 *{box-sizing:border-box}html,body{margin:0}
-body{background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),radial-gradient(700px 400px at -10% 110%,#e8eef9 0,transparent 60%),var(--bg);color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,-apple-system,sans-serif;min-height:100%;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
+body{background:var(--bg);color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,-apple-system,sans-serif;min-height:100%;background-repeat:no-repeat;min-height:100vh}/* (٧ ي-٤) كان التدرّج الوردي يتكرّر أشرطةً عرضيّة حين الصفحة أقصر من الشاشة */
 button,input,select{font:inherit;color:inherit}button{cursor:pointer}
 .app{display:grid;grid-template-columns:232px 1fr;min-height:720px}.phone .app{grid-template-columns:1fr}.phone .side{display:none}
 .side{background:var(--gl);backdrop-filter:blur(14px);border-inline-end:1px solid var(--ln);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
@@ -221,6 +221,34 @@ a.btn{text-decoration:none}
   .k1 .tool b{font-size:12px;line-height:1.35}
   .pill{align-items:center}
 }
+
+/* ══ (TASK-B0509 · المالك seq 825–827 «موضوع الواجهة الرئيسية مو عاجبني» · تقرير التدقيق) هوية بيضاء هادئة ══
+   البطاقة الكحليّة خرجت عن هوية الأبيض والأحمر ⇐ بيضاء بحافّة رفيعة، والرقم أسود والعنوان أحمر.
+   الشريط السفليّ الأسود ⇐ أبيض. والترتيب: أرقام اليوم ← «ينتظرك الآن» ← الإجراءات ← التنبيهات ← الأدوات. */
+.hero{background:var(--sf);color:var(--tx);border:1px solid var(--ln);box-shadow:0 1px 2px rgba(15,18,25,.04)}
+.hero:before{display:none}
+.hero .mu{color:var(--mu)}
+.hero .lbl{color:var(--red);font-size:12.5px;font-weight:800}
+.hero .num.empty{font-size:19px;color:var(--tx)}
+.hm div{background:#f6f7f9!important;border:1px solid var(--ln)}
+.hm span{color:var(--mu)!important}
+.pill{background:#fff;border:1px solid var(--ln);box-shadow:0 8px 24px rgba(15,18,25,.10)}
+.pill .ni{color:var(--mu)}
+.pplus{background:var(--red);color:#fff;box-shadow:0 6px 16px rgba(213,0,28,.28)}
+.tb #gmt-notify-btn{display:none!important}
+.tb a.bell{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);flex:0 0 auto}.tb a.bell:hover{border-color:var(--red);color:var(--red)}   /* كان مخفيّاً على الكمبيوتر (صنف ☰) فلا يظهر إلا عدّاده */   /* «ينتظرك» صار قسماً داخل الرئيسيّة نفسها */
+.wait{margin:14px 0 4px}
+.wait-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}.wait-h h3{margin:0;font-size:16px}
+.wait-l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.phone .wait-l{grid-template-columns:1fr}
+.wr-i{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--ln);border-radius:var(--r2);background:var(--sf);text-decoration:none;color:inherit;min-width:0;transition:border-color .2s}
+.wr-i:hover{border-color:rgba(213,0,28,.35)}
+.wr-i .n{flex:none;min-width:30px;height:30px;padding:0 8px;border-radius:10px;background:var(--rs);color:var(--red);font-weight:800;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.wr-i b{display:block;font-size:13.5px;line-height:1.4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wr-i small{display:block;color:var(--mu);font-size:11.5px}
+.wait-ok{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px dashed var(--ln);border-radius:var(--r2);color:var(--mu);font-size:13px}
+.notes-slot:empty{display:none}
+.notes-slot{margin-top:14px}
 </style>
 </head>
 <body class="role-guest">
@@ -235,13 +263,13 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261118c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
-<script src="gmt-tools.js?v=20261118b"></script>
+<script src="gmt-tools.js?v=20261118d"></script>
 <script src="gmt-account.js?v=20261117k"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-sound.js?v=20261117h" defer></script>
 <script src="gmt-share.js?v=20261029z4" defer></script>
-<script src="gmt-notify.js?v=20261104b" defer></script>
+<script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-push.js?v=20261117n" defer></script>
 <script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -306,6 +334,11 @@ a.btn{text-decoration:none}
       if (saved.indexOf('inventory.html?check=no_price') < 0) { saved.push('inventory.html?check=no_price'); lsSet(LS_Q + r, JSON.stringify(saved)); }
       lsSet('gmt_q_add_pricing', '1');
     }
+    /* (TASK-B0509 · المالك seq 825) صفحة «الإدارة» الجامعة تُضاف مرّةً واحدة لقائمة الأدمن المحفوظة (ويبقى حذفها بيده) */
+    if (r === 'admin' && Array.isArray(saved) && lsGet('gmt_q_add_hub', '') !== '1') {
+      if (saved.indexOf('الإدارة.html') < 0) { var ai = saved.indexOf('admin_pos.html'); saved.splice(ai >= 0 ? ai + 1 : saved.length, 0, 'الإدارة.html'); lsSet(LS_Q + r, JSON.stringify(saved)); }
+      lsSet('gmt_q_add_hub', '1');
+    }
     return (Array.isArray(saved) ? saved : T.quickDefault[r].slice()).filter(function (f) { return T.find(f) && canOpen(f); });
   }
   function setQuick(l) { lsSet(LS_Q + (A() ? 'admin' : 'staff'), JSON.stringify(l)); }
@@ -348,7 +381,7 @@ a.btn{text-decoration:none}
     return '<aside class="side"><div class="brand"><img src="' + LOGO + '" alt=""><div><b>ميديا تيك</b><small>General Media Tech</small></div></div>' +
       '<h6>الرئيسية</h6>' + navB('home') +
       '<h6>التشغيل</h6>' + ['pos.html', 'orders.html', 'guarantee.html'].map(function (f) { return navB(f); }).join('') +
-      '<h6>الإدارة</h6>' + ['inventory.html', 'sales_log.html', 'admin_pos.html', 'أدمن_التوظيف.html'].map(function (f) { return navB(f); }).join('') +
+      '<h6>الإدارة</h6>' + ['inventory.html', 'sales_log.html', 'admin_pos.html', 'الإدارة.html', 'أدمن_التوظيف.html'].map(function (f) { return navB(f); }).join('') +
       '<h6>الزبون</h6>' + ['store.html', 'track_order.html'].map(function (f) { return navB(f); }).join('') +
       '<div class="me"><div class="row">' + av + '<div style="min-width:0"><b>' + esc(nm || 'موظّف') + '</b><small>' + (A() ? 'الإدارة' : esc(brName() ? 'فرع ' + brName() : '')) + '</small></div></div>' +
       '<div class="row wr" style="margin-top:9px">' + (A() ? '' : '<button class="btn sm" type="button" data-act="me">' + ic('user', 15) + 'حسابي</button><button class="btn sm" type="button" data-act="admin">' + ic('lock', 15) + 'الإدارة</button>') +
@@ -363,7 +396,7 @@ a.btn{text-decoration:none}
       '<span class="tb-hi"><img src="' + LOGO + '" alt=""><span><b>' + (A() ? 'أهلاً محمد خير' : 'أهلاً ' + esc(NAME() || '')) + '</b><small>' +
       (A() ? 'الإدارة · كل الفروع' : 'فرع ' + esc(brName()) + (pr0.center ? ' · ' + esc(pr0.center) : '')) + '</small></span></span>' +
       '<h1>الرئيسية</h1><span class="rolechip ' + (A() ? '' : 'st') + '">' + (A() ? 'أدمن' : 'موظف · فرع ' + esc(brName())) + '</span><span class="sp"></span>' +
-      '<a class="mnu" href="مركز_الإشعارات.html" data-gmt-bell aria-label="الإشعارات" title="مركز الإشعارات">' + ic('bell', 20) + '</a>' +
+      '<a class="mnu bell" href="مركز_الإشعارات.html" data-gmt-bell aria-label="الإشعارات" title="مركز الإشعارات">' + ic('bell', 20) + '</a>' +
       '<label class="srch dk">' + ic('search', 17) + '<input id="q" placeholder="بحث في النظام" autocomplete="off" aria-label="بحث في النظام"></label>' +
       '<div id="gmt-refresh-bar" class="gmt-refresh-bar" data-keep-fab="1"></div></header>';
   }
@@ -407,17 +440,17 @@ a.btn{text-decoration:none}
   function hero() {
     var d = st.data;
     if (st.err) return '<div class="warn" role="alert">' + ic('alert', 18) + '<span><b>تعذّرت قراءة أرقام اليوم.</b> ' + esc(window.GMTHome && GMTHome.sayWhy ? GMTHome.sayWhy(st.err) : st.err) + ' — لم نكتب صفراً لم نقرأه.</span><span class="sp"></span><button class="btn sm" type="button" data-act="reload">إعادة المحاولة</button></div>';
-    if (!d) return '<div class="hero"><div class="row wr"><div class="sp"><div class="mu">الفرع الأكثر مبيعاً اليوم</div><div class="sk" style="height:38px;width:60%;margin:6px 0;opacity:.15"></div><div class="sk" style="height:14px;width:45%;opacity:.12"></div></div></div></div>';
+    if (!d) return '<div class="hero"><div class="row wr"><div class="sp"><div class="lbl">الفرع الأكثر مبيعاً اليوم</div><div class="sk" style="height:38px;width:60%;margin:6px 0;opacity:.15"></div><div class="sk" style="height:14px;width:45%;opacity:.12"></div></div></div></div>';
     var list = (d.list || []).filter(function (b) { return b.total > 0; });
-    if (!list.length) return '<div class="hero"><div class="row wr"><div class="sp"><div class="mu">الفرع الأكثر مبيعاً اليوم</div><div class="num" style="font-size:26px">لا مبيعَ مسجّلاً اليوم بعد</div><div class="mu">تتحدّث هذه البطاقة مع أوّل فاتورة في أيّ فرع.</div></div></div></div>';
+    var hm = '<div class="hm"><div><b dir="ltr">$' + fm(d.sales) + '</b><span>' + (A() ? 'مبيعات اليوم' : 'مبيعاتك') + '</span></div><div><b>' + fm(d.count) + '</b><span>فواتير</span></div><div><b>' + fm(d.orders) + '</b><span>أوردرات</span></div></div>';
+    if (!list.length) return '<div class="hero"><div class="row wr"><div class="sp"><div class="lbl">الفرع الأكثر مبيعاً اليوم</div><div class="num empty">لا مبيعَ مسجّلاً اليوم بعد</div><div class="mu">تتحدّث هذه البطاقة مع أوّل فاتورة في أيّ فرع.</div></div></div>' + hm + '</div>';
     var top = list[0], mk = String(brKey()), rank = 0;
     list.forEach(function (b, i) { if (mk && String(b.key) === mk) rank = i + 1; });
     var tail = A() ? (list.length + ' فروع نشطة') : (rank ? 'ترتيب فرعك: ' + ord(rank) : 'لا مبيع لفرعك اليوم بعد');
-    return '<div class="hero"><div class="row wr"><div class="sp"><div class="mu">الفرع الأكثر مبيعاً اليوم</div>' +
+    return '<div class="hero"><div class="row wr"><div class="sp"><div class="lbl">الفرع الأكثر مبيعاً اليوم</div>' +
       '<div class="num" style="font-size:30px">فرع ' + esc(top.name || top.key) + ' · <bdi dir="ltr">$' + fm(top.total) + '</bdi></div>' +
       '<div class="mu">منها أونلاين <bdi dir="ltr">$' + fm(top.online) + '</bdi> · ' + top.n + ' فاتورة · ' + tail + '</div></div>' +
-      '<div style="width:150px" class="hsp">' + area(d.hours, 150, 60) + '</div></div>' +
-      '<div class="hm"><div><b dir="ltr">$' + fm(d.sales) + '</b><span>' + (A() ? 'مبيعات اليوم' : 'مبيعاتك') + '</span></div><div><b>' + fm(d.count) + '</b><span>فواتير</span></div><div><b>' + fm(d.orders) + '</b><span>أوردرات</span></div></div></div>';
+      '<div style="width:150px" class="hsp">' + area(d.hours, 150, 60) + '</div></div>' + hm + '</div>';
   }
   function kpis() {
     var d = st.data, p = d && d.prev, f = !!st.err;
@@ -441,6 +474,8 @@ a.btn{text-decoration:none}
   }
   function allPages() {
     var tools = st.role === 'guest' ? T.forRole('guest') : T.all.filter(function (x) { return !x.p; });   /* الفرعيّة تُفتح من أداة أبيها (الفحص الشامل) */
+    /* (TASK-B0509) تبويبات أدمن النقاط (?tab=…) مجمّعةٌ في صفحة «الإدارة» — سطرٌ واحد هنا بدل ١٢ (وتبقى في البحث) */
+    if (tools.some(function (x) { return x.f === 'الإدارة.html'; })) tools = tools.filter(function (x) { return !/^admin_pos\.html\?tab=/.test(x.f); });
     var G = T.groups.map(function (g) { return { g: g, i: tools.filter(function (x) { return x.g === g.id; }) }; }).filter(function (r) { return r.i.length; });
     var tot = G.reduce(function (a, r) { return a + r.i.length; }, 0);
     return '<details class="card allp" style="margin-top:14px" id="allp"><summary><b style="font-size:16px">كل صفحات النظام</b><span class="chip">' + tot + '</span><span class="sp"></span><span class="mu">' + G.length + ' مجموعات</span></summary>' +
@@ -474,7 +509,9 @@ a.btn{text-decoration:none}
     var q = shownTools();
     /* (18 ت1) طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم» — بطاقةٌ أعلى الرئيسية */
     var wn = '<div id="wn-home-slot">' + (window.GMTWhatsNew && GMTWhatsNew.homeCard ? GMTWhatsNew.homeCard() : '') + '</div>';
-    return wn + '<div id="pend-slot"></div><div id="dev-slot"></div>' + hero() + kpis() + qaRow() +
+    /* (TASK-B0509) أرقام اليوم أوّلاً ثمّ ما ينتظرك ثمّ الإجراءات — والتنبيهات (كلمة السرّ · التثبيت · شو الجديد) بعدها لا قبلها */
+    return hero() + kpis() + '<div id="pend-slot"></div><section class="wait" id="wait-slot" aria-label="ينتظرك الآن"></section>' + qaRow() +
+      '<div class="notes-slot"><div id="dev-slot"></div>' + wn + '</div>' +
       '<div class="row wr" style="margin-bottom:10px"><h3 style="margin:0">' + (A() ? 'كل أدواتك' : 'أدواتي') + '</h3><span class="sp"></span>' +
       '<button class="btn sm" type="button" data-act="edit">' + (st.editing ? ic('check', 16) + 'تمّ' : ic('edit', 16) + 'تخصيص') + '</button>' +
       '<button class="btn sm hd-news" type="button" data-act="news">' + ic('star', 16) + ' ما الجديد</button></div>' +
@@ -653,6 +690,7 @@ a.btn{text-decoration:none}
       d.innerHTML = '<div class="app">' + side() + '<div class="col">' + topbar() + '<main class="main" id="main">' + home() + '</main>' + pill() + '</div></div>';
       var ph = $('gmt-refresh-bar'); if (oldBar && ph) ph.parentNode.replaceChild(oldBar, ph);
       fillPending();
+      fillWait();
       fillDevice();
       requestAnimationFrame(countUp);
       if (!oldBar) mountBar();
@@ -693,6 +731,40 @@ a.btn{text-decoration:none}
     if (_pendCache && Date.now() - _pendAt < 60000) { paint(_pendCache); return; }
     GMTAccount.pendingUsers().then(function (l) { _pendCache = l; _pendAt = Date.now(); paint(l); }).catch(function () {});
   }
+
+  /* ═══ (TASK-B0509) «ينتظرك الآن» — نفس أسئلة لوحة «ينتظرك» (gmt-notify.js) معروضةً في الرئيسيّة مباشرةً:
+     ما عدده أكبر من صفر فقط، وكلُّ سطرٍ يفتح مكانه. لا صفرَ مكذوب: ما تعذّرت قراءته لا يُعرض صفراً. ═══ */
+  var _waitAt = 0, _waitBusy = false;
+  function paintWait(rows) {
+    var slot = $('wait-slot'); if (!slot) return;
+    var due = (rows || []).filter(function (r) { return !r.err && r.n > 0; });
+    var bad = (rows || []).filter(function (r) { return r.err; }).length;
+    var head = '<div class="wait-h"><h3>ينتظرك الآن</h3>' + (due.length ? '<span class="chip rd">' + due.length + '</span>' : '') + '</div>';
+    if (!due.length) {
+      slot.innerHTML = head + '<div class="wait-ok">' + ic('check', 16) + (bad ? 'لا شيء معلّق فيما قرأناه · تعذّرت قراءة ' + bad + ' بند' : 'لا شيء معلّق الآن') + '</div>';
+      return;
+    }
+    slot.innerHTML = head + '<div class="wait-l">' + due.slice(0, 8).map(function (r) {
+      var it = r.item || {}, go = it.go || {};
+      return '<a class="wr-i" href="' + esc(go.href || '#') + '" data-tool="' + esc(go.href || '') + '"><span class="n">' + fm(r.n) + '</span>' +
+        '<span style="min-width:0"><b>' + esc(String(it.title || '').replace(/^[^\u0600-\u06FFa-zA-Z0-9]+\s*/, '')) + '</b><small>' + esc(go.label || '') + '</small></span></a>';
+    }).join('') + '</div>';
+  }
+  function fillWait(force) {
+    var slot = $('wait-slot'); if (!slot) return;
+    var N = window.GMTNotify;
+    if (!N || !N.collect) { slot.innerHTML = ''; return; }
+    var last = N.last && N.last();
+    if (last && !force && Date.now() - _waitAt < 60000) { paintWait(last); return; }
+    if (last) paintWait(last);
+    else slot.innerHTML = '<div class="wait-h"><h3>ينتظرك الآن</h3></div><div class="sk" style="height:46px"></div>';
+    if (_waitBusy) return;
+    _waitBusy = true;
+    N.collect().then(function (rows) { _waitAt = Date.now(); paintWait(rows); }, function () { if (!last) slot.innerHTML = ''; })
+      .then(function () { _waitBusy = false; });
+  }
+  window.addEventListener('gmt-notify-count', function () { try { var N = window.GMTNotify; if (N && N.last && N.last()) { _waitAt = Date.now(); paintWait(N.last()); } } catch (_) {} });
+  window.addEventListener('load', function () { setTimeout(function () { if (roleNow() !== 'guest') fillWait(); }, 300); });
 
   function fillAuth(again) {
     if (st.mode === 'signup') {
@@ -1248,10 +1320,10 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261118c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261118b"></script>
-<script src="gmt-whatsnew.js?v=20261116k"></script>
+<script src="gmt-whatsnew.js?v=20261118d"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
-<script src="gmt-refresh.js?v=20261011a"></script>
+<script src="gmt-refresh.js?v=20261118d"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- (١٨ ت1) روابط «تتبّع» من الرئيسيّة تنتقل بانطلاق الشاحنة (gmt-launch.js) كما في الموقع -->
 <script src="gmt-road.js?v=20261110c" defer></script><script src="gmt-launch.js?v=20261110e" defer></script>

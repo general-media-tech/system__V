@@ -273,7 +273,7 @@
     ov.className = 'gn-ov';
     ov.innerHTML =
       '<div class="gn-bx">' +
-        '<div class="gn-hd"><h3>🔔 لوحة الإشعارات</h3>' +
+        '<div class="gn-hd"><h3>📋 ينتظرك — ما يحتاج تدخّلك</h3>' +
         '<p>كلُّ ما يحتاج تدخّلاً الآن، من كل أدوات النظام في مكانٍ واحد.</p></div>' +
         '<div class="gn-bd" id="gn-body"><div style="padding:22px;text-align:center;color:#5b6472;font-size:13px">جارٍ السؤال…</div></div>' +
         '<div class="gn-ft">' +
@@ -339,7 +339,8 @@
     var b = document.createElement('button');
     b.id = 'gmt-notify-btn';
     b.type = 'button';
-    b.title = 'لوحة الإشعارات — كلُّ ما يحتاج تدخّلاً';
+    b.title = 'ينتظرك — كلُّ ما يحتاج تدخّلاً';
+    b.setAttribute('aria-label', 'ينتظرك — ما يحتاج تدخّلاً');
     b.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;' +
       'width:30px;height:30px;border-radius:9px;border:1px solid rgba(15,23,42,.10);background:#fff;' +
       'cursor:pointer;font-size:14px;line-height:1;padding:0;transition:background .14s,border-color .14s;';
@@ -350,11 +351,23 @@
     b.innerHTML =
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#475569" ' +
       'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>' +
-      '<path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+      /* (TASK-B0509) كان جرساً مثل جرس «مركز الإشعارات» فصار في الشريط جرسان لمعنيين مختلفين.
+         هذا «ينتظرك» (أعمالٌ معلّقة تُستنتج من القاعدة) ⇒ أيقونة قائمة مهامّ · والجرسُ لمركز الإشعارات وحده */
+      '<rect x="5" y="3.5" width="14" height="18" rx="2.5"/><path d="M9 3.5h6v3H9z"/>' +
+      '<path d="m8.5 13 2.2 2.2 4.8-4.8"/></svg>' +
       '<span class="gn-dot" id="gn-badge" style="display:none"></span>';
     b.onclick = function () { open(); };
     style();
+    /* (TASK-B0509) جرسُ «مركز الإشعارات» في الشريط العلويّ الموحَّد لكل صفحةٍ داخليّة — كان في بعض الصفحات زرّاً داخل ترويستها
+       وفي غيرها غائباً. الرئيسيّة لها جرسها في ترويستها (GMT_HOME_SHELL) فلا نكرّره. العدّاد يضعه gmt-inbox.js على كل [data-gmt-bell]. */
+    var ib = null;
+    if (!global.GMT_HOME_SHELL && !document.getElementById('gmt-inbox-btn') && !/مركز_الإشعارات/.test(decodeURIComponent(location.pathname))) {
+      ib = document.createElement('a');
+      ib.id = 'gmt-inbox-btn'; ib.href = 'مركز_الإشعارات.html'; ib.setAttribute('data-gmt-bell', ''); ib.setAttribute('data-keep-fab', '1');
+      ib.title = 'مركز الإشعارات — كل إشعاراتك'; ib.setAttribute('aria-label', 'مركز الإشعارات');
+      ib.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+    }
 
     /* 🎨 يُركَّب في **أوّل** الشريط (جهة اليمين في العربية) لا في آخره —
        فتتوزّع الزاويتان: إشعاراتٌ يميناً وتحديثٌ يساراً، بدل تكدّسٍ في طرف. */
@@ -366,7 +379,7 @@
     (function attach() {
       var host = document.getElementById('gmt-refresh-bar') ||
                  document.querySelector('.gmt-refresh-bar');
-      if (host) { host.insertBefore(b, host.firstChild); return; }
+      if (host) { host.insertBefore(b, host.firstChild); if (ib) host.insertBefore(ib, b); return; }
       if (++tries < 20) { setTimeout(attach, 100); return; }
       /* بلا شريطٍ إطلاقاً: زاويةٌ ثابتة صغيرة — آخرُ حلّ لا أوّلُه */
       b.style.cssText += 'position:fixed;top:8px;inset-inline-start:8px;z-index:' + (Z - 50) + ';';

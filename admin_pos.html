@@ -13,12 +13,12 @@ window.GMT_INTERNAL = 1;</script>
 <style>
 :root{
   --red:#D5001C;--red-dark:#A80017;--red-light:#FFF0F2;--red-mid:#FFD6DA;
-  --bg:#F0F2F8;--surface:#FFFFFF;--surface2:#F5F6FA;--surface3:#ECEEF5;
+  --bg:#F6F7F9;/* (TASK-B0509) كان #F0F2F8 مائلاً للأزرق — الهوية: أبيض ورماديّ محايد وأحمر */--surface:#FFFFFF;--surface2:#F5F6FA;--surface3:#ECEEF5;
   --border:#E5E7EB;--text:#111111;--text2:#4B5563;--text3:#5b6472;
   --success:#15803d;--success-bg:#dcfce7;
   --warning:#b45309;--warning-bg:#fef3c7;
   --danger:#b91c1c;--danger-bg:#fee2e2;/* (٨ ث) كان #dc2626 — على خلفيّته الورديّة 3.95:1 لا يُقرأ؛ الأعمق يحقّق 4.5 على الاثنتين */
-  --blue:#334155;--blue-bg:#EFF6FF;
+  --blue:#334155;--blue-bg:#F4F5F7;/* (TASK-B0509) صناديق المعلومات رماديّة محايدة — الأزرق ليس من الهوية */
   --purple:#D5001C;--purple-bg:#fff1f2;  /* (٧ ي) خلفيّة العمولة صارت من عائلة الأحمر الواحد — كانت بنفسجيّةً باهتة */
   --shadow:0 2px 16px rgba(0,0,0,0.08);
   --radius:14px;
@@ -74,12 +74,13 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 .overview-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
 .ov-card{background:var(--surface);border-radius:var(--radius);border:1.5px solid var(--border);padding:14px;box-shadow:var(--shadow);}
 .ov-card .val{font-size:22px;font-weight:900;line-height:1.1;}
-.ov-card .lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;}
+.ov-card .lbl{font-size:11.5px;font-weight:700;color:var(--text3);margin-top:4px;}
 .ov-card .sub{font-size:11px;font-weight:600;color:var(--text3);margin-top:2px;}
-.ov-card.red{border-color:var(--red);}   .ov-card.red .val{color:var(--red);}
-.ov-card.warn{border-color:var(--warning);}.ov-card.warn .val{color:var(--warning);}
-.ov-card.ok{border-color:var(--success);} .ov-card.ok .val{color:var(--success);}
-.ov-card.purple{border-color:var(--purple);}.ov-card.purple .val{color:var(--purple);}
+/* (TASK-B0509 · تقرير الواجهة) كانت كلُّ بطاقةٍ بحافّةٍ بلونٍ مختلف (أحمر · برتقالي · أخضر · أحمر) فتتنافس على العين.
+   الآن حافّةٌ واحدة محايدة للأربع، واللون في الرقم للحالة فقط: «غير مُرحَّل» تنبيه · «مُرحَّل» تمّ — والمبيعات والعمولات بالأسود */
+.ov-card.red .val,.ov-card.purple .val{color:var(--text);}
+.ov-card.warn .val{color:var(--warning);}
+.ov-card.ok .val{color:var(--success);}
 
 /* BRANCH SELECTOR */
 .branch-selector{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:14px;padding-bottom:2px;}
@@ -494,7 +495,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261118b"></script>
+<script src="gmt-tools.js?v=20261118d"></script>
 <script src="gmt-account.js?v=20261117k"></script>
 </head>
 <body>
@@ -509,7 +510,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-ask.js?v=20261029z4" defer></script>
   <script src="gmt-stock.js?v=20261117h" defer></script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
-  <script src="gmt-notify.js?v=20261104b" defer></script>
+  <script src="gmt-notify.js?v=20261118d" defer></script>
   <script src="gmt-inbox.js?v=20261117k" defer></script>
   <script src="gmt-auth.js?v=20261117k"></script>
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
@@ -550,7 +551,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 <div id="topbar" style="display:none;">
   <div class="tb-logo" data-gmt-brand="1"><img src="logo.jpg" alt="General Media Tech" onerror="this.onerror=null;this.src=GMT_BRAND.logo"></div>
   <div class="tb-title">لوحة الإدارة</div>
-  <div class="tb-badge">ADMIN</div>
+  <div class="tb-badge">أدمن</div>
   <!-- (2026-10-06 · وثيقة التصميم ٦٦) «الواجهة في الموبايل كثير سيّئة»: زرّان ملوّنان («🌟 شرح النظام» و«🎓 الجولة»)
        صارا زرّ «الشرح» واحداً بشكل أزرار النظام — والشرح يبدأ بضغطتك فقط -->
   <button class="tb-help" onclick="showWelcomeSlidesForce()" title="شرح النظام والجولة">؟ <span>الشرح</span></button>
@@ -796,7 +797,8 @@ async function bootApp() {
   const _solo = (() => { try { const q = new URLSearchParams(location.search).get('tab'); const b = q && document.querySelector(`.main-tab[data-solo][onclick="switchTab('${q}')"]`); return b ? b.textContent.trim() : ''; } catch (_) { return ''; } })();
   document.getElementById('main-tabs').style.display = _solo ? 'none' : 'flex';
   if (_solo) { const tt = document.querySelector('#topbar .tb-title'); if (tt) tt.textContent = _solo; document.title = _solo + ' — GMT';
-    const bk = document.createElement('a'); bk.href = 'home.html'; bk.textContent = '← الرئيسية'; bk.style.cssText = 'color:inherit;font-size:12px;font-weight:800;text-decoration:none;margin-inline-start:8px;opacity:.85';
+    /* (TASK-B0509) «الرئيسية» موجودة في الشريط العلويّ الموحَّد — هنا رجوعٌ لصفحة «الإدارة» التي تجمع هذه الأدوات */
+    const bk = document.createElement('a'); bk.href = 'الإدارة.html'; bk.textContent = '← الإدارة'; bk.style.cssText = 'color:inherit;font-size:12px;font-weight:800;text-decoration:none;margin-inline-start:8px;opacity:.85';
     if (tt) tt.after(bk); }
   document.getElementById('app-content').style.display = 'block';
 
@@ -1197,7 +1199,7 @@ async function renderUsers() {
     <!-- (٨ ث — تدقيق المطابقة) كانت هنا أداةٌ ثانية لإدارة المستخدمين تخالف «الأمان والمستخدمون»
          (إضافة بلا موافقة ولا صلاحيات ولا منعٍ لكلمة الأدمن). صار هذا التبويب عرضاً لحال الموظفين
          وأجهزتهم، والتعديل كلّه من مكانٍ واحد. -->
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;font-weight:700;line-height:1.8;">
+    <div style="background:#f4f5f7;border:1px solid #e5e7eb;color:#334155;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;font-weight:700;line-height:1.8;">
       الإضافة والتعديل والصلاحيات والأجهزة من مكانٍ واحد: «الأمان والمستخدمون». هنا ترى آخر دخولٍ لكل موظف وجهازه.
     </div>
     <div id="users-list"></div>`;
@@ -1813,7 +1815,7 @@ async function openInvoiceDetail(invId) {
         <div style="font-size:10px;font-weight:700;color:var(--text3);">الزبون</div>
         <div style="font-size:13px;font-weight:700;">${escH(inv.customer_name)}${inv.customer_phone?` · <span dir="ltr">${escH(inv.customer_phone)}</span>`:''}</div>
       </div>`:''}
-      ${inv.order_id?`<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:10px;grid-column:span 2;">
+      ${inv.order_id?`<div style="background:#f4f5f7;border:1.5px solid #e5e7eb;border-radius:10px;padding:10px;grid-column:span 2;">
         <div style="font-size:10px;font-weight:700;color:#334155;">📦 مرتبطة بأوردر شحن</div>
         <div style="font-size:13px;font-weight:800;color:#0f172a;">#${escH(inv.order_serial||inv.order_id)}</div>
       </div>`:''}
@@ -3570,7 +3572,7 @@ function renderDebts() {
         <div style="font-size:20px;font-weight:900;color:#dc2626;">${totalOwedToMe.toFixed(2)}$</div>
         <div style="font-size:9px;color:var(--text3);">${manualOwedToMe.length} سجل</div>
       </div>
-      <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px;text-align:center;">
+      <div style="background:#f4f5f7;border:1.5px solid #e5e7eb;border-radius:12px;padding:12px;text-align:center;">
         <div style="font-size:10px;font-weight:800;color:#1e40af;">أنا مدين (علي للناس)</div>
         <div style="font-size:20px;font-weight:900;color:#334155;">${totalIOwe.toFixed(2)}$</div>
         <div style="font-size:9px;color:var(--text3);">${manualIOwe.length} سجل</div>
@@ -3600,7 +3602,7 @@ function renderDebts() {
 function manualDebtCardHtml(d) {
   const isOwedToMe = d.direction === 'owed_to_me';
   const clr = isOwedToMe ? '#dc2626' : '#334155';
-  const bg  = isOwedToMe ? '#fef2f2' : '#eff6ff';
+  const bg  = isOwedToMe ? '#fef2f2' : '#f4f5f7';
   const dateStr = new Date(d.created_at).toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
   return `
   <div class="inv-card" style="border-right:4px solid ${clr};margin-bottom:8px;">
@@ -3692,7 +3694,7 @@ function setManualDebtDirection(dir) {
     owedBtn.style.background = '#fef2f2'; owedBtn.style.borderColor = '#dc2626'; owedBtn.style.color = '#dc2626';
     ioweBtn.style.background = 'var(--surface2)'; ioweBtn.style.borderColor = 'var(--border)'; ioweBtn.style.color = 'var(--text2)';
   } else {
-    ioweBtn.style.background = '#eff6ff'; ioweBtn.style.borderColor = '#334155'; ioweBtn.style.color = '#334155';
+    ioweBtn.style.background = '#f4f5f7'; ioweBtn.style.borderColor = '#334155'; ioweBtn.style.color = '#334155';
     owedBtn.style.background = 'var(--surface2)'; owedBtn.style.borderColor = 'var(--border)'; owedBtn.style.color = 'var(--text2)';
   }
 }
@@ -4103,7 +4105,7 @@ function expenseCardHtml(e) {
       <div style="display:flex;gap:6px;">
         ${!e.approved ? `
         <button onclick="editExpenseAmount('${e.id}')"
-          style="background:#eff6ff;color:#334155;border:1.5px solid #bfdbfe;border-radius:7px;padding:5px 10px;
+          style="background:#f4f5f7;color:#334155;border:1.5px solid #e5e7eb;border-radius:7px;padding:5px 10px;
                  font-family:'Cairo',sans-serif;font-size:10px;font-weight:800;cursor:pointer;">✏️ تعديل</button>
         <button onclick="approveExpense('${e.id}')"
           style="background:#dcfce7;color:#15803d;border:1.5px solid #86efac;border-radius:7px;padding:5px 10px;
@@ -5074,7 +5076,7 @@ function aiShowLinkedOrder() {
   if (!el && res) { el = document.createElement('div'); el.id = 'ai-linked-order'; res.parentNode.insertBefore(el, res.nextSibling); }
   if (!el) return;
   const o = _aiLinkedOrder;
-  el.style.cssText = o ? 'display:flex;align-items:center;gap:8px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:9px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:#1e3a8a;' : 'display:none';
+  el.style.cssText = o ? 'display:flex;align-items:center;gap:8px;background:#f4f5f7;border:1.5px solid #e5e7eb;border-radius:9px;padding:8px 10px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:#334155;' : 'display:none';
   el.innerHTML = o ? `<span style="flex:1">مرتبطة بالأوردر #${escH(o.serial_code || o.id)} — ${escH(o.name || '')} · بلا عمولة (قرار ت٩)</span>
     <button type="button" onclick="_aiLinkedOrder=null;aiShowLinkedOrder()" style="border:0;background:#fff;border-radius:7px;padding:4px 9px;font-family:'Cairo',sans-serif;font-weight:800;cursor:pointer;color:#b91c1c">فكّ الربط</button>` : '';
   const cm = document.getElementById('ai-commission');
@@ -7153,8 +7155,8 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261116k"></script>
-<script src="gmt-refresh.js?v=20261011a"></script>
+<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118d"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.

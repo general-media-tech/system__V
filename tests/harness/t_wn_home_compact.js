@@ -12,7 +12,8 @@ const INIT = H.ADMIN_INIT.replace("localStorage.setItem('gmt_whatsnew_seen','999
       return { h: b ? Math.round(b.height) : -1, y: b ? Math.round(b.top) : -1, txt: c ? c.innerText.replace(/\s+/g, ' ') : '', tries: c ? c.querySelectorAll('[data-wn-try]').length : -1,
         open: !!(c && c.querySelector('[data-wn-open]')), un: GMTWhatsNew.untried().length };
     });
-    ok(r.h > 0 && r.h <= 72 && r.y < 300, W + ': سطرٌ واحد أعلى الرئيسية (ارتفاعه ' + r.h + ' بكسل · كان ~٦٠٠)');
+    // (TASK-B0509 · المالك seq 825–827) الرئيسية تبدأ بأرقام اليوم و«ينتظرك الآن» ⇒ سطر «شو الجديد» بعدها لا أعلاها — ويبقى سطراً واحداً
+    ok(r.h > 0 && r.h <= 72, W + ': سطرٌ واحد في الرئيسية (ارتفاعه ' + r.h + ' بكسل · كان ~٦٠٠)');
     ok(/شو الجديد/.test(r.txt) && new RegExp(r.un + ' لم تجرّبها').test(r.txt) && r.tries === 0 && r.open, W + ': فيه العدد و«' + r.un + ' لم تجرّبها» وزرّ «افتح» — بلا قائمة: ' + r.txt.slice(0, 60));
     if (W === 390) await o.pg.screenshot({ path: '/tmp/gmt-out/wn_home_compact_390.png' });
     await o.pg.click('#wn-home [data-wn-open]');

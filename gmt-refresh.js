@@ -37,10 +37,10 @@
     if (document.getElementById('gmt-topbtn-css')) return;
     var st = document.createElement('style'); st.id = 'gmt-topbtn-css';
     st.textContent =
-      '#gmt-notify-btn,#gmt-sound-btn,#gmt-refresh-btn,#gmt-wn-fab,#gmt-hints-fab,#gmt-tools-btn{width:40px!important;height:40px!important;min-width:40px!important;padding:0!important;' +
+      '#gmt-inbox-btn,#gmt-notify-btn,#gmt-sound-btn,#gmt-refresh-btn,#gmt-wn-fab,#gmt-hints-fab,#gmt-tools-btn{width:40px!important;height:40px!important;min-width:40px!important;padding:0!important;' +
       'border-radius:12px!important;background:#fff!important;border:1px solid rgba(15,18,25,.10)!important;color:#0f1219!important;' +
       'box-shadow:0 1px 2px rgba(15,18,25,.05)!important;display:inline-grid!important;place-items:center!important;gap:0!important;cursor:pointer}' +
-      '#gmt-notify-btn:hover,#gmt-sound-btn:hover,#gmt-refresh-btn:hover,#gmt-wn-fab:hover,#gmt-hints-fab:hover,#gmt-tools-btn:hover{border-color:#D5001C!important;color:#D5001C!important}' +
+      '#gmt-inbox-btn:hover,#gmt-notify-btn:hover,#gmt-sound-btn:hover,#gmt-refresh-btn:hover,#gmt-wn-fab:hover,#gmt-hints-fab:hover,#gmt-tools-btn:hover{border-color:#D5001C!important;color:#D5001C!important}' +
       '#gmt-notify-btn svg,#gmt-sound-btn svg,#gmt-refresh-btn svg,#gmt-wn-fab svg,#gmt-tools-btn svg{width:18px!important;height:18px!important;color:inherit!important;stroke:currentColor}' +
       '#gmt-refresh-btn > :not(.gr-ico){display:none!important}' +
       '#gmt-refresh-btn .gr-ico{display:inline-grid!important}';
@@ -126,6 +126,7 @@
          و«space-between» يوزّعها على عرض الشاشة كلّه — زرٌّ وحيد في المنتصف وآخر في الثلث، كأنّها شاردة.
          الآن طرفان كما قُصد أوّلاً: الإشعارات وحدها في البداية، والأدوات متجاورةً في النهاية. */
       '#' + BAR_ID + ' #gmt-notify-btn{order:-1;margin-inline-end:auto}',
+      '#' + BAR_ID + ' #gmt-inbox-btn{order:-1;position:relative;text-decoration:none}',   /* (TASK-B0509) جرس مركز الإشعارات بجانب «ينتظرك» */
       /* (١١ ت١ ٢٠٢٦ — ملاحظات) «بعد الدخول للفحص الشامل لا توجد طريقة للخروج بعد انتهاء الفحص».
          الجذر أعمّ من صفحة الفحص: ٣٣ صفحةً داخلية ليس فيها أي رابطٍ للرئيسية، والشريط العلويّ بلا زرّ رجوع
          (زرّ الأدوات «🧰» فيه أدوات الصفحة نفسها لا التنقّل). فصار زرّ «الرئيسية» جزءاً ثابتاً من الشريط على كل صفحةٍ داخلية. */

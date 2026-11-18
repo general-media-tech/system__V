@@ -34,6 +34,8 @@
      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
   var NEWS = [
+    { v: 374, tag: 'تحسين', at: '2026-11-18T14:00:00Z', t: '🏠 رئيسية جديدة هادئة · «ينتظرك الآن» · صفحة «الإدارة» تجمع أدوات أدمن النقاط · أوردرات أخفّ على الهاتف', pages: ['home.html', 'الإدارة.html', 'orders.html', 'admin_pos.html'],
+      d: '• **الرئيسية** تبدأ بأرقام اليوم ثمّ **«ينتظرك الآن»** (ما يحتاج تدخّلك من كل النظام — كل سطر يفتح مكانه) ثمّ الإجراءات السريعة؛ والتنبيهات (كلمة السرّ · التثبيت · شو الجديد) صارت بعدها\n• هوية بيضاء: البطاقة الكحليّة صارت بيضاء، والشريط السفلي أبيض، والخلفية هادئة\n• **صفحة «الإدارة»**: أدوات أدمن نقاط البيع الـ١٢ (الموظفون · العملاء · الفواتير · العروض · الكوبونات · الصندوق · الديون · المصاريف · المحاسبة · التقفيلات · نقل المخزون · الأصول) في صفحة واحدة بأربع مجموعات — والروابط نفسها لم تتغيّر\n• جرسٌ واحد لمركز الإشعارات في الشريط العلوي لكل الصفحات، و«ينتظرك» صار بأيقونة قائمة مهامّ\n• «شو الجديد»: زرّ **«علّمها كلها»** يصفّر المتراكم دفعة واحدة — والنقاط الحمراء تبقى للتحديثات القادمة\n• الأوردرات على الهاتف: الأدوات الأقلّ استعمالاً خلف **«المزيد من الأدوات»** فيظهر أوّل أوردر أسرع\n• أدمن النقاط: بطاقات الأرقام بشكل واحد، و«ADMIN» صارت «أدمن»، والصناديق الزرقاء رماديّة' },
     { v: 373, tag: 'إصلاح', at: '2026-11-18T07:30:00Z', t: '🗄️ لا بيانات ناقصة بصمت · رقم الأوردر لا يتكرّر · فرز المنتجات القديمة · «منتج رأيناه»', pages: ['orders.html', 'inventory.html', 'admin_pos.html', 'purchase.html', 'ما_يجب_شراؤه.html', 'backup.html', 'guarantee.html', 'pos.html'],
       d: '• كانت بعض الشاشات تقرأ أول 1000 سطر فقط بصمت (المنتجات في البيع والبحث · الديون والعمولات · فواتير الشراء · مطابقة الجرد · الكفالات) — صارت تقرأ **كل** البيانات\n• **رقم الأوردر التسلسلي** لا يتكرّر حين يُضاف أوردران في نفس اللحظة (العدّاد الذرّي كان لا يعمل فعلياً — أُصلح في القاعدة)\n• **فرز المنتجات القديمة** في الجرد: بحث وفلتر صنف/مجموعة وتحديد ⇒ فاتورة واحدة باسم المورّد أو إضافة لفاتورة موجودة، ولم تعد المنتجات المربوطة تظهر «غير مربوطة»\n• «ما يجب شراؤه»: زرّ **«➕ منتج رأيناه»** بصورة ورابط وفيديو وكمية — يدخل ملف عرض السعر للمورّد\n• الكفالة تعرف القطعة من الجرد وتفحص النطاق (كاميرا/عدسة) بدقّة\n• الاستعادة من نسخة احتياطية تتحقّق أن كل الصفوف رجعت فعلاً' },
     { v: 372, tag: 'تحسين', at: '2026-11-18T10:00:00Z', t: '🩺 أدوات الفحص: تنبيهك فوراً عند خطأ حرج · فحص شامل بزرّ يقرؤه العقل · لوحة حالة الأدوات · سجل الروابط', pages: ['checks.html', 'system_tools.html', 'central_inspector.html', 'orders.html'],
@@ -2070,8 +2072,11 @@
       '<span class="gwn-n">' + fr.length + '</span>' +
       '<span style="font-size:12px;color:#5b6472;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' +
       (nt ? '<span style="color:#D5001C">●</span> ' + nt + ' لم تجرّبها' : 'لم تقرأها بعد') + '</span>' +
-      '<button type="button" class="gwn-btn gwn-go" data-wn-open="1">افتح</button></div>' +
-      '</section>';
+      '<button type="button" class="gwn-btn gwn-go" data-wn-open="1">افتح</button>' +
+      /* (TASK-B0509 · المالك seq 825–827 · تقرير الواجهة) ٣١٤ ميزةً لم تُجرَّب ⇒ نقطةٌ حمراء على كل زرّ فلا تعني شيئاً.
+         النقاط باقية كما طلبتَ (seq 84) — وهذا زرٌّ يصفّر المتراكم دفعةً واحدة، فتبقى النقاط للجديد فعلاً */
+      (fr.length > 5 ? '<button type="button" class="gwn-btn" style="background:#f3f4f6;color:#334155" data-wn-all="1" title="تعليم كل التحديثات الحالية كمقروءة ومجرَّبة — تبقى النقاط للتحديثات القادمة فقط">علّمها كلها</button>' : '') +
+      '</div></section>';
   }
   function refreshCard() {
     var el = document.getElementById('wn-home') || document.getElementById('wn-home-slot');
@@ -2210,10 +2215,15 @@
   }
 
   document.addEventListener('click', function (e) {
-    var t = e.target && e.target.closest ? e.target.closest('[data-wn-try],[data-wn-done],[data-wn-open],[data-wn-x]') : null;
+    var t = e.target && e.target.closest ? e.target.closest('[data-wn-try],[data-wn-done],[data-wn-open],[data-wn-x],[data-wn-all]') : null;
     if (!t) return;
     e.preventDefault(); e.stopPropagation();
-    if (t.hasAttribute('data-wn-try')) goTry(t.getAttribute('data-wn-try'));
+    if (t.hasAttribute('data-wn-all')) {
+      var o = triedMap(); NEWS.forEach(function (n) { if (untried(n, o)) o[n.v] = 1; });
+      try { localStorage.setItem(LS_TRY, JSON.stringify(o)); } catch (e2) {}
+      markSeen(); changed(); toast('تمام — صفّرنا المتراكم، والنقاط تبقى للتحديثات القادمة');
+    }
+    else if (t.hasAttribute('data-wn-try')) goTry(t.getAttribute('data-wn-try'));
     else if (t.hasAttribute('data-wn-done')) {
       markTried(+t.getAttribute('data-wn-done'));
       var c = document.getElementById('gwn-coach'); if (c && c.contains(t)) c.remove();

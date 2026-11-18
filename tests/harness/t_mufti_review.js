@@ -120,6 +120,7 @@ const FAKE = {
     FAKE['214244'] = orig;
     // إغلاق وفتح ⇒ بحثٌ جديد أيضاً
     await pg.click('#gmt-mr [data-mr-close]'); calls.length = 0;
+    if (await pg.$eval('#ord-more-btn', b => !!b.offsetParent).catch(() => false)) await pg.click('#ord-more-btn');   // (TASK-B0509) على الهاتف خلف «المزيد من الأدوات»
     await pg.click('[data-mr-launch]');
     await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
     ok(calls.flatMap(c => c.nums).length === 3 && await pg.evaluate(() => !document.querySelector('#gmt-mr [data-mr-withdel]')), W + ': كل فتحٍ يبحث من جديد · لا خيار «بانتظار التحصيل»');

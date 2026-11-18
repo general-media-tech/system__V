@@ -86,8 +86,9 @@ window.GMT_INTERNAL = 1;</script>
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261118b"></script>
+<script src="gmt-tools.js?v=20261118d"></script>
 <script src="gmt-account.js?v=20261117k"></script>
+<style>/* (TASK-B0509) على الهاتف: الأدوات الأقلّ استعمالاً خلف «المزيد من الأدوات» */@media (max-width:1023px){#ord-tools:not(.ord-open) .ord-x{display:none!important}}</style>
 </head>
 <body class="pb-28">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
@@ -105,7 +106,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
-  <script src="gmt-notify.js?v=20261104b" defer></script>
+  <script src="gmt-notify.js?v=20261118d" defer></script>
   <script src="gmt-push.js?v=20261117n" defer></script>
   <script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -140,8 +141,8 @@ window.GMT_INTERNAL = 1;</script>
                 <h1 class="text-sm font-extrabold text-gray-800 leading-tight">مجموعة General Media Tech</h1>
                 <p class="text-[10px] font-bold text-red tracking-wide uppercase">نظام إدارة أوردرات الشحن</p>
             </div>
-            <button type="button" id="push-btn" onclick="window.GMTPush&&GMTPush.openPanel(['orders'])" title="الإشعارات الفورية: أوردر جديد · تحديثات — حتى والتطبيق مغلق" class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600">🔔 الإشعارات</button>
-            <a href="مركز_الإشعارات.html" data-gmt-bell title="مركز الإشعارات — كل إشعاراتك: مقروء · غير مقروء · أرشيف" class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600">📥 الصندوق</a>
+            <!-- (TASK-B0509) «🔔 الإشعارات» و«📥 الصندوق» كانا هنا بجانب جرس الشريط العلويّ — ثلاثة أزرار إشعارات في ترويسة واحدة.
+                 الصندوق صار جرس الشريط العلويّ الموحَّد (كل الصفحات)، وإعداد إشعارات هذا الجهاز انتقل إلى «المزيد» تحت. -->
             <div id="conn-badge" class="mr-auto lg:mr-0 flex items-center gap-1.5 bg-gray-100 rounded-full px-3 py-1.5 text-[10px] font-bold text-gray-500">
                 <div id="conn-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
                 <span id="conn-text">يتصل...</span>
@@ -150,44 +151,48 @@ window.GMT_INTERNAL = 1;</script>
         <div class="w-full lg:flex-1 lg:max-w-sm">
             <input type="text" id="searchInput" oninput="renderSoon()" placeholder="بحث سريع..." class="w-full px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold border border-gray-200 transition-all text-center">
         </div>
-        <div class="grid grid-cols-2 lg:flex lg:flex-wrap lg:basis-full gap-2 w-full">
+        <!-- (TASK-B0509 · تقرير الواجهة) على الهاتف كانت ١٣ أداةً قبل أوّل أوردر ⇒ الظاهر: متابعة · الحجوزات · إضافة طلب،
+             والباقي خلف «المزيد» (صنف ord-x). على الكمبيوتر كلّها ظاهرة كما كانت. لا زرّ حُذف. -->
+        <div id="ord-tools" class="grid grid-cols-2 lg:flex lg:flex-wrap lg:basis-full gap-2 w-full">
+            <button type="button" id="push-btn" onclick="window.GMTPush&&GMTPush.openPanel(['orders'])" title="الإشعارات الفورية: أوردر جديد · تحديثات — حتى والتطبيق مغلق"
+                    class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">🔔 إشعارات هذا الجهاز</button>
             <!-- (2026-09-26 · طلب المالك) أُزيل «تحقق من الشحنة» من هنا ونُقل التتبّع إلى بطاقة الأوردر.
                  🔴 (ملاحظات ١٣ ت١ ١٢:٥٦م) «رجّع زرّ التحقق من الشحنة بالأوردرات بالأعلى لكن فقط للمفتي، ماله علاقة بالشحنات
                  يلي تحت — زرّ مستقل». الأحدث يغلب: عاد زرٌّ **مستقلّ** هنا (لا يلمس أزرار البطاقات)، وكل ما فيه خاصٌّ بالمفتي. -->
             <!-- (18 ت1 · لقطتك ٣) «هذا خاطئ — هذا الزرّ بيدخلني لرابط المفتي مباشرة» ⇒ يفتح موقع تتبّع المفتي فوراً بلا نافذة ولا قائمة أوردرات
                  (وهو طلبك في وثيقة ١٧ ت1: «فوراً افتحني على الرابط وأنا بدخل رقم التتبّع يدوياً»). مراسلة الفرع المُرسِل بقيت في زرّ «💸 الحوالة» على البطاقة. -->
             <button type="button" onclick="openMuftiSite()" data-hint="يفتح موقع تتبّع شحنات المفتي مباشرةً — تُدخل رقم التتبّع هناك."
-                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                    class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 🔎 التحقق من الشحنة <span class="text-[9px] font-black text-red">المفتي</span>
             </button>
             <!-- (١٨ ت1 · تعديلك الإلزامي) «إعداد ضمن إعدادات نظام الأوردرات باسم الفرع الافتراضي لشركة الشحن» -->
             <button type="button" onclick="openOrdersSettings()" data-hint="إعدادات الأوردرات: الفرع الافتراضي لشركة الشحن (المفتي) — للمخوَّل."
-                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                    class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 ⚙️ إعدادات الأوردرات
             </button>
             <!-- (2026-09-26 · بلاغ المالك) «ما لازم يطلع منبثق… ليست مريحة وفيها شيء
                  عم يختفي» ⇒ صفحة كاملة في تبويب: بلا سقف ارتفاع ولا تمرير داخل تمرير،
                  وتُطبَع وتُرسَل كرابط. -->
-            <a href="أماكن_الوصول.html" target="_blank" rel="noopener" data-hint="كل شركة شحن ومكاتبها في كل محافظة مع أرقامها — للردّ على الزبون «من وين بستلم طلبي؟». تُفتح في صفحة كاملة." class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <a href="أماكن_الوصول.html" target="_blank" rel="noopener" data-hint="كل شركة شحن ومكاتبها في كل محافظة مع أرقامها — للردّ على الزبون «من وين بستلم طلبي؟». تُفتح في صفحة كاملة." class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="map-pin" class="w-4 h-4 text-gray-500"></i> أماكن الوصول
             </a>
-            <a href="https://t.me/+1wJ25bgbz2NiYzFk" class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <a href="https://t.me/+1wJ25bgbz2NiYzFk" class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="send" class="w-4 h-4 text-blue-500"></i> تليغرام
             </a>
             <button onclick="openReservationsPanel()" data-hint="العرابين: الطلبات المحجوزة بدفعة مقدّمة قبل إتمامها." class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 relative">
                 <i data-lucide="bookmark" class="w-4 h-4 text-orange-500"></i> الحجوزات
                 <span id="res-header-badge" class="hidden absolute -top-1.5 -left-1.5 bg-orange-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">0</span>
             </button>
-            <button onclick="openExportModal()" class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <button onclick="openExportModal()" class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i> تصدير
             </button>
-            <button onclick="openMonthlyReport()" data-hint="ملخّص كل شهر: عدد الطلبات والمجموع والمحصَّل والباقي — واضغط شهراً لتصديره." class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <button onclick="openMonthlyReport()" data-hint="ملخّص كل شهر: عدد الطلبات والمجموع والمحصَّل والباقي — واضغط شهراً لتصديره." class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i> الملخّص الشهري
             </button>
-            <button onclick="window.GMTBrain ? GMTBrain.open() : showToast('عقل النظام غير محمّل','err')" data-hint="اسأل عن أي خطأ أو خطوة · رشّحلي لزبون · افحص صحة النظام." class="text-center bg-slate-900 border border-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <button onclick="window.GMTBrain ? GMTBrain.open() : showToast('عقل النظام غير محمّل','err')" data-hint="اسأل عن أي خطأ أو خطوة · رشّحلي لزبون · افحص صحة النظام." class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 🧠 عقل النظام
             </button>
-            <button onclick="openHelpMenu()" data-hint="كل المساعدة في مكان واحد: شرح النظام · الجولة · شو هالزر؟" class="text-center bg-white border border-gray-200 text-gray-700 hover:border-red-300 hover:text-red-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2" title="المساعدة">
+            <button onclick="openHelpMenu()" data-hint="كل المساعدة في مكان واحد: شرح النظام · الجولة · شو هالزر؟" class="ord-x text-center bg-white border border-gray-200 text-gray-700 hover:border-red-300 hover:text-red-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2" title="المساعدة">
                 ❔ المساعدة
             </button>
 
@@ -195,15 +200,17 @@ window.GMT_INTERNAL = 1;</script>
                 <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i> متابعة
                 <span id="followup-badge" class="hidden absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center"></span>
             </button>
-            <button onclick="openSelectEditModal()" class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+            <button onclick="openSelectEditModal()" class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="edit" class="w-4 h-4 text-orange-500"></i> تعديل
             </button>
             <!-- (TASK-0217 · المالك seq 147) «أداة جديدة مثل مراجعة الشحنات … تتحقق من جميع شحنات المفتي مرّة واحدة»
                  (TASK-0219 · seq 149) «ضع هذا الزر بجانب زر التعديل في الاعلى» -->
             <button type="button" onclick="GMTMuftiReview.open()" data-mr-launch data-hint="يدخل رقم تتبّع كل شحنات المفتي التي لم نؤكّد استلامها في موقع المفتي واحدةً تلو الأخرى — بحثٌ جديد في كل مرّة — ويعرض لكل أوردر حالة شحنته، ومنها «تأكيد الاستلام»."
-                    class="text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                    class="col-span-2 text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="list-checks" class="w-4 h-4 text-red"></i> مراجعة شحنات <span class="text-[9px] font-black text-red">المفتي</span>
             </button>
+            <button type="button" id="ord-more-btn" aria-expanded="false" aria-controls="ord-tools" onclick="var o=document.getElementById('ord-tools').classList.toggle('ord-open');this.setAttribute('aria-expanded',o);this.firstElementChild.textContent=o?'إخفاء الأدوات':'المزيد من الأدوات';"
+                    class="lg:hidden col-span-2 text-center bg-gray-50 border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><span>المزيد من الأدوات</span> ⋯</button>
             <button onclick="document.getElementById('addModal').classList.remove('hidden'); initAddModal();" class="bg-red text-white px-4 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center justify-center gap-2 col-span-2 lg:col-span-1">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i> إضافة طلب
             </button>
@@ -10536,8 +10543,8 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261116k"></script>
-<script src="gmt-refresh.js?v=20261011a"></script>
+<script src="gmt-whatsnew.js?v=20261118d"></script>
+<script src="gmt-refresh.js?v=20261118d"></script>
 <script src="gmt-intro.js?v=20261010b"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
 </body>

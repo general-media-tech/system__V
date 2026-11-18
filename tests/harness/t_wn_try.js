@@ -20,7 +20,7 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++
       return { card: vis(c), cardTxt: c ? c.innerText.slice(0, 300) : '', tries: c ? c.querySelectorAll('[data-wn-try]').length : 0, fab: vis(fab), badge: fab && fab.querySelector('[data-n]').textContent, dots: [...new Set(dots)], untried: GMTWhatsNew.untried(), y: c ? Math.round(c.getBoundingClientRect().y) : -1 };
     });
     ok(r.card, 'البطاقة ظاهرة أعلى الرئيسية (y=' + r.y + ')');
-    ok(r.y >= 0 && r.y < 400, 'البطاقة في أعلى الشاشة الأولى');
+    ok(r.y >= 0, 'البطاقة ظاهرة في الرئيسية (TASK-B0509: بعد أرقام اليوم و«ينتظرك الآن» لا أعلاها)');
     ok(r.tries === 0 && /لم تجرّبها/.test(r.cardTxt), 'سطرٌ صغير بعدد ما لم تجرّبه بلا قائمة (TASK-0190 · seq 125: «لوحة الجديد عم تاكل نصّ الصفحة») — «جرّبها» في النافذة');
     ok(r.fab, 'زرّ شو الجديد ظاهر بالشريط');
     ok(r.badge === String(r.untried.length), 'العدّاد على الزرّ = ما لم تجرّبه (' + r.badge + ')');
