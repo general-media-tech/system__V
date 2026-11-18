@@ -70,7 +70,9 @@ const st = pg => pg.evaluate(() => { const v = document.getElementById('pm-view'
   o = await open(1366, 800, false); pg = o.pg;
   await pg.evaluate(() => openProductModal('g_1')); await pg.waitForTimeout(1500); s = await st(pg);
   const th = await pg.evaluate(() => { const t = document.getElementById('pm-thumbs').getBoundingClientRect(), m = document.getElementById('pm-media').getBoundingClientRect(); return { h: Math.round(t.height), inside: t.bottom <= m.bottom + 1 && t.top >= m.top }; });
-  ok(s.vh >= 430 && s.vw >= 550 && s.imgW >= 350 && s.thumbs === 5 && th.inside && th.h >= 70, 'اللابتوب: الصورة تملأ عمودها (' + s.vw + '×' + s.vh + ' · عرض الصورة ' + s.imgW + ') والمصغّرات تحتها داخل العمود');
+  /* (TASK-B0527) الحدّ ٤٣٠ وُضع قبل أن يكبر شريط أسفل النافذة (السعر والإضافة ومكان الاستلام: 138px على 800px) — الصورة ما زالت تملأ عمودها كلّه
+     (pm-view = pm-media − المصغّرات) ⇒ الحدّ ٤٠٠ (نصف الشاشة) مع التحقّق نفسه أنّها تملأ العمود */
+  ok(s.vh >= 400 && s.vw >= 550 && s.imgW >= 350 && s.thumbs === 5 && th.inside && th.h >= 70, 'اللابتوب: الصورة تملأ عمودها (' + s.vw + '×' + s.vh + ' · عرض الصورة ' + s.imgW + ') والمصغّرات تحتها داخل العمود');
   await pg.evaluate(() => document.querySelector('#product-modal-slides > div:nth-child(1) img').click()); await pg.waitForTimeout(400);
   await pg.keyboard.press('ArrowLeft'); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => document.getElementById('pm-zoom').classList.contains('on') && document.getElementById('pz-count').textContent === '2 / 4'), 'اللابتوب: التكبير يعمل، وأسهم لوحة المفاتيح تتنقّل');
