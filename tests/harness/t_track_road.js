@@ -74,7 +74,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await C.pg.emulateMedia({ reducedMotion: 'reduce' });
     await C.pg.evaluate(() => { const a = document.createElement('a'); a.href = 'track_order.html'; a.id = 'tl'; document.body.appendChild(a); a.click(); });
     await sleep(150);
-    ok(!(await C.pg.evaluate(() => !!document.getElementById('gmt-launch')).catch(() => false)), 'تقليل الحركة: لا مشهد — انتقالٌ مباشر');
+    /* (TASK-B0521 · المالك ١٩ ت٢ «بدي يصير إجبار اللمسة لحتى إنه الصوت يشتغل») الانتقال نفسه مباشر بلا مشهد مغادرة، لكن صفحة التتبّع
+       تفتح انتروها بلمسة الصوت حتى مع «تقليل الحركة» (كان: لا انترو ولا صوت على هذه الهواتف) */
+    await sleep(1200);
+    const rd = await C.pg.evaluate(() => ({ url: location.pathname, scene: !!document.querySelector('#gmt-launch .gr-van') })).catch(() => ({ url: '', scene: false }));
+    ok(/track_order/.test(rd.url) && rd.scene, 'تقليل الحركة: انتقالٌ مباشر إلى التتبّع وانتروه بصوته يظهر (لمسته في t_intro_reduced): ' + JSON.stringify(rd));
     await C.browser.close();
   }
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

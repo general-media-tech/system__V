@@ -48,10 +48,12 @@
 
   function reduced() { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } }
   function road() { return global.GMTRoad || null; }
+  /* (TASK-B0521 · المالك ١٩ ت٢: «بدي يصير إجبار اللمسة لحتى إنه الصوت يشتغل») الجذر: هاتفٌ عليه «تقليل الحركة» (وضع توفير البطارية ·
+     إزالة الحركات) كان يُعدّ «طلب هدوء» ⇒ لا انترو ولا لمسة ولا صوت أبداً. صوت الشاحنة لا يُكتم بعد اليوم إلّا بإطفاءٍ صريح من الزائر
+     (gmt_sound=off) · ومع «تقليل الحركة» يبقى الانترو واللمسة والصوت (الحركة نفسها خفيفة: الدخان والطريق كما في المشهد) */
   function soundOn() {
-    try { if (global.GMTSound && typeof GMTSound.isOn === 'function') return !!GMTSound.isOn(); } catch (_) {}
-    try { var v = localStorage.getItem('gmt_sound'); if (v === 'off') return false; if (v === 'on') return true; } catch (_) {}
-    return !reduced();
+    try { if (localStorage.getItem('gmt_sound') === 'off') return false; } catch (_) {}
+    return true;
   }
   function emit(name, detail) { try { doc.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch (_) {} }
   function fileOf(u) { try { return decodeURIComponent(new URL(u, location.href).pathname.split('/').pop() || ''); } catch (_) { return ''; } }
@@ -239,7 +241,7 @@
      يجري وحده سريعاً · الآن: كلّ فتحٍ لرابط التتبّع ⇐ الشاحنة واقفة تنتظر لمسة الزبون (والفقاعة تقول «اضغط») · مكتوم/تقليل الحركة ⇐ مباشرة.
      (للاختبارات الآلية فقط: localStorage gmt_intro_notap=1 ⇐ بلا انتظار) */
   function gate() {
-    if (!doc.body || reduced() || !soundOn()) return Promise.resolve('skip');
+    if (!doc.body || !soundOn()) return Promise.resolve('skip');
     try { if (localStorage.getItem('gmt_intro_notap') === '1') return Promise.resolve('auto'); } catch (_) {}
     return Promise.resolve('tap');
   }
@@ -247,7 +249,7 @@
   /* ── ② في الصفحة نفسها: fn تحت الضباب ثمّ يرقّ (ترحيب صفحة التتبّع حين تُفتح مباشرة) ── */
   function cover(fn, opts) {
     opts = opts || {};
-    if (reduced() || !road()) return Promise.reject(new Error('no-scene'));
+    if (!road()) return Promise.reject(new Error('no-scene'));   /* (TASK-B0521) «تقليل الحركة» لا يُسقط الانترو ولا لمسة الصوت */
     var ctl;
     try { ctl = scene(opts); } catch (e) { return Promise.reject(e); }
     return new Promise(function (resolve) {

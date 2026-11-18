@@ -210,6 +210,10 @@
     var href = a.getAttribute('href') || '';
     if (!/\.html(\?|#|$)/.test(href) || /^(https?:|mailto:|tel:)/i.test(href)) return;
     if (/^(home|index)\.html/.test(fileOf(href))) return;
+    /* (TASK-B0521) صفحات الزبائن العامّة (التتبّع · المتجر · الموقع · الكفالة · التوظيف) تُفتح كما يراها الزبون — بانتروها (مشهد الشاحنة)
+       لا طبقةً داخل التطبيق: كان رابط التتبّع في الرئيسيّة يُفتح طبقةً فلا يبدأ المشهد (t_track_road) */
+    try { var tl = global.GMTTools && GMTTools.find && GMTTools.find(fileOf(href)); if (tl && tl.g === 'public') return; } catch (_) {}
+    if (/^(track_order|store|site|search|hiring)\.html/.test(fileOf(href))) return;
     e.preventDefault(); open(href);
   }, false);   /* فقاعة لا التقاط: الرئيسيّة تسجّل الاستعمال (GMTHome.use) والقفل قبلنا */
 
