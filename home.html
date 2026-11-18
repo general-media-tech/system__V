@@ -175,7 +175,7 @@ a.btn{text-decoration:none}
 /* ══ (2026-10-06) دراسة الرئيسيّة — الهاتف أوّلاً ══ */
 .mnu,.tb-hi,.hm{display:none}
 .qa-h h3{margin:16px 0 8px}
-.qa{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;margin-bottom:6px}
+.qa{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-bottom:6px}
 .qai{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;color:var(--ink2,#334155);font-size:12px;font-weight:800;position:relative}
 .qai i{display:grid;place-items:center;width:54px;height:54px;border-radius:18px;background:#fff;border:1px solid var(--line,rgba(15,18,25,.08));box-shadow:0 1px 2px rgba(15,18,25,.05),0 8px 20px rgba(15,18,25,.05);font-style:normal;color:var(--red);transition:transform .15s}
 .qai:hover i{transform:translateY(-2px);border-color:var(--red)}
@@ -274,7 +274,7 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261118c"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261117k"></script>
-<script src="gmt-tools.js?v=20261118g"></script>
+<script src="gmt-tools.js?v=20261119b"></script>
 <script src="gmt-account.js?v=20261118f"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
@@ -366,7 +366,9 @@ a.btn{text-decoration:none}
   function open(f, nt) {
     if (!canOpen(f)) { lockedSheet(f); return; }
     try { if (window.GMTHome && GMTHome.use) GMTHome.use(f); } catch (_) {}
-    if (nt) window.open(f, '_blank', 'noopener'); else location.href = f;
+    if (nt) window.open(f, '_blank', 'noopener');
+    else if (window.GMTLayers && st.role !== 'guest') GMTLayers.open(f);   /* (TASK-B0518) الأداة طبقةٌ فوق الرئيسيّة — تبقى حيّة حين تنتقل لغيرها */
+    else location.href = f;
   }
   function desc(x) { return (!A() && x.ds) ? x.ds : x.d; }
 
@@ -440,8 +442,7 @@ a.btn{text-decoration:none}
     { f: 'pos.html', q: '?expense=1', t: 'مصروف', ic: 'wallet', exp: 1 },
     { f: 'ردود_سريعة.html', t: 'ردّ سريع', ic: 'copy' },
     { f: 'labels.html', t: 'ملصق', ic: 'tag' },
-    { f: 'track_order.html', t: 'تتبّع', ic: 'truck' },
-    { f: 'workspace.html', t: 'نوافذ', ic: 'layers' }   /* (TASK-B0516) مساحة العمل: عدّة صفحات معاً */
+    { f: 'track_order.html', t: 'تتبّع', ic: 'truck' }
   ];
   function qaRow() {
     return '<div class="qa-h"><h3>إجراءات سريعة</h3></div><div class="qa">' + QA.map(function (a) {
@@ -1367,7 +1368,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261118c"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261118b"></script>
-<script src="gmt-whatsnew.js?v=20261119a"></script>
+<script src="gmt-whatsnew.js?v=20261119b"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261118g"></script>
@@ -1382,5 +1383,6 @@ a.btn{text-decoration:none}
 /* (TASK-B0420) الإشعارات الفورية: سطر تعريفيّ في الرئيسية (مرّة/7 أيّام) يفتح لوحة التفعيل — للموظّف والمالك */
 window.addEventListener('load', function () { setTimeout(function () { try { window.GMTPush && GMTPush.mountCTA(['pos', 'orders']); } catch (e) {} }, 3500); });
 </script>
+<script src="gmt-layers.js?v=20261119b"></script><!-- (TASK-B0518 · المالك seq 837) الأدوات طبقاتٌ داخل التطبيق كالفوتوشوب -->
 </body>
 </html>
