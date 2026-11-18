@@ -540,6 +540,7 @@
   function boot() {
     try {
       if (global.GMT_INTRO_MANUAL) return;   /* الرئيسيّة تقوده بعد الدخول — انظر maybe() */
+      try { if (global.parent !== global && global.parent.GMT_WS_SHELL) return; } catch (e) {}   /* (TASK-B0516) لا انترو داخل إطارات مساحة العمل */
       if (isPublicPage()) return;
       /* لا نتزاحم مع الوضع التدريبي ولا مع شاشات أخرى مفتوحة */
       if (doc.querySelector('.gg4')) return;

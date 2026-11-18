@@ -49,6 +49,20 @@
 
   if (global.GMTRefresh) return;                 // لا تكرار
 
+  /* (TASK-B0516 · المالك seq 830/834) داخل «مساحة العمل» (workspace.html) الصفحةُ في إطارٍ تحت شريط تبويبات القشرة:
+     لا شريط علويّ ثانٍ ولا أزرار عائمة — القشرة فيها الرئيسية والتنقّل والإشعارات. */
+  var EMBED = (function () { try { return global.parent !== global && !!global.parent.GMT_WS_SHELL; } catch (_) { return false; } })();
+  global.GMT_WS_EMBED = EMBED;
+  if (EMBED) {
+    try {
+      doc.documentElement.classList.add('gmt-embed');
+      var es = doc.createElement('style'); es.id = 'gmt-embed-css';
+      es.textContent = 'html.gmt-embed #gmt-refresh-bar:not(.tb *),html.gmt-embed #gmt-notify-btn,html.gmt-embed #gmt-inbox-btn,html.gmt-embed #gmt-wn-fab,html.gmt-embed #gmt-home-btn,html.gmt-embed #gmt-tools-btn{display:none!important}' +
+        'html.gmt-embed .tb #gmt-refresh-bar{display:flex!important}html.gmt-embed{--gmt-topbars:0px!important}';
+      (doc.head || doc.documentElement).appendChild(es);
+    } catch (_) {}
+  }
+
   var BTN_ID = 'gmt-refresh-btn';
   var BAR_ID = 'gmt-refresh-bar';
 
@@ -234,6 +248,7 @@
 
   function place() {
     if (isPublicPage()) return;
+    if (EMBED && !doc.querySelector('.tb #gmt-refresh-bar,.tb .gmt-refresh-bar')) return;   /* داخل مساحة العمل: لا شريط ثانٍ (إلا شريط الرئيسيّة المدمج في ترويستها) */
     if (doc.getElementById(BTN_ID)) return;
     if (!doc.body) return;
     styles();

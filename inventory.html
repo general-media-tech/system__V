@@ -2236,7 +2236,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261118d"></script>
+<script src="gmt-tools.js?v=20261118g"></script>
 <script src="gmt-account.js?v=20261118f"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -5475,6 +5475,8 @@ window.gmtSyncRename = gmtSyncRename;
     }, 500); }
   } catch (_) {}
   window.gmtInvUndo = undoLast; window.gmtInvUndoPanel = openUndoPanel;
+  /* (TASK-B0516) مساحة العمل تمرّر Ctrl+Z لهذه الصفحة — تراجعٌ حقيقيّ (القيم القديمة · المحذوف · فرق الكميّة)؛ لا «إعادة» هنا فلا نعرضها */
+  window.GMTUndo = { undo: function () { return undoLast(); }, panel: openUndoPanel };
   window.gmtOpLogOpen = function () { if (window.GMTOpLog) GMTOpLog.open({ cat: 'stock' }); else showToast('سجل العمليات لم يُحمَّل بعد — أعد المحاولة بعد لحظة', 'warning'); };
   document.addEventListener('DOMContentLoaded', paintUndoBtn);
   document.addEventListener('keydown', function (e) {
@@ -16888,11 +16890,11 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118f"></script>
+<script src="gmt-whatsnew.js?v=20261118g"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
-<script src="gmt-refresh.js?v=20261118e"></script>
-<script src="gmt-intro.js?v=20261010b"></script>
+<script src="gmt-refresh.js?v=20261118g"></script>
+<script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
      فبقيت الأزرار العائمة في الأربعين الباقية رغم طلب المالك المكرّر ثلاث مرّات.
      وكشفه قياسُ التخطيط: زرّا 🧠 و🎓 متداخلان في سبع صفحات. -->
