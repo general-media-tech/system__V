@@ -15,6 +15,7 @@ async function openCtx(w, h, mobile) {
   await ctx.route('**/*.supabase.co/**', async route => {
     const u = route.request().url(); const i = u.indexOf('/rest/v1/');
     if (/\/functions\/v1\/gmt-tg\//.test(u)) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
+    if (/\/functions\/v1\/gmt-admin/.test(u)) { let q = {}; try { q = JSON.parse(route.request().postData() || '{}'); } catch (_) {} const r = await require('./admin_fn.js')(q); return route.fulfill({ status: r.status, contentType: 'application/json', body: JSON.stringify(r.body) }); }   // (TASK-B0522)
     if (i < 0) return route.fulfill({ status: 200, body: '{}' });
     try { const r = await route.fetch({ url: M + u.slice(i) }); await route.fulfill({ response: r }); } catch (e) { try { await route.abort(); } catch (_) {} }
   });
@@ -51,7 +52,8 @@ async function loginForm(pg, user, pw, remember) {
 
     // ── أدمن بحسابٍ مسمّى (يُنشأ بالصفحة نفسها كما تفعل الإدارة) ──
     let pg = await newPage('home.html');
-    await pg.evaluate(async () => { GMTRole.grant('محمد خير'); await GMTAuth.admin.add('محمد خير', 'Pass1234'); GMTRole.revoke(); });
+    /* (TASK-B0522) الحسابات تُنشأ على الخادم ⇒ تُبذر عبر مُحاكاة الدالّة نفسها (أوّل حساب بالسيادية ثمّ كلمته) */
+    { const fn = require('./admin_fn.js'); const r0 = await fn({ a: 'login', name: 'محمد خير', pw: '2003', bootstrap: true }); await fn({ a: 'setpw', token: r0.body.token, name: 'محمد خير', pw: 'Pass1234' }); }
     await pg.close();
 
     // ══ ١) موظّفٌ يدخل مع «تذكّر هذا الجهاز» ⇒ نقطته مباشرةً ══

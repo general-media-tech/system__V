@@ -47,7 +47,8 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   ok(!/سامر الأدمن/.test(txt), 'حُذف سامر: ' + (await pg.evaluate(() => document.getElementById('ad-msg').textContent)));
   // آخر حساب لا يُحذف (حتى من حساب آخر افتراضياً)
   const last = await pg.evaluate(async () => { sessionStorage.setItem('gmt_admin_name', 'غيري'); try { await GMTAuth.admin.remove('محمد خير'); return 'حُذف!'; } catch (e) { return e.message; } });
-  ok(/آخر حساب/.test(last), 'آخر حساب لا يُحذف: ' + last);
+  /* (TASK-B0522) الحذف على الخادم برمز جلسة «محمد خير» نفسه ⇒ يُرفض كحذفٍ للنفس قبل «آخر حساب» — كلاهما رفضٌ صحيح ولا يُحذف */
+  ok(/آخر حساب|لا تحذف حسابك/.test(last), 'آخر حساب لا يُحذف: ' + last);
   // غير أدمن لا يستطيع الإدارة
   const non = await pg.evaluate(async () => { sessionStorage.removeItem('gmt_admin_mode'); try { await GMTAuth.admin.add('x', 'abcd1234'); return 'أُضيف!'; } catch (e) { return e.message; } });
   ok(/للأدمن وحده/.test(non), 'غير الأدمن لا يضيف: ' + non);

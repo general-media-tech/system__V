@@ -41,6 +41,10 @@ async function open(url, { init = ADMIN_INIT, w = 390, h = 800, wait = 4000, mob
   await ctx.route('**/*.supabase.co/**', async route => {
     const u = route.request().url(); const i = u.indexOf('/rest/v1/');
     if (/\/functions\/v1\/gmt-tg\//.test(u)) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false,"relay":"not_configured"}' });   // كالواقع: المرحّل غير مضبوط بعد
+    if (/\/functions\/v1\/gmt-admin/.test(u)) {   /* (TASK-B0522) دالّة الإدارة على الخادم ⇒ مُحاكاة بالمنطق نفسه فوق القاعدة الوهمية */
+      let q = {}; try { q = JSON.parse(route.request().postData() || '{}'); } catch (_) {}
+      try { const r = await require('./admin_fn.js')(q); return route.fulfill({ status: r.status, contentType: 'application/json', body: JSON.stringify(r.body) }); } catch (e) { return route.fulfill({ status: 500, body: '{}' }); }
+    }
     if (i < 0) return route.fulfill({ status: 200, body: '{}' });
     try { const r = await route.fetch({ url: M + u.slice(i) }); await route.fulfill({ response: r }); } catch (e) { try { await route.abort(); } catch (_) {} }
   });

@@ -310,7 +310,10 @@
             if (r.known || bootstrap) auditEvent('admin_login_fail', name, true);
             return { ok: false, known: !!r.known, error: 'اسم المستخدم أو كلمة السرّ غير صحيحة', field: 'pw', clear: true };
         }
-        okReset(); setToken(r.token);
+        okReset();
+        /* رمز الجلسة يتبع من يصير الأدمن الداخل: فحصُ كلمة أدمنٍ آخر (tryLogin) لا يستبدل جلسة الداخل الآن */
+        var cur = ''; try { cur = global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? GMTRole.name() : ''; } catch (e) {}
+        if (bootstrap || !cur || normName(cur) === normName(r.name)) setToken(r.token);
         if (r.created) { auditEvent('admin_add', r.name + ' (أوّل حساب)'); return { ok: true, name: r.name, created: true }; }
         return { ok: true, name: r.name };
     }
@@ -469,6 +472,8 @@
     }
     async function removeAdmin(name) {
         needAdmin();
+        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
+        if (normName(me) === normName(name)) throw new Error(ERR.self);              /* والخادم يرفضه برمز الجلسة أيضاً */
         var r = await adminOp({ a: 'remove', name: name }); auditEvent('admin_remove', r.name || name); return true;
     }
 

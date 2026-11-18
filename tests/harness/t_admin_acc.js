@@ -58,7 +58,7 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   // 4) فشل القراءة ⇒ لا إنشاء ولا دخول
   await H.call('/__reset', {}); await H.seed();
   await pg.reload(); await pg.waitForTimeout(3500);
-  await pg.route('**/gmt_settings?key=eq.admin_accounts*', r => r.fulfill({ status: 500, body: '{}' }));
+  await pg.route('**/functions/v1/gmt-admin', r => r.fulfill({ status: 500, body: '{}' }));   /* (TASK-B0522) القراءة صارت على الخادم */
   pg.evaluate(() => GMTRole.requireAdmin('اختبار')).catch(() => {});   /* (TASK-0294) لا يُنتظر عمداً — يبقى معلّقاً حتى يُغلق المتصفّح */ await pg.waitForSelector('.gmtask-ov .gmtask-in');
   await fill('محمد خير', '2003'); await pg.click('.gmtask-ov .gmtask-b.pri'); await pg.waitForTimeout(1500);
   ok(/تعذّر/.test(await pg.evaluate(() => document.querySelector('.gmtask-er').textContent)) && !(await state()).admin && (await dbAcc()) === null, 'تعذّر قراءة الحسابات ⇒ فشل مغلق، لا إنشاء ولا دخول');

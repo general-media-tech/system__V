@@ -614,7 +614,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261119g';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261119h';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });
