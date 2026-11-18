@@ -4,7 +4,7 @@
 const SB = () => Deno.env.get("SUPABASE_URL") || "";
 const SVC = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const H = () => ({ apikey: SVC(), Authorization: "Bearer " + SVC(), "Content-Type": "application/json" });
-const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-gmt-session", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const SALT = "gmt::2026::auth", DEFAULT_PW = "2003", ITERS = 120000, ADMIN_KEY = "admin_accounts", DEV = "admin_device_", TTL = 12 * 3600 * 1000;
 const KINDS: Record<string, string> = { sovereign: "pw_sovereign", store: "pw_store", warranty: "pw_warranty", pos: "admin_password", purchase: "pw_purchase", backup: "pw_backup" };
 const enc = new TextEncoder();
@@ -20,6 +20,12 @@ const norm = (x: unknown) => String(x ?? "").normalize("NFKC").replace(/[ً-ٟـ
 async function hmac(s: string) {
   const k = await crypto.subtle.importKey("raw", enc.encode("gmt-admin/v1|" + SVC()), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(s))));
+}
+async function mkSess(name: string) {   /* (TASK-B0523) جلسة خادم للأدمن في gmt_sessions (البصمة فقط) — تُرسَل ترويسةً x-gmt-session */
+  const t = hex(crypto.getRandomValues(new Uint8Array(32)));
+  const th = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(t))));
+  const r = await fetch(`${SB()}/rest/v1/gmt_sessions`, { method: "POST", headers: { ...H(), Prefer: "return=minimal" }, body: JSON.stringify([{ th, name, role: "admin", exp: new Date(Date.now() + TTL).toISOString() }]) });
+  return r.ok ? t : "";
 }
 async function mkToken(name: string) { const exp = Date.now() + TTL, b = btoa(unescape(encodeURIComponent(name))) + "." + exp; return b + "." + await hmac(b); }
 async function who(tok: unknown): Promise<string | null> {
@@ -61,18 +67,18 @@ Deno.serve(async (req) => {
         if (!q.bootstrap) return J({ ok: true, none: true });
         if (!(await checkKind("sovereign", pw)).ok) { await slow(); return J({ ok: true, valid: false, none: true }); }
         const first = await mkAcc(String(q.name || "").slice(0, 40), pw, "أوّل حساب"); await put(ADMIN_KEY, JSON.stringify([first]));
-        return J({ ok: true, valid: true, created: true, name: first.n, token: await mkToken(first.n) });
+        return J({ ok: true, valid: true, created: true, name: first.n, token: await mkToken(first.n), sess: await mkSess(first.n) });
       }
       const k = norm(q.name), acc = list.find((x) => x && x.k === k);
       if (!acc || !same(await pbkdf2(pw, acc.s, acc.i || ITERS), String(acc.h))) { await slow(); return J({ ok: true, valid: false, known: !!acc }); }
-      return J({ ok: true, valid: true, name: acc.n, token: await mkToken(acc.n) });
+      return J({ ok: true, valid: true, name: acc.n, token: await mkToken(acc.n), sess: await mkSess(acc.n) });
     }
     if (a === "dev_restore") {
       const rec = await get(DEV + String(q.id || "").replace(/[^0-9a-f]/gi, "")); const r = rec ? JSON.parse(rec) : null;
       const list = await admins(), acc = list.find((x) => x && r && x.k === r.k && x.k === norm(q.k));
       const good = !!(r && acc && r.s === acc.s && same(String(r.h || ""), await sha("admin-device|" + String(q.t || ""))));
       if (!good) { if (r && (!acc || r.s !== acc.s)) await del(DEV + String(q.id)); return J({ ok: true, valid: false, gone: true }); }
-      return J({ ok: true, valid: true, name: acc.n, token: await mkToken(acc.n) });
+      return J({ ok: true, valid: true, name: acc.n, token: await mkToken(acc.n), sess: await mkSess(acc.n) });
     }
     if (a === "dev_forget") {
       const id = String(q.id || "").replace(/[^0-9a-f]/gi, ""), rec = await get(DEV + id), r = rec ? JSON.parse(rec) : null;

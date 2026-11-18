@@ -288,7 +288,7 @@
     try { if (global.GMTRole && GMTRole.revoke) GMTRole.revoke(); } catch (_) {}
     try { if (an) await loggedOut('admin', an); } catch (_) {}
     try { localStorage.removeItem('gmt_admin_auth'); } catch (_) {}
-    try { ['gmt_admin_mode', 'gmt_admin_name', 'gmt_sov_ok', 'gmt_acting', 'gmt_adm_tok'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (_) {}
+    try { ['gmt_admin_mode', 'gmt_admin_name', 'gmt_sov_ok', 'gmt_acting', 'gmt_adm_tok', 'gmt_adm_sess'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (_) {}
     try { location.href = opts.to || 'home.html'; } catch (_) {}
     return true;
   }
@@ -354,10 +354,19 @@
      الآن: الدوال gmt_pw_check / gmt_pw_change / gmt_pw_set (SECURITY DEFINER) تحفظ bcrypt في جدولٍ مغلق
      gmt_user_secrets لا يصل إليه المفتاح العام، وتُرحّل الصيغة القديمة عند أوّل دخولٍ ناجح.
      احتياط: إن لم تكن الدوال في القاعدة بعد (404) نعود للمقارنة القديمة كي لا يتوقّف الدخول. */
+  var SESS_LS = 'gmt_sess_tok_v1';
+  function sessTokSet(uid, tk) { try { var m = JSON.parse(localStorage.getItem(SESS_LS) || '{}') || {}; if (tk) m[uid] = tk; else delete m[uid]; localStorage.setItem(SESS_LS, JSON.stringify(m)); } catch (_) {} }
   function noRpc(e) { return /404|PGRST202|Could not find the function|does not exist/i.test(String(e && e.message || e)); }
   var GMTPw = {
     check: async function (row, pw) {
       if (!row) return false;
+      /* (TASK-B0523 · الأمان م٢) الدخول الصحيح يفتح «جلسة خادم» للموظّف (٩٠ يوماً) تُرسَل مع طلبات القاعدة (x-gmt-session) — تمهيداً لإغلاق
+         بيانات الزبائن عن المفتاح العامّ. الرمز يبقى على الجهاز لكلّ حساب (التبديل بضغطة يستعمل رمزه) · بلا الدالّة ⇒ الفحص القديم كما كان */
+      try {
+        var tk = await rest('POST', '/rest/v1/rpc/gmt_session_open', { p_user: row.id, p_pw: String(pw || '') });
+        if (typeof tk === 'string' && tk.length >= 32) { sessTokSet(row.id, tk); return true; }
+        if (tk === null) return false;
+      } catch (e0) { if (!noRpc(e0)) throw e0; }
       try { return (await rest('POST', '/rest/v1/rpc/gmt_pw_check', { p_user: row.id, p_pw: String(pw || '') })) === true; }
       catch (e) {
         if (!noRpc(e)) throw e;
@@ -457,6 +466,7 @@
     acctsWrite(a);
     if (activeKey() === k) setActive('');
     if (kind === 'admin') { try { await GMTAuth.admin.forgetDevice(admNorm(idOrName)); } catch (_) {} }
+    else sessTokSet(idOrName, '');                        /* (TASK-B0523) خروجٌ من الحساب ⇒ رمز جلسته يُمحى من الجهاز */
   }
   /* إزالة الحساب من الجهاز كلّياً (الحساب نفسه في القاعدة لا يُلمس) */
   async function forgetAcct(key) {
@@ -614,7 +624,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261119h';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261119i';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });

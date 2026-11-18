@@ -7,6 +7,36 @@
    لا رجوع للطريق المباشر أبداً (لم يعد في الصفحات مفتاحٌ يُرجَع إليه) — إن لم يُضبط السرّ تُرجع الدالّة 503 فتعرف الصفحة أن التبليغ لم يصل.
    بوتٌ آخر أدخله المستخدم بيده على جهازه (بثّ العروض) لا يحمل العلامة ⇒ يمرّ كما هو.
    نسخةٌ مطابقة في gmt-config.js و gmt-core.js — تعمل مرّةً واحدة أيّهما حُمِّل أوّلاً. */
+/* ══ (TASK-B0523 · الأمان م٢) «جلسة الخادم» تُرسَل مع كلّ طلبٍ للقاعدة ══
+   الموظّف الداخل بكلمة سرّه له رمز جلسة (gmt_session_open) والأدمن له رمز (gmt-admin). يُضاف ترويسةً x-gmt-session لطلبات Supabase
+   تلقائياً — لا تعديل لكلّ صفحة. اليوم لا شيء يشترطه بعد؛ غداً تُغلق بيانات الزبائن عن المفتاح العامّ وتُفتح لمن معه جلسة. */
+(function (g) {
+  var of = g.fetch; if (!of || of.__gmtSess) return;
+  function tok() {
+    try {
+      var s = JSON.parse(localStorage.getItem('gmt_session') || 'null'), m = JSON.parse(localStorage.getItem('gmt_sess_tok_v1') || '{}') || {};
+      var a = ''; try { a = sessionStorage.getItem('gmt_adm_sess') || ''; } catch (_) {}
+      return a || (s && s.id && m[s.id]) || '';
+    } catch (e) { return ''; }
+  }
+  var f = function (input, init) {
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (/\.supabase\.co\/rest\/v1\//.test(url)) {   /* القاعدة فقط — دوالّ الخادم لكلٍّ منها قائمة ترويساتٍ مسموحة (لا نكسر طلبها المسبق) */
+        var t = tok();
+        if (t) {
+          init = Object.assign({}, init || {});
+          var h = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
+          if (!h.has('x-gmt-session')) h.set('x-gmt-session', t);
+          init.headers = h;
+        }
+      }
+    } catch (e) {}
+    return of.call(this, input, init);
+  };
+  f.__gmtSess = 1; g.fetch = f;
+})(window);
+
 (function (g) {
   if (!g || g.__gmtTgRelay || typeof g.fetch !== 'function') return;
   g.__gmtTgRelay = true;
@@ -1083,7 +1113,7 @@
     },
     revoke: function () {
       try { if (window.GMTRole.isAdmin() && window.GMTOpLog) window.GMTOpLog.log({ action: 'admin_logout', entity: 'admin_accounts', entityName: window.GMTRole.name() }); } catch (e) {}
-      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_sov_ok'); sessionStorage.removeItem('gmt_adm_tok'); } catch (e) {}
+      try { sessionStorage.removeItem(ADMIN_SESSION_KEY); sessionStorage.removeItem('gmt_admin_name'); sessionStorage.removeItem('gmt_sov_ok'); sessionStorage.removeItem('gmt_adm_tok'); sessionStorage.removeItem('gmt_adm_sess'); } catch (e) {}
       /* ⚠️ admin_pos.html كانت تكتب `gmt_admin_auth` في localStorage ولا تُمحى أبداً ⇒ بعد «خروج الأدمن» تبقى أدوات النقاط مفتوحةً لمن يأتي بعده */
       try { localStorage.removeItem('gmt_admin_auth'); } catch (e) {}
       window.GMTRole.repaint();

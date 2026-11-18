@@ -137,6 +137,7 @@
        «صحيح/خطأ» ورمز جلسةٍ موقَّعاً (١٢ ساعة) للأدمن الداخل — والجدول يمنع قراءتها وكتابتها بالمفتاح العامّ. الصيغ كما كانت ⇒ لا كلمة ولا جهاز تغيّر. */
     var TOK = 'gmt_adm_tok';
     function token() { try { return sessionStorage.getItem(TOK) || ''; } catch (e) { return ''; } }
+    function setSess(t) { try { if (t) sessionStorage.setItem('gmt_adm_sess', t); else sessionStorage.removeItem('gmt_adm_sess'); } catch (e) {} }   /* (TASK-B0523) جلسة الخادم للأدمن */
     function setToken(t) { try { if (t) sessionStorage.setItem(TOK, t); else sessionStorage.removeItem(TOK); } catch (e) {} }
     async function srv(body) {
         var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
@@ -313,7 +314,7 @@
         okReset();
         /* رمز الجلسة يتبع من يصير الأدمن الداخل: فحصُ كلمة أدمنٍ آخر (tryLogin) لا يستبدل جلسة الداخل الآن */
         var cur = ''; try { cur = global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? GMTRole.name() : ''; } catch (e) {}
-        if (bootstrap || !cur || normName(cur) === normName(r.name)) setToken(r.token);
+        if (bootstrap || !cur || normName(cur) === normName(r.name)) { setToken(r.token); setSess(r.sess); }
         if (r.created) { auditEvent('admin_add', r.name + ' (أوّل حساب)'); return { ok: true, name: r.name, created: true }; }
         return { ok: true, name: r.name };
     }
@@ -430,7 +431,7 @@
                 try { devWrite(devAll().filter(function (x) { return x.k !== loc.k; })); } catch (e) {}
                 return { ok: false, gone: true };
             }
-            setToken(r.token);
+            setToken(r.token); setSess(r.sess);
             try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(r.name); else { sessionStorage.setItem('gmt_admin_mode', '1'); sessionStorage.setItem('gmt_admin_name', r.name); } } catch (e) {}
             try { localStorage.setItem('gmt_admin_last', r.name); } catch (e) {}
             return { ok: true, name: r.name };
@@ -487,7 +488,7 @@
             list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
             /* (١٨ ت١) «تذكّر هذا الجهاز» — رمزٌ على الجهاز وبصمته في القاعدة (لا كلمة سرّ محفوظة) */
             rememberDevice: rememberDevice, restoreDevice: restoreDevice, forgetDevice: forgetDevice, remembered: rememberedDevice, rememberedAll: rememberedAll,
-            normalize: normName, _audit: auditEvent, token: token, clearToken: function () { setToken(''); }
+            normalize: normName, _audit: auditEvent, token: token, clearToken: function () { setToken(''); setSess(''); }
         }
     };
 }(typeof window !== 'undefined' ? window : this));
