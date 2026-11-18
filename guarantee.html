@@ -102,6 +102,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-sticker.js?v=20261029z4" defer></script>
   <script src="gmt-wclaims.js?v=20261118c" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
   <script src="gmt-custcache.js?v=20261016a" defer></script>
+  <script src="gmt-sync.js?v=20261003"></script><!-- (TASK-B0508 ١) طابور الكفالات بلا إنترنت -->
   <script src="gmt-custsync.js?v=20261118f"></script><!-- (TASK-B0511) سجلّ الزبون الواحد -->
   <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
@@ -886,7 +887,30 @@ window.GMT_INTERNAL = 1;</script>
            المحاولة — فتُصدَر الكفالة بما تعرفه القاعدة، ونُسجّل ما أُسقط في
            الـconsole كي لا يكون الإسقاط صامتاً.
            ═══════════════════════════════════════════════════════════════════ */
+        /* (TASK-B0508 ١ · المالك seq 824 «الكفالة تُنشأ بلا إنترنت أوّلاً») بلا اتصال ⇒ تُحفظ الكفالة في طابورٍ دائم على الجهاز (GMTSync)
+           وتُرسَل وحدها عند عودة الإنترنت بالترتيب · رقمها القصير والرابط والـQR تُصنع على الجهاز فتُسلَّم للزبون فوراً،
+           والرابط يعمل لديه حين تصل للقاعدة. */
         async function supabaseInsert(row) {
+            const offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+            if (offline && window.GMTSync) return warrantyQueue(row);
+            try { return await supabaseInsertOnline(row); }
+            catch (e) { if (window.GMTSync && /Failed to fetch|NetworkError|Load failed|network/i.test(String(e && e.message))) return warrantyQueue(row); throw e; }
+        }
+        async function warrantyQueue(row) {
+            const api = GMTSync.wrap({ table: TABLE_NAME, base: SUPABASE_URL, headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Prefer: 'return=minimal' } });
+            await api.insert(row);
+            window.__warrantyQueued = true;
+            try { showWarrantyOfflineNote(); } catch (_) {}
+            return true;
+        }
+        function showWarrantyOfflineNote() {
+            let n = document.getElementById('warrantyOfflineNote');
+            if (!n) { n = document.createElement('div'); n.id = 'warrantyOfflineNote'; n.setAttribute('role', 'status');
+                n.style.cssText = 'margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-weight:700;font-size:13px';
+                const rs = document.getElementById('resultSection'); if (rs) rs.insertBefore(n, rs.firstChild); }
+            n.textContent = '📴 أُنشئت الكفالة بلا إنترنت — محفوظة على هذا الجهاز وتُرسل وحدها عند عودة الاتصال. سلّم الزبون الرابط والملصق الآن؛ يعمل الرابط لديه بعد الإرسال.';
+        }
+        async function supabaseInsertOnline(row) {
             let payload = Object.assign({}, row);
             const dropped = [];
             for (let attempt = 0; attempt < 6; attempt++) {
@@ -2388,7 +2412,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261118h"></script>
+<script src="gmt-whatsnew.js?v=20261119a"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261118g"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
