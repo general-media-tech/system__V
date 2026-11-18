@@ -3593,10 +3593,56 @@ function _gmtVisible(rec){
         prods: prods.filter(p => { const ids = (p.category_ids && p.category_ids.length) ? p.category_ids : (p.category_id ? [p.category_id] : []); return !ids.length || !ids.every(id => hid.has(String(id))); })
     };
 }
-function _applyRecord(rec){
+/* ══ (TASK-B0526 · قرار المالك seq 824 «الجرد مصدر وحيد للمنتجات والمتجر يقرأ منه — يحفظ فقط وصفه وصوره الإضافية») ══
+   القائمة البسيطة المربوطة بمنتج جرد (inv_id) تأخذ **سعرها وكمّيتها من الجرد لحظة العرض** — لا من نسختها المحفوظة في المتجر (قد تتأخّر).
+   الكمّية = مجموع أعمدة الفروع (inv_columns · include_in_total · عدا ألمانيا/الصين) كقاعدة الجسر. القائمة بخيارات: كمّيتها من خياراتها (لا تُمسّ).
+   خريطة الجرد تُحفظ على الجهاز (١٠ دقائق) فالعرض فوريّ، وتُجدَّد في الخلفية ثمّ يُعاد الرسم إن تغيّر شيء. فشل القراءة ⇒ قيم المتجر كما هي. */
+const _INV_LS = 'gmt_store_inv_v1';
+let _invMap = null;
+try { const c = JSON.parse(localStorage.getItem(_INV_LS) || 'null'); if (c && c.m && Date.now() - c.at < 6 * 3600e3) _invMap = c.m; } catch (_) {}
+function _invOverlay(prods){
+    if (!_invMap) return prods;
+    return prods.map(p => {
+        const iv = p && p.inv_id != null ? _invMap[String(p.inv_id)] : null; if (!iv) return p;
+        /* القائمة بخيارات (بطارية · طقم …): سعرها «ابتداءً من» أدنى خيار وكمّيتها من خياراتها ⇒ لا تُمسّ */
+        if (Array.isArray(p.options) && p.options.length) return p;
+        const x = Object.assign({}, p);
+        if (iv.p > 0) x.price = window.GMTPrice ? GMTPrice.charm(iv.p) : iv.p;
+        x.stock = iv.q;
+        return x;
+    });
+}
+let _invLoading = null, _invAt = 0;
+async function _invRefresh(){
+    if (_invLoading) return _invLoading;
+    if (Date.now() - _invAt < 60000) return; _invAt = Date.now();
+    _invLoading = (async () => {
+        const D = window.GMT_DB && GMT_DB.MAIN; if (!D || !D.url) return;
+        const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
+        let keys = ['homs', 'daraa', 'haleb', 'kurani', 'sarmada', 'fakhouri'];
+        try { const r = await (await fetch(D.url + '/rest/v1/inv_columns?is_branch=eq.true&include_in_total=eq.true&select=key_name&order=sort_order.asc', { headers: H })).json();
+              const ks = (r || []).map(x => String(x.key_name || '')).filter(k => /^[a-z][a-z0-9_]*$/.test(k) && k !== 'germany' && k !== 'china'); if (ks.length) keys = ks; } catch (_) {}
+        const ids = [...new Set((store.products || []).map(p => p && p.inv_id).filter(v => v != null && v !== '').map(String))].filter(v => /^[0-9a-f-]{8,}$/i.test(v));
+        if (!ids.length) return;
+        const m = {};
+        for (let i = 0; i < ids.length; i += 120) {
+            const r = await fetch(D.url + '/rest/v1/products?select=id,price,' + keys.join(',') + '&id=in.(' + ids.slice(i, i + 120).join(',') + ')', { headers: H });
+            if (!r.ok) return;
+            (await r.json() || []).forEach(x => { m[String(x.id)] = { p: Number(x.price) || 0, q: keys.reduce((s, k) => s + (Number(x[k]) || 0), 0) }; });
+        }
+        const changed = JSON.stringify(m) !== JSON.stringify(_invMap || {});
+        _invMap = m; try { localStorage.setItem(_INV_LS, JSON.stringify({ at: Date.now(), m })); } catch (_) {}
+        if (changed && _lastRec) { _applyRecord(_lastRec, true); try { renderAll(); _refreshOpenModal && _refreshOpenModal(); } catch (_) {} }
+    })().catch(() => {}).finally(() => { _invLoading = null; });
+    return _invLoading;
+}
+let _lastRec = null;
+function _applyRecord(rec, fromInv){
+    _lastRec = rec;
     const _v = _gmtVisible(rec);
     store.categories   = _v.cats;
-    store.products     = _v.prods;
+    store.products     = _invOverlay(_v.prods);
+    if (!fromInv) setTimeout(_invRefresh, 0);
     store.banners      = Array.isArray(rec.banners)       ? rec.banners      : [];
     try { if (!rec.__fromCache && store.products.length) localStorage.setItem(STORE_LAST_GOOD, JSON.stringify({ at: Date.now(), rec: rec })); } catch (_) {}
     store.offers       = Array.isArray(rec.offers)        ? rec.offers       : [];
