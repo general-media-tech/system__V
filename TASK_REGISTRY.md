@@ -382,6 +382,7 @@
 - **الأدمن:** `gmt-admin` v2 يفتح جلسة (`sess`) عند الدخول واستعادة الجهاز ⇒ sessionStorage `gmt_adm_sess`.
 - **المتصفّح:** GMTPw.check يفتح الجلسة ويحفظ الرمز لكلّ حساب (`gmt_sess_tok_v1`) · الخروج يمحوه · gmt-core يضيف `x-gmt-session` لطلبات `/rest/v1/` فقط (دوالّ الخادم لا — كي لا يُكسر طلبها المسبق؛ CORS القاعدة يقبل الترويسة ✔).
 - **التحقق:** `t_session_header.js` (4 ✔) · t_admin_acc · t_admin_page · t_logout_exit · t_custsync ✔.
+- **(seq 860) gmt-v20261119j:** تنبيه «🔐 خطوة أمان» في الرئيسيّة لمن لا جلسة له (`GMTAccount.needsServerSession`) · `t_session_note.js` (2 ✔) · سكربت الإغلاق جاهز غير مطبَّق: `tools/sql/B0523_lock_customers.sql` (قراءة/تعديل/حذف بالجلسة · الإدراج مفتوح للمتجر · إكمال الاسم الناقص). عند النشر: 0 جلسات من 6 موظّفين.
 - **الخطوة ب (لاحقاً):** متابعة `select name, count(*) from gmt_sessions group by name` حتى يأخذ كلّ الموظّفين جلساتهم ⇒ سياسة قراءة gmt_customers (وما يشبهها) بـ `gmt_session_ok()` مع إبقاء الإدراج للمتجر العامّ.
 
 ### TASK-B0522 — الأمان: كلمات سرّ الإدارة على الخادم وحده (المالك seq 857 «شغّل الأمان») — ✅ gmt-v20261119g/h

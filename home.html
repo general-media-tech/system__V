@@ -275,7 +275,7 @@ a.btn{text-decoration:none}
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261119i"></script>
 <script src="gmt-tools.js?v=20261119b"></script>
-<script src="gmt-account.js?v=20261119i"></script>
+<script src="gmt-account.js?v=20261119j"></script>
 <script src="gmt-icons.js?v=20261011h"></script>
 <script src="gmt-ask.js?v=20261029z4"></script>
 <script src="gmt-sound.js?v=20261117h" defer></script>
@@ -738,6 +738,7 @@ a.btn{text-decoration:none}
       d.innerHTML = '<div class="app">' + side() + '<div class="col">' + topbar() + '<main class="main" id="main">' + home() + '</main>' + pill() + '</div></div>';
       var ph = $('gmt-refresh-bar'); if (oldBar && ph) ph.parentNode.replaceChild(oldBar, ph);
       fillPending();
+      fillSessNote();
       fillWait();
       fillDevice();
       requestAnimationFrame(countUp);
@@ -766,6 +767,18 @@ a.btn{text-decoration:none}
   }
 
 
+  /* (TASK-B0523 · الأمان م٢) موظّفٌ بلا «جلسة خادم» ⇒ سطرٌ هادئ: ادخل مرّةً بكلمة سرّك (قبل إغلاق بيانات الزبائن عمّن هو خارج النظام) */
+  function fillSessNote() {
+    try {
+      var old = $('sess-note'); if (old) old.remove();
+      if (!window.GMTAccount || !GMTAccount.needsServerSession || !GMTAccount.needsServerSession()) return;
+      var slot = $('pend-slot'); if (!slot) return;
+      var d = document.createElement('div'); d.id = 'sess-note';
+      d.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:11px 14px;border:1px solid #fde68a;background:#fffbeb;border-radius:14px;font-size:13px;line-height:1.6';
+      d.innerHTML = '<span style="font-size:18px">🔐</span><span style="flex:1;min-width:0"><b>خطوة أمان:</b> اخرج من حسابك وادخل مرّةً بكلمة سرّك (لا بضغطة «حسابات هذا الجهاز») — تأخذ جلستك الجديدة على الخادم.</span>';
+      slot.parentNode.insertBefore(d, slot);
+    } catch (_) {}
+  }
   /* (2026-10-05 ع) حساباتٌ جديدة تتصفّح فقط حتى توافق — تظهر للأدمن أوّلَ الرئيسيّة */
   var _pendCache = null, _pendAt = 0;
   function fillPending() {

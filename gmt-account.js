@@ -559,6 +559,14 @@
     session: session, setSession: setSession, isAdmin: isAdmin,
     saveProfile: saveProfile, profile: profileCached,
     exitAdmin: exitAdmin,
+    /* (TASK-B0523) موظّفٌ داخلٌ بلا «جلسة خادم» بعد (دخل قبل التحديث أو بضغطة) ⇒ يُطلب منه الدخول مرّةً بكلمة سرّه قبل إغلاق بيانات الزبائن */
+    needsServerSession: function () {
+      try {
+        var s = session(); if (!s || !s.id) return false;
+        try { if (sessionStorage.getItem('gmt_adm_sess')) return false; } catch (_) {}
+        var m = JSON.parse(localStorage.getItem('gmt_sess_tok_v1') || '{}') || {}; return !m[s.id];
+      } catch (_) { return false; }
+    },
     grants: grants, grantsCached: grantsCached, setGrants: setGrants, b64: b64, updateSelf: updateSelf,
     isPending: function () { return isPending(); }, checkApproval: function () { return checkApproval(); },
     approveUser: function (id) { return approveUser(id); }, pendingUsers: function () { return pendingUsers(); }
