@@ -288,7 +288,7 @@
     try { if (global.GMTRole && GMTRole.revoke) GMTRole.revoke(); } catch (_) {}
     try { if (an) await loggedOut('admin', an); } catch (_) {}
     try { localStorage.removeItem('gmt_admin_auth'); } catch (_) {}
-    try { ['gmt_admin_mode', 'gmt_admin_name', 'gmt_sov_ok', 'gmt_acting'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (_) {}
+    try { ['gmt_admin_mode', 'gmt_admin_name', 'gmt_sov_ok', 'gmt_acting', 'gmt_adm_tok'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (_) {}
     try { location.href = opts.to || 'home.html'; } catch (_) {}
     return true;
   }
@@ -614,7 +614,7 @@
   function ensureAuth() {
     return new Promise(function (res) {
       if (global.GMTAuth) return res(true);
-      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261117k';
+      var s = document.createElement('script'); s.src = 'gmt-auth.js?v=20261119g';
       s.onload = function () { res(!!global.GMTAuth); }; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });

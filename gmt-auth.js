@@ -132,26 +132,33 @@
          ① بصمة  sha256:<hex>      ② نصّ صريح (قديم)     ③ مفتاح الجهاز
        والقديمة (legacy) تبقى مقبولة **حتى تُضبط كلمة فعلية**، وإلّا انقلب
        النظام كلّه مقفولاً في وجه صاحبه لحظة نشر هذا الملفّ. */
+    /* ══ (TASK-B0522 · المالك seq 857 «شغّل الأمان») التحقّق على الخادم ══
+       بصمات كلمات السرّ (الأنواع · حسابات الأدمن · تذكّر الأجهزة) لم تعد تُقرأ في المتصفّح: الدالّة `gmt-admin` تقرؤها بمفتاح الخادم وتردّ
+       «صحيح/خطأ» ورمز جلسةٍ موقَّعاً (١٢ ساعة) للأدمن الداخل — والجدول يمنع قراءتها وكتابتها بالمفتاح العامّ. الصيغ كما كانت ⇒ لا كلمة ولا جهاز تغيّر. */
+    var TOK = 'gmt_adm_tok';
+    function token() { try { return sessionStorage.getItem(TOK) || ''; } catch (e) { return ''; } }
+    function setToken(t) { try { if (t) sessionStorage.setItem(TOK, t); else sessionStorage.removeItem(TOK); } catch (e) {} }
+    async function srv(body) {
+        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
+        var r = await fetch(d.url + '/functions/v1/gmt-admin', { method: 'POST', cache: 'no-store',
+            headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        var j = null; try { j = await r.json(); } catch (e) {}
+        if (r.status === 401 || (j && j.error === 'auth')) throw new Error('انتهت جلسة الإدارة — ادخل الإدارة من جديد');
+        if (!r.ok || !j) throw new Error('تعذّر الاتصال بالخادم (HTTP ' + r.status + ')');
+        return j;
+    }
+    async function needToken() { var t = token(); if (!t) throw new Error('ادخل الإدارة باسمك وكلمة سرّك أوّلاً (جلسةٌ جديدة)'); return t; }
+
+    /* هل يطابق ما كتبه المستخدم؟ كلمةٌ محلّيّة على الجهاز تتقدّم (كما كانت) · وإلّا الخادم يقارن بالبصمة المحفوظة أو الافتراضيّة.
+       بلا شبكة ⇒ لا قبول (الفشل مغلق — كان يقبل الافتراضيّة بلا شبكة) */
     async function check(kind, input) {
         var k = KINDS[kind];
         if (!k) return false;
         var pw = String(input === null || input === undefined ? '' : input);
-
         var loc = null;
         try { loc = localStorage.getItem(k.local); } catch (e) {}
         if (loc) return pw === loc;
-
-        var map = await load(false);
-        var stored = map && map[k.db];
-        if (stored) {
-            if (String(stored).indexOf('sha256:') === 0) {
-                var h = await sha(pw);
-                return !!h && ('sha256:' + h) === String(stored);
-            }
-            return pw === String(stored);
-        }
-        /* لا شيء مضبوط ⇒ الافتراضية الواحدة (ت٤: 2003) */
-        return (k.legacy || [DEFAULT_PW]).indexOf(pw) !== -1;
+        try { var r = await srv({ a: 'check', kind: kind, pw: pw }); return !!(r && r.valid); } catch (e) { return false; }
     }
 
     /* هل ما زالت الكلمة هي الافتراضية؟ — لتنبيهه في الأداة */
@@ -159,33 +166,16 @@
         var k = KINDS[kind];
         if (!k) return false;
         try { if (localStorage.getItem(k.local)) return false; } catch (e) {}
-        var map = await load(false);
-        return !(map && map[k.db]);
+        try { var r = await srv({ a: 'isdefault', kind: kind }); return !!(r && r.isDefault); } catch (e) { return false; }
     }
 
     async function setDb(kind, value) {
         var k = KINDS[kind];
         if (!k) throw new Error('نوع غير معروف: ' + kind);
-        var d = db();
-        if (!d) throw new Error('إعدادات القاعدة غير متاحة (gmt-core.js)');
-        var h = await sha(value);
-        var payload = [{ key: k.db, value: h ? ('sha256:' + h) : String(value) }];
-        /* ⚠️ on_conflict في **المسار** لا في الترويسة: PostgREST يتجاهله بصمت
-           في الترويسة فيفشل التعديل بـ409 ويبدو أنّه «لم يُحفَظ». */
-        var r = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', {
-            method: 'POST',
-            headers: {
-                apikey: d.key, Authorization: 'Bearer ' + d.key,
-                'Content-Type': 'application/json',
-                Prefer: 'resolution=merge-duplicates,return=minimal'
-            },
-            body: JSON.stringify(payload)
-        });
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (await r.text()).slice(0, 140));
-        /* كلمةٌ على الجهاز تتقدّم على القاعدة، فلو بقيت قديمةً لظنّ أنّ الحفظ
-           لم يُجدِ. نُزيلها كي تسري الجديدة فعلاً. */
+        var r = await srv({ a: 'setkind', kind: kind, pw: String(value || ''), token: await needToken() });
+        if (!r.ok) throw new Error(r.error === 'bad' ? 'كلمة السرّ قصيرة (٤ أحرف على الأقلّ)' : 'تعذّر الحفظ');
+        /* كلمةٌ على الجهاز تتقدّم على القاعدة، فلو بقيت قديمةً لظنّ أنّ الحفظ لم يُجدِ — نُزيلها كي تسري الجديدة فعلاً */
         try { localStorage.removeItem(k.local); } catch (e) {}
-        await load(true);
         return true;
     }
 
@@ -270,30 +260,6 @@
     function restHeaders(d, extra) {
         return Object.assign({ apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json' }, extra || {});
     }
-    /* قراءة طازجة (لا كاش): {list} أو يرمي عند تعذّر القراءة/فساد البيانات — لا نخلط «فشل» بـ«لا حسابات» */
-    async function readAdmins() {
-        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
-        var r = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + ADMIN_KEY + '&select=value', { headers: restHeaders(d), cache: 'no-store' });
-        if (!r.ok) throw new Error('تعذّر قراءة حسابات الإدارة (HTTP ' + r.status + ')');
-        var rows = await r.json();
-        if (!Array.isArray(rows) || !rows.length || rows[0].value == null || String(rows[0].value).trim() === '') return { list: [], raw: '' };
-        var list;
-        try { list = JSON.parse(rows[0].value); } catch (e) { throw new Error('بيانات حسابات الإدارة تالفة — لا أُكمل'); }
-        if (!Array.isArray(list)) throw new Error('بيانات حسابات الإدارة تالفة — لا أُكمل');
-        return { list: list, raw: String(rows[0].value) };
-    }
-    async function writeAdmins(list) {
-        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
-        var v = JSON.stringify(list);
-        var r = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', {
-            method: 'POST', headers: restHeaders(d, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
-            body: JSON.stringify([{ key: ADMIN_KEY, value: v }])
-        });
-        if (!r.ok) throw new Error('تعذّر حفظ الحسابات (HTTP ' + r.status + ')');
-        var back = await readAdmins();                          /* لا نصدّق الكتابة قبل أن نقرأها */
-        if (back.raw !== v) throw new Error('الحفظ لم يثبت في القاعدة — لم يتغيّر شيء');
-        return true;
-    }
     async function verify(acc, pw) {
         try { return same(await pbkdf2(pw, acc.s, acc.i || ADMIN_ITERS), String(acc.h)); } catch (e) { return false; }
     }
@@ -330,32 +296,23 @@
         } catch (x) {}
     }
 
-    /* الدخول: bootstrap=true فقط من نافذة «دخول الإدارة» (لا من نموذج الدخول العادي) */
+    /* الدخول: bootstrap=true فقط من نافذة «دخول الإدارة» (لا من نموذج الدخول العادي) — التحقّق على الخادم (TASK-B0522) */
     async function adminCheck(name, pw, bootstrap) {
         var e0 = badName(name); if (e0) return { error: e0 };
         pw = String(pw == null ? '' : pw); if (!pw) return { error: 'اكتب كلمة السرّ' };
         var wait = lockLeft(); if (wait) return { error: 'محاولات كثيرة — انتظر ' + wait + ' ثانية ثمّ أعد المحاولة', field: 'pw' };
         var r;
-        try { r = await readAdmins(); } catch (e) { return { error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
-        if (!r.list.length) {
-            if (!bootstrap) return { ok: false, none: true };
-            var okSov = false; try { okSov = await check('sovereign', pw); } catch (e) {}
-            if (!okSov) { failed(); return { error: 'لا يوجد حساب أدمن بعد. أوّل حساب يُنشأ بكلمة السرّ السيادية الحالية — وهي غير صحيحة.', field: 'pw', clear: true }; }
-            var first = await makeAccount(name, pw, 'أوّل حساب');
-            try { await writeAdmins([first]); } catch (e) { return { error: (e && e.message) || 'تعذّر إنشاء الحساب' }; }
-            okReset();
-            auditEvent('admin_add', first.n + ' (أوّل حساب)');
-            return { ok: true, name: first.n, created: true };
-        }
-        var k = normName(name), acc = null;
-        for (var i = 0; i < r.list.length; i++) if (r.list[i] && r.list[i].k === k) { acc = r.list[i]; break; }
-        if (!acc || !(await verify(acc, pw))) {
+        try { r = await srv({ a: 'login', name: String(name).trim(), pw: pw, bootstrap: !!bootstrap }); } catch (e) { return { error: (e && e.message) || 'تعذّر الاتصال بالقاعدة' }; }
+        if (r.none && !bootstrap) return { ok: false, none: true };
+        if (!r.valid) {
             failed();
-            if (acc || bootstrap) auditEvent('admin_login_fail', name, true);
-            return { ok: false, known: !!acc, error: 'اسم المستخدم أو كلمة السرّ غير صحيحة', field: 'pw', clear: true };
+            if (r.none) return { error: 'لا يوجد حساب أدمن بعد. أوّل حساب يُنشأ بكلمة السرّ السيادية الحالية — وهي غير صحيحة.', field: 'pw', clear: true };
+            if (r.known || bootstrap) auditEvent('admin_login_fail', name, true);
+            return { ok: false, known: !!r.known, error: 'اسم المستخدم أو كلمة السرّ غير صحيحة', field: 'pw', clear: true };
         }
-        okReset();
-        return { ok: true, name: acc.n };
+        okReset(); setToken(r.token);
+        if (r.created) { auditEvent('admin_add', r.name + ' (أوّل حساب)'); return { ok: true, name: r.name, created: true }; }
+        return { ok: true, name: r.name };
     }
 
     /* نافذة «دخول الإدارة»: اسم + كلمة سرّ. تمنح الجلسة بنفسها وتُرجع الاسم أو null */
@@ -437,50 +394,24 @@
         for (var i = 0; i < all.length; i++) if (all[i].k === k) return all[i];
         return null;
     }
-    async function devHash(token) { var h = await sha('admin-device|' + token); if (!h) throw new Error('المتصفّح لا يدعم التشفير — افتح النظام عبر https'); return h; }
-    async function readDevRec(id) {
-        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
-        var r = await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + id) + '&select=value', { headers: restHeaders(d), cache: 'no-store' });
-        if (!r.ok) throw new Error('تعذّر قراءة تذكّر الجهاز (HTTP ' + r.status + ')');
-        var rows = await r.json();
-        if (!Array.isArray(rows) || !rows.length || rows[0].value == null) return null;
-        try { return JSON.parse(rows[0].value); } catch (e) { return null; }
-    }
-    async function delDevRec(d, id) {
-        try { await fetch(d.url + '/rest/v1/gmt_settings?key=eq.' + encodeURIComponent(DEV_KEY + id), { method: 'DELETE', headers: restHeaders(d, { Prefer: 'return=minimal' }) }); } catch (e) {}
-    }
-    /* يحفظ تذكّر الجهاز للأدمن الداخل الآن — يُنادى بعد دخولٍ صحيح فقط (الجلسة مفتوحة باسمه) */
+    /* يحفظ تذكّر الجهاز للأدمن الداخل الآن — الرمز يُولَّد على الخادم وبصمته تُكتب هناك (TASK-B0522) */
     async function rememberDevice(name) {
         needAdmin();
         var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
         var k = normName(name || me);
         if (!k || (me && normName(me) !== k)) throw new Error('لا يُحفَظ على الجهاز إلّا حساب الأدمن الداخل الآن');
-        var r = await readAdmins(), acc = null;
-        r.list.forEach(function (a) { if (a && a.k === k) acc = a; });
-        if (!acc) throw new Error('الحساب غير موجود');
         var old = devLocal(k);
-        var id = toHex(global.crypto.getRandomValues(new Uint8Array(9)));
-        var token = toHex(global.crypto.getRandomValues(new Uint8Array(32)));
-        var rec = { k: acc.k, n: acc.n, s: acc.s, h: await devHash(token), at: new Date().toISOString(), ua: String((global.navigator && navigator.userAgent) || '').slice(0, 120) };
-        var d = db(); if (!d) throw new Error('إعدادات القاعدة غير متاحة');
-        var w = await fetch(d.url + '/rest/v1/gmt_settings?on_conflict=key', {
-            method: 'POST', headers: restHeaders(d, { Prefer: 'resolution=merge-duplicates,return=minimal' }),
-            body: JSON.stringify([{ key: DEV_KEY + id, value: JSON.stringify(rec) }])
-        });
-        if (!w.ok) throw new Error('تعذّر حفظ تذكّر الجهاز (HTTP ' + w.status + ')');
-        var back = await readDevRec(id);                         /* لا نصدّق الكتابة قبل أن نقرأها */
-        if (!back || back.h !== rec.h) throw new Error('تذكّر الجهاز لم يثبت في القاعدة — لم يُحفَظ');
+        var r = await srv({ a: 'dev_remember', token: await needToken(), old: old ? old.id : '', ua: String((global.navigator && navigator.userAgent) || '').slice(0, 120) });
+        if (!r.ok || !r.id || !r.t) throw new Error('تعذّر حفظ تذكّر الجهاز');
         try {
-            var keep = devAll().filter(function (x) { return x.k !== acc.k; });
-            keep.unshift({ id: id, t: token, k: acc.k, n: acc.n, at: rec.at });
+            var keep = devAll().filter(function (x) { return x.k !== r.k; });
+            keep.unshift({ id: r.id, t: r.t, k: r.k, n: r.n, at: r.at });
             devWrite(keep);
-        } catch (e) { await delDevRec(d, id); throw new Error('تخزين الجهاز محجوب — لا يمكن التذكّر'); }
-        if (old && old.id !== id) await delDevRec(d, old.id);
-        auditEvent('admin_device_remember', acc.n);
-        return { name: acc.n };
+        } catch (e) { try { await srv({ a: 'dev_forget', id: r.id, t: r.t }); } catch (_) {} throw new Error('تخزين الجهاز محجوب — لا يمكن التذكّر'); }
+        auditEvent('admin_device_remember', r.n);
+        return { name: r.n };
     }
-    /* يفتح وضع الإدارة من التذكّر: {ok,name} · {ok:false, offline:true} (يبقى التذكّر) · {ok:false, gone:true} (سقط ومُحي)
-       k = الحساب المطلوب (مطبَّعاً)؛ بلاه ⇒ أحدث حسابٍ مُذكَّر. */
+    /* يفتح وضع الإدارة من التذكّر: {ok,name} · {ok:false, offline:true} (يبقى التذكّر) · {ok:false, gone:true} (سقط ومُحي) */
     var _restoring = {};
     function restoreDevice(k) {
         var loc = devLocal(k == null ? null : k);
@@ -488,23 +419,18 @@
         if (_restoring[rk]) return _restoring[rk];
         _restoring[rk] = (async function () {
             if (!loc) return { ok: false, none: true };
-            try { if (global.GMTRole && global.GMTRole.isAdmin && global.GMTRole.isAdmin() && normName(global.GMTRole.name()) === loc.k) return { ok: true, name: global.GMTRole.name() }; } catch (e) {}
-            var rec, r;
-            try { rec = await readDevRec(loc.id); r = await readAdmins(); }
+            try { if (global.GMTRole && global.GMTRole.isAdmin && global.GMTRole.isAdmin() && normName(global.GMTRole.name()) === loc.k && token()) return { ok: true, name: global.GMTRole.name() }; } catch (e) {}
+            var r;
+            try { r = await srv({ a: 'dev_restore', id: loc.id, t: loc.t, k: loc.k }); }
             catch (e) { return { ok: false, offline: true, error: (e && e.message) || 'لا اتصال' }; }
-            var acc = null;
-            r.list.forEach(function (a) { if (a && a.k === loc.k) acc = a; });
-            var good = false;
-            try { good = !!(rec && acc && rec.k === acc.k && rec.s === acc.s && same(String(rec.h || ''), await devHash(loc.t))); } catch (e) { good = false; }
-            if (!good) {
-                /* حسابٌ حُذف · كلمة سرٍّ تغيّرت · أُلغي الجهاز من مكانٍ آخر ⇒ التذكّر سقط: نمحوه كي لا نعيد السؤال في كل فتح */
+            if (!r.valid) {
                 try { devWrite(devAll().filter(function (x) { return x.k !== loc.k; })); } catch (e) {}
-                if (rec) { var d0 = db(); if (d0) await delDevRec(d0, loc.id); }     /* والسجلّ الساقط من القاعدة أيضاً */
                 return { ok: false, gone: true };
             }
-            try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(acc.n); else { sessionStorage.setItem('gmt_admin_mode', '1'); sessionStorage.setItem('gmt_admin_name', acc.n); } } catch (e) {}
-            try { localStorage.setItem('gmt_admin_last', acc.n); } catch (e) {}
-            return { ok: true, name: acc.n };
+            setToken(r.token);
+            try { if (global.GMTRole && global.GMTRole.grant) global.GMTRole.grant(r.name); else { sessionStorage.setItem('gmt_admin_mode', '1'); sessionStorage.setItem('gmt_admin_name', r.name); } } catch (e) {}
+            try { localStorage.setItem('gmt_admin_last', r.name); } catch (e) {}
+            return { ok: true, name: r.name };
         })().finally(function () { delete _restoring[rk]; });
         return _restoring[rk];
     }
@@ -513,15 +439,14 @@
         var all = devAll(), gone = all.filter(function (x) { return k == null || x.k === k; });
         if (!gone.length) return true;
         try { devWrite(all.filter(function (x) { return !(k == null || x.k === k); })); } catch (e) {}
-        var d = db();
-        if (d) { for (var i = 0; i < gone.length; i++) await delDevRec(d, gone[i].id); }
+        for (var i = 0; i < gone.length; i++) { try { await srv({ a: 'dev_forget', id: gone[i].id, t: gone[i].t }); } catch (e) {} }
         gone.forEach(function (x) { auditEvent('admin_device_forget', x.n); });
         return true;
     }
     function rememberedDevice(k) { var o = devLocal(k == null ? null : k); return o ? { name: o.n, k: o.k, at: o.at || '' } : null; }
     function rememberedAll() { return devAll().map(function (o) { return { name: o.n, k: o.k, at: o.at || '' }; }); }
 
-    async function listAdmins() { var r = await readAdmins(); return r.list.map(function (a) { return { name: a.n, at: a.at || '', by: a.by || '' }; }); }
+    async function listAdmins() { var r = await srv({ a: 'list', token: await needToken() }); return r.list || []; }
     function needAdmin() {
         if (!global.GMTRole || !global.GMTRole.isAdmin || !global.GMTRole.isAdmin()) throw new Error('إدارة الحسابات للأدمن وحده — ادخل بحسابك أوّلاً');
     }
@@ -530,34 +455,21 @@
         if (pw.length < 4) return 'كلمة السرّ قصيرة جداً (٤ أحرف على الأقلّ)';
         return '';
     }
+    var ERR = { exists: 'هذا الاسم موجود', missing: 'الحساب غير موجود', self: 'لا تحذف حسابك أنت — اطلب من أدمنٍ آخر', last: 'هذا آخر حساب أدمن — لا يُحذف', bad: 'بيانات غير صالحة' };
+    async function adminOp(body) { var r = await srv(Object.assign({ token: await needToken() }, body)); if (!r.ok) throw new Error(ERR[r.error] || 'تعذّر الحفظ'); return r; }
     async function addAdmin(name, pw) {
         needAdmin();
         var e0 = badName(name) || pwProblem(pw); if (e0) throw new Error(e0);
-        var r = await readAdmins(), k = normName(name);
-        if (r.list.some(function (a) { return a.k === k; })) throw new Error('هذا الاسم موجود');
-        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
-        r.list.push(await makeAccount(name, pw, me));
-        await writeAdmins(r.list); auditEvent('admin_add', String(name).trim()); return true;
+        await adminOp({ a: 'add', name: String(name).trim(), pw: pw }); auditEvent('admin_add', String(name).trim()); return true;
     }
     async function setAdminPassword(name, pw) {
         needAdmin();
         var e0 = pwProblem(pw); if (e0) throw new Error(e0);
-        var r = await readAdmins(), k = normName(name), acc = null;
-        r.list.forEach(function (a) { if (a.k === k) acc = a; });
-        if (!acc) throw new Error('الحساب غير موجود');
-        var fresh = await makeAccount(acc.n, pw, acc.by);
-        acc.s = fresh.s; acc.i = fresh.i; acc.h = fresh.h; acc.pw_at = new Date().toISOString();
-        await writeAdmins(r.list); auditEvent('admin_pw', acc.n); return true;
+        await adminOp({ a: 'setpw', name: name, pw: pw }); auditEvent('admin_pw', name); return true;
     }
     async function removeAdmin(name) {
         needAdmin();
-        var r = await readAdmins(), k = normName(name);
-        if (!r.list.some(function (a) { return a.k === k; })) throw new Error('الحساب غير موجود');
-        var me = ''; try { me = global.GMTRole.name ? global.GMTRole.name() : ''; } catch (e) {}
-        if (normName(me) === k) throw new Error('لا تحذف حسابك أنت — اطلب من أدمنٍ آخر');
-        if (r.list.length <= 1) throw new Error('هذا آخر حساب أدمن — لا يُحذف');
-        var gone = ''; r.list.forEach(function (a) { if (a.k === k) gone = a.n; });
-        await writeAdmins(r.list.filter(function (a) { return a.k !== k; })); auditEvent('admin_remove', gone); return true;
+        var r = await adminOp({ a: 'remove', name: name }); auditEvent('admin_remove', r.name || name); return true;
     }
 
     global.GMTAuth = {
@@ -570,7 +482,7 @@
             list: listAdmins, add: addAdmin, setPassword: setAdminPassword, remove: removeAdmin,
             /* (١٨ ت١) «تذكّر هذا الجهاز» — رمزٌ على الجهاز وبصمته في القاعدة (لا كلمة سرّ محفوظة) */
             rememberDevice: rememberDevice, restoreDevice: restoreDevice, forgetDevice: forgetDevice, remembered: rememberedDevice, rememberedAll: rememberedAll,
-            normalize: normName, _audit: auditEvent
+            normalize: normName, _audit: auditEvent, token: token, clearToken: function () { setToken(''); }
         }
     };
 }(typeof window !== 'undefined' ? window : this));
