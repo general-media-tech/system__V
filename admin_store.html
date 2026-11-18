@@ -602,7 +602,7 @@ window.GMT_INTERNAL = 1;</script>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261119k"></script>
+  <script src="gmt-core.js?v=20261119l"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261117h" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -1225,11 +1225,13 @@ async function fetchStore(){ const {data,error}=await _sb.from(CONFIG.TABLE_STOR
    وما عدّلته/حذفته أنت يُكتب كما فعلت. */
 let _prodBase = new Map();
 function _snapProds(list){ _prodBase = new Map((list || []).map(p => [String(p.id), JSON.stringify(p)])); }
-async function _mergeProducts(local){
-    const rec = await fetchStore(), fresh = Array.isArray(rec && rec.products) ? rec.products : [];
+async function _mergeProducts(local, rec){
+    rec = rec || await fetchStore(); const fresh = Array.isArray(rec && rec.products) ? rec.products : [];
     const fMap = new Map(fresh.map(p => [String(p.id), p])), localIds = new Set(local.map(p => String(p.id)));
-    const out = local.map(p => { const id = String(p.id), b = _prodBase.get(id), f = fMap.get(id);
-        return (f && b !== undefined && JSON.stringify(p) === b && JSON.stringify(f) !== b) ? f : p; });
+    const out = [];
+    local.forEach(p => { const id = String(p.id), b = _prodBase.get(id), f = fMap.get(id), mine = b === undefined || JSON.stringify(p) !== b;
+        if (!f && !mine) return;                                   /* (TASK-B0525) حُذف من جهةٍ أخرى ولم تعدّله أنت ⇒ لا يُعاد */
+        out.push((f && !mine && JSON.stringify(f) !== b) ? f : p); });
     fresh.forEach(f => { const id = String(f.id); if (!localIds.has(id) && !_prodBase.has(id)) out.push(f); });
     return out;
 }
@@ -1251,7 +1253,22 @@ async function _branchesSave(list){
 }
 async function updateField(field,value){
     if (field === 'branches') return _branchesSave(value);
-    if (field === 'products') { value = await _mergeProducts(value); adminData.products = value; }
+    /* (TASK-B0525 · تنبيه الحارس «نموذج بيانات المتجر: آخر كتابة تفوز») الكتابة مشروطة بأنّ الكتالوج لم يتغيّر منذ قرأناه (updated_at):
+       تغيّر بين القراءة والكتابة ⇒ يُعاد الدمج على النسخة الأحدث (حتى ٣ مرّات) — لا تُمحى تعديلات جهازٍ آخر */
+    if (field === 'products') {
+        const local = value;
+        for (let i = 0; i < 3; i++) {
+            const rec = await fetchStore(); const merged = await _mergeProducts(local, rec);
+            let q = _sb.from(CONFIG.TABLE_STORE).update(rec && ('updated_at' in rec) ? { products: merged, updated_at: new Date().toISOString() } : { products: merged }).eq('id', 1);
+            if (rec && ('updated_at' in rec)) q = rec.updated_at ? q.eq('updated_at', rec.updated_at) : q.is('updated_at', null);
+            const { data, error } = await q.select('id'); if (error) throw error;
+            if (Array.isArray(data) && data.length) { value = merged; adminData.products = merged; break; }
+            if (i === 2) throw new Error('الكتالوج يتغيّر الآن من جهازٍ آخر — أعد الحفظ بعد لحظة');
+        }
+        _familyImagesToInv(value); _listingFieldsToInv(value); _snapProds(value);
+        try { if (window.GMTStoreSync && GMTStoreSync.homePublish) GMTStoreSync.homePublish(); } catch (_) {}
+        return;
+    }
     const {error}=await _sb.from(CONFIG.TABLE_STORE).update({[field]:value}).eq('id',1); if(error)throw error;
     if (field === 'products') { _familyImagesToInv(value); _listingFieldsToInv(value); _snapProds(value); }
     /* (TASK-0300) أيّ حفظٍ هنا ⇒ نسخة واجهة المتجر الخفيفة تُعاد (عميل supabase هنا لا يمرّ باعتراض fetch) */
