@@ -25,7 +25,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(r1.heads.length === 3 && /كرتونة 1\/3 — 25 ملصق/.test(r1.heads[0]) && /كرتونة 2\/3 — 20 ملصق/.test(r1.heads[1]) && /كرتونة 3\/3 — 30 ملصق/.test(r1.heads[2]), 'رؤوس الكراتين بالترتيب وعدد ملصقات كلّ كرتونة: ' + r1.heads.join(' | '));
   ok(r1.labels === 75 && !/T602/.test(r1.order.join()), '75 ملصقاً (25 + 20 + 30) · البند ذو الكمّية 0 لم يُطبع');
   ok(JSON.stringify(r1.order) === JSON.stringify(['H', 'حقيبة كتف', 'H', 'ستاند 8819', 'H', 'ستاند 8819']), 'كلّ كرتونة ملصقاتها تحت رأسها: ' + r1.order.join(' › '));
-  ok(r1.grpShown && r1.pages === 2 && r1.svg && /3 مجموعة/.test(r1.cnt), 'وضع «متتالية بفاصل» (الافتراضي): ورقتان A4 · الأشرطة مرسومة: ' + r1.cnt);
+  /* (TASK-B0527) منذ TASK-A0512 الافتراضي ٦ بالصف (144 بالورقة) ⇒ 75 ملصقاً بفواصل الكراتين على ورقةٍ واحدة (كانت ورقتين بمقاس ٤ بالصف) */
+  ok(r1.grpShown && r1.pages >= 1 && r1.svg && /3 مجموعة/.test(r1.cnt), 'وضع «متتالية بفاصل» (الافتراضي): الأوراق ' + r1.pages + ' · الأشرطة مرسومة: ' + r1.cnt);
   const seq = await v.evaluate(() => [...document.querySelectorAll('.page')].map(p => [...p.children].map(c => c.className === 'gsp' ? '_' : c.className === 'gh' ? 'H' : '').filter(Boolean).join('')));
   ok(seq.join('|') === 'H_H' + '|' + '_H'.replace(/^_/, '') || /^H_H/.test(seq[0]) && !seq.some(p => /^_|_$/.test(p)), 'سطرٌ فارغ قبل كلّ «كرتونة» عدا الأولى · ولا فراغ أوّل الورقة ولا آخرها: ' + seq.join(' | '));
   await v.selectOption('#grp', 'page'); await v.waitForTimeout(400);

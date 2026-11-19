@@ -50,10 +50,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(+pB.price === 13.97, '④ سعر قيمة العائلة (58mm) ⇐ سعر منتجها 13.97 ' + pB.price);
   // ③ عرض المتجر
   const { browser: b2, pg: p2 } = await H.open('store.html', { w: 390, h: 800, wait: 6000, init: '' });
-  await H.call('/rest/v1/gmt_store?id=eq.1', { products: [{ id: 'p_cam', name: 'كاميرا', price: 550, inv_id: A.id }] }, 'PATCH');
+  /* (TASK-B0526 · قرار المالك seq 824 «الجرد مصدر وحيد») القائمة المربوطة تُعرض بسعر الجرد (579.99 بعد ④) — والتقريب نفسه يُختبر على قائمةٍ غير مربوطة بـ550 */
+  await H.call('/rest/v1/gmt_store?id=eq.1', { products: [{ id: 'p_cam', name: 'كاميرا', price: 550, inv_id: A.id }, { id: 'p_free', name: 'غير مربوط', price: 550 }] }, 'PATCH');
   await p2.reload(); await sleep(6000);
-  const shown = await p2.evaluate(() => (typeof store !== 'undefined' && store.products || []).map(p => p.price));
-  ok(shown.indexOf(549.99) !== -1, '③ المتجر يعرض 550 بـ 549.99 ' + JSON.stringify(shown));
+  const shown = await p2.evaluate(() => Object.fromEntries((typeof store !== 'undefined' && store.products || []).map(p => [p.id, p.price])));
+  ok(shown.p_free === 549.99, '③ المتجر يعرض 550 بـ 549.99 (قائمة غير مربوطة) ' + JSON.stringify(shown));
+  ok(shown.p_cam === 579.99, '③ القائمة المربوطة بسعر الجرد (579.99) لا بنسختها المحفوظة 550 ' + JSON.stringify(shown));
   await b2.close();
   const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource|favicon|example\.com/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));

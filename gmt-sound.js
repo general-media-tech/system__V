@@ -1029,7 +1029,7 @@
       ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'معرض الأصوات');
       /* (OWN-09#60) ألوانٌ بمتغيّرات CSS مع الوضع الداكن · safe-area لشاشات النوتش */
       var css = '#gmt-snd-gal{--g-bg:#f8fafc;--g-card:#fff;--g-bd:#e2e8f0;--g-tx:#0f172a;--g-mut:#64748b;--g-on:#fef3c7;position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:calc(14px + env(safe-area-inset-top,0px)) calc(14px + env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) calc(14px + env(safe-area-inset-left,0px));direction:rtl;font-family:Cairo,Tahoma,sans-serif}' +
-        '@media (prefers-color-scheme:dark){#gmt-snd-gal{--g-bg:#0f172a;--g-card:#1e293b;--g-bd:#334155;--g-tx:#f1f5f9;--g-mut:#94a3b8;--g-on:#422006}}' +
+        /* (TASK-B0527) لا وضع داكن في النظام (قرار المالك · t_no_dark) — أُزيلت قاعدة الداكن من معرض الأصوات */
         '#gmt-snd-gal .g-win{background:var(--g-bg);color:var(--g-tx);border-radius:18px;width:min(480px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)}' +
         '#gmt-snd-gal .g-btn{border:1px solid var(--g-bd);background:var(--g-card);color:var(--g-tx);border-radius:10px;padding:6px 12px;font:inherit;font-weight:800;font-size:12.5px;cursor:pointer}' +
         '#gmt-snd-gal .g-chip{border:1px solid var(--g-bd);background:var(--g-card);color:var(--g-tx);border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}' +

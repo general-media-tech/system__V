@@ -52,9 +52,10 @@
       '#gmt-ls .lc.on .x{display:grid}#gmt-ls .lc .x:hover{background:rgba(213,0,28,.12)}' +
       '#gmt-lb{flex:1;position:relative;min-height:0}' +
       '#gmt-lb iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:none}#gmt-lb iframe.on{display:block}' +
-      '.gl-resume{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:1px solid rgba(213,0,28,.25);border-radius:14px;background:#fff}' +
-      '.gl-resume b{font-size:13.5px}.gl-resume .sp{flex:1}' +
-      '.gl-resume a{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:11px;background:#fff1f2;color:#D5001C;font-weight:800;font-size:13px;text-decoration:none;border:1px solid rgba(213,0,28,.25)}' +
+      '.gl-resume{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 0 14px;padding:10px 12px;border:1px solid rgba(213,0,28,.25);border-radius:14px;background:#fff;position:relative;z-index:1}' +
+      '.gl-resume::-webkit-scrollbar{display:none}' +
+      '.gl-resume b{font-size:13.5px;white-space:nowrap;flex:none}.gl-resume .sp{flex:1}' +
+      '.gl-resume a{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:11px;background:#fff1f2;color:#D5001C;font-weight:800;font-size:13px;text-decoration:none;border:1px solid rgba(213,0,28,.25)}' +
       '.gl-resume a .d{width:7px;height:7px;border-radius:50%;background:#D5001C}' +
       '@media print{#gmt-lh{display:none!important}}';
     (doc.head || doc.documentElement).appendChild(s);
@@ -89,6 +90,7 @@
   /* «تكمل من حيث توقفت» أعلى الرئيسيّة */
   function resumeRow() {
     var main = doc.getElementById('main'); if (!main) return;
+    css(); /* (المالك seq B864 «تشوّه بصري») بعد إعادة فتح التطبيق كان الصفّ يُرسم قبل حقن أنماطه ⇒ روابط زرقاء خام فوق البطاقة */
     var r = doc.getElementById('gl-resume');
     if (!L.length) { if (r) r.parentNode.removeChild(r); return; }
     if (!r) { r = doc.createElement('div'); r.id = 'gl-resume'; r.className = 'gl-resume'; main.insertBefore(r, main.firstChild); }

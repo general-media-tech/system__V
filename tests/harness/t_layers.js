@@ -51,6 +51,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     // ٧) زرّ الرجوع ⇒ الرئيسيّة
     await sleep(300); await pg.goBack().catch(() => {}); await sleep(500);
     ok(await pg.evaluate(() => GMTLayers.active() === null && location.pathname.endsWith('home.html')), W + ': زرّ الرجوع ⇒ الرئيسيّة (لا خروج من التطبيق)');
+    /* (المالك seq B864 «تشوّه بصري») إعادة فتح التطبيق ⇒ «تكمل» مُنسَّق (لا روابط زرقاء خام) وفي سطرٍ واحد لا يغطّي البطاقة */
+    await pg.evaluate(() => { try { GMTLayers.list(); } catch (_) {} }); await pg.reload().catch(() => {}); await sleep(3500);
+    st = await pg.evaluate(() => { const r = document.getElementById('gl-resume'), a = r && r.querySelector('a'); if (!a) return null;
+      const cr = getComputedStyle(r), ca = getComputedStyle(a), b = r.getBoundingClientRect(), nx = r.nextElementSibling && r.nextElementSibling.getBoundingClientRect();
+      return { css: !!document.getElementById('gmt-layers-css'), deco: ca.textDecorationLine, bd: cr.borderTopStyle, h: b.height, overlap: nx ? nx.top < b.bottom - 1 : false }; });
+    ok(st && st.css && st.deco === 'none' && st.bd === 'solid' && st.h < 70 && !st.overlap, W + ': بعد إعادة الفتح «تكمل» مُنسَّق وفي سطر: ' + JSON.stringify(st));
     const real = o.errs.filter(e => !/status of (4\d\d|503)|Failed to load resource|favicon/.test(e));
     ok(!real.length, W + ': لا أخطاء JS ' + real.slice(0, 3).join(' | '));
     await o.browser.close();
