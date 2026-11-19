@@ -1,5 +1,6 @@
 // (25 ت1 · TASK-0169) المالك seq 83: «لما يجري تعديل على أيّ أوردر يسألني إذا نرجع نبلّغ أو لا».
 // بعد حفظ أيّ تعديل ⇒ «نرجع نبلّغ؟» · «بلّغه الآن» ⇒ آخر تبليغٍ وصل الزبون يُعاد (أو «استلام الطلب» إن لم يُبلَّغ) · «لا» ⇒ لا شيء
+// · (B0511) سؤال سجلّ الزبون «القديم أم الجديد؟» يسبق سؤال التبليغ حين يتغيّر الاسم مرّةً ثانية
 // · تغيّر الرقم بعد تبليغٍ سابق ⇒ «إعادة التبليغ» للرقم الجديد كما كان.
 const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
@@ -15,7 +16,10 @@ const press = (pg, t) => pg.evaluate(t => { const o = [...document.querySelector
       { name: 'زبون رقم ' + w, phone: '0933000953', product: 'حامل', qty: 1, price: 30, status: 'pending', branch: 'حلب', address: 'حماة', shipping_company: 'المفتي', notified_ship_at: new Date().toISOString() }]);
     const { browser, pg, errs } = await H.open('orders.html', { w, h, mobile: w < 500, wait: 4500 });
     await pg.evaluate(() => { window.__calls = []; window.notifyOrderReceived = async o => { __calls.push(['received', o.id]); }; window.shareOrder = (id, mode) => { __calls.push(['share', id, mode]); }; });
-    const edit = (id, f) => pg.evaluate(async ({ id, f }) => { await loadOrders(); await openEditModal(id); document.getElementById('edit-name').value += ' م'; if (f) document.getElementById('edit-phone').value = f; document.getElementById('saveEditBtn').click(); }, { id, f });
+    const edit = (id, f) => pg.evaluate(async ({ id, f }) => { await loadOrders(); await openEditModal(id); document.getElementById('edit-name').value += ' م'; if (f) document.getElementById('edit-phone').value = f; document.getElementById('saveEditBtn').click(); }, { id, f })
+      /* (B0511) تعديل الاسم مرّةً ثانية ⇒ سجلّ الزبون يسأل «القديم أم الجديد؟» (سلوكٌ صحيح) ⇒ نختار الجديد ثمّ يأتي سؤال التبليغ */
+      .then(() => pg.waitForFunction(() => [...document.querySelectorAll('.gmtask-ov')].some(x => /القديم أم الجديد|نرجع نبلّغ|إعادة التبليغ/.test(x.innerText)), null, { timeout: 6000 }).catch(() => null))
+      .then(() => pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /القديم أم الجديد/.test(x.innerText)); const b = o && [...o.querySelectorAll('button')].find(b => /^الجديد/.test(b.textContent.trim())); if (b) b.click(); return !!b; }));
     // ١) لم يُبلَّغ بعد ⇒ «تبليغ استلام الطلب» · «بلّغه الآن» ⇒ يُرسَل
     await edit(oNew.id);
     let d = await ask(pg);
