@@ -1,5 +1,6 @@
 // معايرة: أيّ تشويهات تفشل في القديم وتنجح في الجديد؟
 const H = require('./h.js'); const fs = require('fs');
+if (!require('fs').existsSync('/tmp/gmt-receipt-old.js')) { console.log('SKIP — مقارنةٌ لمرّةٍ واحدة: تحتاج نسخة gmt-receipt.js القديمة في /tmp/gmt-receipt-old.js (git show <commit>:gmt-receipt.js)'); process.exit(0); }
 (async () => {
   await H.seed();
   const { browser, pg } = await H.open('orders.html', { init: H.ADMIN_INIT, w: 390, h: 800, wait: 3500 });

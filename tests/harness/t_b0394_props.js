@@ -16,7 +16,7 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   ok(low.length === 1 && /يبقى 2/.test(low[0]) && /\(5\)/.test(low[0]), '٧ بيعٌ يُنزل المخزون تحت الحدّ الأدنى ⇒ تنبيهٌ واحد (لا يتكرّر للمنتج نفسه): ' + low.join(' | '));
   ok(last.length === 1, '٧ بيع آخر قطعة ⇒ «آخر قطعة … اطلب نقلاً أو شراءً»: ' + last.join(' | '));
   // ١٠ التصدير
-  await o.pg.evaluate(() => openMovesLog()); await o.pg.waitForTimeout(2500);
+  await o.pg.evaluate(() => openMovesLog()); await o.pg.waitForFunction(() => typeof _moves !== 'undefined' && _moves.length > 0, null, { timeout: 15000 }).catch(() => {}); await o.pg.waitForTimeout(300);
   const [dl] = await Promise.all([o.pg.waitForEvent('download', { timeout: 8000 }), o.pg.click('#mv-xls')]);
   const fp = await dl.path(); const txt = require('fs').readFileSync(fp, 'utf8');
   ok(/^﻿التاريخ,النوع,الرقم/.test(txt) && /TRF-91001/.test(txt) && /\.csv$/.test(dl.suggestedFilename()), '١٠ «⬇️ إكسل» ينزّل ملفّاً بالعربية (BOM) فيه الحركات: ' + dl.suggestedFilename() + ' · ' + JSON.stringify(txt.slice(0, 260)));
@@ -32,7 +32,8 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   await s.pg.goto(H.BASE + 'store.html', { waitUntil: 'domcontentloaded' }); await s.pg.waitForTimeout(4000);
   const nw = await s.pg.evaluate(() => { const secs = [...document.querySelectorAll('[data-container="products-area"] > section[data-category-section]')]; const n = document.querySelector('section[data-category-section="__new"]');
     return { first: secs[0] && secs[0].dataset.categorySection, title: n && n.querySelector('h3').textContent, names: n ? [...n.querySelectorAll('.line-clamp-2,h4')].map(x => x.textContent.trim()).filter(Boolean) : [], cards: n ? n.querySelectorAll('.quick-cart-btn').length : 0 }; });
-  ok(nw.first === '__new' && /وصل حديثاً/.test(nw.title) && nw.cards === 6, '١ «🆕 وصل حديثاً» أعلى المتجر بآخر المنتجات (6) · بلا القديم (90 يوماً): ' + JSON.stringify(nw).slice(0, 160));
+  /* (seq B702) «يُوضع بعد الأقسام الأصلية لا في أوّلها» ⇒ القسم الأصليّ c0 أوّلاً ثمّ «وصل حديثاً» */
+  ok(nw.first === 'c0' && /وصل حديثاً/.test(nw.title) && nw.cards === 6, '١ «🆕 وصل حديثاً» بعد الأقسام الأصلية (seq B702) بآخر المنتجات (6) · بلا القديم (90 يوماً): ' + JSON.stringify(nw).slice(0, 160));
   await s.pg.evaluate(() => performSearch('جديد'));
   ok(await s.pg.evaluate(() => document.querySelector('section[data-category-section="__new"]').style.display === 'none'), '١ يُخفى مع البحث كبقيّة الأقسام');
   const real = s.errs.filter(x => !/status of (400|401|404|406|503)|Failed to load resource|AudioContext/.test(x));

@@ -1,5 +1,6 @@
 // طبقات القراءة الجديدة: صور باهتة/ضبابية/مائلة (تحسين التباين) + إيصال بلا باركود (OCR) + لا نتيجة كاذبة
 const H = require('./h.js'); const fs = require('fs');
+if (!require('fs').existsSync('/tmp/gmt-receipt-old.js')) { console.log('SKIP — مقارنةٌ لمرّةٍ واحدة: تحتاج نسخة gmt-receipt.js القديمة في /tmp/gmt-receipt-old.js (git show <commit>:gmt-receipt.js)'); process.exit(0); }
 let fails = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (!c) fails++; };
 (async () => {
   await H.seed();
