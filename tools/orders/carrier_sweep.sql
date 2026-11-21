@@ -33,60 +33,72 @@ create or replace function public.gmt_carrier_cls(r jsonb) returns text language
     else 'road' end
 $f$;
 
+-- (المالك seq 883) كلّ شركة لها موقع تتبّع حيّ: المفتي (gmt-mufti) · سات وبابل (gmt-carrier — المصدر tools/orders/gmt-carrier/index.ts).
+-- القدموس (بوت تيليغرام) ومسارات (رسائل نصّية) لا موقع تتبّع لهما.
+create or replace function public.gmt_carrier_provider(company text) returns text language sql immutable as $p$
+  select case when coalesce(company,'') ~ 'مفت' then 'mufti'
+              when coalesce(company,'') ~* '(^|\s)(سات|sat)(\s|$)|sat[ -]?cargo|سات كارغو' then 'sat'
+              when coalesce(company,'') ~* 'بابل|babel' then 'babel' else null end
+$p$;
+create or replace function public.gmt_carrier_num(company text, tn text) returns text language sql immutable as $p$
+  select case public.gmt_carrier_provider(company)
+    when 'mufti' then regexp_replace(translate(coalesce(tn,''), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'), '[^0-9]', '', 'g')
+    else upper(regexp_replace(translate(coalesce(tn,''), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'), '[^0-9A-Za-z-]', '', 'g')) end
+$p$;
+
 create or replace function public.gmt_carrier_sweep(p_source text default 'cron') returns jsonb
 language plpgsql security definer set search_path = public, extensions as $f$
 declare
-  k text; fn text := 'https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-mufti';
-  o record; nums text[] := '{}'; ids bigint[] := '{}'; prevs jsonb[] := '{}';
+  k text; base text := 'https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/';
+  o record; pv_ text; nums text[]; ids bigint[]; provs text[]; prevs jsonb[];
   part text[]; resp extensions.http_response; d jsonb; m jsonb := '{}'::jsonb; x jsonb;
-  i int; j int; c text; pv jsonb; nv jsonb; n text;
+  i int; j int; c text; pv jsonb; nv jsonb; n text; body jsonb; fn text;
   v_checked int := 0; v_changed int := 0; v_err int := 0; v_note text := null; v_arr int;
 begin
   select key into k from public.gmt_keepalive_targets where project = 'ysawzwtmodkqqbqoiojj';
-  if k is null then raise exception 'لا مفتاح للقاعدة الرئيسية في gmt_keepalive_targets'; end if;
-
-  -- المرشّحون: شحنات المفتي في الطريق، ومعها «بانتظار التحصيل» لكشف المرتجع المتأخّر
+  if k is null then raise exception 'no main key'; end if;
+  nums := '{}'; ids := '{}'; provs := '{}'; prevs := '{}';
   for o in
-    select id, carrier_live,
-           regexp_replace(translate(coalesce(tracking_number,''), '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'), '[^0-9]', '', 'g') as num
+    select id, carrier_live, public.gmt_carrier_provider(shipping_company) pr, public.gmt_carrier_num(shipping_company, tracking_number) num
     from public.gmt_orders
-    where status in ('shipped', 'delivered') and coalesce(is_deleted, false) = false
-      and coalesce(shipping_company, '') ~ 'مفت'
+    where status in ('shipped', 'delivered') and coalesce(is_deleted, false) = false and public.gmt_carrier_provider(shipping_company) is not null
   loop
-    if o.num <> '' then nums := nums || o.num; ids := ids || o.id; prevs := prevs || coalesce(o.carrier_live, 'null'::jsonb); end if;
+    if o.num <> '' then nums := nums || o.num; ids := ids || o.id; provs := provs || o.pr; prevs := prevs || coalesce(o.carrier_live, 'null'::jsonb); end if;
   end loop;
-
   perform extensions.http_set_curlopt('CURLOPT_TIMEOUT', '120');
-  i := 1;
-  while i <= coalesce(array_length(nums, 1), 0) loop
-    part := (select array_agg(distinct u) from unnest(nums[i:i + 9]) u);
-    begin
-      select * into resp from extensions.http(('POST', fn,
-        array[extensions.http_header('apikey', k), extensions.http_header('Authorization', 'Bearer ' || k)],
-        'application/json', jsonb_build_object('nums', to_jsonb(part))::text)::extensions.http_request);
-      d := case when resp.status = 200 then resp.content::jsonb else null end;
-      if d is null or coalesce((d->>'ok')::boolean, false) = false then
-        v_note := coalesce(d->>'error', 'http ' || resp.status);
-        v_err := v_err + coalesce(array_length(part, 1), 0);
-      else
-        for x in select * from jsonb_array_elements(d->'out') loop m := m || jsonb_build_object(x->>'n', x); end loop;
-      end if;
-    exception when others then v_note := left(sqlerrm, 200); v_err := v_err + coalesce(array_length(part, 1), 0);
-    end;
-    i := i + 10;
+  foreach pv_ in array array['mufti', 'sat', 'babel'] loop
+    select array_agg(distinct nums[q]) into part from generate_subscripts(nums, 1) q where provs[q] = pv_;
+    continue when part is null;
+    i := 1;
+    while i <= array_length(part, 1) loop
+      fn := case pv_ when 'mufti' then 'gmt-mufti' else 'gmt-carrier' end;
+      body := case pv_ when 'mufti' then jsonb_build_object('nums', to_jsonb(part[i:i + 9])) else jsonb_build_object('company', pv_, 'nums', to_jsonb(part[i:i + 9])) end;
+      begin
+        select * into resp from extensions.http(('POST', base || fn,
+          array[extensions.http_header('apikey', k), extensions.http_header('Authorization', 'Bearer ' || k)],
+          'application/json', body::text)::extensions.http_request);
+        d := case when resp.status = 200 then resp.content::jsonb else null end;
+        if d is null or coalesce((d->>'ok')::boolean, false) = false then
+          v_note := pv_ || ': ' || coalesce(d->>'error', 'http ' || resp.status);
+          v_err := v_err + coalesce(array_length(part[i:i + 9], 1), 0);
+        else
+          for x in select value from jsonb_array_elements(d->'out') loop m := m || jsonb_build_object(pv_ || ':' || (x->>'n'), x); end loop;
+        end if;
+      exception when others then v_note := pv_ || ': ' || left(sqlerrm, 180); v_err := v_err + 1;
+      end;
+      i := i + 10;
+    end loop;
   end loop;
-
   for j in 1 .. coalesce(array_length(ids, 1), 0) loop
-    n := nums[j]; x := m->n; pv := prevs[j];
-    continue when x is null;                          -- لا ردّ (خطأ دفعة) ⇒ لا لمسَ لما هو محفوظ
+    n := nums[j]; x := m->(provs[j] || ':' || n); pv := prevs[j];
+    continue when x is null;
     c := public.gmt_carrier_cls(x);
     v_checked := v_checked + 1;
-    if c = 'err' then v_err := v_err + 1; continue; end if;   -- خطأ رقمٍ واحد لا يمحو آخر حالة معروفة
-    if pv is not null and pv <> 'null'::jsonb and pv->>'cls' = c and coalesce(pv->>'status','') = coalesce(x->>'status','') then
-      continue;                                       -- لا تغيّر ⇒ لا كتابة
-    end if;
+    if c = 'err' then v_err := v_err + 1; continue; end if;
+    if pv is not null and pv <> 'null'::jsonb and pv->>'cls' = c and coalesce(pv->>'status','') = coalesce(x->>'status','') then continue; end if;
     nv := jsonb_build_object(
-      'cls', c, 'level', coalesce((x->>'level')::int, 0), 'status', coalesce(x->>'status', ''), 'status_at', coalesce(x->>'status_at', ''),
+      'cls', c, 'provider', provs[j], 'level', coalesce((x->>'level')::int, 0), 'status', coalesce(x->>'status', ''), 'status_at', coalesce(x->>'status_at', ''),
+      'steps', coalesce((select jsonb_agg(s->>'label') from jsonb_array_elements(coalesce(x->'steps','[]'::jsonb)) s), '[]'::jsonb),
       'receiver', coalesce(x#>>'{receiver,desc}', ''), 'checked_at', now(),
       'changed_at', case when pv is not null and pv <> 'null'::jsonb and pv->>'cls' = c then pv->'changed_at' else to_jsonb(now()) end,
       'prev', case when pv is not null and pv <> 'null'::jsonb and pv->>'cls' <> c then pv->'cls' else coalesce(pv->'prev', 'null'::jsonb) end,
@@ -94,7 +106,6 @@ begin
     update public.gmt_orders set carrier_live = nv where id = ids[j];
     v_changed := v_changed + 1;
   end loop;
-
   select count(*) into v_arr from public.gmt_orders
    where status = 'shipped' and coalesce(is_deleted, false) = false and notified_arrival_at is null and carrier_live->>'cls' = 'branch';
   insert into public.gmt_carrier_log(source, checked, changed, errors, arrived_unnotified, note)

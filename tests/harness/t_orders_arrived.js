@@ -14,6 +14,8 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
     Object.assign({}, base, { name: 'هـ مرتجع عند الشركة', price: 30, tracking_number: '1000005', carrier_live: CL('ret') }),
     Object.assign({}, base, { name: 'و القدموس بُلّغ يدوياً', price: 20, shipping_company: 'القدموس', tracking_number: 'Q77', notified_arrival_at: new Date().toISOString() }),
     Object.assign({}, base, { name: 'ز لم يُفحص', price: 15, tracking_number: '1000007' }),
+    Object.assign({}, base, { name: 'ح سات وصل مدينتك', price: 44, shipping_company: 'سات', tracking_number: 'SAT482100001', carrier_live: CL('branch', { provider: 'sat', steps: ['استلمناه', 'في الطريق', 'وصل مدينتك · مع المندوب', 'وصلك'], status: 'وصل طردك إلى دمشق' }) }),
+    Object.assign({}, base, { name: 'ط بابل في الطريق', price: 33, shipping_company: 'بابل', tracking_number: 'B77001' }),
   ]);
   const id = n => rows.find(r => r.name.startsWith(n)).id;
   const { browser, pg, errs } = await H.open('orders.html', { init: H.ADMIN_INIT, wait: 4500 });
@@ -22,26 +24,34 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   await pg.evaluate(() => switchTab('arrived'));
   await pg.waitForTimeout(400);
   const where = await pg.evaluate(() => { const o = {}; ['notify', 'wait', 'got'].forEach(k => { o[k] = [...document.querySelectorAll('#list-arr-' + k + ' .order-card')].map(c => c.id.replace('card-', '')); }); return o; });
-  ok(where.notify.includes(String(id('أ'))) && where.notify.length === 1, '🔴 «وصلت — بانتظار التبليغ» = أ فقط: ' + JSON.stringify(where.notify));
+  ok(where.notify.includes(String(id('أ'))) && where.notify.includes(String(id('ح'))) && where.notify.length === 2, '🔴 «وصلت — بانتظار التبليغ» = أ (المفتي) + ح (سات): ' + JSON.stringify(where.notify));
   ok(where.wait.includes(String(id('ب'))) && where.wait.includes(String(id('و'))) && where.wait.length === 2, '🟠 «بُلّغ» = ب + القدموس المبلَّغ يدوياً: ' + JSON.stringify(where.wait));
   ok(where.got.length === 1 && where.got[0] === String(id('ج')), '🟢 «استلمها — أكّد الاستلام» = ج');
-  ok(await pg.evaluate(() => document.getElementById('badge-arrived').textContent.trim()) === '4', 'شارة التبويب = 4');
+  ok(await pg.evaluate(() => document.getElementById('badge-arrived').textContent.trim()) === '5', 'شارة التبويب = 5');
   await pg.evaluate(() => switchTab('shipped')); await pg.waitForTimeout(300);
   const ship = await pg.evaluate(() => [...document.querySelectorAll('#list-shipped .order-card')].map(c => c.id.replace('card-', '')));
-  ok(ship.includes(String(id('د'))) && ship.includes(String(id('هـ'))) && ship.includes(String(id('ز'))) && ship.length === 3, '«في الطريق» = الطريق + المرتجع (للتنبيه) + غير المفحوص فقط: ' + JSON.stringify(ship));
+  ok(ship.includes(String(id('د'))) && ship.includes(String(id('هـ'))) && ship.includes(String(id('ز'))) && ship.includes(String(id('ط'))) && ship.length === 4, '«في الطريق» = الطريق + المرتجع (للتنبيه) + غير المفحوص فقط: ' + JSON.stringify(ship));
   // ٢) الحوالة والشارات
   const chip = await pg.evaluate(id => { const c = document.getElementById('card-' + id); return { h: (c.querySelector('[data-hawala]') || {}).textContent || '', k: (c.querySelector('[data-carrier]') || {}).textContent || '' }; }, id('هـ'));
   ok(/الحوالة \$30/.test(chip.h) && /مرتجع/.test(chip.k), 'بطاقة المرتجع: «⚠️ الشركة: مرتجع» + «💵 الحوالة $30»: ' + chip.k + ' | ' + chip.h);
   await pg.evaluate(() => switchTab('arrived')); await pg.waitForTimeout(300);
   const sums = await pg.evaluate(() => ({ n: document.getElementById('sum-arr-wait').textContent, all: document.getElementById('arr-sum').textContent, b: (document.querySelector('#list-arr-wait [data-carrier]') || {}).textContent || '' }));
   ok(/\$70/.test(sums.n), 'مجموع «بُلّغ» = 50 (المطلوب تحصيله لا القيمة) + 20 = $70: ' + sums.n);
-  ok(/\$825/.test(sums.all), 'مجموع الحوالات في «تم الوصول» = 100+50+655+20 = $825: ' + sums.all);
+  ok(/\$869/.test(sums.all), 'مجموع الحوالات في «تم الوصول» = 100+50+655+20+44 = $869: ' + sums.all);
   ok(/منذ 2 أيام/.test(sums.b), '«في فرع الوجهة منذ 2 أيام» من changed_at: ' + sums.b);
   // ٢ب) (المالك seq 881) أداة المراجعة مدموجة في البطاقة: الخطوات الأربع + «حالة الشحنة» + المستلم وتنبيه اختلاف الاسم
   const full = await pg.evaluate(id => { const c = document.getElementById('card-' + id), f = c && c.querySelector('[data-carrier-full]');
     return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '', desc: (f.querySelector('.ml-desc') || {}).textContent || '', rc: /سمير الحلبي/.test(f.textContent), warn: /الاسم مختلف/.test(f.textContent), money: /الحوالة \$100/.test(f.textContent) } : null; }, id('أ'));
   ok(full && full.steps === 4 && /وصل/.test(full.cur) && /تم وصول الشحنة/.test(full.desc), 'بطاقة المفتي فيها شريط الخطوات الأربع (الحالية: وصلت فرع الوجهة) و«حالة الشحنة» بنصّ المفتي: ' + JSON.stringify(full));
   ok(full && full.rc && full.warn && full.money, 'المستلم عندهم + ⚠️ الاسم مختلف + الحوالة على البطاقة');
+  const satCard = await pg.evaluate(id => { const f = document.querySelector('#card-' + id + ' [data-carrier-full]'); return f ? f.textContent.replace(/\s+/g, ' ') : ''; }, id('ح'));
+  ok(/وصل مدينتك/.test(satCard) && /حالة الشحنة عند سات/.test(satCard) && /وصل طردك إلى دمشق/.test(satCard), '(seq 883) بطاقة «سات»: مراحلها هي (وصل مدينتك · مع المندوب) و«حالة الشحنة عند سات»: ' + satCard.slice(0, 120));
+  const carrierCalls = [];
+  await pg.route('**/functions/v1/gmt-carrier', async route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 200, body: 'ok' });
+    const b = JSON.parse(route.request().postData() || '{}'); carrierCalls.push(b.company + ':' + b.nums.join(','));
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, out: b.nums.map(n => b.company === 'babel' ? { n, ok: true, found: true, level: 3, status: 'خرجت للتسليم', steps: ['تكوين الشحنة', 'ضمن النقل', 'خرجت للتسليم', 'تم التسليم'].map((l, i) => ({ label: l, active: i === 2 })) } : { n, ok: true, found: true, level: 3, status: 'وصل طردك إلى دمشق', steps: [] }) }) });
+  });
   // ٣) «افحص الآن»: يحفظ ما تغيّر فقط، بلا سجلّ تراجع
   const patches = [];
   pg.on('request', r => { if (r.method() === 'PATCH' && /gmt_orders/.test(r.url())) patches.push(r.url()); });
@@ -57,12 +67,13 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   const undoBefore = await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem(OU_LS) || '[]').length; } catch (_) { return -1; } });
   await pg.evaluate(() => carrierCheckNow(true));
   await pg.waitForTimeout(800);
-  ok(patches.length === 2, 'حُفظ ما تغيّر فقط: أوردران (د وصل · ز فُحص أوّل مرّة) لا السبعة: ' + patches.length);
+  ok(patches.length === 3, 'حُفظ ما تغيّر فقط: د وصل · ز فُحص أوّل مرّة · ط (بابل) خرجت للتسليم — لا التسعة: ' + patches.length);
+  ok(carrierCalls.includes('babel:B77001') && carrierCalls.includes('sat:SAT482100001'), 'سات وبابل تُفحصان عبر gmt-carrier كلٌّ بشركته: ' + carrierCalls.join(' | '));
   const where2 = await pg.evaluate(() => [...document.querySelectorAll('#list-arr-notify .order-card')].map(c => c.id.replace('card-', '')));
   ok(where2.includes(String(id('د'))), 'د انتقل وحده إلى «وصلت — بانتظار التبليغ» بعد الفحص');
   ok(await pg.evaluate(b => { try { return JSON.parse(localStorage.getItem(OU_LS) || '[]').length === b; } catch (_) { return false; } }, undoBefore), 'الفحص لا يدخل سجلّ التراجع (ليس تعديلاً منك)');
   const log = await H.call('/rest/v1/gmt_carrier_log?select=*&order=at.desc&limit=1', undefined, 'GET').catch(() => null);
-  ok(Array.isArray(log) && log[0] && log[0].source === 'page' && log[0].changed === 2, 'دورة الفحص مسجّلة في gmt_carrier_log (page · changed=2)');
+  ok(Array.isArray(log) && log[0] && log[0].source === 'page' && log[0].changed === 3, 'دورة الفحص مسجّلة في gmt_carrier_log (page · changed=3)');
   // ٤) لا فحص ثانٍ خلال ٣٠ دقيقة عند الفتح
   let fnCalls = 0; pg.on('request', r => { if (/functions\/v1\/gmt-mufti/.test(r.url()) && r.method() === 'POST') fnCalls++; });
   await pg.evaluate(() => carrierCheckNow(false)); await pg.waitForTimeout(500);
