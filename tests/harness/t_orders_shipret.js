@@ -21,7 +21,8 @@ const RI = o => typeof o.return_info === 'string' ? JSON.parse(o.return_info) : 
     Object.assign({ name: 'زبون فاتورة', phone: '0933800003', status: 'shipped', tracking_number: '300003', serial_code: 'ORD-3', invoice_number: 'INV-77', invoice_id: inv.id, is_locked: true }, base),
     Object.assign({}, base, { name: 'زبون قديم', phone: '0933800004', status: 'returned', tracking_number: '300004', serial_code: 'ORD-4', returned_at: '2026-10-28T09:00:00Z',
       return_info: { reason: 'رفض الزبون الاستلام', total: 2, ship_out: 1, ship_back: 1, payer_kind: 'company', payer_name: 'الشركة', at: '2026-10-28T09:00:00Z', prev_status: 'shipped' } }),
-    Object.assign({ name: 'زبون دفع', phone: '0933800005', status: 'shipped', tracking_number: '300005', serial_code: 'ORD-5' }, base)]);
+    Object.assign({ name: 'زبون دفع', phone: '0933800005', status: 'shipped', tracking_number: '300005', serial_code: 'ORD-5' }, base),
+    Object.assign({ name: 'زبون عاد وطلبها', phone: '0933800006', status: 'shipped', tracking_number: '300006', serial_code: 'ORD-6' }, base)]);
   const idOf = n => rows.find(r => r.name === n).id;
   const { browser, pg, errs } = await H.open('orders.html', { w: 390, h: 844, mobile: true, wait: 5000, init: H.ADMIN_INIT });
   const ans = (form, choose, confirm) => pg.evaluate(([form, choose, confirm]) => {
@@ -44,9 +45,12 @@ const RI = o => typeof o.return_info === 'string' ? JSON.parse(o.return_info) : 
     'إنشاء المرتجع ⇒ الأوردر يبقى «في الطريق» · المرتجع «↩️ بالطريق إلينا» بسببه ورقم تتبّعه · بلا مصروف ولا مرتجع فاتورة: ' + JSON.stringify({ st: r1.stage, n: q.length }));
   let g1 = await grand();
   ok(g1.g === g0.g && g1.r === '$200', 'قبل تأكيد الاستلام يبقى في «المجموع الكلي» (لم يتغيّر ' + g0.g + ') · «مرتجع لم يُستلم» ' + g1.r + ' (مع القديم)');
-  const both = await pg.evaluate(id => { switchTab('all'); return { sh: !!document.querySelector('#section-shipped #card-' + id), rt: !!document.querySelector('#list-ret-transit #card-' + id),
-    collect: !!document.querySelector('#section-shipped #card-' + id + ' [data-ret-arrived]'), tag: /الأوردر بحالته/.test((document.querySelector('#section-shipped #card-' + id) || {}).innerText || '') }; }, idOf('زبون رفض'));
-  ok(both.sh && both.rt && both.collect && both.tag, 'الأوردر في «في الطريق» بعلامة المرتجع وزرّ مرحلته · وفي «المرتجعات» معاً: ' + JSON.stringify(both));
+  /* (TASK-A0532 · seq 897 «عملت منها مرتجع ولسه عم تطلع في الطريق») المرتجع القائم في «المرتجعات» وحدها */
+  const both = await pg.evaluate(id => { switchTab('all'); const c = document.querySelector('#list-ret-transit #card-' + id);
+    return { sh: !!document.querySelector('#section-shipped #card-' + id), rt: !!c, alts: c ? [...c.querySelectorAll('[data-ret-actions] button')].map(b => b.textContent.trim()) : [],
+      strip: c ? (c.querySelector('[data-ret-now]') || {}).textContent : '', badgeS: document.getElementById('badge-shipped').textContent }; }, idOf('زبون رفض'));
+  ok(!both.sh && both.rt && both.strip === '↩️ بالطريق' && both.alts.length === 4 && /وصل لمكتب/.test(both.alts[0]) && both.alts.some(t => /استلمناه مباشرة/.test(t)) && both.alts.some(t => /أعِد إرسالها/.test(t)) && both.alts.some(t => /ليس مرتجعاً/.test(t)),
+    'المرتجع خرج من «في الطريق» إلى «المرتجعات» وحدها · شريط المراحل · الخطوة التالية + البدائل (استلمناه مباشرة · أعِد الإرسال · ليس مرتجعاً): ' + JSON.stringify(both));
   let card = await pg.evaluate(id => { switchTab('returned'); const c = document.querySelector('#section-returned #card-' + id); return { inT: !!c.closest('#list-ret-transit'), btn: !!c.querySelector('[data-ret-arrived]'), t: c.innerText }; }, idOf('زبون رفض'));
   ok(card.inT && card.btn && /بالطريق إلينا/.test(card.t) && /R-1/.test(card.t), 'تبويب «↩️ المرتجعات» ⇐ قسم «بالطريق إلينا» · زرّ «📍 وصل لمكتب الشحن»: ' + JSON.stringify(card).slice(0, 300));
   // ③ وصل للمكتب + تبليغ
@@ -72,7 +76,7 @@ const RI = o => typeof o.return_info === 'string' ? JSON.parse(o.return_info) : 
   const g2 = await grand();
   ok(g2.r === '$100' && g2.g === '$' + (parseFloat(g1.g.slice(1).replace(/,/g, '')) - 100).toLocaleString(), 'بعد تأكيد الاستلام فقط يخرج من «المجموع الكلي»: ' + JSON.stringify(g2));
   card = await pg.evaluate(id => { const c = document.querySelector('#section-returned #card-' + id); return { inR: !!c.closest('#list-ret-received'), reship: !!c.querySelector('[data-reship]'), t: c.innerText }; }, idOf('زبون رفض'));
-  ok(card.inR && card.reship && /استلمه سامر \(حلب\)/.test(card.t) && /25,000 ل\.س \(الشركة\)/.test(card.t), 'قسم «✅ استلمناه»: مين ووين وحالة البضاعة والأجور · «🔁 إعادة الشحن»');
+  ok(card.inR && card.reship && /إغلاق نهائي/.test(card.t) && /استلمه سامر \(حلب\)/.test(card.t) && /25,000 ل\.س \(الشركة\)/.test(card.t), 'قسم «✅ استلمناه»: مين ووين وحالة البضاعة والأجور · «🔁 إعادة الشحن»');
   // ⑤ بالدولار على نقطة البيع المستلمة ⇒ بانتظار الموافقة
   await ans({ reason: 'عنوان خاطئ', ret_company: '', ret_tracking: '', invoice_no: '', note: '' }, []); await pg.evaluate(id => orderMarkReturned(id), idOf('زبون فرع')); await sleep(500);
   await ans({}, ['no']); await pg.evaluate(id => returnArrived(id), idOf('زبون فرع')); await sleep(500);
@@ -124,6 +128,31 @@ const RI = o => typeof o.return_info === 'string' ? JSON.parse(o.return_info) : 
   ok(o1.status === 'pending' && !o1.tracking_number && r1.history.length === 1 && r1.history[0].cost === 25000 && r1.history[0].reshipped_at, '«🔁 إعادة الشحن» ⇒ قيد التجهيز ويبقى سجلّ المرتجع');
   await pg.evaluate(() => switchTab('pending')); await sleep(300);
   ok(/أُعيد شحنه/.test(await pg.evaluate(id => (document.querySelector('#section-pending #card-' + id) || {}).innerText || '', idOf('زبون رفض'))), 'بطاقته في «قيد التجهيز» تذكر المرتجع السابق');
+  // ⑩ (TASK-A0532) إغلاق نهائي ⇐ «🏁 مغلقة» · إعادة فتح · حذف من المغلق
+  const bar0 = await pg.evaluate(() => { switchTab('returned'); return (document.getElementById('action-bar') || {}).innerText || ''; });
+  ok(/مرتجع استلمناه — أعِد شحنه أو أغلقه/.test(bar0), '«المطلوب منك الآن»: مرتجعٌ استلمناه ولم نقرّر: ' + bar0.replace(/\s+/g, ' ').slice(0, 160));
+  await ans({}, []); await pg.evaluate(() => { GMTAsk.prompt = async () => 'انتهى — بِعناها بالمحل'; });
+  await pg.evaluate(id => returnClose(id), idOf('زبون فرع')); await sleep(600);
+  d = await dump(); let r2 = RI(d.gmt_orders.find(o => o.id === idOf('زبون فرع')));
+  await pg.evaluate(() => { switchTab('returned'); document.getElementById('ret-closed-wrap').open = true; render(); }); await sleep(700);
+  const cl = await pg.evaluate(id => { const w = document.getElementById('ret-closed-wrap'); const c = document.querySelector('#list-ret-closed #card-' + id);
+    return { inRec: !!document.querySelector('#list-ret-received #card-' + id), inCl: !!(c && c.closest('#list-ret-closed')), hid: w.classList.contains('hidden'), n: document.getElementById('badge-ret-closed').textContent,
+      del: !!(c && c.querySelector('[data-ret-delete]')), reo: !!(c && c.querySelector('[data-ret-reopen]')), t: c ? c.innerText : '' }; }, idOf('زبون فرع'));
+  ok(r2.closed_at && r2.close_note === 'انتهى — بِعناها بالمحل' && !cl.inRec && cl.inCl && !cl.hid && cl.n === '1' && cl.del && cl.reo && /مُغلَق نهائياً/.test(cl.t),
+    '«🏁 إغلاق نهائي» ⇒ يخرج من «استلمناه» إلى «مغلقة» (لا حذف) · فيه «↺ إعادة فتح» و«🗑 حذف نهائياً»: ' + JSON.stringify(Object.assign({}, cl, { t: undefined })));
+  await pg.evaluate(id => returnReopen(id), idOf('زبون فرع')); await sleep(500);
+  ok(await pg.evaluate(id => !!document.querySelector('#list-ret-received #card-' + id), idOf('زبون فرع')), '«↺ إعادة فتح» يعيده إلى «✅ استلمناه»');
+  // ⑪ (TASK-A0532) «أعِد إرسالها للزبون» قبل أن تصلنا ⇒ «في الطريق» برقمٍ جديد
+  await ans({ reason: 'رفض الزبون الاستلام', ret_company: 'المفتي', ret_tracking: '', invoice_no: '', note: '' }, []);
+  await pg.evaluate(id => orderMarkReturned(id), idOf('زبون عاد وطلبها')); await sleep(500);
+  await ans({ tn: '300099', note: 'اتّصل وطلبها' }, []); await pg.evaluate(id => returnResend(id), idOf('زبون عاد وطلبها')); await sleep(600);
+  d = await dump(); const o6 = d.gmt_orders.find(o => o.id === idOf('زبون عاد وطلبها')), r6 = RI(o6);
+  await pg.evaluate(() => switchTab('all')); await sleep(700);
+  const c6 = await pg.evaluate(id => ({ sh: !!document.querySelector('#section-shipped #card-' + id), ret: !!document.querySelector('#section-returned #card-' + id), t: (document.querySelector('#card-' + id) || {}).innerText || '' }), idOf('زبون عاد وطلبها'));
+  ok(o6.status === 'shipped' && o6.tracking_number === '300099' && r6.resent_at && r6.history[0].resent_at && r6.history[0].new_tracking === '300099' && c6.sh && !c6.ret && /أُعيد إرساله للزبون/.test(c6.t),
+    '«🔁 أعِد إرسالها للزبون» ⇒ يعود «في الطريق» برقم التتبّع الجديد ويخرج من المرتجعات · السجلّ يذكره: ' + JSON.stringify({ st: o6.status, tn: o6.tracking_number, sh: c6.sh, ret: c6.ret }));
+  const cr = await pg.evaluate(id => { const o = orders.find(x => x.id == id); o.carrier_live = { cls: 'ret', changed_at: '2026-01-01T00:00:00Z' }; const a = carrierReturned(o); o.carrier_live = { cls: 'ret', changed_at: new Date(Date.now() + 60000).toISOString() }; const b = carrierReturned(o); o.carrier_live = null; return [a, b]; }, idOf('زبون عاد وطلبها'));
+  ok(cr[0] === false && cr[1] === true, 'حالة «مرتجع» عند الشركة قبل إعادة الإرسال لا تطلب مرتجعاً ثانياً · وبعدها نعم: ' + JSON.stringify(cr));
   let real = errs.filter(e => !/status of (400|401|404|406|409)|Failed to load resource/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();

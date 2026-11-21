@@ -36,6 +36,8 @@ window.GMT_INTERNAL = 1;</script>
         .header-hidden { transform: translateY(-100%); }
         /* (المالك seq 884 «الأوردرات بعيدة عن بعضها») أزرار البطاقة الصغيرة صفٌّ واحد: ٣٦px بدل ٤٠ كي تتّسع ٧ أزرار على الهاتف */
         [data-card-icons] > button, [data-card-icons] > a, [data-card-icons] > div > button { width: 36px !important; height: 36px !important; min-width: 36px; flex-shrink: 0; }
+        /* (TASK-A0532) أضيق الهواتف (≤380): ثمانية أيقونات «في الطريق» بسطرٍ واحد بلا قصّ — 32px وفراغ 4px */
+        @media (max-width: 380px) { [data-card-icons] { gap: 4px !important; } [data-card-icons] > button, [data-card-icons] > a, [data-card-icons] > div > button { width: 32px !important; height: 32px !important; min-width: 32px; } [data-card-icons] button[onclick*="openCardMore"] { width: 36px !important; height: 36px !important; min-width: 36px; } }
         button:not(:disabled), a:not(:disabled) { opacity:1 !important; touch-action:manipulation; }
         .status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:800; }
         .badge-pending  { background:#EFF6FF; color:#2563EB; }
@@ -431,7 +433,7 @@ window.GMT_INTERNAL = 1;</script>
         <section id="section-returned">
             <div class="flex items-center gap-2 mb-2 px-1 border-b border-orange-100 pb-2">
                 <i data-lucide="undo-2" class="w-5 h-5 text-orange-600"></i>
-                <h2 class="text-xs font-black text-orange-700 uppercase tracking-wider flex-1">المرتجعات — بالطريق ⇐ وصل للمكتب ⇐ استلمناه</h2>
+                <h2 class="text-xs font-black text-orange-700 uppercase tracking-wider flex-1">المرتجعات — بالطريق ⇐ وصل للمكتب ⇐ استلمناه ⇐ القرار</h2>
                 <button type="button" onclick="returnsReport()" data-returns-report class="text-[11px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1">📊 تقرير المرتجعات</button>
             </div>
             <p id="ret-sum" class="text-[11px] font-bold text-gray-500 px-1 mb-3"></p>
@@ -439,8 +441,13 @@ window.GMT_INTERNAL = 1;</script>
             <div id="list-ret-transit" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5"></div>
             <h3 class="text-[11px] font-black text-orange-700 px-1 mb-2">📍 وصل لمكتب الشحن — بانتظار استلامنا <span id="badge-ret-arrived" class="text-gray-400">0</span></h3>
             <div id="list-ret-arrived" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5"></div>
-            <h3 class="text-[11px] font-black text-emerald-700 px-1 mb-2">✅ استلمناه <span id="badge-ret-received" class="text-gray-400">0</span></h3>
+            <h3 class="text-[11px] font-black text-emerald-700 px-1 mb-2">✅ استلمناه — قرّر: 🔁 إعادة الشحن أو 🏁 إغلاق نهائي <span id="badge-ret-received" class="text-gray-400">0</span></h3>
             <div id="list-ret-received" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <!-- (TASK-A0532 · seq 897) المرتجع المنتهي لا يبقى معلّقاً: «🏁 إغلاق» يخرجه من القائمة إلى هنا (لا حذف — سجلّه يبقى للتقرير) -->
+            <details id="ret-closed-wrap" class="hidden mt-5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2" ontoggle="render()">
+                <summary class="text-[11.5px] font-black text-gray-600 cursor-pointer">🏁 مرتجعات مغلقة نهائياً <span id="badge-ret-closed" class="text-gray-400">0</span></summary>
+                <div id="list-ret-closed" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3"></div>
+            </details>
         </section>
 
         <!-- قسم مكتمل -->
@@ -1710,7 +1717,7 @@ function render() {
     try { syncSenderFilter(); } catch (_) {}
     const fSend      = (document.getElementById('filter-sendbranch')?.value || '');
     const fTransfer  = (document.getElementById('filter-transfer')?.value || '');
-    const groups     = { pending:[], prepared:[], shipped:[], arrived:[], got:[], delivered:[], completed:[], returned:[], frozen:[], confirm:[] };
+    const groups     = { pending:[], prepared:[], shipped:[], arrived:[], got:[], delivered:[], completed:[], returned:[], retClosed:[], frozen:[], confirm:[] };
     let sumF = 0;   // (TASK-0316) قيمة المجمَّد
     const branchTot  = {};
     const companyTot = {};
@@ -1737,19 +1744,23 @@ function render() {
             return;
         }
         if (needsConfirm(o)) { groups.confirm.push(o); return; }   // (TASK-B0416) بانتظار تأكيد الزبون ⇒ قبل «قيد التجهيز»
-        if (arrivalStageOf(o) === 'got') groups.got.push(o);   /* (seq 892) تبويبٌ مستقلّ */
+        /* (TASK-A0532 · المالك seq 897 «عملت منها مرتجع ولسه عم تطلع في الطريق») المرتجع القائم مكانُه «↩️ المرتجعات» **وحدها**
+           (كان يظهر في تبويبه وفي المرتجعات معاً — TASK-0261) · والمغلق نهائياً يخرج إلى «🏁 مغلقة» أسفل المرتجعات. */
+        const _retA = o.status !== 'returned' && returnActive(o);
+        if (_retA) groups.returned.push(o);
+        else if (o.status === 'returned' && returnClosed(o)) groups.retClosed.push(o);
+        else if (arrivalStageOf(o) === 'got') groups.got.push(o);   /* (seq 892) تبويبٌ مستقلّ */
         else if (arrivalStageOf(o)) groups.arrived.push(o);   /* (TASK-A0527) وصلت الفرع ⇒ «📍 تم الوصول» لا «في الطريق» (مرحلتها في القاعدة تبقى shipped) */
         else if (groups[o.status]) groups[o.status].push(o);
-        if (o.status !== 'returned' && returnActive(o)) groups.returned.push(o);   // (TASK-0261) يظهر في تبويبه وفي المرتجعات معاً
         /* (TASK-0166) الجاري ⇒ ما بقي للتحصيل (المحصَّل مسبقاً خارجه) · المكتمل ⇒ قيمة الأوردر كاملة (87 إن زادت الأجور) */
         const p = orderDue(o);
         if (o.status==='pending')   sumP += p;
-        if (o.status==='shipped')   sumS += p;
-        if (o.status==='delivered') sumD += p;
+        if (o.status==='shipped'   && !_retA) sumS += p;   // (TASK-A0532) المرتجع القائم يُجمع في «قيد الإرجاع» لا «في الطريق»
+        if (o.status==='delivered' && !_retA) sumD += p;
         if (o.status==='completed') sumC += orderValue(o);
         /* (TASK-0260 · seq 187 «عندما يتم … تاكيد استلامه حصرا … يؤثر على … المجموع الكلي»): المرتجع قبل تأكيد استلامنا يبقى في المجموع الكلي */
         if (o.status==='returned' && returnStageOf(o) !== 'received') sumR += p;      // مرتجعٌ قديم (قبل TASK-0261)
-        if (o.status!=='returned' && returnActive(o)) sumRA += p;                   // (TASK-0261) محسوبٌ أصلاً في حالته
+        if (_retA) sumRA += p;                                                       // (TASK-A0532) ضمن المجموع الكلي حتى «✅ استلمناه»
         if (o.status==='shipped' || o.status==='delivered')
             branchTot[o.branch] = (branchTot[o.branch]||0) + p;
         if ((o.status==='shipped' || o.status==='delivered') && o.shipping_company) {
@@ -1771,7 +1782,7 @@ function render() {
             returned:  'مرتجع لم يُؤكَّد استلامه'
         };
         if (o.status !== 'completed' && !(o.status === 'returned' && returnStageOf(o) === 'received')) {
-            const ref = (o.status === 'returned' && o.returned_at) || o.shipped_at || o.created_at;
+            const ref = (_retA && (returnInfoOf(o) || {}).at) || (o.status === 'returned' && o.returned_at) || o.shipped_at || o.created_at;
             const age = ref ? now - new Date(ref).getTime() : 0;
             const limit = (o.status === 'delivered') ? LATE_DELIVERED : LATE_ANY;
             if (age > limit) {
@@ -1779,7 +1790,7 @@ function render() {
                     o,
                     days: Math.floor(age / 86400000),
                     type: o.status,
-                    reason: REASON[o.status] || 'حالة غير مكتملة'
+                    reason: _retA ? 'مرتجع لم يُؤكَّد استلامه' : (REASON[o.status] || 'حالة غير مكتملة')
                 });
             }
         }
@@ -1790,7 +1801,7 @@ function render() {
     if (clearBtn) clearBtn.classList.toggle('hidden', !fCompany && !fBranch && !fSend && !fTransfer);
 
     // إجمالي غير محصّل
-    const grand = sumP + sumS + sumD + sumR;
+    const grand = sumP + sumS + sumD + sumR + sumRA;   // (TASK-A0532) المرتجع القائم خرج من sumS/sumD إلى sumRA — المجموع نفسه
     setText('grandTotal',  '$' + grand.toLocaleString());
     setText('sumPending',  '$' + sumP.toLocaleString());
     setText('sumShipped',  '$' + sumS.toLocaleString());
@@ -1908,7 +1919,12 @@ function render() {
         }
         if (show && st === 'returned') {   /* (TASK-0260) ثلاث مراحل */
             ['transit', 'arrived', 'received'].forEach(k => { const a = groups.returned.filter(o => returnStageOf(o) === k); setText('badge-ret-' + k, a.length); renderCardsChunked(document.getElementById('list-ret-' + k), a, seq, currentTab === 'all' ? 12 : CARD_CHUNK); });
-            setText('ret-sum', (sumR + sumRA) ? 'قيمة المرتجعات قبل تأكيد استلامنا: $' + (sumR + sumRA).toLocaleString() + ' — الأوردر بحالته وضمن «المجموع الكلي» حتى «✅ تأكيد استلامنا»' : '');
+            setText('ret-sum', (sumR + sumRA) ? 'قيمة المرتجعات قبل استلامنا: $' + (sumR + sumRA).toLocaleString() + ' — تبقى ضمن «المجموع الكلي» حتى «✅ استلمناه»' : '');
+            /* (TASK-A0532) المغلقة نهائياً: مطويّة — تُفتح عند الحاجة (السجلّ والتقرير يحسبانها) */
+            setText('badge-ret-closed', groups.retClosed.length);
+            const _cw = document.getElementById('ret-closed-wrap'); if (_cw) _cw.classList.toggle('hidden', !groups.retClosed.length || currentTab !== 'returned');
+            const _cl = document.getElementById('list-ret-closed');
+            if (_cl) { if (_cw && _cw.open) renderCardsChunked(_cl, groups.retClosed, seq, CARD_CHUNK); else _cl.innerHTML = ''; }
         } else if (show) renderCardsChunked(document.getElementById('list-' + st), groups[st], seq, currentTab === 'all' ? 12 : CARD_CHUNK);   // «الكل» يجمع خمسة أقسام ⇒ دفعةٌ أصغر لكلٍّ منها
     });
 
@@ -2323,7 +2339,11 @@ function cardMoreItems(o) {
         if (rs === 'transit') items.push({ ic: '📍', t: 'وصل لمكتب الشحن', on: 'returnArrived(' + o.id + ')' });
         if (rs === 'arrived') items.push({ ic: '📣', t: 'تبليغ بوصول المرتجع (واتساب)', on: 'returnNotify(' + o.id + ')' });
         if (rs !== 'received') items.push({ ic: '✅', t: 'تأكيد استلامنا للمرتجع', off: 'مين استلم · نقطة البيع · حالة البضاعة · الأجور بالليرة أو الدولار ومن دفعها', on: 'returnReceive(' + o.id + ')' });
-        if (rs === 'received') items.push({ ic: '🔁', t: 'إعادة الشحن', off: 'يعود إلى «قيد التجهيز» ليُشحن من جديد — ويبقى سجلّ المرتجع', on: 'orderReship(' + o.id + ')' });
+        if (rs === 'received' && !returnClosed(o)) items.push({ ic: '🔁', t: 'إعادة الشحن', off: 'يعود إلى «قيد التجهيز» ليُشحن من جديد — ويبقى سجلّ المرتجع', on: 'orderReship(' + o.id + ')' });
+        /* (TASK-A0532) البدائل في القائمة أيضاً */
+        if (_ra && o.status !== 'returned') items.push({ ic: '🔁', t: 'أعِد إرسالها للزبون (لم تصلنا)', off: 'يعود «في الطريق» برقم تتبّعٍ جديد إن وُجد', on: 'returnResend(' + o.id + ')' });
+        if (rs === 'received' && !returnClosed(o)) items.push({ ic: '🏁', t: 'إغلاق المرتجع نهائياً', off: 'انتهى — لا إعادة شحن · يبقى في «مغلقة» وفي التقرير', on: 'returnClose(' + o.id + ')' });
+        if (returnClosed(o)) { items.push({ ic: '↺', t: 'إعادة فتح المرتجع', on: 'returnReopen(' + o.id + ')' }); items.push({ ic: '🗑', t: 'حذف الأوردر نهائياً', off: 'بسبب إلزامي — لا يُسترجع', on: "requestConfirm(" + o.id + ",'delete')" }); }
     }
     /* (وثيقة الطلبات §٢) الفرع المُرسِل وحالة الحوالة + البحث برقم التتبّع/قراءة الإيصال (نافذة «التحقق» القديمة بقيت قابلةً للوصول
        بعد أن صار زرّ الأعلى يفتح موقع المفتي مباشرةً) — لشحنات المفتي */
@@ -7515,7 +7535,12 @@ function carrierChipHTML(o) {
    الأحمر = عملٌ ينتظرك: وصلت ولم يُبلَّغ الزبون · استلمها الزبون ولم تؤكّد · مرتجعٌ عند شركة الشحن · حوالةٌ بانتظار التحصيل. الرماديّ = عددٌ للعلم. ══ */
 const _BADGE_RED = 'mr-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse';
 const _BADGE_GRAY = 'mr-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-gray-100 text-gray-500 text-[10px] font-black';
-function carrierReturned(o) { const c = carrierOf(o); return !!(c && c.cls === 'ret' && (o.status === 'shipped' || o.status === 'delivered') && !(typeof returnActive === 'function' && returnActive(o))); }
+function carrierReturned(o) {
+    const c = carrierOf(o); if (!(c && c.cls === 'ret' && (o.status === 'shipped' || o.status === 'delivered') && !(typeof returnActive === 'function' && returnActive(o)))) return false;
+    /* (TASK-A0532) «🔁 أعِد إرسالها للزبون»: حالة «مرتجع» عند الشركة قبل إعادة الإرسال قديمةٌ ⇒ لا نطلب مرتجعاً ثانياً */
+    const r = (typeof returnInfoOf === 'function' && returnInfoOf(o)) || {}, t = c.changed_at || c.checked_at;
+    return !(r.resent_at && (!t || new Date(t) <= new Date(r.resent_at)));
+}
 function paintActionBadges(groups) {
     const notify = groups.arrived.filter(o => arrivalStageOf(o) === 'notify');
     const set = (id, n, red) => { const e = document.getElementById(id); if (!e) return; e.textContent = n; e.className = red ? _BADGE_RED : _BADGE_GRAY; };
@@ -7530,6 +7555,11 @@ function paintActionBadges(groups) {
     if (notify.length) parts.push(chip(notify.length, 'وصلت — بلّغ الزبون', '', 'arrived'));
     if (groups.got.length) parts.push(chip(groups.got.length, 'استلمها الزبون — أكّد الاستلام', '💵 ' + money(groups.got), 'got'));
     if (rets.length) parts.push(chip(rets.length, 'صارت مرتجعاً عند شركة الشحن', '💵 ' + money(rets), '', "switchTab('shipped');setTimeout(()=>{const c=document.getElementById('card-" + rets[0].id + "');c&&c.scrollIntoView({behavior:'smooth',block:'center'})},300)"));
+    /* (TASK-A0532) المرتجعات التي تنتظرك: وصل للمكتب ولم نستلمه · استلمناه ولم نقرّر (إعادة شحن أو إغلاق) */
+    const rArr = groups.returned.filter(o => returnStageOf(o) === 'arrived'), rDec = groups.returned.filter(o => returnStageOf(o) === 'received');
+    if (rArr.length) parts.push(chip(rArr.length, 'مرتجع وصل للمكتب — استلمه', '', 'returned'));
+    if (rDec.length) parts.push(chip(rDec.length, 'مرتجع استلمناه — أعِد شحنه أو أغلقه', '', 'returned'));
+    set('badge-returned', groups.returned.length, (rArr.length + rDec.length) > 0);
     if (groups.delivered.length) parts.push(chip(groups.delivered.length, 'بانتظار التحصيل', '💵 ' + money(groups.delivered), 'delivered'));
     const bar = document.getElementById('action-bar');
     if (bar) { bar.classList.toggle('hidden', !parts.length); bar.innerHTML = parts.length ? '<p class="text-[11px] font-black text-red-800 mb-1.5">🔔 المطلوب منك الآن</p><div class="flex flex-wrap gap-1.5">' + parts.join('') + '</div>' : ''; }
@@ -9621,6 +9651,16 @@ function returnActive(o) {
     if (o.status === 'returned') return returnStageOf(o) !== 'received';
     return r.stage === 'transit' || r.stage === 'arrived';
 }
+/* (TASK-A0532 · seq 897) مرتجعٌ استلمناه وأُغلق نهائياً (لا إعادة شحن) ⇒ يخرج من قائمة المرتجعات إلى «🏁 مغلقة» */
+function returnClosed(o) { const r = returnInfoOf(o); return !!(o && o.status === 'returned' && r && r.closed_at); }
+/* شريط مراحل المرتجع — المرحلة الحالية بالأحمر والمنجَز بالأخضر */
+function returnStripHTML(o) {
+    const st = returnClosed(o) ? 'closed' : returnStageOf(o);
+    const ks = ['transit', 'arrived', 'received', 'closed'], lb = { transit: '↩️ بالطريق', arrived: '📍 بالمكتب', received: '✅ استلمناه', closed: '🏁 القرار' };
+    const i0 = ks.indexOf(st);
+    return '<div data-ret-strip class="flex items-center gap-1 mb-1.5 text-[10.5px] font-black">' + ks.map((k, i) =>
+        '<span class="flex-1 text-center rounded-md px-1 py-1 ' + (i < i0 || st === 'closed' ? 'bg-emerald-100 text-emerald-800' : i === i0 ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400') + '"' + (i === i0 ? ' data-ret-now' : '') + '>' + lb[k] + '</span>').join('') + '</div>';
+}
 /* أجور المرتجع للعرض والتقرير: الجديد (المبلغ بعملته) · والقديم (TASK-0240: ذهاب + إرجاع بالدولار) */
 function retCostUSD(x) { if (!x) return 0; if (x.payer_kind === 'buyer') return 0; if (x.cost != null) return Number(x.cost_usd) || 0; return Number(x.total) || 0; }
 function retCostText(x) {
@@ -9637,23 +9677,40 @@ function returnInfoHTML(o) {
     if (o.status === 'returned' || returnActive(o)) {
         const st = returnStageOf(o), c = retCostText(r);
         cur = `<div data-return-info class="mt-1 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-[12px] leading-6">
-            <p class="font-black text-orange-700">${RET_STAGES[st]}${r.reason ? ' — ' + escH(r.reason) : ''}</p>
+            ${returnStripHTML(o)}
+            <p class="font-black text-orange-700">${returnClosed(o) ? '🏁 مرتجع مُغلَق نهائياً' : RET_STAGES[st]}${r.reason ? ' — ' + escH(r.reason) : ''}</p>
             <p class="text-gray-600 font-bold">أُنشئ${d(r.at)}${r.by ? ' · ' + escH(r.by) : ''}${r.ret_company ? ' · ' + escH(r.ret_company) : ''}${r.ret_tracking ? ' · تتبّع المرتجع ' + escH(r.ret_tracking) : ''}${(r.invoice_no || o.invoice_number) ? ' · الفاتورة #' + escH(r.invoice_no || o.invoice_number) : ''}</p>
             ${r.arrived_at ? `<p class="text-gray-600 font-bold">📍 وصل للمكتب${d(r.arrived_at)}${r.notified_at ? ' · بُلِّغ ✓' : ''}</p>` : ''}
             ${r.received_at ? `<p class="text-emerald-700 font-black">✅ استلمه ${escH(r.received_by || '')}${r.received_branch_name ? ' (' + escH(r.received_branch_name) + ')' : ''}${d(r.received_at)} · البضاعة ${escH(r.condition || '')}${r.condition_note ? ' — ' + escH(r.condition_note) : ''}</p>` : ''}
             ${c ? `<p class="text-gray-700 font-bold">أجور المرتجع: ${escH(c)}</p>` : ''}
             ${r.refund_done ? `<p class="text-emerald-700 font-bold">🧾 مرتجع الفاتورة نُفّذ${r.refund_inv ? ' — ' + escH(r.refund_inv) : ''}${Number(r.refund_total) ? ' · $' + Number(r.refund_total).toFixed(2) + (Number(r.refund_cash) ? ' (من الصندوق $' + Number(r.refund_cash).toFixed(2) + ')' : ' (من الدين)') : ''}</p>` : ''}
             ${(r.refund_issues || []).length ? `<p class="text-red font-bold">⚠️ ${escH(r.refund_issues.join(' · '))}</p>` : ''}
-            ${o.status !== 'returned' ? '<p class="text-gray-500 font-bold">الأوردر بحالته حتى «✅ تأكيد استلامنا»</p>' : ''}
+            ${r.closed_at ? `<p class="text-gray-700 font-black">🏁 أُغلق${d(r.closed_at)}${r.closed_by ? ' · ' + escH(r.closed_by) : ''}${r.close_note ? ' — ' + escH(r.close_note) : ''}</p>` : ''}
+            ${o.status !== 'returned' ? '<p class="text-gray-500 font-bold">الفاتورة والمخزون والصندوق لا تتغيّر قبل «✅ استلمناه»</p>' : ''}
         </div>`;
     }
-    return cur + hist.map(x => `<p data-return-hist class="text-gray-500 text-[11px]">↩️ مرتجع${d(x.at)}${x.reason ? ' — ' + escH(x.reason) : ''}${retCostText(x) ? ' · ' + escH(retCostText(x)) : ''} · ${x.cancelled_at ? 'أُلغي' + d(x.cancelled_at) : 'أُعيد شحنه' + d(x.reshipped_at)}</p>`).join('');
+    return cur + hist.map(x => `<p data-return-hist class="text-gray-500 text-[11px]">↩️ مرتجع${d(x.at)}${x.reason ? ' — ' + escH(x.reason) : ''}${retCostText(x) ? ' · ' + escH(retCostText(x)) : ''} · ${x.cancelled_at ? 'أُلغي' + d(x.cancelled_at) : x.resent_at ? 'أُعيد إرساله للزبون' + d(x.resent_at) + (x.new_tracking ? ' (تتبّع ' + escH(x.new_tracking) + ')' : '') : 'أُعيد شحنه' + d(x.reshipped_at)}</p>`).join('');
 }
+/* (TASK-A0532 · المالك seq 897 «المرتجع ممكن نستلمها وممكن أعمل إعادة إرسال وممكن خلاص… ما في شيء اسمه حذف هون»)
+   كلّ مرحلة تعرض **كلّ** ما يمكن فعله بوضوح — الزرّ الكبير هو الخطوة الطبيعية التالية، وتحته البدائل:
+   • بالطريق: 📍 وصل للمكتب │ ✅ استلمناه مباشرة · 🔁 أعِد إرسالها للزبون · ✕ ليس مرتجعاً
+   • بالمكتب: ✅ استلمناه │ 🔁 أعِد إرسالها للزبون · 📣 بلّغ
+   • استلمناه: 🔁 إعادة الشحن (للتجهيز من جديد) │ 🏁 إغلاق نهائي (انتهى — لا إعادة)
+   • مغلق: ↺ إعادة فتح · 🗑 حذف الأوردر نهائياً (بسبب — كبقية الحذف) */
 function returnActionBtn(o, c) {
-    const st = returnStageOf(o), cls = `flex-1 ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors`;
-    if (st === 'transit') return `<button onclick="returnArrived(${o.id})" data-ret-arrived class="${cls}">📍 وصل لمكتب الشحن</button>`;
-    if (st === 'arrived') return `<button onclick="returnReceive(${o.id})" data-ret-receive class="${cls}">✅ تأكيد استلامنا</button>`;
-    return `<button onclick="orderReship(${o.id})" data-reship class="${cls}">🔁 إعادة الشحن</button>`;
+    const st = returnStageOf(o), cls = `w-full ${c.btn} text-white py-3 rounded-xl text-xs font-black transition-colors`;
+    const sub = 'flex-1 bg-white border border-orange-200 text-orange-800 hover:bg-orange-50 py-2 rounded-lg text-[11px] font-black transition-colors';
+    const wrap = (main, alts) => `<div class="flex-1 flex flex-col gap-1.5" data-ret-actions>${main}${alts.length ? '<div class="flex gap-1.5">' + alts.join('') + '</div>' : ''}</div>`;
+    const resend = `<button onclick="returnResend(${o.id})" data-ret-resend class="${sub}">🔁 أعِد إرسالها للزبون</button>`;
+    if (returnClosed(o)) return wrap(`<button onclick="returnReopen(${o.id})" data-ret-reopen class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl text-xs font-black">↺ إعادة فتح المرتجع</button>`,
+        [`<button onclick="requestConfirm(${o.id},'delete')" data-ret-delete class="flex-1 bg-white border border-red-200 text-red-700 hover:bg-red-50 py-2 rounded-lg text-[11px] font-black">🗑 حذف الأوردر نهائياً</button>`]);
+    if (st === 'transit') return wrap(`<button onclick="returnArrived(${o.id})" data-ret-arrived class="${cls}">📍 وصل لمكتب الشحن</button>`,
+        [`<button onclick="returnReceive(${o.id})" data-ret-receive class="${sub}">✅ استلمناه مباشرة</button>`, o.status !== 'returned' ? resend : '',
+         o.status !== 'returned' ? `<button onclick="returnCancel(${o.id})" data-ret-cancel class="${sub}">✕ ليس مرتجعاً</button>` : ''].filter(Boolean));
+    if (st === 'arrived') return wrap(`<button onclick="returnReceive(${o.id})" data-ret-receive class="${cls}">✅ استلمناه</button>`,
+        [o.status !== 'returned' ? resend : '', `<button onclick="returnNotify(${o.id})" data-ret-notify class="${sub}">📣 بلّغ من سيستلمه</button>`].filter(Boolean));
+    return wrap(`<button onclick="orderReship(${o.id})" data-reship class="${cls}">🔁 إعادة الشحن (للتجهيز من جديد)</button>`,
+        [`<button onclick="returnClose(${o.id})" data-ret-close class="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg text-[11px] font-black">🏁 إغلاق نهائي — انتهى</button>`]);
 }
 async function retPatch(o, info, extra) {
     const patch = Object.assign({ return_info: info }, extra || {});
@@ -9668,7 +9725,7 @@ window.orderMarkReturned = async (id, opts) => {
     if (returnActive(o)) { showToast('لهذا الأوردر مرتجعٌ قائم — ' + RET_STAGES[returnStageOf(o)], 'err'); return; }
     const invNo = opts.invoiceNo || o.invoice_number || '';
     const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (o.shipping_company || '') + (o.tracking_number ? ' · ' + o.tracking_number : '') +
-        '\nيظهر في «↩️ المرتجعات ⇐ بالطريق إلينا» والأوردر يبقى بحالته. الأوردر والفاتورة والمخزون والصناديق لا تتغيّر إلا عند «✅ تأكيد استلامنا».', {
+        '\nينتقل إلى «↩️ المرتجعات ⇐ بالطريق إلينا» (ويخرج من «في الطريق»). الفاتورة والمخزون والصناديق لا تتغيّر إلا عند «✅ استلمناه».', {
         title: '↩️ مرتجع جديد', okText: 'أنشئ المرتجع',
         fields: [{ k: 'reason', label: 'سبب الإرجاع *', value: 'رفض الزبون الاستلام', placeholder: 'رفض الاستلام · لم يُرَد على الهاتف · عنوان خاطئ…' },
                  { k: 'ret_company', label: 'شركة شحن المرتجع', value: o.shipping_company || '' },
@@ -9689,7 +9746,7 @@ window.orderMarkReturned = async (id, opts) => {
     try { window.GMTAudit && GMTAudit.log({ action: 'order_returned', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: f.reason }); } catch (_) {}
     currentTab = 'returned'; render();
     try { window.GMTSound && GMTSound.cue('ORDER_RETURN'); } catch (_) {}   /* (OWN-12#12) */
-    showToast('↩️ مرتجع «' + (o.name || '') + '» في «المرتجعات ⇐ بالطريق إلينا» — الأوردر بحالته حتى تأكيد الاستلام', 'ok');
+    showToast('↩️ مرتجع «' + (o.name || '') + '» انتقل إلى «المرتجعات ⇐ بالطريق إلينا»', 'ok');
 };
 /* ② وصل لمكتب الشحن (+ تبليغ) */
 window.returnArrived = async (id) => {
@@ -9803,13 +9860,55 @@ window.returnReceive = async (id) => {
 window.returnCancel = async (id) => {
     const o = orders.find(x => x.id == id); if (!o || !returnActive(o) || o.status === 'returned') return;
     const r = returnInfoOf(o) || {};
-    if (!(await GMTAsk.confirm('تلغي مرتجع «' + (o.name || '') + '»؟ الأوردر يبقى «' + (o.status === 'delivered' ? 'بانتظار التحصيل' : 'في الطريق') + '» كما هو.', { title: '✕ إلغاء المرتجع', okText: 'ألغِه' }))) return;
+    if (!(await GMTAsk.confirm('ليس مرتجعاً (أُنشئ بالخطأ)؟ الأوردر يعود إلى «' + (o.status === 'delivered' ? 'بانتظار التحصيل' : 'في الطريق') + '» كما كان.', { title: '✕ إلغاء المرتجع', okText: 'ألغِه' }))) return;
     const hist = (Array.isArray(r.history) ? r.history : []).concat([Object.assign({}, r, { history: undefined, cancelled_at: new Date().toISOString(), cancelled_by: getOperatorName() || null })]);
     try { await retPatch(o, { history: hist }); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
     render(); showToast('✕ أُلغي المرتجع', 'ok');
 };
+/* (TASK-A0532 · seq 897 «ممكن أعملها إعادة إرسال») المرتجع لم يصلنا بعد والزبون عاد وطلبها ⇒ شركة الشحن تعيد إرسالها له
+   من مكانها: الأوردر يعود «في الطريق» (برقم تتبّعٍ جديد إن أعطته الشركة) والمرتجع يُسجَّل في السجلّ «أُعيد إرساله للزبون». */
+window.returnResend = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || !returnActive(o) || o.status === 'returned') return;
+    const r = returnInfoOf(o) || {};
+    const v = await GMTAsk.form('«' + (o.name || '') + '» · ' + (r.ret_company || o.shipping_company || '') +
+        '\nالشحنة لم تصلنا — شركة الشحن تعيد إرسالها للزبون. الأوردر يعود «🚚 في الطريق» ويُتابَع من جديد (لا فاتورة ولا مخزون يتغيّر).', {
+        title: '🔁 إعادة الإرسال للزبون', okText: 'أعِد الإرسال',
+        fields: [{ k: 'tn', label: 'رقم التتبّع الجديد (اتركه كما هو إن لم يتغيّر)', dir: 'ltr', value: o.tracking_number || '' },
+                 { k: 'note', label: 'ملاحظة (اختياري)', placeholder: 'الزبون اتّصل وطلبها · عنوانٌ مصحَّح…' }],
+        submit: async (x) => ({ result: { tn: String(x.tn || '').trim(), note: String(x.note || '').trim() } }) });
+    const f = v && (v.result || v); if (!f) return;
+    const at = new Date().toISOString(), tnChanged = !!(f.tn && f.tn !== String(o.tracking_number || ''));
+    const hist = (Array.isArray(r.history) ? r.history : []).concat([Object.assign({}, r, { history: undefined, resent_at: at, resent_by: getOperatorName() || null, resend_note: f.note || null, new_tracking: tnChanged ? f.tn : null })]);
+    const patch = { return_info: { history: hist, resent_at: at }, status: 'shipped', delivered_at: null, notified_arrival_at: null };
+    if (tnChanged) Object.assign(patch, { tracking_number: f.tn, carrier_live: null });
+    try { await sbUpdateOrThrow(o.id, patch); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
+    Object.assign(o, patch);
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_return_resent', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'إعادة إرسال للزبون' + (tnChanged ? ' · تتبّع ' + f.tn : '') }); } catch (_) {}
+    currentTab = 'shipped'; render();
+    showToast('🔁 «' + (o.name || '') + '» عاد إلى «في الطريق»' + (tnChanged ? ' برقم ' + f.tn : ''), 'ok');
+};
+/* (TASK-A0532) «🏁 إغلاق نهائي»: استلمنا المرتجع (المخزون والفاتورة رجعت عند «استلمناه») ولن يُعاد شحنه ⇒ يخرج من قائمة المرتجعات.
+   ليس حذفاً: الأوردر وسجلّه وأجوره تبقى في «🏁 مغلقة» وفي تقرير المرتجعات · ومن هناك «🗑 حذف نهائياً» لمن أراد. */
+window.returnClose = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned' || returnClosed(o)) return;
+    const r = returnInfoOf(o) || {};
+    if (r.stage !== 'received' && !(await GMTAsk.confirm('المرتجع لم يُؤكَّد استلامه بعد (المخزون والفاتورة لم يرجعا). تغلقه على كل حال؟', { title: '🏁 إغلاق', okText: 'نعم' }))) return;
+    const note = await GMTAsk.prompt('إغلاق مرتجع «' + (o.name || '') + '» نهائياً — لن يُعاد شحنه.\nملاحظة (اختياري):', { title: '🏁 إغلاق نهائي', value: '', okText: 'أغلِق' });
+    if (note === null || note === undefined) return;
+    const info = Object.assign({}, r, { closed_at: new Date().toISOString(), closed_by: getOperatorName() || null, close_note: String(note).trim() || null });
+    try { await retPatch(o, info); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_return_closed', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: info.close_note || 'إغلاق نهائي' }); } catch (_) {}
+    render(); showToast('🏁 أُغلق مرتجع «' + (o.name || '') + '» — تجده في «مغلقة» أسفل المرتجعات', 'ok');
+};
+window.returnReopen = async (id) => {
+    const o = orders.find(x => x.id == id); if (!o || !returnClosed(o)) return;
+    const r = returnInfoOf(o) || {};
+    const info = Object.assign({}, r, { closed_at: null, reopened_at: new Date().toISOString() });
+    try { await retPatch(o, info); } catch (e) { showToast('تعذّر: ' + ((e && e.message) || e), 'err'); return; }
+    render(); showToast('↺ أُعيد فتح المرتجع — في «✅ استلمناه»', 'ok');
+};
 window.orderReship = async (id) => {
-    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned') return;
+    const o = orders.find(x => x.id == id); if (!o || o.status !== 'returned' || returnClosed(o)) return;
     const r = returnInfoOf(o) || {};
     if (r.stage !== 'received' && !(await GMTAsk.confirm('المرتجع لم يُؤكَّد استلامه بعد. تعيده للتجهيز على كل حال؟', { title: '🔁 إعادة الشحن', okText: 'نعم' }))) return;
     const ok = await GMTAsk.confirm('«' + (o.name || '') + '» يعود إلى «قيد التجهيز» ليُشحن من جديد (رقم تتبّعٍ وإيصالٌ جديدان).\nسجلّ المرتجع وتكاليفه يبقى على الأوردر.', { title: '🔁 إعادة الشحن', okText: 'أعِده للتجهيز' });
@@ -10868,7 +10967,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121i"></script>
+<script src="gmt-whatsnew.js?v=20261121j"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
