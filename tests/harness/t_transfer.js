@@ -47,7 +47,7 @@ async function create(pg, ids, qs, raiseAnswer = false) {
   const panel = await pg.evaluate(() => document.getElementById('st-settle-body').innerText.replace(/\s+/g, ' '));
   console.log('S2 panel:', panel.slice(0, 400));
   ok(/منتج 3/.test(panel) && /المطلوب\s*6/.test(panel) && /المنقول\s*3/.test(panel) && /الناقص\s*3/.test(panel), 'S2 اللوحة تعرض المطلوب 6 · المنقول 3 · الناقص 3');
-  await pg.screenshot({ path: 'tr_settle_1366.png' });
+  await pg.screenshot({ path: __dirname + '/tr_settle_1366.png' });
   // «انقل المتاح» لا يتوفر (المتاح 0) ⇒ نحاول ونتوقع رفضاً بلا تغيير
   let r = await pg.evaluate(([a, b]) => stFill(a, b, 'avail'), [String(i3.id), String(T.id)]); await sleep(500);
   d = await dump();
@@ -103,7 +103,7 @@ async function create(pg, ids, qs, raiseAnswer = false) {
   console.log('S4 بعد الشطب:', JSON.stringify({ st: d.branch_stock_transfers[0].status, note: d.branch_stock_transfers[0].note, items: d.stock_transfer_items.map(i => [i.product_name, i.qty]) }));
   ok(d.branch_stock_transfers[0].status === 'pending' && d.products.find(p => p.name === 'منتج 2').haleb === 10, 'S4 «لم تُنقل» لمنتج 2: الفاتورة عادت «في الطريق» والمخزون كما هو');
   ok(d.stock_transfer_items.find(i => i.product_name === 'منتج 2').qty === 0, 'S4 كمية المشطوب في الفاتورة صارت 0 (لا تُستلم)');
-  await pg.screenshot({ path: 'tr_legacy_1366.png' });
+  await pg.screenshot({ path: __dirname + '/tr_legacy_1366.png' });
   await browser.close();
 
   // ═══ S5: الهاتف 390 ═══
@@ -114,7 +114,7 @@ async function create(pg, ids, qs, raiseAnswer = false) {
   const geo = await pg.evaluate(() => { const o = document.getElementById('st-settle-ov'); const b = document.getElementById('st-settle-body'); return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, bodyW: b.scrollWidth, boxW: b.clientWidth }; });
   console.log('S5 geo', JSON.stringify(geo));
   ok(geo.sw <= geo.cw + 1 && geo.bodyW <= geo.boxW + 1, 'S5 الهاتف: لا طفح أفقي في لوحة التسوية');
-  await pg.screenshot({ path: 'tr_settle_390.png' });
+  await pg.screenshot({ path: __dirname + '/tr_settle_390.png' });
   await browser.close();
   console.log('errs', errs.filter(e => !/404|400|Failed|qrserver|ERR_/.test(e)).slice(0, 5));
 })();
