@@ -4650,6 +4650,7 @@ function renderCustomerList(searchId) {
         <button class="btn btn-ghost btn-sm" onclick="viewCustomerInvoices('${escH(cust.phone)}','${escH(cust.name)}')">📋 فواتيره</button>
         <button class="btn btn-ghost btn-sm" onclick="editCustomerInfo('${escH(String(cust.id))}')">✏️ الاسم والعنوان</button>
         <button class="btn btn-ghost btn-sm" onclick="editCustomerNote('${escH(String(cust.id))}')">📝 ملاحظة</button>
+        ${isBlocked ? '' : `<button class="btn btn-sm" data-cust-coupon style="background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca;" onclick="openCouponForCustomer('${escH(cust.name)}')">🎟️ كوبون خصم</button>`}
         <button class="btn btn-sm" style="background:#0f172a;color:#fff;border:0;" onclick="openCustomerProfile('${escH(cust.phone)}','${escH(cust.name)}')">👤 الملف الكامل</button>
       </div>
     </div>`;
@@ -5875,8 +5876,15 @@ async function renderCoupons() {
   `;
 }
 
-function openCreateCouponModal() {
-  document.getElementById('modal-title').textContent = '🎟️ إنشاء كوبون خصم';
+/* (TASK-A0536 · المالك seq 874) «كوبون/خصم من إدارة العميل مباشرة»: زرّ «🎟️ كوبون خصم» في بطاقة العميل يفتح نافذة الكوبون نفسها
+   باسمه وكودٍ مولَّد — لا نسخ ولا بحث عن الاسم من جديد. (المحظور بلا زرّ) */
+function openCouponForCustomer(name) {
+  openCreateCouponModal({ customer: name });
+}
+window.openCouponForCustomer = openCouponForCustomer;
+function openCreateCouponModal(opts) {
+  opts = opts || {};
+  document.getElementById('modal-title').textContent = opts.customer ? '🎟️ كوبون خصم لـ«' + opts.customer + '»' : '🎟️ إنشاء كوبون خصم';
   document.getElementById('modal-body').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -5930,6 +5938,11 @@ function openCreateCouponModal() {
   `;
   document.getElementById('modal').style.display = 'flex';
   setCpType('percent');
+  if (opts.customer) {   /* (TASK-A0536) من بطاقة العميل: الاسم والكود جاهزان */
+    const ci = document.getElementById('cp-cust'); if (ci) ci.value = opts.customer;
+    try { generateCouponCode(); } catch (_) {}
+    const v = document.getElementById('cp-val'); if (v) setTimeout(() => { try { v.focus(); } catch (_) {} }, 60);
+  }
   loadProductsForAdmin().then(prods => {
     renderProductSelector('cp-prods-list', 'cp-prod-check', prods);
   });
@@ -7209,7 +7222,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121k"></script>
+<script src="gmt-whatsnew.js?v=20261121l"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

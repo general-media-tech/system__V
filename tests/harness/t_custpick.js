@@ -35,6 +35,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const v = await pg.evaluate(() => [document.getElementById('ai-customer').value, document.getElementById('ai-phone').value]);
     ok(v[0] === 'لانا الحسن' && v[1] === '0944333444', 'فاتورة الإدارة: الاسم والهاتف معاً: ' + JSON.stringify(v));
   }
+  // ٤) (TASK-A0536 · seq 874) «كوبون من إدارة العميل مباشرة»: زرّ في بطاقة العميل يفتح الكوبون باسمه وبكودٍ جاهز
+  const cc = await pg.evaluate(() => {
+    let box = document.getElementById('cust-list'); if (!box) { box = document.createElement('div'); box.id = 'cust-list'; document.body.appendChild(box); }
+    allCustomers = [{ id: 901, name: 'لانا مجدمي', phone: '0944111222' }, { id: 902, name: 'لانا محظورة', phone: '0944555666', is_blocked: true }];
+    renderCustomerList('__none__');
+    const cards = [...box.children], btn = box.querySelector('[data-cust-coupon]');
+    const n = box.querySelectorAll('[data-cust-coupon]').length;
+    btn && btn.click();
+    return { n, title: document.getElementById('modal-title').textContent, cust: (document.getElementById('cp-cust') || {}).value, code: (document.getElementById('cp-code') || {}).value };
+  });
+  ok(cc.n === 1 && /لانا مجدمي/.test(cc.title) && cc.cust === 'لانا مجدمي' && /^[A-Z0-9]{8}$/.test(cc.code || ''), 'بطاقة العميل: «🎟️ كوبون خصم» (لا يظهر للمحظور) يفتح الكوبون باسمه وبكودٍ مولَّد: ' + JSON.stringify(cc));
   const real = errs.filter(e => !/Failed to load resource/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
