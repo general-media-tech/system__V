@@ -48,6 +48,9 @@ function print(t, o) {
   }
 
   const list = items;
+  /* (TASK-A0533 · المالك seq 898) «فاتورة نقص … نفس شكل فواتير النقل · حطّ كلّ قطعة تاريخها في ملاحظات ايمت تم إدخالها»:
+     o.kind === 'shortage' ⇒ القالب نفسه بعناوين النواقص + ملاحظة كلّ بند تحت اسمه. فاتورة النقل العادية لا تتغيّر. */
+  const SH = o.kind === 'shortage';
   const totalQty   = list.reduce((s,i)=>s+(Number(i.qty)||0), 0);
   const totalCost  = list.reduce((s,i)=>s+((Number(i.unit_cost)||0)*(Number(i.qty)||0)), 0);
   const totalSale  = list.reduce((s,i)=>s+((Number(i.sale_price)||0)*(Number(i.qty)||0)), 0);
@@ -80,7 +83,7 @@ function print(t, o) {
     return `<tr>
       <td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td>
       <td style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td>
-      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${escHtml(item.product_name||'')}</td>
+      <td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;">${escHtml(item.product_name||'')}${SH && item.notes ? `<div style="margin-top:2px;font-size:9.5px;font-weight:700;color:#7c2d12;line-height:1.35;">📝 ${escHtml(item.notes)}</div>` : ''}</td>
       <td style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;overflow:hidden;">${
         item.barcode
           ? `<svg class="bc-svg" data-code="${escHtml(item.barcode)}" style="width:96%;max-width:96px;height:20px;display:block;margin:0 auto"></svg>`
@@ -114,7 +117,7 @@ function print(t, o) {
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>فاتورة نقل — ${escHtml(t.transfer_number)}</title>
+<title>${SH ? 'فاتورة نواقص' : 'فاتورة نقل'} — ${escHtml(t.transfer_number)}</title>
 <style>
   @page{margin:8mm 6mm;size:A4 portrait;}
   *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
@@ -135,7 +138,7 @@ function print(t, o) {
     <td style="width:36%;vertical-align:top;border:2px solid #d9dee7;">
       <table style="width:100%;border-collapse:collapse;">
         <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 10px;font-size:13px;font-weight:700;border-bottom:2px solid #fff;">مجموعة ميديا تيك التجارية</td></tr>
-        <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 10px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">نقل داخلي بين الفروع</td></tr>
+        <tr><td style="background:#dbe4f7;color:#1f348f;padding:5px 10px;font-size:12px;font-weight:700;border-bottom:2px solid #fff;">${SH ? 'نواقص نقطة البيع' : 'نقل داخلي بين الفروع'}</td></tr>
         <tr><td style="padding:5px 10px;font-size:12px;font-weight:700;">&nbsp;</td></tr>
       </table>
     </td>
@@ -154,30 +157,30 @@ function print(t, o) {
   </tr></table>
 
   <div style="border-top:1.5px solid #777;margin:8px 0;"></div>
-  <div style="text-align:center;color:#1f348f;font-weight:700;font-size:18px;padding:7px 0 3px;">فاتورة نقل مخزون داخلي بين الفروع</div>
+  <div style="text-align:center;color:#1f348f;font-weight:700;font-size:18px;padding:7px 0 3px;">${SH ? 'فاتورة نواقص — قطع غير موجودة في نقطة البيع' : 'فاتورة نقل مخزون داخلي بين الفروع'}</div>
   ${invTitle ? `<div style="text-align:center;color:#111;font-weight:900;font-size:15px;padding:1px 0 5px;">${escHtml(invTitle)}</div>` : ''}
   ${catsLine ? `<div style="text-align:center;color:#444;font-weight:700;font-size:12px;padding:0 0 5px;">الأصناف: ${escHtml(catsLine)}</div>` : ''}
   <div style="border-top:1.5px solid #777;margin-bottom:7px;"></div>
 
   <table style="width:100%;margin-bottom:7px;"><tbody>
     <tr>
-      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;width:18%;">📤 الفرع المُصدِّر</td>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;width:18%;">${SH ? '🏪 نقطة البيع' : '📤 الفرع المُصدِّر'}</td>
       <td style="padding:4px 8px;font-size:13px;width:32%;font-weight:900;color:#D5001C;">${escHtml(t.from_branch_name)}</td>
       <td style="width:4%;"></td>
-      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;width:14%;">📥 الفرع المستقبِل</td>
-      <td style="padding:4px 8px;font-size:13px;font-weight:900;color:#047857;">${escHtml(t.to_branch_name)}</td>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;width:14%;">${SH ? '📋 نوع الفاتورة' : '📥 الفرع المستقبِل'}</td>
+      <td style="padding:4px 8px;font-size:13px;font-weight:900;color:${SH ? '#D5001C' : '#047857'};">${escHtml(t.to_branch_name)}</td>
     </tr>
     <tr>
-      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;">أنشأ النقل</td>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;">${SH ? 'أعدّ الفاتورة' : 'أنشأ النقل'}</td>
       <td style="padding:4px 8px;font-size:13px;">${escHtml(t.created_by||'—')}</td>
       <td></td>
-      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;">المستلم</td>
-      <td style="padding:4px 8px;font-size:13px;">${t.received_by ? escHtml(t.received_by) : '— لم يُستلم بعد —'}</td>
+      <td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;">${SH ? 'مسؤول النقطة' : 'المستلم'}</td>
+      <td style="padding:4px 8px;font-size:13px;">${t.received_by ? escHtml(t.received_by) : (SH ? '_____________________' : '— لم يُستلم بعد —')}</td>
     </tr>
   </tbody></table>
 
   <div style="background:#fef3c7;border:1.5px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;font-weight:700;margin-bottom:10px;line-height:1.7;">
-    📸 تعليمات المستلم: بعد استلام الطرد، وقّع على هذه الفاتورة الورقية واكتب اسمك الكامل، ثم صوّرها وأرسل الصورة لتأكيد الاستلام في النظام.
+    ${SH ? '🔎 كلّ قطعة في الجدول غير موجودة فعلياً في نقطة البيع. «📝» تحت اسم القطعة = متى دخلت النقطة (حسب النظام) ومن أين. الأسعار من بطاقة المنتج اليوم.' : '📸 تعليمات المستلم: بعد استلام الطرد، وقّع على هذه الفاتورة الورقية واكتب اسمك الكامل، ثم صوّرها وأرسل الصورة لتأكيد الاستلام في النظام.'}
   </div>
 
   <table id="inv-items-tbl" style="width:100%;table-layout:fixed;margin-bottom:7px;">
@@ -205,24 +208,24 @@ function print(t, o) {
 
   <table class="col-profit" style="width:100%;border-collapse:collapse;margin-bottom:7px;">
     <tr><td colspan="2" style="background:#f1f5f9;color:#0f172a;padding:5px 10px;font-size:13px;font-weight:900;text-align:center;">📊 ملخص الفاتورة</td></tr>
-    <tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;width:50%;">إجمالي القطع المنقولة</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">${totalQty}</td></tr>
-    <tr><td style="padding:4px 8px;font-size:12px;">تكلفة البضاعة (سعر الجملة)</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${totalCost.toFixed(2)}</td></tr>
-    <tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;">سعر المبيع المتوقع</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${totalSale.toFixed(2)}</td></tr>
-    <tr><td style="padding:4px 8px;font-size:13px;font-weight:900;color:${profit>=0?'#047857':'#dc2626'};">الربح المتوقع</td><td style="background:#dbe4f7;color:${profit>=0?'#047857':'#dc2626'};text-align:center;padding:4px 8px;font-size:13px;font-weight:900;">${profit>=0?'+':''}$ ${profit.toFixed(2)}</td></tr>
+    <tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;width:50%;">${SH ? 'إجمالي القطع الناقصة' : 'إجمالي القطع المنقولة'}</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">${totalQty}</td></tr>
+    <tr><td style="padding:4px 8px;font-size:12px;">${SH ? 'قيمة النقص بسعر الجملة' : 'تكلفة البضاعة (سعر الجملة)'}</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${totalCost.toFixed(2)}</td></tr>
+    <tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:12px;">${SH ? 'قيمة النقص بسعر المبيع' : 'سعر المبيع المتوقع'}</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 8px;font-size:12px;font-weight:900;">$ ${totalSale.toFixed(2)}</td></tr>
+    ${SH ? '' : `<tr><td style="padding:4px 8px;font-size:13px;font-weight:900;color:${profit>=0?'#047857':'#dc2626'};">الربح المتوقع</td><td style="background:#dbe4f7;color:${profit>=0?'#047857':'#dc2626'};text-align:center;padding:4px 8px;font-size:13px;font-weight:900;">${profit>=0?'+':''}$ ${profit.toFixed(2)}</td></tr>`}
   </table>
 
   <table style="width:100%;margin-bottom:14px;"><tr>
     <td style="width:50%;vertical-align:top;padding-left:8px;border-top:2px solid #374151;text-align:center;padding-top:10px;">
-      <div style="font-size:11px;color:#5b6472;margin-bottom:40px;">توقيع المُرسِل</div>
+      <div style="font-size:11px;color:#5b6472;margin-bottom:40px;">${SH ? 'توقيع مسؤول نقطة البيع' : 'توقيع المُرسِل'}</div>
       <div style="font-size:12px;font-weight:800;">${escHtml(t.from_branch_name)}</div>
     </td>
     <td style="width:50%;vertical-align:top;padding-right:8px;border-top:2px solid #374151;text-align:center;padding-top:10px;">
-      <div style="font-size:11px;color:#5b6472;margin-bottom:40px;">توقيع المستلم — الاسم الكامل</div>
+      <div style="font-size:11px;color:#5b6472;margin-bottom:40px;">${SH ? 'توقيع الإدارة — الاسم الكامل' : 'توقيع المستلم — الاسم الكامل'}</div>
       <div style="font-size:12px;font-weight:800;">${t.received_by ? escHtml(t.received_by) : '_____________________'}</div>
     </td>
   </tr></table>
 
-  <div style="margin-top:10px;font-size:13px;font-weight:700;">اسم المستخدم: <span style="display:inline-block;min-width:80px;">${escHtml(t.created_by||'ادمن')}</span> &nbsp;&nbsp;&nbsp; نوع الحركة [ نقل داخلي ]</div>
+  <div style="margin-top:10px;font-size:13px;font-weight:700;">اسم المستخدم: <span style="display:inline-block;min-width:80px;">${escHtml(t.created_by||'ادمن')}</span> &nbsp;&nbsp;&nbsp; نوع الحركة [ ${SH ? 'نواقص' : 'نقل داخلي'} ]</div>
   ${shortNote ? `<div style="margin-top:8px;border:1.5px solid #b45309;background:#fff7ed;border-radius:6px;padding:6px 9px;font-size:11.5px;font-weight:700;color:#7c2d12;">📝 ملاحظة: ${escHtml(shortNote)}</div>` : ''}
   <div style="text-align:center;margin-top:6px;font-size:12px;font-weight:700;">تاريخ الطباعة: ${new Date().toLocaleString('ar-SY')}</div>
 
@@ -253,7 +256,7 @@ function print(t, o) {
         el.replaceWith(s);
       }
     });
-    setTimeout(function(){ window.print(); }, 500);
+    if (!window.__noAutoPrint) setTimeout(function(){ window.print(); }, 500);
   }
   if(window.JsBarcode) draw();
   else {
