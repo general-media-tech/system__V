@@ -324,3 +324,32 @@
   }
   g.GMTAsk = { __stub: 1, alert: later('alert'), confirm: later('confirm'), choose: later('choose'), form: later('form'), prompt: later('prompt') };
 })(typeof window !== 'undefined' ? window : globalThis);
+
+/* ══ (TASK-A0543 · المالك seq 928 «خطأ حرج: rcptBatchOpen is not defined») ضغطةٌ قبل أن يجهز كود الصفحة ══
+   الأزرار تُرسم قبل أن يُنفَّذ سكربت الصفحة (أو مكتبةٌ «defer») ⇒ ضغطةٌ في الثواني الأولى على هاتفٍ بطيء تنادي دالةً لم تُعرَّف ⇒
+   «خطأ حرج». صيد النمط من سجلّ الأخطاء (30 يوماً): rcptBatchOpen · GMTMuftiReview · GMTAsk (الأوردرات) · unlock (الأمان والمستخدمون).
+   الحارس العامّ: قبل تنفيذ onclick نقرأ اسم الدالة الأولى فيه؛ إن لم تُعرَّف بعد (لا على window ولا كتعريفٍ عامّ) تُوقَف الضغطة
+   بلطف «⏳ الصفحة عم تتحمّل» — ولا شيء يتغيّر بعد التحميل. */
+(function () {
+  if (typeof document === 'undefined' || window.__gmtEarlyGuard) return;
+  window.__gmtEarlyGuard = true;
+  var SKIP = { if: 1, return: 1, event: 1, this: 1, document: 1, window: 1, location: 1, history: 1, alert: 1, confirm: 1, var: 1, let: 1, const: 1, typeof: 1, void: 1, new: 1, try: 1 };
+  function defined(name) {
+    if (typeof window[name] !== 'undefined') return true;
+    try { return (0, eval)('typeof ' + name) !== 'undefined'; } catch (e) { return true; }   // تعذّر الفحص ⇒ لا نُوقف شيئاً
+  }
+  function note() {
+    var n = document.getElementById('gmt-wait-note');
+    if (!n) { n = document.createElement('div'); n.id = 'gmt-wait-note'; n.setAttribute('role', 'status');
+      n.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483000;background:#111827;color:#fff;padding:10px 16px;border-radius:12px;font:900 13px Cairo,Tahoma,sans-serif;direction:rtl;box-shadow:0 8px 24px rgba(0,0,0,.3)';
+      (document.body || document.documentElement).appendChild(n); }
+    n.textContent = '⏳ الصفحة عم تتحمّل — لحظة وأعد الضغط'; n.style.display = 'block';
+    clearTimeout(n.__t); n.__t = setTimeout(function () { n.style.display = 'none'; }, 2200);
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest && e.target.closest('[onclick]'); if (!el) return;
+    var m = String(el.getAttribute('onclick') || '').match(/^\s*(?:return\s+)?(?:window\.)?([A-Za-z_$][\w$]*)\s*[.(]/);
+    if (!m || SKIP[m[1]] || defined(m[1])) return;
+    e.preventDefault(); e.stopPropagation(); note();
+  }, true);
+})();
