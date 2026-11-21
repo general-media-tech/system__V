@@ -217,6 +217,11 @@ window.GMT_INTERNAL = 1;</script>
                     class="col-span-2 text-center bg-red-600 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm">
                 ⟳ تحديث فوري الآن <span data-carrier-last class="text-[10px] font-bold text-red-100"></span>
             </button>
+            <!-- (TASK-A0539 · المالك seq 916) «زرّ إدخال إيصالات … بدون ما أحدّد كلّ واحد لمين … لحالهم بيتوزّعوا ع مكانهم وبينشحنوا» -->
+            <button type="button" onclick="rcptBatchOpen()" data-rcpt-batch data-hint="صوّر أو ارفع إيصالات المفتي كلّها دفعةً واحدة: يقرأ كلّ إيصال (رقم التتبّع · الفرع · المستلم · الهاتف) ويجد أوردره ويشحنه وحده"
+                    class="col-span-2 text-center bg-gray-900 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm">
+                📥 إدخال إيصالات — توزيع وشحن تلقائي
+            </button>
             <button type="button" onclick="window.GMTUndo && GMTUndo.panel()" data-hint="تراجع وإعادة لتعديلات الأوردرات (Ctrl+Z · Ctrl+Y) — يعيد القيم فعلاً في القاعدة"
                     class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">↶ تراجع</button>
             <button type="button" id="ord-more-btn" aria-expanded="false" aria-controls="ord-tools" onclick="var o=document.getElementById('ord-tools').classList.toggle('ord-open');this.setAttribute('aria-expanded',o);this.firstElementChild.textContent=o?'إخفاء الأدوات':'المزيد من الأدوات';"
@@ -4904,6 +4909,165 @@ async function confirmShippingRun() {
         if (_hadOrig && data.receipt_meta) saveReceiptTg(_id, _mid);     // مكان الإيصال (الممسوح) في أرشيف تيليغرام
     } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
 };
+
+/* ═════════════════════════════════════════════════════════════════════════════════════════════════════
+   📥 إدخال الإيصالات بالجملة — TASK-A0539 (المالك seq 916)
+   «بعطيك ايصالات بدون ما احدد كل واحد لمين … ماسح متعوّد على الإيصالات (المفتي أوّلاً) ياخد الباركود فوراً والفرع والمستلم
+    ولحاله يعطيه إرسال إلى شحن … ابلود لأكثر من إيصال أو بصوّرهم مباشرة ولحالهم بيتوزّعوا كلّ إيصال لمكانه الصحيح وبينشحن».
+   لكلّ إيصال: قراءة المفتي (GMTReceipt.readMufti: رقم التتبّع · الفرع المصدر · النوع) + «المرسل إليه» + أرقام الإيصال ⇒ مطابقة
+   الأوردرات الجاهزة للشحن (قيد التجهيز/محضّرة · لا مجمَّد ولا بانتظار التأكيد):
+     • هاتف الأوردر ظاهرٌ في أرقام الإيصال ⇒ مطابقة مؤكّدة · وإلّا الاسم: تشابهٌ ≥ 0.75 وفارقٌ واضح عن الثاني.
+     • مؤكّدة ⇒ تُشحن وحدها بالمسار نفسه (الحالة · الرقم · الإيصال وبياناته · الفرع المُرسِل · الكليشة لتيليغرام · مخزون المتجر)
+       مع «↩️ تراجع» · غير مؤكّدة ⇒ أفضل ٣ مرشّحين بضغطة · رقم تتبّعٍ على أوردرٍ آخر ⇒ لا يُعتمد أبداً.
+   تبليغ الزبائن واتساب يحتاج ضغطةً لكلّ زبون (المتصفّح لا يفتح عشرات النوافذ) ⇒ «📲 بلّغ التالي». ══ */
+const _rb = { items: [], busy: false };
+function rbNorm(t) {
+    return String(t || '').replace(/[\u064B-\u065F\u0670]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+        .replace(/[^\u0621-\u064Aa-z0-9 ]/gi, ' ').toLowerCase().split(/\s+/).filter(w => w.length > 1).map(w => w.replace(/^ال(?=..)/, ''));
+}
+function rbLev(a, b) { const m = a.length, n = b.length; if (!m || !n) return Math.max(m, n); let p = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) { const c = [i]; for (let j = 1; j <= n; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = c; } return p[n]; }
+function rbNameSim(a, b) {
+    const A = rbNorm(a), B = rbNorm(b); if (!A.length || !B.length) return 0;
+    const w = (x, y) => 1 - rbLev(x, y) / Math.max(x.length, y.length);
+    const hit = A.reduce((t, x) => t + Math.max(...B.map(y => w(x, y))), 0) / A.length;
+    const back = B.reduce((t, y) => t + Math.max(...A.map(x => w(x, y))), 0) / B.length;
+    return Math.round(Math.min(hit, back) * 100) / 100;
+}
+function rbDigits(r) {
+    const t = latinDigits(String((r && r.text) || '') + ' ' + String((r && r.engText) || '') + ' ' + ((r && r.allDigits) || []).join(' '));
+    return (t.match(/\d{7,}/g) || []).map(x => x.replace(/^(00963|963)/, '0'));
+}
+function latinDigits(s) { return String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); }
+function rbEligible() { return orders.filter(o => !o.is_deleted && (o.status === 'pending' || o.status === 'prepared') && !isFrozen(o) && !needsConfirm(o)); }
+/* المطابقة: { order, how, score, cands } */
+function rbMatch(read, taken) {
+    const els = rbEligible().filter(o => !taken.has(String(o.id))), digs = rbDigits(read), name = read.receiver || '';
+    const byPhone = els.filter(o => { const p = String(o.phone || '').replace(/\D/g, '').slice(-8); return p.length === 8 && digs.some(d => d.indexOf(p) !== -1); });
+    if (byPhone.length === 1) return { order: byPhone[0], how: 'phone', score: 1, cands: byPhone };
+    const pool = byPhone.length > 1 ? byPhone : els;
+    const sc = pool.map(o => ({ o, s: name ? rbNameSim(name, o.name) : 0 })).sort((a, b) => b.s - a.s);
+    const top = sc[0], second = sc[1];
+    if (top && top.s >= 0.75 && (!second || top.s - second.s >= 0.2)) return { order: top.o, how: byPhone.length > 1 ? 'phone+name' : 'name', score: top.s, cands: sc.slice(0, 3).map(x => x.o) };
+    return { order: null, how: '', score: top ? top.s : 0, cands: sc.filter(x => x.s >= 0.4).slice(0, 3).map(x => x.o) };
+}
+async function rbRead(file) {
+    if (!window.GMTReceipt || !GMTReceipt.readMufti) throw new Error('وحدة قراءة الإيصالات لم تُحمَّل');
+    const r = await GMTReceipt.readMufti(file, {});
+    const T = r.tracking || {};
+    r.number = T.number || (T.status === 'differ' ? T.barcode : '') || '';
+    let rec = ''; try { rec = (GMTReceipt._receiverOf && GMTReceipt._receiverOf(r.text || '')) || ''; } catch (_) {}
+    if (!rec && GMTReceipt.readReceiver) { try { rec = await GMTReceipt.readReceiver(file, { rot: r.rot || 0 }); } catch (_) {} }
+    r.receiver = rec;
+    return r;
+}
+window.rcptBatchOpen = () => {
+    const old = document.getElementById('rb-ov'); if (old) old.remove();
+    const ov = document.createElement('div'); ov.id = 'rb-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto';
+    ov.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:640px;width:100%;margin:auto;overflow:hidden;font-family:Cairo,sans-serif;direction:rtl">
+      <div style="background:#111827;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:15px;font-weight:900">📥 إدخال إيصالات المفتي</div>
+        <div style="font-size:11px;color:#cbd5e1">كلّ إيصال يُقرأ ويُطابَق بأوردره ويُشحن وحده — المؤكَّد فقط، والباقي بضغطة</div></div>
+        <button type="button" onclick="document.getElementById('rb-ov').remove()" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-weight:800;font-family:inherit">إغلاق</button></div>
+      <div style="padding:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <label style="background:#D5001C;color:#fff;border-radius:12px;padding:12px;text-align:center;font-weight:900;font-size:13px;cursor:pointer">📷 صوّر إيصالاً<input type="file" accept="image/*" capture="environment" data-rb-cam style="display:none"></label>
+          <label style="background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px;text-align:center;font-weight:900;font-size:13px;cursor:pointer">🖼️ ارفع عدّة إيصالات<input type="file" accept="image/*" multiple data-rb-files style="display:none"></label>
+        </div>
+        <div data-rb-sum style="font-size:12px;font-weight:800;color:#475569;margin-bottom:8px">جاهز للشحن الآن: ${rbEligible().length} أوردر (قيد التجهيز / محضّرة)</div>
+        <div data-rb-list style="display:flex;flex-direction:column;gap:8px"></div>
+        <button type="button" data-rb-notify onclick="rbNotifyNext()" style="display:none;margin-top:10px;width:100%;background:#16a34a;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:900;font-family:inherit;font-size:13px"></button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    try { GMTReceipt && GMTReceipt.warm && GMTReceipt.warm(); } catch (_) {}
+    const take = inp => inp.addEventListener('change', () => { const fs = [...(inp.files || [])]; inp.value = ''; if (fs.length) rbAdd(fs); });
+    take(ov.querySelector('[data-rb-cam]')); take(ov.querySelector('[data-rb-files]'));
+    rbPaint();
+};
+function rbAdd(files) {
+    files.forEach(f => _rb.items.push({ k: Date.now() + '_' + Math.random().toString(36).slice(2, 7), file: f, st: 'wait' }));
+    rbPaint(); rbRun();
+}
+async function rbRun() {
+    if (_rb.busy) return; _rb.busy = true;
+    try {
+        for (const it of _rb.items) {
+            if (it.st !== 'wait') continue;
+            it.st = 'read'; rbPaint();
+            try { it.read = await rbRead(it.file); } catch (e) { it.st = 'err'; it.why = (e && e.message) || 'تعذّرت القراءة'; rbPaint(); continue; }
+            const r = it.read;
+            if (r.type && r.type.kind !== 'mufti' && r.company && r.company !== MUFTI_CO) { it.st = 'other'; it.why = 'إيصال «' + r.company + '» — الآلي للمفتي فقط الآن'; rbPaint(); continue; }
+            if (!r.number) { it.st = 'nonum'; it.why = 'لم يُقرأ رقم التتبّع — صوّره أوضح أو اشحنه من بطاقته'; rbPaint(); continue; }
+            const dup = await trackingTakenBy(r.number, -1);
+            if (dup.length) { it.st = 'dup'; it.why = 'الرقم ' + r.number + ' مسجَّل على ' + dup.map(x => (x.serial_code || '#' + x.id) + ' ' + (x.name || '')).join('، '); rbPaint(); continue; }
+            const taken = new Set(_rb.items.filter(x => x.order && x.st === 'shipped').map(x => String(x.order.id)));
+            const m = rbMatch(r, taken); it.match = m;
+            if (m.order) await rbShip(it, m.order); else { it.st = 'pick'; rbPaint(); }
+        }
+    } finally { _rb.busy = false; rbPaint(); }
+}
+/* الشحن — المسار نفسه لـ«اعتماد الشحن» بلا نافذته */
+async function rbShip(it, o) {
+    const r = it.read, idx = orders.findIndex(x => x.id == o.id); if (idx < 0) { it.st = 'err'; it.why = 'الأوردر لم يعد موجوداً'; return; }
+    const lock = await ordersLockBlock(orders[idx], 'shipped'); if (lock) { it.st = 'err'; it.why = lock; it.order = o; return; }
+    const bk = r.branch && r.branch.confident && r.branch.key ? { key: r.branch.key, src: 'read' } : ((d => d.key ? { key: d.key, src: 'default' } : null)(shipFromDefault(MUFTI_CO)));
+    if (!bk) { it.st = 'err'; it.why = 'لم يُقرأ الفرع المُرسِل ولا فرعٌ افتراضي في ⚙️ إعدادات الأوردرات'; it.order = o; return; }
+    const prev = { status: o.status, tracking_number: o.tracking_number || null, shipped_at: o.shipped_at || null, shipping_company: o.shipping_company || null,
+                   receipt_img: null, receipt_at: o.receipt_at || null, receipt_meta: o.receipt_meta || null, ship_from_office: o.ship_from_office || null };
+    const now = new Date().toISOString(), durl = await compressReceipt(it.file).catch(() => null);
+    const data = { status: 'shipped', tracking_number: r.number, shipped_at: now, shipping_company: MUFTI_CO };
+    if (durl && durl.length < 900000) Object.assign(data, { receipt_img: durl, receipt_at: now, receipt_meta: { v: 1, at: now, by: (typeof getOperatorName === 'function' ? getOperatorName() : '') || null,
+        company: MUFTI_CO, via: 'batch', scanned: false, mode: null, type: r.type ? { kind: r.type.kind, why: r.type.why || '' } : null,
+        track: { status: (r.tracking || {}).status || 'none', barcode: (r.barcode && r.barcode.number) || null, printed: (r.printed && r.printed.number) || null, final: r.number, source: 'auto' },
+        branch: { src: bk.src, key: bk.key, read: r.branch ? { key: r.branch.key || null, confident: !!r.branch.confident, text: String(r.branch.text || '').slice(0, 80) } : null },
+        match: { how: it.match ? it.match.how : 'picked', score: it.match ? it.match.score : null, receiver: r.receiver || null }, orig_tg: null, prev: [] } });
+    try {
+        await sbUpdateOrThrow(o.id, data);
+        orders[idx] = { ...orders[idx], ...data };
+        try { if (isStoreOrder(orders[idx])) upsertCustomerFromOrder(orders[idx]).catch(() => {}); } catch (_) {}
+        try { storeStockToast(await deductStoreOrderStock(orders[idx])); } catch (_) {}
+        try { await saveShipFromR(o.id, bk.key); } catch (_) {}
+        it.st = 'shipped'; it.order = orders[idx]; it.prev = prev; it.branchSrc = bk.src;
+        try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', newValue: r.number, reason: 'إدخال إيصالات: ' + (it.match ? it.match.how : 'اختيار') + (r.receiver ? ' · المستلم «' + r.receiver + '»' : '') }); } catch (_) {}
+        sendShippingLabel(orders[idx]).then(mid => { if (data.receipt_meta) saveReceiptTg(o.id, mid); }).catch(() => {});
+        render();
+    } catch (e) { it.st = 'err'; it.why = 'تعذّر الشحن: ' + ((e && e.message) || e); it.order = o; }
+}
+window.rbPick = async (k, oid) => {
+    const it = _rb.items.find(x => x.k === k); const o = orders.find(x => String(x.id) === String(oid)); if (!it || !o || it.st !== 'pick') return;
+    it.match = Object.assign({}, it.match || {}, { how: 'picked' }); it.st = 'read'; rbPaint(); await rbShip(it, o); rbPaint();
+};
+window.rbUndo = async (k) => {
+    const it = _rb.items.find(x => x.k === k); if (!it || it.st !== 'shipped' || !it.prev) return;
+    const p = Object.assign({}, it.prev); delete p.receipt_img; p.receipt_img = null;
+    try { await sbUpdateOrThrow(it.order.id, p); const i = orders.findIndex(x => x.id == it.order.id); if (i >= 0) orders[i] = { ...orders[i], ...p };
+        try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch_undo', entity: 'gmt_orders', entityId: String(it.order.id), entityName: it.order.name || '', reason: 'تراجع عن إدخال إيصال' }); } catch (_) {}
+        it.st = 'pick'; it.prev = null; render(); rbPaint(); showToast('↩️ عاد «' + (it.order.name || '') + '» إلى ' + (ORDER_STATUS_AR[p.status] || 'قيد التجهيز'), 'ok');
+    } catch (e) { showToast('تعذّر التراجع: ' + ((e && e.message) || e), 'err'); }
+};
+window.rbNotifyNext = () => {
+    const it = _rb.items.find(x => x.st === 'shipped' && !x.notified); if (!it) return;
+    it.notified = true; openShipNotice(orders.find(x => x.id == it.order.id) || it.order, true); rbPaint();
+};
+function rbPaint() {
+    const ov = document.getElementById('rb-ov'); if (!ov) return;
+    const L = ov.querySelector('[data-rb-list]'), esc = s => escH(String(s == null ? '' : s));
+    const lab = { wait: ['⏳', 'بالدور', '#64748b'], read: ['🔎', 'يقرأ ويطابق…', '#2563eb'], shipped: ['✅', 'شُحن', '#15803d'], pick: ['👆', 'اختر الأوردر', '#b45309'],
+                  dup: ['⛔', 'رقمٌ مكرَّر', '#b91c1c'], nonum: ['⚠️', 'بلا رقم تتبّع', '#b91c1c'], other: ['ℹ️', 'شركةٌ أخرى', '#475569'], err: ['⚠️', 'لم يُشحن', '#b91c1c'] };
+    L.innerHTML = _rb.items.map((it, n) => { const r = it.read || {}, l = lab[it.st] || lab.wait, o = it.order;
+        return `<div data-rb-item="${it.st}" style="border:1.5px solid #e5e7eb;border-radius:12px;padding:9px 11px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;gap:6px;font-weight:900"><span>${n + 1}. ${l[0]} <span style="color:${l[2]}">${l[1]}</span></span>
+            <span dir="ltr" style="color:#334155">${esc(r.number || '')}</span></div>
+          ${r.receiver || (r.branch && r.branch.key) ? `<div style="color:#64748b;font-weight:700;margin-top:2px">${r.receiver ? 'المستلم: ' + esc(r.receiver) : ''}${r.branch && r.branch.key ? ' · الفرع: ' + esc(shipFromLabel(r.branch.key)) : ''}</div>` : ''}
+          ${o && it.st === 'shipped' ? `<div style="margin-top:4px;font-weight:800">⇐ ${esc(o.serial_code || '#' + o.id)} · ${esc(o.name || '')} <span style="color:#64748b">(${it.match && it.match.how === 'phone' ? 'بالهاتف' : it.match && it.match.how === 'picked' ? 'باختيارك' : 'بالاسم'}${it.branchSrc === 'default' ? ' · الفرع الافتراضي' : ''})</span>
+             <button type="button" onclick="rbUndo('${it.k}')" style="margin-right:6px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:800;font-family:inherit">↩️ تراجع</button></div>` : ''}
+          ${it.st === 'pick' ? `<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">${((it.match && it.match.cands) || []).map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #fde68a;background:#fffbeb;border-radius:9px;padding:7px 9px;font-weight:800;font-family:inherit;font-size:12px">⇐ ${esc(c.serial_code || '#' + c.id)} · ${esc(c.name || '')} · ${esc(c.phone || '')}</button>`).join('') || '<span style="color:#b45309;font-weight:800">لا مرشّح قريب — اشحنه من بطاقة أوردره</span>'}</div>` : ''}
+          ${it.why ? `<div style="color:#b91c1c;font-weight:700;margin-top:3px">${esc(it.why)}</div>` : ''}
+        </div>`; }).join('');
+    const sh = _rb.items.filter(x => x.st === 'shipped'), left = sh.filter(x => !x.notified).length;
+    const S = ov.querySelector('[data-rb-sum]'); if (S && _rb.items.length) S.textContent = 'الإيصالات: ' + _rb.items.length + ' · شُحن تلقائياً: ' + sh.length + ' · تنتظر اختيارك: ' + _rb.items.filter(x => x.st === 'pick').length + ' · جاهز للشحن الآن: ' + rbEligible().length;
+    const B = ov.querySelector('[data-rb-notify]'); if (B) { B.style.display = left ? 'block' : 'none'; B.textContent = '📲 بلّغ الزبون التالي بالشحن (' + left + ' باقٍ)'; }
+}
 
 // ══ Confirm Dialog ══
 /* ══ (٢٠٢٦-١٠-١١ · ملاحظات ٩ ت١ ٥:٥٢) «تقفيل الأوردرات» ══
@@ -10967,7 +11131,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121n"></script>
+<script src="gmt-whatsnew.js?v=20261121o"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
