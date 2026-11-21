@@ -306,7 +306,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261119l"></script>
+  <script src="gmt-core.js?v=20261121t"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261118b" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261121k"></script>
@@ -745,7 +745,7 @@ async function fetchStoreRecord() {
    قاعدة المتجر ليست قاعدة المخزون ولا أصل إليها من هنا، وجدولها قد يسمّي عمود النصّ غير «text». عمودٌ غير موجود يرفض الطلب كلّه
    فتصير التقييمات فارغةً بصمت ويتكرّر خطأ 400 في كل فتحة. الآن نجرّب أسماء الأعمدة المعروفة بالتدرّج، ونتذكّر ما نجح (محلّياً)
    فلا نكرّر الطلبات الفاشلة، ونوحّد النتيجة في الحقل text. لا نستعمل select('*') كي لا تصل هواتف المقيّمين لكل زائر. */
-const _CMT_TXT = ['text', 'comment', 'content', 'message', 'body', 'review'];
+const _CMT_TXT = ['comment', 'text', 'content', 'message', 'body', 'review'];   // (TASK-A0544) عمود قاعدة المتجر الفعلي «comment» (فُحص) ⇒ أوّلاً — كان «text» يفشل 400 لكلّ زائرٍ جديد
 const _CMT_LS = 'gmt_cmt_txtcol';
 function _cmtMissingCol(err) { return /42703|PGRST204|does not exist|Could not find/i.test(((err && err.code) || '') + ' ' + ((err && err.message) || '')); }
 function _cmtCols() {

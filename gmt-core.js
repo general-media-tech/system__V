@@ -3823,7 +3823,8 @@
     if (isWrite && !/gmt_telemetry/.test(url)) {
       const sig = method + ' ' + url.split('?')[0] + ' ' + String((init && init.body) || '').slice(0, 80);
       const prev = recentWrites.get(sig);
-      if (prev && started - prev < 2000) add('warn', 'تكرار', 'نفس عملية الكتابة تكرّرت خلال ثانيتين — خطر ازدواج', method + ' ' + redact(url));
+      /* (TASK-A0544) قراءاتٌ تُرسَل POST (عدّ/قائمة الإشعارات) ليست كتابة — لا «خطر ازدواج» */
+      if (prev && started - prev < 2000 && !/"action":"(count|list)"/.test(String((init && init.body) || ''))) add('warn', 'تكرار', 'نفس عملية الكتابة تكرّرت خلال ثانيتين — خطر ازدواج', method + ' ' + redact(url));
       recentWrites.set(sig, started);
       setTimeout(() => recentWrites.delete(sig), 4000);
 
@@ -3920,7 +3921,9 @@
     function tick(t) {
       const gap = t - last;
       /* لا نُبلّغ إذا كان التبويب مخفياً — rAF يتوقف طبيعياً حينها (كان مصدر إنذارات كاذبة) */
-      if (gap > 3000 && document.visibilityState === 'visible' && !hiddenSince) {
+      /* (TASK-A0544 · المالك seq 929) «تجمّدت 1045 ثانية» في الرئيسية = الهاتف نام والشاشة مطفأة دون حدث «مخفيّ» — لا JS يتجمّد 17 دقيقة
+         والصفحة حيّة. فجوةٌ أطول من دقيقة = تعليقٌ من الجهاز لا تجميد ⇒ لا تُسجَّل. */
+      if (gap > 3000 && gap < 60000 && document.visibilityState === 'visible' && !hiddenSince) {
         add('warn', 'تجميد', `تجمّدت الواجهة ${(gap / 1000).toFixed(1)} ثانية`, 'عملية ثقيلة أو حلقة لا تنتهي.');
       }
       hiddenSince = false;

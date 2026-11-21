@@ -19,7 +19,8 @@ async function seed() {
   await T('news_cards', [{ title_ar: 'خصومات تصل حتى 30%', description_ar: 'على مجموعة مختارة من العدسات الأصلية بكفالة الوكيل لفترة محدودة', tag_ar: 'عرض خاص', tag_color: '#D5001C', link_url: 'store.html', published_at: '2026-10-05', image_url: PNG, sort_order: 1, is_active: true }, { title_ar: 'خبر بلا رابط ولا صورة', description_ar: 'نصّ تجريبي', tag_ar: 'خبر', tag_color: 'javascript:x', link_url: '', published_at: '2026-10-01', sort_order: 2, is_active: true }]);
   await T('footer_links', [{ label_ar: 'Instagram', url: 'https://instagram.com/x', icon_name: 'instagram', link_type: 'social', sort_order: 1, is_active: true }, { label_ar: 'Facebook', url: '#', icon_name: 'facebook', link_type: 'social', sort_order: 2, is_active: true }]);
   await T('agents', [{ name: 'وكيل اللاذقية', city: 'اللاذقية', phone: '0944123456', is_active: true, sort_order: 1 }]);
-  await T('gmt_store', [{ id: 1, branches: [{ name: 'فرع حلب', province: 'حلب', address: 'شارع التلل', phone: '0933111222' }, { name: 'فرع دمشق', province: 'دمشق', address: 'البرامكة', phone: '0933999888' }] }]);
+  /* (TASK-A0544) مصدر فروع الموقع الوحيد: gmt_settings · store_branches (كان احتياطاً من gmt_store.branches — عمودٌ غير موجود في القاعدة الحيّة) */
+  await T('gmt_settings', [{ key: 'store_branches', value: JSON.stringify([{ name: 'فرع حلب', province: 'حلب', address: 'شارع التلل', phone: '0933111222' }, { name: 'فرع دمشق', province: 'دمشق', address: 'البرامكة', phone: '0933999888' }]) }]);
 }
 (async () => {
   await seed();

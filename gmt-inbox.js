@@ -14,7 +14,18 @@
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) { return null; } }
   function db() { return global.GMT_DB && global.GMT_DB.MAIN; }
   function token() { return ls('gmt_inbox_token') || ''; }
+  /* (TASK-A0544 · المالك seq 929) «نفس عملية الكتابة تكرّرت خلال ثانيتين» (الرئيسية · notify-inbox): طلبان متطابقان أثناء طيرانهما
+     (توثيق الجهاز من مكانين عند الفتح) ⇒ طلبٌ واحد يتشاركانه. */
+  var inflight = {};
   function call(body) {
+    var key = JSON.stringify(body || {});
+    if (inflight[key]) return inflight[key];
+    var p = call0(body); inflight[key] = p;
+    var done = function () { delete inflight[key]; };
+    p.then(done, done);
+    return p;
+  }
+  function call0(body) {
     var d = db(); if (!d) return Promise.resolve({ ok: false, msg: 'إعداد القاعدة غير متاح' });
     return fetch(d.url + '/functions/v1/notify-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: d.key, Authorization: 'Bearer ' + d.key }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return { ok: false, msg: 'ردّ غير مفهوم' }; }); })
