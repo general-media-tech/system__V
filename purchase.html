@@ -201,7 +201,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-auth.js?v=20261119i"></script>
   <script src="gmt-warmup.js?v=20261117j"></script>
   <script src="gmt-labels.js?v=20261116a"></script>
-<script src="gmt-staff.js?v=20261118c"></script>
+<script src="gmt-staff.js?v=20261121g"></script>
 <script src="gmt-store-sync.js?v=20261118b"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -1666,6 +1666,7 @@ async function saveInstantPurchase(){
     }
 
     const doInstantInventory=async(resolvedConflicts)=>{
+      const _instSent=new Set();
       for(const {item,p,payload,branch} of instPayloads){
         try{
           const resolved=resolvedConflicts?.find(c=>c.db?.id===item.product.id);
@@ -1684,7 +1685,10 @@ async function saveInstantPurchase(){
             { p_product_id:item.product.id, p_branch_key:branch, p_qty:item.qty }).then(()=>true).catch(e=>{
               console.warn('[GMT] فشل إضافة الكمية ذرّياً:',item.product.id,e&&e.message); return false;
             });
-          if(Object.keys(finalPayload).length){
+          /* (TASK-A0530) المنتج نفسه في بندين ⇒ لا يُرسل التحديث نفسه مرّتين (الكمية أعلاه ذرّية لكلّ بند كما يجب) */
+          const _sig=String(item.product.id)+'|'+JSON.stringify(finalPayload);
+          if(Object.keys(finalPayload).length && !_instSent.has(_sig)){
+            _instSent.add(_sig);
             await sb('PATCH',`/rest/v1/products?id=eq.${item.product.id}`,finalPayload,{Prefer:'return=minimal'});
           }
           if(_rq){
@@ -3473,7 +3477,15 @@ async function saveInvEdits(){
      الفاتورة تعرض أسعار المنتج الحيّة (seq 579) ⇒ ما يختلف عن نسخة المنتج = ما عدّلتَه أنت ⇒ يُرسل وحده فوراً، والباقي لا يُلمس.
      ومن هنا تكمل gmt-store-sync.js إلى قائمة المتجر وقيمة العائلة. فشل الحفظ لا يمرّ بصمت. */
   const _fails=[];
-  const _sends=productUpdates.map(({id,upd,idx})=>{
+  /* (TASK-A0530 · بلاغ البوت «كتابة مزدوجة: نفس PATCH على نفس الصف مرتين خلال ٣ث» — المنتج bc08b9e5 كُتبت تكلفته ٣ مرّات في ١٥٠ms)
+     السبب: تحديثٌ لكلّ **بند** والمنتج نفسه في عدّة بنود، كلّها بالتوازي ⇒ تكرار، وإن اختلفت أسعار البنود فالمحفوظ = أيّ طلبٍ وصل آخراً (عشوائي).
+     الآن: تحديثٌ واحد لكلّ منتج — التكلفة متوسّط مرجّح بكمية بنوده · بقيّة الأسعار والاسم من آخر بند (ترتيب الفاتورة). */
+  const _byId=new Map();
+  productUpdates.forEach(pu=>{ const k=String(pu.id), q=Math.max(1,+((d_items_ref[pu.idx]||{}).qty)||1), c=pu.upd.cost_price, g=_byId.get(k);
+    if(!g){ _byId.set(k,{id:pu.id,idx:pu.idx,upd:{...pu.upd},cw:c!=null?c*q:0,cq:c!=null?q:0}); return; }
+    Object.assign(g.upd,pu.upd); g.idx=pu.idx; if(c!=null){ g.cw+=c*q; g.cq+=q; } });
+  const _merged=[..._byId.values()].map(g=>{ if(g.cq) g.upd.cost_price=+(g.cw/g.cq).toFixed(4); return {id:g.id,upd:g.upd,idx:g.idx}; });
+  const _sends=_merged.map(({id,upd,idx})=>{
     const lp=prods.find(x=>String(x.id) === String(id));
     const send={...upd};
     if(lp)['price','wholesale_price','net_cost','cost_price'].forEach(f=>{
@@ -3491,7 +3503,7 @@ async function saveInvEdits(){
 
   /* (المالك seq 579) الفاتورة تعرض أسعار المنتج الحيّة ⇒ ما عدّلتَه الآن يُطبَّق على نسخة المنتج المحلية فوراً،
      وإلا تُعاد الفاتورة الفورية بالسعر القديم قبل أن يصل الحفظ (وتُحفظ به). */
-  productUpdates.forEach(({id,upd})=>{ const lp=prods.find(x=>String(x.id)===String(id)); if(lp) Object.assign(lp,upd); });
+  _merged.forEach(({id,upd})=>{ const lp=prods.find(x=>String(x.id)===String(id)); if(lp) Object.assign(lp,upd); });
   // ── 6. أعد بناء الفاتورة من d_items_ref مباشرة (لا من النموذج) ──
   const nowDate=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   const invData={
@@ -6087,7 +6099,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121f"></script>
+<script src="gmt-whatsnew.js?v=20261121g"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

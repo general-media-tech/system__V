@@ -54,6 +54,7 @@ declare
   part text[]; resp extensions.http_response; d jsonb; m jsonb := '{}'::jsonb; x jsonb;
   i int; j int; c text; pv jsonb; nv jsonb; n text; body jsonb; fn text;
   v_checked int := 0; v_changed int := 0; v_err int := 0; v_note text := null; v_arr int;
+  a_arr bigint[] := '{}'; a_got bigint[] := '{}'; a_ret bigint[] := '{}'; s_list text; s_n int;
 begin
   select key into k from public.gmt_keepalive_targets where project = 'ysawzwtmodkqqbqoiojj';
   if k is null then raise exception 'no main key'; end if;
@@ -105,7 +106,38 @@ begin
       'src', p_source);
     update public.gmt_orders set carrier_live = nv where id = ids[j];
     v_changed := v_changed + 1;
+    /* (المالك seq 891) تغيّرت الفئة ⇒ إشعار — الوصول · الاستلام · المرتجع */
+    if pv is null or pv = 'null'::jsonb or pv->>'cls' <> c then
+      if c = 'branch' then a_arr := a_arr || ids[j]; elsif c = 'got' then a_got := a_got || ids[j]; elsif c = 'ret' then a_ret := a_ret || ids[j]; end if;
+    end if;
   end loop;
+
+  /* (المالك seq 891 «لما يشوف شي جديد يعطيني إشعار خارجي فوراً: هاي الشحنة وصلت · استلمها …») إشعار هاتف (gmt_push_queue ⇒ push-dispatch)
+     إشعارٌ واحد لكلّ نوع في الدورة لا لكلّ شحنة · أرقام الأوردرات والشركة فقط (لا أسماء زبائن ولا مبالغ) · ساعات الهدوء ٢٣–٨ تؤجّله للصباح */
+  begin   /* فشل الإشعار لا يُلغي الدورة (اختُبر: نوعٌ غير مسموح كان يُرجع كلّ تحديثات الشحنات) */
+  if array_length(a_arr, 1) > 0 then
+    select string_agg('#' || coalesce(nullif(serial_code,''), nullif(order_number,''), id::text) || ' · ' || coalesce(shipping_company,''), '  ·  '), count(*) into s_list, s_n
+      from public.gmt_orders where id = any(a_arr) and status = 'shipped' and notified_arrival_at is null;
+    if s_n > 0 then insert into public.gmt_push_queue(kind, topic, data, dedupe_key, send_after) values ('carrier_arrived', 'admin',
+      jsonb_build_object('t', case when s_n = 1 then '📍 وصلت شحنة — بلّغ الزبون' else '📍 وصلت ' || s_n || ' شحنات — بلّغ الزبائن' end, 'b', s_list, 'u', 'orders.html'),
+      'carrier_arrived:' || md5(array_to_string(a_arr, ',')), now()) on conflict do nothing; end if;
+  end if;
+  if array_length(a_got, 1) > 0 then
+    select string_agg('#' || coalesce(nullif(serial_code,''), nullif(order_number,''), id::text) || ' · ' || coalesce(shipping_company,''), '  ·  '), count(*) into s_list, s_n
+      from public.gmt_orders where id = any(a_got) and status = 'shipped';
+    if s_n > 0 then insert into public.gmt_push_queue(kind, topic, data, dedupe_key, send_after) values ('carrier_got', 'admin',
+      jsonb_build_object('t', case when s_n = 1 then '✅ استلم الزبون شحنته — أكّد الاستلام' else '✅ استلم الزبائن ' || s_n || ' شحنات — أكّد الاستلام' end, 'b', s_list, 'u', 'orders.html'),
+      'carrier_got:' || md5(array_to_string(a_got, ',')), now()) on conflict do nothing; end if;
+  end if;
+  if array_length(a_ret, 1) > 0 then
+    select string_agg('#' || coalesce(nullif(serial_code,''), nullif(order_number,''), id::text) || ' · ' || coalesce(shipping_company,''), '  ·  '), count(*) into s_list, s_n
+      from public.gmt_orders where id = any(a_ret) and status in ('shipped', 'delivered');
+    if s_n > 0 then insert into public.gmt_push_queue(kind, topic, data, dedupe_key, send_after) values ('carrier_returned', 'admin',
+      jsonb_build_object('t', '⚠️ ' || case when s_n = 1 then 'شحنة صارت مرتجعاً عند شركة الشحن' else s_n || ' شحنات صارت مرتجعاً عند شركة الشحن' end, 'b', s_list, 'u', 'orders.html'),
+      'carrier_returned:' || md5(array_to_string(a_ret, ',')), now()) on conflict do nothing; end if;
+  end if;
+  exception when others then v_note := coalesce(v_note || ' · ', '') || 'notify: ' || left(sqlerrm, 120);
+  end;
   select count(*) into v_arr from public.gmt_orders
    where status = 'shipped' and coalesce(is_deleted, false) = false and notified_arrival_at is null and carrier_live->>'cls' = 'branch';
   insert into public.gmt_carrier_log(source, checked, changed, errors, arrived_unnotified, note)
@@ -114,5 +146,8 @@ begin
 end $f$;
 revoke all on function public.gmt_carrier_sweep(text) from public, anon, authenticated;
 
--- كلّ ٤ ساعات (الدقيقة 17 كي لا تتزاحم مع مهامّ الساعة)
-select cron.schedule('gmt_carrier_sweep_4h', '17 */4 * * *', $$select public.gmt_carrier_sweep('cron')$$);
+-- أنواع الإشعار الجديدة (المالك seq 891)
+alter table public.gmt_push_queue drop constraint gmt_push_queue_kind_check, add constraint gmt_push_queue_kind_check check (kind = any (array['order','order_new','order_confirmed','order_shipped','order_delivered','order_completed','order_returned','sale','refund','transfer','transfer_received','transfer_aging','stock_in','stock_count','product_new','offer','price','expense','expense_approved','cash_transfer','daily_close','settlement','chat','review','reservation','job','warranty_on','version','stock_low','stock_out','order_late','sales_low','escalate','carrier_arrived','carrier_got','carrier_returned']));
+
+-- (المالك seq 891) كلّ ساعة بدل ٤ — بلا توكنز ولا كلفة: ~٢٤ نداءً للمفتي يومياً ونداءان لسات وبابل حين لهما شحنات (حدّ Supabase المجاني ٥٠٠ ألف شهرياً)
+select cron.schedule('gmt_carrier_sweep_4h', '17 * * * *', $$select public.gmt_carrier_sweep('cron')$$);

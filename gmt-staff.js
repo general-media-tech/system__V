@@ -367,8 +367,10 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     var sig = method + '|' + url + '|' + bodyStr.slice(0, 300);
     var now = Date.now();
     recentWrites = recentWrites.filter(function (w) { return now - w.t < 3000; });
-    var dup = recentWrites.filter(function (w) { return w.sig === sig; }).length;
-    recentWrites.push({ sig: sig, t: now });
+    /* (TASK-A0530) مضاعفةٌ حقيقية = الكتابتان **نجحتا**. إعادة المحاولة بعد انقطاع تُرفض بالمفتاح الثابت (قيود دفتر المشتريات
+       [PO:…] لها id محسوب) ⇒ ليست مضاعفة بل حماية — كانت تُبلَّغ «خطأً حرجاً» (بلاغ ٢٠ ت2: POST gmt_expenses) */
+    var dup = res && res.ok ? recentWrites.filter(function (w) { return w.sig === sig && w.ok; }).length : 0;
+    recentWrites.push({ sig: sig, t: now, ok: !!(res && res.ok) });
     if (dup >= 1) {
       var dmsg = '⚠️ كتابة مزدوجة: نفس ' + method + ' على نفس الصف مرتين خلال 3 ثوانٍ — هذه بصمة المضاعفة (PUR-1).';
       S.silent.push({ t: now, kind: 'double_write', msg: dmsg, url: url.slice(0, 160) });
