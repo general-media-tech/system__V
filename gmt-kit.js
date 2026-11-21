@@ -63,10 +63,11 @@
     [/إضاءة الاستوديو/, /ألواح LED.*(بطارية|USB)/, [['إكسسوارات الكاميرا', 'بطاريات وشواحن', /F550|F570|NP-?F|light batt/i], ['إضاءة الاستوديو', 'ستاندات', STAND]]],
     [/إضاءة الاستوديو/, /ألواح LED/, [['إضاءة الاستوديو', 'ستاندات', STAND]]],   /* اللوح لا يركّب سوفت بوكس Bowens ولا قمعاً */
     [/إضاءة الاستوديو/, /سوفت بوكس ومعدّلات/, [['إضاءة الاستوديو', 'ستاندات', STAND]]],
-    [/إضاءة صنّاع المحتوى/, /./, [['ترايبود وجيمبال', 'ترايبود ذكي'], ['ملحقات الهاتف', 'هولدرات ومساند']]],
-    [/المايكات والصوت/, /لاسلكية|سلكية/, [['المايكات والصوت', 'كروت صوت وستاندات'], ['ملحقات الهاتف', 'هولدرات ومساند']]],
-    [/كاميرات الأكشن/, /./, [['إكسسوارات الكاميرا', 'ذواكر ووصلات', /ذاكر|memory|sd/i], ['ترايبود وجيمبال', 'ترايبود ذكي'], ['ملحقات الهاتف', 'هولدرات ومساند']]],
-    [/ترايبود وجيمبال/, /أوزمو موبايل/, [['ملحقات الهاتف', 'هولدرات ومساند'], ['إضاءة صنّاع المحتوى', 'كفّ وجيب']]]   /* رونين جيمبال كاميرا: لا مساند هاتف */
+    /* (صيد النمط · المالك 17 ت2 «رأسية الموبايل هون شو دخلها؟» على تيوب HW-5050) كانت «رأسية موبايل» و«ترايبود ذكي» تُلحق بأقسام كاملة
+       (إضاءة صنّاع المحتوى · المايكات · كاميرات الأكشن · جيمبال الهاتف) ⇒ لا يلزم أيّاً منها. إضاءة صنّاع المحتوى ⇐ ستاند (القاعدة العامّة أدناه) */
+    [/المايكات والصوت/, /سلكية/, [['المايكات والصوت', 'كروت صوت وستاندات']]],   /* مايك البودكاست ⇐ كرت صوت وستاند · اللاسلكي لا شيء بالقاعدة */
+    [/كاميرات الأكشن/, /./, [['إكسسوارات الكاميرا', 'ذواكر ووصلات', /ذاكر|memory|sd/i]]],
+    [/ترايبود وجيمبال/, /أوزمو موبايل/, [['إضاءة صنّاع المحتوى', 'كفّ وجيب']]]   /* الجيمبال يمسك الهاتف أصلاً ⇒ لا رأسية */
   ];
 
   /* ctx = { products, catPath(id) ⇒ [top, sub], KB (GMTCompatKB اختياري) } */
@@ -131,10 +132,58 @@
         P.filter(function (p) { if (!inSub(p, top, sub) || flashKind(p.name) !== 'trig' || !br || brandOf(p.name) !== br) return false; var sp = spec(p); return !sp || flat.indexOf(sp) >= 0; })
           .sort(function (a, b) { return ((spec(b) ? 1 : 0) - (spec(a) ? 1 : 0)) || (rank(b) - rank(a)); }).slice(0, 1).forEach(push);
         best(P.filter(function (p) { return inSub(p, top, sub) && flashKind(p.name) === 'mod' && /فلاش|flash/i.test(p.name || ''); }), 2);
+      } else if (fk === 'trig') {
+        /* (المالك 17 ت2 «المطلق ايضا يطلع بالاطقم مع المتوفرات عندنا وبيشتغلو معه») التريغر ⇐ الفلاشات التي تعمل معه — عكس قاعدة الفلاش نفسها:
+           «مُطلِق لفلاش iT32» ⇐ ذلك الفلاش وحده · التريغر العامّ ⇐ فلاشات ماركته التي لا تحتاج مُطلِقاً خاصّاً بها */
+        var tb = brandOf(nm), tsp = (/لفلاش\s+([a-z0-9\-]+)/i.exec(AR(nm)) || [])[1];
+        var trigSpecs = P.filter(function (p) { return inSub(p, top, sub) && flashKind(p.name) === 'trig'; })
+          .map(function (p) { var m = /لفلاش\s+([a-z0-9\-]+)/i.exec(AR(p.name)); return m ? m[1].replace(/-/g, '') : ''; }).filter(Boolean);
+        best(P.filter(function (p) {
+          if (!inSub(p, top, sub) || flashKind(p.name) !== 'speedlite' || !tb || brandOf(p.name) !== tb) return false;
+          var flat = AR(p.name).replace(/[\s\-]/g, '');
+          if (tsp) return flat.indexOf(tsp.replace(/-/g, '')) >= 0;
+          return !trigSpecs.some(function (s) { return flat.indexOf(s) >= 0; });
+        }), tsp ? 1 : 3);
       } else if (fk === 'studio') {
         best(P.filter(function (p) { return inSub(p, 'إضاءة الاستوديو', 'سوفت بوكس ومعدّلات'); }), 1);
         best(P.filter(function (p) { return inSub(p, 'إضاءة الاستوديو', 'ستاندات'); }), 1);
       }
+      return out;
+    }
+    /* ── رؤوس الإضاءة (أينما صُنّفت — YM-S60 في «إضاءة رئيسية») · المالك 17 ت2:
+         «هدول الهيدات الهن طقم هو السوفت الصغير · البراكيت كمان مع سوفت كبير · الستاند» (الرأس الصغير المحمول)
+         «هدول الهن سوفتات بوكس كل الاشكال الكبار والقياسات · ما في داعي لبراكيت» (رأس Bowens) ── */
+    var HEAD_NOT = /لوح|panel|ring|رينغ|دائري|عصا|selfie|سيلفي|فلاش|flash(?!light)|براكيت|bracket|سوفت|softbox/i;
+    var isHead = !HEAD_NOT.test(nm) && (cats(prod).some(function (c) { return /رؤوس الإضاءة/.test(c[1] || ''); }) || /هيد|head ?light|رأس ا[ضئ]ا?[ءئ]?ة|(^|\s)cob(\s|$)/i.test(nm));
+    if (isHead) {
+      /* (صيد النمط) نوع الرأس من طريقة تركيبه في «يتوافق مع» لا من كلمات الوصف (كان YM-S100 «صغيراً» وYM-S100 RGB «Bowens»):
+         مسمار ¼ بوصة / ترايبود / باليد بلا 5/8 ⇒ رأس صغير محمول · 5/8 أو Bowens ⇒ رأس Bowens · شرائح أشكال/عدسات ملوّنة ⇒ بروجكتور لا سوفت له */
+      var pc = AR(prod.compat || ''), ptx = AR(nm + ' ' + (prod.compat || '') + ' ' + (prod.description || ''));
+      var spot = /شرائح|الاشكال|gobo|العدسات الملون/.test(pc);
+      var small = !spot && ((/1\/4|ترايبود|باليد/.test(pc) && !/5\/8/.test(pc)) || cats(prod).some(function (c) { return /تعمل بالبطارية/.test(c[1] || ''); }));
+      var modsOf = function (p) { return inSub(p, 'إضاءة الاستوديو', 'سوفت بوكس ومعدّلات'); };
+      /* سوفت بوكس يركب على رأس إضاءة (حربة Bowens) — لا سوفت اللمبات E27 ولا سوفت الفلاش ولا العاكس والخلفية والصندوق */
+      var SOFT = function (p) { var n = AR(p.name), c = AR(p.compat || ''); return /سوفت|softbox|octa|اوكتا|بالون|deep|parabolic|بارابول/.test(n) && /bowens|بونز|بوينز|حربه/.test(c) && !/لمب|e27|عاكس|خلفيه|صندوق|براكيت|bracket|بور غريب|فلاش|flash/.test(n); };
+      var size = function (p) { var m = String(p.name || '').match(/\d{2,3}/g); return m ? Math.max.apply(null, m.map(Number).filter(function (x) { return x <= 200; }).concat([0])) : 0; };
+      var shape = function (p) { var n = AR(p.name + ' ' + (p.description || '')); return /octa|اوكتا|ثماني/.test(n) ? 'octa' : /بالون|فانوس|كروي|spheric|lantern/.test(n) ? 'ball' : /مدور|دائري|round/.test(n) ? 'round' : /deep|parabolic|بارابول/.test(n) ? 'deep' : 'rect'; };
+      /* ملحق باسم كود هذا الرأس (مثل «بور غريب ZU60») أوّلاً */
+      best(P.filter(function (p) { return modsOf(p) && fitsCode(p.name || '', codes); }), 1);
+      var softs = P.filter(function (p) { return modsOf(p) && SOFT(p); });
+      if (small) {
+        best(softs.filter(function (p) { var s = size(p); return s > 0 && s <= 40; }), 1);                                   /* السوفت الصغير */
+        best(P.filter(function (p) { return modsOf(p) && /براكيت|bracket/i.test(p.name || ''); }), 1);                      /* البراكيت */
+        best(softs.filter(function (p) { return size(p) >= 60; }), 1);                                                     /* مع سوفت كبير */
+      } else if (!spot) {
+        /* سوفتات بكلّ الأشكال والقياسات الكبيرة، بلا براكيت: شكلٌ من كلّ نوع ثمّ قياسٌ آخر — ويبقى مكانٌ للستاند */
+        var big = softs.filter(function (p) { return size(p) >= 50; }).sort(function (a, b) { return rank(b) - rank(a); }), byShape = {}, sizes = {};
+        big.forEach(function (p) { var k = shape(p); if (!byShape[k]) byShape[k] = p; });
+        ['octa', 'rect', 'ball', 'round', 'deep'].forEach(function (k) { if (byShape[k] && out.length < 5) { push(byShape[k]); sizes[size(byShape[k])] = 1; } });
+        big.forEach(function (p) { if (out.length < 5 && !sizes[size(p)]) { sizes[size(p)] = 1; push(p); } });
+      }
+      best(P.filter(function (p) { return inSub(p, 'إضاءة الاستوديو', 'ستاندات') && STAND.test(p.name); }), 1);           /* الستاند */
+      /* بطارية NP-F فقط لما يذكر توافقُه NP-F (لا لـZU60 الذي يعمل بمقبض «بور غريب» ولا لما بطاريته مدمجة) */
+      if (/np-?f|f550|f750|f970/.test(pc))
+        best(P.filter(function (p) { return inSub(p, 'إكسسوارات الكاميرا', 'بطاريات وشواحن') && /F550|F570|NP-?F|light batt/i.test(p.name || ''); }), 1);
       return out;
     }
     /* ── الباقي: ما يذكر توافقُه كود هذا المنتج (بالمساواة) ثمّ قاعدة قسمه ── */
@@ -155,7 +204,24 @@
     return out;
   }
 
-  var api = { complements: complements, droneModels: droneModels, fitsCode: fitsCode, mcodes: mcodes, flashKind: flashKind, DRONE_NO: DRONE_NO };
+  /* (المالك 17 ت2 «كل اضائة لازم معها بمقترح الطقم ستاند») — قاعدة عامّة بعد كلّ الفروع: أيّ إضاءة (رأس · لوح · رينغ · فلاش استوديو …)
+     طقمها فيه ستاند إضاءة حقيقي. لا يُضاف لما هو نفسه ستاند أو معدّل أو بطارية، ولا لفلاش الكاميرا/التريغر، ولا لعصا السيلفي/الترايبود بإضاءة (فيها حاملها). */
+  var LIGHT_TOP = /إضاءة الاستوديو|إضاءة صنّاع المحتوى|الإضاءة حسب الاستخدام/;
+  var NOT_LIGHT = /ستاند|stand|سوفت|softbox|octa|اوكتا|بالون|(^|\s)عاكس|reflector|براكيت|bracket|قمع|snoot|خلفي|backdrop|صندوق|بطاري|battery|شاحن|charger|ريموت|remote|حقيب|bag|مونوبود|ذراع|غريد|grid|ديفيوزر|diffuser|فلتر|filter|جل|gel|بور غريب|عصا سيلفي|عصا ترايبود|selfie|سيلفي|tripod|ترايبود|^\s*q\d|مايك|mic|موبايل|mobile|phone|ماغ ?سيف|magsafe/i;   /* إضاءة تُركّب على الهاتف لا تحتاج ستاند */
+  function withStand(prod, ctx, out) {
+    var catPath = ctx.catPath, cs = (prod.category_ids && prod.category_ids.length ? prod.category_ids : [prod.category_id]).map(catPath);
+    if (!cs.some(function (c) { return LIGHT_TOP.test(c[0] || ''); }) || NOT_LIGHT.test(prod.name || '')) return out;
+    if (cs.some(function (c) { return c[1] === 'فلاشات'; }) && flashKind(prod.name) !== 'studio') return out;
+    if (out.some(function (p) { return STAND.test(p.name); })) return out;
+    var st = (ctx.products || []).filter(function (p) { return p.id !== prod.id && parseFloat(p.price || 0) > 0 && STAND.test(p.name) && (p.category_ids && p.category_ids.length ? p.category_ids : [p.category_id]).map(catPath).some(function (c) { return c[1] === 'ستاندات'; }); })
+      .sort(function (a, b) { return (((b.images || []).length ? 100 : 0) - parseFloat(b.price || 0) / 100) - (((a.images || []).length ? 100 : 0) - parseFloat(a.price || 0) / 100); })[0];
+    if (!st) return out;
+    if (out.length >= 6) out = out.slice(0, 5);
+    out.push(st); return out;
+  }
+  function complementsAll(prod, ctx) { return withStand(prod, ctx, complements(prod, ctx)); }
+
+  var api = { complements: complementsAll, droneModels: droneModels, fitsCode: fitsCode, mcodes: mcodes, flashKind: flashKind, DRONE_NO: DRONE_NO };
   g.GMTKit = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

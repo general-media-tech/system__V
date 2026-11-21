@@ -33,7 +33,15 @@ const arg = k => { const i = process.argv.indexOf(k); return i > 0 ? process.arg
       if (!isCam && !isLens && (/^كاميرات$/.test(ks) || /^عدسات|سيغما/.test(ks) || /العدسات/.test(kt))) v('عدسة/كاميرا مقترحة لغير كاميرا');
       if (isCam && /micro/i.test(k.name)) v('MicroSD لكاميرا كانون');
       if (sub === 'فلاشات' && Kit.flashKind(p.name) !== 'studio' && /ستاندات/.test(ks)) v('ستاند لفلاش/تريغر/معدّل');
+      /* (المالك 17 ت2 «رأسية الموبايل هون شو دخلها؟») رأسية/مسند هاتف لمنتج ليس من ملحقات الهاتف */
+      if (/هولدرات ومساند/.test(ks) && !/ملحقات الهاتف|ترايبود ذكي/.test(top + ' ' + sub)) v('رأسية موبايل لغير منتج هاتف');
     }
+  }
+  /* (المالك 17 ت2 «كل اضائة لازم معها بمقترح الطقم ستاند») — رأس/لوح/تيوب/رينغ بلا ستاند في طقمه */
+  for (const r of rows) {
+    const p = products.find(x => x.id === r.id), cs = (p.category_ids && p.category_ids.length ? p.category_ids : [p.category_id]).map(catPath);
+    const light = cs.some(c => /^(رؤوس الإضاءة|ألواح LED|تيوب وعصا|إضاءة دائرية)/.test(c[1] || '')) && !/عصا سيلفي|selfie|^\s*q\d|موبايل|mobile|ماغ ?سيف|ماكرو|macro|stand|ستاند/i.test(p.name || '');   /* حلقة الماكرو على العدسة · الستاند نفسه */
+    if (light && !r.kit.some(k => /ستاندات/.test(k.cat))) bad.push(['إضاءة بلا ستاند في طقمها', p.name, '—']);
   }
   const withKit = rows.filter(x => x.kit.length).length;
   console.log('المنتجات: ' + rows.length + ' · لها اقتراحات: ' + withKit + ' · المخالفات: ' + bad.length);
