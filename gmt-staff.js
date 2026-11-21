@@ -3012,7 +3012,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     let raw = inv.items_snapshot;   /* INV-1: الاسم الحقيقي بالقاعدة (كان `items` ⇒ HTTP 400) */
     if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (_) { raw = []; } }
     if (!Array.isArray(raw)) raw = [];
-    return raw.map((i) => ({
+    return raw.map((i, idx) => ({
+      idx: idx, id: (i.id != null && i.id !== '') ? String(i.id) : '', notes: i.notes || '',   /* (TASK-A0537) الربط بالمعرّف أوّلاً */
       name: i.name || i.product_name || '',
       barcode: i.barcode || (i.product && i.product.barcode) || '',
       qty: Number(i.qty || i.quantity || 0),
@@ -3042,8 +3043,11 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     S.products.forEach((p) => { const b = norm(p.barcode); if (b) byBarcode.set(b, p); });
 
     const invoicedBarcodes = new Set();
-    const orphanItems = [];   // بنود فواتير بلا قطعة بالجرد
+    const invoicedIds = new Set();   /* (TASK-A0537 · المالك seq 876) «أشياء موجودة بالمشتريات ما هي موجودة بالجرد أو بالعكس» */
+    const byPid = new Map(S.products.map((p) => [String(p.id), p]));
+    const orphanItems = [];   // بنود مشتريات غير مربوطة بقطعة بالجرد (لا بالمعرّف ولا بالباركود)
     const dupInvoices = [];   // فواتير برقم مكرر
+    let assetLines = 0;       // أصول المحل (خارج الجرد عمداً)
 
     const seenNo = new Map();
     S.invoices.forEach((inv) => {
@@ -3055,16 +3059,18 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       invItems(inv).forEach((it) => {
         const b = norm(it.barcode);
         if (b) invoicedBarcodes.add(b);
-        if (!b) return; // بند بلا باركود — لا يمكن ربطه (يُبلَّغ بالملخص)
-        if (!byBarcode.has(b)) orphanItems.push({ inv, item: it });
+        if (it.id && byPid.has(it.id)) { invoicedIds.add(it.id); return; }          // مربوط بالمعرّف
+        if (b && byBarcode.has(b)) { invoicedIds.add(String(byBarcode.get(b).id)); return; }   // مربوط بالباركود
+        if (/أصل للمحل|سجلّ الأصول/.test(it.notes || '')) { assetLines++; return; }   // أصلٌ للمحل لا بضاعة
+        if (!(Number(it.qty) > 0)) return;                                            // بندٌ صُفّر عمداً
+        orphanItems.push({ inv, item: it, kind: it.id ? 'dead' : (b ? 'nobc' : 'unlinked') });
       });
     });
 
-    // قطع بالجرد بلا أي فاتورة
-    const orphanProducts = S.products.filter((p) => {
-      const b = norm(p.barcode);
-      return !b || !invoicedBarcodes.has(b);
-    });
+    // قطع بالجرد بلا أي فاتورة — بكمّيتها (ما له مخزونٌ أوّلاً: هو الخطر)
+    const orphanProducts = S.products.filter((p) => !invoicedIds.has(String(p.id)) && !(norm(p.barcode) && invoicedBarcodes.has(norm(p.barcode))))
+      .map((p) => Object.assign(p, { _stock: brCols.reduce((n, c) => n + (Number(p[c]) || 0), 0) }))
+      .sort((a, b) => b._stock - a._stock);
 
     /* ════ INV-9 (2026-07-13) — ثلاثة فحوص جديدة ════ */
     const byId = new Map(S.products.map((p) => [String(p.id), p]));
@@ -3141,7 +3147,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       orphanItems, orphanProducts, dupInvoices,
       sealedNotMoved, transitMissing, stockGaps,          /* INV-9 */
       surplus: stockGaps.filter((g) => g.diff > 0).length, /* مؤشّر المضاعفة */
-      noBarcodeItems: S.invoices.reduce((n, inv) => n + invItems(inv).filter((i) => !norm(i.barcode)).length, 0),
+      noBarcodeItems: 0,   /* (TASK-A0537) البند بلا باركود يُربط بمعرّفه أو يظهر في «غير مربوطة» — لا يُكتفى بعدّه */
+      assetLines, orphanStock: orphanProducts.filter((p) => p._stock > 0).length,
       at: new Date(),
     };
     return S.report;
@@ -3162,7 +3169,22 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     };
     branchCols.forEach((k) => { np[k] = 0; });   // تُرحَّل الكميات بالترحيل لا هنا
     const res = await rest('POST', 'products', np, { Prefer: 'return=representation' });
-    return Array.isArray(res) ? res[0] : res;
+    const prod = Array.isArray(res) ? res[0] : res;
+    if (prod && prod.id) await linkLine(entry, prod);   /* (TASK-A0537) البند يُشير للقطعة الجديدة — وإلّا يبقى يتيماً إن لم يكن له باركود */
+    return prod;
+  }
+  /* (TASK-A0537) ربط بند مشتريات بقطعة بالجرد: يُعاد قراءة الفاتورة من القاعدة ويُعدَّل البند نفسه (بفهرسه واسمه) فقط */
+  async function linkLine(entry, prod) {
+    const rows = await rest('GET', 'import_log?id=eq.' + encodeURIComponent(entry.inv.id) + '&select=id,items_snapshot');
+    const row = Array.isArray(rows) ? rows[0] : null; if (!row) throw new Error('الفاتورة غير موجودة');
+    let arr = row.items_snapshot; if (typeof arr === 'string') { try { arr = JSON.parse(arr); } catch (_) { arr = null; } }
+    if (!Array.isArray(arr) || !arr[entry.item.idx]) throw new Error('البند غير موجود في الفاتورة');
+    const line = arr[entry.item.idx];
+    if (String(line.name || line.product_name || '') !== String(entry.item.name || '')) throw new Error('تغيّرت الفاتورة منذ الفحص — أعد الفحص');
+    line.id = prod.id; if (!line.barcode && prod.barcode) line.barcode = prod.barcode;
+    line.notes = (line.notes ? line.notes + ' · ' : '') + 'رُبط بالجرد «' + (prod.name || '') + '» (تدقيق المشتريات والجرد)';
+    await rest('PATCH', 'import_log?id=eq.' + encodeURIComponent(row.id), { items_snapshot: arr });
+    try { window.GMTAudit && GMTAudit.log({ action: 'purchase_line_link', entity: 'import_log', entityId: String(row.id), entityName: entry.inv.inv_number || '', newValue: String(prod.id), reason: (entry.item.name || '') + ' ⇐ ' + (prod.name || '') }); } catch (_) {}
   }
 
   // (ب) إنشاء «فاتورة شراء فوري» لقطع يتيمة بالجرد (لتصبح كل قطعة ذات فاتورة تبرّر كميتها)
@@ -3191,7 +3213,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       transferred_at: new Date().toISOString(),
       transferred_by: 'audit',
       transfer_moved: moved,                      // المرحّل = الكمية كاملة (يمنع أي مضاعفة لاحقة)
-      items: JSON.stringify(items),
+      items_snapshot: items,   /* (TASK-A0537) كان `items` — عمودٌ غير موجود (INV-1) ⇒ الإنشاء يفشل */
       notes: 'فاتورة تسوية: تبرّر الكميات الموجودة بالجرد بلا فاتورة (مرحّلة مسبقاً — لا تُضيف مخزوناً). راجعها وعدّل الأسعار.',
       created_at: new Date().toISOString(),
     };
@@ -3257,18 +3279,19 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
 
       ${r.orphanItems.length ? `
       <div style="margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:900;color:#dc2626;margin-bottom:4px;">🚨 بنود فواتير يتيمة (قطعها محذوفة من الجرد)</div>
+        <div style="font-size:13px;font-weight:900;color:#dc2626;margin-bottom:4px;">🚨 بنود مشتريات غير مربوطة بالجرد</div>
         <div style="font-size:11px;color:#5b6472;font-weight:700;line-height:1.8;margin-bottom:8px;">
-          هذه بالضبط مشكلتك: الفاتورة موجودة والقطعة غير موجودة — فترحيلها يذهب سُدى.
-          «إعادة الإنشاء» تُعيد القطعة للجرد بكميات صفر وببيانات فاتورتها، فيعمل الترحيل بشكل صحيح.
+          الفاتورة موجودة والقطعة غير مربوطة بها — فترحيلها يذهب سُدى ولا تظهر في تاريخ القطعة.
+          «🔗 اربطه» إن كانت القطعة موجودة بالجرد باسمٍ آخر · «↩︎ أنشئها» إن لم تكن موجودة (بكميات صفر وببيانات فاتورتها).
         </div>
         <div style="border:1px solid #e5e7eb;border-radius:12px;max-height:200px;overflow:auto;">
           ${r.orphanItems.map((e, i) => `<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #f3f4f6;font-size:11.5px;">
             <div style="flex:1;">
               <div style="font-weight:800;">${esc(e.item.name) || '(بلا اسم)'}</div>
-              <div style="color:#5b6472;font-weight:700;font-size:10px;">فاتورة ${esc(e.inv.inv_number || '—')} · ${esc(e.inv.status === 'transit' ? '🚢 في الطريق' : '📦 واصلة')} · باركود <span dir="ltr">${esc(e.item.barcode)}</span></div>
+              <div style="color:#5b6472;font-weight:700;font-size:10px;">فاتورة ${esc(e.inv.inv_number || '—')} · ${esc(e.inv.status === 'transit' ? '🚢 في الطريق' : '📦 واصلة')} · ×${esc(e.item.qty)} · ${e.kind === 'dead' ? 'قطعتها محذوفة من الجرد' : e.kind === 'nobc' ? 'باركود <span dir="ltr">' + esc(e.item.barcode) + '</span> غير موجود بالجرد' : 'بلا قطعة ولا باركود'}</div>
             </div>
-            <button onclick="GMTIntegrity.fixItem(${i})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;">↩︎ إعادة الإنشاء بالجرد</button>
+            <button onclick="GMTIntegrity.linkItem(${i})" data-intg-link style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;">🔗 اربطه</button>
+            <button onclick="GMTIntegrity.fixItem(${i})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;">↩︎ أنشئها</button>
           </div>`).join('')}
         </div>
         <button onclick="GMTIntegrity.fixAllItems()" style="width:100%;margin-top:8px;background:#dc2626;color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">
@@ -3278,7 +3301,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
 
       ${r.orphanProducts.length ? `
       <div style="margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:900;color:#b45309;margin-bottom:4px;">⚠️ قطع بالجرد بلا فاتورة</div>
+        <div style="font-size:13px;font-weight:900;color:#b45309;margin-bottom:4px;">⚠️ قطع بالجرد بلا فاتورة شراء${r.orphanStock ? ' — ' + r.orphanStock + ' منها لها مخزون' : ''}</div>
         <div style="font-size:11px;color:#5b6472;font-weight:700;line-height:1.8;margin-bottom:8px;">
           قطع دخلت الجرد يدوياً أو قبل النظام. القاعدة: كل قطعة لها فاتورة —
           الزر أدناه يُنشئ لها «فاتورة تسوية (شراء فوري)» واحدة تجمعها، عدّل بياناتها لاحقاً.
@@ -3286,6 +3309,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         <div style="border:1px solid #e5e7eb;border-radius:12px;max-height:160px;overflow:auto;">
           ${r.orphanProducts.slice(0, 60).map((p) => `<div style="padding:8px 11px;border-bottom:1px solid #f3f4f6;font-size:11.5px;">
             <span style="font-weight:800;">${esc(p.name)}</span>
+            ${p._stock > 0 ? `<span style="color:#b45309;font-size:10.5px;font-weight:900;"> · مخزون ${p._stock}</span>` : ''}
             <span style="color:#5b6472;font-size:10px;font-weight:700;" dir="ltr">${esc(p.barcode) || '(بلا باركود)'}</span>
           </div>`).join('')}
           ${r.orphanProducts.length > 60 ? `<div style="padding:8px;text-align:center;color:#5b6472;font-size:10.5px;font-weight:700;">…و${r.orphanProducts.length - 60} أخرى</div>` : ''}
@@ -3344,6 +3368,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         </div>
       </div>` : ''}
 
+      ${r.assetLines ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:10px;font-size:11px;color:#475569;font-weight:700;line-height:1.8;margin-bottom:8px;">
+        🏪 ${r.assetLines} بند مشتريات «أصل للمحل» (ستاندات · قارئ باركود…) — خارج الجرد عمداً ومسجّلة في سجلّ الأصول.
+      </div>` : ''}
       ${r.noBarcodeItems ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:10px;font-size:11px;color:#475569;font-weight:700;line-height:1.8;">
         ℹ️ ${r.noBarcodeItems} بند فاتورة بلا باركود — لا يمكن ربطه آلياً. أضف له باركوداً بالفاتورة ليدخل التدقيق.
       </div>` : ''}
@@ -3354,6 +3381,23 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   /* ══════════ الأوامر العامة ══════════ */
   const API = {
     open, audit,
+    /* (TASK-A0537) «🔗 اربطه»: ابحث عن القطعة بالاسم أو الباركود واختر ⇒ يُربط البند بها (لا مخزون يتغيّر) */
+    async linkItem(i) {
+      if (S.busy) return;
+      const e = S.report.orphanItems[i]; if (!e) return;
+      const ask = window.GMTAsk;
+      const q = ask ? await ask.prompt('ابحث عن القطعة في الجرد لربط «' + (e.item.name || '') + '» (فاتورة ' + (e.inv.inv_number || '') + '):', { title: '🔗 ربط بند المشتريات', value: String(e.item.name || '').split(/[\s—-]+/).filter((w) => w.length > 1).slice(-2).join(' '), okText: 'ابحث' }) : window.prompt('اسم القطعة');
+      if (q == null || !String(q).trim()) return;
+      const words = String(q).toLowerCase().split(/\s+/).filter(Boolean);
+      const hits = S.products.filter((p) => { const t = (String(p.name || '') + ' ' + String(p.barcode || '')).toLowerCase(); return words.every((w) => t.indexOf(w) >= 0); }).slice(0, 8);
+      if (!hits.length) { alert('لا قطعة بالجرد تطابق «' + q + '» — جرّب كلمة أخرى أو «↩︎ أنشئها».'); return; }
+      const k = ask ? await ask.choose('اختر القطعة التي يُربط بها البند:', { title: '🔗 ربط بند المشتريات', cancelText: 'إلغاء', choices: hits.map((p) => ({ k: String(p.id), t: (p.name || '') + (p.barcode ? ' · ' + p.barcode : '') })) }) : String(hits[0].id);
+      const prod = hits.find((p) => String(p.id) === String(k)); if (!prod) return;
+      S.busy = true;
+      try { await linkLine(e, prod); await audit(); render(); }
+      catch (err) { alert('تعذّر الربط: ' + err.message); }
+      finally { S.busy = false; }
+    },
     async fixItem(i) {
       if (S.busy) return; S.busy = true;
       const e = S.report.orphanItems[i];
@@ -3390,8 +3434,19 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     async guardDelete(productId) {
       try {
         const p = (window.allProducts || []).find((x) => String(x.id) === String(productId));
-        const bc = norm(p && p.barcode);
-        if (!bc) return true;   // بلا باركود — لا يمكن التحقق، نسمح
+        const bc = norm(p && p.barcode), pid = String(productId || '');
+        /* (TASK-A0537) البند المربوط بمعرّف القطعة (بلا باركود) كان يمرّ بلا تحذير */
+        if (pid) {
+          try {
+            const byIdHit = await rest('GET', `import_log?items_snapshot=cs.${encodeURIComponent(JSON.stringify([{ id: pid }]))}&select=inv_number,status&limit=1`);
+            if (Array.isArray(byIdHit) && byIdHit[0]) {
+              const h = byIdHit[0];
+              return await (window.GMTAsk ? GMTAsk.confirm : function (m) { return Promise.resolve(window.confirm(m)); })(
+                `⚠️ تحذير: هذه القطعة مرتبطة بفاتورة مشتريات!\n\nالفاتورة: ${h.inv_number || '—'}\nالحالة: ${h.status === 'transit' ? '🚢 في الطريق' : '📦 واصلة'}\n\nحذفها يجعل بند الفاتورة «يتيماً». الأفضل: صفّر كمياتها بدل حذفها.\n\nهل تريد الحذف رغم ذلك؟`);
+            }
+          } catch (_) {}
+        }
+        if (!bc) return true;   // بلا باركود ولا ربط بالمعرّف — نسمح
         /* 🔧 (2026-08-26) [P9] كان يجلب **1000 فاتورة بكامل items_snapshot** (ميغابايتات)
            في كل ضغطة حذف ⇒ تعليق الواجهة ثوانيَ قبل ظهور السؤال (بلاغ B13).
            الآن: ترشيح على الخادم بالباركود داخل النص، وجلب الحمولة للمطابقات فقط. */
