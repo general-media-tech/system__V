@@ -1220,6 +1220,7 @@ window.GMT_FEATURES = [
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261119l"></script>
+<script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
   <script src="gmt-invoice-tpl.js?v=20261118b"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
@@ -1870,7 +1871,7 @@ window.GMT_FEATURES = [
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
           <div>
             <label class="u-label" for="inv-cust-name">اسم العميل</label>
-            <input id="inv-cust-name" class="u-field" type="text" placeholder="اسم العميل" oninput="liveUpdateInvoice()">
+            <input id="inv-cust-name" class="u-field" type="text" data-cust-pick data-cust-phone="inv-cust-phone" placeholder="اسم العميل" oninput="liveUpdateInvoice()">
           </div>
           <div>
             <label class="u-label" for="inv-cust-phone">رقم الموبايل</label>
@@ -11128,7 +11129,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121h"></script>
+<script src="gmt-whatsnew.js?v=20261121i"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -502,6 +502,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261119l"></script>
+<script src="gmt-custcache.js?v=20261016a" defer></script>
+<script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
   <script src="gmt-packages.js?v=20261107h" defer></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
@@ -4971,7 +4973,7 @@ async function renderAdminInvoice() {
           </div>
           <div>
             <label style="font-size:12px;font-weight:800;color:var(--text2);display:block;margin-bottom:5px;">اسم العميل (اختياري)</label>
-            <input id="ai-customer" type="text" placeholder="اسم العميل" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
+            <input id="ai-customer" type="text" placeholder="اسم العميل" data-cust-pick data-cust-phone="ai-phone" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
             <!-- (٨ ت — تدقيق المطابقة) كان التعبئة من الأوردر تكتب في #ai-phone غير الموجود ⇒ الرقم يضيع ولا يُحفظ -->
                         <input id="ai-phone" type="tel" inputmode="tel" dir="ltr" placeholder="رقم الهاتف (اختياري)" style="margin-top:6px;width:100%;padding:10px;border:1.5px solid var(--border);border-radius:9px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
           </div>
@@ -5533,14 +5535,18 @@ function renderProductSelector(containerId, checkClass, prods) {
       <input type="text" placeholder="🔍 بحث بالاسم..." oninput="filterProdSelector('${containerId}','${checkClass}',this.value)"
         style="flex:1;min-width:120px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;outline:none;">
       <button onclick="selectAllProds('${checkClass}',true)" style="padding:6px 10px;background:#dcfce7;color:#15803d;border:1.5px solid #86efac;border-radius:8px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">✅ تحديد الكل</button>
-      <button onclick="selectAllProds('${checkClass}',false)" style="padding:6px 10px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">✕ إلغاء</button>
+      <button onclick="selectAllProds('${checkClass}',false);prodSelRefresh('${containerId}','${checkClass}')" style="padding:6px 10px;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:800;cursor:pointer;">✕ إلغاء</button>
+    </div>
+    <div data-sel-sum style="display:none;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:6px 10px;background:#ecfdf5;border:1.5px solid #86efac;border-radius:8px;">
+      <span data-sel-n style="font-size:12px;font-weight:900;color:#15803d;"></span>
+      <button type="button" onclick="selectAllProds('${checkClass}',false);prodSelRefresh('${containerId}','${checkClass}')" style="padding:4px 10px;background:#fff;color:#dc2626;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Cairo',sans-serif;font-size:11px;font-weight:900;cursor:pointer;">✕ إلغاء التحديد</button>
     </div>
     ${groups.map(g => {
       const gProds = prods.filter(p => (p.group_name||'أخرى') === g);
       return `<div style="margin-bottom:6px;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:11px;font-weight:900;color:var(--text2);" onclick="toggleGroupProds('${containerId}','${checkClass}','${escH(g)}')">
-          <span>📁 ${escH(g)} (${gProds.length})</span>
-          <button onclick="event.stopPropagation();selectGroupProds('${checkClass}','${escH(g)}',true)" style="padding:2px 8px;background:#dbeafe;color:#334155;border:1.5px solid #93c5fd;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
+          <span>📁 ${escH(g)} (${gProds.length})<span data-grp-cnt style="color:#15803d;"></span></span>
+          <button data-grp-btn="${escH(g)}" onclick="event.stopPropagation();toggleGroupSel('${containerId}','${checkClass}','${escH(g)}')" style="padding:2px 8px;background:#dbeafe;color:#334155;border:1.5px solid #93c5fd;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
         </div>
         <div class="group-prods-${escH(g).replace(/\s/g,'_')}" style="display:none;padding:4px 0 0 8px;">
           ${gProds.map(p => `
@@ -5552,6 +5558,8 @@ function renderProductSelector(containerId, checkClass, prods) {
         </div>
       </div>`;
     }).join('')}`;
+  el.onchange = e => { if (e.target && e.target.classList && e.target.classList.contains(checkClass)) prodSelRefresh(containerId, checkClass); };
+  prodSelRefresh(containerId, checkClass);
 }
 
 function filterProdSelector(containerId, checkClass, q) {
@@ -5576,6 +5584,26 @@ function toggleGroupProds(containerId, checkClass, group) {
 
 function selectGroupProds(checkClass, group, checked) {
   document.querySelectorAll(`.${checkClass}[data-group="${group}"]`).forEach(cb => { cb.checked = checked; });
+}
+/* (المالك seq 875 «إلغاء التحديد صعب هون») زرّ المجموعة صار مفتاحاً: «الكل» ⇄ «إلغاء» · عدد المحدّد في كلّ مجموعة (٣/٢٢) ·
+   سطرٌ أعلى القائمة «✔ محدّد N — إلغاء التحديد» — كان «الكل» يحدّد ولا شيء يلغي إلّا نزع الصحّ واحداً واحداً أو مسح كلّ المجموعات */
+function toggleGroupSel(containerId, checkClass, group) {
+  const cbs = [...document.querySelectorAll(`#${containerId} .${checkClass}[data-group="${group}"]`)];
+  const all = cbs.length && cbs.every(cb => cb.checked);
+  cbs.forEach(cb => { cb.checked = !all; });
+  prodSelRefresh(containerId, checkClass);
+}
+function prodSelRefresh(containerId, checkClass) {
+  const box = document.getElementById(containerId); if (!box) return;
+  const cbs = [...box.querySelectorAll('.' + checkClass)], on = cbs.filter(cb => cb.checked).length;
+  box.querySelectorAll('[data-grp-btn]').forEach(b => {
+    const g = b.getAttribute('data-grp-btn'), gc = cbs.filter(cb => cb.dataset.group === g), gn = gc.filter(cb => cb.checked).length, full = gc.length && gn === gc.length;
+    b.textContent = full ? '✕ إلغاء' : 'الكل';
+    b.style.background = full ? '#fee2e2' : '#dbeafe'; b.style.color = full ? '#dc2626' : '#334155'; b.style.borderColor = full ? '#fca5a5' : '#93c5fd';
+    const cnt = b.parentElement && b.parentElement.querySelector('[data-grp-cnt]'); if (cnt) cnt.textContent = gn ? ' — محدّد ' + gn + '/' + gc.length : '';
+  });
+  const sum = box.querySelector('[data-sel-sum]');
+  if (sum) { sum.style.display = on ? 'flex' : 'none'; const t = sum.querySelector('[data-sel-n]'); if (t) t.textContent = '✔ محدّد ' + on + ' منتج'; }
 }
 
 function selectAllProds(checkClass, checked) {
@@ -5863,7 +5891,7 @@ function openCreateCouponModal() {
       </div>
       <div>
         <label class="form-label">اسم العميل (اختياري)</label>
-        <input id="cp-cust" type="text" class="form-input" placeholder="يمكن تركه فارغاً للعموم">
+        <input id="cp-cust" type="text" class="form-input" placeholder="يمكن تركه فارغاً للعموم — أو اكتب واختر من السجلّ" data-cust-pick>
       </div>
       <div>
         <label class="form-label">نوع الخصم</label>
@@ -7181,7 +7209,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121h"></script>
+<script src="gmt-whatsnew.js?v=20261121i"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

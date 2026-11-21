@@ -53,7 +53,7 @@
   <div>
     <div class="card">
       <h3>👤 العميل</h3>
-      <div class="row"><div><label>الاسم</label><input id="q-name" placeholder="اسم العميل"></div><div><label>الموبايل</label><input id="q-phone" inputmode="tel" placeholder="09…" style="direction:ltr;text-align:right"></div></div>
+      <div class="row"><div><label>الاسم</label><input id="q-name" placeholder="اسم العميل" data-cust-pick data-cust-phone="q-phone"></div><div><label>الموبايل</label><input id="q-phone" inputmode="tel" placeholder="09…" style="direction:ltr;text-align:right"></div></div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>📦 المنتجات</h3>
@@ -77,7 +77,9 @@
   </div>
 </div>
 <script src="gmt-config.js?v=20261117h"></script>
-<script src="gmt-core.js?v=20261119l"></script>  <!-- (REQ-0327) الحارس GMTBug وGMTUI كبقية الصفحات الداخلية -->
+<script src="gmt-core.js?v=20261119l"></script>
+<script src="gmt-custcache.js?v=20261016a" defer></script>
+<script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->  <!-- (REQ-0327) الحارس GMTBug وGMTUI كبقية الصفحات الداخلية -->
 <script src="gmt-brand.js?v=20261029z4"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="lib/zxing.min.js?v=20261017a" defer></script>
@@ -166,6 +168,6 @@
   paintItems(); render(); loadProducts();
 })();
 </script>
-<script src="gmt-whatsnew.js?v=20261121h"></script>
+<script src="gmt-whatsnew.js?v=20261121i"></script>
 </body>
 </html>
