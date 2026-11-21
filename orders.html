@@ -760,6 +760,8 @@ window.GMT_INTERNAL = 1;</script>
     <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl text-center" style="margin:auto">
         <i data-lucide="truck" class="w-12 h-12 text-red mx-auto mb-4"></i>
         <h3 id="ship-title" class="font-black text-xl mb-5 text-gray-800">تأكيد الشحن</h3>
+        <!-- (TASK-A0541 · المالك seq 925) «يقترح الأقرب ويقول لي صح ولا لا بشاشة» — من «إدخال الإيصالات» فقط -->
+        <div id="rb-banner" class="hidden"></div>
         <input id="ship-tracking" placeholder="رقم تتبع الشحنة (اختياري)" oninput="_shipRcptAuto=false" class="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold text-center mb-1 border border-gray-200 transition-all">
         <p id="ship-track-auto" class="hidden text-[11px] font-bold text-gray-500 mb-3 min-h-[16px]" role="status" aria-live="polite"></p>
 
@@ -4011,6 +4013,7 @@ window.openShipModal = (id, mode) => {
     _shipMode = mode === 'attach' ? 'attach' : 'ship';
     _shipScan = null; _shipRead = null; _shipReading = false; _shipEarly = null; _shipOrig = null;
     _shipRcptFile = null; _shipRcptAuto = false;
+    { const _rbb = document.getElementById('rb-banner'); if (_rbb) { _rbb.classList.add('hidden'); _rbb.innerHTML = ''; } }   // (TASK-A0541) يُملأ فقط من «إدخال الإيصالات»
     const _st = document.getElementById('ship-track-auto'); if (_st) { _st.classList.add('hidden'); _st.textContent = ''; }
     const _o0 = orders.find(x => x.id == id), _att = _shipMode === 'attach';
     document.getElementById('ship-tracking').value = (_att && _o0 && _o0.tracking_number) ? String(_o0.tracking_number) : '';   // المحفوظ يبقى — القراءة تُقارن به فقط
@@ -5029,8 +5032,43 @@ function rbOpenReview(it) {
     openShipModal(o.id);
     if (!rbShipOpen()) { _rb.cur = null; it.st = 'ready'; it.held = true; if (ov) ov.style.display = 'flex'; rbPaint(); return; }   // مجمَّد/ممنوع
     const t = document.getElementById('ship-title'); if (t) t.textContent = '🧾 إيصال ' + (_rb.items.indexOf(it) + 1) + ' من ' + _rb.items.length + ' ⇐ ' + (o.name || '') + ' — راجع واعتمد الشحن';
+    rbBanner(it, o);
     try { shipScanFile(it.file, '✅ إيصال من الدفعة'); } catch (e) { console.warn('[rb] scan', e); }
 }
+/* (TASK-A0541) «الاقتراح — صح ولا لا؟» أعلى شاشة الشحن */
+function rbBanner(it, o) {
+    const B = document.getElementById('rb-banner'); if (!B) return;
+    const esc = s => escH(String(s == null ? '' : s)), r = it.read || {}, m = it.match || {};
+    const how = m.how === 'phone' ? '📞 هاتفه مكتوب على الإيصال' : m.how === 'picked' ? '👆 باختيارك' : m.how === 'phone+name' ? '📞 الهاتف + الاسم' : '🔤 الاسم أقرب (' + Math.round((m.score || 0) * 100) + '%)';
+    B.className = 'mb-4 text-right rounded-2xl border-2 border-amber-300 bg-amber-50 p-3';
+    B.innerHTML = `<div style="font-size:12px;font-weight:900;color:#92400e">📌 الاقتراح: هذا الإيصال لـ</div>
+      <div style="font-size:16px;font-weight:900;color:#111">${esc(o.name || '')}</div>
+      <div style="font-size:12px;font-weight:800;color:#334155"><span dir="ltr">${esc(o.phone || '')}</span> · ${esc(o.serial_code || '#' + o.id)}${o.address ? ' · ' + esc(String(o.address).slice(0, 40)) : ''}</div>
+      <div style="font-size:11.5px;font-weight:700;color:#64748b;margin-top:2px">${how}${r.receiver ? ' · على الإيصال: «' + esc(r.receiver) + '»' : ''}</div>
+      <div data-rb-q style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" data-rb-yes onclick="rbYes()" style="flex:1;background:#16a34a;color:#fff;border:0;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✔ صح</button>
+        <button type="button" data-rb-no onclick="rbWrong()" style="flex:1;background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✖ لا — اختر غيره</button></div>`;
+}
+window.rbYes = () => { const it = _rb.cur; if (it) it.ok = true; const q = document.querySelector('#rb-banner [data-rb-q]'); if (q) q.outerHTML = '<div style="margin-top:6px;font-size:12px;font-weight:900;color:#15803d">✔ صحيح — راجع الرقم والفرع ثمّ «اعتماد الشحن»</div>'; };
+/* «✖ لا»: تُغلق الشاشة بلا شحن ⇒ «لمن هذا الإيصال؟» بلا الأوردر الخاطئ + بحث */
+window.rbWrong = () => {
+    const it = _rb.cur; if (!it) return; _rb.cur = null;
+    const wrong = String(it.order.id); it.excl = (it.excl || []).concat([wrong]); it.order = null; it.st = 'pick';
+    const name = (it.read && it.read.receiver) || '';
+    it.match = Object.assign({}, it.match || {}, { how: '', cands: rbEligible().filter(o => it.excl.indexOf(String(o.id)) < 0 && !_rb.items.some(x => x !== it && x.order && String(x.order.id) === String(o.id) && x.st !== 'skipped'))
+        .map(o => ({ o, s: name ? rbNameSim(name, o.name) : 0 })).sort((a, b) => b.s - a.s).filter(x => x.s >= 0.3).slice(0, 4).map(x => x.o) });
+    closeModal('shipModal');
+    const ov = document.getElementById('rb-ov'); if (ov) { ov.style.display = 'flex'; rbPaint(); }
+};
+/* البحث في «لمن هذا الإيصال؟»: بالاسم أو الهاتف بين الجاهز للشحن */
+window.rbSearch = (k, q) => {
+    const it = _rb.items.find(x => x.k === k); if (!it) return;
+    const box = document.querySelector('[data-rb-found]'); if (!box) return;
+    q = String(q || '').trim(); if (q.length < 2) { box.innerHTML = ''; return; }
+    const dq = q.replace(/\D/g, ''), esc = s => escH(String(s == null ? '' : s));
+    const hits = rbEligible().filter(o => (it.excl || []).indexOf(String(o.id)) < 0 && ((dq.length >= 4 && String(o.phone || '').replace(/\D/g, '').indexOf(dq) >= 0) || rbNameSim(q, o.name) >= 0.6 || String(o.name || '').indexOf(q) >= 0)).slice(0, 6);
+    box.innerHTML = hits.map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #cbd5e1;background:#fff;border-radius:10px;padding:8px 10px;font-weight:900;font-family:inherit;font-size:12.5px">⇐ ${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="color:#64748b;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`).join('') || '<div style="color:#64748b;font-weight:800;font-size:12px">لا نتيجة بين الجاهز للشحن</div>';
+};
 window.rbOpen = (k) => { const it = _rb.items.find(x => x.k === k); if (!it || !it.order || rbShipOpen()) return; rbOpenReview(it); };
 /* بعد «اعتماد الشحن» من الشاشة (confirmShippingRun) — التبليغ فُتح بضغطتك نفسها ⇒ التالي */
 window.rbAfterShip = (id) => {
@@ -5060,11 +5098,18 @@ function rbFocusHTML() {
     if (!it) return reading ? `<div data-rb-focus-wait style="border:2px dashed #93c5fd;border-radius:14px;padding:16px;text-align:center;font-weight:900;color:#1d4ed8">🔎 يقرأ الإيصال ويبحث عن أوردره… (${reading} بالدور)</div>`
         : (_rb.items.length ? `<div style="border:2px solid #bbf7d0;background:#f0fdf4;border-radius:14px;padding:14px;text-align:center;font-weight:900;color:#166534">✅ انتهت الإيصالات — شُحن ${_rb.items.filter(x => x.st === 'shipped').length}</div>${cam}` : '');
     const r = it.read || {};
-    if (it.st === 'pick') return `<div data-rb-focus-item="pick" style="border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:12px">
+    if (it.st === 'pick') {
+        const cs = ((it.match && it.match.cands) || []).filter(c => (it.excl || []).indexOf(String(c.id)) < 0), top = cs[0];
+        const btn = (c, big) => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid ${big ? '#16a34a' : '#fcd34d'};background:${big ? '#16a34a' : '#fff'};color:${big ? '#fff' : '#111'};border-radius:10px;padding:${big ? '11px' : '8px 10px'};font-weight:900;font-family:inherit;font-size:13px">${big ? '✔ نعم، هذا: ' : '⇐ '}${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="opacity:.75;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`;
+        return `<div data-rb-focus-item="pick" style="border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:12px">
         <div style="font-weight:900;color:#92400e">👆 لمن هذا الإيصال؟ <span dir="ltr" style="color:#334155">${esc(r.number)}</span></div>
         <div style="font-size:12px;color:#64748b;font-weight:700;margin:3px 0 8px">${r.receiver ? 'المرسل إليه على الإيصال: «' + esc(r.receiver) + '»' : 'لم يُقرأ اسم المستلم'}</div>
-        <div style="display:flex;flex-direction:column;gap:6px">${((it.match && it.match.cands) || []).map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #fcd34d;background:#fff;border-radius:10px;padding:9px 10px;font-weight:900;font-family:inherit;font-size:13px">⇐ ${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="color:#64748b;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`).join('') || '<div style="color:#b45309;font-weight:800">لا مرشّح قريب — اشحنه من بطاقة أوردره</div>'}
-          <button type="button" onclick="rbSkip('${it.k}')" style="border:0;background:none;color:#64748b;font-weight:800;font-family:inherit;font-size:12px">تخطَّ هذا الإيصال</button></div>${more}</div>`;
+        ${top ? `<div style="font-size:12px;font-weight:900;color:#166534;margin-bottom:4px">📌 الأقرب — صح؟</div>${btn(top, true)}` : '<div style="color:#b45309;font-weight:800">لا مرشّح قريب — ابحث بالاسم أو الهاتف</div>'}
+        ${cs.length > 1 ? `<div style="font-size:11.5px;font-weight:800;color:#64748b;margin:8px 0 4px">أو غيره:</div><div style="display:flex;flex-direction:column;gap:5px">${cs.slice(1).map(c => btn(c, false)).join('')}</div>` : ''}
+        <input type="search" data-rb-search placeholder="🔎 ابحث بالاسم أو الهاتف…" oninput="rbSearch('${it.k}', this.value)" style="width:100%;margin-top:8px;border:1.5px solid #e5e7eb;border-radius:10px;padding:8px 10px;font-family:inherit;font-weight:700;font-size:13px">
+        <div data-rb-found style="display:flex;flex-direction:column;gap:5px;margin-top:5px"></div>
+        <button type="button" onclick="rbSkip('${it.k}')" style="margin-top:6px;border:0;background:none;color:#64748b;font-weight:800;font-family:inherit;font-size:12px">تخطَّ هذا الإيصال</button>${more}</div>`;
+    }
     const o = orders.find(x => x.id == it.order.id) || it.order;
     return `<div data-rb-focus-item="ready" style="border:2px solid #16a34a;background:#f0fdf4;border-radius:14px;padding:12px">
         <div style="font-size:12px;font-weight:900;color:#166534">🧾 هذا الإيصال لـ <span style="color:#64748b">(${it.match && it.match.how === 'phone' ? 'بالهاتف' : it.match && it.match.how === 'picked' ? 'باختيارك' : 'بالاسم'})</span></div>
@@ -11155,7 +11200,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121p"></script>
+<script src="gmt-whatsnew.js?v=20261121q"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

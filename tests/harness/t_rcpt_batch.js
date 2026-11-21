@@ -18,7 +18,7 @@ const fs = require('fs'), path = require('path');
   const { browser, pg, errs } = await H.open('orders.html', { w: 390, h: 844, mobile: true, wait: 5000 });
   await pg.evaluate(() => {
     const R = { 'a.png': ['700001', 'المرسل اليه محمد العلي الموبايل 0933111222', 'محمد العلي'], 'b.png': ['700002', 'المرسل اليه سارة يوسف', 'ساره يوسف'],
-                'c.png': ['700003', 'احمد حسن', 'احمد حسن'], 'd.png': ['700005', 'x', 'قديم'], 'e.png': ['', '', ''] };
+                'c.png': ['700003', 'احمد حسن', 'احمد حسن'], 'd.png': ['700005', 'x', 'قديم'], 'e.png': ['', '', ''], 'f.png': ['700006', 'احمد حسين', 'احمد حسين'] };
     window.GMTReceipt = Object.assign(window.GMTReceipt || {}, { warm() {}, _receiverOf: () => '',
       readMufti: async f => { const x = R[f.name]; await new Promise(z => setTimeout(z, /^[cde]/.test(f.name) ? 1200 : 60)); return { tracking: x[0] ? { status: 'match', number: x[0] } : { status: 'none' }, text: x[1], allDigits: [], type: { kind: 'mufti' }, company: 'المفتي', branch: { key: null, confident: false } }; },
       readReceiver: async f => R[f.name][2] });
@@ -42,6 +42,11 @@ const fs = require('fs'), path = require('path');
   ok(/محمد خالد العلي/.test(s1.title) && /1 من 5/.test(s1.title) && s1.scan[0] === 'a.png' && s1.trk === '700001' && s1.busy && s1.ov === 'none',
     'أوّل إيصال ⇒ «شاشة الشحن» نفسها لأوردره (المراجعة) بالإيصال مقروءاً — والقراءة مستمرّة: ' + JSON.stringify(s1));
   ok(await pg.evaluate(id => orders.find(o => o.id == id).status, idOf('محمد خالد العلي')) === 'pending', 'لا شحن قبل اعتمادك');
+  // (TASK-A0541 · seq 925) «يقترح الأقرب ويقول لي صح ولا لا بشاشة»
+  const bn = await pg.evaluate(() => { const b = document.getElementById('rb-banner'); return { vis: !b.classList.contains('hidden'), t: b.innerText, yes: !!b.querySelector('[data-rb-yes]'), no: !!b.querySelector('[data-rb-no]') }; });
+  ok(bn.vis && /الاقتراح/.test(bn.t) && /محمد خالد العلي/.test(bn.t) && /هاتفه مكتوب/.test(bn.t) && bn.yes && bn.no, 'شاشة الشحن: «📌 الاقتراح: هذا الإيصال لـ …» وسببه + «✔ صح» و«✖ لا»');
+  await pg.evaluate(() => document.querySelector('#rb-banner [data-rb-yes]').click());
+  ok(/صحيح/.test(await pg.evaluate(() => document.getElementById('rb-banner').innerText)), '«✔ صح» يُثبَّت ثمّ الاعتماد');
   await confirm();
   let d = await dump(), o1 = d.gmt_orders.find(o => o.id === idOf('محمد خالد العلي'));
   ok(o1.status === 'shipped' && o1.tracking_number === '700001' && o1.receipt_img && (await pg.evaluate(() => __wa)) === 1, '«اعتماد الشحن» ⇒ شُحن برقمه وإيصاله + التبليغ (المسار القائم)');
@@ -70,6 +75,17 @@ const fs = require('fs'), path = require('path');
   d = await dump();
   const end = await pg.evaluate(() => ({ wa: __wa, done: /انتهت/.test((document.querySelector('[data-rb-focus]') || {}).innerText || ''), ov: document.getElementById('rb-ov').style.display }));
   ok(d.gmt_orders.find(o => o.id === idOf('سارة يوسف')).tracking_number === '700002' && end.wa === 3 && end.done && end.ov === 'flex', 'الكلّ شُحن وبُلّغ بضغطة الاعتماد · «✅ انتهت الإيصالات»: ' + JSON.stringify(end));
+  // «✖ لا — اختر غيره»: إيصالٌ جديد يُقترح لـ«أحمد حسين» ⇒ لا ⇒ «لمن؟» بلاه + بحث · لا شحن
+  const pf = path.join(dir, 'f.png'); fs.writeFileSync(pf, png);
+  await pg.setInputFiles('[data-rb-files]', [pf]);
+  await pg.waitForFunction(() => !document.getElementById('shipModal').classList.contains('hidden') && /أحمد حسين/.test(document.getElementById('ship-title').textContent), null, { timeout: 15000 });
+  await pg.evaluate(() => document.querySelector('#rb-banner [data-rb-no]').click()); await sleep(300);
+  const wr = await pg.evaluate(id => ({ modal: !document.getElementById('shipModal').classList.contains('hidden'), ov: document.getElementById('rb-ov').style.display,
+    f: (document.querySelector('[data-rb-focus-item]') || { getAttribute: () => '' }).getAttribute('data-rb-focus-item'), excl: [...document.querySelectorAll('[data-rb-focus] [data-rb-pick]')].some(b => /أحمد حسين/.test(b.textContent)),
+    search: !!document.querySelector('[data-rb-search]'), st: orders.find(o => o.id == id).status }), idOf('أحمد حسين'));
+  ok(!wr.modal && wr.ov === 'flex' && wr.f === 'pick' && !wr.excl && wr.search && wr.st === 'pending', '«✖ لا» ⇒ تُغلق بلا شحن ⇒ «لمن هذا الإيصال؟» بلا المقترح الخاطئ + بحث: ' + JSON.stringify(wr));
+  await pg.evaluate(() => { const i = document.querySelector('[data-rb-search]'); i.value = '0944'; i.dispatchEvent(new Event('input')); }); await sleep(150);
+  ok(await pg.evaluate(() => document.querySelector('[data-rb-found]').innerText.trim().length > 0), 'البحث بالهاتف يعمل (يعرض نتيجة أو «لا نتيجة»)');
   ok(await pg.evaluate(() => !!document.querySelector('[data-rcpt-batch]')), 'زرّ «📥 إدخال إيصالات» في صفحة الأوردرات');
   const real = errs.filter(e => !/Failed to load resource|status of (400|401|404)/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close(); fs.rmSync(dir, { recursive: true, force: true });
