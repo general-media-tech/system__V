@@ -86,7 +86,7 @@ const fs = require('fs'), path = require('path');
   ok(!wr.modal && wr.ov === 'flex' && wr.f === 'pick' && !wr.excl && wr.search && wr.st === 'pending', '«✖ لا» ⇒ تُغلق بلا شحن ⇒ «لمن هذا الإيصال؟» بلا المقترح الخاطئ + بحث: ' + JSON.stringify(wr));
   await pg.evaluate(() => { const i = document.querySelector('[data-rb-search]'); i.value = '0944'; i.dispatchEvent(new Event('input')); }); await sleep(150);
   ok(await pg.evaluate(() => document.querySelector('[data-rb-found]').innerText.trim().length > 0), 'البحث بالهاتف يعمل (يعرض نتيجة أو «لا نتيجة»)');
-  ok(await pg.evaluate(() => !!document.querySelector('[data-rcpt-batch]')), 'زرّ «📥 إدخال إيصالات» في صفحة الأوردرات');
+  ok(await pg.evaluate(() => { const c = document.querySelector('[data-rcpt-cam]'), f = document.querySelector('[data-rcpt-files]'); return !!(c && f && c.getBoundingClientRect().width > 100 && /صوّر إيصال/.test(c.textContent) && /ارفع إيصالات/.test(f.textContent)); }), 'زرّا «📷 صوّر إيصال» و«🖼️ ارفع إيصالات» ظاهران في صفحة الأوردرات');
   const real = errs.filter(e => !/Failed to load resource|status of (400|401|404)/.test(e)); ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close(); fs.rmSync(dir, { recursive: true, force: true });
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

@@ -217,11 +217,13 @@ window.GMT_INTERNAL = 1;</script>
                     class="col-span-2 text-center bg-red-600 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm">
                 ⟳ تحديث فوري الآن <span data-carrier-last class="text-[10px] font-bold text-red-100"></span>
             </button>
-            <!-- (TASK-A0539 · المالك seq 916) «زرّ إدخال إيصالات … بدون ما أحدّد كلّ واحد لمين … لحالهم بيتوزّعوا ع مكانهم وبينشحنوا» -->
-            <button type="button" onclick="rcptBatchOpen()" data-rcpt-batch data-hint="صوّر أو ارفع إيصالات المفتي كلّها دفعةً واحدة: يقرأ كلّ إيصال (رقم التتبّع · الفرع · المستلم · الهاتف) ويجد أوردره ويشحنه وحده"
-                    class="col-span-2 text-center bg-gray-900 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm">
-                📥 إدخال إيصالات — توزيع وشحن تلقائي
-            </button>
+            <!-- (TASK-A0539 · seq 916 · TASK-A0542 · seq 927 «وين برفع الإيصالات أو بصوّرهم؟») زرّان واضحان: الكاميرا أو المعرض مباشرةً -->
+            <div class="col-span-2 grid grid-cols-2 gap-2" data-rcpt-batch>
+              <button type="button" onclick="rcptBatchQuick('cam')" data-rcpt-cam data-hint="صوّر إيصال المفتي: يُقرأ ويُعرف أوردره وتُفتح شاشة شحنه للمراجعة والتبليغ"
+                      class="bg-gray-900 text-white px-3 py-3 rounded-xl font-black text-[13px] shadow-sm">📷 صوّر إيصال</button>
+              <button type="button" onclick="rcptBatchQuick('files')" data-rcpt-files data-hint="ارفع صور إيصالات المفتي (واحدة أو عدّة): كلّ إيصال يُقرأ ويُعرف أوردره وتُفتح شاشة شحنه واحداً تلو الآخر"
+                      class="bg-gray-900 text-white px-3 py-3 rounded-xl font-black text-[13px] shadow-sm">🖼️ ارفع إيصالات</button>
+            </div>
             <button type="button" onclick="window.GMTUndo && GMTUndo.panel()" data-hint="تراجع وإعادة لتعديلات الأوردرات (Ctrl+Z · Ctrl+Y) — يعيد القيم فعلاً في القاعدة"
                     class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">↶ تراجع</button>
             <button type="button" id="ord-more-btn" aria-expanded="false" aria-controls="ord-tools" onclick="var o=document.getElementById('ord-tools').classList.toggle('ord-open');this.setAttribute('aria-expanded',o);this.firstElementChild.textContent=o?'إخفاء الأدوات':'المزيد من الأدوات';"
@@ -4991,6 +4993,12 @@ window.rcptBatchOpen = () => {
     const take = inp => inp.addEventListener('change', () => { const fs = [...(inp.files || [])]; inp.value = ''; if (fs.length) rbAdd(fs); });
     take(ov.querySelector('[data-rb-cam]')); take(ov.querySelector('[data-rb-files]'));
     rbPaint();
+};
+/* (TASK-A0542) من زرّ الصفحة مباشرةً: الكاميرا أو المعرض بلا خطوةٍ وسطى (النقرة نفسها تفتح الملفّات) */
+window.rcptBatchQuick = (how) => {
+    rcptBatchOpen();
+    const ov = document.getElementById('rb-ov'); if (!ov) return;
+    const inp = ov.querySelector(how === 'cam' ? '[data-rb-cam]' : '[data-rb-files]'); if (inp) inp.click();
 };
 window.rbClose = () => { const ov = document.getElementById('rb-ov'); if (ov) ov.style.display = 'none'; };
 function rbAdd(files) {
@@ -11200,7 +11208,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121q"></script>
+<script src="gmt-whatsnew.js?v=20261121r"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
