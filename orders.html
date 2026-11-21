@@ -4015,7 +4015,7 @@ window.openShipModal = (id, mode) => {
     _shipMode = mode === 'attach' ? 'attach' : 'ship';
     _shipScan = null; _shipRead = null; _shipReading = false; _shipEarly = null; _shipOrig = null;
     _shipRcptFile = null; _shipRcptAuto = false;
-    { const _rbb = document.getElementById('rb-banner'); if (_rbb) { _rbb.classList.add('hidden'); _rbb.innerHTML = ''; } }   // (TASK-A0541) يُملأ فقط من «إدخال الإيصالات»
+    { const _rbb = document.getElementById('rb-banner'); if (_rbb) { _rbb.classList.add('hidden'); _rbb.innerHTML = ''; } const _cb = document.getElementById('ship-confirm-btn'); if (_cb) _cb.disabled = false; }   // (TASK-A0541 · A0545) يُملأ فقط من «إدخال الإيصالات» · والزرّ يعود مفعَّلاً
     const _st = document.getElementById('ship-track-auto'); if (_st) { _st.classList.add('hidden'); _st.textContent = ''; }
     const _o0 = orders.find(x => x.id == id), _att = _shipMode === 'attach';
     document.getElementById('ship-tracking').value = (_att && _o0 && _o0.tracking_number) ? String(_o0.tracking_number) : '';   // المحفوظ يبقى — القراءة تُقارن به فقط
@@ -4832,6 +4832,7 @@ window.confirmShipping = async () => {
     finally { shipBusy(false); }
 };
 async function confirmShippingRun() {
+    if (typeof _rb !== 'undefined' && _rb.cur && !_rb.cur.order && shipModalIsBatch()) { showToast('👆 اختر صاحب الإيصال أوّلاً (أعلى الشاشة)', 'err'); return; }   // (TASK-A0545)
     const tracking = document.getElementById('ship-tracking').value.trim();
     const company  = document.getElementById('ship-company').value.trim();
     const warn     = document.getElementById('ship-company-warn');
@@ -5003,100 +5004,137 @@ window.rcptBatchQuick = (how) => {
 window.rbClose = () => { const ov = document.getElementById('rb-ov'); if (ov) ov.style.display = 'none'; };
 function rbAdd(files) {
     files.forEach(f => _rb.items.push({ k: Date.now() + '_' + Math.random().toString(36).slice(2, 7), file: f, st: 'wait' }));
-    rbPaint(); rbRun();
+    rbPaint(); rbNextReview(); rbRun();     /* (TASK-A0545 · seq 931) شاشة المراجعة تُفتح **فوراً** — القراءة بالخلفية */
 }
 async function rbRun() {
     if (_rb.busy) return; _rb.busy = true;
     try {
-        for (const it of _rb.items) {
-            if (it.st !== 'wait') continue;
-            it.st = 'read'; rbPaint();
-            try { it.read = await rbRead(it.file); } catch (e) { it.st = 'err'; it.why = (e && e.message) || 'تعذّرت القراءة'; rbPaint(); continue; }
+        for (;;) {
+            /* المفتوح في الشاشة أوّلاً ثمّ الدور */
+            const it = (_rb.cur && _rb.cur.st === 'wait') ? _rb.cur : _rb.items.find(x => x.st === 'wait'); if (!it) break;
+            it.st = 'read'; rbPaint(); if (it === _rb.cur) rbBanner(it);
+            try { it.read = await rbRead(it.file); } catch (e) { it.st = 'err'; it.why = (e && e.message) || 'تعذّرت القراءة'; rbPaint(); if (it === _rb.cur) rbBanner(it); continue; }
             const r = it.read;
-            if (r.type && r.type.kind !== 'mufti' && r.company && r.company !== MUFTI_CO) { it.st = 'other'; it.why = 'إيصال «' + r.company + '» — المطابقة للمفتي فقط الآن'; rbPaint(); continue; }
-            if (r.number) {
-                const dup = await trackingTakenBy(r.number, -1);
-                if (dup.length) { it.st = 'dup'; it.why = 'الرقم ' + r.number + ' مسجَّل على ' + dup.map(x => (x.serial_code || '#' + x.id) + ' ' + (x.name || '')).join('، '); rbPaint(); continue; }
+            if (r.type && r.type.kind !== 'mufti' && r.company && r.company !== MUFTI_CO) { it.st = 'other'; it.why = 'إيصال «' + r.company + '» — المطابقة للمفتي فقط الآن'; }
+            else {
+                const dup = r.number ? await trackingTakenBy(r.number, -1) : [];
+                if (dup.length) { it.st = 'dup'; it.why = 'الرقم ' + r.number + ' مسجَّل على ' + dup.map(x => (x.serial_code || '#' + x.id) + ' ' + (x.name || '')).join('، '); }
+                else {
+                    const taken = new Set(_rb.items.filter(x => x !== it && x.order && (x.st === 'ready' || x.st === 'shipped')).map(x => String(x.order.id)));
+                    const m = rbMatch(r, taken); it.match = m;
+                    if (m.order) { it.order = m.order; it.st = 'ready'; } else it.st = 'pick';
+                }
             }
-            const taken = new Set(_rb.items.filter(x => x.order && (x.st === 'ready' || x.st === 'review' || x.st === 'shipped')).map(x => String(x.order.id)));
-            const m = rbMatch(r, taken); it.match = m;
-            if (m.order) { it.order = m.order; it.st = 'ready'; } else it.st = 'pick';
-            rbPaint(); rbNextReview();
+            rbPaint();
+            if (it === _rb.cur) { if (it.order) rbAssign(it, it.order); rbBanner(it); }
+            else rbNextReview();
         }
     } finally { _rb.busy = false; rbPaint(); rbNextReview(); }
 }
+function shipModalIsBatch() { const b = document.getElementById('rb-banner'); return !!(b && !b.classList.contains('hidden')); }
 function rbShipOpen() { const m = document.getElementById('shipModal'); return !!(m && !m.classList.contains('hidden')); }
-/* يفتح شاشة الشحن للإيصال الجاهز التالي — إن لم تكن شاشةٌ مفتوحة ولا أنت في «لمن هذا الإيصال؟» */
+/* يفتح شاشة الشحن للإيصال التالي **فوراً** — حتى قبل قراءته */
 function rbNextReview() {
     if (_rb.cur || rbShipOpen()) return;
-    const it = _rb.items.find(x => x.st === 'ready' && !x.held); if (!it) return;
+    const it = _rb.items.find(x => !x.held && (x.st === 'wait' || x.st === 'read' || x.st === 'ready' || x.st === 'pick')); if (!it) {
+        const ov = document.getElementById('rb-ov'); if (ov && _rb.items.length) { ov.style.display = 'flex'; rbPaint(); } return; }
     rbOpenReview(it);
 }
 function rbOpenReview(it) {
-    const o = orders.find(x => String(x.id) === String(it.order.id));
-    if (!o || (o.status !== 'pending' && o.status !== 'prepared')) { it.st = 'err'; it.why = 'الأوردر لم يعد جاهزاً للشحن'; rbPaint(); return rbNextReview(); }
-    _rb.cur = it; it.st = 'review'; it.held = false;
+    if (it.order) { const o0 = orders.find(x => String(x.id) === String(it.order.id)); if (!o0 || (o0.status !== 'pending' && o0.status !== 'prepared')) { it.order = null; if (it.st === 'ready') it.st = 'pick'; } }
+    _rb.cur = it; it.held = false;
     const ov = document.getElementById('rb-ov'); if (ov) ov.style.display = 'none';
-    openShipModal(o.id);
-    if (!rbShipOpen()) { _rb.cur = null; it.st = 'ready'; it.held = true; if (ov) ov.style.display = 'flex'; rbPaint(); return; }   // مجمَّد/ممنوع
-    const t = document.getElementById('ship-title'); if (t) t.textContent = '🧾 إيصال ' + (_rb.items.indexOf(it) + 1) + ' من ' + _rb.items.length + ' ⇐ ' + (o.name || '') + ' — راجع واعتمد الشحن';
-    rbBanner(it, o);
+    openShipModal(it.order ? it.order.id : null);
+    if (!rbShipOpen()) { _rb.cur = null; it.held = true; if (ov) ov.style.display = 'flex'; rbPaint(); return; }   // مجمَّد/ممنوع
     try { shipScanFile(it.file, '✅ إيصال من الدفعة'); } catch (e) { console.warn('[rb] scan', e); }
+    if (it.order) rbAssign(it, it.order); else rbTitle(it, null);
+    rbBanner(it);
 }
-/* (TASK-A0541) «الاقتراح — صح ولا لا؟» أعلى شاشة الشحن */
-function rbBanner(it, o) {
-    const B = document.getElementById('rb-banner'); if (!B) return;
+function rbTitle(it, o) { const t = document.getElementById('ship-title'); if (t) t.textContent = '🧾 إيصال ' + (_rb.items.indexOf(it) + 1) + ' من ' + _rb.items.length + (o ? ' ⇐ ' + (o.name || '') + ' — راجع واعتمد الشحن' : ' — أتعرّف على صاحبه…'); }
+/* ربط الشاشة المفتوحة بأوردرٍ عُرف (أو اختير) — الشاشة نفسها تبقى والقراءة فيها مستمرّة */
+function rbAssign(it, o) {
+    o = orders.find(x => String(x.id) === String(o.id)) || o;
+    it.order = o; if (it.st !== 'shipped') it.st = 'ready';
+    shipOrderId = o.id;
+    try { const ex = shipFromExplicit(o); if (ex) window.syncShipFromBox(ex, true); } catch (_) {}
+    rbTitle(it, o);
+}
+/* (TASK-A0541 · A0545) أعلى شاشة الشحن: التعرّف · «الاقتراح — صح ولا لا؟» · «لمن؟» مع البحث — كلّه داخل الشاشة نفسها */
+function rbBanner(it) {
+    const B = document.getElementById('rb-banner'); if (!B || it !== _rb.cur) return;
     const esc = s => escH(String(s == null ? '' : s)), r = it.read || {}, m = it.match || {};
-    const how = m.how === 'phone' ? '📞 هاتفه مكتوب على الإيصال' : m.how === 'picked' ? '👆 باختيارك' : m.how === 'phone+name' ? '📞 الهاتف + الاسم' : '🔤 الاسم أقرب (' + Math.round((m.score || 0) * 100) + '%)';
-    B.className = 'mb-4 text-right rounded-2xl border-2 border-amber-300 bg-amber-50 p-3';
-    B.innerHTML = `<div style="font-size:12px;font-weight:900;color:#92400e">📌 الاقتراح: هذا الإيصال لـ</div>
-      <div style="font-size:16px;font-weight:900;color:#111">${esc(o.name || '')}</div>
-      <div style="font-size:12px;font-weight:800;color:#334155"><span dir="ltr">${esc(o.phone || '')}</span> · ${esc(o.serial_code || '#' + o.id)}${o.address ? ' · ' + esc(String(o.address).slice(0, 40)) : ''}</div>
-      <div style="font-size:11.5px;font-weight:700;color:#64748b;margin-top:2px">${how}${r.receiver ? ' · على الإيصال: «' + esc(r.receiver) + '»' : ''}</div>
-      <div data-rb-q style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" data-rb-yes onclick="rbYes()" style="flex:1;background:#16a34a;color:#fff;border:0;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✔ صح</button>
-        <button type="button" data-rb-no onclick="rbWrong()" style="flex:1;background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✖ لا — اختر غيره</button></div>`;
+    const btn = document.getElementById('ship-confirm-btn');
+    B.className = 'mb-4 text-right rounded-2xl border-2 p-3 ' + (it.order ? 'border-amber-300 bg-amber-50' : 'border-blue-200 bg-blue-50');
+    const skip = `<button type="button" onclick="rbSkip('${it.k}')" style="margin-top:6px;border:0;background:none;color:#64748b;font-weight:800;font-family:inherit;font-size:12px">تخطَّ هذا الإيصال ⇐ التالي</button>`;
+    if (btn) btn.disabled = !it.order;
+    if (it.st === 'wait' || it.st === 'read') { B.innerHTML = `<div data-rb-wait style="font-size:13px;font-weight:900;color:#1d4ed8">🔎 أتعرّف على صاحب الإيصال…</div><div style="font-size:11.5px;font-weight:700;color:#64748b">اقرأ الإيصال وصحّح الرقم إن لزم — الاقتراح يظهر هنا خلال ثوانٍ</div>${skip}`; return; }
+    if (it.st === 'dup' || it.st === 'other' || it.st === 'err') { B.className = 'mb-4 text-right rounded-2xl border-2 border-red-200 bg-red-50 p-3'; B.innerHTML = `<div style="font-size:13px;font-weight:900;color:#b91c1c">⛔ ${esc(it.why || 'لا يُشحن من هنا')}</div>${skip}`; if (btn) btn.disabled = true; return; }
+    if (it.order) {
+        const o = orders.find(x => String(x.id) === String(it.order.id)) || it.order;
+        const how = m.how === 'phone' ? '📞 هاتفه مكتوب على الإيصال' : m.how === 'picked' ? '👆 باختيارك' : m.how === 'phone+name' ? '📞 الهاتف + الاسم' : '🔤 الاسم أقرب (' + Math.round((m.score || 0) * 100) + '%)';
+        B.innerHTML = `<div style="font-size:12px;font-weight:900;color:#92400e">📌 الاقتراح: هذا الإيصال لـ</div>
+          <div style="font-size:16px;font-weight:900;color:#111">${esc(o.name || '')}</div>
+          <div style="font-size:12px;font-weight:800;color:#334155"><span dir="ltr">${esc(o.phone || '')}</span> · ${esc(o.serial_code || '#' + o.id)}${o.address ? ' · ' + esc(String(o.address).slice(0, 40)) : ''}</div>
+          <div style="font-size:11.5px;font-weight:700;color:#64748b;margin-top:2px">${how}${r.receiver ? ' · على الإيصال: «' + esc(r.receiver) + '»' : ''}</div>
+          ${it.ok ? '<div style="margin-top:6px;font-size:12px;font-weight:900;color:#15803d">✔ صحيح — راجع الرقم والفرع ثمّ «اعتماد الشحن»</div>' : `<div data-rb-q style="display:flex;gap:6px;margin-top:8px">
+            <button type="button" data-rb-yes onclick="rbYes()" style="flex:1;background:#16a34a;color:#fff;border:0;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✔ صح</button>
+            <button type="button" data-rb-no onclick="rbWrong()" style="flex:1;background:#fff;color:#b91c1c;border:1.5px solid #fecaca;border-radius:10px;padding:9px;font-weight:900;font-family:inherit;font-size:13px">✖ لا — اختر غيره</button></div>`}`;
+        return;
+    }
+    /* «لمن هذا الإيصال؟» داخل الشاشة */
+    const cs = ((m.cands) || []).filter(c => (it.excl || []).indexOf(String(c.id)) < 0), top = cs[0];
+    const cb = (c, big) => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid ${big ? '#16a34a' : '#cbd5e1'};background:${big ? '#16a34a' : '#fff'};color:${big ? '#fff' : '#111'};border-radius:10px;padding:${big ? '10px' : '7px 9px'};font-weight:900;font-family:inherit;font-size:12.5px;width:100%">${big ? '✔ نعم، هذا: ' : '⇐ '}${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span></button>`;
+    B.innerHTML = `<div style="font-size:13px;font-weight:900;color:#1e3a8a">👆 لمن هذا الإيصال؟</div>
+      <div style="font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:6px">${r.receiver ? 'على الإيصال: «' + esc(r.receiver) + '»' : 'لم يُقرأ اسم المستلم'}</div>
+      ${top ? `<div style="font-size:11.5px;font-weight:900;color:#166534;margin-bottom:3px">📌 الأقرب — صح؟</div>${cb(top, true)}` : ''}
+      ${cs.length > 1 ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:5px">${cs.slice(1).map(c => cb(c, false)).join('')}</div>` : ''}
+      <input type="search" data-rb-search placeholder="🔎 ابحث بالاسم أو الهاتف…" oninput="rbSearch('${it.k}', this.value, this)" style="width:100%;margin-top:7px;border:1.5px solid #e5e7eb;border-radius:10px;padding:7px 9px;font-family:inherit;font-weight:700;font-size:13px">
+      <div data-rb-found style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>${skip}`;
 }
-window.rbYes = () => { const it = _rb.cur; if (it) it.ok = true; const q = document.querySelector('#rb-banner [data-rb-q]'); if (q) q.outerHTML = '<div style="margin-top:6px;font-size:12px;font-weight:900;color:#15803d">✔ صحيح — راجع الرقم والفرع ثمّ «اعتماد الشحن»</div>'; };
-/* «✖ لا»: تُغلق الشاشة بلا شحن ⇒ «لمن هذا الإيصال؟» بلا الأوردر الخاطئ + بحث */
+window.rbYes = () => { const it = _rb.cur; if (!it) return; it.ok = true; rbBanner(it); };
+/* «✖ لا»: داخل الشاشة نفسها ⇒ «لمن؟» بلا المقترح الخاطئ + بحث — لا إغلاق */
 window.rbWrong = () => {
-    const it = _rb.cur; if (!it) return; _rb.cur = null;
-    const wrong = String(it.order.id); it.excl = (it.excl || []).concat([wrong]); it.order = null; it.st = 'pick';
+    const it = _rb.cur; if (!it || !it.order) return;
+    const wrong = String(it.order.id); it.excl = (it.excl || []).concat([wrong]); it.order = null; it.ok = false; it.st = 'pick'; shipOrderId = null;
     const name = (it.read && it.read.receiver) || '';
-    it.match = Object.assign({}, it.match || {}, { how: '', cands: rbEligible().filter(o => it.excl.indexOf(String(o.id)) < 0 && !_rb.items.some(x => x !== it && x.order && String(x.order.id) === String(o.id) && x.st !== 'skipped'))
+    it.match = Object.assign({}, it.match || {}, { how: '', cands: rbEligible().filter(o => it.excl.indexOf(String(o.id)) < 0 && !_rb.items.some(x => x !== it && x.order && String(x.order.id) === String(o.id) && (x.st === 'ready' || x.st === 'shipped')))
         .map(o => ({ o, s: name ? rbNameSim(name, o.name) : 0 })).sort((a, b) => b.s - a.s).filter(x => x.s >= 0.3).slice(0, 4).map(x => x.o) });
-    closeModal('shipModal');
-    const ov = document.getElementById('rb-ov'); if (ov) { ov.style.display = 'flex'; rbPaint(); }
+    rbTitle(it, null); rbBanner(it); rbPaint();
 };
 /* البحث في «لمن هذا الإيصال؟»: بالاسم أو الهاتف بين الجاهز للشحن */
-window.rbSearch = (k, q) => {
+window.rbSearch = (k, q, el) => {
     const it = _rb.items.find(x => x.k === k); if (!it) return;
-    const box = document.querySelector('[data-rb-found]'); if (!box) return;
+    const box = (el && el.parentElement && el.parentElement.querySelector('[data-rb-found]')) || document.querySelector('[data-rb-found]'); if (!box) return;
     q = String(q || '').trim(); if (q.length < 2) { box.innerHTML = ''; return; }
     const dq = q.replace(/\D/g, ''), esc = s => escH(String(s == null ? '' : s));
     const hits = rbEligible().filter(o => (it.excl || []).indexOf(String(o.id)) < 0 && ((dq.length >= 4 && String(o.phone || '').replace(/\D/g, '').indexOf(dq) >= 0) || rbNameSim(q, o.name) >= 0.6 || String(o.name || '').indexOf(q) >= 0)).slice(0, 6);
-    box.innerHTML = hits.map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #cbd5e1;background:#fff;border-radius:10px;padding:8px 10px;font-weight:900;font-family:inherit;font-size:12.5px">⇐ ${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="color:#64748b;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`).join('') || '<div style="color:#64748b;font-weight:800;font-size:12px">لا نتيجة بين الجاهز للشحن</div>';
+    box.innerHTML = hits.map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #cbd5e1;background:#fff;border-radius:10px;padding:7px 9px;font-weight:900;font-family:inherit;font-size:12.5px">⇐ ${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="color:#64748b;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`).join('') || '<div style="color:#64748b;font-weight:800;font-size:12px">لا نتيجة بين الجاهز للشحن</div>';
 };
-window.rbOpen = (k) => { const it = _rb.items.find(x => x.k === k); if (!it || !it.order || rbShipOpen()) return; rbOpenReview(it); };
-/* بعد «اعتماد الشحن» من الشاشة (confirmShippingRun) — التبليغ فُتح بضغطتك نفسها ⇒ التالي */
+window.rbOpen = (k) => { const it = _rb.items.find(x => x.k === k); if (!it || rbShipOpen()) return; rbOpenReview(it); };
+/* بعد «اعتماد الشحن» (confirmShippingRun) — التبليغ فُتح بضغطتك نفسها ⇒ التالي **فوراً** */
 window.rbAfterShip = (id) => {
-    const it = _rb.cur; if (!it || String(it.order.id) !== String(id)) return;
+    const it = _rb.cur; if (!it || !it.order || String(it.order.id) !== String(id)) return;
     it.st = 'shipped'; it.order = orders.find(x => x.id == id) || it.order; _rb.cur = null;
     try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch', entity: 'gmt_orders', entityId: String(id), entityName: it.order.name || '', newValue: it.order.tracking_number || '', reason: 'إدخال إيصالات: ' + (it.match ? it.match.how : '') + (it.read && it.read.receiver ? ' · المستلم «' + it.read.receiver + '»' : '') }); } catch (_) {}
-    rbPaint();
-    setTimeout(() => { if (_rb.items.some(x => x.st === 'ready' && !x.held)) rbNextReview(); else { const ov = document.getElementById('rb-ov'); if (ov && _rb.items.some(x => x.st !== 'shipped')) { ov.style.display = 'flex'; rbPaint(); } } }, 400);
+    rbPaint(); setTimeout(rbNextReview, 60);
 };
 /* الشاشة أُغلقت بلا شحن ⇒ يبقى الإيصال بانتظارك والنافذة تعود */
 window.rbReviewClosed = () => {
-    const it = _rb.cur; if (!it) return; _rb.cur = null;
-    if (it.st === 'review') { it.st = 'ready'; it.held = true; }
+    const it = _rb.cur; if (!it) return; _rb.cur = null; it.held = true;
     const ov = document.getElementById('rb-ov'); if (ov) { ov.style.display = 'flex'; rbPaint(); }
 };
 window.rbPick = (k, oid) => {
-    const it = _rb.items.find(x => x.k === k); const o = orders.find(x => String(x.id) === String(oid)); if (!it || !o || it.st !== 'pick') return;
-    it.match = Object.assign({}, it.match || {}, { how: 'picked' }); it.order = o; it.st = 'ready'; it.held = false; rbOpenReview(it);
+    const it = _rb.items.find(x => x.k === k); const o = orders.find(x => String(x.id) === String(oid)); if (!it || !o) return;
+    it.match = Object.assign({}, it.match || {}, { how: 'picked' }); it.ok = true;
+    if (it === _rb.cur && rbShipOpen()) { rbAssign(it, o); rbBanner(it); rbPaint(); return; }
+    it.order = o; it.st = 'ready'; it.held = false; rbOpenReview(it);
 };
-window.rbSkip = (k) => { const it = _rb.items.find(x => x.k === k); if (!it) return; it.st = 'skipped'; it.why = 'تُرك'; rbPaint(); rbNextReview(); };
+window.rbSkip = (k) => {
+    const it = _rb.items.find(x => x.k === k); if (!it) return;
+    it.st = 'skipped'; it.why = 'تُرك';
+    if (it === _rb.cur) { _rb.cur = null; document.getElementById('shipModal').classList.add('hidden'); }
+    rbPaint(); rbNextReview();
+};
 function rbFocusHTML() {
     const esc = s => escH(String(s == null ? '' : s));
     const reading = _rb.items.filter(x => x.st === 'wait' || x.st === 'read').length;
@@ -11208,7 +11246,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121t"></script>
+<script src="gmt-whatsnew.js?v=20261121u"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
