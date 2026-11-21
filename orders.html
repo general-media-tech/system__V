@@ -4905,6 +4905,7 @@ async function confirmShippingRun() {
         const _lbl = sendShippingLabel(_o);
         showToast('🚚 تم اعتماد الشحن — جارٍ إرسال الكليشيه...', 'ok');
         openShipNotice(_o, true);
+        try { if (window.rbAfterShip) rbAfterShip(_id); } catch (_) {}   /* (TASK-A0540) إدخال الإيصالات: التالي */
         const _mid = await _lbl;
         if (_hadOrig && data.receipt_meta) saveReceiptTg(_id, _mid);     // مكان الإيصال (الممسوح) في أرشيف تيليغرام
     } catch(err) { showToast('خطأ: ' + err.message, 'err'); }
@@ -4961,22 +4962,26 @@ async function rbRead(file) {
     r.receiver = rec;
     return r;
 }
+/* (TASK-A0540 · المالك seq 923–924) «أرفع الإيصالات ⇒ واحداً تلو الآخر يعطيني إنّ هذا الإيصال لهذا الشخص — نفس شاشة المراجعة
+   لما بعطيه إرسال للشحن ⇒ ثمّ إرسال الشحن والتبليغ». القراءة والمطابقة بالخلفية ⇒ كلّ إيصالٍ عُرف أوردره يفتح **شاشة الشحن نفسها**
+   (openShipModal + shipScanFile: الماسح والقراءة والفرع كما هي) ⇒ «اعتماد الشحن» = الشحن + التبليغ (المسار القائم) ⇒ التالي يُفتح وحده.
+   الملتبس ⇒ «لمن هذا الإيصال؟» بضغطة ثمّ شاشته · إغلاق الشاشة بلا شحن ⇒ يبقى بانتظارك («🧾 افتح شاشة الشحن»). لا شحن بلا مراجعتك. */
 window.rcptBatchOpen = () => {
-    const old = document.getElementById('rb-ov'); if (old) old.remove();
+    const old = document.getElementById('rb-ov'); if (old) { old.style.display = 'flex'; rbPaint(); return; }
     const ov = document.createElement('div'); ov.id = 'rb-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto';
     ov.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:640px;width:100%;margin:auto;overflow:hidden;font-family:Cairo,sans-serif;direction:rtl">
       <div style="background:#111827;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:15px;font-weight:900">📥 إدخال إيصالات المفتي</div>
-        <div style="font-size:11px;color:#cbd5e1">كلّ إيصال يُقرأ ويُطابَق بأوردره ويُشحن وحده — المؤكَّد فقط، والباقي بضغطة</div></div>
-        <button type="button" onclick="document.getElementById('rb-ov').remove()" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-weight:800;font-family:inherit">إغلاق</button></div>
+        <div style="font-size:11px;color:#cbd5e1">ارفعها كلّها أو صوّرها واحداً واحداً — كلّ إيصال يفتح شاشة شحن أوردره للمراجعة ثمّ «اعتماد الشحن» والتبليغ</div></div>
+        <button type="button" onclick="rbClose()" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:9px;padding:7px 12px;font-weight:800;font-family:inherit">إغلاق</button></div>
       <div style="padding:14px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <label style="background:#D5001C;color:#fff;border-radius:12px;padding:12px;text-align:center;font-weight:900;font-size:13px;cursor:pointer">📷 صوّر إيصالاً<input type="file" accept="image/*" capture="environment" data-rb-cam style="display:none"></label>
           <label style="background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px;text-align:center;font-weight:900;font-size:13px;cursor:pointer">🖼️ ارفع عدّة إيصالات<input type="file" accept="image/*" multiple data-rb-files style="display:none"></label>
         </div>
-        <div data-rb-sum style="font-size:12px;font-weight:800;color:#475569;margin-bottom:8px">جاهز للشحن الآن: ${rbEligible().length} أوردر (قيد التجهيز / محضّرة)</div>
-        <div data-rb-list style="display:flex;flex-direction:column;gap:8px"></div>
-        <button type="button" data-rb-notify onclick="rbNotifyNext()" style="display:none;margin-top:10px;width:100%;background:#16a34a;color:#fff;border:0;border-radius:12px;padding:12px;font-weight:900;font-family:inherit;font-size:13px"></button>
+        <div data-rb-sum style="font-size:12px;font-weight:800;color:#475569;margin-bottom:8px"></div>
+        <div data-rb-focus></div>
+        <div data-rb-list style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
       </div></div>`;
     document.body.appendChild(ov);
     try { GMTReceipt && GMTReceipt.warm && GMTReceipt.warm(); } catch (_) {}
@@ -4984,6 +4989,7 @@ window.rcptBatchOpen = () => {
     take(ov.querySelector('[data-rb-cam]')); take(ov.querySelector('[data-rb-files]'));
     rbPaint();
 };
+window.rbClose = () => { const ov = document.getElementById('rb-ov'); if (ov) ov.style.display = 'none'; };
 function rbAdd(files) {
     files.forEach(f => _rb.items.push({ k: Date.now() + '_' + Math.random().toString(36).slice(2, 7), file: f, st: 'wait' }));
     rbPaint(); rbRun();
@@ -4996,77 +5002,91 @@ async function rbRun() {
             it.st = 'read'; rbPaint();
             try { it.read = await rbRead(it.file); } catch (e) { it.st = 'err'; it.why = (e && e.message) || 'تعذّرت القراءة'; rbPaint(); continue; }
             const r = it.read;
-            if (r.type && r.type.kind !== 'mufti' && r.company && r.company !== MUFTI_CO) { it.st = 'other'; it.why = 'إيصال «' + r.company + '» — الآلي للمفتي فقط الآن'; rbPaint(); continue; }
-            if (!r.number) { it.st = 'nonum'; it.why = 'لم يُقرأ رقم التتبّع — صوّره أوضح أو اشحنه من بطاقته'; rbPaint(); continue; }
-            const dup = await trackingTakenBy(r.number, -1);
-            if (dup.length) { it.st = 'dup'; it.why = 'الرقم ' + r.number + ' مسجَّل على ' + dup.map(x => (x.serial_code || '#' + x.id) + ' ' + (x.name || '')).join('، '); rbPaint(); continue; }
-            const taken = new Set(_rb.items.filter(x => x.order && x.st === 'shipped').map(x => String(x.order.id)));
+            if (r.type && r.type.kind !== 'mufti' && r.company && r.company !== MUFTI_CO) { it.st = 'other'; it.why = 'إيصال «' + r.company + '» — المطابقة للمفتي فقط الآن'; rbPaint(); continue; }
+            if (r.number) {
+                const dup = await trackingTakenBy(r.number, -1);
+                if (dup.length) { it.st = 'dup'; it.why = 'الرقم ' + r.number + ' مسجَّل على ' + dup.map(x => (x.serial_code || '#' + x.id) + ' ' + (x.name || '')).join('، '); rbPaint(); continue; }
+            }
+            const taken = new Set(_rb.items.filter(x => x.order && (x.st === 'ready' || x.st === 'review' || x.st === 'shipped')).map(x => String(x.order.id)));
             const m = rbMatch(r, taken); it.match = m;
-            if (m.order) await rbShip(it, m.order); else { it.st = 'pick'; rbPaint(); }
+            if (m.order) { it.order = m.order; it.st = 'ready'; } else it.st = 'pick';
+            rbPaint(); rbNextReview();
         }
-    } finally { _rb.busy = false; rbPaint(); }
+    } finally { _rb.busy = false; rbPaint(); rbNextReview(); }
 }
-/* الشحن — المسار نفسه لـ«اعتماد الشحن» بلا نافذته */
-async function rbShip(it, o) {
-    const r = it.read, idx = orders.findIndex(x => x.id == o.id); if (idx < 0) { it.st = 'err'; it.why = 'الأوردر لم يعد موجوداً'; return; }
-    const lock = await ordersLockBlock(orders[idx], 'shipped'); if (lock) { it.st = 'err'; it.why = lock; it.order = o; return; }
-    const bk = r.branch && r.branch.confident && r.branch.key ? { key: r.branch.key, src: 'read' } : ((d => d.key ? { key: d.key, src: 'default' } : null)(shipFromDefault(MUFTI_CO)));
-    if (!bk) { it.st = 'err'; it.why = 'لم يُقرأ الفرع المُرسِل ولا فرعٌ افتراضي في ⚙️ إعدادات الأوردرات'; it.order = o; return; }
-    const prev = { status: o.status, tracking_number: o.tracking_number || null, shipped_at: o.shipped_at || null, shipping_company: o.shipping_company || null,
-                   receipt_img: null, receipt_at: o.receipt_at || null, receipt_meta: o.receipt_meta || null, ship_from_office: o.ship_from_office || null };
-    const now = new Date().toISOString(), durl = await compressReceipt(it.file).catch(() => null);
-    const data = { status: 'shipped', tracking_number: r.number, shipped_at: now, shipping_company: MUFTI_CO };
-    if (durl && durl.length < 900000) Object.assign(data, { receipt_img: durl, receipt_at: now, receipt_meta: { v: 1, at: now, by: (typeof getOperatorName === 'function' ? getOperatorName() : '') || null,
-        company: MUFTI_CO, via: 'batch', scanned: false, mode: null, type: r.type ? { kind: r.type.kind, why: r.type.why || '' } : null,
-        track: { status: (r.tracking || {}).status || 'none', barcode: (r.barcode && r.barcode.number) || null, printed: (r.printed && r.printed.number) || null, final: r.number, source: 'auto' },
-        branch: { src: bk.src, key: bk.key, read: r.branch ? { key: r.branch.key || null, confident: !!r.branch.confident, text: String(r.branch.text || '').slice(0, 80) } : null },
-        match: { how: it.match ? it.match.how : 'picked', score: it.match ? it.match.score : null, receiver: r.receiver || null }, orig_tg: null, prev: [] } });
-    try {
-        await sbUpdateOrThrow(o.id, data);
-        orders[idx] = { ...orders[idx], ...data };
-        try { if (isStoreOrder(orders[idx])) upsertCustomerFromOrder(orders[idx]).catch(() => {}); } catch (_) {}
-        try { storeStockToast(await deductStoreOrderStock(orders[idx])); } catch (_) {}
-        try { await saveShipFromR(o.id, bk.key); } catch (_) {}
-        it.st = 'shipped'; it.order = orders[idx]; it.prev = prev; it.branchSrc = bk.src;
-        try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', newValue: r.number, reason: 'إدخال إيصالات: ' + (it.match ? it.match.how : 'اختيار') + (r.receiver ? ' · المستلم «' + r.receiver + '»' : '') }); } catch (_) {}
-        sendShippingLabel(orders[idx]).then(mid => { if (data.receipt_meta) saveReceiptTg(o.id, mid); }).catch(() => {});
-        render();
-    } catch (e) { it.st = 'err'; it.why = 'تعذّر الشحن: ' + ((e && e.message) || e); it.order = o; }
+function rbShipOpen() { const m = document.getElementById('shipModal'); return !!(m && !m.classList.contains('hidden')); }
+/* يفتح شاشة الشحن للإيصال الجاهز التالي — إن لم تكن شاشةٌ مفتوحة ولا أنت في «لمن هذا الإيصال؟» */
+function rbNextReview() {
+    if (_rb.cur || rbShipOpen()) return;
+    const it = _rb.items.find(x => x.st === 'ready' && !x.held); if (!it) return;
+    rbOpenReview(it);
 }
-window.rbPick = async (k, oid) => {
+function rbOpenReview(it) {
+    const o = orders.find(x => String(x.id) === String(it.order.id));
+    if (!o || (o.status !== 'pending' && o.status !== 'prepared')) { it.st = 'err'; it.why = 'الأوردر لم يعد جاهزاً للشحن'; rbPaint(); return rbNextReview(); }
+    _rb.cur = it; it.st = 'review'; it.held = false;
+    const ov = document.getElementById('rb-ov'); if (ov) ov.style.display = 'none';
+    openShipModal(o.id);
+    if (!rbShipOpen()) { _rb.cur = null; it.st = 'ready'; it.held = true; if (ov) ov.style.display = 'flex'; rbPaint(); return; }   // مجمَّد/ممنوع
+    const t = document.getElementById('ship-title'); if (t) t.textContent = '🧾 إيصال ' + (_rb.items.indexOf(it) + 1) + ' من ' + _rb.items.length + ' ⇐ ' + (o.name || '') + ' — راجع واعتمد الشحن';
+    try { shipScanFile(it.file, '✅ إيصال من الدفعة'); } catch (e) { console.warn('[rb] scan', e); }
+}
+window.rbOpen = (k) => { const it = _rb.items.find(x => x.k === k); if (!it || !it.order || rbShipOpen()) return; rbOpenReview(it); };
+/* بعد «اعتماد الشحن» من الشاشة (confirmShippingRun) — التبليغ فُتح بضغطتك نفسها ⇒ التالي */
+window.rbAfterShip = (id) => {
+    const it = _rb.cur; if (!it || String(it.order.id) !== String(id)) return;
+    it.st = 'shipped'; it.order = orders.find(x => x.id == id) || it.order; _rb.cur = null;
+    try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch', entity: 'gmt_orders', entityId: String(id), entityName: it.order.name || '', newValue: it.order.tracking_number || '', reason: 'إدخال إيصالات: ' + (it.match ? it.match.how : '') + (it.read && it.read.receiver ? ' · المستلم «' + it.read.receiver + '»' : '') }); } catch (_) {}
+    rbPaint();
+    setTimeout(() => { if (_rb.items.some(x => x.st === 'ready' && !x.held)) rbNextReview(); else { const ov = document.getElementById('rb-ov'); if (ov && _rb.items.some(x => x.st !== 'shipped')) { ov.style.display = 'flex'; rbPaint(); } } }, 400);
+};
+/* الشاشة أُغلقت بلا شحن ⇒ يبقى الإيصال بانتظارك والنافذة تعود */
+window.rbReviewClosed = () => {
+    const it = _rb.cur; if (!it) return; _rb.cur = null;
+    if (it.st === 'review') { it.st = 'ready'; it.held = true; }
+    const ov = document.getElementById('rb-ov'); if (ov) { ov.style.display = 'flex'; rbPaint(); }
+};
+window.rbPick = (k, oid) => {
     const it = _rb.items.find(x => x.k === k); const o = orders.find(x => String(x.id) === String(oid)); if (!it || !o || it.st !== 'pick') return;
-    it.match = Object.assign({}, it.match || {}, { how: 'picked' }); it.st = 'read'; rbPaint(); await rbShip(it, o); rbPaint();
+    it.match = Object.assign({}, it.match || {}, { how: 'picked' }); it.order = o; it.st = 'ready'; it.held = false; rbOpenReview(it);
 };
-window.rbUndo = async (k) => {
-    const it = _rb.items.find(x => x.k === k); if (!it || it.st !== 'shipped' || !it.prev) return;
-    const p = Object.assign({}, it.prev); delete p.receipt_img; p.receipt_img = null;
-    try { await sbUpdateOrThrow(it.order.id, p); const i = orders.findIndex(x => x.id == it.order.id); if (i >= 0) orders[i] = { ...orders[i], ...p };
-        try { window.GMTAudit && GMTAudit.log({ action: 'order_ship_batch_undo', entity: 'gmt_orders', entityId: String(it.order.id), entityName: it.order.name || '', reason: 'تراجع عن إدخال إيصال' }); } catch (_) {}
-        it.st = 'pick'; it.prev = null; render(); rbPaint(); showToast('↩️ عاد «' + (it.order.name || '') + '» إلى ' + (ORDER_STATUS_AR[p.status] || 'قيد التجهيز'), 'ok');
-    } catch (e) { showToast('تعذّر التراجع: ' + ((e && e.message) || e), 'err'); }
-};
-window.rbNotifyNext = () => {
-    const it = _rb.items.find(x => x.st === 'shipped' && !x.notified); if (!it) return;
-    it.notified = true; openShipNotice(orders.find(x => x.id == it.order.id) || it.order, true); rbPaint();
-};
+window.rbSkip = (k) => { const it = _rb.items.find(x => x.k === k); if (!it) return; it.st = 'skipped'; it.why = 'تُرك'; rbPaint(); rbNextReview(); };
+function rbFocusHTML() {
+    const esc = s => escH(String(s == null ? '' : s));
+    const reading = _rb.items.filter(x => x.st === 'wait' || x.st === 'read').length;
+    const it = _rb.items.find(x => x.st === 'pick') || _rb.items.find(x => x.st === 'ready');
+    const cam = `<label style="display:block;background:#D5001C;color:#fff;border-radius:12px;padding:11px;text-align:center;font-weight:900;font-size:13px;cursor:pointer;margin-top:8px">📷 صوّر الإيصال التالي<input type="file" accept="image/*" capture="environment" data-rb-cam2 style="display:none"></label>`;
+    const more = reading ? `<div style="font-size:11px;color:#2563eb;font-weight:800;margin-top:6px">🔎 القراءة مستمرّة: ${reading} بالدور</div>` : '';
+    if (!it) return reading ? `<div data-rb-focus-wait style="border:2px dashed #93c5fd;border-radius:14px;padding:16px;text-align:center;font-weight:900;color:#1d4ed8">🔎 يقرأ الإيصال ويبحث عن أوردره… (${reading} بالدور)</div>`
+        : (_rb.items.length ? `<div style="border:2px solid #bbf7d0;background:#f0fdf4;border-radius:14px;padding:14px;text-align:center;font-weight:900;color:#166534">✅ انتهت الإيصالات — شُحن ${_rb.items.filter(x => x.st === 'shipped').length}</div>${cam}` : '');
+    const r = it.read || {};
+    if (it.st === 'pick') return `<div data-rb-focus-item="pick" style="border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:12px">
+        <div style="font-weight:900;color:#92400e">👆 لمن هذا الإيصال؟ <span dir="ltr" style="color:#334155">${esc(r.number)}</span></div>
+        <div style="font-size:12px;color:#64748b;font-weight:700;margin:3px 0 8px">${r.receiver ? 'المرسل إليه على الإيصال: «' + esc(r.receiver) + '»' : 'لم يُقرأ اسم المستلم'}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${((it.match && it.match.cands) || []).map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #fcd34d;background:#fff;border-radius:10px;padding:9px 10px;font-weight:900;font-family:inherit;font-size:13px">⇐ ${esc(c.name || '')} · <span dir="ltr">${esc(c.phone || '')}</span> <span style="color:#64748b;font-weight:700">${esc(c.serial_code || '#' + c.id)}</span></button>`).join('') || '<div style="color:#b45309;font-weight:800">لا مرشّح قريب — اشحنه من بطاقة أوردره</div>'}
+          <button type="button" onclick="rbSkip('${it.k}')" style="border:0;background:none;color:#64748b;font-weight:800;font-family:inherit;font-size:12px">تخطَّ هذا الإيصال</button></div>${more}</div>`;
+    const o = orders.find(x => x.id == it.order.id) || it.order;
+    return `<div data-rb-focus-item="ready" style="border:2px solid #16a34a;background:#f0fdf4;border-radius:14px;padding:12px">
+        <div style="font-size:12px;font-weight:900;color:#166534">🧾 هذا الإيصال لـ <span style="color:#64748b">(${it.match && it.match.how === 'phone' ? 'بالهاتف' : it.match && it.match.how === 'picked' ? 'باختيارك' : 'بالاسم'})</span></div>
+        <div style="font-size:16px;font-weight:900;margin-top:4px">${esc(o.name || '')}</div>
+        <div style="font-size:12.5px;font-weight:800;color:#334155"><span dir="ltr">${esc(o.phone || '')}</span> · ${esc(o.serial_code || '#' + o.id)} · 🔖 <span dir="ltr">${esc(r.number || '—')}</span></div>
+        <button type="button" data-rb-open onclick="rbOpen('${it.k}')" style="margin-top:10px;width:100%;background:#16a34a;color:#fff;border:0;border-radius:12px;padding:13px;font-weight:900;font-family:inherit;font-size:14px">🧾 افتح شاشة الشحن — راجع واعتمد</button>
+        <button type="button" onclick="rbSkip('${it.k}')" style="margin-top:6px;width:100%;border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:7px;font-weight:800;font-family:inherit;font-size:12px">تخطَّ هذا الإيصال</button>${more}</div>`;
+}
 function rbPaint() {
     const ov = document.getElementById('rb-ov'); if (!ov) return;
     const L = ov.querySelector('[data-rb-list]'), esc = s => escH(String(s == null ? '' : s));
-    const lab = { wait: ['⏳', 'بالدور', '#64748b'], read: ['🔎', 'يقرأ ويطابق…', '#2563eb'], shipped: ['✅', 'شُحن', '#15803d'], pick: ['👆', 'اختر الأوردر', '#b45309'],
-                  dup: ['⛔', 'رقمٌ مكرَّر', '#b91c1c'], nonum: ['⚠️', 'بلا رقم تتبّع', '#b91c1c'], other: ['ℹ️', 'شركةٌ أخرى', '#475569'], err: ['⚠️', 'لم يُشحن', '#b91c1c'] };
+    const lab = { wait: ['⏳', 'بالدور', '#64748b'], read: ['🔎', 'يقرأ ويطابق…', '#2563eb'], ready: ['🧾', 'جاهز للمراجعة', '#15803d'], review: ['🧾', 'في شاشة الشحن', '#2563eb'], shipped: ['✅', 'شُحن', '#15803d'],
+                  pick: ['👆', 'لمن؟', '#b45309'], dup: ['⛔', 'رقمٌ مكرَّر', '#b91c1c'], other: ['ℹ️', 'شركةٌ أخرى', '#475569'], err: ['⚠️', 'تعذّر', '#b91c1c'], skipped: ['⏭', 'تُرك', '#64748b'] };
     L.innerHTML = _rb.items.map((it, n) => { const r = it.read || {}, l = lab[it.st] || lab.wait, o = it.order;
-        return `<div data-rb-item="${it.st}" style="border:1.5px solid #e5e7eb;border-radius:12px;padding:9px 11px;font-size:12px">
-          <div style="display:flex;justify-content:space-between;gap:6px;font-weight:900"><span>${n + 1}. ${l[0]} <span style="color:${l[2]}">${l[1]}</span></span>
-            <span dir="ltr" style="color:#334155">${esc(r.number || '')}</span></div>
-          ${r.receiver || (r.branch && r.branch.key) ? `<div style="color:#64748b;font-weight:700;margin-top:2px">${r.receiver ? 'المستلم: ' + esc(r.receiver) : ''}${r.branch && r.branch.key ? ' · الفرع: ' + esc(shipFromLabel(r.branch.key)) : ''}</div>` : ''}
-          ${o && it.st === 'shipped' ? `<div style="margin-top:4px;font-weight:800">⇐ ${esc(o.serial_code || '#' + o.id)} · ${esc(o.name || '')} <span style="color:#64748b">(${it.match && it.match.how === 'phone' ? 'بالهاتف' : it.match && it.match.how === 'picked' ? 'باختيارك' : 'بالاسم'}${it.branchSrc === 'default' ? ' · الفرع الافتراضي' : ''})</span>
-             <button type="button" onclick="rbUndo('${it.k}')" style="margin-right:6px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:800;font-family:inherit">↩️ تراجع</button></div>` : ''}
-          ${it.st === 'pick' ? `<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">${((it.match && it.match.cands) || []).map(c => `<button type="button" data-rb-pick onclick="rbPick('${it.k}','${esc(c.id)}')" style="text-align:right;border:1.5px solid #fde68a;background:#fffbeb;border-radius:9px;padding:7px 9px;font-weight:800;font-family:inherit;font-size:12px">⇐ ${esc(c.serial_code || '#' + c.id)} · ${esc(c.name || '')} · ${esc(c.phone || '')}</button>`).join('') || '<span style="color:#b45309;font-weight:800">لا مرشّح قريب — اشحنه من بطاقة أوردره</span>'}</div>` : ''}
-          ${it.why ? `<div style="color:#b91c1c;font-weight:700;margin-top:3px">${esc(it.why)}</div>` : ''}
-        </div>`; }).join('');
-    const sh = _rb.items.filter(x => x.st === 'shipped'), left = sh.filter(x => !x.notified).length;
-    const S = ov.querySelector('[data-rb-sum]'); if (S && _rb.items.length) S.textContent = 'الإيصالات: ' + _rb.items.length + ' · شُحن تلقائياً: ' + sh.length + ' · تنتظر اختيارك: ' + _rb.items.filter(x => x.st === 'pick').length + ' · جاهز للشحن الآن: ' + rbEligible().length;
-    const B = ov.querySelector('[data-rb-notify]'); if (B) { B.style.display = left ? 'block' : 'none'; B.textContent = '📲 بلّغ الزبون التالي بالشحن (' + left + ' باقٍ)'; }
+        return `<div data-rb-item="${it.st}" style="border:1.5px solid #e5e7eb;border-radius:12px;padding:8px 10px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;gap:6px;font-weight:900"><span>${n + 1}. ${l[0]} <span style="color:${l[2]}">${l[1]}</span>${o ? ' ⇐ ' + esc(o.name || '') : ''}</span><span dir="ltr" style="color:#334155">${esc(r.number || '')}</span></div>
+          ${it.why ? `<div style="color:#b91c1c;font-weight:700;margin-top:2px">${esc(it.why)}</div>` : ''}</div>`; }).join('');
+    const F = ov.querySelector('[data-rb-focus]');
+    if (F) { F.innerHTML = rbFocusHTML(); const c2 = F.querySelector('[data-rb-cam2]'); if (c2) c2.addEventListener('change', () => { const fs = [...(c2.files || [])]; c2.value = ''; if (fs.length) rbAdd(fs); }); }
+    const S = ov.querySelector('[data-rb-sum]');
+    if (S) S.textContent = _rb.items.length ? ('الإيصالات: ' + _rb.items.length + ' · شُحن: ' + _rb.items.filter(x => x.st === 'shipped').length + ' · بانتظارك: ' + _rb.items.filter(x => x.st === 'ready' || x.st === 'pick').length + ' · جاهز للشحن: ' + rbEligible().length + ' أوردر')
+        : ('جاهز للشحن الآن: ' + rbEligible().length + ' أوردر (قيد التجهيز / محضّرة)');
 }
 
 // ══ Confirm Dialog ══
@@ -5371,7 +5391,11 @@ function setText(id, val) {
     if (el) el.textContent = val;
 }
 
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    /* (TASK-A0540) شاشة شحنٍ فُتحت من «إدخال الإيصالات» وأُغلقت بلا اعتماد ⇒ يبقى الإيصال بانتظارك (بعد الحلقة: الاعتماد يسبق هذا) */
+    if (id === 'shipModal' && typeof _rb !== 'undefined' && _rb.cur) setTimeout(() => { try { if (_rb.cur && window.rbReviewClosed) rbReviewClosed(); } catch (_) {} }, 0);
+}
 
 /* ══ التقرير الشهري (2026-08-26 · طلب المالك) ══
    «عدّاد لكل شهر: عدد الأوردرات ومجموعها — المحصّلة وفي الطريق وغيرها،
@@ -11131,7 +11155,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121o"></script>
+<script src="gmt-whatsnew.js?v=20261121p"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
