@@ -296,3 +296,31 @@
     norm: norm
   };
 })(window);
+
+/* ══ (TASK-A0527 · P0 · بلاغ البوت «GMTAsk is not defined» orders.html:1518 · صيد النمط) ══
+   gmt-ask.js يُحمَّل مؤجَّلاً (defer) في كلّ الصفحات، وأزرارٌ كثيرة تناديه مباشرة (سجلّ التراجع · التجميد · التأكيدات …)
+   ⇒ نقرةٌ قبل اكتمال تحميله = خطأ وزرٌّ لا يعمل. هذا الملفّ يُحمَّل متزامناً في كلّ صفحةٍ تستعمل GMTAsk، فيضع **بديلاً مؤقّتاً**
+   بنفس الدوالّ: ينتظر الحقيقيّ (حتى ٨ ث، ويحمّله بنفسه إن لم يصل) ثمّ يسلّمه الطلب كما هو. gmt-ask.js يكتب فوقه حين يصل. */
+(function (g) {
+  if (g.GMTAsk) return;
+  var loading = false;
+  function real() { var A = g.GMTAsk; return A && !A.__stub ? A : null; }
+  function later(name) {
+    return function () {
+      var a = arguments, t0 = Date.now();
+      return new Promise(function (res) {
+        (function w() {
+          var A = real();
+          if (A && typeof A[name] === 'function') return res(A[name].apply(A, a));
+          if (!loading && Date.now() - t0 > 2500) {   // لم يصل ⇒ نحمّله نحن مرّة
+            loading = true;
+            try { var s = document.createElement('script'); s.src = 'gmt-ask.js'; (document.head || document.documentElement).appendChild(s); } catch (_) {}
+          }
+          if (Date.now() - t0 > 8000) return res(name === 'confirm' ? false : null);   // لا نافذة ⇒ «لا» (لا تنفيذ بلا موافقة)
+          setTimeout(w, 40);
+        })();
+      });
+    };
+  }
+  g.GMTAsk = { __stub: 1, alert: later('alert'), confirm: later('confirm'), choose: later('choose'), form: later('form'), prompt: later('prompt') };
+})(typeof window !== 'undefined' ? window : globalThis);

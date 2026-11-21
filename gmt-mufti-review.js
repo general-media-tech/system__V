@@ -88,6 +88,7 @@
   /* (TASK-0222 · المالك seq 152) «ايضا في صحين للي تبلغ كانت موجوده زامنها ايضا»: شارة «✓✓ بُلِّغ بالوصول» نفسها من بطاقة الأوردر
      (notifyDots في الأوردرات) — تظهر فور التبليغ لأنّ التبليغ يَسِم الأوردر (markNotified) والنافذة تتبع ذلك. */
   function notify(o) { try { return typeof g.notifyDots === 'function' ? '<span class="mr-nd" data-mr-notified>' + g.notifyDots(o) + '</span>' : ''; } catch (_) { return ''; } }
+  function due(o) { try { if (typeof g.collectOf === 'function') return Number(g.collectOf(o)) || 0; } catch (_) {} var c = o && o.collect_amount; return Number(c === null || c === undefined || c === '' ? o && o.price : c) || 0; }
   function cardHTML(o) {
     var n = digits(o.tracking_number), r = state.res[n], k = cls(r), C = CLS[k];
     var when = o.shipped_at ? new Date(o.shipped_at).toLocaleDateString('en-GB') : '';
@@ -98,6 +99,8 @@
       '<div class="mr-top"><div class="mr-ttl">#' + esc(o.id) + ' · ' + esc(o.name || '—') + '</div>' + notify(o) +
       '<span class="mr-chip" style="color:' + C.c + ';background:' + C.bg + '">' + C.t + '</span></div>' +
       '<div class="mr-sub">رقم التتبّع <b dir="ltr">' + esc(n) + '</b>' + (o.region || o.city ? ' · ' + esc(o.region || o.city) : '') + (when ? ' · شُحن ' + esc(when) : '') + ' · عندنا: ' + esc(stLabel(o.status)) + '</div>' +
+      /* (TASK-A0527 · المالك seq 878 «لازم يعرض لي قيمة حوالة كل واحدة») */
+      '<div class="mr-sub" data-mr-hawala>💵 الحوالة: <b>$' + esc(due(o).toLocaleString()) + '</b>' + (due(o) ? '' : ' (مدفوع مسبقاً)') + '</div>' +
       '<div class="mr-res">' + resultHTML(o, r || { n: n }) + '</div>' +
       (pb ? '<div class="mr-pbtns" data-mr-pbtns>' + pb + '</div>' : '') +
       (act ? '<div class="mr-act">' + act + '</div>' : '') + '</div>';
@@ -127,7 +130,7 @@
     var rank = { got: 0, ret: 1, branch: 2, road: 3, nf: 4, err: 4, wait: 5 };
     rows.sort(function (a, b) { return rank[cls(state.res[digits(a.tracking_number)])] - rank[cls(state.res[digits(b.tracking_number)])]; });
     box.querySelector('[data-mr-list]').innerHTML = state.list.length
-      ? (rows.length ? rows.map(cardHTML).join('') : '<p class="mr-empty">لا شحنات في هذا الفلتر.</p>')
+      ? (rows.length ? '<p class="mr-sub" data-mr-hawala-sum style="margin:0 2px 8px;font-weight:900">💵 مجموع الحوالات في هذا الفلتر: $' + esc(rows.reduce(function (t, o) { return t + due(o); }, 0).toLocaleString()) + ' (' + rows.length + ' شحنة)</p>' + rows.map(cardHTML).join('') : '<p class="mr-empty">لا شحنات في هذا الفلتر.</p>')
       : '<p class="mr-empty">لا شحنات للمفتي «في الطريق» برقم تتبّع.</p>';
     var rb = box.querySelector('[data-mr-run]'); if (rb) { rb.disabled = state.busy; rb.textContent = state.busy ? '⏳ يفحص…' : '↻ تحقّق من الكل'; }
     try { if (g.lucide && lucide.createIcons) lucide.createIcons(); } catch (_) {}     // أيقونات أزرار البطاقة
@@ -142,7 +145,10 @@
     var i = 0;
     function next() {
       if (run !== state.run || !document.getElementById(ID)) return;
-      if (i >= nums.length) { state.busy = false; state.at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); render(); return; }
+      if (i >= nums.length) { state.busy = false; state.at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); render();
+        /* (TASK-A0527) ما قرأناه يُحفظ على الأوردرات ⇒ تبويب «📍 تم الوصول» يُفرز دون فحصٍ ثانٍ */
+        try { if (typeof g.carrierApply === 'function') g.carrierApply(state.list, state.res); } catch (_) {}
+        return; }
       var part = nums.slice(i, i + BATCH); i += BATCH;
       fetchBatch(part).then(function (m) {
         part.forEach(function (n) { state.res[n] = m[n] || { n: n, ok: false, error: 'لا ردّ لهذا الرقم' }; });
