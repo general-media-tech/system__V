@@ -3761,6 +3761,8 @@
 
   const _cerr = console.error.bind(console);
   console.error = function () {
+    /* (TASK-A0546) فحص توفّر الدالّة (فرع «__probe__») يُرفض عمداً — مُستثنى من الشبكة أعلاه، وهنا من نسخة console.error أيضاً */
+    try { if (Array.from(arguments).some((a) => /__probe__/.test(typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch (_) { return ''; } })()))) return _cerr.apply(console, arguments); } catch (_) {}
     try { add('warn', 'console', Array.from(arguments).map((a) => { try { return typeof a === 'string' ? a : JSON.stringify(a); } catch (_) { return String(a); } }).join(' ').slice(0, 300)); } catch (_) {}
     return _cerr.apply(console, arguments);
   };

@@ -53,6 +53,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-auth.js?v=20261119i"></script>
 <script src="gmt-tools.js?v=20261121s"></script>
 <script src="gmt-account.js?v=20261119j"></script>
+<script src="gmt-fixed-errors.js?v=20261122a"></script><!-- (TASK-A0544) سجلّ الأخطاء المُصلَحة — يُفحص هنا هل عادت -->
 </head>
 <body>
 <div class="wrap">
@@ -172,6 +173,41 @@ async function loadReport(){
     });
     h+='</table></div>';
 
+    /* ══ (TASK-A0544 · المالك seq 929 «خلّيها مراقَبة وتسجّل وتفحص») ══
+       ① كلّ خطأ مجمَّعاً بنوعه (الصفحة · النوع · الرسالة بلا أرقام): كم مرّة · كم جهازاً · آخر ظهور · حالته
+       ② فحص الإصلاحات: كلّ خطأ في gmt-fixed-errors.js — هل عاد بعد إصلاحه؟ */
+    var FX = (window.GMT_FIXED_ERRORS || []).map(function(x){ return Object.assign({}, x, { rx: new RegExp(x.re, 'i'), t: new Date(x.at).getTime() }); });
+    var fixOf = function(r){ var txt = (r.message||'') + ' ' + (typeof r.detail === 'string' ? r.detail : JSON.stringify(r.detail||'')); return FX.find(function(x){ return x.rx.test(txt) && (!x.type || x.type === r.err_type); }); };
+    var G = {}, day = Date.now() - 864e5;
+    rows.forEach(function(r){
+      var k = (r.page||'') + '|' + (r.err_type||'') + '|' + String(r.message||'').replace(/[0-9]+(\.[0-9]+)?/g,'#');
+      var g = G[k] = G[k] || { page: r.page, type: r.err_type, sev: r.severity, msg: r.message, hits: 0, ses: {}, first: r.created_at, last: r.created_at, fx: fixOf(r), after: 0 };
+      var n = r.count||r.hits||1, t = new Date(r.created_at).getTime();
+      g.hits += n; if (r.session_id) g.ses[r.session_id] = 1;
+      if (r.severity === 'crit' || r.severity === 'critical') g.sev = r.severity;
+      if (r.created_at < g.first) g.first = r.created_at; if (r.created_at > g.last) g.last = r.created_at;
+      if (g.fx && t > g.fx.t) g.after += n;
+    });
+    var gl = Object.keys(G).map(function(k){ var g = G[k]; g.dev = Object.keys(g.ses).length;
+      g.state = g.fx ? (g.after ? 'back' : 'fixed') : (new Date(g.first).getTime() > day ? 'new' : 'open'); return g; })
+      .sort(function(a,b){ var o = { back: 0, new: 1, open: 2, fixed: 3 }; return (o[a.state]-o[b.state]) || ((b.sev==='crit')-(a.sev==='crit')) || (b.hits-a.hits); });
+    var lab = { back: '⚠️ رجع بعد الإصلاح', new: '🆕 جديد (24س)', open: '🔴 مفتوح', fixed: '✅ مُصلَح — لم يعد' };
+    h+='<div class="card" data-grouped><h2>🧩 الأخطاء مجمّعة — '+gl.length+' نوعاً</h2><table><tr><th>الحالة</th><th>الصفحة</th><th>الخطأ</th><th>مرّات</th><th>أجهزة</th><th>آخر ظهور</th></tr>';
+    gl.slice(0, 40).forEach(function(g){
+      h+='<tr data-state="'+g.state+'"><td style="white-space:nowrap;font-weight:800">'+lab[g.state]+'</td><td>'+esc(g.page||'—')+'</td><td>'+esc(String(g.msg||'—').slice(0,90))
+        +(g.fx ? '<div style="font-size:10.5px;color:#15803d;font-weight:700">'+esc(g.fx.task)+' · '+esc(g.fx.what)+'</div>' : '')+'</td><td>'+g.hits+'</td><td>'+g.dev+'</td>'
+        +'<td style="color:#5b6472;font-size:11px">'+new Date(g.last).toLocaleString('ar')+'</td></tr>';
+    });
+    h+='</table></div>';
+    h+='<div class="card" data-fixcheck><h2>🛡️ فحص الإصلاحات — هل عاد الخطأ بعد إصلاحه؟</h2><table><tr><th>الخطأ المُصلَح</th><th>الصفحة</th><th>أُصلح</th><th>بعد الإصلاح</th></tr>';
+    FX.forEach(function(x){
+      var n = 0, last = null; rows.forEach(function(r){ var f = fixOf(r); if (f === undefined || f.re !== x.re) return; var t = new Date(r.created_at).getTime(); if (t > x.t) { n += (r.count||r.hits||1); if (!last || r.created_at > last) last = r.created_at; } });
+      h+='<tr><td>'+esc(x.re.replace(/\\/g,''))+'<div style="font-size:10.5px;color:#5b6472">'+esc(x.task)+' · '+esc(x.what)+'</div></td><td>'+esc(x.page||'—')+'</td><td style="font-size:11px">'+new Date(x.at).toLocaleString('ar')+'</td>'
+        +'<td style="font-weight:800;color:'+(n?'#b45309':'#15803d')+'">'+(n ? '⚠️ عاد '+n+' مرّة — آخرها '+new Date(last).toLocaleString('ar')+' (جهازٌ بنسخةٍ قديمة؟)' : '✅ لم يعد')+'</td></tr>';
+    });
+    h+='</table></div>';
+    window.__REPORT_TXT += '\n• أنواع جديدة (24س): '+gl.filter(function(g){return g.state==='new';}).length+'   • عادت بعد إصلاحها: '+gl.filter(function(g){return g.state==='back';}).length;
+
     out.innerHTML=h;
   }catch(e){
     out.innerHTML='<div class="card"><div class="msg bad">🔴 تعذّر جلب التقرير: '+esc(e.message)
@@ -252,7 +288,7 @@ async function unlock(){
 })();
 </script>
 <script src="gmt-hints.js?v=20261011h"></script>
-<script src="gmt-core.js?v=20261121t"></script>
+<script src="gmt-core.js?v=20261122a"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -265,7 +301,7 @@ async function unlock(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121u"></script>
+<script src="gmt-whatsnew.js?v=20261122a"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
