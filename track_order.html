@@ -420,6 +420,15 @@ window.GMT_PUBLIC = 1;</script>
         })();
         window.GMTVan = GMTVan;
 
+        /* (المالك seq 886 «الانترو الأوّل عم يخلص يكون خالص الانترو الثاني (أهلاً بك + الاسم) لأنّ الرابط فيه الرقم … أخّر إدخال الرقم لبعد
+           ما تمرّ الشاحنة، الانترو ١ ثمّ ٢، ويشتغلوا أصواتهم الاثنين وتجبر الشخص على اللمس»)
+           كان البحث بالرقم يبدأ بعد ٠٫٤ث من الفتح ⇒ «أهلاً بك» وزمّورها فوق الانترو الأوّل ولمسته. الآن: وعدٌ واحد يُحسم حين ينتهي الانترو
+           الأوّل في كلّ طرقه (الفيديو · الشاحنة البديلة · تقليل الحركة · الوصول من صفحة أخرى)، والبحث بالرقم ينتظره. */
+        let _trkIntroDone;
+        window.__trkIntroP = new Promise(res => { _trkIntroDone = res; });
+        const trkIntroEnd = () => { try { _trkIntroDone(true); } catch (_) {} };
+        document.addEventListener('gmt:launch-done', trkIntroEnd);
+
         document.addEventListener('DOMContentLoaded', () => {
             const l1Logo = document.getElementById('l1-logo');
             const l1Text1 = document.getElementById('l1-text1');
@@ -431,14 +440,14 @@ window.GMT_PUBLIC = 1;</script>
                · فُتحت مباشرة (رابط واتساب مثلاً) ⇒ فيديو الانطلاق طبقةً فوقها، وتحت دخانه تُزال شاشة الترحيب ثمّ يتبدّد.
                · الفيديو لم يبدأ (شبكة/متصفّح) ⇒ الترحيب السابق كما هو (الشاحنة المفرّغة أدناه). */
             const L = window.GMTLaunch;
-            if (L && L.arriving()) { layer1.style.display = 'none'; return; }
+            if (L && L.arriving()) { layer1.style.display = 'none'; setTimeout(trkIntroEnd, 4000); return; }   /* ينكشف تحت الضباب ⇒ gmt:launch-done أو ٤ث */
             document.body.style.overflow = 'hidden';
             if (L) {
                 /* (المالك seq 558 · 559) «الزبون مجبر يلمس الشاشة لحتى يفتح الانترو ويشتغل الصوت» — إلّا إن سمح المتصفّح بالصوت وحده ·
                    اللمسة داخل الانترو نفسه: الشاحنة واقفة مطفأة و«المس الشاشة لتشغيل الشاحنة» (لا شاشة منفصلة تشبه الإعلان) */
                 const intro = how => L.cover(() => { layer1.style.display = 'none'; document.body.style.overflow = 'auto'; },
                         { texts: ['أهلاً بكم', 'شكراً لثقتكم – شركة General Media Tech'], tap: how === 'tap' })
-                 .catch(welcomeHtml);
+                 .then(trkIntroEnd, welcomeHtml);
                 (L.gate ? L.gate() : Promise.resolve('skip')).then(intro, () => intro('skip'));
                 return;
             }
@@ -459,6 +468,7 @@ window.GMT_PUBLIC = 1;</script>
                 layer1.style.display = 'none';
                 document.body.style.overflow = 'auto';
                 GMTVan.stop(vw);
+                trkIntroEnd();
             }
             if (GMTVan.reduced() || !cloud) {
                 setTimeout(() => { layer1.classList.add('fade-out-screen'); setTimeout(done, 800); }, 4300);
@@ -747,7 +757,8 @@ window.GMT_PUBLIC = 1;</script>
             try {
                 const q = new URLSearchParams(location.search).get('o');
                 const inp = document.getElementById('searchInput');   /* الاسم الفعلي — تحقّقتُ منه */
-                if (q && inp) { inp.value = q; setTimeout(function () { if (typeof searchOrder === 'function') searchOrder(); }, 400); }
+                /* (seq 886) الرقم يُكتب الآن، والبحث (الانترو الثاني «أهلاً بك» وصوته) بعد انتهاء الانترو الأوّل — حتى ٩٠ث احتياطاً إن عُلّق */
+                if (q && inp) { inp.value = q; Promise.race([window.__trkIntroP, new Promise(z => setTimeout(z, 90000))]).then(function () { setTimeout(function () { if (typeof searchOrder === 'function') searchOrder(); }, 350); }); }
             } catch (_) {}
         });
 
