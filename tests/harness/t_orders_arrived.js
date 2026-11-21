@@ -23,21 +23,32 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   // ١) الأقسام
   await pg.evaluate(() => switchTab('arrived'));
   await pg.waitForTimeout(400);
-  const where = await pg.evaluate(() => { const o = {}; ['notify', 'wait', 'got'].forEach(k => { o[k] = [...document.querySelectorAll('#list-arr-' + k + ' .order-card')].map(c => c.id.replace('card-', '')); }); return o; });
+  const where = await pg.evaluate(() => { const o = {}; ['notify', 'wait'].forEach(k => { o[k] = [...document.querySelectorAll('#list-arr-' + k + ' .order-card')].map(c => c.id.replace('card-', '')); }); return o; });
+  await pg.evaluate(() => switchTab('got')); await pg.waitForTimeout(300);
+  where.got = await pg.evaluate(() => [...document.querySelectorAll('#list-got .order-card')].map(c => c.id.replace('card-', '')));
+  await pg.evaluate(() => switchTab('arrived')); await pg.waitForTimeout(300);
   ok(where.notify.includes(String(id('أ'))) && where.notify.includes(String(id('ح'))) && where.notify.length === 2, '🔴 «وصلت — بانتظار التبليغ» = أ (المفتي) + ح (سات): ' + JSON.stringify(where.notify));
   ok(where.wait.includes(String(id('ب'))) && where.wait.includes(String(id('و'))) && where.wait.length === 2, '🟠 «بُلّغ» = ب + القدموس المبلَّغ يدوياً: ' + JSON.stringify(where.wait));
-  ok(where.got.length === 1 && where.got[0] === String(id('ج')), '🟢 «استلمها — أكّد الاستلام» = ج');
-  ok(await pg.evaluate(() => document.getElementById('badge-arrived').textContent.trim()) === '5', 'شارة التبويب = 5');
+  ok(where.got.length === 1 && where.got[0] === String(id('ج')), '(seq 892) تبويبٌ مستقلّ «✅ استلمها الزبون» = ج');
+  /* (seq 892) الأحمر = عملٌ ينتظرك */
+  const bd = await pg.evaluate(() => { const g = id => { const e = document.getElementById(id); return { n: e.textContent.trim(), red: /bg-red-600/.test(e.className) }; }; return { arr: g('badge-arrived'), got: g('badge-got') }; });
+  ok(bd.arr.n === '2' && bd.arr.red, '«📍 وصلت» شارة حمراء = 2 لم يُبلَّغ زبونهما: ' + JSON.stringify(bd.arr));
+  ok(bd.got.n === '1' && bd.got.red, '«✅ استلمها الزبون» شارة حمراء = 1: ' + JSON.stringify(bd.got));
+  const bar = await pg.evaluate(() => { const b = document.getElementById('action-bar'); return b && !b.classList.contains('hidden') ? b.textContent.replace(/\s+/g, ' ') : ''; });
+  ok(/المطلوب منك الآن/.test(bar) && /2\s*وصلت — بلّغ الزبون/.test(bar) && /1\s*استلمها الزبون — أكّد الاستلام/.test(bar) && /\$655/.test(bar) && /1\s*صارت مرتجعاً/.test(bar), 'شريط «المطلوب منك الآن»: وصلت ٢ · استلمها ١ ($655) · مرتجع ١: ' + bar.slice(0, 200));
+  const rib = await pg.evaluate(ids => ids.map(id => ((document.querySelector('#card-' + id + ' [data-red-ribbon]') || {}).textContent || '')), [id('أ'), id('ب')]);
+  ok(/جديد — بلّغ الزبون/.test(rib[0]) && !rib[1], 'شريطٌ أحمر على البطاقة التي لم يُبلَّغ زبونها فقط: ' + JSON.stringify(rib));
   await pg.evaluate(() => switchTab('shipped')); await pg.waitForTimeout(300);
   const ship = await pg.evaluate(() => [...document.querySelectorAll('#list-shipped .order-card')].map(c => c.id.replace('card-', '')));
   ok(ship.includes(String(id('د'))) && ship.includes(String(id('هـ'))) && ship.includes(String(id('ز'))) && ship.includes(String(id('ط'))) && ship.length === 4, '«في الطريق» = الطريق + المرتجع (للتنبيه) + غير المفحوص فقط: ' + JSON.stringify(ship));
+  ok(await pg.evaluate(id => { const c = document.getElementById('card-' + id); return !!(c && c.querySelector('[data-ret-btn]') && /جديد|مرتجع عند الشركة/.test((c.querySelector('[data-red-ribbon]') || {}).textContent || '')); }, id('هـ')), '(seq 892) أعادتها الشركة: شريطٌ أحمر والزرّ الأساسي «أنشئ مرتجعاً» لا «تأكيد الاستلام»');
   // ٢) الحوالة والشارات
   const chip = await pg.evaluate(id => { const c = document.getElementById('card-' + id); return { h: (c.querySelector('[data-hawala]') || {}).textContent || '', k: (c.querySelector('[data-carrier]') || {}).textContent || '' }; }, id('هـ'));
   ok(/الحوالة \$30/.test(chip.h) && /مرتجع/.test(chip.k), 'بطاقة المرتجع: «⚠️ الشركة: مرتجع» + «💵 الحوالة $30»: ' + chip.k + ' | ' + chip.h);
   await pg.evaluate(() => switchTab('arrived')); await pg.waitForTimeout(300);
   const sums = await pg.evaluate(() => ({ n: document.getElementById('sum-arr-wait').textContent, all: document.getElementById('arr-sum').textContent, b: (document.querySelector('#list-arr-wait [data-carrier]') || {}).textContent || '' }));
   ok(/\$70/.test(sums.n), 'مجموع «بُلّغ» = 50 (المطلوب تحصيله لا القيمة) + 20 = $70: ' + sums.n);
-  ok(/\$869/.test(sums.all), 'مجموع الحوالات في «تم الوصول» = 100+50+655+20+44 = $869: ' + sums.all);
+  ok(/\$214/.test(sums.all), 'مجموع الحوالات في «📍 وصلت» = 100+50+20+44 = $214 (المستلَمة في تبويبها): ' + sums.all);
   ok(/منذ 2 أيام/.test(sums.b), '«في فرع الوجهة منذ 2 أيام» من changed_at: ' + sums.b);
   // ٢ب) (المالك seq 881 ⇐ 884) أداة المراجعة مدموجة في البطاقة — **الشريط قبل الوصول فقط**؛ بعده سطرٌ واحد صغير (نخفّف العجقة)
   const road = await pg.evaluate(id => { const f = document.querySelector('#card-' + id + ' [data-carrier-full]'); return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '' } : null; }, id('د'));
