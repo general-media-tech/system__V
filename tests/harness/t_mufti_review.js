@@ -35,9 +35,9 @@ const FAKE = {
       if (failNext > 0) { failNext--; return route.fulfill({ status: 500, contentType: 'application/json', body: '{"ok":false}' }); }
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, out: b.nums.map(n => FAKE[n] || { n, ok: true, found: false, steps: [], level: 0 }) }) });
     });
-    const launch = await pg.$('[data-mr-launch]');
-    ok(!!launch && await launch.isVisible(), W + ': زرّ «🔎 مراجعة شحنات المفتي» في شريط الفلاتر (لا زرّ عائم)');
-    await launch.click();
+    /* (المالك seq 884) «زرّ تتبّع شحنات المفتي ما عاد له داعي» ⇒ استُبدل بـ«⟳ تحديث فوري الآن» لكلّ الشركات · اللوحة نفسها باقية (تُفتح برمجياً) */
+    ok(!(await pg.$('[data-mr-launch]')) && !!(await pg.$('button[data-carrier-now]')), W + ': لا زرّ «مراجعة شحنات المفتي» — مكانه «⟳ تحديث فوري الآن»');
+    await pg.evaluate(() => GMTMuftiReview.open());
     await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
     const asked = calls.flatMap(c => c.nums).sort();
     ok(JSON.stringify(asked) === JSON.stringify(['210063', '214138', '214244', '99999999']) && calls.every(c => c.nums.length <= 3 && c.auth),
@@ -58,7 +58,7 @@ const FAKE = {
     ok(JSON.stringify(act) === '[["passed","1",true],["passed","0",true],["cur","1",true],["todo","0",true]]', W + ': شريط تتبّعنا: ما مضى أسود · «وصلت فرع الوجهة» الحاليّة · التسليم قادم (بأيقونات): ' + JSON.stringify(act));
     // (seq 149) هويّتنا: ترويسة بتدرّج الأحمر · الخطوة الحاليّة بتدرّج الأحمر · مستطيل الحالة بحدٍّ أحمر · الزرّ بجانب «تعديل»
     const id1 = await pg.evaluate(() => { const cs = s => getComputedStyle(document.querySelector(s)); return { h: cs('#gmt-mr .mr-h').backgroundImage, cur: cs('#gmt-mr .ml-st.cur i').backgroundImage, card: cs('#gmt-mr .ml-card').borderRightColor,
-      nextToEdit: (() => { const b = document.querySelector('[data-mr-launch]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
+      nextToEdit: (() => { const b = document.querySelector('[data-carrier-now]'); const p = b.previousElementSibling; return !!p && /openSelectEditModal/.test(p.getAttribute('onclick') || '') && b.parentElement.contains(document.getElementById('searchInput')) === false && !b.closest('#appContent'); })() }; });
     ok(/213, 0, 28/.test(id1.h) && /213, 0, 28/.test(id1.cur) && /213, 0, 28/.test(id1.card) && id1.nextToEdit, W + ': بهويتنا البصرية (الأحمر #D5001C) · الزرّ بجانب «تعديل» في الأعلى: ' + JSON.stringify(id1));
     ok(N && /لا يعرف الرقم/.test(N.t) && D && /اسم المستلم عند المفتي لا يشبه/.test(D.t) && !/لا يشبه/.test(A.t + B.t), W + ': رقمٌ غير موجود عندهم ⇒ يُقال · اسم مستلمٍ مختلف ⇒ تنبيه (فقط حيث يختلف)');
     // (TASK-0221 · seq 151) «فقط زر تاكيد الاستلام زر مثلا تبليغ الوصول وزر مراسله فرع الشركه الوجهه» — من بطاقة الأوردر نفسها، لا غيرها
@@ -120,8 +120,7 @@ const FAKE = {
     FAKE['214244'] = orig;
     // إغلاق وفتح ⇒ بحثٌ جديد أيضاً
     await pg.click('#gmt-mr [data-mr-close]'); calls.length = 0;
-    if (await pg.$eval('#ord-more-btn', b => !!b.offsetParent).catch(() => false)) await pg.click('#ord-more-btn');   // (TASK-B0509) على الهاتف خلف «المزيد من الأدوات»
-    await pg.click('[data-mr-launch]');
+    await pg.evaluate(() => GMTMuftiReview.open());
     await pg.waitForFunction(() => /انتهى الفحص/.test((document.querySelector('#gmt-mr [data-mr-prog]') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
     ok(calls.flatMap(c => c.nums).length === 3 && await pg.evaluate(() => !document.querySelector('#gmt-mr [data-mr-withdel]')), W + ': كل فتحٍ يبحث من جديد · لا خيار «بانتظار التحصيل»');
     const bub = await pg.evaluate(() => [...document.querySelectorAll('body > *')].filter(e => e.id !== 'gmt-mr' && /يدخل رقم تتبّع كل شحنات المفتي/.test(e.textContent || '') && getComputedStyle(e).opacity !== '0' && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0).length);

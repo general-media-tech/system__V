@@ -34,6 +34,8 @@ window.GMT_INTERNAL = 1;</script>
         .custom-scroll::-webkit-scrollbar-thumb { background:#E5E7EB; border-radius:10px; }
         .smart-header { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
         .header-hidden { transform: translateY(-100%); }
+        /* (المالك seq 884 «الأوردرات بعيدة عن بعضها») أزرار البطاقة الصغيرة صفٌّ واحد: ٣٦px بدل ٤٠ كي تتّسع ٧ أزرار على الهاتف */
+        [data-card-icons] > button, [data-card-icons] > a, [data-card-icons] > div > button { width: 36px !important; height: 36px !important; min-width: 36px; flex-shrink: 0; }
         button:not(:disabled), a:not(:disabled) { opacity:1 !important; touch-action:manipulation; }
         .status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:800; }
         .badge-pending  { background:#EFF6FF; color:#2563EB; }
@@ -111,7 +113,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261119i"></script>
-<script src="gmt-shipping-offices.js?v=20261121d"></script>
+<script src="gmt-shipping-offices.js?v=20261121e"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-mufti-live.js?v=20261029z4" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
 <script src="gmt-mufti-review.js?v=20261121b" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
@@ -206,9 +208,11 @@ window.GMT_INTERNAL = 1;</script>
             </button>
             <!-- (TASK-0217 · المالك seq 147) «أداة جديدة مثل مراجعة الشحنات … تتحقق من جميع شحنات المفتي مرّة واحدة»
                  (TASK-0219 · seq 149) «ضع هذا الزر بجانب زر التعديل في الاعلى» -->
-            <button type="button" onclick="GMTMuftiReview.open()" data-mr-launch data-hint="يدخل رقم تتبّع كل شحنات المفتي التي لم نؤكّد استلامها في موقع المفتي واحدةً تلو الأخرى — بحثٌ جديد في كل مرّة — ويعرض لكل أوردر حالة شحنته، ومنها «تأكيد الاستلام»."
-                    class="col-span-2 text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
-                <i data-lucide="list-checks" class="w-4 h-4 text-red"></i> مراجعة شحنات <span class="text-[9px] font-black text-red">المفتي</span>
+            <!-- (المالك seq 884 «زرّ تتبّع شحنات المفتي ما عاد له داعي — استبدله بتحديث فوري الآن لكلّ الشركات») يفحص المفتي وسات وبابل
+                 ويُعيد الفرز فوراً. الفحص يحدث وحده عند الفتح وكلّ ٤ ساعات؛ هذا للتحديث الآن. -->
+            <button type="button" onclick="carrierCheckNow(true)" data-carrier-now data-hint="يفحص حالة شحنات المفتي وسات وبابل من مواقعهم الآن ويُعيد فرز «📍 تم الوصول» — يحدث وحده عند الفتح وكلّ ٤ ساعات"
+                    class="col-span-2 text-center bg-red-600 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm">
+                ⟳ تحديث فوري الآن <span data-carrier-last class="text-[10px] font-bold text-red-100"></span>
             </button>
             <button type="button" onclick="window.GMTUndo && GMTUndo.panel()" data-hint="تراجع وإعادة لتعديلات الأوردرات (Ctrl+Z · Ctrl+Y) — يعيد القيم فعلاً في القاعدة"
                     class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">↶ تراجع</button>
@@ -2252,7 +2256,7 @@ function otherButtonsHTML(o, c, actionBtn) {
     const html = icons.map(x => x.h).join('');
     return units <= 3
         ? `<div class="flex gap-2">${actionBtn}${html}</div>`
-        : `<div class="flex gap-2">${actionBtn}</div><div class="flex gap-2 mt-2 justify-end flex-wrap">${html}</div>`;
+        : `<div class="flex gap-2">${actionBtn}</div><div class="flex gap-1.5 mt-2 justify-end flex-nowrap overflow-x-auto" data-card-icons>${html}</div>`;
 }
 
 /* ══ (18 ت1 · لقطتك ٢) بطاقة «بانتظار التحصيل» ══════════════════════════════
@@ -7454,14 +7458,16 @@ function carrierChipHTML(o) {
     if (!c) return o.status === 'shipped' ? `<div class="mb-2 flex flex-wrap gap-1.5">${money}</div>` : '';
     const d = _daysSince(c.changed_at), ago = d ? ' منذ ' + d + (d === 1 ? ' يوم' : ' أيام') : ' اليوم';
     const map = { road: ['🚚 على الطريق', 'bg-yellow-50 border-yellow-200 text-yellow-800'], branch: [(carrierProvider(o) && carrierProvider(o) !== 'mufti' ? '📍 وصلت مدينة الوجهة' : '📍 في فرع الوجهة') + ago, 'bg-red-50 border-red-200 text-red-700'],   /* سات وبابل توصيلٌ للباب لا فرع */
-                  got: ['✅ سلّمتها الشركة للزبون' + ago + ' — أكّد الاستلام', 'bg-emerald-50 border-emerald-200 text-emerald-800'],
+                  got: ['✅ استلمها الزبون' + ago, 'bg-emerald-50 border-emerald-200 text-emerald-800'],
                   ret: ['⚠️ الشركة: مرتجع — ' + (c.status || ''), 'bg-orange-50 border-orange-300 text-orange-800'], nf: ['❔ الرقم غير موجود عند الشركة', 'bg-gray-50 border-gray-200 text-gray-600'] };
     const m = map[c.cls]; if (!m) return '';
     if (o.status === 'delivered' && c.cls !== 'ret') return '';   /* بعد تأكيد الاستلام لا يهمّ إلا المرتجع المتأخّر */
     /* (المالك seq 881 «أداة تتبّع شحنات المفتي تندمج بميزاتها في الصفحة الرئيسية بدل ما أدخل عليها») — ما كانت تعرضه لوحة المراجعة
        لكلّ شحنة صار على البطاقة نفسها: الخطوات الأربع بنصّ المفتي · «حالة الشحنة» وتاريخها · المستلم عندهم (وتنبيه إن اختلف الاسم) */
     const ML = window.GMTMuftiLive;
-    if (ML && o.status === 'shipped' && carrierProvider(o) && c.cls !== 'nf') {
+    /* (المالك seq 884 «الشريط فقط قبل الوصول للفرع … بعد الوصول وبانتظار التحصيل نخفّف العجقة») — الشريط الكامل للطريق وحده؛
+       بعد الوصول سطرٌ واحد صغير */
+    if (ML && o.status === 'shipped' && carrierProvider(o) && c.cls === 'road') {
         const coName = String(o.shipping_company || '').trim() || 'شركة الشحن';
         const labels = Array.isArray(c.steps) && c.steps.length === 4 ? c.steps.map(l => ({ label: l })) : null;
         const nm = String(o.name || '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').split(/\s+/).filter(w => w.length >= 3);
@@ -7473,9 +7479,13 @@ function carrierChipHTML(o) {
             <div class="flex flex-wrap items-center gap-1.5 mt-2">${money}${rc ? `<span class="text-[11px] font-bold text-gray-500">المستلم عندهم: <b class="text-gray-800">${escH(rc)}</b></span>` : ''}${differs ? '<span class="text-[10.5px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-1.5">⚠️ الاسم مختلف عن الأوردر</span>' : ''}</div>
         </div>`;
     }
-    return `<div class="mb-2 flex flex-wrap gap-1.5" data-carrier="${escH(c.cls)}"><span class="inline-block border rounded-lg px-2 py-0.5 text-[11px] font-black ${m[1]}" title="${escH((c.status || '') + (c.status_at ? ' · ' + c.status_at : ''))}">${escH(m[0])}</span>${o.status === 'shipped' ? money : ''}</div>`;
+    const _nm = String(o.name || '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').split(/\s+/).filter(w => w.length >= 3);
+    const _rc = String(c.receiver || '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const _diff = o.status === 'shipped' && _rc && _nm.length && !_nm.some(w => _rc.indexOf(w) !== -1);
+    return `<div class="mb-2 flex flex-wrap gap-1.5" data-carrier="${escH(c.cls)}">${_diff ? `<span class="inline-block bg-orange-50 border border-orange-200 text-orange-700 rounded-lg px-2 py-0.5 text-[11px] font-black" title="المستلم عند الشركة: ${escH(c.receiver)}" data-name-diff>⚠️ الاسم عندهم: ${escH(c.receiver)}</span>` : ''}<span class="inline-block border rounded-lg px-2 py-0.5 text-[11px] font-black ${m[1]}" title="${escH((c.status || '') + (c.status_at ? ' · ' + c.status_at : ''))}">${escH(m[0])}</span>${o.status === 'shipped' ? money : ''}</div>`;
 }
 let _carrierLast = null;   // آخر دورة فحص (gmt_carrier_log)
+function carrierLastPaint() { document.querySelectorAll('[data-carrier-last]').forEach(e => { e.textContent = _carrierLast ? '· ' + carrierLastLine().replace('آخر فحص لشركة الشحن: ', '') : ''; }); }
 function carrierLastLine() {
     if (!_carrierLast) return 'آخر فحص: —';
     const m = Math.round((Date.now() - new Date(_carrierLast.at).getTime()) / 60000);
@@ -7529,7 +7539,7 @@ window.carrierApply = carrierApply;
 async function carrierCheckNow(force) {
     if (_carrierBusy || !window.GMTMuftiLive || typeof orders === 'undefined') return;
     _carrierBusy = true;
-    const btn = document.querySelector('[data-carrier-now]'); if (btn) { btn.disabled = true; btn.textContent = '⟳ يفحص…'; }
+    const btns = [...document.querySelectorAll('[data-carrier-now]')]; btns.forEach(b => { b.disabled = true; b.dataset.t = b.dataset.t || b.innerHTML; b.textContent = '⟳ يفحص…'; });
     try {
         const M = window.GMT_DB && GMT_DB.MAIN, H = M ? { apikey: M.key, Authorization: 'Bearer ' + M.key } : null;
         try { const r = await fetch(M.url + '/rest/v1/gmt_carrier_log?select=at,source&order=at.desc&limit=1', { headers: (GMT_DB.headers ? GMT_DB.headers(M) : H) }); if (r.ok) _carrierLast = (await r.json())[0] || null; } catch (_) {}
@@ -7545,7 +7555,7 @@ async function carrierCheckNow(force) {
         changed = out.changed; errs += out.errs;
         const arr = orders.filter(o => arrivalStageOf(o) === 'notify').length;
         if (force) try { showToast(changed ? '📍 تغيّرت حالة ' + changed + ' شحنة' + (arr ? ' · ' + arr + ' وصلت وتنتظر التبليغ' : '') : '✓ لا جديد عند شركة الشحن', 'ok'); } catch (_) {}
-    } finally { _carrierBusy = false; if (btn) { btn.disabled = false; btn.textContent = '⟳ افحص الآن'; } }
+    } finally { _carrierBusy = false; btns.forEach(b => { b.disabled = false; if (b.dataset.t) b.innerHTML = b.dataset.t; }); carrierLastPaint(); }
 }
 function collectOf(o) {
     const c = (o && o.collect_amount);
@@ -10808,7 +10818,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121d"></script>
+<script src="gmt-whatsnew.js?v=20261121e"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

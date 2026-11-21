@@ -39,13 +39,15 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   ok(/\$70/.test(sums.n), 'مجموع «بُلّغ» = 50 (المطلوب تحصيله لا القيمة) + 20 = $70: ' + sums.n);
   ok(/\$869/.test(sums.all), 'مجموع الحوالات في «تم الوصول» = 100+50+655+20+44 = $869: ' + sums.all);
   ok(/منذ 2 أيام/.test(sums.b), '«في فرع الوجهة منذ 2 أيام» من changed_at: ' + sums.b);
-  // ٢ب) (المالك seq 881) أداة المراجعة مدموجة في البطاقة: الخطوات الأربع + «حالة الشحنة» + المستلم وتنبيه اختلاف الاسم
-  const full = await pg.evaluate(id => { const c = document.getElementById('card-' + id), f = c && c.querySelector('[data-carrier-full]');
-    return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '', desc: (f.querySelector('.ml-desc') || {}).textContent || '', rc: /سمير الحلبي/.test(f.textContent), warn: /الاسم مختلف/.test(f.textContent), money: /الحوالة \$100/.test(f.textContent) } : null; }, id('أ'));
-  ok(full && full.steps === 4 && /وصل/.test(full.cur) && /تم وصول الشحنة/.test(full.desc), 'بطاقة المفتي فيها شريط الخطوات الأربع (الحالية: وصلت فرع الوجهة) و«حالة الشحنة» بنصّ المفتي: ' + JSON.stringify(full));
-  ok(full && full.rc && full.warn && full.money, 'المستلم عندهم + ⚠️ الاسم مختلف + الحوالة على البطاقة');
-  const satCard = await pg.evaluate(id => { const f = document.querySelector('#card-' + id + ' [data-carrier-full]'); return f ? f.textContent.replace(/\s+/g, ' ') : ''; }, id('ح'));
-  ok(/وصل مدينتك/.test(satCard) && /حالة الشحنة عند سات/.test(satCard) && /وصل طردك إلى دمشق/.test(satCard), '(seq 883) بطاقة «سات»: مراحلها هي (وصل مدينتك · مع المندوب) و«حالة الشحنة عند سات»: ' + satCard.slice(0, 120));
+  // ٢ب) (المالك seq 881 ⇐ 884) أداة المراجعة مدموجة في البطاقة — **الشريط قبل الوصول فقط**؛ بعده سطرٌ واحد صغير (نخفّف العجقة)
+  const road = await pg.evaluate(id => { const f = document.querySelector('#card-' + id + ' [data-carrier-full]'); return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '' } : null; }, id('د'));
+  ok(road && road.steps === 4 && /الطريق/.test(road.cur), 'على الطريق: شريط الخطوات الأربع على البطاقة (الحالية: ' + (road && road.cur) + ')');
+  const arr = await pg.evaluate(ids => ids.map(id => { const c = document.getElementById('card-' + id); return { full: !!c.querySelector('[data-carrier-full]'), chip: (c.querySelector('[data-carrier]') || {}).textContent || '', diff: !!c.querySelector('[data-name-diff]') }; }), [id('أ'), id('ح'), id('ج')]);
+  ok(arr.every(x => !x.full), 'بعد الوصول (المفتي · سات · استلمها): لا شريط — سطر واحد');
+  ok(/في فرع الوجهة/.test(arr[0].chip) && /الحوالة \$100/.test(arr[0].chip) && arr[0].diff, 'المفتي وصلت: «📍 في فرع الوجهة» + الحوالة + ⚠️ اسم المستلم عندهم مختلف: ' + arr[0].chip);
+  ok(/وصلت مدينة الوجهة/.test(arr[1].chip), 'سات (توصيل للباب): «📍 وصلت مدينة الوجهة»: ' + arr[1].chip);
+  ok(/استلمها الزبون/.test(arr[2].chip), 'استلمها: «✅ استلمها الزبون»: ' + arr[2].chip);
+  ok(await pg.evaluate(() => !document.querySelector('[data-mr-launch]') && !!document.querySelector('button[data-carrier-now]') && /تحديث فوري الآن/.test(document.querySelector('button[data-carrier-now]').textContent)), '(seq 884) زرّ «مراجعة شحنات المفتي» استُبدل بـ«⟳ تحديث فوري الآن» لكلّ الشركات');
   const carrierCalls = [];
   await pg.route('**/functions/v1/gmt-carrier', async route => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 200, body: 'ok' });

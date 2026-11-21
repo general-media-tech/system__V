@@ -53,7 +53,7 @@
   };
   /* (المالك seq 882 «خود رابط تتبّعها وتعامل معها مثل الشركات الأخرى») شركاتٌ يفتح رابطُها الشحنةَ نفسها برقمها مباشرة
      (نموذج /track عندهم GET باسم q — جُرِّب: رقمٌ وهميّ ⇒ «لم نجد شحنة بهذا الرقم») ⇒ الزرّ يفتح النتيجة لا صفحة البحث */
-  var TRACK_BY_NUM = { 'سات': 'https://sat-cargo.com/track?q={n}' };
+  var TRACK_BY_NUM = { 'سات': 'https://sat-cargo.com/track?q={n}', 'بابل': 'https://www.babel-express.com/track?awb={n}' };   /* بابل: نموذجها يفتح /track?awb= (seq 884) */
 
   /* ═══════════════════════════════════════════════════════════════════════
      شركاتٌ **لا تتبّعَ إلكترونيَّ لها** — قرار المالك ق٢ (2026-10-03).
@@ -377,6 +377,14 @@
   }
 
   /* كل المكاتب كقائمة مسطّحة لشركة معيّنة (أو كل الشركات) */
+  /* (المالك seq 884) «المحافظات الشرقية (دير الزور · الحسكة · القامشلي · الرقة) اجعل سات أعلى المقترحات قبل هافال والرافدين»
+     ترتيب الشركات حسب المدينة: المفتي أوّلاً دائماً، ثمّ في الشرق سات، ثمّ البقيّة بترتيبها. */
+  var EAST = ['دير الزور', 'الحسكة', 'القامشلي', 'الرقة'];
+  function coRank(co, city) {
+    if (co === PRIMARY) return 0;
+    var east = EAST.some(function (e) { return norm(e) === norm(city); });
+    return (east && co === 'سات') ? 1 : 2;
+  }
   function all(company) {
     var out = [];
     Object.keys(OFFICES).forEach(function (co) {
@@ -388,6 +396,7 @@
         });
       });
     });
+    out = out.map(function (o, i) { return [o, i]; }).sort(function (a, b) { return (coRank(a[0].company, a[0].city) - coRank(b[0].company, b[0].city)) || (a[1] - b[1]); }).map(function (x) { return x[0]; });
     return out;
   }
 
@@ -566,7 +575,7 @@
     if (m) { m.source = 'primary'; return m; }
 
     /* المفتي لا يملك هذا المكتب/المدينة ⇒ عندها فقط نأخذ من شركة أخرى */
-    var others = Object.keys(OFFICES).filter(function (c) { return c !== PRIMARY; });
+    var others = Object.keys(OFFICES).filter(function (c) { return c !== PRIMARY; }).sort(function (a, b) { return coRank(a, regionName) - coRank(b, regionName); });   /* الشرق: سات قبل هافال والرافدين */
     for (var i = 0; i < others.length; i++) {
       var o = pickWithin(regionName, others[i]);
       if (o) { o.source = 'other'; return o; }
