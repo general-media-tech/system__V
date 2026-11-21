@@ -256,8 +256,11 @@ function print(t, o) {
         el.replaceWith(s);
       }
     });
-    if (!window.__noAutoPrint) setTimeout(function(){ window.print(); }, 500);
+    /* (TASK-A0535 · المالك seq 913) «ما عم بيحملوا المنتجات فعم تروح الفاتورة للطباعة وفي بنود ناقصة»: كانت تطبع بعد 500ms ثابتة
+       فتلتقط الطباعة الصفحة والصور ما زالت تُحمَّل (صفحة بيضاء · بنود ناقصة على الهاتف) ⇒ ننتظر كلّ الصور والخطوط (سقف 12ث) */
+    if (!window.__noAutoPrint) __gmtPrintReady(function(){ window.print(); });
   }
+  function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener('load',f);i.addEventListener('error',f)})})}if(document.readyState==='complete')w();else window.addEventListener('load',w);setTimeout(go,12000)}
   if(window.JsBarcode) draw();
   else {
     var tries=0;

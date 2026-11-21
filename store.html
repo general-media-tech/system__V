@@ -309,7 +309,7 @@ window.GMT_PUBLIC = 1;</script>
   <script src="gmt-core.js?v=20261119l"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261118b" defer></script>
-  <script src="gmt-invoice-tpl.js?v=20261118b"></script>
+  <script src="gmt-invoice-tpl.js?v=20261121k"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -1768,7 +1768,7 @@ window.closeInvoice = function(){
 window.downloadInvoice = function(){
     if (window.__storeInvoiceHTML && document.getElementById('invoice-frame')) {
         const w2 = window.open('', '_blank'); if (!w2) { showToast('اسمح بالنوافذ المنبثقة', 'error'); return; }
-        w2.document.write(window.__storeInvoiceHTML.replace('</body>', '<script>setTimeout(function(){window.print()},500)<\/script></body>')); w2.document.close();
+        w2.document.write(window.__storeInvoiceHTML.replace('</body>', '<script>function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener(\'load\',f);i.addEventListener(\'error\',f)})})}if(document.readyState===\'complete\')w();else window.addEventListener(\'load\',w);setTimeout(go,12000)}__gmtPrintReady(function(){window.print()})<\/script></body>')); w2.document.close();
         return;
     }
     const printable = document.getElementById('invoice-printable');

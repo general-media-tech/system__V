@@ -148,7 +148,7 @@
                .replace('<title>فاتورة مبيع - خيار B</title>', '<title>فاتورة طلب متجر ' + esc(order.ref || '') + '</title>')
                .replace('<div class="t">فاتورة مبيع</div><div class="s">مبيع : ', '<div class="t">فاتورة طلب</div><div class="s">المصدر : ');
     var html = fill(tpl, data);
-    if (o.autoPrint) html = html.replace('</body>', '<script>setTimeout(function(){window.print()},500)<\/script></body>');
+    if (o.autoPrint) html = html.replace('</body>', '<script>function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener(\'load\',f);i.addEventListener(\'error\',f)})})}if(document.readyState===\'complete\')w();else window.addEventListener(\'load\',w);setTimeout(go,12000)}__gmtPrintReady(function(){window.print()})<\/script></body>');
     return html;
   }
 
@@ -186,7 +186,7 @@
       .replace('معلومات الحساب', 'صلاحية العرض').replace('رصيده قبل الفاتورة', 'مدّة الصلاحية').replace('رصيده بعد الفاتورة', 'نوع المستند').replace('رصيد الحساب الحالي', 'الصفة')
       .replace('<tr class="note"><td colspan="2">ملاحظة: أرصدة الحساب احتسبت قيمتها عند الطباعة</td></tr>', '<tr class="note"><td colspan="2">الأسعار ثابتة حتى تاريخ الصلاحية · تخضع للتوفّر</td></tr>');
     var html = fill(tpl, data);
-    if (o.autoPrint) html = html.replace('</body>', '<script>setTimeout(function(){window.print()},500)<\/script></body>');
+    if (o.autoPrint) html = html.replace('</body>', '<script>function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener(\'load\',f);i.addEventListener(\'error\',f)})})}if(document.readyState===\'complete\')w();else window.addEventListener(\'load\',w);setTimeout(go,12000)}__gmtPrintReady(function(){window.print()})<\/script></body>');
     return html;
   }
 

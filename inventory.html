@@ -2287,7 +2287,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-match.js?v=20261029z4"></script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
-  <script src="gmt-transfer-print.js?v=20261010b"></script>
+  <script src="gmt-transfer-print.js?v=20261121k"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -15901,8 +15901,9 @@ async function printTransferLabels(transferId){
       try{ JsBarcode(el,c,{format:'CODE128',width:1.1,height:22,displayValue:true,fontSize:8,margin:0,textMargin:0}); }
       catch(e){ var s=document.createElement('span'); s.style.fontSize='9px'; s.textContent=c; el.replaceWith(s); }
     });
-    setTimeout(function(){window.print();},600);
+    __gmtPrintReady(function(){window.print();});   /* (TASK-A0535) ينتظر الصور والخطوط لا 600ms ثابتة */
   }
+  function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener('load',f);i.addEventListener('error',f)})})}if(document.readyState==='complete')w();else window.addEventListener('load',w);setTimeout(go,12000)}
   if(window.JsBarcode) draw();
   else { var n=0,t=setInterval(function(){ if(window.JsBarcode||++n>40){clearInterval(t);draw();} },100); }
 })();
@@ -16890,7 +16891,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121j"></script>
+<script src="gmt-whatsnew.js?v=20261121k"></script>
 <script src="gmt-store-sync.js?v=20261118b" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>

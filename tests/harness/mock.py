@@ -186,6 +186,9 @@ class H(BaseHTTPRequestHandler):
             for c in OPTS['reject_cols']:
                 if any(c in (x or {}) for x in rr):
                     return self.reply(400, {'code':'PGRST204','message':"Could not find the '%s' column of '%s' in the schema cache" % (c, t)})
+            # (TASK-A0534) كالقاعدة الحيّة: stock_transfer_items_qty_check = qty >= 0 (كان qty > 0 فرُفض وسم البند الفاشل qty=0 دون أن تراه الاختبارات)
+            if t == 'stock_transfer_items' and any((x or {}).get('qty') is not None and float((x or {}).get('qty')) < float(OPTS.get('transfer_qty_min', 0)) for x in rr):
+                return self.reply(400, {'code':'23514','message':'new row for relation "stock_transfer_items" violates check constraint "stock_transfer_items_qty_check"'})
         if method == 'POST':
             rows = body if isinstance(body, list) else [body]
             if t in OPTS['fail_post']:                 # (TASK-0010) فشلٌ مُحاكى مرّةً لكل ظهورٍ للجدول في القائمة

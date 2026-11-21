@@ -33,7 +33,7 @@ const CAP = ' window.__bufs=[]; window.open=function(){ var b=[]; var w={closed:
     await o.pg.evaluate((id) => storeOrderInvoice(id), sid); await o.pg.waitForTimeout(600);
     const h2 = await o.pg.evaluate(() => (window.__bufs || []).map(b => b.join('')).join(''));
     ok(/فاتورة طلب/.test(h2) && /ST-77/.test(h2) && /عدسة 50mm/.test(h2) && /240\.00/.test(h2), 'أوردر المتجر: فاتورته بنفس قالب المبيع (الرقم ST-77 · البنود · 240.00)');
-    ok(/<script>setTimeout\(function\(\)\{window\.print\(\)\}/.test(h2), 'تُطبَع تلقائياً');
+    ok(/__gmtPrintReady\(function\(\)\{window\.print\(\)\}\)/.test(h2), 'تُطبَع تلقائياً — بعد اكتمال الصور والخطوط (TASK-A0535)');
   } else ok(false, 'لم أجد أوردر المتجر في الصفحة');
   await o.browser.close();
   // ٣) صفحة المتجر

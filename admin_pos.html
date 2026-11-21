@@ -518,7 +518,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 📦 ترحيل منتجات الأوردر إلى الفاتورة (2026-09-27 · طلب المالك).
        gmt-suggest.js مطلوب قبله: المطابقة المتسامحة تعيش فيه، وهو نفسه
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
-  <script src="gmt-transfer-print.js?v=20261010b"></script>
+  <script src="gmt-transfer-print.js?v=20261121k"></script>
   <script src="gmt-suggest.js?v=20261107d"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261117j"></script>
@@ -6467,7 +6467,7 @@ ${expHtml}${poHtml}
 <tr><td>عمولات معتمدة لم تُصرف</td><td class="n">$${f2(T.due)}</td>${seller ? '<td colspan="2"></td>' : `<td>${bk ? 'صافي نقد الشهر للإدارة' : 'صافي نقد الشهر'}<br><small>المبيعات − المرتجعات − مصاريف دُفعت من الصندوق${bk ? ' − ما رُحِّل' : ''}</small></td><td class="n">$${f2(T.sales - T.ret - T.expBox - (bk ? T.tr : 0))}</td>`}</tr>
 </tbody></table>
 <div class="f">طُبع ${new Date().toLocaleString('en-GB')} · المصاريف بالدولار حسب سعر صرف كل مصروف · العمولة لكل فاتورة كما سُجّلت (السالبة = عكسٌ بمرتجع)</div>
-<script>setTimeout(function(){window.print()},500)<\/script></body></html>`;
+<script>function __gmtPrintReady(cb){var d=false;function go(){if(d)return;d=true;setTimeout(cb,300)}function w(){var a=[].filter.call(document.images,function(i){return !i.complete});var fr=(document.fonts&&document.fonts.ready)||Promise.resolve();fr.then(function(){if(!a.length)return go();var n=a.length;a.forEach(function(i){function f(){if(--n<=0)go()}i.addEventListener('load',f);i.addEventListener('error',f)})})}if(document.readyState==='complete')w();else window.addEventListener('load',w);setTimeout(go,12000)}__gmtPrintReady(function(){window.print()})<\/script></body></html>`;
   const win = preWin || window.open('', '_blank');
   if (!win) throw new Error('المتصفّح منع النافذة — اسمح بالنوافذ المنبثقة');
   if (win.document.open) win.document.open();
@@ -7209,7 +7209,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121j"></script>
+<script src="gmt-whatsnew.js?v=20261121k"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
