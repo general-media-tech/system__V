@@ -2404,6 +2404,41 @@ window.GMT_INTERNAL = 1;</script>
   }catch(e){}
 })();
 </script>
+<script src="gmt-scan.js?v=20261121n"></script>
+<script>
+/* ══ (TASK-A0538 · المالك seq 873) «قارئ سكانر يقرأ رقم الكاميرا عبر صورة أو عبر سكانر مباشر يربطه بالكفالة» ══
+   حقل الرقم التسلسلي: «باركود» (الكاميرا الحيّة) · «📸 صورة» (ملصق S/N من صورة) · والسكانر المربوط يكتب في الحقل الذي فيه المؤشّر.
+   العلبة تحمل باركود المنتج (EAN-13) بجانب باركود الرقم التسلسلي ⇒ إن قُرئ EAN يُسأل قبل اعتماده. */
+(function () {
+  function eanOk(c) { if (!/^\d{13}$/.test(c)) return false; var s = 0; for (var i = 0; i < 12; i++) s += (+c[i]) * (i % 2 ? 3 : 1); return (10 - s % 10) % 10 === +c[12]; }
+  function cleanSerial(v) { return String(v || '').trim().replace(/^(s\s*\/?\s*n|serial(\s*no\.?)?|sn)\s*[:#\-]?\s*/i, '').trim(); }
+  function boot() {
+    if (!window.GMTScan) return;
+    var sn = document.getElementById('serialNo');
+    if (sn && !sn.__gmtScanFire) {
+      var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap'; row.setAttribute('data-serial-scan', '');
+      sn.parentElement.appendChild(row);
+      GMTScan.attach(sn, async function (code) {
+        var v = cleanSerial(code);
+        if (eanOk(v)) {
+          var go = window.GMTAsk ? await GMTAsk.confirm('قرأتُ «' + v + '» — يبدو باركود المنتج (EAN) لا الرقم التسلسلي.\nامسح الباركود المكتوب بجانبه S/N.\n\nأعتمده رقماً تسلسلياً على كلّ حال؟', { title: '🔢 الرقم التسلسلي', okText: 'اعتمده' }) : false;
+          if (!go) { sn.value = ''; return; }
+        }
+        sn.value = v;
+        try { sn.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+        try { if (window.showToast) showToast('🔢 الرقم التسلسلي: ' + v, 'ok'); } catch (_) {}
+      }, { photo: true, into: row });
+    }
+    var q = document.getElementById('adminSearch');
+    if (q && !q.__gmtScanFire) {
+      var r2 = document.createElement('div'); r2.style.cssText = 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap'; r2.setAttribute('data-search-scan', '');
+      q.parentElement.appendChild(r2);
+      GMTScan.attach(q, function (code) { q.value = cleanSerial(code); try { q.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {} }, { photo: true, into: r2 });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
 <script src="gmt-hints.js?v=20261011h"></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
 <script src="gmt-warmup.js?v=20261117j"></script>
@@ -2412,7 +2447,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121m"></script>
+<script src="gmt-whatsnew.js?v=20261121n"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>

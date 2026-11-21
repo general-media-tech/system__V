@@ -127,6 +127,66 @@
         });
     }
 
+    /* ── ①ب الصورة (TASK-A0538 · المالك seq 873) «يقرأ رقم الكاميرا عبر صورة أو عبر سكانر مباشر» ──
+       صورةٌ من الكاميرا أو المعرض ⇒ تُصغَّر (≤1600px) ثمّ ZXing بالبحث المعمّق. لا شيء يُرفع — القراءة على الجهاز. */
+    function photo(onCode) {
+        var inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment'); inp.style.display = 'none';
+        document.body.appendChild(inp);
+        inp.addEventListener('change', function () {
+            var f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+            toast('⏳ أقرأ الباركود من الصورة…');
+            decodeFile(f).then(function (code) {
+                if (!code) { toast('لم أجد باركوداً في الصورة — صوّر ملصق S/N عن قرب وبإضاءة جيّدة', 'err'); return; }
+                try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+                try { if (global.GMTSound) GMTSound.play('scan'); } catch (e) {}
+                if (onCode) onCode(code, 'photo');
+            }).catch(function (e) { toast('تعذّرت قراءة الصورة: ' + ((e && e.message) || e), 'err'); });
+        });
+        inp.click();
+    }
+    function decodeFile(file) {
+        return loadZXing().then(function (ZX) {
+            return new Promise(function (ok) {
+                var url = URL.createObjectURL(file), img = new Image();
+                img.onload = function () {
+                    URL.revokeObjectURL(url);
+                    /* القارئ الأساسي مباشرةً على لوحة بخلفيّة بيضاء (مسار Browser…decodeFromImageUrl يفشل على الصور — فُحص) ·
+                       ثنائيّان (Hybrid ثمّ GlobalHistogram) · والصورة مدارةً 90° للملصقات العمودية */
+                    var hints = new Map();
+                    try {
+                        var F = ZX.BarcodeFormat;
+                        hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.QR_CODE, F.DATA_MATRIX].filter(function (x) { return x != null; }));
+                        hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+                    } catch (e) {}
+                    var mf = new ZX.MultiFormatReader(); try { mf.setHints(hints); } catch (e) {}
+                    function canvasFor(rot) {
+                        var k = Math.min(1, 1600 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+                        var w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k), pad = 40;
+                        var c = document.createElement('canvas'), g = c.getContext('2d');
+                        c.width = (rot ? h : w) + pad * 2; c.height = (rot ? w : h) + pad * 2;
+                        g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+                        g.translate(c.width / 2, c.height / 2); if (rot) g.rotate(Math.PI / 2); g.drawImage(img, -w / 2, -h / 2, w, h);
+                        return c;
+                    }
+                    var tries = [[0, 'Hybrid'], [0, 'Global'], [1, 'Hybrid'], [1, 'Global']];
+                    for (var i = 0; i < tries.length; i++) {
+                        try {
+                            var src = new ZX.HTMLCanvasElementLuminanceSource(canvasFor(tries[i][0]));
+                            var bin = tries[i][1] === 'Hybrid' ? new ZX.HybridBinarizer(src) : new ZX.GlobalHistogramBinarizer(src);
+                            var r = mf.decodeWithState ? mf.decodeWithState(new ZX.BinaryBitmap(bin)) : mf.decode(new ZX.BinaryBitmap(bin), hints);
+                            var t = String(r && (r.getText ? r.getText() : r.text) || '').trim();
+                            if (t) return ok(t);
+                        } catch (e) {}
+                    }
+                    ok('');
+                };
+                img.onerror = function () { URL.revokeObjectURL(url); ok(''); };
+                img.src = url;
+            });
+        });
+    }
+
     /* ── ② السكانر المربوط ────────────────────────────────────────────────── */
     function listen(onCode, opt) {
         if (_listening) return;                 // منصتٌ واحد لكل صفحة
@@ -196,9 +256,23 @@
           + 'white-space:nowrap;');
         btn.addEventListener('click', function (e) { e.preventDefault(); camera(fire); });
         (opts.into || input.parentElement || document.body).appendChild(btn);
-        listen(fire);
+        /* (TASK-A0538) «📸 صورة»: قراءة الباركود من صورة (ملصق S/N على العلبة أو الكاميرا) */
+        if (opts.photo) {
+            var pb = document.createElement('button');
+            pb.type = 'button'; pb.setAttribute('data-gmt-scan-photo', '1'); pb.title = 'قراءة الباركود من صورة';
+            pb.textContent = '📸 صورة'; pb.style.cssText = btn.style.cssText;
+            pb.addEventListener('click', function (e) { e.preventDefault(); photo(fire); });
+            (opts.into || input.parentElement || document.body).appendChild(pb);
+        }
+        /* (TASK-A0538) عدّة حقول في الصفحة: السكانر يملأ الحقل الذي فيه المؤشّر (كان أوّل حقلٍ رُبط دائماً) */
+        input.__gmtScanFire = fire;
+        listen(function (code, how) {
+            var a = document.activeElement;
+            if (a && a !== input && a.__gmtScanFire) return a.__gmtScanFire(code, how);
+            fire(code, how);
+        });
         return btn;
     }
 
-    global.GMTScan = { camera: camera, listen: listen, attach: attach };
+    global.GMTScan = { camera: camera, listen: listen, attach: attach, photo: photo, decodeFile: decodeFile };
 }(typeof window !== 'undefined' ? window : this));
