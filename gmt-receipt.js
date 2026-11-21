@@ -698,7 +698,8 @@
   /* (TASK-0157 · المالك seq 60 «التعرّف على الشركة من شكل الإيصال») اسم شركة شحنٍ أخرى مقروءٌ في الإيصال ⇒ اسمها كما في قائمة الشركات.
      «شركة <اسم>» أوّلاً، ثمّ الاسم وحده كلمةً كاملة (هيكلاً بلا نقاط) أو بالحروف اللاتينية. لا شيء ⇒ null (لا تخمين). */
   var CO_NAMES = [['القدموس', /[qk]a?dmou?s/i], ['مسارات', /masarat/i], ['بابل', /\bbabel\b|\bbabil\b/i],
-                  ['الرافدين', /rafidain|rafedain/i], ['هافال', /\bhaval\b/i], ['الأهلية', /ahlia|ahliya/i]]
+                  ['الرافدين', /rafidain|rafedain/i], ['هافال', /\bhaval\b/i], ['الأهلية', /ahlia|ahliya/i],
+                  ['سات', /sat[\s-]?cargo|\bSAT\s?\d{6,}/i]]   /* (المالك seq 880) SAT للشحن والتوصيل · رقم الشحنة SAT + ٩ أرقام */
     .map(function (c) { return { name: c[0], sk: noAl(skel(c[0])), lat: c[1] }; });
   function companyOf(text) {
     var raw = String(text || ''), s = skel(raw), i, m;

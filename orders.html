@@ -111,13 +111,13 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-inbox.js?v=20261117k" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261119i"></script>
-<script src="gmt-shipping-offices.js?v=20261112h"></script>
+<script src="gmt-shipping-offices.js?v=20261121c"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-mufti-live.js?v=20261029z4" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
 <script src="gmt-mufti-review.js?v=20261121b" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
 <script src="gmt-refund.js?v=20261115w" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
 
-<script src="gmt-receipt.js?v=20261119e" defer></script>
+<script src="gmt-receipt.js?v=20261121c" defer></script>
 <script src="gmt-docscan.js?v=20261029z4" defer></script><!-- (19 ت1) الماسح الضوئي الداخلي لإشعارات الشحن -->
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-custsync.js?v=20261118f"></script><!-- (TASK-B0511) سجلّ الزبون الواحد: الناقص يُحفظ والمختلف يُسأل عنه -->
@@ -308,6 +308,7 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="الرافدين">الرافدين</option>
                 <option value="هافال">هافال</option>
                 <option value="الأهلية">الأهلية</option>
+                <option value="سات">سات SAT</option><!-- (المالك seq 880 · sat-cargo.com) -->
                 <option value="شوفير">🚐 شوفير</option>
             </select>
             <select id="filter-branch" onchange="render()" class="flex-1 min-w-[120px] px-3 py-2.5 bg-white rounded-xl text-xs font-bold border border-gray-200 text-gray-600">
@@ -767,6 +768,7 @@ window.GMT_INTERNAL = 1;</script>
                 <option value="الرافدين">الرافدين</option>
                 <option value="هافال">هافال</option>
                 <option value="الأهلية">الأهلية</option>
+                <option value="سات">سات SAT</option>
                 <option value="شوفير">🚐 شوفير (سيارة · سرفيس)</option>
             </select>
         </div>
@@ -1645,6 +1647,7 @@ loadBranchesFromDB();
 loadOrders();
 /* (TASK-A0527) «بينفحص كلّ ما أدخل على صفحة الأوردرات» — بعد التحميل الأوّل، وعند العودة للصفحة؛ مهلة 30 د بين الفحوص (البوت كلّ ٤ ساعات والصفحة مغلقة) */
 setTimeout(() => { try { carrierCheckNow(false); } catch (_) {} }, 2500);
+window.addEventListener('load', () => { try { render(); } catch (_) {} });   /* شريط المفتي على البطاقات يحتاج gmt-mufti-live.js المؤجَّل */
 document.addEventListener('visibilitychange', () => { if (!document.hidden) try { carrierCheckNow(false); } catch (_) {} });
 /* ذاكرة أسماء الزبائن المحلية (ملاحظات ١٢ ت١): نحفظ زبائن الأوردرات المحمّلة الآن ثم نملأ الباقي بالخلفية (مرّة كل ٦ ساعات) */
 setTimeout(() => { try {
@@ -1930,8 +1933,8 @@ function emptyHTML() {
    ══════════════════════════════════════════════════════════════════════════ */
 const SHIPPED_OR_LATER = ['shipped', 'delivered', 'completed', 'returned'];
 
-function trackUrlFor(company) {
-    try { if (window.GMTOffices && GMTOffices.trackUrlOf) return GMTOffices.trackUrlOf(company); } catch (_) {}
+function trackUrlFor(company, num) {
+    try { if (window.GMTOffices && GMTOffices.trackUrlOf) return GMTOffices.trackUrlOf(company, num); } catch (_) {}
     return null;
 }
 
@@ -2073,9 +2076,9 @@ function trackBtnHTML(o) {
 window.openTracking = async (id) => {
     const o = orders.find(x => x.id == id);
     if (!o || !o.tracking_number) { showToast('لا يوجد رقم تتبّع لهذا الطلب', 'err'); return; }
-    const url = trackUrlFor(o.shipping_company);
-    if (!url) { showToast('التتبع غير متوفر لهاي الشركة بعد', 'err'); return; }
     const num = String(o.tracking_number).trim();
+    const url = trackUrlFor(o.shipping_company, num);   /* (seq 882) «سات»: الرابط يفتح الشحنة برقمها مباشرة */
+    if (!url) { showToast('التتبع غير متوفر لهاي الشركة بعد', 'err'); return; }
     /* (TASK-0331) التبويب يُفتح **قبل** أيّ انتظار: بعد await يفقد المتصفّح «نقرة المستخدم» فيمنع النافذة (سجلّ الأخطاء: «منع النوافذ
        المنبثقة» ×6 لموقع المفتي) · و'noopener' يجعل window.open يرجع null دائماً حتى لو فُتحت ⇒ نُلغي opener بأنفسنا. */
     const _tw = window.open(url, '_blank'); try { if (_tw) _tw.opener = null; } catch (_) {}
@@ -6376,7 +6379,7 @@ function showManualNotice(o, txt) {
    ⇒ تظهر المكاتب مع أرقامها. الاختيار يملأ العنوان بالمكتب ورقمه فيظهر تلقائياً في
    الملصق ورسالة التبليغ وصفحة التتبّع. **الكتابة اليدوية تبقى متاحة دائماً.**
    ملاحظة: اختيار مكتب **لا يحدّد الشركة** — من يعتمد الشحن هو من يحدّدها (قرار المالك). */
-const SHIP_COMPANIES = ['المفتي','القدموس','مسارات','بابل','الرافدين','هافال','الأهلية','شوفير'];   // (TASK-0230) «شوفير»
+const SHIP_COMPANIES = ['المفتي','القدموس','مسارات','بابل','الرافدين','هافال','الأهلية','سات','شوفير'];   // (المالك seq 880) «سات» SAT للشحن والتوصيل   // (TASK-0230) «شوفير»
 
 function fillCompanySelects() {
     const sel = document.getElementById('in-company');
@@ -7455,6 +7458,19 @@ function carrierChipHTML(o) {
                   ret: ['⚠️ الشركة: مرتجع — ' + (c.status || ''), 'bg-orange-50 border-orange-300 text-orange-800'], nf: ['❔ الرقم غير موجود عند الشركة', 'bg-gray-50 border-gray-200 text-gray-600'] };
     const m = map[c.cls]; if (!m) return '';
     if (o.status === 'delivered' && c.cls !== 'ret') return '';   /* بعد تأكيد الاستلام لا يهمّ إلا المرتجع المتأخّر */
+    /* (المالك seq 881 «أداة تتبّع شحنات المفتي تندمج بميزاتها في الصفحة الرئيسية بدل ما أدخل عليها») — ما كانت تعرضه لوحة المراجعة
+       لكلّ شحنة صار على البطاقة نفسها: الخطوات الأربع بنصّ المفتي · «حالة الشحنة» وتاريخها · المستلم عندهم (وتنبيه إن اختلف الاسم) */
+    const ML = window.GMTMuftiLive;
+    if (ML && o.status === 'shipped' && ML.isMufti(o) && c.cls !== 'nf') {
+        const nm = String(o.name || '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').split(/\s+/).filter(w => w.length >= 3);
+        const rc = String(c.receiver || ''), rcn = rc.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+        const differs = rc && nm.length && !nm.some(w => rcn.indexOf(w) !== -1);
+        return `<div class="mb-3" data-carrier="${escH(c.cls)}" data-carrier-full>
+            ${ML.stepsHTML({ level: c.level || ({ road: 2, branch: 3, got: 4 }[c.cls] || 1) })}
+            ${ML.cardHTML({ status: c.status || m[0], status_at: c.status_at }, 'حالة الشحنة عند المفتي · ' + m[0])}
+            <div class="flex flex-wrap items-center gap-1.5 mt-2">${money}${rc ? `<span class="text-[11px] font-bold text-gray-500">المستلم عندهم: <b class="text-gray-800">${escH(rc)}</b></span>` : ''}${differs ? '<span class="text-[10.5px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-1.5">⚠️ الاسم مختلف عن الأوردر</span>' : ''}</div>
+        </div>`;
+    }
     return `<div class="mb-2 flex flex-wrap gap-1.5" data-carrier="${escH(c.cls)}"><span class="inline-block border rounded-lg px-2 py-0.5 text-[11px] font-black ${m[1]}" title="${escH((c.status || '') + (c.status_at ? ' · ' + c.status_at : ''))}">${escH(m[0])}</span>${o.status === 'shipped' ? money : ''}</div>`;
 }
 let _carrierLast = null;   // آخر دورة فحص (gmt_carrier_log)
@@ -10767,7 +10783,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261121b"></script>
+<script src="gmt-whatsnew.js?v=20261121c"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

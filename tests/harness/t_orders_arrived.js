@@ -7,7 +7,7 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   await H.seed();
   const base = { phone: '0933000111', product: 'كاميرا', qty: 1, branch: 'حلب', address: 'حمص', status: 'shipped', shipping_company: 'المفتي', shipped_at: new Date(Date.now() - 3 * 86400000).toISOString() };
   const rows = await H.call('/rest/v1/gmt_orders', [
-    Object.assign({}, base, { name: 'أ وصلت بلا تبليغ', price: 100, tracking_number: '1000001', carrier_live: CL('branch') }),
+    Object.assign({}, base, { name: 'أ وصلت بلا تبليغ', price: 100, tracking_number: '1000001', carrier_live: CL('branch', { receiver: 'سمير الحلبي', status: 'تم وصول الشحنة إلى الفرع الوجهة' }) }),
     Object.assign({}, base, { name: 'ب وصلت وبُلّغ', price: 61, collect_amount: 50, tracking_number: '1000002', notified_arrival_at: new Date().toISOString(), carrier_live: CL('branch') }),
     Object.assign({}, base, { name: 'ج استلمها', price: 655, tracking_number: '1000003', carrier_live: CL('got') }),
     Object.assign({}, base, { name: 'د على الطريق', price: 40, tracking_number: '1000004', carrier_live: CL('road') }),
@@ -37,6 +37,11 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   ok(/\$70/.test(sums.n), 'مجموع «بُلّغ» = 50 (المطلوب تحصيله لا القيمة) + 20 = $70: ' + sums.n);
   ok(/\$825/.test(sums.all), 'مجموع الحوالات في «تم الوصول» = 100+50+655+20 = $825: ' + sums.all);
   ok(/منذ 2 أيام/.test(sums.b), '«في فرع الوجهة منذ 2 أيام» من changed_at: ' + sums.b);
+  // ٢ب) (المالك seq 881) أداة المراجعة مدموجة في البطاقة: الخطوات الأربع + «حالة الشحنة» + المستلم وتنبيه اختلاف الاسم
+  const full = await pg.evaluate(id => { const c = document.getElementById('card-' + id), f = c && c.querySelector('[data-carrier-full]');
+    return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '', desc: (f.querySelector('.ml-desc') || {}).textContent || '', rc: /سمير الحلبي/.test(f.textContent), warn: /الاسم مختلف/.test(f.textContent), money: /الحوالة \$100/.test(f.textContent) } : null; }, id('أ'));
+  ok(full && full.steps === 4 && /وصل/.test(full.cur) && /تم وصول الشحنة/.test(full.desc), 'بطاقة المفتي فيها شريط الخطوات الأربع (الحالية: وصلت فرع الوجهة) و«حالة الشحنة» بنصّ المفتي: ' + JSON.stringify(full));
+  ok(full && full.rc && full.warn && full.money, 'المستلم عندهم + ⚠️ الاسم مختلف + الحوالة على البطاقة');
   // ٣) «افحص الآن»: يحفظ ما تغيّر فقط، بلا سجلّ تراجع
   const patches = [];
   pg.on('request', r => { if (r.method() === 'PATCH' && /gmt_orders/.test(r.url())) patches.push(r.url()); });
@@ -45,7 +50,7 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
     const b = JSON.parse(route.request().postData() || '{}');
     const st = { '1000004': { level: 3, status: 'تم وصول الشحنة إلى الفرع الوجهة' }, '1000007': { level: 2, status: 'على الطريق' } };
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, out: b.nums.map(n => {
-      const cur = { '1000001': [3, 'حالة'], '1000002': [3, 'حالة'], '1000003': [4, 'حالة'], '1000005': [3, 'تمت إعادة التوجيه'] }[n];
+      const cur = { '1000001': [3, 'تم وصول الشحنة إلى الفرع الوجهة'], '1000002': [3, 'حالة'], '1000003': [4, 'حالة'], '1000005': [3, 'تمت إعادة التوجيه'] }[n];
       const s = st[n] || (cur ? { level: cur[0], status: cur[1] } : { level: 0, status: '' });
       return { n, ok: true, found: true, steps: [], level: s.level, status: s.status, status_at: '21-11-2026 10:00' }; }) }) });
   });

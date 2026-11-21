@@ -46,8 +46,14 @@
   var TRACK_URLS = {
     'المفتي':  'http://90.153.255.28:8080/ords/f?p=102:03',
     'القدموس': 'https://www.alkadmous.com/',
-    'بابل':    'https://www.babel-express.com/track'
+    'بابل':    'https://www.babel-express.com/track',
+    /* (المالك seq 880) «SAT للشحن والتوصيل» — شحن داخل سوريا (12 محافظة · 18 مكتباً) · التتبّع في الصفحة الرئيسية برقم الشحنة (SAT + 9 أرقام).
+       مكاتبها وأرقامها غير منشورة في موقعها ⇒ لا مكاتب هنا حتى يعطيها المالك (لا اختراع) */
+    'سات':     'https://sat-cargo.com/track'
   };
+  /* (المالك seq 882 «خود رابط تتبّعها وتعامل معها مثل الشركات الأخرى») شركاتٌ يفتح رابطُها الشحنةَ نفسها برقمها مباشرة
+     (نموذج /track عندهم GET باسم q — جُرِّب: رقمٌ وهميّ ⇒ «لم نجد شحنة بهذا الرقم») ⇒ الزرّ يفتح النتيجة لا صفحة البحث */
+  var TRACK_BY_NUM = { 'سات': 'https://sat-cargo.com/track?q={n}' };
 
   /* ═══════════════════════════════════════════════════════════════════════
      شركاتٌ **لا تتبّعَ إلكترونيَّ لها** — قرار المالك ق٢ (2026-10-03).
@@ -506,7 +512,8 @@
     'القدموس': ['القدموس', 'قدموس', 'كدموس'],
     'مسارات' : ['مسارات', 'مسارات اكسبرس', 'مسارات إكسبرس'],
     'بابل'   : ['بابل', 'بابل اكسبرس', 'بابل إكسبرس'],
-    'هافال'  : ['هافال', 'هفال']
+    'هافال'  : ['هافال', 'هفال'],
+    'سات'    : ['سات', 'سات كارغو', 'سات كارجو', 'SAT Cargo', 'SAT للشحن']
   };
 
   /* يحذف اسم الشركة من النص كي لا يُقرأ كاسم منطقة.
@@ -618,11 +625,18 @@
       if (!nk) continue;
       if (nc.indexOf(nk) !== -1 || nc.indexOf(bk) !== -1) return kk;
     }
+    /* (المالك seq 880) الأسماء البديلة المسجّلة: «SAT» · «SAT Cargo» ⇒ سات · «هفال» ⇒ هافال — مطابقة كاملة فقط (لا احتواء: «sat» قصيرة) */
+    var al = Object.keys(COMPANY_ALIASES);
+    for (var a2 = 0; a2 < al.length; a2++) {
+      var list = COMPANY_ALIASES[al[a2]].concat(al[a2] === 'سات' ? ['SAT', 'SAT Express'] : []);
+      for (var b2 = 0; b2 < list.length; b2++) if (sameName(cleaned, list[b2]) || sameName(raw, list[b2])) return al[a2];
+    }
     return raw;   /* شركةٌ لا نعرفها ⇒ تبقى كما كتبها (لا نخترع) */
   }
 
   global.GMTOffices = { data: OFFICES, companyInText: companyInText, stripCompany: stripCompany, resolve: resolve, pickWithin: pickWithin, sameName: sameName, bare: bare, mapNorm: mapNorm, removeNorm: removeNorm, meat: meat, mainOffices: MAIN_OFFICE, mainOffice: mainOffice, isCity: isCity, trackUrls: TRACK_URLS, canonCompany: canonCompany,
-    trackUrlOf: function (c) { return TRACK_URLS[canonCompany(c)] || null; },
+    trackUrlOf: function (c, n) { var k = canonCompany(c), t = TRACK_BY_NUM[k], num = String(n == null ? '' : n).trim(); return (t && num) ? t.replace('{n}', encodeURIComponent(num)) : (TRACK_URLS[k] || null); },
+    trackOpensNumber: function (c) { return !!TRACK_BY_NUM[canonCompany(c)]; },
     noTracking: NO_TRACKING,
     noTrackingWhy: function (c) { return NO_TRACKING[canonCompany(c)] || null; }, all: all, search: search, cities: cities, companies: companies, norm: norm };
 })(window);
