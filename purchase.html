@@ -4316,7 +4316,7 @@ async function delShip(id){
    فجوتان تظهران الآن على الشاشة بدل أن تختبئا: ① بنودٌ بسعر شراء 0 (الربح والتكلفة يُحسبان خطأً) · ② رقم فاتورة مكرَّر لفاتورتين.
    للعرض والتنبيه فقط — لا يُعدَّل أيّ رقم. ومع الحفظ: سؤال تأكيدٍ إن بقي بندٌ بسعر 0. */
 function _pgNum(v){const n=parseFloat(v);return isFinite(n)?n:0;}
-const PUR_GIFT_RE=/هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|gift|free|bonus/i;   /* بندٌ مكتوبٌ في ملاحظته «هدية/ضمن كومبو» ليس نقصاً */
+const PUR_GIFT_RE=/هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|ضمن\s*(ال)?طقم|بطلب المالك|gift|free|bonus/i;   /* بندٌ مكتوبٌ في ملاحظته «هدية/ضمن كومبو» ليس نقصاً */
 function purZeroLines(items){ return (Array.isArray(items)?items:[]).filter(x=>x&&_pgNum(x.qty)>0&&_pgNum(x.unit_price)<=0&&!PUR_GIFT_RE.test(String(x.notes||''))); }
 function purDupOf(s){ const n=String((s&&s.inv_number)||''); if(!/[0-9]/.test(n)) return []; return (ships||[]).filter(x=>x&&String(x.id)!==String(s.id)&&String(x.inv_number||'')===n); }
 function purGapChips(s){
@@ -6233,7 +6233,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122d"></script>
+<script src="gmt-whatsnew.js?v=20261122e"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

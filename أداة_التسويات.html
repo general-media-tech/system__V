@@ -112,7 +112,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     return r;
   }
   /* (TASK-A0549 · المالك seq 940 «أداة التسوية فيها كل شيء: فواتير فيها نقص سواء في أي بند أو سعر») */
-  var GIFT_RE = /هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|gift|free|bonus/i;
+  var GIFT_RE = /هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|ضمن\s*(ال)?طقم|بطلب المالك|gift|free|bonus/i;   /* (seq 943) «بطلب المالك» = السعر 0 قراره (seq 397) */
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   async function purGaps() {
     var r = { id: 'pg', title: 'فواتير شراء فيها نقص (سعر · ربط · كمية · مورّد · مجموع)',
@@ -278,7 +278,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261122d"></script>
+<script src="gmt-whatsnew.js?v=20261122e"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 </body>
 </html>

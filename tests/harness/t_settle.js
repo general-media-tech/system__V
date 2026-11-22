@@ -15,7 +15,7 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
     // ناقصة: بندٌ غير مربوط + بلا مورّد
     { id: 7702, inv_number: 'IMP-2026-0004', inv_type: 'china', inv_date: '2026-03-03', status: 'transit', total_amount: 5, items_snapshot: [{ id: null, name: 'بند يتيم', barcode: 'NOPE-1', qty: 1, unit_price: 5 }], created_at: '2026-03-03T00:00:00Z' },
     // سليمة أيضاً: أصلٌ للمحل غير مربوط عمداً + كمية 0 بملاحظةٍ تشرحها
-    { id: 7703, inv_number: 'IMP-2026-0005', inv_type: 'china', supplier: 'أصول', inv_date: '2026-03-04', status: 'transit', total_amount: 20, items_snapshot: [{ id: null, name: 'ستاند عرض', barcode: 'ASSET-1', qty: 2, unit_price: 10, notes: 'أصل للمحل — سُجّل في «سجلّ الأصول»' }, Object.assign(it(6, 0), { unit_price: 3, notes: 'الكمية 0 بطلب المالك' })], created_at: '2026-03-04T00:00:00Z' }]);
+    { id: 7703, inv_number: 'IMP-2026-0005', inv_type: 'china', supplier: 'أصول', inv_date: '2026-03-04', status: 'transit', total_amount: 20, items_snapshot: [{ id: null, name: 'ستاند عرض', barcode: 'ASSET-1', qty: 2, unit_price: 10, notes: 'أصل للمحل — سُجّل في «سجلّ الأصول»' }, Object.assign(it(6, 0), { unit_price: 3, notes: 'الكمية 0 بطلب المالك' }), Object.assign(it(7, 4), { unit_price: 0, notes: 'السعر 0 كما هو — بطلب المالك seq 397' })], created_at: '2026-03-04T00:00:00Z' }]);
   // نقل بحاجة تسوية
   const tr = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TRF-00004', from_branch: 'haleb', to_branch: 'daraa', from_branch_name: 'حلب', to_branch_name: 'درعا', status: 'needs_settlement', settled: false }]);
   await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: tr[0].id, product_name: 'كاميرا تجربة 0', qty: 0, requested_qty: 4, deduction_failed: true }]);
