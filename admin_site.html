@@ -340,7 +340,7 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute}
 <body>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261122p"></script>
+  <script src="gmt-core.js?v=20261122r"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -798,6 +798,7 @@ async function sbUpsert(table, data) {
 
 // Upload to Supabase Storage — يستخدم access_token الحقيقي
 async function uploadFile(bucket, file) {
+  if (window.GMTImgShrink) file = await GMTImgShrink(file);   /* (TASK-A0564) بانرات/شرائح الموقع ≤٢٠٠٠px قبل الرفع */
   const ext  = file.name.split('.').pop();
   const name = `${Date.now()}.${ext}`;
   const token = _accessToken || KEY;   // ✅ access_token وليس anon key
@@ -1659,7 +1660,7 @@ function initAdmin() {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122q"></script>
+<script src="gmt-whatsnew.js?v=20261122r"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

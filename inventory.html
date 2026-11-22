@@ -2279,7 +2279,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261122p"></script>
+  <script src="gmt-core.js?v=20261122r"></script>
   <script src="gmt-packages.js?v=20261107h" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-reconcile.js?v=20261118c" defer></script>
@@ -4398,6 +4398,7 @@ window.invSnd = invSnd;
 
 async function sbUploadImg(filePath, file) {
   try {
+    if (window.GMTImgShrink) file = await GMTImgShrink(file);   /* (TASK-A0564) ≤٢٠٠٠px قبل الرفع */
     const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${filePath}`, {
       method: 'POST',
       headers: {
@@ -9721,7 +9722,7 @@ async function saveBulkImages() {
 
     statusEl.textContent = '⏳';
     try {
-      const file = bulkImgFiles[i];
+      const file = window.GMTImgShrink ? await GMTImgShrink(bulkImgFiles[i]) : bulkImgFiles[i];   /* (TASK-A0564) ≤٢٠٠٠px قبل الرفع */
       const path = `products/${imgName(productId, imgExt(file))}`;   /* (OWN-05#123) اسمٌ لاتيني صغير موحّد (كان «<id>.<امتداد الملف كما كُتب>») */
 
       // Upload to Supabase storage
@@ -16891,7 +16892,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122q"></script>
+<script src="gmt-whatsnew.js?v=20261122r"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>

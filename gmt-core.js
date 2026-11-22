@@ -228,6 +228,37 @@
   } catch (_) {}
 })();
 
+/* ═══ (TASK-A0564 · المالك seq 962) GMTImgShrink(file) — صورةٌ قبل الرفع: أطول ضلعٍ ≤٢٠٠٠px بالنوع نفسه ═══
+   صور المنتجات والبانرات كانت تُرفع بدقّة الكاميرا (4000×3000 · عدّة م.ب) وتُعرض للزبون أصليّةً من التخزين ⇒ بطء وصورٌ لا تحمّل.
+   JPEG يبقى JPEG (جودة ٨٨) · PNG يبقى PNG (الشفافيّة) · WebP يبقى WebP · أيّ فشلٍ (HEIC لا يُفكّ · متصفّحٌ قديم) ⇒ الملفّ كما هو. */
+window.GMTImgShrink = window.GMTImgShrink || function (file, opt) {
+  opt = opt || {};
+  var MAX = opt.max || 2000, Q = opt.q || 0.88;
+  return new Promise(function (resolve) {
+    try {
+      var t = String((file && file.type) || '').toLowerCase();
+      if (!/^image\/(jpe?g|png|webp)$/.test(t)) return resolve(file);
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        try {
+          var w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, MAX / Math.max(w, h));
+          if (k >= 1 && (file.size || 0) < 900 * 1024) { URL.revokeObjectURL(url); return resolve(file); }   /* صغيرةٌ أصلاً */
+          var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+          var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
+          var type = /png/.test(t) ? 'image/png' : (/webp/.test(t) ? 'image/webp' : 'image/jpeg');
+          c.toBlob(function (b) {
+            URL.revokeObjectURL(url);
+            if (!b || b.type !== type || b.size >= (file.size || Infinity)) return resolve(file);   /* لم يصغر أو تغيّر نوعه ⇒ الأصل */
+            try { resolve(new File([b], file.name || ('img.' + type.split('/')[1]), { type: type, lastModified: Date.now() })); } catch (_) { resolve(b); }
+          }, type, /png/.test(type) ? undefined : Q);
+        } catch (_) { URL.revokeObjectURL(url); resolve(file); }
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      im.src = url;
+    } catch (_) { resolve(file); }
+  });
+};
+
 /* ═══ (TASK-A0555 · سجلّ الأخطاء «popup_blocked»: «المتصفّح منع فتح نافذة جديدة: wa.me…» في تتبّع الشحنة) ═══
    متصفّحات داخل التطبيقات (فيسبوك · إنستغرام) وبعض أندرويد تمنع النافذة الجديدة — وفي المتجر تُفتح واتساب الطلب بعد حفظه بثانية
    (بلا لمسة مستخدم ⇒ تُمنع غالباً) فيرى الزبون «جاري تحويلك إلى واتساب» ولا شيء. GMTOpenExt: نافذةٌ جديدة، وإن مُنعت ⇒ الصفحة نفسها

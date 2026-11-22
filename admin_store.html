@@ -602,7 +602,7 @@ window.GMT_INTERNAL = 1;</script>
 <body class="bg-[#F8F8F8] font-sans text-dark antialiased">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261122p"></script>
+  <script src="gmt-core.js?v=20261122r"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
@@ -3551,9 +3551,13 @@ window.cropApply = function() {
     const ix=Math.max(0,(s.x-_crop.panX)/sc), iy=Math.max(0,(s.y-_crop.panY)/sc);
     const iw=Math.min(img.naturalWidth-ix,s.w/sc), ih=Math.min(img.naturalHeight-iy,s.h/sc);
     if(iw<=0||ih<=0){showToast('يرجى تحديد منطقة الاقتصاص','error');return;}
-    const tmp=document.createElement('canvas'); tmp.width=Math.round(iw); tmp.height=Math.round(ih);
-    tmp.getContext('2d').drawImage(img,ix,iy,iw,ih,0,0,tmp.width,tmp.height);
-    const dataUrl=tmp.toDataURL('image/jpeg',0.92);
+    /* (TASK-A0564) كانت الصورة تُحفظ بدقّة الكاميرا كاملةً (4000×3000 ⇒ عدّة م.ب) — صور المتجر من التخزين تُعرض أصليّةً للزبون
+       (المصغّرات img/t لصور المستودع فقط) ⇒ أقصى ضلع ٢٠٠٠px (يكفي للتكبير) · جودة ٨٨ */
+    const MAXS=2000, k=Math.min(1, MAXS/Math.max(iw,ih));
+    const tmp=document.createElement('canvas'); tmp.width=Math.round(iw*k); tmp.height=Math.round(ih*k);
+    const cx=tmp.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+    cx.drawImage(img,ix,iy,iw,ih,0,0,tmp.width,tmp.height);
+    const dataUrl=tmp.toDataURL('image/jpeg',0.88);
     document.getElementById('crop-modal-overlay').classList.remove('active');
     if(_crop.onApply) _crop.onApply(dataUrl);
 };
@@ -3650,7 +3654,7 @@ renderOffersAdmin = function(){ GMTOffersTool.mount('gmt-offers-mount-store'); }
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122q"></script>
+<script src="gmt-whatsnew.js?v=20261122r"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
