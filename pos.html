@@ -10440,7 +10440,7 @@ async function autocompleteCust(val) {
 // ══════════════════════════════════════════════
 // REALTIME NOTIFICATIONS — إشعارات داخل نقطة البيع
 // ══════════════════════════════════════════════
-let _lastNotifCheck = new Date().toISOString();
+let _lastNotifCheck = null;   /* (TASK-A0569) من الخادم لا من ساعة الجهاز */
 let _notifInterval  = null;
 
 /* ذاكرة أسماء الزبائن المحلية (ملاحظات ١٢ ت١): تعبئةٌ بالخلفية عند الاتصال — مرّةً كل ٦ ساعات — كي يعمل اقتراح الزبائن بلا إنترنت */
@@ -10449,19 +10449,31 @@ setTimeout(() => { try { if (window.GMTCustCache && typeof sbHeaders === 'functi
 function startNotifPolling() {
   if (_notifInterval) return;
   _notifInterval = setInterval(checkNewNotifications, 30000);
+  setTimeout(checkNewNotifications, 1500);   /* (TASK-A0569) نقطة البدء من الخادم فوراً — لا تُبتلع موافقةٌ في أوّل ٣٠ث */
 }
 
 async function checkNewNotifications() {
   if (!branch?.key || !currentUser) return;
+  /* (TASK-A0569 · المالك seq 966) كانت نقطة البدء ساعةَ الجهاز (new Date) تُقارَن بوقت الخادم:
+     ساعة الجهاز متقدّمة ⇒ موافقةٌ تضيع بلا إشعار · متأخّرة ⇒ تتكرّر · وموافقةٌ بين القراءة وضبط الوقت تضيع.
+     الآن: نقطة البدء من الخادم نفسه (آخر approved_at موجود عند الفتح — بلا إشعار) ثمّ أكبر approved_at وصل. */
+  const base = `${CONFIG.SUPABASE_URL}/rest/v1/invoice_commissions?branch_key=eq.${encodeURIComponent(branch.key)}&approved=eq.true`;
   try {
+    if (_lastNotifCheck == null) {
+      const r0 = await sbFetchTimeout(`${base}&approved_at=not.is.null&select=approved_at&order=approved_at.desc&limit=1`, { headers: sbHeaders() }, 6000);
+      if (!r0.ok) return;
+      const a0 = await r0.json();
+      _lastNotifCheck = (a0 && a0[0] && a0[0].approved_at) || '1970-01-01T00:00:00Z';
+      return;
+    }
     const r = await sbFetchTimeout(
-      `${CONFIG.SUPABASE_URL}/rest/v1/invoice_commissions?branch_key=eq.${branch.key}&approved=eq.true&approved_at=gt.${encodeURIComponent(_lastNotifCheck)}&select=id,amount,approved_at,note`,
+      `${base}&approved_at=gt.${encodeURIComponent(_lastNotifCheck)}&select=id,amount,approved_at,note&order=approved_at.asc`,
       { headers: sbHeaders() }, 6000
     );
     if (!r.ok) return;
     const items = await r.json();
     if (!items?.length) return;
-    _lastNotifCheck = new Date().toISOString();
+    _lastNotifCheck = items.reduce((m, c) => (c.approved_at && c.approved_at > m ? c.approved_at : m), _lastNotifCheck);
     items.forEach(c => showCommissionNotif(Number(c.amount), c.note));
   } catch(e) {}
 }
@@ -11131,7 +11143,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122u"></script>
+<script src="gmt-whatsnew.js?v=20261122v"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
