@@ -3979,6 +3979,30 @@
   /* ═══════════ ④ تجميد الواجهة ═══════════ */
   let hiddenSince = false;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hiddenSince = true; });
+  /* (TASK-A0552 · سجلّ الأخطاء: التجميد نفسه بالمدّة نفسها في ٣–٤ صفحات بالثانية نفسها — 207.8ث · 4.3ث · 6.3ث)
+     فجوة إطارات الرسم وحدها لا تعني أنّ كودنا جمّد الصفحة: المتصفّح/الهاتف يوقف الرسم في كلّ التبويبات معاً (توفير طاقة ·
+     قفل الشاشة · نافذةٌ فوقها) بلا أيّ عملٍ ثقيل. التجميد الحقيقي يترك «مهمّةً طويلة» (Long Tasks API — كروم/أندرويد).
+     ⇒ حيث تتوفّر: لا يُسجَّل إلّا إن غطّت المهامّ الطويلة نصف الفجوة على الأقلّ · حيث لا تتوفّر (سفاري): كما كان. */
+  const _lt = [];
+  let _ltOn = false;
+  try {
+    if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).indexOf('longtask') >= 0) {
+      new PerformanceObserver(list => {
+        list.getEntries().forEach(e => { _lt.push({ s: e.startTime, d: e.duration }); });
+        if (_lt.length > 200) _lt.splice(0, _lt.length - 200);
+      }).observe({ type: 'longtask', buffered: true });
+      _ltOn = true;
+    }
+  } catch (_) {}
+  /* هل كانت الفجوة [from, to] عملاً ثقيلاً في هذه الصفحة؟ (null = لا نعرف ⇒ نُبلّغ كما كان) */
+  function freezeBusy(from, to) {
+    if (!_ltOn) return null;
+    let busy = 0;
+    for (const x of _lt) { const a = Math.max(from, x.s), b = Math.min(to, x.s + x.d); if (b > a) busy += b - a; }
+    return busy;
+  }
+  window.__gmtFreezeCheck = (from, to) => { const b = freezeBusy(from, to); return b == null ? true : b >= (to - from) * 0.5; };
+  window.__gmtLongTasks = _lt;
   (function heartbeat() {
     let last = performance.now();
     function tick(t) {
@@ -3987,7 +4011,13 @@
       /* (TASK-A0544 · المالك seq 929) «تجمّدت 1045 ثانية» في الرئيسية = الهاتف نام والشاشة مطفأة دون حدث «مخفيّ» — لا JS يتجمّد 17 دقيقة
          والصفحة حيّة. فجوةٌ أطول من دقيقة = تعليقٌ من الجهاز لا تجميد ⇒ لا تُسجَّل. */
       if (gap > 3000 && gap < 60000 && document.visibilityState === 'visible' && !hiddenSince) {
-        add('warn', 'تجميد', `تجمّدت الواجهة ${(gap / 1000).toFixed(1)} ثانية`, 'عملية ثقيلة أو حلقة لا تنتهي.');
+        const from = last;
+        /* المهمّة الطويلة تُسجَّل بعد انتهائها ⇒ نحكم بعد لحظة */
+        setTimeout(() => {
+          if (!window.__gmtFreezeCheck(from, t)) return;   /* (TASK-A0552) توقّف رسمٍ من الجهاز لا من كودنا */
+          const b = freezeBusy(from, t);
+          add('warn', 'تجميد', `تجمّدت الواجهة ${(gap / 1000).toFixed(1)} ثانية`, b == null ? 'عملية ثقيلة أو حلقة لا تنتهي.' : `عملية ثقيلة في هذه الصفحة (${(b / 1000).toFixed(1)}ث من مهامّ طويلة).`);
+        }, 200);
       }
       hiddenSince = false;
       last = t;
