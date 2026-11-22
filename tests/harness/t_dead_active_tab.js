@@ -4,7 +4,10 @@ const H = require('./h.js');
 let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
 (async () => {
   await H.seed();
-  const { browser, pg } = await H.open('purchase.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 6000 });
+  const { browser, pg } = await H.open('purchase.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 0 });
+  /* (TASK-A0562) وسيط تيليغرام في خادم الاختبار «غير مضبوط» (503) ⇒ طلباتٌ خلفيّة تقع داخل نافذة الثانيتين فتُخفي الزرّ الميّت — في الحقيقة يردّ 200 */
+  await pg.route(/\/functions\/v1\/gmt-tg\//, r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));   /* api.telegram.org/botgmt-relay ⇐ يُحوَّل إلى دالّة gmt-tg */
+  await pg.waitForTimeout(6000);
   const logs = [];
   const grab = async () => { const r = await pg.evaluate(() => { let a = []; try { a = JSON.parse(localStorage.getItem('gmt_bugs_v3') || '[]'); } catch (_) {} return a.map(x => x.type + ': ' + x.msg); }); logs.length = 0; logs.push(...r); };
   const clear = () => pg.evaluate(() => { try { localStorage.removeItem('gmt_bugs_v3'); } catch (_) {} });

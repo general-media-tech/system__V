@@ -13,7 +13,7 @@ const VISITOR = `try{ localStorage.clear(); localStorage.setItem('gmt_intro_seen
   ok(a === '963939773715', '① بلا إعداد عامّ ⇒ رقم المتجر ' + a);
   // ② المدير يحفظ الرقم ⇒ يُكتب في gmt_settings
   const saved = await o.pg.evaluate(async () => await GMTContact.set('0944123456'));
-  const dump = await (await fetch('http://127.0.0.1:' + process.env.MOCK_PORT + '/__dump')).json();
+  const dump = await H.call('/__dump', undefined, 'GET');   /* (TASK-A0562) كان يقرأ MOCK_PORT من البيئة (غير مضبوط ⇒ ‎:undefined) */
   const row = (dump.gmt_settings || []).find(r => r.key === 'gmt_cs_phone');
   ok(row && row.value === '0944123456', '② الحفظ يكتب في إعدادات النظام (لا المتصفّح وحده) ' + JSON.stringify(saved));
   await o.browser.close();
