@@ -15,6 +15,13 @@
 
 ## ١) المهام النشطة وغير المنتهية — بالتفصيل
 
+### TASK-A0556 — إرجاع مخزون أوردر المتجر لا يُضاف مرّتين (سجلّ الأخطاء: «كتابة مزدوجة: rpc/add_branch_stock» ١٧ ت2) (المالك seq 952) · P0 (مخزون)
+- **المالك:** `session_01MWfC494J8Ayokvio9Ve6C9` · **الحالة:** `COMPLETED` (22 ت2 · `gmt-v20261122m` · v418).
+- **السبب:** `deductStoreOrderStock` محميّ بحجزٍ شرطيّ (`stock_deducted=is.null`) لكن `restoreStoreOrderStock` لا: ضغطتان/جهازان قبل كتابة `restored_at` ⇒ إضافتان.
+- **`orders.html`:** `_restoringOrders` (قفل الصفحة) + PATCH شرطيّ `stock_deducted->>restored_at=is.null&stock_deducted->>restoring_at=is.null` يكتب `restoring_at` — من لم يفز ⇒ `{skipped, already}` بلا إضافة · التنفيذ في `_restoreStoreOrderStockRun`. صيد النمط: مرتجع نقطة البيع (`gmt-refund.js`) يحسب «ما أُرجع سابقاً» من فواتير المرتجع — مسارٌ آخر.
+- **`mock.py`:** يحاكي فلاتر JSON `col->>key` كـPostgREST.
+- **التحقق:** `t_orders_restore.js` جديد (4 ✔: متزامنتان ⇒ +2 مرّة · محجوزٌ من جهازٍ آخر ⇒ لا إضافة · نسخةٌ قديمة ثالثة ⇒ لا إضافة) · t_store_stock (8) · t_order_render (38) · t_orders_shipret (30) · t_orders1_card (96) · t_orders_poll (8) · t_rcpt_batch (18 — مرّةً فشل توقيتاً ثمّ نجح مرّتين) · t_orders_arrived · t_order_confirm (7).
+
 ### TASK-A0555 — واتساب لا يضيع حين يمنع المتصفّح النافذة (المتجر · تتبّع الشحنة) + ملفّ الأسئلة المؤجَّلة (المالك seq 952 «اكمل كل التحديثات ولا تسالني … الاسئلة اجلها») · P1 (الزبائن)
 - **المالك:** `session_01MWfC494J8Ayokvio9Ve6C9` · **الحالة:** `COMPLETED` (22 ت2 · `gmt-v20261122l` · v417).
 - **السبب:** «popup_blocked» في تتبّع الشحنة (wa.me) · والمتجر يفتح واتساب الطلب (واتساب/شام كاش) **بعد ثانيةٍ من الحفظ** بلا لمسة ⇒ يُمنع غالباً ⇒ الزبون يرى «جاري تحويلك» ولا شيء.

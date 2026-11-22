@@ -7211,8 +7211,25 @@ async function deductStoreOrderStock(o) {
     try { window.GMTAudit && GMTAudit.log({ action: 'order_stock_deduct', entity: 'gmt_orders', entityId: String(o.id), entityName: o.name || '', reason: 'خصم مخزون أوردر المتجر من «' + branch + '» · ' + lines.filter(l => l.ok).length + '/' + lines.length }); } catch (_) {}
     return { rec: rec };
 }
+/* (TASK-A0556 · سجلّ الأخطاء: «كتابة مزدوجة: نفس POST rpc/add_branch_stock مرّتين خلال ٣ ثوانٍ» ١٧ ت2)
+   الخصم محميّ بحجزٍ شرطيّ (يفوز جهازٌ واحد) لكنّ **الإرجاع** لم يكن: ضغطتان أو جهازان قبل كتابة restored_at ⇒ تُضاف الكمية مرّتين.
+   الآن: قفلٌ في الصفحة + حجزٌ شرطيّ في القاعدة (restoring_at) — من يفشل حجزه لا يضيف شيئاً. */
+const _restoringOrders = new Set();
 async function restoreStoreOrderStock(o) {
-    const d = o && o.stock_deducted; if (!d || d.restored_at || !window.GMTStock || !Array.isArray(d.lines)) return { skipped: true };
+    const d = o && o.stock_deducted; if (!d || d.restored_at || d.restoring_at || !window.GMTStock || !Array.isArray(d.lines)) return { skipped: true };
+    const _rk = String(o.id); if (_restoringOrders.has(_rk)) return { skipped: true, busy: true };
+    _restoringOrders.add(_rk);
+    try {
+        const claim = Object.assign({}, d, { restoring_at: new Date().toISOString() });
+        const cl = await fetch(`${SUPA_URL}/rest/v1/gmt_orders?id=eq.${encodeURIComponent(o.id)}&stock_deducted->>restored_at=is.null&stock_deducted->>restoring_at=is.null`, { method: 'PATCH',
+            headers: Object.assign({}, SB_HEADERS, { 'Content-Type': 'application/json', Prefer: 'return=representation' }), body: JSON.stringify({ stock_deducted: claim }) });
+        const cj = await cl.json().catch(() => null);
+        if (!cl.ok) return { error: 'HTTP ' + cl.status };
+        if (!Array.isArray(cj) || !cj.length) return { skipped: true, already: true };   /* جهازٌ آخر أرجعها أو يُرجعها الآن */
+        return await _restoreStoreOrderStockRun(o, claim);
+    } finally { _restoringOrders.delete(_rk); }
+}
+async function _restoreStoreOrderStockRun(o, d) {
     const lines = d.lines.map(l => Object.assign({}, l));
     for (const l of lines) if (l.ok && l.pid) { const m = await GMTStock.move('add', l.pid, d.branch, l.qty); l.restored = !!m.ok; if (!m.ok) l.err = m.error || 'فشل الإرجاع'; }
     const rec = Object.assign({}, d, { lines: lines, restored_at: new Date().toISOString() });
@@ -11291,7 +11308,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122l"></script>
+<script src="gmt-whatsnew.js?v=20261122m"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

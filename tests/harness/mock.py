@@ -23,7 +23,15 @@ def match(row, k, expr):
         return any(match(row, *c.split('.',1)) for c in inner.split(','))
     op, _, val = expr.partition('.')
     if len(val) >= 2 and val[0] == '"' and val[-1] == '"': val = val[1:-1]   # كـPostgREST: قيمةٌ بين علامتي تنصيص (داخل or=…)
-    v = row.get(k)
+    if '->>' in k:                              # (TASK-A0556) كـPostgREST: حقلٌ داخل JSON — col->>key
+        col, _, key = k.partition('->>'); o = row.get(col)
+        if isinstance(o, str):
+            try: o = json.loads(o)
+            except Exception: o = None
+        v = o.get(key) if isinstance(o, dict) else None
+        if v is not None and not isinstance(v, str): v = json.dumps(v) if isinstance(v, (dict, list)) else str(v)
+    else:
+        v = row.get(k)
     if op == 'eq':
         if isinstance(v, bool): return str(v).lower() == val
         return v is not None and str(v) == val
