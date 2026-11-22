@@ -3948,13 +3948,20 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       if (isWrite && res.status === 200) {
         try {
           const txt = await res.clone().text();
-          if (txt && txt.trim() === '[]') add('crit', 'كتابة بلا أثر', `${method} نجح لكنه لم يُعدّل أي صف — العملية لم تحدث فعلياً!`, redact(url));
+          /* (TASK-A0561) كتابةٌ **شرطيّة** (شرطٌ غير المعرّف: stock_deducted=is.null · updated_at=eq. · col->>key …) صُمّمت لتُرجع لا شيء حين
+             يسبقها جهازٌ آخر أو تتغيّر النسخة — ليست «بلا أثر». ظهرت بعد إعادة الجامع لصفحات gmt-staff (كان يتخطّاه). */
+          const _cond = (url.split('?')[1] || '').split('&').some(kv => { const k = kv.split('=')[0]; return k && !/^(id|select|order|limit|offset|on_conflict|columns)$/.test(k) && /=(is|eq|neq|gt|gte|lt|lte|in|like|ilike|cs|not)\./.test(kv); });
+          if (txt && txt.trim() === '[]' && !_cond) add('crit', 'كتابة بلا أثر', `${method} نجح لكنه لم يُعدّل أي صف — العملية لم تحدث فعلياً!`, redact(url));
         } catch (_) {}
       }
       return res;
     } catch (err) {
       T.done();
       const aborted = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+      /* (TASK-A0561 · المالك seq 959 «ركّز على الإشعارات والأصوات») فحوصٌ خلفيّة تفشل طبيعياً حين ينقطع الإنترنت — ليست عطلاً:
+         فحص التحديث (sw.js?vc=) ×17 · عدّاد صندوق الإشعارات (notify-inbox «count/list») ×13 — كانت «خطأ حرج: شبكة» */
+      const _bg = /sw\.js\?vc=/.test(url) || (/\/functions\/v1\/notify-inbox/.test(url) && /"action":"(count|list)"/.test(String((init && init.body) || '')));
+      if (_bg || navigator.onLine === false) throw err;
       add('crit', 'شبكة', method + ' ' + redact(url),
         aborted ? `انقطع الطلب بعد ${REQ_TIMEOUT / 1000} ثانية (مهلة) — السيرفر لم يردّ. الصفحة لم تتجمّد.` : ((err && err.message) || 'فشل الاتصال'));
       throw err;

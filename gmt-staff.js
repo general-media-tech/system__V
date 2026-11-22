@@ -325,6 +325,10 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
      ═══════════════════════════════════════════════════════════════════ */
   var RF = (window.__gmtRealFetch || window.fetch).bind(window);
   window.__gmtRealFetch = RF;
+  /* (TASK-A0561 · المالك seq 929 «خلّيها مراقَبة وتسجّل» · seq 959) هذا الغلاف كان يستدعي RF — أي fetch **قبل** جامع الأخطاء في gmt-core —
+     فيُسقط الجامع كلّه من السلسلة في كلّ صفحةٍ تحمّل gmt-staff.js (الأوردرات · الجرد · المركز …): لا «HTTP 4xx/5xx» ولا «شبكة» ولا «بطء»
+     ولا «تكرار» ولا «كتابة بلا أثر» من أهمّ الصفحات. الآن يغلّف السلسلة الحالية (INNER) · RF يبقى للقراءات الداخلية بلا مراقبة (التحقّق ⑤). */
+  var INNER = window.fetch.bind(window);
 
   var recentWrites = [];   // للكشف عن الكتابة المزدوجة
 
@@ -339,7 +343,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
 
     var res;
     try {
-      res = await RF(input, init);
+      res = await INNER(input, init);
     } catch (err) {
       S.silent.push({ t: Date.now(), kind: 'net_fail', msg: method + ' فشل شبكياً: ' + (err && err.message), url: url.slice(0, 160) });
       save();
@@ -354,7 +358,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       save();
       /* (المالك seq 566 · الفحوصات) طلبات HEAD هي فحص الفاحص الذاتي لوجود الملفّات — لا عمل المستخدم: كانت تُسجَّل
          ~٣٥ «طلب بطيء جداً» دفعةً واحدة كلّ يوم على شبكةٍ ضعيفة (صفحة الأوردرات ٧ ت2) */
-      if (ms > 9000 && method !== 'HEAD' && window.GMTBug && GMTBug.log) {
+      /* (TASK-A0561) + فحص التحديث الخلفيّ (sw.js?vc=) — بطؤه لا يجمّد شيئاً (كان «طلب بطيء جداً» ×17) */
+      if (ms > 9000 && method !== 'HEAD' && !/sw\.js\?vc=/.test(url) && window.GMTBug && GMTBug.log) {
         GMTBug.log('slow', 'طلب بطيء جداً (' + ms + 'ms) — سبب محتمل للتجميد: ' + method + ' ' + url.slice(0, 90));
       }
     }
