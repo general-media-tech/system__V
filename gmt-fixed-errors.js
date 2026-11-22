@@ -14,5 +14,7 @@ window.GMT_FIXED_ERRORS = [
   { re: 'notify-inbox', type: 'تكرار', page: 'الرئيسية', at: '2026-11-21T23:20:00Z', task: 'TASK-A0544', what: 'طلبٌ واحد لتوثيق صندوق الإشعارات' },
   { re: 'rpc/deduct_branch_stock.*__probe__', page: 'الجرد', at: '2026-11-22T00:30:00Z', task: 'TASK-A0546', what: 'فحص توفّر الدالّة لا يُسجَّل خطأً' },
   { re: 'e\\.target\\.closest is not a function', page: 'المتجر', at: '2026-11-22T13:00:00Z', task: 'TASK-A0550', what: 'gmt-hints: سفاري يُطلق mouseover على عقدة نصّ ⇒ نصعد للعنصر' },
+  { re: 'يشير لصفحة HTML بدل صورة', page: 'الموقع', at: '2026-11-22T16:00:00Z', task: 'TASK-A0553', what: 'بانرٌ بلا صورة لا يُرسم · إدارة الموقع ترفض حفظه' },
+  { re: '12570_1775504010273', page: 'المتجر', at: '2026-11-22T16:00:00Z', task: 'TASK-A0553', what: 'صورة LC500R الميّتة ⇐ images_hidden في كتالوج المتجر' },
   { re: 'ميزة لا تعمل كما هو مطلوب', page: '', at: '2026-11-22T13:00:00Z', task: 'TASK-A0550', what: 'بنود الحارس المعروفة قيد البناء (STORE-MODEL · SEC-SOV) في لوحة الحارس لا في سجلّ الأخطاء' }
 ];

@@ -566,7 +566,10 @@ a.nc:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(15,18,25,.1)}
     var wrap = $(id), dots = $(did);
     wrap.querySelectorAll('img').forEach(function (i) { i.remove(); });
     clearInterval(bnTimers[slot]);
-    if (!banners || !banners.length) { wrap.style.display = 'none'; return; }
+    /* (TASK-A0553 · سجلّ الأخطاء: «<img> يشير لصفحة HTML» + «صورة مفقودة (404)» ٩ أجهزة) ٣ بانرات سفليّة في قاعدة الموقع بلا صورة
+       (Canon EOS R5 · خدمات الكفالة · تتبع الشحنات) ⇒ src='' يحمّل الصفحة نفسها كصورة ويُعرض فراغاً في الدوران — البانر بلا صورة لا يُرسم */
+    banners = (banners || []).filter(function (b) { return b && String(b.image_url || '').trim(); });
+    if (!banners.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
     var imgs = banners.map(function (b, i) {
       var im = document.createElement('img'); im.src = b.image_url || ''; im.alt = b.alt_text || ''; im.loading = i ? 'lazy' : 'eager'; if (i) im.className = 'hide';
