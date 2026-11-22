@@ -15,7 +15,7 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
     // ناقصة: بندٌ غير مربوط + بلا مورّد
     { id: 7702, inv_number: 'IMP-2026-0004', inv_type: 'china', inv_date: '2026-03-03', status: 'transit', total_amount: 5, items_snapshot: [{ id: null, name: 'بند يتيم', barcode: 'NOPE-1', qty: 1, unit_price: 5 }], created_at: '2026-03-03T00:00:00Z' },
     // سليمة أيضاً: أصلٌ للمحل غير مربوط عمداً + كمية 0 بملاحظةٍ تشرحها
-    { id: 7703, inv_number: 'IMP-2026-0005', inv_type: 'china', supplier: 'أصول', inv_date: '2026-03-04', status: 'transit', total_amount: 20, items_snapshot: [{ id: null, name: 'ستاند عرض', barcode: 'ASSET-1', qty: 2, unit_price: 10, notes: 'أصل للمحل — سُجّل في «سجلّ الأصول»' }, Object.assign(it(6, 0), { unit_price: 3, notes: 'الكمية 0 بطلب المالك' }), Object.assign(it(7, 4), { unit_price: 0, notes: 'السعر 0 كما هو — بطلب المالك seq 397' })], created_at: '2026-03-04T00:00:00Z' }]);
+    { id: 7703, inv_number: 'IMP-2026-0005', inv_type: 'china', supplier: 'أصول', inv_date: '2026-03-04', status: 'transit', total_amount: 24, items_snapshot: [{ id: null, name: 'ستاند عرض', barcode: 'ASSET-1', qty: 2, unit_price: 10, notes: 'أصل للمحل — سُجّل في «سجلّ الأصول»' }, Object.assign(it(6, 0), { unit_price: 3, notes: 'الكمية 0 بطلب المالك' }), Object.assign(it(7, 4), { unit_price: 0, notes: 'السعر 0 كما هو — بطلب المالك seq 397' }), { id: null, name: 'حمالة شخصية', qty: 1, unit_price: 4, notes: 'استخدام شخصي — ليست بضاعة للشركة' }], created_at: '2026-03-04T00:00:00Z' }]);
   // نقل بحاجة تسوية
   const tr = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TRF-00004', from_branch: 'haleb', to_branch: 'daraa', from_branch_name: 'حلب', to_branch_name: 'درعا', status: 'needs_settlement', settled: false }]);
   await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: tr[0].id, product_name: 'كاميرا تجربة 0', qty: 0, requested_qty: 4, deduction_failed: true }]);
@@ -32,7 +32,7 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   ok(by['فواتير شراء برقمٍ مكرَّر'].n === '1', 'رقم مكرّر: ١');
   const pg_ = by['فواتير شراء فيها نقص (سعر · ربط · كمية · مورّد · مجموع)'];
   const pgTxt = await pg.evaluate(() => { const c = [...document.querySelectorAll('.card')].find(c => /فواتير شراء فيها نقص/.test(c.textContent)); return c ? c.innerText : ''; });
-  ok(pg_ && pg_.n === '4' && /بند بسعر شراء 0/.test(pgTxt) && /غير مربوط بمنتج/.test(pgTxt) && /بلا مورّد/.test(pgTxt) && !/IMP-2026-0003|IMP-2026-0005/.test(pgTxt), '(A0549) فواتير فيها نقص: ٤ (الثلاث بلا سعر + اليتيمة بلا مورّد) · «هدية» و«أصل للمحل» و«كمية 0 بملاحظة» ليست نقصاً ' + (pg_ && pg_.n));
+  ok(pg_ && pg_.n === '4' && /بند بسعر شراء 0/.test(pgTxt) && /غير مربوط بمنتج/.test(pgTxt) && /بلا مورّد/.test(pgTxt) && !/IMP-2026-0003|IMP-2026-0005/.test(pgTxt), '(A0549) فواتير فيها نقص: ٤ (الثلاث بلا سعر + اليتيمة بلا مورّد) · «هدية» و«أصل للمحل» و«استخدام شخصي» و«كمية 0 بملاحظة» ليست نقصاً ' + (pg_ && pg_.n));
   ok(await pg.evaluate(() => !!document.querySelector('a[href="purchase.html?open=7702"]')), '(A0549) «فتح ←» بمعرّف الفاتورة لا برقمها');
   ok(by['معدّات لها كمّية بلا فاتورة شراء'] && by['معدّات لها كمّية بلا فاتورة شراء'].n !== '؟', '(A0549) معدّات لها كمّية بلا فاتورة: ' + (by['معدّات لها كمّية بلا فاتورة شراء'] || {}).n);
   ok(by['أوردرات متقدّمة بلا فاتورة'].n === '1', 'أوردر متقدّم بلا فاتورة: ١ (المفوتَر و«قيد التجهيز» لا يُعدّان)');

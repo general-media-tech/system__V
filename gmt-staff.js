@@ -3061,7 +3061,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         if (b) invoicedBarcodes.add(b);
         if (it.id && byPid.has(it.id)) { invoicedIds.add(it.id); return; }          // مربوط بالمعرّف
         if (b && byBarcode.has(b)) { invoicedIds.add(String(byBarcode.get(b).id)); return; }   // مربوط بالباركود
-        if (/أصل للمحل|سجلّ الأصول/.test(it.notes || '')) { assetLines++; return; }   // أصلٌ للمحل لا بضاعة
+        if (/أصل للمحل|سجلّ الأصول|استخدام شخصي/.test(it.notes || '')) { assetLines++; return; }   // أصلٌ للمحل أو استخدامٌ شخصي (المالك seq 945) — لا بضاعة
         if (!(Number(it.qty) > 0)) return;                                            // بندٌ صُفّر عمداً
         orphanItems.push({ inv, item: it, kind: it.id ? 'dead' : (b ? 'nobc' : 'unlinked') });
       });
@@ -3369,7 +3369,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       </div>` : ''}
 
       ${r.assetLines ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:10px;font-size:11px;color:#475569;font-weight:700;line-height:1.8;margin-bottom:8px;">
-        🏪 ${r.assetLines} بند مشتريات «أصل للمحل» (ستاندات · قارئ باركود…) — خارج الجرد عمداً ومسجّلة في سجلّ الأصول.
+        🏪 ${r.assetLines} بند مشتريات «أصل للمحل» أو «استخدام شخصي» (ستاندات · قارئ باركود…) — خارج الجرد عمداً.
       </div>` : ''}
       ${r.noBarcodeItems ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:10px;font-size:11px;color:#475569;font-weight:700;line-height:1.8;">
         ℹ️ ${r.noBarcodeItems} بند فاتورة بلا باركود — لا يمكن ربطه آلياً. أضف له باركوداً بالفاتورة ليدخل التدقيق.

@@ -128,7 +128,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
       if (/cancel/i.test(v.status || '')) return;
       var it = jparse(v.items_snapshot, []); if (!Array.isArray(it)) it = [];
       /* أصلٌ للمحل (ستاند عرض · قارئ باركود…) خارج الجرد عمداً — نفس قاعدة لوحة التدقيق (gmt-staff.js) */
-      var ASSET_RE = /أصل للمحل|سجلّ الأصول/;
+      var ASSET_RE = /أصل للمحل|سجلّ الأصول|استخدام شخصي/;   /* (seq 945) «استخدام شخصي» — ليست بضاعة للشركة */
       var goods = it.filter(function (x) { return x && !ASSET_RE.test(String(x.notes || '')); });
       var zero = goods.filter(function (x) { return num(x.qty) > 0 && num(x.unit_price) <= 0 && !GIFT_RE.test(String(x.notes || '')); });
       var unl = goods.filter(function (x) { return !byId[String(x.id || '')] && !(x.barcode && byBc[nz(x.barcode)]); });
@@ -278,7 +278,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261122e"></script>
+<script src="gmt-whatsnew.js?v=20261122f"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 </body>
 </html>
