@@ -1443,6 +1443,37 @@ async function sbGet() {
     return keepImg(out);
 }
 
+/* (TASK-A0551 · سجلّ الأخطاء: «طلب بطيء جداً» لقائمة الأوردرات ×41 بوسيط ١٣٫٧ث + «تجمّدت الواجهة» ×9 — المالك seq 948 «كمّل»)
+   التحديث كلّ ٣٠ث كان يجلب القائمة كلّها ويعيد رسمها ولو لم يتغيّر شيء. الآن: الدورة تجلب ما تغيّر فقط (updated_at — مشغّل
+   trg_gmt_orders_updated_at يحدّثه مع كلّ تعديل) بتداخل دقيقتين (معاملةٌ بدأت قبل آخر قراءة وكُتبت بعدها) وتُدمج بالمعرّف،
+   ولا يُعاد الرسم إلّا إن تغيّر صفّ. القائمة الكاملة: أوّل تحميل · بعد كلّ عملية · وكلّ ٥ دقائق (حذفٌ فعليّ · أمانٌ عامّ). */
+let _ordFullAt = 0, _ordMaxUpd = '';
+const ORD_FULL_EVERY = 5 * 60000;
+function ordMaxUpd(rows) { let m = ''; for (const o of rows || []) { const u = o && o.updated_at; if (u && (!m || +new Date(u) > +new Date(m))) m = u; } return m; }
+async function sbGetDelta() {
+    const cols = await ordersCols(), sel = 'select=' + (cols === '*' ? '*' : encodeURIComponent(cols));
+    const from = new Date(+new Date(_ordMaxUpd) - 120000).toISOString();
+    const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?${sel}&updated_at=gte.${encodeURIComponent(from)}&order=updated_at.asc&limit=300`, { headers: SB_HEADERS });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+}
+/* يدمج الصفوف المتغيّرة في orders ⇒ عدد ما تغيّر فعلاً (صورة الإيصال المجلوبة تبقى ما دام الإيصال نفسه) */
+function ordersMerge(rows) {
+    const byId = new Map((orders || []).map((o, i) => [String(o.id), i]));
+    const strip = o => { const c = Object.assign({}, o); delete c.receipt_img; return JSON.stringify(c); };
+    let changed = 0;
+    for (const o of rows) {
+        const i = byId.get(String(o.id));
+        if (i == null) { orders.push(o); byId.set(String(o.id), orders.length - 1); changed++; continue; }
+        const p = orders[i];
+        if (strip(p) === strip(o)) continue;
+        if (p.receipt_img && !o.receipt_img && o.receipt_at && sameAt(p.receipt_at, o.receipt_at)) o.receipt_img = p.receipt_img;
+        orders[i] = o; changed++;
+    }
+    if (changed) orders.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return changed;
+}
+
 window.loadAllOrdersArchive = async () => {
     _ordersLoadAll = true;
     showToast('⏳ جارٍ تحميل كل الأرشيف…', 'ok');
@@ -1617,7 +1648,20 @@ window.addEventListener('scroll', () => {
     lastScrollY = Math.max(0, window.scrollY);
 }, { passive: true });
 
-async function loadOrders() {
+async function loadOrders(opt) {
+    /* (TASK-A0551) دورة التحديث: ما تغيّر فقط — والكامل كلّ ٥ دقائق */
+    if (opt && opt.poll && _ordMaxUpd && Array.isArray(orders) && orders.length && !_ordersLoadAll && Date.now() - _ordFullAt < ORD_FULL_EVERY) {
+        try {
+            const rows = await sbGetDelta();
+            if (rows.length < 300) {
+                setConnStatus(true);
+                const n = ordersMerge(rows);
+                const m = ordMaxUpd(rows); if (m && +new Date(m) > +new Date(_ordMaxUpd)) _ordMaxUpd = m;
+                if (n) { render(); try { localStorage.setItem('gmt_orders_snapshot', JSON.stringify({ at: Date.now(), rows: orders })); } catch (_) {} }
+                return;
+            }
+        } catch (_) { /* ⇐ القراءة الكاملة أدناه (وفيها احتياط «لا اتصال») */ }
+    }
     /* 🔧 (2026-08-22) الأوردرات كانت **الصفحة الوحيدة** التي لا تستعمل تخزيناً محلياً
        (الجرد والمشتريات يستعملان GMTCache) ⇒ عند انقطاع الإنترنت تظهر «خطأ في الاتصال»
        وتبقى الشاشة فارغة. الآن: تُحفظ آخر نسخة ناجحة محلياً وتُعرض عند الانقطاع مع
@@ -1626,6 +1670,7 @@ async function loadOrders() {
     const CK = 'gmt_orders_snapshot';
     try {
         orders = await sbGet();
+        _ordFullAt = Date.now(); _ordMaxUpd = ordMaxUpd(orders);   /* (TASK-A0551) */
         setConnStatus(true);
         render();
         try { localStorage.setItem(CK, JSON.stringify({ at: Date.now(), rows: orders })); } catch (_) {}
@@ -1696,9 +1741,9 @@ function ordersPollBusy() {
     const m = document.getElementById('shipModal');
     return document.hidden || _shipSaving || !!(m && !m.classList.contains('hidden'));
 }
-setInterval(() => { if (ordersPollBusy()) return; _ordersPollAt = Date.now(); loadOrders(); }, 30000);
+setInterval(() => { if (ordersPollBusy()) return; _ordersPollAt = Date.now(); loadOrders({ poll: true }); }, 30000);
 document.addEventListener('visibilitychange', () => {
-    if (!ordersPollBusy() && Date.now() - _ordersPollAt > 30000) { _ordersPollAt = Date.now(); loadOrders(); }
+    if (!ordersPollBusy() && Date.now() - _ordersPollAt > 30000) { _ordersPollAt = Date.now(); loadOrders({ poll: true }); }
 });
 
 function setConnStatus(ok) {
@@ -11246,7 +11291,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122g"></script>
+<script src="gmt-whatsnew.js?v=20261122h"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
