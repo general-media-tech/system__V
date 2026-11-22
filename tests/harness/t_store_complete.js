@@ -8,7 +8,7 @@ const cats = [C('a', 'كاميرات كانون'), C('a1', 'كاميرات', 'a'
 const Pr = (id, name, price, cat, x) => Object.assign({ id, name, price, category_id: cat, category_ids: [cat], images: [], stock: 5 }, x || {});
 const prods = [Pr('cam', 'Canon EOS R50 body', 620, 'a1'), Pr('bat', 'بطارية LP-E17', 25, 'b1', { compat: 'Canon EOS R50 · RP · 250D · M6 II' }), Pr('bat2', 'بطارية LP-E6', 30, 'b1', { compat: 'Canon R6 · 5D' }),
   Pr('sd', 'ذاكرة SanDisk 128GB', 22, 'b2'), Pr('bag', 'حقيبة كتف كانون', 28, 'b3'), Pr('tri', 'ترايبود 170 سم', 35, 'c1'), Pr('noprice', 'ذاكرة بلا سعر', 0, 'b2'), Pr('pl26', 'Pl26', 20, 'd4'), Pr('big', 'لوح ليد 660 كبير', 80, 'd4'),
-  Pr('head', 'YM-S100 هيد', 125, 'd1'), Pr('soft', 'سوفت بوكس 65 سم', 18, 'd2'), Pr('stand', 'ستاند 2.6 م', 15, 'd3'), Pr('misc', 'كوب حراري', 9, 'z1')];
+  Pr('head', 'YM-S100 هيد', 125, 'd1', { compat: 'تركيب Bowens · ستاند 5/8' }), Pr('soft', 'سوفت بوكس 65 سم', 18, 'd2', { compat: 'حربة Bowens' }),   /* (TASK-A0559) قاعدة A0526: السوفت يُقترح حسب تركيب الرأس في «يتوافق مع» — رأسٌ بلا توافق ⇒ ستاند فقط */ Pr('stand', 'ستاند 2.6 م', 15, 'd3'), Pr('misc', 'كوب حراري', 9, 'z1')];
 const store = { categories: cats, banners: [], offers: [], branches: [], products: prods };
 (async () => {
   await H.seed(); await H.call('/rest/v1/gmt_store', [{ id: 1, updated_at: '2026-11-13T10:00:00Z', ...store }]);
