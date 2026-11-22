@@ -306,7 +306,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261122l"></script>
+  <script src="gmt-core.js?v=20261122o"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261122n" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261121k"></script>
@@ -3513,10 +3513,10 @@ async function initStore(){
     }
     const fullP = fetchStoreRecord().catch(() => null);
     window.__gmtFullP = fullP.then(() => {});
-    let lightShown = false, fullDone = false;
+    let lightShown = false, fullDone = false, lightSrc = null;
     _fetchStoreHome().then(lr => {
         if (!lr || fullDone || lightShown) return;
-        lightShown = true;
+        lightShown = true; lightSrc = lr.__src_updated_at || null;
         _applyRecord(Object.assign({}, lr, { __fromCache: true }));   // لا تُحفظ «آخر نسخة جيّدة» من الخفيفة
         store.__light = true;
         renderAll();
@@ -3529,7 +3529,13 @@ async function initStore(){
     if (rec) { _applyRecord(rec); _homeSelfHeal(rec); }
     else if (!lightShown) _applyMock();
     store.__light = false;                     // الكامل وصل ⇒ هو المرجع · أو فشل ⇒ الخفيفة هي ما لدينا (لا انتظار بلا نهاية عند فتح منتج)
-    if (rec || !lightShown) { renderAll(); if (lightShown) { window.scrollTo(0, y); _refreshOpenModal(); } }
+    /* (TASK-A0558 · سجلّ الأخطاء: «تجمّدت الواجهة 3.7ث — مهامّ طويلة» في المتجر) الرسم الكامل الثاني (~1.3ث على هاتفٍ متوسّط) كان يتكرّر
+       ولو بُنيت الخفيفة من **النسخة نفسها** — والبطاقات منها متطابقة (homeBuild يحذف ما لا تعرضه البطاقة فقط). ⇒ يُتخطّى إلّا إن
+       اختلفت النسخة أو اختار الزبون كاميرته (شارة «✓ يناسب كاميرتك» تحتاج التوافقات الكاملة). النافذة المفتوحة تُحدَّث كما كانت. */
+    const _sameCards = !!(rec && lightShown && lightSrc && lightSrc === rec.updated_at && !(window.GMTCamFinder && GMTCamFinder.mine && GMTCamFinder.mine()));
+    window.__gmtFullRerender = !_sameCards && !!(rec || !lightShown);
+    if (_sameCards) _refreshOpenModal();
+    else if (rec || !lightShown) { renderAll(); if (lightShown) { window.scrollTo(0, y); _refreshOpenModal(); } }
 
     _contentReady=true;_storeStallClear(); _tryCloseIntro();
     // Apply deep link after render

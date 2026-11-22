@@ -31,6 +31,17 @@ const light = { categories: cats, banners: [], offers: [], branches: [], __light
   const real = o.errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS: ' + real.slice(0, 2).join(' / '));
   await o.browser.close();
+  /* ①ب (TASK-A0558) الخفيفة مبنيّة من **النسخة نفسها** ⇒ لا رسمٌ كاملٌ ثانٍ (كان ~1.3ث على هاتفٍ متوسّط) · والنافذة المفتوحة تكتمل كما كانت */
+  o = await H.open('logo.jpg', { w: 390, h: 844, mobile: true, wait: 0 });
+  await o.ctx.route(/\/storage\/v1\/object\/public\/products-images\/store\/home\.json/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(Object.assign({}, light, { __src_updated_at: '2026-11-01T10:00:00Z' })) }));
+  await o.ctx.route(/\/rest\/v1\/gmt_store\?/, async r => { await new Promise(z => setTimeout(z, 3000)); return r.fallback(); });
+  await o.pg.goto(H.BASE + 'store.html', { waitUntil: 'domcontentloaded' });
+  await o.pg.waitForFunction(() => store.__light === true && document.querySelectorAll('[data-category-section]').length === 2, null, { timeout: 15000 });
+  await o.pg.evaluate(() => { window.__rp = 0; const f = renderProducts; renderProducts = function () { window.__rp++; return f.apply(this, arguments); }; openProductModal('s_2'); });
+  await o.pg.waitForFunction(() => store.__light === false && /102 غ/.test(document.getElementById('product-modal').innerText), null, { timeout: 15000 });
+  const sb = await o.pg.evaluate(() => ({ rp: window.__rp, re: window.__gmtFullRerender, n: store.products.length, cards: [...document.querySelectorAll('h4')].filter(h => /^منتج \d/.test(h.textContent.trim())).length }));
+  ok(sb.rp === 0 && sb.re === false && sb.n === 8 && sb.cards >= 8, '①ب النسخة نفسها ⇒ لا رسم ثانٍ · البطاقات باقية · المواصفات (102 غ) في النافذة المفتوحة ' + JSON.stringify(sb));
+  await o.browser.close();
   /* ② بلا نسخة خفيفة (الجدول غير موجود/فارغ) ⇒ كما كان تماماً */
   o = await H.open('logo.jpg', { w: 390, h: 844, mobile: true, wait: 0 });
   await o.ctx.route(/\/storage\/v1\/object\/public\/products-images\/store\/home\.json/, r => r.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not_found"}' }));

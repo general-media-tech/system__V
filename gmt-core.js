@@ -451,9 +451,17 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
         var name = src.split('/').pop().split('?')[0];
         if (broken.indexOf(name) === -1) broken.push(name);
 
-        // أبلِغ الحارس دائماً — لا تمرّ الصور المفقودة بصمت
+        // أبلِغ الحارس — لا تمرّ الصور المفقودة بصمت
+        /* (TASK-A0558 · سجلّ الأخطاء ٢٢ ت2 13:37: ~٢٠ «صورة مفقودة (404)» من جهازٍ واحد في الثانية نفسها — وكلّها موجودة (200):
+           انقطع الإنترنت فسقطت الصور معاً). «مفقودة» تُسجَّل فقط إن ردّ الخادم 404/410 فعلاً · لا اتصال أو فشل الفحص ⇒ لا شيء */
         if (window.GMTBug && GMTBug.log) {
-          GMTBug.log('warn', 'صورة مفقودة (404): ' + name, { type: 'missing_asset', file: name, page: document.title });
+          (function (abs) {
+            if (navigator.onLine === false || !/^https?:/i.test(abs)) return;
+            var F = window.__gmtRealFetch || window.fetch;
+            F(abs, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+              if (r && (r.status === 404 || r.status === 410)) GMTBug.log('warn', 'صورة مفقودة (' + r.status + '): ' + name, { type: 'missing_asset', file: name, page: document.title });
+            }).catch(function () {});
+          })(img.currentSrc || img.src || '');
         }
         if (window.GMTInspect && GMTInspect.step) GMTInspect.step('🖼️', 'صورة مفقودة: ' + name);
 
@@ -3893,7 +3901,8 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       const sig = method + ' ' + url.split('?')[0] + ' ' + String((init && init.body) || '').slice(0, 80);
       const prev = recentWrites.get(sig);
       /* (TASK-A0544) قراءاتٌ تُرسَل POST (عدّ/قائمة الإشعارات) ليست كتابة — لا «خطر ازدواج» */
-      if (prev && started - prev < 2000 && !/"action":"(count|list)"/.test(String((init && init.body) || ''))) add('warn', 'تكرار', 'نفس عملية الكتابة تكرّرت خلال ثانيتين — خطر ازدواج', method + ' ' + redact(url));
+      /* (TASK-A0558) + فحص الفاحص الذاتي «__probe__» (كمية 0 لمنتجٍ وهميّ) ليس كتابة مخزون — كان «تكرار add_branch_stock» في الرئيسية */
+      if (prev && started - prev < 2000 && !/"action":"(count|list)"|__probe__/.test(String((init && init.body) || ''))) add('warn', 'تكرار', 'نفس عملية الكتابة تكرّرت خلال ثانيتين — خطر ازدواج', method + ' ' + redact(url));
       recentWrites.set(sig, started);
       setTimeout(() => recentWrites.delete(sig), 4000);
 
