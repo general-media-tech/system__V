@@ -2982,7 +2982,7 @@ function pmZoomOpen(i){
         const dist=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
         const clamp=()=>{ const mx=(im.clientWidth*_pz.s-innerWidth)/2, my=(im.clientHeight*_pz.s-innerHeight)/2; _pz.x=mx>0?Math.max(-mx,Math.min(mx,_pz.x)):0; _pz.y=my>0?Math.max(-my,Math.min(my,_pz.y)):0; };
         const toggle=()=>{ _pz.s=_pz.s>1?1:2.5; _pz.x=0;_pz.y=0; _pzApply(); };
-        z.addEventListener('touchstart',e=>{ if(e.target.closest('.pz-btn'))return; moved=false;
+        z.addEventListener('touchstart',e=>{ if(e.target.closest&&e.target.closest('.pz-btn'))return; moved=false;
             if(e.touches.length===2){ pd=dist(e); ps=_pz.s; t0=null; return; }
             t0={x:e.touches[0].clientX,y:e.touches[0].clientY,ox:_pz.x,oy:_pz.y}; },{passive:true});
         z.addEventListener('touchmove',e=>{ if(e.touches.length===2&&pd){ _pz.s=Math.max(1,Math.min(4,ps*dist(e)/pd)); clamp(); _pzApply(true); moved=true; return; }
@@ -4016,7 +4016,7 @@ document.addEventListener('DOMContentLoaded', initStore);
 try { if (new URLSearchParams(location.search).get('skip_intro')==='1') document.getElementById('intro-screen')?.remove(); } catch(_) {}
 </script>
 <script src="gmt-specs.js?v=20261103a"></script>
-<script src="gmt-hints.js?v=20261011h"></script>
+<script src="gmt-hints.js?v=20261122g"></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
 <script src="gmt-warmup.js?v=20261117j"></script>
 <script src="gmt-selfcheck.js?v=20261118c"></script>

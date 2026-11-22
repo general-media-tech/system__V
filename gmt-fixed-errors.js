@@ -12,5 +12,7 @@ window.GMT_FIXED_ERRORS = [
   { re: 'gmt_comments\\.text does not exist', page: 'المتجر', at: '2026-11-21T23:20:00Z', task: 'TASK-A0544', what: 'عمود التقييم الفعليّ «comment» أوّلاً' },
   { re: 'gmt_store\\.branches does not exist', page: 'الموقع', at: '2026-11-21T23:20:00Z', task: 'TASK-A0544', what: 'أُزيل احتياط الفروع من عمودٍ غير موجود' },
   { re: 'notify-inbox', type: 'تكرار', page: 'الرئيسية', at: '2026-11-21T23:20:00Z', task: 'TASK-A0544', what: 'طلبٌ واحد لتوثيق صندوق الإشعارات' },
-  { re: 'rpc/deduct_branch_stock.*__probe__', page: 'الجرد', at: '2026-11-22T00:30:00Z', task: 'TASK-A0546', what: 'فحص توفّر الدالّة لا يُسجَّل خطأً' }
+  { re: 'rpc/deduct_branch_stock.*__probe__', page: 'الجرد', at: '2026-11-22T00:30:00Z', task: 'TASK-A0546', what: 'فحص توفّر الدالّة لا يُسجَّل خطأً' },
+  { re: 'e\\.target\\.closest is not a function', page: 'المتجر', at: '2026-11-22T13:00:00Z', task: 'TASK-A0550', what: 'gmt-hints: سفاري يُطلق mouseover على عقدة نصّ ⇒ نصعد للعنصر' },
+  { re: 'ميزة لا تعمل كما هو مطلوب', page: '', at: '2026-11-22T13:00:00Z', task: 'TASK-A0550', what: 'بنود الحارس المعروفة قيد البناء (STORE-MODEL · SEC-SOV) في لوحة الحارس لا في سجلّ الأخطاء' }
 ];

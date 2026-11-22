@@ -1994,8 +1994,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       save(LEDGER, moneyLedger);
     }
 
-    // أرسل للقاعدة عبر الحارس إن وُجد
-    if (window.GMTBug && GMTBug.log) {
+    // أرسل للقاعدة عبر الحارس إن وُجد — (TASK-A0550) إلّا البنود المعروفة قيد البناء (STORE-MODEL · SEC-SOV):
+    // كانت تُكتب «خطأ حرج» في سجلّ الأخطاء كلّ يوم وهي ليست عطلاً وقع — تبقى في لوحة الحارس (warden_incidents) وحدها
+    if (window.GMTBug && GMTBug.log && !o.known) {
       GMTBug.log(inc.severity === 'critical' ? 'critical' : 'warn',
         '🛡️ ' + inc.title, { warden: true, kind: inc.kind, rule: inc.rule, money: inc.money_delta });
     }
@@ -2070,7 +2071,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       if (localStorage.getItem(key)) return;
       try { localStorage.setItem(key, '1'); } catch (e) {}
       report({
-        kind: 'rule_violation', severity: f.severity, feature: f.id,
+        kind: 'rule_violation', severity: f.severity, feature: f.id, known: true,
         rule: f.note ? f.note : null,
         title: 'ميزة لا تعمل كما هو مطلوب: ' + f.title,
         what: f.what,

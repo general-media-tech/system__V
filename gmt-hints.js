@@ -181,9 +181,12 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
   }
 
   /* ① التلميح الفوري */
+  /* (TASK-A0550 · سجلّ الأخطاء: «e.target.closest is not a function» في المتجر ×3) سفاري يُطلق mouseover على عقدة نصّ — نصعد لعنصرها */
+  function elOf(t) { while (t && t.nodeType !== 1) t = t.parentNode; return t && t.closest ? t : null; }
   function onEnter(e) {
     if (inTour) return;
-    var n = e.target.closest('[data-hint],[title]');
+    var el = elOf(e.target); if (!el) return;
+    var n = el.closest('[data-hint],[title]');
     if (!n) return;
     var t = hintOf(n);
     if (!t) return;
@@ -191,7 +194,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     if (n.hasAttribute('title')) { n.setAttribute('data-hint', t); n.removeAttribute('title'); }
     place(n, t, false);
   }
-  function onLeave(e) { if (!inTour && e.target.closest && e.target.closest('[data-hint]')) hide(); }
+  function onLeave(e) { var el = elOf(e.target); if (!inTour && el && el.closest('[data-hint]')) hide(); }
 
   /* ② الجولة على الأزرار الحقيقية */
   var ACTIONABLE = 'button,[role="button"],a[href],input[type="button"],input[type="submit"],select,[data-hint],[onclick]';
