@@ -6162,7 +6162,7 @@ function renderColCell(p, col) {
           <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         ${storeBtn}
-        ${hasPurchaseInvoice(p) ? `<button onclick="openPurchaseInvoiceFor('${p.id}')" title="عرض فاتورة الشراء" data-hint="عرض فاتورة الشراء التي دخلت منها هذه القطعة — مع السعر والمورّد والتاريخ." style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;border:1px solid #c7d2fe;background:#eef2ff;cursor:pointer;color:#0f172a;padding:0;flex-shrink:0;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
+        ${hasPurchaseInvoice(p) ? `<button onclick="openPurchaseInvoiceFor('${p.id}')" title="🧮 كيف تكوّن السعر — فواتير الشراء" data-hint="كيف تكوّن سعر هذه القطعة: فواتير الشراء التي دخلت منها · السعر الأساسي · نصيبها من الجمارك والشحن · البند الجمركي والوزن من الباكينج ليست · الكلفة الواصلة · والهامش." style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;border:1px solid #c7d2fe;background:#eef2ff;cursor:pointer;color:#0f172a;padding:0;flex-shrink:0;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#eef2ff'">
           <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
         </button>` : ''}
         ${/* 🏷️ طلبك ٧٦: «زرّ الباركود منفصلٌ وواضح بلا رسوم كرتونية».
@@ -7621,68 +7621,69 @@ async function openPurchaseInvoiceFor(productId) {
   w.innerHTML = box('<div style="text-align:center;padding:24px;color:#5b6472;font-weight:700">⏳ جارٍ البحث في فواتير الشراء…</div>');
   document.body.appendChild(w);
 
-  if (!bc) {
-    w.innerHTML = box('<div style="text-align:center;padding:20px;color:#b45309;font-weight:800">⚠️ هذه القطعة بلا باركود</div>' +
-      '<div style="text-align:center;font-size:12px;color:#5b6472;font-weight:700">لا يمكن ربطها بفاتورة شراء آلياً — أضِف الباركود من «تعديل».</div>');
-    return;
-  }
-  /* 🔴 (2026-09-27 · بلاغ المالك) «لمّا بضغط عرض فاتورة منتج ما يطلع لي — تعذّر
-     عرض الفواتير».
-     الجذر: الترشيح كان على الخادم بـ`items_snapshot=ilike.*باركود*`. و
-     `items_snapshot` عمود **JSON**، و`ilike` لا يعمل على jsonb في PostgREST
-     (`operator does not exist: jsonb ~~ unknown`) فيعود 400 — وهو نمط P1 نفسه:
-     طلبٌ كامل يسقط بسبب تفصيلٍ في المخطّط.
-     ⚠️ والمفارقة أنّ نفس الصفحة تقرأ هذه الفواتير بنجاح في مكان آخر (البحث
-     الشامل) لأنّها تجلب الأحدث وتُرشّح **في المتصفّح**. أي أنّ الطريق الصحيح
-     كان مُجرَّباً في نفس الملفّ.
-     ⇒ نُجرّب الترشيح السريع، وعند أي فشل نسقط إلى الطريق المُجرَّب. والمطابقة
-       الدقيقة بالباركود تحدث في المتصفّح في الحالتين — فالنتيجة واحدة. */
-  const COLS = 'inv_number,inv_date,supplier,status,inv_type,currency,items_snapshot,created_at';
-  const enc = encodeURIComponent('*' + bc + '*');
-  let r = await sbFetch('GET', `/rest/v1/import_log?items_snapshot=ilike.${enc}&select=${COLS}&order=created_at.desc&limit=20`);
-  if (r.error) {
-    r = await sbFetch('GET', `/rest/v1/import_log?select=${COLS}&order=created_at.desc&limit=300`);
-  }
+  /* (TASK-A0577 · المالك seq 975 «لما أعطيك الباكينج ليست لازم تدوّن كلّ منتج: شو بنده الجمركي · شو حجمه كقطعة · تكلفة شحنه …
+     هذول كلّهم لازم يظهروا لي في تفاصيل المنتج وكيف صار السعر هيك والسعر الأساسي»)
+     «🧮 كيف تكوّن السعر»: كلّ فاتورة شراء دخل منها المنتج (بمعرّفه أو باركوده) ⇐ الأصلي · نصيب القطعة من الجمارك/الشحن/الأخرى
+     (توزيع الباكينج ليست alloc إن وُجد وإلّا بنسبة القيمة من تكاليف الفاتورة) · البند الجمركي · الوزن · الكرتونة · الواصل —
+     وفوقها: الكلفة الحاليّة · الجملة · المبيع · الهامش · تنبيه «سعرٌ مرّتين أغلى» و«سعر 0». */
+  const COLS = 'inv_number,inv_date,supplier,status,inv_type,currency,items_snapshot,created_at,cost_transport,cost_shipping,cost_customs,cost_local,cost_transfer';
+  const get = path => sbFetch('GET', path);
+  let r = window.GMTFetchAll
+    ? await GMTFetchAll(q => get(q).then(x => { if (!x || x.error) throw new Error((x && x.error) || 'err'); return x.data; }), `/rest/v1/import_log?select=${COLS}&order=created_at.desc`).then(d => ({ data: d }), e => ({ error: e.message }))
+    : await get(`/rest/v1/import_log?select=${COLS}&order=created_at.desc&limit=1000`);
   if (r.error) {
     w.innerHTML = box('<div style="text-align:center;padding:20px;color:#b91c1c;font-weight:800">تعذّر البحث في الفواتير</div><div style="font-size:11px;color:#5b6472;text-align:center">' + escHtml(r.error) + '</div>');
     return;
   }
-  // مطابقة دقيقة بالباركود داخل البنود (الترشيح النصّي قد يلتقط تطابقاً جزئياً)
+  const pid = String(p.id);
   const hits = [];
   (r.data || []).forEach(inv => {
     let items = inv.items_snapshot;
     if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
-    (items || []).forEach(it => {
-      if (String(it.barcode || '').trim().toLowerCase() === bc) hits.push({ inv, it });
+    items = Array.isArray(items) ? items : [];
+    const base = items.reduce((t, x) => t + (Number(x.qty) || 0) * (Number(x.orig_unit_price != null ? x.orig_unit_price : x.unit_price) || 0), 0);
+    const costs = ['cost_transport', 'cost_shipping', 'cost_customs', 'cost_local', 'cost_transfer'].reduce((t, k) => t + (Number(inv[k]) || 0), 0);
+    items.forEach(it => {
+      const byId = String(it.id || it.product_id || '') === pid, byBc = bc && String(it.barcode || '').trim().toLowerCase() === bc;
+      if (byId || byBc) hits.push({ inv, it, factor: base > 0 && costs > 0 ? 1 + costs / base : 1, costs });
     });
   });
+  const f = n => (Number(n) || 0).toFixed(2);
+  const cost = Number(p.cost_price) || Number(p.net_cost) || 0, whole = Number(p.wholesale_price) || 0, sale = Number(p.price) || 0;
+  const margin = (c, v) => c > 0 && v > 0 ? Math.round((v - c) / v * 100) + '%' : '—';
+  const head = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">' +
+    [['الكلفة الحاليّة', cost, '#0f1219'], ['الجملة', whole, '#1d4ed8'], ['المبيع', sale, '#047857']].map(x => '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:7px;text-align:center"><div style="font-size:10.5px;color:#5b6472;font-weight:800">' + x[0] + '</div><div style="font-size:16px;font-weight:900;color:' + x[2] + '">' + f(x[1]) + '</div></div>').join('') +
+    '</div><div style="font-size:11.5px;font-weight:800;color:#374151;margin-bottom:8px">الهامش: مبيع ' + margin(cost, sale) + ' · جملة ' + margin(cost, whole) + (cost > 0 && sale > 0 && cost >= sale ? ' · <span style="color:#b91c1c">⚠️ الكلفة ≥ المبيع</span>' : '') + '</div>';
   if (!hits.length) {
-    w.innerHTML = box('<div style="text-align:center;padding:20px;color:#5b6472;font-weight:800">لا توجد فاتورة شراء لهذه القطعة</div>' +
-      '<div style="text-align:center;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">أُضيفت على الأرجح يدوياً أو قبل اعتماد فواتير الشراء.<br>تُربط لاحقاً عند «ربط كل قطعة بفاتورة شراء».</div>');
+    w.innerHTML = box(head + '<div style="text-align:center;padding:16px;color:#5b6472;font-weight:800">لا توجد فاتورة شراء لهذه القطعة</div>' +
+      '<div style="text-align:center;font-size:12px;color:#5b6472;font-weight:700;line-height:1.8">أُضيفت على الأرجح يدوياً أو قبل اعتماد فواتير الشراء (مخزون افتتاحي) — «أداة التسويات».</div>');
     return;
   }
-  const f = n => (Number(n) || 0).toFixed(2);
-  const st = s => ({ arrived:'✅ وصلت', in_transit:'🚚 بالطريق', pending:'⏳ معلّقة', cancelled:'❌ ملغاة' }[s] || escHtml(s || '—'));
-  const cards = hits.map(({ inv, it }) => {
-    const costed = Number(it.unit_price) || 0;
-    const orig = it.orig_unit_price != null ? Number(it.orig_unit_price) : costed;
-    const diff = costed - orig;
-    return '<div style="border:1px solid #e5e7eb;border-right:4px solid #D5001C;border-radius:12px;padding:12px 14px;margin-bottom:10px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-      '<b style="font-size:14px;color:#0f1219">' + escHtml(inv.inv_number || '—') + '</b>' +
-      '<span style="font-size:11px;font-weight:800">' + st(inv.status) + '</span></div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;font-weight:700;color:#374151">' +
-      '<div>📅 ' + escHtml(inv.inv_date || (inv.created_at || '').slice(0, 10)) + '</div>' +
-      '<div>🏭 ' + escHtml(inv.supplier || '—') + '</div>' +
-      '<div>📦 الكمية: ' + (Number(it.qty) || 0) + '</div>' +
-      '<div>💱 ' + escHtml(inv.currency || 'USD') + '</div></div>' +
-      '<div style="margin-top:9px;padding-top:9px;border-top:1px dashed #e5e7eb;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;font-weight:800">' +
-      '<div style="color:#0f1219">سعر الشراء مع التكاليف<br><span style="font-size:16px">' + f(costed) + '</span></div>' +
-      '<div style="color:#b45309">الأصلي (بلا تكاليف)<br><span style="font-size:16px">' + f(orig) + '</span></div></div>' +
-      (diff > 0.004 ? '<div style="font-size:11px;color:#5b6472;font-weight:700;margin-top:6px">تكاليف الشحن والرسوم الموزّعة على القطعة: +' + f(diff) + '</div>' : '') +
-      '</div>';
-  }).join('');
-  w.innerHTML = box('<div style="font-size:11px;color:#5b6472;font-weight:800;margin-bottom:10px">' + hits.length + ' فاتورة شراء دخلت منها هذه القطعة (الأحدث أولاً)</div>' + cards);
+  const st = s => ({ arrived: '✅ وصلت', transit: '🚚 بالطريق', in_transit: '🚚 بالطريق', pending: '⏳ معلّقة', cancelled: '❌ ملغاة' }[s] || escHtml(s || '—'));
+  const rows = hits.map(({ inv, it, factor, costs }) => {
+    const orig = Number(it.orig_unit_price != null ? it.orig_unit_price : it.unit_price) || 0;
+    const al = it.alloc && typeof it.alloc === 'object' ? it.alloc : null, q = Number(it.qty) || 1;
+    const landed = it.alloc_unit != null ? Number(it.alloc_unit) : orig * factor;
+    const per = v => f((Number(v) || 0) / (al && al.basis === 'unit' ? 1 : q));
+    return { inv, it, orig, landed, al, q, factor, costs,
+      html: '<div style="border:1px solid #e5e7eb;border-right:4px solid #D5001C;border-radius:12px;padding:11px 13px;margin-bottom:9px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:14px;color:#0f1219">' + escHtml(inv.inv_number || '—') + '</b><span style="font-size:11px;font-weight:800">' + st(inv.status) + '</span></div>' +
+      '<div style="font-size:11.5px;font-weight:700;color:#374151;line-height:1.8">📅 ' + escHtml(inv.inv_date || (inv.created_at || '').slice(0, 10)) + ' · 🏭 ' + escHtml(inv.supplier || '—') + ' · 📦 ' + q + ' قطعة · ' + escHtml(inv.currency || 'USD') + '</div>' +
+      '<div style="margin-top:7px;padding-top:7px;border-top:1px dashed #e5e7eb;font-size:12px;font-weight:800;line-height:1.9">' +
+        '<div>سعر الشراء الأساسي: <b>' + f(orig) + '</b>' + (orig === 0 ? ' <span style="color:#b91c1c">⚠️ سعر 0</span>' : '') + '</div>' +
+        (al ? '<div style="color:#92400e">+ جمارك ' + per(al.customs) + ' · + شحن ' + per(al.ship) + ' · + أخرى ' + per(al.other) + ' <span style="color:#5b6472;font-weight:700">(للقطعة — من الباكينج ليست)</span></div>' +
+              '<div style="color:#475569;font-weight:700">' + (al.codes ? '🏷️ البند الجمركي: ' + escHtml([].concat(al.codes).join('، ')) + ' · ' : '') + (al.kg != null ? '⚖️ ' + (Number(al.kg) / q).toFixed(3).replace(/\.?0+$/, '') + ' كغ للقطعة (' + escHtml(al.kg) + ' للسطر) · ' : '') + (al.ctn != null ? '📦 كرتونة ' + escHtml([].concat(al.ctn).join('، ')) + ' · ' : '') + (al.basis ? 'التوزيع: ' + escHtml(({ 'volume-est+other-by-value': 'الشحن بالحجم · الباقي بالقيمة', 'weight': 'بالوزن', 'value': 'بالقيمة', 'volume': 'بالحجم' })[al.basis] || al.basis) : '') + '</div>' +
+              (al.src ? '<div style="color:#64748b;font-weight:700;font-size:11px">📄 ' + escHtml(al.src) + '</div>' : '')
+            : (factor > 1 ? '<div style="color:#92400e">+ تكاليف الفاتورة (شحن · جمارك · نقل) موزّعة بنسبة القيمة: +' + f(orig * (factor - 1)) + ' <span style="color:#5b6472;font-weight:700">(×' + factor.toFixed(3) + ')</span></div>' : '<div style="color:#5b6472;font-weight:700">بلا تكاليف مسجّلة على الفاتورة' + (inv.status === 'transit' ? ' بعد (في الطريق)' : '') + '</div>')) +
+        '<div style="font-size:14px;color:#0f1219">= الكلفة الواصلة: <b>' + f(landed) + '</b></div>' +
+      '</div></div>' };
+  });
+  const L = rows.map(x => x.landed).filter(x => x > 0), mn = L.length ? Math.min(...L) : 0, mx = L.length ? Math.max(...L) : 0;
+  const zero = rows.filter(x => x.orig === 0).length;
+  const warn = (mx > 0 && mn > 0 && mx / mn >= 2 ? '<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-bottom:8px">⚠️ اشتُري بأسعار متباعدة: من ' + f(mn) + ' إلى ' + f(mx) + ' (×' + (mx / mn).toFixed(1) + ') — راجع «دراسة الأسعار المتعدّدة»</div>' : '') +
+    (zero ? '<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-bottom:8px">⚠️ ' + zero + ' فاتورة بسعر شراء 0</div>' : '');
+  w.innerHTML = box(head + warn + '<div style="font-size:11px;color:#5b6472;font-weight:800;margin-bottom:8px">🧮 كيف تكوّن السعر — ' + hits.length + ' فاتورة شراء (الأحدث أوّلاً)</div>' + rows.map(x => x.html).join(''));
+  try { const t = w.querySelector('div[style*="font-weight:900;font-size:15px"]'); if (t) t.textContent = '🧮 كيف تكوّن السعر'; } catch (_) {}
 }
 window.openPurchaseInvoiceFor = openPurchaseInvoiceFor;
 
@@ -7722,7 +7723,7 @@ function notePurchaseIdxFailure() {
     + 'كي لا تَعِد بفاتورةٍ لا نعرفها. حدّث الصفحة عند عودة الاتصال.';
   host.insertBefore(d, host.firstChild);
 }
-const PURCH_IDX_KEY = 'gmt_purchase_barcodes_v1';
+const PURCH_IDX_KEY = 'gmt_purchase_barcodes_v2';   /* (TASK-A0577) v2: والمعرّفات */
 const PURCH_IDX_TTL = 3600 * 1000;
 
 function _indexBarcodes(rows) {
@@ -7730,7 +7731,8 @@ function _indexBarcodes(rows) {
   (rows || []).forEach(inv => {
     let items = inv.items_snapshot;
     if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
-    (items || []).forEach(it => { const b = String(it.barcode || '').trim().toLowerCase(); if (b) linked.add(b); });
+    (items || []).forEach(it => { const b = String(it.barcode || '').trim().toLowerCase(); if (b) linked.add(b);
+      const id = String(it.id || it.product_id || '').trim(); if (id) linked.add('id:' + id); });   /* (TASK-A0577) المربوط بالمعرّف وإن تغيّر باركوده */
   });
   return linked;
 }
@@ -7786,6 +7788,7 @@ async function loadPurchaseBarcodeIndex(force) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function hasPurchaseInvoice(p) {
   if (!_purchaseBarcodes) return false;
+  if (p && p.id != null && _purchaseBarcodes.has('id:' + String(p.id))) return true;   /* (TASK-A0577) بالمعرّف أوّلاً */
   const b = String((p && p.barcode) || '').trim().toLowerCase();
   if (!b) return false;                         // بلا باركود ⇒ لا ربط ممكن أصلاً
   return _purchaseBarcodes.has(b);
@@ -16933,7 +16936,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122y"></script>
+<script src="gmt-whatsnew.js?v=20261122z"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>

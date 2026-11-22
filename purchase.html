@@ -3128,17 +3128,19 @@ function toggleCol(cls,hide){
 }
 /* (المالك seq 812 «القطاع … لازم يتصنّف حسب مجموعات المنتجات … يتغيّر تلقائياً ما لازم شيء يتعدّل يدوي»)
    القطاع = مجموعات منتجات بنود الفاتورة (الأكثر كمّيةً أوّلاً) — يُحسب دائماً من المنتج الحيّ، فإن تغيّرت مجموعة منتجٍ أو عُرِّف جديدٌ وأُضيف لمجموعة تغيّر القطاع وحده. */
+/* (TASK-A0577 · المالك seq 975 «ما لازم يوجد +8 أو +5 — لازم ينكتبوا كلّ القطاعات، ومن الأهمّ إلى الأقلّ أهمية حسب السعر»)
+   كان: أوّل ٤ مجموعات بالكمّية ثمّ «+N». الآن: **كلّ** المجموعات مرتّبةً بقيمتها في الفاتورة (الكمّية × سعر الشراء) ثمّ الكمّية. */
 function autoSector(items){
-  const cnt={};
+  const val={}, cnt={};
   (items||[]).forEach(i=>{
     if(!i) return;
     const id=i.product?.id ?? i.id ?? (i._raw&&i._raw.id);
     const p=(id!=null&&prods.find(x=>String(x.id)===String(id)))||i.product||null;
     const g=String((p&&p.group_name)||'').trim(); if(!g) return;
-    cnt[g]=(cnt[g]||0)+(Number(i.qty)||1);
+    const q=Number(i.qty)||1, up=Number(i.unitPrice!=null?i.unitPrice:i.unit_price)||0;
+    cnt[g]=(cnt[g]||0)+q; val[g]=(val[g]||0)+q*up;
   });
-  const ks=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
-  return ks.length?ks.slice(0,4).join(' · ')+(ks.length>4?' +'+(ks.length-4):''):'';
+  return Object.keys(cnt).sort((a,b)=>(val[b]-val[a])||(cnt[b]-cnt[a])).join(' · ');
 }
 function _syncSectorInputs(){
   try{ const a=document.getElementById('in-sector'); if(a){ const v=autoSector(cart); if(v) a.value=v; } }catch(_){}
@@ -6251,7 +6253,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122y"></script>
+<script src="gmt-whatsnew.js?v=20261122z"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
