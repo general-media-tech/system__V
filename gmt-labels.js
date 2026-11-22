@@ -45,11 +45,13 @@
   .bar button { background: #D5001C; color: #fff; cursor: pointer; font-weight: 900; }
   .page { width: 210mm; height: 297mm; margin: 8px auto; background: #fff; display: grid; overflow: hidden; break-after: page; page-break-after: always; }
   .page:last-child { break-after: auto; page-break-after: auto; }
+  /* (TASK-A0578 · المالك seq 976 «خلّي يكون الباركود بعيد عن مجال القصّ قليلاً») كانت الحاشية 1.2مم ⇒ الشريط على خطّ القصّ
+     (والقارئ يحتاج فراغاً حوله). الآن حاشية أمان 3مم جانبياً و1مم أعلى/أسفل + الشريط نفسه داخل هامشٍ إضافي. */
   .lb { overflow: hidden; display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-        padding: 0.6mm 1.2mm; border: 0.1mm dotted #d6d6d6; }
+        padding: 1mm 3mm; border: 0.1mm dotted #d6d6d6; }
   .nm { font-size: 6.6pt; font-weight: 800; line-height: 1.15; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-  .sm .lb { padding: 0.5mm 1.1mm; } .sm .nm { font-size: 5.4pt; }
-  .bc { flex: 1; min-height: 0; display: flex; }
+  .sm .lb { padding: 0.9mm 2.5mm; } .sm .nm { font-size: 5.4pt; }
+  .bc { flex: 1; min-height: 0; display: flex; padding: 0.4mm 1mm 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
   /* (TASK-0356 · المالك seq 549) «كلّ كرتونة باركوداتها مجموعةٌ لحالها» — رأس المجموعة صفٌّ كامل */
