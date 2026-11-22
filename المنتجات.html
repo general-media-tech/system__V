@@ -7,8 +7,9 @@
 <link rel="icon" href="favicon.ico">
 <script>window.GMT_INTERNAL = 1;</script>
 <script src="gmt-config.js?v=20261117h"></script>
-<script src="gmt-core.js?v=20261122s"></script>
+<script src="gmt-core.js?v=20261123a"></script>
 <script src="gmt-suggest.js?v=20261107d"></script>
+<script src="gmt-lens.js?v=20261122y" defer></script>
 <script src="gmt-compat-kb.js?v=20261116d"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-tools.js?v=20261121s"></script>
@@ -47,7 +48,7 @@ body{padding-bottom:64px}
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-<div class="tb"><a href="home.html">→</a><label class="srch">🔎<input id="q" placeholder="اسم · باركود · اسم بديل" autocomplete="off" inputmode="search"></label><button class="ib" id="scan" title="مسح الباركود بالكاميرا">📷</button></div>
+<div class="tb"><a href="home.html">→</a><label class="srch">🔎<input id="q" placeholder="اسم · باركود · اسم بديل" autocomplete="off" inputmode="search"></label><button class="ib" id="scan" title="مسح الباركود بالكاميرا">📷</button><button class="ib" id="lens" title="عدسة GMT — صوّر المنتج أو علبته">🔍</button></div>
 <div class="chips" id="chips"></div>
 <div class="grid" id="grid"><div class="empty">جارٍ التحميل…</div></div>
 <div class="foot" data-keep-fab="1" data-bar="1"><span id="cnt">—</span><button id="cat">🖨 كتالوج النتائج</button></div>
@@ -136,6 +137,8 @@ body{padding-bottom:64px}
   $('chips').addEventListener('click', function (e) { var c = e.target.closest('[data-g]'); if (!c) return; grp = c.getAttribute('data-g'); [].forEach.call($('chips').children, function (x) { x.classList.toggle('on', x === c); }); paint(); });
   $('grid').addEventListener('click', function (e) { var c = e.target.closest('[data-i]'); if (c) show(all[+c.getAttribute('data-i')]); });
   $('scan').onclick = scan; $('cat').onclick = catalog;
+  /* (TASK-A0579 · المالك seq 977) عدسة GMT: صورة ⇐ أقرب منتجاتنا ⇐ تفاصيله */
+  $('lens').onclick = function () { if (!window.GMTLens) { alert('العدسة لم تُحمَّل بعد'); return; } GMTLens.open({ products: function () { return all; }, onPick: function (p) { $('q').value = p.barcode || p.name; paint(); show(p); } }); };
   load();
 })();
 </script>
@@ -149,7 +152,7 @@ body{padding-bottom:64px}
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261122x" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261122za"></script>
+<script src="gmt-whatsnew.js?v=20261123a"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 </body>
 </html>

@@ -118,7 +118,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261122s"></script>
+  <script src="gmt-core.js?v=20261123a"></script>
 <script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261122s" defer></script>
@@ -11076,7 +11076,7 @@ window.doBulkPrint = () => {
                     fr.style.transform = 'scale(' + s.toFixed(4) + ')';
                 } catch (e) { fr.style.height = '297mm'; fr.style.transform = 'scale(.5)'; }
             });
-            setTimeout(function () { w.focus(); w.print(); }, 350);
+            (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(w, function () { w.focus(); w.print(); });   /* (TASK-A0579) الفواتير الجماعية: بعد تحميل صور كلّ الإطارات */
         } catch (e) { showToast('تعذّرت الطباعة: ' + e.message, 'err'); }
     }, 1800);
     var m = document.getElementById('bulkPrint'); if (m) m.remove();
@@ -11259,10 +11259,10 @@ function printOrderPreview() {
         document.body.appendChild(box);
     }
     box.onload = () => {
-        setTimeout(() => {
+        (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(box.contentWindow, () => {   /* (TASK-A0579) بعد تحميل الصور والخطوط فعلاً — كانت مهلة 450ms */
             try { box.contentWindow.focus(); box.contentWindow.print(); }
             catch (e) { showToast('تعذّرت الطباعة: ' + e.message, 'err'); }
-        }, 450);          /* مهلة كي تكتمل الخطوط والصور قبل اللقطة */
+        });
     };
     box.srcdoc = html;
 }
@@ -11296,10 +11296,7 @@ window.printOrder = (id) => {
     doc.open();
     doc.write(fullHTML);
     doc.close();
-    setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-    }, 600);
+    (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(iframe.contentWindow, () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); });   /* (TASK-A0579) */
 };
 
 </script>
@@ -11349,7 +11346,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122za"></script>
+<script src="gmt-whatsnew.js?v=20261123a"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

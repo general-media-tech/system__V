@@ -2297,7 +2297,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261122s"></script>
+  <script src="gmt-core.js?v=20261123a"></script>
   <script src="gmt-packages.js?v=20261107h" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-reconcile.js?v=20261122y" defer></script>
@@ -2325,7 +2325,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 <script src="gmt-product-edit.js?v=20261110b" defer></script>
 <script src="gmt-enrich-queue.js?v=20261104l"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-labels.js?v=20261122za"></script>
+  <script src="gmt-labels.js?v=20261123a"></script>
 <script src="gmt-staff.js?v=20261122p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -9918,7 +9918,7 @@ function printPriceCards() {
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>بطاقات السعر</title></head><body>${content}</body></html>`);
   w.document.close();
-  setTimeout(() => w.print(), 600);
+  (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(w, () => w.print());   /* (TASK-A0579) */
 }
 
 // ── Lazy-load JsBarcode only when needed ──
@@ -16936,7 +16936,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122za"></script>
+<script src="gmt-whatsnew.js?v=20261123a"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>

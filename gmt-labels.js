@@ -7,12 +7,12 @@
 (function (global) {
   'use strict';
   const LAYOUTS = {
-    4: { cols: 4, rows: 16, label: '٤ بالصف · ٦٤ بالورقة (52.5×18.5mm)' },
-    5: { cols: 5, rows: 20, label: '٥ بالصف · ١٠٠ بالورقة (42×14.8mm)' },
-    3: { cols: 3, rows: 13, label: '٣ بالصف · ٣٩ بالورقة (70×22.8mm)' },
+    4: { cols: 4, rows: 16, label: '٤ بالصف · ٦٤ بالورقة (50×16.5mm)' },
+    5: { cols: 5, rows: 20, label: '٥ بالصف · ١٠٠ بالورقة (40×12.8mm)' },
+    3: { cols: 3, rows: 13, label: '٣ بالصف · ٣٩ بالورقة (68×20.8mm)' },
     /* (TASK-A0512 · المالك seq 757 «طباعة الباركود كتير مخلي الحجم كبير انا طلبت نصغره») مقاسان أصغر — والافتراضي صار ٦ بالصف */
-    6: { cols: 6, rows: 24, label: '٦ بالصف · ١٤٤ بالورقة (35×12.4mm) — صغير' },
-    7: { cols: 7, rows: 27, label: '٧ بالصف · ١٨٩ بالورقة (30×11mm) — الأصغر' },
+    6: { cols: 6, rows: 24, label: '٦ بالصف · ١٤٤ بالورقة (33×10.3mm) — صغير' },
+    7: { cols: 7, rows: 27, label: '٧ بالصف · ١٨٩ بالورقة (28×9mm) — الأصغر' },
   };
   const DEFAULT_LAYOUT = '6', ORDER = ['7', '6', '5', '4', '3'];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,21 +43,25 @@
          background: #111; color: #fff; padding: 8px 10px; font-size: 13px; font-weight: 700; }
   .bar select, .bar button { font: inherit; border: none; border-radius: 8px; padding: 6px 12px; }
   .bar button { background: #D5001C; color: #fff; cursor: pointer; font-weight: 900; }
-  .page { width: 210mm; height: 297mm; margin: 8px auto; background: #fff; display: grid; overflow: hidden; break-after: page; page-break-after: always; }
+  /* (TASK-A0579 · المالك seq 977 «كبّرتهم وصاروا متلاصقين — مجال القصّ ضيّق ⇒ صغّر وعيّش بيناتهم مسافة قصّ · خطوط وهمية للقصّ واضحة وبعيدة عن الباركود»)
+     فراغ قصّ 2مم بين الملصقات وخطّ قصٍّ متقطّع في منتصفه (outline بإزاحة 1مم — خطّا الجارين ينطبقان خطّاً واحداً) */
+  .page { width: 210mm; height: 297mm; margin: 8px auto; background: #fff; display: grid; gap: 2mm; padding: 1.5mm; overflow: hidden; break-after: page; page-break-after: always; }
   .page:last-child { break-after: auto; page-break-after: auto; }
   /* (TASK-A0578 · المالك seq 976 «خلّي يكون الباركود بعيد عن مجال القصّ قليلاً») كانت الحاشية 1.2مم ⇒ الشريط على خطّ القصّ
      (والقارئ يحتاج فراغاً حوله). الآن حاشية أمان 3مم جانبياً و1مم أعلى/أسفل + الشريط نفسه داخل هامشٍ إضافي. */
   .lb { overflow: hidden; display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-        padding: 1mm 3mm; border: 0.1mm dotted #d6d6d6; }
+        padding: 0.5mm 1.6mm; outline: 0.25mm dashed #8a8f98; outline-offset: 1mm; }
   .nm { font-size: 6.6pt; font-weight: 800; line-height: 1.15; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-  .sm .lb { padding: 0.9mm 2.5mm; } .sm .nm { font-size: 5.4pt; }
-  .bc { flex: 1; min-height: 0; display: flex; padding: 0.4mm 1mm 0; }
-  .bc svg { width: 100%; height: 100%; display: block; }
+  .sm .lb { padding: 0.4mm 1.4mm; } .sm .nm { font-size: 5.2pt; }
+  .bc { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 0.3mm 0 0.5mm; }
+  .bc svg { width: 80%; height: 100%; display: block; }   /* (TASK-A0579) الشريط أصغر ووسط الملصق ⇒ بعيدٌ عن خطّ القصّ */
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
   /* (TASK-0356 · المالك seq 549) «كلّ كرتونة باركوداتها مجموعةٌ لحالها» — رأس المجموعة صفٌّ كامل */
-  .gh { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: #000;
-        font-size: 11pt; font-weight: 900; border-top: 0.8mm solid #000; border-bottom: 0.8mm solid #000; }
-  .gap { border: 0.1mm dotted #eee; }
+  /* (TASK-A0579 · seq 977 «كرتونة ١ من ٤٩ عم تاخذ صفّاً كاملاً … تاخذ مكان باركود واحد») رأس الكرتونة = خانة ملصقٍ واحدة */
+  .gh { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; color: #fff; text-align: center;
+        font-size: 7.5pt; font-weight: 900; line-height: 1.15; outline: 0.25mm dashed #8a8f98; outline-offset: 1mm; overflow: hidden; }
+  .gh small { font-size: 5.5pt; font-weight: 700; opacity: .85; }
+  .gap { }
   .gsp { grid-column: 1 / -1; }
   @media print {
     html, body { background: #fff; }
@@ -96,29 +100,23 @@
       }
       pages = Math.max(1, Math.ceil(L.length / per));
     } else {
-      /* صفوف: رأس كلّ مجموعة صفٌّ كامل ثمّ ملصقاتها — المجموعة تبدأ صفّاً جديداً (أو ورقةً جديدة) */
-      var rows = [], groups = [], cur = null;
+      /* (TASK-A0579) خلايا متتالية: رأس كلّ كرتونة خانةٌ واحدة («📦 3/49 · 25») ثمّ ملصقاتها مباشرةً — بلا صفٍّ كامل ولا صفٍّ فارغ ⇒ ورقٌ أقلّ.
+         «كلّ كرتونة بورقة جديدة» ⇒ الرأس أوّل الورقة. */
+      var groups = [], cur = null;
       L.forEach(function (x) { if (!cur || cur.g !== x.group) { cur = { g: x.group, l: [] }; groups.push(cur); } cur.l.push(x); });
+      var per2 = lay.cols * lay.rows, pg = [], cu = [];
       groups.forEach(function (g, gi) {
-        /* (seq 550) «سطر فارغ بينهم ثمّ مكتوب كرتونة N» — صفٌّ فارغ قبل كلّ رأسٍ عدا الأوّل (يُحذف إن وقع أوّل الورقة) */
-        if (gi > 0 && grp.value !== 'page') rows.push({ blank: true });
-        rows.push({ h: g.g, n: g.l.length, brk: grp.value === 'page' });
-        for (var i = 0; i < g.l.length; i += lay.cols) rows.push({ c: g.l.slice(i, i + lay.cols) });
-      });
-      var pg = [], cu = [];
-      rows.forEach(function (r) {
-        if (r.h != null && r.brk && cu.length) { pg.push(cu); cu = []; }
-        if (r.blank && (!cu.length || cu.length >= lay.rows - 2)) { if (cu.length) { pg.push(cu); cu = []; } return; }   // لا فراغ أوّل الورقة ولا آخرها
-        if (r.h != null && cu.length === lay.rows - 1) { pg.push(cu); cu = []; }   // لا رأس يتيم آخر الورقة
-        cu.push(r); if (cu.length === lay.rows) { pg.push(cu); cu = []; }
+        if (grp.value === 'page' && cu.length) { pg.push(cu); cu = []; }
+        if (cu.length === per2 - 1) { pg.push(cu); cu = []; }   // لا رأس يتيم آخر الورقة
+        cu.push({ h: g.g, n: g.l.length, i: gi + 1, of: groups.length });
+        g.l.forEach(function (x) { cu.push({ x: x }); if (cu.length === per2) { pg.push(cu); cu = []; } });
       });
       if (cu.length) pg.push(cu);
-      pg.forEach(function (rs) {
+      pg.forEach(function (cs) {
         html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
-        rs.forEach(function (r) {
-          if (r.blank) html += '<div class="gsp"></div>';
-          else if (r.h != null) html += '<div class="gh">📦 ' + esc(r.h || 'بلا مجموعة') + ' — ' + r.n + ' ملصق</div>';
-          else { r.c.forEach(function (x) { html += cell(x); }); for (var k = r.c.length; k < lay.cols; k++) html += '<div class="gap"></div>'; }
+        cs.forEach(function (c) {
+          if (c.h != null) html += '<div class="gh">📦 ' + esc(c.h || 'بلا مجموعة') + '<small>' + c.n + ' ملصق</small></div>';
+          else html += cell(c.x);
         });
         html += '</div>';
       });

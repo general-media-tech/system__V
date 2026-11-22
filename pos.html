@@ -1240,7 +1240,7 @@ window.GMT_FEATURES = [
 </script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261122s"></script>
+  <script src="gmt-core.js?v=20261123a"></script>
 <script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
   <script src="gmt-invoice-tpl.js?v=20261121k"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -1268,7 +1268,7 @@ window.GMT_FEATURES = [
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
   <script src="gmt-lens.js?v=20261122y" defer></script>
-  <script src="gmt-labels.js?v=20261122za"></script>
+  <script src="gmt-labels.js?v=20261123a"></script>
 <script src="gmt-staff.js?v=20261122p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -1542,6 +1542,8 @@ window.GMT_FEATURES = [
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input type="text" id="searchInput" placeholder="ابحث بالاسم أو الباركود..." autocomplete="off" oninput="renderProds()">
         </div>
+        <!-- (TASK-A0579 · المالك seq 977 «العدسة … تتعرّف على المنتج وتكون موجودة في كلّ مكان») -->
+        <button class="btn-scan" data-hint="عدسة GMT — صوّر المنتج أو علبته فيظهر اسمه عندنا (بلا باركود)." onclick="posOpenLens()" title="عدسة GMT" style="font-size:20px">🔍</button>
         <button class="btn-scan" data-hint="افتح الكاميرا لمسح باركود المنتج — يُضاف للسلّة مباشرةً." onclick="openScanner()" title="مسح باركود">
           <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
@@ -4245,7 +4247,7 @@ function openPrintA4() {
     if (!win) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'err'); return; }
     win.document.write(finalHtml);
     win.document.close();
-    setTimeout(function(){ try { win.focus(); win.print(); } catch(e){} }, 1200);
+    (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(win, function(){ try { win.focus(); win.print(); } catch(e){} });   /* (TASK-A0579) بعد تحميل الصور */
   } catch(e) {
     showToast('خطأ في الطباعة: ' + e.message, 'err');
     console.error('openPrintA4:', e);
@@ -4302,7 +4304,7 @@ function openPrintThermal() {
     if (!win) { showToast('⚠️ السماح بالنوافذ المنبثقة مطلوب', 'err'); return; }
     win.document.write(finalHtml);
     win.document.close();
-    setTimeout(function(){ try { win.focus(); win.print(); } catch(e){} }, 1200);
+    (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(win, function(){ try { win.focus(); win.print(); } catch(e){} });   /* (TASK-A0579) بعد تحميل الصور */
   } catch(e) {
     showToast('خطأ في الطباعة الحرارية: ' + e.message, 'err');
     console.error('openPrintThermal:', e);
@@ -4414,7 +4416,7 @@ async function printHistoricalInvoice(invoiceRow, format) {
       if (win.closed) return;
       win.document.open(); win.document.write(finalHtml);
       win.document.close();
-      setTimeout(() => { try { win.focus(); win.print(); } catch(e){} }, 1200);
+      (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(win, () => { try { win.focus(); win.print(); } catch(e){} });   /* (TASK-A0579) */
     } else {
       const itemsHtml = buildRowsB(pseudoItems);
       data.ITEMS_ROWS = itemsHtml;
@@ -4424,7 +4426,7 @@ async function printHistoricalInvoice(invoiceRow, format) {
       if (win.closed) return;
       win.document.open(); win.document.write(finalHtml);
       win.document.close();
-      setTimeout(() => { try { win.focus(); win.print(); } catch(e){} }, 1200);
+      (window.GMTPrintWhenReady ? GMTPrintWhenReady : function (w, cb) { setTimeout(cb, 1200); })(win, () => { try { win.focus(); win.print(); } catch(e){} });   /* (TASK-A0579) */
     }
   } catch(e) {
     try { if (_w && !_w.closed) _w.close(); } catch (_) {}
@@ -5484,6 +5486,13 @@ function scOpenLens() {
     } });
 }
 window.scOpenLens = scOpenLens;
+/* (TASK-A0579) العدسة في شاشة البيع: تتعرّف على المنتج وتُظهره (لا تضيفه للسلّة وحدها) */
+function posOpenLens() {
+  if (!window.GMTLens) { showToast('العدسة لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'err'); return; }
+  GMTLens.open({ products: () => allProducts.filter(p => !p._is_offer), branchKey: branch && branch.key, learn: _scLensLearn,
+    onPick: p => { const s = document.getElementById('searchInput'); if (s) s.value = p.barcode || p.name; try { renderProds(); } catch (_) {} showToast('🔍 ' + p.name, 'ok'); } });
+}
+window.posOpenLens = posOpenLens;
 function _scFocusRow(id) {
   setTimeout(() => { const i = document.querySelector('#sc-list input[data-sc-id="' + CSS.escape(String(id)) + '"]'); if (i) { i.focus(); try { i.select(); } catch (_) {} } }, 30);
 }
@@ -11367,7 +11376,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122za"></script>
+<script src="gmt-whatsnew.js?v=20261123a"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

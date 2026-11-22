@@ -13,8 +13,9 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
     await pg.selectOption('#lay', v); await pg.waitForTimeout(400);
     const m = await pg.evaluate(() => { const mm = 96 / 25.4, lb = document.querySelector('.lb'), sv = lb && lb.querySelector('.bc svg'); if (!sv) return null;
       const a = lb.getBoundingClientRect(), b = sv.getBoundingClientRect();
-      return { l: (b.left - a.left) / mm, r: (a.right - b.right) / mm, t: (b.top - a.top) / mm, bo: (a.bottom - b.bottom) / mm, w: b.width / mm, h: b.height / mm }; });
-    ok(m && Math.min(m.l, m.r) >= 2.5 && m.bo >= 0.8 && m.w >= 18 && m.h >= 4, 'مقاس ' + v + ' بالصف: الشريط يبعد ' + (m ? Math.min(m.l, m.r).toFixed(1) : '?') + 'مم جانباً و' + (m ? m.bo.toFixed(1) : '?') + 'مم أسفل عن خطّ القصّ · ' + (m ? m.w.toFixed(1) + '×' + m.h.toFixed(1) : '?') + 'مم');
+      const off = parseFloat(getComputedStyle(lb).outlineOffset) || 0;   /* خطّ القصّ المتقطّع = حافّة الخانة + الإزاحة */
+      return { l: (b.left - a.left + off) / mm, r: (a.right - b.right + off) / mm, t: (b.top - a.top + off) / mm, bo: (a.bottom - b.bottom + off) / mm, w: b.width / mm, h: b.height / mm, cw: a.width / mm, dash: getComputedStyle(lb).outlineStyle }; });
+    ok(m && m.dash === 'dashed' && Math.min(m.l, m.r) >= 3 && m.bo >= 1.3 && m.w <= 0.82 * m.cw && m.w >= 15 && m.h >= 4, 'مقاس ' + v + ' بالصف (خطّ قصّ متقطّع · الشريط ≤80٪): الشريط يبعد ' + (m ? Math.min(m.l, m.r).toFixed(1) : '?') + 'مم جانباً و' + (m ? m.bo.toFixed(1) : '?') + 'مم أسفل عن خطّ القصّ · ' + (m ? m.w.toFixed(1) + '×' + m.h.toFixed(1) : '?') + 'مم');
   }
   await browser.close();
   console.log(fails ? 'FAIL ' + fails + ' / ' + (pass + fails) : 'ALL PASS (' + pass + ')');

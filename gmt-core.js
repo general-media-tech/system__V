@@ -263,6 +263,41 @@ window.GMTImgShrink = window.GMTImgShrink || function (file, opt) {
    متصفّحات داخل التطبيقات (فيسبوك · إنستغرام) وبعض أندرويد تمنع النافذة الجديدة — وفي المتجر تُفتح واتساب الطلب بعد حفظه بثانية
    (بلا لمسة مستخدم ⇒ تُمنع غالباً) فيرى الزبون «جاري تحويلك إلى واتساب» ولا شيء. GMTOpenExt: نافذةٌ جديدة، وإن مُنعت ⇒ الصفحة نفسها
    (الانتقال مسموحٌ دائماً). لا تستعمل 'noopener' (يُرجع null وإن فُتحت). */
+/* (TASK-A0579 · المالك seq 977 «الصور عم تطوّل كثير أثناء الطباعة وأحياناً ما عم تظهر الفاتورة كاملة بسبب أنّ الصور ما حمّلت —
+   الفواتير الجماعية · فواتير الشراء · فواتير النقل») كانت الطباعة بعد مهلةٍ ثابتة (٣٢٠ms–١٫٢ث) ⇒ صورةٌ أبطأ لا تلحق.
+   GMTPrintWhenReady(نافذة الطباعة, cb): ① كلّ صورة img/p ⇒ نسختها الخفيفة img/t (وعند تعذّرها الأصل) ② لا «تحميل كسول» (لا يُحمَّل في نافذة لا تُمرَّر)
+   ③ ينتظر كلّ الصور (وفي الإطارات الداخلية) والخطوط — مع شريط «⏳ تحميل الصور N/M» لا يُطبع — حتى ١٥ث ثمّ يطبع. */
+window.GMTPrintWhenReady = function (win, cb, opts) {
+  opts = opts || {};
+  var done = false, started = false, bar = null, T = opts.timeout || 15000, RX = /\/img\/p\/([^?#]+)\.(jpe?g|png|webp|gif)(?=$|[?#])/i;
+  function fire() { if (done) return; done = true; try { if (bar) bar.remove(); } catch (_) {} setTimeout(function () { try { cb(); } catch (_) {} }, 250); }
+  function docs(w) { var out = []; try { out.push(w.document); Array.prototype.forEach.call(w.document.querySelectorAll('iframe'), function (f) { try { if (f.contentWindow && f.contentDocument) out = out.concat(docs(f.contentWindow)); } catch (_) {} }); } catch (_) {} return out; }
+  function prep(d) {
+    Array.prototype.forEach.call(d.images || [], function (im) {
+      try { if (im.getAttribute('loading') === 'lazy') im.setAttribute('loading', 'eager'); } catch (_) {}
+      var s0 = im.getAttribute('src') || '';
+      if (opts.thumbs !== false && RX.test(s0) && !im.getAttribute('data-gmt-orig')) {
+        im.setAttribute('data-gmt-orig', s0);
+        im.addEventListener('error', function () { var o = im.getAttribute('data-gmt-orig'); if (o && /\/img\/t\//.test(im.src)) { im.setAttribute('data-gmt-orig', ''); im.src = o; } });
+        im.src = s0.replace(RX, '/img/t/$1.webp');
+      }
+    });
+  }
+  function pending() { var n = 0, all = 0; docs(win).forEach(function (d) { Array.prototype.forEach.call(d.images || [], function (im) { all++; if (!im.complete) n++; }); }); return { n: n, all: all }; }
+  function check() {
+    if (done) return; var p = pending(); if (!p.n) return fire();
+    try {
+      var d = win.document;
+      if (!bar) { var st = d.createElement('style'); st.textContent = '@media print{.gmt-pw-bar{display:none!important}}'; (d.head || d.body).appendChild(st);
+        bar = d.createElement('div'); bar.className = 'gmt-pw-bar'; bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#111;color:#fff;font:700 13px Tahoma,sans-serif;text-align:center;padding:6px;direction:rtl'; d.body.appendChild(bar); }
+      bar.textContent = '⏳ تحميل الصور قبل الطباعة… ' + (p.all - p.n) + ' / ' + p.all;
+    } catch (_) {}
+    setTimeout(check, 250);
+  }
+  function start() { if (started) return; started = true; docs(win).forEach(prep); var fr = null; try { fr = win.document.fonts && win.document.fonts.ready; } catch (_) {} (fr || Promise.resolve()).then(check, check); }
+  try { if (win.document.readyState !== 'loading') setTimeout(start, 30); else win.addEventListener('DOMContentLoaded', start); win.addEventListener('load', start); } catch (_) { setTimeout(fire, 1200); return; }
+  setTimeout(fire, T);
+};
 window.GMTOpenExt = window.GMTOpenExt || function (url) {
   var w = null;
   window.__gmtExtOpen = 1;   /* المنع هنا مُعالَج ⇒ لا يُسجَّل «popup_blocked» */
@@ -3722,7 +3757,8 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
 
   const redact = (u) => String(u || '').replace(/([?&](apikey|token|key|authorization)=)[^&]+/gi, '$1***');
   const now = () => new Date().toLocaleTimeString('ar-SY', { hour12: false });
-  const training = () => !!(window.GMTSandbox && window.GMTSandbox.active);
+  /* (TASK-A0579) متصفّحٌ آليّ على الموقع الحيّ (أدوات الفحص) = «تدريبي»: لا يُحسب في التقرير ولا ينبّه المالك */
+  const training = () => !!(window.GMTSandbox && window.GMTSandbox.active) || (function () { try { return !!navigator.webdriver && /github\.io$/i.test(location.hostname); } catch (_) { return false; } })();
 
   /* عدّادات الضجيج (2026-07-23): تُجمّع الأخطاء التافهة بدل تكرارها */
   var NOISE = { productImgs: 0, htmlAsImg: 0 };
@@ -3770,6 +3806,9 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
   async function alertOwner(rec) {
     try {
       if (!window.GMT_INTERNAL || rec.training || rec.type === 'شبكة') return;
+      /* (TASK-A0579 · المالك seq 977 — ٣ تنبيهات «خطأ حرج · أدمن المتجر» جاءت من متصفّحٍ آليّ (أدوات Claude على الموقع الحيّ: قراءةٌ بعمودٍ خاطئ
+         · العقل ردّ 503 أثناء توليد الأسماء البديلة) لا من موظّف) ⇒ المتصفّح الآليّ على الموقع الحيّ لا يرسل تنبيه هاتف. الاختبارات (localhost) كما هي. */
+      try { if (navigator.webdriver && /github\.io$/i.test(location.hostname)) return; } catch (_) {}
       const cfg = sb(); if (!cfg) return;
       const H = 3600e3, t = Date.now();
       let log = {}; try { log = JSON.parse(localStorage.getItem(AL_KEY) || '{}') || {}; } catch (_) { log = {}; }

@@ -22,13 +22,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const v = await ctx.newPage(); await v.setContent(html, { waitUntil: 'load' }); await v.waitForTimeout(800);
   const r1 = await v.evaluate(() => ({ heads: [...document.querySelectorAll('.gh')].map(x => x.textContent), labels: document.querySelectorAll('.lb').length, svg: document.querySelectorAll('.bc svg rect, .bc svg path').length > 0, cnt: document.getElementById('cnt').textContent, pages: document.querySelectorAll('.page').length, grpShown: !document.getElementById('grp').hidden,
     order: [...document.querySelectorAll('.gh, .lb')].map(x => x.classList.contains('gh') ? 'H' : x.querySelector('.nm').textContent).filter((x, i, a) => x === 'H' || a[i - 1] !== x) }));
-  ok(r1.heads.length === 3 && /كرتونة 1\/3 — 25 ملصق/.test(r1.heads[0]) && /كرتونة 2\/3 — 20 ملصق/.test(r1.heads[1]) && /كرتونة 3\/3 — 30 ملصق/.test(r1.heads[2]), 'رؤوس الكراتين بالترتيب وعدد ملصقات كلّ كرتونة: ' + r1.heads.join(' | '));
+  ok(r1.heads.length === 3 && /كرتونة 1\/3\s*25 ملصق/.test(r1.heads[0]) && /كرتونة 2\/3\s*20 ملصق/.test(r1.heads[1]) && /كرتونة 3\/3\s*30 ملصق/.test(r1.heads[2]), 'رؤوس الكراتين بالترتيب وعدد ملصقات كلّ كرتونة: ' + r1.heads.join(' | '));
   ok(r1.labels === 75 && !/T602/.test(r1.order.join()), '75 ملصقاً (25 + 20 + 30) · البند ذو الكمّية 0 لم يُطبع');
   ok(JSON.stringify(r1.order) === JSON.stringify(['H', 'حقيبة كتف', 'H', 'ستاند 8819', 'H', 'ستاند 8819']), 'كلّ كرتونة ملصقاتها تحت رأسها: ' + r1.order.join(' › '));
   /* (TASK-B0527) منذ TASK-A0512 الافتراضي ٦ بالصف (144 بالورقة) ⇒ 75 ملصقاً بفواصل الكراتين على ورقةٍ واحدة (كانت ورقتين بمقاس ٤ بالصف) */
   ok(r1.grpShown && r1.pages >= 1 && r1.svg && /3 مجموعة/.test(r1.cnt), 'وضع «متتالية بفاصل» (الافتراضي): الأوراق ' + r1.pages + ' · الأشرطة مرسومة: ' + r1.cnt);
-  const seq = await v.evaluate(() => [...document.querySelectorAll('.page')].map(p => [...p.children].map(c => c.className === 'gsp' ? '_' : c.className === 'gh' ? 'H' : '').filter(Boolean).join('')));
-  ok(seq.join('|') === 'H_H' + '|' + '_H'.replace(/^_/, '') || /^H_H/.test(seq[0]) && !seq.some(p => /^_|_$/.test(p)), 'سطرٌ فارغ قبل كلّ «كرتونة» عدا الأولى · ولا فراغ أوّل الورقة ولا آخرها: ' + seq.join(' | '));
+  /* (TASK-A0579 · المالك seq 977) رأس الكرتونة خانةٌ واحدة بحجم ملصق — لا صفّ كامل ولا صفّ فارغ (ورقٌ أقلّ) */
+  const geo = await v.evaluate(() => { const h = document.querySelector('.gh').getBoundingClientRect(), l = document.querySelector('.lb').getBoundingClientRect(); return { hw: h.width, lw: l.width, gsp: document.querySelectorAll('.gsp').length }; });
+  ok(Math.abs(geo.hw - geo.lw) < 1 && geo.gsp === 0, 'رأس الكرتونة خانة ملصقٍ واحدة (عرضه ' + geo.hw.toFixed(0) + ' = ' + geo.lw.toFixed(0) + ') · بلا صفوف فارغة');
   await v.selectOption('#grp', 'page'); await v.waitForTimeout(400);
   const r2 = await v.evaluate(() => ({ pages: [...document.querySelectorAll('.page')].map(p => p.querySelector('.gh') ? p.querySelector('.gh').textContent.slice(0, 14) : '-') }));
   ok(r2.pages.length === 3 && r2.pages.every(x => /كرتونة/.test(x)), '«كلّ مجموعة بورقة جديدة»: 3 أوراق تبدأ كلٌّ منها برأس كرتونتها: ' + r2.pages.join(' | '));

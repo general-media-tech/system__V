@@ -1,4 +1,4 @@
-// (TASK-A0512 · المالك seq 757) «طباعة الباركود كتير مخلي الحجم كبير انا طلبت نصغره»: الافتراضي صار ٦ بالصف (35×12.4mm) · الاختيار يُحفظ.
+// (TASK-A0579 · seq 977: فراغ قصّ 2مم بين الملصقات ⇒ الخانة 32.8×10.3 · 27.9×9.0) (TASK-A0512 · المالك seq 757) «طباعة الباركود كتير مخلي الحجم كبير انا طلبت نصغره»: الافتراضي صار ٦ بالصف (35×12.4mm) · الاختيار يُحفظ.
 const H = require('./h.js');
 let pass = 0, fails = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails++; console.log('  ✘', m); } };
@@ -11,9 +11,9 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
   const read = () => pg.evaluate(() => { const p = document.querySelector('.page'), c = p.querySelector('.lb').getBoundingClientRect(); return { sel: document.getElementById('lay').value, n: p.querySelectorAll('.lb').length, w: c.width, h: c.height, bars: document.querySelectorAll('.bc svg rect').length > 0 }; });
   await pg.setContent(html, { waitUntil: 'domcontentloaded' }); await pg.waitForFunction(() => document.querySelector('.bc svg rect'), null, { timeout: 15000 }).catch(() => {});
   let r = await read();
-  ok(r.sel === '6' && r.n === 144 && Math.abs(m(r.w) - 35) < 0.6 && Math.abs(m(r.h) - 12.4) < 0.6 && r.bars, 'الافتراضي: ٦ بالصف · ١٤٤ بالورقة · ' + ' · ' + m(r.w) + '×' + m(r.h) + 'mm · الشريط مرسوم');
+  ok(r.sel === '6' && r.n === 144 && Math.abs(m(r.w) - 32.8) < 0.6 && Math.abs(m(r.h) - 10.3) < 0.6 && r.bars, 'الافتراضي: ٦ بالصف · ١٤٤ بالورقة · ' + ' · ' + m(r.w) + '×' + m(r.h) + 'mm · الشريط مرسوم');
   await pg.selectOption('#lay', '7'); await pg.waitForTimeout(500); r = await read();
-  ok(r.n === 189 && Math.abs(m(r.w) - 30) < 0.6, 'الأصغر: ٧ بالصف · ١٨٩ بالورقة · ' + m(r.w) + '×' + m(r.h) + 'mm');
+  ok(r.n === 189 && Math.abs(m(r.w) - 27.9) < 0.6, 'الأصغر: ٧ بالصف · ١٨٩ بالورقة · ' + m(r.w) + '×' + m(r.h) + 'mm');
   await pg.setContent(html, { waitUntil: 'domcontentloaded' }); await pg.waitForFunction(() => document.querySelector('.bc svg rect'), null, { timeout: 15000 }).catch(() => {}); r = await read();
   ok(r.sel === '7', 'الاختيار الأخير يُحفظ على الجهاز: ' + r.sel);
   const opts = await pg.evaluate(() => [...document.querySelectorAll('#lay option')].map(o => o.value).join(','));
