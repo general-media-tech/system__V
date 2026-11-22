@@ -113,7 +113,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261118d" defer></script>
   <script src="gmt-push.js?v=20261122t" defer></script>
-  <script src="gmt-inbox.js?v=20261122t" defer></script>
+  <script src="gmt-inbox.js?v=20261122u" defer></script>
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261119i"></script>
 <script src="gmt-shipping-offices.js?v=20261121e"></script>
@@ -1457,14 +1457,34 @@ async function sbGetDelta() {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
 }
+/* (TASK-A0567 · المالك seq 959 «ركّزلي على الإشعارات والأصوات» · seq 965 «كمل»)
+   أوردرٌ جديد من جهازٍ آخر/المتجر كان يظهر في القائمة **بصمت** مع دورة التحديث — الموظّف لا ينتبه.
+   الآن: أوردرٌ لم يكن في القائمة وأُنشئ خلال ١٥ دقيقة (لا أوردرٌ قديم عُدّل) ⇒ صوت «أوردر» + إشعارٌ صغير باسمه.
+   أوردرات هذا الجهاز معروفةٌ قبل الدورة ⇒ بلا صوت. الصفحة بالخلفية مع إشعارات الهاتف مفعّلة ⇒ الهاتف ينبّه (لا صوتين). */
+function ordNewAlert(fresh) {
+    try {
+        const now = Date.now();
+        const L = (fresh || []).filter(o => o && !/deleted|cancel/i.test(String(o.status || '')) && o.created_at && now - new Date(o.created_at) < 15 * 60000 && now - new Date(o.created_at) > -5 * 60000);
+        if (!L.length) return 0;
+        const name = L.length === 1 ? (L[0].name || L[0].customer_name || '') : '';
+        showToast('📝 ' + (L.length === 1 ? 'أوردر جديد' + (name ? ': ' + name : '') : L.length + ' أوردرات جديدة'), 'inf');
+        const vis = document.visibilityState === 'visible';
+        const pushOn = ('Notification' in window) && Notification.permission === 'granted';
+        if (vis || !pushOn) {
+            window.__gmtLocalSndAt = now;
+            try { window.GMTSound && GMTSound.play('order', { force: true }); } catch (_) {}
+        }
+        return L.length;
+    } catch (_) { return 0; }
+}
 /* يدمج الصفوف المتغيّرة في orders ⇒ عدد ما تغيّر فعلاً (صورة الإيصال المجلوبة تبقى ما دام الإيصال نفسه) */
 function ordersMerge(rows) {
     const byId = new Map((orders || []).map((o, i) => [String(o.id), i]));
     const strip = o => { const c = Object.assign({}, o); delete c.receipt_img; return JSON.stringify(c); };
-    let changed = 0;
+    let changed = 0; ordersMerge.fresh = [];
     for (const o of rows) {
         const i = byId.get(String(o.id));
-        if (i == null) { orders.push(o); byId.set(String(o.id), orders.length - 1); changed++; continue; }
+        if (i == null) { orders.push(o); byId.set(String(o.id), orders.length - 1); changed++; ordersMerge.fresh.push(o); continue; }
         const p = orders[i];
         if (strip(p) === strip(o)) continue;
         if (p.receipt_img && !o.receipt_img && o.receipt_at && sameAt(p.receipt_at, o.receipt_at)) o.receipt_img = p.receipt_img;
@@ -1658,6 +1678,7 @@ async function loadOrders(opt) {
                 const n = ordersMerge(rows);
                 const m = ordMaxUpd(rows); if (m && +new Date(m) > +new Date(_ordMaxUpd)) _ordMaxUpd = m;
                 if (n) { render(); try { localStorage.setItem('gmt_orders_snapshot', JSON.stringify({ at: Date.now(), rows: orders })); } catch (_) {} }
+                if (ordersMerge.fresh.length) ordNewAlert(ordersMerge.fresh);   /* (TASK-A0567) */
                 return;
             }
         } catch (_) { /* ⇐ القراءة الكاملة أدناه (وفيها احتياط «لا اتصال») */ }
@@ -1669,8 +1690,10 @@ async function loadOrders(opt) {
        فنستعمل تخزيناً محلياً مباشراً لهذه اللقطة بدل دوال غير موجودة. */
     const CK = 'gmt_orders_snapshot';
     try {
+        const _prevIds = (opt && opt.poll && Array.isArray(orders) && orders.length) ? new Set(orders.map(o => String(o.id))) : null;   /* (TASK-A0567) */
         orders = await sbGet();
         _ordFullAt = Date.now(); _ordMaxUpd = ordMaxUpd(orders);   /* (TASK-A0551) */
+        if (_prevIds) { const fresh = orders.filter(o => !_prevIds.has(String(o.id))); if (fresh.length) setTimeout(() => ordNewAlert(fresh), 0); }
         setConnStatus(true);
         render();
         try { localStorage.setItem(CK, JSON.stringify({ at: Date.now(), rows: orders })); } catch (_) {}
@@ -11308,7 +11331,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122t"></script>
+<script src="gmt-whatsnew.js?v=20261122u"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

@@ -45,6 +45,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   S.unread = 4;
   ok((await cues(() => { window.__gmtPushSndAt = Date.now(); return GMTInbox.paint(); })).length === 0, '⑤ بعد صوت دفعٍ للتوّ ⇒ لا صوت ثانٍ');
   await pg.evaluate(() => { window.__gmtPushSndAt = 0; });
+  S.unread = 4.5;
+  ok((await cues(() => { window.__gmtLocalSndAt = Date.now(); return GMTInbox.paint(); })).length === 0, '⑤ب الصفحة نبّهت للحدث نفسه (أوردر جديد) ⇒ لا صوت ثانٍ');
+  await pg.evaluate(() => { window.__gmtLocalSndAt = 0; });
   // ⑥
   S.unread = 5;
   ok((await cues(() => { localStorage.setItem('gmt_inbox_snd', JSON.stringify({ n: 5, t: Date.now() })); return GMTInbox.paint(); })).length === 0, '⑥ تبويبٌ آخر أعلن العدد نفسه ⇒ لا صوت');

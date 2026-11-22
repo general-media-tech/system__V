@@ -79,6 +79,7 @@
     prevUnread = n;
     if (!up || quiet || willPop || doc.visibilityState !== 'visible') return;
     if (global.__gmtPushSndAt && Date.now() - global.__gmtPushSndAt < 15000) return;
+    if (global.__gmtLocalSndAt && Date.now() - global.__gmtLocalSndAt < 90000) return;   /* (TASK-A0567) الصفحة نبّهت للحدث نفسه (أوردر جديد) */
     try {
       var v = JSON.parse(ls('gmt_inbox_snd') || '{}'), now = Date.now();
       if (v.n >= n && now - v.t < 120000) return;
