@@ -2300,9 +2300,10 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-core.js?v=20261122s"></script>
   <script src="gmt-packages.js?v=20261107h" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
-  <script src="gmt-reconcile.js?v=20261122x" defer></script>
+  <script src="gmt-reconcile.js?v=20261122y" defer></script>
+  <script src="gmt-lens.js?v=20261122y" defer></script>
   <script src="gmt-suggest.js?v=20261107d"></script>
-  <script src="gmt-match.js?v=20261029z4"></script>
+  <script src="gmt-match.js?v=20261122y"></script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-transfer-print.js?v=20261121k"></script>
@@ -2408,6 +2409,8 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
     <div id="search-wrap">
       <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="search-input" placeholder="بحث عن منتج، باركود، اسم..." autocomplete="off">
+      <!-- (TASK-A0576 · المالك seq 974) «عدسة GMT»: صوّر المنتج/العلبة ⇒ أقرب منتجاتنا في الجرد -->
+      <button type="button" id="inv-lens-btn" onclick="invOpenLens()" title="عدسة GMT — صوّر المنتج أو علبته فيجد اسمه في الجرد" aria-label="عدسة GMT" style="flex-shrink:0;border:0;background:none;font-size:17px;cursor:pointer;padding:0 6px">📸</button>
       <!-- 📷 (2026-09-27 · طلب المالك) «زرّ البحث عن منتج بالباركود مو موجود…
            ممكن البحث بالكاميرا الخلفية أو بجهاز سكانر مربوط».
            الزرّ يُركّب من gmt-scan.js، والسكانر المربوط لا يحتاج زرّاً: الوحدة
@@ -8559,6 +8562,26 @@ async function openReconcile() {
   });
 }
 window.openReconcile = openReconcile;
+
+/* (TASK-A0576 · المالك seq 974) «عدسة GMT» — صوّر المنتج أو علبته ⇒ أقرب منتجاتنا · الأدمن: ما على العلبة يُضاف لأسمائه البديلة */
+async function invLensLearn(p, names) {
+  if (!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin())) return false;
+  const m = GMTLens.mergeAlt(p.alt_names, names); if (!m.added.length) return false;
+  const r = await sbFetch('PATCH', `/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, { alt_names: m.value });
+  if (r.error) return false;
+  p.alt_names = m.value; try { if (window.GMTCache) GMTCache.bulkPut('inv_products', [p]).catch(() => {}); } catch (_) {}
+  try { window.GMTAudit && GMTAudit.log({ action: 'alt_names_learn', entity: 'products', entityId: p.id, entityName: p.name, reason: 'عدسة GMT — ما على العلبة: ' + m.added.join('، ') }); } catch (_) {}
+  return true;
+}
+function invOpenLens() {
+  if (!window.GMTLens) { showToast('العدسة لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'error'); return; }
+  GMTLens.open({ products: () => allProducts, learn: invLensLearn,
+    onPick: (p, info) => {
+      const si = document.getElementById('search-input'); if (si) { si.value = p.barcode || p.name; si.dispatchEvent(new Event('input', { bubbles: true })); }
+      showToast('🔍 ' + p.name + (info && info.learned ? ' — أُضيف ما على العلبة لأسمائه البديلة' : ''), 'success');
+    } });
+}
+window.invOpenLens = invOpenLens;
 
 async function invOpenFullEdit(id, opt) {
   opt = opt || {};
@@ -16910,7 +16933,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122x"></script>
+<script src="gmt-whatsnew.js?v=20261122y"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>

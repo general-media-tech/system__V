@@ -9,10 +9,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const dump = () => H.call('/__dump', undefined, 'GET');
 (async () => {
   await H.seed();
-  const [A, B, C] = await H.call('/rest/v1/products', [
+  const [A, B, C, Dz] = await H.call('/rest/v1/products', [
     { name: 'جرد مراجعة أ — عدسة', barcode: 'CR1', price: 100, wholesale_price: 70, daraa: 5 },
     { name: 'جرد مراجعة ب — بطارية', barcode: 'CR2', price: 10, wholesale_price: 6, daraa: 3 },
-    { name: 'جرد مراجعة ج — لم يُعدّ', barcode: 'CR3', price: 20, wholesale_price: 12, daraa: 2 }]);
+    { name: 'جرد مراجعة ج — لم يُعدّ', barcode: 'CR3', price: 20, wholesale_price: 12, daraa: 2 },
+    { name: 'جرد مراجعة د — زيادة', barcode: 'CR4', price: 30, wholesale_price: 20, daraa: 2 }]);
   const P = async id => (await dump()).products.find(p => p.id === id);
   // ── نقطة البيع (درعا) ──
   let o = await H.open('pos.html', { init: H.STAFF_INIT, w: 390, mobile: true, wait: 7000 });
@@ -67,6 +68,7 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   const c4 = await pg.evaluate(([a, b]) => [_scCounts[a], _scCounts[b]], [A.id, B.id]);
   ok(c4[0] === undefined && c4[1] === 3, '④ الاستئناف: ب محفوظ (3) · أ (المطلوب) يُعَدّ من جديد');
   await pg.fill('#sc-search', 'CR1'); await pg.press('#sc-search', 'Enter'); await sleep(250); await pg.keyboard.type('4'); await pg.keyboard.press('Enter'); await sleep(250);
+  await pg.fill('#sc-search', 'CR4'); await pg.press('#sc-search', 'Enter'); await sleep(250); await pg.keyboard.type('5'); await pg.keyboard.press('Enter'); await sleep(250);   /* د: المسجّل 2 والفعلي 5 ⇒ زيادة +3 */
   await pg.evaluate(() => scFinishAndReport()); await sleep(1500);
   D = await dump(); rows = D.stock_counts.filter(r => r.details && r.details.source === 'pos');
   const r2 = rows.find(r => r.id !== r1.id), old = rows.find(r => r.id === r1.id);
@@ -83,7 +85,18 @@ const dump = () => H.call('/__dump', undefined, 'GET');
   D = await dump(); const r2b = D.stock_counts.find(r => r.id === r2.id);
   ok((await P(A.id)).daraa === 3, '⑤ الاعتماد طبّق فرق العدّ على الحاليّ: 4 + (4−5) = 3 (كان «= الفعلي» ⇒ 4 فيعود المباع): ' + (await P(A.id)).daraa);
   ok((await P(B.id)).daraa === 3 && (await P(C.id)).daraa === 2, '⑤ المطابق لم يُلمس (ب 3) · وما لم يُعدّ لم يُصفَّر (ج 2)');
-  ok(r2b.details.status === 'applied' && (r2b.details.numbers || []).length >= 1, '⑤ الجرد «طُبّق» برقم فاتورة التسوية: ' + (r2b.details.numbers || []).join(' + '));
+  ok(r2b.details.status === 'applied' && r2b.details.deficit_number && r2b.details.surplus_number && r2b.details.numbers.length === 2, '⑥ فاتورتان: عجز ' + r2b.details.deficit_number + ' · تسوية جديدة ' + r2b.details.surplus_number);
+  const trs = D.branch_stock_transfers || [];
+  const tDef = trs.find(t => t.transfer_number === r2b.details.deficit_number), tSur = trs.find(t => t.transfer_number === r2b.details.surplus_number);
+  ok(tDef && tDef.status === 'received' && /فاتورة عجز/.test(tDef.title + ' ' + tDef.note), '⑥ فاتورة العجز مستلَمة (خُصمت): ' + (tDef && tDef.title));
+  const sItems = (D.stock_transfer_items || []).filter(i => tSur && i.transfer_id === tSur.id);
+  ok(tSur && tSur.status === 'pending' && tSur.to_branch === 'daraa' && /تسوية من الجرد/.test(tSur.title) && /زيادة/.test(tSur.title) && sItems.length === 1 && sItems[0].qty === 3 && sItems[0].barcode === 'CR4', '⑥ فاتورة التسوية الجديدة بالزيادة (+3) واردةٌ إلى درعا بانتظار الاستلام وبباركودها: ' + (tSur && tSur.title));
+  ok((await P(Dz.id)).daraa === 2, '⑥ الزيادة لا تُضاف قبل «استلامها» في نقطة البيع (2)');
+  // ⑦ نقطة البيع ترى فاتورة التسوية الجديدة في «وارد»
+  o = await H.open('pos.html', { init: H.STAFF_INIT, w: 390, mobile: true, wait: 7000 }); pg = o.pg;
+  const inc = await pg.evaluate(async () => (await loadIncomingTransfers()).map(t => t.transfer_number));
+  ok(inc.includes(r2b.details.surplus_number), '⑦ نقطة البيع: فاتورة التسوية الجديدة في «📥 وارد» (منها الاستلام والباركودات)');
+  await o.browser.close();
   const real = [...o.errs, ...a.errs].filter(x => !/status of (400|401|404|406|409|503)|Failed to load resource/.test(x));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
   await a.browser.close();

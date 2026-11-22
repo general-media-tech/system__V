@@ -206,6 +206,18 @@
     };
     /* (seq 540) «ممكن يطلع عندي أشياء لسه ما مجرودة … فاتورة تسوية أخرى ولكن إضافة فوقها وباركوداتها» — مسودة mode=add:
        الاعتماد ⇐ فاتورةٌ واردة إلى الفرع (بانتظار «استلام» نقطة البيع) بكمّية كلّ سطرٍ مربوط — تُضاف فوق الموجود · لا تصفير */
+    /* فاتورة تسوية واردة إلى الفرع (بانتظار «استلامها» في نقطة البيع · ومنها «🏷️ باركودات الفاتورة») — مشتركة بين «الإضافة» و«زيادة الجرد» */
+    async function pendingSettle(rows, title, note) {
+      var nr = await sb('POST', '/rest/v1/rpc/next_stock_transfer_number', {});
+      var num = (nr && typeof nr.data === 'string') ? nr.data : 'TRF-' + Date.now();
+      var by = ctx.operator || 'الأدمن';
+      var h = await sb('POST', '/rest/v1/branch_stock_transfers?select=*', { transfer_number: num, from_branch: 'rebuild', from_branch_name: 'تسوية من الجرد', to_branch: bk, to_branch_name: bn, status: 'pending', is_locked: true,
+        title: title, created_by: by, note: note }, { Prefer: 'return=representation' });
+      var hd = h && Array.isArray(h.data) && h.data[0]; if (!hd) return { error: 'تعذّر إنشاء الفاتورة' };
+      var r = await sb('POST', '/rest/v1/stock_transfer_items?select=id', rows.map(function (x) { var L = S.live[x.id] || {}; return { transfer_id: hd.id, product_id: x.id, product_name: x.name || L.name || '', barcode: L.barcode || null, image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : null, qty: x.qty, requested_qty: x.qty, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0, notes: x.note || ('+' + x.qty) }; }), { Prefer: 'return=representation' });
+      if (!(r && Array.isArray(r.data) && r.data.length === rows.length)) { await sb('DELETE', '/rest/v1/branch_stock_transfers?id=eq.' + encodeURIComponent(hd.id)); return { error: 'تعذّر كتابة البنود — أُلغيت' }; }
+      return { num: num, id: hd.id };
+    }
     async function applyAdd() {
       var on = S.items.filter(function (i) { return i.include && i.id && i.actual > 0; });
       if (!on.length) { say('لا أسطر مربوطة بعدد — اربط المعدود بمنتجاته أوّلاً'); return; }
@@ -214,14 +226,11 @@
       var pw = global.GMTAuth && GMTAuth.ask ? await GMTAuth.ask('sovereign', '🔒 فاتورة تسوية إضافية «' + bn + '»') : true; if (!pw) return;
       if (!(await save())) return;
       await liveQty(on.map(function (i) { return String(i.id); }));
-      var nr = await sb('POST', '/rest/v1/rpc/next_stock_transfer_number', {});
-      var num = (nr && typeof nr.data === 'string') ? nr.data : 'TRF-' + Date.now();
       var by = ctx.operator || 'الأدمن';
-      var h = await sb('POST', '/rest/v1/branch_stock_transfers?select=*', { transfer_number: num, from_branch: 'rebuild', from_branch_name: 'تسوية من الجرد', to_branch: bk, to_branch_name: bn, status: 'pending', is_locked: true,
-        title: 'فاتورة تسوية من الجرد — ' + bn + ' · إضافة', created_by: by, note: 'إضافة فوق الموجود — مطابقة الجرد #' + S.rec.id + ' · تُضاف عند «استلام» الفاتورة في نقطة البيع' }, { Prefer: 'return=representation' });
-      var hd = h && Array.isArray(h.data) && h.data[0]; if (!hd) { say('❌ تعذّر إنشاء الفاتورة'); return; }
-      var r = await sb('POST', '/rest/v1/stock_transfer_items?select=id', on.map(function (i) { var L = S.live[i.id] || {}; return { transfer_id: hd.id, product_id: i.id, product_name: i.name || L.name || '', barcode: L.barcode || null, image_url: (L.image_url && !/^data:/.test(L.image_url)) ? L.image_url : null, qty: i.actual, requested_qty: i.actual, unit_cost: Number(L.wholesale_price) || 0, sale_price: Number(L.price) || 0, notes: 'إضافة من الجرد +' + i.actual }; }), { Prefer: 'return=representation' });
-      if (!(r && Array.isArray(r.data) && r.data.length === on.length)) { await sb('DELETE', '/rest/v1/branch_stock_transfers?id=eq.' + encodeURIComponent(hd.id)); say('❌ تعذّر كتابة البنود — أُلغيت'); return; }
+      var ps = await pendingSettle(on.map(function (i) { return { id: i.id, name: i.name, qty: i.actual, note: 'إضافة من الجرد +' + i.actual }; }),
+        'فاتورة تسوية من الجرد — ' + bn + ' · إضافة', 'إضافة فوق الموجود — مطابقة الجرد #' + S.rec.id + ' · تُضاف عند «استلام» الفاتورة في نقطة البيع');
+      if (ps.error) { say('❌ ' + ps.error); return; }
+      var num = ps.num;
       await save({ status: 'applied', applied_at: new Date().toISOString(), applied_by: by, numbers: [num], settle_status: 'pending_receive' });
       paint(); say('✅ صدرت ' + num + ' — بانتظار «استلامها» في نقطة بيع «' + bn + '» (ومنها «🏷️ باركودات الفاتورة»)');
     }
@@ -234,7 +243,7 @@
       if (!on.length && !zr.length) { snd('countMatch'); say('لا فروقات داخل التسوية'); return; }
       var mi = on.filter(function (i) { return diffOf(i) < 0; }), pl = on.filter(function (i) { return diffOf(i) > 0; });
       var txt = 'فاتورة تسوية «' + bn + '» من الجرد:\n• نقص ' + mi.length + ' بنداً (−' + mi.reduce(function (s, i) { return s - diffOf(i); }, 0) + ')\n• زيادة ' + pl.length + ' بنداً (+' + pl.reduce(function (s, i) { return s + diffOf(i); }, 0) + ')\n\n' +
-        (S.items.some(function (i) { return i.sys_at != null; }) ? 'جرد نقطة البيع: يُطبَّق **فرق العدّ** على الكمّية الحاليّة (ما بيع أو نُقل بعد العدّ يبقى محسوباً).\n' : 'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\n') +
+        (S.items.some(function (i) { return i.sys_at != null; }) ? 'جرد نقطة البيع ⇐ فاتورتان:\n🔻 «فاتورة عجز» بالنقص — يُخصم الآن\n🔺 «فاتورة تسوية جديدة» بالزيادة — تصل نقطة البيع بانتظار «استلامها» (ومنها الباركودات)\nالفرق = فرق العدّ (ما بيع أو نُقل بعد العدّ يبقى محسوباً).\n' : 'تصير كمّية كلّ بندٍ في «' + bn + '» = «الفعلي» (الفرق يُحسب من قراءةٍ حيّة لحظة الاعتماد).\n') +
         (zero ? '• تصفير الفرع: ' + zr.length + ' منتجاً في النظام لم يُعدّ ⇐ 0 (−' + zr.reduce(function (s, p) { return s + (Number(p[bk]) || 0); }, 0) + ' قطعة)\n' : '') +
         'الأسطر المستثناة وغير المربوطة لا تُلمس.\n\n💾 تُحفظ قبل التطبيق نسخةٌ احتياطية بكمّيات «' + bn + '» الحاليّة كلّها — للرجوع إليها بزرّ «↩️ استرجاع».';
       var ok = global.GMTAsk && GMTAsk.confirm ? await GMTAsk.confirm(txt, { title: '✅ اعتماد التسوية', okText: 'اعتماد' }) : global.confirm(txt);
@@ -247,6 +256,33 @@
       if (!(await save({ backup: backup, backup_at: new Date().toISOString(), zero_mode: zero }))) return;
       if (!global.GMTStock || !GMTStock.rebuild) { say('❌ وحدة المخزون لم تُحمَّل'); return; }
       var by = ctx.operator || 'الأدمن';
+      /* (TASK-A0576 · المالك seq 974) جرد نقطة البيع ⇐ فاتورتان: «فاتورة عجز» (النقص — يُخصم الآن) و«فاتورة تسوية جديدة» (الزيادة — واردةٌ إلى
+         النقطة بانتظار «استلامها» ومنها باركوداتها، كأيّ فاتورة تسوية). الاثنتان مربوطتان برقم الجرد · والجرد يحفظ الرقمين. */
+      if (S.items.some(function (i) { return i.sys_at != null; })) {
+        var minus = on.filter(function (i) { return diffOf(i) < 0; }), plus = on.filter(function (i) { return diffOf(i) > 0; });
+        var nums2 = [], dNum = null, sNum = null, R2 = { applied: 0, failed: [] };
+        if (minus.length || zr.length) {
+          R2 = await GMTStock.rebuild({ branch: { key: bk, name: bn }, mode: 'local', by: by, receivedBy: by, titleTag: 'فاتورة عجز — جرد #' + S.rec.id,
+            kind: 'فاتورة عجز (نقص) من الجرد — #' + S.rec.id,
+            lines: minus.map(function (i) { return lineOf(i.id, i.name, afterOf(i)); }).concat(zr.map(function (p) { return lineOf(String(p.id), p.name, 0); })),
+            onProgress: function (k, n, name) { say('🔻 ' + k + ' / ' + n + ' — ' + name); } }) || R2;
+          dNum = (R2.numbers || [])[0] || null; if (dNum) nums2.push(dNum);
+        }
+        if (plus.length) {
+          var ps2 = await pendingSettle(plus.map(function (i) { var d = diffOf(i); return { id: i.id, name: i.name, qty: d, note: 'زيادة الجرد +' + d + ' (المسجّل عند العدّ ' + i.sys_at + ' · الفعلي ' + i.actual + ')' }; }),
+            'فاتورة تسوية من الجرد — ' + bn + ' · زيادة — جرد #' + S.rec.id, 'فاتورة تسوية جديدة بالزيادة — جرد #' + S.rec.id + (dNum ? ' · مع فاتورة العجز ' + dNum : '') + ' · تُضاف عند «استلامها» في نقطة البيع · اعتمدها ' + by);
+          if (ps2.error) say('❌ فاتورة الزيادة: ' + ps2.error); else { sNum = ps2.num; nums2.push(sNum); }
+        }
+        if (nums2.length) snd('countMismatch');
+        await save({ status: nums2.length ? 'applied' : S.rec.details.status, applied_at: nums2.length ? new Date().toISOString() : null, applied_by: by, numbers: nums2,
+          deficit_number: dNum, surplus_number: sNum, settle_status: sNum ? 'pending_receive' : null, failed: R2.failed || [] });
+        await liveQty(S.items.filter(function (i) { return i.id; }).map(function (i) { return String(i.id); }));
+        S.items.forEach(function (i) { if (i.id && S.live[i.id]) i.system = Number(S.live[i.id][bk]) || 0; });
+        await loadRest(); paint();
+        say(nums2.length ? '✅ ' + (dNum ? '🔻 فاتورة عجز ' + dNum + ' (خُصمت)' : '') + (dNum && sNum ? ' · ' : '') + (sNum ? '🔺 فاتورة تسوية جديدة ' + sNum + ' — بانتظار استلامها في نقطة «' + bn + '» (ومنها الباركودات)' : '') + ((R2.failed || []).length ? ' · تعذّر ' + R2.failed.length : '') : '❌ لم تصدر فاتورة');
+        if (ctx.onApplied) try { ctx.onApplied({ numbers: nums2, deficit: dNum, surplus: sNum }); } catch (_) {}
+        return;
+      }
       var R = await GMTStock.rebuild({ branch: { key: bk, name: bn }, mode: 'local', by: by, receivedBy: by, titleTag: 'تسوية من الجرد',
         kind: 'فاتورة تسوية من الجرد — مطابقة #' + S.rec.id,
         lines: on.map(function (i) { return lineOf(i.id, i.name, afterOf(i)); }).concat(zr.map(function (p) { return lineOf(String(p.id), p.name, 0); })),

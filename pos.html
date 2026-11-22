@@ -1267,6 +1267,7 @@ window.GMT_FEATURES = [
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
+  <script src="gmt-lens.js?v=20261122y" defer></script>
   <script src="gmt-labels.js?v=20261116a"></script>
 <script src="gmt-staff.js?v=20261122p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -2342,6 +2343,8 @@ window.GMT_FEATURES = [
           <input id="sc-search" type="text" placeholder="🔍 ابحث بالاسم أو امسح/اكتب الباركود..." oninput="scRenderList()" onkeydown="scHandleEnter(event)"
             style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
           <button onclick="scStartScan()" title="مسح بالكاميرا" style="flex-shrink:0;background:#0f766e;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">📷</button>
+          <!-- (TASK-A0576 · المالك seq 974) عدسة GMT: بضاعة بلا باركود أو اسمها على العلبة غير اسمها في الجرد -->
+          <button onclick="scOpenLens()" title="عدسة GMT — صوّر المنتج أو علبته فيجد اسمه في الجرد" style="flex-shrink:0;background:#D5001C;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">🔍</button>
         </div>
         <!-- (TASK-A0572 · المالك seq 970) الطريقة: امسح الباركود أو ابحث ⇒ يظهر المنتج بكمّيته المسجّلة في النظام ⇒ اكتب العدد الحقيقيّ ⇒ Enter ⇒ المسح التالي -->
         <div id="sc-live" style="font-size:11.5px;font-weight:700;color:#475569;margin:-2px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -5461,6 +5464,26 @@ function scYes(id) {
   try { window.GMTSound && GMTSound.cue && GMTSound.cue('countMatch'); } catch (_) {}
 }
 window.scYes = scYes;
+/* (TASK-A0576 · المالك seq 974) «عدسة GMT» في الجرد: صوّر القطعة ⇒ أقرب منتجاتنا ⇒ يُفتح سطرها لتكتب عددها · الأدمن: ما على العلبة يُضاف لأسمائها البديلة */
+async function _scLensLearn(p, names) {
+  if (!(window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin())) return false;
+  const m = GMTLens.mergeAlt(p.alt_names, names); if (!m.added.length) return false;
+  const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(p.id)}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ alt_names: m.value }) }, 8000);
+  if (!r.ok) return false;
+  p.alt_names = m.value;
+  try { window.GMTAudit && GMTAudit.log({ action: 'alt_names_learn', entity: 'products', entityId: p.id, entityName: p.name, reason: 'عدسة GMT (جرد ' + (branch && branch.name) + ') — ما على العلبة: ' + m.added.join('، ') }); } catch (_) {}
+  return true;
+}
+function scOpenLens() {
+  if (!window.GMTLens) { showToast('العدسة لم تُحمَّل بعد — أعد المحاولة بعد ثانية', 'err'); return; }
+  GMTLens.open({ products: scProducts, branchKey: branch && branch.key, learn: _scLensLearn,
+    onPick: (p, info) => {
+      const s = document.getElementById('sc-search'); if (s) s.value = p.barcode || p.name;
+      scRenderList(); _scFocusRow(p.id);
+      showToast('🔍 ' + p.name + (info && info.learned ? ' — أُضيف ما على العلبة لأسمائه البديلة' : '') + ' — اكتب عدده', 'ok');
+    } });
+}
+window.scOpenLens = scOpenLens;
 function _scFocusRow(id) {
   setTimeout(() => { const i = document.querySelector('#sc-list input[data-sc-id="' + CSS.escape(String(id)) + '"]'); if (i) { i.focus(); try { i.select(); } catch (_) {} } }, 30);
 }
@@ -11344,7 +11367,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122x"></script>
+<script src="gmt-whatsnew.js?v=20261122y"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
