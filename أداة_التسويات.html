@@ -89,7 +89,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   var inv = null;
   async function invoices() {
     if (inv) return inv;
-    inv = await get('import_log?select=inv_number,inv_type,supplier,inv_date,status,transferred,transfer_moved,items_snapshot,created_at&order=created_at.asc', 100);
+    inv = await get('import_log?select=id,inv_number,inv_type,supplier,inv_date,status,transferred,transfer_moved,items_snapshot,total_amount,created_at&order=created_at.asc', 100);
     return inv;
   }
   async function sealed() {
@@ -109,6 +109,42 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
       return esc(v.inv_number) + ' — ' + esc(v.supplier || '') + ' · ' + miss + ' بند لم يصل';
     });
     r.actions = bad.slice(0, 3).map(function (v) { return ['المشتريات: ' + v.inv_number, 'purchase.html?q=' + encodeURIComponent(v.inv_number), 0]; });
+    return r;
+  }
+  /* (TASK-A0549 · المالك seq 940 «أداة التسوية فيها كل شيء: فواتير فيها نقص سواء في أي بند أو سعر») */
+  var GIFT_RE = /هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|gift|free|bonus/i;
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  async function purGaps() {
+    var r = { id: 'pg', title: 'فواتير شراء فيها نقص (سعر · ربط · كمية · مورّد · مجموع)',
+      what: 'فاتورة شراء في أحد بنودها نقص: سعر شراء 0، أو بندٌ غير مربوط بمنتجٍ في الجرد، أو كمية 0 — أو ينقصها المورّد أو التاريخ، أو مجموعها لا يساوي مجموع بنودها.',
+      impact: 'سعر 0 ⇒ التكلفة والربح يُحسبان غلطاً · بندٌ غير مربوط ⇒ كمّيته لا تدخل منتجاً عند الترحيل ولا تظهر في سجلّ شرائه · المجموع المختلف ⇒ المصاريف والمحاسبة لا تطابق الفاتورة.',
+      fix: 'افتح الفاتورة من زرّها: اكتب سعر الشراء الحقيقي (وإن كان البند هديةً أو ضمن كومبو فاكتب ذلك في ملاحظته فيخرج من هذه القائمة)، واربط البند غير المربوط من «تدقيق الفواتير والجرد ← اربطه»، ثمّ احفظ — كلّ تعديلٍ يُحفظ في «🕘 سجل التعديلات» مع سببه.',
+      actions: [], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
+    var byId = {}, byBc = {}; prods.forEach(function (p) { byId[String(p.id)] = 1; if (p.barcode) byBc[nz(p.barcode)] = 1; });
+    var ST = { transit: '🚚 بالطريق', arrived: '✅ وصلت' };
+    var bad = [];
+    rows.forEach(function (v) {
+      if (/cancel/i.test(v.status || '')) return;
+      var it = jparse(v.items_snapshot, []); if (!Array.isArray(it)) it = [];
+      var zero = it.filter(function (x) { return x && num(x.qty) > 0 && num(x.unit_price) <= 0 && !GIFT_RE.test(String(x.notes || '')); });
+      var unl = it.filter(function (x) { return x && !byId[String(x.id || '')] && !(x.barcode && byBc[nz(x.barcode)]); });
+      var q0 = it.filter(function (x) { return x && num(x.qty) <= 0; });
+      var sum = it.reduce(function (s, x) { return s + num(x && x.qty) * num(x && x.unit_price); }, 0);
+      var mism = v.total_amount != null && Math.abs(num(v.total_amount) - sum) > 0.5;
+      var p = [];
+      if (zero.length) p.push('<b style="color:#b91c1c">' + zero.length + ' بند بسعر شراء 0</b> (' + esc(zero.slice(0, 4).map(function (x) { return x.name + ' ×' + x.qty; }).join(' · ')) + (zero.length > 4 ? ' …' : '') + ')');
+      if (unl.length) p.push('<b>' + unl.length + ' بند غير مربوط بمنتج</b> (' + esc(unl.slice(0, 3).map(function (x) { return x.name || '—'; }).join(' · ')) + (unl.length > 3 ? ' …' : '') + ')');
+      if (q0.length) p.push(q0.length + ' بند بكمية 0');
+      if (!String(v.supplier || '').trim()) p.push('بلا مورّد');
+      if (!v.inv_date) p.push('بلا تاريخ');
+      if (mism) p.push('المجموع ' + num(v.total_amount).toFixed(2) + ' ≠ البنود ' + sum.toFixed(2));
+      if (p.length) bad.push({ v: v, p: p, w: zero.length * 3 + unl.length * 2 + q0.length + (mism ? 5 : 0) });
+    });
+    bad.sort(function (a, b) { return b.w - a.w; });
+    r.count = bad.length;
+    r.lines = bad.map(function (b) { var v = b.v; return '<b>' + esc(v.inv_number || '#' + v.id) + '</b> — ' + esc(v.supplier || '—') + ' · ' + (v.inv_type === 'instant' ? '⚡ فورية' : (ST[v.status] || esc(v.status || ''))) + (v.inv_date ? ' · ' + esc(v.inv_date) : '') + '<br>' + b.p.join(' · ') +
+      ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</a>'; });
     return r;
   }
   async function dups() {
@@ -157,15 +193,25 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     return r;
   }
   async function orphans() {
-    var r = { id: 'or', title: 'منتجات بلا فاتورة شراء', what: 'قطعٌ في الجرد لا يوجد لها باركودٌ أو لا توجد فاتورة شراء تحمل باركودها.',
-      impact: 'لا يمكن التحقّق من مصدر كمّيّتها ولا من كلفتها الحقيقية، فيضعف حساب الربح والتدقيق.',
-      fix: 'أضف الباركود إن كان ناقصاً، ثمّ اربطها بفواتيرها، أو أنشئ «فاتورة تسوية» أثرية تجمعها دون لمس الكمّيات (من لوحة التدقيق).',
+    /* (TASK-A0549 · المالك seq 940 «… معدات ما في لها فاتورة شراء وفيها منها كمية لنشوف شو نعمل لها تسوية»)
+       كان يعدّ كلّ منتج (ولو كمّيته 0) ويطابق بالباركود وحده ⇒ الآن: ما له كمّية فقط · والربط بالمعرّف أو الباركود. */
+    var r = { id: 'or', title: 'معدّات لها كمّية بلا فاتورة شراء', what: 'منتجٌ له كمّيةٌ في الجرد (في أيّ فرع أو في الطريق) ولا توجد أيّ فاتورة شراء فيها بندٌ مربوطٌ به (لا بمعرّفه ولا بباركوده).',
+      impact: 'لا يمكن التحقّق من مصدر كمّيّته ولا من كلفتها الحقيقية، فيضعف حساب الربح ورأس المال والتدقيق.',
+      fix: 'إن كانت له فاتورةٌ فعلاً: اربط بندها به من «تدقيق الفواتير والجرد». وإن دخل بلا فاتورة (قبل النظام أو هدية): «فاتورة تسوية» أثرية من لوحة التدقيق تجمعها دون لمس الكمّيات.',
       actions: [['افتح تدقيق الفواتير والجرد', 'inventory.html?audit=1', 1]], lines: [], count: 0 };
     var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
-    var has = {}; rows.forEach(function (v) { if (/cancel/i.test(v.status || '')) return; jparse(v.items_snapshot, []).forEach(function (x) { if (x.barcode) has[nz(x.barcode)] = 1; }); });
-    var o = prods.filter(function (p) { return !p.barcode || !has[nz(p.barcode)]; });
-    r.count = o.length;
-    r.lines = o.slice(0, 8).map(function (p) { return esc(p.name) + (p.barcode ? '' : ' — بلا باركود'); });
+    var hasId = {}, hasBc = {};
+    rows.forEach(function (v) { if (/cancel/i.test(v.status || '')) return; jparse(v.items_snapshot, []).forEach(function (x) { if (!x) return; if (x.id) hasId[String(x.id)] = 1; if (x.barcode) hasBc[nz(x.barcode)] = 1; }); });
+    var tot = cols.filter(function (c) { return c.include_in_total; }).map(function (c) { return c.key_name; });
+    var o = prods.map(function (p) { return { p: p, q: tot.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0) }; })
+      .filter(function (x) { return x.q > 0 && !hasId[String(x.p.id)] && !(x.p.barcode && hasBc[nz(x.p.barcode)]); })
+      .sort(function (a, b) { return b.q - a.q; });
+    r.count = o.length; r.shown = Math.min(12, o.length);
+    var pcs = o.reduce(function (s, x) { return s + x.q; }, 0);
+    r.lines = (o.length ? ['<b>' + o.length + ' منتجاً · ' + pcs + ' قطعة</b>'] : []).concat(o.slice(0, 12).map(function (x) {
+      var where = tot.filter(function (k) { return Number(x.p[k]) > 0; }).map(function (k) { var c = cols.find(function (c) { return c.key_name === k; }); return ((c && c.display_name) || k) + ' ' + x.p[k]; }).join(' · ');
+      return esc(x.p.name) + ' — <b>' + x.q + '</b>' + (where ? ' (' + esc(where) + ')' : '') + (x.p.barcode ? '' : ' — بلا باركود');
+    }));
     return r;
   }
   async function unbilled() {
@@ -200,7 +246,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
         (r.err ? '<div class="warn" style="margin-top:8px">تعذّرت قراءة هذه الحالة (' + esc(r.err.message || r.err) + ') — قد يكون الجدول غير موجود في قاعدتك.</div>'
           : (r.count === 0 ? '<div class="ex" style="color:#166534;font-weight:800">سليم — لا شيء يحتاج تسوية.</div>'
             : '<div class="ex"><span class="k">ما هذا؟</span> ' + esc(r.what) + '</div><div class="ex"><span class="k">ما أثره؟</span> ' + esc(r.impact) + '</div><div class="ex"><span class="k">التصرّف الصحيح:</span> ' + esc(r.fix) + '</div>' +
-              (r.lines.length ? '<div class="ls">' + r.lines.map(function (l) { return '<div>' + l + '</div>'; }).join('') + (r.count > r.lines.length ? '<div style="color:#64748b">… و' + (r.count - r.lines.length) + ' غيرها</div>' : '') + '</div>' : '') +
+              (r.lines.length ? '<div class="ls">' + r.lines.map(function (l) { return '<div>' + l + '</div>'; }).join('') + (r.count > (r.shown != null ? r.shown : r.lines.length) ? '<div style="color:#64748b">… و' + (r.count - (r.shown != null ? r.shown : r.lines.length)) + ' غيرها</div>' : '') + '</div>' : '') +
               '<div class="act">' + r.actions.map(function (a) { return '<a class="btn' + (a[2] ? ' p' : '') + '" href="' + esc(a[1]) + '">' + esc(a[0]) + '</a>'; }).join('') + '</div>')) + '</div>';
     }).join('');
     $('at').textContent = 'آخر فحص: ' + new Date().toLocaleTimeString('ar-SY');
@@ -208,8 +254,8 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   async function run() {
     if (!db()) { $('list').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
     inv = null; prods = null; $('list').innerHTML = '<div class="em">جارٍ الفحص…</div>'; $('sum').innerHTML = '';
-    var SEV = { tr: 'r', se: 'r', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
-    var jobs = [transfers, sealed, dups, surplus, orphans, unbilled, expenses];
+    var SEV = { tr: 'r', se: 'r', pg: 'o', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
+    var jobs = [transfers, sealed, purGaps, dups, surplus, orphans, unbilled, expenses];
     rep = [];
     for (var i = 0; i < jobs.length; i++) {            // بالتتابع: الفواتير والمنتجات تُجلب مرّةً وتُشارَك
       var r; try { r = await jobs[i](); } catch (e) { r = { id: 'x' + i, title: 'حالة', err: e, count: 0, lines: [], actions: [] }; }
@@ -228,7 +274,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261118d" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261122b"></script>
+<script src="gmt-whatsnew.js?v=20261122c"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 </body>
 </html>

@@ -1340,6 +1340,7 @@ function render(){
   document.getElementById('badge-transit').textContent=groups.transit.length;
   document.getElementById('badge-arrived').textContent=groups.arrived.length;
   document.getElementById('badge-instant').textContent=groups.instant.length;
+  try{ purGapsBar(); }catch(e){ console.warn('[فحص المشتريات]',e); }   /* (TASK-A0549) */
 
   const makeImportCard=(s,arrived)=>{
     const flag=s.inv_type==='china'?'🇨🇳':'🇩🇪';
@@ -1353,6 +1354,7 @@ function render(){
           ${s.supplier?`<p class="text-[11px] text-gray-500 font-bold">🏭 ${eh(s.supplier)}</p>`:''}
           <div class="text-[10px] font-bold text-gray-400 mt-1">📅 ${fd(s.inv_date)}${s.eta_date?' · وصول: '+fd(s.eta_date):''}</div>
           ${arrived?`<p class="text-[10px] text-emerald-600 font-bold mt-1">✅ وصل${s.arrived_at?' — '+fd(s.arrived_at):''}</p>`:''}
+          ${purGapChips(s)}
         </div>
         <div class="flex flex-col items-end gap-2">
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
@@ -1391,6 +1393,7 @@ function render(){
           ${s.supplier?`<p class="text-[11px] text-gray-500 font-bold">🏭 ${eh(s.supplier)}</p>`:''}
           <div class="text-[10px] font-bold text-gray-400 mt-1">📅 ${fd(s.inv_date)}</div>
           <p class="text-[10px] text-yellow-600 font-bold mt-1">🏪 ${eh(branchName)}</p>
+          ${purGapChips(s)}
         </div>
         <div class="flex flex-col items-end gap-2">
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
@@ -1623,6 +1626,7 @@ async function saveInstantPurchase(){
     toast('ℹ️ لم تختر فرعاً — سيُنزَّل على مخزون حلب (الافتراضي)','ok');
   }
   if(!insCart.length){toast('أضف منتجات أولاً','err');return;}
+  if(!(await purConfirmZero(insCart))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد */
   // منع التنفيذ المزدوج
   _saveLock=true;
   btnInstLoad('جارٍ الإنزال الفوري...');
@@ -3335,6 +3339,7 @@ function recalcInv(){
   }
 }
 async function saveInvEdits(){
+  if(Array.isArray(d_items_ref)&&!(await purConfirmZero(d_items_ref))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد */
   // ── 1. اقرأ كل القيم من صفحة الفاتورة ──
   const getF=f=>{
     const el=document.querySelector('#invPage [data-field="'+f+'"]');
@@ -3742,6 +3747,7 @@ function computeLandedCosts(cartArr){
 async function saveShipment(){
   if(_saveLock){toast('⏳ انتظر 30 ثانية بين كل حفظ','err');return;}
   if(gmtBlockIfUploading())return;   /* (2026-07-24) لا حفظ قبل انتهاء رفع الصورة */
+  if(!(await purConfirmZero(cart))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد */
   btnLoad('جارٍ الحفظ...');
   const src=invType===BR_DE?BR_DE:BR_CN;
   try{
@@ -4304,6 +4310,47 @@ async function delShip(id){
     await sb('DELETE',`/rest/v1/import_log?id=eq.${id}`,null,{Prefer:'return=minimal'});
     ships=ships.filter(x=>String(x.id)!==String(id));render();toast('🗑 تم الحذف + تنزيل النسخة الاحتياطية','ok');
   }catch(e){toast('خطأ: '+e.message,'err');}
+}
+
+/* ═══ (TASK-A0549 · المالك seq 936 «لسه عم براعي كثير فراغات فجوات … في الجرد أو في المشتريات») ═══
+   فجوتان تظهران الآن على الشاشة بدل أن تختبئا: ① بنودٌ بسعر شراء 0 (الربح والتكلفة يُحسبان خطأً) · ② رقم فاتورة مكرَّر لفاتورتين.
+   للعرض والتنبيه فقط — لا يُعدَّل أيّ رقم. ومع الحفظ: سؤال تأكيدٍ إن بقي بندٌ بسعر 0. */
+function _pgNum(v){const n=parseFloat(v);return isFinite(n)?n:0;}
+const PUR_GIFT_RE=/هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|gift|free|bonus/i;   /* بندٌ مكتوبٌ في ملاحظته «هدية/ضمن كومبو» ليس نقصاً */
+function purZeroLines(items){ return (Array.isArray(items)?items:[]).filter(x=>x&&_pgNum(x.qty)>0&&_pgNum(x.unit_price)<=0&&!PUR_GIFT_RE.test(String(x.notes||''))); }
+function purDupOf(s){ const n=String((s&&s.inv_number)||''); if(!/[0-9]/.test(n)) return []; return (ships||[]).filter(x=>x&&String(x.id)!==String(s.id)&&String(x.inv_number||'')===n); }
+function purGapChips(s){
+  const z=purZeroLines(s.items_snapshot), d=purDupOf(s); if(!z.length&&!d.length) return '';
+  const chip=(t,tip)=>`<span class="pur-gap" title="${eh(tip)}" style="display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:900;margin:0 0 4px 4px">${t}</span>`;
+  return `<div class="pur-gaps" data-gap-id="${eh(s.id)}">`+
+    (z.length?chip('⚠️ '+z.length+' بند بسعر شراء 0', z.slice(0,12).map(x=>x.name+' ×'+x.qty).join(' · ')+(z.length>12?' …':'')):'')+
+    (d.length?chip('⚠️ الرقم مكرَّر مع '+d.length+' فاتورة', d.map(x=>(x.supplier||'—')+' · '+(x.inv_date||'')).join(' | ')):'')+`</div>`;
+}
+function purGapsBar(){
+  let el=document.getElementById('pur-gaps-bar');
+  const host=document.getElementById('appContent'); if(!host) return;
+  const bad=(ships||[]).map(s=>({s,z:purZeroLines(s.items_snapshot).length,d:purDupOf(s).length})).filter(x=>x.z||x.d);
+  if(!el){ el=document.createElement('details'); el.id='pur-gaps-bar'; host.insertBefore(el, host.firstChild); }
+  if(!bad.length){ el.style.display='none'; el.innerHTML=''; return; }
+  const zN=bad.filter(x=>x.z).length, dN=bad.filter(x=>x.d).length;
+  el.style.cssText='display:block;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:8px 12px;margin-bottom:12px;font-size:12px';
+  /* (المالك seq 940 «أداة التسوية فيها كل شيء») التفاصيل هناك — هنا سطرٌ يدلّ عليها */
+  el.innerHTML=`<summary style="cursor:pointer;font-weight:900;color:#9a3412">🔎 فحص المشتريات: ${zN?zN+' فاتورة فيها بنود بسعر شراء 0':''}${zN&&dN?' · ':''}${dN?dN+' فاتورة برقمٍ مكرَّر':''}</summary>
+    <div style="margin-top:6px">${bad.map(({s,z,d})=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed #fed7aa">
+      <span><b>${eh(s.inv_number||'—')}</b> · ${eh(s.supplier||'—')} · ${s.inv_type==='instant'?'⚡ فورية':(s.status==='transit'?'🚚 بالطريق':'✅ وصلت')}${z?` · <span style="color:#b91c1c">${z} بند بسعر 0</span>`:''}${d?' · <span style="color:#b91c1c">رقم مكرَّر</span>':''}</span>
+      <button type="button" data-gap-open="${eh(s.id)}" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</button></div>`).join('')}
+      <div style="margin-top:6px"><a href="أداة_التسويات.html" style="font-weight:900;color:#9a3412;text-decoration:underline">⚖️ كلّ النواقص (سعر · ربط · كمية · مورّد) في أداة التسويات ←</a></div></div>`;
+  el.querySelectorAll('[data-gap-open]').forEach(b=>b.addEventListener('click',()=>purOpenById(b.dataset.gapOpen)));
+}
+function purOpenById(id){ const s=(ships||[]).find(x=>String(x.id)===String(id)); if(!s) return false; if(s.inv_type==='instant') openInstantInvFromList(s.id); else openInvFromList(s.id); return true; }
+/* ?open=<id> — فتح فاتورةٍ بمعرّفها (من أداة التسويات) لا برقمها الذي قد يتكرّر */
+try{const _o=new URLSearchParams(location.search).get('open');if(_o){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);if(!purOpenById(_o)) toast('لم تُوجد الفاتورة #'+_o,'err');}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
+/* قبل الحفظ: بندٌ بكمية وبسعر شراء 0 ⇒ تأكيد (لا منع — قد يكون هديةً فعلاً) */
+async function purConfirmZero(list){
+  const z=(list||[]).filter(c=>c&&_pgNum(c.qty)>0&&_pgNum(c.unitPrice)<=0);
+  if(!z.length) return true;
+  const names=z.slice(0,8).map(c=>'• '+((c.product&&c.product.name)||c.name||'بند')+' ×'+c.qty).join('\n')+(z.length>8?'\n… و'+(z.length-8)+' غيرها':'');
+  return await GMTAsk.confirm('⚠️ '+z.length+' بند بسعر شراء 0:\n'+names+'\n\nبسعر 0 تُحسب التكلفة والربح غلط. هل هي فعلاً هدية/ضمن كومبو؟\nاضغط «تأكيد» للحفظ كما هي، أو «إلغاء» لتكتب السعر.');
 }
 
 /* ═══ (TASK-A0548 · المالك seq 936 «خود سجل تعديل هالفاتورة · شروط صارمة … والسجل تبعها») ═══
@@ -6186,7 +6233,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122b"></script>
+<script src="gmt-whatsnew.js?v=20261122c"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
