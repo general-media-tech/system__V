@@ -306,7 +306,7 @@ window.GMT_PUBLIC = 1;</script>
 <body class="bg-white font-sans text-dark pb-24 antialiased selection:bg-primary selection:text-white">
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261122k"></script>
+  <script src="gmt-core.js?v=20261122l"></script>
   <script src="gmt-packages.js?v=20261107h"></script>
   <script src="gmt-store-sync.js?v=20261118b" defer></script>
   <script src="gmt-invoice-tpl.js?v=20261121k"></script>
@@ -1188,7 +1188,7 @@ function _endlessEnd(){
     E.wrap.appendChild(end);
     try{ window.GMTAudio&&GMTAudio.emit('UI_LIST_END'); }catch(_){}   /* صوت نهاية المتجر */
     end.querySelector('[data-end-top]').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-    end.querySelector('[data-end-wa]').addEventListener('click', () => window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent('مرحباً، أبحث عن منتج لم أجده في المتجر: ')}`, '_blank'));
+    end.querySelector('[data-end-wa]').addEventListener('click', () => GMTOpenExt(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent('مرحباً، أبحث عن منتج لم أجده في المتجر: ')}`));
 }
 function _endlessMore(depth){
     const E = _endless; if (!E.wrap || !E.wrap.isConnected) return;
@@ -1631,7 +1631,7 @@ async function submitOrder(name, phone, address, notes, payment) {
         waText+=`\n🚚 التوصيل: ${DELIVERY_FEE.toFixed(2)} ${CONFIG.CURRENCY}\n💰 الإجمالي: ${total.toFixed(2)} ${CONFIG.CURRENCY}\n\nملاحظات: ${notes||'لا يوجد'}`;
         store.cart=[]; updateCartBadge(); closeModal('cart-modal');
         showToast('جاري تحويلك إلى واتساب...','success');
-        setTimeout(()=>window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`,'_blank'),1000);
+        setTimeout(()=>GMTOpenExt(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`),1000);   /* (TASK-A0555) بعد الحفظ بلا لمسة ⇒ تُمنع النافذة غالباً ⇒ الصفحة نفسها */
     }
     } finally {
         _orderSubmitting = false;
@@ -2704,7 +2704,7 @@ function pmKitQuote(pid){
     const link = location.origin + location.pathname + '#product=' + encodeURIComponent(k.items[0].id);
     const txt = 'مرحباً، أرغب بعرض سعر لهذا الطقم:\n' + k.items.map(p => '• ' + (p.short_name || p.name) + ' — ' + _kitMoney(parseFloat(p.price))).join('\n') +
         '\n\nالمجموع: ' + _kitMoney(k.sum) + '\nالسعر المقترح في المتجر: حوالي ' + _kitMoney(k.offer) + '\n' + link;
-    window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`, '_blank');
+    GMTOpenExt(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`);
 }
 /* (المالك seq B677) «ما بدي قسم للأطقم» ⇒ الطقم يظهر فقط في صفحة المنتج («عرض الطقم»): المنتج + ملحقاته الموجودة المتوافقة معه.
    (أُزيلت بطاقات الأطقم من «باقات وعروض» — كانت seq B672) */
@@ -3236,7 +3236,7 @@ window.closeSidebar=closeSidebar; window.openSidebar=openSidebar;
 function setupEventHandlers(){
     document.querySelector('[data-action="menu"]').onclick     = ()=>openSidebar();
     document.querySelector('[data-action="comments"]').onclick = ()=>{renderCommentsList();openModal('comments-modal');};
-    document.querySelector('[data-action="whatsapp"]').onclick = ()=>window.open(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(storeWaGreeting())}`,'_blank');
+    document.querySelector('[data-action="whatsapp"]').onclick = ()=>GMTOpenExt(`https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(storeWaGreeting())}`);
     document.querySelector('[data-action="search"]').onclick   = e=>{e.preventDefault();searchOpen?closeSearch():openSearchBar();};
     // Offers tab button
     const offersBtn2=document.querySelector('[data-action="offers"]');

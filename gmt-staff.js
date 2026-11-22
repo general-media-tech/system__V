@@ -258,7 +258,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       window.open = function () {
         openCount++;
         var w = _wopen.apply(window, arguments);
-        if (!w && window.GMTBug && GMTBug.log) GMTBug.log('silent', 'المتصفّح منع فتح نافذة جديدة (منع النوافذ المنبثقة): ' + String(arguments[0] || '').slice(0, 80), { type: 'popup_blocked' });
+        if (!w && !window.__gmtExtOpen && window.GMTBug && GMTBug.log) GMTBug.log('silent', 'المتصفّح منع فتح نافذة جديدة (منع النوافذ المنبثقة): ' + String(arguments[0] || '').slice(0, 80), { type: 'popup_blocked' });
         return w;
       };
       window.open.__gmtWrapped = true;
