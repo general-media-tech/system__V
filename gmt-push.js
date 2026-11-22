@@ -156,12 +156,28 @@
       doc.body.insertBefore(s, doc.body.firstChild); setTimeout(function () { try { s.remove(); } catch (_) {} }, 6000);
     } catch (_) {}
   }
+  /* صوتٌ واحد للحدث نفسه عبر كلّ التبويبات (٨ث) */
+  function sndOnce(k) {
+    try {
+      var v = JSON.parse(localStorage.getItem('gmt_snd_once') || '{}'), n = Date.now();
+      if (v.k === k && n - v.t < 8000) return false;
+      localStorage.setItem('gmt_snd_once', JSON.stringify({ k: k, t: n }));
+    } catch (_) {}
+    return true;
+  }
   if (!PUBLIC && 'serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', function (e) {
       var m = e.data || {};
       if (m.type === 'gmt-push' && m.d) {
         global.dispatchEvent(new CustomEvent('gmt-push', { detail: m.d }));
-        try { var key = CUE[m.d.k] || 'notify'; if (global.GMTAudio) { if (!(GMTAudio.emit && GMTAudio.emit(key, { force: true }))) GMTAudio.play(key, { force: true }); } } catch (_) {}
+        /* (TASK-A0566) الصفحة المخفيّة لا تُصدر صوتاً (إشعار الهاتف له صوته ⇒ كان صوتين) · وتبويبان ظاهران ⇒ صوتٌ واحد */
+        global.__gmtPushSndAt = Date.now();
+        try {
+          var key = CUE[m.d.k] || 'notify';
+          if (doc.visibilityState === 'visible' && sndOnce('push|' + (m.d.tag || m.d.k || '') + '|' + (m.d.t || '') + '|' + (m.d.b || ''))) {
+            if (global.GMTAudio) { if (!(GMTAudio.emit && GMTAudio.emit(key, { force: true }))) GMTAudio.play(key, { force: true }); }
+          }
+        } catch (_) {}
         strip(m.d);
       } else if (m.type === 'gmt-push-open') global.dispatchEvent(new CustomEvent('gmt-push-open', { detail: { u: m.u } }));
     });

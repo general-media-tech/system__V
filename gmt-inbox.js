@@ -69,13 +69,32 @@
       els[i].setAttribute('aria-label', n ? 'الإشعارات — ' + n + ' غير مقروء' : 'الإشعارات');
     }
   }
-  async function paint() {
+  /* (TASK-A0566 · المالك seq 959 «ركّزلي على الإشعارات والأصوات») إشعارٌ جديد بلا اشتراك دفعٍ على الجهاز
+     (آيفون دون «أضف للشاشة الرئيسية» · من رفض الإذن) كان يغيّر رقم الجرس **بصمت**. الآن: ازدياد غير المقروء
+     والصفحة ظاهرة ⇒ صوت «إشعار» مرّةً واحدة — لا عند أوّل قراءة · لا عند العودة للصفحة (الهاتف نبّه أصلاً)
+     · لا إن صدح صوت الدفع للتوّ · لا إن ظهرت المنبثقة (لها صوتها) · ولا مرّتين عبر التبويبات. */
+  var prevUnread = null;
+  function newSound(n, quiet, willPop) {
+    var up = prevUnread != null && n > prevUnread;
+    prevUnread = n;
+    if (!up || quiet || willPop || doc.visibilityState !== 'visible') return;
+    if (global.__gmtPushSndAt && Date.now() - global.__gmtPushSndAt < 15000) return;
+    try {
+      var v = JSON.parse(ls('gmt_inbox_snd') || '{}'), now = Date.now();
+      if (v.n >= n && now - v.t < 120000) return;
+      ls('gmt_inbox_snd', JSON.stringify({ n: n, t: now }));
+    } catch (_) {}
+    try { global.GMTSound && GMTSound.cue && GMTSound.cue('notify'); } catch (_) {}
+  }
+  async function paint(o) {
     if (PUBLIC) return last;
     if (!token()) { await viaPush(); if (!token()) { badge(0); return last; } }
     var r = await withToken({ action: 'count' });
     if (r && r.ok) {
       last = r; badge(r.unread);
       try { doc.dispatchEvent(new CustomEvent('gmt:inbox', { detail: r })); } catch (_) {}
+      var willPop = !!(r.popup && r.popup !== shownPopup && !doc.getElementById('gmt-pop-bg') && !global.GMT_INBOX_PAGE);
+      newSound(r.unread || 0, !!(o && o.quiet === true), willPop);
       if (r.popup && r.popup !== shownPopup) popup(r.popup);
     }
     return last;
@@ -121,7 +140,7 @@
       mo.observe(doc.body || doc.documentElement, { childList: true, subtree: true });
     } catch (_) {}
     timer = setInterval(function () { if (doc.visibilityState === 'visible') paint(); }, 60000);
-    doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'visible') paint(); });
+    doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'visible') paint({ quiet: true }); });
     global.addEventListener('gmt-push', function () { setTimeout(paint, 1500); });
     doc.addEventListener('gmt:inbox-ready', paint);
   }
