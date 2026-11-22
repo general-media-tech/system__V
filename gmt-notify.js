@@ -151,6 +151,16 @@
       tone: 'warn'
     },
     {
+      /* (TASK-A0574 · المالك seq 972) جرد نقطة البيع لا يُنقص المخزون — ينتظر «اعتماد التسوية» أو «إرجاع للفرع» */
+      id: 'stock_counts_pending',
+      admin: true,
+      title: 'جرود نقاط بيع بانتظار مراجعتك',
+      why: 'نقطة بيع عدّت بضاعتها وأرسلت الجرد — المخزون لا يتغيّر حتى تعتمد التسوية أو تُرجعه بملاحظة.',
+      go: { label: 'جرود النقاط', href: 'admin_pos.html?counts=1' },
+      run: function () { return countOf('stock_counts', 'details->>status=eq.submitted'); },
+      tone: 'warn'
+    },
+    {
       id: 'commissions_pending',
       admin: true,
       title: 'عمولاتٌ بانتظار مراجعتك',

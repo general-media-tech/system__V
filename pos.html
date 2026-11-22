@@ -1221,12 +1221,12 @@ window.GMT_FEATURES = [
      الجذر: ~٢٥ سكربتاً متزامناً (gmt-core ٣٨٠ك.ب · gmt-staff ٤٣٠ك.ب …) قبل أيّ عنصر في الصفحة ⇒ لا رسم حتى تنزل كلّها.
      بعد أوّل مرّة تُخدَم من ذاكرة الجهاز (سريعة)، لكن الجهاز الجديد على إنترنتٍ بطيء: شاشةٌ بيضاء ١٠ث+ (قياس ١م.ب/ث: ١٠٫٤ث).
      ⇒ شاشة تجهيزٍ خفيفة تُرسم فوراً (بلا ملفّات) وتختفي حين تجهز الصفحة. -->
-<div id="gmt-first-splash" style="position:fixed;inset:0;z-index:2147483600;background:#f7f8fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;text-align:center;padding:24px;color:#111">
+<div id="gmt-first-splash" style="position:fixed;inset:0;z-index:2147483600;background:#f7f8fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;text-align:center;padding:24px;color:#111;opacity:0;animation:gmtFsIn .25s .6s forwards">
   <div style="font-weight:900;font-size:22px;letter-spacing:.3px"><span style="color:#D5001C">General</span> Media Tech</div>
   <div style="width:38px;height:38px;border-radius:50%;border:4px solid #e5e7eb;border-top-color:#D5001C;animation:gmtFsSpin .8s linear infinite"></div>
   <div style="font-weight:800;font-size:15px">جارٍ تجهيز نقطة البيع…</div>
   <div id="gmt-first-splash-sub" style="font-size:12.5px;color:#64748b;max-width:320px;line-height:1.8">أوّل فتح على هذا الجهاز يُنزّل ملفّات النظام — قد يأخذ دقيقة على الإنترنت البطيء. المرّات التالية فوريّة.</div>
-  <style>@keyframes gmtFsSpin{to{transform:rotate(360deg)}}</style>
+  <style>@keyframes gmtFsSpin{to{transform:rotate(360deg)}}@keyframes gmtFsIn{to{opacity:1}}</style>
 </div>
 <script>
 (function () {
@@ -1255,7 +1255,7 @@ window.GMT_FEATURES = [
   <script src="gmt-stock.js?v=20261117h" defer></script>
 <script src="gmt-signpad.js?v=20261029z4" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
   <script src="gmt-share.js?v=20261029z4" defer></script>
-  <script src="gmt-notify.js?v=20261118d" defer></script>
+  <script src="gmt-notify.js?v=20261122x" defer></script>
   <script src="gmt-push.js?v=20261122t" defer></script>
   <script src="gmt-inbox.js?v=20261122u" defer></script>
   <script src="gmt-auth.js?v=20261119i"></script>
@@ -2348,6 +2348,8 @@ window.GMT_FEATURES = [
           <span id="sc-live-at">—</span>
           <label style="display:inline-flex;gap:4px;align-items:center;cursor:pointer;font-weight:700"><input type="checkbox" id="sc-scan-adds" onchange="try{localStorage.setItem('gmt_sc_scan_adds',this.checked?'1':'0')}catch(_){}"> 🔁 كل مسحة تعدّ قطعة (عدّ قطعةً قطعة)</label>
         </div>
+        <!-- (TASK-A0574 · المالك seq 972) جرودي المرسلة: بانتظار المراجعة · أُرجعت (بملاحظة الإدارة) · طُبّقت -->
+        <div id="sc-mine" style="display:none;margin:0 0 8px"></div>
         <!-- (TASK-0202 · المالك seq 133–134 «هذه الصلاحيات يجب ان تكون فقط في الادمن») الفلاتر للأدمن وحده كأدواته -->
         <div id="sc-filters" style="display:none;gap:6px;">
           <button onclick="scSetFilter('all')" id="scf-all" style="flex:1;padding:6px;border-radius:8px;font-size:11px;font-weight:800;border:1.5px solid #0f766e;background:#0f766e;color:#fff;cursor:pointer;font-family:'Cairo',sans-serif;">الكل</button>
@@ -2370,7 +2372,8 @@ window.GMT_FEATURES = [
       <div style="padding:12px 16px;border-top:1px solid #eee;background:#fff;position:sticky;bottom:0;display:flex;gap:8px;flex-wrap:wrap;">
         <button id="sc-rebuild-btn" onclick="scRebuild()" style="display:none;flex:1 1 100%;background:#0f172a;border:none;border-radius:11px;padding:12px;color:#fff;font-family:'Cairo',sans-serif;font-size:13px;font-weight:900;cursor:pointer;">🧾 اعتماد كفاتورة إعادة إنشاء (سيادي)</button>
         <button onclick="scSaveDraft()" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;padding:12px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">💾 حفظ ومتابعة لاحقاً</button>
-        <button onclick="scFinishAndReport()" style="flex:1.4;background:linear-gradient(135deg,#0f766e,#14b8a6);border:none;border-radius:11px;padding:12px;color:white;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✅ إنهاء وإرسال التقرير</button>
+        <button onclick="scFinishAndReport()" style="flex:1.4;background:linear-gradient(135deg,#0f766e,#14b8a6);border:none;border-radius:11px;padding:12px;color:white;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📤 إرسال للإدارة للمراجعة</button>
+        <div style="flex:1 1 100%;font-size:11px;color:#64748b;text-align:center;font-weight:700">لا يتغيّر المخزون من هنا — الإدارة تعتمد التسوية أو تُرجع الجرد بملاحظة</div>
       </div>
     </div>
   </div>
@@ -3595,8 +3598,30 @@ function _scheduleOffersRefresh() {
   const go = () => { try { if (document.visibilityState !== 'hidden') _refreshOffers(); } catch (_) {} };
   try { setInterval(go, 180000); document.addEventListener('visibilitychange', go); window.addEventListener('online', go); } catch (_) {}
 }
+/* (TASK-A0574 · المالك seq 972 «والإدارة إمّا بتعمل تسوية أو تراجعني») جردٌ أرجعته الإدارة ⇒ شريطٌ عند فتح نقطة البيع حتى يُعاد الإرسال */
+async function _scReturnedNotice() {
+  try {
+    if (!branch?.key) return;
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?branch_key=eq.${encodeURIComponent(branch.key)}&details->>status=eq.returned&select=id,details&order=id.desc&limit=3`, { headers: sbHeaders() }, 8000);
+    const rows = r.ok ? await r.json() : [];
+    let st = document.getElementById('sc-ret-strip');
+    if (!rows.length) { if (st) st.remove(); return; }
+    const x = rows[0];
+    if (!st) {
+      st = document.createElement('div'); st.id = 'sc-ret-strip';
+      st.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 10px 0;padding:10px 12px;border-radius:12px;background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;font-weight:800;font-size:13.5px;direction:rtl';
+      const host = document.querySelector('.hdr-actions'), hdr = host && (host.closest('header') || host.parentElement);
+      if (hdr && hdr.parentNode) hdr.parentNode.insertBefore(st, hdr.nextSibling); else document.body.prepend(st);
+    }
+    st.innerHTML = '<span style="font-size:20px">↩️</span><span style="flex:1;min-width:180px">الإدارة أرجعت الجرد #' + Number(x.id) + ': <b></b></span><button type="button" style="background:#b45309;color:#fff;border:0;border-radius:10px;padding:8px 14px;font:inherit;font-weight:900;cursor:pointer">افتح الجرد</button>';
+    st.querySelector('b').textContent = (x.details && x.details.returned_note) || 'راجع العدّ وأعد الإرسال';
+    st.querySelector('button').onclick = () => { openStockCount(); };
+    try { if (!sessionStorage.getItem('sc_ret_' + x.id)) { sessionStorage.setItem('sc_ret_' + x.id, '1'); window.GMTSound && GMTSound.cue && GMTSound.cue('notify'); } } catch (_) {}
+  } catch (_) {}
+}
 function _scheduleIncoming() {
   if (window.__incSched) return; window.__incSched = true;
+  try { setTimeout(_scReturnedNotice, 3000); setInterval(_scReturnedNotice, 300000); } catch (_) {}
   _scheduleOffersRefresh();
   try { setTimeout(loadIncomingTransfers, 1500); setInterval(loadIncomingTransfers, 120000); } catch (e) {}
 }
@@ -5386,7 +5411,9 @@ function openStockCount() {
   { const _adm = !!(window.GMTRole && GMTRole.isAdmin());   // (TASK-0158) أدوات «فاتورة إعادة إنشاء» للأدمن وحده
     const a = document.getElementById('sc-admin'); if (a) a.style.display = _adm ? 'flex' : 'none';
     const fl = document.getElementById('sc-filters'); if (fl) fl.style.display = _adm ? 'flex' : 'none';   // (TASK-0202)
-    const b = document.getElementById('sc-rebuild-btn'); if (b) b.style.display = _adm ? '' : 'none'; }
+    /* (TASK-A0574 · المالك seq 972 «ما بتتنقص مباشرة») لا تطبيق مباشر من شاشة الجرد — حتى للأدمن: يُرسل للمراجعة ويُعتمد من «مطابقة الجرد» */
+    const b = document.getElementById('sc-rebuild-btn'); if (b) b.style.display = 'none'; }
+  _scLoadMine();
   _scFilter = 'all';
   try { const cb = document.getElementById('sc-scan-adds'); if (cb) cb.checked = localStorage.getItem('gmt_sc_scan_adds') === '1'; } catch (_) {}
   scSetFilter('all');
@@ -5420,12 +5447,20 @@ async function _scRefreshLive() {
 function scCountKey(e, id) {
   if (e.key !== 'Enter') return;
   e.preventDefault();
-  const inp = e.target, v = inp.value;
+  const inp = e.target, v = (inp.value === '' ? String(Number((allProducts.find(x => String(x.id) === String(id)) || {})[branch.key]) || 0) : inp.value);   /* (TASK-A0574) Enter على فارغ = «نعم» */
   inp.onchange = null;            /* الحقل يُزال مع إعادة الرسم ⇒ لا «change» ثانٍ أثناء إزالته */
   const s = document.getElementById('sc-search');
   if (s) { s.value = ''; s.focus(); }
   scSetCount(id, v);
 }
+/* (TASK-A0574 · المالك seq 972 «يا بقول له إيه يا إمّا بدخل عدد ثاني») «✅ نعم» = العدد الحقيقيّ هو المسجّل */
+function scYes(id) {
+  const p = allProducts.find(x => String(x.id) === String(id)); if (!p) return;
+  scSetCount(id, String(Number(p[branch.key]) || 0));
+  const s = document.getElementById('sc-search'); if (s) { s.value = ''; scRenderList(); s.focus(); }
+  try { window.GMTSound && GMTSound.cue && GMTSound.cue('countMatch'); } catch (_) {}
+}
+window.scYes = scYes;
 function _scFocusRow(id) {
   setTimeout(() => { const i = document.querySelector('#sc-list input[data-sc-id="' + CSS.escape(String(id)) + '"]'); if (i) { i.focus(); try { i.select(); } catch (_) {} } }, 30);
 }
@@ -5492,8 +5527,10 @@ function scRenderList() {
         </div>
       </div>
       <input type="number" inputmode="numeric" min="0" step="1" value="${hasCount?counted:''}" placeholder="العدد" data-sc-id="${escH(String(p.id))}"
-        onchange="scSetCount('${escH(String(p.id))}', this.value)" onkeydown="scCountKey(event, '${escH(String(p.id))}')"
+        onchange="scSetCount('${escH(String(p.id))}', this.value)" onkeydown="scCountKey(event, '${escH(String(p.id))}')" title="اكتب العدد الحقيقيّ + Enter · Enter على خانةٍ فارغة = «نعم» (مطابق للمسجّل)"
         style="width:70px;padding:8px;border:1.5px solid ${hasCount?(diff===0?'#15803d':'#dc2626'):'var(--border)'};border-radius:8px;text-align:center;font-size:14px;font-weight:800;font-family:'Cairo',sans-serif;">
+      <button type="button" data-sc-yes="${escH(String(p.id))}" onclick="scYes('${escH(String(p.id))}')" title="العدد الحقيقيّ = المسجّل (${sys})"
+        style="flex-shrink:0;padding:8px 9px;border-radius:8px;border:1.5px solid ${hasCount&&diff===0?'#15803d':'#a7f3d0'};background:${hasCount&&diff===0?'#15803d':'#ecfdf5'};color:${hasCount&&diff===0?'#fff':'#047857'};font-family:'Cairo',sans-serif;font-size:12px;font-weight:900;cursor:pointer">✅ نعم ${sys}</button>
     </div>`;
   }).join('');
 }
@@ -5566,6 +5603,47 @@ async function _posSign(title, summary) {
   if (!url) { await GMTAsk.alert('تعذّر رفع صورة التوقيع — تحقّق من الاتصال وأعد المحاولة.\nلم يُصدَر شيء، والعدّ محفوظ.', { title: 'التوقيع' }); return null; }
   return { name: sig.name, url, at: sig.at };
 }
+/* (TASK-A0574) جرودي المرسلة — من نقطة البيع: بانتظار المراجعة · أُرجعت بملاحظة (⇐ أعد العدّ وأرسل) · طُبّقت */
+let _scResubmitOf = null;
+async function _scPatchCount(id, patch) {
+  const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?id=eq.${encodeURIComponent(id)}&select=details`, { headers: sbHeaders() }, 8000);
+  const cur = r.ok ? (await r.json())[0] : null; if (!cur) return false;
+  const w = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ details: Object.assign({}, cur.details || {}, patch) }) }, 8000);
+  return w.ok;
+}
+async function _scLoadMine() {
+  const el = document.getElementById('sc-mine'); if (!el || !branch?.key) return [];
+  try {
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?branch_key=eq.${encodeURIComponent(branch.key)}&select=id,created_at,counted_by,details&order=id.desc&limit=8`, { headers: sbHeaders() }, 8000);
+    if (!r.ok) { el.style.display = 'none'; return []; }
+    const rows = (await r.json()).filter(x => x && x.details && x.details.source === 'pos');
+    window._scMine = rows;
+    if (!rows.length) { el.style.display = 'none'; return rows; }
+    const LBL = { submitted: ['📥 بانتظار المراجعة', '#1d4ed8', '#eff6ff'], returned: ['↩️ أرجعتها الإدارة', '#b45309', '#fffbeb'], applied: ['✅ اعتُمدت التسوية', '#047857', '#ecfdf5'], resubmitted: ['🔁 أُعيد إرسالها', '#475569', '#f8fafc'] };
+    el.style.display = 'block';
+    el.innerHTML = '<div style="font-size:11.5px;font-weight:900;color:#0f766e;margin-bottom:4px">جرودي المرسلة</div>' + rows.slice(0, 4).map(x => {
+      const d = x.details, L = LBL[d.status] || ['📝 ' + (d.status || 'مسودة'), '#475569', '#f8fafc'];
+      const extra = d.status === 'returned' ? '<div style="margin-top:3px;color:#92400e">ملاحظة الإدارة: <b>' + escH(d.returned_note || '') + '</b></div><button type="button" onclick="scResume(' + Number(x.id) + ')" style="margin-top:5px;padding:6px 10px;border-radius:8px;border:0;background:#b45309;color:#fff;font-family:Cairo,sans-serif;font-weight:900;font-size:12px;cursor:pointer">↩️ أعد العدّ وأرسل من جديد</button>'
+        : d.status === 'applied' ? '<div style="margin-top:3px;color:#065f46">' + escH((d.numbers || []).join(' + ')) + '</div>' : '';
+      return '<div style="border:1.5px solid ' + L[1] + '33;background:' + L[2] + ';border-radius:10px;padding:7px 9px;margin-bottom:5px;font-size:11.5px;font-weight:700;color:#334155">' +
+        '<span style="color:' + L[1] + ';font-weight:900">' + L[0] + '</span> · #' + x.id + ' · ' + escH(String(x.created_at || '').slice(0, 16).replace('T', ' ')) + ' · ' + (d.items || []).length + ' بنداً' + extra + '</div>';
+    }).join('');
+    return rows;
+  } catch (_) { el.style.display = 'none'; return []; }
+}
+/* جردٌ أرجعته الإدارة ⇐ أعِد أعداده إلى الشاشة (ما طُلبت إعادته أوّلاً) ثمّ أرسل من جديد */
+function scResume(id) {
+  const x = (window._scMine || []).find(r => Number(r.id) === Number(id)); if (!x) return;
+  _scCounts = {};
+  (x.details.items || []).forEach(i => { if (i.id != null && i.actual != null) _scCounts[i.id] = Number(i.actual); });
+  const back = x.details.returned_items || [];
+  back.forEach(pid => { delete _scCounts[pid]; });   /* ما طلبت الإدارة إعادته يُعَدّ من جديد */
+  _scResubmitOf = x.id;
+  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (_) {}
+  scSetFilter(back.length ? 'uncounted' : 'all');
+  showToast('↩️ ' + (back.length ? back.length + ' بنداً طلبت الإدارة إعادة عدّها — ' : '') + 'أعد العدّ ثمّ «📤 إرسال للإدارة»', 'inf');
+}
+window.scResume = scResume;
 async function scFinishAndReport() {
   /* (TASK-A0572) الفروق على كمّيات الخادم الآن (بيعٌ أثناء الجرد يغيّرها) */
   if (!(await _scRefreshLive())) {
@@ -5587,7 +5665,7 @@ async function scFinishAndReport() {
   confirmMsg += `• منتجات مجرودة: ${countedItems.length}\n`;
   confirmMsg += `• فروقات: ${diffs.length} (${shortages.length} نقص، ${surplus.length} زيادة)\n`;
   if (uncounted > 0) confirmMsg += `• غير مجرودة: ${uncounted}\n`;
-  confirmMsg += `\nملاحظة: لن يتم تعديل المخزون — الإدارة ستراجع وتتصرف.`;
+  confirmMsg += `\nلن يتغيّر المخزون الآن — الإدارة تراجع: إمّا «اعتماد التسوية» وإمّا تُرجع الجرد لك بملاحظة.`;
   const _sig = await _posSign('تقرير جرد «' + branch.name + '»', confirmMsg);   // (TASK-0237) تأكيدٌ وتوقيع بدل «موافق» وحدها
   if (!_sig) return;
 
@@ -5614,31 +5692,39 @@ async function scFinishAndReport() {
   }
   if (!diffs.length) tg += `✅ لا فروقات — الجرد مطابق تماماً للمسجّل.\n`;
 
-  /* لا ننتظر التبليغ: حفظُ السجلّ أهمّ، والمالك لا يُجمَّد من أجل رسالة */
-  sendTelegram(tg).catch(function () {});
 
-  // حفظ سجل بقاعدة البيانات (best-effort — لو الجدول غير موجود يتجاهل)
-  try {
-    await sbPost('/rest/v1/stock_counts', [{
-      branch_key: branch.key,
-      branch_name: branch.name,
-      counted_by: currentUser?.display_name || null,
-      user_id: currentUser?.id || null,
-      total_counted: countedItems.length,
-      total_uncounted: uncounted,
-      shortages_count: shortages.length,
-      surplus_count: surplus.length,
-      /* (TASK-0237) التفاصيل + التوقيع (كان نصّاً لمصفوفة البنود — لا قارئ له غير النسخ الاحتياطي) */
-      details: { items: diffs.map(x => ({ id: x.p.id, name: x.p.name, barcode: x.p.barcode||'', system: x.sys, actual: x.actual, diff: x.diff })), signed_by: _sig.name, signature_url: _sig.url, signed_at: _sig.at },
-      created_at: now.toISOString(),
-    }]);
-  } catch(e) { /* الجدول قد لا يكون موجوداً — التقرير وصل عبر تيليجرام بأي حال */ }
+  /* (TASK-A0574 · المالك seq 972) الجرد كلّه — لا الفروق وحدها — يُحفظ «بانتظار المراجعة» بصيغة «مطابقة الجرد» (gmt-reconcile):
+     لكلّ بندٍ «sys_at» = المسجّل لحظة العدّ (من الخادم) ⇒ التسوية تطبّق الفرق على الحيّ لحظة الاعتماد. فشل الحفظ ⇒ العدّ يبقى على الجهاز. */
+  const items = countedItems.map(p => {
+    const sys = Number(p[branch.key]) || 0, act = Number(_scCounts[p.id]);
+    return { id: String(p.id), name: p.name || '', barcode: p.barcode || '', counted_as: p.name || '', actual: act, sys_at: sys, system: sys, diff: act - sys, include: true, note: act === sys ? '' : (act < sys ? 'نقص ' + (sys - act) : 'زيادة ' + (act - sys)) };
+  });
+  const det = { status: 'submitted', source: 'pos', mode: 'count', items,
+    sources: [{ label: 'جرد نقطة البيع «' + branch.name + '» — ' + (currentUser?.display_name || '—') }],
+    live_at: _scLiveAt ? new Date(_scLiveAt).toISOString() : null, uncounted: uncounted,
+    signed_by: _sig.name, signature_url: _sig.url, signed_at: _sig.at };
+  if (_scResubmitOf) det.resubmit_of = _scResubmitOf;
+  const ins = await sbPost('/rest/v1/stock_counts', [{
+    branch_key: branch.key, branch_name: branch.name, counted_by: currentUser?.display_name || null, user_id: currentUser?.id != null ? String(currentUser.id) : null,
+    total_counted: countedItems.length, total_uncounted: uncounted, shortages_count: shortages.length, surplus_count: surplus.length,
+    details: det, created_at: now.toISOString() }]);
+  if (!ins || ins.error) {
+    hideLoad();
+    await GMTAsk.alert('⚠️ لم يُرسَل الجرد: ' + ((ins && ins.error) || 'تعذّر الاتصال') + '\n\nالعدّ محفوظ على هذا الجهاز — أعد الإرسال حين يعود الاتصال.', { title: 'إرسال الجرد' });
+    return;
+  }
+  const newId = ins.data && ins.data[0] && ins.data[0].id;
+  if (_scResubmitOf) { try { await _scPatchCount(_scResubmitOf, { status: 'resubmitted', resubmitted_as: newId || null, resubmitted_at: now.toISOString() }); } catch (_) {} }
+  _scResubmitOf = null;
+  /* التبليغ بعد الحفظ (والرقم معه) — لا ننتظره */
+  sendTelegram(tg + (newId ? `\n📥 بانتظار المراجعة في «مطابقة الجرد» — #${newId}` : '')).catch(function () {});
 
   hideLoad();
   // مسح المسودة بعد الإنهاء
   try { localStorage.removeItem(_scKey()); } catch(e) {}
   _scCounts = {};
-  showToast('✅ تم إرسال تقرير الجرد للإدارة بنجاح', 'ok');
+  showToast('📤 أُرسل الجرد للإدارة' + (newId ? ' (#' + newId + ')' : '') + ' — بانتظار المراجعة · المخزون لم يتغيّر', 'ok');
+  try { _scReturnedNotice(); } catch (_) {}
   closeStockCount();
 }
 
@@ -5693,13 +5779,8 @@ async function scNewProduct() {
   /* (TASK-0237 · المالك seq 164) «يمكن ايضا اضافه منتجات مي موجوده … بتتصدر عندك فاتوره كفاتوره تسويه او فاتوره نقل وبتتعامل نفس المعامله»:
      المنتج الجديد تُصدَر فاتورته فوراً (تسوية في النقطة · أو نقلٌ من فرع) بالتأكيد والتوقيع والكلمة السيادية — أو «لاحقاً» مع فاتورة الجرد كلّه. */
   if (!(r.q > 0)) { showToast('➕ أُنشئ «' + np.name + '» — كمّيته ٠', 'ok'); return; }
-  const res = window.GMTStock && GMTStock.rebuild ? await _scIssue([_scLine(np, r.q)], { title: '🧾 فاتورة المنتج الجديد', tgTitle: 'فاتورة منتجٍ جديد في الجرد', allowLater: true,
-    question: '«' + np.name + '» أُنشئ في النظام — كمّيته في «' + branch.name + '»: ' + r.q + '.\n\nتصدر فاتورته الآن:' }) : 'later';
-  if (res && res !== 'later') {
-    await GMTAsk.alert('🧾 ' + (res.how === 'move' ? 'فاتورة نقل' : 'فاتورة تسوية') + ' «' + np.name + '»: ' + (res.R.numbers.join(' + ') || '—') + '\n• ' + res.lbl + ' · وقّعها ' + res.rcv +
-      (res.R.failed.length ? '\n\n⚠️ لم تُطبَّق: ' + res.R.failed.map(f => f.why).join('، ') : ''), { title: res.R.failed.length ? 'لم تكتمل' : '✅ صدرت الفاتورة' });
-    try { _loadProductsFromServer(false); } catch (_) {}
-  } else showToast('➕ أُنشئ «' + np.name + '» — كمّيته ' + r.q + ' تُطبَّق مع «اعتماد كفاتورة إعادة إنشاء»', 'ok');
+  /* (TASK-A0574 · المالك seq 972 «ما بتتنقص مباشرة») لا فاتورة فوريّة — العدد يُرسل مع الجرد وتعتمده الإدارة («مطابقة الجرد») */
+  showToast('➕ أُنشئ «' + np.name + '» — عدده ' + r.q + ' يُرسل مع الجرد للإدارة', 'ok');
 }
 /* (TASK-0237) إصدار فاتورة إعادة إنشاء لبنودٍ محدّدة — مشتركٌ بين «اعتماد كفاتورة إعادة إنشاء» و«➕ منتج غير معرّف»:
    الخيار (تسوية في النقطة · نقلٌ من/إلى فرع · [لاحقاً]) ⇐ التأكيد والتوقيع ⇐ الكلمة السيادية ⇐ GMTStock.rebuild.
@@ -11263,7 +11344,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122w"></script>
+<script src="gmt-whatsnew.js?v=20261122x"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

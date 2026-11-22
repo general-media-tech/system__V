@@ -41,10 +41,10 @@ const dump = async () => H.call('/__dump', undefined, 'GET');
   let d = await dump();
   const np = d.products.find(p => p.name === 'حامل جديد');
   const tr = d.branch_stock_transfers.find(t => (d.stock_transfer_items.find(i => i.transfer_id === t.id && i.product_id === (np || {}).id)));
-  ok(r2.choices[0] && /فاتورة تسوية/.test(r2.choices[0][0]) && /فاتورة نقل/.test(r2.choices[0][1]) && /لاحقاً/.test(r2.choices[0][2] || ''), 'إضافة منتج ⇒ سؤال: فاتورة تسوية · فاتورة نقل · لاحقاً: ' + JSON.stringify(r2.choices[0]));
-  ok(np && np.daraa === 3 && tr && tr.status === 'received' && tr.signature_url === 'https://sig.example/np.png' && tr.received_by === 'سامر الأحمد' && /فاتورة تسوية/.test(tr.note || '') && r2.pw === 'sovereign',
-    'صدرت فوراً فاتورة تسوية موقَّعة (الكلمة السيادية) والكمّية طُبّقت: ' + JSON.stringify(tr && { n: tr.transfer_number, s: tr.status, sig: tr.signature_url, by: tr.received_by, q: np && np.daraa }));
-  ok(/فاتورة تسوية «/.test(r2.title || '') && /حامل جديد: 0 ⇐ 3/.test(r2.sum || '') && /صدرت|تسوية/.test(r2.alert || ''), 'التوقيع على ملخّص الفاتورة نفسها: ' + JSON.stringify(r2.sum));
+  /* (TASK-A0574 · المالك seq 972 «ما بتتنقص مباشرة») المنتج غير المعرّف يُنشأ ويُضاف عدده للجرد — لا فاتورة فوريّة، تُعتمد مع الجرد من الإدارة */
+  ok(!r2.choices.length && !r2.pw, 'إضافة منتج ⇒ لا سؤال عن فاتورة فوريّة ولا كلمة سيادية: ' + JSON.stringify(r2.choices));
+  ok(np && !(np.daraa > 0) && !tr, 'لا فاتورة ولا كمّية الآن (تُعتمد مع الجرد): ' + JSON.stringify(np && { q: np.daraa, tr: !!tr }));
+  ok(await pg.evaluate(id => _scCounts[id] === 3, np && np.id), 'عدده (3) في الجرد المُرسَل للإدارة');
   // ③ تقرير الجرد: موقَّع (الاسم والتوقيع في التقرير)
   const r3 = await pg.evaluate(async id => {
     scSetCount(id, '4');

@@ -65,6 +65,24 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-account.js?v=20261119j"></script>
 </head>
 <body>
+<!-- (TASK-A0573 · المالك seq 970–971 · امتداد A0571) أوّل فتح على جهازٍ جديد: سكربتاتٌ متزامنة قبل أيّ عنصر ⇒ شاشة بيضاء ٧–١١ث على إنترنت ١م.ب/ث.
+     شاشة تجهيزٍ مضمّنة (بلا ملفّات) تظهر فقط إن تأخّرت الصفحة أكثر من ٠٫٦ث · تُزال عند DOMContentLoaded/load. -->
+<div id="gmt-first-splash" style="position:fixed;inset:0;z-index:2147483600;background:#f7f8fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;text-align:center;padding:24px;color:#111;opacity:0;animation:gmtFsIn .25s .6s forwards">
+  <div style="font-weight:900;font-size:22px;letter-spacing:.3px"><span style="color:#D5001C">General</span> Media Tech</div>
+  <div style="width:38px;height:38px;border-radius:50%;border:4px solid #e5e7eb;border-top-color:#D5001C;animation:gmtFsSpin .8s linear infinite"></div>
+  <div style="font-weight:800;font-size:15px">جارٍ تجهيز «🏷️ طابعة الملصقات»…</div>
+  <div id="gmt-first-splash-sub" style="font-size:12.5px;color:#64748b;max-width:320px;line-height:1.8">أوّل فتح على هذا الجهاز يُنزّل ملفّات النظام — قد يأخذ دقيقة على الإنترنت البطيء. المرّات التالية فوريّة.</div>
+  <style>@keyframes gmtFsSpin{to{transform:rotate(360deg)}}@keyframes gmtFsIn{to{opacity:1}}</style>
+</div>
+<script>
+(function () {
+  function gone() { var s = document.getElementById('gmt-first-splash'); if (s) s.remove(); }
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(gone, 150); });
+  window.addEventListener('load', gone);
+  setTimeout(function () { var s = document.getElementById('gmt-first-splash-sub'); if (s) s.textContent = 'ما زال التنزيل مستمرّاً (الإنترنت بطيء) — لا تغلق الصفحة. المرّات التالية فوريّة.'; }, 15000);
+})();
+</script>
+
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261122s"></script>
@@ -73,7 +91,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-icons.js?v=20261011h" defer></script>
   <script src="gmt-ask.js?v=20261121b" defer></script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
-  <script src="gmt-notify.js?v=20261118d" defer></script>
+  <script src="gmt-notify.js?v=20261122x" defer></script>
   <script src="gmt-staff.js?v=20261122p"></script>
 
 <header>
@@ -292,7 +310,7 @@ load();
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122w"></script>
+<script src="gmt-whatsnew.js?v=20261122x"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

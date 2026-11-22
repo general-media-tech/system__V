@@ -26,7 +26,8 @@ const prod = (d, id) => d.products.find(p => p.id === id);
     // ٢) الأدمن داخل النقطة
     await pg.evaluate(() => { GMTRole.grant('المالك'); openStockCount(); });
     const adm = await pg.evaluate(() => ({ tools: document.getElementById('sc-admin').style.display, btn: getComputedStyle(document.getElementById('sc-rebuild-btn')).display, filt: document.getElementById('sc-filters').style.display }));
-    ok(adm.tools === 'flex' && adm.btn !== 'none' && adm.filt === 'flex', 'الأدمن: «➕ منتج غير معرَّف · ⓪ · =» و«🧾 اعتماد كفاتورة إعادة إنشاء» ظاهرة');
+    /* (TASK-A0574 · المالك seq 972) لا تطبيق مباشر من شاشة الجرد حتى للأدمن — الجرد يُرسَل ويُعتمد من «مطابقة الجرد» · scRebuild باقٍ كأداة */
+    ok(adm.tools === 'flex' && adm.btn === 'none' && adm.filt === 'flex', 'الأدمن: «➕ منتج غير معرَّف · ⓪ · =» ظاهرة · «اعتماد كفاتورة إعادة إنشاء» مخفيّ (المراجعة عند الإدارة)');
 
     // ٣) منتجٌ غير معرَّف يُنشأ (اسم مكرّر يُرفض)
     const np = await pg.evaluate(async () => {
