@@ -9,7 +9,7 @@ SCHEMA = {'gmt_orders': ('id,name,phone,address,product,qty,price,branch,status,
                          'invoice_number,tg_msg_id,tg_chat_id,created_by,updated_by,deleted_by,deleted_at,is_deleted,coupon,items,order_number,'
                          'receipt_img,receipt_at,collect_amount,notified_new_at,notified_ship_at,notified_arrival_at,ship_from_office,transfer_state,'
                          'transfer_at,transfer_invoice_no,delivered_at,receipt_meta,frozen_at,freeze_info,notified_goods_at').split(',')}   # (TASK-0316) أعمدة التجميد
-OPTS = {'unique_invoices': True, 'drop_reply': [], 'fail_post': [], 'block_delete': [], 'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False}
+OPTS = {'unique_invoices': True, 'drop_reply': [], 'fail_post': [], 'block_delete': [], 'unique_order_invoice': True, 'old_rpc_false': False, 'reject_cols': [], 'rls_block': [], 'no_pos_fn': False, 'sov': '2003', 'pos_protected': True, 'pos_locked': False, 'pur_guard': False}
 def tbl(t): return DB.setdefault(t, [])
 def cmp_val(v, raw):
     if raw == 'null': return v is None
@@ -189,6 +189,9 @@ class H(BaseHTTPRequestHandler):
             # (TASK-A0534) كالقاعدة الحيّة: stock_transfer_items_qty_check = qty >= 0 (كان qty > 0 فرُفض وسم البند الفاشل qty=0 دون أن تراه الاختبارات)
             if t == 'stock_transfer_items' and any((x or {}).get('qty') is not None and float((x or {}).get('qty')) < float(OPTS.get('transfer_qty_min', 0)) for x in rr):
                 return self.reply(400, {'code':'23514','message':'new row for relation "stock_transfer_items" violates check constraint "stock_transfer_items_qty_check"'})
+        if t == 'import_log' and OPTS.get('pur_guard') and method in ('POST', 'PATCH', 'DELETE'):
+            g = self.pur_guard(method, q, body)
+            if g: return g
         if method == 'POST':
             rows = body if isinstance(body, list) else [body]
             if t in OPTS['fail_post']:                 # (TASK-0010) فشلٌ مُحاكى مرّةً لكل ظهورٍ للجدول في القائمة
@@ -227,6 +230,35 @@ class H(BaseHTTPRequestHandler):
             if t in OPTS['rls_block'] or t in OPTS['block_delete']: rows = []
             DB[t] = [r for r in tbl(t) if r not in rows]
             return self.mut_reply(rows)
+    # (TASK-A0548) كمشغّل القاعدة import_log_guard: سببٌ إجباري لتعديل الكميات/الأسعار/البنود/المجموع والحذف · لا حذف لمُرحَّلة · لا رقم مكرَّر · سجلّ بـ«من/الصفحة/السبب»
+    def pur_guard(self, method, q, body):
+        import copy as _cp
+        hd = lambda k: (unquote(self.headers.get(k) or '').strip() or None)
+        actor, page, why = hd('x-gmt-actor') or 'غير معروف (صفحة بلا تعريف)', hd('x-gmt-page'), hd('x-gmt-reason')
+        num = lambda v: (float(v) if re.match(r'^\s*-?[0-9]+(\.[0-9]+)?\s*$', str(v if v is not None else '')) else 0.0)
+        hist = lambda rid, op, old: tbl('import_log_history').append({'hid': next(SEQ), 'row_id': rid, 'op': op, 'old_row': _cp.deepcopy(old), 'actor': actor, 'page': page, 'reason': why, 'changed_at': '2026-11-22T10:00:00Z'})
+        err = lambda m: (self.reply(400, {'code': 'P0001', 'message': m}), True)[1]   # True ⇒ الطلب انتهى بالرفض
+        if method == 'POST':
+            for r in (body if isinstance(body, list) else [body or {}]):
+                n = str((r or {}).get('inv_number') or '')
+                if re.search(r'[0-9]', n) and any(x.get('inv_number') == n for x in tbl('import_log')):
+                    return err('GMT_DUP_INV_NUMBER: رقم فاتورة الشراء %s مستخدَم لفاتورةٍ أخرى' % n)
+            return None
+        rows = self.filt('import_log', q)
+        for r in rows:
+            if method == 'DELETE':
+                if r.get('transferred'): return err('GMT_DELETE_TRANSFERRED: فاتورة الشراء %s مُرحَّلة للمخزون — لا تُحذف' % r.get('inv_number'))
+                if not why: return err('GMT_REASON_REQUIRED: حذف فاتورة الشراء %s يحتاج سبباً مكتوباً' % r.get('inv_number'))
+                hist(r.get('id'), 'DELETE', r); continue
+            nw = dict(r); nw.update(body or {})
+            if nw.get('inv_number') != r.get('inv_number') and any(x is not r and x.get('inv_number') == nw.get('inv_number') for x in tbl('import_log')):
+                return err('GMT_DUP_INV_NUMBER: رقم فاتورة الشراء %s مستخدَم لفاتورةٍ أخرى' % nw.get('inv_number'))
+            oa, na = r.get('items_snapshot') or [], nw.get('items_snapshot') or []
+            sens = any(nw.get(k) != r.get(k) for k in ('inv_number', 'supplier', 'inv_date', 'inv_type', 'currency')) or num(nw.get('total_amount')) != num(r.get('total_amount')) \
+                or len(oa) != len(na) or any(num(a.get('qty')) != num(b2.get('qty')) or num(a.get('unit_price')) != num(b2.get('unit_price')) for a, b2 in zip(oa, na))
+            if sens and not why: return err('GMT_REASON_REQUIRED: تعديل كميات أو أسعار أو بنود أو مجموع فاتورة الشراء %s يحتاج سبباً مكتوباً' % r.get('inv_number'))
+            if json.dumps(nw, sort_keys=True, default=str) != json.dumps(r, sort_keys=True, default=str): hist(r.get('id'), 'UPDATE', r)
+        return None
     def pos_rpc(self, fn, b):
         import re as _re, time as _t
         if fn == 'gmt_pos_status': return {'protected': bool(OPTS.get('pos_protected', True))}

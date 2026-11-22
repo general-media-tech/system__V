@@ -187,7 +187,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261122a"></script>
+  <script src="gmt-core.js?v=20261122b"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261119n" defer></script>
@@ -1063,7 +1063,7 @@ async function sb(method,path,body=null,xtra={}){
   const r=await fetch(SB+path,{method,headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json',Prefer:'return=representation',...xtra},body:body?JSON.stringify(body):null});
   const ct=r.headers.get('content-type')||'';
   const d=ct.includes('json')?await r.json():{};
-  if(!r.ok){throw new Error(Array.isArray(d)?'err':(d?.message||d?.error||'HTTP '+r.status));}
+  if(!r.ok){throw new Error(Array.isArray(d)?'err':String(d?.message||d?.error||'HTTP '+r.status).replace(/^GMT_[A-Z_]+:\s*/,''));}   /* (TASK-A0548) رسالة قاعدة فواتير الشراء بلا رمزها التقني */
   if(method!=='GET' && path.indexOf('/rest/v1/import_log')===0){ try{ledgerAfterWrite(method,path,d);}catch(_){} }   /* (٨ ج) أيّ تعديلٍ على فاتورة شراء ⇒ يتبدّل المصروف والمحاسبة تلقائياً */
   return d;
 }
@@ -1359,6 +1359,7 @@ function render(){
           <div class="flex gap-3 text-gray-400">
             <button onclick="openInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
             <button onclick="openEdit('${s.id}')" class="hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
+            <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
             <button onclick="delShip('${s.id}')" class="hover:text-red-600"><i data-lucide="trash" class="w-4 h-4"></i></button>
           </div>
         </div>
@@ -1395,6 +1396,7 @@ function render(){
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
             <button onclick="openInstantInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
+            <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
             <button onclick="delShip('${s.id}')" class="hover:text-red-600"><i data-lucide="trash" class="w-4 h-4"></i></button>
           </div>
         </div>
@@ -4304,6 +4306,91 @@ async function delShip(id){
   }catch(e){toast('خطأ: '+e.message,'err');}
 }
 
+/* ═══ (TASK-A0548 · المالك seq 936 «خود سجل تعديل هالفاتورة · شروط صارمة … والسجل تبعها») ═══
+   سجلّ تعديلات فاتورة الشراء: كلّ نسخةٍ قبل كلّ تغيير (import_log_history) + من + الصفحة + السبب.
+   الفروق تُحسب هنا من النسخ نفسها ⇒ تظهر حتى للتعديلات القديمة قبل تسجيل «من/لماذا». */
+const PUR_HIST_F={inv_number:'الرقم',supplier:'المورّد',inv_date:'التاريخ',inv_type:'النوع',currency:'العملة',total_amount:'المجموع',
+  status:'الحالة',transferred:'مُرحَّلة',eta_date:'موعد الوصول',sector:'القطاع',dest_branch:'الوجهة',source_branch:'المصدر',costs_paid:'التكاليف مدفوعة',
+  total_qty:'عدد القطع',items_count:'عدد البنود',transfer_moved:'كميات الترحيل',arrived_at:'تاريخ الوصول',transferred_at:'تاريخ الترحيل',
+  unseal_reason:'سبب فكّ الختم',paid_amount:'المدفوع',notes:'ملاحظات'};
+const PUR_HIST_SKIP={updated_at:1,items_snapshot:1,unsealed_at:1,transferred_by:1};
+function _phNum(v){const n=parseFloat(v);return isFinite(n)?n:0;}
+function _phVal(v){ if(v==null||v==='') return '—'; if(typeof v==='object') return Object.keys(v).length+' عنصر'; return String(v); }
+function purHistDiff(o,n){
+  o=o||{}; n=n||{}; const out=[];
+  new Set([...Object.keys(o),...Object.keys(n)]).forEach(k=>{
+    if(PUR_HIST_SKIP[k]) return;
+    if(JSON.stringify(o[k]??null)===JSON.stringify(n[k]??null)) return;
+    if(k==='total_amount' && _phNum(o[k])===_phNum(n[k])) return;
+    out.push({t:'f',k,label:PUR_HIST_F[k]||k,from:_phVal(o[k]),to:_phVal(n[k]),hot:['inv_number','supplier','inv_date','inv_type','currency','total_amount'].includes(k)});
+  });
+  const oa=Array.isArray(o.items_snapshot)?o.items_snapshot:[], na=Array.isArray(n.items_snapshot)?n.items_snapshot:[];
+  const line=(a,b)=>{
+    const nm=(b||a).name||'بند';
+    if(_phNum(a.qty)!==_phNum(b.qty)) out.push({t:'l',nm,label:'الكمية',from:a.qty,to:b.qty,hot:true});
+    if(_phNum(a.unit_price)!==_phNum(b.unit_price)) out.push({t:'l',nm,label:'سعر الشراء',from:a.unit_price,to:b.unit_price,hot:true});
+    if(_phNum(a.sale_price)!==_phNum(b.sale_price)) out.push({t:'l',nm,label:'سعر البيع',from:a.sale_price,to:b.sale_price});
+    if(String(a.id||'')!==String(b.id||'')||String(a.name||'')!==String(b.name||'')) out.push({t:'l',nm,label:'ربط/اسم',from:(a.name||'')+(a.id?'':' (غير مربوط)'),to:(b.name||'')+(b.id?'':' (غير مربوط)')});
+  };
+  if(oa.length===na.length){ na.forEach((b,i)=>line(oa[i]||{},b||{})); }
+  else{
+    const key=x=>String((x&&(x.id||x.name))||''), seen={};
+    const idx=arr=>arr.map(x=>{const k=key(x);seen[k]=(seen[k]||0)+1;return k+'#'+seen[k];});
+    const ok=idx(oa); for(const k in seen) delete seen[k]; const nk=idx(na);
+    const om=new Map(ok.map((k,i)=>[k,oa[i]])), nm=new Map(nk.map((k,i)=>[k,na[i]]));
+    nm.forEach((b,k)=>{ const a=om.get(k); if(!a) out.push({t:'add',nm:b.name||'بند',from:'',to:'×'+(b.qty??'?')+' @ '+(b.unit_price??0),hot:true}); else line(a,b); });
+    om.forEach((a,k)=>{ if(!nm.has(k)) out.push({t:'del',nm:a.name||'بند',from:'×'+(a.qty??'?')+' @ '+(a.unit_price??0),to:'',hot:true}); });
+  }
+  return out;
+}
+function _phSum(r){ const it=Array.isArray(r&&r.items_snapshot)?r.items_snapshot:[]; return it.length+' بند · '+it.reduce((a,x)=>a+_phNum(x.qty),0)+' قطعة · $'+_phNum(r&&r.total_amount).toFixed(2); }
+async function showPurHistory(id){
+  const s=ships.find(x=>String(x.id)===String(id));
+  let rows=[], cur=s||null;
+  try{
+    rows=await sb('GET','/rest/v1/import_log_history?row_id=eq.'+encodeURIComponent(id)+'&order=hid.asc&select=*');
+    const f=await sb('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(id)+'&select=*'); if(Array.isArray(f)&&f[0]) cur=f[0];
+  }catch(e){ toast('تعذّر قراءة سجل الفاتورة: '+e.message,'err'); return; }
+  rows=Array.isArray(rows)?rows:[];
+  const opName={INSERT:'🆕 إنشاء',UPDATE:'✏️ تعديل',DELETE:'🗑 حذف',BASELINE:'📌 بداية السجل'};
+  const ents=rows.map((r,i)=>{
+    const next=(i+1<rows.length)?rows[i+1].old_row:cur;
+    let ch=[], note='';
+    if(r.op==='INSERT') note='أُنشئت: '+_phSum(r.old_row);
+    else if(r.op==='DELETE') note='حُذفت وهي: '+_phSum(r.old_row);
+    else if(r.op==='BASELINE'){ note='أوّل نسخةٍ محفوظة: '+_phSum(r.old_row)+' (لا سجلّ لما قبلها)'; ch=purHistDiff(r.old_row,next); }
+    else ch=purHistDiff(r.old_row,next);
+    return {r,ch,note};
+  }).reverse();
+  const esc=eh;
+  const chHTML=c=>{
+    const hot=c.hot?' style="color:#b91c1c;font-weight:900"':'';
+    if(c.t==='add') return `<li${hot}>➕ أُضيف «${esc(c.nm)}» ${esc(c.to)}</li>`;
+    if(c.t==='del') return `<li${hot}>➖ حُذف «${esc(c.nm)}» ${esc(c.from)}</li>`;
+    if(c.t==='l') return `<li${hot}>«${esc(c.nm)}» · ${esc(c.label)}: ${esc(_phVal(c.from))} ⇐ ${esc(_phVal(c.to))}</li>`;
+    return `<li${hot}>${esc(c.label)}: ${esc(c.from)} ⇐ ${esc(c.to)}</li>`;
+  };
+  const body=ents.length?ents.map(({r,ch,note})=>`<div class="ph-ent" style="border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:900;font-size:13px">
+        <span>${opName[r.op]||esc(r.op)}</span><span dir="ltr" style="color:#6b7280;font-size:11px">${esc(new Date(r.changed_at).toLocaleString('en-GB'))}</span></div>
+      <div style="font-size:12px;color:#374151;margin-top:4px">👤 ${esc(r.actor||'غير مسجَّل (قبل تفعيل السجل الكامل)')}${r.page?' · 📄 '+esc(r.page):''}</div>
+      ${r.reason?`<div style="font-size:12px;margin-top:2px">📝 السبب: <b>${esc(r.reason)}</b></div>`:(r.op==='UPDATE'?'<div style="font-size:11px;color:#9ca3af;margin-top:2px">📝 بلا سبب مسجَّل</div>':'')}
+      ${note?`<div style="font-size:12px;margin-top:4px">${esc(note)}</div>`:''}
+      ${ch.length?`<ul style="font-size:12px;margin:6px 0 0;padding-inline-start:18px;list-style:disc">${ch.slice(0,60).map(chHTML).join('')}${ch.length>60?`<li>… و${ch.length-60} تغييراً آخر</li>`:''}</ul>`:(r.op==='UPDATE'?'<div style="font-size:11px;color:#9ca3af;margin-top:4px">تغييرٌ تقنيّ فقط (صور/روابط)</div>':'')}
+    </div>`).join(''):'<p style="color:#6b7280;font-size:13px">لا تعديلات ظاهرة لهذه الفاتورة بعد.</p>';
+  let ov=document.getElementById('purHistModal'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='purHistModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.innerHTML=`<div dir="rtl" style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e5e7eb">
+      <b style="font-size:14px">🕘 سجل تعديلات ${esc((cur&&cur.inv_number)||'')}${cur&&cur.supplier?' · '+esc(cur.supplier):''}</b>
+      <button type="button" data-ph-close style="font-size:20px;line-height:1;padding:4px 10px">×</button></div>
+    <div style="padding:8px 14px;font-size:12px;background:#fffbeb;color:#92400e">الآن: ${esc(_phSum(cur||{}))} · بالأحمر: كميات/أسعار/بنود/مجموع — لا تتغيّر إلّا بسببٍ مكتوب يُحفظ هنا</div>
+    <div style="overflow:auto;padding:12px 14px">${body}</div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov||e.target.closest('[data-ph-close]')) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 // ── HELPERS ──────────────────────────────────────────────
 function eh(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function er(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
@@ -6099,7 +6186,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122a"></script>
+<script src="gmt-whatsnew.js?v=20261122b"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

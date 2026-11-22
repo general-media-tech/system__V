@@ -38,7 +38,7 @@
       headers: Object.assign({
         apikey: key, Authorization: 'Bearer ' + key,
         'Content-Type': 'application/json', Prefer: 'return=representation'
-      }, extra || {}),
+      }, /^import_log\b/.test(path) && method !== 'GET' ? { 'x-gmt-reason': encodeURIComponent('فحص ذاتي — المفتّش العميق (فاتورة اختبار ' + TAG + ')') } : {}, extra || {}),   /* (TASK-A0548) القاعدة ترفض تعديل/حذف فاتورة شراء بلا سبب */
       body: body ? JSON.stringify(body) : null
     });
     const txt = await res.text();
@@ -222,7 +222,9 @@
         rec({ area, step: 'دورة الفاتورة', ok: false, pattern: 'P1', detail: e.message });
         allOk = false;
       } finally {
-        if (invId) { try { await api('DELETE', `import_log?id=eq.${invId}`, null, { Prefer: 'return=minimal' }); } catch (_) {} }
+        /* (TASK-A0548) فاتورةٌ مُرحَّلة لا تُحذف في القاعدة ⇒ يُفكّ ختم فاتورة الاختبار أوّلاً ثمّ تُحذف */
+        if (invId) { try { await api('PATCH', `import_log?id=eq.${invId}`, { status: 'transit', transferred: false }, { Prefer: 'return=minimal' }); } catch (_) {}
+                     try { await api('DELETE', `import_log?id=eq.${invId}`, null, { Prefer: 'return=minimal' }); } catch (_) {} }
       }
       return allOk;
     },

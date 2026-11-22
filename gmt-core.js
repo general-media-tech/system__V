@@ -228,6 +228,60 @@
   } catch (_) {}
 })();
 
+/* ═══ (TASK-A0548 · المالك seq 936 «حط شروط صارمة لموضوع فواتير الشراء: تعديلاتها والسجل تبعها») ═══
+   القاعدة (tools/sql/a0548_purchase_edit_rules.sql) ترفض تعديل كمية/سعر/بند/مجموع/رقم فاتورة شراء أو حذفها بلا سبب،
+   وتسجّل كلّ تغييرٍ في import_log_history. هنا — أعمق غلافٍ لـfetch، مستقلٌّ عن بقيّة الملف:
+   كلّ كتابةٍ على import_log من أيّ صفحة تحمل «من» و«الصفحة» (و«السبب» إن وُجد) في ترويسات الطلب؛
+   وإن ردّت القاعدة GMT_REASON_REQUIRED نسأل عن السبب مرّةً ونعيد الطلب نفسه — فلا تحتاج كلّ شاشة حفظٍ لمنطقٍ خاصّ. */
+(function () {
+  try {
+    if (window.__gmtPurGuard || typeof window.fetch !== 'function') return;
+    window.__gmtPurGuard = true;
+    var orig = window.fetch.bind(window);
+    var PUR_RE = /\/rest\/v1\/import_log(\?|$)/;
+    var actor = function () {   /* نفس مصدر سجلّ العمليات (gmt-oplog): الأدمن باسمه ⇐ صاحب الجلسة ⇐ اسم المشغّل */
+      try { if (sessionStorage.getItem('gmt_admin_mode') === '1') { var n = sessionStorage.getItem('gmt_admin_name') || ''; return n ? 'الأدمن ' + n : 'الأدمن'; } } catch (_) {}
+      try { var u = JSON.parse(localStorage.getItem('gmt_session') || localStorage.getItem('gmt_user') || 'null'); if (u && (u.display_name || u.username || u.name)) return u.display_name || u.username || u.name; } catch (_) {}
+      try { var op = localStorage.getItem('gmt_operator_name'); if (op) return op; } catch (_) {}
+      return 'غير معروف';
+    };
+    var reasonNow = function () { var r = window.__gmtPurReason; return (r && r.text && Date.now() - r.at < 120000) ? r.text : ''; };
+    var withHdr = function (init, reason) {
+      var o = Object.assign({}, init || {}), h = {};
+      try { h = (typeof Headers !== 'undefined' && o.headers instanceof Headers) ? Object.fromEntries(o.headers.entries()) : Object.assign({}, o.headers || {}); } catch (_) { h = Object.assign({}, o.headers || {}); }
+      h['x-gmt-actor'] = encodeURIComponent(String(actor()).slice(0, 80));
+      try { h['x-gmt-page'] = encodeURIComponent((location.pathname.split('/').pop() || '').slice(0, 60)); } catch (_) {}
+      var why = reason || h['x-gmt-reason'] || reasonNow();
+      if (why && !h['x-gmt-reason']) h['x-gmt-reason'] = encodeURIComponent(String(why).slice(0, 300));
+      o.headers = h; return o;
+    };
+    var ask = function (body) {
+      var msg = '';
+      try { msg = (JSON.parse(body) || {}).message || ''; } catch (_) { msg = body || ''; }
+      msg = String(msg).replace(/^GMT_[A-Z_]+:\s*/, '');
+      var p = (window.GMTAsk && GMTAsk.prompt) ? GMTAsk.prompt : function (m) { return Promise.resolve(window.prompt(m)); };
+      return Promise.resolve(p('📝 ' + (msg || 'هذا التعديل على فاتورة الشراء يحتاج سبباً') + '\n\nاكتب سبب التعديل (إجباري — يُحفظ في سجلّ الفاتورة مع اسمك):')).then(function (r) {
+        var t = r == null ? '' : String(r).trim();
+        if (t) window.__gmtPurReason = { text: t, at: Date.now() };
+        return t;
+      });
+    };
+    window.fetch = function (input, init) {
+      var url = '', method = 'GET';
+      try { url = typeof input === 'string' ? input : (input && input.url) || ''; method = String((init && init.method) || (input && typeof input !== 'string' && input.method) || 'GET').toUpperCase(); } catch (_) {}
+      if (method === 'GET' || method === 'HEAD' || !PUR_RE.test(url)) return orig.apply(window, arguments);
+      var i1 = withHdr(init);
+      return orig(input, i1).then(function (res) {
+        if (res.status < 400 || res.status >= 500 || (i1.headers && i1.headers['x-gmt-reason'])) return res;
+        return res.clone().text().then(function (rb) {
+          if (!/GMT_REASON_REQUIRED/.test(rb)) return res;
+          return ask(rb).then(function (why) { return why ? orig(input, withHdr(init, why)) : res; });
+        }, function () { return res; });
+      });
+    };
+  } catch (_) {}
+})();
+
 /* ═══ (VER-4#REQ-0432) المفتّش يرصد فشل تيليغرام ═══
    كل طلبٍ إلى api.telegram.org (إرسال/تعديل/صورة، من tg() أو الأوردرات أو أي صفحة) يمرّ من fetch ⇒ نراقبه هنا مرّةً واحدة
    بدل ٨ مواضع: ردٌّ غير ناجح أو انقطاع ⇒ GMTBug.log('warn', …, {type:'tg_fail'}). لا نغيّر الردّ ولا نُفشل العملية، وبحدٍّ
@@ -3818,6 +3872,7 @@
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     const method = ((init && init.method) || (typeof input !== 'string' && input && input.method) || 'GET').toUpperCase();
     const isWrite = method !== 'GET' && method !== 'HEAD';
+    const isPur = isWrite && /\/rest\/v1\/import_log(\?|$)/.test(url);
     const started = Date.now();
     net.last = started;
     if (!/gmt_telemetry/.test(url)) sniff(url, init);
@@ -3857,6 +3912,12 @@
       /* (TASK-0331 · المالك seq 536 «الفحوصات») طلب الفحص الذاتي المقصود (فرع «__probe__») يُرفض عمداً ليُثبت أنّ الدالّة موجودة —
          كان يُسجَّل خطأً حقيقياً «مفتاح فرع غير صالح: __probe__» في سجلّ الأخطاء كلّ يوم. */
       const _probe = /__probe__/.test(String((init && init.body) || ''));
+      /* (TASK-A0548) رفض قاعدة فواتير الشراء المقصود (بلا سبب/رقم مكرَّر/حذف مُرحَّلة) تحذيرٌ لا «خطأ حرج» — السؤال وإعادة الطلب في حارس أعلى الملف */
+      if (isPur && res.status >= 400 && res.status < 500) {
+        let rb = '';
+        try { rb = await res.clone().text(); } catch (_) {}
+        if (/GMT_(REASON_REQUIRED|DUP_INV_NUMBER|DELETE_TRANSFERRED)/.test(rb)) { add('warn', 'قاعدة فواتير الشراء', explainDb(rb), method + ' ' + redact(url)); return res; }
+      }
       if (!res.ok && res.status !== 406 && !_probe) {
         let body = '';
         try { body = (await res.clone().text()).slice(0, 300); } catch (_) {}
