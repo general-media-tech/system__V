@@ -649,7 +649,7 @@
       if (!opt.force && lastAt[name] && nowT - lastAt[name] < cd) return;
       lastAt[name] = nowT;
       var c = ensure(); if (!c) return;
-      if (c.state === 'suspended') { c.resume().catch(function () {}); }
+      if (c.state !== 'running') { try { c.resume().catch(function () {}); } catch (_) {} }   /* (TASK-A0565) suspended أو interrupted (سفاري) */
       perform(name, fn, opt);
     } catch (_) { /* لا صوتَ يكسر صفحة */ }
   }
@@ -685,6 +685,37 @@
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
     global.addEventListener(ev, unlock, { once: true, passive: true, capture: true });
   });
+
+  /* (TASK-A0565 · المالك seq 959/963 «ركّزلي على الإشعارات والأصوات»)
+     ⛔ الجذر: الفتح كان «مرّةً واحدة» (once). قفل الهاتف/الخروج للخلفية/مكالمة ⇒ المتصفّح يعلّق السياق
+     (suspended · وفي سفاري «interrupted») ⇒ resume() خارج لمسة يُرفض بصمت ⇒ صوت الأوردر/الإشعار الجديد لا يُسمع
+     حتى إعادة تحميل الصفحة — ولا لمسةٌ تعيده إلّا زرٌّ له صوت (والنقرة العامّة مؤجَّلة 40ms خارج اللمسة).
+     الآن: كلّ لمسة/مفتاح يوقظ السياق داخل اللمسة نفسها · العودة للصفحة تحاول الإيقاظ · وسياقٌ عالقٌ بعد لمسة يُستبدل بجديد. */
+  var stuck = false;
+  function revive(inGesture) {
+    try {
+      if (!ctx || !unlocked) return;
+      var st = ctx.state;
+      if (st === 'running') { stuck = false; return; }
+      if (st === 'closed' || (inGesture && stuck)) {
+        /* سياقٌ لم يعد بعد لمسةٍ سابقة (سفاري بعد مكالمة) ⇒ سياقٌ جديد داخل اللمسة */
+        try { if (st !== 'closed') ctx.close(); } catch (_) {}
+        ctx = null; master = null; stuck = false;
+        var n = ensure(); if (n && n.state !== 'running') n.resume().catch(function () {});
+        return;
+      }
+      var c = ctx;
+      c.resume().catch(function () {});
+      if (inGesture) setTimeout(function () { try { if (ctx === c && c.state !== 'running') stuck = true; } catch (_) {} }, 400);
+    } catch (_) {}
+  }
+  ['pointerdown', 'keydown', 'touchend'].forEach(function (ev) {
+    global.addEventListener(ev, function () { revive(true); }, { passive: true, capture: true });
+  });
+  try {
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') revive(false); });
+    global.addEventListener('pageshow', function () { revive(false); });
+  } catch (_) {}
 
   /* ── مفتاحُ الكتم في شريط الخيارات ────────────────────────────────────
      لا زرَّ عائم — يُركَّب داخل شريط التحديث القائم، التزاماً بقاعدتك. */

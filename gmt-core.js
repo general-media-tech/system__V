@@ -3853,6 +3853,17 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       } else if (isHtmlAsImg) {
         NOISE.htmlAsImg++;
         if (NOISE.htmlAsImg === 1) add('info', 'تنسيق', 'عنصر <img> يشير لصفحة HTML بدل صورة (تجميلي — لا يؤثر على العمل)', _n);
+      } else if (e.target.tagName === 'IMG' || e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+        /* (TASK-A0565 · سجلّ الأخطاء ٢٢ ت2: «فشل تحميل IMG» لصورةٍ موجودة (200) من متصفّح إنستغرام · و«فشل تحميل SCRIPT gmt-whatsnew» لحظة النشر)
+           انقطاعٌ عابر ليس خطأ ملفّ ⇒ نسأل الخادم: يُسجَّل فقط إن ردّ ≥400 فعلاً (بالرمز) · بلا اتصال أو فشل الفحص ⇒ لا شيء */
+        var _tag = e.target.tagName;
+        if (navigator.onLine !== false && /^https?:/i.test(_u)) {
+          try {
+            (window.__gmtRealFetch || fetch)(_u, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+              if (r && r.status >= 400) add('warn', 'مورد', 'فشل تحميل ' + _tag + ' (' + r.status + '): ' + _n, redact(_u));
+            }).catch(function () {});
+          } catch (_) {}
+        }
       } else {
         add('warn', 'مورد', 'فشل تحميل ' + (e.target.tagName || '') + ': ' + _n, redact(_u));
       }
