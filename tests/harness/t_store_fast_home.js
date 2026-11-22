@@ -66,8 +66,8 @@ const light = { categories: cats, banners: [], offers: [], branches: [], __light
     const p = b.products[0];
     return { light: b.__light, src: b.__src_updated_at, cats: b.categories.length, imgs: p.images.length, specs: 'specs' in p, desc: 'description' in p, alt: 'alt_names' in p, vSpecs: 'specs' in p.options[0].values[0], vPrice: p.options[0].values[0].price, name: p.name };
   });
-  ok(built.light && built.src === 'U1' && built.cats === 1 && built.imgs === 3 && !built.specs && !built.desc && !built.alt && !built.vSpecs && built.vPrice === 3 && built.name === 'A',
-    'البناء: بلا مواصفات/وصف/أسماء بديلة · ٣ صور · الخيارات بأسعارها بلا مواصفاتها · الأقسام كما هي');
+  ok(built.light && built.src === 'U1' && built.cats === 1 && built.imgs === 1 && !built.specs && !built.desc && !built.alt && !built.vSpecs && built.vPrice === 3 && built.name === 'A',
+    'البناء: بلا مواصفات/وصف/أسماء بديلة · صورةٌ واحدة (البطاقة تعرض الأولى — TASK-A0557) · الخيارات بأسعارها بلا مواصفاتها · الأقسام كما هي');
   await o.pg.evaluate(async () => { const s = GMT_DB.STORE; await fetch(s.url + '/rest/v1/gmt_store?id=eq.1', { method: 'PATCH', headers: { apikey: s.key, Authorization: 'Bearer ' + s.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ updated_at: '2026-11-01T11:00:00Z' }) }); });
   await o.pg.waitForTimeout(5000);
   let up = null; try { up = JSON.parse(ups[ups.length - 1] || 'null'); } catch (_) {}

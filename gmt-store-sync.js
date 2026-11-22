@@ -173,7 +173,9 @@
     const products = (Array.isArray(rec && rec.products) ? rec.products : []).map(p => {
       /* (seq B687) video_url يبقى في النسخة الخفيفة: النقطة الحمراء على بطاقة المنتج الذي له فيديو تظهر فوراً */
       const x = strip(p, ['specs', 'description', 'compat', 'alt_names', 'search_terms', 'images_hidden']);
-      if (Array.isArray(p.images)) x.images = p.images.filter(u => !/^data:/i.test(String(u || ''))).slice(0, 3);   // صورةٌ مضمّنة (base64) لا تُضغط ⇒ تنتظر الكتالوج الكامل
+      /* (TASK-A0557 · سجلّ الأخطاء: «الطلب استغرق … ثانية: GET store/home.json» عند زبائن المتجر) البطاقة تعرض الصورة الأولى فقط
+         (_buildProductCard: images[0]) — الصور كانت ٤٢٪ من الملفّ ⇒ صورةٌ واحدة (٧٨ ⇐ ٦٤ ك.ب مضغوطاً) · البقيّة مع الكتالوج الكامل */
+      if (Array.isArray(p.images)) x.images = p.images.filter(u => !/^data:/i.test(String(u || ''))).slice(0, 1);   // صورةٌ مضمّنة (base64) لا تُضغط ⇒ تنتظر الكتالوج الكامل
       if (Array.isArray(p.options)) x.options = p.options.map(o => Array.isArray(o && o.values) ? Object.assign({}, o, { values: o.values.map(v => v && typeof v === 'object' ? strip(v, ['specs', 'compat']) : v) }) : o);
       return x;
     });
