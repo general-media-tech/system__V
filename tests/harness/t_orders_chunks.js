@@ -22,7 +22,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // البحث عن أوردرٍ في آخر القائمة (لم يكن مرسوماً) ⇒ يظهر · والكتابة لا تجمّد الصفحة
   await pg.evaluate(() => { window.scrollTo(0, 0); window.__lt = []; });
   await pg.click('#searchInput'); await pg.keyboard.type('زبون 149', { delay: 60 }); await sleep(700);
-  const s = await pg.evaluate(() => ({ cards: [...document.querySelectorAll('#list-shipped [id^="card-"]')].map(c => c.innerText.split('\n')[0]).filter(Boolean), lt: window.__lt.slice() }));
+  const s = await pg.evaluate(() => ({ cards: [...document.querySelectorAll('#list-shipped [id^="card-"]')].map(c => (c.querySelector('h4') || c).innerText.split('\n')[0]).filter(Boolean)   /* (TASK-A0568) أوّل سطرٍ في البطاقة صار «الحوالة» — الاسم في h4 */, lt: window.__lt.slice() }));
   ok(s.cards.length === 1 && /زبون 149/.test(s.cards[0]), 'البحث يجد أوردراً من آخر القائمة: ' + JSON.stringify(s.cards));
   ok(!s.lt.some(d => d > 250), 'الكتابة في البحث لا تجمّد الصفحة (لا مهمّة > ٢٥٠ms): ' + JSON.stringify(s.lt));
   await pg.fill('#searchInput', ''); await pg.evaluate(() => renderSoon()); await sleep(500);
