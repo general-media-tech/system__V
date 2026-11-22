@@ -885,7 +885,7 @@ function renderMainBanner(banners) {
         if (b.link) { slide.style.cursor='pointer'; slide.onclick=()=>gmtOpenLink(b.link); }
         if (b.image) {
             const img = document.createElement('img');
-            img.src = b.image; img.alt = b.title||'';
+            gmtBannerImg(img, b.image); img.alt = b.title||'';
             img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
             slide.appendChild(img);
         }
@@ -1000,7 +1000,7 @@ function _catBannerEl(cat){
                 slide.className = 'cat-banner-slide' + (bi===0?' active':'');
                 if (b.link) { slide.style.cursor='pointer'; slide.onclick=()=>gmtOpenLink(b.link); }
                 const img = document.createElement('img');
-                img.src = b.image; img.alt = '';
+                gmtBannerImg(img, b.image); img.alt = '';
                 slide.appendChild(img);
                 bannerWrap.appendChild(slide);
             });
@@ -1253,6 +1253,9 @@ function gmtIncomingBadge(p,short){
 function gmtThumb(u){ return (typeof u==='string') ? u.replace(/\/img\/p\/([^?#]+)\.(jpe?g|png|webp|gif)(?=$|[?#])/i,'/img/t/$1.webp') : u; }
 function gmtImgRetry(img){ const o=img && img.dataset && img.dataset.orig; if(o && !img.dataset.gf && img.src!==o){ img.dataset.gf='1'; img.src=o; return true; } return false; }
 /* (seq B656) ملاحظة: الكرت يبقى object-fit:cover عمداً — المالك رفض contain («بلا أطراف أو مستطيل» seq 500) ورفض المربّعات المولّدة (seq 508). */
+/* (TASK-A0563 · المالك seq 961) البانر بعرض الشاشة: نسخةٌ خفيفة img/b/<…>.webp (عرض ≤1280 · tools/make_banner_imgs.py) — كان بانر PNG ٥٢٩ك.ب لا يحمّل على شبكة الهاتف · لا نسخة ⇒ الأصلية (gmtImgRetry) */
+function gmtBanner(u){ return (typeof u==='string') ? u.replace(/(^|\/)img\/p\/([^?#]+)\.(jpe?g|png|webp|gif)(?=$|[?#])/i,'$1img/b/$2.webp') : u; }
+function gmtBannerImg(img, u){ img.src = gmtBanner(u); img.dataset.orig = u; img.decoding = 'async'; img.onerror = function(){ gmtImgRetry(img); }; }
 function gmtThumbAttrs(u){ return `src="${gmtThumb(u)}" data-orig="${u}" loading="lazy" decoding="async" onerror="gmtImgRetry(this)"`; }
 
 /* (TASK-0371) عرض السعر المؤقّت: الجرد يسجّل تخفيضاً بمدّة في gmt_price_changes (السعر القديم والجديد وتاريخ الانتهاء) — المتجر يقرؤها مرّةً
