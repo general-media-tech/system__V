@@ -120,7 +120,10 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
           if (tbl === 'products') {
             report.products = rows.length; report.rows = rows;
             step('تحميل المنتجات: ' + rows.length + ' منتج', i + 0.5, TABLES.length);
-            try { if (GMTCache.posPrefill) report.posPrefilled = await GMTCache.posPrefill(rows, syncAt); } catch (_) {}
+            /* (TASK-A0570 · نمط B0374) وقت المزامنة = أحدث تعديل **على الخادم** في ما نزل — لا ساعة الجهاز:
+               ساعةٌ متقدّمة كانت تجعل نقطة البيع تتخطّى كلّ تعديل سعرٍ/اسمٍ بعدها (للأبد إن لم يُعدَّل ثانيةً) */
+            const _srv = rows.reduce(function (m, x) { return x && x.updated_at && x.updated_at > m ? x.updated_at : m; }, '');
+            try { if (GMTCache.posPrefill) report.posPrefilled = await GMTCache.posPrefill(rows, _srv || syncAt); } catch (_) {}
           }
         } catch (e) { report.errors.push(label + ': ' + e.message); }
       }

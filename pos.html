@@ -1217,6 +1217,27 @@ window.GMT_FEATURES = [
 </style>
 </head>
 <body>
+<!-- (TASK-A0571 · المالك seq 970 «أي جهاز أوّل مرّة بفتحه ما بتطلع لي فقط شاشة بيضاء»)
+     الجذر: ~٢٥ سكربتاً متزامناً (gmt-core ٣٨٠ك.ب · gmt-staff ٤٣٠ك.ب …) قبل أيّ عنصر في الصفحة ⇒ لا رسم حتى تنزل كلّها.
+     بعد أوّل مرّة تُخدَم من ذاكرة الجهاز (سريعة)، لكن الجهاز الجديد على إنترنتٍ بطيء: شاشةٌ بيضاء ١٠ث+ (قياس ١م.ب/ث: ١٠٫٤ث).
+     ⇒ شاشة تجهيزٍ خفيفة تُرسم فوراً (بلا ملفّات) وتختفي حين تجهز الصفحة. -->
+<div id="gmt-first-splash" style="position:fixed;inset:0;z-index:2147483600;background:#f7f8fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:Cairo,Tahoma,Arial,sans-serif;direction:rtl;text-align:center;padding:24px;color:#111">
+  <div style="font-weight:900;font-size:22px;letter-spacing:.3px"><span style="color:#D5001C">General</span> Media Tech</div>
+  <div style="width:38px;height:38px;border-radius:50%;border:4px solid #e5e7eb;border-top-color:#D5001C;animation:gmtFsSpin .8s linear infinite"></div>
+  <div style="font-weight:800;font-size:15px">جارٍ تجهيز نقطة البيع…</div>
+  <div id="gmt-first-splash-sub" style="font-size:12.5px;color:#64748b;max-width:320px;line-height:1.8">أوّل فتح على هذا الجهاز يُنزّل ملفّات النظام — قد يأخذ دقيقة على الإنترنت البطيء. المرّات التالية فوريّة.</div>
+  <style>@keyframes gmtFsSpin{to{transform:rotate(360deg)}}</style>
+</div>
+<script>
+(function () {
+  var t0 = Date.now();
+  function gone() { var s = document.getElementById('gmt-first-splash'); if (s) s.remove(); }
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(gone, 150); });
+  window.addEventListener('load', gone);
+  /* طال الانتظار ⇒ نُطمئن بأنّ التنزيل مستمرّ */
+  setTimeout(function () { var s = document.getElementById('gmt-first-splash-sub'); if (s) s.textContent = 'ما زال التنزيل مستمرّاً (الإنترنت بطيء) — لا تغلق الصفحة. المرّات التالية فوريّة.'; }, 15000);
+})();
+</script>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-core.js?v=20261122s"></script>
@@ -1245,7 +1266,7 @@ window.GMT_FEATURES = [
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
-  <script src="gmt-warmup.js?v=20261117j"></script>
+  <script src="gmt-warmup.js?v=20261122w"></script>
   <script src="gmt-labels.js?v=20261116a"></script>
 <script src="gmt-staff.js?v=20261122p"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -2321,6 +2342,11 @@ window.GMT_FEATURES = [
           <input id="sc-search" type="text" placeholder="🔍 ابحث بالاسم أو امسح/اكتب الباركود..." oninput="scRenderList()" onkeydown="scHandleEnter(event)"
             style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
           <button onclick="scStartScan()" title="مسح بالكاميرا" style="flex-shrink:0;background:#0f766e;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">📷</button>
+        </div>
+        <!-- (TASK-A0572 · المالك seq 970) الطريقة: امسح الباركود أو ابحث ⇒ يظهر المنتج بكمّيته المسجّلة في النظام ⇒ اكتب العدد الحقيقيّ ⇒ Enter ⇒ المسح التالي -->
+        <div id="sc-live" style="font-size:11.5px;font-weight:700;color:#475569;margin:-2px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span id="sc-live-at">—</span>
+          <label style="display:inline-flex;gap:4px;align-items:center;cursor:pointer;font-weight:700"><input type="checkbox" id="sc-scan-adds" onchange="try{localStorage.setItem('gmt_sc_scan_adds',this.checked?'1':'0')}catch(_){}"> 🔁 كل مسحة تعدّ قطعة (عدّ قطعةً قطعة)</label>
         </div>
         <!-- (TASK-0202 · المالك seq 133–134 «هذه الصلاحيات يجب ان تكون فقط في الادمن») الفلاتر للأدمن وحده كأدواته -->
         <div id="sc-filters" style="display:none;gap:6px;">
@@ -3592,9 +3618,34 @@ async function loadProducts() {
   allProducts = await _attachCachedImages(cached);
   _finalizeProductsUI();
   hideLoad();
-  showToast('⚡ البيانات من الكاش المحلي', 'inf');
-  if (navigator.onLine) setTimeout(() => _backgroundSync().catch(()=>{}), 2000);
+  /* (TASK-A0571 · المالك seq 970 «ما عم تشتغل إلا من بيانات الكاش المحلي») الذاكرة للفتح السريع فقط — والتحديث من الخادم فوراً ثمّ دورياً */
+  showToast(navigator.onLine ? '⚡ فتحٌ سريع — جارٍ التحديث من الخادم…' : '📴 بلا إنترنت — تعمل من ذاكرة الجهاز', 'inf');
+  _posLiveSync({ first: true });
   if (navigator.onLine) setTimeout(() => _refreshOffers(), 900);
+}
+
+/* (TASK-A0571 · المالك seq 970) ⛔ الجذر: المزامنة مع الخادم كانت **مرّةً واحدة** بعد ثانيتين من الفتح (ومع إشعار «سعر» إن وصل).
+   نقطة بيعٍ مفتوحة طوال اليوم تبقى على كمّيات وأسعار ذاكرة الجهاز ⇒ تبيع على أرقامٍ قديمة. الآن: فوراً · كلّ ٩٠ث والصفحة ظاهرة ·
+   عند العودة للصفحة · وعند رجوع الإنترنت — بلا تداخل · وتاريخ آخر تحديثٍ ناجح محفوظ (GMT_POS_SYNC). */
+let _posSyncRun = null, _posSyncAt = 0, _posSyncTimer = null;
+window.GMT_POS_SYNC = { at: 0, ok: null };
+function _posLiveSync(o) {
+  o = o || {};
+  if (!_posSyncTimer) {
+    _posSyncTimer = setInterval(() => _posLiveSync({}), 90000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') _posLiveSync({ gap: 20000 }); });
+    window.addEventListener('online', () => _posLiveSync({ gap: 0 }));
+  }
+  if (!navigator.onLine || _posSyncRun) return _posSyncRun;
+  if (!o.first && document.visibilityState !== 'visible') return null;
+  if (!o.first && Date.now() - _posSyncAt < (o.gap != null ? o.gap : 60000)) return null;
+  _posSyncAt = Date.now();
+  _posSyncRun = _backgroundSync().then(r => {
+    window.GMT_POS_SYNC = { at: Date.now(), ok: !!(r && r.ok) };
+    if (o.first && r && r.ok && !r.changed) showToast('✅ البيانات محدَّثة من الخادم', 'ok');
+    return r;
+  }).catch(() => null).finally(() => { _posSyncRun = null; });
+  return _posSyncRun;
 }
 
 let _wantAllImages = false;   // يُرفع فقط بطلبٍ صريح (إعادة تحميل كاملة)
@@ -3660,6 +3711,8 @@ async function _loadProductsFromServer(isFirst = false) {
     _finalizeProductsUI();
     hideLoad();
     if (isFirst) showToast('✅ اكتمل تحميل النظام — جاهز للعمل', 'ok');
+    window.GMT_POS_SYNC = { at: Date.now(), ok: true };
+    try { if (!_posSyncTimer) { _posSyncAt = Date.now(); _posLiveSync({}); } } catch (_) {}   /* (TASK-A0571) التحديث الدوريّ بعد التحميل الكامل أيضاً */
   } catch(e) {
     hideLoad();
     const cached = await loadProductsOffline();
@@ -3692,7 +3745,7 @@ function _finalizeProductsUI() {
 async function _backgroundSync() {
   try {
     const lastSync = await getMeta('last_products_sync');
-    if (!lastSync) return;
+    if (!lastSync) return { ok: false };
     /* (TASK-B0374) ثلاث ثغرات كانت تُخفي منتجات وتُبقي كمّيات قديمة على الجهاز:
        ① عند الفتح من الذاكرة لا تُقرأ أعمدة الفروع ⇒ كمّيات الفروع لا تُحدَّث أبداً ② المنتج المعدَّل يُعاد بلا التصنيف والأسماء البديلة
        ③ «المعدَّل» يُقاس بساعة الجهاز (جهازٌ ساعته متقدّمة لا يرى أيّ منتجٍ جديد). الآن: الأعمدة تُقرأ · كلّ الأعمدة · ساعة الخادم · وكلّ منتجٍ غائبٍ عن الجهاز يُجلب. */
@@ -3705,7 +3758,7 @@ async function _backgroundSync() {
       `${CONFIG.SUPABASE_URL}/rest/v1/products?select=id,${branchCols},updated_at`,
       { headers: sbHeaders() }
     );
-    if (!stockR.ok) return;
+    if (!stockR.ok) return { ok: false };
     const stockData = await stockR.json();
     /* (TASK-0296 · المالك seq 308 «لسع في قطع من الكفرات مو مندمجة؟» — لقطة نقطة البيع: «كفر سيليكون R50 cover» المدموج يوم 31 ت1)
        المزامنة الخلفية كانت تحدّث الكميات والمنتجات المعدّلة فقط، ولا تُسقط ما **حُذف أو دُمج** في الجرد ⇒ يبقى ظاهراً على كل جهازٍ
@@ -3721,8 +3774,13 @@ async function _backgroundSync() {
       }
     }
     const _have = new Set(allProducts.map(p => String(p.id)));
-    const changed = stockData.filter(s => (s.updated_at && s.updated_at > lastSync) || !_have.has(String(s.id)));
-    const _srvMax = stockData.reduce((m, x) => (x.updated_at && x.updated_at > m ? x.updated_at : m), lastSync);
+    /* (TASK-A0570) نقطة مزامنة «من المستقبل» (كتبها التحميل المسبق بساعة جهازٍ متقدّمة قبل هذا الإصلاح) ⇒ لا نعرف ما فاتنا:
+       نعود يوماً قبل أحدث تعديلٍ على الخادم فيُعاد جلب ما عُدِّل فيه (أسطرٌ قليلة) وتُصحَّح النقطة */
+    let _since = lastSync;
+    const _allMax = stockData.reduce((m, x) => (x.updated_at && x.updated_at > m ? x.updated_at : m), '');
+    if (_allMax && new Date(lastSync).getTime() > new Date(_allMax).getTime()) _since = new Date(new Date(_allMax).getTime() - 864e5).toISOString();
+    const changed = stockData.filter(s => (s.updated_at && new Date(s.updated_at).getTime() > new Date(_since).getTime()) || !_have.has(String(s.id)));
+    const _srvMax = _allMax && new Date(_allMax).getTime() >= new Date(_since).getTime() ? _allMax : _since;
     stockData.forEach(s => {
       const local = allProducts.find(p => String(p.id) === String(s.id));
       if (!local) return;
@@ -3758,7 +3816,8 @@ async function _backgroundSync() {
       }
     } else { try { renderProds(); } catch (_) {} }   // الكمّيات حُدِّثت أعلاه
     await setMeta('last_products_sync', _srvMax || new Date().toISOString());
-  } catch(e) { console.warn('backgroundSync:', e.message); }
+    return { ok: true, changed: changed.length };   /* (TASK-A0571) */
+  } catch(e) { console.warn('backgroundSync:', e.message); return { ok: false }; }
 }
 
 async function forceRefreshCache() {
@@ -5329,8 +5388,46 @@ function openStockCount() {
     const fl = document.getElementById('sc-filters'); if (fl) fl.style.display = _adm ? 'flex' : 'none';   // (TASK-0202)
     const b = document.getElementById('sc-rebuild-btn'); if (b) b.style.display = _adm ? '' : 'none'; }
   _scFilter = 'all';
+  try { const cb = document.getElementById('sc-scan-adds'); if (cb) cb.checked = localStorage.getItem('gmt_sc_scan_adds') === '1'; } catch (_) {}
   scSetFilter('all');
   const s = document.getElementById('sc-search'); if (s) { s.value=''; setTimeout(()=>s.focus(), 300); }
+  _scRefreshLive().then(() => scRenderList());
+}
+
+/* (TASK-A0572 · المالك seq 970 «المفروض يدخل على القطعة أو يعطي باركود يعطيه شقد القطعة الموجودة عندنا وهو يكتب الحقيقي»)
+   ⛔ «المسجّل» كان من ذاكرة الجهاز (قد تكون قديمة بساعات) ⇒ الفرق المحسوب نقصاً/زيادة خاطئ. الآن: يُقرأ من الخادم عند فتح الجرد
+   وقبل إرسال التقرير وقبل فاتورة إعادة الإنشاء. يعيد true إن نجح. */
+let _scLiveAt = 0;
+async function _scRefreshLive() {
+  const el = document.getElementById('sc-live-at');
+  if (el) { el.textContent = '⏳ قراءة الكمّيات المسجّلة من الخادم…'; el.style.color = '#475569'; }
+  try {
+    if (!navigator.onLine) throw new Error('offline');
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/products?select=id,${encodeURIComponent(branch.key)}`, { headers: sbHeaders() }, 12000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    const byId = new Map(rows.map(x => [String(x.id), x]));
+    allProducts.forEach(p => { const x = byId.get(String(p.id)); if (x && x[branch.key] !== undefined) p[branch.key] = x[branch.key]; });
+    _scLiveAt = Date.now();
+    if (el) { el.textContent = '✅ «المسجّل» من الخادم الآن (' + new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' }) + ')'; el.style.color = '#15803d'; }
+    return true;
+  } catch (e) {
+    if (el) { el.textContent = '⚠️ تعذّرت قراءة الخادم — «المسجّل» من ذاكرة الجهاز وقد لا يكون حديثاً'; el.style.color = '#b45309'; }
+    return false;
+  }
+}
+/* بعد كتابة العدد ⇒ Enter يحفظ ويعود لخانة المسح للقطعة التالية */
+function scCountKey(e, id) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inp = e.target, v = inp.value;
+  inp.onchange = null;            /* الحقل يُزال مع إعادة الرسم ⇒ لا «change» ثانٍ أثناء إزالته */
+  const s = document.getElementById('sc-search');
+  if (s) { s.value = ''; s.focus(); }
+  scSetCount(id, v);
+}
+function _scFocusRow(id) {
+  setTimeout(() => { const i = document.querySelector('#sc-list input[data-sc-id="' + CSS.escape(String(id)) + '"]'); if (i) { i.focus(); try { i.select(); } catch (_) {} } }, 30);
 }
 function closeStockCount() {
   scStopScan();
@@ -5390,12 +5487,12 @@ function scRenderList() {
         <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(p.name||'')}</div>
         <div style="font-size:10px;color:var(--text3);display:flex;gap:8px;align-items:center;margin-top:2px;">
           <span>${p.barcode?escH(p.barcode):'بدون باركود'}</span>
-          <span>المسجّل: <b>${sys}</b></span>
+          <span>المسجّل في النظام: <b style="font-size:13px;color:#0f172a">${sys}</b></span>
           ${diffBadge}
         </div>
       </div>
-      <input type="number" min="0" step="1" value="${hasCount?counted:''}" placeholder="العدد"
-        onchange="scSetCount('${escH(String(p.id))}', this.value)"
+      <input type="number" inputmode="numeric" min="0" step="1" value="${hasCount?counted:''}" placeholder="العدد" data-sc-id="${escH(String(p.id))}"
+        onchange="scSetCount('${escH(String(p.id))}', this.value)" onkeydown="scCountKey(event, '${escH(String(p.id))}')"
         style="width:70px;padding:8px;border:1.5px solid ${hasCount?(diff===0?'#15803d':'#dc2626'):'var(--border)'};border-radius:8px;text-align:center;font-size:14px;font-weight:800;font-family:'Cairo',sans-serif;">
     </div>`;
   }).join('');
@@ -5416,15 +5513,29 @@ function scHandleEnter(e) {
   const q = (document.getElementById('sc-search')?.value || '').trim();
   if (!q) return;
   const matches = scProducts().filter(p => (p.barcode||'') === q);
-  if (matches.length === 1) {
-    // زيادة عدّ المنتج بواحد تلقائياً (مسح متكرر = عدّ)
+  const adds = !!(document.getElementById('sc-scan-adds') || {}).checked;
+  if (matches.length === 1 && adds) {
+    // (اختياريّ) كل مسحة = قطعة — للعدّ قطعةً قطعة
     const p = matches[0];
     _scCounts[p.id] = (Number(_scCounts[p.id]) || 0) + 1;
     try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch(err) {}
     document.getElementById('sc-search').value = '';
     showToast(`✓ ${p.name} — العدد: ${_scCounts[p.id]}`, 'ok');
     scRenderList();
+    return;
   }
+  /* (TASK-A0572) الافتراضيّ: المسح/البحث يُظهر المنتج بكمّيته المسجّلة ⇒ المؤشّر في خانة العدد لتكتب الحقيقيّ */
+  let target = matches.length === 1 ? matches[0] : null;
+  if (!target) {
+    const hits = scProducts().filter(p => (window.GMTSuggest && GMTSuggest.hitsProduct) ? GMTSuggest.hitsProduct(q.toLowerCase(), p) : ((p.name||'').toLowerCase().includes(q.toLowerCase()) || (p.barcode||'').includes(q)));
+    if (hits.length === 1) target = hits[0];
+    else if (!hits.length) { showToast('لا منتج بهذا الباركود/الاسم' + ((window.GMTRole && GMTRole.isAdmin()) ? ' — «➕ منتج غير معرّف» لإضافته' : ''), 'err'); return; }
+    else { showToast(hits.length + ' نتيجة — اختر المنتج واكتب عدده', 'inf'); return; }
+  }
+  if (e && e.preventDefault) e.preventDefault();
+  document.getElementById('sc-search').value = target.barcode && matches.length === 1 ? target.barcode : q;
+  scRenderList();
+  _scFocusRow(target.id);
 }
 
 function scUpdateProgress() {
@@ -5456,6 +5567,10 @@ async function _posSign(title, summary) {
   return { name: sig.name, url, at: sig.at };
 }
 async function scFinishAndReport() {
+  /* (TASK-A0572) الفروق على كمّيات الخادم الآن (بيعٌ أثناء الجرد يغيّرها) */
+  if (!(await _scRefreshLive())) {
+    if (!(await GMTAsk.confirm('تعذّرت قراءة الكمّيات الحاليّة من الخادم.\nالفروق ستُحسب على آخر كمّيات معروفة على هذا الجهاز وقد لا تكون دقيقة.\n\nمتابعة رغم ذلك؟', { title: 'تقرير الجرد', okText: 'متابعة', cancelText: 'رجوع' }))) return;
+  }
   const all = scProducts();
   const countedItems = all.filter(p => _scCounts[p.id] !== undefined);
   if (!countedItems.length) { showToast('لم تجرد أي منتج بعد', 'err'); return; }
@@ -5637,6 +5752,7 @@ async function _scIssue(ch, o) {
 async function scRebuild() {
   if (!(window.GMTRole && GMTRole.isAdmin())) { showToast('فاتورة إعادة الإنشاء للأدمن فقط', 'err'); return; }
   if (!window.GMTStock || !GMTStock.rebuild) { showToast('وحدة المخزون لم تُحمَّل — حدّث الصفحة', 'err'); return; }
+  await _scRefreshLive();   /* (TASK-A0572) «قبل» في الفاتورة من الخادم الآن (والاعتماد نفسه يعيد القراءة) */
   const lines = scProducts().filter(p => _scCounts[p.id] !== undefined).map(p => _scLine(p, _scCounts[p.id]));
   const ch = lines.filter(l => l.after !== l.before);
   if (!ch.length) { await GMTAsk.alert('لا فرق بين ما حدّدته والمسجّل في «' + branch.name + '» — لا شيء يتغيّر.', { title: 'فاتورة إعادة إنشاء' }); return; }
@@ -5660,7 +5776,7 @@ function _scLine(p, cnt) {
 window.scRebuild = scRebuild; window.scBulk = scBulk; window.scNewProduct = scNewProduct;
 
 // ── مسح بالكاميرا (ZXing) ──
-let _scScanControls = null;
+let _scScanControls = null, _scLastCam = { code: '', at: 0 };
 async function scStartScan() {
   try {
     if (typeof ZXing === 'undefined') { showToast('مكتبة المسح غير محمّلة', 'err'); return; }
@@ -5669,6 +5785,10 @@ async function scStartScan() {
     _scScanControls = await reader.decodeFromVideoDevice(null, document.createElement('video'), (result) => {
       if (result) {
         const code = result.getText();
+        /* (TASK-A0572) الكاميرا تقرأ الباركود نفسه عدّة مرّات في الثانية ⇒ كان يُعدّ ٥–١٠ قطع بمسحةٍ واحدة */
+        const nowT = Date.now();
+        if (code === _scLastCam.code && nowT - _scLastCam.at < 2500) return;
+        _scLastCam = { code, at: nowT };
         const inp = document.getElementById('sc-search');
         if (inp) { inp.value = code; scHandleEnter({ key: 'Enter' }); }
       }
@@ -11143,7 +11263,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261122v"></script>
+<script src="gmt-whatsnew.js?v=20261122w"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
