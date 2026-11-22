@@ -3952,6 +3952,11 @@
   let __gmtAway = 0;   /* يزيد مع كل window.open أو خروج الصفحة للخلفية */
   try { const _wo = window.open; window.open = function () { __gmtAway++; return _wo.apply(window, arguments); }; if (_wo && _wo.__gmtWrapped) window.open.__gmtWrapped = true; } catch (_) {}
   document.addEventListener('visibilitychange', () => { if (document.hidden) __gmtAway++; });
+  /* (TASK-A0554 · سجلّ الأخطاء: «ضغطت «عدسات كانون/كانون/رينغ لايت/ستاندات» ولم يحدث شيء» في المتجر — وهي تقفز لقسمها فعلاً)
+     أثرٌ لا يغيّر الصفحة ولا يطلب شبكة: ① التمرير (أزرار الأقسام · «للأعلى») ② بدء مغادرة الصفحة (رابطٌ عاديّ على شبكةٍ بطيئة) */
+  let __gmtScrolls = 0;
+  try { document.addEventListener('scroll', () => { __gmtScrolls++; }, { capture: true, passive: true }); } catch (_) {}
+  window.addEventListener('beforeunload', () => { __gmtAway++; });
   try { new MutationObserver(() => { domDirty = true; }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true }); } catch (_) {}
 
   document.addEventListener('click', (e) => {
@@ -3967,10 +3972,10 @@
     if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;
     /* (TASK-0311 هـ) تبويبٌ مفتوحٌ أصلاً ⇒ لا أثر بطبيعته */
     if (/(^|[\s-])(active|selected|on)([\s-]|$)|active-tab|tab-active/.test(String(el.className || '')) || el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true') return;
-    const before = net.last, hid0 = __gmtAway;
+    const before = net.last, hid0 = __gmtAway, sc0 = __gmtScrolls;
     domDirty = false;
     setTimeout(() => {
-      if (net.last === before && !domDirty && __gmtAway === hid0) {
+      if (net.last === before && !domDirty && __gmtAway === hid0 && __gmtScrolls === sc0) {
         add('warn', 'زر بلا أثر', `ضغطت «${label}» ولم يحدث شيء (لا طلب شبكة ولا تغيّر بالواجهة)`, 'قد يكون الزر معطّلاً أو دالته مفقودة.');
       }
     }, 2000);
