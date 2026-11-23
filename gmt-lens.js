@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123c'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123c'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123c'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123d'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();
@@ -153,11 +153,11 @@
         pool.forEach(function (p) { row(p); }); vv.forEach(function (r) { row(r.item).vis = r.vis; });
         var keep = {}; pool.forEach(function (p) { keep[String(p.id)] = 1; });
         var RS = Array.from(by.values()).filter(function (x) { return keep[String(x.item.id)]; });
-        RS.forEach(function (x) { x.score = Math.max(0, x.vis) + x.txt + (x.txt >= 0.5 ? 0.5 : 0) + (x.bc ? 2 : 0) + 0.001; });
+        RS.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0) + 0.001; });
         return RS.sort(function (a, b) { return b.score - a.score; }).slice(0, 14);
       }
       var R = Array.from(by.values());
-      R.forEach(function (x) { x.score = Math.max(0, x.vis) + x.txt + (x.txt >= 0.5 ? 0.5 : 0) + (x.bc ? 2 : 0); });
+      R.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0); });
       return R.sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return x.score > 0.05 || x.vis > -0.3 && S.vec; }).slice(0, 5);   /* اقتراحات الصورة تُعرض ولو ضعيفة — الخيار للموظّف */
     }
     /* ── النوع: حين لا تعرف العين الموديل (قشاط · كفر · سوفت بوكس) تعرف النوع ⇒ كلّ منتجاته لتختار (seq 1002) ── */
@@ -241,7 +241,7 @@
           }
           if (S.vec && global.GMTLensLocal) {
             var adm = typeof ctx.isAdmin === 'function' ? !!ctx.isAdmin() : (global.GMTRole && GMTRole.isAdmin ? !!GMTRole.isAdmin() : false);
-            try { sampled = await GMTLensLocal.addSample(p, S.vec, { admin: adm, by: ctx.by || null, source: ctx.source || location.pathname.split('/').pop(), words: S.words, canvas: S.shot }); } catch (_) {}
+            try { sampled = await GMTLensLocal.addSample(p, S.vec, { admin: adm, by: ctx.by || null, source: ctx.source || location.pathname.split('/').pop(), words: S.words, canvas: S.shot, fromAI: !!S.read, names: S.read ? [S.read.name_on_box, S.read.model].filter(function (x) { return x && String(x).trim().length > 1; }) : modelWords(S.words, p) }); } catch (_) {}
           }
           try {
             var rank = R.indexOf(R[+b.getAttribute('data-pick')]) + 1, lp = S.logP;
@@ -330,7 +330,7 @@
         try { await L.fillMissing(list, 12); } catch (_) {}   /* منتجٌ أُضيف بعد بناء الفهرس ⇒ بصمته الآن (قليلة عادةً) */
         if (stale()) return;
         L.hold(true);
-        try { var v = await L.embed(canvas, 'shot'); if (stale()) return; S.vec = v; S.vis = L.search(v, list, 12); }
+        try { var vs = await L.embedMulti(canvas); if (stale()) return; S.vec = vs[0] || null; S.vis = L.search(vs, list, 12); }   /* الشكل بثلاثة تأطيرات (seq A1010) */
         catch (e) { if (!stale()) st('👁️ تعذّرت مقارنة الصورة (' + String(e && e.message || e).slice(0, 60) + ') — 🔤 أقرأ الكتابة…'); }
         finally { L.hold(false); }
         if (stale()) return;
@@ -356,6 +356,7 @@
       var b = this; b.disabled = true; st('🤖 العقل يقرأ ما على المنتج…');
       try {
         S.read = await readImage(S.shot.toDataURL('image/jpeg', 0.85)); paint(false);
+        try { if (S.logP) S.logP.then(function (id) { if (id) L.logPatch(id, { used_ai: true, ai_read: [S.read.brand, S.read.name_on_box, S.read.model].filter(Boolean).join(' · ').slice(0, 200) }); }); } catch (_) {}
         await needMatch();
         var R = combined();
         if (global.GMTMatch && GMTMatch.vision && R.length > 1) {
@@ -380,8 +381,8 @@
       b.onclick = function () {
         var box = $('[data-lq]');
         box.innerHTML = rows.map(function (r) {
-          return '<div class="it" data-lr="' + r.id + '">' + (r.thumb ? '<img src="' + esc(r.thumb) + '" alt="">' : '<span style="width:58px;text-align:center">📷</span>') +
-            '<div style="min-width:0"><div class="nm">' + esc(r.product_name || r.product_id) + '</div><div class="mt">' + esc([r.by_name, r.source, String(r.created_at || '').slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')) + '</div></div>' +
+          return '<div class="it" data-lr="' + r.id + '"' + (r.from_ai ? ' data-from-ai="1" title="تجربة العقل"' : '') + '>' + (r.thumb ? '<img src="' + esc(r.thumb) + '" alt="">' : '<span style="width:58px;text-align:center">📷</span>') +
+            '<div style="min-width:0"><div class="nm">' + (r.from_ai ? '🤖 ' : '') + esc(r.product_name || r.product_id) + '</div><div class="mt">' + esc([r.by_name, r.source, String(r.created_at || '').slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')) + '</div>' + (r.names ? '<div class="why">+ أسماء: ' + esc(r.names) + '</div>' : '') + '</div>' +
             '<button type="button" class="go" data-lok="' + r.id + '">✔ صحيح</button><button type="button" data-lno="' + r.id + '">✕</button></div>';
         }).join('');
         box.querySelectorAll('[data-lok],[data-lno]').forEach(function (x) {

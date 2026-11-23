@@ -33,8 +33,8 @@
     g0.fillStyle = '#fff'; g0.fillRect(0, 0, c0.width, c0.height);
     g0.drawImage(src, 0, 0, c0.width, c0.height);
     var bx = 0, by = 0, bw = c0.width, bh = c0.height;
-    if (mode === 'shot') {                                   // اللقطة: المنتج في وسط الإطار (الدليل المرسوم) ⇒ ٨٠٪ الوسطى
-      var m = Math.min(bw, bh) * 0.8; bx = (bw - m) / 2; by = (bh - m) / 2; bw = bh = m;
+    if (mode === 'shot' || mode === 'tight') {               // اللقطة: المنتج في وسط الإطار (الدليل المرسوم) ⇒ ٨٠٪ الوسطى (أو ٥٥٪ «قريب»)
+      var m = Math.min(bw, bh) * (mode === 'tight' ? 0.55 : 0.8); bx = (bw - m) / 2; by = (bh - m) / 2; bw = bh = m;
     } else if (mode !== 'full') {                            // الكتالوج: حدود ما ليس أبيض
       var d = g0.getImageData(0, 0, c0.width, c0.height).data, x0 = c0.width, y0 = c0.height, x1 = -1, y1 = -1;
       for (var y = 0; y < c0.height; y += 2) for (var x = 0; x < c0.width; x += 2) {
@@ -115,6 +115,13 @@
   }
   async function embed(src, mode) { await loadIndex(); var r = await embedRaw(src, mode); return r ? project(r) : null; }
   function sim(a, b) { if (!a || !b) return 0; var d = 0; for (var i = 0; i < D; i++) d += a[i] * b[i]; return d; }
+  /* (المالك seq A1010 «يعتمد على الشكل … وعلى مضمون العلبة») اللقطة بثلاثة تأطيرات: وسط الإطار · الصورة كلّها · قريب —
+     المنتج قد يكون صغيراً في الزاوية أو العلبة تملأ الإطار ⇒ أفضل تطابقٍ بينها */
+  async function embedMulti(src) {
+    var out = [];
+    for (var i = 0, M = ['shot', 'full', 'tight']; i < M.length; i++) { try { var v = await embed(src, M[i]); if (v) out.push(v); } catch (e) { if (!out.length && i === M.length - 1) throw e; } }
+    return out;
+  }
 
   /* ── تخزينٌ مضغوط: بايت لكلّ بُعد (base64) ── */
   function b64(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
@@ -190,12 +197,12 @@
 
   /* البحث: أعلى تشابه بين اللقطة وكلّ صور المنتج وعيّناته (العيّنة الحقيقيّة تُرجَّح قليلاً) */
   function search(q, products, k) {
-    var idx = IDX || {}, out = [];
-    if (!q) return out;
+    var idx = IDX || {}, out = [], qs = Array.isArray(q) ? q : (q ? [q] : []);
+    if (!qs.length) return out;
     (products || []).forEach(function (p) {
       var es = idx[String(p.id)]; if (!es || !es.length) return;
       var best = -1, how = '';
-      for (var i = 0; i < es.length; i++) { var s = sim(q, es[i].v) + (es[i].kind !== 'catalog' ? 0.03 : 0); if (s > best) { best = s; how = es[i].kind; } }
+      for (var i = 0; i < es.length; i++) for (var j = 0; j < qs.length; j++) { var s = sim(qs[j], es[i].v) + (es[i].kind !== 'catalog' ? 0.05 : 0); if (s > best) { best = s; how = es[i].kind; } }   /* العيّنة الحقيقيّة (علبة صوّرناها) تُرجَّح */
       out.push({ item: p, vis: best, how: how });
     });
     out.sort(function (a, b) { return b.vis - a.vis; });
@@ -297,7 +304,8 @@
       var r = await fetch(sbBase() + '/rest/v1/gmt_lens_samples', {
         method: 'POST', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
         body: JSON.stringify({ product_id: pid, product_name: String(p.name || '').slice(0, 200), vec: packed, approved: admin, approved_by: admin ? (opts.by || 'admin') : null, approved_at: admin ? new Date().toISOString() : null,
-          by_name: opts.by || null, source: opts.source || null, ocr: (opts.words || []).join(' ').slice(0, 400) || null, photo_url: opts.photo || null, thumb: thumbOfCanvas(opts.canvas) })
+          by_name: opts.by || null, source: opts.source || null, ocr: (opts.words || []).join(' ').slice(0, 400) || null, photo_url: opts.photo || null, thumb: thumbOfCanvas(opts.canvas),
+          names: (opts.names || []).filter(Boolean).join('، ').slice(0, 400) || null, from_ai: !!opts.fromAI })
       });
       return r.ok;
     } catch (_) { return false; }
@@ -319,17 +327,29 @@
   /* تعلّمات الموظّفين التي تنتظر اعتماد الأدمن */
   async function pending() {
     var k = sbKey(); if (!k) return [];
-    var r = await fetch(sbBase() + '/rest/v1/gmt_lens_samples?select=id,product_id,product_name,by_name,source,ocr,thumb,created_at&approved=eq.false&approved_by=is.null&order=id.desc&limit=60', { headers: { apikey: k, Authorization: 'Bearer ' + k } });
+    var r = await fetch(sbBase() + '/rest/v1/gmt_lens_samples?select=id,product_id,product_name,by_name,source,ocr,thumb,names,from_ai,created_at&approved=eq.false&approved_by=is.null&order=id.desc&limit=60', { headers: { apikey: k, Authorization: 'Bearer ' + k } });
     return r.ok ? r.json() : [];
   }
   async function review(id, ok, by) {
     var k = sbKey(); if (!k) return false;
     var body = ok ? { approved: true, approved_by: by || 'admin', approved_at: new Date().toISOString() } : { approved: false, approved_by: 'رُفض: ' + (by || 'admin'), approved_at: new Date().toISOString(), vec: '0:rejected' };
-    var r = await fetch(sbBase() + '/rest/v1/gmt_lens_samples?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(body) });
+    var r = await fetch(sbBase() + '/rest/v1/gmt_lens_samples?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body) });
     IDXP = null; IDX = null;   /* يُعاد تحميل الفهرس بالاعتماد الجديد */
+    /* (seq A1010) ما قرأه العقل على العلبة (الاسم/الموديل) يُضاف لأسماء المنتج البديلة حين يعتمد الأدمن التجربة */
+    if (r.ok && ok) {
+      try {
+        var row = (await r.json())[0] || {}, names = String(row.names || '').split(/،\s*/).filter(function (x) { return x.trim().length > 1; });
+        if (names.length && row.product_id) {
+          var g = await fetch(sbBase() + '/rest/v1/products?id=eq.' + encodeURIComponent(row.product_id) + '&select=alt_names', { headers: { apikey: k, Authorization: 'Bearer ' + k } });
+          var cur = g.ok ? ((await g.json())[0] || {}).alt_names : null;
+          var have = String(cur || '').split(/[،,]\s*/).map(function (x) { return x.trim(); }).filter(Boolean), low = have.map(function (x) { return x.toLowerCase(); }), add = names.filter(function (n) { return low.indexOf(n.trim().toLowerCase()) < 0; });
+          if (add.length) await fetch(sbBase() + '/rest/v1/products?id=eq.' + encodeURIComponent(row.product_id), { method: 'PATCH', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ alt_names: have.concat(add).join('، ') }) });
+        }
+      } catch (_) {}
+    }
     return r.ok;
   }
 
-  global.GMTLensLocal = { embed: embed, embedRaw: embedRaw, toCanvas: toCanvas, loadModel: loadModel, sim: sim, search: search, pack: pack, unpack: unpack,
+  global.GMTLensLocal = { embed: embed, embedMulti: embedMulti, embedRaw: embedRaw, toCanvas: toCanvas, loadModel: loadModel, sim: sim, search: search, pack: pack, unpack: unpack,
     backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, textScore: textScore, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
 })(window);
