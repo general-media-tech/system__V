@@ -99,13 +99,13 @@ if WRITE:
     def pj(X): Y = (X - mean_d) @ comp_d.T; return Y / np.maximum(np.linalg.norm(Y, axis=1, keepdims=True), 1e-9)
     def q8(Y): return np.clip(np.round(Y * 127 * 4 + 128), 0, 255).astype(np.uint8)
     Yc = q8(pj(C)); items = {}
-    for i, pid in enumerate(cat_ids): items.setdefault(pid, []).append('2:' + base64.b64encode(Yc[i].tobytes()).decode())
+    for i, pid in enumerate(cat_ids): items.setdefault(pid, []).append('3:' + base64.b64encode(Yc[i].tobytes()).decode())
     # النموذج الأوّليّ: متوسّط لقطات المنتج (في الفضاء المكمَّم نفسه)
     Ya = pj(A); acc = {}
     for y, p in zip(Ya, a_pid): acc.setdefault(p, []).append(y)
     for p, ys in acc.items():
-        m = np.mean(ys, 0); m /= np.linalg.norm(m); items.setdefault(p, []).append('2:' + base64.b64encode(q8(m[None])[0].tobytes()).decode())
-    out = {'v': 2, 'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'count': len(cat_ids), 'dims': D, 'trained': 'lda', 'alpha': ALPHA, 'aug': len(A),
+        m = np.mean(ys, 0); m /= np.linalg.norm(m); items.setdefault(p, []).append('3:' + base64.b64encode(q8(m[None])[0].tobytes()).decode())
+    out = {'v': 3, 'built': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'count': len(cat_ids), 'dims': D, 'trained': 'lda', 'alpha': ALPHA, 'aug': len(A),
            'pca': {'mean': base64.b64encode(mean_q.tobytes()).decode(), 'meanMax': mmax, 'comp': [base64.b64encode(r.tobytes()).decode() for r in comp_q], 'compMax': [float(x) for x in cmax]},
            'items': items}
     p = os.path.join(ROOT, 'lens-index.json'); json.dump(out, open(p, 'w'), separators=(',', ':'))

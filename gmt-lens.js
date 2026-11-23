@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123f'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261124c'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();
@@ -149,7 +149,7 @@
     $('[data-shot]').onclick = function () { $('[data-file]').click(); };
     function st(t) { $('[data-st]').textContent = t || ''; }
     function cmsg(t) { var m = $('[data-cmsg]'); if (m) m.textContent = t || ''; }
-    var L = null, ready = false, camNote = '', LIVE_MIN = 0.55;
+    var L = null, ready = false, camNote = '', LIVE_MIN = 0.6;   /* بعد تدريب LDA (A1016): عند 0.6 تُعرض ~79٪ من اللقطات وصحيحٌ منها ~85٪ */
 
     /* ── الترتيب المحلّي الموحّد: صورة + كتابة + باركود ── */
     function combined() {
@@ -165,12 +165,23 @@
         pool.forEach(function (p) { row(p); }); vv.forEach(function (r) { row(r.item).vis = r.vis; });
         var keep = {}; pool.forEach(function (p) { keep[String(p.id)] = 1; });
         var RS = Array.from(by.values()).filter(function (x) { return keep[String(x.item.id)]; });
-        RS.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0) + 0.001; });
+        RS.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0) + 0.001 - variantMiss(x); });
         return RS.sort(function (a, b) { return b.score - a.score; }).slice(0, 14);
       }
       var R = Array.from(by.values());
-      R.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0); });
+      R.forEach(function (x) { x.score = Math.max(0, x.vis) + 0.8 * x.txt + (x.txt >= 0.5 ? 0.2 : 0) + (x.bc ? 2 : 0) - variantMiss(x); });
       return R.sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return x.score > 0.05 || x.vis > -0.3 && S.vec; }).slice(0, 5);   /* اقتراحات الصورة تُعرض ولو ضعيفة — الخيار للموظّف */
+    }
+    /* (المالك seq A1025 «قرأت LED 600 فاقترح Led 600 RGB ولم يقترح 600 العادي — صيد النمط») كلمة **النسخة** في اسم المنتج
+       (RGB · Max · Plus · Ultra · Lite · II · III · Mk2 …) لم تُقرأ على العلبة، بينما قُرئ موديلها ⇒ ليس هو على الأرجح: يُنزَل
+       فيتقدّم «Led 600» على «Led 600 RGB» — والعكس: إن قُرئت RGB يتقدّم ما في اسمه RGB */
+    var VARW = { rgb: 1, max: 1, plus: 1, ultra: 1, lite: 1, ii: 1, iii: 1, iv: 1, mk2: 1, mk3: 1, mkii: 1, combo: 1, bi: 0 };
+    function variantMiss(x) {
+      if (!S.words || !S.words.length || !(x.txt >= 0.5)) return 0;
+      var read = {}; S.words.join(' ').toLowerCase().split(/[^a-z0-9]+/).forEach(function (w) { if (w) read[w] = 1; });
+      var nm = String(x.item.name || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean), pen = 0;
+      nm.forEach(function (w) { if (VARW[w] && !read[w]) pen += 0.35; });
+      return Math.min(0.7, pen);
     }
     /* ── النوع: حين لا تعرف العين الموديل (قشاط · كفر · سوفت بوكس) تعرف النوع ⇒ كلّ منتجاته لتختار (seq 1002) ── */
     function typeKey(p) { return String(p.cat_sub || p.group_name || p.category || '').trim(); }

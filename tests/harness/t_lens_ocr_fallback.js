@@ -18,6 +18,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     { name: 'Rl 24', barcode: '6269975465416', price: 30, daraa: 2, haleb: 6, china: 20, group_name: 'بانيل ليد', alt_names: 'RL-24 LED Photographic Fill Light، RL-24، إضاءة RL24، RL24 fill light', image_url: IMG('/img/p/products/357854ba-6444-470f-a394-d7ab36c0e4ce/1793708062632.png') },
     { name: 'RL-24T مع ستاند 1.6م', barcode: 'RLT', price: 40, daraa: 0, china: 5, group_name: 'بانيل ليد', alt_names: 'RL-24T set with 1.6m stand، RL-24T، طقم RL-24 مع ستاند', image_url: IMG('/img/p/lens_c00f60ac-9b40-4cb2-8c0f-592c7ac621dd_1793476150182.jpg') },
     { name: 'Zgrl28', barcode: '5332510072031', price: 80, daraa: 1, china: 10, group_name: 'بانيل ليد', alt_names: 'ZGRL 28 LED Photographic Fill Light، ZGRL 28، RL-28 24-inch Panel Light', image_url: IMG('/img/p/products/eedee2a3-70ca-4fbe-84a1-d49122ff7fa0/1776542592064.jpg') },
+    { name: 'Led 600 light', barcode: 'L600', price: 40, daraa: 1, haleb: 2, group_name: 'بانيل ليد', alt_names: 'Professional Photo & Video LED Light Kit Varicolor Pro LED 600، Pro LED 600، إضاءة تصوير ليد 600', image_url: IMG('/img/p/products/1779352715903.jpg') },
+    { name: 'Led 600 RGB', barcode: 'L600R', price: 47, daraa: 2, haleb: 18, group_name: 'بانيل ليد', alt_names: 'LED 600 RGB Professional Photo & Video LED Light Kit، LED 600 RGB', image_url: IMG('/img/p/products/1779352715903.jpg') },
     { name: 'Led pocket 88', barcode: 'YM6', price: 10, daraa: 2, group_name: 'إضاءة صغيرة', image_url: IMG('/img/p/products/1779352715903.jpg') }]);
   await H.call('/rest/v1/inv_columns', [{ key_name: 'china', display_name: 'الصين', is_branch: true, include_in_total: true, sort_order: 8 }, { key_name: 'germany', display_name: 'ألمانيا', is_branch: true, include_in_total: true, sort_order: 9 }]);   // كالقاعدة الحيّة
   const isYM = t => /^(Ym-600ss|ym600 ss)/i.test(t || '');
@@ -49,6 +51,9 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     ok(/RL-?24|RL24/i.test(s.read), '⑦ (seq A1014) القراءة الثانية المكبّرة تقرأ «RL-24» على العلبة: ' + s.read.replace(/\s+/g, ' ').slice(0, 90));
     ok(/^Rl 24$/.test(s.items[0] || ''), '⑦ «Rl 24» أوّلاً: ' + s.items.slice(0, 3).join(' | '));
     ok(!s.items.some(x => /RL-24T/.test(x)), '⑧ ما على الطريق فقط (RL-24T — كمّيته بالصين ولا شيء بالفروع) لا يُقترح');
+    await o.pg.evaluate(() => GMTLens.close()); }
+  { const s = await shot(o, 'lens_shot_led600.jpg');
+    ok(/^Led 600 light/.test(s.items[0] || '') && s.items.indexOf('Led 600 RGB') > 0, '⑨ (seq A1025) علبة «Pro LED 600» بلا RGB ⇒ «Led 600 light» قبل «Led 600 RGB» (كلمة النسخة لم تُقرأ): ' + s.items.slice(0, 3).join(' | '));
     await o.pg.evaluate(() => GMTLens.close()); }
   ok(ai.length === 0, '③ بلا نداء للعقل');
   let real = o.errs.filter(x => !/status of (400|401|404|406|409|500|503)|Failed to load resource|getUserMedia|NotFoundError|Requested device not found|ERR_FAILED|net::|diacritics|Estimating resolution/.test(x));

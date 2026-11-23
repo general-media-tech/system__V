@@ -17,7 +17,7 @@
   'use strict';
   if (global.GMTLensLocal) return;
   var doc = global.document;
-  var S = 224, D = 128, VER = 2;           // حجم دخل العين · أبعاد البصمة بعد الضغط · نسخة البصمة
+  var S = 224, D = 128, VER = 3;   // (3) إسقاط LDA المدرَّب على منتجاتنا (A1016) — بصمات VER 2 (PCA) لا تُخلط به           // حجم دخل العين · أبعاد البصمة بعد الضغط · نسخة البصمة
   var MODEL_URL = 'lib/lens-model/model.json', FEAT = 'module_apply_default/MobilenetV2/Logits/AvgPool';
   var TF_SRC = 'lib/tf.min.js?v=4.22.0';
 
@@ -144,7 +144,7 @@
     if (IDXP) return IDXP;
     IDXP = (async function () {
       var byId = {};
-      var r = await fetch('lens-index.json?v=' + (global.GMT_LENS_INDEX_V || '2'));
+      var r = await fetch('lens-index.json?v=' + (global.GMT_LENS_INDEX_V || '3'));
       if (!r.ok) throw new Error('فهرس العدسة غير موجود');
       var j = await r.json();
       if (j.v !== VER || !j.pca) throw new Error('فهرس العدسة قديم');

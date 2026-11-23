@@ -66,7 +66,7 @@ const I = {
   await pg.click(`#gmt-lens [data-pick="${Math.max(0, idx)}"]`); await sleep(1200);
   const D = await H.call('/__dump', undefined, 'GET');
   const smp = (D.gmt_lens_samples || []).filter(s => String(s.product_id) === String(HOOD.id));
-  ok(smp.length === 1 && smp[0].approved === false && /^2:/.test(smp[0].vec) && /^data:image\/jpeg/.test(smp[0].thumb || ''), '⑤ اختيار الموظّف ⇒ عيّنة تعلّم بانتظار اعتماد الأدمن (مع صورة مصغّرة)');
+  ok(smp.length === 1 && smp[0].approved === false && /^3:/.test(smp[0].vec) && /^data:image\/jpeg/.test(smp[0].thumb || ''), '⑤ اختيار الموظّف ⇒ عيّنة تعلّم بانتظار اعتماد الأدمن (مع صورة مصغّرة)');
   const loc = await pg.evaluate(() => JSON.parse(localStorage.getItem('gmt_lens_samples_local') || '[]').length);
   ok(loc === 1, '⑤ وتعمل على جهازه فوراً (' + loc + ')');
   // ⑤ المرّة القادمة: اللقطة نفسها ⇒ «مُتعلَّم» أعلى
