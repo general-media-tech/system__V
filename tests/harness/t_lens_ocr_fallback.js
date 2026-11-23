@@ -13,7 +13,13 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     { name: 'Led 600 RGB', barcode: 'YM3', price: 47.4, daraa: 2, group_name: 'بانيل ليد', alt_names: 'LED 600 RGB، ليد 600، LED-600 RGB', image_url: IMG('/img/p/products/1779352715903.jpg') },
     { name: 'BD400-SS رأس اضائة ابيض شمسي', barcode: 'YM4', price: 70, daraa: 2, group_name: 'هيد لايت', alt_names: 'BD400-SS، BEDIRO BD400', image_url: IMG('/img/p/products/10718594-6d70-4f51-8da0-b086aaf7c98d/1791734736756.jpg') },
     { name: 'BAFANG BF-100W إضاءة COB ثنائية اللون 100 واط', barcode: 'YM5', price: 0, daraa: 2, group_name: 'هيد لايت', alt_names: 'BF-100W، Bafang 100W', image_url: IMG('/img/p/catalog/8765a1e0-8659-4717-adaf-ae22b79f3254/07ad6bb06f02.jpg') },
+    { name: 'YM-S100هيد', barcode: '68087145138007', price: 124, daraa: 8, group_name: 'هيد لايت', alt_names: 'YM-S100 COB Video Light، YM-S100، YM S100 video light', image_url: IMG('/img/p/products/1781034851677.jpg') },
+    { name: 'Ym 800 رأس موجه اشكال', barcode: '5267955914776', price: 45, daraa: 0, group_name: 'هيد لايت', alt_names: 'YM-800 LED Photographic Spotlight، YM-800، YM800 spotlight، YM-80 LED Spotlight', image_url: IMG('/img/p/lens_03eacbee-c447-4a0e-949b-4ee60fa4319b_1793289844725.jpg') },
+    { name: 'Rl 24', barcode: '6269975465416', price: 30, daraa: 2, haleb: 6, china: 20, group_name: 'بانيل ليد', alt_names: 'RL-24 LED Photographic Fill Light، RL-24، إضاءة RL24، RL24 fill light', image_url: IMG('/img/p/products/357854ba-6444-470f-a394-d7ab36c0e4ce/1793708062632.png') },
+    { name: 'RL-24T مع ستاند 1.6م', barcode: 'RLT', price: 40, daraa: 0, china: 5, group_name: 'بانيل ليد', alt_names: 'RL-24T set with 1.6m stand، RL-24T، طقم RL-24 مع ستاند', image_url: IMG('/img/p/lens_c00f60ac-9b40-4cb2-8c0f-592c7ac621dd_1793476150182.jpg') },
+    { name: 'Zgrl28', barcode: '5332510072031', price: 80, daraa: 1, china: 10, group_name: 'بانيل ليد', alt_names: 'ZGRL 28 LED Photographic Fill Light، ZGRL 28، RL-28 24-inch Panel Light', image_url: IMG('/img/p/products/eedee2a3-70ca-4fbe-84a1-d49122ff7fa0/1776542592064.jpg') },
     { name: 'Led pocket 88', barcode: 'YM6', price: 10, daraa: 2, group_name: 'إضاءة صغيرة', image_url: IMG('/img/p/products/1779352715903.jpg') }]);
+  await H.call('/rest/v1/inv_columns', [{ key_name: 'china', display_name: 'الصين', is_branch: true, include_in_total: true, sort_order: 8 }, { key_name: 'germany', display_name: 'ألمانيا', is_branch: true, include_in_total: true, sort_order: 9 }]);   // كالقاعدة الحيّة
   const isYM = t => /^(Ym-600ss|ym600 ss)/i.test(t || '');
   const shot = async (o, file) => {
     await o.pg.evaluate(() => scOpenLens());
@@ -36,6 +42,14 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     ok(!/لا منتج قريب/.test(s.st), 'لا «لا منتج قريب»: ' + s.st);
     await o.pg.evaluate(() => GMTLens.close());
   }
+  { const s = await shot(o, 'lens_shot_ym800.jpg');
+    ok(/Ym 800/.test(s.items[0] || ''), '⑥ (seq A1013) علبة YM-800 ⇒ «Ym 800» أوّلاً لا «YM-S100» (التي في باركودها 800): ' + s.items.slice(0, 3).join(' | '));
+    await o.pg.evaluate(() => GMTLens.close()); }
+  { const s = await shot(o, 'lens_shot_rl24.jpg');
+    ok(/RL-?24|RL24/i.test(s.read), '⑦ (seq A1014) القراءة الثانية المكبّرة تقرأ «RL-24» على العلبة: ' + s.read.replace(/\s+/g, ' ').slice(0, 90));
+    ok(/^Rl 24$/.test(s.items[0] || ''), '⑦ «Rl 24» أوّلاً: ' + s.items.slice(0, 3).join(' | '));
+    ok(!s.items.some(x => /RL-24T/.test(x)), '⑧ ما على الطريق فقط (RL-24T — كمّيته بالصين ولا شيء بالفروع) لا يُقترح');
+    await o.pg.evaluate(() => GMTLens.close()); }
   ok(ai.length === 0, '③ بلا نداء للعقل');
   let real = o.errs.filter(x => !/status of (400|401|404|406|409|500|503)|Failed to load resource|getUserMedia|NotFoundError|Requested device not found|ERR_FAILED|net::|diacritics|Estimating resolution/.test(x));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 3)));

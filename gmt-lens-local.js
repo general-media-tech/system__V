@@ -247,12 +247,30 @@
     ocrP.catch(function () { ocrP = null; });
     return ocrP;
   }
-  async function ocr(canvas) {
-    var w = await getOCR(); var r = await w.recognize(canvas);
-    var words = String((r && r.data && r.data.text) || '').split(/\s+/).map(function (t) { return t.replace(/[^A-Za-z0-9\-+./]/g, ''); })
-      .filter(function (t) { return t.length >= 2 && /[A-Za-z0-9]/.test(t) && !/^[\-+./]+$/.test(t); });
-    return words.slice(0, 40);   /* بترتيبها كما على العلبة (لا حذف للمكرّر) — البحث يقرأ الكلمات المتتالية معاً */
+  /* (seq A1014) خطّ العلبة المائل («RL-24» مصوَّراً بميل) لا يُقرأ مستقيماً ⇒ قراءاتٌ متتالية: كما هي · مائلة −6° · +6° (رماديّ بتباينٍ أعلى ×1.6)
+     — كلّ قراءة تُضاف فوراً وتُعيد الترتيب (onWords) · وتتوقّف حين يقول المستدعي «وجدت» (onWords ⇒ true) */
+  function variant(src, deg) {
+    var w = src.width, h = src.height, k = Math.min(1.6, 1800 / Math.max(w, h)), c = doc.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    var g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.filter = 'grayscale(1) contrast(1.6)'; g.translate(c.width / 2, c.height / 2); g.rotate(deg * Math.PI / 180); g.drawImage(src, -c.width / 2, -c.height / 2, c.width, c.height);
+    return c;
   }
+  function cleanWords(text) {
+    return String(text || '').split(/\s+/).map(function (t) { return t.replace(/[^A-Za-z0-9\-+./]/g, ''); })
+      .filter(function (t) { return t.length >= 2 && /[A-Za-z0-9]/.test(t) && !/^[\-+./]+$/.test(t); });
+  }
+  async function ocrPasses(canvas, onWords) {
+    var w = await getOCR(), all = [], passes = [null, -6, 6];
+    for (var i = 0; i < passes.length; i++) {
+      var r = null; try { r = await w.recognize(passes[i] == null ? canvas : variant(canvas, passes[i])); } catch (_) { continue; }
+      all = all.concat(cleanWords(r && r.data && r.data.text)).slice(0, 90);
+      if (onWords) { var stop = false; try { stop = onWords(all.slice()) === true; } catch (_) {} if (stop) break; }
+    }
+    return all;
+  }
+  async function ocr(canvas) { return ocrPasses(canvas, null); }
+
   /* تطابق ما قُرئ على العلبة مع المنتج — بخوارزمية البحث نفسها في النظام (GMTSuggest.hitsProduct) لا بدمجٍ خاصّ بالعدسة
      (المالك seq A1009: «ليش ما تخلّي البحث بالاسم المكسّر أو اللي بينه فواصل ينعرف لحاله بخوارزمية البرنامج لدينا»):
      الكلمات المقروءة كما هي بترتيبها (كلمة · كلمتان · ثلاث متتالية) ⇒ «YM-600- SS» يجدها البحث كما يجد «YM 600 SS» إذا كتبها الموظّف. */
@@ -272,10 +290,12 @@
     if (SG && SG.hitsProduct) {
       var key = words.join('\u0001'), ph = _PH[key] || (_PH[key] = phrases(words)), code = 0, plain = 0;
       for (var i = 0; i < ph.length; i++) {
-        var x = ph[i]; var hit = false; try { hit = SG.hitsProduct(x.q, p) || (x.code && SG.codeNear && SG.codeNear(x.q, p)); } catch (_) {}
-        if (!hit) continue;
-        if (x.code) code = Math.max(code, Math.min(1, 0.5 + 0.1 * x.q.replace(/[^A-Za-z0-9]/g, '').length / 2));   /* الكود الأطول أقوى دليل */
-        else plain += 0.08;
+        var x = ph[i];
+        /* (seq A1013–A1015) فقط الكود كاملاً في الاسم/الأسماء البديلة يُحتسب — المطابقة الجزئية العامّة («Co» · «900g» · رقمٌ داخل باركود)
+           كانت تضع «🔤 الكتابة» على اقتراحاتٍ بعيدة تماماً */
+        if (x.code) { var strong = false; try { strong = !!(SG.codeNear && SG.codeNear(x.q, p)); } catch (_) {}
+          if (strong) code = Math.max(code, Math.min(1, 0.6 + 0.05 * x.q.replace(/[^A-Za-z0-9]/g, '').length)); }
+        else if (x.q.length >= 5 && wordIn(x.q, p)) plain += 0.06;
       }
       return Math.min(1, code + Math.min(0.3, plain));
     }
@@ -284,6 +304,8 @@
     return Math.min(1, sc);
   }
   var _PH = {};
+  /* كلمة كاملة (لا جزء كلمة) في الاسم أو الأسماء البديلة */
+  function wordIn(w, p) { var hay = ' ' + String([p.name, p.alt_names].filter(Boolean).join(' ')).toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, ' ') + ' '; return hay.indexOf(' ' + String(w).toLowerCase() + ' ') >= 0; }
 
   /* ── التعلّم من الاختيار ── */
   /* صورة مصغّرة (≈٤ ك.ب) من اللقطة — ليرى الأدمن ما تعلّمته العدسة قبل اعتماده */
@@ -351,5 +373,5 @@
   }
 
   global.GMTLensLocal = { embed: embed, embedMulti: embedMulti, embedRaw: embedRaw, toCanvas: toCanvas, loadModel: loadModel, sim: sim, search: search, pack: pack, unpack: unpack,
-    backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, textScore: textScore, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
+    backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, ocrPasses: ocrPasses, textScore: textScore, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
 })(window);

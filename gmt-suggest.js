@@ -636,15 +636,17 @@
   }
 
   /* (TASK-A0580 · seq A1009) كودٌ مقروءٌ بخطأ حرفٍ واحد («YM 1-600-SS» ⇐ الشرطة قُرئت 1) يُعرف بالتقريب:
-     الكود ملصوقاً (حروف وأرقام فقط) داخل نصّ المنتج ملصوقاً — بفرق حرفٍ واحد على الأكثر (إضافة · حذف · استبدال)، للكود ٦ خانات فأكثر فقط */
+     الكود ملصوقاً (حروف وأرقام فقط) داخل اسم المنتج/أسمائه البديلة ملصوقاً — **لا الباركود** (seq A1013: «800» داخل باركود YM-S100) —
+     تامّاً، أو بفرق حرفٍ واحد (إضافة · حذف · استبدال) للكود ٦ خانات فأكثر */
   const _GL = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
   function _glue(s) { return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
   function codeNear(q, p) {
       const g = _glue(ocrReading(q) || q);
-      if (g.length < 6 || !/\d/.test(g) || !/[a-z]/.test(g) || !p) return false;
+      if (g.length < 4 || !/\d/.test(g) || !/[a-z]/.test(g) || !p) return false;
       let hay = _GL && _GL.get(p);
       if (!hay) { hay = String([p.name, p.alt_names, p.search_terms, p.short_name].filter(Boolean).join(' ')).toLowerCase().split(/[،,]/).map(_glue).join('|'); if (_GL) _GL.set(p, hay); }
       if (hay.indexOf(g) >= 0) return true;
+      if (g.length < 6) return false;   /* الكود القصير (YM800) بالمطابقة التامّة فقط — التقريب يخلط YM800 بـYM80 */
       /* مسافة تعديل تقريبيّة على أيّ مقطعٍ من النصّ (خوارزمية Sellers) */
       const m = g.length; let prev = new Array(m + 1), cur = new Array(m + 1);
       for (let j = 0; j <= m; j++) prev[j] = j;

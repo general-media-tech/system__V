@@ -913,17 +913,96 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
      INVOICE MODAL
 ═══════════════════════════════════════════════════════════ -->
 <div id="invModal">
-  <div class="no-print sticky top-0 z-10 bg-gray-900 text-white px-4 py-2 flex flex-wrap items-center gap-2 shadow-xl">
-    <span class="font-black text-sm flex items-center gap-2">
+  <!-- (TASK-A0583 · المالك seq A1012 «الأزرار فوق الفاتورة بدها ترتيب») الشريط مجمّعٌ حسب الوظيفة:
+       ① التعديل والحفظ (تمييز الحفظ بالأخضر) ② أدوات التعديل (تظهر في وضع التعديل فقط) ③ الطباعة والباركودات
+       ④ «📄 مستندات» (Excel · HTML · نشرة أسعار · أعمدة الطباعة) ⑤ «🗄️ نسخ احتياطي» (JSON — تقنيّ) ⑥ الإغلاق -->
+  <div class="no-print sticky top-0 z-10 bg-gray-900 text-white px-3 py-2 flex flex-wrap items-center gap-2 shadow-xl" id="inv-toolbar">
+    <span class="font-black text-sm flex items-center gap-2 ml-1">
       <i data-lucide="file-text" class="w-5 h-5 text-blue-400"></i>
       <span id="inv-mode-label">معاينة الفاتورة</span>
     </span>
-    <button id="inv-edit-btn" onclick="toggleInvEdit()"
-      class="bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
-      <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> تفعيل التعديل
+    <div class="flex items-center gap-1.5" data-inv-grp="edit">
+      <button id="inv-edit-btn" onclick="toggleInvEdit()"
+        class="bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
+        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> تفعيل التعديل
+      </button>
+      <button onclick="saveInvEdits()" id="inv-save-btn" style="display:none"
+        class="bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1 ring-2 ring-emerald-300">
+        <i data-lucide="save" class="w-3.5 h-3.5"></i> حفظ التعديلات
+      </button>
+      <button onclick="saveInvCloud()" id="inv-cloud-btn" title="حفظ هذه المسودّة كفاتورة في القاعدة"
+        class="bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
+        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> حفظ الفاتورة
+      </button>
+    </div>
+    <div class="flex items-center gap-1.5" id="inv-edit-tools" style="display:none" data-inv-grp="edit-tools">
+      <button onclick="(function(){const o=window._invOpen||{};if(o.id==null||o.kind!=='import'){toast('للفواتير المحفوظة فقط','err');return;}closeInvModal();openEdit(o.id);})()" id="inv-ship-btn"
+        class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1" title="شركة الشحن · رقم التتبّع · صورة الفاتورة · ملف Excel · من دفع">
+        <i data-lucide="truck" class="w-3.5 h-3.5"></i> الشحن والمرفقات
+      </button>
+      <div id="inv-ac-wrap" class="relative" style="min-width:190px">
+      <input type="text" id="inv-prod-search" autocomplete="off" placeholder="🔎 ابحث عن منتج لإضافته..."
+        class="w-full px-2.5 py-1.5 rounded-lg outline-none text-xs font-bold text-gray-800"
+        style="border:1px solid #d1d5db">
+      <div id="inv-ac-list" style="position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:950;max-height:260px;overflow-y:auto;display:none;margin-top:4px;"></div>
+    </div>
+      <button onclick="addProductFromInv()" id="inv-add-prod-btn"
+      class="bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
+      <i data-lucide="plus" class="w-3.5 h-3.5"></i> إضافة منتج
     </button>
+    </div>
     <div class="flex-1"></div>
-    <details class="relative no-print">
+    <div class="flex items-center gap-1.5" data-inv-grp="print">
+      <button onclick="doPrint()"
+        class="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
+        <i data-lucide="printer" class="w-4 h-4"></i> طباعة
+      </button>
+      <button onclick="printBarcodes()"
+        class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
+        <i data-lucide="scan-barcode" class="w-4 h-4"></i> باركودات
+      </button>
+    </div>
+    <details class="relative no-print" data-inv-grp="docs">
+      <summary class="cursor-pointer bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-xs font-black list-none flex items-center gap-1">
+        <i data-lucide="files" class="w-3.5 h-3.5"></i> مستندات ▾
+      </summary>
+      <div class="absolute left-0 top-full mt-1 bg-gray-800 rounded-xl p-2 shadow-2xl z-50 min-w-56 space-y-1.5">
+        <button onclick="exportInvExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+        </button>
+        <button onclick="exportInvHTML()" class="w-full bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
+          <i data-lucide="file-code" class="w-4 h-4"></i> نسخة HTML
+        </button>
+        <details class="relative no-print">
+      <summary class="cursor-pointer bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg text-xs font-bold list-none flex items-center gap-1 text-white">
+        <i data-lucide="tag" class="w-3.5 h-3.5"></i> نشرة أسعار
+      </summary>
+      <div class="absolute left-0 top-full mt-1 bg-gray-800 rounded-xl p-3 shadow-2xl z-50 min-w-56 space-y-2">
+        <p class="text-[10px] text-orange-400 font-bold mb-2">اختر الأسعار للنشرة:</p>
+        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
+          <input type="checkbox" id="pl-img" class="accent-orange-500" checked> 📷 صورة
+        </label>
+        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
+          <input type="checkbox" id="pl-min" class="accent-orange-500"> 🔻 الحد الأدنى
+        </label>
+        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
+          <input type="checkbox" id="pl-whole" class="accent-orange-500"> 📦 الجملة
+        </label>
+        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
+          <input type="checkbox" id="pl-sale" class="accent-orange-500" checked> 🏷️ المبيع
+        </label>
+        <div class="border-t border-gray-600 pt-2 mt-1">
+          <label class="block text-[10px] text-gray-400 font-bold mb-1">عنوان النشرة:</label>
+          <input type="text" id="pl-title" value="نشرة أسعار" placeholder="نشرة أسعار GMT"
+            class="w-full p-1.5 bg-gray-700 text-white rounded-lg text-[11px] font-bold border border-gray-600 outline-none">
+        </div>
+        <button onclick="printPriceList()"
+          class="w-full mt-2 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i> طباعة النشرة
+        </button>
+      </div>
+    </details>
+        <details class="relative no-print">
       <summary class="cursor-pointer bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold list-none flex items-center gap-1">
         <i data-lucide="columns" class="w-3.5 h-3.5"></i> فلترة الأعمدة
       </summary>
@@ -955,86 +1034,27 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         </label>
       </div>
     </details>
-    <!-- نشرة الأسعار -->
-    <details class="relative no-print">
-      <summary class="cursor-pointer bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-lg text-xs font-bold list-none flex items-center gap-1 text-white">
-        <i data-lucide="tag" class="w-3.5 h-3.5"></i> نشرة أسعار
-      </summary>
-      <div class="absolute left-0 top-full mt-1 bg-gray-800 rounded-xl p-3 shadow-2xl z-50 min-w-56 space-y-2">
-        <p class="text-[10px] text-orange-400 font-bold mb-2">اختر الأسعار للنشرة:</p>
-        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
-          <input type="checkbox" id="pl-img" class="accent-orange-500" checked> 📷 صورة
-        </label>
-        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
-          <input type="checkbox" id="pl-min" class="accent-orange-500"> 🔻 الحد الأدنى
-        </label>
-        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
-          <input type="checkbox" id="pl-whole" class="accent-orange-500"> 📦 الجملة
-        </label>
-        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
-          <input type="checkbox" id="pl-sale" class="accent-orange-500" checked> 🏷️ المبيع
-        </label>
-        <div class="border-t border-gray-600 pt-2 mt-1">
-          <label class="block text-[10px] text-gray-400 font-bold mb-1">عنوان النشرة:</label>
-          <input type="text" id="pl-title" value="نشرة أسعار" placeholder="نشرة أسعار GMT"
-            class="w-full p-1.5 bg-gray-700 text-white rounded-lg text-[11px] font-bold border border-gray-600 outline-none">
-        </div>
-        <button onclick="printPriceList()"
-          class="w-full mt-2 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-black text-xs flex items-center justify-center gap-1">
-          <i data-lucide="printer" class="w-3.5 h-3.5"></i> طباعة النشرة
-        </button>
       </div>
     </details>
-    <button onclick="exportInvExcel()"
-      class="bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5">
-      <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
-    </button>
-    <button onclick="exportInvJSON()"
-      class="bg-gray-700 hover:bg-gray-600 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5">
-      <i data-lucide="archive" class="w-4 h-4"></i> JSON
-    </button>
-    <button onclick="exportAllInvoicesJSON()"
-      class="bg-gray-700 hover:bg-gray-600 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5" title="تصدير كل الفواتير دفعة واحدة">
-      <i data-lucide="database" class="w-4 h-4"></i> تصدير الكل
-    </button>
-    <label class="bg-blue-700 hover:bg-blue-800 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5 cursor-pointer" title="استيراد نسخة احتياطية شاملة">
-      <i data-lucide="upload-cloud" class="w-4 h-4"></i> استيراد الكل
-      <input type="file" accept=".json" class="hidden" onchange="importAllInvoicesJSON(this)">
-    </label>
-    <button onclick="exportInvHTML()"
-      class="bg-gray-700 hover:bg-gray-600 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5">
-      <i data-lucide="file-code" class="w-4 h-4"></i> نسخة HTML
-    </button>
-    <button onclick="printBarcodes()"
-      class="bg-gray-700 hover:bg-gray-800 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5">
-      <i data-lucide="scan-barcode" class="w-4 h-4"></i> باركودات
-    </button>
-    <button onclick="saveInvEdits()" id="inv-save-btn"
-      style="display:none"
-      class="bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
-      <i data-lucide="save" class="w-3.5 h-3.5"></i> حفظ التعديلات
-    </button>
-    <button onclick="saveInvCloud()" id="inv-cloud-btn"
-      class="bg-gray-800 hover:bg-black px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
-      <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> حفظ سحابي
-    </button>
-    <!-- 🔎 (2026-08-18) بحث المنتجات داخل المعاينة — نفس تجربة زر الإضافة قبل المعاينة:
-         اكتب الاسم/الباركود ⇒ قائمة منسدلة بالمنتجات الموجودة، أو «تعريف منتج جديد». -->
-    <div id="inv-ac-wrap" class="relative" style="min-width:190px">
-      <input type="text" id="inv-prod-search" autocomplete="off" placeholder="🔎 ابحث عن منتج لإضافته..."
-        class="w-full px-2.5 py-1.5 rounded-lg outline-none text-xs font-bold text-gray-800"
-        style="border:1px solid #d1d5db">
-      <div id="inv-ac-list" style="position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:950;max-height:260px;overflow-y:auto;display:none;margin-top:4px;"></div>
-    </div>
-    <button onclick="addProductFromInv()" id="inv-add-prod-btn"
-      class="bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1">
-      <i data-lucide="plus" class="w-3.5 h-3.5"></i> إضافة منتج
-    </button>
-    <button onclick="doPrint()"
-      class="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg font-black text-sm flex items-center gap-1.5">
-      <i data-lucide="printer" class="w-4 h-4"></i> طباعة
-    </button>
-    <button onclick="closeInvModal()" class="text-gray-400 hover:text-red-400 mr-1">
+    <details class="relative no-print" data-inv-grp="backup">
+      <summary class="cursor-pointer bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded-lg text-xs font-bold list-none flex items-center gap-1" title="نسخ احتياطي (تقنيّ)">
+        <i data-lucide="database" class="w-3.5 h-3.5"></i> ▾
+      </summary>
+      <div class="absolute left-0 top-full mt-1 bg-gray-800 rounded-xl p-2 shadow-2xl z-50 min-w-52 space-y-1.5">
+        <p class="text-[10px] text-gray-400 font-bold px-1">نسخ احتياطي</p>
+        <button onclick="exportInvJSON()" class="w-full bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
+          <i data-lucide="archive" class="w-4 h-4"></i> JSON هذه الفاتورة
+        </button>
+        <button onclick="exportAllInvoicesJSON()" class="w-full bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5" title="تصدير كل الفواتير دفعة واحدة">
+          <i data-lucide="database" class="w-4 h-4"></i> تصدير الكل
+        </button>
+        <label class="w-full bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5 cursor-pointer" title="استيراد نسخة احتياطية شاملة">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> استيراد الكل
+          <input type="file" accept=".json" class="hidden" onchange="importAllInvoicesJSON(this)">
+        </label>
+      </div>
+    </details>
+    <button onclick="closeInvModal()" class="text-gray-400 hover:text-red-400 mr-1" title="إغلاق">
       <i data-lucide="x-circle" class="w-6 h-6"></i>
     </button>
   </div>
@@ -1378,7 +1398,7 @@ function render(){
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
             <button onclick="openInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
-            <button onclick="openEdit('${s.id}')" class="hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
+            <button onclick="openInvForEdit('${s.id}')" class="hover:text-blue-600" title="تعديل الفاتورة"><i data-lucide="edit" class="w-4 h-4"></i></button>
             <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
             <button onclick="delShip('${s.id}')" class="hover:text-red-600"><i data-lucide="trash" class="w-4 h-4"></i></button>
           </div>
@@ -3264,6 +3284,24 @@ function openInvFromList(id){
   lucide.createIcons();document.getElementById('invModal').scrollTop=0;
 }
 function closeInvModal(){document.getElementById('invModal').classList.remove('inv-open');invEditMode=false;}
+/* (TASK-A0583 · seq A1012) «زرّ تعديل الفاتورة من الخارج منفصلٌ عن الواقع — من بقايا تحديثٍ قديم»: كان يفتح نموذج التسجيل القديم.
+   الآن يفتح **الفاتورة نفسها في وضع التعديل** (المحرّر الحديث: البنود · المورّد · التواريخ · التكاليف · الدفعة) — وما لا يُعدَّل فيها
+   (شركة الشحن · رقم التتبّع · صورة الفاتورة · Excel · من دفع) من زرّ «🚚 الشحن والمرفقات» داخلها. */
+function openInvForEdit(id){
+  openInvFromList(id);
+  if(!invEditMode){ try{ toggleInvEdit(); }catch(_){} }
+}
+/* الشريط يطابق الحالة دائماً: أدوات التعديل في التعديل فقط · «حفظ الفاتورة» للمسودّة فقط (المحفوظة تُحفظ بـ«حفظ التعديلات») */
+function _invToolbarSync(){
+  const o=window._invOpen||{}, saved=o.id!=null;
+  const tools=document.getElementById('inv-edit-tools'); if(tools) tools.style.display=invEditMode?'flex':'none';
+  const cloud=document.getElementById('inv-cloud-btn'); if(cloud) cloud.style.display=saved?'none':'flex';
+  const ship=document.getElementById('inv-ship-btn'); if(ship) ship.style.display=(saved&&o.kind==='import')?'flex':'none';
+  const btn=document.getElementById('inv-edit-btn'), sv=document.getElementById('inv-save-btn'), lb=document.getElementById('inv-mode-label');
+  if(btn&&!invEditMode&&/عرض فقط/.test(btn.textContent)){ btn.className='bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1'; btn.innerHTML='<i data-lucide="edit-3" style="width:14px;height:14px"></i> تفعيل التعديل'; if(sv) sv.style.display='none'; if(lb) lb.textContent='معاينة الفاتورة'; try{lucide.createIcons();}catch(_){} }
+}
+try{ new MutationObserver(()=>{ if(document.getElementById('invModal').classList.contains('inv-open')) _invToolbarSync(); })
+  .observe(document.getElementById('invModal'),{attributes:true,attributeFilter:['class']}); }catch(_){}
 
 let invEditMode=false;
 function toggleInvEdit(){
@@ -3280,6 +3318,7 @@ function toggleInvEdit(){
     page.querySelectorAll('.editable').forEach(el=>{el.contentEditable='false';el.style.background='transparent';el.style.border='none';el.style.padding='';});
   }
   try{_applyPriceView();}catch(_){}   /* (TASK-0338) في التعديل يظهر ويُعدَّل السعر الأصلي — خارج التعديل مع التكاليف */
+  try{_invToolbarSync();}catch(_){}
   lucide.createIcons();
 }
 /* (TASK-0339 · المالك seq 567/573) «أثناء تعديل فاتورة الشراء اجعل من اللابتوب الأزرار الأسهم الأسفل والجوانب تعمل كما أنها في إكسل
@@ -3358,6 +3397,22 @@ function recalcInv(){
     }else if(!(totalCosts>0) && oldHint){ oldHint.remove(); }
   }
 }
+/* (TASK-A0583) بيانات المورّد والتواريخ المعدَّلة في صفحة الفاتورة كانت لا تُحفظ في القاعدة (فقط البنود والتكاليف) —
+   فكان «التعديل» الحقيقيّ للمورّد لا يتمّ إلّا من النموذج القديم. الآن تُحفظ — فقط ما تغيّر فعلاً وله قيمة صالحة. */
+function _invHeaderPatch(row,getF){
+  const out={}; if(!row) return out;
+  const txt=v=>{v=String(v||'').trim();return (v&&v!=='—'&&v!=='-')?v:'';};
+  const map={supplier:'supplier',supplierPhone:'supplier_phone',supplierAddress:'supplier_address',supplierContact:'supplier_contact'};
+  Object.keys(map).forEach(f=>{ if(!document.querySelector('#invPage [data-field="'+f+'"]')) return; const v=txt(getF(f)); if(v&&v!==String(row[map[f]]||'').trim()) out[map[f]]=v; });
+  /* التاريخ يُعرض «١ ك١ ٢٠٢٦» — يُقبل المكتوب: 2026-12-15 · 15/12/2026 · 15-12-2026 (بالأرقام العربية أيضاً) */
+  const day=v=>{v=txt(v).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));let m=/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/.exec(v);
+    if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+    m=/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/.exec(v); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    return '';};
+  if(document.querySelector('#invPage [data-field="eta"]')){ const v=day(getF('eta')); if(v&&v!==String(row.eta_date||'')) out.eta_date=v; }
+  if(document.querySelector('#invPage [data-field="invDate"]')){ const v=day(getF('invDate')); if(v&&v!==String(row.inv_date||'')) out.inv_date=v; }
+  return out;
+}
 async function saveInvEdits(){
   if(Array.isArray(d_items_ref)&&!(await purConfirmZero(d_items_ref))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد */
   // ── 1. اقرأ كل القيم من صفحة الفاتورة ──
@@ -3366,6 +3421,8 @@ async function saveInvEdits(){
     return(el?.textContent||el?.value||'').trim();
   };
   const getN=f=>parseFloat(getF(f).replace(/[^\d.-]/g,''))||0;
+  /* بيانات المورّد والتواريخ تُقرأ **الآن** قبل إعادة بناء الصفحة أدناه (بعدها يُعاد رسمها من النموذج) */
+  let _hdr={}; try{ const _o0=window._invOpen||{}; _hdr=_invHeaderPatch(_o0.id!=null?_invOpenRow():null,getF); }catch(_){}
 
   // حفظ اسم المستخدم
   const uName=getF('userName');if(uName)window._lastUserName=uName;
@@ -3593,6 +3650,7 @@ async function saveInvEdits(){
 
   // إيقاف وضع التعديل
   invEditMode=false;
+  setTimeout(()=>{try{_invToolbarSync();}catch(_){}},0);
   document.getElementById('inv-edit-btn').className='bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1';
   document.getElementById('inv-edit-btn').innerHTML='<i data-lucide="edit-3" style="width:14px;height:14px"></i> تفعيل التعديل';
   document.getElementById('inv-save-btn').style.display='none';
@@ -3615,6 +3673,7 @@ async function saveInvEdits(){
       items_count:d_items_ref.length,
       sector:autoSector(d_items_ref)||getF('sector')||null,
       total_qty:d_items_ref.reduce((s,i)=>s+i.qty,0),
+      ..._hdr,
       items_snapshot:d_items_ref.map(i=>({...(i._raw||{}),id:i.product?.id||i.id||(i._raw&&i._raw.id)||null,name:i.name,image_url:i.product?.image_url||i.image_url||'',barcode:i.product?.barcode||i.barcode||'',qty:i.qty,unit_price:i.unitPrice,orig_unit_price:(i.origUnitPrice!=null?i.origUnitPrice:(i._origUnitPrice!=null?i._origUnitPrice:i.unitPrice)),min_price:i.minPrice,whole_price:i.wholePrice,sale_price:i.salePrice,notes:i.notes||'',is_new:i.isNew||false})),
       updated_at:new Date().toISOString()
     };
@@ -6253,7 +6312,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261123d"></script>
+<script src="gmt-whatsnew.js?v=20261123e"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123c'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123d'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123e'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();
@@ -100,7 +100,8 @@
      ولا شيء إن كانت خوارزمية البحث تجده أصلاً (لا تكرار) · بلا أنصاف كود ولا شرطات معلّقة */
   function modelWords(words, p) {
     var w = words || [], SG = global.GMTSuggest, out = [];
-    var code = function (s) { var f = s.replace(/[^A-Za-z0-9]/g, ''); return f.length >= 5 && f.length <= 20 && /\d/.test(f) && /[A-Za-z]/.test(f); };
+    /* (seq A1015 «900g Co Carey» اقتُرح اسماً بديلاً) الكود: حروف كبيرة وأرقام وشرطات فقط (RL-24 · YM-600-SS · LP-E17) */
+    var code = function (s) { var f = s.replace(/[^A-Za-z0-9]/g, ''); return f.length >= 4 && f.length <= 20 && /\d/.test(f) && /[A-Z]/.test(f) && s.split(' ').every(function (tk) { return /^[A-Z0-9][A-Z0-9\-\/.]*$/.test(tk); }); };
     for (var i = 0; i < w.length; i++) for (var n = 3; n >= 1; n--) {
       if (i + n > w.length) continue;
       var ph = w.slice(i, i + n).join(' ').replace(/\s*([\-_.\/])\s*/g, '$1').replace(/^[\-_.\/]+|[\-_.\/]+$/g, '');
@@ -115,7 +116,18 @@
 
   async function open(ctx) {
     ctx = ctx || {}; css(); close();
-    function freshList() { try { return (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || []; } catch (_) { return []; } }
+    /* (المالك seq A1014) «الأشياء التي على الطريق ولم تصل بعد ما في داعي تنعرض … لتقليل الاحتمالات»:
+       منتجٌ كلّ كمّيته في العبور (الصين · أوروبا · in_transit) ولا شيء منه في أيّ فرع ⇒ لا يُقترح (ما في بين إيديك) */
+    var TRANSIT = { china: 1, germany: 1, in_transit: 1 }, BR = ['haleb', 'daraa', 'homs', 'fakhouri', 'kurani', 'sarmada', 'hny_sbyl'];
+    try { (global.allBranches || []).forEach(function (b) { var k = b && (b.key_name || b.key); if (k && !TRANSIT[k] && BR.indexOf(k) < 0) BR.push(k); }); } catch (_) {}
+    function transitOnly(p) {
+      var tr = (Number(p.china) || 0) + (Number(p.germany) || 0);
+      try { var it = p.in_transit; if (it && typeof it === 'object') for (var k in it) tr += Number(it[k]) || 0; } catch (_) {}
+      if (tr <= 0) return false;
+      var have = false; BR.forEach(function (k) { if ((Number(p[k]) || 0) > 0) have = true; });
+      return !have;
+    }
+    function freshList() { var a = []; try { a = (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || []; } catch (_) { a = []; } return ctx.includeTransit ? a : a.filter(function (p) { return !transitOnly(p); }); }
     var list = freshList();   /* يُعاد قراءتها عند كلّ لقطة — المنتجات قد تكتمل بعد فتح العدسة */
     var root = doc.createElement('div'); root.id = 'gmt-lens'; root.setAttribute('role', 'dialog'); root.setAttribute('data-keep-fab', '1');
     root.innerHTML = '<div class="bx"><div style="display:flex;align-items:center;gap:8px"><h3 style="flex:1">🔍 عدسة GMT — ما هذا المنتج عندنا؟</h3><button type="button" data-x aria-label="إغلاق">✕</button></div>' +
@@ -224,12 +236,12 @@
       var bk = ctx.branchKey;
       $('[data-res]').innerHTML = '<div style="font-size:12px;font-weight:900;color:#334155;margin:6px 0">' + (live ? '👁️ أقرب منتجاتنا لما تراه الكاميرا:' : 'اختر المنتج — الأعلى هو الأقرب:') + '</div>' + R.map(function (r, i) {
         var p = r.item, best = (pick && pick.item === p) || (!pick && i === 0 && (r.bc || r.score >= 0.75)), img = p.image_url || (Array.isArray(p.images) && p.images[0]) || '';
-        var bd = (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt > 0 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
+        var bd = (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt >= 0.5 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
         return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span style="width:58px;text-align:center">📦</span>') +
           '<div style="min-width:0"><div class="nm">' + (best ? '🎯 ' : '') + esc(p.name || '') + '</div><div class="mt">' + esc(p.barcode || 'بلا باركود') + (bk && p[bk] != null ? ' · المسجّل: ' + esc(p[bk]) : '') + (p.price != null && p.price !== '' ? ' · $' + esc(p.price) : '') + '</div>' +
           '<div>' + bd + '</div>' + (pick && pick.item === p && pick.why ? '<div class="why">🤖 ' + esc(pick.why) + ' (' + pick.confidence + '%)</div>' : '') + '</div>' +
           '<button type="button" class="go" data-pick="' + i + '">هذا هو</button></div>';
-      }).join('') + (!live && ctx.learn && (S.read || modelWords(S.words).length) ? '<label class="lrn"><input type="checkbox" data-learn checked> أضف ما على العلبة (' + esc((S.read ? [S.read.name_on_box, S.read.model] : modelWords(S.words)).filter(Boolean).join(' · ').slice(0, 80)) + ') إلى أسمائه البديلة</label>' : '');
+      }).join('') + (!live && ctx.learn && (S.read || modelWords(S.words, null).length) ? '<label class="lrn"><input type="checkbox" data-learn' + (S.read ? ' checked' : '') + '> أضف ما على العلبة (' + esc((S.read ? [S.read.name_on_box, S.read.model] : modelWords(S.words)).filter(Boolean).join(' · ').slice(0, 80)) + ') إلى أسمائه البديلة</label>' : '');
       root.querySelectorAll('[data-pick]').forEach(function (b) {
         b.onclick = async function () {
           var p = R[+b.getAttribute('data-pick')].item, learned = false, sampled = false;
@@ -324,7 +336,11 @@
       };
       st('🔎 أقرأ الباركود والكتابة وأقارن الصورة…');
       L.barcode(canvas).then(function (c) { if (stale()) return; if (c) { S.code = c; paint(false); } }, function () {}).then(done);
-      L.ocr(canvas).then(function (w) { if (stale()) return; S.words = w || []; paint(false); }, function () {}).then(done);
+      (L.ocrPasses ? L.ocrPasses(canvas, function (w) {
+        if (stale()) return true;
+        S.words = w || []; paint(false);
+        var top = combined()[0]; return !!(top && top.txt >= 0.6);     /* كودٌ مطابق وُجد ⇒ لا حاجة لقراءةٍ مائلة أخرى */
+      }) : L.ocr(canvas).then(function (w) { if (!stale()) { S.words = w || []; paint(false); } })).then(function () {}, function () {}).then(done);
       (async function () {
         try { await prepP; } catch (_) { if (!stale()) st('👁️ مطابقة الصور غير متاحة على هذا الجهاز' + (eyeErr ? ' (' + eyeErr + ')' : '') + ' — 🔤 أقرأ الكتابة على العلبة…'); return; }
         try { await L.fillMissing(list, 12); } catch (_) {}   /* منتجٌ أُضيف بعد بناء الفهرس ⇒ بصمته الآن (قليلة عادةً) */
