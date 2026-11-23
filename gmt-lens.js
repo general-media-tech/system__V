@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123b'); }
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123c'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123c'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();
@@ -96,9 +96,22 @@
     var o = doc.getElementById('gmt-lens'); if (o) o.remove();
   }
   /* الموديل المطبوع على العلبة (حروف + أرقام) — وحده يُتعلَّم اسماً بديلاً، لا كلّ ما قرأه OCR */
-  function modelWords(words) {
-    return (words || []).filter(function (w) { return w.length >= 4 && w.length <= 24 && /[A-Za-z]/.test(w) && /\d/.test(w); }).slice(0, 3);
+  /* ما يُتعلَّم اسماً بديلاً من الكتابة المقروءة (seq A1008–A1009): الكود كما ظهر على العلبة (كلمة أو كلمتان/ثلاث متتالية) —
+     ولا شيء إن كانت خوارزمية البحث تجده أصلاً (لا تكرار) · بلا أنصاف كود ولا شرطات معلّقة */
+  function modelWords(words, p) {
+    var w = words || [], SG = global.GMTSuggest, out = [];
+    var code = function (s) { var f = s.replace(/[^A-Za-z0-9]/g, ''); return f.length >= 5 && f.length <= 20 && /\d/.test(f) && /[A-Za-z]/.test(f); };
+    for (var i = 0; i < w.length; i++) for (var n = 3; n >= 1; n--) {
+      if (i + n > w.length) continue;
+      var ph = w.slice(i, i + n).join(' ').replace(/\s*([\-_.\/])\s*/g, '$1').replace(/^[\-_.\/]+|[\-_.\/]+$/g, '');
+      if (!code(ph)) continue;
+      if (p && SG && SG.hitsProduct) { try { if (SG.hitsProduct(ph, p)) return []; } catch (_) {} }
+      out.push(ph); break;
+    }
+    out.sort(function (a, b) { return b.replace(/[^A-Za-z0-9]/g, '').length - a.replace(/[^A-Za-z0-9]/g, '').length; });
+    return out.filter(function (x, i) { var f = x.replace(/[^A-Za-z0-9]/g, '').toLowerCase(); return !out.slice(0, i).some(function (y) { return y.replace(/[^A-Za-z0-9]/g, '').toLowerCase().indexOf(f) >= 0; }); }).slice(0, 1);
   }
+
 
   async function open(ctx) {
     ctx = ctx || {}; css(); close();
@@ -140,11 +153,11 @@
         pool.forEach(function (p) { row(p); }); vv.forEach(function (r) { row(r.item).vis = r.vis; });
         var keep = {}; pool.forEach(function (p) { keep[String(p.id)] = 1; });
         var RS = Array.from(by.values()).filter(function (x) { return keep[String(x.item.id)]; });
-        RS.forEach(function (x) { x.score = x.vis + 0.5 * x.txt + (x.bc ? 2 : 0) + 0.001; });
+        RS.forEach(function (x) { x.score = Math.max(0, x.vis) + x.txt + (x.txt >= 0.5 ? 0.5 : 0) + (x.bc ? 2 : 0) + 0.001; });
         return RS.sort(function (a, b) { return b.score - a.score; }).slice(0, 14);
       }
       var R = Array.from(by.values());
-      R.forEach(function (x) { x.score = x.vis + 0.5 * x.txt + (x.bc ? 2 : 0); });
+      R.forEach(function (x) { x.score = Math.max(0, x.vis) + x.txt + (x.txt >= 0.5 ? 0.5 : 0) + (x.bc ? 2 : 0); });
       return R.sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return x.score > 0.05 || x.vis > -0.3 && S.vec; }).slice(0, 5);   /* اقتراحات الصورة تُعرض ولو ضعيفة — الخيار للموظّف */
     }
     /* ── النوع: حين لا تعرف العين الموديل (قشاط · كفر · سوفت بوكس) تعرف النوع ⇒ كلّ منتجاته لتختار (seq 1002) ── */
@@ -200,7 +213,7 @@
     function paintRead() {
       var r = S.read, w = S.words;
       $('[data-read]').innerHTML = (S.code ? '<div class="rd">🏷️ <b>باركود في الصورة:</b> ' + esc(S.code) + '</div>' : '') +
-        (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + esc(w.slice(0, 10).join(' · ')) + '</div>' : '') +
+        (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + esc(w.slice(0, 12).join(' ')) + '</div>' : '') +
         (r ? '<div class="rd">🤖 <b>قرأ العقل:</b> ' + esc([r.brand, r.name_on_box, r.model].filter(Boolean).join(' · ') || '—') + (r.product_type ? '<br>النوع: ' + esc(r.product_type) : '') + '</div>' : '');
     }
     function paintRes(R, pick, live) {
@@ -222,7 +235,7 @@
           var p = R[+b.getAttribute('data-pick')].item, learned = false, sampled = false;
           var lr = $('[data-learn]');
           if (ctx.learn && lr && lr.checked) {
-            var names = S.read ? [S.read.name_on_box, S.read.model, S.read.arabic_name] : modelWords(S.words);
+            var names = S.read ? [S.read.name_on_box, S.read.model, S.read.arabic_name] : modelWords(S.words, p);
             names = names.filter(function (x) { return x && String(x).trim().length > 1; });
             try { learned = names.length ? await ctx.learn(p, names) : false; } catch (_) { learned = false; }
           }
@@ -230,6 +243,12 @@
             var adm = typeof ctx.isAdmin === 'function' ? !!ctx.isAdmin() : (global.GMTRole && GMTRole.isAdmin ? !!GMTRole.isAdmin() : false);
             try { sampled = await GMTLensLocal.addSample(p, S.vec, { admin: adm, by: ctx.by || null, source: ctx.source || location.pathname.split('/').pop(), words: S.words, canvas: S.shot }); } catch (_) {}
           }
+          try {
+            var rank = R.indexOf(R[+b.getAttribute('data-pick')]) + 1, lp = S.logP;
+            var upd = { picked_id: String(p.id), picked_name: String(p.name || '').slice(0, 120), picked_rank: rank, used_ai: !!S.read, ai_read: S.read ? [S.read.brand, S.read.name_on_box, S.read.model].filter(Boolean).join(' · ').slice(0, 200) : null };
+            if (lp) lp.then(function (id) { if (id) GMTLensLocal.logPatch(id, upd); });
+            else if (global.GMTLensLocal && S.shot) GMTLensLocal.logSearch(Object.assign({ page: ctx.source || location.pathname.split('/').pop(), typed: S.typed || null, canvas: S.shot }, upd));
+          } catch (_) {}
           close();
           try { if (global.GMTSound && GMTSound.cue) GMTSound.cue('scan'); } catch (_) {}
           if (ctx.onPick) ctx.onPick(p, { read: S.read, learned: learned, sampled: sampled, words: S.words });
@@ -240,15 +259,16 @@
 
     /* ── تجهيز العين والفهرس ── */
     st('⏳ تجهيز العدسة…');
+    var eyeErr = '';
+    var localP = needLocal().then(function (ok) { if (ok) { L = global.GMTLensLocal; L.warmOCR(); } return ok; });   /* (seq A1007) قارئ الكتابة يُجهَّز فوراً مع فتح العدسة */
     var prepP = (async function () {
-      if (!(await needLocal())) throw new Error('محرّك العدسة لم يُحمَّل');
-      L = global.GMTLensLocal;
+      if (!(await localP)) throw new Error('محرّك العدسة لم يُحمَّل');
       await Promise.all([L.loadModel(), L.loadIndex()]);
       ready = true; root.setAttribute('data-ready', '1'); st(camNote || '');
       setTimeout(function () { list = freshList(); L.fillMissing(list, 25).catch(function () {}); }, 2500);
       return true;
     })();
-    prepP.catch(function (e) { root.setAttribute('data-ready', '0'); st('العدسة المحلّية غير متاحة (' + (e.message || e) + ') — اكتب ما على العلبة أو «🤖 اسأل العقل»'); $('[data-tools]').hidden = false; });
+    prepP.catch(function (e) { eyeErr = String((e && e.message) || e || '').slice(0, 80); root.setAttribute('data-ready', '0'); st('👁️ مطابقة الصور غير متاحة على هذا الجهاز — التقط وسأقرأ الكتابة والباركود على العلبة'); $('[data-tools]').hidden = false; });
     needMatch();
 
     /* ── الكاميرا الحيّة ── */
@@ -284,30 +304,39 @@
     /* ── اللقطة: فوريّ (صورة + باركود) ثمّ قراءة الكتابة بالخلفية ── */
     async function analyse(canvas) {
       list = freshList();
-      S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null;
+      S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null; S.vec = null; S.vis = []; S.logP = null;
       if (video) video.hidden = true;
       var old = cam.querySelector('canvas.frz'); if (old) old.remove();
       canvas.className = 'frz'; cam.insertBefore(canvas, cam.firstChild); cmsg('');
       $('[data-snap]').hidden = true; $('[data-again]').hidden = false; $('[data-tools]').hidden = false;
-      try { await prepP; } catch (_) {}
-      var t0 = performance.now();
-      if (ready) {
+      var t0 = performance.now(), stale = function () { return !S.frozen || S.shot !== canvas; };
+      if (!(await localP)) { paint(false); st('محرّك العدسة لم يُحمَّل — اكتب ما على العلبة أو «🤖 اسأل العقل»'); return; }
+      /* (seq A1006–A1007) ثلاث قراءات معاً ولا تنتظر إحداها الأخرى: الباركود · الكتابة على العلبة (OCR) · شبه الصورة.
+         كانت الكتابة لا تُقرأ إطلاقاً إن تعذّرت «العين» على الهاتف ⇒ «لا منتج قريب» رغم أنّ «YM-600-SS» واضحة على العلبة. */
+      var pending = 3, done = function () {
+        if (--pending !== 0 || stale()) return;
+        var R = combined();
+        st(R.length ? 'اختر المنتج — الأعلى هو الأقرب' : 'لا تطابق — جرّب «🤖 اسأل العقل» أو اكتب الموديل');
+        /* سجلّ البحث: ما قُرئ وما اقتُرح — يُكمَل بما اختير */
+        S.logP = L.logSearch({ page: ctx.source || location.pathname.split('/').pop(), by_name: ctx.by || (global.GMTRole && GMTRole.name && GMTRole.name()) || null, ms: Math.round(performance.now() - t0),
+          barcode: S.code || null, ocr: (S.words || []).join(' ').slice(0, 600) || null,
+          top: R.map(function (x) { return { id: String(x.item.id), name: String(x.item.name || '').slice(0, 80), s: Math.round(x.score * 100) / 100, v: Math.round(x.vis * 100) / 100, t: Math.round(x.txt * 100) / 100, bc: !!x.bc }; }), canvas: canvas });
+      };
+      st('🔎 أقرأ الباركود والكتابة وأقارن الصورة…');
+      L.barcode(canvas).then(function (c) { if (stale()) return; if (c) { S.code = c; paint(false); } }, function () {}).then(done);
+      L.ocr(canvas).then(function (w) { if (stale()) return; S.words = w || []; paint(false); }, function () {}).then(done);
+      (async function () {
+        try { await prepP; } catch (_) { if (!stale()) st('👁️ مطابقة الصور غير متاحة على هذا الجهاز' + (eyeErr ? ' (' + eyeErr + ')' : '') + ' — 🔤 أقرأ الكتابة على العلبة…'); return; }
         try { await L.fillMissing(list, 12); } catch (_) {}   /* منتجٌ أُضيف بعد بناء الفهرس ⇒ بصمته الآن (قليلة عادةً) */
+        if (stale()) return;
         L.hold(true);
-        try {
-          var bc = L.barcode(canvas);
-          S.vec = await L.embed(canvas, 'shot'); S.vis = L.search(S.vec, list, 12);
-          S.code = await bc;
-        } finally { L.hold(false); }
+        try { var v = await L.embed(canvas, 'shot'); if (stale()) return; S.vec = v; S.vis = L.search(v, list, 12); }
+        catch (e) { if (!stale()) st('👁️ تعذّرت مقارنة الصورة (' + String(e && e.message || e).slice(0, 60) + ') — 🔤 أقرأ الكتابة…'); }
+        finally { L.hold(false); }
+        if (stale()) return;
         paint(false);
-        st('⚡ ' + Math.round(performance.now() - t0) + ' م.ث — 🔤 أقرأ الكتابة على العلبة…');
-        try {
-          var w = await L.ocr(canvas);
-          if (!S.frozen || S.shot !== canvas) return;
-          S.words = w; paint(false);
-          st(combined().length ? 'اختر المنتج — الأعلى هو الأقرب' : '');
-        } catch (_) { st('اختر المنتج — الأعلى هو الأقرب'); }
-      } else { paint(false); }
+        if (pending > 1) st('⚡ ' + Math.round(performance.now() - t0) + ' م.ث — 🔤 أقرأ الكتابة على العلبة…');
+      })().then(done, function (e) { try { console.warn('[lens] visual', e); } catch (_) {} done(); });
     }
     $('[data-snap]').onclick = function () { if (video && video.readyState >= 2) analyse(frameCanvas()); };
     $('[data-again]').onclick = function () {

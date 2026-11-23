@@ -606,8 +606,21 @@
       }
       if (_queryHit(q, hay)) return true;
       if (hasLetterNames(q)) { const rs = letterReadings(q); for (let i = 1; i < rs.length; i++) if (_queryHit(rs[i], hay)) return true; }
+      const oq = ocrReading(q); if (oq && _queryHit(oq, hay)) return true;
       if (chay && _compatHit(q, hay, chay)) return true;
       return false;
+  }
+  /* (TASK-A0580 · المالك seq A1009) قراءة الكاميرا/الماسح تخلط الحروف بالأرقام داخل الكود: «6OO» = 600 · «LP-EI7» = LP-E17 · «B0» قد تكون BO.
+     قراءةٌ ثانية: داخل كلمةٍ فيها رقم ⇒ O/o/Q ⇐ 0 · I/l/| ⇐ 1 · S بين رقمين ⇐ 5 — لا تُمسّ الكلمات بلا أرقام. */
+  function ocrReading(q) {
+      let changed = false;
+      const out = String(q).split(/(\s+)/).map(w => {
+          if (!/\d/.test(w) || !/[OoQIl|]/.test(w)) return w;
+          const v = w.replace(/(\d)[Oo](?=[\dOo]|$|[^A-Za-z])/g, '$10').replace(/(\d)[Oo]/g, '$10').replace(/[Oo](?=\d)/g, '0')
+                     .replace(/(\d)[Il|](?=\d|$|[^A-Za-z])/g, '$11').replace(/[Il|](?=\d)/g, '1').replace(/(\d)S(?=\d)/g, '$15');
+          if (v !== w) changed = true; return v;
+      }).join('');
+      return changed ? out : '';
   }
   const _QK = {};
   function _qKind(q) {
@@ -622,9 +635,33 @@
       const it = KB.resolve(String(q == null ? '' : q).trim()); return it ? it.say : '';
   }
 
+  /* (TASK-A0580 · seq A1009) كودٌ مقروءٌ بخطأ حرفٍ واحد («YM 1-600-SS» ⇐ الشرطة قُرئت 1) يُعرف بالتقريب:
+     الكود ملصوقاً (حروف وأرقام فقط) داخل نصّ المنتج ملصوقاً — بفرق حرفٍ واحد على الأكثر (إضافة · حذف · استبدال)، للكود ٦ خانات فأكثر فقط */
+  const _GL = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
+  function _glue(s) { return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+  function codeNear(q, p) {
+      const g = _glue(ocrReading(q) || q);
+      if (g.length < 6 || !/\d/.test(g) || !/[a-z]/.test(g) || !p) return false;
+      let hay = _GL && _GL.get(p);
+      if (!hay) { hay = String([p.name, p.alt_names, p.search_terms, p.short_name].filter(Boolean).join(' ')).toLowerCase().split(/[،,]/).map(_glue).join('|'); if (_GL) _GL.set(p, hay); }
+      if (hay.indexOf(g) >= 0) return true;
+      /* مسافة تعديل تقريبيّة على أيّ مقطعٍ من النصّ (خوارزمية Sellers) */
+      const m = g.length; let prev = new Array(m + 1), cur = new Array(m + 1);
+      for (let j = 0; j <= m; j++) prev[j] = j;
+      for (let i = 1; i <= hay.length; i++) {
+          cur[0] = 0; const ch = hay.charCodeAt(i - 1);
+          for (let j = 1; j <= m; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (g.charCodeAt(j - 1) === ch ? 0 : 1));
+          if (cur[m] <= 1) return true;
+          const tmp = prev; prev = cur; cur = tmp;
+      }
+      return false;
+  }
+
   global.GMTSuggest = {
+    codeNear: codeNear,
     hits     : hits,
     hitsProduct: hitsProduct,
+    ocrReading: ocrReading,
     compatSay: compatSay,
     qty      : qtyOf,
     price    : priceOf,

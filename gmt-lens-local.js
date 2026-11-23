@@ -53,16 +53,28 @@
   }
 
   /* ── العين: تُحمَّل عند أوّل فتحٍ للعدسة فقط ── */
-  var modelP = null;
+  var modelP = null, BACKEND = '';
   function loadModel() {
     if (modelP) return modelP;
     modelP = (async function () {
       if (!global.tf) await loadScript(TF_SRC);
-      try { await global.tf.setBackend('webgl'); } catch (_) {}
-      await global.tf.ready();
-      var m = await global.tf.loadGraphModel(MODEL_URL);
-      global.tf.tidy(function () { m.execute(global.tf.zeros([1, S, S, 3]), FEAT); });   // تسخين ⇒ أوّل لقطة فوريّة
-      return m;
+      var tf = global.tf, last = null;
+      /* (seq A1006) بعض الهواتف ترفض WebGL (معالج رسوميات/ذاكرة) ⇒ كانت العين كلّها تتوقّف ⇒ «لا منتج قريب».
+         الآن: WebGL أوّلاً، وإن فشل التحميل أو التسخين ⇒ المعالج (CPU) — أبطأ قليلاً لكنّه يعمل على كلّ جهاز. */
+      var backs = ['webgl', 'cpu'];
+      try { if (localStorage.getItem('gmt_lens_backend') === 'cpu') backs = ['cpu']; } catch (_) {}
+      for (var i = 0; i < backs.length; i++) {
+        try {
+          if (!(await tf.setBackend(backs[i]))) continue;
+          await tf.ready();
+          var m = await tf.loadGraphModel(MODEL_URL);
+          tf.tidy(function () { m.execute(tf.zeros([1, S, S, 3]), FEAT).dataSync(); });   // تسخين ⇒ أوّل لقطة فوريّة (dataSync يكشف فشل المعالج الرسوميّ الآن لا عند اللقطة)
+          BACKEND = backs[i];
+          if (BACKEND === 'cpu') { try { localStorage.setItem('gmt_lens_backend', 'cpu'); } catch (_) {} }
+          return m;
+        } catch (e) { last = e; }
+      }
+      throw last || new Error('لا معالج متاح للعين');
     })();
     modelP.catch(function () { modelP = null; });
     return modelP;
@@ -72,9 +84,19 @@
     var m = await loadModel(), c = src && src.tagName === 'CANVAS' && src.width === S && mode === 'ready' ? src : toCanvas(src, mode || 'catalog');
     if (!c) return null;
     var tf = global.tf;
-    var out = tf.tidy(function () { return m.execute(tf.browser.fromPixels(c).toFloat().div(255).expandDims(0), FEAT).reshape([-1]); });
-    var a = await out.data(); out.dispose();
-    return Float32Array.from(a);
+    try {
+      var out = tf.tidy(function () { return m.execute(tf.browser.fromPixels(c).toFloat().div(255).expandDims(0), FEAT).reshape([-1]); });
+      var a = await out.data(); out.dispose();
+      return Float32Array.from(a);
+    } catch (e) {
+      /* فقد سياق الرسوميات أثناء العمل (شائع على الهاتف) ⇒ أعد التحميل على المعالج مرّةً واحدة */
+      if (BACKEND === 'cpu') throw e;
+      try { localStorage.setItem('gmt_lens_backend', 'cpu'); } catch (_) {}
+      modelP = null; m = await loadModel(); 
+      var out2 = tf.tidy(function () { return m.execute(tf.browser.fromPixels(c).toFloat().div(255).expandDims(0), FEAT).reshape([-1]); });
+      var a2 = await out2.data(); out2.dispose();
+      return Float32Array.from(a2);
+    }
   }
   /* الضغط إلى ١٢٨ (تحليل المكوّنات الرئيسيّة المحسوب على صورنا) ثمّ تطبيع */
   var PCA = null;
@@ -222,20 +244,39 @@
     var w = await getOCR(); var r = await w.recognize(canvas);
     var words = String((r && r.data && r.data.text) || '').split(/\s+/).map(function (t) { return t.replace(/[^A-Za-z0-9\-+./]/g, ''); })
       .filter(function (t) { return t.length >= 2 && /[A-Za-z0-9]/.test(t) && !/^[\-+./]+$/.test(t); });
-    var seen = {}; return words.filter(function (t) { var k = t.toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 30);
+    return words.slice(0, 40);   /* بترتيبها كما على العلبة (لا حذف للمكرّر) — البحث يقرأ الكلمات المتتالية معاً */
   }
-  /* تطابق كلمات اللقطة مع الاسم/الأسماء البديلة/الموديل/الباركود — بلا ذكاء اصطناعي */
+  /* تطابق ما قُرئ على العلبة مع المنتج — بخوارزمية البحث نفسها في النظام (GMTSuggest.hitsProduct) لا بدمجٍ خاصّ بالعدسة
+     (المالك seq A1009: «ليش ما تخلّي البحث بالاسم المكسّر أو اللي بينه فواصل ينعرف لحاله بخوارزمية البرنامج لدينا»):
+     الكلمات المقروءة كما هي بترتيبها (كلمة · كلمتان · ثلاث متتالية) ⇒ «YM-600- SS» يجدها البحث كما يجد «YM 600 SS» إذا كتبها الموظّف. */
+  function isCode(s) { var f = String(s).replace(/[^A-Za-z0-9]/g, ''); return f.length >= 4 && /\d/.test(f) && /[A-Za-z]/.test(f); }
+  function phrases(words) {
+    var out = [];
+    for (var i = 0; i < words.length; i++) for (var n = 1; n <= 3 && i + n <= words.length; n++) {
+      var ph = words.slice(i, i + n).join(' ');
+      if (isCode(ph) && (n === 1 || !isCode(words.slice(i, i + n - 1).join(' ')) || n === 2)) out.push({ q: ph, code: true, n: n });
+      else if (n === 1 && /^[A-Za-z]{4,}$/.test(ph)) out.push({ q: ph, code: false, n: 1 });
+    }
+    return out;
+  }
   function textScore(words, p) {
     if (!words || !words.length) return 0;
-    var hay = [p.name, p.alt_names, p.brand, p.model, p.barcode, p.sku].filter(Boolean).join(' ').toLowerCase();
-    var tok = hay.split(/[^a-z0-9؀-ۿ]+/).filter(Boolean), sc = 0;
-    words.forEach(function (w) {
-      var lw = w.toLowerCase().replace(/[^a-z0-9]/g, ''); if (lw.length < 2) return;
-      if (tok.indexOf(lw) >= 0) sc += lw.length >= 4 ? (/\d/.test(lw) ? 0.5 : 0.25) : 0.08;           // الموديل (حروف + أرقام) أقوى دليل
-      else if (lw.length >= 4 && hay.replace(/[^a-z0-9]/g, '').indexOf(lw) >= 0) sc += 0.15;
-    });
+    var SG = global.GMTSuggest;
+    if (SG && SG.hitsProduct) {
+      var key = words.join('\u0001'), ph = _PH[key] || (_PH[key] = phrases(words)), code = 0, plain = 0;
+      for (var i = 0; i < ph.length; i++) {
+        var x = ph[i]; var hit = false; try { hit = SG.hitsProduct(x.q, p) || (x.code && SG.codeNear && SG.codeNear(x.q, p)); } catch (_) {}
+        if (!hit) continue;
+        if (x.code) code = Math.max(code, Math.min(1, 0.5 + 0.1 * x.q.replace(/[^A-Za-z0-9]/g, '').length / 2));   /* الكود الأطول أقوى دليل */
+        else plain += 0.08;
+      }
+      return Math.min(1, code + Math.min(0.3, plain));
+    }
+    var hay = [p.name, p.alt_names, p.brand, p.model, p.barcode].filter(Boolean).join(' ').toLowerCase().replace(/[^a-z0-9]/g, ''), sc = 0;
+    words.forEach(function (w) { var lw = w.toLowerCase().replace(/[^a-z0-9]/g, ''); if (isCode(lw) && hay.indexOf(lw) >= 0) sc += 0.5; });
     return Math.min(1, sc);
   }
+  var _PH = {};
 
   /* ── التعلّم من الاختيار ── */
   /* صورة مصغّرة (≈٤ ك.ب) من اللقطة — ليرى الأدمن ما تعلّمته العدسة قبل اعتماده */
@@ -261,6 +302,20 @@
       return r.ok;
     } catch (_) { return false; }
   }
+  /* (seq A1008) سجلّ عمليات البحث — «لحتى يتدرّب منها ولحتى أراجعها وأصحّحها»: كلّ لقطة ⇒ صفّ (ما قُرئ · أفضل ٥ · ما اختير) */
+  async function logSearch(row) {
+    var k = sbKey(); if (!k) return null;
+    try {
+      if (row.canvas) { row.thumb = thumbOfCanvas(row.canvas); delete row.canvas; }
+      row.backend = BACKEND || null;
+      var r = await fetch(sbBase() + '/rest/v1/gmt_lens_log', { method: 'POST', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(row) });
+      if (!r.ok) return null; var j = await r.json(); return j && j[0] && j[0].id || null;
+    } catch (_) { return null; }
+  }
+  async function logPatch(id, row) {
+    var k = sbKey(); if (!k || !id) return false;
+    try { var r = await fetch(sbBase() + '/rest/v1/gmt_lens_log?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(row) }); return r.ok; } catch (_) { return false; }
+  }
   /* تعلّمات الموظّفين التي تنتظر اعتماد الأدمن */
   async function pending() {
     var k = sbKey(); if (!k) return [];
@@ -276,5 +331,5 @@
   }
 
   global.GMTLensLocal = { embed: embed, embedRaw: embedRaw, toCanvas: toCanvas, loadModel: loadModel, sim: sim, search: search, pack: pack, unpack: unpack,
-    loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, textScore: textScore, addSample: addSample, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
+    backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, textScore: textScore, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
 })(window);
