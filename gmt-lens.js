@@ -302,12 +302,17 @@
     /* ── تجهيز العين والفهرس ── */
     st('⏳ تجهيز العدسة…');
     var eyeErr = '';
-    var localP = needLocal().then(function (ok) { if (ok) { L = global.GMTLensLocal; L.warmOCR(); } return ok; });   /* (seq A1007) قارئ الكتابة يُجهَّز فوراً مع فتح العدسة */
+    /* (المالك seq A1020 «العدسة لما بفتحها كثير عم تعلّق وتهنّك الجهاز») كان كلّ الثقيل يبدأ معاً عند الفتح: العين + قارئ الكتابة + حساب صور
+       المنتجات الجديدة + المعاينة كلّ ٠٫٨ث. الآن: العين أوّلاً · قارئ الكتابة بعدها حين يفرغ الجهاز · صور المنتجات الجديدة عند اللقطة فقط ·
+       المعاينة كلّ ١٫٤ث وتتوقّف حين تختفي الصفحة · والأجهزة الضعيفة (ذاكرة ≤٣ج.ب) بلا معاينةٍ حيّة: «📸 التقط» فقط */
+    var LOWEND = (navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+    var idle = function (fn, ms) { setTimeout(function () { (global.requestIdleCallback || function (f) { setTimeout(f, 1); })(fn, { timeout: 4000 }); }, ms || 0); };
+    var localP = needLocal().then(function (ok) { if (ok) L = global.GMTLensLocal; return ok; });   /* (seq A1007) قارئ الكتابة يُجهَّز فوراً مع فتح العدسة */
     var prepP = (async function () {
       if (!(await localP)) throw new Error('محرّك العدسة لم يُحمَّل');
       await Promise.all([L.loadModel(), L.loadIndex()]);
       ready = true; root.setAttribute('data-ready', '1'); st(camNote || '');
-      setTimeout(function () { list = freshList(); L.fillMissing(list, 25).catch(function () {}); }, 2500);
+      idle(function () { if (doc.body.contains(root)) L.warmOCR(); }, 1500);
       return true;
     })();
     prepP.catch(function (e) { eyeErr = String((e && e.message) || e || '').slice(0, 80); root.setAttribute('data-ready', '0'); st('👁️ مطابقة الصور غير متاحة على هذا الجهاز — التقط وسأقرأ الكتابة والباركود على العلبة'); $('[data-tools]').hidden = false; });
@@ -324,11 +329,11 @@
         cam.insertBefore(video, cam.firstChild); await video.play().catch(function () {});
         LIVE = { stream: stream, timer: null, busy: false, hist: [], steady: 0, auto: false };
         cmsg('وجّه على المنتج — ثم «📸 التقط»');
-        LIVE.timer = setInterval(liveTick, 850);
+        if (!LOWEND) LIVE.timer = setInterval(liveTick, 1400); else cmsg('وجّه على المنتج ثمّ «📸 التقط»');
       } catch (e) { cam.hidden = true; $('[data-snap]').hidden = true; camNote = 'الكاميرا غير متاحة هنا — استعمل «🖼️ صورة من الجهاز» أو اكتب ما على العلبة'; if (ready) st(camNote); }
     }
     async function liveTick() {
-      if (!LIVE || LIVE.busy || S.frozen || !ready || !video || video.readyState < 2) return;
+      if (!LIVE || LIVE.busy || S.frozen || !ready || !video || video.readyState < 2 || doc.hidden) return;
       LIVE.busy = true;
       try {
         var q = await L.embed(video, 'shot'); if (S.frozen) return;
@@ -366,7 +371,11 @@
       var pending = 3, done = function () {
         if (--pending !== 0 || stale()) return;
         var R = combined();
-        st(R.length ? 'اختر المنتج — الأعلى هو الأقرب' : 'لا تطابق — جرّب «🤖 اسأل العقل» أو اكتب الموديل');
+        /* (المالك seq A1019–A1020) «إذا ما عرف المنتج على الأقلّ يعرف تصنيفه وقسمه ويعرض الأكثر تشابهاً» — حين لا يكون الأوّل واثقاً
+           ولا كودٌ مقروء يطابقه ⇒ نعرض **قسمه** مباشرةً وداخله الأكثر تشابهاً أوّلاً (والرجوع لأقرب ٥ بزرّ) */
+        var top0 = R[0], unsure = !top0 || (!top0.bc && top0.txt < 0.5 && (top0.score < 0.62 || (R[1] && top0.score - R[1].score < 0.03)));
+        if (unsure && !S.scope) { var tg = typeGuess(); if (tg && tg.cat && tg.share >= 0.35 && tg.n > 1) { S.scope = { cat: tg.cat, compat: '', auto: true }; paint(false); R = combined(); } }
+        st(S.scope && S.scope.auto ? '🤔 لم أعرفه بالضبط — هذا قسمه «' + S.scope.cat + '» والأكثر شبهاً أوّلاً' : R.length ? 'اختر المنتج — الأعلى هو الأقرب' : 'لا تطابق — جرّب «🤖 اسأل العقل» أو اكتب الموديل');
         /* سجلّ البحث: ما قُرئ وما اقتُرح — يُكمَل بما اختير */
         S.logP = L.logSearch({ page: ctx.source || location.pathname.split('/').pop(), by_name: ctx.by || (global.GMTRole && GMTRole.name && GMTRole.name()) || null, ms: Math.round(performance.now() - t0),
           barcode: S.code || null, ocr: (S.words || []).join(' ').slice(0, 600) || null,

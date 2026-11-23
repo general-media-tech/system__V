@@ -218,7 +218,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261119i"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-labels.js?v=20261123b"></script>
+  <script src="gmt-packing.js?v=20261123g" defer></script>
+<script src="gmt-labels.js?v=20261123b"></script>
 <script src="gmt-staff.js?v=20261123b"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -940,6 +941,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1" title="شركة الشحن · رقم التتبّع · صورة الفاتورة · ملف Excel · من دفع">
         <i data-lucide="truck" class="w-3.5 h-3.5"></i> الشحن والمرفقات
       </button>
+      <button onclick="packOpen()" id="inv-pack-btn"
+        class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1" title="ارفع الباكينج ليست / ملف الجمارك من الأوبريشن ⇒ الكلفة الواصلة لكلّ بند">
+        <i data-lucide="package-search" class="w-3.5 h-3.5"></i> الباكينج والجمارك
+      </button>
       <div id="inv-ac-wrap" class="relative" style="min-width:190px">
       <input type="text" id="inv-prod-search" autocomplete="off" placeholder="🔎 ابحث عن منتج لإضافته..."
         class="w-full px-2.5 py-1.5 rounded-lg outline-none text-xs font-bold text-gray-800"
@@ -1061,6 +1066,29 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <div class="INV-WRAP" id="invPage"></div>
 </div>
 
+<!-- (TASK-A0583 · المالك seq A1018) «لما أرفع الفاتورة ثم ملفّي الأوبريشن والباكينج ليست … هو لحاله بيتصرّف» — gmt-packing.js -->
+<div id="packModal" class="fixed inset-0 bg-black/60 hidden z-[1200] p-3 flex items-start justify-center overflow-y-auto">
+  <div class="bg-white rounded-2xl w-full max-w-5xl p-4 shadow-2xl mt-4" dir="rtl">
+    <div class="flex items-center gap-2 mb-2"><h3 class="font-black text-base flex-1">📦 الباكينج ليست والجمارك ⇒ الكلفة الواصلة لكلّ بند</h3>
+      <button onclick="packClose()" class="text-gray-400 hover:text-red-500"><i data-lucide="x-circle" class="w-6 h-6"></i></button></div>
+    <p class="text-[11px] text-gray-500 mb-2 leading-relaxed">ارفع ملف المخلّص/الأوبريشن أو الباكينج ليست (Excel). النظام يقرأ الكراتين (الخلايا المدموجة = كرتونة) والوزن والبند الجمركي والرسم، يطابق كلّ سطر ببنود الفاتورة، ثمّ يوزّع:
+      <b>الجمارك</b> على الكراتين بنسبة رسمها · <b>الشحن</b> بالحجم (أو الوزن) · <b>النقل/المحلّي/التحويل</b> بالقيمة · وداخل الكرتونة <b>بقيمة البند</b>. الأصول خارج التوزيع.</p>
+    <div class="flex flex-wrap items-end gap-2 mb-3">
+      <label class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-black cursor-pointer">📂 اختر الملف<input type="file" id="pack-file" accept=".xlsx,.xls,.csv" class="hidden" onchange="packRead(this)"></label>
+      <span id="pack-fname" class="text-xs font-bold text-gray-500">—</span>
+      <div class="flex-1"></div>
+      <label class="text-[10px] font-bold text-gray-500">جمارك مدفوعة $<input id="pack-c-customs" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
+      <label class="text-[10px] font-bold text-gray-500">شحن $<input id="pack-c-ship" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
+      <label class="text-[10px] font-bold text-gray-500">نقل+محلّي+تحويل $<input id="pack-c-other" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
+      <label class="text-[10px] font-bold text-gray-500">الشحن حسب<select id="pack-shipby" class="block p-1.5 border rounded-lg text-xs font-bold" onchange="packCompute()"><option value="">تلقائي</option><option value="cbm">الحجم</option><option value="kg">الوزن</option></select></label>
+    </div>
+    <div id="pack-sum" class="text-xs font-bold mb-2"></div>
+    <div id="pack-map" class="overflow-x-auto"></div>
+    <div id="pack-res" class="overflow-x-auto mt-3"></div>
+    <div class="flex gap-2 mt-3"><button id="pack-apply" onclick="packApply()" disabled class="bg-emerald-600 disabled:opacity-40 text-white px-4 py-2 rounded-xl font-black text-sm">✔ تطبيق الكلفة الواصلة على الفاتورة</button>
+      <button onclick="packClose()" class="bg-gray-100 px-4 py-2 rounded-xl font-black text-sm">إلغاء</button></div>
+  </div>
+</div>
 <iframe id="inv-print-iframe" title="print"></iframe>
 <div id="toast-box"></div>
 
@@ -3287,6 +3315,89 @@ function closeInvModal(){document.getElementById('invModal').classList.remove('i
 /* (TASK-A0583 · seq A1012) «زرّ تعديل الفاتورة من الخارج منفصلٌ عن الواقع — من بقايا تحديثٍ قديم»: كان يفتح نموذج التسجيل القديم.
    الآن يفتح **الفاتورة نفسها في وضع التعديل** (المحرّر الحديث: البنود · المورّد · التواريخ · التكاليف · الدفعة) — وما لا يُعدَّل فيها
    (شركة الشحن · رقم التتبّع · صورة الفاتورة · Excel · من دفع) من زرّ «🚚 الشحن والمرفقات» داخلها. */
+/* ── الباكينج ليست والجمارك (gmt-packing.js) ── */
+let _PK=null;
+function _pkItems(){   /* بنود الفاتورة مُغناةً بأسماء المنتج البديلة (الوصف في الباكينج إنجليزيّ غالباً) */
+  return (d_items_ref||[]).map(it=>{ const id=it.product?.id||it.id||(it._raw&&it._raw.id); const p=id?prods.find(x=>String(x.id)===String(id)):null;
+    return { id:id, name:it.name, alt_names:[p&&p.alt_names,p&&p.search_terms].filter(Boolean).join(' '), qty:Number(it.qty)||0, orig_unit_price:_origOf(it), unit_price:_origOf(it), asset:!!(it._raw&&it._raw.asset) }; });
+}
+function packOpen(){
+  const o=window._invOpen||{}; if(o.id==null||o.kind!=='import'){ toast('للفواتير المحفوظة (استيراد) فقط','err'); return; }
+  if(!window.GMTPacking){ toast('المحرّك لم يُحمَّل بعد — أعد المحاولة','err'); return; }
+  const g=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||'0').replace(/[^\d.-]/g,''))||0;};
+  document.getElementById('pack-c-customs').value=g('cc')||''; document.getElementById('pack-c-ship').value=g('cs')||'';
+  document.getElementById('pack-c-other').value=(g('ct')+g('cl')+g('cx'))||'';
+  _PK=null; ['pack-sum','pack-map','pack-res'].forEach(i=>document.getElementById(i).innerHTML=''); document.getElementById('pack-fname').textContent='—'; document.getElementById('pack-apply').disabled=true;
+  document.getElementById('packModal').classList.remove('hidden'); try{lucide.createIcons();}catch(_){}
+}
+function packClose(){ document.getElementById('packModal').classList.add('hidden'); }
+async function packRead(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return; document.getElementById('pack-fname').textContent=f.name;
+  try{
+    await GMTLazyLib.need('xlsx');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    let best=null;
+    wb.SheetNames.forEach(n=>{ const ws=wb.Sheets[n]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); const merges=(ws['!merges']||[]).map(m=>({r1:m.s.r,c1:m.s.c,r2:m.e.r,c2:m.e.c}));
+      const P=GMTPacking.parse(rows,merges); if(P.ok&&(!best||P.lines.length>best.P.lines.length)) best={P,sheet:n}; });
+    if(!best){ toast('لم أجد في الملف أعمدة الباكينج (عدد القطع · الوزن/البند الجمركي)','err'); return; }
+    const items=_pkItems(); const M=GMTPacking.autoMap(best.P.lines,items);
+    _PK={P:best.P,items,map:M.map,file:f.name,sheet:best.sheet};
+    packRender(); packCompute();
+  }catch(e){ toast('تعذّرت قراءة الملف: '+(e.message||e),'err'); }
+}
+function packRender(){
+  const {P,items,map}=_PK, opt=it=>it.map((x,i)=>'<option value="'+i+'">'+eh(x.name)+' ×'+x.qty+'</option>').join('');
+  const T=P.totals;
+  document.getElementById('pack-sum').innerHTML='📦 '+T.cartons+' كرتونة · '+T.pieces+' قطعة · '+T.kg+' كغ'+(T.cbm?' · '+T.cbm+' م³':'')+' · رسوم الباكينج '+T.duty+'$'+(T.dutyTotal!=null?' (إجماليّ الملف '+T.dutyTotal+'$)':'');
+  const used={}; map.forEach(a=>a.forEach(ii=>used[ii]=1));
+  const free=items.map((x,i)=>i).filter(i=>!used[i]&&!items[i].asset);
+  document.getElementById('pack-map').innerHTML='<table class="w-full text-[11px] border-collapse"><thead><tr class="bg-gray-100"><th class="p-1">كرتونة</th><th class="p-1 text-right">سطر الباكينج</th><th class="p-1">قطع</th><th class="p-1 text-right">بنود الفاتورة المطابقة</th></tr></thead><tbody>'+
+    P.lines.map((l,li)=>{ const q=map[li].reduce((s,ii)=>s+items[ii].qty,0), okq=map[li].length&&Math.abs(q-l.pieces)<0.001;
+      return '<tr class="border-b '+(map[li].length?(okq?'':'bg-amber-50'):'bg-red-50')+'"><td class="p-1 text-center font-black">'+l.ctn+'</td><td class="p-1">'+eh(l.desc||l.descAr)+'<div class="text-gray-400">'+eh(l.descAr&&l.desc?l.descAr:'')+'</div></td><td class="p-1 text-center">'+l.pieces+(map[li].length&&!okq?'<div class="text-amber-700">≠ '+q+'</div>':'')+'</td><td class="p-1">'+
+        map[li].map(ii=>'<span class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-800 rounded-full px-2 py-0.5 m-0.5">'+eh(items[ii].name)+' ×'+items[ii].qty+'<button onclick="packUnmap('+li+','+ii+')" class="text-red-500 font-black">×</button></span>').join('')+
+        '<select onchange="packMap('+li+',this.value)" class="border rounded p-0.5 text-[10px] max-w-[180px]"><option value="">+ بند…</option>'+free.map(i=>'<option value="'+i+'">'+eh(items[i].name)+' ×'+items[i].qty+'</option>').join('')+'</select></td></tr>'; }).join('')+
+    '</tbody></table>'+(free.length?'<div class="text-[11px] font-bold text-red-700 mt-1">⚠️ '+free.length+' بنداً غير مطابق: '+free.slice(0,8).map(i=>eh(items[i].name)).join('، ')+(free.length>8?'…':'')+' — يأخذ النقل/المحلّي فقط</div>':'');
+}
+function packMap(li,v){ if(v==='') return; const ii=+v; _PK.map.forEach(a=>{const k=a.indexOf(ii); if(k>=0)a.splice(k,1);}); _PK.map[li].push(ii); packRender(); packCompute(); }
+function packUnmap(li,ii){ const a=_PK.map[li], k=a.indexOf(ii); if(k>=0)a.splice(k,1); packRender(); packCompute(); }
+function packCompute(){
+  if(!_PK) return;
+  const n=id=>parseFloat(document.getElementById(id).value)||0, shipBy=document.getElementById('pack-shipby').value||undefined;
+  const A=GMTPacking.allocate(_PK.P,_PK.map,_PK.items,{customs:n('pack-c-customs'),ship:n('pack-c-ship'),transport:n('pack-c-other')},{shipBy});
+  _PK.A=A;
+  const rows=_PK.items.map((it,ii)=>{ const a=A.items[ii]; const cur=(d_items_ref[ii]?_costedOf(d_items_ref[ii]):null);
+    return '<tr class="border-b"><td class="p-1">'+eh(it.name)+(it.asset?' <span class="text-gray-400">(أصل)</span>':'')+'</td><td class="p-1 text-center">'+it.qty+'</td><td class="p-1 text-center">'+(it.orig_unit_price||0).toFixed(2)+'</td><td class="p-1 text-center">'+(a.customs/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.ship/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.other/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center font-black">'+(a.unit!=null?a.unit.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-400">'+(cur!=null?cur.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-500">'+a.kg+'</td><td class="p-1 text-[10px]">'+eh((a.codes||[]).join(' · '))+'</td></tr>'; }).join('');
+  document.getElementById('pack-res').innerHTML='<div class="text-xs font-black mb-1">الموزَّع: جمارك '+A.check.customs+'$ · شحن '+A.check.ship+'$ · أخرى '+A.check.other+'$ <span class="text-gray-400 font-bold">('+A.basis+')</span></div>'+
+    (A.warn.length?'<div class="text-[11px] text-amber-700 font-bold mb-1">'+A.warn.map(eh).join('<br>')+'</div>':'')+
+    '<table class="w-full text-[11px] border-collapse"><thead><tr class="bg-gray-100"><th class="p-1 text-right">البند</th><th>كمية</th><th>الأصلي</th><th>جمارك/قطعة</th><th>شحن/قطعة</th><th>أخرى/قطعة</th><th>الواصلة</th><th>الحالية</th><th>كغ</th><th>البند الجمركي</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  document.getElementById('pack-apply').disabled=false;
+}
+async function packApply(){
+  if(!_PK||!_PK.A) return;
+  if(!invEditMode) toggleInvEdit();
+  const n=id=>parseFloat(document.getElementById(id).value)||0;
+  /* (المالك seq A1021 «ترتيب الفاتورة حسب الباكينج ليست — الباركودات والقطعة بشكل علبة») ① الفاتورة تُرتَّب بالكراتين (كرتونة ١ ببنودها ثمّ ٢ …)
+     وكلّ بندٍ يحمل رقم كرتونته (ctn · ctn_of) ⇒ ورقة الباركودات تطبع كلّ كرتونة مجموعةً لحالها بالترتيب نفسه */
+  const nC=_PK.P.cartons.length, ord={}, A=_PK.A;
+  _PK.P.lines.forEach((l,li)=>(_PK.map[li]||[]).forEach((ii,j)=>{ if(ord[ii]==null) ord[ii]=l.ctn*10000+li*10+j; }));
+  const rows=(d_items_ref||[]).map((it,ii)=>({it,a:A.items[ii],k:ord[ii]!=null?ord[ii]:1e9+ii}));
+  rows.forEach(x=>{ if(ord[d_items_ref.indexOf(x.it)]!=null) x.it._raw=Object.assign({},x.it._raw||{},{ctn:Math.floor(x.k/10000),ctn_of:nC}); });
+  /* ② الختم **قبل** إعادة البناء (إعادة البناء تُنشئ البنود من جديد): مجموع التكاليف = الحاليّة مع الجمارك والشحن المستعملين في التوزيع */
+  const g=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||'0').replace(/[^\d.-]/g,''))||0;};
+  const tot=g('ct')+g('cl')+g('cx')+n('pack-c-customs')+n('pack-c-ship'), src=_PK.file+' · '+new Date().toISOString().slice(0,10)+' · محرّك الباكينج';
+  let k=0;
+  rows.forEach(x=>{ if(!x.a||x.a.unit==null||(x.it._raw&&x.it._raw.asset)) return; x.it._raw=GMTPacking.stamp(x.it._raw||{},x.a,src,A.basis,tot); k++; });
+  rows.sort((a,b)=>a.k-b.k);
+  d_items_ref.splice(0,d_items_ref.length,...rows.map(x=>x.it));
+  try{ _invRebuild(); }catch(e){ console.warn('[pack] rebuild',e); }
+  /* ③ التكاليف المستعملة تُكتب في الفاتورة بعد إعادة البناء */
+  const setF=(f,v)=>{const el=document.querySelector('#invPage [data-field="'+f+'"]'); if(el&&v) el.textContent=String(v);};
+  setF('cc',n('pack-c-customs')); setF('cs',n('pack-c-ship'));
+  if(!invEditMode) toggleInvEdit();
+  packClose();
+  toast('📦 رُتّبت الفاتورة بالكراتين ('+nC+') وحُسبت الكلفة الواصلة لـ'+k+' بنداً — راجعها ثمّ «حفظ التعديلات»','ok');
+  try{ _applyPriceView(); }catch(_){}
+}
 function openInvForEdit(id){
   openInvFromList(id);
   if(!invEditMode){ try{ toggleInvEdit(); }catch(_){} }
@@ -6312,7 +6423,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261123f"></script>
+<script src="gmt-whatsnew.js?v=20261123g"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
