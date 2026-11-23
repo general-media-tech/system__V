@@ -75,6 +75,7 @@
   <select id="lay"></select>
   <select id="grp" hidden><option value="flow">الكراتين متتالية بفاصل</option><option value="page">كلّ كرتونة بورقة جديدة</option></select>
   <button onclick="window.print()">🖨️ طباعة</button>
+  <button id="pm" title="طباعة مباشرة على طابعة الملصقات الحراريّة (Phomemo M110 · بلوتوث) — الباركود وسط الملصق بلا خطوط قصّ">📶 طابعة الملصقات</button>
 </div>
 <div id="pages"></div>
 <script src="${base}lib/JsBarcode.all.min.js?v=20261003"><\/script>
@@ -132,6 +133,13 @@
     });
   }
   sel.onchange = function () { try { localStorage.setItem('gmt_labels_layout', sel.value); } catch (e) {} draw(); }; grp.onchange = draw;
+  /* (TASK-A0586 · المالك seq A1023) الملصقات نفسها مباشرةً على الطابعة الحراريّة (كلّ منتج بعدد نسخه) */
+  document.getElementById('pm').onclick = function () {
+    var agg = {}, order = []; L.forEach(function (x) { var k = x.barcode + '|' + x.name; if (!agg[k]) { agg[k] = { name: x.name, barcode: x.barcode, qty: 0 }; order.push(k); } agg[k].qty++; });
+    var go = function () { window.GMTPhomemo.open(order.map(function (k) { return agg[k]; }), { base: '${base}' }); };
+    if (window.GMTPhomemo) return go();
+    var s = document.createElement('script'); s.src = '${base}gmt-phomemo.js?v=20261124a'; s.onload = go; document.head.appendChild(s);
+  };
   if (window.JsBarcode) draw(); else window.addEventListener('load', draw);
 })();
 <\/script></body></html>`;

@@ -2325,7 +2325,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 <script src="gmt-product-edit.js?v=20261110b" defer></script>
 <script src="gmt-enrich-queue.js?v=20261104l"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-labels.js?v=20261123b"></script>
+  <script src="gmt-labels.js?v=20261124b"></script>
 <script src="gmt-staff.js?v=20261123b"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -7244,6 +7244,14 @@ try { if (window.GMTRole) window.GMTRole.onRepaint(function () { if (typeof rend
 /* 🏷️ زرُّ الباركود المستقلّ — عرضٌ كبير وواضح وطباعةٌ مباشرة.
    JsBarcode محمّلةٌ أصلاً في هذه الصفحة؛ وإن غابت نعرض الرقم نصّاً كبيراً
    بدل نافذةٍ فارغة (لا نُخفي الفشل). */
+/* (TASK-A0586 · المالك seq A1023) «اطبع لي خمس باركودات لهذا المنتج … فوراً على الطابعة» — Phomemo M110 عبر البلوتوث (gmt-phomemo.js) */
+function invPhomemo(id) {
+  var p = (allProducts || []).find(function (x) { return String(x.id) === String(id); }); if (!p || !p.barcode) return;
+  var go = function () { var o = document.getElementById('bc-overlay'); if (o) o.remove(); GMTPhomemo.open([{ name: p.name || '', barcode: p.barcode, qty: 1 }]); };
+  if (window.GMTPhomemo) return go();
+  var s = document.createElement('script'); s.src = 'gmt-phomemo.js?v=20261124a'; s.onload = go; s.onerror = function () { showToast('تعذّر تحميل الطابعة', 'error'); }; document.head.appendChild(s);
+}
+window.invPhomemo = invPhomemo;
 async function openBarcodeFor(id) {
   var p = (allProducts || []).find(function (x) { return String(x.id) === String(id); });
   if (!p) { showToast('المنتج غير موجود', 'error'); return; }
@@ -7269,6 +7277,7 @@ async function openBarcodeFor(id) {
       '<div dir="ltr" style="font-family:ui-monospace,monospace;font-size:15px;font-weight:800;letter-spacing:2px;color:#0f172a;">' + escHtml(code) + '</div>' +
       '<div style="display:flex;gap:8px;margin-top:14px;">' +
         '<button onclick="printBarcodeBox()" style="flex:1;padding:10px;border:0;border-radius:10px;background:#D5001C;color:#fff;font-weight:800;font-family:inherit;cursor:pointer;">طباعة</button>' +
+        '<button onclick="invPhomemo(\'' + escHtml(String(p.id)) + '\')" title="طباعة مباشرة على طابعة الملصقات الحراريّة (Phomemo M110 · بلوتوث) — اختر العدد" style="flex:1;padding:10px;border:0;border-radius:10px;background:#0f172a;color:#fff;font-weight:800;font-family:inherit;cursor:pointer;">📶 طابعة الملصقات</button>' +
         '<button onclick="document.getElementById(\'bc-overlay\').remove()" style="flex:1;padding:10px;border:0;border-radius:10px;background:#f1f5f9;color:#475569;font-weight:800;font-family:inherit;cursor:pointer;">إغلاق</button>' +
       '</div>' +
     '</div>';
@@ -16936,7 +16945,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261124a"></script>
+<script src="gmt-whatsnew.js?v=20261124b"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
