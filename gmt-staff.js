@@ -265,6 +265,23 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     }
   } catch (_) {}
   document.addEventListener('visibilitychange', function () { if (document.hidden) openCount++; });
+  /* (seq 978) «صوّر المنتج / العلبة» يفتح منتقي الملفّات/الكاميرا — نافذة النظام لا تغيّر الصفحة ⇒ كانت تُسجَّل «زرّ بلا أثر».
+     صيد النمط: كلّ فتحٍ لمنتقي ملفّ (input[type=file].click/showPicker) أو للكاميرا (getUserMedia) يُعدّ أثراً. */
+  try {
+    var IP = HTMLInputElement.prototype;
+    ['click', 'showPicker'].forEach(function (m) {
+      var orig = IP[m];
+      if (typeof orig !== 'function' || orig.__gmtWrapped) return;
+      IP[m] = function () { if (this.type === 'file' || this.type === 'date' || this.type === 'color') openCount++; return orig.apply(this, arguments); };
+      IP[m].__gmtWrapped = true;
+    });
+    var md = navigator.mediaDevices;
+    if (md && md.getUserMedia && !md.getUserMedia.__gmtWrapped) {
+      var gum = md.getUserMedia.bind(md);
+      md.getUserMedia = function () { openCount++; return gum.apply(null, arguments); };
+      md.getUserMedia.__gmtWrapped = true;
+    }
+  } catch (_) {}
   /* إظهار صندوقٍ بخاصّيّة hidden أو تبديل صنف لا يغيّر طول الـHTML إلا قليلاً (< 12) ⇒ «إنشاء في المتجر» و«‹ ›» كانت تُسجَّل ميتة. نعدّ تغيّرات DOM المرئية. */
   var mutCount = 0;
   try { new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var t = ms[i].target; if (!(t && t.closest && t.closest('#gmt-bug-panel,#gmt-inspect-panel'))) { mutCount++; return; } } })

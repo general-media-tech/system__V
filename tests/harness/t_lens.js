@@ -1,5 +1,5 @@
 // (TASK-A0576 · المالك seq 974) «عدسة GMT» — صوّر المنتج/العلبة ⇒ أقرب منتجاتنا في الجرد (لا غوغل) ⇒ يُفتح سطره في الجرد
-//  ① العقل يقرأ ما على العلبة ⇒ الترتيب بالأسماء البديلة والموديل ⇒ العقل يقارن الصور ويختار ⇒ «🎯» على الصحيح
+//  (A0580) المطابقة المحلّية أوّلاً؛ «🤖 اسأل العقل» اختياريّ — ثمّ ① العقل يقرأ ما على العلبة ⇒ الترتيب بالأسماء البديلة والموديل ⇒ العقل يقارن الصور ويختار ⇒ «🎯» على الصحيح
 //  ② «هذا هو» ⇒ سطره في جرد نقطة البيع والمؤشّر في خانة العدد   ③ الأدمن: ما على العلبة يُضاف لأسمائه البديلة (بلا تكرار)
 //  ④ بالكتابة وحدها (بلا صورة): «BWX169» ⇒ بطارية أفاتا أوّلاً
 const H = require('./h.js');
@@ -24,9 +24,11 @@ const IMG = '/img/p/catalog/f88a9047-1532-41f7-96ee-29dacae1ff3d/07c75432802b.jp
   await pg.evaluate(() => { GMTRole.grant('المالك'); try { localStorage.removeItem('gmt_stockcount_' + branch.key); } catch (_) {} openStockCount(); }); await sleep(1200);
   await pg.waitForFunction(() => !!window.GMTLens, null, { timeout: 8000 });
   // ①
-  await pg.evaluate(() => scOpenLens()); await sleep(300);
+  await pg.evaluate(() => scOpenLens()); await pg.waitForFunction(() => { const r = document.getElementById('gmt-lens'); return r && r.hasAttribute('data-ready'); }, null, { timeout: 90000 });
   await pg.setInputFiles('#gmt-lens [data-file]', require('path').join(__dirname, '../..', IMG));
-  await pg.waitForSelector('#gmt-lens .it', { timeout: 15000 }); await sleep(2500);
+  await pg.waitForSelector('#gmt-lens .it', { timeout: 60000 });
+  ok(calls.length === 0, '⓪ (seq 979) المطابقة محلّية أوّلاً — لا نداء للعقل قبل «🤖 اسأل العقل»');
+  await pg.click('#gmt-lens [data-ai]'); await pg.waitForFunction(() => /اختار العقل|اختر المنتج|لم يجب/.test(document.querySelector('#gmt-lens [data-st]').innerText), null, { timeout: 20000 }); await sleep(300);
   const s1 = await pg.evaluate(() => ({ read: (document.querySelector('#gmt-lens [data-read]') || {}).innerText || '', items: [...document.querySelectorAll('#gmt-lens .it')].map(x => ({ best: x.classList.contains('best'), t: x.querySelector('.nm').innerText })), st: document.querySelector('#gmt-lens [data-st]').innerText, learn: !!document.querySelector('#gmt-lens [data-learn]') }));
   ok(/Avata 2 Fly More Combo/.test(s1.read), '① العقل قرأ ما على العلبة: ' + s1.read.replace(/\s+/g, ' ').slice(0, 80));
   ok(s1.items.length >= 2 && /Avata 2/.test(s1.items[0].t) && s1.items[0].best, '① الأقرب أوّلاً و«🎯» عليه (اختيار العقل بالصور): ' + s1.items.map(x => (x.best ? '🎯' : '') + x.t.slice(0, 30)).join(' | '));

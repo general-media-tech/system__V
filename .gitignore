@@ -7,3 +7,4 @@ tests/harness/rfq_*.xlsx
 
 # نسخ عمل مؤقّتة للوكلاء — لا تُحفظ
 .claude/worktrees/
+.lens_raw/

@@ -1,12 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   gmt-lens.js — «عدسة GMT»: صوّر المنتج أو علبته ⇒ أقرب منتجاتنا في الجرد (TASK-A0576 · المالك seq 974)
-   «مثل عدسة جوجل — أفتحها وأصوّر المنتج — لكن شغلتها ما تبحث على جوجل، تبحث في السيستم عندنا من خلال الكتابة أو الأسماء،
-    يشتغلها العقل، يعطيني أقرب المطابقات لأعرف شو اسم هذا المنتج على الجرد» — للجرد: بضاعة بلا باركود واسمها على العلبة غير اسمها في الجرد.
-   ① العقل يقرأ ما على المنتج/العلبة (gmt-vision): الماركة · الموديل · الاسم المكتوب · كلّ نصّ ظاهر
-   ② البحث في الجرد بالقراءة: الأسماء · الأسماء البديلة · الموديل · التوافق (gmt-match · gmt-suggest) — أو بما تكتبه أنت
-   ③ العقل يقارن صورتك بصور أقرب المرشّحين (gmt-match.vision) ويرتّب
-   ④ تختار المنتج ⇒ اسمه على العلبة يُضاف إلى «أسمائه البديلة» (للأدمن) ⇒ المرّة القادمة يُعرف مباشرةً
-   GMTLens.open({ products: () => [...], branchKey, onPick(p, info), learn: async (p, names) => bool })
+   gmt-lens.js — «عدسة GMT 2.0»: وجّه الكاميرا على المنتج أو علبته ⇒ أقرب منتجاتنا فوراً (TASK-A0576 · A0580 · المالك seq 974 · 979–981 · 998 · 1001)
+   «فوراً تعمل الالتقاط وتبحث فوراً … ما يكون فيها ذكاء اصطناعي ولا خادم ولا مفتاح … بوت مدرّب من عندنا … مثل عدسة جوجل
+    بس بدل ما ياخذ من جوجل ياخذ من المخزون اللي عندنا» · «لما اصوّر المنتج يقترح لي أكثر من منتج لحتى أختار»
+   ─────────────────────────────────────────────────────────────────────────────
+   ① الكاميرا حيّة داخل النافذة — الاقتراحات تتبدّل وأنت توجّه (كلّ ~٠٫٨ث) — بلا ضغط
+   ② «📸 التقط» يثبّت اللقطة ⇒ أفضل ٥ فوراً من «العين المحلّية» (gmt-lens-local.js) + الباركود إن ظهر
+   ③ قراءة الكتابة على العلبة (OCR محلّي) بالخلفية ⇒ يعيد الترتيب حين تنتهي (الموديل المطبوع أقوى دليل)
+   ④ «🤖 اسأل العقل» اختياري فقط — حين لا تكفي المطابقة المحلّية (gmt-vision)
+   ⑤ «هذا هو» ⇒ اللقطة تُحفظ عيّنةً للمنتج (يتعلّم) + للأدمن: الموديل المقروء يُضاف لأسمائه البديلة
+   GMTLens.open({ products: () => [...], branchKey, onPick(p, info), learn: async (p, names) => bool, isAdmin, by })
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -17,30 +19,25 @@
     try { var u = global.GMT_DB && GMT_DB.MAIN && GMT_DB.MAIN.url; if (u) return String(u).replace(/\/+$/, '') + '/functions/v1/gmt-vision'; } catch (_) {}
     return 'https://ysawzwtmodkqqbqoiojj.supabase.co/functions/v1/gmt-vision';
   }
-  function needMatch() {
-    if (global.GMTMatch) return Promise.resolve(true);
-    return new Promise(function (res) {
-      var s = doc.createElement('script'); s.src = 'gmt-match.js?v=20261122y'; s.onload = function () { res(!!global.GMTMatch); }; s.onerror = function () { res(false); }; doc.head.appendChild(s);
-    });
+  function loadOnce(name, src) {
+    if (global[name]) return Promise.resolve(true);
+    return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
-  function shrink(file) {
+  function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
+  function needLocal() { return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123b'); }
+  function fileToCanvas(file) {
     return new Promise(function (res) {
-      var fr = new FileReader();
-      fr.onload = function () {
-        var im = new Image();
-        im.onload = function () {
-          var m = 1280, s = Math.min(1, m / Math.max(im.naturalWidth, im.naturalHeight)), c = doc.createElement('canvas');
-          c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
-          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
-          res(c.toDataURL('image/jpeg', 0.85));
-        };
-        im.onerror = function () { res(String(fr.result || '')); };
-        im.src = fr.result;
+      var u = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        var m = 1280, s = Math.min(1, m / Math.max(im.naturalWidth, im.naturalHeight)), c = doc.createElement('canvas');
+        c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c);
       };
-      fr.onerror = function () { res(''); };
-      fr.readAsDataURL(file);
+      im.onerror = function () { URL.revokeObjectURL(u); res(null); };
+      im.src = u;
     });
   }
+  /* ── العقل (اختياري): يقرأ ما على المنتج ── */
   var RSYS = 'أنت تقرأ صورة منتجٍ من محلّ تصوير (كاميرا · عدسة · درون · بطارية · شاحن · إضاءة · مايك · ستاند · حقيبة · كفر · فلتر · إكسسوار) أو صورة علبته. ' +
     'اقرأ **كلّ ما هو مكتوب** على المنتج أو العلبة حرفياً (الماركة · اسم المنتج · رقم الموديل · السعة · المقاس · التوافق) وصف نوع المنتج. لا تخترع ما لا يظهر.';
   var RQ = 'أعد JSON فقط: {"brand":"","product_type":"نوع المنتج بالعربية","name_on_box":"الاسم كما هو مكتوب","model":"رقم/اسم الموديل",' +
@@ -56,17 +53,17 @@
     if (!Array.isArray(o.texts)) o.texts = [];
     return o;
   }
-  /* الترتيب: مطابقة العقل العميقة (gmt-match) + إصابات gmt-suggest بأيّ اسم */
+  /* الترتيب بالنصّ (المكتوب أو ما قرأه العقل): gmt-match + gmt-suggest */
   function rankBy(read, typed, list) {
     var M = global.GMTMatch, SG = global.GMTSuggest;
-    var words = [read && read.name_on_box, read && read.model, read && read.query, read && read.compat, read && read.arabic_name, typed].concat(read ? read.texts.slice(0, 12) : []).filter(Boolean);
+    var words = [read && read.name_on_box, read && read.model, read && read.query, read && read.compat, read && read.arabic_name, typed].concat(read ? (read.texts || []).slice(0, 12) : []).filter(Boolean);
     var src = { name: (read && (read.name_on_box || read.query)) || typed || '', alt_names: words.join(' '), brand: (read && read.brand) || '', model: (read && read.model) || '' };
     var R = M && M.rank ? M.rank(src, list) : list.map(function (x) { return { item: x, score: 0 }; });
     var q = String((read && (read.model || read.query)) || typed || '').trim().toLowerCase();
     R.forEach(function (r) {
       var p = r.item;
       if (q && SG && SG.hitsProduct) { try { if (SG.hitsProduct(q, p)) r.score += 0.25; } catch (_) {} }
-      if (q && p.barcode && String(p.barcode) === q) r.score += 1;
+      if (q && p.barcode && String(p.barcode).toLowerCase() === q) r.score += 1;
     });
     return R.sort(function (a, b) { return b.score - a.score; }).filter(function (r) { return r.score > 0.05; }).slice(0, 8);
   }
@@ -75,93 +72,300 @@
     var s = doc.createElement('style'); s.id = 'gmt-lens-css';
     s.textContent = '#gmt-lens{position:fixed;inset:0;z-index:2147482900;background:rgba(15,18,25,.6);display:flex;align-items:flex-end;justify-content:center;font-family:Cairo,Tahoma,sans-serif;direction:rtl}' +
       '@media(min-width:700px){#gmt-lens{align-items:center}}' +
-      '#gmt-lens .bx{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px}@media(min-width:700px){#gmt-lens .bx{border-radius:18px}}' +
-      '#gmt-lens h3{margin:0 0 4px;font-size:16px}#gmt-lens .sub{font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.7}' +
+      '#gmt-lens .bx{background:#fff;width:100%;max-width:560px;max-height:94vh;overflow:auto;border-radius:18px 18px 0 0;padding:12px}@media(min-width:700px){#gmt-lens .bx{border-radius:18px}}' +
+      '#gmt-lens h3{margin:0;font-size:15px}#gmt-lens .sub{font-size:11.5px;color:#64748b;margin:2px 0 8px;line-height:1.6}' +
       '#gmt-lens .row{display:flex;gap:8px;margin-bottom:8px}#gmt-lens button{font-family:inherit;font-weight:800;border-radius:10px;border:1.5px solid #d1d5db;background:#fff;padding:9px 12px;cursor:pointer;font-size:13px}' +
-      '#gmt-lens button.p{background:#D5001C;border-color:#D5001C;color:#fff}#gmt-lens input[type=text]{flex:1;font-family:inherit;font-size:13px;border:1.5px solid #d1d5db;border-radius:10px;padding:9px}' +
-      '#gmt-lens .st{font-size:12.5px;font-weight:800;color:#0f766e;margin:6px 0}#gmt-lens .rd{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-size:12px;line-height:1.7;margin-bottom:8px}' +
-      '#gmt-lens .shot{max-width:100%;max-height:180px;border-radius:10px;display:block;margin:0 auto 8px}' +
-      '#gmt-lens .it{display:flex;gap:10px;align-items:center;border:1.5px solid #e5e7eb;border-radius:12px;padding:8px;margin-bottom:6px}#gmt-lens .it.best{border-color:#16a34a;background:#f0fdf4}' +
-      '#gmt-lens .it img{width:54px;height:54px;object-fit:contain;border-radius:8px;background:#f8fafc;flex-shrink:0}#gmt-lens .it .nm{font-size:13px;font-weight:800;line-height:1.4}' +
+      '#gmt-lens button.p{background:#D5001C;border-color:#D5001C;color:#fff}#gmt-lens input[type=text]{flex:1;min-width:0;font-family:inherit;font-size:13px;border:1.5px solid #d1d5db;border-radius:10px;padding:9px}' +
+      '#gmt-lens .cam{position:relative;background:#0b0d12;border-radius:14px;overflow:hidden;aspect-ratio:4/3;max-height:40vh;margin:0 auto 8px;width:100%}' +
+      '#gmt-lens .cam video,#gmt-lens .cam canvas,#gmt-lens .cam img{width:100%;height:100%;object-fit:cover;display:block}' +
+      '#gmt-lens .cam .guide{position:absolute;inset:10% 14%;border:2.5px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.18);pointer-events:none}' +
+      '#gmt-lens .cam .msg{position:absolute;inset:auto 0 8px 0;text-align:center;color:#fff;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000}' +
+      '#gmt-lens .shut{width:100%;font-size:15px;padding:11px}' +
+      '#gmt-lens .st{font-size:12px;font-weight:800;color:#0f766e;margin:4px 0;min-height:16px}#gmt-lens .rd{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:7px 9px;font-size:12px;line-height:1.7;margin-bottom:6px}' +
+      '#gmt-lens .it{display:flex;gap:10px;align-items:center;border:1.5px solid #e5e7eb;border-radius:12px;padding:7px;margin-bottom:6px}#gmt-lens .it.best{border-color:#16a34a;background:#f0fdf4}' +
+      '#gmt-lens .it img{width:58px;height:58px;object-fit:contain;border-radius:8px;background:#f8fafc;flex-shrink:0}#gmt-lens .it .nm{font-size:13px;font-weight:800;line-height:1.4}' +
       '#gmt-lens .it .mt{font-size:11px;color:#64748b}#gmt-lens .it .go{margin-inline-start:auto;flex-shrink:0;background:#16a34a;border-color:#16a34a;color:#fff}' +
-      '#gmt-lens .why{font-size:11.5px;color:#166534;font-weight:700;margin-top:2px}#gmt-lens label.lrn{display:flex;gap:6px;align-items:flex-start;font-size:12px;font-weight:700;margin:8px 0;color:#334155}';
+      '#gmt-lens .bd{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 7px;margin-inline-end:4px;background:#eef2ff;color:#3730a3}#gmt-lens .bd.bc{background:#dcfce7;color:#166534}#gmt-lens .bd.tx{background:#fef3c7;color:#92400e}' +
+      '#gmt-lens .why{font-size:11.5px;color:#166534;font-weight:700;margin-top:2px}#gmt-lens label.lrn{display:flex;gap:6px;align-items:flex-start;font-size:12px;font-weight:700;margin:8px 0;color:#334155}' +
+      '#gmt-lens .tools{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}#gmt-lens .tools button{font-size:12px;padding:7px 10px}';
     doc.head.appendChild(s);
   }
-  function close() { var o = doc.getElementById('gmt-lens'); if (o) o.remove(); }
+  var LIVE = null;
+  function close() {
+    if (LIVE) { try { clearInterval(LIVE.timer); } catch (_) {} try { LIVE.stream && LIVE.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {} LIVE = null; }
+    var o = doc.getElementById('gmt-lens'); if (o) o.remove();
+  }
+  /* الموديل المطبوع على العلبة (حروف + أرقام) — وحده يُتعلَّم اسماً بديلاً، لا كلّ ما قرأه OCR */
+  function modelWords(words) {
+    return (words || []).filter(function (w) { return w.length >= 4 && w.length <= 24 && /[A-Za-z]/.test(w) && /\d/.test(w); }).slice(0, 3);
+  }
 
   async function open(ctx) {
     ctx = ctx || {}; css(); close();
-    var list = (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || [];
+    function freshList() { try { return (typeof ctx.products === 'function' ? ctx.products() : ctx.products) || []; } catch (_) { return []; } }
+    var list = freshList();   /* يُعاد قراءتها عند كلّ لقطة — المنتجات قد تكتمل بعد فتح العدسة */
     var root = doc.createElement('div'); root.id = 'gmt-lens'; root.setAttribute('role', 'dialog'); root.setAttribute('data-keep-fab', '1');
-    root.innerHTML = '<div class="bx"><div style="display:flex;align-items:center;gap:8px"><h3 style="flex:1">🔍 عدسة GMT — ما اسم هذا المنتج عندنا؟</h3><button type="button" data-x aria-label="إغلاق">✕</button></div>' +
-      '<div class="sub">صوّر المنتج أو علبته — العقل يقرأ ما عليها ويبحث في <b>جردنا نحن</b> (الأسماء · الأسماء البديلة · الموديل · الصور) ويعطيك أقرب المطابقات.</div>' +
-      '<div class="row"><button type="button" class="p" data-shot style="flex:1">📸 صوّر المنتج / العلبة</button><input type="file" accept="image/*" capture="environment" data-file hidden></div>' +
-      '<div class="row"><input type="text" data-q placeholder="أو اكتب ما على العلبة (اسم · موديل · رقم)…"><button type="button" data-find>بحث</button></div>' +
-      '<div data-img></div><div class="st" data-st></div><div data-read></div><div data-res></div></div>';
+    root.innerHTML = '<div class="bx"><div style="display:flex;align-items:center;gap:8px"><h3 style="flex:1">🔍 عدسة GMT — ما هذا المنتج عندنا؟</h3><button type="button" data-x aria-label="إغلاق">✕</button></div>' +
+      '<div class="sub">وجّه الكاميرا على المنتج أو علبته داخل الإطار — الاقتراحات من <b>صور منتجاتنا نحن</b> على الجهاز مباشرةً (بلا إنترنت ولا ذكاء اصطناعي).</div>' +
+      '<div class="cam" data-cam><div class="guide"></div><div class="msg" data-cmsg>…</div></div>' +
+      '<div class="row"><button type="button" class="p shut" data-snap>📸 التقط</button></div>' +
+      '<div class="row"><button type="button" data-shot style="flex:1">🖼️ صورة من الجهاز</button><input type="file" accept="image/*" capture="environment" data-file hidden>' +
+      '<button type="button" data-again hidden style="flex:1">🔄 لقطة جديدة</button></div>' +
+      '<div class="row"><input type="text" data-q placeholder="أو اكتب ما على العلبة (اسم · موديل · باركود)…"><button type="button" data-find>بحث</button></div>' +
+      '<div class="st" data-st></div><div data-read></div><div data-type></div><div data-res></div>' +
+      '<div class="tools" data-tools hidden><button type="button" data-ai>🤖 اسأل العقل (اختياري)</button></div>' +
+      '<div class="tools"><button type="button" data-learnq hidden>🧠 تعلّمات الموظّفين تنتظر اعتمادك</button></div><div data-lq></div></div>';
     doc.body.appendChild(root);
     var $ = function (s) { return root.querySelector(s); };
-    var S = { read: null, shot: '', typed: '' };
+    var S = { read: null, shot: null, typed: '', vec: null, words: [], code: '', vis: [], frozen: false, scope: null };
+    root._S = S;   /* للفحص الآليّ */
     $('[data-x]').onclick = close;
     root.addEventListener('click', function (e) { if (e.target === root) close(); });
     $('[data-shot]').onclick = function () { $('[data-file]').click(); };
     function st(t) { $('[data-st]').textContent = t || ''; }
-    function paintRead() {
-      var r = S.read; if (!r) { $('[data-read]').innerHTML = ''; return; }
-      $('[data-read]').innerHTML = '<div class="rd">🤖 <b>قرأ العقل:</b> ' + esc([r.brand, r.name_on_box, r.model].filter(Boolean).join(' · ') || '—') +
-        (r.product_type ? '<br>النوع: ' + esc(r.product_type) : '') + (r.compat ? '<br>التوافق: ' + esc(r.compat) : '') +
-        (r.texts && r.texts.length ? '<br><span style="color:#64748b">' + esc(r.texts.slice(0, 6).join(' · ')) + '</span>' : '') + '</div>';
+    function cmsg(t) { var m = $('[data-cmsg]'); if (m) m.textContent = t || ''; }
+    var L = null, ready = false, camNote = '';
+
+    /* ── الترتيب المحلّي الموحّد: صورة + كتابة + باركود ── */
+    function combined() {
+      var by = new Map(), LL = global.GMTLensLocal;
+      function row(p) { var k = String(p.id); if (!by.has(k)) by.set(k, { item: p, vis: 0, txt: 0, bc: false, score: 0 }); return by.get(k); }
+      (S.vis || []).forEach(function (r) { row(r.item).vis = r.vis; });
+      if (S.code) { var lc = S.code.toLowerCase(); list.forEach(function (p) { if (p.barcode && String(p.barcode).toLowerCase() === lc) row(p).bc = true; }); }
+      if (S.words.length && LL) list.forEach(function (p) { var t = LL.textScore(S.words, p); if (t > 0) row(p).txt = t; });
+      if (S.typed || S.read) rankBy(S.read, S.typed, list).forEach(function (r) { var x = row(r.item); x.txt = Math.max(x.txt, Math.min(1, r.score)); });
+      if (S.scope) {                                     /* «📂 النوع» و«🔗 متوافق مع»: كلّ منتجات النوع (أو ما يركب) مرتّبةً بشبه الصورة */
+        var pool = list.filter(function (p) { return (!S.scope.cat || typeKey(p) === S.scope.cat) && (!S.scope.compat || compatHit(p, S.scope.compat)); });
+        var vv = S.vec && LL ? LL.search(S.vec, pool, 60) : [];
+        pool.forEach(function (p) { row(p); }); vv.forEach(function (r) { row(r.item).vis = r.vis; });
+        var keep = {}; pool.forEach(function (p) { keep[String(p.id)] = 1; });
+        var RS = Array.from(by.values()).filter(function (x) { return keep[String(x.item.id)]; });
+        RS.forEach(function (x) { x.score = x.vis + 0.5 * x.txt + (x.bc ? 2 : 0) + 0.001; });
+        return RS.sort(function (a, b) { return b.score - a.score; }).slice(0, 14);
+      }
+      var R = Array.from(by.values());
+      R.forEach(function (x) { x.score = x.vis + 0.5 * x.txt + (x.bc ? 2 : 0); });
+      return R.sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return x.score > 0.05 || x.vis > -0.3 && S.vec; }).slice(0, 5);   /* اقتراحات الصورة تُعرض ولو ضعيفة — الخيار للموظّف */
     }
-    function paintRes(R, pick) {
-      if (!R.length) { $('[data-res]').innerHTML = '<div class="rd" style="color:#b45309">لا منتج قريب في الجرد — جرّب صورةً أوضح للكتابة أو اكتب الموديل. إن لم يكن معرَّفاً فهو منتجٌ جديد يُعرَّف (دستور المنتجات §٥).</div>'; return; }
+    /* ── النوع: حين لا تعرف العين الموديل (قشاط · كفر · سوفت بوكس) تعرف النوع ⇒ كلّ منتجاته لتختار (seq 1002) ── */
+    function typeKey(p) { return String(p.cat_sub || p.group_name || p.category || '').trim(); }
+    function typeGuess() {
+      var w = {}, tot = 0;
+      (S.vis || []).slice(0, 8).forEach(function (r, i) { var k = typeKey(r.item); if (!k) return; var x = Math.max(0, r.vis) * (1 - i * 0.06); w[k] = (w[k] || 0) + x; tot += x; });
+      var best = '', bw = 0; for (var k in w) if (w[k] > bw) { bw = w[k]; best = k; }
+      return best && tot ? { cat: best, share: bw / tot, n: list.filter(function (p) { return typeKey(p) === best; }).length } : null;
+    }
+    /* ── التوافق: «لأيّ كاميرا/عدسة؟» ⇒ دليل التوافقيات (GMTCompatKB) + ما كُتب في التوافق والأسماء (seq 1002 «طوّر البحث بالتوافقيات») ── */
+    var KW = { battery: 'بطارية', charger: 'شاحن', grip: 'قبضة', hood: 'هود', cap: 'غطاء', filter: 'فلتر', flash: 'فلاش', trigger: 'تريغر', adapter: 'محول', mic: 'مايك' };
+    function norm(s) { return String(s == null ? '' : s).toLowerCase().replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); }).replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
+    function compatHit(p, q) {
+      var KB = global.GMTCompatKB, nm = [p.name, p.alt_names].filter(Boolean).join(' ');
+      if (KB && KB.resolve && KB.intentHit && KB.kindOf) {
+        var kd = KB.kindOf(nm + ' ' + (p.group_name || ''));
+        if (KW[kd]) { try { var it = KB.resolve(KW[kd] + ' ' + q); if (it && KB.intentHit(p, it)) return true; } catch (_) {} }
+      }
+      var hay = norm([nm, p.compat, p.search_terms, KB && KB.fitsFor ? KB.fitsFor(p) : ''].filter(Boolean).join(' '));
+      var glued = hay.replace(/([a-z])[\s\-]+(?=\d)/g, '$1').replace(/[\-_.\/]+/g, '');
+      var toks = norm(q).split(/[\s,،]+/).filter(Boolean);
+      return toks.length > 0 && toks.every(function (w) {
+        var f = w.replace(/[\-_.\/]+/g, '');
+        if (/\d/.test(f) && /[a-z]/.test(f)) return new RegExp('(^|[^a-z0-9])' + f + '($|[^a-z0-9])').test(glued);   /* الكود بالمساواة: R5 ≠ R50 */
+        if (/^\d+$/.test(f)) return new RegExp('(^|[^0-9])' + f + '($|[^0-9])').test(hay);
+        return hay.indexOf(w) >= 0;
+      });
+    }
+    function paintType() {
+      var box = $('[data-type]'); if (!box) return;
+      if (!S.frozen || !S.vec) { box.innerHTML = ''; return; }
+      var g = S.scope ? { cat: S.scope.cat } : typeGuess();
+      box.innerHTML = '<div class="rd" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">' +
+        (S.scope && S.scope.cat ? '<b>📂 كلّ «' + esc(S.scope.cat) + '»</b><button type="button" data-unscope style="font-size:11.5px;padding:4px 8px">✕ رجوع لأقرب ٥</button>'
+          : g && g.cat ? '<span>📂 النوع المحتمل: <b>' + esc(g.cat) + '</b></span><button type="button" data-scope style="font-size:11.5px;padding:4px 8px">اعرض كلّ هذا النوع (' + g.n + ')</button>' : '') +
+        (S.scope && !S.scope.cat && S.scope.compat ? '<button type="button" data-unscope style="font-size:11.5px;padding:4px 8px">✕ رجوع لأقرب ٥</button>' : '') +
+        '<span style="flex-basis:100%;height:0"></span><input type="text" data-compat placeholder="🔗 متوافق مع… (R50 · 18-55 · LP-E17)" value="' + esc(S.scope && S.scope.compat || '') + '" style="flex:1;min-width:140px;font-size:12.5px;padding:6px 8px">' +
+        '<button type="button" data-compat-go style="font-size:11.5px;padding:5px 9px">فلترة</button></div>';
+      var sc = box.querySelector('[data-scope]'); if (sc) sc.onclick = function () { S.scope = { cat: g.cat, compat: '' }; paint(false); };
+      var un = box.querySelector('[data-unscope]'); if (un) un.onclick = function () { S.scope = null; paint(false); };
+      var go = box.querySelector('[data-compat-go]'), ci = box.querySelector('[data-compat]');
+      go.onclick = async function () {
+        var q = ci.value.trim();
+        if (q) await loadOnce('GMTCompatKB', 'gmt-compat-kb.js?v=20261116d');
+        if (q && global.GMTCompatKB && GMTCompatKB.ready) { try { await GMTCompatKB.ready(); } catch (_) {} }
+        S.scope = q ? { cat: S.scope && S.scope.cat || '', compat: q } : (S.scope && S.scope.cat ? { cat: S.scope.cat, compat: '' } : null);
+        paint(false);
+        if (q && !combined().length) st('لا شيء بهذا التوافق' + (S.scope.cat ? ' ضمن «' + S.scope.cat + '»' : '') + ' — جرّب كتابةً أخرى (R50 · EOS R50 · 18-55)');
+      };
+      ci.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); go.click(); } };
+    }
+    function paintRead() {
+      var r = S.read, w = S.words;
+      $('[data-read]').innerHTML = (S.code ? '<div class="rd">🏷️ <b>باركود في الصورة:</b> ' + esc(S.code) + '</div>' : '') +
+        (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + esc(w.slice(0, 10).join(' · ')) + '</div>' : '') +
+        (r ? '<div class="rd">🤖 <b>قرأ العقل:</b> ' + esc([r.brand, r.name_on_box, r.model].filter(Boolean).join(' · ') || '—') + (r.product_type ? '<br>النوع: ' + esc(r.product_type) : '') + '</div>' : '');
+    }
+    function paintRes(R, pick, live) {
+      if (!R.length) {
+        $('[data-res]').innerHTML = live ? '' : S.scope ? '<div class="rd" style="color:#b45309">لا منتج بهذا الفلتر.</div>' : '<div class="rd" style="color:#b45309">لا منتج قريب — قرّب الكاميرا من الكتابة/الموديل، أو اكتبه، أو «🤖 اسأل العقل». إن لم يكن معرَّفاً فهو منتجٌ جديد يُعرَّف (دستور المنتجات §٥).</div>';
+        return;
+      }
       var bk = ctx.branchKey;
-      $('[data-res]').innerHTML = '<div style="font-size:12px;font-weight:900;color:#334155;margin:6px 0">أقرب المطابقات في الجرد:</div>' + R.map(function (r, i) {
-        var p = r.item, best = pick && pick.item === p, img = p.image_url || (Array.isArray(p.images) && p.images[0]) || '';
-        return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span style="width:54px;text-align:center">📦</span>') +
-          '<div style="min-width:0"><div class="nm">' + (best ? '🎯 ' : '') + esc(p.name || '') + '</div><div class="mt">' + esc(p.barcode || 'بلا باركود') + (bk && p[bk] != null ? ' · المسجّل: ' + esc(p[bk]) : '') + ' · ' + Math.round(Math.min(1, r.score) * 100) + '%</div>' +
-          (best && pick.why ? '<div class="why">👁️ ' + esc(pick.why) + ' (' + pick.confidence + '%)</div>' : '') + '</div>' +
+      $('[data-res]').innerHTML = '<div style="font-size:12px;font-weight:900;color:#334155;margin:6px 0">' + (live ? '👁️ أقرب منتجاتنا لما تراه الكاميرا:' : 'اختر المنتج — الأعلى هو الأقرب:') + '</div>' + R.map(function (r, i) {
+        var p = r.item, best = (pick && pick.item === p) || (!pick && i === 0 && (r.bc || r.score >= 0.75)), img = p.image_url || (Array.isArray(p.images) && p.images[0]) || '';
+        var bd = (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt > 0 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
+        return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span style="width:58px;text-align:center">📦</span>') +
+          '<div style="min-width:0"><div class="nm">' + (best ? '🎯 ' : '') + esc(p.name || '') + '</div><div class="mt">' + esc(p.barcode || 'بلا باركود') + (bk && p[bk] != null ? ' · المسجّل: ' + esc(p[bk]) : '') + (p.price != null && p.price !== '' ? ' · $' + esc(p.price) : '') + '</div>' +
+          '<div>' + bd + '</div>' + (pick && pick.item === p && pick.why ? '<div class="why">🤖 ' + esc(pick.why) + ' (' + pick.confidence + '%)</div>' : '') + '</div>' +
           '<button type="button" class="go" data-pick="' + i + '">هذا هو</button></div>';
-      }).join('') + (ctx.learn && S.read ? '<label class="lrn"><input type="checkbox" data-learn checked> أضف ما على العلبة (' + esc([S.read.name_on_box, S.read.model].filter(Boolean).join(' · ').slice(0, 80)) + ') إلى أسمائه البديلة — ليُعرف مباشرةً المرّة القادمة</label>' : '');
+      }).join('') + (!live && ctx.learn && (S.read || modelWords(S.words).length) ? '<label class="lrn"><input type="checkbox" data-learn checked> أضف ما على العلبة (' + esc((S.read ? [S.read.name_on_box, S.read.model] : modelWords(S.words)).filter(Boolean).join(' · ').slice(0, 80)) + ') إلى أسمائه البديلة</label>' : '');
       root.querySelectorAll('[data-pick]').forEach(function (b) {
         b.onclick = async function () {
-          var p = R[+b.getAttribute('data-pick')].item, learned = false;
+          var p = R[+b.getAttribute('data-pick')].item, learned = false, sampled = false;
           var lr = $('[data-learn]');
-          if (ctx.learn && S.read && lr && lr.checked) {
-            var names = [S.read.name_on_box, S.read.model, S.read.arabic_name].filter(function (x) { return x && String(x).trim().length > 1; });
-            try { learned = await ctx.learn(p, names); } catch (_) { learned = false; }
+          if (ctx.learn && lr && lr.checked) {
+            var names = S.read ? [S.read.name_on_box, S.read.model, S.read.arabic_name] : modelWords(S.words);
+            names = names.filter(function (x) { return x && String(x).trim().length > 1; });
+            try { learned = names.length ? await ctx.learn(p, names) : false; } catch (_) { learned = false; }
+          }
+          if (S.vec && global.GMTLensLocal) {
+            var adm = typeof ctx.isAdmin === 'function' ? !!ctx.isAdmin() : (global.GMTRole && GMTRole.isAdmin ? !!GMTRole.isAdmin() : false);
+            try { sampled = await GMTLensLocal.addSample(p, S.vec, { admin: adm, by: ctx.by || null, source: ctx.source || location.pathname.split('/').pop(), words: S.words, canvas: S.shot }); } catch (_) {}
           }
           close();
           try { if (global.GMTSound && GMTSound.cue) GMTSound.cue('scan'); } catch (_) {}
-          if (ctx.onPick) ctx.onPick(p, { read: S.read, learned: learned });
+          if (ctx.onPick) ctx.onPick(p, { read: S.read, learned: learned, sampled: sampled, words: S.words });
         };
       });
     }
-    async function run() {
-      var ok = await needMatch();
-      st('🔎 البحث في الجرد…');
-      var R = rankBy(S.read, S.typed, list);
-      paintRes(R, null);
-      if (S.shot && ok && global.GMTMatch && GMTMatch.vision && R.length > 1) {
-        st('👁️ العقل يقارن صورتك بصور أقرب المرشّحين…');
-        try {
-          var src = { name: S.read && (S.read.name_on_box || S.read.query) || '', image_url: S.shot, brand: S.read && S.read.brand };
-          var v = await GMTMatch.vision(src, R.slice(0, 6));
-          if (v && v.item) { R.sort(function (a, b) { return (b.item === v.item) - (a.item === v.item); }); paintRes(R, { item: v.item, why: v.why, confidence: v.confidence }); st('✅ اختار العقل الأقرب — تأكّد واضغط «هذا هو»'); return; }
-          st('العقل لم يجزم بمنتجٍ واحد — اختر من القائمة');
-          return;
-        } catch (e) { st('المقارنة بالصور تعذّرت (' + (e.message || e) + ') — الترتيب بالقراءة'); return; }
-      }
-      st(R.length ? 'اختر المنتج — الأعلى هو الأقرب' : '');
+    function paint(live) { paintRead(); if (!live) paintType(); paintRes(combined(), S.aiPick || null, live); }
+
+    /* ── تجهيز العين والفهرس ── */
+    st('⏳ تجهيز العدسة…');
+    var prepP = (async function () {
+      if (!(await needLocal())) throw new Error('محرّك العدسة لم يُحمَّل');
+      L = global.GMTLensLocal;
+      await Promise.all([L.loadModel(), L.loadIndex()]);
+      ready = true; root.setAttribute('data-ready', '1'); st(camNote || '');
+      setTimeout(function () { list = freshList(); L.fillMissing(list, 25).catch(function () {}); }, 2500);
+      return true;
+    })();
+    prepP.catch(function (e) { root.setAttribute('data-ready', '0'); st('العدسة المحلّية غير متاحة (' + (e.message || e) + ') — اكتب ما على العلبة أو «🤖 اسأل العقل»'); $('[data-tools]').hidden = false; });
+    needMatch();
+
+    /* ── الكاميرا الحيّة ── */
+    var cam = $('[data-cam]'), video = null;
+    async function startCam() {
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { cam.hidden = true; $('[data-snap]').hidden = true; return; }
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+        if (!doc.body.contains(root)) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+        video = doc.createElement('video'); video.setAttribute('playsinline', ''); video.muted = true; video.srcObject = stream;
+        cam.insertBefore(video, cam.firstChild); await video.play().catch(function () {});
+        LIVE = { stream: stream, timer: null, busy: false };
+        cmsg('وجّه على المنتج — ثم «📸 التقط»');
+        LIVE.timer = setInterval(liveTick, 850);
+      } catch (e) { cam.hidden = true; $('[data-snap]').hidden = true; camNote = 'الكاميرا غير متاحة هنا — استعمل «🖼️ صورة من الجهاز» أو اكتب ما على العلبة'; if (ready) st(camNote); }
     }
+    async function liveTick() {
+      if (!LIVE || LIVE.busy || S.frozen || !ready || !video || video.readyState < 2) return;
+      LIVE.busy = true;
+      try {
+        var q = await L.embed(video, 'shot'); if (S.frozen) return;
+        S.vec = q; S.vis = L.search(q, list, 8);
+        if ('BarcodeDetector' in global) { try { var c0 = await L.barcode(video); if (c0) S.code = c0; } catch (_) {} }
+        paint(true);
+        var top = combined()[0];
+        if (top && top.bc) cmsg('🏷️ ' + top.item.name);
+      } catch (_) {} finally { if (LIVE) LIVE.busy = false; }
+    }
+    function frameCanvas() {
+      var c = doc.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+      c.getContext('2d').drawImage(video, 0, 0); return c;
+    }
+    /* ── اللقطة: فوريّ (صورة + باركود) ثمّ قراءة الكتابة بالخلفية ── */
+    async function analyse(canvas) {
+      list = freshList();
+      S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null;
+      if (video) video.hidden = true;
+      var old = cam.querySelector('canvas.frz'); if (old) old.remove();
+      canvas.className = 'frz'; cam.insertBefore(canvas, cam.firstChild); cmsg('');
+      $('[data-snap]').hidden = true; $('[data-again]').hidden = false; $('[data-tools]').hidden = false;
+      try { await prepP; } catch (_) {}
+      var t0 = performance.now();
+      if (ready) {
+        try { await L.fillMissing(list, 12); } catch (_) {}   /* منتجٌ أُضيف بعد بناء الفهرس ⇒ بصمته الآن (قليلة عادةً) */
+        L.hold(true);
+        try {
+          var bc = L.barcode(canvas);
+          S.vec = await L.embed(canvas, 'shot'); S.vis = L.search(S.vec, list, 12);
+          S.code = await bc;
+        } finally { L.hold(false); }
+        paint(false);
+        st('⚡ ' + Math.round(performance.now() - t0) + ' م.ث — 🔤 أقرأ الكتابة على العلبة…');
+        try {
+          var w = await L.ocr(canvas);
+          if (!S.frozen || S.shot !== canvas) return;
+          S.words = w; paint(false);
+          st(combined().length ? 'اختر المنتج — الأعلى هو الأقرب' : '');
+        } catch (_) { st('اختر المنتج — الأعلى هو الأقرب'); }
+      } else { paint(false); }
+    }
+    $('[data-snap]').onclick = function () { if (video && video.readyState >= 2) analyse(frameCanvas()); };
+    $('[data-again]').onclick = function () {
+      S.frozen = false; S.read = null; S.words = []; S.code = ''; S.aiPick = null; S.scope = null; $('[data-type]').innerHTML = '';
+      var f = cam.querySelector('canvas.frz'); if (f) f.remove(); if (video) video.hidden = false;
+      cam.hidden = !video; $('[data-snap]').hidden = !video; $('[data-again]').hidden = true; $('[data-read]').innerHTML = ''; $('[data-res]').innerHTML = ''; st('');
+      if (!video) $('[data-file]').click();
+    };
     $('[data-file]').onchange = async function () {
       var f = this.files && this.files[0]; if (!f) return;
-      S.shot = await shrink(f); $('[data-img]').innerHTML = S.shot ? '<img class="shot" src="' + S.shot + '" alt="">' : '';
-      st('🤖 العقل يقرأ ما على المنتج/العلبة…'); $('[data-res]').innerHTML = '';
-      try { S.read = await readImage(S.shot); paintRead(); if (S.read.model || S.read.name_on_box) $('[data-q]').value = [S.read.name_on_box, S.read.model].filter(Boolean).join(' '); }
-      catch (e) { S.read = null; paintRead(); st('تعذّرت القراءة (' + (e.message || e) + ') — اكتب ما على العلبة'); return; }
-      run();
+      var c = await fileToCanvas(f); if (!c) { st('تعذّر فتح الصورة'); return; }
+      cam.hidden = false; analyse(c);
     };
-    $('[data-find]').onclick = function () { S.typed = $('[data-q]').value.trim(); if (!S.typed && !S.read) return; run(); };
+    /* ── العقل: اختياريّ فقط ── */
+    $('[data-ai]').onclick = async function () {
+      if (!S.shot) { st('التقط صورةً أوّلاً'); return; }
+      var b = this; b.disabled = true; st('🤖 العقل يقرأ ما على المنتج…');
+      try {
+        S.read = await readImage(S.shot.toDataURL('image/jpeg', 0.85)); paint(false);
+        await needMatch();
+        var R = combined();
+        if (global.GMTMatch && GMTMatch.vision && R.length > 1) {
+          st('🤖 العقل يقارن صورتك بصور أقرب المرشّحين…');
+          var v = await GMTMatch.vision({ name: S.read.name_on_box || S.read.query || '', image_url: S.shot.toDataURL('image/jpeg', 0.8), brand: S.read.brand }, R.map(function (x) { return { item: x.item, score: x.score }; }));
+          if (v && v.item) { S.aiPick = { item: v.item, why: v.why, confidence: v.confidence }; R.sort(function (a, c) { return (c.item === v.item) - (a.item === v.item); }); paintRead(); paintRes(R, S.aiPick, false); st('✅ اختار العقل الأقرب — تأكّد واضغط «هذا هو»'); b.disabled = false; return; }
+        }
+        st('اختر المنتج — الأعلى هو الأقرب');
+      } catch (e) { st('العقل لم يجب (' + (e.message || e) + ') — المطابقة المحلّية باقية'); }
+      b.disabled = false;
+    };
+    $('[data-find]').onclick = async function () {
+      S.typed = $('[data-q]').value.trim(); if (!S.typed && !S.read && !S.vec) return;
+      await needMatch(); S.frozen = true; paint(false); st(combined().length ? 'اختر المنتج — الأعلى هو الأقرب' : '');
+    };
     $('[data-q]').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); $('[data-find]').click(); } };
+    /* ── الأدمن: تعلّمات الموظّفين ⇒ اعتماد/رفض (اللقطة المصغّرة + المنتج الذي اختاروه) ── */
+    var isAdm = typeof ctx.isAdmin === 'function' ? !!ctx.isAdmin() : (global.GMTRole && GMTRole.isAdmin ? !!GMTRole.isAdmin() : false);
+    if (isAdm) prepP.then(function () { return L.pending(); }).then(function (rows) {
+      var b = $('[data-learnq]'); if (!b || !rows || !rows.length) return;
+      b.hidden = false; b.textContent = '🧠 تعلّمات الموظّفين تنتظر اعتمادك (' + rows.length + ')';
+      b.onclick = function () {
+        var box = $('[data-lq]');
+        box.innerHTML = rows.map(function (r) {
+          return '<div class="it" data-lr="' + r.id + '">' + (r.thumb ? '<img src="' + esc(r.thumb) + '" alt="">' : '<span style="width:58px;text-align:center">📷</span>') +
+            '<div style="min-width:0"><div class="nm">' + esc(r.product_name || r.product_id) + '</div><div class="mt">' + esc([r.by_name, r.source, String(r.created_at || '').slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ')) + '</div></div>' +
+            '<button type="button" class="go" data-lok="' + r.id + '">✔ صحيح</button><button type="button" data-lno="' + r.id + '">✕</button></div>';
+        }).join('');
+        box.querySelectorAll('[data-lok],[data-lno]').forEach(function (x) {
+          x.onclick = async function () {
+            var id = x.getAttribute('data-lok') || x.getAttribute('data-lno'), ok = x.hasAttribute('data-lok');
+            x.disabled = true; var done = await L.review(id, ok, ctx.by || null);
+            if (done) { var rw = box.querySelector('[data-lr="' + id + '"]'); if (rw) rw.remove(); rows = rows.filter(function (r) { return String(r.id) !== String(id); }); b.textContent = '🧠 تعلّمات الموظّفين تنتظر اعتمادك (' + rows.length + ')'; if (!rows.length) b.hidden = true; }
+            else x.disabled = false;
+          };
+        });
+      };
+    }).catch(function () {});
+    startCam();
     return root;
   }
   /* يضيف الأسماء إلى alt_names بلا تكرار (أيّ صفحة تمرّر patch(id, fields)) */

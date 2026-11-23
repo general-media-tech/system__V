@@ -58,7 +58,8 @@
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
   /* (TASK-0356 · المالك seq 549) «كلّ كرتونة باركوداتها مجموعةٌ لحالها» — رأس المجموعة صفٌّ كامل */
   /* (TASK-A0579 · seq 977 «كرتونة ١ من ٤٩ عم تاخذ صفّاً كاملاً … تاخذ مكان باركود واحد») رأس الكرتونة = خانة ملصقٍ واحدة */
-  .gh { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; color: #fff; text-align: center;
+  .gh { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #eceef1; color: #000; text-align: center; border: 0.2mm solid #b9bec6;
+        /* (seq 978 «الخلفية السوداء بتصرف حبر … كتابة سوداء وخلفية فضّية فاتحة») */
         font-size: 7.5pt; font-weight: 900; line-height: 1.15; outline: 0.25mm dashed #8a8f98; outline-offset: 1mm; overflow: hidden; }
   .gh small { font-size: 5.5pt; font-weight: 700; opacity: .85; }
   .gap { }
