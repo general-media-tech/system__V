@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123e'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261123f'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();
@@ -149,7 +149,7 @@
     $('[data-shot]').onclick = function () { $('[data-file]').click(); };
     function st(t) { $('[data-st]').textContent = t || ''; }
     function cmsg(t) { var m = $('[data-cmsg]'); if (m) m.textContent = t || ''; }
-    var L = null, ready = false, camNote = '';
+    var L = null, ready = false, camNote = '', LIVE_MIN = 0.55;
 
     /* ── الترتيب المحلّي الموحّد: صورة + كتابة + باركود ── */
     function combined() {
@@ -222,10 +222,40 @@
       };
       ci.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); go.click(); } };
     }
+    /* (المالك seq A1016 «تعرف تقرأ لحالها وتختار شو لازم تقرأ وشو ما لازم») قاموسٌ من أسماء منتجاتنا وأسمائها البديلة:
+       الكلمة المقروءة «مهمّة» إن كانت كوداً/ماركة/كلمة في منتجاتنا — والباقي («Made in China» · «Photographic» · ضجيج) يُتجاهل */
+    var VOC = null;
+    function vocab() {
+      if (VOC) return VOC; VOC = {};
+      list.forEach(function (p) {
+        String([p.name, p.alt_names, p.brand].filter(Boolean).join(' ')).toLowerCase().split(/[،,]/).forEach(function (part) {
+          var toks = part.split(/[^a-z0-9]+/).filter(Boolean);
+          toks.forEach(function (tk, i) { if (tk.length >= 3 && !/^\d+$/.test(tk)) VOC[tk] = (VOC[tk] || 0) + 1; if (toks[i + 1]) { var g = tk + toks[i + 1]; if (/\d/.test(g) && /[a-z]/.test(g)) VOC[g] = (VOC[g] || 0) + 1; } });
+          var glued = part.replace(/[^a-z0-9]+/g, ''); if (glued.length >= 4 && glued.length <= 14 && /\d/.test(glued) && /[a-z]/.test(glued)) VOC[glued] = (VOC[glued] || 0) + 1;
+        });
+      });
+      /* كلماتٌ وصفيّة عامّة لا تميّز منتجاً (موجودة على كلّ علبة) */
+      ['made', 'china', 'led', 'leds', 'light', 'lights', 'lighting', 'photographic', 'photography', 'photo', 'fill', 'video', 'camera', 'with', 'the', 'and', 'for', 'new', 'input', 'output', 'model',
+       'color', 'colour', 'digital', 'portable', 'professional', 'studio', 'kit', 'set', 'power', 'battery', 'charger', 'lens', 'stand', 'holder', 'case', 'bag', 'cable', 'type', 'usb', 'pro', 'max', 'mini', 'plus'].forEach(function (k) { delete VOC[k]; });
+      return VOC;
+    }
+    function smartWords(w) {
+      var V = vocab(), keep = [], seen = {}, SGc = global.GMTSuggest && GMTSuggest.codeNear;
+      for (var i = 0; i < w.length; i++) {
+        var a = String(w[i]).toLowerCase().replace(/[^a-z0-9]/g, ''), b = i + 1 < w.length ? a + String(w[i + 1]).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        var hit = (b && V[b] && /\d/.test(b)) ? w[i] + ' ' + w[i + 1] : (a.length >= 3 && V[a]) ? w[i] : '';
+        /* كودٌ قرأته (حروف وأرقام) يطابق منتجاً بخوارزمية البحث ولو كُتب مكسوراً («1-600-SS») */
+        if (!hit && SGc && /\d/.test(a) && /[a-z]/.test(a) && a.length >= 4) { for (var j = 0; j < Math.min(list.length, 800); j++) { if (SGc(w[i], list[j])) { hit = w[i]; break; } } }
+        if (!hit && b && SGc && /\d/.test(b) && /[a-z]/.test(b) && b.length >= 4) { for (var j2 = 0; j2 < Math.min(list.length, 800); j2++) { if (SGc(w[i] + ' ' + w[i + 1], list[j2])) { hit = w[i] + ' ' + w[i + 1]; break; } } }
+        if (hit && !seen[hit.toLowerCase()]) { seen[hit.toLowerCase()] = 1; keep.push(hit); }
+      }
+      return keep;
+    }
     function paintRead() {
-      var r = S.read, w = S.words;
+      var r = S.read, w = S.words, sw = w.length ? smartWords(w) : [];
       $('[data-read]').innerHTML = (S.code ? '<div class="rd">🏷️ <b>باركود في الصورة:</b> ' + esc(S.code) + '</div>' : '') +
-        (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + esc(w.slice(0, 12).join(' ')) + '</div>' : '') +
+        (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + (sw.length ? '<b style="color:#0f766e">' + esc(sw.slice(0, 8).join(' · ')) + '</b>' : '<span style="color:#64748b">لا كلمة تخصّ منتجاتنا</span>') +
+          ' <span style="color:#94a3b8;font-size:11px">(تجاهلتُ ' + Math.max(0, w.length - sw.length) + ' كلمة لا تخصّنا)</span></div>' : '') +
         (r ? '<div class="rd">🤖 <b>قرأ العقل:</b> ' + esc([r.brand, r.name_on_box, r.model].filter(Boolean).join(' · ') || '—') + (r.product_type ? '<br>النوع: ' + esc(r.product_type) : '') + '</div>' : '');
     }
     function paintRes(R, pick, live) {
@@ -292,7 +322,7 @@
         if (!doc.body.contains(root)) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
         video = doc.createElement('video'); video.setAttribute('playsinline', ''); video.muted = true; video.srcObject = stream;
         cam.insertBefore(video, cam.firstChild); await video.play().catch(function () {});
-        LIVE = { stream: stream, timer: null, busy: false };
+        LIVE = { stream: stream, timer: null, busy: false, hist: [], steady: 0, auto: false };
         cmsg('وجّه على المنتج — ثم «📸 التقط»');
         LIVE.timer = setInterval(liveTick, 850);
       } catch (e) { cam.hidden = true; $('[data-snap]').hidden = true; camNote = 'الكاميرا غير متاحة هنا — استعمل «🖼️ صورة من الجهاز» أو اكتب ما على العلبة'; if (ready) st(camNote); }
@@ -302,11 +332,19 @@
       LIVE.busy = true;
       try {
         var q = await L.embed(video, 'shot'); if (S.frozen) return;
-        S.vec = q; S.vis = L.search(q, list, 8);
+        /* (seq A1016 «إذا ما كبست التقاط كثير عم يخرب») المعاينة الحيّة: متوسّط آخر ٣ إطارات (لا قفز بين إطارٍ وآخر) ·
+           تُعرض فقط حين تكون واثقة · وحين تثبت الكاميرا ~٢ث تلتقط وحدها (قراءة كاملة + كتابة) مثل عدسة جوجل */
+        var prev = LIVE.hist.length ? LIVE.hist[LIVE.hist.length - 1] : null, still = prev ? L.sim(prev, q) : 0;
+        LIVE.hist.push(q); if (LIVE.hist.length > 3) LIVE.hist.shift();
+        LIVE.steady = still > 0.9 ? LIVE.steady + 1 : 0;
+        var avg = new Float32Array(q.length); LIVE.hist.forEach(function (v) { for (var i = 0; i < v.length; i++) avg[i] += v[i] / LIVE.hist.length; });
+        var n = 0; for (var i2 = 0; i2 < avg.length; i2++) n += avg[i2] * avg[i2]; n = Math.sqrt(n) || 1; for (i2 = 0; i2 < avg.length; i2++) avg[i2] /= n;
+        S.vec = avg; S.vis = L.search(avg, list, 8);
         if ('BarcodeDetector' in global) { try { var c0 = await L.barcode(video); if (c0) S.code = c0; } catch (_) {} }
-        paint(true);
-        var top = combined()[0];
-        if (top && top.bc) cmsg('🏷️ ' + top.item.name);
+        var R0 = combined(), top = R0[0], gap = R0[1] ? top.score - R0[1].score : 1;
+        if (top && (top.bc || (top.vis >= LIVE_MIN && gap >= 0.02))) { paint(true); cmsg(top.bc ? '🏷️ ' + top.item.name : 'ثبّت الكاميرا لحظة — أو «📸 التقط»'); }
+        else { $('[data-res]').innerHTML = ''; cmsg(LIVE.hist.length < 2 ? '…' : 'قرّب المنتج/العلبة من الإطار'); }
+        if (LIVE.steady >= 3 && !LIVE.auto) { LIVE.auto = true; cmsg('📸 التقطت تلقائياً'); analyse(frameCanvas()); }
       } catch (_) {} finally { if (LIVE) LIVE.busy = false; }
     }
     function frameCanvas() {
@@ -315,7 +353,7 @@
     }
     /* ── اللقطة: فوريّ (صورة + باركود) ثمّ قراءة الكتابة بالخلفية ── */
     async function analyse(canvas) {
-      list = freshList();
+      list = freshList(); VOC = null;
       S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null; S.vec = null; S.vis = []; S.logP = null;
       if (video) video.hidden = true;
       var old = cam.querySelector('canvas.frz'); if (old) old.remove();
@@ -357,6 +395,7 @@
     $('[data-snap]').onclick = function () { if (video && video.readyState >= 2) analyse(frameCanvas()); };
     $('[data-again]').onclick = function () {
       S.frozen = false; S.read = null; S.words = []; S.code = ''; S.aiPick = null; S.scope = null; $('[data-type]').innerHTML = '';
+      if (LIVE) { LIVE.hist = []; LIVE.steady = 0; LIVE.auto = false; }
       var f = cam.querySelector('canvas.frz'); if (f) f.remove(); if (video) video.hidden = false;
       cam.hidden = !video; $('[data-snap]').hidden = !video; $('[data-again]').hidden = true; $('[data-read]').innerHTML = ''; $('[data-res]').innerHTML = ''; st('');
       if (!video) $('[data-file]').click();

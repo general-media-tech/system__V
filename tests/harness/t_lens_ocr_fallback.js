@@ -37,7 +37,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   for (const f of ['lens_shot_ym600.jpg', 'lens_shot_ym600_b.jpg']) {
     const s = await shot(o, f);
     ok(s.ready === '0', '(' + f + ') العين معطّلة فعلاً');
-    ok(/YM/i.test(s.read) && /600/.test(s.read), '① قرأ الكتابة محلّياً: ' + s.read.replace(/\s+/g, ' ').slice(0, 90));
+    ok(/600/.test(s.read) && /(YM|SS)/i.test(s.read), '① قرأ الكتابة محلّياً (الكلمات التي تخصّ منتجاتنا فقط): ' + s.read.replace(/\s+/g, ' ').slice(0, 90));
     ok(isYM(s.items[0]), '①② YM-600-SS أوّلاً من الكتابة وحدها (لا Led 600 RGB): ' + s.items.slice(0, 4).join(' | '));
     ok(!/لا منتج قريب/.test(s.st), 'لا «لا منتج قريب»: ' + s.st);
     await o.pg.evaluate(() => GMTLens.close());
