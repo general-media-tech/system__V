@@ -19,7 +19,7 @@
 
   /* ── الأعمدة: مطابقة العنوان (الأدقّ أوّلاً) ── */
   var COLS = [
-    ['detail', /الطرود\s*التفصيل|detail/i], ['pkgs', /عدد\s*الطرود|packages|no\.?\s*of\s*(ctn|pkg)|ctns?\b/i], ['ptype', /نوع\s*الطرد|package\s*type|unit\s*type/i],
+    ['ctnNo', /رقم\s*الكرتون|carton\s*no|ctn\s*no|box\s*no|c\/no/i], ['detail', /الطرود\s*التفصيل|detail/i], ['pkgs', /عدد\s*الطرود|packages|no\.?\s*of\s*(ctn|pkg)|ctns?\b/i], ['ptype', /نوع\s*الطرد|package\s*type|unit\s*type/i],
     ['pieces', /عدد\s*القطع|pcs|pieces|quantity|qty/i], ['cbm', /الحجم|cbm|volume|m3|م3/i], ['kg', /الوزن|weight|kgs?\b|g\.?w/i],
     ['hs', /البند|hs\s*code|h\.s|tariff/i], ['dutyTotal', /اجمالي\s*الرسوم|إجمالي\s*الرسوم|total\s*dut/i], ['dutyVal', /قيمة\s*الرسوم|duty\s*val/i], ['rate', /^\s*الرسم\s*$|rate|duty\s*%|نسبة/i],
     ['brand', /الماركة|brand/i], ['origin', /منشا|منشأ|origin/i], ['descAr', /نوع\s*البضاعة|الوصف\s*العربي|البيان/i], ['descEn', /goods\s*description|description|item|product/i]
@@ -44,13 +44,17 @@
       if (g2.c1 !== g2.c2 || g2.r2 <= g2.r1) return;
       if (g2.c1 === m.kg || g2.c1 === m.hs || g2.c1 === m.rate || g2.c1 === m.detail) for (var r = g2.r1; r <= g2.r2; r++) if (!(r in block)) block[r] = g2.r1;
     });
-    var dutyTotal = null;
+    var dutyTotal = null, lastCtn = '';
     for (var r = first; r < rows.length; r++) {
       var row = rows[r] || [], get = function (k) { return k in m ? row[m[k]] : null; };
       var desc = T(get('descEn')), descAr = T(get('descAr')), pcs = N(get('pieces'));
       if (!desc && !descAr && pcs == null) continue;
       if (/total|المجموع|الاجمالي/i.test(desc + ' ' + descAr) && pcs == null) continue;
-      var key = (r in block) ? block[r] : r, ctn = cartons.find(function (c) { return c.key === key; });
+      /* الكرتونة: الدمج الرأسيّ ⇐ أو عمود «رقم الكرتونة» (سطور متتالية برقمٍ واحد أو فارغ = الكرتونة نفسها) */
+      if ('ctnNo' in m) { var cn = T(get('ctnNo')); if (cn) lastCtn = 'n:' + cn; }
+      var key = ('ctnNo' in m && lastCtn) ? lastCtn : (r in block) ? block[r] : r, ctn = cartons.find(function (c) { return c.key === key; });
+      if (ctn && ctn.kg == null && N(get('kg')) != null) ctn.kg = N(get('kg'));
+      if (ctn && ctn.cbm == null && N(get('cbm')) != null) ctn.cbm = N(get('cbm'));
       if (!ctn) {
         ctn = { key: key, no: cartons.length + 1, kg: N(get('kg')), cbm: N(get('cbm')), hs: T(get('hs')), rate: N(get('rate')), dutyVal: N(get('dutyVal')), detail: N(get('detail')), ptype: T(get('ptype')), lines: [] };
         cartons.push(ctn);
@@ -72,13 +76,49 @@
     if (!a.length || !b.length) return 0;
     var bs = {}; b.forEach(function (w) { bs[w] = 1; });
     var hit = 0; a.forEach(function (w) { if (bs[w]) hit += /\d/.test(w) ? 2 : 1; else if (w.length >= 4 && b.some(function (x) { return x.length >= 4 && (x.indexOf(w) === 0 || w.indexOf(x) === 0); })) hit += 0.5; });
-    return hit / Math.sqrt(a.length * Math.max(3, Math.min(b.length, 12)));
+    return hit / Math.sqrt(a.length * Math.max(3, Math.min(b.length, 5)));
   }
-  function autoMap(lines, items) {
+  var VARIANT = { rgb: 1, pro: 1, max: 1, plus: 1, ultra: 1, lite: 1, se: 1, ii: 1, iii: 1, iv: 1, mk2: 1, mk3: 1, combo: 1 };   /* كلمات «النسخة» */
+  /* مجموعة جزئيّة كمّياتها = الهدف بالضبط وبأعلى مجموع شبه (برمجة ديناميكيّة صغيرة) */
+  function subsetExact(target, cands) {
+    var best = { 0: { s: 0, pick: [] } };
+    cands.forEach(function (c) {
+      if (c.q <= 0 || c.q > target) return;
+      Object.keys(best).map(Number).sort(function (x, y) { return y - x; }).forEach(function (k) {
+        var nk = k + c.q; if (nk > target) return; var ns = best[k].s + c.s;
+        if (!best[nk] || best[nk].s < ns) best[nk] = { s: ns, pick: best[k].pick.concat([c.ii]) };
+      });
+    });
+    return best[target] && best[target].pick.length ? best[target].pick : null;
+  }
+  function memKey(l, kg) { return normDesc(l.desc || l.descAr) + '|' + Math.round(l.pieces) + '|' + (kg != null ? Math.round(kg * 10) / 10 : ''); }
+  function normDesc(s) { return toks(s).join(' '); }
+  function autoMap(lines, items, opt) {
+    opt = opt || {};
+    /* (seq A1022) كلمةٌ **نادرة** في سطر الباكينج («rgb» — في ١–٣ بنود فقط) غائبة عن البند ⇒ ليس هو (يفرّق LED-660 RGB عن LED-660 Pro) */
+    var df = {}, bag = items.map(function (it) { var s = {}; toks(it.name).forEach(function (w) { s[w] = 1; }); Object.keys(s).forEach(function (w) { df[w] = (df[w] || 0) + 1; }); return s; });   /* الاسم الأساسيّ وحده: الأسماء البديلة قد تخلط النسخ («Neewer 660 Pro RGB» في بديلة الـPro) */
+    var sim0 = sim; sim = function (l, it) {
+      var ii = items.indexOf(it), base = sim0(l, it); if (ii < 0) return base;
+      var pen = 0; toks(l.desc + ' ' + l.descAr).forEach(function (w) { if (!VARIANT[w] || !df[w]) return; if (bag[ii][w]) pen -= 0.2; else pen += 0.3; });
+      return base - Math.max(-0.4, Math.min(0.6, pen));
+    };
+    try { return autoMap0(lines, items, opt.memory || null, opt.cartons || null); } finally { sim = sim0; }
+  }
+  function autoMap0(lines, items, memory, cartons) {
+    var ctnKg = function (l) { var c = (cartons || []).find(function (x) { return x.no === l.ctn; }); return c ? c.kg : null; };
     var pairs = [];
-    lines.forEach(function (l, li) { items.forEach(function (it, ii) { if (it.asset) return; var s = sim(l, it); if (Number(it.qty) === Number(l.pieces)) s += 0.35; if (s > 0.25) pairs.push([s, li, ii]); }); });
+    /* ④ الذاكرة (gmt_packing_memory): وصفٌ طابقه Claude/النظام سابقاً ⇒ نفس المنتجات مباشرةً — «كلّ مرّة تشتغل تدرّبه» (seq A1018 · A1022) */
+    var preMap = lines.map(function () { return []; }), preUsed = {};
+    if (memory) lines.forEach(function (l, li) {
+      var ids = memory[memKey(l, ctnKg(l))] || memory[normDesc(l.desc || l.descAr)]; if (!ids || !ids.length) return;   /* المفتاح الدقيق (الوصف · القطع · وزن الكرتونة) ثمّ الوصف وحده */
+      /* الوصف نفسه قد يتكرّر في عدّة كراتين («Camera bag - multiple models») ⇒ كلّ سطرٍ يأخذ من بنود الذاكرة ما يملأ قطعه **بالضبط** */
+      var cand = items.map(function (it, ii) { return ii; }).filter(function (ii) { return !preUsed[ii] && items[ii].id != null && ids.indexOf(String(items[ii].id)) >= 0; });
+      var pick = subsetExact(Math.round(l.pieces), cand.map(function (ii) { return { ii: ii, q: Math.round(Number(items[ii].qty) || 0), s: 1 + sim(l, items[ii]) }; }));
+      (pick || []).forEach(function (ii) { preMap[li].push(ii); preUsed[ii] = 1; });
+    });
+    lines.forEach(function (l, li) { items.forEach(function (it, ii) { if (it.asset) return; var s = sim(l, it); if (s < 0.15) return; /* (seq A1022) لا مطابقة بالكمّية وحدها */ if (Number(it.qty) === Number(l.pieces)) s += 0.35; if (s > 0.25) pairs.push([s, li, ii]); }); });
     pairs.sort(function (x, y) { return y[0] - x[0]; });
-    var map = lines.map(function () { return []; }), usedItem = {}, left = lines.map(function (l) { return l.pieces; });
+    var map = preMap, usedItem = preUsed, left = lines.map(function (l, li) { return l.pieces - preMap[li].reduce(function (s, ii) { return s + (Number(items[ii].qty) || 0); }, 0); });
     pairs.forEach(function (p) {
       var li = p[1], ii = p[2]; if (usedItem[ii] || left[li] <= 0) return;
       var q = Number(items[ii].qty) || 0; if (q > left[li] + 0.001 && map[li].length) return;
@@ -88,7 +128,7 @@
        كلّ بندٍ بقي ⇐ أقرب سطرٍ ما زال فيه قطعٌ تكفيه · ثمّ أقرب سطرٍ مطلقاً (يُعلَّم «الكمية») */
     items.forEach(function (it, ii) {
       if (usedItem[ii] || it.asset) return;
-      var q = Number(it.qty) || 0, best = -1, bs = 0.12, any = -1, as = 0.2;
+      var q = Number(it.qty) || 0, best = -1, bs = 0.07, any = -1, as = 0.2;
       lines.forEach(function (l, li) { var s = sim(l, it); if (left[li] >= q - 0.001 && s > bs) { bs = s; best = li; } if (s > as) { as = s; any = li; } });
       var li2 = best >= 0 ? best : any; if (li2 < 0) return;
       map[li2].push(ii); usedItem[ii] = 1; left[li2] -= q;
@@ -136,7 +176,17 @@
     return Object.assign({}, item, { alloc_unit: a.unit, alloc_qty: q, alloc_orig: o, alloc_tot: Math.round((Number(costsTotal) || 0) * 100) / 100,
       alloc: { customs: a.customs, ship: a.ship, other: a.other, kg: a.kg, ctn: a.ctn, codes: a.codes, basis: basis, src: src } });
   }
-  var api = { parse: parse, autoMap: autoMap, allocate: allocate, stamp: stamp, _sim: sim };
+  /* الذاكرة من مطابقةٍ معتمدة: وصف السطر ⇒ معرّفات منتجاته */
+  function memoryOf(lines, map, items, cartons) {
+    var m = {}, add = function (k, ids) { m[k] = (m[k] || []).concat(ids.filter(function (x) { return (m[k] || []).indexOf(x) < 0; })); };
+    lines.forEach(function (l, li) {
+      var ids = (map[li] || []).map(function (ii) { return items[ii] && items[ii].id; }).filter(Boolean).map(String); if (!ids.length) return;
+      var c = (cartons || []).find(function (x) { return x.no === l.ctn; });
+      add(memKey(l, c ? c.kg : null), ids); add(normDesc(l.desc || l.descAr), ids);
+    });
+    return m;
+  }
+  var api = { parse: parse, autoMap: autoMap, allocate: allocate, stamp: stamp, memoryOf: memoryOf, normDesc: normDesc, memKey: memKey, _sim: sim };
   g.GMTPacking = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

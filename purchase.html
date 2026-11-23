@@ -218,7 +218,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261017c"></script>
   <script src="gmt-auth.js?v=20261119i"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-packing.js?v=20261123g" defer></script>
+  <script src="gmt-packing.js?v=20261124a" defer></script>
 <script src="gmt-labels.js?v=20261123b"></script>
 <script src="gmt-staff.js?v=20261123b"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
@@ -3340,7 +3340,10 @@ async function packRead(inp){
     wb.SheetNames.forEach(n=>{ const ws=wb.Sheets[n]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}); const merges=(ws['!merges']||[]).map(m=>({r1:m.s.r,c1:m.s.c,r2:m.e.r,c2:m.e.c}));
       const P=GMTPacking.parse(rows,merges); if(P.ok&&(!best||P.lines.length>best.P.lines.length)) best={P,sheet:n}; });
     if(!best){ toast('لم أجد في الملف أعمدة الباكينج (عدد القطع · الوزن/البند الجمركي)','err'); return; }
-    const items=_pkItems(); const M=GMTPacking.autoMap(best.P.lines,items);
+    const items=_pkItems();
+    /* (seq A1022) ذاكرة المطابقة: ما طابقه النظام/Claude سابقاً لنفس الوصف ⇒ يُعرف مباشرةً — «كلّ مرّة تشتغل تدرّبه» */
+    let memory={}; try{ const rows=await sbAll('/rest/v1/gmt_packing_memory?select=desc_norm,product_ids'); (rows||[]).forEach(r=>{ memory[r.desc_norm]=(r.product_ids||[]).map(String); }); }catch(_){}
+    const M=GMTPacking.autoMap(best.P.lines,items,{memory,cartons:best.P.cartons});
     _PK={P:best.P,items,map:M.map,file:f.name,sheet:best.sheet};
     packRender(); packCompute();
   }catch(e){ toast('تعذّرت قراءة الملف: '+(e.message||e),'err'); }
@@ -3393,6 +3396,12 @@ async function packApply(){
   /* ③ التكاليف المستعملة تُكتب في الفاتورة بعد إعادة البناء */
   const setF=(f,v)=>{const el=document.querySelector('#invPage [data-field="'+f+'"]'); if(el&&v) el.textContent=String(v);};
   setF('cc',n('pack-c-customs')); setF('cs',n('pack-c-ship'));
+  /* التعلّم: هذه المطابقة تصير ذاكرةً للمرّة القادمة (الوصف ⇒ المنتجات) */
+  try{
+    const mem=GMTPacking.memoryOf(_PK.P.lines,_PK.map,_PK.items,_PK.P.cartons), sup=String((_invOpenRow()||{}).supplier||'').slice(0,80);
+    const rowsM=Object.keys(mem).map(k=>({desc_norm:k,product_ids:mem[k],supplier:'',source:(_PK.file+' · '+sup).slice(0,200),updated_at:new Date().toISOString()}));
+    if(rowsM.length) sb('POST','/rest/v1/gmt_packing_memory?on_conflict=desc_norm,supplier',rowsM,{Prefer:'resolution=merge-duplicates,return=minimal'}).catch(()=>{});
+  }catch(_){}
   if(!invEditMode) toggleInvEdit();
   packClose();
   toast('📦 رُتّبت الفاتورة بالكراتين ('+nC+') وحُسبت الكلفة الواصلة لـ'+k+' بنداً — راجعها ثمّ «حفظ التعديلات»','ok');
@@ -6423,7 +6432,7 @@ try {
 <script src="gmt-brain.js?v=20261118b"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261123g"></script>
+<script src="gmt-whatsnew.js?v=20261124a"></script>
 <script src="gmt-refresh.js?v=20261119d"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

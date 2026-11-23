@@ -44,6 +44,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(r.cost_customs == 60 && it0.alloc_unit > 12 && it0.alloc && it0.alloc.codes[0] === '9007.91.00' && it0.alloc.ctn[0] === 1, '④ محفوظ: الجمارك 60 · البند الأوّل alloc_unit ' + it0.alloc_unit + ' · بند 9007.91.00 · كرتونة 1');
   ok(Math.abs(it0.alloc_tot - (100 + 60 + 10 + 5)) < 0.02, '④ alloc_tot = مجموع تكاليف الفاتورة (يعرف النظام أنّ التوزيع صالح): ' + it0.alloc_tot);
   ok(!r.items_snapshot[4].alloc_unit, '④ الأصل بلا كلفة موزّعة');
+  const mem = D.gmt_packing_memory || [];
+  ok(mem.length >= 4 && mem.some(m => /softbox/.test(m.desc_norm) && (m.product_ids || []).map(String).includes(String(P[0].id))), '⑥ (seq A1022) تعلّم: الوصف ⇒ المنتج محفوظ في ذاكرة المطابقة (' + mem.length + ')');
   ok(r.items_snapshot.slice(0, 4).map(x => x.ctn).join(',') === '1,2,3,3' && r.items_snapshot[0].ctn_of === 3, '⑤ (seq A1021) الفاتورة مرتّبة بالكراتين وكلّ بندٍ برقم كرتونته: ' + r.items_snapshot.map(x => x.ctn || '—').join(','));
   const lbl = await pg.evaluate(() => { let got = null; const o = window.GMTLabels; window.GMTLabels = { openSheet: (items, opt) => { got = items.map(x => (x.group || x.grp || '') + ':' + x.name); return true; } }; try { printBarcodes(); } catch (_) {} window.GMTLabels = o; return got; });
   ok(lbl && lbl.length === 4 && /كرتونة 1/.test(lbl[0]) && /كرتونة 3/.test(lbl[3]), '⑤ الباركودات مجموعات بالكراتين بالترتيب: ' + JSON.stringify(lbl));

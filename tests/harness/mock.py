@@ -214,8 +214,9 @@ class H(BaseHTTPRequestHandler):
             oc = dict(q).get('on_conflict'); merge = 'merge-duplicates' in (self.headers.get('Prefer') or ''); ignore = 'ignore-duplicates' in (self.headers.get('Prefer') or '')
             for r in rows:
                 r = dict(r)
-                if oc and merge:   # كما يفعل PostgREST: upsert حقيقي على عمود التعارض
-                    ex = [x for x in tbl(t) if x.get(oc) == r.get(oc)]
+                if oc and merge:   # كما يفعل PostgREST: upsert حقيقي على عمود (أو أعمدة) التعارض
+                    ocs = [c.strip() for c in oc.split(',')]
+                    ex = [x for x in tbl(t) if all(x.get(c) == r.get(c) for c in ocs)]
                     if ex: ex[0].update(r); out.append(ex[0]); continue
                 if oc and ignore and any(x.get(oc) == r.get(oc) for x in tbl(t)): continue   # (TASK-0187) ON CONFLICT DO NOTHING: لا يُعاد في الردّ
                 if 'id' not in r: r['id'] = str(uuid.uuid4()) if t == 'products' else next(SEQ)
