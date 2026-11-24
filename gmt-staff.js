@@ -3178,6 +3178,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
 
     // ③ فرق مجموع الفواتير عن المخزون الفعلي (لكل قطعة)
     const expectedById = new Map();   // كم قطعة دخلت النظام حسب الفواتير
+    const invsById = new Map();       // (seq B1032 «بكبس عليه وبشوف تفاصيله من وين اجى وكم كمياته») فواتير كلّ قطعة
     S.invoices.forEach((inv) => {
       const raw = (typeof inv.items_snapshot === 'string')
         ? (() => { try { return JSON.parse(inv.items_snapshot) || []; } catch (_) { return []; } })()
@@ -3186,8 +3187,11 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         const k = String(i.id || '');
         if (!k) return;
         expectedById.set(k, (expectedById.get(k) || 0) + Number(i.qty || 0));
+        if (!invsById.has(k)) invsById.set(k, []);
+        invsById.get(k).push({ n: inv.inv_number || '—', q: Number(i.qty || 0), st: inv.status || '', tr: !!inv.transferred, at: inv.arrived_at || inv.created_at || '' });
       });
     });
+    S.invsById = invsById; S.byId = byId; S.stockCols = stockCols;
     const stockGaps = [];
     expectedById.forEach((expected, id) => {
       const p = byId.get(id);
@@ -3311,6 +3315,31 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     });
   }
 
+  /* (seq B1032) تفاصيل قطعةٍ داخل اللوحة: الكمية بكلّ فرع · فواتيرها (الرقم · الكمية · الحالة) · زرّ السجلّ الكامل (الحركة والفواتير) */
+  function prodDetail(id, head, color) {
+    const p = (S.byId && S.byId.get(String(id))) || {};
+    const lbl = (k) => { const b = (window.branches || []).find((x) => x.key_name === k); return (b && b.display_name) || ({ germany: 'ألمانيا (بالطريق)', china: 'الصين (بالطريق)', haleb: 'حلب', daraa: 'درعا', homs: 'حمص', kurani: 'كوراني', hny_sbyl: 'هاني سبيل', fakhouri: 'فاخوري', sarmada: 'سرمدا' }[k] || k); };
+    const br = (S.stockCols || []).filter((k) => Number(p[k]) || 0).map((k) => `<span style="display:inline-block;background:#f1f5f9;border-radius:8px;padding:2px 7px;margin:2px;">${esc(lbl(k))}: <b>${Number(p[k])}</b></span>`).join('') || '<span style="color:#94a3b8;">لا مخزون بأيّ فرع</span>';
+    const st = { arrived: 'واصلة', transit: 'بالطريق', cancelled: 'ملغاة', shortage: 'عجز' };
+    const iv = ((S.invsById && S.invsById.get(String(id))) || []).map((x) => `<div style="padding:2px 0;">🧾 <b dir="ltr">${esc(x.n)}</b> × ${x.q} · ${esc(st[x.st] || x.st || '—')}${x.tr ? ' · مختومة' : ''}${x.at ? ' · ' + new Date(x.at).toLocaleDateString('ar-SY') : ''}</div>`).join('') || '<div style="color:#b45309;">لا فاتورة شراء لهذه القطعة</div>';
+    const href = 'inventory.html?pid=' + encodeURIComponent(String(id)) + '&view=mov';
+    const onInv = typeof window.openProductMovement === 'function';
+    return `<details data-intg-prod="${esc(String(id))}" style="border-bottom:1px solid #f3f4f6;font-size:11.5px;">
+      <summary style="padding:8px 11px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:6px;align-items:center;">${head}<span style="color:${color || '#64748b'};font-size:10px;">▾ التفاصيل</span></summary>
+      <div style="padding:4px 14px 10px;background:#fafafa;line-height:1.7;font-weight:700;color:#334155;">
+        <div style="margin-bottom:4px;">📦 الكمية الآن: ${br}</div>
+        <div style="margin-bottom:6px;">${iv}</div>
+        <a data-intg-mov href="${href}" ${onInv ? `onclick="event.preventDefault();window.__intgMov('${esc(String(id))}','${esc(String(p.barcode || '').replace(/'/g, ''))}')"` : 'target="_blank" rel="noopener"'} style="display:inline-block;background:#0f172a;color:#fff;border-radius:9px;padding:5px 10px;text-decoration:none;font-size:11px;">📜 السجلّ الكامل: الحركة والفواتير والمبيعات</a>
+      </div></details>`;
+  }
+
+  /* حركة المنتج نافذةٌ بطبقة 1000 واللوحة 9000 ⇒ كانت تنفتح **خلفها**: ترفعها فوق اللوحة */
+  window.__intgMov = function (id, bc) {
+    const up = () => { const m = document.getElementById('movement-modal'); if (m) m.style.zIndex = '9600'; };
+    try { Promise.resolve(window.openProductMovement(id, bc)).then(up, up); } catch (_) {}
+    up(); setTimeout(up, 50);
+  };
+
   function render() {
     const r = S.report;
     const body = document.getElementById('intg-body');
@@ -3366,12 +3395,10 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
           قطع دخلت الجرد يدوياً أو قبل النظام. القاعدة: كل قطعة لها فاتورة —
           الزر أدناه يُنشئ لها «فاتورة تسوية (شراء فوري)» واحدة تجمعها، عدّل بياناتها لاحقاً.
         </div>
-        <div style="border:1px solid #e5e7eb;border-radius:12px;max-height:160px;overflow:auto;">
-          ${r.orphanProducts.slice(0, 60).map((p) => `<div style="padding:8px 11px;border-bottom:1px solid #f3f4f6;font-size:11.5px;">
-            <span style="font-weight:800;">${esc(p.name)}</span>
+        <div style="border:1px solid #e5e7eb;border-radius:12px;max-height:340px;overflow:auto;">
+          ${r.orphanProducts.slice(0, 60).map((p) => prodDetail(p.id, `<span><span style="font-weight:800;">${esc(p.name)}</span>
             ${p._stock > 0 ? `<span style="color:#b45309;font-size:10.5px;font-weight:900;"> · مخزون ${p._stock}</span>` : ''}
-            <span style="color:#5b6472;font-size:10px;font-weight:700;" dir="ltr">${esc(p.barcode) || '(بلا باركود)'}</span>
-          </div>`).join('')}
+            <span style="color:#5b6472;font-size:10px;font-weight:700;" dir="ltr">${esc(p.barcode) || '(بلا باركود)'}</span></span>`, '#b45309')).join('')}
           ${r.orphanProducts.length > 60 ? `<div style="padding:8px;text-align:center;color:#5b6472;font-size:10.5px;font-weight:700;">…و${r.orphanProducts.length - 60} أخرى</div>` : ''}
         </div>
         <button onclick="GMTIntegrity.fixOrphanProducts()" style="width:100%;margin-top:8px;background:#b45309;color:#fff;border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:900;font-size:12.5px;cursor:pointer;">
@@ -3395,11 +3422,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       <div style="margin-bottom:16px;">
         <div style="font-size:13px;font-weight:900;color:#dc2626;margin-bottom:4px;">🔴 زيادة غير مبرَّرة بالمخزون (بصمة المضاعفة)</div>
         <div style="font-size:11px;color:#5b6472;font-weight:700;margin-bottom:8px;">المخزون الفعلي <b>أكبر</b> من مجموع الفواتير — لا يمكن أن يزيد إلا بمضاعفة كتابة أو تعديل يدوي. راجعها فوراً.</div>
-        <div style="border:1px solid #fecaca;border-radius:12px;max-height:190px;overflow:auto;">
-          ${r.stockGaps.filter((g) => g.diff > 0).slice(0, 40).map((g) => `<div style="padding:9px 11px;border-bottom:1px solid #fee2e2;font-size:11.5px;display:flex;justify-content:space-between;gap:6px;">
-            <span style="font-weight:800;">${esc(g.name || '')}</span>
-            <span style="font-weight:900;color:#dc2626;white-space:nowrap;">+${g.diff} <span style="color:#5b6472;font-weight:700;">(فواتير ${g.expected} · مخزون ${g.actual})</span></span>
-          </div>`).join('')}
+        <div style="border:1px solid #fecaca;border-radius:12px;max-height:360px;overflow:auto;">
+          ${r.stockGaps.filter((g) => g.diff > 0).slice(0, 40).map((g) => prodDetail(g.id, `<span style="font-weight:800;">${esc(g.name || '')}</span>
+            <span style="font-weight:900;color:#dc2626;white-space:nowrap;margin-inline-start:auto;">+${g.diff} <span style="color:#5b6472;font-weight:700;">(فواتير ${g.expected} · مخزون ${g.actual})</span></span>`, '#dc2626')).join('')}
         </div>
       </div>` : ''}
 
