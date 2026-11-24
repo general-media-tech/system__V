@@ -44,6 +44,18 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
 
   function ok(t, d)   { return { level: 'ok',   title: t, detail: d || '' }; }
   function warn(t, d) { return { level: 'warn', title: t, detail: d || '' }; }
+  /* (seq B1060 · تقرير الصحّة «تعذّر التحقّق من 3 ملفّ (الشبكة) — favicon.ico · manifest.json · gmt-oplog.js … الحل: رفع الملفات المفقودة»)
+     الملفّات موجودة (200) — الشبكة لم تردّ لحظة الفحص. «تعذّر بسبب الشبكة» ليس عطلاً في النظام ⇒ مستوى «info» (يظهر في صفحة الفحوصات
+     ولا يصل تقرير الصحّة على تيليغرام كـ🟠 «مهم» ولا يخترع له الذكاء حلاً). الناقص فعلاً (404…) يبقى 🔴 */
+  function info(t, d) { return { level: 'info', title: t, detail: d || '' }; }
+  /* ملفٌّ حمّلته الصفحة نفسها بنجاح (سجلّ أداء المتصفّح) ⇒ موجودٌ يقيناً بلا طلبٍ جديد على شبكةٍ ضعيفة */
+  function loadedOk(u) {
+    try {
+      /* الصفحة تحمّل الملفّ بـ«?v=…» والفحص يقارن بلا استعلام ⇒ المطابقة على المسار وحده */
+      var abs = new URL(u, location.href).href.split('?')[0], es = ((performance.getEntriesByType && performance.getEntriesByType('resource')) || []).filter(function (e) { return String(e.name).split('?')[0] === abs; });
+      return es.some(function (e) { return (e.responseStatus ? e.responseStatus < 400 : true) && e.responseEnd > 0 && ((e.transferSize || 0) + (e.decodedBodySize || 0) + (e.encodedBodySize || 0) > 0); });
+    } catch (_) { return false; }
+  }
   function bad(t, d)  { return { level: 'bad',  title: t, detail: d || '' }; }
 
   /* ① الأصول: كل صورة/مكتبة تشير إليها الصفحة — موجودة فعلاً؟ */
@@ -65,6 +77,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
     for (var _w = 0; _w < 4; _w++) _jobs.push(_worker());
     await Promise.all(_jobs);
     async function _one(u) {
+      if (loadedOk(u)) return;
       for (var a = 0; a < 2; a++) {
         try {
           var r = await fetch(u, { method: 'HEAD', cache: 'no-store' });
@@ -76,7 +89,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
       unsure.push(u);
     }
     if (missing.length) return bad('أصول ناقصة: ' + missing.length, missing.slice(0, 8).join(' · '));
-    if (unsure.length) return warn('تعذّر التحقّق من ' + unsure.length + ' ملفّ (الشبكة)', unsure.slice(0, 8).join(' · '));
+    if (unsure.length) return info('تعذّر التحقّق من ' + unsure.length + ' ملفّ — الشبكة لم تردّ (ليس عطلاً: الناقص فعلاً يظهر 🔴)', unsure.slice(0, 8).join(' · '));
     return ok('كل أصول الصفحة موجودة (' + urls.size + ')');
   }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -288,7 +301,7 @@ window.gmtInternalUI = window.gmtInternalUI || function (who) {
         if (st == null) unsure.push(n); else missing.push(n + ' (' + st.slice(4) + ')');
       }
       if (missing.length) return bad('مكتبة ' + missing.join(' · ') + ' مفقودة', 'ملفّات المكتبات المؤجَّلة (' + missing.length + ') غير موجودة على الاستضافة — يتعطّل تصدير/استيراد Excel أو قراءة PDF');
-      if (unsure.length) return warn('تعذّر التحقّق من مكتبة ' + unsure.join(' · '), 'الشبكة لم تردّ');
+      if (unsure.length) return info('تعذّر التحقّق من مكتبة ' + unsure.join(' · '), 'الشبكة لم تردّ — ليس عطلاً');
       return ok('مكتبة Excel وبقيّة المكتبات المؤجَّلة موجودة (' + L.names.length + ')');
     } catch (e) { return warn('تعذّر فحص المكتبات المؤجَّلة', e.message); }
   }
