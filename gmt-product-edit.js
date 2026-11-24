@@ -144,6 +144,9 @@
           dl('pe-groups', ctx.groups) + dl('pe-cats', ctx.categories) +
           '<label>الماركة<span class="pe-auto" data-pe-brandnote hidden>🔎 تلقائياً — تأكّد</span><input data-f="brand" list="pe-brands" value="' + esc(p.brand || sp0.__brand) + '"></label>' + dl('pe-brands', ctx.brands) +
           '<label>الأسماء الأخرى (عربي وإنجليزي — بينها فاصلة)<textarea data-f="alt_names" rows="2">' + esc(p.alt_names) + '</textarea></label>' +
+          /* (TASK-B0537 · seq B1038 «حدّد متطلبات الرقم التسلسلي حسب المنتج … اجعل الإدارة قادرة على التحكم بها») */
+          '<label>الرقم التسلسلي عند البيع<select data-f="serial_req">' + [['', 'لا يلزم'], ['serial', 'رقم تسلسلي (Serial)'], ['imei', 'IMEI (هاتف)'], ['both', 'Serial أو IMEI']].map(function (o) { return '<option value="' + o[0] + '"' + (String(p.serial_req || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+          '<p class="pe-note">إن لزم: نقطة البيع تطلب مسح رقم كلّ قطعة (بعدد الكمية) ولا تحفظ الفاتورة ناقصة · الرقم يظهر بالفاتورة ويمرّ للكفالة.</p>' +
           '<p class="pe-note">الأسماء الأخرى تُضاف لكلمات البحث: الجرد ونقطة البيع والأوردرات يجدون المنتج بها.</p>' +
           /* (TASK-0233) صورة الجرد هنا أيضاً — كانت في نافذة «تعديل المنتج» وحدها */
           /* (TASK-0259 · المالك seq 184 «عم يستبدل الصوره القديمه … لازم اتعامل مع الصور مثل ما تعاملي مع المتجر … في المتجر ترتيبها غير
@@ -773,7 +776,7 @@
       if (f('brand')) specs.__brand = f('brand');
       if (f('__model')) specs.__model = f('__model');
       var inv = { name: f('name'), short: f('short'), barcode: f('barcode'), group_name: f('group_name'), category: f('category') || null, brand: f('brand') || null,
-        alt_names: f('alt_names') || null, price: num(f('price')), wholesale_price: num(f('wholesale_price')), min_stock: parseInt(f('min_stock'), 10) || 0, specs: specs, compat: f('compat') || null,
+        alt_names: f('alt_names') || null, serial_req: f('serial_req') || null, price: num(f('price')), wholesale_price: num(f('wholesale_price')), min_stock: parseInt(f('min_stock'), 10) || 0, specs: specs, compat: f('compat') || null,
         image_url: INV.imgs[0] || null, images: INV.imgs.length ? INV.imgs.slice() : null, images_hidden: INV.hidden.length ? INV.hidden.slice() : null };
       return inv;
     }

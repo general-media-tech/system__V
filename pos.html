@@ -1272,6 +1272,7 @@ window.GMT_FEATURES = [
   <script src="gmt-labels.js?v=20261124b"></script>
 <script src="gmt-staff.js?v=20261124b5"></script>
 <script src="gmt-custledger.js?v=20261124b6"></script>
+<script src="gmt-serial.js?v=20261125b10"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -3701,13 +3702,13 @@ async function _loadProductsFromServer(isFirst = false) {
     /* (٨ ت — تدقيق المطابقة) نقطة البيع كانت لا تقرأ التصنيف ولا الماركة ولا الأسماء البديلة ولا حدّ التنبيه
        (min_stock) — فلا فلتر «تصنيف ⇠ مجموعات» ولا بحثٌ بالماركة، وحدّ التنبيه دائماً ٥. نطلبها، وإن لم يكن
        عمودٌ منها في قاعدتك بعد (ملف SQL لم يُشغَّل) نُسقطه ونعيد الطلب بدل أن تفشل المنتجات كلّها. */
-    let _xc = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat'];   // (TASK-0185) «متوافق مع» يُبحث به (هود · غطاء · بطارية)
+    let _xc = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat', 'serial_req'];   /* (TASK-B0537) serial_req: ما يلزم من رقم تسلسلي/IMEI عند البيع */   // (TASK-0185) «متوافق مع» يُبحث به (هود · غطاء · بطارية)
     /* (19 ت1 · TASK-0109) «التصنيفات في الجرد فقط لا في نقاط البيع»: الجذر هنا. كان وقتُ الذاكرة يُكتب من جديد في **كل**
        تحميل، فمن يفتح نقطة البيع يومياً لا تنتهي ذاكرته أبداً — وعمودُ «التصنيف» الذي سقط مرّةً قبل تشغيل SQL ٢٤ بقي
        ساقطاً إلى الأبد رغم وجوده الآن في القاعدة. الآن: الذاكرة تُكتب فقط بعد فحصٍ كاملٍ فعلي، وتنتهي بعد يوم،
-       واسمُها تغيّر (gmt_pos_xcols3) فتُهمَل الذاكرة القديمة العالقة على كل الأجهزة فوراً. */
+       واسمُها تغيّر (gmt_pos_xcols4) فتُهمَل الذاكرة القديمة العالقة على كل الأجهزة فوراً. */
     let _xcFromCache = false;
-    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols3') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) { _xc = k.c; _xcFromCache = true; } } catch (_) {}
+    try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols4') || 'null'); if (k && Array.isArray(k.c) && Date.now() - k.t < 864e5) { _xc = k.c; _xcFromCache = true; } } catch (_) {}
     let r;
     for (let _i = 0; _i < 8; _i++) {
       r = await fetch(
@@ -3719,7 +3720,7 @@ async function _loadProductsFromServer(isFirst = false) {
       const _bad = _xc.find(c => _m.indexOf(c) >= 0);
       _xc = _bad ? _xc.filter(c => c !== _bad) : [];
     }
-    if (!_xcFromCache && r.ok) { try { localStorage.setItem('gmt_pos_xcols3', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {} }
+    if (!_xcFromCache && r.ok) { try { localStorage.setItem('gmt_pos_xcols4', JSON.stringify({ c: _xc, t: Date.now() })); } catch (_) {} }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const freshProds = await r.json();
 
@@ -3822,8 +3823,8 @@ async function _backgroundSync() {
     });
     if (changed.length > 0) {
       const ids = changed.map(c=>c.id).join(',');
-      let _xc2 = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat'];
-      try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols3') || 'null'); if (k && Array.isArray(k.c)) _xc2 = k.c; } catch (_) {}
+      let _xc2 = ['category', 'brand', 'alt_names', 'search_terms', 'extra_groups', 'min_stock', 'compat', 'serial_req'];
+      try { const k = JSON.parse(localStorage.getItem('gmt_pos_xcols4') || 'null'); if (k && Array.isArray(k.c)) _xc2 = k.c; } catch (_) {}
       const cols = `id,name,short,price,wholesale_price,cost_price,net_cost,barcode,image_url,images,images_hidden,group_name,store_url,updated_at,${branchCols}${_xc2.length ? ',' + _xc2.join(',') : ''}`;
       const updR = await fetch(
         `${CONFIG.SUPABASE_URL}/rest/v1/products?id=in.(${ids})&select=${cols}`,
@@ -4008,7 +4009,7 @@ function buildRowsB(items) {
     }
     return '<tr>'
       + '<td style="font-size:11px;text-align:center;color:#555;">' + (i+1) + '</td>'
-      + '<td>' + escH(item.prod.name) + '</td>'
+      + '<td>' + escH(item.prod.name) + posSerialLine(item) + '</td>'
       + '<td>' + item.qty + '</td>'
       + '<td>قطعة</td>'
       + '<td>' + _f(item.price) + '</td>'
@@ -4904,7 +4905,7 @@ async function warrantyFromHistory(invId) {
     } catch (_) {}
     const _pById = {}; try { (allProducts || []).forEach(p => { if (p && p.id != null) _pById[String(p.id)] = p; }); } catch (_) {}
     window.__lastInvItems = (items || []).map(x => { const p = x.product_id != null ? _pById[String(x.product_id)] : null;   /* (VER-1#REQ-0059) ربط القطعة بمنتج الجرد */
-      return { name: x.product_name || x.name || '', barcode: x.barcode || (p && p.barcode) || '', serial: x.serial || x.serial_no || '', price: x.unit_price || x.price,
+      return { name: x.product_name || x.name || '', barcode: x.barcode || (p && p.barcode) || '', serial: x.serial || x.serial_no || (Array.isArray(x.serials) && x.serials[0] ? x.serials[0].code : '') || '', serials: Array.isArray(x.serials) ? x.serials.map(s => s.code) : [], price: x.unit_price || x.price,
                pid: x.product_id != null ? x.product_id : null, cat: (p && p.category) || '', grp: (p && p.group_name) || '' }; });
     window.__lastInvName = inv.customer_name || '';
     window.__lastInvPhone = inv.customer_phone || inv.phone || '';
@@ -7490,7 +7491,7 @@ function renderCart() {
             ? `<img src="${escH(imgSrc(item.prod))}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<span class=pt-noimg></span>'">`
             : '<span class="pt-noimg"></span>'}
         </div>
-        <div class="pt-name">${escH(item.prod.name)}</div>
+        <div class="pt-name">${escH(item.prod.name)}${posSerialChip(item)}</div>
       </div>
       <div class="pt-q">
         <span class="pt-mini">الكمية</span>
@@ -7602,6 +7603,9 @@ function updQtyCart(id, v) {
   if (!cart[id]) return;
   const max = Number(cart[id].prod[branch.key]) || 999;
   cart[id].qty = Math.max(1, Math.min(max, parseInt(v) || 1));
+  /* (TASK-B0537) الكمية نقصت تحت عدد الأرقام المُدخلة ⇒ تُقصّ الزائدة (الأحدث) · الشريحة تتحدّث */
+  if ((cart[id].serials || []).length > cart[id].qty) cart[id].serials = cart[id].serials.slice(0, cart[id].qty);
+  { const ch = document.querySelector('[data-serial-chip="' + id + '"]'); if (ch) { const w = document.createElement('span'); w.innerHTML = posSerialChip(cart[id]); ch.replaceWith(w.firstElementChild || w); } }
   const el = document.getElementById('cart-ptotal-' + id);
   if (el) el.textContent = '$ ' + (cart[id].price * cart[id].qty).toFixed(2);
   syncCartTotal();
@@ -7909,6 +7913,97 @@ function paintLiveCommission(ct) {
     pc.textContent = round2(tc).toFixed(2);
     if (pd) pd.textContent = linked ? 'أوردر شحن — لا عمولة' : 'نسبة العمولة ' + Math.round(commissionRate() * 100) + '٪ من هامش الربح فوق سعر الجملة (بعد الخصم)';
   } catch (_) {}
+}
+/* ══ (TASK-B0537 · المالك seq B1038–B1039 «نظام GMT الذكي لإدارة IMEI و Serial Numbers») — المرحلة ١ ══
+   منتجٌ إعداده serial_req (serial · imei · both) ⇒ شريحة «🔢 الأرقام n/الكمية» على سطره بالسلّة ⇒ نافذة مسح متتالٍ (ماسح · كاميرا · لصق · كتابة)
+   ⇒ المحلّل المحلّي GMTSerial (لا ذكاء ولا شبكة) ⇒ لا تكرار داخل الفاتورة ولا على مستوى النظام (gmt_serials) ⇒ لا حفظ ناقص.
+   الأرقام تُحفظ على البند (invoice_items.serials) وفي سجلّ الجهاز، تظهر بالفاتورة، وتمرّ للكفالة تلقائياً. */
+function posSerialNeed(p) { return (window.GMTSerial && p && !p._is_offer) ? GMTSerial.need(p) : ''; }
+function posSerialChip(item) {
+  const req = posSerialNeed(item.prod), n = (item.serials || []).length;
+  if (!req && !n) return '';
+  const done = n >= (Number(item.qty) || 0);
+  return ` <button type="button" data-serial-chip="${escH(String(item.prod.id))}" onclick="posSerialOpen('${escH(String(item.prod.id))}')" style="display:inline-block;margin-top:3px;border:1.5px solid ${done ? '#16a34a' : '#D5001C'};background:${done ? '#f0fdf4' : '#fff1f2'};color:${done ? '#166534' : '#9f1239'};border-radius:999px;padding:1px 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit">🔢 ${req === 'imei' ? 'IMEI' : 'السيريال'} ${n}/${item.qty}</button>`;
+}
+function posSerialLine(item) {
+  const a = (item.serials || []).map(x => x.code); if (!a.length) return '';
+  return '<div style="font-size:10px;color:#475569;direction:ltr;text-align:right">SN: ' + a.map(escH).join(' · ') + '</div>';
+}
+/* فحصٌ مركزي: الرقم بفاتورةٍ أخرى بالسلّة · أو مبيعٌ سابقاً بالنظام ⇒ يُرفض (إلّا «بالمخزون»/«مرتجع» فيُقبل ويصير مبيعاً عند الحفظ) */
+async function posSerialCheck(code, pid) {
+  for (const k in cart) { const it = cart[k]; if ((it.serials || []).some(x => x.code === code)) return { ok: false, why: 'الرقم مُدخَل مسبقاً في هذه الفاتورة' + (String(k) !== String(pid) ? ' (لمنتجٍ آخر: ' + it.prod.name + ')' : '') }; }
+  try {
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_serials?code=eq.${encodeURIComponent(code)}&status=neq.void&select=status,product_id,product_name,sale_inv_number,customer_name&limit=1`, { headers: sbHeaders() }, 6000);
+    if (r.ok) { const x = (await r.json())[0];
+      if (x && x.status === 'sold') return { ok: false, why: 'مبيعٌ سابقاً بالفاتورة ' + (x.sale_inv_number || '؟') + (x.customer_name ? ' لـ«' + x.customer_name + '»' : '') + ' — لا يُباع الجهاز مرّتين' };
+      if (x && x.product_id && String(x.product_id) !== String(pid)) return { ok: false, why: 'الرقم مسجَّل لمنتجٍ آخر: ' + (x.product_name || '') };
+    }
+  } catch (_) {}
+  return { ok: true };
+}
+async function posSerialAccept(pid, raw) {
+  const it = cart[pid]; if (!it || !window.GMTSerial) return { ok: false, why: 'لا بند' };
+  const req = posSerialNeed(it.prod), r = GMTSerial.parse(raw);
+  let c = r.candidates.filter(x => GMTSerial.fits(x, req));
+  if (!c.length) return { ok: false, why: r.candidates.length ? 'القراءة لا تحوي ' + (req === 'imei' ? 'IMEI صالحاً' : 'رقماً تسلسلياً') : 'لم يُعثر على رقم في القراءة' };
+  if (!(c.length === 1 && c[0].sure)) {
+    if (!window.GMTAsk) return { ok: false, why: 'رقمٌ غير واضح' };
+    const k = await GMTAsk.choose('القراءة غير واضحة — اختر الرقم الصحيح (لا يُحفظ رقمٌ غير موثوق):', { title: '🔢 أيّ رقم؟', choices: c.map((x, i) => ({ k: String(i), t: x.code + ' · ' + (x.kind === 'imei' ? 'IMEI' : 'Serial') + ' — ' + x.why, pri: x.sure ? 1 : 0 })) });
+    if (k == null) return { ok: false, why: 'أُلغي' };
+    c = [c[Number(k)]];
+  }
+  const x = c[0];
+  if ((it.serials || []).length >= (Number(it.qty) || 0)) return { ok: false, why: 'اكتملت أرقام الكمية (' + it.qty + ') — زِد الكمية أوّلاً' };
+  const chk = await posSerialCheck(x.code, pid); if (!chk.ok) return chk;
+  it.serials = (it.serials || []).concat([{ code: x.code, kind: x.kind }]);
+  try { renderCart(); liveUpdateInvoice(); } catch (_) {}
+  return { ok: true, code: x.code };
+}
+function posSerialOpen(pid) {
+  const it = cart[pid]; if (!it) return;
+  document.getElementById('pos-serial-ov')?.remove();
+  const ov = document.createElement('div'); ov.id = 'pos-serial-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(15,18,25,.6);display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;direction:rtl';
+  ov.innerHTML = `<div style="background:#fff;border-radius:18px;width:100%;max-width:520px;margin:auto;overflow:hidden;font-family:inherit">
+    <div style="background:#0f1219;color:#fff;padding:12px 14px;border-bottom:3px solid #D5001C;display:flex;align-items:center;gap:8px"><b style="flex:1">🔢 أرقام القطع — ${escH(it.prod.name)}</b><button data-ps-close style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:9px;padding:5px 10px;cursor:pointer">✕</button></div>
+    <div style="padding:12px 14px">
+      <div style="font-size:12px;color:#475569;font-weight:700;margin-bottom:8px">امسح رقم كلّ قطعة بالماسح أو الكاميرا أو الصقه — ${posSerialNeed(it.prod) === 'imei' ? 'IMEI (١٥ رقماً يُتحقَّق منه)' : 'الرقم التسلسلي (S/N)'}. المطلوب: <b>${it.qty}</b></div>
+      <div style="display:flex;gap:6px"><input id="ps-in" dir="ltr" autocomplete="off" placeholder="امسح أو اكتب ثمّ Enter" style="flex:1;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px"><button id="ps-cam" style="border:0;border-radius:10px;background:#0f1219;color:#fff;padding:0 12px;cursor:pointer">📷</button></div>
+      <div id="ps-msg" style="min-height:20px;font-size:12px;font-weight:800;margin:6px 0"></div>
+      <div id="ps-list"></div>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const paint = () => {
+    const a = (cart[pid] && cart[pid].serials) || [];
+    document.getElementById('ps-list').innerHTML = `<div style="font-size:12px;font-weight:900;margin-bottom:4px">المُدخَل ${a.length}/${it.qty}</div>` + a.map((x, i) => `<div style="display:flex;align-items:center;gap:6px;border-top:1px solid #f1f5f9;padding:5px 0;font-size:13px"><span style="flex:1;direction:ltr;text-align:right;font-weight:800">${escH(x.code)}</span><span style="font-size:10.5px;color:#64748b">${x.kind === 'imei' ? 'IMEI' : 'S/N'}</span><button data-ps-del="${i}" style="border:0;background:#fef2f2;color:#b91c1c;border-radius:8px;padding:2px 8px;cursor:pointer">حذف</button></div>`).join('');
+  };
+  const msg = (t, okk) => { const m = document.getElementById('ps-msg'); m.textContent = t; m.style.color = okk ? '#15803d' : '#b91c1c'; };
+  const take = async (raw) => { if (!String(raw || '').trim()) return; const r = await posSerialAccept(pid, raw); msg(r.ok ? '✅ ' + r.code : '⛔ ' + r.why, r.ok); paint(); try { if (window.GMTSound) GMTSound.play(r.ok ? 'scan' : 'error'); } catch (_) {} };
+  const inp = document.getElementById('ps-in');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const v = inp.value; inp.value = ''; take(v); } });
+  inp.addEventListener('paste', e => { const t = (e.clipboardData || window.clipboardData)?.getData('text'); if (t && /\n/.test(t)) { e.preventDefault(); t.split(/\n+/).reduce((pp, line) => pp.then(() => take(line)), Promise.resolve()); } });
+  document.getElementById('ps-cam').onclick = () => { if (window.GMTScan && GMTScan.camera) GMTScan.camera(code => take(code), { continuous: true, title: 'امسح أرقام القطع' }); else msg('الكاميرا غير متاحة', false); };
+  ov.addEventListener('click', e => {
+    if (e.target === ov || e.target.closest('[data-ps-close]')) { ov.remove(); return; }
+    const d = e.target.closest('[data-ps-del]'); if (d) { const a = cart[pid].serials || []; a.splice(Number(d.dataset.psDel), 1); cart[pid].serials = a; paint(); try { renderCart(); liveUpdateInvoice(); } catch (_) {} }
+  });
+  paint(); setTimeout(() => inp.focus(), 50);
+}
+/* بعد حفظ البنود: كلّ رقم ⇒ سجلّ الجهاز «مبيع» (موجودٌ «بالمخزون» يُحدَّث · غيره يُنشأ) */
+async function posSerialRegister(items, inv) {
+  const H = { ...sbHeaders(), 'Content-Type': 'application/json' }, now = new Date().toISOString(), by = (currentUser && (currentUser.display_name || currentUser.username)) || '';
+  for (const i of items) {
+    for (const s of (i.serials || [])) {
+      const ev = { at: now, ev: 'sold', by, ref: inv.inv_number };
+      const g = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_serials?code=eq.${encodeURIComponent(s.code)}&status=neq.void&select=id,history&limit=1`, { headers: sbHeaders() }, 6000);
+      const ex = g.ok ? (await g.json())[0] : null;
+      const row = { status: 'sold', kind: s.kind, product_id: i.prod.id, product_name: i.prod.name, branch_key: branch.key, sale_invoice_id: String(inv.invoice_id), sale_inv_number: inv.inv_number, customer_name: inv.customer_name || null, customer_phone: inv.customer_phone || null, sold_at: now };
+      const r = ex
+        ? await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_serials?id=eq.${ex.id}`, { method: 'PATCH', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ ...row, history: (Array.isArray(ex.history) ? ex.history : []).concat([ev]) }) }, 8000)
+        : await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_serials`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify({ ...row, code: s.code, created_by: by, history: [ev] }) }, 8000);
+      if (!r.ok) throw new Error(s.code + ' HTTP ' + r.status);
+    }
+  }
 }
 /* (TASK-B0533 · seq B1045 «عملاء شراء دائمين … بالدين») رقمُ عميلٍ دائم ⇒ رصيده وحدّه تحت الحقل (الرصيد من gmt-custledger: آجله − سنداته) */
 let _posRegulars = null, _posAcctKey = '';
@@ -8640,6 +8735,9 @@ async function _saveAndFinishInner() {
 
   const items = Object.values(cart);
   if (!items.length) { showToast('السلة فارغة', 'err'); return; }
+  /* (TASK-B0537 · seq B1038 «منع اعتماد الفاتورة إذا كان إدخال الأرقام إلزامياً ولم تكتمل الكمية») */
+  { const _miss = items.filter(i => posSerialNeed(i.prod) && (i.serials || []).length < (Number(i.qty) || 0));
+    if (_miss.length) { showToast('🔢 أكمل أرقام القطع قبل الحفظ: ' + _miss.map(i => i.prod.name + ' (' + (i.serials || []).length + '/' + i.qty + ')').join('، '), 'err'); try { posSerialOpen(String(_miss[0].prod.id)); } catch (_) {} return; } }
 
   /* 🔒 (2026-08-26) [OWN-ENFORCE-AT-SAVE] حظر الزبون كان يُطبَّق عند **اختياره من القائمة**
      فقط — فإن كتب الكاشير الرقم يدوياً أو ضغط «إضافة عميل جديد» بنفس الرقم يُتجاوز الحظر.
@@ -8908,6 +9006,8 @@ async function _saveAndFinishInner() {
         cost_price      : nc,
         commission      : parseFloat(commUnit.toFixed(4)),
         total           : round2(i.price * i.qty),
+        /* (TASK-B0537) أرقام القطع على البند نفسه ⇒ تظهر في الفاتورة وتمرّ للكفالة (sbPostAdaptive يُسقطها إن لم يوجد العمود) */
+        ...((i.serials && i.serials.length) ? { serials: i.serials.map(x => ({ code: x.code, kind: x.kind })) } : {}),
       };
       })()];
     });
@@ -9042,6 +9142,9 @@ async function _saveAndFinishInner() {
       throw new Error('⛔ الفاتورة ' + realInvNum + ' حُفظت بلا بنود وتعذّر إلغاؤها — أبلغ الإدارة فوراً ولا تُسلّم البضاعة قبل المراجعة');
     }
     _progress.itemsDone = true;
+    /* (TASK-B0537) سجلّ الجهاز المركزي: كلّ رقم ⇒ «مبيع» بهذه الفاتورة (رقمٌ موجود «بالمخزون» يُحدَّث · جديد يُنشأ) — لا يوقف البيع إن فشل */
+    try { await posSerialRegister(items, { invoice_id: invoice.id, inv_number: realInvNum, customer_name: (document.getElementById('custName')?.value || '').trim(), customer_phone: (document.getElementById('custPhone')?.value || '').trim() }); }
+    catch (_se) { _issues.push('تعذّر تسجيل أرقام القطع في سجلّ الأجهزة: ' + (_se.message || _se)); }
     const _droppedIt = (itRes.dropped || []);
     if (_droppedIt.length) console.warn('[GMT] أعمدة ناقصة في invoice_items أُسقطت:', _droppedIt.join('، '));
 
@@ -11487,7 +11590,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b9"></script>
+<script src="gmt-whatsnew.js?v=20261125b10"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

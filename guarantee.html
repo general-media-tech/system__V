@@ -1697,6 +1697,21 @@ window.GMT_INTERNAL = 1;</script>
                     let items = [];
                     try { items = JSON.parse(decodeURIComponent(urlParams.get('items') || '[]')) || []; } catch (_) { items = []; }
                     const named = items.filter(x => x && x.name);
+                    /* (TASK-B0537 · seq B1038 «إذا كان المنتج يحتوي على أكثر من رقم، يجب اختيار الرقم المناسب وربطه بالكفالة دون خلط»)
+                       قطعةٌ بأكثر من رقم (كمية ٢+) ⇒ أزرار أرقامها تحت حقل الرقم التسلسلي — بلا إعادة مسح ولا كتابة يدوية */
+                    window.__gwSerialPick = function (x) {
+                        const sn = document.getElementById('serialNo'); if (!sn || !sn.parentNode) return;
+                        let bx = document.getElementById('gw-serial-pick'); if (bx) bx.remove();
+                        const arr = (x && Array.isArray(x.serials)) ? x.serials.filter(Boolean) : [];
+                        if (arr.length < 2) return;
+                        bx = document.createElement('div'); bx.id = 'gw-serial-pick'; bx.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px';
+                        bx.innerHTML = '<div style="width:100%;font-size:12px;font-weight:700;color:#5b6472">أرقام هذه القطعة بالفاتورة — اختر رقم الجهاز الذي تُصدَر له الكفالة:</div>' +
+                            arr.map(c => '<button type="button" data-sn="' + String(c).replace(/[<>&"]/g, '') + '" style="border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:5px 10px;font-size:12.5px;font-weight:800;cursor:pointer;direction:ltr">' + String(c).replace(/[<>&]/g, '') + '</button>').join('');
+                        bx.addEventListener('click', (e) => { const b = e.target.closest('[data-sn]'); if (!b) return; sn.value = b.getAttribute('data-sn'); sn.dispatchEvent(new Event('input', { bubbles: true }));
+                            [...bx.querySelectorAll('[data-sn]')].forEach(o => { o.style.borderColor = o === b ? '#D5001C' : '#e5e7eb'; o.style.color = o === b ? '#D5001C' : ''; }); });
+                        sn.parentNode.appendChild(bx);
+                    };
+                    if (named.length === 1) window.__gwSerialPick(named[0]);
                     if (named.length > 1) {
                         const host = document.getElementById('productName');
                         if (host && host.parentNode) {
@@ -1712,6 +1727,7 @@ window.GMT_INTERNAL = 1;</script>
                                 const pn = document.getElementById('productName'), sn = document.getElementById('serialNo');
                                 if (pn) { pn.value = x.name || ''; pn.dispatchEvent(new Event('input', { bubbles: true })); }
                                 if (sn && x.serial) { sn.value = x.serial; sn.dispatchEvent(new Event('input', { bubbles: true })); }   /* (TASK-0320) باركود الصنف ليس رقم القطعة */
+                                try { window.__gwSerialPick && window.__gwSerialPick(x); } catch (_) {}
                                 [...box.querySelectorAll('[data-pi]')].forEach(o => { o.style.borderColor = o === bt ? '#D5001C' : '#e5e7eb'; o.style.color = o === bt ? '#D5001C' : ''; });
                             });
                             host.parentNode.appendChild(box);
@@ -2447,7 +2463,7 @@ window.GMT_INTERNAL = 1;</script>
 <script src="gmt-brain.js?v=20261124b2"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b9"></script>
+<script src="gmt-whatsnew.js?v=20261125b10"></script>
 <script src="gmt-why.js?v=20261003"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>

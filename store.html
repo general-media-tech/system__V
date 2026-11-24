@@ -1381,7 +1381,7 @@ async function _adminFullEdit(prod) {
     if (!D || !invId) { showToast('هذا المنتج غير مربوط بالجرد — يُفتح في أدمن المتجر', 'error'); return toAdmin(); }
     const H = { apikey: D.key, Authorization: 'Bearer ' + D.key };
     try {
-        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261110b');
+        if (!window.GMTProductEdit) await _loadScript('gmt-product-edit.js?v=20261125b10');
         /* (المالك seq 580) «أحياناً يكتب تعذّر التعديل لما أفتح تعديل منتج» — طلبٌ واحد بلا إعادة على شبكة ضعيفة ⇒ يفشل.
            الآن: مهلة 12ث ومحاولتان إضافيتان، وقائمة المجموعات/الأصناف (للاقتراحات فقط) لا تُوقف فتح التعديل أبداً. */
         const _get = async (url, tries) => {
