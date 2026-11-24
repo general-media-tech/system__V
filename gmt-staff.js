@@ -6511,7 +6511,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
   /* البوّابة: كلمة سر + سبب إجباري + تسجيل */
   async function require_(e) {
     e = e || {};
-    const fresh = (Date.now() - unlockedAt) < SESSION_MS;
+    /* (seq B1048) أدمنٌ داخلٌ بحسابه ⇒ صلاحيته من حسابه بلا كلمة سيادية (السبب والتسجيل باقيان أدناه) */
+    const fresh = (Date.now() - unlockedAt) < SESSION_MS || !!(global.GMTAuth && global.GMTAuth.accountAdmin && global.GMTAuth.accountAdmin());
     if (!fresh) {
       const p = await (window.GMTAsk ? GMTAsk.prompt : function (m, o) { return Promise.resolve(window.prompt(m, o && o.value)); })('🔐 تعديل يدوي — يتطلّب صلاحية سيادية\n\n' +
         (e.entityName ? 'على: ' + e.entityName + '\n' : '') +

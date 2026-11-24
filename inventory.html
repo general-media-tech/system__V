@@ -6923,9 +6923,7 @@ async function unlockQtyFields() {
     return;
   }
   /* احتياطي: إن لم يُحمَّل GMTAudit (صفحة قديمة) */
-  const pw = await GMTAsk.prompt('🔓 تعديل الكميات يدوياً (بلا فاتورة شراء)\n\nهذا استثناء — يُسجَّل بالكامل.\nأدخل كلمة السر السيادية:');
-  if (!pw) return;
-  if (!(await GMTAuth.check('sovereign', pw))) { alert('⛔ كلمة سر غير صحيحة.'); return; }
+  if (!(await GMTAuth.gate('sovereign', '🔓 تعديل الكميات يدوياً (بلا فاتورة شراء) — استثناء يُسجَّل بالكامل'))) return;   /* (seq B1048) حساب الأدمن لا يُسأل */
   const reason = await GMTAsk.prompt('سبب التعديل اليدوي (إجباري — يُحفظ بسجل التدقيق):');
   if (!reason || !reason.trim()) { alert('⛔ السبب إجباري.'); return; }
   invQtyUnlockSet(reason.trim());
@@ -14686,11 +14684,7 @@ window.drainPosStart = async function () {   /* async: فحص كلمة السر�
   if (!list.length) { showToast('لا يوجد مخزون في هذا الفرع', 'error'); return; }
 
   const col = (columns || []).find(c => c.key === key);
-  const pw = await GMTAsk.prompt('🔓 تفريغ نقطة البيع «' + (col?.displayName || key) + '» بالكامل إلى حلب\n\n' +
-                    list.length + ' منتجاً · ' + list.reduce((s,p)=>s+(Number(p[key])||0),0) + ' قطعة\n\n' +
-                    'عملية سيادية تُسجَّل بالكامل. أدخل كلمة السر السيادية:');
-  if (pw === null) return;
-  if (!(await GMTAuth.check('sovereign', pw))) { alert('⛔ كلمة سر غير صحيحة.'); return; }
+  if (!(await GMTAuth.gate('sovereign', '🔓 تفريغ نقطة البيع «' + (col?.displayName || key) + '» بالكامل إلى حلب — ' + list.length + ' منتجاً'))) return;   /* (seq B1048) */
 
   /* مسوّدة قائمة؟ لا ندهسها بصمت — المسوّدات عمل لم يُحفظ بعد. */
   try {
@@ -15572,9 +15566,7 @@ window.stSendToBranch = stSendToBranch;
    فالطريق المفتوح موثَّق، لا مفتوحاً على مصراعيه.
    ══════════════════════════════════════════════════════════════════════════ */
 async function stAdminConfirm(transferId) {
-  const pw = await GMTAsk.prompt('👑 تأكيد إداري للاستلام بلا صورة توقيع.\nاكتب كلمة السرّ السيادية:');
-  if (pw === null) return;
-  if (!(await GMTAuth.check('sovereign', pw))) { alert('⛔ كلمة سر غير صحيحة.'); return; }
+  if (!(await GMTAuth.gate('sovereign', '👑 تأكيد إداري للاستلام بلا صورة توقيع'))) return;   /* (seq B1048) */
   const who = (await GMTAsk.prompt('اسمك (يُسجَّل على الفاتورة):', { value: (typeof getOperatorName === 'function' ? getOperatorName() : '') || '' }) || '').trim();
   if (!who) { showToast('الاسم مطلوب', 'error'); return; }
   const why = (await GMTAsk.prompt('لماذا تؤكّد بلا صورة؟ (يُسجَّل — مثال: اتّصلتُ بالفرع وأكّد الاستلام)') || '').trim();

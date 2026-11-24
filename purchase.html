@@ -4563,9 +4563,7 @@ async function executeArrival(s, src, plan){
 // 🔓 فكّ ختم الترحيل — صلاحية سيادية (PUR-2)
 async function unsealTransfer(id){
   const s=ships.find(x=>String(x.id)===String(id));if(!s)return;
-  const pw=await GMTAsk.prompt(`🔓 فكّ ختم الفاتورة ${s.inv_number}\n\nهذا يعيدها لحالة «بالطريق» ويسمح بترحيلها من جديد.\n⚠️ لا يُعيد الكميات — عدّلها بالجرد إن لزم.\n\nأدخل كلمة السر السيادية:`);
-  if(!pw) return;
-  if (!(await GMTAuth.check('purchase', pw))) { alert('⛔ كلمة سر غير صحيحة — لم يُفكّ الختم.'); return; }
+  if (!(await GMTAuth.gate('purchase', '🔓 فكّ ختم الفاتورة '+s.inv_number+' — يعيدها «بالطريق» ويسمح بترحيلها من جديد'))) return;   /* (seq B1048) حساب الأدمن لا يُسأل */
   const reason=await GMTAsk.prompt('سبب فكّ الختم (إجباري — يُحفَظ بالسجل):');
   if(!reason||!reason.trim()){ alert('⛔ السبب إجباري.'); return; }
   try{

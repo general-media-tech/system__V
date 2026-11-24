@@ -190,8 +190,30 @@
         } catch (e) { return false; }
     }
 
+    /* (المالك seq B1048 «ما في كلّ شوي يطلب كلمة سرّ سيادية … نلغي هذول الصلاحيات ويصير صلاحيات المستخدم للحساب»)
+       أدمنٌ دخل بحسابه هذه الجلسة (كلمة سرّه هو ⇒ رمزٌ موقَّع من الخادم باسمه وصلاحيته) لا يُسأل كلمةً سيادية لكلّ عملية:
+       صلاحيته من حسابه، والعملية تُسجَّل باسمه في سجلّ العمليات. غير الأدمن يُسأل كما كان. */
+    function accountAdmin() {
+        try {
+            if (sessionStorage.getItem('gmt_admin_mode') !== '1') return '';
+            var t = token(); if (!t) return '';
+            var parts = t.split('.'); if (parts.length !== 3) return '';
+            if (!(Number(parts[1]) > Date.now())) return '';
+            return decodeURIComponent(escape(atob(parts[0]))) || '';
+        } catch (e) { return ''; }
+    }
+    function logAccountPass(kind, title) {
+        try { var who = accountAdmin(); var e = { action: 'account_pass', entity: kind, entityName: String(title || kind).replace(/\s+/g, ' ').slice(0, 140), actor: 'الأدمن ' + who };
+            if (global.GMTOpLog) global.GMTOpLog.log(e); else global.addEventListener('gmt:oplog-ready', function () { try { global.GMTOpLog.log(e); } catch (x) {} }, { once: true }); } catch (e2) {}
+    }
+    /* للمواضع التي تكتب نافذتها بنفسها: أدمن الحساب ⇒ مرور مسجَّل · غيره ⇒ النافذة كما هي */
+    async function gate(kind, title) {
+        if (accountAdmin()) { logAccountPass(kind, title); return true; }
+        return ask(kind, title);
+    }
     /* نافذة سؤال موحّدة — كي لا تبقى كل صفحة تكتب prompt برسالتها الخاصّة */
     async function ask(kind, title) {
+        if (accountAdmin()) { logAccountPass(kind, title); return true; }   /* (seq B1048) */
         var k = KINDS[kind] || { label: kind };
         /* 🎨 (2026-10-03 · طلبك ١٦١) كانت `prompt()` و`alert()` من المتصفّح —
            وهي **أكثرُ نافذةٍ يراها الموظّف يومياً** لأنّ كل عمليةٍ محميّة تمرّ
@@ -480,7 +502,7 @@
 
     global.GMTAuth = {
         DEFAULT: DEFAULT_PW,          /* ⬅ تقرؤه كل صفحة بدل كتابة الرقم */
-        KINDS: KINDS, check: check, ask: ask, isDefault: isDefault,
+        KINDS: KINDS, check: check, ask: ask, gate: gate, accountAdmin: accountAdmin, isDefault: isDefault,
         setDb: setDb, setLocal: setLocal, load: load, sha: sha,
         admin: {
             login: adminLogin,                                   /* نافذة اسم+كلمة سرّ ⇒ الاسم أو null */
