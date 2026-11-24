@@ -94,7 +94,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261121s"></script>
 <script src="gmt-account.js?v=20261119j"></script>
-<style>/* (TASK-B0509) على الهاتف: الأدوات الأقلّ استعمالاً خلف «المزيد من الأدوات» */@media (max-width:1023px){#ord-tools:not(.ord-open) .ord-x{display:none!important}}</style>
+<style>/* (TASK-B0509) على الهاتف: الأدوات الأقلّ استعمالاً خلف «المزيد من الأدوات» */@media (max-width:1023px){#ord-tools:not(.ord-open) .ord-x{display:none!important}}/* (seq B1047 «زرّ المزيد من الأدوات على الكمبيوتر ما عم يغيّر شي») lg:hidden غير موجود في CSS المبنيّ ⇒ الزرّ ظهر على الكمبيوتر بلا عمل (الأدوات كلّها ظاهرة هناك) */@media (min-width:1024px){#ord-more-btn{display:none!important}}/* صيد النمط: أصنافٌ مستعملة هنا وغير موجودة في lib/tailwind.css المبنيّ ⇒ النوافذ لا تأخذ عرضها المقصود على الكمبيوتر */@media (min-width:640px){.sm\:max-w-md{max-width:28rem}.sm\:rounded-3xl{border-radius:1.5rem}.sm\:w-\[420px\]{width:420px}.sm\:w-\[460px\]{width:460px}}@media (min-width:768px){.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (min-width:1024px){.lg\:hidden{display:none!important}}</style>
 </head>
 <body class="pb-28">
 <!-- (TASK-A0573 · المالك seq 970–971 · امتداد A0571) أوّل فتح على جهازٍ جديد: سكربتاتٌ متزامنة قبل أيّ عنصر ⇒ شاشة بيضاء ٧–١١ث على إنترنت ١م.ب/ث.
@@ -265,7 +265,8 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
                 <p class="text-[10px] font-bold text-gray-400">المجموع الكلي</p>
                 <p class="text-[9px] text-gray-400 font-semibold">انقر لعرض التفاصيل</p>
             </div>
-            <p id="grandTotal" class="text-2xl font-black text-red">$0</p>
+            <div style="text-align:left"><p id="grandTotal" class="text-2xl font-black text-red">$0</p>
+              <p id="grandRetNote" class="text-[10px] font-bold" style="color:#b45309;display:none"></p></div>
         </div>
         <button onclick="openBulkPrint()" data-hint="طباعة كل الأوردرات غير المشحونة دفعة واحدة — أربعة بكل ورقة A4، مع إمكانية إلغاء تحديد ما لا تريده."
                 class="w-full bg-white p-3.5 rounded-2xl card-shadow border-r-4 border-gray-300 flex justify-between items-center active:scale-98 transition-transform">
@@ -1900,6 +1901,8 @@ function render() {
     // إجمالي غير محصّل
     const grand = sumP + sumS + sumD + sumR + sumRA;   // (TASK-A0532) المرتجع القائم خرج من sumS/sumD إلى sumRA — المجموع نفسه
     setText('grandTotal',  '$' + grand.toLocaleString());
+    /* (seq B1047 «عملت مرتجع بس ما نزل من المجموع») بقاعدة seq 187 يبقى المرتجع في المجموع حتى «✅ استلمناه» — يُقال ذلك تحت المجموع بدل أن يبدو خطأً */
+    { const n = document.getElementById('grandRetNote'); if (n) { const v = sumR + sumRA; n.style.display = v ? '' : 'none'; n.textContent = v ? 'منها مرتجعات لم نستلمها بعد: $' + v.toLocaleString() + ' — تخرج حين تضغط «استلمناه»' : ''; } }
     setText('sumPending',  '$' + sumP.toLocaleString());
     setText('sumShipped',  '$' + sumS.toLocaleString());
     setText('sumDelivered','$' + sumD.toLocaleString());
