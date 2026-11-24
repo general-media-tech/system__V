@@ -14408,6 +14408,7 @@ function renderStockTransferList() {
     const statusMap = {
       pending:          { label: '🟡 في الطريق', color: '#b45309' },
       needs_settlement: { label: '<span class="st-dot"></span>تحتاج تسوية', color: '#b91c1c' },
+      shortage: { label: '<span class="st-dot"></span>عجز معلّق — خسائر (seq B1034)', color: '#92400e' },
       receiving:        { label: '⏳ جارٍ الاستلام', color: '#0369a1' },
       reopening:        { label: '✏️ جارٍ التعديل',  color: '#0369a1' },
       received:         { label: '✅ مستلمة',    color: '#15803d' },
@@ -15375,7 +15376,7 @@ async function openStockTransferDetail(id) {
   const totalSale = list.reduce((s,i)=>s+(i.sale_price||0)*_movedOf(i),0);
   const profit    = totalSale - totalCost;
 
-  const statusMap = { pending:'🟡 في الطريق', needs_settlement:'🔴 تحتاج تسوية', receiving:'⏳ جارٍ الاستلام', reopening:'✏️ جارٍ التعديل', received:'✅ مستلمة', cancelled:'❌ مُلغاة' };
+  const statusMap = { pending:'🟡 في الطريق', needs_settlement:'🔴 تحتاج تسوية', shortage:'🟠 عجز معلّق (خسائر)', receiving:'⏳ جارٍ الاستلام', reopening:'✏️ جارٍ التعديل', received:'✅ مستلمة', cancelled:'❌ مُلغاة' };
   const views = list.map(i => stView(i, t));
   const openViews = views.filter(v => v.open > 0);
 

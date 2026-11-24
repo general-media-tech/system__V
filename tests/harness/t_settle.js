@@ -24,6 +24,9 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   // نقل بحاجة تسوية
   const tr = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TRF-00004', from_branch: 'haleb', to_branch: 'daraa', from_branch_name: 'حلب', to_branch_name: 'درعا', status: 'needs_settlement', settled: false }]);
   await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: tr[0].id, product_name: 'كاميرا تجربة 0', qty: 0, requested_qty: 4, deduction_failed: true }]);
+  // (seq B1034) عجزٌ معلّق على فرع: ليس «نقلاً يحتاج تسوية» — بطاقته وحدها
+  const sh = await H.call('/rest/v1/branch_stock_transfers', [{ transfer_number: 'TRF-SHORT-1', from_branch: 'hny_sbyl', to_branch: 'hny_sbyl', from_branch_name: 'هاني سبيل', to_branch_name: 'هاني سبيل — عجز', status: 'shortage', settled: false, title: 'نواقص هاني' }]);
+  await H.call('/rest/v1/stock_transfer_items', [{ transfer_id: sh[0].id, product_name: 'منتج ناقص', qty: 3, deduction_failed: true }, { transfer_id: sh[0].id, product_name: 'منتج ناقص 2', qty: 2, deduction_failed: true }]);
   // أوردرات بلا فاتورة
   await H.call('/rest/v1/gmt_orders', [{ name: 'أحمد', phone: '0933', product: 'x', qty: 1, price: 100, status: 'shipped' }, { name: 'سامر', phone: '0934', product: 'y', qty: 1, price: 50, status: 'pending' }, { name: 'مفوتَر', phone: '0935', product: 'z', qty: 1, price: 10, status: 'shipped', invoice_id: 77 }]);
   await H.call('/rest/v1/gmt_expenses', [{ title: 'إيجار', amount: 300, currency: 'usd', approved: false, branch_name: 'حلب' }, { title: 'معتمد', amount: 5, approved: true }]);
@@ -32,7 +35,9 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   const cards = await pg.evaluate(() => [...document.querySelectorAll('.card')].map(c => ({ t: c.querySelector('b').textContent, n: c.querySelector('.cnt').textContent, cls: c.className.replace('card', '').trim(), acts: [...c.querySelectorAll('.act a')].map(a => a.getAttribute('href')) })));
   cards.forEach(c => console.log('  ', c.cls.padEnd(2), c.n.padStart(2), c.t, c.acts.join(' ')));
   const by = Object.fromEntries(cards.map(c => [c.t, c]));
-  ok(by['فواتير نقل مخزون تحتاج تسوية'].n === '1', 'نقل يحتاج تسوية: ١');
+  ok(by['فواتير نقل مخزون تحتاج تسوية'].n === '1', 'نقل يحتاج تسوية: ١ (العجز المعلّق لا يُعدّ هنا)');
+  const shc = Object.keys(by).find(k => /عجزٌ معلّق/.test(k));
+  ok(shc && by[shc].n === '1' && await pg.evaluate(() => /TRF-SHORT-1/.test(document.body.innerText) && /2 صنف · 5 قطعة/.test(document.body.innerText)), '(seq B1034) «عجزٌ معلّق على فرع»: ١ · صنفان · ٥ قطع — منفصلٌ عن النقل');
   const seTxt = await pg.evaluate(() => { const c = [...document.querySelectorAll('.card')].find(c => /مختومة «واصلة»/.test(c.textContent)); return c ? c.innerHTML : ''; });
   ok(by['فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون'].n === '1' && /purchase\.html\?open=\d+/.test(seTxt) && !/purchase\.html\?q=/.test(seTxt), 'مختومة لم تصل: ١ (لا القديمة ولا المُعاد ربطها) + الرابط بمعرّف الفاتورة (seq B1031)');
   ok(/مطلوب 5/.test(seTxt) && /نُقل 0/.test(seTxt) && /بالجرد الآن/.test(seTxt), 'كلّ بندٍ ناقص باسمه: المطلوب · المنقول · مخزونه الآن');
