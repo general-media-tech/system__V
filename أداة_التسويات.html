@@ -96,19 +96,33 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var r = { id: 'se', title: 'فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون', what: 'فاتورة شراء ختمتَها كمرحَّلة (وصلت) لكن بعض بنودها لم تُرحَّل فعلياً إلى المخزون (المنقول أقلّ من المطلوب).',
       impact: 'بضاعةٌ محسوبةٌ واصلةً وهي ليست في الجرد ⇒ ينقص المخزون الظاهر عن الحقيقيّ، وقد يُباع ما لا يظهر.',
       fix: 'في «المشتريات» افتح الفاتورة ← «فكّ ختم» (كلمة السرّ السيادية + سبب) ← «وصلت» ← أعد الترحيل من النافذة الجديدة.', actions: [], lines: [], count: 0 };
-    var rows; try { rows = await invoices(); } catch (e) { r.err = e; return r; }
-    var bad = rows.filter(function (v) {
-      if (!v.transferred || /cancel/i.test(v.status || '')) return false;
+    var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
+    /* (seq B1031 «عم يعطيني فاتورة إنها وصلت وما وصلت — قسمتها لفاتورتين · وفواتير بكبس عليها ما بتطلع») السبب:
+       ① ترحيلٌ قديم قبل تتبّع «ما نُقل» (transfer_moved فارغ كلّه) كان يُعدّ «كلّ البنود لم تصل» — لا يُعرف ما نُقل، لا أنه لم يصل.
+       ② بندٌ أُعيد ربطه بمنتجٍ جديد بعد الترحيل ⇒ نُقل تحت المعرّف القديم فيبدو «لم يصل».
+       ③ «لم يصل» كان رقماً بلا أسماء، وزرّ الفاتورة يبحث بالرقم (IMP-2026-0001 مكرّر: صينية وأوروبية) فلا تُفتح الصحيحة.
+       الآن: ما لا يُعرف يُقال «غير معروف» منفصلاً · كلّ بندٍ ناقص باسمه وكمّيته ومخزونه الآن · الزرّ يفتح الفاتورة بمعرّفها. */
+    var REL = /أُعيد ربطه|اعيد ربطه/;
+    var bad = [], legacy = [];
+    rows.forEach(function (v) {
+      if (!v.transferred || /cancel/i.test(v.status || '')) return;
       var it = jparse(v.items_snapshot, []), mv = jparse(v.transfer_moved, {}) || {};
-      return Array.isArray(it) && it.some(function (x) { return Number(mv[x.id] || 0) < Number(x.qty || 0); });
+      if (!Array.isArray(it)) return;
+      var goods = it.filter(function (x) { return x && Number(x.qty || 0) > 0 && x.id && !/أصل للمحل|سجلّ الأصول|استخدام شخصي/.test(String(x.notes || '')); });
+      if (!Object.keys(mv).length) { if (goods.length) legacy.push(v); return; }
+      var miss = goods.filter(function (x) { return Number(mv[x.id] || 0) < Number(x.qty || 0) && !REL.test(String(x.notes || '')); });
+      if (miss.length) bad.push({ v: v, miss: miss, mv: mv });
     });
+    var stockOf = function (id) { var p = (prods || []).find(function (q) { return String(q.id) === String(id); }); if (!p) return null;
+      return (cols || []).filter(function (c) { return c.include_in_total; }).reduce(function (t, c) { return t + (Number(p[c.key_name]) || 0); }, 0); };
     r.count = bad.length;
-    r.lines = bad.slice(0, 10).map(function (v) {
-      var it = jparse(v.items_snapshot, []), mv = jparse(v.transfer_moved, {}) || {};
-      var miss = it.filter(function (x) { return Number(mv[x.id] || 0) < Number(x.qty || 0); }).length;
-      return esc(v.inv_number) + ' — ' + esc(v.supplier || '') + ' · ' + miss + ' بند لم يصل';
-    });
-    r.actions = bad.slice(0, 3).map(function (v) { return ['المشتريات: ' + v.inv_number, 'purchase.html?q=' + encodeURIComponent(v.inv_number), 0]; });
+    r.lines = bad.slice(0, 12).map(function (b) { var v = b.v;
+      return '<b>' + esc(v.inv_number) + '</b> — ' + esc(v.supplier || '') + ' · ' + b.miss.length + ' بند لم يُرحَّل كاملاً: ' +
+        esc(b.miss.slice(0, 6).map(function (x) { var s = stockOf(x.id); return x.name + ' (مطلوب ' + x.qty + ' · نُقل ' + Number(b.mv[x.id] || 0) + (s != null ? ' · بالجرد الآن ' + s : '') + ')'; }).join(' · ')) + (b.miss.length > 6 ? ' …' : '') +
+        ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</a>'; });
+    if (legacy.length) r.lines.push('<span style="color:#64748b">ℹ️ ' + legacy.length + ' فاتورة رُحّلت قبل تتبّع «ما نُقل» (' + esc(legacy.slice(0, 6).map(function (v) { return v.inv_number; }).join(' · ')) + (legacy.length > 6 ? ' …' : '') +
+      ') — لا يُعرف من النظام ما نُقل منها؛ ليست «لم تصل». تُطابَق بالجرد الفعليّ (جرد الفرع) لا من هنا.</span>');
+    r.actions = bad.slice(0, 3).map(function (b) { return ['المشتريات: ' + b.v.inv_number, 'purchase.html?open=' + encodeURIComponent(b.v.id), 0]; });
     return r;
   }
   /* (TASK-A0549 · المالك seq 940 «أداة التسوية فيها كل شيء: فواتير فيها نقص سواء في أي بند أو سعر») */
@@ -123,6 +137,12 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
     var byId = {}, byBc = {}; prods.forEach(function (p) { byId[String(p.id)] = 1; if (p.barcode) byBc[nz(p.barcode)] = 1; });
     var ST = { transit: '🚚 بالطريق', arrived: '✅ وصلت' };
+    /* (seq B1031 «في أشياء عبّيت أسعارها من فواتير أخرى — ليش ما عم تتعبّى أو يسألني») آخر سعر شراء معروف لكلّ منتج (بالعملة نفسها) من الفواتير الأخرى */
+    var known = {};
+    rows.slice().sort(function (a, b) { return String(a.inv_date || a.created_at || '').localeCompare(String(b.inv_date || b.created_at || '')); }).forEach(function (v) {
+      if (/cancel/i.test(v.status || '')) return;
+      (jparse(v.items_snapshot, []) || []).forEach(function (x) { var u = num(x && x.orig_unit_price) > 0 ? num(x.orig_unit_price) : num(x && x.unit_price);
+        if (x && x.id && u > 0) known[(v.currency || 'USD') + '|' + x.id] = { u: u, inv: v.inv_number }; }); });
     var bad = [];
     rows.forEach(function (v) {
       if (/cancel/i.test(v.status || '')) return;
@@ -138,6 +158,8 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
       var mism = v.total_amount != null && Math.abs(num(v.total_amount) - sum) > 0.5;
       var p = [];
       if (zero.length) p.push('<b style="color:#b91c1c">' + zero.length + ' بند بسعر شراء 0</b> (' + esc(zero.slice(0, 4).map(function (x) { return x.name + ' ×' + x.qty; }).join(' · ')) + (zero.length > 4 ? ' …' : '') + ')');
+      var fillable = zero.filter(function (x) { return known[(v.currency || 'USD') + '|' + x.id]; });
+      if (fillable.length) p.push('<b style="color:#047857">💡 ' + fillable.length + ' منها سعرها معروف من فواتير أخرى</b> (' + esc(fillable.slice(0, 3).map(function (x) { var k = known[(v.currency || 'USD') + '|' + x.id]; return x.name + ' = ' + k.u + ' من ' + k.inv; }).join(' · ')) + ') <a href="purchase.html?open=' + encodeURIComponent(v.id) + '&fill=1" style="font-weight:900;color:#047857;white-space:nowrap">فتح وتعبئة ←</a>');
       if (unl.length) p.push('<b>' + unl.length + ' بند غير مربوط بمنتج</b> (' + esc(unl.slice(0, 3).map(function (x) { return x.name || '—'; }).join(' · ')) + (unl.length > 3 ? ' …' : '') + ')');
       if (q0.length) p.push(q0.length + ' بند بكمية 0');
       if (!String(v.supplier || '').trim()) p.push('بلا مورّد');

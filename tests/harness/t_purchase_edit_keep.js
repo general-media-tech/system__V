@@ -37,10 +37,28 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const snap = row && (typeof row.items_snapshot === 'string' ? JSON.parse(row.items_snapshot) : row.items_snapshot) || [];
   ok(snap.length === 2 && +snap[0].unit_price === 12.5 && +snap[1].unit_price === 3.25 && row.supplier === 'مورّد جديد', 'المحفوظ في القاعدة: بندان بالأسعار المكتوبة والمورّد الجديد: ' + JSON.stringify(snap.map(x => x.unit_price)) + ' · ' + row.supplier);
   /* (seq B1030) التكامل: إضافة المنتج لفاتورة جديدة ⇒ آخر سعر شراء بالعملة نفسها يُعبّأ ويُقال من أين */
-  const sug = await pg.evaluate(([a, iv]) => { ships = (ships || []).filter(x => x.id !== iv).concat([{ id: iv, inv_number: 'IMP-2026-0097', supplier: 'مورّد جديد', currency: 'USD', inv_date: '2099-01-01', items_snapshot: [{ id: a, unit_price: 14, orig_unit_price: 12.5 }] }]);
+  const sug = await pg.evaluate(([a, iv]) => { ships = (ships || []).filter(x => x.id !== iv).concat([{ id: iv, inv_number: 'IMP-2026-0097', supplier: 'مورّد جديد', currency: 'USD', inv_date: '2099-01-01', items_snapshot: [{ id: a, name: 'منصة هبوط اختبار', qty: 2, unit_price: 14, orig_unit_price: 12.5 }] }]);
     const u = _lastBuy(a, 'USD'), e = _lastBuy(a, 'EUR'); cart.length = 0; addToCart(a); return { u, e, c: cart[0] && cart[0].unitPrice }; }, [A.id, IV.id]);
   ok(sug.u && sug.u.unit === 12.5 && sug.u.inv === 'IMP-2026-0097' && sug.c === 12.5, 'إضافة المنتج ⇒ آخر سعر شراء الأصليّ (12.5 قبل التكاليف) من IMP-2026-0097 يُعبّأ: ' + JSON.stringify(sug.u));
   ok(!sug.e, 'عملةٌ مختلفة (EUR) ⇒ لا يُعبّأ سعر بعملةٍ أخرى');
+  /* (seq B1031) «💡 عبّئ الأسعار الناقصة»: بندٌ بسعر 0 وله سعرٌ معروف من فاتورة أخرى ⇒ يُعرض ثمّ يُكتب في الخانة */
+  const fill = await pg.evaluate(async ([a, iv]) => {
+    ships = ships.concat([{ id: 777777, inv_number: 'IMP-OLD-1', supplier: 'مورّد سابق', currency: 'USD', inv_date: '2026-01-01', status: 'arrived', items_snapshot: [{ id: a, unit_price: 9, orig_unit_price: 8.75 }] }]);
+    openInvFromList(iv); await new Promise(r => setTimeout(r, 600)); if (!invEditMode) toggleInvEdit();
+    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]'); td.textContent = '0';
+    _invToolbarSync(); const shown = document.getElementById('inv-fill-btn').style.display;
+    let asked = ''; GMTAsk.confirm = async m => { asked = m; return true; };
+    await purFillZeroPrices(); return { shown, asked, v: td.textContent };
+  }, [A.id, IV.id]);
+  ok(fill.shown === 'flex' && /IMP-OLD-1|8\.75/.test(fill.asked) && parseFloat(fill.v) === 8.75, '«💡 عبّئ الأسعار الناقصة» ظاهر ⇒ يسأل بالمصدر ⇒ يكتب 8.75 من IMP-OLD-1: ' + JSON.stringify({ s: fill.shown, v: fill.v }));
+  /* صيد النمط: سعرٌ مكتوب ثمّ كتابة تكلفة شحن ⇒ السعر يبقى (كان recalcInv يعيد رسمه من النموذج) */
+  const keep = await pg.evaluate(async () => {
+    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]'); td.textContent = '7.25';
+    const cs = document.querySelector('#invPage [data-field="cs"]'); if (cs) { cs.textContent = '30'; cs.dispatchEvent(new Event('input', { bubbles: true })); } else recalcInv();
+    await new Promise(r => setTimeout(r, 200));
+    return document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').textContent;
+  });
+  ok(parseFloat(keep) === 7.25, 'سعرٌ مكتوب ثمّ تكلفة شحن ⇒ السعر المكتوب باقٍ: ' + keep);
   const real = errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();
