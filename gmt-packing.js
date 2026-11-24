@@ -138,18 +138,21 @@
     return { map: map, conf: conf, unmapped: unmapped };
   }
 
-  /* ── التوزيع ── costs: {customs, ship, transport, local, transfer} · shipBy: 'cbm'|'kg' (تلقائي: cbm إن وُجد لكلّ الكراتين) */
+  /* ── التوزيع ── costs: {customs, ship, transport, local, transfer} · shipBy: 'cbm'|'kg'|'value' (تلقائي: cbm إن وُجد لكلّ الكراتين) */
   function allocate(P, map, items, costs, opt) {
     opt = opt || {};
     var val = function (ii) { return (Number(items[ii].qty) || 0) * (Number(items[ii].orig_unit_price != null ? items[ii].orig_unit_price : items[ii].unit_price) || 0); };
     var out = items.map(function () { return { customs: 0, ship: 0, other: 0, kg: 0, ctn: [], codes: [] }; });
-    var C = P.cartons, useCbm = opt.shipBy ? opt.shipBy === 'cbm' : C.every(function (c) { return c.cbm > 0; });
+    /* (المالك seq B1045 «الاوربية مندفع على الوزن مو على الحجم … لكن الاوربية احسب التكلفة على النظام القديم تبع السعر»)
+       shipBy:'value' ⇒ الجمارك والشحن يتوزّعان على البنود **بقيمتها** (النظام القديم) — الكراتين تبقى لرقم الكرتونة والوزن فقط */
+    var byValue = opt.shipBy === 'value';
+    var C = P.cartons, useCbm = !byValue && (opt.shipBy ? opt.shipBy === 'cbm' : C.every(function (c) { return c.cbm > 0; }));
     var dutySum = C.reduce(function (s, c) { return s + (c.dutyVal || 0); }, 0), kgSum = C.reduce(function (s, c) { return s + (c.kg || 0); }, 0), cbmSum = C.reduce(function (s, c) { return s + (c.cbm || 0); }, 0);
     var custom = Number(costs.customs) || 0, ship = Number(costs.ship) || 0, other = (Number(costs.transport) || 0) + (Number(costs.local) || 0) + (Number(costs.transfer) || 0);
     var warn = [], lostC = 0, lostS = 0;
     C.forEach(function (c) {
       var its = []; c.lines.forEach(function (li) { (map[li] || []).forEach(function (ii) { if (its.indexOf(ii) < 0) its.push(ii); }); });
-      var cC = dutySum > 0 ? custom * (c.dutyVal || 0) / dutySum : 0, cS = useCbm ? (cbmSum > 0 ? ship * (c.cbm || 0) / cbmSum : 0) : (kgSum > 0 ? ship * (c.kg || 0) / kgSum : 0);
+      var cC = byValue ? 0 : (dutySum > 0 ? custom * (c.dutyVal || 0) / dutySum : 0), cS = byValue ? 0 : (useCbm ? (cbmSum > 0 ? ship * (c.cbm || 0) / cbmSum : 0) : (kgSum > 0 ? ship * (c.kg || 0) / kgSum : 0));
       if (!its.length) { if (cC || cS) { warn.push('الكرتونة ' + c.no + ' بلا بنود مطابقة — حصّتها وُزّعت بالقيمة على الكلّ (طابِقها للدقّة)'); lostC += cC; lostS += cS; } return; }
       var v = its.reduce(function (s, ii) { return s + val(ii); }, 0) || its.length;
       its.forEach(function (ii) {
@@ -159,6 +162,7 @@
       });
     });
     var allV = items.reduce(function (s, it, ii) { return s + (it.asset ? 0 : val(ii)); }, 0);
+    if (byValue) { lostC = custom; lostS = ship; }   /* كلّ الجمارك والشحن ⇒ بالقيمة على الكلّ */
     items.forEach(function (it, ii) {
       if (it.asset) return;
       out[ii].other = allV > 0 ? other * val(ii) / allV : 0;
@@ -168,7 +172,7 @@
       ['customs', 'ship', 'other'].forEach(function (k) { out[ii][k] = Math.round(out[ii][k] * 100) / 100; }); out[ii].kg = Math.round(out[ii].kg * 1000) / 1000;
     });
     var tot = function (k) { return Math.round(out.reduce(function (s, o) { return s + (o[k] || 0); }, 0) * 100) / 100; };
-    return { items: out, basis: (useCbm ? 'ship-by-cbm' : 'ship-by-kg') + '+customs-by-duty+other-by-value', check: { customs: tot('customs'), ship: tot('ship'), other: tot('other') }, warn: warn };
+    return { items: out, basis: byValue ? 'all-by-value' : (useCbm ? 'ship-by-cbm' : 'ship-by-kg') + '+customs-by-duty+other-by-value', check: { customs: tot('customs'), ship: tot('ship'), other: tot('other') }, warn: warn };
   }
   /* يكتب نتيجة التوزيع في البند بالحقول نفسها التي يقرؤها النظام (`_allocOf` · «كيف تكوّن السعر») */
   function stamp(item, a, src, basis, costsTotal) {   /* costsTotal = مجموع تكاليف الفاتورة الخمس (يقارنه _allocOf ليعرف أنّ التوزيع ما زال صالحاً) */

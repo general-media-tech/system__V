@@ -654,7 +654,12 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
           class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">شحن إلى سوريا $</label>
         <input type="number" id="cost-shipping" min="0" step="0.01" placeholder="0.00" oninput="updateTotalCosts()"
-          class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
+          class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200">
+        <!-- (seq B1045 «الاوربية مندفع على الوزن مو على الحجم») حاسبة الشحن الأوروبي: كغ × سعر الكيلو ⇒ تملأ خانة الشحن -->
+        <div id="ship-kg-box" class="flex items-center gap-1 mt-1 text-[10px] font-bold text-gray-500">
+          <input type="number" id="ship-kg" min="0" step="0.01" placeholder="كغ" oninput="shipByKg()" class="w-14 p-1 border rounded-lg text-[11px]">
+          × <input type="number" id="ship-kg-rate" min="0" step="0.01" placeholder="$/كغ" oninput="shipByKg()" class="w-14 p-1 border rounded-lg text-[11px]">
+          <span id="ship-kg-note">الشحن الأوروبي بالوزن</span></div></div>
       <div><label class="block text-[10px] font-bold text-gray-500 mb-1">جمارك $</label>
         <input type="number" id="cost-customs" min="0" step="0.01" placeholder="0.00" oninput="updateTotalCosts()"
           class="w-full p-2.5 bg-white rounded-xl outline-none text-sm font-bold border border-gray-200"></div>
@@ -1086,7 +1091,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
       <label class="text-[10px] font-bold text-gray-500">جمارك مدفوعة $<input id="pack-c-customs" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
       <label class="text-[10px] font-bold text-gray-500">شحن $<input id="pack-c-ship" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
       <label class="text-[10px] font-bold text-gray-500">نقل+محلّي+تحويل $<input id="pack-c-other" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
-      <label class="text-[10px] font-bold text-gray-500">الشحن حسب<select id="pack-shipby" class="block p-1.5 border rounded-lg text-xs font-bold" onchange="packCompute()"><option value="">تلقائي</option><option value="cbm">الحجم</option><option value="kg">الوزن</option></select></label>
+      <label class="text-[10px] font-bold text-gray-500">الشحن حسب<select id="pack-shipby" class="block p-1.5 border rounded-lg text-xs font-bold" onchange="packCompute()"><option value="">تلقائي</option><option value="cbm">الحجم</option><option value="kg">الوزن</option><option value="value">بالقيمة (النظام القديم)</option></select></label>
     </div>
     <div id="pack-sum" class="text-xs font-bold mb-2"></div>
     <div id="pack-map" class="overflow-x-auto"></div>
@@ -2156,6 +2161,12 @@ function setType(t){
   if(fg)fg.classList.toggle('hidden',t!=='germany');
   if(fc)fc.classList.toggle('hidden',t!=='china');
   fillPreviewSupplier(t);          // ت٦ — بيانات معاينةٍ موسومة
+  const kb=document.getElementById('ship-kg-box'); if(kb) kb.classList.toggle('hidden',t!=='germany');
+}
+/* (seq B1045) الشحن الأوروبي يُدفع على الوزن: كغ × سعر الكيلو = الشحن ($) — التوزيع على البنود يبقى بالقيمة (calcCosts) */
+function shipByKg(){
+  const kg=gv('ship-kg'), r=gv('ship-kg-rate'); if(!(kg>0&&r>0)) return;
+  const el=document.getElementById('cost-shipping'); el.value=(Math.round(kg*r*100)/100).toFixed(2); updateTotalCosts();
 }
 function updateFxBox(){
   const em=document.getElementById('fx-eur-mode');
@@ -3355,6 +3366,8 @@ function packOpen(){
   const g=f=>{const el=document.querySelector('#invPage [data-field="'+f+'"]');return parseFloat((el?.textContent||'0').replace(/[^\d.-]/g,''))||0;};
   document.getElementById('pack-c-customs').value=g('cc')||''; document.getElementById('pack-c-ship').value=g('cs')||'';
   document.getElementById('pack-c-other').value=(g('ct')+g('cl')+g('cx'))||'';
+  /* (seq B1045) الأوروبية: الكلفة بالقيمة كالنظام القديم (والشحن نفسه يُحسب بالوزن في خانة الشحن) · الصينية: تلقائي (حجم/وزن الكرتونة) */
+  { const sh=ships.find(x=>String(x.id)===String(o.id)); document.getElementById('pack-shipby').value=(sh&&sh.inv_type==='germany')?'value':''; }
   _PK=null; ['pack-sum','pack-map','pack-res'].forEach(i=>document.getElementById(i).innerHTML=''); document.getElementById('pack-fname').textContent='—'; document.getElementById('pack-apply').disabled=true;
   document.getElementById('packModal').classList.remove('hidden'); try{lucide.createIcons();}catch(_){}
 }

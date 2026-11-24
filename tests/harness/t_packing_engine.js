@@ -35,4 +35,14 @@ const M2 = P.autoMap(p.lines, items, { memory: mem, cartons: p.cartons });
 ok(JSON.stringify(M2.map) === JSON.stringify(M.map), '⑥ من الذاكرة ⇒ المطابقة نفسها بالضبط (الوصف المكرّر يُملأ بقطعه)');
 const A = P.allocate(p, M.map, items, { customs: 50, ship: 76, transport: 10 });
 ok(Math.abs(A.check.customs - 50) < 0.02 && Math.abs(A.check.ship - 76) < 0.02, 'المجاميع = المدفوع: ' + JSON.stringify(A.check));
+// ⑦ (seq B1045) الأوروبية: shipBy 'value' ⇒ الجمارك والشحن والباقي كلّها بالقيمة (النظام القديم) — لا وزن ولا رسم كرتونة
+{ const V = P.allocate(p, M.map, items, { customs: 50, ship: 76, transport: 10 }, { shipBy: 'value' });
+  const val = i => items[i].qty * items[i].unit_price, all = items.reduce((s, _, i) => s + val(i), 0);
+  const exp = i => Math.round(76 * val(i) / all * 100) / 100;
+  ok(V.basis === 'all-by-value', '⑦ أساس التوزيع للأوروبية = بالقيمة: ' + V.basis);
+  ok(items.every((_, i) => Math.abs(V.items[i].ship - exp(i)) < 0.011), '⑦ شحن كلّ بند ∝ قيمته (لا ∝ وزن كرتونته)');
+  ok(Math.abs(V.check.customs - 50) < 0.05 && Math.abs(V.check.ship - 76) < 0.05 && Math.abs(V.check.other - 10) < 0.05, '⑦ لا يضيع شيء: ' + JSON.stringify(V.check));
+  ok(V.items[0].ctn.length > 0 && V.items[0].kg > 0, '⑦ رقم الكرتونة والوزن يبقيان للبند (للباركودات)');
+  const K = P.allocate(p, M.map, items, { customs: 50, ship: 76, transport: 10 }, { shipBy: 'kg' });
+  ok(/ship-by-kg/.test(K.basis) && Math.abs(K.items[0].ship - V.items[0].ship) > 0.01, '⑦ الصينية بالوزن تختلف عن القيمة (المحرّك القديم لم يتغيّر)'); }
 console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
