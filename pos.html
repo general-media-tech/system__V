@@ -1271,6 +1271,7 @@ window.GMT_FEATURES = [
   <script src="gmt-lens.js?v=20261124c" defer></script>
   <script src="gmt-labels.js?v=20261124b"></script>
 <script src="gmt-staff.js?v=20261124b5"></script>
+<script src="gmt-custledger.js?v=20261124b6"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -1900,8 +1901,10 @@ window.GMT_FEATURES = [
           </div>
           <div>
             <label class="u-label" for="inv-cust-phone">رقم الموبايل</label>
-            <input id="inv-cust-phone" class="u-field" type="tel" placeholder="09XXXXXXXX" dir="ltr" oninput="liveUpdateInvoice()">
+            <input id="inv-cust-phone" class="u-field" type="tel" placeholder="09XXXXXXXX" dir="ltr" oninput="liveUpdateInvoice()" onchange="liveUpdateInvoice()">
           </div>
+          <!-- (TASK-B0533 · seq B1045) العميل الدائم بالدين: رصيده وحدّه حين يُكتب رقمه -->
+          <div id="inv-cust-acct" style="grid-column:1/-1;display:none;font-size:12px;font-weight:800;border-radius:10px;padding:6px 10px;"></div>
           <div>
             <label class="u-label" for="inv-sale-type">نوع البيع</label>
             <select id="inv-sale-type" class="u-field u-select" onchange="saleType=this.value;liveUpdateInvoice()">
@@ -7907,7 +7910,28 @@ function paintLiveCommission(ct) {
     if (pd) pd.textContent = linked ? 'أوردر شحن — لا عمولة' : 'نسبة العمولة ' + Math.round(commissionRate() * 100) + '٪ من هامش الربح فوق سعر الجملة (بعد الخصم)';
   } catch (_) {}
 }
+/* (TASK-B0533 · seq B1045 «عملاء شراء دائمين … بالدين») رقمُ عميلٍ دائم ⇒ رصيده وحدّه تحت الحقل (الرصيد من gmt-custledger: آجله − سنداته) */
+let _posRegulars = null, _posAcctKey = '';
+async function posCustAcct() {
+  const box = document.getElementById('inv-cust-acct'); if (!box) return;
+  const ph = document.getElementById('inv-cust-phone')?.value || '';
+  const k = (window.GMTPhone ? GMTPhone.norm(ph) : ph.replace(/\D/g, ''));
+  if (k === _posAcctKey) return; _posAcctKey = k;
+  if (k.length < 8 || !window.GMTCustLedger) { box.style.display = 'none'; return; }
+  try {
+    if (!_posRegulars) { const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/gmt_customers?is_regular=eq.true&select=id,name,phone,credit_limit,branch_key,is_regular&limit=1000`, { headers: sbHeaders() }, 8000); _posRegulars = r.ok ? await r.json() : []; }
+    const c = (_posRegulars || []).find(x => (window.GMTPhone ? GMTPhone.norm(x.phone) : x.phone) === k);
+    if (!c) { box.style.display = 'none'; return; }
+    box.style.display = 'block'; box.style.background = '#f1f5f9'; box.style.color = '#0f172a'; box.textContent = '⭐ عميل دائم «' + (c.name || '') + '» — جارٍ حساب رصيده…';
+    const bal = await GMTCustLedger.balance(c); if (_posAcctKey !== k) return;
+    const lim = c.credit_limit == null ? null : Number(c.credit_limit), over = lim != null && bal != null && bal > lim;
+    box.dataset.balance = bal == null ? '' : String(bal);
+    box.style.background = over ? '#fef2f2' : '#f0fdf4'; box.style.color = over ? '#b91c1c' : '#14532d';
+    box.textContent = '⭐ عميل دائم «' + (c.name || '') + '» · عليه ' + (bal == null ? '؟' : bal.toFixed(2) + '$') + (lim != null ? ' · حدّ الدين ' + lim.toFixed(2) + '$' : '') + (over ? ' ⚠️ تجاوز حدّه — راجع الأدمن قبل البيع بالآجل' : '');
+  } catch (_) { box.style.display = 'none'; }
+}
 function liveUpdateInvoice() {
+  try { posCustAcct(); } catch (_) {}
   // sync fields back to cart/state
   const nameVal  = document.getElementById('inv-cust-name')?.value.trim();
   const phoneVal = document.getElementById('inv-cust-phone')?.value.trim();

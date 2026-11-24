@@ -543,6 +543,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-warmup.js?v=20261122w"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
   <script src="gmt-staff.js?v=20261124b5"></script>
+  <script src="gmt-custledger.js?v=20261124b6"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -4541,7 +4542,7 @@ function renderCustomers() {
     </div>
     <!-- (٨ ث — تدقيق المطابقة) «أداة العملاء: تصنيف جملة ومفرق + ملاحظات» -->
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;" id="cust-type-flt">
-      ${[['', 'الكل'], ['wholesale', 'جملة'], ['retail', 'مفرق'], ['maintenance', 'صيانة'], ['none', 'غير مصنّف']].map(([k, t]) =>
+      ${[['', 'الكل'], ['regular', '⭐ دائمون'], ['wholesale', 'جملة'], ['retail', 'مفرق'], ['maintenance', 'صيانة'], ['none', 'غير مصنّف']].map(([k, t]) =>
         `<button class="btn btn-sm ${_custTypeFlt === k ? '' : 'btn-ghost'}" style="${_custTypeFlt === k ? 'background:#0f172a;color:#fff;border:0;' : ''}" onclick="_custTypeFlt='${k}';renderCustomers()">${t}</button>`).join('')}
     </div>
     <div class="sec-head">
@@ -4603,7 +4604,15 @@ window.exportCustomersVcf = exportCustomersVcf;
 
 /* (2026-10-06 ش) البند ١٥: «زرّ سياديّ: حذف بيانات عميلٍ أُدخلت خطأً». يطلب كلمة السرّ السياديّة،
    ثمّ يحذف سجلّ الزبون وحده (لا فواتيره) — ونسخته تذهب لسلّة المحذوفات فيُسترجع إن لزم. */
+/* (TASK-B0533 · seq B1045) الحساب الجاري للعميل الدائم: كشف · قبض دفعة · إلغاء سند · بحث بفواتيره (gmt-custledger.js) */
+function openCustLedger(id) {
+  const c = allCustomers.find(x => String(x.id) === String(id)); if (!c) return;
+  if (!window.GMTCustLedger) { showToast('أداة الحساب لم تُحمَّل بعد — أعد المحاولة', 'err'); return; }
+  GMTCustLedger.open(c, { branchKey: c.branch_key, onChange: () => { try { renderCustomers(); } catch (_) {} } });
+}
 async function deleteCustomerSovereign(id, name) {
+  /* (TASK-B0533) زبونٌ له سندات قبض ⇒ لا يُحذف (حسابه مرجعٌ مالي) */
+  try { const r = await sb('GET', '/rest/v1/gmt_receipts?customer_id=eq.' + encodeURIComponent(id) + '&select=id&limit=1'); if (Array.isArray(r) && r.length) { showToast('لا يُحذف «' + (name || '') + '»: له سندات قبض بحسابه الجاري — احظره بدل الحذف', 'err'); return; } } catch (_) {}
   try {
     if (window.GMTAuth && GMTAuth.ask) { if (!(await GMTAuth.ask('sovereign', '🗑 حذف بيانات الزبون «' + (name || '') + '»'))) return; }
     else if (window.GMTRole && GMTRole.requireAdmin) { if (!(await GMTRole.requireAdmin('حذف بيانات زبون'))) return; }
@@ -4619,7 +4628,8 @@ function renderCustomerList(searchId) {
   const q = (document.getElementById(searchId)?.value || '').toLowerCase();
   let list = allCustomers;
   if (activeBranch !== 'all') list = list.filter(c => c.branch_key === activeBranch);
-  if (_custTypeFlt === 'none') list = list.filter(c => !c.customer_type);
+  if (_custTypeFlt === 'regular') list = list.filter(c => c.is_regular);   /* (TASK-B0533) العملاء الدائمون بالدين */
+  else if (_custTypeFlt === 'none') list = list.filter(c => !c.customer_type);
   else if (_custTypeFlt) list = list.filter(c => c.customer_type === _custTypeFlt);
   if (q) list = list.filter(c =>
     (c.name||'').toLowerCase().includes(q) ||
@@ -4652,7 +4662,7 @@ function renderCustomerList(searchId) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
         <div>
           <div style="font-size:14px;font-weight:900;${isBlocked?'color:var(--danger);':''}">
-            ${isBlocked?'🚫 ':''} ${escH(cust.name||'—')}
+            ${isBlocked?'🚫 ':''} ${escH(cust.name||'—')}${cust.is_regular ? ' <span data-cust-regular style="font-size:10.5px;background:#0f172a;color:#fff;border-radius:999px;padding:1px 8px;">⭐ دائم</span>' : ''}
           </div>
           <div style="font-size:12px;font-weight:700;color:var(--text3);direction:ltr;">${escH(cust.phone||'—')}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:2px;">📍 ${escH(branchInfo)}
@@ -4675,6 +4685,7 @@ function renderCustomerList(searchId) {
         <button class="btn btn-ghost btn-sm" onclick="editCustomerNote('${escH(String(cust.id))}')">📝 ملاحظة</button>
         ${isBlocked ? '' : `<button class="btn btn-sm" data-cust-coupon style="background:#fef2f2;color:#b91c1c;border:1.5px solid #fecaca;" onclick="openCouponForCustomer('${escH(cust.name)}')">🎟️ كوبون خصم</button>`}
         <button class="btn btn-sm" style="background:#0f172a;color:#fff;border:0;" onclick="openCustomerProfile('${escH(cust.phone)}','${escH(cust.name)}')">👤 الملف الكامل</button>
+        <button class="btn btn-sm" data-cust-ledger style="background:#15803d;color:#fff;border:0;" onclick="openCustLedger('${escH(String(cust.id))}')">📒 الحساب والدين</button>
       </div>
     </div>`;
   }).join('');
