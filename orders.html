@@ -42,7 +42,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
         @media (max-width: 380px) { [data-card-icons] { gap: 4px !important; } [data-card-icons] > button, [data-card-icons] > a, [data-card-icons] > div > button { width: 32px !important; height: 32px !important; min-width: 32px; } [data-card-icons] button[onclick*="openCardMore"] { width: 36px !important; height: 36px !important; min-width: 36px; } }
         button:not(:disabled), a:not(:disabled) { opacity:1 !important; touch-action:manipulation; }
         .status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:800; }
-        .badge-pending  { background:#EFF6FF; color:#2563EB; }
+        .badge-pending  { background:#EFF6FF; color:#D5001C; }
         .badge-shipped  { background:#FEF3C7; color:#b45309; }
         .badge-delivered{ background:#FEF2F2; color:#DC2626; }
         .badge-completed{ background:#ECFDF5; color:#047857; }
@@ -5231,7 +5231,7 @@ function rbFocusHTML() {
     const reading = _rb.items.filter(x => x.st === 'wait' || x.st === 'read').length;
     const it = _rb.items.find(x => x.st === 'pick') || _rb.items.find(x => x.st === 'ready');
     const cam = `<label style="display:block;background:#D5001C;color:#fff;border-radius:12px;padding:11px;text-align:center;font-weight:900;font-size:13px;cursor:pointer;margin-top:8px">📷 صوّر الإيصال التالي<input type="file" accept="image/*" capture="environment" data-rb-cam2 style="display:none"></label>`;
-    const more = reading ? `<div style="font-size:11px;color:#2563eb;font-weight:800;margin-top:6px">🔎 القراءة مستمرّة: ${reading} بالدور</div>` : '';
+    const more = reading ? `<div style="font-size:11px;color:#D5001C;font-weight:800;margin-top:6px">🔎 القراءة مستمرّة: ${reading} بالدور</div>` : '';
     if (!it) return reading ? `<div data-rb-focus-wait style="border:2px dashed #93c5fd;border-radius:14px;padding:16px;text-align:center;font-weight:900;color:#1d4ed8">🔎 يقرأ الإيصال ويبحث عن أوردره… (${reading} بالدور)</div>`
         : (_rb.items.length ? `<div style="border:2px solid #bbf7d0;background:#f0fdf4;border-radius:14px;padding:14px;text-align:center;font-weight:900;color:#166534">✅ انتهت الإيصالات — شُحن ${_rb.items.filter(x => x.st === 'shipped').length}</div>${cam}` : '');
     const r = it.read || {};
@@ -5258,7 +5258,7 @@ function rbFocusHTML() {
 function rbPaint() {
     const ov = document.getElementById('rb-ov'); if (!ov) return;
     const L = ov.querySelector('[data-rb-list]'), esc = s => escH(String(s == null ? '' : s));
-    const lab = { wait: ['⏳', 'بالدور', '#64748b'], read: ['🔎', 'يقرأ ويطابق…', '#2563eb'], ready: ['🧾', 'جاهز للمراجعة', '#15803d'], review: ['🧾', 'في شاشة الشحن', '#2563eb'], shipped: ['✅', 'شُحن', '#15803d'],
+    const lab = { wait: ['⏳', 'بالدور', '#64748b'], read: ['🔎', 'يقرأ ويطابق…', '#D5001C'], ready: ['🧾', 'جاهز للمراجعة', '#15803d'], review: ['🧾', 'في شاشة الشحن', '#D5001C'], shipped: ['✅', 'شُحن', '#15803d'],
                   pick: ['👆', 'لمن؟', '#b45309'], dup: ['⛔', 'رقمٌ مكرَّر', '#b91c1c'], other: ['ℹ️', 'شركةٌ أخرى', '#475569'], err: ['⚠️', 'تعذّر', '#b91c1c'], skipped: ['⏭', 'تُرك', '#64748b'] };
     L.innerHTML = _rb.items.map((it, n) => { const r = it.read || {}, l = lab[it.st] || lab.wait, o = it.order;
         return `<div data-rb-item="${it.st}" style="border:1.5px solid #e5e7eb;border-radius:12px;padding:8px 10px;font-size:12px">

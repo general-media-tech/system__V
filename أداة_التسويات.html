@@ -137,7 +137,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     r.lines = bad.slice(0, 12).map(function (b) { var v = b.v;
       return '<b>' + esc(v.inv_number) + '</b> — ' + esc(v.supplier || '') + ' · ' + b.miss.length + ' بند لم يُرحَّل كاملاً: ' +
         esc(b.miss.slice(0, 6).map(function (x) { var s = stockOf(x.id); return x.name + ' (مطلوب ' + x.qty + ' · نُقل ' + Number(b.mv[x.id] || 0) + (s != null ? ' · بالجرد الآن ' + s : '') + ')'; }).join(' · ')) + (b.miss.length > 6 ? ' …' : '') +
-        ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</a>'; });
+        ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#D5001C;white-space:nowrap">فتح ←</a>'; });
     if (legacy.length) r.lines.push('<span style="color:#64748b">ℹ️ ' + legacy.length + ' فاتورة رُحّلت قبل تتبّع «ما نُقل» (' + esc(legacy.slice(0, 6).map(function (v) { return v.inv_number; }).join(' · ')) + (legacy.length > 6 ? ' …' : '') +
       ') — لا يُعرف من النظام ما نُقل منها؛ ليست «لم تصل». تُطابَق بالجرد الفعليّ (جرد الفرع) لا من هنا.</span>');
     r.actions = bad.slice(0, 3).map(function (b) { return ['المشتريات: ' + b.v.inv_number, 'purchase.html?open=' + encodeURIComponent(b.v.id), 0]; });
@@ -188,7 +188,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     bad.sort(function (a, b) { return b.w - a.w; });
     r.count = bad.length;
     r.lines = bad.map(function (b) { var v = b.v; return '<b>' + esc(v.inv_number || '#' + v.id) + '</b> — ' + esc(v.supplier || '—') + ' · ' + (v.inv_type === 'instant' ? '⚡ فورية' : (ST[v.status] || esc(v.status || ''))) + (v.inv_date ? ' · ' + esc(v.inv_date) : '') + '<br>' + b.p.join(' · ') +
-      ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</a>'; });
+      ' <a href="purchase.html?open=' + encodeURIComponent(v.id) + '" style="font-weight:900;color:#D5001C;white-space:nowrap">فتح ←</a>'; });
     return r;
   }
   async function dups() {

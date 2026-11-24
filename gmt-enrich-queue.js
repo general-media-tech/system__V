@@ -159,7 +159,7 @@
   function nextReady() { var r = S.items.filter(function (x) { return x.st === 'ready'; })[0]; S.cur = r ? r.id : (S.items.filter(function (x) { return x.st === 'run' || x.st === 'wait'; })[0] || {}).id || null; }
 
   /* ── الواجهة ── */
-  var ST = { wait: ['⏳', 'بالانتظار', '#64748b'], run: ['🔄', 'العقل يعمل عليه', '#2563eb'], ready: ['📝', 'جاهز لمراجعتك', '#b45309'],
+  var ST = { wait: ['⏳', 'بالانتظار', '#64748b'], run: ['🔄', 'العقل يعمل عليه', '#D5001C'], ready: ['📝', 'جاهز لمراجعتك', '#b45309'],
              saved: ['✅', 'حُفظ', '#15803d'], skip: ['⏭️', 'تُخطّي', '#64748b'], err: ['⚠️', 'تعذّر', '#b91c1c'] };
   function counts() { var c = { wait: 0, run: 0, ready: 0, saved: 0, skip: 0, err: 0 }; S.items.forEach(function (x) { c[x.st]++; }); return c; }
   function render() {
@@ -168,7 +168,7 @@
     var head = S.ov.querySelector('[data-q-head]');
     head.innerHTML = '<b style="font-size:15px;display:block">🧠 تجهيز «' + esc(S.title) + '»</b>' +
       '<span style="font-size:12px;color:#526077">' + S.items.length + ' منتج · جاهز للمراجعة ' + c.ready + ' · حُفظ ' + c.saved + ' · تُخطّي ' + c.skip + (c.err ? ' · تعذّر ' + c.err : '') +
-      (run ? ' · <b style="color:#2563eb">يعمل الآن على: ' + esc(run.p.name) + '</b>' : (c.wait ? (S.paused ? ' · ⏸️ متوقّف' : '') : ' · انتهى العقل من الطابور')) + '</span>' +
+      (run ? ' · <b style="color:#D5001C">يعمل الآن على: ' + esc(run.p.name) + '</b>' : (c.wait ? (S.paused ? ' · ⏸️ متوقّف' : '') : ' · انتهى العقل من الطابور')) + '</span>' +
       '<div style="height:5px;background:#e2e8f0;border-radius:4px;margin-top:6px;overflow:hidden"><div style="height:100%;width:' + Math.round(100 * (done + c.ready) / Math.max(1, S.items.length)) + '%;background:#16a34a"></div></div>';
     S.ov.querySelector('[data-q-pause]').textContent = S.paused ? '▶️ تابع' : '⏸️ إيقاف مؤقّت';
     var sa = S.ov.querySelector('[data-q-saveall]');
@@ -228,7 +228,7 @@
     var p = it.p, r = it.res || {};
     var top = '<div style="display:flex;gap:10px;align-items:center">' + (p.image_url ? '<img data-q-main-img src="' + esc(p.image_url) + '" alt="" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;border:1px solid #e2e8f0" onerror="this.remove()">' : '') +
       '<div style="flex:1;min-width:0"><b style="display:block;font-size:15px">' + esc(p.name) + '</b><span style="font-size:12px;color:#526077">' + esc(p.barcode || '') + (p.group_name ? ' · ' + esc(p.group_name) : '') + '</span></div></div>';
-    if (it.st === 'wait' || it.st === 'run') { box.innerHTML = top + '<div style="padding:24px 4px;text-align:center;color:#2563eb;font-weight:800">' + (it.st === 'run' ? '🔄 العقل يجمع معلوماته الآن…' : '⏳ بالانتظار — يأتي دوره بعد ما قبله') + '</div>'; return; }
+    if (it.st === 'wait' || it.st === 'run') { box.innerHTML = top + '<div style="padding:24px 4px;text-align:center;color:#D5001C;font-weight:800">' + (it.st === 'run' ? '🔄 العقل يجمع معلوماته الآن…' : '⏳ بالانتظار — يأتي دوره بعد ما قبله') + '</div>'; return; }
     var deepBtn = '<button type="button" data-act="deep" style="' + btn('#eff6ff', '#1d4ed8') + '">🔎 بحث أعمق</button>';
     if (it.st === 'err') { box.innerHTML = top + '<div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:10px;color:#991b1b;font-size:13px">⚠️ ' + esc(it.err) + '</div>' + againHTML() + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' + deepBtn + '<button type="button" data-act="skip" style="' + btn('#f1f5f9', '#0f1219') + '">⏭️ تخطّي</button></div>' + selfSearch(p); return; }
     /* (TASK-0172 · المالك seq 88 «إذا تخطّيت منتج … لازم يبقى عندي: إعادة مراجعة أو زرّ إعادة بحث أعمق») المتخطّى والمحفوظ لا يصيران

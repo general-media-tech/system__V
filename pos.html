@@ -3048,7 +3048,7 @@ let _incomingTransfers = [];
    مبيعات · مرتجعات — مع بنوده وكمّياته (+ داخل · − خارج)، وفلترة بالنوع، وبحثٌ باسم المنتج أو باركوده يُظهر حركاته وحدها.
    قراءة فقط من الجداول الموجودة — لا شيء يُكتب. ══ */
 let _moves = [], _movesF = 'all';
-const _MV_T = { in: ['📥', 'نقل وارد', '#1d4ed8'], out: ['📤', 'نقل صادر', '#7c3aed'], adj_in: ['🧮', 'تسوية (إضافة)', '#0f766e'], adj_out: ['🧮', 'تسوية (خصم)', '#b45309'],
+const _MV_T = { in: ['📥', 'نقل وارد', '#1d4ed8'], out: ['📤', 'نقل صادر', '#64748b'], adj_in: ['🧮', 'تسوية (إضافة)', '#0f766e'], adj_out: ['🧮', 'تسوية (خصم)', '#b45309'],
   buy: ['🚚', 'استلام مشتريات', '#15803d'], sale: ['🧾', 'مبيع', '#D5001C'], ref: ['↩️', 'مرتجع', '#0e7490'] };
 const _ADJ = /^(rebuild|adjust|settle)/i;
 async function _mvGet(path) { try { const r = await sbFetch(CONFIG.SUPABASE_URL + '/rest/v1/' + path, { headers: sbHeaders() }); return r.ok ? await r.json() : []; } catch (_) { return []; } }
@@ -5062,7 +5062,7 @@ async function openInvDetailModal(invId) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
       <div style="background:#f8f9ff;border-radius:8px;padding:9px;">
         <div style="font-size:9px;color:var(--text3);font-weight:800;margin-bottom:2px;">رقم الفاتورة</div>
-        <div style="font-size:15px;font-weight:900;color:#1f348f;">#${escH(String(inv.inv_number||inv.id))}</div>
+        <div style="font-size:15px;font-weight:900;color:#0f172a;">#${escH(String(inv.inv_number||inv.id))}</div>
       </div>
       <div style="background:#f8f9ff;border-radius:8px;padding:9px;">
         <div style="font-size:9px;color:var(--text3);font-weight:800;margin-bottom:2px;">نوع البيع</div>
@@ -5606,7 +5606,7 @@ function scRenderList() {
     let diffBadge = '';
     if (hasCount) {
       if (diff === 0) diffBadge = '<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;">✓ مطابق</span>';
-      else if (diff > 0) diffBadge = `<span style="background:#dbeafe;color:#2563eb;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;">+${diff} زيادة</span>`;
+      else if (diff > 0) diffBadge = `<span style="background:#dbeafe;color:#D5001C;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;">+${diff} زيادة</span>`;
       else diffBadge = `<span style="background:#fee2e2;color:#dc2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;">${diff} نقص</span>`;
     }
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border);${hasCount?'background:#fafafa;':''}">
@@ -9698,7 +9698,7 @@ function dcUpdateVariance() {
   if (raw === '' || isNaN(Number(raw))) { el.textContent = '— أدخل الكاش المعدود —'; el.style.color = '#94a3b8'; return; }
   const v = Number(raw) - _dcData.box.expected;
   if (Math.abs(v) < 0.01) { el.textContent = '✅ مطابق تماماً'; el.style.color = '#15803d'; }
-  else if (v > 0)         { el.textContent = `🔵 زيادة ${v.toFixed(2)} $`; el.style.color = '#2563eb'; }
+  else if (v > 0)         { el.textContent = `🔵 زيادة ${v.toFixed(2)} $`; el.style.color = '#D5001C'; }
   else                    { el.textContent = `🔴 عجز ${Math.abs(v).toFixed(2)} $`; el.style.color = '#dc2626'; }
 }
 async function saveDailyClose() {

@@ -211,8 +211,8 @@
   var KEEP_PAGES = { user_guide: 1, 'شو_الجديد': 1, 'خريطة_الطريق': 1, full_docs: 1, plan: 1, deploy_plan: 1, guard_bots: 1, guard_bots_19: 1,
     check: 1, checks: 1, central_inspector: 1, test_board: 1, center: 1, system_tools: 1, 'تفعيل_عقل_النظام': 1, 'المراجعة_المالية_الشاملة': 1,
     'دليل_التوافقيات_والمواصفات': 1 };
-  var DOTS = { '🔴': '#D5001C', '🟢': '#16a34a', '🟡': '#eab308', '🟠': '#f97316', '🔵': '#2563eb',
-    '⚪': '#cbd5e1', '⚫': '#0f172a', '🟣': '#7c3aed', '🟤': '#92400e' };
+  var DOTS = { '🔴': '#D5001C', '🟢': '#16a34a', '🟡': '#eab308', '🟠': '#f97316', '🔵': '#D5001C',
+    '⚪': '#cbd5e1', '⚫': '#0f172a', '🟣': '#64748b', '🟤': '#92400e' };
   var EXTRA = {
     '➕': 'plus', '➖': null, '🔄': 'refresh', '🔁': 'refresh', '♻': 'refresh', '📍': 'pin', '📌': 'pin', '❓': 'info', '❔': 'info', '❗': 'alert', '❕': 'alert',
     '✨': 'sparkle', '🆕': 'sparkle', '💡': 'sparkle', '⚡': 'sparkle', '⭐': 'star', '🌟': 'star', '🧪': 'flask', '🔬': 'flask', '🛠': 'settings', '🔧': 'settings',

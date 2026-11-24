@@ -225,11 +225,11 @@
     d.id = 'gmt-ep-note-' + kind;
     d.setAttribute('data-keep-fab', '1');
     d.style.cssText = 'margin:8px;padding:10px 12px;border-radius:10px;background:#eff6ff;'
-      + 'border:1.5px solid #bfdbfe;color:#1e40af;font-size:12.5px;font-weight:700;'
+      + 'border:1.5px solid #bfdbfe;color:#334155;font-size:12.5px;font-weight:700;'
       + 'line-height:1.8;font-family:inherit;direction:rtl';
     d.innerHTML = '🔌 <b>' + k.label + ' غير مضبوط</b> — لذلك لا يظهر المساعد. '
       + 'يُضبَط <b>مرّةً واحدة للنظام كلّه</b> ويعمل على كل جهاز.'
-      + '<button type="button" style="margin-inline-start:8px;background:#1e40af;color:#fff;'
+      + '<button type="button" style="margin-inline-start:8px;background:#334155;color:#fff;'
       + 'border:none;border-radius:8px;padding:6px 11px;font-weight:900;font-size:12px;'
       + 'cursor:pointer;font-family:inherit">اضبطه الآن</button>';
     d.querySelector('button').onclick = function () { prompt_(kind); };
@@ -254,7 +254,7 @@
       + '<button id="_ep_no" style="flex:1;padding:11px;border:none;border-radius:10px;'
       + 'background:#f3f4f6;font-weight:900;font-family:inherit;cursor:pointer">إغلاق</button>'
       + '<button id="_ep_ok" style="flex:2;padding:11px;border:none;border-radius:10px;'
-      + 'background:#1e40af;color:#fff;font-weight:900;font-family:inherit;cursor:pointer">احفظ للنظام كلّه</button>'
+      + 'background:#334155;color:#fff;font-weight:900;font-family:inherit;cursor:pointer">احفظ للنظام كلّه</button>'
       + '</div></div>';
     document.body.appendChild(ov);
     var inp = ov.querySelector('#_ep_in'), msg = ov.querySelector('#_ep_msg');
