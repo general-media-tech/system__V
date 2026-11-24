@@ -505,7 +505,9 @@
   /* (OWN-09#40/#23) الأصوات المتكرّرة تُنوَّع نغمتها ±10–40 سنتاً · (OWN-09#47) زمن تهدئةٍ لكل مفتاح · (OWN-09#41) هرمية الجهارة */
   var JITTER = { click: 1, tick: 1, scan: 1, pop: 1, copy: 1, UI_CHECK: 1, UI_RADIO: 1, UI_TAB: 1, UI_HOVER: 1, UI_FOCUS: 1, FORM_KEY: 1, FORM_BACKSPACE: 1, FORM_ENTER: 1, invAdd: 1 };
   var CD = { click: 60, tick: 30, scan: 60, success: 250, warn: 400, error: 400, notify: 1500, update: 5000, offline: 3000, online: 3000 };
-  var LOUD = { ui: .6, info: .8, success: .9, warn: 1, error: 1.1, critical: 1.2 };    /* النقرة أخفض من الخطأ */
+  /* (المالك seq B1043 «في أصوات مو شغّالة» — معرض الأصوات) أصوات الواجهة كانت ‎0.04–0.07 × 0.6 × 0.26 ≈ 1٪ ⇒ لا تُسمع بسمّاعات اللابتوب.
+     ui: 0.6 ⇒ 1.6 (تبقى أهدأ من النجاح والتحذير بقوّتها الأصلية الأعلى) */
+  var LOUD = { ui: 1.6, info: .8, success: .9, warn: 1, error: 1.1, critical: 1.2 };    /* النقرة أخفض من الخطأ */
   var HAP = { tap: [10], success: [20, 40, 20], warn: [40, 60, 40], error: [80, 50, 80], critical: [120, 60, 120, 60, 200] };
   var FX_BY_SEV = { success: 'flash-green', warn: 'flash-amber', error: 'shake flash-red', critical: 'shake flash-red pulse-border', info: 'pop', ui: 'pop' };
 
@@ -614,7 +616,7 @@
   var lastAt = {}, clickT = 0;
   function perform(name, fn, opt) {
     var m = META[name] || { sev: 'ui' };
-    curMul = LOUD[m.sev] || 1;
+    curMul = (LOUD[m.sev] || 1) * (opt && opt.boost > 0 ? opt.boost : 1);   /* المعرض: boost للتجربة */
     curDetune = JITTER[name] ? (Math.random() < .5 ? -1 : 1) * (10 + Math.random() * 30) : 0;
     try {
       /* (OWN-09#49) الاهتزاز ثم التأثير البصري ثم الصوت — في الإطار نفسه بلا setTimeout */
@@ -1138,7 +1140,7 @@
       ov.addEventListener('input', function (e) { if (e.target.closest('[data-snd-vol]')) setVolume(e.target.value); });
       ov.addEventListener('click', function (e) {
         var b = e.target.closest('[data-snd]');
-        if (b) { unlock(); if (!isOn()) { paint(); return; } play(b.getAttribute('data-snd'), { force: true }); return; }
+        if (b) { unlock(); if (!isOn()) { paint(); return; } play(b.getAttribute('data-snd'), { force: true, boost: 1.5 }); return; }
         var fb = e.target.closest('[data-snd-fx]');
         if (fb) { unlock(); if (!isOn()) { paint(); return; } fire(fb.getAttribute('data-snd-fx'), { target: fb.closest('.g-card'), force: true }); return; }
         var ch = e.target.closest('[data-snd-cat]'); if (ch) { filterCat(ch.getAttribute('data-snd-cat')); return; }
