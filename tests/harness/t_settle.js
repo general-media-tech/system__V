@@ -9,6 +9,11 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   await H.call('/rest/v1/import_log', [
     { inv_number: 'IMP-2026-0001', inv_type: 'china', supplier: 'Shenzhen', status: 'arrived', transferred: true, transfer_moved: { [all[0].id]: 10, [all[1].id]: 0 }, items_snapshot: [it(0, 10), it(1, 5)], created_at: '2026-01-01T00:00:00Z' },
     { inv_number: 'IMP-2026-0001', inv_type: 'china', supplier: 'Shenzhen 2', status: 'arrived', transferred: false, items_snapshot: [it(2, 3)], created_at: '2026-02-01T00:00:00Z' },
+    // (seq B1031) ترحيلٌ قديم قبل التتبّع (transfer_moved فارغ) ⇒ «غير معروف» لا «لم يصل» · وبندٌ أُعيد ربطه بعد الترحيل لا يُعدّ ناقصاً
+    { id: 7704, inv_number: 'IMP-2025-0090', inv_type: 'germany', supplier: 'قديمة', inv_date: '2025-01-01', status: 'arrived', transferred: true, transfer_moved: {}, total_amount: 10, items_snapshot: [Object.assign(it(6, 2), { unit_price: 5 })], created_at: '2025-01-01T00:00:00Z' },
+    { id: 7705, inv_number: 'IMP-2025-0091', inv_type: 'germany', supplier: 'أُعيد ربطها', inv_date: '2025-02-01', status: 'arrived', transferred: true, transfer_moved: { [all[8].id]: 1 }, total_amount: 20, items_snapshot: [Object.assign(it(8, 1), { unit_price: 5 }), Object.assign(it(7, 3), { unit_price: 5, notes: 'أُعيد ربطه: المنتج القديم كان محذوفاً' })], created_at: '2025-02-01T00:00:00Z' },
+    // (seq B1031) سعرٌ معروف من فاتورة أخرى ⇒ «💡 فتح وتعبئة»
+    { id: 7706, inv_number: 'IMP-2026-0006', inv_type: 'china', supplier: 'مورد', inv_date: '2026-03-05', status: 'transit', total_amount: 0, items_snapshot: [Object.assign(it(4, 1), { unit_price: 0 })], created_at: '2026-03-05T00:00:00Z' },
     { inv_number: 'IMP-2026-0002', inv_type: 'germany', supplier: 'Berlin', status: 'arrived', transferred: true, transfer_moved: { [all[3].id]: 2 }, items_snapshot: [it(3, 2)], created_at: '2026-03-01T00:00:00Z' },
     // (TASK-A0549) سليمة: سعرٌ لكلّ بند · وبندٌ بسعر 0 مكتوبٌ «هدية» ليس نقصاً
     { id: 7701, inv_number: 'IMP-2026-0003', inv_type: 'china', supplier: 'سليمة', inv_date: '2026-03-02', status: 'arrived', total_amount: 20, items_snapshot: [Object.assign(it(4, 2), { unit_price: 10 }), Object.assign(it(5, 1), { unit_price: 0, notes: 'هدية مع الطلبية' })], created_at: '2026-03-02T00:00:00Z' },
@@ -28,11 +33,15 @@ const ok = (c, m) => console.log((c ? '✔ ' : '✘ ') + m);
   cards.forEach(c => console.log('  ', c.cls.padEnd(2), c.n.padStart(2), c.t, c.acts.join(' ')));
   const by = Object.fromEntries(cards.map(c => [c.t, c]));
   ok(by['فواتير نقل مخزون تحتاج تسوية'].n === '1', 'نقل يحتاج تسوية: ١');
-  ok(by['فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون'].n === '1' && /purchase.html\?q=IMP-2026-0001/.test(by['فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون'].acts.join()), 'مختومة لم تصل: ١ + رابط الفاتورة');
+  const seTxt = await pg.evaluate(() => { const c = [...document.querySelectorAll('.card')].find(c => /مختومة «واصلة»/.test(c.textContent)); return c ? c.innerHTML : ''; });
+  ok(by['فواتير شراء مختومة «واصلة» وكمّياتها لم تدخل المخزون'].n === '1' && /purchase\.html\?open=\d+/.test(seTxt) && !/purchase\.html\?q=/.test(seTxt), 'مختومة لم تصل: ١ (لا القديمة ولا المُعاد ربطها) + الرابط بمعرّف الفاتورة (seq B1031)');
+  ok(/مطلوب 5/.test(seTxt) && /نُقل 0/.test(seTxt) && /بالجرد الآن/.test(seTxt), 'كلّ بندٍ ناقص باسمه: المطلوب · المنقول · مخزونه الآن');
+  ok(/قبل تتبّع/.test(seTxt) && /IMP-2025-0090/.test(seTxt) && !/IMP-2025-0091/.test(seTxt), 'الترحيل القديم «غير معروف» منفصلاً · المُعاد ربطه لا يُعدّ ناقصاً');
+  ok(await pg.evaluate(() => !!document.querySelector('a[href="purchase.html?open=7706&fill=1"]')), '💡 بندٌ بسعر 0 وسعره معروف من فاتورة أخرى ⇒ «فتح وتعبئة»');
   ok(by['فواتير شراء برقمٍ مكرَّر'].n === '1', 'رقم مكرّر: ١');
   const pg_ = by['فواتير شراء فيها نقص (سعر · ربط · كمية · مورّد · مجموع)'];
   const pgTxt = await pg.evaluate(() => { const c = [...document.querySelectorAll('.card')].find(c => /فواتير شراء فيها نقص/.test(c.textContent)); return c ? c.innerText : ''; });
-  ok(pg_ && pg_.n === '4' && /بند بسعر شراء 0/.test(pgTxt) && /غير مربوط بمنتج/.test(pgTxt) && /بلا مورّد/.test(pgTxt) && !/IMP-2026-0003|IMP-2026-0005/.test(pgTxt), '(A0549) فواتير فيها نقص: ٤ (الثلاث بلا سعر + اليتيمة بلا مورّد) · «هدية» و«أصل للمحل» و«استخدام شخصي» و«كمية 0 بملاحظة» ليست نقصاً ' + (pg_ && pg_.n));
+  ok(pg_ && pg_.n === '5' && /بند بسعر شراء 0/.test(pgTxt) && /غير مربوط بمنتج/.test(pgTxt) && /بلا مورّد/.test(pgTxt) && !/IMP-2026-0003 —|IMP-2026-0005 —/.test(pgTxt), '(A0549) فواتير فيها نقص: ٤ (الثلاث بلا سعر + اليتيمة بلا مورّد) · «هدية» و«أصل للمحل» و«استخدام شخصي» و«كمية 0 بملاحظة» ليست نقصاً ' + (pg_ && pg_.n));
   ok(await pg.evaluate(() => !!document.querySelector('a[href="purchase.html?open=7702"]')), '(A0549) «فتح ←» بمعرّف الفاتورة لا برقمها');
   ok(by['معدّات لها كمّية بلا فاتورة شراء'] && by['معدّات لها كمّية بلا فاتورة شراء'].n !== '؟', '(A0549) معدّات لها كمّية بلا فاتورة: ' + (by['معدّات لها كمّية بلا فاتورة شراء'] || {}).n);
   ok(by['أوردرات متقدّمة بلا فاتورة'].n === '1', 'أوردر متقدّم بلا فاتورة: ١ (المفوتَر و«قيد التجهيز» لا يُعدّان)');
