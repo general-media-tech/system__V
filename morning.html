@@ -37,6 +37,8 @@
   .old{color:var(--bad);font-weight:800} .mut{color:var(--muted);font-size:12px}
   .empty{color:var(--muted);font-weight:700;font-size:13px;padding:10px 2px}
   .err{background:#fef2f2;color:var(--bad);border-radius:10px;padding:9px 11px;font-size:12.5px;font-weight:700;margin-top:6px}
+/* (seq B1041/B1043 — صيد نمط «عرض الهاتف على اللابتوب») على الكمبيوتر: بعرض الشاشة والبطاقات بعمودين */
+@media(min-width:1100px){.wrap{max-width:1360px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}.wrap>*{grid-column:1/-1}.wrap>.card{grid-column:auto;margin:0}}
 </style>
 <script src="gmt-tools.js?v=20261121s"></script>
 <script src="gmt-account.js?v=20261119j"></script>

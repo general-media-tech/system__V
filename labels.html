@@ -25,6 +25,9 @@ window.GMT_INTERNAL = 1;</script>
   .card h2{font-size:13px;font-weight:900;margin-bottom:10px;}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
   input,select{border:1px solid var(--gmt-line);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13px;font-weight:700;}
+  /* (seq B1036 «على الهاتف الواجهة فيها إطارات خارجة») قائمة المقاس بنصٍّ طويل كانت تتجاوز حافّة البطاقة ⇒ لا تتجاوز عرض حاويتها أبداً */
+  select{max-width:100%;min-width:0;text-overflow:ellipsis}
+  @media(max-width:600px){ .row>select{flex:1 1 100%;width:100%} }
   input[type=search]{flex:1;min-width:220px;}
   button{border:none;border-radius:10px;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;}
   .btn-p{background:var(--gmt-red);color:#fff;}

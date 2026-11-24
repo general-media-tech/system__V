@@ -39,6 +39,11 @@ window.GMT_INTERNAL = 1;</script>
         border-radius:7px;padding:1px 8px;text-decoration:none}
   .empty{text-align:center;padding:36px;color:var(--mut);font-weight:800}
   @media(max-width:520px){ h1{font-size:16px} }
+  /* (seq B1041 «ما الجديد … على اللابتوب مثل الهاتف») على الكمبيوتر: بطاقات بعمودين/ثلاثة بعرض الشاشة — عنوان كلّ دفعة على السطر كاملاً */
+  .bn{display:none;font-size:10.5px;font-weight:800;color:var(--mut)}
+  /* على الكمبيوتر: البطاقات صفاً صفاً بترتيب الزمن (الأحدث أوّلاً) · رقم الدفعة داخل كلّ بطاقة بدل سطرٍ فاصل يترك نصف الصفّ فارغاً */
+  @media(min-width:1100px){ .wrap{max-width:1400px;padding:22px 26px 60px} #list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;align-items:start} #list>.batch{display:none} #list>.empty{grid-column:1/-1} #list>.item{margin:0} .bn{display:inline} }
+  @media(min-width:1650px){ #list{grid-template-columns:repeat(3,minmax(0,1fr))} }
 </style>
   <script src="gmt-ask.js?v=20261121b" defer></script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
@@ -127,6 +132,7 @@ window.GMT_INTERNAL = 1;</script>
           return '<div class="item">' +
             '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">' +
               '<span class="tag" style="background:'+c[1]+';color:'+c[0]+'">'+esc(n.tag)+'</span>' +
+              '<span class="bn">الدفعة '+v+'</span>' +
               '<span class="t">'+esc(n.t)+'</span></div>' +
             '<div class="d">'+fmt(n.d)+'</div>' +
             (n.w ? '<div class="w">'+fmt(n.w)+'</div>' : '') +

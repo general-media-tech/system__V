@@ -37,6 +37,16 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 textarea{width:100%;border:1px solid var(--ln);border-radius:10px;padding:9px;font:inherit;font-size:14px;resize:vertical;min-height:76px}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .mu{color:var(--mu);font-size:12.5px}
+/* (seq B1041 «طلع العرض على اللابتوب مثل الهاتف — صِد هذا النمط») على الكمبيوتر: لوحتان — البحث والمنتج يميناً (ثابتان) والردود بعمودين يساراً */
+@media (min-width:1100px){
+  .w{max-width:1360px;display:grid;grid-template-columns:420px minmax(0,1fr);gap:16px;align-items:start;padding:20px 24px 40px}
+  .w>.top,.w>.mu{grid-column:1/-1}
+  .w>.card:nth-child(2){grid-column:1;grid-row:2;position:sticky;top:12px}
+  .w>#sel{grid-column:1;grid-row:3;position:sticky;top:12px}
+  .w>.card:nth-child(4){grid-column:2;grid-row:2/span 3;margin:0}
+  #tpls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#tpls .tpl{margin:0;display:flex;flex-direction:column}#tpls textarea{flex:1;min-height:110px}
+}
+@media (min-width:1700px){#tpls{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .toast{position:fixed;bottom:20px;inset-inline:0;margin:auto;width:max-content;max-width:90%;background:#0f1219;color:#fff;padding:9px 16px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}.toast.on{opacity:1}
 </style>
 </head>

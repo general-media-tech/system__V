@@ -2163,8 +2163,14 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(4,6,10,.72);' +
       'backdrop-filter:blur(5px);display:flex;align-items:flex-end;justify-content:center;' +
       'font-family:Cairo,Tahoma,system-ui,sans-serif;direction:rtl;padding:0';
+    /* (seq B1041 «ما الجديد على اللابتوب مثل الهاتف») على الكمبيوتر: نافذةٌ في الوسط بعرض الشاشة والبطاقات بعمودين — لا شريحة هاتف من الأسفل */
+    if (!document.getElementById('gmt-wn-desk-css')) { var _cs = document.createElement('style'); _cs.id = 'gmt-wn-desk-css';
+      _cs.textContent = '@media (min-width:1100px){#gmt-wn-ov{align-items:center!important;padding:24px!important}#gmt-wn-ov .gwn-sheet{width:min(1180px,94vw)!important;border-radius:18px!important;max-height:88vh!important}' +
+        '#gmt-wn-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;align-items:start}#gmt-wn-body>div{margin:0!important}#gmt-wn-body>a{grid-column:1/-1}}' +
+        '@media (min-width:1650px){#gmt-wn-body{grid-template-columns:repeat(3,minmax(0,1fr))}}';
+      document.head.appendChild(_cs); }
     ov.innerHTML =
-      '<div style="background:#fff;border-radius:18px 18px 0 0;width:min(560px,100%);max-height:86vh;' +
+      '<div class="gwn-sheet" style="background:#fff;border-radius:18px 18px 0 0;width:min(560px,100%);max-height:86vh;' +
            'display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -12px 50px rgba(0,0,0,.4)">' +
         '<div style="padding:14px 18px 12px;border-bottom:1px solid #E9ECF1;display:flex;align-items:center;gap:9px">' +
           '<span style="font-size:19px">🆕</span>' +

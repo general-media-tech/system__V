@@ -35,6 +35,8 @@ window.GMT_INTERNAL = 1;</script>
   .print{text-align:center;margin-top:18px;}
   .print button{background:#0f172a;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:800;cursor:pointer;font-family:'Cairo';}
   @media print{body{background:#fff;padding:0;}.wrap{box-shadow:none;}.print{display:none;}}
+  /* (seq B1036 — صيد نمط الطفح على الهاتف) الجداول العريضة تُمرَّر داخل خطوتها لا تدفع الصفحة */
+  .step table{display:block;max-width:100%;overflow-x:auto}
 </style>
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-brand.js?v=20261029z4"></script>
