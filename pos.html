@@ -9471,8 +9471,13 @@ async function posLoadSpecs(p) {
   const body = document.querySelector('#pd-content .pd-body'); if (!body || !p || !window.GMTSpecs) return;
   const box = document.createElement('div'); box.id = 'pd-specs'; box.style.cssText = 'margin:10px 0';
   const addBtn = body.querySelector('.pd-add-btn'); body.insertBefore(box, addBtn || null);
+  /* (seq B1053 · خطأ حرج «invalid input syntax for type uuid: OFFER_…») العرض/الباقة معرّفه «OFFER_<id>» لا منتج ⇒ كان يُطلب من products
+     فيرفضه الخادم 400 عند فتح أيّ عرض. الآن: عرضٌ بمنتجٍ واحد ⇒ مواصفات منتجه · باقةٌ بعدّة منتجات ⇒ لا جدول (منتجاتها معروضة) · ولا طلبَ بمعرّفٍ غير uuid */
+  let sid = String(p.id || '');
+  if (p._is_offer || sid.startsWith('OFFER_')) { const it = (p._offer_items || []).filter(x => x && x.id); sid = it.length === 1 ? String(it[0].id) : ''; }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid)) { box.remove(); return; }
   try {
-    const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(p.id)}&select=specs,compat&limit=1`, { headers: sbHeaders() });
+    const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/products?id=eq.${encodeURIComponent(sid)}&select=specs,compat&limit=1`, { headers: sbHeaders() });
     const row = r.ok ? (await r.json())[0] : null;
     if (!row || !box.isConnected) return;
     const html = GMTSpecs.tableHTML(row.specs, { compat: row.compat || '' });

@@ -4489,11 +4489,11 @@ async function loadCustomers() {
 }
 
 let _custTypeFlt = '';
-const _CUST_T = { wholesale: 'جملة', retail: 'مفرق' };
+const _CUST_T = { wholesale: 'جملة', retail: 'مفرق', maintenance: 'صيانة' };   /* (seq B1051 «سجل هذا الرقم كزبونة صيانة») */
 async function setCustomerType(id) {
   const c = allCustomers.find(x => String(x.id) === String(id)); if (!c) return;
   const k = await GMTAsk.choose('تصنيف «' + (c.name || '') + '»:', { title: 'تصنيف العميل',
-    choices: [{ k: 'wholesale', t: 'جملة', pri: c.customer_type !== 'wholesale' ? 1 : 0 }, { k: 'retail', t: 'مفرق' }, { k: 'none', t: 'بلا تصنيف' }] });
+    choices: [{ k: 'wholesale', t: 'جملة', pri: c.customer_type !== 'wholesale' ? 1 : 0 }, { k: 'retail', t: 'مفرق' }, { k: 'maintenance', t: 'صيانة' }, { k: 'none', t: 'بلا تصنيف' }] });
   if (!k) return;
   await _saveCustField(c, { customer_type: k === 'none' ? null : k });
 }
@@ -4541,7 +4541,7 @@ function renderCustomers() {
     </div>
     <!-- (٨ ث — تدقيق المطابقة) «أداة العملاء: تصنيف جملة ومفرق + ملاحظات» -->
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;" id="cust-type-flt">
-      ${[['', 'الكل'], ['wholesale', 'جملة'], ['retail', 'مفرق'], ['none', 'غير مصنّف']].map(([k, t]) =>
+      ${[['', 'الكل'], ['wholesale', 'جملة'], ['retail', 'مفرق'], ['maintenance', 'صيانة'], ['none', 'غير مصنّف']].map(([k, t]) =>
         `<button class="btn btn-sm ${_custTypeFlt === k ? '' : 'btn-ghost'}" style="${_custTypeFlt === k ? 'background:#0f172a;color:#fff;border:0;' : ''}" onclick="_custTypeFlt='${k}';renderCustomers()">${t}</button>`).join('')}
     </div>
     <div class="sec-head">
@@ -4578,7 +4578,7 @@ function customersVcf(list) {
     const raw = String(c.name || '').trim().replace(/^(أ|ا)\.\s*/, '').replace(/\s*المحترم[ةه]?$/, '');
     const nm = raw ? 'أ. ' + raw + ' المحترم' : tel;
     const br = c.branch_name || (branches.find(b => b.key_name === c.branch_key) || {}).display_name || c.branch_key || '';
-    const note = ['زبون GMT', br ? 'الفرع: ' + br : '', c.customer_type === 'wholesale' ? 'جملة' : c.customer_type === 'retail' ? 'مفرق' : '', c.notes || ''].filter(Boolean).join(' · ');
+    const note = ['زبون GMT', br ? 'الفرع: ' + br : '', (_CUST_T[c.customer_type] || ''), c.notes || ''].filter(Boolean).join(' · ');
     out.push('BEGIN:VCARD', 'VERSION:3.0', 'N:;' + _vcfEsc(raw || tel) + ';;' + (raw ? 'أ.;المحترم' : ';'), 'FN:' + _vcfEsc(nm), 'TEL;TYPE=CELL:' + tel,
       ...(c.address ? ['ADR;TYPE=HOME:;;' + _vcfEsc(c.address) + ';;;;'] : []), 'ORG:' + _vcfEsc('عملاء General Media Tech'), 'NOTE:' + _vcfEsc(note), 'END:VCARD');
   });
