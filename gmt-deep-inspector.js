@@ -502,9 +502,13 @@
 
       /* بنود تعذّر خصمها */
       try {
-        const failed = await api('GET',
-          'stock_transfer_items?deduction_failed=is.true&select=product_name,requested_qty&limit=50');
-        const n = Array.isArray(failed) ? failed.length : 0;
+        /* (seq B1034) بنود «العجز المعلّق» (status = shortage) ليست خصماً فاشلاً ينتظر — هي خسائر معلّقة لها بطاقتها في أداة التسويات */
+        const shs = await api('GET', 'branch_stock_transfers?status=eq.shortage&select=id').catch(() => []);
+        const shIds = new Set((Array.isArray(shs) ? shs : []).map(x => String(x.id)));
+        const failed0 = await api('GET',
+          'stock_transfer_items?deduction_failed=is.true&select=transfer_id,product_name,requested_qty&limit=200');
+        const failed = (Array.isArray(failed0) ? failed0 : []).filter(r => !shIds.has(String(r.transfer_id)));
+        const n = failed.length;
         rec({ area, step: 'بنود تعذّر خصمها', ok: n === 0, pattern: n ? 'P1' : null,
               detail: n ? failed.slice(0,5).map(r=>r.product_name).join(' · ') : 'لا شيء' });
       } catch (_) {}

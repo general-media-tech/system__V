@@ -80,10 +80,26 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var t = await get('branch_stock_transfers?status=eq.needs_settlement&select=id,transfer_number,from_branch_name,to_branch_name,from_branch,to_branch,settled,created_at&order=created_at.desc', 200).catch(function (e) { r.err = e; return []; });
     t = t.filter(function (x) { return !x.settled; });
     var it = await get('stock_transfer_items?deduction_failed=is.true&select=transfer_id,product_name,qty,requested_qty', 500).catch(function () { return []; });
-    var by = {}; it.forEach(function (x) { by[x.transfer_id] = (by[x.transfer_id] || 0) + 1; });
+    /* (seq B1034) «العجز المعلّق» (status = shortage) ليس نقلاً ينتظر تسوية — له بطاقته أدناه */
+    var sh = await get('branch_stock_transfers?status=eq.shortage&select=id', 200).catch(function () { return []; }), shId = {}; sh.forEach(function (x) { shId[x.id] = 1; });
+    var by = {}; it.forEach(function (x) { if (shId[x.transfer_id]) return; by[x.transfer_id] = (by[x.transfer_id] || 0) + 1; });
     var ids = {}; t.forEach(function (x) { ids[x.id] = x; }); Object.keys(by).forEach(function (k) { if (!ids[k]) ids[k] = { id: k, transfer_number: '#' + k }; });
     r.count = Object.keys(ids).length;
     r.lines = Object.keys(ids).slice(0, 10).map(function (k) { var x = ids[k]; return esc(x.transfer_number || ('#' + k)) + ' — ' + esc(x.from_branch_name || x.from_branch || '') + ' ← ' + esc(x.to_branch_name || x.to_branch || '') + (by[k] ? ' · ' + by[k] + ' بند لم يُخصم' : ''); });
+    return r;
+  }
+  /* (seq B1034 «فاتورة نواقص هاني — مكانها مو في حلب، تبقى عاصية كأنها خسائر · وعند الطباعة كلّ قطعة دخلت عند هاني»)
+     عجزٌ على فرعٍ استلم بضاعةً ولم يسلّمها: لا يدخل مخزون أيّ فرع (ليس نقلاً) ويبقى مفتوحاً حتى يُحسم (يُعثر عليها ⇒ تُنقل · أو تُحسب خسارة). */
+  async function shortages() {
+    var r = { id: 'sh', title: 'عجزٌ معلّق على فرع (بضاعة استلمها ولم يسلّمها — خسائر لم تُحسم)', what: 'فرعٌ ثبت أنّه استلم هذه القطع ولم تعد عنده ولم تصل لغيره. لا تُضاف لمخزون أيّ فرع ولا تُخصم من أحد حتى تُحسم.',
+      impact: 'قيمتها خسارة محتملة على الشركة حتى يُعثر عليها أو تُحسم مع الفرع — لا تظهر في وارد أيّ فرع.',
+      fix: 'اطبعها من «فواتير النقل» (كلّ قطعة باسمها وكمّيتها «استلمها الفرع») · ما يُعثر عليه يُنقل بفاتورة نقل عادية · والباقي يُحسم خسارةً بقرارك.', actions: [['فواتير النقل', 'inventory.html?tab=transfers', 1]], lines: [], count: 0 };
+    var t = await get('branch_stock_transfers?status=eq.shortage&select=id,transfer_number,from_branch_name,title,created_at&order=created_at.desc', 100).catch(function (e) { r.err = e; return []; });
+    if (r.err) return r;
+    var it = t.length ? await get('stock_transfer_items?transfer_id=in.(' + t.map(function (x) { return x.id; }).join(',') + ')&select=transfer_id,qty', 2000).catch(function () { return []; }) : [];
+    var q = {}, n = {}; it.forEach(function (x) { q[x.transfer_id] = (q[x.transfer_id] || 0) + (Number(x.qty) || 0); n[x.transfer_id] = (n[x.transfer_id] || 0) + 1; });
+    r.count = t.length;
+    r.lines = t.map(function (x) { return '<b>' + esc(x.transfer_number) + '</b> — ' + esc(x.from_branch_name || '') + ' · ' + (n[x.id] || 0) + ' صنف · ' + (q[x.id] || 0) + ' قطعة' + (x.title ? '<br><span style="color:#64748b">' + esc(x.title) + '</span>' : ''); });
     return r;
   }
   var inv = null;
@@ -280,8 +296,8 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   async function run() {
     if (!db()) { $('list').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
     inv = null; prods = null; $('list').innerHTML = '<div class="em">جارٍ الفحص…</div>'; $('sum').innerHTML = '';
-    var SEV = { tr: 'r', se: 'r', pg: 'o', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
-    var jobs = [transfers, sealed, purGaps, dups, surplus, orphans, unbilled, expenses];
+    var SEV = { tr: 'r', sh: 'o', se: 'r', pg: 'o', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
+    var jobs = [transfers, shortages, sealed, purGaps, dups, surplus, orphans, unbilled, expenses];
     rep = [];
     for (var i = 0; i < jobs.length; i++) {            // بالتتابع: الفواتير والمنتجات تُجلب مرّةً وتُشارَك
       var r; try { r = await jobs[i](); } catch (e) { r = { id: 'x' + i, title: 'حالة', err: e, count: 0, lines: [], actions: [] }; }

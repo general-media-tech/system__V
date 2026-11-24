@@ -2479,7 +2479,7 @@ async function saveTransferInvoice(id, no) {
     return r;
 }
 /* أسماء حالات فاتورة النقل كما تعرضها شاشة النقل في لوحة نقاط البيع نفسها (لا تسمياتٌ جديدة) */
-const TRF_STATUS_AR = { pending: 'في الطريق', needs_settlement: 'تحتاج تسوية', receiving: 'جارٍ الاستلام', reopening: 'جارٍ التعديل', received: 'مستلمة', completed: 'مستلمة', cancelled: 'ملغاة' };
+const TRF_STATUS_AR = { pending: 'في الطريق', needs_settlement: 'تحتاج تسوية', shortage: 'عجز معلّق (خسائر)', receiving: 'جارٍ الاستلام', reopening: 'جارٍ التعديل', received: 'مستلمة', completed: 'مستلمة', cancelled: 'ملغاة' };
 async function loadTransferInvoices(q) {
     const f = q ? '&transfer_number=ilike.' + encodeURIComponent('*' + q + '*') : '';
     const r = await fetch(`${SUPA_URL}/rest/v1/branch_stock_transfers?select=*&order=created_at.desc&limit=40${f}`, { headers: SB_HEADERS });
