@@ -5481,6 +5481,23 @@ window.gmtSyncRename = gmtSyncRename;
     var n = 0, u = rd(LS_U), bs = []; u.forEach(function (a) { if (bs.indexOf(a.burst) < 0) bs.push(a.burst); }); n = bs.length;
     document.querySelectorAll('[data-undo-count]').forEach(function (el) { el.textContent = n ? '(' + n + ')' : ''; });
   }
+  /* (المالك seq B1048 «اشوف تفاصيل المنتج من داخل نقطه البيع اشوف سجل الفواتير … توصيل في كل مكان للوصول في كل شيء»)
+     inventory.html?pid=<id>|bc=<barcode>&view=det|mov|edit ⇒ يفتح المنتج نفسه: التفاصيل · كشف الحركة والفواتير · التعديل الكامل */
+  try {
+    var _pq = new URLSearchParams(location.search), _pid = _pq.get('pid'), _pbc = _pq.get('bc'), _pv = _pq.get('view') || 'det';
+    if (_pid || _pbc) { var _pn = 0, _pt = setInterval(function () {
+      if (++_pn > 60) { clearInterval(_pt); return; }
+      if (typeof allProducts === 'undefined' || !allProducts.length) return;
+      clearInterval(_pt);
+      var _p = allProducts.find(function (x) { return (_pid && String(x.id) === String(_pid)) || (_pbc && String(x.barcode || '') === String(_pbc)); });
+      if (!_p) { showToast('لم يُوجد المنتج في الجرد', 'warning'); return; }
+      try {
+        if (_pv === 'mov') openProductMovement(String(_p.id), _p.barcode || '', _p.name || '');
+        else if (_pv === 'edit') invOpenFullEdit(String(_p.id));
+        else openDetailModal(_p.id);
+      } catch (e) { console.warn(e); }
+    }, 500); }
+  } catch (_) {}
   /* (١١ ت١) روابط مباشرة من «أداة التسويات»: inventory.html?settle=1 تسوية فواتير النقل · ?audit=1 تدقيق الفواتير والجرد */
   try {
     var _qs = new URLSearchParams(location.search), _go = _qs.get('settle') ? 'settle' : (_qs.get('audit') ? 'audit' : (_qs.get('check') ? 'check' : ''));

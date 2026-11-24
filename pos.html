@@ -9448,6 +9448,12 @@ function openProductDetail(id) {
         </button>`}
 
       ${p._is_offer && p._offer_items && p._offer_items.length > 1 ? `<button type="button" data-offer-split onclick="closeProductDetail(); offerSplitById('${escH(String(p.id))}')" style="width:100%;margin-bottom:8px;padding:11px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit;font-weight:800;cursor:pointer">🧩 بيعها منتجات منفصلة بخصم العرض</button>` : ''}
+      ${(!p._is_offer && window.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin()) ? `<!-- (المالك seq B1048) الأدمن من نقطة البيع: التكلفة · سجلّ الفواتير والحركة · كلّ التفاصيل والتعديل -->
+      <div data-pd-admin style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${(Number(p.net_cost) || Number(p.cost_price)) ? `<div style="flex:1 1 100%;font-size:12px;font-weight:800;color:#334155;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:6px 10px">💲 التكلفة: $ ${(Number(p.net_cost) || Number(p.cost_price)).toFixed(2)} <span style="color:#94a3b8;font-weight:700">(للأدمن فقط)</span></div>` : ''}
+        <a data-pd-mov href="inventory.html?pid=${encodeURIComponent(String(p.id))}&view=mov" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:9px 10px;background:#0f172a;color:#fff;border-radius:10px;text-decoration:none;font-size:12.5px;font-weight:800">🧾 سجلّ الفواتير والحركة</a>
+        <a data-pd-edit href="inventory.html?pid=${encodeURIComponent(String(p.id))}&view=edit" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:9px 10px;background:#f1f5f9;color:#0f172a;border-radius:10px;text-decoration:none;font-size:12.5px;font-weight:800">✏️ كلّ التفاصيل والتعديل</a>
+      </div>` : ''}
       <button class="pd-add-btn" ${(isEmpty && !p._is_offer) ? 'disabled style="background:#ccc;cursor:not-allowed;"' : ''} onclick="closeProductDetail(); addToCartFromDetail('${p.id}')">
         ${(isEmpty && !p._is_offer)
           ? '❌ غير متوفر في فرعك — معاينة فقط'
