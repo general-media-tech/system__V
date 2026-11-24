@@ -191,9 +191,13 @@
 
         // سجل الاستلام — الحماية الثانية
         try {
+          /* (seq B1042) product_id إلزاميّ (NOT NULL) ⇒ كان الفحص يكتب null فيفشل دائماً «P1» كاذباً — منتجٌ مؤقّت موسوم يُحذف بعده */
+          const tp = await api('POST', 'products', { name: TAG + ' منتج استلام', barcode: testBarcode(), price: 0 });
+          const tpid = (Array.isArray(tp) ? tp[0] : tp)?.id;
           const r = await api('POST', 'stock_receipts',
-            { import_id: invId, product_id: null, branch_key: 'haleb', qty: 3, kind: 'transfer_arrive', note: TAG, created_by: 'inspector' });
+            { import_id: invId, product_id: tpid || null, branch_key: 'haleb', qty: 3, kind: 'transfer_arrive', note: TAG, created_by: 'inspector' });
           const rid = (Array.isArray(r) ? r[0] : r)?.id;
+          if (tpid) setTimeout(() => { api('DELETE', `products?id=eq.${tpid}`, null, { Prefer: 'return=minimal' }).catch(() => {}); }, 1500);
           rec({ area, step: 'سجل الاستلام يقبل الكتابة', ok: !!rid, pattern: rid ? null : 'P1',
                 detail: rid ? 'مكتوب' : 'فشل — تحقّق من note/created_by' });
           if (rid) await api('DELETE', `stock_receipts?id=eq.${rid}`, null, { Prefer: 'return=minimal' });
@@ -330,9 +334,9 @@
       const area = 'مخطّط نقطة البيع';
       const need = {
         invoices: ['inv_number','branch_key','total','discount_amount','payment_status','cashier_name','created_at']   /* (VER-4#REQ-0465) أسماء الأعمدة الحقيقية — كانت discount/paid/payment_method/user_name غير موجودة فتفشل دورة الفحص */,
-        invoice_items: ['invoice_id','product_id','qty','price','name'],
+        invoice_items: ['invoice_id','product_id','product_name','branch_key','qty','unit_price'],   /* (seq B1042) الأسماء الحقيقية — كان price/name ⇒ «ناقص» كاذب */
         invoice_commissions: ['invoice_id','branch_key','amount','paid','created_by'],
-        gmt_coupons: ['code','amount','is_used','used_at','expires_at','min_purchase'],
+        gmt_coupons: ['code','discount_type','discount_value','is_used','used_at','expires_at','min_purchase'],   /* (seq B1042) لا عمود amount — القيمة discount_value */
         gmt_offers: ['name','is_active'],     // (٧ ي) كان 'title' — عمودٌ غير موجود ⇒ إنذارٌ كاذب «الجدول مفقود»
         gmt_customers: ['name','phone'],
         gmt_users: ['username','role'],
@@ -375,7 +379,7 @@
       try {
         // ① فاتورة بيع
         const created = await api('POST', 'invoices', {
-          inv_number: no, branch_key: 'haleb', total: 100, discount_amount: 0,
+          inv_number: no, branch_key: 'haleb', branch_name: TAG, total: 100, discount_amount: 0,   /* (seq B1042) branch_name إلزاميّ */
           payment_status: 'paid', cashier_name: TAG
         });
         invId = (Array.isArray(created) ? created[0] : created)?.id;
@@ -386,7 +390,7 @@
         // ② بند
         try {
           const it = await api('POST', 'invoice_items', {
-            invoice_id: invId, product_id: null, qty: 2, price: 50, name: TAG + ' بند بيع'
+            invoice_id: invId, product_id: null, qty: 2, unit_price: 50, product_name: TAG + ' بند بيع', branch_key: 'haleb'
           });
           itemId = (Array.isArray(it) ? it[0] : it)?.id;
           rec({ area, step: 'إضافة بند للفاتورة', ok: !!itemId, pattern: itemId ? null : 'P1' });
@@ -394,7 +398,7 @@
         } catch (e) { rec({ area, step: 'إضافة بند للفاتورة', ok: false, pattern: 'P1', detail: e.message }); allOk = false; }
 
         // ③ التحقّق من الربط (يقرأ ما كُتب فعلاً)
-        const back = await api('GET', `invoice_items?invoice_id=eq.${invId}&select=id,qty,price`);
+        const back = await api('GET', `invoice_items?invoice_id=eq.${invId}&select=id,qty,unit_price`);
         const okLink = Array.isArray(back) && back.length > 0 && Number(back[0].qty) === 2;
         rec({ area, step: 'البند مرتبط بالفاتورة فعلياً', ok: okLink, pattern: okLink ? null : 'P1',
               detail: okLink ? 'قُرئ من القاعدة' : 'لم يُقرأ — الربط غير محفوظ' });
@@ -413,7 +417,7 @@
         // ⑤ كوبون: إنشاء ⇐ ختم ⇐ التأكّد أنه لا يُختَم مرّتين
         try {
           const code = 'TESTCP-' + Date.now();
-          const cp = await api('POST', 'gmt_coupons', { code, amount: 10, is_used: false });
+          const cp = await api('POST', 'gmt_coupons', { code, discount_type: 'fixed', discount_value: 10, is_used: false });
           coupId = (Array.isArray(cp) ? cp[0] : cp)?.id;
           if (coupId) {
             const first = await api('PATCH',
@@ -646,8 +650,8 @@
         if (!made.pid) return false;
 
         const no = TAG + '-SALE-' + Date.now();
-        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: B, total: PRICE * Q, discount_amount: 0, payment_status: 'paid', cashier_name: TAG })) || {}).id;
-        await api('POST', 'invoice_items', { invoice_id: made.inv, product_id: made.pid, qty: Q, price: PRICE, name: TAG + ' بند' });
+        made.inv = (one(await api('POST', 'invoices', { inv_number: no, branch_key: B, branch_name: TAG, total: PRICE * Q, discount_amount: 0, payment_status: 'paid', cashier_name: TAG })) || {}).id;
+        await api('POST', 'invoice_items', { invoice_id: made.inv, product_id: made.pid, qty: Q, unit_price: PRICE, product_name: TAG + ' بند', branch_key: B });
         rec({ area, step: '② فاتورة بيع ' + Q + ' قطعة', ok: !!made.inv, pattern: made.inv ? null : 'P1' });
 
         const path = await move('deduct', Q);
@@ -663,8 +667,8 @@
         await api('POST', 'invoice_commissions', { invoice_id: made.inv, branch_key: B, amount: comm, paid: false, created_by: TAG });
 
         /* ④ المرتجع — نفس كتابات confirmRefund في نقطة البيع حرفياً */
-        made.rinv = (one(await api('POST', 'invoices', { inv_number: 'R-' + no, branch_key: B, total: -PRICE * Q, sale_type: 'مرتجع', original_invoice_id: String(made.inv), cashier_name: TAG })) || {}).id;
-        await api('POST', 'invoice_items', { invoice_id: made.rinv, product_id: made.pid, qty: Q, price: PRICE, name: TAG + ' بند مرتجع' });
+        made.rinv = (one(await api('POST', 'invoices', { inv_number: 'R-' + no, branch_key: B, branch_name: TAG, total: -PRICE * Q, sale_type: 'مرتجع', original_invoice_id: String(made.inv), cashier_name: TAG })) || {}).id;
+        await api('POST', 'invoice_items', { invoice_id: made.rinv, product_id: made.pid, qty: Q, unit_price: PRICE, product_name: TAG + ' بند مرتجع', branch_key: B });
         await move('add', Q);
         await api('POST', 'invoice_commissions', { invoice_id: made.inv, branch_key: B, amount: -comm, paid: false, created_by: 'auto_refund_reversal' });
         rec({ area, step: '④ فاتورة مرتجع مربوطة بالأصل', ok: !!made.rinv, pattern: made.rinv ? null : 'P1' });

@@ -55,10 +55,30 @@
   }
   /* نداءٌ للوسيط بمسارٍ ما (sendMessage · jsonbin-order …) بمفتاح القاعدة العامّ — لا سرّ في المتصفّح.
      مهلةٌ ٢٠ ثانية (كما بقيّة طلبات النظام)، وانقطاع الشبكة **يُرفَض** كما كان مع الطريق المباشر — فلا تظنّ صفحةٌ أنّ التبليغ وصل. */
+  /* (seq B1035 · «can't parse entities: Unsupported start tag "br"») رسائل HTML من صفحاتٍ تكتب <br> أو وسوماً لا يقبلها تيليغرام ⇒
+     كانت تُرفض كلّها (400) فلا يصل التبليغ. هنا مرّةً واحدة لكلّ الصفحات: <br>/<p> ⇒ سطر جديد · الوسوم غير المدعومة تُحذف ونصّها يبقى. */
+  var TG_OK = /^(b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|tg-spoiler|tg-emoji|blockquote)$/i;
+  function tgClean(t) {
+    return String(t).replace(/<br\s*\/?>/gi, '\n').replace(/<\/?p(\s[^>]*)?>/gi, '\n')
+      .replace(/<\/?([a-zA-Z][\w-]*)(\s[^>]*)?>/g, function (m, tag) { return TG_OK.test(tag) ? m : ''; });
+  }
+  function tgCleanBody(opts) {
+    try {
+      var b = opts.body;
+      if (typeof b === 'string' && /"parse_mode"\s*:\s*"HTML"/i.test(b)) {
+        var o = JSON.parse(b); ['text', 'caption'].forEach(function (k) { if (typeof o[k] === 'string') o[k] = tgClean(o[k]); }); opts.body = JSON.stringify(o);
+      } else if (b && typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && /^html$/i.test(b.get('parse_mode') || '')) {
+        ['text', 'caption'].forEach(function (k) { if (b.has(k)) b.set(k, tgClean(b.get(k))); });
+      } else if (b && typeof FormData !== 'undefined' && b instanceof FormData && /^html$/i.test(String(b.get('parse_mode') || ''))) {
+        ['text', 'caption'].forEach(function (k) { var v = b.get(k); if (typeof v === 'string') b.set(k, tgClean(v)); });
+      }
+    } catch (_) {}
+  }
   function relay(path, opts) {
     var db = g.GMT_DB && g.GMT_DB.MAIN;
     if (!db || !db.url || !db.key) return Promise.resolve(fail('لا قاعدة للوسيط في هذه الصفحة'));
     opts = Object.assign({}, opts || {});
+    tgCleanBody(opts);
     var headers = new Headers(opts.headers || {});
     headers.set('Authorization', 'Bearer ' + db.key); headers.set('apikey', db.key);
     var ac = (typeof AbortController === 'function' && !opts.signal) ? new AbortController() : null, tm = null;
@@ -3988,16 +4008,24 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       setTimeout(() => recentWrites.delete(sig), 4000);
 
       /* 🔴 كشف المضاعفة: كتابتان على نفس الصف خلال ثانيتين (ولو بقيمتين مختلفتين) */
+      /* (seq B1035/B1044 — تنبيهات «كتابة مزدوجة» على gmt_orders#286/290/295/296 · products) السبب: كان يكفي أيّ كتابتين على الصفّ نفسه خلال ثانيتين
+         ولو على حقولٍ مختلفة (الحالة ثمّ وقت التبليغ). PATCH يكتب قيماً مطلقة ⇒ لا مضاعفة فيها. الحرج الآن فقط حين يمكن أن يتضاعف شيء:
+         نفس الحقل بقيمةٍ مختلفة على جداول المخزون/المال، أو إدراجٌ/حذفٌ متكرّر. تكرار القيمة نفسها = تحذير (طلبٌ مكرّر بلا أثر). حقولٌ مختلفة = لا شيء. */
       const rk = rowKey(url);
       if (rk) {
-        const p = recentRows.get(rk);
-        if (p && started - p < 2000) {
-          add('crit', 'كتابة مزدوجة',
-            `كُتب على نفس السجل (${rk}) مرتين خلال ثانيتين — هذا نمط المضاعفة: قد تُطبَّق الكمية أو المبلغ مرّتين.`,
-            method + ' ' + redact(url));
+        const p = recentRows.get(rk), body = String((init && init.body) || '');
+        if (p && started - p.t < 2000) {
+          const keysOf = b => { try { const o = JSON.parse(b); const r = Array.isArray(o) ? o[0] : o; return r && typeof r === 'object' ? Object.keys(r) : null; } catch (_) { return null; } };
+          const kA = keysOf(p.body), kB = keysOf(body), overlap = kA && kB ? kA.filter(k => kB.indexOf(k) > -1 && !/^(updated_at|modified_at|last_edit\w*)$/.test(k)) : null;
+          const table = rk.split('#')[0], money = /^(products|inventory|stock_|branch_stock|invoices|invoice_items|gmt_cash|gmt_ledger|gmt_settlements|gmt_expenses|import_log)/.test(table);
+          if (method !== 'PATCH' || p.method !== 'PATCH') add('crit', 'كتابة مزدوجة', `كُتب على نفس السجل (${rk}) مرتين خلال ثانيتين (${p.method} ثمّ ${method}) — هذا نمط المضاعفة: قد تُطبَّق الكمية أو المبلغ مرّتين.`, method + ' ' + redact(url));
+          else if (overlap && !overlap.length) { /* حقولٌ مختلفة — لا مضاعفة */ }
+          else if (p.body === body) add('warn', 'تكرار كتابة', `نفس التعديل أُرسل مرّتين على (${rk}) — بلا أثر (قيمة مطلقة) لكنّه طلبٌ زائد.`, method + ' ' + redact(url));
+          else if (money) add('crit', 'كتابة مزدوجة', `كُتب على نفس السجل (${rk}) مرتين خلال ثانيتين بقيمتين مختلفتين للحقل نفسه (${(overlap || []).slice(0, 4).join('، ') || '—'}) — قد يكون حساباً من قراءةٍ قديمة.`, method + ' ' + redact(url));
+          else add('warn', 'تعديلان متتاليان', `تعديلان متتاليان على (${rk}) للحقل نفسه — الأخير هو المعتمد.`, method + ' ' + redact(url));
         }
-        recentRows.set(rk, started);
-        setTimeout(() => recentRows.delete(rk), 4000);
+        recentRows.set(rk, { t: started, body, method });
+        setTimeout(() => { const q = recentRows.get(rk); if (q && q.t === started) recentRows.delete(rk); }, 4000);
       }
 
       if (/products|decrement_branch_stock|increment_branch_stock/i.test(url)) net.stockOps++;
