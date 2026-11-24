@@ -9,7 +9,7 @@ const closeDialogs = async pg => { for (let i = 0; i < 5 && await pg.evaluate(()
 const commOf = async invId => ((await dump()).invoice_commissions || []).filter(c => String(c.invoice_id) === String(invId));
 const refundsOf = async invId => ((await dump()).invoices || []).filter(i => String(i.original_invoice_id) === String(invId));
 async function sale(pg, pid, cust, qty) {
-  await pg.evaluate(([pid, cust, qty]) => { newInvoice(); for (let k = 0; k < qty; k++) addToCartFromDetail(pid); saleType = 'نقدي'; document.getElementById('custName').value = cust; document.getElementById('custPhone').value = '0999000111'; }, [pid, cust, qty]);
+  await pg.evaluate(([pid, cust, qty]) => { newInvoice(); for (let k = 0; k < qty; k++) addToCartFromDetail(pid); saleType = 'نقدي'; document.getElementById('custName').value = cust; document.getElementById('custPhone').value = '0999' + String(100000 + (window.__ph = (window.__ph || 110) + 1)).slice(1);   /* (B0511) رقمٌ لكلّ زبون: رقمٌ معروف باسمٍ آخر يسأل «القديم أم الجديد؟» */ }, [pid, cust, qty]);
   await pg.evaluate(() => saveAndFinish());
   for (let i = 0; i < 30; i++) { await pg.waitForTimeout(250); if (((await dump()).invoices || []).some(x => x.customer_name === cust)) break; }
   await pg.waitForTimeout(600); await closeDialogs(pg);

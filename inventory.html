@@ -12876,7 +12876,8 @@ async function sbUploadToBucket(bucket, filePath, file) {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
         'Content-Type': file.type || 'image/jpeg',
-        'x-upsert': 'true'
+        /* (seq B1035) مخزن التواقيع إضافةٌ فقط ⇒ لا x-upsert له (كان يُرفض RLS) */
+        ...(bucket === 'transfer-signatures' ? {} : { 'x-upsert': 'true' })
       },
       body: file
     });
