@@ -1388,6 +1388,9 @@ function openInstantMode(){
 }
 
 // ── RENDER LIST ──────────────────────────────────────────
+/* (seq B1046) الرقم القديم IMP-2026-0004 يجد CN-2026-0004 أو EU-2026-0004 (الأرقام نفسها، تغيّر البادئة فقط) */
+function _invNumHit(num, q){ num=String(num||'').toLowerCase(); if(!q) return true; if(num.includes(q)) return true;
+  const m=q.match(/^imp-(\d{4}-\d+)$/); return !!(m && /^(cn|eu)-/.test(num) && num.slice(3)===m[1]); }
 function render(){
   const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
   let china=0,europe=0,transit=0,instantCount=0;
@@ -1395,12 +1398,12 @@ function render(){
   ships.forEach(s=>{
     if(s.inv_type==='instant'){
       instantCount++;
-      const ok=!q||(s.inv_number||'').toLowerCase().includes(q)||(s.supplier||'').toLowerCase().includes(q);
+      const ok=!q||_invNumHit(s.inv_number,q)||(s.supplier||'').toLowerCase().includes(q);
       if(ok)groups.instant.push(s);
       return;
     }
     if(s.status==='transit'){transit++;if(s.inv_type==='china')china++;else europe++;}
-    const ok=!q||(s.inv_number||'').toLowerCase().includes(q)||(s.supplier||'').toLowerCase().includes(q)||(s.shipping_company||'').toLowerCase().includes(q);
+    const ok=!q||_invNumHit(s.inv_number,q)||(s.supplier||'').toLowerCase().includes(q)||(s.shipping_company||'').toLowerCase().includes(q);
     if(ok)(s.status==='transit'?groups.transit:groups.arrived).push(s);
   });
   document.getElementById('stat-china').textContent=china;
@@ -4076,7 +4079,8 @@ async function saveShipment(){
     }
 
     let num=editId?ships.find(x=>String(x.id)===String(editId))?.inv_number:null;
-    if(!num){num=await nextInvNum('IMP');}
+    /* (المالك seq B1046 «فواتير الصين CN في البداية وأوروبا EU — اسم فاتورة الصين بعيد عن اسم فاتورة أوروبا») كان «IMP» للنوعين ⇒ IMP-2026-0001 تكرّر */
+    if(!num){num=await nextInvNum(invType===BR_DE?'EU':'CN');}
     const now=new Date().toISOString();
     const _landedSnap=computeLandedCosts(cart);   // PUR-7: تُؤرشَف بالفاتورة للتدقيق
     const coreEntry={inv_number:num,inv_type:invType,supplier:document.getElementById('in-supplier').value.trim()||null,supplier_inv:document.getElementById('in-sup-inv').value.trim()||null,inv_date:_cleanDate(document.getElementById('in-date').value)||null,eta_date:_cleanDate(document.getElementById('in-eta').value)||null,shipping_company:document.getElementById('in-ship').value.trim()||null,tracking_number:document.getElementById('in-track').value.trim()||null,shipping_notes:document.getElementById('in-notes').value.trim()||null,invoice_file_url:fileUrl||null,source_branch:src,dest_branch:BR_DEST,status:editId?(ships.find(x=>String(x.id)===String(editId))?.status||'transit'):'transit',total_amount:cart.reduce((s,c)=>s+(c.qty*c.unitPrice),0),items_count:cart.length,total_qty:cart.reduce((s,c)=>s+c.qty,0),items_snapshot:cart.map(c=>({id:c.product.id,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,qty:c.qty,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice||0,whole_price:c.wholePrice||0,sale_price:c.salePrice||0,notes:c.notes||'',total:c.qty*c.unitPrice,landed_cost:_landedSnap[c.product.id]||c.unitPrice,is_new:c.isNew||false}))};

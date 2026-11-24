@@ -59,6 +59,9 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     return document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').textContent;
   });
   ok(parseFloat(keep) === 7.25, 'سعرٌ مكتوب ثمّ تكلفة شحن ⇒ السعر المكتوب باقٍ: ' + keep);
+  /* (seq B1046) أرقام الصين CN- وأوروبا EU- (كان IMP- للاثنين فتكرّر IMP-2026-0001) · البحث بالرقم القديم IMP- يجدها */
+  const nm = await pg.evaluate(async () => ({ cn: await nextInvNum('CN'), hitOld: _invNumHit('CN-2026-0004', 'imp-2026-0004'), noCross: _invNumHit('EU-2026-0004', 'imp-2026-0001'), plain: _invNumHit('EU-2026-0001', 'eu-2026') }));
+  ok(/^CN-\d{4}-\d{4}$/.test(nm.cn) && nm.hitOld && !nm.noCross && nm.plain, 'CN-/EU- بدل IMP- · البحث بـ IMP-2026-0004 يجد CN-2026-0004 ولا يخلط: ' + JSON.stringify(nm));
   const real = errs.filter(e => !/status of (400|401|404|406)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();

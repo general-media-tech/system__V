@@ -5640,7 +5640,7 @@ function scSetCount(id, val) {
 function scHandleEnter(e) {
   if (e.key !== 'Enter') return;
   const q = (document.getElementById('sc-search')?.value || '').trim();
-  if (!q) return;
+  if (!q) { if (!e.isTrusted || e.type === 'click') { showToast('اكتب اسم المنتج أو امسح باركوده أوّلاً', 'inf'); try { document.getElementById('sc-search').focus(); } catch (_) {} } return; }   /* (seq B1029 — نفس النمط) */
   const matches = scProducts().filter(p => (p.barcode||'') === q);
   const adds = !!(document.getElementById('sc-scan-adds') || {}).checked;
   if (matches.length === 1 && adds) {
@@ -9558,7 +9558,8 @@ function handleBarcode(code) {
 function manualBarcodeSearch() {
   const inp  = document.getElementById('manual-barcode');
   const code = (inp?.value || '').trim();
-  if (!code) return;
+  /* (seq B1029 «dead_click: زر بلا أثر: بحث») ضغط «بحث» والخانة فارغة كان لا يفعل شيئاً ولا يقول شيئاً ⇒ يقول ماذا تفعل ويضع المؤشّر */
+  if (!code) { showToast('اكتب الباركود أوّلاً — أو وجّه الكاميرا نحوه', 'inf'); try { inp && inp.focus(); } catch (_) {} return; }
   inp.value = '';
   try{ window.GMTAudio && GMTAudio.emit('pos.barcode.manual'); }catch(_){}
   handleBarcode(code);
