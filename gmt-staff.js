@@ -2817,6 +2817,16 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       return await r.json();
     } catch (e) { lastErr = String((e && e.message) || e).slice(0, 140); return null; }
   }
+  /* قاعدة المتجر المنفصلة (gmt_store) — إن غابت إعداداتها نرجع للرئيسية كما كان */
+  async function qStore(path) {
+    var s = window.GMT_DB && GMT_DB.STORE;
+    if (!s || !s.url || !s.key) return q(path);
+    try {
+      var r = await RF(s.url + '/rest/v1/' + path, { headers: { apikey: s.key, Authorization: 'Bearer ' + s.key } });
+      if (!r.ok) { var t = ''; try { t = (await r.text()).slice(0, 140); } catch (_) {} lastErr = 'HTTP ' + r.status + (t ? ' — ' + t : ''); return null; }
+      return await r.json();
+    } catch (e) { lastErr = String((e && e.message) || e).slice(0, 140); return null; }
+  }
   /* أعمدة الفروع حيّة من inv_columns — كانت ثابتة (germany,china,damascus,aleppo) وليست أعمدة products ⇒ 400 دائماً */
   async function branchCols() {
     var rows = await q('inv_columns?is_branch=eq.true&select=key_name');
@@ -2870,7 +2880,9 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       run: async function () {
         /* (REQ-0334) المتجر صفٌّ واحد (gmt_store id=1) ومنتجاته في عمود products — كانت تقرأ select=id,name كجدول منتجات
            فيُعلَّم «ناجحاً» رغم «لا منتجات بالمتجر». متجرٌ فارغ والجرد فيه منتجات = انقطاعٌ لا نجاح. */
-        var row = await q('gmt_store?id=eq.1&select=products');
+        /* (TASK-0373 · تقرير الفاحص ٢٣ ت2: HTTP 400 «column gmt_store.products does not exist») المتجر في قاعدته الخاصّة (GMT_DB.STORE)
+           — q() تقرأ الرئيسية وفيها جدول gmt_store فارغ بقي من هجرة TASK-0154 بلا عمود products ⇒ نقرأ من قاعدة المتجر */
+        var row = await qStore('gmt_store?id=eq.1&select=products');
         if (row === null) return { ok: null, msg: 'تعذّر قراءة المتجر — ' + lastErr };
         var sp = row[0] && row[0].products;
         if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (_) { sp = null; } }
