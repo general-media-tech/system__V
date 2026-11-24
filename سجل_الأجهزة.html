@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>سجلّ الأجهزة — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261124b1"></script>
+<script src="gmt-core.js?v=20261124b2"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261124b2"></script>
+<script src="gmt-tools.js?v=20261125b11"></script>
+<script src="gmt-account.js?v=20261119j"></script>
+<script src="gmt-ask.js?v=20261121b"></script>
+<script src="gmt-oplog.js?v=20261117h"></script>
+<script src="gmt-serial.js?v=20261125b10"></script>
+<script src="gmt-scan.js?v=20261124b2"></script>
+<script src="gmt-icons.js?v=20261124b3" defer></script>
+<script src="gmt-sound.js?v=20261124b3" defer></script>
+<!-- ══ TASK-B0538 · المالك seq B1038 §٩: «لكل جهاز سجل تسلسلي مستقل … ويجب أن نستطيع البحث عن أي جهاز باستخدام رقمه والوصول إلى تاريخه الكامل».
+     ابحث بـ IMEI/الرقم التسلسلي (كتابة · لصق · ماسح · كاميرا) ⇒ سجلّ الجهاز (gmt_serials: المنتج · الحالة · الفاتورة · الزبون · الفرع · التاريخ)
+     + بنود الفواتير التي تحمله + كفالاته (قاعدة الكفالة: serial_no / imei_no — مخزَّنة نصّاً خاماً ⇒ بحثٌ بالاحتواء). قراءة فقط. ══ -->
+<style>
+:root{--red:#D5001C;--ln:rgba(15,18,25,.1);--tx:#0f1219;--mu:#5b6472;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
+.wrap{max-width:860px;margin:0 auto;padding:14px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.top h1{margin:0;font-size:20px;flex:1}
+.btn{border:1.5px solid var(--ln);background:#fff;border-radius:11px;padding:8px 13px;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;color:inherit;text-decoration:none}
+.btn.k{background:#0f1219;color:#fff;border-color:#0f1219}
+.sb{display:flex;gap:8px;margin:6px 0 12px}.sb input{flex:1;padding:10px 12px;border:1.5px solid var(--ln);border-radius:12px;font:inherit;font-size:15px;direction:ltr}
+.card{background:#fff;border:1px solid var(--ln);border-radius:18px;padding:12px 14px;box-shadow:0 10px 30px rgba(15,18,25,.05);margin-bottom:12px;border-inline-start:5px solid #94a3b8}
+.card.g{border-inline-start-color:#16a34a}.card.r{border-inline-start-color:#dc2626}.card.o{border-inline-start-color:#f59e0b}
+.hd{font-weight:900;font-size:15.5px;margin-bottom:4px}.kv{font-size:13px;line-height:1.9}.kv b{font-weight:900}
+.tl div{border-top:1px dashed #e2e8f0;padding:3px 0;font-size:12.5px}.em{text-align:center;color:var(--mu);padding:22px 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>🔎 سجلّ الأجهزة</h1></div>
+  <p style="color:var(--mu);font-size:12.5px;margin:0">ابحث عن أيّ جهاز برقمه (IMEI أو الرقم التسلسلي): لمن بِيع · بأيّ فاتورة · من أيّ فرع · كفالته · وتاريخه كاملاً.</p>
+  <div class="sb"><input id="q" placeholder="امسح أو الصق أو اكتب الرقم ثمّ Enter" autocomplete="off"><button class="btn" id="cam">📷</button><button class="btn k" id="go">بحث</button></div>
+  <div id="out"><div class="em">اكتب رقم الجهاز للبحث</div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function dt(v) { return v ? new Date(v).toLocaleString('ar-SY') : '—'; }
+  async function get(db, path) {
+    var r = await fetch(db.url + '/rest/v1/' + path, { headers: { apikey: db.key, Authorization: 'Bearer ' + db.key }, cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+  }
+  var ST = { sold: ['مبيع', 'g'], in_stock: ['بالمخزون', 'o'], returned: ['مرتجع', 'o'], warranty: ['بالكفالة/الصيانة', 'o'], void: ['ملغى', 'r'] };
+  async function search(raw) {
+    raw = String(raw || '').trim(); if (!raw) return;
+    var p = GMTSerial.parse(raw), codes = p.candidates.map(function (c) { return c.code; });
+    if (!codes.length) codes = [GMTSerial.norm(raw)];
+    var M = GMT_DB.MAIN, W = GMT_DB.WARRANTY;
+    $('out').innerHTML = '<div class="em">جارٍ البحث…</div>';
+    var html = '';
+    for (var i = 0; i < codes.length; i++) {
+      var code = codes[i], like = encodeURIComponent('*' + code + '*');
+      var res = await Promise.all([
+        get(M, 'gmt_serials?code=eq.' + encodeURIComponent(code) + '&select=*').catch(function () { return []; }),
+        get(M, 'invoice_items?serials=cs.' + encodeURIComponent(JSON.stringify([{ code: code }])) + '&select=invoice_id,product_name,qty,unit_price,created_at').catch(function () { return []; }),
+        W ? get(W, 'warranties?or=(serial_no.ilike.' + like + ',imei_no.ilike.' + like + ')&select=id,warranty_number,customer_name,product_name,serial_no,imei_no,status,purchase_date,expiry_date,invoice_no,branch_name&limit=20').catch(function () { return []; }) : []
+      ]);
+      var S = res[0], II = res[1], WW = res[2];
+      if (!S.length && !II.length && !WW.length) { html += '<div class="card r"><div class="hd" dir="ltr" style="text-align:right">' + esc(code) + '</div><div class="kv">لا سجلّ لهذا الرقم في النظام (لا بيع ولا كفالة).</div></div>'; continue; }
+      S.forEach(function (s) {
+        var st = ST[s.status] || [s.status, ''];
+        html += '<div class="card ' + st[1] + '" data-dev="' + esc(s.code) + '"><div class="hd"><span dir="ltr">' + esc(s.code) + '</span> · ' + (s.kind === 'imei' ? 'IMEI' : 'S/N') + ' · ' + esc(st[0]) + '</div><div class="kv">' +
+          '📦 <b>' + esc(s.product_name || '—') + '</b>' + (s.product_id ? ' <a href="inventory.html?pid=' + encodeURIComponent(s.product_id) + '&view=mov" target="_blank" rel="noopener">📜</a>' : '') + '<br>' +
+          (s.sale_inv_number ? '🧾 فاتورة البيع: <b dir="ltr">' + esc(s.sale_inv_number) + '</b> · ' + dt(s.sold_at) + '<br>' : '') +
+          (s.customer_name || s.customer_phone ? '👤 ' + esc(s.customer_name || '') + ' <span dir="ltr">' + esc(s.customer_phone || '') + '</span><br>' : '') +
+          (s.branch_key ? '🏪 ' + esc(s.branch_key) + '<br>' : '') + (s.purchase_ref ? '🛒 شراء: ' + esc(s.purchase_ref) + '<br>' : '') +
+          '</div>' + ((s.history || []).length ? '<div class="tl">' + s.history.map(function (h) { return '<div>' + dt(h.at) + ' · ' + esc({ sold: 'بِيع', in_stock: 'دخل المخزون', returned: 'أُرجع', transfer: 'نُقل' }[h.ev] || h.ev) + (h.ref ? ' · ' + esc(h.ref) : '') + (h.by ? ' · ' + esc(h.by) : '') + '</div>'; }).join('') + '</div>' : '') + '</div>';
+      });
+      if (II.length && !S.length) html += '<div class="card o"><div class="hd">بنود فواتير تحمل الرقم ' + esc(code) + '</div><div class="kv">' + II.map(function (x) { return '🧾 ' + esc(x.product_name) + ' · ' + dt(x.created_at); }).join('<br>') + '</div></div>';
+      if (WW.length) html += '<div class="card g" data-war><div class="hd">🛡️ الكفالات (' + WW.length + ')</div><div class="kv">' + WW.map(function (w) { return '<b>' + esc(w.warranty_number || ('#' + w.id)) + '</b> · ' + esc(w.product_name || '') + ' · ' + esc(w.customer_name || '') + ' · ' + esc(w.status || '') + ' · حتى ' + esc(w.expiry_date || '—') + (w.invoice_no ? ' · فاتورة ' + esc(w.invoice_no) : ''); }).join('<br>') + '</div></div>';
+    }
+    if (p.candidates.length > 1) html = '<div class="card o"><div class="kv">القراءة فيها أكثر من رقم — عُرض كلٌّ منها.</div></div>' + html;
+    $('out').innerHTML = html;
+  }
+  $('go').onclick = function () { search($('q').value); };
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); search($('q').value); } });
+  $('cam').onclick = function () { if (window.GMTScan && GMTScan.camera) GMTScan.camera(function (c) { $('q').value = c; search(c); }, { title: 'امسح رقم الجهاز' }); };
+  var qq = new URLSearchParams(location.search).get('q'); if (qq) { $('q').value = qq; search(qq); }
+  window.GMTDeviceLookup = { search: search };
+})();
+</script>
+<script src="gmt-nofab.js?v=20261029z4"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261124b4" defer></script>
+<script src="gmt-pwa.js?v=20261112f"></script>
+<script src="gmt-whatsnew.js?v=20261125b11"></script>
+<script src="gmt-refresh.js?v=20261124b2"></script>
+</body>
+</html>
