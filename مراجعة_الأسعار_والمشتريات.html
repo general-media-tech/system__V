@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مراجعة الأسعار والمشتريات — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261124b1"></script>
+<script src="gmt-core.js?v=20261124b2"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261124b2"></script>
+<script src="gmt-tools.js?v=20261125b9"></script>
+<script src="gmt-account.js?v=20261119j"></script>
+<script src="gmt-ask.js?v=20261121b"></script>
+<script src="gmt-oplog.js?v=20261117h"></script>
+<script src="gmt-store-sync.js?v=20261122n"></script>
+<script src="gmt-pricereview.js?v=20261125b9"></script>
+<script src="gmt-icons.js?v=20261124b3" defer></script>
+<script src="gmt-sound.js?v=20261124b3" defer></script>
+<!-- ══ TASK-B0536 · المالك seq B1040: «راجع كل شيء مسعر · في اشياء سعرها في المتجر غير الجرد وما هي موجوده في الفواتير الشراء
+     يعني ما في سعر مبيع … ايضا في اشياء مشتريه ومثلا معاد موجود منها فلازم نحن نعرف وين راح ت ممكن تكون موجوده في درعا ونحن
+     ما لنا خبر … الهدف انه بواحد واحد 2027 نسيطر على المخزون وما بيصير شيء يضيع عندنا».
+     تبويبان: ① الأسعار (المتجر ≠ الجرد ⇐ يُوحَّد على الجرد · بلا مبيع · بلا كلفة · بخسارة · تحت الحدّ الأدنى · مشطوب منتهٍ)
+     ② وين راح المشترى (المُشترى − المبيع − الموجود بكلّ الفروع والطريق = الفجوة · مصنّفة: فاقد · ربما بأوردر · قبل تسجيل المبيعات · زيادة).
+     الحساب في gmt-pricereview.js (يُختبر بلا متصفّح). ══ -->
+<style>
+:root{--red:#D5001C;--ln:rgba(15,18,25,.1);--tx:#0f1219;--mu:#5b6472;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,transparent 60%),#f7f8fa;color:var(--tx);font:15px/1.7 'Segoe UI',Tahoma,system-ui,sans-serif;background-repeat:no-repeat;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:14px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.top h1{margin:0;font-size:20px;flex:1}
+.sub{color:var(--mu);font-size:12.5px;margin:0 0 12px}
+.btn{border:1.5px solid var(--ln);background:#fff;border-radius:11px;padding:7px 13px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;color:inherit;text-decoration:none;display:inline-block}
+.btn.k{background:#0f1219;color:#fff;border-color:#0f1219}.btn.r{background:var(--red);color:#fff;border-color:var(--red)}
+.tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.tabs button.on{background:#0f1219;color:#fff;border-color:#0f1219}
+.sum{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.pill{border-radius:99px;padding:4px 13px;font-weight:900;font-size:12.5px;background:#f1f5f9;cursor:pointer;border:1.5px solid transparent}
+.pill.r{background:#fee2e2;color:#991b1b}.pill.o{background:#fef3c7;color:#92400e}.pill.g{background:#dcfce7;color:#166534}.pill.b{background:#e0e7ff;color:#3730a3}.pill.on{border-color:#0f1219}
+.card{background:#fff;border:1px solid var(--ln);border-radius:18px;padding:12px 14px;box-shadow:0 1px 2px rgba(15,18,25,.05),0 10px 30px rgba(15,18,25,.05);margin-bottom:12px;border-inline-start:5px solid #94a3b8}
+.card.r{border-inline-start-color:#dc2626}.card.o{border-inline-start-color:#f59e0b}.card.g{border-inline-start-color:#16a34a}
+.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.hd b{font-size:15.5px;flex:1}
+.cnt{min-width:36px;height:28px;border-radius:99px;display:grid;place-items:center;font-weight:900;font-size:13.5px;padding:0 10px;background:#f1f5f9}
+.ex{margin:6px 0 0;font-size:12.5px;color:#334155;line-height:1.8}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}th{background:#f8fafc;text-align:right;padding:6px;font-weight:900}td{padding:6px;border-top:1px solid #f1f5f9;vertical-align:top}
+td.n{direction:ltr;text-align:left;white-space:nowrap;font-weight:800}
+.more{margin-top:6px;font-size:12px;color:var(--mu)}
+details.row{border-top:1px solid #f1f5f9;padding:6px 0}details.row summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap;list-style:none;font-size:13px}
+.k1{font-weight:900;flex:1;min-width:180px}.tag{font-size:11px;font-weight:900;border-radius:99px;padding:1px 9px}
+.det{background:#fafafa;border-radius:12px;padding:8px 12px;margin-top:6px;font-size:12.5px;line-height:1.9}
+.em{text-align:center;color:var(--mu);padding:26px 8px}.warn{padding:10px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:12.5px;line-height:1.8;margin-bottom:10px}
+@media(min-width:1100px){.wrap{max-width:1400px;padding:20px 24px}#pr-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}#pr-list>.card{margin:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>مراجعة الأسعار والمشتريات</h1><button class="btn" id="rl">فحصٌ جديد</button></div>
+  <p class="sub">كلّ ما هو مسعَّر: المتجر مقابل الجرد · بلا مبيع · بلا كلفة · بخسارة — و«وين راح المشترى»: كلّ قطعة اشتريناها، كم بِيع منها، كم موجود بكلّ فرع، والفرق.</p>
+  <div class="tabs"><button class="btn on" data-tab="pr">💲 الأسعار</button><button class="btn" data-tab="tr">🧭 وين راح المشترى</button></div>
+  <div id="pane-pr"><div class="sum" id="pr-sum"></div><div id="pr-list"><div class="em">جارٍ الفحص…</div></div></div>
+  <div id="pane-tr" style="display:none"><div class="warn" id="tr-note"></div><div class="sum" id="tr-sum"></div><input id="tr-q" class="btn" style="width:100%;font-weight:600;margin-bottom:8px" placeholder="ابحث باسم المنتج…"><div id="tr-list"></div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function f2(v) { return (Math.round((Number(v) || 0) * 100) / 100).toFixed(2); }
+  var BR = { homs: 'حمص', daraa: 'درعا', haleb: 'حلب', kurani: 'كوراني', fakhouri: 'فاخوري', sarmada: 'سرمدا', hny_sbyl: 'هاني سبيل', germany: 'ألمانيا (بالطريق)', china: 'الصين (بالطريق)' };
+  async function get(db, path, page) {
+    var out = [], off = 0, lim = page || 1000;
+    for (;;) {
+      var r = await fetch(db.url + '/rest/v1/' + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + lim + '&offset=' + off, { headers: { apikey: db.key, Authorization: 'Bearer ' + db.key }, cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + path.split('?')[0]);
+      var rows = await r.json(); out = out.concat(rows); if (rows.length < lim || out.length >= 20000) break; off += lim;
+    }
+    return out;
+  }
+  var D = null, PR = null, TR = null, trKind = 'lost';
+
+  async function load() {
+    var M = GMT_DB.MAIN, S = GMT_DB.STORE;
+    var cols = (await get(M, 'inv_columns?is_branch=eq.true&select=key_name').catch(function () { return []; })).map(function (c) { return c.key_name; });
+    var transit = cols.filter(function (k) { return k === 'germany' || k === 'china'; }), local = cols.filter(function (k) { return transit.indexOf(k) < 0; });
+    if (!local.length) { local = GMTPriceReview.LOCAL; transit = GMTPriceReview.TRANSIT; }
+    var pcols = ['id', 'name', 'barcode', 'price', 'wholesale_price', 'cost_price', 'net_cost'].concat(local, transit).join(',');
+    var res = await Promise.all([
+      get(M, 'products?select=' + pcols),
+      S ? get(S, 'gmt_store?id=eq.1&select=products').then(function (r) { var p = r[0] && r[0].products; if (typeof p === 'string') { try { p = JSON.parse(p); } catch (_) { p = []; } } return Array.isArray(p) ? p : []; }).catch(function () { return []; }) : [],
+      get(M, 'gmt_price_changes?select=*').catch(function () { return []; }),
+      get(M, 'import_log?status=eq.arrived&select=inv_number,status,arrived_at,created_at,items_snapshot'),
+      get(M, 'branch_stock_transfers?from_branch=eq.rebuild&status=eq.received&select=id,transfer_number,received_at'),
+      get(M, 'invoice_items?select=product_id,qty,invoice_id'),
+      get(M, 'invoices?select=id,is_refund,created_at'),
+      get(M, 'gmt_orders?select=product,items_json').catch(function () { return []; })
+    ]);
+    var rb = res[4], rbItems = rb.length ? await get(M, 'stock_transfer_items?transfer_id=in.(' + rb.map(function (t) { return t.id; }).join(',') + ')&select=transfer_id,product_id,qty') : [];
+    var rbBy = {}; rb.forEach(function (t) { rbBy[t.id] = t; });
+    var invBy = {}, salesStart = null; res[6].forEach(function (i) { invBy[i.id] = i; if (!salesStart || i.created_at < salesStart) salesStart = i.created_at; });
+    var orderTexts = res[7].map(function (o) { var t = String(o.product || ''); try { var it = typeof o.items_json === 'string' ? JSON.parse(o.items_json) : o.items_json; if (Array.isArray(it)) t += ' ' + it.map(function (x) { return x && x.name; }).join(' '); } catch (_) {} return t; });
+    D = { products: res[0], store: res[1], changes: res[2], local: local, transit: transit, salesStart: salesStart };
+    PR = GMTPriceReview.pricing(res[0], res[1], res[2], { local: local });
+    TR = GMTPriceReview.trace({ salesStart: salesStart, products: res[0], purchases: res[3],
+      rebuilds: rbItems.map(function (x) { var t = rbBy[x.transfer_id] || {}; return { product_id: x.product_id, qty: x.qty, transfer_number: t.transfer_number, at: t.received_at }; }),
+      sales: res[5].map(function (x) { var i = invBy[x.invoice_id] || {}; return { product_id: x.product_id, qty: x.qty, is_refund: !!i.is_refund }; }),
+      orderTexts: orderTexts }, { local: local, transit: transit });
+  }
+
+  /* ── ① الأسعار ── */
+  function card(cls, title, n, ex, body) { return '<div class="card ' + cls + '"><div class="hd"><b>' + title + '</b><span class="cnt">' + n + '</span></div><div class="ex">' + ex + '</div>' + body + '</div>'; }
+  function tbl(head, rows, max) {
+    max = max || 40;
+    return rows.length ? '<table><thead><tr>' + head.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.slice(0, max).join('') + '</tbody></table>' + (rows.length > max ? '<div class="more">…و' + (rows.length - max) + ' أخرى</div>' : '') : '<div class="ex">✅ لا شيء</div>';
+  }
+  var pLink = function (id, v) { return '<a href="inventory.html?pid=' + encodeURIComponent(id) + '&view=' + (v || 'edit') + '" target="_blank" rel="noopener">' + (v === 'mov' ? '📜' : '✏️') + '</a>'; };
+  function renderPr() {
+    var p = PR, diffs = p.storeDiff.concat(p.optDiff);
+    $('pr-sum').innerHTML = [['r', 'المتجر ≠ الجرد', diffs.length], ['o', 'بلا سعر مبيع', p.noSale.length], ['o', 'لها مخزون بلا كلفة', p.noCost.length], ['r', 'بخسارة', p.loss.length], ['o', 'تحت الحدّ الأدنى', p.belowMin.length], ['b', 'منتج متجر بلا جرد', p.storeOrphan.length]].map(function (x) { return '<span class="pill ' + x[0] + '">' + x[1] + ': ' + x[2] + '</span>'; }).join('');
+    $('pr-list').innerHTML =
+      card('r', '💲 سعر المتجر مختلف عن الجرد', diffs.length, 'الجرد هو المرجع الوحيد لسعر المنتج (seq 579) ⇒ «وحّد» يكتب سعر الجرد في المتجر (القائمة وخياراتها) بكتابةٍ آمنة مسجَّلة.' + (diffs.length ? ' <button class="btn r" data-sync-all>⇐ وحّد الكلّ على الجرد (' + diffs.length + ')</button>' : ''),
+        tbl(['المنتج', 'المتجر', 'الجرد', ''], diffs.map(function (d) { return '<tr data-diff="' + esc(d.inv_id) + '"><td>' + esc(d.name) + '</td><td class="n">' + f2(d.store) + '</td><td class="n">' + f2(d.inv) + '</td><td><button class="btn" data-sync="' + esc(d.inv_id) + '" data-price="' + d.inv + '">⇐ وحّد</button></td></tr>'; }))) +
+      card('o', '🏷️ بلا سعر مبيع', p.noSale.length, 'منتجات سعر مبيعها 0 — ما له مخزون منها أوّلاً (لا يجوز أن يُباع بلا سعر). ✏️ يفتح التعديل الكامل.',
+        tbl(['المنتج', 'المخزون', ''], p.noSale.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+      card('o', '🧾 لها مخزون بلا كلفة (سعر شراء)', p.noCost.length, 'لا يُحسب ربحها ولا قيمة مخزونها — تُعبّأ من فاتورة شرائها («عبّئ الأسعار الناقصة») أو من التعديل الكامل.',
+        tbl(['المنتج', 'المخزون', 'المبيع', ''], p.noCost.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td><td class="n">' + f2(d.sale) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+      card('r', '📉 سعر المبيع ≤ الكلفة', p.loss.length, 'يُباع بخسارة أو بلا ربح — راجع الكلفة أو المبيع.',
+        tbl(['المنتج', 'المبيع', 'الكلفة', ''], p.loss.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.cost) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+      card('o', '⬇️ المبيع أقلّ من الحدّ الأدنى', p.belowMin.length, 'الحدّ الأدنى (net_cost) أعلى من سعر المبيع نفسه — أحدهما خطأ.',
+        tbl(['المنتج', 'المبيع', 'الحدّ الأدنى', ''], p.belowMin.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.min) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+      card('', '🔗 منتج بالمتجر بلا منتج جرد', p.storeOrphan.length, 'قائمة متجر غير مربوطة بالجرد — سعرها ومخزونها لا يتبعان شيئاً. اربطها من أدمن المتجر.',
+        tbl(['المنتج بالمتجر'], p.storeOrphan.map(function (d) { return '<tr><td>' + esc(d.name) + '</td></tr>'; }))) +
+      card('', '✂️ أسعار مشطوبة (عرض مؤقّت) منتهية أو مخالفة', p.strike.length, 'تغيير سعرٍ مؤقّت انتهى ولم يُرجَع، أو سعر الجرد غير سعر العرض.',
+        tbl(['المنتج', 'القديم', 'العرض', 'الجرد'], p.strike.map(function (d) { return '<tr><td>' + esc(d.name) + (d.expired ? ' · <b>منتهٍ</b>' : '') + '</td><td class="n">' + f2(d.old) + '</td><td class="n">' + f2(d.now) + '</td><td class="n">' + (d.inv == null ? '—' : f2(d.inv)) + '</td></tr>'; })));
+  }
+  async function syncPrices(list) {
+    if (!window.GMTStoreSync) { GMTAsk.alert('مزامنة المتجر غير محمّلة'); return; }
+    if (!(await GMTAsk.confirm('يُكتب سعر الجرد في المتجر لـ ' + list.length + ' بنداً (القائمة وخياراتها). متابعة؟', { title: 'توحيد الأسعار على الجرد' }))) return;
+    list.forEach(function (d) { GMTStoreSync.queuePrice(d.id, d.price); });
+    var r = await GMTStoreSync.flushPrices();
+    await GMTAsk.alert('✅ وُحِّدت الأسعار' + (r && r.changed === false ? ' (لا تغيير لازم)' : '') + ' — أُعيد الفحص.');
+    await run();
+  }
+
+  /* ── ② وين راح المشترى ── */
+  var KIND = { lost: ['r', '🔴 فاقد — اشتُري بعد بدء تسجيل المبيعات ولا أثر له'], orders: ['o', '🟠 ربما بأوردر (اسمه بأوردرات نصّية)'], before: ['b', '🔵 قبل تسجيل المبيعات'], surplus: ['g', '🟢 زيادة عن المُشترى'] };
+  function renderTr() {
+    var t = TR;
+    $('tr-note').innerHTML = 'المُشترى = فواتير شراء واصلة + فواتير تسوية مستلَمة · المبيع = بنود فواتير البيع − المرتجعات · الموجود = كلّ الفروع + بالطريق. ' +
+      'المبيعات تُسجَّل في النظام منذ <b>' + esc(D.salesStart ? new Date(D.salesStart).toLocaleDateString('ar-SY') : '—') + '</b> ⇒ ما اشتُري قبلها وبِيع قبلها لا أثر لبيعه («قبل التسجيل» — لا يُحكم عليه فاقداً). ' +
+      'الأوردرات المكتوبة نصّاً بلا ربط بالجرد لا تُحسب مبيعاً ⇒ ما ذُكر اسمه فيها «ربما بأوردر».';
+    $('tr-sum').innerHTML = Object.keys(KIND).map(function (k) { var s = t[k]; return '<span class="pill ' + KIND[k][0] + (k === trKind ? ' on' : '') + '" data-kind="' + k + '">' + KIND[k][1].split(' — ')[0].split(' (')[0] + ': ' + s.n + ' منتج · ' + s.u + ' قطعة' + (s.v ? ' · ' + f2(s.v) + '$' : '') + '</span>'; }).join('');
+    paintTr();
+  }
+  function paintTr() {
+    var q = String($('tr-q').value || '').trim().toLowerCase();
+    var rows = TR.rows.filter(function (r) { return r.kind === trKind && (!q || String(r.name || '').toLowerCase().indexOf(q) >= 0); });
+    $('tr-list').innerHTML = '<div class="card ' + KIND[trKind][0] + '"><div class="hd"><b>' + KIND[trKind][1] + '</b><span class="cnt">' + rows.length + '</span></div>' +
+      (rows.length ? rows.slice(0, 200).map(function (r) {
+        var by = Object.keys(r.by).map(function (k) { return esc(BR[k] || k) + ': <b>' + r.by[k] + '</b>'; }).join(' · ') || 'لا شيء بأيّ فرع';
+        return '<details class="row" data-tr="' + esc(r.id) + '"><summary><span class="k1">' + esc(r.name) + '</span><span class="tag" style="background:#f1f5f9">اشتُري ' + r.bought + ' · بِيع ' + r.sold + ' · موجود ' + (r.loc + r.tr) + '</span>' +
+          '<span class="tag" style="background:' + (r.gap > 0 ? '#fee2e2;color:#991b1b' : '#dcfce7;color:#166534') + '">' + (r.gap > 0 ? 'ناقص ' + r.gap : 'زائد ' + (-r.gap)) + (r.value ? ' · ' + f2(r.value) + '$' : '') + '</span></summary>' +
+          '<div class="det">📦 الموجود الآن: ' + by + '<br>🧾 دخل من: ' + r.invs.slice(0, 12).map(function (x) { return '<b dir="ltr">' + esc(x.n) + '</b> ×' + x.q + (x.at ? ' (' + new Date(x.at).toLocaleDateString('ar-SY') + ')' : '') + (x.rb ? ' تسوية' : ''); }).join(' · ') +
+          (r.inOrders ? '<br>🛒 اسمه مذكور في ' + r.inOrders + ' أوردر نصّي' : '') + '<br>' + pLink(r.id, 'mov') + ' السجلّ الكامل: الحركة والنقل والمبيعات</div></details>';
+      }).join('') + (rows.length > 200 ? '<div class="more">…و' + (rows.length - 200) + ' أخرى — ابحث بالاسم</div>' : '') : '<div class="ex">✅ لا شيء</div>') + '</div>';
+  }
+
+  async function run() {
+    $('pr-list').innerHTML = '<div class="em">جارٍ الفحص…</div>'; $('tr-list').innerHTML = '';
+    try { await load(); renderPr(); renderTr(); }
+    catch (e) { $('pr-list').innerHTML = '<div class="warn">تعذّر الفحص: ' + esc(e.message) + '</div>'; }
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('button,[data-kind]'); if (!b) return;
+    if (b.dataset.tab) { document.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); }); $('pane-pr').style.display = b.dataset.tab === 'pr' ? '' : 'none'; $('pane-tr').style.display = b.dataset.tab === 'tr' ? '' : 'none'; }
+    else if (b.dataset.kind) { trKind = b.dataset.kind; renderTr(); }
+    else if (b.hasAttribute('data-sync')) syncPrices([{ id: b.getAttribute('data-sync'), price: Number(b.getAttribute('data-price')) }]);
+    else if (b.hasAttribute('data-sync-all')) { var seen = {}; syncPrices(PR.storeDiff.concat(PR.optDiff).filter(function (d) { if (seen[d.inv_id]) return false; seen[d.inv_id] = 1; return true; }).map(function (d) { return { id: d.inv_id, price: d.inv }; })); }
+    else if (b.id === 'rl') run();
+  });
+  $('tr-q').addEventListener('input', paintTr);
+  if (/[?&]tab=tr/.test(location.search)) setTimeout(function () { document.querySelector('[data-tab="tr"]').click(); }, 0);
+  window.GMTPriceReviewPage = { run: run, data: function () { return { D: D, PR: PR, TR: TR }; } };
+  run();
+})();
+</script>
+<script src="gmt-nofab.js?v=20261029z4"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261124b4" defer></script>
+<script src="gmt-pwa.js?v=20261112f"></script>
+<script src="gmt-whatsnew.js?v=20261125b9"></script>
+<script src="gmt-refresh.js?v=20261124b2"></script>
+</body>
+</html>
