@@ -3270,7 +3270,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     });
     const entry = {
       inv_number: 'AUDIT-' + Date.now().toString().slice(-8),
-      inv_type: 'شراء فوري',
+      inv_type: 'instant',   /* (seq B1052) كان «شراء فوري» — نوعٌ لا تعرفه الصفحات (قوائم الفوري · الفحوص تستثني instant) */
       supplier: 'تسوية تدقيق (بلا مورّد)',
       status: 'arrived',
       transferred: true,                          // مرحّلة مسبقاً — لا تُضيف مخزوناً ثانيةً
@@ -3278,7 +3278,8 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       transferred_by: 'audit',
       transfer_moved: moved,                      // المرحّل = الكمية كاملة (يمنع أي مضاعفة لاحقة)
       items_snapshot: items,   /* (TASK-A0537) كان `items` — عمودٌ غير موجود (INV-1) ⇒ الإنشاء يفشل */
-      notes: 'فاتورة تسوية: تبرّر الكميات الموجودة بالجرد بلا فاتورة (مرحّلة مسبقاً — لا تُضيف مخزوناً). راجعها وعدّل الأسعار.',
+      /* (seq B1052) كان `notes` — عمودٌ غير موجود في import_log ⇒ زرّ «إنشاء فاتورة تسوية» يفشل 400 (نفس نمط items · TASK-A0537) */
+      shipping_notes: 'فاتورة تسوية: تبرّر الكميات الموجودة بالجرد بلا فاتورة (مرحّلة مسبقاً — لا تُضيف مخزوناً). راجعها وعدّل الأسعار.',
       created_at: new Date().toISOString(),
     };
     return rest('POST', 'import_log', entry, { Prefer: 'return=representation' });
