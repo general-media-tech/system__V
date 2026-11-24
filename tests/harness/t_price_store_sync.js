@@ -32,15 +32,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const sale0 = rows[0].querySelectorAll('td')[7].querySelector('[contenteditable="true"]'); sale0.focus();
     const key = k => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
     const where = () => { const td = document.activeElement.closest('td'); return [[...td.parentElement.parentElement.children].indexOf(td.parentElement), td.cellIndex]; };
-    const a = where(); key('Enter'); const b = where(); key('ArrowDown'); const c = where(); key('ArrowUp'); const d = where(); key('ArrowRight'); const e = where(); key('ArrowLeft'); const f = where();
+    const a = where(); key('Enter'); const b = where(); key('ArrowDown'); const c = where(); key('ArrowUp'); const d = where(); key('ArrowLeft'); const e = where(); key('ArrowRight'); const f = where();
     const sel = String(getSelection());
-    rows[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').focus(); const g0 = where(); key('ArrowRight'); const g1 = where(); key('ArrowRight'); const g2 = where();
+    rows[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').focus(); const g0 = where(); key('ArrowLeft'); const g1 = where(); key('ArrowLeft'); const g2 = where();
     window.__chain = [g0, g1, g2];
     return { a, b, c, d, e, f, sel, chain: window.__chain };
   });
   ok(JSON.stringify([nav.a, nav.b, nav.c, nav.d]) === '[[0,7],[1,7],[2,7],[1,7]]', '③ Enter و↓ ينزلان و↑ يصعد في نفس العمود ' + JSON.stringify(nav));
-  ok(nav.e[0] === 1 && nav.e[1] === 8 && nav.f[1] === 7, '③ → للأمام (المبيع ⇐ الملاحظات) و← للخلف (⇐ المبيع) — seq 577 ' + JSON.stringify([nav.e, nav.f]));
-  ok(JSON.stringify(nav.chain) === '[[0,4],[0,5],[0,6]]', '③ → من سعر الشراء ⇐ الحد الأدنى ⇐ الجملة (طلب المالك seq 577) ' + JSON.stringify(nav.chain));
+  ok(nav.e[0] === 1 && nav.e[1] === 8 && nav.f[1] === 7, '③ ← للأمام يساراً (المبيع ⇐ الملاحظات) و→ للخلف يميناً (⇐ المبيع) — seq B1030 (يغلب 577) ' + JSON.stringify([nav.e, nav.f]));
+  ok(JSON.stringify(nav.chain) === '[[0,4],[0,5],[0,6]]', '③ ← من سعر الشراء ⇐ الحد الأدنى ⇐ الجملة (السهم بالاتجاه المرئيّ — seq B1030) ' + JSON.stringify(nav.chain));
   ok(nav.sel === '11.00', '③ الدخول إلى الخانة يحدّد رقمها كلّه (الكتابة تستبدله) «' + nav.sel + '»');
   // ① + ② تعديل المبيع وحفظ
   await pg.evaluate(() => {

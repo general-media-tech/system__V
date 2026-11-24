@@ -1599,7 +1599,7 @@ function insAddToCart(id){
     product:p,qty:1,isNew:false,
     unitPrice:0,
     notes:''
-  },_priceSeed(p)));   /* (seq 570) بلا أسعار ⇐ آخر أسعار من فاتورة سابقة */
+  },_priceSeed(p),_buySeed(p,(document.getElementById('ins-currency')||{}).value||'USD')));   /* (seq 570) بلا أسعار ⇐ آخر أسعار من فاتورة سابقة · (seq B1030) وآخر سعر شراء */
   renderInsCart();updateInsSum();
   toast('✅ أُضيف: '+p.name,'ok');
 }
@@ -2264,6 +2264,25 @@ function _lastInvPrices(pid){
   } if(out.sale&&out.whole&&out.min) break; }
   return out;
 }
+/* (seq B1030 «منصّة الهبوط عندي سعر شرائها من الصين — لما نضيفها ما اقترح لي سعر الشراء … لازم يكون في تكامل، يقترح أو يسألني إن السعر هالمرّة غير»)
+   آخر سعر شراء للمنتج: من آخر فاتورة شراء **بالعملة نفسها** (السعر الأصليّ قبل التكاليف) ⇐ وإلّا سعر الشراء المسجّل في الجرد (بالدولار).
+   يُكتب في الخانة ويُقال من أين جاء (الفاتورة والمورّد) لتغيّره إن اختلف هالمرّة. */
+function _lastBuy(pid, cur){
+  if(pid==null) return null; cur=cur||'USD';
+  const rows=(ships||[]).slice().sort((a,b)=>String(b.inv_date||b.created_at||'').localeCompare(String(a.inv_date||a.created_at||'')));
+  for(const s of rows){ if((s.currency||'USD')!==cur) continue;
+    for(const i of (s.items_snapshot||[])){ if(!i||String(i.id)!==String(pid)) continue;
+      const u=Number(i.orig_unit_price)>0?Number(i.orig_unit_price):Number(i.unit_price);
+      if(u>0) return { unit:u, inv:s.inv_number||'', sup:s.supplier||'', date:String(s.inv_date||s.created_at||'').slice(0,10) }; } }
+  const p=(prods||[]).find(x=>String(x.id)===String(pid));
+  if(cur==='USD' && p && Number(p.cost_price)>0) return { unit:Number(p.cost_price), inv:'', sup:'', date:'', fromStock:true };
+  return null;
+}
+function _buySeed(p, cur){
+  const b=_lastBuy(p&&p.id, cur); if(!b) return {};
+  setTimeout(()=>{ try{ toast('💡 '+(b.fromStock?'سعر الشراء المسجّل في الجرد':'آخر سعر شراء ('+(b.inv||'فاتورة سابقة')+(b.sup?' · '+b.sup:'')+(b.date?' · '+b.date:'')+')')+': '+b.unit+' '+(cur||'USD')+' — عُبّئ في الخانة، غيّره إن اختلف هالمرّة','ok'); }catch(_){} },60);
+  return { unitPrice:b.unit, _buyHint:b };
+}
 function _priceSeed(p){ const l=_lastInvPrices(p&&p.id); return {
   minPrice:Number(p&&p.net_cost)||l.min||0, wholePrice:Number(p&&p.wholesale_price)||l.whole||0, salePrice:Number(p&&p.price)||l.sale||0 }; }
 function _tokKey(s){ return String(s||'').toLowerCase().replace(/[^\p{L}\p{N}.]+/gu,' ').trim().split(/\s+/).filter(Boolean).sort().join(' '); }
@@ -2275,7 +2294,7 @@ function addToCart(id){
   if(ex){ex.qty++;renderCart();updateSum();return;}
   /* ن٦ (2026-10-03): المنتجُ المُضاف يظهر **في الأعلى** لسهولة تعديل كميته —
      كان يُدفَع لآخر القائمة فيضطرّ المالك للتمرير في فاتورةٍ من ٣٠ صنفاً. */
-  cart.unshift(Object.assign({product:p,qty:1,isNew:false,unitPrice:0,notes:''},_priceSeed(p)));
+  cart.unshift(Object.assign({product:p,qty:1,isNew:false,unitPrice:0,notes:''},_priceSeed(p),_buySeed(p,(document.getElementById('in-currency')||{}).value||'USD')));
   renderCart();updateSum();
   toast('✅ أُضيف: '+p.name,'ok');
 }
@@ -3477,8 +3496,9 @@ document.addEventListener('keydown',function(e){
   }
   if(k==='ArrowLeft'||k==='ArrowRight'){
     const textCell=td.cellIndex===2||/col-notes/.test(td.className);
-    /* (المالك seq 577) «سهم اليمين … من سعر الشراء إلى الحد الأدنى إلى الجملة» ⇒ → للأمام في ترتيب الأعمدة · ← للخلف */
-    const forward=(k==='ArrowRight');
+    /* (المالك seq B1030 — الأحدث يغلب seq 577) «اكبس السهم اليميني فينقلني لليسار — على العكس، صلّحها» ⇒ السهم يتبع الاتجاه المرئيّ:
+       الجدول من اليمين لليسار، فالتالي في ترتيب الأعمدة على اليسار ⇒ ← للأمام (يساراً) · → للخلف (يميناً). */
+    const forward=(k==='ArrowLeft');
     if(textCell && !_caretAtEdge(ed, !forward)) return;
     const cells=_invGridCells(tr), ci=cells.indexOf(td);
     let target=cells[ci+(forward?1:-1)];
@@ -3533,8 +3553,38 @@ function _invHeaderPatch(row,getF){
   if(document.querySelector('#invPage [data-field="invDate"]')){ const v=day(getF('invDate')); if(v&&v!==String(row.inv_date||'')) out.inv_date=v; }
   return out;
 }
+/* (seq B1030 «حذفت قطعة فاللي كنت كاتبه كلّه راح» · «عند الحفظ قال أسعار شراء صفر — رسالة كاذبة»)
+   السبب الجذريّ واحد: ما تكتبه في خانات الجدول لا يصل إلى النموذج (d_items_ref) إلّا داخل saveInvEdits —
+   • الحذف كان يعيد رسم الفاتورة من النموذج القديم ⇒ ضاع المكتوب (والمورّد/التواريخ) وخرجت من وضع التعديل.
+   • فحص «سعر شراء 0» كان يُجرى على النموذج القديم **قبل** قراءة الجدول ⇒ تحذيرٌ عن أسعارٍ كتبتها للتوّ.
+   الآن قارئٌ واحد للجدول بلا آثار جانبية يستعمله الاثنان. */
+function _invReadRows(){
+  const out=[];
+  document.querySelectorAll('#inv-items-tbl tbody tr').forEach((tr,idx)=>{
+    const cells=tr.querySelectorAll('td'); if(!cells.length) return;
+    const firstEd=c=>c?.querySelector('[contenteditable="true"]')?.textContent.trim()||c?.querySelector('.editable')?.textContent.trim()||'';
+    const dualUnit=c=>{ const divs=c?.querySelectorAll('div'); if(divs&&divs[0]){const v=parseFloat(divs[0].textContent)||0;if(v>0)return v;}
+      const ed=c?.querySelector('[contenteditable="true"]')||c?.querySelector('.editable'); return parseFloat(ed?.textContent||'0')||0; };
+    const _qt=firstEd(cells[3]).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    out[idx]={ q:/^\d+$/.test(_qt)?parseInt(_qt,10):null, unit:dualUnit(cells[4]), min:dualUnit(cells[5]), whole:dualUnit(cells[6]), sale:dualUnit(cells[7]),
+      notes:firstEd(cells[8]), name:cells[2]?.querySelector('[contenteditable="true"]')?.textContent.trim()||cells[2]?.querySelector('.editable')?.textContent.trim()||'' };
+  });
+  return out;
+}
+function _invApplyRows(vals){
+  const imp=currentInvModal!=='instant';
+  (vals||[]).forEach((v,idx)=>{ const it=d_items_ref[idx]; if(!it||!v) return;
+    if(v.q!=null) it.qty=v.q;
+    if(v.unit>0){ if(imp){ it.unitPrice=v.unit; it.origUnitPrice=v.unit; it._origUnitPrice=null; it.unitPriceWithCosts=null; } else if(!it.unitPriceWithCosts){ it.unitPrice=v.unit; } }
+    if(v.min) it.minPrice=v.min; if(v.whole) it.wholePrice=v.whole; if(v.sale) it.salePrice=v.sale;
+    it.notes=v.notes; if(v.name) it.name=v.name; });
+}
 async function saveInvEdits(){
-  if(Array.isArray(d_items_ref)&&!(await purConfirmZero(d_items_ref))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد */
+  if(Array.isArray(d_items_ref)){
+    const _v=_invReadRows();
+    const _peek=d_items_ref.map((it,i)=>Object.assign({},it,{ qty:(_v[i]&&_v[i].q!=null)?_v[i].q:it.qty, unitPrice:(_v[i]&&_v[i].unit>0)?_v[i].unit:it.unitPrice }));
+    if(!(await purConfirmZero(_peek))) return;   /* (TASK-A0549) بندٌ بسعر شراء 0 ⇒ تأكيد — على ما كتبته الآن (seq B1030) */
+  }
   // ── 1. اقرأ كل القيم من صفحة الفاتورة ──
   const getF=f=>{
     const el=document.querySelector('#invPage [data-field="'+f+'"]');
@@ -5396,8 +5446,16 @@ async function changeInvCurrency(cur){
 }
 
 // ── DELETE ITEM FROM INVOICE VIEW ────────────────────────
+/* حقول الرأس التي تُعاد بعد الحذف كما كُتبت (لا المجاميع ولا العملة ولا خانات البنود) */
+const _INV_HDR_F=/^(supplier|supplierPhone|supplierContact|supplierAddress|sector|invNum|invNum2|invDate|eta|userName|branchNote|ct|cs|cc|cl|cx)$/;
 async function deleteInvItem(idx){
   if(!await GMTAsk.confirm('حذف هذا المنتج من الفاتورة؟'))return;
+  /* (seq B1030) المكتوب في الجدول وحقول الرأس يُحفظ قبل إعادة الرسم، ونبقى في وضع التعديل */
+  const _wasEditMode=invEditMode, _hdrVals={};
+  if(_wasEditMode){
+    try{ _invApplyRows(_invReadRows()); }catch(_){}
+    document.querySelectorAll('#invPage [data-field]').forEach(el=>{ const f=el.getAttribute('data-field'); if(f && _INV_HDR_F.test(f) && !el.closest('#inv-items-tbl') && !(f in _hdrVals)) _hdrVals[f]=('value' in el && el.tagName!=='DIV' && el.tagName!=='SPAN' && el.tagName!=='TD')?el.value:el.textContent; });
+  }
   d_items_ref.splice(idx,1);
   if(idx<cart.length)cart.splice(idx,1);
   const getF=f=>{const el=document.querySelector('#invPage .inv-field[data-field="'+f+'"]');return(el?.textContent||'').trim();};
@@ -5417,6 +5475,13 @@ async function deleteInvItem(idx){
     const _wasEdit=invEditMode; openInstantInvData(invData,invData.inv_number,_bn); window._invOpen=_keep; if(_wasEdit){try{toggleInvEdit();}catch(_){}}
   }else{
   document.getElementById('invPage').innerHTML=buildInv(getInvData(invData));
+  if(_wasEditMode){ invEditMode=false; try{ toggleInvEdit(); }catch(_){} }
+  }
+  if(_wasEditMode){
+    document.querySelectorAll('#invPage [data-field]').forEach(el=>{ const f=el.getAttribute('data-field'); if(!(f in _hdrVals) || el.closest('#inv-items-tbl')) return;
+      if('value' in el && el.tagName!=='DIV' && el.tagName!=='SPAN' && el.tagName!=='TD'){ if(el.value!==_hdrVals[f]) el.value=_hdrVals[f]; }
+      else if(!el.closest('#inv-items-tbl') && el.textContent!==_hdrVals[f]) el.textContent=_hdrVals[f]; });
+    try{ recalcInv(); }catch(_){}
   }
   hiddenCols.forEach(cls=>{document.querySelectorAll('#invPage .'+cls).forEach(el=>{el.style.display='none';});});
   lucide.createIcons();
