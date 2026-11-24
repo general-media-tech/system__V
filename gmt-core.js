@@ -3981,11 +3981,13 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
      الصفحة تنتظر إلى الأبد وتبدو «معلّقة». الآن: أي طلب بلا signal يُقطع بعد 20ث
      ويُسجَّل خطأ مفهوم بدل تجميد صامت. */
   const REQ_TIMEOUT = 20000;
-  function withTimeout(init) {
+  /* (seq B1043 «أكثر ١٥ خطأ» — صور الجرد 404/مهلة) الصور والملفّات الثابتة كبيرة على إنترنتٍ بطيء: ٢٠ث كانت تقطعها في منتصف التنزيل ⇒ ٦٠ث لها */
+  const isAsset = u => /\.(jpe?g|png|webp|gif|svg|mp3|mp4|webm|pdf)(\?|$)/i.test(u) || /\/storage\/v1\/object\//.test(u);
+  function withTimeout(init, url) {
     if (init && init.signal) return { init, done: () => {} };
     let ctrl;
     try { ctrl = new AbortController(); } catch (_) { return { init, done: () => {} }; }
-    const t = setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, REQ_TIMEOUT);
+    const t = setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, url && isAsset(url) ? 60000 : REQ_TIMEOUT);
     return { init: Object.assign({}, init || {}, { signal: ctrl.signal }), done: () => clearTimeout(t) };
   }
 
@@ -4032,7 +4034,7 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       if (/\/invoices\b/i.test(url) && method === 'POST') checkStockAfterSale();
     }
 
-    const T = withTimeout(init);
+    const T = withTimeout(init, url);
     try {
       const res = await REAL_FETCH(input, T.init);
       T.done();
@@ -4071,8 +4073,10 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
          فحص التحديث (sw.js?vc=) ×17 · عدّاد صندوق الإشعارات (notify-inbox «count/list») ×13 — كانت «خطأ حرج: شبكة» */
       const _bg = /sw\.js\?vc=/.test(url) || (/\/functions\/v1\/notify-inbox/.test(url) && /"action":"(count|list)"/.test(String((init && init.body) || '')));
       if (_bg || navigator.onLine === false) throw err;
-      add('crit', 'شبكة', method + ' ' + redact(url),
-        aborted ? `انقطع الطلب بعد ${REQ_TIMEOUT / 1000} ثانية (مهلة) — السيرفر لم يردّ. الصفحة لم تتجمّد.` : ((err && err.message) || 'فشل الاتصال'));
+      /* (seq B1043) «أكثر ١٥ خطأ» كانت كلّها تقريباً قراءاتٍ فشلت لضعف الإنترنت مسجّلةً «حرجة». القراءة تُعاد ولا يضيع بها شيء ⇒ تحذير؛
+         الكتابة قد تضيع ⇒ تبقى حرجة. */
+      add(isWrite ? 'crit' : 'warn', 'شبكة', method + ' ' + redact(url),
+        aborted ? `انقطع الطلب بعد ${(isAsset(url) ? 60000 : REQ_TIMEOUT) / 1000} ثانية (مهلة) — السيرفر لم يردّ. الصفحة لم تتجمّد.` : ((err && err.message) || 'فشل الاتصال'));
       throw err;
     }
   };

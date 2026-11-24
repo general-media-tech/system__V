@@ -21,6 +21,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await pg.evaluate(async () => { const d = GMT_DB.MAIN; try { await fetch(d.url + '/rest/v1/gmt_a0561_probe?select=id', { headers: { apikey: d.key } }); } catch (_) {} });
   const L = await net();
   ok(L.length === n0 + 1 && /gmt_a0561_probe/.test(L[L.length - 1] || ''), '③ الطلب الحقيقيّ ما زال يُسجَّل «شبكة» في صفحة الأوردرات ' + JSON.stringify(L.slice(-1)));
+  /* (seq B1043) قراءةٌ فشلت لضعف الإنترنت ⇒ تحذير (تُعاد ولا يضيع شيء) · كتابةٌ فشلت ⇒ حرج (قد تضيع) */
+  const sev = () => pg.evaluate(() => GMTBug.list().filter(e => e.type === 'شبكة').map(e => e.sev));
+  ok((await sev()).slice(-1)[0] === 'warn', '⑤ قراءةٌ فشلت ⇒ «تحذير» لا «حرج»: ' + (await sev()).slice(-1)[0]);
+  await pg.evaluate(async () => { const d = GMT_DB.MAIN; try { await fetch(d.url + '/rest/v1/gmt_a0561_probe', { method: 'POST', headers: { apikey: d.key, 'Content-Type': 'application/json' }, body: '{}' }); } catch (_) {} });
+  ok((await sev()).slice(-1)[0] === 'crit', '⑥ كتابةٌ فشلت ⇒ «حرج» (قد تضيع)');
   const noop = () => pg.evaluate(() => GMTBug.list().filter(e => e.type === 'كتابة بلا أثر').length);
   const w0 = await noop();
   await pg.evaluate(async () => { const d = GMT_DB.MAIN; await fetch(d.url + '/rest/v1/gmt_orders?id=eq.987654&stock_deducted=is.null', { method: 'PATCH', headers: { apikey: d.key, Authorization: 'Bearer ' + d.key, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ stock_deducted: { at: 'x' } }) }); });
