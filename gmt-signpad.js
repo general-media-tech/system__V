@@ -79,7 +79,7 @@
     var bucket = o.bucket || 'transfer-signatures', name = (o.prefix || 'sign') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '.png';
     try {
       var h = typeof o.headers === 'function' ? o.headers() : (o.headers || {}); h = Object.assign({}, h); delete h['Content-Type'];
-      var r = await fetch(o.url + '/storage/v1/object/' + bucket + '/' + name, { method: 'POST', headers: Object.assign(h, { 'Content-Type': 'image/png', 'x-upsert': 'true' }), body: sig.blob });
+      var r = await fetch(o.url + '/storage/v1/object/' + bucket + '/' + name, { method: 'POST', headers: Object.assign(h, { 'Content-Type': 'image/png' }), body: sig.blob });   /* (seq B1035) بلا x-upsert: المخزن إضافةٌ فقط والاسم فريد — كان كلّ رفعٍ يُرفض (RLS) */
       return r.ok ? o.url + '/storage/v1/object/public/' + bucket + '/' + name : null;
     } catch (_) { return null; }
   }

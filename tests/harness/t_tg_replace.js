@@ -36,6 +36,8 @@ const get = async id => (await H.call('/rest/v1/gmt_orders?id=eq.' + id, undefin
     // ٢) الوسيط لم يحذف (أقدم من ٤٨ ساعة) ⇒ يُقال السبب بوضوح
     mode = { replaced: false, why: 'too-old' }; seen.length = 0;
     await pg.evaluate(async id => { closeModal('editModal'); await openEditModal(id); document.getElementById('edit-name').value = 'زبون معدَّل ٢'; document.getElementById('saveEditBtn').click(); }, o1.id);
+    /* (B0511) تعديل الاسم مرّةً ثانية ⇒ سجلّ الزبون يسأل «القديم أم الجديد؟» (سلوكٌ صحيح) ⇒ نختار الجديد */
+    for (let i = 0; i < 16; i++) { if (await pg.evaluate(() => { const o = [...document.querySelectorAll('.gmtask-ov')].find(x => /القديم أم الجديد/.test(x.innerText)); const b = o && [...o.querySelectorAll('button')].find(b => /^الجديد/.test(b.textContent.trim())); if (b) b.click(); return !!b; })) break; await pg.waitForTimeout(250); }
     for (let i = 0; i < 40 && !seen.some(s => s.route === 'replacePhoto'); i++) await pg.waitForTimeout(250);
     await pg.waitForTimeout(400);
     const t2 = await pg.evaluate(() => document.getElementById('toast-wrap').innerText);

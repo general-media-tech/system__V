@@ -1254,6 +1254,7 @@ window.GMT_FEATURES = [
 <script src="gmt-custsync.js?v=20261118f"></script><!-- (TASK-B0511) سجلّ الزبون الواحد -->
   <script src="gmt-stock.js?v=20261117h" defer></script>
 <script src="gmt-signpad.js?v=20261029z4" defer></script><!-- (TASK-0237) تأكيد وتوقيع فواتير النقل والتسوية والجرد -->
+<script src="gmt-scan.js?v=20261124d" defer></script><!-- (seq B1036) عدسة المسح المشتركة بمعاينة — جرد نقطة البيع -->
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261122x" defer></script>
   <script src="gmt-push.js?v=20261122t" defer></script>
@@ -3306,7 +3307,7 @@ async function _posUploadReceipt(id, file) {
     const name = id + '_' + Date.now() + '.jpg';
     const h = sbHeaders(); delete h['Content-Type'];
     const r = await fetch(`${CONFIG.SUPABASE_URL}/storage/v1/object/transfer-signatures/${name}`, {
-      method: 'POST', headers: Object.assign(h, { 'Content-Type': file.type || 'image/jpeg', 'x-upsert': 'true' }), body: file });
+      method: 'POST', headers: Object.assign(h, { 'Content-Type': file.type || 'image/jpeg' }), body: file });   /* (seq B1035) بلا x-upsert: مخزن التواقيع يسمح بالإضافة فقط (الاسم فريد) */
     return r.ok ? `${CONFIG.SUPABASE_URL}/storage/v1/object/public/transfer-signatures/${name}` : null;
   } catch (_) { return null; }
 }
@@ -5406,6 +5407,53 @@ function generateBarcodeSheet() {
 let _scCounts = {};      // product_id -> الكمية الفعلية المعدودة
 let _scFilter = 'all';
 const _scKey = () => 'gmt_stockcount_' + (branch?.key || 'x');
+/* (seq B1035 «حفظ ومتابعة لاحقاً … برجع ما عم لاقي الفاتورة القديمة — مؤذي وضايع») السبب الجذريّ: المسودّة كانت في ذاكرة هذا الجهاز وحدها
+   (جهازٌ آخر · متصفّحٌ آخر · مسح الذاكرة · إرسالٌ فشل بسبب التوقيع ⇒ ضاعت). الآن نسخةٌ على الخادم أيضاً في stock_counts
+   (details.source = pos_wip — بلا items فلا تظهر في «مطابقة الجرد» ولا في العدّادات) تُحفظ بعد كلّ تعديل (بتأخير ٤ث) وتُسترجع عند الفتح من أيّ جهاز. */
+const _scWipKey = () => 'gmt_stockcount_wip_' + (branch?.key || 'x');
+let _scWipTimer = null, _scWipBusy = null;
+function _scPersist() {
+  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); localStorage.setItem(_scKey() + '_at', new Date().toISOString()); } catch (_) {}
+  clearTimeout(_scWipTimer); _scWipTimer = setTimeout(() => { _scWipSave().catch(() => {}); }, 4000);
+}
+async function _scWipSave() {
+  if (!branch?.key) return false;
+  clearTimeout(_scWipTimer);
+  if (_scWipBusy) { try { await _scWipBusy; } catch (_) {} }
+  const n = Object.keys(_scCounts).length; if (!n && !localStorage.getItem(_scWipKey())) return true;
+  const det = { source: 'pos_wip', status: 'wip', counts: _scCounts, n, updated_at: new Date().toISOString(), by: currentUser?.display_name || null, resubmit_of: _scResubmitOf || null };
+  _scWipBusy = (async () => {
+    let id = null; try { id = localStorage.getItem(_scWipKey()); } catch (_) {}
+    if (id) {
+      const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?id=eq.${encodeURIComponent(id)}&details->>source=eq.pos_wip`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ details: det, counted_by: det.by, total_counted: n }) }, 10000);
+      if (r.ok && (await r.json()).length) return true;
+    }
+    const ins = await sbPost('/rest/v1/stock_counts', [{ branch_key: branch.key, branch_name: branch.name, counted_by: det.by, user_id: currentUser?.id != null ? String(currentUser.id) : null, total_counted: n, details: det, created_at: new Date().toISOString() }]);
+    const nid = ins && !ins.error && ins.data && ins.data[0] && ins.data[0].id;
+    if (nid) { try { localStorage.setItem(_scWipKey(), String(nid)); } catch (_) {} return true; }
+    return false;
+  })();
+  try { return await _scWipBusy; } finally { _scWipBusy = null; }
+}
+/* عند الفتح: آخر مسودّة لهذا الفرع على الخادم ⇐ تُدمج مع ما على الجهاز (ما على الجهاز يغلب في البند نفسه) */
+async function _scWipLoad() {
+  try {
+    const r = await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?branch_key=eq.${encodeURIComponent(branch.key)}&details->>source=eq.pos_wip&details->>status=eq.wip&select=id,counted_by,details&order=id.desc&limit=1`, { headers: sbHeaders() }, 8000);
+    if (!r.ok) return 0;
+    const x = (await r.json())[0]; if (!x || !x.details || !x.details.counts) return 0;
+    let added = 0; const local = Object.keys(_scCounts).length;
+    Object.keys(x.details.counts).forEach(k => { if (_scCounts[k] === undefined) { _scCounts[k] = Number(x.details.counts[k]); added++; } });
+    try { localStorage.setItem(_scWipKey(), String(x.id)); localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (_) {}
+    if (x.details.resubmit_of && !_scResubmitOf) _scResubmitOf = x.details.resubmit_of;
+    if (added) showToast('💾 ' + (local ? 'أُضيف ' + added + ' بنداً من مسودّة الخادم' : 'استُرجعت مسودّة الجرد من الخادم: ' + added + ' بنداً') + (x.details.by ? ' (آخر حفظ: ' + x.details.by + ' · ' + String(x.details.updated_at || '').slice(0, 16).replace('T', ' ') + ')' : ''), 'ok');
+    return added;
+  } catch (_) { return 0; }
+}
+async function _scWipDone() {
+  let id = null; try { id = localStorage.getItem(_scWipKey()); localStorage.removeItem(_scWipKey()); localStorage.removeItem(_scKey() + '_at'); } catch (_) {}
+  if (!id) return;
+  try { await sbFetchTimeout(`${CONFIG.SUPABASE_URL}/rest/v1/stock_counts?id=eq.${encodeURIComponent(id)}&details->>source=eq.pos_wip`, { method: 'PATCH', headers: { ...sbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ details: { source: 'pos_wip', status: 'done', done_at: new Date().toISOString() } }) }, 8000); } catch (_) {}
+}
 
 function openStockCount() {
   if (!branch?.key) { showToast('اختر الفرع أولاً', 'err'); return; }
@@ -5423,7 +5471,10 @@ function openStockCount() {
   try { const cb = document.getElementById('sc-scan-adds'); if (cb) cb.checked = localStorage.getItem('gmt_sc_scan_adds') === '1'; } catch (_) {}
   scSetFilter('all');
   const s = document.getElementById('sc-search'); if (s) { s.value=''; setTimeout(()=>s.focus(), 300); }
-  _scRefreshLive().then(() => scRenderList());
+  Promise.all([_scRefreshLive(), _scWipLoad()]).then(() => {
+    const lb = document.getElementById('sc-branch-label'); if (lb) lb.textContent = `فرع ${branch.name} · ${Object.keys(_scCounts).length ? 'مسودة محفوظة (على الخادم أيضاً) — تابع من حيث توقفت · ' + Object.keys(_scCounts).length + ' بنداً' : 'جرد جديد'}`;
+    scRenderList();
+  });
 }
 
 /* (TASK-A0572 · المالك seq 970 «المفروض يدخل على القطعة أو يعطي باركود يعطيه شقد القطعة الموجودة عندنا وهو يكتب الحقيقي»)
@@ -5535,10 +5586,19 @@ function scRenderList() {
 
   scUpdateProgress();
 
+  /* (seq B1044 «منتجات موجودة بأصفار · منتجات موجودة ما عم تطلع») السبب: القائمة كانت تقطع عند أوّل ١٠٠ منتج (من ~٦٦٠) بلا أيّ إشارة،
+     وبترتيبٍ عشوائيّ يخلط ما مخزونه صفر بما هو موجود. الآن: الموجود في الفرع أوّلاً ثمّ الصفر، أبجدياً · «يُعرض X من Y» · «عرض المزيد». */
+  if (!q) { const _sys = p => Number(p[branch.key]) || 0; list = list.slice().sort((a, b) => ((_sys(b) > 0) - (_sys(a) > 0)) || String(a.name || '').localeCompare(String(b.name || ''), 'ar')); }
+  const _key = q + '|' + _scFilter; if (_key !== window._scListKey) { window._scListKey = _key; window._scLimit = 100; }
+  const _lim = window._scLimit || 100;
+
   const el = document.getElementById('sc-list');
   if (!list.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px;">لا نتائج</div>'; return; }
 
-  el.innerHTML = list.slice(0, 100).map(p => {
+  const _inStock = list.filter(p => (Number(p[branch.key]) || 0) > 0).length;
+  const _foot = '<div style="text-align:center;padding:12px 6px;font-size:12px;font-weight:700;color:var(--text3)">يُعرض ' + Math.min(_lim, list.length) + ' من ' + list.length + ' منتجاً' + (q ? '' : ' (' + _inStock + ' مسجّلٌ له مخزونٌ في الفرع — في الأعلى)') +
+    (list.length > _lim ? '<br><button type="button" onclick="window._scLimit=(window._scLimit||100)+150;scRenderList()" style="margin-top:8px;padding:9px 16px;border-radius:10px;border:1.5px solid #0f766e;background:#fff;color:#0f766e;font:800 12.5px Cairo,sans-serif;cursor:pointer">عرض ' + Math.min(150, list.length - _lim) + ' أخرى</button>' : '') + '</div>';
+  el.innerHTML = list.slice(0, _lim).map(p => {
     const sys = Number(p[branch.key]) || 0;
     const counted = _scCounts[p.id];
     const hasCount = counted !== undefined;
@@ -5564,7 +5624,7 @@ function scRenderList() {
       <button type="button" data-sc-yes="${escH(String(p.id))}" onclick="scYes('${escH(String(p.id))}')" title="العدد الحقيقيّ = المسجّل (${sys})"
         style="flex-shrink:0;padding:8px 9px;border-radius:8px;border:1.5px solid ${hasCount&&diff===0?'#15803d':'#a7f3d0'};background:${hasCount&&diff===0?'#15803d':'#ecfdf5'};color:${hasCount&&diff===0?'#fff':'#047857'};font-family:'Cairo',sans-serif;font-size:12px;font-weight:900;cursor:pointer">✅ نعم ${sys}</button>
     </div>`;
-  }).join('');
+  }).join('') + _foot;
 }
 
 function scSetCount(id, val) {
@@ -5572,7 +5632,7 @@ function scSetCount(id, val) {
   if (v === '') { delete _scCounts[id]; }
   else { _scCounts[id] = Math.max(0, parseInt(v) || 0); }
   // حفظ تلقائي محلي بعد كل إدخال
-  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch(e) {}
+  _scPersist();
   scRenderList();
 }
 
@@ -5587,7 +5647,7 @@ function scHandleEnter(e) {
     // (اختياريّ) كل مسحة = قطعة — للعدّ قطعةً قطعة
     const p = matches[0];
     _scCounts[p.id] = (Number(_scCounts[p.id]) || 0) + 1;
-    try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch(err) {}
+    _scPersist();
     document.getElementById('sc-search').value = '';
     showToast(`✓ ${p.name} — العدد: ${_scCounts[p.id]}`, 'ok');
     scRenderList();
@@ -5618,9 +5678,10 @@ function scUpdateProgress() {
   const dc = document.getElementById('sc-diff-count'); if (dc) dc.textContent = diffs ? `${diffs} فرق` : '';
 }
 
-function scSaveDraft() {
-  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch(e) {}
-  showToast('💾 تم حفظ الجرد — يمكنك المتابعة لاحقاً من حيث توقفت', 'ok');
+async function scSaveDraft() {
+  _scPersist();
+  const ok = await _scWipSave().catch(() => false);
+  showToast(ok ? '💾 حُفظ الجرد على الخادم — تتابعه لاحقاً من هذا الجهاز أو أيّ جهازٍ آخر في الفرع' : '💾 حُفظ على هذا الجهاز — تعذّر الحفظ على الخادم الآن (سيُعاد تلقائياً عند التعديل التالي)', ok ? 'ok' : 'warn');
   closeStockCount();
 }
 
@@ -5671,7 +5732,7 @@ function scResume(id) {
   const back = x.details.returned_items || [];
   back.forEach(pid => { delete _scCounts[pid]; });   /* ما طلبت الإدارة إعادته يُعَدّ من جديد */
   _scResubmitOf = x.id;
-  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (_) {}
+  _scPersist();
   scSetFilter(back.length ? 'uncounted' : 'all');
   showToast('↩️ ' + (back.length ? back.length + ' بنداً طلبت الإدارة إعادة عدّها — ' : '') + 'أعد العدّ ثمّ «📤 إرسال للإدارة»', 'inf');
 }
@@ -5752,9 +5813,11 @@ async function scFinishAndReport() {
   sendTelegram(tg + (newId ? `\n📥 بانتظار المراجعة في «مطابقة الجرد» — #${newId}` : '')).catch(function () {});
 
   hideLoad();
-  // مسح المسودة بعد الإنهاء
+  // مسح المسودة بعد الإنهاء (والنسخة على الخادم تُختم «انتهت»)
+  clearTimeout(_scWipTimer);
   try { localStorage.removeItem(_scKey()); } catch(e) {}
   _scCounts = {};
+  _scWipDone().catch(() => {});
   showToast('📤 أُرسل الجرد للإدارة' + (newId ? ' (#' + newId + ')' : '') + ' — بانتظار المراجعة · المخزون لم يتغيّر', 'ok');
   try { _scReturnedNotice(); } catch (_) {}
   closeStockCount();
@@ -5774,7 +5837,7 @@ function scBulk(kind) {
     if (kind === 'zero') { if (sys !== 0) { _scCounts[p.id] = 0; n++; } }
     else { _scCounts[p.id] = sys; n++; }
   });
-  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (e) {}
+  _scPersist();
   showToast(kind === 'zero' ? ('⓪ ' + n + ' منتج لم يُعَدّ صار ٠') : ('= ' + n + ' منتج لم يُعَدّ أخذ كمّيته المسجّلة'), 'ok');
   scRenderList();
 }
@@ -5804,7 +5867,7 @@ async function scNewProduct() {
   const np = ins.data[0];
   allProducts.push(np);
   _scCounts[np.id] = r.q;
-  try { localStorage.setItem(_scKey(), JSON.stringify(_scCounts)); } catch (e) {}
+  _scPersist();
   try { window.GMTAudit && GMTAudit.log({ action: 'product_create', entity: 'products', entityId: np.id, entityName: np.name, reason: 'فاتورة إعادة إنشاء — ' + branch.name }); } catch (_) {}
   const s = document.getElementById('sc-search'); if (s) s.value = np.name;
   scRenderList();
@@ -5872,8 +5935,10 @@ async function scRebuild() {
   const res = await _scIssue(ch, {});
   if (!res || res === 'later') return;
   const { R, how, other, rcv, by } = res;
+  clearTimeout(_scWipTimer);
   try { localStorage.removeItem(_scKey()); } catch (e) {}
   _scCounts = {};
+  _scWipDone().catch(() => {});
   closeStockCount();
   const msg = '🧾 فاتورة إعادة إنشاء «' + branch.name + '»: ' + (R.numbers.join(' + ') || '—') + '\n' +
     '• طُبّق ' + R.applied + ' منتج' + (R.skipped ? ' · ' + R.skipped + ' صار مطابقاً قبل الاعتماد' : '') + '\n' +
@@ -5891,6 +5956,19 @@ window.scRebuild = scRebuild; window.scBulk = scBulk; window.scNewProduct = scNe
 // ── مسح بالكاميرا (ZXing) ──
 let _scScanControls = null, _scLastCam = { code: '', at: 0 };
 async function scStartScan() {
+  /* (seq B1036 «وقت المسح بالكاميرا ما عم تطلع كأنه عم تمسح») السبب: الكاميرا كانت تُشغَّل على <video> غير معروض في الصفحة ⇒ لا معاينة،
+     وعلى الهاتف غالباً لا إطارات أصلاً. الآن العدسة المشتركة GMTScan.camera بمعاينةٍ كاملة: «كل مسحة تعدّ قطعة» ⇒ تبقى مفتوحة وتعدّ؛ وإلّا ⇒ قراءةٌ واحدة تفتح سطر المنتج لتكتب العدد. */
+  const feed = code => {
+    const inp = document.getElementById('sc-search');
+    if (inp) { inp.value = code; scHandleEnter({ key: 'Enter' }); }
+    const p = allProducts.find(x => String(x.barcode || '') === String(code));
+    return p ? (p.name + (_scCounts[p.id] !== undefined ? ' = ' + _scCounts[p.id] : '')) : 'غير معروف: ' + code;
+  };
+  if (window.GMTScan && GMTScan.camera) {
+    const adds = !!(document.getElementById('sc-scan-adds') || {}).checked;
+    _scScanControls = { stop: GMTScan.camera(feed, adds ? { continuous: true, title: '📷 عدّ قطعةً قطعة — امسح كلّ قطعة' } : { title: '📷 امسح باركود المنتج' }) || function () {} };
+    return;
+  }
   try {
     if (typeof ZXing === 'undefined') { showToast('مكتبة المسح غير محمّلة', 'err'); return; }
     const reader = new ZXing.BrowserMultiFormatReader();
@@ -5898,15 +5976,12 @@ async function scStartScan() {
     _scScanControls = await reader.decodeFromVideoDevice(null, document.createElement('video'), (result) => {
       if (result) {
         const code = result.getText();
-        /* (TASK-A0572) الكاميرا تقرأ الباركود نفسه عدّة مرّات في الثانية ⇒ كان يُعدّ ٥–١٠ قطع بمسحةٍ واحدة */
         const nowT = Date.now();
         if (code === _scLastCam.code && nowT - _scLastCam.at < 2500) return;
         _scLastCam = { code, at: nowT };
-        const inp = document.getElementById('sc-search');
-        if (inp) { inp.value = code; scHandleEnter({ key: 'Enter' }); }
+        feed(code);
       }
     });
-    // ملاحظة: للتبسيط نستخدم البحث اليدوي أساساً؛ الكاميرا مساعدة
   } catch(e) { showToast('تعذّر تشغيل الكاميرا — استخدم الإدخال اليدوي', 'err'); }
 }
 function scStopScan() {

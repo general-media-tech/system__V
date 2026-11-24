@@ -50,7 +50,10 @@
     }
 
     /* ── ① الكاميرا ───────────────────────────────────────────────────────── */
-    function camera(onCode) {
+    /* (seq B1036) opts.continuous: لا تُغلق بعد القراءة (عدّ قطعةً قطعة) — نفس الرمز لا يُعاد قبل ٢.٥ث · آخر قراءة ظاهرة · يعيد close()
+       opts.title: عنوان الشريط. */
+    function camera(onCode, opts) {
+        opts = opts || {};
         /* getUserMedia لا تعمل إلّا في سياق آمن (https). والموقع على GitHub Pages
            https، لكنّ من يفتح الملفّ من القرص (file://) لن تعمل عنده — فنقول
            السبب بدل أن نبدو معطّلين. */
@@ -68,7 +71,7 @@
             'flex-direction:column;font-family:Cairo,system-ui,sans-serif';
         ui.innerHTML =
             '<div style="padding:12px 14px;background:#111;color:#fff;display:flex;align-items:center;gap:10px">' +
-              '<div style="flex:1;font-size:13.5px;font-weight:900">📷 وجّه الكاميرا إلى الباركود</div>' +
+              '<div style="flex:1;font-size:13.5px;font-weight:900">' + (opts.title || '📷 وجّه الكاميرا إلى الباركود') + '</div>' +
               '<button type="button" data-x style="border:0;background:#374151;color:#fff;border-radius:10px;' +
                       'width:34px;height:34px;font-size:16px;cursor:pointer">✕</button>' +
             '</div>' +
@@ -81,7 +84,7 @@
               'جارٍ تشغيل الكاميرا…</div>';
         document.body.appendChild(ui);
 
-        var controls = null, reader = null, done = false;
+        var controls = null, reader = null, done = false, last = { code: '', at: 0 }, nRead = 0;
         function close() {
             done = true;
             try { if (controls && controls.stop) controls.stop(); } catch (e) {}
@@ -114,6 +117,16 @@
                         if (done || !result) return;
                         var code = String(result.getText ? result.getText() : result.text || '').trim();
                         if (!code) return;
+                        if (opts.continuous) {
+                            var t = Date.now(); if (code === last.code && t - last.at < 2500) return;
+                            last = { code: code, at: t }; nRead++;
+                            try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+                            try { if (global.GMTSound) GMTSound.play('scan'); } catch (e) {}
+                            var r = onCode ? onCode(code, 'camera') : null;
+                            msg.style.color = '#86efac';
+                            msg.textContent = '✓ ' + (typeof r === 'string' && r ? r : code) + ' · ' + nRead + ' مسحة — امسح التالية أو ✕ للإغلاق';
+                            return;
+                        }
                         close();
                         try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
                         try { if (global.GMTSound) GMTSound.play('scan'); } catch (e) {}      /* (١١ ت١) صفير القراءة */
@@ -125,6 +138,7 @@
             if (msg) { msg.style.color = '#fca5a5'; msg.textContent = e.message || 'تعذّر تشغيل الكاميرا'; }
             setTimeout(close, 2600);
         });
+        return close;
     }
 
     /* ── ①ب الصورة (TASK-A0538 · المالك seq 873) «يقرأ رقم الكاميرا عبر صورة أو عبر سكانر مباشر» ──
