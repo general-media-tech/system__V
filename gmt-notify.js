@@ -107,7 +107,9 @@
       title: 'فواتير استيرادٍ وصلت ولم تُرحَّل للمخزون',
       why: 'بضاعةٌ وصلت ولا تظهر في الجرد — فالبيعُ يرفضها وهي موجودةٌ في المستودع.',
       go: { label: 'المشتريات', href: 'purchase.html' },
-      run: function () { return countOf('import_log', 'status=eq.arrived&transferred=is.false'); },
+      /* (seq B1043 · نفس نمط الفاحص العميق) كان يعدّ ٥٦: ٥٤ **شراء فوري** (لا ترحيل له — ينزل على الفرع مباشرةً) + ٢ قديمتان (٢٠٢٥ «للربط فقط»
+         قبل بدء دفتر الاستلام ٢٠٢٦-٠٨-١٨) ⇒ تنبيهٌ كاذب دائم. الآن: فواتير الاستيراد بعد بدء الدفتر فقط */
+      run: function () { return countOf('import_log', 'status=eq.arrived&transferred=is.false&inv_type=neq.instant&arrived_at=gte.2026-08-18'); },
       tone: 'warn'
     },
     {

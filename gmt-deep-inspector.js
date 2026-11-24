@@ -318,11 +318,19 @@
               detail: dup.length ? dup.slice(0, 5).join(' · ') + (dup.length > 5 ? ` …و${dup.length - 5}` : '') : 'لا تكرار في أول 1000' });
         if (dup.length) ok = false;
 
-        const invs = await api('GET', 'import_log?select=inv_number,status,transferred&limit=500');
-        const risky = (invs || []).filter(i => i.status === 'arrived' && i.transferred !== true);
+        /* (seq B1031 · B1042 · B1043) كان يعدّ ٥٦ «خطر مضاعفة» وكلّها ليست كذلك: ٥٤ **شراء فوري** (PO- ينزل على الفرع مباشرةً — لا ترحيل له
+           أصلاً) + ٢ فاتورتان من ٢٠٢٥ أُدخلتا «للربط فقط» قبل بدء دفتر الاستلام (بيانات قديمة) — وزرّ الترحيل لا يظهر لفاتورة «واصلة» أصلاً.
+           الخطر الحقيقي: فاتورة استيراد «واصلة» **بعد** بدء دفتر الاستلام بلا ختم ترحيل */
+        const invs = await api('GET', 'import_log?select=inv_number,inv_type,status,transferred,arrived_at,created_at&limit=1000');
+        const fr = await api('GET', 'stock_receipts?select=created_at&order=created_at.asc&limit=1');
+        const ledger0 = fr && fr[0] ? new Date(fr[0].created_at).getTime() : 0;
+        const unsealed = (invs || []).filter(i => i.status === 'arrived' && i.transferred !== true && i.inv_type !== 'instant');
+        const legacy = unsealed.filter(i => ledger0 && new Date(i.arrived_at || i.created_at || 0).getTime() < ledger0);
+        const risky = unsealed.filter(i => legacy.indexOf(i) < 0);
         rec({ area, step: 'فواتير «واصلة» بلا ختم ترحيل (خطر مضاعفة)', ok: risky.length === 0 ? true : false,
               pattern: risky.length ? 'P1' : null,
-              detail: risky.length ? risky.slice(0, 5).map(r => r.inv_number).join(' · ') : 'لا شيء' });
+              detail: (risky.length ? risky.slice(0, 5).map(r => r.inv_number).join(' · ') : 'لا شيء')
+                + (legacy.length ? ' · قديمة قبل دفتر الاستلام (للربط فقط — لا خطر): ' + legacy.slice(0, 5).map(r => r.inv_number).join(' · ') : '') });
         if (risky.length) ok = false;
       } catch (e) { rec({ area, step: 'سلامة البيانات', ok: 'warn', detail: e.message }); }
       return ok;

@@ -2863,14 +2863,33 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         var since = new Date(first[0].created_at).getTime();   /* البيانات القديمة: منتجات أُنشئت قبل بدء سجل الاستلام لا تُعدّ يتيمة */
         var receiptByProd = {};
         receipts.forEach(function (r) { receiptByProd[r.product_id] = (receiptByProd[r.product_id] || 0) + Number(r.qty || 0); });
-        var orphan = [];
+        /* (seq B1043 «راجع صحّة العطلين») كان يعدّ ١٠٥ «بلا استلام» ومعظمها ليس خللاً: ٧٧ مخزونها **بالطريق** (ألمانيا/الصين — مصدرها
+           فاتورة الاستيراد نفسها ولا استلام قبل الترحيل) · ١١ دخلت **بشراء فوريّ** (لم يكن يكتب دفتر الاستلام — صار يكتبه) ·
+           ١٤ دخلت بفاتورة **إعادة إنشاء** مستلَمة. الآن تُعدّ هذه مصادر، ويبقى الخلل الحقيقي فقط: مخزونٌ محلّيّ بلا أيّ مصدر */
+        var TRANSIT = { germany: 1, china: 1 };
+        var src = {};
+        var inst = await q('import_log?inv_type=eq.instant&select=items_snapshot&limit=2000');
+        (inst || []).forEach(function (iv) { var it = iv.items_snapshot; if (typeof it === 'string') { try { it = JSON.parse(it); } catch (_) { it = []; } }
+          (Array.isArray(it) ? it : []).forEach(function (x) { if (x && x.id != null) src[String(x.id)] = 'instant'; }); });
+        var rb = await q('branch_stock_transfers?from_branch=eq.rebuild&status=eq.received&select=id&limit=2000');
+        if (rb && rb.length) {
+          var rbi = await inChunks('stock_transfer_items?select=product_id&limit=5000', 'transfer_id', rb.map(function (t) { return t.id; }));
+          (rbi || []).forEach(function (x) { if (x.product_id != null && !src[String(x.product_id)]) src[String(x.product_id)] = 'rebuild'; });
+        }
+        var orphan = [], nTransit = 0, nInst = 0, nRb = 0;
         products.forEach(function (p) {
-          var stock = cols.reduce(function (a, k) { return a + (Number(p[k]) || 0); }, 0);
+          var local = cols.reduce(function (a, k) { return a + (TRANSIT[k] ? 0 : (Number(p[k]) || 0)); }, 0);
+          var transit = cols.reduce(function (a, k) { return a + (TRANSIT[k] ? (Number(p[k]) || 0) : 0); }, 0);
           var made = p.created_at ? new Date(p.created_at).getTime() : 0;
-          if (stock > 0 && made >= since && !receiptByProd[p.id]) orphan.push(p.name || p.id);
+          if (made < since || receiptByProd[p.id]) return;
+          if (local <= 0) { if (transit > 0) nTransit++; return; }
+          if (src[String(p.id)] === 'instant') { nInst++; return; }
+          if (src[String(p.id)] === 'rebuild') { nRb++; return; }
+          orphan.push(p.name || p.id);
         });
-        if (orphan.length > 5) return { ok: false, msg: orphan.length + ' منتج له مخزون بلا استلام مسجَّل — راجع المشتريات', detail: orphan.slice(0, 8).join(' · ') };
-        return { ok: true, msg: 'تدفّق المشتريات→الجرد سليم (' + products.length + ' منتج' + (orphan.length ? ' · ' + orphan.length + ' بلا استلام' : '') + ')' };
+        var known = (nTransit ? ' · ' + nTransit + ' بالطريق' : '') + (nInst ? ' · ' + nInst + ' شراء فوري' : '') + (nRb ? ' · ' + nRb + ' إعادة إنشاء' : '');
+        if (orphan.length) return { ok: false, msg: orphan.length + ' منتج له مخزون محلّيّ بلا أيّ مصدر (لا استلام ولا شراء فوري ولا إعادة إنشاء) — راجعه', detail: orphan.slice(0, 12).join(' · ') + (known ? ' — (مصادر معروفة لا تُعدّ خللاً: ' + known.replace(/^ · /, '') + ')' : '') };
+        return { ok: true, msg: 'تدفّق المشتريات→الجرد سليم (' + products.length + ' منتج' + known + ')' };
       }
     },
     {
@@ -2930,11 +2949,17 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       title: 'العمولة ← التسوية',
       desc: 'العمولات المدفوعة يجب أن تكون مربوطة بتسوية (settlement_id).',
       run: async function () {
-        var paid = await q('invoice_commissions?paid=eq.true&select=id,settlement_id&limit=200');
+        var paid = await q('invoice_commissions?paid=eq.true&select=id,settlement_id,paid_at&limit=200');
         if (!paid) return { ok: null, msg: 'تعذّر قراءة العمولات' };
         if (!paid.length) return { ok: true, msg: 'لا عمولات مدفوعة بعد' };
-        var orphan = paid.filter(function (c) { return !c.settlement_id; });
-        if (orphan.length) return { ok: false, msg: orphan.length + ' عمولة مدفوعة بلا تسوية مربوطة — خلل بالتحصيل' };
+        /* (seq B1043 «راجع صحّة العطلين») البيانات القديمة: عمولةٌ دُفعت **قبل أوّل تسوية في النظام** (أو ولا تسوية بعد) دُفعت يدوياً
+           قبل وجود التسويات ⇒ ليست خللاً بالتحصيل (كانت عمولة حمص ٩$ من ٢٠٢٦-٠٥ تُظهر الفحص أحمر). الخلل: مدفوعة بعد بدء التسويات بلا ربط */
+        var fs = await q('gmt_settlements?select=created_at&order=created_at.asc&limit=1');
+        var since = fs && fs.length ? new Date(fs[0].created_at).getTime() : Infinity;
+        var orphan = paid.filter(function (c) { return !c.settlement_id && c.paid_at && new Date(c.paid_at).getTime() >= since; });
+        var legacy = paid.filter(function (c) { return !c.settlement_id; }).length - orphan.length;
+        if (orphan.length) return { ok: false, msg: orphan.length + ' عمولة مدفوعة بعد بدء التسويات بلا تسوية مربوطة — خلل بالتحصيل' + (legacy ? ' (+' + legacy + ' قديمة قبل التسويات)' : '') };
+        if (legacy) return { ok: true, msg: 'لا خلل — ' + legacy + ' عمولة دُفعت يدوياً قبل وجود التسويات (بيانات قديمة)' };
         return { ok: true, msg: 'كل عمولة مدفوعة مربوطة بتسوية (' + paid.length + ')' };
       }
     },

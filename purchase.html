@@ -1728,6 +1728,7 @@ async function saveInstantPurchase(){
     const instConflicts=[];
     const instPayloads=[];
     const instantQtyFails=[];   // (2026-08-26) بنود لم تدخل كميتها المخزون فعلياً
+    const instantRcpt=[];   // (seq B1043 · الفحص الشامل «منتج له مخزون بلا استلام مسجَّل») ما دخل المخزون فعلاً ⇒ دفتر الاستلام
     for(const item of insCart){
       try{
         const fresh=await sb('GET',`/rest/v1/products?id=eq.${item.product.id}&select=id,${branch},price,net_cost,wholesale_price,cost_price`);
@@ -1779,6 +1780,7 @@ async function saveInstantPurchase(){
           }
           if(_rq){
             item.product[branch]=(Number(p?.[branch])||0)+item.qty;
+            instantRcpt.push({product_id:String(item.product.id),branch_key:branch,qty:Number(item.qty)||0});
           }else{
             instantQtyFails.push(item.product.name||item.product.id);
           }
@@ -1841,6 +1843,11 @@ async function saveInstantPurchase(){
     });
     const saved=Array.isArray(res)?res[0]:res;
     if(saved)ships.unshift(saved);
+    /* (seq B1043) الشراء الفوريّ مصدرُ مخزونٍ كالترحيل ⇒ يُسجَّل في دفتر الاستلام (stock_receipts) وإلّا يراه الفحص «مخزوناً من عدم» */
+    if(instantRcpt.length){
+      try{ await sb('POST','/rest/v1/stock_receipts',instantRcpt.map(r=>({...r,import_id:saved&&saved.id!=null?saved.id:null,kind:'instant',note:'شراء فوري '+num+' ← '+(entry.supplier||'مورّد'),created_by:'purchases'})),{Prefer:'return=minimal'}); }
+      catch(re){ console.warn('[دفتر الاستلام · فوري]',re&&re.message); }
+    }
     toast('✅ تم الإنزال الفوري على '+branchName,'ok');
     // Show invoice preview then close modal
     _currentInstantInvData={...entry,items_snapshot:insCart.map(c=>({...c,name:c.product.name,barcode:c.product.barcode,image_url:c.product.image_url,unit_price:c.unitPrice,orig_unit_price:(c.origUnitPrice!=null?c.origUnitPrice:c.unitPrice),min_price:c.minPrice,whole_price:c.wholePrice,sale_price:c.salePrice,total:c.qty*c.unitPrice}))};
