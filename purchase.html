@@ -17,7 +17,9 @@ window.GMT_INTERNAL = 1;</script>
 <meta name="theme-color" content="#D5001C">
 <!-- مكتبة الكاش المحلي — استُخرج للملف المشترك gmt-cache.js (2026-07-06، كان مدمجاً هنا) -->
 <link rel="stylesheet" href="lib/tailwind.css?v=20261007z5">
-<script src="lib/lucide.min.js?v=20261003"></script>
+<script src="lib/lucide.min.js?v=20261003"></script><script>/* (seq B1047 «lucide is not defined» purchase.html — صِد النمط) ملفّ الأيقونات فشل تنزيله (إنترنت ضعيف) ⇒ عشرات النداءات lucide.createIcons() كانت توقف الصفحة.
+  بديلٌ آمن يمنع الانهيار + إعادة تنزيلٍ واحدة؛ إن نجحت تُرسم الأيقونات. */
+if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(function(){var s=document.createElement('script');s.src='lib/lucide.min.js?v=20261003&r='+Date.now();s.onload=function(){try{if(window.lucide&&!window.lucide.__stub)window.lucide.createIcons();}catch(_){}};document.head.appendChild(s);})();}</script>
 <!-- ══════════════════════════════════════════════════════════════════════
      🔴 (2026-10-03 · بلاغ المالك ١٦٩ «تعليق عام كبير بالنظام»)
      كانت هنا مكتبتا Excel معاً تُحمَّل في **كل** فتحة صفحة:

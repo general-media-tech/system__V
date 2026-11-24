@@ -1544,7 +1544,7 @@ window.GMT_FEATURES = [
           <input type="text" id="searchInput" placeholder="ابحث بالاسم أو الباركود..." autocomplete="off" oninput="renderProds()">
         </div>
         <!-- (TASK-A0579 · المالك seq 977 «العدسة … تتعرّف على المنتج وتكون موجودة في كلّ مكان») -->
-        <button class="btn-scan" data-hint="عدسة GMT — صوّر المنتج أو علبته فيظهر اسمه عندنا (بلا باركود)." onclick="posOpenLens()" title="عدسة GMT" style="font-size:20px">🔍</button>
+        <button class="btn-scan" data-hint="عدسة GMT — صوّر المنتج أو علبته فيظهر اسمه عندنا (بلا باركود)." onclick="posOpenLens()" title="عدسة GMT — صوّر المنتج" aria-label="عدسة GMT — صوّر المنتج" style="font-size:20px">📷</button>
         <button class="btn-scan" data-hint="افتح الكاميرا لمسح باركود المنتج — يُضاف للسلّة مباشرةً." onclick="openScanner()" title="مسح باركود">
           <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
@@ -2345,9 +2345,9 @@ window.GMT_FEATURES = [
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <input id="sc-search" type="text" placeholder="🔍 ابحث بالاسم أو امسح/اكتب الباركود..." oninput="scRenderList()" onkeydown="scHandleEnter(event)"
             style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;box-sizing:border-box;">
-          <button onclick="scStartScan()" title="مسح بالكاميرا" style="flex-shrink:0;background:#0f766e;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">📷</button>
+          <button onclick="scStartScan()" title="قارئ الباركود — وجّه الكاميرا إلى باركود القطعة" aria-label="قارئ الباركود" style="flex-shrink:0;background:#0f766e;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;display:grid;place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 7v10M12 7v10M16 7v10"/></svg></button><!-- (seq B1048 «زرّ الكاميرا بيعطيك الباركود وزرّ البحث بيفتح العدسة») الأيقونة تطابق الفعل -->
           <!-- (TASK-A0576 · المالك seq 974) عدسة GMT: بضاعة بلا باركود أو اسمها على العلبة غير اسمها في الجرد -->
-          <button onclick="scOpenLens()" title="عدسة GMT — صوّر المنتج أو علبته فيجد اسمه في الجرد" style="flex-shrink:0;background:#D5001C;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">🔍</button>
+          <button onclick="scOpenLens()" title="عدسة GMT — صوّر المنتج أو علبته فيجد اسمه في الجرد" aria-label="عدسة GMT — صوّر المنتج" style="flex-shrink:0;background:#D5001C;border:none;border-radius:10px;width:44px;color:white;cursor:pointer;font-size:18px;">📷</button>
         </div>
         <!-- (TASK-A0572 · المالك seq 970) الطريقة: امسح الباركود أو ابحث ⇒ يظهر المنتج بكمّيته المسجّلة في النظام ⇒ اكتب العدد الحقيقيّ ⇒ Enter ⇒ المسح التالي -->
         <div id="sc-live" style="font-size:11.5px;font-weight:700;color:#475569;margin:-2px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">

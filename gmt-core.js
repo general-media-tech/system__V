@@ -4053,7 +4053,9 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
       if (!res.ok && res.status !== 406 && !_probe) {
         let body = '';
         try { body = (await res.clone().text()).slice(0, 300); } catch (_) {}
-        add('crit', 'HTTP ' + res.status, explainDb(body), method + ' ' + redact(url) + '\n' + body);
+        /* (seq B1029 «HTTP 502: Gemini 503 — high demand» خطأ حرج للموظّف) خدمة ذكاء خارجيّة مزدحمة مؤقّتاً ليست عطلاً في النظام ⇒ تحذير */
+        const _aiBusy = res.status >= 500 && /\/functions\/v1\/gmt-(vision|brain|ai)/.test(url) && /busy|high demand|UNAVAILABLE|overloaded|مزدحمة/i.test(body);
+        add(_aiBusy ? 'warn' : 'crit', _aiBusy ? 'خدمة الذكاء مزدحمة' : 'HTTP ' + res.status, _aiBusy ? 'خدمة الذكاء الخارجيّة مزدحمة مؤقّتاً — تُعاد المحاولة بعد دقيقة' : explainDb(body), method + ' ' + redact(url) + '\n' + body);
         return res;
       }
       if (isWrite && res.status === 200) {

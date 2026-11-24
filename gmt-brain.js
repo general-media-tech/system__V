@@ -1143,7 +1143,24 @@
   };
 
 
+  /* (seq B1041 · B1047 «ما عم لاقي عقل النظام») الزرّ العائم تزيله قاعدة «لا أزرار عائمة» (gmt-nofab) ⇒ العقل كان بلا مدخل في أغلب الصفحات.
+     الآن: زرّ 🧠 ثابت في الشريط العلويّ المشترك (.gmt-refresh-bar — بجانب «شو الجديد» والتحديث) في كلّ صفحة داخلية. */
+  function mountBar(tries) {
+    try {
+      if (!(global.GMT_INTERNAL === true || global.GMT_INTERNAL === 1)) return;
+      if (document.getElementById('gmt-brain-btn')) return;
+      var host = document.querySelector('.gmt-refresh-bar') || document.getElementById('gmt-refresh-bar');
+      if (!host) { if ((tries || 0) < 20) setTimeout(function () { mountBar((tries || 0) + 1); }, 500); return; }
+      var b = document.createElement('button');
+      b.id = 'gmt-brain-btn'; b.type = 'button'; b.title = '🧠 عقل النظام — اسأل عن أيّ خطأ أو خطوة'; b.setAttribute('aria-label', 'عقل النظام');
+      b.setAttribute('data-keep-fab', '1'); b.textContent = '🧠';
+      b.style.cssText = 'position:relative;width:30px;height:30px;border-radius:9px;border:1px solid rgba(0,0,0,.08);background:#fff;color:#0f172a;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;padding:0;font-family:inherit';
+      b.onclick = function () { openPanel(); };
+      host.insertBefore(b, host.firstChild);
+    } catch (_) {}
+  }
   function mount() {
+    mountBar(0);
     /* (2026-08-26 · طلب المالك) الصفحة التي فيها زر «🧠 عقل النظام» ضمن أزرارها العلوية
        لا تحتاج زراً عائماً — كان يركب فوق المحتوى. */
     try { if (document.querySelector('[onclick*="GMTBrain.open"]')) return; } catch (_) {}

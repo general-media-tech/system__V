@@ -236,7 +236,6 @@ a.btn{text-decoration:none}
 .pill .ni{color:var(--mu)}
 .pplus{background:var(--red);color:#fff;box-shadow:0 6px 16px rgba(213,0,28,.28)}
 .tb #gmt-notify-btn{display:none!important}
-.tb [data-brain]{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);flex:0 0 auto;cursor:pointer}/* (seq B1041) العقل ظاهر على الكمبيوتر أيضاً */
 .tb a.bell{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);flex:0 0 auto}.tb a.bell:hover{border-color:var(--red);color:var(--red)}   /* كان مخفيّاً على الكمبيوتر (صنف ☰) فلا يظهر إلا عدّاده */   /* «ينتظرك» صار قسماً داخل الرئيسيّة نفسها */
 .wait{margin:14px 0 4px}
 .wait-h{display:flex;align-items:center;gap:8px;margin:0 0 8px}.wait-h h3{margin:0;font-size:16px}
@@ -434,8 +433,6 @@ a.btn{text-decoration:none}
       (A() ? 'الإدارة · كل الفروع' : 'فرع ' + esc(brName()) + (pr0.center ? ' · ' + esc(pr0.center) : '')) + '</small></span></span>' +
       '<h1>الرئيسية</h1><span class="rolechip ' + (A() ? '' : 'st') + '">' + (A() ? 'أدمن' : 'موظف · فرع ' + esc(brName())) + '</span><span class="sp"></span>' +
       '<a class="mnu bell" href="مركز_الإشعارات.html" data-gmt-bell aria-label="الإشعارات" title="مركز الإشعارات">' + ic('bell', 20) + '</a>' +
-      /* (seq B1041 «العقل … في الواجهة الرئيسية ما عم لاقيه») زرّه العائم يُزال بقاعدة «لا أزرار عائمة» ⇒ مدخلٌ ثابت في الترويسة */
-      '<button class="mnu" type="button" data-brain onclick="window.GMTBrain ? GMTBrain.open() : (window.showToast && showToast(\'عقل النظام لم يُحمَّل بعد\', \'err\'))" aria-label="عقل النظام" title="🧠 عقل النظام — اسأل عن أيّ خطأ أو خطوة" style="font-size:18px;line-height:1">🧠</button>' +
       '<label class="srch dk">' + ic('search', 17) + '<input id="q" placeholder="بحث في النظام" autocomplete="off" aria-label="بحث في النظام"></label>' +
       '<div id="gmt-refresh-bar" class="gmt-refresh-bar" data-keep-fab="1"></div></header>';
   }
