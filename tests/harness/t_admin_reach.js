@@ -22,5 +22,13 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     ok(s.shown, '② inventory.html?pid&view=' + v + ' ⇒ يفتح ' + nm + ' مباشرةً: ' + JSON.stringify(s).slice(0, 140));
     await I.browser.close();
   }
+  // ③ أوردر ببندٍ مؤكَّد من الجرد ⇒ 📜 لسجلّ المنتج · بندٌ نصّيّ ⇒ لا رابط
+  await H.call('/rest/v1/gmt_orders', [{ name: 'زبون تجربة', phone: '0999000111', product: 'مؤكَّد', qty: 1, price: 10, branch: 'daraa', status: 'delivered', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    items_json: JSON.stringify([{ name: 'مؤكَّد', qty: 1, pid }, { name: 'نصّ حرّ', qty: 2 }]) }]);
+  { const O = await H.open('orders.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 7000 });
+    const r3 = await O.pg.evaluate(pid => { const o = orders.find(x => x.name === 'زبون تجربة'); if (!o) return { none: orders.length };
+      openFollowUpDetail(o.id); const a = [...document.querySelectorAll('#fud-products [data-ord-prod]')]; return { n: a.length, href: a[0] ? a[0].getAttribute('href') : '' }; }, pid);
+    ok(r3.n === 1 && r3.href === 'inventory.html?pid=' + encodeURIComponent(pid) + '&view=mov', '③ بنود الأوردر: المؤكَّد من الجرد ⇒ 📜 سجلّه · النصّ الحرّ بلا رابط: ' + JSON.stringify(r3));
+    await O.browser.close(); }
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

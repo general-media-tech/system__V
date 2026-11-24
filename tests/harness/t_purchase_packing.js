@@ -24,6 +24,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   pg.on('dialog', d => d.accept('الكلفة الواصلة من الباكينج'));
   await pg.evaluate(id => openInvForEdit(id), IV.id); await pg.waitForTimeout(700);
   ok(await pg.evaluate(() => getComputedStyle(document.getElementById('inv-pack-btn')).display !== 'none'), '(زرّ «📦 الباكينج والجمارك» في أدوات التعديل)');
+  { const lk = await pg.evaluate(() => [...document.querySelectorAll('#invPage [data-inv-prod]')].map(a => a.getAttribute('href')));
+    ok(lk.length >= 4 && lk.every(h => /^inventory\.html\?pid=.+&view=mov$/.test(h)), '(seq B1048) كلّ بندٍ من الجرد ⇒ 📜 سجلّ المنتج (لا يُطبع): ' + lk.length); }
   /* (seq B1045) الأوروبية ⇒ «بالقيمة» افتراضياً · الصينية ⇒ تلقائي */
   const sb = await pg.evaluate(() => { const s = ships.find(x => String(x.id) === String(window._invOpen.id)); const t0 = s.inv_type; s.inv_type = 'germany'; packOpen(); const de = document.getElementById('pack-shipby').value; packClose(); s.inv_type = t0; return de; });
   const kgc = await pg.evaluate(() => { const t0 = invType; setType('germany'); const sh0 = document.getElementById('cost-shipping').value;

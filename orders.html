@@ -5825,6 +5825,7 @@ window.openFollowUpDetail = (id) => {
     document.getElementById('fud-products').innerHTML = items.map(i =>
         `<div class="flex justify-between items-center bg-white rounded-xl px-3 py-2 border border-gray-100">
             <span class="font-bold text-sm text-gray-800">📦 ${escH(i.name)}</span>
+            ${/* (المالك seq B1048) بندٌ مؤكَّد من الجرد ⇒ 📜 سجلّ المنتج وحركته وفواتيره */ (i.pid || i.barcode) ? `<a data-ord-prod href="inventory.html?${i.pid ? 'pid=' + encodeURIComponent(String(i.pid)) : 'bc=' + encodeURIComponent(String(i.barcode))}&view=mov" target="_blank" rel="noopener" title="سجلّ المنتج: الحركة والفواتير" style="font-size:12px;text-decoration:none;margin-inline:auto 8px">📜</a>` : ''}
             <span class="font-black text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-lg">×${i.qty}</span>
         </div>`
     ).join('');
