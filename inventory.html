@@ -4391,7 +4391,8 @@ async function sbFetch(method, path, body = null, extraHeaders = null) {
     const errMsg = Array.isArray(data)
       ? (data[0]?.message || JSON.stringify(data))
       : (data?.message || data?.error || data?.hint || `HTTP ${r.status}`);
-    console.error(`[sbFetch] ${method} ${path} → ${r.status}:`, errMsg, data);
+    /* (seq B1059) فحص وجود الدالّة الذرّية بمعرّفٍ وهميّ (__probe__) رفضُه متوقَّع ⇒ لا يُسجَّل خطأً (كان يُظهر «غير موجود» في الكونسول والمفتّش والبوت) */
+    if (!(body && body.p_branch_key === '__probe__')) console.error(`[sbFetch] ${method} ${path} → ${r.status}:`, errMsg, data);
     return { error: errMsg, data: null };
   }
   return { data, error: null };
@@ -5495,6 +5496,25 @@ window.gmtSyncRename = gmtSyncRename;
         if (_pv === 'mov') openProductMovement(String(_p.id), _p.barcode || '', _p.name || '');
         else if (_pv === 'edit') invOpenFullEdit(String(_p.id));
         else openDetailModal(_p.id);
+      } catch (e) { console.warn(e); }
+    }, 500); }
+  } catch (_) {}
+  /* (seq B1059 «نعمل لها طباعه باركودات») inventory.html?trf=<رقم TRF أو المعرّف>[&labels=1] ⇒ يفتح فاتورة النقل نفسها (ومعها ملصقات الباركود) */
+  try {
+    var _tq = new URLSearchParams(location.search), _trf = _tq.get('trf'), _lab = _tq.get('labels') === '1';
+    if (_trf) { var _tn = 0, _tt = setInterval(async function () {
+      if (++_tn > 60) { clearInterval(_tt); return; }
+      if (typeof switchAppMode !== 'function' || typeof loadStockTransfers !== 'function' || typeof openStockTransferDetail !== 'function') return;
+      clearInterval(_tt);
+      try {
+        switchAppMode('transfer');
+        if (!(window.allStockTransfers || (typeof allStockTransfers !== 'undefined' && allStockTransfers) || []).length) await loadStockTransfers();
+        var _all = (typeof allStockTransfers !== 'undefined' ? allStockTransfers : []) || [];
+        var _t = _all.find(function (x) { return String(x.id) === String(_trf) || String(x.transfer_number || '').toUpperCase() === String(_trf).toUpperCase(); });
+        if (!_t) { showToast('لم تُوجد فاتورة النقل ' + _trf, 'warning'); return; }
+        await openStockTransferDetail(_t.id);
+        /* النوافذ المنبثقة بلا ضغطة تُحجَب ⇒ لا نفتح الطباعة تلقائياً: نبرز زرّ «🏷️ ملصقات الباركود» لتضغطه */
+        if (_lab) setTimeout(function () { var b = document.querySelector('[onclick^="printTransferLabels"]'); if (b) { b.setAttribute('data-trf-labels-hl', '1'); b.style.outline = '3px solid #D5001C'; b.style.outlineOffset = '2px'; try { b.scrollIntoView({ block: 'center' }); } catch (_) {} showToast('🏷️ اضغط «ملصقات الباركود» لطباعة ملصق لكلّ قطعة', 'info'); } }, 400);
       } catch (e) { console.warn(e); }
     }, 500); }
   } catch (_) {}
@@ -16956,7 +16976,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261124b2"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261124b6"></script>
+<script src="gmt-whatsnew.js?v=20261124b7"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
