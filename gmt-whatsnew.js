@@ -34,6 +34,16 @@
      v (رقم الدفعة) · t (العنوان) · d (شو صار) · w (ليش — العطل الذي أُصلح)
      pages (الصفحات المعنيّة · فارغة = الكلّ) · tag (نوع البند) */
   var NEWS = [
+    /* دفعة gmt-v20261124b3 (seq B1043 · B1045 · B1049) — بطاقة لكلّ شغلة */
+    { v: 463, tag: 'ميزة', at: '2026-11-24T19:40:00Z', t: '🇩🇪 المشتريات الأوروبية: الشحن بالوزن والكلفة بالقيمة', pages: ['purchase.html'],
+      d: '• بفاتورة أوروبية جديدة صار تحت «شحن إلى سوريا» حاسبة: الوزن (كغ) × سعر الكيلو ⇒ بتعبّي الشحن لحالها\n• بنافذة «📦 الباكينج والجمارك» لفاتورة أوروبية: الكلفة بتتوزّع على البنود **بقيمتها** متل النظام القديم (مو بالكرتونة) — ورقم الكرتونة والوزن بيضلّوا للباركودات\n• الصينية ما تغيّرت: الجمارك برسم الكرتونة والشحن بالحجم أو الوزن',
+      w: 'المالك seq B1045 «الاوربية مندفع على الوزن مو على الحجم … احسب التكلفة على النظام القديم تبع السعر»', go: [{ p: 'purchase.html?new=de', sel: '#ship-kg-box', l: 'فاتورة جديدة أوروبية — حاسبة الوزن تحت خانة الشحن' }] },
+    { v: 462, tag: 'إصلاح', at: '2026-11-24T19:35:00Z', t: '🔊 أصوات الواجهة صارت مسموعة', pages: [],
+      d: '• أصوات الضغط والتنبيه كانت واطية كتير (قريب من ١٪) فكانت تبيّن «مو شغّالة» ⇒ صارت أعلى بشكل واضح\n• معرض الأصوات (ضغطة مطوّلة على زرّ 🔊 بالشريط العلوي) بيشغّلها أعلى كمان لتجرّبها',
+      w: 'المالك seq B1043 «الأصوات مو شغّالة»', go: [{ p: 'home.html', sel: '#gmt-sound-btn', l: 'زرّ 🔊 بالشريط — اضغط مطوّل لتسمع المعرض' }] },
+    { v: 461, tag: 'إصلاح', at: '2026-11-24T19:30:00Z', t: '🎨 ألوان الهوية بالأوردرات ونقطة البيع والجرد', pages: ['orders.html', 'pos.html', 'inventory.html', 'admin_pos.html'],
+      d: '• تقرير الصحة كان يطلّع «ألوان خارج الهوية (#2563eb …)» ⇒ الأزرق والبنفسجي الغريب صار بألوان الهوية (الأحمر والأسود)\n• نفس الشي بأدمن النقاط والسكربتات المشتركة (الأيقونات · الموظّفين · طابور الإثراء)',
+      w: 'المالك seq B1049 (تقرير الصحة)', go: [{ p: 'orders.html', l: 'افتح الأوردرات — الألوان صارت بالهوية' }] },
     /* دفعة gmt-v20261124b2 (seq B1029 · B1041 · B1043 · B1046 · B1047 · B1048) — بطاقة لكلّ شغلة */
     { v: 460, tag: 'إصلاح', at: '2026-11-24T19:07:00Z', t: '🧩 صفحة المشتريات ما بتوقف إذا تأخّر تنزيل الأيقونات', pages: ['purchase.html'],
       d: '• كان يطلع «lucide is not defined» وتوقف أجزاء من الصفحة إذا ما نزل ملفّ الأيقونات (إنترنت ضعيف) ⇒ الصفحة تشتغل، والملفّ يُعاد تنزيله مرّة تلقائياً وتُرسم الأيقونات\n• نفس الحماية بالأوردرات وصفحة التتبّع',
@@ -2140,6 +2150,8 @@
     try { return decodeURIComponent((location.pathname.split('/').pop() || '')).toLowerCase(); }
     catch (e) { return ''; }
   }
+  /* (seq B1045) صفحة هدف «جرّبها» بلا معاملات: 'purchase.html?new=de' ⇒ 'purchase.html' — كانت المقارنة تشمل «?…» فلا يطابق أبداً */
+  function gPage(g) { return String((g && g.p) || '').split('?')[0].split('#')[0].toLowerCase(); }
 
   function seen() {
     try { return parseInt(localStorage.getItem(LS_KEY) || '0', 10) || 0; } catch (e) { return 0; }
@@ -2323,7 +2335,7 @@
     return '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px">' +
       '<button type="button" class="gwn-btn gwn-go" data-wn-try="' + n.v + '">جرّبها ←</button>' +
       (ut ? '<button type="button" class="gwn-btn gwn-ok" data-wn-done="' + n.v + '">✓ جرّبتها</button>' : '<span style="font-size:11px;font-weight:800;color:#047857">✓ جرّبتها</span>') +
-      '<span style="font-size:11px;font-weight:700;color:#5b6472">في: ' + esc(pageName(g.p)) + (g.l ? ' · ' + esc(g.l) : '') + '</span></div>';
+      '<span style="font-size:11px;font-weight:700;color:#5b6472">في: ' + esc(pageName(String(g.p || '').split('?')[0])) + (g.l ? ' · ' + esc(g.l) : '') + '</span></div>';
   }
 
   /* بطاقة «شو الجديد» في الرئيسية — لكل مستخدم (طلبك: «شاشة ما الجديد يجب أن تُعرض في الشاشة الرئيسية للنظام لكل مستخدم») */
@@ -2409,7 +2421,7 @@
     NEWS.forEach(function (n) {
       if (!untried(n, tm)) return;
       goList(n).forEach(function (g) {
-        var p = String(g.p || '').toLowerCase();
+        var p = gPage(g);
         if (p === me || (isHome(me) && isHome(p))) here.push({ n: n, g: g }); else pages[p] = 1;
       });
     });
@@ -2456,7 +2468,7 @@
     var v; try { v = new URLSearchParams(location.search).get('wn'); } catch (e) { return; }
     var n = byV(v); if (!n || !goList(n).length) return;
     var me = page(), g = null;
-    goList(n).forEach(function (x) { if (!g && String(x.p || '').toLowerCase() === me) g = x; });
+    goList(n).forEach(function (x) { if (!g && gPage(x) === me) g = x; });
     if (!g) return;
     var tries = 0;
     var t = setInterval(function () {
@@ -2479,7 +2491,7 @@
     var ov = document.getElementById('gmt-wn-ov'); if (ov) { markSeen(); ov.remove(); }
     var me = page();
     var mine = null;
-    goList(n).forEach(function (x) { if (!mine && String(x.p || '').toLowerCase() === me) mine = x; });
+    goList(n).forEach(function (x) { if (!mine && gPage(x) === me) mine = x; });
     if (mine) {
       var el = mine.sel ? findTarget(mine.sel) : null;
       if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} el.classList.add('gwn-target', 'gwn-flash'); setTimeout(function () { el.classList.remove('gwn-flash'); }, 3200); }

@@ -210,19 +210,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-core.js?v=20261124b2"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
-  <script src="gmt-sound.js?v=20261122s" defer></script>
-  <script src="gmt-icons.js?v=20261011h" defer></script>
+  <script src="gmt-sound.js?v=20261124b3" defer></script>
+  <script src="gmt-icons.js?v=20261124b3" defer></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261121b" defer></script>
   <script src="gmt-stock.js?v=20261117h" defer></script>
   <script src="gmt-share.js?v=20261029z4" defer></script>
   <script src="gmt-notify.js?v=20261122x" defer></script>
-<script src="gmt-endpoint.js?v=20261017c"></script>
+<script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-packing.js?v=20261124a" defer></script>
+  <script src="gmt-packing.js?v=20261124b3" defer></script>
 <script src="gmt-labels.js?v=20261124b"></script>
-<script src="gmt-staff.js?v=20261124b2"></script>
+<script src="gmt-staff.js?v=20261124b3"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -5921,6 +5921,8 @@ function restartTour(){
 lucide.createIcons();
 loadAll();
 /* (١١ ت١) رابط مباشر من «أداة التسويات»: purchase.html?q=IMP-2026-0003 ⇒ يفتح بحثاً عن تلك الفاتورة */
+/* (seq B1045 · «جرّبها» لبطاقة الشحن الأوروبي) ?new=de|cn ⇒ يفتح فاتورة استيراد جديدة بالنوع المطلوب */
+try{const _n=new URLSearchParams(location.search).get('new');if(_n==='de'||_n==='cn'){const _t=setInterval(()=>{if(typeof openAddModal==='function'&&document.getElementById('addModal')){clearInterval(_t);try{openAddModal();setType(_n==='cn'?'china':'germany');}catch(e){console.warn(e);}}},300);setTimeout(()=>clearInterval(_t),15000);}}catch(_){}
 try{const _q=new URLSearchParams(location.search).get('q');if(_q){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);const i=document.getElementById('searchInput');if(i){i.value=_q;render();}}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 setInterval(loadAll,60000);
 setTimeout(()=>{const h=document.getElementById('loader-hint');if(h)h.classList.remove('hidden');},5000);
@@ -6546,7 +6548,7 @@ try {
 <script src="gmt-brain.js?v=20261124b2"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261124b2"></script>
+<script src="gmt-whatsnew.js?v=20261124b3"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
