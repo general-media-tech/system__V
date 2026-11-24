@@ -76,7 +76,13 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
             #print-area { display:block !important; position:fixed; inset:0; background:white; z-index:99999; padding:24px; }
         }
         #print-area { display:none; }
-    </style>
+    /* (seq B1041) شريط الحالة الصغير على بطاقة الأوردر */
+.ord-mini{display:flex;gap:2px;margin:0 0 8px;margin-left:28px;direction:rtl}  /* يسار البطاقة لزرّ التعديل المطلق */
+.ord-mini span{flex:1;position:relative;text-align:center;font-size:9.5px;font-weight:800;color:#9ca3af;line-height:1.3;white-space:nowrap}
+.ord-mini span i{display:block;height:5px;border-radius:5px;background:#e5e7eb;margin-bottom:3px}
+.ord-mini .om-p{color:#111}.ord-mini .om-p i{background:#111}
+.ord-mini .om-c{color:#D5001C;font-weight:900}.ord-mini .om-c i{background:#D5001C}
+</style>
   <!-- ═══ PWA خفيفة (أُضيفت 2026-07-10 — م14): أيقونة + ملء شاشة + كاش الملفات ═══ -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#D5001C">
@@ -2295,6 +2301,7 @@ function cardHTML(o) {
         ${_frz ? frozenBannerHTML(o) : ''}
         ${_cnf ? confirmBannerHTML(o) : ''}
         ${getOrderSerial(o) ? `<div class="mb-2" dir="ltr"><span class="inline-block bg-gray-100 text-gray-600 font-black font-mono text-xs px-3 py-1 rounded-lg tracking-wider">${escH(getOrderSerial(o))}</span></div>` : ''}
+        ${miniStatusHTML(o)}
         ${carrierChipHTML(o)}
         ${isLinked ? `<div class="mb-2 flex items-center gap-2 flex-wrap">
             <span class="order-linked-badge">🔗 مرتبط — جاهز للشحن</span>
@@ -7885,6 +7892,30 @@ function arrivalStageOf(o) {
     return o.notified_arrival_at ? 'wait' : null;
 }
 function _daysSince(t) { const d = t ? (Date.now() - new Date(t).getTime()) / 86400000 : 0; return d > 0 ? Math.floor(d) : 0; }
+/* (المالك seq B1041 «بدنا نرجع شريط الحاله ولكن بشكل اصغر على بطاقه الاوردر يعني مثلا وصل او ما وصل في الطريق») — شريطٌ صغير
+   على كلّ بطاقة نشطة: جديد ⇐ جاهز ⇐ بالطريق ⇐ وصل الفرع ⇐ استلمها · من تتبّع شركة الشحن إن وُجد وإلّا من حالتنا · لا للمرتجعات والمجمّدة */
+const MINI_STEPS = ['جديد', 'جاهز', 'بالطريق', 'وصل الفرع', 'استلمها'];
+function miniLevelOf(o) {
+    if (!o) return 0;
+    try { if (o.status === 'returned' || returnActive(o)) return 0; } catch (_) {}
+    const st = o.status || 'pending';
+    if (st === 'pending') return 1;
+    if (st === 'prepared') return 2;
+    if (st === 'delivered') return 5;
+    if (st === 'completed') return 6;
+    if (st !== 'shipped') return 0;
+    const c = carrierOf(o);
+    if (c && (c.cls === 'got')) return 5;
+    if ((c && c.cls === 'branch') || o.notified_arrival_at) return 4;
+    return 3;
+}
+function miniStatusHTML(o) {
+    const lv = miniLevelOf(o); if (!lv) return '';
+    return '<div class="ord-mini" data-mini-level="' + lv + '" title="' + escH(MINI_STEPS[Math.min(lv, 5) - 1] || '') + '">' + MINI_STEPS.map((l, i) => {
+        const k = (i + 1 < lv) ? 'p' : (i + 1 === lv ? 'c' : 't');
+        return '<span class="om-' + k + '"><i></i>' + escH(l) + '</span>';
+    }).join('') + '</div>';
+}
 function carrierChipHTML(o) {
     if (!o || (o.status !== 'shipped' && o.status !== 'delivered')) return '';
     const c = carrierOf(o), due = collectOf(o);
@@ -7908,7 +7939,7 @@ function carrierChipHTML(o) {
         const rc = String(c.receiver || ''), rcn = rc.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
         const differs = rc && nm.length && !nm.some(w => rcn.indexOf(w) !== -1);
         return `<div class="mb-3" data-carrier="${escH(c.cls)}" data-carrier-full>
-            ${ML.stepsHTML({ level: c.level || ({ road: 2, branch: 3, got: 4 }[c.cls] || 1), steps: labels })}
+            ${/* (seq B1041) الشريط الكبير ⇐ الشريط الصغير أعلى البطاقة (miniStatusHTML) · خطوات المفتي بنصّها تبقى في «مراجعة شحنات المفتي» */ ''}
             ${ML.cardHTML({ status: c.status || m[0], status_at: c.status_at }, 'حالة الشحنة عند ' + coName + ' · ' + m[0])}
             <div class="flex flex-wrap items-center gap-1.5 mt-2">${money}${rc ? `<span class="text-[11px] font-bold text-gray-500">المستلم عندهم: <b class="text-gray-800">${escH(rc)}</b></span>` : ''}${differs ? '<span class="text-[10.5px] font-black text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-1.5">⚠️ الاسم مختلف عن الأوردر</span>' : ''}</div>
         </div>`;

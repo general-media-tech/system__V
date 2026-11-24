@@ -51,10 +51,14 @@ const CL = (cls, extra) => Object.assign({ cls, level: { road: 2, branch: 3, got
   ok(/\$214/.test(sums.all), 'مجموع الحوالات في «📍 وصلت» = 100+50+20+44 = $214 (المستلَمة في تبويبها): ' + sums.all);
   ok(/منذ 2 أيام/.test(sums.b), '«في فرع الوجهة منذ 2 أيام» من changed_at: ' + sums.b);
   // ٢ب) (المالك seq 881 ⇐ 884) أداة المراجعة مدموجة في البطاقة — **الشريط قبل الوصول فقط**؛ بعده سطرٌ واحد صغير (نخفّف العجقة)
-  const road = await pg.evaluate(id => { const f = document.querySelector('#card-' + id + ' [data-carrier-full]'); return f ? { steps: f.querySelectorAll('.ml-st').length, cur: (f.querySelector('.ml-st.cur') || {}).textContent || '' } : null; }, id('د'));
-  ok(road && road.steps === 4 && /الطريق/.test(road.cur), 'على الطريق: شريط الخطوات الأربع على البطاقة (الحالية: ' + (road && road.cur) + ')');
+  /* (المالك seq B1041 «نرجع شريط الحاله ولكن بشكل اصغر على بطاقه الاوردر») الشريط الكبير ⇐ شريطٌ صغير على كلّ بطاقة نشطة */
+  const road = await pg.evaluate(id => { const c = document.getElementById('card-' + id), f = c.querySelector('[data-carrier-full]'), m = c.querySelector('.ord-mini');
+    return { full: !!f, big: c.querySelectorAll('.ml-st').length, mini: m ? m.querySelectorAll('span').length : 0, cur: m ? (m.querySelector('.om-c') || {}).textContent || '' : '', h: m ? parseFloat(getComputedStyle(m.querySelector('i')).height) + parseFloat(getComputedStyle(m.querySelector('span')).fontSize) : 0, card: f ? !!f.querySelector('.ml-card') : false }; }, id('د'));
+  ok(road.full && road.card && road.big === 0 && road.mini === 5 && road.cur === 'بالطريق' && road.h > 0 && road.h < 18, 'على الطريق: الشريط الصغير (٥ مراحل · الحالية «بالطريق» · خطّ + نصّ ≈' + Math.round(road.h) + 'px) + «حالة الشحنة» بلا الشريط الكبير: ' + JSON.stringify(road));
+  const lv = await pg.evaluate(ids => ids.map(id => { const m = document.querySelector('#card-' + id + ' .ord-mini'); return m ? m.dataset.miniLevel + ':' + ((m.querySelector('.om-c') || {}).textContent || '') : ''; }), [id('أ'), id('ح'), id('ج')]);
+  ok(lv[0] === '4:وصل الفرع' && lv[1] === '4:وصل الفرع' && lv[2] === '5:استلمها', 'بعد الوصول: الشريط الصغير «وصل الفرع» (المفتي · سات) و«استلمها»: ' + JSON.stringify(lv));
   const arr = await pg.evaluate(ids => ids.map(id => { const c = document.getElementById('card-' + id); return { full: !!c.querySelector('[data-carrier-full]'), chip: (c.querySelector('[data-carrier]') || {}).textContent || '', diff: !!c.querySelector('[data-name-diff]') }; }), [id('أ'), id('ح'), id('ج')]);
-  ok(arr.every(x => !x.full), 'بعد الوصول (المفتي · سات · استلمها): لا شريط — سطر واحد');
+  ok(arr.every(x => !x.full), 'بعد الوصول (المفتي · سات · استلمها): لا «حالة الشحنة» الكاملة — سطر واحد');
   ok(/في فرع الوجهة/.test(arr[0].chip) && /الحوالة \$100/.test(arr[0].chip) && arr[0].diff, 'المفتي وصلت: «📍 في فرع الوجهة» + الحوالة + ⚠️ اسم المستلم عندهم مختلف: ' + arr[0].chip);
   ok(/وصلت مدينة الوجهة/.test(arr[1].chip), 'سات (توصيل للباب): «📍 وصلت مدينة الوجهة»: ' + arr[1].chip);
   ok(/استلمها الزبون/.test(arr[2].chip), 'استلمها: «✅ استلمها الزبون»: ' + arr[2].chip);
