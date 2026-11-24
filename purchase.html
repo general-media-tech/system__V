@@ -4029,6 +4029,29 @@ function _expensesTotal(){
        + (Number(gv('cost-local'))||0)
        + (Number(gv('cost-transfer'))||0);
 }
+/* (TASK-0374 · تقرير الحارس ٢٣ ت2: «نفس PATCH products تكرّر 4×/7× خلال ثانيتين» — المنتج 8da7c081 وغيره)
+   حفظ الشحنة كان يرسل تحديث الأسعار لكلّ **بند** والمنتج نفسه في عدّة بنود (ألوان/موديلات) ⇒ نفس الطلب يتكرّر.
+   لا مضاعفة كمّيات (الكمّيات من syncTransitToInv وحدها — PUR-1) لكنّه هدرٌ على شبكةٍ بطيئة وإنذارٌ أحمر.
+   الآن: تحديثٌ واحد لكلّ منتج — نفس قاعدة TASK-A0530 في المسار الآخر: آخر بندٍ يحدّد أسعار البيع · التكلفة الواصلة لكلّ منتج (PUR-7). */
+async function _pushShipPrices(cart){
+  const _landed=computeLandedCosts(cart);
+  const byId=new Map();
+  for(const item of cart){
+    if(!item||!item.product||item.product.id==null)continue;
+    const k=String(item.product.id);
+    const upd=byId.get(k)||{};
+    if(item.salePrice>0)upd.price=item.salePrice;
+    if(item.wholePrice>0)upd.wholesale_price=item.wholePrice;
+    if(item.minPrice>0)upd.net_cost=item.minPrice;
+    const lc=_landed[item.product.id];   // PUR-7: سعر الوحدة + حصتها من المصاريف
+    if(lc>0)upd.cost_price=lc;
+    byId.set(k,upd);
+  }
+  for(const [id,upd] of byId){
+    if(!Object.keys(upd).length)continue;
+    try{await sb('PATCH',`/rest/v1/products?id=eq.${id}`,upd,{Prefer:'return=minimal'});}catch(e){console.warn(e);}
+  }
+}
 function computeLandedCosts(cartArr){
   const exp=_expensesTotal();
   const base=cartArr.reduce((s,c)=>s+((Number(c.qty)||0)*(Number(c.unitPrice)||0)),0);
@@ -4063,34 +4086,11 @@ async function saveShipment(){
          المصدر الوحيد للكميات الآن = syncTransitToInv (وهي تعيد القراءة للتحقق).
          هنا نُحدِّث **الأسعار فقط**. */
       // تحديث الأسعار + التكلفة الواصلة (PUR-7)
-      const _landed=computeLandedCosts(cart);
-      for(const item of cart){
-        try{
-          const upd={};
-          if(item.salePrice>0)upd.price=item.salePrice;
-          if(item.wholePrice>0)upd.wholesale_price=item.wholePrice;
-          if(item.minPrice>0)upd.net_cost=item.minPrice;
-          // PUR-7: cost_price = سعر الوحدة + حصتها من المصاريف
-          const lc=_landed[item.product.id];
-          if(lc>0)upd.cost_price=lc;
-          if(Object.keys(upd).length)await sb('PATCH',`/rest/v1/products?id=eq.${item.product.id}`,upd,{Prefer:'return=minimal'});
-        }catch(e){console.warn(e);}
-      }
+      await _pushShipPrices(cart);   // TASK-0374
     }else{
       /* ⛔ PUR-1 (2026-07-13) — حُذفت كتابة الكميات من هنا نهائياً (كانت السطر الذي
          يضاعف كل فاتورة جديدة ×2 مع syncTransitToInv). الأسعار فقط. */
-      const _landed=computeLandedCosts(cart);
-      for(const item of cart){
-        try{
-          const upd={};
-          if(item.salePrice>0)upd.price=item.salePrice;
-          if(item.wholePrice>0)upd.wholesale_price=item.wholePrice;
-          if(item.minPrice>0)upd.net_cost=item.minPrice;
-          const lc=_landed[item.product.id];          // PUR-7
-          if(lc>0)upd.cost_price=lc;
-          if(Object.keys(upd).length)await sb('PATCH',`/rest/v1/products?id=eq.${item.product.id}`,upd,{Prefer:'return=minimal'});
-        }catch(e){console.warn(e);}
-      }
+      await _pushShipPrices(cart);   // TASK-0374
     }
 
     let num=editId?ships.find(x=>String(x.id)===String(editId))?.inv_number:null;
