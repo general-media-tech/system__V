@@ -560,7 +560,9 @@ window.GMT_INTERNAL = 1;</script>
       : 'text';
 
     async function liveSchema(){
-      // الطريقة الأولى: OpenAPI (طلب واحد يعطي كل الجداول والأعمدة)
+      /* (seq B1042 «HTTP 401 Invalid API key GET /rest/v1/ — Only the service_role API key») جذر OpenAPI صار يتطلّب مفتاح الخدمة ⇒ كان كلّ فحصٍ
+         يولّد «خطأً حرجاً» كاذباً. لا نطلبه بعد اليوم — الفحص عموداً-عموداً (colExists) يعطي النتيجة نفسها بالمفتاح العامّ. */
+      if (true) return null;
       try {
         const r = await fetch(SB + '/rest/v1/', { headers: H });
         const j = await r.json();

@@ -233,9 +233,9 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   async function expenses() {
     var r = { id: 'ex', title: 'مصاريف بانتظار موافقتك', what: 'مصاريف سجّلها الفروع ولم تُعتمد بعد.', impact: 'لا تدخل في الصندوق ولا الأرباح حتى تُعتمد، فتبدو الأرباح أعلى من حقيقتها.',
       fix: 'راجعها من «أدمن النقاط ← المصاريف»: اعتمدها (من الصندوق أو «أنا دفعتها») أو ارفضها. يمكنك «موافقة على الكل» للمعلّقة.', actions: [['افتح المصاريف', 'admin_pos.html?tab=expenses', 1]], lines: [], count: 0 };
-    var e; try { e = await get('gmt_expenses?approved=is.false&select=id,title,name,amount,currency,branch_name,created_at&order=created_at.desc', 500); } catch (x) { r.err = x; return r; }
+    var e; try { e = await get('gmt_expenses?approved=is.false&or=(voided.is.null,voided.is.false)&select=id,title,note,amount,currency,branch_key,requested_by,created_at&order=created_at.desc', 500)   /* (seq B1031) الجدول بلا name/branch_name (42703) ⇒ note · branch_key · والملغى لا يُعدّ */; } catch (x) { r.err = x; return r; }
     r.count = e.length;
-    r.lines = e.slice(0, 8).map(function (x) { return esc(x.title || x.name || '#' + x.id) + ' — ' + esc(x.amount) + ' ' + esc(x.currency || '') + (x.branch_name ? ' · ' + esc(x.branch_name) : ''); });
+    r.lines = e.slice(0, 8).map(function (x) { return esc(x.title || x.note || '#' + x.id) + ' — ' + esc(x.amount) + ' ' + esc(x.currency || '') + (x.branch_key ? ' · ' + esc(((typeof cols !== 'undefined' && (cols || []).find(function (c) { return c.key_name === x.branch_key; }) || {}).display_name || x.branch_key)) : '') + (x.requested_by ? ' · ' + esc(x.requested_by) : ''); });
     return r;
   }
 

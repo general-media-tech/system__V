@@ -163,10 +163,30 @@
   }
   /* نداءٌ للوسيط بمسارٍ ما (sendMessage · jsonbin-order …) بمفتاح القاعدة العامّ — لا سرّ في المتصفّح.
      مهلةٌ ٢٠ ثانية (كما بقيّة طلبات النظام)، وانقطاع الشبكة **يُرفَض** كما كان مع الطريق المباشر — فلا تظنّ صفحةٌ أنّ التبليغ وصل. */
+  /* (seq B1035 · «can't parse entities: Unsupported start tag "br"») رسائل HTML من صفحاتٍ تكتب <br> أو وسوماً لا يقبلها تيليغرام ⇒
+     كانت تُرفض كلّها (400) فلا يصل التبليغ. هنا مرّةً واحدة لكلّ الصفحات: <br>/<p> ⇒ سطر جديد · الوسوم غير المدعومة تُحذف ونصّها يبقى. */
+  var TG_OK = /^(b|strong|i|em|u|ins|s|strike|del|a|code|pre|span|tg-spoiler|tg-emoji|blockquote)$/i;
+  function tgClean(t) {
+    return String(t).replace(/<br\s*\/?>/gi, '\n').replace(/<\/?p(\s[^>]*)?>/gi, '\n')
+      .replace(/<\/?([a-zA-Z][\w-]*)(\s[^>]*)?>/g, function (m, tag) { return TG_OK.test(tag) ? m : ''; });
+  }
+  function tgCleanBody(opts) {
+    try {
+      var b = opts.body;
+      if (typeof b === 'string' && /"parse_mode"\s*:\s*"HTML"/i.test(b)) {
+        var o = JSON.parse(b); ['text', 'caption'].forEach(function (k) { if (typeof o[k] === 'string') o[k] = tgClean(o[k]); }); opts.body = JSON.stringify(o);
+      } else if (b && typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && /^html$/i.test(b.get('parse_mode') || '')) {
+        ['text', 'caption'].forEach(function (k) { if (b.has(k)) b.set(k, tgClean(b.get(k))); });
+      } else if (b && typeof FormData !== 'undefined' && b instanceof FormData && /^html$/i.test(String(b.get('parse_mode') || ''))) {
+        ['text', 'caption'].forEach(function (k) { var v = b.get(k); if (typeof v === 'string') b.set(k, tgClean(v)); });
+      }
+    } catch (_) {}
+  }
   function relay(path, opts) {
     var db = g.GMT_DB && g.GMT_DB.MAIN;
     if (!db || !db.url || !db.key) return Promise.resolve(fail('لا قاعدة للوسيط في هذه الصفحة'));
     opts = Object.assign({}, opts || {});
+    tgCleanBody(opts);
     var headers = new Headers(opts.headers || {});
     headers.set('Authorization', 'Bearer ' + db.key); headers.set('apikey', db.key);
     var ac = (typeof AbortController === 'function' && !opts.signal) ? new AbortController() : null, tm = null;
