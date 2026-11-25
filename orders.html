@@ -2923,7 +2923,7 @@ function stripDigitsFromName(el) {
 window.stripDigitsFromName = stripDigitsFromName;
 
 /* ② حقل العنوان */
-function smartPasteAddr(el, raw) {
+function smartPasteAddr(el, raw, labeled) {
     const s = String(raw || '').replace(/\s+/g, ' ').trim();
     /* «القدموس» و«بابل» أسماء شركات **ومدن** معاً. فإن ذُكرت كشركة نحذفها من النصّ
        قبل استخراج المنطقة، وإلا قُرئت «ابعتها مع القدموس لدمشق» كوجهة «القدموس»
@@ -2995,11 +2995,16 @@ function smartPasteAddr(el, raw) {
         return region;
     }
 
-    /* ما تعرّف ⇒ كل شيء بعد رقم الهاتف (والموظّف يمسح الزائد) */
-    const m = s.match(SY_PHONE_RE);
-    el.value = m ? s.slice(m.index + m[0].length).replace(/^[\s,،\-–—:|]+/, '').trim() : s;
-    showToast('ℹ️ ما تعرّفنا على المنطقة — عُبّئ ما بعد الرقم، عدّله', 'err');
-    return el.value;
+    /* (TASK-B0542 · المالك seq B1075 «اللي ما تعرّف عليهم لازم يكون في مربّع لحاله … ما يخبّص أمكنتها»)
+       كان: ما تعرّف على منطقة ⇒ «كلّ ما بعد الرقم» (أو الرسالة كلّها بلا رقم) يُكتب عنواناً — فـ«180STH 展开» صار عنواناً.
+       الحرس القديم (TASK-B0514) يفرّغه فقط إن طابق سطراً أُخذ منتجاً — ومع إطفاء «تعرّف على المنتجات» ما في منتجات ⇒ يبقى.
+       الآن: العنوان يُكتب فقط إن كان **موسوماً** («العنوان: …») — وإلّا الحقل ما بينلمس والنصّ بيضلّ بمربّع «ما تعرّفنا عليهم». */
+    if (labeled) {
+        el.value = s;
+        showToast('ℹ️ العنوان المكتوب ما تعرّفنا على منطقته — راجعه', 'err');
+        return el.value;
+    }
+    return '';
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3358,7 +3363,7 @@ window.smartFillFromPaste = async () => {
     /* ── العنوان + الشركة ── (ما بعد «العنوان/المحافظة/المدينة…» إن وُجد، وإلا البحث في النصّ) */
     const addrEl = document.getElementById('in-addr');
     if (addrEl) {
-        smartPasteAddr(addrEl, LB.addr.length ? LB.addr.join(' ') : raw);
+        smartPasteAddr(addrEl, LB.addr.length ? LB.addr.join(' ') : raw, LB.addr.length > 0);
         /* (TASK-0182 · المالك seq 110 «لا يعيش شيء ما يتعبّى … وجهة») ما بعد «العنوان:» ولم يدخل الحقل — المكتب المعروف يُكتب باسمه هو،
            فكانت «قرب الجامع» وأمثالها تضيع بصمت ⇒ تذهب لجدول «ما تعرّفنا عليهم» لتحدّدها */
         if (LB.addr.length) {
@@ -3367,7 +3372,8 @@ window.smartFillFromPaste = async () => {
         }
         const co = (document.getElementById('in-company') || {}).value || '';
         if (addrEl.value.includes('—')) push(true, 'العنوان: ' + addrEl.value + (co ? ' · شركة ' + co : ''));
-        else push(false, 'العنوان غير مؤكّد: ' + (addrEl.value || '—') + ' — راجعه');
+        else if (addrEl.value.trim()) push(false, 'العنوان غير مؤكّد: ' + addrEl.value + ' — راجعه');
+        else push(false, 'ما تعرّفنا على عنوان — اكتبه أو حدّده من مربّع «ما تعرّفنا عليهم»');
     }
 
     /* ══ السعر — (2026-09-26 · بلاغ المالك) ══════════════════════════════════
@@ -11419,7 +11425,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b13"></script>
+<script src="gmt-whatsnew.js?v=20261125b14"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
