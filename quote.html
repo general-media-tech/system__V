@@ -38,6 +38,17 @@
   .pv{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;min-height:600px;display:flex;flex-direction:column}
   .pv .bar{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
   #pv{flex:1;width:100%;min-height:900px;border:0;background:#f8fafc}
+  /* (TASK-B0541 · seq B1073) القائمة المحفوظة · اقتراح المنتجات على سطر البند · التذكير */
+  .qbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.qbtns .btn{flex:1;min-width:120px;padding:10px}
+  .btn.dark{background:#0f1219;color:#fff}.btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+  .duebadge{background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:900;cursor:pointer}
+  #q-sug{position:absolute;z-index:60;background:#fff;border:1.5px solid var(--line);border-radius:10px;box-shadow:0 10px 26px rgba(15,18,25,.14);max-height:240px;overflow:auto;display:none}
+  .ql{position:fixed;inset:0;z-index:80;background:rgba(15,18,25,.45);display:none;align-items:flex-start;justify-content:center;padding:4vh 10px;overflow:auto}
+  .ql .box{background:#fff;border-radius:18px;width:100%;max-width:760px;padding:14px}
+  .qr{border:1px solid var(--line);border-radius:12px;padding:9px 11px;margin-top:8px;font-size:12.5px;font-weight:700;border-inline-start:4px solid #94a3b8}
+  .qr.open{border-inline-start-color:#2563eb}.qr.sent{border-inline-start-color:#f59e0b}.qr.converted{border-inline-start-color:#16a34a}.qr.lost{border-inline-start-color:#dc2626;opacity:.75}
+  .qr.due{background:#fffbeb}.qr .a{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.chip.on{background:#0f1219;color:#fff;border-color:#0f1219}
   .hint{font-size:11.5px;color:var(--muted);font-weight:700;margin-top:6px}
 </style>
 <script src="gmt-tools.js?v=20261125b11"></script>
@@ -47,6 +58,7 @@
 <header>
   <div class="logo"><img src="logo.jpg" alt="General Media Tech" style="width:100%;height:100%;object-fit:contain"></div>
   <div><h1>🧾 عرض سعر</h1><div class="sub">منتجات من النظام أو مكتوبة يدوياً — يُطبع بورقة الفاتورة الرسمية ولا يُعدّ فاتورة</div></div>
+  <span class="duebadge" id="q-due" style="display:none" title="عروض موعد متابعتها اليوم أو فات"></span>
   <a class="back" href="home.html">↩ البوابة</a>
 </header>
 <div class="wrap">
@@ -54,6 +66,7 @@
     <div class="card">
       <h3>👤 العميل</h3>
       <div class="row"><div><label>الاسم</label><input id="q-name" placeholder="اسم العميل" data-cust-pick data-cust-phone="q-phone"></div><div><label>الموبايل</label><input id="q-phone" inputmode="tel" placeholder="09…" style="direction:ltr;text-align:right"></div></div>
+      <div class="hint">اكتب حرفين من الاسم أو الرقم بيطلعلك الزبائن من السجلّ · والزبون الجديد بينحفظ بسجلّ الزبائن لما تحفظ العرض.</div>
     </div>
     <div class="card" style="margin-top:12px">
       <h3>📦 المنتجات</h3>
@@ -67,15 +80,25 @@
       <div class="row"><div><label>صالح لمدّة (أيام)</label><input id="q-days" type="number" min="1" value="7"></div><div><label>رقم العرض</label><input id="q-ref" readonly></div></div>
       <label>ملاحظات (تظهر على العرض)</label><textarea id="q-notes" rows="2" placeholder="مثلاً: السعر يشمل التوصيل داخل دمشق"></textarea>
       <div class="tot"><span>الإجمالي</span><span id="q-total" style="direction:ltr">0.00 $</span></div>
-      <div class="hint">المسودّة تُحفظ على هذا الجهاز تلقائياً.</div>
+      <label>📅 تذكير متابعة (اتّصل بالزبون بهاليوم)</label>
+      <div class="row"><div><input id="q-follow" type="date"></div><div style="display:flex;gap:6px"><button type="button" class="btn ghost sm" data-fu="1">بكرا</button><button type="button" class="btn ghost sm" data-fu="3">٣ أيام</button><button type="button" class="btn ghost sm" data-fu="0">بلا</button></div></div>
+      <div class="hint" id="q-saved">المسودّة محفوظة على هذا الجهاز — اضغط «💾 حفظ العرض» لتنحفظ بالنظام.</div>
+      <div class="qbtns"><button type="button" class="btn dark" id="q-save">💾 حفظ العرض</button><button type="button" class="btn ghost" id="q-list-btn">📂 العروض المحفوظة</button></div>
       <button type="button" class="btn ghost" id="q-new" style="margin-top:8px;width:100%">🆕 عرض جديد (تفريغ)</button>
     </div>
   </div>
   <div class="pv">
-    <div class="bar"><button type="button" class="btn red" id="q-print">🖨️ طباعة / PDF</button><button type="button" class="btn green" id="q-wa">💬 إرسال على واتساب</button></div>
+    <div class="bar"><button type="button" class="btn red" id="q-print">🖨️ طباعة / PDF</button><button type="button" class="btn green" id="q-wa">💬 إرسال على واتساب</button><button type="button" class="btn dark" id="q-inv">🧾 حوّل لفاتورة</button></div>
     <iframe id="pv" title="معاينة عرض السعر"></iframe>
   </div>
 </div>
+<div id="q-sug"></div>
+<div class="ql" id="q-list"><div class="box">
+  <div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:15px">📂 عروض الأسعار المحفوظة</b><button type="button" class="btn ghost sm" id="q-list-x">✕ إغلاق</button></div>
+  <input id="q-list-s" placeholder="🔍 ابحث بالاسم أو الرقم أو رقم العرض أو المنتج" style="margin-top:8px">
+  <div class="chips" id="q-list-f"><button type="button" class="chip on" data-f="active">المفتوحة</button><button type="button" class="chip" data-f="due">📅 بدها متابعة</button><button type="button" class="chip" data-f="converted">صارت فاتورة</button><button type="button" class="chip" data-f="lost">ما تمّت</button><button type="button" class="chip" data-f="all">الكلّ</button></div>
+  <div id="q-list-b"><div class="hint" style="padding:14px 0">جارٍ التحميل…</div></div>
+</div></div>
 <script src="gmt-config.js?v=20261124b1"></script>
 <script src="gmt-core.js?v=20261125b12"></script>
 <script src="gmt-custcache.js?v=20261016a" defer></script>
@@ -86,6 +109,7 @@
 <script src="gmt-share.js?v=20261125b12"></script>
 <script src="gmt-ask.js?v=20261121b"></script>
 <script src="gmt-invoice-tpl.js?v=20261121k"></script>
+<script src="gmt-quotes.js?v=20261125b13"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -97,14 +121,14 @@
   function collect() {
     return { ref: Q.ref, created_at: Q.created_at, name: $('q-name').value.trim(), phone: $('q-phone').value.trim(), items: Q.items,
       discount: Number($('q-disc').value) || 0, currency: $('q-cur').value, rate: Number($('q-rate').value) || 0,
-      valid_days: Number($('q-days').value) || 7, notes: $('q-notes').value.trim(), user: userName() };
+      valid_days: Number($('q-days').value) || 7, notes: $('q-notes').value.trim(), user: userName(), follow_up_at: $('q-follow').value || '', status: Q.status || 'open' };
   }
   function save() { try { localStorage.setItem(LS, JSON.stringify(collect())); } catch (_) {} }
   function load() { try { var d = JSON.parse(localStorage.getItem(LS) || 'null'); if (!d) return false;
     Q.items = d.items || []; Q.ref = d.ref || newRef(); Q.created_at = d.created_at || new Date().toISOString();
     $('q-name').value = d.name || ''; $('q-phone').value = d.phone || ''; $('q-disc').value = d.discount || 0; $('q-cur').value = d.currency || 'usd';
-    $('q-rate').value = d.rate || ''; $('q-days').value = d.valid_days || 7; $('q-notes').value = d.notes || ''; return true; } catch (_) { return false; } }
-  function reset() { Q = { items: [], ref: newRef(), created_at: new Date().toISOString() }; ['q-name', 'q-phone', 'q-notes', 'q-rate'].forEach(function (k) { $(k).value = ''; }); $('q-disc').value = 0; $('q-days').value = 7; $('q-cur').value = 'usd'; }
+    $('q-rate').value = d.rate || ''; $('q-days').value = d.valid_days || 7; $('q-notes').value = d.notes || ''; $('q-follow').value = d.follow_up_at || ''; Q.status = d.status || 'open'; return true; } catch (_) { return false; } }
+  function reset() { Q = { items: [], ref: newRef(), created_at: new Date().toISOString(), status: 'open' }; ['q-name', 'q-phone', 'q-notes', 'q-rate', 'q-follow'].forEach(function (k) { $(k).value = ''; }); $('q-disc').value = 0; $('q-days').value = 7; $('q-cur').value = 'usd'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function paintItems() {
     $('q-items').innerHTML = Q.items.length ? Q.items.map(function (x, i) {
@@ -174,10 +198,103 @@
       }
       window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(txt), '_blank'); return; }
   });
+  /* ══ (TASK-B0541 · المالك seq B1073) الحفظ بالنظام · القائمة · التذكير · التحويل لفاتورة · اقتراح المنتجات على سطر البند ══ */
+  function hasQ() { return !!window.GMTQuotes; }
+  async function saveDb(status, quiet) {
+    if (!hasQ()) return null;
+    var q = collect(); if (!q.items.length && !q.name) { if (!quiet) GMTAsk.alert('العرض فاضي — ضيف منتجات أو اسم زبون أوّلاً.', { title: 'حفظ العرض' }); return null; }
+    try {
+      var r = await GMTQuotes.save(q);
+      if (status && status !== Q.status && Q.status !== 'converted') { await GMTQuotes.mark(q.ref, { status: status }); Q.status = status; }
+      $('q-saved').innerHTML = '✅ محفوظ بالنظام · ' + new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' }) + (r.customer ? ' · الزبون بسجلّ الزبائن' : '');
+      save(); refreshDue(); return r;
+    } catch (e) { $('q-saved').textContent = '⚠️ ما انحفظ بالنظام (' + e.message + ') — المسودّة محفوظة على الجهاز'; if (!quiet) GMTAsk.alert('تعذّر الحفظ: ' + e.message, { title: 'حفظ العرض' }); return null; }
+  }
+  var ALL = [];
+  async function refreshDue() {
+    if (!hasQ()) return;
+    try { ALL = await GMTQuotes.list({}); } catch (_) { return; }
+    var d = GMTQuotes.due(ALL), b = $('q-due');
+    b.style.display = d.length ? '' : 'none'; b.textContent = '📅 ' + d.length + ' عرض بدّو متابعة';
+  }
+  var LF = 'active';
+  function paintList() {
+    var s = String($('q-list-s').value || '').trim().toLowerCase(), dueSet = {};
+    GMTQuotes.due(ALL).forEach(function (r) { dueSet[r.ref] = 1; });
+    var rows = ALL.filter(function (r) {
+      if (LF === 'active' && !(r.status === 'open' || r.status === 'sent')) return false;
+      if (LF === 'due' && !dueSet[r.ref]) return false;
+      if ((LF === 'converted' || LF === 'lost') && r.status !== LF) return false;
+      if (!s) return true;
+      return [r.ref, r.customer_name, r.customer_phone].concat((r.items || []).map(function (x) { return x.name; })).join(' ').toLowerCase().indexOf(s) >= 0;
+    }).sort(function (a, b) { return (dueSet[b.ref] ? 1 : 0) - (dueSet[a.ref] ? 1 : 0); });
+    $('q-list-b').innerHTML = rows.length ? rows.map(function (r) {
+      var cur = r.currency === 'syp' && r.rate;
+      return '<div class="qr ' + esc(r.status) + (dueSet[r.ref] ? ' due' : '') + '" data-qref="' + esc(r.ref) + '"><b dir="ltr">' + esc(r.ref) + '</b> · ' + esc(GMTQuotes.ST[r.status] || r.status) +
+        ' · ' + esc(r.customer_name || 'بلا اسم') + (r.customer_phone ? ' <span dir="ltr">' + esc(r.customer_phone) + '</span>' : '') +
+        ' · <b>' + (cur ? Math.round(Number(r.total) * r.rate).toLocaleString('en-US') + ' ل.س' : '$' + Number(r.total || 0).toFixed(2)) + '</b>' +
+        '<div style="color:#64748b">' + esc((r.items || []).map(function (x) { return x.name + ' ×' + x.qty; }).join(' · ')) + '</div>' +
+        '<div style="color:#64748b">' + new Date(r.created_at).toLocaleDateString('ar-SY') + (r.follow_up_at ? ' · 📅 متابعة ' + esc(String(r.follow_up_at).slice(0, 10)) + (dueSet[r.ref] ? ' <b style="color:#b45309">— اليوم/فات</b>' : '') : '') + (r.invoice_number ? ' · 🧾 فاتورة ' + esc(r.invoice_number) : '') + '</div>' +
+        '<div class="a"><button type="button" class="btn ghost sm" data-qa="open">✏️ فتح</button>' +
+        (r.status === 'converted' ? '' : '<button type="button" class="btn dark sm" data-qa="inv">🧾 حوّل لفاتورة</button><button type="button" class="btn ghost sm" data-qa="fu">📅 تذكير بكرا</button><button type="button" class="btn ghost sm" data-qa="lost">❌ ما تمّ</button>') +
+        '<button type="button" class="btn ghost sm" data-qa="dup">📄 نسخة جديدة</button></div></div>';
+    }).join('') : '<div class="hint" style="padding:14px 0">ما في عروض بهالتصنيف.</div>';
+  }
+  async function openList() { $('q-list').style.display = 'flex'; $('q-list-b').innerHTML = '<div class="hint" style="padding:14px 0">جارٍ التحميل…</div>'; await refreshDue(); paintList(); }
+  function fillFrom(d) { localStorage.setItem(LS, JSON.stringify(d)); load(); paintItems(); render(); }
+  function toInvoice(ref) {
+    var go = function () { location.href = 'pos.html?quote=' + encodeURIComponent(ref); };
+    var q = collect();
+    if (ref === q.ref) saveDb(null, true).then(go); else go();
+  }
+  /* اقتراح منتجات الجرد وأنت عم تكتب اسم البند بالسطر (يدوي أو معدّل) */
+  var sugFor = -1;
+  function suggest(el) {
+    var box = $('q-sug'), qs = String(el.value || '').trim().toLowerCase(); sugFor = +el.dataset.i;
+    if (qs.length < 2) { box.style.display = 'none'; return; }
+    var words = qs.split(/\s+/).filter(Boolean);
+    var hits = PR.filter(function (p) { var n = String(p.name || '').toLowerCase(); return words.every(function (w) { return n.indexOf(w) >= 0; }) || String(p.barcode || '') === qs; }).slice(0, 12);
+    if (!hits.length) { box.style.display = 'none'; return; }
+    box.innerHTML = hits.map(function (p) { return '<div class="ri" data-sug="' + esc(p.id) + '"><span style="flex:1">' + esc(p.name) + '</span><b>$' + (Number(p.price) || 0).toFixed(2) + '</b></div>'; }).join('');
+    var r = el.getBoundingClientRect(); box.style.top = (r.bottom + window.scrollY + 2) + 'px'; box.style.left = (r.left + window.scrollX) + 'px'; box.style.width = Math.max(r.width, 260) + 'px'; box.style.display = 'block';
+  }
+  document.addEventListener('input', function (e) { if (e.target.dataset && e.target.dataset.f === 'name') suggest(e.target); }, true);
+  document.addEventListener('focusout', function (e) { if (e.target.dataset && e.target.dataset.f === 'name') setTimeout(function () { $('q-sug').style.display = 'none'; }, 250); });
+  document.addEventListener('mousedown', function (e) {
+    var el = e.target.closest('[data-sug]'); if (!el) return; e.preventDefault();
+    var p = PR.find(function (x) { return String(x.id) === el.dataset.sug; }), it = Q.items[sugFor]; if (!p || !it) return;
+    it.pid = p.id; it.name = p.name; if (!(Number(it.price) > 0)) it.price = Number(p.price) || 0;
+    $('q-sug').style.display = 'none'; paintItems(); render();
+  });
+  document.addEventListener('click', function (e) {
+    var el = e.target, id = el.id;
+    if (id === 'q-save') { saveDb(null, false); return; }
+    if (id === 'q-list-btn') { openList(); return; }
+    if (id === 'q-due') { LF = 'due'; [].forEach.call(document.querySelectorAll('#q-list-f .chip'), function (c) { c.classList.toggle('on', c.dataset.f === 'due'); }); openList(); return; }
+    if (id === 'q-list-x' || id === 'q-list') { $('q-list').style.display = 'none'; return; }
+    if (id === 'q-inv') { if (!collect().items.length) { GMTAsk.alert('العرض بلا منتجات.', { title: 'تحويل لفاتورة' }); return; } toInvoice(collect().ref); return; }
+    if (el.dataset && el.dataset.fu != null && el.closest('.card')) { var n = +el.dataset.fu; if (!n) $('q-follow').value = ''; else { var d = new Date(); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); $('q-follow').value = d.toISOString().slice(0, 10); } render(); return; }
+    var chip = el.closest('#q-list-f .chip'); if (chip) { LF = chip.dataset.f; [].forEach.call(document.querySelectorAll('#q-list-f .chip'), function (c) { c.classList.toggle('on', c === chip); }); paintList(); return; }
+    var qa = el.closest('[data-qa]'); if (qa) {
+      var ref = qa.closest('[data-qref]').dataset.qref, r = ALL.find(function (x) { return x.ref === ref; }); if (!r) return; var a = qa.dataset.qa;
+      if (a === 'open') { fillFrom(GMTQuotes.toDraft(r)); $('q-list').style.display = 'none'; $('q-saved').textContent = '📂 مفتوح من النظام: ' + ref; return; }
+      if (a === 'dup') { var d2 = GMTQuotes.toDraft(r); d2.ref = newRef(); d2.created_at = new Date().toISOString(); d2.status = 'open'; d2.follow_up_at = ''; d2.invoice_number = ''; fillFrom(d2); $('q-list').style.display = 'none'; return; }
+      if (a === 'inv') { toInvoice(ref); return; }
+      if (a === 'fu' || a === 'lost') { var t2 = new Date(); t2.setDate(t2.getDate() + 1); t2.setMinutes(t2.getMinutes() - t2.getTimezoneOffset());
+        GMTQuotes.mark(ref, a === 'lost' ? { status: 'lost' } : { follow_up_at: t2.toISOString().slice(0, 10) }).then(function () { return refreshDue(); }).then(paintList).catch(function (er) { GMTAsk.alert('تعذّر: ' + er.message); }); return; }
+    }
+    /* الطباعة والإرسال بيحفظوا العرض بالنظام تلقائياً (الإرسال ⇒ «انبعت») */
+    if (id === 'q-print') saveDb(null, true);
+    if (id === 'q-wa') saveDb('sent', true);
+  }, true);
+  $('q-list-s').addEventListener('input', paintList);
+  window.__quoteSaveDb = saveDb;
+  var qp = null; try { qp = new URLSearchParams(location.search).get('open'); } catch (_) {}
   if (!load()) reset();
-  paintItems(); render(); loadProducts();
+  paintItems(); render(); loadProducts(); refreshDue();
+  if (qp && hasQ()) GMTQuotes.get(qp).then(function (r) { if (r) { fillFrom(GMTQuotes.toDraft(r)); $('q-saved').textContent = '📂 مفتوح من النظام: ' + r.ref; } }).catch(function () {});
 })();
 </script>
-<script src="gmt-whatsnew.js?v=20261125b12"></script>
+<script src="gmt-whatsnew.js?v=20261125b13"></script>
 </body>
 </html>
