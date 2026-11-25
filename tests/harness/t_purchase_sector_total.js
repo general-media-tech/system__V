@@ -15,7 +15,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(/حقائب/.test(sec0) && /إضاءة/.test(sec0) && !/قديم يدوي/.test(sec0), 'القطاع في الفاتورة يُحسب تلقائياً من مجموعات المنتجات: ' + sec0);
   await pg.evaluate(() => toggleInvEdit()); await pg.waitForTimeout(300);
   const idx = await pg.evaluate(() => { const th = [...document.querySelectorAll('#inv-items-tbl thead th')].map(x => x.textContent.trim()); return th.findIndex(t => /الكمية|العدد/.test(t)); });
-  await pg.evaluate(i => { const c = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[i]; (c.querySelector('[contenteditable]') || c).textContent = '30'; saveInvEdits(); }, idx);
+  await pg.evaluate(i => { const c = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[i]; (c.querySelector('[contenteditable]') || c).textContent = '30'; saveInvEdits(); }, idx);
   await pg.waitForTimeout(800);
   await pg.evaluate(() => { const m = document.getElementById('conflictModal'); if (m && m.classList.contains('open')) applyAllFromInv(); });
   await pg.waitForTimeout(1500);

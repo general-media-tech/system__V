@@ -16,12 +16,12 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const { browser, pg, errs } = await H.open('purchase.html', { w: 1366, h: 900, mobile: false, wait: 6000 });
   await pg.evaluate(id => { openInvFromList(id); }, IV.id); await pg.waitForTimeout(700);
   await pg.evaluate(() => toggleInvEdit()); await pg.waitForTimeout(300);
-  const setCell = (r, c, v) => pg.evaluate(([r, c, v]) => { const td = document.querySelectorAll('#inv-items-tbl tbody tr')[r].querySelectorAll('td')[c]; const ed = td.querySelector('[contenteditable="true"]'); ed.textContent = v; ed.dispatchEvent(new Event('input', { bubbles: true })); }, [r, c, v]);
+  const setCell = (r, c, v) => pg.evaluate(([r, c, v]) => { const td = document.querySelectorAll('#inv-items-tbl tbody tr')[r].querySelectorAll('td:not(.col-real)')[c]; const ed = td.querySelector('[contenteditable="true"]'); ed.textContent = v; ed.dispatchEvent(new Event('input', { bubbles: true })); }, [r, c, v]);
   await setCell(0, 4, '12.5'); await setCell(2, 4, '3.25');
   await pg.evaluate(() => { const s = [...document.querySelectorAll('#invPage [data-field="supplier"]')].find(e => !e.closest('#inv-items-tbl')); if (s) s.textContent = 'مورّد جديد'; });
   /* احذف البند الأوسط */
   await pg.evaluate(() => { window.GMTAsk.confirm = async () => true; deleteInvItem(1); }); await pg.waitForTimeout(800);
-  const st = await pg.evaluate(() => { const rows = [...document.querySelectorAll('#inv-items-tbl tbody tr')]; const v = r => { const td = rows[r] && rows[r].querySelectorAll('td')[4]; const ed = td && td.querySelector('[contenteditable="true"]'); return ed ? ed.textContent.trim() : null; };
+  const st = await pg.evaluate(() => { const rows = [...document.querySelectorAll('#inv-items-tbl tbody tr')]; const v = r => { const td = rows[r] && rows[r].querySelectorAll('td:not(.col-real)')[4]; const ed = td && td.querySelector('[contenteditable="true"]'); return ed ? ed.textContent.trim() : null; };
     const sup = [...document.querySelectorAll('#invPage [data-field="supplier"]')].find(e => !e.closest('#inv-items-tbl'));
     return { n: rows.length, p0: v(0), p1: v(1), edit: invEditMode, editable: !!document.querySelector('#inv-items-tbl [contenteditable="true"]'), sup: sup && sup.textContent.trim() }; });
   ok(st.n === 2, 'حُذف البند الأوسط (بقي ' + st.n + ')');
@@ -45,7 +45,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const fill = await pg.evaluate(async ([a, iv]) => {
     ships = ships.concat([{ id: 777777, inv_number: 'IMP-OLD-1', supplier: 'مورّد سابق', currency: 'USD', inv_date: '2026-01-01', status: 'arrived', items_snapshot: [{ id: a, unit_price: 9, orig_unit_price: 8.75 }] }]);
     openInvFromList(iv); await new Promise(r => setTimeout(r, 600)); if (!invEditMode) toggleInvEdit();
-    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]'); td.textContent = '0';
+    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[4].querySelector('[contenteditable="true"]'); td.textContent = '0';
     _invToolbarSync(); const shown = document.getElementById('inv-fill-btn').style.display;
     let asked = ''; GMTAsk.confirm = async m => { asked = m; return true; };
     await purFillZeroPrices(); return { shown, asked, v: td.textContent };
@@ -53,10 +53,10 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(fill.shown === 'flex' && /IMP-OLD-1|8\.75/.test(fill.asked) && parseFloat(fill.v) === 8.75, '«💡 عبّئ الأسعار الناقصة» ظاهر ⇒ يسأل بالمصدر ⇒ يكتب 8.75 من IMP-OLD-1: ' + JSON.stringify({ s: fill.shown, v: fill.v }));
   /* صيد النمط: سعرٌ مكتوب ثمّ كتابة تكلفة شحن ⇒ السعر يبقى (كان recalcInv يعيد رسمه من النموذج) */
   const keep = await pg.evaluate(async () => {
-    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]'); td.textContent = '7.25';
+    const td = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[4].querySelector('[contenteditable="true"]'); td.textContent = '7.25';
     const cs = document.querySelector('#invPage [data-field="cs"]'); if (cs) { cs.textContent = '30'; cs.dispatchEvent(new Event('input', { bubbles: true })); } else recalcInv();
     await new Promise(r => setTimeout(r, 200));
-    return document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').textContent;
+    return document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[4].querySelector('[contenteditable="true"]').textContent;
   });
   ok(parseFloat(keep) === 7.25, 'سعرٌ مكتوب ثمّ تكلفة شحن ⇒ السعر المكتوب باقٍ: ' + keep);
   /* (seq B1046) أرقام الصين CN- وأوروبا EU- (كان IMP- للاثنين فتكرّر IMP-2026-0001) · البحث بالرقم القديم IMP- يجدها */

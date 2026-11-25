@@ -20,13 +20,13 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.evaluate(id => { openInvFromList(id); toggleInvEdit(); }, CN.id);
   await pg.waitForTimeout(500);
   const ed = await pg.evaluate(() => {
-    const rows = document.querySelectorAll('#inv-items-tbl tbody tr'); const r0 = rows[0].querySelectorAll('td');
+    const rows = document.querySelectorAll('#inv-items-tbl tbody tr'); const r0 = rows[0].querySelectorAll('td:not(.col-real)');
     const nm = r0[2].querySelector('[contenteditable]'); const sale = r0[7].querySelector('[contenteditable]');
     return { nameEditable: !!nm && nm.isContentEditable, saleEditable: !!sale && sale.isContentEditable };
   });
   ok(ed.nameEditable && ed.saleEditable, 'في وضع التعديل: اسم المنتج المربوط والمبيع قابلان للتحرير ' + JSON.stringify(ed));
   await pg.evaluate(() => {
-    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td');
+    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)');
     r0[2].querySelector('[contenteditable]').textContent = 'ستاند 8819 بالاسم الجديد';
     r0[5].querySelector('[contenteditable]').textContent = '4.5';   // الحد الأدنى
     r0[6].querySelector('[contenteditable]').textContent = '5';     // الجملة

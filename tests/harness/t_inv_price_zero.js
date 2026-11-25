@@ -19,7 +19,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await pg.evaluate(() => openInvFromList('861')); await sleep(400);
   await pg.evaluate(() => toggleInvEdit()); await sleep(200);
   await pg.evaluate(() => {   // ③ الجملة للبند الأوّل 68 بدل 67
-    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td');
+    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)');
     r0[6].querySelector('[contenteditable="true"]').textContent = '68';
     saveInvEdits();
   });

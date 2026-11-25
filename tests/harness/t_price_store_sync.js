@@ -22,19 +22,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const { browser, pg, errs } = await H.open('purchase.html', { w: 1366, h: 900, mobile: false, wait: 6000 });
   await pg.evaluate(() => openInvFromList('831')); await sleep(400);
   // ④ التكاليف: 10 + 20 على قيمة 40 ⇒ معامل 1.75 ⇒ 10 → 17.50
-  const v = await pg.evaluate(() => ({ u: document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('div').textContent.trim(),
+  const v = await pg.evaluate(() => ({ u: document.querySelector('#inv-items-tbl tbody tr td.col-real [data-real-u]').textContent.trim(),   /* (B1094) */
     cx: (document.querySelector('#invPage [data-field="cx"]') || {}).textContent, tc: (document.getElementById('inv-total-costs') || {}).textContent }));
   ok(v.cx === '20.00' && v.tc === '30.00' && v.u === '17.50', '④ «أجور تحويل وأخرى» تظهر وتُجمع (30) وتوزَّع على السعر (10 ⇒ 17.50) ' + JSON.stringify(v));
   await pg.evaluate(() => toggleInvEdit()); await sleep(200);
   // ③ أسهم إكسل: ركّز على مبيع البند الأوّل ثم Enter ⇒ مبيع البند الثاني · ← ⇒ الخانة على اليسار (الملاحظات)
   const nav = await pg.evaluate(() => {
     const rows = document.querySelectorAll('#inv-items-tbl tbody tr');
-    const sale0 = rows[0].querySelectorAll('td')[7].querySelector('[contenteditable="true"]'); sale0.focus();
+    const sale0 = rows[0].querySelectorAll('td:not(.col-real)')[7].querySelector('[contenteditable="true"]'); sale0.focus();
     const key = k => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
-    const where = () => { const td = document.activeElement.closest('td'); return [[...td.parentElement.parentElement.children].indexOf(td.parentElement), td.cellIndex]; };
+    const where = () => { const td = document.activeElement.closest('td'); return [[...td.parentElement.parentElement.children].indexOf(td.parentElement), [...td.parentElement.children].filter(x => !x.classList.contains('col-real')).indexOf(td)]; };   /* (B1094) العمود المعروض خارج الترقيم */
     const a = where(); key('Enter'); const b = where(); key('ArrowDown'); const c = where(); key('ArrowUp'); const d = where(); key('ArrowLeft'); const e = where(); key('ArrowRight'); const f = where();
     const sel = String(getSelection());
-    rows[0].querySelectorAll('td')[4].querySelector('[contenteditable="true"]').focus(); const g0 = where(); key('ArrowLeft'); const g1 = where(); key('ArrowLeft'); const g2 = where();
+    rows[0].querySelectorAll('td:not(.col-real)')[4].querySelector('[contenteditable="true"]').focus(); const g0 = where(); key('ArrowLeft'); const g1 = where(); key('ArrowLeft'); const g2 = where();
     window.__chain = [g0, g1, g2];
     return { a, b, c, d, e, f, sel, chain: window.__chain };
   });
@@ -45,8 +45,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // ① + ② تعديل المبيع وحفظ
   await pg.evaluate(() => {
     const rows = document.querySelectorAll('#inv-items-tbl tbody tr');
-    rows[0].querySelectorAll('td')[7].querySelector('[contenteditable="true"]').textContent = '60';
-    rows[1].querySelectorAll('td')[7].querySelector('[contenteditable="true"]').textContent = '9';
+    rows[0].querySelectorAll('td:not(.col-real)')[7].querySelector('[contenteditable="true"]').textContent = '60';
+    rows[1].querySelectorAll('td:not(.col-real)')[7].querySelector('[contenteditable="true"]').textContent = '9';
     saveInvEdits();
   });
   await sleep(800);

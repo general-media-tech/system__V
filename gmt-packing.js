@@ -142,7 +142,7 @@
   function allocate(P, map, items, costs, opt) {
     opt = opt || {};
     var val = function (ii) { return (Number(items[ii].qty) || 0) * (Number(items[ii].orig_unit_price != null ? items[ii].orig_unit_price : items[ii].unit_price) || 0); };
-    var out = items.map(function () { return { customs: 0, ship: 0, other: 0, kg: 0, ctn: [], codes: [] }; });
+    var out = items.map(function () { return { customs: 0, ship: 0, other: 0, kg: 0, cbm: 0, ctn: [], codes: [] }; });
     /* (المالك seq B1045 «الاوربية مندفع على الوزن مو على الحجم … لكن الاوربية احسب التكلفة على النظام القديم تبع السعر»)
        shipBy:'value' ⇒ الجمارك والشحن يتوزّعان على البنود **بقيمتها** (النظام القديم) — الكراتين تبقى لرقم الكرتونة والوزن فقط */
     var byValue = opt.shipBy === 'value' || opt.shipBy === 'qty';   /* (TASK-B0556 · A1004 P5) «qty» = الجمارك والشحن بعدد القطع */
@@ -158,7 +158,7 @@
       var v = its.reduce(function (s, ii) { return s + val(ii); }, 0) || its.length;
       its.forEach(function (ii) {
         var w = (val(ii) || (v === its.length ? 1 : 0)) / v;
-        out[ii].customs += cC * w; out[ii].ship += cS * w; out[ii].kg += (c.kg || 0) * w;
+        out[ii].customs += cC * w; out[ii].ship += cS * w; out[ii].kg += (c.kg || 0) * w; out[ii].cbm += (c.cbm || 0) * w;   /* (B1094) الحجم كمان ⇒ «حجم القطعة» من الفواتير السابقة */
         if (out[ii].ctn.indexOf(c.no) < 0) out[ii].ctn.push(c.no); if (c.hs && out[ii].codes.indexOf(c.hs) < 0) out[ii].codes.push(c.hs);
       });
     });
@@ -171,7 +171,7 @@
       else if (allV > 0 && (lostC || lostS)) { out[ii].customs += lostC * val(ii) / allV; out[ii].ship += lostS * val(ii) / allV; }   /* لا يضيع شيء: المجموع = المدفوع */
       var q = Number(it.qty) || 0, tot = out[ii].customs + out[ii].ship + out[ii].other;
       out[ii].unit = q > 0 ? Math.round(((Number(it.orig_unit_price != null ? it.orig_unit_price : it.unit_price) || 0) + tot / q) * 100) / 100 : null;
-      ['customs', 'ship', 'other'].forEach(function (k) { out[ii][k] = Math.round(out[ii][k] * 100) / 100; }); out[ii].kg = Math.round(out[ii].kg * 1000) / 1000;
+      ['customs', 'ship', 'other'].forEach(function (k) { out[ii][k] = Math.round(out[ii][k] * 100) / 100; }); out[ii].kg = Math.round(out[ii].kg * 1000) / 1000; out[ii].cbm = Math.round(out[ii].cbm * 1e5) / 1e5;
     });
     var tot = function (k) { return Math.round(out.reduce(function (s, o) { return s + (o[k] || 0); }, 0) * 100) / 100; };
     return { items: out, basis: wOf ? 'all-by-qty' : byValue ? 'all-by-value' : (useCbm ? 'ship-by-cbm' : 'ship-by-kg') + '+customs-by-duty+other-by-value', check: { customs: tot('customs'), ship: tot('ship'), other: tot('other') }, warn: warn };
@@ -189,7 +189,7 @@
   function stamp(item, a, src, basis, costsTotal) {   /* costsTotal = مجموع تكاليف الفاتورة الخمس (يقارنه _allocOf ليعرف أنّ التوزيع ما زال صالحاً) */
     var q = Number(item.qty) || 0, o = Number(item.orig_unit_price != null ? item.orig_unit_price : item.unit_price) || 0;
     return Object.assign({}, item, { alloc_unit: a.unit, alloc_qty: q, alloc_orig: o, alloc_tot: Math.round((Number(costsTotal) || 0) * 100) / 100,
-      alloc: { customs: a.customs, ship: a.ship, other: a.other, kg: a.kg, ctn: a.ctn, codes: a.codes, basis: basis, src: src } });
+      alloc: { customs: a.customs, ship: a.ship, other: a.other, kg: a.kg, cbm: a.cbm || 0, ctn: a.ctn, codes: a.codes, basis: basis, src: src } });
   }
   /* الذاكرة من مطابقةٍ معتمدة: وصف السطر ⇒ معرّفات منتجاته */
   function memoryOf(lines, map, items, cartons) {

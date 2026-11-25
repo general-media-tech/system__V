@@ -19,7 +19,7 @@ const qtys = async id => ((await H.call('/rest/v1/import_log?id=eq.' + id + '&se
     await pg.evaluate(i => openInvFromList(i), String(id)); await sleep(500);
     await pg.evaluate(() => toggleInvEdit()); await sleep(250);
     await pg.evaluate(([v, f]) => { const rows = document.querySelectorAll('#inv-items-tbl tbody tr');
-      v.forEach((t, k) => { if (t != null) rows[k].querySelectorAll('td')[3].querySelector('[contenteditable="true"]').textContent = t; }); window[f](); }, [vals, fn]);
+      v.forEach((t, k) => { if (t != null) rows[k].querySelectorAll('td:not(.col-real)')[3].querySelector('[contenteditable="true"]').textContent = t; }); window[f](); }, [vals, fn]);
     await sleep(4000);
   };
   await edit(871, ['0', '', '٣'], 'saveInvEdits');
@@ -31,7 +31,7 @@ const qtys = async id => ((await H.call('/rest/v1/import_log?id=eq.' + id + '&se
   q = await qtys(872);
   ok(q[0] === 0 && q[1] === 10 && q[2] === 30, '② «حفظ سحابي»: الصفر حُفظ والباقي كما هو: ' + q.join(','));
   await pg.evaluate(() => openInvFromList('871')); await sleep(600);
-  const shown = await pg.evaluate(() => document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[3].innerText.trim());
+  const shown = await pg.evaluate(() => document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[3].innerText.trim());
   ok(shown === '0', '④ إعادة الفتح تعرض 0 لا خانة فارغة: «' + shown + '»');
   const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
