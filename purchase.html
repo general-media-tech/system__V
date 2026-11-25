@@ -2686,6 +2686,30 @@ function _exBuild(colOverride){
     if(hb>h0&&hb>=Math.ceil(0.6*Math.min(itemRows.length,_imgKeysSorted.length))) _imgShift=hm>=hp?-1:1;
   }
   L.imgShift=_imgShift;
+  /* (TASK-B0569 · seq B1107/B1108) «زي ما بيعمل الإنسان»: الصورة لصاحب الصفّ اللي بتبلّش فيه (موقعها الحقيقي عالورقة، حتى العائمة)،
+     وكلّ بند بيملك صفّه والصفوف الفاضية تحته لحدّ البند الجاي ⇒ بند بلا صورة ما بيزيح شي · صورتين لبند (مونتاج) التنتين إله ·
+     صورة فوق العناوين (شعار) أو بعيدة تحت آخر بند (ختم) ⇒ ما بتنحسب */
+  const G=window._exImgGeo; let _geo=null;
+  if(G&&G.imgs&&G.imgs.length){
+    const itemRows=[]; for(let k=startIdx;k<rows.length;k++){ const nm=String(gv(rows[k],col.name)||'').trim(); if(nm&&!totalWords.some(w=>nm.toLowerCase().includes(norm(w)))&&!(/^\d+$/.test(nm)&&!(col.name>=0&&headerIdx>=0))) itemRows.push(k); }
+    if(itemRows.length){
+      const hitG=d=>itemRows.filter(Rw=>G.imgs.some(g=>g.row===Rw+d)).length, h0=hitG(0), hm=hitG(-1), hp=hitG(1), hb=Math.max(hm,hp);
+      const sh=(hb>h0&&hb>=Math.ceil(0.6*Math.min(itemRows.length,G.imgs.length)))?(hm>=hp?-1:1):0;
+      _imgShift=sh; L.imgShift=sh;
+      const gaps=itemRows.slice(1).map((r,k)=>r-itemRows[k]).sort((a,b)=>a-b), span=gaps.length?gaps[Math.floor(gaps.length/2)]:1;
+      const T=G.T, first=itemRows[0], last=itemRows[itemRows.length-1];
+      _geo={}; let orphan=0;
+      G.imgs.slice().sort((a,b)=>a.row-b.row||a.x-b.x).forEach(g=>{
+        const r=g.row-sh; let owner=null;
+        if(r<first){ /* فوق أوّل بند: إلّا إذا أغلبها نازلة على صفّ أوّل بند */ const st=T[first]||0, en=T[first+1]||st; const ov=Math.min(g.bottom,en)-Math.max(g.top,st); if(ov>=0.5*(g.bottom-g.top)) owner=first; else return; }
+        else if(r>last){ if(r>last+Math.max(span,1)-1){ orphan++; return; } owner=last; }   /* آخر بند بيملك قدّ «بلوك» عادي تحته — أبعد من هيك ما منربطها بس منبّه (يمكن صورة بمكان غلط) */
+        else { for(let k=itemRows.length-1;k>=0;k--) if(itemRows[k]<=r){ owner=itemRows[k]; break; } }
+        if(owner==null){ orphan++; return; }
+        (_geo[owner]=_geo[owner]||[]).push(g.url);
+      });
+      L.geoOrphans=orphan;
+    }
+  }
 
   exRows=rows.slice(startIdx).map((r,i)=>{
     const name=String(gv(r,col.name)||'').trim();
@@ -2703,17 +2727,20 @@ function _exBuild(colOverride){
        الاحتياطي مشروط: لا يُستعمل إلا إذا لم تُطابق **أي** صورة برقم صفها
        (أي أن الملف كلّه من مصدر لا تتوافق مراسيه) — عندئذٍ فقط نرتّب بالتسلسل. */
     const excelRowNo = startIdx + i;
-    let imageData = rowToImage[excelRowNo+_imgShift];
+    let imageData = _geo ? ((_geo[excelRowNo]||[])[0]||'') : rowToImage[excelRowNo+_imgShift];
+    const _imgsAll = _geo ? (_geo[excelRowNo]||[]).filter(Boolean) : null;
     /* في الوضع التسلسلي (صور عائمة أو ملف .xls قديم) المفاتيح 0,1,2… بترتيب
        ورود الصور، فنقرأها بفهرس البند مباشرةً. */
-    if(_imgMode==='sequential') imageData = rowToImage[i];
-    if(imageData===undefined && !_anyRowMatched && _imgKeysSorted.length){
+    if(!_geo && _imgMode==='sequential') imageData = rowToImage[i];
+    /* صور داخل الخلية (WPS/365) ما إلها موقع رسم ⇒ برقم صفّها إذا البند ما أخد صورة */
+    if(_geo && !imageData && rowToImage[excelRowNo] && !G.imgs.some(g=>g.url===rowToImage[excelRowNo])) imageData=rowToImage[excelRowNo];
+    if(!_geo && imageData===undefined && !_anyRowMatched && _imgKeysSorted.length){
       const k=_imgKeysSorted[_seqIdx++];
       imageData = (k!==undefined)?rowToImage[k]:'';
     }
     imageData = imageData||'';
     const num=idx=>{const v=gv(r,idx);return looksNum(v)?parseFloat(String(v).replace(',','.')):0;};
-    return {name,image_url:imageData,
+    return {name,image_url:imageData,images:(_imgsAll&&_imgsAll.length>1)?_imgsAll:null,
       qty:parseInt(gv(r,col.qty))||1,
       netCost:num(col.purchase),
       minPrice:num(col.min),
@@ -2742,7 +2769,7 @@ function _exBuild(colOverride){
   /* (B1106) صور ما انربطت ببند · نفس الصورة على أكتر من بند ⇐ تنبيه بالمعاينة (والتصحيح بالضغط على صورة البند) */
   try{
     const used={}; exRows.forEach(r=>{ if(r.image_url) used[r.image_url]=(used[r.image_url]||0)+1; });
-    L.orphans=Object.values(rowToImage).filter(u=>u&&!used[u]).length;
+    L.orphans=(window._exImgGeo&&L.geoOrphans!=null)?L.geoOrphans:Object.values(rowToImage).filter(u=>u&&!used[u]).length;
     L.dups=Object.keys(used).filter(u=>used[u]>1).length;
     exRows.forEach(r=>{ r.imgDup=!!(r.image_url&&used[r.image_url]>1); });
     if(exRows.length) renderExcelPreview();
@@ -2965,6 +2992,7 @@ function extractXlsImages(bytes){
 }
 
 async function buildRowImageMap(arrayBuffer){
+  try{ window._exImgGeo=null; }catch(_){}
   /* ═══════════════════════════════════════════════════════════════════════
      🖼️ استخراج صور Excel وربطها بصفوفها — أُعيدت كتابته 2026-08-23
      السبب (اختُبر على ملفات .xlsx حقيقية مبنيّة بـopenpyxl):
@@ -3049,11 +3077,20 @@ async function buildRowImageMap(arrayBuffer){
         if(!ridM) continue;
         const rowM=seg.match(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?row>(\d+)<\/(?:\w+:)?row>/);
         const colM=seg.match(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?col>(\d+)<\/(?:\w+:)?col>/);
+        /* (TASK-B0569 · seq B1107/B1108) هندسة الصورة الحقيقية: وين بتقعد عالورقة (EMU) — مش بس صفّ البداية */
+        const _n=(re)=>{const m=seg.match(re);return m?parseInt(m[1],10):null;};
+        const fromRowOff=_n(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?rowOff>(-?\d+)<\/(?:\w+:)?rowOff>/)||0;
+        const toRow=_n(/<(?:\w+:)?to>[\s\S]*?<(?:\w+:)?row>(\d+)<\/(?:\w+:)?row>/);
+        const toRowOff=_n(/<(?:\w+:)?to>[\s\S]*?<(?:\w+:)?rowOff>(-?\d+)<\/(?:\w+:)?rowOff>/)||0;
+        const posY=_n(/<(?:\w+:)?pos\b[^>]*\by="(-?\d+)"/), posX=_n(/<(?:\w+:)?pos\b[^>]*\bx="(-?\d+)"/);
+        const extCy=_n(/<(?:\w+:)?ext\b[^>]*\bcy="(\d+)"/);
+        const fromColOff=_n(/<(?:\w+:)?from>[\s\S]*?<(?:\w+:)?colOff>(-?\d+)<\/(?:\w+:)?colOff>/)||0;
         anchorList.push({
           excelRow: rowM ? parseInt(rowM[1],10) : -1,     // -1 = عائمة بلا صف
           col: colM ? parseInt(colM[1],10) : -1,
           rid: ridM[1],
-          docIndex: _docIdx++
+          docIndex: _docIdx++,
+          fromRowOff, toRow, toRowOff, posY, posX, extCy, fromColOff
         });
       }
       // المراسي ذات الصف تُرتَّب بالصف؛ العائمة تبقى بترتيب المستند
@@ -3071,6 +3108,35 @@ async function buildRowImageMap(arrayBuffer){
       anchored.forEach(a=>anchorList.push(a));
       floating.forEach(a=>anchorList.push(a));
 
+      /* (TASK-B0569) ارتفاعات الصفوف من الورقة ⇐ موقع كلّ صورة بالـEMU ⇐ القارئ بيوزّعها على البنود بالتداخل (مش بالترتيب) */
+      const _urlOf={};
+      try{
+        const sx=dec(zipFiles['xl/worksheets/sheet1.xml']||'');
+        const defH=parseFloat((sx.match(/<sheetFormatPr\b[^>]*\bdefaultRowHeight="([\d.]+)"/)||[])[1])||15;
+        const custom={}; for(const m of sx.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>/g)){ const h=(m[0].match(/\bht="([\d.]+)"/)||[])[1]; if(h) custom[parseInt(m[1],10)-1]=parseFloat(h); }
+        const maxR=Math.max(400,...Object.keys(custom).map(Number).map(x=>x+50),...anchorList.map(a=>(a.toRow||a.excelRow||0)+50));
+        const T=[0]; for(let r=0;r<maxR;r++) T.push(T[r]+(custom[r]!=null?custom[r]:defH)*12700);
+        const geo=[];
+        for(const a of anchorList){
+          let top=null,bottom=null;
+          if(a.posY!=null&&a.excelRow<0){ top=a.posY; bottom=top+(a.extCy||381000); }
+          else if(a.excelRow>=0&&a.excelRow<T.length){ top=T[a.excelRow]+a.fromRowOff;
+            if(a.toRow!=null&&a.toRow<T.length) bottom=T[a.toRow]+a.toRowOff; else bottom=top+(a.extCy||Math.max(1,T[a.excelRow+1]-T[a.excelRow])); }
+          if(top==null) continue;
+          if(bottom<=top) bottom=top+1;
+          const eps=Math.min(0.2*(bottom-top),95250), y=top+eps; let gr=0; while(gr+1<T.length&&T[gr+1]<=y) gr++;
+          geo.push({rid:a.rid,top,bottom,row:gr,x:(a.posX!=null?a.posX:(a.col*1000000+(a.fromColOff||0)))});
+        }
+        window._exImgGeo = geo.length ? { imgs: geo, T } : null;
+      }catch(_){ window._exImgGeo=null; }
+      const _mkUrl=(rid)=>{ if(_urlOf[rid]!==undefined) return _urlOf[rid];
+        const imgFile=ridToFile[rid]; if(!imgFile) return (_urlOf[rid]='');
+        const imgData=zipFiles['xl/media/'+imgFile]; if(!imgData) return (_urlOf[rid]='');
+        const ext=(imgFile.split('.').pop()||'').toLowerCase();
+        const mime=(ext==='jpg'||ext==='jpeg')?'image/jpeg':ext==='gif'?'image/gif':ext==='webp'?'image/webp':ext==='bmp'?'image/bmp':'image/png';
+        let b64=''; for(let j=0;j<imgData.length;j+=8192) b64+=String.fromCharCode(...imgData.slice(j,Math.min(j+8192,imgData.length)));
+        return (_urlOf[rid]='data:'+mime+';base64,'+btoa(b64)); };
+      if(window._exImgGeo) window._exImgGeo.imgs.forEach(g=>{ g.url=_mkUrl(g.rid); });
       for(const {excelRow,rid} of anchorList){
         if(rowToImage[excelRow]!==undefined) continue;   // صورة واحدة لكل صف (الأولى)
         const imgFile=ridToFile[rid]; if(!imgFile) continue;
