@@ -186,6 +186,42 @@
     var m = txt.match(/(\d{1,4})\s*(?:w\b|واط|وات|watt)/i) || String(p.name || '').match(/[a-z](\d{2,3})w\b/i);
     return m ? +m[1] : null;
   }
+  /* ══ (TASK-B0553 · طابور Q2 · B1078 «درّبه على كلّ شي») الفهم بلا قاعدة: النوع (CATS) + الميزانية + الواط ══ */
+  function understand(qs) {
+    var groups = []; CATS.forEach(function (c) { if (c[0].test(qs)) groups.push(String(c[1])); });
+    if (groups.length > 1) groups = groups.filter(function (g) { return g !== String(/بطاريات|شواحن/); });
+    return { groups: groups, need: parseNeed(qs) };
+  }
+  function loadBank() {
+    if (global.GMT_BRAIN_BANK) return Promise.resolve(global.GMT_BRAIN_BANK);
+    return new Promise(function (res) { var sc = document.createElement('script'); sc.src = 'gmt-brainbank.js?v=20261125b26'; sc.onload = function () { res(global.GMT_BRAIN_BANK || []); }; sc.onerror = function () { res([]); }; document.head.appendChild(sc); });
+  }
+  /* 🎯 علامة العقل: كلّ بنك الأسئلة على الطبقة الفوريّة (بلا رصيد) ⇒ { score, pass, total, byType, fails } */
+  async function selfTest(bank) {
+    bank = bank || await loadBank();
+    var R = { pass: 0, total: 0, byType: {}, fails: [] };
+    for (var i = 0; i < bank.length; i++) {
+      var b = bank[i], why = '', okk = false;
+      try {
+        if (b.t === 'where' || b.t === 'how') {
+          var a = String(await localAnswer(b.q) || '');
+          if (b.t === 'where') { okk = (b.f || []).some(function (f) { return a.indexOf('href="' + h(f) + '"') >= 0; }); if (!okk) why = a ? 'دلّ على غير صفحة: ' + ((a.match(/href="([^"]+)"/) || [])[1] || 'بلا رابط') : 'ما عرف'; }
+          else { okk = b.has.test(a.replace(/<[^>]+>/g, ' ')); if (!okk) why = a ? 'الشرح ما فيه المطلوب' : 'ما عرف'; }
+        } else if (b.t === 'advise') {
+          var u = understand(b.q), n = u.need, bu = n.budget || {}, errs = [];
+          if (b.grp && !u.groups.some(function (gg) { return b.grp.test(gg); })) errs.push('النوع: ' + (u.groups.join('،') || 'ما عرفه'));
+          if (b.mode && bu.mode !== b.mode) errs.push('الميزانية: ' + (bu.mode || 'ما فهمها') + ' بدل ' + b.mode);
+          ['max', 'min', 'target'].forEach(function (k) { if (b[k] != null && bu[k] !== b[k]) errs.push(k + ' ' + bu[k] + ' بدل ' + b[k]); });
+          if (b.watt != null && !(n.watt && n.watt.target === b.watt)) errs.push('الواط: ' + (n.watt ? n.watt.target : 'ما فهمه'));
+          okk = !errs.length; why = errs.join(' · ');
+        }
+      } catch (e) { why = 'خطأ: ' + e.message; }
+      R.total++; var bt = R.byType[b.t] || (R.byType[b.t] = { pass: 0, total: 0 }); bt.total++;
+      if (okk) { R.pass++; bt.pass++; } else R.fails.push({ q: b.q, t: b.t, why: why });
+    }
+    R.score = R.total ? Math.round(R.pass * 100 / R.total) : 0;
+    return R;
+  }
   function isAdvise(qs) { return /رشح|رشّح|اقترح|زبون بدو|زبون بيدور|بدو|بدي|شو عندنا|شو في عندي|شو الخيارات|بديل|مناسب|ميزاني|وات|واط|w\b|انش|إنش|mm|ملم|ميجا|ma?h\b|بطارية|عدسة|اضاءة|إضاءة|اضائة|حامل|مايك|ترايبود/i.test(String(qs || '')); }
   /* ── (TASK-B0552 · B1086 «ما فيها خيارات ولا شغل») جواب الترشيح الفوري: «فهمت: …» + بطاقات بسبب الاختيار + أزرار شغل ──
      📋 رسالة للزبون · 🧾 عرض سعر · 🔎 فتح المنتج · فلاتر «أرخص · أقوى · بس المتوفّر» · 🧠 العقل بالتفصيل — بلا رصيد */
@@ -868,7 +904,7 @@
       for (var fi = 0; fi < FAQ.length; fi++) if (FAQ[fi][0].test(qn)) return FAQ[fi][1] + '<br><span style="font-size:11px;color:#526077">⚡ من دليل النظام — بلا استهلاك رصيد</span>';
     }
     /* (TASK-B0546 · seq B1077 «وين بحس بعمل عرض سعر» ⇒ «ما لقيت هالمعلومة») سؤال «وين/كيف أعمل…» ⇒ أدوات النظام من سجلّها فوراً */
-    if (/(^|\s)(وين|فين|منين|كيف|شلون|باي صفحه|بأي صفحة|من وين)(\s|$)/.test(qn) && !/وين وصل|شو صار/.test(qn) && global.GMTTools && GMTTools.match) {
+    if ((/(^|\s)(وين|فين|منين|كيف|شلون|باي صفحه|بأي صفحة|من وين)(\s|$)/.test(qn) || /^(بدي|بدّي|بدنا|بدو)\s+(اعمل|أعمل|نعمل|افتح|أفتح|سجل|سجّل|انشئ|أنشئ|ضيف|اطبع|أطبع|شوف|اشوف)(\s|$)/.test(qn.trim())) && !/وين وصل|شو صار/.test(qn) && global.GMTTools && GMTTools.match) {   /* (B0553) «بدي أعمل…» = طلب صفحة كمان */
       var rl = 'staff'; try { rl = global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? 'admin' : 'staff'; } catch (_) {}
       var tl = GMTTools.match(qn, rl).slice(0, 3);
       if (tl.length) return '📍 ' + (tl.length > 1 ? 'لقيتلك هالأدوات:' : 'من هون:') + '<br>' + tl.map(function (x) {
@@ -1077,6 +1113,7 @@
       /* (ARC-MD-10#42 · البند ١٤٢ «العقل يجرّب العمليات الكاملة») الفاحص الشامل GMTAutoTest (gmt-staff.js) من داخل العقل:
          يفرض الوضع التدريبي ويتأكّد أنّ الكتابة معترَضة قبل أيّ ضغطة ⇒ لا كتابة في القاعدة الحقيقية · بلا وسيط ولا رصيد · للأدمن فقط */
       ['🧪 جرّب العمليات الكاملة', '__AUTOTEST__'],
+      ['🎯 علامة العقل', '__SELFTEST__'],
       ['💡 شو فيه يتطوّر؟', 'حسب القواعد والبلاغات المرفقة، شو أهم شي ناقص أو يحتاج تطوير بهالصفحة؟'],
       /* (ص) البند ١٤٥: «يولّد برومبتات للصور لا الصور نفسها» */
       ['🎨 برومبت صورة لمنتج', 'اكتب لي برومبت إنجليزي مفصّل لتوليد صورة إعلانيّة لمنتج (اكتب اسم المنتج بدل هالجملة): خلفية بيضاء نظيفة، إضاءة استوديو ناعمة، زاوية ثلاثة أرباع، ظلّ خفيف، بلا أيّ نص أو شعار. أعطني برومبتاً طويلاً وآخر قصيراً — البرومبت فقط، لا تولّد صورة.'],
@@ -1088,7 +1125,7 @@
     ];
     var chipBox = p.querySelector('#gb-chips');
     var _admChip = false; try { _admChip = !!(global.GMTRole && GMTRole.isAdmin()); } catch (_) {}
-    chips = chips.filter(function (c) { return c[1] !== '__AUTOTEST__' || (_admChip && global.GMTAutoTest && typeof GMTAutoTest.run === 'function'); });
+    chips = chips.filter(function (c) { return (c[1] !== '__AUTOTEST__' || (_admChip && global.GMTAutoTest && typeof GMTAutoTest.run === 'function')) && (c[1] !== '__SELFTEST__' || _admChip); });
     chips.forEach(function (c) {
       var b = document.createElement('button');
       b.textContent = c[0];
@@ -1102,6 +1139,16 @@
       q = (q || input.value || '').trim();
       if (q === '__ALIBABA__') { productImportDialog(null); return; }
       if (q === '__KB__') { kbPanel(); return; }
+      if (q === '__SELFTEST__') {
+        add('me', '🎯 علامة العقل');
+        var st0 = add('bot', '<span style="opacity:.5">عم جرّب بنك الأسئلة…</span>');
+        var R = await selfTest().catch(function (e) { return { error: e.message }; });
+        st0.querySelector('div').innerHTML = R.error ? 'تعذّر: ' + h(R.error) :
+          '<b style="font-size:16px;color:' + (R.score === 100 ? '#15803d' : R.score >= 85 ? '#b45309' : '#b91c1c') + '">🎯 ' + R.score + '%</b> — ' + R.pass + ' من ' + R.total + ' سؤال' +
+          '<div style="font-size:12px;color:#475569">' + Object.keys(R.byType).map(function (k) { return ({ where: 'وين', how: 'كيف', advise: 'اقتراحات' }[k] || k) + ' ' + R.byType[k].pass + '/' + R.byType[k].total; }).join(' · ') + '</div>' +
+          (R.fails.length ? '<div style="margin-top:6px;font-size:12.5px"><b>الغلط:</b><br>' + R.fails.slice(0, 15).map(function (f) { return '• «' + h(f.q) + '» — ' + h(f.why); }).join('<br>') + '</div>' : '<div style="color:#15803d;margin-top:4px">✅ كلّ الأسئلة صحّ</div>');
+        log.scrollTop = log.scrollHeight; return;
+      }
       if (q === '__SCREEN__') { openScreen(); return; }
       if (q === '__AUTOTEST__') {
         add('me', '🧪 جرّب العمليات الكاملة');
@@ -1331,7 +1378,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _advise: function (q) { return adviseCandidates(q); }, _live: function (q) { return collectLiveData(q); }, _context: function () { return collectContext(); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _advise: function (q) { return adviseCandidates(q); }, selfTest: selfTest, understand: understand, _live: function (q) { return collectLiveData(q); }, _context: function () { return collectContext(); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
     open: openPanel,
     askJSON: askJSON, ask: ask,
     configure: configure,
