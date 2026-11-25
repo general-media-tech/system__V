@@ -1,0 +1,30 @@
+// TASK-B0566 · A989–A991 م٢ · seq B1104 — صندوق واحد لمستندات الشحنة: النوع من محتوى الملف + «احسب الكلفة الواصلة» مباشرة
+const H = require('./h.js'), path = require('path'), fs = require('fs');
+let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  await H.seed();
+  await H.call('/rest/v1/import_log', [{ id: 996, inv_number: 'CN-SD-1', inv_type: 'china', supplier: 'مورد', inv_date: '2026-11-01', status: 'transit', total_amount: 310, items_snapshot: [{ id: 1, name: 'LED video light 60W', qty: 20, unit_price: 15.5 }], created_at: '2026-11-01T00:00:00Z' }]);
+  const { browser, pg, errs } = await H.open('purchase.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 6000 });
+  await pg.route('**/storage/v1/object/po-docs/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' }));
+  await pg.evaluate(() => openInvFromList('996')); await sleep(1000);
+  await pg.click('[data-inv-grp="docs"] > summary'); await sleep(200);
+  ok(await pg.evaluate(() => { const b = document.getElementById('inv-docs-btn'); return !!b && b.offsetParent !== null; }), 'بالفاتورة المفتوحة: «مستندات ▾» ⇐ «📎 مستندات المورّد»');
+  await pg.click('#inv-docs-btn'); await pg.waitForSelector('[data-podocs]', { timeout: 8000 });
+  await pg.setInputFiles('[data-pd-file]', [{ name: 'xl_packing_only.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: fs.readFileSync(path.join(__dirname, 'xl_packing_only.xlsx')) }, { name: 'Proforma.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') }, { name: 'ورقة.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: fs.readFileSync(path.join(__dirname, 'xl_pi_supplier.xlsx')) }]);
+  await pg.waitForFunction(() => ![...document.querySelectorAll('[data-pd-pend]')].some(x => /عم يقرا/.test(x.textContent)), null, { timeout: 10000 }).catch(() => {});
+  const kinds = await pg.evaluate(() => [...document.querySelectorAll('[data-pd-kind]')].map(s => s.value).join());
+  ok(kinds === 'packing,pi,pi', 'النوع: الباكينج · PDF «Proforma» ⇐ PI · إكسل اسمه «ورقة» بس محتواه فاتورة ⇐ PI: ' + kinds);
+  ok(await pg.evaluate(() => /🧠/.test(document.querySelector('[data-pd-pend]').textContent)), '🧠 جنب الملفات اللي النظام قرا محتواها');
+  await pg.click('[data-pd-up]'); await pg.waitForSelector('[data-pd-actions]', { timeout: 8000 }).catch(() => {});
+  const acts = await pg.evaluate(() => [...document.querySelectorAll('[data-pd-act]')].map(b => b.closest('div').textContent));
+  ok(acts.length === 1 && /xl_packing_only/.test(acts[0]) && /احسب الكلفة الواصلة/.test(acts[0]), 'بعد الرفع: «📦 احسب الكلفة الواصلة من هالملف» للباكينج بس: ' + JSON.stringify(acts));
+  await pg.click('[data-pd-act]'); await sleep(1500);
+  const pk = await pg.evaluate(() => ({ open: !document.getElementById('packModal').classList.contains('hidden'), f: document.getElementById('pack-fname').textContent }));
+  ok(pk.open && pk.f === 'xl_packing_only.xlsx', 'الزرّ فتح «📦 الباكينج والجمارك» وقرا نفس الملف لحاله (بلا ما ترفعه مرّة تانية): ' + JSON.stringify(pk));
+  const d = await H.call('/__dump', undefined, 'GET');
+  ok((d.gmt_po_docs || []).length === 3 && d.gmt_po_docs.map(x => x.kind).sort().join() === 'packing,pi,pi', 'التلاتة انأرشفوا بنوعهم الصحّ');
+  ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
+  await browser.close();
+  console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

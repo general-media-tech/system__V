@@ -998,6 +998,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         <i data-lucide="files" class="w-3.5 h-3.5"></i> مستندات ▾
       </summary>
       <div class="absolute left-0 top-full mt-1 bg-gray-800 rounded-xl p-2 shadow-2xl z-50 min-w-56 space-y-1.5">
+        <!-- (TASK-B0566 · seq B1104) صندوق واحد لمستندات الشحنة — النظام بيعرف كلّ ملف من محتواه -->
+        <button id="inv-docs-btn" onclick="this.closest('details').open=false;(window._invOpen&&window._invOpen.id!=null)?openPoDocs(window._invOpen.id):toast('احفظ الفاتورة أوّلاً','err')" title="ارمِ الفاتورة والباكينج والبيان الجمركي والبوليصة سوا — النظام بيعرف كلّ ملف من محتواه"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">📎 مستندات المورّد (فاتورة · باكينج · بيان · بوليصة)</button>
         <button onclick="exportInvExcel()" class="w-full bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5">
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
         </button>
@@ -1274,7 +1277,24 @@ window.openPoReports=openPoReports;
 function openPoShip(focus){ if(!window.GMTPoShip){toast('وحدة الشحنات غير محمّلة','err');return;} GMTPoShip.open(()=>ships||[],{focus,onOpenInv:id=>openInvFromList(id),onRecv:id=>markArrived(id),onChange:()=>{try{render();}catch(_){}}}); }
 window.openPoShip=openPoShip;
 /* (TASK-B0560 · A1004 P6 م٣) أرشيف المستندات — خاصّ (رفع فقط + رابط موقَّع للأدمن) */
-function openPoDocs(id){ if(!window.GMTPoDocs){toast('وحدة المستندات غير محمّلة','err');return;} const s=(ships||[]).find(x=>String(x.id)===String(id))||{id}; GMTPoDocs.panel({invoice_id:s.id,title:(s.inv_number||'#'+s.id)+(s.supplier?' · '+s.supplier:''),legacyUrl:s.invoice_file_url||'',expect:s.inv_type!=='instant',onChange:()=>{try{render();}catch(_){}}}); }
+/* (TASK-B0566 · A989–A991 م٢ · seq B1104) «صندوق واحد لمستندات الشحنة»: النظام بيقرا محتوى ملف الإكسل ويعرف نوعه (فاتورة/باكينج/بيان)
+   ⇐ بينأرشف بنوعه الصحّ ⇐ الباكينج/البيان: زرّ «📦 احسب الكلفة الواصلة» بيفتح الفاتورة ويشغّل محرّك الباكينج على نفس الملف */
+async function _poDocClassify(f){
+  if(!/\.(xlsx|xls|csv)$/i.test(f.name||'')||!window.GMTXlMap) return null;
+  await GMTLazyLib.need('xlsx');
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+  const kinds=wb.SheetNames.slice(0,5).map(n=>GMTXlMap.docType(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})));
+  const k=kinds.includes('customs')?'customs':kinds.includes('packing')?'packing':'pi';
+  return k;
+}
+async function _poDocToPacking(id,f){
+  if(!(window._invOpen&&String(window._invOpen.id)===String(id))){ openInvFromList(id); for(let i=0;i<40&&!(window._invOpen&&String(window._invOpen.id)===String(id));i++) await new Promise(r=>setTimeout(r,150)); }
+  packOpen(); await packRead({files:[f]});
+}
+function openPoDocs(id){ if(!window.GMTPoDocs){toast('وحدة المستندات غير محمّلة','err');return;} const s=(ships||[]).find(x=>String(x.id)===String(id))||{id};
+  GMTPoDocs.panel({invoice_id:s.id,title:(s.inv_number||'#'+s.id)+(s.supplier?' · '+s.supplier:''),legacyUrl:s.invoice_file_url||'',expect:s.inv_type!=='instant',onChange:()=>{try{render();}catch(_){}},
+    classify:_poDocClassify,
+    actionsFor:(f,k)=>(s.inv_type!=='instant'&&(k==='packing'||k==='customs')&&/\.(xlsx|xls|csv)$/i.test(f.name||''))?[{label:'📦 احسب الكلفة الواصلة من هالملف',run:()=>_poDocToPacking(s.id,f)}]:[]}); }
 window.openPoDocs=openPoDocs;
 try{if(new URLSearchParams(location.search).get('ships')==='1'){const _t=setInterval(()=>{if(window._shipsLoaded){clearInterval(_t);openPoShip();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 try{if(new URLSearchParams(location.search).get('reports')==='1'){const _t=setInterval(()=>{if(window._shipsLoaded){clearInterval(_t);openPoReports();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
