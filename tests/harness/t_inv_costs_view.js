@@ -15,22 +15,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       { id: B.id, name: B.name, qty: 5, unit_price: 20, orig_unit_price: 20, sale_price: 60, whole_price: 50, min_price: 45 }] }]);
   const { browser, pg, errs } = await H.open('purchase.html', { w: 1366, h: 900, mobile: false, wait: 6000 });
   const view = () => pg.evaluate(() => ({
-    u: [...document.querySelectorAll('#inv-items-tbl tbody tr')].map(tr => tr.querySelectorAll('td')[4].querySelector('div').textContent.trim()),
-    sum: (document.getElementById('inv-sum-purchase') || {}).textContent, btn: (document.getElementById('orig-price-btn') || {}).textContent }));
+    u: [...document.querySelectorAll('#inv-items-tbl tbody tr')].map(tr => tr.querySelectorAll('td:not(.col-real)')[4].querySelector('div').textContent.trim()),
+    r: [...document.querySelectorAll('#inv-items-tbl tbody tr')].map(tr => { const c = tr.querySelector('td.col-real [data-real-u]'); return c ? c.textContent.trim() : ''; }),
+    sum: (document.getElementById('inv-sum-purchase') || {}).textContent, sumR: (document.getElementById('inv-sum-real') || {}).textContent,
+    btn: (document.getElementById('orig-price-btn') || {}).textContent, btnShown: (document.getElementById('orig-price-btn') || { style: {} }).style.display !== 'none' }));
   await pg.evaluate(() => openInvFromList('821')); await sleep(400);
   let v = await view();
-  ok(v.u[0] === '15.00' && v.u[1] === '30.00' && v.sum === '300.00', '① تُفتح بسعر الشراء مع التكاليف ' + JSON.stringify(v));
-  await pg.evaluate(() => toggleOrigPrice()); await sleep(200);
-  v = await view();
-  ok(v.u[0] === '10.00' && v.u[1] === '20.00' && v.sum === '200.00' && /مع التكاليف/.test(v.btn), '② «عرض السعر الأصلي» يغيّر السعر فعلاً ' + JSON.stringify(v));
-  await pg.evaluate(() => toggleOrigPrice()); await sleep(200);
-  v = await view();
-  ok(v.u[0] === '15.00' && v.sum === '300.00', '② «عرض السعر مع التكاليف» يعيده ' + JSON.stringify(v));
+  /* (seq B1094) «سعر التكلفة الحقيقي» صار عمود لحاله ⇒ سعر الشراء يضلّ الأصلي والزرّ انخفى */
+  ok(v.u[0] === '10.00' && v.u[1] === '20.00' && v.sum === '200.00' && v.r[0] === '15.00' && v.r[1] === '30.00' && v.sumR === '300.00', '① سعر الشراء الأصلي + عمود «سعر التكلفة الحقيقي» مع التكاليف (300) ' + JSON.stringify(v));
+  ok(!v.btnShown, '② زرّ «عرض السعر الأصلي/مع التكاليف» ما عاد لازم (العمودين ظاهرين) ' + JSON.stringify(v));
   await pg.evaluate(() => toggleInvEdit()); await sleep(200);
   v = await view();
   ok(v.u[0] === '10.00' && v.u[1] === '20.00', '③ وضع التعديل يُظهر السعر الأصلي (هو ما يُعدَّل) ' + JSON.stringify(v));
   // تعديل سعر البند الأوّل إلى 12 ⇒ قيمة 220 ⇒ معامل 1+100/220
-  await pg.evaluate(() => { document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td')[4].querySelector('div').textContent = '12'; saveInvEdits(); });
+  await pg.evaluate(() => { document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)')[4].querySelector('div').textContent = '12'; saveInvEdits(); });
   await sleep(800);
   await pg.evaluate(() => { if (document.getElementById('conflictModal').classList.contains('open')) applyAllFromInv(); });
   await sleep(1500);
@@ -41,7 +39,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pA = d.products.find(p => p.id === A.id), pB = d.products.find(p => p.id === B.id);
   ok(Math.abs(pA.cost_price - 12 * (1 + 100 / 220)) < 0.01 && Math.abs(pB.cost_price - 20 * (1 + 100 / 220)) < 0.01, '④ المنتج أخذ التكلفة الواصلة ' + JSON.stringify([pA.cost_price, pB.cost_price]));
   v = await view();
-  ok(v.u[0] === (12 * (1 + 100 / 220)).toFixed(2) && v.sum === '320.00', '④ بعد الحفظ: العرض مع التكاليف ومجموعه = القيمة + التكاليف (320) بلا تكرار ' + JSON.stringify(v));
+  ok(v.u[0] === '12.00' && v.r[0] === (12 * (1 + 100 / 220)).toFixed(2) && v.sum === '220.00' && v.sumR === '320.00', '④ بعد الحفظ: الحقيقي مع التكاليف ومجموعه = القيمة + التكاليف (320) بلا تكرار ' + JSON.stringify(v));
   const gt = await pg.evaluate(() => (document.getElementById('inv-grand-total') || {}).textContent);
   ok(gt === '320.00', '«المجموع الكلي» 320 (220 + 100) ' + gt);
   // فاتورة بلا تكاليف ⇒ الزرّ يقول ذلك والسعر نفسه
@@ -49,7 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await pg.reload(); await sleep(6000);
   await pg.evaluate(() => openInvFromList('822')); await sleep(400);
   v = await view();
-  ok(v.u[0] === '7.00' && /لا تكاليف/.test(v.btn), 'فاتورة بلا تكاليف: السعر كما هو والزرّ يوضّح ' + JSON.stringify(v));
+  ok(v.u[0] === '7.00' && v.r[0] === '7.00', 'فاتورة بلا تكاليف: الحقيقي = الشراء ' + JSON.stringify(v));
   const real = errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource|favicon/.test(e));
   ok(!real.length, 'لا أخطاء JS ' + real.slice(0, 2).join(' / '));
   await browser.close();

@@ -33,7 +33,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const st = await pg.evaluate(() => ({ open: window._invOpen, n: d_items_ref.length, ids: d_items_ref.map(i => i.id) }));
   ok(st.open && String(st.open.id) === '802' && st.open.kind === 'instant' && st.n === 2, 'الفاتورة المفتوحة معروفة بصفّها (802 فورية) ' + JSON.stringify(st.open));
   await pg.evaluate(() => {
-    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td');
+    const r0 = document.querySelectorAll('#inv-items-tbl tbody tr')[0].querySelectorAll('td:not(.col-real)');
     r0[7].querySelector('[contenteditable]').textContent = '32';   // المبيع
     r0[6].querySelector('[contenteditable]').textContent = '28';   // الجملة
     saveInvEdits();

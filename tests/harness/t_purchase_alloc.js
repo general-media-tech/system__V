@@ -16,7 +16,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
       { id: null, name: 'قارئ باركود (أصل)', qty: 5, unit_price: 10, orig_unit_price: 10, barcode: 'AL0003', asset: true, alloc_unit: 10.8, alloc_qty: 5, alloc_orig: 10, alloc_tot: 100, alloc: { customs: 4, ship: 0, other: 0 } }] }]);
   const { browser, pg, errs } = await H.open('purchase.html', { w: 1366, h: 900, mobile: false, wait: 6000 });
   await pg.evaluate(id => { openInvFromList(id); }, IV.id); await pg.waitForTimeout(600);
-  const shown = await pg.evaluate(() => [...document.querySelectorAll('#inv-items-tbl tbody tr')].map(tr => { const c = tr.querySelectorAll('td')[4]; return { v: (c.querySelector('div') || c).textContent.trim(), t: c.title }; }));
+  const shown = await pg.evaluate(() => [...document.querySelectorAll('#inv-items-tbl tbody tr')].map(tr => { const c = tr.querySelector('td.col-real'); return { v: c.querySelector('[data-real-u]').textContent.trim(), t: c.title };   /* (B1094) الكلفة الحقيقية بعمودها */ }));
   ok(shown[0] && shown[0].v === '21.00', 'البند الأوّل يُعرض بكلفته الحقيقية 21.00 لا بنسبة القيمة: ' + (shown[0] && shown[0].v));
   ok(shown[1] && shown[1].v === '18.60', 'الحقيبة الثقيلة 18.60 (وزنها أكبر رغم رخصها): ' + (shown[1] && shown[1].v));
   ok(shown[2] && shown[2].v === '10.80' && /جمارك فقط/.test(shown[2].t), 'الأصل عليه جمارك فقط: ' + (shown[2] && shown[2].v + ' · ' + shown[2].t));

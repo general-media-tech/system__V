@@ -209,7 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
-  <script src="gmt-poitem.js?v=20261125b29"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
+  <script src="gmt-poitem.js?v=20261125b30"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
   <script src="gmt-scan.js?v=20261124b2" defer></script>
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
@@ -226,7 +226,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-packing.js?v=20261125b29" defer></script>
+  <script src="gmt-packing.js?v=20261125b30" defer></script>
 <script src="gmt-labels.js?v=20261125b12"></script>
 <script src="gmt-staff.js?v=20261125b22"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
@@ -606,7 +606,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
           <th>المنتج</th>
           <th style="width:58px;">الكمية</th>
           <th style="width:82px;">سعر الشراء $</th>
-          <th style="width:78px;">حد أدنى $</th>
+          <th style="width:78px;">حدّ أدنى للمبيع $</th>
           <th style="width:72px;">جملة $</th>
           <th style="width:72px;">مبيع $</th>
           <th style="width:68px;">الإجمالي</th>
@@ -806,7 +806,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
           <th>المنتج</th>
           <th style="width:58px;">الكمية</th>
           <th style="width:82px;">سعر الشراء $</th>
-          <th style="width:78px;">حد أدنى $</th>
+          <th style="width:78px;">حدّ أدنى للمبيع $</th>
           <th style="width:72px;">جملة $</th>
           <th style="width:72px;">مبيع $</th>
           <th style="width:68px;">الإجمالي</th>
@@ -1008,7 +1008,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
           <input type="checkbox" id="pl-img" class="accent-orange-500" checked> 📷 صورة
         </label>
         <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
-          <input type="checkbox" id="pl-min" class="accent-orange-500"> 🔻 الحد الأدنى
+          <input type="checkbox" id="pl-min" class="accent-orange-500"> 🔻 الحدّ الأدنى للمبيع
         </label>
         <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer text-white">
           <input type="checkbox" id="pl-whole" class="accent-orange-500"> 📦 الجملة
@@ -1039,8 +1039,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer">
           <input type="checkbox" id="tog-purchase" onchange="toggleCol('col-purchase',this.checked)" class="accent-blue-500"> 💵 سعر الشراء
         </label>
+        <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer" title="سعر الشراء بعد توزيع الجمارك والشحن والمصاريف (فاتورة الاستيراد)">
+          <input type="checkbox" id="tog-real" onchange="toggleCol('col-real',this.checked)" class="accent-blue-500"> 🧮 سعر التكلفة الحقيقي
+        </label>
         <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer">
-          <input type="checkbox" id="tog-min" onchange="toggleCol('col-min',this.checked)" class="accent-blue-500"> 🔻 الحد الأدنى
+          <input type="checkbox" id="tog-min" onchange="toggleCol('col-min',this.checked)" class="accent-blue-500"> 🔻 الحدّ الأدنى للمبيع
         </label>
         <label class="flex items-center gap-2 text-[11px] font-bold cursor-pointer">
           <input type="checkbox" id="tog-whole" onchange="toggleCol('col-whole',this.checked)" class="accent-blue-500"> 📦 الجملة
@@ -1252,7 +1255,7 @@ window.openDecl=openDecl;
 /* (TASK-B0555 · A988) ℹ️ جنب كلّ بند ⇐ نافذة: هالشراء (كما انسجّل) · المنتج اليوم (حيّ) · كلّ مشترياته · التنبيهات */
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pi-open]');if(!b||!window.GMTPoItem)return;e.preventDefault();e.stopPropagation();
   const it=(window._invLines||[])[+b.dataset.piIdx]||{};const io=window._invOpen||{};
-  GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes,alloc:(it._raw&&it._raw.alloc)||null},invId:io.id,invNumber:(window._invHead||{}).num,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
+  GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes,alloc:(it._raw&&it._raw.alloc)||null},invId:io.id,invNumber:(window._invHead||{}).num,supplier:(window._invHead||{}).sup,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
 function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;} GMTPoPay.loadAll().then(()=>GMTPoPay.openAging(ships||[],id=>openPoPay(id))); }
 window.openPoAging=openPoAging;
 function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
@@ -1962,7 +1965,7 @@ function openInstantInvData(s,invNum,branchName){
     destBranch:branchName
   };
   // Reset checkboxes
-  ['tog-img','tog-purchase','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ['tog-img','tog-purchase','tog-real','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   hiddenCols.clear();
   document.getElementById('invPage').innerHTML=buildInstantInv(data);
   invEditMode=false;
@@ -1981,7 +1984,7 @@ function buildInstantInv(d){
   const invTimeStr=new Date().toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit'});
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};
   setTimeout(reHide,30);
-  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate};   /* (TASK-B0555) للنافذة ℹ️ */
+  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate,sup:d.supplier};   /* (TASK-B0555) للنافذة ℹ️ */
   const rows=d.items.map((item,idx)=>{
     const fs=(item.name||'').length>38?'10px':'12px';
     let imgEl;
@@ -2085,7 +2088,7 @@ function buildInstantInv(d){
     <th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 5px;font-size:12px;text-align:center;width:24%;">اسم المنتج</th>
     <th class="col-qty" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:6%;">الكمية</th>
     <th class="col-purchase" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">سعر الشراء<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th>
-    <th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحد الأدنى<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th>
+    <th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحدّ الأدنى للمبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th>
     <th class="col-whole" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الجملة<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th>
     <th class="col-sale" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">المبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th>
     <th class="col-notes" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:22%;">ملاحظات</th>
@@ -3306,7 +3309,7 @@ function buildInv(data){
   const invTimeStr=new Date().toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit'});
   const typeLabel=d.invType==='germany'?'أوروبية / ألمانيا 🇩🇪':'صينية 🇨🇳';
   const edt=(val,w)=>`<span contenteditable="true" class="editable" style="min-width:${w||50}px;display:inline-block;">${val||''}</span>`;
-  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate};   /* (TASK-B0555) للنافذة ℹ️ */
+  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate,sup:d.supplier};   /* (TASK-B0555) للنافذة ℹ️ */
   const rows=d.items.map((item,idx)=>{
     const fs=(item.name||'').length>38?'10px':'12px';const imgId=`inv-img-${idx}`;let imgEl;
     if(item.image_url){imgEl=`<div style="position:relative;width:44px;height:44px;display:inline-block;"><img src="${eh(item.image_url)}" data-orig-src="${eh(item.image_url)}" style="width:44px;height:44px;object-fit:contain;display:block;" onerror="this.style.display='none'" title="${eh(item.name)}"><div onclick="invImgClick(${idx},this.parentElement)" title="تغيير الصورة" style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,.5);border-radius:3px;padding:1px 2px;cursor:pointer;font-size:9px;color:#fff;">✏️</div></div>`;}
@@ -3317,8 +3320,10 @@ function buildInv(data){
       if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<button type="button" data-pi-open="${eh(String(_pid))}" data-pi-idx="${idx}" class="no-print" title="تفاصيل المنتج: هالشراء · المنتج اليوم · كلّ مشترياته · التنبيهات" style="display:inline-block;margin-top:2px;border:0;background:#eef2ff;color:#1f348f;border-radius:6px;padding:1px 5px;font-size:11px;font-weight:900;cursor:pointer">ℹ️</button>`;
       if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<a data-inv-prod href="inventory.html?pid=${encodeURIComponent(String(_pid))}&view=mov" target="_blank" rel="noopener" class="no-print" title="سجلّ المنتج: الحركة والفواتير" style="display:block;font-size:10px;text-decoration:none;margin-top:1px">📜</a>`; }
     const fmt=v=>v&&Number(v)>0?Number(v).toFixed(2):'';let _cellN=0;
+    /* (seq B1094) «سعر التكلفة الحقيقي» = الشراء بعد التكاليف — للعرض فقط (يُحسب من _costedOf بـ_applyPriceView) · لا contenteditable ⇒ خارج قراءة الخلايا والتنقّل */
+    const realCell=i=>`<td class="col-real" style="border:2px solid #222;text-align:center;padding:2px 2px;vertical-align:middle;background:#f0fdf4"><div data-real-u style="display:block;color:#065f46;font-size:11px;font-weight:900;min-width:44px;"></div><div data-real-t style="color:#065f46;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #bbf7d0;min-height:13px;"></div></td>`;
     const dualCell=(cls,unitVal,qty)=>{const uid='dc_'+idx+'_'+(_cellN++);const tot=unitVal&&qty?(Number(unitVal)*qty).toFixed(2):'';return `<td class="${cls}" style="border:2px solid #222;text-align:center;padding:2px 2px;vertical-align:middle;"><div contenteditable="true" class="editable" data-uid="${uid}_u" oninput="var t=document.querySelector('[data-uid=${uid}_t]');if(t){var v=parseFloat(this.textContent)||0;t.textContent=v&&${qty}?(v*${qty}).toFixed(2):''}" style="display:block;color:#111;font-size:11px;font-weight:700;min-width:44px;">${unitVal||''}</div><div data-uid="${uid}_t" style="color:#D5001C;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #ffd6da;min-height:13px;">${tot}</div></td>`;};
-    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty!=null&&item.qty!==''?item.qty:''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
+    return `<tr><td style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:11px;vertical-align:middle;">${idx+1}</td><td class="col-img" style="border:2px solid #222;text-align:center;padding:2px 1px;vertical-align:middle;">${imgEl}</td><td style="border:2px solid #222;padding:3px 5px;font-size:${fs};text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable inv-name" style="display:block;text-align:right;min-width:60px;">${eh(item.name||'')}</div></td><td class="col-qty" style="border:2px solid #222;text-align:center;padding:3px 2px;font-size:12px;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:24px;">${item.qty!=null&&item.qty!==''?item.qty:''}</div></td>${dualCell('col-purchase',fmt(item.unitPrice),item.qty)}${realCell(idx)}${dualCell('col-min',fmt(item.minPrice),item.qty)}${dualCell('col-whole',fmt(item.wholePrice),item.qty)}${dualCell('col-sale',fmt(item.salePrice),item.qty)}<td class="col-notes" style="border:2px solid #222;padding:3px 5px;font-size:11px;text-align:right;vertical-align:middle;"><div contenteditable="true" class="editable" style="display:block;min-width:50px;text-align:right;">${eh(item.notes||'')}</div></td><td style="border:2px solid #222;text-align:center;padding:2px;vertical-align:middle;width:26px;" class="no-print"><button onclick="deleteInvItem(${idx})" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:13px;padding:3px 6px;font-weight:900;" title="حذف المنتج من الفاتورة">🗑</button></td></tr>`;
   }).join('');
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};setTimeout(reHide,30);
   setTimeout(()=>{try{_applyPriceView();}catch(_){}},0);   /* (TASK-0338) سعر الشراء مع التكاليف افتراضياً */
@@ -3338,8 +3343,8 @@ function buildInv(data){
     <tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 8px;font-size:13px;">القطاع</td><td style="padding:4px 8px;font-size:13px;"><span contenteditable="false" class="editable inv-field" data-field="sector" style="display:block;min-width:40px;">${eh(d.sector)}</span></td><td></td><td></td><td></td></tr>
   </tbody></table>
   <div class="no-print" style="display:flex;justify-content:flex-end;margin:0 0 6px;"><button type="button" id="orig-price-btn" onclick="toggleOrigPrice()" title="يعرض سعر الشراء الأصلي في بلد المنشأ قبل توزيع تكاليف الشحن والرسوم — للعرض فقط، لا يغيّر شيئاً" style="background:#fff;border:1.5px solid #1f348f;color:#1f348f;border-radius:9px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">🔍 عرض السعر الأصلي (بدون التكاليف)</button></div>
-  <table id="inv-items-tbl" style="width:100%;table-layout:fixed;margin-bottom:7px;"><thead><tr><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:3%;">#</th><th class="col-img" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:9%;">الصورة</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 5px;font-size:12px;text-align:center;width:24%;">اسم المنتج</th><th class="col-qty" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:6%;">الكمية</th><th class="col-purchase" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">سعر الشراء<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحد الأدنى<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-whole" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الجملة<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-sale" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">المبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-notes" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:22%;">ملاحظات</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:10px;text-align:center;width:4%;" class="no-print">حذف</th></tr></thead><tbody>${rows}</tbody></table>
-  <table id="inv-totals-tbl" style="width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed;"><tr><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:3%;">∑</td><td class="col-img" style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:9%;"></td><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 6px;font-size:12px;text-align:right;width:24%;font-weight:900;">الإجماليات</td><td class="col-qty" style="border:2px solid #1f348f;background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 2px;font-size:12px;font-weight:900;width:6%;">${d.items.reduce((s,i)=>s+Number(i.qty||0),0)}</td><td class="col-purchase" id="inv-sum-purchase" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.unitPrice||0)),0).toFixed(2)}</td><td class="col-min" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.minPrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.minPrice||0)),0).toFixed(2):''}</td><td class="col-whole" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.wholePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.wholePrice||0)),0).toFixed(2):''}</td><td class="col-sale" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.salePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.salePrice||0)),0).toFixed(2):''}</td><td class="col-notes" style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 2px;font-size:11px;width:22%;"></td></tr></table>
+  <table id="inv-items-tbl" style="width:100%;table-layout:fixed;margin-bottom:7px;"><thead><tr><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:3%;">#</th><th class="col-img" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:9%;">الصورة</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 5px;font-size:12px;text-align:center;width:24%;">اسم المنتج</th><th class="col-qty" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:6%;">الكمية</th><th class="col-purchase" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">سعر الشراء<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-real" style="border:2px solid #222;background:#d1fae5;color:#065f46;padding:3px 2px;font-size:11px;text-align:center;width:9%;" title="سعر الشراء بعد توزيع الجمارك والشحن والمصاريف = الكلفة الواصلة">سعر التكلفة الحقيقي<br><span style="font-size:9px;font-weight:400;">(بعد التكاليف · فردي/إجمالي)</span></th><th class="col-min" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الحدّ الأدنى للمبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-whole" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">الجملة<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-sale" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:3px 2px;font-size:11px;text-align:center;width:9%;">المبيع<br><span style="color:#5b6472;font-size:9px;">(فردي/إجمالي)</span></th><th class="col-notes" style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:12px;text-align:center;width:13%;">ملاحظات</th><th style="border:2px solid #222;background:#dbe4f7;color:#1f348f;padding:4px 2px;font-size:10px;text-align:center;width:4%;" class="no-print">حذف</th></tr></thead><tbody>${rows}</tbody></table>
+  <table id="inv-totals-tbl" style="width:100%;border-collapse:collapse;margin-bottom:7px;table-layout:fixed;"><tr><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:3%;">∑</td><td class="col-img" style="border:2px solid #1f348f;background:#1f348f;color:#fff;text-align:center;padding:4px 2px;font-size:11px;width:9%;"></td><td style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 6px;font-size:12px;text-align:right;width:24%;font-weight:900;">الإجماليات</td><td class="col-qty" style="border:2px solid #1f348f;background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 2px;font-size:12px;font-weight:900;width:6%;">${d.items.reduce((s,i)=>s+Number(i.qty||0),0)}</td><td class="col-purchase" id="inv-sum-purchase" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.unitPrice||0)),0).toFixed(2)}</td><td class="col-real" id="inv-sum-real" style="border:2px solid #1f348f;background:#dbe4f7;color:#065f46;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;"></td><td class="col-min" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.minPrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.minPrice||0)),0).toFixed(2):''}</td><td class="col-whole" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.wholePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.wholePrice||0)),0).toFixed(2):''}</td><td class="col-sale" style="border:2px solid #1f348f;background:#dbe4f7;color:#D5001C;text-align:center;padding:4px 2px;font-size:11px;font-weight:900;width:9%;">${d.items.some(i=>i.salePrice>0)?d.items.reduce((s,i)=>s+(Number(i.qty||0)*Number(i.salePrice||0)),0).toFixed(2):''}</td><td class="col-notes" style="border:2px solid #1f348f;background:#1f348f;color:#fff;padding:4px 2px;font-size:11px;width:13%;"></td></tr></table>
   <table style="width:100%;margin-bottom:7px;"><tr>
     <td style="width:50%;vertical-align:top;padding-left:8px;"><table style="width:100%;"><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">تكاليف نقل</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="ct" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.ct?d.ct.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">شحن إلى سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cs" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cs?d.cs.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">جمارك</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cc" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cc?d.cc.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">داخل سوريا</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cl" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cl?d.cl.toFixed(2):''}</span></td></tr><tr><td style="padding:4px 7px;font-size:13px;">أجور تحويل وأخرى</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field inv-cost" data-field="cx" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cx?d.cx.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">إجمالي التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-total-costs">${d.totalCosts.toFixed(2)}</td></tr></table></td>
     <td style="width:50%;vertical-align:top;padding-right:8px;"><table style="width:100%;"><tr id="inv-orig-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;">سعر الشراء الأصلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-orig-total">${d.origTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">التكاليف</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;" id="inv-costs-sum">${d.totalCosts.toFixed(2)}</td></tr><tr id="inv-grand-total-row"><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">المجموع الكلي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-grand-total">${d.grandTotal.toFixed(2)}</td></tr><tr><td style="padding:4px 7px;font-size:13px;">دفعة نقدية</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:2px 4px;font-size:13px;"><span contenteditable="false" class="editable inv-field" data-field="cash" oninput="recalcInv()" style="display:block;text-align:center;min-width:50px;">${d.cash&&d.cash!==d.origTotal?d.cash.toFixed(2):''}</span></td></tr><tr><td style="background:#dbe4f7;color:#1f348f;padding:4px 7px;font-size:13px;font-weight:900;">الباقي</td><td style="background:#dbe4f7;color:#1f348f;text-align:center;padding:4px 7px;font-size:13px;font-weight:900;" id="inv-remaining">${d.remaining.toFixed(2)}</td></tr></table></td>
@@ -3354,7 +3359,7 @@ function openInvModal(){
   if(!cart.length){toast('أضف منتجات أولاً','err');return;}
   currentInvModal='import';
   window._invOpen={draft:true,kind:'import'}; _showOrigPrice=false;
-  ['tog-img','tog-purchase','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ['tog-img','tog-purchase','tog-real','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   hiddenCols.clear();
   const data=getInvData(null);
   document.getElementById('invPage').innerHTML=buildInv(data);
@@ -3389,7 +3394,7 @@ function openInvFromList(id){
       unit_price:i.unit_price||0
     };
   })};
-  ['tog-img','tog-purchase','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  ['tog-img','tog-purchase','tog-real','tog-min','tog-whole','tog-sale','tog-notes','tog-qty','tog-profit'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   hiddenCols.clear();
   document.getElementById('invPage').innerHTML=buildInv(getInvData(enriched));
   invEditMode=false;
@@ -3436,7 +3441,7 @@ async function packRead(inp){
     /* (seq A1022) ذاكرة المطابقة: ما طابقه النظام/Claude سابقاً لنفس الوصف ⇒ يُعرف مباشرةً — «كلّ مرّة تشتغل تدرّبه» */
     let memory={}; try{ const rows=await sbAll('/rest/v1/gmt_packing_memory?select=desc_norm,product_ids'); (rows||[]).forEach(r=>{ memory[r.desc_norm]=(r.product_ids||[]).map(String); }); }catch(_){}
     const M=GMTPacking.autoMap(best.P.lines,items,{memory,cartons:best.P.cartons});
-    _PK={P:best.P,items,map:M.map,file:f.name,sheet:best.sheet};
+    _PK={P:best.P,items,map:M.map,file:f.name,sheet:best.sheet}; _pkKnownHint._c={};
     packRender(); packCompute();
   }catch(e){ toast('تعذّرت قراءة الملف: '+(e.message||e),'err'); }
 }
@@ -3455,13 +3460,32 @@ function packRender(){
 }
 function packMap(li,v){ if(v==='') return; const ii=+v; _PK.map.forEach(a=>{const k=a.indexOf(ii); if(k>=0)a.splice(k,1);}); _PK.map[li].push(ii); packRender(); packCompute(); }
 function packUnmap(li,ii){ const a=_PK.map[li], k=a.indexOf(ii); if(k>=0)a.splice(k,1); packRender(); packCompute(); }
+/* (seq B1094) «منتج مكرّر بأكتر من فاتورة ⇐ استورد بنده الجمركي وحجمه من الفواتير السابقة»: جنب كلّ بند بمعاينة الباكينج
+   البند الجمركي/وزن القطعة المعروفين من فواتيره السابقة (GMTPoItem.known) — فاضي بالبيان ⇒ 📥 المعروف · مختلف ⇒ ⚠️ */
+function _pkKnownHint(it,a){
+  try{
+    const pid=String(it.id||(it._raw&&it._raw.id)||''); if(!pid||!window.GMTPoItem||!GMTPoItem.known) return '';
+    const cur=(window._invOpen||{}).id;
+    if(!_pkKnownHint._c) _pkKnownHint._c={};
+    let K=_pkKnownHint._c[pid];
+    if(!K){ K=_pkKnownHint._c[pid]=GMTPoItem.known(GMTPoItem.analyze({id:pid},null,ships||[],{}).history,cur); }
+    if(!K||!K.n) return '';
+    const top=K.hs[0], now=(a.codes||[]).join(',');
+    let h='';
+    if(top&&!now) h+='<div class="text-emerald-700 font-black" title="من '+eh(top.invs.join('، '))+'">📥 سابقاً: <span dir="ltr">'+eh(top.code)+'</span> ('+top.n+'×)</div>';
+    else if(top&&now&&now!==top.code) h+='<div class="text-amber-700 font-black" title="من '+eh(top.invs.join('، '))+'">⚠️ سابقاً: <span dir="ltr">'+eh(top.code)+'</span></div>';
+    const q=Number(it.qty)||0;
+    if(K.kg&&q){ const kgNow=a.kg&&q?a.kg/q:0; if(!kgNow) h+='<div class="text-emerald-700">📥 '+K.kg+' كغ/قطعة</div>'; else if(Math.abs(kgNow-K.kg)/K.kg>0.25) h+='<div class="text-amber-700">⚠️ وزن سابق '+K.kg+' كغ/قطعة</div>'; }
+    return h;
+  }catch(_){ return ''; }
+}
 function packCompute(){
   if(!_PK) return;
   const n=id=>parseFloat(document.getElementById(id).value)||0, shipBy=document.getElementById('pack-shipby').value||undefined;
   const A=GMTPacking.allocate(_PK.P,_PK.map,_PK.items,{customs:n('pack-c-customs'),ship:n('pack-c-ship'),transport:n('pack-c-other')},{shipBy});
   _PK.A=A;
   const rows=_PK.items.map((it,ii)=>{ const a=A.items[ii]; const cur=(d_items_ref[ii]?_costedOf(d_items_ref[ii]):null);
-    return '<tr class="border-b"><td class="p-1">'+eh(it.name)+(it.asset?' <span class="text-gray-400">(أصل)</span>':'')+'</td><td class="p-1 text-center">'+it.qty+'</td><td class="p-1 text-center">'+(it.orig_unit_price||0).toFixed(2)+'</td><td class="p-1 text-center">'+(a.customs/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.ship/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.other/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center font-black">'+(a.unit!=null?a.unit.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-400">'+(cur!=null?cur.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-500">'+a.kg+'</td><td class="p-1 text-[10px]">'+eh((a.codes||[]).join(' · '))+'</td></tr>'; }).join('');
+    return '<tr class="border-b"><td class="p-1">'+eh(it.name)+(it.asset?' <span class="text-gray-400">(أصل)</span>':'')+'</td><td class="p-1 text-center">'+it.qty+'</td><td class="p-1 text-center">'+(it.orig_unit_price||0).toFixed(2)+'</td><td class="p-1 text-center">'+(a.customs/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.ship/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center">'+(a.other/Math.max(1,it.qty)).toFixed(2)+'</td><td class="p-1 text-center font-black">'+(a.unit!=null?a.unit.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-400">'+(cur!=null?cur.toFixed(2):'—')+'</td><td class="p-1 text-center text-gray-500">'+a.kg+'</td><td class="p-1 text-[10px]">'+eh((a.codes||[]).join(' · '))+_pkKnownHint(it,a)+'</td></tr>'; }).join('');
   document.getElementById('pack-res').innerHTML='<div class="text-xs font-black mb-1">الموزَّع: جمارك '+A.check.customs+'$ · شحن '+A.check.ship+'$ · أخرى '+A.check.other+'$ <span class="text-gray-400 font-bold">('+A.basis+')</span></div>'+
     (A.warn.length?'<div class="text-[11px] text-amber-700 font-bold mb-1">'+A.warn.map(eh).join('<br>')+'</div>':'')+
     '<table class="w-full text-[11px] border-collapse"><thead><tr class="bg-gray-100"><th class="p-1 text-right">البند</th><th>كمية</th><th>الأصلي</th><th>جمارك/قطعة</th><th>شحن/قطعة</th><th>أخرى/قطعة</th><th>الواصلة</th><th>الحالية</th><th>كغ</th><th>البند الجمركي</th></tr></thead><tbody>'+rows+'</tbody></table>';
@@ -3665,7 +3689,7 @@ function _invHeaderPatch(row,getF){
 function _invReadRows(){
   const out=[];
   document.querySelectorAll('#inv-items-tbl tbody tr').forEach((tr,idx)=>{
-    const cells=tr.querySelectorAll('td'); if(!cells.length) return;
+    const cells=[...tr.querySelectorAll('td')].filter(td=>!td.classList.contains('col-real')); if(!cells.length) return;
     const firstEd=c=>c?.querySelector('[contenteditable="true"]')?.textContent.trim()||c?.querySelector('.editable')?.textContent.trim()||'';
     const dualUnit=c=>{ const divs=c?.querySelectorAll('div'); if(divs&&divs[0]){const v=parseFloat(divs[0].textContent)||0;if(v>0)return v;}
       const ed=c?.querySelector('[contenteditable="true"]')||c?.querySelector('.editable'); return parseFloat(ed?.textContent||'0')||0; };
@@ -3708,7 +3732,7 @@ async function saveInvEdits(){
   const _noLink=[];
   rows.forEach((tr,idx)=>{
     if(!d_items_ref[idx])return;
-    const cells=tr.querySelectorAll('td');
+    const cells=[...tr.querySelectorAll('td')].filter(td=>!td.classList.contains('col-real'));   /* (B1094) عمود العرض خارج القراءة */
     const firstEd=c=>c?.querySelector('[contenteditable="true"]')?.textContent.trim()||c?.querySelector('.editable')?.textContent.trim()||'';
     const dualUnit=c=>{
       const divs=c?.querySelectorAll('div');
@@ -4009,26 +4033,39 @@ function _costedOf(it){ const a=_allocOf(it); if(a!=null) return +a.toFixed(4); 
 function _applyPriceView(){
   if(currentInvModal==='instant') return;
   const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
-  const showOrig=_showOrigPrice||invEditMode;
-  let sum=0;
+  /* (seq B1094) «سعر التكلفة الحقيقي» صار عموداً لحاله ⇒ خانة سعر الشراء تعرض الأصليّ دائماً (اللي بيعطيه المورّد)،
+     والعمود الجديد يعرض الشراء بعد توزيع التكاليف (الكلفة الواصلة · نفس _costedOf اللي بينكتب cost_price). */
+  const hasReal=!!document.querySelector('#inv-items-tbl th.col-real');
+  const showOrig=hasReal||_showOrigPrice||invEditMode;
+  let sum=0, sumReal=0;
   rows.forEach((tr,idx)=>{
     const it=d_items_ref[idx]; if(!it) return;
-    const v=showOrig?_origOf(it):_costedOf(it);
-    sum+=v*(Number(it.qty)||0);
+    const q=Number(it.qty)||0, v=showOrig?_origOf(it):_costedOf(it), rv=_costedOf(it);
+    sum+=v*q; sumReal+=rv*q;
     const cell=tr.querySelectorAll('td')[4]; if(!cell) return;
     const divs=cell.querySelectorAll('div');
     if(divs[0]) divs[0].textContent=v?v.toFixed(2):'';
-    if(divs[1]) divs[1].textContent=v?(v*(Number(it.qty)||0)).toFixed(2):'';
-    cell.style.background=(_showOrigPrice&&!invEditMode)?'#fff7ed':'';
-    const _al=!showOrig&&_allocOf(it)!=null?((it._raw||{}).alloc||{}):null, _q=Number(it.qty)||1;
-    cell.title=showOrig?'سعر الشراء الأصلي':(_al?('الكلفة الحقيقية للقطعة: جمارك '+((_al.customs||0)/_q).toFixed(2)+' + شحن '+((_al.ship||0)/_q).toFixed(2)+' + أخرى '+((_al.other||0)/_q).toFixed(2)+((it._raw||{}).asset?' · أصل للمحل: جمارك فقط':'')+(_al.codes?' · بند '+_al.codes.join('، '):'')):'سعر الشراء مع حصّته من التكاليف (الواصل)');
-    if(_al) cell.style.background='#ecfdf5';
+    if(divs[1]) divs[1].textContent=v?(v*q).toFixed(2):'';
+    cell.style.background=(!hasReal&&_showOrigPrice&&!invEditMode)?'#fff7ed':'';
+    const _al=_allocOf(it)!=null?((it._raw||{}).alloc||{}):null, _q=q||1;
+    const tip=_al?('الكلفة الحقيقية للقطعة: جمارك '+((_al.customs||0)/_q).toFixed(2)+' + شحن '+((_al.ship||0)/_q).toFixed(2)+' + أخرى '+((_al.other||0)/_q).toFixed(2)+((it._raw||{}).asset?' · أصل للمحل: جمارك فقط':'')+(_al.codes?' · بند '+_al.codes.join('، '):'')):'سعر الشراء مع حصّته من تكاليف الفاتورة (بنسبة القيمة)';
+    cell.title=showOrig?'سعر الشراء الأصلي (من المورّد)':tip;
+    if(!showOrig&&_al) cell.style.background='#ecfdf5';
+    const rc=tr.querySelector('td.col-real');
+    if(rc){
+      const u=rc.querySelector('[data-real-u]'), t=rc.querySelector('[data-real-t]');
+      if(u) u.textContent=rv?rv.toFixed(2):'';
+      if(t) t.textContent=rv?(rv*q).toFixed(2):'';
+      rc.title=tip+(rv&&_origOf(it)?' · فرق عن الشراء: +'+(rv-_origOf(it)).toFixed(2)+' للقطعة':'');
+      rc.style.background=_al?'#d1fae5':'#f0fdf4';
+    }
   });
   const st=document.getElementById('inv-sum-purchase'); if(st) st.textContent=sum.toFixed(2);
+  const sr=document.getElementById('inv-sum-real'); if(sr) sr.textContent=sumReal?sumReal.toFixed(2):'';
   const b=document.getElementById('orig-price-btn');
   if(b){
     const has=_invCostFactor()!==1;
-    b.style.display=invEditMode?'none':'';
+    b.style.display=(invEditMode||hasReal)?'none':'';
     b.textContent=!has?'ℹ️ لا تكاليف على هذه الفاتورة':(_showOrigPrice?'↩️ عرض السعر مع التكاليف':'🔍 عرض السعر الأصلي (بدون التكاليف)');
     b.style.background=_showOrigPrice?'#1f348f':'#fff';
     b.style.color=_showOrigPrice?'#fff':'#1f348f';
@@ -5026,7 +5063,7 @@ tr:nth-child(even){background:#fafafa;}
   <table>
     <thead><tr>
       <th>#</th><th>صورة</th><th style="text-align:right;">المنتج</th>
-      <th>الكمية</th><th>سعر الشراء $</th><th>الحد الأدنى $</th>
+      <th>الكمية</th><th>سعر الشراء $</th><th>الحدّ الأدنى للمبيع $</th>
       <th>الجملة $</th><th>المبيع $</th><th style="text-align:right;">ملاحظات</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -5276,7 +5313,7 @@ async function saveInvCloud(){
     const rows=document.querySelectorAll('#inv-items-tbl tbody tr');
     rows.forEach((tr,idx)=>{
       if(!d_items_ref[idx])return;
-      const cells=tr.querySelectorAll('td');
+      const cells=[...tr.querySelectorAll('td')].filter(td=>!td.classList.contains('col-real'));   /* (B1094) عمود العرض خارج القراءة */
       const dualUnit=c=>{const divs=c?.querySelectorAll('div');if(divs&&divs[0]){const v=parseFloat(divs[0].textContent)||0;if(v>0)return v;}const ed=c?.querySelector('[contenteditable="true"]')||c?.querySelector('.editable');return parseFloat(ed?.textContent||'0')||0;};
       const firstEd=c=>c?.querySelector('[contenteditable="true"]')?.textContent.trim()||c?.querySelector('.editable')?.textContent.trim()||'';
       const _qt=firstEd(cells[3]).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)); const q=/^\d+$/.test(_qt)?parseInt(_qt,10):d_items_ref[idx].qty; // (TASK-0351 · seq 525) الصفر كمية صالحة — كان «||» يعيد القديم
@@ -6628,7 +6665,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b29"></script>
+<script src="gmt-whatsnew.js?v=20261125b30"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
