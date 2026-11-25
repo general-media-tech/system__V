@@ -149,7 +149,7 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(15,18,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
     var box = document.createElement('div'); box.dir = 'rtl';
     box.style.cssText = 'background:#fff;border-radius:16px;padding:14px;width:100%;max-width:880px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit';
-    w.appendChild(box); document.body.appendChild(w);
+    w.appendChild(box); w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     var st = { months: o.months == null ? 12 : o.months, type: '', supplier: '', tab: 'sum' };
     var inv = function () { return (typeof getInvoices === 'function' ? getInvoices() : getInvoices) || []; };
     var sups = function () { var m = {}; inv().forEach(function (x) { var c = canonSup(x), k = supKey(c); if (k && !m[k]) m[k] = c; }); return Object.keys(m).map(function (k) { return m[k]; }).sort(); };

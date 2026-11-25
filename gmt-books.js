@@ -178,7 +178,7 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto';
     var box = document.createElement('div'); box.dir = 'rtl';
     box.style.cssText = 'background:#f8fafc;border-radius:16px;padding:14px;width:100%;max-width:920px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit';
-    w.appendChild(box); document.body.appendChild(w);
+    w.appendChild(box); w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     var X = null, st = { year: o.year || new Date().getFullYear(), tab: 'sum', kind: '', q: '' };
     function ctx() { return Object.assign({}, typeof getCtx === 'function' ? getCtx() : getCtx, X || {}); }
     function closedRow(y) { return ((X && X.closed) || []).find(function (r) { return Number(r.year) === Number(y); }); }

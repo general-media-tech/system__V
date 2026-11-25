@@ -109,8 +109,10 @@
     var old = document.getElementById('gmt-suppliers'); if (old) old.remove();
     var w = document.createElement('div'); w.id = 'gmt-suppliers';
     w.style.cssText = 'position:fixed;inset:0;z-index:9640;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
-    document.body.appendChild(w);
+    w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     var cur = null;
+    /* (B1115) زرّ الرجوع بالهاتف: بملفّ المورّد ⇐ القائمة · بالقائمة ⇐ بيسكّر النافذة (gmt-back.js) */
+    w._gmtBack = function () { if (cur) { cur = null; list(); return true; } return false; };
     var q = '';
     var BTN = 'border:1.5px solid #e5e7eb;background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer';
     /* (seq B1112 «خلّيها مفهومة أكتر وأسهل») قائمة الموردين: بحث · اللي إلهم باقي فوق · مجموع اللي علينا */
@@ -120,7 +122,7 @@
         .sort(function (a, b) { return (b.remaining > 0.005) - (a.remaining > 0.005) || b.remaining - a.remaining || String(b.last || '').localeCompare(String(a.last || '')); });
       var owe = G.reduce(function (t, x) { return t + (x.remaining > 0.005 ? x.remaining : 0); }, 0), nOwe = G.filter(function (x) { return x.remaining > 0.005; }).length;
       w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:760px;padding:14px">' +
-        '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:17px">🏭 الموردون</b><button type="button" data-sp-x style="' + BTN + '">✕</button></div>' +
+        '<div style="display:flex;align-items:center;gap:8px"><button type="button" data-sp-x style="' + BTN + '">→ رجوع</button><b style="flex:1;font-size:17px;text-align:center">🏭 الموردون</b><span style="width:70px"></span></div>' +
         '<div style="display:flex;gap:6px;margin:10px 0"><div style="flex:1;background:' + (owe > 0.005 ? '#fef2f2' : '#f0fdf4') + ';border-radius:12px;padding:8px 12px"><div style="font-size:11.5px;color:#64748b;font-weight:800">الباقي علينا لكلّ الموردين</div><div style="font-size:19px;font-weight:900;color:' + (owe > 0.005 ? '#b91c1c' : '#15803d') + '" dir="ltr">' + owe.toFixed(2) + '$</div><div style="font-size:11px;color:#64748b">' + (nOwe ? nOwe + ' مورّد إلهم باقي' : 'كلّه مسدّد') + '</div></div></div>' +
         '<input data-sp-q value="' + esc(q) + '" placeholder="🔎 ابحث عن مورّد…" style="width:100%;box-sizing:border-box;border:1.5px solid #e5e7eb;border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;margin-bottom:6px">' +
         (sim.length ? '<div data-sp-sim style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;font-weight:700">🔗 أسماء متشابهة — يمكن نفس المورّد؟ ' + sim.map(function (pr) { return '<div style="margin-top:4px">«' + esc(pr[0].name) + '» و«' + esc(pr[1].name) + '»</div>'; }).join('') + '<div style="font-weight:600;color:#64748b;margin-top:4px">إذا نفسه: افتح واحد منهم ⇐ «🔗 ضمّ اسم»</div></div>' : '') +
@@ -168,7 +170,7 @@
     w.addEventListener('click', async function (e) {
       try {
         if (e.target === w || e.target.closest('[data-sp-x]')) { w.remove(); return; }
-        if (e.target.closest('[data-sp-back]')) { list(); return; }
+        if (e.target.closest('[data-sp-back]')) { cur = null; list(); return; }
         var k = e.target.closest('[data-sp-key]'); if (k) { var G = groups(ships(), SUPS, payOf), x = G.find(function (y) { return y.key === k.getAttribute('data-sp-key'); }); if (x) profile(x); return; }
         if (!cur) return;
         if (e.target.closest('[data-sp-print]')) { printSt(cur); return; }

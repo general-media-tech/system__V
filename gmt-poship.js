@@ -121,7 +121,7 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(15,18,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow:auto';
     var box = document.createElement('div'); box.dir = 'rtl';
     box.style.cssText = 'background:#f1f5f9;border-radius:16px;padding:14px;width:100%;max-width:820px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit';
-    w.appendChild(box); document.body.appendChild(w);
+    w.appendChild(box); w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     var st = { f: 'active', edit: null };
     var inv = function () { return (typeof getInvoices === 'function' ? getInvoices() : getInvoices) || []; };
     function paint() {

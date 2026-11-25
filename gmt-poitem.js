@@ -118,7 +118,7 @@
     var w = document.createElement('div'); w.id = 'gmt-poitem'; w.setAttribute('data-keep-fab', '1');
     w.style.cssText = 'position:fixed;inset:0;z-index:99995;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
     w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:720px;padding:16px;text-align:center;color:#64748b">جارٍ التحميل…</div>';
-    document.body.appendChild(w);
+    w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-pi-x]')) w.remove(); var s = e.target.closest('[data-pi-sec]'); if (s) { var b = s.nextElementSibling; b.style.display = b.style.display === 'none' ? '' : 'none'; s.querySelector('i').textContent = b.style.display === 'none' ? '▸' : '▾'; } });
     try {
       var p = pid ? ((await get('products?id=eq.' + encodeURIComponent(pid) + '&select=*')) || [])[0] : null;
@@ -198,7 +198,7 @@
       (chk.length ? '<div data-decl-warn style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:7px 10px;font-size:12.5px;font-weight:700;margin-bottom:8px">⚠️ ' + chk.map(esc).join('<br>⚠️ ') + '</div>' : '<div style="color:#15803d;font-weight:800;font-size:12.5px;margin-bottom:8px">✅ البيان مطابق للفاتورة</div>') +
       '<div style="max-height:55vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th style="padding:4px">كرتونة</th><th style="text-align:right">الوصف</th><th>البند الجمركي</th><th>الوزن</th><th>الحجم</th><th>الرسم</th><th style="text-align:right">البنود</th></tr>' +
       (d.cartons || []).map(function (c) { return '<tr style="border-bottom:1px solid #f1f5f9' + (!c.hs ? ';background:#fef2f2' : '') + '"><td style="text-align:center;padding:4px">' + c.no + '</td><td>' + esc(c.desc) + '</td><td style="text-align:center" dir="ltr">' + esc(c.hs || '—') + '</td><td style="text-align:center">' + (c.kg || '') + '</td><td style="text-align:center">' + (c.cbm || '') + '</td><td style="text-align:center">' + (c.duty ? r2(c.duty) : '') + '</td><td>' + esc((c.items || []).map(function (id) { return names[id] || id; }).join(' · ') || '— ما انربطت') + '</td></tr>'; }).join('') + '</table></div></div>';
-    document.body.appendChild(w);
+    w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-x]')) w.remove(); });
     return w;
   }
