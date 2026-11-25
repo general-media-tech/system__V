@@ -209,7 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
-  <script src="gmt-poitem.js?v=20261125b28"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
+  <script src="gmt-poitem.js?v=20261125b29"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
   <script src="gmt-scan.js?v=20261124b2" defer></script>
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
@@ -226,7 +226,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-packing.js?v=20261124b3" defer></script>
+  <script src="gmt-packing.js?v=20261125b29" defer></script>
 <script src="gmt-labels.js?v=20261125b12"></script>
 <script src="gmt-staff.js?v=20261125b22"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
@@ -1100,7 +1100,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
       <label class="text-[10px] font-bold text-gray-500">جمارك مدفوعة $<input id="pack-c-customs" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
       <label class="text-[10px] font-bold text-gray-500">شحن $<input id="pack-c-ship" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
       <label class="text-[10px] font-bold text-gray-500">نقل+محلّي+تحويل $<input id="pack-c-other" type="number" step="0.01" class="block w-24 p-1.5 border rounded-lg text-xs font-bold" oninput="packCompute()"></label>
-      <label class="text-[10px] font-bold text-gray-500">الشحن حسب<select id="pack-shipby" class="block p-1.5 border rounded-lg text-xs font-bold" onchange="packCompute()"><option value="">تلقائي</option><option value="cbm">الحجم</option><option value="kg">الوزن</option><option value="value">بالقيمة (النظام القديم)</option></select></label>
+      <label class="text-[10px] font-bold text-gray-500">الشحن حسب<select id="pack-shipby" class="block p-1.5 border rounded-lg text-xs font-bold" onchange="packCompute()"><option value="">تلقائي</option><option value="cbm">الحجم</option><option value="kg">الوزن</option><option value="value">بالقيمة (النظام القديم)</option><option value="qty">بعدد القطع</option></select></label>
     </div>
     <div id="pack-sum" class="text-xs font-bold mb-2"></div>
     <div id="pack-map" class="overflow-x-auto"></div>
@@ -1247,10 +1247,12 @@ async function openPoPay(id){
     try{await GMTPoPay.loadAll();render();}catch(_){} }});
 }
 window.openPoPay=openPoPay;
+function openDecl(id){ const s=(ships||[]).find(x=>String(x.id)===String(id)); if(!s||!window.GMTPoItem||!GMTPoItem.openDecl){toast('ما في بيان جمركي لهالفاتورة','err');return;} GMTPoItem.openDecl(s); }
+window.openDecl=openDecl;
 /* (TASK-B0555 · A988) ℹ️ جنب كلّ بند ⇐ نافذة: هالشراء (كما انسجّل) · المنتج اليوم (حيّ) · كلّ مشترياته · التنبيهات */
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pi-open]');if(!b||!window.GMTPoItem)return;e.preventDefault();e.stopPropagation();
   const it=(window._invLines||[])[+b.dataset.piIdx]||{};const io=window._invOpen||{};
-  GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes},invId:io.id,invNumber:(window._invHead||{}).num,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
+  GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes,alloc:(it._raw&&it._raw.alloc)||null},invId:io.id,invNumber:(window._invHead||{}).num,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
 function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;} GMTPoPay.loadAll().then(()=>GMTPoPay.openAging(ships||[],id=>openPoPay(id))); }
 window.openPoAging=openPoAging;
 function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
@@ -1470,6 +1472,7 @@ function render(){
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
             <button onclick="openPoPay('${s.id}')" class="hover:text-emerald-600" title="💳 الدفعات للمورّد" data-popay-open="${s.id}">💳</button>
+            ${s.customs_decl?`<button onclick="openDecl('${s.id}')" class="hover:text-amber-600" title="🛃 البيان الجمركي: الكراتين · البند الجمركي · الوزن · الرسوم" data-decl-open="${s.id}">🛃</button>`:''}
             <button onclick="openInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
             <button onclick="openInvForEdit('${s.id}')" class="hover:text-blue-600" title="تعديل الفاتورة"><i data-lucide="edit" class="w-4 h-4"></i></button>
             <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
@@ -3491,6 +3494,9 @@ async function packApply(){
     const rowsM=Object.keys(mem).map(k=>({desc_norm:k,product_ids:mem[k],supplier:'',source:(_PK.file+' · '+sup).slice(0,200),updated_at:new Date().toISOString()}));
     if(rowsM.length) sb('POST','/rest/v1/gmt_packing_memory?on_conflict=desc_norm,supplier',rowsM,{Prefer:'resolution=merge-duplicates,return=minimal'}).catch(()=>{});
   }catch(_){}
+  /* (TASK-B0556 · A1004 P5) البيان الجمركي كما بملف المخلّص يُحفظ على الفاتورة (كيان منفصل: المصرّح به ≠ الكلفة) */
+  try{ const _id=(window._invOpen||{}).id; if(_id!=null&&GMTPacking.declOf){ const decl=GMTPacking.declOf(_PK.P,_PK.map,_PK.items,_PK.file);
+    sb('PATCH','/rest/v1/import_log?id=eq.'+encodeURIComponent(_id),{customs_decl:decl},{Prefer:'return=minimal'}).then(()=>{const k=(ships||[]).findIndex(x=>String(x.id)===String(_id));if(k>=0)ships[k].customs_decl=decl;}).catch(()=>{}); } }catch(_){}
   if(!invEditMode) toggleInvEdit();
   packClose();
   toast('📦 رُتّبت الفاتورة بالكراتين ('+nC+') وحُسبت الكلفة الواصلة لـ'+k+' بنداً — راجعها ثمّ «حفظ التعديلات»','ok');
@@ -6622,7 +6628,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b28"></script>
+<script src="gmt-whatsnew.js?v=20261125b29"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

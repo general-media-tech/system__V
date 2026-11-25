@@ -37,7 +37,7 @@
       arr(inv.items_snapshot).forEach(function (it) {
         if (!it || String(it.id || '') !== String(p.id)) return;
         var u = Number(it.orig_unit_price) > 0 ? Number(it.orig_unit_price) : Number(it.unit_price) || 0;
-        history.push({ invId: inv.id, inv: inv.inv_number || '#' + inv.id, supplier: inv.supplier || '', at: String(inv.inv_date || inv.created_at || '').slice(0, 10), qty: Number(it.qty) || 0, unit: r2(u),
+        history.push({ invId: inv.id, inv: inv.inv_number || '#' + inv.id, supplier: inv.supplier || '', at: String(inv.inv_date || inv.created_at || '').slice(0, 10), qty: Number(it.qty) || 0, unit: r2(u), hs: (it.alloc && it.alloc.codes) || [], kg: it.alloc && it.alloc.kg && Number(it.qty) ? r2(it.alloc.kg / Number(it.qty) * 1000) / 1000 : null,
           arrived: inv.inv_type === 'instant' || inv.status === 'arrived', type: inv.inv_type || '' });
       });
     });
@@ -49,6 +49,15 @@
       if (!(lu > 0) && !/هدية|كومبو|مجان/i.test(String(line.notes || ''))) alerts.push({ k: 'zero', t: '0️⃣ سعر الشراء 0', fix: 'اكتب سعر الشراء الحقيقي — أو اكتب «هدية» بملاحظة البند' });
       var prev = history.filter(function (h) { return String(h.invId) !== String(opt.invId) && h.unit > 0 && (!opt.at || h.at <= opt.at); })[0];
       if (prev && lu > 0 && lu > prev.unit * 1.05) alerts.push({ k: 'pricier', t: '📈 السعر أعلى من آخر شراء (' + prev.unit + ' بـ' + prev.inv + ' ⇐ ' + r2(lu) + ')', fix: 'تأكّد من السعر مع المورّد — أو هيك صار السعر فعلاً' });
+    }
+    /* (TASK-B0556 · A988 §6) «بند جمركي يحتاج مراجعة»: مختلف عن آخر شراء · ووزن القطعة بعيد عن آخر مرّة (>25%) */
+    if (line && line.alloc) {
+      var hsNow = (line.alloc.codes || []).join(','), q0 = Number(line.qty) || 0, kgNow = q0 && line.alloc.kg ? line.alloc.kg / q0 : null;
+      var prevH = history.filter(function (h) { return String(h.invId) !== String(opt.invId) && (h.hs || []).length; })[0];
+      if (prevH && hsNow && prevH.hs.join(',') !== hsNow) alerts.push({ k: 'hs', t: '🛃 البند الجمركي مختلف عن آخر مرّة (' + prevH.hs.join(',') + ' بـ' + prevH.inv + ' ⇐ ' + hsNow + ')', fix: 'راجع مع المخلّص — نفس المنتج لازم يكون بنفس البند' });
+      var prevK = history.filter(function (h) { return String(h.invId) !== String(opt.invId) && h.kg; })[0];
+      if (prevK && kgNow && Math.abs(kgNow - prevK.kg) / prevK.kg > 0.25) alerts.push({ k: 'kg', t: '⚖️ وزن القطعة مختلف عن آخر مرّة (' + prevK.kg + ' ⇐ ' + r2(kgNow * 1000) / 1000 + ' كغ)', fix: 'تأكّد من الباكينج ليست — ممكن خطأ بعدد القطع أو الوزن' });
+      if (!hsNow) alerts.push({ k: 'nohs', t: '🛃 بلا بند جمركي بالبيان', fix: 'كرتونته بملف المخلّص بلا بند — راجعه' });
     }
     if (p.id && !(Number(p.price) > 0)) alerts.push({ k: 'nosale', t: '🏷️ المنتج بلا سعر مبيع', fix: 'افتح «✏️ تعديل» واكتب سعر المبيع' });
     if (p.id && completeness < 60) alerts.push({ k: 'incomplete', t: '📋 ملفّ المنتج ناقص (' + completeness + '%)', fix: 'ناقص: ' + missing.join(' · ') });
@@ -86,6 +95,9 @@
         (A.alerts.length ? '<div data-pi-alerts style="margin-top:10px">' + A.alerts.map(function (a) { return '<div data-pi-alert="' + a.k + '" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:6px 10px;margin-top:5px;font-size:12.5px"><b>' + esc(a.t) + '</b><div style="color:#475569">↳ ' + esc(a.fix) + '</div></div>'; }).join('') + '</div>' : '') +
         (line ? sec('🧾 هالشراء' + (o.invNumber ? ' — ' + esc(o.invNumber) : '') + ' <span style="font-weight:700;color:#64748b;font-size:11.5px">(كما انسجّل وقت الشراء — ما بيتغيّر)</span>',
           kv('الكمّية', esc(line.qty)) + kv('سعر الشراء', lu ? lu.toFixed(2) + '$' : '—') + kv('المجموع', lu && line.qty ? (lu * Number(line.qty)).toFixed(2) + '$' : '') + kv('الاسم بالفاتورة', esc(line.name || '')) + kv('ملاحظة', esc(line.notes || '')), true) : '') +
+        (line && line.alloc ? sec('🛃 الجمارك والشحن <span style="font-weight:700;color:#64748b;font-size:11.5px">(من البيان الجمركي وقت الشراء)</span>',
+          kv('البند الجمركي', esc((line.alloc.codes || []).join(' · ') || '—')) + kv('الكرتونة', esc((line.alloc.ctn || []).join(' · '))) + kv('الوزن', line.alloc.kg ? esc(line.alloc.kg) + ' كغ' + (Number(line.qty) ? ' (' + r2(line.alloc.kg / Number(line.qty) * 1000) / 1000 + ' للقطعة)' : '') : '') +
+          kv('حصّته من الجمارك', line.alloc.customs != null ? Number(line.alloc.customs).toFixed(2) + '$' : '') + kv('حصّته من الشحن', line.alloc.ship != null ? Number(line.alloc.ship).toFixed(2) + '$' : ''), false) : '') +
         (p ? sec('📦 المنتج اليوم <span style="font-weight:700;color:#64748b;font-size:11.5px">(حيّ من ملفّ المنتج)</span>',
           kv('سعر المبيع', Number(p.price) > 0 ? Number(p.price) + '$' : '<span style="color:#b91c1c">فاضي</span>') + kv('الجملة', Number(p.wholesale_price) > 0 ? Number(p.wholesale_price) + '$' : '') + kv('الحدّ الأدنى', Number(p.net_cost) > 0 ? Number(p.net_cost) + '$' : '') + kv('الكلفة', Number(p.cost_price) > 0 ? Number(p.cost_price) + '$' : '<span style="color:#b91c1c">فاضية</span>') +
           kv('المخزون', total + (stock.length ? ' <span style="color:#64748b">(' + esc(stock.map(function (x) { return x.n + ' ' + x.q; }).join(' · ')) + ')</span>' : '')), true) : '') +
@@ -99,6 +111,30 @@
     } catch (e) { w.innerHTML = '<div style="background:#fff;border-radius:14px;padding:16px">تعذّر التحميل: ' + esc(e.message) + '</div>'; }
     return w;
   }
-  g.GMTPoItem = { analyze: analyze, open: open, CHECK: CHECK };
+  /* 🛃 البيان الجمركي للفاتورة (TASK-B0556 · A1004 P5): الكراتين بالبند والوزن والحجم والرسم · المصرّح به مقابل الجمارك المدفوعة على الفاتورة */
+  function declCheck(inv) {
+    var d = obj(inv.customs_decl), t = d.totals || {}, paid = r2(inv.cost_customs), out = [];
+    if (t.duty && paid && Math.abs(t.duty - paid) / Math.max(t.duty, paid) > 0.02) out.push('الرسوم المصرّح بها بالبيان ' + r2(t.duty) + ' ≠ الجمارك المسجّلة على الفاتورة ' + paid + ' (فرق ' + r2(paid - t.duty) + ')');
+    if (t.noHs) out.push(t.noHs + ' كرتونة بلا بند جمركي');
+    var unmatched = (d.cartons || []).filter(function (c) { return !(c.items || []).length; }).length; if (unmatched) out.push(unmatched + ' كرتونة ما انربطت بأيّ بند بالفاتورة');
+    return out;
+  }
+  function openDecl(inv) {
+    var d = obj(inv.customs_decl), t = d.totals || {}, chk = declCheck(inv), old = document.getElementById('gmt-decl'); if (old) old.remove();
+    var names = {}; arr(inv.items_snapshot).forEach(function (it) { if (it && it.id) names[String(it.id)] = it.name; });
+    var w = document.createElement('div'); w.id = 'gmt-decl'; w.setAttribute('data-keep-fab', '1');
+    w.style.cssText = 'position:fixed;inset:0;z-index:99994;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
+    w.innerHTML = '<div data-decl style="background:#fff;border-radius:18px;width:100%;max-width:860px;padding:14px">' +
+      '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:16px">🛃 البيان الجمركي — ' + esc(inv.inv_number || '') + '</b><button type="button" data-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
+      '<div style="font-size:12px;color:#64748b">من ملف المخلّص «' + esc(d.file || '') + '» · ' + esc(String(d.at || '').slice(0, 10)) + ' — القيمة المصرّح بها للجمارك مو هي الكلفة</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + [['الكراتين', t.cartons || 0], ['الوزن', (t.kg || 0) + ' كغ'], ['الحجم', (t.cbm || 0) + ' م³'], ['الرسوم المصرّح بها', r2(t.duty || 0) + '$'], ['الجمارك على الفاتورة', r2(inv.cost_customs || 0) + '$']].map(function (c) { return '<div style="flex:1;min-width:110px;background:#f8fafc;border-radius:12px;padding:7px 10px"><div style="font-size:11px;color:#64748b;font-weight:800">' + c[0] + '</div><b dir="ltr">' + esc(c[1]) + '</b></div>'; }).join('') + '</div>' +
+      (chk.length ? '<div data-decl-warn style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:7px 10px;font-size:12.5px;font-weight:700;margin-bottom:8px">⚠️ ' + chk.map(esc).join('<br>⚠️ ') + '</div>' : '<div style="color:#15803d;font-weight:800;font-size:12.5px;margin-bottom:8px">✅ البيان مطابق للفاتورة</div>') +
+      '<div style="max-height:55vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th style="padding:4px">كرتونة</th><th style="text-align:right">الوصف</th><th>البند الجمركي</th><th>الوزن</th><th>الحجم</th><th>الرسم</th><th style="text-align:right">البنود</th></tr>' +
+      (d.cartons || []).map(function (c) { return '<tr style="border-bottom:1px solid #f1f5f9' + (!c.hs ? ';background:#fef2f2' : '') + '"><td style="text-align:center;padding:4px">' + c.no + '</td><td>' + esc(c.desc) + '</td><td style="text-align:center" dir="ltr">' + esc(c.hs || '—') + '</td><td style="text-align:center">' + (c.kg || '') + '</td><td style="text-align:center">' + (c.cbm || '') + '</td><td style="text-align:center">' + (c.duty ? r2(c.duty) : '') + '</td><td>' + esc((c.items || []).map(function (id) { return names[id] || id; }).join(' · ') || '— ما انربطت') + '</td></tr>'; }).join('') + '</table></div></div>';
+    document.body.appendChild(w);
+    w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-x]')) w.remove(); });
+    return w;
+  }
+  g.GMTPoItem = { analyze: analyze, open: open, CHECK: CHECK, openDecl: openDecl, declCheck: declCheck };
   if (typeof module !== 'undefined' && module.exports) module.exports = g.GMTPoItem;
 })(typeof window !== 'undefined' ? window : globalThis);
