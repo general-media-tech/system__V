@@ -84,6 +84,12 @@
       k: 'تسوية تسويات نقل ناقص مختوم مضاعفة تدقيق فاتورة تعذر خصم فروقات' },
     { f: 'مراجعة_الأسعار_والمشتريات.html', t: 'مراجعة الأسعار والمشتريات', d: 'المتجر مقابل الجرد · بلا مبيع/كلفة · بخسارة — ووين راح المشترى: اشتُري · بِيع · موجود بكلّ فرع · الفرق (seq B1040)', ic: 'scale', g: 'money', a: 'admin' },
     { f: 'سجل_الأجهزة.html', t: 'سجلّ الأجهزة', d: 'ابحث عن أيّ جهاز بـ IMEI أو الرقم التسلسلي: لمن بِيع · بأيّ فاتورة · كفالته · تاريخه (seq B1038)', ic: 'search', g: 'stock', a: 'admin', k: 'imei سيريال رقم تسلسلي جهاز كفالة بحث هاتف كاميرا' },
+    /* (TASK-B0551 · seq B1082 «فكّر بالشغل») الاستلام وحده — بلا قائمة المشتريات وأسعارها: تُمنح للموظّف من «الأمان والمستخدمون ⇠ الصلاحيات» */
+    { f: 'purchase.html?tab=recv', t: 'استلام البضاعة (بالمسح)', d: 'استلام فواتير الشراء الواصلة بالمسح فقط — بلا قائمة المشتريات ولا أسعارها', ic: 'boxes', g: 'stock', a: 'admin', p: 'purchase.html',
+      k: 'استلام بضاعة واصلة مسح مستودع موظف صلاحية الاستلام' },
+    /* (TASK-B0551 · A0587 · المالك A1026) جهاز المستودع: استلام بالمسح · جرد · نقل · ملصقات — للموظّف بالمستودع */
+    { f: 'مستودع.html', t: 'جهاز المستودع', d: 'استلام البضاعة بالمسح · الجرد · النقل · الملصقات — من الموبايل أو جهاز السكانر', ic: 'boxes', g: 'stock', a: 'staff',
+      k: 'مستودع جهاز المستودع استلام بضاعة واصلة مسح سكانر جرد نقل ملصقات باركود warehouse' },
     { f: 'طلبات_غير_متوفرة.html', t: 'ما يطلبه الزبائن ولا نملكه', d: 'الأصناف التي طُلبت ولم نجدها أو نفدت — الأكثر طلباً أولاً لنتسوّقها', ic: 'tag', g: 'stock', a: 'admin',
       k: 'طلبات غير متوفرة مفقود الزبون يطلب لا نملك نفد طلب كثير نسوق تسوق ناقص' },
     { f: 'ما_يجب_شراؤه.html', t: 'ما يجب أن نشتريه', d: 'منتجات مخزونها قليل بصورها وأصلها، وملف طلب عرض سعر للمورّد', ic: 'cart', g: 'stock', a: 'admin',
@@ -327,7 +333,7 @@
     if (global.GMT_BTN_INDEX) { IDX = global.GMT_BTN_INDEX; return Promise.resolve(IDX); }
     if (IDX_LOADING) return IDX_LOADING;
     IDX_LOADING = new Promise(function (res) {
-      var sc = document.createElement('script'); sc.src = 'gmt-btnindex.js?v=' + (global.GMT_BTNIDX_V || '20261125b23');
+      var sc = document.createElement('script'); sc.src = 'gmt-btnindex.js?v=' + (global.GMT_BTNIDX_V || '20261125b24');
       sc.onload = function () { IDX = global.GMT_BTN_INDEX || []; res(IDX); }; sc.onerror = function () { IDX = []; res(IDX); };
       document.head.appendChild(sc);
     });
@@ -448,8 +454,8 @@
     try {
       if (!(global.GMT_INTERNAL === true || global.GMT_INTERNAL === 1)) return;
       if (document.getElementById('gmt-tsearch-btn')) return;
-      /* (seq B1083 «زرّين بحث جنب بعض») الصفحة فيها حقل بحث بالنظام برأسها (الرئيسية) ⇒ ما منضيف زرّ تاني */
-      if (document.querySelector('input#q[aria-label="بحث في النظام"]')) return;
+      /* (seq B1083 «زرّين بحث جنب بعض» · B1085 «رجع اختفى زرّ البحث») الزرّ بينخفى بس إذا حقل «بحث في النظام» **ظاهر** —
+         بالرئيسية على الموبايل الحقل مخفي (.phone .srch.dk) ⇒ كان ما في بحث أبداً. الآن بيتبع ظهور الحقل (ومع تغيير حجم الشاشة) */
       var host = document.querySelector('.gmt-refresh-bar') || document.getElementById('gmt-refresh-bar');
       if (!host) { if ((tries || 0) < 20) setTimeout(function () { mountSearch((tries || 0) + 1); }, 500); return; }
       var b = document.createElement('button');
@@ -457,6 +463,8 @@
       b.style.cssText = 'position:relative;width:30px;height:30px;border-radius:9px;border:1px solid rgba(0,0,0,.08);background:#fff;color:#0f172a;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;padding:0;flex:none';
       b.onclick = function () { openSearch(''); };
       host.insertBefore(b, host.firstChild);
+      var sync = function () { var q = document.querySelector('input#q[aria-label="بحث في النظام"]'), vis = !!(q && q.offsetParent !== null && q.getClientRects().length); if (vis) b.style.setProperty('display', 'none', 'important'); else b.style.removeProperty('display'); };   /* important: قاعدة الشريط بتفرض الظهور */
+      sync(); setTimeout(sync, 1200); global.addEventListener('resize', sync);
     } catch (_) {}
   }
   if (typeof document !== 'undefined') { var _boot = function () { mountSearch(0); setTimeout(gofind, 900); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot); else _boot(); }

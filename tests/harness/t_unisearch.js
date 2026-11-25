@@ -20,9 +20,15 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(/بهالصفحة/.test(t), 'زرّ موجود بالصفحة الحالية (حتى لو جوّا نافذة) ⇒ «📍 بهالصفحة»');
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS بالأوردرات');
   await browser.close();
-  ({ browser, pg, errs } = await H.open('home.html', { init: H.ADMIN_INIT, w: 430, h: 900, wait: 5000 }));
-  const hb = await pg.evaluate(() => ({ btn: !!document.getElementById('gmt-tsearch-btn'), q: !!document.querySelector('input#q') }));
-  ok(hb.q && !hb.btn, 'الرئيسية: حقل «بحث في النظام» برأسها بس — بلا زرّ بحث تاني');
+  // (B1085 «رجع اختفى زرّ البحث») الموبايل: حقل الرئيسية مخفي ⇒ لازم زرّ 🔎 ظاهر · الكمبيوتر: الحقل ظاهر ⇒ بلا زرّ تاني
+  const vis = sel => pg.evaluate(s => { const e = document.querySelector(s); return !!(e && e.offsetParent !== null && e.getClientRects().length); }, sel);
+  ({ browser, pg, errs } = await H.open('home.html', { init: H.ADMIN_INIT, w: 390, h: 844, wait: 5000 }));
+  await pg.waitForTimeout(1500);
+  ok(!(await vis('input#q')) && await vis('#gmt-tsearch-btn'), 'الرئيسية بالموبايل: الحقل مخفي ⇒ زرّ 🔎 ظاهر (ما في صفحة بلا بحث)');
+  await browser.close();
+  ({ browser, pg, errs } = await H.open('home.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 5000 }));
+  await pg.waitForTimeout(1500);
+  ok(await vis('input#q') && !(await vis('#gmt-tsearch-btn')), 'الرئيسية بالكمبيوتر: حقل «بحث في النظام» ظاهر — بلا زرّ بحث تاني');
   await pg.evaluate(() => { const q = document.querySelector('input#q'); q.dispatchEvent(new FocusEvent('focusin', { bubbles: true })); }); await pg.waitForTimeout(400);
   ok(await pg.evaluate(() => !!document.getElementById('gmt-tsearch')), 'حقل الرئيسية بيفتح نفس البحث الموحّد');
   await browser.close();

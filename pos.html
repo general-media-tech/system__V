@@ -1209,7 +1209,7 @@ window.GMT_FEATURES = [
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
-<script src="gmt-tools.js?v=20261125b23"></script>
+<script src="gmt-tools.js?v=20261125b24"></script>
 <script src="gmt-account.js?v=20261119j"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») المتصفّح يتخطّى رسم البطاقات خارج الشاشة — ٢٠٠٠ منتج لا تُرسم كلّها مع كل حرف بحث */
@@ -4941,10 +4941,13 @@ async function _pushGo(go, q) {
     else if (go === 'offers') { await _refreshOffers(); if (typeof activeCat !== 'undefined') { activeCat = 'باقات وعروض'; renderProds(); } }
     else if (go === 'prices') { await _backgroundSync(); showToast('✅ حُدّثت الأسعار', 'ok'); if (q) { const si = document.getElementById('searchInput'); if (si) { si.value = q; renderProds(); } } }
     else if (go === 'orders') { if (typeof setOrderMode === 'function') setOrderMode('existing'); }
+    /* (TASK-B0551 · A0587 «جهاز المستودع») بطاقتا الجرد والملصقات تفتحان هنا مباشرةً */
+    else if (go === 'count') { if (typeof openStockCount === 'function') openStockCount(); }
+    else if (go === 'barcodes') { if (typeof openBarcodeModal === 'function') openBarcodeModal(); }
   } catch (e) { console.warn('[push] go:', e && e.message); }
 }
 (function () {
-  const m = location.search.match(/[?&]go=(incoming|offers|prices|orders)/); let go = m && m[1], q = null;
+  const m = location.search.match(/[?&]go=(incoming|offers|prices|orders|count|barcodes)/); let go = m && m[1], q = null;
   try { q = new URLSearchParams(location.search).get('q'); } catch (_) {}
   if (go) { let n = 0; const t = setInterval(() => { n++;
     const ready = typeof currentUser !== 'undefined' && currentUser && typeof branch !== 'undefined' && branch && branch.key && typeof allProducts !== 'undefined' && allProducts.length;
@@ -11685,7 +11688,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b23"></script>
+<script src="gmt-whatsnew.js?v=20261125b24"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

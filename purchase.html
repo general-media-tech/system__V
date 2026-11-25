@@ -179,7 +179,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261125b23"></script>
+<script src="gmt-tools.js?v=20261125b24"></script>
 <script src="gmt-account.js?v=20261119j"></script>
 </head>
 <body class="pb-24">
@@ -4684,6 +4684,20 @@ function purGapsBar(){
   el.querySelectorAll('[data-gap-open]').forEach(b=>b.addEventListener('click',()=>purOpenById(b.dataset.gapOpen)));
 }
 function purOpenById(id){ const s=(ships||[]).find(x=>String(x.id)===String(id)); if(!s) return false; if(s.inv_type==='instant') openInstantInvFromList(s.id); else openInvFromList(s.id); return true; }
+/* (TASK-B0551) منحة «استلام البضاعة» وحدها (purchase.html?tab=recv): بلا ?recv ⇐ رجوع لجهاز المستودع (القائمة وأسعارها مو إله) */
+try{const _tg=window.GMTPerm&&GMTPerm.tabGrants?GMTPerm.tabGrants('purchase.html'):null;
+  if(Array.isArray(_tg)&&_tg.indexOf('recv')>=0){const ac=document.getElementById('appContent');if(ac)ac.style.visibility='hidden';
+    if(!new URLSearchParams(location.search).get('recv'))location.replace('مستودع.html');}}catch(_){}
+/* (TASK-B0551 · A0587 «جهاز المستودع») ?recv=<id> ⇐ «وصلت» لهالفاتورة ومباشرةً بوضع الاستلام بالمسح */
+try{const _rv=new URLSearchParams(location.search).get('recv');if(_rv){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);
+  if(!(ships||[]).some(x=>String(x.id)===String(_rv))){toast('لم تُوجد الفاتورة #'+_rv,'err');return;}
+  /* الموظّف من «جهاز المستودع» (مو أدمن): ما بيشوف قائمة المشتريات وأسعارها خلف النافذة · وبيرجع للجهاز لمّا يخلص */
+  const _adm=(()=>{try{return !!(window.GMTRole&&GMTRole.isAdmin&&GMTRole.isAdmin());}catch(_){return false;}})()||(()=>{try{return window.GMTPerm&&GMTPerm.tabGrants&&GMTPerm.tabGrants('purchase.html')===null;}catch(_){return false;}})();
+  if(!_adm){const ac=document.getElementById('appContent');if(ac)ac.style.visibility='hidden';}
+  markArrived(_rv);let n=0,seen=false;const _w=setInterval(()=>{const ov=document.getElementById('gmt-arrival-ov'),b=ov&&ov.querySelector('[data-sr-start]');
+    if(b&&!seen){seen=true;b.click();}
+    if(seen&&!ov&&!_adm){clearInterval(_w);setTimeout(()=>{location.href='مستودع.html';},1800);}   /* انتهى الترحيل أو أُلغي ⇐ رجوع للجهاز */
+    if(++n>2400)clearInterval(_w);},250);}},400);setTimeout(()=>clearInterval(_t),25000);}}catch(_){}
 /* ?open=<id> — فتح فاتورةٍ بمعرّفها (من أداة التسويات) لا برقمها الذي قد يتكرّر */
 try{const _o=new URLSearchParams(location.search).get('open');if(_o){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);if(!purOpenById(_o)) toast('لم تُوجد الفاتورة #'+_o,'err'); else if(new URLSearchParams(location.search).get('fill')==='1') setTimeout(()=>{ try{ if(!invEditMode) toggleInvEdit(); purFillZeroPrices(true); }catch(_){} },700);   /* (seq B1031) «فتح وتعبئة» من أداة التسويات */}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 /* قبل الحفظ: بندٌ بكمية وبسعر شراء 0 ⇒ تأكيد (لا منع — قد يكون هديةً فعلاً) */
@@ -6599,7 +6613,7 @@ try {
 <script src="gmt-brain.js?v=20261125b17"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b23"></script>
+<script src="gmt-whatsnew.js?v=20261125b24"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

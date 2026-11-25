@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>جهاز المستودع — GMT</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="gmt-ui.css?v=20261010b">
+<script>window.GMT_INTERNAL = 1;</script>
+<script src="gmt-config.js?v=20261124b1"></script>
+<script src="gmt-core.js?v=20261125b12"></script>
+<script src="gmt-bidi.js?v=20261007z"></script>
+<script src="gmt-auth.js?v=20261124b2"></script>
+<script src="gmt-tools.js?v=20261125b24"></script>
+<script src="gmt-account.js?v=20261119j"></script>
+<script src="gmt-ask.js?v=20261121b"></script>
+<script src="gmt-oplog.js?v=20261117h"></script>
+<script src="gmt-scan.js?v=20261124b2"></script>
+<script src="gmt-scanrecv.js?v=20261125b22"></script>
+<script src="gmt-icons.js?v=20261125b23" defer></script>
+<script src="gmt-sound.js?v=20261124b3" defer></script>
+<!-- ══ TASK-B0551 · TASK-A0587 · المالك seq A1026 «بدنا نستفيد من هي» (جهاز إدارة المستودعات: استلام بالمسح · جرد · نقل · ملصقات) · طابور Q1 · seq B1082 «فكّر بالشغل».
+     للموظّف بالمستودع على الموبايل أو جهاز بسكانر: أزرار كبيرة · المسح أوّلاً · بلا أسعار.
+     ما في مسار مخزون جديد: كلّ بطاقة بتفتح الشاشة الموجودة بمكانها (الاستلام ⇐ purchase.html?recv= · الجرد ⇐ pos.html?go=count ·
+     النقل ⇐ pos.html?go=incoming · الملصقات ⇐ pos.html?go=barcodes).
+     الاستلام: امسح **أيّ قطعة** من الشحنة ⇐ بيلاقي فاتورتها المفتوحة (بباركود البند أو باركود المنتج بالجرد) ⇐ استلام بالمسح فوراً. ══ -->
+<style>
+:root{--red:#D5001C;--ln:rgba(15,18,25,.1);--tx:#0f1219;--mu:#5b6472;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6f9;color:var(--tx);font:16px/1.6 'Segoe UI',Tahoma,system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:720px;margin:0 auto;padding:14px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}.top h1{margin:0;font-size:20px;flex:1}
+.btn{border:1.5px solid var(--ln);background:#fff;border-radius:12px;padding:9px 13px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;color:inherit;text-decoration:none}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#fff;border:1px solid var(--ln);border-radius:20px;padding:16px;min-height:132px;text-decoration:none;color:inherit;box-shadow:0 8px 24px rgba(15,18,25,.06);cursor:pointer}
+.card .ic{font-size:30px;line-height:1}.card b{font-size:17px}.card span{font-size:12.5px;color:var(--mu)}
+.card.on{outline:3px solid var(--red)}
+.panel{background:#fff;border:1px solid var(--ln);border-radius:18px;padding:14px;margin-top:14px}
+.scan{display:flex;gap:8px}.scan input{flex:1;padding:14px;border:2px solid #0f1219;border-radius:14px;font:inherit;font-size:17px;direction:ltr;text-align:right}
+.scan button{border:0;background:#0f1219;color:#fff;border-radius:14px;padding:0 16px;font-size:20px;cursor:pointer}
+.inv{display:block;border:1px solid var(--ln);border-radius:14px;padding:11px 13px;margin-top:8px;text-decoration:none;color:inherit;font-weight:700}
+.inv b{font-size:15.5px}.inv .s{font-size:12.5px;color:var(--mu)}.inv.hit{border:2px solid #16a34a;background:#f0fdf4}
+.msg{min-height:1.5em;margin-top:8px;font-weight:900;font-size:14px}
+@media (max-width:380px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="home.html">→ الرئيسيّة</a><h1>📦 جهاز المستودع</h1></div>
+  <div class="cards">
+    <a class="card on" data-card="recv" href="#recv"><span class="ic">📥</span><b>استلام البضائع</b><span>امسح أيّ قطعة ⇐ بتنفتح فاتورتها وبتستلم قطعة قطعة</span></a>
+    <a class="card" data-card="count" href="pos.html?go=count"><span class="ic">🧮</span><b>الجرد</b><span>مطابقة الموجود مع النظام بالمسح</span></a>
+    <a class="card" data-card="move" href="pos.html?go=incoming"><span class="ic">🔁</span><b>نقل البضائع</b><span>استلام النقل الوارد بين الفروع</span></a>
+    <a class="card" data-card="labels" href="pos.html?go=barcodes"><span class="ic">🏷️</span><b>طباعة الملصقات</b><span>باركود المنتج · العدد · طابعة الملصقات</span></a>
+  </div>
+  <div class="panel" id="recv">
+    <b style="font-size:16px">📥 استلام بضاعة واصلة</b>
+    <div style="font-size:13px;color:var(--mu);margin:4px 0 10px">امسح باركود <b>أيّ قطعة</b> من الشحنة (أو اكتبه وEnter) — بلاقيلك فاتورتها المفتوحة.</div>
+    <div class="scan"><input id="code" placeholder="امسح هون" autocomplete="off" inputmode="text"><button type="button" id="cam" title="كاميرا">📷</button></div>
+    <div class="msg" id="msg"></div>
+    <div id="hits"></div>
+    <div style="font-weight:900;font-size:14px;margin-top:14px">🚢 الفواتير المفتوحة (بالطريق أو ناقص استلامها)</div>
+    <div id="open"><div class="s" style="color:var(--mu);padding:10px 0">جارٍ التحميل…</div></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function arr(v) { if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return []; } } return Array.isArray(v) ? v : []; }
+  async function get(path) {
+    var M = GMT_DB.MAIN, r = await fetch(M.url + '/rest/v1/' + path, { headers: { apikey: M.key, Authorization: 'Bearer ' + M.key }, cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+  }
+  /* الباقي من كلّ بند (المطلوب − المرحَّل) — بلا أسعار (الموظّف ما بيحتاجها) */
+  function left(inv) { var mv = inv.transfer_moved || {}; if (typeof mv === 'string') { try { mv = JSON.parse(mv); } catch (_) { mv = {}; } }
+    return arr(inv.items_snapshot).map(function (it) { return { it: it, rem: Math.max(0, (Number(it.qty) || 0) - (Number(mv[it.id]) || 0)) }; }).filter(function (x) { return x.rem > 0; }); }
+  var OPEN = [];
+  /* (seq B1082) الاستلام بيفتح شاشة المشتريات المقفولة للموظّف ⇒ بدل شاشة قفل: كلمة واضحة شو بيلزمه (المنحة بيعطيها المدير بس) */
+  function canRecv() { try { return !window.GMTPerm || !GMTPerm.can || GMTPerm.can('purchase.html'); } catch (_) { return true; } }
+  function noPerm() { $('msg').innerHTML = '<span style="color:#b45309">🔒 الاستلام بدّو صلاحية «استلام البضاعة (بالمسح)» — اطلبها من المدير (الأمان والمستخدمون ⇠ الصلاحيات). هي بتفتحلك الاستلام بس، بلا أسعار.</span>'; }
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('[data-recv]'); if (a && !canRecv()) { e.preventDefault(); noPerm(); } }, true);
+  function card(inv, hit) {
+    var l = left(inv), pcs = l.reduce(function (s, x) { return s + x.rem; }, 0);
+    return '<a class="inv' + (hit ? ' hit' : '') + '" data-recv="' + esc(inv.id) + '" href="purchase.html?recv=' + encodeURIComponent(inv.id) + '"><b>' + esc(inv.inv_number || '#' + inv.id) + '</b>' + (inv.supplier ? ' · ' + esc(inv.supplier) : '') +
+      '<div class="s">' + l.length + ' صنف · ' + pcs + ' قطعة باقية' + (inv.eta_date ? ' · متوقّع ' + esc(String(inv.eta_date).slice(0, 10)) : '') + (hit ? ' · <b style="color:#15803d">✓ فيها «' + esc(hit) + '»</b>' : '') + '</div></a>';
+  }
+  async function loadOpen() {
+    try {
+      var rows = await get('import_log?transferred=is.false&inv_type=neq.instant&select=id,inv_number,supplier,status,eta_date,items_snapshot,transfer_moved&order=created_at.desc&limit=200');
+      OPEN = rows.filter(function (r) { return !/cancel/i.test(r.status || '') && left(r).length; });
+      $('open').innerHTML = OPEN.length ? OPEN.map(function (r) { return card(r); }).join('') : '<div class="s" style="color:#15803d;padding:10px 0">✅ ما في بضاعة بانتظار الاستلام.</div>';
+    } catch (e) { $('open').innerHTML = '<div style="color:#b91c1c">تعذّر التحميل: ' + esc(e.message) + '</div>'; }
+  }
+  async function find(raw) {
+    var code = window.GMTScanRecv ? GMTScanRecv.normCode(raw) : String(raw || '').trim(); if (!code) return;
+    $('msg').textContent = '…'; $('hits').innerHTML = '';
+    /* البند بالفاتورة ممكن يكون بلا باركود ⇒ نسأل الجرد عن المنتج بهالباركود ونطابق بمعرّفه */
+    var pids = {}; try { (await get('products?barcode=eq.' + encodeURIComponent(code) + '&select=id,name')).forEach(function (p) { pids[String(p.id)] = p.name; }); } catch (_) {}
+    var hits = [];
+    OPEN.forEach(function (inv) {
+      var idx = window.GMTScanRecv ? GMTScanRecv.index(left(inv).map(function (x) { return x.it; })) : {};
+      var pid = window.GMTScanRecv ? GMTScanRecv.match(code, idx) : null;
+      var it = left(inv).find(function (x) { return (pid && String(x.it.id) === pid) || pids[String(x.it.id)]; });
+      if (it) hits.push({ inv: inv, name: it.it.name || pids[String(it.it.id)] || code });
+    });
+    try { if (window.GMTSound && GMTSound.cue) GMTSound.cue(hits.length ? 'scan' : 'error'); } catch (_) {}
+    if (!hits.length) { $('msg').innerHTML = '<span style="color:#b91c1c">❓ «' + esc(code) + '» مو بأيّ فاتورة مفتوحة' + (Object.keys(pids).length ? ' (المنتج موجود بالجرد: ' + esc(Object.values(pids)[0]) + ')' : '') + '</span>'; return; }
+    if (hits.length === 1) { $('msg').innerHTML = '<span style="color:#15803d">✓ ' + esc(hits[0].name) + ' ⇐ ' + esc(hits[0].inv.inv_number || '') + ' — عم افتحها للاستلام…</span>'; $('hits').innerHTML = card(hits[0].inv, hits[0].name);
+      if (!canRecv()) { noPerm(); return; } setTimeout(function () { location.href = 'purchase.html?recv=' + encodeURIComponent(hits[0].inv.id); }, 700); return; }
+    $('msg').innerHTML = '<span style="color:#b45309">هالقطعة بـ' + hits.length + ' فواتير مفتوحة — اختار وحدة:</span>';
+    $('hits').innerHTML = hits.map(function (h) { return card(h.inv, h.name); }).join('');
+  }
+  $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); find(this.value); this.value = ''; } });
+  $('cam').onclick = function () { if (window.GMTScan && GMTScan.camera) GMTScan.camera(function (c) { find(c); }, { title: 'امسح باركود القطعة' }); };
+  loadOpen().then(function () { try { $('code').focus(); } catch (_) {} });
+  window.GMTWarehouse = { find: find, reload: loadOpen, open: function () { return OPEN; } };
+})();
+</script>
+<script src="gmt-nofab.js?v=20261029z4"></script>
+<script src="gmt-updater.js?v=20261010b"></script>
+<script src="gmt-notify.js?v=20261125b19" defer></script>
+<script src="gmt-pwa.js?v=20261112f"></script>
+<script src="gmt-whatsnew.js?v=20261125b23"></script>
+<script src="gmt-refresh.js?v=20261124b2"></script>
+</body>
+</html>
