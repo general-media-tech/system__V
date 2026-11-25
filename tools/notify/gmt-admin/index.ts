@@ -109,6 +109,16 @@ Deno.serve(async (req) => {
       if (q.old) { const o = String(q.old).replace(/[^0-9a-f]/gi, ""); if (o && o !== id) await del(DEV + o); }
       return J({ ok: true, id, t, k: mine.k, n: mine.n, at: rec.at });
     }
+    /* (TASK-B0560 · A1004 P6) أرشيف مستندات المشتريات: الدلو po-docs خاصّ (المتصفّح يرفع فقط) ⇒ رابط موقَّع ٥ دقائق للأدمن الداخل فقط */
+    if (a === "doc_url") {
+      const p = String(q.path || "");
+      if (!/^po\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+$/.test(p) || p.includes("..")) return J({ ok: false, error: "bad" }, 400);
+      const r = await fetch(`${SB()}/storage/v1/object/sign/po-docs/${p}`, { method: "POST", headers: H(), body: JSON.stringify({ expiresIn: 300 }) });
+      if (!r.ok) return J({ ok: false, error: "sign " + r.status }, r.status === 404 || r.status === 400 ? 404 : 500);
+      const j = await r.json(); const su = String(j.signedURL || j.signedUrl || "");
+      if (!su) return J({ ok: false, error: "sign" }, 500);
+      return J({ ok: true, url: SB() + "/storage/v1" + (su.startsWith("/") ? su : "/" + su) });
+    }
     return J({ ok: false, error: "unknown" }, 400);
   } catch (e) { return J({ ok: false, error: String(e).slice(0, 120) }, 500); }
 });

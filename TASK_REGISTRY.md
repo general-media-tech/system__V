@@ -3318,6 +3318,13 @@
 - اختبار `t_poitem` ١٠/١٠ · تحقّق بصري.
 - ⏳ م٢ (A988 §4–6): البند الجمركي ونتيجة التدقيق · اختلاف الوزن عن الباكينج · منتج مكرّر محتمل — مع البيان الجمركي (P5).
 
+### TASK-B0561 — «خلّي الموضوع أسهل» + دمج مورّد بإسمين (seq B1096 · B1097) — ✅ gmt-v20261125b33
+- `gmt-popay.js`: ٣ أرقام (قيمة الفاتورة · دفعت · باقي عليك) + موعد الباقي إذا في · المدفوع القديم صفّ «دفعة قديمة» بالقائمة بدل الملاحظة · «نوع الدفعة» تلقائي (نهائية إذا سكّرت الباقي) · اسم المورّد الموحّد.
+- `gmt-poitem.js`: «بالمختصر» (`[data-pi-summary]`) بجمل بسيطة · كلّ الأقسام مسكّرة بعناوين أوضح · تنبيهات «أغلى من آخر مرّة/مورّد أرخص/الملفّ ناقص» ما بتتكرّر بالعرض (`SHOWN`).
+- `gmt-suppliers.js`: `canon(inv)` (من supplier_id أو aliases) · `loaded/_setSups` — مستعمل بـ`gmt-poitem` و`gmt-poreports` · `purchase.html` يحمّل الموردين عند الفتح.
+- بيانات: صفّ `gmt_suppliers` «Shenzhen Shixin Trading Co., Ltd» (aliases: «وايمن شنزن») + `supplier_id` على ٥ فواتير (نصّ الفاتورة كما هو) · درس PB-11.
+- اختبارات: `t_supcanon` ٣/٣ · `t_poitem` ١١/١١ · `t_realcost` ١٥/١٥ · `t_popay` ١٦/١٦.
+
 ### TASK-B0559 — P6 م٢ شحنات المشتريات N↔N (A1004 · الخطّة 1.8 · طابور Q1 · seq B1095) — ✅ gmt-v20261125b32
 - جدول `gmt_po_shipments` (`tools/sql/B0559_po_shipments.sql` · مطبَّق): ref فريد SHP-YYYY-NNN · carrier · tracking · mode · status (booked/transit/customs/arrived/cancelled) · `invoice_ids bigint[]` (N↔N · فهرس gin) · etd/eta/arrived_at · cartons/kg/cbm · لا حذف (إلغاء بسبب). منفصل عن `shipments` (للأوردرات).
 - `gmt-poship.js` (`GMTPoShip`): صافٍ `nextRef/stateOf/forInvoice/unshipped/progress` · `loadAll/of/chipFor/save/open` — «⏰ متأخّرة» إذا فات eta · «📭 بلا شحنة» · اقتراح شركات الشحن من الفواتير · تصادم الرقم ⇒ إعادة بالرقم التالي.

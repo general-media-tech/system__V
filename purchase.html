@@ -209,14 +209,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
-  <script src="gmt-poitem.js?v=20261125b30"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
+  <script src="gmt-poitem.js?v=20261125b33"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
   <script src="gmt-scan.js?v=20261124b2" defer></script>
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
-  <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
-  <script src="gmt-poreports.js?v=20261125b31"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
+  <script src="gmt-suppliers.js?v=20261125b33"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
+  <script src="gmt-poreports.js?v=20261125b33"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
   <script src="gmt-poship.js?v=20261125b32"></script><!-- (TASK-B0559 · A1004 P6) شحنات المشتريات N↔N -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
-  <script src="gmt-popay.js?v=20261125b19"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
+  <script src="gmt-popay.js?v=20261125b33"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261124b3" defer></script>
   <script src="gmt-icons.js?v=20261125b23" defer></script>
@@ -1265,7 +1265,7 @@ window.openPoAging=openPoAging;
 function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
 window.openSuppliers=openSuppliers;
 /* (TASK-B0558 · A1004 P6) تقارير المشتريات — من الفواتير نفسها · ?reports=1 */
-function openPoReports(){ if(!window.GMTPoReports){toast('وحدة التقارير غير محمّلة','err');return;} GMTPoReports.open(()=>ships||[]); }
+async function openPoReports(){ if(!window.GMTPoReports){toast('وحدة التقارير غير محمّلة','err');return;} try{if(window.GMTSuppliers&&!GMTSuppliers.loaded())await GMTSuppliers.load();}catch(_){} GMTPoReports.open(()=>ships||[]); }
 window.openPoReports=openPoReports;
 /* (TASK-B0559 · A1004 P6 م٢) شحنات المشتريات N↔N — الوصول بيفتح الاستلام بالمسح لكلّ فاتورة · ?ships=1 */
 function openPoShip(focus){ if(!window.GMTPoShip){toast('وحدة الشحنات غير محمّلة','err');return;} GMTPoShip.open(()=>ships||[],{focus,onOpenInv:id=>openInvFromList(id),onRecv:id=>markArrived(id),onChange:()=>{try{render();}catch(_){}}}); }
@@ -1346,6 +1346,7 @@ async function _waitForGMTCache(maxMs){
     try{initPayerUI();}catch(_){} loadPoRows().then(()=>{try{render();}catch(_){}});
     try{if(window.GMTPoPay)GMTPoPay.loadAll().then(()=>{try{render();}catch(_){}});}catch(_){}
     try{if(window.GMTPoShip)GMTPoShip.loadAll().then(()=>{try{render();}catch(_){}});}catch(_){}   /* (TASK-B0559) شارة الشحنة على البطاقة */
+    try{if(window.GMTSuppliers&&GMTSuppliers.load)GMTSuppliers.load();}catch(_){}   /* (seq B1097) الاسم الموحّد للمورّد بالتقارير والمقارنات */
 
     // المنتجات: من نفس الكاش المحلي المشترك مع نظام الجرد (IndexedDB) — لا تحميل كامل متكرر
     const sbConfig={url:SB,key:KEY};
@@ -6679,7 +6680,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b32"></script>
+<script src="gmt-whatsnew.js?v=20261125b33"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

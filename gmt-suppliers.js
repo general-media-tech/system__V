@@ -169,6 +169,17 @@
     list();
     return w;
   }
-  g.GMTSuppliers = { groups: groups, statement: statement, similar: similar, key: key, open: open, load: load, register: register, link: link };
+  /* (seq B1097) الاسم الموحّد للمورّد: من supplier_id أو من أسمائه البديلة — «Shenzhen Shixin» و«وايمن شنزن» مورّد واحد
+     بالمقارنات والتقارير (نصّ الفاتورة نفسه ما بيتغيّر) */
+  function canon(inv) {
+    inv = inv || {}; var nm = String(inv.supplier || '').replace(/\s+/g, ' ').trim();
+    if (inv.supplier_id) { var a = SUPS.find(function (s) { return s.id === inv.supplier_id; }); if (a) return a.name; }
+    var l = nm.toLowerCase(); if (!l) return nm;
+    var b = SUPS.find(function (s) { return [s.name].concat(s.aliases || []).some(function (n) { return String(n || '').replace(/\s+/g, ' ').trim().toLowerCase() === l; }); });
+    return b ? b.name : nm;
+  }
+  function loaded() { return SUPS.length > 0; }
+  function _setSups(l) { SUPS = l || []; }
+  g.GMTSuppliers = { groups: groups, statement: statement, similar: similar, key: key, open: open, load: load, register: register, link: link, canon: canon, loaded: loaded, _setSups: _setSups };
   if (typeof module !== 'undefined' && module.exports) module.exports = g.GMTSuppliers;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -49,9 +49,9 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.evaluate(() => toggleInvEdit()); await new Promise(r => setTimeout(r, 300));
   /* ℹ️: الجمارك من فواتير سابقة + مقارنة الموردين */
   await pg.evaluate(() => document.querySelector('[data-pi-open]').click()); await pg.waitForSelector('[data-poitem]', { timeout: 10000 }).catch(() => {});
-  const t = await pg.evaluate(() => (document.querySelector('[data-poitem]') || {}).innerText || '');
-  ok(/الجمارك والحجم من فواتيره السابقة/.test(t) && /8539\.52/.test(t) && /0\.4 كغ/.test(t), '«📥 الجمارك والحجم من فواتيره السابقة»: 8539.52 · 0.4 كغ/قطعة');
-  ok(/مقارنة الموردين/.test(t) && /Shenzhen Co/.test(t) && /9\.00/.test(t) && /أعطاك أرخص/.test(t), '«🏆 مقارنة الموردين» بالسعر الأصلي (9 مو 12) + تنبيه الأرخص');
+  const t = await pg.evaluate(() => (document.querySelector('[data-poitem]') || {}).textContent || '');
+  ok(/البند الجمركي والوزن من المرّات الماضية/.test(t) && /8539\.52/.test(t) && /0\.4 كغ/.test(t), '«📥 البند الجمركي والوزن من المرّات الماضية»: 8539.52 · 0.4 كغ/قطعة');
+  ok(/مين أرخص مورّد/.test(t) && /Shenzhen Co/.test(t) && /9\.00/.test(t) && /أرخص سعر أخدته: 9\.00\$ من Shenzhen Co/.test(t), '«🏆 مين أرخص مورّد» بسعر المورّد (9 مو 12) + بالمختصر + تنبيه الأرخص');
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await pg.screenshot({ path: '/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/realcost.png' });
   await pg.evaluate(() => document.querySelector('[data-poitem]').remove());

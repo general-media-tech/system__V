@@ -71,9 +71,11 @@
     var existing = ((await req('GET', 'gmt_po_payments?purchase_id=eq.' + encodeURIComponent(pid) + '&voided=is.false&select=id')) || []).length;
     /* أوّل دفعة على فاتورة قديمة فيها مبلغ مسجَّل ⇒ يُحفظ كـ«دفعة افتتاحية» أوّلاً كي لا يضيع */
     if (!existing && p.cash_payment != null && p.cash_payment !== '' && num(p.cash_payment) > 0.004) {
-      await req('POST', 'gmt_po_payments', { purchase_id: pid, kind: 'opening', amount: r2(p.cash_payment), currency: 'USD', usd: r2(p.cash_payment), note: 'الدفعة المسجّلة قبل نظام الدفعات', created_by: who(), voided: false, paid_at: (p.inv_date || '').slice(0, 10) || null }, 'return=minimal');
+      await req('POST', 'gmt_po_payments', { purchase_id: pid, kind: 'opening', amount: r2(p.cash_payment), currency: 'USD', usd: r2(p.cash_payment), note: 'مسجّلة على الفاتورة من قبل', created_by: who(), voided: false, paid_at: (p.inv_date || '').slice(0, 10) || null }, 'return=minimal');
     }
-    var row = { purchase_id: pid, kind: v.kind || 'partial', amount: r2(v.amount), currency: cur, fx_rate: fx, usd: usdOf({ amount: v.amount, currency: cur, fx_rate: fx }),
+    /* (seq B1096) نوع الدفعة تلقائي (ما عاد سؤال بالنموذج): بتسكّر الباقي ⇒ نهائية · غير هيك جزئية */
+    var _usd = usdOf({ amount: v.amount, currency: cur, fx_rate: fx }), _rem = summary(p, of(pid)).remaining;
+    var row = { purchase_id: pid, kind: v.kind || (_usd >= _rem - 0.005 && _rem > 0 ? 'final' : 'partial'), amount: r2(v.amount), currency: cur, fx_rate: fx, usd: usdOf({ amount: v.amount, currency: cur, fx_rate: fx }),
       method: v.method || null, ref_no: v.ref_no || null, paid_at: v.paid_at || today(), due_at: v.due_at || null, paid_by: v.paid_by || who() || null, note: v.note || null, created_by: who() || null, voided: false };
     await req('POST', 'gmt_po_payments', row, 'return=minimal');
     var sum = await writeCash(pid);
@@ -88,7 +90,7 @@
   }
 
   /* ── النافذة: شريط ملخّص ثابت + الدفعات ── */
-  var METH = { cash: 'نقداً', transfer: 'حوالة', bank: 'تحويل بنكي', other: 'أخرى' }, KIND = { opening: 'افتتاحية', advance: 'مقدّمة', partial: 'جزئية', final: 'نهائية' };
+  var METH = { cash: 'نقداً', transfer: 'حوالة', bank: 'تحويل بنكي', other: 'أخرى' }, KIND = { opening: 'دفعة قديمة', advance: 'مقدّمة', partial: 'جزئية', final: 'نهائية' };
   async function open(p, opt) {
     opt = opt || {};
     var old = document.getElementById('gmt-popay'); if (old) old.remove();
@@ -102,20 +104,20 @@
       var cell = function (k, v, c) { return '<div style="flex:1;min-width:92px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:6px 9px"><div style="font-size:10.5px;color:#64748b;font-weight:800">' + k + '</div><div style="font-weight:900;font-size:14px;' + (c ? 'color:' + c : '') + '" dir="ltr">' + v + '</div></div>'; };
       w.innerHTML = '<div style="background:#f8fafc;border-radius:18px;width:100%;max-width:760px;overflow:hidden">' +
         '<div data-popay-bar style="position:sticky;top:0;background:#f8fafc;padding:12px 14px;border-bottom:1px solid #e5e7eb;z-index:1">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="flex:1;font-size:15px">💳 دفعات ' + esc(p.inv_number || '#' + p.id) + (p.supplier ? ' · ' + esc(p.supplier) : '') + '</b><span style="border-radius:99px;padding:3px 10px;font-size:12px;font-weight:900;background:' + t[1] + ';color:' + t[2] + '">' + t[0] + '</span><button type="button" data-popay-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cell('قيمة الشراء', s.value.toFixed(2) + '$') + cell('المدفوع', s.paid.toFixed(2) + '$', '#166534') + cell('المتبقّي للمورّد', s.remaining.toFixed(2) + '$', s.remaining > 0.005 ? '#b91c1c' : '') +
-        cell('البنود · القطع', s.items + ' · ' + s.qty) + cell('الاستحقاق', s.nextDue ? s.nextDue + (s.overdue ? ' ⏰' : '') : '—', s.overdue ? '#b91c1c' : '') + '</div>' +
-        (s.source === 'legacy-full' ? '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:6px 10px">ℹ️ فاتورة قديمة بلا مبلغ دفع مسجَّل ⇒ كانت محسوبة «مدفوعة بالكامل». أوّل دفعة بتسجّلها بتصير هي المدفوع الحقيقي.</div>' : '') +
-        (s.source === 'legacy' ? '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#334155">ℹ️ المدفوع ' + s.paid.toFixed(2) + '$ مسجَّل قبل نظام الدفعات — بينحفظ «دفعة افتتاحية» مع أوّل دفعة جديدة.</div>' : '') +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="flex:1;font-size:15px">💳 الدفعات — ' + esc(p.inv_number || '#' + p.id) + (p.supplier ? '<div style="font-size:12px;font-weight:700;color:#64748b">' + esc(g.GMTSuppliers && GMTSuppliers.canon ? GMTSuppliers.canon(p) : p.supplier) + '</div>' : '') + '</b><span style="border-radius:99px;padding:3px 10px;font-size:12px;font-weight:900;background:' + t[1] + ';color:' + t[2] + '">' + t[0] + '</span><button type="button" data-popay-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cell('قيمة الفاتورة', s.value.toFixed(2) + '$') + cell('دفعت', s.paid.toFixed(2) + '$', '#166534') + cell('باقي عليك', s.remaining.toFixed(2) + '$', s.remaining > 0.005 ? '#b91c1c' : '') +
+        (s.nextDue ? cell('موعد دفع الباقي', s.nextDue + (s.overdue ? ' ⏰ فات' : ''), s.overdue ? '#b91c1c' : '') : '') + '</div>' +
         '</div><div style="padding:10px 14px 14px">' +
         '<button type="button" data-popay-add style="width:100%;border:0;background:#0f1219;color:#fff;border-radius:12px;padding:11px;font:inherit;font-weight:900;cursor:pointer">➕ دفعة جديدة</button>' +
+        (s.source === 'legacy' && s.paid > 0 ? '<div data-popay-legacy style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700"><b dir="ltr">' + s.paid.toFixed(2) + '$</b> · دفعة قديمة<div style="color:#64748b">مسجّلة على الفاتورة من قبل</div></div>' : '') +
+        (s.source === 'legacy-full' ? '<div data-popay-legacy style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700">✅ فاتورة قديمة محسوبة مدفوعة كاملة<div style="color:#64748b">إذا مو صحيح: سجّل الدفعات الحقيقية وبتنحسب هي بدالها</div></div>' : '') +
         (pays.length ? pays.slice().reverse().map(function (x) {
           return '<div data-popay-row="' + esc(x.id) + '" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700;' + (x.voided ? 'opacity:.55;text-decoration:line-through' : '') + '">' +
             '<b dir="ltr">' + r2(x.amount) + ' ' + esc(x.currency) + '</b>' + (String(x.currency).toUpperCase() !== 'USD' ? ' ÷ ' + esc(x.fx_rate) + ' = <b>' + r2(x.usd) + '$</b>' : '') +
             ' · ' + esc(KIND[x.kind] || x.kind) + (x.method ? ' · ' + esc(METH[x.method] || x.method) : '') + (x.ref_no ? ' · إيصال ' + esc(x.ref_no) : '') +
             '<div style="color:#64748b">' + esc(x.paid_at || String(x.created_at || '').slice(0, 10)) + (x.paid_by ? ' · دفعها ' + esc(x.paid_by) : '') + (x.due_at ? ' · 📅 استحقاق الباقي ' + esc(x.due_at) : '') + (x.note ? ' · ' + esc(x.note) : '') + (x.voided ? ' · ملغاة: ' + esc(x.void_reason || '') : '') + '</div>' +
             (x.voided ? '' : '<button type="button" data-popay-void="' + esc(x.id) + '" style="margin-top:5px;border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">إلغاء الدفعة</button>') + '</div>';
-        }).join('') : '<div style="text-align:center;color:#64748b;padding:16px 6px;font-size:13px">ما في دفعات مسجّلة بعد.</div>') + '</div></div>';
+        }).join('') : (s.source === 'legacy' || s.source === 'legacy-full' ? '' : '<div style="text-align:center;color:#64748b;padding:16px 6px;font-size:13px">لسّا ما دفعت شي على هالفاتورة.</div>')) + '</div></div>';
     }
     w.addEventListener('click', async function (e) {
       if (e.target === w || e.target.closest('[data-popay-x]')) { w.remove(); return; }
@@ -127,7 +129,6 @@
             fields: [{ k: 'amount', label: 'المبلغ', type: 'number', value: s.remaining > 0 ? s.remaining : '' },
               { k: 'currency', label: 'العملة', options: [{ v: 'USD', t: 'دولار $' }, { v: 'EUR', t: 'يورو €' }, { v: 'CNY', t: 'يوان ¥' }, { v: 'SYP', t: 'ليرة سورية' }] },
               { k: 'fx_rate', label: 'سعر الصرف (كم وحدة = ١$) — لغير الدولار', type: 'number', placeholder: 'مثلاً 0.92 لليورو · 7.2 لليوان' },
-              { k: 'kind', label: 'نوع الدفعة', options: [{ v: 'partial', t: 'جزئية' }, { v: 'advance', t: 'مقدّمة' }, { v: 'final', t: 'نهائية' }] },
               { k: 'method', label: 'الطريقة', options: [{ v: 'transfer', t: 'حوالة' }, { v: 'bank', t: 'تحويل بنكي' }, { v: 'cash', t: 'نقداً' }, { v: 'other', t: 'أخرى' }] },
               { k: 'ref_no', label: 'رقم الإيصال/الحوالة', placeholder: 'اختياري' },
               { k: 'paid_at', label: 'تاريخ الدفع', type: 'date', value: today() },

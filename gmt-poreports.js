@@ -21,6 +21,7 @@
   function arr(v) { if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { return []; } } return Array.isArray(v) ? v : []; }
   function supKey(s) { return String(s || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase(); }
   var TYPE = { china: 'صينية 🇨🇳', germany: 'أوروبية 🇩🇪', instant: 'فورية ⚡' };
+  function canonSup(inv) { try { if (g.GMTSuppliers && GMTSuppliers.canon) return GMTSuppliers.canon(inv); } catch (_) {} return String((inv && inv.supplier) || '').replace(/\s+/g, ' ').trim(); }   /* (B1097) مورّد واحد بأكتر من اسم */
   function dateOf(inv) { return String(inv.inv_date || inv.created_at || '').slice(0, 10); }
   function costsOf(inv) { return ['cost_transport', 'cost_shipping', 'cost_customs', 'cost_local', 'cost_transfer'].reduce(function (s, k) { return s + (Number(inv[k]) || 0); }, 0); }
   function unitOf(it) { var o = Number(it.orig_unit_price); return o > 0 ? o : (Number(it.unit_price) || 0); }
@@ -41,7 +42,7 @@
       var d = dateOf(inv);
       if (from && d.slice(0, 7) < from) return false;
       if (o.type && inv.inv_type !== o.type) return false;
-      if (o.supplier && supKey(inv.supplier) !== supKey(o.supplier)) return false;
+      if (o.supplier && supKey(canonSup(inv)) !== supKey(o.supplier)) return false;
       if ((inv.currency || 'USD') !== cur) { var x = others[inv.currency] || (others[inv.currency] = { cur: inv.currency, n: 0, value: 0 }); x.n++; x.value += valueOf(inv); return false; }
       return true;
     });
@@ -50,7 +51,7 @@
       var v = valueOf(inv), c = costsOf(inv), d = dateOf(inv), m = d.slice(0, 7);
       kpi.value += v; kpi.costs += c;
       var mm = M[m] || (M[m] = { m: m, value: 0, costs: 0, n: 0 }); mm.value += v; mm.costs += c; mm.n++;
-      var sk = supKey(inv.supplier) || '—', ss = S[sk] || (S[sk] = { name: String(inv.supplier || '').replace(/\s+/g, ' ').trim() || 'بلا مورّد', n: 0, value: 0, costs: 0, last: '' });
+      var cs = canonSup(inv), sk = supKey(cs) || '—', ss = S[sk] || (S[sk] = { name: cs || 'بلا مورّد', n: 0, value: 0, costs: 0, last: '' });
       ss.n++; ss.value += v; ss.costs += c; if (d > ss.last) ss.last = d;
       var tk = inv.inv_type || 'other', tt = T[tk] || (T[tk] = { type: tk, label: TYPE[tk] || tk, n: 0, value: 0, costs: 0 }); tt.n++; tt.value += v; tt.costs += c;
       arr(inv.items_snapshot).forEach(function (it) {
@@ -58,7 +59,7 @@
         var k = it.id != null && it.id !== '' ? 'p:' + it.id : 'n:' + String(it.name || '').trim().toLowerCase(); if (k === 'n:') return;
         var p = P[k] || (P[k] = { id: it.id != null ? it.id : null, name: it.name || '', qty: 0, spend: 0, n: 0, buys: [] });
         p.qty += q; p.spend += u * q; p.n++; if (it.name) p.name = it.name;
-        if (u > 0) p.buys.push({ at: d, u: u, inv: inv.inv_number || '#' + inv.id, sup: inv.supplier || '' });
+        if (u > 0) p.buys.push({ at: d, u: u, inv: inv.inv_number || '#' + inv.id, sup: canonSup(inv) });
       });
     });
     kpi.value = r2(kpi.value); kpi.costs = r2(kpi.costs); kpi.landed = r2(kpi.value + kpi.costs);
@@ -151,7 +152,7 @@
     w.appendChild(box); document.body.appendChild(w);
     var st = { months: o.months == null ? 12 : o.months, type: '', supplier: '', tab: 'sum' };
     var inv = function () { return (typeof getInvoices === 'function' ? getInvoices() : getInvoices) || []; };
-    var sups = function () { var m = {}; inv().forEach(function (x) { var k = supKey(x.supplier); if (k && !m[k]) m[k] = String(x.supplier).replace(/\s+/g, ' ').trim(); }); return Object.keys(m).map(function (k) { return m[k]; }).sort(); };
+    var sups = function () { var m = {}; inv().forEach(function (x) { var c = canonSup(x), k = supKey(c); if (k && !m[k]) m[k] = c; }); return Object.keys(m).map(function (k) { return m[k]; }).sort(); };
     var R;
     function paint() { R = build(inv(), { months: st.months ? Number(st.months) : 0, type: st.type, supplier: st.supplier }); box.innerHTML = render(R, st, sups()); }
     paint();

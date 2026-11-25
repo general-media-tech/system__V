@@ -20,10 +20,12 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await pg.evaluate(() => openInvFromList('972')); await pg.waitForSelector('[data-pi-open]', { timeout: 10000 }).catch(() => {});
   ok(await pg.evaluate(() => !!document.querySelector('[data-pi-open]')), 'زرّ «ℹ️» جنب البند بالفاتورة');
   await pg.evaluate(() => document.querySelector('[data-pi-open]').click()); await pg.waitForSelector('[data-poitem]', { timeout: 10000 }).catch(() => {});
-  const t = await pg.evaluate(() => (document.querySelector('[data-poitem]') || {}).innerText || '');
-  ok(/هالشراء/.test(t) && /25\.00\$/.test(t) && /كما انسجّل وقت الشراء/.test(t), '«🧾 هالشراء» بسعر الفاتورة (25$) — تاريخي');
-  ok(/المنتج اليوم/.test(t) && /99\$/.test(t) && /المخزون/.test(t), '«📦 المنتج اليوم» حيّ (سعر 99$ · المخزون)');
-  ok(/كلّ مشترياته \(2\)/.test(t) && /السعر أعلى من آخر شراء/.test(t), '«🛒 كلّ مشترياته (2)» + تنبيه السعر أعلى من آخر شراء (20 ⇐ 25)');
+  const t = await pg.evaluate(() => (document.querySelector('[data-poitem]') || {}).textContent || '');
+  const sum = await pg.evaluate(() => (document.querySelector('[data-pi-summary]') || {}).innerText || '');
+  ok(/هالمرّة: 3 قطعة بـ25\.00\$/.test(sum) && /آخر مرّة اشتريته بـ20\.00\$/.test(sum) && /أغلى بـ5\.00\$/.test(sum), '«بالمختصر» ظاهر: هالمرّة 25$ · آخر مرّة 20$ ⇐ أغلى بـ5$ (B1096) — ' + sum.replace(/\n/g, ' | '));
+  ok(/تفاصيل هالشراء/.test(t) && /25\.00\$/.test(t), '«🧾 تفاصيل هالشراء» (مسكّرة — بتنفتح بالضغط)');
+  ok(/بالمحلّ هلّق: 4 قطعة/.test(sum) && /بيتباع بـ99\$/.test(sum) && /المنتج بالمحلّ هلّق/.test(t), '«📦 المنتج بالمحلّ هلّق» (4 قطع · 99$)');
+  ok(/كلّ مرّات الشراء \(2\)/.test(t) && !/السعر أعلى من آخر شراء/.test(t), '«🛒 كلّ مرّات الشراء (2)» (والغلاء بـ«بالمختصر» بدل تنبيه مكرّر)');
   ok(await pg.evaluate(() => [...document.querySelectorAll('[data-poitem] a')].some(a => /view=det/.test(a.href)) && [...document.querySelectorAll('[data-poitem] a')].some(a => /purchase\.html\?open=971/.test(a.href))), 'روابط: ملفّ المنتج الكامل · الفاتورة القديمة (الربط العكسي)');
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await pg.screenshot({ path: '/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/poitem.png' });
