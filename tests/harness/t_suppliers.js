@@ -37,7 +37,8 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   D = await H.call('/__dump', undefined, 'GET');
   ok((D.gmt_suppliers[0].aliases || []).includes('الاختبار') && D.import_log.find(x => x.id === 902).supplier_id === D.gmt_suppliers[0].id, '🔗 ضمّ «الاختبار» ⇒ اسم بديل + فاتورته انربطت');
   const t = await pg.evaluate(() => document.getElementById('gmt-suppliers').innerText);
-  ok(/الرصيد له: 40\.00\$/.test(t) && /IMP-S2/.test(t), 'كشف الحساب بالفاتورتين · الرصيد له 40$');
+  ok(/الباقي علينا هلّق\s*40\.00\$/.test(t) && /IMP-S2/.test(t), 'كشف الحساب بالفاتورتين · الباقي علينا 40$');
+  ok(await pg.evaluate(() => { const ds = [...document.querySelectorAll('[data-sp-st] [data-sp-inv] span[dir="ltr"]')].map(x => x.textContent).filter(x => /^\d{4}-\d\d-\d\d$/.test(x)); return ds.length >= 2 && ds.every((d, i) => i === 0 || ds[i - 1] >= d); }), '(B1112) كشف الحساب: الأحدث فوق والقديم لتحت');
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

@@ -56,14 +56,14 @@
     var rows = [];
     (grp.invs || []).forEach(function (p) {
       var s = sumOf(p, payOf ? payOf(p.id) : []), at = String(p.inv_date || p.created_at || '').slice(0, 10);
-      rows.push({ at: at, kind: 'inv', ref: p.inv_number || '#' + p.id, text: 'فاتورة شراء' + (p.inv_type === 'instant' ? ' فورية' : ''), debit: s.value, credit: 0, id: p.id });
+      rows.push({ at: at, kind: 'inv', ref: p.inv_number || '#' + p.id, text: 'فاتورة شراء' + (p.inv_type === 'instant' ? ' فورية' : '') + (s.ship ? ' (بضاعة ' + r2(s.goods).toFixed(2) + ' + شحن ' + r2(s.ship).toFixed(2) + ')' : ''), debit: s.value, credit: 0, id: p.id });
       var pays = (payOf ? payOf(p.id) : []).filter(function (x) { return x && !x.voided; });
-      if (pays.length) pays.forEach(function (x) { rows.push({ at: String(x.paid_at || x.created_at || at).slice(0, 10), kind: 'pay', ref: p.inv_number || '', text: 'دفعة' + (x.ref_no ? ' · إيصال ' + x.ref_no : '') + (String(x.currency || 'USD').toUpperCase() !== 'USD' ? ' · ' + x.amount + ' ' + x.currency : ''), debit: 0, credit: r2(x.usd), id: p.id }); });
-      else if (s.paid > 0.004) rows.push({ at: at, kind: 'pay', ref: p.inv_number || '', text: 'مدفوع (مسجّل على الفاتورة)', debit: 0, credit: s.paid, id: p.id });
+      if (pays.length) pays.forEach(function (x) { rows.push({ at: String(x.paid_at || x.created_at || at).slice(0, 10), kind: 'pay', ref: p.inv_number || '', text: (x.kind === 'opening' ? 'دفعة قديمة' : 'دفعة') + (x.ref_no ? ' · إيصال ' + x.ref_no : '') + (String(x.currency || 'USD').toUpperCase() !== 'USD' ? ' · ' + x.amount + ' ' + x.currency : ''), debit: 0, credit: r2(x.usd), id: p.id }); });
+      else if (s.paid > 0.004) rows.push({ at: at, kind: 'pay', ref: p.inv_number || '', text: 'دفعة قديمة (مسجّلة على الفاتورة)', debit: 0, credit: s.paid, id: p.id });
     });
     rows.sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : (a.kind === 'inv' ? -1 : 1); });
     var bal = 0; rows.forEach(function (r) { bal = r2(bal + r.debit - r.credit); r.balance = bal; });
-    return { rows: rows, balance: bal };
+    return { rows: rows, newest: rows.slice().reverse(), balance: bal };   /* (B1112) العرض: الأحدث فوق — الرصيد محسوب من الأقدم */
   }
 
   /* ── القاعدة ── */
@@ -111,39 +111,60 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:9640;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
     document.body.appendChild(w);
     var cur = null;
+    var q = '';
+    var BTN = 'border:1.5px solid #e5e7eb;background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer';
+    /* (seq B1112 «خلّيها مفهومة أكتر وأسهل») قائمة الموردين: بحث · اللي إلهم باقي فوق · مجموع اللي علينا */
     function list() {
-      var G = groups(ships(), SUPS, payOf), sim = similar(G);
-      w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:860px;padding:14px">' +
-        '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:16px">🏭 الموردون (' + G.length + ')</b><button type="button" data-sp-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
-        '<div style="font-size:12px;color:#64748b;margin:4px 0 8px">المسجّل ⭐ له ملفّ · غير المسجّل اسمٌ مكتوب على فواتيره — سجّله بضغطة (البيانات من فواتيره بس، ولا شي مخترع).</div>' +
-        (sim.length ? '<div data-sp-sim style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;font-weight:700">🔗 أسماء متشابهة — يمكن نفس المورّد؟ ' + sim.map(function (pr) { return '<div style="margin-top:4px">«' + esc(pr[0].name) + '» و«' + esc(pr[1].name) + '» — بتضمّهم من ملفّ المورّد (زرّ «ضمّ اسم»)</div>'; }).join('') + '</div>' : '') +
-        G.map(function (x) {
-          return '<div data-sp-key="' + esc(x.key) + '" style="border:1px solid #e5e7eb;border-radius:12px;padding:9px 11px;margin-top:6px;cursor:pointer;font-size:12.5px;font-weight:700">' +
-            '<b style="font-size:13.5px">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</b>' + (x.names.length > 1 || (x.sup && x.names.some(function (n) { return n !== x.sup.name; })) ? ' <span style="color:#64748b">(' + esc(x.names.join(' · ')) + ')</span>' : '') +
-            '<div style="color:#475569">' + x.invs.length + ' فاتورة · مشتريات ' + x.value.toFixed(2) + '$ · مدفوع ' + x.paid.toFixed(2) + '$ · ' + (x.remaining > 0.005 ? '<b style="color:#b91c1c">باقي ' + x.remaining.toFixed(2) + '$</b>' : '✅ ما في باقي') + (x.last ? ' · آخر شراء ' + esc(x.last) : '') + '</div></div>';
-        }).join('') + '</div>';
+      var G = groups(ships(), SUPS, payOf), sim = similar(G), qq = q.trim().toLowerCase();
+      var F = G.filter(function (x) { return !qq || (x.name + ' ' + x.names.join(' ')).toLowerCase().indexOf(qq) >= 0; })
+        .sort(function (a, b) { return (b.remaining > 0.005) - (a.remaining > 0.005) || b.remaining - a.remaining || String(b.last || '').localeCompare(String(a.last || '')); });
+      var owe = G.reduce(function (t, x) { return t + (x.remaining > 0.005 ? x.remaining : 0); }, 0), nOwe = G.filter(function (x) { return x.remaining > 0.005; }).length;
+      w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:760px;padding:14px">' +
+        '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:17px">🏭 الموردون</b><button type="button" data-sp-x style="' + BTN + '">✕</button></div>' +
+        '<div style="display:flex;gap:6px;margin:10px 0"><div style="flex:1;background:' + (owe > 0.005 ? '#fef2f2' : '#f0fdf4') + ';border-radius:12px;padding:8px 12px"><div style="font-size:11.5px;color:#64748b;font-weight:800">الباقي علينا لكلّ الموردين</div><div style="font-size:19px;font-weight:900;color:' + (owe > 0.005 ? '#b91c1c' : '#15803d') + '" dir="ltr">' + owe.toFixed(2) + '$</div><div style="font-size:11px;color:#64748b">' + (nOwe ? nOwe + ' مورّد إلهم باقي' : 'كلّه مسدّد') + '</div></div></div>' +
+        '<input data-sp-q value="' + esc(q) + '" placeholder="🔎 ابحث عن مورّد…" style="width:100%;box-sizing:border-box;border:1.5px solid #e5e7eb;border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;margin-bottom:6px">' +
+        (sim.length ? '<div data-sp-sim style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;font-weight:700">🔗 أسماء متشابهة — يمكن نفس المورّد؟ ' + sim.map(function (pr) { return '<div style="margin-top:4px">«' + esc(pr[0].name) + '» و«' + esc(pr[1].name) + '»</div>'; }).join('') + '<div style="font-weight:600;color:#64748b;margin-top:4px">إذا نفسه: افتح واحد منهم ⇐ «🔗 ضمّ اسم»</div></div>' : '') +
+        (F.length ? F.map(function (x) {
+          return '<div data-sp-key="' + esc(x.key) + '" style="border:1px solid #e5e7eb;border-radius:14px;padding:10px 12px;margin-top:6px;cursor:pointer;display:flex;gap:10px;align-items:center">' +
+            '<div style="flex:1;min-width:0"><div style="font-weight:900;font-size:14.5px;overflow-wrap:anywhere">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-top:2px">' + x.invs.length + ' فاتورة' + (x.last ? ' · آخر شراء ' + esc(x.last) : '') + (x.names.length > 1 ? ' · كمان: ' + esc(x.names.filter(function (n) { return n !== x.name; }).join('، ')) : '') + '</div></div>' +
+            '<div style="text-align:left;flex:none">' + (x.remaining > 0.005 ? '<div style="font-size:11px;color:#64748b">باقي علينا</div><div style="font-weight:900;color:#b91c1c;font-size:15px" dir="ltr">' + x.remaining.toFixed(2) + '$</div>' : '<div style="font-weight:900;color:#15803d">✅ مسدّد</div>') + '</div><span style="color:#94a3b8;font-size:18px">‹</span></div>';
+        }).join('') : '<div style="color:#64748b;text-align:center;padding:14px">ما لقيت مورّد بهالاسم.</div>') +
+        '<div style="font-size:11px;color:#94a3b8;margin-top:8px">⭐ = إله ملفّ (بيانات وأسماء بديلة) · الباقي محسوب من الفواتير ودفعاتها (فواتير الصين مع شحنها)</div></div>';
+      var qi = w.querySelector('[data-sp-q]'); if (qi && list._focus) { qi.focus(); try { qi.setSelectionRange(q.length, q.length); } catch (_) {} }
     }
+    /* ملفّ المورّد: الاسم لحاله · الأزرار تحته · كشف الحساب الأحدث فوق والقديم لتحت */
     function profile(x) {
       cur = x; var st = statement(x, payOf), s = x.sup || {};
-      w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:860px;padding:14px">' +
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" data-sp-back style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">→ الموردون</button><b style="flex:1;font-size:16px">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</b>' +
-        (x.sup ? '<button type="button" data-sp-edit style="border:0;background:#0f1219;color:#fff;border-radius:9px;padding:6px 11px;font:inherit;font-weight:800;cursor:pointer">✏️ البيانات</button><button type="button" data-sp-link style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:6px 11px;font:inherit;font-weight:800;cursor:pointer">🔗 ضمّ اسم</button>'
-          : '<button type="button" data-sp-reg style="border:0;background:#0f1219;color:#fff;border-radius:9px;padding:6px 11px;font:inherit;font-weight:800;cursor:pointer">⭐ سجّله كمورّد</button>') +
-        '<button type="button" data-sp-print style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:6px 11px;font:inherit;font-weight:800;cursor:pointer">🖨️ كشف الحساب</button><button type="button" data-sp-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">' + [['مشتريات', x.value], ['مدفوع', x.paid], ['باقي له', x.remaining]].map(function (c) { return '<div style="flex:1;min-width:110px;background:#f8fafc;border-radius:12px;padding:7px 10px"><div style="font-size:11px;color:#64748b;font-weight:800">' + c[0] + '</div><b dir="ltr" style="font-size:15px">' + c[1].toFixed(2) + '$</b></div>'; }).join('') + '</div>' +
-        (x.sup ? '<div style="font-size:12.5px;line-height:1.9;margin-bottom:8px">' + FIELDS.filter(function (f) { return s[f[0]]; }).map(function (f) { return '<b>' + f[1] + ':</b> ' + esc(s[f[0]]); }).join(' · ') + ((s.aliases || []).length ? ' · <b>أسماء بديلة:</b> ' + esc(s.aliases.join(' · ')) : '') + '</div>'
-          : '<div style="font-size:12.5px;color:#475569;margin-bottom:8px">' + (x.phone ? '☎ ' + esc(x.phone) + ' · ' : '') + (x.address ? esc(x.address) : '') + '</div>') +
-        '<b style="font-size:13.5px">📒 كشف الحساب</b><div data-sp-st style="margin-top:6px">' + (st.rows.length ? '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th style="padding:5px;text-align:right">التاريخ</th><th style="text-align:right">البيان</th><th style="text-align:right">المرجع</th><th>عليه</th><th>دفعنا</th><th>الرصيد</th></tr>' +
-          st.rows.map(function (r) { return '<tr data-sp-inv="' + esc(r.id) + '" style="border-bottom:1px solid #f1f5f9;cursor:pointer"><td style="padding:5px">' + esc(r.at) + '</td><td>' + esc(r.text) + '</td><td dir="ltr">' + esc(r.ref) + '</td><td style="text-align:center">' + (r.debit ? r.debit.toFixed(2) : '') + '</td><td style="text-align:center;color:#047857">' + (r.credit ? r.credit.toFixed(2) : '') + '</td><td style="text-align:center;font-weight:900">' + r.balance.toFixed(2) + '</td></tr>'; }).join('') +
-          '</table><div style="text-align:left;font-weight:900;margin-top:6px">الرصيد له: ' + st.balance.toFixed(2) + '$</div>' : '<div style="color:#64748b">ما في فواتير.</div>') + '</div></div>';
+      var info = x.sup ? FIELDS.filter(function (f) { return s[f[0]] && f[0] !== 'notes'; }).map(function (f) { return '<b>' + f[1] + ':</b> ' + esc(s[f[0]]); }) : [];
+      if (x.sup && (s.aliases || []).length) info.push('<b>بيعرف كمان باسم:</b> ' + esc(s.aliases.join(' · ')));
+      if (!x.sup && x.phone) info.push('☎ ' + esc(x.phone)); if (!x.sup && x.address) info.push(esc(x.address));
+      w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:760px;padding:14px">' +
+        '<div style="display:flex;align-items:center;gap:8px"><button type="button" data-sp-back style="' + BTN + '">→ رجوع</button><span style="flex:1"></span><button type="button" data-sp-x style="' + BTN + '">✕</button></div>' +
+        '<div style="font-weight:900;font-size:18px;margin:10px 0 6px;overflow-wrap:anywhere">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><button type="button" data-sp-print style="' + BTN + '">🖨️ اطبع كشف الحساب</button>' +
+        (x.sup ? '<button type="button" data-sp-edit style="' + BTN + '">✏️ بياناته</button><button type="button" data-sp-link style="' + BTN + '">🔗 ضمّ اسم تاني إله</button>'
+          : '<button type="button" data-sp-reg style="border:0;background:#0f1219;color:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer">⭐ اعمله ملفّ</button>') + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + [['اشترينا', x.value, '#0f1219'], ['دفعنا', x.paid, '#15803d'], ['الباقي علينا', x.remaining, x.remaining > 0.005 ? '#b91c1c' : '#15803d']].map(function (c) { return '<div style="flex:1;min-width:100px;background:#f8fafc;border-radius:12px;padding:8px 10px"><div style="font-size:11.5px;color:#64748b;font-weight:800">' + c[0] + '</div><div style="font-weight:900;font-size:16px;color:' + c[2] + '" dir="ltr">' + c[1].toFixed(2) + '$</div></div>'; }).join('') + '</div>' +
+        (info.length ? '<div style="font-size:12.5px;line-height:1.9;margin-bottom:10px;color:#334155">' + info.join(' · ') + '</div>' : '') +
+        '<div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1;font-size:14px">📒 كشف الحساب</b><span style="font-size:11px;color:#64748b">الأحدث فوق · اضغط على سطر لتفتح الفاتورة</span></div>' +
+        (st.rows.length ? '<div data-sp-st style="border:1px solid #eef1f5;border-radius:12px;overflow:hidden">' + st.newest.map(function (r) {
+          var inv = r.kind === 'inv';
+          return '<div data-sp-inv="' + esc(r.id) + '" style="display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:' + (inv ? '#fff' : '#f7fdf9') + '">' +
+            '<span style="font-size:18px;flex:none">' + (inv ? '🧾' : '💵') + '</span>' +
+            '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:13px">' + esc(r.text) + '</div><div style="font-size:11px;color:#64748b"><span dir="ltr" style="white-space:nowrap">' + esc(r.at) + '</span> · <span dir="ltr" style="white-space:nowrap">' + esc(r.ref) + '</span></div></div>' +
+            '<div style="text-align:left;flex:none"><div style="font-weight:900;font-size:13.5px;color:' + (inv ? '#b91c1c' : '#15803d') + '" dir="ltr">' + (inv ? '+' + r.debit.toFixed(2) : '−' + r.credit.toFixed(2)) + '$</div><div style="font-size:10.5px;color:#64748b">الباقي بعدها <b dir="ltr">' + r.balance.toFixed(2) + '$</b></div></div></div>';
+        }).join('') + '</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;background:' + (st.balance > 0.005 ? '#fef2f2' : '#f0fdf4') + ';border-radius:12px;padding:8px 12px"><b>الباقي علينا هلّق</b><b dir="ltr" style="font-size:16px;color:' + (st.balance > 0.005 ? '#b91c1c' : '#15803d') + '">' + st.balance.toFixed(2) + '$</b></div>'
+          : '<div style="color:#64748b">ما في فواتير.</div>') + '</div>';
     }
     function printSt(x) {
       var st = statement(x, payOf), ww = window.open('', '_blank'); if (!ww) return;
-      ww.document.write('<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف حساب ' + esc(x.name) + '</title><style>body{font-family:Tahoma,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #ddd;padding:5px}</style></head><body><h2>كشف حساب المورّد: ' + esc(x.name) + '</h2><p>' + new Date().toLocaleDateString('ar-SY') + ' · مشتريات ' + x.value.toFixed(2) + '$ · مدفوع ' + x.paid.toFixed(2) + '$ · الباقي ' + st.balance.toFixed(2) + '$</p><table><tr><th>التاريخ</th><th>البيان</th><th>المرجع</th><th>عليه</th><th>دفعنا</th><th>الرصيد</th></tr>' +
-        st.rows.map(function (r) { return '<tr><td>' + esc(r.at) + '</td><td>' + esc(r.text) + '</td><td dir="ltr">' + esc(r.ref) + '</td><td>' + (r.debit ? r.debit.toFixed(2) : '') + '</td><td>' + (r.credit ? r.credit.toFixed(2) : '') + '</td><td><b>' + r.balance.toFixed(2) + '</b></td></tr>'; }).join('') + '</table><script>print()<\/script></body></html>');
+      ww.document.write('<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف حساب ' + esc(x.name) + '</title><style>body{font-family:Tahoma,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #ddd;padding:5px}</style></head><body><h2>كشف حساب المورّد: ' + esc(x.name) + '</h2><p>' + new Date().toLocaleDateString('ar-SY') + ' · اشترينا ' + x.value.toFixed(2) + '$ · دفعنا ' + x.paid.toFixed(2) + '$ · الباقي علينا ' + st.balance.toFixed(2) + '$ · (الأحدث فوق)</p><table><tr><th>التاريخ</th><th>البيان</th><th>المرجع</th><th>فاتورة</th><th>دفعنا</th><th>الباقي بعدها</th></tr>' +
+        st.newest.map(function (r) { return '<tr><td>' + esc(r.at) + '</td><td>' + esc(r.text) + '</td><td dir="ltr">' + esc(r.ref) + '</td><td>' + (r.debit ? r.debit.toFixed(2) : '') + '</td><td>' + (r.credit ? r.credit.toFixed(2) : '') + '</td><td><b>' + r.balance.toFixed(2) + '</b></td></tr>'; }).join('') + '</table><script>print()<\/script></body></html>');
       ww.document.close();
     }
     async function refresh(keyWant) { await load(); var G = groups(ships(), SUPS, payOf), x = G.find(function (y) { return y.key === keyWant; }); if (x) profile(x); else list(); if (o.onChange) o.onChange(); }
+    w.addEventListener('input', function (e) { var t = e.target.closest('[data-sp-q]'); if (t) { q = t.value; list._focus = true; list(); list._focus = false; } });
     w.addEventListener('click', async function (e) {
       try {
         if (e.target === w || e.target.closest('[data-sp-x]')) { w.remove(); return; }
