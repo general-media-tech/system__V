@@ -209,6 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-popay.js?v=20261125b18"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261124b3" defer></script>
   <script src="gmt-icons.js?v=20261124b3" defer></script>
@@ -1229,6 +1230,15 @@ function ledgerAfterWrite(method,path,d){
   clearTimeout(_ledgerTimers[id]);
   _ledgerTimers[id]=setTimeout(()=>ledgerSyncId(id),450);
 }
+/* (TASK-B0545 · A1004 P1) 💳 دفعات الفاتورة: نافذة بشريط ملخّص ثابت · كلّ دفعة/إلغاء ⇒ cash_payment = مجموعها ⇒ نفس مزامنة المحاسبة */
+async function openPoPay(id){
+  if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;}
+  const s=(ships||[]).find(x=>String(x.id)===String(id));if(!s){toast('الفاتورة غير موجودة','err');return;}
+  GMTPoPay.open(s,{onChange:async pid=>{try{await ledgerSyncId(pid);}catch(_){}
+    try{const rows=await sb('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(pid)+'&select=*');const row=Array.isArray(rows)?rows[0]:null;if(row){const k=(ships||[]).findIndex(x=>String(x.id)===String(pid));if(k>=0)ships[k]=Object.assign({},ships[k],row);}}catch(_){}
+    try{await GMTPoPay.loadAll();render();}catch(_){} }});
+}
+window.openPoPay=openPoPay;
 async function ledgerSyncId(id){
   try{
     const pp=_ledgerPayer[id]||{payer:'',explicit:false};delete _ledgerPayer[id];
@@ -1299,6 +1309,7 @@ async function _waitForGMTCache(maxMs){
     ships=Array.isArray(s)?s:[]; window._shipsLoaded=true;   /* (TASK-0338) لبوت المسودة: يتحقّق أن فاتورة المسودة ما زالت موجودة */
     allBranches=Array.isArray(cols)?cols:[];
     try{initPayerUI();}catch(_){} loadPoRows().then(()=>{try{render();}catch(_){}});
+    try{if(window.GMTPoPay)GMTPoPay.loadAll().then(()=>{try{render();}catch(_){}});}catch(_){}
 
     // المنتجات: من نفس الكاش المحلي المشترك مع نظام الجرد (IndexedDB) — لا تحميل كامل متكرر
     const sbConfig={url:SB,key:KEY};
@@ -1435,10 +1446,12 @@ function render(){
           <div class="text-[10px] font-bold text-gray-400 mt-1">📅 ${fd(s.inv_date)}${s.eta_date?' · وصول: '+fd(s.eta_date):''}</div>
           ${arrived?`<p class="text-[10px] text-emerald-600 font-bold mt-1">✅ وصل${s.arrived_at?' — '+fd(s.arrived_at):''}</p>`:''}
           ${purGapChips(s)}
+          ${window.GMTPoPay?'<div class="mt-1">'+GMTPoPay.chip(s,GMTPoPay.of(s.id))+'</div>':''}
         </div>
         <div class="flex flex-col items-end gap-2">
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
+            <button onclick="openPoPay('${s.id}')" class="hover:text-emerald-600" title="💳 الدفعات للمورّد" data-popay-open="${s.id}">💳</button>
             <button onclick="openInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
             <button onclick="openInvForEdit('${s.id}')" class="hover:text-blue-600" title="تعديل الفاتورة"><i data-lucide="edit" class="w-4 h-4"></i></button>
             <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
@@ -6561,7 +6574,7 @@ try {
 <script src="gmt-brain.js?v=20261125b17"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b17"></script>
+<script src="gmt-whatsnew.js?v=20261125b18"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
