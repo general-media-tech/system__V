@@ -2756,7 +2756,7 @@ function _exBuild(colOverride){
      يحمل صورتين أو أن أحدهم بلا صورة ⇒ تنزاح الصور بعده. نُعلم المالك ليراجع
      المعاينة قبل الحفظ بدل اكتشاف الخطأ بعد الترحيل. */
   try{
-    if(window.__gmtImgOrderMode==='sequential'){
+    if(window.__gmtImgOrderMode==='sequential'&&!window._exImgGeo){   /* (B1108) بموقعها الحقيقي ما في «تفاوت» يزيح الصور */
       const nImg=Number(window.__gmtImgCount||Object.keys(rowToImage).length)||0;
       if(nImg && nImg!==exRows.length){
         toast('⚠️ عدد الصور ('+nImg+') يخالف عدد البنود ('+exRows.length+') — راجع الصور في المعاينة قبل الحفظ','err');
@@ -3090,7 +3090,7 @@ async function buildRowImageMap(arrayBuffer){
           col: colM ? parseInt(colM[1],10) : -1,
           rid: ridM[1],
           docIndex: _docIdx++,
-          fromRowOff, toRow, toRowOff, posY, posX, extCy, fromColOff
+          fromRowOff, toRow, toRowOff, posY, posX, extCy, fromColOff, isFloat: !rowM
         });
       }
       // المراسي ذات الصف تُرتَّب بالصف؛ العائمة تبقى بترتيب المستند
@@ -3119,7 +3119,7 @@ async function buildRowImageMap(arrayBuffer){
         const geo=[];
         for(const a of anchorList){
           let top=null,bottom=null;
-          if(a.posY!=null&&a.excelRow<0){ top=a.posY; bottom=top+(a.extCy||381000); }
+          if(a.isFloat){ if(a.posY==null) continue; top=a.posY; bottom=top+(a.extCy||381000); }
           else if(a.excelRow>=0&&a.excelRow<T.length){ top=T[a.excelRow]+a.fromRowOff;
             if(a.toRow!=null&&a.toRow<T.length) bottom=T[a.toRow]+a.toRowOff; else bottom=top+(a.extCy||Math.max(1,T[a.excelRow+1]-T[a.excelRow])); }
           if(top==null) continue;
@@ -3340,6 +3340,17 @@ async function excelImgToStorage(rows){
       const url=await upload('imports/xl-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext,new Blob([u8],{type:mime}));
       cache[u]=url; row.image_url=url; up++;
     }catch(e){fail++;console.warn('excelImgToStorage:',e);}
+  }
+  /* (B1107) صور البند الإضافية (مونتاج) كمان بتنرفع — بنفس الكاش (الصورة المكرّرة بتنرفع مرّة) */
+  for(const row of rows){
+    if(!Array.isArray(row.images)) continue;
+    for(let k=0;k<row.images.length;k++){ const u=row.images[k]||''; if(!u.startsWith('data:')) continue;
+      if(cache[u]){ row.images[k]=cache[u]; continue; }
+      try{ const mime=(u.match(/^data:([^;]+);/)||[])[1]||'image/png', ext=mime.split('/')[1].replace('jpeg','jpg');
+        const bin=atob(u.split(',')[1]||''), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+        const url=await upload('imports/xl-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext,new Blob([u8],{type:mime}));
+        cache[u]=url; row.images[k]=url; up++; }catch(e){fail++;}
+    }
   }
   return {up,fail};
 }
@@ -4410,7 +4421,7 @@ async function saveShipment(){
     // ── أولاً: احفظ المنتجات الجديدة (pending) ──
     for(const item of cart){
       if(!item.product._pending)continue;
-      try{const np={name:item.product.name,barcode:item.product.barcode,price:item.product.price||0,wholesale_price:0,net_cost:item.product.net_cost||0,image_url:item.product.image_url||null};if(item.product._excelRow&&item.product._excelRow.name)np.invoice_names=[{n:String(item.product._excelRow.name),src:'فاتورة شراء (Excel)',usd:Number(item.product._excelRow.netCost)||null,at:new Date().toISOString().slice(0,10)}];/* (TASK-0287) اسم الفاتورة ثابت */getAllBranchKeys().forEach(k=>{if(np[k]===undefined)np[k]=0;});const res=await sb('POST','/rest/v1/products',np);const saved=Array.isArray(res)?res[0]:res;if(saved?.id){const oldId=item.product.id;item.product.id=saved.id;item.product._pending=false;const pi=prods.findIndex(p=>String(p.id) === String(oldId));if(pi>=0)prods[pi]=item.product;}}catch(e){console.warn('خطأ حفظ منتج جديد:',e);}
+      try{const np={name:item.product.name,barcode:item.product.barcode,price:item.product.price||0,wholesale_price:0,net_cost:item.product.net_cost||0,image_url:item.product.image_url||null};if(item.product._excelRow&&item.product._excelRow.name)np.invoice_names=[{n:String(item.product._excelRow.name),src:'فاتورة شراء (Excel)',usd:Number(item.product._excelRow.netCost)||null,at:new Date().toISOString().slice(0,10)}];/* (TASK-0287) اسم الفاتورة ثابت */if(item.product._excelRow&&Array.isArray(item.product._excelRow.images)&&item.product._excelRow.images.length>1)np.images=item.product._excelRow.images.filter(u=>u&&!String(u).startsWith('data:'));   /* (B1107) صور المونتاج */getAllBranchKeys().forEach(k=>{if(np[k]===undefined)np[k]=0;});const res=await sb('POST','/rest/v1/products',np);const saved=Array.isArray(res)?res[0]:res;if(saved?.id){const oldId=item.product.id;item.product.id=saved.id;item.product._pending=false;const pi=prods.findIndex(p=>String(p.id) === String(oldId));if(pi>=0)prods[pi]=item.product;}}catch(e){console.warn('خطأ حفظ منتج جديد:',e);}
     }
 
     if(editId){
@@ -6908,7 +6919,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b41"></script>
+<script src="gmt-whatsnew.js?v=20261125b42"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
