@@ -113,6 +113,23 @@
       tone: 'warn'
     },
     {
+      id: 'po_ships_overdue',
+      admin: true,
+      title: 'شحنات مشتريات متأخّرة عن موعد وصولها',
+      why: 'شحنة فات موعد وصولها المتوقّع وما انعلّمت «وصلت» — تابع مع شركة الشحن أو حدّث الموعد (TASK-B0559 · A1004 P6).',
+      go: { label: 'المشتريات ⇐ 🚢 الشحنات', href: 'purchase.html?ships=1' },
+      run: async function () {
+        var d = db(); if (!d) return { err: 'لا مفاتيح قاعدة في هذه الصفحة' };
+        var H = { apikey: d.key, Authorization: 'Bearer ' + d.key }, t = new Date(); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); t = t.toISOString().slice(0, 10);
+        try {
+          var r = await fetch(d.url + '/rest/v1/gmt_po_shipments?status=in.(booked,transit,customs)&eta=lt.' + t + '&select=id&limit=1000', { headers: H });
+          if (!r.ok) return { err: 'HTTP ' + r.status };
+          return { n: (await r.json()).length };
+        } catch (e) { return { err: (e && e.message) || 'تعذّر الاتصال' }; }
+      },
+      tone: 'warn'
+    },
+    {
       id: 'po_payments_due',
       admin: true,
       title: 'دفعات للمورّدين مستحقّة أو متأخّرة',

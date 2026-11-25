@@ -3318,6 +3318,14 @@
 - اختبار `t_poitem` ١٠/١٠ · تحقّق بصري.
 - ⏳ م٢ (A988 §4–6): البند الجمركي ونتيجة التدقيق · اختلاف الوزن عن الباكينج · منتج مكرّر محتمل — مع البيان الجمركي (P5).
 
+### TASK-B0559 — P6 م٢ شحنات المشتريات N↔N (A1004 · الخطّة 1.8 · طابور Q1 · seq B1095) — ✅ gmt-v20261125b32
+- جدول `gmt_po_shipments` (`tools/sql/B0559_po_shipments.sql` · مطبَّق): ref فريد SHP-YYYY-NNN · carrier · tracking · mode · status (booked/transit/customs/arrived/cancelled) · `invoice_ids bigint[]` (N↔N · فهرس gin) · etd/eta/arrived_at · cartons/kg/cbm · لا حذف (إلغاء بسبب). منفصل عن `shipments` (للأوردرات).
+- `gmt-poship.js` (`GMTPoShip`): صافٍ `nextRef/stateOf/forInvoice/unshipped/progress` · `loadAll/of/chipFor/save/open` — «⏰ متأخّرة» إذا فات eta · «📭 بلا شحنة» · اقتراح شركات الشحن من الفواتير · تصادم الرقم ⇒ إعادة بالرقم التالي.
+- `purchase.html`: زرّ `#btn-po-ships` · `openPoShip()` · `?ships=1` · شارة الشحنة على البطاقة · «📦 استلم» ⇒ `markArrived(id)` (الاستلام بالمسح كما هو — وصول الشحنة ≠ الاستلام).
+- `gmt-notify.js`: فحص `po_ships_overdue` · أداة بالبحث `purchase.html?ships=1`.
+- اختبار `t_poship` ١٦/١٦ (أُصلحت مقارنة المعرّف String — كانت تكرّر الشحنة بالقائمة إذا المعرّف رقمي).
+- الباقي من P6: أرشيف المستندات (تخزين خاصّ).
+
 ### TASK-B0558 — P6 م١ تقارير المشتريات (A1004 · الخطّة 1.8 · طابور Q1 · seq B1095) — ✅ gmt-v20261125b31
 - `gmt-poreports.js` (`GMTPoReports.build/csv/open`): من `import_log` نفسه بلا جدول جديد — القيمة بالسعر الأصلي · التكاليف الخمس · نسبة التكاليف · الصرف بالشهر (الأشهر الفاضية صفر) · الموردون (توحيد الكتابة) · المنتجات (أوّل/آخر سعر · التغيّر) · ارتفاع الأسعار ≥5% · العملة الأقلّية تُعدّ لحالها · الملغاة برّا.
 - `purchase.html`: زرّ `#btn-po-reports` «📈 التقارير» · `openPoReports()` · `?reports=1` · أداة بالبحث `purchase.html?reports=1`.
