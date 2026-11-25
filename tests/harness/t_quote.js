@@ -23,7 +23,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const syp = await pg.evaluate(() => ({ t: document.getElementById('q-total').textContent, d: document.getElementById('pv').contentDocument.body.innerText }));
   ok(/ل\.س$/.test(syp.t) && /ليرة سورية/.test(syp.d) && /سعر الصرف 11,000/.test(syp.d), '⑤ بالليرة السورية مع سعر الصرف: ' + syp.t);
   await pg.evaluate(() => { window.__wa = []; window.open = function (u) { window.__wa.push(String(u)); return null; }; });
-  await pg.click('#q-wa'); const wa = await pg.evaluate(() => window.__wa.slice(-1)[0] || '');
+  await pg.click('#q-wa'); await pg.waitForFunction(() => window.__wa.length > 0, null, { timeout: 8000 }).catch(() => {}); /* (B1068) صورة العرض عبر المشاركة أوّلاً ثمّ wa.me ⇒ ننتظر */ const wa = await pg.evaluate(() => window.__wa.slice(-1)[0] || '');
   ok(/^https:\/\/wa\.me\/963933123456\?text=/.test(wa) && decodeURIComponent(wa).includes('عرض سعر'), '⑥ واتساب إلى رقم العميل برسالة العرض ' + wa.slice(0, 60));
   await pg.reload({ waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(2500);
   const kept = await pg.evaluate(() => ({ n: document.querySelectorAll('#q-items .it').length, name: document.getElementById('q-name').value }));
