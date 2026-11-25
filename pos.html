@@ -1272,6 +1272,7 @@ window.GMT_FEATURES = [
   <script src="gmt-labels.js?v=20261125b12"></script>
 <script src="gmt-staff.js?v=20261124b5"></script>
 <script src="gmt-custledger.js?v=20261124b6"></script>
+<script src="gmt-quotes.js?v=20261125b13"></script>
 <script src="gmt-serial.js?v=20261125b10"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -1804,7 +1805,7 @@ window.GMT_FEATURES = [
 
       <!-- قسم بيانات العميل -->
       <div class="card" style="margin-bottom:12px;">
-        <div class="card-title">بيانات العميل</div>
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">بيانات العميل <button type="button" id="pos-quote-imp" onclick="posImportQuote()" style="margin-inline-start:auto;border:1.5px solid #d9dee7;background:#fff;border-radius:9px;padding:4px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer">📥 من عرض سعر</button></div>
         <div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;margin:0 14px 10px;font-size:11px;color:#0f172a;font-weight:700;line-height:1.6;">
           💡 بيانات العميل تُحفظ مع الفاتورة وتُذكر في السجل المطبوع. <b>لا تدع عميلاً يفوتك</b> — كل رقم جوال هو رابط للتواصل والمتابعة والكفالة.
         </div>
@@ -8576,6 +8577,75 @@ function gmtFillCartFromOrder(o) {
 }
 window.gmtFillCartFromOrder = gmtFillCartFromOrder;
 
+/* ══ (TASK-B0541 · المالك seq B1073 «إنشاء فاتورة منه أو استيراد من عرض سعر») ══
+   pos.html?quote=<رقم العرض> أو زرّ «📥 من عرض سعر» ⇒ بنود العرض تدخل السلّة **بمعرّف المنتج** (لا مطابقة بالاسم — نفس درس
+   gmtFillCartFromOrder) وبسعر العرض المتّفق عليه · السطر اليدوي (بلا منتج بالجرد) لا يدخل ويُذكر · الكمّية لا تتجاوز مخزون الفرع ·
+   الاسم والرقم يتعبّوا · وبعد حفظ الفاتورة يتعلّم العرض «صار فاتورة» برقمها. */
+var _posQuoteRef = null;
+function posFillFromQuote(q) {
+  if (!q) return;
+  const items = q.items || [], picked = [], skipped = [], capped = [];
+  items.forEach(x => {
+    const p = x.pid != null && allProducts.find(y => String(y.id) === String(x.pid));
+    if (!p) { skipped.push(x.name || '—'); return; }
+    const stock = Number(p[branch.key]) || 0, want = Math.max(1, Number(x.qty) || 1), qty = Math.min(want, stock);
+    if (qty <= 0) { skipped.push(p.name + ' (ما في مخزون)'); return; }
+    if (qty < want) capped.push(p.name + ' ' + qty + '/' + want);
+    const price = Number(x.price) > 0 ? Number(x.price) : (Number(p.price) || 0);
+    if (cart[p.id]) cart[p.id].qty = Math.min(stock, cart[p.id].qty + qty);
+    else cart[p.id] = { prod: p, qty: qty, price: price, _seq: ++_cartSeq };
+    picked.push(p.name);
+  });
+  const cn = document.getElementById('custName'), cp = document.getElementById('custPhone');
+  if (cn && q.customer_name && !cn.value.trim()) { cn.value = q.customer_name; cn.classList.add('has-ok'); }
+  if (cp && q.customer_phone && !cp.value.trim()) cp.value = q.customer_phone;
+  _posQuoteRef = q.ref;
+  updateFab(); renderProds();
+  if (typeof renderInvItemsRows === 'function') renderInvItemsRows();
+  if (typeof syncCartTotal === 'function') syncCartTotal();
+  if (picked.length) showToast('✅ عرض السعر ' + q.ref + ': دخل ' + picked.length + ' صنف بالسلّة بسعر العرض', 'ok');
+  if (capped.length) showToast('⚠️ المخزون أقلّ من العرض: ' + capped.join(' · '), 'warn');
+  if (skipped.length) showToast('⚠️ ما دخلوا (أضفهم يدوياً): ' + skipped.join(' · '), 'warn');
+  if (q.status === 'converted') showToast('ℹ️ هالعرض صار فاتورة قبل' + (q.invoice_number ? ' (' + q.invoice_number + ')' : ''), 'inf');
+}
+window.posFillFromQuote = posFillFromQuote;
+async function posImportQuote() {
+  if (!window.GMTQuotes) { showToast('⚠️ وحدة عروض الأسعار غير محمّلة', 'err'); return; }
+  let rows = [];
+  try { rows = await GMTQuotes.list({ open: true, limit: 60 }); } catch (e) { showToast('⚠️ تعذّر جلب العروض: ' + e.message, 'err'); return; }
+  if (!rows.length) { showToast('ما في عروض أسعار مفتوحة', 'inf'); return; }
+  const old = document.getElementById('pos-quote-sheet'); if (old) old.remove();
+  const w = document.createElement('div'); w.id = 'pos-quote-sheet'; w.setAttribute('data-keep-fab', '1');
+  w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:5vh 10px;overflow:auto;direction:rtl';
+  const e = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:620px;padding:14px;font-family:inherit"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:15px">📥 استيراد عرض سعر</b><button type="button" data-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
+    '<input data-s placeholder="🔍 ابحث بالاسم أو الرقم أو رقم العرض" style="width:100%;margin-top:8px;padding:9px 11px;border:1.5px solid #e5e7eb;border-radius:10px;font:inherit">' +
+    '<div data-l>' + rows.map(r => '<div data-qref="' + e(r.ref) + '" style="border:1px solid #e5e7eb;border-radius:12px;padding:9px 11px;margin-top:8px;cursor:pointer;font-size:12.5px;font-weight:700"><b dir="ltr">' + e(r.ref) + '</b> · ' + e(r.customer_name || 'بلا اسم') + ' · <b>$' + Number(r.total || 0).toFixed(2) + '</b><div style="color:#64748b">' + e((r.items || []).map(x => x.name + ' ×' + x.qty).join(' · ')) + '</div></div>').join('') + '</div></div>';
+  document.body.appendChild(w);
+  w.addEventListener('click', ev => {
+    if (ev.target === w || ev.target.closest('[data-x]')) { w.remove(); return; }
+    const it = ev.target.closest('[data-qref]'); if (!it) return;
+    const q = rows.find(r => r.ref === it.dataset.qref); w.remove(); posFillFromQuote(q);
+  });
+  w.querySelector('[data-s]').addEventListener('input', ev => { const t = ev.target.value.trim().toLowerCase();
+    w.querySelectorAll('[data-qref]').forEach(d => { d.style.display = !t || d.textContent.toLowerCase().indexOf(t) >= 0 ? '' : 'none'; }); });
+}
+window.posImportQuote = posImportQuote;
+/* pos.html?quote=REF — يُحفظ الرقم لحتى يمرّ اختيار الفرع ثمّ يُعبّأ لمّا تتحمّل منتجات الفرع */
+(function () {
+  let ref = null; try { ref = new URLSearchParams(location.search).get('quote'); } catch (_) {}
+  try { if (ref) sessionStorage.setItem('gmt_pos_quote', ref); else ref = sessionStorage.getItem('gmt_pos_quote'); } catch (_) {}
+  if (!ref) return;
+  let tries = 0;
+  const tick = async () => {
+    if (!(window.GMTQuotes && typeof branch !== 'undefined' && branch && branch.key && allProducts && allProducts.length)) { if (++tries < 240) setTimeout(tick, 500); return; }
+    try { sessionStorage.removeItem('gmt_pos_quote'); } catch (_) {}
+    try { const q = await GMTQuotes.get(ref); if (!q) { showToast('⚠️ عرض السعر ' + ref + ' مو موجود', 'err'); return; } posFillFromQuote(q); }
+    catch (e) { showToast('⚠️ تعذّر فتح عرض السعر: ' + e.message, 'err'); }
+  };
+  setTimeout(tick, 300);
+})();
+
 // ─────────────────────────────────────────────
 // ربط أوردر موجود بفاتورة بعد حفظها (يقفل الأوردر ويمنع تعديله لاحقاً)
 // ─────────────────────────────────────────────
@@ -9263,6 +9333,13 @@ async function _saveAndFinishInner() {
           exportPNG('a4', true);
         } catch(e) {}
       }, 1500);
+    }
+
+    // ─── (TASK-B0541) عرض السعر يلي انعبّت منه السلّة ⇒ «صار فاتورة» برقمها ───
+    if (_posQuoteRef && window.GMTQuotes) {
+      const _qr = _posQuoteRef; _posQuoteRef = null;
+      GMTQuotes.mark(_qr, { status: 'converted', invoice_id: String(invoice.id || ''), invoice_number: String(invoice.inv_number || '') })
+        .then(() => showToast('🔗 عرض السعر ' + _qr + ' صار فاتورة', 'ok')).catch(() => {});
     }
 
     // ─── ٦.٧ ربط/إنشاء الأوردر (للبيع الآجل فقط) ───
@@ -11590,7 +11667,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b12"></script>
+<script src="gmt-whatsnew.js?v=20261125b13"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
