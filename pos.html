@@ -1273,7 +1273,7 @@ window.GMT_FEATURES = [
 <script src="gmt-staff.js?v=20261124b5"></script>
 <script src="gmt-custledger.js?v=20261125b15"></script>
 <script src="gmt-quotes.js?v=20261125b13"></script>
-<script src="gmt-serial.js?v=20261125b10"></script>
+<script src="gmt-serial.js?v=20261125b16"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
      index.html**. أي: كلفةٌ بلا مقابل. (تأكّدتُ: لا نداءَ له في هذا الملفّ.) -->
@@ -6597,6 +6597,17 @@ async function _confirmRefundInner() {
   if (!refundedItems.length) {
     showToast('يرجى تحديد بنود للإرجاع', 'err'); return;
   }
+  /* (TASK-B0544 · seq B1038 «المرتجع يطابق الرقم») بندٌ بأرقام أجهزة ومرتجعٌ لبعض كمّيته ⇒ اختر أيّ جهاز رجع (لا تخمين) */
+  for (const it of refundedItems) {
+    const codes = window.GMTSerial ? GMTSerial.codesOf(it) : [];
+    if (!codes.length) continue;
+    if (it.refundQty >= codes.length) { it._retCodes = codes.slice(); continue; }
+    const fields = []; for (let j = 0; j < it.refundQty; j++) fields.push({ k: 's' + j, label: 'الجهاز ' + (j + 1), options: codes.map(c => ({ v: c, t: c })), value: codes[j] });
+    const v = await GMTAsk.form('«' + (it.product_name || it.name || '') + '»: رجع ' + it.refundQty + ' من ' + codes.length + ' — أيّ جهاز رجع؟ (رقمه)', { title: '🔢 رقم الجهاز المرتجع', okText: 'تمام', fields,
+      submit: x => { const a = fields.map(f => x[f.k]); return new Set(a).size === a.length ? true : { error: 'نفس الرقم مختار مرّتين' }; } });
+    if (!v) { showToast('أُلغي الإرجاع — ما تحدّد رقم الجهاز', 'inf'); return; }
+    it._retCodes = fields.map(f => v[f.k]);
+  }
 
   const btn = document.getElementById('btn-confirm-refund');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ المعالجة...'; }
@@ -6805,6 +6816,13 @@ async function _confirmRefundInner() {
     try { if (window.__gmtAfterRefund) window.__gmtAfterRefund(refundInvoice, refundType, totalRefund); } catch (_) {}
     /* (٨ ت — تدقيق المطابقة) «المرتجع يلغي الكفالة» — لم يكن شيءٌ يلمس الكفالات */
     try { cancelWarrantiesForRefund(refundInvoice, refundType, refundedItems); } catch (_) {}
+    /* (TASK-B0544) أرقام الأجهزة المرتجعة ⇒ «مرتجع» بسجلّ الجهاز (فينباع من جديد بلا رفض «مبيوع») */
+    try {
+      const _rc = refundedItems.reduce((a, i) => a.concat(i._retCodes || []), []);
+      if (_rc.length && window.GMTSerial && GMTSerial.markReturned)
+        GMTSerial.markReturned({ url: CONFIG.SUPABASE_URL, headers: sbHeaders }, _rc, { saleInvoiceId: refundInvoice.id, refundInv: (savedRefundInv && savedRefundInv.inv_number) || '', by: (currentUser && (currentUser.display_name || currentUser.username)) || '' })
+          .then(n => { if (n) showToast('🔢 ' + n + ' جهاز رجع «مرتجع» بسجلّ الأجهزة', 'ok'); });
+    } catch (_) {}
 
     // إشعار تيليجرام بالمرتجع
     const refundItemsText = refundedItems.map(i =>
@@ -11667,7 +11685,7 @@ async function openWarrantyForInvoice(){
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b15"></script>
+<script src="gmt-whatsnew.js?v=20261125b16"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>

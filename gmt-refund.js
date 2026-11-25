@@ -159,7 +159,15 @@
         }
       }
     } catch (_) {}
-    return { already: false, refundInv: rinv, totalRefund: total, cashBack: cashBack, debtCancelled: debtCancelled, items: refunded, issues: issues, warrantiesCancelled: wc, invoice: inv };
+    /* ⑧ (TASK-B0544) أرقام الأجهزة (IMEI/السيريال) للبنود المرتجعة ⇒ «مرتجع» بسجلّ الجهاز — المرتجع الكامل = كلّ أرقام البند */
+    var sr = 0;
+    try {
+      if (global.GMTSerial && GMTSerial.markReturned) {
+        var codes = []; refunded.forEach(function (it) { codes = codes.concat(GMTSerial.codesOf(it).slice(0, it.refundQty)); });
+        if (codes.length) sr = await GMTSerial.markReturned(o, codes, { saleInvoiceId: inv.id, refundInv: rinv && rinv.inv_number, by: o.cashier || '' });
+      }
+    } catch (_) {}
+    return { already: false, refundInv: rinv, totalRefund: total, cashBack: cashBack, debtCancelled: debtCancelled, items: refunded, issues: issues, warrantiesCancelled: wc, serialsReturned: sr, invoice: inv };
   }
   global.GMTRefund = { full: full };
 })(typeof window !== 'undefined' ? window : this);

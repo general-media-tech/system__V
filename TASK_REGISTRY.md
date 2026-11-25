@@ -3237,3 +3237,10 @@
 - الإصلاح: `allocate` الأقدم أوّلاً بقفل تفاؤليّ (نفس `applyInvoiceCollection`) + تحرير عمولة الآجل عند الاكتمال · `gmt_receipts.allocations` (`tools/sql/B0543_receipt_allocations.sql`) · الكشف: دين الفاتورة = الباقي + ما سدّدته السندات (لا طرح مرّتين) · الإلغاء يعكس التوزيع مرّة واحدة.
 - اختبارات `t_custledger_math` ٩/٩ · `t_custledger_ui` ١٣/١٣ · `t_custledger_pos` ٣/٣.
 
+### TASK-B0544 — IMEI م٢: المرتجع يطابق رقم الجهاز (seq B1038 · B1076) — ✅ gmt-v20261125b16
+- `GMTSerial.markReturned(o, codes, {saleInvoiceId, refundInv, by})` (مشتركة): الرقم المبيوع **بنفس الفاتورة** فقط ⇒ `returned` + حدث بتاريخه · `GMTSerial.codesOf(item)`.
+- نقطة البيع `confirmRefund`: مرتجع جزئي لبند بأرقام ⇒ «أيّ جهاز رجع؟» (لا تخمين · لا تكرار) · الكامل ⇒ كلّ أرقامه.
+- `gmt-refund.js` (المرتجع الكامل من الأوردرات) ⑧ يعلّم الأرقام · `orders.html` يحمّل `gmt-serial.js`.
+- «عند البيع فقط» (نصّ المالك ب.4) ⇒ لا أرقام على الشراء/النقل · الجهاز المرتجع يُباع من جديد (الرفض لـ`sold` وحده).
+- اختبار `t_serial_return` ٦/٦ + `t_adv_pos_refund` · `t_serial_pos` · `t_serial_warranty` · `t_device_lookup` سليمة.
+

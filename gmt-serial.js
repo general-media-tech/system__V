@@ -60,7 +60,29 @@
   /* هل يناسب الرقمُ ما يحتاجه المنتج؟ (IMEI لمنتجٍ يطلب IMEI · رقم تسلسلي لمنتجٍ يطلبه · «both» يقبل الاثنين) */
   function fits(c, req) { return !req || req === 'both' || c.kind === req; }
 
-  var api = { parse: parse, luhn: luhn, norm: norm, need: need, fits: fits };
+  /* (TASK-B0544 · المالك seq B1038 «المرتجع/الاستبدال يطابق الرقم») الأجهزة المرتجعة ⇒ «مرتجع» بسجلّها + حدث بتاريخها.
+     o = { url, headers() } · codes = الأرقام · info = { saleInvoiceId, refundInv, by }
+     الشرط: الرقم مبيوع بنفس الفاتورة (لا نلمس جهازاً بِيع بفاتورة أخرى) ⇒ يرجع عدد ما تعلّم. */
+  async function markReturned(o, codes, info) {
+    info = info || {}; var n = 0;
+    var H = function (x) { var h = typeof o.headers === 'function' ? o.headers() : (o.headers || {}); return Object.assign({ 'Content-Type': 'application/json' }, h, x || {}); };
+    for (var i = 0; i < (codes || []).length; i++) {
+      var code = norm(codes[i]); if (!code) continue;
+      try {
+        var q = o.url + '/rest/v1/gmt_serials?code=eq.' + encodeURIComponent(code) + '&status=eq.sold' + (info.saleInvoiceId != null ? '&sale_invoice_id=eq.' + encodeURIComponent(String(info.saleInvoiceId)) : '') + '&select=id,history&limit=1';
+        var g = await fetch(q, { headers: H() }); var ex = g.ok ? (await g.json())[0] : null; if (!ex) continue;
+        var ev = { at: new Date().toISOString(), ev: 'returned', ref: info.refundInv || '', by: info.by || '' };
+        var r = await fetch(o.url + '/rest/v1/gmt_serials?id=eq.' + encodeURIComponent(ex.id) + '&status=eq.sold', { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }),
+          body: JSON.stringify({ status: 'returned', history: (Array.isArray(ex.history) ? ex.history : []).concat([ev]) }) });
+        if (r.ok) n++;
+      } catch (_) {}
+    }
+    return n;
+  }
+  /* أرقام بند فاتورة (invoice_items.serials — jsonb أو نصّ) */
+  function codesOf(item) { var v = item && item.serials; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { v = []; } } return (Array.isArray(v) ? v : []).map(function (x) { return x && (x.code || x); }).filter(Boolean); }
+
+  var api = { parse: parse, luhn: luhn, norm: norm, need: need, fits: fits, markReturned: markReturned, codesOf: codesOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') global.GMTSerial = api;
 })(typeof window !== 'undefined' ? window : globalThis);
