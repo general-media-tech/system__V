@@ -244,7 +244,7 @@
   function supplierPayable(purchases) {
     return r2((purchases || []).reduce(function (s, p) {
       if (!p || isCancelled(p) || isArchival(p)) return s;
-      return s + Math.max(0, num(p.total_amount) - paidGoods(p));
+      return s + Math.max(0, supplierDue(p) - paidGoods(p));   /* (B1101 صيد نمط B1099) مع شحن الصين — نفس GMTPoPay.summary */
     }, 0));
   }
 

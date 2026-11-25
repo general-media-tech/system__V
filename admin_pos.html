@@ -495,7 +495,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
   <script src="gmt-brand.js?v=20261029z4"></script>
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261125b32"></script>
+<script src="gmt-tools.js?v=20261125b36"></script>
 <script src="gmt-account.js?v=20261119j"></script>
 </head>
 <body>
@@ -541,7 +541,9 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261123e"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-ledger.js?v=20261125b35"></script>
+  <script src="gmt-ledger.js?v=20261125b36"></script>
+  <script src="gmt-popay.js?v=20261125b36"></script><!-- (B1101) مستحقّ المورّد والتكاليف «لسّا عليها» بنفس القاعدة -->
+  <script src="gmt-books.js?v=20261125b36"></script><!-- (TASK-B0563 · seq B1101) السجلّ المالي الكامل + إقفال السنة -->
   <script src="gmt-staff.js?v=20261125b22"></script>
   <script src="gmt-custledger.js?v=20261125b15"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -6522,6 +6524,15 @@ ${expHtml}${poHtml}
 }
 window.openStatement = openStatement;
 
+/* (TASK-B0563 · seq B1101) السجلّ المالي الكامل — نفس بيانات لوحة المحاسبة وقواعد gmt-ledger */
+function openBooks(){
+  if(!window.GMTBooks){ toast('وحدة السجلّ المالي غير محمّلة','err'); return; }
+  GMTBooks.open(()=>({ invoices: allInvoices, transfers: allTransfers, comm: allComm, expenses: allExpenses, purchases: allPurchases,
+    debts: allDebts, manualDebts: allManualDebts, reservations: allReservationsAcc, isMgmt: isHalebBranch, isExcluded: isExcludedBranch,
+    opening: accOpeningBalance, costFn: invCost }));
+}
+window.openBooks=openBooks;
+try{ if(new URLSearchParams(location.search).get('books')==='1'){ const _t=setInterval(()=>{ if(document.querySelector('[data-books-open]')){ clearInterval(_t); openBooks(); } },500); setTimeout(()=>clearInterval(_t),25000); } }catch(_){}
 function renderAccounting() {
   if (!__accUserPicked && accSelectedMonth !== 'all' && allInvoices.length && !allInvoices.some(i => accInMonth(i.created_at, accSelectedMonth))) accSelectedMonth = 'all';
   const ym = accSelectedMonth;
@@ -6643,6 +6654,12 @@ function renderAccounting() {
       <span style="flex:1;"><b style="display:block;font-size:14px;color:#0f1219;">كشف حساب شهري</b>
         <small style="color:#5b6472;font-weight:700;">لنقطة بيع أو بائع أو زبون — كل قطعة وعمولتها، والمرتجعات والمصاريف والترحيلات</small></span>
       <span style="font-size:12px;font-weight:800;color:#0f1219;">فتح ←</span></button>
+    <!-- (TASK-B0563 · seq B1101) السجلّ المالي الكامل: كلّ حركة مال · السنة · ما لنا وما علينا · إقفال السنة والمدوّر -->
+    <button data-books-open onclick="openBooks()" style="display:flex;align-items:center;gap:10px;width:100%;text-align:start;background:#0f1219;color:#fff;border:0;border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-family:inherit;">
+      <span style="width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:18px;">📒</span>
+      <span style="flex:1;"><b style="display:block;font-size:14px;">السجلّ المالي الكامل</b>
+        <small style="color:#cbd5e1;font-weight:700;">كلّ حركة مال بالسنة · المبيعات والمصاريف والمشتريات والأصول · ما لنا وما علينا · إقفال السنة والمدوّر</small></span>
+      <span style="font-size:12px;font-weight:800;">فتح ←</span></button>
 
     <!-- صندوق الإدارة المركزي — رصيدٌ متراكم (لا حركة شهر) -->
     <div style="background:linear-gradient(135deg,#7c2d12,#991b1b);border-radius:16px;padding:18px;margin-bottom:16px;color:#fff;">
@@ -7276,7 +7293,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b35"></script>
+<script src="gmt-whatsnew.js?v=20261125b36"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
