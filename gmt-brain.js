@@ -163,41 +163,102 @@
     [/فلتر/, /فلات/], [/حقيب|شنت/, /حقائب/], [/كرت|ذاكر|ميموري/, /كروت/], [/هولدر|موبايل|جوال/, /هولدر|هاتف/],
     [/جيمبال|اوزمو|أوزمو|رونين|مثبت/, /اوزمو|رونين/], [/بطاري|شاحن/, /بطاريات|شواحن/]];
   var FEATS = [[/بطاري|شحن|battery/i, /بطاري|battery|np-?f|mah|li-?ion|rechargeable|قابل.*شحن/i, 'بطارية/شحن'], [/مستمر|continuous/i, null, 'مستمرة']];
-  function priceOf(qs) {
-    var m = String(qs).replace(/[٠-٩]/g, function (c) { return c.charCodeAt(0) - 0x660; }).match(/(\d+(?:\.\d+)?)\s*(?:\$|دولار|دولر|usd)|\$\s*(\d+(?:\.\d+)?)/i);
-    return m ? Number(m[1] || m[2]) : null;
+  /* (TASK-B0552 · المالك seq B1086 «ادرس العقل: رسالته جامدة بلا خيارات ولا شغل وبعيدة» — صورة: «إضاءة حوالي 50 واط … ميزانيتي أقل من 100$»
+     ⇒ اقترح 100$ و110$ ولا اعتبار للواط). الجذر: كلّ رقم بـ$ كان «حوالي» (±30%) · الواط ما بينقرا. الآن: ميزانية «أقل من/تحت/حدّ أقصى» = سقف ما بينتجاوز ·
+     «بين X و Y» · «حوالي X» = مجال · الواط لحاله (±40% «أقلّ أو أكتر شوي») — ورقم الواط ما بيختلط بالسعر. */
+  function latinNum(s) { return String(s || '').replace(/[٠-٩]/g, function (c) { return c.charCodeAt(0) - 0x660; }).replace(/٫/g, '.'); }
+  function parseNeed(qs) {
+    var t = latinNum(qs), need = { budget: null, watt: null };
+    var NUM = '(\\d+(?:\\.\\d+)?)', CUR = '\\s*(?:\\$|دولار|دولر|usd)?';
+    var m;
+    if ((m = t.match(new RegExp('بين\\s*' + NUM + CUR + '\\s*(?:و|-|الى|إلى)\\s*' + NUM + CUR, 'i')))) need.budget = { min: +m[1], max: +m[2], mode: 'between' };
+    else if ((m = t.match(new RegExp('(?:اقل|أقل|تحت|ما\\s*بدو\\s*(?:يتجاوز|يدفع\\s*اكتر|يدفع\\s*أكثر)|حد(?:ه|ي)?\\s*(?:الاعلى|الأعلى|اقصى|أقصى)|لحد|max)\\s*(?:من\\s*)?' + NUM, 'i')))) need.budget = { max: +m[1], mode: 'max' };
+    else if ((m = t.match(new RegExp('(?:اكثر|أكثر|فوق)\\s*من\\s*' + NUM + '\\s*(?:\\$|دولار|دولر|usd)', 'i')))) need.budget = { min: +m[1], mode: 'min' };
+    else if ((m = t.match(new RegExp('ميزاني\\S*\\s*' + NUM, 'i'))) || (m = t.match(new RegExp(NUM + '\\s*(?:\\$|دولار|دولر|usd)|\\$\\s*' + NUM, 'i')))) { var v = +(m[1] || m[2]); need.budget = { target: v, min: Math.floor(v * 0.7), max: Math.ceil(v * 1.3), mode: 'around' }; }
+    if ((m = t.match(/(\d{1,4})\s*(?:w\b|واط|وات|watt)/i))) { var w = +m[1]; need.watt = { target: w, min: Math.floor(w * 0.6), max: Math.ceil(w * 1.4) }; }
+    return need;
   }
+  function priceOf(qs) { var b = parseNeed(qs).budget; return b ? (b.target != null ? b.target : (b.max != null ? b.max : b.min)) : null; }
+  /* قوّة المنتج بالواط: من الاسم («SL60W») أو الوصف («بقوة 60 واط») — بلا تخمين من أرقام الموديل */
+  function wattOf(p) {
+    var specs = p.specs; if (typeof specs === 'string') { try { specs = JSON.parse(specs); } catch (_) { specs = {}; } }
+    var txt = latinNum(String(p.name || '') + ' ' + ((specs && (specs.__desc || specs.power || specs['القدرة'] || specs['الطاقة'])) || ''));
+    var m = txt.match(/(\d{1,4})\s*(?:w\b|واط|وات|watt)/i) || String(p.name || '').match(/[a-z](\d{2,3})w\b/i);
+    return m ? +m[1] : null;
+  }
+  function isAdvise(qs) { return /رشح|رشّح|اقترح|زبون بدو|زبون بيدور|بدو|بدي|شو عندنا|شو في عندي|شو الخيارات|بديل|مناسب|ميزاني|وات|واط|w\b|انش|إنش|mm|ملم|ميجا|ma?h\b|بطارية|عدسة|اضاءة|إضاءة|اضائة|حامل|مايك|ترايبود/i.test(String(qs || '')); }
+  /* ── (TASK-B0552 · B1086 «ما فيها خيارات ولا شغل») جواب الترشيح الفوري: «فهمت: …» + بطاقات بسبب الاختيار + أزرار شغل ──
+     📋 رسالة للزبون · 🧾 عرض سعر · 🔎 فتح المنتج · فلاتر «أرخص · أقوى · بس المتوفّر» · 🧠 العقل بالتفصيل — بلا رصيد */
+  function adviseHTML(qs, adv) {
+    var need = adv.need || {}, B = need.budget, W = need.watt, rows = adv.rows || [];
+    var und = [];
+    if (adv.groups && adv.groups.length) und.push('النوع: ' + (/اضا|ليد|لايت/.test(adv.groups[0]) ? 'إضاءة' : adv.groups[0].replace(/[\/^$|()]/g, ' ').trim().split(/\s+/)[0]));
+    if (/مستمر/.test(qs)) und.push('مستمرّة (بلا فلاشات)');
+    if (W) und.push('~' + W.target + ' واط (' + W.min + '–' + W.max + ')');
+    if (B) und.push(B.mode === 'max' ? 'الميزانية ≤ ' + B.max + '$' : B.mode === 'min' ? 'فوق ' + B.min + '$' : B.mode === 'between' ? 'بين ' + B.min + ' و' + B.max + '$' : 'حوالي ' + B.target + '$ (' + B.min + '–' + B.max + ')');
+    var esc2 = function (x) { return h(x); };
+    var top = rows.slice(0, 5);
+    var html = '<div data-ga-adv>' + '<div style="font-size:12.5px;color:#475569;margin-bottom:6px">🧩 فهمت: ' + esc2(und.join(' · ') || 'ترشيح') + ' — <span style="opacity:.75">إذا غلط صحّحلي بجملة</span></div>';
+    if (!top.length) return html + '<b>ما لقيت شي ضمن هالشروط.</b><div style="margin-top:6px">' + chips(qs, true) + '</div></div>';
+    if (adv.relaxed) html += '<div style="font-size:12px;color:#b45309;margin-bottom:4px">ℹ️ ضمن المجال الضيّق ما في كفاية — وسّعتلك شوي.</div>';
+    html += top.map(function (r, i) {
+      return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:8px 10px;margin:6px 0;background:#fff">' +
+        '<div style="display:flex;gap:8px;align-items:baseline"><b style="flex:1">' + (i === 0 ? '⭐ ' : '') + esc2(r.name) + '</b><b dir="ltr" style="color:#D5001C">$' + r.price + '</b></div>' +
+        '<div style="font-size:12px;color:#475569">' + esc2(r.group) + ' · ' + esc2(r.why.join(' · ')) + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+        btn('copy1', '📋 للزبون', { t: msgOne(r) }) + btn('quote', '🧾 عرض سعر', { ids: r.id }) + btn('open', '🔎 فتح', { id: r.id }) + '</div></div>';
+    }).join('');
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' + btn('copyAll', '💬 رسالة جاهزة بالخيارات', { t: msgAll(top) }, true) + btn('quote', '🧾 عرض سعر بالكلّ', { ids: top.map(function (r) { return r.id; }).join(',') }, true) + '</div>';
+    return html + '<div style="margin-top:8px">' + chips(qs, false) + '</div></div>';
+  }
+  function btn(act, label, data, strong) {
+    var attrs = Object.keys(data || {}).map(function (k) { return ' data-' + k + '="' + h(data[k]) + '"'; }).join('');
+    return '<button type="button" data-ga-act="' + act + '"' + attrs + ' style="border:' + (strong ? '0;background:#0f172a;color:#fff' : '1px solid #e2e8f0;background:#f8fafc;color:#0f172a') + ';border-radius:9px;padding:5px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer">' + h(label) + '</button>';
+  }
+  function chips(qs, empty) {
+    var base = String(qs).replace(/\s*\((?:أرخص|أقوى|بس المتوفّر)[^)]*\)\s*$/, '');
+    return (empty ? '' : btn('ask', '⬇️ أرخص', { q: base + ' (أرخص — ميزانية أقلّ)' }) + ' ' + btn('ask', '⬆️ أقوى', { q: base + ' (أقوى — واط أعلى)' }) + ' ') +
+      btn('ask', '✅ بس المتوفّر', { q: base + ' (بس المتوفّر)' }) + ' ' + btn('llm', '🧠 اسأل العقل بالتفصيل', { q: base });
+  }
+  function msgOne(r) { return 'أهلاً فيك 🌟\nعنا ' + r.name + (r.watt ? ' بقوّة ' + r.watt + ' واط' : '') + ' بسعر ' + r.price + '$' + (r.stock > 0 ? ' — متوفّر' : '') + '.\nبتحب نجهّزلك ياه؟'; }
+  function msgAll(rows) { return 'أهلاً فيك 🌟 عنا كذا خيار مناسب لطلبك:\n' + rows.slice(0, 3).map(function (r, i) { return (i + 1) + ') ' + r.name + (r.watt ? ' — ' + r.watt + ' واط' : '') + ' — ' + r.price + '$'; }).join('\n') + '\nأيّ واحد بيناسبك؟'; }
   async function adviseCandidates(qs) {
-    var T = priceOf(qs), groups = [], feats = [];
+    var need = parseNeed(qs), groups = [], feats = [];
     CATS.forEach(function (c) { if (c[0].test(qs)) groups.push(c[1]); });
-    /* «بطارية» كميزة («بيهمه بطارية») مع نوعٍ آخر ⇒ ميزة لا مجموعة */
     if (groups.length > 1) groups = groups.filter(function (g) { return String(g) !== String(/بطاريات|شواحن/); });
     FEATS.forEach(function (f) { if (f[0].test(qs)) feats.push(f); });
-    if (!groups.length && T == null) return null;
+    if (!groups.length && !need.budget && !need.watt) return null;
     var cols = await q('MAIN', 'inv_columns?select=key_name&include_in_total=eq.true') || [];
     var keys = (cols || []).map(function (c) { return c.key_name; });
     var ALL = (await q('MAIN', 'products?select=*&price=gt.0&limit=3000')) || [];
-    var pull = async function (lo, hi) { return lo == null ? ALL : ALL.filter(function (p) { var v = Number(p.price) || 0; return v >= lo && v <= hi; }); };
-    var pick = function (rows) {
-      var continuous = /مستمر|continuous/i.test(qs);
-      return rows.filter(function (p) {
-        var gname = String(p.group_name || '') + ' ' + String(p.name || '');
-        if (groups.length && !groups.some(function (g) { return g.test(gname); })) return false;
-        if (continuous && /فلاش/.test(String(p.group_name || ''))) return false;
-        return true;
-      });
-    };
-    var lo = null, hi = null, rows;
-    if (T != null) { lo = Math.floor(T * 0.7); hi = Math.ceil(T * 1.3); rows = pick(await pull(lo, hi)); if (rows.length < 3) { lo = Math.floor(T * 0.5); hi = Math.ceil(T * 1.5); rows = pick(await pull(lo, hi)); } }
-    else rows = pick(await pull(null, null));
-    if (!rows.length) return { price: T != null ? { target: T, from: lo, to: hi } : null, groups: groups.map(String), rows: [] };
+    var continuous = /مستمر|continuous/i.test(qs), B = need.budget, W = need.watt;
+    var inGroup = ALL.filter(function (p) {
+      var gname = String(p.group_name || '') + ' ' + String(p.name || '');
+      if (groups.length && !groups.some(function (g) { return g.test(gname); })) return false;
+      if (continuous && /فلاش/.test(String(p.group_name || ''))) return false;
+      return true;
+    });
+    var inBudget = function (p, loose) { if (!B) return true; var v = Number(p.price) || 0, lo = B.min, hi = B.max;
+      if (loose && B.mode === 'around') { lo = Math.floor(B.target * 0.5); hi = Math.ceil(B.target * 1.5); }
+      return (lo == null || v >= lo) && (hi == null || v <= hi); };   /* «أقل من» = سقف حتى بالتوسيع */
+    var rows = inGroup.filter(function (p) { return inBudget(p, false); }), relaxed = false;
+    if (rows.length < 3 && B && B.mode === 'around') { rows = inGroup.filter(function (p) { return inBudget(p, true); }); relaxed = true; }
     var out = rows.map(function (p) {
-      var stock = keys.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0), blob = JSON.stringify(p).toLowerCase();
+      var stock = keys.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0), blob = JSON.stringify(p).toLowerCase(), w = wattOf(p);
       var fm = feats.filter(function (f) { return f[1] && f[1].test(blob); }).map(function (f) { return f[2]; });
-      return { name: p.name, barcode: p.barcode, price: Number(p.price) || 0, group: p.group_name || '', stock: stock, features: fm, _d: T != null ? Math.abs((Number(p.price) || 0) - T) : 0 };
-    }).sort(function (a, b) { return ((b.stock > 0) - (a.stock > 0)) || (b.features.length - a.features.length) || (a._d - b._d); }).slice(0, 12);
-    out.forEach(function (x) { delete x._d; });
-    return { price: T != null ? { target: T, from: lo, to: hi } : null, groups: groups.map(String), rows: out };
+      var wFit = W ? (w == null ? 0 : (w >= W.min && w <= W.max ? 2 : 1)) : 0;   /* 2 ضمن المجال · 1 بعيد · 0 غير مذكور */
+      var why = [];
+      if (W) why.push(w == null ? 'القوّة مو مذكورة' : (wFit === 2 ? w + ' واط ✓' : w + ' واط (بعيد عن ' + W.target + ')'));
+      if (B) why.push(B.mode === 'max' ? 'ضمن الميزانية' : (B.mode === 'around' ? 'قريب من ' + B.target + '$' : 'ضمن المجال'));
+      fm.forEach(function (f) { why.push(f + ' ✓'); });
+      why.push(stock > 0 ? 'متوفّر ' + stock : 'مو متوفّر هلّق');
+      var target = B ? (B.target != null ? B.target : (B.max != null ? B.max : B.min)) : null;
+      return { id: p.id, name: p.name, barcode: p.barcode, price: Number(p.price) || 0, group: p.group_name || '', stock: stock, watt: w, features: fm, why: why,
+        _w: W ? (wFit === 2 ? 2 : (wFit === 0 ? 1 : 0)) : 0, _wd: W && w != null ? Math.abs(w - W.target) : 1e9,
+        _d: B && B.mode === 'around' ? Math.abs((Number(p.price) || 0) - B.target) : (Number(p.price) || 0) };   /* سقف/مجال ⇒ الأرخص · «حوالي» ⇒ الأقرب للرقم */
+    }).sort(function (a, b) { return ((b.stock > 0) - (a.stock > 0)) || (b._w - a._w) || (a._wd - b._wd) || (b.features.length - a.features.length) || (a._d - b._d); }).slice(0, 12);
+    out.forEach(function (x) { delete x._d; delete x._w; delete x._wd; });
+    return { price: B ? { target: B.target != null ? B.target : null, from: B.min != null ? B.min : null, to: B.max != null ? B.max : null, mode: B.mode } : null, watt: W, groups: groups.map(String), rows: out, relaxed: relaxed, need: need };
   }
   async function collectLiveData(question) {
     var out = {}, qs = String(question);
@@ -206,7 +267,7 @@
     var wantOrder = /اوردر|أوردر|طلب|شحن|تتبع|زبون|تحصيل/.test(qs);
     var wantMoney = /صندوق|محصّل|محصل|مبيعات|تقفيل|عجز|مصروف|عمولة/.test(qs);
     /* نيّة الترشيح لزبون: يسأل بالمواصفات لا بالاسم («بدي راس إضاءة 100 وات») */
-    var wantAdvise = /رشح|رشّح|اقترح|زبون بدو|زبون بيدور|بدو|شو عندنا|شو في عندي|شو الخيارات|بديل|مناسب|وات|w\b|انش|إنش|mm|ملم|ميجا|ma?h\b|بطارية|عدسة|اضاءة|إضاءة|حامل|مايك|ترايبود/i.test(qs);
+    var wantAdvise = isAdvise(qs);
 
     /* (TASK-B0546 · المالك seq B1077 «شوف الغباء … اطلب 50 دولار وما حولها … ممكن أكتر شوي ممكن أقلّ شوي») */
     try { var adv = await adviseCandidates(qs); if (adv) { out.priceTarget = adv.price; out.categoryGuess = adv.groups; out.catalogMatches = adv.rows; out.adviseMode = true;
@@ -790,6 +851,19 @@
   function todayIso() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
   async function localAnswer(question) {
     var qn = String(question || '');
+    /* (TASK-B0552) ترشيح لزبون ⇒ جواب فوري تفاعلي من الجرد (قبل العقل الخارجي) — «🧠 بالتفصيل» بيبعت للعقل إذا بدّك */
+    if (isAdvise(qn) && !/^(كيف|شلون|وين)(?=\s|$)/.test(qn.trim())) {
+      try {
+        var q2 = qn;
+        var adv = await adviseCandidates(q2);
+        if (adv && (adv.rows.length || adv.groups.length)) {
+          if (/بس المتوفّر/.test(q2)) adv.rows = adv.rows.filter(function (r) { return r.stock > 0; });
+          if (/أرخص/.test(q2)) adv.rows.sort(function (a, b) { return a.price - b.price; });
+          if (/أقوى/.test(q2)) adv.rows.sort(function (a, b) { return (b.watt || 0) - (a.watt || 0); });
+          return adviseHTML(q2, adv) + '<div style="font-size:11px;color:#526077;margin-top:6px">⚡ من الجرد مباشرةً — بلا استهلاك رصيد</div>';
+        }
+      } catch (_) {}
+    }
     if (/^(كيف|شلون|وين بلاقي|من وين|كيفية)/.test(qn.trim()) || /كيف (اعمل|أعمل|بعمل|بسجّل|بسجل|بطبع|بغيّر)/.test(qn)) {
       for (var fi = 0; fi < FAQ.length; fi++) if (FAQ[fi][0].test(qn)) return FAQ[fi][1] + '<br><span style="font-size:11px;color:#526077">⚡ من دليل النظام — بلا استهلاك رصيد</span>';
     }
@@ -893,8 +967,12 @@
     return j ? looseJSON(j.answer || j.reply || j.text || '') : null;
   }
   async function ask(question) {
-    try { var loc = await localAnswer(question); if (loc) { HIST.push({ q: question, a: loc.replace(/<[^>]+>/g, ' ') }); return loc; } } catch (_) {}
-    try { var kb = kbFind(question); if (kb) return kb.a + '<br><span style="font-size:11px;color:#526077">📚 من سجلّ المعرفة — بلا استهلاك رصيد</span>'; } catch (_) {}
+    /* (TASK-B0552 · B1086) الجواب المحلّي ومن السجلّ HTML موثوق مبنيّ عندنا ⇒ يُعلَّم (__html) فاللوحة تعرضه بتنسيقه — كان fmt() يهرّبه فيظهر <br><span> كنصّ */
+    var asHtml = function (x) { var o = new String(x); o.__html = true; return o; };
+    if (!/^__LLM__/.test(question)) {
+      try { var loc = await localAnswer(question); if (loc) { HIST.push({ q: question, a: loc.replace(/<[^>]+>/g, ' ') }); return asHtml(loc); } } catch (_) {}
+      try { var kb = kbFind(question); if (kb) return asHtml(fmt(String(kb.a).replace(/<br\s*\/?>[\s\S]*$/i, '')) + '<br><span style="font-size:11px;color:#526077">📚 من سجلّ المعرفة — بلا استهلاك رصيد</span>'); } catch (_) {}
+    } else question = question.replace(/^__LLM__/, '');
     var url = endpoint();
     if (!url) throw new Error('not-configured');
     try { var pb = global.GMTEndpoint && GMTEndpoint.problem && GMTEndpoint.problem(url); if (pb) { var e0 = new Error('رابط الوسيط المضبوط لا يصلح: ' + pb + '. صحّحه من «أدخل رابط الوسيط».'); e0.fixEndpoint = true; throw e0; } } catch (e1) { if (e1 && e1.fixEndpoint) throw e1; }
@@ -1057,11 +1135,11 @@
       }
       if (!q || busy) return;
       busy = true; input.value = '';
-      add('me', esc(q));
+      add('me', esc(q.replace(/^__LLM__/, '🧠 ')));
       var t = add('bot', '<span style="opacity:.5">جارٍ التفكير…</span>');
       try {
         var a = await ask(q);
-        t.querySelector('div').innerHTML = fmt(a);
+        t.querySelector('div').innerHTML = (a && a.__html) ? String(a) : fmt(a);
       } catch (e) {
         if (String(e.message) === 'not-configured') {
           t.querySelector('div').innerHTML =
@@ -1079,6 +1157,21 @@
       busy = false;
       log.scrollTop = log.scrollHeight;
     }
+    /* (TASK-B0552 · B1086 «ما فيها شغل») أزرار جواب الترشيح: 📋 نسخ · 🧾 عرض سعر · 🔎 فتح · فلاتر · 🧠 بالتفصيل */
+    /* على منطقة الرسائل لا على اللوحة: الصندوق الداخلي بيوقّف انتشار الضغطة (كي ما تتسكّر اللوحة) فما كانت توصل */
+    log.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-ga-act]'); if (!b) return;
+      var a = b.getAttribute('data-ga-act'), d = function (k) { return b.getAttribute('data-' + k) || ''; };
+      if (a === 'copy1' || a === 'copyAll') {
+        var txt = d('t'), done = function () { var o = b.textContent; b.textContent = '✓ نُسخ — الصقه للزبون'; setTimeout(function () { b.textContent = o; }, 1800); };
+        try { navigator.clipboard.writeText(txt).then(done, function () { window.prompt('انسخ:', txt); }); } catch (_) { window.prompt('انسخ:', txt); }
+        return;
+      }
+      if (a === 'quote') { location.href = 'quote.html?add=' + encodeURIComponent(d('ids')); return; }
+      if (a === 'open') { window.open('inventory.html?pid=' + encodeURIComponent(d('id')) + '&view=det', '_blank'); return; }
+      if (a === 'ask') { send(d('q')); return; }
+      if (a === 'llm') { send('__LLM__' + d('q')); return; }
+    });
     p.querySelector('#gb-send').onclick = function () { send(); };
     input.onkeydown = function (e) { if (e.key === 'Enter') send(); };
     if (preset) send(preset);
