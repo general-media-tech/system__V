@@ -140,6 +140,7 @@
       '<div class="st" data-st></div><div data-read></div><div data-type></div><div data-res></div>' +
       '<div class="tools" data-tools hidden><button type="button" data-ai>🤖 اسأل العقل (اختياري)</button></div>' +
       '<div class="tools"><button type="button" data-learnq hidden>🧠 تعلّمات الموظّفين تنتظر اعتمادك</button></div><div data-lq></div></div>';
+    root.setAttribute('data-gmt-modal', ''); root._gmtClose = close;   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
     var $ = function (s) { return root.querySelector(s); };
     var S = { read: null, shot: null, typed: '', vec: null, words: [], code: '', vis: [], frozen: false, scope: null };

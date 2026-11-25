@@ -184,6 +184,7 @@
               '<div data-part="list" style="overflow:auto;padding:10px 12px;flex:1"></div>' +
               '<div data-part="foot" style="padding:12px;border-top:1px solid #eef0f4;display:grid;grid-template-columns:2fr 1fr;gap:8px"></div>' +
             '</div>';
+        host.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
         document.body.appendChild(host);
 
         var listEl = host.querySelector('[data-part="list"]');

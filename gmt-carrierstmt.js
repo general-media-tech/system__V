@@ -64,6 +64,7 @@
     var st = { company: '', per: 'all' }, old = document.getElementById('gmt-carrier'); if (old) old.remove();
     var w = document.createElement('div'); w.id = 'gmt-carrier'; w.setAttribute('data-keep-fab', '1');
     w.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
+    w.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(w);
     var all = build(orders, {}).companies.map(function (c) { return c.name; });
     function paint() {

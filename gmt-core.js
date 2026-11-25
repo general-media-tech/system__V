@@ -5132,3 +5132,13 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
   };
   window.GMTFetchAll = fetchAll;
 })();
+
+/* ═══ دستور الأداة الجديدة (الملحق «ح» ١ · seq B1117): زرّ الرجوع بالهاتف بيسكّر النافذة بكلّ صفحة ═══
+   gmt-back.js محمّل من هون لكلّ صفحة فيها gmt-core — أيّ نافذة بتحمل data-gmt-modal بتاخد الرجوع تلقائياً. */
+(function () {
+  try {
+    if (typeof document === 'undefined' || window.GMTBack || document.querySelector('script[src*="gmt-back.js"]')) return;
+    var s = document.createElement('script'); s.src = 'gmt-back.js?v=20261127b45';
+    (document.head || document.documentElement).appendChild(s);
+  } catch (_) {}
+})();

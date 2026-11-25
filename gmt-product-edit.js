@@ -188,6 +188,7 @@
         '</section>' +
         '<section class="pe-wide" data-pe-store><h3>🛒 المتجر</h3><p class="pe-note">⏳ جارٍ قراءة منتج المتجر…</p></section>' +
       '</div>';
+    root.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
     var $ = function (q) { return root.querySelector(q); }, msg = $('[data-pe-msg]');
     function say(t, bad) { msg.textContent = t || ''; msg.style.color = bad ? '#b91c1c' : '#047857'; }

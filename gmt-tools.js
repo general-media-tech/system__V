@@ -390,6 +390,7 @@
       '<button type="button" data-ts-x style="border:0;background:#f1f5f9;border-radius:10px;padding:9px 12px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
       '<div data-ts-res style="margin-top:8px;max-height:66vh;overflow:auto"></div>' +
       '<div style="font-size:11.5px;color:#64748b;margin-top:6px">بيلاقي كلّ الأزرار — حتى يلي جوّا النوافذ وبصفحات تانية. للأسئلة والشرح: 🧠 العقل.</div></div>';
+    w.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(w);
     var inp = w.querySelector('[data-ts-q]'), res = w.querySelector('[data-ts-res]'), items = [], sel = 0, live = liveButtons(), cur = here();
     function row(i, title, sub, tag) {

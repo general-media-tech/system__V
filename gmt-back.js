@@ -1,28 +1,38 @@
 /* ═════════════════════════════════════════════════════════════════════
-   gmt-back.js — زرّ الرجوع بالهاتف بيسكّر النافذة المفتوحة بدل ما يطلّعك من الصفحة (seq B1115)
-   «لمّا داخل على الموردون ما في زرّ رجوع، والرجوع عم يصير تعسّفي وخطر» — كان زرّ الرجوع يقلب الصفحة كلّها (أو الطبقة للرئيسيّة).
-   النوافذ اللي بتحمل data-gmt-modal: فتحها ⇐ خطوة بالتاريخ · الرجوع ⇐ el._gmtBack() إذا موجود (مثلاً ملفّ المورّد ⇐ القائمة)
-   وإلّا زرّ الإغلاق تبعها · تسكيرها بـ✕ ⇐ الخطوة بتنشال بهدوء.
+   gmt-back.js — زرّ الرجوع بالهاتف بيسكّر النافذة المفتوحة بدل ما يطلّعك من الصفحة (seq B1115 · B1117)
+   «لمّا داخل على الموردون ما في زرّ رجوع، والرجوع عم يصير تعسّفي وخطر».
+   B1117 (دستور الأداة الجديدة — الملحق «ح» ١): صار محمّل بكلّ صفحة فيها gmt-core.js، وأيّ نافذة جديدة لازم تحمل data-gmt-modal.
+   الرجوع ⇐ el._gmtBack() (خطوة جوّا النافذة، تُرجع true لتضلّ مفتوحة) ⇐ el._gmtClose() ⇐ [data-gmt-close] أو زرّ ✕ معروف
+           ⇐ Escape (لاللي بتسكّر بـEsc) ⇐ وإذا لسّا موجودة: remove().
+   تسكيرها بـ✕ ⇐ الخطوة بتنشال بهدوء — والمستمع بمرحلة الالتقاط وبيوقف غيره، فما بيسكّر طبقة الرئيسيّة اللي تحتها.
    ═════════════════════════════════════════════════════════════════════ */
 (function (g) {
   'use strict';
   if (g.GMTBack || !g.document) return;
   var doc = g.document, stack = [], silent = 0;
-  var CLOSE = '[data-sp-x],[data-pr-x],[data-ship-x],[data-pd-x],[data-bk-x],[data-popay-x],[data-pi-x],[data-x]';
+  var CLOSE = '[data-gmt-close],[data-sp-x],[data-pr-x],[data-ship-x],[data-pd-x],[data-bk-x],[data-popay-x],[data-pi-x],[data-x],[data-pe-x],[data-wc-x],[data-close]';
   function isModal(n) { return n && n.nodeType === 1 && n.hasAttribute && n.hasAttribute('data-gmt-modal'); }
   function push(el) { if (stack.indexOf(el) >= 0) return; stack.push(el); try { history.pushState({ gmtModal: stack.length }, ''); } catch (_) {} }
   /* نافذة انسكّرت من جوّا (✕) ⇒ نشيل خطوتها من التاريخ بلا ما نسكّر شي تاني */
   function gone(el) { var i = stack.indexOf(el); if (i < 0) return; stack.splice(i, 1); silent++; try { history.back(); } catch (_) { silent--; } }
-  g.addEventListener('popstate', function () {
-    if (silent > 0) { silent--; return; }
+  function closeEl(el) {
+    el.__gmtBackClosing = true;
+    try { if (typeof el._gmtClose === 'function') { el._gmtClose(); if (!doc.body.contains(el)) return; } } catch (_) {}
+    var x = el.querySelector(CLOSE); if (x) { try { x.click(); } catch (_) {} if (!doc.body.contains(el)) return; }
+    try { doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); } catch (_) {}
+    if (doc.body.contains(el)) el.remove();
+  }
+  /* بمرحلة الالتقاط ⇒ قبل مستمعي الصفحة (طبقات الرئيسيّة · gmt-layers) — وإذا الحدث إلنا بنوقفه عنهم */
+  g.addEventListener('popstate', function (e) {
+    if (silent > 0) { silent--; e.stopImmediatePropagation(); return; }
+    while (stack.length && !doc.body.contains(stack[stack.length - 1])) stack.pop();
     var el = stack[stack.length - 1]; if (!el) return;
-    if (!doc.body.contains(el)) { stack.pop(); return; }
+    e.stopImmediatePropagation();
     /* ملفّ داخلي (مثلاً ملفّ المورّد) ⇐ رجوع لخطوة جوّا النافذة وبتضلّ مفتوحة */
     if (typeof el._gmtBack === 'function' && el._gmtBack() === true) { try { history.pushState({ gmtModal: stack.length }, ''); } catch (_) {} return; }
     stack.pop();
-    var x = el.querySelector(CLOSE); if (x) { el.__gmtBackClosing = true; x.click(); }
-    if (doc.body.contains(el)) el.remove();
-  });
+    closeEl(el);
+  }, true);
   new MutationObserver(function (ms) {
     ms.forEach(function (m) {
       [].forEach.call(m.addedNodes || [], function (n) { if (isModal(n)) push(n); });
@@ -35,5 +45,5 @@
       [].forEach.call(m.removedNodes || [], function (n) { if (isModal(n) && !n.__gmtBackClosing) gone(n); });
     }); }).observe(doc.body, { childList: true }); }
   watchBody();
-  g.GMTBack = { _stack: stack };
+  g.GMTBack = { _stack: stack, CLOSE: CLOSE };
 })(typeof window !== 'undefined' ? window : globalThis);

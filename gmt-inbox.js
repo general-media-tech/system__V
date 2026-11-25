@@ -123,6 +123,7 @@
     var bg = doc.createElement('div'); bg.className = 'gmt-pop-bg'; bg.id = 'gmt-pop-bg'; bg.setAttribute('role', 'alertdialog');
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
     bg.innerHTML = '<div class="gmt-pop"><b>' + esc(it.t) + '</b><p>' + esc(it.b) + '</p><div class="row"><button class="go" type="button">افتح الآن</button><button class="later" type="button">لاحقاً</button></div></div>';
+    bg.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(bg);
     try { global.GMTSound && GMTSound.cue && GMTSound.cue('notify'); } catch (_) {}
     bg.querySelector('.go').onclick = function () { withToken({ action: 'act', ids: [id] }).then(function () { location.href = it.u || 'مركز_الإشعارات.html'; }); };

@@ -58,6 +58,7 @@
       '<div class="foot"><span class="msg" data-msg></span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button type="button" data-print>🖨️ فاتورة التسوية</button><button type="button" data-labels>🏷️ باركودات (العدد الكلّي)</button><button type="button" data-save>💾 حفظ المسودة</button>' +
       '<label style="font-size:12px;font-weight:800;display:flex;gap:4px;align-items:center" title="ما في النظام ولم يُعدّ يصير 0 — مع نسخة احتياط للرجوع"><input type="checkbox" data-zero checked> تصفير الفرع</label><button type="button" data-return hidden title="إرجاع الجرد لنقطة البيع بملاحظة — لا شيء يتغيّر في المخزون">↩️ إرجاع للفرع…</button><button type="button" class="g" data-apply>✅ اعتماد التسوية…</button><button type="button" data-revert hidden>↩️ استرجاع النسخة الاحتياطية…</button></span></div>' +
       '<datalist id="gmt-rc-dl"></datalist>';
+    root.setAttribute('data-gmt-modal', ''); root._gmtClose = close;   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
     var $ = function (s) { return root.querySelector(s); };
     var S = { rec: null, items: [], live: {}, rest: [], f: 'all', q: '', dirty: false };

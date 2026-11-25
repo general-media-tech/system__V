@@ -150,6 +150,7 @@
     var work = JSON.parse(JSON.stringify(bank)), tab = 'list', q = '', corr = null, msg = '';
     var ov = document.createElement('div'); ov.id = 'mufti-bank-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:260;background:rgba(15,18,25,.45);display:flex;align-items:flex-end;justify-content:center;direction:rtl;font-family:inherit';
+    ov.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(ov);
     function close() { ov.remove(); }
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });

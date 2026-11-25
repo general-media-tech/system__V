@@ -174,6 +174,7 @@
       '<label class="l">تنتهي في (اختياري)</label><input type="datetime-local" data-ends value="' + endsVal + '">' +
       (o ? '<label class="l"><input type="checkbox" data-active ' + (o.is_active !== false ? 'checked' : '') + '> فعّالة</label>' : '') +
       '<div class="err" data-err></div><button type="button" class="go" data-save>💾 حفظ الباقة</button></div>';
+    w.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(w);
     var $ = function (s) { return w.querySelector(s); };
     $('[data-pos]').checked = !!S.pos; $('[data-store]').checked = !!S.store;

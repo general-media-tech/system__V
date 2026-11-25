@@ -366,6 +366,7 @@
           '<div id="ge-status" style="font-size:11.5px;color:#526077;font-weight:700"></div>' +
         '</div>' +
       '</div>';
+    ov.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(ov);
     ov.onclick = e => { if (e.target === ov) ov.remove(); };
     ov.querySelector('#ge-x').onclick = () => ov.remove();

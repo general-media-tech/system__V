@@ -98,6 +98,7 @@
         '<label class="wc-chk"><input type="checkbox" id="wc-used"> تمت الاستفادة من الضمان (مرّةً واحدة)</label>' +
       '</div>' +
       '<div class="wc-f"><span data-wc-msg></span><button type="button" data-wc-x>إغلاق</button><button type="button" class="wc-save" data-wc-save>حفظ</button></div></div>';
+    root.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
     var $ = function (id) { return root.querySelector('#' + id); }, msg = root.querySelector('[data-wc-msg]');
     var bad = function (t) { msg.style.color = '#b91c1c'; msg.textContent = t; };

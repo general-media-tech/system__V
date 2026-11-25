@@ -447,6 +447,7 @@
       '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eef1f5"><b style="font-size:16px;flex:1;font-family:inherit">سجل العمليات</b>' +
       '<span style="font-size:12px;color:#64748b">من فعل ماذا ومتى</span><button data-x style="border:0;background:#f1f5f9;border-radius:10px;padding:7px 14px;font:inherit;font-weight:800;cursor:pointer">إغلاق</button></div>' +
       '<div data-body style="padding:12px 18px 18px;overflow:auto;flex:1"></div></div>';
+    ov.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(ov);
     ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-x]')) ov.remove(); });
     mount(ov.querySelector('[data-body]'), opts);

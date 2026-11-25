@@ -83,6 +83,7 @@
     root.innerHTML = '<div class="gg-top"><b></b><span class="gg-n"></span><button type="button" class="gg-x" aria-label="إغلاق">✕</button></div>' +
       '<div class="gg-stage"><img alt="" class="gg-img"><button type="button" dir="ltr" class="gg-nav gg-prev" aria-label="السابقة">&#x203A;</button><button type="button" dir="ltr" class="gg-nav gg-next" aria-label="التالية">&#x2039;</button></div>' +
       '<div class="gg-thumbs"></div>';
+    root.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
     root.querySelector('.gg-top b').textContent = title || '';
     var stage = root.querySelector('.gg-stage'), img = stage.querySelector('.gg-img'), n = root.querySelector('.gg-n'), th = root.querySelector('.gg-thumbs');

@@ -205,6 +205,7 @@
     ov.innerHTML = '<div class="bx"><div class="hd"><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:900">📒 الحساب الجاري — ' + esc(c.name || '') + '</div>' +
       '<div style="font-size:11.5px;color:#cbd5e1" dir="ltr">' + esc(c.phone || '') + '</div></div>' +
       '<button class="btn" data-gacc-close style="background:rgba(255,255,255,.15);color:#fff">✕</button></div><div class="bd" id="gacc-bd">⏳ جارٍ تحميل الحساب…</div></div>';
+    ov.setAttribute('data-gmt-modal', '');   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(ov);
     ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-gacc-close]')) ov.remove(); });
     var data;

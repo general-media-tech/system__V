@@ -431,6 +431,7 @@
     if (!document.getElementById('mr-css')) { const s = document.createElement('style'); s.id = 'mr-css'; s.textContent = CSS; document.head.appendChild(s); }
     el = document.createElement('div'); el.className = 'mr-ov';
     el.innerHTML = `<div class="mr-win" role="dialog" aria-label="مشابهات تنتظر قرارك"><div class="mr-top"><h3>🔎 مشابهات تنتظر قرارك</h3><span class="mr-count"></span><button class="mr-x" type="button">✕ إغلاق</button></div><div class="mr-prog" style="display:none"></div><div class="mr-body"><div class="mr-done" style="color:#5b6472">أحمّل…</div></div></div>`;
+    el.setAttribute('data-gmt-modal', ''); el._gmtClose = close;   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     document.body.appendChild(el);
     el.querySelector('.mr-x').onclick = close;
     el.addEventListener('click', onClick);
