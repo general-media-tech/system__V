@@ -215,7 +215,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-suppliers.js?v=20261125b33"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
   <script src="gmt-poreports.js?v=20261125b33"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
   <script src="gmt-poship.js?v=20261125b34"></script><!-- (TASK-B0559 · A1004 P6) شحنات المشتريات N↔N -->
-  <script src="gmt-podocs.js?v=20261125b34"></script>
+  <script src="gmt-podocs.js?v=20261125b39"></script>
   <script src="gmt-xlmap.js?v=20261125b37"></script><!-- (TASK-B0564 · A989–A991) النظام يتعلّم شكل ملف كلّ مورّد --><!-- (TASK-B0560 · A1004 P6) أرشيف المستندات الخاصّ -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b36"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
@@ -1282,10 +1282,10 @@ window.openPoShip=openPoShip;
 async function _poDocClassify(f){
   if(!/\.(xlsx|xls|csv)$/i.test(f.name||'')||!window.GMTXlMap) return null;
   await GMTLazyLib.need('xlsx');
-  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
-  const kinds=wb.SheetNames.slice(0,5).map(n=>GMTXlMap.docType(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})));
-  const k=kinds.includes('customs')?'customs':kinds.includes('packing')?'packing':'pi';
-  return k;
+  let wb; try{ wb=XLSX.read(await f.arrayBuffer(),{type:'array'}); }catch(_){ return null; }   /* ملف ما بينقرا ⇒ نترك التخمين من الاسم */
+  const kinds=wb.SheetNames.slice(0,5).map(n=>{ const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''}); const t=GMTXlMap.docType(rows);
+    return t==='invoice'&&GMTXlMap.findHeader(rows)<0?null:t; });   /* «فاتورة» بس إذا لقى عناوين فاتورة فعلاً — وإلّا ما منعرف */
+  return kinds.includes('customs')?'customs':kinds.includes('packing')?'packing':(kinds.includes('invoice')||kinds.includes('rfq'))?'pi':null;
 }
 async function _poDocToPacking(id,f){
   if(!(window._invOpen&&String(window._invOpen.id)===String(id))){ openInvFromList(id); for(let i=0;i<40&&!(window._invOpen&&String(window._invOpen.id)===String(id));i++) await new Promise(r=>setTimeout(r,150)); }
@@ -6754,7 +6754,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b38"></script>
+<script src="gmt-whatsnew.js?v=20261125b39"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
