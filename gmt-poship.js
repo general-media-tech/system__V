@@ -76,7 +76,7 @@
     return '<div data-ship="' + esc(s.id) + '" style="border:1.5px solid ' + (x.k === 'overdue' ? '#fca5a5' : '#e5e7eb') + ';border-radius:14px;padding:10px 12px;margin-bottom:8px;background:#fff">' +
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:14px">' + esc(s.ref) + '</b><span style="border-radius:99px;padding:2px 9px;font-size:11px;font-weight:900;background:' + c[1] + ';color:' + c[2] + '">' + c[0] + '</span>' +
       '<span style="font-size:11.5px;color:#475569">' + esc(MODE[s.mode] || '') + (s.carrier ? ' · ' + esc(s.carrier) : '') + (s.tracking ? ' · <span dir="ltr" style="font-weight:800">' + esc(s.tracking) + '</span>' : '') + '</span>' +
-      '<span style="flex:1"></span>' + (s.status !== 'cancelled' && s.status !== 'arrived' ? '<button data-ship-edit="' + esc(s.id) + '" style="' + BTN + '">✏️</button>' : '') + '</div>' +
+      '<span style="flex:1"></span>' + (g.GMTPoDocs ? '<button data-ship-docs="' + esc(s.id) + '" data-ref="' + esc(s.ref) + '" title="📎 مستندات الشحنة (البوليصة · الباكينج …)" style="' + BTN + '">📎</button>' : '') + (s.status !== 'cancelled' && s.status !== 'arrived' ? '<button data-ship-edit="' + esc(s.id) + '" style="' + BTN + '">✏️</button>' : '') + '</div>' +
       '<div style="height:5px;background:#f1f5f9;border-radius:99px;margin:8px 0;overflow:hidden"><div style="height:100%;width:' + Math.round(progress(s) * 100) + '%;background:' + (s.status === 'cancelled' ? '#fca5a5' : '#1f348f') + '"></div></div>' +
       '<div style="font-size:12px;color:#334155">' + (s.etd ? 'انطلقت: ' + esc(s.etd) + ' · ' : '') + (s.eta ? 'الوصول المتوقّع: <b>' + esc(s.eta) + '</b>' + (x.days != null && s.status !== 'arrived' && s.status !== 'cancelled' ? (x.days >= 0 ? ' (بعد ' + x.days + ' يوم)' : ' <b style="color:#b91c1c">(متأخّرة ' + (-x.days) + ' يوم)</b>') : '') : 'بلا موعد وصول') +
       (s.arrived_at ? ' · وصلت ' + esc(String(s.arrived_at).slice(0, 10)) : '') + (s.cartons || s.kg || s.cbm ? ' · ' + [s.cartons ? s.cartons + ' كرتونة' : '', s.kg ? s.kg + ' كغ' : '', s.cbm ? s.cbm + ' م³' : ''].filter(Boolean).join(' · ') : '') + '</div>' +
@@ -147,6 +147,7 @@
       var t = e.target;
       if (t === w || t.closest('[data-ship-x]')) { w.remove(); return; }
       if (t.closest('[data-ship-new]')) { e.preventDefault(); st.edit = 'new'; paint(); box.scrollIntoView({ block: 'start' }); return; }
+      var dc = t.closest('[data-ship-docs]'); if (dc) { GMTPoDocs.panel({ shipment_id: dc.getAttribute('data-ship-docs'), title: dc.getAttribute('data-ref'), expect: false }); return; }
       var ed = t.closest('[data-ship-edit]'); if (ed) { st.edit = ed.getAttribute('data-ship-edit'); paint(); return; }
       if (t.closest('[data-ship-cancel-form]')) { st.edit = null; paint(); return; }
       var f = t.closest('[data-ship-f]'); if (f) { st.f = f.getAttribute('data-ship-f'); paint(); return; }

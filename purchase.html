@@ -214,7 +214,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b33"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
   <script src="gmt-poreports.js?v=20261125b33"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
-  <script src="gmt-poship.js?v=20261125b32"></script><!-- (TASK-B0559 · A1004 P6) شحنات المشتريات N↔N -->
+  <script src="gmt-poship.js?v=20261125b34"></script><!-- (TASK-B0559 · A1004 P6) شحنات المشتريات N↔N -->
+  <script src="gmt-podocs.js?v=20261125b34"></script><!-- (TASK-B0560 · A1004 P6) أرشيف المستندات الخاصّ -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b33"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -1270,6 +1271,9 @@ window.openPoReports=openPoReports;
 /* (TASK-B0559 · A1004 P6 م٢) شحنات المشتريات N↔N — الوصول بيفتح الاستلام بالمسح لكلّ فاتورة · ?ships=1 */
 function openPoShip(focus){ if(!window.GMTPoShip){toast('وحدة الشحنات غير محمّلة','err');return;} GMTPoShip.open(()=>ships||[],{focus,onOpenInv:id=>openInvFromList(id),onRecv:id=>markArrived(id),onChange:()=>{try{render();}catch(_){}}}); }
 window.openPoShip=openPoShip;
+/* (TASK-B0560 · A1004 P6 م٣) أرشيف المستندات — خاصّ (رفع فقط + رابط موقَّع للأدمن) */
+function openPoDocs(id){ if(!window.GMTPoDocs){toast('وحدة المستندات غير محمّلة','err');return;} const s=(ships||[]).find(x=>String(x.id)===String(id))||{id}; GMTPoDocs.panel({invoice_id:s.id,title:(s.inv_number||'#'+s.id)+(s.supplier?' · '+s.supplier:''),legacyUrl:s.invoice_file_url||'',expect:s.inv_type!=='instant',onChange:()=>{try{render();}catch(_){}}}); }
+window.openPoDocs=openPoDocs;
 try{if(new URLSearchParams(location.search).get('ships')==='1'){const _t=setInterval(()=>{if(window._shipsLoaded){clearInterval(_t);openPoShip();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 try{if(new URLSearchParams(location.search).get('reports')==='1'){const _t=setInterval(()=>{if(window._shipsLoaded){clearInterval(_t);openPoReports();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 document.addEventListener('input',e=>{const el=e.target&&e.target.closest&&e.target.closest('#invPage .inv-field[data-field="cash"]');if(el)el.dataset.touched='1';},true);
@@ -1346,7 +1350,8 @@ async function _waitForGMTCache(maxMs){
     try{initPayerUI();}catch(_){} loadPoRows().then(()=>{try{render();}catch(_){}});
     try{if(window.GMTPoPay)GMTPoPay.loadAll().then(()=>{try{render();}catch(_){}});}catch(_){}
     try{if(window.GMTPoShip)GMTPoShip.loadAll().then(()=>{try{render();}catch(_){}});}catch(_){}   /* (TASK-B0559) شارة الشحنة على البطاقة */
-    try{if(window.GMTSuppliers&&GMTSuppliers.load)GMTSuppliers.load();}catch(_){}   /* (seq B1097) الاسم الموحّد للمورّد بالتقارير والمقارنات */
+    try{if(window.GMTSuppliers&&GMTSuppliers.load)GMTSuppliers.load();}catch(_){}
+    try{if(window.GMTPoDocs)GMTPoDocs.loadCounts().then(()=>{try{render();}catch(_){}});}catch(_){}   /* (TASK-B0560) عدد المستندات على 📎 */   /* (seq B1097) الاسم الموحّد للمورّد بالتقارير والمقارنات */
 
     // المنتجات: من نفس الكاش المحلي المشترك مع نظام الجرد (IndexedDB) — لا تحميل كامل متكرر
     const sbConfig={url:SB,key:KEY};
@@ -1490,6 +1495,7 @@ function render(){
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
             <button onclick="openPoPay('${s.id}')" class="hover:text-emerald-600" title="💳 الدفعات للمورّد" data-popay-open="${s.id}">💳</button>
+            <button onclick="openPoDocs('${s.id}')" class="hover:text-indigo-600 relative" title="📎 المستندات: فاتورة المورّد · الباكينج · البيان الجمركي · البوليصة · الإيصالات (خاصّة)" data-podocs-open="${s.id}">📎${window.GMTPoDocs&&GMTPoDocs.countOf(s.id)?'<span class="absolute -top-2 -left-2 bg-indigo-600 text-white rounded-full text-[9px] font-black px-1">'+GMTPoDocs.countOf(s.id)+'</span>':''}</button>
             ${s.customs_decl?`<button onclick="openDecl('${s.id}')" class="hover:text-amber-600" title="🛃 البيان الجمركي: الكراتين · البند الجمركي · الوزن · الرسوم" data-decl-open="${s.id}">🛃</button>`:''}
             <button onclick="openInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
             <button onclick="openInvForEdit('${s.id}')" class="hover:text-blue-600" title="تعديل الفاتورة"><i data-lucide="edit" class="w-4 h-4"></i></button>
@@ -6680,7 +6686,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b33"></script>
+<script src="gmt-whatsnew.js?v=20261125b34"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
