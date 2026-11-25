@@ -103,7 +103,7 @@
     var old = document.getElementById('gmt-popay'); if (old) old.remove();
     var w = document.createElement('div'); w.id = 'gmt-popay';
     w.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
-    document.body.appendChild(w);
+    w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     async function paint() {
       var pays = ((await req('GET', 'gmt_po_payments?purchase_id=eq.' + encodeURIComponent(p.id) + '&select=*&order=created_at.asc')) || []);
       CACHE[String(p.id)] = pays;
@@ -200,7 +200,7 @@
           '<b>' + esc(p.inv_number || '#' + p.id) + '</b> · ' + esc(p.supplier || '—') + ' · قيمة ' + s.value.toFixed(2) + '$ · مدفوع ' + s.paid.toFixed(2) + '$ · <b style="color:#b91c1c">باقي ' + s.remaining.toFixed(2) + '$</b>' +
           (s.nextDue ? ' · 📅 ' + esc(s.nextDue) + (s.overdue ? ' <b style="color:#b91c1c">⏰ مستحقّة</b>' : '') : '') + '</div>'; }).join('')
         : '<div style="text-align:center;color:#64748b;padding:18px">ما في شي باقي للمورّدين ✅</div>') + '</div>';
-    document.body.appendChild(w);
+    w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     w.addEventListener('click', function (e) {
       if (e.target === w || e.target.closest('[data-ag-x]')) { w.remove(); return; }
       var r = e.target.closest('[data-ag-row]'); if (r && onOpen) { w.remove(); onOpen(r.getAttribute('data-ag-row')); }

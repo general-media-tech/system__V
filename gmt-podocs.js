@@ -91,7 +91,7 @@
     w.style.cssText = 'position:fixed;inset:0;z-index:9750;background:rgba(15,18,25,.55);display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto';
     var box = document.createElement('div'); box.dir = 'rtl';
     box.style.cssText = 'background:#fff;border-radius:16px;padding:14px;width:100%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit';
-    w.appendChild(box); document.body.appendChild(w);
+    w.appendChild(box); w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
     var docs = [], pend = [], busy = false, showVoid = false, done = [];   /* done = (B1104) ملفات انرفعت هلّق وإلها إجراء (باكينج/بيان ⇐ الكلفة الواصلة) */
     var meta = o.shipment_id ? { shipment_id: o.shipment_id } : { invoice_id: o.invoice_id };
     function paint() {
