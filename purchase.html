@@ -2676,6 +2676,16 @@ function _exBuild(colOverride){
   for(let k=startIdx;k<rows.length;k++) _dataRowNos.add(k);
   const _anyRowMatched = (_imgMode!=='sequential') && _imgKeysSorted.some(k=>_dataRowNos.has(k));
   let _seqIdx=0;
+  /* (TASK-B0568 · A989–A991 م٤ · seq B1106) «صورة بصفّ غلط»: إذا أغلب الصور مرساة صفّ فوق/تحت بنودها (غلطة شائعة بملفات الموردين)
+     ⇐ الإزاحة بتتصحّح لحالها وبيقلّك · إلّا إذا صحّحت إنت الصورة يدوياً */
+  let _imgShift=0;
+  if(_imgMode!=='sequential'&&_imgKeysSorted.length>=2){
+    const itemRows=[]; for(let k=startIdx;k<rows.length;k++){ const nm=String(gv(rows[k],col.name)||'').trim(); if(nm&&!totalWords.some(w=>nm.toLowerCase().includes(norm(w)))) itemRows.push(k); }
+    const hit=d=>itemRows.filter(Rw=>rowToImage[Rw+d]!==undefined).length;
+    const h0=hit(0), hm=hit(-1), hp=hit(1), hb=Math.max(hm,hp);
+    if(hb>h0&&hb>=Math.ceil(0.6*Math.min(itemRows.length,_imgKeysSorted.length))) _imgShift=hm>=hp?-1:1;
+  }
+  L.imgShift=_imgShift;
 
   exRows=rows.slice(startIdx).map((r,i)=>{
     const name=String(gv(r,col.name)||'').trim();
@@ -2693,7 +2703,7 @@ function _exBuild(colOverride){
        الاحتياطي مشروط: لا يُستعمل إلا إذا لم تُطابق **أي** صورة برقم صفها
        (أي أن الملف كلّه من مصدر لا تتوافق مراسيه) — عندئذٍ فقط نرتّب بالتسلسل. */
     const excelRowNo = startIdx + i;
-    let imageData = rowToImage[excelRowNo];
+    let imageData = rowToImage[excelRowNo+_imgShift];
     /* في الوضع التسلسلي (صور عائمة أو ملف .xls قديم) المفاتيح 0,1,2… بترتيب
        ورود الصور، فنقرأها بفهرس البند مباشرةً. */
     if(_imgMode==='sequential') imageData = rowToImage[i];
@@ -2729,6 +2739,14 @@ function _exBuild(colOverride){
   }catch(_){}
   renderExcelPreview();
   L.used=Object.assign({},col);
+  /* (B1106) صور ما انربطت ببند · نفس الصورة على أكتر من بند ⇐ تنبيه بالمعاينة (والتصحيح بالضغط على صورة البند) */
+  try{
+    const used={}; exRows.forEach(r=>{ if(r.image_url) used[r.image_url]=(used[r.image_url]||0)+1; });
+    L.orphans=Object.values(rowToImage).filter(u=>u&&!used[u]).length;
+    L.dups=Object.keys(used).filter(u=>used[u]>1).length;
+    exRows.forEach(r=>{ r.imgDup=!!(r.image_url&&used[r.image_url]>1); });
+    if(exRows.length) renderExcelPreview();
+  }catch(_){}
 }
 /* ═══════════════════════════════════════════════════════════════════════════
    📗 استخراج صور ملفات .xls القديمة (BIFF / Composite Document)   2026-08-23
@@ -3171,15 +3189,39 @@ function _exEditLink(i){
   td.querySelector('[data-ex-new]').onclick=()=>{ exRows[i].forceNew=true; exRows[i].linkId=null; renderExcelPreview(); };
   td.querySelector('[data-ex-auto]').onclick=()=>{ exRows[i].forceNew=false; exRows[i].linkId=null; renderExcelPreview(); };
 }
+/* (B1106) اختيار صورة البند يدوياً من كلّ صور الملف (أو بلا صورة) */
+function _exPickImg(i){
+  const imgs=[...new Set((window._exImagesRaw||[]).filter(Boolean))]; if(!exRows[i]) return;
+  const old=document.getElementById('ex-img-pick'); if(old) old.remove();
+  const w=document.createElement('div'); w.id='ex-img-pick';
+  w.style.cssText='position:fixed;inset:0;z-index:9800;background:rgba(15,18,25,.55);display:flex;align-items:center;justify-content:center;padding:14px';
+  w.innerHTML='<div dir="rtl" style="background:#fff;border-radius:16px;padding:12px;max-width:560px;width:100%;max-height:80vh;overflow:auto"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="flex:1;font-size:14px">🖼️ صورة «'+eh(exRows[i].name)+'»</b><button data-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:4px 10px;cursor:pointer">✕</button></div>'+
+    (imgs.length?'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px">'+imgs.map((u,k)=>'<button data-k="'+k+'" style="border:2px solid '+(u===exRows[i].image_url?'#1f348f':'#e5e7eb')+';border-radius:10px;padding:2px;background:#fff;cursor:pointer"><img src="'+u+'" style="width:100%;aspect-ratio:1;object-fit:contain"></button>').join('')+'</div>':'<div style="color:#64748b;font-size:12.5px">ما في صور بهالملف.</div>')+
+    '<button data-none style="margin-top:8px;width:100%;border:1.5px solid #e5e7eb;background:#fff;border-radius:10px;padding:7px;font:inherit;font-size:12px;font-weight:800;cursor:pointer">بلا صورة</button></div>';
+  document.body.appendChild(w);
+  w.onclick=e=>{ if(e.target===w||e.target.closest('[data-x]')){w.remove();return;}
+    const b=e.target.closest('[data-k]'); if(b){ exRows[i].image_url=imgs[+b.getAttribute('data-k')]; exRows[i].imgManual=true; }
+    else if(e.target.closest('[data-none]')){ exRows[i].image_url=''; exRows[i].imgManual=true; } else return;
+    const used={}; exRows.forEach(r=>{ if(r.image_url) used[r.image_url]=(used[r.image_url]||0)+1; }); exRows.forEach(r=>{ r.imgDup=!!(r.image_url&&used[r.image_url]>1); });
+    if(window._exLast){ window._exLast.dups=Object.keys(used).filter(u=>used[u]>1).length; window._exLast.orphans=imgs.filter(u=>!used[u]).length; }
+    w.remove(); renderExcelPreview(); };
+}
 function renderExcelPreview(){
   const withImg=exRows.filter(r=>r.image_url).length;const total=exRows.length;const mismatch=withImg>0&&withImg!==total;
   const infoBar=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#374151;">📦 ${total} منتج &nbsp;•&nbsp;<span style="color:${withImg===total?'#047857':withImg===0?'#5b6472':'#b45309'};">📷 ${withImg} صورة${mismatch?' ⚠️ لا يطابق':''}</span></div><button onclick="exportWithoutImages()" style="padding:6px 14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;color:#c2410c;font-size:11px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;">📥 استخراج بدون صور + ZIP</button></div>`;
   const head=`<tr style="background:#047857;color:white;"><th style="padding:5px 8px;">صورة</th><th style="padding:5px 8px;">المنتج</th><th style="padding:5px 8px;min-width:150px;">ينربط بـ</th><th style="padding:5px 8px;width:55px;">الكمية</th><th style="padding:5px 8px;width:80px;">سعر الشراء $</th><th style="padding:5px 8px;width:80px;">سعر البيع $</th><th style="width:24px;"></th></tr>`;
-  const body=exRows.map((r,i)=>`<tr style="${i%2?'background:#f9fafb':''}"><td style="padding:4px 6px;">${r.image_url?`<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${eh(r.image_url)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" onerror="this.style.display='none'">`:'<span style="color:#d1d5db;font-size:18px;">📦</span>'}</td><td style="padding:4px 6px;"><input type="text" value="${eh(r.name)}" oninput="exRows[${i}].name=this.value" style="width:100%;min-width:120px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;font-family:'Cairo',sans-serif;font-weight:700;background:#fff;outline:none;"></td>${_exLinkCell(r,i)}<td style="padding:4px 6px;"><input type="number" value="${r.qty}" min="1" oninput="exRows[${i}].qty=Math.max(1,parseInt(this.value)||1)" style="width:50px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.netCost||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].netCost=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.price||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].price=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td><button onclick="exRows.splice(${i},1);renderExcelPreview()" style="color:#d1d5db;border:none;background:none;cursor:pointer;">✕</button></td></tr>`).join('');
+  const body=exRows.map((r,i)=>`<tr style="${i%2?'background:#f9fafb':''}"><td data-ex-img="${i}" onclick="_exPickImg(${i})" title="اضغط لتختار صورة تانية من صور الملف" style="padding:4px 6px;cursor:pointer;${r.imgDup?'outline:2px solid #f59e0b;outline-offset:-2px;':''}">${r.image_url?`<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${eh(r.image_url)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" onerror="this.style.display='none'">`:'<span style="color:#d1d5db;font-size:18px;">📦</span>'}</td><td style="padding:4px 6px;"><input type="text" value="${eh(r.name)}" oninput="exRows[${i}].name=this.value" style="width:100%;min-width:120px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;font-family:'Cairo',sans-serif;font-weight:700;background:#fff;outline:none;"></td>${_exLinkCell(r,i)}<td style="padding:4px 6px;"><input type="number" value="${r.qty}" min="1" oninput="exRows[${i}].qty=Math.max(1,parseInt(this.value)||1)" style="width:50px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.netCost||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].netCost=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.price||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].price=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td><button onclick="exRows.splice(${i},1);renderExcelPreview()" style="color:#d1d5db;border:none;background:none;cursor:pointer;">✕</button></td></tr>`).join('');
   const container=document.getElementById('excel-prev');
   let infoEl=document.getElementById('excel-info-bar');
   if(!infoEl){infoEl=document.createElement('div');infoEl.id='excel-info-bar';const tableWrap=document.getElementById('excel-tbl').closest('div');container.insertBefore(infoEl,tableWrap);}
   infoEl.innerHTML=infoBar;
+  /* (B1106) تنبيهات الصور: إزاحة صحّحها النظام · صور ما انربطت · صورة مكرّرة */
+  try{ const L=window._exLast, w=[];
+    if(L&&L.imgShift) w.push('🔧 صور الملف كانت مزاحة صفّ '+(L.imgShift<0?'لفوق':'لتحت')+' عن بنودها — صحّحتها لحالي، راجعها');
+    if(L&&L.orphans) w.push('⚠️ '+L.orphans+' صورة بالملف ما انربطت بأيّ بند (يمكن بصفّ غلط) — اضغط على صورة البند لتختارها');
+    if(L&&L.dups) w.push('⚠️ نفس الصورة على أكتر من بند ('+L.dups+') — معلّمين بإطار برتقالي');
+    if(w.length) infoEl.innerHTML+='<div data-ex-imgwarn style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:6px 10px;margin-bottom:8px;font-size:11.5px;font-weight:800;color:#92400e;line-height:1.8">'+w.join('<br>')+'</div>';
+  }catch(_){}
   /* (TASK-B0564) شريط الأعمدة: شو عرف النظام · صحّحه ⇐ بيتعلّم للمرّة الجاية */
   try{
     const L=window._exLast; let mb=document.getElementById('excel-map-bar');
