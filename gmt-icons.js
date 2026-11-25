@@ -151,7 +151,7 @@
     '🎬': 'image', '🔑': 'shield', '💳': 'wallet', '🧭': 'search', '🎛️': 'settings',
     '🎵': 'bell', '📑': 'doc', '🧮': 'chart', '🗄️': 'boxes', '🏬': 'building',
     '📲': 'home', '📱': 'home', '🖥️': 'home', '🔲': 'barcode', '🖨': 'print',
-    '📕': 'doc', '📚': 'doc', '🧠': 'search', '🔗': 'share', '🔒': 'shield',
+    '📕': 'doc', '📚': 'doc', '🧠': 'brain' /* (seq B1083) كان «search» ⇒ زرّ العقل يطلع عدسة بحث جنب زرّ البحث فيبانوا زرّين بحث */, '🔗': 'share', '🔒': 'shield',
   };
 
   function svg(name, size, cls) {

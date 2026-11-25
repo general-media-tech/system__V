@@ -318,44 +318,138 @@
      🔎 بحث الأدوات والإعدادات بكلّ صفحة داخلية — بالشريط العلويّ المشترك جنب 🧠 (كان بالرئيسية فقط) ══ */
   function role() { try { return global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? 'admin' : 'staff'; } catch (_) { return 'staff'; } }
   function escT(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  /* ══ (TASK-B0550 · المالك seq B1083 «بدّي البحث لكلّ الأزرار — الفرعية والموجودة والداخلية: تعديل فاتورة مشتريات · إنشاء عرض سعر…»)
+     بحث واحد بثلاث مجموعات: 🧰 الأدوات · 📍 أزرار بهالصفحة (حتى المخفيّة بنوافذ/تبويبات) · 🗂️ أزرار بصفحات تانية (فهرس gmt-btnindex.js
+     المولَّد من كلّ الصفحات — حتى الأزرار المبنيّة جوّا النوافذ). الضغط على زرّ بصفحة تانية ⇐ بتنفتح ويتعلّم الزرّ (?gofind=). ══ */
+  var IDX = null, IDX_LOADING = null;
+  function loadIndex() {
+    if (IDX) return Promise.resolve(IDX);
+    if (global.GMT_BTN_INDEX) { IDX = global.GMT_BTN_INDEX; return Promise.resolve(IDX); }
+    if (IDX_LOADING) return IDX_LOADING;
+    IDX_LOADING = new Promise(function (res) {
+      var sc = document.createElement('script'); sc.src = 'gmt-btnindex.js?v=' + (global.GMT_BTNIDX_V || '20261125b23');
+      sc.onload = function () { IDX = global.GMT_BTN_INDEX || []; res(IDX); }; sc.onerror = function () { IDX = []; res(IDX); };
+      document.head.appendChild(sc);
+    });
+    return IDX_LOADING;
+  }
+  var QSTOP = /^(وين|فين|كيف|شلون|شو|بدي|بدو|بعمل|اعمل|بحس|بقدر|فيني|لاقي|القي|الاقي|زر|زرار|صفحه|اداه|في|من|على|عن|الى|ل|و|يا|انا|هون|هنا|لنفرض|مثلا)$/;
+  function qwords(q) { return norm(q).replace(/[؟?!.,،:«»"']/g, ' ').split(/\s+/).filter(function (w) { return w && w.length >= 2 && !QSTOP.test(w); }).map(function (w) { return w.replace(/^(بال|وال|ال|ب|و)(?=\S{3,})/, ''); }); }
+  function score(hayRaw, titleRaw, words) {
+    if (!words.length) return 0; var hay = norm(hayRaw), title = norm(titleRaw), hit = 0, sc = 0;
+    words.forEach(function (w) { if (hay.indexOf(w) >= 0) { hit++; sc += title.indexOf(w) >= 0 ? 3 : 1; } });
+    if (hit < Math.max(1, Math.ceil(words.length * 0.6))) return 0;
+    return sc + (hit === words.length ? 4 : 0);
+  }
+  function here() { return decodeURIComponent((location.pathname.split('/').pop() || 'home.html')); }
+  function liveButtons() {
+    var out = [], seen = {};
+    [].forEach.call(document.querySelectorAll('button,a[href],[role="button"],[data-hint]'), function (el) {
+      if (el.closest('#gmt-tsearch')) return;
+      var t = String(el.textContent || '').replace(/\s+/g, ' ').trim(), ti = el.getAttribute('title') || el.getAttribute('aria-label') || '', h = el.getAttribute('data-hint') || '';
+      var label = (t.length >= 2 && t.length <= 70 ? t : '') || ti; if (!label || label.length > 90) return;
+      var k = label + '|' + ti; if (seen[k]) return; seen[k] = 1;
+      out.push({ el: el, label: label, desc: ti !== label ? ti : h });
+    });
+    return out;
+  }
+  function flash(el, label, desc) {
+    var vis = el && el.offsetParent !== null && el.getClientRects().length;
+    if (!vis) { banner('«' + label + '» موجود بهالصفحة جوّا نافذة أو تبويب' + (desc ? ' — ' + desc : '') + '. افتح النافذة/التبويب يلي فيه وبتلاقيه.'); return false; }
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.setAttribute('data-gofound', '1');
+    var o = el.style.outline, sh = el.style.boxShadow; el.style.outline = '3px solid #D5001C'; el.style.boxShadow = '0 0 0 6px rgba(213,0,28,.25)';
+    setTimeout(function () { el.style.outline = o; el.style.boxShadow = sh; }, 3500);
+    return true;
+  }
+  function banner(msg) {
+    var b = document.getElementById('gmt-tsearch-banner'); if (b) b.remove();
+    b = document.createElement('div'); b.id = 'gmt-tsearch-banner'; b.setAttribute('data-keep-fab', '1');
+    b.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:2147483460;max-width:92vw;background:#0f1219;color:#fff;border-radius:14px;padding:10px 14px;font:inherit;font-size:13px;font-weight:800;direction:rtl;box-shadow:0 12px 30px rgba(0,0,0,.25)';
+    b.textContent = '🔎 ' + msg; document.body.appendChild(b); setTimeout(function () { b.remove(); }, 7000);
+  }
+  function pageName(f) { var x = global.GMTTools.find(f); return x ? x.t : f.replace('.html', '').replace(/_/g, ' '); }
   function openSearch(initial) {
     var old = document.getElementById('gmt-tsearch'); if (old) old.remove();
     var w = document.createElement('div'); w.id = 'gmt-tsearch'; w.setAttribute('data-keep-fab', '1');
-    w.style.cssText = 'position:fixed;inset:0;z-index:2147483450;background:rgba(15,18,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:8vh 12px;direction:rtl;font-family:inherit';
-    w.innerHTML = '<div style="width:100%;max-width:560px;background:#fff;border-radius:18px;padding:12px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
-      '<div style="display:flex;gap:8px;align-items:center"><input data-ts-q placeholder="🔎 ابحث عن أداة أو إعداد أو زرّ… (مثلاً: عرض سعر · المصاريف · كلمات السرّ)" autocomplete="off" style="flex:1;border:1.5px solid #e2e8f0;border-radius:12px;padding:11px 12px;font:inherit;font-size:15px">' +
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483450;background:rgba(15,18,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 12px;direction:rtl;font-family:inherit';
+    w.innerHTML = '<div style="width:100%;max-width:620px;background:#fff;border-radius:18px;padding:12px;box-shadow:0 30px 80px rgba(15,18,25,.25)">' +
+      '<div style="display:flex;gap:8px;align-items:center"><input data-ts-q placeholder="🔎 أيّ زرّ أو أداة أو إعداد… (مثلاً: تعديل فاتورة مشتريات · إنشاء عرض سعر · كلمات السرّ)" autocomplete="off" style="flex:1;border:1.5px solid #e2e8f0;border-radius:12px;padding:11px 12px;font:inherit;font-size:15px">' +
       '<button type="button" data-ts-x style="border:0;background:#f1f5f9;border-radius:10px;padding:9px 12px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
-      '<div data-ts-res style="margin-top:8px;max-height:62vh;overflow:auto"></div>' +
-      '<div style="font-size:11.5px;color:#64748b;margin-top:6px">للأسئلة والشرح استعمل 🧠 العقل — هون بس للوصول للأدوات والإعدادات.</div></div>';
+      '<div data-ts-res style="margin-top:8px;max-height:66vh;overflow:auto"></div>' +
+      '<div style="font-size:11.5px;color:#64748b;margin-top:6px">بيلاقي كلّ الأزرار — حتى يلي جوّا النوافذ وبصفحات تانية. للأسئلة والشرح: 🧠 العقل.</div></div>';
     document.body.appendChild(w);
-    var inp = w.querySelector('[data-ts-q]'), res = w.querySelector('[data-ts-res]'), items = [], sel = 0;
+    var inp = w.querySelector('[data-ts-q]'), res = w.querySelector('[data-ts-res]'), items = [], sel = 0, live = liveButtons(), cur = here();
+    function row(i, title, sub, tag) {
+      return '<a data-ts-i="' + i + '" href="#" style="display:block;text-decoration:none;color:inherit;border-radius:12px;padding:8px 11px;margin-bottom:4px;' + (i === sel ? 'background:#fef2f2;' : 'background:#f8fafc;') + '">' +
+        '<b style="font-size:14px">' + escT(title) + '</b>' + (tag ? ' <span style="font-size:11px;color:#b45309;font-weight:800">' + escT(tag) + '</span>' : '') + (sub ? '<div style="font-size:12px;color:#526077">' + escT(sub) + '</div>' : '') + '</a>';
+    }
+    function head(t) { return '<div style="font-size:12px;font-weight:900;color:#334155;margin:8px 2px 4px">' + t + '</div>'; }
     function draw() {
-      var q = inp.value, r = role();
-      items = q.trim() ? global.GMTTools.search(q, r) : global.GMTTools.search('', r);
-      if (q.trim() && !items.length) items = global.GMTTools.match(q, r);
-      items = items.slice(0, 30); sel = Math.min(sel, Math.max(0, items.length - 1));
-      res.innerHTML = items.length ? items.map(function (x, i) {
-        return '<a data-ts-i="' + i + '" href="' + escT(x.f) + '" style="display:block;text-decoration:none;color:inherit;border-radius:12px;padding:9px 11px;margin-bottom:4px;' + (i === sel ? 'background:#fef2f2;' : 'background:#f8fafc;') + '">' +
-          '<b style="font-size:14px">' + escT(x.t) + '</b><div style="font-size:12px;color:#526077">' + escT(x.d || '') + '</div></a>';
-      }).join('') : '<div style="padding:16px;text-align:center;color:#64748b">ما في أداة بهالاسم — جرّب كلمة تانية، أو اسأل 🧠 العقل.</div>';
+      var q = inp.value, r = role(), words = qwords(q), html = '';
+      items = [];
+      var tools = q.trim() ? global.GMTTools.search(q, r) : global.GMTTools.search('', r);
+      if (q.trim() && !tools.length) tools = global.GMTTools.match(q, r);
+      tools = tools.slice(0, q.trim() ? 6 : 30);
+      if (tools.length) { html += head('🧰 الأدوات'); tools.forEach(function (x) { items.push({ k: 'tool', x: x }); html += row(items.length - 1, x.t, x.d); }); }
+      if (q.trim()) {
+        var lv = live.map(function (b) { return { b: b, s: score(b.label + ' ' + b.desc, b.label, words) }; }).filter(function (z) { return z.s; }).sort(function (a, b) { return b.s - a.s; }).slice(0, 8);
+        if (lv.length) { html += head('📍 بهالصفحة'); lv.forEach(function (z) { items.push({ k: 'live', b: z.b }); html += row(items.length - 1, z.b.label, z.b.desc, z.b.el.offsetParent === null ? 'جوّا نافذة/تبويب' : ''); }); }
+        var ix = (IDX || []).filter(function (e) { return e[0] !== cur; }).map(function (e) { return { e: e, s: score(e[1] + ' ' + e[2] + ' ' + pageName(e[0]), e[1], words) }; })
+          .filter(function (z) { return z.s; }).sort(function (a, b) { return b.s - a.s; }).slice(0, 15);
+        if (ix.length) { html += head('🗂️ بصفحات تانية'); ix.forEach(function (z) { items.push({ k: 'idx', e: z.e }); html += row(items.length - 1, z.e[1], '📄 ' + pageName(z.e[0]) + (z.e[2] ? ' — ' + z.e[2] : '')); }); }
+        if (!IDX) html += '<div style="font-size:12px;color:#64748b;padding:4px">⏳ عم حمّل فهرس كلّ الأزرار…</div>';
+      }
+      sel = Math.min(sel, Math.max(0, items.length - 1));
+      res.innerHTML = html || '<div style="padding:16px;text-align:center;color:#64748b">ما لقيت شي بهالاسم — جرّب كلمة تانية، أو اسأل 🧠 العقل.</div>';
+    }
+    function go(it, newTab) {
+      if (!it) return;
+      if (it.k === 'tool') { if (newTab) window.open(it.x.f, '_blank'); else location.href = it.x.f; return; }
+      if (it.k === 'live') { w.remove(); flash(it.b.el, it.b.label, it.b.desc); return; }
+      var f = it.e[0], url = f + (f.indexOf('?') >= 0 ? '&' : '?') + 'gofind=' + encodeURIComponent(it.e[1]) + (it.e[2] ? '&gohint=' + encodeURIComponent(it.e[2]) : '');
+      if (newTab) window.open(url, '_blank'); else location.href = url;
     }
     inp.addEventListener('input', function () { sel = 0; draw(); });
     inp.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowDown') { sel = Math.min(items.length - 1, sel + 1); draw(); e.preventDefault(); }
       else if (e.key === 'ArrowUp') { sel = Math.max(0, sel - 1); draw(); e.preventDefault(); }
-      else if (e.key === 'Enter' && items[sel]) { e.preventDefault(); location.href = items[sel].f; }
+      else if (e.key === 'Enter' && items[sel]) { e.preventDefault(); go(items[sel], e.ctrlKey || e.metaKey); }
       else if (e.key === 'Escape') w.remove();
     });
-    w.addEventListener('click', function (e) { if (e.target === w || e.target.closest('[data-ts-x]')) w.remove(); });
+    w.addEventListener('click', function (e) {
+      if (e.target === w || e.target.closest('[data-ts-x]')) { w.remove(); return; }
+      var a = e.target.closest('[data-ts-i]'); if (a) { e.preventDefault(); go(items[+a.getAttribute('data-ts-i')], e.ctrlKey || e.metaKey); }
+    });
     if (initial) inp.value = initial;
     draw(); setTimeout(function () { inp.focus(); }, 30);
+    loadIndex().then(function () { if (document.body.contains(w)) draw(); });
     return w;
   }
+  /* ?gofind=<نصّ الزرّ> — جيت من البحث بصفحة تانية ⇐ لاقي الزرّ وعلّمه (أو قلّي وين هو إذا جوّا نافذة) */
+  function gofind() {
+    var p = null; try { p = new URLSearchParams(location.search); } catch (_) { return; }
+    var t = p && p.get('gofind'); if (!t) return; var hint = p.get('gohint') || '', tries = 0;
+    (function look() {
+      /* الإيموجي بالأزرار بيتحوّل لأيقونة رسم (gmt-icons) ⇒ «📒 الآجلة» بالمصدر = «الآجلة» بالصفحة ⇒ المقارنة بالحروف والأرقام بس */
+      var bare = function (x) { return norm(x).replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); };
+      var nt = bare(t), hit = null, hidden = null; if (!nt) return;
+      [].forEach.call(document.querySelectorAll('button,a[href],[role="button"],[data-hint]'), function (el) {
+        if (hit) return; var s = bare((el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || ''));
+        if (s.indexOf(nt) < 0) return; if (el.offsetParent !== null) hit = el; else if (!hidden) hidden = el;
+      });
+      if (hit) return flash(hit, t, hint);
+      if (++tries < 16) return setTimeout(look, 500);
+      banner('«' + t + '» بهالصفحة جوّا نافذة أو بيطلع بعد ما تفتح شي' + (hint ? ' — ' + hint : '') + '.');
+    })();
+  }
+  global.GMTTools.loadIndex = loadIndex; global.GMTTools.qwords = qwords; global.GMTTools.score = score;
   global.GMTTools.openSearch = openSearch;
   function mountSearch(tries) {
     try {
       if (!(global.GMT_INTERNAL === true || global.GMT_INTERNAL === 1)) return;
       if (document.getElementById('gmt-tsearch-btn')) return;
+      /* (seq B1083 «زرّين بحث جنب بعض») الصفحة فيها حقل بحث بالنظام برأسها (الرئيسية) ⇒ ما منضيف زرّ تاني */
+      if (document.querySelector('input#q[aria-label="بحث في النظام"]')) return;
       var host = document.querySelector('.gmt-refresh-bar') || document.getElementById('gmt-refresh-bar');
       if (!host) { if ((tries || 0) < 20) setTimeout(function () { mountSearch((tries || 0) + 1); }, 500); return; }
       var b = document.createElement('button');
@@ -365,7 +459,7 @@
       host.insertBefore(b, host.firstChild);
     } catch (_) {}
   }
-  if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { mountSearch(0); }); else mountSearch(0); }
+  if (typeof document !== 'undefined') { var _boot = function () { mountSearch(0); setTimeout(gofind, 900); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot); else _boot(); }
 })(window);
 
 /* ══ (TASK-A0527 · P0 · بلاغ البوت «GMTAsk is not defined» orders.html:1518 · صيد النمط) ══

@@ -292,9 +292,9 @@ a.btn{text-decoration:none}
 <script src="gmt-core.js?v=20261125b12"></script>
 <script src="gmt-bidi.js?v=20261007z"></script>
 <script src="gmt-auth.js?v=20261124b2"></script>
-<script src="gmt-tools.js?v=20261125b17"></script>
+<script src="gmt-tools.js?v=20261125b23"></script>
 <script src="gmt-account.js?v=20261119j"></script>
-<script src="gmt-icons.js?v=20261124b3"></script>
+<script src="gmt-icons.js?v=20261125b23"></script>
 <script src="gmt-ask.js?v=20261121b"></script>
 <script src="gmt-sound.js?v=20261124b3" defer></script>
 <script src="gmt-share.js?v=20261125b12" defer></script>
@@ -1066,6 +1066,8 @@ a.btn{text-decoration:none}
     ov.addEventListener('click', function (e) { if (e.target === ov || e.target.closest('[data-x]')) closeTop(false); });
     document.body.appendChild(ov); push(ov); return ov;
   }
+  /* (seq B1083) بحث واحد بكلّ النظام (الأدوات + كلّ الأزرار حتى الداخلية) — الزائر غير المسجّل على اللوحة القديمة (أقفال الأدوات) */
+  function uniSearch() { if (st.role !== 'guest' && window.GMTTools && GMTTools.openSearch) GMTTools.openSearch(''); else palette(''); }
   function palette(initial) {
     var ov = modal('<div class="row" style="margin-bottom:10px"><label class="srch sp" style="min-width:0">' + ic('search', 17) + '<input id="pq" placeholder="اكتب اسم الأداة أو ما تريد فعله…" autocomplete="off"></label><button class="ib" type="button" data-x aria-label="إغلاق">' + ic('close', 16) + '</button></div><div class="res" id="pres"></div>');
     var inp = ov.querySelector('#pq'), res = ov.querySelector('#pres'), sel = 0, items = [];
@@ -1344,11 +1346,11 @@ a.btn{text-decoration:none}
       }, function (er) { t.disabled = false; t.checked = !want; if (ae) ae.textContent = (er && er.message) || 'تعذّر الحفظ'; });
     }
   });
-  document.addEventListener('focusin', function (e) { if (e.target && e.target.id === 'q') { e.target.blur(); palette(''); } });
+  document.addEventListener('focusin', function (e) { if (e.target && e.target.id === 'q') { e.target.blur(); /* (seq B1083) بحث واحد بكلّ النظام: نفس بحث الأزرار الموحّد */ uniSearch(); } });
   document.addEventListener('keydown', function (e) {
     var typing = /input|textarea|select/i.test((document.activeElement || {}).tagName || '');
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && st.role !== 'guest') { e.preventDefault(); palette(''); return; }
-    if (e.key === '/' && !typing && !stack.length && st.role !== 'guest') { e.preventDefault(); palette(''); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && st.role !== 'guest') { e.preventDefault(); uniSearch(); return; }
+    if (e.key === '/' && !typing && !stack.length && st.role !== 'guest') { e.preventDefault(); uniSearch(); return; }
     if (e.key === 'Escape' && stack.length) { e.preventDefault(); closeTop(false); }
   });
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); bip = e; });
@@ -1399,7 +1401,7 @@ a.btn{text-decoration:none}
 <script src="gmt-selfcheck.js?v=20261124b8"></script>
 <script src="gmt-guide-updates.js?v=20261003"></script>
 <script src="gmt-brain.js?v=20261125b17"></script>
-<script src="gmt-whatsnew.js?v=20261125b22"></script>
+<script src="gmt-whatsnew.js?v=20261125b23"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
