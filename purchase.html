@@ -3150,11 +3150,32 @@ async function extractZipFiles(buffer){
   }
   return files;
 }
+/* (TASK-B0567) خانة «ينربط بـ» بالمعاينة: شو المنتج وكيف عرفه · ✏️ تغيير (منتج تاني · منتج جديد · تلقائي) */
+const _EXH={manual:['✋','اخترته إنت'],barcode:['🏷️','بالباركود'],name:['✅','نفس الاسم'],invname:['🧠','عرفه من فاتورة سابقة'],tokens:['⚠️','تقريبي — تأكّد'],new:['🆕','منتج جديد (اخترته)'],none:['🆕','منتج جديد']};
+function _exLinkCell(r,i){
+  const m=_exMatch(r), h=_EXH[m.how]||_EXH.none, col=m.how==='tokens'?'#b45309':m.prod?'#065f46':'#1f348f';
+  return `<td data-ex-link="${i}" style="padding:4px 6px;font-size:11px;max-width:220px"><div style="display:flex;gap:4px;align-items:center"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800;color:${col}" title="${eh(m.prod?m.prod.name:'منتج جديد')}">${h[0]} ${m.prod?eh(m.prod.name):'منتج جديد'}</span><button type="button" onclick="_exEditLink(${i})" title="غيّر الربط" style="border:1px solid #e5e7eb;background:#fff;border-radius:6px;padding:0 5px;cursor:pointer">✏️</button></div><div style="color:#64748b;font-size:10px">${h[1]}${m.amb?' · '+m.amb+' منتجات بنفس الاسم':''}</div></td>`;
+}
+function _exEditLink(i){
+  const td=document.querySelector('[data-ex-link="'+i+'"]'); if(!td) return;
+  let dl=document.getElementById('ex-prod-dl');
+  if(!dl){ dl=document.createElement('datalist'); dl.id='ex-prod-dl'; document.body.appendChild(dl); }
+  dl.innerHTML=prods.filter(p=>p&&p.id!=null&&!String(p.id).startsWith('-')).slice(0,4000).map(p=>'<option value="'+eh((p.name||'')+(p.barcode?' ⟨'+p.barcode+'⟩':''))+'">').join('');
+  td.innerHTML='<input list="ex-prod-dl" data-ex-q placeholder="ابحث باسم المنتج أو الباركود…" style="width:100%;border:1.5px solid #6366f1;border-radius:7px;padding:3px 6px;font-size:11px;font-family:inherit">'+
+    '<div style="display:flex;gap:3px;margin-top:3px"><button type="button" data-ex-ok style="flex:1;border:0;background:#0f1219;color:#fff;border-radius:6px;padding:2px;font-size:10.5px;font-weight:900;cursor:pointer">✓ اربط</button><button type="button" data-ex-new style="border:1px solid #e5e7eb;background:#fff;border-radius:6px;padding:2px 5px;font-size:10.5px;cursor:pointer">🆕 جديد</button><button type="button" data-ex-auto title="رجّع للتلقائي" style="border:1px solid #e5e7eb;background:#fff;border-radius:6px;padding:2px 5px;font-size:10.5px;cursor:pointer">↺</button></div>';
+  const q=td.querySelector('[data-ex-q]'); q.focus();
+  const pick=()=>{ const v=q.value.trim(), bc=(v.match(/⟨([^⟩]+)⟩\s*$/)||[])[1], nm=v.replace(/\s*⟨[^⟩]*⟩\s*$/,'').toLowerCase();
+    const p=(bc&&prods.find(x=>String(x.barcode||'')===bc))||prods.find(x=>(x.name||'').toLowerCase()===nm);
+    if(!p){ toast('اختار منتج من القائمة','err'); return; } exRows[i].linkId=p.id; exRows[i].forceNew=false; renderExcelPreview(); };
+  td.querySelector('[data-ex-ok]').onclick=pick; q.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); pick(); } };
+  td.querySelector('[data-ex-new]').onclick=()=>{ exRows[i].forceNew=true; exRows[i].linkId=null; renderExcelPreview(); };
+  td.querySelector('[data-ex-auto]').onclick=()=>{ exRows[i].forceNew=false; exRows[i].linkId=null; renderExcelPreview(); };
+}
 function renderExcelPreview(){
   const withImg=exRows.filter(r=>r.image_url).length;const total=exRows.length;const mismatch=withImg>0&&withImg!==total;
   const infoBar=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:#374151;">📦 ${total} منتج &nbsp;•&nbsp;<span style="color:${withImg===total?'#047857':withImg===0?'#5b6472':'#b45309'};">📷 ${withImg} صورة${mismatch?' ⚠️ لا يطابق':''}</span></div><button onclick="exportWithoutImages()" style="padding:6px 14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;color:#c2410c;font-size:11px;font-weight:800;font-family:'Cairo',sans-serif;cursor:pointer;">📥 استخراج بدون صور + ZIP</button></div>`;
-  const head=`<tr style="background:#047857;color:white;"><th style="padding:5px 8px;">صورة</th><th style="padding:5px 8px;">المنتج</th><th style="padding:5px 8px;width:55px;">الكمية</th><th style="padding:5px 8px;width:80px;">سعر الشراء $</th><th style="padding:5px 8px;width:80px;">سعر البيع $</th><th style="width:24px;"></th></tr>`;
-  const body=exRows.map((r,i)=>`<tr style="${i%2?'background:#f9fafb':''}"><td style="padding:4px 6px;">${r.image_url?`<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${eh(r.image_url)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" onerror="this.style.display='none'">`:'<span style="color:#d1d5db;font-size:18px;">📦</span>'}</td><td style="padding:4px 6px;"><input type="text" value="${eh(r.name)}" oninput="exRows[${i}].name=this.value" style="width:100%;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;font-family:'Cairo',sans-serif;font-weight:700;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.qty}" min="1" oninput="exRows[${i}].qty=Math.max(1,parseInt(this.value)||1)" style="width:50px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.netCost||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].netCost=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.price||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].price=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td><button onclick="exRows.splice(${i},1);renderExcelPreview()" style="color:#d1d5db;border:none;background:none;cursor:pointer;">✕</button></td></tr>`).join('');
+  const head=`<tr style="background:#047857;color:white;"><th style="padding:5px 8px;">صورة</th><th style="padding:5px 8px;">المنتج</th><th style="padding:5px 8px;min-width:150px;">ينربط بـ</th><th style="padding:5px 8px;width:55px;">الكمية</th><th style="padding:5px 8px;width:80px;">سعر الشراء $</th><th style="padding:5px 8px;width:80px;">سعر البيع $</th><th style="width:24px;"></th></tr>`;
+  const body=exRows.map((r,i)=>`<tr style="${i%2?'background:#f9fafb':''}"><td style="padding:4px 6px;">${r.image_url?`<img src="${IMG_PLACEHOLDER}" loading="lazy" decoding="async" data-orig-src="${eh(r.image_url)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;" onerror="this.style.display='none'">`:'<span style="color:#d1d5db;font-size:18px;">📦</span>'}</td><td style="padding:4px 6px;"><input type="text" value="${eh(r.name)}" oninput="exRows[${i}].name=this.value" style="width:100%;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;font-family:'Cairo',sans-serif;font-weight:700;background:#fff;outline:none;"></td>${_exLinkCell(r,i)}<td style="padding:4px 6px;"><input type="number" value="${r.qty}" min="1" oninput="exRows[${i}].qty=Math.max(1,parseInt(this.value)||1)" style="width:50px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.netCost||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].netCost=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td style="padding:4px 6px;"><input type="number" value="${r.price||''}" min="0" step="0.01" placeholder="0" oninput="exRows[${i}].price=parseFloat(this.value)||0" style="width:70px;border:1.5px solid #e5e7eb;border-radius:7px;padding:3px 6px;font-size:11px;text-align:center;background:#fff;outline:none;"></td><td><button onclick="exRows.splice(${i},1);renderExcelPreview()" style="color:#d1d5db;border:none;background:none;cursor:pointer;">✕</button></td></tr>`).join('');
   const container=document.getElementById('excel-prev');
   let infoEl=document.getElementById('excel-info-bar');
   if(!infoEl){infoEl=document.createElement('div');infoEl.id='excel-info-bar';const tableWrap=document.getElementById('excel-tbl').closest('div');container.insertBefore(infoEl,tableWrap);}
@@ -3222,21 +3243,46 @@ function prodsByInvoiceName(name){
   const k=_invNameKey(name); if(!k) return [];
   return prods.filter(p=>Array.isArray(p.invoice_names)&&p.invoice_names.some(x=>x&&_invNameKey(x.n)===k));
 }
+/* (TASK-B0567 · A989–A991 م٣ · seq B1105) ربط بند الإكسل بالمنتج — دالة وحدة للمعاينة والاستيراد:
+   يدوي (اخترته إنت) ⇐ الباركود ⇐ الاسم ⇐ اسمه بفواتير سابقة (invoice_names) ⇐ كلمات الاسم (تقريبي ⚠️) ⇐ جديد */
+function _exMatch(row){
+  if(row.forceNew) return {prod:null,how:'new'};
+  if(row.linkId!=null){ const p=prods.find(x=>String(x.id)===String(row.linkId)); if(p) return {prod:p,how:'manual'}; }
+  const nl=String(row.name||'').toLowerCase();
+  let p=row.barcode?prods.find(x=>String(x.barcode||'').trim().toLowerCase()===String(row.barcode).toLowerCase()):null; if(p) return {prod:p,how:'barcode'};
+  p=prods.find(x=>(x.name||'').toLowerCase()===nl); if(p) return {prod:p,how:'name'};
+  const hits=prodsByInvoiceName(row.name); if(hits.length) return {prod:hits[0],how:'invname',amb:hits.length>1?hits.length:0};
+  p=prodByTokens(row.name); if(p) return {prod:p,how:'tokens'};
+  return {prod:null,how:null};
+}
+/* «النظام بيتعلّم»: الاسم كما بملف المورّد ⇐ invoice_names للمنتج (لمّا الربط يدوي أو تقريبي واعتمدته) — المرّة الجاية بيعرفه لحاله */
+async function _learnInvName(prod,name,price){
+  try{
+    if(!prod||!prod.id||String(prod.id).startsWith('-')||!name) return false;
+    const k=_invNameKey(name); if(!k||k===_invNameKey(prod.name)) return false;
+    const cur=Array.isArray(prod.invoice_names)?prod.invoice_names:[];
+    if(cur.some(x=>x&&_invNameKey(x.n)===k)) return false;
+    const sup=String((document.getElementById('in-supplier')||{}).value||'').trim();
+    const nx=cur.concat([{n:String(name).slice(0,200),at:new Date().toISOString().slice(0,10),src:'استيراد إكسل'+(sup?' · '+sup:''),usd:Number(price)||undefined}]);
+    await sb('PATCH','/rest/v1/products?id=eq.'+encodeURIComponent(prod.id),{invoice_names:nx},{Prefer:'return=minimal'});
+    prod.invoice_names=nx; return true;
+  }catch(_){ return false; }
+}
 async function importExcel(){
   if(!exRows.length)return;
   /* (TASK-B0564) تعلّم شكل الملف: بصمة العناوين ⇐ الأعمدة المعتمدة (مع اسم المورّد) — المرّة الجاية بيعرفه لحاله */
   try{ const L=window._exLast; if(L&&L.sig&&window.GMTXlMap&&(L.used||L.col)){ const sup=(document.getElementById('in-supplier')||{}).value||''; GMTXlMap.save(L.sig,L.used||L.col,(L.hdr||[]).map(h=>String(h==null?'':h)),{supplier:String(sup).trim()||null}).catch(()=>{}); } }catch(_){}
-  btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[],byInvName=0,ambiguous=[];
-  const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase())||prodsByInvoiceName(row.name).length||prodByTokens(row.name));
+  btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[],byInvName=0,ambiguous=[],learned=0;
+  const _isNew=row=>!_exMatch(row).prod;   /* (B1105) نفس المطابقة الموحّدة (فيها «منتج جديد» اليدوي) */
   const _toUp=exRows.filter(r=>r.name&&String(r.image_url||'').startsWith('data:')&&_isNew(r));
   let _imgRes={up:0,fail:0};
   if(_toUp.length){btnLoad('جارٍ رفع '+_toUp.length+' صورة…');_imgRes=await excelImgToStorage(_toUp);}
   for(const row of exRows){
     if(!row.name)continue;const nl=row.name.toLowerCase();
     /* (١١ ت١) المطابقة بالباركود أوّلاً (ملف عرض السعر) — ثم بالاسم كما كان */
-    let prod=(row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===nl);
-    if(!prod){const hits=prodsByInvoiceName(row.name);if(hits.length){prod=hits[0];byInvName++;if(hits.length>1)ambiguous.push(row.name+' ⇐ '+hits.length+' منتجات');}}
-    if(!prod){prod=prodByTokens(row.name);if(prod)byInvName++;}
+    const _m=_exMatch(row); let prod=_m.prod;
+    if(_m.how==='invname'||_m.how==='tokens'){byInvName++; if(_m.amb) ambiguous.push(row.name+' ⇐ '+_m.amb+' منتجات');}
+    if(prod&&(_m.how==='manual'||_m.how==='tokens')&&await _learnInvName(prod,row.name,row.netCost)) learned++;
     if(!prod){prod={id:-(Date.now()+Math.random()),name:row.name,barcode:row.barcode||genBar(),price:row.price||0,wholesale_price:row.wholePrice||0,net_cost:row.netCost||0,image_url:row.image_url||null,_pending:true,_excelRow:row};prods.push(prod);pendingNew.push(prod);}
     const ex=cart.find(c=>c.product.id===prod.id);
     if(ex){ex.qty+=row.qty;}else{cart.unshift({product:prod,qty:row.qty,isNew:true,unitPrice:Number(row.netCost)||Number(prod.net_cost)||0,minPrice:Number(row.minPrice)||_priceSeed(prod).minPrice,wholePrice:Number(row.wholePrice)||_priceSeed(prod).wholePrice,salePrice:Number(row.price)||_priceSeed(prod).salePrice,notes:row.notes||''});added++;}
@@ -3244,7 +3290,7 @@ async function importExcel(){
   btnReset();renderCart();updateSum();clearExcel();
   if(ambiguous.length)setTimeout(()=>toast('⚠️ '+ambiguous.length+' بنداً اسمه في الفاتورة يطابق أكثر من منتج (مثل ألوان الكفر الواحد) — رُبط بأوّلها، راجعه في السلّة: '+ambiguous.slice(0,3).join(' · '),'warn'),2600);
   const newCount=pendingNew.length;
-  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':'')+(byInvName?' · 🏷️ '+byInvName+' عُرف باسمه في فاتورة سابقة':'')+(_imgRes.up?' · 🖼️ رُفعت '+_imgRes.up+' صورة':'')+(_imgRes.fail?' · ⚠️ '+_imgRes.fail+' صورة لم تُرفع (بقيت في الملف المحلّي)':''),_imgRes.fail?'err':'ok');
+  toast('✅ '+added+' منتج في الفاتورة'+(newCount?' — '+newCount+' جديد سيُحفظ عند "حفظ سحابياً"':'')+(learned?' · 🧠 تعلّم '+learned+' اسم مورّد جديد':'')+(byInvName?' · 🏷️ '+byInvName+' عُرف باسمه في فاتورة سابقة':'')+(_imgRes.up?' · 🖼️ رُفعت '+_imgRes.up+' صورة':'')+(_imgRes.fail?' · ⚠️ '+_imgRes.fail+' صورة لم تُرفع (بقيت في الملف المحلّي)':''),_imgRes.fail?'err':'ok');
 }
 /* ════════════════════════════════════════════════════════════════════════
    📨 استيراد «ملف طلب عرض سعر» بعد أن يملأه المورّد   (١١ ت١ · Notes ١٠ ت١ ١٠:٠١ ص)
