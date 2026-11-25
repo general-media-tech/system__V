@@ -1,0 +1,31 @@
+// seq B1099/B1100 — شحن الصين مع الفاتورة · الشحن والجمارك المتوقّعة «لسّا عليها دفع» لحدّ ما تنعلّم مدفوعة
+const H = require('./h.js');
+global.window = globalThis; const PP = require('../../gmt-popay.js');
+let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  ✘ ') + m); if (c) pass++; else fails++; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const CN = { id: 1, inv_type: 'china', total_amount: 1000, cash_payment: 1200, cost_shipping: 200, cost_customs: 50, cost_transport: 10, cost_local: 0, costs_paid: false };
+  const s = PP.summary(CN, []);
+  ok(s.value === 1200 && s.remaining === 0 && s.costs === 60 && s.costsDue === 60 && s.costParts.map(x => x[0]).join() === 'جمارك,نقل', 'الصين: الفاتورة+الشحن مدفوعة · التكاليف لسّا عليها 60 (جمارك+نقل — بلا الشحن)');
+  const DE = Object.assign({}, CN, { inv_type: 'germany', cash_payment: 1000 });
+  ok(PP.summary(DE, []).costs === 260 && PP.summary(Object.assign({}, DE, { costs_paid: true }), []).costsDue === 0, 'أوروبا: الشحن من التكاليف (260) · بعد «اندفعت» ⇐ صفر');
+  await H.seed();
+  await H.call('/rest/v1/import_log', [{ id: 997, inv_number: 'CN-COST-1', inv_type: 'china', supplier: 'مورد', inv_date: '2026-11-01', status: 'transit', total_amount: 1000, cash_payment: 1200, cost_shipping: 200, cost_customs: 50, cost_transport: 10, cost_local: 0, costs_paid: false, items_snapshot: [{ id: 1, name: 'x', qty: 1, unit_price: 1000 }], created_at: '2026-11-01T00:00:00Z' }]);
+  const { browser, pg, errs } = await H.open('purchase.html', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 7000 });
+  ok(await pg.evaluate(() => /تكاليف لسّا عليها 60\.00\$/.test((document.querySelector('[data-popay-costs="997"]') || {}).textContent || '')), 'على البطاقة: «🧾 تكاليف لسّا عليها 60$»');
+  await pg.evaluate(() => openPoPay('997')); await sleep(1200);
+  let t = await pg.evaluate(() => (document.querySelector('[data-popay-costbox]') || {}).textContent || '');
+  ok(/لسّا عليها دفع/.test(t) && /60\.00\$/.test(t) && /الشحن \(200\.00\$\) محسوب فوق مع الفاتورة/.test(t), 'بالدفعات: صندوق الشحن والجمارك «⏳ لسّا عليها دفع» + توضيح شحن الصين');
+  await pg.evaluate(() => { window.GMTAsk = Object.assign(window.GMTAsk || {}, { prompt: () => Promise.resolve('أبو خالد') }); });
+  await pg.click('[data-popay-costs-paid]'); await sleep(2000);
+  const d = await H.call('/__dump', undefined, 'GET');
+  const inv = d.import_log.find(x => x.id === 997), led = (d.gmt_expenses || []).filter(x => /\[PO:997:c:/.test(x.note || ''));
+  ok(inv.costs_paid === true, 'انعلّمت «اندفعت» (costs_paid)');
+  ok(led.length === 1 && Math.abs(Number(led[0].amount) - 60) < 0.01 && /أبو خالد/.test(led[0].note), 'قيد الدفتر للتكاليف 60$ باسم الدافع (بلا الشحن — ما بينعدّ مرّتين): ' + JSON.stringify(led.map(x => [x.amount, x.note])));
+  t = await pg.evaluate(() => (document.querySelector('[data-popay-costbox]') || {}).textContent || '');
+  ok(/اندفعت/.test(t) && !/لسّا عليها دفع/.test(t), 'الصندوق صار «✅ اندفعت»');
+  ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
+  await pg.screenshot({ path: '/tmp/claude-0/-home-user/c15c36cd-5ab9-561f-b25b-b44644a4d063/scratchpad/pocosts.png' });
+  await browser.close();
+  console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

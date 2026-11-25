@@ -541,7 +541,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261123e"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-ledger.js?v=20261125b35"></script>
   <script src="gmt-staff.js?v=20261125b22"></script>
   <script src="gmt-custledger.js?v=20261125b15"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
@@ -6559,12 +6559,10 @@ function renderAccounting() {
   // ════════ 5) فواتير الشراء — قيمة المنتجات + التكاليف المؤجَّلة (جمارك/شحن) ════════
   const purchasesThisMonth = allPurchases.filter(p => accInMonth(p.created_at || p.inv_date, ym));
   // التكاليف المؤجَّلة غير المدفوعة (جمارك + شحن + نقل + محلي)
-  const unpaidCostsShipments = allPurchases.filter(p => {
-    const hasCosts = (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0) > 0;
-    return hasCosts && !p.costs_paid;
-  });
-  const totalUnpaidCosts = unpaidCostsShipments.reduce((s,p) =>
-    s + (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0), 0);
+  /* (seq B1099) شحن الصين بيندفع مع الفاتورة (ضمن دفعات المورّد) ⇒ مو من «التكاليف المؤجَّلة» — القاعدة وحدة: GMTLedger.costsTotal */
+  const _costsOf = p => (window.GMTLedger && GMTLedger.costsTotal) ? GMTLedger.costsTotal(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  const unpaidCostsShipments = allPurchases.filter(p => _costsOf(p) > 0 && !p.costs_paid);
+  const totalUnpaidCosts = unpaidCostsShipments.reduce((s,p) => s + _costsOf(p), 0);
 
   // البضائع قيد الاستيراد (لم تصل بعد)
   const inTransitShipments = allPurchases.filter(p => p.status && p.status !== 'arrived');
@@ -6800,7 +6798,8 @@ function renderAccounting() {
 }
 
 function purchaseCostsPendingRowHtml(p) {
-  const totalCosts = (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  const totalCosts = (window.GMTLedger && GMTLedger.costsTotal) ? GMTLedger.costsTotal(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  const _shipWithInv = !!(window.GMTLedger && GMTLedger.shipWithInvoice && GMTLedger.shipWithInvoice(p));   /* (B1099) شحن الصين مع الفاتورة */
   const dateStr = new Date(p.created_at || p.inv_date).toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
   return `
   <div class="inv-card" style="border-right:4px solid #be123c;margin-bottom:8px;cursor:default;">
@@ -6810,7 +6809,7 @@ function purchaseCostsPendingRowHtml(p) {
         <div style="font-size:11px;color:var(--text3);font-weight:700;">${dateStr} · ${escH(p.source_branch||'')}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:3px;">
           ${p.cost_customs?`جمارك: ${Number(p.cost_customs).toFixed(2)}$ · `:''}
-          ${p.cost_shipping?`شحن: ${Number(p.cost_shipping).toFixed(2)}$ · `:''}
+          ${p.cost_shipping&&!_shipWithInv?`شحن: ${Number(p.cost_shipping).toFixed(2)}$ · `:''}${p.cost_shipping&&_shipWithInv?`<span title="شحن الصين بيندفع للمورّد مع الفاتورة">(الشحن ${Number(p.cost_shipping).toFixed(2)}$ مع دفعات المورّد) · </span>`:''}
           ${p.cost_transport?`نقل: ${Number(p.cost_transport).toFixed(2)}$ · `:''}
           ${p.cost_local?`محلي: ${Number(p.cost_local).toFixed(2)}$`:''}
         </div>
@@ -7277,7 +7276,7 @@ renderOffers = function(){
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b34"></script>
+<script src="gmt-whatsnew.js?v=20261125b35"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،

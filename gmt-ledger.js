@@ -72,8 +72,12 @@
   function sumRows(rows, part) {
     return r2(rows.reduce(function (s, e) { var t = poInfo(e); return t && t.part === part ? s + usd(e) : s; }, 0));
   }
+  /* (seq B1099 — المالك: «تكاليف الشحن في الصين هي بتندفع مع الفاتورة») الشحن بالفاتورة الصينية بيندفع للمورّد مع البضاعة:
+     ⇒ مستحقّ المورّد = البضاعة + الشحن · ودفعاته (cash_payment) بتشمله ⇒ ما بينعدّ مرّة تانية بـ«التكاليف المؤجَّلة» (جمارك · نقل · داخلي). */
+  function shipWithInvoice(p) { return String((p && p.inv_type) || '') === 'china'; }
+  function supplierDue(p) { return r2(num(p && p.total_amount) + (shipWithInvoice(p) ? num(p && p.cost_shipping) : 0)); }
   function costsTotal(p) {
-    return r2(num(p && p.cost_customs) + num(p && p.cost_shipping) + num(p && p.cost_transport) + num(p && p.cost_local));
+    return r2(num(p && p.cost_customs) + (shipWithInvoice(p) ? 0 : num(p && p.cost_shipping)) + num(p && p.cost_transport) + num(p && p.cost_local));
   }
   /* فواتير الأرشفة (جرد أثري ARC- · جرد تدقيق AUDIT-) ليست مشتريات من مورد: لا دفعة ولا دَين */
   function isArchival(p) {
@@ -87,7 +91,7 @@
   function paidGoods(p) {
     if (!p || isArchival(p)) return 0;
     var raw = p.cash_payment;
-    if (raw == null || raw === '') return Math.max(0, r2(num(p.total_amount)));
+    if (raw == null || raw === '') return Math.max(0, supplierDue(p));   /* فاتورة قديمة بلا مبلغ دفع = مدفوعة كاملة (مع شحن الصين) */
     return Math.max(0, r2(num(raw)));
   }
   /* المطلوب تسجيله لفاتورة الشراء: g = ما دُفع على البضاعة · c = تكاليف الجمارك/الشحن إن «دُفعت» */
@@ -315,7 +319,10 @@
       var nowIso = opts.now || new Date().toISOString();
       var label = '#' + (p.inv_number || pid) + (p.supplier ? ' (' + p.supplier + ')' : '');
       var parts = [['g', 'دفعة شراء — فاتورة ', 'مشتريات'], ['c', 'جمارك/شحن — فاتورة شراء ', 'استيراد']];
-      var existing = ledgerRows(rowsOf(await api.sb('GET', '/rest/v1/gmt_expenses?note=like.' + esc('*[PO:' + pid + ':*') + '&select=*&order=created_at.asc&limit=1000')), pid);
+      /* (seq B1099 · خطأ حرج 409) raw = كلّ القيود حتى الملغاة: الرقم التالي لازم يتخطّاها — كان يحسب من الحيّة بس ⇒ يعيد رقم قيد ملغى
+         ⇒ نفس المعرّف المحسوب ⇒ 23505 بكلّ محاولة ⇒ الدفتر ما بيتصحّح أبداً (فاتورة #99: 3999.20 مسجّل والمدفوع 2308) */
+      var raw = rowsOf(await api.sb('GET', '/rest/v1/gmt_expenses?note=like.' + esc('*[PO:' + pid + ':*') + '&select=*&order=created_at.asc&limit=1000'));
+      var existing = ledgerRows(raw, pid);
       var explicitBranch = Object.prototype.hasOwnProperty.call(opts, 'payerBranch') && opts.payerBranch !== undefined;
       for (var i = 0; i < parts.length; i++) {
         var part = parts[i][0], saved = null;
@@ -324,7 +331,7 @@
           var cur = sumRows(rows, part);
           var delta = r2(want[part] - cur);
           if (Math.abs(delta) < 0.005) break;
-          var seq = rows.reduce(function (m, e) { return Math.max(m, poInfo(e).seq); }, 0) + 1;
+          var seq = raw.concat(existing).reduce(function (m, e) { var t = poInfo(e); return t && String(t.pid) === pid && t.part === part ? Math.max(m, t.seq) : m; }, 0) + 1;
           var last = rows.slice().sort(function (a, b) { return poInfo(a).seq - poInfo(b).seq; }).pop();
           var payer = String(opts.payer || '').trim() ||
             (last && (/دفعها:\s*([^·\]]+)/.exec(String(last.note || '')) || [])[1]) || String(opts.payerDefault || '').trim() || 'الإدارة';
@@ -346,7 +353,8 @@
           } catch (e) {
             if (!DUP_RE.test(String((e && e.message) || e))) throw e;
             /* كتبها تبويبٌ آخر قبلنا: أعد القراءة واحسب من جديد (لا نكرّر القيد) */
-            existing = ledgerRows(rowsOf(await api.sb('GET', '/rest/v1/gmt_expenses?note=like.' + esc('*[PO:' + pid + ':*') + '&select=*&order=created_at.asc&limit=1000')), pid);
+            raw = rowsOf(await api.sb('GET', '/rest/v1/gmt_expenses?note=like.' + esc('*[PO:' + pid + ':*') + '&select=*&order=created_at.asc&limit=1000'));
+            existing = ledgerRows(raw, pid);
             continue;
           }
           if (!saved) throw new Error('لم يُسجَّل صفُّ الدفتر');
@@ -378,7 +386,7 @@
   window.GMTLedger = {
     centralCash: centralCash, profit: profit, supplierPayable: supplierPayable,
     syncPurchase: syncPurchase, reversePurchase: reversePurchase, drift: drift,
-    desired: desired, paidGoods: paidGoods, isArchival: isArchival, costsTotal: costsTotal, ledgerRows: ledgerRows, poInfo: poInfo,
+    desired: desired, paidGoods: paidGoods, isArchival: isArchival, costsTotal: costsTotal, supplierDue: supplierDue, shipWithInvoice: shipWithInvoice, ledgerRows: ledgerRows, poInfo: poInfo,
     expClass: expClass, isDrawing: isDrawing, isCapital: isCapital, cashSource: cashSource, usd: usd, inRange: inRange, localYMD: localYMD
   };
 })();
