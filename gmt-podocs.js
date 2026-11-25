@@ -92,7 +92,7 @@
     var box = document.createElement('div'); box.dir = 'rtl';
     box.style.cssText = 'background:#fff;border-radius:16px;padding:14px;width:100%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.25);font-family:inherit';
     w.appendChild(box); document.body.appendChild(w);
-    var docs = [], pend = [], busy = false, showVoid = false;
+    var docs = [], pend = [], busy = false, showVoid = false, done = [];   /* done = (B1104) ملفات انرفعت هلّق وإلها إجراء (باكينج/بيان ⇐ الكلفة الواصلة) */
     var meta = o.shipment_id ? { shipment_id: o.shipment_id } : { invoice_id: o.invoice_id };
     function paint() {
       var live = docs.filter(function (d) { return !d.voided; }), dead = docs.filter(function (d) { return d.voided; });
@@ -106,9 +106,10 @@
         '<div style="font-size:22px">⬆️</div><div style="font-weight:900;font-size:13.5px">اختار ملفات أو اسحبها لهون</div><div style="font-size:11.5px;color:#64748b">PDF · صور · إكسل · وورد — لحدّ 50 MB للملف</div></label>' +
         (pend.length ? '<div data-pd-pend style="margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;padding:8px">' + pend.map(function (p, i) {
           return '<div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800" title="' + esc(p.file.name) + '">' + esc(p.file.name) + ' <span style="color:#94a3b8;font-weight:600">' + sizeTxt(p.file.size) + '</span></span>' +
-            '<select data-pd-kind="' + i + '" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:4px;font:inherit;font-size:12px">' + ORDER.map(function (k) { return '<option value="' + k + '"' + (p.kind === k ? ' selected' : '') + '>' + KIND[k][0] + ' ' + KIND[k][1] + '</option>'; }).join('') + '</select>' +
+            (p.reading ? '<span style="font-size:11px;color:#64748b">⏳ عم يقرا…</span>' : '') + (p.auto ? '<span title="النظام قرا الملف وعرف نوعه" style="font-size:11px;color:#15803d;font-weight:900">🧠</span>' : '') + '<select data-pd-kind="' + i + '" style="border:1.5px solid #e5e7eb;border-radius:8px;padding:4px;font:inherit;font-size:12px">' + ORDER.map(function (k) { return '<option value="' + k + '"' + (p.kind === k ? ' selected' : '') + '>' + KIND[k][0] + ' ' + KIND[k][1] + '</option>'; }).join('') + '</select>' +
             '<button data-pd-unpend="' + i + '" style="' + BTN + ';padding:3px 8px">✕</button></div>'; }).join('') +
           '<button data-pd-up style="margin-top:8px;width:100%;border:0;background:#0f1219;color:#fff;border-radius:10px;padding:9px;font:inherit;font-size:13px;font-weight:900;cursor:pointer"' + (busy ? ' disabled' : '') + '>' + (busy ? '⏳ عم يرفع…' : '⬆️ ارفع ' + pend.length + ' ملف') + '</button></div>' : '') +
+        (done.length ? '<div data-pd-actions style="margin-top:10px;border:1.5px solid #a7f3d0;background:#ecfdf5;border-radius:12px;padding:8px">' + done.map(function (d, i) { return '<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12.5px"><span style="flex:1;font-weight:800">' + (KIND[d.kind] || KIND.other)[0] + ' ' + esc(d.file.name) + '</span>' + d.acts.map(function (a, k) { return '<button data-pd-act="' + i + ':' + k + '" style="border:0;background:#0f1219;color:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-size:12px;font-weight:900;cursor:pointer">' + esc(a.label) + '</button>'; }).join('') + '</div>'; }).join('') + '</div>' : '') +
         '<div style="margin-top:12px">' + (live.length ? live.map(function (d) { var k = KIND[d.kind] || KIND.other;
           return '<div data-pd-doc="' + esc(d.id) + '" style="display:flex;gap:8px;align-items:center;border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px;margin-bottom:6px"><span style="font-size:20px">' + k[0] + '</span>' +
             '<div style="flex:1;min-width:0"><div style="font-weight:900;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.name) + '">' + esc(d.name) + '</div><div style="font-size:11px;color:#64748b">' + esc(k[1]) + ' · ' + sizeTxt(d.size) + ' · ' + esc(String(d.created_at || '').slice(0, 10)) + (d.uploaded_by ? ' · ' + esc(d.uploaded_by) : '') + '</div></div>' +
@@ -117,16 +118,24 @@
         (o.legacyUrl ? '<div style="display:flex;gap:8px;align-items:center;border:1px dashed #e5e7eb;border-radius:12px;padding:8px 10px;margin-bottom:6px;font-size:12.5px"><span style="font-size:20px">🔗</span><span style="flex:1">ملف الفاتورة القديم (رابط مسجّل على الفاتورة)</span><a href="' + esc(o.legacyUrl) + '" target="_blank" rel="noopener" style="' + BTN + ';text-decoration:none;color:#0f1219">👁 افتح</a></div>' : '') +
         (dead.length ? '<button data-pd-showvoid style="border:0;background:none;color:#64748b;font:inherit;font-size:11.5px;cursor:pointer;margin-top:4px">' + (showVoid ? '▾' : '▸') + ' الملغاة (' + dead.length + ')</button>' + (showVoid ? dead.map(function (d) { return '<div style="font-size:11.5px;color:#94a3b8;text-decoration:line-through;padding:2px 0">' + esc(d.name) + ' — ' + esc(d.void_reason || '') + '</div>'; }).join('') : '') : '') + '</div>';
     }
-    function addFiles(fl) { [].slice.call(fl || []).forEach(function (f) { pend.push({ file: f, kind: guessKind(f.name, f.type) }); }); paint(); }
+    function addFiles(fl) {
+      [].slice.call(fl || []).forEach(function (f) {
+        var p = { file: f, kind: guessKind(f.name, f.type) }; pend.push(p);
+        /* (B1104) النوع من محتوى الملف مش بس اسمه: إكسل ⇐ النظام بيقرا العناوين (فاتورة · باكينج · بيان جمركي) */
+        if (o.classify) { p.reading = true; Promise.resolve(o.classify(f)).then(function (k) { if (k && KIND[k]) { p.kind = k; p.auto = true; } }).catch(function () {}).then(function () { p.reading = false; if (!busy) paint(); }); }
+      });
+      paint();
+    }
     async function refresh() { try { docs = await list(meta); } catch (e) { toast('تعذّر تحميل المستندات: ' + e.message, 'err'); } paint(); }
     w.addEventListener('click', async function (e) {
       var t = e.target;
       if (t === w || t.closest('[data-pd-x]')) { w.remove(); if (o.onClose) o.onClose(); return; }
       var u = t.closest('[data-pd-unpend]'); if (u) { e.preventDefault(); pend.splice(+u.getAttribute('data-pd-unpend'), 1); paint(); return; }
       if (t.closest('[data-pd-showvoid]')) { showVoid = !showVoid; paint(); return; }
+      var ac = t.closest('[data-pd-act]'); if (ac) { var ix = ac.getAttribute('data-pd-act').split(':'), dd = done[+ix[0]], aa = dd && dd.acts[+ix[1]]; if (aa) { w.remove(); try { aa.run(); } catch (er) { toast(er.message, 'err'); } } return; }
       if (t.closest('[data-pd-up]') && !busy) {
         busy = true; paint(); var ok = 0, errs = [];
-        for (var i = 0; i < pend.length; i++) { try { await upload(pend[i].file, Object.assign({ kind: pend[i].kind }, meta)); ok++; } catch (er) { errs.push(er.message); } }
+        for (var i = 0; i < pend.length; i++) { try { await upload(pend[i].file, Object.assign({ kind: pend[i].kind }, meta)); ok++; var acts = o.actionsFor ? (o.actionsFor(pend[i].file, pend[i].kind) || []) : []; if (acts.length) done.push({ file: pend[i].file, kind: pend[i].kind, acts: acts }); } catch (er) { errs.push(er.message); } }
         pend = []; busy = false; await refresh();
         if (ok) toast('✅ انرفع ' + ok + ' ملف', 'ok'); if (errs.length) toast(errs.join(' · '), 'err');
         if (o.onChange) o.onChange(); return;
