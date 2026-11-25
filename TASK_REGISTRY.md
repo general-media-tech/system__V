@@ -3263,3 +3263,9 @@
 - `purchase.html` تبويب «سجل»: `#po-records-host` يُركَّب من `renderLog` · 💳 من كلّ نتيجة.
 - اختبار `t_porecords` ١٣/١٣ + `t_popay` · `t_purchase_toolbar` · `t_pur_rules` سليمة.
 
+### TASK-B0548 — P3 الموردون: ملفّ · ربط الأسماء · كشف حساب (A1004 §6 · الخطّة 1.5 · طابور Q1) — ✅ gmt-v20261125b21
+- `gmt_suppliers` + `import_log.supplier_id` (`tools/sql/B0548_suppliers.sql`).
+- `gmt-suppliers.js` (`GMTSuppliers.groups/statement/similar/open/register/link`): القائمة (المسجّل ⭐ + الأسماء من الفواتير) · اقتراح المتشابه (لا ربط تلقائي) · ⭐ تسجيل من بيانات فواتيره · ✏️ بيانات · 🔗 ضمّ اسم ⇐ `aliases` + `supplier_id` (النصّ القديم يبقى) · 📒 كشف بالتاريخ + 🖨️.
+- اختبار `t_suppliers` ١٢/١٢.
+- ⏳ م٢: اختيار المورّد من القائمة عند إنشاء فاتورة جديدة · كشف PDF/Excel مفصّل.
+

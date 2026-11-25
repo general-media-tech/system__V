@@ -209,6 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b19"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -363,6 +364,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
         <i data-lucide="book-open" class="w-3.5 h-3.5"></i> سجل
       </button>
       <button id="btn-po-aging" onclick="openPoAging()" title="📒 الآجلة: كلّ فاتورة باقي عليها للمورّد — المستحقّة أوّلاً" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap text-amber-700">📒 الآجلة</button>
+      <button id="btn-po-suppliers" onclick="openSuppliers()" title="🏭 الموردون: ملفّ لكلّ مورّد · فواتيره · دفعاته · كشف حسابه" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap text-slate-700">🏭 الموردون</button>
     </div>
 
     <div id="tab-transit" class="tab-panel">
@@ -1244,6 +1246,8 @@ async function openPoPay(id){
 window.openPoPay=openPoPay;
 function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;} GMTPoPay.loadAll().then(()=>GMTPoPay.openAging(ships||[],id=>openPoPay(id))); }
 window.openPoAging=openPoAging;
+function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
+window.openSuppliers=openSuppliers;
 document.addEventListener('input',e=>{const el=e.target&&e.target.closest&&e.target.closest('#invPage .inv-field[data-field="cash"]');if(el)el.dataset.touched='1';},true);
 try{if(new URLSearchParams(location.search).get('aging')==='1'){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);openPoAging();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 async function ledgerSyncId(id){
@@ -6589,7 +6593,7 @@ try {
 <script src="gmt-brain.js?v=20261125b17"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b20"></script>
+<script src="gmt-whatsnew.js?v=20261125b21"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
