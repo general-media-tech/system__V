@@ -36,6 +36,14 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   const v = (D.gmt_po_payments || []).find(x => x.voided);
   ok(v && v.void_reason === 'حوالة رجعت' && D.gmt_po_payments.filter(x => String(x.purchase_id) === String(I.id)).length === 2, 'الإلغاء بسبب — الدفعة بتضلّ مسجّلة (لا حذف)');
   ok(Number(row.cash_payment) === 30 && Math.abs(await led() - 30) < 0.01, 'بعد الإلغاء: cash_payment والمحاسبة رجعوا 30 (قيد تخفيض لا حذف)');
+  // ③ (م٢) كشف الآجلة + الإشعار + الجديدة غير مدفوعة
+  await pg.evaluate(() => { document.getElementById('gmt-popay') && document.getElementById('gmt-popay').remove(); });
+  await pg.evaluate(() => openPoAging()); await pg.waitForSelector('#gmt-poaging', { timeout: 8000 }).catch(() => {});
+  ok(await pg.evaluate(id => !!document.querySelector('#gmt-poaging [data-ag-row="' + id + '"]') && /باقي 70\.00\$/.test(document.getElementById('gmt-poaging').innerText) && /مورد الدفعات: 70\.00\$/.test(document.getElementById('gmt-poaging').innerText), I.id), '📒 الآجلة: الفاتورة بباقيها (70$) + مجموع المورّد');
+  ok(await pg.evaluate(() => !!document.getElementById('btn-po-aging')), 'زرّ «📒 الآجلة» بالصفحة');
+  await H.call('/rest/v1/gmt_po_payments', [{ purchase_id: I.id, kind: 'partial', amount: 1, currency: 'USD', usd: 0.0001, due_at: '2020-01-01', voided: false }]);
+  const due = await pg.evaluate(async () => { const c = ((window.GMTNotify && GMTNotify.items) || []).find(x => x.id === 'po_payments_due'); return c ? await c.run() : 'no-check'; });
+  ok(due && due.n === 1, '🔔 إشعار «دفعات للمورّدين مستحقّة»: ' + JSON.stringify(due));
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

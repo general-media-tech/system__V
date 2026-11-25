@@ -113,6 +113,29 @@
       tone: 'warn'
     },
     {
+      id: 'po_payments_due',
+      admin: true,
+      title: 'دفعات للمورّدين مستحقّة أو متأخّرة',
+      why: 'فاتورة شراء باقي عليها مبلغ وموعد استحقاقه اليوم أو فات (TASK-B0545 · A1004 P1).',
+      go: { label: 'المشتريات ⇐ 📒 الآجلة', href: 'purchase.html?aging=1' },
+      run: async function () {
+        var d = db(); if (!d) return { err: 'لا مفاتيح قاعدة في هذه الصفحة' };
+        var H = { apikey: d.key, Authorization: 'Bearer ' + d.key }, t = new Date(); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); t = t.toISOString().slice(0, 10);
+        try {
+          var r = await fetch(d.url + '/rest/v1/gmt_po_payments?voided=is.false&due_at=not.is.null&select=purchase_id,due_at&limit=5000', { headers: H });
+          if (!r.ok) return { err: 'HTTP ' + r.status };
+          var rows = await r.json(), last = {};
+          rows.forEach(function (x) { var k = String(x.purchase_id); if (!last[k] || String(x.due_at) > last[k]) last[k] = String(x.due_at).slice(0, 10); });
+          var ids = Object.keys(last).filter(function (k) { return last[k] <= t; }); if (!ids.length) return { n: 0 };
+          var r2 = await fetch(d.url + '/rest/v1/import_log?id=in.(' + ids.join(',') + ')&select=id,total_amount,cash_payment', { headers: H });
+          if (!r2.ok) return { err: 'HTTP ' + r2.status };
+          var inv = await r2.json();
+          return { n: inv.filter(function (p) { return (Number(p.total_amount) || 0) - (Number(p.cash_payment) || 0) > 0.005; }).length };
+        } catch (e) { return { err: (e && e.message) || 'تعذّر الاتصال' }; }
+      },
+      tone: 'warn'
+    },
+    {
       id: 'products_zero',
       title: 'منتجاتٌ نفد مخزونها كلّياً',
       why: 'تظهر للزبون في المتجر ولا يمكن تسليمُها.',

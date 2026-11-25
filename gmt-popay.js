@@ -157,6 +157,33 @@
   function dueList(purchases) {
     return (purchases || []).map(function (p) { return { p: p, s: summary(p, of(p.id)) }; }).filter(function (x) { return x.s.overdue; });
   }
-  g.GMTPoPay = { summary: summary, chip: chip, usdOf: usdOf, loadAll: loadAll, of: of, open: open, add: add, voidPay: voidPay, dueList: dueList, ST: ST, _cache: function () { return CACHE; } };
+  /* 📒 كشف الآجلة: كلّ فاتورة شراء باقي عليها للمورّد — المستحقّة أوّلاً ثمّ الأكبر · مجموع لكلّ مورّد */
+  function aging(purchases) {
+    var rows = (purchases || []).filter(function (p) { return p && p.inv_type !== 'instant' && !/cancel/i.test(p.status || ''); })
+      .map(function (p) { return { p: p, s: summary(p, of(p.id)) }; }).filter(function (x) { return x.s.remaining > 0.005; })
+      .sort(function (a, b) { return (b.s.overdue - a.s.overdue) || (String(a.s.nextDue || '9') < String(b.s.nextDue || '9') ? -1 : 1) || (b.s.remaining - a.s.remaining); });
+    var bySup = {}; rows.forEach(function (x) { var k = x.p.supplier || '—'; bySup[k] = r2((bySup[k] || 0) + x.s.remaining); });
+    return { rows: rows, total: r2(rows.reduce(function (t, x) { return t + x.s.remaining; }, 0)), bySupplier: bySup };
+  }
+  function openAging(purchases, onOpen) {
+    var a = aging(purchases), old = document.getElementById('gmt-poaging'); if (old) old.remove();
+    var w = document.createElement('div'); w.id = 'gmt-poaging';
+    w.style.cssText = 'position:fixed;inset:0;z-index:9650;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
+    w.innerHTML = '<div style="background:#fff;border-radius:18px;width:100%;max-width:820px;padding:14px">' +
+      '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:16px">📒 الآجلة — باقي للمورّدين ' + a.total.toFixed(2) + '$ · ' + a.rows.length + ' فاتورة</b><button type="button" data-ag-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + Object.keys(a.bySupplier).sort(function (x, y) { return a.bySupplier[y] - a.bySupplier[x]; }).map(function (k) { return '<span style="background:#f1f5f9;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:800">' + esc(k) + ': ' + a.bySupplier[k].toFixed(2) + '$</span>'; }).join('') + '</div>' +
+      (a.rows.length ? a.rows.map(function (x) { var p = x.p, s = x.s;
+        return '<div data-ag-row="' + esc(p.id) + '" style="border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:6px;font-size:12.5px;font-weight:700;cursor:pointer;' + (s.overdue ? 'background:#fef2f2;border-color:#fecaca' : '') + '">' +
+          '<b>' + esc(p.inv_number || '#' + p.id) + '</b> · ' + esc(p.supplier || '—') + ' · قيمة ' + s.value.toFixed(2) + '$ · مدفوع ' + s.paid.toFixed(2) + '$ · <b style="color:#b91c1c">باقي ' + s.remaining.toFixed(2) + '$</b>' +
+          (s.nextDue ? ' · 📅 ' + esc(s.nextDue) + (s.overdue ? ' <b style="color:#b91c1c">⏰ مستحقّة</b>' : '') : '') + '</div>'; }).join('')
+        : '<div style="text-align:center;color:#64748b;padding:18px">ما في شي باقي للمورّدين ✅</div>') + '</div>';
+    document.body.appendChild(w);
+    w.addEventListener('click', function (e) {
+      if (e.target === w || e.target.closest('[data-ag-x]')) { w.remove(); return; }
+      var r = e.target.closest('[data-ag-row]'); if (r && onOpen) { w.remove(); onOpen(r.getAttribute('data-ag-row')); }
+    });
+    return w;
+  }
+  g.GMTPoPay = { aging: aging, openAging: openAging, summary: summary, chip: chip, usdOf: usdOf, loadAll: loadAll, of: of, open: open, add: add, voidPay: voidPay, dueList: dueList, ST: ST, _cache: function () { return CACHE; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = g.GMTPoPay;
 })(typeof window !== 'undefined' ? window : globalThis);
