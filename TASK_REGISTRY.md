@@ -3258,3 +3258,8 @@
 - ⏳ بطاقات الفورية (💳) — الفورية تُدفع عادةً لحظة الشراء.
 - اختبار `t_popay` ١٣/١٣ + كلّ `t_pur_*`/`t_purchase_*` (١٣ ملفّاً) سليمة.
 
+### TASK-B0547 — P2 سجلّات المشتريات الموحّدة (A1004 · الخطّة 1.4 · طابور Q1) — ✅ gmt-v20261125b20
+- `gmt-porecords.js` (`GMTPoRecords.query/totals/csv/mount/matchWhy`): بحث واحد (رقم · مورّد · منتج · باركود · تتبّع · ملاحظة · إيصال دفعة) مع «↳ ليش طابقت» · ٨ فلاتر محفوظة · ٤ فروز · مجاميع · تصدير CSV.
+- `purchase.html` تبويب «سجل»: `#po-records-host` يُركَّب من `renderLog` · 💳 من كلّ نتيجة.
+- اختبار `t_porecords` ١٣/١٣ + `t_popay` · `t_purchase_toolbar` · `t_pur_rules` سليمة.
+

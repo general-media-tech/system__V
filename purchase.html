@@ -209,6 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b19"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261124b3" defer></script>
@@ -377,6 +378,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
       <p id="empty-instant" class="hidden text-center text-gray-400 text-xs font-bold py-8">لا توجد مشتريات فورية بعد</p>
     </div>
     <div id="tab-log" class="tab-panel hidden">
+      <div id="po-records-host"></div><!-- (TASK-B0547 · A1004 P2) بحث موحّد بكلّ المشتريات -->
       <!-- ═══ قسم 1: سجل فواتير الاستيراد ═══ -->
       <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 mb-4">
         <div class="flex items-center justify-between p-4 border-b border-gray-100 flex-wrap gap-2" style="background:#eff6ff;">
@@ -5972,7 +5974,12 @@ function switchTab(tab){
   });
   if(tab==='log')renderLog();
 }
+let _poRec=null;
 function renderLog(){
+  /* (TASK-B0547 · A1004 P2 · طابور Q1) بحث موحّد: رقم · مورّد · منتج · باركود · شحنة · دفعة + فلاتر محفوظة + فرز + تصدير */
+  try{ if(window.GMTPoRecords){ const h=document.getElementById('po-records-host');
+    if(h&&!_poRec) _poRec=GMTPoRecords.mount(h,{ships:()=>ships||[],onOpen:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onPay:id=>openPoPay(id)});
+    else if(_poRec) _poRec.draw(); } }catch(e){ console.warn('[porec]',e&&e.message); }
   const typeLabel=t=>t==='instant'?'<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:20px;font-size:10px;">⚡ فوري</span>':t==='china'?'<span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:20px;font-size:10px;">🇨🇳 صين</span>':'<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:20px;font-size:10px;">🇩🇪 ألمانيا</span>';
   const statLabel=s=>s.status==='arrived'?'<span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:20px;font-size:10px;">✅ وصلت لحلب</span>':'<span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:20px;font-size:10px;">🚢 في الطريق</span>';
 
@@ -6582,7 +6589,7 @@ try {
 <script src="gmt-brain.js?v=20261125b17"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b19"></script>
+<script src="gmt-whatsnew.js?v=20261125b20"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
