@@ -3582,11 +3582,14 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
         const items = invItems(inv);
         const bcs = items.map((i) => norm(i.barcode)).filter(Boolean);
         if (!bcs.length) return true;
+        /* (TASK-B0549 · صيد نمط) كان الاستعلام بالباركود **بعد** تصغير حروفه (norm) ⇒ «SCAN-A» يُسأل عنه «scan-a» والقاعدة تطابق
+           حرفياً ⇒ «محذوفة» كاذبة وإعادة إنشاء. الآن: السؤال بالكتابة الأصلية (وبالمصغّرة احتياطاً) والمقارنة بلا حساسية للحروف */
+        const raw = [...new Set(items.map((i) => String(i.barcode ?? '').trim()).filter(Boolean).concat(bcs))];
         /* 🔧 (2026-08-18) كان يجلب `products?limit=5000` دفعةً واحدة، لكن PostgREST يفرض
            سقفاً افتراضياً للصفوف (1000 غالباً). فأي منتج بعد السقف يُعتبر «مفقوداً» ⇒ إنذار
            كاذب «محذوفة على الأرجح» ⇒ وإعادة إنشائها تُنتج **قطعاً مكرّرة**. الآن نستعلم عن
            الباركودات المطلوبة فقط عبر in.(...) على دفعات — دقيق ولا يتأثّر بأي سقف. */
-        const uniq = [...new Set(bcs)];
+        const uniq = raw;
         const have = new Set();
         const CH = 100;
         for (let i = 0; i < uniq.length; i += CH) {
@@ -3597,7 +3600,7 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
             (rows || []).forEach((p) => have.add(norm(p.barcode)));
           } catch (_) {
             // فشل الاستعلام المُجزّأ ⇒ لا نخمّن ولا ننذر كاذباً: اعتبر الدفعة موجودة
-            part.forEach((b) => have.add(b));
+            part.forEach((b) => have.add(norm(b)));
           }
         }
         const missing = items.filter((i) => norm(i.barcode) && !have.has(norm(i.barcode)));
