@@ -41,7 +41,7 @@ def match(row, k, expr):
         if val == 'true': return v is True
         if val == 'false': return v is False
     if op == 'in':
-        vals = val.strip('()').split(',')
+        vals = [x.strip().strip('"') for x in val.strip('()').split(',')]   # كـPostgREST: in.("a","b") بعلامات تنصيص = in.(a,b)
         return v is not None and str(v) in vals
     if op == 'like':                            # كـPostgREST: «*» و«%» كلاهما محرف بدل (كان «%» حرفياً فيفشل بحث «الرقم الأكبر»)
         pat = '^' + re.escape(val).replace('\\*','.*').replace('%','.*') + '$'

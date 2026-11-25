@@ -209,6 +209,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-scan.js?v=20261124b2" defer></script>
+  <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b19"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
@@ -225,7 +227,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-warmup.js?v=20261122w"></script>
   <script src="gmt-packing.js?v=20261124b3" defer></script>
 <script src="gmt-labels.js?v=20261125b12"></script>
-<script src="gmt-staff.js?v=20261124b5"></script>
+<script src="gmt-staff.js?v=20261125b22"></script>
 <script src="gmt-store-sync.js?v=20261122n"></script>   <!-- (TASK-0339) سعر الجرد ⇐ المتجر فوراً -->
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -4417,6 +4419,8 @@ async function markArrived(id){
     const p = byId.get(String(it.id)) || (it.barcode && byBar.get(String(it.barcode).trim().toLowerCase()));
     avail[it.id] = p ? (Number(p[src])||0) : -1;
   });
+  /* (TASK-B0549) باركود المنتج بالجرد كمان (لو البند بالفاتورة بلا باركود) — للاستلام بالمسح */
+  window._arrProdBar={}; items.forEach(it=>{ const p=byId.get(String(it.id)); if(p&&p.barcode) window._arrProdBar[String(it.id)]=[p.barcode]; });
   openArrivalModal(s, src, items, moved, avail);
 }
 
@@ -4488,6 +4492,8 @@ function openArrivalModal(s, src, items, moved, avail){
   </div>`;
   document.body.appendChild(ov);
   ov.querySelector('#arr-cancel').onclick=()=>ov.remove();
+  /* (TASK-B0549 · A1004 P4 «الموظّف يمسح كلّ قطعة ⇐ مطابقة الفاتورة ⇐ صحّ/نقص/زيادة») المسح بيعبّي «ينقل الآن» — والترحيل نفسه ما تغيّر */
+  try{ if(window.GMTScanRecv) window._arrScan=GMTScanRecv.attach(ov, items, { extraBarcodes: pid=>(window._arrProdBar||{})[pid]||[], remainOf: pid=>{ const it=items.find(x=>String(x.id)===String(pid)); return Math.max(0,(Number(it&&it.qty)||0)-Number(moved[pid]||0)); } }); }catch(e){ console.warn('[scanrecv]',e&&e.message); }
   ov.querySelector('#arr-apply-all').onclick=()=>{
     const v=ov.querySelector('#arr-all-dest').value;
     ov.querySelectorAll('[data-dest]').forEach(sel=>{ if(!sel.disabled) sel.value=v; });
@@ -6593,7 +6599,7 @@ try {
 <script src="gmt-brain.js?v=20261125b17"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b21"></script>
+<script src="gmt-whatsnew.js?v=20261125b22"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
