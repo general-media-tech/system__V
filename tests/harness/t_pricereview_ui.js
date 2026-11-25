@@ -17,8 +17,19 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(r1.diff.length === 1 && /66\.40/.test(r1.diff[0]) && /77\.40/.test(r1.diff[0]), 'سعر المتجر 66.4 ≠ الجرد 77.4 يُكشف: ' + r1.diff[0]);
   ok(/شاحن بلا سعر/.test(r1.txt), '«بلا سعر مبيع» يذكر الشاحن (له مخزون)');
   const sync = await pg.evaluate(async () => { const calls = []; GMTStoreSync.queuePrice = (id, p) => calls.push([id, p]); GMTStoreSync.flushPrices = async () => ({ changed: true }); GMTAsk.confirm = async () => true; GMTAsk.alert = async () => true;
-    document.querySelector('[data-sync]').click(); await new Promise(z => setTimeout(z, 600)); return calls; });
-  ok(sync.length === 1 && sync[0][0] === P[0].id && sync[0][1] === 77.4, '«⇐ وحّد» يكتب سعر الجرد (77.4) للمتجر عبر GMTStoreSync: ' + JSON.stringify(sync));
+    /* (seq B1114) خانة السعر متل الجسر: الشريحة «المتجر» بتعبّي 66.40 · بكتب 80 ⇒ ✓ ⇒ الجرد والمتجر سوا */
+    const row = document.querySelector('[data-diff]'), inp = row.querySelector('[data-pin]'); const pre = inp.value;
+    row.querySelector('[data-pfill][data-v="66.40"]').click(); const chip = inp.value;
+    inp.value = '80'; row.querySelector('[data-pset]').click(); await new Promise(z => setTimeout(z, 800));
+    return { calls, pre, chip, ok: row.classList.contains('ok-row') }; });
+  ok(sync.pre === '77.40' && sync.chip === '66.40', 'خانة السعر معبّاية بسعر الجرد · الشريحة «المتجر» بتعبّي 66.40: ' + JSON.stringify([sync.pre, sync.chip]));
+  ok(sync.calls.length === 1 && sync.calls[0][0] === P[0].id && sync.calls[0][1] === 80 && sync.ok, 'كتبت 80 ⇒ ✓ ⇒ انكتب بالمتجر (80) والصفّ صار ✅: ' + JSON.stringify(sync.calls));
+  const d1 = await H.call('/__dump', undefined, 'GET');
+  ok(Number(d1.products.find(x => x.id === P[0].id).price) === 80, '…وبالجرد كمان (السعر 80)');
+  /* بلا سعر مبيع: اكتب السعر و Enter */
+  await pg.evaluate(async () => { const tr = [...document.querySelectorAll('#pr-list tr')].find(t => /شاحن بلا سعر/.test(t.textContent)); const i = tr.querySelector('[data-pin]'); i.value = '15'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await new Promise(z => setTimeout(z, 800)); });
+  const d2 = await H.call('/__dump', undefined, 'GET');
+  ok(Number(d2.products.find(x => x.name === 'شاحن بلا سعر').price) === 15, '«بلا سعر مبيع»: كتبت 15 وEnter ⇒ صار سعره 15');
   await pg.evaluate(() => document.querySelector('[data-tab="tr"]').click()); await pg.waitForTimeout(400);
   const r2 = await pg.evaluate(() => ({ sum: document.getElementById('tr-sum').innerText, rows: [...document.querySelectorAll('[data-tr]')].map(d => { d.open = true; return d.innerText.replace(/\s+/g, ' '); }) }));
   ok(r2.rows.length === 1 && /بطارية F550 تجربة/.test(r2.rows[0]) && /ناقص 13/.test(r2.rows[0]) && /39\.00\$/.test(r2.rows[0]), '«وين راح»: اشتُري 20 · موجود 7 ⇒ فاقد 13 (×3$ = 39$): ' + (r2.rows[0] || '').slice(0, 120));
