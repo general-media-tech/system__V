@@ -154,6 +154,51 @@
       .filter(function (w) { return w.length >= 3 && stop.indexOf(w) === -1; })
       .slice(0, 3);
   }
+  /* (TASK-B0546) ترشيح بالنوع + مجال السعر: أسماء منتجاتنا إنجليزية غالباً ومجموعاتها عربية («بانيل ليد» · «هيد لايت ورؤوس اضائة»)
+     ⇒ البحث بكلمات السؤال بالاسم وحده («اضاءة مستمرة») ما بيلاقي شي، والسعر كان يُهمَل كلّياً. */
+  var CATS = [
+    [/اضا|إضا|اضائ|ضوء|اناره|إنارة|لايت|ليد|\bled\b|light/i, /اضا|اضائ|ليد|لايت|\bلد\b|تيوب|بانيل/],
+    [/فلاش/, /فلاش/], [/مايك|ميكروفون|ميك\b|صوت/, /مايك/], [/ستاند|ترايبود|ترايبود|حامل/, /ستاند|ترايبود|حوامل/],
+    [/عدس/, /عدس/], [/كامير|كمرا|كاميرا/, /كامير/], [/درون/, /درون/], [/سوفت|عاكس|عواكس/, /سوفت|عواكس/],
+    [/فلتر/, /فلات/], [/حقيب|شنت/, /حقائب/], [/كرت|ذاكر|ميموري/, /كروت/], [/هولدر|موبايل|جوال/, /هولدر|هاتف/],
+    [/جيمبال|اوزمو|أوزمو|رونين|مثبت/, /اوزمو|رونين/], [/بطاري|شاحن/, /بطاريات|شواحن/]];
+  var FEATS = [[/بطاري|شحن|battery/i, /بطاري|battery|np-?f|mah|li-?ion|rechargeable|قابل.*شحن/i, 'بطارية/شحن'], [/مستمر|continuous/i, null, 'مستمرة']];
+  function priceOf(qs) {
+    var m = String(qs).replace(/[٠-٩]/g, function (c) { return c.charCodeAt(0) - 0x660; }).match(/(\d+(?:\.\d+)?)\s*(?:\$|دولار|دولر|usd)|\$\s*(\d+(?:\.\d+)?)/i);
+    return m ? Number(m[1] || m[2]) : null;
+  }
+  async function adviseCandidates(qs) {
+    var T = priceOf(qs), groups = [], feats = [];
+    CATS.forEach(function (c) { if (c[0].test(qs)) groups.push(c[1]); });
+    /* «بطارية» كميزة («بيهمه بطارية») مع نوعٍ آخر ⇒ ميزة لا مجموعة */
+    if (groups.length > 1) groups = groups.filter(function (g) { return String(g) !== String(/بطاريات|شواحن/); });
+    FEATS.forEach(function (f) { if (f[0].test(qs)) feats.push(f); });
+    if (!groups.length && T == null) return null;
+    var cols = await q('MAIN', 'inv_columns?select=key_name&include_in_total=eq.true') || [];
+    var keys = (cols || []).map(function (c) { return c.key_name; });
+    var ALL = (await q('MAIN', 'products?select=*&price=gt.0&limit=3000')) || [];
+    var pull = async function (lo, hi) { return lo == null ? ALL : ALL.filter(function (p) { var v = Number(p.price) || 0; return v >= lo && v <= hi; }); };
+    var pick = function (rows) {
+      var continuous = /مستمر|continuous/i.test(qs);
+      return rows.filter(function (p) {
+        var gname = String(p.group_name || '') + ' ' + String(p.name || '');
+        if (groups.length && !groups.some(function (g) { return g.test(gname); })) return false;
+        if (continuous && /فلاش/.test(String(p.group_name || ''))) return false;
+        return true;
+      });
+    };
+    var lo = null, hi = null, rows;
+    if (T != null) { lo = Math.floor(T * 0.7); hi = Math.ceil(T * 1.3); rows = pick(await pull(lo, hi)); if (rows.length < 3) { lo = Math.floor(T * 0.5); hi = Math.ceil(T * 1.5); rows = pick(await pull(lo, hi)); } }
+    else rows = pick(await pull(null, null));
+    if (!rows.length) return { price: T != null ? { target: T, from: lo, to: hi } : null, groups: groups.map(String), rows: [] };
+    var out = rows.map(function (p) {
+      var stock = keys.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0), blob = JSON.stringify(p).toLowerCase();
+      var fm = feats.filter(function (f) { return f[1] && f[1].test(blob); }).map(function (f) { return f[2]; });
+      return { name: p.name, barcode: p.barcode, price: Number(p.price) || 0, group: p.group_name || '', stock: stock, features: fm, _d: T != null ? Math.abs((Number(p.price) || 0) - T) : 0 };
+    }).sort(function (a, b) { return ((b.stock > 0) - (a.stock > 0)) || (b.features.length - a.features.length) || (a._d - b._d); }).slice(0, 12);
+    out.forEach(function (x) { delete x._d; });
+    return { price: T != null ? { target: T, from: lo, to: hi } : null, groups: groups.map(String), rows: out };
+  }
   async function collectLiveData(question) {
     var out = {}, qs = String(question);
     var terms = searchTerm(qs);
@@ -163,7 +208,10 @@
     /* نيّة الترشيح لزبون: يسأل بالمواصفات لا بالاسم («بدي راس إضاءة 100 وات») */
     var wantAdvise = /رشح|رشّح|اقترح|زبون بدو|زبون بيدور|بدو|شو عندنا|شو في عندي|شو الخيارات|بديل|مناسب|وات|w\b|انش|إنش|mm|ملم|ميجا|ma?h\b|بطارية|عدسة|اضاءة|إضاءة|حامل|مايك|ترايبود/i.test(qs);
 
-    if (wantAdvise) {
+    /* (TASK-B0546 · المالك seq B1077 «شوف الغباء … اطلب 50 دولار وما حولها … ممكن أكتر شوي ممكن أقلّ شوي») */
+    try { var adv = await adviseCandidates(qs); if (adv) { out.priceTarget = adv.price; out.categoryGuess = adv.groups; out.catalogMatches = adv.rows; out.adviseMode = true;
+      out.adviseNote = 'هذه منتجات حقيقية من الجرد بنوع المنتج المطلوب وبمجال السعر حول الرقم (أقلّ وأكثر شوي). رشّح منها الأقرب للسعر والمواصفات واذكر السعر والتوفّر (stock) — لا تقل «ما عندنا شي مطابق» ما دام فيها نتائج؛ قل «الأقرب لطلبك».'; } } catch (_) {}
+    if (wantAdvise && !out.catalogMatches) {
       /* ابحث بالمواصفات عبر الاسم والوصف — المتجر يحمل الوصف التفصيلي */
       var found = [], seen = {};
       for (var a = 0; a < terms.length; a++) {
@@ -745,6 +793,14 @@
     if (/^(كيف|شلون|وين بلاقي|من وين|كيفية)/.test(qn.trim()) || /كيف (اعمل|أعمل|بعمل|بسجّل|بسجل|بطبع|بغيّر)/.test(qn)) {
       for (var fi = 0; fi < FAQ.length; fi++) if (FAQ[fi][0].test(qn)) return FAQ[fi][1] + '<br><span style="font-size:11px;color:#526077">⚡ من دليل النظام — بلا استهلاك رصيد</span>';
     }
+    /* (TASK-B0546 · seq B1077 «وين بحس بعمل عرض سعر» ⇒ «ما لقيت هالمعلومة») سؤال «وين/كيف أعمل…» ⇒ أدوات النظام من سجلّها فوراً */
+    if (/(^|\s)(وين|فين|منين|كيف|شلون|باي صفحه|بأي صفحة|من وين)(\s|$)/.test(qn) && !/وين وصل|شو صار/.test(qn) && global.GMTTools && GMTTools.match) {
+      var rl = 'staff'; try { rl = global.GMTRole && GMTRole.isAdmin && GMTRole.isAdmin() ? 'admin' : 'staff'; } catch (_) {}
+      var tl = GMTTools.match(qn, rl).slice(0, 3);
+      if (tl.length) return '📍 ' + (tl.length > 1 ? 'لقيتلك هالأدوات:' : 'من هون:') + '<br>' + tl.map(function (x) {
+        return '• <a href="' + h(x.f) + '" style="font-weight:900">' + h(x.t) + '</a> — ' + h(x.d || '');
+      }).join('<br>') + '<br><span style="font-size:11px;color:#526077">⚡ من سجلّ أدوات النظام — بلا استهلاك رصيد · وزرّ 🔎 فوق بيلاقي أيّ أداة أو إعداد</span>';
+    }
     if (/(وين وصل|شو صار ب|حالة|تتبع|تتبّع).*(اوردر|أوردر|طلب|شحن)|(اوردر|أوردر) (فلان|الزبون)/.test(qn)) {
       var ws = (searchTerm(qn) || []).filter(function (t) { return !/^(وصل|حالة|تتبع|تتبّع|اوردر|أوردر|طلب|شحنة|الزبون)$/.test(t); });
       var key = ws.sort(function (x, y) { return y.length - x.length; })[0];
@@ -845,6 +901,8 @@
     var ctx = collectContext();
     // أرفق البيانات الحيّة المتعلّقة بالسؤال — كي يجيب من بياناتك لا من معرفته
     try { ctx.liveData = await collectLiveData(question); } catch (e) { ctx.liveData = { error: 'تعذّر جلب البيانات الحيّة' }; }
+    /* (TASK-B0546) صفحات النظام المتعلّقة بالسؤال — كي يعرف «وين» كلّ شي بدل «ما لقيت بالسياق» */
+    try { if (global.GMTTools) { var pm = (GMTTools.match ? GMTTools.match(question, 'admin') : []).slice(0, 8); ctx.systemPages = (pm.length ? pm : GMTTools.all.filter(function (x) { return !x.p; })).slice(0, 40).map(function (x) { return x.t + ' ⇐ ' + x.f + ' — ' + (x.d || ''); }); } } catch (_) {}
     var r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1180,7 +1238,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _context: function () { return collectContext(); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
+  global.GMTBrain = { _composeHint: composeHint, _noElectric: noElectric, _dropElectric: dropElectric, _dropUnsure: dropUnsure, _normSpecs: normSpecs, _mergeComplete: mergeComplete, _completeSys: COMPLETE_SYS, _compatSys: COMPAT_SYS, _isAccessory: isAccessory, _mergeCompat: mergeCompat, _skey: skey, _localAnswer: function (q) { return localAnswer(q); }, _advise: function (q) { return adviseCandidates(q); }, _live: function (q) { return collectLiveData(q); }, _context: function () { return collectContext(); }, _searchTerm: function (q) { return searchTerm(q); }, importProduct: importProduct, searchCandidates: searchCandidates, productImportDialog: productImportDialog,
     open: openPanel,
     askJSON: askJSON, ask: ask,
     configure: configure,
