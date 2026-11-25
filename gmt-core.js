@@ -4113,6 +4113,10 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
     /* (TASK-0311 · seq 397) رابطٌ يفتح تبويباً/تطبيقاً، أو زرٌّ يفتح نافذة (عدسة غوغل) ⇒ أثرٌ خارج الصفحة لا «زر بلا أثر» */
     const _a = e.target.closest('a[href]');
     if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;
+    /* (TASK-0376 · تقرير الحارس ٢٣ ت2) ① رابطٌ لصفحةٍ أخرى بالنظام («المشتريات: IMP-…» من أداة التسويات) ⇒ الانتقال نفسه أثر
+       ② أزرار معرض الأصوات (data-snd) ⇒ أثرها صوتٌ لا يغيّر الصفحة («▶ انتقال بين الشاشات» · «▶ مربّع اختيار») */
+    if (_a && !/^(#|javascript:)/i.test(_a.getAttribute('href') || '#')) return;
+    if (el.hasAttribute('data-snd') || el.hasAttribute('data-snd-fx') || el.hasAttribute('data-snd-all')) return;
     /* (TASK-0311 هـ) تبويبٌ مفتوحٌ أصلاً ⇒ لا أثر بطبيعته */
     if (/(^|[\s-])(active|selected|on)([\s-]|$)|active-tab|tab-active/.test(String(el.className || '')) || el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true') return;
     const before = net.last, hid0 = __gmtAway, sc0 = __gmtScrolls;

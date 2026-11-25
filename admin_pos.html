@@ -519,7 +519,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <script src="gmt-image-guard.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
-  <script src="gmt-core.js?v=20261125b12"></script>
+  <script src="gmt-core.js?v=20261125c1"></script>
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
   <script src="gmt-packages.js?v=20261107h" defer></script>
@@ -3901,7 +3901,7 @@ async function releaseCommOnCollect(invId) {
 // خيار 1: تحصيل كامل المبلغ + تسجيل العمولة كدين عليّ (الإدارة)
 let __collectBusy = false;
 async function collectDebtInvoice(invId, mode, remaining, commAmount) {
-  if (__collectBusy) return;
+  if (__collectBusy) { showToast('⏳ جارٍ تحصيلٌ سابق — انتظر حتى ينتهي', 'warn'); return; }   /* (TASK-0376 · تقرير الحارس: الضغطة الثانية كانت تُتجاهل بصمت ⇒ «زر بلا أثر») */
   const label = mode === 'full_with_comm' ? 'تحصيل كامل + العمولة كدين علي' : 'تحصيل مع اقتطاع العمولة';
   if (!await GMTAsk.confirm(`${label}\nالمبلغ: ${remaining.toFixed(2)}$${commAmount>0?` (عمولة: ${commAmount.toFixed(2)}$)`:''}`)) return;
   __collectBusy = true;
@@ -3942,7 +3942,7 @@ async function collectDebtInvoice(invId, mode, remaining, commAmount) {
 
 // خيار 2: تحصيل مبلغ جزئي — الباقي يبقى ديناً
 async function collectDebtPartial(invId, remaining) {
-  if (__collectBusy) return;
+  if (__collectBusy) { showToast('⏳ جارٍ تحصيلٌ سابق — انتظر حتى ينتهي', 'warn'); return; }   /* (TASK-0376 · تقرير الحارس: الضغطة الثانية كانت تُتجاهل بصمت ⇒ «زر بلا أثر») */
   const amountStr = await GMTAsk.prompt(`أدخل المبلغ المُحصَّل من أصل ${remaining.toFixed(2)}$:`);
   if (amountStr === null) return;
   const amount = parseFloat(String(amountStr).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,٫]/g, '.'));
@@ -3963,7 +3963,7 @@ async function collectDebtPartial(invId, remaining) {
 
 // تحصيل كل ديون فرع دفعة واحدة — فاتورةً فاتورة (متتابعة)، وتُحرَّر عمولات الآجل، ويُبلَّغ بما فشل
 async function collectAllBranchDebts(branchKey, total) {
-  if (__collectBusy) return;
+  if (__collectBusy) { showToast('⏳ جارٍ تحصيلٌ سابق — انتظر حتى ينتهي', 'warn'); return; }   /* (TASK-0376 · تقرير الحارس: الضغطة الثانية كانت تُتجاهل بصمت ⇒ «زر بلا أثر») */
   if (!await GMTAsk.confirm(`تحصيل كامل ديون هذا الفرع (${total.toFixed(2)}$)؟`)) return;
   const items = allDebts.filter(d => (d.branch_key||'unknown') === branchKey);
   __collectBusy = true;
