@@ -3318,6 +3318,13 @@
 - اختبار `t_poitem` ١٠/١٠ · تحقّق بصري.
 - ⏳ م٢ (A988 §4–6): البند الجمركي ونتيجة التدقيق · اختلاف الوزن عن الباكينج · منتج مكرّر محتمل — مع البيان الجمركي (P5).
 
+### TASK-B0564 — A989–A991 م١: النظام يتعلّم شكل ملف كلّ مورّد (seq B1102) — ✅ gmt-v20261125b37
+- مراجعة الموجود والخطّة: `docs/محرك_الاستيراد_الذاتي.md` (A990 §1 و§6 — قبل تعديل البنية).
+- `gmt-xlmap.js` (`GMTXlMap`): `findHeader/mapCols/docType/sig` (صافٍ) + `load/profileFor/save` · جدول `gmt_import_profiles` (`tools/sql/B0564_import_profiles.sql` · مطبَّق).
+- `purchase.html`: `processExcel` ⇐ نوع الملف (باكينج/بيان ⇐ «ارفعه من 📦») ⇐ البصمة ⇐ الشكل المحفوظ أو التخمين · البناء صار `_exBuild(col)` (يُعاد عند التصحيح) · شريط `#excel-map-bar` · `importExcel` يحفظ الشكل مع المورّد · الموديل ⇐ ملاحظة البند · المسار القديم سليم إذا الوحدة مو محمّلة.
+- **خطأ انكشف بالمراجعة:** PI فيها «Item No.» و«Description» ⇒ كان «Item No.» ينقرا اسم المنتج (كلمة item) — صُحّح.
+- اختبارات: `t_xlmap` ١٣/١٣ (ملفّا اختبار `xl_pi_supplier.xlsx` · `xl_packing_only.xlsx`) · `t_excel_incell` · `t_invoice_names` · `t_buy2` سليمة · درس PB-14.
+
 ### TASK-B0563 — السجلّ المالي الكامل + ما لنا وما علينا + إقفال السنة (seq B1101) — ✅ gmt-v20261125b36
 - `gmt-books.js` (`GMTBooks`): `journal` (كلّ حركة: مبيع/مرتجع · تحصيل · دفعة مورّد من `gmt_po_payments` بتاريخها أو قيود [PO:g] للقديمة · شحن وجمارك [PO:c] · مصروف/أصل/سحب بـ`expClass` · عمولة) · `summary` (السنة + بالشهر + المشتريات مع `supplierDue` + الربح من `GMTLedger.profit`) · `position` (الصندوق `centralCash` · آجل · يدوي · بضاعة بالكلفة · أصول ⇔ مورّدين `GMTPoPay.summary` · تكاليف لسّا · عمولات · يدوي · عرابين) · `closeSnapshot` · `csv` · `open`.
 - جدول `gmt_fiscal_years` (`tools/sql/B0563_fiscal_years.sql` · مطبَّق): لقطة الإقفال ⇐ «↪️ مدوّر» بالسنة التالية · فرق إذا تغيّرت أرقام سنة مقفولة.
