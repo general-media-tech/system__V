@@ -179,7 +179,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <link rel="stylesheet" href="gmt-theme.css?v=20261007z5">
   <link rel="stylesheet" href="gmt-ui.css?v=20261010b">
 <!-- (2026-10-04 ي) حارسُ الصلاحيات: الأداة تُفتح للأدمن ولمن مُنح صلاحيتها بالاسم -->
-<script src="gmt-tools.js?v=20261125b26"></script>
+<script src="gmt-tools.js?v=20261125b31"></script>
 <script src="gmt-account.js?v=20261119j"></script>
 </head>
 <body class="pb-24">
@@ -213,6 +213,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-scan.js?v=20261124b2" defer></script>
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
+  <script src="gmt-poreports.js?v=20261125b31"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b19"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -368,6 +369,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
       </button>
       <button id="btn-po-aging" onclick="openPoAging()" title="📒 الآجلة: كلّ فاتورة باقي عليها للمورّد — المستحقّة أوّلاً" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap text-amber-700">📒 الآجلة</button>
       <button id="btn-po-suppliers" onclick="openSuppliers()" title="🏭 الموردون: ملفّ لكلّ مورّد · فواتيره · دفعاته · كشف حسابه" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap text-slate-700">🏭 الموردون</button>
+      <button id="btn-po-reports" onclick="openPoReports()" title="📈 تقارير المشتريات: الصرف بالشهر · نسبة التكاليف · الموردون · المنتجات · ارتفاع الأسعار" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-black transition-all whitespace-nowrap text-indigo-700">📈 التقارير</button>
     </div>
 
     <div id="tab-transit" class="tab-panel">
@@ -1260,6 +1262,10 @@ function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غي
 window.openPoAging=openPoAging;
 function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
 window.openSuppliers=openSuppliers;
+/* (TASK-B0558 · A1004 P6) تقارير المشتريات — من الفواتير نفسها · ?reports=1 */
+function openPoReports(){ if(!window.GMTPoReports){toast('وحدة التقارير غير محمّلة','err');return;} GMTPoReports.open(()=>ships||[]); }
+window.openPoReports=openPoReports;
+try{if(new URLSearchParams(location.search).get('reports')==='1'){const _t=setInterval(()=>{if(window._shipsLoaded){clearInterval(_t);openPoReports();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 document.addEventListener('input',e=>{const el=e.target&&e.target.closest&&e.target.closest('#invPage .inv-field[data-field="cash"]');if(el)el.dataset.touched='1';},true);
 try{if(new URLSearchParams(location.search).get('aging')==='1'){const _t=setInterval(()=>{if(ships&&ships.length){clearInterval(_t);openPoAging();}},400);setTimeout(()=>clearInterval(_t),20000);}}catch(_){}
 async function ledgerSyncId(id){
@@ -6665,7 +6671,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b30"></script>
+<script src="gmt-whatsnew.js?v=20261125b31"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
