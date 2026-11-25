@@ -37,7 +37,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 .cnt{min-width:38px;height:30px;border-radius:99px;display:grid;place-items:center;font-weight:900;font-size:14px;padding:0 10px;background:#fee2e2;color:#991b1b}.card.o .cnt{background:#fef3c7;color:#92400e}.card.g .cnt{background:#dcfce7;color:#166534}
 .ex{margin:8px 0 0;font-size:13px;line-height:1.85}.ex .k{font-weight:900;color:#334155}
 .ls{margin:8px 0 0;font-size:12.5px;color:#334155;background:#f8fafc;border-radius:12px;padding:8px 12px;line-height:1.9}
-.ls div{border-top:1px dashed #e2e8f0;padding:2px 0}.ls div:first-child{border-top:0}
+.ls{max-height:460px;overflow:auto}.ls div{border-top:1px dashed #e2e8f0;padding:2px 0}.ls div:first-child{border-top:0}
 .act{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
 .em{text-align:center;color:var(--mu);padding:26px 8px}
 .warn{padding:11px 14px;border-radius:14px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-weight:700;font-size:13px;line-height:1.8;margin-bottom:10px}
@@ -178,7 +178,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
       if (zero.length) p.push('<b style="color:#b91c1c">' + zero.length + ' بند بسعر شراء 0</b> (' + esc(zero.slice(0, 4).map(function (x) { return x.name + ' ×' + x.qty; }).join(' · ')) + (zero.length > 4 ? ' …' : '') + ')');
       var fillable = zero.filter(function (x) { return known[(v.currency || 'USD') + '|' + x.id]; });
       if (fillable.length) p.push('<b style="color:#047857">💡 ' + fillable.length + ' منها سعرها معروف من فواتير أخرى</b> (' + esc(fillable.slice(0, 3).map(function (x) { var k = known[(v.currency || 'USD') + '|' + x.id]; return x.name + ' = ' + k.u + ' من ' + k.inv; }).join(' · ')) + ') <a href="purchase.html?open=' + encodeURIComponent(v.id) + '&fill=1" style="font-weight:900;color:#047857;white-space:nowrap">فتح وتعبئة ←</a>');
-      if (unl.length) p.push('<b>' + unl.length + ' بند غير مربوط بمنتج</b> (' + esc(unl.slice(0, 3).map(function (x) { return x.name || '—'; }).join(' · ')) + (unl.length > 3 ? ' …' : '') + ')');
+      if (unl.length) p.push('<b>' + unl.length + ' بند غير مربوط بمنتج</b> (' + esc(unl.map(function (x) { return x.name || '—'; }).join(' · ')) + ')');
       if (q0.length) p.push(q0.length + ' بند بكمية 0');
       if (!String(v.supplier || '').trim()) p.push('بلا مورّد');
       if (!v.inv_date) p.push('بلا تاريخ');
@@ -250,12 +250,42 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var o = prods.map(function (p) { return { p: p, q: tot.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0) }; })
       .filter(function (x) { return x.q > 0 && !hasId[String(x.p.id)] && !(x.p.barcode && hasBc[nz(x.p.barcode)]); })
       .sort(function (a, b) { return b.q - a.q; });
-    r.count = o.length; r.shown = Math.min(12, o.length);
+    r.count = o.length; r.shown = o.length;   /* (seq B1065) المالك بيصلّح كلّ شي يدوياً ⇒ القائمة كاملة بزرّ تعديل */
     var pcs = o.reduce(function (s, x) { return s + x.q; }, 0);
-    r.lines = (o.length ? ['<b>' + o.length + ' منتجاً · ' + pcs + ' قطعة</b>'] : []).concat(o.slice(0, 12).map(function (x) {
+    r.lines = (o.length ? ['<b>' + o.length + ' منتجاً · ' + pcs + ' قطعة</b>'] : []).concat(o.map(function (x) {
       var where = tot.filter(function (k) { return Number(x.p[k]) > 0; }).map(function (k) { var c = cols.find(function (c) { return c.key_name === k; }); return ((c && c.display_name) || k) + ' ' + x.p[k]; }).join(' · ');
-      return esc(x.p.name) + ' — <b>' + x.q + '</b>' + (where ? ' (' + esc(where) + ')' : '') + (x.p.barcode ? '' : ' — بلا باركود');
+      return esc(x.p.name) + ' — <b>' + x.q + '</b>' + (where ? ' (' + esc(where) + ')' : '') + (x.p.barcode ? '' : ' — بلا باركود') + (num(x.p.cost_price) > 0 ? '' : ' — <b style="color:#b91c1c">بلا كلفة</b>') +
+        ' <a href="inventory.html?pid=' + encodeURIComponent(x.p.id) + '&view=edit" target="_blank" rel="noopener" style="font-weight:900;color:#D5001C;white-space:nowrap">تعديل ←</a>';
     }));
+    return r;
+  }
+  /* (TASK-B0540 · المالك seq B1065 «حطّ لي ياهم بأداة التسوية وأنا بصلّح كلّ شي يدوياً: منتجات ما هي مربوطة · أسعار فارغة بالفواتير ·
+     منتجات بدون فواتير بس أسعارها فارغة») — الأسعار الفارغة بالفواتير والبنود غير المربوطة ⇐ بطاقة «فواتير شراء فيها نقص» ·
+     وهون: كلّ منتج إله كمّية أو فاتورة وسعر مبيعه أو كلفته فاضي — بلا فاتورة أوّلاً — وكلّ سطر بزرّ تعديل مباشر. */
+  async function noPrice() {
+    var r = { id: 'np', title: 'منتجات أسعارها ناقصة (مبيع · كلفة) — مع وبلا فاتورة',
+      what: 'منتجٌ إله كمّية بالجرد أو مذكور بفاتورة شراء، وسعر مبيعه أو كلفته فاضي (0). يلي «بلا فاتورة» ما إلها ولا فاتورة شراء تعطي كلفتها.',
+      impact: 'سعر المبيع الفاضي ⇒ ما بينباع صح من نقطة البيع والمتجر · الكلفة الفاضية ⇒ الربح ورأس المال بينحسبوا غلط.',
+      fix: 'اضغط «تعديل ←» جنب المنتج واكتب السعر الناقص. إذا إله فاتورة شراء سعرها فاضي صلّحها من بطاقة «فواتير شراء فيها نقص» فوق — كلفته بتتعبّى منها.',
+      actions: [['مراجعة الأسعار والمشتريات', 'مراجعة_الأسعار_والمشتريات.html', 0]], lines: [], count: 0 };
+    var rows; try { rows = await invoices(); await stockData(); } catch (e) { r.err = e; return r; }
+    var hasId = {}, hasBc = {};
+    rows.forEach(function (v) { if (/cancel/i.test(v.status || '')) return; jparse(v.items_snapshot, []).forEach(function (x) { if (!x) return; if (x.id) hasId[String(x.id)] = 1; if (x.barcode) hasBc[nz(x.barcode)] = 1; }); });
+    var tot = cols.filter(function (c) { return c.include_in_total; }).map(function (c) { return c.key_name; });
+    var o = prods.map(function (p) {
+      var q = tot.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0), inv = !!(hasId[String(p.id)] || (p.barcode && hasBc[nz(p.barcode)]));
+      var miss = []; if (!(num(p.price) > 0)) miss.push('سعر المبيع'); if (!(num(p.cost_price) > 0)) miss.push('الكلفة');
+      return { p: p, q: q, inv: inv, miss: miss };
+    }).filter(function (x) { return x.miss.length && (x.q > 0 || x.inv); })
+      .sort(function (a, b) { return (a.inv - b.inv) || (b.q - a.q) || String(a.p.name).localeCompare(String(b.p.name), 'ar'); });
+    r.count = o.length; r.shown = o.length;
+    var noInv = o.filter(function (x) { return !x.inv; }).length;
+    if (o.length) r.lines.push('<b>' + o.length + ' منتجاً</b> · منها <b style="color:#b91c1c">' + noInv + ' بلا فاتورة شراء</b>');
+    o.forEach(function (x) {
+      r.lines.push('<span data-np="' + esc(x.p.id) + '">' + esc(x.p.name) + ' — ناقص: <b style="color:#b91c1c">' + x.miss.join(' و') + '</b> · كمّية ' + x.q +
+        (x.inv ? '' : ' · <b style="color:#b91c1c">بلا فاتورة</b>') + (num(x.p.price) > 0 ? ' · مبيع ' + num(x.p.price) + '$' : '') + (num(x.p.cost_price) > 0 ? ' · كلفة ' + num(x.p.cost_price) + '$' : '') +
+        ' <a href="inventory.html?pid=' + encodeURIComponent(x.p.id) + '&view=edit" target="_blank" rel="noopener" style="font-weight:900;color:#D5001C;white-space:nowrap">تعديل ←</a></span>');
+    });
     return r;
   }
   async function unbilled() {
@@ -298,8 +328,8 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   async function run() {
     if (!db()) { $('list').innerHTML = '<div class="warn">إعدادات القاعدة غير محمّلة.</div>'; return; }
     inv = null; prods = null; $('list').innerHTML = '<div class="em">جارٍ الفحص…</div>'; $('sum').innerHTML = '';
-    var SEV = { tr: 'r', sh: 'o', se: 'r', pg: 'o', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
-    var jobs = [transfers, shortages, sealed, purGaps, dups, surplus, orphans, unbilled, expenses];
+    var SEV = { tr: 'r', sh: 'o', se: 'r', pg: 'o', np: 'o', du: 'o', su: 'o', or: 'o', ub: 'o', ex: 'o' };
+    var jobs = [transfers, shortages, sealed, purGaps, noPrice, dups, surplus, orphans, unbilled, expenses];
     rep = [];
     for (var i = 0; i < jobs.length; i++) {            // بالتتابع: الفواتير والمنتجات تُجلب مرّةً وتُشارَك
       var r; try { r = await jobs[i](); } catch (e) { r = { id: 'x' + i, title: 'حالة', err: e, count: 0, lines: [], actions: [] }; }
