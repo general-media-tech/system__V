@@ -4309,7 +4309,7 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
     [/05_|orders|الأوردرات/i,               { page: 'الأوردرات', pageId: 'orders', admin: false }],
     [/06_|purchase|المشتريات/i,             { page: 'المشتريات', pageId: 'purchases', admin: true }],
     [/07_|bridge|الجسر/i,                   { page: 'الجسر', pageId: 'bridge', admin: true }],
-    [/08_|store|المتجر\.|المتجر\b/i,        { page: 'المتجر', pageId: 'store', admin: false }],
+    [/08_|store|المتجر\.|المتجر(?![\w؀-ۿ])/i,        { page: 'المتجر', pageId: 'store', admin: false }],
     [/deal|contract|العقود|14_/i,           { page: 'العقود', pageId: 'contracts', admin: true }],
     [/15_|site|الموقع_الرئيسي/i,            { page: 'الموقع', pageId: 'site', admin: false }],
     [/track_order|16_|tracking|التتبع|الشحنة/i, { page: 'تتبع الشحنة', pageId: 'tracking', admin: false }],

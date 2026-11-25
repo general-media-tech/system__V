@@ -17,8 +17,11 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✔', m); } else { fails+
   await pg.setContent(html, { waitUntil: 'domcontentloaded' }); await pg.waitForFunction(() => document.querySelector('.bc svg rect'), null, { timeout: 15000 }).catch(() => {}); r = await read();
   ok(r.sel === '7', 'الاختيار الأخير يُحفظ على الجهاز: ' + r.sel);
   const opts = await pg.evaluate(() => [...document.querySelectorAll('#lay option')].map(o => o.value).join(','));
-  ok(opts === '7,6,5,4,3', 'المقاسات من الأصغر للأكبر — والقديمة باقية: ' + opts);
+  ok(opts === '8,7,6,5,4,3', 'المقاسات من الأصغر للأكبر — والقديمة باقية: ' + opts);
+  // (seq B1067) ٨ بالصفّ: ٢٤٠ ملصقاً بالورقة بخطٍّ أصغر
+  await pg.selectOption('#lay', '8'); await pg.waitForTimeout(500); r = await read();
+  ok(r.n === 200 && await pg.evaluate(() => document.querySelectorAll('.page').length === 1) && Math.abs(m(r.w) - 24.1) < 0.7 && await pg.evaluate(() => !!document.querySelector('.page.xs')), '(seq B1067) «٨ بالصفّ» ⇒ الـ٢٠٠ ملصق بورقة واحدة (السعة ٢٤٠) · ' + m(r.w) + '×' + m(r.h) + 'mm بخطٍّ أصغر');
   await browser.close();
-  console.log(fails ? 'FAIL ' + fails + ' / ' + (pass + fails) : 'ALL PASS (' + pass + ')');
+console.log(fails ? 'FAIL ' + fails + ' / ' + (pass + fails) : 'ALL PASS (' + pass + ')');
   process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

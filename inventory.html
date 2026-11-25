@@ -2297,7 +2297,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261124b2"></script>
+  <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-packages.js?v=20261107h" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-reconcile.js?v=20261122y" defer></script>
@@ -2313,7 +2313,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-ask.js?v=20261121b" defer></script>
   <script src="gmt-oplog.js?v=20261117h" defer></script>
   <script src="gmt-stock.js?v=20261117h" defer></script>
-  <script src="gmt-share.js?v=20261029z4" defer></script>
+  <script src="gmt-share.js?v=20261125b12" defer></script>
   <script src="gmt-notify.js?v=20261124b4" defer></script>
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
@@ -2325,7 +2325,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 <script src="gmt-product-edit.js?v=20261125b10" defer></script>
 <script src="gmt-enrich-queue.js?v=20261124b3"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-labels.js?v=20261124b"></script>
+  <script src="gmt-labels.js?v=20261125b12"></script>
 <script src="gmt-staff.js?v=20261124b5"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -11343,7 +11343,7 @@ function _varTn(s) { return String(s || '').toLowerCase().replace(/[أإآ]/g, '
 const _VPKG = /\b(single|singl|sngl|combo|compo|standard|standart|fly ?more|kit|full ?package|package|body ?only|budy ?only)\b|سنجل|كومبو|ستاندرد|فلاي مور/g;
 const _VCOL = /\b(black|white|red|blue|gr[ae]y|silver|gold|green|pink|purple|orange|yellow)\b|اسود|ابيض|احمر|ازرق|رمادي|فضي|ذهبي|اخضر|وردي|برتقالي|اصفر/g;
 const _VSIZE = /\b(xs|xl|xxl|small|medium|large)\b|سمول|ميديوم|لارج|قياس صغير|قياس وسط|قياس كبير/g;
-const _VDIAM = /\b\d{2,3} ?(mm|مم|ملم)\b|\b\d{2,3}mm/g;
+const _VDIAM = /\b\d{2,3} ?(mm|مم|ملم)(?![\w؀-ۿ])|\b\d{2,3}mm/g;   /* (seq B1069) «مم\b» لا يطابق أبداً (\b لا يعمل مع العربية) */
 function _varSkip() { try { return JSON.parse(localStorage.getItem(VAR_SKIP) || '{}'); } catch (_) { return {}; } }
 /* ① القواعد: نفس النوع ونفس الاسم بعد حذف كلمات الخيار ⇒ عائلة (والمكرّر بنفس الخيار لا يُعدّ خياراً) */
 function _varRuleFams(list) {
@@ -15936,6 +15936,14 @@ async function printTransferLabels(transferId){
     return;
   }
 
+  /* (المالك seq B1067 «الباركودات حط خيار ٨ بالصف») ورقة الملصقات الموحّدة (gmt-labels.js) — نفس مقاسات كلّ النظام (٣…٨ بالصفّ)
+     تُكتب في النافذة المفتوحة مسبقاً (لا حجب للنوافذ المنبثقة). الورقة القديمة أدناه احتياطٌ إن لم تُحمَّل الوحدة. */
+  if (window.GMTLabels && GMTLabels.sheetHtml && GMTLabels.expand) {
+    const L = GMTLabels.expand(withBc.map(it => ({ name: it.product_name || '', barcode: it.barcode, qty: Math.max(1, parseInt(it.qty, 10) || 1) })));
+    const base = location.href.replace(/[^/]*([?#].*)?$/, '');
+    win.document.open(); win.document.write(GMTLabels.sheetHtml(L, { base, title: 'ملصقات — ' + (t.transfer_number || '') })); win.document.close();
+    return;
+  }
   /* ملصق لكل قطعة — الكمية 5 ⇒ 5 ملصقات */
   let labels='';
   withBc.forEach(it=>{
@@ -16976,7 +16984,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261124b2"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b11"></script>
+<script src="gmt-whatsnew.js?v=20261125b12"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261107b" defer></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>

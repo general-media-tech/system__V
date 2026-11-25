@@ -77,12 +77,14 @@
   </div>
 </div>
 <script src="gmt-config.js?v=20261124b1"></script>
-<script src="gmt-core.js?v=20261124b2"></script>
+<script src="gmt-core.js?v=20261125b12"></script>
 <script src="gmt-custcache.js?v=20261016a" defer></script>
 <script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->  <!-- (REQ-0327) الحارس GMTBug وGMTUI كبقية الصفحات الداخلية -->
 <script src="gmt-brand.js?v=20261029z4"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="lib/zxing.min.js?v=20261017a" defer></script>
+<script src="gmt-share.js?v=20261125b12"></script>
+<script src="gmt-ask.js?v=20261121b"></script>
 <script src="gmt-invoice-tpl.js?v=20261121k"></script>
 <script>
 (function () {
@@ -162,12 +164,20 @@
       var txt = '🧾 عرض سعر ' + q.ref + (q.name ? '\nإلى: ' + q.name : '') + '\n\n' + q.items.map(function (x) { return '• ' + (x.name || '—') + ' × ' + x.qty + ' = ' + m((Number(x.price) || 0) * (Number(x.qty) || 1)); }).join('\n') +
         (q.discount ? '\nخصم: ' + m(q.discount) : '') + '\nالإجمالي: ' + m(Math.max(0, sub - q.discount)) + '\nصالح ' + q.valid_days + ' أيام · لا يُعدّ فاتورة رسمية' + (q.notes ? '\n' + q.notes : '') + '\n\nGeneral Media Tech';
       var ph = String(q.phone || '').replace(/\D/g, ''); if (/^09\d{8}$/.test(ph)) ph = '963' + ph.slice(1);
+      /* (المالك seq B1068 «عرض سعر لازم المشاركة على وتس اب مع الصورة والوتس اب بزنس») صورة العرض + نصّه عبر نافذة المشاركة
+         (الهاتف: تظهر واتساب وواتساب بزنس معاً) — وإلّا (كمبيوتر/متصفّح لا يشارك ملفّات) تُحفَظ/تُنسخ الصورة ثمّ يُفتح واتساب بالنصّ */
+      if (window.GMTShare && GMTShare.image && window.GMTInvoiceTpl && GMTInvoiceTpl.quoteHTML) {
+        GMTShare.image(GMTInvoiceTpl.quoteHTML(q), 'عرض سعر ' + (q.ref || ''), { text: txt }).then(function (r) {
+          if (r !== 'shared') window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(txt), '_blank');
+        });
+        return;
+      }
       window.open('https://wa.me/' + (ph || '') + '?text=' + encodeURIComponent(txt), '_blank'); return; }
   });
   if (!load()) reset();
   paintItems(); render(); loadProducts();
 })();
 </script>
-<script src="gmt-whatsnew.js?v=20261125b11"></script>
+<script src="gmt-whatsnew.js?v=20261125b12"></script>
 </body>
 </html>

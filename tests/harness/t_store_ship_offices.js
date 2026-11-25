@@ -38,7 +38,7 @@ const VISITOR = `try{ localStorage.clear(); sessionStorage.clear(); localStorage
   // ④ الطلب يحمل المحافظة والشركة والمكتب
   await pick('حمص'); await pg.fill('#cust-name', 'زبون الشحن'); await pg.fill('#cust-phone', '0944123123');
   await pg.evaluate(() => processCheckout()); await pg.waitForTimeout(300);
-  ok(await pg.evaluate(() => window.__sent) === 'حمص - المفتي — جورة الشياح', 'عنوان الطلب: ' + await pg.evaluate(() => window.__sent));
+  ok(await pg.evaluate(() => window.__sent) === 'حمص - المفتي — الحضارة', '(seq B1066 الافتراضي صار الحضارة) عنوان الطلب: ' + await pg.evaluate(() => window.__sent));
   const real = o.errs.filter(e => !/status of (400|401|404|406|503)|Failed to load resource/.test(e));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
   await o.browser.close();

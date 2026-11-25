@@ -12,9 +12,11 @@
     3: { cols: 3, rows: 13, label: '٣ بالصف · ٣٩ بالورقة (68×20.8mm)' },
     /* (TASK-A0512 · المالك seq 757 «طباعة الباركود كتير مخلي الحجم كبير انا طلبت نصغره») مقاسان أصغر — والافتراضي صار ٦ بالصف */
     6: { cols: 6, rows: 24, label: '٦ بالصف · ١٤٤ بالورقة (33×10.3mm) — صغير' },
-    7: { cols: 7, rows: 27, label: '٧ بالصف · ١٨٩ بالورقة (28×9mm) — الأصغر' },
+    7: { cols: 7, rows: 27, label: '٧ بالصف · ١٨٩ بالورقة (28×9mm)' },
+    /* (المالك seq B1067 «الباركودات حط خيار ٨ بالصف الطباعة») */
+    8: { cols: 8, rows: 30, label: '٨ بالصف · ٢٤٠ بالورقة (26×9.9mm) — الأصغر' },
   };
-  const DEFAULT_LAYOUT = '6', ORDER = ['7', '6', '5', '4', '3'];
+  const DEFAULT_LAYOUT = '6', ORDER = ['8', '7', '6', '5', '4', '3'];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function expand(items) {
@@ -53,6 +55,7 @@
         padding: 0.5mm 1.6mm; outline: 0.25mm dashed #8a8f98; outline-offset: 1mm; }
   .nm { font-size: 6.6pt; font-weight: 800; line-height: 1.15; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
   .sm .lb { padding: 0.4mm 1.4mm; } .sm .nm { font-size: 5.2pt; }
+  .xs .lb { padding: 0.3mm 1.1mm; } .xs .nm { font-size: 4.7pt; } .xs .bc svg { width: 86%; }   /* ٨ بالصف */
   .bc { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 0.3mm 0 0.5mm; }
   .bc svg { width: 80%; height: 100%; display: block; }   /* (TASK-A0579) الشريط أصغر ووسط الملصق ⇒ بعيدٌ عن خطّ القصّ */
   .nobc { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 6pt; color: #777; }
@@ -96,7 +99,7 @@
     var lay = LAY[sel.value] || LAY[DEF], per = lay.cols * lay.rows, box = document.getElementById('pages'), html = '', pages = 0;
     if (!hasG) {
       for (var p = 0; p < Math.max(1, Math.ceil(L.length / per)); p++) {
-        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + (lay.cols >= 8 ? ' xs' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
         for (var i = p * per; i < Math.min(L.length, (p + 1) * per); i++) html += cell(L[i]);
         html += '</div>';
       }
@@ -115,7 +118,7 @@
       });
       if (cu.length) pg.push(cu);
       pg.forEach(function (cs) {
-        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
+        html += '<div class="page' + (lay.cols >= 6 ? ' sm' : '') + (lay.cols >= 8 ? ' xs' : '') + '" style="grid-template-columns:repeat(' + lay.cols + ',1fr);grid-template-rows:repeat(' + lay.rows + ',1fr);">';
         cs.forEach(function (c) {
           if (c.h != null) html += '<div class="gh">📦 ' + esc(c.h || 'بلا مجموعة') + '<small>' + c.n + ' ملصق</small></div>';
           else html += cell(c.x);

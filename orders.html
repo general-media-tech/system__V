@@ -126,7 +126,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
   <script src="gmt-brand.js?v=20261029z4"></script>
   <script src="gmt-updater.js?v=20261010b"></script>
   <script src="gmt-sync.js?v=20261003"></script>
-  <script src="gmt-core.js?v=20261124b2"></script>
+  <script src="gmt-core.js?v=20261125b12"></script>
 <script src="gmt-custpick.js?v=20261121i" defer></script><!-- (TASK-A0531 · seq 874) اقتراح أسماء العملاء من السجلّ -->
 <script src="gmt-bidi.js?v=20261007z"></script>
   <script src="gmt-sound.js?v=20261124b3" defer></script>
@@ -134,7 +134,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
   <script src="gmt-longpress.js?v=20261004" defer></script>
   <script src="gmt-ask.js?v=20261121b" defer></script>
   <script src="gmt-stock.js?v=20261117h" defer></script>
-  <script src="gmt-share.js?v=20261029z4" defer></script>
+  <script src="gmt-share.js?v=20261125b12" defer></script>
   <script src="gmt-render.js?v=20261025t" defer></script><!-- (TASK-0105) المُصيِّر الداخلي لصورة/PDF الأوردر (بلا خدمة خارجية) -->
   <script src="gmt-orders-lock.js?v=20261024e" defer></script><!-- (TASK-0105) شارة «قفل الأوردرات» في الترويسة + أزرار رسالة الحجب -->
   <script src="gmt-notify.js?v=20261124b4" defer></script>
@@ -142,7 +142,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
   <script src="gmt-inbox.js?v=20261122u" defer></script>
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
-<script src="gmt-shipping-offices.js?v=20261121e"></script>
+<script src="gmt-shipping-offices.js?v=20261125b12"></script>
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-mufti-live.js?v=20261029z4" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
 <script src="gmt-mufti-review.js?v=20261121b" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
@@ -3524,7 +3524,7 @@ async function fillProductsFromText(raw) {
     /* لا نقسّم بالفواصل إن كان في الرسالة وسم يدوي: الموظّف رتّبها سطراً سطراً بنفسه */
     const hasTags = parts.some(x => TAG_RE.test(x));
     if (parts.length === 1 && !hasTags)
-        parts = parts[0].split(/\s*[+،,؛]\s*|\s+\bو\s+/).map(x => x.trim()).filter(Boolean);
+        parts = parts[0].split(/\s*[+،,؛]\s*|\s+و\s+/)   /* (seq B1069) كان «\s+\bو\s+» — \b لا يعمل مع الحروف العربية فلم يقسّم بـ«و» أبداً */.map(x => x.trim()).filter(Boolean);
 
     parts = parts.filter(x => {
         const m = x.match(TAG_RE);
@@ -7756,7 +7756,7 @@ function mountUnknownPanel() {
           'class="w-full p-2 bg-white rounded-lg text-[12.5px] font-bold border border-amber-200 resize-y leading-relaxed">' +
           escH(_spUnknownText) + '</textarea>' +
         '<div class="flex flex-wrap gap-1 mt-1.5">' +
-          '<button type="button" onclick="splitUnknown()" ' +
+          '<button type="button" onclick="splitUnknown._manual=true;splitUnknown()" ' +
             'class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-black text-[11px] hover:bg-amber-700">✂️ قسّم من جديد</button>' +
           '<button type="button" onclick="spUnknownTo(\'copy\')" ' +
             'class="px-2.5 py-1 rounded-lg bg-white border border-amber-200 text-amber-800 font-black text-[11px] hover:bg-amber-100">📋 انسخهم</button>' +
@@ -7768,6 +7768,22 @@ function mountUnknownPanel() {
 }
 window.mountUnknownPanel = mountUnknownPanel;
 
+/* (المالك seq B1069 «يتعرّف تلقائياً على الكتابة إن كانت ملاحظة أو منتج أو عنوان … والأشياء اللي ما يعرفها يترك لي إياها في مربّع لحاله
+   فيها خيارات … كل سطر أحدّده … وعندي خيار أنسخه وأقصّه») — كان كلّ ما لم يُطابَق منتجاً يقع هنا «مجهولاً» حتى الواضح منه
+   («بدي ياه بكرا الصبح» ملاحظة · «قرب الجامع» تفصيل عنوان). الآن: الواضح يُوجَّه تلقائياً (أخضر · يتغيّر بضغطة) والمجهول وحده ينتظرك. */
+const SP_ADDR_RE = /^(قرب|جنب|جانب|بجانب|مقابل|قبال|خلف|ورا|وراء|أمام|امام|بناية|بنايه|بناء|عمارة|طابق|الطابق|شارع|حارة|حاره|دخلة|حي|جادة|ساحة|دوار|مفرق|اول|أول|آخر|اخر|نزلة|طلعة|بالقرب)(?=\s|$)|(?:^|\s)(جامع|مسجد|مدرسة|مدرسه|مشفى|مستشفى|صيدلية|فرن|كازية|محطة|سوق|بازار|حديقة|كنيسة)(?=\s|$).*(?:^|\s)(قرب|جانب|مقابل|خلف|حد|بعد)(?=\s|$)|^(بعد|قبل)\s+.*(جامع|مدرسة|دوار|مفرق|كازية|جسر|فرن)/;   /* \b لا يعمل مع الحروف العربية في JS ⇒ حدود بالمسافات */
+const SP_NOTE_RE = /(بكرا|بكره|بكرة|اليوم|الليلة|الصبح|الصباح|الظهر|العصر|المسا|المساء|الساعة|ساعه|ضروري|مستعجل|بسرعة|بسرعه|عجل|اتصل|اتصال|رن|لا\s*تتصل|هدية|هديه|تغليف|غلّف|كاش|حوالة|حواله|شام\s*كاش|دفع|الدفع|سلّم|سلم\s|التسليم|توصيل|بدي\s*ياه|بدي\s*ياها|بدّي|ياريت|لو\s*سمحت|رجاءً|رجاء|يرجى|ملاحظة|انتبه|تأكد|تأكّد|فحص|كفالة)/;
+function spGuessKind(t) {
+    const x = String(t || '').trim(); if (!x) return '';
+    if (SP_ADDR_RE.test(x)) return 'addr';
+    if (SP_NOTE_RE.test(x)) return 'note';
+    return '';
+}
+/* يُرجع النصّ من الحقل الذي وُضع فيه (حين يغيّر الموظّف التصنيف) */
+function spUnplace(kind, text) {
+    if (kind === 'note') { const n = document.getElementById('in-notes'); if (n) n.value = n.value.split('\n').filter(l => l.trim() !== text).join('\n'); }
+    else if (kind === 'addr') { const a = document.getElementById('in-addr'); if (a) a.value = a.value.split(' · ').filter(p => p.trim() !== text).join(' · '); }
+}
 /* يقسّم ما في الصندوق أسطراً ويعرض لكل سطر أزرار التصنيف */
 function splitUnknown() {
     const ta = document.getElementById('sp-unk-text');
@@ -7786,6 +7802,7 @@ function splitUnknown() {
           '<button type="button" data-k="name"  class="px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-100 font-black text-[11px]">👤 اسم</button>' +
           '<button type="button" data-k="phone" class="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-black text-[11px]">📞 رقم</button>' +
           '<button type="button" data-k="copy"  class="px-2 py-0.5 rounded-lg bg-white text-gray-700 border border-gray-200 font-black text-[11px]">📋 نسخ</button>' +
+          '<button type="button" data-k="cut"   class="px-2 py-0.5 rounded-lg bg-white text-gray-700 border border-gray-200 font-black text-[11px]">✂️ قصّ</button>' +
           '<button type="button" data-k="skip"  class="px-2 py-0.5 rounded-lg bg-gray-50 text-gray-500 border border-gray-200 font-black text-[11px]">✕ تجاهل</button>' +
           '<span data-k="msg" class="text-[11px] font-black"></span>' +
         '</div>' +
@@ -7797,6 +7814,16 @@ function splitUnknown() {
         card.querySelectorAll('button[data-k]').forEach(b => {
             b.onclick = async () => {
                 const kind = b.getAttribute('data-k');
+                /* (seq B1069) إعادة تصنيف سطرٍ وُجّه (تلقائياً أو يدوياً) ⇒ يُرفع من حقله السابق أوّلاً (لا تكرار) */
+                if (card.dataset.placed && card.dataset.placed !== kind && kind !== 'copy') { spUnplace(card.dataset.placed, text); delete card.dataset.placed; }
+                if (kind === 'cut') {
+                    try { await navigator.clipboard.writeText(text); } catch (_) {}
+                    if (card.dataset.placed) { spUnplace(card.dataset.placed, text); delete card.dataset.placed; }
+                    const ta2 = document.getElementById('sp-unk-text');
+                    if (ta2) ta2.value = ta2.value.split('\n').filter(l => l.trim() !== text).join('\n');
+                    card.remove(); return;
+                }
+                if (kind === 'note' || kind === 'addr') card.dataset.placed = kind;
                 if (kind === 'skip') { card.style.opacity = .4; msg.textContent = 'تُجوهل'; msg.style.color = '#9CA3AF'; return; }
                 if (kind === 'copy') {
                     try { await navigator.clipboard.writeText(text); msg.textContent = '📋 نُسخ'; msg.style.color = '#374151'; }
@@ -7854,6 +7881,15 @@ function splitUnknown() {
             };
         });
     });
+    /* (seq B1069) التوجيه التلقائي: سطرٌ واضح (ملاحظة · تفصيل عنوان) يُوضع في حقله فوراً — أخضر بعلامة «تلقائياً» ويتغيّر بضغطة */
+    if (!splitUnknown._manual) box.querySelectorAll('[data-unk]').forEach((card, i) => {
+        const k = spGuessKind(rows[i]); if (!k) return;
+        const btn = card.querySelector('button[data-k="' + k + '"]'); if (!btn) return;
+        btn.click();
+        const msg = card.querySelector('[data-k="msg"]'); if (msg) msg.textContent = '✅ تلقائياً: ' + (k === 'note' ? 'ملاحظة' : 'تفصيل عنوان') + ' — غيّره بضغطة';
+        card.dataset.auto = k;
+    });
+    splitUnknown._manual = false;
 }
 window.splitUnknown = splitUnknown;
 
@@ -11383,7 +11419,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b11"></script>
+<script src="gmt-whatsnew.js?v=20261125b12"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
