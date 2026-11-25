@@ -1,7 +1,0 @@
-task: TASK-0375
-session: session_012mdFKkM4fy6ac1SEVVfNqp
-branch: claude/tender-tesla-1x135d
-files: gmt-staff.js sw.js docs/دليل_العمليات_المدرّبة.md
-claimed_at: 2026-11-25T19:34:56Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0375
