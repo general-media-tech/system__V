@@ -7,6 +7,7 @@
      • العميل الدائم = صفّ gmt_customers (is_regular · credit_limit) — لا جدول عملاء جديد.
      • الرصيد **مشتقّ لا مخزَّن**: ما بقي على فواتيره (remaining_amount) − سندات القبض غير المُلغاة
        − مرتجعات فواتير الدين ⇒ رقمٌ واحد لا يتناقض.
+     • (TASK-B0543) السند يتوزّع على فواتيره المفتوحة (الأقدم أوّلاً) كتحصيل دين ⇒ يدخل الصندوق؛ allocations تحفظ التوزيع والإلغاء يعكسه.
      • السند لا يُحذف أبداً — يُلغى بسببٍ مسجَّل (gmt_receipts.voided).
    الربط بالفواتير: رقم الهاتف (GMTPhone.norm = آخر الأرقام بلا بادئة).
 
@@ -32,9 +33,15 @@
   function statement(invoices, receipts) {
     var inv = (invoices || []).filter(function (i) { return i && !i.is_refund; });
     var byId = {}; inv.forEach(function (i) { byId[String(i.id)] = i; });
+    /* (TASK-B0543) السند يتوزّع على الفواتير فينقص remaining_amount فعلاً (ويدخل الصندوق كأيّ تحصيل) ⇒ دين الفاتورة بالكشف
+       = ما بقي عليها + ما سدّدته السندات منها، والسند دائنٌ بكامله — فلا يُطرح مرّتين. */
+    var alloc = {};
+    (receipts || []).filter(function (r) { return r && !r.voided; }).forEach(function (r) {
+      (Array.isArray(r.allocations) ? r.allocations : []).forEach(function (a) { if (a && a.invoice_id != null) alloc[String(a.invoice_id)] = n2((alloc[String(a.invoice_id)] || 0) + Number(a.amount || 0)); });
+    });
     var rows = [];
     inv.forEach(function (i) {
-      var rem = n2(i.remaining_amount);
+      var rem = n2(n2(i.remaining_amount) + (alloc[String(i.id)] || 0));
       if (rem > 0) rows.push({ at: i.created_at, kind: 'inv', ref: i.inv_number || i.invoice_number || String(i.id).slice(0, 8), id: i.id,
         text: 'فاتورة ' + (i.sale_type || '') + ' · المجموع ' + n2(i.total) + '$ · المدفوع ' + n2(i.paid_amount) + '$', debit: rem, credit: 0 });
     });
@@ -83,6 +90,46 @@
   async function balance(c) { try { return (await load(c)).st.balance; } catch (_) { return null; } }
   function who() { try { return (global.GMTRole && GMTRole.name && GMTRole.name()) || localStorage.getItem('gmt_operator_name') || 'الأدمن'; } catch (_) { return 'الأدمن'; } }
 
+  /* ── (TASK-B0543) توزيع السند على الفواتير المفتوحة — الأقدم أوّلاً، بقفلٍ تفاؤليّ على remaining_amount (نفس applyInvoiceCollection) ── */
+  async function collectOne(id, amount) {
+    for (var t = 0; t < 3; t++) {
+      var f = ((await rest('GET', 'invoices?id=eq.' + encodeURIComponent(id) + '&select=id,inv_number,total,paid_amount,remaining_amount')) || [])[0];
+      if (!f) return 0;
+      var hasRem = f.remaining_amount != null && f.remaining_amount !== '';
+      var rem = n2(hasRem ? Number(f.remaining_amount) : Math.max(0, (Number(f.total) || 0) - (Number(f.paid_amount) || 0)));
+      var take = n2(Math.min(rem, amount)); if (!(take > 0.004)) return 0;
+      var newRem = n2(Math.max(0, rem - take));
+      var body = { payment_status: newRem <= 0.004 ? 'paid' : 'partial', paid_amount: n2((Number(f.paid_amount) || 0) + take), remaining_amount: newRem };
+      var up = await rest('PATCH', 'invoices?id=eq.' + encodeURIComponent(id) + '&' + (hasRem ? 'remaining_amount=eq.' + f.remaining_amount : 'remaining_amount=is.null'), body, 'return=representation');
+      if (up && up.length === 1) {
+        if (newRem <= 0.004) { try { await rest('PATCH', 'invoice_commissions?invoice_id=eq.' + encodeURIComponent(id) + '&awaiting_collection=eq.true', { awaiting_collection: false }, 'return=minimal'); } catch (_) {} }
+        return take;
+      }
+    }
+    throw new Error('الفاتورة تغيّرت أثناء التحصيل — أعد المحاولة');
+  }
+  async function allocate(invoices, usd) {
+    var open = (invoices || []).filter(function (i) { return i && !i.is_refund && n2(i.remaining_amount) > 0; })
+      .sort(function (a, b) { return new Date(a.created_at || 0) - new Date(b.created_at || 0); });
+    var left = n2(usd), out = [];
+    for (var k = 0; k < open.length && left > 0.004; k++) {
+      var got = await collectOne(open[k].id, left);
+      if (got > 0) { out.push({ invoice_id: open[k].id, inv_number: open[k].inv_number || open[k].invoice_number || '', amount: got }); left = n2(left - got); }
+    }
+    return { allocations: out, left: left };
+  }
+  async function unallocate(list) {
+    for (var k = 0; k < (list || []).length; k++) {
+      var a = list[k], amt = n2(a.amount); if (!(amt > 0)) continue;
+      for (var t = 0; t < 3; t++) {
+        var f = ((await rest('GET', 'invoices?id=eq.' + encodeURIComponent(a.invoice_id) + '&select=id,paid_amount,remaining_amount')) || [])[0]; if (!f) break;
+        var rem = n2(f.remaining_amount), body = { remaining_amount: n2(rem + amt), paid_amount: n2(Math.max(0, (Number(f.paid_amount) || 0) - amt)) };
+        body.payment_status = body.paid_amount > 0.004 ? 'partial' : 'unpaid';
+        var up = await rest('PATCH', 'invoices?id=eq.' + encodeURIComponent(a.invoice_id) + '&remaining_amount=eq.' + f.remaining_amount, body, 'return=representation');
+        if (up && up.length === 1) break;
+      }
+    }
+  }
   async function addReceipt(c, branchKey) {
     if (!global.GMTAsk) return null;
     var v = await GMTAsk.form('سند قبض من «' + (c.name || '') + '» — يُنقص دينه ويدخل الصندوق.', { title: '📥 قبض دفعة', icon: 'edit', okText: 'سجّل السند',
@@ -100,6 +147,17 @@
     var row = { customer_id: c.id, customer_name: c.name || null, customer_phone: c.phone || null, amount: Number(v.amount), currency: v.currency || 'USD',
       exchange_rate: v.currency !== 'USD' ? Number(v.rate) : null, method: v.method || 'cash', note: v.note || null, branch_key: branchKey || c.branch_key || null, received_by: who(), voided: false };
     var res = await rest('POST', 'gmt_receipts', row, 'return=representation');
+    /* (TASK-B0543) كان السند يُنقص الرصيد بالكشف فقط ولا يدخل الصندوق ⇒ يتوزّع على فواتيره المفتوحة (الأقدم أوّلاً) كتحصيل دين عاديّ */
+    var rec = res && res[0];
+    if (rec) {
+      try {
+        var L = await load(c), al = await allocate(L.invoices, usdOf(row));
+        await rest('PATCH', 'gmt_receipts?id=eq.' + encodeURIComponent(rec.id), { allocations: al.allocations }, 'return=minimal');
+        rec.allocations = al.allocations; rec.unallocated = al.left;
+        if (global.GMTAsk && global.GMTAsk.alert) GMTAsk.alert('✅ السند انسجّل' + (al.allocations.length ? ' وتوزّع على ' + al.allocations.length + ' فاتورة: ' + al.allocations.map(function (a) { return (a.inv_number || '') + ' ' + a.amount + '$'; }).join(' · ') : '') +
+          (al.left > 0.004 ? '\nℹ️ ' + al.left + '$ زيادة عن ديونه — بتنحسب له رصيد مقدَّم' : ''), { title: 'سند قبض' });
+      } catch (e) { if (global.GMTAsk && global.GMTAsk.alert) GMTAsk.alert('⚠️ السند انسجّل بس ما قدرنا نوزّعه على الفواتير (' + e.message + ') — راجع الديون', { title: 'سند قبض' }); }
+    }
     try { global.GMTAudit && GMTAudit.log({ action: 'receipt_add', entity: 'gmt_receipts', entityId: String((res && res[0] && res[0].id) || ''), entityName: c.name || '', newValue: row.amount + ' ' + row.currency }); } catch (_) {}
     return res && res[0];
   }
@@ -107,7 +165,10 @@
     if (!global.GMTAsk) return false;
     var why = await GMTAsk.prompt('سبب إلغاء السند (يبقى مسجَّلاً للتدقيق ولا يُحذف):', { title: 'إلغاء سند قبض' });
     if (!why || !String(why).trim()) return false;
-    await rest('PATCH', 'gmt_receipts?id=eq.' + encodeURIComponent(id) + '&voided=is.false', { voided: true, voided_at: new Date().toISOString(), voided_by: who(), void_reason: String(why).trim() }, 'return=minimal');
+    var cur = ((await rest('GET', 'gmt_receipts?id=eq.' + encodeURIComponent(id) + '&select=id,voided,allocations')) || [])[0];
+    var done = await rest('PATCH', 'gmt_receipts?id=eq.' + encodeURIComponent(id) + '&voided=is.false', { voided: true, voided_at: new Date().toISOString(), voided_by: who(), void_reason: String(why).trim() }, 'return=representation');
+    /* (TASK-B0543) الإلغاء يعكس ما سدّده السند من الفواتير — مرّة واحدة فقط (الشرط voided=false) */
+    if (done && done.length && cur && Array.isArray(cur.allocations)) await unallocate(cur.allocations);
     try { global.GMTAudit && GMTAudit.log({ action: 'receipt_void', entity: 'gmt_receipts', entityId: String(id), reason: String(why).trim() }); } catch (_) {}
     return true;
   }
@@ -208,7 +269,7 @@
     w.document.close();
   }
 
-  var api = { statement: statement, load: load, balance: balance, open: open, addReceipt: addReceipt, voidReceipt: voidReceipt, setRegular: setRegular, usdOf: usdOf };
+  var api = { statement: statement, load: load, balance: balance, open: open, addReceipt: addReceipt, voidReceipt: voidReceipt, setRegular: setRegular, usdOf: usdOf, allocate: allocate, unallocate: unallocate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (doc) global.GMTCustLedger = api;
 })(typeof window !== 'undefined' ? window : globalThis);

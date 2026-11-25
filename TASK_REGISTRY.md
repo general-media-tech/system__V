@@ -3232,3 +3232,8 @@
 - صيد النمط: `smartPasteName` يترك الحقل فارغاً أصلاً (سليم) · المنتجات المطفأة ⇒ المربّع (سليم).
 - اختبار `t_smartpaste_noaddr` ٨/٨ + `t_smartpaste_auto` · `t_smart_unknown` · `t_smart_paste` · `t_smart_paste_owner` · `t_orders_company` · `t_orders_autofill_prepaid` · `t_orders_amounts` سليمة.
 
+### TASK-B0543 — سند القبض يدخل الصندوق: توزيعه على فواتير الزبون (اكتُشف · seq B1076) — ✅ gmt-v20261125b15
+- الغلط: `GMTCustLedger.addReceipt` كان يُنقص الرصيد بالكشف فقط؛ صندوق الفرع والتقارير تحسب التحصيل من `invoices.paid_amount/remaining_amount` ⇒ السند خارجهما (نصّه «يدخل الصندوق» غير صحيح). بالقاعدة: ٠ سندات ⇒ لا أثر سابق.
+- الإصلاح: `allocate` الأقدم أوّلاً بقفل تفاؤليّ (نفس `applyInvoiceCollection`) + تحرير عمولة الآجل عند الاكتمال · `gmt_receipts.allocations` (`tools/sql/B0543_receipt_allocations.sql`) · الكشف: دين الفاتورة = الباقي + ما سدّدته السندات (لا طرح مرّتين) · الإلغاء يعكس التوزيع مرّة واحدة.
+- اختبارات `t_custledger_math` ٩/٩ · `t_custledger_ui` ١٣/١٣ · `t_custledger_pos` ٣/٣.
+

@@ -10,7 +10,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     { inv_number: 'L-2', branch_key: 'haleb', total: 30, paid_amount: 30, remaining_amount: 0, sale_type: 'نقدي', customer_phone: '+963 944 555 666', created_at: '2026-11-02T10:00:00Z', items_json: JSON.stringify([{ name: 'بطارية LP-E17', qty: 1 }]) },
     { inv_number: 'X-9', branch_key: 'haleb', total: 50, remaining_amount: 50, customer_phone: '0933000000', created_at: '2026-11-02T10:00:00Z' }]);
   const { browser, pg, errs } = await H.open('admin_pos.html?tab=customers', { init: H.ADMIN_INIT, w: 1366, h: 900, mobile: false, wait: 6000 });
-  const answers = []; await pg.evaluate(() => { window.__ans = []; const q = () => window.__ans.shift(); GMTAsk.form = async (m, o) => { const v = q(); if (v && o.submit) { const r = o.submit(v); if (r !== true) return null; } return v || null; }; GMTAsk.prompt = async () => q() || null; GMTAsk.confirm = async () => true; });
+  const answers = []; await pg.evaluate(() => { window.__ans = []; const q = () => window.__ans.shift(); GMTAsk.form = async (m, o) => { const v = q(); if (v && o.submit) { const r = o.submit(v); if (r !== true) return null; } return v || null; }; GMTAsk.prompt = async () => q() || null; GMTAsk.confirm = async () => true; GMTAsk.alert = async (m) => { window.__alerts = (window.__alerts || []).concat(m); }; });
   await pg.evaluate(async () => { await loadCustomers(); switchTab('customers'); }); await pg.waitForTimeout(500);
   ok(await pg.evaluate(id => !!document.querySelector('[data-cust-ledger][onclick*="' + id + '"]'), C.id), 'زرّ «📒 الحساب والدين» على بطاقة العميل');
   await pg.evaluate(id => openCustLedger(id), C.id); await pg.waitForSelector('[data-gacc-bal]', { timeout: 10000 }).catch(() => {});
@@ -23,16 +23,23 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(/^60\.00\$/.test(await bal()), '📥 قبض 440000 ل.س بسعر 11000 = 40$ ⇒ الرصيد 60$: ' + await bal());
   D = await H.call('/__dump', undefined, 'GET'); const R = (D.gmt_receipts || [])[0] || {};
   ok(R.customer_id === C.id && Number(R.amount) === 440000 && R.currency === 'SYP' && Number(R.exchange_rate) === 11000, 'السند محفوظ بعملته وسعره وصاحبه');
+  const L1 = () => H.call('/__dump', undefined, 'GET').then(d => d.invoices.find(x => x.inv_number === 'L-1'));
+  let i1 = await L1();
+  ok(Number(i1.remaining_amount) === 60 && Number(i1.paid_amount) === 60 && i1.payment_status === 'partial', '(B0543) السند دخل الفاتورة كتحصيل دين (الباقي 60 · المدفوع 60) ⇒ بيوصل الصندوق: ' + i1.remaining_amount + '/' + i1.paid_amount);
+  ok(Array.isArray(R.allocations) && R.allocations.length === 1 && R.allocations[0].inv_number === 'L-1' && Number(R.allocations[0].amount) === 40, '(B0543) توزيع السند محفوظ عليه: ' + JSON.stringify(R.allocations));
+  ok(await pg.evaluate(() => (window.__alerts || []).some(a => /توزّع على 1 فاتورة/.test(a))), '(B0543) رسالة بتقول على أيّ فاتورة توزّع');
   await pg.evaluate(() => { window.__ans.push('سُجّل بالغلط'); document.querySelector('[data-gacc-void]').click(); }); await pg.waitForTimeout(900);
   D = await H.call('/__dump', undefined, 'GET');
   ok(/^100\.00\$/.test(await bal()) && D.gmt_receipts.length === 1 && D.gmt_receipts[0].voided === true && D.gmt_receipts[0].void_reason === 'سُجّل بالغلط', 'إلغاء السند بسبب ⇒ يبقى مسجَّلاً (لا حذف) والرصيد يعود 100$');
+  i1 = await L1();
+  ok(Number(i1.remaining_amount) === 100 && Number(i1.paid_amount) === 20, '(B0543) إلغاء السند بيرجّع الفاتورة متل ما كانت (الباقي 100 · المدفوع 20): ' + i1.remaining_amount + '/' + i1.paid_amount);
   const srch = await pg.evaluate(() => { const i = document.querySelector('[data-gacc-q]'); i.value = 'LP-E17'; i.dispatchEvent(new Event('input')); return document.querySelector('[data-gacc-invs]').innerText; });
   ok(/L-2/.test(srch) && !/L-1/.test(srch), '🔎 البحث باسم منتج يجد فاتورته (L-2)');
   await pg.evaluate(() => document.querySelector('[data-gacc-close]').click());
   await pg.evaluate(async id => { await deleteCustomerSovereign(id, 'بلال تجربة'); }, C.id); await pg.waitForTimeout(500);
   D = await H.call('/__dump', undefined, 'GET');
   ok(D.gmt_customers.some(x => x.id === C.id), 'زبونٌ له سندات لا يُحذف');
-  ok(!errs.filter(e => !/favicon|404|400|406/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.slice(0, 2)));
+  ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS (503 = مرحّل تيليغرام غير مضبوط بالاختبار عمداً): ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

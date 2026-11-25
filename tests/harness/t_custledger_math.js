@@ -18,6 +18,13 @@ ok(!st.rows.some(r => r.id === 'z'), 'السند المُلغى لا يدخل ا
 ok(st.rows.some(r => r.kind === 'ret' && r.credit === 50), 'مرتجع 70$ على فاتورة باقيها 50$ ⇒ يُنقص 50 فقط (لا يصير الزبون دائناً بما دفعه نقداً)');
 ok(st.balance === 150 - 40 - 10 - 50, 'الرصيد = 150 − 40 − 10 − 50 = 50: ' + st.balance);
 ok(st.rows.map(r => r.balance).join(',') === '100,60,110,100,50', 'الرصيد المتراكم بترتيب التاريخ: ' + st.rows.map(r => r.balance).join(','));
+// (TASK-B0543) سند موزَّع على فاتورة: الباقي عليها نقص فعلاً ⇒ الكشف ما بيطرحه مرّتين
+const st2 = L.statement([{ id: 'a', inv_number: 'S-1', created_at: '2026-11-01T10:00:00Z', total: 100, paid_amount: 40, remaining_amount: 60 }],
+  [{ id: 'x', created_at: '2026-11-02T10:00:00Z', amount: 40, currency: 'USD', method: 'cash', allocations: [{ invoice_id: 'a', amount: 40 }] }]);
+ok(st2.debit === 100 && st2.balance === 60, '(B0543) سند موزَّع 40$ على فاتورة باقيها صار 60 ⇒ دين 100 − 40 = 60 (لا 20): ' + st2.balance);
+const st3 = L.statement([{ id: 'a', created_at: '2026-11-01T10:00:00Z', total: 100, paid_amount: 100, remaining_amount: 0 }],
+  [{ id: 'x', created_at: '2026-11-02T10:00:00Z', amount: 100, currency: 'USD', allocations: [{ invoice_id: 'a', amount: 100 }] }]);
+ok(st3.balance === 0 && st3.rows.length === 2, '(B0543) فاتورة سدّدها سند بالكامل بتضلّ بالكشف (دين 100 · سند 100 · رصيد 0)');
 const empty = L.statement([], []);
 ok(empty.balance === 0 && empty.rows.length === 0, 'عميل بلا شيء ⇒ رصيد 0');
 console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
