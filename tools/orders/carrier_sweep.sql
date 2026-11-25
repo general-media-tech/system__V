@@ -150,4 +150,5 @@ revoke all on function public.gmt_carrier_sweep(text) from public, anon, authent
 alter table public.gmt_push_queue drop constraint gmt_push_queue_kind_check, add constraint gmt_push_queue_kind_check check (kind = any (array['order','order_new','order_confirmed','order_shipped','order_delivered','order_completed','order_returned','sale','refund','transfer','transfer_received','transfer_aging','stock_in','stock_count','product_new','offer','price','expense','expense_approved','cash_transfer','daily_close','settlement','chat','review','reservation','job','warranty_on','version','stock_low','stock_out','order_late','sales_low','escalate','carrier_arrived','carrier_got','carrier_returned']));
 
 -- (المالك seq 891) كلّ ساعة بدل ٤ — بلا توكنز ولا كلفة: ~٢٤ نداءً للمفتي يومياً ونداءان لسات وبابل حين لهما شحنات (حدّ Supabase المجاني ٥٠٠ ألف شهرياً)
-select cron.schedule('gmt_carrier_sweep_4h', '17 * * * *', $$select public.gmt_carrier_sweep('cron')$$);
+-- (المالك A764 · A967 · C1110 «لازم يكون كل 15 دقيقة») — الاسم القديم gmt_carrier_sweep_4h استُبدل حيّاً في 25 ت2 2026
+select cron.schedule('gmt_carrier_sweep_15min', '*/15 * * * *', $$select public.gmt_carrier_sweep('cron')$$);

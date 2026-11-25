@@ -7926,7 +7926,7 @@ window.spUnknownTo = function (where, text) {
    `collect_amount` = المطلوب تحصيله ⇒ الملصق والبطاقة والرسائل. NULL ⇒ يساوي الكامل. */
 let _collectEdited = false;
 /* ══ (TASK-A0527 · المالك seq 878–879) «الأوردرات الذكية» — حالة شركة الشحن المحفوظة على الأوردر (carrier_live)
-   يملؤها بوت الخادم gmt_carrier_sweep كلّ ٤ ساعات، وتفحصها الصفحة عند الفتح إن مضى على آخر فحص أكثر من 30 دقيقة.
+   يملؤها بوت الخادم gmt_carrier_sweep كلّ ١٥ دقيقة (المالك A764 · A967 · C1110)، وتفحصها الصفحة عند الفتح إن مضى على آخر فحص أكثر من 30 دقيقة.
    cls: road على الطريق · branch في فرع الوجهة · got سُلِّمت للزبون · ret مرتجع · nf غير موجود. الخطّة: docs/أرشيف_المالك/١١_خطة_الأوردرات_الذكية.md ══ */
 function carrierOf(o) { const c = o && o.carrier_live; return (c && typeof c === 'object' && c.cls) ? c : null; }
 /* «📍 تم الوصول»: notify = وصلت ولم يُبلَّغ · wait = بُلّغ وينتظر · got = استلمها حسب الشركة · null = ليس هنا.
