@@ -146,6 +146,7 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
 <script src="gmt-mufti-bank.js?v=20261019a"></script>
 <script src="gmt-mufti-live.js?v=20261029z4" defer></script><!-- (TASK-0223) قراءة المفتي الحيّة + الشريط والمستطيل — مشتركة مع موقع التتبّع -->
 <script src="gmt-mufti-review.js?v=20261121b" defer></script><!-- (TASK-0217) مراجعة شحنات المفتي -->
+<script src="gmt-carrierstmt.js?v=20261125b27" defer></script><!-- (TASK-B0554 · B1041) كشف شركات الشحن -->
 <script src="gmt-serial.js?v=20261125b16" defer></script>
 <script src="gmt-refund.js?v=20261125b16" defer></script><!-- (TASK-0261) مرتجع الفاتورة تلقائياً عند تأكيد استلام المرتجع -->
 
@@ -221,6 +222,9 @@ if(!window.lucide){window.lucide={createIcons:function(){},icons:{},__stub:1};(f
             </button>
             <button onclick="openMonthlyReport()" data-hint="ملخّص كل شهر: عدد الطلبات والمجموع والمحصَّل والباقي — واضغط شهراً لتصديره." class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i> الملخّص الشهري
+            </button>
+            <button onclick="window.GMTCarrierStmt ? GMTCarrierStmt.open(typeof orders !== 'undefined' ? orders : []) : showToast('وحدة الكشف غير محمّلة','err')" data-hint="لكلّ شركة شحن: شو عندهم إلنا (وصل وبانتظار التحصيل) · بالطريق · تمّ التحصيل · المرتجعات وأجورها — طباعة وExcel" class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                📑 كشف شركات الشحن
             </button>
             <button onclick="window.GMTBrain ? GMTBrain.open() : showToast('عقل النظام غير محمّل','err')" data-hint="اسأل عن أي خطأ أو خطوة · رشّحلي لزبون · افحص صحة النظام." class="ord-x text-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
                 🧠 عقل النظام
@@ -11426,7 +11430,7 @@ try {
 <script src="gmt-nofab.js?v=20261029z4"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b26"></script>
+<script src="gmt-whatsnew.js?v=20261125b27"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <script src="gmt-fitrow.js?v=20261007z5"></script>
