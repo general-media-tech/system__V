@@ -1265,6 +1265,8 @@ window.GMT_FEATURES = [
        الذي تستعمله صفحة الأوردرات — فما يُطابَق هناك يُطابَق هنا. -->
   <script src="gmt-suggest.js?v=20261123e"></script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
+  <script src="gmt-kit.js?v=20261121a"></script><!-- (TASK-B0570 · 3.1) نفس منطق «كمّل طقمك» تبع المتجر -->
+  <script src="gmt-poskit.js?v=20261125b43"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
   <script src="gmt-order-to-invoice.js?v=20261010b"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
@@ -1617,6 +1619,7 @@ window.GMT_FEATURES = [
           <div></div>
         </div>
         <div id="cartPriceRows"></div>
+        <div id="posKitHost"></div><!-- (TASK-B0570 · 3.1) 🧩 كمّل طقمك -->
         <div class="total-area">
           <div class="total-line">
             <span class="lbl">الإجمالي</span>
@@ -7479,7 +7482,17 @@ function stepPriceCart(id, dir) {
 }
 window.stepPriceCart = stepPriceCart;
 
+/* (TASK-B0570 · الخطّة 3.1 · المالك seq 982) «🧩 كمّل طقمك» تحت السلّة — بعد كلّ رسم للسلّة */
+function _posKitRefresh(){
+  try{
+    if(!window.GMTPosKit) return;
+    const host=document.getElementById('posKitHost'); if(!host) return;
+    const items=Object.values(cart||{}).map(x=>x&&x.prod).filter(Boolean);
+    GMTPosKit.render(host,{cart:items,products:allProducts,branchKey:(typeof branch!=='undefined'&&branch&&branch.key)||'',onAdd:id=>{ try{ toggleProd(id); }catch(_){} try{ renderCart(); }catch(_){} }});
+  }catch(_){}
+}
 function renderCart() {
+  try{ setTimeout(_posKitRefresh,0); }catch(_){}
   /* ن٦: الأحدثُ أوّلاً — بترتيب الإضافة الصريح لا بترتيب المفاتيح */
   const items = Object.values(cart).sort((a, b) => (b._seq || 0) - (a._seq || 0));
   const rows  = document.getElementById('cartPriceRows');
