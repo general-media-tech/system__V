@@ -215,7 +215,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-suppliers.js?v=20261125b33"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
   <script src="gmt-poreports.js?v=20261125b33"></script><!-- (TASK-B0558 · A1004 P6) تقارير المشتريات -->
   <script src="gmt-poship.js?v=20261125b34"></script><!-- (TASK-B0559 · A1004 P6) شحنات المشتريات N↔N -->
-  <script src="gmt-podocs.js?v=20261125b34"></script><!-- (TASK-B0560 · A1004 P6) أرشيف المستندات الخاصّ -->
+  <script src="gmt-podocs.js?v=20261125b34"></script>
+  <script src="gmt-xlmap.js?v=20261125b36"></script><!-- (TASK-B0564 · A989–A991) النظام يتعلّم شكل ملف كلّ مورّد --><!-- (TASK-B0560 · A1004 P6) أرشيف المستندات الخاصّ -->
   <script src="gmt-porecords.js?v=20261125b20"></script><!-- (TASK-B0547 · A1004 P2) سجلّات موحّدة -->
   <script src="gmt-popay.js?v=20261125b36"></script><!-- (TASK-B0545 · A1004 P1) دفعات متعدّدة لفاتورة الشراء -->
 <script src="gmt-bidi.js?v=20261007z"></script>
@@ -2563,41 +2564,55 @@ async function processExcel(file){
       barcode:['الباركود','باركود','barcode','sku']
     };
     const looksNum=v=>v!==''&&v!=null&&!isNaN(parseFloat(String(v).replace(',','.')));
+    /* (TASK-B0564 · A989–A991 م١ · seq B1102) «النظام يتعلّم شكل ملف كلّ مورّد»: نوع الملف من عناوينه ⇐ بصمة العناوين ⇐
+       إذا شاف نفس الشكل قبل (gmt_import_profiles) بياخد الأعمدة متل ما اعتمدتها · وإلّا بيخمّن بالكلمات (عربي/إنجليزي/PI صيني) */
+    let headerIdx=-1, col={}, _xlSrc='keywords', _xlSig='', _xlHdr=[];
+    if(window.GMTXlMap){
+      const _dt=GMTXlMap.docType(rows);
+      if(_dt==='packing'){ toast('📦 هاد ملف باكينج ليست مو فاتورة — افتح الفاتورة ⇐ «📦 الباكينج ليست» وارفعه هونيك','err'); clearExcel(); return; }
+      if(_dt==='customs'){ toast('🛃 هاد ملف بيان جمركي — افتح الفاتورة ⇐ «📦 الباكينج ليست والجمارك» وارفعه هونيك','err'); clearExcel(); return; }
+      if(_dt==='rfq'){ toast('📨 هاد ملف عرض سعر (بالباركود) — استعمل «📨 استيراد عرض سعر المورّد»','err'); }
+      try{ if(!GMTXlMap.profileFor('__loaded__')&&!window._xlProfLoaded){ await GMTXlMap.load(); window._xlProfLoaded=true; } }catch(_){}
+      headerIdx=GMTXlMap.findHeader(rows);
+      if(headerIdx>=0){ _xlHdr=rows[headerIdx]||[]; _xlSig=GMTXlMap.sig(_xlHdr); const _pf=GMTXlMap.profileFor(_xlSig);
+        col=_pf?Object.assign({},_pf.col):GMTXlMap.mapCols(_xlHdr); _xlSrc=_pf?'profile':'keywords'; }
+    } else {
     // 1) ابحث عن صف رؤوس الأعمدة (فيه "اسم المنتج" أو "name")
-    let headerIdx=-1;
-    for(let i=0;i<Math.min(rows.length,8);i++){
-      const cells=(rows[i]||[]).map(norm);
-      if(cells.some(c=>KEY.name.some(k=>c.includes(norm(k))))){headerIdx=i;break;}
-    }
-    // 2) اخرِط أسماء الأعمدة → مواقعها
-    let col={};
-    if(headerIdx>=0){
-      const hdr=(rows[headerIdx]||[]).map(norm);
-      /* 🔧 (2026-08-23) تصادم كلمات مفتاحية: «wholesale» تحتوي «sale» ⇒ كان عمود
-         الجملة يُطابَق كمبيع أيضاً فيضيع سعر المبيع الحقيقي (اختُبر: Wholesale=70
-         و Price=95 ⇒ كلاهما 70). العلاج: مطابقة على **مرحلتين** — أولاً تطابق تامّ
-         للرأس، ثم احتواء **مع استبعاد** الأعمدة التي حُجزت لحقل أدقّ منها. */
-      const taken=new Set();
-      const exact=(keys)=>hdr.findIndex((c,i)=>!taken.has(i)&&c&&keys.some(k=>c===norm(k)));
-      const loose=(keys,avoid)=>hdr.findIndex((c,i)=>!taken.has(i)&&c&&
-            keys.some(k=>c.includes(norm(k))) &&
-            !(avoid||[]).some(a=>c.includes(norm(a))));
-      const pick=(keys,avoid)=>{
-        let i=exact(keys);
-        if(i<0) i=loose(keys,avoid);
-        if(i>=0) taken.add(i);
-        return i;
-      };
-      /* الترتيب مقصود: الأدقّ أولاً كي يحجز عموده قبل الأعمّ */
-      const cName =pick(KEY.name);
-      const cQty  =pick(KEY.qty);
-      const cWhole=pick(KEY.whole);                       // قبل المبيع (wholesale⊃sale)
-      const cMin  =pick(KEY.min);
-      const cPur  =pick(KEY.purchase);
-      const cSale =pick(KEY.sale, ['wholesale','whole','الجملة','جملة']);
-      const cNotes=pick(KEY.notes);
-      const cBar=pick(KEY.barcode);          /* (١١ ت١) ملف عرض السعر يحمل الباركود مفتاحاً */
-      col={name:cName,qty:cQty,purchase:cPur,min:cMin,whole:cWhole,sale:cSale,notes:cNotes,barcode:cBar};
+      headerIdx=-1;
+      for(let i=0;i<Math.min(rows.length,8);i++){
+        const cells=(rows[i]||[]).map(norm);
+        if(cells.some(c=>KEY.name.some(k=>c.includes(norm(k))))){headerIdx=i;break;}
+      }
+      // 2) اخرِط أسماء الأعمدة → مواقعها
+      col={};
+      if(headerIdx>=0){
+        const hdr=(rows[headerIdx]||[]).map(norm);
+        /* 🔧 (2026-08-23) تصادم كلمات مفتاحية: «wholesale» تحتوي «sale» ⇒ كان عمود
+           الجملة يُطابَق كمبيع أيضاً فيضيع سعر المبيع الحقيقي (اختُبر: Wholesale=70
+           و Price=95 ⇒ كلاهما 70). العلاج: مطابقة على **مرحلتين** — أولاً تطابق تامّ
+           للرأس، ثم احتواء **مع استبعاد** الأعمدة التي حُجزت لحقل أدقّ منها. */
+        const taken=new Set();
+        const exact=(keys)=>hdr.findIndex((c,i)=>!taken.has(i)&&c&&keys.some(k=>c===norm(k)));
+        const loose=(keys,avoid)=>hdr.findIndex((c,i)=>!taken.has(i)&&c&&
+              keys.some(k=>c.includes(norm(k))) &&
+              !(avoid||[]).some(a=>c.includes(norm(a))));
+        const pick=(keys,avoid)=>{
+          let i=exact(keys);
+          if(i<0) i=loose(keys,avoid);
+          if(i>=0) taken.add(i);
+          return i;
+        };
+        /* الترتيب مقصود: الأدقّ أولاً كي يحجز عموده قبل الأعمّ */
+        const cName =pick(KEY.name);
+        const cQty  =pick(KEY.qty);
+        const cWhole=pick(KEY.whole);                       // قبل المبيع (wholesale⊃sale)
+        const cMin  =pick(KEY.min);
+        const cPur  =pick(KEY.purchase);
+        const cSale =pick(KEY.sale, ['wholesale','whole','الجملة','جملة']);
+        const cNotes=pick(KEY.notes);
+        const cBar=pick(KEY.barcode);          /* (١١ ت١) ملف عرض السعر يحمل الباركود مفتاحاً */
+        col={name:cName,qty:cQty,purchase:cPur,min:cMin,whole:cWhole,sale:cSale,notes:cNotes,barcode:cBar};
+      }
     }
     // 3) احتياطي: لا رؤوس واضحة ⇒ خمّن حسب البنية (A=# أو A=الاسم)
     const guessLayout=()=>{
@@ -2612,74 +2627,86 @@ async function processExcel(file){
       // نموذج المورد القياسي: A=الاسم · B=صورة · C=العدد · D=سعر الشراء · E=سعر المبيع
       return {name:0,qty:2,purchase:3,min:-1,whole:-1,sale:4,notes:5};
     };
-    if(!(col.name>=0)) col=guessLayout();
-    const gv=(r,idx)=>idx>=0?r[idx]:'';
-    const totalWords=['الإجمالي','الاجمالي','المجموع','total','sum','الاجمالى'];
-    const startIdx=(headerIdx>=0?headerIdx+1:0);
-    const _imgKeysSorted=Object.keys(rowToImage).map(Number).sort((a,b)=>a-b);
-    /* وضع المطابقة:
-       ▸ anchored   : الصور مرساة بخلايا ⇒ نطابق برقم صف Excel الحقيقي (الأدقّ،
-                      ويحترم المنتجات التي لا صورة لها فلا تسرق صورة غيرها).
-       ▸ sequential : الصور **عائمة** (قصاصات ملصقة) ⇒ لا صف لها إطلاقاً، فنُسندها
-                      بترتيب ورودها: الأولى للمنتج الأول والثانية للثاني… وهو ما
-                      طلبه المالك صراحةً لهذا النوع من ملفات الموردين. */
-    const _imgMode = (typeof window!=='undefined' && window.__gmtImgOrderMode) || 'anchored';
-    const _dataRowNos=new Set();
-    for(let k=startIdx;k<rows.length;k++) _dataRowNos.add(k);
-    const _anyRowMatched = (_imgMode!=='sequential') && _imgKeysSorted.some(k=>_dataRowNos.has(k));
-    let _seqIdx=0;
-
-    exRows=rows.slice(startIdx).map((r,i)=>{
-      const name=String(gv(r,col.name)||'').trim();
-      if(!name)return null;
-      if(totalWords.some(w=>name.toLowerCase().includes(norm(w))))return null; // تخطَّ صف الإجمالي
-      // إن كان "الاسم" رقماً فقط (عمود تسلسل بالغلط) تجاهله
-      if(/^\d+$/.test(name)&&!(col.name>=0&&headerIdx>=0))return null;
-      // 🖼️ مواءمة الصورة بصف Excel الحقيقي (startIdx+i) بدل الإزاحة المتحجّرة.
-      //    احتياطي: إن لم تُطابق (ملفات قديمة/مصدر آخر) جرّب الإزاحة النسبية ثم الترتيب.
-      /* 🖼️ مواءمة الصورة بصف Excel الحقيقي — لا يهمّ **أي عمود** وُضعت فيه الصورة
-         (ملفات الموردين تضعها غالباً في العمود A)، لأن المرساة تحمل رقم الصف فقط.
-
-         🔧 (2026-08-23) إصلاح «خربطة الصور»: كان الاحتياطي الترتيبي يعمل كلما خلا
-         الصف من صورة، فيسحب صورة **منتج آخر** إلى منتج بلا صورة ويكرّرها. الآن
-         الاحتياطي مشروط: لا يُستعمل إلا إذا لم تُطابق **أي** صورة برقم صفها
-         (أي أن الملف كلّه من مصدر لا تتوافق مراسيه) — عندئذٍ فقط نرتّب بالتسلسل. */
-      const excelRowNo = startIdx + i;
-      let imageData = rowToImage[excelRowNo];
-      /* في الوضع التسلسلي (صور عائمة أو ملف .xls قديم) المفاتيح 0,1,2… بترتيب
-         ورود الصور، فنقرأها بفهرس البند مباشرةً. */
-      if(_imgMode==='sequential') imageData = rowToImage[i];
-      if(imageData===undefined && !_anyRowMatched && _imgKeysSorted.length){
-        const k=_imgKeysSorted[_seqIdx++];
-        imageData = (k!==undefined)?rowToImage[k]:'';
-      }
-      imageData = imageData||'';
-      const num=idx=>{const v=gv(r,idx);return looksNum(v)?parseFloat(String(v).replace(',','.')):0;};
-      return {name,image_url:imageData,
-        qty:parseInt(gv(r,col.qty))||1,
-        netCost:num(col.purchase),
-        minPrice:num(col.min),
-        wholePrice:num(col.whole),
-        price:num(col.sale),
-        barcode:String(gv(r,col.barcode)||'').trim().replace(/\.0+$/,''),
-        notes:String(gv(r,col.notes)||'').trim()};
-    }).filter(Boolean);
-    if(!exRows.length){toast('لا توجد بيانات','err');return;}
-    /* ⚠️ (2026-08-23) تنبيه الإزاحة: في الملفات التي تُسنَد صورها بالترتيب
-       (.xls قديم أو صور عائمة)، اختلافُ عدد الصور عن عدد البنود يعني أن منتجاً
-       يحمل صورتين أو أن أحدهم بلا صورة ⇒ تنزاح الصور بعده. نُعلم المالك ليراجع
-       المعاينة قبل الحفظ بدل اكتشاف الخطأ بعد الترحيل. */
-    try{
-      if(window.__gmtImgOrderMode==='sequential'){
-        const nImg=Number(window.__gmtImgCount||Object.keys(rowToImage).length)||0;
-        if(nImg && nImg!==exRows.length){
-          toast('⚠️ عدد الصور ('+nImg+') يخالف عدد البنود ('+exRows.length+') — راجع الصور في المعاينة قبل الحفظ','err');
-          console.warn('[استيراد] تفاوت الصور/البنود:',nImg,'مقابل',exRows.length);
-        }
-      }
-    }catch(_){}
-    renderExcelPreview();
+    window._exLast={rows,rowToImage,headerIdx,col:Object.assign({},col),src:_xlSrc,sig:_xlSig,hdr:_xlHdr,guess:guessLayout};
+    _exBuild();
   }catch(e){toast('خطأ: '+e.message,'err');console.error(e);}
+}
+/* (TASK-B0564) بناء بنود الإكسل من الأعمدة — بيُعاد تشغيله لمّا تصحّح عمود من المعاينة (بلا ما ينقرا الملف من جديد) */
+function _exBuild(colOverride){
+  const L=window._exLast; if(!L) return;
+  const rows=L.rows, rowToImage=L.rowToImage, headerIdx=L.headerIdx, guessLayout=L.guess;
+  let col=Object.assign({},colOverride||L.col);
+  const norm=s=>String(s==null?'':s).trim().toLowerCase().replace(/[$:]/g,' ').replace(/\s+/g,' ').trim();
+  const looksNum=v=>v!==''&&v!=null&&!isNaN(parseFloat(String(v).replace(',','.')));
+  if(!(col.name>=0)) col=guessLayout();
+  const gv=(r,idx)=>idx>=0?r[idx]:'';
+  const totalWords=['الإجمالي','الاجمالي','المجموع','total','sum','الاجمالى'];
+  const startIdx=(headerIdx>=0?headerIdx+1:0);
+  const _imgKeysSorted=Object.keys(rowToImage).map(Number).sort((a,b)=>a-b);
+  /* وضع المطابقة:
+     ▸ anchored   : الصور مرساة بخلايا ⇒ نطابق برقم صف Excel الحقيقي (الأدقّ،
+                    ويحترم المنتجات التي لا صورة لها فلا تسرق صورة غيرها).
+     ▸ sequential : الصور **عائمة** (قصاصات ملصقة) ⇒ لا صف لها إطلاقاً، فنُسندها
+                    بترتيب ورودها: الأولى للمنتج الأول والثانية للثاني… وهو ما
+                    طلبه المالك صراحةً لهذا النوع من ملفات الموردين. */
+  const _imgMode = (typeof window!=='undefined' && window.__gmtImgOrderMode) || 'anchored';
+  const _dataRowNos=new Set();
+  for(let k=startIdx;k<rows.length;k++) _dataRowNos.add(k);
+  const _anyRowMatched = (_imgMode!=='sequential') && _imgKeysSorted.some(k=>_dataRowNos.has(k));
+  let _seqIdx=0;
+
+  exRows=rows.slice(startIdx).map((r,i)=>{
+    const name=String(gv(r,col.name)||'').trim();
+    if(!name)return null;
+    if(totalWords.some(w=>name.toLowerCase().includes(norm(w))))return null; // تخطَّ صف الإجمالي
+    // إن كان "الاسم" رقماً فقط (عمود تسلسل بالغلط) تجاهله
+    if(/^\d+$/.test(name)&&!(col.name>=0&&headerIdx>=0))return null;
+    // 🖼️ مواءمة الصورة بصف Excel الحقيقي (startIdx+i) بدل الإزاحة المتحجّرة.
+    //    احتياطي: إن لم تُطابق (ملفات قديمة/مصدر آخر) جرّب الإزاحة النسبية ثم الترتيب.
+    /* 🖼️ مواءمة الصورة بصف Excel الحقيقي — لا يهمّ **أي عمود** وُضعت فيه الصورة
+       (ملفات الموردين تضعها غالباً في العمود A)، لأن المرساة تحمل رقم الصف فقط.
+
+       🔧 (2026-08-23) إصلاح «خربطة الصور»: كان الاحتياطي الترتيبي يعمل كلما خلا
+       الصف من صورة، فيسحب صورة **منتج آخر** إلى منتج بلا صورة ويكرّرها. الآن
+       الاحتياطي مشروط: لا يُستعمل إلا إذا لم تُطابق **أي** صورة برقم صفها
+       (أي أن الملف كلّه من مصدر لا تتوافق مراسيه) — عندئذٍ فقط نرتّب بالتسلسل. */
+    const excelRowNo = startIdx + i;
+    let imageData = rowToImage[excelRowNo];
+    /* في الوضع التسلسلي (صور عائمة أو ملف .xls قديم) المفاتيح 0,1,2… بترتيب
+       ورود الصور، فنقرأها بفهرس البند مباشرةً. */
+    if(_imgMode==='sequential') imageData = rowToImage[i];
+    if(imageData===undefined && !_anyRowMatched && _imgKeysSorted.length){
+      const k=_imgKeysSorted[_seqIdx++];
+      imageData = (k!==undefined)?rowToImage[k]:'';
+    }
+    imageData = imageData||'';
+    const num=idx=>{const v=gv(r,idx);return looksNum(v)?parseFloat(String(v).replace(',','.')):0;};
+    return {name,image_url:imageData,
+      qty:parseInt(gv(r,col.qty))||1,
+      netCost:num(col.purchase),
+      minPrice:num(col.min),
+      wholePrice:num(col.whole),
+      price:num(col.sale),
+      barcode:String(gv(r,col.barcode)||'').trim().replace(/\.0+$/,''),
+      model:col.model>=0?String(gv(r,col.model)||'').trim():'',
+      notes:[col.model>=0&&String(gv(r,col.model)||'').trim()?'موديل: '+String(gv(r,col.model)).trim():'',String(gv(r,col.notes)||'').trim()].filter(Boolean).join(' · ')};   /* (B1102) الموديل/Item No. ⇒ ملاحظة البند */
+  }).filter(Boolean);
+  if(!exRows.length){toast('لا توجد بيانات','err');return;}
+  /* ⚠️ (2026-08-23) تنبيه الإزاحة: في الملفات التي تُسنَد صورها بالترتيب
+     (.xls قديم أو صور عائمة)، اختلافُ عدد الصور عن عدد البنود يعني أن منتجاً
+     يحمل صورتين أو أن أحدهم بلا صورة ⇒ تنزاح الصور بعده. نُعلم المالك ليراجع
+     المعاينة قبل الحفظ بدل اكتشاف الخطأ بعد الترحيل. */
+  try{
+    if(window.__gmtImgOrderMode==='sequential'){
+      const nImg=Number(window.__gmtImgCount||Object.keys(rowToImage).length)||0;
+      if(nImg && nImg!==exRows.length){
+        toast('⚠️ عدد الصور ('+nImg+') يخالف عدد البنود ('+exRows.length+') — راجع الصور في المعاينة قبل الحفظ','err');
+        console.warn('[استيراد] تفاوت الصور/البنود:',nImg,'مقابل',exRows.length);
+      }
+    }
+  }catch(_){}
+  renderExcelPreview();
+  L.used=Object.assign({},col);
 }
 /* ═══════════════════════════════════════════════════════════════════════════
    📗 استخراج صور ملفات .xls القديمة (BIFF / Composite Document)   2026-08-23
@@ -3110,6 +3137,20 @@ function renderExcelPreview(){
   let infoEl=document.getElementById('excel-info-bar');
   if(!infoEl){infoEl=document.createElement('div');infoEl.id='excel-info-bar';const tableWrap=document.getElementById('excel-tbl').closest('div');container.insertBefore(infoEl,tableWrap);}
   infoEl.innerHTML=infoBar;
+  /* (TASK-B0564) شريط الأعمدة: شو عرف النظام · صحّحه ⇐ بيتعلّم للمرّة الجاية */
+  try{
+    const L=window._exLast; let mb=document.getElementById('excel-map-bar');
+    if(L&&window.GMTXlMap&&L.headerIdx>=0&&(L.hdr||[]).length){
+      if(!mb){mb=document.createElement('div');mb.id='excel-map-bar';container.insertBefore(mb,infoEl);}
+      const used=L.used||L.col, pf=GMTXlMap.profileFor(L.sig);
+      const opts=i=>'<option value="-1">— ما في —</option>'+(L.hdr||[]).map((h,k)=>String(h==null?'':h).trim()?'<option value="'+k+'"'+(k===i?' selected':'')+'>'+eh(String(h).trim().slice(0,30))+'</option>':'').join('');
+      const F=GMTXlMap.FIELDS.filter(f=>['name','qty','purchase','sale','model','barcode','notes','whole','min'].includes(f[0]));
+      mb.innerHTML='<div style="background:'+(L.src==='profile'?'#ecfdf5;border:1px solid #a7f3d0':'#fffbeb;border:1px solid #fde68a')+';border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:12px">'+
+        '<div style="font-weight:900;margin-bottom:6px">'+(L.src==='profile'?'🧠 عرفت شكل هالملف من قبل'+(pf&&pf.supplier?' ('+eh(pf.supplier)+')':'')+(pf?' — استعملته '+pf.uses+' مرّة':''):'🔎 خمّنت الأعمدة من عناوينها — تأكّد وصحّح إذا لازم، وبحفظ الشكل للمرّة الجاية')+'</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">'+F.map(f=>'<label style="display:flex;align-items:center;gap:4px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:3px 6px"><b>'+f[1]+'</b><select data-xl-field="'+f[0]+'" style="border:0;font:inherit;font-size:11.5px;max-width:130px;background:transparent">'+opts(used[f[0]]>=0?used[f[0]]:-1)+'</select></label>').join('')+'</div></div>';
+      mb.onchange=e=>{const sel=e.target.closest('[data-xl-field]');if(!sel)return;const c=Object.assign({},L.used||L.col);c[sel.getAttribute('data-xl-field')]=parseInt(sel.value,10);L.changed=true;_exBuild(c);};
+    } else if(mb){ mb.innerHTML=''; }
+  }catch(_){}
   document.getElementById('excel-tbl').innerHTML=`<thead>${head}</thead><tbody>${body}</tbody>`;
   document.getElementById('excel-lbl').textContent=`${total} منتج`;
   container.classList.remove('hidden');
@@ -3161,6 +3202,8 @@ function prodsByInvoiceName(name){
 }
 async function importExcel(){
   if(!exRows.length)return;
+  /* (TASK-B0564) تعلّم شكل الملف: بصمة العناوين ⇐ الأعمدة المعتمدة (مع اسم المورّد) — المرّة الجاية بيعرفه لحاله */
+  try{ const L=window._exLast; if(L&&L.sig&&window.GMTXlMap&&(L.used||L.col)){ const sup=(document.getElementById('in-supplier')||{}).value||''; GMTXlMap.save(L.sig,L.used||L.col,(L.hdr||[]).map(h=>String(h==null?'':h)),{supplier:String(sup).trim()||null}).catch(()=>{}); } }catch(_){}
   btnLoad('جارٍ المطابقة...');let added=0,pendingNew=[],byInvName=0,ambiguous=[];
   const _isNew=row=>!((row.barcode?prods.find(p=>String(p.barcode||'').trim().toLowerCase()===row.barcode.toLowerCase()):null)||prods.find(p=>(p.name||'').toLowerCase()===String(row.name||'').toLowerCase())||prodsByInvoiceName(row.name).length||prodByTokens(row.name));
   const _toUp=exRows.filter(r=>r.name&&String(r.image_url||'').startsWith('data:')&&_isNew(r));
