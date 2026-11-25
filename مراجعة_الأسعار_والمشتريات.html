@@ -137,7 +137,8 @@ details.row{border-top:1px solid #f1f5f9;padding:6px 0}details.row summary{curso
     var p = PR, diffs = p.storeDiff.concat(p.optDiff);
     $('pr-sum').innerHTML = [['r', 'المتجر ≠ الجرد', diffs.length], ['o', 'بلا سعر مبيع', p.noSale.length], ['o', 'لها مخزون بلا كلفة', p.noCost.length], ['r', 'بخسارة', p.loss.length], ['o', 'تحت الحدّ الأدنى', p.belowMin.length], ['b', 'منتج متجر بلا جرد', p.storeOrphan.length]].map(function (x) { return '<span class="pill ' + x[0] + '">' + x[1] + ': ' + x[2] + '</span>'; }).join('');
     $('pr-list').innerHTML =
-      card('r', '💲 سعر المتجر مختلف عن الجرد', diffs.length, 'اكتب السعر اللي بدّك ياه بالخانة (أو اضغط «المتجر»/«الجرد» ليتعبّى) ⇐ ✓ أو Enter ⇒ بينكتب **بالجرد والمتجر سوا**. أو «وحّد الكلّ على الجرد» دفعة وحدة.', 'المتجر', 'الجرد', 'السعر الجديد'], diffs.map(function (d) { return '<tr data-diff="' + esc(d.inv_id) + '"><td>' + esc(d.name) + '</td><td class="n">' + f2(d.store) + '</td><td class="n">' + f2(d.inv) + '</td>' + priceCell(d.inv_id, d.inv, [['المتجر', d.store], ['الجرد', d.inv]]) + '</tr>'; }))) +
+      card('r', '💲 سعر المتجر مختلف عن الجرد', diffs.length, 'اكتب السعر اللي بدّك ياه بالخانة (أو اضغط «المتجر»/«الجرد» ليتعبّى) ⇐ ✓ أو Enter ⇒ بينكتب <b>بالجرد والمتجر سوا</b>. أو دفعة وحدة:' + (diffs.length ? ' <button class="btn r" data-sync-all>⇐ وحّد الكلّ على الجرد (' + diffs.length + ')</button>' : ''),
+        tbl(['المنتج', 'المتجر', 'الجرد', 'السعر الجديد'], diffs.map(function (d) { return '<tr data-diff="' + esc(d.inv_id) + '"><td>' + esc(d.name) + '</td><td class="n">' + f2(d.store) + '</td><td class="n">' + f2(d.inv) + '</td>' + priceCell(d.inv_id, d.inv, [['المتجر', d.store], ['الجرد', d.inv]]) + '</tr>'; }))) +
       card('o', '🏷️ بلا سعر مبيع', p.noSale.length, 'منتجات سعر مبيعها 0 — ما له مخزون منها أوّلاً (لا يجوز أن يُباع بلا سعر). ✏️ يفتح التعديل الكامل.',
         tbl(['المنتج', 'المخزون', 'اكتب السعر', ''], p.noSale.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td>' + priceCell(d.id, 0) + '<td>' + pLink(d.id) + '</td></tr>'; }))) +
       card('o', '🧾 لها مخزون بلا كلفة (سعر شراء)', p.noCost.length, 'لا يُحسب ربحها ولا قيمة مخزونها — تُعبّأ من فاتورة شرائها («عبّئ الأسعار الناقصة») أو من التعديل الكامل.',
@@ -209,7 +210,7 @@ details.row{border-top:1px solid #f1f5f9;padding:6px 0}details.row summary{curso
 <script src="gmt-updater.js?v=20261010b"></script>
 <script src="gmt-notify.js?v=20261125b32" defer></script>
 <script src="gmt-pwa.js?v=20261112f"></script>
-<script src="gmt-whatsnew.js?v=20261125b43"></script>
+<script src="gmt-whatsnew.js?v=20261127b44"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 </body>
 </html>
