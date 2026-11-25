@@ -33,7 +33,9 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.top h1{margin:0;font-size:20px;flex:1}
 .sub{color:var(--mu);font-size:12.5px;margin:0 0 12px}
 .btn{border:1.5px solid var(--ln);background:#fff;border-radius:11px;padding:7px 13px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;color:inherit;text-decoration:none;display:inline-block}
-.btn.k{background:#0f1219;color:#fff;border-color:#0f1219}.btn.r{background:var(--red);color:#fff;border-color:var(--red)}
+.btn.k{background:#0f1219;color:#fff;border-color:#0f1219}
+/* (seq B1114) خانة كتابة السعر متل الجسر */
+.pe{display:flex;gap:4px;align-items:center}.pe input{width:84px;border:1.5px solid var(--ln);border-radius:9px;padding:6px 8px;font:inherit;font-size:13px;font-weight:800;direction:ltr;text-align:center}.pe .btn{padding:6px 10px}.chips{display:flex;gap:3px;margin-top:3px}.chip{border:1px solid var(--ln);background:#f8fafc;border-radius:99px;padding:1px 7px;font:inherit;font-size:11px;cursor:pointer}.ok-row{background:#f0fdf4}.btn.r{background:var(--red);color:#fff;border-color:var(--red)}
 .tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.tabs button.on{background:#0f1219;color:#fff;border-color:#0f1219}
 .sum{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.pill{border-radius:99px;padding:4px 13px;font-weight:900;font-size:12.5px;background:#f1f5f9;cursor:pointer;border:1.5px solid transparent}
 .pill.r{background:#fee2e2;color:#991b1b}.pill.o{background:#fef3c7;color:#92400e}.pill.g{background:#dcfce7;color:#166534}.pill.b{background:#e0e7ff;color:#3730a3}.pill.on{border-color:#0f1219}
@@ -113,20 +115,37 @@ details.row{border-top:1px solid #f1f5f9;padding:6px 0}details.row summary{curso
     return rows.length ? '<table><thead><tr>' + head.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.slice(0, max).join('') + '</tbody></table>' + (rows.length > max ? '<div class="more">…و' + (rows.length - max) + ' أخرى</div>' : '') : '<div class="ex">✅ لا شيء</div>';
   }
   var pLink = function (id, v) { return '<a href="inventory.html?pid=' + encodeURIComponent(id) + '&view=' + (v || 'edit') + '" target="_blank" rel="noopener">' + (v === 'mov' ? '📜' : '✏️') + '</a>'; };
+  /* (seq B1114 «خلّيها متل الجسر مع مكان كتابة السعر») كلّ صفّ: خانة سعر + ✓ ⇒ بينكتب بالجرد وبالمتجر سوا */
+  function priceCell(id, val, chips) {
+    return '<td><div class="pe"><input type="number" step="0.01" min="0" data-pin="' + esc(id) + '" value="' + (val ? f2(val) : '') + '" placeholder="السعر" inputmode="decimal"><button class="btn k" data-pset="' + esc(id) + '" title="اعتمد هالسعر بالجرد والمتجر">✓</button></div>' +
+      (chips && chips.length ? '<div class="chips">' + chips.map(function (c) { return '<button class="chip" data-pfill="' + esc(id) + '" data-v="' + f2(c[1]) + '">' + c[0] + ' ' + f2(c[1]) + '</button>'; }).join('') + '</div>' : '') + '</td>';
+  }
+  async function setPrice(id, price, btn) {
+    if (!(price > 0)) { GMTAsk.alert('اكتب سعر أكبر من صفر'); return; }
+    var M = window.GMT_DB && GMT_DB.MAIN; if (!M) { GMTAsk.alert('إعدادات القاعدة غير محمّلة'); return; }
+    try {
+      btn && (btn.disabled = true);
+      var r = await fetch(M.url + '/rest/v1/products?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: M.key, Authorization: 'Bearer ' + M.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ price: price }) });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (window.GMTStoreSync) { GMTStoreSync.queuePrice(id, price); await GMTStoreSync.flushPrices(); }
+      try { window.GMTAudit && GMTAudit.log({ action: 'price_set_review', entity: 'products', entityId: String(id), newValue: String(price) }); } catch (_) {}
+      var tr = btn && btn.closest('tr'); if (tr) { tr.classList.add('ok-row'); var c = tr.querySelector('td:last-child'); if (c) c.insertAdjacentHTML('beforeend', '<div style="font-size:11px;color:#15803d;font-weight:800">✅ صار ' + f2(price) + ' بالجرد والمتجر</div>'); }
+    } catch (e) { GMTAsk.alert('تعذّر الحفظ: ' + e.message); }
+    finally { btn && (btn.disabled = false); }
+  }
   function renderPr() {
     var p = PR, diffs = p.storeDiff.concat(p.optDiff);
     $('pr-sum').innerHTML = [['r', 'المتجر ≠ الجرد', diffs.length], ['o', 'بلا سعر مبيع', p.noSale.length], ['o', 'لها مخزون بلا كلفة', p.noCost.length], ['r', 'بخسارة', p.loss.length], ['o', 'تحت الحدّ الأدنى', p.belowMin.length], ['b', 'منتج متجر بلا جرد', p.storeOrphan.length]].map(function (x) { return '<span class="pill ' + x[0] + '">' + x[1] + ': ' + x[2] + '</span>'; }).join('');
     $('pr-list').innerHTML =
-      card('r', '💲 سعر المتجر مختلف عن الجرد', diffs.length, 'الجرد هو المرجع الوحيد لسعر المنتج (seq 579) ⇒ «وحّد» يكتب سعر الجرد في المتجر (القائمة وخياراتها) بكتابةٍ آمنة مسجَّلة.' + (diffs.length ? ' <button class="btn r" data-sync-all>⇐ وحّد الكلّ على الجرد (' + diffs.length + ')</button>' : ''),
-        tbl(['المنتج', 'المتجر', 'الجرد', ''], diffs.map(function (d) { return '<tr data-diff="' + esc(d.inv_id) + '"><td>' + esc(d.name) + '</td><td class="n">' + f2(d.store) + '</td><td class="n">' + f2(d.inv) + '</td><td><button class="btn" data-sync="' + esc(d.inv_id) + '" data-price="' + d.inv + '">⇐ وحّد</button></td></tr>'; }))) +
+      card('r', '💲 سعر المتجر مختلف عن الجرد', diffs.length, 'اكتب السعر اللي بدّك ياه بالخانة (أو اضغط «المتجر»/«الجرد» ليتعبّى) ⇐ ✓ أو Enter ⇒ بينكتب **بالجرد والمتجر سوا**. أو «وحّد الكلّ على الجرد» دفعة وحدة.', 'المتجر', 'الجرد', 'السعر الجديد'], diffs.map(function (d) { return '<tr data-diff="' + esc(d.inv_id) + '"><td>' + esc(d.name) + '</td><td class="n">' + f2(d.store) + '</td><td class="n">' + f2(d.inv) + '</td>' + priceCell(d.inv_id, d.inv, [['المتجر', d.store], ['الجرد', d.inv]]) + '</tr>'; }))) +
       card('o', '🏷️ بلا سعر مبيع', p.noSale.length, 'منتجات سعر مبيعها 0 — ما له مخزون منها أوّلاً (لا يجوز أن يُباع بلا سعر). ✏️ يفتح التعديل الكامل.',
-        tbl(['المنتج', 'المخزون', ''], p.noSale.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+        tbl(['المنتج', 'المخزون', 'اكتب السعر', ''], p.noSale.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td>' + priceCell(d.id, 0) + '<td>' + pLink(d.id) + '</td></tr>'; }))) +
       card('o', '🧾 لها مخزون بلا كلفة (سعر شراء)', p.noCost.length, 'لا يُحسب ربحها ولا قيمة مخزونها — تُعبّأ من فاتورة شرائها («عبّئ الأسعار الناقصة») أو من التعديل الكامل.',
         tbl(['المنتج', 'المخزون', 'المبيع', ''], p.noCost.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + d.stock + '</td><td class="n">' + f2(d.sale) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
       card('r', '📉 سعر المبيع ≤ الكلفة', p.loss.length, 'يُباع بخسارة أو بلا ربح — راجع الكلفة أو المبيع.',
-        tbl(['المنتج', 'المبيع', 'الكلفة', ''], p.loss.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.cost) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+        tbl(['المنتج', 'المبيع', 'الكلفة', 'سعر جديد', ''], p.loss.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.cost) + '</td>' + priceCell(d.id, d.sale) + '<td>' + pLink(d.id) + '</td></tr>'; }))) +
       card('o', '⬇️ المبيع أقلّ من الحدّ الأدنى', p.belowMin.length, 'الحدّ الأدنى (net_cost) أعلى من سعر المبيع نفسه — أحدهما خطأ.',
-        tbl(['المنتج', 'المبيع', 'الحدّ الأدنى', ''], p.belowMin.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.min) + '</td><td>' + pLink(d.id) + '</td></tr>'; }))) +
+        tbl(['المنتج', 'المبيع', 'الحدّ الأدنى', 'سعر جديد', ''], p.belowMin.map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td class="n">' + f2(d.sale) + '</td><td class="n">' + f2(d.min) + '</td>' + priceCell(d.id, d.sale, [['الحدّ الأدنى', d.min]]) + '<td>' + pLink(d.id) + '</td></tr>'; }))) +
       card('', '🔗 منتج بالمتجر بلا منتج جرد', p.storeOrphan.length, 'قائمة متجر غير مربوطة بالجرد — سعرها ومخزونها لا يتبعان شيئاً. اربطها من أدمن المتجر.',
         tbl(['المنتج بالمتجر'], p.storeOrphan.map(function (d) { return '<tr><td>' + esc(d.name) + '</td></tr>'; }))) +
       card('', '✂️ أسعار مشطوبة (عرض مؤقّت) منتهية أو مخالفة', p.strike.length, 'تغيير سعرٍ مؤقّت انتهى ولم يُرجَع، أو سعر الجرد غير سعر العرض.',
@@ -173,11 +192,14 @@ details.row{border-top:1px solid #f1f5f9;padding:6px 0}details.row summary{curso
     var b = e.target.closest('button,[data-kind]'); if (!b) return;
     if (b.dataset.tab) { document.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); }); $('pane-pr').style.display = b.dataset.tab === 'pr' ? '' : 'none'; $('pane-tr').style.display = b.dataset.tab === 'tr' ? '' : 'none'; }
     else if (b.dataset.kind) { trKind = b.dataset.kind; renderTr(); }
+    else if (b.hasAttribute('data-pfill')) { var inp = document.querySelector('[data-pin="' + b.getAttribute('data-pfill') + '"]'); if (inp) { inp.value = b.getAttribute('data-v'); inp.focus(); } }
+    else if (b.hasAttribute('data-pset')) { var inp2 = b.closest('.pe').querySelector('[data-pin]'); setPrice(b.getAttribute('data-pset'), Number(inp2 && inp2.value), b); }
     else if (b.hasAttribute('data-sync')) syncPrices([{ id: b.getAttribute('data-sync'), price: Number(b.getAttribute('data-price')) }]);
     else if (b.hasAttribute('data-sync-all')) { var seen = {}; syncPrices(PR.storeDiff.concat(PR.optDiff).filter(function (d) { if (seen[d.inv_id]) return false; seen[d.inv_id] = 1; return true; }).map(function (d) { return { id: d.inv_id, price: d.inv }; })); }
     else if (b.id === 'rl') run();
   });
   $('tr-q').addEventListener('input', paintTr);
+  document.addEventListener('keydown', function (e) { var i = e.target.closest && e.target.closest('[data-pin]'); if (i && e.key === 'Enter') { e.preventDefault(); var b = i.closest('.pe').querySelector('[data-pset]'); setPrice(i.getAttribute('data-pin'), Number(i.value), b); } });   /* (B1114) Enter = اعتمد */
   if (/[?&]tab=tr/.test(location.search)) setTimeout(function () { document.querySelector('[data-tab="tr"]').click(); }, 0);
   window.GMTPriceReviewPage = { run: run, data: function () { return { D: D, PR: PR, TR: TR }; } };
   run();
