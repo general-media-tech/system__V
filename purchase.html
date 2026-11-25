@@ -209,6 +209,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gmt-red)!important;bo
   <script src="gmt-sync.js?v=20261003"></script>
   <script src="gmt-core.js?v=20261125b12"></script>
   <script src="gmt-ledger.js?v=20261029z4"></script>
+  <script src="gmt-poitem.js?v=20261125b28"></script><!-- (TASK-B0555 · A988) بند الفاتورة ⇐ ملفّ المنتج -->
   <script src="gmt-scan.js?v=20261124b2" defer></script>
   <script src="gmt-scanrecv.js?v=20261125b22"></script><!-- (TASK-B0549 · A1004 P4 · A0587) الاستلام بالمسح -->
   <script src="gmt-suppliers.js?v=20261125b21"></script><!-- (TASK-B0548 · A1004 P3) الموردون -->
@@ -1246,6 +1247,10 @@ async function openPoPay(id){
     try{await GMTPoPay.loadAll();render();}catch(_){} }});
 }
 window.openPoPay=openPoPay;
+/* (TASK-B0555 · A988) ℹ️ جنب كلّ بند ⇐ نافذة: هالشراء (كما انسجّل) · المنتج اليوم (حيّ) · كلّ مشترياته · التنبيهات */
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pi-open]');if(!b||!window.GMTPoItem)return;e.preventDefault();e.stopPropagation();
+  const it=(window._invLines||[])[+b.dataset.piIdx]||{};const io=window._invOpen||{};
+  GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes},invId:io.id,invNumber:(window._invHead||{}).num,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
 function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;} GMTPoPay.loadAll().then(()=>GMTPoPay.openAging(ships||[],id=>openPoPay(id))); }
 window.openPoAging=openPoAging;
 function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
@@ -1973,6 +1978,7 @@ function buildInstantInv(d){
   const invTimeStr=new Date().toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit'});
   const reHide=()=>{hiddenCols.forEach(cls=>{document.querySelectorAll(`#invPage .${cls}`).forEach(el=>{el.style.display='none';});});};
   setTimeout(reHide,30);
+  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate};   /* (TASK-B0555) للنافذة ℹ️ */
   const rows=d.items.map((item,idx)=>{
     const fs=(item.name||'').length>38?'10px':'12px';
     let imgEl;
@@ -1980,7 +1986,8 @@ function buildInstantInv(d){
     else{imgEl=`<div style="width:44px;height:44px;background:#f3f4f6;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;" title="${eh(item.name)}">📦</div>`;}
     /* (المالك seq B1048 «توصيل في كل مكان للوصول في كل شيء») 📜 ⇒ سجلّ المنتج وحركته وفواتيره في الجرد (لا يُطبع) */
     const _pid=(item.product&&item.product.id)||item.id||(item._raw&&item._raw.id);
-    if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<a data-inv-prod href="inventory.html?pid=${encodeURIComponent(String(_pid))}&view=mov" target="_blank" rel="noopener" class="no-print" title="سجلّ المنتج: الحركة والفواتير" style="display:block;font-size:10px;text-decoration:none;margin-top:1px">📜</a>`;
+    if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<button type="button" data-pi-open="${eh(String(_pid))}" data-pi-idx="${idx}" class="no-print" title="تفاصيل المنتج: هالشراء · المنتج اليوم · كلّ مشترياته · التنبيهات" style="display:inline-block;margin-top:2px;border:0;background:#eef2ff;color:#1f348f;border-radius:6px;padding:1px 5px;font-size:11px;font-weight:900;cursor:pointer">ℹ️</button>`;
+      if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<a data-inv-prod href="inventory.html?pid=${encodeURIComponent(String(_pid))}&view=mov" target="_blank" rel="noopener" class="no-print" title="سجلّ المنتج: الحركة والفواتير" style="display:block;font-size:10px;text-decoration:none;margin-top:1px">📜</a>`;
     const fmt=v=>v&&Number(v)>0?Number(v).toFixed(2):'';
     let _cellN=0;
     const dualCell=(cls,unitVal,qty)=>{
@@ -3296,6 +3303,7 @@ function buildInv(data){
   const invTimeStr=new Date().toLocaleTimeString('ar-SY',{hour:'2-digit',minute:'2-digit'});
   const typeLabel=d.invType==='germany'?'أوروبية / ألمانيا 🇩🇪':'صينية 🇨🇳';
   const edt=(val,w)=>`<span contenteditable="true" class="editable" style="min-width:${w||50}px;display:inline-block;">${val||''}</span>`;
+  window._invLines=d.items; window._invHead={num:d.invNum,date:d.invDate};   /* (TASK-B0555) للنافذة ℹ️ */
   const rows=d.items.map((item,idx)=>{
     const fs=(item.name||'').length>38?'10px':'12px';const imgId=`inv-img-${idx}`;let imgEl;
     if(item.image_url){imgEl=`<div style="position:relative;width:44px;height:44px;display:inline-block;"><img src="${eh(item.image_url)}" data-orig-src="${eh(item.image_url)}" style="width:44px;height:44px;object-fit:contain;display:block;" onerror="this.style.display='none'" title="${eh(item.name)}"><div onclick="invImgClick(${idx},this.parentElement)" title="تغيير الصورة" style="position:absolute;bottom:0;right:0;background:rgba(0,0,0,.5);border-radius:3px;padding:1px 2px;cursor:pointer;font-size:9px;color:#fff;">✏️</div></div>`;}
@@ -3303,6 +3311,7 @@ function buildInv(data){
     else{imgEl=`<div style="width:44px;height:44px;background:#f3f4f6;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;" title="${eh(item.name)}">📦</div>`;}
     /* (المالك seq B1048) 📜 ⇒ سجلّ المنتج وحركته وفواتيره في الجرد (لا يُطبع) — نفس فاتورة المشتريات الفورية */
     { const _pid=(item.product&&item.product.id)||item.id||(item._raw&&item._raw.id);
+      if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<button type="button" data-pi-open="${eh(String(_pid))}" data-pi-idx="${idx}" class="no-print" title="تفاصيل المنتج: هالشراء · المنتج اليوم · كلّ مشترياته · التنبيهات" style="display:inline-block;margin-top:2px;border:0;background:#eef2ff;color:#1f348f;border-radius:6px;padding:1px 5px;font-size:11px;font-weight:900;cursor:pointer">ℹ️</button>`;
       if(_pid&&!item.isNew&&!(item._raw&&item._raw.asset)) imgEl+=`<a data-inv-prod href="inventory.html?pid=${encodeURIComponent(String(_pid))}&view=mov" target="_blank" rel="noopener" class="no-print" title="سجلّ المنتج: الحركة والفواتير" style="display:block;font-size:10px;text-decoration:none;margin-top:1px">📜</a>`; }
     const fmt=v=>v&&Number(v)>0?Number(v).toFixed(2):'';let _cellN=0;
     const dualCell=(cls,unitVal,qty)=>{const uid='dc_'+idx+'_'+(_cellN++);const tot=unitVal&&qty?(Number(unitVal)*qty).toFixed(2):'';return `<td class="${cls}" style="border:2px solid #222;text-align:center;padding:2px 2px;vertical-align:middle;"><div contenteditable="true" class="editable" data-uid="${uid}_u" oninput="var t=document.querySelector('[data-uid=${uid}_t]');if(t){var v=parseFloat(this.textContent)||0;t.textContent=v&&${qty}?(v*${qty}).toFixed(2):''}" style="display:block;color:#111;font-size:11px;font-weight:700;min-width:44px;">${unitVal||''}</div><div data-uid="${uid}_t" style="color:#D5001C;font-size:10px;font-weight:700;margin-top:1px;border-top:1px solid #ffd6da;min-height:13px;">${tot}</div></td>`;};
@@ -6613,7 +6622,7 @@ try {
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261125b27"></script>
+<script src="gmt-whatsnew.js?v=20261125b28"></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>
 <script src="gmt-intro.js?v=20261118g"></script>
 <!-- 🚫 (2026-10-03) حارس «لا أزرار عائمة» — كان مرفوعاً على ٥ صفحات من ٤٦،
