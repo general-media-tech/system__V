@@ -1,7 +1,0 @@
-task: TASK-0377
-session: session_012mdFKkM4fy6ac1SEVVfNqp
-branch: claude/tender-tesla-1x135d
-files: gmt-staff.js tests/harness/t_noeffect.js tests/harness/t_dead_active_tab.js sw.js
-claimed_at: 2026-11-26T07:01:13Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0377

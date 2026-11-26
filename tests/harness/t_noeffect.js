@@ -20,7 +20,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const n = t => pg.evaluate(t => GMTBug.list().filter(e => e.type === 'زر بلا أثر' && e.msg.includes(t)).length, t);
   await pg.click('#b1'); await sleep(2600);
   ok(await n('عدسات كانون') === 0, '① زرّ القسم (تمرير فقط) ليس «بلا أثر»');
-  await pg.evaluate(() => window.scrollTo(0, 0)); await sleep(300);
+  const nd = t => pg.evaluate(t => GMTBug.list().filter(e => e.type === 'dead_click' && String(e.msg || '').includes(t)).length, t);
+  ok(await nd('عدسات كانون') === 0, '①ب المفتّش (gmt-staff) أيضاً لا يعدّ زرّ القسم ميّتاً (TASK-0377)');
+  /* (TASK-0377) الرجوع للأعلى فوراً وانتظار هدوء التمرير — التمرير الناعم كان يستمرّ أثناء ضغط الزرّ الميّت فيُحسب «أثراً» */
+  await pg.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await sleep(1500);
+  await pg.evaluate(() => new Promise(res => { let last = performance.getEntriesByType('resource').length, quiet = 0; const t = setInterval(() => { const n = performance.getEntriesByType('resource').length; quiet = n === last ? quiet + 250 : 0; last = n; if (quiet >= 2500) { clearInterval(t); res(); } }, 250); setTimeout(() => { clearInterval(t); res(); }, 20000); }));   /* (TASK-0377) هدوء الشبكة قبل الضغط */
   await pg.click('#b2'); await sleep(2600);
   ok(await n('زر ميّت') === 1, '② الزرّ الميّت فعلاً ما زال يُبلَّغ');
   await browser.close();

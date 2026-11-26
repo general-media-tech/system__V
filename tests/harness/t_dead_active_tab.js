@@ -19,7 +19,9 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(!logs.some(x => /بلا أثر/.test(x) && /فورية/.test(x)), 'ضغط التبويب المفتوح أصلاً ⇒ لا «زر بلا أثر»: ' + JSON.stringify(logs.filter(x => /بلا أثر/.test(x))));
   // زرّ ميّت حقيقي في الشريط نفسه
   await pg.evaluate(() => { const b = document.createElement('button'); b.id = 'deadbtn'; b.textContent = 'زر تجريبي ميّت'; b.setAttribute('onclick', 'void 0'); document.getElementById('tab-btn-log').parentNode.appendChild(b); });
-  await pg.waitForTimeout(800); await clear();
+  /* (TASK-0377) نشاطٌ خلفيّ (بحث العقل ~12ث بعد الفتح) كان يقع داخل نافذة الثانيتين صدفةً فيُحسب «أثراً» ⇒ ننتظر هدوء الشبكة ٢.٥ث قبل الضغط */
+  await pg.evaluate(() => new Promise(res => { let last = performance.getEntriesByType('resource').length, quiet = 0; const t = setInterval(() => { const n = performance.getEntriesByType('resource').length; quiet = n === last ? quiet + 250 : 0; last = n; if (quiet >= 2500) { clearInterval(t); res(); } }, 250); setTimeout(() => { clearInterval(t); res(); }, 20000); }));
+  await clear();
   await pg.click('#deadbtn'); await pg.waitForTimeout(2600); await grab();
   ok(logs.some(x => /بلا أثر/.test(x) && /زر تجريبي ميّت/.test(x)), 'زرّ ميّت حقيقي ما زال يُسجَّل: ' + JSON.stringify(logs));
   await browser.close();

@@ -296,6 +296,13 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     };
   }
 
+  /* (TASK-0377 · تقرير الحارس ٢٣ ت2: «زر بلا أثر» لأزرارٍ تعمل) أثرٌ لا يغيّر الصفحة ولا يطلب شبكة — نفس قواعد كاشف gmt-core (TASK-A0554):
+     التمرير (أزرار الأقسام) · مغادرة الصفحة/الانتقال · فتح نافذة */
+  var _dcScroll = 0, _dcAway = 0;
+  try { document.addEventListener('scroll', function () { _dcScroll++; }, { capture: true, passive: true }); } catch (_) {}
+  window.addEventListener('beforeunload', function () { _dcAway++; });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) _dcAway++; });
+
   document.addEventListener('click', function (e) {
     var b = e.target.closest('button,[role=button],a[onclick],[onclick]');
     if (!b) return;
@@ -303,8 +310,13 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
     if (b.disabled) return;
     var _a = e.target.closest('a[href]');
     if (_a && (_a.target === '_blank' || /^(https?:|tel:|mailto:|whatsapp:|sms:)/i.test(_a.getAttribute('href') || ''))) return;   /* رابطٌ يفتح خارج الصفحة ⇒ ليس زرّاً ميّتاً */
+    if (_a && !/^(#|javascript:)/i.test(_a.getAttribute('href') || '#')) return;   /* (TASK-0377) رابطٌ لصفحةٍ أخرى بالنظام ⇒ الانتقال أثر */
+    if (b.hasAttribute('data-snd') || b.hasAttribute('data-snd-fx') || b.hasAttribute('data-snd-all')) return;   /* (TASK-0377) معرض الأصوات ⇒ أثره صوت */
 
-    var label = (b.textContent || b.title || b.id || '').trim().replace(/\s+/g, ' ').slice(0, 44) || '(زر بلا نص)';
+    /* (TASK-0377) زرّ أيقونةٍ بلا نص ⇐ اسمه من title/aria-label/id — كان «(زر بلا نص)» فلا يُعرف أيّ زرّ */
+    var label = (b.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44)
+      || (b.getAttribute('aria-label') || b.title || '').trim().slice(0, 44)
+      || (b.id ? '#' + b.id : '') || ('(زر بلا نص' + (b.className ? ' · ' + String(b.className).slice(0, 30) : '') + ')');
     step('👆', 'ضغط: ' + label);
     /* (TASK-0311 هـ) ضغطُ تبويبٍ مفتوحٍ أصلاً (المشتريات «فورية» …) لا يغيّر شيئاً بطبيعته — ليس زرّاً ميّتاً */
     var wasActive = /(^|[\s-])(active|selected|on)([\s-]|$)|active-tab|tab-active/.test(String(b.className || '')) || b.getAttribute('aria-selected') === 'true' || b.getAttribute('aria-pressed') === 'true';
@@ -314,10 +326,10 @@ window._devToolsAllowed = window._devToolsAllowed || function () {
       if (f.id && (b.id === f.id || (b.dataset && b.dataset.feat === f.id))) f.tried = true;
     });
 
-    var before = fingerprint();
+    var before = fingerprint(), sc0 = _dcScroll, aw0 = _dcAway;
     setTimeout(function () {
       var after = fingerprint();
-      var changed =
+      var changed = _dcScroll !== sc0 || _dcAway !== aw0 ||
         Math.abs(after.dom - before.dom) > 12 ||
         after.net !== before.net ||
         after.url !== before.url ||
