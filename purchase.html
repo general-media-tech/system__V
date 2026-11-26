@@ -3789,7 +3789,7 @@ function openInvForEdit(id){
 /* (seq B1031 · B1030) «أشياء عبّيت أسعارها من فواتير أخرى — ليش ما عم تتعبّى أو يسألني» — في وضع التعديل:
    البنود بسعر شراء 0 التي لها آخر سعر شراء معروف (فاتورة أخرى بالعملة نفسها، وإلّا سعر الشراء المسجّل) ⇒ قائمة بالمصدر ⇒ موافقتك ⇒ تُكتب في الخانات (لا حفظ قبل «حفظ»). */
 function _invFillCandidates(){
-  if(!invEditMode || !Array.isArray(d_items_ref)) return [];
+  if(!Array.isArray(d_items_ref)) return [];   /* (TASK-0380 · المالك C1124) كان بوضع التعديل فقط ⇒ بالمعاينة ما في اقتراح أبداً */
   const o=window._invOpen||{}, row=o.id!=null?_invOpenRow():null;
   const _ct=((document.querySelector('#invPage [data-field="currency"]')||{}).value||(document.querySelector('#invPage [data-field="currency"]')||{}).textContent||'').trim().toUpperCase().slice(0,3);
   const cur=(row&&row.currency)||(/^[A-Z]{3}$/.test(_ct)?_ct:'USD');
@@ -3800,7 +3800,8 @@ function _invFillCandidates(){
   return out;
 }
 async function purFillZeroPrices(auto){
-  const c=_invFillCandidates();
+  let c=_invFillCandidates();
+  if(c.length && !invEditMode){ try{ toggleInvEdit(); }catch(_){} c=_invFillCandidates(); }   /* (TASK-0380) التعبئة تفتح التعديل أوّلاً (الخانات تصير قابلة للكتابة) */
   if(!c.length){ if(!auto) toast('لا بنود بسعر 0 لها سعرٌ معروف من فواتير أخرى','ok'); return; }
   const list=c.slice(0,25).map(x=>'• '+x.name+' ⇐ '+x.b.unit+(x.b.fromStock?' (سعر الشراء المسجّل في الجرد — قد يشمل التكاليف)':' (من '+(x.b.inv||'فاتورة سابقة')+(x.b.sup?' · '+x.b.sup:'')+(x.b.date?' · '+x.b.date:'')+')')).join('\n')+(c.length>25?'\n… و'+(c.length-25)+' غيرها':'');
   if(!(await GMTAsk.confirm('💡 '+c.length+' بنداً بسعر شراء 0 ولها سعرٌ معروف:\n\n'+list+'\n\nأعبّئها في الفاتورة؟ (تراجعها ثمّ «حفظ» — وغيّر ما اختلف سعره هالمرّة)',{title:'تعبئة أسعار الشراء الناقصة'}))) return;
@@ -3813,14 +3814,22 @@ async function purFillZeroPrices(auto){
 }
 function _invToolbarSync(){
   const o=window._invOpen||{}, saved=o.id!=null;
-  try{ const fb=document.getElementById('inv-fill-btn'); if(fb){ const n=invEditMode?_invFillCandidates().length:0; fb.style.display=n?'flex':'none'; const sp=fb.querySelector('[data-fill-n]'); if(sp) sp.textContent=n?'('+n+')':''; } }catch(_){}
+  try{ const fb=document.getElementById('inv-fill-btn'); if(fb){ const n=_invFillCandidates().length; fb.style.display=n?'flex':'none'; const sp=fb.querySelector('[data-fill-n]'); if(sp) sp.textContent=n?'('+n+')':''; } }catch(_){}
   const tools=document.getElementById('inv-edit-tools'); if(tools) tools.style.display=invEditMode?'flex':'none';
   const cloud=document.getElementById('inv-cloud-btn'); if(cloud) cloud.style.display=saved?'none':'flex';
   const ship=document.getElementById('inv-ship-btn'); if(ship) ship.style.display=(saved&&o.kind==='import')?'flex':'none';
   const btn=document.getElementById('inv-edit-btn'), sv=document.getElementById('inv-save-btn'), lb=document.getElementById('inv-mode-label');
   if(btn&&!invEditMode&&/عرض فقط/.test(btn.textContent)){ btn.className='bg-amber-500 hover:bg-amber-600 px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1'; btn.innerHTML='<i data-lucide="edit-3" style="width:14px;height:14px"></i> تفعيل التعديل'; if(sv) sv.style.display='none'; if(lb) lb.textContent='معاينة الفاتورة'; try{lucide.createIcons();}catch(_){} }
 }
-try{ new MutationObserver(()=>{ if(document.getElementById('invModal').classList.contains('inv-open')) _invToolbarSync(); })
+/* (TASK-0380 · المالك C1124 «في شغلات سعرها موجود بغير فاتورة — ليش ما اقترحت تعبئتهم تلقائياً؟ … وبكلّ الفواتير»)
+   أوّل ما تنفتح فاتورة فيها بنود بسعر شراء 0 وسعرها معروف من فاتورة ثانية (أو من الجرد) ⇐ اقتراحٌ تلقائي مرّة لكلّ فاتورة بالجلسة. */
+const _fillAsked=new Set();
+function _invAutoFillSuggest(){
+  const o=window._invOpen||{}, k=String(o.id!=null?o.id:'new');
+  if(_fillAsked.has(k)) return; _fillAsked.add(k);
+  setTimeout(()=>{ try{ if(document.getElementById('invModal').classList.contains('inv-open') && _invFillCandidates().length) purFillZeroPrices(true); }catch(_){} },900);
+}
+try{ new MutationObserver(()=>{ if(document.getElementById('invModal').classList.contains('inv-open')){ _invToolbarSync(); _invAutoFillSuggest(); } else { const o=window._invOpen||{}; } })
   .observe(document.getElementById('invModal'),{attributes:true,attributeFilter:['class']}); }catch(_){}
 
 let invEditMode=false;
@@ -4985,16 +4994,16 @@ function purGapChips(s){
 function purGapsBar(){
   let el=document.getElementById('pur-gaps-bar');
   const host=document.getElementById('appContent'); if(!host) return;
-  const bad=(ships||[]).map(s=>({s,z:purZeroLines(s.items_snapshot).length,d:purDupOf(s).length})).filter(x=>x.z||x.d);
+  const bad=(ships||[]).map(s=>{ const zl=purZeroLines(s.items_snapshot); return {s,z:zl.length,f:zl.filter(x=>{ try{ return !!_lastBuy(x.id,s.currency||'USD',s.id); }catch(_){ return false; } }).length,d:purDupOf(s).length}; }).filter(x=>x.z||x.d);   /* (TASK-0380) f = بنود سعرها معروف من فاتورة ثانية/الجرد */
   if(!el){ el=document.createElement('details'); el.id='pur-gaps-bar'; host.insertBefore(el, host.firstChild); }
   if(!bad.length){ el.style.display='none'; el.innerHTML=''; return; }
   const zN=bad.filter(x=>x.z).length, dN=bad.filter(x=>x.d).length;
   el.style.cssText='display:block;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:8px 12px;margin-bottom:12px;font-size:12px';
   /* (المالك seq 940 «أداة التسوية فيها كل شيء») التفاصيل هناك — هنا سطرٌ يدلّ عليها */
   el.innerHTML=`<summary style="cursor:pointer;font-weight:900;color:#9a3412">🔎 فحص المشتريات: ${zN?zN+' فاتورة فيها بنود بسعر شراء 0':''}${zN&&dN?' · ':''}${dN?dN+' فاتورة برقمٍ مكرَّر':''}</summary>
-    <div style="margin-top:6px">${bad.map(({s,z,d})=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed #fed7aa">
-      <span><b>${eh(s.inv_number||'—')}</b> · ${eh(s.supplier||'—')} · ${s.inv_type==='instant'?'⚡ فورية':(s.status==='transit'?'🚚 بالطريق':'✅ وصلت')}${z?` · <span style="color:#b91c1c">${z} بند بسعر 0</span>`:''}${d?' · <span style="color:#b91c1c">رقم مكرَّر</span>':''}</span>
-      <button type="button" data-gap-open="${eh(s.id)}" style="font-weight:900;color:#1d4ed8;white-space:nowrap">فتح ←</button></div>`).join('')}
+    <div style="margin-top:6px">${bad.map(({s,z,f,d})=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed #fed7aa">
+      <span><b>${eh(s.inv_number||'—')}</b> · ${eh(s.supplier||'—')} · ${s.inv_type==='instant'?'⚡ فورية':(s.status==='transit'?'🚚 بالطريق':'✅ وصلت')}${z?` · <span style="color:#b91c1c">${z} بند بسعر 0</span>`:''}${f?` · <span style="color:#047857">💡 ${f} سعرها معروف</span>`:''}${d?' · <span style="color:#b91c1c">رقم مكرَّر</span>':''}</span>
+      <button type="button" data-gap-open="${eh(s.id)}" style="font-weight:900;color:#1d4ed8;white-space:nowrap">${f?'فتح وتعبئة ←':'فتح ←'}</button></div>`).join('')}
       <div style="margin-top:6px"><a href="أداة_التسويات.html" style="font-weight:900;color:#9a3412;text-decoration:underline">⚖️ كلّ النواقص (سعر · ربط · كمية · مورّد) في أداة التسويات ←</a></div></div>`;
   el.querySelectorAll('[data-gap-open]').forEach(b=>b.addEventListener('click',()=>purOpenById(b.dataset.gapOpen)));
 }

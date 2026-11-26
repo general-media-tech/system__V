@@ -1,7 +1,0 @@
-task: TASK-0380
-session: session_012mdFKkM4fy6ac1SEVVfNqp
-branch: claude/tender-tesla-1x135d
-files: purchase.html sw.js
-claimed_at: 2026-11-26T07:29:21Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0380
