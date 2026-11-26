@@ -224,7 +224,7 @@
           '<button class="btn" data-gacc-reg style="background:' + (c.is_regular ? '#0f172a;color:#fff' : '#f1f5f9;color:#0f172a') + '">⭐ ' + (c.is_regular ? 'عميل دائم' : 'اجعله عميلاً دائماً') + '</button>' +
           '<button class="btn" data-gacc-print style="background:#f1f5f9;color:#0f172a">🖨️ طباعة الكشف</button></div>' +
         '<div style="font-size:13px;font-weight:900;margin-bottom:6px">كشف الحساب</div>' +
-        (st.rows.length ? '<div style="overflow-x:auto"><table data-gacc-st><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th><th></th></tr></thead><tbody>' +
+        (st.rows.length ? '<div style="overflow-x:auto"><table data-gmt-noprint data-gmt-nosearch data-gacc-st><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th><th></th></tr></thead><tbody>' +
           st.rows.map(function (r) {
             return '<tr data-kind="' + r.kind + '"><td style="white-space:nowrap">' + esc(r.at ? new Date(r.at).toLocaleDateString('ar-SY') : '') + '</td><td><b dir="ltr">' + esc(r.ref) + '</b> ' + esc(r.text) + '</td>' +
               '<td class="num">' + (r.debit ? r.debit.toFixed(2) : '') + '</td><td class="num" style="color:#15803d">' + (r.credit ? r.credit.toFixed(2) : '') + '</td><td class="num">' + r.balance.toFixed(2) + '</td>' +
@@ -264,7 +264,7 @@
     var w = global.open('', '_blank'); if (!w) return;
     w.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>كشف حساب ' + esc(c.name || '') + '</title><style>body{font-family:Cairo,Tahoma,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:5px}th{background:#f1f5f9}.n{direction:ltr;text-align:left}</style></head><body>' +
       '<h2>كشف حساب — ' + esc(c.name || '') + '</h2><div dir="ltr" style="text-align:right">' + esc(c.phone || '') + '</div><div>التاريخ: ' + new Date().toLocaleDateString('ar-SY') + '</div><br>' +
-      '<table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>' +
+      '<table data-gmt-noprint data-gmt-nosearch><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>' +
       st.rows.map(function (r) { return '<tr><td>' + esc(r.at ? new Date(r.at).toLocaleDateString('ar-SY') : '') + '</td><td>' + esc(r.ref + ' ' + r.text) + '</td><td class="n">' + (r.debit ? r.debit.toFixed(2) : '') + '</td><td class="n">' + (r.credit ? r.credit.toFixed(2) : '') + '</td><td class="n">' + r.balance.toFixed(2) + '</td></tr>'; }).join('') +
       '</tbody></table><h3>الرصيد المستحقّ: ' + st.balance.toFixed(2) + '$</h3><script>setTimeout(function(){print()},300)<\/script></body></html>');
     w.document.close();

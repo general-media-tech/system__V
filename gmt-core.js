@@ -5140,5 +5140,7 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
     if (typeof document === 'undefined' || window.GMTBack || document.querySelector('script[src*="gmt-back.js"]')) return;
     var s = document.createElement('script'); s.src = 'gmt-back.js?v=20261127b46';
     (document.head || document.documentElement).appendChild(s);
+    /* (الملحق «ح» ٤ و١١ · seq B1127) 🔎 بحث · 🖨️ طباعة · ⬇️ إكسل لأيّ جدول/قائمة جوّا أيّ نافذة */
+    if (!window.GMTListTools && !document.querySelector('script[src*="gmt-listtools.js"]')) { var s2 = document.createElement('script'); s2.src = 'gmt-listtools.js?v=20261127b47'; (document.head || document.documentElement).appendChild(s2); }
   } catch (_) {}
 })();

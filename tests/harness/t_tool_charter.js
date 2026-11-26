@@ -51,6 +51,20 @@ ok(/gmt-back\.js\?v=/.test(fs.readFileSync(path.join(ROOT, 'gmt-core.js'), 'utf8
   await pg.evaluate(() => { const w = document.createElement('div'); w.id = 'tc-x'; w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w); });
   await sleep(200); await pg.evaluate(() => document.getElementById('tc-x').remove()); await sleep(400);
   ok(pg.url() === url0 && await pg.evaluate(() => GMTBack._stack.length === 0), '(٣د) التسكير بـ✕ ⇐ بلا خطوات معلّقة');
+  /* (٤) البند ٤ و١١ تلقائياً (seq B1127 «لمّا بعطيك أداة ما بتساويها فيها كلّشي»): جدول جوّا أيّ نافذة ⇐ 🔎 بحث · 🖨️ طباعة · ⬇️ إكسل */
+  ok(await pg.evaluate(() => !!window.GMTListTools), '(٤) gmt-listtools انحمّل تلقائياً');
+  await pg.evaluate(() => { const w = document.createElement('div'); w.id = 'tc-t'; w.setAttribute('data-gmt-modal', ''); w.innerHTML = '<h3>كشف تجربة</h3><table><thead><tr><th>الاسم</th><th>المبلغ</th></tr></thead><tbody>' + ['أحمد', 'مدى', 'الرائد', 'سامر', 'إكسسوار', 'ليلى', 'مدى ٢'].map((n, i) => '<tr><td>' + n + '</td><td>' + (i + 1) * 10 + '</td></tr>').join('') + '</tbody></table>'; document.body.appendChild(w); });
+  await sleep(500);
+  const tb = await pg.evaluate(() => { const b = document.querySelector('#tc-t [data-gmt-tools]'); return b ? { q: !!b.querySelector('[data-glt-q]'), p: !!b.querySelector('[data-glt-print]'), c: !!b.querySelector('[data-glt-csv]') } : null; });
+  ok(tb && tb.q && tb.p && tb.c, '(٤ب) شريط تلقائي فوق الجدول: بحث + طباعة + إكسل ' + JSON.stringify(tb));
+  await pg.fill('#tc-t [data-glt-q]', 'مدي'); await sleep(200);
+  ok(await pg.evaluate(() => [...document.querySelectorAll('#tc-t tbody tr')].filter(r => r.style.display !== 'none').length) === 2, '(٤ج) البحث بيفلتر (مدي = مدى · بلا فرق الهمزة/الياء)');
+  const csv = await pg.evaluate(() => GMTListTools.csv(document.querySelector('#tc-t table')));
+  ok(/^\uFEFF?الاسم,المبلغ/.test(csv.replace(/^\uFEFF/, '')) && csv.split('\r\n').length === 3, '(٤د) الإكسل بياخد العناوين والصفوف الظاهرة بس');
+  ok(/كشف تجربة/.test(await pg.evaluate(() => GMTListTools.printHtml(document.querySelector('#tc-t table')))), '(٤هـ) الطباعة بعنوان النافذة');
+  await pg.evaluate(() => { const w = document.createElement('div'); w.id = 'tc-l'; w.setAttribute('data-gmt-modal', ''); w.innerHTML = '<input placeholder="🔎 بحث الأداة"><div data-gmt-list data-gmt-nosearch>' + [1, 2, 3, 4, 5, 6, 7].map(i => '<div>بطاقة ' + i + '</div>').join('') + '</div>'; document.body.appendChild(w); });
+  await sleep(500);
+  ok(await pg.evaluate(() => { const b = document.querySelector('#tc-l [data-gmt-tools]'); return !!b && !b.querySelector('[data-glt-q]') && !!b.querySelector('[data-glt-csv]'); }), '(٤و) قائمة بطاقات إلها بحثها ⇐ طباعة وإكسل بلا بحث تاني (ممنوع بحثين — B1083)');
   ok(!errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).length, 'لا أخطاء JS: ' + JSON.stringify(errs.filter(e => !/favicon|404|400|406|status of 503/.test(e)).slice(0, 2)));
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

@@ -135,7 +135,7 @@
         (un.length ? '<div data-ship-unshipped style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:12px"><b>📭 ' + un.length + ' فاتورة استيراد بالطريق بلا شحنة:</b> ' + un.slice(0, 8).map(function (x) { return esc(x.inv_number || '#' + x.id); }).join('، ') + (un.length > 8 ? '…' : '') + ' — <a href="#" data-ship-new style="font-weight:900;color:#1f348f">اربطها بشحنة</a></div>' : '') +
         '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">' + [['active', 'الفعّالة'], ['overdue', '⏰ المتأخّرة'], ['arrived', '✅ وصلت'], ['cancelled', 'الملغاة'], ['all', 'الكلّ']].map(function (t) {
           return '<button data-ship-f="' + t[0] + '" style="border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;font-weight:900;cursor:pointer;background:' + (st.f === t[0] ? '#0f1219;color:#fff' : '#fff;color:#334155') + '">' + t[1] + ' (' + (t[0] === 'all' ? LIST.length : cnt(t[0])) + ')</button>'; }).join('') + '</div>' +
-        (L.length ? L.map(function (s) { return card(s, byId, o); }).join('') : '<div style="text-align:center;color:#64748b;font-size:13px;padding:20px">ما في شحنات هون.</div>');
+        (L.length ? '<div data-gmt-list data-gmt-title="شحنات المشتريات">' + L.map(function (s) { return card(s, byId, o); }).join('') + '</div>' : '<div style="text-align:center;color:#64748b;font-size:13px;padding:20px">ما في شحنات هون.</div>');
     }
     function readForm() {
       var f = box.querySelector('[data-ship-form]'), v = {};

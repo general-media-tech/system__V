@@ -137,13 +137,13 @@
         '<button type="button" data-popay-add style="width:100%;border:0;background:#0f1219;color:#fff;border-radius:12px;padding:11px;font:inherit;font-weight:900;cursor:pointer">➕ دفعة جديدة</button>' +
         (s.source === 'legacy' && s.paid > 0 ? '<div data-popay-legacy style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700"><b dir="ltr">' + s.paid.toFixed(2) + '$</b> · دفعة قديمة<div style="color:#64748b">مسجّلة على الفاتورة من قبل</div></div>' : '') +
         (s.source === 'legacy-full' ? '<div data-popay-legacy style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700">✅ فاتورة قديمة محسوبة مدفوعة كاملة<div style="color:#64748b">إذا مو صحيح: سجّل الدفعات الحقيقية وبتنحسب هي بدالها</div></div>' : '') +
-        (pays.length ? pays.slice().reverse().map(function (x) {
+        (pays.length ? '<div data-gmt-list data-gmt-title="دفعات الفاتورة">' + pays.slice().reverse().map(function (x) {
           return '<div data-popay-row="' + esc(x.id) + '" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700;' + (x.voided ? 'opacity:.55;text-decoration:line-through' : '') + '">' +
             '<b dir="ltr">' + r2(x.amount) + ' ' + esc(x.currency) + '</b>' + (String(x.currency).toUpperCase() !== 'USD' ? ' ÷ ' + esc(x.fx_rate) + ' = <b>' + r2(x.usd) + '$</b>' : '') +
             ' · ' + esc(KIND[x.kind] || x.kind) + (x.method ? ' · ' + esc(METH[x.method] || x.method) : '') + (x.ref_no ? ' · إيصال ' + esc(x.ref_no) : '') +
             '<div style="color:#64748b">' + esc(x.paid_at || String(x.created_at || '').slice(0, 10)) + (x.paid_by ? ' · دفعها ' + esc(x.paid_by) : '') + (x.due_at ? ' · 📅 استحقاق الباقي ' + esc(x.due_at) : '') + (x.note ? ' · ' + esc(x.note) : '') + (x.voided ? ' · ملغاة: ' + esc(x.void_reason || '') : '') + '</div>' +
             (x.voided ? '' : '<button type="button" data-popay-void="' + esc(x.id) + '" style="margin-top:5px;border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:8px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:800;cursor:pointer">إلغاء الدفعة</button>') + '</div>';
-        }).join('') : (s.source === 'legacy' || s.source === 'legacy-full' ? '' : '<div style="text-align:center;color:#64748b;padding:16px 6px;font-size:13px">لسّا ما دفعت شي على هالفاتورة.</div>')) + '</div></div>';
+        }).join('') + '</div>' : (s.source === 'legacy' || s.source === 'legacy-full' ? '' : '<div style="text-align:center;color:#64748b;padding:16px 6px;font-size:13px">لسّا ما دفعت شي على هالفاتورة.</div>')) + '</div></div>';
     }
     w.addEventListener('click', async function (e) {
       if (e.target === w || e.target.closest('[data-popay-x]')) { w.remove(); return; }

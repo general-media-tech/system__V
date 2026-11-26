@@ -126,12 +126,12 @@
         '<div style="display:flex;gap:6px;margin:10px 0"><div style="flex:1;background:' + (owe > 0.005 ? '#fef2f2' : '#f0fdf4') + ';border-radius:12px;padding:8px 12px"><div style="font-size:11.5px;color:#64748b;font-weight:800">الباقي علينا لكلّ الموردين</div><div style="font-size:19px;font-weight:900;color:' + (owe > 0.005 ? '#b91c1c' : '#15803d') + '" dir="ltr">' + owe.toFixed(2) + '$</div><div style="font-size:11px;color:#64748b">' + (nOwe ? nOwe + ' مورّد إلهم باقي' : 'كلّه مسدّد') + '</div></div></div>' +
         '<input data-sp-q value="' + esc(q) + '" placeholder="🔎 ابحث عن مورّد…" style="width:100%;box-sizing:border-box;border:1.5px solid #e5e7eb;border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;margin-bottom:6px">' +
         (sim.length ? '<div data-sp-sim style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;font-weight:700">🔗 أسماء متشابهة — يمكن نفس المورّد؟ ' + sim.map(function (pr) { return '<div style="margin-top:4px">«' + esc(pr[0].name) + '» و«' + esc(pr[1].name) + '»</div>'; }).join('') + '<div style="font-weight:600;color:#64748b;margin-top:4px">إذا نفسه: افتح واحد منهم ⇐ «🔗 ضمّ اسم»</div></div>' : '') +
-        (F.length ? F.map(function (x) {
+        (F.length ? '<div data-gmt-list data-gmt-nosearch data-gmt-title="الموردين — الباقي علينا">' + F.map(function (x) {
           return '<div data-sp-key="' + esc(x.key) + '" style="border:1px solid #e5e7eb;border-radius:14px;padding:10px 12px;margin-top:6px;cursor:pointer;display:flex;gap:10px;align-items:center">' +
             '<div style="flex:1;min-width:0"><div style="font-weight:900;font-size:14.5px;overflow-wrap:anywhere">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</div>' +
             '<div style="font-size:12px;color:#64748b;margin-top:2px">' + x.invs.length + ' فاتورة' + (x.last ? ' · آخر شراء ' + esc(x.last) : '') + (x.names.length > 1 ? ' · كمان: ' + esc(x.names.filter(function (n) { return n !== x.name; }).join('، ')) : '') + '</div></div>' +
             '<div style="text-align:left;flex:none">' + (x.remaining > 0.005 ? '<div style="font-size:11px;color:#64748b">باقي علينا</div><div style="font-weight:900;color:#b91c1c;font-size:15px" dir="ltr">' + x.remaining.toFixed(2) + '$</div>' : '<div style="font-weight:900;color:#15803d">✅ مسدّد</div>') + '</div><span style="color:#94a3b8;font-size:18px">‹</span></div>';
-        }).join('') : '<div style="color:#64748b;text-align:center;padding:14px">ما لقيت مورّد بهالاسم.</div>') +
+        }).join('') + '</div>' : '<div style="color:#64748b;text-align:center;padding:14px">ما لقيت مورّد بهالاسم.</div>') +
         '<div style="font-size:11px;color:#94a3b8;margin-top:8px">⭐ = إله ملفّ (بيانات وأسماء بديلة) · الباقي محسوب من الفواتير ودفعاتها (فواتير الصين مع شحنها)</div></div>';
       var qi = w.querySelector('[data-sp-q]'); if (qi && list._focus) { qi.focus(); try { qi.setSelectionRange(q.length, q.length); } catch (_) {} }
     }
@@ -150,7 +150,7 @@
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + [['اشترينا', x.value, '#0f1219'], ['دفعنا', x.paid, '#15803d'], ['الباقي علينا', x.remaining, x.remaining > 0.005 ? '#b91c1c' : '#15803d']].map(function (c) { return '<div style="flex:1;min-width:100px;background:#f8fafc;border-radius:12px;padding:8px 10px"><div style="font-size:11.5px;color:#64748b;font-weight:800">' + c[0] + '</div><div style="font-weight:900;font-size:16px;color:' + c[2] + '" dir="ltr">' + c[1].toFixed(2) + '$</div></div>'; }).join('') + '</div>' +
         (info.length ? '<div style="font-size:12.5px;line-height:1.9;margin-bottom:10px;color:#334155">' + info.join(' · ') + '</div>' : '') +
         '<div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1;font-size:14px">📒 كشف الحساب</b><span style="font-size:11px;color:#64748b">الأحدث فوق · اضغط على سطر لتفتح الفاتورة</span></div>' +
-        (st.rows.length ? '<div data-sp-st style="border:1px solid #eef1f5;border-radius:12px;overflow:hidden">' + st.newest.map(function (r) {
+        (st.rows.length ? '<div data-sp-st data-gmt-list data-gmt-noprint style="border:1px solid #eef1f5;border-radius:12px;overflow:hidden">' + st.newest.map(function (r) {
           var inv = r.kind === 'inv';
           return '<div data-sp-inv="' + esc(r.id) + '" style="display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:' + (inv ? '#fff' : '#f7fdf9') + '">' +
             '<span style="font-size:18px;flex:none">' + (inv ? '🧾' : '💵') + '</span>' +

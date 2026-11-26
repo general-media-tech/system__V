@@ -114,7 +114,7 @@
   }
   function tile(k, v, sub) { return '<div style="flex:1;min-width:120px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:8px 10px"><div style="font-size:11px;color:#64748b;font-weight:800">' + k + '</div><div style="font-size:18px;font-weight:900;color:#0f1219">' + v + '</div>' + (sub ? '<div style="font-size:10.5px;color:#64748b">' + sub + '</div>' : '') + '</div>'; }
   var TH = 'style="padding:5px 6px;text-align:right;background:#f1f5f9;font-size:11.5px;position:sticky;top:0"', TD = 'style="padding:5px 6px;border-bottom:1px solid #f1f5f9"';
-  function table(head, rows) { return '<div style="max-height:320px;overflow:auto;border:1px solid #eef1f5;border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr>' + head.map(function (h) { return '<th ' + TH + '>' + h + '</th>'; }).join('') + '</tr>' + (rows.join('') || '<tr><td ' + TD + ' colspan="' + head.length + '">ما في بيانات بهالفترة.</td></tr>') + '</table></div>'; }
+  function table(head, rows) { return '<div style="max-height:320px;overflow:auto;border:1px solid #eef1f5;border-radius:10px"><table data-gmt-nocsv style="width:100%;border-collapse:collapse;font-size:12px"><tr>' + head.map(function (h) { return '<th ' + TH + '>' + h + '</th>'; }).join('') + '</tr>' + (rows.join('') || '<tr><td ' + TD + ' colspan="' + head.length + '">ما في بيانات بهالفترة.</td></tr>') + '</table></div>'; }
   function render(R, st, sups) {
     var k = R.kpi, c = ' ' + R.cur;
     var tabs = [['sum', '📊 الملخّص'], ['sup', '🏭 الموردون'], ['prod', '📦 المنتجات'], ['rise', '📈 ارتفاع الأسعار (' + R.rises.length + ')']];
