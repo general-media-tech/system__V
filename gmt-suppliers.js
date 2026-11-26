@@ -110,7 +110,24 @@
     var w = document.createElement('div'); w.id = 'gmt-suppliers';
     w.style.cssText = 'position:fixed;inset:0;z-index:9640;background:rgba(15,18,25,.5);display:flex;align-items:flex-start;justify-content:center;padding:3vh 10px;overflow:auto;direction:rtl;font-family:inherit';
     w.setAttribute('data-gmt-modal', ''); document.body.appendChild(w);
-    var cur = null;
+    var cur = null, payAll = null;
+    /* (seq B1127 «الرائد وعالم الإكسسوار كلّهن مدفوع · مدى كلّهن إلّا آخر فاتورة · ضيف إنّو بحسن حطّلهن تسجيل دفعة»)
+       دفعة لفواتير مورّد دفعة وحدة: الفواتير اللي عليها باقي معلّمة كلّها ⇐ شيل العلامة عن اللي لسّا ما اندفعت ⇐ ✅ سجّل.
+       كلّ فاتورة بتاخد دفعتها عبر GMTPoPay.add (نفس الدفعات والتدقيق) ⇐ onChange(ids) ⇐ الصفحة بتزامن الدفتر. */
+    function unpaidOf(x) {
+      return x.invs.map(function (p) { return { p: p, rem: GMTPoPay.summary(p, payOf ? payOf(p.id) : []).remaining }; })
+        .filter(function (r) { return r.rem > 0.005; }).sort(function (a, b) { return String(b.p.inv_date || '').localeCompare(String(a.p.inv_date || '')); });
+    }
+    function payPanel(x) {
+      var L = unpaidOf(x);
+      return '<div data-sp-paypanel style="border:2px solid #86efac;background:#f0fdf4;border-radius:14px;padding:10px 12px;margin-bottom:10px">' +
+        '<div style="font-weight:900;font-size:14px;margin-bottom:4px">✅ سجّل دفعة — الفواتير اللي عليها باقي</div>' +
+        '<div style="font-size:12px;color:#166534;margin-bottom:8px">كلّها معلّمة: شيل العلامة عن الفاتورة اللي <b>لسّا ما اندفعت</b>. كلّ فاتورة معلّمة بتنسجّل مدفوعة كاملة (الباقي عليها) — ما في شي بينحذف، والدفعة بتنلغى من 💳 إذا لزم.</div>' +
+        L.map(function (r) { return '<label style="display:flex;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid #dcfce7;font-size:13px;cursor:pointer"><input type="checkbox" data-sp-pi="' + esc(r.p.id) + '" checked style="width:18px;height:18px">' +
+          '<span style="flex:1;font-weight:800">' + esc(r.p.inv_number || '#' + r.p.id) + ' <span style="color:#64748b;font-weight:600" dir="ltr">' + esc(r.p.inv_date || '') + '</span></span><b dir="ltr">' + r.rem.toFixed(2) + '$</b></label>'; }).join('') +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><label style="font-size:12.5px;font-weight:800">تاريخ الدفع <select data-sp-pdate style="border:1.5px solid #bbf7d0;border-radius:9px;padding:5px;font:inherit"><option value="inv">تاريخ كلّ فاتورة (قديمة اندفعت وقتها)</option><option value="today">اليوم</option></select></label>' +
+        '<span style="flex:1"></span><button type="button" data-sp-paycancel style="' + BTN + '">إلغاء</button><button type="button" data-sp-paygo style="border:0;background:#15803d;color:#fff;border-radius:10px;padding:8px 14px;font:inherit;font-weight:900;cursor:pointer">✅ سجّل المعلّم</button></div></div>';
+    }
     /* (B1115) زرّ الرجوع بالهاتف: بملفّ المورّد ⇐ القائمة · بالقائمة ⇐ بيسكّر النافذة (gmt-back.js) */
     w._gmtBack = function () { if (cur) { cur = null; list(); return true; } return false; };
     var q = '';
@@ -145,10 +162,12 @@
         '<div style="display:flex;align-items:center;gap:8px"><button type="button" data-sp-back style="' + BTN + '">→ رجوع</button><span style="flex:1"></span><button type="button" data-sp-x style="' + BTN + '">✕</button></div>' +
         '<div style="font-weight:900;font-size:18px;margin:10px 0 6px;overflow-wrap:anywhere">' + (x.sup ? '⭐ ' : '') + esc(x.name) + '</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><button type="button" data-sp-print style="' + BTN + '">🖨️ اطبع كشف الحساب</button>' +
+        (x.remaining > 0.005 && g.GMTPoPay ? '<button type="button" data-sp-payall style="border:0;background:#15803d;color:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer">✅ سجّل دفعة (' + x.remaining.toFixed(2) + '$ باقي)</button>' : '') +
         (x.sup ? '<button type="button" data-sp-edit style="' + BTN + '">✏️ بياناته</button><button type="button" data-sp-link style="' + BTN + '">🔗 ضمّ اسم تاني إله</button>'
           : '<button type="button" data-sp-reg style="border:0;background:#0f1219;color:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:800;cursor:pointer">⭐ اعمله ملفّ</button>') + '</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + [['اشترينا', x.value, '#0f1219'], ['دفعنا', x.paid, '#15803d'], ['الباقي علينا', x.remaining, x.remaining > 0.005 ? '#b91c1c' : '#15803d']].map(function (c) { return '<div style="flex:1;min-width:100px;background:#f8fafc;border-radius:12px;padding:8px 10px"><div style="font-size:11.5px;color:#64748b;font-weight:800">' + c[0] + '</div><div style="font-weight:900;font-size:16px;color:' + c[2] + '" dir="ltr">' + c[1].toFixed(2) + '$</div></div>'; }).join('') + '</div>' +
         (info.length ? '<div style="font-size:12.5px;line-height:1.9;margin-bottom:10px;color:#334155">' + info.join(' · ') + '</div>' : '') +
+        (payAll && payAll.key === x.key ? payPanel(x) : '') +
         '<div style="display:flex;align-items:center;margin-bottom:6px"><b style="flex:1;font-size:14px">📒 كشف الحساب</b><span style="font-size:11px;color:#64748b">الأحدث فوق · اضغط على سطر لتفتح الفاتورة</span></div>' +
         (st.rows.length ? '<div data-sp-st data-gmt-list data-gmt-noprint style="border:1px solid #eef1f5;border-radius:12px;overflow:hidden">' + st.newest.map(function (r) {
           var inv = r.kind === 'inv';
@@ -174,6 +193,28 @@
         var k = e.target.closest('[data-sp-key]'); if (k) { var G = groups(ships(), SUPS, payOf), x = G.find(function (y) { return y.key === k.getAttribute('data-sp-key'); }); if (x) profile(x); return; }
         if (!cur) return;
         if (e.target.closest('[data-sp-print]')) { printSt(cur); return; }
+        if (e.target.closest('[data-sp-payall]')) { payAll = { key: cur.key }; profile(cur); return; }
+        if (e.target.closest('[data-sp-paycancel]')) { payAll = null; profile(cur); return; }
+        if (e.target.closest('[data-sp-paygo]')) {
+          var ids = [].map.call(w.querySelectorAll('[data-sp-pi]:checked'), function (c) { return c.getAttribute('data-sp-pi'); });
+          if (!ids.length) { GMTAsk.alert('ما علّمت ولا فاتورة.'); return; }
+          var useInv = (w.querySelector('[data-sp-pdate]') || {}).value !== 'today', rows = unpaidOf(cur).filter(function (r) { return ids.indexOf(String(r.p.id)) >= 0; });
+          var tot = rows.reduce(function (t, r) { return t + r.rem; }, 0);
+          if (!(await GMTAsk.confirm('تسجيل ' + rows.length + ' فاتورة لـ«' + cur.name + '» مدفوعة كاملة؟\nالمجموع ' + tot.toFixed(2) + '$'))) return;
+          var btn = e.target.closest('[data-sp-paygo]'); btn.disabled = true; btn.textContent = '⏳ عم سجّل…';
+          var done = [], bad = [];
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            try { await GMTPoPay.add(r.p, { amount: r.rem, currency: 'USD', kind: 'final', paid_at: useInv && r.p.inv_date ? String(r.p.inv_date).slice(0, 10) : undefined, note: 'دفعة كاملة من ملفّ المورّد (✅ سجّل دفعة)' }); r.p.cash_payment = r2(Number(r.p.cash_payment || 0) + r.rem); done.push(r.p.id); }
+            catch (er2) { bad.push((r.p.inv_number || r.p.id) + ': ' + (er2 && er2.message || er2)); }
+          }
+          try { await GMTPoPay.loadAll(); } catch (_) {}
+          if (o.onChange) { try { await o.onChange(done); } catch (_) {} }
+          payAll = null; await refresh(cur.key);
+          if (bad.length) GMTAsk.alert('انسجّل ' + done.length + ' · ما انسجّل ' + bad.length + ':\n' + bad.join('\n'), { title: 'الموردون' });
+          else if (g.showToast) showToast('✅ انسجّلت ' + done.length + ' فاتورة مدفوعة', 'ok');
+          return;
+        }
         var inv = e.target.closest('[data-sp-inv]'); if (inv && o.onOpenInv) { var p = cur.invs.find(function (y) { return String(y.id) === inv.getAttribute('data-sp-inv'); }); if (p) { w.remove(); o.onOpenInv(p.id, p.inv_type); } return; }
         if (e.target.closest('[data-sp-reg]')) { if (!(await GMTAsk.confirm('تسجيل «' + cur.name + '» كمورّد بملفّ؟ (' + cur.invs.length + ' فاتورة بتنربط فيه — النصّ على الفواتير بيضلّ متل ما هو)'))) return; var sp = await register(cur); await refresh('S:' + sp.id); return; }
         if (e.target.closest('[data-sp-edit]')) {

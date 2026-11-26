@@ -1269,7 +1269,10 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
   GMTPoItem.open(b.dataset.piOpen,{line:{name:it.name,qty:it.qty,unit_price:it.unitPrice,orig_unit_price:it.origUnitPrice,notes:it.notes,alloc:(it._raw&&it._raw.alloc)||null},invId:io.id,invNumber:(window._invHead||{}).num,supplier:(window._invHead||{}).sup,at:String((window._invHead||{}).date||'').slice(0,10)||undefined});},true);
 function openPoAging(){ if(!window.GMTPoPay){toast('وحدة الدفعات غير محمّلة','err');return;} GMTPoPay.loadAll().then(()=>GMTPoPay.openAging(ships||[],id=>openPoPay(id))); }
 window.openPoAging=openPoAging;
-function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:()=>{}}); }
+function openSuppliers(){ if(!window.GMTSuppliers){toast('وحدة الموردين غير محمّلة','err');return;} GMTSuppliers.open(()=>ships||[],{onOpenInv:(id,k)=>{ if(k==='instant') openInstantInvFromList(id); else openInvFromList(id); },onChange:async ids=>{   /* (seq B1127) «✅ سجّل دفعة» من ملفّ المورّد ⇐ الدفتر + القائمة */
+  if(!Array.isArray(ids)||!ids.length)return;
+  for(const pid of ids){ try{await ledgerSyncId(pid);}catch(_){} try{const rows=await sb('GET','/rest/v1/import_log?id=eq.'+encodeURIComponent(pid)+'&select=*');const row=Array.isArray(rows)?rows[0]:null;if(row){const k=(ships||[]).findIndex(x=>String(x.id)===String(pid));if(k>=0)ships[k]=Object.assign({},ships[k],row);}}catch(_){} }
+  try{await GMTPoPay.loadAll();render();}catch(_){} }}); }
 window.openSuppliers=openSuppliers;
 /* (TASK-B0558 · A1004 P6) تقارير المشتريات — من الفواتير نفسها · ?reports=1 */
 async function openPoReports(){ if(!window.GMTPoReports){toast('وحدة التقارير غير محمّلة','err');return;} try{if(window.GMTSuppliers&&!GMTSuppliers.loaded())await GMTSuppliers.load();}catch(_){} GMTPoReports.open(()=>ships||[]); }
