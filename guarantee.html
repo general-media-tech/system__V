@@ -102,6 +102,7 @@ window.GMT_INTERNAL = 1;</script>
   <script src="gmt-sticker.js?v=20261029z4" defer></script>
   <script src="gmt-wclaims.js?v=20261127b45" defer></script><!-- (TASK-0214) سجلّ استخدام الضمان في صفحة الزبون -->
   <script src="gmt-custcache.js?v=20261016a" defer></script>
+  <script src="gmt-custpick.js?v=20261127b46" defer></script><!-- (seq 996 · PLAN-B 3.3) اقتراح اسم الزبون من السجلّ بالكفالة -->
   <script src="gmt-sync.js?v=20261003"></script><!-- (TASK-B0508 ١) طابور الكفالات بلا إنترنت -->
   <script src="gmt-custsync.js?v=20261118f"></script><!-- (TASK-B0511) سجلّ الزبون الواحد -->
   <script src="gmt-notify.js?v=20261125b32" defer></script>
@@ -159,7 +160,7 @@ window.GMT_INTERNAL = 1;</script>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
                         <label class="text-sm font-bold text-gray-700">اسم العميل</label>
-                        <input type="text" id="customerName" required class="w-full bg-gray-50 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-canon-red transition-colors">
+                        <input type="text" id="customerName" required data-cust-pick data-cust-phone="phoneNo" autocomplete="off" class="w-full bg-gray-50 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-canon-red transition-colors">
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-bold text-gray-700">رقم الهاتف</label>
