@@ -136,10 +136,13 @@
     L.forEach(function (y) { if (y.el) y.el.classList.toggle('on', y.f === f); });
     var wasHome = !active;
     active = f; lastUse[f] = Date.now();
+    /* (TASK-0379 · المالك seq C1123 «الأزرار الأخيرة حسب آخر استخدام — كنت بالأخير بالمشتريات تظهر كأوّل شي») الأحدث استعمالاً أوّلاً:
+       الطبقة المعروضة تنتقل لرأس القائمة ⇒ الشريط و«تكمل من حيث توقفت» بترتيب آخر استخدام · ويُحفظ الترتيب (save) لإعادة فتح التطبيق */
+    var _i = L.indexOf(x); if (_i > 0) { L.splice(_i, 1); L.unshift(x); }
     host.classList.add('on'); doc.documentElement.style.overflow = 'hidden';
     if (wasHome && !(opt && opt.noHistory)) { try { history.pushState({ gmtLayer: f }, ''); } catch (_) {} }
     try { doc.title = x.t + ' · ' + baseTitle; } catch (_) {}
-    paint(); evict();
+    paint(); evict(); save();
     try { x.el.focus(); } catch (_) {}
   }
   var baseTitle = doc.title;

@@ -57,6 +57,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       const cr = getComputedStyle(r), ca = getComputedStyle(a), b = r.getBoundingClientRect(), nx = r.nextElementSibling && r.nextElementSibling.getBoundingClientRect();
       return { css: !!document.getElementById('gmt-layers-css'), deco: ca.textDecorationLine, bd: cr.borderTopStyle, h: b.height, overlap: nx ? nx.top < b.bottom - 1 : false }; });
     ok(st && st.css && st.deco === 'none' && st.bd === 'solid' && st.h < 70 && !st.overlap, W + ': بعد إعادة الفتح «تكمل» مُنسَّق وفي سطر: ' + JSON.stringify(st));
+    /* (TASK-0379 · المالك C1123) ترتيب الطبقات = آخر استخدام أوّلاً: افتح الجرد ثمّ الأوردرات ثمّ المشتريات ⇐ المشتريات أوّلاً · ارجع للجرد ⇐ الجرد أوّلاً · ويبقى بعد إعادة الفتح */
+    await pg.evaluate(() => { GMTLayers.open('inventory.html'); }); await sleep(500);
+    await pg.evaluate(() => { GMTLayers.open('orders.html'); }); await sleep(500);
+    await pg.evaluate(() => { GMTLayers.open('purchase.html'); }); await sleep(500);
+    const ord1 = await pg.evaluate(() => [...document.querySelectorAll('#gmt-ls .lc')].map(c => c.getAttribute('data-f')).join(','));
+    await pg.evaluate(() => { GMTLayers.open('inventory.html'); }); await sleep(500);
+    const ord2 = await pg.evaluate(() => [...document.querySelectorAll('#gmt-ls .lc')].map(c => c.getAttribute('data-f')).join(','));
+    const saved = await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('gmt_layers_v1')).L.map(x => x.f).join(','); } catch (_) { return ''; } });
+    ok(/^purchase\.html,orders\.html,inventory\.html/.test(ord1) && /^inventory\.html,purchase\.html,orders\.html/.test(ord2) && saved.indexOf('inventory.html') === 0,
+       W + ': الشريط بترتيب آخر استخدام (الأحدث أوّلاً) ويُحفظ: ' + ord1 + ' ⇐ ' + ord2 + ' · محفوظ ' + saved);
     const real = o.errs.filter(e => !/status of (4\d\d|503)|Failed to load resource|favicon/.test(e));
     ok(!real.length, W + ': لا أخطاء JS ' + real.slice(0, 3).join(' | '));
     await o.browser.close();
