@@ -32,7 +32,8 @@
       'لوبرو':'lowepro','زووم':'zoom','رود':'rode','دجي':'dji',
       'مارك':'mark','برو':'pro','ماكس':'max','ميني':'mini','بلس':'plus','اير':'air',
       'كاميرا':'camera','عدسة':'lens','عدسه':'lens','فلاش':'flash','بطارية':'battery','بطاريه':'battery',
-      'شاحن':'charger','حامل':'tripod','ترايبود':'tripod','حقيبة':'bag','حقيبه':'bag',
+      'شاحن':'charger','حامل':'holder','هولدر':'holder','ترايبود':'tripod','تريبود':'tripod',   /* (TASK-0381 · C1125) «حامل» = holder/mount عامّ مو ترايبود — كان «ترايبود» يجيب كلّ حامل سيارة/موبايل */
+      'حقيبة':'bag','حقيبه':'bag',
       'ذاكرة':'memory','ذاكره':'memory','بطاقة':'card','بطاقه':'card','كرت':'card',
       'ميكروفون':'mic','مايك':'mic','مايكروفون':'mic','اضاءة':'light','اضاءه':'light','ضوء':'light',
       'راس':'head','ستاند':'stand','مثبت':'gimbal','جيمبل':'gimbal','طابعة':'printer','طابعه':'printer',
@@ -583,6 +584,30 @@
       }
       return own > 0 && inC > 0;
   }
+  /* (TASK-0381 · المالك seq C1125 «بحثت بالعربي ترايبود وطلعلي هولدر رقبة وحامل سيارة — شو اللي عم يصير؟»)
+     البحث كان يشمل اسم المجموعة والتصنيف ⇒ «ترايبود» تطابق كلّ منتجات «المثبّتات والترايبود». الآن طبقتان:
+       ① ما الكلمة في **اسمه هو** (الاسم · المختصر · البديل · كلمات البحث · الماركة · الباركود · التوافق) ⇐ يظهر وحده إن وُجد
+       ② ما يطابق فقط باسم مجموعته/تصنيفه ⇐ لا يظهر إلّا إن لم يطابق أيّ منتج باسمه (بحث «كاميرات» يبقى يجيب الكاميرات). */
+  function _catNorm(v) {
+      return String(v || '').toLowerCase().replace(/[\u064B-\u0652\u0640]/g, '').replace(/[إأآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+          .split(/\s+/).map(function (w) { return w.replace(/^(وال|بال|لل|ال)/, ''); }).filter(Boolean).join(' ').trim();
+  }
+  function hitsOwnName(query, p) {
+      if (!p || typeof p !== 'object') return hitsProduct(query, p);
+      const q2 = Object.assign({}, p, { group_name: '', category: '' });
+      return hitsProduct(query, q2);
+  }
+  function filterProducts(query, list) {
+      list = Array.isArray(list) ? list : [];
+      const q = String(query == null ? '' : query).trim();
+      if (!q) return list.slice();
+      const all = list.filter(function (p) { return hitsProduct(q, p); });
+      const own = all.filter(function (p) { return hitsOwnName(q, p); });
+      if (!own.length) return all;
+      /* بحثٌ باسم المجموعة كاملاً («كاميرات» = «الكاميرات») يبقى يجيب كلّ المجموعة · كلمة من اسمٍ طويل («ترايبود» من «المثبّتات والترايبود») لا */
+      const nq = _catNorm(q);
+      return all.filter(function (p) { return own.indexOf(p) >= 0 || _catNorm(p.group_name) === nq || _catNorm(p.category) === nq; });
+  }
   function hitsProduct(query, p) {
       const q = String(query == null ? '' : query).trim();
       if (!q) return true;
@@ -662,7 +687,7 @@
   global.GMTSuggest = {
     codeNear: codeNear,
     hits     : hits,
-    hitsProduct: hitsProduct,
+    hitsProduct: hitsProduct, filterProducts: filterProducts, hitsOwnName: hitsOwnName,
     ocrReading: ocrReading,
     compatSay: compatSay,
     qty      : qtyOf,

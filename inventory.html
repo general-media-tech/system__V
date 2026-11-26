@@ -2302,7 +2302,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-reconcile.js?v=20261127b45" defer></script>
   <script src="gmt-lens.js?v=20261127b45" defer></script>
-  <script src="gmt-suggest.js?v=20261123e"></script>
+  <script src="gmt-suggest.js?v=20261127c5"></script>
   <script src="gmt-match.js?v=20261122y"></script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
   <script src="gmt-cat.js?v=20261019a"></script>
@@ -5740,7 +5740,9 @@ function applyFilters() {
     const q = searchQuery.toLowerCase();
     /* (٨ ت — تدقيق المطابقة) «ابحث هيد لايت 100 وات … أو جودوكس» — البحث المشترك (gmt-suggest.js):
        كل كلمة بأيّ ترتيب، في الاسم والوصف والباركود والمجموعة والتصنيف والماركة والأسماء البديلة. */
-    if (window.GMTSuggest && GMTSuggest.hitsProduct) items = items.filter(p => GMTSuggest.hitsProduct(searchQuery, p));
+    /* (TASK-0381 · المالك C1125) ما الكلمة باسمه أوّلاً — المجموعة/التصنيف احتياط فقط (كان «ترايبود» يجيب كلّ «المثبّتات والترايبود») */
+    if (window.GMTSuggest && GMTSuggest.filterProducts) items = GMTSuggest.filterProducts(searchQuery, items);
+    else if (window.GMTSuggest && GMTSuggest.hitsProduct) items = items.filter(p => GMTSuggest.hitsProduct(searchQuery, p));
     else items = items.filter(p =>
       (p.name || '').toLowerCase().includes(q) ||
       (p.short || '').toLowerCase().includes(q) ||
