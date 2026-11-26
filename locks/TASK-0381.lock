@@ -1,0 +1,7 @@
+task: TASK-0381
+session: session_012mdFKkM4fy6ac1SEVVfNqp
+branch: claude/tender-tesla-1x135d
+files: gmt-suggest.js inventory.html sw.js
+claimed_at: 2026-11-26T07:32:34Z
+status: ACTIVE
+release: scripts/gov.sh release TASK-0381
