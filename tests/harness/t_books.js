@@ -24,12 +24,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(J.find(e => e.kind === 'supplier').amount === -500 && J.find(e => e.kind === 'costs').amount === -60 && J.find(e => e.kind === 'asset').amount === -200, 'دفعة المورّد −500 · الشحن والجمارك −60 · الأصل −200 (مو مصروف)');
   const S = B.summary(ctx, B.yearRange(2026));
   ok(S.sales === 150 && S.cash === 120 && S.credit === 30 && S.expenses === 30 && S.assets === 200 && S.supplierPaid === 500 && S.costsPaid === 60 && S.collections === 10 && S.commPaid === 5, 'ملخّص السنة: مبيعات 150 (آجل 30) · مصاريف 30 · أصول 200 · مورّدين 500 · شحن وجمارك 60');
-  ok(S.purchases.count === 2 && S.purchases.due === 1400 && S.purchases.transit === 1100 && S.purchases.arrived === 300, 'المشتريات: 1400 (مع شحن الصين) · بالطريق 1100 · واصل 300');
+  ok(S.purchases.count === 2 && S.purchases.due === 1300 && S.purchases.transit === 1000 && S.purchases.arrived === 300, 'المشتريات (قاعدة TASK-0378 · C1121: الشحن لسوريا عند الوصول مش مع المورّد): 1300 · بالطريق 1000 · واصل 300 — كان: ' + JSON.stringify(S.purchases));
   const P = B.position(ctx);
-  ok(P.payables.suppliers === 600 && P.payables.costs === 40 && P.payables.commissions === 7 && P.payables.manual === 15 && P.payables.deposits === 12 && P.payables.total === 674, 'علينا: مورّدين 600 (1100−500) · جمارك لسّا 40 · عمولات 7 · يدوي 15 · عرابين 12 = 674');
+  ok(P.payables.suppliers === 500 && P.payables.costs === 40 && P.payables.commissions === 7 && P.payables.manual === 15 && P.payables.deposits === 12 && P.payables.total === 574, 'علينا: مورّدين 500 (1000−500 · C1121) · جمارك لسّا 40 · عمولات 7 · يدوي 15 · عرابين 12 = 574');
   ok(P.receivables.customers === 20 && P.receivables.manual === 25 && P.stock.value === 400 && P.assets === 200, 'لنا: آجل 20 · يدوي 25 · بضاعة 400 · أصول 200');
   const snap = B.closeSnapshot(ctx, 2026);
-  ok(snap.year === 2026 && snap.position.payables.total === 674 && snap.summary.sales === 150 && snap.suppliers.length === 1, 'لقطة الإقفال: ما علينا وما لنا وملخّص السنة والمورّدين');
+  ok(snap.year === 2026 && snap.position.payables.total === 574 && snap.summary.sales === 150 && snap.suppliers.length === 1, 'لقطة الإقفال: ما علينا وما لنا وملخّص السنة والمورّدين');
   ok(/^﻿/.test(B.csv(J)) && B.csv(J).split('\n').length === 9, 'CSV لكلّ الحركات');
   /* الواجهة */
   await H.seed();

@@ -50,7 +50,7 @@
     var chinaParts = china ? [['الفاتورة', goods], ['شحن داخلي', trans], ['أجور تحويل', xfer]].filter(function (x) { return x[1] > 0; }) : [];
     return { costs: costs, costParts: cparts, costsPaid: costsPaid, costsDue: costsDue, covered: covered, china: china, chinaParts: chinaParts,
              totalRemaining: r2(remaining + costsDue), goods: goods, ship: ship, value: value, paid: paid, remaining: remaining, status: status, source: source, nextDue: nextDue,
-             overdue: !!(nextDue && nextDue < today()), qty: qty };
+             overdue: !!(nextDue && nextDue < today()), qty: qty, items: it.length };   /* items رجع (انشال بـTASK-0378 بالغلط — t_popay) */
   }
   var ST = { paid: ['✅ مدفوعة', '#dcfce7', '#166534'], partial: ['🟡 جزئية', '#fef3c7', '#92400e'], unpaid: ['🔴 غير مدفوعة', '#fee2e2', '#991b1b'], over: ['⚠️ مدفوع أكثر', '#ede9fe', '#5b21b6'] };
   function chip(p, pays) {
