@@ -1,7 +1,0 @@
-task: TASK-0378
-session: session_012mdFKkM4fy6ac1SEVVfNqp
-branch: claude/tender-tesla-1x135d
-files: gmt-ledger.js gmt-popay.js admin_pos.html tests/harness/t_pocosts.js docs/دليل_العمليات_المدرّبة.md sw.js
-claimed_at: 2026-11-26T07:13:17Z
-status: ACTIVE
-release: scripts/gov.sh release TASK-0378

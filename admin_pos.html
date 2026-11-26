@@ -541,8 +541,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-h
   <script src="gmt-suggest.js?v=20261123e"></script>
   <script src="gmt-order-to-invoice.js?v=20261127b45"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-ledger.js?v=20261125b36"></script>
-  <script src="gmt-popay.js?v=20261127b44"></script><!-- (B1101) مستحقّ المورّد والتكاليف «لسّا عليها» بنفس القاعدة -->
+  <script src="gmt-ledger.js?v=20261127c2"></script>
+  <script src="gmt-popay.js?v=20261127c2"></script><!-- (B1101) مستحقّ المورّد والتكاليف «لسّا عليها» بنفس القاعدة -->
   <script src="gmt-back.js?v=20261127b45"></script><!-- (seq B1115) زرّ الرجوع بالهاتف بيسكّر النافذة مش الصفحة -->
   <script src="gmt-books.js?v=20261127b44"></script><!-- (TASK-B0563 · seq B1101) السجلّ المالي الكامل + إقفال السنة -->
   <script src="gmt-staff.js?v=20261127c1"></script>
@@ -6572,7 +6572,8 @@ function renderAccounting() {
   const purchasesThisMonth = allPurchases.filter(p => accInMonth(p.created_at || p.inv_date, ym));
   // التكاليف المؤجَّلة غير المدفوعة (جمارك + شحن + نقل + محلي)
   /* (seq B1099) شحن الصين بيندفع مع الفاتورة (ضمن دفعات المورّد) ⇒ مو من «التكاليف المؤجَّلة» — القاعدة وحدة: GMTLedger.costsTotal */
-  const _costsOf = p => (window.GMTLedger && GMTLedger.costsTotal) ? GMTLedger.costsTotal(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  /* (TASK-0378 · المالك C1121) الصينية: تكاليف الوصول (شحن لسوريا · جمارك · داخل سوريا) ناقص ما غطّته دفعة المورّد */
+  const _costsOf = p => (window.GMTLedger && GMTLedger.costsDue) ? GMTLedger.costsDue(p) : (window.GMTLedger && GMTLedger.costsTotal) ? GMTLedger.costsTotal(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
   const unpaidCostsShipments = allPurchases.filter(p => _costsOf(p) > 0 && !p.costs_paid);
   const totalUnpaidCosts = unpaidCostsShipments.reduce((s,p) => s + _costsOf(p), 0);
 
@@ -6816,7 +6817,8 @@ function renderAccounting() {
 }
 
 function purchaseCostsPendingRowHtml(p) {
-  const totalCosts = (window.GMTLedger && GMTLedger.costsTotal) ? GMTLedger.costsTotal(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  const totalCosts = (window.GMTLedger && GMTLedger.costsDue) ? GMTLedger.costsDue(p) : (Number(p.cost_customs)||0) + (Number(p.cost_shipping)||0) + (Number(p.cost_transport)||0) + (Number(p.cost_local)||0);
+  const _cn = !!(window.GMTLedger && GMTLedger.isChina && GMTLedger.isChina(p));   /* (TASK-0378) الصينية: النقل الداخلي بالصين مع الفاتورة لا عند الوصول */
   const _shipWithInv = !!(window.GMTLedger && GMTLedger.shipWithInvoice && GMTLedger.shipWithInvoice(p));   /* (B1099) شحن الصين مع الفاتورة */
   const dateStr = new Date(p.created_at || p.inv_date).toLocaleDateString('ar-SY',{day:'2-digit',month:'2-digit',year:'numeric'});
   return `
@@ -6828,7 +6830,7 @@ function purchaseCostsPendingRowHtml(p) {
         <div style="font-size:10px;color:var(--text3);margin-top:3px;">
           ${p.cost_customs?`جمارك: ${Number(p.cost_customs).toFixed(2)}$ · `:''}
           ${p.cost_shipping&&!_shipWithInv?`شحن: ${Number(p.cost_shipping).toFixed(2)}$ · `:''}${p.cost_shipping&&_shipWithInv?`<span title="شحن الصين بيندفع للمورّد مع الفاتورة">(الشحن ${Number(p.cost_shipping).toFixed(2)}$ مع دفعات المورّد) · </span>`:''}
-          ${p.cost_transport?`نقل: ${Number(p.cost_transport).toFixed(2)}$ · `:''}
+          ${p.cost_transport&&!_cn?`نقل: ${Number(p.cost_transport).toFixed(2)}$ · `:''}
           ${p.cost_local?`محلي: ${Number(p.cost_local).toFixed(2)}$`:''}
         </div>
       </div>
@@ -6847,7 +6849,7 @@ function purchaseCostsPendingRowHtml(p) {
 async function markPurchaseCostsPaid(purchaseId) {
   const p = allPurchases.find(x => String(x.id) === String(purchaseId));
   if (!p) return;
-  const totalCosts = GMTLedger.costsTotal(p);
+  const totalCosts = GMTLedger.costsDue ? GMTLedger.costsDue(p) : GMTLedger.costsTotal(p);   /* (TASK-0378) */
   const payer = await GMTAsk.prompt(`تأكيد دفع تكاليف الجمارك/الشحن (${totalCosts.toFixed(2)}$) لفاتورة #${p.inv_number||p.id}.\nمن دفعها؟ (يُحفظ اسمه على القيد)`, { title: 'من دفع الجمارك والشحن؟', value: (window.GMTRole && GMTRole.name && GMTRole.name()) || 'الإدارة' });
   if (payer === null) return;
   try {

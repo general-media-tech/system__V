@@ -72,12 +72,20 @@
   function sumRows(rows, part) {
     return r2(rows.reduce(function (s, e) { var t = poInfo(e); return t && t.part === part ? s + usd(e) : s; }, 0));
   }
-  /* (seq B1099 — المالك: «تكاليف الشحن في الصين هي بتندفع مع الفاتورة») الشحن بالفاتورة الصينية بيندفع للمورّد مع البضاعة:
-     ⇒ مستحقّ المورّد = البضاعة + الشحن · ودفعاته (cash_payment) بتشمله ⇒ ما بينعدّ مرّة تانية بـ«التكاليف المؤجَّلة» (جمارك · نقل · داخلي). */
-  function shipWithInvoice(p) { return String((p && p.inv_type) || '') === 'china'; }
-  function supplierDue(p) { return r2(num(p && p.total_amount) + (shipWithInvoice(p) ? num(p && p.cost_shipping) : 0)); }
+  /* (TASK-0378 · المالك seq C1121 — يصحّح B1099) الفاتورة الصينية قسمان:
+       ① قبل ما تنشحن ⇐ يندفع بالصين: سعر الفاتورة + «تكاليف النقل» (الشحن الداخلي بالصين — جواب المالك) + أجور التحويل
+       ② عند الوصول: الشحن إلى سوريا + الجمارك + داخل سوريا
+     ⇒ supplierDue = ① · costsTotal = ② . فواتير قديمة اندفع فيها الشحن مع الفاتورة (CN-0004/5/6: الدفعة = الفاتورة + الشحن بالضبط)
+       ⇒ الفائض فوق ① يُحسب مدفوعاً من ② (coveredByInvoice) — لا يُعدّ مرّتين ولا يظهر «مدفوع أكثر».
+     غير الصين بلا تغيير: المورّد = البضاعة · التكاليف = جمارك + شحن + نقل + داخلي. */
+  function isChina(p) { return String((p && p.inv_type) || '') === 'china'; }
+  function shipWithInvoice(p) { return false; }   /* (TASK-0378) أُلغي: الشحن لسوريا صار عند الوصول — يبقى الاسم للتوافق */
+  function supplierDue(p) {
+    return r2(num(p && p.total_amount) + (isChina(p) ? num(p && p.cost_transport) + num(p && p.cost_transfer) : 0));
+  }
   function costsTotal(p) {
-    return r2(num(p && p.cost_customs) + (shipWithInvoice(p) ? 0 : num(p && p.cost_shipping)) + num(p && p.cost_transport) + num(p && p.cost_local));
+    return isChina(p) ? r2(num(p && p.cost_shipping) + num(p && p.cost_customs) + num(p && p.cost_local))
+                      : r2(num(p && p.cost_customs) + num(p && p.cost_shipping) + num(p && p.cost_transport) + num(p && p.cost_local));
   }
   /* فواتير الأرشفة (جرد أثري ARC- · جرد تدقيق AUDIT-) ليست مشتريات من مورد: لا دفعة ولا دَين */
   function isArchival(p) {
@@ -95,9 +103,16 @@
     return Math.max(0, r2(num(raw)));
   }
   /* المطلوب تسجيله لفاتورة الشراء: g = ما دُفع على البضاعة · c = تكاليف الجمارك/الشحن إن «دُفعت» */
+  /* (TASK-0378) ما دُفع للمورّد فوق حصّة الصين ⇐ دفعٌ مسبق من تكاليف الوصول (فواتير اندفع شحنها مع الفاتورة) */
+  function coveredByInvoice(p) {
+    if (!p || !isChina(p) || isArchival(p)) return 0;
+    return r2(Math.min(costsTotal(p), Math.max(0, paidGoods(p) - supplierDue(p))));
+  }
+  /* تكاليف الوصول الباقية بعد ما غطّته دفعة المورّد */
+  function costsDue(p) { return r2(Math.max(0, costsTotal(p) - coveredByInvoice(p))); }
   function desired(p) {
     if (!p || isArchival(p)) return { g: 0, c: 0 };
-    return { g: paidGoods(p), c: (p.costs_paid ? costsTotal(p) : 0) };
+    return { g: paidGoods(p), c: (p.costs_paid ? costsDue(p) : 0) };
   }
   /* الفرق بين المطلوب والمسجَّل — لإظهار «N فاتورة تحتاج ربطاً» دون كتابة.
      transfers (اختياريّ): صفوف branch_transfers — يُكتشف بها صفّ دفتر لفرعٍ بلا حركة درج (فشلٌ جزئيّ سابق).
@@ -114,6 +129,8 @@
       var miss = haveT ? rows.filter(function (e) {
         var t = poInfo(e); return e.branch_key && !e.is_general && !tagged[ '[PO:' + t.pid + ':' + t.part + ':' + t.seq + ']' ];
       }).length : 0;
+      /* (TASK-0378) فاتورة مدفوعة بالكامل (costs_paid) تغيّر فقط تصنيف المدفوع بين المورّد والتكاليف والمجموع نفسه ⇒ لا نقد ناقص ولا زائد ⇒ لا تنبيه */
+      if (p.costs_paid && !miss && Math.abs(dg + dc) < 0.005) return;
       if (Math.abs(dg) >= 0.005 || Math.abs(dc) >= 0.005 || miss) out.push({ purchase: p, dg: dg, dc: dc, missingMoves: miss });
     });
     var orphans = {};
@@ -244,7 +261,7 @@
   function supplierPayable(purchases) {
     return r2((purchases || []).reduce(function (s, p) {
       if (!p || isCancelled(p) || isArchival(p)) return s;
-      return s + Math.max(0, supplierDue(p) - paidGoods(p));   /* (B1101 صيد نمط B1099) مع شحن الصين — نفس GMTPoPay.summary */
+      return s + Math.max(0, supplierDue(p) - paidGoods(p));   /* (TASK-0378) حصّة الصين (بضاعة + نقل داخلي + تحويل) — نفس GMTPoPay.summary */
     }, 0));
   }
 
@@ -386,7 +403,7 @@
   window.GMTLedger = {
     centralCash: centralCash, profit: profit, supplierPayable: supplierPayable,
     syncPurchase: syncPurchase, reversePurchase: reversePurchase, drift: drift,
-    desired: desired, paidGoods: paidGoods, isArchival: isArchival, costsTotal: costsTotal, supplierDue: supplierDue, shipWithInvoice: shipWithInvoice, ledgerRows: ledgerRows, poInfo: poInfo,
+    desired: desired, paidGoods: paidGoods, isArchival: isArchival, costsTotal: costsTotal, supplierDue: supplierDue, shipWithInvoice: shipWithInvoice, isChina: isChina, coveredByInvoice: coveredByInvoice, costsDue: costsDue, ledgerRows: ledgerRows, poInfo: poInfo,
     expClass: expClass, isDrawing: isDrawing, isCapital: isCapital, cashSource: cashSource, usd: usd, inRange: inRange, localYMD: localYMD
   };
 })();

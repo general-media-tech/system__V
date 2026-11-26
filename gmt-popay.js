@@ -27,22 +27,30 @@
   function usdOf(x) { var c = String(x.currency || 'USD').toUpperCase(); if (c === 'USD') return r2(x.amount); var fx = num(x.fx_rate); return fx > 0 ? r2(num(x.amount) / fx) : 0; }
   function summary(p, pays) {
     p = p || {};
-    /* (seq B1099) الفاتورة الصينية: الشحن بيندفع للمورّد مع البضاعة ⇒ قيمة الفاتورة = البضاعة + الشحن (نفس GMTLedger.supplierDue) */
-    var goods = r2(p.total_amount), ship = String(p.inv_type || '') === 'china' ? r2(p.cost_shipping) : 0;
-    var value = r2(goods + ship), live = (pays || []).filter(function (x) { return x && !x.voided; });
+    /* (TASK-0378 · المالك C1121) الصينية: «باقي بالصين» = الفاتورة + النقل الداخلي + التحويل (قبل ما تنشحن) · «عند الوصول» = شحن لسوريا + جمارك + داخل سوريا
+       — نفس GMTLedger.supplierDue/costsTotal/coveredByInvoice. الفائض المدفوع للمورّد فوق حصّة الصين يُحسب من تكاليف الوصول. */
+    var china = String(p.inv_type || '') === 'china';
+    var goods = r2(p.total_amount), trans = china ? r2(p.cost_transport) : 0, xfer = china ? r2(p.cost_transfer) : 0, ship = 0;
+    var value = r2(goods + trans + xfer), live = (pays || []).filter(function (x) { return x && !x.voided; });
     var it = arr(p.items_snapshot), qty = it.reduce(function (s, x) { return s + num(x && x.qty); }, 0);
     var paid, source;
     if (live.length) { paid = r2(live.reduce(function (s, x) { return s + (x.usd != null ? num(x.usd) : usdOf(x)); }, 0)); source = 'payments'; }
     else { var raw = p.cash_payment; paid = (raw == null || raw === '') ? value : Math.max(0, r2(raw)); source = (raw == null || raw === '') ? 'legacy-full' : 'legacy'; }
     var remaining = r2(Math.max(0, value - paid));
-    var status = paid > value + 0.005 ? 'over' : (remaining <= 0.005 ? 'paid' : (paid > 0.005 ? 'partial' : 'unpaid'));
+    var cparts = china
+      ? [['شحن لسوريا', r2(p.cost_shipping)], ['جمارك', r2(p.cost_customs)], ['داخل سوريا', r2(p.cost_local)]]
+      : [['جمارك', r2(p.cost_customs)], ['شحن', r2(p.cost_shipping)], ['نقل', r2(p.cost_transport)], ['داخلي', r2(p.cost_local)]];
+    cparts = cparts.filter(function (x) { return x[1] > 0; });
+    var costs = r2(cparts.reduce(function (a, x) { return a + x[1]; }, 0)), costsPaid = !!p.costs_paid;
+    var covered = china ? r2(Math.min(costs, Math.max(0, paid - value))) : 0;
+    var costsDue = costsPaid ? 0 : r2(Math.max(0, costs - covered));
+    var status = paid > value + covered + 0.005 ? 'over' : (remaining <= 0.005 ? 'paid' : (paid > 0.005 ? 'partial' : 'unpaid'));
     var dues = live.map(function (x) { return x.due_at; }).filter(Boolean).sort();
     var nextDue = remaining > 0.005 && dues.length ? String(dues[dues.length - 1]).slice(0, 10) : '';
-    /* (seq B1100) «الشحن والجمارك المتوقّعة ⇐ لسّا عليها دفع»: التكاليف اللي ما بتندفع للمورّد (جمارك · نقل · داخلي — والشحن لغير الصين)
-       بتضلّ «لسّا عليها دفع» لحدّ ما تعلّمها مدفوعة (costs_paid) — نفس GMTLedger.costsTotal */
-    var cparts = [['جمارك', r2(p.cost_customs)], ['شحن', ship ? 0 : r2(p.cost_shipping)], ['نقل', r2(p.cost_transport)], ['داخلي', r2(p.cost_local)]].filter(function (x) { return x[1] > 0; });
-    var costs = r2(cparts.reduce(function (a, x) { return a + x[1]; }, 0)), costsPaid = !!p.costs_paid;
-    return { costs: costs, costParts: cparts, costsPaid: costsPaid, costsDue: costsPaid ? 0 : costs, goods: goods, ship: ship, value: value, paid: paid, remaining: remaining, status: status, source: source, nextDue: nextDue, overdue: !!(nextDue && nextDue <= today()), items: it.length, qty: qty, count: live.length };
+    var chinaParts = china ? [['الفاتورة', goods], ['شحن داخلي', trans], ['أجور تحويل', xfer]].filter(function (x) { return x[1] > 0; }) : [];
+    return { costs: costs, costParts: cparts, costsPaid: costsPaid, costsDue: costsDue, covered: covered, china: china, chinaParts: chinaParts,
+             totalRemaining: r2(remaining + costsDue), goods: goods, ship: ship, value: value, paid: paid, remaining: remaining, status: status, source: source, nextDue: nextDue,
+             overdue: !!(nextDue && nextDue < today()), qty: qty };
   }
   var ST = { paid: ['✅ مدفوعة', '#dcfce7', '#166534'], partial: ['🟡 جزئية', '#fef3c7', '#92400e'], unpaid: ['🔴 غير مدفوعة', '#fee2e2', '#991b1b'], over: ['⚠️ مدفوع أكثر', '#ede9fe', '#5b21b6'] };
   function chip(p, pays) {
@@ -112,12 +120,19 @@
       w.innerHTML = '<div style="background:#f8fafc;border-radius:18px;width:100%;max-width:760px;overflow:hidden">' +
         '<div data-popay-bar style="position:sticky;top:0;background:#f8fafc;padding:12px 14px;border-bottom:1px solid #e5e7eb;z-index:1">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="flex:1;font-size:15px">💳 الدفعات — ' + esc(p.inv_number || '#' + p.id) + (p.supplier ? '<div style="font-size:12px;font-weight:700;color:#64748b">' + esc(g.GMTSuppliers && GMTSuppliers.canon ? GMTSuppliers.canon(p) : p.supplier) + '</div>' : '') + '</b><span style="border-radius:99px;padding:3px 10px;font-size:12px;font-weight:900;background:' + t[1] + ';color:' + t[2] + '">' + t[0] + '</span><button type="button" data-popay-x style="border:1.5px solid #e5e7eb;background:#fff;border-radius:9px;padding:5px 10px;font:inherit;font-weight:800;cursor:pointer">✕</button></div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap">' + cell(s.ship ? 'الفاتورة + الشحن' : 'قيمة الفاتورة', s.value.toFixed(2) + '$' + (s.ship ? '<div style="font-size:10px;font-weight:700;color:#64748b">بضاعة ' + s.goods.toFixed(2) + ' + شحن ' + s.ship.toFixed(2) + '</div>' : '')) + cell('دفعت', s.paid.toFixed(2) + '$', '#166534') + cell('باقي عليك', s.remaining.toFixed(2) + '$', s.remaining > 0.005 ? '#b91c1c' : '') +
+        /* (TASK-0378 · المالك C1121) الصينية: ① باقي بالصين (قبل ما تنشحن) ② باقي عند الوصول (شحن لسوريا · جمارك) ③ باقي ككلّ */
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+          cell(s.china ? 'المطلوب بالصين' : 'قيمة الفاتورة', s.value.toFixed(2) + '$' + (s.china && s.chinaParts.length > 1 ? '<div style="font-size:10px;font-weight:700;color:#64748b">' + esc(s.chinaParts.map(function (x) { return x[0] + ' ' + x[1].toFixed(2); }).join(' + ')) + '</div>' : '')) +
+          cell('دفعت', s.paid.toFixed(2) + '$', '#166534') +
+          cell(s.china ? 'باقي عليك بالصين' : 'باقي عليك', s.remaining.toFixed(2) + '$', s.remaining > 0.005 ? '#b91c1c' : '#166534') +
+          (s.china && s.costs > 0.005 ? cell('باقي عند الوصول', s.costsDue.toFixed(2) + '$', s.costsDue > 0.005 ? '#b91c1c' : '#166534') : '') +
+          (s.china ? '<div data-popay-total style="flex:1;min-width:92px;background:#0f1219;color:#fff;border-radius:12px;padding:6px 9px"><div style="font-size:10.5px;font-weight:800;opacity:.75">باقي ككلّ</div><div style="font-weight:900;font-size:14px" dir="ltr">' + s.totalRemaining.toFixed(2) + '$</div></div>' : '') +
         (s.nextDue ? cell('موعد دفع الباقي', s.nextDue + (s.overdue ? ' ⏰ فات' : ''), s.overdue ? '#b91c1c' : '') : '') + '</div>' +
-        (s.costs > 0.005 ? '<div data-popay-costbox style="margin-top:8px;border-radius:12px;padding:8px 11px;font-size:12.5px;font-weight:800;background:' + (s.costsPaid ? '#f0fdf4;border:1px solid #bbf7d0' : '#fef2f2;border:1px solid #fecaca') + '">' +
-          '<div style="display:flex;gap:8px;align-items:center"><span style="flex:1">🧾 الشحن والجمارك (' + esc(s.costParts.map(function (x) { return x[0] + ' ' + x[1].toFixed(2); }).join(' · ')) + ') = <b dir="ltr">' + s.costs.toFixed(2) + '$</b><div style="font-size:11.5px;color:' + (s.costsPaid ? '#166534' : '#991b1b') + '">' + (s.costsPaid ? '✅ اندفعت' : '⏳ لسّا عليها دفع') + '</div></span>' +
-          (s.costsPaid ? '' : '<button type="button" data-popay-costs-paid style="border:0;background:#15803d;color:#fff;border-radius:10px;padding:7px 11px;font:inherit;font-size:12px;font-weight:900;cursor:pointer">✅ اندفعت</button>') + '</div>' +
-          (s.ship ? '<div style="font-size:11px;color:#64748b;margin-top:2px">الشحن (' + s.ship.toFixed(2) + '$) محسوب فوق مع الفاتورة لأنه بيندفع للمورّد</div>' : '') + '</div>' : '') +
+        (s.costs > 0.005 ? '<div data-popay-costbox style="margin-top:8px;border-radius:12px;padding:8px 11px;font-size:12.5px;font-weight:800;background:' + (s.costsDue <= 0.005 ? '#f0fdf4;border:1px solid #bbf7d0' : '#fef2f2;border:1px solid #fecaca') + '">' +
+          '<div style="display:flex;gap:8px;align-items:center"><span style="flex:1">🧾 ' + (s.china ? 'عند الوصول' : 'الشحن والجمارك') + ' (' + esc(s.costParts.map(function (x) { return x[0] + ' ' + x[1].toFixed(2); }).join(' · ')) + ') = <b dir="ltr">' + s.costs.toFixed(2) + '$</b>' +
+          '<div style="font-size:11.5px;color:' + (s.costsDue <= 0.005 ? '#166534' : '#991b1b') + '">' + (s.costsPaid ? '✅ اندفعت' : (s.costsDue <= 0.005 ? '✅ اندفعت مع دفعة المورّد' : '⏳ لسّا عليها دفع ' + s.costsDue.toFixed(2) + '$')) + '</div></span>' +
+          (s.costsPaid || s.costsDue <= 0.005 ? '' : '<button type="button" data-popay-costs-paid style="border:0;background:#15803d;color:#fff;border-radius:10px;padding:7px 11px;font:inherit;font-size:12px;font-weight:900;cursor:pointer">✅ اندفعت</button>') + '</div>' +
+          (s.covered > 0.005 ? '<div style="font-size:11px;color:#64748b;margin-top:2px">' + s.covered.toFixed(2) + '$ منها اندفعت مع دفعة المورّد (فوق حصّة الصين)</div>' : '') + '</div>' : '') +
         '</div><div style="padding:10px 14px 14px">' +
         '<button type="button" data-popay-add style="width:100%;border:0;background:#0f1219;color:#fff;border-radius:12px;padding:11px;font:inherit;font-weight:900;cursor:pointer">➕ دفعة جديدة</button>' +
         (s.source === 'legacy' && s.paid > 0 ? '<div data-popay-legacy style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px 11px;margin-top:8px;font-size:12.5px;font-weight:700"><b dir="ltr">' + s.paid.toFixed(2) + '$</b> · دفعة قديمة<div style="color:#64748b">مسجّلة على الفاتورة من قبل</div></div>' : '') +
@@ -134,11 +149,11 @@
       if (e.target === w || e.target.closest('[data-popay-x]')) { w.remove(); return; }
       if (e.target.closest('[data-popay-costs-paid]') && g.GMTAsk) {
         var sc = summary(p, of(p.id));
-        var who2 = await GMTAsk.prompt('تأكيد دفع الشحن والجمارك (' + sc.costs.toFixed(2) + '$) لفاتورة ' + (p.inv_number || '') + '.\nمين دفعها؟', { title: '🧾 دفع التكاليف', value: who() });
+        var who2 = await GMTAsk.prompt('تأكيد دفع ' + (sc.china ? 'تكاليف الوصول' : 'الشحن والجمارك') + ' (' + sc.costsDue.toFixed(2) + '$) لفاتورة ' + (p.inv_number || '') + '.\nمين دفعها؟', { title: '🧾 دفع التكاليف', value: who() });
         if (who2 === null || who2 === undefined) return;
         try {
           await req('PATCH', 'import_log?id=eq.' + encodeURIComponent(p.id), { costs_paid: true }, 'return=minimal');
-          try { g.GMTAudit && GMTAudit.log({ action: 'po_costs_paid', entity: 'import_log', entityId: String(p.id), entityName: p.inv_number || '', newValue: sc.costs + '$ · ' + (String(who2).trim() || 'الإدارة') }); } catch (_) {}
+          try { g.GMTAudit && GMTAudit.log({ action: 'po_costs_paid', entity: 'import_log', entityId: String(p.id), entityName: p.inv_number || '', newValue: sc.costsDue + '$ · ' + (String(who2).trim() || 'الإدارة') }); } catch (_) {}
           p = Object.assign({}, p, { costs_paid: true }); await paint(); if (opt.onChange) opt.onChange(p.id, { payer: String(who2).trim() || 'الإدارة' });
         } catch (er) { if (typeof g.toast === 'function') g.toast('تعذّر: ' + er.message, 'err'); }
         return;
