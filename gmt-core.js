@@ -5138,7 +5138,7 @@ window.GMTOpenExt = window.GMTOpenExt || function (url) {
 (function () {
   try {
     if (typeof document === 'undefined' || window.GMTBack || document.querySelector('script[src*="gmt-back.js"]')) return;
-    var s = document.createElement('script'); s.src = 'gmt-back.js?v=20261127b45';
+    var s = document.createElement('script'); s.src = 'gmt-back.js?v=20261127b46';
     (document.head || document.documentElement).appendChild(s);
   } catch (_) {}
 })();

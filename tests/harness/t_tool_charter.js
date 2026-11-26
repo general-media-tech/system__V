@@ -37,7 +37,7 @@ ok(/gmt-back\.js\?v=/.test(fs.readFileSync(path.join(ROOT, 'gmt-core.js'), 'utf8
   const { browser, pg, errs } = await H.open('home.html', { init: H.ADMIN_INIT, w: 390, h: 844, wait: 2500 });
   await pg.goto(pg.url().replace(/home\.html.*$/, 'سجل_العمليات.html')); await sleep(4000);
   const url0 = pg.url();
-  ok(await pg.evaluate(() => !!window.GMTBack && !document.querySelector('script[src*="gmt-back.js"]:not([src*="?v=20261127b45"])')), '(٣) gmt-back انحمّل تلقائياً بصفحة ما فيها إياه');
+  ok(await pg.evaluate(() => !!window.GMTBack && !document.querySelector('script[src*="gmt-back.js"]:not([src*="?v=20261127b46"])')), '(٣) gmt-back انحمّل تلقائياً بصفحة ما فيها إياه');
   /* نافذة متل أيّ وحدة جديدة: الوسم + زرّ ✕ */
   await pg.evaluate(() => { const w = document.createElement('div'); w.id = 'tc-m'; w.setAttribute('data-gmt-modal', ''); w.style.cssText = 'position:fixed;inset:0'; w.innerHTML = '<button data-gmt-close>✕</button>'; w.querySelector('button').onclick = () => w.remove(); document.body.appendChild(w); });
   await sleep(200);
