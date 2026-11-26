@@ -12,6 +12,8 @@ async function sale(pg, pid, cust, qty) {
   await pg.evaluate(([pid, cust, qty]) => { newInvoice(); for (let k = 0; k < qty; k++) addToCartFromDetail(pid); saleType = 'نقدي'; document.getElementById('custName').value = cust; document.getElementById('custPhone').value = ''; }, [pid, cust, qty]);
   await pg.evaluate(() => saveAndFinish());
   for (let i = 0; i < 30; i++) { await pg.waitForTimeout(250); if (((await dump()).invoices || []).some(x => x.customer_name === cust)) break; }
+  /* (Q4 · TASK-B0575) استنّى بنود الفاتورة كمان — المرتجع قبل ما تنحفظ البنود كان يبني «بند تقريبي» */
+  for (let i = 0; i < 30; i++) { const d = await dump(); const iv = (d.invoices || []).find(x => x.customer_name === cust); if (iv && (d.invoice_items || []).some(it => String(it.invoice_id) === String(iv.id))) break; await pg.waitForTimeout(250); }
   await pg.waitForTimeout(600); await closeDialogs(pg);
   return ((await dump()).invoices || []).find(x => x.customer_name === cust);
 }
@@ -91,6 +93,13 @@ async function openRefund(pg, invId) {
 
   const real = errs.filter(e => !/status of (400|401|404|406|409)|Failed to load resource|ERR_FAILED|net::/.test(e));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 2)));
+  // ⑥ (Q4 · TASK-B0575 · الجذر) فاتورة قديمة بلا بنود مسجّلة ⇒ «بند تقريبي» ⇒ ممنوع يرجّع مخزون لرقم البند (كان يبعت «<id>_1» كمنتج)
+  const reqs = []; pg.on('request', r => { if (/rpc\/(add|deduct)_branch_stock/.test(r.url())) reqs.push(r.postData() || ''); });
+  const [OI] = await H.call('/rest/v1/invoices', [{ invoice_number: 'OLD-NOITEMS', customer_name: 'زبون قديم بلا بنود', total: 50, paid_amount: 50, remaining_amount: 0, sale_type: 'نقدي', branch_key: 'daraa', branch_name: 'درعا', items_count: 1, created_at: new Date().toISOString() }]);
+  await openRefund(pg, OI.id); await closeDialogs(pg); await pg.evaluate(() => setRefundType('full')); await pg.waitForTimeout(300);
+  await pg.evaluate(() => confirmRefund()); await pg.waitForTimeout(2500); await closeDialogs(pg);
+  rf = await refundsOf(OI.id);
+  ok(rf.length === 1 && !reqs.some(x => /_1"/.test(x)), 'فاتورة بلا بنود ⇒ المرتجع المالي تمّ وما انبعت رقم بند كمنتج للمخزون (' + rf.length + ' · ' + JSON.stringify(reqs.slice(0, 2)) + ')');
   await browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

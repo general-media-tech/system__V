@@ -81,7 +81,7 @@
       }
     } catch (_) {}
     var refunded = items.map(function (it) {
-      var pid = it.product_id || it.id, max = Math.max(0, (Number(it.qty) || 0) - (already[pid] || 0));
+      var pid = it.product_id || null, max = Math.max(0, (Number(it.qty) || 0) - (already[pid] || 0));
       return Object.assign({}, it, { refundQty: max });
     }).filter(function (x) { return x.refundQty > 0; });
     if (!refunded.length) return { already: true, refundInv: null, totalRefund: 0, cashBack: 0, debtCancelled: 0, items: [], issues: [], invoice: inv };
@@ -105,14 +105,14 @@
     if (res.error) throw new Error('فشل حفظ فاتورة الإرجاع: ' + res.error + ' — لم يتغيّر مخزونٌ ولا صندوق');
     var rinv = res.data[0], issues = [];
     var ir = await postAdaptive(o, '/rest/v1/invoice_items', refunded.map(function (i) {
-      return { invoice_id: rinv.id, product_id: i.product_id || i.id, product_name: i.product_name || i.name || '—', branch_key: stockBk, qty: i.refundQty,
+      return { invoice_id: rinv.id, product_id: i.product_id || null, product_name: i.product_name || i.name || '—', branch_key: stockBk, qty: i.refundQty,
         unit_price: r2(Number(i.unit_price || i.price || 0) * ratio), wholesale_price: Number(i.wholesale_price || 0), total: r2(Number(i.unit_price || i.price || 0) * i.refundQty * ratio) };
     }), ['invoice_id', 'product_id', 'qty']);
     if (ir.error) issues.push('تعذّر حفظ بنود المرتجع (' + String(ir.error).slice(0, 70) + ')');
     /* ④ المخزون */
     for (var k = 0; k < refunded.length; k++) {
-      var it = refunded[k], pid = it.product_id || it.id;
-      if (!pid) continue;
+      var it = refunded[k], pid = it.product_id || null;   /* (Q4 · TASK-B0575) .id = رقم بند invoice_items مش منتج */
+      if (!pid) { issues.push('«' + (it.product_name || 'بند') + '» بلا منتج معروف — المخزون ما رجع، رجّعه يدوياً'); continue; }
       var st = await addStock(o, pid, stockBk, it.refundQty);
       if (!st.ok) issues.push('تعذّر إعادة المخزون لـ«' + (it.product_name || pid) + '»' + (st.error ? ' (' + String(st.error).slice(0, 60) + ')' : ''));
     }

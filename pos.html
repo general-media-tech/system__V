@@ -5555,6 +5555,18 @@ function posOpenLens() {
     onPick: p => { const s = document.getElementById('searchInput'); if (s) s.value = p.barcode || p.name; try { renderProds(); } catch (_) {} showToast('🔍 ' + p.name, 'ok'); } });
 }
 window.posOpenLens = posOpenLens;
+/* (دستور الأداة الجديدة ١ · Q4 · seq B1117) زرّ رجوع الهاتف بيسكّر نوافذ نقطة البيع بدل ما يطلّع الكاشير من الصفحة نصّ البيعة */
+(function () {
+  function mark() {
+    [['barcode-modal', 'closeBarcodeModal'], ['currency-modal', 'closeCurrencyModal'], ['inv-detail-modal', 'closeInvDetailModal'],
+     ['product-detail-overlay', 'closeProductDetail'], ['scanner-overlay', 'closeScanner'], ['stockcount-modal', 'closeStockCount'],
+     ['thermal-modal', 'closeThermalModal']].forEach(function (x) {
+      var e = document.getElementById(x[0]); if (!e || e.hasAttribute('data-gmt-modal')) return;
+      e.setAttribute('data-gmt-modal', 'static'); e._gmtClose = function () { if (typeof window[x[1]] === 'function') window[x[1]](); };
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mark); else mark();
+})();
 function _scFocusRow(id) {
   setTimeout(() => { const i = document.querySelector('#sc-list input[data-sc-id="' + CSS.escape(String(id)) + '"]'); if (i) { i.focus(); try { i.select(); } catch (_) {} } }, 30);
 }
@@ -6656,7 +6668,7 @@ async function _confirmRefundInner() {
 
     let capped = false;
     refundedItems = refundedItems.map(item => {
-      const pid = item.product_id || item.id;
+      const pid = item.product_id || null; /* (Q4 · TASK-B0575) بنود المرتجع من invoice_items ⇐ .id رقم البند مش المنتج — ما منرجّع مخزون لرقم بند */
       const already = alreadyRefunded[pid] || 0;
       const maxAllowed = Math.max(0, (Number(item.qty)||0) - already);
       if (item.refundQty > maxAllowed) capped = true;
@@ -6729,7 +6741,7 @@ async function _confirmRefundInner() {
     // ─── ٢. بنود الإرجاع — يُتحقَّق من النتيجة ───
     const refundItemsPayload = refundedItems.map(item => ({
       invoice_id     : savedRefundInv.id,
-      product_id     : item.product_id || item.id,
+      product_id     : item.product_id || null,
       product_name   : item.product_name || item.name || '—',
       branch_key     : _bk,
       qty            : item.refundQty,
@@ -6742,7 +6754,8 @@ async function _confirmRefundInner() {
 
     // ─── ٣. إعادة المخزون — فرقٌ نسبيّ ذرّي على رصيد القاعدة الحالي (لا على كاش الجهاز) ───
     for (const item of refundedItems) {
-      const pid = item.product_id || item.id;
+      const pid = item.product_id || null;
+      if (!pid) { _refundIssues.push('«' + (item.product_name || item.name || 'بند') + '» بلا منتج معروف (بنود الفاتورة ما انقرت) — المخزون ما رجع، رجّعه يدوياً من الجرد'); continue; }
       const res = await adjustBranchStockAtomic(pid, _bk, item.refundQty, 'inc', NaN);
       if (res.ok) {
         const idx = allProducts.findIndex(p => String(p.id) === String(pid));
@@ -6781,7 +6794,7 @@ async function _confirmRefundInner() {
           const netCur = (rows || []).reduce((s2, r) => s2 + (Number(r.amount) || 0), 0);
           // ما بقي من القيمة غير المُرجَعة قبل هذه العملية (لنحسب النسبة)
           const remainingRaw = (refundItems || []).reduce((s2, i) => {
-            const pid = i.product_id || i.id; const q = Math.max(0, (Number(i.qty) || 0) - (alreadyRefunded[pid] || 0));
+            const pid = i.product_id || null; const q = Math.max(0, (Number(i.qty) || 0) - (alreadyRefunded[pid] || 0));
             return s2 + Number(i.unit_price || i.price || 0) * q;
           }, 0);
           const share = remainingRaw > 0 ? Math.min(1, _refundRaw / remainingRaw) : 1;
