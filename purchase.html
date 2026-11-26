@@ -1555,10 +1555,13 @@ function render(){
           <div class="text-[10px] font-bold text-gray-400 mt-1">📅 ${fd(s.inv_date)}</div>
           <p class="text-[10px] text-yellow-600 font-bold mt-1">🏪 ${eh(branchName)}</p>
           ${purGapChips(s)}
+          ${window.GMTPoPay?'<div class="mt-1">'+GMTPoPay.chip(s,GMTPoPay.of(s.id))+'</div>':''}
         </div>
         <div class="flex flex-col items-end gap-2">
           <span class="text-sm font-black text-emerald-600">$ ${Number(s.total_amount||0).toFixed(2)}</span>
           <div class="flex gap-3 text-gray-400">
+            <button onclick="openPoPay('${s.id}')" class="hover:text-emerald-600" title="💳 تسجيل دفعة للمورّد" data-popay-open="${s.id}">💳</button><!-- (seq B1127) الشراء الفوري كمان إله دفعات — كان الزرّ بفواتير الصين وأوروبا بس -->
+            <button onclick="openPoDocs('${s.id}')" class="hover:text-indigo-600" title="📎 المستندات: فاتورة المورّد الورقية" data-podocs-open="${s.id}">📎</button>
             <button onclick="openInstantInvFromList('${s.id}')" class="hover:text-blue-600" title="فاتورة"><i data-lucide="file-text" class="w-4 h-4"></i></button>
             <button onclick="showPurHistory('${s.id}')" class="hover:text-amber-600" title="سجل التعديلات" data-pur-hist="${s.id}"><i data-lucide="history" class="w-4 h-4"></i></button>
             <button onclick="delShip('${s.id}')" class="hover:text-red-600"><i data-lucide="trash" class="w-4 h-4"></i></button>
