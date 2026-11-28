@@ -67,6 +67,8 @@
   .gh small { font-size: 5.5pt; font-weight: 700; opacity: .85; }
   .gap { }
   .gsp { grid-column: 1 / -1; }
+  /* (TASK-A0590 · المالك seq A1131/A1137 «على الهاتف … إطارات خارجة») ورقة A4 ثابتة 210مم أعرض من الهاتف ⇒ تمرير أفقيّ. على الشاشة فقط نصغّر المعاينة بعرض الشاشة (--z من السكربت)؛ الطباعة لا تتأثّر */
+  @media screen { html, body { overflow-x: hidden; } #pages { zoom: var(--z, 1); } .bar { max-width: 100vw; } }
   @media print {
     html, body { background: #fff; }
     .bar { display: none !important; }
@@ -143,6 +145,8 @@
     if (window.GMTPhomemo) return go();
     var s = document.createElement('script'); s.src = '${base}gmt-phomemo.js?v=20261124a'; s.onload = go; document.head.appendChild(s);
   };
+  function fitZ() { var w = document.documentElement.clientWidth || innerWidth, pw = 793.7 + 16; document.documentElement.style.setProperty('--z', w < pw ? (w / pw).toFixed(3) : '1'); }
+  fitZ(); window.addEventListener('resize', fitZ);
   if (window.JsBarcode) draw(); else window.addEventListener('load', draw);
 })();
 <\/script></body></html>`;

@@ -121,20 +121,25 @@
     var old = doc.getElementById('gmt-pm'); if (old) old.remove();
     var c = cfg(), list = (items || []).map(function (x) { return { name: x.name || '', barcode: String(x.barcode || '').trim(), qty: Math.max(0, Math.round(Number(x.qty != null ? x.qty : 1))) }; }).filter(function (x) { return x.barcode; });
     var root = doc.createElement('div'); root.id = 'gmt-pm'; root.setAttribute('dir', 'rtl');
-    root.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,18,25,.6);display:flex;align-items:flex-end;justify-content:center;font-family:Cairo,Tahoma,sans-serif';
+    root.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,18,25,.6);display:flex;align-items:flex-end;justify-content:center;font-family:Cairo,Tahoma,sans-serif;box-sizing:border-box;overflow:hidden;padding:0;margin:0';   /* (TASK-A0590 · المالك seq A1131/A1137) لا إطارات خارجة على الهاتف */
     var single = list.length === 1;
-    root.innerHTML = '<div style="background:#fff;width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px">' +
-      '<div style="display:flex;align-items:center;gap:8px"><b style="flex:1;font-size:15px">🖨️ طابعة الملصقات (بلوتوث) — Phomemo M110</b><button data-x style="border:0;background:none;font-size:20px;cursor:pointer">✕</button></div>' +
+    /* (TASK-A0590 · المالك seq A1131/A1137) «على الهاتف الواجهة لا تعمل … في إطارات خارجة»: الصندوق عمودٌ محدود بالشاشة (dvh) ⇒ الجسم يتمرّر وشريط «اطبع» ثابت أسفله مع safe-area،
+       كلّ عنصرٍ min-width:0 ويلتفّ، والمعاينة تتقلّص لعرض الشاشة (max-width:100%;height:auto) */
+    root.innerHTML = '<style>#gmt-pm,#gmt-pm *{box-sizing:border-box}#gmt-pm label{min-width:0;max-width:100%}#gmt-pm select{max-width:100%}#gmt-pm canvas{max-width:100%;height:auto}</style>' +
+      '<div data-box style="background:#fff;width:100%;max-width:520px;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:18px 18px 0 0;min-width:0">' +
+      '<div data-body style="flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 14px 6px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">' +
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0"><b style="flex:1;min-width:0;font-size:15px;overflow-wrap:anywhere">🖨️ طابعة الملصقات (بلوتوث) — Phomemo M110</b><button data-x style="border:0;background:none;font-size:20px;cursor:pointer">✕</button></div>' +
       '<div style="font-size:11.5px;color:#64748b;margin:4px 0 8px">الباركود في وسط الملصق بلا إطار ولا خطوط قصّ — شغّل الطابعة وقرّبها، ثمّ «اطبع».</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:700">' +
         '<label>المقاس <select data-size style="font:inherit;padding:4px">' + SIZES.map(function (s) { return '<option value="' + s[0] + 'x' + s[1] + '"' + (s[0] === c.w && s[1] === c.h ? ' selected' : '') + '>' + s[0] + '×' + s[1] + ' مم</option>'; }).join('') + '</select></label>' +
-        '<label>الكثافة <input data-dens type="range" min="4" max="15" value="' + c.dens + '" style="width:90px;vertical-align:middle"></label>' +
+        '<label>الكثافة <input data-dens type="range" min="4" max="15" value="' + c.dens + '" style="width:90px;max-width:100%;vertical-align:middle"></label>' +
         '<label><input data-name type="checkbox"' + (c.name ? ' checked' : '') + '> الاسم</label><label><input data-code type="checkbox"' + (c.code ? ' checked' : '') + '> الرقم</label>' +
         (single ? '<label>العدد <input data-qty type="number" min="1" max="200" value="' + Math.max(1, list[0].qty || 1) + '" style="width:64px;font:inherit;padding:4px"></label>' : '<span>' + list.reduce(function (s, x) { return s + x.qty; }, 0) + ' ملصقاً من ' + list.length + ' منتجاً</span>') +
       '</div>' +
-      '<div style="background:#f1f5f9;border-radius:12px;padding:10px;margin:10px 0;text-align:center"><canvas data-prev style="max-width:100%;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.15);image-rendering:pixelated"></canvas><div data-pn style="font-size:11px;color:#64748b;margin-top:4px"></div></div>' +
-      '<div data-st style="font-size:12.5px;font-weight:800;color:#0f766e;min-height:18px;margin-bottom:6px"></div>' +
-      '<div style="display:flex;gap:8px"><button data-go style="flex:1;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;font-size:15px;cursor:pointer">🖨️ اطبع</button></div></div>';
+      '<div style="background:#f1f5f9;border-radius:12px;padding:10px;margin:10px 0;text-align:center;overflow:hidden"><canvas data-prev style="max-width:100%;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.15);image-rendering:pixelated"></canvas><div data-pn style="font-size:11px;color:#64748b;margin-top:4px"></div></div>' +
+      '<div data-st style="font-size:12.5px;font-weight:800;color:#0f766e;min-height:18px;margin-bottom:6px;overflow-wrap:anywhere"></div>' +
+      '</div>' +
+      '<div style="flex:0 0 auto;display:flex;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #e5e7eb;background:#fff"><button data-go style="flex:1;background:#D5001C;color:#fff;border:0;border-radius:12px;padding:12px;font:inherit;font-weight:900;font-size:15px;cursor:pointer">🖨️ اطبع</button></div></div>';
     doc.body.appendChild(root);
     var $ = function (s) { return root.querySelector(s); }, st = function (t, bad) { $('[data-st]').textContent = t || ''; $('[data-st]').style.color = bad ? '#b91c1c' : '#0f766e'; };
     function readCfg() { var s = $('[data-size]').value.split('x'); c = { w: +s[0], h: +s[1], dens: +$('[data-dens]').value, name: $('[data-name]').checked, code: $('[data-code]').checked }; saveCfg(c); return c; }
@@ -142,7 +147,7 @@
       readCfg(); if (!list.length) { st('لا منتج بباركود', true); return; }
       var r = render(list[0], c); if (!r.ok) { st(r.error, true); return; }
       var p = $('[data-prev]'); p.width = r.canvas.width; p.height = r.canvas.height; p.getContext('2d').drawImage(r.canvas, 0, 0);
-      p.style.width = Math.min(300, r.canvas.width * 0.9) + 'px';
+      p.style.width = Math.min(300, r.canvas.width * 0.9) + 'px'; p.style.maxWidth = '100%'; p.style.height = 'auto';
       $('[data-pn]').textContent = c.w + '×' + c.h + ' مم · ' + r.canvas.width + '×' + r.canvas.height + ' نقطة' + (list.length > 1 ? ' · معاينة الأوّل' : '');
     }
     ['[data-size]', '[data-dens]', '[data-name]', '[data-code]'].forEach(function (s) { $(s).onchange = prev; });
