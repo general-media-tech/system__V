@@ -53,6 +53,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     const s = await shot(o, f);
     console.log('   (' + f + ') قرأ:', s.words.slice(0, 120), '⇒', s.items.slice(0, 3).join(' | '));
     ok(!/ستاندات وترايبود/.test(s.type + s.st), '③ (' + f + ') لا حصر بقسم الستاندات من شكلٍ ضعيف');
+    if (f === 'lens_shot_lavalier_side.jpg') ok(s.items.length >= 3 && s.items.slice(0, 3).every(t => !/L12D|L13D|ستاند/.test(t)), '②③ لقطة العدسة الحقيقيّة (علبة نائمة · كتابة عمودية) ⇒ أوّل ٣ مايكات لا «L12D» كما ظهر للمالك: ' + s.items.slice(0, 3).join(' | '));
     await o.pg.evaluate(() => GMTLens.close());
   }
   // ④ معرض صور المنتج من الاقتراحات (بحثٌ مكتوب)
@@ -71,7 +72,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   ok(g && g.img && g.pick && g.w, '④ الضغط على صورة الاقتراح يفتح صور المنتج (مع «هذا هو») بلا خروج عن الشاشة: ' + JSON.stringify(g));
   await o.pg.evaluate(() => GMTLens.close());
   ok(ai.length === 0, 'بلا نداء للعقل');
-  const real = o.errs.filter(x => !/status of (400|401|404|406|409|500|503)|Failed to load resource|getUserMedia|NotFoundError|Requested device not found|ERR_FAILED|net::|diacritics|Estimating resolution/.test(x));
+  const real = o.errs.filter(x => !/status of (400|401|404|406|409|500|503)|Failed to load resource|getUserMedia|NotFoundError|Requested device not found|ERR_FAILED|net::|diacritics|Estimating resolution|boxClipToRectangle|pixScanForForeground/.test(x));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 3)));
   await o.browser.close();
   console.log(fails ? `FAIL ${fails} / ${pass + fails}` : `ALL PASS (${pass})`); process.exit(fails ? 1 : 0);

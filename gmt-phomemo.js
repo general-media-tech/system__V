@@ -37,7 +37,7 @@
     /* الباركود بعرض وحدةٍ صحيح (حادّ على الحراريّ) وفي الوسط أفقياً */
     var tmp = doc.createElement('canvas');
     try { global.JsBarcode(tmp, code, { format: 'CODE128', displayValue: false, margin: 0, height: 10, width: 1 }); } catch (e) { return { ok: false, error: 'باركود غير صالح: ' + code }; }
-    var mods = tmp.width, avail = W - 2 * M, unit = Math.max(1, Math.floor(avail / mods)), bw = mods * unit;
+    var mods = tmp.width, avail = W - 2 * M, unit = Math.max(1, Math.floor(avail / (mods + 20))), bw = mods * unit;   /* (TASK-A0589 · seq A1142) + ١٠ وحدات هامشاً أبيض على كلّ جانب (المنطقة الهادئة) — بلا هامش لا تقرؤه كاميرا الهاتف */
     var bc = doc.createElement('canvas');
     global.JsBarcode(bc, code, { format: 'CODE128', displayValue: false, margin: 0, height: bcH, width: unit, background: '#ffffff', lineColor: '#000000' });
     var bx = Math.round((W - Math.min(bw, avail)) / 2), by = M + nameH;

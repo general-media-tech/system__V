@@ -1,3 +1,4 @@
+const path = require('path');
 // (TASK-A0589 · المالك seq A1140) باركودٌ صغير/مغبّش على هاتفٍ متعدّد العدسات:
 //  ① اختيار العدسة الرئيسيّة الخلفيّة + دقّة عالية + تبديل + حفظ الاختيار + الزووم  ② «من الصور»: فكٌّ عميق لباركودٍ صغيرٍ مغبّش
 //  ③ أرقام الباركود المطبوعة (OCR أرقام) حين تفشل الخطوط  ④ المسح الحيّ ما زال يعمل  ⑤ لا طفح أفقي عند 360px
@@ -98,6 +99,15 @@ const CODE = ean13('629104150021'), CODE2 = ean13('629104150038'), OTHER = ean13
     await pg.setInputFiles('#gmt-scan-ui [data-file]', await fileFor(CODE, o));
     let got = null; for (let i = 0; i < 60 && !got; i++) { await sleep(500); got = await pg.evaluate(() => window.__got[0] || null); }
     ok(got && got[0] === CODE && got[1] === 'photo', '«🖼️ من الصور» · باركود ' + name + ' ⇒ ' + JSON.stringify(got));
+    await pg.evaluate(() => { try { window.__close(); } catch (e) {} });
+  }
+
+  // ②ب (المالك seq A1142 «خود هدول جرب عليهن أداتك») لقطتا المالك الحقيقيّتان: ملصق Zu 60 مطبوع بلا هامش أبيض على طاولة سوداء — مستقيم ومائل
+  for (const [f, want] of [['scan_zu60_flat.jpg', '68679422621977'], ['scan_zu60_tilt.jpg', '68679416104427']]) {
+    await start();
+    await pg.setInputFiles('#gmt-scan-ui [data-file]', path.join(__dirname, 'fixtures', f));
+    let got = null; for (let i = 0; i < 60 && !got; i++) { await sleep(500); got = await pg.evaluate(() => window.__got[0] || null); }
+    ok(got && got[0] === want, '②ب لقطة المالك ' + f + ' ⇒ ' + want + ': ' + JSON.stringify(got));
     await pg.evaluate(() => { try { window.__close(); } catch (e) {} });
   }
 

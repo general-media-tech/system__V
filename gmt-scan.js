@@ -245,6 +245,72 @@
         [-6, 6].forEach(function (a) { add('full-rot' + a, function () { return rotateCanvas(enhanceCanvas(base, 'sharp'), a); }); });
         return steps;
     }
+    /* (TASK-A0589 · المالك seq A1142 «خود هدول جرب عليهن أداتك» — ملصقات Zu 60) قارئ Code128 بخطّ مسحٍ متوسَّط:
+       ملصقاتنا مطبوعة بلا هامشٍ أبيض (margin:0) ⇒ على طاولةٍ سوداء تصير حافة الورقة «خطوطاً» قبل الباركود فيفشل ZXing، والصورة الصغيرة
+       تُذيب الفراغات الرفيعة. الحلّ: متوسّط عشرات الأسطر (يمحو الضجيج) ⇒ عتبة ⇒ أطوال الخطوط ⇒ البحث عن رمز البداية **في أيّ موضع**
+       (لا حاجة لهامش) ⇒ أقرب نمطٍ لكلّ رمز ⇒ رقم التحقّق يحسم (لا قراءة خاطئة). مع ميلٍ حتّى ±9° والاتّجاه المعكوس. */
+    var C128 = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232'].map(function (t) { return t.split('').map(Number); });
+    function c128sym(w, i) {   /* أقرب نمطٍ لستّة أطوال (مُطبَّعة على ١١ وحدة) — أو -1 */
+        var sum = 0, k; for (k = 0; k < 6; k++) sum += w[i + k]; if (!sum) return -1;
+        var m = sum / 11, best = -1, bd = 1e9;
+        for (var s = 0; s < C128.length; s++) { var d = 0, P = C128[s]; for (k = 0; k < 6; k++) d += Math.abs(w[i + k] / m - P[k]); if (d < bd) { bd = d; best = s; } }
+        return bd <= 1.6 ? best : -1;
+    }
+    function c128stop(w, i) { var sum = 0, k, P = [2, 3, 3, 1, 1, 1, 2]; if (i + 7 > w.length) return false; for (k = 0; k < 7; k++) sum += w[i + k]; var m = sum / 13, d = 0; for (k = 0; k < 7; k++) d += Math.abs(w[i + k] / m - P[k]); return d <= 1.8; }
+    function c128runs(w) {   /* w: أطوال متناوبة تبدأ بخطّ أسود */
+        for (var st = 0; st + 6 <= w.length; st += 2) {
+            var a = c128sym(w, st); if (a < 103 || a > 105) continue;
+            var syms = [a], i = st + 6, ok = false;
+            while (i + 6 <= w.length && syms.length < 60) {
+                if (syms.length >= 3 && c128stop(w, i)) { ok = true; break; }
+                var v = c128sym(w, i); if (v < 0 || v > 102) break; syms.push(v); i += 6;
+            }
+            if (!ok || syms.length < 3) continue;
+            var chk = syms[0]; for (var j = 1; j < syms.length - 1; j++) chk += j * syms[j];
+            if (chk % 103 !== syms[syms.length - 1]) continue;
+            var set = syms[0] === 103 ? 'A' : syms[0] === 104 ? 'B' : 'C', out = '';
+            for (j = 1; j < syms.length - 1; j++) { var v2 = syms[j];
+                if (v2 === 99) { set = 'C'; continue; } if (v2 === 100) { set = 'B'; continue; } if (v2 === 101) { set = 'A'; continue; } if (v2 > 101) continue;
+                if (set === 'C') out += (v2 < 10 ? '0' : '') + v2; else if (set === 'B') out += String.fromCharCode(v2 + 32); else out += String.fromCharCode(v2 < 64 ? v2 + 32 : v2 - 64);
+            }
+            if (out.length >= 4) return out;
+        }
+        return '';
+    }
+    function scanLines(src, opts) {
+        opts = opts || {};
+        var base = fitCanvas(src, opts.max || 1400), angles = opts.angles || [0, -4, 4, -8, 8, -2, 2, -6, 6], t0 = Date.now(), lim = opts.ms || 2500;
+        for (var ai = 0; ai < angles.length; ai++) {
+            if (Date.now() - t0 > lim) break;
+            var c = angles[ai] ? rotateCanvas(base, angles[ai]) : base, w = c.width, h = c.height;
+            var d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+            var prof = new Float32Array(w);
+            var BH = [h / 14, h / 6, h / 3, 24, 48, 96].map(function (v) { return Math.max(6, Math.round(v)); }).filter(function (v, i, a) { return v <= h && a.indexOf(v) === i; });
+            for (var bi = 0; bi < BH.length; bi++) { var bandH = BH[bi], step = Math.max(3, Math.round(bandH / 3));
+            for (var y0 = 0; y0 + bandH <= h; y0 += step) {
+                prof.fill(0);
+                for (var y = y0; y < y0 + bandH; y++) { var o = y * w * 4; for (var x = 0; x < w; x++) prof[x] += d[o + 4 * x] * 77 + d[o + 4 * x + 1] * 150 + d[o + 4 * x + 2] * 29; }
+                var srt = Array.prototype.slice.call(prof).sort(function (a, b) { return a - b; }), lo = srt[Math.floor(w * 0.08)], hi = srt[Math.floor(w * 0.92)];
+                if (hi - lo < bandH * 256 * 40) continue;   /* بلا تباين ⇒ لا خطوط هنا */
+                /* حوافّ بدقّة جزء البكسل: المسح مكبَّراً ×4 بالاستيفاء الخطّي (الفراغ الرفيع بعرض ٢–٣ بكسل لا يذوب بالتقريب) */
+                var K = 4, pw = (w - 1) * K + 1, P2 = new Float32Array(pw);
+                for (x = 0; x < pw; x++) { var xf = x / K, xi = Math.floor(xf), fr = xf - xi; P2[x] = xi + 1 < w ? prof[xi] * (1 - fr) + prof[xi + 1] * fr : prof[xi]; }
+                for (var tq = 0; tq < 7; tq++) {
+                    var thr = lo + (hi - lo) * [0.5, 0.4, 0.6, 0.45, 0.55, 0.35, 0.65][tq], runs = [], cur = P2[0] < thr, n = 0;
+                    for (x = 0; x < pw; x++) { var dark = P2[x] < thr; if (dark === cur) n++; else { runs.push([cur, n]); cur = dark; n = 1; } }
+                    runs.push([cur, n]);
+                    while (runs.length && !runs[0][0]) runs.shift();
+                    while (runs.length && !runs[runs.length - 1][0]) runs.pop();
+                    if (runs.length < 25) continue;
+                    var wl = runs.map(function (r) { return r[1]; }), txt = c128runs(wl) || c128runs(wl.slice().reverse());
+                    if (!txt) { /* أطراف الورقة على خلفيةٍ داكنة: جرّب بعد إسقاط أوّل خطّين/آخرهما */ txt = c128runs(wl.slice(2)) || c128runs(wl.slice(0, -2).reverse()); }
+                    if (txt) return txt;
+                }
+            }
+            }
+        }
+        return '';
+    }
     /* فكٌّ عميق للصورة الكاملة: يتوقّف عند أوّل نتيجة · opts.timeout (مللي) · opts.onProgress(نصّ) */
     async function decodeDeep(source, opts) {
         opts = opts || {};
@@ -258,7 +324,10 @@
             var c; try { c = steps[i].fn(); } catch (e) { continue; }
             var code = await decodeCanvasOnce(c, ZX);
             if (code) return { code: code, via: steps[i].label };
+            if (i === 0) { await tick(); var sl0 = ''; try { sl0 = scanLines(src, { ms: 3000 }); } catch (e) {} if (sl0) return { code: sl0, via: 'scanline' }; }
         }
+        try { var rg = locateBars(src, false); if (rg) { var sl1 = scanLines(cropScale(src, rg.x, rg.y, rg.w, rg.h, 1, 0), { ms: 3000 }); if (sl1) return { code: sl1, via: 'scanline-loc' }; } } catch (e) {}
+        try { var sl = scanLines(src, { ms: 4000, max: 1800 }); if (sl) return { code: sl, via: 'scanline' }; } catch (e) {}
         return null;
     }
     async function toCanvas(x) {
@@ -518,6 +587,22 @@
             reader = new ZXm.BrowserMultiFormatReader();
             var p = reader.decodeFromStream ? reader.decodeFromStream(s, vid, onRes) : reader.decodeFromVideoDevice(null, 'gmt-scan-video', onRes);
             Promise.resolve(p).then(function (c) { if (c && c.stop && my === gen && !controls) controls = c; }).catch(function () {});
+            /* (TASK-A0589 · المالك seq A1142) بجانب ZXing: كلّ ~١.٢ث خطّ مسحٍ متوسَّط على إطار الفيديو — يقرأ ملصقاتنا بلا هامش أبيض
+               وعلى خلفيةٍ داكنة وبميلٍ حتّى ±8° (حيث يفشل ZXing الحيّ) */
+            (function slLoop() {
+                if (done || my !== gen) return;
+                setTimeout(function () {
+                    if (done || my !== gen) return;
+                    try {
+                        if (vid.readyState >= 2 && vid.videoWidth) {
+                            var fc = mkCanvas(vid.videoWidth, vid.videoHeight); fc.getContext('2d').drawImage(vid, 0, 0);
+                            var c2 = scanLines(fc, { ms: 700, max: 1000, angles: [0, -4, 4, -8, 8] });
+                            if (c2 && !done && my === gen) { deliver(c2, 'camera'); return; }
+                        }
+                    } catch (e) {}
+                    slLoop();
+                }, 1200);
+            })();
         }
         function cycle() {
             if (busy) return;
@@ -720,5 +805,5 @@
         return btn;
     }
 
-    global.GMTScan = { still: still, decodeDeep: decodeDeep, readDigits: readDigits, matchDigits: matchDigits, camera: camera, listen: listen, attach: attach, photo: photo, decodeFile: decodeFile };
+    global.GMTScan = { still: still, decodeDeep: decodeDeep, scanLines: scanLines, readDigits: readDigits, matchDigits: matchDigits, camera: camera, listen: listen, attach: attach, photo: photo, decodeFile: decodeFile };
 }(typeof window !== 'undefined' ? window : this));

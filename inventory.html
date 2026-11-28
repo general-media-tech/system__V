@@ -2301,7 +2301,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-packages.js?v=20261127b45" defer></script>
   <script src="gmt-browser.js?v=20261104l" defer></script>
   <script src="gmt-reconcile.js?v=20261127b47" defer></script>
-  <script src="gmt-lens.js?v=20261127b45" defer></script>
+  <script src="gmt-lens.js?v=20261128a1" defer></script>
   <script src="gmt-suggest.js?v=20261127c5"></script>
   <script src="gmt-match.js?v=20261122y"></script>
   <script src="gmt-compat-kb.js?v=20261116d"></script>
@@ -2317,7 +2317,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <script src="gmt-notify.js?v=20261125b32" defer></script>
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
-  <script src="gmt-scan.js?v=20261124b2"></script>
+  <script src="gmt-scan.js?v=20261128a1"></script>
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261127b45"></script>
 <script src="gmt-specs.js?v=20261103a"></script>
@@ -2325,7 +2325,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 <script src="gmt-product-edit.js?v=20261127b45" defer></script>
 <script src="gmt-enrich-queue.js?v=20261124b3"></script>
   <script src="gmt-warmup.js?v=20261122w"></script>
-  <script src="gmt-labels.js?v=20261125b12"></script>
+  <script src="gmt-labels.js?v=20261128a1"></script>
 <script src="gmt-staff.js?v=20261127c1"></script>
 <!-- 🔴 (2026-10-03 · بلاغ ١٦٩) أُزيل `gmt-deep-inspector.js` (48ك) من هذه الصفحة:
      كان يُحمَّل ويُحلَّل في كل فتحة، و`GMTDeepInspector` **لا يُستعمَل إلّا في
@@ -7286,7 +7286,7 @@ function invPhomemo(id) {
   var p = (allProducts || []).find(function (x) { return String(x.id) === String(id); }); if (!p || !p.barcode) return;
   var go = function () { var o = document.getElementById('bc-overlay'); if (o) o.remove(); GMTPhomemo.open([{ name: p.name || '', barcode: p.barcode, qty: 1 }]); };
   if (window.GMTPhomemo) return go();
-  var s = document.createElement('script'); s.src = 'gmt-phomemo.js?v=20261124a'; s.onload = go; s.onerror = function () { showToast('تعذّر تحميل الطابعة', 'error'); }; document.head.appendChild(s);
+  var s = document.createElement('script'); s.src = 'gmt-phomemo.js?v=20261128a1'; s.onload = go; s.onerror = function () { showToast('تعذّر تحميل الطابعة', 'error'); }; document.head.appendChild(s);
 }
 window.invPhomemo = invPhomemo;
 async function openBarcodeFor(id) {
@@ -16984,7 +16984,7 @@ window.showWelcomeSlidesForce = showWelcomeSlidesForce;
 <script src="gmt-brain.js?v=20261125b26"></script>
 <!-- 🆕 «شو الجديد» — نافذة تُعرَض مرّة واحدة لكل دفعة، وزرّ دائم بعدها.
      لا تُحمَّل على صفحات الزبون إطلاقاً (أخبار داخلية). -->
-<script src="gmt-whatsnew.js?v=20261127b47"></script>
+<script src="gmt-whatsnew.js?v=20261128a1"></script>
 <script src="gmt-store-sync.js?v=20261122n" defer></script>
 <script src="gmt-merge-review.js?v=20261127b45" defer></script>
 <script src="gmt-refresh.js?v=20261124b2"></script>

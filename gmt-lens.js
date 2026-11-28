@@ -24,7 +24,7 @@
     return new Promise(function (res) { var s = doc.createElement('script'); s.src = src; s.onload = function () { res(!!global[name]); }; s.onerror = function () { res(false); }; doc.head.appendChild(s); });
   }
   function needMatch() { return loadOnce('GMTMatch', 'gmt-match.js?v=20261122y'); }
-  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261124c'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
+  function needLocal() { loadOnce('GMTSuggest', 'gmt-suggest.js?v=20261123e'); return loadOnce('GMTLensLocal', 'gmt-lens-local.js?v=20261128a1'); }   /* البحث بخوارزمية النظام نفسها (seq A1009) */
   function fileToCanvas(file) {
     return new Promise(function (res) {
       var u = URL.createObjectURL(file), im = new Image();

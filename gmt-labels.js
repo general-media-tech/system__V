@@ -132,7 +132,7 @@
     box.innerHTML = html;
     document.getElementById('cnt').textContent = L.length + ' ملصق · ' + pages + ' ورقة A4' + (hasG ? ' · ' + (function () { var s = {}; L.forEach(function (x) { s[x.group] = 1; }); return Object.keys(s).length; })() + ' مجموعة' : '');
     if (window.JsBarcode) box.querySelectorAll('svg[data-c]').forEach(function (s) {
-      try { JsBarcode(s, s.getAttribute('data-c'), { format: 'CODE128', displayValue: false, margin: 0, height: 40, width: 1.6 });
+      try { JsBarcode(s, s.getAttribute('data-c'), { format: 'CODE128', displayValue: false, margin: 0, marginLeft: 16, marginRight: 16, height: 40, width: 1.6 });   /* (TASK-A0589 · المالك seq A1142) هامشٌ أبيض = ١٠ وحدات على الجانبين: بلا هامش يُقصّ الملصق عند الخطوط فلا تقرؤه كاميرا الهاتف */
         s.setAttribute('preserveAspectRatio', 'none'); }
       catch (e) { s.parentNode.innerHTML = '<div class="nobc">باركود غير صالح</div>'; }
     });
@@ -143,7 +143,7 @@
     var agg = {}, order = []; L.forEach(function (x) { var k = x.barcode + '|' + x.name; if (!agg[k]) { agg[k] = { name: x.name, barcode: x.barcode, qty: 0 }; order.push(k); } agg[k].qty++; });
     var go = function () { window.GMTPhomemo.open(order.map(function (k) { return agg[k]; }), { base: '${base}' }); };
     if (window.GMTPhomemo) return go();
-    var s = document.createElement('script'); s.src = '${base}gmt-phomemo.js?v=20261124a'; s.onload = go; document.head.appendChild(s);
+    var s = document.createElement('script'); s.src = '${base}gmt-phomemo.js?v=20261128a1'; s.onload = go; document.head.appendChild(s);
   };
   function fitZ() { var w = document.documentElement.clientWidth || innerWidth, pw = 793.7 + 16; document.documentElement.style.setProperty('--z', w < pw ? (w / pw).toFixed(3) : '1'); }
   fitZ(); window.addEventListener('resize', fitZ);
