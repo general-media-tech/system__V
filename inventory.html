@@ -2237,6 +2237,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
   <!-- 🔑 مصدر الحقيقة الوحيد لمفاتيح القواعد (2026-07-12) -->
 <!-- (2026-10-05 ع) الحساب المعلّق: تصفّحٌ فقط حتى موافقة الإدارة (gmt-account.js) -->
 <script src="gmt-tools.js?v=20261127b45"></script>
+<script src="gmt-gridnav.js?v=20261128a2" defer></script><!-- (TASK-A0592 · المالك seq A1143) تنقّل الأسهم كإكسل -->
 <script src="gmt-account.js?v=20261119j"></script>
 <style id="gmt-cv-grid">
 /* (٧ ط · «تعليق وتقطيع») البطاقات والصفوف خارج الشاشة لا تُرسم حتى تقترب */
@@ -8080,7 +8081,9 @@ function jumpToCell(idx) {
   input.className = 'edit-mode-input';
   if (isPrice) input.style.width = '80px';
 
+  let _committed = false;   /* (TASK-A0592) الإزالة تُطلق blur فتُستدعى الدالّة مرّتين ⇒ مرّة واحدة */
   const commitAndNext = async (next = true) => {
+    if (_committed) return; _committed = true;
     const newVal = Math.max(0, Number(input.value) || 0);
 
     // استعادة عرض الخلية
@@ -8108,8 +8111,16 @@ function jumpToCell(idx) {
     if (e.key === 'Enter')     { e.preventDefault(); commitAndNext(true); }
     if (e.key === 'Tab')       { e.preventDefault(); commitAndNext(true); }
     if (e.key === 'Escape')    { input.value = currentVal; commitAndNext(false); }
-    if (e.key === 'ArrowDown') { e.preventDefault(); commitAndNext(true); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); jumpToCell(idx - 1); }
+    /* (TASK-A0592 · المالك seq A1143) الأسهم كإكسل: ↓ نفس العمود في المنتج التالي · ↑ السابق · ←/→ الخلية المجاورة (الجدول RTL: اليسار = التالي في الترتيب)
+       القائمة مسطّحة (منتج × أعمدة قابلة للتعديل) ⇒ خطوة الصفّ = عدد الأعمدة القابلة للتعديل · عند الحافّة نثبّت الخلية الحالية بدل الخروج من الوضع */
+    const _stride = Math.max(1, editModeCells.filter(c => c.productId === editModeCells[0].productId).length);
+    const _step = (d) => { const t = idx + d; return (t >= 0 && t < editModeCells.length) ? t : idx; };
+    const _go = async (t) => { await commitAndNext(false); jumpToCell(t); };
+    if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); _go(_step(_stride)); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); _go(_step(-_stride)); }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); _go(_step(1)); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); _go(_step(-1)); }
   });
 
   input.addEventListener('blur', () => { commitAndNext(false); });

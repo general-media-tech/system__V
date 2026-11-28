@@ -1306,6 +1306,7 @@
         function onKey(e) {
           if (e.key === 'Escape') { e.preventDefault(); if (drawing) cancelDraw(); else finish(null); return; }
           if (view !== 'edit') return;
+          if (/input|textarea|select/i.test((e.target && e.target.tagName) || '') || (e.target && e.target.isContentEditable)) return;   /* (TASK-A0592 · المالك seq A1143) لا نحجب تراجع/نسخ المتصفّح الأصلي داخل الحقول */
           if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
           else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); doRedo(); }
           else if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && !/input|textarea/i.test((e.target && e.target.tagName) || '')) { e.preventDefault(); delPoint(); }
