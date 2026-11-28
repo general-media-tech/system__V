@@ -70,7 +70,24 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
     if (ov) ov.querySelector('[data-gx]').click(); return res;
   });
   ok(g && g.img && g.pick && g.w, '④ الضغط على صورة الاقتراح يفتح صور المنتج (مع «هذا هو») بلا خروج عن الشاشة: ' + JSON.stringify(g));
+  const g2 = await o.pg.evaluate(() => { const x = document.querySelector('#gmt-lens [data-gal]'); x.click(); const ov = document.querySelector('[data-gallery]'); const t = ov ? ov.innerText : ''; const a = ov && ov.querySelector('a[href*="inventory.html?pid="]'); if (ov) ov.querySelector('[data-gx]').click(); return { t: t.replace(/\s+/g, ' ').slice(0, 200), link: !!a }; });
+  ok(/MC3|🏷️/.test(g2.t) && /حلب 1/.test(g2.t) && g2.link, '④ المعاينة: الباركود · أين يوجد · رابط بطاقة المنتج: ' + g2.t.slice(0, 120));
+  const tiers = await o.pg.evaluate(() => [...document.querySelectorAll('#gmt-lens [data-res] .it')].map(x => (x.innerText.match(/تطابق مرتفع|محتمل|يحتاج تأكيداً/) || [''])[0]));
+  ok(tiers.length && tiers.every(Boolean), '⑤ كلّ اقتراح بدرجة تطابق صريحة: ' + tiers.join(' · '));
   await o.pg.evaluate(() => GMTLens.close());
+  // ⑥ تحديد جزء من الصورة: اسحب مستطيلاً ⇒ يُحلَّل الجزء وحده · «↩️ الصورة كاملة» يرجع
+  { await shot(o, 'lens_shot_m02.jpg');
+    const rg = await o.pg.evaluate(async () => {
+      const R = document.getElementById('gmt-lens'); R.querySelector('[data-region]').click();
+      const ov = R.querySelector('[data-sel]'); if (!ov) return 'no-overlay'; const b = ov.getBoundingClientRect();
+      const ev = (t, x, y) => ov.dispatchEvent(new PointerEvent(t, { bubbles: true, clientX: b.left + x, clientY: b.top + y, pointerId: 1 }));
+      ev('pointerdown', b.width * 0.2, b.height * 0.2); ev('pointermove', b.width * 0.7, b.height * 0.7); ev('pointerup', b.width * 0.7, b.height * 0.7);
+      await new Promise(ok => setTimeout(ok, 300));
+      const shotW = R._S.shot && R._S.shot.width, fullW = R._S.full && R._S.full.width;
+      return { shotW, fullW, whole: !R.querySelector('[data-whole]').hidden };
+    });
+    ok(rg && rg.fullW && rg.shotW < rg.fullW && rg.whole, '⑥ «✂️ حدّد جزءاً» ⇒ الجزء المحدّد يُحلَّل وحده (' + JSON.stringify(rg) + ')');
+    await o.pg.evaluate(() => GMTLens.close()); }
   ok(ai.length === 0, 'بلا نداء للعقل');
   const real = o.errs.filter(x => !/status of (400|401|404|406|409|500|503)|Failed to load resource|getUserMedia|NotFoundError|Requested device not found|ERR_FAILED|net::|diacritics|Estimating resolution|boxClipToRectangle|pixScanForForeground/.test(x));
   ok(!real.length, 'لا أخطاء JS: ' + JSON.stringify(real.slice(0, 3)));

@@ -139,7 +139,7 @@
       '<button type="button" data-again hidden style="flex:1">🔄 لقطة جديدة</button></div>' +
       '<div class="row"><input type="text" data-q placeholder="أو اكتب ما على العلبة (اسم · موديل · باركود)…"><button type="button" data-find>بحث</button></div>' +
       '<div class="st" data-st></div><div data-read></div><div data-type></div><div data-res></div>' +
-      '<div class="tools" data-tools hidden><button type="button" data-ai>🤖 اسأل العقل (اختياري)</button></div>' +
+      '<div class="tools" data-tools hidden><button type="button" data-region>✂️ حدّد جزءاً من الصورة</button><button type="button" data-whole hidden>↩️ الصورة كاملة</button><button type="button" data-ai>🤖 اسأل العقل (اختياري)</button></div>' +
       '<div class="tools"><button type="button" data-learnq hidden>🧠 تعلّمات الموظّفين تنتظر اعتمادك</button></div><div data-lq></div></div>';
     root.setAttribute('data-gmt-modal', ''); root._gmtClose = close;   /* زرّ رجوع الهاتف بيسكّرها (الملحق «ح» ١ · seq B1117) */
     doc.body.appendChild(root);
@@ -289,13 +289,25 @@
       var hid = Array.isArray(p.images_hidden) ? p.images_hidden : [];
       return [p.image_url].concat(Array.isArray(p.images) ? p.images : []).filter(function (u, i, a) { return typeof u === 'string' && u && !/^data:/.test(u) && a.indexOf(u) === i && hid.indexOf(u) < 0; });
     }
+    /* (seq A1143 «لازم واحد يعاين المنتج ليتأكّد إنّه هو») بطاقة المنتج داخل المعرض: الباركود · السعر · القسم · الأسماء البديلة · أين يوجد · فتح بطاقته */
+    var BRN = { haleb: 'حلب', daraa: 'درعا', homs: 'حمص', kurani: 'كوراني', sarmada: 'هاني اعظمية', hny_sbyl: 'هاني سبيل', fakhouri: 'الفاخوري' };
+    function info0(p) {
+      var where = Object.keys(BRN).filter(function (k) { return Number(p[k]) > 0; }).map(function (k) { return BRN[k] + ' ' + p[k]; });
+      var alts = String(p.alt_names || '').split(/[،,]/).map(function (x) { return x.trim(); }).filter(function (x) { return x && !/^none ?\d*$/i.test(x); }).slice(0, 4);
+      return '<div style="background:#fff;color:#0f172a;border-radius:12px;padding:8px 10px;margin-top:8px;font:600 12px Cairo,system-ui,sans-serif;max-width:min(560px,100%);width:100%;box-sizing:border-box;line-height:1.7">' +
+        '<div>🏷️ ' + esc(p.barcode || 'بلا باركود') + (p.price ? ' · 💲' + esc(p.price) : '') + (typeKey(p) ? ' · 📂 ' + esc(typeKey(p)) : '') + '</div>' +
+        (alts.length ? '<div style="color:#475569;overflow-wrap:anywhere">🔤 ' + esc(alts.join(' · ')) + '</div>' : '') +
+        '<div style="color:#475569">📍 ' + (where.length ? esc(where.join(' · ')) : 'لا كمّية في الفروع') + '</div>' +
+        (p.id ? '<a href="inventory.html?pid=' + encodeURIComponent(p.id) + '&view=det" target="_blank" rel="noopener" style="color:#D5001C;font-weight:800">📄 افتح بطاقة المنتج كاملة</a>' : '') + '</div>';
+    }
     function gallery(p, idx) {
       var ims = imgsOf(p), k = 0; if (!ims.length) return;
+      var info = function () { return info0(p); };
       var ov = doc.createElement('div'); ov.setAttribute('data-gallery', '');
       ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(2,6,23,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom));box-sizing:border-box';
       function draw() {
         ov.innerHTML = '<div style="color:#fff;font:800 14px Cairo,system-ui,sans-serif;margin-bottom:8px;text-align:center;max-width:100%;overflow-wrap:anywhere">' + esc(p.name || '') + ' <span style="color:#cbd5e1;font-weight:600">(' + (k + 1) + ' من ' + ims.length + ')</span></div>' +
-          '<img src="' + esc(ims[k]) + '" alt="" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:12px;background:#fff">' +
+          '<img src="' + esc(ims[k]) + '" alt="" style="max-width:100%;max-height:52vh;object-fit:contain;border-radius:12px;background:#fff">' + info() +
           '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">' + (ims.length > 1 ? '<button type="button" data-gp style="font-size:14px;padding:8px 14px">›</button><button type="button" data-gn style="font-size:14px;padding:8px 14px">‹</button>' : '') +
           '<button type="button" data-gpick style="font-size:13px;padding:8px 14px;background:#16a34a;color:#fff;border:0;border-radius:10px">هذا هو</button><button type="button" data-gx style="font-size:13px;padding:8px 14px">✕ رجوع</button></div>';
         var a = ov.querySelector('[data-gp]'), b = ov.querySelector('[data-gn]');
@@ -317,7 +329,9 @@
       var bk = ctx.branchKey;
       $('[data-res]').innerHTML = '<div style="font-size:12px;font-weight:900;color:#334155;margin:6px 0">' + (live ? '👁️ أقرب منتجاتنا لما تراه الكاميرا:' : 'اختر المنتج — الأعلى هو الأقرب:') + '</div>' + R.map(function (r, i) {
         var p = r.item, best = (pick && pick.item === p) || (!pick && i === 0 && (r.bc || r.score >= 0.75)), img = p.image_url || (Array.isArray(p.images) && p.images[0]) || '';
-        var bd = (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt >= 0.5 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
+        /* (seq A1143) درجة التطابق صريحة — لا يُعرض تخمينٌ كأنّه مؤكَّد */
+        var tier = live ? '' : (r.bc || r.score >= 0.9 || (r.txt >= 0.6 && r.vis >= 0.35)) ? '<span class="bd" style="background:#dcfce7;color:#166534">✅ تطابق مرتفع</span>' : r.score >= 0.6 ? '<span class="bd" style="background:#fef9c3;color:#854d0e">🟡 محتمل</span>' : '<span class="bd" style="background:#f1f5f9;color:#475569">⚪ يحتاج تأكيداً</span>';
+        var bd = tier + (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt >= 0.5 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
         var nImg = imgsOf(p).length;
         return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<span class="gim" data-gal="' + i + '" role="button" tabindex="0" title="اضغط لتصفّح صور المنتج" style="position:relative;flex-shrink:0;cursor:zoom-in"><img src="' + esc(img) + '" alt="" loading="lazy">' + (nImg > 1 ? '<b style="position:absolute;bottom:2px;inset-inline-start:2px;background:rgba(15,23,42,.75);color:#fff;font-size:10px;border-radius:6px;padding:0 4px">🖼️ ' + nImg + '</b>' : '') + '</span>' : '<span style="width:58px;text-align:center">📦</span>') +
           '<div style="min-width:0"><div class="nm">' + (best ? '🎯 ' : '') + esc(p.name || '') + '</div><div class="mt">' + esc(p.barcode || 'بلا باركود') + (bk && p[bk] != null ? ' · المسجّل: ' + esc(p[bk]) : '') + (p.price != null && p.price !== '' ? ' · $' + esc(p.price) : '') + '</div>' +
@@ -411,7 +425,8 @@
       c.getContext('2d').drawImage(video, 0, 0); return c;
     }
     /* ── اللقطة: فوريّ (صورة + باركود) ثمّ قراءة الكتابة بالخلفية ── */
-    async function analyse(canvas) {
+    async function analyse(canvas, isRegion) {
+      if (!isRegion) { S.full = null; try { $('[data-whole]').hidden = true; } catch (_) {} }
       list = freshList(); VOC = null;
       try { if (global.GMTLensLocal && GMTLensLocal.setCatalog) GMTLensLocal.setCatalog(list); } catch (_) {}   /* (seq A1139) عدّ الأسماء البديلة المشتركة */
       S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null; S.vec = null; S.vis = []; S.logP = null;
@@ -471,6 +486,31 @@
       var c = await fileToCanvas(f); if (!c) { st('تعذّر فتح الصورة'); return; }
       cam.hidden = false; analyse(c);
     };
+    /* (TASK-A0580 · المالك seq A1143 «عدّة منتجات في صورة … أحدّد منتجاً بإصبعي») تحديد جزء: اسحب مستطيلاً على اللقطة ⇒ يُحلَّل وحده
+       (الشكل + الكتابة + الباركود) · «↩️ الصورة كاملة» يرجع للّقطة الأصلية */
+    $('[data-region]').onclick = function () {
+      var fz = cam.querySelector('canvas.frz'); if (!fz || !S.shot) { st('التقط صورةً أوّلاً'); return; }
+      var old = cam.querySelector('[data-sel]'); if (old) { old.remove(); return; }
+      var ov = doc.createElement('div'); ov.setAttribute('data-sel', ''); ov.style.cssText = 'position:absolute;inset:0;z-index:5;cursor:crosshair;touch-action:none;background:rgba(0,0,0,.15)';
+      var box = doc.createElement('div'); box.style.cssText = 'position:absolute;border:2px solid #D5001C;background:rgba(213,0,28,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.35);display:none;border-radius:6px';
+      ov.appendChild(box); cam.appendChild(ov); cmsg('✂️ اسحب بإصبعك حول المنتج');
+      var x0 = 0, y0 = 0, on = false, R0 = null;
+      function pt(e) { var r = ov.getBoundingClientRect(); return { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)), r: r }; }
+      ov.onpointerdown = function (e) { var q = pt(e); x0 = q.x; y0 = q.y; on = true; R0 = q.r; try { ov.setPointerCapture(e.pointerId); } catch (_) {} box.style.display = 'block'; box.style.left = x0 + 'px'; box.style.top = y0 + 'px'; box.style.width = box.style.height = '0px'; };
+      ov.onpointermove = function (e) { if (!on) return; var q = pt(e); box.style.left = Math.min(x0, q.x) + 'px'; box.style.top = Math.min(y0, q.y) + 'px'; box.style.width = Math.abs(q.x - x0) + 'px'; box.style.height = Math.abs(q.y - y0) + 'px'; };
+      ov.onpointerup = function (e) {
+        if (!on) return; on = false; var q = pt(e), w = Math.abs(q.x - x0), h = Math.abs(q.y - y0);
+        if (w < 24 || h < 24) { box.style.display = 'none'; cmsg('✂️ المستطيل صغير — اسحب حول المنتج'); return; }
+        /* إحداثيات الشاشة ⇒ بكسلات اللقطة (الصورة معروضة بـ object-fit) */
+        var fr = fz.getBoundingClientRect(), sx = fz.width / fr.width, sy = fz.height / fr.height, ox = fr.left - R0.left, oy = fr.top - R0.top;
+        var cx = Math.max(0, (Math.min(x0, q.x) - ox) * sx), cy = Math.max(0, (Math.min(y0, q.y) - oy) * sy), cw = Math.min(fz.width - cx, w * sx), ch = Math.min(fz.height - cy, h * sy);
+        ov.remove(); if (cw < 16 || ch < 16) { cmsg(''); return; }
+        var c = doc.createElement('canvas'); c.width = Math.round(cw); c.height = Math.round(ch); c.getContext('2d').drawImage(fz, cx, cy, cw, ch, 0, 0, c.width, c.height);
+        S.full = S.full || fz; $('[data-whole]').hidden = false; cmsg('');
+        analyse(c, true);
+      };
+    };
+    $('[data-whole]').onclick = function () { if (!S.full) return; var f = S.full; S.full = null; this.hidden = true; analyse(f); };
     /* ── العقل: اختياريّ فقط ── */
     $('[data-ai]').onclick = async function () {
       if (!S.shot) { st('التقط صورةً أوّلاً'); return; }
