@@ -146,6 +146,9 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
   /* (TASK-A0549 · المالك seq 940 «أداة التسوية فيها كل شيء: فواتير فيها نقص سواء في أي بند أو سعر») */
   var GIFT_RE = /هدي|هديّ|مجان|ضمن\s*(ال)?كومبو|ضمن\s*(ال)?بكج|ضمن\s*(ال)?طقم|بطلب المالك|gift|free|bonus/i;   /* (seq 943) «بطلب المالك» = السعر 0 قراره (seq 397) */
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  /* (TASK-A0588 · المالك seq A1141 «انسى سعر الشراء الأساسي … اعرض لي التكلفة بعد الجمارك وأجور الشحن» · «أشياء ما لها سعر مع أنها مسعّرة»)
+     الكلفة = الواصلة (net_cost) أوّلاً ثمّ سعر الشراء — كانت سعر الشراء وحده ⇒ ٣٧ منتجاً كلفتها الواصلة معروفة ظهرت «بلا كلفة» */
+  function costOf(p) { return num(p && p.net_cost) > 0 ? Math.round(num(p.net_cost) * 100) / 100 : num(p && p.cost_price); }
   async function purGaps() {
     var r = { id: 'pg', title: 'فواتير شراء فيها نقص (سعر · ربط · كمية · مورّد · مجموع)',
       what: 'فاتورة شراء في أحد بنودها نقص: سعر شراء 0، أو بندٌ غير مربوط بمنتجٍ في الجرد، أو كمية 0 — أو ينقصها المورّد أو التاريخ، أو مجموعها لا يساوي مجموع بنودها.',
@@ -254,7 +257,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var pcs = o.reduce(function (s, x) { return s + x.q; }, 0);
     r.lines = (o.length ? ['<b>' + o.length + ' منتجاً · ' + pcs + ' قطعة</b>'] : []).concat(o.map(function (x) {
       var where = tot.filter(function (k) { return Number(x.p[k]) > 0; }).map(function (k) { var c = cols.find(function (c) { return c.key_name === k; }); return ((c && c.display_name) || k) + ' ' + x.p[k]; }).join(' · ');
-      return esc(x.p.name) + ' — <b>' + x.q + '</b>' + (where ? ' (' + esc(where) + ')' : '') + (x.p.barcode ? '' : ' — بلا باركود') + (num(x.p.cost_price) > 0 ? '' : ' — <b style="color:#b91c1c">بلا كلفة</b>') +
+      return esc(x.p.name) + ' — <b>' + x.q + '</b>' + (where ? ' (' + esc(where) + ')' : '') + (x.p.barcode ? '' : ' — بلا باركود') + (costOf(x.p) > 0 ? '' : ' — <b style="color:#b91c1c">بلا كلفة</b>') +
         ' <a href="inventory.html?pid=' + encodeURIComponent(x.p.id) + '&view=edit" target="_blank" rel="noopener" style="font-weight:900;color:#D5001C;white-space:nowrap">تعديل ←</a>';
     }));
     return r;
@@ -274,7 +277,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     var tot = cols.filter(function (c) { return c.include_in_total; }).map(function (c) { return c.key_name; });
     var o = prods.map(function (p) {
       var q = tot.reduce(function (s, k) { return s + (Number(p[k]) || 0); }, 0), inv = !!(hasId[String(p.id)] || (p.barcode && hasBc[nz(p.barcode)]));
-      var miss = []; if (!(num(p.price) > 0)) miss.push('سعر المبيع'); if (!(num(p.cost_price) > 0)) miss.push('الكلفة');
+      var miss = []; if (!(num(p.price) > 0)) miss.push('سعر المبيع'); if (!(costOf(p) > 0)) miss.push('الكلفة');
       return { p: p, q: q, inv: inv, miss: miss };
     }).filter(function (x) { return x.miss.length && (x.q > 0 || x.inv); })
       .sort(function (a, b) { return (a.inv - b.inv) || (b.q - a.q) || String(a.p.name).localeCompare(String(b.p.name), 'ar'); });
@@ -283,7 +286,7 @@ body{margin:0;background:radial-gradient(900px 400px at 100% -10%,#ffe3e6 0,tran
     if (o.length) r.lines.push('<b>' + o.length + ' منتجاً</b> · منها <b style="color:#b91c1c">' + noInv + ' بلا فاتورة شراء</b>');
     o.forEach(function (x) {
       r.lines.push('<span data-np="' + esc(x.p.id) + '">' + esc(x.p.name) + ' — ناقص: <b style="color:#b91c1c">' + x.miss.join(' و') + '</b> · كمّية ' + x.q +
-        (x.inv ? '' : ' · <b style="color:#b91c1c">بلا فاتورة</b>') + (num(x.p.price) > 0 ? ' · مبيع ' + num(x.p.price) + '$' : '') + (num(x.p.cost_price) > 0 ? ' · كلفة ' + num(x.p.cost_price) + '$' : '') +
+        (x.inv ? '' : ' · <b style="color:#b91c1c">بلا فاتورة</b>') + (num(x.p.price) > 0 ? ' · مبيع ' + num(x.p.price) + '$' : '') + (costOf(x.p) > 0 ? ' · كلفة ' + costOf(x.p) + '$' : '') +
         ' <a href="inventory.html?pid=' + encodeURIComponent(x.p.id) + '&view=edit" target="_blank" rel="noopener" style="font-weight:900;color:#D5001C;white-space:nowrap">تعديل ←</a></span>');
     });
     return r;

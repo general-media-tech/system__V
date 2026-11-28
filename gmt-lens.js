@@ -186,7 +186,14 @@
     }
     /* ── النوع: حين لا تعرف العين الموديل (قشاط · كفر · سوفت بوكس) تعرف النوع ⇒ كلّ منتجاته لتختار (seq 1002) ── */
     function typeKey(p) { return String(p.cat_sub || p.group_name || p.category || '').trim(); }
+    /* (TASK-A0580 · المالك seq A1139) القسم من **الكتابة** أوّلاً («Microphone» ⇒ المايكات) — كان من الشكل وحده فعلبة مايك نائمة على جنبها
+       صارت «ستاندات وترايبود» وحُصرت النتائج فيه فاختفى المايك الصحيح */
     function typeGuess() {
+      var LL = global.GMTLensLocal, tt = LL && LL.textType && S.words && S.words.length ? LL.textType(S.words, list, typeKey) : null;
+      if (tt && tt.share >= 0.6) return { cat: tt.cat, share: tt.share, n: list.filter(function (p) { return typeKey(p) === tt.cat; }).length, from: 'text' };
+      return visType();
+    }
+    function visType() {
       var w = {}, tot = 0;
       (S.vis || []).slice(0, 8).forEach(function (r, i) { var k = typeKey(r.item); if (!k) return; var x = Math.max(0, r.vis) * (1 - i * 0.06); w[k] = (w[k] || 0) + x; tot += x; });
       var best = '', bw = 0; for (var k in w) if (w[k] > bw) { bw = w[k]; best = k; }
@@ -244,6 +251,7 @@
           var toks = part.split(/[^a-z0-9]+/).filter(Boolean);
           toks.forEach(function (tk, i) { if (tk.length >= 3 && !/^\d+$/.test(tk)) VOC[tk] = (VOC[tk] || 0) + 1; if (toks[i + 1]) { var g = tk + toks[i + 1]; if (/\d/.test(g) && /[a-z]/.test(g)) VOC[g] = (VOC[g] || 0) + 1; } });
           var glued = part.replace(/[^a-z0-9]+/g, ''); if (glued.length >= 4 && glued.length <= 14 && /\d/.test(glued) && /[a-z]/.test(glued)) VOC[glued] = (VOC[glued] || 0) + 1;
+          if (toks.length >= 2 && toks.length <= 5 && toks.join(' ').length >= 9) VOC['\u0001' + toks.join(' ')] = 1;   /* (seq A1139) اسم بديل كامل = جملة على العلبة */
         });
       });
       /* كلماتٌ وصفيّة عامّة لا تميّز منتجاً (موجودة على كلّ علبة) */
@@ -261,6 +269,12 @@
         if (!hit && b && SGc && /\d/.test(b) && /[a-z]/.test(b) && b.length >= 4) { for (var j2 = 0; j2 < Math.min(list.length, 800); j2++) { if (SGc(w[i] + ' ' + w[i + 1], list[j2])) { hit = w[i] + ' ' + w[i + 1]; break; } } }
         if (hit && !seen[hit.toLowerCase()]) { seen[hit.toLowerCase()] = 1; keep.push(hit); }
       }
+      /* (seq A1139) جملةٌ مقروءة تساوي اسماً بديلاً كاملاً («Wireless Lavalier Microphone») تُعرض ولو كانت كلماتها عامّة */
+      var lw = w.map(function (x) { return String(x).toLowerCase().replace(/[^a-z0-9]/g, ''); });
+      for (var n = 5; n >= 2; n--) for (var s0 = 0; s0 + n <= lw.length; s0++) {
+        var ph = lw.slice(s0, s0 + n).filter(Boolean).join(' ');
+        if (ph && V['\u0001' + ph] && !seen['\u0001' + ph]) { seen['\u0001' + ph] = 1; keep.unshift(w.slice(s0, s0 + n).join(' ')); }
+      }
       return keep;
     }
     function paintRead() {
@@ -269,6 +283,30 @@
         (w.length ? '<div class="rd">🔤 <b>قرأت على العلبة:</b> ' + (sw.length ? '<b style="color:#0f766e">' + esc(sw.slice(0, 8).join(' · ')) + '</b>' : '<span style="color:#64748b">لا كلمة تخصّ منتجاتنا</span>') +
           ' <span style="color:#94a3b8;font-size:11px">(تجاهلتُ ' + Math.max(0, w.length - sw.length) + ' كلمة لا تخصّنا)</span></div>' : '') +
         (r ? '<div class="rd">🤖 <b>قرأ العقل:</b> ' + esc([r.brand, r.name_on_box, r.model].filter(Boolean).join(' · ') || '—') + (r.product_type ? '<br>النوع: ' + esc(r.product_type) : '') + '</div>' : '');
+    }
+    function imgsOf(p) {
+      var hid = Array.isArray(p.images_hidden) ? p.images_hidden : [];
+      return [p.image_url].concat(Array.isArray(p.images) ? p.images : []).filter(function (u, i, a) { return typeof u === 'string' && u && !/^data:/.test(u) && a.indexOf(u) === i && hid.indexOf(u) < 0; });
+    }
+    function gallery(p, idx) {
+      var ims = imgsOf(p), k = 0; if (!ims.length) return;
+      var ov = doc.createElement('div'); ov.setAttribute('data-gallery', '');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(2,6,23,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom));box-sizing:border-box';
+      function draw() {
+        ov.innerHTML = '<div style="color:#fff;font:800 14px Cairo,system-ui,sans-serif;margin-bottom:8px;text-align:center;max-width:100%;overflow-wrap:anywhere">' + esc(p.name || '') + ' <span style="color:#cbd5e1;font-weight:600">(' + (k + 1) + ' من ' + ims.length + ')</span></div>' +
+          '<img src="' + esc(ims[k]) + '" alt="" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:12px;background:#fff">' +
+          '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center">' + (ims.length > 1 ? '<button type="button" data-gp style="font-size:14px;padding:8px 14px">›</button><button type="button" data-gn style="font-size:14px;padding:8px 14px">‹</button>' : '') +
+          '<button type="button" data-gpick style="font-size:13px;padding:8px 14px;background:#16a34a;color:#fff;border:0;border-radius:10px">هذا هو</button><button type="button" data-gx style="font-size:13px;padding:8px 14px">✕ رجوع</button></div>';
+        var a = ov.querySelector('[data-gp]'), b = ov.querySelector('[data-gn]');
+        if (a) a.onclick = function () { k = (k - 1 + ims.length) % ims.length; draw(); };
+        if (b) b.onclick = function () { k = (k + 1) % ims.length; draw(); };
+        ov.querySelector('[data-gx]').onclick = function () { ov.remove(); };
+        ov.querySelector('[data-gpick]').onclick = function () { ov.remove(); var bt = root.querySelector('[data-pick="' + idx + '"]'); if (bt) bt.click(); };
+      }
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+      var x0 = null; ov.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+      ov.addEventListener('touchend', function (e) { if (x0 == null || ims.length < 2) return; var d = e.changedTouches[0].clientX - x0; if (Math.abs(d) > 40) { k = (k + (d < 0 ? 1 : -1) + ims.length) % ims.length; draw(); } x0 = null; });
+      draw(); doc.body.appendChild(ov);
     }
     function paintRes(R, pick, live) {
       if (!R.length) {
@@ -279,11 +317,14 @@
       $('[data-res]').innerHTML = '<div style="font-size:12px;font-weight:900;color:#334155;margin:6px 0">' + (live ? '👁️ أقرب منتجاتنا لما تراه الكاميرا:' : 'اختر المنتج — الأعلى هو الأقرب:') + '</div>' + R.map(function (r, i) {
         var p = r.item, best = (pick && pick.item === p) || (!pick && i === 0 && (r.bc || r.score >= 0.75)), img = p.image_url || (Array.isArray(p.images) && p.images[0]) || '';
         var bd = (r.bc ? '<span class="bd bc">🏷️ الباركود</span>' : '') + (r.vis > 0 ? '<span class="bd">👁️ ' + Math.round(Math.max(0, Math.min(1, r.vis)) * 100) + '%</span>' : '') + (r.txt >= 0.5 ? '<span class="bd tx">🔤 الكتابة</span>' : '');
-        return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span style="width:58px;text-align:center">📦</span>') +
+        var nImg = imgsOf(p).length;
+        return '<div class="it' + (best ? ' best' : '') + '">' + (img ? '<span class="gim" data-gal="' + i + '" role="button" tabindex="0" title="اضغط لتصفّح صور المنتج" style="position:relative;flex-shrink:0;cursor:zoom-in"><img src="' + esc(img) + '" alt="" loading="lazy">' + (nImg > 1 ? '<b style="position:absolute;bottom:2px;inset-inline-start:2px;background:rgba(15,23,42,.75);color:#fff;font-size:10px;border-radius:6px;padding:0 4px">🖼️ ' + nImg + '</b>' : '') + '</span>' : '<span style="width:58px;text-align:center">📦</span>') +
           '<div style="min-width:0"><div class="nm">' + (best ? '🎯 ' : '') + esc(p.name || '') + '</div><div class="mt">' + esc(p.barcode || 'بلا باركود') + (bk && p[bk] != null ? ' · المسجّل: ' + esc(p[bk]) : '') + (p.price != null && p.price !== '' ? ' · $' + esc(p.price) : '') + '</div>' +
           '<div>' + bd + '</div>' + (pick && pick.item === p && pick.why ? '<div class="why">🤖 ' + esc(pick.why) + ' (' + pick.confidence + '%)</div>' : '') + '</div>' +
           '<button type="button" class="go" data-pick="' + i + '">هذا هو</button></div>';
       }).join('') + (!live && ctx.learn && (S.read || modelWords(S.words, null).length) ? '<label class="lrn"><input type="checkbox" data-learn' + (S.read ? ' checked' : '') + '> أضف ما على العلبة (' + esc((S.read ? [S.read.name_on_box, S.read.model] : modelWords(S.words)).filter(Boolean).join(' · ').slice(0, 80)) + ') إلى أسمائه البديلة</label>' : '');
+      /* (TASK-A0580 · المالك seq A1139 «لما بيعرض لي المنتجات في قائمة الخيارات … فيني ادخل على المنتج اتصفّح صوره الأخرى») */
+      root.querySelectorAll('[data-gal]').forEach(function (g) { g.onclick = function () { gallery(R[+g.getAttribute('data-gal')].item, +g.getAttribute('data-gal')); }; g.onkeydown = function (e) { if (e.key === 'Enter') g.onclick(); }; });
       root.querySelectorAll('[data-pick]').forEach(function (b) {
         b.onclick = async function () {
           var p = R[+b.getAttribute('data-pick')].item, learned = false, sampled = false;
@@ -371,6 +412,7 @@
     /* ── اللقطة: فوريّ (صورة + باركود) ثمّ قراءة الكتابة بالخلفية ── */
     async function analyse(canvas) {
       list = freshList(); VOC = null;
+      try { if (global.GMTLensLocal && GMTLensLocal.setCatalog) GMTLensLocal.setCatalog(list); } catch (_) {}   /* (seq A1139) عدّ الأسماء البديلة المشتركة */
       S.frozen = true; S.shot = canvas; S.words = []; S.code = ''; S.read = null; S.aiPick = null; S.scope = null; S.vec = null; S.vis = []; S.logP = null;
       if (video) video.hidden = true;
       var old = cam.querySelector('canvas.frz'); if (old) old.remove();
@@ -386,7 +428,9 @@
         /* (المالك seq A1019–A1020) «إذا ما عرف المنتج على الأقلّ يعرف تصنيفه وقسمه ويعرض الأكثر تشابهاً» — حين لا يكون الأوّل واثقاً
            ولا كودٌ مقروء يطابقه ⇒ نعرض **قسمه** مباشرةً وداخله الأكثر تشابهاً أوّلاً (والرجوع لأقرب ٥ بزرّ) */
         var top0 = R[0], unsure = !top0 || (!top0.bc && top0.txt < 0.5 && (top0.score < 0.62 || (R[1] && top0.score - R[1].score < 0.03)));
-        if (unsure && !S.scope) { var tg = typeGuess(); if (tg && tg.cat && tg.share >= 0.35 && tg.n > 1) { S.scope = { cat: tg.cat, compat: '', auto: true }; paint(false); R = combined(); } }
+        /* (seq A1139) الحصر التلقائيّ بالقسم فقط إن دلّت عليه الكتابة، أو كان الشكل واثقاً (أعلى شبه ≥ 0.45) — شكلٌ ضعيف (35٪) لا يحصر */
+        if (unsure && !S.scope) { var tg = typeGuess(), v0 = (S.vis && S.vis[0] && S.vis[0].vis) || 0;
+          if (tg && tg.cat && tg.n > 1 && (tg.from === 'text' || (tg.share >= 0.35 && v0 >= 0.45))) { S.scope = { cat: tg.cat, compat: '', auto: true }; paint(false); R = combined(); } }
         st(S.scope && S.scope.auto ? '🤔 لم أعرفه بالضبط — هذا قسمه «' + S.scope.cat + '» والأكثر شبهاً أوّلاً' : R.length ? 'اختر المنتج — الأعلى هو الأقرب' : 'لا تطابق — جرّب «🤖 اسأل العقل» أو اكتب الموديل');
         /* سجلّ البحث: ما قُرئ وما اقتُرح — يُكمَل بما اختير */
         S.logP = L.logSearch({ page: ctx.source || location.pathname.split('/').pop(), by_name: ctx.by || (global.GMTRole && GMTRole.name && GMTRole.name()) || null, ms: Math.round(performance.now() - t0),

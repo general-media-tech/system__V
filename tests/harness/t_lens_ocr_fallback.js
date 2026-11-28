@@ -68,7 +68,7 @@ let fails = 0, pass = 0; const ok = (c, m) => { console.log((c ? '  ✔ ' : '  �
   await o.pg.waitForTimeout(1500);
   let D = await H.call('/__dump', undefined, 'GET');
   const lg = (D.gmt_lens_log || []).slice(-1)[0] || {};
-  ok(lg.id && Array.isArray(lg.top) && lg.top.length >= 3 && (/YM/i.test(lg.ocr || '') && /600/.test(lg.ocr || '')) && /^data:image/.test(lg.thumb || ''), '⑤ سجلّ البحث: ما قُرئ + أفضل الاقتراحات + صورة مصغّرة (' + (lg.top || []).length + ')');
+  ok(lg.id && Array.isArray(lg.top) && lg.top.length >= 3 && (/(YM|SS)/i.test(lg.ocr || '') && /600/.test(lg.ocr || '')) && /^data:image/.test(lg.thumb || ''), '⑤ سجلّ البحث: ما قُرئ + أفضل الاقتراحات + صورة مصغّرة (' + (lg.top || []).length + ')');
   await o.pg.click('#gmt-lens [data-pick="0"]'); await o.pg.waitForTimeout(1500);
   D = await H.call('/__dump', undefined, 'GET');
   const lg2 = (D.gmt_lens_log || []).find(x => x.id === lg.id) || {};

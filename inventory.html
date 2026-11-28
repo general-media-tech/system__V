@@ -7413,20 +7413,18 @@ function openDetailModal(id) {
      ويرى **لماذا** — لا فراغاً يظنّه عطلاً. */
   var _isAdm = false;
   try { _isAdm = !!(window.GMTRole && GMTRole.isAdmin()); } catch (_) {}
+  var _landed = Number(p.net_cost) > 0 ? Number(p.net_cost) : (Number(p.cost_price) || 0); /* (TASK-A0588 · المالك seq A1141) الكلفة الواصلة لا سعر الشراء */
   var _mask = function (v) { return _isAdm ? v : '<span style="letter-spacing:2px;color:var(--text3);" title="للأدمن فقط">•••</span>'; };
 
   html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
     <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px;">💰 تفاصيل الأسعار
       <button onclick="closeModal('detail-modal');invGuardedEdit('${p.id}')" style="float:left;background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;font-family:'Cairo',sans-serif;">✏️ تعديل</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-      <div onclick="goToPurchaseInvoice('${String(p.barcode||'').replace(/['\\]/g,'')}','${String(p.name||'').replace(/['\\]/g,'')}')" title="سعر الشراء يُعدَّل من فاتورة المشتريات — اضغط للانتقال" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;cursor:pointer;">
-        <div style="font-size:9px;color:var(--text3);margin-bottom:3px;font-weight:600;">سعر الشراء 🔗</div>
-        <div style="font-size:14px;font-weight:800;color:var(--danger);">${_mask(p.cost_price > 0 ? '$ ' + formatNum(p.cost_price) : '—')}</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;">
-        <div style="font-size:9px;color:var(--text3);margin-bottom:3px;font-weight:600;">التكلفة الصافية</div>
-        <div style="font-size:14px;font-weight:800;color:#0f172a;">${_mask(p.net_cost > 0 ? '$ ' + formatNum(p.net_cost) : '—')}</div>
+    <!-- (TASK-A0588 · المالك seq A1141 «انسى سعر الشراء الأساسي … اعرض التكلفة بعد الجمارك وأجور الشحن») بطاقة واحدة = net_cost وإلا cost_price -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+      <div onclick="goToPurchaseInvoice('${String(p.barcode||'').replace(/['\\]/g,'')}','${String(p.name||'').replace(/['\\]/g,'')}')" title="الكلفة الواصلة (بعد الجمارك والشحن) — اضغط للانتقال لفاتورة المشتريات" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;cursor:pointer;">
+        <div style="font-size:9px;color:var(--text3);margin-bottom:3px;font-weight:600;">الكلفة الواصلة 🔗</div>
+        <div style="font-size:14px;font-weight:800;color:var(--danger);">${_mask(_landed > 0 ? '$ ' + formatNum(_landed) : '—')}</div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;">
         <div style="font-size:9px;color:var(--text3);margin-bottom:3px;font-weight:600;">سعر الجملة</div>
@@ -7438,8 +7436,8 @@ function openDetailModal(id) {
       </div>
     </div>
     ${_isAdm
-        ? (p.cost_price > 0 && p.price > 0 ? `<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--text3);">هامش الربح: <strong style="color:var(--success);">$ ${formatNum(p.price - p.cost_price)} (${Math.round(((p.price - p.cost_price) / p.price) * 100)}%)</strong></div>` : '')
-        : `<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--text3);">🔒 سعرُ الشراء وهامشُ الربح يظهران لحساب الإدارة فقط.</div>`}
+        ? (_landed > 0 && p.price > 0 ? `<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--text3);">هامش الربح (على الكلفة الواصلة): <strong style="color:var(--success);">$ ${formatNum(p.price - _landed)} (${Math.round(((p.price - _landed) / p.price) * 100)}%)</strong></div>` : '')
+        : `<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--text3);">🔒 الكلفة الواصلة وهامشُ الربح يظهران لحساب الإدارة فقط.</div>`}
   </div>`;
 
   // Store link button

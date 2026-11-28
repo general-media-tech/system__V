@@ -250,18 +250,21 @@
   /* (seq A1014) خطّ العلبة المائل («RL-24» مصوَّراً بميل) لا يُقرأ مستقيماً ⇒ قراءاتٌ متتالية: كما هي · مائلة −6° · +6° (رماديّ بتباينٍ أعلى ×1.6)
      — كلّ قراءة تُضاف فوراً وتُعيد الترتيب (onWords) · وتتوقّف حين يقول المستدعي «وجدت» (onWords ⇒ true) */
   function variant(src, deg) {
-    var w = src.width, h = src.height, k = Math.min(1.6, 1800 / Math.max(w, h)), c = doc.createElement('canvas');
-    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    var w = src.width, h = src.height, k = Math.min(1.6, 1800 / Math.max(w, h)), c = doc.createElement('canvas'), q = Math.abs(deg) === 90;
+    c.width = Math.round((q ? h : w) * k); c.height = Math.round((q ? w : h) * k);
     var g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
-    g.filter = 'grayscale(1) contrast(1.6)'; g.translate(c.width / 2, c.height / 2); g.rotate(deg * Math.PI / 180); g.drawImage(src, -c.width / 2, -c.height / 2, c.width, c.height);
+    g.filter = 'grayscale(1) contrast(1.6)'; g.translate(c.width / 2, c.height / 2); g.rotate(deg * Math.PI / 180);
+    var dw = Math.round(w * k), dh = Math.round(h * k); g.drawImage(src, -dw / 2, -dh / 2, dw, dh);
     return c;
   }
   function cleanWords(text) {
     return String(text || '').split(/\s+/).map(function (t) { return t.replace(/[^A-Za-z0-9\-+./]/g, ''); })
       .filter(function (t) { return t.length >= 2 && /[A-Za-z0-9]/.test(t) && !/^[\-+./]+$/.test(t); });
   }
+  /* (TASK-A0580 · المالك seq A1139 «مايك Lavalier موجود وما تعرّف عليه») العلبة نائمة على جنبها ⇒ الكتابة عمودية فلا تُقرأ ⇒ قراءتان مدوَّرتان ٩٠° و٢٧٠°
+     بعد المائلتين (تتوقّف القراءات حالما يقول المستدعي «وجدت») */
   async function ocrPasses(canvas, onWords) {
-    var w = await getOCR(), all = [], passes = [null, -6, 6];
+    var w = await getOCR(), all = [], passes = [0, -6, 6, 90, -90];   /* (seq A1139) الأولى رماديّة بتباين أعلى أيضاً: صور الشاشات والتموّج تُقرأ أفضل */
     for (var i = 0; i < passes.length; i++) {
       var r = null; try { r = await w.recognize(passes[i] == null ? canvas : variant(canvas, passes[i])); } catch (_) { continue; }
       all = all.concat(cleanWords(r && r.data && r.data.text)).slice(0, 90);
@@ -284,8 +287,45 @@
     }
     return out;
   }
+  /* (TASK-A0580 · المالك seq A1139) الكتابة على العلبة («Wireless Lavalier Microphone» · «Support one to two» · «Wireless Microphone») مكتوبةٌ
+     حرفياً اسماً بديلاً كاملاً للمنتج — لكنّ كلماتها «عامّة» فكانت تُهمَل ⇒ جملةٌ مقروءة تساوي اسماً بديلاً **كاملاً** (كلمتان فأكثر) دليلٌ قويّ،
+     يُخفَّف إن كانت الجملة نفسها اسماً بديلاً لمنتجاتٍ كثيرة (عدد المنتجات من setCatalog) */
+  var PH_CNT = {};
+  function altEntries(p) {
+    return String(p && p.alt_names || '').split(/[،,;\n]+/).map(function (e) { return ' ' + e.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' '; })
+      .filter(function (e) { var t = e.trim(); return t.length >= 9 && t.split(' ').length >= 2 && !/^none ?\d*$/.test(t); });
+  }
+  function setCatalog(list) {
+    PH_CNT = {};
+    (list || []).forEach(function (p) { var seen = {}; altEntries(p).forEach(function (e) { if (!seen[e]) { seen[e] = 1; PH_CNT[e] = (PH_CNT[e] || 0) + 1; } }); });
+  }
+  /* كلمة مقروءة ≈ كلمة الاسم: مساواة · أو بادئة (٥ أحرف فأكثر — «Lavalie» = «Lavalier» مقطوعة) · أو فرق حرف للكلمة ≥ ٦ */
+  function tokNear(a, b) {
+    if (a === b) return true; if (!a || !b) return false;
+    if (a.length >= 5 && b.length >= 5 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
+    if (a.length < 6 || Math.abs(a.length - b.length) > 1) return false;
+    var i = 0, j = 0, d = 0; while (i < a.length && j < b.length) { if (a[i] === b[j]) { i++; j++; continue; } if (++d > 1) return false; if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; } }
+    return d + (a.length - i) + (b.length - j) <= 1;
+  }
+  function phraseScore(words, p) {
+    var toks = words.join(' ').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' '), txt = ' ' + toks.join(' ') + ' ', best = 0;
+    altEntries(p).forEach(function (e) {
+      var et = e.trim().split(' '), nw = et.length, k = PH_CNT[e] || 1, kf = (k <= 2 ? 1 : k <= 4 ? 0.75 : 0.45), s = 0;
+      if (txt.indexOf(e) >= 0) s = Math.min(0.75, 0.55 + 0.05 * nw) * kf;
+      else {   /* قراءةٌ ناقصة: أطول تتابع كلماتٍ متقاربة من بداية الاسم البديل (كلمتان على الأقلّ و٦٠٪ منه) */
+        for (var i = 0; i < toks.length; i++) { var m = 0; while (m < nw && i + m < toks.length && tokNear(toks[i + m], et[m])) m++;
+          if (m >= 2 && m >= Math.ceil(nw * 0.6) && /[a-z]{3}/.test(et.slice(0, m).join(''))) s = Math.max(s, Math.min(0.6, 0.45 + 0.05 * m) * kf); }
+      }
+      if (s > best) best = s;
+    });
+    return best;
+  }
   function textScore(words, p) {
     if (!words || !words.length) return 0;
+    var ps = phraseScore(words, p);
+    return ps ? Math.max(ps, textScore0(words, p)) : textScore0(words, p);
+  }
+  function textScore0(words, p) {
     var SG = global.GMTSuggest;
     if (SG && SG.hitsProduct) {
       var key = words.join('\u0001'), ph = _PH[key] || (_PH[key] = phrases(words)), code = 0, plain = 0;
@@ -304,6 +344,19 @@
     return Math.min(1, sc);
   }
   var _PH = {};
+  /* النوع من الكتابة (seq A1139): «Microphone · Wireless · Lavalier» كلماتٌ عامّة لا تحدّد الموديل لكنّها تحدّد **القسم** — تصويت كلّ كلمة
+     مقروءة (٤ أحرف فأكثر) على أقسام المنتجات التي تحويها كاملةً، بوزن 1/عددها. يُرجع {cat, share} أو null */
+  function textType(words, list, keyOf) {
+    var seen = {}, w = {}, tot = 0;
+    (words || []).forEach(function (x) {
+      var t = String(x).toLowerCase().replace(/[^a-z]/g, ''); if (t.length < 4 || seen[t]) return; seen[t] = 1;
+      var hits = (list || []).filter(function (p) { return wordIn(t, p); }); if (!hits.length || hits.length > 120) return;
+      var g = {}; hits.forEach(function (p) { var k = keyOf(p); if (k) g[k] = (g[k] || 0) + 1; });
+      for (var k in g) { var v = g[k] / hits.length; w[k] = (w[k] || 0) + v; tot += v; }
+    });
+    var best = '', bw = 0; for (var k in w) if (w[k] > bw) { bw = w[k]; best = k; }
+    return best && tot >= 1 ? { cat: best, share: bw / tot, votes: bw } : null;
+  }
   /* كلمة كاملة (لا جزء كلمة) في الاسم أو الأسماء البديلة */
   function wordIn(w, p) { var hay = ' ' + String([p.name, p.alt_names].filter(Boolean).join(' ')).toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g, ' ') + ' '; return hay.indexOf(' ' + String(w).toLowerCase() + ' ') >= 0; }
 
@@ -373,5 +426,5 @@
   }
 
   global.GMTLensLocal = { embed: embed, embedMulti: embedMulti, embedRaw: embedRaw, toCanvas: toCanvas, loadModel: loadModel, sim: sim, search: search, pack: pack, unpack: unpack,
-    backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, ocrPasses: ocrPasses, textScore: textScore, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
+    backend: function () { return BACKEND; }, warmOCR: function () { return getOCR().then(function () { return true; }, function () { return false; }); }, loadIndex: loadIndex, fillMissing: fillMissing, barcode: barcode, ocr: ocr, ocrPasses: ocrPasses, textScore: textScore, setCatalog: setCatalog, textType: textType, addSample: addSample, logSearch: logSearch, logPatch: logPatch, pending: pending, review: review, imgVec: imgVec, hold: hold, VER: VER, D: D };
 })(window);
