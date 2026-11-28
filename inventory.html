@@ -2261,6 +2261,8 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 .bs-chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
 .bs-chip b{font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums}
 .bs-value{font-size:12px;font-weight:800;color:#334155;border-top:1px dashed var(--border);padding-top:7px}
+body.inv-stats-open #branch-filter-row{display:none !important}   /* (TASK-A0593) بطاقات الفروع هي الفلتر */
+#branch-stats{overflow:hidden}
 @keyframes sbIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){#stats-bar > .stat-card,#branch-stats{animation:none}.bs-bar i{transition:none}}
 @media (max-width:768px){
@@ -2318,6 +2320,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
 <script src="gmt-endpoint.js?v=20261124b3"></script>
   <script src="gmt-auth.js?v=20261124b2"></script>
   <script src="gmt-scan.js?v=20261128a1"></script>
+  <script src="gmt-dist.js?v=20261128a2"></script><!-- (TASK-A0593 · المالك seq A1144) توزيع المخزون: مكوّنٌ مشترك -->
   <script src="gmt-longpress.js?v=20261004" defer></script>
 <script src="gmt-enrich.js?v=20261127b45"></script>
 <script src="gmt-specs.js?v=20261103a"></script>
@@ -2501,7 +2504,7 @@ tr.inv-grp-sep span,.inv-grp-sep-card span{display:inline-block;font-size:12px;f
     <div class="stat-card" style="display:flex;align-items:center;gap:10px;">
       <span class="u-ico u-ico--sm u-ico--mute" data-icon="chart"></span>
       <span style="flex:1;min-width:0;">
-        <span class="label" style="display:block;">إجمالي الكميات</span>
+        <span class="label" style="display:block;" title="بالمخزن + بالطريق — التفصيل في لوحة التوزيع">إجمالي الكميات (مع الطريق)</span>
         <span class="value success" id="stat-total-qty">0</span>
       </span>
     </div>
@@ -5766,6 +5769,9 @@ function applyFilters() {
     items = items.filter(p => (Number(p[currentBranchFilter]) || 0) > 0);
   }
 
+  /* (TASK-A0593) «N بلا كلفة» فلتر: منتجاتٌ متوفّرة (بالمخزن أو بالطريق) بلا كلفة واصلة ولا شراء */
+  if (window.invNoCostOnly) items = items.filter(p => getTotal(p) > 0 && !(Number(p.net_cost) > 0) && !(Number(p.cost_price) > 0));
+
   // (TASK-0292) الشجرة الموحّدة — الرئيسي ثمّ الفرعي (والتصنيفات الإضافية extra_cats)
   if (window._invTree && _invTree.main) items = items.filter(p => p.cat_main === _invTree.main || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.main === _invTree.main && (!_invTree.sub || x.sub === _invTree.sub))));
   if (window._invTree && _invTree.sub) items = items.filter(p => p.cat_sub === _invTree.sub || (Array.isArray(p.extra_cats) && p.extra_cats.some(x => x && x.sub === _invTree.sub)));
@@ -6404,36 +6410,20 @@ function updateStats() {
   const totalQty = allProducts.reduce((s, p) => s + getTotal(p), 0);
   invAnimNum(document.getElementById('stat-total-qty'), totalQty);
 
-  // توزيع الفروع — شريطٌ واحد + مفتاح
-  const branchCols = columns.filter(c => c.includeInTotal && c.isBranch);
+  /* (TASK-A0593 · المالك seq A1144) «هي مو مفهومة ومو واضحة»: صار المكوّن المشترك GMTDist — الموجود بالمخزن منفصلٌ عن «في الطريق»،
+     لونٌ ثابتٌ لكلّ موقع، الفروع الفارغة مطويّة، وبطاقة الفرع هي الفلتر نفسه (فلا صفّ مكرَّر). الكلفة الواصلة وسعر البيع للإدارة فقط. */
   const bsDiv = document.getElementById('branch-stats');
-  const per = branchCols.map((col, i) => ({ col, n: allProducts.reduce((s, p) => s + (Number(p[col.key]) || 0), 0), c: INV_BR_COLORS[i % INV_BR_COLORS.length] }));
-  const sum = per.reduce((s, x) => s + x.n, 0) || 1;
-  bsDiv.innerHTML = `<div class="bs-head"><span>التوزيع على الفروع</span><span class="bs-hint">${totalQty.toLocaleString('en-US')} قطعة</span></div>
-    <div class="bs-bar" role="img" aria-label="توزيع الكميّات على الفروع">${per.map(x => `<i data-w="${(x.n / sum * 100).toFixed(2)}" style="background:${x.c}" title="${escHtml(x.col.displayName)}: ${x.n}"></i>`).join('')}</div>
-    <div class="bs-legend">${per.map(x => `<span class="bs-chip${currentBranchFilter === x.col.key ? ' on' : ''}"><i style="background:${x.n ? x.c : '#cbd5e1'}"></i>${escHtml(x.col.displayName)} <b>${x.n.toLocaleString('en-US')}</b></span>`).join('')}</div>`;
-  /* الحركة: العرضُ يبدأ صفراً ثمّ يتمدّد */
-  requestAnimationFrame(() => requestAnimationFrame(() => bsDiv.querySelectorAll('.bs-bar i').forEach(i => { i.style.width = i.dataset.w + '%'; })));
-
-  /* (2026-10-06 ش) البند ٢١٠: «حساب حجم المبالغ والمستودعات كاملةً — كشراء وكمتوسط مبيع». للإدارة فقط:
-     قيمة كل المخزون (الفروع الداخلة في المجموع) بسعر الشراء الصافي، وبسعر المبيع. ما لا كلفة له يُعدّ. */
   try {
+    const dcols = columns.filter(c => c.includeInTotal && c.isBranch);
     const isAdm = !!(window.GMTRole && GMTRole.isAdmin());
-    if (isAdm) {
-      let atCost = 0, atSale = 0, noCost = 0;
-      allProducts.forEach(p => {
-        const q = getTotal(p); if (!q) return;
-        const c = Number(p.net_cost) || Number(p.cost_price) || 0, pr = Number(p.price) || 0;
-        if (c) atCost += q * c; else noCost++;
-        atSale += q * pr;
-      });
-      const f = n => '$' + Math.round(n).toLocaleString('en-US');
-      bsDiv.insertAdjacentHTML('beforeend', `<div class="bs-value" title="قيمة المخزون كلّه — للإدارة فقط">
-        <div style="font-size:10px;color:var(--text3);font-weight:800;white-space:nowrap;">قيمة المستودعات</div>
-        <div style="font-size:14px;font-weight:900;line-height:1.2;"><span title="بسعر الشراء الصافي">${f(atCost)}</span> <span style="font-size:10px;color:var(--text3)">شراءً</span> · <span title="بسعر المبيع">${f(atSale)}</span> <span style="font-size:10px;color:var(--text3)">بيعاً</span>${noCost ? ` <span style="font-size:10px;color:var(--warning)" title="منتجاتٌ متوفّرة بلا سعر شراء">(${noCost} بلا كلفة)</span>` : ''}</div>
-      </div>`);
-    }
-  } catch (_) {}
+    GMTDist.render(bsDiv, {
+      mode: 'inventory', products: allProducts, isAdmin: isAdm,
+      branches: dcols.map(c => ({ key: c.key, name: c.displayName })),
+      transitKeys: dcols.filter(c => c.isTransit).map(c => c.key),
+      selected: currentBranchFilter, onFilter: k => setBranchFilter(k),
+      noCostActive: !!window.invNoCostOnly, onNoCost: () => { window.invNoCostOnly = !window.invNoCostOnly; currentPage = 1; renderAll(); }
+    });
+  } catch (e) { try { console.warn('GMTDist', e); } catch (_) {} }
 
   /* طلبك ٦٨: سطر الملخّص المطويّ يتبع الأرقام الجديدة */
   if (typeof applyStatsBarState === 'function') applyStatsBarState();
@@ -6614,6 +6604,7 @@ function applyStatsBarState() {
   let collapsed = false;
   try { collapsed = localStorage.getItem(STATS_COLLAPSE_KEY) === '1'; } catch (_) {}
   bar.style.display = collapsed ? 'none' : '';
+  document.body.classList.toggle('inv-stats-open', !collapsed);   /* (TASK-A0593) الملخّص مفتوح ⇒ بطاقاته هي فلتر الفرع فيُخفى الصفّ المكرَّر */
   if (ic) ic.style.transform = collapsed ? 'rotate(-90deg)' : '';
   if (tx) tx.textContent = collapsed ? 'إظهار الملخّص' : 'إخفاء الملخّص';
   if (sum) {
@@ -7461,25 +7452,8 @@ function openDetailModal(id) {
     </div>`;
   }
 
-  // Branch quantities — أفقي على الديسكتوب
-  html += `<div style="margin-bottom:16px;">
-    <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;">📦 الكميات حسب الفروع</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;overflow-x:auto;">`;
-
-  branchCols.forEach(col => {
-    const qty = Number(p[col.key]) || 0;
-    const color = qty === 0 ? 'var(--text3)' : qty <= 2 ? 'var(--warning)' : 'var(--success)';
-    const bg    = qty === 0 ? '#f9fafb' : qty <= 2 ? '#fffbeb' : '#f0fdf4';
-    const border= qty === 0 ? '#e5e7eb' : qty <= 2 ? '#fde68a' : '#bbf7d0';
-    const lockIcon = col.isTransit ? ' 🔒' : '';
-    const lockTitle = col.isTransit ? ' — يُعدَّل من فواتير الاستيراد فقط' : '';
-    html += `<div style="flex:0 0 auto;min-width:80px;background:${bg};border:1.5px solid ${border};border-radius:10px;padding:8px 10px;text-align:center;${col.isTransit?'opacity:.85;':''}">
-      <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px;" title="${col.displayName}${lockTitle}">${col.displayName}${lockIcon}</div>
-      <div style="font-size:22px;font-weight:800;color:${color};line-height:1;">${qty}</div>
-    </div>`;
-  });
-
-  html += '</div></div>';
+  /* (TASK-A0593 · المالك seq A1144) أين هذا المنتج؟ — المكوّن المشترك بوضع «product»: بالمخزن لكلّ فرع + بالطريق، وأوفر فرعٍ للتحويل منه */
+  html += `<div style="margin-bottom:16px;"><div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;">📦 الكميات حسب الفروع</div><div id="detail-dist"></div></div>`;
 
   // Extra dynamic fields
   const extraCols = columns.filter(c => !c.fixed && !c.includeInTotal && p[c.key]);
@@ -7517,6 +7491,11 @@ function openDetailModal(id) {
   <button onclick="closeModal('detail-modal');invGuardedDelete('${escHtml(String(p.id))}')" title="${invDimTitle('حذف المنتج')}" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;background:#fff5f5;color:#dc2626;border:1.5px solid #fecaca;border-radius:12px;padding:11px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;${invDimStyle()}">🗑 حذف هذا المنتج</button>`;
 
   document.getElementById('detail-modal-body').innerHTML = html;
+  try {
+    const _dc = columns.filter(c => c.includeInTotal);
+    GMTDist.render(document.getElementById('detail-dist'), { mode: 'product', products: [p], isAdmin: !!(window.GMTRole && GMTRole.isAdmin()),
+      branches: _dc.map(c => ({ key: c.key, name: c.displayName })), transitKeys: _dc.filter(c => c.isTransit).map(c => c.key) });
+  } catch (e) { try { console.warn('GMTDist', e); } catch (_) {} }
   { const gw = document.querySelector('#detail-modal-body [data-gal-wrap]'); if (gw && window.GMTGallery) (GMTGallery.inline || GMTGallery.badge)(gw, p, p.name); }   // (TASK-0208) التقليب داخل الصورة: ‹ › · سحب · «١ من N»
   document.getElementById('detail-modal').style.display = 'flex';
 }
