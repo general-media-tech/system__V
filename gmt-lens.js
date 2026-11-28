@@ -87,6 +87,7 @@
       '#gmt-lens .it .mt{font-size:11px;color:#64748b}#gmt-lens .it .go{margin-inline-start:auto;flex-shrink:0;background:#16a34a;border-color:#16a34a;color:#fff}' +
       '#gmt-lens .bd{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:0 7px;margin-inline-end:4px;background:#eef2ff;color:#3730a3}#gmt-lens .bd.bc{background:#dcfce7;color:#166534}#gmt-lens .bd.tx{background:#fef3c7;color:#92400e}' +
       '#gmt-lens .why{font-size:11.5px;color:#166534;font-weight:700;margin-top:2px}#gmt-lens label.lrn{display:flex;gap:6px;align-items:flex-start;font-size:12px;font-weight:700;margin:8px 0;color:#334155}' +
+      /* (TASK-A0590 · المالك seq A1131/A1137) لا إطارات خارجة على الهاتف: صندوقٌ بحدود الشاشة وكلّ نصٍّ يلتفّ */'#gmt-lens,#gmt-lens *{box-sizing:border-box}#gmt-lens .bx{max-height:94vh;max-height:94dvh;overflow-x:hidden;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}#gmt-lens .it>div{min-width:0}#gmt-lens .it .nm,#gmt-lens .rd,#gmt-lens .why{overflow-wrap:anywhere}#gmt-lens .row>*{min-width:0}' +
       '#gmt-lens .tools{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}#gmt-lens .tools button{font-size:12px;padding:7px 10px}';
     doc.head.appendChild(s);
   }
